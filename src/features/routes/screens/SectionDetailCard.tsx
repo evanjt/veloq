@@ -1,6 +1,6 @@
 /**
- * A section's card in its map sheet: the name, the date line and three numbers at Peek, then the
- * actions, the performance panel, the cards and the export below. The map the sheet sits over
+ * A section's card in its map sheet: the name, the date line and one line of numbers at Peek,
+ * then the performance panel under its sport and range row, the cards and the export below. The map the sheet sits over
  * draws the section, and reads what the card picks (the attempt, the sport on show, the line the
  * delta plot colours, the direction the chart is on) from the host's entry, so a scrub renders the
  * map and not the card. Editing the bounds is a tool on that map, which the card enters and the
@@ -14,14 +14,14 @@ import { useFocusEffect, router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { FLOW_SECTION_OPEN, completeFlowAfterFrame } from '@/shared/debug/flowTiming';
-import { DataRangeFooter, DetailFallback, SportTypeSelector } from '../components';
+import { DataRangeFooter, DetailFallback } from '../components';
 import {
-  SectionActionRow,
   SectionContentArea,
   SectionDebugPanel,
   SectionDetailLinks,
   SectionHeader,
   SectionOverflowMenu,
+  SectionStatusLine,
   sectionDetailStyles as styles,
   sectionHeroName,
   sectionStreamsState,
@@ -42,8 +42,10 @@ import {
 } from '../hooks/useSectionPerformances';
 import { RANGE_DAYS } from '../constants';
 import { hasPartialExclusion } from '../hooks/useSectionLaps';
-import { isSportOffered, shouldShowSportChips } from '../lib/sectionSport';
+import { isSportOffered, sportChipOptions } from '../lib/sectionSport';
 import { rescanRefusalKey } from '../lib/rescanRefusal';
+import { sectionActionChips } from '../lib/sectionActionChips';
+import { sectionGradeStats } from '../lib/heroStats';
 import { detailCardWriter } from '../lib/detailCardState';
 import { useGpxExport, useDebugStore } from '@/features/settings';
 import { useTheme } from '@/shared/app';
@@ -54,7 +56,7 @@ import { useMapSheetStop } from '@/shared/app/mapSheetStop';
 import { overMapHeaderOptions } from '@/shared/app/screenHeaders';
 import { useReadRetry } from '@/shared/native/useEngineSubscription';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
-import { Button, EmptyState, ErrorState, useBottomClearance } from '@/shared/ui';
+import { Button, EmptyState, ErrorState, HeroStatsRow, useBottomClearance } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { sheetScrollProps } from '@/shared/ui/SheetScrollView';
 import { type MaterialIconName } from '@/shared/activity/activityUtils';
@@ -224,7 +226,7 @@ function SectionDetailCardContent({ id, activityId: navActivityId }: SectionDeta
   }, [visitsRead]);
   const effectiveSportType = performance?.sportType ?? selectedSportType;
   const sportCounts = performance?.sportCounts ?? EMPTY_SPORT_COUNTS;
-  const showSportChips = shouldShowSportChips(sportCounts);
+  const sportOptions = useMemo(() => sportChipOptions(sportCounts), [sportCounts]);
 
   // The sport on screen styles the map as well as the card.
   useEffect(() => {
@@ -270,8 +272,12 @@ function SectionDetailCardContent({ id, activityId: navActivityId }: SectionDeta
 
   const heroTitle = section ? sectionHeroName(section, customName) : undefined;
 
+  // The bounds are edited on the map, so a section with no line to edit offers nothing to start.
+  const canEditBounds = !!section?.polyline?.length;
+  const startTrim = canEditBounds ? enterTool : undefined;
+
   // The header floats over the map the sheet leaves, named after the section. Its overflow menu
-  // holds the rarer actions.
+  // holds the section's actions, Edit bounds first.
   const sectionType = section?.sectionType;
   const headerOptions = useMemo(() => {
     const options = overMapHeaderOptions({ title: heroTitle, isDark });
@@ -287,6 +293,7 @@ function SectionDetailCardContent({ id, activityId: navActivityId }: SectionDeta
           onDelete={handleDeleteSection}
           onToggleDisable={handleToggleDisable}
           onRematch={handleRematchActivities}
+          onEditBounds={startTrim}
           tint={options.headerTintColor}
         />
       ),
@@ -301,14 +308,9 @@ function SectionDetailCardContent({ id, activityId: navActivityId }: SectionDeta
     handleDeleteSection,
     handleToggleDisable,
     handleRematchActivities,
+    startTrim,
   ]);
   useMapSheetHostHeader(headerOptions);
-
-  // The bounds are edited on the map, so a section with no line to edit offers nothing to start.
-  const canEditBounds = !!section?.polyline?.length;
-  const startTrim = useCallback(() => {
-    if (canEditBounds) enterTool();
-  }, [canEditBounds, enterTool]);
 
   if (!section) {
     return (
@@ -338,6 +340,22 @@ function SectionDetailCardContent({ id, activityId: navActivityId }: SectionDeta
 
   const activityColor = palette.actionPrimary;
   const iconName: MaterialIconName = 'road-variant';
+  const chips = sectionActionChips({
+    sectionType: section.sectionType,
+    isUserDefined: section.isUserDefined === true,
+    pinnedVersion: ledger.pinnedVersion,
+  });
+  const grades = sectionGradeStats(section, t);
+  const showsStatus = partlyExcluded || chips.pinned || chips.accept === 'accepted';
+  const infoFooter =
+    grades.length > 0 || showsStatus ? (
+      <>
+        {grades.length > 0 ? (
+          <HeroStatsRow onSurface testID="section-detail-grades" stats={grades} />
+        ) : null}
+        <SectionStatusLine isDark={isDark} chips={chips} partlyExcluded={partlyExcluded} />
+      </>
+    ) : undefined;
 
   return (
     <View testID="section-detail-screen" style={styles.scrollView}>
@@ -362,6 +380,7 @@ function SectionDetailCardContent({ id, activityId: navActivityId }: SectionDeta
           customName={customName}
           onUnflagLift={handleUnflagLift}
           onSaveName={handleSaveName}
+          onAccept={chips.accept === 'offer' ? handleAcceptSection : undefined}
         />
 
         {performanceReadError !== undefined ? (
@@ -374,14 +393,6 @@ function SectionDetailCardContent({ id, activityId: navActivityId }: SectionDeta
           />
         ) : null}
 
-        <SectionActionRow
-          isDark={isDark}
-          section={section}
-          startTrim={startTrim}
-          handleAcceptSection={handleAcceptSection}
-          pinnedVersion={ledger.pinnedVersion}
-          partlyExcluded={partlyExcluded}
-        />
         {refusalKey !== null && (
           <View style={styles.rescanRefusal} testID="rescan-refused">
             <Icon
@@ -394,18 +405,6 @@ function SectionDetailCardContent({ id, activityId: navActivityId }: SectionDeta
             </Text>
           </View>
         )}
-
-        {showSportChips ? (
-          <SportTypeSelector
-            options={sportCounts.map(({ sportType, count }) => ({ type: sportType, count }))}
-            selectedType={effectiveSportType}
-            onSelect={(st) => {
-              // Tapping the chip already picked hands the choice back to the
-              // engine's default.
-              setSelectedSportType(selectedSportType === st ? undefined : st);
-            }}
-          />
-        ) : null}
 
         <SectionContentArea
           efficiencyTrend={performance?.efficiencyTrend}
@@ -445,6 +444,12 @@ function SectionDetailCardContent({ id, activityId: navActivityId }: SectionDeta
           onToggleShowExcluded={handleToggleShowExcluded}
           onTimeRangeChange={setSectionTimeRange}
           streams={streams}
+          sportOptions={sportOptions}
+          onSelectSport={(st) => {
+            // Tapping the chip already picked hands the choice back to the engine's default.
+            setSelectedSportType(selectedSportType === st ? undefined : st);
+          }}
+          infoFooter={infoFooter}
           onToggleDisable={handleToggleDisable}
           onMergePress={startMerge}
         >

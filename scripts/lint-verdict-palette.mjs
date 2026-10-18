@@ -45,8 +45,6 @@ const STATE_CHOICES = {
     'session intensity zones, a banded scale with no good or bad end',
   'src/features/recording/components/TimerHeader.tsx':
     'recording and paused are modes, not a judgement',
-  'src/features/routes/components/section/SectionActionRow.tsx':
-    'restore is an action affordance, not a judgement',
   'src/features/settings/components/CacheManagementPanel.tsx':
     'a destructive action is red unless disabled',
 };

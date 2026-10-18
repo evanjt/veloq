@@ -14,6 +14,7 @@ import { engineErrorTag } from '@/shared/native/engineError';
 import type { CutoverCounts, CutoverPhase, CutoverSettingsReset, RoutesStatus } from 'veloqrs';
 
 import { followRoutesStatus, readRoutesStatus } from '@/shared/native/routesStatusPoll';
+import { cutover } from 'veloqrs';
 
 /** Rust announces the commit here, and the diff is read on that alone. */
 const CHANNEL = 'cutoverSettled';
@@ -86,7 +87,7 @@ function read(sawRun: boolean): CutoverSummary {
     // rather than the phase.
     let diff;
     try {
-      diff = engine.getCutoverDiff?.();
+      diff = cutover.getCutoverDiff();
     } catch (error) {
       console.warn('[Cutover] Could not read the stored diff:', engineErrorTag(error) ?? error);
     }

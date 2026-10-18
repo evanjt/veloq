@@ -20,6 +20,14 @@ import {
 } from '@/features/settings/components/CutoverStatus';
 import type { CutoverSummary } from '@/features/routes/hooks/useCutoverSummary';
 
+jest.mock('veloqrs', () =>
+  require('../../__shared__/veloqrsStub').withOverrides(
+    require('../../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
+
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
 }));

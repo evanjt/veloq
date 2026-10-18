@@ -21,6 +21,14 @@ import { routesStatus } from '../__shared__/routesStatusStub';
 import { isElevationHold, useDetectionHold } from '@/features/routes/hooks/useDetectionHold';
 import { getEngine } from '@/shared/native/engine';
 
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
+
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 
 const listeners = new Map<string, Set<() => void>>();

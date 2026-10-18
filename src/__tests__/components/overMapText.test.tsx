@@ -3,12 +3,9 @@ import { StyleSheet, View } from 'react-native';
 import { configure, render } from '@testing-library/react-native';
 
 import { ActivityCard } from '@/features/activity/components/ActivityCard';
-import { ActivityHeader } from '@/features/activity/components/ActivityHeader';
 import { DetailHero, HeroNameRow, HeroStatsRow } from '@/shared/ui/DetailHero';
 import { opacity, typography } from '@/theme';
 import type { FeedCard } from '@/types';
-
-import { activityRecord } from '../__shared__/activityRecord';
 
 // The card's drawn text is hidden from assistive technology, which reads the
 // card's own label instead, and these cases check what is drawn.
@@ -52,17 +49,6 @@ const activity = {
   hasGps: true,
 } as FeedCard;
 
-const detail = activityRecord({
-  id: 'sample-1',
-  name: 'Morning ride',
-  sportType: 'Ride',
-  startDateLocal: '2026-08-12T07:30:00',
-  distance: 42000,
-  movingTime: 7200,
-  elevationGain: 450,
-  streamTypes: ['latlng'],
-});
-
 const styleOf = (node: { props: { style?: unknown } }) =>
   StyleSheet.flatten(node.props.style as never) as Record<string, unknown>;
 
@@ -96,46 +82,12 @@ it('uses one shadow geometry and full type roles for map text', async () => {
   const heroName = styleOf(hero.getByTestId('hero-name'));
   const heroStat = styleOf(hero.getByTestId('hero-stat'));
 
-  const header = await render(
-    <ActivityHeader
-      activity={detail}
-      activityId={detail.id}
-      coordinates={[]}
-      hasStoredTrack={false}
-      isMetric={true}
-      debugEnabled={false}
-      mapHeight={320}
-      highlightIndex={null}
-      sectionCreationMode={false}
-      sectionCreationState={undefined}
-      sectionCreationError={null}
-      onSectionCreated={jest.fn()}
-      onCreationCancelled={jest.fn()}
-      onCreationErrorDismiss={jest.fn()}
-      on3DModeChange={jest.fn()}
-      onStyleChange={jest.fn()}
-      onCameraCapture={jest.fn()}
-      initial3DCamera={null}
-      activeTab="charts"
-      routeOverlayCoordinates={null}
-      sectionOverlays={null}
-      highlightedSectionId={null}
-    />
-  );
-  const activityName = styleOf(header.getByTestId('activity-detail-name'));
-  const activityStat = styleOf(header.getByTestId('activity-detail-distance'));
-
-  for (const style of [cardName, cardStat, heroName, heroStat, activityName, activityStat]) {
+  for (const style of [cardName, cardStat, heroName, heroStat]) {
     expect(style.textShadowOffset).toEqual({ width: 0, height: 1 });
     expect(style.textShadowRadius).toBe(3);
   }
-  for (const style of [heroName, heroStat, activityName, activityStat]) {
+  for (const style of [heroName, heroStat]) {
     expect(style.textShadowColor).toBe(opacity.overlay.full);
   }
   expect(heroName.lineHeight).toBe(typography.statsValue.lineHeight);
-  expect(activityStat).toMatchObject({
-    fontSize: heroStat.fontSize,
-    fontWeight: heroStat.fontWeight,
-    lineHeight: heroStat.lineHeight,
-  });
 });

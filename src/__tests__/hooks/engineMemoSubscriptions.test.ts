@@ -38,6 +38,9 @@ jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 // binding rather than only types, and the real module registers a TurboModule.
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
+    ...require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    ),
     // One point per blob, read straight off the bytes, so two different
     // blobs decode to two different points and a re-read is visible.
     decodeCoords: (buf: ArrayBuffer) => {

@@ -3,7 +3,7 @@ import { formatElevation } from '@/shared/format/format';
 import type { HeroStat } from '@/shared/ui/DetailHero';
 import { PERIOD_LABEL_KEYS, type Period } from '@/shared/app/period';
 import type { FrequentSection } from '@/types';
-import { sectionElevation } from './sectionElevation';
+import { sectionElevation, type SectionElevation } from './sectionElevation';
 import { formatPercent } from '@/shared/format';
 
 /** The attempts the chart under the hero plots, and what they are narrowed to. */
@@ -36,30 +36,35 @@ export function scopeLabels(scope: Omit<HeroScope, 'count'>, t: TFunction): stri
 const MIN_AVG_GRADE_PERCENT = 1.0;
 
 /**
- * The climbing a section's card shows under its Peek: the gain, or the loss for a descent, then
- * the average grade when the ground is not level and the steepest grade of a climb or descent.
+ * A section's vertical as a card states it: the gain, or the loss signed for a descent, with the
+ * words a screen reader says for it.
+ */
+export function elevationStat(
+  elevation: SectionElevation,
+  t: TFunction,
+  isMetric = true
+): HeroStat {
+  const metres = formatElevation(elevation.metres, isMetric);
+  return elevation.direction === 'loss'
+    ? { text: `-${metres}`, label: `${t('recording.elevation')}: -${metres}` }
+    : { text: metres, label: `${t('sections.elevationGain')}: ${metres}` };
+}
+
+/**
+ * The grades a section's card states beside its climbing: the average grade when the section
+ * climbs or descends and the ground is not level, and the steepest grade of a climb or descent.
  * Empty for flat ground. Each carries the words a screen reader says for it.
  */
-export function sectionClimbStats(
+export function sectionGradeStats(
   section: Pick<
     FrequentSection,
     'elevationGainM' | 'elevationLossM' | 'avgGradePercent' | 'maxGradePercent' | 'klass'
   >,
-  t: TFunction,
-  isMetric = true
+  t: TFunction
 ): HeroStat[] {
-  const elevation = sectionElevation(section);
   const stats: HeroStat[] = [];
-  if (elevation) {
-    const metres = formatElevation(elevation.metres, isMetric);
-    stats.push(
-      elevation.direction === 'loss'
-        ? { text: `-${metres}`, label: `${t('recording.elevation')}: -${metres}` }
-        : { text: metres, label: `${t('sections.elevationGain')}: ${metres}` }
-    );
-  }
   if (
-    elevation &&
+    sectionElevation(section) &&
     section.avgGradePercent != null &&
     Math.abs(section.avgGradePercent) >= MIN_AVG_GRADE_PERCENT
   ) {

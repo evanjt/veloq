@@ -358,10 +358,8 @@ fn fitness(v: FfiFitnessScreenData) -> Lowered {
         calendar_first_day,
         calendar_older_owed,
         months => |v: &FfiFitnessScreenData| v.months.len(),
-        year_current,
-        year_previous,
-        month_current,
-        month_previous,
+        season_year,
+        season_months => |v: &FfiFitnessScreenData| v.season_months.len(),
         comparisons,
     )
 }

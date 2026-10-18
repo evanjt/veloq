@@ -411,6 +411,160 @@ export const connectivity = {
   setInteracting: jest.fn(),
 };
 
+export const maps = {
+  getMapScreenData: jest.fn(),
+  getAllMapSignatures: jest.fn(),
+  queryViewport: jest.fn(),
+};
+
+export const launch = {
+  launchData: jest.fn(),
+};
+
+export const routesStatus = {
+  getRoutesStatusData: jest.fn(),
+};
+
+export const cutover = {
+  isCutoverHeld: jest.fn(),
+  startDetectorCutover: jest.fn(),
+  getCutoverDiff: jest.fn(),
+  getChangeCardSupport: jest.fn(),
+};
+
+export const heatmap = {
+  enableHeatmapTiles: jest.fn(),
+  disableHeatmapTiles: jest.fn(),
+  setHeatmapPriorityView: jest.fn(),
+  clearHeatmapPriorityView: jest.fn(),
+  cancelHeatmapWork: jest.fn(),
+  startHeatmapCacheSize: jest.fn(),
+  readHeatmapCacheSizeRun: jest.fn(),
+  takeHeatmapCacheSize: jest.fn(),
+  cancelHeatmapCacheSize: jest.fn(),
+  clearHeatmapTiles: jest.fn(),
+  getHeatmapTileProgress: jest.fn(),
+  pollTileGeneration: jest.fn(),
+};
+
+export const recordings = {
+  addRecording: jest.fn(),
+  listRecordings: jest.fn(),
+  getRecording: jest.fn(),
+  listVisibleRecordings: jest.fn(),
+  getVisibleRecording: jest.fn(),
+  unuploadedVisibleRecordingCount: jest.fn(),
+  attachRecordingEngineActivity: jest.fn(),
+  holdRecordingsOfOtherAthletes: jest.fn(),
+  transitionRecording: jest.fn(),
+  stampOwnerlessRecordings: jest.fn(),
+  clearRecordingPermissionBlocked: jest.fn(),
+  wakeUploadSchedule: jest.fn(),
+  uploadRecording: jest.fn(),
+  deleteOwnRecording: jest.fn(),
+  clearRecordings: jest.fn(),
+};
+
+export const strength = {
+  getExerciseSets: jest.fn(),
+  getExerciseDetailData: jest.fn(),
+  isFitProcessed: jest.fn(),
+  fetchAndParseExerciseSets: jest.fn(),
+  getMuscleGroups: jest.fn(),
+  getUnprocessedStrengthIds: jest.fn(),
+  batchFetchOwedFitFiles: jest.fn(),
+  getStrengthScreenData: jest.fn(),
+  getMuscleDetail: jest.fn(),
+  hasStrengthData: jest.fn(),
+  getActivitiesForExercise: jest.fn(),
+  bulkInsertExerciseSets: jest.fn(),
+};
+
+export const routes = {
+  getGroups: jest.fn(),
+  getFilteredGroupSummaries: jest.fn(),
+  setRouteName: jest.fn(),
+  getRepresentativeRoute: jest.fn(),
+  liveRouteOverlaps: jest.fn(),
+  getRoutePerformances: jest.fn(),
+  excludeActivityFromRoute: jest.fn(),
+  includeActivityInRoute: jest.fn(),
+  getRoutesScreenData: jest.fn(),
+  setRouteRepresentative: jest.fn(),
+  resetRouteRepresentative: jest.fn(),
+  getRouteDetailData: jest.fn(),
+  getRouteDetailPerformance: jest.fn(),
+  loadRouteDetailPerformance: jest.fn(),
+};
+
+export const detection = {
+  startSectionDetection: jest.fn(),
+  cancelSectionDetection: jest.fn(),
+  pollSectionDetection: jest.fn(),
+  pollSectionDetectionRun: jest.fn(),
+  sectionDetectionAwaiting: jest.fn(),
+  getSectionDetectionProgress: jest.fn(),
+  setSectionConfig: jest.fn(),
+  getSectionConfig: jest.fn(),
+  setMatchStrictness: jest.fn(),
+  getMatchStrictness: jest.fn(),
+  forceRedetectSections: jest.fn(),
+};
+
+export const preview = {
+  getPreviewCentres: jest.fn(),
+  getPreviewCurrentSections: jest.fn(),
+  startPreviewDetect: jest.fn(),
+  pollPreviewDetect: jest.fn(),
+  getPreviewProgress: jest.fn(),
+  takePreviewResult: jest.fn(),
+  cancelPreviewDetect: jest.fn(),
+};
+
+export const routeGroupingPreview = {
+  runRouteGroupingPreview: jest.fn(),
+  cancelRouteGroupingPreview: jest.fn(),
+};
+
+/** The preview screens' client, closed like the namespaces it is made of. */
+export const previewClient = createPreviewClientStub();
+
+/**
+ * The namespaces above, each function answering through the same-named method
+ * of the object `source` returns at the call. A suite that builds one fake
+ * engine and hands it out through `getEngine` keeps that fake, and the code
+ * under test still reaches it through the namespace it calls. A method the
+ * fake lacks throws, as calling it on the fake itself would.
+ */
+export function namespacesOver(source: () => unknown): Record<string, Record<string, unknown>> {
+  const over = (closed: Record<string, unknown>) =>
+    Object.fromEntries(
+      Object.keys(closed).map((name) => [
+        name,
+        jest.fn((...args: unknown[]) => {
+          const fake = source() as Record<string, unknown> | null | undefined;
+          const method = fake?.[name];
+          if (typeof method !== 'function') throw new TypeError(`${name} is not a function`);
+          return method.apply(fake, args);
+        }),
+      ])
+    );
+  return {
+    maps: over(maps),
+    launch: over(launch),
+    routesStatus: over(routesStatus),
+    cutover: over(cutover),
+    heatmap: over(heatmap),
+    recordings: over(recordings),
+    strength: over(strength),
+    routes: over(routes),
+    detection: over(detection),
+    preview: over(preview),
+    routeGroupingPreview: over(routeGroupingPreview),
+    previewClient: over(previewClient),
+  };
+}
+
 /**
  * The basemap tile store, closed. `setPath` is what launch hands it, and the
  * reads answer nothing so a caller falls through the way it does before the
@@ -489,6 +643,18 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     elevation,
     streamBackfill,
     connectivity,
+    maps,
+    launch,
+    routesStatus,
+    cutover,
+    heatmap,
+    recordings,
+    strength,
+    routes,
+    detection,
+    preview,
+    routeGroupingPreview,
+    previewClient,
     basemapStore,
     ...overrides,
   };

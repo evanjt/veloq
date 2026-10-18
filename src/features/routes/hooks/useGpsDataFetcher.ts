@@ -12,7 +12,7 @@ import { useCallback } from 'react';
 import { i18n } from '@/i18n';
 import { getNativeModule } from '@/shared/native/engine';
 import { engineErrorTag } from '@/shared/native/engineError';
-import { engine, StartOutcome, type ActivitySportMapping } from 'veloqrs';
+import { engine, StartOutcome, type ActivitySportMapping, detection } from 'veloqrs';
 import { getSyncGeneration, useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
 import type { SyncProgress } from './useRouteSyncProgress';
@@ -22,7 +22,7 @@ import { debug } from '@/shared/debug/debug';
 import {
   DETECTION_FOREGROUND_MS,
   followDetection,
-  type DetectionEngine,
+  detectionEngineOf,
 } from '@/features/routes/lib/detectionRun';
 import { scalePercent } from '@/features/routes/lib/scalePercent';
 import { reportTrackFetchRun } from '@/features/routes/lib/trackFetchNotice';
@@ -278,8 +278,8 @@ export function useGpsDataFetcher() {
         // indeterminate, it does not tear the follow down and take the
         // announcement with it. The timer that remains reads progress alone.
         let demoStillAnalysing = false;
-        if (nativeModule.engine.getSectionDetectionProgress() != null) {
-          const outcome = await followDetection(nativeModule.engine as unknown as DetectionEngine, {
+        if (detection.getSectionDetectionProgress() != null) {
+          const outcome = await followDetection(detectionEngineOf(nativeModule.engine, detection), {
             isActive: owns,
             timeoutMs: DETECTION_FOREGROUND_MS,
             onProgress: (progress) =>
@@ -600,8 +600,8 @@ export function useGpsDataFetcher() {
         // the whole run. What the screens show of the run is the engine's
         // track stage, which follows it to its end whatever this follow's
         // foreground budget does.
-        if (nativeModule.engine.getSectionDetectionProgress() != null) {
-          const outcome = await followDetection(nativeModule.engine as unknown as DetectionEngine, {
+        if (detection.getSectionDetectionProgress() != null) {
+          const outcome = await followDetection(detectionEngineOf(nativeModule.engine, detection), {
             isActive: owns,
             timeoutMs: DETECTION_FOREGROUND_MS,
             onProgress: (progress) =>

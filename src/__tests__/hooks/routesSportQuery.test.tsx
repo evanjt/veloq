@@ -10,7 +10,13 @@ import { renderHook } from '@testing-library/react-native';
 import { useRoutesScreenData } from '@/features/routes/hooks/useRoutesScreenData';
 import { getEngine } from '@/shared/native/engine';
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 jest.mock('@/features/routes/hooks/useEngine', () => ({
   useEngineSubscription: () => 0,

@@ -134,11 +134,17 @@ fn store(engine: &mut PersistentEngine, activities: &[&LifecycleActivity]) {
 fn detect(engine: &mut PersistentEngine) -> (u128, u128) {
     let detect_start = Instant::now();
     let handle = engine.detect_sections_background();
-    let (sections, processed_ids) = handle.recv().expect("the detect ran");
+    let (main, cache_update) = handle.recv_with_cache();
+    let (sections, processed_ids) = main.expect("the detect ran");
     let detection_ms = detect_start.elapsed().as_millis();
 
     let apply_start = Instant::now();
-    engine.apply_sections(sections).expect("apply_sections");
+    // The run's evidence cache goes in with its catalogue, as the worker's own
+    // apply does in the app, so the next detect folds only the rides that
+    // arrived since. Applied without it, every detect refolds the whole pool.
+    engine
+        .apply_sections_with_cache(sections, cache_update)
+        .expect("apply_sections_with_cache");
     // Mirror the production poll path, `poll_detection_once`: record
     // which activity IDs the just-finished detection covered so the next
     // run's "new vs total" check correctly enters incremental mode. Without
@@ -147,7 +153,13 @@ fn detect(engine: &mut PersistentEngine) -> (u128, u128) {
     engine
         .save_processed_activity_ids(&processed_ids)
         .expect("save_processed_activity_ids");
-    (detection_ms, apply_start.elapsed().as_millis())
+    let apply_ms = apply_start.elapsed().as_millis();
+    assert_eq!(
+        engine.evidence_cache_folded_count(),
+        engine.get_activity_ids().len(),
+        "the detect left rides unfolded in the evidence cache, so the next one refolds them"
+    );
+    (detection_ms, apply_ms)
 }
 
 fn ingest_step(
@@ -927,8 +939,8 @@ fn through_d_synced(engine: &mut PersistentEngine, corpus: &LifecycleCorpus) {
 // counted the chunks in storage order. The backfill must end where one detect
 // of the same rides ends, which counts them one after another in date order,
 // ids included, and so must a backfill killed after its third run and resumed.
-#[test]
-fn scenario_g_a_backfill_conditioned_while_it_downloads_ends_on_one_detect() {
+// One test per backfill, so each fits the per-test timeout on its own.
+fn backfill_ends_on_one_detect(kill_after: Option<usize>) {
     let cfg = LifecycleConfig::default();
     let corpus = LifecycleCorpus::generate(&cfg);
 
@@ -943,27 +955,35 @@ fn scenario_g_a_backfill_conditioned_while_it_downloads_ends_on_one_detect() {
     let expected_raw = raw_snapshot(&reference);
 
     let order = download_order(&corpus.bucket_e_delta);
-    for kill_after in [None, Some(3)] {
-        let (mut engine, dir) = fresh_engine();
-        through_d_synced(&mut engine, &corpus);
-        let mut engine = conditioned_backfill(engine, &dir, &order, kill_after);
-        let view = snapshot(&mut engine);
-        print_ground_diff("G_conditioned", &view, &one.snapshot);
-        print_ground_diff("G_one_detect", &one.snapshot, &view);
-        assert_eq!(
-            ground(&raw_snapshot(&engine)),
-            ground(&expected_raw),
-            "the detector's catalogues differ (killed after {kill_after:?})"
-        );
-        assert_eq!(
-            view.sections.keys().collect::<Vec<_>>(),
-            one.snapshot.sections.keys().collect::<Vec<_>>(),
-            "the section ids differ (killed after {kill_after:?})"
-        );
-        assert!(
-            view == one.snapshot,
-            "the views differ (killed after {kill_after:?})"
-        );
-        assert!(!engine.section_identity_ingest_base_held());
-    }
+    let (mut engine, dir) = fresh_engine();
+    through_d_synced(&mut engine, &corpus);
+    let mut engine = conditioned_backfill(engine, &dir, &order, kill_after);
+    let view = snapshot(&mut engine);
+    print_ground_diff("G_conditioned", &view, &one.snapshot);
+    print_ground_diff("G_one_detect", &one.snapshot, &view);
+    assert_eq!(
+        ground(&raw_snapshot(&engine)),
+        ground(&expected_raw),
+        "the detector's catalogues differ (killed after {kill_after:?})"
+    );
+    assert_eq!(
+        view.sections.keys().collect::<Vec<_>>(),
+        one.snapshot.sections.keys().collect::<Vec<_>>(),
+        "the section ids differ (killed after {kill_after:?})"
+    );
+    assert!(
+        view == one.snapshot,
+        "the views differ (killed after {kill_after:?})"
+    );
+    assert!(!engine.section_identity_ingest_base_held());
+}
+
+#[test]
+fn scenario_g_a_backfill_conditioned_while_it_downloads_ends_on_one_detect() {
+    backfill_ends_on_one_detect(None);
+}
+
+#[test]
+fn scenario_g_a_backfill_killed_after_its_third_run_resumes_onto_one_detect() {
+    backfill_ends_on_one_detect(Some(3));
 }

@@ -7,6 +7,7 @@
  * which is why a year of bodies was being parsed to sum a dozen numbers.
  */
 import type {
+  RangeCoverage,
   FitnessScreenData,
   FitnessScreenWindows,
   HeatmapDay,
@@ -34,8 +35,6 @@ export interface MonthTotals extends PeriodTotals {
   year: number;
   month: number;
 }
-
-const NO_TOTALS: PeriodTotals = { count: 0, duration: 0, distance: 0, tss: 0 };
 
 /**
  * The engine's four totals, with the seconds narrowed to a number.
@@ -136,9 +135,11 @@ export interface StatMove {
   glyph: TrendGlyph;
   /** Whole percent of the earlier total, absent for a move inside the deadband. */
   percent: number | null;
+  /** The signed move in percent of the earlier total, unrounded. */
+  change: number;
 }
 
-/** A period to now against the same elapsed span of the period before it. */
+/** A period against an earlier one, as the engine judged it. */
 export interface SummaryComparison {
   currentStart: Date;
   currentEnd: Date;
@@ -146,8 +147,14 @@ export interface SummaryComparison {
   previousEnd: Date;
   current: PeriodTotals;
   previous: PeriodTotals;
-  /** Absent for a total the earlier period has none of. */
+  /**
+   * Absent for a total the earlier period has none of, and every one absent
+   * while either period is not fully on the device.
+   */
   moves: Record<SummaryStat, StatMove | null>;
+  /** Whether each period's activities are on the device, by the census. */
+  currentCoverage: RangeCoverage;
+  previousCoverage: RangeCoverage;
 }
 
 /** An engine wall-clock second as the local `Date` it names. */
@@ -165,7 +172,11 @@ function wallDate(seconds: number): Date {
 
 function move(trend: StatTrend | undefined): StatMove | null {
   if (!trend) return null;
-  return { glyph: trend.glyph as TrendGlyph, percent: trend.percent ?? null };
+  return {
+    glyph: trend.glyph as TrendGlyph,
+    percent: trend.percent ?? null,
+    change: trend.change,
+  };
 }
 
 function comparison(read: EngineSummaryComparison): SummaryComparison {
@@ -182,6 +193,8 @@ function comparison(read: EngineSummaryComparison): SummaryComparison {
       distance: move(read.distance),
       tss: move(read.load),
     },
+    currentCoverage: read.currentCoverage,
+    previousCoverage: read.previousCoverage,
   };
 }
 
@@ -191,10 +204,13 @@ export interface TrainingCards {
   /** Activities in the year before the calendar's first day the device has not downloaded. */
   calendarOlderOwed: number;
   months: MonthTotals[];
-  yearCurrent: PeriodTotals;
-  yearPrevious: PeriodTotals;
-  monthCurrent: PeriodTotals;
-  monthPrevious: PeriodTotals;
+  /** The year to date against the same span of last year, or null before the first read. */
+  seasonYear: SummaryComparison | null;
+  /**
+   * Each month of this year to date against the same month a year before,
+   * January first, this month to date last.
+   */
+  seasonMonths: SummaryComparison[];
   /** The weekly card's every range, or null before the first read. */
   comparisons: Record<SummaryRange, SummaryComparison> | null;
 }
@@ -203,10 +219,8 @@ export const NO_TRAINING_CARDS: TrainingCards = {
   heatmap: [],
   calendarOlderOwed: 0,
   months: NO_MONTHS,
-  yearCurrent: NO_TOTALS,
-  yearPrevious: NO_TOTALS,
-  monthCurrent: NO_TOTALS,
-  monthPrevious: NO_TOTALS,
+  seasonYear: null,
+  seasonMonths: [],
   comparisons: null,
 };
 
@@ -220,10 +234,8 @@ export function trainingCardsView(read: FitnessScreenData): TrainingCards {
       month: row.month,
       ...totals(row.stats),
     })),
-    yearCurrent: totals(read.yearCurrent),
-    yearPrevious: totals(read.yearPrevious),
-    monthCurrent: totals(read.monthCurrent),
-    monthPrevious: totals(read.monthPrevious),
+    seasonYear: comparison(read.seasonYear),
+    seasonMonths: read.seasonMonths.map(comparison),
     comparisons: {
       week: comparison(read.comparisons.week),
       month: comparison(read.comparisons.month),

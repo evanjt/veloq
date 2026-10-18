@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { decodeCoords } from 'veloqrs';
+import { decodeCoords, maps } from 'veloqrs';
 import type { RouteGroup as EngineRouteGroup, FfiMapSignature } from 'veloqrs';
 import { getEngine } from '@/shared/native/engine';
 import type { LatLngShort } from '@/shared/geo/distance';
@@ -19,7 +19,7 @@ export function useRouteMapSignatures(
       if (!allSigs) {
         const engine = getEngine();
         if (!engine) return {};
-        allSigs = engine.getAllMapSignatures();
+        allSigs = maps.getAllMapSignatures();
       }
 
       const activityIdSet = new Set(engineGroup.activityIds);

@@ -19,7 +19,11 @@ import { SeasonComparison } from '@/features/stats/components/SeasonComparison';
 import { HEATMAP_PITCH, HEATMAP_WEEKS } from '@/features/stats/lib/heatmapGrid';
 import { initialiseI18n } from '@/i18n';
 import { getEngine } from '@/shared/native/engine';
-import { NO_FITNESS_PARTS, noComparisons } from '../__shared__/fitnessScreenRead';
+import {
+  NO_FITNESS_PARTS,
+  noComparisons,
+  summaryComparison,
+} from '../__shared__/fitnessScreenRead';
 import { CLOCK_EDGES, localDay } from '../__shared__/clockEdges';
 import { WithScreenRead } from '../__shared__/withScreenRead';
 
@@ -54,10 +58,16 @@ const engine = {
     ...NO_FITNESS_PARTS,
     heatmap: [{ date: windows.heatmapLastDay, intensity: 3, maxDuration: 6000, activityCount: 2 }],
     months: [{ year: new Date().getFullYear(), month: 1, stats: totals(2, 4) }],
-    yearCurrent: totals(2, 4),
-    yearPrevious: totals(1, 2),
-    monthCurrent: totals(1, 1),
-    monthPrevious: totals(0, 0),
+    seasonYear: summaryComparison(windows.nowWallSeconds, {
+      currentStats: totals(2, 4),
+      previousStats: totals(1, 2),
+    }),
+    seasonMonths: [
+      summaryComparison(windows.nowWallSeconds, {
+        currentStats: totals(1, 1),
+        previousStats: totals(0, 0),
+      }),
+    ],
     comparisons: noComparisons(windows.nowWallSeconds),
   })),
   getActivityHeatmap: jest.fn(() => []),
@@ -164,10 +174,16 @@ describe('the calendar draws the span the read answers', () => {
         calendarFirstDay,
         calendarOlderOwed,
         months: [],
-        yearCurrent: totals(2, 4),
-        yearPrevious: totals(1, 2),
-        monthCurrent: totals(1, 1),
-        monthPrevious: totals(0, 0),
+        seasonYear: summaryComparison(windows.nowWallSeconds, {
+          currentStats: totals(2, 4),
+          previousStats: totals(1, 2),
+        }),
+        seasonMonths: [
+          summaryComparison(windows.nowWallSeconds, {
+            currentStats: totals(1, 1),
+            previousStats: totals(0, 0),
+          }),
+        ],
         comparisons: noComparisons(windows.nowWallSeconds),
       })
     );

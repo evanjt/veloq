@@ -28,6 +28,14 @@ import {
 } from '@/features/recording/lib/storage/recordingLibrary';
 import { engineErrorTag } from '@/shared/native/engineError';
 
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
+
 jest.mock('@/shared/debug/debug', () => ({
   debug: {
     log: () => {},

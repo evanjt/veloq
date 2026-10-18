@@ -1,14 +1,15 @@
 /**
- * Scenario: a section card shows its climbing and grades under the Peek, and a stats row that
- * named a level road's grade or a flat section's climbing read as noise.
+ * Scenario: a section card states its vertical on the Peek line and its grades in the summary,
+ * and a stat that named a level road's grade or a flat section's climbing read as noise.
  *
- * Expected behaviour: the gain, or the loss for a descent, then the average grade when it is not
- * level, then the steepest grade of a climb or descent. Each stat carries the words a screen
+ * Expected behaviour: the gain, or the loss signed for a descent; the average grade when it is
+ * not level, then the steepest grade of a climb or descent. Each stat carries the words a screen
  * reader says for it, naming what the value is. The scope labels name what narrows a count.
  */
 
 import { i18n, initialiseI18n } from '@/i18n';
-import { scopeLabels, sectionClimbStats } from '@/features/routes/lib/heroStats';
+import { elevationStat, scopeLabels, sectionGradeStats } from '@/features/routes/lib/heroStats';
+import { sectionElevation } from '@/features/routes/lib/sectionElevation';
 import type { HeroStat } from '@/shared/ui/DetailHero';
 
 const t = i18n.t.bind(i18n);
@@ -27,40 +28,42 @@ describe("a section's climbing", () => {
     klass: 'climb',
   } as const;
 
-  it('states the climbing and both grades of a climb', () => {
-    expect(texts(sectionClimbStats(climb, t))).toEqual(['120 m', '6.7%', 'Steepest 11.2%']);
+  it('states the gain of a climb', () => {
+    const stat = elevationStat(sectionElevation(climb)!, t);
+
+    expect(stat).toEqual({ text: '120 m', label: 'Elevation gain: 120 m' });
   });
 
-  it('gives a descent its loss', () => {
-    const stats = sectionClimbStats({ elevationGainM: 3, elevationLossM: 80, klass: 'descent' }, t);
+  it('gives a descent its loss, signed', () => {
+    const descent = sectionElevation({ elevationGainM: 3, elevationLossM: 80, klass: 'descent' });
 
-    expect(texts(stats)).toEqual(['-80 m']);
-    expect(stats[0]?.label).toBe('Elevation: -80 m');
-  });
-
-  it('leaves a level average grade off', () => {
-    expect(texts(sectionClimbStats({ ...climb, avgGradePercent: 0.4 }, t))).toEqual([
-      '120 m',
-      'Steepest 11.2%',
-    ]);
-  });
-
-  it('states nothing for flat ground', () => {
-    expect(sectionClimbStats({ elevationGainM: 0, elevationLossM: 0, klass: 'flat' }, t)).toEqual(
-      []
-    );
+    expect(elevationStat(descent!, t)).toEqual({ text: '-80 m', label: 'Elevation: -80 m' });
   });
 
   it('states the climbing in feet for an imperial athlete', () => {
-    expect(texts(sectionClimbStats(climb, t, false))[0]).toBe('394 ft');
+    expect(elevationStat(sectionElevation(climb)!, t, false).text).toBe('394 ft');
   });
 
-  it('names each value for a screen reader', () => {
-    expect(sectionClimbStats(climb, t).map((stat) => stat.label)).toEqual([
-      'Elevation gain: 120 m',
-      'Avg grade: 6.7%',
+  it('states both grades of a climb, each named for a screen reader', () => {
+    const stats = sectionGradeStats(climb, t);
+
+    expect(texts(stats)).toEqual(['6.7%', 'Steepest 11.2%']);
+    expect(stats.map((stat) => stat.label)).toEqual(['Avg grade: 6.7%', 'Steepest 11.2%']);
+  });
+
+  it('leaves a level average grade off', () => {
+    expect(texts(sectionGradeStats({ ...climb, avgGradePercent: 0.4 }, t))).toEqual([
       'Steepest 11.2%',
     ]);
+  });
+
+  it('states no grade for flat ground', () => {
+    expect(
+      sectionGradeStats(
+        { elevationGainM: 0, elevationLossM: 0, avgGradePercent: 3, klass: 'flat' },
+        t
+      )
+    ).toEqual([]);
   });
 });
 

@@ -16,6 +16,7 @@ import { useLastSyncSuccessAt } from '@/shared/native/useSyncStatus';
 import { withDatabaseSnapshot } from '@/features/settings';
 import { formatLocalDate } from '@/shared/format/format';
 import { runDerivedClear } from '@/shared/native/engineClears';
+import { detection } from 'veloqrs';
 
 interface CacheStats {
   /** Total number of cached activities in the Rust engine */
@@ -187,14 +188,14 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
         const outcome = await runDerivedClear(engine);
         cleared = outcome.state === 'complete';
         if (outcome.state === 'complete') {
-          engine.forceRedetectSections();
+          detection.forceRedetectSections();
         } else {
           // Past the wait the wipe still holds the write lock, so the re-cut
           // follows it whenever it lands rather than now, and the caller says
           // it is still running rather than reporting a cleared cache. A wipe
           // that fails late rolled back, so there is nothing to re-cut.
           void outcome.landing.then(
-            () => engine.forceRedetectSections(),
+            () => detection.forceRedetectSections(),
             () => {}
           );
         }

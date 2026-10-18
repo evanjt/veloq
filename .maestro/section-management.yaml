@@ -31,14 +31,13 @@ tags:
 
 - takeScreenshot: "screenshots/section-management-detail"
 
-# Look for trim button
-- assertVisible:
-    id: "section-trim-button"
+# Edit bounds is the first entry of the header's overflow menu
+- tapOn:
+    id: "section-overflow-menu"
     optional: true
 
-# Tap trim to enter trim mode
 - tapOn:
-    id: "section-trim-button"
+    text: "Edit bounds"
     optional: true
 
 # Verify trim overlay appeared

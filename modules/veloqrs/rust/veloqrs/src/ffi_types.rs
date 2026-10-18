@@ -3166,11 +3166,15 @@ pub struct FfiStatTrend {
     /// The size of the move in whole percent of the earlier total, absent for
     /// a move inside the deadband.
     pub percent: Option<u32>,
+    /// The signed move in percent of the earlier total, unrounded, for a card
+    /// that prints its own precision.
+    pub change: f64,
 }
 
-/// A period to now against the same elapsed span of the period before it,
-/// each window inclusive at both ends. A trend is absent when the earlier
-/// period has none of that total, so nothing is compared with zero.
+/// A period against an earlier one, each window inclusive at both ends. A
+/// trend is absent when the earlier period has none of that total, so nothing
+/// is compared with zero, and every trend is absent while either period is
+/// not fully on the device.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiSummaryComparison {
     pub current: FfiTimestampRange,
@@ -3181,6 +3185,9 @@ pub struct FfiSummaryComparison {
     pub duration: Option<FfiStatTrend>,
     pub distance: Option<FfiStatTrend>,
     pub load: Option<FfiStatTrend>,
+    /// Whether each period's activities are on the device, by the census.
+    pub current_coverage: crate::RangeCoverage,
+    pub previous_coverage: crate::RangeCoverage,
 }
 
 /// Every range the weekly card offers, so a tap between them reads nothing.
@@ -3249,10 +3256,12 @@ pub struct FfiFitnessScreenData {
     pub calendar_older_owed: u32,
     /// Calendar months with activities inside the monthly span, oldest first.
     pub months: Vec<FfiMonthlyStats>,
-    pub year_current: FfiPeriodStats,
-    pub year_previous: FfiPeriodStats,
-    pub month_current: FfiPeriodStats,
-    pub month_previous: FfiPeriodStats,
+    /// The year to date against the same span of last year.
+    pub season_year: FfiSummaryComparison,
+    /// Each month of this year to date against the same month a year before,
+    /// January first: the months before this one whole, then this month to
+    /// date against the same span of last year's.
+    pub season_months: Vec<FfiSummaryComparison>,
     /// The weekly card's periods to now, each against the same span before.
     pub comparisons: FfiSummaryComparisons,
 }

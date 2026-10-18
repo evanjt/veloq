@@ -13,7 +13,7 @@ import { i18n } from '@/i18n';
 import { getNativeModule } from '@/shared/native/engine';
 import { readLibraryCount } from '@/shared/native/libraryCount';
 import { engineErrorTag } from '@/shared/native/engineError';
-import { engine, hasStarted, startOutcome, type StartVerdict } from 'veloqrs';
+import { engine, hasStarted, startOutcome, type StartVerdict, detection, strength } from 'veloqrs';
 import { getSyncGeneration, useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
 import { useEngineReady } from '@/shared/native/useEngineReady';
@@ -23,7 +23,7 @@ import { awaitTilePass, tilePassProgress } from '@/features/routes/lib/tilePass'
 import {
   DETECTION_FOREGROUND_MS,
   followDetection,
-  type DetectionEngine,
+  detectionEngineOf,
 } from '@/features/routes/lib/detectionRun';
 import { scalePercent } from '@/features/routes/lib/scalePercent';
 import { endGpsSync } from '@/features/routes/lib/gpsSyncEnding';
@@ -57,10 +57,10 @@ export type { SyncProgress };
 export function requestOwedFitFiles(
   native: { engine: typeof engine } | null
 ): StartVerdict | undefined {
-  if (!native || typeof native.engine.batchFetchOwedFitFiles !== 'function') return undefined;
+  if (!native) return undefined;
   // Fire and forget: the downloads run on a Rust thread and what each file held
   // is read back from SQLite when a screen asks.
-  return native.engine.batchFetchOwedFitFiles();
+  return strength.batchFetchOwedFitFiles();
 }
 
 /**
@@ -275,7 +275,7 @@ export function useRouteDataSync(enabled: boolean = true): UseRouteDataSyncResul
         // while nothing was left to settle it, which would block start().
         // Its outcome can describe an earlier run. The worker announces
         // catalogue changes when they land.
-        nativeModule.engine.pollSectionDetection();
+        detection.pollSectionDetection();
 
         // Check if section detection was interrupted and needs to recover.
         // A failed read leaves recovery to the next sync rather than failing
@@ -305,10 +305,10 @@ export function useRouteDataSync(enabled: boolean = true): UseRouteDataSyncResul
           // The end arrives on `detectionApplied`, so nothing here ticks
           // the drain: a tick that saw completion would take it from
           // whichever screen is also following the same run.
-          const started = nativeModule.engine.getSectionDetectionProgress() != null;
+          const started = detection.getSectionDetectionProgress() != null;
           if (started) {
             const outcome = await followDetection(
-              nativeModule.engine as unknown as DetectionEngine,
+              detectionEngineOf(nativeModule.engine, detection),
               {
                 isActive: () => isMountedRef.current && !abortController.signal.aborted,
                 timeoutMs: DETECTION_FOREGROUND_MS,

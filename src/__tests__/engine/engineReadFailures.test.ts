@@ -12,6 +12,12 @@ import { EngineClient } from '../../../modules/veloqrs/src/EngineClient';
 import { bindDelegates } from '../../../modules/veloqrs/src/delegates/bind';
 import * as elevationDelegates from '../../../modules/veloqrs/src/delegates/elevation';
 import { engineErrorTag } from '@/shared/native/engineError';
+import * as cutoverDelegates from '../../../modules/veloqrs/src/delegates/cutover';
+import * as heatmapDelegates from '../../../modules/veloqrs/src/delegates/heatmap';
+import * as launchDelegates from '../../../modules/veloqrs/src/delegates/launch';
+import * as routesStatusDelegates from '../../../modules/veloqrs/src/delegates/routesStatus';
+import * as detectionDelegates from '../../../modules/veloqrs/src/delegates/detection';
+import * as previewDelegates from '../../../modules/veloqrs/src/delegates/preview';
 
 /** The shape a `VeloqError` crosses the binding in. */
 function lockFailed(): Error {
@@ -84,27 +90,30 @@ const READS: [string, (client: EngineClient) => unknown][] = [
   ['dashboardData', (c) => c.dashboardData()],
   ['getActivitiesNeedingTimeStreams', (c) => c.getActivitiesNeedingTimeStreams()],
   ['getBackupMetadata', (c) => c.getBackupMetadata()],
-  ['getCutoverDiff', (c) => c.getCutoverDiff()],
-  ['sectionDetectionAwaiting', (c) => c.sectionDetectionAwaiting()],
+  ['getCutoverDiff', (c) => bindDelegates(c, cutoverDelegates).getCutoverDiff()],
+  [
+    'sectionDetectionAwaiting',
+    (c) => bindDelegates(c, detectionDelegates).sectionDetectionAwaiting(),
+  ],
   [
     'getElevationBackfillRemaining',
     (c) => bindDelegates(c, elevationDelegates).getElevationBackfillRemaining(),
   ],
-  ['getHeatmapTileProgress', (c) => c.getHeatmapTileProgress()],
+  ['getHeatmapTileProgress', (c) => bindDelegates(c, heatmapDelegates).getHeatmapTileProgress()],
   [
     'launchData',
     (c) =>
-      c.launchData({
+      bindDelegates(c, launchDelegates).launchData({
         routeWord: 'Trail',
         sectionWord: 'Stretch',
         athleteId: null,
         heatmapEnabled: false,
       }),
   ],
-  ['getPreviewCentres', (c) => c.getPreviewCentres(5)],
-  ['getPreviewProgress', (c) => c.getPreviewProgress()],
-  ['takePreviewResult', (c) => c.takePreviewResult()],
-  ['getRoutesStatusData', (c) => c.getRoutesStatusData()],
+  ['getPreviewCentres', (c) => bindDelegates(c, previewDelegates).getPreviewCentres(5)],
+  ['getPreviewProgress', (c) => bindDelegates(c, previewDelegates).getPreviewProgress()],
+  ['takePreviewResult', (c) => bindDelegates(c, previewDelegates).takePreviewResult()],
+  ['getRoutesStatusData', (c) => bindDelegates(c, routesStatusDelegates).getRoutesStatusData()],
   ['getSectionHistory', (c) => c.getSectionHistory('sec-1')],
   ['getSectionGeometryVersionPolyline', (c) => c.getSectionGeometryVersionPolyline('sec-1', 2)],
   ['getPinnedSectionVersion', (c) => c.getPinnedSectionVersion('sec-1')],

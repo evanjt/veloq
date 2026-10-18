@@ -11,6 +11,8 @@
  */
 
 import { EngineClient } from '../../../modules/veloqrs/src/EngineClient';
+import { bindDelegates } from '../../../modules/veloqrs/src/delegates/bind';
+import * as heatmapDelegates from '../../../modules/veloqrs/src/delegates/heatmap';
 
 const mockSettings = { getSetting: jest.fn(), setSetting: jest.fn() };
 const mockHeatmap = { setTilesPath: jest.fn(), clearTilesPath: jest.fn() };
@@ -163,7 +165,7 @@ describe('EngineClient.clear', () => {
    */
   it('re-applies the heatmap tiles path the athlete had enabled', async () => {
     const client = openClient();
-    client.enableHeatmapTiles();
+    bindDelegates(client, heatmapDelegates).enableHeatmapTiles();
     const path = mockHeatmap.setTilesPath.mock.calls[0][0];
     mockHeatmap.setTilesPath.mockClear();
 
@@ -175,8 +177,8 @@ describe('EngineClient.clear', () => {
   /** And leaves it off for an athlete who turned it off. */
   it('does not turn the heatmap back on for an athlete who turned it off', async () => {
     const client = openClient();
-    client.enableHeatmapTiles();
-    client.disableHeatmapTiles();
+    bindDelegates(client, heatmapDelegates).enableHeatmapTiles();
+    bindDelegates(client, heatmapDelegates).disableHeatmapTiles();
     mockHeatmap.setTilesPath.mockClear();
 
     await client.clear();

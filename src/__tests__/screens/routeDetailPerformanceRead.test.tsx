@@ -20,6 +20,9 @@ import { routeCardInHost } from '../__shared__/routeCardInHost';
 const RouteDetailScreen = routeCardInHost();
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
+    ...require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    ),
     FfiCorrelation_Tags: {
       TooFew: 'TooFew',
       Undefined: 'Undefined',
@@ -454,7 +457,7 @@ describe('route page below the chart', () => {
     const peek = within(screen.getByTestId('route-card-peek'));
     expect(peek.getByTestId('route-detail-name')).toBeTruthy();
     expect(peek.getByTestId('route-card-date-line')).toHaveTextContent(
-      /^sections\.firstVisited .*2024 · sections\.lastVisited .*2026$/
+      /^Jan 15, 2024 – May 28, 2026$/
     );
     const stats = peek.getByTestId('route-detail-stats');
     expect(stats).toHaveTextContent(/^1\.9 mi·maps\.activitiesCount·routes\.prTime$/);

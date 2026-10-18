@@ -20,6 +20,7 @@ import type {
 import { toDirectionStats, fromUnixSeconds } from '@/shared/ffi/ffiConversions';
 import { safeGetTime } from '@/shared/format/format';
 import type { DirectionBestRecord } from '../lib/performanceTypes';
+import { routes } from 'veloqrs';
 
 export interface RoutePerformancePoint {
   activityId: string;
@@ -212,7 +213,7 @@ export function useRoutePerformances(
       if (!result) {
         const engine = getEngine();
         if (!engine) return emptyResult;
-        result = engine.getRoutePerformances(engineGroup.groupId, activityId || '', sportType);
+        result = routes.getRoutePerformances(engineGroup.groupId, activityId || '', sportType);
       }
       return {
         rows: result.performances ?? [],

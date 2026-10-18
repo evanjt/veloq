@@ -71,7 +71,7 @@ const DENSE_SURFACES = [
   'src/shared/ui/Badge.tsx',
   'src/shared/ui/ChangeChip.tsx',
   'src/shared/ui/DirectionSwitch.tsx',
-  'src/features/routes/components/section/SectionActionRow.tsx',
+  'src/features/routes/components/section/SectionStatusLine.tsx',
 ];
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());

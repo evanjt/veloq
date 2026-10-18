@@ -5,9 +5,10 @@
  * before the use count existed starts its count from today.
  */
 
-import { useSupportStore } from '@/shared/app/SupportStore';
+import { daysSince, useSupportStore } from '@/shared/app/SupportStore';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import { formatLocalDate } from '@/shared/format/format';
+import { atUtcOffset } from '../__shared__/fixedOffsetDate';
 
 const mockRows = new Map<string, string>();
 
@@ -152,4 +153,22 @@ it('counts nothing new when initialised twice on the same day', async () => {
   const stored = JSON.parse(mockRows.get('veloq-usage') ?? '{}');
   expect(stored.useDays).toBe(5);
   expect(stored.firstUseDate).toBe(formatLocalDate(atDay(0)));
+});
+
+describe('daysSince counts local calendar days', () => {
+  const localTime = (offsetHours: number, day: number, hour: number, minute = 0) =>
+    Date.UTC(2026, 2, day, hour, minute) - offsetHours * 3_600_000;
+
+  it.each([14, 0, -11])('at UTC%+d, from any hour of the day', (offsetHours) => {
+    for (const [hour, minute] of [
+      [0, 5],
+      [12, 0],
+      [23, 55],
+    ]) {
+      const now = localTime(offsetHours, 16, hour, minute);
+      expect(atUtcOffset(offsetHours, () => daysSince('2026-03-02'), now)).toBe(14);
+      expect(atUtcOffset(offsetHours, () => daysSince('2026-03-16'), now)).toBe(0);
+      expect(atUtcOffset(offsetHours, () => daysSince('2026-03-17'), now)).toBe(-1);
+    }
+  });
 });

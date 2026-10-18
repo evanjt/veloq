@@ -1,5 +1,5 @@
 /**
- * Scenario: a route or section card's lowest stop shows the name, one date line and three
+ * Scenario: a route or section card's lowest stop shows the name, one date line and one line of
  * numbers, so the athlete can tell the subject apart with the map nearly uncovered.
  */
 
@@ -42,11 +42,12 @@ describe('a route card at Peek', () => {
     expect(stats.map((stat) => stat.text)).toEqual(['12.4 km']);
   });
 
-  it('joins the first and last attempt dates with middle dots', () => {
-    const line = detailDateLine(loaded, t);
+  it('gives the first and last attempt as one range', () => {
+    expect(detailDateLine(loaded, t)).toBe('3 Mar 2024 – 2 Oct 2026');
+  });
 
-    expect(line.split(' · ')).toHaveLength(2);
-    expect(line).toMatch(/^First .+ · Last .+$/);
+  it('keeps three figures with no elevation', () => {
+    expect(detailPeekStats(loaded, t)).toHaveLength(3);
   });
 
   it('leads the date line with the sport and the range when either narrows the attempts', () => {
@@ -55,8 +56,11 @@ describe('a route card at Peek', () => {
       t
     );
 
-    expect(line.split(' · ').slice(0, 2)).toEqual(['Ride', '3 months']);
-    expect(line.split(' · ')).toHaveLength(4);
+    expect(line).toBe('Ride · 3 months · 3 Mar 2024 – 2 Oct 2026');
+  });
+
+  it('names the one date it has when the first is missing', () => {
+    expect(detailDateLine({ ...loaded, firstDate: null }, t)).toBe('2 Oct 2026');
   });
 
   it('is empty with no attempt read and nothing narrowing them', () => {
@@ -69,5 +73,31 @@ describe('a section card at Peek', () => {
     const stats = detailPeekStats({ ...loaded, kind: 'section', distanceMeters: 1_200 }, t);
 
     expect(stats.map((stat) => stat.text)).toEqual(['1.2 km', '9 traversals', 'PR 30:45']);
+  });
+
+  const section: DetailPeekInput = {
+    kind: 'section',
+    distanceMeters: 1_400,
+    scope: { count: 26, sport: 'Run', sportsOffered: 2, range: '6m' },
+    bestTimeSecs: 409,
+    firstDate: new Date(2026, 6, 22),
+    lastDate: new Date(2026, 9, 3),
+  };
+
+  it("puts a descent's loss second, signed, on the one stats line", () => {
+    const stats = detailPeekStats({ ...section, elevation: { metres: 37, direction: 'loss' } }, t);
+
+    expect(stats.map((stat) => stat.text)).toEqual(['1.4 km', '-37 m', '26 traversals', 'PR 6:49']);
+    expect(stats[1]?.label).toBe('Elevation: -37 m');
+  });
+
+  it("puts a climb's gain second, unsigned", () => {
+    const stats = detailPeekStats({ ...section, elevation: { metres: 37, direction: 'gain' } }, t);
+
+    expect(stats.map((stat) => stat.text)).toEqual(['1.4 km', '37 m', '26 traversals', 'PR 6:49']);
+  });
+
+  it('reads the sport, the range and the span on one line', () => {
+    expect(detailDateLine(section, t)).toBe('Run · 6 months · 22 July – 3 Oct 2026');
   });
 });

@@ -17,7 +17,13 @@ import * as haptics from '@/shared/ui/haptics';
 import * as Notice from '@/shared/ui/Notice';
 import { getEngine } from '@/shared/native/engine';
 
-jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
+jest.mock('veloqrs', () =>
+  require('../../__shared__/veloqrsStub').withOverrides(
+    require('../../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 

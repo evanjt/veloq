@@ -54,6 +54,25 @@ export interface DetectionEngine {
 }
 
 /**
+ * The follower's surface out of the two places it lives: the engine handle for
+ * the channel and whether it is live, and the detection namespace for the run
+ * and its progress.
+ */
+export function detectionEngineOf(
+  engine: Pick<DetectionEngine, 'subscribe' | 'eventsAreLive'>,
+  detection: Pick<DetectionEngine, 'pollSectionDetectionRun' | 'getSectionDetectionProgress'>
+): DetectionEngine {
+  const follower: DetectionEngine = {
+    subscribe: (event, listener) => engine.subscribe(event, listener),
+    pollSectionDetectionRun: (runId) => detection.pollSectionDetectionRun(runId),
+    getSectionDetectionProgress: () => detection.getSectionDetectionProgress(),
+  };
+  const eventsAreLive = engine.eventsAreLive;
+  if (eventsAreLive) follower.eventsAreLive = () => eventsAreLive.call(engine);
+  return follower;
+}
+
+/**
  * Whether the event is worth waiting for.
  *
  * A handle that cannot say is taken as able to announce, which is what every

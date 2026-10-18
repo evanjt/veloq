@@ -15,7 +15,7 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
-import { connectivity, isRetryableInit } from 'veloqrs';
+import { connectivity, isRetryableInit, launch } from 'veloqrs';
 
 import { pushCredentialsToEngine, useAuthStore } from '@/shared/app/AuthStore';
 import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
@@ -248,9 +248,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           // binding before first paint, and each one a place a sync page write
           // could hold the launch behind the engine's write lock.
           const athleteId = useAuthStore.getState().athleteId;
-          let stats: ReturnType<typeof engine.launchData>;
+          let stats: ReturnType<typeof launch.launchData>;
           try {
-            stats = engine.launchData({
+            stats = launch.launchData({
               routeWord: i18n.t('routes.routeWord'),
               sectionWord: i18n.t('routes.sectionWord'),
               athleteId,

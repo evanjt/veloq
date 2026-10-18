@@ -20,7 +20,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { hasStarted } from 'veloqrs';
+import { detection, hasStarted, previewClient } from 'veloqrs';
 import { useTheme } from '@/shared/app';
 import {
   Button,
@@ -50,7 +50,7 @@ import {
   PreviewParamPanel,
   PreviewSectionPopover,
 } from '@/features/routes';
-import { getEngine, UNIFIED_CONFIG } from '@/shared/native/engine';
+import { UNIFIED_CONFIG } from '@/shared/native/engine';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { attemptEngineRead } from '@/shared/native/engineError';
 import type { PreviewCentre, PreviewParams, PreviewSection } from 'veloqrs';
@@ -72,15 +72,14 @@ function DetectionPreviewScreenContent() {
   const { isDark } = useTheme();
   const bottomClearance = useBottomClearance({ insetTaken: true });
 
-  const client = useMemo(() => getEngine(), []);
   const {
     centres,
     labels,
     error: centresReadError,
     retry: retryCentres,
-  } = usePreviewCentres(client);
+  } = usePreviewCentres(previewClient);
   const { status, progress, result, refusal, lapsed, start, request, cancel, reset } =
-    usePreviewDetect(client);
+    usePreviewDetect(previewClient);
   const phaseKey = progress ? getPhaseDisplayKey(progress.phase) : null;
   // The preview is a settings sandbox: it loads a subset, runs the detector to
   // show what different settings produce, and touches no catalogue until Keep.
@@ -103,14 +102,14 @@ function DetectionPreviewScreenContent() {
   const readDetection = useEngineRead(['activities', 'sections', 'detectionApplied']);
   const awaitingDetection = useMemo(
     () =>
-      attemptEngineRead(() => readDetection((engine) => engine.sectionDetectionAwaiting())).value ??
+      attemptEngineRead(() => readDetection(() => detection.sectionDetectionAwaiting())).value ??
       null,
     [readDetection]
   );
 
   const [centre, setCentre] = useState<PreviewCentre | null>(null);
   const [params, setParams] = useState<PreviewParams>(() => {
-    const config = client?.getSectionConfig();
+    const config = previewClient.getSectionConfig();
     if (!config) return UNIFIED_CONFIG;
     return {
       proximityThreshold: config.proximityThreshold,
@@ -137,7 +136,7 @@ function DetectionPreviewScreenContent() {
 
   const selectedCentre = centre ?? centres[0] ?? null;
   const { sections: currentSections, failed: currentFailed } = usePreviewCurrentSections(
-    client,
+    previewClient,
     selectedCentre
   );
   const running = status === 'running';
@@ -196,9 +195,9 @@ function DetectionPreviewScreenContent() {
       confirmLabel: t('settings.previewKeep'),
       cancelLabel: t('common.cancel'),
       onConfirm: () => {
-        const config = client?.getSectionConfig();
-        if (!client || !config || migrating || !previewedConfig) return;
-        client.setSectionConfig({ ...config, ...previewedConfig });
+        const config = previewClient.getSectionConfig();
+        if (!config || migrating || !previewedConfig) return;
+        previewClient.setSectionConfig({ ...config, ...previewedConfig });
         // Through the rescan hook, not the client: the re-cut is global and
         // the athlete has to be able to see it run, and the hook is what
         // starts the poll every progress indicator reads.
@@ -222,7 +221,7 @@ function DetectionPreviewScreenContent() {
         goBack();
       },
     });
-  }, [t, client, previewedConfig, forceRescan, migrating]);
+  }, [t, previewedConfig, forceRescan, migrating]);
 
   const handleDiscard = useCallback(() => {
     if (running) cancel();

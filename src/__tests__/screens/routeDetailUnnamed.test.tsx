@@ -83,8 +83,6 @@ jest.mock('@/features/routes/components', () => ({
   DataRangeFooter: () => null,
   DetailFallback: () => null,
   RouteDetailMap: () => null,
-  SportTypeSelector: () =>
-    jest.requireActual('react').createElement('Text', { testID: 'sport-type-selector' }),
   RouteDetailDebugPanel: () => null,
   routeDetailScreenStyles: {},
 }));

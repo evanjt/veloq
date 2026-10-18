@@ -18,6 +18,14 @@ import { useGroupSummaries } from '@/features/routes/hooks/useEngine';
 import { getEngine } from '@/shared/native/engine';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
+
 const mockPush = jest.fn();
 const mockBack = jest.fn();
 let mockParams: { request?: string } = {};

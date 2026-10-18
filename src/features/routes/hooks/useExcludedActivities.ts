@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { getEngine } from '@/shared/native/engine';
+import { routes } from 'veloqrs';
 
 /**
  * A route's exclusion writes and whether its excluded attempts are shown.
@@ -18,7 +19,7 @@ export function useExcludedActivities(id: string | undefined, onRouteRefresh?: (
       if (!id) return;
       const engine = getEngine();
       if (!engine) return;
-      engine.excludeActivityFromRoute(id, activityId);
+      routes.excludeActivityFromRoute(id, activityId);
       onRouteRefresh?.();
     },
     [id, onRouteRefresh]
@@ -29,7 +30,7 @@ export function useExcludedActivities(id: string | undefined, onRouteRefresh?: (
       if (!id) return;
       const engine = getEngine();
       if (!engine) return;
-      engine.includeActivityInRoute(id, activityId);
+      routes.includeActivityInRoute(id, activityId);
       onRouteRefresh?.();
     },
     [id, onRouteRefresh]

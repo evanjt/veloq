@@ -40,7 +40,6 @@ export {
 } from './components';
 export { type RoutesSortOption } from './components/RoutesList';
 export {
-  SectionActionRow,
   SectionOverflowMenu,
   SectionContentArea,
   SectionDebugPanel,
@@ -146,7 +145,7 @@ export { informSectionWriteRefused } from './lib/sectionWriteRefusal';
 export { removeSectionWithUndo, restoreSection } from './lib/sectionVisibility';
 export { rescanRefusalKey } from './lib/rescanRefusal';
 export { routeHeadline } from './lib/routeHeadline';
-export { sectionClimbStats, scopeLabels } from './lib/heroStats';
+export { elevationStat, sectionGradeStats, scopeLabels } from './lib/heroStats';
 export { directionColour } from './lib/directionColour';
 export { PLOT_LABEL_KEYS } from './lib/performancePanel';
 export {

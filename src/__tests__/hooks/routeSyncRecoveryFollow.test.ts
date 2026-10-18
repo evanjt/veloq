@@ -21,6 +21,9 @@ const mockSettle = {
 };
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
+    ...require('../__shared__/veloqrsStub').namespacesOver(
+      () => require('@/shared/native/engine').getNativeModule()?.engine
+    ),
     engine: {
       getStats: () => ({ sectionsDirty: true }),
       triggerRefresh: jest.fn(),

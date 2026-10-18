@@ -132,9 +132,10 @@ tags:
       id: "section-detail-screen"
     timeout: 10000
 
+# The kept state sits at the foot of the summary, above the links.
 - scrollUntilVisible:
     element:
-      id: "section-action-row"
+      id: "section-summary"
     direction: UP
     timeout: 20000
 

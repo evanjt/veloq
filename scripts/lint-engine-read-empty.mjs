@@ -25,6 +25,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
+import { ENGINE_EXPORTS } from './lib/engineReach.mjs';
 import { treeSources } from './lib/indexedSources.mjs';
 
 // `--root` points the guard at another tree, so the rule itself can be tested.
@@ -47,11 +48,24 @@ const BASELINE_FILE =
     ? join(dirname(fileURLToPath(import.meta.url)), 'engine-read-empty-baseline.json')
     : resolve(process.argv[baselineFlag + 1]);
 const HOOK_FILE = /^src\/(?:.*\/)?hooks\/[^/]+\.tsx?$/;
-// A lib file is held to the rule when it reaches the engine itself.
+// A lib file is held to the rule when it reaches the engine itself, through
+// the engine module or a namespace the `veloqrs` barrel binds to it.
 const LIB_FILE = /^src\/(?:.*\/)?lib\/[^/]+\.tsx?$/;
 // A screen reads the engine and its queries directly as often as through a hook.
 const APP_FILE = /^src\/app\/.+\.tsx?$/;
 const ENGINE_IMPORT = /from\s+'@\/shared\/native\/engine'/;
+
+/** Whether `text` imports the engine or one of the namespaces bound to it. */
+function reachesEngine(text) {
+  if (ENGINE_IMPORT.test(text)) return true;
+  for (const m of text.matchAll(/import\s+\{([^}]*)\}\s*from\s*'veloqrs'/g)) {
+    for (const part of m[1].split(',')) {
+      const name = part.trim().split(/\s+as\s+/)[0];
+      if (ENGINE_EXPORTS.has(name)) return true;
+    }
+  }
+  return false;
+}
 
 const MARKER = /\/\/\s*empty-on-error:\s*(\S.*)?$/;
 
@@ -250,7 +264,7 @@ for (const [rel, bytes] of sources) {
     rel.startsWith(`${DELEGATES}/`) ||
     HOOK_FILE.test(rel) ||
     APP_FILE.test(rel) ||
-    (LIB_FILE.test(rel) && ENGINE_IMPORT.test(text));
+    (LIB_FILE.test(rel) && reachesEngine(text));
   if (!inScope || !/\.tsx?$/.test(rel)) continue;
   check(rel, text);
 }

@@ -8,9 +8,9 @@
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
-import { getEngine } from '@/shared/native/engine';
 import { readHeatmapCacheSize } from './readHeatmapCacheSize';
 import { nativeHeatmapTileUrl } from './tileTransport';
+import { heatmap } from 'veloqrs';
 
 const HEATMAP_DIR = `${FileSystem.cacheDirectory}heatmap-tiles/`;
 
@@ -49,9 +49,7 @@ export const LEGACY_HEATMAP_TILES_DIR = `${FileSystem.documentDirectory}heatmap-
  */
 export async function readHeatmapTilesCacheSize(): Promise<number> {
   try {
-    const engine = getEngine();
-    if (!engine) return 0;
-    return await readHeatmapCacheSize(engine, HEATMAP_DIR);
+    return await readHeatmapCacheSize(heatmap, HEATMAP_DIR);
   } catch {
     return 0;
   }
@@ -66,9 +64,7 @@ export async function readHeatmapTilesCacheSize(): Promise<number> {
  * one fails.
  */
 export async function clearHeatmapTileSets(dirs: string[] = [HEATMAP_DIR]): Promise<boolean> {
-  const engine = getEngine();
-  if (!engine) return false;
-  const outcomes = await Promise.allSettled(dirs.map((dir) => engine.clearHeatmapTiles(dir)));
+  const outcomes = await Promise.allSettled(dirs.map((dir) => heatmap.clearHeatmapTiles(dir)));
   const failures = outcomes.filter((outcome) => outcome.status === 'rejected');
   for (const failure of failures) {
     console.warn('[heatmap] Tiles left on disk:', failure.reason);

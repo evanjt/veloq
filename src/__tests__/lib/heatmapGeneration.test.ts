@@ -22,6 +22,9 @@ const mockClearPriorityView = jest.fn();
 
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
+    heatmap: {
+      clearHeatmapPriorityView: () => mockClearPriorityView(),
+    },
     engine: {
       subscribe: jest.fn((event: string, callback: MockListener) => {
         const forEvent = mockListeners.get(event) ?? new Set<MockListener>();
@@ -29,7 +32,6 @@ jest.mock('veloqrs', () =>
         mockListeners.set(event, forEvent);
         return () => forEvent.delete(callback);
       }),
-      clearHeatmapPriorityView: () => mockClearPriorityView(),
     },
   })
 );

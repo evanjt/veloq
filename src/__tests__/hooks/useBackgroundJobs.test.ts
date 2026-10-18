@@ -14,7 +14,13 @@ import { SyncState } from 'veloqrs';
 import { getEngine } from '@/shared/native/engine';
 import { useBackgroundJobs } from '@/features/settings/hooks/useBackgroundJobs';
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: jest.fn(),

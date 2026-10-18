@@ -65,10 +65,15 @@ function setRows(next: typeof DEFAULT_ROWS) {
   rows = next;
 }
 
+/** The first instant of the periods the device holds only part of. */
+let owedFrom: number[] = [];
+
 const engine = {
   getFitnessScreenData: fitnessScreenRead({
     months: () => rows,
     period: (startTs, endTs) => periodFrom(rows, startTs, endTs),
+    coverage: (startTs) =>
+      owedFrom.includes(startTs) ? RangeCoverage.NotFetched : RangeCoverage.Loaded,
   }),
   rangeCoverage: jest.fn(() => RangeCoverage.Loaded),
   subscribe: jest.fn(() => () => {}),
@@ -101,6 +106,7 @@ beforeEach(() => {
   // Local noon, so the date is the 17th in every zone; the suite's UTC instant is the 18th east of UTC+12.
   jest.setSystemTime(new Date(2026, 5, 17, 12));
   rows = DEFAULT_ROWS;
+  owedFrom = [];
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   (getEngine as jest.MockedFunction<typeof getEngine>).mockReturnValue(
     engine as unknown as ReturnType<typeof getEngine>
@@ -197,6 +203,20 @@ describe('SeasonComparison change between years', () => {
     expect(screen.getByTestId('season-tooltip')).toBeTruthy();
     expect(screen.getByText(String(YEAR - 1))).toBeTruthy();
     expect(screen.getByText(String(YEAR))).toBeTruthy();
+  });
+
+  it('prints no change for a last year the device holds only part of', async () => {
+    setRows([month(YEAR - 1, 1, 2), month(YEAR, 1, 4)]);
+    owedFrom = [Date.UTC(YEAR - 1, 0, 1) / 1000];
+
+    await renderCard();
+
+    await waitFor(() => expect(screen.getByText('4h')).toBeTruthy());
+    expect(screen.getByText('2h')).toBeTruthy();
+    expect(screen.queryByText(/%/)).toBeNull();
+    await scrubJanuary();
+    expect(screen.getByTestId('season-tooltip')).toBeTruthy();
+    expect(screen.queryByText(/%/)).toBeNull();
   });
 
   it('states the change in the tooltip for a month with a baseline', async () => {

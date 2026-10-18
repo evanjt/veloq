@@ -15,11 +15,14 @@ import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
+    heatmap: {
+      ...require('../__shared__/veloqrsStub').heatmap,
+      pollTileGeneration: jest.fn(() => 'idle'),
+    },
     engine: {
       ...require('../__shared__/veloqrsStub').fetchCalls,
       triggerRefresh: jest.fn(),
       getStats: jest.fn(() => ({ sectionsDirty: false })),
-      pollTileGeneration: jest.fn(() => 'idle'),
       subscribe: jest.fn(() => () => {}),
     },
   })

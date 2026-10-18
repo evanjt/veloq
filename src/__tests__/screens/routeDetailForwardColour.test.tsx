@@ -19,6 +19,9 @@ import { directionPair } from '@/theme';
 const RouteDetailScreen = routeCardInHost();
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
+    ...require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    ),
     FfiCorrelation_Tags: {
       TooFew: 'TooFew',
       Undefined: 'Undefined',

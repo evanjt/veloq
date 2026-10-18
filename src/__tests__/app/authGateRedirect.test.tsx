@@ -69,7 +69,9 @@ const mockRouter = jest.requireMock<{ router: Record<string, jest.Mock> }>('expo
 const mockDismissTo = mockRouter.dismissTo;
 
 jest.mock('veloqrs', () => ({
-  ...require('../__shared__/veloqrsStub').withOverrides(),
+  ...require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() => mockEngineHolder.engine)
+  ),
   validateCredentials: jest.fn(),
 }));
 jest.mock('@/features/auth/lib/loginLibrary', () => ({

@@ -1,1 +1,12 @@
-[]
+[
+  {
+    "file": "src/features/routes/components/DetailMapHost.tsx",
+    "spec": "@/features/activity/components/ActivityDetailMap",
+    "reason": "the activity feature imports the routes barrel, so loading the activity barrel while the routes barrel evaluates would hand out exports that are still undefined; the map is required when an activity card is first drawn"
+  },
+  {
+    "file": "src/features/routes/screens/DetailCardStack.tsx",
+    "spec": "@/features/activity/components/ActivityDetailCard",
+    "reason": "the activity feature imports the routes barrel, so loading the activity barrel while the routes barrel evaluates would hand out exports that are still undefined; the card is required when it is first drawn"
+  }
+]

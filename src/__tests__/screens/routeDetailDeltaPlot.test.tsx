@@ -23,6 +23,7 @@ const RouteDetailScreen = routeCardInHost();
 jest.mock('veloqrs', () => {
   const stub = require('../__shared__/veloqrsStub');
   return stub.withOverrides({
+    ...stub.namespacesOver(() => require('@/shared/native/engine').getEngine()),
     FfiCorrelation_Tags: {
       TooFew: 'TooFew',
       Undefined: 'Undefined',

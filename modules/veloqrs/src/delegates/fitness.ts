@@ -138,6 +138,8 @@ export function getFitnessScreenData(
       previous: now,
       currentStats: EMPTY_PERIOD_STATS,
       previousStats: EMPTY_PERIOD_STATS,
+      currentCoverage: RangeCoverage.NotFetched,
+      previousCoverage: RangeCoverage.NotFetched,
     };
     return {
       ftpTrend: EMPTY_FTP_TREND,
@@ -154,10 +156,8 @@ export function getFitnessScreenData(
       calendarFirstDay: windows.heatmapFirstDay,
       calendarOlderOwed: 0,
       months: [],
-      yearCurrent: EMPTY_PERIOD_STATS,
-      yearPrevious: EMPTY_PERIOD_STATS,
-      monthCurrent: EMPTY_PERIOD_STATS,
-      monthPrevious: EMPTY_PERIOD_STATS,
+      seasonYear: empty,
+      seasonMonths: [],
       comparisons: {
         week: empty,
         month: empty,

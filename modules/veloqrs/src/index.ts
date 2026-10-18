@@ -339,6 +339,19 @@ export const strength = bindDelegates(engine, strengthDelegates);
 export const sync = bindDelegates(engine, syncDelegates);
 
 /**
+ * The surface the preview screens talk to: the preview namespace, the
+ * detection config it previews against and the engine's channels. One object,
+ * so a screen test hands in its own in place of the engine.
+ */
+export const previewClient: previewDelegates.PreviewClient = {
+  ...preview,
+  getSectionConfig: detection.getSectionConfig,
+  setSectionConfig: detection.setSectionConfig,
+  forceRedetectSections: detection.forceRedetectSections,
+  subscribe: (event, callback) => engine.subscribe(event, callback),
+};
+
+/**
  * The Rust-owned basemap tile store.
  *
  * Not on `EngineClient`: a tile read must not queue behind the engine lock,

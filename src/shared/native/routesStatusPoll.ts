@@ -18,6 +18,7 @@
 
 import { getEngine } from './engine';
 import type { RoutesStatus } from 'veloqrs';
+import { routesStatus } from 'veloqrs';
 
 /** What the two followed jobs settle within, and what both used before. */
 export const ROUTES_STATUS_POLL_MS = 500;
@@ -35,7 +36,7 @@ export function readRoutesStatus(): RoutesStatus | null {
   const engine = getEngine();
   if (!engine) return null;
   try {
-    return engine.getRoutesStatusData?.() ?? null;
+    return routesStatus.getRoutesStatusData() ?? null;
   } catch {
     return null;
   }

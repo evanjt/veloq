@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { getEngine } from '@/shared/native/engine';
 import { useElevationBackfill } from '@/features/routes/hooks/useElevationBackfill';
+import { cutover } from 'veloqrs';
 
 /** How often the cutover is re-read while it holds. Nothing polls once it lifts. */
 const RECHECK_MS = 5000;
@@ -33,7 +34,7 @@ function readCutoverHold(): boolean {
   const engine = getEngine();
   if (!engine) return false;
   try {
-    return !!engine.isCutoverHeld?.();
+    return !!cutover.isCutoverHeld();
   } catch {
     return false;
   }

@@ -32,6 +32,8 @@ import {
   type AreaSurface,
   clientCallRows,
   clientMethodExports,
+  namespaceImports,
+  namespaceMethodExports,
   clientMethodReach,
   clientReachProblems,
   type Reach,
@@ -207,12 +209,21 @@ function report(): UsageInfo[] {
     keys,
     shared
   );
+  const barrelPath = path.join(REPO, 'modules/veloqrs/src/index.ts');
+  const namespaceRows = namespaceMethodExports(
+    fs.existsSync(barrelPath) ? fs.readFileSync(barrelPath, 'utf-8') : '',
+    delegateSources,
+    keys,
+    shared
+  );
+  const namespaces = new Set(namespaceRows.keys());
 
   for (const file of files) {
     const delegate = isDelegateFile(file);
     const engineLayer = isEngineLayerFile(file);
     const source = sources.get(file) as string;
     const local = { ...shared, ...typeBindings(source) };
+    const imported = namespaceImports(source, namespaces);
     const lineStarts: number[] = [0];
     for (let i = 0; i < source.length; i++) if (source[i] === '\n') lineStarts.push(i + 1);
     const lineOf = (index: number): number => {
@@ -232,7 +243,9 @@ function report(): UsageInfo[] {
       // A call to the client reaches the export its delegate forwards to,
       // which the client's own method name does not say. The delegate's own
       // body placed it, so it is attributed whatever the receiver says.
-      const viaClient = engineLayer ? [] : clientCallRows(call, clientRows, local);
+      const viaClient = engineLayer
+        ? []
+        : clientCallRows(call, clientRows, local, namespaceRows, imported);
       const rows = [
         ...resolveCall(call, keys, local, engineLayer).filter((key) => !viaClient.includes(key)),
         ...viaClient,

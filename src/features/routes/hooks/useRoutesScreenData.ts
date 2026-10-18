@@ -18,7 +18,7 @@ import type {
   SectionWithPolyline,
   SectionHiddenFilters,
 } from 'veloqrs';
-import { GroupSort, SectionSort } from 'veloqrs';
+import { GroupSort, SectionSort, routes } from 'veloqrs';
 import type { LatLngShort } from '@/shared/geo/distance';
 import {
   mergeHasMore,
@@ -100,7 +100,7 @@ function readFirstPage(query: {
     const engine = getEngine();
     if (!engine) return { data: null, error: null };
 
-    const result = engine.getRoutesScreenData({
+    const result = routes.getRoutesScreenData({
       groupLimit: query.groupLimit,
       groupOffset: 0,
       sectionLimit: query.sectionLimit,
@@ -272,7 +272,7 @@ export function useRoutesScreenData(opts?: {
           : isLoadingGroupsRef.current
             ? 'groups'
             : 'sections';
-      const result = engine.getRoutesScreenData({
+      const result = routes.getRoutesScreenData({
         ...routesPageQuery(kind, { groupOffset, groupLimit, sectionOffset, sectionLimit }),
         minGroupActivityCount: 2,
         groupSort,

@@ -3,9 +3,10 @@
  * ninety days. The summary on `month` or `year` totals what is held and, for a
  * period the device never pulled, says there were no activities in it.
  *
- * Expected behaviour: the census answers for each period's own dates. A period
- * never downloaded says so in place of the empty state, and a period partly
- * downloaded, or compared against one, carries a quiet line under the totals.
+ * Expected behaviour: the engine's comparison carries each period's census
+ * answer, and the card reads no census of its own. A period never downloaded
+ * says so in place of the empty state, and a period partly downloaded, or
+ * compared against one, carries a quiet line under the totals.
  */
 
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
@@ -38,6 +39,13 @@ const WINDOWS = {
 /** How many activities every window the read answers holds. */
 let held = 3;
 
+/** The census answer for the period starting on each local day, `YYYY-MM-DD`. */
+let coverage: Record<string, RangeCoverage> = {};
+
+const day = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const coverageOf = (start: Date) => coverage[day(start)] ?? RangeCoverage.Loaded;
+
 const engine = {
   getFitnessScreenData: fitnessScreenRead({
     comparisons: (now) => {
@@ -47,6 +55,8 @@ const engine = {
           previous: { startTs: wallSeconds(previousStart), endTs: wallSeconds(previousEnd) },
           currentStats: totals(held),
           previousStats: totals(held),
+          currentCoverage: coverageOf(currentStart),
+          previousCoverage: coverageOf(previousStart),
         });
       return { week: of(WINDOWS.week), month: of(WINDOWS.month), year: of(WINDOWS.year) };
     },
@@ -61,11 +71,8 @@ function wrapper({ children }: { children: React.ReactNode }) {
   return React.createElement(QueryClientProvider, { client }, children);
 }
 
-/** The census answer for the window starting `oldest`, by its first day. */
 function coverageBy(answers: Record<string, RangeCoverage>) {
-  engine.rangeCoverage.mockImplementation(
-    (oldest: string) => answers[oldest] ?? RangeCoverage.Loaded
-  );
+  coverage = answers;
 }
 
 beforeEach(() => {
@@ -73,7 +80,7 @@ beforeEach(() => {
   // Local noon, so the date is the 17th in every zone; the suite's UTC instant is the 18th east of UTC+12.
   jest.setSystemTime(NOON);
   held = 3;
-  engine.rangeCoverage.mockImplementation(() => RangeCoverage.Loaded);
+  coverage = {};
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   (getEngine as jest.MockedFunction<typeof getEngine>).mockReturnValue(
     engine as unknown as ReturnType<typeof getEngine>
@@ -81,7 +88,8 @@ beforeEach(() => {
 });
 
 describe('WeeklySummary over a range never downloaded', () => {
-  it('asks the census about each period it compares, by its own dates', async () => {
+  it('reads no census of its own, the comparison carrying both periods', async () => {
+    coverageBy({ '2026-05-01': RangeCoverage.NotFetched });
     const view = await render(
       <WithScreenRead>{(training) => <WeeklySummary training={training} />}</WithScreenRead>,
       { wrapper }
@@ -89,11 +97,8 @@ describe('WeeklySummary over a range never downloaded', () => {
 
     await fireEvent.press(view.getByTestId('weekly-summary-range-month'));
 
-    // The clock is set to noon on Wednesday 17 June 2026, local time.
-    await waitFor(() =>
-      expect(engine.rangeCoverage).toHaveBeenCalledWith('2026-06-01', '2026-06-17')
-    );
-    expect(engine.rangeCoverage).toHaveBeenCalledWith('2026-05-01', '2026-05-17');
+    await waitFor(() => expect(view.getByTestId('weekly-summary-partial')).toBeTruthy());
+    expect(engine.rangeCoverage).not.toHaveBeenCalled();
   });
 
   it('says a month never downloaded is not downloaded, not empty', async () => {
@@ -159,18 +164,6 @@ describe('WeeklySummary over a range never downloaded', () => {
 
     await waitFor(() => expect(view.getByTestId('weekly-summary-count')).toBeTruthy());
     expect(view.queryByTestId('weekly-summary-partial')).toBeNull();
-  });
-
-  it('asks the census about this week so far and last week to the same weekday', async () => {
-    await render(
-      <WithScreenRead>{(training) => <WeeklySummary training={training} />}</WithScreenRead>,
-      { wrapper }
-    );
-
-    await waitFor(() =>
-      expect(engine.rangeCoverage).toHaveBeenCalledWith('2026-06-15', '2026-06-17')
-    );
-    expect(engine.rangeCoverage).toHaveBeenCalledWith('2026-06-08', '2026-06-10');
   });
 
   it('says a week never downloaded is not downloaded, not empty', async () => {

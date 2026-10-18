@@ -100,7 +100,6 @@
     "src/features/recording/components/TrimSlider.tsx": 1,
     "src/features/recording/RecordingScreen.styles.ts": 2,
     "src/features/routes/components/RouteRow.tsx": 1,
-    "src/features/routes/components/section/SectionActionRow.tsx": 1,
     "src/features/routes/components/section/SectionContentArea.tsx": 2,
     "src/features/routes/components/section/SectionStatsCards.tsx": 1,
     "src/features/routes/components/SyncDebugSection.tsx": 2,

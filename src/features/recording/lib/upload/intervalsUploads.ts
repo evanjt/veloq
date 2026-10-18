@@ -8,7 +8,7 @@
  * which has no upstream account and acknowledges a write locally.
  */
 
-import { UploadOutcome, engine, type UploadResult } from 'veloqrs';
+import { UploadOutcome, recordings, type UploadResult } from 'veloqrs';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { sourceFor } from '@/shared/app/source';
@@ -40,5 +40,5 @@ export async function uploadRecordingNow(id: string): Promise<UploadResult> {
     });
     return { outcome: answer.applied ? UploadOutcome.Uploaded : UploadOutcome.NotStarted };
   }
-  return engine.uploadRecording(id, true, DOCUMENTS_ROOT);
+  return recordings.uploadRecording(id, true, DOCUMENTS_ROOT);
 }

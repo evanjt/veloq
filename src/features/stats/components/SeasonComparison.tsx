@@ -23,10 +23,12 @@ import {
 import type {
   MonthTotals,
   PeriodTotals,
+  SummaryComparison,
+  SummaryStat,
   TrainingCardsRead,
 } from '@/features/stats/hooks/useEngineStats';
 import { ErrorState, ToggleButton, CardHeader, EmptyState } from '@/shared/ui';
-import { seasonChange, seasonMonthChange } from '@/features/stats/lib/periodWindows';
+import { seasonChange } from '@/features/stats/lib/periodWindows';
 import { seasonColours } from '@/features/stats/lib/seasonColours';
 import { useWindowCoverage } from '@/shared/native/useRangeCoverage';
 import {
@@ -57,13 +59,23 @@ interface SeasonComparisonProps {
   height?: number;
 }
 
+type SeasonMetric = 'hours' | 'distance' | 'tss';
+
+/** The engine total each of the card's metrics reads. */
+const SEASON_STAT: Record<SeasonMetric, SummaryStat> = {
+  hours: 'duration',
+  distance: 'distance',
+  tss: 'tss',
+};
+
+const NO_TOTALS: PeriodTotals = { count: 0, duration: 0, distance: 0, tss: 0 };
+
 /**
- * The change from `previous` to `current` as a percentage, or null when there
- * is no previous value to take a percentage of. A zero baseline has no
- * percentage change, and showing one as 0 read as "no change".
+ * The engine's change for one metric as a percentage, or null when it judged
+ * none: a zero baseline, or a period the device holds only part of.
  */
-function percentChange(current: number, previous: number): number | null {
-  return previous > 0 ? ((current - previous) / previous) * 100 : null;
+function seasonPercent(comparison: SummaryComparison | undefined | null, metric: SeasonMetric) {
+  return comparison?.moves[SEASON_STAT[metric]]?.change ?? null;
 }
 
 /**
@@ -130,7 +142,7 @@ export function SeasonComparison({ training, height = 200 }: SeasonComparisonPro
   const { isDark } = useTheme();
   const styles = themedStyles(makeStyles, isDark);
   const isMetric = useMetricSystem();
-  const [metric, setMetric] = useState<'hours' | 'distance' | 'tss'>('hours');
+  const [metric, setMetric] = useState<SeasonMetric>('hours');
 
   // The two calendar years the chart draws, and no more: the totals come from
   // the engine's own GROUP BY rather than from a parsed year of bodies. The
@@ -138,7 +150,7 @@ export function SeasonComparison({ training, height = 200 }: SeasonComparisonPro
   // against a whole one, and all of it is the fitness screen's one read.
   const {
     windows,
-    data: { months, yearCurrent, yearPrevious, monthCurrent, monthPrevious },
+    data: { months, seasonYear, seasonMonths },
     error: readError,
     retry,
   } = training;
@@ -260,22 +272,20 @@ export function SeasonComparison({ training, height = 200 }: SeasonComparisonPro
   const colorPrevious = paint.previous;
 
   // Calculate totals
-  const totals = useMemo(() => {
-    const currentTotal = metricValue(yearCurrent, metric, isMetric);
-    const previousTotal = metricValue(yearPrevious, metric, isMetric);
-    const pctChange = percentChange(currentTotal, previousTotal);
-    return { currentTotal, previousTotal, pctChange };
-  }, [yearCurrent, yearPrevious, metric, isMetric]);
+  const totals = useMemo(
+    () => ({
+      currentTotal: metricValue(seasonYear?.current ?? NO_TOTALS, metric, isMetric),
+      previousTotal: metricValue(seasonYear?.previous ?? NO_TOTALS, metric, isMetric),
+      pctChange: seasonPercent(seasonYear, metric),
+    }),
+    [seasonYear, metric, isMetric]
+  );
 
-  // Get selected month data for tooltip
+  // Get selected month data for tooltip. A month after this one has no
+  // comparison, and the engine set this one to date against last year's same days.
   const selectedMonthData = selectedMonth !== null ? data[selectedMonth] : null;
   const selectedMonthDiff =
-    selectedMonthData && selectedMonth !== null
-      ? seasonMonthChange(selectedMonth, currentMonth, selectedMonthData, {
-          current: metricValue(monthCurrent, metric, isMetric),
-          previous: metricValue(monthPrevious, metric, isMetric),
-        })
-      : null;
+    selectedMonth !== null ? seasonPercent(seasonMonths[selectedMonth], metric) : null;
   const monthChange = selectedMonthDiff !== null ? seasonChange(metric, selectedMonthDiff) : null;
   const totalChange = totals.pctChange !== null ? seasonChange(metric, totals.pctChange) : null;
 

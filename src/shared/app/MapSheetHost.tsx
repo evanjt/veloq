@@ -57,6 +57,11 @@ export interface MapSheetHostValue {
   focused: boolean;
   /** Sets the host route's header options on the root stack, the title among them. */
   setHeaderOptions: (options: object) => void;
+  /**
+   * Tells the host its map screen draws no map, for a subject with nothing to show on one, so the
+   * status bar takes the theme's glyphs rather than the light ones it draws over a map.
+   */
+  setMapless?: (mapless: boolean) => void;
 }
 
 export const MapSheetHostContext = createContext<MapSheetHostValue | null>(null);
@@ -163,13 +168,14 @@ export function createMapSheetHostLayout(kind: MapSheetKind) {
     const { width, height } = useWindowDimensions();
     const { top, bottom } = useSafeAreaInsets();
     const { onDetentChanged } = useMapSheetStop(key);
+    const [mapless, setMapless] = useState(false);
 
     const setHeaderOptions = useCallback(
       (options: object) => navigation.setOptions(options),
       [navigation]
     );
     const host = useMemo<MapSheetHostValue>(
-      () => ({ kind, id, key, focused, setHeaderOptions }),
+      () => ({ kind, id, key, focused, setHeaderOptions, setMapless }),
       [id, key, focused, setHeaderOptions]
     );
     const sheetOptions = mapSheetScreenOptions(Platform.OS, Platform.Version, {
@@ -181,7 +187,7 @@ export function createMapSheetHostLayout(kind: MapSheetKind) {
 
     return (
       <MapSheetHostContext.Provider value={host}>
-        <MapHeroStatusBar scrolledPastHero={false} isDark={isDark} />
+        <MapHeroStatusBar scrolledPastHero={mapless} isDark={isDark} />
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />
           <Stack.Screen

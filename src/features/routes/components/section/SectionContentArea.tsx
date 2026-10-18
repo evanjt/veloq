@@ -29,6 +29,7 @@ import type {
 } from 'veloqrs';
 import type { DirectionStats, PerformanceDataPoint, RoutePoint } from '@/types';
 import type { SectionDeltaLine } from '@/features/routes/lib/deltaLayout';
+import type { SportTypeOption } from '../SportTypeSelector';
 import type { ChartDirection } from '@/features/routes/lib/scatterData';
 
 export interface SectionContentAreaProps {
@@ -94,6 +95,12 @@ export interface SectionContentAreaProps {
   onMergePress?: (() => void) | undefined;
   /** The state of the time streams the lap times wait on. */
   streams?: SectionStreamsState | undefined;
+  /** The sports the read offers, as chips beside the range; empty draws none. */
+  sportOptions?: readonly SportTypeOption[] | undefined;
+  /** Called with the chip tapped. */
+  onSelectSport?: ((sport: string) => void) | undefined;
+  /** Rows at the foot of the summary card. */
+  infoFooter?: React.ReactNode;
   /** Rows that open the supporting detail pages. */
   children?: React.ReactNode;
 }
@@ -139,6 +146,9 @@ export function SectionContentArea({
   onToggleDisable,
   onMergePress,
   streams,
+  sportOptions,
+  onSelectSport,
+  infoFooter,
   children,
 }: SectionContentAreaProps) {
   const { t } = useTranslation();
@@ -208,6 +218,8 @@ export function SectionContentArea({
         sectionTimeRange={sectionTimeRange}
         onTimeRangeChange={onTimeRangeChange}
         streams={streams}
+        sportOptions={sportOptions}
+        onSelectSport={onSelectSport}
       />
 
       {/* Summary card */}
@@ -221,6 +233,7 @@ export function SectionContentArea({
         basis={basis}
         isDark={isDark}
         pending={streams?.status === 'loading'}
+        footer={infoFooter}
       />
 
       {/* Aerobic efficiency across matched efforts, when the engine has it */}
@@ -252,7 +265,7 @@ export function SectionContentArea({
 const styles = StyleSheet.create({
   contentSection: {
     padding: layout.screenPadding,
-    paddingTop: spacing.lg,
+    paddingTop: spacing.sm,
     gap: spacing.md,
   },
 });

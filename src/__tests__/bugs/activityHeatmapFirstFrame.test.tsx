@@ -16,7 +16,11 @@ import { ActivityHeatmap } from '@/features/stats/components/ActivityHeatmap';
 import { HEATMAP_PITCH, HEATMAP_WEEKS } from '@/features/stats/lib/heatmapGrid';
 import { initialiseI18n } from '@/i18n';
 import { getEngine } from '@/shared/native/engine';
-import { NO_FITNESS_PARTS, noComparisons } from '../__shared__/fitnessScreenRead';
+import {
+  NO_FITNESS_PARTS,
+  noComparisons,
+  summaryComparison,
+} from '../__shared__/fitnessScreenRead';
 import { WithScreenRead } from '../__shared__/withScreenRead';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -37,10 +41,13 @@ const engine = {
     ...NO_FITNESS_PARTS,
     heatmap: [{ date: windows.heatmapLastDay, intensity: 3, maxDuration: 6000, activityCount: 2 }],
     months: [],
-    yearCurrent: totals,
-    yearPrevious: totals,
-    monthCurrent: totals,
-    monthPrevious: totals,
+    seasonYear: summaryComparison(windows.nowWallSeconds, {
+      currentStats: totals,
+      previousStats: totals,
+    }),
+    seasonMonths: [
+      summaryComparison(windows.nowWallSeconds, { currentStats: totals, previousStats: totals }),
+    ],
     comparisons: noComparisons(windows.nowWallSeconds),
   }),
 };

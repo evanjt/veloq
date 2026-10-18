@@ -7,7 +7,7 @@
  */
 
 import type { TFunction } from 'i18next';
-import { engine } from 'veloqrs';
+import { engine, heatmap } from 'veloqrs';
 
 import type { SyncProgress } from '@/features/routes/hooks/useRouteSyncProgress';
 import { awaitEngineAnnouncement } from '@/shared/native/awaitEngineAnnouncement';
@@ -54,7 +54,7 @@ export function tilePassProgress(
 export function awaitTilePass(
   onStarted?: (processed: number, total: number) => void
 ): Promise<void> {
-  if (engine.pollTileGeneration() !== 'running') {
+  if (heatmap.pollTileGeneration() !== 'running') {
     return Promise.resolve();
   }
 
@@ -62,7 +62,7 @@ export function awaitTilePass(
   // the default budget rather than failing the sync it sits in.
   let progress: number[] | null = null;
   try {
-    progress = engine.getHeatmapTileProgress();
+    progress = heatmap.getHeatmapTileProgress();
   } catch (error) {
     console.warn('[TilePass] Could not read the pass progress:', engineErrorTag(error) ?? error);
   }
@@ -75,7 +75,7 @@ export function awaitTilePass(
     // One read to retire the finished handle. A pass that outran the budget
     // is still running and is left alone.
     read: () => {
-      engine.pollTileGeneration();
+      heatmap.pollTileGeneration();
       return true;
     },
     onDeadline: () => false,

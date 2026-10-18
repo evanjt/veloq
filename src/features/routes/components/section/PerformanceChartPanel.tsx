@@ -90,6 +90,8 @@ export interface PerformanceChartPanelProps extends Omit<
    * with null otherwise, so the section map reads the panel's one direction.
    */
   onShownDirectionChange?: ((direction: ChartDirection | null) => void) | undefined;
+  /** What the plot's figures are, drawn under the plot and its legend. */
+  footnote?: React.ReactNode;
 }
 
 export function PerformanceChartPanel({
@@ -105,6 +107,7 @@ export function PerformanceChartPanel({
   excludedCount = 0,
   showExcluded = false,
   onToggleShowExcluded,
+  footnote,
   ...scatterProps
 }: PerformanceChartPanelProps) {
   const {
@@ -358,6 +361,7 @@ export function PerformanceChartPanel({
           />
         </>
       )}
+      {footnote}
       {attempt ? (
         <View style={styles.card}>
           <SelectedAttemptCard

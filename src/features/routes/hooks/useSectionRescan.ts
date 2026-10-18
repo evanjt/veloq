@@ -1,12 +1,12 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useFocusEffect } from 'expo-router';
-import { hasStarted, StartOutcome, type StartVerdict } from 'veloqrs';
+import { hasStarted, StartOutcome, type StartVerdict, detection } from 'veloqrs';
 import { getEngine } from '@/shared/native/engine';
 import { attemptEngineRead } from '@/shared/native/engineError';
 import {
   DETECTION_FOREGROUND_MS,
   followDetection,
-  type DetectionEngine,
+  detectionEngineOf,
 } from '@/features/routes/lib/detectionRun';
 
 interface RescanResult {
@@ -90,7 +90,7 @@ export function useSectionRescan(): SectionRescanState {
     setResult(null);
     setFailed(false);
     setStillRunning(false);
-    const follow = followDetection(engine as unknown as DetectionEngine, {
+    const follow = followDetection(detectionEngineOf(engine, detection), {
       // The run's end comes from an announcement, and an announcement can be
       // withheld: the observer is not registered when the binding checksum
       // check throws, which is what a library out of step with its bindings
@@ -152,7 +152,7 @@ export function useSectionRescan(): SectionRescanState {
     if (!engine) return adopt(StartOutcome.NotReady);
     beforeCountRef.current = getSectionCount();
     adoptedRef.current = false;
-    return adopt(engine.startSectionDetection());
+    return adopt(detection.startSectionDetection());
   }, [adopt]);
 
   const forceRescan = useCallback(() => {
@@ -160,13 +160,13 @@ export function useSectionRescan(): SectionRescanState {
     if (!engine) return adopt(StartOutcome.NotReady);
     beforeCountRef.current = getSectionCount();
     adoptedRef.current = false;
-    return adopt(engine.forceRedetectSections());
+    return adopt(detection.forceRedetectSections());
   }, [adopt]);
 
   const cancelScan = useCallback(() => {
     const engine = getEngine();
     if (!engine) return false;
-    return engine.cancelSectionDetection();
+    return detection.cancelSectionDetection();
   }, []);
 
   const clearResult = useCallback(() => {
@@ -187,7 +187,7 @@ export function useSectionRescan(): SectionRescanState {
       // not cost the screen its mount.
       let running = false;
       try {
-        running = engine.getSectionDetectionProgress?.() != null;
+        running = detection.getSectionDetectionProgress() != null;
       } catch {
         running = false;
       }

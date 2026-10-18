@@ -368,18 +368,6 @@ export function SectionScatterChart({
 
   return (
     <View style={styles.container}>
-      {selectedDirection === 'forward' && forwardPoints.length > 0 && (
-        <StatsRow
-          direction="forward"
-          stats={forwardStats}
-          bestRecord={bestForwardRecord}
-          bestIsRecord={bestForwardIsRecord}
-          pointCount={forwardPoints.length}
-          basis={basis}
-          isDark={isDark}
-        />
-      )}
-
       <ChartSurface
         testID="section-scatter-chart"
         summary={spoken.summary}
@@ -530,6 +518,17 @@ export function SectionScatterChart({
         </View>
       ) : null}
 
+      {selectedDirection === 'forward' && forwardPoints.length > 0 && (
+        <StatsRow
+          direction="forward"
+          stats={forwardStats}
+          bestRecord={bestForwardRecord}
+          bestIsRecord={bestForwardIsRecord}
+          pointCount={forwardPoints.length}
+          basis={basis}
+          isDark={isDark}
+        />
+      )}
       {selectedDirection === 'reverse' && reversePoints.length > 0 && (
         <StatsRow
           direction="reverse"

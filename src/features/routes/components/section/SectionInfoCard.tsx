@@ -1,5 +1,6 @@
 /**
- * Summary card showing first/last visited dates and best/average times.
+ * Summary card showing first/last visited dates and best/average times, with
+ * what the page adds at its foot: a section's grades and its kept state.
  * Displayed between the scatter chart and the calendar history.
  */
 
@@ -33,6 +34,8 @@ export interface SectionInfoCardProps {
   isDark: boolean;
   /** Streams are still downloading, so the card holds its place. */
   pending?: boolean;
+  /** Rows under the figures, shown whether or not the attempts are dated yet. */
+  footer?: React.ReactNode;
 }
 
 export function SectionInfoCard({
@@ -45,6 +48,7 @@ export function SectionInfoCard({
   basis,
   isDark,
   pending = false,
+  footer,
 }: SectionInfoCardProps) {
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
@@ -61,11 +65,18 @@ export function SectionInfoCard({
     return (
       <Card variant="flat" testID="section-info-pending">
         <Shimmer height={INFO_CARD_PLACEHOLDER_HEIGHT} />
+        {footer}
       </Card>
     );
   }
 
-  if (!firstDate || !lastDate) return null;
+  if (!firstDate || !lastDate) {
+    return footer ? (
+      <Card variant="flat" testID="section-summary">
+        {footer}
+      </Card>
+    ) : null;
+  }
 
   const labelColor = isDark ? darkColors.textSecondary : colors.textSecondary;
   const valueColor = isDark ? darkColors.textPrimary : colors.textPrimary;
@@ -147,6 +158,7 @@ export function SectionInfoCard({
           ))}
         </View>
       ))}
+      {footer}
     </Card>
   );
 }

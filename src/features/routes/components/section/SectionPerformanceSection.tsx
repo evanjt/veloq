@@ -1,7 +1,8 @@
 /**
- * The performance block of the section and route detail pages: the title, the
- * timing method and the range menu, then the panel, or what stands in for it
- * while the time streams load, after they failed, or when nothing is left.
+ * The performance block of the section and route detail pages: one row of the
+ * sport chips and the range menu, then the panel with the timing method under
+ * the plot, or what stands in for it while the time streams load, after they
+ * failed, or when nothing is left.
  */
 
 import React, { useEffect } from 'react';
@@ -10,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { ExcludedAttemptsLink } from './ExcludedAttemptsLink';
 import { PerformanceChartPanel } from './PerformanceChartPanel';
 import { SectionStreamsNotice } from './SectionStreamsNotice';
+import { SportTypeSelector, type SportTypeOption } from '../SportTypeSelector';
 import type {
   DirectionBestRecord,
   DirectionSummaryStats,
@@ -106,6 +108,10 @@ export interface SectionPerformanceSectionProps {
   onTimeRangeChange: (range: SectionTimeRange) => void;
   /** Absent means settled. While streams load or failed, an empty chart is not a result. */
   streams?: SectionStreamsState | undefined;
+  /** The sports the read offers, as chips beside the range; empty or absent draws none. */
+  sportOptions?: readonly SportTypeOption[] | undefined;
+  /** Called with the chip tapped. */
+  onSelectSport?: ((sport: string) => void) | undefined;
 }
 
 export function SectionPerformanceSection({
@@ -139,6 +145,8 @@ export function SectionPerformanceSection({
   sectionTimeRange,
   onTimeRangeChange,
   streams,
+  sportOptions,
+  onSelectSport,
 }: SectionPerformanceSectionProps) {
   const { t } = useTranslation();
   const hasEfforts = chartData.length > 0;
@@ -148,6 +156,11 @@ export function SectionPerformanceSection({
   const basis = attemptBasis(sportType as ActivityType, isRoute);
   const methodLine =
     basis === 'time' || readsPace(basis) ? t('sections.methodFasterAtTop', { method }) : method;
+  const methodText = (
+    <Text testID={`${subject}-time-method`} style={[styles.method, isDark && styles.methodDark]}>
+      {methodLine}
+    </Text>
+  );
 
   useEffect(() => {
     completeFlowAfterFrame(FLOW_EXPAND);
@@ -155,10 +168,17 @@ export function SectionPerformanceSection({
 
   return (
     <View style={styles.chartSection}>
-      <View style={styles.chartHeader}>
-        <Text style={[styles.chartTitle, isDark && styles.chartTitleDark]}>
-          {t('sections.performanceOverTime')}
-        </Text>
+      <View testID="performance-controls" style={styles.controls}>
+        {sportOptions && sportOptions.length > 0 && onSelectSport ? (
+          <SportTypeSelector
+            options={sportOptions}
+            selectedType={sportType}
+            onSelect={onSelectSport}
+            style={styles.sports}
+          />
+        ) : (
+          <View style={styles.sports} />
+        )}
         <SelectButton
           testID="section-time-range"
           style={styles.timeRange}
@@ -174,9 +194,6 @@ export function SectionPerformanceSection({
           }}
         />
       </View>
-      <Text testID={`${subject}-time-method`} style={[styles.method, isDark && styles.methodDark]}>
-        {methodLine}
-      </Text>
       {streams?.status === 'partial' ? (
         <SectionStreamsNotice
           isDark={isDark}
@@ -213,6 +230,7 @@ export function SectionPerformanceSection({
           excludedCount={excludedCount}
           onToggleShowExcluded={onToggleShowExcluded}
           highlightedActivityId={highlightedActivityId}
+          footnote={methodText}
         />
       ) : streams?.status === 'loading' ? (
         <View testID="section-performance-pending" style={styles.emptyState}>
@@ -238,26 +256,21 @@ export function SectionPerformanceSection({
           <EmptyState variant="inline" title={t('sections.noActivitiesFound')} />
         </View>
       )}
+      {hasEfforts ? null : methodText}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   chartSection: {},
-  chartHeader: {
+  controls: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: spacing.md,
+    gap: spacing.sm,
     marginBottom: spacing.sm,
   },
-  chartTitle: {
-    ...typography.bodyBold,
-    flexShrink: 1,
-    color: colors.textPrimary,
-  },
-  chartTitleDark: {
-    color: darkColors.textPrimary,
+  sports: {
+    flex: 1,
   },
   timeRange: {
     flexShrink: 0,
@@ -265,7 +278,7 @@ const styles = StyleSheet.create({
   method: {
     ...typography.caption,
     paddingHorizontal: spacing.md,
-    marginBottom: spacing.sm,
+    marginTop: spacing.xs,
     color: colors.textSecondary,
   },
   methodDark: {

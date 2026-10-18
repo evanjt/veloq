@@ -10,6 +10,10 @@
 # shows what a tap costs without the mount. Every tap is captured with
 # `dumpsys gfxinfo framestats` from a reset just before it, written to
 # OUT/LABEL-<first|again>-<round>.txt and read by `lib/tab-visit-framestats.mjs`.
+# That reader finds the mount frame only beside the screen's own `tab.*`
+# figure for the same tap, which the Developer Dashboard shows with Debug Mode
+# on: read it after each round, then run the reader again as
+# `lib/tab-visit-framestats.mjs OUT/LABEL-first-1.txt=MS ...`.
 #
 # The tap is timed only with Veloq in front, before and after, and with SCREEN
 # on screen after it: a dialog that takes focus takes the tap too.

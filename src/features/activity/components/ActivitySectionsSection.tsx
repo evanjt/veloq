@@ -49,6 +49,7 @@ import { colors, darkColors, duration, spacing, typography } from '@/theme';
 import { debug } from '@/shared/debug/debug';
 import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
 import { confirmAction, inform } from '@/shared/ui/dialog';
+import { usePagerPageScrollProps } from '@/shared/ui/pagerPageScroll';
 
 const log = debug.create('ActivitySectionsSection');
 
@@ -106,6 +107,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   onFocusHandled,
 }: ActivitySectionsSectionProps) {
   const { t } = useTranslation();
+  const pageScroll = usePagerPageScrollProps();
   const openDetail = useOpenDetail();
   const bottomClearance = useBottomClearance();
 
@@ -738,6 +740,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
           }}
           scrollEventThrottle={16}
           scrollEnabled={!isScrubbing}
+          {...pageScroll}
           onScrollToIndexFailed={handleScrollToIndexFailed}
         />
       </View>

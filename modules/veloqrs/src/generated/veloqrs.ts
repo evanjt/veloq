@@ -10354,6 +10354,11 @@ export type FfiStatTrend = {
    * a move inside the deadband.
    */
   percent?: number;
+  /**
+   * The signed move in percent of the earlier total, unrounded, for a card
+   * that prints its own precision.
+   */
+  change: number;
 };
 
 /**
@@ -10380,16 +10385,19 @@ const FfiConverterTypeFfiStatTrend = (() => {
       return {
         glyph: FfiConverterString.readFromCursor(c),
         percent: FfiConverterOptionalUInt32.readFromCursor(c),
+        change: FfiConverterFloat64.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
       FfiConverterString.writeIntoCursor(value.glyph, c);
       FfiConverterOptionalUInt32.writeIntoCursor(value.percent, c);
+      FfiConverterFloat64.writeIntoCursor(value.change, c);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterString.allocationSize(value.glyph) +
-        FfiConverterOptionalUInt32.allocationSize(value.percent)
+        FfiConverterOptionalUInt32.allocationSize(value.percent) +
+        FfiConverterFloat64.allocationSize(value.change)
       );
     }
   }
@@ -10397,9 +10405,10 @@ const FfiConverterTypeFfiStatTrend = (() => {
 })();
 
 /**
- * A period to now against the same elapsed span of the period before it,
- * each window inclusive at both ends. A trend is absent when the earlier
- * period has none of that total, so nothing is compared with zero.
+ * A period against an earlier one, each window inclusive at both ends. A
+ * trend is absent when the earlier period has none of that total, so nothing
+ * is compared with zero, and every trend is absent while either period is
+ * not fully on the device.
  */
 export type FfiSummaryComparison = {
   current: FfiTimestampRange;
@@ -10410,6 +10419,11 @@ export type FfiSummaryComparison = {
   duration?: FfiStatTrend;
   distance?: FfiStatTrend;
   load?: FfiStatTrend;
+  /**
+   * Whether each period's activities are on the device, by the census.
+   */
+  currentCoverage: RangeCoverage;
+  previousCoverage: RangeCoverage;
 };
 
 /**
@@ -10443,6 +10457,8 @@ const FfiConverterTypeFfiSummaryComparison = (() => {
         duration: FfiConverterOptionalTypeFfiStatTrend.readFromCursor(c),
         distance: FfiConverterOptionalTypeFfiStatTrend.readFromCursor(c),
         load: FfiConverterOptionalTypeFfiStatTrend.readFromCursor(c),
+        currentCoverage: FfiConverterTypeRangeCoverage.readFromCursor(c),
+        previousCoverage: FfiConverterTypeRangeCoverage.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -10454,6 +10470,8 @@ const FfiConverterTypeFfiSummaryComparison = (() => {
       FfiConverterOptionalTypeFfiStatTrend.writeIntoCursor(value.duration, c);
       FfiConverterOptionalTypeFfiStatTrend.writeIntoCursor(value.distance, c);
       FfiConverterOptionalTypeFfiStatTrend.writeIntoCursor(value.load, c);
+      FfiConverterTypeRangeCoverage.writeIntoCursor(value.currentCoverage, c);
+      FfiConverterTypeRangeCoverage.writeIntoCursor(value.previousCoverage, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -10464,7 +10482,9 @@ const FfiConverterTypeFfiSummaryComparison = (() => {
         FfiConverterOptionalTypeFfiStatTrend.allocationSize(value.count) +
         FfiConverterOptionalTypeFfiStatTrend.allocationSize(value.duration) +
         FfiConverterOptionalTypeFfiStatTrend.allocationSize(value.distance) +
-        FfiConverterOptionalTypeFfiStatTrend.allocationSize(value.load)
+        FfiConverterOptionalTypeFfiStatTrend.allocationSize(value.load) +
+        FfiConverterTypeRangeCoverage.allocationSize(value.currentCoverage) +
+        FfiConverterTypeRangeCoverage.allocationSize(value.previousCoverage)
       );
     }
   }
@@ -10626,10 +10646,16 @@ export type FfiFitnessScreenData = {
    * Calendar months with activities inside the monthly span, oldest first.
    */
   months: Array<FfiMonthlyStats>;
-  yearCurrent: FfiPeriodStats;
-  yearPrevious: FfiPeriodStats;
-  monthCurrent: FfiPeriodStats;
-  monthPrevious: FfiPeriodStats;
+  /**
+   * The year to date against the same span of last year.
+   */
+  seasonYear: FfiSummaryComparison;
+  /**
+   * Each month of this year to date against the same month a year before,
+   * January first: the months before this one whole, then this month to
+   * date against the same span of last year's.
+   */
+  seasonMonths: Array<FfiSummaryComparison>;
   /**
    * The weekly card's periods to now, each against the same span before.
    */
@@ -10675,10 +10701,9 @@ const FfiConverterTypeFfiFitnessScreenData = (() => {
         calendarFirstDay: FfiConverterString.readFromCursor(c),
         calendarOlderOwed: FfiConverterUInt32.readFromCursor(c),
         months: FfiConverterSequenceTypeFfiMonthlyStats.readFromCursor(c),
-        yearCurrent: FfiConverterTypeFfiPeriodStats.readFromCursor(c),
-        yearPrevious: FfiConverterTypeFfiPeriodStats.readFromCursor(c),
-        monthCurrent: FfiConverterTypeFfiPeriodStats.readFromCursor(c),
-        monthPrevious: FfiConverterTypeFfiPeriodStats.readFromCursor(c),
+        seasonYear: FfiConverterTypeFfiSummaryComparison.readFromCursor(c),
+        seasonMonths:
+          FfiConverterSequenceTypeFfiSummaryComparison.readFromCursor(c),
         comparisons: FfiConverterTypeFfiSummaryComparisons.readFromCursor(c),
       };
     }
@@ -10701,10 +10726,11 @@ const FfiConverterTypeFfiFitnessScreenData = (() => {
       FfiConverterString.writeIntoCursor(value.calendarFirstDay, c);
       FfiConverterUInt32.writeIntoCursor(value.calendarOlderOwed, c);
       FfiConverterSequenceTypeFfiMonthlyStats.writeIntoCursor(value.months, c);
-      FfiConverterTypeFfiPeriodStats.writeIntoCursor(value.yearCurrent, c);
-      FfiConverterTypeFfiPeriodStats.writeIntoCursor(value.yearPrevious, c);
-      FfiConverterTypeFfiPeriodStats.writeIntoCursor(value.monthCurrent, c);
-      FfiConverterTypeFfiPeriodStats.writeIntoCursor(value.monthPrevious, c);
+      FfiConverterTypeFfiSummaryComparison.writeIntoCursor(value.seasonYear, c);
+      FfiConverterSequenceTypeFfiSummaryComparison.writeIntoCursor(
+        value.seasonMonths,
+        c,
+      );
       FfiConverterTypeFfiSummaryComparisons.writeIntoCursor(
         value.comparisons,
         c,
@@ -10729,10 +10755,10 @@ const FfiConverterTypeFfiFitnessScreenData = (() => {
         FfiConverterString.allocationSize(value.calendarFirstDay) +
         FfiConverterUInt32.allocationSize(value.calendarOlderOwed) +
         FfiConverterSequenceTypeFfiMonthlyStats.allocationSize(value.months) +
-        FfiConverterTypeFfiPeriodStats.allocationSize(value.yearCurrent) +
-        FfiConverterTypeFfiPeriodStats.allocationSize(value.yearPrevious) +
-        FfiConverterTypeFfiPeriodStats.allocationSize(value.monthCurrent) +
-        FfiConverterTypeFfiPeriodStats.allocationSize(value.monthPrevious) +
+        FfiConverterTypeFfiSummaryComparison.allocationSize(value.seasonYear) +
+        FfiConverterSequenceTypeFfiSummaryComparison.allocationSize(
+          value.seasonMonths,
+        ) +
         FfiConverterTypeFfiSummaryComparisons.allocationSize(value.comparisons)
       );
     }
@@ -38200,6 +38226,11 @@ const FfiConverterSequenceTypeFfiMonthlyStats = new FfiConverterArray(
 // FfiConverter for FfiStatTrend | undefined
 const FfiConverterOptionalTypeFfiStatTrend = new FfiConverterOptional(
   FfiConverterTypeFfiStatTrend,
+);
+
+// FfiConverter for Array<FfiSummaryComparison>
+const FfiConverterSequenceTypeFfiSummaryComparison = new FfiConverterArray(
+  FfiConverterTypeFfiSummaryComparison,
 );
 
 // FfiConverter for Array<GroupSummary>

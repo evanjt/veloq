@@ -15,14 +15,16 @@ export interface SectionOverflowMenuProps {
   onDelete: () => void;
   onToggleDisable: () => void;
   onRematch?: (() => void) | undefined;
+  /** Enters the bounds tool on the map. Absent for a section with no line to edit. */
+  onEditBounds?: (() => void) | undefined;
   /** The header's tint, so the trigger reads on the map and on the opaque header alike. */
   tint: string;
 }
 
 /**
- * The section page's rarer actions, in the native header's overflow menu:
- * rematch, then delete (custom) or remove and restore (detected). The
- * destructive row sits last, and delete asks for confirmation in its handler.
+ * The section page's actions, in the native header's overflow menu: Edit bounds
+ * first, then rematch, then delete (custom) or remove and restore (detected).
+ * The destructive row sits last, and delete asks for confirmation in its handler.
  */
 export function SectionOverflowMenu({
   sectionType,
@@ -32,6 +34,7 @@ export function SectionOverflowMenu({
   onDelete,
   onToggleDisable,
   onRematch,
+  onEditBounds,
   tint,
 }: SectionOverflowMenuProps) {
   const { t } = useTranslation();
@@ -39,6 +42,14 @@ export function SectionOverflowMenu({
   const kind = sectionSwipeKind(sectionType, isSectionDisabled);
 
   const entries: MenuPopupAction[] = [];
+  if (onEditBounds) {
+    entries.push({
+      key: 'edit-bounds',
+      label: t('sections.editBounds'),
+      icon: 'content-cut',
+      onPress: onEditBounds,
+    });
+  }
   if (onRematch && !isRematching && !isRematchHeld) {
     entries.push({
       key: 'rematch',

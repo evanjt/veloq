@@ -13,7 +13,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { getEngine } from '@/shared/native/engine';
 import { engineErrorTag } from '@/shared/native/engineError';
 import { useFitnessScreenRead } from '@/features/fitness/hooks/useFitnessScreenRead';
-import { NO_FITNESS_PARTS, noComparisons } from '../__shared__/fitnessScreenRead';
+import {
+  NO_FITNESS_PARTS,
+  noComparisons,
+  summaryComparison,
+} from '../__shared__/fitnessScreenRead';
 import { useAthleteSummary } from '@/features/fitness/hooks/useAthleteSummary';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
@@ -71,10 +75,8 @@ describe('stats hooks', () => {
           ...NO_FITNESS_PARTS,
           heatmap: [],
           months: [],
-          yearCurrent: none,
-          yearPrevious: none,
-          monthCurrent: none,
-          monthPrevious: none,
+          seasonYear: summaryComparison(0, { currentStats: none, previousStats: none }),
+          seasonMonths: [summaryComparison(0, { currentStats: none, previousStats: none })],
           comparisons: noComparisons(0),
         }) as never
     );

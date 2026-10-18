@@ -1,8 +1,9 @@
 import type { TFunction } from 'i18next';
 
-import { formatDistance, formatDuration, formatFullDate } from '@/shared/format/format';
+import { formatDateSpan, formatDistance, formatDuration } from '@/shared/format/format';
 import type { HeroStat } from '@/shared/ui/DetailHero';
-import { scopeLabels, type HeroScope } from './heroStats';
+import { elevationStat, scopeLabels, type HeroScope } from './heroStats';
+import type { SectionElevation } from './sectionElevation';
 
 /** What a route or section card's Peek row says under the name. */
 export interface DetailPeekInput {
@@ -10,6 +11,8 @@ export interface DetailPeekInput {
   kind: 'route' | 'section';
   /** The length of the line drawn: a route's representative, a section's own. */
   distanceMeters: number;
+  /** The vertical worth stating, as `sectionElevation` picks it; absent leaves it off. */
+  elevation?: SectionElevation | undefined;
   /** What the attempts are narrowed to, with their count, absent until they are read. */
   scope: HeroScope;
   /** The fastest attempt's time, in seconds, absent until the attempts are read. */
@@ -24,27 +27,23 @@ export const PEEK_SEPARATOR = ' · ';
 
 /**
  * The line under a card's name: what the attempts are narrowed to, when the sport or the range
- * narrows them, then the first and the last attempt's dates, joined by middle dots. Empty while
- * nothing is known.
+ * narrows them, then the span from the first to the last attempt, joined by middle dots. Empty
+ * while nothing is known.
  */
 export function detailDateLine(input: DetailPeekInput, t: TFunction): string {
-  return [
-    ...scopeLabels(input.scope, t),
-    ...(input.firstDate
-      ? [`${t('sections.firstVisited')} ${formatFullDate(input.firstDate)}`]
-      : []),
-    ...(input.lastDate ? [`${t('sections.lastVisited')} ${formatFullDate(input.lastDate)}`] : []),
-  ].join(PEEK_SEPARATOR);
+  const span = formatDateSpan(input.firstDate, input.lastDate);
+  return [...scopeLabels(input.scope, t), ...(span ? [span] : [])].join(PEEK_SEPARATOR);
 }
 
 /**
- * The three numbers a card's Peek row shows: the distance, the attempts the chart plots and the
- * fastest of them. The two read with the attempts are left out until they are read. Each carries
- * the words a screen reader says for it.
+ * The numbers a card's Peek row shows on one line: the distance, the vertical when the input
+ * carries one, the attempts the chart plots and the fastest of them. The two read with the
+ * attempts are left out until they are read. Each carries the words a screen reader says for it.
  */
 export function detailPeekStats(input: DetailPeekInput, t: TFunction, isMetric = true): HeroStat[] {
   const distance = formatDistance(input.distanceMeters, isMetric);
   const stats: HeroStat[] = [{ text: distance, label: `${t('activity.distance')}: ${distance}` }];
+  if (input.elevation) stats.push(elevationStat(input.elevation, t, isMetric));
   if (input.scope.count != null) {
     const countKey = input.kind === 'section' ? 'sections.traversalsCount' : 'maps.activitiesCount';
     const visits = t(countKey, { count: input.scope.count });

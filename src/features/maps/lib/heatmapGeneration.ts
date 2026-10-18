@@ -15,7 +15,7 @@
 
 import { useSyncExternalStore } from 'react';
 
-import { engine } from 'veloqrs';
+import { engine, heatmap } from 'veloqrs';
 
 /** The channel `EngineObserver.tiles_generated` lands on. */
 const GENERATED_CHANNEL = 'tilesGenerated';
@@ -79,7 +79,7 @@ export function useHeatmapGeneration(): number {
  */
 export function reportHeatmapView(center: [number, number], zoom: number): void {
   try {
-    engine.setHeatmapPriorityView(center[1], center[0], Math.round(zoom));
+    heatmap.setHeatmapPriorityView(center[1], center[0], Math.round(zoom));
   } catch {
     // No engine yet, or a build without the module: the pass keeps the order
     // it had, which is what it did before this existed.
@@ -92,7 +92,7 @@ export function reportHeatmapView(center: [number, number], zoom: number): void 
  */
 export function clearHeatmapView(): void {
   try {
-    engine.clearHeatmapPriorityView();
+    heatmap.clearHeatmapPriorityView();
   } catch {
     // No engine yet: there is no view to forget.
   }

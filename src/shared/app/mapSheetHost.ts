@@ -192,6 +192,11 @@ export function useHostTopCardField<T>(key: string, field: string): T | undefine
   return useMapSheetHosts((store) => topCard(store.hosts, key)?.state[field] as T | undefined);
 }
 
+/** One field of the state of the card at `index`, rendering its reader only when it changes. */
+export function useHostCardField<T>(key: string, index: number, field: string): T | undefined {
+  return useMapSheetHosts((store) => store.hosts[key]?.cards[index]?.state[field] as T | undefined);
+}
+
 /** The cards a host's sheet holds, the root first, or none for a host not open. */
 export function useHostCards(key: string): readonly MapSheetCard[] {
   return useMapSheetHosts((store) => store.hosts[key]?.cards ?? NO_CARDS);

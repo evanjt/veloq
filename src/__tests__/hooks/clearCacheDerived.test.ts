@@ -13,6 +13,14 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useActivityBoundsCache } from '@/features/activity/hooks/useActivityBoundsCache';
 import type { DerivedClearResult } from '@/shared/native/engineClears';
 
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
+
 const mockEngine = {
   getStats: jest.fn(() => ({ activityCount: 0, oldestDate: null, newestDate: null })),
   getActivityCount: jest.fn(() => 0),

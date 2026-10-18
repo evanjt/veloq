@@ -143,7 +143,7 @@ function mockRoutes() {
     hasPartialExclusion: () => false,
     isSportOffered: () => true,
     rescanRefusalKey: () => null,
-    shouldShowSportChips: () => false,
+    sportChipOptions: () => [],
     sectionStreamsState: jest.requireActual(
       '@/features/routes/components/section/SectionPerformanceSection'
     ).sectionStreamsState,
@@ -169,8 +169,7 @@ function mockRoutes() {
     },
     DataRangeFooter: component,
     DetailFallback: component,
-    SportTypeSelector: component,
-    SectionActionRow: component,
+    SectionStatusLine: component,
     SectionOverflowMenu: component,
     SectionContentArea: (props: {
       onActivitySelect: (activityId: string | null) => void;

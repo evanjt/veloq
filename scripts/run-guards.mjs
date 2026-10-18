@@ -204,6 +204,13 @@ const GUARDS = [
     catches: 'a feature area reaching engine exports beyond its ceiling, or a stale ceiling entry',
   },
   {
+    name: 'lint:engine-client-forwards',
+    kind: 'style',
+    cmd: node('lint-engine-client-forwards.mjs'),
+    catches:
+      'a client member that only hands itself to a delegate, a second door to a function the bound namespace already exports',
+  },
+  {
     name: 'lint:ratchet-growth',
     kind: 'merge',
     cmd: node('lint-ratchet-growth.mjs'),

@@ -1,7 +1,8 @@
 /**
  * The top of a section's card in its map sheet, which is what Peek shows: the name, tap to
- * rename, the date line, and the distance, the traversals and the best time. The lift flag, when
- * the detector set one, and the climbing and the grades follow under it.
+ * rename, with Accept beside it while the section is offered, the date line, and one line of the
+ * distance, the climbing, the traversals and the best time. The lift flag, when the detector set
+ * one, follows under it.
  */
 
 import React from 'react';
@@ -10,13 +11,13 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useMetricSystem, useTheme } from '@/shared/app';
 import { MapSheetCardCloseSpace } from '@/shared/app/MapSheetCards';
-import { HeroStatsRow } from '@/shared/ui';
+import { Button, HeroStatsRow } from '@/shared/ui';
 import { FitText } from '@/shared/ui/FitText';
 import { PressTarget } from '@/shared/ui/PressTarget';
 import { Icon } from '@/shared/ui/Icon';
 import { SectionNameEditor } from './SectionNameEditor';
 import { type MaterialIconName } from '@/shared/activity/activityUtils';
-import { sectionClimbStats } from '@/features/routes/lib/heroStats';
+import { sectionElevation } from '@/features/routes/lib/sectionElevation';
 import { detailDateLine, detailPeekStats } from '@/features/routes/lib/detailPeek';
 import type { NameSaveOutcome } from '@/features/routes/lib/sectionRenameFailure';
 import { iconSize, layout, slopToMinTapTarget, spacing, themePalette, typography } from '@/theme';
@@ -46,6 +47,8 @@ export interface SectionHeaderProps {
   onUnflagLift?: (() => void) | undefined;
   /** Called with the typed name, untrimmed, when the rename is saved. */
   onSaveName: (name: string) => Promise<NameSaveOutcome>;
+  /** Keeps an offered section. Absent when the section is not offered. */
+  onAccept?: (() => void) | undefined;
 }
 
 /** The name a section's card shows and its screen is titled with: the rename, its own, its id. */
@@ -70,6 +73,7 @@ export function SectionHeader({
   customName,
   onUnflagLift,
   onSaveName,
+  onAccept,
 }: SectionHeaderProps) {
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
@@ -78,6 +82,7 @@ export function SectionHeader({
   const peek = {
     kind: 'section' as const,
     distanceMeters: section.distanceMeters,
+    elevation: sectionElevation(section),
     scope: {
       count: activityCount,
       sport: scopeSport,
@@ -89,7 +94,6 @@ export function SectionHeader({
     lastDate,
   };
   const dateLine = detailDateLine(peek, t);
-  const climb = sectionClimbStats(section, t, isMetric);
 
   return (
     <View testID="section-card-peek" style={styles.peek}>
@@ -100,7 +104,23 @@ export function SectionHeader({
         iconName={iconName}
         activityColor={activityColor}
         onSaveName={onSaveName}
-        accessory={<MapSheetCardCloseSpace />}
+        accessory={
+          onAccept ? (
+            <View style={styles.nameAccessory}>
+              <Button
+                testID="section-accept-button"
+                variant="secondary"
+                size="sm"
+                label={t('sections.acceptSection')}
+                onPress={onAccept}
+                icon="check-circle-outline"
+              />
+              <MapSheetCardCloseSpace />
+            </View>
+          ) : (
+            <MapSheetCardCloseSpace />
+          )
+        }
       />
       {dateLine ? (
         <FitText
@@ -139,9 +159,6 @@ export function SectionHeader({
           ) : null}
         </PressTarget>
       ) : null}
-      {climb.length > 0 ? (
-        <HeroStatsRow onSurface testID="section-detail-climb" stats={climb} />
-      ) : null}
     </View>
   );
 }
@@ -154,6 +171,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingTop: spacing.xs,
     paddingBottom: spacing.sm,
+    gap: spacing.xs,
+  },
+  nameAccessory: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.xs,
   },
   // Its own row under the numbers, so a flagged section costs the name no width, the rename

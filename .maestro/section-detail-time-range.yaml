@@ -121,7 +121,7 @@ tags:
           text: "NaN"
       # The sheet hands a drag to its content: at the highest stop, a body scrolled to its bottom
       # scrolls back to its top, rather than each drag down moving the sheet down to its lowest
-      # stop, where the action row under the stats is out of sight.
+      # stop, where the numbers under the name are out of sight.
       - swipe:
           start: 50%, 60%
           end: 50%, 5%
@@ -136,7 +136,7 @@ tags:
       - takeScreenshot: "screenshots/section-detail-scrolled-to-end"
       - scrollUntilVisible:
           element:
-            id: "section-action-row"
+            id: "section-detail-stats"
           direction: UP
           timeout: 20000
       - assertVisible:

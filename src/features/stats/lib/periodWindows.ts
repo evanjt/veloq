@@ -72,23 +72,6 @@ export function seasonWindows(now: Date): SeasonWindows {
   };
 }
 
-/**
- * The tooltip's percentage for one month, or null when it has none. A month
- * after the current one has not happened, so it has nothing to compare. The
- * current month is set against last year's same days, a past month whole
- * against whole, and a zero baseline has no percentage.
- */
-export function seasonMonthChange(
-  month: number,
-  currentMonth: number,
-  bar: { current: number; previous: number },
-  toDate: { current: number; previous: number }
-): number | null {
-  if (month > currentMonth) return null;
-  const { current, previous } = month === currentMonth ? toDate : bar;
-  return previous > 0 ? ((current - previous) / previous) * 100 : null;
-}
-
 /** What the season card compares, and the trend metric whose polarity judges it. */
 const SEASON_METRIC: Record<'hours' | 'distance' | 'tss', TrendMetric> = {
   hours: 'weekHours',

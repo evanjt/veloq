@@ -458,7 +458,10 @@ fn archive_entries(path: &Path) -> std::collections::BTreeMap<String, Vec<u8>> {
             let mut entry = archive.by_index(i).unwrap();
             let mut bytes = Vec::new();
             entry.read_to_end(&mut bytes).unwrap();
-            (entry.name().to_string(), without_export_time(bytes))
+            (
+                entry.name().unwrap().into_owned(),
+                without_export_time(bytes),
+            )
         })
         .collect()
 }

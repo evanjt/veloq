@@ -4,7 +4,7 @@
  * Static analysis tests that validate TypeScript bindings match Rust FFI exports.
  * These tests don't require building the native module - they parse source files directly.
  *
- * Run: npm test -- --testPathPattern=ffiBindingValidation
+ * Run: npm test -- --testPathPatterns=ffiBindingValidation
  *
  * The manifest is computed from the Rust source when the suite loads.
  */

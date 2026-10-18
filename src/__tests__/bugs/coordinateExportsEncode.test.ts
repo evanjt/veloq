@@ -18,6 +18,9 @@ import { getEngine } from '@/shared/native/engine';
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
+    ...require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    ),
     decodeCoords: jest.fn(() => [
       { latitude: 46.2044, longitude: 7.3601 },
       { latitude: 46.2051, longitude: 7.3612 },

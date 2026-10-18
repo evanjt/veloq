@@ -11,9 +11,7 @@ import { useReconnect } from '@/shared/app/useRetryTriggers';
 
 import { demoStrengthSets } from '../demo';
 import type { StrengthCardData } from '../components/StrengthActivityCard';
-import { debug } from '@/shared/debug/debug';
-
-const log = debug.create('ExerciseSets');
+import { strength } from 'veloqrs';
 
 function isDemo(): boolean {
   return useAuthStore.getState().isDemoMode;
@@ -25,7 +23,7 @@ function isDemo(): boolean {
  * The read lands in the engine and announces `fitParsed`; nothing is returned.
  */
 export function requestFitFile(activityId: string): void {
-  getEngine()?.fetchAndParseExerciseSets(activityId);
+  strength.fetchAndParseExerciseSets(activityId);
 }
 
 /**
@@ -88,31 +86,18 @@ export function useExerciseSets(activityId: string, activityType: string) {
     ...LOCAL_READ_QUERY,
     queryKey: queryKeys.strength.exerciseSets(activityId),
     queryFn: () => {
-      const engine = getEngine();
-      if (!engine) return unsettled;
-
-      // Check if strength() method exists (requires Rust rebuild with StrengthManager)
-      if (typeof engine.getExerciseSets !== 'function') {
-        log.log('[ExerciseSets] getExerciseSets not available - rebuild required');
-        return unsettled;
-      }
-
       try {
-        const cached = engine.getExerciseSets(activityId);
+        const cached = strength.getExerciseSets(activityId);
         if (cached.sets.length > 0) return { session: cached, settled: true };
 
         // A settled activity has nothing more to fetch, whether or not it has sets.
-        if (engine.isFitProcessed(activityId)) return { session: EMPTY_SESSION, settled: true };
+        if (strength.isFitProcessed(activityId)) return { session: EMPTY_SESSION, settled: true };
 
         // Demo mode has no FIT file - seed synthetic sets for any fixture
         // activity that carries one, then read back through the normal path.
         if (isDemo() && demoStrengthSets[activityId]) {
-          if (typeof engine.bulkInsertExerciseSets !== 'function') {
-            log.log('[ExerciseSets] bulkInsertExerciseSets not available - rebuild required');
-            return unsettled;
-          }
-          engine.bulkInsertExerciseSets(activityId, demoStrengthSets[activityId]);
-          return { session: engine.getExerciseSets(activityId), settled: true };
+          strength.bulkInsertExerciseSets(activityId, demoStrengthSets[activityId]);
+          return { session: strength.getExerciseSets(activityId), settled: true };
         }
 
         requestFitFile(activityId);
@@ -172,10 +157,7 @@ export function useMuscleGroups(activityId: string, hasExercises: boolean) {
     ...LOCAL_READ_QUERY,
     queryKey: queryKeys.strength.muscleGroups(activityId),
     queryFn: () => {
-      const engine = getEngine();
-      if (!engine || typeof engine.getMuscleGroups !== 'function') return [];
-
-      return engine.getMuscleGroups(activityId);
+      return strength.getMuscleGroups(activityId);
     },
     enabled: hasExercises && !!activityId,
     staleTime: Infinity,
@@ -252,7 +234,7 @@ export function useStrengthCardData(
       const seed = isDemo() ? demoStrengthSets[row.activityId] : undefined;
       try {
         if (seed) {
-          engine.bulkInsertExerciseSets(row.activityId, seed);
+          strength.bulkInsertExerciseSets(row.activityId, seed);
         } else {
           requestFitFile(row.activityId);
         }
