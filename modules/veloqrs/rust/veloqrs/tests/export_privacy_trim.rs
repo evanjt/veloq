@@ -63,7 +63,10 @@ fn set_trim(engine: &PersistentEngine, radius_m: f64) {
 fn exported_track(zip_path: &std::path::Path, name_contains: &str) -> Vec<f64> {
     let file = std::fs::File::open(zip_path).expect("open zip");
     let mut archive = zip::ZipArchive::new(file).expect("read zip");
-    let names: Vec<String> = archive.file_names().map(str::to_string).collect();
+    let names: Vec<String> = archive
+        .file_names()
+        .map(|n| n.expect("entry name").into_owned())
+        .collect();
     let entry = names
         .iter()
         .find(|n| n.contains(name_contains))

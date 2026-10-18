@@ -13,7 +13,7 @@
 
 import { useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { hasStarted } from 'veloqrs';
+import { hasStarted, cutover, detection } from 'veloqrs';
 import { getEngine } from '@/shared/native/engine';
 import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
 
@@ -56,11 +56,11 @@ export function useSectionHealthCheck(syncComplete: boolean): void {
         // A cutover suspends detection and re-cuts the whole catalogue
         // itself, so a redetect here is refused and the empty catalogue is
         // expected. Stamping through it would spend the one-shot on nothing.
-        if (engine.isCutoverHeld?.()) return;
+        if (cutover.isCutoverHeld()) return;
 
         // Stamp only on a redetect the engine actually accepted. A refusal
         // means detection is suspended, and the check is owed a later launch.
-        if (hasStarted(engine.forceRedetectSections())) {
+        if (hasStarted(detection.forceRedetectSections())) {
           engine.setSetting(SECTION_HEALTH_CHECK_SETTING, '1');
         }
       } catch {

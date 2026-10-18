@@ -7,7 +7,7 @@ import {
 } from '../lib/detailReadResult';
 import { attemptEngineRead } from '@/shared/native/engineError';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
-import { decodeCoords } from 'veloqrs';
+import { decodeCoords, routes } from 'veloqrs';
 import type {
   MergeCandidate,
   Section as NativeSection,
@@ -237,7 +237,7 @@ function useLoadedCurves(
     const load =
       subject === 'section'
         ? engine.loadSectionDetailPerformance(id, timeRangeDays, sportFilter, highlightActivityId)
-        : engine.loadRouteDetailPerformance(id, timeRangeDays, sportFilter, highlightActivityId);
+        : routes.loadRouteDetailPerformance(id, timeRangeDays, sportFilter, highlightActivityId);
     load
       .then((data) => {
         if (live && data) setLoaded({ for: owed, data });
@@ -283,10 +283,10 @@ export function useRouteDetailPerformance(
 
   const read = useMemo(() => {
     if (!groupId) return { data: null, error: undefined };
-    const result = readPerformance((engine) =>
+    const result = readPerformance(() =>
       attemptEngineRead(
         () =>
-          engine.getRouteDetailPerformance(
+          routes.getRouteDetailPerformance(
             groupId,
             timeRangeDays,
             sportFilter,

@@ -7,6 +7,14 @@ import { getSlidesSince } from '@/features/settings/components/whatsNew/slides';
 import { routesStatus } from '../../__shared__/routesStatusStub';
 import { resolvedLocale } from '../../i18n/resolvedLocale';
 
+jest.mock('veloqrs', () =>
+  require('../../__shared__/veloqrsStub').withOverrides(
+    require('../../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
+
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysWithValues());

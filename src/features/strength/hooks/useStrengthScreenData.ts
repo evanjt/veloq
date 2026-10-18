@@ -3,14 +3,14 @@ import { PERIOD_DAYS } from '@/shared/app/period';
 import { useQuery } from '@tanstack/react-query';
 import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 
-import { getEngine, getNativeModule, isEngineReady } from '@/shared/native/engine';
+import { getNativeModule, isEngineReady } from '@/shared/native/engine';
 import { useEngineReady } from '@/shared/native/useEngineReady';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { useEngineBody, type EngineBodyWait } from '@/shared/native/engineBodies';
 import { requestOwedFitFiles } from '@/features/routes/light';
 import { useSyncState } from '@/shared/native/useSyncStatus';
-import { SyncState, type ExerciseDetailData } from 'veloqrs';
+import { SyncState, type ExerciseDetailData, strength } from 'veloqrs';
 import { CACHE } from '@/shared/app/constants';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -34,15 +34,13 @@ let demoStrengthSeedAttempted = false;
 function ensureDemoStrengthSeeded(): boolean {
   if (demoStrengthSeedAttempted) return false;
   if (!useAuthStore.getState().isDemoMode) return false;
-  const engine = getEngine();
   if (!isEngineReady()) return false;
-  if (!engine || typeof engine.bulkInsertExerciseSets !== 'function') return false;
   demoStrengthSeedAttempted = true;
   let wrote = false;
   try {
     for (const [activityId, sets] of Object.entries(demoStrengthSets)) {
-      if (engine.getExerciseSets(activityId).sets.length === 0) {
-        engine.bulkInsertExerciseSets(activityId, sets);
+      if (strength.getExerciseSets(activityId).sets.length === 0) {
+        strength.bulkInsertExerciseSets(activityId, sets);
         wrote = true;
       }
     }
@@ -89,7 +87,7 @@ const PROGRESSION_WEEKS = 4;
 
 /** Read the history surface through the existing strength engine boundary. */
 export function readExerciseDetailData(category: number): ExerciseDetailData | null {
-  return getEngine()?.getExerciseDetailData(category) ?? null;
+  return strength.getExerciseDetailData(category) ?? null;
 }
 
 /**
@@ -109,12 +107,9 @@ export function useStrengthScreenData(period: StrengthPeriod) {
     queryKey: queryKeys.strength.screenData(period, PROGRESSION_WEEKS),
     queryFn: () => {
       ensureDemoStrengthSeeded();
-      const engine = getEngine();
-      if (!engine || typeof engine.getStrengthScreenData !== 'function') return null;
-
       const { startTs, endTs } = getTimestampRange(period);
       const weeks = getTrailingWeekRanges(PROGRESSION_WEEKS);
-      const data = engine.getStrengthScreenData(
+      const data = strength.getStrengthScreenData(
         startTs,
         endTs,
         weeks.map((week) => ({ startTs: week.startTs, endTs: week.endTs }))

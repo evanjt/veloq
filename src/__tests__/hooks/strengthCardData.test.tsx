@@ -12,6 +12,14 @@ import { act, renderHook } from '@testing-library/react-native';
 import { useStrengthCardData } from '@/features/strength/hooks/useExerciseSets';
 import { useAuthStore } from '@/shared/app/AuthStore';
 
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
+
 let mockIsOnline = true;
 jest.mock('@/shared/app/NetworkContext', () => ({
   useNetwork: () => ({ isOnline: mockIsOnline }),

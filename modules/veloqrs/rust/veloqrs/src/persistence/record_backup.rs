@@ -1515,7 +1515,7 @@ mod tests {
     }
 
     #[test]
-    fn test_record_zip_understating_its_size_is_refused_once_reading_passes_the_limit() {
+    fn test_record_zip_understating_its_size_is_refused_once_reading_passes_its_declared_size() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("record.zip");
         spaces_zip(&path, RECORD_JSON_LIMIT + 1);
@@ -1524,7 +1524,47 @@ mod tests {
         let mut zip = zip::ZipArchive::new(file).unwrap();
         assert_eq!(zip.by_name("record.json").unwrap().size(), 16);
         let err = read_record_zip(path.to_str().unwrap()).err().unwrap();
-        assert!(err.contains("size limit"), "{err}");
+        assert!(err.contains("declared uncompressed size"), "{err}");
+    }
+
+    /// Scenario: a record zip's one entry is a symbolic link named
+    /// `record.json` whose target is a valid record outside the archive.
+    ///
+    /// Expected behaviour: the restore reads the entry's own bytes, never the
+    /// file the link points at, refuses it, and leaves the target directory
+    /// as it was.
+    #[test]
+    fn test_record_zip_whose_entry_is_a_symlink_out_of_the_archive_is_refused() {
+        let db = fixture();
+        let dir = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let target = outside.path().join("record.json");
+        let payload = collect_record_payload(&db).unwrap();
+        let valid = serde_json::to_vec(&payload).unwrap();
+        std::fs::write(&target, &valid).unwrap();
+
+        let path = dir.path().join("record.zip");
+        let mut zip = zip::ZipWriter::new(std::fs::File::create(&path).unwrap());
+        zip.add_symlink(
+            "record.json",
+            target.to_str().unwrap(),
+            zip::write::SimpleFileOptions::default(),
+        )
+        .unwrap();
+        zip.finish().unwrap();
+
+        assert!(read_record_zip(path.to_str().unwrap()).is_err());
+        let left: Vec<_> = std::fs::read_dir(outside.path())
+            .unwrap()
+            .map(|e| e.unwrap().file_name())
+            .collect();
+        assert_eq!(left, vec![std::ffi::OsString::from("record.json")]);
+        assert_eq!(std::fs::read(&target).unwrap(), valid);
+        let beside: Vec<_> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .map(|e| e.unwrap().file_name())
+            .collect();
+        assert_eq!(beside, vec![std::ffi::OsString::from("record.zip")]);
     }
 
     #[test]

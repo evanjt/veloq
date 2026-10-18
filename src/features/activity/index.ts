@@ -23,7 +23,6 @@ export {
   ActivityCard,
   ActivityCardContextMenu,
   ActivityChartsSection,
-  ActivityHeader,
   ActivityRoutesSection,
   ActivityDetailReadFailed,
   ActivityDetailSkeleton,

@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { getSetting, setSetting } from '@/shared/storage';
-import { formatLocalDate } from '@/shared/format/format';
-import { TIME } from './time';
+import { calendarDaysBetween, formatLocalDate } from '@/shared/format/format';
 
 const STORAGE_KEY = 'veloq-support-store';
 
@@ -21,10 +20,16 @@ interface SupportState {
   initialise: () => Promise<void>;
 }
 
-export function daysSince(isoDate: string): number {
-  const then = new Date(isoDate).getTime();
-  const now = Date.now();
-  return (now - then) / TIME.DAY;
+/**
+ * Whole local calendar days from a stored `YYYY-MM-DD` day to today. The day is
+ * read on the device's calendar, as it was written, since a date-only string
+ * parses as UTC midnight and would move the count by a day east or west of UTC.
+ */
+export function daysSince(localDate: string): number {
+  const year = Number(localDate.slice(0, 4));
+  const month = Number(localDate.slice(5, 7));
+  const day = Number(localDate.slice(8, 10));
+  return calendarDaysBetween(new Date(year, month - 1, day), new Date());
 }
 
 function intervalForCount(count: number): number {

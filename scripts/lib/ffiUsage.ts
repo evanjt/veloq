@@ -447,23 +447,16 @@ export const CLIENT_UNREACHED_ALLOWED: Record<string, string> = {
   streamStoreBytes:
     'no production caller; the stream history row reads it from its screen data instead',
 
-  // Starts the engine makes on its own, which no screen offers by hand.
-  startDetectorCutover: 'no production caller; the engine runs the cutover itself',
-
   // No caller and no reason recorded yet beyond that: each is to be deleted or
   // wired, and listed here so the check can hold every new one.
-  getChangeCardSupport: 'no production caller; not yet deleted or wired',
   getMapSections: 'no production caller; not yet deleted or wired',
   getAllSectionNames: 'no production caller; not yet deleted or wired',
   getSectionHistory: 'no production caller; not yet deleted or wired',
   getPinnedSectionVersion: 'no production caller; not yet deleted or wired',
   getSectionReferenceInfo: 'no production caller; not yet deleted or wired',
-  queryViewport: 'no production caller; not yet deleted or wired',
   getAvailableSportTypes: 'no production caller; not yet deleted or wired',
-  clearRecordings: 'no production caller; not yet deleted or wired',
   getWellnessLatestDate: 'no production caller; not yet deleted or wired',
   suggestExportHome: 'no production caller; not yet deleted or wired',
-  getActivitiesForExercise: 'no production caller; not yet deleted or wired',
 };
 
 /**
@@ -568,9 +561,96 @@ export function clientMethodExports(
   local: Record<string, string> = {}
 ): Map<string, string[]> {
   const spans = clientMemberSpans(classSource);
+  const { reach } = delegateReach(classSource, delegates, keys, local, spans);
+  const result = new Map<string, string[]>();
+  for (const [method, span] of spans) {
+    const found = new Set<string>();
+    reach(span, undefined, new Set([`this.${method}`]), found);
+    result.set(method, [...found].sort());
+  }
+  return result;
+}
+
+/**
+ * The export rows each function of each bound namespace reaches, by namespace
+ * and then by function.
+ *
+ * The barrel binds a delegate module to the engine as
+ * `export const sections = bindDelegates(engine, sectionDelegates)`, so a
+ * screen calls `sections.getSectionCount()` with no client member in between.
+ * The delegate function's own body, followed the way a client member's is,
+ * gives the rows that call reaches.
+ */
+export function namespaceMethodExports(
+  barrelSource: string,
+  delegates: Map<string, string>,
+  keys: ExportKey[],
+  local: Record<string, string> = {}
+): Map<string, Map<string, string[]>> {
+  const { reach, aliasOf } = delegateReach(barrelSource, delegates, keys, local, new Map());
+  const result = new Map<string, Map<string, string[]>>();
+  for (const m of withoutComments(barrelSource).matchAll(
+    /export\s+const\s+(\w+)\s*=\s*bindDelegates\(\s*\w+\s*,\s*(\w+)\s*\)/g
+  )) {
+    const [, namespace, alias] = m;
+    const module = alias === undefined ? undefined : aliasOf.get(alias);
+    if (namespace === undefined || module === undefined) continue;
+    const rows = new Map<string, string[]>();
+    for (const [name, body] of module) {
+      const found = new Set<string>();
+      reach(body, module, new Set([`${alias}.${name}`]), found);
+      rows.set(name, [...found].sort());
+    }
+    result.set(namespace, rows);
+  }
+  return result;
+}
+
+/**
+ * The bound namespaces a file imports from the module, by the local name it
+ * calls each under. A type-only import is no call, and a local declared with
+ * the same name is not the namespace, which is why this reads the import
+ * rather than the receiver alone.
+ */
+export function namespaceImports(source: string, namespaces: Set<string>): Record<string, string> {
+  const imported: Record<string, string> = {};
+  for (const m of withoutComments(source).matchAll(
+    /import\s+(type\s+)?\{([^}]*)\}\s*from\s*['"]veloqrs['"]/g
+  )) {
+    if (m[1] !== undefined || m[2] === undefined) continue;
+    for (const part of m[2].split(',')) {
+      const spec = part.trim().match(/^(?!type\s)(\w+)(?:\s+as\s+(\w+))?$/);
+      if (!spec || spec[1] === undefined || !namespaces.has(spec[1])) continue;
+      imported[spec[2] ?? spec[1]] = spec[1];
+    }
+  }
+  return imported;
+}
+
+/**
+ * A walk from a body into the delegate functions it names: `this.x` through
+ * `spans`, `alias.x` through the delegate modules `importSource` imports as
+ * `import * as alias from './delegates/...'`, and a bare call through the
+ * module the body sits in. `found` collects the export rows on the way.
+ */
+function delegateReach(
+  importSource: string,
+  delegates: Map<string, string>,
+  keys: ExportKey[],
+  local: Record<string, string>,
+  spans: Map<string, string>
+): {
+  reach: (
+    text: string,
+    module: Map<string, string> | undefined,
+    seen: Set<string>,
+    found: Set<string>
+  ) => void;
+  aliasOf: Map<string, Map<string, string>>;
+} {
   const modules = new Map<string, Map<string, string>>();
   const aliasOf = new Map<string, Map<string, string>>();
-  for (const m of withoutComments(classSource).matchAll(
+  for (const m of withoutComments(importSource).matchAll(
     /import\s+\*\s+as\s+(\w+)\s+from\s+'\.\/delegates\/([\w/]+)'/g
   )) {
     const [, alias, wanted] = m;
@@ -621,28 +701,25 @@ export function clientMethodExports(
       }
     }
   };
-
-  const result = new Map<string, string[]>();
-  for (const [method, span] of spans) {
-    const found = new Set<string>();
-    reach(span, undefined, new Set([`this.${method}`]), found);
-    result.set(method, [...found].sort());
-  }
-  return result;
+  return { reach, aliasOf };
 }
 
 /**
- * The rows a call from the app reaches through the client.
+ * The rows a call from the app reaches through the client or a bound namespace.
  *
  * Only a receiver that holds the client counts: the engine handle the screens
- * import, or the accessor that returns it. A method name alone would score
- * every `.get(` on a map.
+ * import, the accessor that returns it, or a namespace the file imports from
+ * the module. A method name alone would score every `.get(` on a map.
  */
 export function clientCallRows(
   call: Call,
   clientRows: Map<string, string[]>,
-  local: Record<string, string> = {}
+  local: Record<string, string> = {},
+  namespaceRows: Map<string, Map<string, string[]>> = new Map(),
+  imported: Record<string, string> = {}
 ): string[] {
+  const namespace = imported[call.receiver];
+  if (namespace !== undefined) return namespaceRows.get(namespace)?.get(call.method) ?? [];
   const holdsClient =
     local[call.receiver] === 'VeloqEngine' ||
     call.receiver === 'getEngine' ||

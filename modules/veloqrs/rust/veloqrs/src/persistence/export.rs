@@ -2152,8 +2152,8 @@ mod bulk_export_tests {
         let archive = zip::ZipArchive::new(file).expect("read zip");
         let mut names: Vec<String> = archive
             .file_names()
+            .map(|n| n.expect("entry name").into_owned())
             .filter(|n| n.ends_with(".gpx"))
-            .map(str::to_string)
             .collect();
         names.sort();
         names

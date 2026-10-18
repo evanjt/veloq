@@ -5,6 +5,14 @@ import type { TFunction } from 'i18next';
 import { useRouteReference } from '@/features/routes/hooks/useRouteReference';
 import { getEngine } from '@/shared/native/engine';
 
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
+
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 
 const translate = ((key: string) => key) as TFunction;

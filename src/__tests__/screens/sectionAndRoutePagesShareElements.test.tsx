@@ -11,7 +11,8 @@
 
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { act, render } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
+import { PaperProvider } from 'react-native-paper';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { EfficiencyDirection, FfiOffScale } from 'veloqrs';
 import type { FfiCalendarSummary, FfiSectionChartPoint, FfiSectionPerformanceData } from 'veloqrs';
@@ -22,6 +23,7 @@ import { fixtures } from '@/data/demo/fixtures';
 import { getRouteCoordinates } from '@/shared/demo/routes/routes';
 import { Button, paint } from '@/shared/ui/Button';
 import { ChromeIcon } from '@/shared/ui/ChromeIcon';
+import { useMapSheetStops } from '@/shared/app/mapSheetStop';
 
 const DEMO_ROUTE = 'route-valais-ride-2';
 
@@ -30,6 +32,9 @@ const SectionDetailScreen = sectionCardInHost();
 
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
+    ...require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    ),
     FfiCorrelation_Tags: {
       TooFew: 'TooFew',
       Undefined: 'Undefined',
@@ -38,13 +43,16 @@ jest.mock('veloqrs', () =>
     },
     // The section's polyline and the route's representative are the same line.
     decodeCoords: () =>
-      (
-        jest
-          .requireActual('@/shared/demo/routes/routes')
-          .getRouteCoordinates('route-valais-ride-2') as [number, number][]
-      ).map(([latitude, longitude]) => ({ latitude, longitude })),
+      mockLineless
+        ? []
+        : (
+            jest
+              .requireActual('@/shared/demo/routes/routes')
+              .getRouteCoordinates('route-valais-ride-2') as [number, number][]
+          ).map(([latitude, longitude]) => ({ latitude, longitude })),
   })
 );
+let mockLineless = false;
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
@@ -323,6 +331,12 @@ const mockEngine = {
       visitCount: attempts.length,
       isUserDefined: false,
       createdAt: '2026-01-01T00:00:00Z',
+      // A climb, so its grades are drawn in the summary.
+      klass: 'climb',
+      elevationGainM: 640,
+      elevationLossM: 20,
+      avgGradePercent: 5.2,
+      maxGradePercent: 9.8,
       // Flagged and removed, so the section-only banners and badge are drawn.
       disabled: true,
       isLift: true,
@@ -383,6 +397,11 @@ interface SharedElement {
 /** Every element the route page carries over from the section page. */
 const SHARED: SharedElement[] = [
   { element: 'hero stats row', section: 'section-detail-stats', route: 'route-detail-stats' },
+  {
+    element: 'performance controls',
+    section: 'performance-controls',
+    route: 'performance-controls',
+  },
   { element: 'sport pills', section: 'sport-pill-Ride', route: 'sport-pill-Ride' },
   { element: 'range menu', section: 'section-time-range', route: 'section-time-range' },
   { element: 'scatter plot choice', section: 'chart-plot-scatter', route: 'chart-plot-scatter' },
@@ -416,9 +435,8 @@ interface SectionOnlyElement {
 
 /** Elements that describe a section and not a whole route. */
 const SECTION_ONLY: SectionOnlyElement[] = [
-  // The bounds are edited on the map under the sheet; the card holds the way in.
-  { element: 'edit bounds', section: 'section-trim-button' },
-  { element: 'action row', section: 'section-action-row' },
+  { element: 'accept', section: 'section-accept-button' },
+  { element: 'grades', section: 'section-detail-grades' },
   { element: 'lift badge', section: 'section-lift-badge' },
   { element: 'disabled banner', section: 'section-disabled-banner' },
   { element: 'merge banner', section: 'section-merge-banner' },
@@ -506,5 +524,127 @@ describe('the section page and the route page over one demo route', () => {
 
     const routePage = await openPage('route');
     expect(routePage.queryByTestId(section)).toBeNull();
+  });
+});
+
+let headerOptions: { headerRight?: () => React.ReactElement | null } = {};
+const SectionWithHeader = sectionCardInHost((next) => {
+  headerOptions = next;
+});
+
+/** The section's card, then its header's overflow menu, drawn as the host draws it. */
+async function openSectionWithHeader() {
+  mockPageId = SECTION_ID;
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  await render(
+    <QueryClientProvider client={client}>
+      <SectionWithHeader />
+    </QueryClientProvider>
+  );
+  await act(async () => {});
+  await render(<PaperProvider>{headerOptions.headerRight?.()}</PaperProvider>);
+}
+
+/** Opens the menu, letting its popup lay itself out first, as a running app does. */
+async function menuRows() {
+  await act(async () => {
+    jest.advanceTimersByTime(400);
+  });
+  await fireEvent.press(screen.getByTestId('section-overflow-menu'));
+  await act(async () => {
+    jest.advanceTimersByTime(400);
+  });
+  return screen.getAllByRole('menuitem').map((row) => row.props.accessibilityLabel as string);
+}
+
+/**
+ * Scenario: at Half the sheet's header rows, a row holding one button, the sport chips and a
+ * heading pushed the performance plot below the sheet's edge.
+ *
+ * Expected behaviour: the climbing joins the stats line, Edit bounds is in the overflow menu,
+ * Accept sits in the Peek, the sport chips and the range share one row above the chart with no
+ * heading, and the direction's figures sit under the plot.
+ */
+describe("a section sheet's rows above the chart", () => {
+  beforeEach(() => {
+    mockLineless = false;
+    useMapSheetStops.setState({ sheets: {}, presenters: {} });
+  });
+  afterEach(() => jest.useRealTimers());
+
+  it('draws no action row and no separate climbing row', async () => {
+    const page = await openPage('section');
+
+    expect(page.queryByTestId('section-action-row')).toBeNull();
+    expect(page.queryByTestId('section-detail-climb')).toBeNull();
+  });
+
+  it('lists Edit bounds first in the overflow menu, and choosing it enters the tool', async () => {
+    jest.useFakeTimers();
+    await openSectionWithHeader();
+
+    const rows = await menuRows();
+    expect(rows[0]).toBe('sections.editBounds');
+
+    await fireEvent.press(screen.getByRole('menuitem', { name: 'sections.editBounds' }));
+    const sheets = Object.values(useMapSheetStops.getState().sheets);
+    expect(sheets.some((sheet) => sheet.toolReturn !== null)).toBe(true);
+  });
+
+  it('lists no Edit bounds for a section with no line', async () => {
+    mockLineless = true;
+    jest.useFakeTimers();
+    await openSectionWithHeader();
+
+    expect(await menuRows()).not.toContain('sections.editBounds');
+  });
+
+  it('offers Accept inside the Peek while the section is offered', async () => {
+    const page = await openPage('section');
+
+    const accept = within(page.getByTestId('section-card-peek')).getByRole('button', {
+      name: 'sections.acceptSection',
+    });
+    expect(accept).toHaveTextContent('sections.acceptSection');
+    const glyph = accept.findAll((n) => typeof n.props.name === 'string')[0]?.props.name;
+    expect(glyph).not.toMatch(/^pin/);
+    expect(glyph).not.toBe('check-circle');
+  });
+
+  it('states the climbing on the stats line', async () => {
+    const page = await openPage('section');
+
+    expect(page.getByTestId('section-detail-stats')).toHaveTextContent(/2,100 ft/);
+  });
+
+  it('puts the sport chips and the range in one row above the chart, with no heading', async () => {
+    const page = await openPage('section');
+    const controls = page.getByTestId('performance-controls');
+
+    expect(within(controls).queryByTestId('sport-pill-Ride')).not.toBeNull();
+    expect(within(controls).queryByTestId('section-time-range')).not.toBeNull();
+    expect(page.queryByText('sections.performanceOverTime')).toBeNull();
+  });
+
+  it("draws the direction's figures under the plot", async () => {
+    const page = await openPage('section');
+    const order = page.UNSAFE_root.findAll(
+      (node) =>
+        typeof node.type === 'string' &&
+        ['section-scatter-chart', 'stats-row-count-forward'].includes(node.props.testID)
+    ).map((node) => node.props.testID as string);
+
+    expect(order[0]).toBe('section-scatter-chart');
+    expect(order).toContain('stats-row-count-forward');
+  });
+});
+
+describe("a route sheet's rows above the chart", () => {
+  it('puts the sport chips and the range in one row above the chart', async () => {
+    const page = await openPage('route');
+    const controls = page.getByTestId('performance-controls');
+
+    expect(within(controls).queryByTestId('sport-pill-Ride')).not.toBeNull();
+    expect(within(controls).queryByTestId('section-time-range')).not.toBeNull();
   });
 });

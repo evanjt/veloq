@@ -9,10 +9,14 @@
  */
 
 import {
+  callsIn,
+  clientCallRows,
   clientMethodExports,
   clientMethods,
   clientMethodReach,
   clientReachProblems,
+  namespaceImports,
+  namespaceMethodExports,
 } from '../../../scripts/lib/ffiUsage';
 
 const CLASS = `
@@ -223,5 +227,52 @@ export function searchPears(host, term) {
 
     expect(rows.get('pickPears')).toEqual(['OrchardManager.getPears']);
     expect(rows.get('searchPears')).toEqual(['OrchardManager.getPears']);
+  });
+});
+
+describe('the bound namespace export reach', () => {
+  const BARREL = `
+import { bindDelegates } from './delegates/bind';
+import * as orchardDelegates from './delegates/orchard';
+
+export const engine = EngineClient.getInstance();
+export const orchard = bindDelegates(engine, orchardDelegates);
+`;
+  const KEYS = [
+    { key: 'OrchardManager.getPears', object: 'OrchardManager', camelName: 'getPears' },
+  ];
+  const LOCAL = { orchard: 'OrchardManager' };
+  const DELEGATE = `
+export function pickPears(host) {
+  return host.engine.orchard().getPears();
+}
+`;
+  const rows = namespaceMethodExports(
+    BARREL,
+    new Map([['modules/veloqrs/src/delegates/orchard.ts', DELEGATE]]),
+    KEYS,
+    LOCAL
+  );
+  const rowsOf = (caller: string) => {
+    const imported = namespaceImports(caller, new Set(rows.keys()));
+    return callsIn(caller).flatMap((call) => clientCallRows(call, new Map(), {}, rows, imported));
+  };
+
+  it('reaches the export a namespace function forwards to', () => {
+    expect(rows.get('orchard')?.get('pickPears')).toEqual(['OrchardManager.getPears']);
+  });
+
+  it('attributes a call on a namespace imported from the module, under an alias too', () => {
+    expect(rowsOf("import { orchard } from 'veloqrs';\norchard.pickPears();")).toEqual([
+      'OrchardManager.getPears',
+    ]);
+    expect(rowsOf("import { orchard as trees } from 'veloqrs';\ntrees.pickPears();")).toEqual([
+      'OrchardManager.getPears',
+    ]);
+  });
+
+  it('leaves a local of the same name and a type-only import alone', () => {
+    expect(rowsOf('const orchard = { pickPears() {} };\norchard.pickPears();')).toEqual([]);
+    expect(rowsOf("import type { orchard } from 'veloqrs';\norchard.pickPears();")).toEqual([]);
   });
 });

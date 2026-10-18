@@ -1,6 +1,6 @@
 /**
- * A route's card in its map sheet: the name, the date line and three numbers at Peek, then the
- * attempts, the charts and the export below. The map the sheet sits over draws the route, and
+ * A route's card in its map sheet: the name, the date line and one line of numbers at Peek, then
+ * the charts under their sport and range row, the attempts and the export below. The map the sheet sits over draws the route, and
  * reads what the card picks (the attempt, the sport on show, the line the delta plot colours)
  * from the host's entry, so a scrub renders the map and not the card.
  */
@@ -11,7 +11,6 @@ import { useTranslation } from 'react-i18next';
 import {
   DataRangeFooter,
   DetailFallback,
-  SportTypeSelector,
   RouteDetailDebugPanel,
   routeDetailScreenStyles as styles,
 } from '../components';
@@ -38,7 +37,7 @@ import {
 import { routeHeadline } from '../lib/routeHeadline';
 import { detailDateLine, detailPeekStats } from '../lib/detailPeek';
 import { detailCardWriter } from '../lib/detailCardState';
-import { isSportOffered, shouldShowSportChips } from '../lib/sectionSport';
+import { isSportOffered, sportChipOptions } from '../lib/sectionSport';
 import { RANGE_DAYS, type SectionTimeRange } from '../constants';
 import { toActivityType } from '../types';
 import type { SectionDeltaLine } from '../lib/deltaLayout';
@@ -151,7 +150,7 @@ export function RouteDetailCard({ id, activityId: navActivityId }: RouteDetailCa
   }
   const effectiveSportType = performance?.sportType ?? selectedSportType;
   const sportCounts = performance?.sportCounts ?? EMPTY_SPORT_COUNTS;
-  const showSportChips = shouldShowSportChips(sportCounts);
+  const sportOptions = useMemo(() => sportChipOptions(sportCounts), [sportCounts]);
 
   const { bestForwardRecord, bestReverseRecord, forwardStats, reverseStats } = useMemo(
     () => (performance ? toPerformanceView(performance.performances) : EMPTY_PERFORMANCE_VIEW),
@@ -321,18 +320,6 @@ export function RouteDetailCard({ id, activityId: navActivityId }: RouteDetailCa
           />
         ) : null}
 
-        {showSportChips ? (
-          <SportTypeSelector
-            options={sportCounts.map(({ sportType, count }) => ({ type: sportType, count }))}
-            selectedType={effectiveSportType}
-            onSelect={(st) => {
-              // Tapping the pill already picked hands the choice back to the
-              // engine's default.
-              setSelectedSportType(selectedSportType === st ? undefined : st);
-            }}
-          />
-        ) : null}
-
         {!!engineGroup?.activityIds.length && (
           <SectionContentArea
             subject="route"
@@ -369,6 +356,11 @@ export function RouteDetailCard({ id, activityId: navActivityId }: RouteDetailCa
             onSetAsReference={handleSetAsReference}
             onToggleShowExcluded={handleToggleShowExcluded}
             onTimeRangeChange={setRouteTimeRange}
+            sportOptions={sportOptions}
+            onSelectSport={(st) => {
+              // Tapping the pill already picked hands the choice back to the engine's default.
+              setSelectedSportType(selectedSportType === st ? undefined : st);
+            }}
           />
         )}
 

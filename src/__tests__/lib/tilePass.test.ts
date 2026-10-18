@@ -8,7 +8,7 @@
  */
 
 import { awaitTilePass } from '@/features/routes/lib/tilePass';
-import { engine } from 'veloqrs';
+import { heatmap } from 'veloqrs';
 
 type MockListener = (payload?: unknown) => void;
 
@@ -16,9 +16,11 @@ const mockListeners = new Map<string, Set<MockListener>>();
 
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
-    engine: {
+    heatmap: {
       pollTileGeneration: jest.fn(() => 'idle'),
       getHeatmapTileProgress: jest.fn(() => [0, 0]),
+    },
+    engine: {
       subscribe: jest.fn((event: string, callback: MockListener) => {
         const forEvent = mockListeners.get(event) ?? new Set<MockListener>();
         forEvent.add(callback);
@@ -29,8 +31,8 @@ jest.mock('veloqrs', () =>
   })
 );
 
-const poll = engine.pollTileGeneration as unknown as jest.Mock;
-const progress = engine.getHeatmapTileProgress as unknown as jest.Mock;
+const poll = heatmap.pollTileGeneration as unknown as jest.Mock;
+const progress = heatmap.getHeatmapTileProgress as unknown as jest.Mock;
 
 /** Stands in for the announcement the tile worker makes when it finishes. */
 function announce() {

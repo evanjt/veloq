@@ -31,7 +31,7 @@
   "src/features/settings/hooks": 2,
   "src/features/settings/lib": 3,
   "src/features/settings/lib/autobackup/backends": 1,
-  "src/features/stats/components": 18,
+  "src/features/stats/components": 17,
   "src/features/stats/hooks": 4,
   "src/features/stats/lib": 17,
   "src/features/strength/lib/polygons": 12,

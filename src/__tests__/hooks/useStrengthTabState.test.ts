@@ -9,7 +9,13 @@ import { SyncState } from 'veloqrs';
 import { renderHook } from '@testing-library/react-native';
 import { useStrengthTabState } from '@/features/strength/hooks/useStrengthScreenData';
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 
 const mockEngine: Record<string, unknown> = {};
 

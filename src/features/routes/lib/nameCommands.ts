@@ -1,4 +1,4 @@
-import { isRouteNameTakenError } from 'veloqrs';
+import { isRouteNameTakenError, routes } from 'veloqrs';
 import { getEngine } from '@/shared/native/engine';
 
 /**
@@ -17,7 +17,7 @@ export function setRouteName(routeId: string, name: string): 'saved' | 'nameTake
     throw new Error('Route engine not initialised');
   }
   try {
-    engine.setRouteName(routeId, name);
+    routes.setRouteName(routeId, name);
     return 'saved';
   } catch (error) {
     if (isRouteNameTakenError(error)) return 'nameTaken';

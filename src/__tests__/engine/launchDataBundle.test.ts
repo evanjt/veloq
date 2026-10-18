@@ -9,6 +9,8 @@
  */
 
 import { EngineClient } from '../../../modules/veloqrs/src/EngineClient';
+import { bindDelegates } from '../../../modules/veloqrs/src/delegates/bind';
+import * as launchDelegates from '../../../modules/veloqrs/src/delegates/launch';
 
 const STATS = {
   activityCount: 490,
@@ -70,7 +72,7 @@ describe('EngineClient.launchData', () => {
   it('does the whole post-init block in one call across the binding', () => {
     const client = openClient();
 
-    const stats = client.launchData({
+    const stats = bindDelegates(client, launchDelegates).launchData({
       routeWord: 'Route',
       sectionWord: 'Section',
       athleteId: '12345',
@@ -97,7 +99,7 @@ describe('EngineClient.launchData', () => {
   it('hands down a null tiles path when the athlete has the heatmap off', () => {
     const client = openClient();
 
-    client.launchData({
+    bindDelegates(client, launchDelegates).launchData({
       routeWord: 'Route',
       sectionWord: 'Section',
       athleteId: null,
@@ -121,7 +123,7 @@ describe('EngineClient.launchData', () => {
     });
 
     expect(() =>
-      client.launchData({
+      bindDelegates(client, launchDelegates).launchData({
         routeWord: 'Route',
         sectionWord: 'Section',
         athleteId: '12345',

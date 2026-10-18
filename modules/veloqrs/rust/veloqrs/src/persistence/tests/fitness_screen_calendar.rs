@@ -106,6 +106,17 @@ fn library() -> PersistentEngine {
     engine
 }
 
+/// The year and the month to date, each with the same span of last year.
+fn season_totals(data: &crate::FfiFitnessScreenData) -> [&crate::FfiPeriodStats; 4] {
+    let month = data.season_months.last().expect("the month to date");
+    [
+        &data.season_year.current_stats,
+        &data.season_year.previous_stats,
+        &month.current_stats,
+        &month.previous_stats,
+    ]
+}
+
 #[test]
 fn every_part_is_read_over_the_window_the_screen_names() {
     let engine = library();
@@ -127,14 +138,15 @@ fn every_part_is_read_over_the_window_the_screen_names() {
         vec![(2025, 1, 1), (2025, 6, 1), (2026, 1, 1), (2026, 3, 2)],
         "two calendar years to today, oldest first"
     );
-    assert_eq!(data.year_current.count, 3);
-    assert_eq!(data.year_current.total_duration, 10_200.0);
-    assert_eq!(data.year_previous.count, 1);
-    assert_eq!(data.year_previous.total_duration, 1_800.0);
-    assert_eq!(data.month_current.count, 2);
-    assert_eq!(data.month_current.total_tss, 100.0);
-    assert_eq!(data.month_previous.count, 0);
-    assert_eq!(data.month_previous.total_distance, 0.0);
+    let [year_current, year_previous, month_current, month_previous] = season_totals(&data);
+    assert_eq!(year_current.count, 3);
+    assert_eq!(year_current.total_duration, 10_200.0);
+    assert_eq!(year_previous.count, 1);
+    assert_eq!(year_previous.total_duration, 1_800.0);
+    assert_eq!(month_current.count, 2);
+    assert_eq!(month_current.total_tss, 100.0);
+    assert_eq!(month_previous.count, 0);
+    assert_eq!(month_previous.total_distance, 0.0);
 }
 
 #[test]
@@ -156,12 +168,12 @@ fn each_part_answers_what_its_own_query_answers() {
         format!("{:?}", data.months),
         format!("{:?}", monthly_stats(&engine.db, start, end).unwrap())
     );
-    for (got, window) in [
-        (&data.year_current, &w.year_current),
-        (&data.year_previous, &w.year_previous),
-        (&data.month_current, &w.month_current),
-        (&data.month_previous, &w.month_previous),
-    ] {
+    for (got, window) in season_totals(&data).into_iter().zip([
+        &w.year_current,
+        &w.year_previous,
+        &w.month_current,
+        &w.month_previous,
+    ]) {
         let (start, end) = span(window);
         assert_eq!(
             format!("{got:?}"),
@@ -178,8 +190,9 @@ fn a_window_includes_an_activity_on_its_last_second() {
     engine.set_activity_metrics(vec![last]).unwrap();
 
     let data = read(&engine.db, &windows()).unwrap();
-    assert_eq!(data.year_current.count, 1);
-    assert_eq!(data.month_current.count, 1);
+    let [year_current, _, month_current, _] = season_totals(&data);
+    assert_eq!(year_current.count, 1);
+    assert_eq!(month_current.count, 1);
     assert_eq!(data.months.len(), 1);
     assert_eq!(data.heatmap.len(), 1);
 }
@@ -191,12 +204,7 @@ fn an_empty_library_is_empty_parts_and_zero_totals() {
 
     assert!(data.heatmap.is_empty());
     assert!(data.months.is_empty());
-    for totals in [
-        &data.year_current,
-        &data.year_previous,
-        &data.month_current,
-        &data.month_previous,
-    ] {
+    for totals in season_totals(&data) {
         assert_eq!(totals.count, 0);
         assert_eq!(totals.total_duration, 0.0);
         assert_eq!(totals.total_distance, 0.0);
@@ -220,6 +228,35 @@ fn a_read_that_fails_is_an_error_rather_than_an_empty_year() {
     }
 }
 
+/// A signed-in engine holding `metrics`, each named by the census and
+/// downloaded, so every period the read compares is whole.
+fn synced(metrics: Vec<ActivityMetrics>) -> PersistentEngine {
+    let mut engine = signed_in("2024-01-01");
+    let wall = |m: &ActivityMetrics| {
+        chrono::DateTime::from_timestamp(m.date, 0)
+            .unwrap()
+            .format("%Y-%m-%dT%H:%M:%S")
+            .to_string()
+    };
+    let census: Vec<_> = metrics
+        .iter()
+        .map(|m| crate::net::types::ActivityCensusEntry {
+            start_date_local: Some(wall(m)),
+            ..census_row(m.activity_id.clone(), NaiveDate::MIN)
+        })
+        .collect();
+    engine.record_activity_census(ATHLETE, &census).unwrap();
+    let bodies: Vec<_> = metrics
+        .iter()
+        .map(|m| (m.activity_id.clone(), m.date, "{}".to_string()))
+        .collect();
+    let ids: Vec<_> = metrics.iter().map(|m| m.activity_id.clone()).collect();
+    engine
+        .store_synced_activity_bodies(ATHLETE, &bodies, &ids, metrics)
+        .unwrap();
+    engine
+}
+
 /// The windows with the clock at `hour` on `date`.
 fn windows_at(date: &str, hour: i64) -> FfiFitnessScreenWindows {
     FfiFitnessScreenWindows {
@@ -241,15 +278,12 @@ fn span(r: &FfiTimestampRange) -> (i64, i64) {
 
 #[test]
 fn the_weekly_comparison_ends_last_week_at_the_same_hour_as_now() {
-    let mut engine = PersistentEngine::in_memory().unwrap();
-    engine
-        .set_activity_metrics(vec![
-            at("last-monday", "2026-02-23", 9, 3_600),
-            // Later on the same weekday than now, so not yet matched this week.
-            at("last-wednesday-evening", "2026-02-25", 18, 7_200),
-            at("this-monday", "2026-03-02", 9, 5_400),
-        ])
-        .unwrap();
+    let engine = synced(vec![
+        at("last-monday", "2026-02-23", 9, 3_600),
+        // Later on the same weekday than now, so not yet matched this week.
+        at("last-wednesday-evening", "2026-02-25", 18, 7_200),
+        at("this-monday", "2026-03-02", 9, 5_400),
+    ]);
 
     // Wednesday 4 March 2026, 09:00.
     let data = read(&engine.db, &windows_at("2026-03-04", 9)).unwrap();
@@ -347,13 +381,10 @@ fn a_previous_window_never_runs_into_the_current_one() {
 
 #[test]
 fn a_period_with_nothing_before_it_is_not_judged_and_a_level_one_has_no_percentage() {
-    let mut engine = PersistentEngine::in_memory().unwrap();
-    engine
-        .set_activity_metrics(vec![
-            at("last-month", "2026-02-02", 9, 3_600),
-            at("this-month", "2026-03-02", 9, 3_600),
-        ])
-        .unwrap();
+    let engine = synced(vec![
+        at("last-month", "2026-02-02", 9, 3_600),
+        at("this-month", "2026-03-02", 9, 3_600),
+    ]);
     let data = read(&engine.db, &windows_at("2026-03-03", 12)).unwrap();
 
     let month = &data.comparisons.month;
@@ -370,14 +401,11 @@ fn a_period_with_nothing_before_it_is_not_judged_and_a_level_one_has_no_percenta
 
 #[test]
 fn hours_are_judged_as_the_card_prints_them() {
-    let mut engine = PersistentEngine::in_memory().unwrap();
-    engine
-        .set_activity_metrics(vec![
-            at("last-monday", "2026-02-23", 8, 3_600),
-            // 1.46 h prints as 1.5 h, a half hour up on 1 h.
-            at("this-monday", "2026-03-02", 8, 5_256),
-        ])
-        .unwrap();
+    let engine = synced(vec![
+        at("last-monday", "2026-02-23", 8, 3_600),
+        // 1.46 h prints as 1.5 h, a half hour up on 1 h.
+        at("this-monday", "2026-03-02", 8, 5_256),
+    ]);
     let data = read(&engine.db, &windows_at("2026-03-04", 9)).unwrap();
 
     let duration = data.comparisons.week.duration.as_ref().unwrap();
@@ -396,13 +424,10 @@ fn week_of(id: &str, monday: &str, moving_time: u32, distance: f64, load: f64) -
 
 /// This week's moves against last week's totals, with the clock on Wednesday.
 fn weekly_moves(last: (u32, f64, f64), this: (u32, f64, f64)) -> crate::FfiSummaryComparison {
-    let mut engine = PersistentEngine::in_memory().unwrap();
-    engine
-        .set_activity_metrics(vec![
-            week_of("last", "2026-02-23", last.0, last.1, last.2),
-            week_of("this", "2026-03-02", this.0, this.1, this.2),
-        ])
-        .unwrap();
+    let engine = synced(vec![
+        week_of("last", "2026-02-23", last.0, last.1, last.2),
+        week_of("this", "2026-03-02", this.0, this.1, this.2),
+    ]);
     read(&engine.db, &windows_at("2026-03-04", 9))
         .unwrap()
         .comparisons
@@ -439,16 +464,13 @@ fn more_time_and_distance_are_up_and_load_moves_with_no_judgement() {
 
 #[test]
 fn one_more_activity_than_last_week_is_a_move_up() {
-    let mut engine = PersistentEngine::in_memory().unwrap();
-    engine
-        .set_activity_metrics(vec![
-            at("last-a", "2026-02-23", 8, 3_600),
-            at("last-b", "2026-02-24", 8, 3_600),
-            at("this-a", "2026-03-02", 8, 3_600),
-            at("this-b", "2026-03-03", 8, 3_600),
-            at("this-c", "2026-03-04", 8, 3_600),
-        ])
-        .unwrap();
+    let engine = synced(vec![
+        at("last-a", "2026-02-23", 8, 3_600),
+        at("last-b", "2026-02-24", 8, 3_600),
+        at("this-a", "2026-03-02", 8, 3_600),
+        at("this-b", "2026-03-03", 8, 3_600),
+        at("this-c", "2026-03-04", 8, 3_600),
+    ]);
     let week = read(&engine.db, &windows_at("2026-03-04", 9))
         .unwrap()
         .comparisons
@@ -645,4 +667,244 @@ fn older_rows_downloaded_are_not_owed() {
 
     assert_eq!(data.calendar_first_day, "2026-07-20");
     assert_eq!(data.calendar_older_owed, 0);
+}
+
+// A comparison against a period the device holds only part of. Today is
+// Wednesday 4 March 2026 at 09:00, so last week runs from Monday 23 February
+// to Wednesday 25 February at 09:00.
+
+/// Store the census rows `rows` names, each `(id, date)`, as a window sync
+/// stores a page.
+fn store_rows(engine: &mut PersistentEngine, rows: &[(&str, &str)]) {
+    let ts = |d: &str| day(d) + 9 * 3_600;
+    let bodies: Vec<_> = rows
+        .iter()
+        .map(|(id, d)| (id.to_string(), ts(d), "{}".to_string()))
+        .collect();
+    let ids: Vec<_> = rows.iter().map(|(id, _)| id.to_string()).collect();
+    let metrics = rows
+        .iter()
+        .map(|(id, d)| ActivityMetrics {
+            date: ts(d),
+            ..activity(id, d, "Ride", 3_600)
+        })
+        .collect();
+    engine
+        .store_synced_activity_bodies(ATHLETE, &bodies, &ids, metrics)
+        .unwrap();
+}
+
+/// A signed-in engine whose census names `rows`, none of them downloaded.
+fn census_of(rows: &[(&str, &str)]) -> PersistentEngine {
+    let mut engine = signed_in("2024-01-01");
+    let census: Vec<_> = rows
+        .iter()
+        .map(|(id, d)| {
+            census_row(
+                id.to_string(),
+                NaiveDate::parse_from_str(d, "%Y-%m-%d").unwrap(),
+            )
+        })
+        .collect();
+    engine.record_activity_census(ATHLETE, &census).unwrap();
+    engine
+}
+
+const LAST_WEEK: [(&str, &str); 4] = [
+    ("last-a", "2026-02-23"),
+    ("last-b", "2026-02-23"),
+    ("last-c", "2026-02-24"),
+    ("last-d", "2026-02-24"),
+];
+const THIS_WEEK: [(&str, &str); 3] = [
+    ("this-a", "2026-03-02"),
+    ("this-b", "2026-03-03"),
+    ("this-c", "2026-03-03"),
+];
+
+fn week_read(engine: &PersistentEngine) -> crate::FfiSummaryComparison {
+    read(&engine.db, &windows_at("2026-03-04", 9))
+        .unwrap()
+        .comparisons
+        .week
+}
+
+fn no_trend(c: &crate::FfiSummaryComparison) -> bool {
+    c.count.is_none() && c.duration.is_none() && c.distance.is_none() && c.load.is_none()
+}
+
+#[test]
+fn a_previous_week_the_device_holds_part_of_is_not_compared() {
+    let mut engine = census_of(&[LAST_WEEK.as_slice(), THIS_WEEK.as_slice()].concat());
+    store_rows(&mut engine, &LAST_WEEK[..1]);
+    store_rows(&mut engine, &THIS_WEEK);
+
+    let week = week_read(&engine);
+
+    assert_eq!(
+        week.previous_stats.count, 1,
+        "one of last week's four is held"
+    );
+    assert!(
+        no_trend(&week),
+        "three held against one of four would read as up 200 %"
+    );
+    assert_eq!(week.previous_coverage, crate::RangeCoverage::NotFetched);
+    assert_eq!(week.current_coverage, crate::RangeCoverage::Loaded);
+
+    store_rows(&mut engine, &LAST_WEEK[1..]);
+    let week = week_read(&engine);
+
+    assert_eq!(week.previous_coverage, crate::RangeCoverage::Loaded);
+    let count = week.count.as_ref().expect("both weeks are whole");
+    assert_eq!(count.glyph, "↓");
+    assert_eq!(count.percent, Some(25));
+}
+
+#[test]
+fn owed_rows_in_the_current_week_withhold_the_trend_too() {
+    let mut engine = census_of(&[LAST_WEEK.as_slice(), THIS_WEEK.as_slice()].concat());
+    store_rows(&mut engine, &LAST_WEEK);
+    store_rows(&mut engine, &THIS_WEEK[..1]);
+
+    let week = week_read(&engine);
+
+    assert_eq!(week.current_coverage, crate::RangeCoverage::NotFetched);
+    assert_eq!(week.previous_coverage, crate::RangeCoverage::Loaded);
+    assert!(no_trend(&week));
+}
+
+#[test]
+fn a_previous_week_the_census_confirms_empty_answers_empty_and_no_trend() {
+    let mut engine = census_of(&THIS_WEEK);
+    store_rows(&mut engine, &THIS_WEEK);
+
+    let week = week_read(&engine);
+
+    assert_eq!(week.previous_coverage, crate::RangeCoverage::Empty);
+    assert_eq!(week.current_coverage, crate::RangeCoverage::Loaded);
+    assert!(no_trend(&week), "nothing is compared with zero");
+}
+
+#[test]
+fn no_census_at_all_answers_not_fetched_and_no_trend() {
+    let mut engine = signed_in("2024-01-01");
+    engine
+        .set_activity_metrics(vec![
+            at("last", "2026-02-23", 9, 3_600),
+            at("this", "2026-03-02", 9, 7_200),
+        ])
+        .unwrap();
+
+    let week = week_read(&engine);
+
+    assert_eq!(week.previous_coverage, crate::RangeCoverage::NotFetched);
+    assert_eq!(week.current_coverage, crate::RangeCoverage::NotFetched);
+    assert!(no_trend(&week));
+}
+
+#[test]
+fn no_stored_athlete_answers_not_fetched_and_no_trend() {
+    let mut engine = PersistentEngine::in_memory().unwrap();
+    engine
+        .set_activity_metrics(vec![
+            at("last", "2026-02-23", 9, 3_600),
+            at("this", "2026-03-02", 9, 7_200),
+        ])
+        .unwrap();
+
+    let week = week_read(&engine);
+
+    assert_eq!(week.previous_coverage, crate::RangeCoverage::NotFetched);
+    assert!(no_trend(&week));
+}
+
+// The season card's year and months to date. Today is Tuesday 3 March 2026.
+
+const LAST_YEAR: [(&str, &str); 3] = [
+    ("jan-last", "2025-01-12"),
+    ("feb-last", "2025-02-09"),
+    ("feb-last-b", "2025-02-16"),
+];
+const THIS_YEAR: [(&str, &str); 3] = [
+    ("jan-this", "2026-01-11"),
+    ("feb-this", "2026-02-08"),
+    ("mar-this", "2026-03-02"),
+];
+
+fn season_read(engine: &PersistentEngine) -> crate::FfiFitnessScreenData {
+    read(&engine.db, &windows()).unwrap()
+}
+
+#[test]
+fn the_season_months_are_each_month_before_this_one_whole_then_this_month_to_date() {
+    let data = season_read(&PersistentEngine::in_memory().unwrap());
+
+    assert_eq!(
+        data.season_months
+            .iter()
+            .map(|m| (span(&m.current), span(&m.previous)))
+            .collect::<Vec<_>>(),
+        vec![
+            (
+                (day("2026-01-01"), day("2026-02-01") - 1),
+                (day("2025-01-01"), day("2025-02-01") - 1)
+            ),
+            (
+                (day("2026-02-01"), day("2026-03-01") - 1),
+                (day("2025-02-01"), day("2025-03-01") - 1)
+            ),
+            (
+                span(&windows().month_current),
+                span(&windows().month_previous)
+            ),
+        ]
+    );
+    assert_eq!(
+        (
+            span(&data.season_year.current),
+            span(&data.season_year.previous)
+        ),
+        (
+            span(&windows().year_current),
+            span(&windows().year_previous)
+        )
+    );
+}
+
+#[test]
+fn a_last_year_the_device_holds_part_of_has_no_year_change() {
+    let mut engine = census_of(&[LAST_YEAR.as_slice(), THIS_YEAR.as_slice()].concat());
+    store_rows(&mut engine, &LAST_YEAR[..2]);
+    store_rows(&mut engine, &THIS_YEAR);
+
+    let data = season_read(&engine);
+
+    assert_eq!(
+        data.season_year.previous_coverage,
+        crate::RangeCoverage::NotFetched
+    );
+    assert!(
+        no_trend(&data.season_year),
+        "three hours against two of last year's three"
+    );
+    let [january, february, _] = &data.season_months[..] else {
+        panic!("January, February and March to date");
+    };
+    let hours = january.duration.as_ref().expect("both Januaries are whole");
+    assert_eq!(hours.glyph, "→");
+    assert_eq!(hours.change, 0.0);
+    assert!(no_trend(february), "last February is still owed a ride");
+
+    store_rows(&mut engine, &LAST_YEAR[2..]);
+    let data = season_read(&engine);
+
+    let hours = data
+        .season_year
+        .duration
+        .as_ref()
+        .expect("last year to date is whole");
+    assert_eq!(hours.change, 0.0, "three hours against three");
+    let february = data.season_months[1].count.as_ref().expect("whole");
+    assert_eq!(february.change, -50.0);
 }

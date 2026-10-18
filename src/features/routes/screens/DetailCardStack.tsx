@@ -2,7 +2,10 @@
  * The cards a route or section screen's sheet can hold, by kind, and the stack that draws them.
  *
  * Each kind's card takes the subject's id and what it was opened with. A kind with no card here
- * opens as its own screen, which the activity does until its card joins.
+ * opens as its own screen.
+ *
+ * The activity's card is loaded when it is first drawn rather than imported: the activity feature
+ * reads this one's barrel, and a module of its own read at evaluation would close that cycle.
  */
 import React from 'react';
 
@@ -25,6 +28,13 @@ function SectionCard({ id, params }: MapSheetCardProps) {
   return <SectionDetailCard id={id} activityId={params.activityId} />;
 }
 
+function ActivityCard({ id, params }: MapSheetCardProps) {
+  const { ActivityDetailCard } =
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('@/features/activity/components/ActivityDetailCard') as typeof import('@/features/activity/components/ActivityDetailCard');
+  return <ActivityDetailCard id={id} tab={params.tab} />;
+}
+
 function SectionHistory({ id }: MapSheetCardProps) {
   return <SectionHistoryCard id={id} />;
 }
@@ -36,6 +46,7 @@ function SectionLaps({ id, params }: MapSheetCardProps) {
 export const DETAIL_CARDS: MapSheetCardRegistry = {
   route: RouteCard,
   section: SectionCard,
+  activity: ActivityCard,
   'section-history': SectionHistory,
   'section-laps': SectionLaps,
 };

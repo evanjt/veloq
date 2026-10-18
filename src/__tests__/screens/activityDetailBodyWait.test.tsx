@@ -15,7 +15,8 @@ import { getHeaderTitle } from 'expo-router/build/react-navigation/elements/Head
 
 import { colors } from '@/theme';
 import { OVER_MAP_TITLE_COLOR } from '@/shared/app/screenHeaders';
-import ActivityDetailScreen from '@/app/activity/[id]';
+import ActivityDetailRoute from '@/app/activity/[id]';
+import { MapSheetHostContext, type MapSheetHostValue } from '@/shared/app/MapSheetHost';
 
 const mockStackScreen = jest.fn();
 
@@ -149,6 +150,23 @@ jest.mock('@/features/settings/stores/MapPreferencesContext', () => ({
   }),
 }));
 
+const host: MapSheetHostValue = {
+  kind: 'activity',
+  id: 'act-9',
+  key: 'activity:act-9',
+  focused: true,
+  setHeaderOptions: (options: object) => mockStackScreen({ options }),
+};
+
+/** The route's map screen inside its host, which takes the header options the screen sets. */
+function ActivityDetailScreen() {
+  return (
+    <MapSheetHostContext.Provider value={host}>
+      <ActivityDetailRoute />
+    </MapSheetHostContext.Provider>
+  );
+}
+
 function answer(overrides: Record<string, unknown>) {
   mockUseActivity.mockReturnValue({
     data: null,
@@ -234,6 +252,7 @@ describe('activity detail for an activity that is not stored', () => {
         name: 'Trainer ride',
         sportType: 'VirtualRide',
         startDateLocal: '2026-01-01T07:00:00',
+        streamTypes: [],
       },
       bodyStatus: 'ready',
     });
@@ -254,6 +273,7 @@ describe('activity detail for an activity that is not stored', () => {
         name: 'Trainer ride',
         sportType: 'VirtualRide',
         startDateLocal: '2026-01-01T07:00:00',
+        streamTypes: [],
       },
       bodyStatus: 'ready',
     });
@@ -266,6 +286,7 @@ describe('activity detail for an activity that is not stored', () => {
     });
     expect(lastHeaderTitle()).toBe('Trainer ride');
     expect(queryByText('Trainer ride')).toBeNull();
+    expect(queryByText('emptyState.error.title')).toBeNull();
   });
 
   it('starts the waiting and failed states directly under an opaque header, with no spacer', async () => {
@@ -295,6 +316,7 @@ describe('activity detail for an activity that is not stored', () => {
         name: 'Leg day',
         sportType: 'WeightTraining',
         startDateLocal: '2026-01-01T07:00:00',
+        streamTypes: [],
       },
       bodyStatus: 'ready',
     });

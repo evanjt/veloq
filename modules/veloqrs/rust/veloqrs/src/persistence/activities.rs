@@ -902,6 +902,16 @@ pub(crate) mod pooled {
             params![athlete_id, oldest, newest],
             |row| Ok((row.get(0)?, row.get(1)?)),
         );
+        census_coverage(conn, athlete_id, counted)
+    }
+
+    /// The coverage of a range from the census rows inside it and the owed
+    /// among them, which every range reader counts over its own bounds.
+    fn census_coverage(
+        conn: &Connection,
+        athlete_id: &str,
+        counted: SqlResult<(i64, i64)>,
+    ) -> RangeCoverage {
         let (inside, owed) = match counted {
             Ok(counted) => counted,
             Err(e) => {
@@ -1333,21 +1343,31 @@ pub(crate) mod pooled {
     /// Whether a period's activity inputs are complete for the saved athlete.
     /// These timestamps encode local wall time, like `activity_metrics.date`.
     pub(crate) fn period_is_covered(conn: &Connection, start: i64, end: i64) -> bool {
-        conn.query_row(
+        period_coverage(conn, start, end) != RangeCoverage::NotFetched
+    }
+
+    /// [`range_coverage`] for the saved athlete over a period bounded to the
+    /// second, both ends inclusive, in the local wall time
+    /// `activity_metrics.date` keeps. A comparison of two periods asks this of
+    /// each, so a total summed from part of a period is never set against a
+    /// whole one.
+    pub(crate) fn period_coverage(conn: &Connection, start: i64, end: i64) -> RangeCoverage {
+        let athlete = crate::persistence::stored_athlete_id(conn);
+        if athlete.is_empty() {
+            return RangeCoverage::NotFetched;
+        }
+        let counted = conn.query_row(
             &format!(
-                "SELECT EXISTS(SELECT 1 FROM activity_census WHERE athlete_id = s.value)
-                    AND NOT EXISTS (
-                        SELECT 1 FROM activity_census c
-                        WHERE c.athlete_id = s.value
-                          AND unixepoch(c.start_date_local) BETWEEN ?1 AND ?2
-                          AND ({owed}))
-                 FROM settings s WHERE s.key = '__athlete_id' AND s.value <> ''",
-                owed = super::CENSUS_ROW_OWED.as_str(),
+                "SELECT COUNT(*), COUNT(*) FILTER (WHERE {owed})
+                 FROM activity_census c
+                 WHERE c.athlete_id = ?1
+                   AND unixepoch(c.start_date_local) BETWEEN ?2 AND ?3",
+                owed = CENSUS_ROW_OWED.as_str(),
             ),
-            params![start, end],
-            |row| row.get(0),
-        )
-        .unwrap_or(false)
+            params![athlete, start, end],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        );
+        census_coverage(conn, &athlete, counted)
     }
 
     /// The stored signature line for each of `ids`, for the route detail map.

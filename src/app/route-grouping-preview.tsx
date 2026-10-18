@@ -30,7 +30,15 @@ import { Button, ErrorState, ScreenSafeAreaView, useBottomClearance, Spinner } f
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { getEngine } from '@/shared/native/engine';
 import { attemptEngineRead } from '@/shared/native/engineError';
-import { GroupSort, SectionSort, hasStarted, type PreviewCentre } from 'veloqrs';
+import {
+  GroupSort,
+  SectionSort,
+  hasStarted,
+  type PreviewCentre,
+  previewClient,
+  routeGroupingPreview,
+  routes,
+} from 'veloqrs';
 import {
   groupingParamsOf,
   GroupingParamPanel,
@@ -68,10 +76,8 @@ interface RoutesRead {
 const NO_ROUTES: RoutesRead = { routes: [], error: undefined };
 
 function readRoutes(centre: PreviewCentre | null): RoutesRead {
-  const engine = getEngine();
-  if (!engine?.getRoutesScreenData) return NO_ROUTES;
   const read = attemptEngineRead(() =>
-    engine.getRoutesScreenData({
+    routes.getRoutesScreenData({
       groupLimit: ROUTES_DRAWN,
       groupOffset: 0,
       sectionLimit: 0,
@@ -121,8 +127,13 @@ function RouteGroupingPreviewScreenContent() {
   const { rescan } = useSectionRescan();
   const [routesRead, setRoutesRead] = useState<RoutesRead>(NO_ROUTES);
   const routes = routesRead.routes;
-  const { status, groups, refused, request } = useRouteGroupingPreview(client);
-  const { centres, labels, error: centresError, retry: retryCentres } = usePreviewCentres(client);
+  const { status, groups, refused, request } = useRouteGroupingPreview(routeGroupingPreview);
+  const {
+    centres,
+    labels,
+    error: centresError,
+    retry: retryCentres,
+  } = usePreviewCentres(previewClient);
   const [centre, setCentre] = useState<PreviewCentre | null>(null);
   const selectedCentre = centre ?? centres[0] ?? null;
 

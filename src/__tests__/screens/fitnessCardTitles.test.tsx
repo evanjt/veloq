@@ -18,7 +18,11 @@ import { ActivityHeatmap, SeasonComparison, WeeklySummary } from '@/features/sta
 import { Card } from '@/shared/ui';
 import { i18n, initialiseI18n } from '@/i18n';
 import { getEngine } from '@/shared/native/engine';
-import { NO_FITNESS_PARTS, noComparisons } from '../__shared__/fitnessScreenRead';
+import {
+  NO_FITNESS_PARTS,
+  noComparisons,
+  summaryComparison,
+} from '../__shared__/fitnessScreenRead';
 import { typography } from '@/theme';
 import { WithScreenRead } from '../__shared__/withScreenRead';
 
@@ -67,10 +71,16 @@ const engine = {
     ...NO_FITNESS_PARTS,
     heatmap: [],
     months: [],
-    yearCurrent: totals(0, 0),
-    yearPrevious: totals(0, 0),
-    monthCurrent: totals(0, 0),
-    monthPrevious: totals(0, 0),
+    seasonYear: summaryComparison(windows.nowWallSeconds, {
+      currentStats: totals(0, 0),
+      previousStats: totals(0, 0),
+    }),
+    seasonMonths: [
+      summaryComparison(windows.nowWallSeconds, {
+        currentStats: totals(0, 0),
+        previousStats: totals(0, 0),
+      }),
+    ],
     comparisons: noComparisons(windows.nowWallSeconds),
   })),
   getFeedCards: jest.fn(() => []),

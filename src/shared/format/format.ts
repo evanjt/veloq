@@ -793,6 +793,28 @@ export function formatFullDate(date: Date | string): string {
 }
 
 /**
+ * The span two dates cover, as one range: "22 Jul – 3 Oct 2026" within a year, both years across
+ * one, one date for a single day or when the other is missing, and empty with neither.
+ */
+export function formatDateSpan(
+  first: Date | string | null | undefined,
+  last: Date | string | null | undefined
+): string {
+  if (!first || !last) {
+    const only = first ?? last;
+    return only ? formatFullDate(only) : '';
+  }
+  const from = asDay(first);
+  const to = asDay(last);
+  if (from.toDateString() === to.toDateString()) return formatFullDate(to);
+  const fromText =
+    from.getFullYear() === to.getFullYear()
+      ? from.toLocaleDateString(getIntlLocale(), { month: 'short', day: 'numeric' })
+      : formatFullDate(from);
+  return `${fromText} – ${formatFullDate(to)}`;
+}
+
+/**
  * A full date, or the absent mark when there is none.
  */
 export function formatDateOrDash(date: string | null): string {

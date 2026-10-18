@@ -17,6 +17,9 @@ jest.mock('@/shared/native/engine', () => ({
 const mockConsentStreamBackfill = jest.fn();
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
+    ...require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    ),
     streamBackfill: {
       consentStreamBackfill: () => mockConsentStreamBackfill(),
       stopStreamBackfill: () => {},

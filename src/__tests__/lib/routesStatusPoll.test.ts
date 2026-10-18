@@ -9,6 +9,8 @@
  * is being followed.
  */
 
+import { routesStatus } from 'veloqrs';
+
 import { getEngine } from '@/shared/native/engine';
 import {
   ROUTES_STATUS_POLL_MS,
@@ -18,21 +20,28 @@ import {
 } from '@/shared/native/routesStatusPoll';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides({
+    routesStatus: { getRoutesStatusData: jest.fn() },
+  })
+);
 
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 
-const getRoutesStatusData = jest.fn(() => ({
+const getRoutesStatusData = routesStatus.getRoutesStatusData as jest.Mock;
+const openStatus = () => ({
   detection: null,
   elevation: { phase: 'fetching', completed: 3, total: 9, failed: 0, percent: 33 },
   elevationRemaining: null,
   elevationPaused: false,
   cutover: { phase: 'detecting', running: true },
-}));
+});
 
 beforeEach(() => {
   jest.useFakeTimers();
   jest.clearAllMocks();
-  mockGetEngine.mockReturnValue({ getRoutesStatusData } as unknown as ReturnType<typeof getEngine>);
+  mockGetEngine.mockReturnValue({} as unknown as ReturnType<typeof getEngine>);
+  getRoutesStatusData.mockImplementation(openStatus);
 });
 
 afterEach(() => {
@@ -97,11 +106,10 @@ describe('the routes status poller', () => {
     mockGetEngine.mockReturnValue(undefined as unknown as ReturnType<typeof getEngine>);
     expect(readRoutesStatus()).toBeNull();
 
-    mockGetEngine.mockReturnValue({
-      getRoutesStatusData: () => {
-        throw new Error('engine is closed');
-      },
-    } as unknown as ReturnType<typeof getEngine>);
+    mockGetEngine.mockReturnValue({} as unknown as ReturnType<typeof getEngine>);
+    getRoutesStatusData.mockImplementation(() => {
+      throw new Error('engine is closed');
+    });
     expect(readRoutesStatus()).toBeNull();
   });
 });

@@ -9,7 +9,7 @@
  * request, is asserted in Rust, where it runs.
  */
 
-import { UploadOutcome, engine } from 'veloqrs';
+import { UploadOutcome, recordings } from 'veloqrs';
 import { uploadRecordingNow } from '@/features/recording/lib/upload/intervalsUploads';
 import {
   recordingInstall,
@@ -18,7 +18,7 @@ import {
 
 jest.mock('veloqrs', () =>
   require('../../__shared__/veloqrsStub').withOverrides({
-    engine: {
+    recordings: {
       uploadRecording: jest.fn(),
     },
   })
@@ -36,7 +36,7 @@ jest.mock('@/shared/app/AuthStore', () => ({
   DEMO_ATHLETE_ID: 'demo',
 }));
 
-const mockUploadRecording = engine.uploadRecording as jest.Mock;
+const mockUploadRecording = recordings.uploadRecording as jest.Mock;
 const mockTransition = transitionRecording as jest.Mock;
 
 beforeEach(() => {

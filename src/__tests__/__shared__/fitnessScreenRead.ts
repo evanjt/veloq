@@ -32,7 +32,16 @@ interface Parts {
   period?: (startTs: number, endTs: number) => PeriodStats;
   /** The weekly card's ranges, given the instant the read runs to. */
   comparisons?: (nowWallSeconds: number) => Partial<Comparisons>;
+  /**
+   * The census answer for a period, which the season comparisons carry and
+   * withhold their changes on. Every period is downloaded by default.
+   */
+  coverage?: (startTs: number, endTs: number) => RangeCoverage;
 }
+
+/** A move given in a fixture, whose unrounded change defaults to none. */
+type Move = Omit<StatTrend, 'change'> & { change?: number };
+const move = (m: Move): StatTrend => ({ ...m, change: m.change ?? 0 });
 
 export const NO_TOTALS: PeriodStats = {
   count: 0,
@@ -58,7 +67,7 @@ export function wallSeconds(date: Date): number {
 /** One comparison, every window and total defaulted to an empty one at `now`. */
 export function summaryComparison(
   now: number,
-  part: Partial<SummaryComparison> & { moves?: Partial<Record<string, StatTrend>> } = {}
+  part: Partial<SummaryComparison> & { moves?: Partial<Record<string, Move>> } = {}
 ): SummaryComparison {
   const { moves, ...rest } = part;
   return {
@@ -66,12 +75,75 @@ export function summaryComparison(
     previous: { startTs: now, endTs: now },
     currentStats: NO_TOTALS,
     previousStats: NO_TOTALS,
-    ...(moves?.count && { count: moves.count }),
-    ...(moves?.duration && { duration: moves.duration }),
-    ...(moves?.distance && { distance: moves.distance }),
-    ...(moves?.load && { load: moves.load }),
+    currentCoverage: RangeCoverage.Loaded,
+    previousCoverage: RangeCoverage.Loaded,
+    ...(moves?.count && { count: move(moves.count) }),
+    ...(moves?.duration && { duration: move(moves.duration) }),
+    ...(moves?.distance && { distance: move(moves.distance) }),
+    ...(moves?.load && { load: move(moves.load) }),
     ...rest,
   };
+}
+
+type Range = { startTs: number; endTs: number };
+
+/**
+ * A season comparison as the engine judges one: each total's signed change
+ * against a positive earlier total, and none while either period is owed.
+ */
+function seasonComparison(
+  current: Range,
+  previous: Range,
+  totals: (range: Range) => PeriodStats,
+  coverage: (range: Range) => RangeCoverage
+): SummaryComparison {
+  const [c, p] = [totals(current), totals(previous)];
+  const [currentCoverage, previousCoverage] = [coverage(current), coverage(previous)];
+  const whole =
+    currentCoverage !== RangeCoverage.NotFetched && previousCoverage !== RangeCoverage.NotFetched;
+  const judge = (now: number, before: number): StatTrend | undefined => {
+    if (!whole || !(before > 0)) return undefined;
+    const change = ((now - before) / before) * 100;
+    return {
+      glyph: change > 0 ? '↑' : change < 0 ? '↓' : '→',
+      percent: Math.round(Math.abs(change)),
+      change,
+    };
+  };
+  const trends = {
+    count: judge(c.count, p.count),
+    duration: judge(c.totalDuration, p.totalDuration),
+    distance: judge(c.totalDistance, p.totalDistance),
+    load: judge(c.totalTss, p.totalTss),
+  };
+  return {
+    current,
+    previous,
+    currentStats: c,
+    previousStats: p,
+    currentCoverage,
+    previousCoverage,
+    ...Object.fromEntries(Object.entries(trends).filter(([, t]) => t)),
+  };
+}
+
+/** Whole months of this year before the current one, then the month to date. */
+function seasonMonthRanges(w: FitnessScreenWindows): [Range, Range][] {
+  const yearStart = new Date(w.yearCurrent.startTs * 1000);
+  const monthStart = new Date(w.monthCurrent.startTs * 1000);
+  const year = monthStart.getUTCFullYear();
+  const whole = (y: number, m: number): Range => ({
+    startTs: Date.UTC(y, m, 1) / 1000,
+    endTs: Date.UTC(y, m + 1, 1) / 1000 - 1,
+  });
+  const past: [Range, Range][] =
+    yearStart.getUTCFullYear() === year
+      ? Array.from({ length: monthStart.getUTCMonth() }, (_, m) => [
+          whole(year, m),
+          whole(year - 1, m),
+        ])
+      : [];
+  return [...past, [w.monthCurrent, w.monthPrevious]];
 }
 
 /** The weekly card's every range with nothing in it, at `now`. */
@@ -88,10 +160,8 @@ export function noCalendarParts(now = 0) {
     calendarFirstDay: '',
     calendarOlderOwed: 0,
     months: [],
-    yearCurrent: NO_TOTALS,
-    yearPrevious: NO_TOTALS,
-    monthCurrent: NO_TOTALS,
-    monthPrevious: NO_TOTALS,
+    seasonYear: summaryComparison(now),
+    seasonMonths: [],
     comparisons: noComparisons(now),
   };
 }
@@ -112,8 +182,9 @@ export const NO_FITNESS_PARTS = {
 };
 
 export function fitnessScreenRead(parts: Parts) {
-  const totals = (range: { startTs: number; endTs: number }) =>
-    parts.period?.(range.startTs, range.endTs) ?? NO_TOTALS;
+  const totals = (range: Range) => parts.period?.(range.startTs, range.endTs) ?? NO_TOTALS;
+  const coverage = (range: Range) =>
+    parts.coverage?.(range.startTs, range.endTs) ?? RangeCoverage.Loaded;
   return jest.fn((_spanDays: number[], w: FitnessScreenWindows): FitnessScreenData => {
     const now = w.nowWallSeconds;
     const firstDay = parts.calendarFirstDay?.(w.heatmapFirstDay) ?? w.heatmapFirstDay;
@@ -123,10 +194,10 @@ export function fitnessScreenRead(parts: Parts) {
       calendarFirstDay: firstDay,
       calendarOlderOwed: parts.calendarOlderOwed ?? 0,
       months: parts.months?.(w.months.startTs, w.months.endTs) ?? [],
-      yearCurrent: totals(w.yearCurrent),
-      yearPrevious: totals(w.yearPrevious),
-      monthCurrent: totals(w.monthCurrent),
-      monthPrevious: totals(w.monthPrevious),
+      seasonYear: seasonComparison(w.yearCurrent, w.yearPrevious, totals, coverage),
+      seasonMonths: seasonMonthRanges(w).map(([current, previous]) =>
+        seasonComparison(current, previous, totals, coverage)
+      ),
       comparisons: { ...noComparisons(now), ...parts.comparisons?.(now) },
     };
   });

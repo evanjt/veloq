@@ -1,9 +1,8 @@
 /**
- * Scenario: the section page's row drew delete or remove and rematch as bare icons beside Edit
- * bounds.
- * Expected behaviour: the row keeps a labelled Edit bounds and, while a section is offered, a
- * labelled Accept; delete or remove and rematch live in the header's overflow menu, the
- * destructive row last and in the error text.
+ * Scenario: the section page held a row under the map for Edit bounds alone, with delete or
+ * remove and rematch as bare icons beside it.
+ * Expected behaviour: the header's overflow menu holds Edit bounds first when the section has a
+ * line, then rematch, then delete or remove, the destructive row last and in the error text.
  */
 
 import React from 'react';
@@ -11,9 +10,7 @@ import { StyleSheet } from 'react-native';
 import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import { PaperProvider } from 'react-native-paper';
 
-import { SectionActionRow } from '@/features/routes/components/section/SectionActionRow';
 import { SectionOverflowMenu } from '@/features/routes/components/section/SectionOverflowMenu';
-import type { FrequentSection } from '@/types';
 import { colors } from '@/theme';
 
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());
@@ -21,44 +18,6 @@ jest.mock('@/shared/app', () => ({
   ...jest.requireActual('@/shared/app'),
   useTheme: () => ({ isDark: false }),
 }));
-
-const section = (sectionType: 'custom' | 'auto', isUserDefined = false): FrequentSection =>
-  ({ sectionType, isUserDefined }) as unknown as FrequentSection;
-
-describe('SectionActionRow', () => {
-  async function renderRow(target: FrequentSection) {
-    const handlers = { startTrim: jest.fn(), handleAcceptSection: jest.fn() };
-    await render(<SectionActionRow isDark={false} section={target} {...handlers} />);
-    return handlers;
-  }
-
-  it('draws no bare delete, remove or rematch button on an auto section', async () => {
-    await renderRow(section('auto'));
-    for (const name of [
-      'sections.deleteSection',
-      'sections.removeSection',
-      'sections.rematchActivities',
-    ]) {
-      expect(screen.queryByRole('button', { name })).toBeNull();
-    }
-    expect(screen.getByRole('button', { name: 'sections.editBounds' })).toHaveTextContent(
-      'sections.editBounds'
-    );
-  });
-
-  it('offers a labelled Accept while the section is offered', async () => {
-    const handlers = await renderRow(section('auto'));
-    const accept = screen.getByRole('button', { name: 'sections.acceptSection' });
-    expect(accept).toHaveTextContent('sections.acceptSection');
-    await fireEvent.press(accept);
-    expect(handlers.handleAcceptSection).toHaveBeenCalledTimes(1);
-  });
-
-  it('offers no Accept once the section is accepted', async () => {
-    await renderRow(section('auto', true));
-    expect(screen.queryByRole('button', { name: 'sections.acceptSection' })).toBeNull();
-  });
-});
 
 describe('SectionOverflowMenu', () => {
   beforeEach(() => jest.useFakeTimers());
@@ -125,6 +84,25 @@ describe('SectionOverflowMenu', () => {
     await fireEvent.press(screen.getByRole('menuitem', { name: 'sections.deleteSection' }));
     expect(handlers.onDelete).toHaveBeenCalledTimes(1);
     expect(handlers.onToggleDisable).not.toHaveBeenCalled();
+  });
+
+  it('lists Edit bounds first and enters the tool from it', async () => {
+    const onEditBounds = jest.fn();
+    await openMenu({ onEditBounds });
+    expect(rows()).toEqual([
+      'sections.editBounds',
+      'sections.rematchActivities',
+      'sections.removeSection',
+    ]);
+    expect(labelColour('sections.editBounds')).toBe(colors.textPrimary);
+
+    await fireEvent.press(screen.getByRole('menuitem', { name: 'sections.editBounds' }));
+    expect(onEditBounds).toHaveBeenCalledTimes(1);
+  });
+
+  it('lists no Edit bounds with no handler, as for a section with no line', async () => {
+    await openMenu({ onEditBounds: undefined });
+    expect(rows()).not.toContain('sections.editBounds');
   });
 
   it('restores a removed section, which is not destructive', async () => {

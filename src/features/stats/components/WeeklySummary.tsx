@@ -12,11 +12,9 @@ import { RangeCoverage } from 'veloqrs';
 import {
   formatDistance,
   formatFullDate,
-  formatLocalDate,
   getMonday,
   formatDurationHuman,
 } from '@/shared/format/format';
-import { useWindowCoverage } from '@/shared/native/useRangeCoverage';
 import type {
   PeriodTotals,
   StatMove,
@@ -156,15 +154,11 @@ export function WeeklySummary({ training }: WeeklySummaryProps) {
     [comparison, t]
   );
 
-  // Whether each period was downloaded, by the census over its own days.
-  const days = (start?: Date, end?: Date): [string, string] =>
-    start && end ? [formatLocalDate(start), formatLocalDate(end)] : ['', ''];
-  const [currentOldest, currentNewest] = days(comparison?.currentStart, comparison?.currentEnd);
-  const [previousOldest, previousNewest] = days(comparison?.previousStart, comparison?.previousEnd);
-  const currentCoverage = useWindowCoverage(currentOldest, currentNewest, !!comparison);
-  const previousCoverage = useWindowCoverage(previousOldest, previousNewest, !!comparison);
-  const currentNotDownloaded = currentCoverage === RangeCoverage.NotFetched;
-  const partlyNotDownloaded = currentNotDownloaded || previousCoverage === RangeCoverage.NotFetched;
+  // Whether each period is on the device, judged by the engine beside the
+  // moves it withholds for a period it holds only part of.
+  const currentNotDownloaded = comparison?.currentCoverage === RangeCoverage.NotFetched;
+  const partlyNotDownloaded =
+    currentNotDownloaded || comparison?.previousCoverage === RangeCoverage.NotFetched;
 
   const labels = useMemo(() => {
     const today = new Date();

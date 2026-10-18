@@ -179,9 +179,10 @@ describe('activity detail first paint', () => {
     expect(mockActivityReadCommits).toEqual([]);
     await flushFrame();
 
-    expect(mockIntervalsIds).toEqual(['act-1']);
-    expect(mockDetailEnabled).toEqual([undefined]);
     expect(mockActivityReadCommits).toEqual([true]);
+    // The card makes the detail reads once the activity is read, so none runs while it loads.
+    expect(mockIntervalsIds).toEqual([]);
+    expect(mockDetailEnabled).toEqual([]);
   });
 
   it('continues after an empty poster slot commits', async () => {

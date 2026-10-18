@@ -12,6 +12,14 @@ import { useRouteRenaming } from '@/features/routes/hooks/useRouteRenaming';
 import * as haptics from '@/shared/ui/haptics';
 import { getEngine } from '@/shared/native/engine';
 
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
+
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 jest.mock('@/shared/ui/haptics', () => ({
   selection: jest.fn(),

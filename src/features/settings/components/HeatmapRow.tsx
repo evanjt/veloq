@@ -10,7 +10,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { getEngine } from '@/shared/native/engine';
 import { formatFileSize } from '@/shared/format/format';
 import {
   clearHeatmapTileSets,
@@ -21,6 +20,7 @@ import {
 } from '@/features/maps';
 import { SwitchRow } from '@/shared/ui/SwitchRow';
 import { inform } from '@/shared/ui/dialog';
+import { heatmap } from 'veloqrs';
 
 export function HeatmapRow() {
   const { t } = useTranslation();
@@ -39,17 +39,16 @@ export function HeatmapRow() {
   const handleToggle = useCallback(
     async (next: boolean) => {
       setEnabled(next);
-      const engine = getEngine();
       if (next) {
-        engine?.enableHeatmapTiles();
+        heatmap.enableHeatmapTiles();
         refreshSize();
         return;
       }
       // Off before the clear, so no pass starts while it runs, and the work
       // already going stops rather than holding a core for a heatmap nobody
       // wants. The clear itself waits out a pass that is still drawing.
-      engine?.disableHeatmapTiles();
-      engine?.cancelHeatmapWork();
+      heatmap.disableHeatmapTiles();
+      heatmap.cancelHeatmapWork();
       if (!(await clearHeatmapTileSets([HEATMAP_TILES_DIR, LEGACY_HEATMAP_TILES_DIR]))) {
         inform({ title: t('alerts.clearFailedTitle'), message: t('alerts.failedToClear') });
       }

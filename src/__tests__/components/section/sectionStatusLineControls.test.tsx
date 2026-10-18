@@ -1,11 +1,11 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
-import { SectionActionRow } from '@/features/routes/components/section/SectionActionRow';
+import { SectionStatusLine } from '@/features/routes/components/section/SectionStatusLine';
+import { sectionActionChips } from '@/features/routes/lib/sectionActionChips';
 import {
   SectionTrimOverlay,
   SectionTrimToolBar,
 } from '@/features/routes/components/SectionTrimOverlay';
-import type { FrequentSection } from '@/types';
 import type { ReactTestInstance } from 'react-test-renderer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, opacity } from '@/theme';
@@ -32,36 +32,26 @@ jest.mock('react-native-gesture-handler', () => {
   };
 });
 
-const section = (sectionType: 'custom' | 'auto'): FrequentSection =>
-  ({ sectionType, isUserDefined: sectionType === 'custom' }) as unknown as FrequentSection;
-
-async function renderRow(sectionType: 'custom' | 'auto', over: Record<string, unknown> = {}) {
-  const handlers = {
-    startTrim: jest.fn(),
-    handleAcceptSection: jest.fn(),
-  };
-  const utils = await render(
-    <SectionActionRow isDark={false} section={section(sectionType)} {...handlers} {...over} />
-  );
-  return { ...utils, handlers };
-}
-
-describe('SectionActionRow controls', () => {
-  it('exposes the edit-bounds pill by role, label and testID', async () => {
-    const { getByRole, getByTestId, handlers } = await renderRow('custom');
-    const byRole = getByRole('button', { name: 'sections.editBounds' });
-    expect(getByTestId('section-trim-button')).toBe(byRole);
-    await fireEvent.press(byRole);
-    expect(handlers.startTrim).toHaveBeenCalledTimes(1);
+async function renderLine(
+  over: { isUserDefined?: boolean; pinnedVersion?: number | null; partlyExcluded?: boolean } = {}
+) {
+  const chips = sectionActionChips({
+    sectionType: 'auto',
+    isUserDefined: over.isUserDefined ?? false,
+    pinnedVersion: over.pinnedVersion ?? null,
   });
-});
+  return render(
+    <SectionStatusLine isDark={false} chips={chips} partlyExcluded={over.partlyExcluded} />
+  );
+}
 
 /**
  * Scenario: one pin stood for Pinned and for Accepted.
  *
- * Expected behaviour: Pinned, Accepted and Accept each draw a glyph of their own.
+ * Expected behaviour: Pinned and Accepted each draw a glyph of their own at the foot of the
+ * summary, neither of them a pin for Accepted, and an offered section shows no state there.
  */
-describe('SectionActionRow glyphs', () => {
+describe('SectionStatusLine glyphs', () => {
   type Node = { props: { name?: string } };
   type Found = { findAll: (p: (n: Node) => boolean) => Node[] };
 
@@ -69,28 +59,27 @@ describe('SectionActionRow glyphs', () => {
     return element.findAll((n) => typeof n.props.name === 'string')[0]?.props.name;
   }
 
-  it('draws Pinned, Accepted and Accept with different glyphs', async () => {
-    const pinned = await renderRow('auto', { pinnedVersion: 2 });
+  it('draws Pinned and Accepted with different glyphs', async () => {
+    const pinned = await renderLine({ pinnedVersion: 2 });
     const pin = glyph(pinned.getByTestId('section-pinned-version'));
+    expect(pinned.queryByTestId('section-accepted')).toBeNull();
     await pinned.unmount();
 
-    const accepted = await renderRow('auto', {
-      section: { sectionType: 'auto', isUserDefined: true } as unknown as FrequentSection,
-    });
+    const accepted = await renderLine({ isUserDefined: true });
     const acceptedGlyph = glyph(accepted.getByTestId('section-accepted'));
-    await accepted.unmount();
 
-    const offer = await renderRow('auto');
-    const acceptGlyph = glyph(offer.getByRole('button', { name: 'sections.acceptSection' }));
-
-    expect(new Set([pin, acceptedGlyph, acceptGlyph]).size).toBe(3);
+    expect(pin).not.toBe(acceptedGlyph);
     expect(acceptedGlyph).not.toMatch(/^pin/);
-    expect(acceptGlyph).not.toMatch(/^pin/);
   });
 
   it('draws the partly excluded chip with the exclusion glyph', async () => {
-    const { getByTestId } = await renderRow('auto', { partlyExcluded: true });
+    const { getByTestId } = await renderLine({ partlyExcluded: true });
     expect(glyph(getByTestId('section-partly-excluded'))).toBe('eye-off-outline');
+  });
+
+  it('draws nothing for an offered section with no exclusion', async () => {
+    const { queryByTestId } = await renderLine();
+    expect(queryByTestId('section-status-line')).toBeNull();
   });
 });
 

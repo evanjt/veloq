@@ -18,3 +18,14 @@ export function isSportOffered(sport: string, counts: readonly { sportType: stri
 export function shouldShowSportChips(counts: readonly { sportType: string }[]): boolean {
   return counts.length > 0;
 }
+
+/**
+ * The chips a section or route page offers beside its range: one per sport the screen read
+ * offers, with its count, or none when `shouldShowSportChips` draws none.
+ */
+export function sportChipOptions(
+  counts: readonly { sportType: string; count: number }[]
+): { type: string; count: number }[] {
+  if (!shouldShowSportChips(counts)) return [];
+  return counts.map(({ sportType, count }) => ({ type: sportType, count }));
+}

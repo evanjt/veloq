@@ -12,7 +12,13 @@ import { useSectionDetailData } from '@/features/routes/hooks/useSectionDetailDa
 import { useRouteDetailData } from '@/features/routes/hooks/useRouteDetailData';
 import type { SectionDetailData } from 'veloqrs';
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 
 const mockGetEngine = jest.fn();
 jest.mock('@/shared/native/engine', () => ({

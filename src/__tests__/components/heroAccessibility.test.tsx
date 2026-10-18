@@ -1,5 +1,5 @@
 /**
- * Scenario: a screen reader on the activity, route or section hero met a name with no heading
+ * Scenario: a screen reader on the activity's Peek row, or the route or section hero met a name with no heading
  * role and a stat strip read as separate fragments, '12.3 km', '·', '1:02:33', '·', '245 m',
  * with nothing naming what each number is.
  *
@@ -11,7 +11,8 @@ import React from 'react';
 import { View } from 'react-native';
 import { render, screen } from '@testing-library/react-native';
 
-import { ActivityHeader } from '@/features/activity/components/ActivityHeader';
+import { ActivityPeek } from '@/features/activity/components/ActivityPeek';
+import { activityHeroStats } from '@/features/activity/lib/activityHeroStats';
 import { DetailHero, HeroNameRow, HeroStatsRow } from '@/shared/ui/DetailHero';
 
 import { activityRecord } from '../__shared__/activityRecord';
@@ -43,43 +44,27 @@ const activity = activityRecord({
   streamTypes: ['latlng'],
 });
 
-async function renderActivityHeader(shown: ActivityRecord = activity) {
+async function renderActivityPeek(shown: ActivityRecord = activity) {
   return render(
-    <ActivityHeader
-      activity={shown}
+    <ActivityPeek
       activityId={shown.id}
-      coordinates={[]}
-      hasStoredTrack={false}
-      isMetric={true}
+      name={shown.name ?? ''}
+      activityType="Ride"
+      startDateLocal={shown.startDateLocal}
+      stats={activityHeroStats(shown, true, ((key: string) => key) as never)}
       debugEnabled={false}
-      mapHeight={320}
-      highlightIndex={null}
-      sectionCreationMode={false}
-      sectionCreationState={undefined}
-      sectionCreationError={null}
-      onSectionCreated={jest.fn()}
-      onCreationCancelled={jest.fn()}
-      onCreationErrorDismiss={jest.fn()}
-      on3DModeChange={jest.fn()}
-      onStyleChange={jest.fn()}
-      onCameraCapture={jest.fn()}
-      initial3DCamera={null}
-      activeTab="charts"
-      routeOverlayCoordinates={null}
-      sectionOverlays={null}
-      highlightedSectionId={null}
     />
   );
 }
 
-describe('the activity hero', () => {
+describe("the activity sheet's Peek row", () => {
   it('announces the activity name as a heading', async () => {
-    await renderActivityHeader();
+    await renderActivityPeek();
     expect(screen.getByRole('header', { name: 'Harbour loop' })).toBeTruthy();
   });
 
   it('reads distance, duration and elevation gain as one element naming each value', async () => {
-    await renderActivityHeader();
+    await renderActivityPeek();
     const strip = screen.getByLabelText(
       'activity.distance: 12.3 km, activity.duration: 1:02:33, sections.elevationGain: 245 m'
     );
@@ -88,7 +73,7 @@ describe('the activity hero', () => {
   });
 
   it('reads only the time for a ride with no distance and no climb', async () => {
-    await renderActivityHeader(
+    await renderActivityPeek(
       activityRecord({
         ...activity,
         distance: 0,

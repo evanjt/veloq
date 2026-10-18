@@ -3,10 +3,9 @@
  * labels, optional per-sport counts, each sport's dot in its family shade.
  */
 
-import { StyleSheet } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
 
 import { SportChipRow } from '@/shared/ui/SportChipRow';
-import { spacing } from '@/theme';
 
 export interface SportTypeOption {
   type: string;
@@ -14,12 +13,19 @@ export interface SportTypeOption {
 }
 
 interface SportTypeSelectorProps {
-  options: SportTypeOption[];
+  options: readonly SportTypeOption[];
   selectedType: string | undefined;
   onSelect: (type: string) => void;
+  /** Where the row sits in its parent's layout; it carries no margin of its own. */
+  style?: StyleProp<ViewStyle>;
 }
 
-export function SportTypeSelector({ options, selectedType, onSelect }: SportTypeSelectorProps) {
+export function SportTypeSelector({
+  options,
+  selectedType,
+  onSelect,
+  style,
+}: SportTypeSelectorProps) {
   return (
     <SportChipRow
       chips={options.map(({ type, count }) => ({
@@ -30,11 +36,7 @@ export function SportTypeSelector({ options, selectedType, onSelect }: SportType
       }))}
       value={selectedType}
       onSelect={onSelect}
-      style={styles.row}
+      style={style}
     />
   );
 }
-
-const styles = StyleSheet.create({
-  row: { marginHorizontal: spacing.md, marginTop: spacing.md },
-});

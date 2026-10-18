@@ -7,6 +7,11 @@
  */
 
 import type {
+  FfiMatchStrictness,
+  FfiMapScreenData,
+  MapDistanceBand,
+  FfiRouteGroup,
+  GroupSummary,
   AthleteProfile,
   FfiStartResult,
   FfiWidgetContext,
@@ -21,45 +26,29 @@ import type {
   FfiActivityDetailData,
   FfiActivityStreams,
   FfiActivityNotification,
-  FfiUploadResult,
-  FfiExerciseActivities,
-  FfiExerciseSession,
-  FfiExerciseDetailData,
-  FfiExerciseSet,
-  FfiMuscleGroup,
-  FfiStrengthScreenData,
   FfiBackupScreenData,
   FfiCacheScreenData,
   FfiBackgroundJobsData,
   FfiPreviewTrack,
-  FfiMapScreenData,
   FfiActivityIntervals,
   FfiBestEffortsData,
   FfiPlannedEvent,
-  MapDistanceBand,
-  FfiRouteGroup,
   FfiSection,
   FfiMapSection,
   FfiNamedCorridor,
   FfiSectionDetailData,
   FfiSectionPerformanceData,
   FfiSectionPerformanceResult,
-  FfiRoutePerformanceResult,
   SectionSummary,
-  GroupSummary,
   FfiSummaryCardData,
   FfiFitnessScreenData,
   FfiFitnessScreenWindows,
   FfiInsightsData,
   FfiInsightsParams,
   FfiStartupData,
-  FfiRoutesScreenData,
-  FfiRoutesScreenQuery,
   FfiActivityRecord,
   FfiFeedCard,
   FfiFeedCardsPage,
-  FfiMatchStrictness,
-  FfiSectionConfig,
   FfiIndexActivitySummary,
   FfiMergeDropped,
   DownloadProgressResult,
@@ -83,27 +72,11 @@ import {
 } from './generated/veloqrs';
 import * as generated from './generated/veloqrs';
 
-import type { SectionDetectionProgress } from './conversions';
 import type { DelegateHost } from './delegates/host';
 import * as activityDelegates from './delegates/activities';
-import * as detectionDelegates from './delegates/detection';
-import * as cutoverDelegates from './delegates/cutover';
-import * as routesStatusDelegates from './delegates/routesStatus';
-import type { RoutesStatus } from './delegates/routesStatus';
-import type { CutoverDiff } from './delegates/cutover';
 import * as fitnessDelegates from './delegates/fitness';
-import * as previewDelegates from './delegates/preview';
-import * as routeGroupingPreviewDelegates from './delegates/routeGroupingPreview';
-import type {
-  PreviewCentre,
-  PreviewPollStatus,
-  PreviewResult,
-  PreviewSection,
-} from './delegates/preview';
 import * as heatmapDelegates from './delegates/heatmap';
-import type { RunProgress } from './delegates/run';
-import * as launchDelegates from './delegates/launch';
-import * as recordingDelegates from './delegates/recordings';
+import * as detectionDelegates from './delegates/detection';
 import * as mapsDelegates from './delegates/maps';
 import * as routeDelegates from './delegates/routes';
 import * as sectionDelegates from './delegates/sections';
@@ -616,50 +589,6 @@ class EngineClient implements DelegateHost {
     }
   }
 
-  startSectionDetection = (): FfiStartResult => detectionDelegates.startSectionDetection(this);
-
-  sectionDetectionAwaiting = (): number | null => detectionDelegates.sectionDetectionAwaiting(this);
-  cancelSectionDetection = (): boolean => detectionDelegates.cancelSectionDetection(this);
-
-  pollSectionDetection = (): string => detectionDelegates.pollSectionDetection(this);
-
-  pollSectionDetectionRun = (runId: string): string =>
-    detectionDelegates.pollSectionDetectionRun(this, runId);
-
-  getSectionDetectionProgress = (): SectionDetectionProgress | null =>
-    detectionDelegates.getSectionDetectionProgress(this);
-
-  getPreviewCentres = (limit: number): PreviewCentre[] =>
-    previewDelegates.getPreviewCentres(this, limit);
-
-  getPreviewCurrentSections = (lat: number, lng: number): PreviewSection[] | null =>
-    previewDelegates.getPreviewCurrentSections(this, lat, lng);
-
-  startPreviewDetect = (lat: number, lng: number, config: FfiSectionConfig): FfiStartResult =>
-    previewDelegates.startPreviewDetect(this, lat, lng, config);
-
-  pollPreviewDetect = (): PreviewPollStatus => previewDelegates.pollPreviewDetect(this);
-
-  getPreviewProgress = (): SectionDetectionProgress | null =>
-    previewDelegates.getPreviewProgress(this);
-
-  takePreviewResult = (): PreviewResult | null => previewDelegates.takePreviewResult(this);
-
-  cancelPreviewDetect = (): void => previewDelegates.cancelPreviewDetect(this);
-
-  runRouteGroupingPreview = (
-    minMatchPercentage: number,
-    endpointThreshold: number
-  ): Promise<routeGroupingPreviewDelegates.RouteGroupingOutcome> =>
-    routeGroupingPreviewDelegates.runRouteGroupingPreview(
-      this,
-      minMatchPercentage,
-      endpointThreshold
-    );
-
-  cancelRouteGroupingPreview = (): void =>
-    routeGroupingPreviewDelegates.cancelRouteGroupingPreview(this);
-
   /**
    * Take whatever a push handler wrote from another process while the app was
    * away, and say whether there was anything to take.
@@ -678,21 +607,6 @@ class EngineClient implements DelegateHost {
       return false;
     }
   };
-
-  isCutoverHeld = (): boolean => cutoverDelegates.isCutoverHeld(this);
-
-  startDetectorCutover = (): FfiStartOutcome => cutoverDelegates.startDetectorCutover(this);
-
-  getChangeCardSupport = () => cutoverDelegates.getChangeCardSupport(this);
-
-  /**
-   * Every routes background-job figure in one read, for the poller that
-   * follows a run. One call a tick rather than four, and the figures agree
-   * with each other because they were taken together.
-   */
-  getRoutesStatusData = (): RoutesStatus | null => routesStatusDelegates.getRoutesStatusData(this);
-
-  getCutoverDiff = (): CutoverDiff | null => cutoverDelegates.getCutoverDiff(this);
 
   setSyncCredentials = (method: SyncAuthMethod, secret: string, athleteId: string): void =>
     syncDelegates.setSyncCredentials(this, method, secret, athleteId);
@@ -739,32 +653,17 @@ class EngineClient implements DelegateHost {
 
   getBodiesStored = (): number => syncDelegates.getBodiesStored(this);
 
-  getGroups = (): FfiRouteGroup[] => routeDelegates.getGroups(this);
-
   /** Six fields and the encoded line, for the regional map's section overlay. */
   getMapSections = (sportType?: string, minVisits?: number): FfiMapSection[] =>
     sectionDelegates.getMapSections(this, sportType, minVisits);
 
-  getSectionCount = (): number => sectionDelegates.getSectionCount(this);
-
-  getSectionSummaries = (sportType?: string): { totalCount: number; summaries: SectionSummary[] } =>
-    sectionDelegates.getSectionSummaries(this, sportType);
-
-  getFilteredSectionSummaries = (
-    sportType: string | undefined,
-    minVisits: number,
-    sortKey: sectionDelegates.SectionSortKey
-  ): { totalCount: number; summaries: SectionSummary[] } =>
-    sectionDelegates.getFilteredSectionSummaries(this, sportType, minVisits, sortKey);
+  getGroups = (): FfiRouteGroup[] => routeDelegates.getGroups(this);
 
   getFilteredGroupSummaries = (
     minActivities: number,
     sortKey: routeDelegates.GroupSortKey
   ): { totalCount: number; summaries: GroupSummary[] } =>
     routeDelegates.getFilteredGroupSummaries(this, minActivities, sortKey);
-
-  getSectionById = (sectionId: string): FfiSection | null =>
-    sectionDelegates.getSectionById(this, sectionId);
 
   getMapScreenData = (
     startDate: Date,
@@ -792,21 +691,43 @@ class EngineClient implements DelegateHost {
       heldSections
     );
 
-  getAllMapSignatures = (): {
-    activityId: string;
-    encodedCoords: ArrayBuffer;
-    centerLat: number;
-    centerLng: number;
-  }[] => mapsDelegates.getAllMapSignatures(this);
+  /** Coordinate-encoded; put it through `decodeCoords`. */
+  getRepresentativeRoute = (groupId: string): ArrayBuffer =>
+    routeDelegates.getRepresentativeRoute(this, groupId);
 
-  setRouteName = (routeId: string, name: string): void =>
-    routeDelegates.setRouteName(this, routeId, name);
+  getRouteDetailData = (groupId: string): routeDelegates.RouteDetailData | undefined =>
+    routeDelegates.getRouteDetailData(this, groupId);
 
-  setRouteRepresentative = (routeId: string, activityId: string): Promise<boolean> =>
-    routeDelegates.setRouteRepresentative(this, routeId, activityId);
+  getMuscleDetail = (
+    activityId: string,
+    muscleSlug: string
+  ): strengthDelegates.MuscleGroupDetailFfi | null =>
+    strengthDelegates.getMuscleDetail(this, activityId, muscleSlug);
 
-  resetRouteRepresentative = (routeId: string): Promise<boolean> =>
-    routeDelegates.resetRouteRepresentative(this, routeId);
+  /** Every strength activity still owed a FIT. */
+  getUnprocessedStrengthIds = (): string[] => strengthDelegates.getUnprocessedStrengthIds(this);
+
+  hasStrengthData = (): boolean => strengthDelegates.hasStrengthData(this);
+
+  setMatchStrictness = (minMatchPct: number, endpointThreshold: number): void =>
+    detectionDelegates.setMatchStrictness(this, minMatchPct, endpointThreshold);
+
+  getMatchStrictness = (): FfiMatchStrictness | null => detectionDelegates.getMatchStrictness(this);
+
+  getSectionCount = (): number => sectionDelegates.getSectionCount(this);
+
+  getSectionSummaries = (sportType?: string): { totalCount: number; summaries: SectionSummary[] } =>
+    sectionDelegates.getSectionSummaries(this, sportType);
+
+  getFilteredSectionSummaries = (
+    sportType: string | undefined,
+    minVisits: number,
+    sortKey: sectionDelegates.SectionSortKey
+  ): { totalCount: number; summaries: SectionSummary[] } =>
+    sectionDelegates.getFilteredSectionSummaries(this, sportType, minVisits, sortKey);
+
+  getSectionById = (sectionId: string): FfiSection | null =>
+    sectionDelegates.getSectionById(this, sectionId);
 
   setSectionName = (
     sectionId: string,
@@ -838,26 +759,6 @@ class EngineClient implements DelegateHost {
   getPreviewTrack = (activityId: string): FfiPreviewTrack | undefined =>
     activityDelegates.getPreviewTrack(this, activityId);
 
-  /** Coordinate-encoded; put it through `decodeCoords`. */
-  getRepresentativeRoute = (groupId: string): ArrayBuffer =>
-    routeDelegates.getRepresentativeRoute(this, groupId);
-
-  liveRouteOverlaps = (groupIds: string[], coordinates: number[]) =>
-    routeDelegates.liveRouteOverlaps(this, groupIds, coordinates);
-
-  getRoutePerformances = (
-    routeGroupId: string,
-    currentActivityId: string,
-    sportType?: string
-  ): FfiRoutePerformanceResult =>
-    routeDelegates.getRoutePerformances(this, routeGroupId, currentActivityId, sportType);
-
-  excludeActivityFromRoute = (routeId: string, activityId: string): void =>
-    routeDelegates.excludeActivityFromRoute(this, routeId, activityId);
-
-  includeActivityInRoute = (routeId: string, activityId: string): void =>
-    routeDelegates.includeActivityInRoute(this, routeId, activityId);
-
   getSectionPerformances = (sectionId: string, sportType?: string): FfiSectionPerformanceResult =>
     sectionDelegates.getSectionPerformances(this, sectionId, sportType);
 
@@ -886,37 +787,6 @@ class EngineClient implements DelegateHost {
   getPinnedSectionVersion = (sectionId: string) =>
     sectionDelegates.getPinnedSectionVersion(this, sectionId);
   getRetiredSections = () => sectionDelegates.getRetiredSections(this);
-
-  getRouteDetailData = (groupId: string): routeDelegates.RouteDetailData | undefined =>
-    routeDelegates.getRouteDetailData(this, groupId);
-
-  getRouteDetailPerformance = (
-    groupId: string,
-    timeRangeDays: number,
-    sportFilter?: string,
-    highlightActivityId?: string
-  ): FfiSectionPerformanceData | undefined =>
-    routeDelegates.getRouteDetailPerformance(
-      this,
-      groupId,
-      timeRangeDays,
-      sportFilter,
-      highlightActivityId
-    );
-
-  loadRouteDetailPerformance = (
-    groupId: string,
-    timeRangeDays: number,
-    sportFilter?: string,
-    highlightActivityId?: string
-  ): Promise<FfiSectionPerformanceData | undefined> =>
-    routeDelegates.loadRouteDetailPerformance(
-      this,
-      groupId,
-      timeRangeDays,
-      sportFilter,
-      highlightActivityId
-    );
 
   getSectionDetailData = (sectionId: string): FfiSectionDetailData | undefined =>
     sectionDelegates.getSectionDetailData(this, sectionId);
@@ -955,16 +825,6 @@ class EngineClient implements DelegateHost {
   getActivitiesMissingTimeStreams = (activityIds: string[]): string[] =>
     activityDelegates.getActivitiesMissingTimeStreams(this, activityIds);
 
-  queryViewport = (minLat: number, maxLat: number, minLng: number, maxLng: number): string[] =>
-    mapsDelegates.queryViewport(this, minLat, maxLat, minLng, maxLng);
-
-  /**
-   * Everything launch does to the engine once the library's identity is
-   * settled, in one call across the binding.
-   */
-  launchData = (input: launchDelegates.LaunchDataInput): PersistentEngineStats | undefined =>
-    launchDelegates.launchData(this, input);
-
   getStats(): PersistentEngineStats | undefined {
     if (!this.ready) return undefined;
     return this.timed('getStats', () => this.engine.getStats());
@@ -1001,9 +861,6 @@ class EngineClient implements DelegateHost {
       this.engine.getActivitiesNeedingTimeStreams()
     );
   }
-
-  getRoutesScreenData = (query: FfiRoutesScreenQuery): FfiRoutesScreenData | undefined =>
-    routeDelegates.getRoutesScreenData(this, query);
 
   getSummaryCardData = (nowWallSeconds: number): FfiSummaryCardData =>
     fitnessDelegates.getSummaryCardData(this, nowWallSeconds);
@@ -1064,15 +921,6 @@ class EngineClient implements DelegateHost {
   getDailyActivityLoads = (startTs: number, endTs: number) =>
     fitnessDelegates.getDailyActivityLoads(this, startTs, endTs);
 
-  // ==========================================================================
-  // Heatmap Tiles (Raster tile generation for map overlay)
-  // ==========================================================================
-  // Tile generation is handled in Rust on background threads.
-  // Only clear is exposed to JS (for settings "clear cache").
-
-  /** Enable heatmap tile generation by setting the tiles path. */
-  enableHeatmapTiles = (): void => heatmapDelegates.enableHeatmapTiles(this);
-
   /**
    * The tiles path in force, or null when the athlete has the heatmap off.
    *
@@ -1089,106 +937,6 @@ class EngineClient implements DelegateHost {
       console.warn('[EngineClient] Failed to re-apply the heatmap tiles path:', e);
     }
   }
-
-  /** Disable heatmap tile generation by clearing the tiles path in the engine. */
-  disableHeatmapTiles = (): void => heatmapDelegates.disableHeatmapTiles(this);
-
-  /** Stop the tile pass and the invalidation sweep, if either is running. */
-  cancelHeatmapWork = (): boolean => heatmapDelegates.cancelHeatmapWork(this);
-
-  setHeatmapPriorityView = (latitude: number, longitude: number, zoom: number): void =>
-    heatmapDelegates.setHeatmapPriorityView(this, latitude, longitude, zoom);
-
-  clearHeatmapPriorityView = (): void => heatmapDelegates.clearHeatmapPriorityView(this);
-
-  startHeatmapCacheSize = (basePath: string): FfiStartResult =>
-    heatmapDelegates.startHeatmapCacheSize(this, basePath);
-
-  readHeatmapCacheSizeRun = (): RunProgress => heatmapDelegates.readHeatmapCacheSizeRun(this);
-
-  takeHeatmapCacheSize = (): number | null => heatmapDelegates.takeHeatmapCacheSize(this);
-
-  cancelHeatmapCacheSize = (): boolean => heatmapDelegates.cancelHeatmapCacheSize(this);
-
-  /** Stop any tile pass, then clear the heatmap tiles. Rejects on a tile left on disk. */
-  clearHeatmapTiles = (basePath: string): Promise<void> =>
-    heatmapDelegates.clearHeatmapTiles(this, basePath);
-
-  /** Get heatmap tile generation progress: [processed, total] */
-  getHeatmapTileProgress = (): number[] | null => heatmapDelegates.getHeatmapTileProgress(this);
-
-  /** Poll tile generation status: 'idle' | 'running' | 'complete' */
-  pollTileGeneration = (): string => heatmapDelegates.pollTileGeneration(this);
-
-  // ==========================================================================
-  // Recording index (what this device has recorded, and its upload state)
-  // ==========================================================================
-
-  /** Add a recording. False means a row with that id was already there. */
-  addRecording = (entry: recordingDelegates.RecordingEntry): boolean =>
-    recordingDelegates.addRecording(this, entry);
-
-  /** Every recording, newest first. */
-  listRecordings = (): recordingDelegates.RecordingEntry[] =>
-    recordingDelegates.listRecordings(this);
-
-  getRecording = (id: string): recordingDelegates.RecordingEntry | null =>
-    recordingDelegates.getRecording(this, id);
-
-  listVisibleRecordings = (athleteId: string | undefined): recordingDelegates.RecordingEntry[] =>
-    recordingDelegates.listVisibleRecordings(this, athleteId);
-
-  getVisibleRecording = (
-    id: string,
-    athleteId: string | undefined
-  ): recordingDelegates.RecordingEntry | null =>
-    recordingDelegates.getVisibleRecording(this, id, athleteId);
-
-  unuploadedVisibleRecordingCount = (athleteId: string | undefined): number =>
-    recordingDelegates.unuploadedVisibleRecordingCount(this, athleteId);
-
-  attachRecordingEngineActivity = (id: string, engineActivityId: string): void =>
-    recordingDelegates.attachRecordingEngineActivity(this, id, engineActivityId);
-
-  /** Move one recording's upload by a named transition. */
-  transitionRecording = (
-    id: string,
-    transition: recordingDelegates.RecordingTransition,
-    nowMs: number
-  ): recordingDelegates.RecordingTransitionAnswer =>
-    recordingDelegates.transitionRecording(this, id, transition, nowMs);
-
-  /** Stops auto-uploading every ride this athlete did not record. */
-  holdRecordingsOfOtherAthletes = (athleteId: string): void =>
-    recordingDelegates.holdRecordingsOfOtherAthletes(this, athleteId);
-
-  /** Names the library's athlete on every ride that has none. */
-  stampOwnerlessRecordings = (athleteId: string): void =>
-    recordingDelegates.stampOwnerlessRecordings(this, athleteId);
-
-  clearRecordingPermissionBlocked = (athleteId: string): void =>
-    recordingDelegates.clearRecordingPermissionBlocked(this, athleteId);
-
-  /**
-   * Start the engine's upload schedule if it is not running, and wake it, with
-   * the documents directory the rows' file names are relative to.
-   */
-  wakeUploadSchedule = (filesRoot: string): void =>
-    recordingDelegates.wakeUploadSchedule(this, filesRoot);
-
-  /** Upload one recording now, its files under `filesRoot`, and answer how it ended. */
-  uploadRecording = (id: string, manual: boolean, filesRoot: string): Promise<FfiUploadResult> =>
-    recordingDelegates.uploadRecording(this, id, manual, filesRoot);
-
-  /** Remove a recording, answering the row so its files can be deleted too. */
-  deleteOwnRecording = (
-    id: string,
-    athleteId: string | undefined
-  ): recordingDelegates.RecordingEntry | null =>
-    recordingDelegates.deleteOwnRecording(this, id, athleteId);
-
-  /** Drop every recording row, which a `.veloqdb` restore leaves stale. */
-  clearRecordings = (): void => recordingDelegates.clearRecordings(this);
 
   upsertWellness = (rows: fitnessDelegates.WellnessRowInput[]): void =>
     fitnessDelegates.upsertWellness(this, rows);
@@ -1531,61 +1279,6 @@ class EngineClient implements DelegateHost {
     activityDelegates.getActivityDetailData(this, activityId, minRouteActivities);
 
   // ========================================================================
-  // Strength Training
-  // ========================================================================
-
-  getExerciseSets = (activityId: string): FfiExerciseSession =>
-    strengthDelegates.getExerciseSets(this, activityId);
-
-  getExerciseDetailData = (exerciseCategory: number): FfiExerciseDetailData | null =>
-    strengthDelegates.getExerciseDetailData(this, exerciseCategory);
-
-  isFitProcessed = (activityId: string): boolean =>
-    strengthDelegates.isFitProcessed(this, activityId);
-
-  fetchAndParseExerciseSets = (activityId: string): FfiStartResult =>
-    strengthDelegates.fetchAndParseExerciseSets(this, activityId);
-
-  /**
-   * Insert pre-parsed exercise sets for an activity without touching the
-   * network. Demo-mode only - production uses fetchAndParseExerciseSets.
-   */
-  bulkInsertExerciseSets = (activityId: string, sets: FfiExerciseSet[]): void =>
-    strengthDelegates.bulkInsertExerciseSets(this, activityId, sets);
-
-  getMuscleGroups = (activityId: string): FfiMuscleGroup[] =>
-    strengthDelegates.getMuscleGroups(this, activityId);
-
-  /** Every strength activity still owed a FIT. */
-  getUnprocessedStrengthIds = (): string[] => strengthDelegates.getUnprocessedStrengthIds(this);
-
-  /** Start the downloads of every FIT file the engine's queue owes, of every sport. */
-  batchFetchOwedFitFiles = (): FfiStartResult => strengthDelegates.batchFetchOwedFitFiles(this);
-
-  getStrengthScreenData = (
-    startTs: number,
-    endTs: number,
-    weekRanges: { startTs: number; endTs: number }[]
-  ): FfiStrengthScreenData =>
-    strengthDelegates.getStrengthScreenData(this, startTs, endTs, weekRanges);
-
-  getMuscleDetail = (
-    activityId: string,
-    muscleSlug: string
-  ): strengthDelegates.MuscleGroupDetailFfi | null =>
-    strengthDelegates.getMuscleDetail(this, activityId, muscleSlug);
-
-  hasStrengthData = (): boolean => strengthDelegates.hasStrengthData(this);
-
-  getActivitiesForExercise = (
-    startTs: number,
-    endTs: number,
-    muscleSlug: string,
-    exerciseCategory: number
-  ): FfiExerciseActivities =>
-    strengthDelegates.getActivitiesForExercise(this, startTs, endTs, muscleSlug, exerciseCategory);
-
-  // ========================================================================
   // Section Matching, Nearby, Merge, Re-detect
   // ========================================================================
 
@@ -1608,18 +1301,6 @@ class EngineClient implements DelegateHost {
   acceptSection = (sectionId: string): boolean => sectionDelegates.acceptSection(this, sectionId);
 
   acceptAllSections = (): number => sectionDelegates.acceptAllSections(this);
-
-  forceRedetectSections = (): FfiStartResult => detectionDelegates.forceRedetectSections(this);
-
-  setSectionConfig = (config: FfiSectionConfig): void =>
-    detectionDelegates.setSectionConfig(this, config);
-
-  getSectionConfig = (): FfiSectionConfig | null => detectionDelegates.getSectionConfig(this);
-
-  setMatchStrictness = (minMatchPct: number, endpointThreshold: number): void =>
-    detectionDelegates.setMatchStrictness(this, minMatchPct, endpointThreshold);
-
-  getMatchStrictness = (): FfiMatchStrictness | null => detectionDelegates.getMatchStrictness(this);
 
   /**
    * Whether a subscription can ever fire.

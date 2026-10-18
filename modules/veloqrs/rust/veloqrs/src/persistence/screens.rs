@@ -1655,21 +1655,42 @@ fn stat_trend(
         return None;
     }
     let glyph = crate::trend_table::glyph(metric, Some(printed.0), Some(printed.1))?;
-    let percent =
-        (glyph != "→").then(|| (((current - previous) / previous).abs() * 100.0).round() as u32);
-    Some(crate::FfiStatTrend { glyph, percent })
+    let change = (current - previous) / previous * 100.0;
+    let percent = (glyph != "→").then(|| change.abs().round() as u32);
+    Some(crate::FfiStatTrend {
+        glyph,
+        percent,
+        change,
+    })
 }
 
 /// A period against the one before it, with the four totals judged once.
 /// Hours are judged to the tenth, as [`week_trends`] judges them for the home
 /// card, distance in kilometres and load in whole points.
+///
+/// Both periods carry their census coverage, and no total is judged while
+/// either is not fully on the device: the local sum of a period the device
+/// holds part of is not the period's total, so a move against it is a move
+/// the account never made.
 pub(crate) fn summary_comparison(
     conn: &rusqlite::Connection,
     (current_start, current_end, previous_start, previous_end): (i64, i64, i64, i64),
 ) -> rusqlite::Result<crate::FfiSummaryComparison> {
+    use crate::persistence::activities::pooled::period_coverage;
     use crate::persistence::fitness::derivations::pooled::try_period_stats;
     let current = try_period_stats(conn, current_start, current_end)?;
     let previous = try_period_stats(conn, previous_start, previous_end)?;
+    let current_coverage = period_coverage(conn, current_start, current_end);
+    let previous_coverage = period_coverage(conn, previous_start, previous_end);
+    let whole = current_coverage != crate::RangeCoverage::NotFetched
+        && previous_coverage != crate::RangeCoverage::NotFetched;
+    let stat_trend = |metric: &str, printed: (f64, f64), current: f64, previous: f64| {
+        if whole {
+            stat_trend(metric, printed, current, previous)
+        } else {
+            None
+        }
+    };
     let range = |start: i64, end: i64| crate::FfiTimestampRange {
         start_ts: start as f64,
         end_ts: end as f64,
@@ -1694,7 +1715,53 @@ pub(crate) fn summary_comparison(
         load: stat_trend("weekTss", (load, prev_load), load, prev_load),
         current_stats: current,
         previous_stats: previous,
+        current_coverage,
+        previous_coverage,
     })
+}
+
+/// The season card's months, each against the same month a year before:
+/// every whole month of this year before the current one, then the month to
+/// date against the same span of last year's. The months are read off the
+/// year and month windows the screen names, so no clock is read here.
+fn season_month_bounds(
+    year_current: (i64, i64),
+    month_current: (i64, i64),
+    month_previous: (i64, i64),
+) -> Vec<(i64, i64, i64, i64)> {
+    use chrono::{Datelike, NaiveDate};
+    let date = |ts: i64| chrono::DateTime::from_timestamp(ts, 0).map(|t| t.date_naive());
+    let first = |year: i32, month: u32| {
+        NaiveDate::from_ymd_opt(year, month, 1)
+            .and_then(|d| d.and_hms_opt(0, 0, 0))
+            .map(|t| t.and_utc().timestamp())
+    };
+    let whole = |year: i32, month: u32| {
+        let (next_year, next_month) = if month == 12 {
+            (year + 1, 1)
+        } else {
+            (year, month + 1)
+        };
+        Some((first(year, month)?, first(next_year, next_month)? - 1))
+    };
+    let mut bounds = Vec::new();
+    if let (Some(year_start), Some(month_start)) = (date(year_current.0), date(month_current.0))
+        && year_start.year() == month_start.year()
+    {
+        let year = month_start.year();
+        for month in 1..month_start.month() {
+            if let (Some(current), Some(previous)) = (whole(year, month), whole(year - 1, month)) {
+                bounds.push((current.0, current.1, previous.0, previous.1));
+            }
+        }
+    }
+    bounds.push((
+        month_current.0,
+        month_current.1,
+        month_previous.0,
+        month_previous.1,
+    ));
+    bounds
 }
 
 /// The tail of a series, oldest first, capped.
@@ -1864,9 +1931,7 @@ pub mod pooled {
         windows: &crate::FfiFitnessScreenWindows,
     ) -> rusqlite::Result<crate::FfiFitnessScreenData> {
         use crate::persistence::fitness::derivations::pooled as fitness;
-        use crate::persistence::fitness::derivations::pooled::{
-            activity_heatmap, monthly_stats, try_period_stats,
-        };
+        use crate::persistence::fitness::derivations::pooled::{activity_heatmap, monthly_stats};
         use crate::persistence::fitness::sport_settings::{self, SportSettings};
         let settings = SportSettings::read(conn);
         let today_date = chrono::NaiveDate::parse_from_str(today, "%Y-%m-%d").ok();
@@ -1879,9 +1944,9 @@ pub mod pooled {
         let (calendar_first_day, calendar_older_owed) =
             calendar_span(conn, today_date, &windows.heatmap_first_day)?;
         let span = |r: &crate::FfiTimestampRange| (r.start_ts as i64, r.end_ts as i64);
-        let totals = |r: &crate::FfiTimestampRange| {
-            let (start, end) = span(r);
-            try_period_stats(conn, start, end)
+        let pair = |current: &crate::FfiTimestampRange, previous: &crate::FfiTimestampRange| {
+            let ((cs, ce), (ps, pe)) = (span(current), span(previous));
+            (cs, ce, ps, pe)
         };
         let (months_start, months_end) = span(&windows.months);
         let [week, month, three_months, six_months, year] =
@@ -1909,10 +1974,18 @@ pub mod pooled {
             calendar_first_day,
             calendar_older_owed,
             months: monthly_stats(conn, months_start, months_end)?,
-            year_current: totals(&windows.year_current)?,
-            year_previous: totals(&windows.year_previous)?,
-            month_current: totals(&windows.month_current)?,
-            month_previous: totals(&windows.month_previous)?,
+            season_year: super::summary_comparison(
+                conn,
+                pair(&windows.year_current, &windows.year_previous),
+            )?,
+            season_months: super::season_month_bounds(
+                span(&windows.year_current),
+                span(&windows.month_current),
+                span(&windows.month_previous),
+            )
+            .into_iter()
+            .map(|bounds| super::summary_comparison(conn, bounds))
+            .collect::<rusqlite::Result<_>>()?,
             comparisons: crate::FfiSummaryComparisons {
                 week: week?,
                 month: month?,

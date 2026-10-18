@@ -15,7 +15,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useStrengthScreenData } from '@/features/strength/hooks/useStrengthScreenData';
 import { selectExercises, selectProgression } from '@/features/strength/lib/analysis';
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 
 const mockEngine: Record<string, unknown> = {};
 

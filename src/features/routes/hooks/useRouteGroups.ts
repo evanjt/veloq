@@ -10,6 +10,7 @@ import { getEngine } from '@/shared/native/engine';
 import { toActivityType, type ActivityType } from '@/types';
 import { groupCoversType } from '@/features/routes/lib/routeSportMembership';
 import type { LiveRouteOverlap } from 'veloqrs';
+import { routes } from 'veloqrs';
 
 interface UseRouteGroupsOptions {
   /** Filter by activity type */
@@ -87,14 +88,13 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
     if (!engine) {
       throw new Error('Route engine not initialised');
     }
-    engine.setRouteName(routeId, name);
+    routes.setRouteName(routeId, name);
     // No need to manually refresh - engine fires 'groups' event which
     // triggers useGroupSummaries subscriber to call refresh()
   }, []);
 
   const measureLiveOverlap = useCallback((groupIds: string[], coordinates: number[]) => {
-    const engine = getEngine();
-    return engine?.liveRouteOverlaps(groupIds, coordinates) ?? Promise.resolve([]);
+    return routes.liveRouteOverlaps(groupIds, coordinates);
   }, []);
 
   const result = useMemo(() => {

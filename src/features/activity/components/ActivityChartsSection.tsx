@@ -83,6 +83,7 @@ import {
   typography,
 } from '@/theme';
 import { ABSENT } from '@/shared/format/absent';
+import { usePagerPageScrollProps } from '@/shared/ui/pagerPageScroll';
 
 /** The chart an activity opens on: power where the sport measures it, pace for a swim. */
 function defaultChartFor(type: ActivityType): ChartTypeId {
@@ -174,6 +175,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
   onExportGpx,
 }: ActivityChartsSectionProps) {
   const { t } = useTranslation();
+  const pageScroll = usePagerPageScrollProps();
   const sport = toActivityType(activity.sportType);
   const { getPageMetrics } = useFFITimer();
   const exportAnchor = useRef<ViewInstance>(null);
@@ -276,6 +278,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
         contentContainerStyle={styles.tabScrollContent}
         showsVerticalScrollIndicator={false}
         scrollEnabled={!chartInteracting}
+        {...pageScroll}
       >
         {!streamsDownloaded ||
         availableCharts.length > 0 ||

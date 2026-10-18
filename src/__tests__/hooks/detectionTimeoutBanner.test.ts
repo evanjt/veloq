@@ -23,17 +23,19 @@ jest.mock('@/i18n', () => ({
 
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
-    engine: {
-      ...require('../__shared__/veloqrsStub').fetchCalls,
-      ready: true,
+    detection: {
       pollSectionDetection: () => 'running',
-      triggerRefresh: jest.fn(),
       getSectionDetectionProgress: () => ({
         phase: 'analysing',
         completed: 1,
         total: 2,
         percent: 50,
       }),
+    },
+    engine: {
+      ...require('../__shared__/veloqrsStub').fetchCalls,
+      ready: true,
+      triggerRefresh: jest.fn(),
       setTimeStreams: jest.fn(),
       addActivities: jest.fn(),
       getStats: () => ({ sectionsDirty: true }),

@@ -96,8 +96,12 @@ function SubjectMap({
           previewVersion={params.previewVersion}
         />
       );
-    case 'activity':
-      // The activity's card and its map join the host with the activity screen's own host.
-      return null;
+    case 'activity': {
+      // Loaded when first drawn, since the activity feature reads this one's barrel.
+      const { ActivityDetailMap } =
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        require('@/features/activity/components/ActivityDetailMap') as typeof import('@/features/activity/components/ActivityDetailMap');
+      return <ActivityDetailMap activityId={id} />;
+    }
   }
 }

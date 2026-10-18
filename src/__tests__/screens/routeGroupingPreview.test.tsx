@@ -16,7 +16,13 @@ import RouteGroupingPreviewScreen from '@/app/route-grouping-preview';
 import { GROUPING_DEFAULTS } from '@/features/routes/lib/groupingParams';
 import { GroupSort } from 'veloqrs';
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 
 const groups = [
   { groupId: 'g1', representativeId: 'a1', encodedPolyline: new ArrayBuffer(0), bounds: undefined },

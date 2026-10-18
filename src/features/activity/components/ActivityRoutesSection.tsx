@@ -5,6 +5,7 @@ import { RoutePerformanceSection, DataRangeFooter } from '@/features/routes';
 import { ComponentErrorBoundary, EmptyState, useBottomClearance } from '@/shared/ui';
 import type { ActivityType } from '@/types';
 import { spacing } from '@/theme';
+import { usePagerPageScrollProps } from '@/shared/ui/pagerPageScroll';
 
 interface ActivityRoutesSectionProps {
   activityId: string;
@@ -28,6 +29,7 @@ export const ActivityRoutesSection = React.memo(function ActivityRoutesSection({
   isDark,
 }: ActivityRoutesSectionProps) {
   const { t } = useTranslation();
+  const pageScroll = usePagerPageScrollProps();
   const bottomClearance = useBottomClearance();
 
   return (
@@ -39,6 +41,7 @@ export const ActivityRoutesSection = React.memo(function ActivityRoutesSection({
       ]}
       showsVerticalScrollIndicator={false}
       testID="activity-routes-list"
+      {...pageScroll}
     >
       {hasMatchedRoute ? (
         <ComponentErrorBoundary part="routePerformance" debugName="Route Performance">

@@ -11,13 +11,10 @@ import React from 'react';
 import { View } from 'react-native';
 import { render, act } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { ActivityHeader } from '@/features/activity/components/ActivityHeader';
 import { ActivityMapView } from '@/features/maps/components/ActivityMapView';
 import { Map3DWebView } from '@/features/maps/components/Map3DWebView';
 import { TRACK_FIT_PADDING } from '@/features/maps/lib/activityCamera';
 import type { LatLng } from '@/shared/geo/polyline';
-
-import { activityRecord } from '../../__shared__/activityRecord';
 
 interface Page {
   html: string[];
@@ -237,69 +234,6 @@ describe.each(['sections', 'charts'])('scrubbing the 2D activity map on %s', (ta
     });
 
     expect(mockPatches.some((p) => p.patch?.layers !== undefined)).toBe(true);
-  });
-});
-
-describe('scrubbing the chart on the charts tab', () => {
-  const activity = activityRecord({
-    id: 'a1',
-    name: 'Gurten loop',
-    sportType: 'Ride',
-    startDateLocal: '2026-08-12T07:30:00',
-    distance: 32000,
-    movingTime: 4200,
-    elevationGain: 610,
-  });
-
-  const header = (highlightIndex: number | null) => (
-    <SafeAreaProvider initialMetrics={METRICS}>
-      <ActivityHeader
-        activity={activity}
-        activityId={activity.id}
-        coordinates={COORDINATES}
-        hasStoredTrack={false}
-        isMetric={true}
-        debugEnabled={false}
-        mapHeight={360}
-        highlightIndex={highlightIndex}
-        sectionCreationMode={false}
-        sectionCreationState={undefined}
-        sectionCreationError={null}
-        onSectionCreated={jest.fn()}
-        onCreationCancelled={jest.fn()}
-        onCreationErrorDismiss={jest.fn()}
-        on3DModeChange={jest.fn()}
-        onStyleChange={jest.fn()}
-        onCameraCapture={jest.fn()}
-        initial3DCamera={null}
-        activeTab="charts"
-        routeOverlayCoordinates={null}
-        sectionOverlays={SECTION_OVERLAYS}
-        highlightedSectionId={null}
-      />
-    </SafeAreaProvider>
-  );
-
-  it('re-serialises only the highlight, through the header', async () => {
-    const view = await render(header(0));
-    const page = mockPages.get('maplibre-map');
-    if (!page) throw new Error('the 2D surface did not mount');
-    await ready(page);
-    mockPatches.length = 0;
-
-    for (const index of TICKS) {
-      await view.rerender(header(index));
-      await act(() => {
-        jest.advanceTimersByTime(20);
-      });
-    }
-
-    expect(mockPatches.filter((p) => p.patch === null)).toEqual([]);
-    expect(mockPatches.reduce((sum, p) => sum + p.serialised, 0)).toBe(TICKS.length);
-    for (const { patch, serialised } of mockPatches) {
-      expect(serialised).toBe(1);
-      if (patch) expect(Object.keys(patch.sources as object)).toEqual(['highlight']);
-    }
   });
 });
 

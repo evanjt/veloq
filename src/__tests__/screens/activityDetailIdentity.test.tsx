@@ -9,8 +9,8 @@
  *
  * Scenario: the system text size is past the dense cap on a short window, and
  * the activity carries a long description.
- * Expected behaviour: the map hero stays pinned, the text under it scrolls in
- * a block bounded so the hero and the block leave the tabs part of the window.
+ * Expected behaviour: the text above the tabs scrolls in a block bounded so it
+ * leaves the tabs part of the window.
  * Below the cap the description stays pinned as it was. A long description
  * is clamped to three lines and opens in full on a press.
  */
@@ -26,7 +26,13 @@ import type {
   SectionMatch,
   UseSectionMatchesResult,
 } from '@/features/routes/hooks/useSectionMatches';
-import ActivityDetailScreen from '@/app/activity/[id]';
+import { ActivityDetailCard } from '@/features/activity/components/ActivityDetailCard';
+import { ActivityDetailMap } from '@/features/activity/components/ActivityDetailMap';
+import {
+  MapSheetHostContext,
+  useMapSheetHostEntry,
+  type MapSheetHostValue,
+} from '@/shared/app/MapSheetHost';
 import { EXPANDABLE_TEXT_LINES } from '@/shared/ui/ExpandableText';
 import type { PreComputedOverlays } from '@/features/activity/hooks/useSectionOverlays';
 import type { SectionEncounter } from 'veloqrs';
@@ -60,12 +66,6 @@ jest.mock('expo-router', () => {
     Stack,
   };
 });
-let mockTransitionTask: (() => void) | null = null;
-jest.mock('@/shared/async/useAfterNavigationTransition', () => ({
-  useAfterNavigationTransition: (task: () => void) => {
-    mockTransitionTask = task;
-  },
-}));
 
 jest.mock('react-i18next', () => ({
   ...jest.requireActual('react-i18next'),
@@ -294,14 +294,14 @@ jest.mock('@/features/activity/components/ActivityChartsSection', () => ({
     return null;
   },
 }));
-let capturedHeaderProps: {
-  routeOverlayCoordinates?: { latitude: number; longitude: number }[] | null;
+let capturedMapProps: {
+  routeOverlay?: { latitude: number; longitude: number }[] | null;
   sectionOverlays?: SectionOverlay[] | null;
   onSectionMarkerPress?: (id: string) => void;
 } = {};
-jest.mock('@/features/activity/components/ActivityHeader', () => ({
-  ActivityHeader: (props: typeof capturedHeaderProps) => {
-    capturedHeaderProps = props;
+jest.mock('@/features/maps/components/ActivityMapView', () => ({
+  ActivityMapView: (props: typeof capturedMapProps) => {
+    capturedMapProps = props;
     return null;
   },
 }));
@@ -322,6 +322,30 @@ jest.mock('@/features/activity/components/ActivitySectionsSection', () => ({
   },
 }));
 
+/** The activity's card and its map, as the host's sheet and map screens draw them. */
+function ActivityDetailScreen() {
+  const { id, tab } = mockSearchParams;
+  const key = useMapSheetHostEntry('activity', id);
+  const host = React.useMemo<MapSheetHostValue>(
+    () => ({
+      kind: 'activity',
+      id,
+      key,
+      focused: true,
+      setHeaderOptions: (options: object) => {
+        mockScreenOptions = { ...mockScreenOptions, ...(options as Record<string, unknown>) };
+      },
+    }),
+    [id, key]
+  );
+  return (
+    <MapSheetHostContext.Provider value={host}>
+      <ActivityDetailCard id={id} tab={tab} />
+      <ActivityDetailMap activityId={id} />
+    </MapSheetHostContext.Provider>
+  );
+}
+
 describe('activity detail screen', () => {
   beforeEach(() => {
     jest.spyOn(global, 'requestAnimationFrame').mockImplementation((callback) => {
@@ -331,12 +355,11 @@ describe('activity detail screen', () => {
     jest.clearAllMocks();
     capturedSectionEncounters = [];
     capturedTabs.current = [];
-    capturedHeaderProps = {};
+    capturedMapProps = {};
     capturedRoutesProps = {};
     mockRouteMatchingOn = true;
     capturedOnPointSelect = null;
     capturedTransitionSettled = null;
-    mockTransitionTask = null;
     mockUseSectionOverlays.mockReset();
     mockUseSectionOverlays.mockImplementation(() => ({ sectionOverlays: [] }));
     mockDetail.encounters = [];
@@ -380,7 +403,7 @@ describe('activity detail screen', () => {
     expect(view.getByText(description).props.numberOfLines).toBeUndefined();
   });
 
-  it('past the dense cap scrolls the text under the hero in a block that leaves the tabs room', async () => {
+  it('past the dense cap scrolls the text above the tabs in a block that leaves them room', async () => {
     const description = Array.from(
       { length: 40 },
       (_, line) => `Line ${line + 1} of the harbour loop notes.`
@@ -394,12 +417,11 @@ describe('activity detail screen', () => {
     const block = view.getByTestId('activity-detail-pinned-scroll');
     expect(within(block).getByText(description)).toBeTruthy();
     const { maxHeight } = StyleSheet.flatten(block.props.style);
-    const heroHeight = 300;
     expect(typeof maxHeight).toBe('number');
-    expect(heroHeight + (maxHeight as number)).toBeLessThan(mockWindow.height * 0.75);
+    expect(maxHeight as number).toBeLessThan(mockWindow.height * 0.75);
   });
 
-  it('below the dense cap keeps the description pinned under the hero', async () => {
+  it('below the dense cap keeps the description pinned above the tabs', async () => {
     mockActivity.description = 'Harbour loop, light wind.';
 
     const view = await render(<ActivityDetailScreen />);
@@ -445,18 +467,15 @@ describe('activity detail screen', () => {
     await act(async () => {});
 
     expect(mockStreamReads).not.toContain('rep-1');
-    const overlay = capturedHeaderProps.routeOverlayCoordinates;
+    const overlay = capturedMapProps.routeOverlay;
     expect(overlay).toHaveLength(2);
     expect(overlay?.[1].latitude).toBeCloseTo(46.502, 6);
     expect(overlay?.[1].longitude).toBeCloseTo(6.604, 6);
   });
 
-  it('hands the charts the opening transition the route read before its content mounted', async () => {
+  it('hands the charts a settled transition in the sheet, which opens once the push has ended', async () => {
     await render(<ActivityDetailScreen />);
     await act(async () => {});
-    expect(capturedTransitionSettled).toBe(false);
-
-    await act(async () => mockTransitionTask?.());
     expect(capturedTransitionSettled).toBe(true);
   });
 
@@ -616,8 +635,8 @@ describe('activity detail screen', () => {
     await render(<ActivityDetailScreen />);
     await act(async () => {});
 
-    expect(capturedHeaderProps.sectionOverlays ?? null).toBeNull();
-    expect(capturedHeaderProps.onSectionMarkerPress).toBeUndefined();
+    expect(capturedMapProps.sectionOverlays ?? null).toBeNull();
+    expect(capturedMapProps.onSectionMarkerPress).toBeUndefined();
     expect(capturedTabs.current.map((tab) => tab.key)).not.toContain('sections');
   });
 });

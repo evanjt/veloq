@@ -207,6 +207,23 @@ describe('feature hooks', () => {
     expect(output).toContain('pears.ts:7');
   });
 
+  it('fails a lib file that reaches the engine through a bound namespace and answers empty', () => {
+    for (const spec of ['engine', 'heatmap', 'heatmap as tiles']) {
+      const lib = `import { ${spec} } from 'veloqrs';\n${readWith('[]')}`;
+      const { status, output } = runGuard({ 'src/features/orchards/lib/pears.ts': lib });
+
+      expect(status).toBe(1);
+      expect(output).toContain('pears.ts:7');
+    }
+  });
+
+  it('leaves a lib file importing only types and helpers from the module alone', () => {
+    const lib = `import { decodeCoords, type GpsPoint } from 'veloqrs';\n${readWith('[]')}`;
+    const { status } = runGuard({ 'src/features/orchards/lib/pears.ts': lib });
+
+    expect(status).toBe(0);
+  });
+
   it('leaves a lib file that never reaches the engine alone', () => {
     const { status } = runGuard({ 'src/features/orchards/lib/pears.ts': readWith('[]') });
 

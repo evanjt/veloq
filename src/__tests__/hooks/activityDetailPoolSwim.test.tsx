@@ -14,7 +14,13 @@ import { PoolSwimState } from 'veloqrs';
 
 import { useActivityDetailData } from '@/features/activity/hooks/useActivityDetailData';
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 
 const mockGetEngine = jest.fn();
 jest.mock('@/shared/native/engine', () => ({

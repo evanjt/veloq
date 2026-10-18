@@ -16,7 +16,7 @@ import { i18n } from '@/i18n';
 import * as haptics from '@/shared/ui/haptics';
 import { deleteGpsTracks } from '@/shared/storage/gpsStorage';
 import { queryKeys } from '@/shared/query/queryKeys';
-import { TrackStep, type PersistentEngineStats } from 'veloqrs';
+import { TrackStep, type PersistentEngineStats, detection } from 'veloqrs';
 import { ABSENT } from '@/shared/format/absent';
 import { confirmAction, inform } from '@/shared/ui/dialog';
 
@@ -210,7 +210,7 @@ export function SyncDebugSection() {
           });
         } else {
           // Trigger background section detection to recompute groups + sections
-          engine.startSectionDetection();
+          detection.startSectionDetection();
           // Invalidate cache + fire syncReset to trigger re-sync of removed activities
           queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
           engine.triggerRefresh('syncReset');

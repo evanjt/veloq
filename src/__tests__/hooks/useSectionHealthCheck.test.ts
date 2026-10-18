@@ -9,7 +9,13 @@ import {
 } from '@/features/routes/hooks/useSectionHealthCheck';
 import { getEngine } from '@/shared/native/engine';
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
   isRouteMatchingEnabled: () => true,

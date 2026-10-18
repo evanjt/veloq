@@ -11,7 +11,13 @@ import { getEngine } from '@/shared/native/engine';
  * and reports its progress, and publishes no before/after it never measured.
  */
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: jest.fn(),

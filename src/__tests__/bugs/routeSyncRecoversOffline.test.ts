@@ -16,7 +16,13 @@ import { resetGlobalSyncState } from '@/features/routes/hooks/useRouteSyncContex
 import { getNativeModule } from '@/shared/native/engine';
 import { useAuthStore } from '@/shared/app/AuthStore';
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(
+      () => require('@/shared/native/engine').getNativeModule()?.engine
+    )
+  )
+);
 jest.mock('@/shared/native/engine', () => ({
   getNativeModule: jest.fn(),
   getEngine: jest.fn(() => undefined),

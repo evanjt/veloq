@@ -26,6 +26,7 @@ import type {
   RecordingLibraryEntry,
   RecordingUploadStatus,
 } from '@/types';
+import { recordings } from 'veloqrs';
 
 const log = debug.create('RecordingLibrary');
 
@@ -48,7 +49,7 @@ export const MAX_AUTO_RETRIES = 5;
  * carries an open `string` status and a `string` activity type, because Rust
  * does not own either vocabulary.
  */
-type EngineEntry = ReturnType<ReturnType<typeof library>['listRecordings']>[number];
+type EngineEntry = ReturnType<typeof recordings.listRecordings>[number];
 
 /**
  * The app's entry as the engine row wants it. An absent average heart rate is
@@ -132,6 +133,12 @@ function library(requireReady = false): NonNullable<ReturnType<typeof getEngine>
     throw Object.assign(new Error('Engine not initialised'), { tag: 'NotInitialized' });
   }
   return engine;
+}
+
+/** The recordings namespace, behind the same throw as the handle. */
+function store(requireReady = false): typeof recordings {
+  library(requireReady);
+  return recordings;
 }
 
 async function ensureRecordingsDir(): Promise<void> {
@@ -228,7 +235,7 @@ export async function saveRecording(
       athleteId: params.athleteId,
     });
 
-    library().addRecording(toEngineEntry(entry));
+    store().addRecording(toEngineEntry(entry));
     log.log(`Saved recording ${id} (${params.name}, ${entry.uploadStatus})`);
     return entry;
   } catch (error) {
@@ -239,7 +246,7 @@ export async function saveRecording(
 
 /** All recordings, newest first. */
 export async function listRecordings(): Promise<RecordingLibraryEntry[]> {
-  return library().listRecordings().map(toLibraryEntry);
+  return store().listRecordings().map(toLibraryEntry);
 }
 
 /**
@@ -247,26 +254,26 @@ export async function listRecordings(): Promise<RecordingLibraryEntry[]> {
  * place, so a caller can decide before anything else moves.
  */
 export function holdsRecordingStartingIn(from: number, to: number): boolean {
-  return library()
+  return store()
     .listRecordings()
     .some((row) => row.kind !== 'manual' && row.startTime >= from && row.startTime <= to);
 }
 
 /** The recordings the signed-in athlete may see, newest first. */
 export async function listVisibleRecordings(): Promise<RecordingLibraryEntry[]> {
-  return library()
+  return store()
     .listVisibleRecordings(getStoredCredentials().athleteId ?? undefined)
     .map(toLibraryEntry);
 }
 
 /** One recording, null when another athlete holds it. */
 export async function getVisibleRecording(id: string): Promise<RecordingLibraryEntry | null> {
-  const row = library().getVisibleRecording(id, getStoredCredentials().athleteId ?? undefined);
+  const row = store().getVisibleRecording(id, getStoredCredentials().athleteId ?? undefined);
   return row ? toLibraryEntry(row) : null;
 }
 
 export async function getRecording(id: string): Promise<RecordingLibraryEntry | null> {
-  const row = library().getRecording(id);
+  const row = store().getRecording(id);
   return row ? toLibraryEntry(row) : null;
 }
 
@@ -294,7 +301,7 @@ export async function attachEngineActivity(
   id: string,
   engineActivityId: string
 ): Promise<RecordingLibraryEntry | null> {
-  library().attachRecordingEngineActivity(id, engineActivityId);
+  store().attachRecordingEngineActivity(id, engineActivityId);
   return getRecording(id);
 }
 
@@ -321,7 +328,7 @@ export async function transitionRecording(
   id: string,
   transition: RecordingTransition
 ): Promise<RecordingTransitionAnswer> {
-  const answer = library().transitionRecording(id, transition, Date.now());
+  const answer = store().transitionRecording(id, transition, Date.now());
   if (!answer.applied) {
     log.warn(`Upload move ${transition.kind} refused for ${id}: ${answer.refusal ?? 'unknown'}`);
     return answer;
@@ -359,7 +366,7 @@ export async function transitionRecording(
  * still be sent up by hand.
  */
 export async function holdRecordingsOfOtherAthletes(athleteId: string): Promise<void> {
-  library().holdRecordingsOfOtherAthletes(athleteId);
+  store().holdRecordingsOfOtherAthletes(athleteId);
   log.log(`Held any recording not belonging to ${athleteId}`);
 }
 
@@ -368,7 +375,7 @@ export async function holdRecordingsOfOtherAthletes(athleteId: string): Promise<
  * recordings become uploadable, and nobody else's: the grant is theirs.
  */
 export async function clearPermissionBlocked(athleteId: string): Promise<void> {
-  library().clearRecordingPermissionBlocked(athleteId);
+  store().clearRecordingPermissionBlocked(athleteId);
   log.log(`Cleared permission-blocked recordings of ${athleteId}`);
 }
 
@@ -378,7 +385,7 @@ export async function clearPermissionBlocked(athleteId: string): Promise<void> {
  * documents directory handed over here.
  */
 export function wakeUploadSchedule(): void {
-  library(true).wakeUploadSchedule(DOCUMENTS_ROOT);
+  store(true).wakeUploadSchedule(DOCUMENTS_ROOT);
 }
 
 /** Call `onChange` each time the engine moves a recording's upload. */
@@ -399,7 +406,7 @@ export function onUploadPermissionRefused(onRefused: () => void): () => void {
 // ─── Deletion after confirmation or on user request ───────────────────────────
 
 export async function deleteRecording(id: string): Promise<void> {
-  const row = library().deleteOwnRecording(id, getStoredCredentials().athleteId ?? undefined);
+  const row = store().deleteOwnRecording(id, getStoredCredentials().athleteId ?? undefined);
   if (!row) return;
   const entry = toLibraryEntry(row);
   for (const path of [entry.fitPath, entry.streamsPath]) {
@@ -420,7 +427,7 @@ export async function deleteRecording(id: string): Promise<void> {
  * signed-in athlete may see.
  */
 export async function getVisibleUnuploadedCount(): Promise<number> {
-  return library().unuploadedVisibleRecordingCount(getStoredCredentials().athleteId ?? undefined);
+  return store().unuploadedVisibleRecordingCount(getStoredCredentials().athleteId ?? undefined);
 }
 
 // ─── Legacy migration ─────────────────────────────────────────────────────────
@@ -463,10 +470,10 @@ export async function adoptAsyncStorageIndex(): Promise<number> {
         continue;
       }
       try {
-        const engine = library(true);
-        if (engine.addRecording(toEngineEntry({ ...entry, kind: entry.kind ?? 'fit' }))) {
+        library(true);
+        if (recordings.addRecording(toEngineEntry({ ...entry, kind: entry.kind ?? 'fit' }))) {
           adopted += 1;
-        } else if (!engine.getRecording(entry.id)) {
+        } else if (!recordings.getRecording(entry.id)) {
           complete = false;
         }
       } catch (error) {
@@ -515,7 +522,7 @@ export async function adoptOwnerlessRecordings(
     await migrateLegacyUploadQueue();
     await adoptAsyncStorageIndex();
     const athleteId = await libraryAthlete();
-    if (athleteId) library(true).stampOwnerlessRecordings(athleteId);
+    if (athleteId) store(true).stampOwnerlessRecordings(athleteId);
     const pending =
       (await AsyncStorage.getItem(LEGACY_QUEUE_KEY)) ??
       (await AsyncStorage.getItem(LEGACY_INDEX_KEY));
@@ -580,8 +587,8 @@ export async function migrateLegacyUploadQueue(): Promise<void> {
     const unadoptable: LegacyQueueEntry[] = [];
     for (const old of legacy) {
       try {
-        const engine = library(true);
-        if (engine.getRecording(old.id)) continue;
+        library(true);
+        if (recordings.getRecording(old.id)) continue;
         const fitPath = `${RECORDINGS_DIR}${old.id}.fit`;
         const destination = await FileSystem.getInfoAsync(fitPath);
         const source = await legacySource(old.filePath);
@@ -616,7 +623,7 @@ export async function migrateLegacyUploadQueue(): Promise<void> {
           retryCount: 0,
           lastError: old.lastError,
         });
-        library().addRecording(toEngineEntry(entry));
+        store().addRecording(toEngineEntry(entry));
         if (source) await FileSystem.deleteAsync(source, { idempotent: true });
       } catch (err) {
         complete = false;

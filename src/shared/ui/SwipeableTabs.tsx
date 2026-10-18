@@ -39,6 +39,7 @@ import { PressTarget } from '@/shared/ui/PressTarget';
 import { layoutTabStrip, scrollOffsetToShow } from '@/shared/ui/tabStripLayout';
 import { pagerPanDecision } from '@/shared/ui/pagerPanDecision';
 import { PagerScrollerContext, type RegisterPagerScroller } from './pagerScrollers';
+import { PagerPageContext } from './pagerPageScroll';
 import { pageAccessibility } from './pagerAccessibility';
 import { isReduceMotionOn } from './reduceMotion';
 import { composeAccessibilityLabel } from './accessibilityLabel';
@@ -507,7 +508,9 @@ export function SwipeableTabs({
                 style={{ width: pageWidth }}
                 {...pageAccessibility(index, exposedIndex)}
               >
-                {lazy && !visitedRef.current.has(index) ? null : child}
+                <PagerPageContext.Provider value={index === exposedIndex}>
+                  {lazy && !visitedRef.current.has(index) ? null : child}
+                </PagerPageContext.Provider>
               </View>
             ))}
           </PagerScrollerContext.Provider>

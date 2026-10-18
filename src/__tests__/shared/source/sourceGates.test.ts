@@ -7,7 +7,7 @@
  */
 
 import { renderHook } from '@testing-library/react-native';
-import { UploadOutcome, engine } from 'veloqrs';
+import { UploadOutcome, recordings } from 'veloqrs';
 
 import { useAuthStore, type AuthMethod } from '@/shared/app/AuthStore';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
@@ -19,7 +19,7 @@ import { useNotificationPreferences } from '@/features/settings/stores/Notificat
 
 jest.mock('veloqrs', () =>
   require('../../__shared__/veloqrsStub').withOverrides({
-    engine: { uploadRecording: jest.fn() },
+    recordings: { uploadRecording: jest.fn() },
   })
 );
 
@@ -175,7 +175,7 @@ const ROWS: [State, Expected][] = [
   ],
 ];
 
-const mockUpload = engine.uploadRecording as jest.Mock;
+const mockUpload = recordings.uploadRecording as jest.Mock;
 
 beforeEach(() => {
   jest.clearAllMocks();

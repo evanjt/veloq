@@ -1,7 +1,7 @@
 import { useCallback, useRef } from 'react';
 import type { TFunction } from 'i18next';
-import { getEngine } from '@/shared/native/engine';
 import { confirmAction, inform } from '@/shared/ui/dialog';
+import { routes } from 'veloqrs';
 
 export function useRouteReference(
   id: string | undefined,
@@ -44,7 +44,7 @@ export function useRouteReference(
           confirmLabel: t('common.reset'),
           cancelLabel: t('common.cancel'),
           onConfirm: () => {
-            void runChange(() => getEngine()?.resetRouteRepresentative(id));
+            void runChange(() => routes.resetRouteRepresentative(id));
           },
         });
         return;
@@ -55,7 +55,7 @@ export function useRouteReference(
         confirmLabel: t('routes.setAsReference'),
         cancelLabel: t('common.cancel'),
         onConfirm: () => {
-          void runChange(() => getEngine()?.setRouteRepresentative(id, activityId));
+          void runChange(() => routes.setRouteRepresentative(id, activityId));
         },
       });
     },

@@ -85,7 +85,7 @@ fn test_get_fitness_screen_data_writer_held() {
     assert_eq!(data.run_pace_trend.latest_pace, None);
     assert!(data.heatmap.is_empty());
     assert!(data.months.is_empty());
-    assert_eq!(data.year_current.count, 0);
+    assert_eq!(data.season_year.current_stats.count, 0);
 }
 
 #[test]
@@ -342,7 +342,7 @@ fn test_fitness_reads_pooled_match_locked() {
             .collect::<Vec<_>>(),
         vec![(2026, 1, 1), (2026, 2, 2)]
     );
-    assert_eq!(screen.year_current.count, 3);
+    assert_eq!(screen.season_year.current_stats.count, 3);
     assert_eq!(screen.heatmap.len(), 2);
     assert_eq!(screen.heatmap[0].date, "2026-01-15");
     assert_eq!(screen.heatmap[0].intensity, 1);
@@ -356,10 +356,8 @@ fn test_fitness_reads_pooled_match_locked() {
             (
                 &d.heatmap,
                 &d.months,
-                &d.year_current,
-                &d.year_previous,
-                &d.month_current,
-                &d.month_previous,
+                &d.season_year,
+                &d.season_months,
                 &d.comparisons,
             )
         )
