@@ -34,6 +34,36 @@ export { ChartCanvas } from './ChartCanvas';
 export type { ChartCanvasProps, ChartFrame } from './ChartCanvas';
 
 export { CurveLine, CurveArea } from './CurvePaths';
+export {
+  ChartBar,
+  ChartDot,
+  RecordRing,
+  RecordStaircase,
+  ReticleMark,
+  ScrubDot,
+  TriangleKey,
+  TriangleMark,
+  chartLinePaint,
+  drawChartDot,
+} from './ChartMarks';
+export {
+  BAR_GAP,
+  BAR_MAX_WIDTH,
+  DOT_RADIUS,
+  GRID_DASH,
+  LINE_CAP,
+  LINE_JOIN,
+  REFERENCE_DASH,
+  TRIANGLE_SIZE,
+  barRadiusFor,
+  barWidthFor,
+  chartStroke,
+  dotDisks,
+  groupedBarCentre,
+  groupedBarWidth,
+  reticleTicks,
+  staircasePoints,
+} from './chartMarks';
 export { areaFillsFromZero, areaWashOpacity } from './areaFill';
 
 export { CurveChart } from './CurveChart';
@@ -43,6 +73,8 @@ export { YAxisLabels, Y_LABEL_BOX } from './YAxisLabels';
 export type { YAxisLabelsProps } from './YAxisLabels';
 export { axisLabelTops, niceScale } from './axisLabels';
 export type { AxisTick } from './axisLabels';
+
+export { RankRing } from './RankRing';
 
 export { ZoneHistogram } from './ZoneHistogram';
 export type { ZoneBand } from './ZoneHistogram';

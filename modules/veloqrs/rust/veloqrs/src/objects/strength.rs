@@ -1,7 +1,9 @@
-//! StrengthManager: FFI object for strength training exercise data.
+//! StrengthManager: FFI object for strength training exercise data, and the
+//! FIT intake every sport that reads its file goes through.
 //!
-//! Downloads FIT files from intervals.icu, parses exercise sets,
-//! caches in SQLite, and returns structured data to TypeScript.
+//! Downloads FIT files from intervals.icu, parses what the activity's sport
+//! reads from them (a strength session's sets, a pool swim's lengths), caches
+//! it in SQLite, and returns structured data to TypeScript.
 
 use super::error::{VeloqError, with_engine, with_reader};
 use super::observer;
@@ -10,10 +12,10 @@ use super::sync;
 use crate::fit;
 use crate::http::ActivityFetcher;
 use crate::net::transport::NetError;
-use crate::persistence::FitOutcome;
 use crate::persistence::attempts::JobKey;
 use crate::persistence::strength::pooled;
 use crate::persistence::with_persistent_engine_blocking_for;
+use crate::persistence::{FitIntake, FitOutcome};
 use crate::{
     FfiExerciseActivities, FfiExerciseActivity, FfiExerciseContribution, FfiExerciseGroup,
     FfiExerciseSession, FfiExerciseSet, FfiMuscleGroup, FfiMuscleGroupDetail, FfiMuscleVolume,
@@ -23,25 +25,61 @@ use log::info;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-/// Parse a downloaded FIT file, store whatever sets it holds, and settle the
-/// activity. Both fetch paths share it so one download can only ever produce one
-/// verdict, written the same way.
-async fn store_parsed_sets(install: u64, activity_id: &str, data: &[u8]) {
-    // A file the decoder refuses is not a session with no sets: settling it as
-    // empty would show the athlete nothing and never fetch it again.
-    let sets = match fit::parse_fit_strength_sets(data) {
-        Ok(sets) => {
+/// What a decoded FIT file gave an activity, by what its sport reads.
+enum ParsedFit {
+    Sets(Vec<fit::FitExerciseSet>),
+    PoolSwim(fit::FitPoolSwim),
+}
+
+impl ParsedFit {
+    fn read(intake: FitIntake, data: &[u8]) -> Result<ParsedFit, fit::FitParseError> {
+        match intake {
+            FitIntake::Strength => fit::parse_fit_strength_sets(data).map(ParsedFit::Sets),
+            FitIntake::PoolSwim => fit::parse_fit_pool_swim(data).map(ParsedFit::PoolSwim),
+        }
+    }
+
+    fn describe(&self) -> String {
+        match self {
+            ParsedFit::Sets(sets) => format!("{} sets", sets.len()),
+            ParsedFit::PoolSwim(swim) => format!("{} lengths", swim.lengths.len()),
+        }
+    }
+}
+
+/// Parse a downloaded FIT file for what the activity's sport reads, store it,
+/// and settle the activity. Both fetch paths share it so one download can only
+/// ever produce one verdict, written the same way.
+async fn store_parsed_fit(install: u64, activity_id: &str, data: &[u8]) {
+    let id = activity_id.to_string();
+    let intake =
+        match with_persistent_engine_blocking_for(install, move |e| e.fit_intake(&id)).await {
+            Some(Ok(intake)) => intake,
+            Some(Err(e)) => {
+                log::error!("[FIT] Failed to read the sport of {}: {}", activity_id, e);
+                return;
+            }
+            None => {
+                log::error!("[FIT] No engine to read the sport of {}", activity_id);
+                return;
+            }
+        };
+
+    // A file the decoder refuses is not a file with nothing in it: settling it
+    // as empty would show the athlete nothing and never fetch it again.
+    let parsed = match ParsedFit::read(intake, data) {
+        Ok(parsed) => {
             info!(
-                "[Strength] Parsed {} sets for {} ({} bytes)",
-                sets.len(),
+                "[FIT] Parsed {} for {} ({} bytes)",
+                parsed.describe(),
                 activity_id,
                 data.len()
             );
-            Some(sets)
+            Some(parsed)
         }
         Err(e) => {
             log::warn!(
-                "[Strength] FIT for {} ({} bytes) is undecodable: {}",
+                "[FIT] FIT for {} ({} bytes) is undecodable: {}",
                 activity_id,
                 data.len(),
                 e
@@ -55,8 +93,9 @@ async fn store_parsed_sets(install: u64, activity_id: &str, data: &[u8]) {
     // whole transaction. The closure is `'static`, so it takes owned data.
     let id = activity_id.to_string();
     let stored = with_persistent_engine_blocking_for(install, move |e| -> Result<(), VeloqError> {
-        match &sets {
-            Some(sets) => e.settle_exercise_sets(&id, sets),
+        match &parsed {
+            Some(ParsedFit::Sets(sets)) => e.settle_exercise_sets(&id, sets),
+            Some(ParsedFit::PoolSwim(swim)) => e.settle_pool_swim(&id, swim),
             None => e.mark_fit_outcome(&id, FitOutcome::Undecodable),
         }
         .map_err(|err| VeloqError::Database {
@@ -67,11 +106,11 @@ async fn store_parsed_sets(install: u64, activity_id: &str, data: &[u8]) {
     match stored {
         Some(Ok(())) => {}
         Some(Err(e)) => {
-            log::error!("[Strength] Failed to store sets for {}: {}", activity_id, e);
+            log::error!("[FIT] Failed to store the file of {}: {}", activity_id, e);
             return;
         }
         None => {
-            log::error!("[Strength] No engine to store sets for {}", activity_id);
+            log::error!("[FIT] No engine to store the file of {}", activity_id);
             return;
         }
     }
@@ -84,8 +123,8 @@ async fn store_parsed_sets(install: u64, activity_id: &str, data: &[u8]) {
 ///
 /// Only a 404 or 410 settles it: upstream holds no FIT file and a later attempt
 /// would fetch the same nothing. Every other failure is the network, the token
-/// or the server, so nothing is recorded and the activity stays in
-/// `get_unprocessed_strength_ids` for the next attempt. Marking those settled is
+/// or the server, so nothing is recorded and the activity stays in the owed
+/// queue for the next attempt. Marking those settled is
 /// what deleted a user's strength data for good.
 async fn settle_failed_download(
     install: u64,
@@ -237,8 +276,9 @@ impl StrengthManager {
         })?
     }
 
-    /// Start a FIT download for one activity, parse its exercise sets and store
-    /// them. Returns the start verdict and any backoff deadline.
+    /// Start a FIT download for one activity, parse what its sport reads from
+    /// it, its exercise sets or its lengths, and store that. Returns the start
+    /// verdict and any backoff deadline.
     ///
     /// Nothing is returned to the caller: the download ran on the JS thread
     /// before, so a black-hole network froze the UI for as long as the request
@@ -264,7 +304,7 @@ impl StrengthManager {
                     Ok(data) => data,
                     Err(e) => return settle_failed_download(install, &activity_id, e).await,
                 };
-                store_parsed_sets(install, &activity_id, &data).await;
+                store_parsed_fit(install, &activity_id, &data).await;
                 Ok(())
             },
         )
@@ -280,33 +320,40 @@ impl StrengthManager {
         })?
     }
 
-    /// Start FIT downloads for a batch of activities. Returns the start
-    /// verdict and any backoff deadline.
+    /// Start FIT downloads for every activity the engine's queue owes one, of
+    /// every sport that reads its file, newest first. Returns the start verdict
+    /// and any backoff deadline, and `NotOwed` when the queue is empty.
     ///
-    /// Runs in the background for the same reason the single fetch does: the
-    /// caller is the sync path on the JS thread, and this loop is one blocking
-    /// request per activity.
-    fn batch_fetch_exercise_sets(
-        &self,
-        activity_ids: Vec<String>,
-    ) -> crate::objects::start::FfiStartResult {
-        if activity_ids.is_empty() {
-            // An empty list is not a refusal to work, it is no work.
+    /// The queue is read here rather than handed in: the caller used to read
+    /// the strength queue and pass it straight back, and a sport the caller
+    /// did not know about never reached the download. Runs in the background
+    /// because the loop is one request per activity.
+    fn batch_fetch_owed_fit_files(&self) -> crate::objects::start::FfiStartResult {
+        let owed = match with_reader(pooled::owed_fit_queue) {
+            Ok(Ok(owed)) => owed,
+            Ok(Err(e)) => {
+                log::error!("[FIT] Failed to read the owed queue: {}", e);
+                return crate::objects::start::FfiStartOutcome::NotReady.into();
+            }
+            Err(_) => return crate::objects::start::FfiStartOutcome::NotReady.into(),
+        };
+        if owed.is_empty() {
+            // An empty queue is not a refusal to work, it is no work.
             return crate::objects::start::FfiStartOutcome::NotOwed.into();
         }
 
         info!(
-            "[Strength] Batch fetching FIT files for {} activities",
-            activity_ids.len()
+            "[FIT] Batch fetching FIT files for {} activities",
+            owed.len()
         );
 
         sync::spawn_once(
             JobKey::new("fit", &["batch"]),
             move |install, transport, athlete_id| async move {
                 let fetcher = ActivityFetcher::with_transport(transport);
-                let total = activity_ids.len();
+                let total = owed.len();
                 let parsed = drain_fit_batch_with(
-                    &activity_ids,
+                    &owed,
                     || sync::still_signed_in(&athlete_id),
                     |activity_id| {
                         let fetcher = &fetcher;
@@ -320,7 +367,7 @@ impl StrengthManager {
                                 .await
                             {
                                 Ok(data) => {
-                                    store_parsed_sets(install, &activity_id, &data).await;
+                                    store_parsed_fit(install, &activity_id, &data).await;
                                     Ok(true)
                                 }
                                 Err(NetError::Unauthorized) => Err(NetError::Unauthorized),
@@ -334,7 +381,7 @@ impl StrengthManager {
                 )
                 .await?;
 
-                info!("[Strength] Batch complete: {}/{} downloaded", parsed, total);
+                info!("[FIT] Batch complete: {}/{} downloaded", parsed, total);
                 Ok(())
             },
         )
@@ -1433,7 +1480,7 @@ mod tests {
     /// The reader carries no timer, so an activity that settles without
     /// announcing leaves the strength card waiting for as long as it is open.
     #[test]
-    fn test_store_parsed_sets_announces_the_committed_verdict() {
+    fn test_store_parsed_fit_announces_the_committed_verdict() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("fit_parsed.db");
         let recorder = Recorder::new();
@@ -1442,7 +1489,7 @@ mod tests {
         // A FIT file carrying no sets settles the activity all the same. On the
         // shared runtime, because the store now hands the write and the
         // announcement to blocking threads rather than parking a worker.
-        crate::runtime::block_on(store_parsed_sets(
+        crate::runtime::block_on(store_parsed_fit(
             crate::persistence::engine_install(),
             "a1",
             &[],
@@ -1483,7 +1530,7 @@ mod tests {
         let mut file = crate::fit::tests::fit_file(&[(0, 1, 5, &[28])]);
         let last = file.len() - 1;
         file[last] ^= 0xFF;
-        crate::runtime::block_on(store_parsed_sets(
+        crate::runtime::block_on(store_parsed_fit(
             crate::persistence::engine_install(),
             "a4",
             &file,
@@ -1502,7 +1549,7 @@ mod tests {
         let _tmp = init_global_engine("fit_decodes.db");
 
         let file = crate::fit::tests::fit_file(&[(0, 1, 5, &[28])]);
-        crate::runtime::block_on(store_parsed_sets(
+        crate::runtime::block_on(store_parsed_fit(
             crate::persistence::engine_install(),
             "a5",
             &file,
@@ -1512,6 +1559,118 @@ mod tests {
         assert_eq!(
             with_engine(|e| e.get_exercise_sets("a5").unwrap().len()).unwrap(),
             1
+        );
+    }
+
+    fn add_activity(id: &str, sport: &str) {
+        with_engine(|e| {
+            e.db.execute(
+                "INSERT INTO activity_metrics (activity_id, name, date, distance, moving_time,
+                     elapsed_time, elevation_gain, sport_type)
+                 VALUES (?1, 'n', 0, 0, 0, 0, 0, ?2)",
+                rusqlite::params![id, sport],
+            )
+            .unwrap();
+        })
+        .unwrap();
+    }
+
+    fn rows_in(table: &str, activity_id: &str) -> i64 {
+        with_engine(|e| {
+            e.db.query_row(
+                &format!("SELECT COUNT(*) FROM {table} WHERE activity_id = ?1"),
+                [activity_id],
+                |row| row.get(0),
+            )
+            .unwrap()
+        })
+        .unwrap()
+    }
+
+    /// Scenario: a pool swim's file is downloaded.
+    ///
+    /// Expected behaviour: it is read for lengths, not sets, so its five
+    /// lengths are stored, it settles parsed and the reader is told.
+    #[test]
+    fn a_pool_swim_download_is_read_for_its_lengths() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("fit_pool_swim.db");
+        add_activity("swim-1", "Swim");
+        let recorder = Recorder::new();
+        set_observer(Some(recorder.clone()));
+
+        crate::runtime::block_on(store_parsed_fit(
+            crate::persistence::engine_install(),
+            "swim-1",
+            &crate::fit::pool_swim_fit(),
+        ));
+        crate::objects::observer::flush();
+        set_observer(None);
+
+        assert_eq!(recorder.events(), vec!["fit_parsed:swim-1"]);
+        assert_eq!(fit_outcome("swim-1").as_deref(), Some("parsed"));
+        assert_eq!(rows_in("swim_lengths", "swim-1"), 5);
+        assert_eq!(rows_in("pool_swims", "swim-1"), 1);
+        assert_eq!(rows_in("exercise_sets", "swim-1"), 0);
+    }
+
+    /// A file with no lengths is a swim with nothing to read, not a failure.
+    #[test]
+    fn a_swim_whose_file_has_no_lengths_settles_empty() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("fit_swim_no_lengths.db");
+        add_activity("swim-2", "Swim");
+
+        crate::runtime::block_on(store_parsed_fit(
+            crate::persistence::engine_install(),
+            "swim-2",
+            &crate::fit::recorded_ride_fit(),
+        ));
+
+        assert_eq!(fit_outcome("swim-2").as_deref(), Some("empty"));
+        assert_eq!(rows_in("swim_lengths", "swim-2"), 0);
+        assert_eq!(rows_in("pool_swims", "swim-2"), 0);
+    }
+
+    /// The swim reader refuses a broken file the way the strength reader does,
+    /// so a swim is never settled empty on a file nobody could read.
+    #[test]
+    fn a_swim_whose_file_fails_to_decode_is_undecodable() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("fit_swim_undecodable.db");
+        add_activity("swim-3", "Swim");
+        let mut file = crate::fit::pool_swim_fit();
+        let last = file.len() - 1;
+        file[last] ^= 0xFF;
+
+        crate::runtime::block_on(store_parsed_fit(
+            crate::persistence::engine_install(),
+            "swim-3",
+            &file,
+        ));
+
+        assert_eq!(fit_outcome("swim-3").as_deref(), Some("undecodable"));
+        assert_eq!(rows_in("swim_lengths", "swim-3"), 0);
+    }
+
+    /// The batch reads the engine's own queue, so a pool swim owed its file is
+    /// work and an empty queue is none.
+    #[test]
+    fn the_batch_fetch_reads_the_owed_queue_itself() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("fit_batch_owed.db");
+        let manager = StrengthManager::new();
+
+        assert_eq!(
+            manager.batch_fetch_owed_fit_files().outcome,
+            crate::objects::start::FfiStartOutcome::NotOwed
+        );
+
+        add_activity("swim-4", "Swim");
+        assert_ne!(
+            manager.batch_fetch_owed_fit_files().outcome,
+            crate::objects::start::FfiStartOutcome::NotOwed,
+            "an owed pool swim is work for the batch"
         );
     }
 

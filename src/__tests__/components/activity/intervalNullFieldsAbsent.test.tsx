@@ -64,8 +64,8 @@ describe.each(Object.keys(SPORTS))('the %s body with its nulls dropped', (name) 
   it.each(['time', 'distance'] as const)('places the same bands on the %s axis', (axis) => {
     const streams = streamsCovering(fetched);
     const length = streams.time!.length;
-    expect(computeIntervalBands(stored, length, streams, axis, true, sport, [])).toEqual(
-      computeIntervalBands(fetched, length, streams, axis, true, sport, [])
+    expect(computeIntervalBands(stored, length, streams, axis, true, sport)).toEqual(
+      computeIntervalBands(fetched, length, streams, axis, true, sport)
     );
   });
 });

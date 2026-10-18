@@ -173,11 +173,12 @@ tags:
 - takeScreenshot: "screenshots/tour-14-fitness"
 
 # ====================================================================
-# HEALTH / WELLNESS
+# WELLNESS, on the fitness tab below the fitness chart
 # ====================================================================
-- tapOn:
-    text: "Health"
-    optional: true
+- runFlow:
+    file: helpers/reveal.yaml
+    env:
+      ELEMENT: "wellness-trends-chart"
 - takeScreenshot: "screenshots/tour-15-health"
 
 # ====================================================================

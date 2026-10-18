@@ -40,7 +40,6 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 
 const engine = {
   getAthleteProfile: jest.fn(() => JSON.stringify({ id: 350768, name: 'Evan' })),
-  getSportSettings: jest.fn(() => '{}'),
   clear: jest.fn(async () => undefined),
   subscribe: jest.fn(() => () => {}),
 };

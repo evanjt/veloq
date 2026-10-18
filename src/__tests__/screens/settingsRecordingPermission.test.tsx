@@ -12,7 +12,7 @@
 import React from 'react';
 import { act, fireEvent, render } from '@testing-library/react-native';
 
-import SettingsScreen from '@/app/settings';
+import SettingsScreen from '@/app/(tabs)/settings';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
 

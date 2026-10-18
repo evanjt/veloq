@@ -1,6 +1,7 @@
 /**
- * Horizontal picker of ranked riding areas. Each chip carries the area's
- * letter, in display order, plus the visit or section count that ranked it.
+ * Horizontal picker of ranked riding areas. Each is the selector chip, carrying
+ * the area's letter, in display order, plus the visit or section count that
+ * ranked it, which a screen reader hears with its unit.
  *
  * The row runs off the screen on a phone, and a chip cut mid-word by the edge
  * reads as a layout bug rather than as more content. A fade sits over whichever
@@ -13,21 +14,18 @@ import {
   LayoutChangeEvent,
   NativeScrollEvent,
   NativeSyntheticEvent,
-  Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, layout, typography, stroke, themePalette } from '@/theme';
+import { colors, darkColors, spacing } from '@/theme';
 import { fallbackLetter } from '@/features/routes/lib/labelPreviewCentres';
 import type { CentreLabel } from '@/features/routes/lib/labelPreviewCentres';
 import type { PreviewCentre } from 'veloqrs';
-import { pressable, pressRipple } from '@/shared/ui';
-import { FitText } from '@/shared/ui/FitText';
+import { ToggleButton } from '@/shared/ui';
 
 interface PreviewCentrePickerProps {
   centres: PreviewCentre[];
@@ -44,11 +42,6 @@ export function PreviewCentrePicker({
 }: PreviewCentrePickerProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const palette = themePalette(isDark);
-  const surface = isDark ? darkColors.surface : colors.surface;
-  const border = isDark ? darkColors.border : colors.border;
-  const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
-  const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
 
   const [viewport, setViewport] = useState(0);
   const [content, setContent] = useState(0);
@@ -83,39 +76,21 @@ export function PreviewCentrePicker({
           const label = t('settings.previewAreaFallback', {
             letter: labels[i]?.fallbackLetter ?? fallbackLetter(i),
           });
-          const detail =
-            centre.source === 'sections'
-              ? t('settings.previewAreaSections', { count: centre.sectionCount })
-              : t('settings.previewAreaVisits', { count: centre.visitTotal });
+          const bySections = centre.source === 'sections';
+          const count = bySections ? centre.sectionCount : centre.visitTotal;
+          const detail = bySections
+            ? t('settings.previewAreaSections', { count })
+            : t('settings.previewAreaVisits', { count });
           return (
-            <Pressable
+            <ToggleButton
               key={centre.binKey}
-              style={pressable([
-                styles.chip,
-                { backgroundColor: surface, borderColor: border },
-                active && {
-                  backgroundColor: palette.actionPrimary,
-                  borderColor: palette.actionPrimary,
-                },
-              ])}
-              android_ripple={pressRipple}
+              label={label}
+              count={count}
+              selected={active}
               onPress={() => onSelect(centre)}
-              accessibilityRole="button"
               accessibilityLabel={`${label}, ${detail}`}
-              accessibilityState={{ selected: active }}
               testID={`preview-centre-${centre.binKey}`}
-            >
-              <FitText
-                style={[styles.chipLabel, { color: active ? colors.textOnFill : textPrimary }]}
-              >
-                {label}
-              </FitText>
-              <Text
-                style={[styles.chipDetail, { color: active ? colors.textOnFill : textSecondary }]}
-              >
-                {detail}
-              </Text>
-            </Pressable>
+            />
           );
         })}
         <View style={styles.tail} />
@@ -148,22 +123,6 @@ const styles = StyleSheet.create({
   row: {
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
-  },
-  chip: {
-    minWidth: 120,
-    minHeight: layout.minTapTarget,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: layout.borderRadiusSm,
-    borderWidth: stroke.hairline,
-    justifyContent: 'center',
-  },
-  chipLabel: {
-    ...typography.bodySmallBold,
-  },
-  chipDetail: {
-    ...typography.caption,
-    marginTop: spacing.xxs,
   },
   tail: { width: spacing.xs },
   fade: {

@@ -256,6 +256,42 @@ describe('paper-spinner', () => {
   });
 });
 
+describe('bare-spinner', () => {
+  it("fails react-native's ActivityIndicator outside the two owners, under any name", () => {
+    const root = fixture({
+      'src/features/kiln/FiringLog.tsx': [
+        'import {',
+        '  View,',
+        '  ActivityIndicator,',
+        "} from 'react-native';",
+      ].join('\n'),
+      'src/shared/ui/KilnBadge.tsx': "import { ActivityIndicator as Busy } from 'react-native';\n",
+      'src/app/glaze.tsx': [
+        "import * as RN from 'react-native';",
+        '<RN.ActivityIndicator size="small" />',
+      ].join('\n'),
+    });
+
+    const { status, output } = runRule('bare-spinner', root);
+
+    expect(status).toBe(1);
+    expect(output).toContain('src/features/kiln/FiringLog.tsx:3');
+    expect(output).toContain('src/shared/ui/KilnBadge.tsx:1');
+    expect(output).toContain('src/app/glaze.tsx:2');
+  });
+
+  it('passes Spinner and Button themselves, other react-native imports, and tests', () => {
+    const root = fixture({
+      'src/shared/ui/Spinner.tsx': "import { ActivityIndicator } from 'react-native';\n",
+      'src/shared/ui/Button.tsx': "import { ActivityIndicator, Pressable } from 'react-native';\n",
+      'src/features/kiln/FiringLog.tsx': "import { View, Text } from 'react-native';\n",
+      'src/__tests__/kiln.test.tsx': "import { ActivityIndicator } from 'react-native';\n",
+    });
+
+    expect(runRule('bare-spinner', root).status).toBe(0);
+  });
+});
+
 describe('bare-refresh-control', () => {
   it("fails react-native's RefreshControl imported outside the shared control, under any name", () => {
     const root = fixture({
@@ -396,7 +432,6 @@ describe('picker-default-period', () => {
   const OPENINGS = {
     'src/features/fitness/hooks/useFitnessWindow.ts':
       'const [r, setR] = useState<TimeRange>(entryRange ?? DEFAULT_PERIOD);\n',
-    'src/app/(tabs)/training/index.tsx': 'const [r, setR] = useState<TimeRange>(DEFAULT_PERIOD);\n',
     'src/features/routes/hooks/useSectionUIState.ts':
       'const [r, setR] = useState<SectionTimeRange>(DEFAULT_PERIOD);\n',
     'src/features/insights/components/StrengthTab.tsx':
@@ -411,13 +446,14 @@ describe('picker-default-period', () => {
   it('fails a picker that opens on a literal of its own', () => {
     const root = fixture({
       ...OPENINGS,
-      'src/app/(tabs)/training/index.tsx': "const [r, setR] = useState<TimeRange>('3m');\n",
+      'src/features/insights/components/StrengthTab.tsx':
+        "const [p, setP] = useState<StrengthPeriod>('3m');\n",
     });
 
     const { status, output } = runRule('picker-default-period', root);
 
     expect(status).toBe(1);
-    expect(output).toContain("src/app/(tabs)/training/index.tsx  opens on `'3m'`");
+    expect(output).toContain("src/features/insights/components/StrengthTab.tsx  opens on `'3m'`");
   });
 
   it('fails a literal fallback behind a handed-in range', () => {
@@ -1550,6 +1586,21 @@ describe('banner-live-region', () => {
     const root = fixture({ ...all(), [DRAWN]: 'return <NoticeBanner title={title} />;\n' });
 
     expect(runRule('banner-live-region', root).status).toBe(0);
+  });
+
+  it('passes a notice drawn as the shared floating pill, which speaks for it', () => {
+    const root = fixture({ ...all(), [DRAWN]: 'return <FloatingPill title={title} />;\n' });
+
+    expect(runRule('banner-live-region', root).status).toBe(0);
+  });
+
+  it('fails the shared floating pill when it stops speaking for what it draws', () => {
+    const root = fixture({ ...all(), [BANNERS[1]]: 'return <FloatingPill title={title} />;\n' });
+
+    const { status: code, output } = runRule('banner-live-region', root);
+
+    expect(code).toBe(1);
+    expect(output).toContain(`${BANNERS[1]}  has no accessibilityLiveRegion`);
   });
 
   it('fails a banner that draws its own view with neither', () => {

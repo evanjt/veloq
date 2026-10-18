@@ -2,6 +2,7 @@
 // Original style: https://github.com/openmaptiles/osm-liberty (BSD license)
 // Tiles: OpenFreeMap (MIT license)
 // Fonts: Manrope over Noto Sans (SIL Open Font License)
+// Colours: the light base's ground, road and label tones (`../basemapTones`)
 //
 // Embedded locally to avoid CDN serving stale versions with removed fonts.
 // Source: https://tiles.openfreemap.org/styles/liberty (fetched 2026-04-03)

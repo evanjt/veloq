@@ -21,7 +21,6 @@ const props: React.ComponentProps<typeof StatsRow> = {
   bestRecord: { bestPace: 4, bestTime: 250, activityDate: new Date(0) },
   bestIsRecord: true,
   pointCount: 3,
-  color: '#000000',
   basis: 'pace',
   isDark: false,
 };

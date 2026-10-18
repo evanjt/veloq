@@ -3,6 +3,7 @@ import { Path, Skia } from '@shopify/react-native-skia';
 
 import { areaFillsFromZero, areaWashOpacity } from './areaFill';
 import type { Domain } from './cartesian';
+import { LINE_CAP, LINE_JOIN, chartStroke } from './chartMarks';
 import { curveAreaSvg, curveLineSvg, type CurveKind } from './curvePath';
 import type { XY } from './svgPath';
 
@@ -14,11 +15,14 @@ interface CurveLineProps {
   opacity?: number;
 }
 
-/** A stroked curve through pixel points, inside a Skia canvas. */
+/**
+ * A stroked curve through pixel points, inside a Skia canvas. It is a series
+ * line at 2px unless told otherwise, and always joins and ends round.
+ */
 export function CurveLine({
   points,
   color,
-  strokeWidth = 1,
+  strokeWidth = chartStroke.series,
   curve = 'natural',
   opacity = 1,
 }: CurveLineProps) {
@@ -28,7 +32,15 @@ export function CurveLine({
   }, [points, curve]);
   if (!path) return null;
   return (
-    <Path path={path} style="stroke" color={color} strokeWidth={strokeWidth} opacity={opacity} />
+    <Path
+      path={path}
+      style="stroke"
+      color={color}
+      strokeWidth={strokeWidth}
+      strokeJoin={LINE_JOIN}
+      strokeCap={LINE_CAP}
+      opacity={opacity}
+    />
   );
 }
 

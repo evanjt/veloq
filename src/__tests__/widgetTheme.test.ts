@@ -1,8 +1,15 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { bodyDiagram, colors, darkColors, insightToneColor, sequentialRamp } from '@/theme/colors';
-import { widgetPalette, widgetRecord, widgetType } from '@/shared/theme/widgetTheme';
+import {
+  bodyDiagram,
+  colors,
+  darkColors,
+  insightToneColor,
+  opacity,
+  sequentialRamp,
+} from '@/theme/colors';
+import { widgetChart, widgetPalette, widgetRecord, widgetType } from '@/shared/theme/widgetTheme';
 
 // Scenario: the widget natives render only from these resolved palettes (via the
 // snapshot theme block and the generated WidgetTheme files), so every token must
@@ -34,18 +41,30 @@ describe('widgetPalette', () => {
     }
   });
 
-  it('carries a text variant per zone, darkened on light and lightened on dark', () => {
-    expect(widgetPalette.light.formHighRiskText).toBe(colors.formHighRiskText);
-    expect(widgetPalette.light.formOptimalText).toBe(colors.formOptimalText);
-    expect(widgetPalette.light.formGreyZoneText).toBe(colors.formGreyZoneText);
-    expect(widgetPalette.light.formFreshText).toBe(colors.formFreshText);
-    expect(widgetPalette.light.formTransitionText).toBe(colors.formTransitionText);
-
-    expect(widgetPalette.dark.formHighRiskText).toBe(darkColors.formHighRiskText);
-    expect(widgetPalette.dark.formOptimalText).toBe(darkColors.formOptimalText);
-    expect(widgetPalette.dark.formGreyZoneText).toBe(darkColors.formGreyZoneText);
-    expect(widgetPalette.dark.formFreshText).toBe(darkColors.formFreshText);
-    expect(widgetPalette.dark.formTransitionText).toBe(darkColors.formTransitionText);
+  /**
+   * Scenario: a value on a widget is read as text, and a measure's colour is carried by a key
+   * dot beside it, so no field sets text in a zone colour. A chart line holds 3:1 on its own,
+   * so none draws a casing under it.
+   *
+   * Expected behaviour: neither palette, nor any file generated from it, has a form zone text
+   * colour or a chart casing.
+   */
+  it('has no form zone text colour and no chart casing, on either platform', () => {
+    for (const p of [widgetPalette.light, widgetPalette.dark]) {
+      const keys = Object.keys(p);
+      expect(keys.filter((k) => /^form.*Text$/.test(k))).toStrictEqual([]);
+      expect(keys).not.toContain('chartCasing');
+    }
+    const generated = [
+      'widget/ios/VeloqWidget/WidgetTheme.swift',
+      'widget/android/res/values/widget_theme.xml',
+      'widget/android/res/values-night/widget_theme.xml',
+    ];
+    for (const file of generated) {
+      const text = readFileSync(join(__dirname, '../..', file), 'utf8');
+      expect(text).not.toMatch(/chart_?casing/i);
+      expect(text).not.toMatch(/form_?\w*_?text\b/i);
+    }
   });
 
   it('carries the fatigue purple per scheme', () => {
@@ -186,6 +205,42 @@ describe('widgetPalette', () => {
 
   it('keeps light and dark palettes key-aligned', () => {
     expect(Object.keys(widgetPalette.light).sort()).toEqual(Object.keys(widgetPalette.dark).sort());
+  });
+});
+
+// Scenario: a tinted or clear Home Screen keeps only shape and alpha, so the fatigue line's dash
+// and the band alphas are what tell the marks apart there, and both platforms draw them from one
+// number.
+describe('widgetChart', () => {
+  it('draws every alpha at a step of the opacity ladder', () => {
+    const ladder = [
+      opacity.tint1,
+      opacity.tint2,
+      opacity.tint3,
+      opacity.tint4,
+      opacity.dim,
+      opacity.disabled,
+      opacity.pressed,
+    ];
+    const alphas = [
+      widgetChart.bandOpacity,
+      ...widgetChart.bandAccentedOpacities,
+      widgetChart.bandBoundary,
+    ];
+    expect(alphas.filter((a) => !ladder.includes(a))).toStrictEqual([]);
+  });
+
+  it('writes the fatigue dash and the band alpha to Android, where the chart bitmap draws them', () => {
+    const light = readFileSync(
+      join(__dirname, '../..', 'widget/android/res/values/widget_theme.xml'),
+      'utf8'
+    );
+    const [on, off] = widgetChart.fatigueDash;
+    expect(light).toContain(`<dimen name="widget_chart_fatigue_dash_on">${on}dp</dimen>`);
+    expect(light).toContain(`<dimen name="widget_chart_fatigue_dash_off">${off}dp</dimen>`);
+    expect(light).toContain(
+      `<item name="widget_chart_band_opacity" format="float" type="dimen">${widgetChart.bandOpacity}</item>`
+    );
   });
 });
 

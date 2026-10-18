@@ -12,7 +12,7 @@ import { i18n } from '@/i18n';
 import { getNativeModule } from '@/shared/native/engine';
 import { readLibraryCount } from '@/shared/native/libraryCount';
 import { engineErrorTag } from '@/shared/native/engineError';
-import { engine, hasStarted, startOutcome, StartOutcome, type StartVerdict } from 'veloqrs';
+import { engine, hasStarted, startOutcome, type StartVerdict } from 'veloqrs';
 import { getSyncGeneration, useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
 import { useEngineReady } from '@/shared/native/useEngineReady';
@@ -46,21 +46,21 @@ interface UseRouteDataSyncResult {
 export type { SyncProgress };
 
 /**
- * Ask for every FIT file the engine's strength queue still owes, as one batch.
+ * Ask for every FIT file the engine's queue still owes, strength sessions and pool swims
+ * alike, as one batch.
  *
  * The one place the owed files are requested: the sync asks after each pass, and the
- * strength tab asks when it has nothing to show but owed sessions. The engine keeps the
- * queue, so the request names no period. Undefined when there is no engine to ask.
+ * strength tab asks when it has nothing to show but owed sessions. The engine reads its own
+ * queue, so the request names no activity, and answers NotOwed when it is empty. Undefined
+ * when there is no engine to ask.
  */
-export function requestOwedStrengthFiles(
+export function requestOwedFitFiles(
   native: { engine: typeof engine } | null
 ): StartVerdict | undefined {
-  if (!native || typeof native.engine.getUnprocessedStrengthIds !== 'function') return undefined;
-  const owed = native.engine.getUnprocessedStrengthIds();
-  if (owed.length === 0) return StartOutcome.NotOwed;
-  // Fire and forget: the downloads run on a Rust thread and the sets are read
-  // back from SQLite when a strength screen asks.
-  return native.engine.batchFetchExerciseSets(owed);
+  if (!native || typeof native.engine.batchFetchOwedFitFiles !== 'function') return undefined;
+  // Fire and forget: the downloads run on a Rust thread and what each file held
+  // is read back from SQLite when a screen asks.
+  return native.engine.batchFetchOwedFitFiles();
 }
 
 /**
@@ -245,13 +245,12 @@ export function useRouteDataSync(enabled: boolean = true): UseRouteDataSyncResul
         );
       }
 
-      // Batch-fetch FIT files for WeightTraining activities not yet processed.
-      // The engine keeps the queue: the sport is a column there, so filtering
-      // a whole-library parsed array here for `WeightTraining` only sent the
-      // engine ids it can select itself.
-      if (plan.fetchStrength) {
+      // Batch-fetch the FIT files the engine still owes. The engine keeps the
+      // queue: the sport is a column there, so it selects the strength sessions
+      // and pool swims itself.
+      if (plan.fetchFitFiles) {
         try {
-          const outcome = requestOwedStrengthFiles(nativeModule);
+          const outcome = requestOwedFitFiles(nativeModule);
           if (__DEV__ && outcome !== undefined) {
             log.log(
               `[RouteDataSync] FIT batch: ${

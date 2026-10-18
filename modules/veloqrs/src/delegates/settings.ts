@@ -53,11 +53,6 @@ export function setSportSettings(host: DelegateHost, json: string): void {
   });
 }
 
-export function getSportSettings(host: DelegateHost): string {
-  if (!host.ready) return '';
-  return host.timed('getSportSettings', () => host.engine.settings().getSportSettings()) ?? '';
-}
-
 /**
  * The heart rate zone, numbered from 1, a reading falls in for a sport type,
  * from the athlete's own zones. Null when the engine is not open or the reading

@@ -773,6 +773,7 @@ interface NativeModuleInterface {
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_fitness_screen_data(
     uniffiSelf: bigint,
+    spanDays: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_insights_data(
@@ -1411,10 +1412,6 @@ interface NativeModuleInterface {
     key: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_method_settingsmanager_get_sport_settings(
-    uniffiSelf: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_settingsmanager_hr_zone_for(
     uniffiSelf: bigint,
     sportType: Uint8Array,
@@ -1478,9 +1475,8 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_constructor_strengthmanager_new(
     uniffi_out_err: UniffiRustCallStatus,
   ): bigint;
-  ubrn_uniffi_veloqrs_fn_method_strengthmanager_batch_fetch_exercise_sets(
+  ubrn_uniffi_veloqrs_fn_method_strengthmanager_batch_fetch_owed_fit_files(
     uniffiSelf: bigint,
-    activityIds: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_strengthmanager_bulk_insert_exercise_sets(
@@ -2009,7 +2005,6 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_geocoding_enabled(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_athlete_profile(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_setting(): number;
-  ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_sport_settings(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_hr_zone_for(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_name_from_places(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_athlete_profile(): number;
@@ -2023,7 +2018,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_stream_store_bytes(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_suggest_export_home(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_strengthmanager_new(): number;
-  ubrn_uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_exercise_sets(): number;
+  ubrn_uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_owed_fit_files(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_bulk_insert_exercise_sets(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_fetch_and_parse_exercise_sets(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_activities_for_exercise(): number;

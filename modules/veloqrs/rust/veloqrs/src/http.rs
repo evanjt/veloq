@@ -432,7 +432,8 @@ impl ActivityFetcher {
         activity_id: &str,
         lane: Lane,
     ) -> Result<Vec<u8>, NetError> {
-        crate::net::endpoints::fetch_original_file(&self.transport, activity_id, lane).await
+        crate::net::intervals::endpoints::fetch_original_file(&self.transport, activity_id, lane)
+            .await
     }
 }
 
@@ -732,11 +733,11 @@ impl ActivityFetcher {
         };
 
         let types = if wide {
-            crate::net::endpoints::DEFAULT_STREAM_TYPES
+            crate::net::intervals::endpoints::DEFAULT_STREAM_TYPES
         } else {
-            crate::net::endpoints::TRACK_STREAM_TYPES
+            crate::net::intervals::endpoints::TRACK_STREAM_TYPES
         };
-        let bytes = match crate::net::endpoints::fetch_streams_bytes(
+        let bytes = match crate::net::intervals::endpoints::fetch_streams_bytes(
             transport, upstream, types, lane,
         )
         .await
@@ -1713,7 +1714,10 @@ mod tests {
         let mock = server.mock(|when, then| {
             when.method(GET)
                 .path("/activity/a1/streams.json")
-                .query_param("types", crate::net::endpoints::DEFAULT_STREAM_TYPES);
+                .query_param(
+                    "types",
+                    crate::net::intervals::endpoints::DEFAULT_STREAM_TYPES,
+                );
             then.status(200).json_body(streams_body(
                 json!([46.10, null, 46.12]),
                 json!([7.10, null, 7.12]),
@@ -1749,7 +1753,10 @@ mod tests {
         let mock = server.mock(|when, then| {
             when.method(GET)
                 .path("/activity/a1/streams.json")
-                .query_param("types", crate::net::endpoints::TRACK_STREAM_TYPES);
+                .query_param(
+                    "types",
+                    crate::net::intervals::endpoints::TRACK_STREAM_TYPES,
+                );
             then.status(200).json_body(streams_body(
                 json!([46.10, 46.12]),
                 json!([7.10, 7.12]),
@@ -1779,7 +1786,10 @@ mod tests {
         let mock = server.mock(|when, then| {
             when.method(GET)
                 .path("/activity/a1/streams.json")
-                .query_param("types", crate::net::endpoints::TRACK_STREAM_TYPES);
+                .query_param(
+                    "types",
+                    crate::net::intervals::endpoints::TRACK_STREAM_TYPES,
+                );
             then.status(200).json_body(streams_body(
                 json!([46.10, null, 46.12]),
                 json!([7.10, null, 7.12]),

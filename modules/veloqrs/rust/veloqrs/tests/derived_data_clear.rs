@@ -501,6 +501,14 @@ fn activity_keyed_seeds() -> Vec<(&'static str, &'static str)> {
             "INSERT INTO fit_file_status (activity_id, processed_at) VALUES (?1, 0)",
         ),
         (
+            "swim_lengths",
+            "INSERT INTO swim_lengths (activity_id, length_index) VALUES (?1, 0)",
+        ),
+        (
+            "pool_swims",
+            "INSERT INTO pool_swims (activity_id, pool_length_m) VALUES (?1, 25.0)",
+        ),
+        (
             "eftp_changes",
             "INSERT INTO eftp_changes (activity_id, date, eftp, delta, activity_name)
              VALUES (?1, 0, 250.0, 0.0, 'n')",

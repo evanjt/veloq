@@ -3,10 +3,12 @@ import { View, StyleSheet } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { Canvas, Group, Rect } from '@shopify/react-native-skia';
+import { Canvas, Group } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { SharedValue, useSharedValue, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
 import {
+  BAR_GAP,
+  ChartBar,
   ChartCrosshair,
   ChartSurface,
   daysTable,
@@ -18,7 +20,7 @@ import { colors, darkColors, spacing, layout, typography, stroke } from '@/theme
 import { sortByDateId } from '@/shared/activity/activityUtils';
 import { getActivityCategory, sportFamilyLabel } from '@/shared/activity/sportCategories';
 import type { DayLoad } from 'veloqrs';
-import type { Activity, WellnessData } from '@/types';
+import type { WellnessData } from '@/types';
 import { stripMarks, stripKey, markFills } from '../lib/stripMarks';
 import { dayLoadReadout } from '../lib/dayLoadReadout';
 import { dayPillTone, groupColor } from '../lib/dayPillTone';
@@ -27,13 +29,13 @@ import { formatShortDate } from '@/shared/format/format';
 import { Row } from '@/shared/ui';
 import { useGestureCallback } from '@/shared/ui/useGestureCallback';
 
-import { dayActivityRow, useOpenDayActivities, type DayActivity } from '@/features/activity/light';
+import { useOpenDayActivities, type DayActivity } from '@/features/activity/light';
 
 interface ActivityDotsChartProps {
   /** Wellness data for date alignment */
   data: WellnessData[];
-  /** Activities to display as dots */
-  activities?: Activity[];
+  /** Activities to display as dots, as the engine lists them. */
+  activities?: DayActivity[];
   /** Recorded activity load per local day, from the engine. */
   dailyLoads?: DayLoad[];
   height?: number;
@@ -89,7 +91,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
   const activitiesByDate = useMemo(() => {
     const map = new Map<string, DayActivity[]>();
     for (const activity of activities) {
-      const date = activity.start_date_local?.split('T')[0];
+      const date = activity.startDateLocal.split('T')[0];
       if (!date) continue;
 
       let onDay = map.get(date);
@@ -97,7 +99,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
         onDay = [];
         map.set(date, onDay);
       }
-      onDay.push(dayActivityRow(activity));
+      onDay.push(activity);
     }
     return map;
   }, [activities]);
@@ -336,6 +338,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
   );
 
   const mutedColor = isDark ? darkColors.textDisabled : colors.textDisabled;
+  const colorOf = (group: string) => groupColor(group, isDark);
   const keyTextStyle = [styles.keyText, isDark && styles.noActivityLabelDark];
 
   const dayLoad = readout ? (
@@ -401,19 +404,24 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
                 <Group>
                   {marks.map((mark) => {
                     const total = mark.height * height;
-                    let top = height - total;
-                    return markFills(mark, mutedColor, groupColor).map((fill, n) => {
-                      const y = top;
-                      const fillHeight = fill.fraction * total;
-                      top += fillHeight;
+                    // The first portion sits on the floor and each next one stacks above it.
+                    let bottom = height;
+                    const fills = markFills(mark, mutedColor, colorOf);
+                    // Stacked portions are parted by the bar gap of surface, not a divider.
+                    const drawn = total - (fills.length - 1) * BAR_GAP;
+                    return fills.map((fill, n) => {
+                      const y = bottom;
+                      const fillHeight = fill.fraction * drawn;
+                      bottom -= fillHeight + BAR_GAP;
                       return (
-                        <Rect
+                        <ChartBar
                           key={`${mark.dates[0]}-${n}`}
-                          x={mark.x}
-                          y={y}
+                          x={mark.x + mark.width / 2}
+                          from={y}
+                          to={y - fillHeight}
                           width={mark.width}
-                          height={fillHeight}
                           color={fill.color}
+                          outline={fill.outline}
                         />
                       );
                     });
@@ -433,13 +441,13 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
           <View style={styles.keyRow}>
             {key.groups.map((group) => (
               <View key={group} testID={`fitness-strip-key-${group}`} style={styles.keyItem}>
-                <View style={[styles.keySwatch, { backgroundColor: groupColor(group) }]} />
+                <View style={[styles.keySwatch, { backgroundColor: colorOf(group) }]} />
                 <Text style={keyTextStyle}>{t(sportFamilyLabel(group))}</Text>
               </View>
             ))}
             {key.noLoad ? (
               <View testID="fitness-strip-key-noLoad" style={styles.keyItem}>
-                <View style={[styles.keySwatch, { backgroundColor: mutedColor }]} />
+                <View style={[styles.keySwatch, styles.keyOutline, { borderColor: mutedColor }]} />
                 <Text style={keyTextStyle}>{t('fitness.noLoadKey')}</Text>
               </View>
             ) : null}
@@ -483,6 +491,10 @@ const styles = StyleSheet.create({
     width: spacing.sm,
     height: spacing.sm,
     borderRadius: layout.borderRadiusSm,
+  },
+  // The no-load key draws as its marks do, an outline with no fill.
+  keyOutline: {
+    borderWidth: stroke.two,
   },
   keyText: {
     fontSize: typography.label.fontSize,

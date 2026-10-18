@@ -17,7 +17,7 @@ import {
   getTerrainPreviewUri,
   hasTerrainPreview,
 } from '@/features/maps/lib/storage/terrainPreviewCache';
-import { duration, iconSize, themePalette } from '@/theme';
+import { duration, iconSize, mapPalette, themePalette, type MapPalette } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { useMapPreferences } from '@/features/settings/light';
 import { useSectionCreation } from '@/features/maps/hooks/useSectionCreation';
@@ -728,9 +728,11 @@ export const ActivityMapView = memo(function ActivityMapView({
   // the layer list alone.
   const hasHighlightPoint = !!highlightPoint;
   const hasSectionOverlays = !!sectionOverlaysGeoJSON;
+  const basePalette = mapPalette(mapStyle);
   const layers = useMemo(
     () =>
       buildActivityLayers({
+        palette: basePalette,
         overlayHasData,
         activityColor,
         gradientActive,
@@ -742,6 +744,7 @@ export const ActivityMapView = memo(function ActivityMapView({
         hasUserLocation: userLocation !== null,
       }),
     [
+      basePalette,
       overlayHasData,
       activityColor,
       gradientActive,
@@ -763,12 +766,14 @@ export const ActivityMapView = memo(function ActivityMapView({
       ),
     [consolidatedPortionsGeoJSON, fullscreenPRMarkersGeoJSON, overlayGeoJSON]
   );
-  const fullscreenLayers = useMemo(
-    () => buildFullscreenSectionLayers(!!sectionOverlaysGeoJSON),
+  const fullscreenLayers = useCallback(
+    (fullscreenPalette: MapPalette) =>
+      buildFullscreenSectionLayers(!!sectionOverlaysGeoJSON, fullscreenPalette),
     [sectionOverlaysGeoJSON]
   );
-  const fullscreenMatchedRouteLayers = useMemo(
-    () => buildFullscreenMatchedRouteLayers(overlayHasData),
+  const fullscreenMatchedRouteLayers = useCallback(
+    (fullscreenPalette: MapPalette) =>
+      buildFullscreenMatchedRouteLayers(overlayHasData, fullscreenPalette),
     [overlayHasData]
   );
 

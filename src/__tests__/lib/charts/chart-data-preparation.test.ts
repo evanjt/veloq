@@ -1,5 +1,5 @@
 /**
- * Tests for CombinedPlot data-prep helpers.
+ * Tests for the activity stream lanes' data-prep helpers.
  * Pure functions, but we need to provide minimal chart-config mocks because
  * the helpers consume a config record keyed by ChartTypeId.
  */
@@ -8,7 +8,6 @@ import {
   buildChartData,
   computeAllAverages,
   computeIntervalBands,
-  type SeriesInfo,
 } from '@/features/stats/lib/combinedPlotData';
 import { type ChartConfig, type ChartTypeId } from '@/features/activity/lib/chartConfig';
 import type { ActivityStreams, ActivityInterval } from '@/types';
@@ -74,7 +73,6 @@ describe('why buildChartData has nothing to draw', () => {
       ['power'],
       configs,
       true,
-      null,
       'distance',
       300
     );
@@ -87,7 +85,6 @@ describe('why buildChartData has nothing to draw', () => {
       ['power'],
       configs,
       true,
-      null,
       'time',
       300
     );
@@ -95,20 +92,12 @@ describe('why buildChartData has nothing to draw', () => {
   });
 
   it('names chosen metrics the activity did not record', () => {
-    const result = buildChartData(
-      streams({ watts: [] }),
-      ['power'],
-      configs,
-      true,
-      null,
-      'time',
-      300
-    );
+    const result = buildChartData(streams({ watts: [] }), ['power'], configs, true, 'time', 300);
     expect(result.emptyCause).toBe('noMetrics');
   });
 
   it('names nothing when there is a series to draw', () => {
-    const result = buildChartData(streams(), ['power'], configs, true, null, 'distance', 300);
+    const result = buildChartData(streams(), ['power'], configs, true, 'distance', 300);
     expect(result.emptyCause).toBeNull();
   });
 });
@@ -120,7 +109,6 @@ describe('buildChartData', () => {
       ['power'],
       { power: powerConfig() } as Record<ChartTypeId, ChartConfig>,
       true,
-      null,
       'distance',
       300
     );
@@ -135,7 +123,6 @@ describe('buildChartData', () => {
       ['power'],
       configs,
       true,
-      null,
       'distance',
       300
     );
@@ -145,13 +132,12 @@ describe('buildChartData', () => {
 
   it('builds chart data for a single series with distance axis', () => {
     const configs = { power: powerConfig() } as unknown as Record<ChartTypeId, ChartConfig>;
-    const result = buildChartData(streams(), ['power'], configs, true, null, 'distance', 300);
+    const result = buildChartData(streams(), ['power'], configs, true, 'distance', 300);
     expect(result.chartData.length).toBeGreaterThan(0);
     expect(result.seriesInfo).toHaveLength(1);
     expect(result.seriesInfo[0].id).toBe('power');
-    // Power range should have valid min/max
-    expect(result.seriesInfo[0].range.min).toBe(100);
-    expect(result.seriesInfo[0].range.max).toBe(220);
+    // The lane runs from the lowest sample to the highest, in watts
+    expect(result.seriesInfo[0].domain).toEqual([100, 220]);
   });
 
   it('builds chart data for multiple selected series', () => {
@@ -164,71 +150,25 @@ describe('buildChartData', () => {
       ['power', 'heartrate'],
       configs,
       true,
-      null,
       'distance',
       300
     );
     expect(result.seriesInfo).toHaveLength(2);
-    // Each point should have an x plus two normalised series values
+    // Each point has an x and each series in its own units, inside its own lane
+    const [power, heartrate] = result.seriesInfo;
     result.chartData.forEach((p) => {
       expect(typeof p.x).toBe('number');
-      expect(p.power).toBeGreaterThanOrEqual(0);
-      expect(p.power).toBeLessThanOrEqual(1);
-      expect(p.heartrate).toBeGreaterThanOrEqual(0);
-      expect(p.heartrate).toBeLessThanOrEqual(1);
+      expect(p.power).toBeGreaterThanOrEqual(power.domain[0]);
+      expect(p.power).toBeLessThanOrEqual(power.domain[1]);
+      expect(p.heartrate).toBeGreaterThanOrEqual(heartrate.domain[0]);
+      expect(p.heartrate).toBeLessThanOrEqual(heartrate.domain[1]);
     });
-  });
-
-  it('appends a preview series when not already selected', () => {
-    const configs = {
-      power: powerConfig(),
-      heartrate: heartRateConfig(),
-    } as unknown as Record<ChartTypeId, ChartConfig>;
-    const result = buildChartData(
-      streams(),
-      ['power'],
-      configs,
-      true,
-      'heartrate',
-      'distance',
-      300
-    );
-    expect(result.seriesInfo).toHaveLength(2);
-    const hr = result.seriesInfo.find((s) => s.id === 'heartrate');
-    expect(hr?.isPreview).toBe(true);
-  });
-
-  it('skips the preview series when it is already in selectedCharts', () => {
-    const configs = {
-      power: powerConfig(),
-      heartrate: heartRateConfig(),
-    } as unknown as Record<ChartTypeId, ChartConfig>;
-    const result = buildChartData(
-      streams(),
-      ['power', 'heartrate'],
-      configs,
-      true,
-      'heartrate',
-      'distance',
-      300
-    );
-    expect(result.seriesInfo).toHaveLength(2);
-    // Neither should be flagged as preview (already selected)
-    result.seriesInfo.forEach((s) => expect(s.isPreview).toBeFalsy());
   });
 
   it('switches x-axis between distance (km/mi) and time (seconds)', () => {
     const configs = { power: powerConfig() } as unknown as Record<ChartTypeId, ChartConfig>;
-    const distanceResult = buildChartData(
-      streams(),
-      ['power'],
-      configs,
-      true,
-      null,
-      'distance',
-      300
-    );
-    const timeResult = buildChartData(streams(), ['power'], configs, true, null, 'time', 300);
+    const distanceResult = buildChartData(streams(), ['power'], configs, true, 'distance', 300);
+    const timeResult = buildChartData(streams(), ['power'], configs, true, 'time', 300);
     expect(distanceResult.maxX).not.toBe(timeResult.maxX);
     // Time stream has values 0..90 seconds
     expect(timeResult.maxX).toBe(90);
@@ -236,8 +176,8 @@ describe('buildChartData', () => {
 
   it('converts distance to miles when isMetric is false', () => {
     const configs = { power: powerConfig() } as unknown as Record<ChartTypeId, ChartConfig>;
-    const metric = buildChartData(streams(), ['power'], configs, true, null, 'distance', 300);
-    const imperial = buildChartData(streams(), ['power'], configs, false, null, 'distance', 300);
+    const metric = buildChartData(streams(), ['power'], configs, true, 'distance', 300);
+    const imperial = buildChartData(streams(), ['power'], configs, false, 'distance', 300);
     expect(imperial.maxX).toBeLessThan(metric.maxX);
     expect(imperial.maxX).toBeCloseTo(metric.maxX * 0.621371, 3);
   });
@@ -313,22 +253,9 @@ describe('computeAllAverages', () => {
 });
 
 describe('computeIntervalBands', () => {
-  const defaultSeriesInfo: SeriesInfo[] = [
-    {
-      id: 'power',
-      config: powerConfig(),
-      rawData: [100, 200, 300],
-      range: { min: 100, max: 300, range: 200 },
-    },
-  ];
-
   it('returns empty array when intervals is empty or chart data length is zero', () => {
-    expect(
-      computeIntervalBands([], 0, streams(), 'distance', true, 'Ride', defaultSeriesInfo)
-    ).toEqual([]);
-    expect(
-      computeIntervalBands(undefined, 5, streams(), 'distance', true, 'Ride', defaultSeriesInfo)
-    ).toEqual([]);
+    expect(computeIntervalBands([], 0, streams(), 'distance', true, 'Ride')).toEqual([]);
+    expect(computeIntervalBands(undefined, 5, streams(), 'distance', true, 'Ride')).toEqual([]);
   });
 
   it('assigns a distinct colour token to WORK/RECOVERY/WARMUP/COOLDOWN', () => {
@@ -338,15 +265,7 @@ describe('computeIntervalBands', () => {
       { type: 'RECOVERY', start_index: 5, end_index: 7 } as ActivityInterval,
       { type: 'COOLDOWN', start_index: 7, end_index: 9 } as ActivityInterval,
     ];
-    const bands = computeIntervalBands(
-      intervals,
-      10,
-      streams(),
-      'distance',
-      true,
-      'Ride',
-      defaultSeriesInfo
-    );
+    const bands = computeIntervalBands(intervals, 10, streams(), 'distance', true, 'Ride');
     expect(bands).toHaveLength(4);
     expect(bands[0].bandColour).toEqual({ kind: 'role', role: 'warmup' });
     expect(bands[1].bandColour).toEqual({ kind: 'zone', scale: 'power', zone: 3 });
@@ -355,7 +274,7 @@ describe('computeIntervalBands', () => {
     expect(bands[3].bandColour).toEqual({ kind: 'role', role: 'cooldown' });
   });
 
-  it('computes avgNormY only for WORK intervals with a primary series', () => {
+  it('carries the average power and heart rate of WORK intervals only', () => {
     const intervals: ActivityInterval[] = [
       {
         type: 'WORK',
@@ -363,36 +282,20 @@ describe('computeIntervalBands', () => {
         end_index: 2,
         zone: 2,
         average_watts: 200,
+        average_heartrate: 151,
       } as ActivityInterval,
       { type: 'RECOVERY', start_index: 2, end_index: 4 } as ActivityInterval,
     ];
-    const bands = computeIntervalBands(
-      intervals,
-      10,
-      streams(),
-      'distance',
-      true,
-      'Ride',
-      defaultSeriesInfo
-    );
-    // WORK: (200 - 100) / 200 = 0.5
-    expect(bands[0].avgNormY).toBeCloseTo(0.5, 3);
-    expect(bands[1].avgNormY).toBeNull();
+    const bands = computeIntervalBands(intervals, 10, streams(), 'distance', true, 'Ride');
+    expect(bands[0].averages).toEqual({ power: 200, heartrate: 151 });
+    expect(bands[1].averages).toEqual({ power: null, heartrate: null });
   });
 
   it('falls back to the work role when a WORK interval has no zone', () => {
     const intervals: ActivityInterval[] = [
       { type: 'WORK', start_index: 0, end_index: 2 } as ActivityInterval,
     ];
-    const bands = computeIntervalBands(
-      intervals,
-      10,
-      streams(),
-      'distance',
-      true,
-      'Ride',
-      defaultSeriesInfo
-    );
+    const bands = computeIntervalBands(intervals, 10, streams(), 'distance', true, 'Ride');
     expect(bands[0].isWork).toBe(true);
     expect(bands[0].bandColour).toEqual({ kind: 'role', role: 'work' });
   });
@@ -455,8 +358,8 @@ describe('buildChartData golden', () => {
       seriesInfo: result.seriesInfo.map((s) => ({
         id: s.id,
         stream: s.config.stream,
-        range: s.range,
-        isPreview: s.isPreview ?? false,
+        domain: s.domain,
+        kind: s.kind,
         rawDataLength: s.rawData.length,
       })),
     };
@@ -468,7 +371,6 @@ describe('buildChartData golden', () => {
       ['power', 'heartrate', 'elevation'],
       goldenConfigs(),
       true,
-      null,
       'distance',
       GOLDEN_WIDTH
     );
@@ -476,13 +378,12 @@ describe('buildChartData golden', () => {
     expect(summarise(result)).toMatchSnapshot();
   });
 
-  it('matches the golden for an imperial time axis with a preview series', () => {
+  it('matches the golden for an imperial time axis', () => {
     const result = buildChartData(
       rideStreams(),
-      ['power', 'heartrate'],
+      ['power', 'heartrate', 'elevation'],
       goldenConfigs(),
       false,
-      'elevation',
       'time',
       GOLDEN_WIDTH
     );
@@ -518,27 +419,26 @@ describe('thinning keeps a short spike', () => {
   const configs = { power: powerConfig() } as unknown as Record<ChartTypeId, ChartConfig>;
 
   it('draws the peak of a 20 sample sprint in a 5,000 sample ride', () => {
-    const result = buildChartData(sprintStreams(), ['power'], configs, true, null, 'time', 300);
+    const result = buildChartData(sprintStreams(), ['power'], configs, true, 'time', 300);
     const drawnPeak = Math.max(...result.chartData.map((p) => p.power));
-    expect(drawnPeak).toBe(1);
-    const peakIndex = result.chartData.findIndex((p) => p.power === 1);
+    expect(drawnPeak).toBe(SPIKE_PEAK);
+    const peakIndex = result.chartData.findIndex((p) => p.power === SPIKE_PEAK);
     expect(watts[result.indexMap[peakIndex]]).toBe(SPIKE_PEAK);
   });
 
   it('keeps no more than five points per pixel and fewer than the input', () => {
-    const result = buildChartData(sprintStreams(), ['power'], configs, true, null, 'distance', 300);
+    const result = buildChartData(sprintStreams(), ['power'], configs, true, 'distance', 300);
     expect(result.chartData.length).toBeLessThanOrEqual(5 * 300);
     expect(result.chartData.length).toBeLessThan(SAMPLES);
     expect(result.indexMap).toHaveLength(result.chartData.length);
   });
 
   it('maps every drawn point to the raw sample with its value and x', () => {
-    const result = buildChartData(sprintStreams(), ['power'], configs, true, null, 'time', 300);
-    const { min, range } = result.seriesInfo[0].range;
+    const result = buildChartData(sprintStreams(), ['power'], configs, true, 'time', 300);
     result.chartData.forEach((point, i) => {
       const raw = result.indexMap[i];
       expect(point.x).toBe(time[raw]);
-      expect(point.power).toBeCloseTo((watts[raw] - min) / range);
+      expect(point.power).toBe(watts[raw]);
     });
     expect(result.indexMap).toEqual([...result.indexMap].sort((a, b) => a - b));
   });
@@ -550,22 +450,22 @@ describe('thinning keeps a short spike', () => {
       ChartTypeId,
       ChartConfig
     >;
-    const result = buildChartData(streams, ['power', 'heartrate'], both, true, null, 'time', 300);
+    const result = buildChartData(streams, ['power', 'heartrate'], both, true, 'time', 300);
     expect(result.indexMap).toContain(4321);
-    expect(Math.max(...result.chartData.map((p) => p.power))).toBe(1);
+    expect(Math.max(...result.chartData.map((p) => p.power))).toBe(SPIKE_PEAK);
   });
 
   it('keeps a run of missing samples as a break in the line', () => {
     const gappy = watts.map((v, i) => (i >= 1000 && i < 1100 ? NaN : v));
     const streams = streamsFromArrays({ time, watts: gappy });
-    const result = buildChartData(streams, ['power'], configs, true, null, 'time', 300);
+    const result = buildChartData(streams, ['power'], configs, true, 'time', 300);
     const gapIndices = result.indexMap.filter((_, i) => Number.isNaN(result.chartData[i].power));
     expect(gapIndices.length).toBeGreaterThan(0);
     expect(gapIndices.every((raw) => raw >= 1000 && raw < 1100)).toBe(true);
   });
 
   it('returns a series shorter than the pixel width whole', () => {
-    const result = buildChartData(streams(), ['power'], configs, true, null, 'time', 300);
+    const result = buildChartData(streams(), ['power'], configs, true, 'time', 300);
     expect(result.indexMap).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
   });
 });

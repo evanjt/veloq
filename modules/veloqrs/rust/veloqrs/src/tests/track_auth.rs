@@ -210,7 +210,10 @@ fn a_sign_out_stops_the_time_stream_tail() {
         server.mock(|when, then| {
             when.method(GET)
                 .path(format!("/activity/{id}/streams.json"))
-                .query_param("types", crate::net::endpoints::TRACK_STREAM_TYPES);
+                .query_param(
+                    "types",
+                    crate::net::intervals::endpoints::TRACK_STREAM_TYPES,
+                );
             then.status(200).json_body(track_body());
         });
         time_mocks.push(server.mock(|when, then| {
@@ -257,7 +260,10 @@ fn a_401_on_the_time_stream_tail_parks_and_asks_nothing_more() {
             server.mock(|when, then| {
                 when.method(GET)
                     .path(format!("/activity/{id}/streams.json"))
-                    .query_param("types", crate::net::endpoints::TRACK_STREAM_TYPES);
+                    .query_param(
+                        "types",
+                        crate::net::intervals::endpoints::TRACK_STREAM_TYPES,
+                    );
                 then.status(200).json_body(track_body());
             });
             time_mocks.push(server.mock(|when, then| {

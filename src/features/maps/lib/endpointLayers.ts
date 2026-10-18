@@ -7,7 +7,7 @@
  * start and a square for the end. The source holds one point per end, its
  * `position` property `start` or `end`.
  */
-import { mapLayerColors } from '@/theme';
+import type { MapPalette } from '@/theme';
 import type { MapImageSpec, MapLayerSpec } from '@/features/maps/lib/htmlBuilders';
 import {
   SECTION_END_ICON,
@@ -26,13 +26,14 @@ const ENDPOINT_ICON_SIZE = 0.14;
 
 const isStart = ['==', ['get', 'position'], 'start'];
 
-export function buildEndpointLayers(): MapLayerSpec[] {
+export function buildEndpointLayers(palette: MapPalette): MapLayerSpec[] {
+  const { layer } = palette;
   return [
     {
       id: 'endpoint-border',
       type: 'circle',
       source: 'endpoints',
-      paint: { 'circle-radius': ENDPOINT_BORDER_RADIUS, 'circle-color': mapLayerColors.casing },
+      paint: { 'circle-radius': ENDPOINT_BORDER_RADIUS, 'circle-color': layer.casing },
     },
     {
       id: 'endpoint-fill',
@@ -40,7 +41,7 @@ export function buildEndpointLayers(): MapLayerSpec[] {
       source: 'endpoints',
       paint: {
         'circle-radius': ENDPOINT_RADIUS,
-        'circle-color': ['case', isStart, mapLayerColors.startSolid, mapLayerColors.endSolid],
+        'circle-color': ['case', isStart, layer.startSolid, layer.endSolid],
       },
     },
     {
@@ -54,7 +55,7 @@ export function buildEndpointLayers(): MapLayerSpec[] {
         'icon-ignore-placement': true,
         'icon-anchor': 'center',
       },
-      paint: { 'icon-color': mapLayerColors.casing },
+      paint: { 'icon-color': layer.casing },
     },
   ];
 }

@@ -13,6 +13,7 @@ import { configure, render } from '@testing-library/react-native';
 import { ActivityCard } from '@/features/activity/components/ActivityCard';
 import { RecentEffortsList } from '@/features/insights/components/content/RecentEffortsList';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
+import { badgePaint } from '@/shared/ui/Badge';
 import { brand, ink } from '@/theme';
 import type { Activity } from '@/types';
 import { contrastRatio } from '../__shared__/contrast';
@@ -132,7 +133,7 @@ describe.each([false, true])('the recent efforts PR label (dark %s)', (isDark) =
     const fill = flat(badge.props.style).backgroundColor as string;
     const trophy = badge.findAll((n) => n.props.name === 'trophy')[0];
 
-    expect(fill).toBe(brand.gold);
+    expect(fill).toBe(badgePaint('record', isDark).fill);
     expect(contrastRatio(flat(label.props.style).color as string, fill)).toBeGreaterThanOrEqual(
       4.5
     );

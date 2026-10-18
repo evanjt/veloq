@@ -7,20 +7,12 @@
  * the selected id rather than a rebuilt FeatureCollection, so panning with a
  * selection active does not re-upload every point.
  */
-import {
-  colors,
-  colorWithOpacity,
-  ink,
-  mapLayerColors,
-  opacity,
-  routePaletteExpression,
-} from '@/theme';
+import { colourIndexExpression, type MapPalette } from '@/theme';
 import type { MapGeoJSONData, MapLayerSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
 import { heatmapRasterPaint } from '@/features/maps/lib/heatmapPaint';
 import { HEATMAP_SOURCE_MINZOOM, heatmapTileTemplate } from '@/features/maps/lib/heatmapTiles';
 import { TRACE_ZOOM_THRESHOLD } from '@/features/maps/lib/mapBudgets';
 import { BUNDLED_TEXT_FONT } from '@/features/maps/lib/bundledGlyphs';
-import { isDarkStyle } from '../mapStyles';
 import {
   USER_LOCATION_SOURCE_ID,
   buildUserLocationLayers,
@@ -104,7 +96,8 @@ export function buildRegionalSources(input: RegionalSourceInput): Record<string,
 }
 
 interface RegionalLayerInput {
-  mapStyle: 'light' | 'dark' | 'satellite';
+  /** The colours of the base map drawn under the layers, which they are drawn for. */
+  palette: MapPalette;
   showActivities: boolean;
   showSections: boolean;
   showRoutes: boolean;
@@ -122,7 +115,7 @@ interface RegionalLayerInput {
 
 export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
   const {
-    mapStyle,
+    palette,
     showActivities,
     showSections,
     showRoutes,
@@ -136,8 +129,7 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
     selectedRouteId,
     routeColor,
   } = input;
-  // The lines are drawn for the base under them, never for the app theme.
-  const isDark = isDarkStyle(mapStyle);
+  const { layer } = palette;
 
   const isSelectedActivity = ['==', ['get', 'id'], selectedActivityId ?? ''];
   const isSelectedSection = ['==', ['get', 'id'], selectedSectionId ?? ''];
@@ -157,7 +149,7 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
       type: 'raster',
       source: 'heatmap-tiles',
       visible: showHeatmap,
-      paint: heatmapRasterPaint(mapStyle),
+      paint: heatmapRasterPaint(palette.base),
     });
   }
 
@@ -175,7 +167,7 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
       source: 'routes',
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
-        'line-color': mapLayerColors.casing,
+        'line-color': layer.casing,
         'line-width': selectedRouteId ? ['case', isSelectedRoute, 7, 0] : 0,
         'line-opacity': selectedRouteId && showRoutes ? 0.8 : 0,
       },
@@ -187,7 +179,7 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
       source: 'routes',
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
-        'line-color': routePaletteExpression(),
+        'line-color': colourIndexExpression(layer.routes, ['get', 'palette'], true),
         'line-width': selectedRouteId
           ? ['case', isSelectedRoute, 5, 2]
           : ['interpolate', ['linear'], ['zoom'], 6, 1.5, 12, 2.5, 18, 4],
@@ -205,7 +197,7 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
       source: 'sections',
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
-        'line-color': mapLayerColors.casing,
+        'line-color': layer.casing,
         'line-width': selectedSectionId ? ['case', isSelectedSection, 6, 0] : 0,
         'line-opacity': selectedSectionId && showSections ? 0.8 : 0,
       },
@@ -234,7 +226,7 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
       source: 'selected-route',
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
-        'line-color': ink.black,
+        'line-color': layer.selectedCasing,
         'line-width': 8,
         'line-opacity': hasRouteData ? 1 : 0,
       },
@@ -256,7 +248,7 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
       source: CLUSTER_SOURCE_ID,
       filter: ['has', 'point_count'],
       paint: {
-        'circle-color': colors.actionPrimary,
+        'circle-color': layer.route,
         'circle-radius': ['step', ['get', 'point_count'], 20, 10, 25, 50, 30],
         // Opaque, so the count's contrast holds over any basemap beneath it.
         'circle-opacity': showActivities ? 1 : 0,
@@ -275,7 +267,7 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
         'text-allow-overlap': true,
         'text-ignore-placement': true,
       },
-      paint: { 'text-color': colors.textOnFill },
+      paint: { 'text-color': layer.onFill },
       visible: showActivities,
     },
     {
@@ -312,8 +304,8 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
           : 0,
         'circle-stroke-width': selectedActivityId ? ['case', isSelectedActivity, 2.5, 1.5] : 1.5,
         'circle-stroke-color': selectedActivityId
-          ? ['case', isSelectedActivity, colors.actionPrimary, colorWithOpacity(ink.white, 0.8)]
-          : colorWithOpacity(ink.white, 0.8),
+          ? ['case', isSelectedActivity, layer.route, layer.pointRing]
+          : layer.pointRing,
         'circle-stroke-opacity': showActivities ? 1 : 0,
       },
       visible: showActivities,
@@ -323,9 +315,7 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
       type: 'line',
       source: 'spider-legs',
       paint: {
-        'line-color': isDark
-          ? colorWithOpacity(ink.white, opacity.disabled)
-          : colorWithOpacity(ink.black, opacity.tint4),
+        'line-color': layer.spiderLeg,
         'line-width': 1.5,
         'line-opacity': spiderVisible ? 1 : 0,
       },
@@ -340,32 +330,28 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
         'circle-radius': 10,
         'circle-opacity': spiderVisible ? 1 : 0,
         'circle-stroke-width': 2,
-        'circle-stroke-color': mapLayerColors.casing,
+        'circle-stroke-color': layer.casing,
         'circle-stroke-opacity': spiderVisible ? 1 : 0,
       },
       visible: spiderVisible,
     },
-    ...buildUserLocationLayers(hasUserLocation)
+    ...buildUserLocationLayers(hasUserLocation, palette)
   );
 
   return layers;
 }
 
 /**
- * Fallback colour for the selected route line while the heatmap is drawn under
- * it. Light and outside the teal family, it is read against the opaque casing
- * rather than the heat.
- */
-export const HEATMAP_ROUTE_COLOR = ink.white;
-
-/**
- * The selected activity's line colour: its sport colour, or the fallback while
- * the heatmap is drawn under it. Available in settings is not drawn: the
- * athlete can hide it on the map.
+ * The selected activity's line colour: its sport colour, or the palette's
+ * heatmap route colour while the heatmap is drawn under it. That one is light
+ * and outside the teal family, so it is read against the opaque casing rather
+ * than the heat. Available in settings is not drawn: the athlete can hide it on
+ * the map.
  */
 export function selectedRouteColor(
   sportColor: string,
-  heatmap: { enabled: boolean; shown: boolean }
+  heatmap: { enabled: boolean; shown: boolean },
+  palette: MapPalette
 ): string {
-  return heatmap.enabled && heatmap.shown ? HEATMAP_ROUTE_COLOR : sportColor;
+  return heatmap.enabled && heatmap.shown ? palette.layer.heatmapRoute : sportColor;
 }

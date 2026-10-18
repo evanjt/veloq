@@ -15,6 +15,7 @@ import { AttemptHistogramChart } from '@/features/routes/components/section/Atte
 import { SectionPerformanceSection } from '@/features/routes/components/section/SectionPerformanceSection';
 import type { PerformanceDataPoint } from '@/types';
 import type { FfiAttemptHistogram, FfiAttemptHistograms } from 'veloqrs';
+import { DirectionSwitch, ToggleButton } from '@/shared/ui';
 import { colors } from '@/theme';
 import { layoutViews } from '../../__shared__/layoutViews';
 
@@ -56,19 +57,23 @@ const HISTOGRAMS: FfiAttemptHistograms = {
   reverse: REVERSE,
 };
 
+// The engine's counts, deliberately not the number of points in the chart data,
+// so a count drawn from the points would show.
+const FORWARD_STATS = { avgTime: 320, lastActivity: null, count: 12 };
+const REVERSE_STATS = { avgTime: 330, lastActivity: null, count: 4 };
+
 function panel(props: Partial<React.ComponentProps<typeof PerformanceChartPanel>> = {}) {
   return (
     <PerformanceChartPanel
       chartData={CHART_DATA}
       activityType="Ride"
       isDark={false}
-      forwardColour="#0D9488"
       bestForwardRecord={{ bestTime: 310, activityDate: new Date(2026, 5, 1) }}
       bestReverseRecord={null}
       bestForwardIsRecord={false}
       bestReverseIsRecord={false}
-      forwardStats={null}
-      reverseStats={null}
+      forwardStats={FORWARD_STATS}
+      reverseStats={REVERSE_STATS}
       trendCurves={{}}
       histograms={HISTOGRAMS}
       {...props}
@@ -147,14 +152,29 @@ describe('PerformanceChartPanel', () => {
     expect(tree.queryByTestId('attempt-histogram')).toBeNull();
   });
 
-  it('draws the plot and direction switches as chips, not bordered buttons', async () => {
+  it('draws the plot switch as chips, not bordered buttons', async () => {
     const tree = await render(panel());
 
-    for (const id of ['chart-plot-scatter', 'section-chart-direction-reverse']) {
-      const style = StyleSheet.flatten(tree.getByTestId(id).props.style);
-      expect(style.borderColor).not.toBe(colors.controlBoundary);
-      expect([colors.controlOn, colors.fillNeutral]).toContain(style.backgroundColor);
-    }
+    const style = StyleSheet.flatten(tree.getByTestId('chart-plot-scatter').props.style);
+    expect(style.borderColor).not.toBe(colors.controlBoundary);
+    expect([colors.controlOn, colors.fillNeutral]).toContain(style.backgroundColor);
+  });
+
+  it("switches direction on a grey track carrying the engine's count per direction", async () => {
+    const tree = await render(panel());
+
+    expect(tree.UNSAFE_getAllByType(DirectionSwitch)).toHaveLength(1);
+    const chips = tree.UNSAFE_queryAllByType(ToggleButton).map((chip) => chip.props.testID);
+    expect(chips.filter((id) => String(id).startsWith('section-chart-direction'))).toEqual([]);
+    expect(tree.getByTestId('section-chart-direction-forward')).toHaveTextContent(/12/);
+    expect(tree.getByTestId('section-chart-direction-reverse')).toHaveTextContent(/4/);
+  });
+
+  it('draws no direction switch when the engine counts one direction empty', async () => {
+    const tree = await render(panel({ reverseStats: { ...REVERSE_STATS, count: 0 } }));
+
+    expect(tree.queryByTestId('section-chart-direction-forward')).toBeNull();
+    expect(tree.queryByTestId('section-chart-direction-reverse')).toBeNull();
   });
 
   it('draws the reverse bins after reverse is chosen, not the forward ones', async () => {
@@ -378,7 +398,6 @@ describe('the route page chart', () => {
         histograms={HISTOGRAMS}
         sportType="Ride"
         isDark={false}
-        forwardColour="#0D9488"
         bestForwardRecord={null}
         bestReverseRecord={null}
         bestForwardIsRecord={false}

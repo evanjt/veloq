@@ -1,6 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { colors, colorWithOpacity, darkColors, ink, opacity } from './colors';
-import { layout, spacing } from './spacing';
+import { colors, darkColors } from './colors';
 import { typography } from './typography';
 
 /** The one chart text role: a 12px caption in tabular figures, never below it. */
@@ -15,6 +14,16 @@ export const chartStyles = StyleSheet.create({
   chartWrapper: {
     flex: 1,
     position: 'relative' as const,
+  },
+
+  /**
+   * The box holding a plot and every label, gutter and crosshair placed against it. A canvas
+   * draws in physical pixels and never mirrors, so the views laid out against it are pinned left
+   * to right too: under a right-to-left layout the axis would otherwise run the other way from
+   * the marks it labels.
+   */
+  plotDirection: {
+    direction: 'ltr' as const,
   },
 
   /** Every tick, axis title, unit and legend label a chart sets. */
@@ -33,20 +42,6 @@ export const chartStyles = StyleSheet.create({
   },
   chartLabelStrongDark: {
     color: darkColors.textPrimary,
-  },
-
-  /** A label that has to sit over the plot, on a chip that keeps it readable. */
-  chartLabelOnData: {
-    ...chartText,
-    backgroundColor: colorWithOpacity(ink.white, opacity.pressed),
-    paddingHorizontal: spacing.xs,
-    paddingVertical: spacing.xxs,
-    borderRadius: layout.borderRadiusXs,
-    overflow: 'hidden' as const,
-  },
-  chartLabelOnDataDark: {
-    color: darkColors.textSecondary,
-    backgroundColor: darkColors.surfaceRaised,
   },
 
   /** Dark mode text override */

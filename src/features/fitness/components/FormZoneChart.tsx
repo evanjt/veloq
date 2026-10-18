@@ -1,35 +1,42 @@
-import React, { useMemo, useRef, useCallback } from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useMemo, useRef, useCallback, useState } from 'react';
+import { View, StyleSheet, type LayoutChangeEvent } from 'react-native';
 import { useTheme } from '@/shared/app';
-import { Text } from 'react-native-paper';
 
 import { EmptyState } from '@/shared/ui/EmptyState';
+import { DenseText, denseExtent } from '@/shared/ui/DenseText';
 import { useTranslation } from 'react-i18next';
 import { Line as SkiaLine, Rect, vec } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { SharedValue, useSharedValue } from 'react-native-reanimated';
-import { chartStyles, layout, type Palette, spacing, themedStyles, typography } from '@/theme';
+import { chartStyles, spacing, typography } from '@/theme';
 import {
+  chartBoundsFor,
   ChartCanvas,
   ChartCrosshair,
+  chartStroke,
   ChartSurface,
   CurveLine,
+  dataExtent,
+  projectRuns,
+  ScrubDot,
   seriesSummary,
   seriesTable,
   useChartColors,
   useChartGestures,
+  yForValue,
   YAxisLabels,
   type SummarySeries,
 } from '@/shared/charts';
 import {
   formZoneFromLoads,
-  formZoneColor,
+  formZoneBandColor,
   formZoneLabel,
   FORM_ZONE_BOUNDARIES,
   formChartSeries,
   type FormChartPoint,
   type FormZone,
 } from '@/features/fitness/lib/fitness';
+import { zoneLabelSpots, type ZoneBandPx } from '@/features/fitness/lib/zoneLabelSpots';
 import { formatShortDate } from '@/shared/format/format';
 import type { WellnessData } from '@/types';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
@@ -49,11 +56,25 @@ interface FormZoneChartProps {
   held?: boolean;
 }
 
-// Half a label line above the top tick and below the bottom one, so each centres on its value.
+/** The card's one date axis, a label row under this, its last lane. */
+const DATE_AXIS_HEIGHT = typography.caption.lineHeight;
+// Half a label line above the top tick and below the bottom one, so each centres on its value,
+// and the date row under the plot.
 const CHART_PADDING = {
   top: typography.caption.lineHeight / 2,
-  bottom: typography.caption.lineHeight / 2,
+  bottom: typography.caption.lineHeight / 2 + DATE_AXIS_HEIGHT,
 } as const;
+/** A zone name's width per character in ems, enough for the widest glyphs a name holds. */
+const ZONE_LABEL_EMS_PER_CHAR = 0.6;
+const ZONE_LABEL_INSET = spacing.xs;
+const zoneLabelSize = (zone: FormZone) => {
+  // Before the catalogue loads a name reads as nothing, and takes no width.
+  const name: string | undefined = formZoneLabel(zone);
+  return {
+    width: denseExtent(typography.caption.fontSize, (name ?? '').length * ZONE_LABEL_EMS_PER_CHAR),
+    height: denseExtent(typography.caption.lineHeight, 1),
+  };
+};
 const signedForm = (n: number) => (n > 0 ? `+${n}` : String(n === 0 ? 0 : n));
 const SERIES = { form: (d: FormChartPoint) => d.form };
 const xOf = (d: FormChartPoint) => d.x;
@@ -70,7 +91,6 @@ export const FormZoneChart = React.memo(function FormZoneChart({
 }: FormZoneChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const styles = themedStyles(makeStyles, isDark);
   const chartColors = useChartColors();
   const onDateSelectRef = useRef(onDateSelect);
   const onInteractionChangeRef = useRef(onInteractionChange);
@@ -78,6 +98,13 @@ export const FormZoneChart = React.memo(function FormZoneChart({
   onInteractionChangeRef.current = onInteractionChange;
 
   const externalSelectedIdx = useSharedValue(-1);
+  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
+  const onPlotLayout = useCallback((e: LayoutChangeEvent) => {
+    const { width, height: h } = e.nativeEvent.layout;
+    setSize((prev) =>
+      prev && prev.width === width && prev.height === h ? prev : { width, height: h }
+    );
+  }, []);
   const asPercent = useFormPreference((state) => state.formAsPercent) === true;
 
   const chartData = useMemo(() => formChartSeries(data ?? [], asPercent), [data, asPercent]);
@@ -130,16 +157,23 @@ export const FormZoneChart = React.memo(function FormZoneChart({
     [t, asPercent]
   );
 
-  const { gesture, isActive, crosshairStyle, syncBounds, syncXCoords, accessibilityProps } =
-    useChartGestures<FormChartPoint>({
-      data: chartData,
-      accessibilityLabel: t('metrics.form'),
-      onSelect: handleSelect,
-      onInteractionChange: handleInteractionChange,
-      sharedSelectedIdx,
-      externalSelectedIdx,
-      describePoint,
-    });
+  const {
+    gesture,
+    isActive,
+    crosshairStyle,
+    syncBounds,
+    syncXCoords,
+    accessibilityProps,
+    scrubIndex,
+  } = useChartGestures<FormChartPoint>({
+    data: chartData,
+    accessibilityLabel: t('metrics.form'),
+    onSelect: handleSelect,
+    onInteractionChange: handleInteractionChange,
+    sharedSelectedIdx,
+    externalSelectedIdx,
+    describePoint,
+  });
 
   // Sync with external selectedDate (from other chart)
   React.useEffect(() => {
@@ -149,6 +183,14 @@ export const FormZoneChart = React.memo(function FormZoneChart({
       externalSelectedIdx.value = -1;
     }
   }, [selectedDate, chartData, isActive, externalSelectedIdx]);
+
+  // The day this chart's scrub or step holds, else the day the sibling chart pinned.
+  const scrubbed =
+    scrubIndex >= 0
+      ? chartData[scrubIndex]
+      : selectedDate
+        ? chartData.find((d) => d.date === selectedDate)
+        : undefined;
 
   if (chartData.length === 0) {
     return <EmptyState variant="inline" title={t('fitness.noData')} />;
@@ -166,6 +208,32 @@ export const FormZoneChart = React.memo(function FormZoneChart({
     label: `${signedForm(value)}${asPercent && i === 0 ? '%' : ''}`,
   }));
 
+  // Each zone named inside its band where the form line leaves room, in the
+  // plot's own pixels so the names sit on the bands the canvas draws.
+  const labelStyle = [chartStyles.chartLabel, isDark && chartStyles.chartLabelDark];
+  const zoneSpots = (() => {
+    if (!size) return [];
+    const bounds = chartBoundsFor(size.width, size.height, {
+      left: 0,
+      right: 0,
+      ...CHART_PADDING,
+    });
+    const bands: ZoneBandPx[] = ZONES.map((zone) => ({
+      zone,
+      top: Math.max(bounds.top, yForValue(FORM_ZONE_BOUNDARIES[zone].max, yDomain, bounds)),
+      bottom: Math.min(bounds.bottom, yForValue(FORM_ZONE_BOUNDARIES[zone].min, yDomain, bounds)),
+    }));
+    const line = projectRuns(
+      chartData,
+      xOf,
+      SERIES.form,
+      dataExtent(chartData, xOf),
+      yDomain,
+      bounds
+    );
+    return zoneLabelSpots(bands, line, bounds, zoneLabelSize, ZONE_LABEL_INSET);
+  })();
+
   return (
     <View style={styles.container}>
       <ChartSurface summary={reading.summary} table={reading.table} style={styles.plot} held={held}>
@@ -178,8 +246,9 @@ export const FormZoneChart = React.memo(function FormZoneChart({
           />
           <GestureDetector gesture={gesture}>
             <View
-              style={[chartStyles.chartWrapper, { height }]}
+              style={[chartStyles.chartWrapper, { height: height + DATE_AXIS_HEIGHT }]}
               testID="form-chart-surface"
+              onLayout={onPlotLayout}
               {...accessibilityProps}
             >
               <ChartCanvas
@@ -202,43 +271,60 @@ export const FormZoneChart = React.memo(function FormZoneChart({
                           bounds={bounds}
                           minY={yFor(FORM_ZONE_BOUNDARIES[zone].max)}
                           maxY={yFor(FORM_ZONE_BOUNDARIES[zone].min)}
-                          color={formZoneColor(zone, isDark) + (zone === 'greyZone' ? '20' : '30')}
+                          color={formZoneBandColor(zone, isDark)}
                         />
                       ))}
                       <SkiaLine
                         p1={vec(bounds.left, yFor(0))}
                         p2={vec(bounds.right, yFor(0))}
                         color={chartColors.zeroLineSolid}
-                        strokeWidth={1}
+                        strokeWidth={chartStroke.axis}
                         style="stroke"
                       />
-                      <CurveLine points={points.form} color={chartColors.casing} strokeWidth={2} />
                       <CurveLine
                         points={points.form}
+                        color={chartColors.casing}
+                        strokeWidth={chartStroke.casing}
+                      />
+                      <CurveLine points={points.form} color={chartColors.formLine} />
+                      <ScrubDot
+                        at={
+                          scrubbed && scrubbed.form !== null
+                            ? { x: xFor(scrubbed.x), y: yFor(scrubbed.form) }
+                            : null
+                        }
                         color={chartColors.formLine}
-                        strokeWidth={1}
                       />
                     </>
                   );
                 }}
               </ChartCanvas>
 
+              <View style={StyleSheet.absoluteFill} pointerEvents="none">
+                {zoneSpots.map((spot) => (
+                  <DenseText
+                    key={spot.zone}
+                    testID={`form-zone-label-${spot.zone}`}
+                    style={[...labelStyle, styles.zoneLabel, { left: spot.x, top: spot.y }]}
+                  >
+                    {formZoneLabel(spot.zone)}
+                  </DenseText>
+                ))}
+              </View>
+
               {/* Animated crosshair - runs at native 120Hz using synced point coordinates */}
-              <ChartCrosshair style={crosshairStyle} bottomOffset={4} />
+              <ChartCrosshair style={crosshairStyle} bottomOffset={DATE_AXIS_HEIGHT} />
+
+              <View style={styles.dateAxis} pointerEvents="none" testID="form-chart-date-axis">
+                <DenseText style={labelStyle}>{formatShortDate(chartData[0].date)}</DenseText>
+                <DenseText style={labelStyle}>
+                  {formatShortDate(chartData[chartData.length - 1].date)}
+                </DenseText>
+              </View>
             </View>
           </GestureDetector>
         </View>
       </ChartSurface>
-
-      {/* Zone legend */}
-      <View style={styles.zoneLegend}>
-        {ZONES.map((zone) => (
-          <View key={zone} style={styles.zoneLegendItem}>
-            <View style={[styles.zoneDot, { backgroundColor: formZoneColor(zone, isDark) }]} />
-            <Text style={styles.zoneLabel}>{formZoneLabel(zone)}</Text>
-          </View>
-        ))}
-      </View>
     </View>
   );
 });
@@ -268,35 +354,25 @@ function ZoneBackground({
   );
 }
 
-const makeStyles = (palette: Palette) =>
-  StyleSheet.create({
-    container: {},
-    // The plot sets its own height, so the surface is sized by it rather than filling.
-    plot: {
-      flex: 0,
-    },
-    plotRow: {
-      flexDirection: 'row',
-    },
-    zoneLegend: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      justifyContent: 'center',
-      gap: spacing.sm,
-      marginTop: spacing.xs,
-    },
-    zoneLegendItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    zoneDot: {
-      width: 6,
-      height: 6,
-      borderRadius: layout.borderRadiusFull,
-      marginRight: spacing.xs,
-    },
-    zoneLabel: {
-      ...typography.caption,
-      color: palette.textSecondary,
-    },
-  });
+const styles = StyleSheet.create({
+  container: {},
+  // The plot sets its own height, so the surface is sized by it rather than filling.
+  plot: {
+    flex: 0,
+  },
+  plotRow: {
+    flexDirection: 'row',
+  },
+  zoneLabel: {
+    position: 'absolute',
+  },
+  dateAxis: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: DATE_AXIS_HEIGHT,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+});

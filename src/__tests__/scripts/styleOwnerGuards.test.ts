@@ -69,6 +69,10 @@ describe('the style class ratchets', () => {
       'container',
       'const s = StyleSheet.create({ saveButton: { backgroundColor: colors.primary, borderRadius: layout.borderRadius } });',
     ],
+    [
+      'badge',
+      'const s = StyleSheet.create({ countBadge: { borderRadius: layout.borderRadius, paddingHorizontal: spacing.sm } });',
+    ],
     ['theme-import', "import { colors } from '@/theme/colors';"],
   ])('%s refuses a hand-written value and names its file', (className, source) => {
     const result = lintClass(treeWith({ [COMPONENT]: `${source}\n` }), className);
@@ -371,6 +375,29 @@ describe('the style class ratchets', () => {
 
     expect(lintClass(treeWith({ 'src/shared/ui/Button.tsx': button }), 'container').status).toBe(0);
     expect(lintClass(treeWith({ [COMPONENT]: button }), 'container').status).toBe(1);
+  });
+
+  it('lets only the one badge build a badge, in the shared ui as elsewhere', () => {
+    const tag =
+      'const s = StyleSheet.create({ seedTag: { backgroundColor: colors.warningBg, borderRadius: layout.borderRadiusXs } });\n';
+
+    expect(lintClass(treeWith({ 'src/shared/ui/Badge.tsx': tag }), 'badge').status).toBe(0);
+    expect(lintClass(treeWith({ 'src/shared/ui/SeedTray.tsx': tag }), 'badge').status).toBe(1);
+  });
+
+  it('counts no badge text and no badge-named style without a radius', () => {
+    const root = treeWith({
+      [COMPONENT]: [
+        'const s = StyleSheet.create({',
+        '  seedTagText: { ...typography.badge, color: colors.warningText },',
+        '  seedTagDark: { backgroundColor: darkColors.warningBg },',
+        '  plotBadgeRow: { flexDirection: "row", gap: spacing.xs },',
+        '});',
+        '',
+      ].join('\n'),
+    });
+
+    expect(lintClass(root, 'badge').status).toBe(0);
   });
 
   it('refuses a weight of 500 inside the theme too, under its own count', () => {

@@ -28,6 +28,7 @@ import {
   type MapSourceSpec,
 } from '@/features/maps/lib/htmlBuilders';
 import { createSurfacePatcher } from '@/features/maps/lib/mapSurfacePatch';
+import { mapPalette } from '@/theme';
 
 /** A three-hour ride at one point a second. */
 const RIDE_POINTS = 21_600;
@@ -131,6 +132,7 @@ function activitySpecs(route: GeoJSON.FeatureCollection, gradientActive: boolean
     userLocationGeoJSON: EMPTY,
   });
   const layers = buildActivityLayers({
+    palette: mapPalette('light'),
     overlayHasData: false,
     activityColor: '#14B8A6',
     gradientActive,
@@ -157,7 +159,7 @@ function regionalSpecs() {
     heatmapEnabled: false,
   });
   const layers = buildRegionalLayers({
-    mapStyle: 'light',
+    palette: mapPalette('light'),
     showActivities: true,
     showSections: true,
     showRoutes: true,

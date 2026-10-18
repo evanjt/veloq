@@ -2,7 +2,8 @@
  * The one place a running sync reports its step, as a status pill in the
  * floating stack, so it shows on every route.
  *
- * It draws the app colour as its ground with white words. The ring
+ * It is the status pill like any other, on the raised surface, and its one
+ * blue is the ring's turning arc in the on colour over the track. The ring
  * turns slowly, the label wraps while the counts stay whole, and each step
  * stays on screen for a minimum time and cross-fades into the next, so a burst
  * of quick steps reads as a few calm changes.
@@ -25,16 +26,7 @@ import { useReduceMotion } from './reduceMotion';
 import { FloatingPill } from './FloatingPill';
 import { formatSyncProgressParts } from '@/shared/format/syncProgress';
 import { useSyncStatus } from '@/shared/native/useSyncStatus';
-import {
-  colors,
-  colorWithOpacity,
-  darkColors,
-  duration,
-  easing,
-  iconSize,
-  opacity,
-  stroke,
-} from '@/theme';
+import { colors, darkColors, duration, easing, iconSize, stroke } from '@/theme';
 
 /** The least time one step's line stays on screen before the next replaces it. */
 export const SYNC_MESSAGE_HOLD_MS = duration.hold;
@@ -72,7 +64,9 @@ function useHeldLine(latest: SyncLine | null): SyncLine | null {
   return label === shownLabel ? latest : shown;
 }
 
-function SyncMark({ color }: { color: string }) {
+function SyncMark() {
+  const { isDark } = useTheme();
+  const palette = isDark ? darkColors : colors;
   const reduceMotion = useReduceMotion();
   const turn = useSharedValue(0);
 
@@ -97,7 +91,7 @@ function SyncMark({ color }: { color: string }) {
       testID="sync-progress-mark"
       style={[
         styles.mark,
-        { borderTopColor: color, borderColor: colorWithOpacity(color, opacity.tint4) },
+        { borderTopColor: palette.controlOn, borderColor: palette.track },
         style,
       ]}
     />
@@ -106,7 +100,6 @@ function SyncMark({ color }: { color: string }) {
 
 export function SyncPill() {
   const { t } = useTranslation();
-  const { isDark } = useTheme();
   const status = useSyncStatus();
 
   const syncing = status?.state === SyncState.Syncing;
@@ -114,17 +107,13 @@ export function SyncPill() {
 
   if (!line) return null;
 
-  const ground = (isDark ? darkColors : colors).appColourPillBackground;
-  const ink = colors.textOnFill;
-
   return (
     <FloatingPill
-      lead={<SyncMark color={ink} />}
+      lead={<SyncMark />}
       title={line.label}
       titleKey={line.label}
       detail={line.counts}
       numericDetail
-      fill={{ ground, ink }}
       announcement={t('settings.syncActivities') as string}
       testID="sync-progress-pill"
     />

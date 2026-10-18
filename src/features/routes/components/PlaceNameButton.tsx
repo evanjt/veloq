@@ -5,10 +5,10 @@
  */
 
 import React from 'react';
-import { ActivityIndicator } from 'react-native';
+import {} from 'react-native';
 import { useTranslation } from 'react-i18next';
 import type { PlaceNameKind } from 'veloqrs';
-import { IconButton } from '@/shared/ui';
+import { IconButton, Spinner } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { colors, colorWithOpacity, iconSize } from '@/theme';
 import { usePlaceNameLookup } from '../hooks/usePlaceNameLookup';
@@ -32,7 +32,7 @@ export function PlaceNameButton({ kind, itemId, testID }: PlaceNameButtonProps) 
       onPress={request}
     >
       {pending ? (
-        <ActivityIndicator size="small" color={colors.textOnFill} />
+        <Spinner inControl color={colors.textOnFill} />
       ) : (
         <Icon
           name="map-marker-outline"

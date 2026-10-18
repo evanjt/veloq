@@ -22,11 +22,6 @@ jest.mock('@/i18n', () => ({
 }));
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn(() => null) }));
 jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: undefined }) }));
-jest.mock('@/shared/app/useSportSettings', () => ({
-  useSportSettings: () => ({ data: [] }),
-  getSettingsForSport: (_settings: unknown, sport: string) =>
-    sport === 'Ride' ? { ftp: 280 } : undefined,
-}));
 jest.mock('@/features/stats', () => ({ usePaceCurve: () => ({ data: {} }) }));
 jest.mock('@/shared/app/useMetricSystem', () => ({ useMetricSystem: () => true }));
 

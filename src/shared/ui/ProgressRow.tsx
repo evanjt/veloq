@@ -20,7 +20,7 @@ import {
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, layout, spacing, typography } from '@/theme';
+import { layout, spacing, stroke, themePalette, typography } from '@/theme';
 
 /**
  * The last quarter `done` has reached, as a percentage: 0, 25, 50, 75 or 100.
@@ -43,13 +43,26 @@ interface ProgressBarProps {
   total: number;
   /** What the bar measures, read before its value. */
   label?: string | undefined;
-  color?: string | undefined;
   testID?: string | undefined;
+  trackTestID?: string | undefined;
   fillTestID?: string | undefined;
 }
 
-export function ProgressBar({ done, total, label, color, testID, fillTestID }: ProgressBarProps) {
+/**
+ * A hairline track through the middle of the bar and a fill at the bar's full
+ * height, told apart by thickness. Both are marks on the theme's own roles, so
+ * neither depends on the other's colour to be seen.
+ */
+export function ProgressBar({
+  done,
+  total,
+  label,
+  testID,
+  trackTestID,
+  fillTestID,
+}: ProgressBarProps) {
   const { isDark } = useTheme();
+  const palette = themePalette(isDark);
   const value = progressValue(done, total);
   const percent = Math.round((value.now / total) * 100);
 
@@ -60,17 +73,12 @@ export function ProgressBar({ done, total, label, color, testID, fillTestID }: P
       accessibilityRole="progressbar"
       accessibilityLabel={label}
       accessibilityValue={value}
-      style={[styles.track, { backgroundColor: (isDark ? darkColors : colors).border }]}
+      style={styles.bar}
     >
+      <View testID={trackTestID} style={[styles.track, { backgroundColor: palette.track }]} />
       <View
         testID={fillTestID}
-        style={[
-          styles.fill,
-          {
-            backgroundColor: color ?? (isDark ? darkColors : colors).controlOn,
-            width: `${percent}%`,
-          },
-        ]}
+        style={[styles.fill, { backgroundColor: palette.controlOn, width: `${percent}%` }]}
       />
     </View>
   );
@@ -124,18 +132,19 @@ export function ProgressRow({
   countsTestID,
 }: ProgressRowProps) {
   const { isDark } = useTheme();
+  const palette = themePalette(isDark);
   useMilestoneAnnouncement(label, done, total, announce);
   const known = total > 0;
 
   return (
     <View style={styles.row}>
       <View style={styles.labels}>
-        <Text style={labelStyle ?? [styles.label, isDark && styles.labelDark]}>{label}</Text>
+        <Text style={labelStyle ?? [styles.label, { color: palette.textPrimary }]}>{label}</Text>
         {known ? <ProgressBar done={done} total={total} label={label} testID={barTestID} /> : null}
         {known && counts !== undefined ? (
           <Text
             testID={countsTestID}
-            style={detailStyle ?? [styles.detail, isDark && styles.detailDark]}
+            style={detailStyle ?? [styles.detail, { color: palette.textSecondary }]}
           >
             {counts}
           </Text>
@@ -157,29 +166,26 @@ const styles = StyleSheet.create({
   labels: {
     flex: 1,
   },
-  track: {
+  bar: {
     height: spacing.xs,
-    borderRadius: layout.borderRadiusXs,
     marginTop: spacing.xs,
-    overflow: 'hidden',
+    justifyContent: 'center',
+  },
+  track: {
+    height: stroke.one,
   },
   fill: {
-    height: '100%',
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    height: spacing.xs,
     borderRadius: layout.borderRadiusXs,
   },
   label: {
     ...typography.body,
-    color: colors.textPrimary,
-  },
-  labelDark: {
-    color: colors.textOnFill,
   },
   detail: {
     ...typography.caption,
-    color: colors.textSecondary,
     marginTop: spacing.xxs,
-  },
-  detailDark: {
-    color: darkColors.textSecondary,
   },
 });

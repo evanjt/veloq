@@ -11,7 +11,7 @@ use super::{PersistentEngine, codec, sections};
 /// pass and read by the post-migration hooks. `PRAGMA user_version` is the
 /// other record, the one `rusqlite_migration` skips on, and it ends one for
 /// one with the migration list. Hooks <= 7 are dead code for any user on 0.2.2+.
-pub const SUPPORTED_SCHEMA_VERSION: i32 = 70;
+pub const SUPPORTED_SCHEMA_VERSION: i32 = 71;
 
 /// The migration that drops the cutover archive tables, counted from one. The
 /// open carries their rows into the ledger before it runs.
@@ -167,6 +167,8 @@ impl PersistentEngine {
     /// activity without saying so, looked for on the server before a re-send.
     /// M70: every stored climb best cleared once, so the backfill re-measures
     /// windows that ran across a pause on a track's final step.
+    /// M71: a pool swim's lengths and pool length, and every swim owed its
+    /// FIT file again so the lengths are read.
     /// M54: the cutover archive tables dropped, their rows carried into the
     /// section ledger first by [`Self::init_schema`].
     /// The nullable `polyline_json` rebuild is a pragma-guarded hook, not a
@@ -252,6 +254,7 @@ impl PersistentEngine {
             include_str!("../migrations/068_evidence_debt.sql"),
             include_str!("../migrations/m20261010_121634_recording_upload_in_doubt.sql"),
             include_str!("../migrations/m20261011_133214_climb_bests_remeasure.sql"),
+            include_str!("../migrations/m20261017_214808_pool_swim_lengths.sql"),
         ]
     }
 
@@ -528,7 +531,7 @@ impl PersistentEngine {
                  VALUES (?1, ?2, strftime('%s', 'now'))",
                 params![
                     super::settings_keys::ACTIVITY_BODY_FIELDS,
-                    crate::net::types::stored_activity_fields()
+                    crate::net::intervals::wire::stored_activity_fields()
                 ],
             )?;
         }

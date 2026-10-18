@@ -54,8 +54,6 @@ describe('the efficiency section', () => {
         powerZones={undefined}
         hrZones={undefined}
         periodCoverage={RangeCoverage.Loaded}
-        loadingActivities={false}
-        hasActivities
         dominantZone={null}
         zonesExpanded={false}
         onZonesToggle={jest.fn()}

@@ -43,6 +43,17 @@
         android:orientation="horizontal"
         android:gravity="bottom">
 
+        <!-- The measure's key dot: the value stays in primary text, so its colour is said here. -->
+        <ImageView
+          android:id="@+id/sum_key"
+          android:layout_width="6dp"
+          android:layout_height="6dp"
+          android:layout_gravity="center_vertical"
+          android:layout_marginEnd="4dp"
+          android:importantForAccessibility="no"
+          android:src="@drawable/widget_tone_dot"
+          android:visibility="gone" />
+
         <TextView
           android:fontFamily="@font/widget_manrope"
           android:id="@+id/sum_value"
@@ -60,7 +71,7 @@
           android:layout_height="wrap_content"
           android:layout_marginStart="6dp"
           android:textSize="@dimen/widget_text_label"
-          android:textColor="@color/widget_trend_flat" />
+          android:textColor="@color/widget_text_secondary" />
       </LinearLayout>
 
       <TextView

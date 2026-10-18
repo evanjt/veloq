@@ -25,10 +25,6 @@ jest.mock('@/i18n', () => ({
 }));
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn(() => null) }));
 jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: undefined }) }));
-jest.mock('@/shared/app/useSportSettings', () => ({
-  useSportSettings: () => ({ data: undefined }),
-  getSettingsForSport: () => undefined,
-}));
 jest.mock('@/features/stats', () => ({ usePaceCurve: () => ({ data: undefined }) }));
 jest.mock('@/shared/app/useMetricSystem', () => ({ useMetricSystem: () => true }));
 jest.mock('react-native-safe-area-context', () => ({
@@ -97,7 +93,6 @@ describe('the summary card supporting row', () => {
   it('is the four metric buttons and no separator between them', async () => {
     await render(
       <SummaryCard
-        onProfilePress={() => {}}
         heroValue={0}
         heroLabel="metrics.fitness"
         showSparkline={false}

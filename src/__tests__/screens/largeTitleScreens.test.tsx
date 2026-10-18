@@ -85,10 +85,12 @@ const ROUTES = [
   'named-corridors',
   'notification-settings',
   'section-retired',
-  'settings',
   'summary-card-settings',
   'sync-settings',
 ];
+
+// Settings is a tab root, titled through the tab headers, and collapses its title the same way.
+const SCROLL_SCREENS = [...ROUTES, '(tabs)/settings'];
 
 describe('large-title list and form screens', () => {
   it.each(ROUTES)('%s takes a large title on iOS', (route) => {
@@ -96,7 +98,7 @@ describe('large-title list and form screens', () => {
     expect(headerLargeTitle(route, 'android')).toBe(false);
   });
 
-  it.each(ROUTES)('%s lets the system inset its scroll view on iOS', async (route) => {
+  it.each(SCROLL_SCREENS)('%s lets the system inset its scroll view on iOS', async (route) => {
     Platform.OS = 'ios';
     const Screen: React.ComponentType = require(`@/app/${route}`).default;
     const { UNSAFE_getAllByType } = await render(<Screen />);

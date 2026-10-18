@@ -10,7 +10,8 @@ import { CardHeader } from '@/shared/ui/CardHeader';
 import { ErrorState } from '@/shared/ui/ErrorState';
 import { HeldRender } from '@/shared/ui/HeldRender';
 import type { DayLoad, RangeCoverage } from 'veloqrs';
-import type { WellnessData, Activity } from '@/types';
+import type { DayActivity } from '@/features/activity/light';
+import type { WellnessData } from '@/types';
 import { FitnessChart, FormZoneChart, ActivityDotsChart } from '..';
 import type { EftpChange } from '../../lib/eftpChanges';
 
@@ -18,7 +19,8 @@ interface FitnessChartCardProps {
   wellness: WellnessData[];
   /** Whether wellness was downloaded for the range drawn. */
   wellnessCoverage: RangeCoverage;
-  activities: Activity[];
+  /** Every activity of the longest span, oldest first. */
+  loadDots: DayActivity[];
   dailyLoads: DayLoad[];
   /** The activities that moved the accepted eFTP, marked on the fitness plot. */
   eftpChanges: EftpChange[];
@@ -39,7 +41,7 @@ interface FitnessChartCardProps {
 export const FitnessChartCard = React.memo(function FitnessChartCard({
   wellness,
   wellnessCoverage,
-  activities,
+  loadDots,
   dailyLoads,
   eftpChanges,
   selectedDate,
@@ -90,7 +92,7 @@ export const FitnessChartCard = React.memo(function FitnessChartCard({
           <HeldRender held={held}>
             <ActivityDotsChart
               data={wellness}
-              activities={activities}
+              activities={loadDots}
               dailyLoads={dailyLoads}
               height={32}
               selectedDate={selectedDate}

@@ -83,7 +83,7 @@ describe('the add-one span', () => {
         getStats: () => ({ libraryCount: 2 }),
         getGpsFetchCandidates: mockGetGpsFetchCandidates,
         getUnprocessedStrengthIds: () => [],
-        batchFetchExerciseSets: () => 0,
+        batchFetchOwedFitFiles: () => 0,
         pollSectionDetection: () => 'idle',
         getSectionDetectionProgress: () => null,
         subscribe,

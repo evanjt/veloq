@@ -24,6 +24,7 @@ import { buildApplyScript } from '@/features/maps/lib/htmlBuilders';
 import { createSurfacePatcher } from '@/features/maps/lib/mapSurfacePatch';
 
 import { encodeTrack } from '../__shared__/trackBytes';
+import { mapPalette } from '@/theme';
 
 jest.mock('veloqrs/src/coords', () => {
   const actual = jest.requireActual('veloqrs/src/coords');
@@ -74,7 +75,7 @@ function sources(routesGeoJSON: GeoJSON.FeatureCollection | string) {
 
 function layers() {
   return buildRegionalLayers({
-    mapStyle: 'light',
+    palette: mapPalette('light'),
     showActivities: true,
     showSections: true,
     showRoutes: true,

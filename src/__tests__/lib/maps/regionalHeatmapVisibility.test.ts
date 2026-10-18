@@ -15,12 +15,13 @@ import {
   buildRegionalLayers,
   buildRegionalSources,
 } from '@/features/maps/components/regional/regionalMapLayerSpecs';
+import { mapPalette } from '@/theme';
 
 const empty: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 
 function heatmapLayer(overrides: Partial<Parameters<typeof buildRegionalLayers>[0]> = {}) {
   return buildRegionalLayers({
-    mapStyle: 'light',
+    palette: mapPalette('light'),
     showActivities: true,
     showSections: true,
     showRoutes: false,
@@ -45,7 +46,7 @@ describe('the regional map heatmap layer', () => {
   });
 
   it('is shown, and carries the light tuning, when the heatmap is on', () => {
-    const layer = heatmapLayer({ showHeatmap: true, mapStyle: 'light' });
+    const layer = heatmapLayer({ showHeatmap: true, palette: mapPalette('light') });
 
     expect(layer?.visible).toBe(true);
     expect(layer?.paint?.['raster-opacity']).toBe(1);
@@ -55,7 +56,7 @@ describe('the regional map heatmap layer', () => {
   });
 
   it('carries the dark tuning under a dark style', () => {
-    const layer = heatmapLayer({ showHeatmap: true, mapStyle: 'dark' });
+    const layer = heatmapLayer({ showHeatmap: true, palette: mapPalette('dark') });
 
     expect(layer?.visible).toBe(true);
     expect(layer?.paint?.['raster-opacity']).toBe(0.72);
@@ -65,7 +66,7 @@ describe('the regional map heatmap layer', () => {
 
   it('is hidden the way every other layer in this builder is', () => {
     const hidden = buildRegionalLayers({
-      mapStyle: 'light',
+      palette: mapPalette('light'),
       showActivities: false,
       showSections: true,
       showRoutes: false,

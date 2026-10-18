@@ -278,6 +278,13 @@ const GUARDS = [
     catches: 'an unpatched expo-location, so an Android fix with no altitude records 0 m',
   },
   {
+    name: 'check:jsi-bindings-selector',
+    kind: 'correctness',
+    cmd: node('check-jsi-bindings-selector.mjs'),
+    catches:
+      'an installed iOS module implementing only a JSI-bindings selector React Native no longer calls, so iOS aborts at launch',
+  },
+  {
     name: 'lint:detector-ordering',
     kind: 'correctness',
     cmd: node('lint-detector-ordering.mjs'),
@@ -571,6 +578,13 @@ const GUARDS = [
       "a screen's own pull-to-refresh control, which draws Android's light disc and default arc in the dark theme and skips the pull haptic",
   },
   {
+    name: 'lint:bare-spinner',
+    kind: 'style',
+    cmd: node('lint-source-rules.mjs', '--rule', 'bare-spinner'),
+    catches:
+      "react-native's ActivityIndicator drawn outside Spinner and Button, a wait in the wrong colour for the theme that names nothing to a screen reader",
+  },
+  {
     name: 'lint:lone-spinner-in-padding',
     kind: 'style',
     cmd: node('lint-source-rules.mjs', '--rule', 'lone-spinner-in-padding'),
@@ -713,6 +727,13 @@ const GUARDS = [
     kind: 'correctness',
     cmd: node('lint-map-chrome-theme.mjs'),
     catches: 'map chrome drawn from the base map instead of the app theme',
+  },
+  {
+    name: 'lint:map-layer-colours',
+    kind: 'correctness',
+    cmd: node('lint-map-layer-colours.mjs'),
+    catches:
+      'a map layer builder drawing a theme colour, which stays the same over every base map instead of following the palette its surface passes',
   },
   {
     name: 'lint:engine-client-casts',
@@ -1130,6 +1151,12 @@ const GUARDS = [
     cmd: node('lint-style-literals.mjs', '--class', 'container'),
     catches:
       'a card, button, chip, field, banner, sheet header or row drawn by hand outside src/shared/ui',
+  },
+  {
+    name: 'lint:style-badges',
+    kind: 'style',
+    cmd: node('lint-style-literals.mjs', '--class', 'badge'),
+    catches: 'a new hand-built badge with its own radius, padding and tint',
   },
   {
     name: 'lint:style-theme-imports',

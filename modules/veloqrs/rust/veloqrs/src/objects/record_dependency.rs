@@ -11,7 +11,8 @@ use crate::net::transport::NetError;
 use crate::persistence::PersistentEngine;
 
 use super::observer::{self, Announcement};
-use super::sync::{activity_metrics_row, start_date_to_timestamp, still_signed_in};
+use super::sync::{start_date_to_timestamp, still_signed_in};
+use crate::net::intervals::activity_metrics_row;
 
 /// The sync step: fetch every owed activity, then retry the records waiting
 /// on them. Any failure but a rejected credential keeps its id owed for the
@@ -484,7 +485,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let mut engine =
             PersistentEngine::new(dir.path().join("record.db").to_str().unwrap()).unwrap();
-        let record: crate::net::types::ActivityRecord = serde_json::from_value(json!({
+        let record: crate::net::intervals::wire::ActivityRecord = serde_json::from_value(json!({
             "id": "hill-ride", "type": "Ride", "start_date_local": "2024-01-01T10:00:00"
         }))
         .unwrap();

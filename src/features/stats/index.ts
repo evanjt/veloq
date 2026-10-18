@@ -34,6 +34,9 @@ export {
 
 export {
   buildChartData,
+  laneStack,
+  LANE_AXIS_HEIGHT,
+  LANE_TITLE_HEIGHT,
   computeAllAverages,
   computeIntervalBands,
   formatScrubValue,

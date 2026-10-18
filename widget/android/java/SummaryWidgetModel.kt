@@ -186,6 +186,18 @@ object SummaryWidget {
   }
 
   /**
+   * What the key dot beside a value is coloured by: the `blue` or `fatigue` series, or the zone
+   * form sits in. The value itself is primary text. An entry with no measure colour, or a zone
+   * this build does not know, draws no dot.
+   */
+  fun keyTone(colorKey: String, formZone: String?): String? =
+    when (colorKey) {
+      "blue", "fatigue" -> colorKey
+      "formZone" -> formZone?.takeIf { it in FORM_ZONES }
+      else -> null
+    }
+
+  /**
    * The arrow the engine's trend glyph names, the one the app draws beside the same number. Flat
    * is drawn rather than left blank, and a direction this build does not know draws flat.
    */

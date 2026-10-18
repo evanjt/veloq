@@ -53,11 +53,11 @@ jest.mock('@/shared/ui', () => {
 jest.mock('@/features/activity/components/ChartTypeSelector', () => ({
   ChartTypeSelector: () => null,
 }));
-jest.mock('@/features/activity/components/CombinedPlot', () => {
+jest.mock('@/features/activity/components/ActivityStreams', () => {
   const { View } = require('react-native');
   return {
-    CombinedPlot: ({ xAxisMode }: { xAxisMode: string }) => (
-      <View testID="combined-plot" accessibilityHint={xAxisMode} />
+    ActivityStreams: ({ xAxisMode }: { xAxisMode: string }) => (
+      <View testID="activity-streams" accessibilityHint={xAxisMode} />
     ),
   };
 });
@@ -123,7 +123,7 @@ function option(name: 'distance' | 'time') {
 }
 
 function plottedAxis() {
-  return screen.getByTestId('combined-plot').props.accessibilityHint;
+  return screen.getByTestId('activity-streams').props.accessibilityHint;
 }
 
 it('offers Distance and Time with the plotted axis selected', async () => {

@@ -8,7 +8,7 @@ import { useEngineReady } from '@/shared/native/useEngineReady';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { useEngineBody, type EngineBodyWait } from '@/shared/native/engineBodies';
-import { requestOwedStrengthFiles } from '@/features/routes/light';
+import { requestOwedFitFiles } from '@/features/routes/light';
 import { useSyncState } from '@/shared/native/useSyncStatus';
 import { SyncState, type ExerciseDetailData } from 'veloqrs';
 import { CACHE } from '@/shared/app/constants';
@@ -199,9 +199,5 @@ export function useStrengthTabState(): StrengthTabState {
  * `fitParsed`, which the screen read already follows.
  */
 export function useOwedStrengthFiles(owed: boolean): EngineBodyWait {
-  return useEngineBody(
-    !owed,
-    () => requestOwedStrengthFiles(getNativeModule()),
-    queryKeys.strength.all
-  );
+  return useEngineBody(!owed, () => requestOwedFitFiles(getNativeModule()), queryKeys.strength.all);
 }

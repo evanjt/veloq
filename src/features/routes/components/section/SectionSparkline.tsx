@@ -5,8 +5,15 @@
 
 import React from 'react';
 import { Canvas, Circle, Path, Skia } from '@shopify/react-native-skia';
-import { polylineSvgPath } from '@/shared/charts';
-import { colors, colorWithOpacity, ink, themePalette } from '@/theme';
+import {
+  ChartDot,
+  chartStroke,
+  LINE_CAP,
+  LINE_JOIN,
+  polylineSvgPath,
+  useChartColors,
+} from '@/shared/charts';
+import { colors, colorWithOpacity, ink } from '@/theme';
 import type { PerformanceDataPoint } from '@/types';
 
 interface SectionSparklineProps {
@@ -24,6 +31,8 @@ export const SectionSparkline = React.memo(function SectionSparkline({
   isDark,
   highlightActivityId,
 }: SectionSparklineProps) {
+  // This attempt is marked in ink, the colour of the mark for this activity.
+  const { ink: inkColor } = useChartColors();
   if (data.length < 2 || width <= 0 || height <= 0) return null;
 
   const pad = { x: 6, y: 6 };
@@ -54,7 +63,14 @@ export const SectionSparkline = React.memo(function SectionSparkline({
     <Canvas style={{ width, height }}>
       {/* Trend line */}
       {trendPath ? (
-        <Path path={trendPath} color={lineColor} style="stroke" strokeWidth={1.5} />
+        <Path
+          path={trendPath}
+          color={lineColor}
+          style="stroke"
+          strokeWidth={chartStroke.series}
+          strokeJoin={LINE_JOIN}
+          strokeCap={LINE_CAP}
+        />
       ) : null}
 
       {/* Data points */}
@@ -62,24 +78,7 @@ export const SectionSparkline = React.memo(function SectionSparkline({
         const isHighlight = point.activityId === highlightActivityId;
 
         if (isHighlight) {
-          return (
-            <React.Fragment key={i}>
-              <Circle
-                cx={toX(i)}
-                cy={toY(point.speed)}
-                r={5}
-                color={themePalette(isDark).actionPrimary}
-                style="stroke"
-                strokeWidth={1.5}
-              />
-              <Circle
-                cx={toX(i)}
-                cy={toY(point.speed)}
-                r={3}
-                color={themePalette(isDark).actionPrimary}
-              />
-            </React.Fragment>
-          );
+          return <ChartDot key={i} x={toX(i)} y={toY(point.speed)} color={inkColor} />;
         }
 
         return <Circle key={i} cx={toX(i)} cy={toY(point.speed)} r={2} color={dotColor} />;

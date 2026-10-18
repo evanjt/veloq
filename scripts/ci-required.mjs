@@ -9,10 +9,13 @@
 //   ci-required.mjs build-plan   writes native=true|false for the Build jobs
 //   ci-required.mjs build-check  judges the Build results, exits 1 when one fails
 //
-// Only a Dependabot pull request is scoped. A push to main and every other
-// pull request run every job, and so does a Dependabot change to this
-// workflow or an action it runs, since the jobs skipped would be the ones
-// whose steps moved. A scoped run asks scripts/ci-areas.mjs which areas the
+// Only a Dependabot patch or minor pull request is scoped. A push to main and
+// every other pull request run every job, and so does a Dependabot major, which
+// a person merges on these checks and which can move what a library does with
+// dates, and a Dependabot change to this workflow or an action it runs, since
+// the jobs skipped would be the ones whose steps moved. The update type comes
+// from dependabot/fetch-metadata, and one that is missing or unreadable counts
+// as a major, so a failed read runs everything. A scoped run asks scripts/ci-areas.mjs which areas the
 // change reaches, and each job runs when one of its areas is reached.
 //
 // The check reads each job with its areas: a job skipped while an area of its
@@ -24,15 +27,21 @@
 // reaches neither native code nor the engine crate, both of which the Gradle
 // and Xcode builds compile, skips both builds and runs a bundle check of the
 // Android entry instead, so a change that breaks the import graph still
-// fails. Build Required reads each build against that answer: a build
+// fails. A Dependabot major builds natively whatever it reaches. Build Required reads each build against that answer: a build
 // skipped while the change is native fails, and so does a bundle check
 // skipped or red while it is not. A plan that names nothing counts as native.
 //
-// `scope` reads EVENT and AUTHOR, `plan` those and runs `git diff` against
-// the merge commit's first parent, `check` reads CHANGES, AREAS and one
-// variable per job named in RESULT_VARIABLES. `build-plan` reads EVENT and
-// diffs the same way, `build-check` reads EVENT, CHANGES, NATIVE and one
-// variable per job named in BUILD_RESULT_VARIABLES. Each writes `key=value`
+// On a Dependabot pull request, both checks then drop a job that failed on
+// the pull request and on main's latest finished run, which
+// scripts/judge-against-main.mjs reads, and print what they dropped. A major
+// is judged the same way: main's run is the full set of jobs a major now
+// runs, so a job red on both is red for a reason the bump did not bring.
+//
+// `scope` reads EVENT, AUTHOR and UPDATE_TYPE, `plan` those and runs `git
+// diff` against the merge commit's first parent, `check` reads EVENT, AUTHOR,
+// CHANGES, AREAS and one variable per job named in RESULT_VARIABLES.
+// `build-plan` reads EVENT, AUTHOR and UPDATE_TYPE and diffs the same way, `build-check` reads EVENT, AUTHOR,
+// CHANGES, NATIVE and one variable per job named in BUILD_RESULT_VARIABLES. Each writes `key=value`
 // lines to `$GITHUB_OUTPUT`, or to stdout when that is unset.
 
 import { appendFileSync } from 'node:fs';
@@ -40,8 +49,12 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { changedPaths, ciAreas, lockfileAt } from './ci-areas.mjs';
+import { judgeFailures } from './judge-against-main.mjs';
 
 const DEPENDABOT = 'dependabot[bot]';
+
+/** The Dependabot update types a run may narrow for. */
+const NARROW_UPDATES = ['version-update:semver-patch', 'version-update:semver-minor'];
 
 /** The areas each Test job can see. The bindings tool is an npm package. */
 export const JOBS = {
@@ -61,6 +74,16 @@ export const RESULT_VARIABLES = {
   'rust-lint': 'RUST_LINT',
   'rust-advisories': 'RUST_ADVISORIES',
   'verify-bindings': 'VERIFY_BINDINGS',
+};
+
+/** Each Test job's displayed name, which its runs are listed under. */
+export const JOB_NAMES = {
+  jest: 'Jest',
+  js: 'JS Checks',
+  rust: 'Rust Tests',
+  'rust-lint': 'Rust Lint',
+  'rust-advisories': 'rust-advisories',
+  'verify-bindings': 'Verify Bindings',
 };
 
 const PLANNED_AREAS = [...new Set(Object.values(JOBS).flat())];
@@ -83,9 +106,16 @@ function ownFile(path) {
   return OWN_FILES.some((own) => (own.endsWith('/') ? path.startsWith(own) : path === own));
 }
 
+/** Whether a pull request is a Dependabot major, an unread update type counting as one. */
+export function dependabotMajor({ author, updateType }) {
+  return author === DEPENDABOT && !NARROW_UPDATES.includes(updateType);
+}
+
 /** Whether a run may skip a job its change cannot reach. */
-export function scoped({ event, author }) {
-  return event === 'pull_request' && author === DEPENDABOT;
+export function scoped({ event, author, updateType }) {
+  return (
+    event === 'pull_request' && author === DEPENDABOT && !dependabotMajor({ author, updateType })
+  );
 }
 
 function reached(areas, area) {
@@ -105,12 +135,13 @@ export function jobsToRun(areas) {
  * @param {object} run
  * @param {string} run.event the event that started the workflow
  * @param {string} [run.author] the pull request's author
+ * @param {string} [run.updateType] Dependabot's update type, as fetch-metadata names it
  * @param {string[]} [run.paths] the changed paths, read only when scoped
  * @param {Record<string, boolean>} [run.areas] ciAreas over those paths
  * @returns {{areas: Record<string, boolean>, run: Record<string, boolean>, zones: string[]}}
  */
-export function plan({ event, author, paths = [], areas = {} }) {
-  const narrow = scoped({ event, author }) && !paths.some(ownFile);
+export function plan({ event, author, updateType, paths = [], areas = {} }) {
+  const narrow = scoped({ event, author, updateType }) && !paths.some(ownFile);
   const planned = Object.fromEntries(
     PLANNED_AREAS.map((area) => [area, narrow ? areas[area] === true : true])
   );
@@ -119,29 +150,41 @@ export function plan({ event, author, paths = [], areas = {} }) {
 }
 
 /**
- * Why CI Required fails, empty when it passes.
+ * Why CI Required fails, each with the job and the result it read, empty when
+ * it passes.
  *
  * @param {object} outcome
  * @param {string} outcome.changes the planning job's result
  * @param {Record<string, boolean>} [outcome.areas] the areas the plan named
  * @param {Record<string, string>} outcome.results each job's result
- * @returns {string[]}
+ * @returns {{job: string, result: string, message: string}[]}
  */
-export function ciRequired({ changes, areas, results }) {
+export function ciFailures({ changes, areas, results }) {
   const failures = [];
-  if (changes !== 'success') failures.push(`the change detection ended ${changes || 'unset'}`);
+  if (changes !== 'success') {
+    failures.push(failure('changes', changes, `the change detection ended ${changes || 'unset'}`));
+  }
   const required = jobsToRun(areas);
   for (const job of Object.keys(JOBS)) {
     const result = results[job];
     if (result === 'success') continue;
     if (result === 'skipped' && !required[job]) continue;
     failures.push(
-      result === 'skipped'
-        ? `${job} was skipped, and the change reaches ${JOBS[job].join(' or ')}`
-        : `${job} ended ${result || 'unset'}`
+      failure(
+        job,
+        result,
+        result === 'skipped'
+          ? `${job} was skipped, and the change reaches ${JOBS[job].join(' or ')}`
+          : `${job} ended ${result || 'unset'}`
+      )
     );
   }
   return failures;
+}
+
+/** Why CI Required fails, empty when it passes. */
+export function ciRequired(outcome) {
+  return ciFailures(outcome).map((f) => f.message);
 }
 
 /** The environment variable `build-check` reads each Build job's result from. */
@@ -152,27 +195,38 @@ export const BUILD_RESULT_VARIABLES = {
   'e2e-smoke': 'SMOKE',
 };
 
+/** Each Build job's displayed name, which its runs are listed under. */
+export const BUILD_JOB_NAMES = {
+  'build-android': 'Build Android',
+  'build-ios': 'Build iOS',
+  'bundle-check': 'Bundle Check',
+  'e2e-smoke': 'E2E Smoke',
+};
+
 const NATIVE_BUILDS = ['build-android', 'build-ios'];
 
 /** Whether Build runs the Gradle and Xcode builds, given the areas reached. */
-export function buildsNative({ event, areas }) {
-  if (event !== 'pull_request') return true;
+export function buildsNative({ event, author, updateType, areas }) {
+  if (event !== 'pull_request' || dependabotMajor({ author, updateType })) return true;
   return reached(areas, 'native') || reached(areas, 'rust');
 }
 
 /**
- * Why Build Required fails, empty when it passes.
+ * Why Build Required fails, each with the job and the result it read, empty
+ * when it passes.
  *
  * @param {object} outcome
  * @param {string} outcome.event the event that started the workflow
  * @param {string} outcome.changes the planning job's result
  * @param {boolean} [outcome.native] whether the plan built natively, unset counting as true
  * @param {Record<string, string>} outcome.results each job's result
- * @returns {string[]}
+ * @returns {{job: string, result: string, message: string}[]}
  */
-export function buildRequired({ event, changes, native, results }) {
+export function buildFailures({ event, changes, native, results }) {
   const failures = [];
-  if (changes !== 'success') failures.push(`the change detection ended ${changes || 'unset'}`);
+  if (changes !== 'success') {
+    failures.push(failure('changes', changes, `the change detection ended ${changes || 'unset'}`));
+  }
   const builds = native !== false;
   // The smoke test runs after a push to main only.
   const required = {
@@ -185,12 +239,24 @@ export function buildRequired({ event, changes, native, results }) {
     const result = results[job];
     if (result === 'success') continue;
     if (result === 'skipped' && !required[job]) continue;
-    if (result !== 'skipped') failures.push(`${job} ended ${result || 'unset'}`);
+    if (result !== 'skipped')
+      failures.push(failure(job, result, `${job} ended ${result || 'unset'}`));
     else if (NATIVE_BUILDS.includes(job)) {
-      failures.push(`${job} was skipped, and the change reaches native code or the engine`);
-    } else failures.push(`${job} was skipped`);
+      failures.push(
+        failure(job, result, `${job} was skipped, and the change reaches native code or the engine`)
+      );
+    } else failures.push(failure(job, result, `${job} was skipped`));
   }
   return failures;
+}
+
+/** Why Build Required fails, empty when it passes. */
+export function buildRequired(outcome) {
+  return buildFailures(outcome).map((f) => f.message);
+}
+
+function failure(job, result, message) {
+  return { job, result: result || 'unset', message };
 }
 
 function changeAreas() {
@@ -222,9 +288,14 @@ function write(lines) {
   else process.stdout.write(body);
 }
 
+function report(failures) {
+  for (const { message } of failures) console.log(`::error::${message}`);
+  if (failures.length > 0) process.exit(1);
+}
+
 function main([command]) {
   const env = process.env;
-  const run = { event: env.EVENT, author: env.AUTHOR };
+  const run = { event: env.EVENT, author: env.AUTHOR, updateType: env.UPDATE_TYPE };
   if (command === 'scope') {
     write({ scoped: String(scoped(run)) });
   } else if (command === 'plan') {
@@ -237,12 +308,17 @@ function main([command]) {
       Object.entries(RESULT_VARIABLES).map(([job, name]) => [job, env[name]])
     );
     console.log(`changes=${env.CHANGES} areas=${env.AREAS} ${JSON.stringify(results)}`);
-    const failures = ciRequired({ changes: env.CHANGES, areas: parseAreas(env.AREAS), results });
-    for (const failure of failures) console.log(`::error::${failure}`);
-    if (failures.length > 0) process.exit(1);
+    const failures = judgeFailures({
+      ...run,
+      workflow: 'test.yml',
+      failures: ciFailures({ changes: env.CHANGES, areas: parseAreas(env.AREAS), results }),
+      names: JOB_NAMES,
+    });
+    report(failures);
   } else if (command === 'build-plan') {
-    const areas = run.event === 'pull_request' ? changeAreas().areas : undefined;
-    const native = buildsNative({ event: run.event, areas });
+    const areas =
+      run.event === 'pull_request' && !dependabotMajor(run) ? changeAreas().areas : undefined;
+    const native = buildsNative({ ...run, areas });
     console.error(`areas ${JSON.stringify(areas ?? 'all')} native ${native}`);
     write({ native: String(native) });
   } else if (command === 'build-check') {
@@ -252,14 +328,18 @@ function main([command]) {
     console.log(
       `event=${env.EVENT} changes=${env.CHANGES} native=${env.NATIVE} ${JSON.stringify(results)}`
     );
-    const failures = buildRequired({
-      event: env.EVENT,
-      changes: env.CHANGES,
-      native: env.NATIVE !== 'false',
-      results,
+    const failures = judgeFailures({
+      ...run,
+      workflow: 'build.yml',
+      failures: buildFailures({
+        event: env.EVENT,
+        changes: env.CHANGES,
+        native: env.NATIVE !== 'false',
+        results,
+      }),
+      names: BUILD_JOB_NAMES,
     });
-    for (const failure of failures) console.log(`::error::${failure}`);
-    if (failures.length > 0) process.exit(1);
+    report(failures);
   } else {
     process.stderr.write('ci-required: scope, plan, check, build-plan or build-check\n');
     process.exit(2);

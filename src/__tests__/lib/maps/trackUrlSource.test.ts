@@ -20,6 +20,7 @@ import { surfaceRuntimeScript } from '@/features/maps/lib/htmlBuilders/mapSurfac
 import type { MapSurfaceHtmlConfig } from '@/features/maps/lib/htmlBuilders/mapSurface';
 import { createSurfacePatcher, growingLine } from '@/features/maps/lib/mapSurfacePatch';
 import { nativeGeoUrl } from '@/features/maps/lib/tileTransport';
+import { mapPalette } from '@/theme';
 
 /** A three-hour ride at one point a second. */
 const RIDE_POINTS = 21_600;
@@ -60,6 +61,7 @@ function activitySources(route: GeoJSON.Feature | GeoJSON.FeatureCollection | st
 }
 
 const layers = buildActivityLayers({
+  palette: mapPalette('light'),
   overlayHasData: false,
   activityColor: '#14B8A6',
   gradientActive: true,

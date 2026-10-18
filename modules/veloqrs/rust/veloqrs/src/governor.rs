@@ -453,7 +453,7 @@ impl From<BudgetSnapshot> for FfiRequestBudget {
 /// The process governor's budget for the dashboard, or `None` where it only
 /// paces.
 pub fn request_budget() -> Option<FfiRequestBudget> {
-    GOVERNOR.budget_snapshot(Utc::now()).map(Into::into)
+    GOVERNOR.budget_snapshot(GOVERNOR.now()).map(Into::into)
 }
 
 /// One install's share of the limits every user of the app shares, and the
@@ -883,6 +883,8 @@ pub struct Governor {
     /// The source of every jitter draw. Zero unless a budget is installed, so
     /// a pacing-only governor waits exactly what it is asked to.
     jitter: fn() -> f64,
+    /// The source of every instant the budget is asked or told about.
+    clock: fn() -> DateTime<Utc>,
 }
 
 /// No jitter, for a governor whose waits a test reads back.
@@ -902,7 +904,20 @@ impl Governor {
             budget: None,
             store: None,
             jitter: no_jitter,
+            clock: Utc::now,
         }
+    }
+
+    /// Read every instant from `clock` rather than the wall clock, so a test
+    /// can stand at a chosen time of day.
+    pub fn with_clock(mut self, clock: fn() -> DateTime<Utc>) -> Self {
+        self.clock = clock;
+        self
+    }
+
+    /// The instant the budget is asked or told about now.
+    pub fn now(&self) -> DateTime<Utc> {
+        (self.clock)()
     }
 
     /// Ask `budget` before every request, keep its state in `store` when one
@@ -1020,7 +1035,7 @@ impl Governor {
     /// higher-priority request arriving meanwhile takes the slot ahead of it.
     pub async fn acquire(&self, dispatch: impl Into<Dispatch>) -> Admission {
         let Dispatch { lane, intent } = dispatch.into();
-        let admission = self.admit(intent, Utc::now());
+        let admission = self.admit(intent, self.now());
         if matches!(admission, Admission::Deferred { .. }) {
             return admission;
         }

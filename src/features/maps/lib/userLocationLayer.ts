@@ -5,7 +5,7 @@
  * it carries the one shared empty collection, which the surface patcher skips
  * unsent, and the circles are drawn at zero opacity.
  */
-import { colors } from '@/theme';
+import type { MapPalette } from '@/theme';
 import type { MapLayerSpec } from '@/features/maps/lib/htmlBuilders';
 import { EMPTY_FEATURE_COLLECTION } from './coordinates';
 
@@ -29,7 +29,11 @@ export function buildUserLocationCollection(
 }
 
 /** The halo and the dot, keyed on whether a fix is held. */
-export function buildUserLocationLayers(hasUserLocation: boolean): MapLayerSpec[] {
+export function buildUserLocationLayers(
+  hasUserLocation: boolean,
+  palette: MapPalette
+): MapLayerSpec[] {
+  const { layer } = palette;
   return [
     {
       id: 'user-location-outer',
@@ -37,7 +41,7 @@ export function buildUserLocationLayers(hasUserLocation: boolean): MapLayerSpec[
       source: USER_LOCATION_SOURCE_ID,
       paint: {
         'circle-radius': 12,
-        'circle-color': colors.actionPrimary,
+        'circle-color': layer.route,
         'circle-opacity': hasUserLocation ? 0.3 : 0,
       },
     },
@@ -47,10 +51,10 @@ export function buildUserLocationLayers(hasUserLocation: boolean): MapLayerSpec[
       source: USER_LOCATION_SOURCE_ID,
       paint: {
         'circle-radius': 6,
-        'circle-color': colors.actionPrimary,
+        'circle-color': layer.route,
         'circle-opacity': hasUserLocation ? 1 : 0,
         'circle-stroke-width': 2,
-        'circle-stroke-color': colors.textOnFill,
+        'circle-stroke-color': layer.onFill,
       },
     },
   ];

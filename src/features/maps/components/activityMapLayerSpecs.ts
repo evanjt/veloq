@@ -10,7 +10,7 @@
  * native renderer could not be trusted with a boolean filter. GL JS filters
  * work, so numbered and PR markers now come out of one source split by filter.
  */
-import { colors, mapLayerColors, sectionPalette, sectionPaletteExpression, brand } from '@/theme';
+import { colourIndexExpression, type MapPalette } from '@/theme';
 import type { MapGeoJSONData, MapLayerSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
 import {
   SECTION_END_ICON_ID,
@@ -52,6 +52,8 @@ interface ActivitySourceInput {
 }
 
 interface ActivityLayerInput {
+  /** The colours of the base map drawn under the layers. */
+  palette: MapPalette;
   overlayHasData: boolean;
   activityColor: string;
   gradientActive: boolean;
@@ -109,8 +111,19 @@ function routeOpacity(hasSectionOverlays: boolean, highlighted: boolean, overlay
   return overlayHasData ? 0.85 : 1;
 }
 
+/** A section portion's colour: gold for a personal record, else its palette colour. */
+function sectionPortionColour(palette: MapPalette): unknown[] {
+  return [
+    'case',
+    ['==', ['get', 'isPR'], true],
+    palette.layer.personalRecord,
+    colourIndexExpression(palette.layer.sections, ['get', 'colorIndex']),
+  ];
+}
+
 export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
   const {
+    palette,
     activityColor,
     gradientActive,
     gradientLineExpression,
@@ -126,22 +139,18 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
   const isHighlightedSection = ['==', ['get', 'id'], highlightedSectionId ?? ''];
   const roundLine = { 'line-cap': 'round', 'line-join': 'round' };
   const lineOpacity = routeOpacity(hasSectionOverlays, highlighted, overlayHasData);
-  const portionColor = [
-    'case',
-    ['==', ['get', 'isPR'], true],
-    mapLayerColors.personalRecord,
-    sectionPaletteExpression(),
-  ];
+  const layer = palette.layer;
+  const portionColor = sectionPortionColour(palette);
 
   return [
-    ...overlayLayers('', overlayHasData),
+    ...overlayLayers('', overlayHasData, palette),
     {
       id: 'route-casing',
       type: 'line',
       source: 'route',
       layout: roundLine,
       paint: {
-        'line-color': mapLayerColors.casing,
+        'line-color': layer.casing,
         'line-width': 5,
         'line-opacity': lineOpacity,
       },
@@ -178,7 +187,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       source: 'portions',
       layout: roundLine,
       paint: {
-        'line-color': mapLayerColors.casing,
+        'line-color': layer.casing,
         'line-width': highlighted ? ['case', isHighlightedSection, 7, 5] : 6,
         'line-opacity': hasSectionOverlays
           ? highlighted
@@ -194,7 +203,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       layout: { 'line-cap': 'butt', 'line-join': 'round' },
       paint: {
         'line-color': highlighted
-          ? ['case', isHighlightedSection, mapLayerColors.highlight, portionColor]
+          ? ['case', isHighlightedSection, layer.highlight, portionColor]
           : portionColor,
         'line-width': highlighted ? ['case', isHighlightedSection, 5, 3] : 4,
         // Dashed so overlapping portions let each other's colour show through.
@@ -212,7 +221,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       source: 'section-boundaries',
       layout: { 'line-cap': 'round' },
       paint: {
-        'line-color': mapLayerColors.boundaryCasing,
+        'line-color': layer.boundaryCasing,
         'line-width': 6,
         'line-opacity': 0.45,
       },
@@ -222,16 +231,16 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       type: 'line',
       source: 'section-boundaries',
       layout: { 'line-cap': 'round' },
-      paint: { 'line-color': mapLayerColors.casing, 'line-width': 3.5 },
+      paint: { 'line-color': layer.casing, 'line-width': 3.5 },
     },
-    ...buildEndpointLayers(),
+    ...buildEndpointLayers(palette),
     {
       id: 'section-creation-line',
       type: 'line',
       source: 'section-creation-line',
       layout: roundLine,
       paint: {
-        ...sectionCreationLinePaint,
+        ...sectionCreationLinePaint(palette),
         'line-opacity': creationMode ? 1 : 0,
       },
     },
@@ -240,7 +249,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       type: 'circle',
       source: 'section-creation-markers',
       paint: {
-        ...sectionCreationMarkerPaint('position'),
+        ...sectionCreationMarkerPaint('position', palette),
         'circle-opacity': creationMode ? 1 : 0,
         'circle-stroke-opacity': creationMode ? 1 : 0,
       },
@@ -261,7 +270,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
         'icon-ignore-placement': true,
         'icon-anchor': 'center',
       },
-      paint: { 'icon-color': colors.textOnFill, 'icon-opacity': creationMode ? 1 : 0 },
+      paint: { 'icon-color': layer.onFill, 'icon-opacity': creationMode ? 1 : 0 },
       visible: creationMode,
     },
     {
@@ -269,7 +278,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       type: 'circle',
       source: 'section-markers',
       filter: ['!=', ['get', 'isPR'], true],
-      paint: { 'circle-radius': 14, 'circle-color': mapLayerColors.casing },
+      paint: { 'circle-radius': 14, 'circle-color': layer.casing },
     },
     {
       id: 'section-marker-circle',
@@ -278,9 +287,9 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       filter: ['!=', ['get', 'isPR'], true],
       paint: {
         'circle-radius': 12,
-        'circle-color': sectionPaletteExpression(),
+        'circle-color': colourIndexExpression(layer.sections, ['get', 'colorIndex']),
         'circle-stroke-width': 2,
-        'circle-stroke-color': mapLayerColors.casing,
+        'circle-stroke-color': layer.casing,
       },
     },
     {
@@ -296,7 +305,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
         'text-allow-overlap': true,
         'text-ignore-placement': true,
       },
-      paint: { 'text-color': colors.textOnFill },
+      paint: { 'text-color': layer.onFill },
     },
     {
       id: 'section-marker-pr-icon',
@@ -310,7 +319,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
         'icon-ignore-placement': true,
         'icon-anchor': 'center',
       },
-      paint: { 'icon-color': brand.gold },
+      paint: { 'icon-color': layer.trophy },
     },
     {
       id: 'highlight-border',
@@ -318,7 +327,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       source: 'highlight',
       paint: {
         'circle-radius': 7,
-        'circle-color': mapLayerColors.casing,
+        'circle-color': layer.casing,
         'circle-opacity': hasHighlightPoint ? 1 : 0,
       },
     },
@@ -328,16 +337,20 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       source: 'highlight',
       paint: {
         'circle-radius': 5,
-        'circle-color': sectionPalette[0],
+        'circle-color': layer.sections[0],
         'circle-opacity': hasHighlightPoint ? 1 : 0,
       },
     },
-    ...buildUserLocationLayers(hasUserLocation),
+    ...buildUserLocationLayers(hasUserLocation, palette),
   ];
 }
 
 /** The matched route, drawn under everything that sits on the track. */
-function overlayLayers(prefix: string, overlayHasData: boolean): MapLayerSpec[] {
+function overlayLayers(
+  prefix: string,
+  overlayHasData: boolean,
+  palette: MapPalette
+): MapLayerSpec[] {
   const roundLine = { 'line-cap': 'round', 'line-join': 'round' };
   return [
     {
@@ -346,7 +359,7 @@ function overlayLayers(prefix: string, overlayHasData: boolean): MapLayerSpec[] 
       source: 'overlay',
       layout: roundLine,
       paint: {
-        'line-color': mapLayerColors.casing,
+        'line-color': palette.layer.casing,
         'line-width': OVERLAY_CASING_WIDTH,
         'line-opacity': overlayHasData ? 0.9 : 0,
       },
@@ -357,7 +370,7 @@ function overlayLayers(prefix: string, overlayHasData: boolean): MapLayerSpec[] 
       source: 'overlay',
       layout: roundLine,
       paint: {
-        'line-color': mapLayerColors.routeOverlay,
+        'line-color': palette.layer.routeOverlay,
         'line-width': OVERLAY_LINE_WIDTH,
         'line-opacity': overlayHasData ? 0.95 : 0,
       },
@@ -384,11 +397,17 @@ export function buildFullscreenSectionSources(
 }
 
 /** The matched route for BaseMapView's under-route layers. */
-export function buildFullscreenMatchedRouteLayers(overlayHasData: boolean): MapLayerSpec[] {
-  return overlayLayers('fullscreen-', overlayHasData);
+export function buildFullscreenMatchedRouteLayers(
+  overlayHasData: boolean,
+  palette: MapPalette
+): MapLayerSpec[] {
+  return overlayLayers('fullscreen-', overlayHasData, palette);
 }
 
-export function buildFullscreenSectionLayers(hasSectionOverlays: boolean): MapLayerSpec[] {
+export function buildFullscreenSectionLayers(
+  hasSectionOverlays: boolean,
+  palette: MapPalette
+): MapLayerSpec[] {
   return [
     {
       id: 'fullscreen-portion-casing',
@@ -396,7 +415,7 @@ export function buildFullscreenSectionLayers(hasSectionOverlays: boolean): MapLa
       source: 'portions',
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
-        'line-color': mapLayerColors.casing,
+        'line-color': palette.layer.casing,
         'line-width': 6,
         'line-opacity': hasSectionOverlays ? 0.9 : 0,
       },
@@ -407,12 +426,7 @@ export function buildFullscreenSectionLayers(hasSectionOverlays: boolean): MapLa
       source: 'portions',
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
-        'line-color': [
-          'case',
-          ['==', ['get', 'isPR'], true],
-          mapLayerColors.personalRecord,
-          sectionPaletteExpression(),
-        ],
+        'line-color': sectionPortionColour(palette),
         'line-width': 4,
         'line-opacity': hasSectionOverlays ? 1 : 0,
       },
@@ -428,7 +442,7 @@ export function buildFullscreenSectionLayers(hasSectionOverlays: boolean): MapLa
         'icon-ignore-placement': true,
         'icon-anchor': 'center',
       },
-      paint: { 'icon-color': brand.gold },
+      paint: { 'icon-color': palette.layer.trophy },
     },
   ];
 }

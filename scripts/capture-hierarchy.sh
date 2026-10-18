@@ -181,7 +181,6 @@ echo ""
 echo "Tab screens:"
 capture "home"           ""
 capture "fitness"        "fitness"
-capture "training"       "training"
 capture "map"            "map"
 capture "insights"       "insights"
 

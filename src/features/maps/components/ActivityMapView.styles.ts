@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-import { darkColors, layers, layout, shadows, spacing } from '@/theme';
+import { darkColors, layers, layout, spacing } from '@/theme';
 
 export const styles = StyleSheet.create({
   outerContainer: {
@@ -38,7 +38,6 @@ export const styles = StyleSheet.create({
     width: layout.minTapTarget,
     height: layout.minTapTarget,
     borderRadius: layout.borderRadiusFull,
-    ...shadows.modal,
   },
   controlButtonDark: {
     backgroundColor: darkColors.surfaceRaised,

@@ -73,23 +73,40 @@ export function themed(element: React.ReactElement, isDark: boolean): React.Reac
 }
 
 /**
+ * The colour that lands behind `node`: every fill between it and `root`, laid
+ * over `ground` outermost first, so a word on a filled badge is measured on the
+ * badge rather than on the surface the badge sits on.
+ */
+function groundBehind(node: ReactTestInstance, root: ReactTestInstance, ground: string): string {
+  const fills: string[] = [];
+  for (let at: ReactTestInstance | null = node; at && at !== root; at = at.parent) {
+    const fill = StyleSheet.flatten(at.props.style ?? {})?.backgroundColor;
+    if (typeof fill === 'string') fills.push(fill);
+  }
+  return fills.reduceRight((base, fill) => over(fill, base), ground);
+}
+
+/**
  * Every text colour and every icon colour under `root`, the whole rendered tree
- * by default, that falls below its bar on `ground`, as `colour on ground: ratio`
- * lines, so a failure names what it measured. An empty list is a pass.
+ * by default, that falls below its bar on the ground behind it, `ground` under
+ * whatever fills the tree lays over it, as `colour on ground: ratio` lines, so a
+ * failure names what it measured. An empty list is a pass.
  */
 export function underBar(ground: string, root: ReactTestInstance = screen.UNSAFE_root): string[] {
   const out: string[] = [];
   for (const node of root.findAllByType(Text)) {
     const colour = StyleSheet.flatten(node.props.style)?.color;
     if (typeof colour !== 'string') continue;
-    const ratio = contrastOn(colour, ground);
-    if (ratio < AA_TEXT) out.push(`text ${colour} on ${ground}: ${ratio.toFixed(2)}`);
+    const behind = groundBehind(node, root, ground);
+    const ratio = contrastOn(colour, behind);
+    if (ratio < AA_TEXT) out.push(`text ${colour} on ${behind}: ${ratio.toFixed(2)}`);
   }
   for (const node of root.findAllByType(MaterialCommunityIcons)) {
     const colour = node.props.color;
     if (typeof colour !== 'string') continue;
-    const ratio = contrastOn(colour, ground);
-    if (ratio < AA_MARK) out.push(`icon ${colour} on ${ground}: ${ratio.toFixed(2)}`);
+    const behind = groundBehind(node, root, ground);
+    const ratio = contrastOn(colour, behind);
+    if (ratio < AA_MARK) out.push(`icon ${colour} on ${behind}: ${ratio.toFixed(2)}`);
   }
   return out;
 }

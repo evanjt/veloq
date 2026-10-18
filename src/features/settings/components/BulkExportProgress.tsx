@@ -9,11 +9,11 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { formatFileSize } from '@/shared/format/format';
-import { Button } from '@/shared/ui';
+import { Button, Spinner } from '@/shared/ui';
 import { ProgressRow } from '@/shared/ui/ProgressRow';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import type { BulkExportPhase } from '@/features/settings/lib/bulkExport';
@@ -56,14 +56,7 @@ export function BulkExportProgress({
 
   return (
     <View style={styles.row}>
-      {!counting && (
-        <ActivityIndicator
-          size="small"
-          color={colors.actionPrimary}
-          testID="bulk-export-spinner"
-          accessibilityState={{ busy: true }}
-        />
-      )}
+      {!counting && <Spinner label={label} testID="bulk-export-spinner" />}
       <ProgressRow
         label={label}
         done={current}

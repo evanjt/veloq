@@ -74,7 +74,6 @@ Sub-flows in `.maestro/helpers/` provide reusable setup and navigation. They hav
 | `helpers/setup-demo-mode.yaml` | clearState, dismiss dialogs, enter demo mode, wait for home |
 | `helpers/setup-demo-mode-warm.yaml` | Same but without clearState (for warm restarts) |
 | `helpers/navigate-to-fitness.yaml` | Deep link to fitness screen |
-| `helpers/navigate-to-training.yaml` | Deep link to training screen |
 | `helpers/navigate-to-map.yaml` | Deep link to map screen |
 | `helpers/navigate-to-routes.yaml` | Deep link to routes screen |
 | `helpers/navigate-to-settings.yaml` | Deep link to settings screen |
@@ -118,7 +117,7 @@ Usage in a flow:
 | `fitness-collapsible-sections.yaml` | tier2 | Expand/collapse fitness sections |
 | `fitness-time-range.yaml` | tier2 | Switch fitness time ranges |
 | `wellness-dashboard.yaml` | tier2 | Wellness data display |
-| `training-wellness-dashboard.yaml` | tier2 | Wellness indicators on training |
+| `training-wellness-dashboard.yaml` | tier2 | Wellness indicators on the fitness tab |
 | `routes-list.yaml` | tier2 | Routes listing |
 | `sections-list.yaml` | tier2 | Sections listing |
 | `route-detail.yaml` | tier2 | Route detail navigation |

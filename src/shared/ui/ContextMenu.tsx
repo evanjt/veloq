@@ -18,6 +18,7 @@ import React, { useEffect, useRef, useState, type ComponentProps } from 'react';
 import { Platform, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Link, type Href } from 'expo-router';
+import { HrefPreview } from 'expo-router/build/link/preview/HrefPreview';
 import { Menu, Text, useTheme as usePaperTheme } from 'react-native-paper';
 
 import { useTheme } from '@/shared/app';
@@ -29,7 +30,7 @@ import {
   iconSize,
   layout,
   MIN_TAP_TARGET,
-  shadows,
+  raised,
   spacing,
   typography,
   stroke,
@@ -149,20 +150,6 @@ function useOpenAllowed(mountedVisible: boolean): boolean {
 /** The widest the popup draws, and never closer than a margin to either edge. */
 const MAX_WIDTH = 280;
 
-/**
- * Raised by a shadow in light. A shadow does not read on a near-black ground,
- * so in dark the popup is raised by its own step and an edge instead.
- */
-function raisedEdge(isDark: boolean) {
-  return isDark
-    ? {
-        ...shadows.none,
-        borderWidth: stroke.hairline,
-        borderColor: darkColors.border,
-      }
-    : shadows.elevated;
-}
-
 function MenuRow({
   item,
   onDismiss,
@@ -232,7 +219,7 @@ export function MenuPopup({
       mode="flat"
       contentStyle={[
         styles.surface,
-        raisedEdge(isDark),
+        raised('elevated', isDark),
         {
           backgroundColor: surface,
           maxWidth: Math.min(MAX_WIDTH, window.width - 2 * spacing.md),
@@ -313,10 +300,13 @@ function TriggerSource({ children }: { children: React.ReactNode }) {
 export function ContextMenu(props: ContextMenuProps) {
   const { href: _href, ...popup } = props;
   useOpenHaptic(props.visible);
-  // Unsized, the preview takes the width UIKit hands it, which on a tablet is
-  // unbounded, and a gradient on the previewed screen then cannot allocate its
-  // bitmap. The window bounds it on every device.
+  // The preview's own size reaches UIKit only as its preferred size, and the
+  // view the previewed screen is laid out in carries none, so on a tablet that
+  // screen takes an unbounded width and a gradient on it cannot allocate its
+  // bitmap. A box of the window's size around the screen bounds its layout on
+  // every device.
   const window = useWindowDimensions();
+  const previewSize = { width: window.width, height: window.height };
   const anchored = <MenuPopup {...popup} />;
   if (!contextMenuHoldIsNative()) return anchored;
 
@@ -325,7 +315,11 @@ export function ContextMenu(props: ContextMenuProps) {
       <Link.Trigger>
         <TriggerSource>{anchored}</TriggerSource>
       </Link.Trigger>
-      <Link.Preview style={{ width: window.width, height: window.height }} />
+      <Link.Preview style={previewSize}>
+        <View style={previewSize}>
+          <HrefPreview href={props.href} />
+        </View>
+      </Link.Preview>
       <Link.Menu title={props.title}>
         {props.entries.map((entry) =>
           isGroup(entry) ? (

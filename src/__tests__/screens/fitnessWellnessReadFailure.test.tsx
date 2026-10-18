@@ -1,8 +1,10 @@
 /**
- * Scenario: the wellness read throws while curves, bests, zones and decoupling read their own.
+ * Scenario: the wellness read throws while curves, bests, zones, decoupling, the week, the
+ * calendar and the year comparison read their own.
  *
  * Expected behaviour: the screen keeps its header items, range selector, pull to refresh and
- * every section, and only the fitness chart card shows the read failure with a Retry.
+ * every section and card, and only the fitness chart card and the wellness trends card show the
+ * read failure with a Retry.
  */
 import React from 'react';
 import { RefreshControl } from 'react-native';
@@ -15,6 +17,7 @@ import { FitnessChartCard } from '@/features/fitness/components/sections/Fitness
 const mockError = { tag: 'Database' };
 const mockRefetch = jest.fn();
 const mockCardProps: unknown[] = [];
+const mockWellnessCardProps: unknown[] = [];
 
 jest.mock('@/shared/debug/tabSwitchTiming', () => ({ useTabFirstFrame: jest.fn() }));
 jest.mock('@/shared/debug/renderTimer', () => ({
@@ -64,6 +67,16 @@ jest.mock('@/shared/app/useRevealChart', () => ({
   }),
 }));
 jest.mock('@/features/wellness', () => ({ timeRangeToDays: () => 90 }));
+jest.mock('@/features/stats', () => {
+  const { View } = require('react-native');
+  return {
+    ActivityHeatmap: ({ drawn }: { drawn: boolean }) => (
+      <View testID={drawn ? 'activity-heatmap-canvas' : 'activity-heatmap-placeholder'} />
+    ),
+    WeeklySummary: () => <View testID="weekly-summary" />,
+    SeasonComparison: () => <View testID="season-comparison" />,
+  };
+});
 jest.mock('@/features/fitness', () => {
   const { View } = require('react-native');
   return {
@@ -74,6 +87,10 @@ jest.mock('@/features/fitness', () => {
     PerformanceCurveSection: () => <View testID="performance-curves" />,
     FitnessTrendSections: () => <View testID="fitness-trends" />,
     FitnessDefinitionsCard: View,
+    WellnessTrendsCard: (props: unknown) => {
+      mockWellnessCardProps.push(props);
+      return <View testID="wellness-card" />;
+    },
     TimeRangeSelector: () => <View testID="time-range" />,
     SportToggleSelector: () => <View testID="sport-toggle" />,
     BestEffortsHeaderButton: () => null,
@@ -136,6 +153,7 @@ function runFrames() {
 beforeEach(() => {
   mockRefetch.mockClear();
   mockCardProps.length = 0;
+  mockWellnessCardProps.length = 0;
 });
 
 describe('fitness tab with the wellness read failing', () => {
@@ -150,7 +168,13 @@ describe('fitness tab with the wellness read failing', () => {
       expect(screen.getByTestId('fitness-chart-canvas')).toBeTruthy();
       expect(screen.getByTestId('performance-curves')).toBeTruthy();
       expect(screen.getByTestId('fitness-trends')).toBeTruthy();
+      expect(screen.getByTestId('weekly-summary')).toBeTruthy();
+      expect(screen.getByTestId('activity-heatmap-canvas')).toBeTruthy();
+      expect(screen.getByTestId('season-comparison')).toBeTruthy();
       expect(mockCardProps.at(-1)).toEqual(
+        expect.objectContaining({ readError: mockError, onRetry: expect.any(Function) })
+      );
+      expect(mockWellnessCardProps.at(-1)).toEqual(
         expect.objectContaining({ readError: mockError, onRetry: expect.any(Function) })
       );
     } finally {
@@ -165,7 +189,7 @@ describe('fitness chart card with the wellness read failing', () => {
       <FitnessChartCard
         wellness={[]}
         wellnessCoverage={RangeCoverage.NotFetched}
-        activities={[]}
+        loadDots={[]}
         dailyLoads={[]}
         eftpChanges={[]}
         selectedDate={null}

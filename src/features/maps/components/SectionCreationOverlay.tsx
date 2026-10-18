@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { Pressable, View, StyleSheet, Text, ActivityIndicator } from 'react-native';
+import { Pressable, View, StyleSheet, Text } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -19,7 +19,7 @@ import {
   layers,
   layout,
   opacity,
-  shadows,
+  raised,
   slopToMinTapTarget,
   spacing,
   stroke,
@@ -28,7 +28,7 @@ import {
 import { sectionSizeTone, type SizeTone } from '@/features/maps/lib/sectionSizeTone';
 import { formatDistance } from '@/shared/format/format';
 import { useMetricSystem, useTheme } from '@/shared/app';
-import { Button, IconButton, pressable, pressRipple } from '@/shared/ui';
+import { Button, IconButton, pressable, pressRipple, Spinner } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
 import { formatPercent } from '@/shared/format';
@@ -201,7 +201,7 @@ export function SectionCreationOverlay({
         {/* Cancel/Retry button */}
         <IconButton
           accessibilityLabel={isError ? t('common.retry') : t('common.cancel')}
-          style={styles.iconButton}
+          style={[styles.iconButton, raised('elevated', isDark)]}
           variant={isError ? 'primary' : 'destructive'}
           onPress={isError && onDismissError ? onDismissError : onCancel}
         >
@@ -219,6 +219,7 @@ export function SectionCreationOverlay({
           hitSlop={slopToMinTapTarget(STATUS_PILL_MIN_HEIGHT)}
           style={pressable([
             styles.statusPill,
+            raised('elevated', isDark),
             pillStyle,
             shouldExpand && styles.statusPillExpanded,
             isError && [styles.statusPillError, { borderColor: palette.errorText }],
@@ -229,7 +230,7 @@ export function SectionCreationOverlay({
         >
           <View style={styles.statusRow}>
             {isCreating ? (
-              <ActivityIndicator size="small" color={statusTone.fill} />
+              <Spinner inControl color={statusTone.fill} />
             ) : (
               <Icon name={getStatusIcon()} size={iconSize.md} color={statusTone.fill} />
             )}
@@ -357,7 +358,7 @@ export function SectionCreationOverlay({
         {isComplete ? (
           <IconButton
             accessibilityLabel={t('routes.createSection')}
-            style={styles.iconButton}
+            style={[styles.iconButton, raised('elevated', isDark)]}
             variant="primary"
             onPress={onConfirm}
           >
@@ -366,7 +367,7 @@ export function SectionCreationOverlay({
         ) : isError ? (
           <IconButton
             accessibilityLabel={t('common.cancel')}
-            style={styles.iconButton}
+            style={[styles.iconButton, raised('elevated', isDark)]}
             variant="destructive"
             onPress={onCancel}
           >
@@ -402,7 +403,6 @@ const styles = StyleSheet.create({
   // Drawn in IconButton's own square, which its hit slop lifts to the minimum.
   iconButton: {
     borderRadius: layout.borderRadiusFull,
-    ...shadows.elevated,
   },
   iconButtonPlaceholder: {
     width: controlHeight.button,
@@ -416,7 +416,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     minHeight: STATUS_PILL_MIN_HEIGHT,
     justifyContent: 'center',
-    ...shadows.elevated,
   },
   statusPillExpanded: {
     borderRadius: layout.borderRadius,

@@ -23,10 +23,6 @@ import { initialiseI18n } from '@/i18n';
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn(() => null) }));
 jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: undefined }) }));
-jest.mock('@/shared/app/useSportSettings', () => ({
-  useSportSettings: () => ({ data: undefined }),
-  getSettingsForSport: () => undefined,
-}));
 jest.mock('@/features/stats', () => ({ usePaceCurve: () => ({ data: undefined }) }));
 jest.mock('@/shared/app/useMetricSystem', () => ({ useMetricSystem: () => true }));
 
@@ -84,9 +80,7 @@ async function renderFromHook(
   const { result } = await renderHook(() =>
     useSummaryCardData(bundle() as never, { awaitPrecomputed: true })
   );
-  const tree = await render(
-    <SummaryCard onProfilePress={() => {}} {...result.current} showSparkline={false} {...extra} />
-  );
+  const tree = await render(<SummaryCard {...result.current} showSparkline={false} {...extra} />);
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
   });

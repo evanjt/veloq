@@ -39,11 +39,11 @@ SKIPPABLE="tsc test rustfmt rusttests audit"
 # bindings. Levelling costs a directory listing and does nothing in the main
 # checkout, so it runs before the gates rather than being remembered.
 #
-# It also applies the expo-location altitude patch, and a `|| true` here once
-# swallowed that patch throwing: a build then recorded 0 m for a fix with no
-# altitude with every gate green. So a failure stops the run.
+# It also applies the expo-location altitude and nitro JSI install patches, and a
+# `|| true` here once swallowed the altitude patch throwing: a build then recorded
+# 0 m for a fix with no altitude with every gate green. So a failure stops the run.
 if ! node "$(dirname "$0")/link-worktree-modules.mjs"; then
-  echo "--- Worktree module levelling or the expo-location altitude patch failed ---" >&2
+  echo "--- Worktree module levelling or an install-time patch failed ---" >&2
   exit 1
 fi
 

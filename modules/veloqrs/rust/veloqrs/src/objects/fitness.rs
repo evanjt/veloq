@@ -194,13 +194,18 @@ impl FitnessManager {
     /// Everything the fitness tab paints with that stays fixed while it is
     /// mounted: the cycling eFTP trend over the chart's three months with the
     /// activities that moved it, and the last stored running and swimming
-    /// critical speeds. Off the engine lock, since it reads only committed
-    /// rows. Stale when the `activities` event fires.
-    fn get_fitness_screen_data(&self) -> Result<crate::FfiFitnessScreenData, VeloqError> {
+    /// critical speeds, with the decoupling ride of each of `span_days` and
+    /// the activities of the longest. Off the engine lock, since it reads only
+    /// committed rows. Stale when the `activities` event fires.
+    fn get_fitness_screen_data(
+        &self,
+        span_days: Vec<u32>,
+    ) -> Result<crate::FfiFitnessScreenData, VeloqError> {
         with_reader(|conn| {
             crate::persistence::screens::pooled::fitness_screen_data(
                 conn,
                 &crate::persistence::wellness::today_iso(),
+                &span_days,
             )
         })
     }

@@ -21,10 +21,6 @@ jest.mock('@/features/wellness', () => ({
   useWellness: () => ({ data: undefined }),
   useWellnessGeneration: () => mockWellnessGeneration,
 }));
-jest.mock('@/shared/app/useSportSettings', () => ({
-  useSportSettings: () => ({ data: undefined }),
-  getSettingsForSport: () => undefined,
-}));
 jest.mock('@/features/stats', () => ({ usePaceCurve: () => ({ data: undefined }) }));
 jest.mock('@/shared/app/useMetricSystem', () => ({ useMetricSystem: () => true }));
 

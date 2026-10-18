@@ -72,20 +72,6 @@ fn test_get_athlete_profile_writer_held() {
 }
 
 #[test]
-fn test_get_sport_settings_writer_held() {
-    let _guard = serial_global_state();
-    let _tmp = init_global_engine("sport_under_writer.db");
-    let settings = SettingsManager::new();
-    assert_eq!(
-        read_while_writer_holds(|| settings.get_sport_settings().unwrap()),
-        None
-    );
-    settings.set_sport_settings("{\"ftp\":200}".into()).unwrap();
-    let sport = read_while_writer_holds(|| settings.get_sport_settings().unwrap());
-    assert_eq!(sport.as_deref(), Some("{\"ftp\":200}"));
-}
-
-#[test]
 fn test_stream_retention_days_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("retention_under_writer.db");

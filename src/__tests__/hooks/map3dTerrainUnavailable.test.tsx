@@ -117,12 +117,12 @@ describe('the terrain notice', () => {
     }
   });
 
-  it('is a polite live region that says how to close it', async () => {
+  it('is a polite live region that asks nothing of the athlete', async () => {
     await render(<TerrainUnavailableNotice onDismiss={() => {}} />);
     const notice = screen.getByTestId(TERRAIN_UNAVAILABLE_TEST_ID);
 
     expect(notice.props.accessibilityLiveRegion).toBe('polite');
-    expect(notice.props.accessibilityLabel).toBe('maps.threeDUnavailable');
-    expect(notice.props.accessibilityHint).toBe('common.close');
+    expect(screen.getByText('maps.threeDUnavailable')).toBeTruthy();
+    expect(screen.queryAllByRole('button')).toHaveLength(0);
   });
 });

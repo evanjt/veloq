@@ -16,17 +16,11 @@ struct WidgetPalette {
   var fatigue: Color
   var chartFitness: Color
   var chartFatigue: Color
-  var chartCasing: Color
   var formHighRisk: Color
   var formOptimal: Color
   var formGreyZone: Color
   var formFresh: Color
   var formTransition: Color
-  var formHighRiskText: Color
-  var formOptimalText: Color
-  var formGreyZoneText: Color
-  var formFreshText: Color
-  var formTransitionText: Color
   var trendUp: Color
   var trendDown: Color
   var trendFlat: Color
@@ -55,17 +49,11 @@ struct WidgetPalette {
       fatigue: d.fatigue.map { Color(hex: $0) } ?? f.fatigue,
       chartFitness: d.chartFitness.map { Color(hex: $0) } ?? f.chartFitness,
       chartFatigue: d.chartFatigue.map { Color(hex: $0) } ?? f.chartFatigue,
-      chartCasing: d.chartCasing.map { Color(hex: $0) } ?? f.chartCasing,
       formHighRisk: d.formHighRisk.map { Color(hex: $0) } ?? f.formHighRisk,
       formOptimal: d.formOptimal.map { Color(hex: $0) } ?? f.formOptimal,
       formGreyZone: d.formGreyZone.map { Color(hex: $0) } ?? f.formGreyZone,
       formFresh: d.formFresh.map { Color(hex: $0) } ?? f.formFresh,
       formTransition: d.formTransition.map { Color(hex: $0) } ?? f.formTransition,
-      formHighRiskText: d.formHighRiskText.map { Color(hex: $0) } ?? f.formHighRiskText,
-      formOptimalText: d.formOptimalText.map { Color(hex: $0) } ?? f.formOptimalText,
-      formGreyZoneText: d.formGreyZoneText.map { Color(hex: $0) } ?? f.formGreyZoneText,
-      formFreshText: d.formFreshText.map { Color(hex: $0) } ?? f.formFreshText,
-      formTransitionText: d.formTransitionText.map { Color(hex: $0) } ?? f.formTransitionText,
       trendUp: Color(hex: d.trendUp),
       trendDown: Color(hex: d.trendDown),
       trendFlat: Color(hex: d.trendFlat),
@@ -92,26 +80,27 @@ struct WidgetPalette {
     return fallback
   }
 
-  /// Text for a form zone: the form value, which the fills reach 2.1:1 to 2.7:1
-  /// on the light widget ground and 4.5:1 is the bar for text.
-  func formTextColor(_ zone: String?) -> Color {
-    switch zone {
-    case "highRisk": return formHighRiskText
-    case "optimal": return formOptimalText
-    case "greyZone": return formGreyZoneText
-    case "fresh": return formFreshText
-    case "transition": return formTransitionText
-    default: return textPrimary
-    }
-  }
-
-  /// Colour for a summary entry's palette role.
-  func summaryColor(_ colorKey: String, formZone: String?) -> Color {
+  /// The key dot beside a summary entry's value, in its measure's colour: the fitness blue, the
+  /// fatigue purple or the fill of the zone form sits in. The value itself is primary text. An
+  /// entry with no measure colour, or a form zone this build does not know, draws no dot.
+  func keyColor(_ colorKey: String, formZone: String?) -> Color? {
     switch colorKey {
     case "blue": return blue
     case "fatigue": return fatigue
-    case "formZone": return formTextColor(formZone)
-    default: return textPrimary
+    case "formZone": return formZone.flatMap(zoneFill)
+    default: return nil
+    }
+  }
+
+  /// The fill of a form zone, or nil for a zone this build does not know.
+  func zoneFill(_ zone: String) -> Color? {
+    switch zone {
+    case "highRisk": return formHighRisk
+    case "optimal": return formOptimal
+    case "greyZone": return formGreyZone
+    case "fresh": return formFresh
+    case "transition": return formTransition
+    default: return nil
     }
   }
 
@@ -121,15 +110,9 @@ struct WidgetPalette {
     primary: WidgetTheme.Light.primary, gold: WidgetTheme.Light.gold, blue: WidgetTheme.Light.blue,
     fatigue: WidgetTheme.Light.fatigue,
     chartFitness: WidgetTheme.Light.chartFitness, chartFatigue: WidgetTheme.Light.chartFatigue,
-    chartCasing: WidgetTheme.Light.chartCasing,
     formHighRisk: WidgetTheme.Light.formHighRisk, formOptimal: WidgetTheme.Light.formOptimal,
     formGreyZone: WidgetTheme.Light.formGreyZone, formFresh: WidgetTheme.Light.formFresh,
     formTransition: WidgetTheme.Light.formTransition,
-    formHighRiskText: WidgetTheme.Light.formHighRiskText,
-    formOptimalText: WidgetTheme.Light.formOptimalText,
-    formGreyZoneText: WidgetTheme.Light.formGreyZoneText,
-    formFreshText: WidgetTheme.Light.formFreshText,
-    formTransitionText: WidgetTheme.Light.formTransitionText,
     trendUp: WidgetTheme.Light.trendUp, trendDown: WidgetTheme.Light.trendDown,
     trendFlat: WidgetTheme.Light.trendFlat, warning: WidgetTheme.Light.warning,
     toneNegative: WidgetTheme.Light.toneNegative, toneCaution: WidgetTheme.Light.toneCaution,
@@ -145,15 +128,9 @@ struct WidgetPalette {
     primary: WidgetTheme.Dark.primary, gold: WidgetTheme.Dark.gold, blue: WidgetTheme.Dark.blue,
     fatigue: WidgetTheme.Dark.fatigue,
     chartFitness: WidgetTheme.Dark.chartFitness, chartFatigue: WidgetTheme.Dark.chartFatigue,
-    chartCasing: WidgetTheme.Dark.chartCasing,
     formHighRisk: WidgetTheme.Dark.formHighRisk, formOptimal: WidgetTheme.Dark.formOptimal,
     formGreyZone: WidgetTheme.Dark.formGreyZone, formFresh: WidgetTheme.Dark.formFresh,
     formTransition: WidgetTheme.Dark.formTransition,
-    formHighRiskText: WidgetTheme.Dark.formHighRiskText,
-    formOptimalText: WidgetTheme.Dark.formOptimalText,
-    formGreyZoneText: WidgetTheme.Dark.formGreyZoneText,
-    formFreshText: WidgetTheme.Dark.formFreshText,
-    formTransitionText: WidgetTheme.Dark.formTransitionText,
     trendUp: WidgetTheme.Dark.trendUp, trendDown: WidgetTheme.Dark.trendDown,
     trendFlat: WidgetTheme.Dark.trendFlat, warning: WidgetTheme.Dark.warning,
     toneNegative: WidgetTheme.Dark.toneNegative, toneCaution: WidgetTheme.Dark.toneCaution,
@@ -200,8 +177,8 @@ func trendColor(_ verdict: String?, _ p: WidgetPalette) -> Color {
 // MARK: - trend chart (mirrors the in-app feed summary-card sparkline)
 
 // Plot geometry shared by the chart views: a left gutter for axis value labels,
-// a y domain buffered like the feed chart (so casing strokes at the extremes
-// aren't clipped), and room for the form zone bar at the bottom.
+// a y domain buffered like the feed chart (so a line at the extremes
+// isn't clipped), and room for the form zone bar at the bottom.
 private struct ChartPlot {
   let left: CGFloat
   let top: CGFloat
@@ -282,23 +259,19 @@ private func monotonePath(xs: [CGFloat], ys: [CGFloat]) -> Path {
   return path
 }
 
-// One cased line: dark under-stroke for edge contrast, colour stroke on top, dashed when the
-// line must read apart from a solid one without its colour.
-private struct CasedLine: View {
+// One chart line, dashed when it must read apart from a solid one without its colour. A line
+// holds 3:1 on its own, so it draws no casing under it.
+private struct ChartLine: View {
   let values: [Double]
   let plot: ChartPlot
   let color: Color
-  let casing: Color
   let lineWidth: CGFloat
   var dash: [CGFloat] = []
 
   var body: some View {
     let xs = plot.xPositions(values.count)
     let ys = values.map { plot.yOf($0) }
-    let path = monotonePath(xs: xs, ys: ys)
-    path.stroke(
-      casing, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round, dash: dash))
-    path.stroke(
+    monotonePath(xs: xs, ys: ys).stroke(
       color,
       style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round, dash: dash))
   }
@@ -354,20 +327,18 @@ struct FitnessChartView: View {
           size: geo.size, rawMin: rawMin, rawMax: rawMax, axisFontSize: axisFontSize)
         ChartAxis(plot: plot, palette: palette)
         if fatigue.count >= 2 {
-          CasedLine(
-            values: fatigue, plot: plot, color: palette.chartFatigue,
-            casing: palette.chartCasing, lineWidth: 1, dash: WidgetTheme.Chart.fatigueDash)
+          ChartLine(
+            values: fatigue, plot: plot, color: palette.chartFatigue, lineWidth: 1,
+            dash: WidgetTheme.Chart.fatigueDash)
         }
-        CasedLine(
-          values: fitness, plot: plot, color: palette.chartFitness,
-          casing: palette.chartCasing, lineWidth: 1.5)
+        ChartLine(values: fitness, plot: plot, color: palette.chartFitness, lineWidth: 1.5)
         .widgetAccentable()
       }
     }
   }
 }
 
-// Single-series variant (HRV): one cased line with a faint fill, same axis rail.
+// Single-series variant (HRV): one line with a faint fill, same axis rail.
 struct SingleTrendChart: View {
   let values: [Double]
   let color: Color
@@ -383,8 +354,7 @@ struct SingleTrendChart: View {
           size: geo.size, rawMin: rawMin, rawMax: rawMax, axisFontSize: axisFontSize)
         ChartAxis(plot: plot, palette: palette)
         FillPath(values: values, plot: plot, color: color)
-        CasedLine(
-          values: values, plot: plot, color: color, casing: palette.chartCasing, lineWidth: 1.5)
+        ChartLine(values: values, plot: plot, color: color, lineWidth: 1.5)
       }
     }
   }
@@ -560,13 +530,18 @@ private struct AgeLineStyle: ViewModifier {
 extension WidgetPalette {
   /// The fill of a form zone's band on the large chart.
   func formFill(_ zone: String) -> Color {
-    switch zone {
-    case "highRisk": return formHighRisk
-    case "optimal": return formOptimal
-    case "greyZone": return formGreyZone
-    case "fresh": return formFresh
-    default: return formTransition
-    }
+    zoneFill(zone) ?? formTransition
+  }
+}
+
+/// The dot beside a value that says which measure it is in that measure's colour, so the value
+/// stays primary text. The value's own words say what it is, so the dot is not spoken.
+struct KeyDot: View {
+  let color: Color
+
+  var body: some View {
+    Circle().fill(color).frame(width: 6, height: 6)
+      .unspoken()
   }
 }
 
@@ -656,7 +631,7 @@ private struct SummaryHero: View {
 
   var body: some View {
     let hero = content.hero
-    let color = palette.summaryColor(hero.colorKey, formZone: formZone)
+    let key = palette.keyColor(hero.colorKey, formZone: formZone)
     VStack(alignment: .leading, spacing: 2) {
       VStack(alignment: .leading, spacing: 2) {
         Text(hero.label.uppercased())
@@ -665,10 +640,13 @@ private struct SummaryHero: View {
           .foregroundColor(palette.textSecondary)
           .lineLimit(1)
         HStack(spacing: 4) {
+          if let key {
+            KeyDot(color: key)
+          }
           Text(hero.value)
             .measuredText("hero value")
             .widgetFont(valueStep, weight: .bold, shrinks: true)
-            .foregroundColor(color)
+            .foregroundColor(palette.textPrimary)
             .lineLimit(1)
             .widgetAccentable()
           Image(systemName: trendSymbol(hero.trendDir, hero.verdict))
@@ -682,7 +660,7 @@ private struct SummaryHero: View {
         Text(line)
           .measuredText("hero line")
           .widgetFont(.caption, weight: .semibold)
-          .foregroundColor(color)
+          .foregroundColor(palette.textPrimary)
           .lineLimit(1)
       }
     }
@@ -736,22 +714,18 @@ private struct SummaryChartView: View {
   }
 }
 
-/// A short stroke drawn as a chart line is, cased and dashed alike, so a legend entry reads as
-/// its line without its colour.
+/// A short stroke drawn as a chart line is, dashed alike, so a legend entry reads as its line
+/// without its colour.
 private struct LegendStroke: View {
   let color: Color
-  let casing: Color
   var dash: [CGFloat] = []
 
   var body: some View {
-    let line = Path { p in
+    Path { p in
       p.move(to: CGPoint(x: 1, y: 3))
       p.addLine(to: CGPoint(x: 11, y: 3))
     }
-    ZStack {
-      line.stroke(casing, style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: dash))
-      line.stroke(color, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, dash: dash))
-    }
+    .stroke(color, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, dash: dash))
     .frame(width: 12, height: 6)
   }
 }
@@ -784,12 +758,10 @@ private struct ChartCaptionRow: View {
     ForEach(Array(caption.series.enumerated()), id: \.offset) { index, name in
       HStack(spacing: 3) {
         if index == 0 {
-          LegendStroke(color: palette.chartFitness, casing: palette.chartCasing)
+          LegendStroke(color: palette.chartFitness)
             .widgetAccentable()
         } else {
-          LegendStroke(
-            color: palette.chartFatigue, casing: palette.chartCasing,
-            dash: WidgetTheme.Chart.fatigueDash)
+          LegendStroke(color: palette.chartFatigue, dash: WidgetTheme.Chart.fatigueDash)
         }
         Text(name)
           .measuredText("chart series")
@@ -844,7 +816,7 @@ private struct FormCaptionRow: View {
 }
 
 /// Up to four metrics side by side, split by dividers. The Form entry names its zone under its
-/// value, which its colour alone would carry.
+/// value, which its key dot alone would carry.
 private struct SummarySupportingRow: View {
   let entries: [SummarySupporting]
   let palette: WidgetPalette
@@ -855,7 +827,7 @@ private struct SummarySupportingRow: View {
     HStack(spacing: 0) {
       ForEach(Array(entries.enumerated()), id: \.offset) { index, supporting in
         let entry = supporting.entry
-        let color = palette.summaryColor(entry.colorKey, formZone: formZone)
+        let key = palette.keyColor(entry.colorKey, formZone: formZone)
         if index > 0 {
           Divider().background(palette.border)
         }
@@ -867,10 +839,13 @@ private struct SummarySupportingRow: View {
               .foregroundColor(palette.textSecondary)
               .lineLimit(1)
             HStack(spacing: 3) {
+              if let key {
+                KeyDot(color: key)
+              }
               Text(entry.value)
                 .measuredText("metric value")
                 .widgetFont(.value, weight: .semibold, shrinks: true)
-                .foregroundColor(color)
+                .foregroundColor(palette.textPrimary)
                 .lineLimit(1)
               Image(systemName: trendSymbol(entry.trendDir, entry.verdict))
                 .widgetFont(.caption, weight: .bold)
@@ -885,7 +860,7 @@ private struct SummarySupportingRow: View {
             Text(caption)
               .measuredText("metric caption")
               .widgetFont(.caption, weight: .semibold, shrinks: true)
-              .foregroundColor(color)
+              .foregroundColor(palette.textPrimary)
               .lineLimit(1)
           }
         }

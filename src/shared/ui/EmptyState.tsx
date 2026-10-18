@@ -2,11 +2,15 @@
  * The app's empty state, and the only one.
  *
  * Three fixed forms, by where the empty sits:
- * - `screen` fills a list or a screen, with the icon on a 96 pt disc.
- * - `compact` sits in a section of a detail screen, on a 64 pt disc.
+ * - `screen` fills a list or a screen, with the icon on a 96 pt disc, the
+ *   title at `statsValue` and the description at `bodySmall`.
+ * - `compact` sits in a section of a detail screen, on a 64 pt disc, the title
+ *   at `bodyBold` and the description at `bodyCompact`.
  * - `inline` sits inside a card or under a chart's title. It draws no disc, so
  *   the card keeps its density: the title at `bodySmall` 600, the hint at
  *   `caption`, and a small secondary button when there is an action.
+ *
+ * Both discs are the neutral fill, and the icon on them is the muted icon.
  *
  * The title is the cause line, what is missing, and every form requires it. The
  * description says what fills it, where something does.
@@ -20,16 +24,7 @@ import { Icon } from './Icon';
 import { Button } from './Button';
 import { StatusLine, type StatusTone } from './StatusLine';
 import { useTheme } from '@/shared/app';
-import {
-  colorWithOpacity,
-  iconSize,
-  ink,
-  layout,
-  opacity,
-  spacing,
-  themePalette,
-  typography,
-} from '@/theme';
+import { iconSize, layout, spacing, themePalette, typography } from '@/theme';
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -132,23 +127,11 @@ function DiscEmptyState({
         testID={`${testID}-icon`}
         style={[
           styles.iconContainer,
-          {
-            backgroundColor: isDark
-              ? colorWithOpacity(ink.white, opacity.tint2)
-              : colorWithOpacity(ink.black, opacity.tint1),
-          },
+          { backgroundColor: palette.fillNeutral },
           compact && styles.iconContainerCompact,
         ]}
       >
-        <Icon
-          name={icon}
-          size={compact ? iconSize.xl : iconSize.xxl}
-          color={
-            isDark
-              ? colorWithOpacity(ink.white, opacity.dim)
-              : colorWithOpacity(ink.black, opacity.tint4)
-          }
-        />
+        <Icon name={icon} size={compact ? iconSize.xl : iconSize.xxl} color={palette.iconMuted} />
       </View>
 
       <Text
@@ -214,7 +197,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   title: {
-    ...typography.cardTitle,
+    ...typography.statsValue,
     textAlign: 'center',
     marginBottom: spacing.xs,
   },
@@ -227,7 +210,7 @@ const styles = StyleSheet.create({
     maxWidth: 280,
   },
   descriptionCompact: {
-    fontSize: typography.bodyCompact.fontSize,
+    ...typography.bodyCompact,
     maxWidth: 240,
   },
   actionButton: {

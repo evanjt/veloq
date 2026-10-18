@@ -108,10 +108,6 @@ impl SettingsManager {
         })?
     }
 
-    fn get_sport_settings(&self) -> Result<Option<String>, VeloqError> {
-        with_reader(crate::persistence::fitness::sport_settings_from)
-    }
-
     /// The heart rate zone, numbered from 1, a reading falls in for a sport
     /// type, from the athlete's own zones. None when the reading is not a
     /// positive number.
@@ -619,8 +615,12 @@ mod tests {
         let _tmp = init_global_engine("settings.db");
         let settings = SettingsManager::new();
 
+        let stored_sport_settings = || {
+            crate::persistence::with_persistent_engine(|engine| engine.get_sport_settings())
+                .expect("engine")
+        };
         assert_eq!(settings.get_athlete_profile().unwrap(), None);
-        assert_eq!(settings.get_sport_settings().unwrap(), None);
+        assert_eq!(stored_sport_settings(), None);
         settings
             .set_athlete_profile("{\"id\":\"i1\"}".into())
             .unwrap();
@@ -630,10 +630,7 @@ mod tests {
             settings.get_athlete_profile().unwrap().as_deref(),
             Some("{\"id\":\"i1\"}")
         );
-        assert_eq!(
-            settings.get_sport_settings().unwrap().as_deref(),
-            Some("{\"ftp\":200}")
-        );
+        assert_eq!(stored_sport_settings().as_deref(), Some("{\"ftp\":200}"));
 
         assert_eq!(
             settings.get_setting("kept".into()).unwrap().as_deref(),
@@ -691,10 +688,6 @@ mod tests {
         ));
         assert!(matches!(
             settings.get_athlete_profile(),
-            Err(VeloqError::NotInitialized)
-        ));
-        assert!(matches!(
-            settings.get_sport_settings(),
             Err(VeloqError::NotInitialized)
         ));
         assert!(matches!(

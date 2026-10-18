@@ -180,6 +180,18 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal">
 
+        <!-- Each form figure's zone dot: the figures stay in primary text, so the zone colour is
+             said here. -->
+        <ImageView
+          android:id="@+id/act_form_before_key"
+          android:layout_width="6dp"
+          android:layout_height="6dp"
+          android:layout_gravity="center_vertical"
+          android:layout_marginEnd="4dp"
+          android:importantForAccessibility="no"
+          android:src="@drawable/widget_tone_dot"
+          android:visibility="gone" />
+
         <TextView
           android:fontFamily="@font/widget_manrope"
           android:id="@+id/act_form_before"
@@ -199,6 +211,16 @@
           android:maxLines="1"
           android:textSize="@dimen/widget_text_label"
           android:textColor="@color/widget_text_secondary" />
+
+        <ImageView
+          android:id="@+id/act_form_after_key"
+          android:layout_width="6dp"
+          android:layout_height="6dp"
+          android:layout_gravity="center_vertical"
+          android:layout_marginEnd="4dp"
+          android:importantForAccessibility="no"
+          android:src="@drawable/widget_tone_dot"
+          android:visibility="gone" />
 
         <TextView
           android:fontFamily="@font/widget_manrope"

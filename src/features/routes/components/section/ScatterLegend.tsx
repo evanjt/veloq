@@ -10,8 +10,9 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
-import { colors, darkColors, spacing, typography, layout, stroke, themePalette } from '@/theme';
+import { colors, darkColors, spacing, typography, layout, stroke } from '@/theme';
 import { Button } from '@/shared/ui';
+import { directionColour } from '@/features/routes/lib/directionColour';
 
 export interface ScatterLegendProps {
   isDark: boolean;
@@ -30,7 +31,7 @@ export function ScatterLegend({
   showTrend = false,
   trendColor: trendColorProp,
 }: ScatterLegendProps) {
-  const trendColor = trendColorProp ?? themePalette(isDark).actionPrimary;
+  const trendColor = trendColorProp ?? directionColour('forward', isDark);
   const { t } = useTranslation();
   const [showMethod, setShowMethod] = useState(false);
 
@@ -44,7 +45,9 @@ export function ScatterLegend({
       </View>
       {showReverse ? (
         <View style={styles.legendItem}>
-          <View style={[styles.legendSwatch, styles.reverseSwatch]} />
+          <View
+            style={[styles.legendSwatch, { backgroundColor: directionColour('reverse', isDark) }]}
+          />
           <Text style={[styles.legendText, isDark && styles.legendTextDark]}>
             {t('sections.legendReverse')}
           </Text>
@@ -131,9 +134,6 @@ const styles = StyleSheet.create({
   },
   prSwatchDark: {
     borderColor: darkColors.achievement,
-  },
-  reverseSwatch: {
-    backgroundColor: colors.reverseDirection,
   },
   thisActivitySwatch: {
     borderColor: colors.chartGreenMark,

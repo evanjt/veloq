@@ -1,8 +1,10 @@
+import { tones } from '../tones';
+
 export const LIBERTY_LAYERS_LAND = [
   {
     id: 'background',
     type: 'background' as const,
-    paint: { 'background-color': '#f8f4f0' },
+    paint: { 'background-color': tones.land },
   },
   {
     id: 'natural_earth',
@@ -19,9 +21,9 @@ export const LIBERTY_LAYERS_LAND = [
     source: 'openmaptiles',
     'source-layer': 'park',
     paint: {
-      'fill-color': '#d8e8c8',
+      'fill-color': tones.park,
       'fill-opacity': 0.7,
-      'fill-outline-color': 'rgba(95, 208, 100, 1)',
+      'fill-outline-color': tones.park,
     },
   },
   {
@@ -29,7 +31,7 @@ export const LIBERTY_LAYERS_LAND = [
     type: 'line' as const,
     source: 'openmaptiles',
     'source-layer': 'park',
-    paint: { 'line-color': 'rgba(228, 241, 215, 1)', 'line-dasharray': [1, 1.5] },
+    paint: { 'line-color': tones.park, 'line-dasharray': [1, 1.5] },
   },
   {
     id: 'landuse_residential',
@@ -39,15 +41,7 @@ export const LIBERTY_LAYERS_LAND = [
     maxzoom: 12,
     filter: ['==', ['get', 'class'], 'residential'],
     paint: {
-      'fill-color': [
-        'interpolate',
-        ['linear'],
-        ['zoom'],
-        9,
-        'hsla(0,3%,85%,0.84)',
-        12,
-        'hsla(35,57%,88%,0.49)',
-      ],
+      'fill-color': tones.landShade,
     },
   },
   {
@@ -56,7 +50,7 @@ export const LIBERTY_LAYERS_LAND = [
     source: 'openmaptiles',
     'source-layer': 'landcover',
     filter: ['==', ['get', 'class'], 'wood'],
-    paint: { 'fill-antialias': false, 'fill-color': 'hsla(98,61%,72%,0.7)', 'fill-opacity': 0.4 },
+    paint: { 'fill-antialias': false, 'fill-color': tones.park, 'fill-opacity': 0.4 },
   },
   {
     id: 'landcover_grass',
@@ -66,7 +60,7 @@ export const LIBERTY_LAYERS_LAND = [
     filter: ['==', ['get', 'class'], 'grass'],
     paint: {
       'fill-antialias': false,
-      'fill-color': 'rgba(176, 213, 154, 1)',
+      'fill-color': tones.park,
       'fill-opacity': 0.3,
     },
   },
@@ -78,7 +72,7 @@ export const LIBERTY_LAYERS_LAND = [
     filter: ['==', ['get', 'class'], 'ice'],
     paint: {
       'fill-antialias': false,
-      'fill-color': 'rgba(224, 236, 236, 1)',
+      'fill-color': tones.landShade,
       'fill-opacity': 0.8,
     },
   },
@@ -102,7 +96,7 @@ export const LIBERTY_LAYERS_LAND = [
     source: 'openmaptiles',
     'source-layer': 'landuse',
     filter: ['==', ['get', 'class'], 'pitch'],
-    paint: { 'fill-color': '#DEE3CD' },
+    paint: { 'fill-color': tones.landShade },
   },
   {
     id: 'landuse_track',
@@ -110,7 +104,7 @@ export const LIBERTY_LAYERS_LAND = [
     source: 'openmaptiles',
     'source-layer': 'landuse',
     filter: ['==', ['get', 'class'], 'track'],
-    paint: { 'fill-color': '#DEE3CD' },
+    paint: { 'fill-color': tones.landShade },
   },
   {
     id: 'landuse_cemetery',
@@ -118,7 +112,7 @@ export const LIBERTY_LAYERS_LAND = [
     source: 'openmaptiles',
     'source-layer': 'landuse',
     filter: ['==', ['get', 'class'], 'cemetery'],
-    paint: { 'fill-color': 'hsl(75,37%,81%)' },
+    paint: { 'fill-color': tones.park },
   },
   {
     id: 'landuse_hospital',
@@ -126,7 +120,7 @@ export const LIBERTY_LAYERS_LAND = [
     source: 'openmaptiles',
     'source-layer': 'landuse',
     filter: ['==', ['get', 'class'], 'hospital'],
-    paint: { 'fill-color': '#fde' },
+    paint: { 'fill-color': tones.landShade },
   },
   {
     id: 'landuse_school',
@@ -134,7 +128,7 @@ export const LIBERTY_LAYERS_LAND = [
     source: 'openmaptiles',
     'source-layer': 'landuse',
     filter: ['==', ['get', 'class'], 'school'],
-    paint: { 'fill-color': 'rgb(236,238,204)' },
+    paint: { 'fill-color': tones.landShade },
   },
   {
     id: 'waterway_tunnel',
@@ -143,7 +137,7 @@ export const LIBERTY_LAYERS_LAND = [
     'source-layer': 'waterway',
     filter: ['==', ['get', 'brunnel'], 'tunnel'],
     paint: {
-      'line-color': '#a0c8f0',
+      'line-color': tones.water,
       'line-dasharray': [3, 3],
       'line-gap-width': ['interpolate', ['linear'], ['zoom'], 12, 0, 20, 6],
       'line-opacity': 1,
@@ -158,7 +152,7 @@ export const LIBERTY_LAYERS_LAND = [
     filter: ['all', ['==', ['get', 'class'], 'river'], ['!=', ['get', 'brunnel'], 'tunnel']],
     layout: { 'line-cap': 'round' },
     paint: {
-      'line-color': '#a0c8f0',
+      'line-color': tones.water,
       'line-width': ['interpolate', ['exponential', 1.2], ['zoom'], 11, 0.5, 20, 6],
     },
   },
@@ -170,7 +164,7 @@ export const LIBERTY_LAYERS_LAND = [
     filter: ['all', ['!=', ['get', 'class'], 'river'], ['!=', ['get', 'brunnel'], 'tunnel']],
     layout: { 'line-cap': 'round' },
     paint: {
-      'line-color': '#a0c8f0',
+      'line-color': tones.water,
       'line-width': ['interpolate', ['exponential', 1.3], ['zoom'], 13, 0.5, 20, 6],
     },
   },
@@ -180,7 +174,7 @@ export const LIBERTY_LAYERS_LAND = [
     source: 'openmaptiles',
     'source-layer': 'water',
     filter: ['!=', ['get', 'brunnel'], 'tunnel'],
-    paint: { 'fill-color': 'rgb(158,189,255)' },
+    paint: { 'fill-color': tones.water },
   },
   {
     id: 'landcover_sand',
@@ -188,7 +182,7 @@ export const LIBERTY_LAYERS_LAND = [
     source: 'openmaptiles',
     'source-layer': 'landcover',
     filter: ['==', ['get', 'class'], 'sand'],
-    paint: { 'fill-color': 'rgba(247, 239, 195, 1)' },
+    paint: { 'fill-color': tones.landShade },
   },
   {
     id: 'aeroway_fill',
@@ -197,7 +191,7 @@ export const LIBERTY_LAYERS_LAND = [
     'source-layer': 'aeroway',
     minzoom: 11,
     filter: ['match', ['geometry-type'], ['MultiPolygon', 'Polygon'], true, false],
-    paint: { 'fill-color': 'rgba(229, 228, 224, 1)', 'fill-opacity': 0.7 },
+    paint: { 'fill-color': tones.landShade, 'fill-opacity': 0.7 },
   },
   {
     id: 'aeroway_runway',
@@ -211,7 +205,7 @@ export const LIBERTY_LAYERS_LAND = [
       ['==', ['get', 'class'], 'runway'],
     ],
     paint: {
-      'line-color': '#f0ede9',
+      'line-color': tones.road,
       'line-width': ['interpolate', ['exponential', 1.2], ['zoom'], 11, 3, 20, 16],
     },
   },
@@ -227,7 +221,7 @@ export const LIBERTY_LAYERS_LAND = [
       ['==', ['get', 'class'], 'taxiway'],
     ],
     paint: {
-      'line-color': '#f0ede9',
+      'line-color': tones.road,
       'line-width': ['interpolate', ['exponential', 1.2], ['zoom'], 11, 0.5, 20, 6],
     },
   },

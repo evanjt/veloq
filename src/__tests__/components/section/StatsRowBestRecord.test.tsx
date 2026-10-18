@@ -8,7 +8,7 @@
  */
 
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { render, within } from '@testing-library/react-native';
 
 import { initialiseI18n } from '@/i18n';
 import { StatsRow } from '@/features/routes/components/section/StatsRow';
@@ -23,7 +23,6 @@ function row(bestIsRecord: boolean) {
       bestRecord={bestRecord}
       bestIsRecord={bestIsRecord}
       pointCount={2}
-      color="#00aa00"
       basis="speed"
       isDark={false}
     />
@@ -57,13 +56,12 @@ describe('StatsRow best', () => {
         bestRecord={bestRecord}
         bestIsRecord
         pointCount={3}
-        color="#00aa00"
         basis="speed"
         isDark={false}
       />
     );
 
-    expect(getByTestId('stats-row-count-forward').props.children).toBe(2);
+    expect(within(getByTestId('stats-row-count-forward')).getByText('2')).toBeTruthy();
     expect(getByTestId('stats-row-outside-band-forward')).toBeTruthy();
   });
 });

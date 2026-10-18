@@ -16,7 +16,8 @@ pub mod types;
 
 pub mod chart_streams;
 
-pub mod endpoints;
+pub mod intervals;
+pub use intervals::endpoints;
 
 pub mod elevation_backfill;
 

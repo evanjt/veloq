@@ -1,8 +1,8 @@
 /**
- * Scenario: three screens draw the primary as a mark on a dark card: the tile
- * budget bar in storage settings, the history sync progress bar, and the
- * selected sort chip on the Routes list. Each read `colors.primary`, which is
- * the light theme's primary, so the dark theme drew the light value.
+ * Scenario: two screens draw the primary as a mark on a dark card: the tile
+ * budget bar in storage settings and the history sync progress bar. Each read
+ * `colors.primary`, which is the light theme's primary, so the dark theme drew
+ * the light value.
  *
  * Expected behaviour: in the dark theme each draws the dark primary, and that
  * holds the 3:1 a mark owes against the card it sits on.
@@ -10,14 +10,11 @@
 
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { render, screen, within } from '@testing-library/react-native';
-import type { FfiCatalogueEmptyReason, GroupWithPolyline } from 'veloqrs';
+import { render, screen } from '@testing-library/react-native';
 
 import { StorageStatsPanel } from '@/features/settings/components/StorageStatsPanel';
 import { SyncRangePanel } from '@/features/settings/components/SyncRangePanel';
-import { RoutesList } from '@/features/routes/components/RoutesList';
-import { colors, darkColors } from '@/theme';
+import { darkColors } from '@/theme';
 import { contrastRatio } from '../__shared__/contrast';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
@@ -80,18 +77,10 @@ jest.mock('@/shared/native/useSyncStatus', () => ({
   }),
 }));
 
-jest.mock('@/features/routes/components/DataRangeFooter', () => ({
-  DataRangeFooter: () => null,
-}));
-jest.mock('@/features/routes/components/RouteRow', () => ({ RouteRow: () => null }));
-jest.mock('@/features/routes/lib/batchGroupToRouteGroup', () => ({
-  batchGroupToRouteGroup: (group: { groupId: string }) => ({ id: group.groupId }),
-}));
-
 /** WCAG 2.2 AA for a graphical object the athlete needs to read the screen. */
 const AA_MARK = 3;
 
-/** Every dark ground a settings card or a list chip sits on. */
+/** Every dark ground a settings card sits on. */
 const DARK_GROUNDS = [darkColors.surfacePage, darkColors.surface, darkColors.surfaceRaised];
 
 function expectDarkMark(colour: unknown) {
@@ -131,29 +120,5 @@ describe('the primary drawn as a mark in the dark theme', () => {
 
     const fill = screen.getByTestId('settings-sync-range-progress-fill');
     expectDarkMark(StyleSheet.flatten(fill.props.style).backgroundColor);
-  });
-
-  it('marks the selected sort chip with the dark primary', async () => {
-    const groups = ['loop-a', 'loop-b'].map((groupId) => ({ groupId })) as GroupWithPolyline[];
-    await render(
-      <RoutesList
-        onRefresh={jest.fn()}
-        batchGroups={groups}
-        sortOption="activities"
-        onSortChange={jest.fn()}
-        searchQuery=""
-        onSearchChange={jest.fn()}
-        totalGroupCount={groups.length}
-        shownGroupCount={groups.length}
-        emptyReason={null as FfiCatalogueEmptyReason | null}
-      />
-    );
-
-    const selected = screen.getByRole('button', { selected: true });
-    const chip = StyleSheet.flatten(selected.props.style);
-    expectDarkMark(chip.borderColor);
-    const [icon] = within(selected).UNSAFE_getAllByType(MaterialCommunityIcons);
-    expectDarkMark(icon.props.color);
-    expect(chip.borderColor).not.toBe(colors.actionPrimary);
   });
 });

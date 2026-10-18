@@ -5,15 +5,15 @@ on:
     branches: [main]
     # A release tag builds the store artifacts that release.yml publishes.
     tags:
-      - "[0-9]+.[0-9]+.[0-9]+"
+      - '[0-9]+.[0-9]+.[0-9]+'
   pull_request:
     branches: [main]
   workflow_dispatch:
     inputs:
       build_type:
-        description: "Build type override"
+        description: 'Build type override'
         required: false
-        default: "auto"
+        default: 'auto'
         type: choice
         options:
           - auto
@@ -31,23 +31,39 @@ permissions:
 jobs:
   # Whether this run builds natively. A pull request that reaches neither
   # native code nor the engine crate skips the Gradle and Xcode builds and runs
-  # the bundle check below instead. push and dispatch always build.
+  # the bundle check below instead. push, dispatch and a Dependabot major
+  # always build.
   # scripts/ci-required.mjs decides it from scripts/ci-areas.mjs, and Build
   # Required reads every build against the same answer.
   changes:
     name: Detect Native Changes
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    # fetch-metadata lists the pull request's commits.
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
       native: ${{ steps.plan.outputs.native }}
     env:
       EVENT: ${{ github.event_name }}
+      AUTHOR: ${{ github.event.pull_request.user.login }}
     steps:
       # Two commits: a pull request checks out its merge commit, and the first
       # parent is the base the change is read against.
       - uses: actions/checkout@v7
         with:
           fetch-depth: 2
+
+      # A Dependabot major builds natively. The update type is read here, and a
+      # read that fails leaves it empty, which ci-required.mjs counts as a major.
+      - name: Fetch Dependabot metadata
+        id: meta
+        if: github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]'
+        continue-on-error: true
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       # A lockfile bump is native only when the package ships native code,
       # which is read from the installed tree.
@@ -58,6 +74,8 @@ jobs:
       - name: Plan the builds
         id: plan
         run: node scripts/ci-required.mjs build-plan
+        env:
+          UPDATE_TYPE: ${{ steps.meta.outputs.update-type }}
 
   # ============================================
   # Build Android
@@ -202,12 +220,20 @@ jobs:
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    # A Dependabot pull request's red jobs are read against main's latest
+    # finished Build run, which needs the run history.
+    permissions:
+      contents: read
+      actions: read
     steps:
       - uses: actions/checkout@v7
 
       - name: Check results
         env:
           EVENT: ${{ github.event_name }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
           CHANGES: ${{ needs.changes.result }}
           NATIVE: ${{ needs.changes.outputs.native }}
           ANDROID: ${{ needs.build-android.result }}

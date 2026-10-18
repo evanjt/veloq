@@ -57,14 +57,7 @@ const summary: CalendarSummary = {
 };
 
 function renderCard(isDark = false) {
-  return render(
-    <SectionStatsCards
-      calendarSummary={summary}
-      isDark={isDark}
-      basis="speed"
-      activityColor="#3B82F6"
-    />
-  );
+  return render(<SectionStatsCards calendarSummary={summary} isDark={isDark} basis="speed" />);
 }
 
 function trophies(tree: Awaited<ReturnType<typeof render>>) {

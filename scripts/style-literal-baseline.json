@@ -10,7 +10,6 @@
     "src/features/maps/components/BaseMapView.tsx": 1,
     "src/features/maps/components/MapEmptyState.tsx": 1,
     "src/features/maps/components/regional/MapControlStack.tsx": 2,
-    "src/features/maps/components/regional/regionalMapLayerSpecs.ts": 2,
     "src/features/maps/components/SectionCreationOverlay.tsx": 1,
     "src/features/maps/lib/htmlBuilders/map3D.ts": 2,
     "src/features/maps/lib/htmlBuilders/map3DScripts.ts": 4,
@@ -30,6 +29,12 @@
     "src/features/strength/components/MuscleGroupView.tsx": 2,
     "src/shared/ui/BottomTabBar.tsx": 10,
     "src/shared/ui/DetailHero.tsx": 1
+  },
+  "badge": {
+    "src/features/recording/RecordingScreen.styles.ts": 1,
+    "src/features/routes/components/performance/RoutePerformanceSection.tsx": 1,
+    "src/features/routes/components/section/SectionHeader.tsx": 1,
+    "src/features/settings/components/MapsSection.tsx": 1
   },
   "border-width": {
     "src/shared/ui/CompassArrow.tsx": 4
@@ -61,19 +66,14 @@
     "src/features/maps/components/BaseMapView.tsx": 1,
     "src/features/maps/components/MapKey.tsx": 1,
     "src/features/maps/components/SectionCreationOverlay.tsx": 1,
-    "src/features/maps/components/TerrainUnavailableNotice.tsx": 1,
     "src/features/recording/components/RecordingMap.tsx": 1,
     "src/features/recording/components/WorkoutGuide.tsx": 1,
     "src/features/routes/components/preview/GroupingParamPanel.tsx": 1,
-    "src/features/routes/components/preview/PreviewCentrePicker.tsx": 1,
     "src/features/routes/components/preview/PreviewMapView.tsx": 2,
     "src/features/routes/components/preview/PreviewParamPanel.tsx": 1,
     "src/features/routes/components/preview/PreviewSectionPopover.tsx": 1,
-    "src/features/routes/components/RoutesList.tsx": 1,
     "src/features/routes/components/section/SectionHistoryPanel.tsx": 1,
     "src/features/routes/components/sectionMapView.styles.ts": 1,
-    "src/features/routes/components/SectionsListFiltersBar.tsx": 1,
-    "src/features/routes/components/SectionTrimOverlay.tsx": 1,
     "src/features/settings/components/settingsStyles.ts": 1,
     "src/features/settings/components/StorageStatsPanel.tsx": 1,
     "src/features/settings/components/SummaryCardSection.tsx": 1,
@@ -87,10 +87,10 @@
   "font-weight": {},
   "font-weight-500": {
     "src/app/(tabs)/insights/index.tsx": 1,
+    "src/app/(tabs)/settings/index.tsx": 1,
     "src/app/about.tsx": 1,
     "src/app/debug.tsx": 1,
     "src/app/licenses.tsx": 1,
-    "src/app/settings.tsx": 1,
     "src/app/sheets/day-activities.tsx": 1,
     "src/features/activity/components/ActivityCard.tsx": 2,
     "src/features/activity/components/ActivityLedgerChanges.tsx": 1,
@@ -149,9 +149,7 @@
     "src/theme/typography.ts": 4
   },
   "font-weight-off-scale": {},
-  "icon-size": {
-    "src/features/routes/components/SectionsListHeader.tsx": 1
-  },
+  "icon-size": {},
   "letter-spacing": {
     "src/features/activity/components/ActivityCard.tsx": 2,
     "src/features/home/components/SummaryCard.tsx": 3,
@@ -180,7 +178,6 @@
   },
   "motion": {},
   "opacity": {
-    "src/features/activity/components/CombinedPlot.tsx": 5,
     "src/features/maps/components/TerrainSnapshotWebView.tsx": 1,
     "src/features/recording/components/RpeSlider.tsx": 1,
     "src/features/recording/components/StrengthFollow.tsx": 1,
@@ -188,30 +185,18 @@
     "src/features/routes/components/section/AttemptHistogramChart.tsx": 1,
     "src/features/routes/components/section/ScatterLegend.tsx": 1,
     "src/features/routes/components/section/SectionScatterChart.tsx": 4,
-    "src/features/routes/lib/groupingLegend.ts": 3,
-    "src/shared/charts/CurveChart.tsx": 1
+    "src/features/routes/lib/groupingLegend.ts": 3
   },
   "shadow": {},
   "stroke-width": {
     "src/app/named-corridors.tsx": 1,
-    "src/features/activity/components/CombinedPlot.tsx": 4,
-    "src/features/fitness/components/FitnessChart.tsx": 4,
-    "src/features/fitness/components/FormZoneChart.tsx": 3,
-    "src/features/home/components/SummaryCardHRVSparkline.tsx": 4,
-    "src/features/home/components/SummaryCardSparkline.tsx": 5,
-    "src/features/insights/components/InsightHistoryGraphic.tsx": 1,
-    "src/features/insights/components/SupportingDataSection.tsx": 1,
     "src/features/routes/components/section/SectionScatterChart.tsx": 4,
-    "src/features/routes/components/section/SectionSparkline.tsx": 2,
     "src/features/routes/components/SectionRow.tsx": 5,
     "src/features/settings/components/MapStylePreviewPicker.tsx": 4,
-    "src/features/settings/components/whatsNew/FitnessHeroSlide.tsx": 4,
     "src/features/settings/components/whatsNew/HeatmapSlide.tsx": 5,
     "src/features/settings/components/whatsNew/RoutesSlide.tsx": 1,
     "src/features/settings/components/whatsNew/SectionPerformanceSlide.tsx": 5,
-    "src/features/stats/components/FTPTrendChart.tsx": 2,
     "src/features/strength/components/BodyPairWithLoupe.tsx": 1,
-    "src/shared/charts/CurveChart.tsx": 4,
     "src/shared/ui/ShaderWarmup.tsx": 1,
     "src/shared/ui/TrackPreview.tsx": 5
   },

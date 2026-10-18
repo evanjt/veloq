@@ -46,7 +46,7 @@ describe('the strength delegate with the engine closed', () => {
     expect(strength.fetchAndParseExerciseSets(host, 'a1')).toEqual({
       outcome: FfiStartOutcome.NotReady,
     });
-    expect(strength.batchFetchExerciseSets(host, ['a1'])).toEqual({
+    expect(strength.batchFetchOwedFitFiles(host)).toEqual({
       outcome: FfiStartOutcome.NotReady,
     });
   });

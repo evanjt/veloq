@@ -86,11 +86,11 @@ jest.mock('@/shared/ui', () => {
 jest.mock('@/features/activity/components/ChartTypeSelector', () => ({
   ChartTypeSelector: () => null,
 }));
-jest.mock('@/features/activity/components/CombinedPlot', () => {
+jest.mock('@/features/activity/components/ActivityStreams', () => {
   const { View } = require('react-native');
   return {
-    CombinedPlot: ({ height }: { height?: number }) => (
-      <View testID="combined-plot" accessibilityHint={String(height)} />
+    ActivityStreams: ({ height }: { height?: number }) => (
+      <View testID="activity-streams" accessibilityHint={String(height)} />
     ),
   };
 });
@@ -207,7 +207,7 @@ it('sizes the plot from the room the measured chrome leaves', async () => {
     });
   });
 
-  const plots = screen.getAllByTestId('combined-plot');
+  const plots = screen.getAllByTestId('activity-streams');
   const fullscreenPlot = plots[plots.length - 1];
   expect(Number(fullscreenPlot.props.accessibilityHint)).toBe(
     MODAL_HEIGHT - 16 - chromeHeight - MODAL_INSETS.bottom

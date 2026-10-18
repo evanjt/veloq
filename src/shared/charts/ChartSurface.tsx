@@ -6,7 +6,7 @@ import { useSheetOpener } from '@/shared/app/sheetRequest';
 import { accessibleActions } from '@/shared/ui/accessibleActions';
 import { heldRenderProps } from '@/shared/ui/HeldRender';
 import { TextLink } from '@/shared/ui/TextLink';
-import { spacing } from '@/theme';
+import { chartStyles, spacing } from '@/theme';
 
 import type { ChartTable } from './chartSummary';
 
@@ -42,7 +42,9 @@ function useShowData(table: ChartTable | null): (() => void) | null {
  * The one surface every chart's plot sits in. A canvas says nothing to a screen reader, so the
  * plot is one image labelled with its summary, and it offers Show data both as a custom action
  * and as a visible button under the plot, either opening the chart's rows in a table sheet. A
- * plot held over a refetch is dimmed and reported busy; Show data stays at full strength.
+ * plot held over a refetch is dimmed and reported busy; Show data stays at full strength. The
+ * plot is laid out left to right in every layout direction, so its labels run the way its
+ * canvas draws.
  */
 export function ChartSurface({
   summary,
@@ -60,7 +62,7 @@ export function ChartSurface({
   return (
     <>
       <View
-        style={[styles.plot, style, heldProps.style]}
+        style={[styles.plot, chartStyles.plotDirection, style, heldProps.style]}
         testID={testID}
         accessible
         accessibilityRole="image"

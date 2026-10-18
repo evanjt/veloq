@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react';
+import { fitnessTarget } from '@/shared/app/fitnessEntry';
 
 interface SlideContent {
   /** i18n key for slide title */
@@ -112,7 +113,7 @@ export const WHATS_NEW_SLIDES: Record<string, WhatsNewSlideDefinition[]> = {
       titleKey: 'whatsNew.v022.heatmapTitle',
       bodyKey: 'whatsNew.v022.heatmapBody',
       icon: 'grid',
-      showMeRoute: '/training',
+      showMeRoute: fitnessTarget({ chart: 'calendar' }),
       showMeTip: 'whatsNew.v022.heatmapTip',
       showMeWhen: 'hasActivities',
       get Component() {

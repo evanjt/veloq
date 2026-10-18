@@ -2,10 +2,12 @@
 //!
 //! Derived fitness data (trends, aggregates, calendars, highlights) lives in
 //! [`derivations`]. Route and section performance queries live in
-//! [`performances`], and the stale-PR selection in [`stale_pr`].
+//! [`performances`], the stale-PR selection in [`stale_pr`], and the typed
+//! sport settings every reader looks an entry up through in [`sport_settings`].
 
 pub(crate) mod derivations;
 pub(crate) mod performances;
+pub(crate) mod sport_settings;
 pub(crate) mod stale_pr;
 
 use crate::ActivityMetrics;

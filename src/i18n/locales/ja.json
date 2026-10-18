@@ -34,7 +34,6 @@
     "terrainRow": "3D地形",
     "activityStats": "アクティビティ統計",
     "calories": "カロリー",
-    "chartHint": "長押しでスクラブ • チップ長押しで軸変更",
     "distance": "距離",
     "xAxis": {
       "distance": "距離",
@@ -139,6 +138,7 @@
     "zoneMaxDefaultHint": "intervals.icu のスポーツ設定で最大心拍を設定してください",
     "prDelta": "PR比 +{{delta}}",
     "chartAverage": "平均",
+    "chartGain": "獲得",
     "gainStat": "↑ {{value}}"
   },
   "activityDetail": {
@@ -733,6 +733,7 @@
     "activitiesCount_one": "{{count}}件のアクティビティ",
     "activitiesCount_other": "{{count}}件のアクティビティ",
     "daysTrained": "トレーニング日",
+    "eftpChanged": "eFTP 変更",
     "fatigueATL": "疲労 (ATL)",
     "fitnessCTL": "フィットネス (CTL)",
     "loadPartial": "一部",
@@ -765,9 +766,6 @@
     "greyZone": "グレーゾーン",
     "optimal": "最適",
     "highRisk": "高リスク"
-  },
-  "healthScreen": {
-    "title": "健康"
   },
   "insights": {
     "ranking": {
@@ -1230,9 +1228,9 @@
     "activities": "アクティビティ",
     "feed": "フィード",
     "fitness": "体力",
-    "health": "健康",
     "map": "マップ",
     "settings": "設定",
+    "settingsTab": "設定",
     "training": "トレーニング",
     "wellness": "ウェルネス",
     "insights": "分析"
@@ -1594,6 +1592,7 @@
     "searchSections": "セクションを検索…",
     "searchRoutes": "ルートを検索…",
     "sortActivities": "アクティビティ",
+    "sortBy": "並べ替え",
     "sortDistance": "距離",
     "sortMostVisited": "最多訪問",
     "sortNameAZ": "名前 A-Z",

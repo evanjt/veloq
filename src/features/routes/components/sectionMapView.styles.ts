@@ -1,15 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-import {
-  colorWithOpacity,
-  darkColors,
-  ink,
-  layers,
-  layout,
-  opacity,
-  shadows,
-  spacing,
-} from '@/theme';
+import { colorWithOpacity, darkColors, ink, layers, layout, opacity, spacing } from '@/theme';
 
 export const styles = StyleSheet.create({
   outerContainer: {
@@ -58,7 +49,6 @@ export const styles = StyleSheet.create({
     backgroundColor: colorWithOpacity(ink.white, 0.95),
     justifyContent: 'center',
     alignItems: 'center',
-    ...shadows.modal,
   },
   controlButtonDark: {
     backgroundColor: darkColors.surfaceRaised,

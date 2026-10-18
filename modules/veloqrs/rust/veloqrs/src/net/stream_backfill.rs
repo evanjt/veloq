@@ -55,7 +55,7 @@
 //! a pass regardless.
 
 use crate::governor::Lane;
-use crate::net::endpoints::{DEFAULT_STREAM_TYPES, fetch_streams_bytes};
+use crate::net::intervals::endpoints::{DEFAULT_STREAM_TYPES, fetch_streams_bytes};
 use crate::net::transport::{NetError, Transport};
 use crate::net::types::{
     StreamDto, TrackClock, parse_streams, storable_series, track_clock, trackless_series,

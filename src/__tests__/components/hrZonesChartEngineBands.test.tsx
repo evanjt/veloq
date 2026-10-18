@@ -2,7 +2,7 @@
  * Scenario: the saved activity chart built its bands and bucketed the stream in
  * TypeScript, from sport settings it read itself.
  * Expected behaviour: it draws exactly the bands and times the activity detail
- * read resolved, and reads no sport settings of its own.
+ * read resolved.
  */
 
 import React from 'react';
@@ -19,12 +19,6 @@ jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
 }));
 
-const mockUseSportSettings = jest.fn(() => ({ data: undefined }));
-jest.mock('@/shared/app/useSportSettings', () => ({
-  ...jest.requireActual('@/shared/app/useSportSettings'),
-  useSportSettings: () => mockUseSportSettings(),
-}));
-
 const bands = [
   { zone: 1, minBpm: 0, maxBpm: 140, seconds: 90, percent: 75, share: 75 },
   { zone: 2, minBpm: 140, maxBpm: 155, seconds: 30, percent: 25, share: 25 },
@@ -33,7 +27,7 @@ const bands = [
   { zone: 5, minBpm: 185, maxBpm: 200, seconds: 0, percent: 0, share: 0 },
 ];
 
-it('renders the engine bands and times as given, with no sport settings read', async () => {
+it('renders the engine bands and times as given', async () => {
   const { getByText, queryByText } = await render(
     <HRZonesChart hrZones={bands} maxHR={200} movingTime={120} />
   );
@@ -45,7 +39,6 @@ it('renders the engine bands and times as given, with no sport settings read', a
   expect(getByText('140-155 bpm')).toBeTruthy();
   expect(getByText('185-200 bpm')).toBeTruthy();
   expect(queryByText('Z6')).toBeNull();
-  expect(mockUseSportSettings).not.toHaveBeenCalled();
 });
 
 it('shows the placeholder when the engine has no zone time', async () => {

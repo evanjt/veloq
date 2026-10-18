@@ -1,7 +1,6 @@
 import { useMemo, useCallback, useState } from 'react';
 import { summaryCardFtp } from '@/features/home/lib/summaryCardFtp';
 import { useTranslation } from 'react-i18next';
-import { useAthlete } from '@/shared/app/useAthlete';
 import { useStableBy } from '@/shared/app/useStableBy';
 import { useWellnessGeneration } from '@/features/wellness';
 import { formatForm, getFormZone } from '@/features/fitness';
@@ -52,9 +51,6 @@ interface SupportingMetric {
  * Return type for useSummaryCardData hook
  */
 export interface SummaryCardData {
-  // Profile
-  profileUrl?: string | undefined;
-
   // Hero metric
   heroMetric: string;
   heroValue: number | string;
@@ -183,12 +179,8 @@ export function useSummaryCardData(
   } = {}
 ): SummaryCardData {
   const { t } = useTranslation();
-  const { data: athlete } = useAthlete();
   const summaryCard = useDashboardPreferences((s) => s.summaryCard);
   const isMetric = useMetricSystem();
-
-  // Profile URL
-  const profileUrl = athlete?.profile_medium || athlete?.profile;
 
   // The card's wellness numbers come out of the engine bundle below. What is
   // left to subscribe to is the fact of a sync, so the sparklines look again;
@@ -638,7 +630,6 @@ export function useSummaryCardData(
 
   return useMemo(
     () => ({
-      profileUrl,
       heroMetric: summaryCard.heroMetric,
       heroValue: stableHeroData.value,
       heroLabel: stableHeroData.label,
@@ -662,7 +653,6 @@ export function useSummaryCardData(
       refetch,
     }),
     [
-      profileUrl,
       summaryCard.heroMetric,
       stableHeroData,
       formZone,

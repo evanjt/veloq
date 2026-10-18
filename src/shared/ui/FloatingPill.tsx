@@ -1,16 +1,25 @@
 /**
- * The status pill: passing status that floats over the page and asks nothing of
- * the athlete. Anything the athlete has to act on is a banner instead.
+ * The floating pill. The status variant is passing status that floats over the
+ * page and asks nothing of the athlete: it passes every touch through, and
+ * anything the athlete has to act on is a banner instead. The action variant,
+ * drawn when the pill has an `onPress`, is a quick return: one button with a
+ * trailing chevron.
  *
  * A lead, a title and an optional detail on the raised surface with the pill
  * shadow, and in dark a 1px card edge, since a shadow alone does not lift a
  * surface off a dark page. The words wrap rather than being cut, so the pill
  * grows taller at large text and the stack it sits in moves the pills below it
- * down. It passes every touch through.
+ * down.
  */
 
 import React, { type ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  View,
+  type AccessibilityActionEvent,
+  type ColorValue,
+} from 'react-native';
 import Animated from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
@@ -22,27 +31,26 @@ import {
   iconSize,
   layout,
   motionPresets,
-  shadows,
+  raised,
   spacing,
-  stroke,
   typography,
 } from '@/theme';
+import { pressable, pressRipple } from './pressFeedback';
 import { useAnnounceOnAppear } from './useAnnounceOnAppear';
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
-/** A ground and ink a pill draws instead of the raised surface, every word in the ink. */
-export interface PillFill {
-  ground: string;
-  ink: string;
-}
-
 interface FloatingPillProps {
   /** The lead glyph, drawn at the small icon size. */
   icon?: IconName;
-  /** A lead of the pill's own, such as a progress ring, in place of a glyph. */
+  /**
+   * A lead of the pill's own in place of a glyph, such as a progress ring, or a
+   * state dot and a live value. It is never narrower than a glyph.
+   */
   lead?: ReactNode;
   title: string;
+  /** Colours the title, for a pill that names a state in that state's role. */
+  titleColor?: ColorValue;
   detail?: string | null;
   /**
    * Keys the title, so a new value cross-fades in over the old rather than
@@ -51,11 +59,18 @@ interface FloatingPillProps {
   titleKey?: string;
   /** Draws the detail in tabular figures, for counts that tick. */
   numericDetail?: boolean;
-  fill?: PillFill;
   /** Spoken once on iOS as the pill appears; Android reads the live region. */
   announcement?: string | null;
+  /** Makes the pill the action variant: one button, with a trailing chevron. */
+  onPress?: () => void;
+  /** The pill's second action, reached by a long press and offered to assistive technology. */
+  secondaryAction?: { label: string; onAction: () => void };
+  /** What the action pill's button is called, when the title alone does not say it. */
+  accessibilityLabel?: string;
   testID: string;
 }
+
+const SECONDARY_ACTION = 'longpress';
 
 export function FloatingPill({
   icon,
@@ -64,27 +79,20 @@ export function FloatingPill({
   detail,
   titleKey,
   numericDetail = false,
-  fill,
   announcement,
+  titleColor,
+  onPress,
+  secondaryAction,
+  accessibilityLabel,
   testID,
 }: FloatingPillProps) {
   const { isDark } = useTheme();
   const palette = isDark ? darkColors : colors;
   useAnnounceOnAppear(announcement);
+  const surface = [styles.pill, raised('pill', isDark), { backgroundColor: palette.surfaceRaised }];
 
-  const ground = fill?.ground ?? palette.surfaceRaised;
-  const titleInk = fill?.ink ?? palette.textPrimary;
-  const detailInk = fill?.ink ?? palette.textSecondary;
-  const edge = isDark && !fill ? styles.edge : null;
-
-  return (
-    <Animated.View
-      {...motionPresets.pill}
-      style={[styles.pill, shadows.pill, edge, { backgroundColor: ground }]}
-      pointerEvents="none"
-      accessibilityLiveRegion="polite"
-      testID={testID}
-    >
+  const content = (
+    <>
       <View style={styles.lead}>
         {lead ??
           (icon ? (
@@ -95,20 +103,66 @@ export function FloatingPill({
         <Animated.Text
           key={titleKey}
           {...(titleKey === undefined ? null : motionPresets.message)}
-          style={[styles.title, { color: titleInk }]}
+          style={[styles.title, { color: titleColor ?? palette.textPrimary }]}
           testID={`${testID}-title`}
         >
           {title}
         </Animated.Text>
         {detail ? (
           <Animated.Text
-            style={[styles.detail, numericDetail && styles.numeric, { color: detailInk }]}
+            style={[
+              styles.detail,
+              numericDetail && styles.numeric,
+              { color: palette.textSecondary },
+            ]}
             testID={`${testID}-detail`}
           >
             {detail}
           </Animated.Text>
         ) : null}
       </View>
+    </>
+  );
+
+  if (onPress) {
+    const onAccessibilityAction = (event: AccessibilityActionEvent) => {
+      if (event.nativeEvent.actionName === SECONDARY_ACTION) secondaryAction?.onAction();
+    };
+    return (
+      <Animated.View {...motionPresets.pill} style={styles.action} pointerEvents="box-none">
+        <Pressable
+          style={pressable(surface)}
+          android_ripple={pressRipple}
+          onPress={onPress}
+          onLongPress={secondaryAction?.onAction}
+          accessibilityRole="button"
+          accessibilityLabel={accessibilityLabel}
+          accessibilityActions={
+            secondaryAction ? [{ name: SECONDARY_ACTION, label: secondaryAction.label }] : undefined
+          }
+          onAccessibilityAction={secondaryAction ? onAccessibilityAction : undefined}
+          testID={testID}
+        >
+          {content}
+          <MaterialCommunityIcons
+            name="chevron-right"
+            size={iconSize.sm}
+            color={palette.iconSecondary}
+          />
+        </Pressable>
+      </Animated.View>
+    );
+  }
+
+  return (
+    <Animated.View
+      {...motionPresets.pill}
+      style={surface}
+      pointerEvents="none"
+      accessibilityLiveRegion="polite"
+      testID={testID}
+    >
+      {content}
     </Animated.View>
   );
 }
@@ -124,13 +178,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.smPlus,
     borderRadius: layout.borderRadiusFull,
   },
-  edge: {
-    borderWidth: stroke.one,
-    borderColor: darkColors.cardEdge,
+  action: {
+    maxWidth: '100%',
   },
   lead: {
-    width: iconSize.sm,
-    height: iconSize.sm,
+    minWidth: iconSize.sm,
+    minHeight: iconSize.sm,
+    flexDirection: 'row',
+    gap: spacing.xs,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -11,7 +11,7 @@ import React from 'react';
 import { View, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { Text } from 'react-native-paper';
 
-import { colors, darkColors, shadows, spacing, typography, layout } from '@/theme';
+import { colors, darkColors, raised, spacing, typography, layout } from '@/theme';
 
 /** Width of a ramp, fixed so a tick lands at its share of the scale. */
 const RAMP_WIDTH = 160;
@@ -31,7 +31,7 @@ export function MapKey({
 }) {
   return (
     <View
-      style={[styles.card, isDark && styles.cardDark, style]}
+      style={[styles.card, raised('card', isDark), isDark && styles.cardDark, style]}
       testID={testID}
       pointerEvents="none"
     >
@@ -142,7 +142,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xsPlus,
     borderRadius: layout.borderRadiusMd,
     backgroundColor: colors.surface,
-    ...shadows.card,
   },
   cardDark: {
     backgroundColor: darkColors.surface,

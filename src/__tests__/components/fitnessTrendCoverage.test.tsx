@@ -105,8 +105,6 @@ describe('the fitness trend sections', () => {
         powerZones={undefined}
         hrZones={undefined}
         periodCoverage={periodCoverage}
-        loadingActivities={false}
-        hasActivities
         dominantZone={null}
         zonesExpanded={false}
         onZonesToggle={jest.fn()}

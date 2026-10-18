@@ -1,6 +1,6 @@
 import { listCountLabel, SECTION_COUNT_KEYS } from '@/features/routes/lib/listCountLabel';
 import React from 'react';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Button, IconButton, SearchBar } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
@@ -125,10 +125,7 @@ export function SectionsListHeader({
             disabled={rescanDisabled}
           >
             {isScanning ? (
-              <ActivityIndicator
-                size={13}
-                color={isDark ? darkColors.textSecondary : colors.textSecondary}
-              />
+              <IconButton.Spinner />
             ) : (
               <Icon
                 name="reload"

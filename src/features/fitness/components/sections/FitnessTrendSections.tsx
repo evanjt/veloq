@@ -3,7 +3,7 @@ import { curveHeaderValue } from '@/features/fitness/lib/curveHeaderValue';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { Card, CollapsibleSection, Shimmer, SkeletonFrame, StatTile } from '@/shared/ui';
+import { Card, CollapsibleSection, StatTile } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { ZoneDistributionChart, FTPTrendChart, DecouplingChart } from '@/features/stats';
 import { type DecouplingSource } from '@/features/activity';
@@ -23,7 +23,6 @@ import {
   opacity,
   spacing,
   stroke,
-  layout,
   typography,
   verdictColor,
 } from '@/theme';
@@ -45,15 +44,6 @@ const ZONES_HEIGHT = 200;
 const TRENDS_HEIGHT = 220;
 const DECOUPLING_HEIGHT = 160;
 
-/** A chart's place while the activities it is drawn from are read. */
-function ChartPlaceholder({ height }: { height: number }) {
-  return (
-    <SkeletonFrame>
-      <Shimmer height={height} borderRadius={layout.borderRadius} />
-    </SkeletonFrame>
-  );
-}
-
 interface FitnessTrendSectionsProps {
   sportMode: PrimarySport;
   timeRange: TimeRange;
@@ -64,8 +54,6 @@ interface FitnessTrendSectionsProps {
    * decoupling ride is picked from the activities of the same period.
    */
   periodCoverage: RangeCoverage;
-  loadingActivities: boolean;
-  hasActivities: boolean;
   dominantZone: { name: string; share: number } | null;
   zonesExpanded: boolean;
   onZonesToggle: (expanded: boolean) => void;
@@ -91,8 +79,6 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
   powerZones,
   hrZones,
   periodCoverage,
-  loadingActivities,
-  hasActivities,
   dominantZone,
   zonesExpanded,
   onZonesToggle,
@@ -121,7 +107,6 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
   const headerFtp = curveHeaderValue({
     value: eftpTrend?.latest,
     hasSeries: (eftpTrend?.series.length ?? 0) > 0,
-    isLoading: loadingActivities && !hasActivities,
   });
 
   return (
@@ -145,30 +130,24 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
             }
           >
             <View style={styles.collapsibleContent}>
-              {loadingActivities && !hasActivities ? (
-                <ChartPlaceholder height={zonesHeight} />
-              ) : (
-                <>
-                  {sportMode === 'Cycling' && (
-                    <View style={styles.zoneSection}>
-                      <ZoneDistributionChart
-                        data={powerZones}
-                        type="power"
-                        periodLabel={t(PERIOD_LABEL_KEYS.short[timeRange] as never)}
-                        coverage={periodCoverage}
-                      />
-                    </View>
-                  )}
-                  <View style={sportMode === 'Cycling' ? styles.zoneSectionDivided : undefined}>
-                    <ZoneDistributionChart
-                      data={hrZones}
-                      type="hr"
-                      periodLabel={t(PERIOD_LABEL_KEYS.short[timeRange] as never)}
-                      coverage={periodCoverage}
-                    />
-                  </View>
-                </>
+              {sportMode === 'Cycling' && (
+                <View style={styles.zoneSection}>
+                  <ZoneDistributionChart
+                    data={powerZones}
+                    type="power"
+                    periodLabel={t(PERIOD_LABEL_KEYS.short[timeRange] as never)}
+                    coverage={periodCoverage}
+                  />
+                </View>
               )}
+              <View style={sportMode === 'Cycling' ? styles.zoneSectionDivided : undefined}>
+                <ZoneDistributionChart
+                  data={hrZones}
+                  type="hr"
+                  periodLabel={t(PERIOD_LABEL_KEYS.short[timeRange] as never)}
+                  coverage={periodCoverage}
+                />
+              </View>
             </View>
           </CollapsibleSection>
         </Card>
@@ -204,18 +183,14 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
               }
             >
               <View style={styles.collapsibleContent}>
-                {loadingActivities && !hasActivities ? (
-                  <ChartPlaceholder height={TRENDS_HEIGHT} />
-                ) : (
-                  <FTPTrendChart
-                    data={eftpTrend?.series}
-                    change={eftpTrend?.change}
-                    changePercent={eftpTrend?.changePercent}
-                    lookbackDays={eftpTrend?.lookbackDays}
-                    height={180}
-                    coverage={eftpCoverage}
-                  />
-                )}
+                <FTPTrendChart
+                  data={eftpTrend?.series}
+                  change={eftpTrend?.change}
+                  changePercent={eftpTrend?.changePercent}
+                  lookbackDays={eftpTrend?.lookbackDays}
+                  height={180}
+                  coverage={eftpCoverage}
+                />
               </View>
             </CollapsibleSection>
           </Card>
@@ -314,15 +289,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
               }
             >
               <View style={styles.collapsibleContent}>
-                {loadingActivities && !decouplingSource ? (
-                  <ChartPlaceholder height={DECOUPLING_HEIGHT} />
-                ) : (
-                  <DecouplingChart
-                    source={decouplingSource}
-                    height={120}
-                    coverage={periodCoverage}
-                  />
-                )}
+                <DecouplingChart source={decouplingSource} height={120} coverage={periodCoverage} />
               </View>
             </CollapsibleSection>
           </Card>

@@ -238,8 +238,8 @@ struct LatestActivityView: View {
     }
   }
 
-  /// Form before and after, each side in the colour of the zone it sits in, with the zones in
-  /// words, so the line says the same where colour is lost: the zone form ended in, or both when
+  /// Form before and after, each side primary text beside a dot in the fill of the zone it sits
+  /// in, with the zones in words, so the line says the same where colour is lost: the zone form ended in, or both when
   /// the activity moved it from one to another. The words follow the figures on their row where
   /// they fit and go under them where they do not. The figures keep their width and a long word
   /// for form wraps beside them.
@@ -266,15 +266,26 @@ struct LatestActivityView: View {
     HStack(alignment: .firstTextBaseline, spacing: 4) {
       Text(form.label).measuredText("form label").foregroundColor(palette.textSecondary)
       Group {
+        zoneDot(form.beforeZone, palette)
         Text(form.before).fontWeight(.semibold).measuredText("form before")
-          .foregroundColor(palette.formTextColor(form.beforeZone))
+          .foregroundColor(palette.textPrimary)
         Text(verbatim: "→").measuredText("form arrow").foregroundColor(palette.textSecondary)
+        zoneDot(form.afterZone, palette)
         Text(form.after).fontWeight(.semibold).measuredText("form after")
-          .foregroundColor(palette.formTextColor(form.afterZone))
+          .foregroundColor(palette.textPrimary)
       }
       .fixedSize()
     }
     .widgetFont(.label)
+  }
+
+  /// The key dot of the zone a form value sits in, standing on the figures' baseline, or nothing
+  /// for a zone this build does not know.
+  @ViewBuilder
+  private func zoneDot(_ zone: String?, _ palette: WidgetPalette) -> some View {
+    if let fill = zone.flatMap(palette.zoneFill) {
+      KeyDot(color: fill)
+    }
   }
 
   private func activityURL(_ latest: WidgetLatest) -> URL? {

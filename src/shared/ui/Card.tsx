@@ -16,7 +16,7 @@ import React from 'react';
 import { StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, layout, shadows, spacing, stroke } from '@/theme';
+import { colors, darkColors, layout, raised, spacing } from '@/theme';
 import { CardHeader } from './CardHeader';
 import { PressTarget } from './PressTarget';
 import { accessibleActions, type AccessibleAction } from './accessibleActions';
@@ -93,11 +93,7 @@ export function Card({
   const ground: ViewStyle = {
     backgroundColor: isDark ? darkColors.surfaceRaised : colors.surface,
     borderRadius: layout.borderRadius,
-    ...(variant === 'raised'
-      ? isDark
-        ? { ...shadows.none, borderWidth: stroke.one, borderColor: darkColors.border }
-        : shadows.card
-      : null),
+    ...(variant === 'raised' ? raised('card', isDark) : null),
   };
 
   const bodyStyle: ViewStyle =

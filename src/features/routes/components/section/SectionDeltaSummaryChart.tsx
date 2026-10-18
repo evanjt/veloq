@@ -120,7 +120,11 @@ export function SectionDeltaSummaryChart({
   return (
     <View testID="section-delta-summary-chart" style={styles.container}>
       <GestureDetector gesture={gesture}>
-        <View style={styles.plot} onLayout={onLayout} {...accessibilityProps}>
+        <View
+          style={[styles.plot, chartStyles.plotDirection]}
+          onLayout={onLayout}
+          {...accessibilityProps}
+        >
           {chartWidth > 0 && (
             <>
               <Canvas style={StyleSheet.absoluteFill}>
@@ -168,7 +172,11 @@ export function SectionDeltaSummaryChart({
                   />
                 )}
               </Canvas>
-              <View style={styles.yAxisOverlay} pointerEvents="none">
+              <View
+                style={styles.yAxisOverlay}
+                pointerEvents="none"
+                testID="section-delta-summary-y-axis"
+              >
                 <Text
                   maxFontSizeMultiplier={DENSE_TEXT_SCALE}
                   style={[
@@ -196,7 +204,10 @@ export function SectionDeltaSummaryChart({
           )}
         </View>
       </GestureDetector>
-      <View style={styles.edgeAxis}>
+      <View
+        style={[styles.edgeAxis, chartStyles.plotDirection]}
+        testID="section-delta-summary-x-axis"
+      >
         <Text
           maxFontSizeMultiplier={DENSE_TEXT_SCALE}
           style={[chartStyles.chartLabel, isDark && chartStyles.chartLabelDark]}

@@ -21,7 +21,10 @@ import {
   chartStyles,
 } from '@/theme';
 import {
+  chartLinePaint,
+  chartStroke,
   ChartSurface,
+  drawChartDot,
   lanesSummary,
   seriesTable,
   useChartColors,
@@ -429,11 +432,6 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
     const recorder = Skia.PictureRecorder();
     const canvas = recorder.beginRecording(Skia.XYWHRect(0, 0, sparklineWidth, totalHeight));
 
-    const paint = Skia.Paint();
-    paint.setStyle(1); // stroke
-    paint.setStrokeWidth(2);
-    paint.setAntiAlias(true);
-
     const separatorPaint = Skia.Paint();
     separatorPaint.setStyle(1);
     separatorPaint.setStrokeWidth(StyleSheet.hairlineWidth);
@@ -442,10 +440,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
     );
 
     metricGeometry.forEach(({ metric, yOffset, path }, i) => {
-      if (path) {
-        paint.setColor(Skia.Color(metric.color));
-        canvas.drawPath(path.path, paint);
-      }
+      if (path) canvas.drawPath(path.path, chartLinePaint(metric.color));
       if (i < metricGeometry.length - 1) {
         const separatorY = yOffset + sparklineHeight;
         canvas.drawLine(0, separatorY, sparklineWidth, separatorY, separatorPaint);
@@ -465,7 +460,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
 
     const linePaint = Skia.Paint();
     linePaint.setStyle(1);
-    linePaint.setStrokeWidth(1);
+    linePaint.setStrokeWidth(chartStroke.reference);
     linePaint.setColor(
       Skia.Color(
         isDark
@@ -473,10 +468,6 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
           : colorWithOpacity(ink.black, opacity.tint3)
       )
     );
-
-    const circlePaint = Skia.Paint();
-    circlePaint.setStyle(0); // fill
-    circlePaint.setAntiAlias(true);
 
     for (const { metric, yOffset, path } of metricGeometry) {
       if (!path) continue;
@@ -489,12 +480,16 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
         yOffset + sparklineHeight - SPARKLINE_PADDING.bottom,
         linePaint
       );
-      circlePaint.setColor(Skia.Color(metric.color));
-      canvas.drawCircle(path.sx(reading.x), path.sy(reading.value), 5, circlePaint);
+      drawChartDot(
+        canvas,
+        { x: path.sx(reading.x), y: path.sy(reading.value) },
+        metric.color,
+        chartColors.surface
+      );
     }
 
     return recorder.finishRecordingAsPicture();
-  }, [metricGeometry, sparklineWidth, sparklineHeight, selectedIdx, isDark]);
+  }, [metricGeometry, sparklineWidth, sparklineHeight, selectedIdx, isDark, chartColors]);
 
   // Compute display values for each metric row
   const metricDisplayValues = useMemo(() => {

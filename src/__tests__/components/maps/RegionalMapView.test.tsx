@@ -311,6 +311,7 @@ describe('RegionalMapView', () => {
    * the tab reports, and gives the slot up when it clears.
    */
   it('places the terrain notice in the bottom pill stack above the reported cover', async () => {
+    jest.useFakeTimers();
     useBottomPills.setState({ heights: {}, covers: { mapSheet: 380 } });
     await renderRegional();
 
@@ -332,7 +333,8 @@ describe('RegionalMapView', () => {
     });
     expect(useBottomPills.getState().heights.terrain).toBe(40);
 
-    await fireEvent.press(screen.getByTestId(TERRAIN_UNAVAILABLE_TEST_ID));
+    await act(async () => jest.advanceTimersByTime(6000));
+    jest.useRealTimers();
     expect(screen.queryByTestId('bottom-pill-terrain')).toBeNull();
     expect(useBottomPills.getState().heights.terrain).toBeUndefined();
   });

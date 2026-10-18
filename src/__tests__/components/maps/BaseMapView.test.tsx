@@ -138,7 +138,7 @@ const OVERLAY_SOURCES: NonNullable<BaseMapViewProps['overlaySources']> = {
   },
 };
 
-const OVERLAY_LAYERS: NonNullable<BaseMapViewProps['overlayLayers']> = [
+const OVERLAY_LAYERS: NonNullable<BaseMapViewProps['overlayLayers']> = () => [
   { id: 'marks-line', type: 'line', source: 'marks', paint: { 'line-width': 2 } },
 ];
 
@@ -480,7 +480,7 @@ describe('BaseMapView', () => {
       ],
       ['missing bounds', { routeCoordinates: ROUTE, bounds: undefined }],
       ['collapsed bounds', { routeCoordinates: ROUTE, bounds: { ne: ROUTE[0], sw: ROUTE[0] } }],
-      ['empty overlays', { routeCoordinates: ROUTE, overlaySources: {}, overlayLayers: [] }],
+      ['empty overlays', { routeCoordinates: ROUTE, overlaySources: {}, overlayLayers: () => [] }],
     ];
 
     it.each(cases)('survives %s', async (_label, props) => {

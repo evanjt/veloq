@@ -2,21 +2,17 @@ import React, { useCallback, useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
 import { navigateTo } from '@/shared/app/navigation';
 import {
   colors,
-  colorWithOpacity,
   darkColors,
   iconSize,
-  insightCategoryColor,
   insightToneColor,
   layout,
   spacing,
   typography,
   themePalette,
-  opacity,
 } from '@/theme';
 import { Card } from '@/shared/ui/Card';
 import { ChangeChip } from '@/shared/ui/ChangeChip';
@@ -24,9 +20,10 @@ import { composeAccessibilityLabel } from '@/shared/ui/accessibilityLabel';
 import type { DataPoint, Insight } from '@/types';
 import { InsightHistoryGraphic } from './InsightHistoryGraphic';
 import { dataLinkLabel, historyTarget } from '../lib/dataLink';
+import { insightCategoryIcon, insightGraphicColour } from '../lib/insightCategory';
 import type { TFunc } from '../types';
 import { FitText } from '@/shared/ui/FitText';
-import { Icon } from '@/shared/ui/Icon';
+import { Icon, type IconName } from '@/shared/ui/Icon';
 
 interface InsightListCardProps {
   insight: Insight;
@@ -49,7 +46,7 @@ export const InsightListCard = React.memo(function InsightListCard({
   const { isDark } = useTheme();
   const palette = themePalette(isDark);
   const { t } = useTranslation();
-  const categoryColor = insightCategoryColor(insight.category, isDark);
+  const graphicColour = insightGraphicColour(insight.category, isDark);
   const history = insight.supportingData?.history;
   // A card with too short a history to draw states its figure and its change instead.
   const figure = history ? null : printed(insight.supportingData?.hero);
@@ -73,7 +70,6 @@ export const InsightListCard = React.memo(function InsightListCard({
     <Card
       variant="raised"
       padding="none"
-      style={{ flexDirection: 'row' }}
       onPress={handlePress}
       accessibilityRole="button"
       accessibilityLabel={composeAccessibilityLabel(
@@ -86,21 +82,14 @@ export const InsightListCard = React.memo(function InsightListCard({
       actions={actions}
       testID={`insight-card-${insight.id}`}
     >
-      <View style={[styles.colorBar, { backgroundColor: categoryColor }]} />
       <View style={styles.content}>
         <View style={styles.header}>
-          <View
-            style={[
-              styles.iconCircle,
-              { backgroundColor: colorWithOpacity(categoryColor, opacity.tint2) },
-            ]}
-          >
-            <Icon
-              name={insight.icon as keyof typeof MaterialCommunityIcons.glyphMap}
-              size={iconSize.sm}
-              color={insightToneColor(insight.iconTone, isDark)}
-            />
-          </View>
+          <Icon
+            testID="insight-category-icon"
+            name={insightCategoryIcon(insight.category)}
+            size={iconSize.sm}
+            color={palette.iconSecondary}
+          />
           <View style={styles.titleRow}>
             <Text testID="insight-title" style={[styles.title, isDark && styles.titleDark]}>
               {insight.title}
@@ -109,6 +98,12 @@ export const InsightListCard = React.memo(function InsightListCard({
               <View style={[styles.newDot, { backgroundColor: palette.actionPrimary }]} />
             ) : null}
           </View>
+          <Icon
+            testID="insight-trend-glyph"
+            name={insight.icon as IconName}
+            size={iconSize.sm}
+            color={insightToneColor(insight.iconTone, isDark)}
+          />
           <Icon
             name="chevron-right"
             size={iconSize.sm}
@@ -119,7 +114,7 @@ export const InsightListCard = React.memo(function InsightListCard({
         {history && linkLabel ? (
           <InsightHistoryGraphic
             history={history}
-            color={categoryColor}
+            color={graphicColour}
             isDark={isDark}
             accessibilityLabel={linkLabel}
             onOpenSheet={handlePress}
@@ -151,12 +146,7 @@ export const InsightListCard = React.memo(function InsightListCard({
 });
 
 const styles = StyleSheet.create({
-  colorBar: {
-    width: 4,
-    alignSelf: 'stretch',
-  },
   content: {
-    flex: 1,
     paddingVertical: spacing.xs,
     paddingLeft: spacing.sm,
     paddingRight: spacing.sm,
@@ -166,13 +156,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xsPlus,
-  },
-  iconCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: layout.borderRadiusFull,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   titleRow: {
     flex: 1,

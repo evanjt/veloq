@@ -817,9 +817,6 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_fn_method_settingsmanager_get_setting(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
-  jsi::Value cpp_uniffi_veloqrs_fn_method_settingsmanager_get_sport_settings(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_settingsmanager_hr_zone_for(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
@@ -868,7 +865,7 @@ protected:
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value
-  cpp_uniffi_veloqrs_fn_method_strengthmanager_batch_fetch_exercise_sets(
+  cpp_uniffi_veloqrs_fn_method_strengthmanager_batch_fetch_owed_fit_files(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value
@@ -2077,10 +2074,6 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_checksum_method_settingsmanager_get_setting(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
-  jsi::Value
-  cpp_uniffi_veloqrs_checksum_method_settingsmanager_get_sport_settings(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_settingsmanager_hr_zone_for(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
@@ -2127,7 +2120,7 @@ protected:
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value
-  cpp_uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_exercise_sets(
+  cpp_uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_owed_fit_files(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value

@@ -9,6 +9,7 @@ import {
   type ScrollViewInstance,
 } from 'react-native';
 import { Text } from 'react-native-paper';
+import { LinearGradient } from 'expo-linear-gradient';
 import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -19,11 +20,12 @@ import Animated, {
   Extrapolation,
   runOnJS,
 } from 'react-native-reanimated';
+import { Badge, type BadgeTone } from './Badge';
 import { Icon } from './Icon';
 import * as haptics from './haptics';
 import {
-  brand,
   colors,
+  colorWithOpacity,
   darkColors,
   duration,
   easing,
@@ -31,8 +33,6 @@ import {
   layout,
   spacing,
   typography,
-  verdictColor,
-  verdictFill,
   stroke,
 } from '@/theme';
 import { PressTarget } from '@/shared/ui/PressTarget';
@@ -89,47 +89,45 @@ interface SwipeableTabsProps {
 /** The ink a tab draws its icon and its label in, one per state. */
 function tabInk(isActive: boolean, isDark: boolean): string {
   const palette = isDark ? darkColors : colors;
-  return isActive ? palette.actionLink : palette.textSecondary;
+  return isActive ? palette.textPrimary : palette.textSecondary;
 }
 
 /**
- * The fill behind a tab's count or badge and the ink on it. Each pair holds
- * 4.5:1 on the tab bar's ground in its own theme. A slower time is a decline,
- * so it takes the verdict ladder's negative rung, its own tone on a tint of it,
- * and reads as one in both themes rather than as a neutral grey.
+ * The badge tone a tab's count or badge text draws in. A count is a count on
+ * the selected tab and quiet on the others; a result names its own meaning,
+ * so a slower time reads as a decline in both themes rather than as grey.
  */
-export function badgePaint(
-  tab: SwipeableTab,
-  isActive: boolean,
-  isDark: boolean
-): { fill: string; ink: string } {
-  const palette = isDark ? darkColors : colors;
-  const tone = tab.badgeText !== undefined ? (tab.badgeTone ?? 'neutral') : null;
-  if (tone === 'pr') return { fill: brand.gold, ink: colors.textOnBright };
-  if (tone === 'positive') return { fill: colors.successFill, ink: colors.textOnBright };
-  if (tone === 'negative') {
-    return { fill: verdictFill('negative', isDark), ink: verdictColor('negative', isDark) };
+export function tabBadgeTone(tab: SwipeableTab, isActive: boolean): BadgeTone {
+  if (tab.badgeText === undefined) return isActive ? 'count' : 'neutral';
+  switch (tab.badgeTone) {
+    case 'pr':
+      return 'record';
+    case 'positive':
+      return 'positive';
+    case 'negative':
+      return 'negative';
+    default:
+      return 'neutral';
   }
-  if (tone === null && isActive) return { fill: palette.actionPrimary, ink: colors.textOnFill };
-  return { fill: palette.fillNeutral, ink: palette.textSecondary };
 }
 
 function TabContent({
   tab,
   isActive,
   isDark,
+  testID,
   onLayout,
 }: {
   tab: SwipeableTab;
   isActive: boolean;
   isDark: boolean;
-  onLayout: (event: LayoutChangeEvent) => void;
+  testID: string;
+  onLayout?: (event: LayoutChangeEvent) => void;
 }) {
   const ink = tabInk(isActive, isDark);
   const badge = tab.badgeText ?? tab.count;
-  const paint = badge === undefined ? null : badgePaint(tab, isActive, isDark);
   return (
-    <View testID={`tab-content-${tab.key}`} style={styles.tabContent} onLayout={onLayout}>
+    <View testID={testID} style={styles.tabContent} onLayout={onLayout}>
       <Icon name={tab.icon} size={iconSize.md} color={ink} />
       <Text
         // The tabs share the width with `flex: 1`, so a label wider than its
@@ -141,13 +139,14 @@ function TabContent({
       >
         {tab.label}
       </Text>
-      {paint ? (
-        <View
+      {badge !== undefined ? (
+        <Badge
+          tone={tabBadgeTone(tab, isActive)}
+          size="sm"
+          text={badge}
+          isDark={isDark}
           testID={`tab-badge-${tab.key}`}
-          style={[styles.tabBadge, { backgroundColor: paint.fill }]}
-        >
-          <Text style={[styles.tabBadgeText, { color: paint.ink }]}>{badge}</Text>
-        </View>
+        />
       ) : null}
     </View>
   );
@@ -191,8 +190,9 @@ export function SwipeableTabs({
   const panTaken = useSharedValue(false);
   const isRTL = I18nManager.isRTL;
 
-  // Width each tab needs for its icon, label and badge, reported by the
-  // content row of each tab, which never shrinks below its natural size.
+  // Width each tab needs for its icon, label and badge, reported by the hidden
+  // measuring row, where nothing constrains a tab and every label takes the
+  // selected weight, so a selection never moves the strip between layouts.
   const [contentWidths, setContentWidths] = useState<number[]>([]);
   const available = pageWidth - spacing.md * 2;
   const stripLayout = useMemo(
@@ -364,6 +364,7 @@ export function SwipeableTabs({
 
   // The underline marks the selected tab, so it is the on role of the theme.
   const indicatorFill = isDark ? darkColors.controlOn : colors.controlOn;
+  const stripGround = isDark ? darkColors.surfacePage : colors.surfacePage;
   // Animated underline indicator: follows the measured left edge and width of
   // the tab under it, equal shares or content widths alike.
   const indicatorStyle = useAnimatedStyle(() => {
@@ -401,50 +402,81 @@ export function SwipeableTabs({
         accessibilityRole="tablist"
         style={[styles.tabBar, scrolls && styles.tabBarScrolling, isDark && styles.tabBarDark]}
       >
-        {scrolls ? (
-          <ScrollView
-            ref={scrollRef}
-            testID="tab-strip-scroll"
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.tabScrollContent}
-          >
-            {tabs.map((tab, index) => {
-              const isActive = activeTab === tab.key;
-              return (
-                <PressTarget
-                  key={tab.key}
-                  testID={`tab-${tab.key}`}
-                  style={scrolls ? { ...styles.tab, flex: 0, width: tabWidths[index] } : styles.tab}
-                  onPress={() => handleTabPress(tab.key)}
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected: isActive }}
-                  accessibilityLabel={tabAccessibilityLabel(tab)}
-                >
-                  <TabContent
-                    tab={tab}
-                    isActive={isActive}
-                    isDark={isDark}
-                    onLayout={(event) => handleContentLayout(index, event)}
-                  />
-                </PressTarget>
-              );
-            })}
-            {/* Animated underline indicator */}
-            <Animated.View
-              testID="tab-indicator"
-              style={[styles.indicator, { backgroundColor: indicatorFill }, indicatorStyle]}
+        {/* Each tab at its natural width, measured where no share can squeeze it */}
+        <ScrollView
+          testID="tab-measure-row"
+          horizontal
+          scrollEnabled={false}
+          pointerEvents="none"
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={styles.measureRow}
+        >
+          {tabs.map((tab, index) => (
+            <TabContent
+              key={tab.key}
+              tab={tab}
+              isActive
+              isDark={isDark}
+              testID={`tab-measure-${tab.key}`}
+              onLayout={(event) => handleContentLayout(index, event)}
             />
-          </ScrollView>
+          ))}
+        </ScrollView>
+        {scrolls ? (
+          <>
+            <ScrollView
+              ref={scrollRef}
+              testID="tab-strip-scroll"
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.tabScrollContent}
+            >
+              {tabs.map((tab, index) => {
+                const isActive = activeTab === tab.key;
+                return (
+                  <PressTarget
+                    key={tab.key}
+                    testID={`tab-${tab.key}`}
+                    style={{ ...styles.tab, flex: 0, width: tabWidths[index] }}
+                    onPress={() => handleTabPress(tab.key)}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected: isActive }}
+                    accessibilityLabel={tabAccessibilityLabel(tab)}
+                  >
+                    <TabContent
+                      tab={tab}
+                      isActive={isActive}
+                      isDark={isDark}
+                      testID={`tab-content-${tab.key}`}
+                    />
+                  </PressTarget>
+                );
+              })}
+              {/* Animated underline indicator */}
+              <Animated.View
+                testID="tab-indicator"
+                style={[styles.indicator, { backgroundColor: indicatorFill }, indicatorStyle]}
+              />
+            </ScrollView>
+            <LinearGradient
+              testID="tab-strip-fade"
+              colors={[colorWithOpacity(stripGround, 0), stripGround]}
+              start={{ x: isRTL ? 1 : 0, y: 0 }}
+              end={{ x: isRTL ? 0 : 1, y: 0 }}
+              style={styles.trailingFade}
+              pointerEvents="none"
+            />
+          </>
         ) : (
           <>
-            {tabs.map((tab, index) => {
+            {tabs.map((tab) => {
               const isActive = activeTab === tab.key;
               return (
                 <PressTarget
                   key={tab.key}
                   testID={`tab-${tab.key}`}
-                  style={scrolls ? { ...styles.tab, flex: 0, width: tabWidths[index] } : styles.tab}
+                  style={styles.tab}
                   onPress={() => handleTabPress(tab.key)}
                   accessibilityRole="tab"
                   accessibilityState={{ selected: isActive }}
@@ -454,7 +486,7 @@ export function SwipeableTabs({
                     tab={tab}
                     isActive={isActive}
                     isDark={isDark}
-                    onLayout={(event) => handleContentLayout(index, event)}
+                    testID={`tab-content-${tab.key}`}
                   />
                 </PressTarget>
               );
@@ -507,6 +539,20 @@ const styles = StyleSheet.create({
   tabScrollContent: {
     paddingHorizontal: spacing.md,
   },
+  measureRow: {
+    position: 'absolute',
+    top: 0,
+    start: 0,
+    end: 0,
+    opacity: 0,
+  },
+  trailingFade: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    end: 0,
+    width: spacing.lg,
+  },
   tabBarDark: {
     backgroundColor: darkColors.surfacePage,
     borderBottomColor: darkColors.border,
@@ -532,21 +578,11 @@ const styles = StyleSheet.create({
   tabTextActive: {
     fontWeight: typography.bodySmallBold.fontWeight,
   },
-  tabBadge: {
-    borderRadius: layout.borderRadiusFull,
-    paddingHorizontal: spacing.xsPlus,
-    paddingVertical: spacing.xxs,
-    minWidth: 22,
-    alignItems: 'center',
-  },
-  tabBadgeText: {
-    ...typography.badge,
-  },
   indicator: {
     position: 'absolute',
     bottom: 0,
     left: spacing.md,
-    height: 3,
+    height: stroke.three,
     borderTopLeftRadius: layout.borderRadiusXs,
     borderTopRightRadius: layout.borderRadiusXs,
   },

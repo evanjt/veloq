@@ -27,8 +27,8 @@ export interface RouteSyncPlan {
    * connection returns. Offline, outside demo mode, with tracks owed.
    */
   oweGpsToEngine: boolean;
-  /** Ask Rust to pull FIT files for unprocessed strength activities. */
-  fetchStrength: boolean;
+  /** Ask Rust to pull the FIT files its queue owes, strength sessions and pool swims. */
+  fetchFitFiles: boolean;
   /** Backfill time streams for activities with a NULL lap_time. */
   backfillStreams: boolean;
   /** Drain a finished detection and restart a dirty one. */
@@ -42,7 +42,7 @@ export function routeSyncPlan({ online, isDemo, newGpsCount }: RouteSyncConditio
   return {
     fetchGps: canFetchGps && newGpsCount > 0,
     oweGpsToEngine: !canFetchGps && newGpsCount > 0,
-    fetchStrength: online && !isDemo,
+    fetchFitFiles: online && !isDemo,
     backfillStreams: online && !isDemo,
     // The recovery is the local half, and it runs whenever the pass is not
     // going on to fetch.

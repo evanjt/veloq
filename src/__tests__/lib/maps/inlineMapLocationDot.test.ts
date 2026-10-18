@@ -19,6 +19,7 @@ import {
   buildUserLocationCollection,
   USER_LOCATION_SOURCE_ID,
 } from '@/features/maps/lib/userLocationLayer';
+import { mapPalette } from '@/theme';
 
 const EMPTY: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 const FIX: [number, number] = [7.5, 46.5];
@@ -44,6 +45,7 @@ function activitySources(userLocation: [number, number] | null) {
 
 function activityLayers(hasUserLocation: boolean) {
   return buildActivityLayers({
+    palette: mapPalette('light'),
     overlayHasData: false,
     activityColor: '#00FF00',
     gradientActive: false,
@@ -120,7 +122,7 @@ describe('section map location dot', () => {
       data: GeoJSON.FeatureCollection;
     };
     expect(source.data.features).toHaveLength(0);
-    const layers = buildSectionLayers(input);
+    const layers = buildSectionLayers({ ...input, palette: mapPalette('light') });
     expect(layers.slice(-2).map((l) => l.id)).toEqual([
       'user-location-outer',
       'user-location-inner',
@@ -138,11 +140,15 @@ describe('section map location dot', () => {
       data: GeoJSON.FeatureCollection;
     };
     expect(source.data.features).toHaveLength(1);
-    expect(dotOpacities(buildSectionLayers(input))).toEqual([0.3, 1]);
+    expect(dotOpacities(buildSectionLayers({ ...input, palette: mapPalette('light') }))).toEqual([
+      0.3, 1,
+    ]);
   });
 
   it('adds no dot when the caller passes none, so the fullscreen shell keeps its own', () => {
     expect(buildSectionSources(sectionInput)[USER_LOCATION_SOURCE_ID]).toBeUndefined();
-    expect(dotOpacities(buildSectionLayers(sectionInput))).toEqual([]);
+    expect(
+      dotOpacities(buildSectionLayers({ ...sectionInput, palette: mapPalette('light') }))
+    ).toEqual([]);
   });
 });

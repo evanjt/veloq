@@ -139,10 +139,10 @@ object WidgetRenderer {
   }
 
   private fun bindHero(p: WidgetPalette, v: RemoteViews, snap: WidgetSnapshot, card: SummaryCard) {
-    val color = summaryColor(p, card.hero.colorKey, snap.form.zone)
     v.setTextViewText(R.id.sum_label, card.hero.label)
+    bindKeyDot(p, v, R.id.sum_key, SummaryWidget.keyTone(card.hero.colorKey, snap.form.zone))
     v.setTextViewText(R.id.sum_value, card.hero.value)
-    p.textColor(v, R.id.sum_value, color)
+    p.textColor(v, R.id.sum_value, R.color.widget_text_primary)
     v.setTextViewText(R.id.sum_trend, SummaryWidget.trendArrow(card.hero.trendDir))
     p.textColor(v, R.id.sum_trend, trendColor(card.hero.verdict))
     // The arrow carries the verdict in colour, so the row is read as the engine's words for it.
@@ -153,7 +153,7 @@ object WidgetRenderer {
     } else {
       v.setViewVisibility(R.id.sum_line, View.VISIBLE)
       v.setTextViewText(R.id.sum_line, line)
-      p.textColor(v, R.id.sum_line, color)
+      p.textColor(v, R.id.sum_line, R.color.widget_text_primary)
     }
   }
 
@@ -161,16 +161,21 @@ object WidgetRenderer {
     val cell: Int,
     val divider: Int?,
     val label: Int,
+    val key: Int,
     val value: Int,
     val trend: Int,
   )
 
   private val CELL_IDS =
     arrayOf(
-      CellIds(R.id.sum_cell0, null, R.id.sum_cell0_label, R.id.sum_cell0_value, R.id.sum_cell0_trend),
-      CellIds(R.id.sum_cell1, R.id.sum_div1, R.id.sum_cell1_label, R.id.sum_cell1_value, R.id.sum_cell1_trend),
-      CellIds(R.id.sum_cell2, R.id.sum_div2, R.id.sum_cell2_label, R.id.sum_cell2_value, R.id.sum_cell2_trend),
-      CellIds(R.id.sum_cell3, R.id.sum_div3, R.id.sum_cell3_label, R.id.sum_cell3_value, R.id.sum_cell3_trend),
+      CellIds(R.id.sum_cell0, null, R.id.sum_cell0_label, R.id.sum_cell0_key,
+        R.id.sum_cell0_value, R.id.sum_cell0_trend),
+      CellIds(R.id.sum_cell1, R.id.sum_div1, R.id.sum_cell1_label, R.id.sum_cell1_key,
+        R.id.sum_cell1_value, R.id.sum_cell1_trend),
+      CellIds(R.id.sum_cell2, R.id.sum_div2, R.id.sum_cell2_label, R.id.sum_cell2_key,
+        R.id.sum_cell2_value, R.id.sum_cell2_trend),
+      CellIds(R.id.sum_cell3, R.id.sum_div3, R.id.sum_cell3_label, R.id.sum_cell3_key,
+        R.id.sum_cell3_value, R.id.sum_cell3_trend),
     )
 
   /** One cell per entry, a divider before every cell but the first, nothing for the rest. */
@@ -187,8 +192,9 @@ object WidgetRenderer {
       ids.divider?.let { v.setViewVisibility(it, visibility) }
       if (entry == null) continue
       v.setTextViewText(ids.label, entry.label)
+      bindKeyDot(p, v, ids.key, SummaryWidget.keyTone(entry.colorKey, snap.form.zone))
       v.setTextViewText(ids.value, entry.value)
-      p.textColor(v, ids.value, summaryColor(p, entry.colorKey, snap.form.zone))
+      p.textColor(v, ids.value, R.color.widget_text_primary)
       v.setTextViewText(ids.trend, SummaryWidget.trendArrow(entry.trendDir))
       p.textColor(v, ids.trend, trendColor(entry.verdict))
       v.setContentDescription(ids.cell, entry.spokenOrPlain())
@@ -401,7 +407,7 @@ object WidgetRenderer {
     }
   }
 
-  /** Form before and after, each side in the colour of the zone it sits in. */
+  /** Form before and after, each side primary text beside a dot in the fill of its zone. */
   private fun bindFormChange(p: WidgetPalette, v: RemoteViews, form: FormChange?) {
     if (form == null) {
       v.setViewVisibility(R.id.act_form, View.GONE)
@@ -410,10 +416,10 @@ object WidgetRenderer {
     v.setViewVisibility(R.id.act_form, View.VISIBLE)
     v.setTextViewText(R.id.act_form_label, form.label)
     v.setTextViewText(R.id.act_form_arrow, "→")
+    bindKeyDot(p, v, R.id.act_form_before_key, SummaryWidget.keyTone("formZone", form.beforeZone))
     v.setTextViewText(R.id.act_form_before, form.before)
-    p.textColor(v, R.id.act_form_before, zoneTextColor(form.beforeZone))
+    bindKeyDot(p, v, R.id.act_form_after_key, SummaryWidget.keyTone("formZone", form.afterZone))
     v.setTextViewText(R.id.act_form_after, form.after)
-    p.textColor(v, R.id.act_form_after, zoneTextColor(form.afterZone))
   }
 
   // ---- intents ------------------------------------------------------------------
@@ -470,7 +476,7 @@ object WidgetRenderer {
     FitnessChart.ChartColors(
       fitness = p.color(R.color.widget_chart_fitness).pick(dark),
       fatigue = p.color(R.color.widget_chart_fatigue).pick(dark),
-      casing = p.color(R.color.widget_chart_casing).pick(dark),
+      fatigueDashDp = fatigueDashDp(context),
       axisText = p.color(R.color.widget_text_secondary).pick(dark),
       grid = p.color(R.color.widget_border).pick(dark),
       labelFace = chartLabelFace(context),
@@ -561,8 +567,8 @@ object WidgetRenderer {
             "fresh" to p.color(R.color.widget_form_fresh).pick(dark),
             "transition" to p.color(R.color.widget_form_transition).pick(dark),
           ),
+        bandOpacity = floatDimen(context, R.dimen.widget_chart_band_opacity),
         line = p.color(R.color.widget_text_primary).pick(dark),
-        casing = p.color(R.color.widget_chart_casing).pick(dark),
         axisText = p.color(R.color.widget_text_secondary).pick(dark),
         labelFace = chartLabelFace(context),
       )
@@ -588,6 +594,20 @@ object WidgetRenderer {
   private fun chartLabelFace(context: Context): Typeface =
     ResourcesCompat.getFont(context, R.font.widget_manrope) ?: Typeface.DEFAULT
 
+  /** The fatigue line's on and off lengths in dp, the ones its legend mark is dashed by. */
+  private fun fatigueDashDp(context: Context): List<Float> =
+    listOf(R.dimen.widget_chart_fatigue_dash_on, R.dimen.widget_chart_fatigue_dash_off).map {
+      val value = TypedValue()
+      context.resources.getValue(it, value, true)
+      TypedValue.complexToFloat(value.data)
+    }
+
+  private fun floatDimen(context: Context, id: Int): Float {
+    val value = TypedValue()
+    context.resources.getValue(id, value, true)
+    return value.float
+  }
+
   /** A chart's axis labels at the caption size and the reader's font scale, up to the cap. */
   private fun axisLabelPx(context: Context): Float {
     val res = context.resources
@@ -609,28 +629,28 @@ object WidgetRenderer {
       else -> R.color.widget_trend_flat
     }
 
-  /**
-   * Text: the hero value and the impact numbers, which the widget draws with no
-   * zone label beside them, so the fill's 2.1:1 to 2.7:1 is all the reader gets.
-   */
-  private fun zoneTextColor(zone: String?): Int =
-    when (zone) {
-      "highRisk" -> R.color.widget_form_high_risk_text
-      "optimal" -> R.color.widget_form_optimal_text
-      "greyZone" -> R.color.widget_form_grey_zone_text
-      "fresh" -> R.color.widget_form_fresh_text
-      "transition" -> R.color.widget_form_transition_text
-      else -> R.color.widget_text_primary
+  /** The key dot beside a value, in its measure's colour, or hidden when it has none. */
+  private fun bindKeyDot(p: WidgetPalette, v: RemoteViews, id: Int, tone: String?) {
+    val color = tone?.let { keyColor(it) }
+    if (color == null) {
+      v.setViewVisibility(id, View.GONE)
+      return
     }
+    v.setViewVisibility(id, View.VISIBLE)
+    p.colorFilter(v, id, p.color(color))
+  }
 
-  private fun summaryColor(p: WidgetPalette, colorKey: String, formZone: String?): ThemedColor =
-    p.color(
-      when (colorKey) {
-        "blue" -> R.color.widget_blue
-        "fatigue" -> R.color.widget_fatigue
-        "formZone" -> zoneTextColor(formZone)
-        else -> R.color.widget_text_primary
-      })
+  private fun keyColor(tone: String): Int? =
+    when (tone) {
+      "blue" -> R.color.widget_blue
+      "fatigue" -> R.color.widget_fatigue
+      "highRisk" -> R.color.widget_form_high_risk
+      "optimal" -> R.color.widget_form_optimal
+      "greyZone" -> R.color.widget_form_grey_zone
+      "fresh" -> R.color.widget_form_fresh
+      "transition" -> R.color.widget_form_transition
+      else -> null
+    }
 
   /** An activity's own colour, the same in both themes; an unreadable one is the text colour. */
   private fun tintOrDefault(p: WidgetPalette, hex: String): ThemedColor =

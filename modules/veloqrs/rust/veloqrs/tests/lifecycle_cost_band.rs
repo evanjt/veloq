@@ -20,8 +20,8 @@ use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
 
 const BASELINE: &str = "_lifecycle_baseline.txt";
 
-/// A step is hundreds of milliseconds on a quiet machine, and the corpus is
-/// generated, so only the clock moves between runs.
+/// A step is seconds on one worker, and the corpus is generated, so only the
+/// clock moves between runs.
 const BAND: Band = Band {
     time_factor: 1.5,
     time_floor_ms: 100,
@@ -29,8 +29,19 @@ const BAND: Band = Band {
     bytes_floor: 0,
 };
 
+/// The detector's pool, pinned. Sized by the host it would allocate per worker
+/// in whatever order the scheduler ran them, so the year's peak rise spread
+/// 1.27x over five runs of one build, past the byte band, and differed from
+/// host to host. On one worker every peak is the same number on every run, and
+/// the times measure the code's work rather than the cores.
+const DETECT_THREADS: usize = 1;
+
 #[test]
 fn each_lifecycle_step_stays_inside_its_band() {
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(DETECT_THREADS)
+        .build_global()
+        .expect("the gate builds the pool before anything reaches a par_iter");
     let cfg = LifecycleConfig::default();
     let corpus_set = LifecycleCorpus::generate(&cfg);
     let (mut engine, _tmp) = fresh_engine();

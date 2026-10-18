@@ -14,7 +14,16 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { decodeCoords } from 'veloqrs';
-import { cameraMove, colors, darkColors, layout, spacing, stroke, typography } from '@/theme';
+import {
+  cameraMove,
+  colors,
+  darkColors,
+  layout,
+  mapPalette,
+  spacing,
+  stroke,
+  typography,
+} from '@/theme';
 import { useTheme } from '@/shared/app/useTheme';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
@@ -25,13 +34,12 @@ import {
   boundsOfLngLat,
   type LngLat,
   type MapCameraSpec,
-  type MapLayerSpec,
   type MapSourceSpec,
   type MapStyleType,
   type MapSurfaceRef,
 } from '@/features/maps';
 import type { PaintedRoute } from '../../lib/groupingParams';
-import { GROUPING_LAYER_PAINT as PAINT, groupingLegendRows } from '../../lib/groupingLegend';
+import { groupingLegendRows, groupingPreviewLayers } from '../../lib/groupingLegend';
 import { groupingAreaBounds } from '../../lib/groupingAreaCamera';
 import type { PreviewAreaCentre } from '../../lib/previewMapCamera';
 
@@ -156,56 +164,8 @@ export function GroupingPreviewMap({
     [features]
   );
 
-  const layers: MapLayerSpec[] = useMemo(() => {
-    const roundLine = { 'line-cap': 'round', 'line-join': 'round' };
-    return [
-      {
-        id: 'grouping-dropped-line',
-        type: 'line',
-        source: 'grouping-dropped',
-        layout: roundLine,
-        paint: {
-          'line-color': PAINT.dropped.colour,
-          'line-opacity': PAINT.dropped.opacity,
-          'line-width': PAINT.dropped.width,
-          'line-dasharray': [3, 3],
-        },
-      },
-      {
-        id: 'grouping-other-line',
-        type: 'line',
-        source: 'grouping-other',
-        layout: roundLine,
-        paint: {
-          'line-color': PAINT.other.colour,
-          'line-opacity': PAINT.other.opacity,
-          'line-width': PAINT.other.width,
-        },
-      },
-      {
-        id: 'grouping-merging-line',
-        type: 'line',
-        source: 'grouping-merging',
-        layout: roundLine,
-        paint: {
-          'line-color': PAINT.merging.colour,
-          'line-opacity': PAINT.merging.opacity,
-          'line-width': PAINT.merging.width,
-        },
-      },
-      {
-        id: 'grouping-largest-line',
-        type: 'line',
-        source: 'grouping-largest',
-        layout: roundLine,
-        paint: {
-          'line-color': PAINT.largest.colour,
-          'line-opacity': PAINT.largest.opacity,
-          'line-width': PAINT.largest.width,
-        },
-      },
-    ];
-  }, []);
+  const palette = mapPalette(mapStyle);
+  const layers = useMemo(() => groupingPreviewLayers(palette), [palette]);
 
   const chipBg = isDark ? darkColors.surface : colors.surface;
   const chipBorder = isDark ? darkColors.border : colors.border;
@@ -226,7 +186,7 @@ export function GroupingPreviewMap({
         style={[styles.legend, { backgroundColor: chipBg, borderColor: chipBorder }]}
         pointerEvents="none"
       >
-        {groupingLegendRows(mergedCount).map((row) => (
+        {groupingLegendRows(mergedCount, palette).map((row) => (
           <LegendRow
             key={row.kind}
             colour={row.colour}

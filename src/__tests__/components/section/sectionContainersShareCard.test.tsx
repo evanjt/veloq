@@ -166,14 +166,7 @@ describe('the containers below the section chart', () => {
 
   it('draws the calendar card as the flat dark card', async () => {
     expectFlatDarkCard(
-      await outermost(
-        <SectionStatsCards
-          calendarSummary={calendar}
-          isDark
-          basis="speed"
-          activityColor="#3B82F6"
-        />
-      )
+      await outermost(<SectionStatsCards calendarSummary={calendar} isDark basis="speed" />)
     );
   });
 

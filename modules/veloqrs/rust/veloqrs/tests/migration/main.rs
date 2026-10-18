@@ -57,6 +57,9 @@ mod migration_route_list_counts;
 #[path = "../migration_metrics_caches.rs"]
 mod migration_metrics_caches;
 
+#[path = "../migration_pool_swims.rs"]
+mod migration_pool_swims;
+
 #[path = "../migration_upgrade.rs"]
 mod migration_upgrade;
 

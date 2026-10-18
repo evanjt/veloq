@@ -43,7 +43,7 @@ const compareStep = Number(compareArg ?? 0);
 
 const source = (path) =>
   readFileSync(new URL(`../modules/veloqrs/rust/veloqrs/src/${path}`, import.meta.url), 'utf8');
-const endpoints = source('net/endpoints.rs');
+const endpoints = source('net/intervals/endpoints.rs');
 const backfill = source('net/elevation_backfill.rs');
 const elevationTypes = endpoints.match(/pub const ELEVATION_STREAM_TYPES: &str = "([^"]+)"/)[1];
 const trackTypes = endpoints.match(/pub const TRACK_STREAM_TYPES: &str = "([^"]+)"/)[1];

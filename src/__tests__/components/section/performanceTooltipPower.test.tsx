@@ -32,7 +32,6 @@ function renderTooltip(avgPower: number | undefined) {
       selectedPoint={{ ...POINT, avgPower, x: 0 }}
       isDark={false}
       basis="pace"
-      activityColor="#000000"
       onClearSelection={() => {}}
     />
   );

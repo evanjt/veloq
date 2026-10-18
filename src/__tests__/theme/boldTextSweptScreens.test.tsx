@@ -99,7 +99,6 @@ async function drawnTexts(isDark: boolean) {
         calendarSummary={summary}
         isDark={isDark}
         basis="speed"
-        activityColor="#3B82F6"
         recordsSettled
         onSetAsReference={() => {}}
         referenceActivityId="quickest"

@@ -12,7 +12,7 @@ import { render } from '@testing-library/react-native';
 import { PreviewMapView } from '@/features/routes/components/preview/PreviewMapView';
 import { previewAreaBounds } from '@/features/routes/lib/previewMapCamera';
 import { buildPreviewLayers } from '@/features/routes/components/preview/previewMapLayerSpecs';
-import { mapLayerColors } from '@/theme';
+import { mapLayerColors, mapPalette } from '@/theme';
 
 const capturedSources: Record<string, { data: GeoJSON.FeatureCollection }>[] = [];
 
@@ -103,7 +103,7 @@ describe('the preview area envelope', () => {
   });
 
   it('draws it as a dashed white line under the section layers', () => {
-    const layers = buildPreviewLayers();
+    const layers = buildPreviewLayers(mapPalette('light'));
     const envelope = layers.find((l) => l.id === 'preview-area-line');
 
     expect(envelope?.source).toBe('preview-area');

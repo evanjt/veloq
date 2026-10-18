@@ -14,19 +14,14 @@
 import {
   brand,
   colors,
+  colourTokens,
   darkColors,
   chartStreamColors,
   recording,
   lightTheme,
   darkTheme,
 } from '@/theme';
-import {
-  FORM_ZONE_COLORS,
-  formZoneColor,
-  FORM_ZONE_TEXT_COLORS,
-  FORM_ZONE_TEXT_COLORS_DARK,
-  type FormZone,
-} from '@/features/fitness/lib/fitness';
+import { FORM_ZONE_COLORS, formZoneColor, type FormZone } from '@/features/fitness/lib/fitness';
 import { widgetPalette, widgetRecord } from '@/shared/theme/widgetTheme';
 import {
   BRAND_FAMILIES,
@@ -234,9 +229,9 @@ describe('the Paper on-roles clear AA on the role they sit on', () => {
 
 /**
  * Scenario: the five form-zone tokens are fills for the chart bands and the
- * sparkline, and every screen that names the zone also draws the number and the
- * zone name in the same colour. A band is a ground and 1.4.11 exempts it; text
- * is held to 1.4.3 at 4.5:1 whatever names it.
+ * sparkline, and the widget still names the zone in a text tint of each. A band
+ * is a ground and 1.4.11 exempts it; text is held to 1.4.3 at 4.5:1 whatever
+ * names it.
  *
  * Expected behaviour: the text family beside the fills clears 4.5:1 on every
  * surface a zone-coloured word is drawn on, in both themes, including the two
@@ -244,6 +239,15 @@ describe('the Paper on-roles clear AA on the role they sit on', () => {
  */
 describe('form zone text clears AA on every surface it is drawn on', () => {
   const ZONES: FormZone[] = ['highRisk', 'optimal', 'greyZone', 'fresh', 'transition'];
+  const textTokens = (palette: typeof colors | typeof darkColors): Record<FormZone, string> => ({
+    highRisk: palette.formHighRiskText,
+    optimal: palette.formOptimalText,
+    greyZone: palette.formGreyZoneText,
+    fresh: palette.formFreshText,
+    transition: palette.formTransitionText,
+  });
+  const FORM_ZONE_TEXT_COLORS = textTokens(colors);
+  const FORM_ZONE_TEXT_COLORS_DARK = textTokens(darkColors);
 
   const LIGHT_GROUNDS = { ...LIGHT_SURFACES, widgetSurface: widgetPalette.light.surface };
   const DARK_GROUNDS = { ...DARK_SURFACES, widgetSurface: widgetPalette.dark.surface };
@@ -308,22 +312,20 @@ describe('the widget stale age line clears AA on its surface', () => {
  * graphical object and owes 3:1.
  *
  * Expected behaviour: the mark-grade tokens clear it on every surface they are
- * drawn on. `chartGold` and `chartGreen` do not, which is why the mark tokens
+ * drawn on. `chartGold` and the emerald `run` fill do not, which is why the mark tokens
  * exist beside them.
  */
 describe('a mark that carries its own meaning clears AA for a graphical object', () => {
   const LIGHT_MARKS = {
     chartGoldMark: colors.achievement,
     chartGreenMark: colors.chartGreenMark,
-    chartSilverMark: colors.chartSilverMark,
-    chartBronzeMark: colors.chartBronzeMark,
+    chartReference: colourTokens.light['chart-reference'],
   };
 
   const DARK_MARKS = {
     chartGoldMark: darkColors.achievement,
     chartGreenMark: darkColors.chartGreenMark,
-    chartSilverMark: darkColors.chartSilverMark,
-    chartBronzeMark: darkColors.chartBronzeMark,
+    chartReference: colourTokens.dark['chart-reference'],
   };
 
   it.each(Object.keys(LIGHT_MARKS))('light %s on every light surface', (mark) => {
@@ -341,7 +343,7 @@ describe('a mark that carries its own meaning clears AA for a graphical object',
   });
 
   it('is a lift of the chart tones, which are the ones that fail', () => {
-    expect(contrastRatio(colors.chartGreen, colors.surface)).toBeLessThan(AA_MARK);
+    expect(contrastRatio(colors.run, colors.surface)).toBeLessThan(AA_MARK);
   });
 });
 
@@ -362,9 +364,8 @@ const MARK_FAMILY = {
 /** The fill token each mark tone darkens, and which is why it exists. */
 const MARK_REPLACES = {
   markCyan: colors.chartCyan,
-  markGreen: colors.chartGreen,
+  markGreen: colors.run,
   markAmber: colors.chartAmber,
-  markYellow: colors.chartYellow,
 };
 
 const ALL_SURFACES = { ...LIGHT_SURFACES, ...DARK_SURFACES };

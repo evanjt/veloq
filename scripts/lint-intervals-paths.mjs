@@ -23,7 +23,7 @@ const ROOT = flagValue('--root', join(HERE, '..'));
 const CRATE = 'modules/veloqrs/rust/veloqrs';
 
 // The files that own the requests, relative to the crate's `src/`.
-const ENDPOINTS = 'net/endpoints.rs';
+const ENDPOINTS = 'net/intervals/endpoints.rs';
 const CALL_OWNERS = [ENDPOINTS, 'net/transport.rs'];
 
 const PATH_LITERAL = /"\/(?:activity|athlete)\b/;

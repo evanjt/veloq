@@ -36,6 +36,7 @@ import {
 } from '@/features/routes/lib/rowLayout';
 import { NameText } from '@/shared/ui/NameText';
 import { Icon } from '@/shared/ui/Icon';
+import { Badge } from '@/shared/ui/Badge';
 
 interface RouteRowProps {
   /** Route data - can be either DiscoveredRouteInfo (during processing) or RouteGroup (saved) */
@@ -184,24 +185,19 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
           </View>
         </View>
 
-        {/* Activity count badge */}
-        <View
-          style={[styles.countBadge, { backgroundColor: palette.actionPrimary }]}
-          accessible
-          accessibilityLabel={countLabel}
-          testID={`route-row-${route.id}-count`}
-        >
-          <Icon
-            name="map-marker-multiple"
-            size={iconSize.sm}
-            color={colors.textOnFill}
-            testID={`route-row-${route.id}-count-glyph`}
+        <View style={styles.countCell}>
+          <Badge
+            tone="count"
+            icon="map-marker-multiple"
+            text={route.activityCount}
+            label={countLabel}
+            isDark={isDark}
+            testID={`route-row-${route.id}-count`}
           />
-          <Text style={styles.countText}>{route.activityCount}</Text>
           <Icon
             name={navigable ? 'chevron-right' : 'chevron-down'}
             size={iconSize.sm}
-            color={navigable ? colors.textOnFill : isDark ? colors.iconMuted : colors.textSecondary}
+            color={palette.iconSecondary}
           />
         </View>
       </Card>
@@ -289,17 +285,10 @@ const styles = StyleSheet.create({
   matchPercent: {
     ...typography.badge,
   },
-  countBadge: {
+  countCell: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: layout.borderRadius,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xxs,
     gap: spacing.xxs,
-  },
-  countText: {
-    ...typography.bodyCompactBold,
-    color: colors.textOnFill,
   },
   textLight: {
     color: colors.textOnFill,

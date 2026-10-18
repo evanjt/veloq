@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 
 export const settingsStyles = StyleSheet.create({
   // Card container
@@ -36,21 +36,9 @@ export const settingsStyles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
 
-  // Scope/permission badge
-  scopeBadge: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: spacing.xs,
-    backgroundColor: opacity.overlay.medium,
-    paddingHorizontal: spacing.xsPlus,
-    paddingVertical: spacing.xxs,
-    borderRadius: layout.borderRadiusXs,
-  },
-  scopeBadgeDark: {
-    backgroundColor: opacity.overlayDark.medium,
-  },
-  scopeBadgeText: {
-    ...typography.badge,
+  // A granted permission, a result longer than a badge holds, so it is text.
+  scopeText: {
+    ...typography.caption,
     color: colors.textSecondary,
   },
 });

@@ -24,6 +24,7 @@ import {
   colors,
   contributionRamp,
   darkColors,
+  directionPair,
   divergingRamp,
   sequentialRamp,
   sportFamilyColours,
@@ -108,8 +109,8 @@ describe.each(THEMES)('the %s theme', (theme) => {
   });
 
   it('draws forward and reverse in the direction pair', () => {
-    expect(palette(theme).sameDirection).toBe(token['direction-forward']);
-    expect(palette(theme).reverseDirection).toBe(token['direction-reverse']);
+    expect(directionPair[theme].forward).toBe(token['direction-forward']);
+    expect(directionPair[theme].reverse).toBe(token['direction-reverse']);
   });
 
   it('gives each sport family its colour and its two fixed sub-shades, other a grey', () => {

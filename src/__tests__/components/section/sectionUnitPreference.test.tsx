@@ -33,7 +33,6 @@ function renderTooltip() {
       selectedPoint={{ ...POINT, x: 0 }}
       isDark={false}
       basis="pace"
-      activityColor="#000000"
       onClearSelection={() => {}}
     />
   );

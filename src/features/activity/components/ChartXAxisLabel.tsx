@@ -1,7 +1,6 @@
 import React, { useImperativeHandle, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
-import { useTranslation } from 'react-i18next';
-import { chartStyles, colors, darkColors, typography } from '@/theme';
+import { View, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { chartStyles, colors, darkColors, spacing } from '@/theme';
 import { DenseText } from '@/shared/ui/DenseText';
 import { formatDuration } from '@/shared/format/format';
 import { formatDecimal } from '@/shared/format';
@@ -12,6 +11,8 @@ interface ChartXAxisLabelProps {
   /** Distance unit label (`km` or `mi`). Empty string for time mode. */
   xUnit: string;
   isDark: boolean;
+  /** Where the row sits: its height and the gutter it leaves before the plot. */
+  style?: StyleProp<ViewStyle>;
 }
 
 /** How the chart pushes a scrub position into the axis label. */
@@ -29,8 +30,7 @@ function withUnit(value: string, unit: string): string {
 
 /**
  * Bottom-gutter x-axis labels: `0` on the left, the maximum with its unit on
- * the right, and between them the scrub position while a scrub is in flight
- * or the scrub hint when none is.
+ * the right, and between them the scrub position while a scrub is in flight.
  *
  * The scrub value is state of this component's own, pushed in through the
  * handle rather than passed as a prop. Held at the chart root it re-rendered
@@ -39,10 +39,9 @@ function withUnit(value: string, unit: string): string {
  */
 export const ChartXAxisLabel = React.memo(
   React.forwardRef<ChartXAxisLabelHandle, ChartXAxisLabelProps>(function ChartXAxisLabel(
-    { xAxisMode, maxX, xUnit, isDark },
+    { xAxisMode, maxX, xUnit, isDark, style },
     ref
   ) {
-    const { t } = useTranslation();
     const [scrub, setScrub] = useState<number | null>(null);
     useImperativeHandle(ref, () => ({ setScrub }), []);
 
@@ -56,7 +55,7 @@ export const ChartXAxisLabel = React.memo(
           : withUnit(formatDecimal(scrub, 2), xUnit);
 
     return (
-      <View style={styles.xAxis} pointerEvents="none">
+      <View style={[styles.xAxis, style]} pointerEvents="none">
         <DenseText style={[chartStyles.chartLabel, isDark && chartStyles.chartLabelDark]}>
           {isTime ? '0:00' : '0'}
         </DenseText>
@@ -67,11 +66,7 @@ export const ChartXAxisLabel = React.memo(
           >
             {scrubLabel}
           </DenseText>
-        ) : (
-          <DenseText style={[styles.xAxisHint, isDark && styles.xAxisHintDark]}>
-            {t('activity.chartHint', 'Hold to scrub • Hold chip for axis')}
-          </DenseText>
-        )}
+        ) : null}
         <DenseText style={[chartStyles.chartLabel, isDark && chartStyles.chartLabelDark]}>
           {maxLabel}
         </DenseText>
@@ -82,24 +77,15 @@ export const ChartXAxisLabel = React.memo(
 
 const styles = StyleSheet.create({
   xAxis: {
-    position: 'absolute',
-    bottom: 2,
-    left: 4,
-    right: 4,
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    paddingHorizontal: spacing.xs,
   },
   xScrub: {
     color: colors.textPrimary,
   },
   xScrubDark: {
     color: darkColors.textPrimary,
-  },
-  xAxisHint: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
-  xAxisHintDark: {
-    color: darkColors.textSecondary,
   },
 });

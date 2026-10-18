@@ -329,12 +329,6 @@
         "light"
       ]
     },
-    "appColourPillBackground": {
-      "role": "surface-raised",
-      "also": [
-        "text-primary"
-      ]
-    },
     "ride": {
       "role": "sport-ride"
     },
@@ -405,12 +399,6 @@
         "text-secondary"
       ]
     },
-    "chartGreen": {
-      "drop": "no reader"
-    },
-    "chartYellow": {
-      "drop": "no reader"
-    },
     "chartCyan": {
       "role": "focus-ring",
       "also": [
@@ -421,20 +409,11 @@
     "chartPink": {
       "role": "icon-secondary"
     },
-    "chartIndigo": {
-      "drop": "no reader"
-    },
     "chartAmber": {
-      "drop": "no reader"
+      "drop": "the tour's interval band, a lone amber fill until the interval bands fold into zone-*"
     },
     "chartGreenMark": {
       "role": "text-primary"
-    },
-    "chartSilverMark": {
-      "role": "chart-reference"
-    },
-    "chartBronzeMark": {
-      "role": "chart-reference"
     },
     "chartPinkText": {
       "role": "text-primary"
@@ -447,9 +426,6 @@
     },
     "fatiguePurpleText": {
       "role": "text-primary"
-    },
-    "chartRed": {
-      "drop": "no reader"
     },
     "chartCasing": {
       "drop": "lines are 2px and hold 3:1 on their own"
@@ -525,20 +501,6 @@
     "chartFormLine": {
       "role": "text-primary"
     },
-    "sameDirection": {
-      "role": "direction-forward",
-      "from": [
-        "light",
-        "dark"
-      ]
-    },
-    "reverseDirection": {
-      "role": "direction-reverse",
-      "from": [
-        "light",
-        "dark"
-      ]
-    },
     "formTransition": {
       "role": "data-div-cool-3",
       "from": [
@@ -589,18 +551,6 @@
     "formHighRiskText": {
       "role": "text-primary"
     },
-    "eventPriorityA": {
-      "drop": "no reader"
-    },
-    "eventPriorityB": {
-      "drop": "no reader"
-    },
-    "eventPriorityC": {
-      "drop": "no reader"
-    },
-    "workoutCooldown": {
-      "drop": "no reader"
-    },
     "markCyan": {
       "role": "data-seq-1",
       "also": [
@@ -650,7 +600,6 @@
     "scrim": "the ground behind a sheet, read when the overlay opacities fold into it",
     "text-tertiary": "the third text step, which no palette key has yet",
     "text-on-gold": "the ink on a gold fill, read when the badge inks fold into it",
-    "card-edge": "the raised card's dark edge, read when surfaces draw a border in dark",
     "control-boundary": "the edge of an unchecked control, read when switchTrackOff and inputBoundary fold into it",
     "achievement-bg": "the record tint, read when the record chips fold into it",
     "achievement-on-bg": "the ink on the record tint, read with achievement-bg",
@@ -661,7 +610,9 @@
     "data-*": "the sequential and diverging data ramps, read by sequentialRamp and divergingRamp",
     "sport-*": "the sport families and their shades, read by sportFamilyColours",
     "stream-*": "one colour per activity stream, read by chartStreamColors",
+    "direction-*": "the forward and reverse pair, read by directionPair",
     "zone-*": "the zone ladder, read when zoneColors, the interval bands and the workout steps fold into it",
-    "map-*": "the map's own paints and basemap, read when the map layers and styles take the map tokens"
+    "map-*": "the map's own paints and basemap, read when the map layers and styles take the map tokens",
+    "direction-forward": "the forward direction, read when the forward section line folds into it from actionPrimary"
   }
 }

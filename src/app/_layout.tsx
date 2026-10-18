@@ -2,7 +2,7 @@
 // This prevents inactive screens from re-rendering during navigation
 import { enableFreeze } from 'react-native-screens';
 
-import { LogBox, AppState, Platform, View, ActivityIndicator } from 'react-native';
+import { LogBox, AppState, Platform, View } from 'react-native';
 
 import { installGlobalCrashHandler, setCrashScreen } from '@/shared/debug/crashLog';
 import { ForcedRenderCrash } from '@/shared/debug/forcedRenderCrash';
@@ -61,7 +61,7 @@ import { seedSyncRange } from '@/shared/app/syncRangeSeed';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { i18n } from '@/i18n';
 import { pushPlaceNameWords } from '@/i18n/placeNameWords';
-import { lightTheme, darkTheme, colors, darkColors } from '@/theme';
+import { lightTheme, darkTheme, darkColors } from '@/theme';
 import {
   ShaderWarmup,
   SyncErrorBanner,
@@ -71,6 +71,7 @@ import {
   FloatingPillStack,
   NoticeHost,
   GlobalErrorBoundary,
+  Spinner,
 } from '@/shared/ui';
 import { DemoBanner } from '@/shared/app/DemoBanner';
 import { GlobalDataSync } from '@/shared/app/GlobalDataSync';
@@ -524,7 +525,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           backgroundColor: darkColors.surfacePage,
         }}
       >
-        <ActivityIndicator size="large" color={colors.actionPrimary} />
+        <Spinner size="large" color={darkColors.actionLink} label={i18n.t('common.loading')} />
       </View>
     );
   }

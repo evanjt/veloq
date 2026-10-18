@@ -47,7 +47,6 @@ function renderCards() {
       calendarSummary={summary}
       isDark={false}
       basis="speed"
-      activityColor="#3B82F6"
       onSetAsReference={() => {}}
       referenceActivityId="ref"
     />

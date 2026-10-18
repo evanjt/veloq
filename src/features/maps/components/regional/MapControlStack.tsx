@@ -8,10 +8,10 @@
  */
 
 import React, { useState } from 'react';
-import { View, Pressable, StyleSheet, Text, Animated, ActivityIndicator } from 'react-native';
+import { View, Pressable, StyleSheet, Text, Animated } from 'react-native';
 import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { IconButton } from '@/shared/ui/IconButton';
+import { IconButton, iconButtonSkin } from '@/shared/ui/IconButton';
 import { RowDivider } from '@/shared/ui/RowGroup';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import {
@@ -22,10 +22,9 @@ import {
   iconSize,
   ink,
   layout,
-  shadows,
+  raised,
   spacing,
   typography,
-  themePalette,
 } from '@/theme';
 import { CompassArrow } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
@@ -75,14 +74,12 @@ function ColumnButton({
   children: React.ReactNode;
 }) {
   return (
-    <View style={[styles.columnDisc, isDark && styles.surfaceDark]}>
+    <View style={[styles.columnDisc, raised('mapOverlay', isDark), isDark && styles.surfaceDark]}>
       <IconButton
         testID={testID}
         variant="ghost"
-        style={[
-          styles.columnButton,
-          active && { backgroundColor: themePalette(isDark).actionPrimary },
-        ]}
+        selected={active}
+        style={styles.columnButton}
         onPress={onPress}
         disabled={disabled}
         accessibilityLabel={accessibilityLabel}
@@ -219,7 +216,6 @@ export function MapControlStack({
   const { t } = useTranslation();
   const [layersOpen, setLayersOpen] = useState(false);
   const show3D = is3DMode && can3D;
-  const iconColor = isDark ? colors.textOnFill : colors.textSecondary;
   const palette = isDark ? darkColors : colors;
 
   const hasActivities = activityCount > 0;
@@ -257,7 +253,7 @@ export function MapControlStack({
           onPress={closing(onToggle3D)}
           accessibilityLabel={show3D ? t('maps.disable3D') : t('maps.enable3D')}
         >
-          <Icon name="terrain" size={iconSize.md} color={show3D ? colors.textOnFill : iconColor} />
+          <IconButton.Glyph name="terrain" />
         </ColumnButton>
 
         <ColumnButton
@@ -270,7 +266,7 @@ export function MapControlStack({
             size={iconSize.md}
             rotation={bearingAnim}
             northColor={colors.compassNorth}
-            southColor={iconColor}
+            southColor={iconButtonSkin({ variant: 'ghost', isDark }).glyph}
           />
         </ColumnButton>
 
@@ -282,15 +278,7 @@ export function MapControlStack({
           onPress={closing(onGetLocation)}
           accessibilityLabel={t('maps.goToLocation')}
         >
-          {locationLoading ? (
-            <ActivityIndicator size="small" color={iconColor} />
-          ) : (
-            <Icon
-              name={LOCATE_GLYPH}
-              size={iconSize.md}
-              color={userLocationActive ? colors.textOnFill : iconColor}
-            />
-          )}
+          {locationLoading ? <IconButton.Spinner /> : <IconButton.Glyph name={LOCATE_GLYPH} />}
         </ColumnButton>
 
         {hasLayers ? (
@@ -302,11 +290,7 @@ export function MapControlStack({
             onPress={() => setLayersOpen((open) => !open)}
             accessibilityLabel={t('maps.layers')}
           >
-            <Icon
-              name="layers-outline"
-              size={iconSize.md}
-              color={menuOpen ? colors.textOnFill : iconColor}
-            />
+            <IconButton.Glyph name="layers-outline" />
           </ColumnButton>
         ) : null}
       </View>
@@ -316,6 +300,7 @@ export function MapControlStack({
           testID="map-layers-menu"
           style={[
             styles.menu,
+            raised('mapOverlay', isDark),
             isDark && styles.surfaceDark,
             { top: top + CONTROLS_ABOVE_LAYERS * (controlHeight.button + spacing.sm) },
           ]}
@@ -424,7 +409,6 @@ const styles = StyleSheet.create({
     height: controlHeight.button,
     borderRadius: layout.borderRadiusFull,
     backgroundColor: colorWithOpacity(ink.white, 0.95),
-    ...shadows.mapOverlay,
   },
   surfaceDark: {
     backgroundColor: darkColors.surfaceRaised,
@@ -440,7 +424,6 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusMd,
     backgroundColor: colorWithOpacity(ink.white, 0.95),
     paddingVertical: spacing.xs,
-    ...shadows.mapOverlay,
   },
   menuRow: {
     flexDirection: 'row',

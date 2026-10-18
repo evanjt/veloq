@@ -11,7 +11,7 @@
 
 import React, { useCallback, useState } from 'react';
 import { SyncState } from 'veloqrs';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
@@ -22,7 +22,7 @@ import { useLibraryCoverage } from '@/shared/native/useLibraryCoverage';
 import { formatLibraryCoverage } from '@/shared/format/libraryCoverage';
 import { formatSyncProgress } from '@/shared/format/syncProgress';
 import { colors, darkColors, typography } from '@/theme';
-import { Button, Row } from '@/shared/ui';
+import { Button, Row, Spinner } from '@/shared/ui';
 import { freshLoginTimeline } from '@/shared/debug/freshLoginTimeline';
 
 export function ActivitySyncRow() {
@@ -58,7 +58,7 @@ export function ActivitySyncRow() {
 
   return (
     <Row testID="activity-sync-row">
-      <ActivityIndicator size="small" color={textSecondary} />
+      <Spinner label={formatSyncProgress(status, t)} />
       <View style={styles.labels}>
         <Text style={[styles.label, { color: textSecondary }]} testID="sync-progress-label">
           {formatSyncProgress(status, t)}

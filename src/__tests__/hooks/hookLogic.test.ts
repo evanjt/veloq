@@ -1,48 +1,12 @@
 // engine pulls in react-native through its import chain, so the mock must be
 // declared before any import that triggers it.
-import { getSettingsForSport } from '@/shared/app/useSportSettings';
 import { SPORT_COLORS } from '@/features/fitness/stores/SportPreferenceStore';
 import type { PrimarySport } from '@/features/fitness/stores/SportPreferenceStore';
 import { getFormZone, FORM_ZONE_BOUNDARIES, type FormZone } from '@/features/fitness/lib/fitness';
-import { getLatestFTP } from '@/features/activity/hooks/useEFTPHistory';
-import type { SportSettings, Activity } from '@/types';
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => null,
 }));
-
-// ---------------------------------------------------------------------------
-// getSettingsForSport
-// ---------------------------------------------------------------------------
-
-describe('getSettingsForSport', () => {
-  const mockSettings: SportSettings[] = [
-    { types: ['Ride', 'VirtualRide'], ftp: 250 } as SportSettings,
-    { types: ['Run', 'VirtualRun'], threshold_pace: 4.5 } as SportSettings,
-    { types: ['Swim'], lthr: 160 } as SportSettings,
-  ];
-
-  it('returns undefined for undefined or empty settings', () => {
-    expect(getSettingsForSport(undefined, 'Ride')).toBeUndefined();
-    expect(getSettingsForSport([], 'Ride')).toBeUndefined();
-  });
-
-  it('finds the entry whose types include the sport, undefined when none match', () => {
-    // Matches both single- and multi-type entries; non-member sport -> undefined.
-    expect(getSettingsForSport(mockSettings, 'Ride')?.ftp).toBe(250);
-    expect(getSettingsForSport(mockSettings, 'VirtualRide')?.ftp).toBe(250);
-    expect(getSettingsForSport(mockSettings, 'Hike')).toBeUndefined();
-  });
-
-  it('returns the first matching entry when multiple could match', () => {
-    const dupeSettings: SportSettings[] = [
-      { types: ['Ride'], ftp: 200 } as SportSettings,
-      { types: ['Ride'], ftp: 300 } as SportSettings,
-    ];
-    const result = getSettingsForSport(dupeSettings, 'Ride');
-    expect(result?.ftp).toBe(200);
-  });
-});
 
 // ---------------------------------------------------------------------------
 // SPORT_COLORS
@@ -133,61 +97,6 @@ describe('FORM_ZONE_BOUNDARIES', () => {
 
     for (let i = 0; i < sorted.length - 1; i++) {
       expect(sorted[i].max).toBe(sorted[i + 1].min);
-    }
-  });
-});
-
-// ---------------------------------------------------------------------------
-// getLatestFTP
-// ---------------------------------------------------------------------------
-
-describe('getLatestFTP', () => {
-  it('returns undefined when no activity supplies an FTP value', () => {
-    // undefined input, empty array, and activities all lacking icu_ftp.
-    const noFtp = [
-      { id: 'a1', start_date_local: '2025-01-10T10:00:00' } as Activity,
-      { id: 'a2', start_date_local: '2025-01-11T10:00:00' } as Activity,
-    ];
-    expect(getLatestFTP(undefined)).toBeUndefined();
-    expect(getLatestFTP([])).toBeUndefined();
-    expect(getLatestFTP(noFtp)).toBeUndefined();
-  });
-
-  it('returns the FTP from the most recent activity that has one', () => {
-    // Picks latest by date; skips icu_ftp = 0 and undefined; handles a single entry.
-    const cases: { activities: Activity[]; expected: number }[] = [
-      {
-        activities: [
-          { id: 'a1', start_date_local: '2025-01-10T10:00:00', icu_ftp: 200 } as Activity,
-          { id: 'a2', start_date_local: '2025-01-15T10:00:00', icu_ftp: 250 } as Activity,
-          { id: 'a3', start_date_local: '2025-01-12T10:00:00', icu_ftp: 220 } as Activity,
-        ],
-        expected: 250,
-      },
-      {
-        activities: [
-          { id: 'a1', start_date_local: '2025-01-20T10:00:00', icu_ftp: 0 } as Activity,
-          { id: 'a2', start_date_local: '2025-01-10T10:00:00', icu_ftp: 200 } as Activity,
-        ],
-        expected: 200,
-      },
-      {
-        activities: [
-          { id: 'a1', start_date_local: '2025-01-20T10:00:00' } as Activity,
-          { id: 'a2', start_date_local: '2025-01-15T10:00:00', icu_ftp: 230 } as Activity,
-        ],
-        expected: 230,
-      },
-      {
-        activities: [
-          { id: 'a1', start_date_local: '2025-01-10T10:00:00', icu_ftp: 180 } as Activity,
-        ],
-        expected: 180,
-      },
-    ];
-
-    for (const { activities, expected } of cases) {
-      expect(getLatestFTP(activities)).toBe(expected);
     }
   });
 });

@@ -6,13 +6,13 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { formatDateOrDash } from '@/shared/format/format';
 import { colors, darkColors, duration, spacing, stroke, typography } from '@/theme';
-import { Button } from '@/shared/ui';
+import { Button, Spinner } from '@/shared/ui';
 import { navigateTo } from '@/shared/app/navigation';
 
 interface DateRangeSummaryProps {
@@ -33,7 +33,6 @@ export function DateRangeSummary({
   syncMessage,
 }: DateRangeSummaryProps) {
   const { t } = useTranslation();
-  const themeColors = isDark ? darkColors : colors;
 
   const handleExpandPress = () => {
     navigateTo('/sync-settings');
@@ -48,11 +47,7 @@ export function DateRangeSummary({
           exiting={FadeOut.duration(duration.quick)}
           style={[styles.syncBanner, isDark && styles.syncBannerDark]}
         >
-          <ActivityIndicator
-            size="small"
-            color={themeColors.actionPrimary}
-            style={styles.syncIcon}
-          />
+          <Spinner label={syncMessage} style={styles.syncIcon} />
           <Text style={[styles.syncText, isDark && styles.textSecondary]}>{syncMessage}</Text>
         </Animated.View>
       ) : null}
@@ -62,11 +57,7 @@ export function DateRangeSummary({
         <View style={styles.dateInfo}>
           <View style={styles.countRow}>
             {isLoading ? (
-              <ActivityIndicator
-                size="small"
-                color={themeColors.actionPrimary}
-                style={styles.syncIcon}
-              />
+              <Spinner label={t('mapScreen.loadingActivities')} style={styles.syncIcon} />
             ) : null}
             <Text style={[styles.countText, isDark && styles.textLight]}>
               {isLoading

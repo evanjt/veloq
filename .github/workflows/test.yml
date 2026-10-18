@@ -16,14 +16,19 @@ permissions:
   contents: read
 
 jobs:
-  # Which jobs below this change has to run. Only a Dependabot pull request
-  # skips any: a push to main and every other pull request run them all.
+  # Which jobs below this change has to run. Only a Dependabot patch or minor
+  # skips any: a push to main, a Dependabot major and every other pull request
+  # run them all.
   # scripts/ci-required.mjs holds the areas each job can see, and CI Required
   # reads a skipped job against the same areas.
   changes:
     name: Detect Changed Areas
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    # fetch-metadata lists the pull request's commits.
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
       areas: ${{ steps.plan.outputs.areas }}
       run: ${{ steps.plan.outputs.run }}
@@ -39,9 +44,21 @@ jobs:
         with:
           fetch-depth: 2
 
+      # A Dependabot major runs every job. The update type is read here, and a
+      # read that fails leaves it empty, which ci-required.mjs counts as a major.
+      - name: Fetch Dependabot metadata
+        id: meta
+        if: github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]'
+        continue-on-error: true
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Decide whether the run is scoped
         id: scope
         run: node scripts/ci-required.mjs scope
+        env:
+          UPDATE_TYPE: ${{ steps.meta.outputs.update-type }}
 
       # A lockfile bump is native only when the package ships native code,
       # which is read from the installed tree.
@@ -52,6 +69,8 @@ jobs:
       - name: Plan the jobs
         id: plan
         run: node scripts/ci-required.mjs plan
+        env:
+          UPDATE_TYPE: ${{ steps.meta.outputs.update-type }}
 
   jest:
     name: Jest (${{ matrix.tz }}, ${{ matrix.shard }}/2)
@@ -347,12 +366,21 @@ jobs:
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    # A Dependabot pull request's red jobs are read against main's latest
+    # finished Test run, which needs the run history.
+    permissions:
+      contents: read
+      actions: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
 
       - name: Check results
         env:
+          EVENT: ${{ github.event_name }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
           CHANGES: ${{ needs.changes.result }}
           AREAS: ${{ needs.changes.outputs.areas }}
           JEST: ${{ needs.jest.result }}

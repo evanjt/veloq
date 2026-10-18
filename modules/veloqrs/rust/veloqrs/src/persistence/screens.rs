@@ -5,6 +5,9 @@
 //! objects thin and lets tests compare a bundle against the individual calls
 //! it replaces without standing up the global engine.
 
+use crate::persistence::fitness::sport_settings::{
+    POWER_ZONE_OPEN_TOP_PERCENT, SportSettings, SportSettingsEntry,
+};
 use log::warn;
 
 /// The fixed facts on backup settings, read from one SQLite snapshot.
@@ -463,26 +466,6 @@ fn activity_load_impact(
     })
 }
 
-/// The sport settings entry for `sport_type`, or the entry for unlisted sports.
-fn sport_entry(sport_settings: &str, sport_type: &str) -> Option<serde_json::Value> {
-    let settings: serde_json::Value = serde_json::from_str(sport_settings).ok()?;
-    let entries = settings.as_array()?;
-    entries
-        .iter()
-        .find(|entry| {
-            entry
-                .get("types")
-                .and_then(|t| t.as_array())
-                .is_some_and(|types| types.iter().any(|t| t.as_str() == Some(sport_type)))
-        })
-        .or_else(|| {
-            entries
-                .iter()
-                .find(|entry| entry.get("other").and_then(serde_json::Value::as_bool) == Some(true))
-        })
-        .cloned()
-}
-
 /// The upper edge of each percentage band of max HR, used when a sport lists no
 /// zones of its own.
 const DEFAULT_HR_ZONE_UPPER_FRACTIONS: [f64; 5] = [0.6, 0.7, 0.8, 0.9, 1.0];
@@ -497,10 +480,10 @@ const DEFAULT_HR_ZONE_UPPER_FRACTIONS: [f64; 5] = [0.6, 0.7, 0.8, 0.9, 1.0];
 /// [`DEFAULT_MAX_HR`]. A reading at or above the top bound is the top zone, and
 /// a reading that is not a positive number has none.
 fn hr_zone_number(sport_settings: Option<&str>, sport_type: &str, bpm: f64) -> Option<u32> {
-    let entry = sport_settings.and_then(|raw| sport_entry(raw, sport_type));
-    let max_hr =
-        positive(entry.as_ref().and_then(|e| e.get("max_hr")?.as_f64())).unwrap_or(DEFAULT_MAX_HR);
-    hr_zone_index(&hr_zone_bounds(&[], entry.as_ref(), max_hr), bpm)
+    let settings = SportSettings::parse(sport_settings);
+    let entry = settings.entry_for(sport_type);
+    let max_hr = positive(entry.and_then(|e| e.max_hr)).unwrap_or(DEFAULT_MAX_HR);
+    hr_zone_index(&hr_zone_bounds(&[], entry, max_hr), bpm)
 }
 
 /// The upper bpm edge of each heart rate zone, from the first source that has
@@ -510,19 +493,16 @@ fn hr_zone_number(sport_settings: Option<&str>, sport_type: &str, bpm: f64) -> O
 /// saved activity chart both read their bands here.
 fn hr_zone_bounds(
     own_zones: &[f64],
-    sport_entry: Option<&serde_json::Value>,
+    sport_entry: Option<&SportSettingsEntry>,
     max_hr: f64,
 ) -> Vec<f64> {
     let usable = |bounds: &[f64]| !bounds.is_empty() && bounds.iter().all(|b| *b > 0.0);
     if usable(own_zones) {
         return own_zones.to_vec();
     }
-    let sport_zones: Vec<f64> = sport_entry
-        .and_then(|e| e.get("hr_zones")?.as_array())
-        .map(|zones| zones.iter().filter_map(|z| z.as_f64()).collect())
-        .unwrap_or_default();
-    if usable(&sport_zones) {
-        return sport_zones;
+    let sport_zones = sport_entry.map_or(&[][..], |e| e.hr_zones.as_slice());
+    if usable(sport_zones) {
+        return sport_zones.to_vec();
     }
     DEFAULT_HR_ZONE_UPPER_FRACTIONS
         .iter()
@@ -561,8 +541,15 @@ fn resolve_max_hr(
     sport_settings: Option<&str>,
 ) -> (f64, crate::FfiMaxHrSource) {
     let body: Option<serde_json::Value> = body.and_then(|b| serde_json::from_str(b).ok());
+    max_hr_for(body.as_ref(), &SportSettings::parse(sport_settings))
+}
+
+/// [`resolve_max_hr`] over a body and settings already parsed.
+fn max_hr_for(
+    body: Option<&serde_json::Value>,
+    sport_settings: &SportSettings,
+) -> (f64, crate::FfiMaxHrSource) {
     let own_zones = body
-        .as_ref()
         .and_then(|b| b.get("icu_hr_zones"))
         .and_then(|z| z.as_array())
         .and_then(|z| z.last())
@@ -571,13 +558,10 @@ fn resolve_max_hr(
         return (top, crate::FfiMaxHrSource::ActivityZones);
     }
 
-    let sport_type = body
-        .as_ref()
+    let sport = body
         .and_then(|b| b.get("type"))
-        .and_then(|t| t.as_str());
-    let sport = sport_type
-        .and_then(|sport_type| sport_entry(sport_settings?, sport_type))
-        .and_then(|entry| entry.get("max_hr")?.as_f64());
+        .and_then(|t| t.as_str())
+        .and_then(|sport_type| sport_settings.entry_for(sport_type)?.max_hr);
     if let Some(sport) = positive(sport) {
         return (sport, crate::FfiMaxHrSource::SportSettings);
     }
@@ -620,9 +604,10 @@ fn activity_hr_zones(
         .as_ref()
         .and_then(|b| b.get("type"))
         .and_then(|t| t.as_str());
-    let entry = sport_type.and_then(|t| sport_entry(sport_settings?, t));
-    let (max_hr, _) = resolve_max_hr(body, sport_settings);
-    let bounds = hr_zone_bounds(&numbers("icu_hr_zones"), entry.as_ref(), max_hr);
+    let settings = SportSettings::parse(sport_settings);
+    let entry = sport_type.and_then(|t| settings.entry_for(t));
+    let (max_hr, _) = max_hr_for(body_json.as_ref(), &settings);
+    let bounds = hr_zone_bounds(&numbers("icu_hr_zones"), entry, max_hr);
 
     let own_times = numbers("icu_hr_zone_times");
     let mut seconds = vec![0.0; bounds.len()];
@@ -728,10 +713,6 @@ fn activity_summary(body: Option<&str>, sport: &str) -> crate::FfiActivitySummar
     }
 }
 
-/// The value intervals.icu puts last in `icu_power_zones` for a top zone with
-/// no upper edge.
-const POWER_ZONE_OPEN_TOP_PERCENT: f64 = 999.0;
-
 /// The saved activity's power zone bands in watts and the time spent in each,
 /// or `None` when there is no time to show or no bounds to place it in.
 ///
@@ -758,9 +739,9 @@ fn activity_power_zones(body: Option<&str>) -> Option<Vec<crate::FfiPowerZoneBan
     if uppers.is_empty() {
         return None;
     }
-    let zone_times: Vec<crate::net::types::ZoneTime> =
+    let zone_times: Vec<crate::net::intervals::wire::ZoneTime> =
         serde_json::from_value(body.get("icu_zone_times")?.clone()).ok()?;
-    let seconds = crate::objects::sync::power_zone_seconds(&zone_times, uppers.len() + 1);
+    let seconds = crate::net::intervals::power_zone_seconds(&zone_times, uppers.len() + 1);
     let total: f64 = seconds.iter().map(|s| f64::from(*s)).sum();
     if total <= 0.0 {
         return None;
@@ -1053,10 +1034,15 @@ impl super::PersistentEngine {
     }
 
     /// Everything the fitness tab paints with that stays fixed while it is
-    /// mounted, as of `today`. The app reads it through the pool, and this is
-    /// the same read on the engine's connection.
-    pub fn fitness_screen_data(&self, today: &str) -> crate::FfiFitnessScreenData {
-        pooled::fitness_screen_data(self.cold_connection(), today)
+    /// mounted, as of `today`, its range-led parts over each of `span_days`.
+    /// The app reads it through the pool, and this is the same read on the
+    /// engine's connection.
+    pub fn fitness_screen_data(
+        &self,
+        today: &str,
+        span_days: &[u32],
+    ) -> crate::FfiFitnessScreenData {
+        pooled::fitness_screen_data(self.cold_connection(), today, span_days)
     }
 
     /// Everything the map tab paints with: the engine total, the sport types
@@ -1808,18 +1794,27 @@ pub mod pooled {
 
     /// Everything the fitness tab paints with that stays fixed while it is
     /// mounted: the eFTP trend with the chart's history and the activities
-    /// that moved it, and the last stored critical speed for running and for
-    /// swimming.
+    /// that moved it, the last stored critical speed for running and for
+    /// swimming, and the set cycling FTP and running LTHR.
     ///
     /// The trend is read from wellness bodies and the eFTP markers a sync
     /// stores, the speeds from the snapshots a pace curve download writes, and
-    /// all three land with the `activities` event. The trend's coverage is the
+    /// the thresholds from the stored sport settings, else the FTP the newest
+    /// ride was analysed against, and all of them land with the `activities`
+    /// event. The trend's coverage is the
     /// wellness over the days its chart draws, so an empty chart can say
     /// whether those bodies were never pulled. The range and sport the
     /// athlete taps are not here: a tap would otherwise re-read the trend to
-    /// get a curve.
-    pub fn fitness_screen_data(conn: &Connection, today: &str) -> crate::FfiFitnessScreenData {
+    /// get a curve. The decoupling ride and the strip's activities follow the
+    /// range, so the read answers each of `span_days` and a tap reads nothing.
+    pub fn fitness_screen_data(
+        conn: &Connection,
+        today: &str,
+        span_days: &[u32],
+    ) -> crate::FfiFitnessScreenData {
         use crate::persistence::fitness::derivations::pooled as fitness;
+        use crate::persistence::fitness::sport_settings::{self, SportSettings};
+        let settings = SportSettings::read(conn);
         let today_date = chrono::NaiveDate::parse_from_str(today, "%Y-%m-%d").ok();
         let window_start = today_date
             .map(|day| (day - chrono::Duration::days(FITNESS_FTP_LOOKBACK_DAYS)).to_string())
@@ -1839,7 +1834,148 @@ pub mod pooled {
             sport_mix: sport_mix(conn),
             fitness_days,
             fatigue_days,
+            cycling_ftp_setting: sport_settings::cycling_ftp(conn, &settings),
+            running_lthr: sport_settings::running_lthr(&settings),
+            decoupling_sources: decoupling_sources(conn, today_date, span_days),
+            load_dots: load_dots(conn, today_date, span_days),
         }
+    }
+
+    /// The shortest ride the decoupling card reports, in seconds.
+    pub const DECOUPLING_MIN_MOVING_SECONDS: i64 = 30 * 60;
+
+    /// The wall-clock seconds the span of `days` back from `today` runs over,
+    /// from the first day's start to the end of today, inclusive.
+    fn span_bounds(today: chrono::NaiveDate, days: u32) -> (i64, i64) {
+        let first = today - chrono::Duration::days(i64::from(days));
+        let start = first.and_hms_opt(0, 0, 0).map(|t| t.and_utc().timestamp());
+        let end = today
+            .and_hms_opt(23, 59, 59)
+            .map(|t| t.and_utc().timestamp());
+        (start.unwrap_or(0), end.unwrap_or(0))
+    }
+
+    /// An activity's wall-clock start as intervals.icu sends it.
+    fn wall_clock(date: i64) -> String {
+        chrono::DateTime::from_timestamp(date, 0)
+            .map(|t| t.format("%Y-%m-%dT%H:%M:%S").to_string())
+            .unwrap_or_default()
+    }
+
+    /// The decoupling ride of each span: the newest cycling activity inside it
+    /// of half an hour or more with power, heart rate and a finite decoupling
+    /// on its stored body. Spans share today as their end, so the newest such
+    /// ride in the longest span is every span's answer that reaches back to
+    /// it. The value is read from the body because intervals.icu's is what its
+    /// activity screen prints, and a half with no power arrives as the string
+    /// `-Infinity`, which the type check passes over. A read that fails names
+    /// no ride.
+    fn decoupling_sources(
+        conn: &Connection,
+        today: Option<chrono::NaiveDate>,
+        span_days: &[u32],
+    ) -> Vec<crate::FfiSpanDecoupling> {
+        let newest = match (today, span_days.iter().max()) {
+            (Some(today), Some(&longest)) => {
+                let (start, end) = span_bounds(today, longest);
+                newest_decoupling_ride(conn, start, end)
+            }
+            _ => None,
+        };
+        span_days
+            .iter()
+            .map(|&days| crate::FfiSpanDecoupling {
+                days,
+                source: newest.as_ref().and_then(|(date, source)| {
+                    let (start, _) = span_bounds(today?, days);
+                    (*date >= start).then(|| source.clone())
+                }),
+            })
+            .collect()
+    }
+
+    fn newest_decoupling_ride(
+        conn: &Connection,
+        start: i64,
+        end: i64,
+    ) -> Option<(i64, crate::FfiDecouplingSource)> {
+        let rows: Vec<(String, String, i64, String, f64)> = conn
+            .prepare_cached(
+                "SELECT m.activity_id, m.name, m.date, m.sport_type,
+                        json_extract(b.raw, '$.decoupling')
+                 FROM activity_metrics m
+                 JOIN activity_bodies b ON b.activity_id = m.activity_id
+                 WHERE m.date BETWEEN ?1 AND ?2
+                   AND m.moving_time >= ?3
+                   AND m.avg_power > 0 AND m.avg_hr > 0
+                   AND json_valid(b.raw)
+                   AND json_type(b.raw, '$.decoupling') IN ('integer', 'real')
+                 ORDER BY m.date DESC",
+            )
+            .and_then(|mut stmt| {
+                stmt.query_map(
+                    rusqlite::params![start, end, DECOUPLING_MIN_MOVING_SECONDS],
+                    |row| {
+                        Ok((
+                            row.get(0)?,
+                            row.get(1)?,
+                            row.get(2)?,
+                            row.get(3)?,
+                            row.get(4)?,
+                        ))
+                    },
+                )?
+                .collect()
+            })
+            .map_err(|e| log::warn!("veloqrs: [fitness] decoupling read failed: {e}"))
+            .unwrap_or_default();
+        rows.into_iter()
+            .find(|(_, _, _, sport, value)| crate::sport::is_cycling(sport) && value.is_finite())
+            .map(|(activity_id, name, date, _, decoupling)| {
+                (
+                    date,
+                    crate::FfiDecouplingSource {
+                        activity_id,
+                        name,
+                        start_date_local: wall_clock(date),
+                        decoupling,
+                    },
+                )
+            })
+    }
+
+    /// Every activity inside the longest span, oldest first. A read that fails
+    /// marks nothing.
+    fn load_dots(
+        conn: &Connection,
+        today: Option<chrono::NaiveDate>,
+        span_days: &[u32],
+    ) -> Vec<crate::FfiLoadDot> {
+        let (Some(today), Some(&longest)) = (today, span_days.iter().max()) else {
+            return Vec::new();
+        };
+        let (start, end) = span_bounds(today, longest);
+        conn.prepare_cached(
+            "SELECT activity_id, name, sport_type, date, moving_time, distance,
+                    COALESCE(training_load, 0)
+             FROM activity_metrics WHERE date BETWEEN ?1 AND ?2 ORDER BY date, activity_id",
+        )
+        .and_then(|mut stmt| {
+            stmt.query_map(rusqlite::params![start, end], |row| {
+                Ok(crate::FfiLoadDot {
+                    activity_id: row.get(0)?,
+                    name: row.get(1)?,
+                    sport_type: row.get(2)?,
+                    start_date_local: wall_clock(row.get(3)?),
+                    moving_time: u32::try_from(row.get::<_, i64>(4)?).unwrap_or(0),
+                    distance: row.get(5)?,
+                    load: row.get(6)?,
+                })
+            })?
+            .collect()
+        })
+        .map_err(|e| log::warn!("veloqrs: [fitness] load dots read failed: {e}"))
+        .unwrap_or_default()
     }
 
     /// The activities the sport mix counts, the most recent first. A fixed
@@ -6070,7 +6206,7 @@ mod tests {
         let engine = crate::persistence::PersistentEngine::new(path).expect("engine");
         let today = "2026-06-30";
 
-        let read = pooled::fitness_screen_data(&engine.db, today);
+        let read = pooled::fitness_screen_data(&engine.db, today, &[]);
         assert!(read.ftp_trend.history.is_empty());
         assert_eq!(read.ftp_trend_coverage, crate::RangeCoverage::NotFetched);
 
@@ -6083,7 +6219,7 @@ mod tests {
             )
             .expect("wellness");
         assert_eq!(
-            pooled::fitness_screen_data(&engine.db, today).ftp_trend_coverage,
+            pooled::fitness_screen_data(&engine.db, today, &[]).ftp_trend_coverage,
             crate::RangeCoverage::Empty,
             "wellness stored only before the chart's window"
         );
@@ -6095,7 +6231,7 @@ mod tests {
                 rusqlite::params!["2026-06-29"],
             )
             .expect("wellness");
-        let read = pooled::fitness_screen_data(&engine.db, today);
+        let read = pooled::fitness_screen_data(&engine.db, today, &[]);
         assert!(
             read.ftp_trend.history.is_empty(),
             "no day carries an estimate"

@@ -218,9 +218,8 @@ describe('a series is told apart from itself', () => {
    */
   it.each(SERIES)('%s keeps its members distinct', (name) => {
     const values = hexes((palette as Record<string, unknown>)[name]);
-    // A group with no hex members has nothing to tell apart: `glows` holds rgba
-    // strings and `opacity` holds numbers, and both are series for the same
-    // reason, that they carry no information of their own.
+    // A group with no hex members has nothing to tell apart: `opacity` holds
+    // numbers, a series because it carries no information of its own.
     if (values.length === 0) return;
 
     // Deliberate aliases exist: an activity type that shares another's colour, a

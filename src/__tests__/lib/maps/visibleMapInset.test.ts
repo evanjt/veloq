@@ -71,7 +71,13 @@ describe('the 2D and 3D fits for one cover', () => {
       `padding: ${literal},`
     );
     expect(
-      buildMap3DHtml({ coordinates: [[7.3, 46.2]], bounds, fitPadding: inset } as never)
+      buildMap3DHtml({
+        coordinates: [[7.3, 46.2]],
+        bounds,
+        fitPadding: inset,
+        initStyle: 'light',
+        mapStyle: 'light',
+      } as never)
     ).toContain(`opts.fitBoundsOptions = { padding: ${literal} };`);
   });
 });

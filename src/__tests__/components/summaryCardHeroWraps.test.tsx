@@ -27,17 +27,12 @@ jest.mock('@/i18n', () => ({
 }));
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn(() => null) }));
 jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: undefined }) }));
-jest.mock('@/shared/app/useSportSettings', () => ({
-  useSportSettings: () => ({ data: undefined }),
-  getSettingsForSport: () => undefined,
-}));
 jest.mock('@/features/stats', () => ({ usePaceCurve: () => ({ data: undefined }) }));
 jest.mock('@/shared/app/useMetricSystem', () => ({ useMetricSystem: () => true }));
 
 async function renderCard(props: Partial<SummaryCardProps>) {
   const tree = await render(
     <SummaryCard
-      onProfilePress={() => {}}
       heroValue={0}
       heroLabel="metrics.fitness"
       showSparkline

@@ -92,13 +92,14 @@ tags:
 
 - takeScreenshot: "screenshots/critical-fitness"
 
-# ── Training Tab ────────────────────────────────────────
+# ── Fitness Tab, weekly summary ─────────────────────────
 - runFlow:
-    file: helpers/navigate-to-training.yaml
+    file: helpers/navigate-to-fitness.yaml
 
-- assertVisible:
-    id: "weekly-summary"
-    optional: true
+- runFlow:
+    file: helpers/reveal.yaml
+    env:
+      ELEMENT: "weekly-summary"
 
 - takeScreenshot: "screenshots/critical-training"
 

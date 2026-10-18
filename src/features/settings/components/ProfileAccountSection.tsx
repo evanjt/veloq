@@ -232,16 +232,12 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
             </Text>
             <View style={styles.scopeRow}>
               {parsedScopes.map((s) => (
-                <View
+                <Text
                   key={s.label}
-                  style={[settingsStyles.scopeBadge, isDark && settingsStyles.scopeBadgeDark]}
+                  style={[settingsStyles.scopeText, isDark && settingsStyles.textSecondary]}
                 >
-                  <Text
-                    style={[settingsStyles.scopeBadgeText, isDark && settingsStyles.textSecondary]}
-                  >
-                    {s.label}: {s.level}
-                  </Text>
-                </View>
+                  {s.label}: {s.level}
+                </Text>
               ))}
             </View>
           </View>
@@ -348,8 +344,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xxs,
   },
   scopeRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
+    gap: spacing.xxs,
   },
 });

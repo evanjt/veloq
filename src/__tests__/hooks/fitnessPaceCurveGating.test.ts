@@ -21,11 +21,6 @@ jest.mock('@/features/wellness', () => ({
 }));
 jest.mock('@/features/activity/hooks', () => ({
   useActivities: () => ({ data: undefined, isLoading: false, isFetching: false }),
-  getLatestFTP: () => undefined,
-}));
-jest.mock('@/shared/app/useSportSettings', () => ({
-  useSportSettings: () => ({ data: undefined }),
-  getSettingsForSport: () => undefined,
 }));
 jest.mock('@/features/stats', () => ({
   usePaceCurve: jest.fn(() => ({ data: undefined })),

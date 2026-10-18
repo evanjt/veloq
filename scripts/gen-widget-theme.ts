@@ -47,17 +47,11 @@ const PALETTE_KEYS: ColourKey[] = [
   'fatigue',
   'chartFitness',
   'chartFatigue',
-  'chartCasing',
   'formHighRisk',
   'formOptimal',
   'formGreyZone',
   'formFresh',
   'formTransition',
-  'formHighRiskText',
-  'formOptimalText',
-  'formGreyZoneText',
-  'formFreshText',
-  'formTransitionText',
   'trendUp',
   'trendDown',
   'trendFlat',
@@ -216,6 +210,9 @@ ${androidColors(widgetPalette.light)}
   <dimen name="widget_text_caption">${widgetType.caption}sp</dimen>
   <dimen name="widget_text_floor">${widgetType.floor}sp</dimen>
   <item name="widget_text_scale_max" format="float" type="dimen">${widgetTextScale.maxScale}</item>
+  <dimen name="widget_chart_fatigue_dash_on">${widgetChart.fatigueDash[0]}dp</dimen>
+  <dimen name="widget_chart_fatigue_dash_off">${widgetChart.fatigueDash[1]}dp</dimen>
+  <item name="widget_chart_band_opacity" format="float" type="dimen">${widgetChart.bandOpacity}</item>
 </resources>
 `;
 }

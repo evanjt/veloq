@@ -59,6 +59,7 @@ jest.mock('@/features/settings/hooks/exportIndex', () => ({
 jest.mock('@/shared/ui', () => {
   const hero = jest.requireActual('@/shared/ui/DetailHero');
   return {
+    Spinner: jest.requireActual('@/shared/ui/Spinner').Spinner,
     Button: jest.requireActual('@/shared/ui/Button').Button,
     DetailHero: ({ overlay }: { overlay: React.ReactNode }) => overlay,
     HeroNameRow: hero.HeroNameRow,

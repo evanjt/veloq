@@ -18,7 +18,7 @@ import {
 } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import * as ScreenOrientation from 'expo-screen-orientation';
-import { CombinedPlot, type ChartMetricValue } from './CombinedPlot';
+import { ActivityStreams, type ChartMetricValue } from './ActivityStreams';
 import { ChartTypeSelector } from './ChartTypeSelector';
 import { ChartXAxisSwitch, type ChartXAxisMode } from './ChartXAxisSwitch';
 import { HRZonesChart } from './HRZonesChart';
@@ -64,7 +64,7 @@ import { formatDurationHuman } from '@/shared/format/format';
 import { type ChartTypeId } from '@/features/activity/lib/chartConfig';
 import type {
   ActivityDetail,
-  ActivityStreams,
+  ActivityStreams as StreamsData,
   ActivityInterval,
   ActivityType,
   WellnessData,
@@ -94,7 +94,7 @@ function defaultChartFor(type: ActivityType): ChartTypeId {
 interface ActivityChartsSectionProps {
   activity: ActivityDetail;
   activityId: string;
-  streams: ActivityStreams | undefined;
+  streams: StreamsData | undefined;
   streamsDownloaded?: boolean | undefined;
   streamsStatus?: EngineBodyStatus | undefined;
   onRetryStreams?: (() => void) | undefined;
@@ -179,7 +179,6 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
 
   // Chart state
   const [selectedCharts, setSelectedCharts] = useState<ChartTypeId[]>([]);
-  const [previewMetricId, setPreviewMetricId] = useState<ChartTypeId | null>(null);
   const [chartsInitialised, setChartsInitialised] = useState(false);
   const [isChartFullscreen, setIsChartFullscreen] = useState(false);
   const [xAxisMode, setXAxisMode] = useState<ChartXAxisMode>('distance');
@@ -196,14 +195,15 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
     return () => cancelAnimationFrame(frame);
   }, [belowFoldMounted, transitionSettled]);
 
-  // Get available chart types based on stream data
-  const availableCharts = useMemo(() => {
-    return getAvailableCharts(streams || {});
-  }, [streams]);
-
   const effectiveChartConfigs = useMemo(
     () => (activity ? chartConfigsFor(activity.type, summary?.cadenceUnit) : CHART_CONFIGS),
     [activity, summary?.cadenceUnit]
+  );
+
+  // The streams this activity has data for, with speed or pace as its sport reads it.
+  const availableCharts = useMemo(
+    () => (activity ? getAvailableCharts(streams || {}, activity.type, effectiveChartConfigs) : []),
+    [streams, activity, effectiveChartConfigs]
   );
 
   // Determine effective x-axis mode and whether toggle is available
@@ -304,8 +304,6 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                     available={availableCharts}
                     selected={selectedCharts}
                     onToggle={handleChartToggle}
-                    onPreviewStart={(id) => setPreviewMetricId(id as ChartTypeId)}
-                    onPreviewEnd={() => setPreviewMetricId(null)}
                     metricValues={chartMetrics}
                   />
                 </View>
@@ -334,16 +332,14 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                       style={styles.chartHeader}
                     />
                   ) : null}
-                  <View style={styles.chartBody}>
-                    <CombinedPlot
+                  <View style={styles.streamsBody}>
+                    <ActivityStreams
                       streams={streams}
                       elevationGain={activity.total_elevation_gain}
                       selectedCharts={selectedCharts}
                       chartConfigs={effectiveChartConfigs}
-                      height={180}
                       onPointSelect={onPointSelect}
                       onInteractionChange={onInteractionChange}
-                      previewMetricId={previewMetricId}
                       xAxisMode={effectiveXAxisMode}
                       intervals={intervalsExpanded ? intervalsData?.icu_intervals : undefined}
                       activityType={activity.type}
@@ -602,8 +598,6 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                     available={availableCharts}
                     selected={selectedCharts}
                     onToggle={handleChartToggle}
-                    onPreviewStart={(id) => setPreviewMetricId(id as ChartTypeId)}
-                    onPreviewEnd={() => setPreviewMetricId(null)}
                     metricValues={chartMetrics}
                   />
                   {canToggleXAxis ? (
@@ -617,7 +611,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
               }
               renderPlot={(plotHeight) =>
                 streams && selectedCharts.length > 0 ? (
-                  <CombinedPlot
+                  <ActivityStreams
                     streams={streams}
                     elevationGain={activity.total_elevation_gain}
                     selectedCharts={selectedCharts}
@@ -625,7 +619,6 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                     height={plotHeight}
                     onPointSelect={onPointSelect}
                     onInteractionChange={onInteractionChange}
-                    previewMetricId={previewMetricId}
                     xAxisMode={effectiveXAxisMode}
                     intervals={intervalsExpanded ? intervalsData?.icu_intervals : undefined}
                     activityType={activity.type}
@@ -708,7 +701,15 @@ function FullscreenPlotLayout({
       </View>
 
       {chromeHeight !== null && (
-        <View style={styles.fullscreenChartWrapper}>{renderPlot(frame.plotHeight)}</View>
+        // The lanes share the plot height down to a floor each, so many of
+        // them in landscape scroll rather than clip.
+        <ScrollView
+          style={styles.fullscreenChartWrapper}
+          contentContainerStyle={styles.fullscreenChartContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {renderPlot(frame.plotHeight)}
+        </ScrollView>
       )}
     </View>
   );
@@ -755,6 +756,12 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xs,
     paddingBottom: spacing.sm,
     minHeight: 180,
+  },
+  // The lanes set their own height, one lane height per selected stream.
+  streamsBody: {
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.sm,
   },
   textSecondary: {
     color: darkColors.textSecondary,
@@ -848,6 +855,9 @@ const styles = StyleSheet.create({
   },
   fullscreenChartWrapper: {
     flex: 1,
+  },
+  fullscreenChartContent: {
+    flexGrow: 1,
     justifyContent: 'center',
   },
   exportGpxButton: {

@@ -8,12 +8,13 @@ import {
   buildRegionalLayers,
   buildRegionalSources,
 } from '@/features/maps/components/regional/regionalMapLayerSpecs';
+import { mapPalette } from '@/theme';
 
 const empty: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 
 function layers(showRoutes: boolean) {
   return buildRegionalLayers({
-    mapStyle: 'light',
+    palette: mapPalette('light'),
     showActivities: true,
     showSections: true,
     showRoutes,

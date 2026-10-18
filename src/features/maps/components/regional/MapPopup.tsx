@@ -16,7 +16,7 @@ import {
   darkColors,
   iconSize,
   layout,
-  shadows,
+  raised,
   spacing,
   typography,
   themePalette,
@@ -85,7 +85,7 @@ export const MapPopup = memo(function MapPopup({
   return (
     <Animated.View
       testID={testID}
-      style={[styles.popup, isDark && styles.popupDark, style]}
+      style={[styles.popup, raised('modal', isDark), isDark && styles.popupDark, style]}
       pointerEvents="auto"
     >
       <View style={styles.header}>
@@ -160,7 +160,6 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadius,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    ...shadows.modal,
   },
   popupDark: {
     backgroundColor: darkColors.surfaceRaised,

@@ -4,7 +4,7 @@
   "scripts": 1,
   "scripts/lib": 45,
   "src/app": 4,
-  "src/features/activity/components": 20,
+  "src/features/activity/components": 12,
   "src/features/activity/hooks": 7,
   "src/features/activity/lib": 5,
   "src/features/fitness/components": 9,

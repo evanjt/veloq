@@ -98,7 +98,7 @@ describe('cards off the home scroll', () => {
         <FitnessChartCard
           wellness={[]}
           wellnessCoverage={RangeCoverage.Loaded}
-          activities={[]}
+          loadDots={[]}
           dailyLoads={[]}
           eftpChanges={[]}
           selectedDate={null}

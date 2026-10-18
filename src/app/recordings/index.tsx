@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
-import { View, FlatList, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, FlatList, ScrollView, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
@@ -10,6 +10,7 @@ import {
   screenListInsets,
   ScreenSafeAreaView,
   useScrollEndInset,
+  Spinner,
 } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { Card } from '@/shared/ui/Card';
@@ -160,7 +161,7 @@ function RecordingsLibraryScreenContent() {
             </View>
             {isUploading ? (
               <View testID={`recording-uploading-${item.id}`} style={styles.rowAction}>
-                <ActivityIndicator size="small" color={colors.actionPrimary} />
+                <Spinner label={t('recording.library.status.uploading')} />
               </View>
             ) : null}
             {offerUpload ? (

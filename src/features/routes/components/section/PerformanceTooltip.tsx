@@ -26,9 +26,8 @@ import {
   readsPace,
   type AttemptBasis,
 } from '@/features/routes/lib/attemptBasis';
+import { directionColour } from '@/features/routes/lib/directionColour';
 import {
-  colorWithOpacity,
-  opacity,
   colors,
   darkColors,
   iconSize,
@@ -49,6 +48,7 @@ import {
   pressable,
   pressRipple,
 } from '@/shared/ui';
+import { Badge } from '@/shared/ui/Badge';
 import { Icon } from '@/shared/ui/Icon';
 import { NameText } from '@/shared/ui/NameText';
 
@@ -61,8 +61,6 @@ export interface PerformanceTooltipProps {
   isDark: boolean;
   /** What the headline and its gap to the best read as, the basis the chart plots on. */
   basis: AttemptBasis;
-  /** Accent color for the speed value in "forward" direction. */
-  activityColor: string;
   /** Selected reference activity id (shows filled star when matched). */
   referenceActivityId?: string | undefined;
   onSetAsReference?: ((activityId: string) => void) | undefined;
@@ -78,7 +76,6 @@ export function PerformanceTooltip({
   selectedPoint,
   isDark,
   basis,
-  activityColor,
   referenceActivityId,
   onSetAsReference,
   onExcludeActivity,
@@ -188,11 +185,12 @@ export function PerformanceTooltip({
             ) : null}
             <NameText style={styles.tooltipName}>{selectedPoint.activityName}</NameText>
             {(selectedPoint.lapCount ?? 0) > 1 && (
-              <View style={styles.lapBadge}>
-                <Text style={styles.lapBadgeText}>
-                  {t('units.times', { value: selectedPoint.lapCount })}
-                </Text>
-              </View>
+              <Badge
+                tone="neutral"
+                text={t('units.times', { value: selectedPoint.lapCount })}
+                isDark={isDark}
+                style={styles.lapBadgePlace}
+              />
             )}
           </View>
           <View style={styles.tooltipMeta}>
@@ -224,7 +222,11 @@ export function PerformanceTooltip({
             ) : null}
             {selectedPoint.direction === 'reverse' && (
               <View style={styles.reverseBadge}>
-                <Icon name="swap-horizontal" size={iconSize.xs} color={colors.reverseDirection} />
+                <Icon
+                  name="swap-horizontal"
+                  size={iconSize.xs}
+                  color={directionColour('reverse', isDark)}
+                />
               </View>
             )}
           </View>
@@ -235,8 +237,10 @@ export function PerformanceTooltip({
             style={[
               styles.tooltipSpeed,
               {
-                color:
-                  selectedPoint.direction === 'reverse' ? colors.reverseDirection : activityColor,
+                color: directionColour(
+                  selectedPoint.direction === 'reverse' ? 'reverse' : 'forward',
+                  isDark
+                ),
               },
             ]}
           >
@@ -318,16 +322,8 @@ const makeStyles = (palette: Palette, isDark: boolean) =>
       color: palette.achievementText,
       marginRight: spacing.xs,
     },
-    lapBadge: {
-      backgroundColor: colorWithOpacity(palette.textSecondary, opacity.tint2),
-      paddingHorizontal: spacing.xs,
-      paddingVertical: spacing.xxs,
-      borderRadius: layout.borderRadiusXs,
+    lapBadgePlace: {
       marginLeft: spacing.xs,
-    },
-    lapBadgeText: {
-      ...typography.badge,
-      color: palette.textSecondary,
     },
     tooltipDelta: {
       ...typography.badge,

@@ -1,4 +1,4 @@
-import React, { useRef, useCallback } from 'react';
+import React from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { DenseText } from '@/shared/ui/DenseText';
 import { useTheme } from '@/shared/app';
@@ -10,12 +10,10 @@ import {
   selectedChipPaint,
 } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
-import * as haptics from '@/shared/ui/haptics';
 import { useTranslation } from 'react-i18next';
 import {
   chartStreamColour,
   colors,
-  colorWithOpacity,
   darkColors,
   iconSize,
   layout,
@@ -23,11 +21,9 @@ import {
   spacing,
   stroke,
   typography,
-  opacity,
 } from '@/theme';
 import { isolateNumeric } from '@/shared/format';
 import { chartTypeLabel, type ChartConfig } from '@/features/activity/lib/chartConfig';
-import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
 
 interface ChartMetricDisplay {
   id: string;
@@ -37,6 +33,8 @@ interface ChartMetricDisplay {
   maxValueWidth?: string | undefined;
   /** The value is the activity's average, drawn with a mark saying so */
   isAverage?: boolean | undefined;
+  /** The value is the climb's gain, drawn with a mark saying so */
+  isGain?: boolean | undefined;
 }
 
 interface ChartTypeSelectorProps {
@@ -46,55 +44,24 @@ interface ChartTypeSelectorProps {
   selected: string[];
   /** Toggle a chart type on/off */
   onToggle: (id: string) => void;
-  /** Called when user starts long-pressing a chip (to preview Y-axis) */
-  onPreviewStart?: (id: string) => void;
-  /** Called when user stops long-pressing a chip */
-  onPreviewEnd?: () => void;
   /** Per-chart metric values to display inside chips (avg or scrub position) */
   metricValues?: ChartMetricDisplay[];
 }
 
+/**
+ * The activity streams' readout row, which is also their legend: one chip per
+ * stream, keyed by a short line in its colour, named in the text colour, with
+ * its value and unit. A tap draws or removes its lane.
+ */
 export function ChartTypeSelector({
   available,
   selected,
   onToggle,
-  onPreviewStart,
-  onPreviewEnd,
   metricValues,
 }: ChartTypeSelectorProps) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
-  const isLongPressRef = useRef(false);
-
-  const handlePressIn = useCallback(() => {
-    isLongPressRef.current = false;
-  }, []);
-
-  const handleLongPress = useCallback(
-    (id: string) => {
-      isLongPressRef.current = true;
-      haptics.light();
-      onPreviewStart?.(id);
-    },
-    [onPreviewStart]
-  );
-
-  const handlePressOut = useCallback(() => {
-    if (isLongPressRef.current) {
-      onPreviewEnd?.();
-    }
-    isLongPressRef.current = false;
-  }, [onPreviewEnd]);
-
-  const handlePress = useCallback(
-    (id: string) => {
-      // Only toggle if it wasn't a long press
-      if (!isLongPressRef.current) {
-        onToggle(id);
-      }
-    },
-    [onToggle]
-  );
+  const palette = isDark ? darkColors : colors;
 
   if (available.length === 0) {
     return null;
@@ -107,21 +74,10 @@ export function ChartTypeSelector({
         const isSelected = selected.includes(config.id);
         // Selected, the chip is the app's selected chip, whose ink clears 4.5:1
         // on its fill where a stream hue under any one ink does not. Unselected,
-        // the stream's tint is the ground under the primary text. The dot says
-        // which stream it is in both states.
-        const frame = chipFrame(
-          isSelected,
-          isDark,
-          colorWithOpacity(
-            chartStreamColour(config.stream, isDark),
-            isDark ? opacity.tint4 : opacity.tint2
-          )
-        );
-        const textColor = isSelected
-          ? selectedChipPaint(isDark).ink
-          : isDark
-            ? darkColors.textPrimary
-            : colors.textPrimary;
+        // it is the neutral control ground under the primary text. Chart text
+        // never sits on a stream colour: the line key says which stream it is.
+        const frame = chipFrame(isSelected, isDark, palette.fillNeutral);
+        const textColor = isSelected ? selectedChipPaint(isDark).ink : palette.textPrimary;
         const label = chartTypeLabel(config, t);
         // Get metric value for this chip
         const metric = metricValues?.find((m) => m.id === config.id);
@@ -131,15 +87,19 @@ export function ChartTypeSelector({
             ? `${metric.value} ${metric.unit}`
             : metric.value
           : null;
+        // At rest a chip reads the activity's average, or for elevation the
+        // climb's gain, and says which; a scrub reads the sample and drops it.
+        const isGain = config.defaultMetric === 'gain';
+        const resting = metric?.isAverage === true || metric?.isGain === true;
+        const restMark = isGain ? t('activity.chartGain') : t('activity.chartAverage');
         const spokenValue =
-          metric?.isAverage && valueWithUnit
-            ? `${t('activity.stats.average')} ${valueWithUnit}`
+          resting && valueWithUnit
+            ? `${isGain ? t('activity.chartGain') : t('activity.stats.average')} ${valueWithUnit}`
             : valueWithUnit;
-        const averageMark = metric?.isAverage ? `${t('activity.chartAverage')} ` : '';
+        const shownMark = resting ? `${restMark} ` : '';
         // The reserve keeps the mark's room while a scrub hides it, so the chip
-        // holds its width. The climb chip is a total and never carries one.
-        const reservedMark =
-          config.defaultMetric === 'gain' ? '' : `${t('activity.chartAverage')} `;
+        // holds its width.
+        const reservedMark = `${restMark} `;
 
         return (
           <Pressable
@@ -151,17 +111,13 @@ export function ChartTypeSelector({
             style={pressable([styles.chip, metric && styles.chipWithValue, frame])}
             android_ripple={pressRipple}
             hitSlop={metric ? CHIP_WITH_VALUE_SLOP : CHIP_SLOP}
-            onPressIn={handlePressIn}
-            onPress={() => handlePress(config.id)}
-            onLongPress={() => handleLongPress(config.id)}
-            onPressOut={handlePressOut}
-            delayLongPress={PREVIEW_HOLD_MS}
+            onPress={() => onToggle(config.id)}
           >
             <View style={styles.chipLabelRow}>
               <View
-                testID={`chart-type-${config.id}-mark`}
+                testID={`chart-type-${config.id}-key`}
                 style={[
-                  styles.chipMark,
+                  styles.chipKey,
                   { backgroundColor: chartStreamColour(config.stream, isDark) },
                 ]}
               />
@@ -181,8 +137,10 @@ export function ChartTypeSelector({
                   style={[styles.chipValue, styles.chipValueVisible, { color: textColor }]}
                   numberOfLines={1}
                 >
-                  {averageMark ? (
-                    <DenseText testID={`chart-type-${config.id}-average`}>{averageMark}</DenseText>
+                  {shownMark ? (
+                    <DenseText testID={`chart-type-${config.id}-${isGain ? 'gain' : 'average'}`}>
+                      {shownMark}
+                    </DenseText>
                   ) : null}
                   {isolateNumeric(metric.value)}
                   {metric.unit ? ` ${metric.unit}` : ''}
@@ -226,11 +184,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
   },
-  // The data-mark size, so the chip keys its stream as a legend does.
-  chipMark: {
-    width: spacing.sm,
-    height: spacing.sm,
-    borderRadius: layout.borderRadiusXs,
+  // A short stroke of the stream's line, so the chip keys its lane as a legend does.
+  chipKey: {
+    width: spacing.md,
+    height: stroke.two,
+    borderRadius: layout.borderRadiusFull,
   },
   chipLabel: {
     ...typography.badge,

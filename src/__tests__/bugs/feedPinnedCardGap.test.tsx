@@ -3,9 +3,8 @@
  * first activity card sits at the top of the list, under the pinned summary card.
  * Expected behaviour: the space above the first card is the space between cards,
  * with the filter section hidden or shown, and the space either side of a shown
- * filter section is the same. Settings is reachable on the first frame: with the
- * summary card off, its control sits in the native header rather than in the
- * section the list opens scrolled past.
+ * filter section is the same. Settings is a tab, so the feed draws no way into
+ * it, with the summary card on or off.
  *
  * Scenario: the system text size is past the dense cap, where the pinned cards
  * alone can fill the window and leave the list no height.
@@ -220,20 +219,13 @@ describe('feed settings control', () => {
   const initial = useDashboardPreferences.getState().summaryCard;
   afterEach(() => useDashboardPreferences.setState({ summaryCard: initial }));
 
-  it('puts Settings in the header on the first frame when the summary card is off', async () => {
-    useDashboardPreferences.setState({ summaryCard: { ...initial, enabled: false } });
-    await renderFeed();
-    const header = screen.getByTestId('native-header-right');
-    expect(within(header).getByLabelText('navigation.settings')).toBeTruthy();
-    const section = screen.getByTestId('home-filter-section');
-    expect(within(section).queryByLabelText('navigation.settings')).toBeNull();
-  });
-
-  it('leaves the profile in the summary card when the card is on', async () => {
-    useDashboardPreferences.setState({ summaryCard: { ...initial, enabled: true } });
-    await renderFeed();
-    expect(
-      within(screen.getByTestId('native-header')).queryByLabelText('navigation.settings')
-    ).toBeNull();
-  });
+  it.each([false, true])(
+    'draws no way into Settings with the summary card %s, since Settings is a tab',
+    async (enabled) => {
+      useDashboardPreferences.setState({ summaryCard: { ...initial, enabled } });
+      await renderFeed();
+      expect(screen.queryByLabelText('navigation.settings')).toBeNull();
+      expect(screen.queryByLabelText('common.openSettings')).toBeNull();
+    }
+  );
 });

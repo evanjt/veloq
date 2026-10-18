@@ -182,7 +182,11 @@ describe('the 3D page', () => {
 
     try {
       layers.casing = '#123456';
-      const html = buildMap3DHtml({ initialStyle: 'dark', coordinates: [] } as never);
+      const html = buildMap3DHtml({
+        initStyle: 'dark',
+        mapStyle: 'dark',
+        coordinates: [],
+      } as never);
       expect(html).toContain('\'line-color\': "#123456"');
     } finally {
       layers.casing = casing;
@@ -190,7 +194,7 @@ describe('the 3D page', () => {
   });
 
   it('mounts the route layers whether or not it was built with a route', () => {
-    const empty = buildMap3DHtml({ initialStyle: 'dark', coordinates: [] } as never);
+    const empty = buildMap3DHtml({ initStyle: 'dark', mapStyle: 'dark', coordinates: [] } as never);
 
     expect(empty).toContain("map.addSource('route'");
     expect(empty).toContain("id: 'route-outline'");
@@ -199,7 +203,8 @@ describe('the 3D page', () => {
 
   it('fits the track with the padding the 2D map uses', () => {
     const html = buildMap3DHtml({
-      initialStyle: 'dark',
+      initStyle: 'dark',
+      mapStyle: 'dark',
       coordinates: [
         [7.3, 46.2],
         [7.31, 46.21],

@@ -10,6 +10,5 @@ export {
   buildRegionalSources,
   buildRegionalLayers,
   REGIONAL_INTERACTIVE_LAYERS,
-  HEATMAP_ROUTE_COLOR,
 } from './regionalMapLayerSpecs';
 export { REGIONAL_FIT_PADDING } from './regionalCamera';

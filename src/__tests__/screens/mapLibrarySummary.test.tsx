@@ -39,7 +39,6 @@ jest.mock('@/features/maps', () => ({
     Run: { color: 'red', labelKey: 'run', types: ['Run'] },
   },
   FILTER_CHIP: { fill: 'teal', ink: 'black' },
-  categoryChipColours: () => ({ fill: 'red', ink: 'black' }),
   DEFAULT_MAP_PERIOD: 'all',
   getPeriodStart: (period: string) => new Date(period === 'all' ? '2000-01-01' : '2026-01-01'),
   groupTypesByCategory: (types: string[]) =>

@@ -169,8 +169,8 @@ describe('SectionHistoryPanel', () => {
   });
 
   it('says so when nothing is recorded', async () => {
-    const { getByText } = await renderPanel({ history: [], versions: [] });
-    expect(getByText('sectionHistory.empty')).toBeTruthy();
+    const { getByTestId } = await renderPanel({ history: [], versions: [] });
+    expect(getByTestId('empty-state-title').props.children).toBe('sectionHistory.empty');
   });
 
   it('shows a translated line for a reference_anchored event, by whether the line moved', async () => {

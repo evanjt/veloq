@@ -2,10 +2,12 @@ import {
   buildSectionLayers,
   buildSectionSources,
 } from '@/features/routes/components/sectionMapLayerSpecs';
+import { mapPalette } from '@/theme';
 
 const empty = { type: 'FeatureCollection', features: [] } as GeoJSON.FeatureCollection;
 const input = (deltaLineStops: (string | number)[] | null) =>
   ({
+    palette: mapPalette('light'),
     shadowGeoJSON: empty,
     extensionGeoJSON: empty,
     sectionGeoJSON: empty,

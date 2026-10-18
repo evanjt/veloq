@@ -17,7 +17,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { hasStarted } from 'veloqrs';
@@ -28,8 +28,9 @@ import {
   ProgressBar,
   ScreenSafeAreaView,
   useBottomClearance,
+  Spinner,
 } from '@/shared/ui';
-import { colors, darkColors, layout, spacing, typography, themePalette } from '@/theme';
+import { colors, darkColors, layout, spacing, typography } from '@/theme';
 import {
   usePreviewDetect,
   getPhaseDisplayKey,
@@ -69,7 +70,6 @@ const PARAM_KEYS = [
 function DetectionPreviewScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const palette = themePalette(isDark);
   const bottomClearance = useBottomClearance({ insetTaken: true });
 
   const client = useMemo(() => getEngine(), []);
@@ -300,14 +300,13 @@ function DetectionPreviewScreenContent() {
         {running ? (
           <View>
             <View style={[styles.runBtn, { backgroundColor: surface, borderColor: border }]}>
-              <ActivityIndicator size="small" color={textSecondary} />
+              <Spinner label={runLabel} />
               <FitText style={[styles.runText, { color: textSecondary }]}>{runLabel}</FitText>
             </View>
             <ProgressBar
               done={runPercent}
               total={100}
               label={runLabel}
-              color={palette.actionPrimary}
               testID="preview-progress"
               fillTestID="preview-progress-fill"
             />

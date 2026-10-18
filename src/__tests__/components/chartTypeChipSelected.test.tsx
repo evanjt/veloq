@@ -4,7 +4,7 @@
  *
  * Expected behaviour: the selected chip takes the standard selected fill and
  * outline, every text on it clears 4.5:1 against that fill, and the stream is
- * told by a dot in its own hue, selected or not.
+ * told by a line key in its own hue, selected or not.
  */
 
 import React from 'react';
@@ -56,13 +56,13 @@ describe.each(THEMES)('a selected chart type chip in the %s theme', (_, isDark, 
   );
 
   it.each(STREAMS.map((c) => [c.id, c] as const))(
-    '%s shows its stream as a dot in both states',
+    '%s shows its stream as a line key in both states',
     async (id, config) => {
       for (const selected of [[id], []]) {
         const tree = await render(
           <ChartTypeSelector available={[config]} selected={selected} onToggle={jest.fn()} />
         );
-        expect(groundOf(`chart-type-${id}-mark`, tree)).toBe(
+        expect(groundOf(`chart-type-${id}-key`, tree)).toBe(
           chartStreamColour(config.stream, mockIsDark)
         );
         tree.unmount();

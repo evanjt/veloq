@@ -177,8 +177,13 @@ jest.mock("@shopify/react-native-skia", () => {
         setStrokeWidth: jest.fn(),
         setAlphaf: jest.fn(),
         setStyle: jest.fn(),
+        setStrokeJoin: jest.fn(),
+        setStrokeCap: jest.fn(),
       }),
     },
+    PaintStyle: { Fill: 0, Stroke: 1 },
+    StrokeCap: { Butt: 0, Round: 1, Square: 2 },
+    StrokeJoin: { Miter: 0, Round: 1, Bevel: 2 },
     useFont: () => null,
     matchFont: () => null,
   };

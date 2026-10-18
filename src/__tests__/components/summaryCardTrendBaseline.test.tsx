@@ -24,10 +24,6 @@ import {
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn(() => null) }));
 jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: undefined }) }));
-jest.mock('@/shared/app/useSportSettings', () => ({
-  useSportSettings: () => ({ data: undefined }),
-  getSettingsForSport: () => undefined,
-}));
 jest.mock('@/features/stats', () => ({ usePaceCurve: () => ({ data: undefined }) }));
 jest.mock('@/shared/app/useMetricSystem', () => ({ useMetricSystem: () => true }));
 
@@ -84,8 +80,8 @@ async function cardData(card: Card) {
 }
 
 /** The card defers its sparklines until the first frame's interactions finish. */
-async function renderCard(props: Omit<SummaryCardProps, 'onProfilePress'>) {
-  const tree = await render(<SummaryCard onProfilePress={() => {}} {...props} />);
+async function renderCard(props: SummaryCardProps) {
+  const tree = await render(<SummaryCard {...props} />);
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
   });

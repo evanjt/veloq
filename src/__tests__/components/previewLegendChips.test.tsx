@@ -10,6 +10,7 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 import { PreviewMapView } from '@/features/routes/components/preview/PreviewMapView';
 import { buildPreviewLayers } from '@/features/routes/components/preview/previewMapLayerSpecs';
+import { mapPalette } from '@/theme';
 
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
@@ -31,7 +32,7 @@ jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 const CENTRE = { binKey: '9:27', lat: 47.5, lng: 8.7 };
 
 function lineColour(layerId: string): string {
-  const paint = buildPreviewLayers().find((l) => l.id === layerId)?.paint;
+  const paint = buildPreviewLayers(mapPalette('light')).find((l) => l.id === layerId)?.paint;
   const colour = paint?.['line-color'];
   return Array.isArray(colour) ? (colour[colour.length - 1] as string) : (colour as string);
 }

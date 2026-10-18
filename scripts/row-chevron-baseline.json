@@ -6,7 +6,6 @@
   "src/features/insights/components/InsightListCard.tsx": 1,
   "src/features/insights/components/MethodologySection.tsx": 1,
   "src/features/maps/components/regional/MapPopup.tsx": 1,
-  "src/features/recording/components/RecordingReturnPill.tsx": 1,
   "src/features/recording/components/TrimSlider.tsx": 1,
   "src/features/routes/components/performance/RoutePerformanceSection.tsx": 1,
   "src/features/routes/components/RouteRow.tsx": 1,

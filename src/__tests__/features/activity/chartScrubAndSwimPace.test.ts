@@ -110,7 +110,6 @@ describe('the scrub chip over a missing sample', () => {
       ['pace', 'speed'],
       CHART_CONFIGS,
       true,
-      null,
       'distance',
       300
     );
@@ -281,17 +280,9 @@ describe('the idle pace chip over a run with stops', () => {
       distance: [0, 3, 6, 8.5, 8.6],
       velocity_smooth: [3, 3, 2.5, 0.05, 0],
     });
-    const { seriesInfo } = buildChartData(
-      streams,
-      ['pace'],
-      CHART_CONFIGS,
-      true,
-      null,
-      'distance',
-      300
-    );
-    expect(seriesInfo[0].range.min).toBeCloseTo(paceMinutesFromSpeed(3), 9);
-    expect(seriesInfo[0].range.max).toBeCloseTo(paceMinutesFromSpeed(2.5), 9);
+    const { seriesInfo } = buildChartData(streams, ['pace'], CHART_CONFIGS, true, 'distance', 300);
+    expect(seriesInfo[0].domain[0]).toBeCloseTo(paceMinutesFromSpeed(3), 9);
+    expect(seriesInfo[0].domain[1]).toBeCloseTo(paceMinutesFromSpeed(2.5), 9);
   });
 });
 

@@ -34,7 +34,6 @@
     "terrainRow": "3D-terrein",
     "activityStats": "Activiteitsstatistieken",
     "calories": "Calorieën",
-    "chartHint": "Houd vast om te scrubben • Houd chip vast voor as",
     "distance": "Afstand",
     "xAxis": {
       "distance": "Afstand",
@@ -139,6 +138,7 @@
     "zoneMaxDefaultHint": "Stel je max HF in bij je sportinstellingen op intervals.icu",
     "prDelta": "+{{delta}} achter PR",
     "chartAverage": "gem.",
+    "chartGain": "stijging",
     "gainStat": "↑ {{value}}"
   },
   "activityDetail": {
@@ -733,6 +733,7 @@
     "activitiesCount_one": "{{count}} activiteit",
     "activitiesCount_other": "{{count}} activiteiten",
     "daysTrained": "Trainingsdagen",
+    "eftpChanged": "eFTP gewijzigd",
     "fatigueATL": "Vermoeidheid (ATL)",
     "fitnessCTL": "Fitheid (CTL)",
     "loadPartial": "Gedeeltelijk",
@@ -765,9 +766,6 @@
     "greyZone": "Grijze zone",
     "optimal": "Optimaal",
     "highRisk": "Hoog risico"
-  },
-  "healthScreen": {
-    "title": "Gezondheid"
   },
   "insights": {
     "ranking": {
@@ -1230,9 +1228,9 @@
     "activities": "Activiteiten",
     "feed": "Feed",
     "fitness": "Fitness",
-    "health": "Welzijn",
     "map": "Kaart",
     "settings": "Instellingen",
+    "settingsTab": "Opties",
     "training": "Training",
     "wellness": "Welzijn",
     "insights": "Inzichten"
@@ -1594,6 +1592,7 @@
     "searchSections": "Secties zoeken…",
     "searchRoutes": "Routes zoeken…",
     "sortActivities": "Activiteiten",
+    "sortBy": "Sorteren",
     "sortDistance": "Afstand",
     "sortMostVisited": "Meest bezocht",
     "sortNameAZ": "Naam A-Z",

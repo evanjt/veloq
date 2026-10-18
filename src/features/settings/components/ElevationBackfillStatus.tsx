@@ -14,7 +14,7 @@
  */
 
 import React from 'react';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { elevation } from 'veloqrs';
@@ -22,7 +22,7 @@ import { elevation } from 'veloqrs';
 import { useTheme } from '@/shared/app';
 import { useElevationBackfill, useRouteSettings } from '@/features/routes';
 import { colors, darkColors, spacing, typography } from '@/theme';
-import { Button } from '@/shared/ui';
+import { Button, Spinner } from '@/shared/ui';
 import { openExplainer } from '@/shared/app/explainer';
 
 export function ElevationBackfillStatus() {
@@ -63,7 +63,7 @@ export function ElevationBackfillStatus() {
       </Text>
     ) : phase === 'fetching' ? (
       <View style={styles.runningRow} testID="elevation-backfill-status">
-        <ActivityIndicator size="small" color={textSecondary} />
+        <Spinner label={t('settings.elevationBackfillRunning')} />
         <View style={styles.runningText}>
           <Text style={[styles.line, { color: textSecondary }]}>
             {t('settings.elevationBackfillRunning')}

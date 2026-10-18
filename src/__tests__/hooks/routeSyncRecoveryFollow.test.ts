@@ -68,7 +68,7 @@ describe('the route sync recovery follow', () => {
         getStats: () => ({ libraryCount: 1 }),
         getGpsFetchCandidates: () => [],
         getUnprocessedStrengthIds: () => [],
-        batchFetchExerciseSets: () => 0,
+        batchFetchOwedFitFiles: () => 0,
         pollSectionDetection: () => 'idle',
         getSectionDetectionProgress: () => ({ phase: 'analysing', percent: 40 }),
         subscribe: () => () => {},

@@ -11,7 +11,7 @@ import React from 'react';
 import { render, fireEvent, screen } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RegionalMapView } from '@/features/maps/components/RegionalMapView';
-import { HEATMAP_ROUTE_COLOR } from '@/features/maps/components/regional';
+import { mapPalette } from '@/theme';
 import { getActivityTypeConfig } from '@/features/maps/lib/activityCategories';
 import type { ActivityBoundsItem } from '@/types';
 
@@ -100,7 +100,7 @@ describe('RegionalMapView 3D selected line colour', () => {
       </SafeAreaProvider>
     );
     await fireEvent.press(screen.getByTestId('map-toggle-3d'));
-    expect(lastRouteColor()).toBe(HEATMAP_ROUTE_COLOR);
+    expect(lastRouteColor()).toBe(mapPalette('light').layer.heatmapRoute);
 
     await fireEvent.press(screen.getByTestId('map-layers'));
     await fireEvent.press(screen.getByTestId('map-toggle-heatmap'));

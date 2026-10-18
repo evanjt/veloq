@@ -146,7 +146,6 @@ describe('in the dark theme every word and mark clears its bar on its ground', (
           selectedPoint={TOOLTIP_POINT}
           isDark
           basis="pace"
-          activityColor={darkColors.secondary}
           onClearSelection={() => {}}
         />,
         true

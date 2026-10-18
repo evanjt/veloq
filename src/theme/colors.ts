@@ -22,6 +22,23 @@ export function colorWithOpacity(hex: string, opacity: number): string {
   return `rgba(${r}, ${g}, ${b}, ${opacity})`;
 }
 
+/**
+ * The colour `t` of the way from one six-digit hex colour to another, as hex. A
+ * `t` past 1 carries on beyond `to`, each channel clamped to 0 to 255.
+ */
+export function mixColour(from: string, to: string, t: number): string {
+  const a = parseInt(from.replace('#', ''), 16);
+  const b = parseInt(to.replace('#', ''), 16);
+  const channel = (shift: number) => {
+    const low = (a >> shift) & 0xff;
+    const high = (b >> shift) & 0xff;
+    return Math.max(0, Math.min(255, Math.round(low + (high - low) * t)))
+      .toString(16)
+      .padStart(2, '0');
+  };
+  return `#${channel(16)}${channel(8)}${channel(0)}`;
+}
+
 // =============================================================================
 // FIXED INK
 // =============================================================================
@@ -115,10 +132,24 @@ export const divergingRamp = {
   dark: divergingSteps(colourTokens.dark),
 } as const;
 
+// A section's two directions, cool forward against warm reverse so the pair
+// survives colour blindness. A chart mark or a cue arrow takes one, always
+// beside the direction's word or arrow.
+export const directionPair = {
+  light: {
+    forward: colourTokens.light['direction-forward'],
+    reverse: colourTokens.light['direction-reverse'],
+  },
+  dark: {
+    forward: colourTokens.dark['direction-forward'],
+    reverse: colourTokens.dark['direction-reverse'],
+  },
+} as const;
+
 /** The sport families, named as the engine's family table names them. */
 export type SportFamilyName = 'Ride' | 'Winter' | 'Run' | 'Water' | 'Foot' | 'Strength' | 'Other';
 
-function sportFamilySteps(t: Tokens): Record<SportFamilyName, readonly string[]> {
+function sportFamilySteps(t: Tokens): Record<SportFamilyName, readonly [string, ...string[]]> {
   return {
     Ride: [t['sport-ride'], t['sport-ride-2'], t['sport-ride-3']],
     Winter: [t['sport-winter'], t['sport-winter-2'], t['sport-winter-3']],
@@ -281,8 +312,6 @@ export const mapLayerColors = {
   deltaNeutral: '#e5e7eb',
   /** A stretch the attempt did not cover. */
   deltaNoData: '#888888',
-  /** Live recording position dot. */
-  userLocation: '#2196F3',
   /** The export privacy home and the radius trimmed around it. */
   homeRadius: brand.blue600,
   homeRadiusFill: 'rgba(47,102,153,0.18)',
@@ -295,10 +324,6 @@ export const mapLayerColors = {
 export const colors = {
   // The keys that read a role from the colour token file, per colourRoles.json.
   ...roleColours.light,
-
-  // The sync pill's fill. White on brand.blue itself is 2.96:1, under the
-  // 4.5:1 text owes, so it takes the blue's darker step, which holds 4.51:1.
-  appColourPillBackground: brand.blueDark,
 
   // Activity type colors
   ride: '#3B82F6', // Blue-500 - Royal blue for cycling
@@ -321,20 +346,14 @@ export const colors = {
   // Chart accent colors
   chartBlue: brand.blue,
   chartPurple: '#A855F7',
-  chartGreen: '#10B981',
-  chartYellow: '#FBBF24',
   chartCyan: '#06B6D4',
   chartPink: '#EC4899',
-  chartIndigo: '#6366F1',
   chartAmber: '#F59E0B',
   // Mark grade. The chart tones above are fills and lines, where the mark on
   // top carries the contrast. Where the mark itself is the carrier, the ring
-  // round the best dot, `chartGreen` measures 2.28:1 on white, under the 3:1 a
-  // graphical object owes. Same hue, lifted.
+  // round the best dot, the emerald fill `run` measures 2.28:1 on white, under
+  // the 3:1 a graphical object owes. Same hue, lifted.
   chartGreenMark: '#15803D',
-  // Second and third place beside the achievement gold of first, mark grade.
-  chartSilverMark: '#6B7480',
-  chartBronzeMark: '#9A5A24',
   // The rest of the series hues that reach a text style, same rule and same
   // method. Worst of the three light surfaces: chartPinkText 5.43:1,
   // chartPurpleText 6.28:1, fitnessBlueText 5.30:1, fatiguePurpleText 6.33:1.
@@ -344,7 +363,6 @@ export const colors = {
   chartPurpleText: '#7E22CE',
   fitnessBlueText: '#0F62C4',
   fatiguePurpleText: '#8E24AA',
-  chartRed: '#EF4444',
   chartCasing: '#00000026', // Under-stroke behind chart lines for edge contrast
 
   // Wellness metric colors
@@ -394,14 +412,6 @@ export const colors = {
   formGreyZoneText: '#616161',
   formOptimalText: '#1B5E20',
   formHighRiskText: '#C62828',
-
-  // Event priority colors
-  eventPriorityA: '#EC4899', // Pink - priority race
-  eventPriorityB: '#F59E0B', // Amber - secondary
-  eventPriorityC: '#71717A', // Gray - training
-
-  // Workout step colors
-  workoutCooldown: '#8B5CF6',
 
   // Mark-grade tones. The palette has three families: text at 4.5:1, a mark
   // at 3:1, a ground at no bar. These are the mark tones for hues whose fill
@@ -491,33 +501,23 @@ export const swipeAction = {
   restore: { bg: colors.successFill, text: colors.textOnBright },
 } as const;
 
-// Style-picker chip swatches (map style selection): one representative
-// background per map style. Theme-independent - each depicts the style itself.
-export const mapStyleSwatch = {
-  light: '#E5E7EB',
-  dark: '#374151',
-  satellite: '#1E6B5A',
-} as const;
-
 // Static thumbnails for the map style picker. Each is the style's own land,
 // water and road tint, so a viewer recognises the style without the app having
-// to run three live maps to draw three 70px circles.
-export const mapStylePreview = {
-  light: { land: '#EFEDE7', water: '#A5CFE3', road: '#FFFFFF' },
-  dark: { land: '#1F2933', water: '#20405C', road: '#3E4C59' },
-  satellite: { land: '#2F5E3A', water: '#1B4A63', road: '#C9BFA5' },
-} as const;
+// to run three live maps to draw three 70px circles. The light and dark ones are
+// the base's own ground tokens, which the basemap itself paints with.
+const baseGround = (base: 'light' | 'dark') => {
+  const tokens = colourTokens.light as Record<string, string>;
+  return {
+    land: tokens[`map-${base}-land`],
+    water: tokens[`map-${base}-water`],
+    road: tokens[`map-${base}-road`],
+  };
+};
 
-// The two insight tones the verdict ladder has no rung for, because they are
-// categories rather than judgements. `info` mirrors fitnessBlue. A widget row's
-// dot is the only mark of its tone, so each clears the 3:1 a graphical object
-// owes on every surface of its theme. The light tones are the dark ones
-// deepened, worst light surface info 4.14:1 and opportunity 3.41:1. Every
-// polarity resolves through the ladder instead, so a tone added here that
-// `insightToneColor` does not return is unreachable.
-export const insightIcon = {
-  info: { light: '#1976D2', dark: '#42A5F5' },
-  opportunity: { light: '#E65100', dark: '#FF9800' },
+export const mapStylePreview = {
+  light: baseGround('light'),
+  dark: baseGround('dark'),
+  satellite: { land: '#2F5E3A', water: '#1B4A63', road: '#C9BFA5' },
 } as const;
 
 // Verdict ladder: the one palette a good, caution or bad judgement is drawn
@@ -555,14 +555,13 @@ export function verdictFill(rung: VerdictRung, isDark: boolean, strong = false):
 }
 
 // What an insight's icon is drawn from. A polarity is a ladder rung; `info`
-// and `opportunity` are categories rather than judgements, so the ladder has
-// no rung for them and they keep their own tones.
+// and `opportunity` are not judgements, so the ladder has no rung for them and
+// they take the link and warning text roles.
 export type InsightTone = VerdictRung | 'info' | 'opportunity';
 
 export function insightToneColor(tone: InsightTone, isDark: boolean): string {
-  if (tone === 'info' || tone === 'opportunity') {
-    return isDark ? insightIcon[tone].dark : insightIcon[tone].light;
-  }
+  if (tone === 'info') return (isDark ? roleColours.dark : roleColours.light).actionLink;
+  if (tone === 'opportunity') return (isDark ? roleColours.dark : roleColours.light).warningText;
   return verdictColor(tone, isDark);
 }
 
@@ -634,13 +633,6 @@ export const cameraOverlay = {
   hint: '#999999',
 } as const;
 
-// Icon drawn over a mapStyleSwatch chip: dark on the light swatch, white on
-// the other two.
-export const mapStyleSwatchIcon = {
-  light: '#6B7280',
-  dark: '#FFFFFF',
-} as const;
-
 // Loupe magnifier chrome (strength body diagram). The clip background follows
 // the theme; the crosshair dot/ring stay fixed for contrast on body fills.
 export const loupeChrome = {
@@ -662,14 +654,9 @@ export const darkColors = {
   // wants the light tone where white wants the deep one, so a mark that reads
   // one token in both themes is the same defect the other way round.
   chartGreenMark: '#86EFAC',
-  chartSilverMark: '#C3CAD3',
-  chartBronzeMark: '#D9904F',
 
   // Secondary - Blue (charts, data)
   secondary: brand.blue, // Full blue for dark mode
-
-  // The same fill in both themes, see `colors`.
-  appColourPillBackground: brand.blueDark,
 
   // Chart colors for dark mode (optimised for visibility)
   chartPurple: '#C084FC', // Custom tag ground
@@ -723,58 +710,6 @@ export const darkColors = {
   formGreyZoneText: '#9E9E9E',
   formOptimalText: '#66BB6A',
   formHighRiskText: '#F87171',
-} as const;
-
-// =============================================================================
-// GRADIENTS
-// =============================================================================
-
-export const gradients = {
-  // Primary - the action blue (for buttons, CTAs)
-  primary: [brand.blue550, brand.blue600] as const,
-  primaryLight: [brand.blueLight, brand.blue550] as const,
-
-  // Accent - Gold (achievements only)
-  gold: [brand.goldLight, brand.gold] as const,
-  accent: [brand.goldLight, brand.gold] as const, // Alias
-
-  // Secondary - Blue (charts, data)
-  blue: [brand.blueLight, brand.blue] as const,
-  secondary: [brand.blueLight, brand.blue] as const, // Alias
-
-  // Legacy/premium (gold to blue for special moments)
-  premium: [brand.gold, brand.blue] as const,
-
-  // Fitness metric gradients
-  fitness: [brand.blueLight, brand.blue] as const,
-  fatigue: ['#C084FC', '#A855F7'] as const, // Purple gradient
-
-  // UI gradients
-  success: ['#4ADE80', '#22C55E'] as const,
-  warning: ['#FBBF24', '#F59E0B'] as const,
-  purple: ['#C084FC', '#A855F7'] as const,
-  ocean: ['#22D3EE', '#06B6D4'] as const, // Cyan
-
-  // Surface gradients
-  dark: ['rgba(31,31,35,0.95)', 'rgba(24,24,27,0.98)'] as const,
-  light: ['rgba(255,255,255,0.98)', 'rgba(248,249,250,0.95)'] as const,
-  glass: ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.02)'] as const,
-  glassDark: ['rgba(255,255,255,0.05)', 'rgba(255,255,255,0.01)'] as const,
-  cardDark: ['#1F1F23', '#18181B'] as const,
-} as const;
-
-// =============================================================================
-// GLOWS (for premium "pop" effects)
-// =============================================================================
-
-export const glows = {
-  gold: 'rgba(212, 175, 55, 0.4)', // For achievements only
-  accent: 'rgba(212, 175, 55, 0.4)', // Alias
-  blue: 'rgba(91, 155, 213, 0.4)',
-  success: 'rgba(34, 197, 94, 0.4)',
-  warning: 'rgba(245, 158, 11, 0.4)',
-  error: 'rgba(239, 68, 68, 0.4)',
-  purple: 'rgba(168, 85, 247, 0.4)',
 } as const;
 
 // =============================================================================
@@ -953,30 +888,3 @@ export const zoneTextColorsDark = {
   zone6: '#9C7ADE',
   zone7: '#B0B0B0',
 } as const;
-
-// =============================================================================
-// INSIGHT CATEGORY COLORS
-// =============================================================================
-
-// One hue per category, drawn as the card's edge and as its history graphic
-// with nothing beside it to name it, so each step is a mark and clears 3:1 on
-// every surface of its own theme. A category is a topic rather than a judgement,
-// so none wears a polarity rung or the error tone: strength balance is violet
-// where it was red. A PR is the record rung, which is gold and off the chain.
-// The lowest, on backgroundAlt and surfaceCard, are strength progression's
-// light step at 3.37:1 and period comparison's dark step at 5.28:1.
-export const insightCategoryColors: Record<string, { light: string; dark: string }> = {
-  section_pr: verdict.record,
-  fitness_milestone: { light: '#1A8A44', dark: '#4ADE80' },
-  period_comparison: { light: brand.blueDark, dark: brand.blue },
-  strength_progression: { light: strengthTone.primary, dark: strengthTone.secondary },
-  strength_balance: { light: '#7C3AED', dark: '#A78BFA' },
-  hrv_trend: { light: '#388E3C', dark: '#66BB6A' },
-  stale_pr: { light: '#B45309', dark: '#FBBF24' },
-};
-
-export function insightCategoryColor(category: string, isDark: boolean): string {
-  const tone = insightCategoryColors[category];
-  if (!tone) return isDark ? darkColors.actionPrimary : colors.actionPrimary;
-  return isDark ? tone.dark : tone.light;
-}

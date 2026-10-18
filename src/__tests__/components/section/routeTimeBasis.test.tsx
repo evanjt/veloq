@@ -87,7 +87,6 @@ function area(subject: 'route' | 'section') {
       bestReverseIsRecord={false}
       calendarSummary={CALENDAR}
       effectiveSportType="Run"
-      forwardColour="#336699"
       showExcluded={false}
       hasExcluded={false}
       sectionTimeRange="all"
@@ -151,7 +150,6 @@ describe('the route tooltip', () => {
         selectedPoint={point(1600)}
         isDark={false}
         basis="time"
-        activityColor="#336699"
         onClearSelection={jest.fn()}
       />
     );

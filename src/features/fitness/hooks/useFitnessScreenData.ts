@@ -1,13 +1,9 @@
-import { useMemo } from 'react';
-
 import {
   useWellness,
   useWellnessCoverage,
   timeRangeToDays,
   type TimeRange,
 } from '@/features/wellness';
-import { decouplingSource, useActivities, getLatestFTP } from '@/features/activity';
-import { useSportSettings, getSettingsForSport } from '@/shared/app/useSportSettings';
 import { usePaceCurve, useSeasonBests } from '@/features/stats';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { type PrimarySport } from '@/features/fitness/stores';
@@ -44,11 +40,6 @@ export function useFitnessScreenData({ timeRange, sportMode }: UseFitnessScreenD
   } = useWellness(timeRange);
   const wellnessCoverage = useWellnessCoverage(timeRange);
 
-  const { data: activities, isLoading: loadingActivities } = useActivities({
-    days,
-    enabled: isAuthenticated,
-  });
-
   const dailyLoads = useDailyActivityLoads(days, isAuthenticated);
 
   const powerZones = useZoneDistribution({ type: 'power', sport: sportMode, days });
@@ -66,15 +57,11 @@ export function useFitnessScreenData({ timeRange, sportMode }: UseFitnessScreenD
     librarySport,
     fitnessDays,
     fatigueDays,
+    cyclingFtp,
+    runningLthr,
+    decouplingBySpan,
+    loadDots,
   } = useFitnessScreenRead();
-
-  const { data: sportSettings } = useSportSettings();
-  const cyclingSettings = getSettingsForSport(sportSettings, 'Ride');
-  const currentFTP = useMemo(
-    () => cyclingSettings?.ftp ?? getLatestFTP(activities),
-    [cyclingSettings, activities]
-  );
-  const runSettings = getSettingsForSport(sportSettings, 'Run');
 
   // Only the sport in view renders a threshold from these, so only that one is
   // worth a download and a `curve_bodies` row. Both were on by default, which
@@ -99,15 +86,11 @@ export function useFitnessScreenData({ timeRange, sportMode }: UseFitnessScreenD
     headerSummary: bestsHeader,
   } = useSeasonBests({ sport: sportMode, days });
 
-  // The value intervals.icu stored on the ride, which is what its activity
-  // screen prints, so the card and that screen cannot disagree.
-  const decoupling = useMemo(() => decouplingSource(activities), [activities]);
-
   return {
     wellness,
     wellnessCoverage,
     wellnessHeld,
-    activities,
+    loadDots,
     dailyLoads,
     powerZones,
     hrZones,
@@ -120,17 +103,18 @@ export function useFitnessScreenData({ timeRange, sportMode }: UseFitnessScreenD
     librarySport,
     fitnessDays,
     fatigueDays,
-    currentFTP,
-    runSettings,
+    currentFTP: cyclingFtp,
+    runLthr: runningLthr,
     runPaceCurve,
     swimPaceCurve,
     bestsEfforts,
     bestsClimbing,
     bestsClimbingStatus,
-    loadingActivities,
     loadingBests,
     bestsHeader,
-    decouplingSource: decoupling,
+    // The value intervals.icu stored on the ride, which is what its activity
+    // screen prints, so the card and that screen cannot disagree.
+    decouplingSource: decouplingBySpan.get(days) ?? null,
     isLoading,
     isFetching,
     isError,

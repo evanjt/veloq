@@ -15,6 +15,7 @@ import { render } from '@testing-library/react-native';
 import { ActivityDotsChart } from '@/features/fitness/components/ActivityDotsChart';
 import { DayLoadStatus, type DayLoad } from 'veloqrs';
 import type { Activity, WellnessData } from '@/types';
+import { dayActivityRow } from '@/features/activity/light';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
 
@@ -55,7 +56,7 @@ function strip(selectedDate: string | null) {
   return (
     <ActivityDotsChart
       data={WELLNESS}
-      activities={ACTIVITIES}
+      activities={ACTIVITIES.map(dayActivityRow)}
       dailyLoads={LOADS}
       selectedDate={selectedDate}
     />
@@ -124,7 +125,7 @@ describe('the activity strip title and key', () => {
     return (
       <ActivityDotsChart
         data={MIXED_WELLNESS}
-        activities={activities}
+        activities={activities.map(dayActivityRow)}
         dailyLoads={[]}
         selectedDate={selectedDate}
       />

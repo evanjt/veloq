@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Canvas, Path } from '@shopify/react-native-skia';
+import { chartStroke, LINE_CAP, LINE_JOIN } from '@/shared/charts';
 import { useTranslation } from 'react-i18next';
 import type { TFunc } from '../types';
 import { sectionRowKey, sectionWithSport } from '../lib/cardSport';
@@ -255,7 +256,14 @@ export const SparklineChart = React.memo(function SparklineChart({
 
   return (
     <Canvas style={{ width: WIDTH, height }}>
-      <Path path={linePath} style="stroke" strokeWidth={2} color={color} />
+      <Path
+        path={linePath}
+        style="stroke"
+        strokeWidth={chartStroke.series}
+        strokeJoin={LINE_JOIN}
+        strokeCap={LINE_CAP}
+        color={color}
+      />
     </Canvas>
   );
 });

@@ -2,8 +2,8 @@
  * Scenario: a Ride route run both ways, so the chart offers a Forward and a
  * Reverse chip and the Summary marks each best with its direction's arrow.
  *
- * Expected behaviour: Forward is one colour across the page, the brand primary
- * for the scheme on screen, never the sport's colour.
+ * Expected behaviour: Forward is one colour across the page, the direction
+ * pair's forward for the scheme on screen, never the sport's colour.
  */
 
 import React from 'react';
@@ -13,7 +13,7 @@ import { act, render, within } from '@testing-library/react-native';
 import RouteDetailScreen from '@/app/route/[id]';
 import { useThemePreferenceStore } from '@/shared/app';
 import { getActivityColor } from '@/shared/activity/activityUtils';
-import { colors, darkColors } from '@/theme';
+import { directionPair } from '@/theme';
 
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
@@ -163,8 +163,8 @@ jest.mock('@/shared/native/engine', () => ({
 
 type Screen = Awaited<ReturnType<typeof render>>;
 
-function chipFill(screen: Screen): unknown {
-  return StyleSheet.flatten(screen.getByTestId('section-chart-direction-forward').props.style)
+function chipMark(screen: Screen): unknown {
+  return StyleSheet.flatten(screen.getByTestId('section-chart-direction-forward-mark').props.style)
     .backgroundColor;
 }
 
@@ -183,17 +183,17 @@ afterEach(() => {
 
 describe('route page forward colour', () => {
   it.each([
-    ['light', colors.actionPrimary],
-    ['dark', darkColors.actionPrimary],
+    ['light', directionPair.light.forward],
+    ['dark', directionPair.dark.forward],
   ] as const)(
-    'paints Forward in the %s primary on the chart and the Summary',
-    async (scheme, primary) => {
+    'paints Forward in the %s direction colour on the chart and the Summary',
+    async (scheme, forward) => {
       act(() => useThemePreferenceStore.setState({ preference: scheme }));
       const screen = await render(<RouteDetailScreen />);
 
-      expect(chipFill(screen)).toBe(primary);
-      expect(summaryArrowColour(screen)).toBe(primary);
-      expect(primary).not.toBe(getActivityColor('Ride'));
+      expect(chipMark(screen)).toBe(forward);
+      expect(summaryArrowColour(screen)).toBe(forward);
+      expect(forward).not.toBe(getActivityColor('Ride'));
     }
   );
 });

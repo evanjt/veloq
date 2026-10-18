@@ -69,8 +69,8 @@ export const InsightHistoryChart = React.memo(function InsightHistoryChart({
   );
   const marker = useMemo(() => {
     const index = points ? markedIndex(points, mark) : -1;
-    return index >= 0 ? { index, color } : null;
-  }, [points, mark, color]);
+    return index >= 0 ? { index, kind: 'this' as const } : null;
+  }, [points, mark]);
 
   if (!series || !points || points.length < 2) return null;
 

@@ -26,8 +26,6 @@ function renderCycling() {
       runLthr={undefined}
       periodCoverage={RangeCoverage.Loaded}
       eftpCoverage={RangeCoverage.Loaded}
-      loadingActivities={false}
-      hasActivities
       dominantZone={null}
       zonesExpanded={false}
       onZonesToggle={jest.fn()}

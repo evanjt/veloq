@@ -9,8 +9,6 @@ export {
   darkColors,
   brand,
   nativeColours,
-  gradients,
-  glows,
   opacity,
   activityTypeColors,
   activityTypeInk,
@@ -21,11 +19,11 @@ export {
   zoneTextColors,
   zoneTextColorsDark,
   colorWithOpacity,
-  insightCategoryColors,
-  insightCategoryColor,
+  mixColour,
   rpeRamp,
   sequentialRamp,
   divergingRamp,
+  directionPair,
   sportFamilyColours,
   strengthTone,
   workoutStepColors,
@@ -36,9 +34,7 @@ export {
   sectionPaletteInk,
   sectionNumberInk,
   swipeAction,
-  mapStyleSwatch,
   mapStylePreview,
-  insightIcon,
   verdict,
   verdictColor,
   verdictFill,
@@ -49,7 +45,6 @@ export {
   bodyDiagram,
   shaderWarmup,
   cameraOverlay,
-  mapStyleSwatchIcon,
   ink,
   loupeChrome,
   sectionPalette,
@@ -60,7 +55,19 @@ export {
 } from './colors';
 export { colourTokens, heatmapTileStops, type ColourToken } from './colourTokens.generated';
 export { zoneColour, type ZoneColourRole } from './zoneColour';
-export { themePalette, themedStyles, type Palette } from './palette';
+export {
+  themePalette,
+  themedStyles,
+  mapPalette,
+  colourIndexExpression,
+  type Palette,
+  type MapBase,
+  type MapDivStep,
+  type MapPalette,
+  type MapLayerColours,
+  type VectorMapPalette,
+  type SatelliteMapPalette,
+} from './palette';
 export { spacing, controlHeight, MIN_TAP_TARGET } from './spacing';
 export { layout } from './layout';
 export { iconSize, type IconSize } from './iconSize';
@@ -76,7 +83,7 @@ export {
   UNDER_BAR,
   type TokenFamily,
 } from './tokenFamilies';
-export { shadows, createShadow, smallElementShadow, mapTextShadow } from './shadows';
+export { shadows, raised, createShadow, smallElementShadow, mapTextShadow } from './shadows';
 export { chartStyles } from './chartStyles';
 export {
   duration,

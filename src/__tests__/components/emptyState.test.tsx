@@ -13,9 +13,13 @@ import { StyleSheet } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
 
 import { EmptyState } from '@/shared/ui/EmptyState';
-import { typography } from '@/theme';
+import { Icon } from '@/shared/ui/Icon';
+import { themePalette, typography } from '@/theme';
 
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
+
+let mockIsDark = false;
+jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: mockIsDark }) }));
 
 describe('EmptyState inline', () => {
   it('draws no icon disc', () => {
@@ -100,5 +104,40 @@ describe('EmptyState with a disc', () => {
 
     const disc = StyleSheet.flatten(screen.getByTestId('empty-state-icon').props.style);
     expect(disc.width).toBe(96);
+  });
+});
+
+describe('EmptyState disc colours', () => {
+  afterEach(() => {
+    mockIsDark = false;
+  });
+
+  it.each([
+    ['light', false],
+    ['dark', true],
+  ] as const)('the %s disc is the neutral fill and its icon the muted icon role', (_, isDark) => {
+    mockIsDark = isDark;
+    const palette = themePalette(isDark);
+    const screen = render(<EmptyState variant="screen" icon="map-outline" title="No maps" />);
+
+    const disc = StyleSheet.flatten(screen.getByTestId('empty-state-icon').props.style);
+    expect(disc.backgroundColor).toBe(palette.fillNeutral);
+    expect(screen.UNSAFE_getByType(Icon).props.color).toBe(palette.iconMuted);
+  });
+
+  it('draws the screen title on statsValue and the compact hint on bodyCompact', () => {
+    const screen = render(
+      <EmptyState variant="screen" icon="map-outline" title="No maps" description="Ride first" />
+    );
+    expect(StyleSheet.flatten(screen.getByTestId('empty-state-title').props.style)).toMatchObject(
+      typography.statsValue
+    );
+
+    const compact = render(
+      <EmptyState variant="compact" icon="map-outline" title="No maps" description="Ride first" />
+    );
+    expect(
+      StyleSheet.flatten(compact.getByTestId('empty-state-description').props.style)
+    ).toMatchObject(typography.bodyCompact);
   });
 });

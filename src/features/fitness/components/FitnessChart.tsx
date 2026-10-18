@@ -4,9 +4,8 @@ import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { RangeCoverage } from 'veloqrs';
 
-import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
+import { useLargeText } from '@/shared/ui/useLargeText';
 import { useTranslation } from 'react-i18next';
-import { Circle } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { SharedValue, useSharedValue } from 'react-native-reanimated';
 import {
@@ -27,12 +26,17 @@ import { ChartErrorBoundary, EmptyState, pressable, pressRipple } from '@/shared
 import {
   ChartCanvas,
   ChartCrosshair,
+  chartStroke,
   CurveArea,
   ChartSurface,
   CurveLine,
   lanesSummary,
   niceScale,
+  ScrubDot,
   seriesTable,
+  TRIANGLE_SIZE,
+  TriangleKey,
+  TriangleMark,
   useChartColors,
   useChartGestures,
   YAxisLabels,
@@ -78,14 +82,16 @@ interface ChartDataPoint {
   rampRate: number | null;
 }
 
-const CHART_PADDING = { top: 8, bottom: 20 } as const;
+// The bottom tick label centres on the floor; the card's date axis runs under its last lane.
+const CHART_PADDING = { top: 8, bottom: typography.caption.lineHeight / 2 } as const;
 const SERIES = {
   fitness: (d: ChartDataPoint) => d.fitness,
   fatigue: (d: ChartDataPoint) => d.fatigue,
 };
 const xOf = (d: ChartDataPoint) => d.x;
 
-const MARKER_RADIUS = 4;
+/** An eFTP mark's centre below the plot's top edge, its ring clear of the edge. */
+const MARKER_INSET = TRIANGLE_SIZE / 2 + chartStroke.ring;
 /** Steps the load axis is cut into, so the gutter carries three or four round values. */
 const Y_INTERVALS = 3;
 
@@ -114,6 +120,7 @@ export const FitnessChart = React.memo(function FitnessChart({
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const styles = themedStyles(makeStyles, isDark);
+  const largeText = useLargeText();
   const asPercent = useFormPreference((state) => state.formAsPercent) === true;
   const chartColors = useChartColors();
   const [tooltipData, setTooltipData] = useState<ChartDataPoint | null>(null);
@@ -296,33 +303,48 @@ export const FitnessChart = React.memo(function FitnessChart({
   const yTicks = yScale.ticks.map((value) => ({ value, label: String(value) }));
   const markerChanges = tooltipData ? eftpChangesOn(markers, tooltipData.date) : [];
   const markerIndices = markerIndicesOf(chartData, markers);
+  // The day the scrub, a step or the sibling chart pinned, which each line marks with a dot.
+  const scrubIndex = tooltipData ? chartData.indexOf(tooltipData) : -1;
 
   return (
     <ChartErrorBoundary height={height} chartName="Fitness Chart">
       <View style={[styles.container, { height }]}>
         {/* Header with values */}
-        <View style={styles.header}>
+        <View style={[styles.header, largeText && styles.headerStacked]}>
           <View style={styles.dateContainer}>
             <Text testID="fitness-chart-day" style={[styles.dateText, isDark && styles.textLight]}>
               {header.isToday ? t('time.today') : formatShortDate(header.date)}
             </Text>
             {markerChanges.length > 0 && (
               <View style={[styles.keyedLabel, styles.markerRow]}>
-                <View style={[styles.keyDot, { backgroundColor: chartColors.ftp }]} />
+                <View style={styles.markKey}>
+                  <TriangleKey color={chartColors.ftp} />
+                </View>
                 <Text testID="fitness-eftp-change" style={styles.markerText}>
                   {markerChanges.map((c) => formatEftpChange(c, t('units.watts'))).join(', ')}
                 </Text>
               </View>
             )}
           </View>
-          <View style={styles.valuesRow}>
-            <View style={styles.valueItem}>
+          <View style={[styles.valuesRow, largeText && styles.valuesWrapped]}>
+            {/* Each line's readout is its legend entry and the switch that shows or hides it. */}
+            <Pressable
+              accessibilityRole="switch"
+              accessibilityLabel={t('fitness.fitnessCTL')}
+              accessibilityState={{ checked: visibleLines.fitness }}
+              style={pressable([styles.readoutSwitch, !visibleLines.fitness && styles.lineHidden])}
+              android_ripple={pressRipple}
+              onPress={() => toggleLine('fitness')}
+              hitSlop={READOUT_SLOP}
+            >
               <View style={styles.keyedLabel}>
                 <View
                   testID="fitness-ctl-key"
                   style={[styles.keyDot, { backgroundColor: chartColors.fitness }]}
                 />
-                <Text style={styles.valueLabel}>{t('metrics.fitness')}</Text>
+                <Text style={[styles.valueLabel, !visibleLines.fitness && styles.labelHidden]}>
+                  {t('metrics.fitness')}
+                </Text>
               </View>
               <Text
                 testID="fitness-ctl-value"
@@ -331,14 +353,24 @@ export const FitnessChart = React.memo(function FitnessChart({
               >
                 {fitnessText}
               </Text>
-            </View>
-            <View style={styles.valueItem}>
+            </Pressable>
+            <Pressable
+              accessibilityRole="switch"
+              accessibilityLabel={t('fitness.fatigueATL')}
+              accessibilityState={{ checked: visibleLines.fatigue }}
+              style={pressable([styles.readoutSwitch, !visibleLines.fatigue && styles.lineHidden])}
+              android_ripple={pressRipple}
+              onPress={() => toggleLine('fatigue')}
+              hitSlop={READOUT_SLOP}
+            >
               <View style={styles.keyedLabel}>
                 <View
                   testID="fitness-atl-key"
                   style={[styles.keyDot, { backgroundColor: chartColors.fatigue }]}
                 />
-                <Text style={styles.valueLabel}>{t('metrics.fatigue')}</Text>
+                <Text style={[styles.valueLabel, !visibleLines.fatigue && styles.labelHidden]}>
+                  {t('metrics.fatigue')}
+                </Text>
               </View>
               <Text
                 testID="fitness-atl-value"
@@ -347,7 +379,7 @@ export const FitnessChart = React.memo(function FitnessChart({
               >
                 {fatigueText}
               </Text>
-            </View>
+            </Pressable>
             <View style={styles.valueItem}>
               <View style={styles.keyedLabel}>
                 {formZone ? (
@@ -432,13 +464,9 @@ export const FitnessChart = React.memo(function FitnessChart({
                             <CurveLine
                               points={points.fitness}
                               color={chartColors.casing}
-                              strokeWidth={2.5}
+                              strokeWidth={chartStroke.casing}
                             />
-                            <CurveLine
-                              points={points.fitness}
-                              color={chartColors.fitness}
-                              strokeWidth={1.5}
-                            />
+                            <CurveLine points={points.fitness} color={chartColors.fitness} />
                           </>
                         ) : null}
                         {visibleLines.fatigue ? (
@@ -446,24 +474,25 @@ export const FitnessChart = React.memo(function FitnessChart({
                             <CurveLine
                               points={points.fatigue}
                               color={chartColors.casing}
-                              strokeWidth={2}
+                              strokeWidth={chartStroke.casing}
                             />
-                            <CurveLine
-                              points={points.fatigue}
-                              color={chartColors.fatigue}
-                              strokeWidth={1}
-                            />
+                            <CurveLine points={points.fatigue} color={chartColors.fatigue} />
                           </>
                         ) : null}
                         {markerIndices.map((idx) => (
-                          <Circle
+                          <TriangleMark
                             key={chartData[idx].date}
-                            cx={points.fitness[idx].x}
-                            cy={bounds.top + MARKER_RADIUS}
-                            r={MARKER_RADIUS}
+                            x={points.fitness[idx].x}
+                            y={bounds.top + MARKER_INSET}
                             color={chartColors.ftp}
                           />
                         ))}
+                        {visibleLines.fitness ? (
+                          <ScrubDot at={points.fitness[scrubIndex]} color={chartColors.fitness} />
+                        ) : null}
+                        {visibleLines.fatigue ? (
+                          <ScrubDot at={points.fatigue[scrubIndex]} color={chartColors.fatigue} />
+                        ) : null}
                       </>
                     );
                   }}
@@ -471,69 +500,31 @@ export const FitnessChart = React.memo(function FitnessChart({
 
                 {/* Animated crosshair - runs at native 120Hz using synced point coordinates */}
                 <ChartCrosshair style={crosshairStyle} topOffset={8} />
-
-                {/* X-axis labels */}
-                <View style={styles.xAxisOverlay} pointerEvents="none">
-                  <Text
-                    maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                    style={[chartStyles.chartLabel, isDark && chartStyles.chartLabelDark]}
-                  >
-                    {chartData.length > 0 ? formatShortDate(chartData[0].date) : ''}
-                  </Text>
-                  <Text
-                    maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                    style={[chartStyles.chartLabel, isDark && chartStyles.chartLabelDark]}
-                  >
-                    {chartData.length > 0
-                      ? formatShortDate(chartData[chartData.length - 1].date)
-                      : ''}
-                  </Text>
-                </View>
               </View>
             </GestureDetector>
           </View>
         </ChartSurface>
 
-        {/* Legend: each item is a switch that shows or hides its line */}
-        <View style={styles.legend}>
-          <Pressable
-            accessibilityRole="switch"
-            accessibilityLabel={t('fitness.fitnessCTL')}
-            accessibilityState={{ checked: visibleLines.fitness }}
-            style={pressable([styles.legendItem, !visibleLines.fitness && styles.legendItemHidden])}
-            android_ripple={pressRipple}
-            onPress={() => toggleLine('fitness')}
-            hitSlop={LEGEND_SLOP}
-          >
-            <View style={[styles.legendDot, { backgroundColor: chartColors.fitness }]} />
-            <Text style={[styles.legendText, !visibleLines.fitness && styles.legendTextHidden]}>
-              {t('fitness.fitnessCTL')}
-            </Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="switch"
-            accessibilityLabel={t('fitness.fatigueATL')}
-            accessibilityState={{ checked: visibleLines.fatigue }}
-            style={pressable([styles.legendItem, !visibleLines.fatigue && styles.legendItemHidden])}
-            android_ripple={pressRipple}
-            onPress={() => toggleLine('fatigue')}
-            hitSlop={LEGEND_SLOP}
-          >
-            <View style={[styles.legendDot, { backgroundColor: chartColors.fatigue }]} />
-            <Text style={[styles.legendText, !visibleLines.fatigue && styles.legendTextHidden]}>
-              {t('fitness.fatigueATL')}
-            </Text>
-          </Pressable>
-        </View>
+        {/* The legend names only what the readout cannot: the eFTP mark. */}
+        {markerIndices.length > 0 ? (
+          <View style={styles.legend} testID="fitness-chart-legend">
+            <View style={styles.keyedLabel} testID="fitness-legend-eftp">
+              <View style={styles.markKey}>
+                <TriangleKey color={chartColors.ftp} />
+              </View>
+              <Text style={styles.legendText}>{t('fitness.eftpChanged')}</Text>
+            </View>
+          </View>
+        ) : null}
       </View>
     </ChartErrorBoundary>
   );
 });
 
-// The two toggles sit side by side a gap apart, so the slop lifts only their
-// height and each keeps its own width.
-const LEGEND_ITEM_HEIGHT = typography.caption.lineHeight;
-const LEGEND_SLOP = slopToMinTapTarget(LEGEND_ITEM_HEIGHT);
+// The two readout switches sit side by side a gap apart, so the slop lifts only
+// their height, a label line over a value line, and each keeps its own width.
+const READOUT_ITEM_HEIGHT = typography.caption.lineHeight + typography.metricValue.lineHeight;
+const READOUT_SLOP = slopToMinTapTarget(READOUT_ITEM_HEIGHT);
 
 const makeStyles = (palette: Palette) =>
   StyleSheet.create({
@@ -549,6 +540,12 @@ const makeStyles = (palette: Palette) =>
       justifyContent: 'space-between',
       alignItems: 'center',
       marginBottom: spacing.sm,
+    },
+    // Past the dense text size the day sits over the readout rather than beside it.
+    headerStacked: {
+      flexDirection: 'column',
+      alignItems: 'flex-start',
+      gap: spacing.xs,
     },
     dateContainer: {
       flex: 1,
@@ -579,8 +576,19 @@ const makeStyles = (palette: Palette) =>
       flexDirection: 'row',
       gap: spacing.md,
     },
+    valuesWrapped: {
+      flexWrap: 'wrap',
+      rowGap: spacing.xs,
+    },
+    markKey: {
+      marginRight: spacing.xs,
+    },
     valueItem: {
       alignItems: 'center',
+    },
+    readoutSwitch: {
+      alignItems: 'center',
+      minHeight: READOUT_ITEM_HEIGHT,
     },
     valueLabel: {
       ...typography.caption,
@@ -607,40 +615,20 @@ const makeStyles = (palette: Palette) =>
       flex: 1,
       flexDirection: 'row',
     },
-    xAxisOverlay: {
-      position: 'absolute',
-      bottom: 0,
-      left: 4,
-      right: 4,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-    },
     legend: {
       flexDirection: 'row',
       justifyContent: 'center',
       gap: spacing.md,
       marginTop: spacing.xs,
     },
-    legendItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      minHeight: LEGEND_ITEM_HEIGHT,
-    },
-    legendDot: {
-      width: 8,
-      height: 8,
-      borderRadius: layout.borderRadiusFull,
-      marginRight: spacing.xs,
-    },
     legendText: {
       ...typography.caption,
-      lineHeight: LEGEND_ITEM_HEIGHT,
       color: palette.textSecondary,
     },
-    legendItemHidden: {
+    lineHidden: {
       opacity: opacity.dim,
     },
-    legendTextHidden: {
+    labelHidden: {
       textDecorationLine: 'line-through',
     },
   });

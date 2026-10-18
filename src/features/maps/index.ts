@@ -10,12 +10,7 @@ export {
   SectionCreationResult,
   type SectionOverlay,
 } from './components/ActivityMapView';
-export {
-  ACTIVITY_CATEGORIES,
-  FILTER_CHIP,
-  categoryChipColours,
-  groupTypesByCategory,
-} from './lib/activityCategories';
+export { ACTIVITY_CATEGORIES, FILTER_CHIP, groupTypesByCategory } from './lib/activityCategories';
 export {
   ATTRIBUTION_CLEARANCE,
   AttributionOverlay,

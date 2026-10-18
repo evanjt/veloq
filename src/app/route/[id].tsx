@@ -27,7 +27,6 @@ import {
   buildFinalRouteGroup,
   routeHeadline,
   heroStats,
-  forwardDirectionColour,
   toActivityType,
   toPerformanceView,
   EMPTY_PERFORMANCE_VIEW,
@@ -376,7 +375,6 @@ function RouteDetailScreenContent() {
             bestReverseIsRecord={bestReverseIsRecord}
             calendarSummary={calendarSummary}
             effectiveSportType={effectiveSportType}
-            forwardColour={forwardDirectionColour(isDark)}
             navActivityId={navActivityId}
             effectiveReferenceId={effectiveRepresentativeId}
             showExcluded={showExcluded}

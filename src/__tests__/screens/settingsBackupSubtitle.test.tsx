@@ -10,7 +10,7 @@
 import React from 'react';
 import { render, within } from '@testing-library/react-native';
 
-import SettingsScreen from '@/app/settings';
+import SettingsScreen from '@/app/(tabs)/settings';
 import { getLastBackupTimestamp, isAutoBackupEnabled } from '@/features/settings/lib/autobackup';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());

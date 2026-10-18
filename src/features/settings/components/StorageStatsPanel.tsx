@@ -22,7 +22,14 @@ import {
 
 import { StreamBackfillRow } from './StreamBackfillRow';
 import { StreamHistoryRow } from './StreamHistoryRow';
-import { Button, composeAccessibilityLabel, pressable, pressRipple, StatTile } from '@/shared/ui';
+import {
+  Button,
+  composeAccessibilityLabel,
+  pressable,
+  pressRipple,
+  ProgressBar,
+  StatTile,
+} from '@/shared/ui';
 import { ABSENT } from '@/shared/format/absent';
 
 /** Every segment the bar can draw. A key, never a literal: the legend and
@@ -243,7 +250,6 @@ export function StorageStatsPanel({
   // zero, the same way the total above says so.
   const budgetBytes = budgetMb * BYTES_PER_BUDGET_MB;
   const usedBytes = basemapTiles?.totalBytes ?? 0;
-  const usedShare = budgetBytes > 0 ? Math.min(1, usedBytes / budgetBytes) : 0;
   const palette = themePalette(isDark);
   const footerText = [styles.budgetFooterText, { color: palette.textSecondary }];
   const statDivider = [styles.statDivider, { backgroundColor: palette.border }];
@@ -397,13 +403,14 @@ export function StorageStatsPanel({
         >
           {t('settings.tileCacheLimitHint')}
         </Text>
-        <View style={[styles.budgetTrack, isDark && styles.budgetTrackDark]}>
-          <View
-            testID="settings-tile-cache-fill"
-            style={{ flex: usedShare, backgroundColor: palette.actionPrimary }}
+        {budgetBytes > 0 ? (
+          <ProgressBar
+            done={usedBytes}
+            total={budgetBytes}
+            label={t('settings.tileCacheLimit')}
+            fillTestID="settings-tile-cache-fill"
           />
-          <View style={{ flex: 1 - usedShare }} />
-        </View>
+        ) : null}
         <View style={styles.budgetFooter}>
           <Text testID="settings-tile-cache-used" style={footerText}>
             {basemapTiles
@@ -484,16 +491,6 @@ const styles = StyleSheet.create({
   budgetHint: {
     ...typography.caption,
     color: colors.textSecondary,
-  },
-  budgetTrack: {
-    flexDirection: 'row',
-    height: 6,
-    borderRadius: layout.borderRadiusFull,
-    overflow: 'hidden',
-    backgroundColor: colors.border,
-  },
-  budgetTrackDark: {
-    backgroundColor: darkColors.border,
   },
   budgetFooter: {
     flexDirection: 'row',

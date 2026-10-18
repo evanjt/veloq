@@ -1,7 +1,6 @@
 /**
  * Scenario: a hold that the app recognises opens something under the finger: the
- * strength loupe, a chart's axis preview, the field picker on a ride tile, the
- * section scrub. Each is a long-press activation.
+ * strength loupe, the field picker on a ride tile, the section scrub. Each is a long-press activation.
  *
  * Expected behaviour: each recognised hold fires exactly one light impact and no
  * other class, and a plain tap fires none.
@@ -118,28 +117,21 @@ describe('the chart type chips', () => {
 
   async function chips() {
     const onToggle = jest.fn();
-    const onPreviewStart = jest.fn();
     const tree = await render(
-      <ChartTypeSelector
-        available={available}
-        selected={['heartrate']}
-        onToggle={onToggle}
-        onPreviewStart={onPreviewStart}
-        onPreviewEnd={jest.fn()}
-      />
+      <ChartTypeSelector available={available} selected={['heartrate']} onToggle={onToggle} />
     );
     const chip = tree.getByTestId('chart-type-heartrate');
-    return { chip, onToggle, onPreviewStart };
+    return { chip, onToggle };
   }
 
-  it('fire one light impact when a hold opens the axis preview', async () => {
-    const { chip, onPreviewStart } = await chips();
+  it('fire nothing on a hold, which opens nothing', async () => {
+    const { chip, onToggle } = await chips();
 
     await fireEvent(chip, 'pressIn');
     await fireEvent(chip, 'longPress');
 
-    expect(onPreviewStart).toHaveBeenCalledWith('heartrate');
-    expect(fired()).toEqual(ONE_LIGHT);
+    expect(onToggle).not.toHaveBeenCalled();
+    expect(fired()).toEqual(NONE);
   });
 
   it('fire nothing of their own on a tap', async () => {

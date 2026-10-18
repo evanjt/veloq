@@ -119,7 +119,7 @@ pub use settings::settings_keys;
 pub mod bodies;
 pub mod curves;
 pub(crate) mod strength;
-pub use strength::FitOutcome;
+pub use strength::{FitIntake, FitOutcome};
 pub mod tiles;
 pub(crate) mod track_index;
 pub mod wellness;

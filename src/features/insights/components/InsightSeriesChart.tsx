@@ -26,8 +26,8 @@ interface InsightSeriesChartProps {
   invert?: boolean;
   /** A dot on every sample, for a series of discrete efforts. */
   pointColor?: string;
-  /** A ringed dot on the sample at this index in `samples`. */
-  marker?: { index: number; color: string } | null;
+  /** The record's gold ring or the reticle on the sample at this index in `samples`. */
+  marker?: { index: number; kind: 'record' | 'this' } | null;
   /** Shown at the title's trailing edge, such as a glyph for the series' verdict. */
   accessory?: React.ReactNode;
   /** One bar per sample from zero, for totals over a period. */
@@ -87,7 +87,7 @@ export const InsightSeriesChart = React.memo(function InsightSeriesChart({
   const markerAt = useMemo(() => {
     if (!marker || !model) return null;
     const at = model.data.findIndex((d) => d.index === marker.index);
-    return at >= 0 ? { index: at, color: marker.color } : null;
+    return at >= 0 ? { index: at, kind: marker.kind } : null;
   }, [marker, model]);
 
   const shown = selected ?? model?.data.at(-1);

@@ -2,7 +2,8 @@ import React from 'react';
 import { ScrollView, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { controlHeight, spacing, slopToMinTapTarget } from '@/theme';
-import { ACTIVITY_CATEGORIES, isSportFamily } from '@/shared/activity/sportCategories';
+import { useTheme } from '@/shared/app';
+import { sportMarkColour } from '@/shared/activity/sportCategories';
 import { ToggleButton } from './Button';
 
 export interface SportChip {
@@ -10,7 +11,7 @@ export interface SportChip {
   label: string;
   count?: number;
   testID?: string;
-  /** The sport family whose fill and ink it takes, when that is not `key`. */
+  /** The family or sport whose dot it draws, when `key` names neither. */
   category?: string;
 }
 
@@ -37,6 +38,7 @@ type SportChipRowProps = MultiSelectProps | SingleSelectProps;
 export function SportChipRow(props: SportChipRowProps) {
   const { chips, children, style } = props;
   const { t } = useTranslation();
+  const { isDark } = useTheme();
   const isSelected = (key: string) =>
     'value' in props ? props.value === key : props.selected.has(key);
   const onPress = (key: string) => ('value' in props ? props.onSelect(key) : props.onToggle(key));
@@ -48,23 +50,19 @@ export function SportChipRow(props: SportChipRowProps) {
       style={[styles.scroller, style]}
       contentContainerStyle={styles.row}
     >
-      {chips.map((chip) => {
-        const family = chip.category ?? chip.key;
-        const category = isSportFamily(family) ? ACTIVITY_CATEGORIES[family] : undefined;
-        return (
-          <ToggleButton
-            key={chip.key}
-            {...(chip.testID && { testID: chip.testID })}
-            label={t(chip.label, chip.key)}
-            selected={isSelected(chip.key)}
-            {...(category && {
-              accent: { fill: category.selectedFill, ink: category.selectedInk },
-            })}
-            {...(chip.count !== undefined && { count: chip.count })}
-            onPress={() => onPress(chip.key)}
-          />
-        );
-      })}
+      {chips.map((chip) => (
+        // The chip keeps the selector fill and tells the sport by its dot, since a
+        // label cannot clear 4.5:1 on every family colour.
+        <ToggleButton
+          key={chip.key}
+          {...(chip.testID && { testID: chip.testID })}
+          label={t(chip.label, chip.key)}
+          selected={isSelected(chip.key)}
+          mark={sportMarkColour(chip.category ?? chip.key, isDark)}
+          {...(chip.count !== undefined && { count: chip.count })}
+          onPress={() => onPress(chip.key)}
+        />
+      ))}
       {children}
     </ScrollView>
   );

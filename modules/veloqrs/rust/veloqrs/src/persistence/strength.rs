@@ -1,18 +1,20 @@
-//! Strength training: exercise set storage and FIT file processing status.
+//! The FIT intake: which activities owe their file, what each sport takes from
+//! it (a strength session's sets, a pool swim's lengths), and the verdict.
 
-use crate::fit::FitExerciseSet;
+use crate::fit::{FitExerciseSet, FitPoolSwim};
 use rusqlite::{Result as SqlResult, params};
 
 use super::PersistentEngine;
 
 /// A settled verdict on an activity's FIT file. Only these four reach
 /// `fit_file_status`; a retryable download failure records nothing at all, which
-/// is what leaves the activity in `get_unprocessed_strength_ids`.
+/// is what leaves the activity in the owed queue.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FitOutcome {
-    /// Downloaded and parsed, and it carried exercise sets.
+    /// Downloaded and parsed, and it carried what its sport reads: exercise
+    /// sets for a strength session, lengths for a pool swim.
     Parsed,
-    /// Downloaded and parsed, and it genuinely carries no sets.
+    /// Downloaded and parsed, and it genuinely carries none of them.
     Empty,
     /// Upstream has no FIT file for this activity, and never will.
     Absent,
@@ -35,6 +37,30 @@ impl FitOutcome {
         }
     }
 }
+
+/// What an activity's FIT file is read for, decided by its sport.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FitIntake {
+    /// A strength session's exercise sets.
+    Strength,
+    /// A pool swim's lengths and pool length.
+    PoolSwim,
+}
+
+impl FitIntake {
+    /// The intake for a sport. Every sport but a pool swim reads as strength;
+    /// an open-water swim has no lengths to read.
+    pub fn for_sport(sport: Option<&str>) -> FitIntake {
+        match sport {
+            Some("Swim") => FitIntake::PoolSwim,
+            _ => FitIntake::Strength,
+        }
+    }
+}
+
+/// The sports whose activities are owed a FIT download, as an SQL list. One
+/// per intake, so the queue and [`FitIntake::for_sport`] name the same sports.
+const OWED_FIT_SPORTS: &str = "('WeightTraining', 'Swim')";
 
 impl PersistentEngine {
     /// Store parsed exercise sets for an activity.
@@ -98,6 +124,66 @@ impl PersistentEngine {
         self.mark_fit_outcome(activity_id, outcome)
     }
 
+    /// Store the lengths and pool length a FIT file gave a pool swim and settle
+    /// its verdict in the same transaction: parsed when it had lengths, empty
+    /// when it had none. A second read replaces the first.
+    pub fn settle_pool_swim(&self, activity_id: &str, swim: &FitPoolSwim) -> SqlResult<()> {
+        self.db.execute_batch("BEGIN IMMEDIATE")?;
+        match self.write_pool_swim(activity_id, swim) {
+            Ok(()) => super::commit_write_txn(&self.db),
+            Err(e) => {
+                let _ = self.db.execute_batch("ROLLBACK");
+                Err(e)
+            }
+        }
+    }
+
+    fn write_pool_swim(&self, activity_id: &str, swim: &FitPoolSwim) -> SqlResult<()> {
+        self.db.execute(
+            "DELETE FROM swim_lengths WHERE activity_id = ?",
+            params![activity_id],
+        )?;
+        self.db.execute(
+            "DELETE FROM pool_swims WHERE activity_id = ?",
+            params![activity_id],
+        )?;
+        let outcome = if swim.lengths.is_empty() {
+            FitOutcome::Empty
+        } else {
+            let mut stmt = self.db.prepare(
+                "INSERT INTO swim_lengths
+                 (activity_id, length_index, start_time, elapsed_secs, timer_secs,
+                  length_type, swim_stroke, total_strokes, avg_speed)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            )?;
+            for (index, length) in swim.lengths.iter().enumerate() {
+                stmt.execute(params![
+                    activity_id,
+                    index as i64,
+                    length.start_time,
+                    length.total_elapsed_time,
+                    length.total_timer_time,
+                    length.length_type,
+                    length.swim_stroke,
+                    length.total_strokes,
+                    length.avg_speed,
+                ])?;
+            }
+            self.db.execute(
+                "INSERT INTO pool_swims (activity_id, pool_length_m) VALUES (?, ?)",
+                params![activity_id, swim.pool_length_m],
+            )?;
+            FitOutcome::Parsed
+        };
+        self.mark_fit_outcome(activity_id, outcome)
+    }
+
+    /// What the activity's FIT file is read for, from its sport. An id the
+    /// library does not hold reads as strength.
+    pub fn fit_intake(&self, activity_id: &str) -> SqlResult<FitIntake> {
+        pooled::fit_intake(&self.db, activity_id)
+    }
+
     /// Get cached exercise sets for an activity.
     pub fn get_exercise_sets(&self, activity_id: &str) -> SqlResult<Vec<FitExerciseSet>> {
         pooled::exercise_sets(&self.db, activity_id)
@@ -127,10 +213,16 @@ impl PersistentEngine {
         pooled::is_fit_processed(&self.db, activity_id)
     }
 
-    /// Activity ids owed a FIT download: strength activities with no recorded
-    /// outcome yet, newest first.
+    /// Strength activities owed a FIT download, newest first. The strength tab
+    /// counts its owed sessions from this, so it holds strength alone.
     pub fn get_unprocessed_strength_ids(&self) -> SqlResult<Vec<String>> {
         pooled::unprocessed_strength_queue(&self.db)
+    }
+
+    /// Every activity owed a FIT download, of any sport that reads one, newest
+    /// first.
+    pub fn owed_fit_ids(&self) -> SqlResult<Vec<String>> {
+        pooled::owed_fit_queue(&self.db)
     }
 
     /// Get all exercise sets for WeightTraining activities within a date range.
@@ -262,6 +354,203 @@ mod tests {
             names.get("a1"),
             Some(&("Sunday hills".to_string(), 1700_i64))
         );
+    }
+
+    fn add_activity(engine: &PersistentEngine, id: &str, sport: &str, date: i64) {
+        engine
+            .db
+            .execute(
+                "INSERT INTO activity_metrics (activity_id, name, date, distance, moving_time,
+                     elapsed_time, elevation_gain, sport_type)
+                 VALUES (?1, 'n', ?2, 0, 0, 0, 0, ?3)",
+                params![id, date, sport],
+            )
+            .unwrap();
+    }
+
+    fn rows(engine: &PersistentEngine, table: &str, id: &str) -> i64 {
+        engine
+            .db
+            .query_row(
+                &format!("SELECT COUNT(*) FROM {table} WHERE activity_id = ?1"),
+                params![id],
+                |r| r.get(0),
+            )
+            .unwrap()
+    }
+
+    fn outcome(engine: &PersistentEngine, id: &str) -> Option<String> {
+        engine
+            .db
+            .query_row(
+                "SELECT outcome FROM fit_file_status WHERE activity_id = ?1",
+                params![id],
+                |r| r.get(0),
+            )
+            .ok()
+    }
+
+    /// Scenario: a library holds a strength session, a pool swim and an
+    /// open-water swim, none of whose files has been read.
+    ///
+    /// Expected behaviour: the strength session and the pool swim are owed a
+    /// download, newest first, and the open-water swim, which has no lengths to
+    /// read, is not.
+    #[test]
+    fn a_pool_swim_is_owed_its_file_and_an_open_water_swim_is_not() {
+        let (_dir, engine) = engine();
+        add_activity(&engine, "lift", "WeightTraining", 100);
+        add_activity(&engine, "pool", "Swim", 200);
+        add_activity(&engine, "lake", "OpenWaterSwim", 300);
+        add_activity(&engine, "ride", "Ride", 400);
+
+        assert_eq!(engine.owed_fit_ids().unwrap(), vec!["pool", "lift"]);
+    }
+
+    /// The strength tab counts its owed sessions from this list, so a swim in it
+    /// would keep the tab promising sets that never come.
+    #[test]
+    fn the_strength_queue_still_holds_strength_alone() {
+        let (_dir, engine) = engine();
+        add_activity(&engine, "lift", "WeightTraining", 100);
+        add_activity(&engine, "pool", "Swim", 200);
+
+        assert_eq!(engine.get_unprocessed_strength_ids().unwrap(), vec!["lift"]);
+    }
+
+    #[test]
+    fn the_intake_follows_the_sport() {
+        let (_dir, engine) = engine();
+        add_activity(&engine, "lift", "WeightTraining", 100);
+        add_activity(&engine, "pool", "Swim", 200);
+
+        assert_eq!(engine.fit_intake("pool").unwrap(), FitIntake::PoolSwim);
+        assert_eq!(engine.fit_intake("lift").unwrap(), FitIntake::Strength);
+        assert_eq!(
+            engine.fit_intake("unknown").unwrap(),
+            FitIntake::Strength,
+            "an id the library does not hold is read as it always was"
+        );
+    }
+
+    /// Scenario: the pool fixture, five lengths of a 25 m pool with one rest,
+    /// is stored for a pool swim.
+    ///
+    /// Expected behaviour: every length and the pool length are written, the
+    /// verdict is parsed, all in one commit, and the swim leaves the queue.
+    #[test]
+    fn a_pool_swim_file_stores_its_lengths_and_leaves_the_queue() {
+        let (_dir, engine) = engine();
+        add_activity(&engine, "pool", "Swim", 200);
+        let swim = crate::fit::parse_fit_pool_swim(&crate::fit::pool_swim_fit()).unwrap();
+
+        let commits = commit_counter::watch(&engine);
+        engine.settle_pool_swim("pool", &swim).unwrap();
+
+        assert_eq!(commit_counter::count(&commits), 1);
+        assert_eq!(rows(&engine, "swim_lengths", "pool"), 5);
+        let pool_length: Option<f64> = engine
+            .db
+            .query_row(
+                "SELECT pool_length_m FROM pool_swims WHERE activity_id = 'pool'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(pool_length, Some(25.0));
+        assert_eq!(outcome(&engine, "pool").as_deref(), Some("parsed"));
+        assert!(engine.owed_fit_ids().unwrap().is_empty());
+    }
+
+    /// A stored length as the test reads it back: index, type, stroke, strokes
+    /// and speed.
+    type StoredLength = (i64, Option<i64>, Option<i64>, Option<i64>, Option<f64>);
+
+    /// Each length keeps its place in the file and every field the parser read.
+    #[test]
+    fn a_stored_length_keeps_its_order_and_fields() {
+        let (_dir, engine) = engine();
+        let swim = crate::fit::parse_fit_pool_swim(&crate::fit::pool_swim_fit()).unwrap();
+
+        engine.settle_pool_swim("pool", &swim).unwrap();
+
+        let stored: Vec<StoredLength> = engine
+            .db
+            .prepare(
+                "SELECT length_index, length_type, swim_stroke, total_strokes, avg_speed
+                 FROM swim_lengths WHERE activity_id = 'pool' ORDER BY length_index",
+            )
+            .unwrap()
+            .query_map([], |r| {
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
+            })
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        let expected: Vec<StoredLength> = swim
+            .lengths
+            .iter()
+            .enumerate()
+            .map(|(i, l)| {
+                (
+                    i as i64,
+                    l.length_type.map(i64::from),
+                    l.swim_stroke.map(i64::from),
+                    l.total_strokes.map(i64::from),
+                    l.avg_speed,
+                )
+            })
+            .collect();
+        assert_eq!(stored, expected);
+        assert_eq!(stored[2].1, Some(0), "the third length is the rest");
+    }
+
+    /// A file with no lengths, such as a ride's, is a swim with nothing to
+    /// show, and leaves nothing behind.
+    #[test]
+    fn a_file_with_no_lengths_settles_a_swim_empty_with_no_rows() {
+        let (_dir, engine) = engine();
+        add_activity(&engine, "pool", "Swim", 200);
+        let ride = crate::fit::parse_fit_pool_swim(&crate::fit::recorded_ride_fit()).unwrap();
+
+        engine.settle_pool_swim("pool", &ride).unwrap();
+
+        assert_eq!(outcome(&engine, "pool").as_deref(), Some("empty"));
+        assert_eq!(rows(&engine, "swim_lengths", "pool"), 0);
+        assert_eq!(rows(&engine, "pool_swims", "pool"), 0);
+        assert!(engine.owed_fit_ids().unwrap().is_empty());
+    }
+
+    /// A second read of the same activity replaces the first rather than
+    /// leaving a longer earlier file's lengths behind it.
+    #[test]
+    fn storing_a_swim_again_replaces_its_lengths() {
+        let (_dir, engine) = engine();
+        let swim = crate::fit::parse_fit_pool_swim(&crate::fit::pool_swim_fit()).unwrap();
+        engine.settle_pool_swim("pool", &swim).unwrap();
+
+        let none = crate::fit::FitPoolSwim::default();
+        engine.settle_pool_swim("pool", &none).unwrap();
+
+        assert_eq!(rows(&engine, "swim_lengths", "pool"), 0);
+        assert_eq!(rows(&engine, "pool_swims", "pool"), 0);
+        assert_eq!(outcome(&engine, "pool").as_deref(), Some("empty"));
+    }
+
+    /// The lengths and the verdict are one write: a failure part way leaves
+    /// neither, so the swim stays owed rather than settled with half its file.
+    #[test]
+    fn a_failed_swim_write_leaves_no_verdict() {
+        let (_dir, engine) = engine();
+        add_activity(&engine, "pool", "Swim", 200);
+        engine.db.execute_batch("DROP TABLE pool_swims").unwrap();
+        let swim = crate::fit::parse_fit_pool_swim(&crate::fit::pool_swim_fit()).unwrap();
+
+        assert!(engine.settle_pool_swim("pool", &swim).is_err());
+        assert!(engine.db.is_autocommit());
+        assert_eq!(rows(&engine, "swim_lengths", "pool"), 0);
+        assert_eq!(outcome(&engine, "pool"), None);
+        assert_eq!(engine.owed_fit_ids().unwrap(), vec!["pool"]);
     }
 
     #[test]
@@ -436,6 +725,32 @@ pub(crate) mod pooled {
             )
             .optional()?;
         Ok(row.and_then(|(is_strength, processed)| is_strength.then_some(processed)))
+    }
+
+    /// What the activity's FIT file is read for, from its stored sport.
+    pub(crate) fn fit_intake(conn: &Connection, activity_id: &str) -> SqlResult<super::FitIntake> {
+        let sport: Option<String> = conn
+            .query_row(
+                "SELECT sport_type FROM activity_metrics WHERE activity_id = ?",
+                params![activity_id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        Ok(super::FitIntake::for_sport(sport.as_deref()))
+    }
+
+    /// Every activity of a sport that reads its FIT file and has no recorded
+    /// outcome, newest first: the queue the background download drains.
+    pub(crate) fn owed_fit_queue(conn: &Connection) -> SqlResult<Vec<String>> {
+        let mut stmt = conn.prepare(&format!(
+            "SELECT m.activity_id FROM activity_metrics m
+             LEFT JOIN fit_file_status f ON f.activity_id = m.activity_id
+             WHERE m.sport_type IN {} AND f.activity_id IS NULL
+             ORDER BY m.date DESC",
+            super::OWED_FIT_SPORTS
+        ))?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        rows.collect()
     }
 
     /// Whether the activity's FIT file has a settled verdict.

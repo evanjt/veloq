@@ -12,7 +12,8 @@ import {
   iconSize,
   ink,
   layout,
-  shadows,
+  mapPalette,
+  raised,
   spacing,
 } from '@/theme';
 import { getActivityTypeConfig, type SportFamily } from '../lib/activityCategories';
@@ -583,17 +584,19 @@ export function RegionalMapView({
 
   // Sport colours wash out against the teal heatmap, so the selected route
   // switches colour while the heatmap is drawn underneath it.
+  const palette = mapPalette(mapStyle);
   const routeColor = selected
-    ? selectedRouteColor(getActivityTypeConfig(selected.activity.type).color, {
-        enabled: heatmapEnabled,
-        shown: showHeatmap,
-      })
-    : colors.textPrimary;
+    ? selectedRouteColor(
+        getActivityTypeConfig(selected.activity.type).color,
+        { enabled: heatmapEnabled, shown: showHeatmap },
+        palette
+      )
+    : palette.theme.textPrimary;
 
   const layers = useMemo(
     () =>
       buildRegionalLayers({
-        mapStyle,
+        palette,
         showActivities,
         showSections,
         showRoutes,
@@ -608,7 +611,7 @@ export function RegionalMapView({
         routeColor,
       }),
     [
-      mapStyle,
+      palette,
       showActivities,
       showSections,
       showRoutes,
@@ -702,6 +705,7 @@ export function RegionalMapView({
       <IconButton
         style={[
           styles.button,
+          raised('mapOverlay', isDark),
           styles.styleButton,
           { top: insets.top + spacing.smPlus },
           isDark && styles.buttonDark,
@@ -789,7 +793,6 @@ const styles = StyleSheet.create({
     width: controlHeight.button,
     height: controlHeight.button,
     borderRadius: layout.borderRadiusFull,
-    ...shadows.mapOverlay,
   },
   buttonDark: {
     backgroundColor: darkColors.surfaceRaised,

@@ -11,7 +11,7 @@ import { useEffect, useRef, type RefObject } from 'react';
 import { isReduceMotionOn } from './reduceMotion';
 
 /** The tab bar's destinations, by the route each one navigates to. */
-export type TabRoute = '/' | '/fitness' | '/map' | '/insights' | '/training';
+export type TabRoute = '/' | '/fitness' | '/map' | '/insights' | '/settings';
 
 /** A list scrolls by offset, a scroll view by position: either can be sent back. */
 type Scrollable =

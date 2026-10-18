@@ -11,6 +11,7 @@ import { ActivityDotsChart } from '@/features/fitness/components/ActivityDotsCha
 import { answerSheet } from '../../__shared__/answerSheet';
 import { useSheetRequest } from '@/shared/app/sheetRequest';
 import type { Activity, WellnessData } from '@/types';
+import { dayActivityRow } from '@/features/activity/light';
 
 const mockPush = jest.fn();
 const mockParams: { request?: string } = {};
@@ -39,7 +40,11 @@ const ACTIVITIES = [
 ];
 
 const strip = (day: string) => (
-  <ActivityDotsChart data={WELLNESS} activities={ACTIVITIES} selectedDate={day} />
+  <ActivityDotsChart
+    data={WELLNESS}
+    activities={ACTIVITIES.map(dayActivityRow)}
+    selectedDate={day}
+  />
 );
 
 const pushedRoutes = () => mockPush.mock.calls.map(([target]) => target);

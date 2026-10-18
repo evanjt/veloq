@@ -24,6 +24,7 @@ import ExerciseDetailScreen from '@/features/strength/components/ExerciseDetailS
 import type { ClimbBest } from '@/features/stats';
 import type { Activity, WellnessData } from '@/types';
 import { layout } from '@/theme';
+import { dayActivityRow } from '@/features/activity/light';
 
 const mockPush = jest.fn();
 
@@ -143,7 +144,11 @@ describe('the days-trained strip', () => {
       },
     ] as Activity[];
     await render(
-      <ActivityDotsChart data={wellness} activities={activities} selectedDate="2026-02-14" />
+      <ActivityDotsChart
+        data={wellness}
+        activities={activities.map(dayActivityRow)}
+        selectedDate="2026-02-14"
+      />
     );
 
     const row = screen.getByRole('button', { name: /Kite session/ });

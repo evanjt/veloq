@@ -49,9 +49,7 @@ const main = flag('--main') ? resolve(flag('--main')) : mainCheckout(root);
 const OWN = 'veloqrs';
 
 if (!main || realpathSafe(main) === realpathSafe(root)) {
-  execFileSync(process.execPath, [new URL('./patch-expo-location.js', import.meta.url).pathname], {
-    cwd: root,
-  });
+  applyInstallPatches();
   console.log('Worktree modules: this is the main checkout, nothing to link.');
   process.exit(0);
 }
@@ -73,9 +71,7 @@ if (!lstatSafe(here)?.isDirectory() || lstatSafe(here)?.isSymbolicLink()) {
 // checkout's packages into it would put another checkout's native outputs back
 // under its build.
 if (lstatSafe(join(here, '.package-lock.json'))?.isFile()) {
-  execFileSync(process.execPath, [new URL('./patch-expo-location.js', import.meta.url).pathname], {
-    cwd: root,
-  });
+  applyInstallPatches();
   console.log('Worktree modules: an installation of its own here, nothing to link.');
   process.exit(0);
 }
@@ -102,10 +98,26 @@ console.log(
     : `Worktree modules: linked ${linked.length} missing (${linked.join(', ')}).`
 );
 
-// This native dependency must be copied before applying the altitude fix.
-execFileSync(process.execPath, [new URL('./patch-expo-location.js', import.meta.url).pathname], {
-  cwd: root,
-});
+// These native dependencies must be copied before they are patched.
+applyInstallPatches();
+
+/**
+ * The install-time patches the gates check: the expo-location altitude fix, and the nitro
+ * JSI install selector, without which iOS aborts at launch. Each copies a linked package
+ * into this tree before writing, so the main checkout's copy is never written from here.
+ */
+function applyInstallPatches() {
+  execFileSync(process.execPath, [new URL('./patch-expo-location.js', import.meta.url).pathname], {
+    cwd: root,
+  });
+  if (lstatSafe(join(root, 'node_modules', 'react-native-nitro-modules'))) {
+    execFileSync(
+      process.execPath,
+      [new URL('./patch-nitro-jsi-install.js', import.meta.url).pathname],
+      { cwd: root }
+    );
+  }
+}
 
 function flag(name) {
   const at = argv.indexOf(name);

@@ -1,7 +1,6 @@
 export {
   ACTIVITY_CATEGORIES,
   FILTER_CHIP,
-  categoryChipColours,
   getActivityCategory,
   getActivityTypeConfig,
   groupTypesByCategory,

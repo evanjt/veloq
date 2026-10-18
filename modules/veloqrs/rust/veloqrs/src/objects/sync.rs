@@ -30,20 +30,19 @@ use super::start::{FfiStartOutcome, FfiStartResult};
 #[cfg(test)]
 use crate::governor;
 use crate::governor::{AuthMethod, Dispatch, Intent, Lane};
-use crate::net::endpoints;
+use crate::net::intervals::activity_metrics_row;
+use crate::net::intervals::endpoints;
+use crate::net::intervals::wire::{ActivityRecord, ListedActivity, ManualActivityBody};
 use crate::net::offline_prefetch::{
     ALL_TIME_CURVE_DAYS, CURVE_DAYS, CURVE_KEYS, CurveKey, curve_window, every_curve_window,
     split_curve_windows,
 };
 use crate::net::transport::{NetError, Transport};
-use crate::net::types::{ActivityRecord, ListedActivity, ManualActivityBody};
 use crate::persistence::PersistentEngine;
 use crate::persistence::attempts::{Claim, JobKey, Release, now_ms};
 use crate::persistence::bodies::CurveKind;
 
 use super::record_dependency::fetch_owed_record_activities;
-
-const INTERVALS_BASE_URL: &str = "https://intervals.icu/api/v1";
 
 /// The sync's own requests paced as backfill: the census, the newest five and
 /// their bodies, the window at the head of the feed and wellness. The budget
@@ -568,7 +567,7 @@ impl SyncService {
         SyncService {
             inner: Mutex::new(SyncInner::default()),
             creds: Mutex::new(None),
-            base_url: Mutex::new(INTERVALS_BASE_URL.to_string()),
+            base_url: Mutex::new(crate::net::intervals::BASE_URL.to_string()),
             start_full: Box::new(start_full),
             start_window: Box::new(start_window),
         }
@@ -1660,7 +1659,7 @@ impl Drop for TestBaseUrl {
         *SYNC_SERVICE
             .base_url
             .lock()
-            .unwrap_or_else(|e| e.into_inner()) = INTERVALS_BASE_URL.to_string();
+            .unwrap_or_else(|e| e.into_inner()) = crate::net::intervals::BASE_URL.to_string();
     }
 }
 
@@ -2485,7 +2484,7 @@ async fn owed_activity_windows(athlete_id: &str, census_succeeded: bool) -> Acti
 
     // Behind everything the census owes, so the head is still the newest
     // owed window and a refetch never delays a new ride.
-    let current = crate::net::types::stored_activity_fields();
+    let current = crate::net::intervals::wire::stored_activity_fields();
     let fields = (stored_fields.as_deref() != Some(current.as_str())).then_some(current);
     if fields.is_some() {
         let covered: BTreeSet<String> = fetched
@@ -3097,53 +3096,6 @@ fn owed_windows(days: &[String]) -> Vec<(String, String)> {
 #[cfg(test)]
 #[path = "tests/sync_window.rs"]
 mod sync_window_tests;
-
-/// Seconds in power zones Z1 to Z`count`, placed by the id the server sent. The
-/// series also carries a sweet-spot entry that is not a zone, so a position would
-/// put it in a zone slot whenever it is not last. An entry with no id falls back
-/// to its position.
-pub(crate) fn power_zone_seconds(zones: &[crate::net::types::ZoneTime], count: usize) -> Vec<u32> {
-    let mut out = vec![0u32; count];
-    for (position, zone) in zones.iter().enumerate() {
-        let slot = match zone.id.as_deref() {
-            Some(id) => id
-                .strip_prefix('Z')
-                .and_then(|n| n.parse::<usize>().ok())
-                .and_then(|n| n.checked_sub(1)),
-            None => Some(position),
-        };
-        if let Some(slot) = slot.filter(|&s| s < out.len()) {
-            out[slot] = zone.secs.unwrap_or(0).max(0) as u32;
-        }
-    }
-    out
-}
-
-/// One activity's metrics row from the record the page carried. The stats
-/// fields ride the same response, so the row is complete when it is written
-/// and nothing has to read the body back to fill it in.
-pub(crate) fn activity_metrics_row(record: ActivityRecord, date: i64) -> crate::ActivityMetrics {
-    crate::ActivityMetrics {
-        activity_id: record.id,
-        name: record.name.unwrap_or_default(),
-        date,
-        distance: record.distance.unwrap_or(0.0),
-        moving_time: record.moving_time.unwrap_or(0).max(0) as u32,
-        elapsed_time: record.elapsed_time.unwrap_or(0).max(0) as u32,
-        elevation_gain: record.total_elevation_gain.unwrap_or(0.0),
-        avg_hr: record.average_heartrate.map(|v| v.round() as u16),
-        avg_power: record.icu_average_watts.map(|v| v.round() as u16),
-        sport_type: record.activity_type.unwrap_or_else(|| "Ride".to_string()),
-        training_load: record.icu_training_load,
-        ftp: record.icu_ftp.map(|v| v.round().max(0.0) as u16),
-        power_zone_times: record
-            .icu_zone_times
-            .map(|zones| power_zone_seconds(&zones, crate::persistence::fitness::ZONE_COLUMNS)),
-        hr_zone_times: record
-            .icu_hr_zone_times
-            .map(|zones| zones.iter().map(|&s| s.max(0) as u32).collect()),
-    }
-}
 
 /// What a window sync did with the page it asked for. A job that was cancelled
 /// wrote nothing, so its caller owes a terminal state that does not read as a
@@ -6316,7 +6268,7 @@ mod tests {
         assert_eq!(stored_decoupling("old"), Some(4.2));
         assert_eq!(
             field_stamp(),
-            Some(crate::net::types::stored_activity_fields())
+            Some(crate::net::intervals::wire::stored_activity_fields())
         );
         // The refetch did not move the census marks, so nothing reads as an
         // upstream change and nothing is owed.
@@ -7623,86 +7575,6 @@ mod tests {
         assert!(svc.build_transport().is_ok());
         svc.clear_credentials();
         assert!(svc.build_transport().is_err());
-    }
-
-    #[test]
-    fn the_metrics_row_carries_the_stats_the_page_fetched() {
-        let record: ActivityRecord = serde_json::from_value(json!({
-            "id": "a1",
-            "name": "Ride",
-            "type": "Ride",
-            "start_date_local": "2026-01-02T08:00:00",
-            "moving_time": 3600,
-            "icu_training_load": 88.0,
-            "icu_ftp": 250.4,
-            "icu_zone_times": [{"id": "Z1", "secs": 10}, {"id": "Z2", "secs": 20}],
-            "icu_hr_zone_times": [11, 22],
-        }))
-        .expect("record");
-
-        let row = activity_metrics_row(record, 1_767_340_800);
-
-        assert_eq!(row.training_load, Some(88.0));
-        assert_eq!(row.ftp, Some(250));
-        assert_eq!(row.power_zone_times, Some(vec![10, 20, 0, 0, 0, 0, 0]));
-        assert_eq!(row.hr_zone_times, Some(vec![11, 22]));
-    }
-
-    #[test]
-    fn power_zone_seconds_are_read_by_id_so_sweet_spot_never_takes_a_zone_slot() {
-        let record: ActivityRecord = serde_json::from_value(json!({
-            "id": "a4",
-            "start_date_local": "2026-01-02T08:00:00",
-            "icu_zone_times": [
-                {"id": "SS", "secs": 999},
-                {"id": "Z2", "secs": 20},
-                {"id": "Z1", "secs": 10},
-                {"id": "Z7", "secs": 70},
-                {"id": "Z8", "secs": 80},
-            ],
-        }))
-        .expect("record");
-
-        let row = activity_metrics_row(record, 1_767_340_800);
-
-        assert_eq!(row.power_zone_times, Some(vec![10, 20, 0, 0, 0, 0, 70]));
-    }
-
-    #[test]
-    fn an_activity_with_no_stats_leaves_them_unset() {
-        let record: ActivityRecord = serde_json::from_value(json!({
-            "id": "a2",
-            "start_date_local": "2026-01-02T08:00:00",
-        }))
-        .expect("record");
-
-        let row = activity_metrics_row(record, 1_767_340_800);
-
-        assert_eq!(row.training_load, None);
-        assert_eq!(row.ftp, None);
-        assert_eq!(row.power_zone_times, None);
-        assert_eq!(row.hr_zone_times, None);
-        assert_eq!(row.sport_type, "Ride");
-    }
-
-    // A zone series in a shape we do not model is worth less than the
-    // activity, so it is dropped rather than failing the whole page.
-    #[test]
-    fn an_unmodelled_zone_shape_does_not_cost_the_page_its_metrics() {
-        let record: ActivityRecord = serde_json::from_value(json!({
-            "id": "a3",
-            "start_date_local": "2026-01-02T08:00:00",
-            "icu_training_load": 42.0,
-            "icu_zone_times": 120,
-            "icu_hr_zone_times": "nope",
-        }))
-        .expect("record");
-
-        let row = activity_metrics_row(record, 1_767_340_800);
-
-        assert_eq!(row.training_load, Some(42.0));
-        assert_eq!(row.power_zone_times, None);
-        assert_eq!(row.hr_zone_times, None);
     }
 
     #[test]
@@ -9048,7 +8920,7 @@ mod body_count_tests {
         *SYNC_SERVICE
             .base_url
             .lock()
-            .unwrap_or_else(|e| e.into_inner()) = INTERVALS_BASE_URL.to_string();
+            .unwrap_or_else(|e| e.into_inner()) = crate::net::intervals::BASE_URL.to_string();
     }
 
     /// Wait for the spawned fetch to settle. The job runs on the shared
@@ -11845,7 +11717,7 @@ mod write_auth_tests {
         *SYNC_SERVICE
             .base_url
             .lock()
-            .unwrap_or_else(|e| e.into_inner()) = INTERVALS_BASE_URL.to_string();
+            .unwrap_or_else(|e| e.into_inner()) = crate::net::intervals::BASE_URL.to_string();
     }
 
     /// Run the call the way uniffi's foreign executor does: on a plain thread

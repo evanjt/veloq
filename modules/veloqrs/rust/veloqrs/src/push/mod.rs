@@ -321,7 +321,7 @@ pub fn record_activity_detail(
     activity_id: &str,
     body: &str,
 ) -> Result<ActivityDetail, String> {
-    let record: crate::net::types::ActivityRecord =
+    let record: crate::net::intervals::wire::ActivityRecord =
         serde_json::from_str(body).map_err(|e| format!("the body of {activity_id}: {e}"))?;
     let date = crate::objects::sync::start_date_to_timestamp(record.start_date_local.as_deref())
         .ok_or_else(|| format!("the body of {activity_id} carries no start date"))?;
@@ -537,7 +537,7 @@ fn activity_push_run(
     .flatten();
     let upstream =
         crate::persistence::origin::upstream_or_key(activity_id, stored.as_deref()).to_string();
-    let body = crate::runtime::block_on(crate::net::endpoints::fetch_activity_body(
+    let body = crate::runtime::block_on(crate::net::intervals::endpoints::fetch_activity_body(
         &transport,
         &upstream,
         crate::governor::Lane::Interactive,

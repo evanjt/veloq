@@ -20,7 +20,15 @@ import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import { formBarLayout } from '../lib/formBar';
 import { riseDayPoints } from '../lib/fitnessChange';
 import { scrubDateLabel } from '../lib/scrubDateLabel';
-import { buildMonotoneSvg, useChartGestures } from '@/shared/charts';
+import {
+  BAR_GAP,
+  buildMonotoneSvg,
+  chartStroke,
+  LINE_CAP,
+  LINE_JOIN,
+  ScrubDot,
+  useChartGestures,
+} from '@/shared/charts';
 import { DenseText, denseExtent } from '@/shared/ui/DenseText';
 
 const PLOT_TOP = 2;
@@ -143,7 +151,7 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
     onTapRef.current?.();
   }, []);
 
-  const { gesture, crosshairStyle, syncBounds } = useChartGestures<number>({
+  const { gesture, crosshairStyle, syncBounds, scrubIndex } = useChartGestures<number>({
     data: fitnessData,
     accessibilityLabel: t('metrics.fitness'),
     scrubEnabled: !!onScrub,
@@ -181,17 +189,30 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
     };
   }, [fitnessData, fatigueSeries, domain, chartWidth]);
 
-  const risePoints = useMemo(() => {
-    if (!riseDays || riseDays.length === 0) return [];
-    const [min, max] = domain.y;
-    return riseDayPoints(fitnessData, riseDays, {
+  const plot = useMemo(
+    () => ({
       width: chartWidth,
       top: PLOT_TOP,
       height: CHART_HEIGHT - PLOT_TOP - PLOT_BOTTOM,
-      min,
-      max,
-    });
-  }, [riseDays, fitnessData, domain, chartWidth]);
+      min: domain.y[0],
+      max: domain.y[1],
+    }),
+    [chartWidth, domain]
+  );
+
+  const risePoints = useMemo(() => {
+    if (!riseDays || riseDays.length === 0) return [];
+    return riseDayPoints(fitnessData, riseDays, plot);
+  }, [riseDays, fitnessData, plot]);
+
+  // The scrubbed day on each line, which a dot marks.
+  const scrubPoints = useMemo(() => {
+    if (scrubIndex < 0) return null;
+    return {
+      fitness: riseDayPoints(fitnessData, [scrubIndex], plot)[0],
+      fatigue: fatigueSeries ? riseDayPoints(fatigueSeries, [scrubIndex], plot)[0] : undefined,
+    };
+  }, [scrubIndex, fitnessData, fatigueSeries, plot]);
 
   if (
     fitnessData.length < SPARKLINE_MIN_DAYS ||
@@ -211,7 +232,7 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
 
   return (
     <GestureDetector gesture={gesture}>
-      <View style={[styles.container, { width, height: totalHeight }]}>
+      <View style={[styles.container, chartStyles.plotDirection, { width, height: totalHeight }]}>
         <View style={styles.chartRow}>
           {/* Optional inline labels (settings preview only) */}
           {showLabels ? (
@@ -239,9 +260,9 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
                   path={linePaths.fatigue}
                   color={casingColor}
                   style="stroke"
-                  strokeWidth={2}
-                  strokeJoin="round"
-                  strokeCap="round"
+                  strokeWidth={chartStroke.casing}
+                  strokeJoin={LINE_JOIN}
+                  strokeCap={LINE_CAP}
                 />
               ) : null}
               {linePaths.fatigue ? (
@@ -249,9 +270,9 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
                   path={linePaths.fatigue}
                   color={fatigueLineColor}
                   style="stroke"
-                  strokeWidth={1}
-                  strokeJoin="round"
-                  strokeCap="round"
+                  strokeWidth={chartStroke.series}
+                  strokeJoin={LINE_JOIN}
+                  strokeCap={LINE_CAP}
                 />
               ) : null}
               {/* Fitness (CTL) - primary line, on top */}
@@ -260,9 +281,9 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
                   path={linePaths.fitness}
                   color={casingColor}
                   style="stroke"
-                  strokeWidth={2}
-                  strokeJoin="round"
-                  strokeCap="round"
+                  strokeWidth={chartStroke.casing}
+                  strokeJoin={LINE_JOIN}
+                  strokeCap={LINE_CAP}
                 />
               ) : null}
               {linePaths.fitness ? (
@@ -270,9 +291,9 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
                   path={linePaths.fitness}
                   color={fitnessLineColor}
                   style="stroke"
-                  strokeWidth={1.5}
-                  strokeJoin="round"
-                  strokeCap="round"
+                  strokeWidth={chartStroke.series}
+                  strokeJoin={LINE_JOIN}
+                  strokeCap={LINE_CAP}
                 />
               ) : null}
               {risePoints.map((p, i) => (
@@ -284,6 +305,12 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
                   color={fitnessLineColor}
                 />
               ))}
+              {scrubPoints?.fatigue ? (
+                <ScrubDot at={scrubPoints.fatigue} color={fatigueLineColor} />
+              ) : null}
+              {scrubPoints?.fitness ? (
+                <ScrubDot at={scrubPoints.fitness} color={fitnessLineColor} />
+              ) : null}
               {/* Form zone bar - directly below the chart (y = CHART_HEIGHT) */}
               {formBarRects.map((rect, i) => (
                 <Rect
@@ -301,7 +328,7 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
                   p1={vec(x, CHART_HEIGHT)}
                   p2={vec(x, CHART_HEIGHT + FORM_BAR_HEIGHT)}
                   color={dividerColor}
-                  strokeWidth={1}
+                  strokeWidth={BAR_GAP}
                 />
               ))}
             </Canvas>

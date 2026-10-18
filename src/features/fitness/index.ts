@@ -18,6 +18,7 @@ export {
   PerformanceCurveSection,
   FitnessTrendSections,
   FitnessDefinitionsCard,
+  WellnessTrendsCard,
 } from './components/sections';
 
 export {
@@ -43,9 +44,7 @@ export {
   FORM_ZONE_COLORS,
   FORM_ZONE_COLORS_DARK,
   formZoneColor,
-  FORM_ZONE_TEXT_COLORS,
-  FORM_ZONE_TEXT_COLORS_DARK,
-  formZoneTextColor,
+  formZoneBandColor,
   formZoneLabel,
   FORM_ZONE_BOUNDARIES,
   type FormZone,

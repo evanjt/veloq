@@ -37,7 +37,6 @@ export { fixtures } from '@/shared/demo/activity/activities';
 export type { ApiWellness } from '@/shared/demo/activity/types';
 
 export {
-  getLatestFTP,
   useActivities,
   useActivity,
   useActivityBoundsCache,
@@ -66,7 +65,7 @@ export { CARD_MARGIN } from './lib/cardLayout';
 export { activitySecondaryStatLabels } from './lib/activityCardA11yLabel';
 export type { FeedGroup } from './lib/feedActivityGroups';
 export { groupSectionEncounters, sectionRowLabels } from './lib/groupSectionEncounters';
-export { decouplingSource, storedDecoupling } from './lib/decoupling';
+export { storedDecoupling } from './lib/decoupling';
 export type { DecouplingSource } from './lib/decoupling';
 export type { SectionEncounterGroup } from './lib/groupSectionEncounters';
 export { setVisibleRange } from './lib/previewRange';

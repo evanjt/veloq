@@ -10,7 +10,7 @@
 import React from 'react';
 import { render, within, fireEvent } from '@testing-library/react-native';
 
-import SettingsScreen from '@/app/settings';
+import SettingsScreen from '@/app/(tabs)/settings';
 import { navigateTo } from '@/shared/app/navigation';
 import { useSensorStore } from '@/features/sensors/store';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';

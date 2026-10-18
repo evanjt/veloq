@@ -1,6 +1,6 @@
 /**
  * Scenario: a summary card metric links to `/fitness?chart=ftp` or
- * `/training?chart=week`, and neither tab read the param, so the athlete
+ * `/fitness?chart=week`, and the tab did not read the param, so the athlete
  * landed at the top of the tab with the chart collapsed or below the fold.
  *
  * Expected behaviour: the tab takes the chart once, prepares it (a section

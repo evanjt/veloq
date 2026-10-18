@@ -24,7 +24,6 @@ const metrics = [
 function card(props: Partial<SummaryCardProps>) {
   return render(
     <SummaryCard
-      onProfilePress={() => {}}
       heroValue="-"
       heroLabel="Fitness"
       showSparkline={false}

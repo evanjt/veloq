@@ -1,5 +1,5 @@
 /**
- * Scenario: athlete, sport settings and wellness are read from SQLite rather
+ * Scenario: athlete and wellness are read from SQLite rather
  * than fetched. Each read must survive a body the engine cannot produce
  * (missing, empty, unparseable) without taking a screen down, and must return
  * the fields only the untyped body carries.
@@ -12,7 +12,6 @@ import { RangeCoverage, type WellnessDay } from 'veloqrs';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useAthlete } from '@/shared/app/useAthlete';
-import { useSportSettings } from '@/shared/app/useSportSettings';
 import { useWellness, useWellnessForDate } from '@/features/wellness/hooks/useWellness';
 import { getEngine } from '@/shared/native/engine';
 
@@ -31,7 +30,6 @@ const setAthlete = jest.fn();
 
 const engine = {
   getAthleteProfile: jest.fn(),
-  getSportSettings: jest.fn(),
   getWellnessDays: jest.fn(),
   subscribe: jest.fn(() => () => {}),
 };
@@ -54,7 +52,6 @@ beforeEach(() => {
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
   engine.getAthleteProfile.mockReturnValue(null);
-  engine.getSportSettings.mockReturnValue(null);
   engine.getWellnessDays.mockReturnValue(stored([]));
   useAuthStore.setState({ isAuthenticated: true, setAthlete });
 });
@@ -92,28 +89,6 @@ describe('useAthlete', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toBeNull();
-  });
-});
-
-describe('useSportSettings', () => {
-  it('returns the stored zone definitions', async () => {
-    engine.getSportSettings.mockReturnValue(
-      JSON.stringify([{ types: ['Ride'], ftp: 250, power_zones: [55, 75, 90] }])
-    );
-
-    const { result } = await renderHook(() => useSportSettings(), { wrapper });
-
-    await waitFor(() => expect(result.current.data?.length).toBe(1));
-    expect(result.current.data?.[0].ftp).toBe(250);
-  });
-
-  it('reads as empty when the stored body is not an array', async () => {
-    engine.getSportSettings.mockReturnValue(JSON.stringify({ ftp: 250 }));
-
-    const { result } = await renderHook(() => useSportSettings(), { wrapper });
-
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data).toEqual([]);
   });
 });
 

@@ -1,4 +1,8 @@
-import { buildRouteLayers, buildRouteSources } from '@/features/routes/components/RouteMapView';
+import {
+  buildRouteLayers,
+  buildRouteSources,
+} from '@/features/routes/components/routeMapLayerSpecs';
+import { mapPalette } from '@/theme';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 
@@ -6,6 +10,7 @@ const empty = { type: 'FeatureCollection', features: [] } as GeoJSON.FeatureColl
 
 const routeLine = (stops: (string | number)[] | null) =>
   buildRouteLayers({
+    palette: mapPalette('light'),
     activityColor: '#123456',
     representativeOpacity: 1,
     fadedOpacity: 0.2,

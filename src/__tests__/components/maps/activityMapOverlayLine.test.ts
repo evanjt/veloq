@@ -15,12 +15,15 @@ import {
   buildFullscreenSectionSources,
 } from '@/features/maps/components/activityMapLayerSpecs';
 import { composeBaseMapLayers } from '@/features/maps/lib/baseMapLayers';
-import { mapLayerColors } from '@/theme';
+import { mapLayerColors, mapPalette } from '@/theme';
+
+const palette = mapPalette('light');
 
 const EMPTY_COLLECTION: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 
 function layers(overrides: Record<string, unknown> = {}) {
   return buildActivityLayers({
+    palette,
     overlayHasData: true,
     activityColor: '#00FF00',
     gradientActive: false,
@@ -95,16 +98,17 @@ function fullscreenOrder(
 ) {
   const { hasSectionOverlays = true, overlayHasData = true } = overrides;
   return composeBaseMapLayers({
+    palette,
     routeColor: '#00FF00',
-    underRouteLayers: buildFullscreenMatchedRouteLayers(overlayHasData),
-    overlayLayers: buildFullscreenSectionLayers(hasSectionOverlays),
+    underRouteLayers: buildFullscreenMatchedRouteLayers(overlayHasData, palette),
+    overlayLayers: buildFullscreenSectionLayers(hasSectionOverlays, palette),
     userLocationLayers: [],
   }).map((l) => l.id);
 }
 
 describe('matched route overlay in fullscreen', () => {
   it('carries the matched route into fullscreen, where it was missing entirely', () => {
-    const ids = buildFullscreenMatchedRouteLayers(true).map((l) => l.id);
+    const ids = buildFullscreenMatchedRouteLayers(true, palette).map((l) => l.id);
     expect(ids).toEqual(['fullscreen-overlay-casing', 'fullscreen-overlay-line']);
   });
 
@@ -125,12 +129,13 @@ describe('matched route overlay in fullscreen', () => {
   });
 
   it('keeps the matched route out of the layers drawn over the activity line', () => {
-    const ids = buildFullscreenSectionLayers(true).map((l) => l.id);
+    const ids = buildFullscreenSectionLayers(true, palette).map((l) => l.id);
     expect(ids.some((id) => id.startsWith('fullscreen-overlay'))).toBe(false);
   });
 
   it('puts the layers a caller adds beneath the route first and the location dot last', () => {
     const ids = composeBaseMapLayers({
+      palette,
       routeColor: '#00FF00',
       underRouteLayers: [{ id: 'under', type: 'line', source: 's', paint: {} }],
       overlayLayers: [{ id: 'over', type: 'line', source: 's', paint: {} }],
@@ -140,14 +145,14 @@ describe('matched route overlay in fullscreen', () => {
   });
 
   it('hides the matched route when there is none to draw', () => {
-    const hidden = buildFullscreenMatchedRouteLayers(false).find(
+    const hidden = buildFullscreenMatchedRouteLayers(false, palette).find(
       (l) => l.id === 'fullscreen-overlay-line'
     ) as { paint: Record<string, unknown> };
     expect(hidden.paint['line-opacity']).toBe(0);
   });
 
   it('gives fullscreen the same colour and weights as the embedded map', () => {
-    const full = buildFullscreenMatchedRouteLayers(true).find(
+    const full = buildFullscreenMatchedRouteLayers(true, palette).find(
       (l) => l.id === 'fullscreen-overlay-line'
     ) as { paint: Record<string, unknown> };
     expect(full.paint['line-color']).toBe(mapLayerColors.routeOverlay);

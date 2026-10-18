@@ -21,10 +21,6 @@ jest.mock('@/i18n', () => ({
 }));
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn(() => null) }));
 jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: undefined }) }));
-jest.mock('@/shared/app/useSportSettings', () => ({
-  useSportSettings: () => ({ data: [] }),
-  getSettingsForSport: () => undefined,
-}));
 jest.mock('@/features/stats', () => ({ usePaceCurve: () => ({ data: null }) }));
 let mockMetric = true;
 jest.mock('@/shared/app/useMetricSystem', () => ({ useMetricSystem: () => mockMetric }));

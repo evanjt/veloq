@@ -48,7 +48,7 @@ describe('the route sync on reconnect', () => {
         getStats: () => ({ libraryCount: 1 }),
         getGpsFetchCandidates: () => [{ activityId: 'a1', sportType: 'Ride' }],
         getUnprocessedStrengthIds: () => [],
-        batchFetchExerciseSets: () => 0,
+        batchFetchOwedFitFiles: () => 0,
         pollSectionDetection: mockPollDetection,
         getSectionDetectionProgress: () => null,
         startGpsPass: mockStartGpsPass,

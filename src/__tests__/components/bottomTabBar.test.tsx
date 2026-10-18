@@ -11,6 +11,7 @@ import React from 'react';
 import { Platform } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
 import * as Haptics from 'expo-haptics';
+import { router } from 'expo-router';
 
 import { BottomTabBar } from '@/shared/ui/BottomTabBar';
 
@@ -88,6 +89,21 @@ describe('BottomTabBar', () => {
 
     expect(getByTestId('bottom-tab-bar')).toBeTruthy();
     expect(getByLabelText('navigation.feed')).toBeTruthy();
+  });
+
+  it('carries Settings as the fifth tab, under its own short label, and opens it', async () => {
+    authState.isAuthenticated = true;
+    const { getAllByRole, getByLabelText } = await render(<BottomTabBar />);
+
+    expect(getAllByRole('tab').map((tab) => tab.props.accessibilityLabel)).toEqual([
+      'navigation.feed',
+      'navigation.fitness',
+      'navigation.map',
+      'navigation.insights',
+      'navigation.settingsTab',
+    ]);
+    await fireEvent.press(getByLabelText('navigation.settingsTab'));
+    expect(router.navigate).toHaveBeenCalledWith('/settings');
   });
 
   it('renders the destinations in demo mode', async () => {

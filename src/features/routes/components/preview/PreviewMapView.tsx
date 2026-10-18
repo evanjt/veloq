@@ -19,6 +19,7 @@ import {
   darkColors,
   iconSize,
   layout,
+  mapPalette,
   opacity,
   slopToMinTapTarget,
   spacing,
@@ -233,8 +234,6 @@ export function PreviewMapView({
     areaFeatures,
   ]);
 
-  const layers = useMemo(() => buildPreviewLayers(), []);
-
   const bounds = useMemo(
     () => previewCameraBounds(centre, [...decoded.values()]),
     [centre, decoded]
@@ -287,6 +286,8 @@ export function PreviewMapView({
   // Imagery is never kept offline, so the satellite choice draws the vector
   // basemap until the connection is back rather than a grey grid.
   const mapStyle: MapStyleType = useDrawnMapStyle(chosenStyle ?? themeStyle);
+  const palette = mapPalette(mapStyle);
+  const layers = useMemo(() => buildPreviewLayers(palette), [palette]);
   const cycleStyle = useCallback(() => {
     setChosenStyle(getNextStyle(mapStyle));
   }, [mapStyle]);
@@ -361,7 +362,7 @@ export function PreviewMapView({
         <LegendChip
           testID="preview-layer-current"
           label={t('settings.previewCurrentLayer')}
-          swatch={previewLayerSwatch('current-line')}
+          swatch={previewLayerSwatch('current-line', palette)}
           on={showCurrent}
           onPress={onToggleCurrent}
           background={chipBg}
@@ -372,7 +373,7 @@ export function PreviewMapView({
         <LegendChip
           testID="preview-layer-proposed"
           label={t('settings.previewProposedLayer')}
-          swatch={previewLayerSwatch('proposed-line')}
+          swatch={previewLayerSwatch('proposed-line', palette)}
           on={showProposed}
           onPress={onToggleProposed}
           background={chipBg}
@@ -385,7 +386,7 @@ export function PreviewMapView({
         <LegendChip
           testID="preview-layer-removed"
           label={t('settings.previewStatusGone')}
-          swatch={previewLayerSwatch('gone-line')}
+          swatch={previewLayerSwatch('gone-line', palette)}
           on={showRemoved}
           onPress={onToggleRemoved}
           background={chipBg}

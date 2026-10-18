@@ -11,7 +11,15 @@
  * enough that it can never be read as a polarity.
  */
 
-import { verdict, verdictColor, verdictFill, insightToneColor, insightIcon, brand } from '@/theme';
+import {
+  verdict,
+  verdictColor,
+  verdictFill,
+  insightToneColor,
+  brand,
+  colors,
+  darkColors,
+} from '@/theme';
 import { generateSectionTrendInsights } from '@/features/insights/generators/sectionTrend';
 import type { SectionTrendData } from '@/features/insights/types';
 import { getTrendStyle } from '@/features/routes/components/TodayBanner';
@@ -204,38 +212,15 @@ describe('the surfaces that used to answer from their own palette', () => {
     }
   });
 
-  it('resolves an insight tone through the ladder, and leaves the categories alone', () => {
+  it('resolves an insight tone through the ladder, and the two non-judgements through the link and warning roles', () => {
     for (const rung of POLARITY) {
       expect(insightToneColor(rung, false)).toBe(verdictColor(rung, false));
       expect(insightToneColor(rung, true)).toBe(verdictColor(rung, true));
     }
-    for (const tone of ['info', 'opportunity'] as const) {
-      expect(insightToneColor(tone, false)).toBe(insightIcon[tone].light);
-      expect(insightToneColor(tone, true)).toBe(insightIcon[tone].dark);
-    }
-  });
-
-  /**
-   * The ladder answers every polarity, so the only tones this group is allowed
-   * to hold are the two categories the ladder has no rung for. A member nobody
-   * can reach is a hue that can be changed with no effect on any screen, which
-   * is the shape that put the workout-step colours and the dead chart keys in
-   * the palette for months.
-   */
-  it('holds no tone that nothing can reach', () => {
-    const reachable = new Set(
-      (['info', 'opportunity'] as const).flatMap((tone) => [
-        insightToneColor(tone, false),
-        insightToneColor(tone, true),
-      ])
-    );
-    const unreachable = Object.entries(insightIcon).flatMap(([name, pair]) =>
-      Object.entries(pair)
-        .filter(([, hue]) => !reachable.has(hue))
-        .map(([theme]) => `${name}.${theme}`)
-    );
-
-    expect(unreachable).toStrictEqual([]);
+    expect(insightToneColor('info', false)).toBe(colors.actionLink);
+    expect(insightToneColor('info', true)).toBe(darkColors.actionLink);
+    expect(insightToneColor('opportunity', false)).toBe(colors.warningText);
+    expect(insightToneColor('opportunity', true)).toBe(darkColors.warningText);
   });
 
   // The pill is a solid with white text, which is the opposite of what the

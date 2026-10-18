@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import type { ZoneDistribution } from '@/types';
 import { useTranslation } from 'react-i18next';
-import { DEFAULT_ZONE_NAME_KEYS } from '@/shared/app/useSportSettings';
+import { DEFAULT_ZONE_NAME_KEYS } from '@/shared/app/zoneNameKeys';
 import { type PrimarySport } from '@/features/fitness/stores';
 import { trailingDaysWindow } from '@/features/fitness/lib/weekWindow';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';

@@ -1,6 +1,6 @@
 /**
  * Expected behaviour: the guard fails a component that themes its chrome by the
- * base map, and leaves the declaring file, the layer builders and tests alone.
+ * base map, layer builder or not, and leaves the declaring file and tests alone.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -48,8 +48,6 @@ const READERS = {
   'src/features/maps/components/mapStyles.ts':
     "export const isDarkStyle = (s: string) => s === 'dark';\n" +
     "export const bar = (s: string) => (isDarkStyle(s) ? 'light' : 'dark');\n",
-  'src/features/maps/components/regional/regionalMapLayerSpecs.ts':
-    'const isDark = isDarkStyle(mapStyle);\n',
 };
 
 it('fails a control themed by the base map', () => {
@@ -63,11 +61,22 @@ it('fails a control themed by the base map', () => {
   expect(output).toContain('src/features/trails/TrailButton.tsx:3');
 });
 
-it('passes the declaring file, the layer builders and tests', () => {
+it('passes the declaring file and tests', () => {
   const root = fixture({
     ...READERS,
     'src/__tests__/trail.test.ts': "expect(isDarkStyle('dark')).toBe(true);\n",
     'src/features/trails/TrailButton.tsx': 'const { isDark } = useTheme();\n',
   });
   expect(runGuard(root).status).toBe(0);
+});
+
+it('fails a layer builder that reads the base past its palette', () => {
+  const root = fixture({
+    ...READERS,
+    'src/features/maps/components/regional/regionalMapLayerSpecs.ts':
+      'const isDark = isDarkStyle(mapStyle);\n',
+  });
+  const { status, output } = runGuard(root);
+  expect(status).toBe(1);
+  expect(output).toContain('src/features/maps/components/regional/regionalMapLayerSpecs.ts:1');
 });

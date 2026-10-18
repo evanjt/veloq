@@ -1,30 +1,11 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, StyleSheet, Pressable, Image } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { runWhenIdle } from '@/shared/async/runWhenIdle';
 import { navigateTo } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
-import {
-  canDrawProfilePhoto,
-  KeyDot,
-  pressable,
-  pressRipple,
-  Shimmer,
-  TextSeparator,
-} from '@/shared/ui';
-import { Icon } from '@/shared/ui/Icon';
-import {
-  colors,
-  darkColors,
-  iconSize,
-  layers,
-  layout,
-  opacity,
-  shadows,
-  spacing,
-  stroke,
-  typography,
-} from '@/theme';
+import { KeyDot, pressable, pressRipple, Shimmer, TextSeparator } from '@/shared/ui';
+import { colors, darkColors, layers, layout, spacing, typography } from '@/theme';
 import { SummaryCardSparkline, SPARKLINE_MIN_DAYS, type ScrubValues } from './SummaryCardSparkline';
 import { SummaryCardHRVSparkline } from './SummaryCardHRVSparkline';
 import { Card } from '@/shared/ui/Card';
@@ -78,10 +59,6 @@ function latestReading(
  * Props for the SummaryCard component
  */
 export interface SummaryCardProps {
-  // Profile
-  profileUrl?: string | undefined;
-  onProfilePress: () => void;
-
   // Hero metric data
   heroMetric?: string | undefined;
   heroValue: number | string;
@@ -124,7 +101,7 @@ export interface SummaryCardProps {
  *
  * Layout:
  * ┌──────────────────────────────────────────────────────────┐
- * │  [👤⚙]   +13  Form · Fresh                              │
+ * │  +13  Form · Fresh                                       │
  * │                                                          │
  * │  ▁▂▃▅▇▆▅▃▂▁▂▃▅▆▇▅▃▂▁▃▅▆▇▆▅▃▂▁  30d                   │
  * │  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━                   │
@@ -133,8 +110,6 @@ export interface SummaryCardProps {
  * └──────────────────────────────────────────────────────────┘
  */
 export const SummaryCard = React.memo(function SummaryCard({
-  profileUrl,
-  onProfilePress,
   heroMetric = 'fitness',
   heroValue,
   heroLabel,
@@ -168,8 +143,7 @@ export const SummaryCard = React.memo(function SummaryCard({
       if (dur > 20) log.log(`  📊 SummaryCard render: ${dur.toFixed(0)}ms`);
     });
   }
-  const { isDark, colors: themeColors } = useTheme();
-  const [profileImageError, setProfileImageError] = React.useState(false);
+  const { isDark } = useTheme();
   const [scrubValues, setScrubValues] = useState<ScrubValues | null>(null);
   const [sparklinesReady, setSparklinesReady] = useState(false);
   useEffect(() => {
@@ -179,8 +153,6 @@ export const SummaryCard = React.memo(function SummaryCard({
   const handleScrub = useCallback((values: ScrubValues | null) => {
     setScrubValues(values);
   }, []);
-
-  const canDrawPhoto = canDrawProfilePhoto(profileUrl, profileImageError);
 
   // Determine which sparkline to show - deferred until after first frame
   const isHrvMode = heroMetric === 'hrv';
@@ -264,39 +236,8 @@ export const SummaryCard = React.memo(function SummaryCard({
             <Text style={[styles.scrubDate, { color: labelInk }]}>{scrubValues.dateLabel}</Text>
           ) : null}
 
-          {/* Top row: Profile + Hero value + zone */}
+          {/* Top row: Hero value + zone */}
           <View style={styles.topRow}>
-            {/* Profile photo with gear badge */}
-            <Pressable
-              onPress={onProfilePress}
-              style={pressable(styles.profileTouchArea)}
-              accessibilityLabel={t('common.openSettings')}
-              accessibilityRole="button"
-              android_ripple={pressRipple}
-            >
-              <View style={[styles.profilePhoto, isDark && styles.profilePhotoDark]}>
-                {canDrawPhoto ? (
-                  <Image
-                    accessibilityIgnoresInvertColors
-                    source={{ uri: profileUrl }}
-                    style={StyleSheet.absoluteFill}
-                    resizeMode="cover"
-                    onError={() => setProfileImageError(true)}
-                  />
-                ) : (
-                  <Icon name="account" size={iconSize.lg} color={themeColors.textSecondary} />
-                )}
-              </View>
-              {/* Gear badge */}
-              <View style={[styles.gearBadge, isDark && styles.gearBadgeDark]}>
-                <Icon
-                  name="cog"
-                  size={iconSize.xs}
-                  color={isDark ? darkColors.textSecondary : colors.textSecondary}
-                />
-              </View>
-            </Pressable>
-
             {/* Hero metric - tappable */}
             <Pressable
               accessibilityRole={onHeroPress ? 'button' : undefined}
@@ -530,56 +471,15 @@ const styles = StyleSheet.create({
     zIndex: layers.raised,
   },
 
-  // Top row - profile + hero inline
+  // Top row - hero inline
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
   },
 
-  // Profile photo with gear badge
-  profileTouchArea: {
-    width: layout.minTapTarget,
-    height: layout.minTapTarget,
-    position: 'relative',
-  },
-  profilePhoto: {
-    width: 40,
-    height: 40,
-    borderRadius: layout.borderRadiusFull,
-    overflow: 'hidden',
-    backgroundColor: colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: stroke.one,
-    borderColor: opacity.overlay.medium,
-  },
-  profilePhotoDark: {
-    backgroundColor: darkColors.border,
-    borderColor: opacity.overlayDark.heavy,
-  },
-  gearBadge: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 18,
-    height: 18,
-    borderRadius: layout.borderRadiusFull,
-    backgroundColor: colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: stroke.one,
-    borderColor: colors.border,
-    ...shadows.pill,
-  },
-  gearBadgeDark: {
-    backgroundColor: darkColors.surfaceRaised,
-    borderColor: darkColors.border,
-    ...shadows.none,
-  },
-
   // Hero section - inline horizontal
-  // The hero takes what the profile button leaves, and its rows wrap so large
+  // The hero takes the row's width, and its rows wrap so large
   // text drops the change line below the value rather than past the card.
   heroSection: {
     flex: 1,

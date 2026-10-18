@@ -10,6 +10,7 @@ import {
   brand,
   chartStreamColour,
   colors,
+  colourTokens,
   darkColors,
   colorWithOpacity,
   ink,
@@ -61,6 +62,16 @@ export interface ChartColorScheme {
   mutedBar: string;
   dotMuted: string;
 
+  // The mark set: a dot's ring, the reticle and the record
+  surface: string;
+  ink: string;
+  achievement: string;
+  baseline: string;
+  /** A dashed reference rule, such as an average. */
+  reference: string;
+  /** The scrub line. */
+  crosshair: string;
+
   // Form zones (TSB)
   formHighRisk: string;
 }
@@ -73,8 +84,9 @@ export function useChartColors(): ChartColorScheme {
   const colorScheme = useResolvedColorScheme();
   const isDark = colorScheme === 'dark';
 
-  return useMemo(
-    () => ({
+  return useMemo(() => {
+    const tokens = colourTokens[isDark ? 'dark' : 'light'];
+    return {
       // Fitness metrics
       fitness: isDark ? darkColors.fitness : colors.fitness,
       fatigue: isDark ? darkColors.fatigue : colors.fatigue,
@@ -120,10 +132,18 @@ export function useChartColors(): ChartColorScheme {
       mutedBar: isDark ? darkColors.chartMutedBar : colors.chartMutedBar,
       dotMuted: isDark ? darkColors.chartDotMuted : colors.chartDotMuted,
 
+      // A dot's ring is the surface it sits on, the reticle is ink, and gold
+      // is the record alone. The baseline is the solid axis under the plot.
+      surface: tokens.surface,
+      ink: tokens['text-primary'],
+      achievement: tokens.achievement,
+      baseline: tokens['chart-axis'],
+      reference: tokens['chart-reference'],
+      crosshair: tokens['chart-crosshair'],
+
       // The one form zone a chart names for itself. The rest go through
       // `formZoneColor`, which is where a zone's colour is decided.
       formHighRisk: isDark ? darkColors.formHighRisk : colors.formHighRisk,
-    }),
-    [isDark]
-  );
+    };
+  }, [isDark]);
 }

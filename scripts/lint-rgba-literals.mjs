@@ -14,13 +14,8 @@
 // The form to use instead is `colorWithOpacity(token, alpha)`, which is what
 // the theme exports for exactly this and what the tree already uses in places.
 //
-// Not counted: `src/theme` itself, where the tokens are defined; tests;
-// `src/features/maps/styles`, which the eslint hex rule also exempts, because a
-// MapLibre paint takes a colour string and has no access to a token; and one
-// file of that same kind that happens to sit elsewhere. `darkMatterStyle.ts` is
-// a third-party basemap style, CartoDB Dark Matter adapted for OpenFreeMap, whose
-// halos and casings are cartography rather than app colour; naming them after app
-// tokens would claim a relationship that is not there.
+// Not counted: `src/theme` itself, where the tokens are defined; tests; and
+// `src/features/maps/styles`, which holds the hillshade's own relief tints.
 //
 // The test is whether a token exists for the colour, not whether the value ends
 // up in a page string: a builder that already interpolates `jsLiteral(token)`
@@ -42,12 +37,7 @@ const BASELINE_FILE = flagValue('--baseline', join(HERE, 'rgba-baseline.json'));
 const SRC = join(ROOT, 'src');
 const WRITE = process.argv.includes('--write');
 
-const EXEMPT = [
-  'src/theme/',
-  'src/__tests__/',
-  'src/features/maps/styles/',
-  'src/features/maps/components/darkMatterStyle.ts',
-];
+const EXEMPT = ['src/theme/', 'src/__tests__/', 'src/features/maps/styles/'];
 // A quoted rgb() or rgba() opener. Template literals count: an interpolated
 // channel is still a colour nobody named.
 const LITERAL = /['"`]rgba?\(/g;

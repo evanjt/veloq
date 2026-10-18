@@ -46,14 +46,7 @@ const summary: CalendarSummary = {
 };
 
 function renderCards() {
-  return render(
-    <SectionStatsCards
-      calendarSummary={summary}
-      isDark={false}
-      basis="speed"
-      activityColor="#3B82F6"
-    />
-  );
+  return render(<SectionStatsCards calendarSummary={summary} isDark={false} basis="speed" />);
 }
 
 describe('the calendar card', () => {

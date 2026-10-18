@@ -4,7 +4,7 @@
  * chart from the route, so no tap could reach the chart the metric summarised.
  *
  * Expected behaviour: every metric and every hero the picker offers resolves
- * to a route whose tab accepts its chart, and that chart is placed on screen.
+ * to the fitness tab on a chart it accepts, and that chart is placed on screen.
  */
 
 import {
@@ -15,23 +15,17 @@ import {
 import { summaryCardTarget } from '@/features/home/lib/summaryCardTargets';
 import {
   FITNESS_CHART_PLACEMENT,
+  fitnessChartAnchor,
   fitnessEntryFromParams,
   type FitnessChart,
 } from '@/shared/app/fitnessEntry';
-import {
-  TRAINING_CHART_CARD,
-  trainingEntryFromParams,
-  type TrainingChart,
-} from '@/shared/app/trainingEntry';
 
 /** The tab and the chart its own parser reads out of a target. */
-function resolve(target: string): { tab: string; chart: FitnessChart | TrainingChart | null } {
+function resolve(target: string): { tab: string; chart: FitnessChart | null } {
   const [pathname, query = ''] = target.split('?');
   const params = Object.fromEntries(new URLSearchParams(query));
   if (pathname === '/fitness')
     return { tab: pathname, chart: fitnessEntryFromParams(params).chart ?? null };
-  if (pathname === '/training')
-    return { tab: pathname, chart: trainingEntryFromParams(params).chart };
   return { tab: pathname, chart: null };
 }
 
@@ -41,7 +35,7 @@ describe('summary card targets', () => {
   it.each(EVERY_METRIC)('%s opens a tab on a chart that tab accepts', (metric) => {
     const { tab, chart } = resolve(summaryCardTarget(metric));
 
-    expect(['/fitness', '/training']).toContain(tab);
+    expect(tab).toBe('/fitness');
     expect(chart).not.toBeNull();
   });
 
@@ -51,12 +45,8 @@ describe('summary card targets', () => {
 
   it('places every chart it opens', () => {
     for (const metric of EVERY_METRIC) {
-      const { tab, chart } = resolve(summaryCardTarget(metric));
-      const placement =
-        tab === '/fitness'
-          ? FITNESS_CHART_PLACEMENT[chart as FitnessChart]
-          : TRAINING_CHART_CARD[chart as TrainingChart];
-      expect(placement).toBeDefined();
+      const { chart } = resolve(summaryCardTarget(metric));
+      expect(FITNESS_CHART_PLACEMENT[chart as FitnessChart]).toBeDefined();
     }
   });
 
@@ -66,26 +56,50 @@ describe('summary card targets', () => {
     ['ftp', '/fitness', 'ftp'],
     ['thresholdPace', '/fitness', 'pace'],
     ['css', '/fitness', 'css'],
-    ['hrv', '/training', 'hrv'],
-    ['rhr', '/training', 'rhr'],
-    ['weight', '/training', 'weight'],
-    ['weekHours', '/training', 'week'],
-    ['weekCount', '/training', 'week'],
+    ['hrv', '/fitness', 'hrv'],
+    ['rhr', '/fitness', 'rhr'],
+    ['weight', '/fitness', 'weight'],
+    ['weekHours', '/fitness', 'week'],
+    ['weekCount', '/fitness', 'week'],
   ])('%s opens %s on %s', (metric, tab, chart) => {
     expect(resolve(summaryCardTarget(metric))).toEqual({ tab, chart });
   });
 });
 
-describe('the tab parsers', () => {
-  it('drop a chart neither tab draws', () => {
-    expect(fitnessEntryFromParams({ chart: 'hrv' }).chart).toBeNull();
-    expect(trainingEntryFromParams({ chart: 'ftp' }).chart).toBeNull();
-    expect(trainingEntryFromParams({}).chart).toBeNull();
+describe('the fitness parser', () => {
+  it('reads the wellness, week and calendar charts the tab now draws', () => {
+    expect(fitnessEntryFromParams({ chart: 'hrv' }).chart).toBe('hrv');
+    expect(fitnessEntryFromParams({ chart: 'rhr' }).chart).toBe('rhr');
+    expect(fitnessEntryFromParams({ chart: 'weight' }).chart).toBe('weight');
+    expect(fitnessEntryFromParams({ chart: 'week' }).chart).toBe('week');
+    expect(fitnessEntryFromParams({ chart: 'calendar' }).chart).toBe('calendar');
   });
 
-  it('take the first of a repeated chart param', () => {
+  it('drops a chart the tab does not draw', () => {
+    expect(fitnessEntryFromParams({ chart: 'sleep' }).chart).toBeNull();
+    expect(fitnessEntryFromParams({}).chart).toBeNull();
+  });
+
+  it('takes the first of a repeated chart param', () => {
     expect(fitnessEntryFromParams({ chart: ['ftp', 'css'] }).chart).toBe('ftp');
-    expect(trainingEntryFromParams({ chart: ['week', 'hrv'] }).chart).toBe('week');
+    expect(fitnessEntryFromParams({ chart: ['week', 'hrv'] }).chart).toBe('week');
+  });
+
+  it('opens the sport-agnostic cards with no section and no sport switch', () => {
+    for (const chart of ['hrv', 'rhr', 'weight', 'week', 'calendar'] as const) {
+      expect(FITNESS_CHART_PLACEMENT[chart]).toEqual({ section: null, sport: null });
+    }
+  });
+
+  it('scrolls each chart to the card that draws it', () => {
+    expect(fitnessChartAnchor('hrv')).toBe('wellness');
+    expect(fitnessChartAnchor('rhr')).toBe('wellness');
+    expect(fitnessChartAnchor('weight')).toBe('wellness');
+    expect(fitnessChartAnchor('week')).toBe('week');
+    expect(fitnessChartAnchor('calendar')).toBe('calendar');
+    expect(fitnessChartAnchor('fitness')).toBe('chart');
+    expect(fitnessChartAnchor('ftp')).toBe('trends');
+    expect(fitnessChartAnchor('css')).toBe('performance');
   });
 
   it('expand the section and switch to the sport a fitness chart needs', () => {

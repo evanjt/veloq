@@ -7,12 +7,12 @@
  */
 
 import { buildPreviewLayers } from '@/features/routes/components/preview/previewMapLayerSpecs';
-import { mapLayerColors } from '@/theme';
+import { mapLayerColors, mapPalette } from '@/theme';
 
 // The maps barrel reaches the engine binding, which registers a TurboModule at
 // import time, so the graph this renders cannot load without the stub.
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
-const layers = buildPreviewLayers();
+const layers = buildPreviewLayers(mapPalette('light'));
 const byId = (id: string) => layers.find((l) => l.id === id);
 
 describe('the current-catalogue layer', () => {

@@ -7,7 +7,12 @@ import { useTheme } from '@/shared/app';
 import { ChartCanvas, CurveArea, CurveLine, useChartColors } from '@/shared/charts';
 import { colors, darkColors, spacing, layout, typography, opacity, zoneColour } from '@/theme';
 import { tourPanelColour } from './tourPanel';
-import { FORM_ZONE_BOUNDARIES, FORM_ZONE_COLORS, type FormZone } from '@/features/fitness';
+import {
+  FORM_ZONE_BOUNDARIES,
+  FORM_ZONE_COLORS,
+  formZoneBandColor,
+  type FormZone,
+} from '@/features/fitness';
 import {
   TOUR_FATIGUE_DAYS,
   TOUR_FITNESS_DAYS,
@@ -108,8 +113,8 @@ export function FitnessHeroSlide() {
                   color={chartColors.fitness}
                   isDark={isDark}
                 />
-                <CurveLine points={points.fitness} color={chartColors.fitness} strokeWidth={1.5} />
-                <CurveLine points={points.fatigue} color={chartColors.fatigue} strokeWidth={1} />
+                <CurveLine points={points.fitness} color={chartColors.fitness} />
+                <CurveLine points={points.fatigue} color={chartColors.fatigue} />
               </>
             )}
           </ChartCanvas>
@@ -136,11 +141,11 @@ export function FitnessHeroSlide() {
                       y={top}
                       width={bounds.right - bounds.left}
                       height={Math.max(0, bottom - top)}
-                      color={FORM_ZONE_COLORS[zone] + (zone === 'greyZone' ? '20' : '30')}
+                      color={formZoneBandColor(zone, isDark)}
                     />
                   );
                 })}
-                <CurveLine points={points.form} color={chartColors.formLine} strokeWidth={1.5} />
+                <CurveLine points={points.form} color={chartColors.formLine} />
               </>
             )}
           </ChartCanvas>,
@@ -159,9 +164,7 @@ export function FitnessHeroSlide() {
             padding={PLOT_PADDING}
             grid={3}
           >
-            {({ points }) => (
-              <CurveLine points={points.watts} color={chartColors.powerCurve} strokeWidth={1.5} />
-            )}
+            {({ points }) => <CurveLine points={points.watts} color={chartColors.powerCurve} />}
           </ChartCanvas>
         )}
         {card(

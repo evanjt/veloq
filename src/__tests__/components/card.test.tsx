@@ -70,7 +70,7 @@ describe('Card surface', () => {
     );
     const style = flat(getByTestId('c'));
     expect(style.borderWidth).toBe(1);
-    expect(style.borderColor).toBe(darkColors.border);
+    expect(style.borderColor).toBe(darkColors.cardEdge);
     expect(style).toMatchObject(shadows.none);
   });
 

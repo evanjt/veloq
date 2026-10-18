@@ -11,7 +11,6 @@ import { useTranslation } from 'react-i18next';
 import {
   brand,
   colors,
-  colorWithOpacity,
   darkColors,
   iconSize,
   ink,
@@ -39,6 +38,7 @@ import {
 } from '@/features/routes/lib/rowLayout';
 import { NameText } from '@/shared/ui/NameText';
 import { Icon } from '@/shared/ui/Icon';
+import { Badge } from '@/shared/ui/Badge';
 
 interface SectionRowProps {
   section: Section;
@@ -353,42 +353,24 @@ export const SectionRow = memo(function SectionRow({
               </View>
             ) : null}
             {section.sectionType === 'custom' && (
-              <View style={[styles.customTag, isDark && styles.customTagDark]}>
-                <Text style={[styles.customTagText, isDark && styles.customTagTextDark]}>
-                  {t('routes.custom')}
-                </Text>
-              </View>
+              <Badge tone="neutral" text={t('routes.custom')} isDark={isDark} />
             )}
             {isDisabled ? (
-              <View style={[styles.disabledTag, isDark && styles.disabledTagDark]}>
-                <Icon
-                  name="eye-off"
-                  size={iconSize.xs}
-                  color={isDark ? darkColors.warningText : colors.warningText}
-                />
-                <Text style={[styles.disabledTagText, isDark && styles.disabledTagTextDark]}>
-                  {t('sections.disabled')}
-                </Text>
-              </View>
+              <Badge tone="warning" icon="eye-off" text={t('sections.disabled')} isDark={isDark} />
             ) : null}
           </View>
         </View>
 
-        {/* Visit count badge */}
-        <View
-          style={[styles.countBadge, { backgroundColor: palette.actionPrimary }]}
-          accessible
-          accessibilityLabel={countLabel}
-          testID={`section-row-${section.id}-count`}
-        >
-          <Icon
-            name="repeat"
-            size={iconSize.sm}
-            color={colors.textOnFill}
-            testID={`section-row-${section.id}-count-glyph`}
+        <View style={styles.countCell}>
+          <Badge
+            tone="count"
+            icon="repeat"
+            text={section.visitCount}
+            label={countLabel}
+            isDark={isDark}
+            testID={`section-row-${section.id}-count`}
           />
-          <Text style={styles.countText}>{section.visitCount}</Text>
-          <Icon name="chevron-right" size={iconSize.sm} color={ink.white} />
+          <Icon name="chevron-right" size={iconSize.sm} color={palette.iconSecondary} />
         </View>
       </Card>
     </View>
@@ -446,17 +428,10 @@ const styles = StyleSheet.create({
     fontSize: typography.label.fontSize,
     color: colors.textSecondary,
   },
-  countBadge: {
+  countCell: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: layout.borderRadius,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xxs,
     gap: spacing.xxs,
-  },
-  countText: {
-    ...typography.bodyCompactBold,
-    color: colors.textOnFill,
   },
   textLight: {
     color: colors.textOnFill,
@@ -480,40 +455,5 @@ const styles = StyleSheet.create({
   },
   proximityTextDark: {
     color: darkColors.textSecondary,
-  },
-  customTag: {
-    backgroundColor: colorWithOpacity(colors.chartPurple, opacity.tint2),
-    paddingHorizontal: spacing.xsPlus,
-    paddingVertical: spacing.xxs,
-    borderRadius: layout.borderRadiusXs,
-  },
-  customTagDark: {
-    backgroundColor: colorWithOpacity(darkColors.chartPurple, opacity.tint2),
-  },
-  customTagText: {
-    ...typography.badge,
-    color: colors.chartPurpleText,
-  },
-  customTagTextDark: {
-    color: darkColors.chartPurpleText,
-  },
-  disabledTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: colors.warningBg,
-    paddingHorizontal: spacing.xsPlus,
-    paddingVertical: spacing.xxs,
-    borderRadius: layout.borderRadiusXs,
-  },
-  disabledTagDark: {
-    backgroundColor: darkColors.warningBg,
-  },
-  disabledTagText: {
-    ...typography.badge,
-    color: colors.warningText,
-  },
-  disabledTagTextDark: {
-    color: darkColors.warningText,
   },
 });

@@ -14,11 +14,11 @@
  * `line-progress` expressions are available.
  */
 
-import { colourTokens } from '@/theme';
+import { mapPalette, type MapDivStep } from '@/theme';
 import type { MapStyleType } from '../components/mapStyles';
 
 /** A step of a base map's diverging ramp, from steep descent to steep climb. */
-export type GradeStep = 'cool-3' | 'cool-2' | 'cool-1' | 'mid' | 'warm-1' | 'warm-2' | 'warm-3';
+export type GradeStep = MapDivStep;
 
 /**
  * The grade bands from steep descent to steep climb, each ending at `upTo`
@@ -49,7 +49,7 @@ export function gradeStep(percent: number): GradeStep {
 
 /** The base map's colour for one step of its diverging ramp. */
 export function gradeStepTokenColour(step: GradeStep, style: MapStyleType): string {
-  return colourTokens.light[`map-${style}-div-${step}`];
+  return mapPalette(style).div[step];
 }
 
 /** The base map's colour for a grade. */
