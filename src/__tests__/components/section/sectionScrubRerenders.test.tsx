@@ -1,28 +1,43 @@
 /**
- * Scenario: a chart scrub on the section screen wrote the scrubbed attempt into
- * state held by the screen root, so every new index committed the whole screen.
+ * Scenario: a chart scrub on the section card writes the scrubbed attempt for the map under the
+ * sheet to draw, and every new index committed the whole screen while the state sat in its root.
  *
- * Expected behaviour: the scrub lives in a store the root creates and never
- * reads. A new index renders the map that draws it and nothing above.
+ * Expected behaviour: the scrub is the card's state in the host's entry. A new index renders the
+ * map that draws it and nothing above it, and a clear hands the map nothing again. The line the
+ * delta plot colours and the direction the chart is on reach the map the same way.
  */
 
 import React from 'react';
 import { render, act } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-import { HighlightedSectionMap } from '@/features/routes/components/section/HighlightedSectionMap';
-import { createMapHighlightStore } from '@/features/routes/lib/mapHighlight';
+import { SectionDetailMap } from '@/features/routes/components/SectionDetailMap';
+import { detailCardWriter } from '@/features/routes/lib/detailCardState';
+import { closeHost, openHost } from '@/shared/app/mapSheetHost';
 import type { FrequentSection } from '@/types';
 
 const mockMapProps = jest.fn();
 
+jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
+jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());
 jest.mock('@/features/routes/components/SectionMapView', () => ({
   SectionMapView: (props: unknown) => {
     mockMapProps(props);
     return null;
   },
 }));
+jest.mock('@/shared/async/useAfterNavigationTransition', () => ({
+  useAfterNavigationTransition: (task: () => void) =>
+    jest.requireActual('react').useEffect(task, [task]),
+}));
+jest.mock('@/features/routes/hooks/useSectionDetailData', () => ({
+  useSectionDetailData: () => ({ data: null, allActivityTraces: undefined }),
+}));
+jest.mock('@/features/routes/hooks/useSectionDataRefresh', () => ({
+  useSectionDataRefresh: () => ({ section: mockSection }),
+}));
 
-const SECTION: FrequentSection = {
+const mockSection: FrequentSection = {
   id: 's1',
   sectionType: 'auto',
   sportTypes: ['Ride'],
@@ -34,34 +49,35 @@ const SECTION: FrequentSection = {
 };
 
 const LAP = [{ lat: 1, lng: 2 }];
+const KEY = 'section:s1';
 
 async function setup() {
-  const store = createMapHighlightStore();
+  openHost('section', 's1');
   const rootRenders = jest.fn();
 
   function Root() {
     rootRenders();
     return (
-      <HighlightedSectionMap
-        highlight={store}
-        section={SECTION}
-        height={200}
-        interactive={true}
-        enableFullscreen={true}
-      />
+      <QueryClientProvider client={client}>
+        <SectionDetailMap sectionId="s1" />
+      </QueryClientProvider>
     );
   }
 
+  const client = new QueryClient();
   const tree = await render(<Root />);
-  return { store, rootRenders, tree };
+  const { selectAttempt, setDeltaLine, setShownDirection } = detailCardWriter(KEY);
+  const store = { set: selectAttempt };
+  return { store, setDeltaLine, setShownDirection, rootRenders, tree };
 }
 
 const lastMapProps = () => mockMapProps.mock.calls[mockMapProps.mock.calls.length - 1][0];
 
 beforeEach(() => mockMapProps.mockClear());
+afterEach(() => closeHost(KEY));
 
-describe('a chart scrub on the section screen', () => {
-  it('renders the map per index and never the root that owns the store', async () => {
+describe('a chart scrub on the section card', () => {
+  it('renders the map per index and never the root above it', async () => {
     const { store, rootRenders } = await setup();
     expect(rootRenders).toHaveBeenCalledTimes(1);
     mockMapProps.mockClear();
@@ -131,10 +147,13 @@ describe('a chart scrub on the section screen', () => {
     expect(mockMapProps).not.toHaveBeenCalled();
   });
 
-  it('takes a set that works detached, as a chart calls it', async () => {
-    const store = createMapHighlightStore();
-    const { set } = store;
-    await act(() => set('a', LAP));
-    expect(store.get()).toEqual({ activityId: 'a', lapPoints: LAP });
+  it('hands the map the direction the chart is on and the line the delta plot colours', async () => {
+    const { setDeltaLine, setShownDirection } = await setup();
+    const deltaLine = { activityId: 'a', bands: [] } as never;
+
+    await act(() => setShownDirection('reverse'));
+    await act(() => setDeltaLine(deltaLine));
+
+    expect(lastMapProps()).toMatchObject({ shownDirection: 'reverse', deltaLine });
   });
 });

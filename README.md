@@ -212,9 +212,8 @@ You can trim or extend a section by dragging its ends, merge similar sections ne
 remove it, delete your own, re-match activities, or draw a custom section on an activity. Every
 change is kept in the section's history (formed, split, re-cut, merged, trimmed, renamed), so you
 can preview an earlier shape and revert to it. Sections the detector dropped are listed under
-`Retired sections` with the one that replaced them. New routes and sections are numbered. With
-place names on, they are named from where they start and end, and a name you give is kept across
-re-detection.
+`Retired sections` with the one that replaced them. New routes and sections are numbered, and a
+name you give is kept across re-detection.
 
 Settings, Routes and sections has two preview tools. For sections you pick an area, move the
 sliders for length, visits and how close tracks must be, then see new, changed and removed
@@ -410,9 +409,8 @@ analytics or crash reporting library in the app. This is everything that leaves 
 | To | What | When |
 |----|------|------|
 | intervals.icu | Your credential and the requests that read your data (and writes for uploads) | Signed in |
-| `auth.veloq.fit` | The OAuth state and code exchange, the geocoder setting, and your push token with athlete id. To register or remove a push token it also gets your access token, which it passes to intervals.icu to check the athlete and does not keep | Sign in, and notifications or place names on |
+| `auth.veloq.fit` | The OAuth state and code exchange, and your push token with athlete id. To register or remove a push token it also gets your access token, which it passes to intervals.icu to check the athlete and does not keep | Sign in, and notifications on |
 | Expo push service, then Apple or Google | Your device's push token, from the phone. From the server: event type, athlete id and activity id | Notifications on |
-| OpenStreetMap Nominatim | The centre of a roughly 550 m cell around a route or section start and end, and your language | Place names on |
 | Map tile hosts | Tile coordinates (and your IP). The ground pre-fetch after a sync is derived from your activity bounds | Using maps |
 | WebDAV, Google Drive (Android), iCloud Drive (iPhone) | Your backup zip | Automatic backup on. WebDAV and Google Drive need setting up, iCloud Drive is on unless you turn it off |
 | Apple or Google billing | A tip purchase | If you tip |
@@ -420,8 +418,6 @@ analytics or crash reporting library in the app. This is everything that leaves 
 The server on `auth.veloq.fit` keeps sign-in state for a few minutes and your push tokens for 30
 days (up to 10 per athlete). It never stores your access token.
 
-Place names are off by default, never overwrite a name you typed, and go one request at a time, a
-second apart. Answers are cached for good, and a server setting can switch them off remotely.
 The policy is at [veloq.fit/privacy](https://veloq.fit/privacy).
 
 If something goes wrong with the database: one written by a newer version of the app is refused
@@ -505,7 +501,7 @@ and builds also run on GitHub Actions for every pull request.
 
 ## How it fits together
 
-`modules/veloqrs` is the Rust engine. It owns storage, the intervals.icu, map tile and place name
+`modules/veloqrs` is the Rust engine. It owns storage, the intervals.icu and map tile
 requests, and anything computed, and TypeScript reaches it through UniFFI. Sign-in, push
 registration and backups talk to their servers from TypeScript. Route and section detection is the
 `tracematch` crate, a git submodule at `modules/veloqrs/rust/tracematch`.

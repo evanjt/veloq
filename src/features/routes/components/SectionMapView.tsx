@@ -15,7 +15,6 @@
 import React, { useMemo, useRef, useState, useCallback, useEffect, memo } from 'react';
 import { View, StatusBar, Animated, useWindowDimensions } from 'react-native';
 import { FullWindowModal } from '@/shared/ui/FullWindowModal';
-import { useIsFocused } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { getActivityColor } from '@/shared/activity/activityUtils';
 import {
@@ -31,6 +30,7 @@ import {
 } from '@/theme';
 import { useMapPreferences } from '@/features/settings';
 import { useTheme } from '@/shared/app';
+import { useMapHeldFocus } from '@/shared/app/MapSheetHost';
 import {
   BaseMapView,
   type BaseMap3DLayer,
@@ -135,6 +135,12 @@ interface SectionMapViewProps {
    * The map draws edge to edge, so the legend and the controls start below it.
    */
   headerBottom?: number | undefined;
+  /**
+   * The height over the map's foot that something else covers: its sheet at the stop it rests
+   * at, or a map tool's bar. The section is fitted above it and the controls stop short of it,
+   * and a change refits the section.
+   */
+  coveredBottom?: number | undefined;
   /** The attempt the chart's delta plot shows. While set, the section line is coloured by it. */
   deltaLine?: SectionDeltaLine | null | undefined;
   /**
@@ -164,6 +170,7 @@ export const SectionMapView = memo(function SectionMapView({
   trimRange = null,
   extensionTrack = null,
   headerBottom = 0,
+  coveredBottom = 0,
   deltaLine = null,
   shownDirection = null,
 }: SectionMapViewProps) {
@@ -221,8 +228,9 @@ export const SectionMapView = memo(function SectionMapView({
   const { userLocation, locationLoading, locate } = useLocateUser();
   const map3DRef = useRef<Map3DWebViewRef>(null);
   // A screen covered by another keeps its WebViews but releases their maps,
-  // which hold the GL context and every tile texture in it.
-  const screenFocused = useIsFocused();
+  // which hold the GL context and every tile texture in it. A map in a host
+  // stays held under its own sheet.
+  const screenFocused = useMapHeldFocus();
   const map3DOpacity = useRef(new Animated.Value(0)).current;
   const bearingAnim = useRef(new Animated.Value(0)).current;
 
@@ -256,8 +264,9 @@ export const SectionMapView = memo(function SectionMapView({
     maxHeight: controlsMaxHeight,
     width: controlsWidth,
     footprint: controlsFootprint,
-  } = mapControlColumnLayout(controlCount, height, overlayTop);
-  // The section is fitted to what the header and, when it is drawn, the control column leave visible.
+  } = mapControlColumnLayout(controlCount, height - coveredBottom, overlayTop);
+  // The section is fitted to what the header, the sheet or tool below and, when it is drawn, the
+  // control column leave visible.
   const { width: mapWidth } = useWindowDimensions();
   const fitPadding = useMemo(
     () =>
@@ -266,9 +275,10 @@ export const SectionMapView = memo(function SectionMapView({
         height,
         coveredTop: overlayTop,
         coveredRight: interactive ? controlsFootprint : 0,
+        coveredBottom,
         margin: SECTION_MAP_FIT_PADDING,
       }),
-    [mapWidth, height, overlayTop, interactive, controlsFootprint]
+    [mapWidth, height, overlayTop, interactive, controlsFootprint, coveredBottom]
   );
   // Controls and legends over the map follow the app theme, not the base drawn under them.
   const { isDark } = useTheme();
@@ -289,14 +299,15 @@ export const SectionMapView = memo(function SectionMapView({
     };
   }, [map3DOpacity, bearingAnim]);
 
-  // Frame each section once, and again on entering or leaving expand mode.
+  // Frame each section once, again on entering or leaving expand mode, and again when what covers
+  // the map's foot changes, as the sheet settles at another stop or a tool's bar replaces it.
   // Keying the refit on the geometry took the camera back on every `sections`
   // event, because the detail bundle hands down a fresh `polyline` array of the
   // same points, so panning the map was undone by the next sync. Extending
   // further inside expand mode is the athlete moving the handle rather than a
   // mode change, so it leaves the viewport alone too.
   const isExpanding = extensionCoords.length > 0;
-  const frameKey = `${section.id}|${isExpanding}`;
+  const frameKey = `${section.id}|${isExpanding}|${coveredBottom}`;
   const framedSection = useRef<string | null>(null);
   useEffect(() => {
     if (framedSection.current === frameKey) return;

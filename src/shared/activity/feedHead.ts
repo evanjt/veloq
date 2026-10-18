@@ -29,13 +29,13 @@ const HEAD_COUNT = 5;
  * its first cards are not the ones on screen.
  */
 export function headPreviewIds(
-  activities: readonly { id: string; stream_types?: string[] | null | undefined }[],
+  cards: readonly { id: string; hasGps: boolean }[],
   hasPreviousPage: boolean,
   held: string[]
 ): string[] {
   if (hasPreviousPage) return held;
-  return activities
-    .filter((a) => a.stream_types?.includes('latlng'))
+  return cards
+    .filter((card) => card.hasGps)
     .slice(0, HEAD_COUNT)
     .map((a) => a.id);
 }

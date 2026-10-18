@@ -2190,6 +2190,61 @@ pub struct FfiActivityBodiesPage {
     pub has_more: bool,
 }
 
+/// What one feed card draws, typed from the stored body.
+///
+/// Built from the body rather than `activity_metrics`, which files a body
+/// with no sport as a ride and keeps heart rate and power as whole numbers.
+#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+pub struct FfiFeedCard {
+    /// The row key the body is stored under. A route or a fetch names the
+    /// activity by this, never by the body's own `id`, which for an uploaded
+    /// recording is the server's id rather than the row's.
+    pub id: String,
+    /// The intervals.icu id a web link may name. None for a demo row and for
+    /// a recording no server has named.
+    pub intervals_web_id: Option<String>,
+    /// The sport as the body carries it. None when it names none.
+    pub sport_type: Option<String>,
+    /// Empty when the body has none.
+    pub name: String,
+    /// The wall-clock start as the body carries it, with no zone. Empty when
+    /// the body has none.
+    pub start_date_local: String,
+    /// Metres.
+    pub distance: Option<f64>,
+    /// Seconds.
+    pub moving_time: Option<f64>,
+    /// Metres climbed.
+    pub elevation_gain: Option<f64>,
+    /// Beats per minute.
+    pub avg_hr: Option<f64>,
+    /// Watts.
+    pub avg_power: Option<f64>,
+    pub training_load: Option<f64>,
+    /// Kilocalories.
+    pub calories: Option<f64>,
+    pub has_weather: bool,
+    /// Degrees Celsius.
+    pub average_weather_temp: Option<f64>,
+    /// The elevation skyline as intervals.icu encodes it, base64.
+    pub skyline_chart_bytes: Option<String>,
+    /// Whether the activity recorded a `latlng` stream.
+    pub has_gps: bool,
+    /// Whether the activity recorded an `altitude` stream, which makes a zero
+    /// climb a measurement rather than a missing one.
+    pub has_altitude: bool,
+}
+
+/// One page of feed cards, newest first. The query and the paging are the
+/// body read's, so a search counts and pages the same.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiFeedCardsPage {
+    pub cards: Vec<FfiFeedCard>,
+    /// Every stored activity the query matched, not only this page.
+    pub matched_count: u32,
+    pub has_more: bool,
+}
+
 /// One activity's display name, for a caller that holds ids and has to draw
 /// something an athlete recognises. Only the ids the engine knows are
 /// answered, so the caller falls back to the id itself.
@@ -2910,9 +2965,6 @@ pub struct FfiSectionDetailData {
     pub geometry_versions: Vec<FfiSectionGeometryVersion>,
     /// The pinned version, or `None` when the section follows the newest cut
     pub pinned_version: Option<f64>,
-    /// Whether the athlete may ask for the section to be named from its
-    /// places: geocoding is on and they typed no name for it
-    pub can_name_from_places: bool,
 }
 
 /// How many traversals of a section one sport made over the chosen range.
@@ -3263,9 +3315,6 @@ pub struct FfiRouteDetailData {
     /// The route's activities whose time streams still have to be fetched
     /// before the delta curves can draw them
     pub missing_time_stream_ids: Vec<String>,
-    /// Whether the athlete may ask for the route to be named from its
-    /// places: geocoding is on and they typed no name for it
-    pub can_name_from_places: bool,
 }
 
 // ============================================================================

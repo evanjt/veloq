@@ -16,7 +16,6 @@ import {
   BackgroundJobsActivityBar,
   CutoverStatus,
   ElevationBackfillStatus,
-  PlaceNamesSwitch,
   SettingsNavRow,
 } from '@/features/settings';
 import { colors, darkColors, spacing, typography } from '@/theme';
@@ -77,8 +76,6 @@ function DetectionSettingsScreenContent() {
             />
           </Card>
         </View>
-
-        <PlaceNamesSwitch />
 
         <View>
           {!routeMatchingEnabled && (

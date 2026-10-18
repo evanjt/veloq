@@ -70,13 +70,17 @@ class ActivityPushWorker(context: Context, params: WorkerParameters) : Worker(co
       Log.w(TAG, "notifications off or athlete mismatch for $activityId")
       return Result.success()
     }
-    ActivityNotificationPoster.post(
-      applicationContext,
-      activityId,
-      athleteId,
-      notification.optString("title"),
-      notification.optString("body")
-    )
+    if (decision.posts) {
+      ActivityNotificationPoster.post(
+        applicationContext,
+        activityId,
+        athleteId,
+        notification.optString("title"),
+        notification.optString("body")
+      )
+    } else {
+      Log.w(TAG, "the tray already holds the entry for $activityId, posting nothing")
+    }
     if (decision.refreshesWidget) refreshWidget(activityId)
     return Result.success()
   }

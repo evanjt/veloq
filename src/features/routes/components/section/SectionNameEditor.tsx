@@ -1,5 +1,5 @@
 /**
- * The section hero's name, tap to rename. The text being typed lives here and
+ * The section's name, tap to rename. The text being typed lives here and
  * nowhere above it, so a keystroke renders this row and not the screen that
  * mounts the header.
  */
@@ -28,6 +28,8 @@ export interface SectionNameEditorProps {
   onSaveName: (name: string) => Promise<NameSaveOutcome>;
   /** A control drawn beside the name while it is not being edited. */
   accessory?: React.ReactNode;
+  /** Drawn on a sheet's surface in the theme's text, rather than over the map in white. */
+  onSurface?: boolean;
 }
 
 export function SectionNameEditor({
@@ -37,6 +39,7 @@ export function SectionNameEditor({
   activityColor,
   onSaveName,
   accessory,
+  onSurface = false,
 }: SectionNameEditorProps) {
   const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
@@ -81,6 +84,7 @@ export function SectionNameEditor({
 
   return (
     <HeroNameRow
+      onSurface={onSurface}
       name={name}
       icon={{ name: iconName, color: activityColor }}
       editable={{

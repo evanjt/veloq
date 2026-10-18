@@ -1,89 +1,53 @@
 /**
- * Section detail hero: DetailHero frame around SectionMapView with
- * editable name and traversal stats.
+ * The top of a section's card in its map sheet, which is what Peek shows: the name, tap to
+ * rename, the date line, and the distance, the traversals and the best time. The lift flag, when
+ * the detector set one, and the climbing and the grades follow under it.
  */
 
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { useMetricSystem } from '@/shared/app';
-import {
-  DetailHero,
-  HeroStatsRow,
-  Shimmer,
-  SkeletonGroup,
-  useHeroHeaderBottom,
-  useHeroMapHeight,
-} from '@/shared/ui';
+import { useMetricSystem, useTheme } from '@/shared/app';
+import { HeroStatsRow } from '@/shared/ui';
+import { FitText } from '@/shared/ui/FitText';
 import { PressTarget } from '@/shared/ui/PressTarget';
 import { Icon } from '@/shared/ui/Icon';
-import { PlaceNameKind } from 'veloqrs';
 import { SectionNameEditor } from './SectionNameEditor';
-import { PlaceNameButton } from '../PlaceNameButton';
-import { HighlightedSectionMap } from './HighlightedSectionMap';
-import type { MapHighlightStore } from '@/features/routes/lib/mapHighlight';
-import type { SectionDeltaLine } from '@/features/routes/lib/deltaLayout';
-import type { ChartDirection } from '@/features/routes/lib/scatterData';
 import { type MaterialIconName } from '@/shared/activity/activityUtils';
-import { heroStats } from '@/features/routes/lib/heroStats';
+import { sectionClimbStats } from '@/features/routes/lib/heroStats';
+import { detailDateLine, detailPeekStats } from '@/features/routes/lib/detailPeek';
 import type { NameSaveOutcome } from '@/features/routes/lib/sectionRenameFailure';
-import {
-  colors,
-  iconSize,
-  layout,
-  opacity,
-  slopToMinTapTarget,
-  spacing,
-  typography,
-} from '@/theme';
-import type { RoutePoint, FrequentSection } from '@/types';
+import { iconSize, layout, slopToMinTapTarget, spacing, themePalette, typography } from '@/theme';
+import type { FrequentSection } from '@/types';
 import type { Period } from '@/shared/app/period';
 
 export interface SectionHeaderProps {
   section: FrequentSection;
-  mapHeight?: number | undefined;
   activityColor: string;
   iconName: MaterialIconName;
   /** Traversals the chart plots, absent until the lap times are read. */
   activityCount?: number | undefined;
-  /** The sport the chart plots, which labels the count when it narrows it. */
+  /** The sport the chart plots, which the date line names when it narrows the count. */
   scopeSport?: string | undefined;
-  /** Sports the read offers over the range; the sport labels the count past one. */
+  /** Sports the read offers over the range; the sport is named past one. */
   sportsOffered?: number | undefined;
-  /** The sport the screen reads the section in, which styles the map. */
-  sportType?: string | undefined;
   /** The range the count is over, left off for all time. */
   scopeRange?: Period | undefined;
-  mapReady: boolean;
-  isTrimming: boolean;
-  /** The running map tool's bar, drawn over the map's foot in place of the name and stats. */
-  toolBar?: React.ReactNode;
-  isExpandMode: boolean;
-  trimStart: number;
-  trimEnd: number;
-  expandContextPoints?: RoutePoint[] | null | undefined;
+  /** The fastest traversal's time, in seconds, absent until the lap times are read. */
+  bestTimeSecs?: number | undefined;
+  /** The first and the last traversal in the range. */
+  firstDate?: Date | null | undefined;
+  lastDate?: Date | null | undefined;
   /** The committed name override, which takes precedence over `section.name`. */
   customName: string | null;
-  shadowTrack?: [number, number][] | undefined;
-  /** The chart's scrubbed attempt. Only the map reads it, so a scrub never renders the header. */
-  highlight: MapHighlightStore;
-  /** The activity the page was opened from, the only one the map key calls "This activity". */
-  pageActivityId?: string | undefined;
-  /** The attempt the chart's delta plot shows, which colours the section line. */
-  deltaLine?: SectionDeltaLine | null | undefined;
-  /** The direction the chart is on, drawn as chevrons along the section line. */
-  shownDirection?: ChartDirection | null | undefined;
-  allActivityTraces?: Record<string, RoutePoint[]> | undefined;
   /** Take the detector's lift flag off. Absent leaves the badge inert. */
   onUnflagLift?: (() => void) | undefined;
   /** Called with the typed name, untrimmed, when the rename is saved. */
   onSaveName: (name: string) => Promise<NameSaveOutcome>;
-  /** Whether the detail read lets the athlete ask for a name from the section's places. */
-  canNameFromPlaces?: boolean | undefined;
 }
 
-/** The name a section's hero shows and its screen is titled with: the rename, its own, its id. */
+/** The name a section's card shows and its screen is titled with: the rename, its own, its id. */
 export function sectionHeroName(
   section: Pick<FrequentSection, 'id' | 'name'>,
   customName: string | null | undefined
@@ -98,110 +62,85 @@ export function SectionHeader({
   activityCount,
   scopeSport,
   sportsOffered = 0,
-  sportType,
   scopeRange,
-  mapReady,
-  mapHeight: mapHeightProp,
-  isTrimming,
-  toolBar,
-  isExpandMode,
-  trimStart,
-  trimEnd,
-  expandContextPoints,
+  bestTimeSecs,
+  firstDate = null,
+  lastDate = null,
   customName,
-  shadowTrack,
-  highlight,
-  pageActivityId,
-  deltaLine,
-  shownDirection,
-  allActivityTraces,
   onUnflagLift,
   onSaveName,
-  canNameFromPlaces = false,
 }: SectionHeaderProps) {
-  const heroHeight = useHeroMapHeight();
-  const headerBottom = useHeroHeaderBottom();
-  const mapHeight = mapHeightProp ?? heroHeight;
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
-  const stats = heroStats(
-    { kind: 'section', section },
-    { count: activityCount, sport: scopeSport, sportsOffered, range: scopeRange ?? 'all' },
-    t,
-    isMetric
-  );
+  const { isDark } = useTheme();
+  const palette = themePalette(isDark);
+  const peek = {
+    kind: 'section' as const,
+    distanceMeters: section.distanceMeters,
+    scope: {
+      count: activityCount,
+      sport: scopeSport,
+      sportsOffered,
+      range: scopeRange ?? 'all',
+    },
+    bestTimeSecs,
+    firstDate,
+    lastDate,
+  };
+  const dateLine = detailDateLine(peek, t);
+  const climb = sectionClimbStats(section, t, isMetric);
 
   return (
-    <DetailHero
-      height={mapHeight}
-      tool={toolBar}
-      overlay={
-        <>
-          <SectionNameEditor
-            name={sectionHeroName(section, customName)}
-            startText={customName || section.name || ''}
-            iconName={iconName}
-            activityColor={activityColor}
-            onSaveName={onSaveName}
-            accessory={
-              canNameFromPlaces && !isTrimming ? (
-                <PlaceNameButton
-                  kind={PlaceNameKind.Section}
-                  itemId={section.id}
-                  testID="section-place-name-button"
-                />
-              ) : undefined
-            }
-          />
-          {section.isLift ? (
-            <PressTarget
-              style={styles.liftBadge}
-              testID="section-lift-badge"
-              accessibilityRole="button"
-              accessibilityLabel={t('sections.notLift')}
-              onPress={onUnflagLift}
-              disabled={!onUnflagLift}
-              hitSlop={liftBadgeSlop}
-            >
-              <Icon name="gondola" size={iconSize.sm} color={colors.textOnFill} />
-              <Text style={styles.liftBadgeText}>{t('sections.liftGround')}</Text>
-              {onUnflagLift ? (
-                <Icon
-                  name="close"
-                  size={iconSize.sm}
-                  color={colors.textOnFill}
-                  testID="section-lift-unflag"
-                />
-              ) : null}
-            </PressTarget>
+    <View testID="section-card-peek" style={styles.peek}>
+      <SectionNameEditor
+        onSurface
+        name={sectionHeroName(section, customName)}
+        startText={customName || section.name || ''}
+        iconName={iconName}
+        activityColor={activityColor}
+        onSaveName={onSaveName}
+      />
+      {dateLine ? (
+        <FitText
+          testID="section-card-date-line"
+          style={[styles.dateLine, { color: palette.textSecondary }]}
+        >
+          {dateLine}
+        </FitText>
+      ) : null}
+      <HeroStatsRow
+        onSurface
+        testID="section-detail-stats"
+        stats={detailPeekStats(peek, t, isMetric)}
+      />
+      {section.isLift ? (
+        <PressTarget
+          style={[styles.liftBadge, { backgroundColor: palette.surfaceRaised }]}
+          testID="section-lift-badge"
+          accessibilityRole="button"
+          accessibilityLabel={t('sections.notLift')}
+          onPress={onUnflagLift}
+          disabled={!onUnflagLift}
+          hitSlop={liftBadgeSlop}
+        >
+          <Icon name="gondola" size={iconSize.sm} color={palette.textSecondary} />
+          <Text style={[styles.liftBadgeText, { color: palette.textPrimary }]}>
+            {t('sections.liftGround')}
+          </Text>
+          {onUnflagLift ? (
+            <Icon
+              name="close"
+              size={iconSize.sm}
+              color={palette.textSecondary}
+              testID="section-lift-unflag"
+            />
           ) : null}
-          <HeroStatsRow testID="section-detail-stats" stats={stats} />
-        </>
-      }
-    >
-      {mapReady ? (
-        <HighlightedSectionMap
-          highlight={highlight}
-          pageActivityId={pageActivityId}
-          section={section}
-          sportType={sportType}
-          height={mapHeight}
-          interactive={true}
-          enableFullscreen={!isTrimming}
-          shadowTrack={shadowTrack}
-          deltaLine={deltaLine}
-          shownDirection={shownDirection}
-          allActivityTraces={allActivityTraces}
-          trimRange={isTrimming ? { start: trimStart, end: trimEnd } : null}
-          extensionTrack={isTrimming && isExpandMode ? expandContextPoints : null}
-          headerBottom={headerBottom}
-        />
-      ) : (
-        <SkeletonGroup testID="section-hero-skeleton" style={{ height: mapHeight }}>
-          <Shimmer width="100%" height={mapHeight} borderRadius={0} />
-        </SkeletonGroup>
-      )}
-    </DetailHero>
+        </PressTarget>
+      ) : null}
+      {climb.length > 0 ? (
+        <HeroStatsRow onSurface testID="section-detail-climb" stats={climb} />
+      ) : null}
+    </View>
   );
 }
 
@@ -209,22 +148,28 @@ const LIFT_BADGE_HEIGHT = typography.caption.lineHeight + 2 * spacing.xxs;
 const liftBadgeSlop = slopToMinTapTarget(LIFT_BADGE_HEIGHT);
 
 const styles = StyleSheet.create({
-  // Its own row between the name and the stats, so a flagged section costs the
-  // name no width and the rename affordance no room.
+  peek: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.sm,
+    gap: spacing.xs,
+  },
+  // Its own row under the numbers, so a flagged section costs the name no width, the rename
+  // affordance no room and Peek none of its lines.
   liftBadge: {
     alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    marginTop: spacing.xs,
     paddingVertical: spacing.xxs,
     minHeight: LIFT_BADGE_HEIGHT,
     paddingHorizontal: spacing.sm,
     borderRadius: layout.borderRadiusFull,
-    backgroundColor: opacity.overlay.scrim,
   },
   liftBadgeText: {
     ...typography.captionBold,
-    color: colors.textOnFill,
+  },
+  dateLine: {
+    ...typography.bodyCompact,
   },
 });

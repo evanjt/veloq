@@ -78,8 +78,6 @@ pub(crate) mod export;
 pub(crate) mod file_lock;
 pub use export::{ExportPrivacyPreview, GeoJsonFeature, SuggestedHome, write_geojson_feature};
 pub(crate) mod fitness;
-pub mod geocoded_names;
-pub mod geocoded_places;
 pub(crate) mod indicators;
 pub mod job_runs;
 pub mod memory;
@@ -1702,18 +1700,28 @@ impl PersistentEngine {
     /// The insert and the trim are one statement pair rather than a trigger:
     /// a trigger on insert fires again on its own delete, and the table is
     /// written by a push handler whose whole budget is a few seconds.
+    ///
+    /// `posted` is the title and body the run put in the tray, and `None` for a
+    /// run that put nothing there.
     pub fn record_push_run(
         &mut self,
         activity_id: &str,
         outcome: &str,
         detail: Option<&str>,
+        posted: Option<(&str, &str)>,
         kept: i64,
     ) -> SqlResult<()> {
         let tx = self.db.transaction()?;
         tx.execute(
-            "INSERT INTO push_runs (ts, activity_id, outcome, detail)
-             VALUES (strftime('%s', 'now'), ?, ?, ?)",
-            rusqlite::params![activity_id, outcome, detail],
+            "INSERT INTO push_runs (ts, activity_id, outcome, detail, posted_title, posted_body)
+             VALUES (strftime('%s', 'now'), ?, ?, ?, ?, ?)",
+            rusqlite::params![
+                activity_id,
+                outcome,
+                detail,
+                posted.map(|p| p.0),
+                posted.map(|p| p.1)
+            ],
         )?;
         tx.execute(
             "DELETE FROM push_runs WHERE id NOT IN
@@ -1721,6 +1729,30 @@ impl PersistentEngine {
             rusqlite::params![kept],
         )?;
         tx.commit()
+    }
+
+    /// The outcome, title and body of the newest kept run that put an entry in
+    /// the tray for `activity_id`, or `None` when no kept run did.
+    pub fn last_posted_push(
+        &self,
+        activity_id: &str,
+    ) -> SqlResult<Option<(String, String, String)>> {
+        use rusqlite::OptionalExtension;
+        self.db
+            .query_row(
+                "SELECT outcome, posted_title, posted_body FROM push_runs
+                 WHERE activity_id = ? AND posted_title IS NOT NULL
+                 ORDER BY ts DESC, id DESC LIMIT 1",
+                [activity_id],
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get::<_, Option<String>>(2)?.unwrap_or_default(),
+                    ))
+                },
+            )
+            .optional()
     }
 
     /// Take whatever another process wrote since this engine last looked, and

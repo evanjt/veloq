@@ -21,7 +21,7 @@ import { PaperProvider } from 'react-native-paper';
 import { ActivityCardContextMenu } from '@/features/activity/components/ActivityCardContextMenu';
 import { ContextMenu } from '@/shared/ui/ContextMenu';
 import * as haptics from '@/shared/ui/haptics';
-import type { Activity } from '@/types';
+import type { FeedCard } from '@/types';
 
 jest.mock('react-i18next', () => ({
   ...jest.requireActual('react-i18next'),
@@ -95,12 +95,12 @@ jest.mock('@/shared/ui/haptics', () => ({
 const activity = {
   id: 'a1',
   name: 'Morning ride',
-  type: 'Ride',
-  stream_types: ['latlng'],
+  sportType: 'Ride',
+  hasGps: true,
   intervalsWebId: 'i901',
-} as unknown as Activity;
+} as FeedCard;
 
-const renderMenu = (visible: boolean, shown: Activity = activity, hasMap = true) =>
+const renderMenu = (visible: boolean, shown: FeedCard = activity, hasMap = true) =>
   render(
     <PaperProvider>
       <ActivityCardContextMenu
@@ -215,17 +215,11 @@ describe.each(['ios', 'android'] as const)('sharing on %s with no intervals.icu 
     screen.queryByLabelText('activity.share') !== null;
 
   it('offers no Share for a recording intervals.icu has not named', async () => {
-    await renderMenu(os === 'android', { ...activity, id: 'local-ride-7', intervalsWebId: null });
+    const { intervalsWebId: _unnamed, ...recording } = activity;
+    await renderMenu(os === 'android', { ...recording, id: 'local-ride-7' });
 
     expect(shareOffered()).toBe(false);
     expect(screen.getAllByText('activity.viewDetails').length).toBeGreaterThan(0);
-  });
-
-  it('offers no Share for a body the feed read did not name', async () => {
-    const { intervalsWebId: _dropped, ...unnamed } = activity;
-    await renderMenu(os === 'android', unnamed as Activity);
-
-    expect(shareOffered()).toBe(false);
   });
 
   it('shares the id the feed read names for an uploaded recording, not its row key', async () => {
@@ -300,18 +294,18 @@ describe('the card menu on Android', () => {
 const noTrack = {
   id: 'a2',
   name: 'Treadmill run',
-  type: 'Run',
-  stream_types: ['heartrate'],
+  sportType: 'Run',
+  hasGps: false,
   intervalsWebId: 'i902',
-} as unknown as Activity;
+} as FeedCard;
 
 const weights = {
   id: 'a3',
   name: 'Leg day',
-  type: 'WeightTraining',
-  stream_types: [],
+  sportType: 'WeightTraining',
+  hasGps: false,
   intervalsWebId: 'i903',
-} as unknown as Activity;
+} as FeedCard;
 
 describe.each([
   ['ios', 'a card with no GPS track', noTrack],

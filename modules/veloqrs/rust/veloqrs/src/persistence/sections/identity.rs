@@ -45,7 +45,7 @@ use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 
 use crate::persistence::codec;
-use crate::persistence::sections::geometry;
+use crate::persistence::sections::{DERIVED_SECTION_PREDICATE, geometry};
 use crate::persistence::{ActivityMetadata, PersistentEngine};
 use tracematch::{
     CandidateFate, CandidateSection, FrequentSection, GpsPoint, HysteresisParams, HysteresisState,
@@ -302,6 +302,9 @@ struct ReplayContext {
     accepted_bounds: Vec<AcceptedBounds>,
     /// Every id a mint must avoid, from one scan of the database.
     stored_ids: BTreeSet<String>,
+    /// The ids the open ingest's earlier runs minted and this run supersedes,
+    /// which a mint may take again (see `superseded_section_ids`).
+    superseded_ids: BTreeSet<String>,
     /// The pooled activity ids.
     pool: BTreeSet<String>,
     /// Member sports for the pooled relabel, when sports are pooled.
@@ -329,7 +332,7 @@ impl IdentityReplaySnapshot {
             context: ReplayContext::capture(engine),
             metadata: engine.activity_metadata.clone(),
             section_ids: engine.sections.iter().map(|s| s.id.clone()).collect(),
-            identity: engine.identity.clone(),
+            identity: engine.identity.replay_origin(),
         }
     }
 
@@ -590,6 +593,42 @@ pub(crate) struct SectionIdentity {
     /// continuation drops them with the debounce. Trails the struct so an
     /// older blob restores with it empty.
     around: BTreeMap<String, BTreeSet<String>>,
+    /// The ingest a download has open, when one has. Persisted with the rest,
+    /// so a backfill killed mid-way resumes from the registry it began on, and
+    /// left out of the blob when there is none.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    ingest: Option<Box<OpenIngest>>,
+}
+
+/// One download's ingest while it is open.
+///
+/// A backfill stores its rides in the order the download finishes them, and a
+/// conditioning run fires every few dozen stores. Each run is one detect, but
+/// the debounce counts the download's rides as one ingest: every run replays
+/// every ride the ingest has stored so far, in date order, from `base`, so the
+/// run after the download ends lands where one detect of the same rides lands.
+/// A run before that is provisional: its view shows, and the next run
+/// supersedes the ids it minted and the ledger rows it wrote.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub(crate) struct OpenIngest {
+    /// True from the download's start to its end.
+    downloading: bool,
+    /// The registry before the ingest's first apply, with no ingest of its
+    /// own. Recorded by the first apply that runs while the download is
+    /// storing, so a sync whose one run comes after the download records none.
+    base: Option<SectionIdentity>,
+    /// The ledger rows the last provisional save wrote, which the next save of
+    /// the ingest takes back before it writes its own.
+    superseded: LedgerRows,
+}
+
+/// Inclusive row-id ranges of `section_history` and `section_geometry`.
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub(crate) struct LedgerRows {
+    history: Option<(i64, i64)>,
+    geometry: Option<(i64, i64)>,
 }
 
 impl Default for SectionIdentity {
@@ -610,7 +649,105 @@ impl Default for SectionIdentity {
             seen: BTreeSet::new(),
             mint_seq: 0,
             around: BTreeMap::new(),
+            ingest: None,
         }
+    }
+}
+
+impl SectionIdentity {
+    /// The registry an apply replays from, carrying the ingest on.
+    ///
+    /// With an ingest open that is the registry the ingest began on, so the
+    /// apply counts every ride the ingest has stored so far. The first apply
+    /// while the download is storing begins it on this registry. Otherwise it
+    /// is this registry.
+    pub(super) fn replay_origin(&self) -> SectionIdentity {
+        let Some(ingest) = self.ingest.as_deref() else {
+            return self.clone();
+        };
+        let base = match &ingest.base {
+            Some(base) => base.clone(),
+            None if ingest.downloading => self.without_ingest(),
+            None => return self.without_ingest(),
+        };
+        let mut origin = base.clone();
+        origin.ingest = Some(Box::new(OpenIngest {
+            downloading: ingest.downloading,
+            base: Some(base),
+            superseded: ingest.superseded,
+        }));
+        origin
+    }
+
+    /// A copy of every field but the ingest, which a base never carries.
+    fn without_ingest(&self) -> SectionIdentity {
+        SectionIdentity {
+            hysteresis: self.hysteresis.clone(),
+            rows: self.rows.clone(),
+            graves: self.graves.clone(),
+            seen: self.seen.clone(),
+            mint_seq: self.mint_seq,
+            around: self.around.clone(),
+            ingest: None,
+        }
+    }
+
+    /// The registry the open ingest began on, once an apply has recorded it.
+    fn ingest_base_mut(&mut self) -> Option<&mut SectionIdentity> {
+        self.ingest.as_deref_mut().and_then(|i| i.base.as_mut())
+    }
+
+    pub(super) fn ingest_base(&self) -> Option<&SectionIdentity> {
+        self.ingest.as_deref().and_then(|i| i.base.as_ref())
+    }
+
+    /// Delete the ledger rows the open ingest's last provisional save wrote,
+    /// keeping those of a section the athlete has since pinned, kept or
+    /// hidden: that section is the athlete's now, whatever the ingest does.
+    pub(super) fn take_back_superseded(&self, conn: &Connection) -> rusqlite::Result<()> {
+        let Some(ingest) = self.ingest.as_deref() else {
+            return Ok(());
+        };
+        let kept = format!(
+            "section_id NOT IN (SELECT section_id FROM section_pins)
+             AND section_id NOT IN (SELECT id FROM section_intents)
+             AND section_id NOT IN (SELECT id FROM sections
+                                    WHERE NOT ({DERIVED_SECTION_PREDICATE}))"
+        );
+        if let Some((lo, hi)) = ingest.superseded.history {
+            conn.execute(
+                &format!("DELETE FROM section_history WHERE id BETWEEN ?1 AND ?2 AND {kept}"),
+                rusqlite::params![lo, hi],
+            )?;
+        }
+        if let Some((lo, hi)) = ingest.superseded.geometry {
+            conn.execute(
+                &format!("DELETE FROM section_geometry WHERE rowid BETWEEN ?1 AND ?2 AND {kept}"),
+                rusqlite::params![lo, hi],
+            )?;
+        }
+        Ok(())
+    }
+
+    /// Name the ledger rows a provisional save wrote between the marks `from`
+    /// and `to`, as [`ledger_marks`] read them.
+    pub(super) fn record_superseded(&mut self, from: (i64, i64), to: (i64, i64)) {
+        let Some(ingest) = self.ingest.as_deref_mut() else {
+            return;
+        };
+        let range = |a: i64, b: i64| (b > a).then_some((a + 1, b));
+        ingest.superseded = LedgerRows {
+            history: range(from.0, to.0),
+            geometry: range(from.1, to.1),
+        };
+    }
+
+    /// Every real id the registry holds, visible or retired.
+    fn real_ids(&self) -> impl Iterator<Item = &str> {
+        self.rows
+            .values()
+            .map(|r| r.real_id.as_str())
+            .chain(self.graves.values().map(|g| g.real_id.as_str()))
     }
 }
 
@@ -930,6 +1067,21 @@ impl PersistentEngine {
         indices: impl IntoIterator<Item = usize>,
         mut edit: impl FnMut(usize, &mut FrequentSection),
     ) {
+        let indices: Vec<usize> = indices.into_iter().collect();
+        // The registry an open ingest began on takes the edit too, so the
+        // ingest's next run replays onto the section as it now is.
+        if let Some(base) = self.identity.ingest_base_mut() {
+            let mut rows: HashMap<&str, &mut Arc<FrequentSection>> = base
+                .rows
+                .values_mut()
+                .map(|row| (row.real_id.as_str(), &mut row.section))
+                .collect();
+            for &idx in &indices {
+                if let Some(row) = rows.get_mut(self.sections[idx].id.as_str()) {
+                    edit(idx, Arc::make_mut(row));
+                }
+            }
+        }
         let mut rows: HashMap<&str, &mut Arc<FrequentSection>> = self
             .identity
             .rows
@@ -1048,6 +1200,14 @@ impl PersistentEngine {
                 .insert(resolutions[j].id.clone(), IdentityRow { real_id, section });
         }
         identity.seen = self.activity_metadata.keys().cloned().collect();
+        // A download still storing keeps its ingest, begun afresh on the
+        // reseeded registry by its next run.
+        if self.identity.ingest.as_ref().is_some_and(|i| i.downloading) {
+            identity.ingest = Some(Box::new(OpenIngest {
+                downloading: true,
+                ..OpenIngest::default()
+            }));
+        }
         self.identity = identity;
     }
 
@@ -1064,6 +1224,144 @@ impl PersistentEngine {
         self.section_identity_reseed();
         self.identity.hysteresis.arm_decisive();
         self.section_identity_persist();
+    }
+
+    /// A download has begun storing rides: the runs from here on are one
+    /// ingest. An ingest a killed download left open carries on, so the rides
+    /// it stored and the rides the resumed download stores are counted
+    /// together, as one download of them all would have counted them.
+    ///
+    /// Held in memory until a run records where the ingest began, which the
+    /// save makes durable.
+    pub fn ingest_download_started(&mut self) {
+        self.identity
+            .ingest
+            .get_or_insert_with(Default::default)
+            .downloading = true;
+    }
+
+    /// The download has stored its last ride. The ingest closes once every
+    /// stored ride has been detected, here if the runs already cover them, or
+    /// after the run that does.
+    pub fn ingest_download_ended(&mut self) {
+        let Some(ingest) = self.identity.ingest.as_deref_mut() else {
+            return;
+        };
+        ingest.downloading = false;
+        if ingest.base.is_none() {
+            self.identity.ingest = None;
+            return;
+        }
+        if !self.settle_open_ingest() {
+            // Durable, so a kill before the closing run does not leave the
+            // ingest waiting on a download that already ended.
+            self.section_identity_persist();
+        }
+    }
+
+    /// Close the open ingest when its download has ended and every pooled
+    /// ride has been detected: the last run replayed all of them, so its view
+    /// is the ingest's and nothing supersedes it. True when it closed.
+    pub(crate) fn settle_open_ingest(&mut self) -> bool {
+        let Some(ingest) = self.identity.ingest.as_deref() else {
+            return false;
+        };
+        if ingest.downloading
+            || self
+                .activity_metadata
+                .keys()
+                .any(|id| !self.processed_activity_ids.contains(id))
+        {
+            return false;
+        }
+        let recorded = ingest.base.is_some();
+        self.identity.ingest = None;
+        if recorded {
+            self.section_identity_persist();
+        }
+        true
+    }
+
+    /// Whether the registry holds where an open ingest began.
+    #[cfg(any(test, feature = "synthetic"))]
+    #[doc(hidden)]
+    pub fn section_identity_ingest_base_held(&self) -> bool {
+        self.identity.ingest_base().is_some()
+    }
+
+    /// The ids the open ingest's earlier runs minted that nothing durable
+    /// holds, which a mint of this run may take again.
+    ///
+    /// A run replays the ingest from where it began, so a section an earlier
+    /// run minted is minted again from the same ground, and has to come out
+    /// under the same id or one download would number its sections by how
+    /// many runs it took. An id stays held when the registry held it before
+    /// the ingest, when a ledger row the earlier runs did not write names it,
+    /// or when the athlete has pinned, kept or hidden its section.
+    fn superseded_section_ids(&self) -> BTreeSet<String> {
+        let Some(ingest) = self.identity.ingest.as_deref() else {
+            return BTreeSet::new();
+        };
+        let Some(base) = ingest.base.as_ref() else {
+            return BTreeSet::new();
+        };
+        let held_before: BTreeSet<&str> = base.real_ids().collect();
+        let LedgerRows { history, geometry } = ingest.superseded;
+        let (history, geometry) = (history.unwrap_or((1, 0)), geometry.unwrap_or((1, 0)));
+        let mut candidates: BTreeSet<String> = self
+            .identity
+            .real_ids()
+            .chain(
+                self.sections
+                    .iter()
+                    .filter(|s| !s.is_user_defined)
+                    .map(|s| s.id.as_str()),
+            )
+            .filter(|id| !held_before.contains(id))
+            .map(str::to_string)
+            .collect();
+        let named = |sql: &str, (lo, hi): (i64, i64)| -> Vec<String> {
+            self.db
+                .prepare(sql)
+                .and_then(|mut stmt| {
+                    stmt.query_map(rusqlite::params![lo, hi], |row| row.get::<_, String>(0))
+                        .map(|rows| rows.filter_map(|r| r.ok()).collect())
+                })
+                .unwrap_or_default()
+        };
+        candidates.extend(
+            named(
+                "SELECT DISTINCT section_id FROM section_history WHERE id BETWEEN ?1 AND ?2",
+                history,
+            )
+            .into_iter()
+            .chain(named(
+                "SELECT DISTINCT section_id FROM section_geometry WHERE rowid BETWEEN ?1 AND ?2",
+                geometry,
+            ))
+            .filter(|id| !held_before.contains(id.as_str())),
+        );
+        let Ok(mut held) = self.db.prepare(&format!(
+            "SELECT EXISTS (SELECT 1 FROM section_history
+                            WHERE section_id = ?1 AND id NOT BETWEEN ?2 AND ?3)
+                 OR EXISTS (SELECT 1 FROM section_geometry
+                            WHERE section_id = ?1 AND rowid NOT BETWEEN ?4 AND ?5)
+                 OR EXISTS (SELECT 1 FROM section_pins WHERE section_id = ?1)
+                 OR EXISTS (SELECT 1 FROM section_intents WHERE id = ?1)
+                 OR EXISTS (SELECT 1 FROM sections
+                            WHERE id = ?1 AND NOT ({DERIVED_SECTION_PREDICATE}))"
+        )) else {
+            return BTreeSet::new();
+        };
+        candidates.retain(|id| {
+            !held
+                .query_row(
+                    rusqlite::params![id, history.0, history.1, geometry.0, geometry.1],
+                    |row| row.get::<_, bool>(0),
+                )
+                .unwrap_or(true)
+        });
+        candidates
     }
 
     /// Run a replay of detection catalogues through the identity + hysteresis
@@ -1110,12 +1408,16 @@ impl ReplayContext {
                 .map(|(id, metadata)| (id.clone(), metadata.sport_type.clone()))
                 .collect()
         });
+        let superseded_ids = engine.superseded_section_ids();
+        let mut stored_ids = engine.stored_section_ids();
+        stored_ids.retain(|id| !superseded_ids.contains(id));
         Self {
             config,
             intent_grounds,
             intent_ids,
             accepted_bounds: engine.accepted_section_bounds(),
-            stored_ids: engine.stored_section_ids(),
+            stored_ids,
+            superseded_ids,
             pool: engine.activity_metadata.keys().cloned().collect(),
             sports,
         }
@@ -1511,7 +1813,13 @@ impl ReplaySource<'_> {
                 // view hides (disabled, superseded, accepted) and the
                 // retired included: a mint must never land on one of them.
                 let mut taken: BTreeSet<String> = ctx.stored_ids.clone();
-                taken.extend(source.section_ids.iter().cloned());
+                taken.extend(
+                    source
+                        .section_ids
+                        .iter()
+                        .filter(|id| !ctx.superseded_ids.contains(*id))
+                        .cloned(),
+                );
                 taken.extend(new_rows.values().map(|r| r.real_id.clone()));
                 taken.extend(old_rows.values().map(|r| r.real_id.clone()));
                 taken.extend(old_graves.values().map(|r| r.real_id.clone()));
@@ -1793,6 +2101,17 @@ impl ReplaySource<'_> {
     }
 }
 
+/// The highest row ids of `section_history` and `section_geometry`, so the
+/// rows a save writes are the ones above what it read first.
+pub(super) fn ledger_marks(conn: &Connection) -> rusqlite::Result<(i64, i64)> {
+    conn.query_row(
+        "SELECT (SELECT COALESCE(MAX(id), 0) FROM section_history),
+                (SELECT COALESCE(MAX(rowid), 0) FROM section_geometry)",
+        [],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    )
+}
+
 /// A step's arrivals in the order the debounce counts them: by start date,
 /// then by id, with an activity the store holds no date for after every
 /// dated one.
@@ -1836,22 +2155,12 @@ impl PersistentEngine {
     /// after they promote a section to user-defined. Idempotent: a real id the
     /// registry does not manage is a no-op.
     pub(crate) fn section_identity_relinquish(&mut self, real_id: &str) {
-        let pids: Vec<String> = self
-            .identity
-            .rows
-            .iter()
-            .filter(|(_, r)| r.real_id == real_id)
-            .map(|(pid, _)| pid.clone())
-            .collect();
-        if pids.is_empty() {
-            return;
+        if let Some(base) = self.identity.ingest_base_mut() {
+            relinquish_in(base, real_id);
         }
-        for pid in pids {
-            self.identity.rows.remove(&pid);
-            self.identity.graves.remove(&pid);
-            self.identity.hysteresis.forget(&pid);
+        if relinquish_in(&mut self.identity, real_id) {
+            self.section_identity_persist();
         }
-        self.section_identity_persist();
     }
 
     /// Re-admit an auto section to the registry under its real id, the one-row
@@ -1881,23 +2190,18 @@ impl PersistentEngine {
             return;
         };
 
+        // The registry an open ingest began on is handed the row too, or the
+        // ingest's next run would mint the ground a new id. A refused seed
+        // there leaves it to that run.
+        if let Some(base) = self.identity.ingest_base_mut()
+            && !base.rows.values().any(|r| r.real_id == real_id)
+        {
+            admit_in(base, real_id, Arc::clone(&section));
+        }
         // A reseed rebuilds the hysteresis too, so a seed the registry cannot
         // join needs no undoing.
-        let candidate = CandidateSection::from_section(&section);
-        match self.identity.hysteresis.admit(&candidate) {
-            Some(pid)
-                if !self.identity.rows.contains_key(&pid)
-                    && !self.identity.graves.contains_key(&pid) =>
-            {
-                self.identity.rows.insert(
-                    pid,
-                    IdentityRow {
-                        real_id: real_id.to_string(),
-                        section,
-                    },
-                );
-            }
-            _ => self.section_identity_reseed(),
+        if !admit_in(&mut self.identity, real_id, section) {
+            self.section_identity_reseed();
         }
         self.section_identity_persist();
     }
@@ -1919,6 +2223,42 @@ impl PersistentEngine {
     /// Update the registry and section tier without writing rows.
     pub(crate) fn section_identity_purge_activity_in_memory(&mut self, activity_id: &str) -> bool {
         purge_activity_from_tiers(&mut self.identity, &mut self.sections, activity_id)
+    }
+}
+
+/// Stop carrying `real_id` in `identity`. False when it held no such row.
+fn relinquish_in(identity: &mut SectionIdentity, real_id: &str) -> bool {
+    let pids: Vec<String> = identity
+        .rows
+        .iter()
+        .filter(|(_, r)| r.real_id == real_id)
+        .map(|(pid, _)| pid.clone())
+        .collect();
+    for pid in &pids {
+        identity.rows.remove(pid);
+        identity.graves.remove(pid);
+        identity.hysteresis.forget(pid);
+    }
+    !pids.is_empty()
+}
+
+/// Seed `section` into `identity` as one prior joined to `real_id`. False
+/// when the hysteresis refuses the seed or the registry already holds the id
+/// it minted.
+fn admit_in(identity: &mut SectionIdentity, real_id: &str, section: Arc<FrequentSection>) -> bool {
+    let candidate = CandidateSection::from_section(&section);
+    match identity.hysteresis.admit(&candidate) {
+        Some(pid) if !identity.rows.contains_key(&pid) && !identity.graves.contains_key(&pid) => {
+            identity.rows.insert(
+                pid,
+                IdentityRow {
+                    real_id: real_id.to_string(),
+                    section,
+                },
+            );
+            true
+        }
+        _ => false,
     }
 }
 
@@ -2026,6 +2366,11 @@ pub(crate) fn purge_activity_from_tiers(
         identity.hysteresis.drop_visits(&pid, dropped);
     }
     moved |= identity.seen.remove(activity_id);
+    // The registry an open ingest began on loses it too, or the ingest's next
+    // run would carry the gone activity back from there.
+    if let Some(base) = identity.ingest_base_mut() {
+        moved |= purge_activity_from_tiers(base, &mut Vec::new(), activity_id);
+    }
     for section in sections.iter_mut() {
         if carries(section, activity_id) {
             drop_from(Arc::make_mut(section), activity_id);
@@ -3754,3 +4099,7 @@ mod bulk_ingest_credit;
 #[cfg(test)]
 #[path = "tests/idle_detect.rs"]
 mod idle_detect;
+
+#[cfg(test)]
+#[path = "tests/open_ingest.rs"]
+mod open_ingest;

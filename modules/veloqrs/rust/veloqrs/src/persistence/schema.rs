@@ -11,7 +11,7 @@ use super::{PersistentEngine, codec, sections};
 /// pass and read by the post-migration hooks. `PRAGMA user_version` is the
 /// other record, the one `rusqlite_migration` skips on, and it ends one for
 /// one with the migration list. Hooks <= 7 are dead code for any user on 0.2.2+.
-pub const SUPPORTED_SCHEMA_VERSION: i32 = 71;
+pub const SUPPORTED_SCHEMA_VERSION: i32 = 73;
 
 /// The migration that drops the cutover archive tables, counted from one. The
 /// open carries their rows into the ledger before it runs.
@@ -169,6 +169,10 @@ impl PersistentEngine {
     /// windows that ran across a pause on a track's final step.
     /// M71: a pool swim's lengths and pool length, and every swim owed its
     /// FIT file again so the lengths are read.
+    /// M72: the title and body each native push run posted, so a second run
+    /// for the same ride posts only what is new.
+    /// M73: the geocoded place and name tables and the geocoding settings
+    /// dropped, since no place name is asked of a geocoder any more.
     /// M54: the cutover archive tables dropped, their rows carried into the
     /// section ledger first by [`Self::init_schema`].
     /// The nullable `polyline_json` rebuild is a pragma-guarded hook, not a
@@ -255,6 +259,8 @@ impl PersistentEngine {
             include_str!("../migrations/m20261010_121634_recording_upload_in_doubt.sql"),
             include_str!("../migrations/m20261011_133214_climb_bests_remeasure.sql"),
             include_str!("../migrations/m20261017_214808_pool_swim_lengths.sql"),
+            include_str!("../migrations/m20261018_145637_push_runs_posted_entry.sql"),
+            include_str!("../migrations/m20261018_165153_drop_geocoding.sql"),
         ]
     }
 

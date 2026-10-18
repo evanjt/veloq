@@ -418,12 +418,6 @@ const LICENSE_DATA: LicenseSection[] = [
         description: 'Map data © OpenStreetMap contributors.',
       },
       {
-        name: 'Nominatim',
-        license: 'ODbL',
-        repository: 'https://operations.osmfoundation.org/policies/nominatim/',
-        description: 'Place names © OpenStreetMap contributors.',
-      },
-      {
         name: 'OpenFreeMap',
         license: 'ODbL',
         repository: 'https://openfreemap.org',

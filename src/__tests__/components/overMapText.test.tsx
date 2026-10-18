@@ -6,7 +6,7 @@ import { ActivityCard } from '@/features/activity/components/ActivityCard';
 import { ActivityHeader } from '@/features/activity/components/ActivityHeader';
 import { DetailHero, HeroNameRow, HeroStatsRow } from '@/shared/ui/DetailHero';
 import { opacity, typography } from '@/theme';
-import type { Activity } from '@/types';
+import type { FeedCard } from '@/types';
 
 import { activityRecord } from '../__shared__/activityRecord';
 
@@ -44,13 +44,13 @@ jest.mock('@/features/strength', () => ({
 const activity = {
   id: 'sample-1',
   name: 'Morning ride',
-  type: 'Ride',
-  start_date_local: '2026-08-12T07:30:00',
+  sportType: 'Ride',
+  startDateLocal: '2026-08-12T07:30:00',
   distance: 42000,
-  moving_time: 7200,
-  total_elevation_gain: 450,
-  stream_types: ['latlng'],
-} as Activity;
+  movingTime: 7200,
+  elevationGain: 450,
+  hasGps: true,
+} as FeedCard;
 
 const detail = activityRecord({
   id: 'sample-1',

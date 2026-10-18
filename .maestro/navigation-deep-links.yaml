@@ -22,7 +22,7 @@ tags:
     timeout: 10000
 - takeScreenshot: "screenshots/navigation-deep-links-fitness"
 
-# A link naming a chart opens fitness on the card that draws it
+# A link naming a chart opens fitness on the page and the card that draw it
 - openLink: "veloq://fitness?chart=week"
 - runFlow:
     when:
@@ -33,6 +33,8 @@ tags:
     visible:
       id: "weekly-summary"
     timeout: 15000
+- assertVisible:
+    id: "tab-page-calendar"
 - takeScreenshot: "screenshots/navigation-deep-links-fitness-week"
 
 # Test map deep link

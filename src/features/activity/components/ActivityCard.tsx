@@ -9,7 +9,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
-import type { Activity } from '@/types';
+import type { ActivityType, FeedCard } from '@/types';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { sportMarkColour } from '@/shared/activity/sportCategories';
 import {
@@ -70,7 +70,7 @@ import { FitText } from '@/shared/ui/FitText';
 const log = debug.create('ActivityCard');
 
 interface ActivityCardProps {
-  activity: Activity;
+  activity: FeedCard;
   index?: number | undefined;
   /** Ref to the shared snapshot WebView for 3D terrain previews */
   snapshotRef?: React.RefObject<TerrainSnapshotWebViewRef | null> | undefined;
@@ -206,7 +206,7 @@ export const ActivityCard = React.memo(
   }: ActivityCardProps) {
     // Log actual function body execution (not useEffect which is deferred)
     if (__DEV__ && (index ?? 0) < 3) {
-      log.log(`  🃏 ActivityCard[${index}] BODY executing (${activity.type})`);
+      log.log(`  🃏 ActivityCard[${index}] BODY executing (${activity.sportType})`);
     }
     const { t } = useTranslation();
     const { isDark } = useTheme();
@@ -214,8 +214,8 @@ export const ActivityCard = React.memo(
     const isMetric = useMetricSystem();
     const [menuVisible, setMenuVisible] = useState(false);
     const largeText = useLargeText();
-    const averageHeartRate = activity.average_heartrate;
-    const averagePower = activity.icu_average_watts;
+    const averageHeartRate = activity.avgHr;
+    const averagePower = activity.avgPower;
     useEffect(() => {
       freshLoginTimeline.mark('firstCard');
     }, []);
@@ -281,11 +281,13 @@ export const ActivityCard = React.memo(
     }, []);
 
     const { getStyleForActivity } = useMapPreferences();
-    const activityColor = sportMarkColour(activity.type, isDark);
-    const iconName = getActivityIcon(activity.type);
-    const mapStyle = getStyleForActivity(activity.type, activity.id);
+    // A body with no sport falls back to Other in every helper, as it always has.
+    const sport = activity.sportType as ActivityType;
+    const activityColor = sportMarkColour(sport, isDark);
+    const iconName = getActivityIcon(sport);
+    const mapStyle = getStyleForActivity(sport, activity.id);
     const theme = getGradientTheme(isDark, mapStyle);
-    const hasGpsData = activity.stream_types?.includes('latlng');
+    const hasGpsData = activity.hasGps;
 
     const compactTextColor = isDark ? darkColors.textPrimary : colors.textPrimary;
     const compactMutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
@@ -325,11 +327,11 @@ export const ActivityCard = React.memo(
           onPress={handlePress}
           style={styles.secondaryStats}
         >
-          {!!activity.icu_training_load && (
+          {!!activity.trainingLoad && (
             <View style={styles.secondaryStat}>
               <Icon name="fire" size={iconSize.sm} color={palette.actionPrimary} />
               <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
-                {formatLoad(activity.icu_training_load)}
+                {formatLoad(activity.trainingLoad)}
               </RNText>
             </View>
           )}
@@ -365,11 +367,11 @@ export const ActivityCard = React.memo(
               </RNText>
             </View>
           )}
-          {activity.has_weather && activity.average_weather_temp != null ? (
+          {activity.hasWeather && activity.averageWeatherTemp != null ? (
             <View style={styles.secondaryStat}>
               <Icon name="weather-partly-cloudy" size={iconSize.sm} color={colors.actionLink} />
               <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
-                {formatTemperature(activity.average_weather_temp, isMetric)}
+                {formatTemperature(activity.averageWeatherTemp, isMetric)}
               </RNText>
             </View>
           ) : null}
@@ -399,7 +401,7 @@ export const ActivityCard = React.memo(
 
     // The feed reads every strength card's summary in one engine call and hands
     // each card its own.
-    const isStrength = activity.type === 'WeightTraining';
+    const isStrength = activity.sportType === 'WeightTraining';
 
     if (isStrength && strengthData) {
       return <StrengthActivityCard activity={activity} strengthData={strengthData} />;
@@ -446,7 +448,7 @@ export const ActivityCard = React.memo(
                       />
                     </View>
                     <FitText style={[styles.compactDateSubtitle, { color: compactMutedColor }]}>
-                      {formatRelativeDateTime(activity.start_date_local)}
+                      {formatRelativeDateTime(activity.startDateLocal)}
                     </FitText>
                   </View>
                 </View>
@@ -486,8 +488,8 @@ export const ActivityCard = React.memo(
                 </View>
 
                 {/* Skyline bar or divider */}
-                {activity.skyline_chart_bytes ? (
-                  <SkylineBar skylineBytes={activity.skyline_chart_bytes} isDark={isDark} />
+                {activity.skylineChartBytes ? (
+                  <SkylineBar skylineBytes={activity.skylineChartBytes} isDark={isDark} />
                 ) : (
                   <View style={[styles.dividerLine, { backgroundColor: compactDividerColor }]} />
                 )}
@@ -579,7 +581,7 @@ export const ActivityCard = React.memo(
                 { color: textTheme.textSecondary, textShadowColor: textTheme.shadow },
               ]}
             >
-              {formatRelativeDateTime(activity.start_date_local)}
+              {formatRelativeDateTime(activity.startDateLocal)}
             </FitText>
           </View>
           {largeText ? null : routeChip}
@@ -714,8 +716,8 @@ export const ActivityCard = React.memo(
             </View>
           ) : null}
         </PressTarget>
-        {activity.skyline_chart_bytes ? (
-          <SkylineBar skylineBytes={activity.skyline_chart_bytes} isDark={isDark} />
+        {activity.skylineChartBytes ? (
+          <SkylineBar skylineBytes={activity.skylineChartBytes} isDark={isDark} />
         ) : (
           <View style={[styles.dividerLine, { backgroundColor: textTheme.divider }]} />
         )}

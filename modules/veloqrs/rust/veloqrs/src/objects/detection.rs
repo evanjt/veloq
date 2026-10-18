@@ -344,7 +344,6 @@ pub(crate) fn settle_finished_worker(slot: &Arc<crate::persistence::CheckpointSl
     } else if applied {
         record_run_outcome(slot, OUTCOME_COMPLETE);
         settle_claimed_detect(slot, Release::Done);
-        crate::net::place_names::name_new_items();
     } else {
         record_run_outcome(slot, OUTCOME_ERROR);
         settle_claimed_detect(
@@ -527,7 +526,6 @@ fn poll_detection_once_inner(
                 crate::persistence::WorkerApply::Landed => {
                     info!("veloqrs: [DetectionManager] Section detection complete");
                     settle_claimed_detect(&slot, Release::Done);
-                    crate::net::place_names::name_new_items();
                     Ok(DetectionPoll::Applied)
                 }
                 crate::persistence::WorkerApply::Caller

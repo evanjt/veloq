@@ -37,8 +37,6 @@ export interface SectionDetailBundle {
   history: SectionDetailData['history'];
   geometryVersions: SectionDetailData['geometryVersions'];
   pinnedVersion: SectionDetailData['pinnedVersion'];
-  /** Whether the athlete may ask for a name from the section's places. */
-  canNameFromPlaces: boolean;
 }
 
 /** How a section that no longer has a row left the catalogue. */
@@ -70,7 +68,6 @@ function fetchSectionDetailData(engine: Engine, sectionId: string): SectionDetai
       history: result.history,
       geometryVersions: result.geometryVersions,
       pinnedVersion: result.pinnedVersion,
-      canNameFromPlaces: result.canNameFromPlaces,
     }),
     (result) => !result.section
   );

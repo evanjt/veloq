@@ -7,7 +7,7 @@
 // on Android needs a Kotlin component in the app build, a Proguard keep rule and
 // `rustls_platform_verifier::android::init_with_env` before the first request.
 // Without them the crate compiles for every target and every HTTPS request the
-// engine makes fails on the handset: sync, map tiles and geocoding alike.
+// engine makes fails on the handset: sync and map tiles alike.
 //
 // Dependabot reads 0.12 to 0.13 as a minor step and would open it as a pull
 // request of its own, where the dropped `rustls-tls` feature fails the build

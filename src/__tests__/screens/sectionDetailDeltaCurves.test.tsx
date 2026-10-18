@@ -14,7 +14,9 @@ import React from 'react';
 import { act, fireEvent, render } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { FfiSectionPerformanceData } from 'veloqrs';
-import SectionDetailScreen from '@/app/section/[id]';
+import { sectionCardInHost } from '../__shared__/sectionCardInHost';
+
+const SectionDetailScreen = sectionCardInHost();
 
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
@@ -166,7 +168,6 @@ const mockEngine = {
     missingTimeStreamIds: [],
     history: [],
     geometryVersions: [],
-    canNameFromPlaces: false,
   })),
   getSectionDetailPerformance: jest.fn((_id: string, _days: number, sport?: string) =>
     performanceRead(mockCurves, mockCurvesPending, sport)

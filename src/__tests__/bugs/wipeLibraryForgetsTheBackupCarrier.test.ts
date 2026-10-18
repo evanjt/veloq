@@ -1388,7 +1388,6 @@ const DEVICE_WRITES: DeviceWrite[] = [
     writers: [
       'src/shared/app/UnitPreferenceStore.ts',
       'src/shared/app/LanguageStore.ts',
-      'src/i18n/placeNameWords.ts',
       'src/shared/app/ThemeProvider.ts',
       'src/features/fitness/stores/SportPreferenceStore.ts',
       'src/features/settings/stores/summaryCardPreferences.ts',

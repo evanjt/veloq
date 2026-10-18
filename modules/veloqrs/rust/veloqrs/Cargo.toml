@@ -90,7 +90,7 @@ sha2 = "0.11"
 image = { version = "0.25", default-features = false, features = ["png"] }
 # Local mock HTTP server for request-path / endpoint tests (services mocked).
 httpmock = "0.8"
-tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros", "time"] }
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros", "time", "test-util"] }
 # Edits a named msgpack blob without its Rust type, to write one in an older shape.
 rmpv = "1"
 

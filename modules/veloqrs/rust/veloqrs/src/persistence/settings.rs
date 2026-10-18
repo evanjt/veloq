@@ -75,33 +75,6 @@ pub mod settings_keys {
     /// switch must not read as opted out.
     pub const DETECTION_ENABLED: &str = "__detection_enabled";
 
-    /// Whether the athlete has agreed to send points to the geocoder for place
-    /// names. Absent means no: nothing leaves the device until they say so.
-    /// Not carried by a backup, so a restore never turns it on for them, and
-    /// cleared with the library, so the next athlete to sign in has not
-    /// agreed either.
-    pub const GEOCODING_ENABLED: &str = "__geocoding_enabled";
-
-    /// When geocoding was last turned on, in epoch milliseconds. Only ground
-    /// ridden after this is named unasked, so turning it on starts no pass
-    /// over the library.
-    pub const GEOCODING_ENABLED_AT: &str = "__geocoding_enabled_at";
-
-    /// The last worker geocoder response and when it arrived, as one JSON row.
-    pub const GEOCODER_CONFIG: &str = "__geocoder_config";
-
-    /// Until when the geocoder sends nothing, in epoch milliseconds, because
-    /// its provider throttled, blocked or failed the last request. It belongs
-    /// to the device that was refused rather than to the library, so a clear
-    /// leaves it, and kept in the file so a relaunch does not ask again early.
-    pub const GEOCODER_REFUSED_UNTIL: &str = "__geocoder_refused_until";
-
-    /// The words a geocoded name is put together with and the language tag
-    /// the lookups are asked in, as the JSON `geocoded_names::PlaceNameWords`
-    /// reads. The app stores it whenever it resolves its language, so a
-    /// naming pass with no JavaScript alive still names in that language.
-    pub const PLACE_NAME_WORDS: &str = "__place_name_words";
-
     /// Where the athlete lives, and how much of a track around it an export
     /// leaves behind. Absent or a zero radius means an export is exactly what
     /// it was before this existed.
@@ -427,18 +400,6 @@ pub fn section_config_from(conn: &rusqlite::Connection) -> SqlResult<tracematch:
     Ok(config)
 }
 
-/// Whether geocoding is on, from a connection that holds no engine lock.
-/// Anything but "1", a failed read included, reads as off.
-pub fn geocoding_enabled_from(conn: &rusqlite::Connection) -> bool {
-    matches!(
-        setting_from(conn, settings_keys::GEOCODING_ENABLED)
-            .ok()
-            .flatten()
-            .as_deref(),
-        Some("1")
-    )
-}
-
 /// The cached athlete profile JSON from a connection that holds no engine
 /// lock, or `None` when none is cached or the read fails.
 pub fn athlete_profile_from(conn: &rusqlite::Connection) -> Option<String> {
@@ -596,46 +557,6 @@ impl PersistentEngine {
             settings_keys::DETECTION_ENABLED,
             if enabled { "1" } else { "0" },
         )
-    }
-
-    /// Whether the athlete has agreed to geocoding. Only "1" reads as yes: a
-    /// lost or unreadable setting has to fail closed, because the feature
-    /// sends their points to a third party.
-    pub fn geocoding_enabled(&self) -> bool {
-        geocoding_enabled_from(&self.db)
-    }
-
-    /// When geocoding was last turned on, in epoch milliseconds, or `None`
-    /// when it never has been.
-    pub fn geocoding_enabled_at(&self) -> SqlResult<Option<i64>> {
-        Ok(self
-            .get_setting(settings_keys::GEOCODING_ENABLED_AT)?
-            .and_then(|raw| raw.parse().ok()))
-    }
-
-    /// Turn geocoding on or off. Turning it on from off stamps the moment;
-    /// turning it on while it is already on keeps the stamp it has, so a
-    /// screen re-writing the switch does not move it. Turning it off keeps
-    /// the stamp, which reads as nothing while the switch is off.
-    ///
-    /// The routes held in memory take their shown names again, since a
-    /// geocoded name shows only while the switch is on.
-    pub fn set_geocoding_enabled(&mut self, enabled: bool) -> SqlResult<()> {
-        if enabled == self.geocoding_enabled() {
-            return Ok(());
-        }
-        let mut pairs = vec![(
-            settings_keys::GEOCODING_ENABLED.to_string(),
-            if enabled { "1" } else { "0" }.to_string(),
-        )];
-        if enabled {
-            pairs.push((
-                settings_keys::GEOCODING_ENABLED_AT.to_string(),
-                super::attempts::now_ms().to_string(),
-            ));
-        }
-        self.set_settings(&pairs)?;
-        self.apply_route_names()
     }
 
     /// Store the notification templates JavaScript resolved for the locale it

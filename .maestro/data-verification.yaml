@@ -27,7 +27,10 @@ tags:
 - runFlow:
     file: helpers/navigate-to-fitness.yaml
 
-# WeeklySummary sits below the fitness and wellness charts, under the fold.
+# The week, the calendar and the year comparison are on the calendar page.
+- tapOn:
+    id: "tab-calendar"
+
 - runFlow:
     file: helpers/reveal.yaml
     env:

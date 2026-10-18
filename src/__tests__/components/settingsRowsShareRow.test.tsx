@@ -66,7 +66,6 @@ jest.mock('@/features/settings/components', () => ({
   BackgroundJobsActivityBar: () => null,
   ElevationBackfillStatus: () => null,
   CutoverStatus: () => null,
-  PlaceNamesSwitch: () => null,
 }));
 jest.mock('@tanstack/react-query', () => ({
   ...jest.requireActual('@tanstack/react-query'),

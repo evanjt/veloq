@@ -8,53 +8,6 @@ pub struct SettingPair {
     pub value: String,
 }
 
-/// What the athlete asks to have named from its places. The discriminants
-/// start at one so no member is falsy.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
-#[repr(u8)]
-pub enum FfiPlaceNameKind {
-    Route = 1,
-    Section = 2,
-}
-
-impl From<FfiPlaceNameKind> for crate::persistence::geocoded_names::NamedKind {
-    fn from(kind: FfiPlaceNameKind) -> Self {
-        match kind {
-            FfiPlaceNameKind::Route => Self::Route,
-            FfiPlaceNameKind::Section => Self::Section,
-        }
-    }
-}
-
-/// What asking for one item's place name came to. The discriminants start at
-/// one so no member is falsy.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
-#[repr(u8)]
-pub enum FfiPlaceNameOutcome {
-    /// The item now shows the name.
-    Named = 1,
-    /// The provider named no place there; the item keeps what it showed.
-    NoPlace = 2,
-    /// The lookup could not be sent or had no answer; the item keeps what it
-    /// showed.
-    Failed = 3,
-    /// Geocoding is off, the item has a typed name or it has no line. Nothing
-    /// was sent.
-    Refused = 4,
-}
-
-impl From<crate::net::place_names::OnDemand> for FfiPlaceNameOutcome {
-    fn from(outcome: crate::net::place_names::OnDemand) -> Self {
-        use crate::net::place_names::OnDemand;
-        match outcome {
-            OnDemand::Named => Self::Named,
-            OnDemand::NoPlace => Self::NoPlace,
-            OnDemand::Failed => Self::Failed,
-            OnDemand::Refused => Self::Refused,
-        }
-    }
-}
-
 #[derive(uniffi::Object)]
 pub struct SettingsManager {
     pub(crate) _private: (),
@@ -281,57 +234,6 @@ impl SettingsManager {
         Ok(())
     }
 
-    /// Whether the athlete has agreed to send points to the geocoder for place
-    /// names. Off until they turn it on.
-    fn geocoding_enabled(&self) -> Result<bool, VeloqError> {
-        with_reader(crate::persistence::settings::geocoding_enabled_from)
-    }
-
-    /// Turn geocoding on or off. Turning it on stamps the moment, and only
-    /// what appears after it is named.
-    fn set_geocoding_enabled(&self, enabled: bool) -> Result<(), VeloqError> {
-        with_engine(|e| {
-            e.set_geocoding_enabled(enabled)
-                .map_err(|e| VeloqError::Database {
-                    msg: format!("{}", e),
-                })
-        })?
-    }
-
-    /// Name one route or section from the places it starts and ends in,
-    /// because the athlete asked for that item, whether or not it existed
-    /// before geocoding was turned on. Refuses, sending nothing, while
-    /// geocoding is off or when the item has a typed name.
-    ///
-    /// The lookup waits its turn behind any other in the engine, so this
-    /// resolves once it has been answered, off the calling thread.
-    async fn name_from_places(
-        &self,
-        kind: FfiPlaceNameKind,
-        item_id: String,
-    ) -> FfiPlaceNameOutcome {
-        crate::runtime::ASYNC_RUNTIME
-            .spawn(async move {
-                let geocoder = match crate::net::geocode::Geocoder::new() {
-                    Ok(geocoder) => geocoder,
-                    Err(e) => {
-                        log::warn!("veloqrs: [PlaceNames] {e}");
-                        return FfiPlaceNameOutcome::Failed;
-                    }
-                };
-                crate::net::place_names::name_on_demand(
-                    &geocoder,
-                    geocoder.configured_endpoint(),
-                    kind.into(),
-                    &item_id,
-                )
-                .await
-                .into()
-            })
-            .await
-            .unwrap_or(FfiPlaceNameOutcome::Failed)
-    }
-
     /// Bytes the stream store holds, for the cache readout.
     fn stream_store_bytes(&self) -> Result<f64, VeloqError> {
         with_reader(|conn| {
@@ -380,19 +282,6 @@ mod tests {
         })
         .unwrap();
         assert_eq!(starts, 1);
-    }
-
-    #[test]
-    fn geocoding_reads_off_until_it_is_turned_on() {
-        let _guard = serial_global_state();
-        let _tmp = init_global_engine("geocoding_setting.db");
-        let settings = SettingsManager::new();
-
-        assert!(!settings.geocoding_enabled().unwrap());
-        settings.set_geocoding_enabled(true).unwrap();
-        assert!(settings.geocoding_enabled().unwrap());
-        settings.set_geocoding_enabled(false).unwrap();
-        assert!(!settings.geocoding_enabled().unwrap());
     }
 
     #[test]

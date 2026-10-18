@@ -22,8 +22,6 @@ import type {
   FfiActivityStreams,
   FfiActivityNotification,
   FfiUploadResult,
-  FfiPlaceNameKind,
-  FfiPlaceNameOutcome,
   FfiExerciseActivities,
   FfiExerciseSession,
   FfiExerciseDetailData,
@@ -59,6 +57,8 @@ import type {
   FfiRoutesScreenQuery,
   FfiActivityBodiesPage,
   FfiActivityRecord,
+  FfiFeedCard,
+  FfiFeedCardsPage,
   FfiMatchStrictness,
   FfiSectionConfig,
   FfiIndexActivitySummary,
@@ -1201,9 +1201,11 @@ class EngineClient implements DelegateHost {
   getActivityBodies = (oldestTs: number, newestTs: number): FfiActivityBodiesPage | undefined =>
     activityDelegates.getActivityBodies(this, oldestTs, newestTs);
 
-  searchActivityBodies = (
-    query: activityDelegates.ActivityBodiesSearch
-  ): FfiActivityBodiesPage | undefined => activityDelegates.searchActivityBodies(this, query);
+  getFeedCards = (oldestTs: number, newestTs: number): FfiFeedCard[] =>
+    activityDelegates.getFeedCards(this, oldestTs, newestTs);
+
+  searchFeedCards = (query: activityDelegates.FeedCardsSearch): FfiFeedCardsPage | undefined =>
+    activityDelegates.searchFeedCards(this, query);
 
   upsertActivityBodies = (rows: activityDelegates.ActivityBodyInput[]): void =>
     activityDelegates.upsertActivityBodies(this, rows);
@@ -1302,15 +1304,6 @@ class EngineClient implements DelegateHost {
   setSetting = (key: string, value: string): void => settingsDelegates.setSetting(this, key, value);
 
   setSettings = (pairs: SettingPair[]): void => settingsDelegates.setSettings(this, pairs);
-
-  getGeocodingEnabled = (): boolean => settingsDelegates.getGeocodingEnabled(this);
-
-  setGeocodingEnabled = (enabled: boolean): void =>
-    settingsDelegates.setGeocodingEnabled(this, enabled);
-
-  /** Name one route or section from its places, on the athlete's request. */
-  nameFromPlaces = (kind: FfiPlaceNameKind, itemId: string): Promise<FfiPlaceNameOutcome> =>
-    settingsDelegates.nameFromPlaces(this, kind, itemId);
 
   setNotificationTemplates = (locale: string, templates: SettingPair[]): boolean =>
     settingsDelegates.setNotificationTemplates(this, locale, templates);

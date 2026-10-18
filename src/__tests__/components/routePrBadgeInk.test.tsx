@@ -14,7 +14,7 @@ import { ActivityCard } from '@/features/activity/components/ActivityCard';
 import { RecentEffortsList } from '@/features/insights/components/content/RecentEffortsList';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 import { badgePaint } from '@/shared/ui/Badge';
-import type { Activity } from '@/types';
+import type { FeedCard } from '@/types';
 import { contrastRatio } from '../__shared__/contrast';
 
 const mockScheme = { current: 'light' as 'light' | 'dark' };
@@ -56,13 +56,13 @@ jest.mock('@/shared/app/navigation', () => ({
 const activity = {
   id: 'sample-7',
   name: 'Harbour loop',
-  type: 'Ride',
-  start_date_local: '2026-08-12T07:30:00',
+  sportType: 'Ride',
+  startDateLocal: '2026-08-12T07:30:00',
   distance: 42000,
-  moving_time: 7200,
-  total_elevation_gain: 450,
-  stream_types: ['latlng'],
-} as Activity;
+  movingTime: 7200,
+  elevationGain: 450,
+  hasGps: true,
+} as FeedCard;
 
 const flat = (style: unknown) =>
   (StyleSheet.flatten(style as never) ?? {}) as Record<string, unknown>;

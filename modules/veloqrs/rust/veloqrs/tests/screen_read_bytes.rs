@@ -20,10 +20,11 @@ use std::cell::Cell;
 use tracematch::GpsPoint;
 use veloqrs::sections::CreateSectionParams;
 use veloqrs::{
-    ActivityMetrics, FfiActivityDetailData, FfiBestEffortsData, FfiFitnessScreenData,
-    FfiFitnessScreenWindows, FfiMapScreenData, FfiRouteDetailData, FfiRoutesScreenData,
-    FfiRoutesScreenQuery, FfiSectionDetailData, FfiSectionPerformanceData, FfiStartupData,
-    FfiTimestampRange, MapDistanceBand, PersistentEngine, UniFfiTag,
+    ActivityMetrics, FfiActivityBodiesQuery, FfiActivityDetailData, FfiBestEffortsData,
+    FfiFeedCardsPage, FfiFitnessScreenData, FfiFitnessScreenWindows, FfiMapScreenData,
+    FfiRouteDetailData, FfiRoutesScreenData, FfiRoutesScreenQuery, FfiSectionDetailData,
+    FfiSectionPerformanceData, FfiStartupData, FfiTimestampRange, MapDistanceBand,
+    PersistentEngine, UniFfiTag,
 };
 
 // ------------------------------------------------------------ allocator
@@ -130,6 +131,15 @@ fn seeded(activities: usize) -> PersistentEngine {
                 ..ActivityMetrics::default()
             }])
             .expect("metrics");
+        engine
+            .upsert_activity_bodies(&[(
+                id.clone(),
+                NOW - (i as i64) * DAY,
+                format!(
+                    r#"{{"id":"{id}","name":"Ride {i}","type":"Ride","distance":12345.0,"moving_time":3600,"elapsed_time":3700,"total_elevation_gain":100.0,"stream_types":["latlng","time"]}}"#
+                ),
+            )])
+            .expect("body");
         if i % ACTIVITIES_PER_SECTION == 0 {
             engine
                 .create_section(CreateSectionParams {
@@ -240,7 +250,6 @@ fn section_detail(v: FfiSectionDetailData) -> Lowered {
         history => |v: &FfiSectionDetailData| v.history.len(),
         geometry_versions => |v: &FfiSectionDetailData| v.geometry_versions.len(),
         pinned_version,
-        can_name_from_places,
     )
 }
 
@@ -279,7 +288,6 @@ fn route_detail(v: FfiRouteDetailData) -> Lowered {
         excluded_activity_ids => |v: &FfiRouteDetailData| v.excluded_activity_ids.len(),
         map_signatures => |v: &FfiRouteDetailData| v.map_signatures.len(),
         missing_time_stream_ids => |v: &FfiRouteDetailData| v.missing_time_stream_ids.len(),
-        can_name_from_places,
     )
 }
 
@@ -360,6 +368,14 @@ fn best_efforts(v: FfiBestEffortsData) -> Lowered {
     lower!(FfiBestEffortsData, v;
         sports => |v: &FfiBestEffortsData| v.sports.len(),
         climbing => |v: &FfiBestEffortsData| v.climbing.len(),
+    )
+}
+
+fn feed_cards(v: FfiFeedCardsPage) -> Lowered {
+    lower!(FfiFeedCardsPage, v;
+        cards => |v: &FfiFeedCardsPage| v.cards.len(),
+        matched_count,
+        has_more,
     )
 }
 
@@ -492,6 +508,22 @@ fn reads() -> Vec<(&'static str, Shape, Read)> {
             measure(
                 || e.best_efforts_data(0, NOW).expect("best efforts"),
                 best_efforts,
+            )
+        }),
+        ("feed_cards", Shape::Listing, |e, _| {
+            measure(
+                || {
+                    e.feed_cards(&FfiActivityBodiesQuery {
+                        oldest_ts: None,
+                        newest_ts: None,
+                        needle: String::new(),
+                        sport_families: vec![],
+                        offset: 0,
+                        limit: None,
+                    })
+                    .expect("feed cards")
+                },
+                feed_cards,
             )
         }),
     ]

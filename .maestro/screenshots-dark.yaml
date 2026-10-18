@@ -48,9 +48,11 @@ tags:
     timeout: 15000
 - takeScreenshot: "screenshots/02-fitness-dark"
 
-# Screenshot 3: Training Calendar, on the fitness tab below the fitness chart
+# Screenshot 3: Training Calendar, on the fitness tab's calendar page
 - runFlow:
     file: helpers/navigate-to-fitness.yaml
+- tapOn:
+    id: "tab-calendar"
 - runFlow:
     file: helpers/reveal.yaml
     env:

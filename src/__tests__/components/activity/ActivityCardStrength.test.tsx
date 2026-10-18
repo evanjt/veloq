@@ -10,7 +10,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react-native';
 
 import { ActivityCard } from '@/features/activity/components/ActivityCard';
-import type { Activity } from '@/types';
+import type { FeedCard } from '@/types';
 
 const mockGetEngine = jest.fn(() => null);
 jest.mock('@/shared/native/engine', () => ({
@@ -57,11 +57,11 @@ jest.mock('@/features/activity/components/ActivityMapPreview', () => ({
 const lift = {
   id: 's1',
   name: 'Push day',
-  type: 'WeightTraining',
-  start_date_local: '2026-08-12T07:30:00',
-  moving_time: 3600,
-  stream_types: [],
-} as unknown as Activity;
+  sportType: 'WeightTraining',
+  startDateLocal: '2026-08-12T07:30:00',
+  movingTime: 3600,
+  hasGps: false,
+} as FeedCard;
 
 const strengthData = { muscles: [], exerciseCount: 3, setCount: 9, totalWeight: 2400 };
 

@@ -42,6 +42,22 @@ class ActivityPushResponseTest {
   }
 
   @Test
+  fun an_entry_the_tray_already_holds_is_not_posted_again_and_still_refreshes_the_widget() {
+    val repeat = ActivityPushResponse.resolve("""{"title":"New PR","body":"Hill climb","repeat":true}""", null, { fallback })
+    assertFalse(repeat.posts)
+    assertTrue(repeat.refreshesWidget)
+    assertNull(repeat.failureReason)
+  }
+
+  @Test
+  fun a_new_entry_or_the_plain_one_after_a_failure_is_posted() {
+    assertTrue(ActivityPushResponse.resolve("""{"title":"New PR","body":"Hill climb"}""", null, { fallback }).posts)
+    assertTrue(ActivityPushResponse.resolve("""{"title":"New PR","body":"Hill climb","repeat":false}""", null, { fallback }).posts)
+    assertTrue(ActivityPushResponse.resolve(null, "engine refused", { fallback }).posts)
+    assertFalse(ActivityPushResponse.resolve("""{"skip":true}""", null, { fallback }).posts)
+  }
+
+  @Test
   fun a_refusal_or_a_failed_run_leaves_the_widget_alone() {
     assertFalse(ActivityPushResponse.resolve("""{"skip":true}""", null, { fallback }).refreshesWidget)
     assertFalse(ActivityPushResponse.resolve(null, null, { fallback }).refreshesWidget)

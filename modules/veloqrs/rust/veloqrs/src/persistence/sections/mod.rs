@@ -1059,6 +1059,7 @@ impl PersistentEngine {
         for id in activity_ids {
             self.processed_activity_ids.insert(id.clone());
         }
+        self.settle_open_ingest();
         Ok(())
     }
 
@@ -1908,7 +1909,7 @@ impl PersistentEngine {
     /// mutation makes. Only a detect re-cuts geometry, so only a detect can
     /// carry the catalogue from one detector generation to the next.
     fn write_catalogue(
-        &self,
+        &mut self,
         events: &[identity::SectionLifecycleEvent],
         from_detect: bool,
     ) -> SqlResult<HashSet<String>> {
@@ -1960,6 +1961,16 @@ impl PersistentEngine {
                 history::record_algorithm_change_on(&tx, &id, Some(&prior), Some(&from), &to)?;
             }
         }
+
+        // A run of an open ingest replays the rides the run before it
+        // replayed, from the same registry, so the ledger rows that run wrote
+        // are taken back and this run writes the ingest's own.
+        let ledger_from = if from_detect && self.identity.ingest_base().is_some() {
+            self.identity.take_back_superseded(&tx)?;
+            Some(identity::ledger_marks(&tx)?)
+        } else {
+            None
+        };
 
         // What an adoption is about to replace: the line, reference and length
         // each derived section holds now. The identity apply fires no event
@@ -2372,17 +2383,6 @@ impl PersistentEngine {
         reapply_auto_exclusions(&tx, &carried_exclusions)?;
         release_placed_auto_exclusions(&tx, held_exclusions)?;
 
-        // Write the identity-registry blob in THIS transaction so the
-        // registry and the catalogue it describes commit (or roll back) together.
-        if let Some(blob) = self.section_identity_blob() {
-            tx.execute(
-                "INSERT INTO identity_state (key, blob, updated_at)
-                 VALUES (?, ?, datetime('now'))
-                 ON CONFLICT(key) DO UPDATE SET blob = excluded.blob, updated_at = excluded.updated_at",
-                params![identity::SECTION_IDENTITY_KEY, blob],
-            )?;
-        }
-
         if let Some(before) = names_before {
             history::record_name_moves_on(&tx, &before, &named::compute::compute_overlay(&tx))?;
         }
@@ -2435,6 +2435,24 @@ impl PersistentEngine {
                 }
                 record_adoption(&tx, section, outgoing)?;
             }
+        }
+
+        // The rows this run wrote are the ones the next run of the ingest
+        // takes back, so the registry names them before it is written.
+        if let Some(from) = ledger_from {
+            let to = identity::ledger_marks(&tx)?;
+            self.identity.record_superseded(from, to);
+        }
+
+        // Write the identity-registry blob in THIS transaction so the
+        // registry and the catalogue it describes commit (or roll back) together.
+        if let Some(blob) = self.section_identity_blob() {
+            tx.execute(
+                "INSERT INTO identity_state (key, blob, updated_at)
+                 VALUES (?, ?, datetime('now'))
+                 ON CONFLICT(key) DO UPDATE SET blob = excluded.blob, updated_at = excluded.updated_at",
+                params![identity::SECTION_IDENTITY_KEY, blob],
+            )?;
         }
 
         // Provenance of the catalogue this transaction stores: which detector

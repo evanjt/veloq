@@ -2,13 +2,13 @@
  * Scenario: the wellness read throws while curves, bests, zones, decoupling, the week, the
  * calendar and the year comparison read their own.
  *
- * Expected behaviour: the screen keeps its header items, range selector, pull to refresh and
- * every section and card, and only the fitness chart card and the wellness trends card show the
- * read failure with a Retry.
+ * Expected behaviour: the screen keeps its header items, range selector, pull to refresh on every
+ * page and every section and card on its page, and only the fitness chart card and the wellness
+ * trends card show the read failure with a Retry.
  */
 import React from 'react';
 import { RefreshControl } from 'react-native';
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import { RangeCoverage } from 'veloqrs';
 
 import FitnessScreen from '@/app/(tabs)/fitness';
@@ -140,15 +140,24 @@ function runFrames() {
     return frames.length;
   });
   const cancel = jest.spyOn(global, 'cancelAnimationFrame').mockImplementation(jest.fn());
+  let time = 0;
   return {
+    // The pager's animations run on these frames too, so each frame is a
+    // frame later than the last or a timed animation never ends.
     flush: async () => {
-      while (frames.length > 0) await act(() => frames.shift()?.(0));
+      while (frames.length > 0) await act(() => frames.shift()?.((time += 16)));
     },
     restore: () => {
       request.mockRestore();
       cancel.mockRestore();
     },
   };
+}
+
+async function visit(place: string, frames: ReturnType<typeof runFrames>) {
+  await fireEvent.press(screen.getByTestId(`tab-${place}`));
+  await frames.flush();
+  return within(screen.getByTestId(`tab-page-${place}`));
 }
 
 beforeEach(() => {
@@ -164,14 +173,21 @@ describe('fitness tab with the wellness read failing', () => {
       await render(<FitnessScreen />);
       await frames.flush();
       expect(screen.getByTestId('native-header-right')).toBeTruthy();
-      expect(screen.getByTestId('time-range')).toBeTruthy();
-      expect(screen.UNSAFE_getAllByType(RefreshControl)).toHaveLength(1);
-      expect(screen.getByTestId('fitness-chart-canvas')).toBeTruthy();
-      expect(screen.getByTestId('performance-curves')).toBeTruthy();
-      expect(screen.getByTestId('fitness-trends')).toBeTruthy();
-      expect(screen.getByTestId('weekly-summary')).toBeTruthy();
-      expect(screen.getByTestId('activity-heatmap-canvas')).toBeTruthy();
-      expect(screen.getByTestId('season-comparison')).toBeTruthy();
+      const fitness = within(screen.getByTestId('tab-page-fitness'));
+      expect(fitness.getByTestId('time-range')).toBeTruthy();
+      expect(fitness.getByTestId('fitness-chart-canvas')).toBeTruthy();
+
+      const calendar = await visit('calendar', frames);
+      expect(calendar.getByTestId('weekly-summary')).toBeTruthy();
+      expect(calendar.getByTestId('activity-heatmap-canvas')).toBeTruthy();
+      expect(calendar.getByTestId('season-comparison')).toBeTruthy();
+      const performance = await visit('performance', frames);
+      expect(performance.getByTestId('time-range')).toBeTruthy();
+      expect(performance.getByTestId('performance-curves')).toBeTruthy();
+      const trends = await visit('trends', frames);
+      expect(trends.getByTestId('time-range')).toBeTruthy();
+      expect(trends.getByTestId('fitness-trends')).toBeTruthy();
+      expect(screen.UNSAFE_getAllByType(RefreshControl)).toHaveLength(4);
       expect(mockCardProps.at(-1)).toEqual(
         expect.objectContaining({ readError: mockError, onRetry: expect.any(Function) })
       );

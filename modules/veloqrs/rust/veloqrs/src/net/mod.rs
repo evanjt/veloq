@@ -50,9 +50,3 @@ pub mod upload_schedule;
 
 /// One recording's upload, from the begin to the effort.
 pub mod upload_recording;
-
-/// A place name for a point, asked of the one geocoder the app is told to use.
-pub mod geocode;
-
-/// Names new routes and sections from the places they start and end in.
-pub mod place_names;

@@ -118,7 +118,7 @@ async function renderFeed(fontScale = 1) {
   mockFontScale.current = fontScale;
   (getEngine as jest.Mock).mockReturnValue({
     getActivityHighlightsBundle: () => ({ indicators: [], routeHighlights: [], newGround: [] }),
-    searchActivityBodies: () => ({ bodies: [], intervalsIds: [], matchedCount: 0, hasMore: false }),
+    searchFeedCards: () => ({ cards: [], matchedCount: 0, hasMore: false }),
     getSyncStatus: () => ({ state: 0, inFlight: 0, completed: 0, total: 0 }),
     subscribe: () => () => {},
   });

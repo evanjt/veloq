@@ -9,7 +9,7 @@
 import React from 'react';
 import { act, render } from '@testing-library/react-native';
 import { ActivityMapPreview } from '@/features/activity/components/ActivityMapPreview';
-import type { Activity } from '@/types';
+import type { FeedCard } from '@/types';
 import { calculateTerrainCamera } from '@/features/maps/lib/cameraAngle';
 import { getEngine } from '@/shared/native/engine';
 
@@ -86,11 +86,11 @@ jest.mock('@/features/activity/hooks/useMapPreviewCoordinates', () => ({
 
 const activity = {
   id: 'demo-1',
-  type: 'Ride',
+  sportType: 'Ride',
   distance: 42000,
-  total_elevation_gain: 300,
-  stream_types: ['latlng'],
-} as unknown as Activity;
+  elevationGain: 300,
+  hasGps: true,
+} as FeedCard;
 
 describe('ActivityMapPreview', () => {
   beforeEach(() => {

@@ -17,7 +17,11 @@ tags:
       id: "fitness-screen"
     timeout: 10000
 
-# Scroll to performance section and verify it exists (don't expand, keeps page short)
+# The curves and season bests are on the performance page.
+- tapOn:
+    id: "tab-performance"
+
+# Bring the performance section into view and verify it exists (don't expand, keeps page short)
 - scrollUntilVisible:
     element:
       id: "fitness-section-performance"
@@ -42,7 +46,11 @@ tags:
 # which causes `runFlow when visible` + `tapOn` to fire on an untappable element.
 - takeScreenshot: "screenshots/fitness-after-bests"
 
-# Scroll to trends section
+# Zones, the eFTP trend, thresholds and decoupling are on the trends page.
+- tapOn:
+    id: "tab-trends"
+
+# Bring the trends section into view
 - scrollUntilVisible:
     element:
       id: "fitness-section-trends"

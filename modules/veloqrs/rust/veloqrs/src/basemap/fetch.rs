@@ -29,6 +29,16 @@ pub const MAX_TILE_BYTES: usize = 4 * 1024 * 1024;
 /// and its layers, which is a few KB.
 pub const MAX_TILEJSON_BYTES: usize = 256 * 1024;
 
+/// How long an idle connection to a tile host stays in the pool. A pan pause
+/// of a minute or two is ordinary, and a connection dropped across it makes the
+/// next pan's first cold misses wait on a new TCP and TLS handshake. `reqwest`
+/// would drop it after 90 s.
+pub const POOL_IDLE_TIMEOUT: Duration = Duration::from_secs(5 * 60);
+
+/// How often an idle HTTP/2 connection to a tile host is pinged, so a host or
+/// a NAT on the way does not close it as dead while it waits in the pool.
+pub const HTTP2_KEEP_ALIVE_INTERVAL: Duration = Duration::from_secs(30);
+
 /// A tile request never reached a tile.
 #[derive(Debug, thiserror::Error)]
 pub enum TileFetchError {
@@ -68,6 +78,9 @@ impl TileFetcher {
             .user_agent(TILE_USER_AGENT)
             .timeout(Duration::from_secs(20))
             .no_gzip()
+            .pool_idle_timeout(POOL_IDLE_TIMEOUT)
+            .http2_keep_alive_interval(HTTP2_KEEP_ALIVE_INTERVAL)
+            .http2_keep_alive_while_idle(true)
             .build()
             .map_err(|e| format!("tile client: {}", e))?;
         Ok(Self {
@@ -321,5 +334,68 @@ mod tests {
     fn the_tile_client_can_negotiate_http2() {
         let _: fn(reqwest::ClientBuilder) -> reqwest::ClientBuilder =
             reqwest::ClientBuilder::http2_prior_knowledge;
+    }
+
+    /// A loopback host that answers every request on a connection with one
+    /// small body and keeps the connection open, counting the connections it
+    /// accepts.
+    fn counting_host() -> (String, std::sync::Arc<std::sync::atomic::AtomicUsize>) {
+        use std::io::{BufRead, BufReader, Write};
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+        let addr = listener.local_addr().expect("addr");
+        let accepted = std::sync::Arc::new(AtomicUsize::new(0));
+        let counter = accepted.clone();
+        std::thread::spawn(move || {
+            for stream in listener.incoming() {
+                let Ok(stream) = stream else { return };
+                counter.fetch_add(1, Ordering::SeqCst);
+                std::thread::spawn(move || {
+                    let mut writer = stream.try_clone().expect("clone");
+                    let mut reader = BufReader::new(stream);
+                    loop {
+                        let mut line = String::new();
+                        loop {
+                            line.clear();
+                            match reader.read_line(&mut line) {
+                                Ok(0) | Err(_) => return,
+                                Ok(_) if line == "\r\n" => break,
+                                Ok(_) => {}
+                            }
+                        }
+                        let reply = "HTTP/1.1 200 OK\r\ncontent-length: 4\r\n\r\ntile";
+                        if writer.write_all(reply.as_bytes()).is_err() {
+                            return;
+                        }
+                    }
+                });
+            }
+        });
+        (format!("http://{}/0/0/0.pbf", addr), accepted)
+    }
+
+    /// A pan that resumes after a couple of minutes has to reach the tile host
+    /// on the connection the last pan opened, or every cold miss in it waits
+    /// on a new handshake. The clock is paused only across the idle, so the
+    /// requests themselves run on real time.
+    #[test]
+    fn a_fetch_after_a_long_idle_reuses_the_open_connection() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime");
+        let (url, accepted) = counting_host();
+        runtime.block_on(async {
+            let fetcher = TileFetcher::new(Duration::ZERO).expect("fetcher");
+            assert_eq!(fetcher.fetch(&url).await.expect("first"), b"tile");
+
+            tokio::time::pause();
+            tokio::time::advance(Duration::from_secs(150)).await;
+            tokio::task::yield_now().await;
+            tokio::time::resume();
+
+            assert_eq!(fetcher.fetch(&url).await.expect("second"), b"tile");
+        });
+        assert_eq!(accepted.load(std::sync::atomic::Ordering::SeqCst), 1);
     }
 }

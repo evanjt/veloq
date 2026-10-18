@@ -140,7 +140,7 @@ beforeEach(() => {
   useWhatsNewStore.setState({ launchModal: null, restoreOffer: null });
   (getEngine as jest.Mock).mockReturnValue({
     getActivityHighlightsBundle: () => ({ indicators: [], routeHighlights: [], newGround: [] }),
-    searchActivityBodies: () => ({ bodies: [], matchedCount: 0, hasMore: false }),
+    searchFeedCards: () => ({ cards: [], matchedCount: 0, hasMore: false }),
     getSyncStatus: () => ({ state: 0, inFlight: 0, completed: 0, total: 0 }),
     subscribe: () => () => {},
     getSetting: (key: string) => mockSettings.get(key) ?? null,

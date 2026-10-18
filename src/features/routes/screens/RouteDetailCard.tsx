@@ -1,59 +1,58 @@
+/**
+ * A route's card in its map sheet: the name, the date line and three numbers at Peek, then the
+ * attempts, the charts and the export below. The map the sheet sits over draws the route, and
+ * reads what the card picks (the attempt, the sport on show, the line the delta plot colours)
+ * from the host's entry, so a scrub renders the map and not the card.
+ */
 import React, { useCallback, useMemo, useEffect, useRef, useState } from 'react';
-import { View, ScrollView, type ViewInstance } from 'react-native';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { View, ScrollView, StyleSheet, type ViewInstance } from 'react-native';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { useTranslation } from 'react-i18next';
 import {
-  useRouteDetailData,
-  useRouteDetailPerformance,
   DataRangeFooter,
   DetailFallback,
-  PlaceNameButton,
-  RouteDetailMap,
   SportTypeSelector,
-  SectionContentArea,
   RouteDetailDebugPanel,
   routeDetailScreenStyles as styles,
-  createMapHighlightStore,
-  useRouteMapSignatures,
+} from '../components';
+import { SectionContentArea, sectionStreamsState } from '../components/section';
+import { useRouteDetailData } from '../hooks/useRouteDetailData';
+import { useRouteDetailPerformance } from '../hooks/useSectionDetailData';
+import {
   useRouteReference,
   useExcludedActivities,
   useRouteRenaming,
   useSectionChartData,
   useSectionChartDataEnriched,
-  useSectionTimeStreamSync,
-  sectionStreamsState,
-  buildRouteGroupBase,
-  buildFinalRouteGroup,
-  routeHeadline,
-  heroStats,
-  toActivityType,
-  toPerformanceView,
+} from '../hooks';
+import {
   EMPTY_PERFORMANCE_VIEW,
-  RANGE_DAYS,
-  isSportOffered,
-  shouldShowSportChips,
-  type SectionDeltaLine,
-  type SectionTimeRange,
-} from '@/features/routes';
+  toPerformanceView,
+  useSectionTimeStreamSync,
+} from '../hooks/useSectionPerformances';
+import {
+  buildFinalRouteGroup,
+  buildRouteGroupBase,
+  representativePointsOf,
+} from '../lib/buildRouteGroup';
+import { routeHeadline } from '../lib/routeHeadline';
+import { detailDateLine, detailPeekStats } from '../lib/detailPeek';
+import { detailCardWriter } from '../lib/detailCardState';
+import { isSportOffered, shouldShowSportChips } from '../lib/sectionSport';
+import { RANGE_DAYS, type SectionTimeRange } from '../constants';
+import { toActivityType } from '../types';
+import type { SectionDeltaLine } from '../lib/deltaLayout';
 import { useGpxExport, useDebugStore } from '@/features/settings';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
+import { mapSheetHostKey } from '@/shared/app/mapSheetHost';
+import { useMapSheetHostHeader } from '@/shared/app/MapSheetHost';
 import { overMapHeaderOptions } from '@/shared/app/screenHeaders';
-import { MapHeroStatusBar, useHeroScrolledPast } from '@/shared/app/MapHeroStatusBar';
-import {
-  Button,
-  DetailHero,
-  ErrorState,
-  HeroNameRow,
-  HeroStatsRow,
-  useHeroMapHeight,
-  useBottomClearance,
-} from '@/shared/ui';
+import { Button, ErrorState, HeroNameRow, HeroStatsRow, useBottomClearance } from '@/shared/ui';
+import { FitText } from '@/shared/ui/FitText';
 
 import { useFFITimer } from '@/shared/debug/useFFITimer';
 import { getActivityColor, getActivityIcon } from '@/shared/activity/activityUtils';
-import { decodeCoords, PlaceNameKind } from 'veloqrs';
 import type {
   FfiAttemptHistograms,
   FfiSectionChartPoint,
@@ -61,8 +60,7 @@ import type {
   FfiSectionSportCount,
   FfiSectionTrendCurves,
 } from 'veloqrs';
-import { spacing } from '@/theme';
-import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
+import { colors, darkColors, spacing, typography } from '@/theme';
 
 const EMPTY_SPORT_COUNTS: FfiSectionSportCount[] = [];
 const EMPTY_EXCLUDED_POINTS: FfiSectionChartPoint[] = [];
@@ -75,7 +73,14 @@ const NO_ACTIVITY_IDS: string[] = [];
 /** A route opens on every attempt it has, whatever its age. */
 const ROUTE_DEFAULT_RANGE: SectionTimeRange = 'all';
 
-function RouteDetailScreenContent() {
+export interface RouteDetailCardProps {
+  /** The route's group id. */
+  id: string;
+  /** The activity the route was opened from, which the chart and the map key mark. */
+  activityId?: string | undefined;
+}
+
+export function RouteDetailCard({ id, activityId: navActivityId }: RouteDetailCardProps) {
   // Performance timing
   const perfEndRef = useRef<(() => void) | null>(null);
   perfEndRef.current = logScreenRender('RouteDetailScreen');
@@ -84,14 +89,11 @@ function RouteDetailScreenContent() {
   });
 
   const { t } = useTranslation();
-  const { id, activityId: navActivityId } = useLocalSearchParams<{
-    id: string;
-    activityId?: string;
-  }>();
   const { isDark } = useTheme();
   const bottomClearance = useBottomClearance();
   const isMetric = useMetricSystem();
-  const mapHeight = useHeroMapHeight();
+  const hostKey = mapSheetHostKey('route', id);
+  const card = useMemo(() => detailCardWriter(hostKey), [hostKey]);
 
   // One engine call covering the route and its shown name, the representative
   // polyline, exclusions and signatures. Attempt times are a read of their own.
@@ -105,10 +107,6 @@ function RouteDetailScreenContent() {
   const { getPageMetrics } = useFFITimer();
   const { exportGpx, exporting: gpxExporting } = useGpxExport();
   const exportAnchor = useRef<ViewInstance>(null);
-
-  // The chart's scrub lives outside this component, so a new index renders the
-  // map and not the screen. Nothing here reads it.
-  const [highlight] = useState(createMapHighlightStore);
 
   const engineGroup = detail?.group;
 
@@ -124,7 +122,11 @@ function RouteDetailScreenContent() {
   // A curve is measured on every attempt's stream, so a wait that ended with
   // streams outstanding loads none: the plot waits for the retry that lands them.
   const streamsSettled = streams.status === 'ready';
-  const [deltaLine, setDeltaLine] = useState<SectionDeltaLine | null>(null);
+  // The line the delta plot colours is the map's to draw, so the card hands it over.
+  const setDeltaLine = useCallback(
+    (deltaLine: SectionDeltaLine | null) => card.setDeltaLine(deltaLine),
+    [card]
+  );
 
   // The attempt times for one sport and one range, in one read. With no pill
   // picked, the engine answers for the sport with the most attempts and says
@@ -158,12 +160,7 @@ function RouteDetailScreenContent() {
   const bestReverseIsRecord = performance?.bestReverseIsRecord ?? false;
 
   // Representative route points, decoded from the bundle.
-  const representativePoints = useMemo(() => {
-    if (!detail?.encodedRepresentative) return null;
-    const decoded = decodeCoords(detail.encodedRepresentative);
-    if (decoded.length === 0) return null;
-    return decoded.map((p) => ({ lat: p.latitude, lng: p.longitude }));
-  }, [detail]);
+  const representativePoints = useMemo(() => representativePointsOf(detail), [detail]);
 
   // Create a compatible routeGroup object with expected properties
   // Native RouteGroup uses groupId and customName.
@@ -212,8 +209,6 @@ function RouteDetailScreenContent() {
   // different things. Absent until the attempt times are read.
   const attemptCount = performance ? chartData.length : undefined;
 
-  const signatures = useRouteMapSignatures(engineGroup, detail?.mapSignatures);
-
   // Final routeGroup with signature populated from representative points.
   const routeGroup = useMemo(
     () => buildFinalRouteGroup(routeGroupBase, representativePoints, routeStats.distance),
@@ -222,15 +217,17 @@ function RouteDetailScreenContent() {
 
   const heroTitle = routeGroup ? customName || routeGroup.name : undefined;
 
-  // Past the hero the page runs under the header, which then takes the theme's surface.
-  const { scrolledPastHero, onScroll: onHeroScroll } = useHeroScrolledPast(mapHeight);
-
-  // A fallback state takes the opaque header, so the hero puts the transparent one back, named
-  // after the route.
-  const heroHeaderOptions = useMemo(
-    () => overMapHeaderOptions({ title: heroTitle, isDark, scrolledPastHero }),
-    [heroTitle, isDark, scrolledPastHero]
+  // The header floats over the map the sheet leaves, named after the route.
+  const headerOptions = useMemo(
+    () => overMapHeaderOptions({ title: heroTitle, isDark }),
+    [heroTitle, isDark]
   );
+  useMapSheetHostHeader(headerOptions);
+
+  // The sport on screen colours and styles the map as well as the card.
+  useEffect(() => {
+    card.setSport(effectiveSportType);
+  }, [card, effectiveSportType]);
 
   if (!routeGroup) {
     return (
@@ -249,86 +246,67 @@ function RouteDetailScreenContent() {
   // in one colour of its own on every view of the page.
   const displayType = toActivityType(effectiveSportType);
   const activityColor = getActivityColor(displayType);
-  const hasMapData = !!engineGroup?.activityIds.length;
+
+  const peekInput = {
+    kind: 'route' as const,
+    distanceMeters: routeStats.distance,
+    scope: {
+      count: attemptCount,
+      sport: effectiveSportType,
+      sportsOffered: sportCounts.length,
+      range: routeTimeRange,
+    },
+    bestTimeSecs: bestTimeValue,
+    firstDate: firstActivityDate,
+    lastDate: lastActivityDate,
+  };
+  const dateLine = detailDateLine(peekInput, t);
 
   return (
-    <View testID="route-detail-screen" style={[styles.container, isDark && styles.containerDark]}>
-      <Stack.Screen options={heroHeaderOptions} />
-      <MapHeroStatusBar scrolledPastHero={scrolledPastHero} isDark={isDark} />
+    <View testID="route-detail-screen" style={styles.scrollView}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={{ paddingBottom: spacing.xl + bottomClearance }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        onScroll={onHeroScroll}
-        scrollEventThrottle={16}
       >
-        {/* Hero Map Section */}
-        <DetailHero
-          height={mapHeight}
-          overlay={
-            <>
-              <HeroNameRow
-                name={displayName}
-                nameTestID="route-detail-name"
-                icon={{
-                  name: getActivityIcon(displayType),
-                  color: activityColor,
-                }}
-                editable={{
-                  isEditing,
-                  editName,
-                  error: nameError,
-                  inputRef: nameInputRef,
-                  label: t('routes.routeNamePlaceholder'),
-                  testIDPrefix: 'route',
-                  onStartEdit: handleStartEditing,
-                  onSave: handleSaveName,
-                  onCancel: handleCancelEdit,
-                  onChange: handleChangeName,
-                }}
-                accessory={
-                  detail?.canNameFromPlaces ? (
-                    <PlaceNameButton
-                      kind={PlaceNameKind.Route}
-                      itemId={id}
-                      testID="route-place-name-button"
-                    />
-                  ) : undefined
-                }
-              />
-              <HeroStatsRow
-                testID="route-detail-stats"
-                stats={heroStats(
-                  {
-                    kind: 'route',
-                    distanceMeters: routeStats.distance,
-                    elevationGainMeters: routeStats.elevationGain,
-                  },
-                  {
-                    count: attemptCount,
-                    sport: effectiveSportType,
-                    sportsOffered: sportCounts.length,
-                    range: routeTimeRange,
-                  },
-                  t,
-                  isMetric
-                )}
-              />
-            </>
-          }
-        >
-          <RouteDetailMap
-            routeGroup={routeGroup}
-            highlight={highlight}
-            pageActivityId={navActivityId}
-            signatures={signatures}
-            hasMapData={hasMapData}
-            activityColor={activityColor}
-            selectedSportType={effectiveSportType ? displayType : undefined}
-            deltaLine={deltaLine}
+        {/* Peek: what the lowest stop shows. */}
+        <View testID="route-card-peek" style={peekStyles.peek}>
+          <HeroNameRow
+            onSurface
+            name={displayName}
+            nameTestID="route-detail-name"
+            icon={{
+              name: getActivityIcon(displayType),
+              color: activityColor,
+            }}
+            editable={{
+              isEditing,
+              editName,
+              error: nameError,
+              inputRef: nameInputRef,
+              label: t('routes.routeNamePlaceholder'),
+              testIDPrefix: 'route',
+              onStartEdit: handleStartEditing,
+              onSave: handleSaveName,
+              onCancel: handleCancelEdit,
+              onChange: handleChangeName,
+            }}
           />
-        </DetailHero>
+          {dateLine ? (
+            <FitText
+              testID="route-card-date-line"
+              style={[peekStyles.dateLine, isDark && peekStyles.dateLineDark]}
+            >
+              {dateLine}
+            </FitText>
+          ) : null}
+          <HeroStatsRow
+            onSurface
+            testID="route-detail-stats"
+            stats={detailPeekStats(peekInput, t, isMetric)}
+          />
+        </View>
 
         {performanceReadError !== undefined ? (
           <ErrorState
@@ -382,7 +360,7 @@ function RouteDetailScreenContent() {
             showExcluded={showExcluded}
             excludedCount={excludedPoints.length}
             sectionTimeRange={routeTimeRange}
-            onActivitySelect={highlight.set}
+            onActivitySelect={card.selectAttempt}
             onExcludeActivity={handleExcludeActivity}
             onIncludeActivity={handleIncludeActivity}
             onSetAsReference={handleSetAsReference}
@@ -434,4 +412,18 @@ function RouteDetailScreenContent() {
   );
 }
 
-export default withScreenBoundary(RouteDetailScreenContent, 'Route Detail');
+const peekStyles = StyleSheet.create({
+  peek: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.sm,
+    gap: spacing.xs,
+  },
+  dateLine: {
+    ...typography.bodyCompact,
+    color: colors.textSecondary,
+  },
+  dateLineDark: {
+    color: darkColors.textSecondary,
+  },
+});

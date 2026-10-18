@@ -13,7 +13,10 @@
 //! A fired run applies on its worker thread, so a mid-backfill catalogue lands
 //! even though the TS sync UI only starts following at sync end. Order-freeness
 //! makes any interrupted run safely redoable: the next run re-derives the
-//! same catalogue from the durable pool.
+//! same catalogue from the durable pool. The section registry is not
+//! order-free, so the runs one download fires count as one ingest
+//! (`IngestDownload`): the view the download ends on does not depend on how
+//! many runs the cadence fired or which rides each one saw.
 
 use crate::objects::detection::{SlotWait, wait_on_slot};
 use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
@@ -136,6 +139,32 @@ impl Default for Conditioner {
 }
 
 static CONDITIONER: Mutex<Conditioner> = Mutex::new(Conditioner::new());
+
+/// One download's stores, which the runs they fire count as one ingest: each
+/// run replays every ride the download has stored so far from the registry the
+/// ingest began on, so the cadence above cannot change the view a backfill
+/// ends on. Ends on drop, so a cancel, a sign-out or a panic still ends it.
+#[must_use = "the ingest ends the moment the guard is dropped"]
+pub(crate) struct IngestDownload {
+    install: u64,
+}
+
+impl IngestDownload {
+    pub(crate) fn begin(install: u64) -> Self {
+        crate::persistence::with_persistent_engine_for(install, |engine| {
+            engine.ingest_download_started();
+        });
+        Self { install }
+    }
+}
+
+impl Drop for IngestDownload {
+    fn drop(&mut self) {
+        crate::persistence::with_persistent_engine_for(self.install, |engine| {
+            engine.ingest_download_ended();
+        });
+    }
+}
 
 /// Record stores for the engine install that actually committed them.
 pub fn note_stored_for(install: u64, n: u32) {

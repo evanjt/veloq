@@ -22,6 +22,7 @@ import type { FeedGroup } from '@/features/activity/lib/feedActivityGroups';
 import type { FeedRange } from '@/features/activity/lib/feedRange';
 import { dayEndEpochSeconds, dayStartEpochSeconds } from '@/shared/time/startDate';
 import { getEngine } from '@/shared/native/engine';
+import { feedCard } from '../__shared__/feedCard';
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: jest.fn(),
@@ -30,7 +31,7 @@ jest.mock('@/shared/native/engine', () => ({
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
 const engine = {
-  searchActivityBodies: jest.fn(),
+  searchFeedCards: jest.fn(),
   subscribe: jest.fn(() => () => {}),
 };
 
@@ -42,16 +43,14 @@ function wrapper({ children }: { children: React.ReactNode }) {
   return React.createElement(QueryClientProvider, { client }, children);
 }
 
-const body = (id: string) => JSON.stringify({ id, name: `Ferry ${id}`, type: 'Ride' });
+const card = (id: string) => feedCard({ id, name: `Ferry ${id}`, sportType: 'Ride' });
 
 beforeEach(() => {
   jest.clearAllMocks();
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
-  engine.searchActivityBodies.mockReturnValue({
-    bodies: [],
-    intervalsIds: [],
-    keys: [],
+  engine.searchFeedCards.mockReturnValue({
+    cards: [],
     matchedCount: 0,
     hasMore: false,
   });
@@ -72,10 +71,8 @@ const MARCH_2024: FeedRange = { oldest: '2024-03-01', newest: '2024-03-31' };
 
 describe('useFeedSearch', () => {
   it('reads the engine with the trimmed text and no sport when only text is set', async () => {
-    engine.searchActivityBodies.mockReturnValue({
-      bodies: [body('old')],
-      intervalsIds: [null],
-      keys: ['old'],
+    engine.searchFeedCards.mockReturnValue({
+      cards: [{ ...card('old'), intervalsWebId: 'i7' }],
       matchedCount: 1,
       hasMore: false,
     });
@@ -83,7 +80,8 @@ describe('useFeedSearch', () => {
     const { result } = await render('  ferry ', null);
 
     await waitFor(() => expect(result.current.activities.map((a) => a.id)).toEqual(['old']));
-    expect(engine.searchActivityBodies).toHaveBeenCalledWith({
+    expect(result.current.activities[0].intervalsWebId).toBe('i7');
+    expect(engine.searchFeedCards).toHaveBeenCalledWith({
       needle: 'ferry',
       sportFamilies: [],
       offset: 0,
@@ -104,7 +102,7 @@ describe('useFeedSearch', () => {
     const { result } = await render('', chip);
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(engine.searchActivityBodies).toHaveBeenCalledWith({
+    expect(engine.searchFeedCards).toHaveBeenCalledWith({
       needle: '',
       sportFamilies: [group],
       offset: 0,
@@ -117,7 +115,7 @@ describe('useFeedSearch', () => {
     const { result } = await renderHook(() => useFeedSearch('', selected), { wrapper });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(engine.searchActivityBodies).toHaveBeenCalledWith({
+    expect(engine.searchFeedCards).toHaveBeenCalledWith({
       needle: '',
       sportFamilies: [EngineSportFamily.Ride, EngineSportFamily.Other],
       offset: 0,
@@ -126,10 +124,8 @@ describe('useFeedSearch', () => {
   });
 
   it('has the first page in the render that asked for it, so the list never blanks', async () => {
-    engine.searchActivityBodies.mockReturnValue({
-      bodies: [body('old')],
-      intervalsIds: [null],
-      keys: ['old'],
+    engine.searchFeedCards.mockReturnValue({
+      cards: [card('old')],
       matchedCount: 1,
       hasMore: false,
     });
@@ -141,10 +137,8 @@ describe('useFeedSearch', () => {
     expect(result.current.activities.map((a) => a.id)).toEqual(['old']);
     expect(result.current.isLoading).toBe(false);
 
-    engine.searchActivityBodies.mockReturnValue({
-      bodies: [body('older')],
-      intervalsIds: [null],
-      keys: ['older'],
+    engine.searchFeedCards.mockReturnValue({
+      cards: [card('older')],
       matchedCount: 1,
       hasMore: false,
     });
@@ -156,7 +150,7 @@ describe('useFeedSearch', () => {
     const { result } = await render('', 'Ride', MARCH_2024);
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(engine.searchActivityBodies).toHaveBeenCalledWith({
+    expect(engine.searchFeedCards).toHaveBeenCalledWith({
       needle: '',
       sportFamilies: [EngineSportFamily.Ride],
       oldestTs: dayStartEpochSeconds('2024-03-01'),
@@ -167,18 +161,14 @@ describe('useFeedSearch', () => {
   });
 
   it('keeps the window on the next page', async () => {
-    engine.searchActivityBodies
+    engine.searchFeedCards
       .mockReturnValueOnce({
-        bodies: Array.from({ length: 30 }, (_, i) => body(`p1-${i}`)),
-        intervalsIds: Array.from({ length: 30 }, () => null),
-        keys: Array.from({ length: 30 }, (_, i) => `p1-${i}`),
+        cards: Array.from({ length: 30 }, (_, i) => card(`p1-${i}`)),
         matchedCount: 31,
         hasMore: true,
       })
       .mockReturnValueOnce({
-        bodies: [],
-        intervalsIds: [],
-        keys: [],
+        cards: [],
         matchedCount: 31,
         hasMore: false,
       });
@@ -189,7 +179,7 @@ describe('useFeedSearch', () => {
       await result.current.fetchNextPage();
     });
 
-    expect(engine.searchActivityBodies).toHaveBeenLastCalledWith(
+    expect(engine.searchFeedCards).toHaveBeenLastCalledWith(
       expect.objectContaining({
         oldestTs: dayStartEpochSeconds('2024-03-01'),
         newestTs: dayEndEpochSeconds('2024-03-31'),
@@ -205,7 +195,7 @@ describe('useFeedSearch', () => {
     );
     await rerender({ range: { oldest: '2023-01-01', newest: '2023-12-31' } });
 
-    expect(engine.searchActivityBodies).toHaveBeenLastCalledWith(
+    expect(engine.searchFeedCards).toHaveBeenLastCalledWith(
       expect.objectContaining({ oldestTs: dayStartEpochSeconds('2023-01-01') })
     );
   });
@@ -214,18 +204,18 @@ describe('useFeedSearch', () => {
     const { result } = await render('ferry', null);
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    const query = engine.searchActivityBodies.mock.calls[0][0];
+    const query = engine.searchFeedCards.mock.calls[0][0];
     expect(query).not.toHaveProperty('oldestTs');
     expect(query).not.toHaveProperty('newestTs');
   });
 
   it('counts a range alone without reading a body, since the range read lists it', async () => {
-    engine.searchActivityBodies.mockReturnValue({ bodies: [], matchedCount: 212, hasMore: true });
+    engine.searchFeedCards.mockReturnValue({ cards: [], matchedCount: 212, hasMore: true });
 
     const { result } = await render('', null, MARCH_2024);
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(engine.searchActivityBodies).toHaveBeenCalledWith({
+    expect(engine.searchFeedCards).toHaveBeenCalledWith({
       needle: '',
       sportFamilies: [],
       oldestTs: dayStartEpochSeconds('2024-03-01'),
@@ -241,24 +231,20 @@ describe('useFeedSearch', () => {
   it('reads nothing while no filter is on, blank text included', async () => {
     const { result } = await render('   ', null);
 
-    expect(engine.searchActivityBodies).not.toHaveBeenCalled();
+    expect(engine.searchFeedCards).not.toHaveBeenCalled();
     expect(result.current.activities).toEqual([]);
     expect(result.current.matchedCount).toBe(0);
   });
 
   it('pages on from where the last page ended and keeps the whole count', async () => {
-    engine.searchActivityBodies
+    engine.searchFeedCards
       .mockReturnValueOnce({
-        bodies: Array.from({ length: 30 }, (_, i) => body(`p1-${i}`)),
-        intervalsIds: Array.from({ length: 30 }, () => null),
-        keys: Array.from({ length: 30 }, (_, i) => `p1-${i}`),
+        cards: Array.from({ length: 30 }, (_, i) => card(`p1-${i}`)),
         matchedCount: 31,
         hasMore: true,
       })
       .mockReturnValueOnce({
-        bodies: [body('p2-0')],
-        intervalsIds: [null],
-        keys: ['p2-0'],
+        cards: [card('p2-0')],
         matchedCount: 31,
         hasMore: false,
       });
@@ -272,7 +258,7 @@ describe('useFeedSearch', () => {
       await result.current.fetchNextPage();
     });
 
-    expect(engine.searchActivityBodies).toHaveBeenLastCalledWith({
+    expect(engine.searchFeedCards).toHaveBeenLastCalledWith({
       needle: '',
       sportFamilies: [EngineSportFamily.Water],
       offset: 30,
@@ -284,23 +270,8 @@ describe('useFeedSearch', () => {
     expect(result.current.matchedCount).toBe(31);
   });
 
-  it('drops a body that will not parse rather than failing the page', async () => {
-    engine.searchActivityBodies.mockReturnValue({
-      bodies: ['{broken', body('kept')],
-      intervalsIds: [null, 'i7'],
-      keys: ['broken', 'kept'],
-      matchedCount: 2,
-      hasMore: false,
-    });
-
-    const { result } = await render('ferry', null);
-
-    await waitFor(() => expect(result.current.activities.map((a) => a.id)).toEqual(['kept']));
-    expect(result.current.activities[0].intervalsWebId).toBe('i7');
-  });
-
   it('is an error rather than an empty match when the engine is not open', async () => {
-    engine.searchActivityBodies.mockReturnValue(undefined);
+    engine.searchFeedCards.mockReturnValue(undefined);
 
     const { result } = await render('ferry', null);
 

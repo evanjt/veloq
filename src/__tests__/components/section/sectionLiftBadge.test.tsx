@@ -1,7 +1,6 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 import { SectionHeader } from '@/features/routes/components/section/SectionHeader';
-import { createMapHighlightStore } from '@/features/routes/lib/mapHighlight';
 import type { FrequentSection } from '@/types';
 
 // The binding registers a TurboModule at import time. A hook on this screen's
@@ -50,13 +49,7 @@ async function renderHeader(section: FrequentSection, onUnflagLift?: () => void)
       activityColor="#000000"
       iconName="bike"
       activityCount={3}
-      mapReady={true}
-      isTrimming={false}
-      isExpandMode={false}
-      trimStart={0}
-      trimEnd={1}
       customName={null}
-      highlight={createMapHighlightStore()}
       onSaveName={jest.fn()}
     />
   );
@@ -118,13 +111,7 @@ describe('section traversal count scope', () => {
         activityColor="#000000"
         iconName="bike"
         activityCount={22}
-        mapReady={true}
-        isTrimming={false}
-        isExpandMode={false}
-        trimStart={0}
-        trimEnd={1}
         customName={null}
-        highlight={createMapHighlightStore()}
         onSaveName={jest.fn()}
         {...extra}
       />
@@ -134,20 +121,23 @@ describe('section traversal count scope', () => {
   it('names the sport and the range when the section spans sports and the range is not all time', async () => {
     const tree = await renderScoped({ scopeSport: 'Run', sportsOffered: 2, scopeRange: '6m' });
 
-    expect(
-      tree.getByText('sections.traversalsCount · activityTypes.Run · period.long.6m')
-    ).toBeTruthy();
+    expect(tree.getByText('sections.traversalsCount')).toBeTruthy();
+    expect(tree.getByTestId('section-card-date-line')).toHaveTextContent(
+      'activityTypes.Run · period.long.6m'
+    );
   });
 
   it('names only the range for a single-sport section', async () => {
     const tree = await renderScoped({ scopeSport: 'Ride', sportsOffered: 1, scopeRange: '1y' });
 
-    expect(tree.getByText('sections.traversalsCount · period.long.1y')).toBeTruthy();
+    expect(tree.getByText('sections.traversalsCount')).toBeTruthy();
+    expect(tree.getByTestId('section-card-date-line')).toHaveTextContent('period.long.1y');
   });
 
   it('adds nothing for a single-sport section over all time', async () => {
     const tree = await renderScoped({ scopeSport: 'Ride', sportsOffered: 1, scopeRange: 'all' });
 
     expect(tree.getByText('sections.traversalsCount')).toBeTruthy();
+    expect(tree.queryByTestId('section-card-date-line')).toBeNull();
   });
 });

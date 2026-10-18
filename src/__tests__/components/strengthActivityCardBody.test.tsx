@@ -14,7 +14,7 @@ import { configure, fireEvent, render, screen } from '@testing-library/react-nat
 import { initialiseI18n } from '@/i18n';
 import { StrengthActivityCard } from '@/features/strength/components/StrengthActivityCard';
 import { Card } from '@/shared/ui/Card';
-import type { Activity } from '@/types';
+import type { FeedCard } from '@/types';
 
 // The card's drawings are hidden from a screen reader, which hears them in the
 // card's label, so queries reach hidden elements.
@@ -71,10 +71,10 @@ async function draw() {
         {
           id: 'a1',
           name: 'Legs',
-          type: 'WeightTraining',
-          moving_time: 3600,
-          start_date_local: '2026-01-01T08:00:00',
-        } as Activity
+          sportType: 'WeightTraining',
+          movingTime: 3600,
+          startDateLocal: '2026-01-01T08:00:00',
+        } as FeedCard
       }
       strengthData={{ muscles: [], exerciseCount: 3, setCount: 9, totalWeight: 0 }}
     />
@@ -149,11 +149,11 @@ describe('the strength activity card spoken name', () => {
           {
             id: 'a2',
             name: 'Pull day',
-            type: 'WeightTraining',
-            moving_time: 3600,
-            average_heartrate: 131,
-            start_date_local: '2026-01-01T08:00:00',
-          } as Activity
+            sportType: 'WeightTraining',
+            movingTime: 3600,
+            avgHr: 131,
+            startDateLocal: '2026-01-01T08:00:00',
+          } as FeedCard
         }
         strengthData={{ muscles: [], exerciseCount: 4, setCount: 12, totalWeight: 0 }}
       />

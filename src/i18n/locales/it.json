@@ -779,7 +779,13 @@
     "linkTrainingLoad": "Monitoring Training Load (Science2Sport)",
     "understandingMetrics": "Capire le metriche",
     "rampRate": "Rampa",
-    "perWeek": "/sett"
+    "perWeek": "/sett",
+    "places": {
+      "fitness": "Forma",
+      "calendar": "Calendario",
+      "performance": "Prestazioni",
+      "trends": "Tendenze"
+    }
   },
   "formZones": {
     "transition": "Transizione",
@@ -1589,12 +1595,6 @@
     "noRoutesYet": "Nessun percorso ancora",
     "noSectionsMatchFilter": "Nessun tratto corrisponde al filtro",
     "noSectionsFor": "Nessun tratto per {{filters}}",
-    "placeJourney": "Da {{start}} a {{end}}",
-    "placeLoop": "Giro di {{place}}",
-    "placeNameButton": "Dai un nome dai luoghi",
-    "placeNameFailedMessage": "Non è stato possibile cercare il nome del luogo, il nome resta invariato. Riprova più tardi.",
-    "placeNameFailedTitle": "Nessun nome di luogo",
-    "placeNameNoPlaceMessage": "Non è stato trovato alcun luogo nel punto di partenza, il nome resta invariato.",
     "renameFailedTitle": "Impossibile salvare il nome",
     "renameFailedMessage": "Il nome del percorso non è stato salvato. Riprova.",
     "referenceFailedTitle": "Riferimento non impostato",
@@ -2027,14 +2027,6 @@
     "mapCache": "Cache delle mappe",
     "sizeAtLeast": "Almeno {{size}}",
     "permissions": "Autorizzazioni",
-    "placeNames": {
-      "title": "Nomi dei luoghi",
-      "attribution": "Nomi dei luoghi © contributori di OpenStreetMap",
-      "noticeTitle": "Usare i nomi dei luoghi?",
-      "noticeBody": "Quando viene trovato un nuovo percorso o una nuova sezione, o quando chiedi di dargli un nome, il punto di partenza e quello di arrivo vengono inviati al servizio Nominatim di OpenStreetMap per cercare il nome di un luogo. Non viene inviato nessun altro percorso o sezione, né alcuna informazione su di te. Si applica la politica di utilizzo del servizio.",
-      "readPolicy": "Politica di utilizzo",
-      "accept": "Accetta"
-    },
     "heatmapGeneration": "Mappa di calore",
     "heatmapDescription": "Usa lo spazio di archiviazione del dispositivo. Disattiva per risparmiare spazio.",
     "heatmapStorageUsed": "Sta usando {{size}} di spazio del dispositivo",

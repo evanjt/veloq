@@ -490,6 +490,14 @@ fn an_upgrade_clears_rows_written_before_the_final_step_fix_and_owes_them_again(
                 [],
             )
             .unwrap();
+        // The columns a later migration adds, which it adds again on the way back.
+        engine
+            .db
+            .execute_batch(
+                "ALTER TABLE push_runs DROP COLUMN posted_title;
+                 ALTER TABLE push_runs DROP COLUMN posted_body;",
+            )
+            .unwrap();
         engine
             .db
             .pragma_update(None, "user_version", SCHEMA_BEFORE_THE_REMEASURE)

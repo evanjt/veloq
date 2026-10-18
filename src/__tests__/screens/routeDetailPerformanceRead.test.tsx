@@ -13,10 +13,11 @@
 
 import React from 'react';
 import { Alert } from 'react-native';
-import { act, fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render, within } from '@testing-library/react-native';
 import { SelectButton } from '@/shared/ui';
-import RouteDetailScreen from '@/app/route/[id]';
+import { routeCardInHost } from '../__shared__/routeCardInHost';
 
+const RouteDetailScreen = routeCardInHost();
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
     FfiCorrelation_Tags: {
@@ -214,19 +215,17 @@ describe('route page on a route ridden and run', () => {
     ];
   });
 
-  it('states the attempts in the sport on screen and the climbing in the hero', async () => {
+  it('counts the attempts at Peek and names the sport on screen in the date line', async () => {
     const screen = await render(<RouteDetailScreen />);
 
-    const stats = screen.getByTestId('route-detail-stats');
-    expect(stats).toHaveTextContent('maps.activitiesCount · activityTypes.Ride', { exact: false });
-    expect(stats).toHaveTextContent('774 ft', { exact: false });
+    expect(screen.getByTestId('route-detail-stats')).toHaveTextContent('maps.activitiesCount', {
+      exact: false,
+    });
+    expect(screen.getByTestId('route-card-date-line')).toHaveTextContent(/^activityTypes\.Ride/);
 
     await fireEvent.press(screen.getByRole('button', { name: 'activityTypes.Run' }));
 
-    expect(screen.getByTestId('route-detail-stats')).toHaveTextContent(
-      'maps.activitiesCount · activityTypes.Run',
-      { exact: false }
-    );
+    expect(screen.getByTestId('route-card-date-line')).toHaveTextContent(/^activityTypes\.Run/);
   });
 
   it('reads the route performance read once over every date and the default sport', async () => {
@@ -329,14 +328,18 @@ describe('route page on a route of one sport', () => {
     const screen = await render(<RouteDetailScreen />);
 
     expect(screen.getByTestId('route-detail-stats')).toHaveTextContent(
-      '1.9 mi·maps.activitiesCount·774 ft'
+      /^1\.9 mi·maps\.activitiesCount/
+    );
+    expect(String(screen.queryByTestId('route-card-date-line')?.props.children ?? '')).not.toMatch(
+      /period\.long/
     );
 
     await chooseRange(screen, '3m');
 
     expect(screen.getByTestId('route-detail-stats')).toHaveTextContent(
-      '1.9 mi·maps.activitiesCount · period.long.3m·774 ft'
+      /^1\.9 mi·maps\.activitiesCount/
     );
+    expect(screen.getByTestId('route-card-date-line')).toHaveTextContent(/^period\.long\.3m/);
   });
 
   it('shows the one pill', async () => {
@@ -411,6 +414,7 @@ describe('route page below the chart', () => {
         firstActivityDate: OLDEST_ATTEMPT,
         lastActivityDate: 1_780_000_000,
         totalActivities: 2,
+        bestTimeSecs: 1_845,
       },
       calendarSummary: {
         years: [
@@ -442,6 +446,19 @@ describe('route page below the chart', () => {
       ],
       correlationFloor: 8,
     };
+  });
+
+  it('shows the name, a date line and three numbers at Peek, above the rest of the card', async () => {
+    const screen = await render(<RouteDetailScreen />);
+
+    const peek = within(screen.getByTestId('route-card-peek'));
+    expect(peek.getByTestId('route-detail-name')).toBeTruthy();
+    expect(peek.getByTestId('route-card-date-line')).toHaveTextContent(
+      /^sections\.firstVisited .*2024 · sections\.lastVisited .*2026$/
+    );
+    const stats = peek.getByTestId('route-detail-stats');
+    expect(stats).toHaveTextContent(/^1\.9 mi·maps\.activitiesCount·routes\.prTime$/);
+    expect(peek.queryByTestId('section-calendar')).toBeNull();
   });
 
   it('shows the summary with the oldest attempt in the read as First', async () => {

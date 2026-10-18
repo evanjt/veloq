@@ -248,6 +248,23 @@ pub fn activity_notification_outcome(
     announce_prs: bool,
     announce_milestones: bool,
 ) -> Result<Result<String, PushRunOutcome>, String> {
+    activity_notification_entry(
+        activity_id,
+        activity_name,
+        announce_prs,
+        announce_milestones,
+    )
+    .map(|built| built.map(|entry| entry.json(false)))
+}
+
+/// The title and body to post, or why there is none. See
+/// [`activity_notification_outcome`], which hands it on as JSON.
+fn activity_notification_entry(
+    activity_id: &str,
+    activity_name: &str,
+    announce_prs: bool,
+    announce_milestones: bool,
+) -> Result<Result<Entry, PushRunOutcome>, String> {
     // Off the engine lock: the handler runs whenever the push lands, which is
     // as often as not while a sync page holds the writer.
     let built = crate::persistence::read_pool::with_read_conn(|conn| {
@@ -270,12 +287,38 @@ pub fn activity_notification_outcome(
         return Ok(Err(PushRunOutcome::NothingWorthPosting));
     }
 
-    Ok(Ok(format!(
-        "{{\"title\":{},\"body\":{}}}",
-        json_string(&notification.title),
-        json_string(&notification.body)
-    )))
+    Ok(Ok(Entry {
+        title: notification.title,
+        body: notification.body,
+    }))
 }
+
+/// One entry for the tray, as the handler is handed it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Entry {
+    title: String,
+    body: String,
+}
+
+impl Entry {
+    /// The answer a handler reads. `repeat` is an entry this ride already has
+    /// in the tray with nothing new in it, which the Android worker does not
+    /// post again. The iOS extension cannot withhold a visible push, so it
+    /// reads the title and body either way and ignores the flag.
+    fn json(&self, repeat: bool) -> String {
+        let repeat = if repeat { ",\"repeat\":true" } else { "" };
+        format!(
+            "{{\"title\":{},\"body\":{}{repeat}}}",
+            json_string(&self.title),
+            json_string(&self.body)
+        )
+    }
+}
+
+/// Whether an entry the tray already holds is withheld rather than posted
+/// again. The iOS extension delivers every visible push it is handed, so there
+/// a repeated entry is still posted and its run is recorded as posted.
+const REPEAT_POSTS_NOTHING: bool = !cfg!(target_os = "ios");
 
 /// What the preferences row allows: `None` to post nothing, otherwise whether
 /// section PRs and fitness milestones may be announced, in that order.
@@ -381,6 +424,11 @@ pub(crate) const SKIP_MARKER: &str = "{\"skip\":true}";
 /// target is the activity id, which the poster carries either way, so an entry
 /// with no body still opens the ride.
 pub fn fallback_notification_json(activity_name: Option<&str>) -> String {
+    fallback_entry(activity_name).json(false)
+}
+
+/// The plain entry of [`fallback_notification_json`], before it is JSON.
+fn fallback_entry(activity_name: Option<&str>) -> Entry {
     let title = crate::persistence::read_pool::with_read_conn(|conn| {
         let stored = crate::persistence::settings::notification_templates_from(conn).ok()??;
         stored
@@ -391,11 +439,10 @@ pub fn fallback_notification_json(activity_name: Option<&str>) -> String {
     .flatten()
     .unwrap_or_else(|| FALLBACK_TITLE.to_string());
 
-    format!(
-        "{{\"title\":{},\"body\":{}}}",
-        json_string(&title),
-        json_string(activity_name.unwrap_or_default())
-    )
+    Entry {
+        title,
+        body: activity_name.unwrap_or_default().to_string(),
+    }
 }
 
 /// One activity push, end to end, for a handler that speaks no UniFFI: the
@@ -446,8 +493,14 @@ pub fn activity_push_json(
         Ok(row) => row,
         Err(e) => {
             log::warn!("[push] settings read failed for {activity_id}: {e}");
-            runs::record_for(install, activity_id, PushRunOutcome::Failed, Some(&e));
-            return Ok(Some(fallback_notification_json(None)));
+            let entry = fallback_entry(None);
+            return Ok(Some(settle(
+                install,
+                activity_id,
+                PushRunOutcome::Failed,
+                Some(&e),
+                entry,
+            )));
         }
     };
     let Some((announce_prs, announce_milestones)) = handler_gate(row.as_deref()) else {
@@ -475,22 +528,57 @@ pub fn activity_push_json(
                 .as_ref()
                 .err()
                 .map_or(PushRunOutcome::Posted, |q| q.outcome);
-            runs::record_for(install, activity_id, outcome, None);
-            Ok(Some(answer_for_run(run)))
+            Ok(Some(settle(
+                install,
+                activity_id,
+                outcome,
+                None,
+                entry_for_run(run),
+            )))
         }
         Err(e) => {
             log::warn!("[push] {activity_id} fell back to a plain entry: {e}");
-            runs::record_for(install, activity_id, PushRunOutcome::Failed, Some(&e));
-            Ok(Some(fallback_notification_json(None)))
+            let entry = fallback_entry(None);
+            Ok(Some(settle(
+                install,
+                activity_id,
+                PushRunOutcome::Failed,
+                Some(&e),
+                entry,
+            )))
         }
     }
+}
+
+/// Record a run that answered with an entry, and hand the entry over marked as
+/// a repeat when the tray already holds it for this ride.
+fn settle(
+    install: u64,
+    activity_id: &str,
+    outcome: PushRunOutcome,
+    detail: Option<&str>,
+    entry: Entry,
+) -> String {
+    if !REPEAT_POSTS_NOTHING {
+        runs::record_for(install, activity_id, outcome, detail);
+        return entry.json(false);
+    }
+    let posts = runs::settle_for(
+        install,
+        activity_id,
+        outcome,
+        detail,
+        &entry.title,
+        &entry.body,
+    );
+    entry.json(!posts)
 }
 
 /// What the handler is handed for a run that got past the gate: the sentence,
 /// or for a quiet ride the plain entry carrying the ride's name when the run
 /// learned it.
-fn answer_for_run(run: Result<String, Quiet>) -> String {
-    run.unwrap_or_else(|quiet| fallback_notification_json(quiet.activity_name.as_deref()))
+fn entry_for_run(run: Result<Entry, Quiet>) -> Entry {
+    run.unwrap_or_else(|quiet| fallback_entry(quiet.activity_name.as_deref()))
 }
 
 /// Why a run produced no sentence, and what it had learned by then.
@@ -526,7 +614,7 @@ fn activity_push_run(
     incoming_athlete_id: &str,
     announce_prs: bool,
     announce_milestones: bool,
-) -> Result<Option<Result<String, Quiet>>, String> {
+) -> Result<Option<Result<Entry, Quiet>>, String> {
     let session =
         crate::objects::current_session().ok_or_else(|| "no credentials set".to_string())??;
     // The upstream id is a read, so it comes off the pool rather than the
@@ -589,16 +677,11 @@ fn activity_push_run(
     let detail = stored.detail;
 
     Ok(Some(
-        activity_notification_outcome(
-            activity_id,
-            &detail.name,
-            announce_prs,
-            announce_milestones,
-        )?
-        .map_err(|outcome| Quiet {
-            outcome,
-            activity_name: Some(detail.name.clone()),
-        }),
+        activity_notification_entry(activity_id, &detail.name, announce_prs, announce_milestones)?
+            .map_err(|outcome| Quiet {
+                outcome,
+                activity_name: Some(detail.name.clone()),
+            }),
     ))
 }
 
@@ -949,10 +1032,11 @@ mod tests {
         })
         .expect("the engine");
 
-        let json = answer_for_run(Err(Quiet {
+        let json = entry_for_run(Err(Quiet {
             outcome: PushRunOutcome::NothingWorthPosting,
             activity_name: Some("Morning Ride".to_string()),
-        }));
+        }))
+        .json(false);
 
         assert_eq!(
             json,
@@ -968,10 +1052,11 @@ mod tests {
         let _guard = serial_global_state();
         let _tmp = crate::test_globals::seeded_global_engine();
 
-        let json = answer_for_run(Err(Quiet {
+        let json = entry_for_run(Err(Quiet {
             outcome: PushRunOutcome::NoStringBundle,
             activity_name: Some("Morning Ride".to_string()),
-        }));
+        }))
+        .json(false);
 
         assert_eq!(
             json,
@@ -1469,6 +1554,47 @@ mod tests {
             Some("no credentials set"),
             "the reason is recorded rather than shown"
         );
+    }
+
+    /// Scenario: the uploaded and the analysed event for one ride each reach
+    /// the handler, a minute apart, and both runs end in the plain entry.
+    ///
+    /// Expected behaviour: the second answer still carries the entry, which the
+    /// iOS extension posts whatever it is told, and marks it a repeat, which
+    /// the Android worker does not post again. The second run is recorded as
+    /// unchanged with its reason, and another ride is not held back by it.
+    #[test]
+    fn a_second_push_for_one_ride_answers_with_a_repeat() {
+        let _guard = serial_global_state();
+        let _tmp = crate::test_globals::seeded_global_engine();
+        crate::objects::clear_test_credentials();
+        crate::persistence::with_persistent_engine(|engine| {
+            engine
+                .set_setting("veloq-notification-preferences", r#"{"enabled":true}"#)
+                .expect("the write");
+        })
+        .expect("the engine");
+
+        let first = activity_push_json("i9", "i1")
+            .expect("an answer")
+            .expect("an entry");
+        let second = activity_push_json("i9", "i1")
+            .expect("an answer")
+            .expect("an entry");
+        let other = activity_push_json("i8", "i1")
+            .expect("an answer")
+            .expect("an entry");
+
+        let read = |json: &str| serde_json::from_str::<serde_json::Value>(json).expect("json");
+        assert_eq!(read(&first).get("repeat"), None, "{first}");
+        assert_eq!(read(&second)["repeat"], true, "{second}");
+        assert_eq!(read(&second)["title"], read(&first)["title"]);
+        assert_eq!(read(&other).get("repeat"), None, "{other}");
+        let recorded = runs::recent();
+        assert_eq!(recorded[1].activity_id, "i9");
+        assert_eq!(recorded[1].outcome, "unchanged");
+        assert_eq!(recorded[1].detail.as_deref(), Some("no credentials set"));
+        assert_eq!(recorded[2].outcome, "failed");
     }
 
     #[test]

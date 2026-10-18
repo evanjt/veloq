@@ -66,3 +66,31 @@ fn the_list_request_asks_for_the_description_and_not_a_polyline() {
         serde_json::from_str(r#"{"id":"42","description":"Windy, legs heavy"}"#).unwrap();
     assert_eq!(record.description.as_deref(), Some("Windy, legs heavy"));
 }
+
+/// Scenario: the feed card is built from the stored list body, so a key the
+/// list request stops asking for leaves every card without that figure, with
+/// nothing failing.
+#[test]
+fn the_list_request_asks_for_every_key_the_feed_card_reads() {
+    let stored = super::stored_activity_fields();
+    let fields: Vec<&str> = stored.split(',').collect();
+    for key in [
+        "id",
+        "name",
+        "type",
+        "start_date_local",
+        "distance",
+        "moving_time",
+        "total_elevation_gain",
+        "average_heartrate",
+        "icu_average_watts",
+        "icu_training_load",
+        "calories",
+        "has_weather",
+        "average_weather_temp",
+        "skyline_chart_bytes",
+        "stream_types",
+    ] {
+        assert!(fields.contains(&key), "the list request leaves out {key}");
+    }
+}

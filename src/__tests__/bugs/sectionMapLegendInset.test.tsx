@@ -1,5 +1,5 @@
 /**
- * Scenario: the app draws edge to edge, so the section hero's map starts at
+ * Scenario: the app draws edge to edge, so the section's map starts at
  * y = 0 and runs under the status bar and the transparent native header. The
  * legend and the map controls are positioned inside the map, so placed from a
  * guessed header row they sit partly under the bar, which takes the touches
@@ -14,9 +14,11 @@ import { StyleSheet } from 'react-native';
 import { render, screen } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { HeaderHeightContext } from 'expo-router/react-navigation';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-import { SectionHeader } from '@/features/routes/components/section/SectionHeader';
-import { createMapHighlightStore } from '@/features/routes/lib/mapHighlight';
+import { SectionDetailMap } from '@/features/routes/components/SectionDetailMap';
+import { detailCardWriter } from '@/features/routes/lib/detailCardState';
+import { closeHost, openHost } from '@/shared/app/mapSheetHost';
 import type { FrequentSection, RoutePoint } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
@@ -42,6 +44,20 @@ jest.mock('expo-location', () => ({
   Accuracy: { Balanced: 3 },
 }));
 
+// The map mounts once the screen has settled, which these cases take as done.
+jest.mock('@/shared/async/useAfterNavigationTransition', () => ({
+  useAfterNavigationTransition: (task: () => void) =>
+    jest.requireActual('react').useEffect(task, [task]),
+}));
+
+jest.mock('@/features/routes/hooks/useSectionDetailData', () => ({
+  useSectionDetailData: () => ({ data: null, allActivityTraces: undefined }),
+}));
+
+jest.mock('@/features/routes/hooks/useSectionDataRefresh', () => ({
+  useSectionDataRefresh: () => ({ section: mockSection }),
+}));
+
 const INSET_TOP = 47;
 const ANDROID_TOOLBAR_HEIGHT = 56;
 
@@ -56,7 +72,7 @@ const POLYLINE: RoutePoint[] = [
   { lat: 46.95, lng: 7.449 },
 ];
 
-const SECTION: FrequentSection = {
+const mockSection: FrequentSection = {
   id: 'section-1',
   sectionType: 'auto',
   name: 'Bern climb',
@@ -68,28 +84,23 @@ const SECTION: FrequentSection = {
   createdAt: '2026-01-15T10:00:00Z',
 };
 
+beforeEach(() => {
+  const key = openHost('section', mockSection.id);
+  detailCardWriter(key).selectAttempt(null, POLYLINE);
+});
+
+afterEach(() => closeHost(`section:${mockSection.id}`));
+
 function renderHeader(headerBottom: number) {
-  const highlight = createMapHighlightStore();
-  highlight.set(null, POLYLINE);
+  const client = new QueryClient();
   return render(
-    <SafeAreaProvider initialMetrics={METRICS}>
-      <HeaderHeightContext.Provider value={headerBottom}>
-        <SectionHeader
-          section={SECTION}
-          activityColor="#000000"
-          iconName="bike"
-          activityCount={7}
-          mapReady={true}
-          isTrimming={false}
-          isExpandMode={false}
-          trimStart={0}
-          trimEnd={1}
-          customName={null}
-          highlight={highlight}
-          onSaveName={jest.fn()}
-        />
-      </HeaderHeightContext.Provider>
-    </SafeAreaProvider>
+    <QueryClientProvider client={client}>
+      <SafeAreaProvider initialMetrics={METRICS}>
+        <HeaderHeightContext.Provider value={headerBottom}>
+          <SectionDetailMap sectionId={mockSection.id} />
+        </HeaderHeightContext.Provider>
+      </SafeAreaProvider>
+    </QueryClientProvider>
   );
 }
 

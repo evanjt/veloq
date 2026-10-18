@@ -18,7 +18,11 @@ tags:
       id: "fitness-screen"
     timeout: 10000
 
-# Scroll down to sport toggles
+# The sport toggle is on the performance and trends pages.
+- tapOn:
+    id: "tab-performance"
+
+# Bring the sport toggles into view
 - scrollUntilVisible:
     element:
       id: "fitness-sport-toggle-Running"

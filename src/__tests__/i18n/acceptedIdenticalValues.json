@@ -200,7 +200,8 @@
     "charts.summary.parts": "Placeholders and punctuation only, no translatable words.",
     "charts.column.zone": "The same word in this language.",
     "poolSwim.columns.pace": "Established German loanword or technical term.",
-    "poolSwim.columns.swolf": "Conventional training or recording abbreviation."
+    "poolSwim.columns.swolf": "Conventional training or recording abbreviation.",
+    "fitnessScreen.places.trends": "Established German loanword or technical term."
   },
   "de-DE": {
     "backup.entryAppVersion": "German word or phrase with the same spelling.",
@@ -320,7 +321,9 @@
     "charts.summary.parts": "Placeholders and punctuation only, no translatable words.",
     "charts.column.zone": "The same word in this language.",
     "poolSwim.columns.pace": "Established German loanword or technical term.",
-    "poolSwim.columns.swolf": "Conventional training or recording abbreviation."
+    "poolSwim.columns.swolf": "Conventional training or recording abbreviation.",
+    "fitnessScreen.places.fitness": "Established German loanword or technical term.",
+    "fitnessScreen.places.trends": "Established German loanword or technical term."
   },
   "es-419": {
     "activity.stats.maxLabel": "Abbreviation of the Spanish label with the same spelling.",
@@ -700,7 +703,8 @@
     "statsScreen.lthr": "Conventional training or recording abbreviation.",
     "sections.deltaReferenceRecord": "French word or phrase with the same spelling.",
     "poolSwim.columns.distance": "French word or phrase with the same spelling.",
-    "poolSwim.columns.swolf": "Conventional training or recording abbreviation."
+    "poolSwim.columns.swolf": "Conventional training or recording abbreviation.",
+    "fitnessScreen.places.performance": "French word or phrase with the same spelling."
   },
   "it": {
     "activity.stats.maxLabel": "Abbreviation of the Italian label with the same spelling.",
@@ -985,7 +989,9 @@
     "licenses.sectionNativeEngine": "Dutch words with the same spelling, beside the library's own name.",
     "sections.deltaReferenceRecord": "Dutch word or phrase with the same spelling.",
     "poolSwim.columns.swolf": "Conventional training or recording abbreviation.",
-    "activity.prBadge": "Conventional training or recording abbreviation."
+    "activity.prBadge": "Conventional training or recording abbreviation.",
+    "fitnessScreen.places.fitness": "Established Dutch loanword or technical term.",
+    "fitnessScreen.places.trends": "Established Dutch loanword or technical term."
   },
   "pl": {
     "activity.stats.trimp": "Conventional training or recording abbreviation.",

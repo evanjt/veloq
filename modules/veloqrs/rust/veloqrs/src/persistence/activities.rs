@@ -612,22 +612,54 @@ fn signature_from_parts(
     })
 }
 
-/// Signature reads over a connection rather than the engine.
-///
-/// The query touches nothing the engine holds in memory, which is what lets a
-/// feed card's preview line come from a pooled read-only connection while a
-/// write is in flight. The method above is the same function on the write
-/// connection.
-/// A stored body typed as the detail screen reads it, under the key it is
-/// stored by. The payload's own id can differ from the key for an activity
-/// the device recorded and later uploaded, and a payload with no id at all
-/// is still drawn.
-pub(crate) fn activity_record(key: &str, raw: &str) -> Option<crate::FfiActivityRecord> {
+/// A stored body typed under the key it is stored by. The payload's own id
+/// can differ from the key for an activity the device recorded and later
+/// uploaded, and a payload with no id at all is still read.
+fn stored_record(key: &str, raw: &str) -> Option<crate::net::types::ActivityRecord> {
     let mut value: serde_json::Value = serde_json::from_str(raw).ok()?;
     value
         .as_object_mut()?
         .insert("id".into(), serde_json::Value::String(key.to_string()));
-    let body: crate::net::types::ActivityRecord = serde_json::from_value(value).ok()?;
+    serde_json::from_value(value).ok()
+}
+
+/// A stored body typed as one feed card draws it.
+pub(crate) fn feed_card(
+    key: &str,
+    intervals_web_id: Option<String>,
+    raw: &str,
+) -> Option<crate::FfiFeedCard> {
+    let body = stored_record(key, raw)?;
+    let has_stream = |kind: &str| {
+        body.stream_types
+            .as_ref()
+            .is_some_and(|types| types.iter().any(|t| t == kind))
+    };
+    Some(crate::FfiFeedCard {
+        has_gps: has_stream("latlng"),
+        has_altitude: has_stream("altitude"),
+        intervals_web_id,
+        sport_type: body.activity_type,
+        name: body.name.unwrap_or_default(),
+        start_date_local: body.start_date_local.unwrap_or_default(),
+        distance: body.distance,
+        moving_time: body.moving_time.map(|t| t as f64),
+        elevation_gain: body.total_elevation_gain,
+        avg_hr: body.average_heartrate,
+        avg_power: body.icu_average_watts,
+        training_load: body.icu_training_load,
+        calories: body.calories,
+        has_weather: body.has_weather.unwrap_or(false),
+        average_weather_temp: body.average_weather_temp,
+        skyline_chart_bytes: body.skyline_chart_bytes,
+        id: body.id,
+    })
+}
+
+/// A stored body typed as the detail screen reads it, under the key it is
+/// stored by.
+pub(crate) fn activity_record(key: &str, raw: &str) -> Option<crate::FfiActivityRecord> {
+    let body = stored_record(key, raw)?;
     let positive = |v: Option<f64>| v.filter(|v| v.is_finite()).unwrap_or(0.0).max(0.0);
     Some(crate::FfiActivityRecord {
         is_detail: body.is_detail(),
@@ -665,6 +697,12 @@ pub(crate) fn activity_record(key: &str, raw: &str) -> Option<crate::FfiActivity
     })
 }
 
+/// Signature reads over a connection rather than the engine.
+///
+/// The query touches nothing the engine holds in memory, which is what lets a
+/// feed card's preview line come from a pooled read-only connection while a
+/// write is in flight. The method above is the same function on the write
+/// connection.
 pub(crate) mod pooled {
     use super::{
         Bounds, CENSUS_ROW_OWED, CENSUS_TRACK_SETTLED_OUT, CENSUS_TRACK_STORED,
@@ -1131,20 +1169,66 @@ pub(crate) mod pooled {
         .flatten()
     }
 
-    /// The feed's read: the bodies in a window, newest first, narrowed by a
-    /// search and a sport chip, then paged. The match runs over the whole
-    /// window before the page is taken, and the count is of every match.
+    /// The bodies in a window, newest first, narrowed by a search and a sport
+    /// chip, then paged, each beside its row key and web link id.
+    pub(crate) fn activity_body_page(
+        conn: &Connection,
+        query: &crate::FfiActivityBodiesQuery,
+    ) -> rusqlite::Result<crate::FfiActivityBodiesPage> {
+        let mut bodies = Vec::new();
+        let mut intervals_ids = Vec::new();
+        let mut keys = Vec::new();
+        let (matched_count, has_more) = page_bodies(conn, query, |raw, key, web_id| {
+            bodies.push(raw);
+            intervals_ids.push(web_id);
+            keys.push(key);
+        })?;
+        Ok(crate::FfiActivityBodiesPage {
+            bodies,
+            intervals_ids,
+            keys,
+            matched_count,
+            has_more,
+        })
+    }
+
+    /// The feed's read: the same match and page as the body read, each body
+    /// typed as the card draws it. A body that will not parse is left off the
+    /// page and still counts, so the offsets of the pages after it hold.
+    pub(crate) fn feed_card_page(
+        conn: &Connection,
+        query: &crate::FfiActivityBodiesQuery,
+    ) -> rusqlite::Result<crate::FfiFeedCardsPage> {
+        let mut cards = Vec::new();
+        let (matched_count, has_more) = page_bodies(conn, query, |raw, key, web_id| {
+            match super::feed_card(&key, web_id, &raw) {
+                Some(card) => cards.push(card),
+                None => log::warn!("veloqrs: [feed] stored body for {} skipped", key),
+            }
+        })?;
+        Ok(crate::FfiFeedCardsPage {
+            cards,
+            matched_count,
+            has_more,
+        })
+    }
+
+    /// The bodies in a window, newest first, narrowed by a search and a sport
+    /// chip, then paged. The match runs over the whole window before the page
+    /// is taken, and the count is of every match. `take` receives each body
+    /// on the page with its row key and web link id. Answers the count and
+    /// whether more follow the page.
     ///
     /// The name and sport come from `activity_metrics`, which the body write
     /// fills in the same transaction, so a search reads two short columns
     /// rather than parsing every payload. A body the metrics write missed is
     /// matched on its own payload, and one that will not parse matches no
-    /// search, as the feed drops it. A payload is copied out only for the
-    /// rows on the page.
-    pub(crate) fn activity_body_page(
+    /// search. A payload is copied out only for the rows on the page.
+    fn page_bodies(
         conn: &Connection,
         query: &crate::FfiActivityBodiesQuery,
-    ) -> rusqlite::Result<crate::FfiActivityBodiesPage> {
+        mut take: impl FnMut(String, String, Option<String>),
+    ) -> rusqlite::Result<(u32, bool)> {
         let needle = query.needle.trim().to_lowercase();
         let filtered = !needle.is_empty() || !query.sport_families.is_empty();
         let matches = |name: &str, sport: &str| {
@@ -1174,9 +1258,6 @@ pub(crate) mod pooled {
             query.oldest_ts.map_or(i64::MIN, |ts| ts as i64),
             query.newest_ts.map_or(i64::MAX, |ts| ts as i64)
         ])?;
-        let mut bodies = Vec::new();
-        let mut intervals_ids = Vec::new();
-        let mut keys = Vec::new();
         let mut matched = 0usize;
         while let Some(row) = rows.next()? {
             let hit = !filtered
@@ -1199,22 +1280,13 @@ pub(crate) mod pooled {
             }
             if (first..last).contains(&matched) {
                 let key = row.get::<_, String>(3)?;
-                bodies.push(row.get(0)?);
-                intervals_ids.push(super::intervals_web_id(
-                    &key,
-                    row.get::<_, Option<String>>(4)?.as_deref(),
-                ));
-                keys.push(key);
+                let web_id =
+                    super::intervals_web_id(&key, row.get::<_, Option<String>>(4)?.as_deref());
+                take(row.get(0)?, key, web_id);
             }
             matched += 1;
         }
-        Ok(crate::FfiActivityBodiesPage {
-            bodies,
-            intervals_ids,
-            keys,
-            matched_count: matched as u32,
-            has_more: matched > last,
-        })
+        Ok((matched as u32, matched > last))
     }
 
     pub(crate) fn time_stream(conn: &Connection, activity_id: &str) -> Option<Vec<u32>> {
@@ -2320,8 +2392,6 @@ impl PersistentEngine {
              DELETE FROM athlete_profile;
              DELETE FROM job_attempts;
              DELETE FROM job_runs;
-             DELETE FROM geocoded_places;
-             DELETE FROM geocoded_names;
              DELETE FROM push_runs;
              DELETE FROM sport_settings;
              DELETE FROM section_rank_inputs;
@@ -2339,9 +2409,7 @@ impl PersistentEngine {
         // gone, and the restore state keeps the previous athlete's section
         // names and activity ids. The export home and the sync history are
         // the athlete's too, and the record zip carries every settings key, so
-        // left behind they would go out in the next athlete's backup. The
-        // consent to geocoding was given by the athlete whose library went:
-        // left on, the next athlete's points go to the provider unasked.
+        // left behind they would go out in the next athlete's backup.
         let library_keys = [
             super::cutover::CUTOVER_KEY,
             super::cutover::CUTOVER_DIFF_KEY,
@@ -2370,8 +2438,6 @@ impl PersistentEngine {
             super::settings_keys::SYNC_LAST_SUCCESS_AT,
             super::settings_keys::FITNESS_MODEL_EVENTS,
             super::settings_keys::WIDGET_CONTEXT,
-            super::settings_keys::GEOCODING_ENABLED,
-            super::settings_keys::GEOCODING_ENABLED_AT,
             crate::objects::sync::OLDEST_ACTIVITY_DATE_KEY,
             crate::objects::sync::ACTIVITY_YEAR_COUNTS_KEY,
             crate::objects::sync::WELLNESS_ANSWERED_KEY,
@@ -4278,6 +4344,17 @@ impl PersistentEngine {
         self.store_bodies_with_metrics(rows, true)
     }
 
+    /// The feed's card read, on this engine's own connection, for the gate
+    /// that measures what each screen read hands across. The app reads it
+    /// through the reader pool.
+    #[doc(hidden)]
+    pub fn feed_cards(
+        &self,
+        query: &crate::FfiActivityBodiesQuery,
+    ) -> SqlResult<crate::FfiFeedCardsPage> {
+        pooled::feed_card_page(&self.db, query)
+    }
+
     /// Store bodies and their derived metrics in one transaction.
     pub fn upsert_activity_bodies_with_metrics(
         &mut self,
@@ -4706,6 +4783,10 @@ mod activity_body_metrics_tests;
 #[cfg(test)]
 #[path = "tests/activity_record.rs"]
 mod activity_record_tests;
+
+#[cfg(test)]
+#[path = "tests/feed_cards.rs"]
+mod feed_cards_tests;
 
 #[cfg(test)]
 mod tests {

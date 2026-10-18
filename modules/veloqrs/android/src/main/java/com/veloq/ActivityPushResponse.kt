@@ -11,6 +11,16 @@ internal object ActivityPushResponse {
      */
     val refreshesWidget: Boolean
       get() = notification != null && failureReason == null
+
+    /**
+     * Whether the entry goes in the tray. Rust marks it a repeat when an
+     * earlier push for the same ride already posted it, or posted something
+     * this adds nothing to: intervals.icu sends an uploaded and an analysed
+     * event a minute apart, and posting both would sound the phone twice and
+     * bring back an entry the athlete dismissed.
+     */
+    val posts: Boolean
+      get() = notification != null && !notification.optBoolean("repeat")
   }
 
   sealed class Gate {

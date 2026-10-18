@@ -19,7 +19,11 @@ tags:
     timeout: 10000
 - takeScreenshot: "screenshots/training-wellness-dashboard-loaded"
 
-# Scroll down to verify weekly summary loads (deferred below fold)
+# The week, the calendar and the year comparison are on the calendar page.
+- tapOn:
+    id: "tab-calendar"
+
+# Verify the weekly summary loads
 - runFlow:
     file: helpers/reveal.yaml
     env:

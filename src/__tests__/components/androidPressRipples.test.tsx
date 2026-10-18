@@ -19,7 +19,7 @@ import { MapPreferencesProvider } from '@/features/settings/stores/MapPreference
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import { StrengthActivityCard } from '@/features/strength/components/StrengthActivityCard';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import type { Activity } from '@/types';
+import type { FeedCard } from '@/types';
 
 jest.mock('react-native/Libraries/Utilities/Platform', () => {
   const actual = jest.requireActual('react-native/Libraries/Utilities/Platform');
@@ -65,21 +65,21 @@ jest.mock('react-native-body-highlighter', () => ({
 const ride = {
   id: 'r1',
   name: 'Orchard lap',
-  type: 'Ride',
-  start_date_local: '2026-08-12T07:30:00',
+  sportType: 'Ride',
+  startDateLocal: '2026-08-12T07:30:00',
   distance: 42000,
-  moving_time: 5400,
-  total_elevation_gain: 400,
-} as Activity;
+  movingTime: 5400,
+  elevationGain: 400,
+} as FeedCard;
 
 const lifting = {
   id: 'w1',
   name: 'Barn lifts',
-  type: 'WeightTraining',
-  start_date_local: '2026-08-12T07:30:00',
+  sportType: 'WeightTraining',
+  startDateLocal: '2026-08-12T07:30:00',
   distance: 0,
-  moving_time: 2400,
-} as Activity;
+  movingTime: 2400,
+} as FeedCard;
 
 function withProviders(ui: React.ReactElement) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -138,9 +138,7 @@ describe('a feed card pressed on Android', () => {
   });
 
   it('neither shrinks nor dims a card with a map while held', async () => {
-    await withProviders(
-      <ActivityCard activity={{ ...ride, stream_types: ['latlng'] } as Activity} />
-    );
+    await withProviders(<ActivityCard activity={{ ...ride, hasGps: true } as FeedCard} />);
 
     await fireEvent(screen.getByTestId('activity-card-r1'), 'pressIn');
 

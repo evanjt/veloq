@@ -14,7 +14,7 @@ import { useActivityMapChoices } from '@/features/activity/hooks/useActivityMapC
 import { MapPreferencesProvider, useMapPreferences } from '@/features/settings';
 import { forgetCameraOverrides } from '@/features/maps/lib/storage/terrainCameraOverrides';
 import type { TerrainCamera } from '@/features/maps/lib/cameraAngle';
-import type { Activity } from '@/types';
+import type { FeedCard } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
@@ -56,11 +56,11 @@ jest.mock('@/features/activity/hooks/useMapPreviewCoordinates', () => ({
 
 const activity = {
   id: 'climb-7',
-  type: 'Ride',
+  sportType: 'Ride',
   distance: 9000,
-  total_elevation_gain: 1100,
-  stream_types: ['latlng'],
-} as unknown as Activity;
+  elevationGain: 1100,
+  hasGps: true,
+} as FeedCard;
 
 const SAVED_ANGLE: TerrainCamera = { center: [8.73, 47.54], zoom: 13.4, bearing: 210, pitch: 70 };
 

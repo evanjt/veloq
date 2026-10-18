@@ -13,8 +13,6 @@ import {
   BulkExportFormat,
   CallKind,
   InitOutcome,
-  PlaceNameKind,
-  PlaceNameOutcome,
   StartOutcome,
   SyncErrorReason,
   SyncState,
@@ -44,8 +42,5 @@ describe('the binding stub enums', () => {
     for (const value of Object.values(membersOf(StartOutcome))) expect(value).toBeGreaterThan(0);
     for (const value of Object.values(membersOf(InitOutcome))) expect(value).toBeGreaterThan(0);
     for (const value of Object.values(membersOf(UploadOutcome))) expect(value).toBeGreaterThan(0);
-    for (const value of Object.values(membersOf(PlaceNameKind))) expect(value).toBeGreaterThan(0);
-    for (const value of Object.values(membersOf(PlaceNameOutcome)))
-      expect(value).toBeGreaterThan(0);
   });
 });

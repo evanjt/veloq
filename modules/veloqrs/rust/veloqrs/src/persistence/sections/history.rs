@@ -1801,7 +1801,7 @@ pub(crate) mod pooled {
 
     /// The name of a retired section whose departure recorded none: the
     /// newest name the athlete gave it, else the label it showed unnamed, its
-    /// geocoded name while geocoding is on or its number.
+    /// number.
     pub(crate) fn retired_name(conn: &Connection, section_id: &str) -> Option<String> {
         let renamed: Option<Option<String>> = conn
             .query_row(
@@ -1820,13 +1820,6 @@ pub(crate) mod pooled {
                     .and_then(|d| d.get("to").and_then(|v| v.as_str()).map(str::to_string))
             });
         if let Some(Some(name)) = renamed {
-            return Some(name);
-        }
-        if let Some(name) = crate::persistence::geocoded_names::shown_geocoded_name(
-            conn,
-            crate::persistence::geocoded_names::NamedKind::Section,
-            section_id,
-        ) {
             return Some(name);
         }
         let number: Option<u32> = conn

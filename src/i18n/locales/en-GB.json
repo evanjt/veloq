@@ -761,7 +761,13 @@
     "linkTrainingLoad": "Monitoring Training Load (Science2Sport)",
     "understandingMetrics": "Understanding the metrics",
     "rampRate": "Ramp",
-    "perWeek": "/wk"
+    "perWeek": "/wk",
+    "places": {
+      "fitness": "Fitness",
+      "calendar": "Calendar",
+      "performance": "Performance",
+      "trends": "Trends"
+    }
   },
   "formZones": {
     "transition": "Transition",
@@ -1565,12 +1571,6 @@
     "noRoutesYet": "No routes yet",
     "noSectionsMatchFilter": "No sections match filter",
     "noSectionsFor": "No sections for {{filters}}",
-    "placeJourney": "{{start}} to {{end}}",
-    "placeLoop": "{{place}} Loop",
-    "placeNameButton": "Name from places",
-    "placeNameFailedMessage": "The place name could not be looked up, so the name stays as it was. Please try again later.",
-    "placeNameFailedTitle": "No place name",
-    "placeNameNoPlaceMessage": "No place was found where this starts, so the name stays as it was.",
     "renameFailedTitle": "Name could not be saved",
     "renameFailedMessage": "The route name was not saved. Please try again.",
     "referenceFailedTitle": "Reference not set",
@@ -1911,14 +1911,6 @@
     "terrain3DSmartHint": "Smart draws feed cards and activity maps in 3D on its own when a route has {{height}} or more between its lowest and highest point.",
     "noData": "No data",
     "permissions": "Permissions",
-    "placeNames": {
-      "title": "Place names",
-      "attribution": "Place names © OpenStreetMap contributors",
-      "noticeTitle": "Use place names?",
-      "noticeBody": "When a new route or section is found, or when you ask for one to be named, its start and end point are sent to OpenStreetMap's Nominatim service to look up a place name. No other route or section is sent, and nothing about you. The service's usage policy applies.",
-      "readPolicy": "Usage policy",
-      "accept": "Accept"
-    },
     "primarySport": "Primary sport",
     "primarySportHintCycling": "eFTP shown on the summary card. The Fitness tab shows power curve, power zones, eFTP trend, and decoupling.",
     "primarySportHintRunning": "Threshold pace and LTHR shown on the summary card. The Fitness tab shows pace curve, running power, and HR zones.",

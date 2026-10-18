@@ -183,7 +183,6 @@ describe.each([
  *  component, hook and store behind them, and several of those reach the maps,
  *  activity, home and insights barrels, which import routes back. */
 const ROUTES_NAMES = [
-  'createMapHighlightStore',
   'buildFinalRouteGroup',
   'buildRouteGroupBase',
   'DataRangeFooter',
@@ -227,6 +226,8 @@ const ROUTES_NAMES = [
   'SectionActionRow',
   'SectionContentArea',
   'SectionDebugPanel',
+  'SectionDetailCard',
+  'SectionDetailMap',
   'sectionDetailStyles',
   'sectionFiltersFor',
   'SectionHeader',
@@ -261,7 +262,6 @@ const ROUTES_NAMES = [
   'usePreviewCurrentSections',
   'usePreviewDetect',
   'useRepresentativeRoute',
-  'useRevealMapOnDraw',
   'useRouteDetailData',
   'useRouteDetailPerformance',
   'useRouteGroupingPreview',

@@ -761,7 +761,13 @@
     "linkTrainingLoad": "Monitoring Training Load (Science2Sport)",
     "understandingMetrics": "了解指标",
     "rampRate": "升幅",
-    "perWeek": "/周"
+    "perWeek": "/周",
+    "places": {
+      "fitness": "体能",
+      "calendar": "日历",
+      "performance": "表现",
+      "trends": "趋势"
+    }
   },
   "formZones": {
     "transition": "过渡期",
@@ -1565,12 +1571,6 @@
     "noRoutesYet": "暂无路线",
     "noSectionsMatchFilter": "没有匹配筛选条件的路段",
     "noSectionsFor": "没有符合 {{filters}} 的路段",
-    "placeJourney": "{{start}}至{{end}}",
-    "placeLoop": "{{place}}环线",
-    "placeNameButton": "按地名命名",
-    "placeNameFailedMessage": "无法查询地名,名称保持不变。请稍后重试。",
-    "placeNameFailedTitle": "没有地名",
-    "placeNameNoPlaceMessage": "起点处未找到地名,名称保持不变。",
     "renameFailedTitle": "无法保存名称",
     "renameFailedMessage": "未能保存路线名称，请重试。",
     "referenceFailedTitle": "参考未设置",
@@ -1987,14 +1987,6 @@
     "mapCache": "地图缓存",
     "sizeAtLeast": "至少 {{size}}",
     "permissions": "权限",
-    "placeNames": {
-      "title": "地名",
-      "attribution": "地名 © OpenStreetMap 贡献者",
-      "noticeTitle": "使用地名?",
-      "noticeBody": "发现新的路线或路段时,或在您要求为其命名时,其起点和终点会发送到 OpenStreetMap 的 Nominatim 服务以查询地名。不会发送任何其他路线或路段,也不会发送任何与您有关的信息。该服务的使用政策适用。",
-      "readPolicy": "使用政策",
-      "accept": "接受"
-    },
     "heatmapGeneration": "热力图",
     "heatmapDescription": "使用设备存储空间。禁用可节省空间。",
     "heatmapStorageUsed": "正在使用 {{size}} 设备存储空间",

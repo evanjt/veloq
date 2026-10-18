@@ -16,8 +16,9 @@ import androidx.core.app.NotificationManagerCompat
  * The channel, the tag and the tap target are the ones the JavaScript task
  * used, so an athlete sees one kind of entry whichever path posted it: the
  * `veloq-activity` channel the app creates at launch, `activity-<id>` as the
- * tag so a second post for the same ride replaces the first, and a tap that
- * opens the activity through the app's own deep link.
+ * tag so a second post for the same ride replaces the first without
+ * sounding again, and a tap that opens the activity through the app's own
+ * deep link.
  *
  * The link names the athlete the push was for. It bypasses the tap handler's
  * athlete check, so the app makes the same check on the link
@@ -60,6 +61,9 @@ object ActivityNotificationPoster {
       .setPriority(NotificationCompat.PRIORITY_DEFAULT)
       .setContentIntent(pending)
       .setAutoCancel(true)
+      // A second post for the same ride replaces the entry in place, silently:
+      // one ride alerts once, and a highlight added later is read, not heard.
+      .setOnlyAlertOnce(true)
       .build()
     try {
       NotificationManagerCompat.from(context).notify("activity-$activityId", 0, notification)

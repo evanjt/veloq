@@ -172,6 +172,37 @@ it('types every field the activity stat cards read in the engine record', () => 
   );
 });
 
+// The feed card, its context menu and its map preview read the engine's card
+// record by these generated names. The card doubles are plain objects, so a
+// field the Rust record stops carrying, or carries under another name, draws
+// as a figure every card silently leaves out.
+it('types every field the feed card reads in the engine card record', () => {
+  const block = read(GENERATED).match(/export type FfiFeedCard = \{([\s\S]*?)\n\};/)?.[1];
+  expect(block).toBeDefined();
+  const fields = [...(block ?? '').matchAll(/^ {2}(\w+)\??:/gm)].map((match) => match[1]);
+  expect(fields).toEqual(
+    expect.arrayContaining([
+      'id',
+      'intervalsWebId',
+      'sportType',
+      'name',
+      'startDateLocal',
+      'distance',
+      'movingTime',
+      'elevationGain',
+      'avgHr',
+      'avgPower',
+      'trainingLoad',
+      'calories',
+      'hasWeather',
+      'averageWeatherTemp',
+      'skylineChartBytes',
+      'hasGps',
+      'hasAltitude',
+    ])
+  );
+});
+
 // The FTP milestone compares eFTP against the value this many days earlier,
 // and every locale's methodology says so in words.
 it('says the FTP comparison window Rust uses in every locale', () => {
@@ -2067,8 +2098,6 @@ const SETS: SetContract[] = [
     [
       ['FfiCallKind', stub.CallKind],
       ['FfiUploadOutcome', stub.UploadOutcome],
-      ['FfiPlaceNameKind', stub.PlaceNameKind],
-      ['FfiPlaceNameOutcome', stub.PlaceNameOutcome],
       ['SyncState', stub.SyncState],
       ['RangeCoverage', stub.RangeCoverage],
       ['FfiSyncErrorReason', stub.SyncErrorReason],

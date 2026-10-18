@@ -3,7 +3,6 @@
 use rusqlite::{OptionalExtension, params};
 use std::collections::HashMap;
 
-use super::super::geocoded_names::{NamedKind, shown_geocoded_names};
 use super::super::{PersistentEngine, get_section_word};
 use super::numbers::label_number;
 use tracematch::sections::shares_ground;
@@ -189,29 +188,12 @@ impl PersistentEngine {
     /// A dormant named corridor counts too, unless it is on this section's own
     /// ground (a rename relabels that one), since it shows its name again once
     /// its ground is detected.
-    ///
-    /// A geocoded name does not count. Several sections in one place share
-    /// it by nature, and it is not the athlete's, so it never stands in the
-    /// way of a name they type.
     fn name_shown_by_another_section(&self, section_id: &str, name: &str) -> Result<bool, String> {
         self.ensure_named_overlay();
         let overlay = self.named_overlay_cached_names();
-        let geocoded = shown_geocoded_names(&self.db, NamedKind::Section);
-        let corridor_named: std::collections::HashSet<String> = self
-            .named_overlay
-            .read()
-            .unwrap_or_else(|e| e.into_inner())
-            .by_section
-            .keys()
-            .filter(|id| geocoded.contains_key(*id))
-            .cloned()
-            .collect();
-        let shows_geocoded = |id: &String, shown: &String| {
-            geocoded.get(id) == Some(shown) && !corridor_named.contains(id)
-        };
         if overlay
             .iter()
-            .any(|(id, shown)| id != section_id && shown == name && !shows_geocoded(id, shown))
+            .any(|(id, shown)| id != section_id && shown == name)
         {
             return Ok(true);
         }

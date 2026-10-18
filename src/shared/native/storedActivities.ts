@@ -1,7 +1,8 @@
 /**
  * The stored activity bodies over a date window, parsed. It sits in `shared`
- * because the feed and the demo route sync both read it, and the barrel that
- * would otherwise carry it closes a cycle.
+ * because the heatmap, the demo route sync and the sync debug section read it,
+ * and the barrel that would otherwise carry it closes a cycle. The feed reads
+ * typed cards instead.
  */
 
 import { timeAppWork } from '@/shared/debug/renderTimer';
@@ -26,20 +27,16 @@ export const DECODE_ACTIVITY_BODIES = 'decode.activityBodies';
 
 /**
  * Each body of a page as an activity, named by the row key the engine stores
- * it under and carrying the id a web link may name that the engine answered
- * beside it. A body's own `id` is the server's for a recording that was
+ * it under. A body's own `id` is the server's for a recording that was
  * uploaded, so a route or a fetch never takes it from the payload.
  */
-export function parseBodies(
-  page: Pick<ActivityBodiesPage, 'bodies' | 'intervalsIds' | 'keys'>
-): Activity[] {
+export function parseBodies(page: Pick<ActivityBodiesPage, 'bodies' | 'keys'>): Activity[] {
   return timeAppWork(DECODE_ACTIVITY_BODIES, () => {
     const out: Activity[] = [];
     page.bodies.forEach((body, index) => {
       try {
         const activity = JSON.parse(body) as Activity;
         activity.id = page.keys[index] ?? activity.id;
-        activity.intervalsWebId = page.intervalsIds[index] ?? null;
         out.push(activity);
       } catch {
         // A body we cannot parse is a corrupt row, not an activity with no data.

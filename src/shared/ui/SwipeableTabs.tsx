@@ -155,8 +155,10 @@ export function SwipeableTabs({
   const swipeThreshold = pageWidth * SWIPE_THRESHOLD_RATIO;
   const maxOffset = -pageWidth * (tabCount - 1);
 
-  // Track which tabs have been visited (for lazy rendering)
-  const visitedRef = useRef<Set<number>>(new Set([0])); // First tab always visited
+  // The tabs visited so far, for lazy rendering. The tab in front is added as
+  // each render reads it, so a pager opened on its third tab mounts that page
+  // and not the first one beside it.
+  const visitedRef = useRef<Set<number>>(new Set());
 
   // Find initial tab index
   const getTabIndex = useCallback((key: string) => tabs.findIndex((t) => t.key === key), [tabs]);
@@ -216,13 +218,12 @@ export function SwipeableTabs({
     )
   );
 
-  // Mark current tab as visited synchronously during render
-  // (must happen before the lazy check in the JSX below)
+  // Mark the page in front as visited synchronously during render (it must
+  // happen before the lazy check in the JSX below). An unknown key shows the
+  // first page, so that is the one marked.
   const currentIndex = getTabIndex(activeTab);
-  if (currentIndex >= 0) {
-    visitedRef.current.add(currentIndex);
-  }
   const exposedIndex = Math.max(0, currentIndex);
+  visitedRef.current.add(exposedIndex);
 
   // Sync animation with activeTab state changes (e.g., from tab press), and
   // with the host, since the page offset is a multiple of its width.

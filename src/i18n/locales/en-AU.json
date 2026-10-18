@@ -251,8 +251,6 @@
     "noMatchingRoutes": "Couldn't find any matching routes",
     "noRoutesYet": "No routes yet, mate",
     "noSectionsMatchFilter": "No sections match that filter",
-    "placeNameFailedMessage": "Couldn't look up the place name, so the name stays as it was. Have another go later.",
-    "placeNameNoPlaceMessage": "Couldn't find a place where this starts, so the name stays as it was.",
     "renameFailedMessage": "The route name didn't save. Have another go.",
     "referenceFailedMessage": "The route's reference couldn't be changed. Have another go.",
     "routesWithTwoPlus": "Routes with 2+ activities on similar paths will rock up here",

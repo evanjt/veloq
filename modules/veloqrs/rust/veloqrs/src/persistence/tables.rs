@@ -195,16 +195,6 @@ static TABLES: &[Table] = &[
         "the activities the server says moved the accepted eFTP",
     ),
     t(
-        "geocoded_names",
-        Derived,
-        "the name the geocoder gave a new route or section; losing it shows the numbered label, and asking again is the athlete's to choose",
-    ),
-    t(
-        "geocoded_places",
-        Derived,
-        "the place name the geocoder answered for a cell; losing it costs one request per cell again",
-    ),
-    t(
         "gps_tracks",
         Mirror,
         "the track intervals.icu holds, re-downloadable",

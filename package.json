@@ -65,6 +65,7 @@
     "maestro:pack:stress": "./scripts/with-maestro.sh test .maestro/ --include-tags=pack-stress --no-ansi",
     "ffi:generate": "npm --prefix modules/veloqrs run generate --",
     "check:bindings-fresh": "node scripts/check-bindings-fresh.mjs",
+    "check:tracematch-docs": "node scripts/check-tracematch-docs.mjs",
     "check:install-scripts": "node scripts/check-install-scripts.mjs",
     "check:jsi-bindings-selector": "node scripts/check-jsi-bindings-selector.mjs",
     "config:unified": "npx tsx scripts/generate-unified-config.ts",

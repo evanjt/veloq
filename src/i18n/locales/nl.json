@@ -761,7 +761,13 @@
     "linkTrainingLoad": "Monitoring Training Load (Science2Sport)",
     "understandingMetrics": "De statistieken begrijpen",
     "rampRate": "Stijging",
-    "perWeek": "/week"
+    "perWeek": "/week",
+    "places": {
+      "fitness": "Fitness",
+      "calendar": "Kalender",
+      "performance": "Prestaties",
+      "trends": "Trends"
+    }
   },
   "formZones": {
     "transition": "Overgang",
@@ -1565,12 +1571,6 @@
     "noRoutesYet": "Nog geen routes",
     "noSectionsMatchFilter": "Geen secties komen overeen met filter",
     "noSectionsFor": "Geen secties voor {{filters}}",
-    "placeJourney": "{{start}} naar {{end}}",
-    "placeLoop": "Rondje {{place}}",
-    "placeNameButton": "Naam geven op plaats",
-    "placeNameFailedMessage": "De plaatsnaam kon niet worden opgezocht, de naam blijft zoals hij was. Probeer het later opnieuw.",
-    "placeNameFailedTitle": "Geen plaatsnaam",
-    "placeNameNoPlaceMessage": "Er is geen plaats gevonden waar dit begint, de naam blijft zoals hij was.",
     "renameFailedTitle": "Naam kon niet worden opgeslagen",
     "renameFailedMessage": "De routenaam is niet opgeslagen. Probeer het opnieuw.",
     "referenceFailedTitle": "Referentie niet ingesteld",
@@ -1987,14 +1987,6 @@
     "mapCache": "Kaartcache",
     "sizeAtLeast": "Minstens {{size}}",
     "permissions": "Machtigingen",
-    "placeNames": {
-      "title": "Plaatsnamen",
-      "attribution": "Plaatsnamen © OpenStreetMap-bijdragers",
-      "noticeTitle": "Plaatsnamen gebruiken?",
-      "noticeBody": "Wanneer een nieuwe route of sectie wordt gevonden, of wanneer je vraagt er een naam aan te geven, worden het start- en eindpunt naar de Nominatim-dienst van OpenStreetMap gestuurd om een plaatsnaam op te zoeken. Andere routes en secties worden niet verstuurd, en niets over jou. Het gebruiksbeleid van de dienst is van toepassing.",
-      "readPolicy": "Gebruiksbeleid",
-      "accept": "Accepteren"
-    },
     "heatmapGeneration": "Heatmap",
     "heatmapDescription": "Gebruikt opslagruimte op het apparaat. Schakel uit om ruimte te besparen.",
     "heatmapStorageUsed": "Gebruikt {{size}} apparaatopslag",

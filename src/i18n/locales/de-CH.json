@@ -752,7 +752,13 @@
     "linkTrainingLoad": "Monitoring Training Load (Science2Sport)",
     "understandingMetrics": "D Zahle verstaa",
     "rampRate": "Anstieg",
-    "perWeek": "/Woche"
+    "perWeek": "/Woche",
+    "places": {
+      "fitness": "Fitnäss",
+      "calendar": "Kaländer",
+      "performance": "Leistig",
+      "trends": "Trends"
+    }
   },
   "formZones": {
     "transition": "Übergang",
@@ -1536,12 +1542,6 @@
     "noRoutesYet": "No kei Route",
     "noSectionsMatchFilter": "Kei Abschnitt passt zum Filter",
     "noSectionsFor": "Kei Abschnitt für {{filters}}",
-    "placeJourney": "{{start}} uf {{end}}",
-    "placeLoop": "{{place}} Rundi",
-    "placeNameButton": "Nach Orten benennen",
-    "placeNameFailedMessage": "Der Ortsname konnte nicht nachgeschlagen werden, der Name bleibt unverändert. Versuch es später erneut.",
-    "placeNameFailedTitle": "Kein Ortsname",
-    "placeNameNoPlaceMessage": "Am Startpunkt wurde kein Ort gefunden, der Name bleibt unverändert.",
     "renameFailedTitle": "Name konnte nicht gespeichert werden",
     "renameFailedMessage": "Der Routenname wurde nicht gespeichert. Versuch es erneut.",
     "referenceFailedTitle": "Referänz nöd gsetzt",
@@ -1923,14 +1923,6 @@
     "mapCache": "Chartecache",
     "sizeAtLeast": "Mindeschtens {{size}}",
     "permissions": "Berächtiguinge",
-    "placeNames": {
-      "title": "Ortsnamen",
-      "attribution": "Ortsnamen © OpenStreetMap-Mitwirkende",
-      "noticeTitle": "Ortsnamen verwenden?",
-      "noticeBody": "Wird eine neue Route oder ein neuer Abschnitt gefunden oder bittest du darum, eine Route oder einen Abschnitt zu benennen, werden dessen Start- und Endpunkt an den Nominatim-Dienst von OpenStreetMap gesendet, um einen Ortsnamen nachzuschlagen. Andere Routen und Abschnitte werden nicht gesendet, und nichts über dich. Es gelten die Nutzungsbedingungen des Dienstes.",
-      "readPolicy": "Nutzungsbedingungen",
-      "accept": "Zustimmen"
-    },
     "heatmapGeneration": "Wärmecharte",
     "heatmapDescription": "Bruucht Spicherplatz uf em Grät. Deaktiviere zum Platz z spare.",
     "heatmapStorageUsed": "Bruucht {{size}} Spicherplatz",

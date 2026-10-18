@@ -1,14 +1,14 @@
 /**
  * Scenario: route matching is off and a link opens a stored section.
- * Expected behaviour: the screen shows the feature-disabled state and loads
- * nothing, its title is readable on the dark ground, and the action is a
- * button that turns matching on.
+ * Expected behaviour: the section's sheet shows the feature-disabled state and
+ * loads nothing, its title is readable on the sheet's dark surface, and the
+ * action is a button that turns matching on.
  */
 import React from 'react';
 import { StyleSheet } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
-import SectionDetailScreen from '@/app/section/[id]';
-import { darkColors } from '@/theme';
+import { sectionCardInHost } from '../__shared__/sectionCardInHost';
+import { sheetSurface } from '@/shared/app/screenHeaders';
 
 const mockContentRendered = jest.fn();
 const mockSetEnabled = jest.fn();
@@ -27,18 +27,24 @@ jest.mock('@/shared/app/ThemeProvider', () => ({
 jest.mock('@/shared/app', () => ({
   useTheme: jest.requireActual('@/shared/app/useTheme').useTheme,
 }));
-jest.mock('@/features/routes', () => {
+jest.mock('expo-router', () => ({
+  ...jest.requireActual('expo-router'),
+  useLocalSearchParams: () => ({ id: 'orchard-climb' }),
+}));
+jest.mock('@/features/routes/stores/RouteSettingsStore', () => {
   const useRouteSettings = (select: (s: unknown) => unknown) =>
     select({ settings: { enabled: mockEnabled } });
   useRouteSettings.getState = () => ({ setEnabled: mockSetEnabled });
-  return {
-    useRouteSettings,
-    useSectionDetailData: (...args: unknown[]) => {
-      mockContentRendered(...args);
-      throw new Error('the section detail read ran');
-    },
-  };
+  return { useRouteSettings };
 });
+jest.mock('@/features/routes/hooks/useSectionDetailData', () => ({
+  useSectionDetailData: (...args: unknown[]) => {
+    mockContentRendered(...args);
+    throw new Error('the section detail read ran');
+  },
+}));
+
+const SectionDetailScreen = sectionCardInHost();
 
 function luminance(hex: string): number {
   const channels = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
@@ -73,14 +79,14 @@ describe('section detail with route matching off', () => {
     expect(mockSetEnabled).toHaveBeenCalledWith(true);
   });
 
-  it('draws the title at 4.5:1 or better on the dark ground', async () => {
+  it('draws the title at 4.5:1 or better on the dark surface the sheet paints', async () => {
     mockScheme = 'dark';
     const view = await render(<SectionDetailScreen />);
 
-    const ground = StyleSheet.flatten(view.getByTestId('section-detail-disabled').props.style);
-    expect(ground.backgroundColor).toBe(darkColors.surfacePage);
+    const ground = sheetSurface('android', 35, true);
+    expect(ground).toBeDefined();
 
     const title = StyleSheet.flatten(view.getByText('insights.routesDisabledLine1').props.style);
-    expect(contrast(title.color, ground.backgroundColor)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(title.color, ground!)).toBeGreaterThanOrEqual(4.5);
   });
 });

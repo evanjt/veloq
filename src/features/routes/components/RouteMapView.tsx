@@ -4,16 +4,17 @@
  * Supports interaction (zoom/pan) and fullscreen mode like ActivityMapView.
  */
 
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { View, StyleSheet, StatusBar } from 'react-native';
 import { FullWindowModal } from '@/shared/ui/FullWindowModal';
 import { useTranslation } from 'react-i18next';
-import { useIsFocused } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHeroHeaderBottom } from '@/shared/ui/useHeroHeaderBottom';
 import { useTheme } from '@/shared/app';
+import { useMapHeldFocus } from '@/shared/app/MapSheetHost';
 import { getActivityColor } from '@/shared/activity/activityUtils';
 import {
+  cameraMove,
   colors,
   colorWithOpacity,
   iconSize,
@@ -38,9 +39,11 @@ import {
   featureCollection,
   lineFeature,
   lngLatFromShort,
+  type MapEdgeInset,
   type MapLayerSpec,
   type MapSourceSpec,
   MapSurface,
+  type MapSurfaceRef,
   pointFeature,
   statusBarStyleForMap,
   useDrawnMapStyle,
@@ -79,9 +82,14 @@ interface RouteMapViewProps {
   activitySignatures?: Record<string, { points: RoutePoint[] }> | undefined;
   /** The attempt the chart's delta plot shows, which colours the route line. */
   deltaLine?: SectionDeltaLine | null | undefined;
+  /**
+   * The padding the route is fitted with, per edge, for a map partly covered by its sheet. A
+   * change refits the route; with none the fit keeps one margin all round.
+   */
+  fitPadding?: MapEdgeInset | undefined;
 }
 
-const FIT_PADDING = 40;
+export const ROUTE_MAP_FIT_PADDING = 40;
 
 export function RouteMapView({
   routeGroup,
@@ -96,13 +104,16 @@ export function RouteMapView({
   onPress,
   activitySignatures = {},
   deltaLine = null,
+  fitPadding,
 }: RouteMapViewProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const [isFullscreen, setIsFullscreen] = useState(false);
   const headerBottom = useHeroHeaderBottom();
   const fullscreenInsets = useSafeAreaInsets();
-  const screenFocused = useIsFocused();
+  // A map in a host stays held under its own sheet and is released only under another screen.
+  const screenFocused = useMapHeldFocus();
+  const surfaceRef = useRef<MapSurfaceRef>(null);
   const { getStyleForActivity, preferences } = useMapPreferences();
   const chosenStyle = selectedSportType
     ? getStyleForActivity(selectedSportType)
@@ -274,6 +285,14 @@ export function RouteMapView({
 
   const closeFullscreen = useCallback(() => setIsFullscreen(false), []);
 
+  // The first fit is the surface's starting view, so only a later padding refits the route.
+  const fittedPadding = useRef(fitPadding);
+  useEffect(() => {
+    if (!bounds || !fitPadding || fittedPadding.current === fitPadding) return;
+    fittedPadding.current = fitPadding;
+    surfaceRef.current?.fitBounds(bounds, fitPadding, cameraMove.move);
+  }, [bounds, fitPadding]);
+
   if (!bounds || displayPoints.length === 0) {
     return (
       <View
@@ -301,8 +320,9 @@ export function RouteMapView({
         disabled={!enableFullscreen && !onPress}
       >
         <MapSurface
+          ref={surfaceRef}
           mapStyle={mapStyle}
-          initialCamera={{ bounds, padding: FIT_PADDING }}
+          initialCamera={{ bounds, padding: fitPadding ?? ROUTE_MAP_FIT_PADDING }}
           sources={sources}
           layers={layers}
           images={ENDPOINT_IMAGES}

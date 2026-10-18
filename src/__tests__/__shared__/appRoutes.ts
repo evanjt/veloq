@@ -20,7 +20,8 @@ export function routeCandidates(routePath: string): string[] {
   const shapes = [`${routePath}.tsx`, `${routePath}/index.tsx`];
   if (segments.length > 1) {
     const parent = segments.slice(0, -1).join('/');
-    shapes.push(`${parent}/[id].tsx`, `${parent}/[...rest].tsx`);
+    // A dynamic segment is a file, or a directory with a layout of its own and an index.
+    shapes.push(`${parent}/[id].tsx`, `${parent}/[id]/index.tsx`, `${parent}/[...rest].tsx`);
   }
   return group.flatMap((prefix) => shapes.map((shape) => `${prefix}${shape}`));
 }

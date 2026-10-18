@@ -18,7 +18,7 @@ import { RouteRow } from '@/features/routes/components/RouteRow';
 import { SectionRow } from '@/features/routes/components/SectionRow';
 import { ListSkeleton, RowSkeleton } from '@/features/routes/components/RowSkeleton';
 import { ActivityCardSkeleton, ChartSkeleton } from '@/shared/ui/Shimmer';
-import type { Activity, RouteGroup, Section } from '@/types';
+import type { FeedCard, RouteGroup, Section } from '@/types';
 
 import { treeHeight } from '../__shared__/stackHeight';
 
@@ -120,13 +120,13 @@ const section = {
 const activity = {
   id: 'sample-1',
   name: 'Evening spin',
-  type: 'Ride',
-  start_date_local: '2026-08-12T07:30:00',
+  sportType: 'Ride',
+  startDateLocal: '2026-08-12T07:30:00',
   distance: 42000,
-  moving_time: 7200,
-  total_elevation_gain: 450,
-  stream_types: ['latlng'],
-} as Activity;
+  movingTime: 7200,
+  elevationGain: 450,
+  hasGps: true,
+} as FeedCard;
 
 describe.each(SCALES)('at text scale %s', (fontScale) => {
   it.each([

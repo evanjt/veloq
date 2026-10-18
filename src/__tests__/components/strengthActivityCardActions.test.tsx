@@ -9,7 +9,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import { StrengthActivityCard } from '@/features/strength/components/StrengthActivityCard';
 import * as haptics from '@/shared/ui/haptics';
-import type { Activity } from '@/types';
+import type { FeedCard } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
@@ -57,11 +57,11 @@ jest.mock('react-native-body-highlighter', () => ({
 const lift = {
   id: 'a1',
   name: 'Legs',
-  type: 'WeightTraining',
-  moving_time: 3600,
-  average_heartrate: 120,
-  start_date_local: '2026-01-01T08:00:00',
-} as Activity;
+  sportType: 'WeightTraining',
+  movingTime: 3600,
+  avgHr: 120,
+  startDateLocal: '2026-01-01T08:00:00',
+} as FeedCard;
 
 beforeEach(() => {
   jest.mocked(haptics.light).mockClear();

@@ -13,10 +13,12 @@ tags:
 - runFlow:
     file: helpers/navigate-to-fitness.yaml
 
+# The curves and season bests are on the performance page.
+- tapOn:
+    id: "tab-performance"
+
 # The power curve is the cycling chart, inside the performance section, which
 # starts collapsed. The demo athlete rides, so the curve has data to draw.
-# The screen above the chips is still drawing its charts on a cold launch, and
-# the scroll stops as soon as they show, so the long budget costs nothing.
 - scrollUntilVisible:
     element:
       id: "fitness-sport-toggle-Cycling"

@@ -761,7 +761,13 @@
     "linkTrainingLoad": "Monitoring Training Load (Science2Sport)",
     "understandingMetrics": "指標を理解する",
     "rampRate": "ランプ",
-    "perWeek": "/週"
+    "perWeek": "/週",
+    "places": {
+      "fitness": "体力",
+      "calendar": "カレンダー",
+      "performance": "パフォーマンス",
+      "trends": "トレンド"
+    }
   },
   "formZones": {
     "transition": "移行",
@@ -1565,12 +1571,6 @@
     "noRoutesYet": "まだルートがありません",
     "noSectionsMatchFilter": "フィルターに一致する区間がありません",
     "noSectionsFor": "{{filters}} の区間はありません",
-    "placeJourney": "{{start}}から{{end}}",
-    "placeLoop": "{{place}}周回",
-    "placeNameButton": "地名で名前を付ける",
-    "placeNameFailedMessage": "地名を検索できなかったため、名前は変更されていません。後でもう一度お試しください。",
-    "placeNameFailedTitle": "地名がありません",
-    "placeNameNoPlaceMessage": "開始地点に地名が見つからなかったため、名前は変更されていません。",
     "renameFailedTitle": "名前を保存できませんでした",
     "renameFailedMessage": "ルート名を保存できませんでした。もう一度お試しください。",
     "referenceFailedTitle": "リファレンスを設定できませんでした",
@@ -1987,14 +1987,6 @@
     "mapCache": "マップキャッシュ",
     "sizeAtLeast": "{{size}}以上",
     "permissions": "権限",
-    "placeNames": {
-      "title": "地名",
-      "attribution": "地名 © OpenStreetMap contributors",
-      "noticeTitle": "地名を使用しますか?",
-      "noticeBody": "新しいルートまたはセクションが見つかったとき、または名前を付けるよう依頼したとき、その開始地点と終了地点が地名の検索のために OpenStreetMap の Nominatim サービスに送信されます。それ以外のルートやセクション、あなたに関する情報は送信されません。サービスの利用ポリシーが適用されます。",
-      "readPolicy": "利用ポリシー",
-      "accept": "同意する"
-    },
     "heatmapGeneration": "ヒートマップ",
     "heatmapDescription": "デバイスのストレージを使用します。容量を節約するには無効にしてください。",
     "heatmapStorageUsed": "デバイスのストレージを{{size}}使用中",

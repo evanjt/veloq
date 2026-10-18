@@ -12,10 +12,14 @@ tags:
 - runFlow:
     file: helpers/navigate-to-fitness.yaml
 
-# Scroll down to find performance section (below the charts). Centre it: the
-# tab bar draws over the bottom of the screen, so a header that stops at the
-# edge is visible to the accessibility tree and covered on screen, and the tap
-# lands on whichever tab is under it.
+# The curves and season bests are on the performance page.
+- tapOn:
+    id: "tab-performance"
+
+# Bring the performance section into view. Centre it: the tab bar draws over
+# the bottom of the screen, so a header that stops at the edge is visible to
+# the accessibility tree and covered on screen, and the tap lands on whichever
+# tab is under it.
 - scrollUntilVisible:
     element:
       id: "fitness-section-performance"
@@ -33,11 +37,9 @@ tags:
     id: "fitness-section-performance"
 - takeScreenshot: "screenshots/fitness-collapsible-sections-performance-expanded"
 
-# Scroll further to check zones section (further down after performance expanded)
-- swipe:
-    start: 50%, 80%
-    end: 50%, 30%
-    duration: 200
+# Zones, the eFTP trend, thresholds and decoupling are on the trends page.
+- tapOn:
+    id: "tab-trends"
 - extendedWaitUntil:
     visible:
       id: "fitness-section-zones"

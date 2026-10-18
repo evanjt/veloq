@@ -2334,7 +2334,6 @@ pub(crate) async fn perform_sync_from<S: Source>(
     svc.finish(SyncState::Idle, last_error, success);
     if success {
         crate::net::stream_backfill::autostart_stream_backfill();
-        crate::net::place_names::name_new_items();
     }
 }
 

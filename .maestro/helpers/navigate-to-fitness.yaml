@@ -1,7 +1,8 @@
-# Navigate to fitness tab via deep link
+# Navigate to fitness tab via deep link, on its fitness page whichever page
+# a flow left it on
 appId: com.veloq.app.dev
 ---
-- openLink: "veloq://fitness"
+- openLink: "veloq://fitness?tab=fitness"
 - runFlow:
     when:
       visible: "Open"

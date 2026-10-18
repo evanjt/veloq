@@ -12,7 +12,7 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ActivityMapPreview } from '@/features/activity/components/ActivityMapPreview';
-import type { Activity } from '@/types';
+import type { FeedCard } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
@@ -53,12 +53,8 @@ jest.mock('@/features/activity/hooks/useMapPreviewCoordinates', () => ({
   }),
 }));
 
-function activity(streamTypes: string[]): Activity {
-  return {
-    id: 'demo-1',
-    type: 'Ride',
-    stream_types: streamTypes,
-  } as unknown as Activity;
+function activity(hasGps: boolean): FeedCard {
+  return { id: 'demo-1', sportType: 'Ride', hasGps } as FeedCard;
 }
 
 /** The single icon the placeholder draws. */
@@ -75,21 +71,14 @@ beforeEach(() => {
 
 describe('a feed card whose track has not been downloaded', () => {
   it('draws the download-pending mark, not the no-GPS one', async () => {
-    const tree = await render(<ActivityMapPreview activity={activity(['latlng'])} />);
+    const tree = await render(<ActivityMapPreview activity={activity(true)} />);
 
     expect(markOf(tree)).toBe('cloud-download-outline');
   });
 
   /** An indoor session has no track upstream and never will, which is settled. */
   it('keeps the no-GPS mark for an activity the server says has no track', async () => {
-    const tree = await render(<ActivityMapPreview activity={activity(['heartrate'])} />);
-
-    expect(markOf(tree)).toBe('map-marker-off');
-  });
-
-  /** `stream_types` absent is the same ignorance as an empty list, not a claim. */
-  it('keeps the no-GPS mark when the server named no streams at all', async () => {
-    const tree = await render(<ActivityMapPreview activity={activity([])} />);
+    const tree = await render(<ActivityMapPreview activity={activity(false)} />);
 
     expect(markOf(tree)).toBe('map-marker-off');
   });
@@ -97,7 +86,7 @@ describe('a feed card whose track has not been downloaded', () => {
   /** A read still in flight is waiting, and waiting spins. */
   it('spins while the track read is still in flight', async () => {
     read.isLoading = true;
-    const tree = await render(<ActivityMapPreview activity={activity(['latlng'])} />);
+    const tree = await render(<ActivityMapPreview activity={activity(true)} />);
 
     expect(tree.UNSAFE_queryAllByType(require('react-native').ActivityIndicator)).toHaveLength(1);
   });

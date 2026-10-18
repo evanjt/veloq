@@ -5,7 +5,6 @@ use rusqlite::{Connection, OptionalExtension, Result as SqlResult, Row, params, 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use super::geocoded_names::{NamedKind, queue_new_route, shown_geocoded_names};
 use super::record_restore::HELD_NUMBER_PREFIX;
 use super::{GroupSummary, PersistentEngine, codec, get_route_word};
 
@@ -941,33 +940,16 @@ fn numbered_label(route_word: &str, number: u32) -> String {
 }
 
 /// The name every route is shown under: the one the athlete typed, otherwise
-/// its geocoded name while geocoding is on, otherwise its number behind
-/// `route_word`.
+/// its number behind `route_word`.
 fn route_display_names(conn: &Connection, route_word: &str) -> SqlResult<HashMap<String, String>> {
     let mut names = stored_route_names(conn)?;
-    let geocoded = shown_geocoded_names(conn, NamedKind::Route);
     for (route_id, number) in stored_route_numbers(conn)? {
         if route_id.starts_with(HELD_NUMBER_PREFIX) || names.contains_key(&route_id) {
             continue;
         }
-        let shown = untyped_label(&geocoded, &route_id, route_word, number);
-        names.insert(route_id, shown);
+        names.insert(route_id, numbered_label(route_word, number));
     }
     Ok(names)
-}
-
-/// The label of a route with no typed name: its geocoded name in `geocoded`,
-/// else its number behind `route_word`.
-fn untyped_label(
-    geocoded: &HashMap<String, String>,
-    route_id: &str,
-    route_word: &str,
-    number: u32,
-) -> String {
-    geocoded
-        .get(route_id)
-        .cloned()
-        .unwrap_or_else(|| numbered_label(route_word, number))
 }
 
 /// `route_display_names` for `ids` alone, so a page of the list reads the
@@ -997,18 +979,12 @@ fn route_display_names_for(
             numbers.push(row?);
         }
     }
-    let geocoded = if numbers.iter().any(|(id, _)| !names.contains_key(id)) {
-        shown_geocoded_names(conn, NamedKind::Route)
-    } else {
-        HashMap::new()
-    };
     for (route_id, number) in numbers {
         let route_id: String = route_id;
         if route_id.starts_with(HELD_NUMBER_PREFIX) || names.contains_key(&route_id) {
             continue;
         }
-        let shown = untyped_label(&geocoded, &route_id, route_word, number);
-        names.insert(route_id, shown);
+        names.insert(route_id, numbered_label(route_word, number));
     }
     Ok(names)
 }
@@ -1025,9 +1001,6 @@ fn route_display_names_for(
 /// takes the lowest number no route has held and no stored name shows, in
 /// member-count order. A restore lays names onto routes already numbered, so
 /// a name's number is not always the one its own route holds.
-///
-/// A group numbered here is one the engine has not seen before, so it is also
-/// queued for a geocoded name while geocoding is on.
 pub(super) fn mint_route_numbers(conn: &Connection, groups: &[RouteGroup]) -> SqlResult<()> {
     let numbers = stored_route_numbers(conn)?;
     let names = stored_route_names(conn)?;
@@ -1048,7 +1021,6 @@ pub(super) fn mint_route_numbers(conn: &Connection, groups: &[RouteGroup]) -> Sq
         match kept {
             Some(number) if taken.insert(number) => {
                 insert.execute(params![group.group_id, number])?;
-                queue_new_route(conn, &group.group_id)?;
             }
             _ => rest.push(group),
         }
@@ -1063,7 +1035,6 @@ pub(super) fn mint_route_numbers(conn: &Connection, groups: &[RouteGroup]) -> Sq
             candidate += 1;
         }
         insert.execute(params![group.group_id, candidate])?;
-        queue_new_route(conn, &group.group_id)?;
         taken.insert(candidate);
     }
     Ok(())
@@ -1869,10 +1840,9 @@ impl PersistentEngine {
 
     /// Set the name the athlete typed for a route. `None`, or the route's own
     /// numbered label in the current language, clears it, so the route is
-    /// shown under its geocoded name or its number again and that label
-    /// follows the language.
+    /// shown under its number again and that label follows the language.
     ///
-    /// A name another route is shown under, typed, geocoded or numbered, is
+    /// A name another route is shown under, typed or numbered, is
     /// refused and changes nothing, so no two routes read alike.
     pub fn set_route_name(
         &mut self,
@@ -2712,25 +2682,8 @@ pub(crate) mod pooled {
         })
     }
 
-    /// Whether the athlete typed a name for a route. A route that has one is
-    /// never named by the geocoder.
-    pub(crate) fn has_typed_name(conn: &Connection, route_id: &str) -> bool {
-        conn.query_row(
-            "SELECT EXISTS(SELECT 1 FROM route_names WHERE route_id = ?1)",
-            params![route_id],
-            |row| row.get(0),
-        )
-        .unwrap_or_else(|error| {
-            log::warn!("[routes] typed name of {route_id}: {error:?}");
-            // Read as typed, so a failed read never sends a lookup for a
-            // route the athlete may have named.
-            true
-        })
-    }
-
     /// The name every route is shown under, keyed by group: the one the
-    /// athlete typed, otherwise its geocoded name while geocoding is on,
-    /// otherwise its number behind the current route word.
+    /// athlete typed, otherwise its number behind the current route word.
     pub(crate) fn all_route_names(conn: &Connection) -> HashMap<String, String> {
         super::route_display_names(conn, &super::get_route_word()).unwrap_or_else(|error| {
             log::warn!("[routes] route names: {error:?}");

@@ -16,12 +16,12 @@ import { freshLoginTimeline, type TrackWait } from '@/shared/debug/freshLoginTim
 import { getEngine } from '@/shared/native/engine';
 import { useEngineBody } from '@/shared/native/engineBodies';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
-import type { Activity, ActivityInterval, ActivityStreams } from '@/types';
+import type { Activity, ActivityInterval, ActivityStreams, FeedCard } from '@/types';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useOldestActivityDate } from '@/shared/app/useOldestActivityDate';
 import { useDetailCoordinates } from './useDetailCoordinates';
-import { parseBodies, readActivities } from '@/shared/native/storedActivities';
+import { readActivities } from '@/shared/native/storedActivities';
 import { feedSportGroup, type FeedGroup } from '../lib/feedActivityGroups';
 import { firstRangePage, olderRangePage, type FeedRange } from '../lib/feedRange';
 import { isFeedSearch } from '../lib/feedFilter';
@@ -117,6 +117,16 @@ export function useActivities(options: UseActivitiesOptions = {}) {
   });
 }
 
+/** The feed's cards over a date window, newest first, typed by the engine. */
+function readFeedCards(oldest: string, newest: string): FeedCard[] {
+  const engine = getEngine();
+  if (!engine?.getFeedCards) return [];
+  return engine.getFeedCards(
+    dayStartEpochSeconds(oldest),
+    dayEndEpochSeconds(newest)
+  ) as FeedCard[];
+}
+
 /**
  * Page size for infinite scroll (in days)
  */
@@ -136,7 +146,7 @@ export function useInfiniteActivities() {
 
   useEngineChannel('activities', queryKeys.activities.infinite.all);
 
-  const query = useInfiniteQuery<Activity[], Error>({
+  const query = useInfiniteQuery<FeedCard[], Error>({
     ...LOCAL_READ_QUERY,
     queryKey: queryKeys.activities.infinite.byAthlete(athleteId ?? 'anon'),
     queryFn: ({ pageParam }) => {
@@ -147,7 +157,7 @@ export function useInfiniteActivities() {
       // Scrolling past what the launch sync covers opens a window Rust has
       // not fetched. Ask for it, then read; the engine event brings it in.
       requestActivityWindow(oldest, newest);
-      return readActivities(oldest, newest);
+      return readFeedCards(oldest, newest);
     },
     initialPageParam: (() => {
       const today = new Date();
@@ -200,7 +210,7 @@ export function useInfiniteActivities() {
 const SEARCH_PAGE_SIZE = 30;
 
 interface FeedSearchPage {
-  activities: Activity[];
+  activities: FeedCard[];
   matchedCount: number;
   hasMore: boolean;
 }
@@ -212,7 +222,7 @@ function readSearchPage(
   offset: number,
   limit: number
 ): FeedSearchPage | undefined {
-  const page = getEngine()?.searchActivityBodies({
+  const page = getEngine()?.searchFeedCards({
     needle,
     sportFamilies: [...groups].map(feedSportGroup),
     ...(range && {
@@ -224,7 +234,7 @@ function readSearchPage(
   });
   return (
     page && {
-      activities: parseBodies(page),
+      activities: page.cards as FeedCard[],
       matchedCount: page.matchedCount,
       hasMore: page.hasMore,
     }
@@ -462,7 +472,7 @@ export function useRangeActivities(range: FeedRange | null) {
 
   useEngineChannel('activities', queryKeys.activities.range.all);
 
-  const query = useInfiniteQuery<Activity[], Error>({
+  const query = useInfiniteQuery<FeedCard[], Error>({
     ...LOCAL_READ_QUERY,
     queryKey: queryKeys.activities.range.byRange(
       athleteId ?? 'anon',
@@ -472,7 +482,7 @@ export function useRangeActivities(range: FeedRange | null) {
     queryFn: ({ pageParam }) => {
       const { oldest, newest } = pageParam as FeedRange;
       requestActivityWindow(oldest, newest);
-      return readActivities(oldest, newest);
+      return readFeedCards(oldest, newest);
     },
     initialPageParam: range ? firstRangePage(range) : { oldest: '', newest: '' },
     getNextPageParam: (_lastPage, _allPages, lastPageParam) =>

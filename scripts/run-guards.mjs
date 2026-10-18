@@ -57,6 +57,13 @@ const GUARDS = [
       'stale generated bindings after a Rust signature or doc comment changes its UniFFI checksum',
   },
   {
+    name: 'check:tracematch-docs',
+    kind: 'build',
+    cmd: node('check-tracematch-docs.mjs'),
+    catches:
+      "a tracematch doc link to a renamed, moved or private item, which passes every local gate and fails the doc step of tracematch's own CI",
+  },
+  {
     name: 'check:build-inputs',
     kind: 'correctness',
     cmd: node('check-build-inputs.mjs'),
@@ -689,7 +696,7 @@ const GUARDS = [
     kind: 'correctness',
     cmd: node('lint-source-rules.mjs', '--rule', 'no-geocoding'),
     catches:
-      'athlete coordinates sent to a second geocoder, through the platform API, a geocoding host in TypeScript or any engine file but the one geocoder, or a geocoding module returning',
+      'athlete coordinates sent to a geocoder, through the platform API, a geocoding host in TypeScript or any engine file, or a geocoding module returning',
   },
   {
     name: 'lint:unused-i18n-keys',

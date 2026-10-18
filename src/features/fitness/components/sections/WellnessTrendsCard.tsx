@@ -31,7 +31,7 @@ interface WellnessTrendsCardProps {
   readError: unknown;
   onRetry: () => void;
   /** The day the scrub crosses, or null when it ends. */
-  onDateSelect: (date: string | null) => void;
+  onDateSelect?: ((date: string | null) => void) | undefined;
 }
 
 export function WellnessTrendsCard({

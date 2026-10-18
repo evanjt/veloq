@@ -756,7 +756,10 @@ fn a_new_ride_faster_than_every_earlier_one_on_its_route_is_announced_as_a_route
     .expect("the push ran")
     .expect("the library it started in");
 
-    let sentence = run.map_err(|quiet| quiet.outcome).expect("a sentence");
+    let sentence = run
+        .map_err(|quiet| quiet.outcome)
+        .expect("a sentence")
+        .json(false);
     assert!(sentence.contains("Route PR"), "{sentence}");
     crate::objects::clear_test_credentials();
 }

@@ -70,7 +70,6 @@ export {
   FooterSection,
   MapsSection,
   NotificationSection,
-  PlaceNamesSwitch,
   ProfileAccountSection,
   RecordingPermissionSection,
   SettingsNavRow,
