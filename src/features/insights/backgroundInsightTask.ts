@@ -13,7 +13,6 @@ import {
 
 import { pushNotificationTemplates } from '@/i18n/notificationTemplates';
 import type { ActivityInfo } from './lib/activityHighlight';
-import { activityStartEpoch } from '@/shared/activity/streamWindow';
 import { extractPushPayload } from './lib/pushPayload';
 import { replaceActivityTrayEntry, trayActionFor } from './lib/traySweep';
 import { appendTaskRun } from './lib/taskRunLog';
@@ -24,12 +23,14 @@ const log = debug.create('BackgroundInsight');
 
 const PREFS_KEY = 'veloq-notification-preferences';
 
-/** Max time to wait for GPS download (15 seconds) */
-const GPS_DOWNLOAD_TIMEOUT_MS = 15_000;
-const GPS_DOWNLOAD_POLL_MS = 250;
-
 /** Max time to wait for the engine to store the activity's detail body. */
 const ACTIVITY_DETAIL_TIMEOUT_MS = 15_000;
+
+/**
+ * Max time to wait for the engine to fetch the activity's remaining bodies,
+ * the budget the narrow track download had before the streams replaced it.
+ */
+const ACTIVITY_READY_TIMEOUT_MS = 15_000;
 
 /**
  * Read notification preferences through the settings reader, so an open
@@ -44,37 +45,6 @@ async function readPrefsFromStorage(): Promise<NotificationPreferences | null> {
   } catch {
     return null;
   }
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/**
- * Wait for one run's own result.
- *
- * This used to poll `getDownloadProgress().active`, which is a single global
- * flag: with a foreground sync running, the push task could watch that sync's
- * download finish, return, and take a result that was never its own. A run's
- * result appears only when that run finishes, so waiting on it is the same
- * wait without the mistake.
- */
-interface FetchRunResult {
-  successCount: number;
-  totalPoints: number;
-}
-
-async function waitForRunResult(
-  takeResult: (run: number) => FetchRunResult | null | undefined,
-  run: number
-): Promise<FetchRunResult | null> {
-  const deadline = Date.now() + GPS_DOWNLOAD_TIMEOUT_MS;
-  while (Date.now() < deadline) {
-    const result = takeResult(run);
-    if (result) return result;
-    await sleep(GPS_DOWNLOAD_POLL_MS);
-  }
-  return null;
 }
 
 /**
@@ -113,7 +83,43 @@ async function indexActivity(
 }
 
 /**
- * Fetch activity metadata and download GPS into the Rust engine.
+ * Fetch what the activity still lacks for a screen that opens with no network,
+ * its detail streams, intervals and track, and record the outcome.
+ *
+ * A platform whose push handler stores only the detail and the narrow track
+ * leaves the rest owed, and without this the athlete who taps the entry with
+ * no signal opens a screen whose charts wait on the network. The engine owns
+ * what is owed and answers at once when nothing is, so this runs on every
+ * platform. The fetch carries on in the engine past the deadline, and only the
+ * task stops waiting for it.
+ */
+async function readyActivity(activityId: string): Promise<void> {
+  const start = Date.now();
+  let detail: string;
+  try {
+    const { engine } = require('veloqrs') as typeof import('veloqrs');
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const deadline = new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), ACTIVITY_READY_TIMEOUT_MS);
+    });
+    const ready = await Promise.race([engine.readyActivityBodies(activityId), deadline]);
+    clearTimeout(timer);
+    const elapsed = `${Date.now() - start}ms`;
+    detail =
+      ready === null
+        ? `timed out after ${elapsed}`
+        : ready
+          ? `ready in ${elapsed}`
+          : `still owed after ${elapsed}`;
+  } catch (e) {
+    log.warn('Readying the activity failed:', e);
+    detail = `failed: ${e instanceof Error ? e.message : String(e)}`;
+  }
+  await appendTaskRun({ stage: 'readied', activityId, detail });
+}
+
+/**
+ * Fetch the activity's detail and ready the rest of its bodies in the engine.
  * Returns activity info for notification enrichment, or null on failure.
  */
 async function fetchAndIngestActivity(
@@ -139,7 +145,6 @@ async function fetchAndIngestActivity(
     pushCredentialsToEngine();
 
     const { engine } = require('veloqrs');
-    const { DownloadPriority } = require('veloqrs') as typeof import('veloqrs');
     const { awaitActivityBody } =
       require('./lib/awaitActivityBody') as typeof import('./lib/awaitActivityBody');
 
@@ -153,55 +158,24 @@ async function fetchAndIngestActivity(
       ingested: false,
     };
 
-    // Skip GPS download if we already have this activity in SQLite - the
-    // enrichment path reads sections from the DB, so a re-delivered webhook
-    // (or duplicate silent push) produces the same enriched output without
-    // a pointless 150–15000ms network roundtrip.
-    const alreadyIngested = (() => {
+    // The detail is stored, so the engine knows what else the activity lacks.
+    // A push the platform handler already readied owes nothing and costs one
+    // read; otherwise the streams carry the track, and the intervals come with
+    // them, so the athlete who taps the entry offline opens the whole screen.
+    await readyActivity(activityId);
+
+    activityInfo.ingested = (() => {
       try {
         return engine.hasActivity(activityId);
       } catch {
         return false;
       }
     })();
-
-    if (alreadyIngested) {
-      activityInfo.ingested = true;
-      log.log(`Activity already in DB, skipping download: ${activityInfo.name}`);
-      // Idempotent, and covers a webhook that arrived before indexing ran.
-      await indexActivity(engine, activityId);
-      return activityInfo;
-    }
-
-    const startDate = activityStartEpoch(activity.startDateLocal);
-    const run = engine.startFetchAndStore(
-      [activityId],
-      [
-        {
-          activityId,
-          sportType: activityInfo.type,
-          ...(startDate !== undefined && { startDate }),
-        },
-      ],
-      // One activity a notification is waiting on, so it takes the lane that
-      // does not queue behind a foreground bulk pass.
-      DownloadPriority.Interactive
-    );
-
-    const startTime = Date.now();
-    const result = await waitForRunResult((r: number) => engine.takeFetchAndStoreResult(r), run);
-    if (!result) {
-      log.warn(`GPS ingest timed out after ${GPS_DOWNLOAD_TIMEOUT_MS}ms for ${activityId}`);
-    }
-    if (result && result.successCount > 0) {
+    if (activityInfo.ingested) {
       engine.triggerRefresh('activities');
-      activityInfo.ingested = true;
-      log.log(
-        `Activity ingested: ${activityInfo.name} (${result.totalPoints} GPS points, ${Date.now() - startTime}ms)`
-      );
-
-      // Attach the new activity to existing sections and route groups so its
-      // PRs are present when the notification body queries the engine below.
+      log.log(`Activity ingested: ${activityInfo.name}`);
+      // Idempotent, and covers a webhook that arrived before indexing ran, so
+      // the activity's PRs are present when the notification body is built.
       await indexActivity(engine, activityId);
     }
 
@@ -222,7 +196,7 @@ async function fetchAndIngestActivity(
  *   1. Check notification preferences
  *   2. Fire placeholder notification immediately for activity events (so the
  *      user sees something within ~1s even if enrichment fails)
- *   3. Download GPS, ingest into engine
+ *   3. Fetch the detail, then ready the streams, track and intervals
  *   4. Fetch fresh wellness data from intervals.icu
  *   5. Generate insights (now including the new activity)
  *   6. Replace the placeholder with the enriched body via the same identifier
@@ -288,7 +262,7 @@ export async function handleBackgroundInsightTask({
     // is already in the tray by the time this task runs. We dismiss that one
     // and present the enriched version below.
 
-    // 5. If activity event, fetch metadata + download GPS into engine
+    // 5. If activity event, fetch the detail and ready the activity's bodies
     let activityInfo: ActivityInfo | null = null;
     if (isActivityEvent && activityId && pushAthleteId) {
       const ingestStart = Date.now();

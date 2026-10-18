@@ -136,7 +136,7 @@
     "zoneMaxFromSettings": "区间上限 {{value}} bpm,运动设置",
     "zoneMaxDefault": "未设置最大心率,区间按 {{value}} bpm 计算",
     "zoneMaxDefaultHint": "请在 intervals.icu 的运动设置中设置最大心率",
-    "prDelta": "比PR慢{{delta}}",
+    "prBadge": "个人最佳",
     "chartAverage": "平均",
     "chartGain": "爬升",
     "gainStat": "↑ {{value}}"

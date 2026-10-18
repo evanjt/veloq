@@ -21,6 +21,8 @@ Segui la tua forma con monitoraggio CTL/ATL/TSB e zone visive. Monitora HRV, fre
 Privacy
 I tuoi dati di allenamento restano sul tuo dispositivo. Nessuna analisi, nessun tracciamento. Le notifiche push opzionali memorizzano il tuo ID atleta intervals.icu e un token del dispositivo sul nostro server, eliminati automaticamente dopo 30 giorni. Open source con licenza Apache 2.0.
 
+Accessibile: etichette per screen reader su ogni controllo, testo che segue la dimensione del testo di sistema e contrasto dei colori secondo i rapporti AA nei temi chiaro e scuro.
+
 Supporta ciclismo, corsa, nuoto e oltre 20 tipi di attivit. Prova la modalit demo integrata per esplorare senza un account.
 
 Richiede un account intervals.icu per i dati in tempo reale. Non affiliato a intervals.icu.

@@ -22,7 +22,11 @@ import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
 import { handleAppBackground } from '@/shared/app/appBackground';
 import { refreshSampleWidgets } from '@/features/home';
 import { useInteractionPacing } from '@/shared/app/useInteractionPacing';
-import { isHeatmapEnabled, registerMapSurfaceReclaimer } from '@/features/maps';
+import {
+  isHeatmapEnabled,
+  registerMapSurfaceReclaimer,
+  registerTileListenerResume,
+} from '@/features/maps';
 import { useEngineStatus, useRouteReoptimisation } from '@/features/routes';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { NetworkProvider } from '@/shared/app/NetworkContext';
@@ -189,6 +193,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   // The phone's language, and the platform's per-app one, can change while the
   // app is in the background.
   useEffect(() => startLanguageFollower(), []);
+
+  // A long stay in the background can take the tile listener's sockets.
+  useEffect(() => registerTileListenerResume(), []);
 
   // Trigger route re-detection when sync date range expands
   useRouteReoptimisation();

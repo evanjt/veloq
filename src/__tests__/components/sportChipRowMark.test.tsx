@@ -6,13 +6,15 @@
  *
  * Expected behaviour: a sport chip is the plain selector chip, `controlOn`
  * under `textOnFill` when selected and the neutral fill under the secondary
- * text when not, and the sport is told by a leading dot. The dot is the family
- * colour on a family chip and the sport's fixed shade within its family on a
- * sport chip, in both states and both themes.
+ * text when not, and the sport is named by the label and repeated by a leading
+ * dot. The dot is the family colour on a family chip and the sport's fixed
+ * shade within its family on a sport chip, in both states and both themes.
+ * Because the label beside it names the sport, the dot is not held to a mark's
+ * 3:1 on the chip ground, and every chip that draws one draws a label too.
  */
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { render } from '@testing-library/react-native';
+import { render, within } from '@testing-library/react-native';
 import type { ReactTestInstance } from 'react-test-renderer';
 
 import { SportChipRow } from '@/shared/ui/SportChipRow';
@@ -95,6 +97,25 @@ describe.each(THEMES)('a sport chip in the %s theme', (theme, isDark) => {
       expect(styleOf(getByTestId(`chip-${family}-mark`)).backgroundColor).toBe(families[family][0]);
     }
   );
+
+  it.each([
+    ['selected', new Set(SPORT_FAMILY_ORDER)],
+    ['unselected', new Set<string>()],
+  ] as const)('draws every %s chip with a label beside its dot', async (_state, selected) => {
+    const { getByTestId } = await renderFamilies(isDark, selected);
+
+    for (const family of SPORT_FAMILY_ORDER) {
+      const chip = within(getByTestId(`chip-${family}`));
+      const label = chip.getByTestId(`chip-${family}-label`);
+      const text = [label.props.children]
+        .flat()
+        .filter((c) => typeof c === 'string')
+        .join('');
+
+      expect(chip.queryByTestId(`chip-${family}-mark`)).not.toBeNull();
+      expect(text.trim()).not.toBe('');
+    }
+  });
 
   it("draws a sport's chip in that sport's fixed shade of its family, selected or not", async () => {
     mockIsDark = isDark;

@@ -10,7 +10,8 @@ import java.util.Locale;
  * <p>Kept apart from the WebView client so the decision runs on the JVM with
  * the native call faked. The interceptor runs on the WebView's own small pool,
  * which also hands finished responses to the page, so nothing here may wait
- * on a tile host: a miss is answered with a body still to come.
+ * on a tile host. Basemap tiles go to the engine's loopback listener instead,
+ * and what is left here is the heatmap, which is drawn rather than fetched.
  */
 final class TileIntercept {
 
@@ -18,10 +19,9 @@ final class TileIntercept {
   interface Tiles {
     /**
      * Bytes for a tile already held, or null with {@code status[0]} set to the
-     * answer: a refusal, a throttle, a failure, or {@link TileBridge#PENDING}
-     * when {@code pending} will be completed once the host answers.
+     * answer: a refusal, a throttle or a failure.
      */
-    byte[] answer(String source, int z, int x, int y, int[] status, PendingTile pending);
+    byte[] answer(String source, int z, int x, int y, int[] status);
   }
 
   /** One answer: a status, its reason, a content type and a body. */
@@ -125,15 +125,10 @@ final class TileIntercept {
     // only those, so they cross as themselves. It starts at 502 so a native
     // call that returns without writing it reads as a failure, not a refusal.
     int[] status = {502};
-    PendingTile pending = new PendingTile();
-    byte[] bytes = tiles.answer(source, z, x, y, status, pending);
-    String mime = mimeFor(extension);
-    if (status[0] == TileBridge.PENDING) {
-      return new Answer(200, "OK", mime, pending);
-    }
+    byte[] bytes = tiles.answer(source, z, x, y, status);
     if (bytes == null || bytes.length == 0) {
       return empty(status[0] == 200 ? 404 : status[0]);
     }
-    return new Answer(200, "OK", mime, new ByteArrayInputStream(bytes));
+    return new Answer(200, "OK", mimeFor(extension), new ByteArrayInputStream(bytes));
   }
 }

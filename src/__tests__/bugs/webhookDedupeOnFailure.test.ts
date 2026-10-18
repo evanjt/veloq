@@ -13,6 +13,7 @@ const device = (name: string) => ({
   token: `ExponentPushToken[${name}]`,
   platform: 'android',
   registeredAt: '2026-09-01',
+  legacy: false,
 });
 
 function memoryStore() {

@@ -136,7 +136,7 @@
     "zoneMaxFromSettings": "Zonemaks {{value}} bpm, sportsindstillinger",
     "zoneMaxDefault": "Ingen maks puls angivet, zonerne antager {{value}} bpm",
     "zoneMaxDefaultHint": "Angiv din maks puls i dine sportsindstillinger på intervals.icu",
-    "prDelta": "+{{delta}} efter PR",
+    "prBadge": "PR",
     "chartAverage": "gns.",
     "chartGain": "stign.",
     "gainStat": "↑ {{value}}"

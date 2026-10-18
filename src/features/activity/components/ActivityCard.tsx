@@ -19,11 +19,9 @@ import {
   formatTemperature,
   formatLoad,
   formatCalories,
-  formatPrDelta,
-  formatPrImprovement,
+  formatPrGap,
 } from '@/shared/format/format';
 import {
-  brand,
   colors,
   colorWithOpacity,
   darkColors,
@@ -35,9 +33,7 @@ import {
   opacity,
   slopToMinTapTarget,
   spacing,
-  stroke,
   typography,
-  verdict,
   themePalette,
 } from '@/theme';
 import { useMapPreferences } from '@/features/settings';
@@ -59,6 +55,7 @@ import {
   PressTarget,
 } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
+import { Badge, BADGE_HEIGHT } from '@/shared/ui/Badge';
 import { Card } from '@/shared/ui/Card';
 import { contextMenuHoldIsNative } from '@/shared/ui/ContextMenu';
 import { activityCardA11yLabel, routeChipSpeech } from '../lib/activityCardA11yLabel';
@@ -212,7 +209,7 @@ export const ActivityCard = React.memo(
       log.log(`  🃏 ActivityCard[${index}] BODY executing (${activity.type})`);
     }
     const { t } = useTranslation();
-    const { isDark, preferOpaqueChrome } = useTheme();
+    const { isDark } = useTheme();
     const palette = themePalette(isDark);
     const isMetric = useMetricSystem();
     const [menuVisible, setMenuVisible] = useState(false);
@@ -534,34 +531,23 @@ export const ActivityCard = React.memo(
           testID={`activity-card-${activity.id}-route-chip`}
           onPress={() => openActivity('routes')}
           hitSlop={CHIP_SLOP}
-          style={[
-            styles.routeTrendBadge,
-            largeText && styles.flowRouteChip,
-            routeHighlight.isPr
-              ? isDark
-                ? styles.routeTrendBadgePrDark
-                : styles.routeTrendBadgePrLight
-              : preferOpaqueChrome
-                ? styles.routeTrendBadgeDeltaOpaque
-                : styles.routeTrendBadgeDelta,
-          ]}
+          style={[styles.routeChip, largeText && styles.flowRouteChip]}
         >
           {routeHighlight.isPr ? (
-            <>
-              <Icon name="trophy" size={iconSize.xs} color={colors.textOnBright} />
-              {formatPrImprovement(routeHighlight.prImprovementSeconds) != null && (
-                <RNText
-                  testID={`activity-card-${activity.id}-route-improvement`}
-                  style={[styles.routeTrendBadgeText, styles.routeTrendBadgePrText]}
-                >
-                  {formatPrImprovement(routeHighlight.prImprovementSeconds)}
-                </RNText>
-              )}
-            </>
+            <Badge
+              tone="record"
+              icon="trophy"
+              text={t('activity.prBadge')}
+              isDark={isDark}
+              testID={`activity-card-${activity.id}-route-badge`}
+            />
           ) : routeHighlight.timeDeltaSeconds != null ? (
-            <RNText style={styles.routeTrendBadgeText}>
-              {formatPrDelta(routeHighlight.timeDeltaSeconds)}
-            </RNText>
+            <Badge
+              tone="negative"
+              text={formatPrGap(routeHighlight.timeDeltaSeconds)}
+              isDark={isDark}
+              testID={`activity-card-${activity.id}-route-badge`}
+            />
           ) : null}
         </PressTarget>
       ) : null;
@@ -570,7 +556,11 @@ export const ActivityCard = React.memo(
     // map and under them in flow.
     const header = (
       <>
-        <View style={styles.overlayHeader} pointerEvents="box-none">
+        <View
+          style={styles.overlayHeader}
+          pointerEvents="box-none"
+          testID={`activity-card-${activity.id}-title-row`}
+        >
           <View style={[styles.iconContainer, { backgroundColor: activityColor }]}>
             <Icon name={iconName} size={iconSize.sm} color={colors.textOnFill} />
           </View>
@@ -657,18 +647,18 @@ export const ActivityCard = React.memo(
           {newGround?.badge || showsSectionChip ? (
             <View style={[styles.rightColumn, largeText && styles.flowRightColumn]}>
               {newGround?.badge ? (
-                <View
-                  testID={`activity-card-${activity.id}-new-ground-pill`}
-                  style={[styles.trendPill, styles.newGroundPill]}
-                  importantForAccessibility="no-hide-descendants"
-                  accessibilityElementsHidden
-                >
-                  <Icon name="compass-outline" size={iconSize.xs} color={ink.white} />
-                  <RNText style={[styles.trendCount, { color: ink.white }]}>
-                    {newGround.badge === 'entirelyNew'
-                      ? t('activity.newGround')
-                      : t('activity.mostlyNewGround')}
-                  </RNText>
+                <View importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
+                  <Badge
+                    tone="neutral"
+                    icon="compass-outline"
+                    text={
+                      newGround.badge === 'entirelyNew'
+                        ? t('activity.newGround')
+                        : t('activity.mostlyNewGround')
+                    }
+                    isDark={isDark}
+                    testID={`activity-card-${activity.id}-new-ground-pill`}
+                  />
                 </View>
               ) : null}
               {sectionHighlights && showsSectionChip ? (
@@ -690,46 +680,31 @@ export const ActivityCard = React.memo(
                     return (
                       <>
                         {prCount > 0 && (
-                          <View
+                          <Badge
+                            tone="record"
+                            icon="trophy"
+                            text={prCount}
+                            isDark={isDark}
                             testID={`activity-card-${activity.id}-pr-pill`}
-                            style={[
-                              styles.trendPill,
-                              isDark ? styles.prPillDark : styles.prPillLight,
-                            ]}
-                          >
-                            <Icon name="trophy" size={iconSize.xs} color={colors.textOnBright} />
-                            <RNText style={[styles.trendCount, { color: colors.textOnBright }]}>
-                              {prCount}
-                            </RNText>
-                          </View>
+                          />
                         )}
                         {improving > 0 && (
-                          <View
+                          <Badge
+                            tone="positive"
+                            icon="trending-up"
+                            text={improving}
+                            isDark={isDark}
                             testID={`activity-card-${activity.id}-improving-pill`}
-                            style={[
-                              styles.trendPill,
-                              isDark ? styles.improvingPillDark : styles.improvingPillLight,
-                            ]}
-                          >
-                            <Icon name="trending-up" size={iconSize.xs} color={ink.white} />
-                            <RNText style={[styles.trendCount, { color: ink.white }]}>
-                              {improving}
-                            </RNText>
-                          </View>
+                          />
                         )}
                         {declining > 0 && (
-                          <View
+                          <Badge
+                            tone="negative"
+                            icon="trending-down"
+                            text={declining}
+                            isDark={isDark}
                             testID={`activity-card-${activity.id}-declining-pill`}
-                            style={[
-                              styles.trendPill,
-                              isDark ? styles.decliningPillDark : styles.decliningPillLight,
-                            ]}
-                          >
-                            <Icon name="trending-down" size={iconSize.xs} color={ink.white} />
-                            <RNText style={[styles.trendCount, { color: ink.white }]}>
-                              {declining}
-                            </RNText>
-                          </View>
+                          />
                         )}
                       </>
                     );
@@ -876,18 +851,9 @@ export const ActivityCard = React.memo(
     )
 );
 
-/** Shape shared by the route chip and the section pills. */
-const pillShape = {
-  borderRadius: layout.borderRadiusSm,
-  paddingHorizontal: spacing.xsPlus,
-  paddingVertical: spacing.xxs,
-  borderWidth: stroke.one,
-} as const;
-
 // The chips sit on the card, which is its own press target, so the slop only
 // lifts their height and leaves the card's area beside them alone.
-const PILL_HEIGHT = typography.pillValue.lineHeight + 2 * (spacing.xxs + stroke.one);
-const CHIP_SLOP = slopToMinTapTarget(PILL_HEIGHT);
+const CHIP_SLOP = slopToMinTapTarget(BADGE_HEIGHT.md);
 
 // The header and footer sit over the press overlay so their own controls take
 // the tap. The layer scale has no rung between raised and sticky.
@@ -958,37 +924,10 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: spacing.sm,
   },
-  routeTrendBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xxs,
+  // The title column gives up the width, so the chip's time is never cut.
+  routeChip: {
     marginLeft: spacing.sm,
-    ...pillShape,
-  },
-  routeTrendBadgePrLight: {
-    backgroundColor: brand.gold,
-    borderColor: brand.goldDark,
-  },
-  routeTrendBadgePrDark: {
-    backgroundColor: brand.gold,
-    borderColor: brand.goldLight,
-  },
-  routeTrendBadgeDelta: {
-    backgroundColor: colorWithOpacity(ink.black, 0.55),
-    borderColor: colorWithOpacity(ink.white, opacity.tint3),
-  },
-  // Reduce Transparency or a contrast setting: the same dark chip in both
-  // themes, holding its own contrast rather than taking it from the map.
-  routeTrendBadgeDeltaOpaque: {
-    backgroundColor: darkColors.surface,
-    borderColor: darkColors.border,
-  },
-  routeTrendBadgeText: {
-    ...typography.pillValue,
-    color: ink.white,
-  },
-  routeTrendBadgePrText: {
-    color: colors.textOnBright,
+    flexShrink: 0,
   },
   overlayName: {
     ...typography.cardTitle,
@@ -1025,52 +964,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-  },
-  trendPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xxs,
-    ...pillShape,
-  },
-  // PR pill - solid gold, high contrast
-  prPillLight: {
-    backgroundColor: brand.gold,
-    borderColor: brand.goldDark,
-  },
-  prPillDark: {
-    backgroundColor: brand.gold,
-    borderColor: brand.goldLight,
-  },
-  // Ground pill - the action blue's deep step, white text on a solid
-  newGroundPill: {
-    backgroundColor: brand.blue700,
-    borderColor: brand.blue600,
-  },
-  // Improving pill - solid green
-  improvingPillLight: {
-    backgroundColor: verdict.positive.light,
-    borderColor: verdict.positive.dark,
-  },
-  improvingPillDark: {
-    backgroundColor: verdict.positive.light,
-    borderColor: verdict.positive.dark,
-  },
-  // Declining pill - the negative rung, the same verdict the section trend and
-  // the insight card draw. It was disabled-grey, so the same decline read as
-  // "off" here and as a judgement one card away. The light tone carries the
-  // pill in both themes, the way the improving pill does:
-  // the ladder's dark rungs are sized for text on a surface, not for white
-  // text on a solid.
-  decliningPillLight: {
-    backgroundColor: verdict.negative.light,
-    borderColor: verdict.negative.dark,
-  },
-  decliningPillDark: {
-    backgroundColor: verdict.negative.light,
-    borderColor: verdict.negative.dark,
-  },
-  trendCount: {
-    ...typography.pillValue,
   },
   primaryStats: {
     flexDirection: 'row',

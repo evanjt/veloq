@@ -7,22 +7,25 @@
  * on grey, 2.29:1; and a tab count kept its light ink in dark, 1.93:1.
  *
  * Expected behaviour: every one of these texts clears 4.5:1 on the colour
- * actually behind it in both themes, measured after compositing.
+ * actually behind it in both themes, measured after compositing, and the tab
+ * bar's glyphs clear 3:1 as marks.
  */
 
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import { render } from '@testing-library/react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import type { ReactTestInstance } from 'react-test-renderer';
 
 import { BottomTabBar } from '@/shared/ui/BottomTabBar';
 import { DeviceAttribution } from '@/shared/ui/GarminAttribution';
 import { SwipeableTabs, type SwipeableTab } from '@/shared/ui';
 import { DataSourcesSection } from '@/features/settings/components/DataSourcesSection';
-import { colors, darkColors, ink } from '@/theme';
+import { colors, darkColors } from '@/theme';
 
 import { AA_TEXT, composite, contrastRatio, renderedTextColour } from '../__shared__/contrast';
+
+// A tab's glyph is decoration, hidden from the screen reader, so a query reaches it only here.
+const HIDDEN = { includeHiddenElements: true };
 
 jest.mock('expo-haptics', () => ({
   ...jest.requireActual('expo-haptics'),
@@ -78,25 +81,28 @@ afterEach(() => {
   mockIsDark = false;
 });
 
-describe('the bottom tab bar labels', () => {
-  /**
-   * The bar floats over scrolling content behind a scrim of the opposite ink,
-   * so the worst ground is the scrim's densest stop over content of the
-   * opposite extreme: white at that alpha over black in light, and the reverse.
-   */
-  function worstGround(isDark: boolean, stops: readonly string[]): string {
-    const densest = stops[stops.length - 1];
-    return composite(densest, isDark ? ink.white : ink.black);
+describe('the bottom tab bar', () => {
+  // The bar is opaque, so what lands behind a label or a glyph is its surface, or on Android the
+  // selected glyph's indicator tint composited over that surface.
+  const MARK = 3;
+  const originalOS = Platform.OS;
+
+  afterEach(() => {
+    Platform.OS = originalOS;
+  });
+
+  function surfaceOf(getByTestId: (id: string) => ReactTestInstance): string {
+    return StyleSheet.flatten(getByTestId('bottom-tab-bar-surface').props.style).backgroundColor;
   }
 
   it.each(THEMES)(
-    'clear 4.5:1 on the scrim in the $name theme, active and inactive',
+    'labels clear 4.5:1 on its surface in the $name theme, selected and not',
     async (theme) => {
       mockIsDark = theme.isDark;
-      const { UNSAFE_getByType, getByText } = await render(<BottomTabBar />);
-      const ground = worstGround(theme.isDark, UNSAFE_getByType(LinearGradient).props.colors);
+      const { getByTestId, getByText } = await render(<BottomTabBar />);
+      const ground = surfaceOf(getByTestId);
 
-      // The feed is the active tab at `/`, the fitness tab an inactive one.
+      // The feed is the selected tab at `/`, the fitness tab an unselected one.
       const failing = ['navigation.feed', 'navigation.fitness'].flatMap((label) => {
         const colour = renderedTextColour(getByText(label).props.style, ground);
         const ratio = contrastRatio(colour, ground);
@@ -104,6 +110,41 @@ describe('the bottom tab bar labels', () => {
       });
 
       expect(failing).toStrictEqual([]);
+    }
+  );
+
+  it.each(THEMES)(
+    'glyphs clear 3:1 on its surface in the $name theme, selected and not',
+    async (theme) => {
+      Platform.OS = 'ios';
+      mockIsDark = theme.isDark;
+      const { getByTestId, UNSAFE_getByProps } = await render(<BottomTabBar />);
+      const ground = surfaceOf(getByTestId);
+
+      const failing = ['feed', 'fitness'].flatMap((key) => {
+        const ratio = contrastRatio(
+          UNSAFE_getByProps({ testID: `bottom-tab-${key}-glyph` }).props.color,
+          ground
+        );
+        return ratio >= MARK ? [] : [`${key} ${ratio.toFixed(2)}`];
+      });
+
+      expect(failing).toStrictEqual([]);
+    }
+  );
+
+  it.each(THEMES)(
+    'the selected glyph clears 3:1 on its Android indicator in the $name theme',
+    async (theme) => {
+      Platform.OS = 'android';
+      mockIsDark = theme.isDark;
+      const { getByTestId, UNSAFE_getByProps } = await render(<BottomTabBar />);
+      const tint = StyleSheet.flatten(getByTestId('bottom-tab-feed-indicator', HIDDEN).props.style);
+      const ground = composite(tint.backgroundColor, surfaceOf(getByTestId));
+
+      expect(
+        contrastRatio(UNSAFE_getByProps({ testID: 'bottom-tab-feed-glyph' }).props.color, ground)
+      ).toBeGreaterThanOrEqual(MARK);
     }
   );
 });

@@ -389,6 +389,8 @@ export const OWNED_ELSEWHERE: Record<string, string> = {
     'written back when the app backgrounds, through a lazy require the scan does not follow',
   'BasemapManager.setSourceTemplate':
     "handed each source's upstream template at style load, through a lazy require the scan does not follow",
+  'BasemapManager.tileListener':
+    "asked for the Android listener's ports and token at style load and on a return to the foreground, through a lazy require the scan does not follow",
   'BasemapManager.getOrFetchTile':
     'the interceptor reaches the store through the JNI symbol, not this mirror, and iOS has no interceptor yet',
 
@@ -524,13 +526,19 @@ function clientMemberSpans(classSource: string): Map<string, string> {
   return spans;
 }
 
-/** Every function a delegate module declares, with its body. */
+/**
+ * Every function a delegate module declares, with its body.
+ *
+ * A helper the module does not export is a function of its own, so an export
+ * that calls it by name reaches the helper's engine calls, and the export
+ * declared above the helper does not.
+ */
 function delegateFunctions(sources: string[]): Map<string, string> {
   const functions = new Map<string, string>();
   for (const source of sources) {
     const text = withoutComments(source);
     const head =
-      /^export\s+(?:async\s+)?(?:function\s+([A-Za-z_$][A-Za-z0-9_$]*)|const\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=)/gm;
+      /^(?:export\s+)?(?:async\s+)?(?:function\s+([A-Za-z_$][A-Za-z0-9_$]*)|const\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=)/gm;
     const heads = [...text.matchAll(head)];
     heads.forEach((m, i) => {
       const end = heads[i + 1]?.index ?? text.length;

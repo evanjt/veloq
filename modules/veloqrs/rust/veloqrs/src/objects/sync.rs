@@ -3028,6 +3028,55 @@ pub(crate) async fn ready_activity(
     }
 }
 
+/// Bring one activity to a screen that opens with no network, fetching what
+/// [`PersistentEngine::activity_owing_bodies`] says it lacks, and answer
+/// whether it lacks nothing afterwards.
+///
+/// The push that names a ride stores its detail and track, and where it does
+/// not also ready the streams and intervals, the app's own task finishes the
+/// ride through here rather than leaving it to the next sync. An activity that
+/// owes nothing asks nothing, so a push that already readied it costs one read.
+/// A body that fails stays owed for the sync to ask again, and only a refused
+/// credential is the answer.
+pub(crate) async fn ready_owed_activity(
+    install: u64,
+    source: &impl Source,
+    activity_id: &str,
+) -> Result<bool, NetError> {
+    let owed = |id: String| async move {
+        crate::persistence::with_persistent_engine_blocking_for(install, move |engine| {
+            engine.activity_owing_bodies(&id, DETAIL_STREAM_TYPES_KEY)
+        })
+        .await
+        .ok_or(NetError::EngineClosed)?
+        .map_err(|e| NetError::storage("owed bodies read failed", &e))
+    };
+    let Some(gap) = owed(activity_id.to_string()).await? else {
+        return Ok(true);
+    };
+    let Some(upstream) = upstream_id(install, activity_id).await else {
+        return Ok(false);
+    };
+    match ready_activity(install, source, &gap, &upstream, Lane::Interactive).await {
+        Err(NetError::Unauthorized) => return Err(NetError::Unauthorized),
+        Err(e) => log::warn!("[Sync] {activity_id} still owes part of its bodies: {e}"),
+        Ok(()) => {}
+    }
+    if gap.streams || gap.track {
+        // The track the streams carry replaces the narrow one, so the index
+        // is taken again over what landed. Idempotent, and an activity with
+        // no track has nothing to index.
+        let id = activity_id.to_string();
+        let indexed = crate::runtime::ASYNC_RUNTIME
+            .spawn_blocking(move || crate::ffi::index_stored_track(install, &id))
+            .await;
+        if let Ok(Err(e)) = indexed {
+            log::warn!("[Sync] {activity_id} was readied but not indexed: {e}");
+        }
+    }
+    Ok(owed(activity_id.to_string()).await?.is_none())
+}
+
 #[cfg(test)]
 #[path = "tests/first_use_queue.rs"]
 mod first_use_queue_tests;
@@ -4626,6 +4675,44 @@ impl SyncManager {
                 activity_detail_job(install, &session, activity_id).await
             },
         )
+    }
+
+    /// Fetch and store what one activity still lacks for a screen that opens
+    /// with no network, its detail streams, intervals and track, resolving with
+    /// whether it lacks nothing afterwards.
+    ///
+    /// For the task a push wakes, which has seconds to finish the ride before
+    /// the athlete taps its entry, so it resolves when the work ends rather than
+    /// starting a job nobody can wait on. No credential, no network and a
+    /// refused credential all resolve false: the bodies stay owed and the next
+    /// sync asks for them.
+    pub async fn ready_activity_bodies(&self, activity_id: String) -> bool {
+        let Ok(session) = SYNC_SERVICE.build_session() else {
+            return false;
+        };
+        if crate::net::connectivity::is_offline() {
+            return false;
+        }
+        let install = crate::persistence::engine_install();
+        crate::runtime::ASYNC_RUNTIME
+            .spawn(async move {
+                if !SYNC_SERVICE.still_signed_in(session.athlete_id()) {
+                    return false;
+                }
+                match ready_owed_activity(install, &session, &activity_id).await {
+                    Ok(ready) => ready,
+                    Err(NetError::Unauthorized) => {
+                        park_auth_expired(&session).await;
+                        false
+                    }
+                    Err(e) => {
+                        log::warn!("[Sync] {activity_id} could not be readied: {e}");
+                        false
+                    }
+                }
+            })
+            .await
+            .unwrap_or(false)
     }
 
     /// Fetch and store the `time` streams the section-performance maths needs.

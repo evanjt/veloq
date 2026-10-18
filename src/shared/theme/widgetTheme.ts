@@ -147,15 +147,16 @@ export const widgetLayout = {
 /**
  * Widget type scale in pt (sp on Android) at the default text size. Mirrors the
  * design-system metric/label sizes but kept as plain numbers so the node codegen needn't
- * import `@/theme/typography` (which pulls in react-native). No step is under 11, the
- * smallest text the platform guidance sets on a widget.
+ * import `@/theme/typography` (which pulls in react-native). The caption, 10, is the smallest
+ * step: a point under the system face's 11, because Manrope draws taller and wider and a widget
+ * line has to fit its box whole. A fitted line shrinks no further than `floor`.
  */
 export const widgetType = {
   hero: 32,
   metric: 22,
   value: 18,
-  label: 12,
-  caption: 11,
+  label: 11,
+  caption: 10,
   /** The smallest a line shrinks to when it is fitted to its box rather than cut off. */
   floor: 9,
 } as const;

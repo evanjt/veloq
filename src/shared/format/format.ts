@@ -257,15 +257,13 @@ export function splitMinSec(totalSeconds: number): { minutes: number; seconds: n
 }
 
 /**
- * The route PR+ badge: how far behind the record an attempt finished, as
- * whole seconds in the locale's unit under a minute and `M:SS` from a minute up, worded by the
- * locale around the delta.
+ * The route chip's gap behind the record, signed: `+26 s` under a minute,
+ * `+1:05` from a minute and `+1:02:03` from an hour, rounded before it is
+ * split. Read in full at every size; the chip's label says the sentence.
  */
-export function formatPrDelta(seconds: number): string {
-  const whole = Math.round(seconds);
-  const delta = whole >= 60 ? formatMinSec(whole) : formatSecondsValue(whole);
-  // English when the translator has no bundle, as the date words below do.
-  return i18n.t('activity.prDelta', { delta }) || `PR+${delta}`;
+export function formatPrGap(seconds: number): string {
+  const gap = formatDurationDelta(seconds);
+  return gap === ABSENT ? ABSENT : `+${gap}`;
 }
 
 /**

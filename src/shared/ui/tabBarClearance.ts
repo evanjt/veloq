@@ -15,10 +15,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { spacing } from '@/theme';
 
-// Dimensions
-export const TAB_BAR_HEIGHT = 60; // Height for icons + labels
-export const GRADIENT_HEIGHT = 20; // Small fade zone above icons
-export const TAB_BAR_SAFE_PADDING = TAB_BAR_HEIGHT + GRADIENT_HEIGHT; // Total padding for content
+// The bar's height above the inset, glyphs and labels. It is opaque to its top edge, so content
+// ends there.
+export const TAB_BAR_HEIGHT = 60;
+export const TAB_BAR_SAFE_PADDING = TAB_BAR_HEIGHT;
 
 /**
  * Set by a safe area view that pads the bottom edge, so nothing inside it adds the inset again.

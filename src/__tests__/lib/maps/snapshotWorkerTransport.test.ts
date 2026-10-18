@@ -19,7 +19,10 @@ import type { SnapshotRequest } from '@/features/maps/lib/htmlBuilders/terrainSn
 const mockSetSourceTemplate = jest.fn();
 jest.mock('veloqrs', () =>
   require('../../__shared__/veloqrsStub').withOverrides({
-    basemapStore: () => ({ setSourceTemplate: mockSetSourceTemplate }),
+    basemapStore: () => ({
+      setSourceTemplate: mockSetSourceTemplate,
+      tileListener: () => ({ ports: [41001, 41002], token: 'a1b2c3d4' }),
+    }),
   })
 );
 
@@ -67,10 +70,11 @@ describe('the worker page', () => {
 });
 
 describe('a preview render on Android', () => {
-  it('draws its imagery through the intercept, not the page cache', () => {
+  it('draws its imagery through the loopback listener, not the page cache', () => {
     const script = buildRenderSnapshotScript(satelliteRequest, 0, 1);
 
-    expect(script).toContain('https://veloq.fit/veloq-tile/satellite-eox/');
+    expect(script).toContain('http://127.0.0.1:41001/a1b2c3d4/satellite-eox/');
+    expect(script).toContain('http://127.0.0.1:41002/a1b2c3d4/satellite-eox/');
     expect(script).not.toContain('cached-satellite://');
     expect(mockSetSourceTemplate).toHaveBeenCalledWith(
       'satellite-swisstopo-1',

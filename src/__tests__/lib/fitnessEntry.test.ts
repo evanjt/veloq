@@ -7,7 +7,14 @@
  * them, and anything unparseable leaves the screen on its own defaults.
  */
 
-import { fitnessEntryFromParams, fitnessTarget, rangeCovering } from '@/shared/app/fitnessEntry';
+import {
+  FITNESS_CHARTS,
+  FITNESS_CHART_PLACEMENT,
+  fitnessEntryFromParams,
+  fitnessPlaceOf,
+  fitnessTarget,
+  rangeCovering,
+} from '@/shared/app/fitnessEntry';
 import { generateHrvTrendInsight } from '@/features/insights/generators/hrvTrend';
 import { generateFitnessMilestoneInsights } from '@/features/insights/generators/fitnessMilestone';
 import { datedSeries } from '../__shared__/datedSeries';
@@ -18,11 +25,17 @@ describe('fitnessEntryFromParams', () => {
       range: '1m',
       date: '2026-09-14',
       chart: null,
+      place: null,
     });
   });
 
   it('keeps the screen defaults when nothing is asked for', () => {
-    expect(fitnessEntryFromParams({})).toEqual({ range: null, date: null, chart: null });
+    expect(fitnessEntryFromParams({})).toEqual({
+      range: null,
+      date: null,
+      chart: null,
+      place: null,
+    });
   });
 
   it('drops a range that is not one of the periods', () => {
@@ -38,6 +51,53 @@ describe('fitnessEntryFromParams', () => {
 
   it('takes the first of a repeated param', () => {
     expect(fitnessEntryFromParams({ range: ['3m', '7d'] }).range).toBe('3m');
+  });
+
+  it('takes a place from the tab param', () => {
+    expect(fitnessEntryFromParams({ tab: 'calendar' }).place).toBe('calendar');
+    expect(fitnessEntryFromParams({ tab: ['trends', 'calendar'] }).place).toBe('trends');
+  });
+
+  it('drops a tab that is not one of the places', () => {
+    expect(fitnessEntryFromParams({ tab: 'nowhere' }).place).toBeNull();
+    expect(fitnessEntryFromParams({ tab: '' }).place).toBeNull();
+    expect(fitnessEntryFromParams({}).place).toBeNull();
+  });
+});
+
+describe('fitnessPlaceOf', () => {
+  const PLACE_OF_CHART = {
+    fitness: 'fitness',
+    form: 'fitness',
+    hrv: 'fitness',
+    rhr: 'fitness',
+    weight: 'fitness',
+    week: 'calendar',
+    calendar: 'calendar',
+    pace: 'performance',
+    css: 'performance',
+    ftp: 'trends',
+  } as const;
+
+  it('opens each chart on the place that draws it', () => {
+    for (const chart of FITNESS_CHARTS) {
+      expect(FITNESS_CHART_PLACEMENT[chart].place).toBe(PLACE_OF_CHART[chart]);
+      expect(fitnessPlaceOf({ chart })).toBe(PLACE_OF_CHART[chart]);
+    }
+  });
+
+  it('lets a chart win over a place that does not draw it', () => {
+    expect(fitnessPlaceOf({ chart: 'ftp', place: 'calendar' })).toBe('trends');
+  });
+
+  it('opens on the named place when no chart is named', () => {
+    expect(fitnessPlaceOf({ chart: null, place: 'performance' })).toBe('performance');
+  });
+
+  it('opens on the fitness place when nothing is named', () => {
+    expect(fitnessPlaceOf({})).toBe('fitness');
+    expect(fitnessPlaceOf({ range: '1m' })).toBe('fitness');
+    expect(fitnessPlaceOf(fitnessEntryFromParams({}))).toBe('fitness');
   });
 });
 
@@ -64,6 +124,7 @@ describe('fitnessTarget', () => {
       range: '1m',
       date: '2026-09-14',
       chart: null,
+      place: null,
     });
   });
 
@@ -72,7 +133,25 @@ describe('fitnessTarget', () => {
 
     expect(target).toBe('/fitness?range=3m&chart=ftp');
     const query = Object.fromEntries(new URLSearchParams(target.split('?')[1]));
-    expect(fitnessEntryFromParams(query)).toEqual({ range: '3m', date: null, chart: 'ftp' });
+    expect(fitnessEntryFromParams(query)).toEqual({
+      range: '3m',
+      date: null,
+      chart: 'ftp',
+      place: null,
+    });
+  });
+
+  it('carries a place, and round-trips it', () => {
+    const target = fitnessTarget({ place: 'calendar' });
+
+    expect(target).toBe('/fitness?tab=calendar');
+    const query = Object.fromEntries(new URLSearchParams(target.split('?')[1]));
+    expect(fitnessEntryFromParams(query)).toEqual({
+      range: null,
+      date: null,
+      chart: null,
+      place: 'calendar',
+    });
   });
 
   it('is the bare tab when there is nothing to carry', () => {
@@ -102,7 +181,12 @@ describe('the cards that link to the fitness tab', () => {
       t
     );
 
-    expect(entryOf(insight.navigationTarget)).toEqual({ range: '1m', date: null, chart: null });
+    expect(entryOf(insight.navigationTarget)).toEqual({
+      range: '1m',
+      date: null,
+      chart: null,
+      place: null,
+    });
   });
 
   it('sends an FTP step to the day it was dated', () => {
@@ -125,6 +209,7 @@ describe('the cards that link to the fitness tab', () => {
       range: null,
       date: '2026-09-14',
       chart: null,
+      place: null,
     });
   });
 });

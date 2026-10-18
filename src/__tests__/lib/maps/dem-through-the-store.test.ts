@@ -21,7 +21,10 @@ import { dropRetiredTileCachesScript } from '@/features/maps/lib/tileCacheBudget
 
 jest.mock('veloqrs', () =>
   require('../../__shared__/veloqrsStub').withOverrides({
-    basemapStore: () => ({ setSourceTemplate: jest.fn() }),
+    basemapStore: () => ({
+      setSourceTemplate: jest.fn(),
+      tileListener: () => ({ ports: [41001, 41002], token: 'a1b2c3d4' }),
+    }),
   })
 );
 
@@ -94,11 +97,15 @@ describe('no page keeps a DEM cache of its own', () => {
 
 describe('the DEM source', () => {
   it.each(['android', 'ios'] as const)(
-    'reaches the preview worker through the intercept on %s',
+    'reaches the preview worker through the store on %s',
     (os) => {
       onPlatform(os);
       const script = buildRenderSnapshotScript(request, 0, 1);
-      expect(script).toContain('/veloq-tile/terrain/{z}/{x}/{y}.png');
+      expect(script).toContain(
+        os === 'android'
+          ? 'http://127.0.0.1:41002/a1b2c3d4/terrain/{z}/{x}/{y}.png'
+          : '/veloq-tile/terrain/{z}/{x}/{y}.png'
+      );
       expect(script).not.toContain('cached-terrain');
       expect(script).not.toContain(TERRAIN_UPSTREAM_TEMPLATE);
     }

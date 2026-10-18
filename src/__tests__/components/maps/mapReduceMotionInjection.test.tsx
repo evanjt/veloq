@@ -110,7 +110,8 @@ describe.each(SURFACES)('%s follows the live reduce-motion setting', (_name, ele
     mockSetting.value = true;
     const view = await render(element());
     expect(pages).toHaveLength(1);
-    expect(pages[0]).toContain('window._veloqReduceMotion = true;');
+    // The 2D page sets it as a statement, the 3D page from its build call.
+    expect(pages[0]).toMatch(/window\._veloqReduceMotion = true;|\n\s*reduceMotion: true,\n/);
     await ready();
     expect(told(true)).toEqual([]);
     await view.unmount();

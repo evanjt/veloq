@@ -359,12 +359,6 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_func_start_elevation_backfill(
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_start_fetch_and_store(
-    activityIds: Uint8Array,
-    sportTypes: Uint8Array,
-    priority: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): number;
   ubrn_uniffi_veloqrs_fn_func_start_gps_pass(
     oldest: Uint8Array,
     newest: Uint8Array,
@@ -604,6 +598,10 @@ interface NativeModuleInterface {
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
   ubrn_uniffi_veloqrs_fn_method_basemapmanager_tile_counts(
+    uniffiSelf: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_basemapmanager_tile_listener(
     uniffiSelf: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
@@ -1564,6 +1562,10 @@ interface NativeModuleInterface {
     newest: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_syncmanager_ready_activity_bodies(
+    uniffiSelf: bigint,
+    activityId: Uint8Array,
+  ): bigint;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_set_credentials(
     uniffiSelf: bigint,
     method: Uint8Array,
@@ -1795,7 +1797,6 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_func_set_network_online(): number;
   ubrn_uniffi_veloqrs_checksum_func_start_detector_cutover(): number;
   ubrn_uniffi_veloqrs_checksum_func_start_elevation_backfill(): number;
-  ubrn_uniffi_veloqrs_checksum_func_start_fetch_and_store(): number;
   ubrn_uniffi_veloqrs_checksum_func_start_gps_pass(): number;
   ubrn_uniffi_veloqrs_checksum_func_start_stream_backfill(): number;
   ubrn_uniffi_veloqrs_checksum_func_stop_stream_backfill(): number;
@@ -1843,6 +1844,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_basemapmanager_set_path(): number;
   ubrn_uniffi_veloqrs_checksum_method_basemapmanager_set_source_template(): number;
   ubrn_uniffi_veloqrs_checksum_method_basemapmanager_tile_counts(): number;
+  ubrn_uniffi_veloqrs_checksum_method_basemapmanager_tile_listener(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_detectionmanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_awaiting_count(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_cancel(): number;
@@ -2032,6 +2034,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_get_sync_status(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_library_coverage(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_range_coverage(): number;
+  ubrn_uniffi_veloqrs_checksum_method_syncmanager_ready_activity_bodies(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_set_credentials(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_activities_window(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_activity_detail(): number;

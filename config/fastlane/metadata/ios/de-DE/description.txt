@@ -21,6 +21,8 @@ Verfolge deine Form mit CTL/ATL/TSB-Tracking und visuellen Zonen. Überwache HRV
 Datenschutz
 Deine Trainingsdaten bleiben auf deinem Gerät. Keine Analysen, kein Tracking. Optionale Push-Benachrichtigungen speichern deine intervals.icu-Athleten-ID und ein Geräte-Token auf unserem Server, die nach 30 Tagen automatisch gelöscht werden. Open Source unter Apache 2.0.
 
+Barrierefreiheit: Screenreader-Beschriftungen für jedes Bedienelement, Text, der deiner Systemschriftgröße folgt, und Farbkontrast nach den AA-Verhältnissen im hellen und dunklen Design.
+
 Unterstützt Radfahren, Laufen, Schwimmen und 20+ Aktivitätstypen. Teste den integrierten Demomodus, um die App ohne Konto zu erkunden.
 
 Erfordert ein intervals.icu-Konto für Live-Daten. Nicht mit intervals.icu verbunden.

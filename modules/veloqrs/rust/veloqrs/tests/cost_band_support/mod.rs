@@ -29,9 +29,9 @@ pub use bitwise::median_and_p95;
 /// process-wide, so `body` must be the only thing running: call it between
 /// quiesced spans, never while a background worker is still folding.
 pub fn peak_rise<T>(body: impl FnOnce() -> T) -> (T, u64) {
-    baseline::anchor_peak();
+    let window = baseline::anchor_peak();
     let out = body();
-    (out, baseline::peak_rise_bytes())
+    (out, window.rise_bytes())
 }
 
 /// Judge `measured` against the baseline at `path`. A baseline recorded on

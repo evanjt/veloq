@@ -191,7 +191,8 @@ describe('the 3D page', () => {
       bounds: { sw: [7.3, 46.2], ne: [7.31, 46.21] },
     } as never);
 
-    expect(html).toContain(`opts.fitBoundsOptions = { padding: ${TRACK_FIT_PADDING} };`);
+    expect(html).toContain(`fitPadding: ${TRACK_FIT_PADDING},`);
+    expect(html).toContain('opts.fitBoundsOptions = { padding: cfg.fitPadding };');
   });
 });
 

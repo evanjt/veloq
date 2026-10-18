@@ -78,6 +78,6 @@ describe('the 2D and 3D fits for one cover', () => {
         initStyle: 'light',
         mapStyle: 'light',
       } as never)
-    ).toContain(`opts.fitBoundsOptions = { padding: ${literal} };`);
+    ).toContain(`fitPadding: ${literal},`);
   });
 });

@@ -15,7 +15,6 @@ jest.mock('../../../modules/veloqrs/src/generated/veloqrs', () => ({
   ...jest.requireActual('../../../modules/veloqrs/src/generated/veloqrs'),
   setEngineLogLevel: jest.fn(),
   getChangeCardSupport: () => ({}),
-  startFetchAndStore: () => 1,
   getFetchRunProgress: () => ({ active: false, completed: 0, total: 0 }),
   cancelFetchAndStore: () => true,
   takeFetchAndStoreResult: () => undefined,
@@ -61,7 +60,6 @@ const cases: [string, (h: never) => unknown][] = [
 ];
 
 const clientCases: [string, (c: EngineClient) => unknown][] = [
-  ['startFetchAndStore', (c) => c.startFetchAndStore(['a'], [], 0 as never)],
   ['getFetchRunProgress', (c) => c.getFetchRunProgress(1)],
   ['cancelFetchAndStore', (c) => c.cancelFetchAndStore(1)],
   ['takeFetchAndStoreResult', (c) => c.takeFetchAndStoreResult(1)],

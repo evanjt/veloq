@@ -4,7 +4,8 @@
  * Handles:
  *   1. OAuth token exchange for intervals.icu (existing)
  *   2. Webhook relay: receives intervals.icu webhooks, sends a data push to
- *      every device and, on iOS, a visible push beside it
+ *      every device and, on iOS and a legacy Android token, a visible push
+ *      beside it
  *   3. Device token management: register/unregister push tokens
  *
  * See README.md for deployment instructions.
@@ -36,9 +37,43 @@ interface DeviceToken {
   token: string;
   platform: "ios" | "android";
   registeredAt: string;
+  /** Registered with no credential, by a build from before device verification. */
+  legacy?: boolean;
 }
 
 const tokenOwnerKey = (token: string) => `token:${token}`;
+
+/**
+ * Whether a stored row is legacy. A row stored before the flag existed came
+ * from a registration with no credential, so only an explicit `false` reads
+ * as verified.
+ */
+function isLegacy(device: DeviceToken): boolean {
+  return device.legacy !== false;
+}
+
+/**
+ * Whether a device request carries no credential at all, which is how builds
+ * from before device verification register and unregister. A header that is
+ * present but unreadable is not this: it is refused as a bad credential.
+ */
+function carriesNoCredential(request: Request): boolean {
+  const header = request.headers.get("Authorization");
+  return header === null || header.trim() === "";
+}
+
+async function findTokenRow(
+  env: Env,
+  athleteId: string,
+  token: string
+): Promise<DeviceToken | null> {
+  const rows = await env.DEVICE_TOKENS.get(`athlete:${athleteId}`, "json") as DeviceToken[] | null;
+  return rows?.find((entry) => entry.token === token) ?? null;
+}
+
+function missingCredential(): Response {
+  return jsonResponse({ error: "Missing credential" }, 401);
+}
 
 async function removeTokenFromAthlete(env: Env, athleteId: string, token: string): Promise<void> {
   const key = `athlete:${athleteId}`;
@@ -602,10 +637,11 @@ const PROCESSED_EVENTS = new Set([
 
 /**
  * Build the visible portion of the push for events that warrant a tray
- * notification. Only iOS is sent it. The text is generic and the iOS
- * notification service extension rewrites it in place with enriched content.
- * Android gets the data push alone, so a force-stopped Android package shows
- * nothing until the app is opened. Returns null for events that shouldn't
+ * notification. iOS is sent it, and the iOS notification service extension
+ * rewrites the generic text in place with enriched content. A legacy Android
+ * token is sent it as the only entry its build draws. A verified Android token
+ * gets the data push alone, so a force-stopped Android package shows nothing
+ * until the app is opened. Returns null for events that shouldn't
  * surface a tray entry on their own (wellness/fitness updates are
  * background-only).
  */
@@ -627,7 +663,10 @@ function visibleContentForEvent(
  * Called after user opts in to notifications.
  * Body: { athleteId: string, token: string, platform: "ios" | "android" }
  * Authorization: the caller's own intervals.icu credential, which has to
- * resolve to the athlete the body names.
+ * resolve to the athlete the body names. A request with none is a build from
+ * before device verification: it is accepted unverified and the row is
+ * flagged legacy, unless a verified row already holds the token, which a
+ * credential-less request never displaces.
  */
 async function handleDeviceRegister(
   request: Request,
@@ -653,17 +692,27 @@ async function handleDeviceRegister(
       return jsonResponse({ error: "Invalid platform" }, 400);
     }
 
-    const auth = await authoriseDevice(
-      request.headers.get("Authorization"),
-      body.athleteId,
-      intervalsAthleteResolver()
-    );
-    if (!auth.ok) {
-      return deviceAuthRefusal(auth);
+    const legacy = carriesNoCredential(request);
+    if (!legacy) {
+      const auth = await authoriseDevice(
+        request.headers.get("Authorization"),
+        body.athleteId,
+        intervalsAthleteResolver()
+      );
+      if (!auth.ok) {
+        return deviceAuthRefusal(auth);
+      }
     }
 
     const ownerKey = tokenOwnerKey(body.token);
     const previousAthlete = await env.DEVICE_TOKENS.get(ownerKey);
+    if (legacy) {
+      for (const holder of new Set([body.athleteId, previousAthlete])) {
+        if (!holder) continue;
+        const row = await findTokenRow(env, holder, body.token);
+        if (row && !isLegacy(row)) return missingCredential();
+      }
+    }
     if (previousAthlete && previousAthlete !== body.athleteId) {
       await removeTokenFromAthlete(env, previousAthlete, body.token);
     }
@@ -678,6 +727,7 @@ async function handleDeviceRegister(
       token: body.token,
       platform: body.platform as "ios" | "android",
       registeredAt: new Date().toISOString(),
+      legacy,
     };
 
     if (idx >= 0) {
@@ -720,7 +770,8 @@ async function handleDeviceRegister(
  * credential is cleared.
  * Body: { athleteId: string, token: string }
  * Authorization: the caller's own intervals.icu credential, which has to
- * resolve to the athlete the body names.
+ * resolve to the athlete the body names. A request with none may remove a
+ * legacy row only.
  */
 async function handleDeviceUnregister(
   request: Request,
@@ -741,13 +792,18 @@ async function handleDeviceUnregister(
       return jsonResponse({ error: "Missing required fields" }, 400);
     }
 
-    const auth = await authoriseDevice(
-      request.headers.get("Authorization"),
-      body.athleteId,
-      intervalsAthleteResolver()
-    );
-    if (!auth.ok) {
-      return deviceAuthRefusal(auth);
+    if (carriesNoCredential(request)) {
+      const row = await findTokenRow(env, body.athleteId, body.token);
+      if (row && !isLegacy(row)) return missingCredential();
+    } else {
+      const auth = await authoriseDevice(
+        request.headers.get("Authorization"),
+        body.athleteId,
+        intervalsAthleteResolver()
+      );
+      if (!auth.ok) {
+        return deviceAuthRefusal(auth);
+      }
     }
 
     await removeTokenFromAthlete(env, body.athleteId, body.token);
@@ -876,16 +932,17 @@ async function startEventPushes(
   }
   if (!tokens || tokens.length === 0) return null;
 
-  // The visible title and body go to iOS only, where the notification
-  // service extension rewrites them in place. `buildPushMessages` drops
-  // them for an Android token: there the OS draws the placeholder under a
-  // tag of its own and the native worker's entry stands beside it rather
-  // than replacing it. The data payload wakes the handler on both, which
-  // posts the enriched notification itself.
+  // The visible title and body go to iOS, where the notification service
+  // extension rewrites them in place, and to a legacy Android token, whose
+  // build draws nothing else. `buildPushMessages` drops them for a verified
+  // Android token: there the OS draws the placeholder under a tag of its own
+  // and the native worker's entry stands beside it rather than replacing it.
+  // The data payload wakes the handler on both, which posts the enriched
+  // notification itself.
   const pushData = pushDataFor(event);
   const visible = visibleContentForEvent(event.type, event.activity?.id);
   const perDeviceResults = tokens.map((device) =>
-    sendExpoPush(device.token, pushData, visible, device.platform)
+    sendExpoPush(device.token, pushData, visible, device.platform, isLegacy(device))
       .then((alive) => ({ token: device.token, alive }))
       .catch((err) => {
         console.error(`Push failed for ${device.platform}:`, err);
@@ -926,8 +983,9 @@ async function startEventPushes(
  * (Android) and APNs (iOS) routing transparently. No Firebase project or APNs
  * key required. Expo Push is free.
  *
- * With `visible` on iOS, a tray push goes first and a silent data push behind
- * it. Without `visible`, or on Android, only the silent one. The visible push
+ * With `visible` on iOS or a legacy Android token, a tray push goes first and a
+ * silent data push behind it. Without `visible`, or on a verified Android
+ * token, only the silent one. The visible push
  * carries generic text the caller wrote and, for an activity event, a `route`
  * the device reads when the notification is tapped. The silent push carries
  * event_type and activity_id. No personal data is in either.
@@ -939,9 +997,10 @@ async function sendExpoPush(
   token: string,
   data: Record<string, unknown>,
   visible: { title: string; body: string } | null,
-  platform?: string
+  platform?: string,
+  legacy = false
 ): Promise<boolean> {
-  const messages = buildPushMessages(token, data, visible, platform);
+  const messages = buildPushMessages(token, data, visible, platform, legacy);
 
   let alive = true;
   for (const payload of messages) {

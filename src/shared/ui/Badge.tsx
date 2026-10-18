@@ -5,7 +5,9 @@
  * ink: the deep fills take `textOnFill`, the bright ones `textOnBright`. Each
  * pair holds 4.5:1 for the text and 3:1 for the fill on every surface, in both
  * themes. The text is short, a count, a record word or a signed change of five
- * characters or fewer; a longer result belongs in the content beside it.
+ * characters or fewer as a rule; a longer result belongs in the content beside
+ * it. A signed time behind a record is the one exception and reads in full at
+ * every size, since a cut time would read as a different one.
  */
 
 import React from 'react';
@@ -67,7 +69,7 @@ export function verdictTone(rung: VerdictRung): BadgeTone {
 }
 
 /** The height of each size; the badge grows past it when the text is scaled up. */
-const HEIGHT: Record<BadgeSize, number> = { md: 20, sm: 16 };
+export const BADGE_HEIGHT: Record<BadgeSize, number> = { md: 20, sm: 16 };
 
 interface BadgeProps {
   tone: BadgeTone;
@@ -85,7 +87,7 @@ interface BadgeProps {
 
 export function Badge({ tone, text, label, size = 'md', icon, isDark, style, testID }: BadgeProps) {
   const { fill, ink } = badgePaint(tone, isDark);
-  const height = HEIGHT[size];
+  const height = BADGE_HEIGHT[size];
   return (
     <View
       accessible

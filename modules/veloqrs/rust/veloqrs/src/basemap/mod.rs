@@ -28,6 +28,7 @@ mod geo;
 mod glyphs;
 #[cfg(target_os = "android")]
 mod jni;
+pub mod listener;
 mod notfound;
 mod preseed;
 mod store;

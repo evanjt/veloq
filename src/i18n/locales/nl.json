@@ -136,7 +136,7 @@
     "zoneMaxFromSettings": "Zonemax {{value}} bpm, sportinstellingen",
     "zoneMaxDefault": "Geen max HF ingesteld, zones gaan uit van {{value}} bpm",
     "zoneMaxDefaultHint": "Stel je max HF in bij je sportinstellingen op intervals.icu",
-    "prDelta": "+{{delta}} achter PR",
+    "prBadge": "PR",
     "chartAverage": "gem.",
     "chartGain": "stijging",
     "gainStat": "↑ {{value}}"

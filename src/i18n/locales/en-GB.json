@@ -136,7 +136,7 @@
     "zoneMaxFromSettings": "Zone max {{value}} bpm, sport settings",
     "zoneMaxDefault": "No max HR set, zones assume {{value}} bpm",
     "zoneMaxDefaultHint": "Set your max HR in your intervals.icu sport settings",
-    "prDelta": "PR+{{delta}}",
+    "prBadge": "PR",
     "chartAverage": "avg",
     "chartGain": "gain",
     "gainStat": "↑ {{value}}"

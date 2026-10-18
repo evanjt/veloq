@@ -13,6 +13,7 @@ import {
   type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  type AccessibilityActionEvent,
   type ScrollViewInstance,
 } from 'react-native';
 import { useTheme } from '@/shared/app';
@@ -96,6 +97,12 @@ const LEGEND_BINS = [
   'stats.longestOneAndAHalfToTwoHours',
   'stats.longestOverTwoHours',
 ] as const;
+
+/**
+ * What the calendar's one screen-reader element answers: a step to the next or previous active
+ * day, and opening the day it holds.
+ */
+const DAY_ACTIONS = [{ name: 'increment' }, { name: 'decrement' }, { name: 'activate' }];
 
 /** The weekday rows that carry a name, Monday 0, every other one so they fit. */
 const NAMED_ROWS = new Set([0, 2, 4]);
@@ -258,29 +265,47 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
       [openDay]
     );
 
-    // One control over each day with activities, so the drawn grid can be
-    // pressed and a screen reader hears what each day holds. Days with none
-    // are left out: there is nothing to open or announce. Built with the grid,
-    // so a scrub's re-render reuses the same elements.
-    const dayControls = useMemo(() => {
-      if (!drawn) return null;
-      return grid.cells.map((cell) => {
-        const day = days.get(cell.date);
-        if (!day || day.activityCount === 0) return null;
-        const { x, y } = cellPosition(cell.col, cell.row);
-        const label = composeAccessibilityLabel(
-          formatFullDate(cell.date),
+    // The days with activities, oldest first: what a finger can press on the grid and what the
+    // screen reader steps through.
+    const activeCells = useMemo(
+      () =>
+        grid.cells
+          .filter((cell) => (days.get(cell.date)?.activityCount ?? 0) > 0)
+          .sort((a, b) => a.date.localeCompare(b.date)),
+      [grid, days]
+    );
+    const activeDays = useMemo(() => activeCells.map((cell) => cell.date), [activeCells]);
+
+    // What a day says: its date, its activity count and its longest session.
+    const dayReading = useCallback(
+      (date: string) => {
+        const day = days.get(date);
+        if (!day) return null;
+        return composeAccessibilityLabel(
+          formatFullDate(date),
           t('stats.activitiesCount', { count: day.activityCount }),
           day.maxDuration > 0
             ? t('stats.dayLongest', { duration: formatDurationHuman(day.maxDuration) })
             : null
         );
+      },
+      [days, t]
+    );
+
+    // One press target over each active day, so the drawn grid can be pressed. They are hidden
+    // from a screen reader, which would otherwise walk one under-sized stop per active day, up to
+    // a year of them; it gets the stepped element below instead. Built with the grid, so a
+    // scrub's re-render reuses the same elements.
+    const dayControls = useMemo(() => {
+      if (!drawn) return null;
+      return activeCells.map((cell) => {
+        const { x, y } = cellPosition(cell.col, cell.row);
         return (
           <PressTarget
             key={cell.date}
             testID={`activity-heatmap-day-${cell.date}`}
             accessibilityRole="button"
-            accessibilityLabel={label}
+            accessibilityLabel={dayReading(cell.date) ?? undefined}
             onPress={() => openDayOn(cell.date)}
             style={[
               styles.dayControl,
@@ -289,7 +314,34 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
           />
         );
       });
-    }, [drawn, grid, days, t, openDayOn]);
+    }, [drawn, activeCells, dayReading, openDayOn]);
+
+    // The active day the screen reader holds: the latest until it steps, and the latest again
+    // when the day it stepped to leaves the window.
+    const [steppedDay, setSteppedDay] = useState<string | null>(null);
+    const heldDay =
+      steppedDay !== null && activeDays.includes(steppedDay)
+        ? steppedDay
+        : (activeDays.at(-1) ?? null);
+    const heldReading = heldDay ? dayReading(heldDay) : null;
+    const onDayAction = useCallback(
+      (event: AccessibilityActionEvent) => {
+        if (!heldDay) return;
+        const action = event.nativeEvent.actionName;
+        if (action === 'activate') {
+          openDayOn(heldDay);
+          return;
+        }
+        if (action !== 'increment' && action !== 'decrement') return;
+        const index = activeDays.indexOf(heldDay) + (action === 'increment' ? 1 : -1);
+        const next = activeDays[Math.min(Math.max(index, 0), activeDays.length - 1)];
+        if (next === undefined) return;
+        setSteppedDay(next);
+        // Marked on the grid and scrolled to, for a reader who also looks.
+        setHighlight(next);
+      },
+      [heldDay, activeDays, openDayOn]
+    );
 
     // Built once with the grid, off the same layout, so a scrub tick is one
     // lookup rather than a walk of the year.
@@ -443,8 +495,9 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
               </View>
 
               <View>
-                {/* The day controls stay beside the plot rather than in it, so each is still reached
-                    on its own, and Show data sits under the scroll rather than at its far end. */}
+                {/* The day controls stay beside the plot rather than in it, so the plot keeps its
+                    summary and the stepped days are a stop of their own, and Show data sits under
+                    the scroll rather than at its far end. */}
                 <ChartSurface
                   summary={reading.summary}
                   table={reading.table}
@@ -475,7 +528,29 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
                     ]}
                   />
                 ) : null}
-                {dayControls}
+                {dayControls ? (
+                  <View
+                    style={StyleSheet.absoluteFill}
+                    pointerEvents="box-none"
+                    importantForAccessibility="no-hide-descendants"
+                    accessibilityElementsHidden
+                  >
+                    {dayControls}
+                  </View>
+                ) : null}
+                {drawn && heldReading ? (
+                  <View
+                    testID="activity-heatmap-days"
+                    style={StyleSheet.absoluteFill}
+                    pointerEvents="none"
+                    accessible
+                    accessibilityRole="adjustable"
+                    accessibilityLabel={t('stats.activityCalendar')}
+                    accessibilityValue={{ text: heldReading }}
+                    accessibilityActions={DAY_ACTIONS}
+                    onAccessibilityAction={onDayAction}
+                  />
+                ) : null}
               </View>
             </View>
           </ScrollView>

@@ -51,8 +51,9 @@ export function SportChipRow(props: SportChipRowProps) {
       contentContainerStyle={styles.row}
     >
       {chips.map((chip) => (
-        // The chip keeps the selector fill and tells the sport by its dot, since a
-        // label cannot clear 4.5:1 on every family colour.
+        // The chip keeps the selector fill and its label names the sport. The dot
+        // repeats the label in the family colour, so it is not held to a mark's 3:1
+        // on the chip ground, and a chip without a label may not carry one.
         <ToggleButton
           key={chip.key}
           {...(chip.testID && { testID: chip.testID })}

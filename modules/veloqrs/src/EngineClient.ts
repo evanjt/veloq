@@ -730,6 +730,9 @@ class EngineClient implements DelegateHost {
   syncTimeStreams = (activityIds: string[]): FfiStartResult =>
     syncDelegates.syncTimeStreams(this, activityIds);
 
+  readyActivityBodies = (activityId: string): Promise<boolean> =>
+    syncDelegates.readyActivityBodies(this, activityId);
+
   cancelSync = (): void => syncDelegates.cancelSync(this);
 
   getSyncStatus = (): SyncStatus | null => syncDelegates.getSyncStatus(this);
@@ -1499,16 +1502,6 @@ class EngineClient implements DelegateHost {
 
   getFetchRunProgress(run: number): DownloadProgressResult {
     return this.timed('getFetchRunProgress', () => generated.getFetchRunProgress(run));
-  }
-
-  startFetchAndStore(
-    activityIds: string[],
-    sportTypes: generated.ActivitySportMapping[],
-    priority: generated.DownloadPriority
-  ): number {
-    return this.timed('startFetchAndStore', () =>
-      generated.startFetchAndStore(activityIds, sportTypes, priority)
-    );
   }
 
   /**

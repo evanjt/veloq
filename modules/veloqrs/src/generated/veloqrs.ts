@@ -496,42 +496,6 @@ export function startElevationBackfill(): FfiStartOutcome {
 }
 
 /**
- * Start one fetch+store run and answer its id.
- *
- * The id is what `take_fetch_and_store_result` reads back with. Three callers
- * start runs, a silent push arriving during a foreground sync is ordinary, and
- * before the id they shared one result slot and took each other's answers.
- */
-export function startFetchAndStore(
-  activityIds: Array<string>,
-  sportTypes: Array<ActivitySportMapping>,
-  priority: DownloadPriority,
-): number {
-  return FfiConverterFloat64.lift(
-    uniffiCaller.rustCall(
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_func_start_fetch_and_store(
-          FfiConverterSequenceString.lower(
-            activityIds,
-            nativeModule().rustbuffer_alloc,
-          ),
-          FfiConverterSequenceTypeActivitySportMapping.lower(
-            sportTypes,
-            nativeModule().rustbuffer_alloc,
-          ),
-          FfiConverterTypeDownloadPriority.lower(
-            priority,
-            nativeModule().rustbuffer_alloc,
-          ),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    ),
-  );
-}
-
-/**
  * Start the GPS track pass over a date range, or keep it owed.
  *
  * The engine reads the tracks the census still owes over the range and
@@ -24171,6 +24135,60 @@ const FfiConverterTypeSourceTileCounts = (() => {
 })();
 
 /**
+ * The basemap tile store's FFI surface.
+ *
+ * Everything here answers from the filesystem, so none of it needs a live
+ * WebView, a network or the engine lock. The directory itself is the caller's
+ * to choose: a basemap tile cannot be redrawn from local data, so it must not
+ * be handed a path the OS purges.
+ * The loopback listener's ports and the token its paths start with.
+ */
+export type TileListenerAddress = {
+  ports: Array<number>;
+  token: string;
+};
+
+/**
+ * Generated factory for {@link TileListenerAddress} record objects.
+ */
+export const TileListenerAddress = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<TileListenerAddress, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<TileListenerAddress>,
+  });
+})();
+
+const FfiConverterTypeTileListenerAddress = (() => {
+  type TypeName = TileListenerAddress;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        ports: FfiConverterSequenceUInt16.readFromCursor(c),
+        token: FfiConverterString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterSequenceUInt16.writeIntoCursor(value.ports, c);
+      FfiConverterString.writeIntoCursor(value.token, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterSequenceUInt16.allocationSize(value.ports) +
+        FfiConverterString.allocationSize(value.token)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Which file a bulk export writes.
  *
  * The wire carries the variant's position, so the order here is the contract:
@@ -27362,14 +27380,6 @@ const FfiConverterTypeActivityManager = new FfiConverterObject(
   uniffiTypeActivityManagerObjectFactory,
 );
 
-/**
- * The basemap tile store's FFI surface.
- *
- * Everything here answers from the filesystem, so none of it needs a live
- * WebView, a network or the engine lock. The directory itself is the caller's
- * to choose: a basemap tile cannot be redrawn from local data, so it must not
- * be handed a path the OS purges.
- */
 export interface BasemapManagerLike {
   /**
    * Drop every tile of one source. Async for the reason
@@ -27486,20 +27496,21 @@ export interface BasemapManagerLike {
    * source. Empty when no path has been set.
    */
   tileCounts(): Array<SourceTileCounts>;
+  /**
+   * Where the Android map page asks for basemap tiles: the loopback ports
+   * and the per-launch token every path starts with. Binds the listener on
+   * the first call, and binds it again when a probe of its own ports finds
+   * one that no longer answers, which is what a return from the background
+   * calls this for. None on every other platform, and when no port could be
+   * bound, which leaves the page on its upstream hosts.
+   */
+  tileListener(): TileListenerAddress | undefined;
 }
 /**
  * @deprecated Use `BasemapManagerLike` instead.
  */
 export type BasemapManagerInterface = BasemapManagerLike;
 
-/**
- * The basemap tile store's FFI surface.
- *
- * Everything here answers from the filesystem, so none of it needs a live
- * WebView, a network or the engine lock. The directory itself is the caller's
- * to choose: a basemap tile cannot be redrawn from local data, so it must not
- * be handed a path the OS purges.
- */
 export class BasemapManager
   extends UniffiAbstractObject
   implements BasemapManagerLike
@@ -27968,6 +27979,31 @@ export class BasemapManager
     );
     try {
       return FfiConverterSequenceTypeSourceTileCounts.lift(__rb);
+    } finally {
+      nativeModule().rustbuffer_free(__rb);
+    }
+  }
+
+  /**
+   * Where the Android map page asks for basemap tiles: the loopback ports
+   * and the per-launch token every path starts with. Binds the listener on
+   * the first call, and binds it again when a probe of its own ports finds
+   * one that no longer answers, which is what a return from the background
+   * calls this for. None on every other platform, and when no port could be
+   * bound, which leaves the page on its upstream hosts.
+   */
+  tileListener(): TileListenerAddress | undefined {
+    const __rb: Uint8Array = uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_method_basemapmanager_tile_listener(
+          uniffiTypeBasemapManagerObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+      return FfiConverterOptionalTypeTileListenerAddress.lift(__rb);
     } finally {
       nativeModule().rustbuffer_free(__rb);
     }
@@ -35605,6 +35641,21 @@ export interface SyncManagerLike {
    */
   rangeCoverage(oldest: string, newest: string): RangeCoverage;
   /**
+   * Fetch and store what one activity still lacks for a screen that opens
+   * with no network, its detail streams, intervals and track, resolving with
+   * whether it lacks nothing afterwards.
+   *
+   * For the task a push wakes, which has seconds to finish the ride before
+   * the athlete taps its entry, so it resolves when the work ends rather than
+   * starting a job nobody can wait on. No credential, no network and a
+   * refused credential all resolve false: the bodies stay owed and the next
+   * sync asks for them.
+   */
+  readyActivityBodies(
+    activityId: string,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<boolean>;
+  /**
    * Set the credential once (method = "oauth" | "api_key"). Never passed per request.
    */
   setCredentials(
@@ -35836,6 +35887,56 @@ export class SyncManager
       return FfiConverterTypeRangeCoverage.lift(__rb);
     } finally {
       nativeModule().rustbuffer_free(__rb);
+    }
+  }
+
+  /**
+   * Fetch and store what one activity still lacks for a screen that opens
+   * with no network, its detail streams, intervals and track, resolving with
+   * whether it lacks nothing afterwards.
+   *
+   * For the task a push wakes, which has seconds to finish the ride before
+   * the athlete taps its entry, so it resolves when the work ends rather than
+   * starting a job nobody can wait on. No credential, no network and a
+   * refused credential all resolve false: the bodies stay owed and the next
+   * sync asks for them.
+   */
+  async readyActivityBodies(
+    activityId: string,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<boolean> {
+    const __stack = uniffiIsDebug ? new Error().stack : undefined;
+    try {
+      return await uniffiRustCallAsync(
+        /*rustCaller:*/ uniffiCaller,
+        /*rustFutureFunc:*/ () => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_ready_activity_bodies(
+            uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(
+              activityId,
+              nativeModule().rustbuffer_alloc,
+            ),
+          );
+        },
+        /*pollFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_poll_i8,
+        /*cancelFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_cancel_i8,
+        /*completeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_complete_i8,
+        /*freeFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_free_i8,
+        // Async returns always go through the JS-side converter: the
+        // FFI symbol returns the future handle (u64), and the user-level
+        // RustBuffer comes back via the shared `rust_future_complete_*`
+        // export. The bytes the runtime hands back must be deserialized
+        // here using the per-callable return-type converter.
+        /*liftFunc:*/ FfiConverterBool.lift.bind(FfiConverterBool),
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+        /*asyncOpts:*/ asyncOpts_,
+      );
+    } catch (__error: any) {
+      if (uniffiIsDebug && __error instanceof Error) {
+        __error.stack = __stack;
+      }
+      throw __error;
     }
   }
 
@@ -38380,6 +38481,9 @@ const FfiConverterSequenceTypeWidgetInsight = new FfiConverterArray(
   FfiConverterTypeWidgetInsight,
 );
 
+// FfiConverter for Array<number>
+const FfiConverterSequenceUInt16 = new FfiConverterArray(FfiConverterUInt16);
+
 // FfiConverter for Array<FfiRouteGroupPreview>
 const FfiConverterSequenceTypeFfiRouteGroupPreview = new FfiConverterArray(
   FfiConverterTypeFfiRouteGroupPreview,
@@ -38427,6 +38531,11 @@ const FfiConverterOptionalBytes = new FfiConverterOptional(
 // FfiConverter for Array<SourceTileCounts>
 const FfiConverterSequenceTypeSourceTileCounts = new FfiConverterArray(
   FfiConverterTypeSourceTileCounts,
+);
+
+// FfiConverter for TileListenerAddress | undefined
+const FfiConverterOptionalTypeTileListenerAddress = new FfiConverterOptional(
+  FfiConverterTypeTileListenerAddress,
 );
 
 // FfiConverter for FfiSampleLibrary | undefined
@@ -38717,14 +38826,6 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_start_elevation_backfill",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_start_fetch_and_store() !==
-    38359
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_start_fetch_and_store",
     );
   }
   if (
@@ -39100,6 +39201,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_basemapmanager_tile_counts",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_tile_listener() !==
+    34465
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_basemapmanager_tile_listener",
     );
   }
   if (
@@ -40615,6 +40724,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_ready_activity_bodies() !==
+    4614
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_syncmanager_ready_activity_bodies",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_set_credentials() !==
     22689
   ) {
@@ -41298,6 +41415,7 @@ export default Object.freeze({
     FfiConverterTypeSummaryPrefs,
     FfiConverterTypeSyncManager,
     FfiConverterTypeSyncState,
+    FfiConverterTypeTileListenerAddress,
     FfiConverterTypeUploadRefusal,
     FfiConverterTypeUploadTransition,
     FfiConverterTypeVeloqEngine,

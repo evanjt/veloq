@@ -140,6 +140,12 @@ export function terrainVisibilityScript(): string {
 }
 
 /**
+ * The head meta a page names its revision in. Agreed with `PageRevision.META` on Android,
+ * which reads it out of the HTML a mount sends and the page it holds.
+ */
+export const PAGE_REVISION_META = 'veloq-page-revision';
+
+/**
  * Standard HTML head: MapLibre GL JS, inline CSS for full-bleed map.
  * `mapHeight` defaults to `100vh`; pass a pixel value for fixed-height workers.
  *
@@ -149,15 +155,22 @@ export function terrainVisibilityScript(): string {
  * a map, and no page string carries its own megabyte-sized copy. The script
  * is a plain blocking one, so every page script after it can use `maplibregl`.
  * This is the one place it happens, so all three page builders stay identical.
+ * A page a held WebView can take over names its `revision`.
  */
-export function mapLibreHead(options: { title?: string; mapHeight?: string } = {}): string {
+export function mapLibreHead(
+  options: { title?: string; mapHeight?: string; revision?: string } = {}
+): string {
   const height = options.mapHeight ?? '100vh';
   const title = options.title ?? 'Map';
   const assets = `${mapPageBaseUrl()}veloq-asset/`;
+  const revision =
+    options.revision === undefined
+      ? ''
+      : `\n  <meta name="${PAGE_REVISION_META}" content="${options.revision}">`;
   return `<!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8">${revision}
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>${title}</title>
   <link rel="stylesheet" href="${assets}${MAPLIBRE_GL_CSS_FILE}">

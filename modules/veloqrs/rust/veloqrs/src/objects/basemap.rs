@@ -8,6 +8,13 @@ use std::sync::Arc;
 /// WebView, a network or the engine lock. The directory itself is the caller's
 /// to choose: a basemap tile cannot be redrawn from local data, so it must not
 /// be handed a path the OS purges.
+/// The loopback listener's ports and the token its paths start with.
+#[derive(uniffi::Record)]
+pub struct TileListenerAddress {
+    pub ports: Vec<u16>,
+    pub token: String,
+}
+
 #[derive(uniffi::Object)]
 pub struct BasemapManager {
     pub(crate) _private: (),
@@ -37,6 +44,30 @@ impl BasemapManager {
     /// satellite choice are both decided in the page, not compiled in.
     fn set_source_template(&self, source: String, url_template: String) {
         basemap::set_template(source, url_template);
+    }
+
+    /// Where the Android map page asks for basemap tiles: the loopback ports
+    /// and the per-launch token every path starts with. Binds the listener on
+    /// the first call, and binds it again when a probe of its own ports finds
+    /// one that no longer answers, which is what a return from the background
+    /// calls this for. None on every other platform, and when no port could be
+    /// bound, which leaves the page on its upstream hosts.
+    fn tile_listener(&self) -> Option<TileListenerAddress> {
+        #[cfg(target_os = "android")]
+        {
+            match basemap::listener::address() {
+                Ok(address) => Some(TileListenerAddress {
+                    ports: address.ports,
+                    token: address.token,
+                }),
+                Err(e) => {
+                    log::warn!("[basemap] {}", e);
+                    None
+                }
+            }
+        }
+        #[cfg(not(target_os = "android"))]
+        None
     }
 
     /// One tile's bytes, from the store if it is there and from the tile host

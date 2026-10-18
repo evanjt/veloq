@@ -347,8 +347,15 @@ pub fn record_activity_detail(
 /// The detail streams carry every series the charts read, several times the
 /// bytes of the track, and the iOS notification service extension runs under
 /// a memory ceiling that body has not been measured against. So it asks the
-/// narrow track there, and the sync fetches the rest as it did before.
+/// narrow track there, and the task the silent push wakes in the app's own
+/// process readies the rest through `SyncManager::ready_activity_bodies`.
 const PUSH_READIES_ACTIVITY: bool = !cfg!(target_os = "ios");
+
+/// How long a push waits for the ride's route membership before the ladder
+/// reads without it. A regroup adding a few rides to a library of 150 to 650
+/// took 39 to 208 ms on a 2022 handset, so this covers a library many
+/// times that, and leaves most of the 30 s an iOS extension is given.
+const PUSH_REGROUP_LIMIT: std::time::Duration = std::time::Duration::from_secs(5);
 
 /// The title a fallback entry carries when no string bundle has been pushed
 /// yet, so there is nothing to translate with.
@@ -564,7 +571,45 @@ fn activity_push_run(
         kind: "activity_detail".to_string(),
         activity_id: activity_id.to_string(),
     });
+    let readied = ready_pushed_activity(install, &session, activity_id, &upstream, &stored);
+    // The index only scheduled the regroup that puts the ride in a route, and
+    // the route rungs read committed membership, so the feed and the ladder
+    // both wait for it.
+    if readied.is_ok() && !crate::persistence::regroup::settle_regroup(install, PUSH_REGROUP_LIMIT)
+    {
+        log::warn!("[push] {activity_id} is announced before its route settled");
+    }
+    // The rows are committed whether or not the rest of the bodies landed, so
+    // the feed hears of the ride as it would from a sync: once, after the
+    // index, and not for a library the install has moved away from.
+    if crate::persistence::engine_install() == install {
+        crate::objects::observer::notify(crate::objects::observer::Announcement::ActivitiesStored);
+    }
+    readied?;
     let detail = stored.detail;
+
+    Ok(Some(
+        activity_notification_outcome(
+            activity_id,
+            &detail.name,
+            announce_prs,
+            announce_milestones,
+        )?
+        .map_err(|outcome| Quiet {
+            outcome,
+            activity_name: Some(detail.name.clone()),
+        }),
+    ))
+}
+
+/// The bodies the stored detail still owes, and the index of its track.
+fn ready_pushed_activity(
+    install: u64,
+    session: &crate::net::IntervalsSession,
+    activity_id: &str,
+    upstream: &str,
+    stored: &StoredDetail,
+) -> Result<(), String> {
     if PUSH_READIES_ACTIVITY {
         if let Some(gap) = &stored.owed {
             // The same step the sync's newest-activities pass takes, on the
@@ -574,9 +619,9 @@ fn activity_push_run(
             // whatever did land.
             let readied = crate::runtime::block_on(crate::objects::sync::ready_activity(
                 install,
-                &session,
+                session,
                 gap,
-                &upstream,
+                upstream,
                 crate::governor::Lane::Interactive,
             ));
             match readied {
@@ -595,8 +640,8 @@ fn activity_push_run(
             // still reads its metrics.
             match crate::ffi::index_stored_track(install, activity_id) {
                 Ok(_) => {}
-                // A moved install is the wipe's doing, and the ladder below
-                // reads nothing of this ride from the new library.
+                // A moved install is the wipe's doing, and the ladder after
+                // this reads nothing of this ride from the new library.
                 Err(_) if crate::persistence::engine_install() != install => {}
                 Err(e) => return Err(format!("the index of {activity_id}: {e}")),
             }
@@ -605,21 +650,9 @@ fn activity_push_run(
         // The track's own store and index move the token again, inside the
         // take that does the indexing, so a foreground that already took the
         // first bump is told about this one too.
-        fetch_and_index_json_for(install, activity_id, &detail.sport_type)?;
+        fetch_and_index_json_for(install, activity_id, &stored.detail.sport_type)?;
     }
-
-    Ok(Some(
-        activity_notification_outcome(
-            activity_id,
-            &detail.name,
-            announce_prs,
-            announce_milestones,
-        )?
-        .map_err(|outcome| Quiet {
-            outcome,
-            activity_name: Some(detail.name.clone()),
-        }),
-    ))
+    Ok(())
 }
 
 /// What the push stored under the lock, and what is left for it to fetch.
@@ -1220,7 +1253,7 @@ mod tests {
     }
 
     /// The fifteen keys the push site resolves, as it stores them.
-    fn bundle() -> Vec<(String, String)> {
+    pub(super) fn bundle() -> Vec<(String, String)> {
         [
             ("notifications.activityPr.title", "New PR"),
             ("notifications.activityFaster.title", "Faster Than Usual"),

@@ -87,7 +87,7 @@ describe('the fitness parser', () => {
 
   it('opens the sport-agnostic cards with no section and no sport switch', () => {
     for (const chart of ['hrv', 'rhr', 'weight', 'week', 'calendar'] as const) {
-      expect(FITNESS_CHART_PLACEMENT[chart]).toEqual({ section: null, sport: null });
+      expect(FITNESS_CHART_PLACEMENT[chart]).toMatchObject({ section: null, sport: null });
     }
   });
 
@@ -103,8 +103,20 @@ describe('the fitness parser', () => {
   });
 
   it('expand the section and switch to the sport a fitness chart needs', () => {
-    expect(FITNESS_CHART_PLACEMENT.ftp).toEqual({ section: 'trends', sport: 'Cycling' });
-    expect(FITNESS_CHART_PLACEMENT.css).toEqual({ section: 'performance', sport: 'Swimming' });
-    expect(FITNESS_CHART_PLACEMENT.fitness).toEqual({ section: null, sport: null });
+    expect(FITNESS_CHART_PLACEMENT.ftp).toEqual({
+      section: 'trends',
+      sport: 'Cycling',
+      place: 'trends',
+    });
+    expect(FITNESS_CHART_PLACEMENT.css).toEqual({
+      section: 'performance',
+      sport: 'Swimming',
+      place: 'performance',
+    });
+    expect(FITNESS_CHART_PLACEMENT.fitness).toEqual({
+      section: null,
+      sport: null,
+      place: 'fitness',
+    });
   });
 });

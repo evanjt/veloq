@@ -425,7 +425,6 @@ impl Drop for RegroupClaim {
 
 /// Wait until no regroup is in flight, and say whether that happened within
 /// `limit`.
-#[cfg(test)]
 pub(crate) fn wait_for_regroup(limit: Duration) -> bool {
     let held = REGROUP_SLOT.0.lock().unwrap_or_else(|e| e.into_inner());
     let (_held, wait) = REGROUP_SLOT
@@ -433,6 +432,48 @@ pub(crate) fn wait_for_regroup(limit: Duration) -> bool {
         .wait_timeout_while(held, limit, |held| *held)
         .unwrap_or_else(|e| e.into_inner());
     !wait.timed_out()
+}
+
+/// Wait, up to `limit`, until the library's route groups hold every activity
+/// it has stored, and say whether they do.
+///
+/// A store only schedules the regroup that adds its activity to a route, so a
+/// reader that answers for that activity at once reads it in none. This waits
+/// on the regroup in flight, and when the flag is still set once it ends, as
+/// it is when a detection run held the slot over a store it did not capture,
+/// schedules the next and waits on that. `false` is the limit passing, or the
+/// library closing or moving under the wait, and the caller reads what has
+/// committed.
+pub(crate) fn settle_regroup(install: u64, limit: Duration) -> bool {
+    let deadline = Instant::now() + limit;
+    loop {
+        if !wait_for_regroup(deadline.saturating_duration_since(Instant::now())) {
+            return false;
+        }
+        let owed = super::with_persistent_engine_for(install, |engine| {
+            if !engine.groups_dirty || !engine.detection_enabled() {
+                Owed::Nothing
+            } else if Instant::now() >= deadline {
+                Owed::Late
+            } else {
+                // `None` is another regroup taking the slot since the wait.
+                Owed::Pass(engine.schedule_regroup())
+            }
+        });
+        match owed {
+            Some(Owed::Nothing) => return true,
+            None | Some(Owed::Late) => return false,
+            Some(Owed::Pass(Some(scheduled))) => scheduled.start(),
+            Some(Owed::Pass(None)) => {}
+        }
+    }
+}
+
+/// What a settling reader finds once no regroup is in flight.
+enum Owed {
+    Nothing,
+    Late,
+    Pass(Option<ScheduledRegroup>),
 }
 
 /// Passes one schedule runs at most. A pass that ends with the regroup still

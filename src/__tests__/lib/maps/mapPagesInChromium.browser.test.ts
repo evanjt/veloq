@@ -7,6 +7,7 @@
  * Expected behaviour: each of the three pages, built as the app builds it,
  * draws in a real browser, takes terrain on and off, swaps its style and takes
  * terrain again on the new one, with no map error and no uncaught page error.
+ * The 3D page, its map released, builds a new one in place that draws too.
  * A renderer whose `setTerrain` throws fails the same run. While the renderer
  * is below the release that sanitises attribution HTML safely, no page mounts
  * an attribution control.
@@ -26,7 +27,9 @@ import {
   buildSnapshotWorkerHtml,
   resolveStyleForWebView,
 } from '@/features/maps/lib/htmlBuilders';
-import type { SnapshotRequest } from '@/features/maps/lib/htmlBuilders';
+import type { Map3DHtmlConfig, SnapshotRequest } from '@/features/maps/lib/htmlBuilders';
+import { buildMap3DBuildScript } from '@/features/maps/lib/htmlBuilders/map3D';
+import { buildReleaseMapScript } from '@/features/maps/lib/htmlBuilders/shared';
 import { terrain3DSource } from '@/features/maps/components/mapStyles';
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
 import { mapPageBaseUrl } from '@/features/maps/lib/tileTransport';
@@ -136,6 +139,23 @@ async function driveInteractivePage(page: MapPage, swap: (style: MapStyleType) =
   }
 }
 
+const MAP_3D: Map3DHtmlConfig = {
+  coordinates: ROUTE,
+  bounds: { sw: [7.65, 45.97], ne: [7.68, 45.98] },
+  centerOverride: null,
+  zoom: 12,
+  bearing: 30,
+  pitch: 60,
+  hasSavedCamera: false,
+  terrainExaggeration: 1.5,
+  initStyle: 'light',
+  mapStyle: 'light',
+  routeColor: '#e4572e',
+  showHeatmap: false,
+  devicePixelRatio: 1,
+  reduceMotion: false,
+};
+
 interface PageUnderTest {
   name: string;
   html: () => string;
@@ -158,25 +178,9 @@ const PAGES: PageUnderTest[] = [
   },
   {
     name: '3D map',
-    html: () =>
-      buildMap3DHtml({
-        coordinates: ROUTE,
-        bounds: { sw: [7.65, 45.97], ne: [7.68, 45.98] },
-        centerOverride: null,
-        zoom: 12,
-        bearing: 30,
-        pitch: 60,
-        hasSavedCamera: false,
-        terrainExaggeration: 1.5,
-        initStyle: 'light',
-        mapStyle: 'light',
-        routeColor: '#e4572e',
-        showHeatmap: false,
-        devicePixelRatio: 1,
-        reduceMotion: false,
-      }),
-    drive: (page) =>
-      driveInteractivePage(page, (style) =>
+    html: () => buildMap3DHtml(MAP_3D),
+    drive: async (page) => {
+      await driveInteractivePage(page, (style) =>
         buildMap3DSetStyleScript({
           mapStyle: style,
           routeColor: '#e4572e',
@@ -184,7 +188,26 @@ const PAGES: PageUnderTest[] = [
           heatmapGeneration: 0,
           showHeatmap: false,
         })
-      ),
+      );
+      await page.evaluate(buildReleaseMapScript());
+      await page.evaluate(
+        buildMap3DBuildScript({
+          ...MAP_3D,
+          coordinates: ROUTE.slice(1),
+          centerOverride: [7.67, 45.978],
+          zoom: 13,
+          hasSavedCamera: true,
+          initStyle: 'dark',
+          mapStyle: 'dark',
+        })
+      );
+      await page.evaluate('window.__waitForMap(30000)');
+      await page.evaluate(`window.__settle('rebuilt in place')`);
+      const ready = ((await page.posted()) as Record<string, unknown>[]).filter(
+        (message) => message?.type === 'mapReady'
+      );
+      if (ready.length !== 2) throw new Error(`rebuilt in place: ${ready.length} mapReady posted`);
+    },
   },
   {
     name: 'snapshot worker',

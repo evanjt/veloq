@@ -1,10 +1,10 @@
 /**
  * HTML builder for the 3D terrain WebView (`Map3DWebView`).
  *
- * Produces the full `<!DOCTYPE html>` string embedded in the WebView, with all
- * dynamic values injected via `${...}` template literal interpolation. The
- * generated HTML is byte-for-byte equivalent to the inline template that used
- * to live in `Map3DWebView.tsx`.
+ * Produces the full `<!DOCTYPE html>` string embedded in the WebView: a
+ * document that is the same for every mount, and one call that builds its map
+ * from the mount's values. The same call builds a map again in a held page, so
+ * a later mount skips the document.
  *
  * The builder is intentionally a pure function so callers can compose it from
  * `useMemo` with whatever dependency array they need. Keep all React-specific
@@ -24,7 +24,6 @@ import { SURFACE_HIT_TEST_RADIUS_PX, type MapPadding } from './mapSurface';
 import {
   consoleBridgeScript,
   mapLibreHead,
-  setReduceMotionStatement,
   terrainVisibilityScript,
   tileProtocolsScript,
 } from './shared';
@@ -104,13 +103,8 @@ export interface Map3DHtmlConfig {
   fitPadding?: MapPadding | undefined;
 }
 
-/**
- * Build the complete HTML string for the 3D terrain WebView.
- *
- * All interpolations match the positions of the inline template that used to
- * live in `Map3DWebView.tsx`. Any edits here must preserve runtime behaviour.
- */
-export function buildMap3DHtml(config: Map3DHtmlConfig): string {
+/** What the page's map is built from, as the argument to `window._veloqBuildMap`. */
+function buildArguments(config: Map3DHtmlConfig): string {
   const {
     coordinates,
     bounds,
@@ -130,26 +124,101 @@ export function buildMap3DHtml(config: Map3DHtmlConfig): string {
     fitPadding,
   } = config;
 
-  const coordsJSON = JSON.stringify(coordinates);
-  const boundsJSON = bounds ? JSON.stringify(bounds) : 'null';
-  const centerJSON = centerOverride ? JSON.stringify(centerOverride) : 'null';
-
-  const isSatellite = initStyle === 'satellite';
-  // The page draws in the colours of the base it opens on; a later swap
+  // The map draws in the colours of the base it opens on; a later swap
   // rebuilds every layer from the palette of the base it swaps to.
   const palette = mapPalette(initStyle);
-
-  // Serialize shared terrain config for injection into initial HTML.
-  const initTerrainSourceJSON = JSON.stringify(terrain3DSource());
-  const initSkyConfigJSON = JSON.stringify(terrainSky(palette));
-  const initHillshadePaintJSON = JSON.stringify(terrainHillshadePaint(palette));
-
   const { styleJSON: styleConfig } = resolveStyleExpression(initStyle);
 
-  return `${mapLibreHead({ title: '3D Map' })}
+  return `{
+      coordinates: ${JSON.stringify(coordinates)},
+      bounds: ${bounds ? JSON.stringify(bounds) : 'null'},
+      center: ${centerOverride ? JSON.stringify(centerOverride) : 'null'},
+      zoom: ${jsNumber(zoom, 12)},
+      bearing: ${jsNumber(bearing, 0)},
+      pitch: ${jsNumber(pitch, 0)},
+      hasSavedCamera: ${hasSavedCamera === true},
+      isSatellite: ${initStyle === 'satellite'},
+      reduceMotion: ${reduceMotion === true},
+      devicePixelRatio: ${jsNumber(devicePixelRatio, 1)},
+      fitPadding: ${jsPadding(fitPadding, TRACK_FIT_PADDING)},
+      exaggeration: ${jsNumber(terrainExaggeration, 1.5)},
+      style: ${styleConfig},
+      sky: ${JSON.stringify(terrainSky(palette))},
+      hillshadePaint: ${JSON.stringify(terrainHillshadePaint(palette))},
+      routeCasingPaint: ${JSON.stringify(routeCasing3DPaint(palette))},
+      routeColor: ${jsLiteral(routeColor)},
+      endpointLayers: ${JSON.stringify(endpoint3DLayers(palette))},
+      highlightBorder: ${jsLiteral(palette.casing)},
+      highlightFill: ${jsLiteral(palette.ink)},
+      showHeatmap: ${showHeatmap === true},
+      heatmapTiles: ${jsLiteral(heatmapTileTemplate(heatmapGeneration))},
+      heatmapPaint: ${JSON.stringify(heatmapRasterPaint(mapStyle))},
+      addSectionCreationLine: function(map) {
+        ${addSectionCreation3DLayersScript('map', 'section-creation-line', false, mapPalette(mapStyle))}
+      },
+      addSectionCreationMarkers: function(map) {
+        ${addSectionCreation3DLayersScript('map', 'section-creation-markers', false, mapPalette(mapStyle))}
+      },
+    }`;
+}
+
+/** 32-bit FNV-1a over the UTF-16 code units, in hex. */
+function fnv1a(text: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+let documentCache: { text: string; revision: string } | null = null;
+
+/**
+ * The page's document, everything but its build call, and its revision. The
+ * revision is a hash of that document, so any change to it is a new revision
+ * and a held page of the old one is never handed a build call it cannot run.
+ */
+function map3DDocument(): { script: string; revision: string } {
+  const script = map3DDocumentScript();
+  const text = mapLibreHead({ title: '3D Map' }) + script;
+  if (documentCache?.text !== text) documentCache = { text, revision: fnv1a(text) };
+  return { script, revision: documentCache.revision };
+}
+
+/** The revision the page's head names, which a held page is matched on. */
+export function map3DPageRevision(): string {
+  return map3DDocument().revision;
+}
+
+/**
+ * Build the complete HTML string for the 3D terrain WebView: the document,
+ * which builds its map through `window._veloqBuildMap` with this config.
+ */
+export function buildMap3DHtml(config: Map3DHtmlConfig): string {
+  const { script, revision } = map3DDocument();
+  return `${mapLibreHead({ title: '3D Map', revision })}
 <body>
   <div id="map"></div>
   <script>
+${script}
+    window._veloqBuildMap(${buildArguments(config)});
+  </script>
+</body>
+</html>
+    `;
+}
+
+/**
+ * Builds the map again, in place, in a page whose map was released. A held page
+ * handed to a new mount gets this with the mount's camera, route and style.
+ */
+export function buildMap3DBuildScript(config: Map3DHtmlConfig): string {
+  return `if (typeof window._veloqBuildMap === 'function') window._veloqBuildMap(${buildArguments(config)}); true;`;
+}
+
+function map3DDocumentScript(): string {
+  return `
 ${consoleBridgeScript()}
 
     // The ready signal is the only thing that clears the loading spinner, so
@@ -209,10 +278,12 @@ ${consoleBridgeScript()}
       });
     }
 
-    setTimeout(function() { sendMapFailed('ready timeout'); }, ${MAP_3D_READY_TIMEOUT_MS});
-
-    const coordinates = ${coordsJSON};
+    // What the current map was built with. Page globals, so a script the host
+    // injects reads the same names whichever build made the map.
+    var coordinates = [];
     window._routeCoords = coordinates;
+    var bounds = null, center = null, savedZoom = 12, savedBearing = 0, savedPitch = 0;
+    var isSatellite = false, _skyConfig = null, _hillshadePaint = null;
 
     // The two point features the start and end dots are drawn from.
     function _startEndOf(line) {
@@ -225,16 +296,7 @@ ${consoleBridgeScript()}
         ],
       };
     }
-    const bounds = ${boundsJSON};
-    const center = ${centerJSON};
-    const savedZoom = ${jsNumber(zoom, 12)};
-    const savedBearing = ${jsNumber(bearing, 0)};
-    const savedPitch = ${jsNumber(pitch, 0)};
-    const isSatellite = ${isSatellite};
-    ${setReduceMotionStatement(reduceMotion)}
-    const _terrainSource = ${initTerrainSourceJSON};
-    const _skyConfig = ${initSkyConfigJSON};
-    const _hillshadePaint = ${initHillshadePaintJSON};
+    const _terrainSource = ${JSON.stringify(terrain3DSource())};
     ${HILLSHADE_INSERT_INDEX_SCRIPT}
     const _hillshadeInsertCandidates = ${JSON.stringify(TERRAIN_3D_CONFIG.hillshadeInsertBeforeCandidates)};
 
@@ -242,7 +304,50 @@ ${tileProtocolsScript()}
 
 ${terrainVisibilityScript()}
 
-    // Create map with appropriate style
+    // Holds maplibre's worker pool for the page's life. Removing the page's last
+    // map terminates every worker otherwise, and the next build starts them again.
+    try {
+      if (typeof maplibregl !== 'undefined' && maplibregl.prewarm) maplibregl.prewarm();
+    } catch (e) {}
+
+    var _buildGeneration = 0;
+    // The map the last build made. Until the first, 'window.map' is the
+    // container div, which the browser names after its id.
+    var _builtMap = null;
+    window._veloqReleasableMap = true;
+
+    // Builds the page's map, first when the document loads and again, in place,
+    // when a held page is handed to a new mount. A timer a released map left
+    // behind belongs to its build and posts nothing into a later one.
+    window._veloqBuildMap = function(cfg) {
+    var generation = ++_buildGeneration;
+    var built = null;
+    if (_builtMap && window.map === _builtMap) {
+      try { _builtMap.remove(); } catch (e) {}
+      window.map = null;
+    }
+    mapReadySent = false;
+    mapFailedSent = false;
+    terrainDelivered = 0;
+    terrainFailed = 0;
+    terrainReportSent = false;
+    coordinates = cfg.coordinates || [];
+    window._routeCoords = coordinates;
+    bounds = cfg.bounds;
+    center = cfg.center;
+    savedZoom = cfg.zoom;
+    savedBearing = cfg.bearing;
+    savedPitch = cfg.pitch;
+    isSatellite = cfg.isSatellite;
+    _skyConfig = cfg.sky;
+    _hillshadePaint = cfg.hillshadePaint;
+    window._veloqReduceMotion = cfg.reduceMotion === true;
+
+    setTimeout(function() {
+      if (generation !== _buildGeneration || (built && window.map !== built)) return;
+      sendMapFailed('ready timeout');
+    }, ${MAP_3D_READY_TIMEOUT_MS});
+
     // Use saved camera state if available, otherwise use bounds or center/zoom
     function buildMapOptions(style) {
       var opts = {
@@ -253,12 +358,12 @@ ${terrainVisibilityScript()}
         bearing: savedBearing,
         attributionControl: false,
         antialias: true,
-        pixelRatio: ${devicePixelRatio},
+        pixelRatio: cfg.devicePixelRatio,
         reduceMotion: window._veloqReduceMotion,
       };
-      if (bounds && !${hasSavedCamera}) {
+      if (bounds && !cfg.hasSavedCamera) {
         opts.bounds = [bounds.sw, bounds.ne];
-        opts.fitBoundsOptions = { padding: ${jsPadding(fitPadding, TRACK_FIT_PADDING)} };
+        opts.fitBoundsOptions = { padding: cfg.fitPadding };
       } else if (center) {
         opts.center = center;
         opts.zoom = savedZoom;
@@ -269,13 +374,9 @@ ${terrainVisibilityScript()}
       return opts;
     }
 
-    window._veloqReleasableMap = true;
     try {
-    var styleJSON = ${styleConfig};
     window._rn_log('creating map with inline style');
-    window.map = new maplibregl.Map(buildMapOptions(styleJSON));
-
-    var map = window.map;
+    var map = built = _builtMap = window.map = new maplibregl.Map(buildMapOptions(cfg.style));
     ${endpointImagesScript('map')}
 
     // Surface map-level errors, but not the expected ones: a tile 404 from a
@@ -340,7 +441,7 @@ ${terrainVisibilityScript()}
     function turnOpeningCamera() {
       if (_openingChecked) return;
       _openingChecked = true;
-      if (${hasSavedCamera} || _athleteMoved || coordinates.length < 2 || !window._pickUnhiddenCamera) return;
+      if (cfg.hasSavedCamera || _athleteMoved || coordinates.length < 2 || !window._pickUnhiddenCamera) return;
       try {
         var c = map.getCenter();
         var opening = { center: [c.lng, c.lat], zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch() };
@@ -364,9 +465,9 @@ ${terrainVisibilityScript()}
       // Enable 3D terrain
       map.setTerrain({
         source: 'terrain',
-        exaggeration: ${terrainExaggeration},
+        exaggeration: cfg.exaggeration,
       });
-      window._rn_log('terrain set, exaggeration=${terrainExaggeration}');
+      window._rn_log('terrain set, exaggeration=' + cfg.exaggeration);
 
       // Sky/fog from shared config - setSky may not be available, cosmetic only
       try {
@@ -422,7 +523,7 @@ ${terrainVisibilityScript()}
             'line-cap': 'round',
             visibility: hasRoute ? 'visible' : 'none',
           },
-          paint: ${JSON.stringify(routeCasing3DPaint(palette))},
+          paint: cfg.routeCasingPaint,
         });
 
         // Route line
@@ -436,7 +537,7 @@ ${terrainVisibilityScript()}
             visibility: hasRoute ? 'visible' : 'none',
           },
           paint: {
-            'line-color': ${jsLiteral(routeColor)},
+            'line-color': cfg.routeColor,
             'line-width': ${ROUTE_3D_LINE_WIDTH},
           },
         });
@@ -447,7 +548,7 @@ ${terrainVisibilityScript()}
           data: _startEndOf(coordinates),
         });
         // Start disc with its triangle, finish square, as the flat map marks them.
-        ${JSON.stringify(endpoint3DLayers(palette))}.forEach(function(layer) {
+        cfg.endpointLayers.forEach(function(layer) {
           layer.layout = Object.assign({}, layer.layout, { visibility: hasRoute ? 'visible' : 'none' });
           map.addLayer(layer);
         });
@@ -496,14 +597,14 @@ ${terrainVisibilityScript()}
         id: 'highlight-border',
         type: 'circle',
         source: 'highlight-point',
-        paint: { 'circle-radius': 7, 'circle-color': ${jsLiteral(palette.casing)} },
+        paint: { 'circle-radius': 7, 'circle-color': cfg.highlightBorder },
         layout: { visibility: 'none' },
       });
       map.addLayer({
         id: 'highlight-fill',
         type: 'circle',
         source: 'highlight-point',
-        paint: { 'circle-radius': 5, 'circle-color': ${jsLiteral(palette.ink)} },
+        paint: { 'circle-radius': 5, 'circle-color': cfg.highlightFill },
         layout: { visibility: 'none' },
       });
 
@@ -513,14 +614,14 @@ ${terrainVisibilityScript()}
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
       });
-      ${addSectionCreation3DLayersScript('map', 'section-creation-line', false, mapPalette(mapStyle))}
+      cfg.addSectionCreationLine(map);
 
       // Section creation start/end markers
       map.addSource('section-creation-markers', {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
       });
-      ${addSectionCreation3DLayersScript('map', 'section-creation-markers', false, mapPalette(mapStyle))}
+      cfg.addSectionCreationMarkers(map);
 
       // Click handler - posts map coordinates back to React Native
       map.on('click', function(e) {
@@ -609,10 +710,10 @@ ${terrainVisibilityScript()}
       // were passed); on the global map the route layer is never added, so passing the
       // missing layer id silently drops the addLayer in some MapLibre versions. Probe
       // for it and only insert behind it when present.
-      var showHeatmap = ${showHeatmap};
+      var showHeatmap = cfg.showHeatmap;
       map.addSource('heatmap-tiles', {
         type: 'raster',
-        tiles: [${jsLiteral(heatmapTileTemplate(heatmapGeneration))}],
+        tiles: [cfg.heatmapTiles],
         tileSize: 256,
         minzoom: ${HEATMAP_SOURCE_MINZOOM},
         maxzoom: 17
@@ -626,7 +727,7 @@ ${terrainVisibilityScript()}
         type: 'raster',
         source: 'heatmap-tiles',
         layout: { visibility: showHeatmap ? 'visible' : 'none' },
-        paint: ${JSON.stringify(heatmapRasterPaint(mapStyle))}
+        paint: cfg.heatmapPaint
       }, heatmapBeforeId);
 
       // Terrain-first ready detection - only wait for DEM terrain and route sources,
@@ -658,7 +759,7 @@ ${terrainVisibilityScript()}
       // Hard fallback - reduced from 8s to 4s since we no longer wait for all tiles.
       // Terrain + route sources load much faster than full vector tile sets.
       setTimeout(function() {
-        if (!mapReadySent) {
+        if (!mapReadySent && window.map === built) {
           window._rn_log('hard timeout - sending mapReady after 4s');
           sendMapReady();
         }
@@ -675,8 +776,6 @@ ${terrainVisibilityScript()}
       window._rn_log('SCRIPT ERROR: ' + e.message + ' at ' + (e.stack || ''));
       sendMapFailed('script error: ' + e.message);
     }
-  </script>
-</body>
-</html>
-    `;
+    };
+`;
 }

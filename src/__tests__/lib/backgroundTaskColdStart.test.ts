@@ -140,7 +140,7 @@ describe('background insight task, cold start', () => {
     }
   });
 
-  it('does not start a track download after the signed-in athlete changes', async () => {
+  it('does not ready the activity after the signed-in athlete changes', async () => {
     const auth = require('@/shared/app/AuthStore') as typeof import('@/shared/app/AuthStore');
     const credentials = jest.spyOn(auth, 'getStoredCredentials');
     credentials
@@ -167,7 +167,7 @@ describe('background insight task, cold start', () => {
       name: 'Morning Ride',
       sportType: 'Ride',
     } as never);
-    const { startFetchAndStore } = require('veloqrs') as typeof import('veloqrs');
+    const { engine } = require('veloqrs') as typeof import('veloqrs');
 
     try {
       await runTask({
@@ -178,7 +178,7 @@ describe('background insight task, cold start', () => {
       });
 
       expect(mockAwaitActivityBody).toHaveBeenCalled();
-      expect(startFetchAndStore).not.toHaveBeenCalled();
+      expect(engine.readyActivityBodies).not.toHaveBeenCalled();
       expect(presentActivityNotification).not.toHaveBeenCalled();
     } finally {
       credentials.mockRestore();

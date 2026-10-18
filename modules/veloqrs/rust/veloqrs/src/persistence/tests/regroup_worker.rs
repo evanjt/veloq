@@ -584,3 +584,70 @@ fn test_listener_reading_the_engine_when_told_sees_the_adopted_groups() {
     let heard = reader.heard.lock().unwrap();
     assert_eq!(*heard, vec![catalogue(&groups)]);
 }
+
+/// A reader that settles the grouping waits on the pass in flight, gives up at
+/// its limit while that pass is held, and finds the stored activity in a route
+/// once it has swapped.
+#[test]
+fn test_settle_waits_on_the_pass_in_flight_up_to_its_limit() {
+    let _serial = serial_global_state();
+    let _dir = init_global_engine("regroup.db");
+    let (install, _) = grouped_library(&[("t", 40.0)]);
+
+    let (entered, resume) = pause_next_regroup_swap();
+    assert!(schedule());
+    entered
+        .recv_timeout(WAIT)
+        .expect("the pass reached its swap");
+    assert!(
+        !settle_regroup(install, Duration::from_millis(50)),
+        "a held pass outlasts the limit"
+    );
+    resume.send(()).unwrap();
+
+    assert!(settle_regroup(install, WAIT));
+    let groups = with_persistent_engine(|engine| engine.groups.clone()).expect("engine");
+    assert!(holder(&groups, "t").is_some(), "t is in no route");
+}
+
+/// A store made while another regroup holds the slot schedules nothing, so a
+/// reader that only waited for the slot would find the activity in no route.
+/// Settling schedules the pass that is still owed and waits on it too.
+#[test]
+fn test_settle_schedules_what_a_held_slot_left_owed() {
+    let _serial = serial_global_state();
+    let _dir = init_global_engine("regroup.db");
+    let claim = claim_regroup().expect("the slot is free");
+    let (install, _) = grouped_library(&[("t", 40.0)]);
+    assert!(!schedule(), "the held slot takes the schedule");
+
+    let settler = std::thread::spawn(move || settle_regroup(install, WAIT));
+    drop(claim);
+
+    assert!(settler.join().expect("settler"));
+    let (groups, dirty) =
+        with_persistent_engine(|engine| (engine.groups.clone(), engine.groups_are_dirty()))
+            .expect("engine");
+    assert!(holder(&groups, "t").is_some(), "t is in no route");
+    assert!(!dirty);
+}
+
+/// A library with nothing owed is settled at once, and one whose detection is
+/// off never groups, so the reader is not held for the limit.
+#[test]
+fn test_settle_returns_at_once_when_nothing_will_regroup() {
+    let _serial = serial_global_state();
+    let _dir = init_global_engine("regroup.db");
+    let (install, _) = grouped_library(&[("t", 40.0)]);
+    with_persistent_engine(|engine| engine.get_groups().len()).expect("engine");
+    assert!(settle_regroup(install, Duration::ZERO));
+
+    let dirty = with_persistent_engine(|engine| {
+        engine.set_detection_enabled(false).unwrap();
+        store(engine, "u", 44.0);
+        engine.groups_are_dirty()
+    })
+    .expect("engine");
+    assert!(dirty);
+    assert!(settle_regroup(install, Duration::ZERO));
+}

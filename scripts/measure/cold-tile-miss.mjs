@@ -1,6 +1,7 @@
 // Times a cold tile miss two ways from inside the app's own map page: through
-// the WebView interceptor, which reaches the Rust store and fetches on a miss,
-// and through the page's own fetch() of the same host. Each round waits for
+// the Rust store, which fetches on a miss, at the URLs the page's own style
+// names for the source (the loopback listener's shards on Android), and through
+// the page's own fetch() of the same host. Each round waits for
 // both connection pools to go idle, then times one cold burst per arm and one
 // warm burst per arm, every burst on tiles neither arm has asked for before.
 //
@@ -100,15 +101,28 @@ function fill(template, x, y) {
   return template.replace('{z}', Z).replace('{x}', x).replace('{y}', y);
 }
 
+// The store's templates for the source, read off the live style, spread over
+// them by (x + y) % n as MapLibre spreads a source's tiles. The interceptor's
+// own path when the style names none, which is a build from before the
+// listener.
+let storeTemplates = [`https://veloq.fit/veloq-tile/${source}/{z}/{x}/{y}.${ext}`];
+
 const urlsFor = {
   intercept: (tiles) =>
-    tiles.map(([x, y]) => `https://veloq.fit/veloq-tile/${source}/${Z}/${x}/${y}.${ext}`),
+    tiles.map(([x, y]) => fill(storeTemplates[(x + y) % storeTemplates.length], x, y)),
   page: (tiles) => tiles.map(([x, y]) => fill(upstream, x, y)),
 };
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 await opened;
+const styled = await evaluate(
+  `(() => { try { return window.map.getStyle().sources[${JSON.stringify(source)}].tiles || []; } catch (e) { return []; } })()`
+).catch(() => []);
+if (styled.length > 0) storeTemplates = styled;
+process.stderr.write(
+  `store arm: ${storeTemplates.map((t) => new URL(t.replace(/[{}]/g, '')).origin).join(', ')}\n`
+);
 const results = [];
 for (let round = first; round < first + rounds; round++) {
   const [lat, lon] = CITIES[source][round];

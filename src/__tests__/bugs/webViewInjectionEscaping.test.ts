@@ -68,7 +68,7 @@ describe('a value interpolated into injected JavaScript', () => {
         devicePixelRatio: 2,
         reduceMotion: false,
       });
-      const literal = /'line-color': (".*"),\n\s*'line-width': 3,/.exec(html)![1];
+      const literal = /\n\s*routeColor: (".*"),\n/.exec(html)![1];
       expect(eval(`(${literal})`)).toBe(hostile);
       expect((globalThis as Record<string, unknown>).__injected).toBeUndefined();
     });

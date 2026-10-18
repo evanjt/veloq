@@ -46,6 +46,7 @@ jest.mock('veloqrs', () =>
       hasActivity: mockHasActivity,
       getActivityIds: mockGetActivityIds,
       indexNewActivity: mockIndexNewActivity,
+      triggerRefresh: jest.fn(),
     },
   })
 );
@@ -115,7 +116,7 @@ describe('the push task asking whether an activity is already held', () => {
     run.finally(() => {
       settled = true;
     });
-    // The task polls for its download result for up to 15 s, so move the clock until it ends.
+    // The task waits up to 15 s for the engine to ready the activity, so move the clock until it ends.
     for (let i = 0; i < 100 && !settled; i++) {
       await jest.advanceTimersByTimeAsync(500);
     }
@@ -135,7 +136,7 @@ describe('the push task asking whether an activity is already held', () => {
     expect(mockGetActivityIds).not.toHaveBeenCalled();
   });
 
-  it('skips the download when the engine already holds it', async () => {
+  it('indexes the activity when the engine holds it', async () => {
     mockHasActivity.mockReturnValue(true);
 
     await deliverPush();
@@ -143,7 +144,7 @@ describe('the push task asking whether an activity is already held', () => {
     expect(mockIndexNewActivity).toHaveBeenCalledWith('i1234');
   });
 
-  it('goes on to download when the engine does not', async () => {
+  it('does not index an activity the engine still does not hold', async () => {
     mockHasActivity.mockReturnValue(false);
 
     await deliverPush();
@@ -151,16 +152,13 @@ describe('the push task asking whether an activity is already held', () => {
     expect(mockIndexNewActivity).not.toHaveBeenCalled();
   });
 
-  it('starts the download with a priority the engine can lift', async () => {
-    const { startFetchAndStore, DownloadPriority } = require('veloqrs');
-    startFetchAndStore.mockClear();
+  it('readies the activity through the engine', async () => {
+    const { engine } = require('veloqrs');
+    engine.readyActivityBodies.mockClear();
     mockHasActivity.mockReturnValue(false);
 
     await deliverPush();
 
-    expect(startFetchAndStore).toHaveBeenCalledTimes(1);
-    const args = startFetchAndStore.mock.calls[0];
-    expect(args).toHaveLength(3);
-    expect([DownloadPriority.Interactive, DownloadPriority.Bulk]).toContain(args[2]);
+    expect(engine.readyActivityBodies).toHaveBeenCalledWith('i1234');
   });
 });

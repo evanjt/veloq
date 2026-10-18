@@ -286,6 +286,8 @@ void uniffi_veloqrs_fn_method_basemapmanager_set_source_template(
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_basemapmanager_tile_counts(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_basemapmanager_tile_listener(
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 /*handle*/ uint64_t uniffi_veloqrs_fn_clone_detectionmanager(
     /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_free_detectionmanager(
@@ -879,6 +881,8 @@ RustBuffer uniffi_veloqrs_fn_method_syncmanager_library_coverage(
 RustBuffer uniffi_veloqrs_fn_method_syncmanager_range_coverage(
     /*handle*/ uint64_t ptr, RustBuffer oldest, RustBuffer newest,
     RustCallStatus *uniffi_out_err);
+/*handle*/ uint64_t uniffi_veloqrs_fn_method_syncmanager_ready_activity_bodies(
+    /*handle*/ uint64_t ptr, RustBuffer activity_id);
 void uniffi_veloqrs_fn_method_syncmanager_set_credentials(
     /*handle*/ uint64_t ptr, RustBuffer method, RustBuffer secret,
     RustBuffer athlete_id, RustCallStatus *uniffi_out_err);
@@ -973,9 +977,6 @@ RustBuffer
 uniffi_veloqrs_fn_func_start_detector_cutover(RustCallStatus *uniffi_out_err);
 RustBuffer
 uniffi_veloqrs_fn_func_start_elevation_backfill(RustCallStatus *uniffi_out_err);
-double uniffi_veloqrs_fn_func_start_fetch_and_store(
-    RustBuffer activity_ids, RustBuffer sport_types, RustBuffer priority,
-    RustCallStatus *uniffi_out_err);
 RustBuffer
 uniffi_veloqrs_fn_func_start_gps_pass(RustBuffer oldest, RustBuffer newest,
                                       RustBuffer head,
@@ -1131,7 +1132,6 @@ uint16_t uniffi_veloqrs_checksum_func_set_interacting();
 uint16_t uniffi_veloqrs_checksum_func_set_network_online();
 uint16_t uniffi_veloqrs_checksum_func_start_detector_cutover();
 uint16_t uniffi_veloqrs_checksum_func_start_elevation_backfill();
-uint16_t uniffi_veloqrs_checksum_func_start_fetch_and_store();
 uint16_t uniffi_veloqrs_checksum_func_start_gps_pass();
 uint16_t uniffi_veloqrs_checksum_func_start_stream_backfill();
 uint16_t uniffi_veloqrs_checksum_func_stop_stream_backfill();
@@ -1182,6 +1182,7 @@ uint16_t uniffi_veloqrs_checksum_method_basemapmanager_set_budget();
 uint16_t uniffi_veloqrs_checksum_method_basemapmanager_set_path();
 uint16_t uniffi_veloqrs_checksum_method_basemapmanager_set_source_template();
 uint16_t uniffi_veloqrs_checksum_method_basemapmanager_tile_counts();
+uint16_t uniffi_veloqrs_checksum_method_basemapmanager_tile_listener();
 uint16_t uniffi_veloqrs_checksum_method_detectionmanager_awaiting_count();
 uint16_t uniffi_veloqrs_checksum_method_detectionmanager_cancel();
 uint16_t uniffi_veloqrs_checksum_method_detectionmanager_force_redetect();
@@ -1414,6 +1415,7 @@ uint16_t uniffi_veloqrs_checksum_method_syncmanager_clear_credentials();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_get_sync_status();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_library_coverage();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_range_coverage();
+uint16_t uniffi_veloqrs_checksum_method_syncmanager_ready_activity_bodies();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_set_credentials();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_sync_activities_window();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_sync_activity_detail();
@@ -6097,6 +6099,18 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_method_basemapmanager_tile_counts(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_method_basemapmanager_tile_listener"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_basemapmanager_tile_listener"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_basemapmanager_tile_listener(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_clone_detectionmanager"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -8991,6 +9005,18 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_method_syncmanager_range_coverage(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_method_syncmanager_ready_activity_bodies"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_method_"
+                                        "syncmanager_ready_activity_bodies"),
+          2,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_syncmanager_ready_activity_bodies(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_method_syncmanager_set_credentials"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -9457,17 +9483,6 @@ NativeVeloqrs::NativeVeloqrs(
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_veloqrs_fn_func_start_elevation_backfill(
-                rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_func_start_fetch_and_store"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_fn_func_start_fetch_and_store"),
-          3,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_veloqrs_fn_func_start_fetch_and_store(
                 rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_fn_func_start_gps_pass"] =
@@ -10281,17 +10296,6 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_checksum_func_start_elevation_backfill(
                     rt, thisVal, args, count);
           });
-  props["ubrn_uniffi_veloqrs_checksum_func_start_fetch_and_store"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_checksum_func_start_fetch_and_store"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_veloqrs_checksum_func_start_fetch_and_store(
-                rt, thisVal, args, count);
-          });
   props["ubrn_uniffi_veloqrs_checksum_func_start_gps_pass"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -10845,6 +10849,18 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_veloqrs_checksum_method_basemapmanager_tile_counts(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_basemapmanager_tile_listener"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                        "basemapmanager_tile_listener"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_basemapmanager_tile_listener(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_checksum_method_detectionmanager_awaiting_count"] =
@@ -13317,6 +13333,18 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_checksum_method_syncmanager_range_coverage(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_checksum_method_syncmanager_ready_activity_"
+        "bodies"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                    "syncmanager_ready_activity_bodies"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_method_syncmanager_ready_activity_bodies(
+                rt, thisVal, args, count);
+      });
   props["ubrn_uniffi_veloqrs_checksum_method_syncmanager_set_credentials"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -15078,6 +15106,21 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_basemapmanager_tile_counts(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_basemapmanager_tile_counts(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_basemapmanager_tile_listener(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_basemapmanager_tile_listener(
       uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
                                                         args[0]),
       &status);
@@ -18810,6 +18853,18 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_syncmanager_range_coverage(
   return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_syncmanager_ready_activity_bodies(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_fn_method_syncmanager_ready_activity_bodies(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]));
+
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
+}
+jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_syncmanager_set_credentials(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -19358,21 +19413,6 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_start_elevation_backfill(
                                                         args[count - 1]);
 
   return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_start_fetch_and_store(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_func_start_fetch_and_store(
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[0]),
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
-      &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi_jsi::Bridging<double>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_start_gps_pass(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -20143,14 +20183,6 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_start_elevation_backfill(
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_start_fetch_and_store(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_veloqrs_checksum_func_start_fetch_and_store();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_start_gps_pass(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -20532,6 +20564,14 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_basemapmanager_tile_counts(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_veloqrs_checksum_method_basemapmanager_tile_counts();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_basemapmanager_tile_listener(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_basemapmanager_tile_listener();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
@@ -22240,6 +22280,15 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_syncmanager_range_coverage(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_veloqrs_checksum_method_syncmanager_range_coverage();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_syncmanager_ready_activity_bodies(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_method_syncmanager_ready_activity_bodies();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

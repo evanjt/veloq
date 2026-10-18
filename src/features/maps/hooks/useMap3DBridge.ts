@@ -39,6 +39,8 @@ interface Map3DBridgeParams {
   onNativeMapReleased?: (() => void) | undefined;
   /** Releases a page that loaded after its screen was covered; true when it did. */
   releaseIfHeld?: (() => boolean) | undefined;
+  /** Builds the map of a held page handed to this mount, which names its revision. */
+  onPageAdopted?: ((revision: unknown) => void) | undefined;
 }
 
 // Parses and dispatches messages from the 3D MapLibre WebView. Handlers keep
@@ -60,6 +62,7 @@ export function useMap3DBridge({
   onCameraStateChange,
   onNativeMapReleased,
   releaseIfHeld,
+  onPageAdopted,
 }: Map3DBridgeParams) {
   const bridgeHandlers = useMemo<WebViewBridgeHandlers>(
     () => ({
@@ -77,6 +80,7 @@ export function useMap3DBridge({
         setTimeout(() => updateLayers(), 100);
       },
       nativeMapReleased: () => onNativeMapReleased?.(),
+      pageAdopted: (data: WebViewBridgeMessage) => onPageAdopted?.(data.revision),
       // Terminal counterpart to mapReady. The page cannot render, so the
       // caller has to stop waiting rather than sit on a spinner.
       mapFailed: (data: WebViewBridgeMessage) => {
@@ -133,6 +137,7 @@ export function useMap3DBridge({
       onCameraStateChange,
       onNativeMapReleased,
       releaseIfHeld,
+      onPageAdopted,
       updateLayers,
       syncRoute,
       syncStyle,

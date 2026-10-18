@@ -49,6 +49,15 @@ export function openStorePage({ review = false }: { review?: boolean } = {}): Pr
   return openExternal(REPOSITORY_URL);
 }
 
+/**
+ * Where a tip goes when the store has none to sell, or null where the app may
+ * offer no way to pay outside the store. On iOS the App Store is the only way,
+ * so a surface with no store tips offers no tip control at all there.
+ */
+export function outsideTipUrl(): string | null {
+  return Platform.OS === 'ios' ? null : GITHUB_SPONSORS_URL;
+}
+
 export function openForum(): Promise<boolean> {
   return openExternal(FORUM_URL);
 }

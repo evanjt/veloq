@@ -14,7 +14,8 @@
 #      it to appear).
 #
 # The fake fallback labels MUST NOT appear in either place. Either real
-# tip prices or the GitHub Sponsors fallback is acceptable.
+# tip prices or, off iOS, the GitHub Sponsors fallback is acceptable; iOS
+# with no store tips offers no tip control at all.
 
 appId: com.veloq.app.dev
 tags:
@@ -126,8 +127,8 @@ onFlowComplete:
 - assertNotVisible:
     text: "Large Tip"
 
-# Either real tip buttons OR GitHub Sponsors fallback must be visible, both
-# checked optionally so neither failing causes flow abort. The takeScreenshot
+# Real tip buttons, the GitHub Sponsors fallback off iOS, or neither on iOS,
+# all checked optionally so neither failing causes flow abort. The takeScreenshot
 # above captured whichever variant rendered.
 - assertVisible:
     id: "support-tip-buttons"
@@ -249,9 +250,15 @@ onFlowComplete:
 
 - takeScreenshot: "screenshots/support-card-collapsed"
 
-# Expand the "Support development" section to reveal tip buttons
-- tapOn:
-    id: "support-card-tip-toggle"
+# Expand the "Support development" section to reveal tip buttons. iOS offers no
+# toggle while the store has no tips, since it may send no tip outside the store.
+- runFlow:
+    when:
+      visible:
+        id: "support-card-tip-toggle"
+    commands:
+      - tapOn:
+          id: "support-card-tip-toggle"
 
 # Wait for the expand animation
 - extendedWaitUntil:

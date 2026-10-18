@@ -24,7 +24,7 @@
   "modules/veloqrs/rust/veloqrs/src/persistence/memory.rs": 1,
   "modules/veloqrs/rust/veloqrs/src/persistence/new_ground.rs": 2,
   "modules/veloqrs/rust/veloqrs/src/persistence/record_backup.rs": 1,
-  "modules/veloqrs/rust/veloqrs/src/persistence/regroup.rs": 1,
+  "modules/veloqrs/rust/veloqrs/src/persistence/regroup.rs": 2,
   "modules/veloqrs/rust/veloqrs/src/persistence/sections/conditioning.rs": 2,
   "modules/veloqrs/rust/veloqrs/src/persistence/sections/detection.rs": 8,
   "modules/veloqrs/rust/veloqrs/src/persistence/sections/preview.rs": 1,

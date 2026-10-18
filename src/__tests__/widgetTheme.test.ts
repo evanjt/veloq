@@ -284,13 +284,15 @@ describe('widgetRecord', () => {
 // iPhone widget or an Android widget sets is the caption. A line fitted to its box may shrink
 // further, to the floor, and no further.
 describe('widgetType', () => {
-  it('sets no step under 11 pt, and fits a line down to no less than 9', () => {
-    const { floor, ...steps } = widgetType;
+  it('sets the caption at 10 pt as the smallest step, and fits a line down to no less than 9', () => {
+    const { floor, caption, ...steps } = widgetType;
+    expect(caption).toBe(10);
     for (const [step, size] of Object.entries(steps)) {
-      expect([step, size >= 11]).toEqual([step, true]);
+      expect([step, size > caption]).toEqual([step, true]);
     }
+    expect(widgetType.label).toBe(11);
     expect(floor).toBeGreaterThanOrEqual(9);
-    expect(floor).toBeLessThan(widgetType.caption);
+    expect(floor).toBeLessThan(caption);
   });
 
   it('shrinks the record label no smaller than the floor', () => {

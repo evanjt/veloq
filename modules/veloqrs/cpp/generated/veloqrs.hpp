@@ -167,6 +167,9 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_fn_method_basemapmanager_tile_counts(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
+  jsi::Value cpp_uniffi_veloqrs_fn_method_basemapmanager_tile_listener(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_clone_detectionmanager(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
@@ -930,6 +933,9 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_fn_method_syncmanager_range_coverage(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
+  jsi::Value cpp_uniffi_veloqrs_fn_method_syncmanager_ready_activity_bodies(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_syncmanager_set_credentials(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
@@ -1050,9 +1056,6 @@ protected:
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_func_start_elevation_backfill(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
-  jsi::Value cpp_uniffi_veloqrs_fn_func_start_fetch_and_store(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_func_start_gps_pass(
@@ -1318,9 +1321,6 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_checksum_func_start_elevation_backfill(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
-  jsi::Value cpp_uniffi_veloqrs_checksum_func_start_fetch_and_store(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_func_start_gps_pass(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
@@ -1476,6 +1476,9 @@ protected:
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_basemapmanager_tile_counts(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value cpp_uniffi_veloqrs_checksum_method_basemapmanager_tile_listener(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_detectionmanager_awaiting_count(
@@ -2173,6 +2176,10 @@ protected:
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_syncmanager_range_coverage(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value
+  cpp_uniffi_veloqrs_checksum_method_syncmanager_ready_activity_bodies(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_syncmanager_set_credentials(

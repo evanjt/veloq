@@ -170,6 +170,18 @@ export function syncActivityDetail(host: DelegateHost, activityId: string): FfiS
   return host.timed('syncActivityDetail', () => host.engine.sync().syncActivityDetail(activityId));
 }
 
+/** Ask Rust to fetch what one activity still lacks for a screen that opens
+ *  with no network, resolving with whether it lacks nothing afterwards. */
+export async function readyActivityBodies(
+  host: DelegateHost,
+  activityId: string
+): Promise<boolean> {
+  if (!host.ready) return false;
+  return host.timedAsync('readyActivityBodies', () =>
+    host.engine.sync().readyActivityBodies(activityId)
+  );
+}
+
 /** Ask Rust to fetch the `time` streams the section maths needs. Activities
  *  that already have one are skipped inside Rust. */
 export function syncTimeStreams(host: DelegateHost, activityIds: string[]): FfiStartResult {
