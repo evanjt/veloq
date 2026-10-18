@@ -53,6 +53,7 @@ import { useRevealChart } from '@/shared/app/useRevealChart';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { useScrollToTopOnReselect } from '@/shared/ui/tabReselect';
 import { SwipeableTabs, type SwipeableTab } from '@/shared/ui/SwipeableTabs';
+import { StagedPage } from '@/shared/ui/StagedPage';
 
 const NO_WELLNESS: NonNullable<ReturnType<typeof useFitnessScreenData>['wellness']> = [];
 
@@ -76,6 +77,9 @@ const YEAR_STAGE = 3;
 /** The performance and trends pages paint their controls first and their sections a frame later. */
 const SECTION_STAGE = 1;
 
+/** A page's pinned header is its scroll's first child. */
+const PINNED_HEADER = [0];
+
 /** Each page's tab: its label and its glyph. */
 const PLACE_TABS = {
   fitness: { label: 'fitnessScreen.places.fitness', icon: 'chart-line' },
@@ -86,27 +90,6 @@ const PLACE_TABS = {
   FitnessPlace,
   { label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }
 >;
-
-/**
- * Counts the frames since a page first mounted, up to `last`, so a page paints
- * its frame first and its canvases one per frame after. A page mounts on its
- * first visit, so each page keeps its own count.
- */
-function StagedPage({
-  last,
-  children,
-}: {
-  last: number;
-  children: (stage: number) => React.ReactNode;
-}) {
-  const [stage, setStage] = useState(0);
-  useEffect(() => {
-    if (stage >= last) return undefined;
-    const id = requestAnimationFrame(() => setStage(stage + 1));
-    return () => cancelAnimationFrame(id);
-  }, [stage, last]);
-  return <>{children(stage)}</>;
-}
 
 type PageReveal = ReturnType<typeof useRevealChart<FitnessChart, FitnessAnchor>>;
 
@@ -358,7 +341,16 @@ function FitnessScreenContent() {
   }
 
   // Every page scrolls on its own and refreshes the whole screen from a pull.
-  const page = (key: FitnessPlace, scrubs: boolean, content: React.ReactNode) => (
+  // A page whose cards read the range pins it, with the sport row where the
+  // page has one, as the scroll's first child, so it stays in view and a linked
+  // chart lands below it. The staged content stays the second child, whose
+  // fragment keeps each anchor's offset relative to the content container.
+  const page = (
+    key: FitnessPlace,
+    scrubs: boolean,
+    header: React.ReactNode | null,
+    content: React.ReactNode
+  ) => (
     <ScrollView
       {...screenListInsets}
       ref={reveals[key].scrollRef}
@@ -371,8 +363,18 @@ function FitnessScreenContent() {
       ]}
       showsVerticalScrollIndicator={false}
       scrollEnabled={!(scrubs && chartInteracting)}
+      stickyHeaderIndices={header ? PINNED_HEADER : undefined}
       refreshControl={<ScreenRefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
     >
+      {header ? (
+        <View
+          testID="fitness-pinned-header"
+          onLayout={reveals[key].onHeaderLayout}
+          style={shared.pinnedRow}
+        >
+          {header}
+        </View>
+      ) : null}
       {content}
     </ScrollView>
   );
@@ -385,6 +387,12 @@ function FitnessScreenContent() {
   const sportToggle = (
     <SportToggleSelector sportMode={sportMode} onSportModeChange={setSportMode} />
   );
+  const rangeAndSport = (
+    <>
+      {rangeSelector}
+      {sportToggle}
+    </>
+  );
   const anchorOn = reveals.fitness.onAnchorLayout;
 
   // Let the header paint before mounting the chart canvas, then mount the
@@ -392,11 +400,10 @@ function FitnessScreenContent() {
   const fitnessPage = page(
     'fitness',
     true,
+    rangeSelector,
     <StagedPage last={WELLNESS_STAGE}>
       {(stage) => (
         <>
-          {rangeSelector}
-
           <View onLayout={(event) => anchorOn('chart', event)}>
             {stage >= CHART_STAGE ? (
               // The curves, bests, zones and decoupling are reads of their own, so a
@@ -457,6 +464,7 @@ function FitnessScreenContent() {
   const calendarPage = page(
     'calendar',
     false,
+    null,
     <StagedPage last={YEAR_STAGE}>
       {(stage) => (
         <>
@@ -496,11 +504,10 @@ function FitnessScreenContent() {
   const performancePage = page(
     'performance',
     true,
+    rangeAndSport,
     <StagedPage last={SECTION_STAGE}>
       {(stage) => (
         <>
-          {rangeSelector}
-          {sportToggle}
           {stage >= SECTION_STAGE ? (
             <View onLayout={(event) => reveals.performance.onAnchorLayout('performance', event)}>
               <PerformanceCurveSection
@@ -531,11 +538,10 @@ function FitnessScreenContent() {
   const trendsPage = page(
     'trends',
     true,
+    rangeAndSport,
     <StagedPage last={SECTION_STAGE}>
       {(stage) => (
         <>
-          {rangeSelector}
-          {sportToggle}
           {stage >= SECTION_STAGE ? (
             <View onLayout={(event) => reveals.trends.onAnchorLayout('trends', event)}>
               <FitnessTrendSections

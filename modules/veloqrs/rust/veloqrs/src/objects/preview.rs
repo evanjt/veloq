@@ -1,4 +1,5 @@
 use super::error::{VeloqError, with_engine, with_reader};
+use crate::objects::run::{FfiRunProgress, FfiRunState};
 use crate::objects::start::{FfiStartOutcome, FfiStartResult};
 use crate::persistence::attempts::{self, Claim, ClaimGuard, JobKey};
 use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
@@ -74,89 +75,73 @@ impl SectionPreview {
         self.start_at(lat, lng, config, attempts::now_ms)
     }
 
-    /// "idle" | "running" | "complete" | "cancelled" | "pool_unusable" | "error"
-    pub fn poll(&self) -> Result<String, VeloqError> {
+    /// Where the run stands and how far along it is.
+    ///
+    /// A read only: an ended run keeps the slot and reads the same until the
+    /// next start reaps it, or until `take` collects a complete one. So no
+    /// read of progress can swallow how the run ended before the reader that
+    /// settles it gets there.
+    pub fn progress(&self) -> FfiRunProgress {
         let mut slot = SECTION_PREVIEW_HANDLE
             .lock()
             .unwrap_or_else(|e| e.into_inner());
         let Some(handle) = slot.as_mut() else {
-            return Ok("idle".to_string());
+            return FfiRunProgress::at(FfiRunState::Idle);
         };
-        Ok(match handle.poll_status() {
-            PreviewPoll::Running => "running".to_string(),
-            // The slot stays occupied until take_result so the payload
-            // cannot be lost between polls.
-            PreviewPoll::Complete => "complete".to_string(),
-            PreviewPoll::Cancelled => {
-                *slot = None;
-                "cancelled".to_string()
-            }
+        let state = match handle.poll_status() {
+            PreviewPoll::Running => FfiRunState::Running,
+            PreviewPoll::Complete => FfiRunState::Complete,
+            PreviewPoll::Cancelled => FfiRunState::Cancelled,
             PreviewPoll::ReadFailed => {
-                *slot = None;
                 log::error!("veloqrs: [SectionPreview] Track pool read failed");
-                "error".to_string()
+                FfiRunState::Failed
             }
             PreviewPoll::PoolUnusable => {
-                *slot = None;
                 log::error!(
                     "veloqrs: [SectionPreview] Preview refused: too much of the pool is unreadable to detect over"
                 );
-                "pool_unusable".to_string()
+                FfiRunState::Refused
             }
             PreviewPoll::Died => {
-                *slot = None;
                 log::error!("veloqrs: [SectionPreview] Preview thread died without a result");
-                "error".to_string()
+                FfiRunState::Failed
             }
-        })
-    }
-
-    pub fn get_progress(&self) -> Result<Option<crate::FfiDetectionProgress>, VeloqError> {
-        let slot = SECTION_PREVIEW_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        Ok(slot.as_ref().map(|handle| {
-            let phase = handle.progress.get_phase();
-            let completed = handle.progress.get_completed();
-            let total = handle.progress.get_total();
-            let percent = handle.progress.get_percent();
-            crate::FfiDetectionProgress {
-                phase,
-                completed,
-                total,
-                percent,
-            }
-        }))
+        };
+        FfiRunProgress {
+            state,
+            phase: handle.progress.get_phase(),
+            completed: handle.progress.get_completed(),
+            total: handle.progress.get_total(),
+            percent: handle.progress.get_percent(),
+        }
     }
 
     /// The one payload, once. None while running or after taken.
-    pub fn take_result(&self) -> Result<Option<crate::FfiPreviewResult>, VeloqError> {
+    pub fn take(&self) -> Option<crate::FfiPreviewResult> {
         let mut slot = SECTION_PREVIEW_HANDLE
             .lock()
             .unwrap_or_else(|e| e.into_inner());
-        let Some(handle) = slot.as_mut() else {
-            return Ok(None);
-        };
-        match handle.take_payload() {
-            Some(payload) => {
-                *slot = None;
-                Ok(Some(payload))
-            }
-            None => Ok(None),
-        }
+        let payload = slot.as_mut()?.take_payload()?;
+        *slot = None;
+        Some(payload)
     }
 
+    /// Ask the run to stop. Returns whether there was one.
+    ///
     /// Cooperative: aborts within one load chunk; once inside the detect the
     /// run completes and is discarded.
-    pub fn cancel(&self) -> Result<(), VeloqError> {
+    pub fn cancel(&self) -> bool {
         let slot = SECTION_PREVIEW_HANDLE
             .lock()
             .unwrap_or_else(|e| e.into_inner());
-        if let Some(handle) = slot.as_ref() {
-            handle.request_cancel();
-            info!("veloqrs: [SectionPreview] Cancel requested");
+        match slot.as_ref() {
+            Some(handle) => {
+                handle.request_cancel();
+                info!("veloqrs: [SectionPreview] Cancel requested");
+                true
+            }
+            None => false,
         }
-        Ok(())
     }
 }
 
@@ -519,11 +504,11 @@ mod tests {
 
         fn drive_to_idle(preview: &SectionPreview) {
             let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
-            while preview.poll().unwrap() == "running" {
+            while preview.progress().state == FfiRunState::Running {
                 assert!(std::time::Instant::now() < deadline, "preview never ended");
                 std::thread::sleep(std::time::Duration::from_millis(25));
             }
-            let _ = preview.take_result();
+            let _ = preview.take();
             clear_slot();
         }
 
@@ -948,10 +933,10 @@ mod tests {
         poison(&SECTION_PREVIEW_HANDLE);
         poison(&SECTION_DETECTION_HANDLE);
 
-        assert_eq!(preview.poll().unwrap(), "idle");
-        assert!(preview.get_progress().unwrap().is_none());
-        assert!(preview.take_result().unwrap().is_none());
-        preview.cancel().unwrap();
+        assert_eq!(preview.progress().state, FfiRunState::Idle);
+        assert_eq!(preview.progress(), FfiRunProgress::at(FfiRunState::Idle));
+        assert!(preview.take().is_none());
+        assert!(!preview.cancel(), "nothing was running to stop");
 
         let first = preview.centres(1).unwrap().remove(0);
         assert_eq!(
@@ -961,14 +946,14 @@ mod tests {
             FfiStartOutcome::Started
         );
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
-        while preview.poll().unwrap() == "running" {
+        while preview.progress().state == FfiRunState::Running {
             assert!(
                 std::time::Instant::now() < deadline,
                 "preview never finished"
             );
             std::thread::sleep(std::time::Duration::from_millis(25));
         }
-        assert!(preview.take_result().unwrap().is_some());
+        assert!(preview.take().is_some());
         clear_slot();
     }
 
@@ -988,10 +973,10 @@ mod tests {
             FfiStartOutcome::NotOwed,
             "an empty library covers no point, and no amount of asking changes that"
         );
-        assert_eq!(preview.poll().unwrap(), "idle");
-        assert!(preview.get_progress().unwrap().is_none());
-        assert!(preview.take_result().unwrap().is_none());
-        preview.cancel().unwrap();
+        assert_eq!(preview.progress().state, FfiRunState::Idle);
+        assert_eq!(preview.progress(), FfiRunProgress::at(FfiRunState::Idle));
+        assert!(preview.take().is_none());
+        assert!(!preview.cancel(), "nothing was running to stop");
     }
 
     #[test]
@@ -1039,24 +1024,25 @@ mod tests {
                 .start(first.lat, first.lng, crate::FfiSectionConfig::default())
                 .unwrap()
                 == FfiStartOutcome::Busy
-                || preview.poll().unwrap() != "running",
+                || preview.progress().state != FfiRunState::Running,
             "a second start while one runs is busy"
         );
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
-        while preview.poll().unwrap() == "running" {
+        while preview.progress().state == FfiRunState::Running {
             assert!(
                 std::time::Instant::now() < deadline,
                 "preview never finished"
             );
             std::thread::sleep(std::time::Duration::from_millis(25));
         }
-        assert_eq!(preview.poll().unwrap(), "complete");
-        assert!(
-            preview.get_progress().unwrap().is_some(),
+        assert_eq!(preview.progress().state, FfiRunState::Complete);
+        assert_eq!(
+            preview.progress().state,
+            FfiRunState::Complete,
             "the slot holds the run until taken"
         );
 
-        let payload = preview.take_result().unwrap().expect("one payload");
+        let payload = preview.take().expect("one payload");
         assert_eq!(payload.pool.activities, 6, "{payload:?}");
         assert_eq!(payload.pool.unreadable, 0);
         assert_eq!(payload.counts.proposed as usize, payload.sections.len());
@@ -1064,8 +1050,8 @@ mod tests {
             payload.sections.iter().all(|s| !s.polyline.is_empty()),
             "every row carries its encoded line as bytes"
         );
-        assert!(preview.take_result().unwrap().is_none(), "taken once");
-        assert_eq!(preview.poll().unwrap(), "idle");
+        assert!(preview.take().is_none(), "taken once");
+        assert_eq!(preview.progress().state, FfiRunState::Idle);
     }
 }
 

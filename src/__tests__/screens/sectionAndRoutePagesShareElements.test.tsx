@@ -275,6 +275,7 @@ const lap = (n: number) => ({
   startIndex: 0,
   endIndex: 1,
   excluded: false,
+  outsideDistanceBand: false,
   isRecord: false,
 });
 const sectionRead: FfiSectionPerformanceData = {

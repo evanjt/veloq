@@ -47,6 +47,8 @@ interface SensorState {
   setConnection: (id: string, connection: SensorConnection | null) => void;
   setConnectionStatus: (id: string, status: SensorConnectionStatus) => void;
   setBattery: (id: string, percent: number) => void;
+  /** The received signal strength of a connected sensor, in dBm. */
+  setSignal: (id: string, rssi: number) => void;
   /**
    * Hand a notification's value to the recording store, which holds the live
    * sample, when its sensor is the one source chosen for the metric.
@@ -162,6 +164,14 @@ export const useSensorStore = create<SensorState>((set, get) => ({
       return {
         connections: { ...state.connections, [id]: { ...existing, batteryPercent: percent } },
       };
+    });
+  },
+
+  setSignal: (id, rssi) => {
+    set((state) => {
+      const existing = state.connections[id];
+      if (!existing || existing.rssi === rssi) return state;
+      return { connections: { ...state.connections, [id]: { ...existing, rssi } } };
     });
   },
 

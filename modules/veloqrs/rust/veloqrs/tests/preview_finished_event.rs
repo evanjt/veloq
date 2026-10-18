@@ -17,9 +17,9 @@ use std::time::{Duration, Instant};
 use tempfile::TempDir;
 use tracematch::GpsPoint;
 use veloqrs::FfiSectionConfig;
-use veloqrs::objects::SectionPreview;
 use veloqrs::objects::observer::{EngineObserver, set_observer};
 use veloqrs::objects::start::FfiStartOutcome::Started;
+use veloqrs::objects::{FfiRunState, SectionPreview};
 use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
 use veloqrs::persistence::with_persistent_engine;
 
@@ -150,11 +150,11 @@ fn wait_for_finish(counter: &Counter, nth: usize) {
 }
 
 /// Poll to a terminal status, for the one test that has no notice to wait on.
-fn wait_for_terminal(preview: &SectionPreview) -> String {
+fn wait_for_terminal(preview: &SectionPreview) -> FfiRunState {
     let deadline = Instant::now() + Duration::from_secs(120);
     loop {
-        let status = preview.poll().expect("poll");
-        if status != "running" {
+        let status = preview.progress().state;
+        if status != FfiRunState::Running {
             return status;
         }
         assert!(Instant::now() < deadline, "the preview run never ended");
@@ -178,11 +178,11 @@ fn a_completed_preview_announces_once_and_the_outcome_is_readable() {
     // time the notice lands, so a subscriber that only ever polls here still
     // sees the run end.
     assert_eq!(
-        preview.poll().expect("poll"),
-        "complete",
+        preview.progress().state,
+        FfiRunState::Complete,
         "the announcement must not outrun the outcome"
     );
-    assert!(preview.take_result().expect("take").is_some());
+    assert!(preview.take().is_some());
     assert_eq!(counter.finished(), 1, "one run, one notice");
 
     veloqrs::objects::observer::flush();
@@ -199,13 +199,13 @@ fn a_cancelled_preview_still_announces() {
 
     let preview = SectionPreview::new();
     assert_eq!(preview.start(46.01, 7.0, cfg).expect("start"), Started);
-    preview.cancel().expect("cancel");
+    preview.cancel();
     wait_for_finish(&counter, 1);
 
-    let status = preview.poll().expect("poll");
+    let status = preview.progress().state;
     assert!(
-        status == "cancelled" || status == "complete",
-        "a cancelled run ends cancelled, or completes if the cancel arrived late, got '{status}'"
+        status == FfiRunState::Cancelled || status == FfiRunState::Complete,
+        "a cancelled run ends cancelled, or completes if the cancel arrived late, got {status:?}"
     );
     assert_eq!(counter.finished(), 1, "one run, one notice");
 
@@ -227,8 +227,8 @@ fn a_second_run_announces_again() {
         Started
     );
     wait_for_finish(&counter, 1);
-    assert_eq!(preview.poll().expect("poll"), "complete");
-    assert!(preview.take_result().expect("take").is_some());
+    assert_eq!(preview.progress().state, FfiRunState::Complete);
+    assert!(preview.take().is_some());
 
     assert_eq!(
         preview.start(46.01, 7.0, cfg).expect("second start"),
@@ -236,11 +236,11 @@ fn a_second_run_announces_again() {
     );
     wait_for_finish(&counter, 2);
     assert_eq!(
-        preview.poll().expect("poll"),
-        "complete",
+        preview.progress().state,
+        FfiRunState::Complete,
         "the second announcement must not outrun its outcome either"
     );
-    assert!(preview.take_result().expect("take").is_some());
+    assert!(preview.take().is_some());
 
     veloqrs::objects::observer::flush();
     set_observer(None);
@@ -256,8 +256,8 @@ fn a_run_with_no_observer_registered_still_finishes() {
 
     let preview = SectionPreview::new();
     assert_eq!(preview.start(46.01, 7.0, cfg).expect("start"), Started);
-    assert_eq!(wait_for_terminal(&preview), "complete");
-    assert!(preview.take_result().expect("take").is_some());
+    assert_eq!(wait_for_terminal(&preview), FfiRunState::Complete);
+    assert!(preview.take().is_some());
 }
 
 #[test]
@@ -296,7 +296,7 @@ fn every_announced_phase_is_readable_when_it_is_announced() {
     assert_eq!(preview.start(46.01, 7.0, cfg).expect("start"), Started);
     wait_for_finish(&counter, 1);
 
-    let progress = preview.get_progress().expect("progress").expect("a run");
+    let progress = preview.progress();
     assert_eq!(progress.phase, "complete");
     assert_eq!(
         counter.phases().last().map(String::as_str),

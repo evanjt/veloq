@@ -266,11 +266,12 @@ impl FitnessManager {
 
     /// Sync a batch of wellness rows from the intervals.icu API into SQLite.
     /// Idempotent on `date`; call whenever the TS wellness query refreshes.
-    fn upsert_wellness(&self, rows: Vec<crate::FfiWellnessRow>) -> Result<(), VeloqError> {
+    fn upsert_wellness(
+        &self,
+        rows: Vec<crate::persistence::wellness::WellnessRow>,
+    ) -> Result<(), VeloqError> {
         with_engine(|e| {
-            let mapped: Vec<crate::persistence::wellness::WellnessRow> =
-                rows.into_iter().map(wellness_row_from_ffi).collect();
-            e.upsert_wellness(&mapped)
+            e.upsert_wellness(&rows)
                 .map_err(|err| VeloqError::Database {
                     msg: format!("{}", err),
                 })
@@ -408,11 +409,7 @@ impl FitnessManager {
             let library = crate::widget_snapshot::SampleLibrary {
                 athlete_json: sample.athlete_json,
                 sport_settings_json: sample.sport_settings_json,
-                wellness: sample
-                    .wellness
-                    .into_iter()
-                    .map(wellness_row_from_ffi)
-                    .collect(),
+                wellness: sample.wellness,
                 activities: sample
                     .activities
                     .into_iter()
@@ -470,27 +467,6 @@ impl FitnessManager {
                     msg: format!("{e}"),
                 })
         })?
-    }
-}
-
-/// A wellness row as the app hands it over, in the shape the store takes.
-fn wellness_row_from_ffi(r: crate::FfiWellnessRow) -> crate::persistence::wellness::WellnessRow {
-    crate::persistence::wellness::WellnessRow {
-        date: r.date,
-        ctl: r.ctl,
-        atl: r.atl,
-        ramp_rate: r.ramp_rate,
-        hrv: r.hrv,
-        resting_hr: r.resting_hr,
-        weight: r.weight,
-        sleep_secs: r.sleep_secs.map(|v| v as i64),
-        sleep_score: r.sleep_score,
-        soreness: r.soreness,
-        fatigue: r.fatigue,
-        stress: r.stress,
-        mood: r.mood,
-        motivation: r.motivation,
-        raw: r.raw,
     }
 }
 

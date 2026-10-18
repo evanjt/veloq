@@ -62,20 +62,20 @@ tags:
     direction: LEFT
     duration: 800
 - assertVisible:
-    text: "Hide"
+    id: "section-swipe-remove"
 - swipe:
     from:
       id: "section-inline-plot-1"
     direction: LEFT
     duration: 800
 - assertVisible:
-    text: "Hide"
+    id: "section-swipe-remove"
 - assertNotVisible:
-    text: "Hide"
+    id: "section-swipe-remove"
     index: 1
 - tapOn:
-    text: "Hide"
+    id: "section-swipe-remove"
 - assertNotVisible:
-    text: "Hide"
+    id: "section-swipe-remove"
 - assertVisible:
     id: "activity-sections-list"

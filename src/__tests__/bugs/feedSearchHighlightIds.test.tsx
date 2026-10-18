@@ -155,14 +155,13 @@ jest.mock('@/features/activity/components', () => {
   const { Text } = require('react-native');
   const ReactLocal = require('react');
   return {
-    ActivityCard: ({
-      activity,
-      startupTrack,
-    }: {
+    ActivityCard: (props: {
       activity: { id: string; name: string };
       startupTrack?: { coordinates: { latitude: number }[] };
     }) => {
+      const { activity, startupTrack } = props;
       mockCardTracks.set(activity.id, startupTrack);
+      mockCardProps.set(activity.id, props);
       return ReactLocal.createElement(
         Text,
         { testID: `card-${activity.id}` },
@@ -173,6 +172,7 @@ jest.mock('@/features/activity/components', () => {
 });
 
 const mockCardTracks = new Map<string, unknown>();
+const mockCardProps = new Map<string, object>();
 let mockStartupData:
   | {
       previewTracks: Map<
@@ -218,10 +218,12 @@ function searchFeedCards(query: {
   };
 }
 const searchFeedCardsSpy = jest.fn(searchFeedCards);
+type NewGroundRow = { activityId: string; fraction: number; tiles: number; newTiles: number };
+let mockNewGround: NewGroundRow[] = [];
 const getActivityHighlightsBundle = jest.fn((_activityIds: string[]) => ({
   indicators: [],
   routeHighlights: [],
-  newGround: [],
+  newGround: mockNewGround,
   strengthCards: [],
 }));
 
@@ -246,6 +248,8 @@ async function renderFeed() {
 beforeEach(() => {
   jest.clearAllMocks();
   mockCardTracks.clear();
+  mockCardProps.clear();
+  mockNewGround = [];
   mockStartupData = undefined;
   activities = initialActivities;
   mockFeedData = { pages: [activities] };
@@ -310,6 +314,14 @@ it('replaces a startup preview when its track moves under the same activity id',
 
   await waitFor(() => expect(screen.getByTestId('card-a1').props.children).toBe(47.1));
   expect(mockCardTracks.get('a2')).toBe(heldA2);
+});
+
+it('hands a card no new-ground chip, even for an activity on wholly new ground', async () => {
+  mockNewGround = [{ activityId: 'a2', fraction: 1, tiles: 10, newTiles: 10 }];
+  await renderFeed();
+  await waitFor(() => expect(getActivityHighlightsBundle).toHaveBeenCalled());
+  await waitFor(() => expect(mockCardProps.get('a2')).toBeDefined());
+  expect(mockCardProps.get('a2')).not.toHaveProperty('newGround');
 });
 
 describe('feed search does not re-read the highlight bundle', () => {

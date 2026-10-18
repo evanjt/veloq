@@ -6,7 +6,7 @@ import { useTheme } from '@/shared/app';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { useSheetRequest } from '@/shared/app/sheetRequest';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
-import { composeAccessibilityLabel, Row, SheetHeader } from '@/shared/ui';
+import { composeAccessibilityLabel, Row, SheetHeader, sheetScrollProps } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { goBack } from '@/shared/app/navigation';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
@@ -54,7 +54,7 @@ function DayActivitiesSheetContent() {
         onCancel={() => goBack()}
         cancelTestID="day-activities-cancel"
       />
-      <ScrollView contentContainerStyle={styles.list}>
+      <ScrollView contentContainerStyle={styles.list} {...sheetScrollProps}>
         {(input?.activities ?? []).map((activity) => {
           // The start time leads because it is what tells two rides of one name apart.
           const details = [

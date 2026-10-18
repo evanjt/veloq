@@ -22,7 +22,7 @@ import {
   ledgerDate,
   NO_EVENT_DETAILS,
 } from '@/features/routes/lib/sectionLedger';
-import { navigateTo } from '@/shared/app/navigation';
+import { useOpenDetail } from '@/shared/app/MapSheetCards';
 
 export const MAX_CHIPS = 6;
 
@@ -51,6 +51,7 @@ function SplitTarget({
   direction: 'from' | 'into';
 }) {
   const { t } = useTranslation();
+  const openDetail = useOpenDetail();
   const name = link.name?.trim() || link.id;
   const testID = `section-history-split-${direction}-${link.id}`;
   if (!link.available) {
@@ -71,7 +72,7 @@ function SplitTarget({
       variant="ghost"
       size="sm"
       style={[styles.chip, styles.splitTarget, isDark && styles.chipDark]}
-      onPress={() => navigateTo(`/section/${link.id}`)}
+      onPress={() => openDetail({ kind: 'section', id: link.id })}
     />
   );
 }
@@ -98,6 +99,7 @@ function Chips({
   testID: string;
   names?: Record<string, string> | undefined;
 }) {
+  const openDetail = useOpenDetail();
   const shown = ids.slice(0, MAX_CHIPS);
   const rest = ids.length - shown.length;
   return (
@@ -111,7 +113,7 @@ function Chips({
           size="sm"
           icon="map-marker-path"
           style={styles.activityChip}
-          onPress={() => navigateTo(`/activity/${id}`)}
+          onPress={() => openDetail({ kind: 'activity', id })}
         />
       ))}
       {rest > 0 && <Text style={[styles.more, isDark && styles.textSecondaryDark]}>+{rest}</Text>}

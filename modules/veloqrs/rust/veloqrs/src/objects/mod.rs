@@ -15,6 +15,7 @@ pub mod quarantine;
 mod record_dependency;
 mod recordings;
 mod routes;
+pub mod run;
 pub mod sections;
 mod settings;
 pub mod start;
@@ -33,6 +34,7 @@ pub use init::FfiInitOutcome;
 pub use library::LibraryCoverage;
 pub use preview::SectionPreview;
 pub use quarantine::{FfiQuarantineReport, take_quarantine_report};
+pub use run::{FfiRunProgress, FfiRunState};
 pub use start::{FfiStartOutcome, FfiStartResult};
 pub use sync::{
     FfiCallKind, FfiCallOutcome, FfiSyncStatus, SYNC_SERVICE, SyncManager, SyncState,
@@ -41,3 +43,4 @@ pub use sync::{
 pub(crate) use sync::{WELLNESS_REFRESH_DAYS, refresh_wellness};
 #[cfg(test)]
 pub(crate) use sync::{clear_test_credentials, test_base_url, test_credentials};
+pub use tiles::CacheSizeRun;

@@ -21,7 +21,7 @@
  */
 
 import { useMemo, useRef } from 'react';
-import { FfiNewGroundBadge, type ActivityHighlightsBundle } from 'veloqrs';
+import type { ActivityHighlightsBundle } from 'veloqrs';
 import { isRouteMatchingEnabled } from '@/features/routes';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { debug } from '@/shared/debug/debug';
@@ -58,12 +58,10 @@ export interface ActivityNewGround {
   fraction: number;
   tiles: number;
   newTiles: number;
-  /** The badge the engine decided the card earns; null below half. */
-  badge: 'entirelyNew' | 'mostlyNew' | null;
 }
 
 function newGroundKey(ground: ActivityNewGround): string {
-  return `${ground.tiles}|${ground.newTiles}|${ground.badge}`;
+  return `${ground.tiles}|${ground.newTiles}`;
 }
 
 /**
@@ -216,12 +214,6 @@ export function useActivitySectionHighlights(
           fraction: g.fraction,
           tiles: g.tiles,
           newTiles: g.newTiles,
-          badge:
-            g.badge === FfiNewGroundBadge.EntirelyNew
-              ? 'entirelyNew'
-              : g.badge === FfiNewGroundBadge.MostlyNew
-                ? 'mostlyNew'
-                : null,
         });
       }
 

@@ -136,9 +136,10 @@ type TickCeiling = {
 };
 
 // Section detail moves the highlight by the faded layer's filter, so a tick is
-// the layer list and nothing else: measured 3,049 characters. The list goes
-// whole because the page takes its order from it.
-const SECTION_TICK: TickCeiling = { serialised: 1, sources: [], script: 3_600 };
+// the layer list and nothing else: measured 3,643 characters with the
+// direction chevron's outline. The list goes whole because the page takes its
+// order from it.
+const SECTION_TICK: TickCeiling = { serialised: 1, sources: [], script: 3_800 };
 
 // Route detail draws the highlighted attempt from its own source so the faded
 // collection never changes, which costs one attempt and its endpoints per

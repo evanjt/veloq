@@ -18,8 +18,8 @@ use tempfile::TempDir;
 use tracematch::GpsPoint;
 use tracematch::sections::{Tunables, shares_ground};
 use veloqrs::FfiSectionConfig;
-use veloqrs::objects::SectionPreview;
 use veloqrs::objects::start::FfiStartOutcome::Started;
+use veloqrs::objects::{FfiRunState, SectionPreview};
 use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
 use veloqrs::persistence::with_persistent_engine;
 
@@ -186,20 +186,19 @@ fn a_preview_over_a_component_matches_the_cold_batch_over_its_activities() {
     );
     let deadline = Instant::now() + Duration::from_secs(120);
     loop {
-        let status = preview.poll().expect("poll");
-        if status == "complete" {
+        let status = preview.progress().state;
+        if status == FfiRunState::Complete {
             break;
         }
         assert!(
-            status == "running",
-            "preview ended in '{status}' instead of completing"
+            status == FfiRunState::Running,
+            "preview ended in {status:?} instead of completing"
         );
         assert!(Instant::now() < deadline, "preview never completed");
         std::thread::sleep(Duration::from_millis(50));
     }
     let payload = preview
-        .take_result()
-        .expect("take call")
+        .take()
         .expect("a completed preview yields a payload");
 
     // The pool is the whole component, every spot included, nothing from the

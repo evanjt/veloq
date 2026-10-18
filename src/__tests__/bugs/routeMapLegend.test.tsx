@@ -10,11 +10,15 @@
  */
 
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { initialiseI18n, changeLanguage } from '@/i18n';
 import { RouteMapView } from '@/features/routes/components/RouteMapView';
+import { DetailMapLegend } from '@/features/routes/components/DetailMapLegend';
+import { DIVERGING_BANDS } from '@/features/maps/lib/divergingStep';
+import { mapPalette } from '@/theme';
 import { formatFullDate } from '@/shared/format/format';
 import type { RoutePoint } from '@/types';
 
@@ -96,24 +100,16 @@ describe('the route detail map key', () => {
     expect(screen.queryByTestId('route-map-legend')).toBeNull();
   });
 
-  it('names every step the line is banded in, with its range, while the delta plot is shown', async () => {
+  it('draws the steps the line is banded in as one ticked scale while the delta plot is shown', async () => {
     await renderRoute({ deltaLine: DELTA_LINE });
 
     expect(screen.getByTestId('route-map-legend')).toBeTruthy();
     expect(screen.getByTestId('route-map-legend-delta')).toBeTruthy();
-    expect(screen.getByText('Ahead or behind')).toBeTruthy();
-    for (const range of [
-      'More than 6% faster',
-      '3 to 6% faster',
-      '1 to 3% faster',
-      'Within 1%',
-      '1 to 3% slower',
-      '3 to 6% slower',
-      'More than 6% slower',
-      'Band edges blend over a short stretch',
-    ]) {
-      expect(screen.getByText(range)).toBeTruthy();
-    }
+    expect(screen.getByText('Ahead or behind (%)')).toBeTruthy();
+    const scale = screen.getByTestId('route-map-legend-delta-scale');
+    expect(within(scale).getAllByTestId('map-key-ramp-step')).toHaveLength(7);
+    expect(within(scale).getByText('Faster')).toBeTruthy();
+    expect(within(scale).getByText('Slower')).toBeTruthy();
     expect(screen.queryByTestId('route-map-legend-delta-no-data')).toBeNull();
     expect(screen.queryByText('This activity')).toBeNull();
   });
@@ -180,5 +176,43 @@ describe('the route detail map key', () => {
     expect(screen.getAllByTestId('route-map-legend-delta')).toHaveLength(2);
     expect(screen.getAllByText(formatFullDate(PICKED_DATE))).toHaveLength(2);
     expect(screen.queryByText('This activity')).toBeNull();
+  });
+});
+
+describe('the ahead-or-behind key', () => {
+  beforeAll(async () => {
+    await initialiseI18n('en-AU');
+  });
+
+  it('draws the seven bands as one scale ticked at their edges, not a row per band', async () => {
+    const palette = mapPalette('light');
+    await render(
+      <DetailMapLegend
+        isDark={false}
+        palette={palette}
+        top={0}
+        testID="legend"
+        showActivity={false}
+        showDelta
+        showDeltaGaps
+      />
+    );
+
+    const scale = screen.getByTestId('legend-delta-scale');
+    const steps = within(scale).getAllByTestId('map-key-ramp-step');
+    expect(steps.map((step) => StyleSheet.flatten(step.props.style).backgroundColor)).toEqual(
+      DIVERGING_BANDS.pace.map((band) => palette.div[band.step])
+    );
+    expect(within(scale).getAllByText('6')).toHaveLength(2);
+    expect(within(scale).getAllByText('3')).toHaveLength(2);
+    expect(within(scale).getAllByText('1')).toHaveLength(2);
+    expect(within(scale).getByText('Faster')).toBeTruthy();
+    expect(within(scale).getByText('Slower')).toBeTruthy();
+    expect(screen.getByText('Ahead or behind (%)')).toBeTruthy();
+    expect(screen.getAllByText('No data')).toHaveLength(1);
+    expect(screen.getByTestId('legend-delta-no-data')).toBeTruthy();
+    expect(screen.queryByTestId('legend-delta-cool-3')).toBeNull();
+    expect(screen.queryAllByTestId('map-key-swatch')).toHaveLength(1);
+    expect(screen.queryByText('Band edges blend over a short stretch')).toBeNull();
   });
 });

@@ -27,11 +27,10 @@ import {
 } from '@/theme';
 import { useMapPreferences } from '@/features/settings';
 import {
+  AttributionOverlay,
   BaseMapView,
   type BaseMap3DLayer,
-  boundsOfLngLat,
   cutLineByProgress,
-  DELTA_GAPS_SOURCE_ID,
   deltaLineBands,
   lineBandExpression,
   noDataRanges,
@@ -40,15 +39,16 @@ import {
   lineFeature,
   lngLatFromShort,
   type MapEdgeInset,
-  type MapLayerSpec,
-  type MapSourceSpec,
-  MapSurface,
   type MapSurfaceRef,
   pointFeature,
+  SlottedMapSurface,
+  useInMapSurfaceSlot,
   statusBarStyleForMap,
   useDrawnMapStyle,
+  useSurfaceAttribution,
 } from '@/features/maps';
-import { buildRouteLayers, buildRouteSources } from './routeMapLayerSpecs';
+import { buildRouteLayers, routeMapSpecs } from './routeMapLayerSpecs';
+import { useStableBy } from '@/shared/app/useStableBy';
 import type { ActivityType, RouteGroup, RoutePoint } from '@/types';
 import type { SectionDeltaLine } from '../lib/deltaLayout';
 import { DetailMapLegend, hasLegendLayers, type DetailMapLegendLayers } from './DetailMapLegend';
@@ -87,6 +87,8 @@ interface RouteMapViewProps {
    * change refits the route; with none the fit keeps one margin all round.
    */
   fitPadding?: MapEdgeInset | undefined;
+  /** Height over the map's foot that its sheet covers, which the credit sits above. */
+  coveredBottom?: number | undefined;
 }
 
 export const ROUTE_MAP_FIT_PADDING = 40;
@@ -105,6 +107,7 @@ export function RouteMapView({
   activitySignatures = {},
   deltaLine = null,
   fitPadding,
+  coveredBottom,
 }: RouteMapViewProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -114,11 +117,13 @@ export function RouteMapView({
   // A map in a host stays held under its own sheet and is released only under another screen.
   const screenFocused = useMapHeldFocus();
   const surfaceRef = useRef<MapSurfaceRef>(null);
+  const inSlot = useInMapSurfaceSlot();
   const { getStyleForActivity, preferences } = useMapPreferences();
   const chosenStyle = selectedSportType
     ? getStyleForActivity(selectedSportType)
     : preferences.defaultStyle;
   const mapStyle = useDrawnMapStyle(chosenStyle);
+  const { attributionRef, initialAttribution, trackAttribution } = useSurfaceAttribution(mapStyle);
   const activityColor = getActivityColor(selectedSportType ?? 'Other');
   const palette = mapPalette(mapStyle);
 
@@ -127,9 +132,6 @@ export function RouteMapView({
   const points = routeGroup.signature?.points;
   const displayPoints = useMemo(() => points ?? [], [points]);
   const routeCoords = useMemo(() => lngLatFromShort(displayPoints), [displayPoints]);
-
-  // 10% padding leaves room for traces that stray outside the representative line.
-  const bounds = useMemo(() => boundsOfLngLat(routeCoords, 0.1), [routeCoords]);
 
   const activityTraces = useMemo(
     () =>
@@ -219,37 +221,45 @@ export function RouteMapView({
     ]);
   }, [activityTraces, highlightedActivityId, highlightedLapPoints, routeCoords]);
 
-  // Fullscreen reuses everything except the route itself, which BaseMapView
-  // already draws from the coordinates it is given.
-  const overlaySources = useMemo<Record<string, MapSourceSpec>>(
-    () => ({
-      'faded-traces': { kind: 'geojson', data: fadedTraces },
-      'highlighted-trace': { kind: 'geojson', data: highlightedTrace },
-      endpoints: { kind: 'geojson', data: endpoints },
-      [DELTA_GAPS_SOURCE_ID]: { kind: 'geojson', data: deltaGapsGeoJSON },
-    }),
-    [fadedTraces, highlightedTrace, endpoints, deltaGapsGeoJSON]
-  );
-
-  const sources = useMemo(
-    () => buildRouteSources(overlaySources, routeLine),
-    [overlaySources, routeLine]
-  );
-
   // Highlighting one activity turns the route itself into context, drawn in
   // the muted colour rather than hidden.
   const routeContext = highlightedActivityId !== null;
 
-  const layers = useMemo<MapLayerSpec[]>(
+  const specs = useMemo(
     () =>
-      buildRouteLayers({
+      routeMapSpecs({
+        routeCoords,
+        routeLine,
+        fadedTraces,
+        highlightedTrace,
+        endpoints,
+        deltaGaps: deltaGapsGeoJSON,
         palette,
-        routeContext,
         fadedFilter,
-        includeRoute: true,
+        routeContext,
         deltaBands,
       }),
-    [palette, routeContext, fadedFilter, deltaBands]
+    [
+      routeCoords,
+      routeLine,
+      fadedTraces,
+      highlightedTrace,
+      endpoints,
+      deltaGapsGeoJSON,
+      palette,
+      fadedFilter,
+      routeContext,
+      deltaBands,
+    ]
+  );
+  // The extent moves only with the route, not with what is picked on it.
+  const bounds = useStableBy(specs.bounds, JSON.stringify(specs.bounds));
+
+  // Fullscreen reuses everything except the route itself, which BaseMapView
+  // already draws from the coordinates it is given.
+  const overlaySources = useMemo(
+    () => Object.fromEntries(Object.entries(specs.sources).filter(([id]) => id !== 'route')),
+    [specs.sources]
   );
 
   // The fullscreen shell draws the route itself, banded through its own gradient.
@@ -284,6 +294,12 @@ export function RouteMapView({
   }, [enableFullscreen, onPress]);
 
   const closeFullscreen = useCallback(() => setIsFullscreen(false), []);
+  const handleSurfacePress = useCallback(() => onPress?.(), [onPress]);
+
+  const initialCamera = useMemo(
+    () => (bounds ? { bounds, padding: fitPadding ?? ROUTE_MAP_FIT_PADDING } : null),
+    [bounds, fitPadding]
+  );
 
   // The first fit is the surface's starting view, so only a later padding refits the route.
   const fittedPadding = useRef(fitPadding);
@@ -308,48 +324,72 @@ export function RouteMapView({
 
   const showExpandIcon = enableFullscreen && !interactive;
 
+  const content = (
+    <>
+      <SlottedMapSurface
+        ref={surfaceRef}
+        mapStyle={mapStyle}
+        initialCamera={initialCamera ?? { bounds }}
+        sources={specs.sources}
+        layers={specs.layers}
+        images={specs.images}
+        interactiveLayers={specs.interactiveLayers}
+        scrollEnabled={interactive}
+        zoomEnabled={interactive}
+        rotateEnabled={interactive}
+        // The fullscreen map covers the hero, so the hero holds no map under it.
+        released={!screenFocused || isFullscreen}
+        onPress={onPress ? handleSurfacePress : undefined}
+        onRegionDidChange={trackAttribution}
+      />
+      <AttributionOverlay
+        ref={attributionRef}
+        initialAttribution={initialAttribution}
+        bottomInset={coveredBottom}
+      />
+      {showExpandIcon ? (
+        <View style={styles.expandOverlay}>
+          <Icon name="fullscreen" size={iconSize.md} color={colors.textOnFill} />
+        </View>
+      ) : null}
+      {/* The layers drawn over the route's own line, named. */}
+      {hasLegendLayers(legendLayers) ? (
+        <DetailMapLegend
+          isDark={isDark}
+          palette={palette}
+          top={headerBottom + spacing.sm}
+          testID="route-map-legend"
+          pickedAttempt={pickedAttempt}
+          {...legendLayers}
+        />
+      ) : null}
+    </>
+  );
+
   return (
     <>
-      <PressTarget
-        testID="route-map-container"
-        style={[styles.container, { height }]}
-        onPress={handleMapPress}
-        accessibilityRole="button"
-        accessibilityLabel={t('maps.openFullscreen')}
-        accessibilityState={{ disabled: !enableFullscreen && !onPress }}
-        disabled={!enableFullscreen && !onPress}
-      >
-        <MapSurface
-          ref={surfaceRef}
-          mapStyle={mapStyle}
-          initialCamera={{ bounds, padding: fitPadding ?? ROUTE_MAP_FIT_PADDING }}
-          sources={sources}
-          layers={layers}
-          images={ENDPOINT_IMAGES}
-          scrollEnabled={interactive}
-          zoomEnabled={interactive}
-          rotateEnabled={interactive}
-          // The fullscreen map covers the hero, so the hero holds no map under it.
-          released={!screenFocused || isFullscreen}
-          onPress={onPress ? () => onPress() : undefined}
-        />
-        {showExpandIcon ? (
-          <View style={styles.expandOverlay}>
-            <Icon name="fullscreen" size={iconSize.md} color={colors.textOnFill} />
-          </View>
-        ) : null}
-        {/* The layers drawn over the route's own line, named. */}
-        {hasLegendLayers(legendLayers) ? (
-          <DetailMapLegend
-            isDark={isDark}
-            palette={palette}
-            top={headerBottom + spacing.sm}
-            testID="route-map-legend"
-            pickedAttempt={pickedAttempt}
-            {...legendLayers}
-          />
-        ) : null}
-      </PressTarget>
+      {inSlot ? (
+        // The slot's surface sits under this view, so touches the overlays leave go through to it.
+        <View
+          testID="route-map-container"
+          style={[styles.slotContainer, { height }]}
+          pointerEvents="box-none"
+        >
+          {content}
+        </View>
+      ) : (
+        <PressTarget
+          testID="route-map-container"
+          style={[styles.container, { height }]}
+          onPress={handleMapPress}
+          accessibilityRole="button"
+          accessibilityLabel={t('maps.openFullscreen')}
+          accessibilityState={{ disabled: !enableFullscreen && !onPress }}
+          disabled={!enableFullscreen && !onPress}
+        >
+          {content}
+        </PressTarget>
+      )}
 
       <FullWindowModal
         visible={isFullscreen}
@@ -419,6 +459,9 @@ const styles = StyleSheet.create({
   container: {
     overflow: 'hidden',
     borderRadius: layout.borderRadius,
+  },
+  slotContainer: {
+    overflow: 'hidden',
   },
   placeholder: {
     justifyContent: 'center',

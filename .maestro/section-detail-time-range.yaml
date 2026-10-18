@@ -119,3 +119,28 @@ tags:
       - takeScreenshot: "screenshots/section-detail-summary-history"
       - assertNotVisible:
           text: "NaN"
+      # The sheet hands a drag to its content: at the highest stop, a body scrolled to its bottom
+      # scrolls back to its top, rather than each drag down moving the sheet down to its lowest
+      # stop, where the action row under the stats is out of sight.
+      - swipe:
+          start: 50%, 60%
+          end: 50%, 5%
+          duration: 600
+      - waitForAnimationToEnd:
+          timeout: 2000
+      - scrollUntilVisible:
+          element:
+            id: "section-export-gpx"
+          direction: DOWN
+          timeout: 20000
+      - takeScreenshot: "screenshots/section-detail-scrolled-to-end"
+      - scrollUntilVisible:
+          element:
+            id: "section-action-row"
+          direction: UP
+          timeout: 20000
+      - assertVisible:
+          id: "section-card-peek"
+      - assertNotVisible:
+          id: "section-export-gpx"
+      - takeScreenshot: "screenshots/section-detail-scrolled-back"

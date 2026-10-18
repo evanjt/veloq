@@ -65,7 +65,7 @@ fn test_background_jobs_data_reads_a_recorded_run() {
             &engine.db,
             &JobRun {
                 job: BackgroundJob::StreamBackfill,
-                finished_at: 1_791_000_000_000,
+                finished_at: crate::WholeNumber(1_791_000_000_000),
                 outcome: RunOutcome::Partial,
                 handled: 2,
                 added: 0,
@@ -79,10 +79,10 @@ fn test_background_jobs_data_reads_a_recorded_run() {
     let data = settings.background_jobs_data().unwrap();
     assert_eq!(
         data.runs,
-        vec![crate::FfiJobRun {
-            job: "streamBackfill".into(),
-            finished_at: 1_791_000_000_000.0,
-            outcome: "partial".into(),
+        vec![JobRun {
+            job: BackgroundJob::StreamBackfill,
+            finished_at: crate::WholeNumber(1_791_000_000_000),
+            outcome: RunOutcome::Partial,
             handled: 2,
             added: 0,
             changed: 1,

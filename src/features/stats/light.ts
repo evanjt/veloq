@@ -7,6 +7,7 @@
 export {
   NO_TRAINING_CARDS,
   trainingCardsView,
+  calendarWindows,
   trainingEngineWindows,
   trainingWindows,
   type TrainingCardsRead,

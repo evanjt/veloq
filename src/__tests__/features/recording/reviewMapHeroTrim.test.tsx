@@ -6,7 +6,7 @@
  * shipping both halves into the WebView.
  */
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { act, render, screen } from '@testing-library/react-native';
 
 import { ReviewMapHero } from '@/features/recording/components/ReviewMapHero';
 
@@ -85,5 +85,16 @@ describe('ReviewMapHero', () => {
     await hero({ onTrimCommit });
 
     expect(mockTrimSliderProps).toHaveBeenCalledWith(expect.objectContaining({ onTrimCommit }));
+  });
+
+  it('lifts the map credit clear of the slider laid over its foot', async () => {
+    await hero();
+    await act(async () => {
+      screen.getByTestId('review-trim').props.onLayout({ nativeEvent: { layout: { height: 72 } } });
+    });
+
+    expect(mockRecordingMapProps).toHaveBeenLastCalledWith(
+      expect.objectContaining({ coveredBottom: 72 })
+    );
   });
 });

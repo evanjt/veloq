@@ -6,7 +6,6 @@
  *   optionally with the glyph the map draws along that line.
  * - `MapKeyRamp`: a continuous scale, with its two ends named or its values
  *   ticked where they fall along it.
- * - `MapKeyNote`: a line about how to read the rows above it.
  */
 
 import React from 'react';
@@ -100,10 +99,6 @@ export function MapKeySwatch({
   );
 }
 
-export function MapKeyNote({ text, isDark }: { text: string; isDark: boolean }) {
-  return <Text style={[styles.text, isDark && styles.textDark]}>{text}</Text>;
-}
-
 export function MapKeyRamp({
   ramp,
   ends,
@@ -136,7 +131,7 @@ export function MapKeyRamp({
         <View style={styles.ticks}>
           {ticks.map(({ at, label }) => (
             <View
-              key={label}
+              key={at}
               style={[
                 styles.tick,
                 {

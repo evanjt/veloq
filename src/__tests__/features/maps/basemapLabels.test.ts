@@ -1,5 +1,5 @@
 import { LIBERTY_STYLE } from '@/features/maps/styles/liberty';
-import { DARK_MATTER_STYLE } from '@/features/maps/components/darkMatterStyle';
+import { DARK_MATTER_STYLE } from '@/features/maps/styles/darkMatter';
 
 // Scenario: a label that reads name:nonlatin makes the renderer fetch glyph ranges for scripts
 // no label on screen uses. Expected behaviour: no label reads it, and a place with no English

@@ -4,6 +4,8 @@ import { SectionHistoryPanel } from '@/features/routes/components/section/Sectio
 import { NO_EVENT_DETAILS } from '@/features/routes/lib/sectionLedger';
 import type { FfiBoundaryReason, FfiSectionEventDetails } from 'veloqrs';
 import { router } from 'expo-router';
+import { MapSheetCardContext, type MapSheetCardValue } from '@/shared/app/MapSheetHost';
+import { openHost, useMapSheetHosts } from '@/shared/app/mapSheetHost';
 
 jest.mock('react-i18next', () => ({
   ...jest.requireActual('react-i18next'),
@@ -444,5 +446,68 @@ describe('why the line was cut', () => {
       history: [cutEvent(16, 'recut', [{ kind: 'fork' }, { kind: 'fork' }])],
     });
     expect(getAllByText('sectionHistory.cut_fork')).toHaveLength(1);
+  });
+});
+
+describe('SectionHistoryPanel inside a map sheet card', () => {
+  const splitFromParent = [
+    {
+      id: 4,
+      at: '2026-08-21 00:00:00',
+      kind: 'formed',
+      details: details({
+        splitFrom: { id: 'parent', name: 'Col de la Croix', available: true },
+        around: ['act_b'],
+      }),
+      geometryVersion: 1,
+    },
+  ];
+
+  async function renderInCard() {
+    useMapSheetHosts.setState({ hosts: {} });
+    const hostKey = openHost('section', 'child');
+    const card: MapSheetCardValue = {
+      hostKey,
+      index: 0,
+      onTop: true,
+      opens: (kind) => kind === 'section',
+    };
+    const view = await render(
+      <MapSheetCardContext.Provider value={card}>
+        <SectionHistoryPanel
+          isDark={false}
+          history={splitFromParent}
+          versions={versions}
+          pinnedVersion={null}
+          shownVersion={null}
+          onShowVersion={jest.fn()}
+          onRevert={jest.fn()}
+          onUnpin={jest.fn()}
+        />
+      </MapSheetCardContext.Provider>
+    );
+    return { ...view, hostKey };
+  }
+
+  beforeEach(() => jest.mocked(router.push).mockClear());
+
+  it('opens a linked section as a card in the same sheet and pushes no screen', async () => {
+    const { getByTestId, hostKey } = await renderInCard();
+
+    await fireEvent.press(getByTestId('section-history-split-from-parent'));
+
+    expect(router.push).not.toHaveBeenCalled();
+    expect(
+      useMapSheetHosts.getState().hosts[hostKey]?.cards.map((card) => `${card.kind}:${card.id}`)
+    ).toEqual(['section:child', 'section:parent']);
+  });
+
+  it('opens an activity, which has no card here, as its own screen', async () => {
+    const { getByTestId, hostKey } = await renderInCard();
+
+    await fireEvent.press(getByTestId('section-history-around-4-act_b'));
+
+    expect(router.push).toHaveBeenCalledWith('/activity/act_b');
+    expect(useMapSheetHosts.getState().hosts[hostKey]?.cards).toHaveLength(1);
   });
 });

@@ -3,11 +3,14 @@
  *
  * Expected behaviour: the inline section and route detail maps hand the
  * theme's vector basemap to their surface, and satellite again once online.
+ * The style toggle steps on from the basemap drawn, so a tap offline changes
+ * what is on screen rather than re-choosing the base already shown.
  */
 
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { BaseMapView } from '@/features/maps/components/BaseMapView';
 import { RouteMapView } from '@/features/routes/components/RouteMapView';
 import { SectionMapView } from '@/features/routes/components/SectionMapView';
 import type { FrequentSection, RoutePoint } from '@/types';
@@ -109,5 +112,53 @@ describe.each(Object.keys(views))('%s detail map offline style', (name) => {
     mockOnline = true;
     await rerender(tree());
     expect(mockSurfaceStyles.at(-1)).toBe('satellite');
+  });
+});
+
+const toggles: Record<string, { view: () => React.ReactElement; toggle: string }> = {
+  section: {
+    view: () => <SectionMapView section={{ ...SECTION }} interactive />,
+    toggle: 'section-map-style-toggle',
+  },
+  fullscreen: {
+    view: () => (
+      <BaseMapView
+        routeCoordinates={POINTS.map((p) => [p.lng, p.lat] as [number, number])}
+        initialStyle="satellite"
+        show3DToggle={false}
+      />
+    ),
+    toggle: 'map-style-toggle',
+  },
+};
+
+describe.each(Object.keys(toggles))('%s map style toggle offline', (name) => {
+  beforeEach(() => {
+    mockOnline = false;
+    mockSurfaceStyles.length = 0;
+  });
+
+  const tree = () => (
+    <SafeAreaProvider initialMetrics={METRICS}>{toggles[name].view()}</SafeAreaProvider>
+  );
+
+  it('steps on from the drawn basemap with satellite chosen', async () => {
+    await render(tree());
+    expect(mockSurfaceStyles.at(-1)).toBe('light');
+
+    await fireEvent.press(screen.getByTestId(toggles[name].toggle));
+    expect(mockSurfaceStyles.at(-1)).toBe('dark');
+
+    await fireEvent.press(screen.getByTestId(toggles[name].toggle));
+    // Satellite is chosen again and drawn as the theme's basemap while offline.
+    expect(mockSurfaceStyles.at(-1)).toBe('light');
+  });
+
+  it('draws the chosen style once back online', async () => {
+    const { rerender } = await render(tree());
+    await fireEvent.press(screen.getByTestId(toggles[name].toggle));
+    mockOnline = true;
+    await rerender(tree());
+    expect(mockSurfaceStyles.at(-1)).toBe('dark');
   });
 });

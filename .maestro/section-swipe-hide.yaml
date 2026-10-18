@@ -1,9 +1,10 @@
 # Section Swipe-to-Hide (US-S5)
-# Swiping left on a section card reveals the "Hide" action. Tapping it
-# should remove the section from the visible list.
+# Swiping left on a section card reveals the remove action. Tapping it
+# should remove the section from the visible list. The row and the action are
+# found by id, since a fixed screen height and the action's copy both drift.
 #
 # Implementation: Swipeable from react-native-gesture-handler in
-# ActivitySectionsSection.tsx; the hide action calls handleToggleDisable
+# ActivitySectionsSection.tsx; the remove action calls handleDisable
 # which flips sections.disabled = 1 in the Rust engine.
 
 appId: com.veloq.app.dev
@@ -44,14 +45,15 @@ tags:
     commands:
       - takeScreenshot: "screenshots/section-swipe-before"
       - swipe:
-          start: 90%, 68%
-          end: 20%, 68%
+          from:
+            id: "section-inline-plot-0"
+          direction: LEFT
           duration: 800
       - waitForAnimationToEnd:
           timeout: 1500
       - takeScreenshot: "screenshots/section-swipe-revealed"
       - tapOn:
-          text: "Hide"
+          id: "section-swipe-remove"
       - waitForAnimationToEnd:
           timeout: 2000
       - takeScreenshot: "screenshots/section-swipe-after-hide"

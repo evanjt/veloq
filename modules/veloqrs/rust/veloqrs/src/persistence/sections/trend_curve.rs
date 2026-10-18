@@ -198,7 +198,7 @@ pub(crate) fn route_trend_curves(
             .iter()
             .filter(|p| p.direction != "partial" && !p.outside_distance_band && p.speed.is_finite())
             .map(|p| Attempt {
-                time: p.date as f64,
+                time: p.date.0 as f64,
                 speed: p.speed,
                 duration: f64::from(p.duration),
                 reverse: p.direction == "reverse",
@@ -330,7 +330,7 @@ mod tests {
         crate::RoutePerformance {
             activity_id: format!("a{day}"),
             name: String::new(),
-            date: (1_700_000_000.0 + day * DAY) as i64,
+            date: crate::WholeNumber((1_700_000_000.0 + day * DAY) as i64),
             speed,
             duration: (1000.0 / speed).round() as u32,
             moving_time: (1000.0 / speed).round() as u32,

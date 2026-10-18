@@ -1,6 +1,6 @@
 import React from 'react';
-import { render } from '@testing-library/react-native';
 import MapScreen from '@/app/(tabs)/map';
+import { renderStaged } from '../__shared__/stagedRender';
 
 const mockUseMap = jest.fn();
 let mockRouteMatchingEnabled = true;
@@ -97,7 +97,7 @@ describe('map screen route matching switch', () => {
 
   it('hands the engine read, the map view and the deep link the switch when it is off', async () => {
     mockRouteMatchingEnabled = false;
-    await render(<MapScreen />);
+    await renderStaged(<MapScreen />);
     expect(mockUseMap).toHaveBeenLastCalledWith(
       expect.objectContaining({ sectionsEnabled: false })
     );
@@ -108,7 +108,7 @@ describe('map screen route matching switch', () => {
 
   it('carries the switch and the deep-linked section through when it is on', async () => {
     mockRouteMatchingEnabled = true;
-    await render(<MapScreen />);
+    await renderStaged(<MapScreen />);
     expect(mockUseMap).toHaveBeenLastCalledWith(expect.objectContaining({ sectionsEnabled: true }));
     const props = mockMapView.mock.calls.at(-1)?.[0] as Record<string, unknown>;
     expect(props.sectionsEnabled).toBe(true);

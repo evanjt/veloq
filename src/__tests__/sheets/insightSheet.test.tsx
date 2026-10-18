@@ -2,6 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 
 import InsightSheet from '@/app/sheets/insight';
+import { rootScreenLayout } from '@/shared/ui/rootScreenLayout';
 import { InsightsPanel } from '@/features/insights/components/InsightsPanel';
 import { sheetScrollPlacement } from '../__shared__/sheetScrollPlacement';
 import { initialiseI18n } from '@/i18n';
@@ -90,12 +91,12 @@ it('opens the tapped insight in a route and dismisses before opening its detail'
     params: { request: expect.any(String) },
   });
   mockParams = { request: mockPush.mock.calls[0][0].params.request };
-  await render(<InsightSheet />);
+  await render(rootScreenLayout({ route: { name: 'sheets/insight' }, children: <InsightSheet /> }));
   const sheet = within(screen.getByTestId('insight-detail-sheet'));
   expect(sheet.getByText('Second climb')).toBeTruthy();
   expect(sheet.queryByText('First climb')).toBeNull();
 
-  expect(sheetScrollPlacement(screen.toJSON())).not.toBe('nested');
+  expect(sheetScrollPlacement(screen.toJSON())).toBe('root');
 
   await fireEvent.press(sheet.getByTestId('methodology-toggle'));
   await fireEvent.press(sheet.getByTestId('insight-data-link'));

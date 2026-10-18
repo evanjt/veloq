@@ -55,7 +55,6 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
       bounces={false}
-      nestedScrollEnabled={true}
     >
       <SheetHeader
         title={insight.title}

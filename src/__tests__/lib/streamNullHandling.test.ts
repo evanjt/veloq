@@ -1,34 +1,30 @@
 /**
  * Scenario: the engine's streams carry NaN where a sensor dropped out.
  *
- * Expected behaviour: a dropout is excluded from every chip figure. It neither
- * pulls the mean or the range towards 0 nor differences into elevation gain.
+ * Expected behaviour: a dropout is excluded from every lane readout. It
+ * neither pulls the mean towards 0 nor differences into elevation gain.
  */
-import { CHART_CONFIGS } from '@/features/activity/lib/chartConfig';
-import { computeAllAverages } from '@/features/stats/lib/combinedPlotData';
+import { CHART_CONFIGS, type ChartTypeId } from '@/features/activity/lib/chartConfig';
+import { laneReadout } from '@/features/stats/lib/combinedPlotData';
 import { streamsFromArrays, type StreamArrays } from '@/features/activity/lib/streams';
+import { ABSENT } from '@/shared/format/absent';
 
-function chips(streams: StreamArrays, elevationGain = 0) {
-  const values = computeAllAverages(CHART_CONFIGS, streamsFromArrays(streams), true, elevationGain);
-  return Object.fromEntries(values.map((v) => [v.id, v]));
+function idle(id: ChartTypeId, streams: StreamArrays, elevationGain = 0) {
+  const config = CHART_CONFIGS[id];
+  const rawData = config.getStream?.(streamsFromArrays(streams)) ?? [];
+  return laneReadout(config, rawData, null, true, elevationGain);
 }
 
 describe('stream null handling', () => {
   it('averages heart rate over the samples the strap recorded', () => {
-    const { heartrate } = chips({ heartrate: [NaN, 150, 160, 170] });
-    expect(heartrate.value).toBe('160');
-    expect(heartrate.maxValueWidth).toBe('170');
+    expect(idle('heartrate', { heartrate: [NaN, 150, 160, 170] }).value).toBe('160');
   });
 
   it('shows the activity gain across a dropout', () => {
-    const { elevation } = chips({ altitude: [100, NaN, 100, 110] }, 10);
-    expect(elevation.value).toBe('+10');
-    expect(elevation.maxValueWidth).toBe('+10');
+    expect(idle('elevation', { altitude: [100, NaN, 100, 110] }, 10).value).toBe('+10');
   });
 
-  it('leaves a chart out when every sample is a dropout', () => {
-    const values = chips({ heartrate: [NaN, NaN], altitude: [NaN] });
-    expect(values.heartrate).toBeUndefined();
-    expect(values.elevation).toBeUndefined();
+  it('reads the absent mark when every sample is a dropout', () => {
+    expect(idle('heartrate', { heartrate: [NaN, NaN] }).value).toBe(ABSENT);
   });
 });

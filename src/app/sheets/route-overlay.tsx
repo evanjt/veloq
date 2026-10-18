@@ -24,7 +24,7 @@ import {
 } from '@/theme';
 import type { ActivityType } from '@/types';
 import { engineErrorKey } from '@/shared/native/engineError';
-import { EmptyState, SheetHeader, PressTarget } from '@/shared/ui';
+import { EmptyState, SheetHeader, PressTarget, sheetScrollProps } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { goBack } from '@/shared/app/navigation';
 import { NameText } from '@/shared/ui/NameText';
@@ -157,6 +157,7 @@ function RouteOverlaySheetContent() {
           data={sortedGroups}
           keyExtractor={(g) => g.id}
           style={styles.list}
+          {...sheetScrollProps}
           renderItem={({ item }) => {
             const isSelected = item.id === selectedRouteId;
             // Only a measured overlap is a figure; before the first measurement, after a

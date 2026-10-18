@@ -19,7 +19,7 @@ import {
   type ChartTypeId,
 } from '@/features/activity/lib/chartConfig';
 import type { ActivityStreams as Streams, ActivityInterval, ActivityType } from '@/types';
-import { ChartErrorBoundary, EmptyState } from '@/shared/ui';
+import { ChartErrorBoundary, EmptyState, FitText } from '@/shared/ui';
 import { DENSE_TEXT_SCALE, DenseText, denseExtent } from '@/shared/ui/DenseText';
 import {
   ChartCanvas,
@@ -46,16 +46,15 @@ import {
 } from '@/shared/charts';
 import {
   buildChartData,
-  computeAllAverages,
   computeIntervalBands,
   formatScrubValue,
+  laneReadout,
   laneStack,
   LANE_AXIS_HEIGHT,
   LANE_TITLE_HEIGHT,
   resolveBandColour,
   seriesAverage,
   seriesUnit,
-  type ChartMetricValue,
   type EmptyPlotCause,
   type IntervalBand,
   type SeriesInfo,
@@ -64,8 +63,6 @@ import { ChartXAxisLabel, type ChartXAxisLabelHandle } from './ChartXAxisLabel';
 import { ABSENT } from '@/shared/format/absent';
 import { formatDecimal } from '@/shared/format';
 import { formatDuration } from '@/shared/format/format';
-
-export type { ChartMetricValue };
 
 interface ActivityStreamsProps {
   streams: Streams;
@@ -85,8 +82,6 @@ interface ActivityStreamsProps {
   intervals?: ActivityInterval[] | undefined;
   /** Activity type - needed for zone color selection (power vs HR) */
   activityType?: ActivityType | undefined;
-  /** Called with per-series values when scrubbing or averages when idle */
-  onMetricsChange?: ((metrics: ChartMetricValue[], isScrubbing: boolean) => void) | undefined;
 }
 
 type Datum = Record<string, number>;
@@ -120,14 +115,22 @@ function laneTitle(name: string, unit: string): string {
   return unit ? `${name} (${unit})` : name;
 }
 
+/** What a lane's readout says it is, spoken before the value and drawn before it. */
+const READOUT_MARK_KEYS = {
+  average: { shown: 'activity.chartAverage', spoken: 'activity.stats.average' },
+  gain: { shown: 'activity.chartGain', spoken: 'activity.chartGain' },
+} as const;
+
 /**
  * An activity's recorded streams, one lane per stream on a shared distance or
  * time axis. Each lane is drawn at its own extent in its own unit, titled with
  * both, with its highest and lowest value in a gutter beside it, so no two
  * streams share a scale. Elevation and temperature are grey context areas,
  * grade fills either side of zero, and every other stream is a line in its
- * own colour with its average dashed across it. One scrub line runs through
- * every lane with a dot on each.
+ * own colour with its average dashed across it. Each title carries the lane's
+ * value: its average, or for elevation the climb's gain, and the sample under
+ * the finger while scrubbing. One scrub line runs through every lane with a
+ * dot on each.
  */
 export const ActivityStreams = React.memo(function ActivityStreams({
   streams,
@@ -140,7 +143,6 @@ export const ActivityStreams = React.memo(function ActivityStreams({
   xAxisMode = 'distance',
   intervals,
   activityType,
-  onMetricsChange,
 }: ActivityStreamsProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -178,16 +180,6 @@ export const ActivityStreams = React.memo(function ActivityStreams({
   const titleHeight = Math.ceil(LANE_TITLE_HEIGHT * Math.min(fontScale, DENSE_TEXT_SCALE));
   const stack = laneStack(seriesInfo.length, height, titleHeight);
 
-  // The idle readout: every available stream's average, or the climb's gain.
-  const allAverages = useMemo(
-    () => computeAllAverages(chartConfigs, streams, isMetric, elevationGain),
-    [chartConfigs, streams, isMetric, elevationGain]
-  );
-
-  useEffect(() => {
-    if (allAverages.length > 0) onMetricsChange?.(allAverages, false);
-  }, [allAverages, onMetricsChange]);
-
   const xUnit = xAxisMode === 'time' ? '' : isMetric ? 'km' : 'mi';
   const xLabel = useCallback(
     (x: number) => (xAxisMode === 'time' ? formatDuration(x) : `${formatDecimal(x, 2)} ${xUnit}`),
@@ -199,19 +191,9 @@ export const ActivityStreams = React.memo(function ActivityStreams({
       const sample = indexMap[idx];
       if (sample === undefined) return;
       xAxisLabel.current?.setScrub(point.x ?? 0);
-      const scrubbed: ChartMetricValue[] = seriesInfo.map((s) => ({
-        id: s.id,
-        label: s.config.label,
-        value: formatScrubValue(s.config, s.rawData[sample], isMetric),
-        unit: seriesUnit(s.config, isMetric),
-        // The widest value the chip may show, so it keeps its width while scrubbing.
-        maxValueWidth: allAverages.find((a) => a.id === s.id)?.maxValueWidth,
-      }));
-      const drawn = new Set(scrubbed.map((v) => v.id));
-      onMetricsChange?.([...scrubbed, ...allAverages.filter((a) => !drawn.has(a.id))], true);
       onPointSelect?.(sample);
     },
-    [indexMap, seriesInfo, isMetric, allAverages, onMetricsChange, onPointSelect]
+    [indexMap, onPointSelect]
   );
 
   const handleInteractionChange = useCallback(
@@ -219,11 +201,10 @@ export const ActivityStreams = React.memo(function ActivityStreams({
       if (!active) {
         xAxisLabel.current?.setScrub(null);
         onPointSelect?.(null);
-        if (allAverages.length > 0) onMetricsChange?.(allAverages, false);
       }
       onInteractionChange?.(active);
     },
-    [allAverages, onMetricsChange, onPointSelect, onInteractionChange]
+    [onPointSelect, onInteractionChange]
   );
 
   const describePoint = useCallback(
@@ -320,6 +301,8 @@ export const ActivityStreams = React.memo(function ActivityStreams({
   }
 
   const scrubbed = chartData[scrubIndex];
+  // The raw sample under the scrub, which each lane's title reads; null at rest.
+  const scrubSample = scrubIndex < 0 ? null : (indexMap[scrubIndex] ?? -1);
 
   return (
     <ChartErrorBoundary height={stack.height} chartName="Activity Chart">
@@ -340,6 +323,8 @@ export const ActivityStreams = React.memo(function ActivityStreams({
                   unit={seriesUnit(lane.config, isMetric)}
                   isMetric={isMetric}
                   isDark={isDark}
+                  elevationGain={elevationGain}
+                  scrubSample={scrubSample}
                   titleHeight={titleHeight}
                   plotHeight={stack.plotHeight}
                   data={chartData}
@@ -381,6 +366,9 @@ interface StreamLaneProps {
   unit: string;
   isMetric: boolean;
   isDark: boolean;
+  elevationGain: number | null | undefined;
+  /** The raw sample a scrub reads, null at rest. */
+  scrubSample: number | null;
   titleHeight: number;
   plotHeight: number;
   data: Datum[];
@@ -391,13 +379,15 @@ interface StreamLaneProps {
   colours: ReturnType<typeof useChartColors>;
 }
 
-/** One stream's lane: its title, its value gutter and its plot. */
+/** One stream's lane: its title and value, its value gutter and its plot. */
 function StreamLane({
   lane,
   name,
   unit,
   isMetric,
   isDark,
+  elevationGain,
+  scrubSample,
   titleHeight,
   plotHeight,
   data,
@@ -413,15 +403,40 @@ function StreamLane({
     [lane]
   );
   const labelStyle = [chartStyles.chartLabel, isDark && chartStyles.chartLabelDark];
+  const strongStyle = [chartStyles.chartLabelStrong, isDark && chartStyles.chartLabelStrongDark];
+  const { t } = useTranslation();
+  // The rest value reads the whole stream, so it is taken once rather than per scrub tick.
+  const atRest = useMemo(
+    () => laneReadout(lane.config, lane.rawData, null, isMetric, elevationGain),
+    [lane, isMetric, elevationGain]
+  );
+  const readout =
+    scrubSample === null
+      ? atRest
+      : laneReadout(lane.config, lane.rawData, scrubSample, isMetric, elevationGain);
+  const mark = readout.mark ? READOUT_MARK_KEYS[readout.mark] : null;
+  const spokenValue =
+    readout.unit && readout.value !== ABSENT ? `${readout.value} ${readout.unit}` : readout.value;
 
   return (
     <View testID={`activity-lane-${lane.id}`}>
       <View style={[styles.title, { minHeight: titleHeight }]}>
-        <DenseText
-          style={[chartStyles.chartLabelStrong, isDark && chartStyles.chartLabelStrongDark]}
-        >
+        <FitText style={[strongStyle, styles.titleName]} maxFontSizeMultiplier={DENSE_TEXT_SCALE}>
           {laneTitle(name, unit)}
-        </DenseText>
+        </FitText>
+        <FitText
+          testID={`activity-lane-${lane.id}-value`}
+          style={[strongStyle, styles.titleValue]}
+          maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+          accessibilityLabel={mark ? `${t(mark.spoken)} ${spokenValue}` : spokenValue}
+        >
+          {mark && readout.mark ? (
+            <DenseText testID={`activity-lane-${lane.id}-${readout.mark}`} style={labelStyle}>
+              {`${t(mark.shown)} `}
+            </DenseText>
+          ) : null}
+          {readout.value}
+        </FitText>
       </View>
       <View style={[styles.laneRow, { height: plotHeight }]}>
         {/* The values are read from the summary, so a screen reader skips the gutter. */}
@@ -668,8 +683,20 @@ const styles = StyleSheet.create({
   surface: {
     flex: 0,
   },
+  // One line: the name at the start and the value at the end, so a changing
+  // value never moves the plot under it.
   title: {
-    justifyContent: 'flex-end',
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: spacing.xs,
+  },
+  titleName: {
+    flexShrink: 1,
+  },
+  titleValue: {
+    flexShrink: 0,
+    fontVariant: ['tabular-nums'],
   },
   laneRow: {
     flexDirection: 'row',

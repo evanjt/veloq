@@ -9,7 +9,7 @@ import { FullWindowModal } from '@/shared/ui/FullWindowModal';
 import { useIsFocused } from 'expo-router';
 
 import { LatLng } from '@/shared/geo/polyline';
-import { useDrawnMapStyle } from '@/features/maps/hooks/useDrawnMapStyle';
+import { useMapStyleToggle } from '@/features/maps/hooks/useDrawnMapStyle';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
 import { buildUserLocationCollection } from '@/features/maps/lib/userLocationLayer';
 import {
@@ -36,42 +36,36 @@ import {
 import { HIGHLIGHT_THROTTLE_MS, REGION_SETTLE_DEBOUNCE_MS } from '@/features/maps/lib/mapBudgets';
 import { cameraAfter3D } from '@/features/maps/lib/cameraAfter3D';
 import { visibleMapInset } from '@/features/maps/lib/activityCamera';
-import { TROPHY_ICON } from '@/features/maps/lib/mapIcons';
-import { ENDPOINT_IMAGES } from '@/features/maps/lib/endpointLayers';
 import type { ActivityType, ActivityStreams, RoutePoint } from '@/types';
 import { BaseMapView, type BaseMap3DLayer } from './BaseMapView';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
-import { MapSurface, type MapCameraState, type MapPressEvent } from './MapSurface';
+import { type MapCameraState, type MapPressEvent } from './MapSurface';
+import { SlottedMapSurface, useInMapSurfaceSlot } from './MapSurfaceSlot';
 import type { MapCameraSpec } from '@/features/maps/lib/htmlBuilders/mapSurface';
 import {
   SectionCreationOverlay,
   type CreationState,
   type SectionCreationError,
 } from './SectionCreationOverlay';
-import {
-  type MapStyleType,
-  getNextStyle,
-  MAP_ATTRIBUTIONS,
-  statusBarStyleForMap,
-} from './mapStyles';
+import { type MapStyleType, MAP_ATTRIBUTIONS, statusBarStyleForMap } from './mapStyles';
 import { AttributionOverlay, type AttributionOverlayRef } from './AttributionOverlay';
 import { ActivityMapControls } from './ActivityMapControls';
 import { ActivityMapKey } from './ActivityMapKey';
 import { activityKeyRows } from './activityMapKey';
 import { activityMapControlCount, useMapControlColumn } from '../lib/mapControlColumnLayout';
 import {
+  ACTIVITY_MAP_IMAGES,
+  activityMapSpecs,
   buildActivity3DCollections,
-  buildActivityLayers,
-  buildActivitySources,
+  type ActivityLayerInput,
+  type ActivitySourceInput,
   buildFullscreenMatchedRouteLayers,
   buildFullscreenSectionLayers,
   buildFullscreenSectionSources,
   FULLSCREEN_SECTION_MARKER_LAYER_IDS,
-  SECTION_MARKER_LAYER_IDS,
 } from './activityMapLayerSpecs';
 import { styles } from './ActivityMapView.styles';
 import { motionTiming } from '@/shared/ui/reduceMotion';
-const OVERLAY_IMAGES = [TROPHY_ICON, ...ENDPOINT_IMAGES];
 
 /** The 2D layer, held transparent until the surface reports one way or the other. */
 export const ACTIVITY_MAP_2D_LAYER_TEST_ID = 'activity-map-2d-layer';
@@ -222,7 +216,13 @@ export const ActivityMapView = memo(function ActivityMapView({
   const { getStyleForActivity } = useMapPreferences();
   const preferredStyle = getStyleForActivity(activityType, activityId);
   const [chosenStyle, setMapStyle] = useState<MapStyleType>(initialStyle ?? preferredStyle);
-  const mapStyle = useDrawnMapStyle(chosenStyle);
+  // Track if user manually overrode the style
+  const [userOverride, setUserOverride] = useState(false);
+  const chooseStyle = useCallback((next: MapStyleType) => {
+    setUserOverride(true);
+    setMapStyle(next);
+  }, []);
+  const { drawn: mapStyle, cycle: toggleMapStyle } = useMapStyleToggle(chosenStyle, chooseStyle);
   const { isFullscreen, openFullscreen, closeFullscreen } = useMapFullscreen({ enableFullscreen });
   const [is3DMode, setIs3DMode] = useState(!!initial3DCamera);
   const [is3DReady, setIs3DReady] = useState(false);
@@ -252,9 +252,6 @@ export const ActivityMapView = memo(function ActivityMapView({
   // visit, so a camera that arrives afterwards must not override either.
   const userChose3DRef = useRef(false);
   const hadInitialCameraRef = useRef(!!initial3DCamera);
-
-  // Track if user manually overrode the style
-  const [userOverride, setUserOverride] = useState(false);
 
   // Parse and validate coordinates early so they're available for callbacks
   const coordinates = useMemo(() => {
@@ -375,11 +372,6 @@ export const ActivityMapView = memo(function ActivityMapView({
       setMapStyle(preferredStyle);
     }
   }, [userOverride, initialStyle, chosenStyle, preferredStyle]);
-
-  const toggleMapStyle = useCallback(() => {
-    setUserOverride(true);
-    setMapStyle((current) => getNextStyle(current));
-  }, []);
 
   // Toggle 3D mode
   const toggle3D = useCallback(() => {
@@ -550,7 +542,12 @@ export const ActivityMapView = memo(function ActivityMapView({
   const is3DLoading = is3DMode && !is3DReady;
   const posterCovers3DBoot =
     is3DLoading && posterUri !== null && !(mapReady || mapFailed) && !map3DCrashed;
-  const show2DSurface = !(is3DMode && is3DReady) && !isFullscreen && !posterCovers3DBoot;
+  // A slot's surface is shared with the subjects beneath this one, so it stays under the 3D
+  // layer and the fullscreen map, and popping back to a flat subject needs no load.
+  const inSlot = useInMapSurfaceSlot();
+  const show2DSurface =
+    inSlot || (!(is3DMode && is3DReady) && !isFullscreen && !posterCovers3DBoot);
+  const touchThrough = inSlot ? 'box-none' : 'auto';
 
   const surfaceReady = is3DMode ? is3DReady : mapReady || mapFailed;
   const [camera2DOnHide, setCamera2DOnHide] = useState<MapCameraSpec | null>(null);
@@ -687,20 +684,19 @@ export const ActivityMapView = memo(function ActivityMapView({
     [userLocation]
   );
 
-  const sources = useMemo(
-    () =>
-      buildActivitySources({
-        routeGeoJSON,
-        overlayGeoJSON,
-        consolidatedPortionsGeoJSON,
-        sectionBoundariesGeoJSON,
-        sectionMarkersGeoJSON,
-        highlightGeoJSON: throttledHighlight,
-        endpointsGeoJSON,
-        sectionCreationLine: sectionGeoJSON,
-        sectionCreationMarkers,
-        userLocationGeoJSON,
-      }),
+  const sourceInput = useMemo(
+    (): ActivitySourceInput => ({
+      routeGeoJSON,
+      overlayGeoJSON,
+      consolidatedPortionsGeoJSON,
+      sectionBoundariesGeoJSON,
+      sectionMarkersGeoJSON,
+      highlightGeoJSON: throttledHighlight,
+      endpointsGeoJSON,
+      sectionCreationLine: sectionGeoJSON,
+      sectionCreationMarkers,
+      userLocationGeoJSON,
+    }),
     [
       routeGeoJSON,
       overlayGeoJSON,
@@ -747,19 +743,18 @@ export const ActivityMapView = memo(function ActivityMapView({
       highlightedSectionId,
     ]
   );
-  const layers = useMemo(
-    () =>
-      buildActivityLayers({
-        palette: basePalette,
-        overlayHasData,
-        gradientActive,
-        gradientLineExpression,
-        hasSectionOverlays,
-        highlightedSectionId,
-        hasHighlightPoint,
-        creationMode,
-        hasUserLocation: userLocation !== null,
-      }),
+  const layerInput = useMemo(
+    (): ActivityLayerInput => ({
+      palette: basePalette,
+      overlayHasData,
+      gradientActive,
+      gradientLineExpression,
+      hasSectionOverlays,
+      highlightedSectionId,
+      hasHighlightPoint,
+      creationMode,
+      hasUserLocation: userLocation !== null,
+    }),
     [
       basePalette,
       overlayHasData,
@@ -771,6 +766,12 @@ export const ActivityMapView = memo(function ActivityMapView({
       creationMode,
       userLocation,
     ]
+  );
+
+  const specs = useMemo(
+    () =>
+      activityMapSpecs({ sources: sourceInput, layers: layerInput, coordinates: validCoordinates }),
+    [sourceInput, layerInput, validCoordinates]
   );
 
   const fullscreenSources = useMemo(
@@ -881,8 +882,8 @@ export const ActivityMapView = memo(function ActivityMapView({
   }
 
   return (
-    <View style={[styles.outerContainer, { height }]}>
-      <View style={styles.container}>
+    <View style={[styles.outerContainer, { height }]} pointerEvents={touchThrough}>
+      <View style={styles.container} pointerEvents={touchThrough}>
         {/* The snapshot the feed drew, under everything, until a surface is up. */}
         {posterUri && !surfaceReady ? (
           <Image
@@ -899,12 +900,13 @@ export const ActivityMapView = memo(function ActivityMapView({
             one being looked at: a hidden WebView keeps its GL context and its
             tile textures, which is the whole cost of having it. */}
         {show2DSurface ? (
-          <View style={styles.mapLayer}>
+          <View style={styles.mapLayer} pointerEvents={touchThrough}>
             <View
               style={[styles.map, { opacity: mapReady || mapFailed ? 1 : 0 }]}
+              pointerEvents={touchThrough}
               testID={ACTIVITY_MAP_2D_LAYER_TEST_ID}
             >
-              <MapSurface
+              <SlottedMapSurface
                 ref={surfaceRef}
                 mapStyle={mapStyle}
                 initialCamera={
@@ -913,10 +915,10 @@ export const ActivityMapView = memo(function ActivityMapView({
                     padding: fitPadding,
                   }
                 }
-                sources={sources}
-                layers={layers}
-                images={OVERLAY_IMAGES}
-                interactiveLayers={SECTION_MARKER_LAYER_IDS}
+                sources={specs.sources}
+                layers={specs.layers}
+                images={specs.images}
+                interactiveLayers={specs.interactiveLayers}
                 released={!screenFocused}
                 onMapReady={handleMapReady}
                 onMapFailed={handleMapFailed}
@@ -1019,7 +1021,7 @@ export const ActivityMapView = memo(function ActivityMapView({
           overlaySources={fullscreenSources}
           overlayLayers={fullscreenLayers}
           underRouteLayers={fullscreenMatchedRouteLayers}
-          overlayImages={OVERLAY_IMAGES}
+          overlayImages={ACTIVITY_MAP_IMAGES}
           interactiveLayers={FULLSCREEN_SECTION_MARKER_LAYER_IDS}
           onPress={handleFullscreenPress}
           layer3D={fullscreenLayer3D}

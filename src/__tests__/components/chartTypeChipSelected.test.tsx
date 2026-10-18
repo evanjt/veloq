@@ -1,5 +1,5 @@
 /**
- * Scenario: a chart type chip is selected. Its label, icon and value are text
+ * Scenario: a chart type chip is selected. Its label and icon are text
  * on the chip's ground, in either theme, for every stream.
  *
  * Expected behaviour: the selected chip takes the standard selected fill and
@@ -39,12 +39,7 @@ describe.each(THEMES)('a selected chart type chip in the %s theme', (_, isDark, 
     '%s takes the selected fill and its text clears 4.5:1 on it',
     async (id, config) => {
       const tree = await render(
-        <ChartTypeSelector
-          available={[config]}
-          selected={[id]}
-          onToggle={jest.fn()}
-          metricValues={[{ id, value: '123', unit: config.unit ?? '', isAverage: true }]}
-        />
+        <ChartTypeSelector available={[config]} selected={[id]} onToggle={jest.fn()} />
       );
       const chip = tree.getByTestId(`chart-type-${id}`);
       const ground = groundOf(`chart-type-${id}`, tree);

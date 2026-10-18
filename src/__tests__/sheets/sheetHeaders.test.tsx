@@ -6,7 +6,8 @@
  * shared Cancel, a sheet that only shows something trails it with a close, the shared icon button
  * with a translated label, and a sheet that ends on its own dismiss action carries neither. On
  * Android the title row carries no control, left aligned, since drag, the scrim and back dismiss
- * the sheet.
+ * the sheet. A sheet whose body scrolls hands Android's sheet a nested scrolling body, so a drag
+ * down scrolls the body back to its top before it moves the sheet.
  */
 import React from 'react';
 import { Platform, StyleSheet } from 'react-native';
@@ -20,6 +21,7 @@ import { SheetHeader } from '@/shared/ui/SheetHeader';
 import { TextField } from '@/shared/ui/TextField';
 import { i18n, initialiseI18n } from '@/i18n';
 import { colors, darkColors, typography } from '@/theme';
+import { sheetScrollHandsOff } from '../__shared__/sheetScrollPlacement';
 
 const mockPush = jest.fn();
 let mockParams: { request?: string } = {};
@@ -283,5 +285,15 @@ describe.each(Object.keys(SCREEN_SHEETS))('%s', (route) => {
     expect(screen.queryAllByLabelText(i18n.t('common.close'))).toHaveLength(0);
     const style = StyleSheet.flatten(screen.getByRole('header').props.style);
     expect(style.textAlign ?? 'auto').not.toBe('center');
+  });
+
+  it('hands a drag to its scrolling body on Android, before the sheet takes it', async () => {
+    Platform.OS = 'android';
+    await openRoute(route);
+    const tree = screen.toJSON();
+    const scrolls = screen.UNSAFE_root.findAll(
+      (node) => String(node.type) === 'RCTScrollView' && !node.props.horizontal
+    );
+    expect(scrolls.length === 0 || sheetScrollHandsOff(tree)).toBe(true);
   });
 });

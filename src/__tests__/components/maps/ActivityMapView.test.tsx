@@ -218,15 +218,7 @@ describe('ActivityMapView', () => {
       grade_smooth: [-12, -3, 4, 14],
       distance: [0, 100, 200, 300],
     });
-    const TICKS = [
-      'Below -10%',
-      '-10 to -5%',
-      '-5 to -2%',
-      'Within 2%',
-      '+2 to +5%',
-      '+5 to +10%',
-      'Above +10%',
-    ];
+    const TICKS = ['-10', '-5', '-2', '+2', '+5', '+10', 'Downhill', 'Uphill', 'Grade (%)'];
 
     it('shows no gradient key while the line is in the sport colour', async () => {
       await renderActivityMap({ streams: GRADED });
@@ -244,7 +236,7 @@ describe('ActivityMapView', () => {
       for (const tick of TICKS) {
         expect(within(key).getByText(tick)).toBeTruthy();
       }
-      const steps = within(key).getAllByTestId('map-key-swatch');
+      const steps = within(key).getAllByTestId('map-key-ramp-step');
       expect(steps.map((step) => StyleSheet.flatten(step.props.style).backgroundColor)).toEqual(
         DIVERGING_BANDS.grade.map((band) => gradeStepTokenColour(band.step, 'light'))
       );

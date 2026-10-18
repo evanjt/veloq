@@ -156,7 +156,7 @@ describe('the New ground card', () => {
       useActivityStats({
         activity: ride,
         isMetric: true,
-        newGround: { fraction, tiles, newTiles, badge: null },
+        newGround: { fraction, tiles, newTiles },
       })
     );
     return result.current.stats.find((s) => s.title === 'activity.stats.newGround');

@@ -15,8 +15,8 @@ use rusqlite::{Connection, params};
 use tempfile::TempDir;
 use tracematch::GpsPoint;
 use veloqrs::FfiSectionConfig;
-use veloqrs::objects::SectionPreview;
 use veloqrs::objects::start::FfiStartOutcome::Started;
+use veloqrs::objects::{FfiRunState, SectionPreview};
 use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
 use veloqrs::persistence::with_persistent_engine;
 
@@ -91,15 +91,17 @@ fn a_preview_over_an_unusable_pool_refuses() {
 
     let preview = SectionPreview::new();
     assert_eq!(
-        preview.start(46.01, 7.0, ffi_cfg).expect("start call"),
+        preview
+            .start(46.01, 7.0, ffi_cfg.clone())
+            .expect("start call"),
         Started,
         "the preview must start before it can refuse the pool"
     );
 
     let deadline = Instant::now() + Duration::from_secs(120);
     let status = loop {
-        let status = preview.poll().expect("poll");
-        if status != "running" {
+        let status = preview.progress().state;
+        if status != FfiRunState::Running {
             break status;
         }
         assert!(Instant::now() < deadline, "preview never ended");
@@ -107,16 +109,22 @@ fn a_preview_over_an_unusable_pool_refuses() {
     };
 
     assert_eq!(
-        status, "pool_unusable",
+        status,
+        FfiRunState::Refused,
         "an unreadable pool must refuse rather than propose"
     );
     assert!(
-        preview.take_result().expect("take call").is_none(),
+        preview.take().is_none(),
         "a refused preview yields no payload"
     );
     assert_eq!(
-        preview.poll().expect("poll after refusal"),
-        "idle",
-        "the refusal must clear the slot"
+        preview.progress().state,
+        FfiRunState::Refused,
+        "a progress read does not swallow the refusal before its reader settles it"
+    );
+    assert_ne!(
+        preview.start(46.01, 7.0, ffi_cfg).expect("restart"),
+        veloqrs::objects::start::FfiStartOutcome::Busy,
+        "an ended run does not hold the slot against the next start"
     );
 }

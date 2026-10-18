@@ -1,7 +1,6 @@
 /**
- * Scenario: the activity list and the timeline's oldest date are read from
- * SQLite. A window the launch sync did not cover has to be requested once, and
- * a corrupt row must not take the feed down.
+ * Scenario: the feed's cards and the timeline's oldest date are read from
+ * SQLite, and a window the launch sync did not cover has to be requested once.
  *
  * A window that failed for the connection is the engine's to ask again, on the
  * online edge it is pushed, so the reconnect edge asks nothing from here.
@@ -14,7 +13,7 @@ import React from 'react';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 import {
-  useActivities,
+  useActivityWindowRequest,
   useInfiniteActivities,
   useRangeActivities,
 } from '@/features/activity/hooks/useActivities';
@@ -38,7 +37,6 @@ jest.mock('@/shared/app/NetworkContext', () => ({
 }));
 
 const engine = {
-  getActivityBodies: jest.fn(),
   getFeedCards: jest.fn(),
   syncActivitiesWindow: jest.fn(),
   getSetting: jest.fn(),
@@ -46,28 +44,6 @@ const engine = {
 };
 
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
-
-/**
- * A feed page of these bodies, none of them named upstream unless told
- * otherwise, each stored under its own id unless told otherwise.
- */
-function page(bodies: string[], intervalsIds?: (string | null)[], keys?: string[]) {
-  return {
-    bodies,
-    intervalsIds: intervalsIds ?? bodies.map(() => null),
-    keys: keys ?? bodies.map(rowKeyOf),
-    matchedCount: bodies.length,
-    hasMore: false,
-  };
-}
-
-function rowKeyOf(body: string, index: number): string {
-  try {
-    return (JSON.parse(body) as { id: string }).id;
-  } catch {
-    return `row-${index}`;
-  }
-}
 
 let client: QueryClient;
 
@@ -79,7 +55,6 @@ beforeEach(() => {
   jest.clearAllMocks();
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
-  engine.getActivityBodies.mockReturnValue(page([]));
   engine.getFeedCards.mockReturnValue([]);
   engine.getSetting.mockReturnValue(null);
   engine.syncActivitiesWindow.mockReturnValue(StartOutcome.Started);
@@ -100,65 +75,19 @@ async function reconnect(rerender: (props: object) => Promise<void> | void): Pro
   await act(async () => await new Promise((resolve) => setTimeout(resolve, 0)));
 }
 
-describe('useActivities', () => {
-  it('parses stored bodies, keeping fields no Rust type models', async () => {
-    engine.getActivityBodies.mockReturnValue(
-      page([
-        JSON.stringify({ id: 'a2', name: 'Newer', futureField: 'kept', calories: 900 }),
-        JSON.stringify({ id: 'a1', name: 'Older' }),
-      ])
-    );
-
-    const { result } = await renderHook(() => useActivities({ days: 30 }), { wrapper });
-
-    await waitFor(() => expect(result.current.data?.length).toBe(2));
-    expect(result.current.data?.[0].id).toBe('a2');
-    expect((result.current.data?.[0] as unknown as Record<string, unknown>).futureField).toBe(
-      'kept'
-    );
-  });
-
-  it('drops a corrupt row rather than failing the whole window', async () => {
-    engine.getActivityBodies.mockReturnValue(
-      page(['{broken', JSON.stringify({ id: 'a1' })], [null, 'i1'])
-    );
-
-    const { result } = await renderHook(() => useActivities({ days: 30 }), { wrapper });
-
-    await waitFor(() => expect(result.current.data?.length).toBe(1));
-    expect(result.current.data?.[0].id).toBe('a1');
-  });
-
-  it('names an uploaded recording by the row that holds it, not by the server id in its body', async () => {
-    engine.getActivityBodies.mockReturnValue(
-      page(
-        [
-          JSON.stringify({ id: 'i900', name: 'Uploaded' }),
-          JSON.stringify({ id: 'i901', name: 'Synced' }),
-        ],
-        ['i900', 'i901'],
-        ['local-ride-1', 'i901']
-      )
-    );
-
-    const { result } = renderHook(() => useActivities({ days: 30 }), { wrapper });
-
-    await waitFor(() => expect(result.current.data?.length).toBe(2));
-    expect(result.current.data?.map((a) => a.id)).toEqual(['local-ride-1', 'i901']);
-  });
-
-  it('asks the engine to fill the window it is about to read', async () => {
-    await renderHook(() => useActivities({ oldest: '2024-01-01', newest: '2024-06-01' }), {
-      wrapper,
-    });
+describe('useActivityWindowRequest', () => {
+  it('asks the engine to fill the window', async () => {
+    await renderHook(() => useActivityWindowRequest('2024-01-01', '2024-06-01'), { wrapper });
 
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalled());
     expect(engine.syncActivitiesWindow).toHaveBeenCalledWith('2024-01-01', '2024-06-01');
   });
 
   it('requests a given window only once', async () => {
-    const opts = { oldest: '2024-01-01', newest: '2024-06-01' };
-    const { rerender } = await renderHook(() => useActivities(opts), { wrapper });
+    const { rerender } = await renderHook(
+      () => useActivityWindowRequest('2024-01-01', '2024-06-01'),
+      { wrapper }
+    );
     await rerender({});
     await rerender({});
 
@@ -167,15 +96,17 @@ describe('useActivities', () => {
 
   it('re-asks for a window the engine refused', async () => {
     engine.syncActivitiesWindow.mockReturnValue(StartOutcome.Busy);
-    const opts = { oldest: '2024-01-01', newest: '2024-06-01' };
 
-    const { rerender, unmount } = await renderHook(() => useActivities(opts), { wrapper });
+    const { rerender, unmount } = await renderHook(
+      () => useActivityWindowRequest('2024-01-01', '2024-06-01'),
+      { wrapper }
+    );
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
     await unmount();
 
     engine.syncActivitiesWindow.mockReturnValue(StartOutcome.Started);
     await rerender({});
-    await renderHook(() => useActivities(opts), { wrapper });
+    await renderHook(() => useActivityWindowRequest('2024-01-01', '2024-06-01'), { wrapper });
 
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(2));
   });
@@ -184,21 +115,24 @@ describe('useActivities', () => {
     engine.syncActivitiesWindow.mockImplementation(() => {
       throw new Error('offline');
     });
-    const opts = { oldest: '2024-01-01', newest: '2024-06-01' };
 
-    const first = await renderHook(() => useActivities(opts), { wrapper });
+    const first = await renderHook(() => useActivityWindowRequest('2024-01-01', '2024-06-01'), {
+      wrapper,
+    });
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
     await first.unmount();
 
     engine.syncActivitiesWindow.mockReturnValue(StartOutcome.Started);
-    await renderHook(() => useActivities(opts), { wrapper });
+    await renderHook(() => useActivityWindowRequest('2024-01-01', '2024-06-01'), { wrapper });
 
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(2));
   });
 
   it('leaves a window to the engine on the reconnect edge', async () => {
-    const opts = { oldest: '2024-01-01', newest: '2024-06-01' };
-    const { rerender } = await renderHook(() => useActivities(opts), { wrapper });
+    const { rerender } = await renderHook(
+      () => useActivityWindowRequest('2024-01-01', '2024-06-01'),
+      { wrapper }
+    );
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
 
     await reconnect(rerender);
@@ -207,8 +141,10 @@ describe('useActivities', () => {
   });
 
   it('keeps an accepted window to one ask while the connection holds', async () => {
-    const opts = { oldest: '2024-01-01', newest: '2024-06-01' };
-    const { rerender } = await renderHook(() => useActivities(opts), { wrapper });
+    const { rerender } = await renderHook(
+      () => useActivityWindowRequest('2024-01-01', '2024-06-01'),
+      { wrapper }
+    );
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
 
     await act(async () => await rerender({}));
@@ -218,8 +154,10 @@ describe('useActivities', () => {
   });
 
   it('asks again for the same window after the athlete changes', async () => {
-    const opts = { oldest: '2024-01-01', newest: '2024-06-01' };
-    const { rerender } = await renderHook(() => useActivities(opts), { wrapper });
+    const { rerender } = await renderHook(
+      () => useActivityWindowRequest('2024-01-01', '2024-06-01'),
+      { wrapper }
+    );
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
 
     await act(() => useAuthStore.setState({ athleteId: 'i2' }));
@@ -232,33 +170,10 @@ describe('useActivities', () => {
     engine.syncActivitiesWindow.mockReturnValue(StartOutcome.NotOwed);
     const accepted = jest.spyOn(useSyncDateRange.getState(), 'windowAccepted');
 
-    await renderHook(() => useActivities({ oldest: '2024-01-01', newest: '2024-06-01' }), {
-      wrapper,
-    });
+    await renderHook(() => useActivityWindowRequest('2024-01-01', '2024-06-01'), { wrapper });
 
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
     expect(accepted).not.toHaveBeenCalled();
-  });
-
-  it('runs an open-ended window to today rather than to nothing', async () => {
-    await renderHook(() => useActivities({ oldest: '2024-01-01' }), { wrapper });
-
-    await waitFor(() => expect(engine.getActivityBodies).toHaveBeenCalled());
-    const [oldestTs, newestTs] = engine.getActivityBodies.mock.calls[0];
-    expect(Number.isFinite(Number(newestTs))).toBe(true);
-    expect(Number(newestTs)).toBeGreaterThan(Number(oldestTs));
-    expect(engine.syncActivitiesWindow).toHaveBeenCalledWith('2024-01-01', expect.any(String));
-  });
-
-  it('reads a window as end-of-day inclusive', async () => {
-    await renderHook(() => useActivities({ oldest: '2024-01-01', newest: '2024-01-02' }), {
-      wrapper,
-    });
-
-    await waitFor(() => expect(engine.getActivityBodies).toHaveBeenCalled());
-    const [oldestTs, newestTs] = engine.getActivityBodies.mock.calls[0];
-    // A day of span plus the trailing 23:59:59 that makes `newest` inclusive.
-    expect(newestTs - oldestTs).toBe(24 * 60 * 60 + 86399);
   });
 });
 
@@ -290,7 +205,7 @@ describe('useOldestActivityDate', () => {
 });
 
 describe('useInfiniteActivities', () => {
-  it('lists the cards the engine typed for the window, without parsing a body', async () => {
+  it('lists the cards the engine typed for the window', async () => {
     engine.getFeedCards.mockReturnValue([
       feedCard({ id: 'local-ride-3', name: 'Canal path', intervalsWebId: 'i903', hasGps: true }),
     ]);
@@ -303,7 +218,6 @@ describe('useInfiniteActivities', () => {
       intervalsWebId: 'i903',
       hasGps: true,
     });
-    expect(engine.getActivityBodies).not.toHaveBeenCalled();
   });
 
   it('can page back to the newest window after the cap evicts it', async () => {

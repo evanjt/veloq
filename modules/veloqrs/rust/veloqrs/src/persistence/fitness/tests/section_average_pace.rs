@@ -24,11 +24,12 @@ fn record(date: i64, distance: f64, time: f64, direction: &str) -> SectionPerfor
         excluded: false,
         outside_distance_band: false,
         match_percentage: None,
+        is_record: false,
     };
     SectionPerformanceRecord {
         activity_id: format!("act_{date}"),
         activity_name: "Run".to_string(),
-        activity_date: date,
+        activity_date: crate::WholeNumber(date),
         laps: vec![lap],
         lap_count: 1,
         best_time: time,

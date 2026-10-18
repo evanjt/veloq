@@ -14,7 +14,7 @@ import { render } from '@testing-library/react-native';
 
 import { ActivityDotsChart } from '@/features/fitness/components/ActivityDotsChart';
 import { DayLoadStatus, type DayLoad } from 'veloqrs';
-import type { Activity, WellnessData } from '@/types';
+import type { FeedCard, WellnessData } from '@/types';
 import { dayActivityRow } from '@/features/activity/light';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
@@ -27,13 +27,13 @@ const WELLNESS = [
   { id: '2026-03-14', ctl: 44, atl: 46 },
 ] as WellnessData[];
 
-function activity(id: string, day: string): Activity {
+function activity(id: string, day: string): FeedCard {
   return {
     id,
     name: `Ride ${id}`,
-    type: 'Ride',
-    start_date_local: `${day}T07:00:00`,
-  } as Activity;
+    sportType: 'Ride',
+    startDateLocal: `${day}T07:00:00`,
+  } as FeedCard;
 }
 
 const ACTIVITIES = [
@@ -121,7 +121,7 @@ describe('the activity strip title and key', () => {
     { id: '2026-03-12', ctl: 42, atl: 48 },
   ] as WellnessData[];
 
-  function mixed(selectedDate: string | null, activities: Activity[]) {
+  function mixed(selectedDate: string | null, activities: FeedCard[]) {
     return (
       <ActivityDotsChart
         data={MIXED_WELLNESS}
@@ -132,8 +132,8 @@ describe('the activity strip title and key', () => {
     );
   }
 
-  const withLoad = (a: Activity, type: Activity['type'], load: number): Activity =>
-    ({ ...a, type, icu_training_load: load }) as Activity;
+  const withLoad = (a: FeedCard, sport: FeedCard['sportType'], load: number): FeedCard =>
+    ({ ...a, sportType: sport, trainingLoad: load }) as FeedCard;
 
   const MIXED = [
     withLoad(activity('r1', '2026-03-10'), 'Ride', 50),

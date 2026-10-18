@@ -2320,6 +2320,58 @@ describe('every basemap clear runs off the JS thread', () => {
   );
 });
 
+// A run handle is an object TypeScript starts work through and watches to its
+// end. When each spelled the steps its own way, a screen following two of them
+// learnt both, and a status word renamed on one side reached the other as a
+// state nobody handled.
+describe('every engine run handle answers in one shape', () => {
+  const RUN_HANDLES = ['SectionPreview', 'CacheSizeRun'];
+
+  const members = (name: string) => {
+    const source = read(GENERATED);
+    const start = source.indexOf(`export interface ${name}Like {`);
+    expect(start).toBeGreaterThan(-1);
+    const body = source
+      .slice(start, source.indexOf('\n}', start))
+      .replace(/\/\*\*[\s\S]*?\*\//g, '');
+    return new Map(
+      [...body.matchAll(/^ {2}(\w+)\(([\s\S]*?)\)\s*(\/\*throws\*\/)?\s*:\s*([^;]+);/gm)].map(
+        (m) => [m[1], `${m[3] ? 'throws ' : ''}${m[4].replace(/\s+/g, ' ').trim()}`]
+      )
+    );
+  };
+
+  it.each(RUN_HANDLES)('%s starts with the typed start verdict', (name) => {
+    expect(members(name).get('start')).toMatch(/^(throws )?FfiStartResult$/);
+  });
+
+  it.each(RUN_HANDLES)('%s reads where its run stands in one record', (name) => {
+    expect(members(name).get('progress')).toBe('FfiRunProgress');
+  });
+
+  it.each(RUN_HANDLES)('%s hands its result over once', (name) => {
+    expect(members(name).get('take')).toMatch(/ \| undefined$/);
+    expect(members(name).get('take')).not.toMatch(/^throws /);
+  });
+
+  it.each(RUN_HANDLES)('%s says whether there was a run to stop', (name) => {
+    expect(members(name).get('cancel')).toBe('boolean');
+  });
+
+  it.each(RUN_HANDLES)('%s keeps no second spelling of a step', (name) => {
+    const spare = [...members(name).keys()].filter((member) =>
+      /^(poll|getProgress|takeResult|startCacheSize|pollCacheSize)/.test(member)
+    );
+    expect(spare).toEqual([]);
+  });
+
+  it('the cache-size walk is no longer spelled on the heatmap manager', () => {
+    const heatmap = members('HeatmapManager');
+    expect(heatmap.has('startCacheSize')).toBe(false);
+    expect(heatmap.has('pollCacheSize')).toBe(false);
+  });
+});
+
 describe('the renderer every map page asks for is the one both platforms ship', () => {
   // Android packages `modules/veloqrs/assets` as its assets, and the podspec
   // copies `assets/basemap` into the iOS resource bundle, so one file feeds both.

@@ -11,10 +11,12 @@
 import { act, render, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { RangeCoverage, type FitnessScreenWindows } from 'veloqrs';
 
 import { ActivityHeatmap } from '@/features/stats/components/ActivityHeatmap';
 import { SeasonComparison } from '@/features/stats/components/SeasonComparison';
+import { HEATMAP_PITCH, HEATMAP_WEEKS } from '@/features/stats/lib/heatmapGrid';
 import { initialiseI18n } from '@/i18n';
 import { getEngine } from '@/shared/native/engine';
 import { NO_FITNESS_PARTS, noComparisons } from '../__shared__/fitnessScreenRead';
@@ -145,5 +147,68 @@ describe.each(CLOCK_EDGES)('the fitness screen read on %s', (_name, at) => {
     expect(iso(windows.yearPrevious.startTs)).toBe(`${year - 1}-01-01T00:00:00.000Z`);
     expect(iso(windows.monthCurrent.startTs).slice(0, 10)).toBe(localDay(at, 1 - at.getDate()));
     expect(iso(windows.monthPrevious.startTs).slice(0, 4)).toBe(`${year - 1}`);
+  });
+});
+
+describe('the calendar draws the span the read answers', () => {
+  // Sunday 18 October 2026; a first sync holds back to Monday 20 July.
+  beforeEach(() => jest.setSystemTime(new Date(2026, 9, 18, 10, 0)));
+
+  function answer(calendarFirstDay: string, calendarOlderOwed: number) {
+    engine.getFitnessScreenData.mockImplementation(
+      (_spanDays: number[], windows: FitnessScreenWindows) => ({
+        ...NO_FITNESS_PARTS,
+        heatmap: [
+          { date: windows.heatmapLastDay, intensity: 3, maxDuration: 6000, activityCount: 2 },
+        ],
+        calendarFirstDay,
+        calendarOlderOwed,
+        months: [],
+        yearCurrent: totals(2, 4),
+        yearPrevious: totals(1, 2),
+        monthCurrent: totals(1, 1),
+        monthPrevious: totals(0, 0),
+        comparisons: noComparisons(windows.nowWallSeconds),
+      })
+    );
+  }
+
+  const gridWidth = (view: Awaited<ReturnType<typeof renderCards>>) =>
+    StyleSheet.flatten(view.getByTestId('activity-heatmap-months').props.style).width;
+
+  afterEach(() => engine.getFitnessScreenData.mockReset());
+
+  it('draws the weeks from the first day held and counts the older ones owed', async () => {
+    answer('2026-07-20', 37);
+    const view = await renderCards();
+
+    await waitFor(() => expect(view.getByTestId('activity-heatmap-count')).toBeTruthy());
+    expect(gridWidth(view)).toBe(13 * HEATMAP_PITCH);
+    expect(view.getByTestId('activity-heatmap-older-owed')).toHaveTextContent(
+      '37 older activities this year are not downloaded'
+    );
+  });
+
+  it('grows the grid on the read after a widened window, and drops the count', async () => {
+    answer('2026-07-20', 37);
+    const view = await renderCards();
+    await waitFor(() => expect(gridWidth(view)).toBe(13 * HEATMAP_PITCH));
+
+    answer('2025-10-20', 0);
+    await emit('activities');
+
+    await waitFor(() => expect(gridWidth(view)).toBe(HEATMAP_WEEKS * HEATMAP_PITCH));
+    expect(view.queryByTestId('activity-heatmap-older-owed')).toBeNull();
+  });
+
+  it('names one older activity in the singular', async () => {
+    answer('2026-07-20', 1);
+    const view = await renderCards();
+
+    await waitFor(() =>
+      expect(view.getByTestId('activity-heatmap-older-owed')).toHaveTextContent(
+        '1 older activity this year is not downloaded'
+      )
+    );
   });
 });

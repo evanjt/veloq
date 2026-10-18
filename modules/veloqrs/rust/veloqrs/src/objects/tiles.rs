@@ -1,15 +1,9 @@
 use super::error::{VeloqError, with_engine};
+use crate::objects::run::{FfiRunProgress, FfiRunState};
+use crate::objects::start::{FfiStartOutcome, FfiStartResult};
 use std::sync::Arc;
 
-/// What one poll of the cache-size walk says. `bytes` is meaningful only
-/// while `state` is "complete".
-#[derive(Debug, Clone, uniffi::Record)]
-pub struct CacheSizePoll {
-    pub state: String,
-    pub bytes: f64,
-}
-
-/// The figure the last walk produced, for the polls that did not observe it.
+/// The figure a finished walk produced, until it is taken.
 fn last_cache_size() -> std::sync::MutexGuard<'static, Option<u64>> {
     crate::persistence::persistent_engine_ffi::CACHE_SIZE_LAST
         .lock()
@@ -106,64 +100,6 @@ impl HeatmapManager {
         cleared.map_err(|msg| VeloqError::Database { msg })
     }
 
-    /// Start the cache-size walk on its own thread. Poll `poll_cache_size`
-    /// for the figure.
-    ///
-    /// A walk already running is not an error: the answer it will give is the
-    /// answer this caller wants, and three settings mount effects ask for it
-    /// at once. Starting a second one would walk the same tree twice for one
-    /// number.
-    fn start_cache_size(&self, base_path: String) -> Result<(), VeloqError> {
-        let mut guard = crate::persistence::persistent_engine_ffi::CACHE_SIZE_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        if guard.is_some() {
-            return Ok(());
-        }
-        *guard = Some(crate::persistence::walk_cache_size_background(
-            base_path,
-            walk_cache_size,
-        ));
-        Ok(())
-    }
-
-    /// Poll the running walk. `state` is "idle", "running" or "complete", and
-    /// `bytes` is the last figure walked, whichever of the three it is.
-    ///
-    /// The figure outlives the poll that observed it. Only one poll gets the
-    /// message off the channel, and three mount effects share one walk, so a
-    /// figure that vanished with the first reader would leave the other two
-    /// showing nothing.
-    ///
-    /// A walk that died reports "complete" against whatever was last known
-    /// rather than erroring: this is a storage readout, and a screen that
-    /// cannot show one is not a screen that should refuse to open.
-    fn poll_cache_size(&self) -> Result<CacheSizePoll, VeloqError> {
-        let mut guard = crate::persistence::persistent_engine_ffi::CACHE_SIZE_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-
-        let state = match guard.as_ref().map(|h| h.poll_state()) {
-            None => "idle",
-            Some(crate::persistence::WorkerPoll::Running) => "running",
-            Some(crate::persistence::WorkerPoll::Ready(bytes)) => {
-                *guard = None;
-                *last_cache_size() = Some(bytes);
-                "complete"
-            }
-            Some(crate::persistence::WorkerPoll::Died) => {
-                *guard = None;
-                log::error!("veloqrs: [HeatmapManager] Cache-size walk died without a figure");
-                "complete"
-            }
-        };
-
-        Ok(CacheSizePoll {
-            state: state.to_string(),
-            bytes: last_cache_size().unwrap_or(0) as f64,
-        })
-    }
-
     /// Poll tile generation progress: "idle" | "running" | "complete"
     fn poll(&self) -> Result<String, VeloqError> {
         let mut handle_guard = crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE
@@ -235,6 +171,88 @@ impl HeatmapManager {
     }
 }
 
+/// The walk that measures the heatmap tile cache, as a run handle.
+///
+/// The walk reads directory metadata and nothing else, so it takes no engine
+/// lock and no connection. What it does take is time: 40,061 tiles measured
+/// 170 ms on the CPH2653, against 100 ms for the whole mount that asks.
+#[derive(uniffi::Object)]
+pub struct CacheSizeRun {
+    pub(crate) _private: (),
+}
+
+#[uniffi::export]
+impl CacheSizeRun {
+    #[uniffi::constructor]
+    pub fn new() -> Arc<Self> {
+        Arc::new(Self { _private: () })
+    }
+
+    /// Walk the tile tree at `base_path` on its own thread.
+    ///
+    /// A walk already running answers `Started` rather than `Busy`: the
+    /// figure it will give is the one this caller wants, so the caller follows
+    /// that walk instead of a second pass over the same tree.
+    pub fn start(&self, base_path: String) -> FfiStartResult {
+        let mut guard = cache_size_slot();
+        if guard.is_none() {
+            // A new walk supersedes a figure nobody took: it is about to be
+            // replaced by a fresher one.
+            *last_cache_size() = None;
+            *guard = Some(crate::persistence::walk_cache_size_background(
+                base_path,
+                walk_cache_size,
+            ));
+        }
+        FfiStartOutcome::Started.into()
+    }
+
+    /// Where the walk stands. The walk has no phases and no count it can know
+    /// in advance, so only the state moves.
+    pub fn progress(&self) -> FfiRunProgress {
+        let mut guard = cache_size_slot();
+        let state = match guard.as_ref().map(|h| h.poll_state()) {
+            None if last_cache_size().is_some() => FfiRunState::Complete,
+            None => FfiRunState::Idle,
+            Some(crate::persistence::WorkerPoll::Running) => FfiRunState::Running,
+            Some(crate::persistence::WorkerPoll::Ready(bytes)) => {
+                *guard = None;
+                *last_cache_size() = Some(bytes);
+                FfiRunState::Complete
+            }
+            Some(crate::persistence::WorkerPoll::Died) => {
+                *guard = None;
+                log::error!("veloqrs: [CacheSizeRun] Cache-size walk died without a figure");
+                FfiRunState::Failed
+            }
+        };
+        FfiRunProgress::at(state)
+    }
+
+    /// The figure in bytes, once. None while the walk runs or after taken.
+    pub fn take(&self) -> Option<f64> {
+        // Read through `progress` so a walk that finished since the last read
+        // is collected rather than reported as still owed.
+        self.progress();
+        last_cache_size().take().map(|bytes| bytes as f64)
+    }
+
+    /// Abandon the walk. Returns whether there was one.
+    ///
+    /// The thread is not stopped: it reads metadata only and ends on its own,
+    /// and its figure goes nowhere once the slot is empty.
+    pub fn cancel(&self) -> bool {
+        cache_size_slot().take().is_some()
+    }
+}
+
+fn cache_size_slot() -> std::sync::MutexGuard<'static, Option<crate::persistence::CacheSizeHandle>>
+{
+    crate::persistence::persistent_engine_ffi::CACHE_SIZE_HANDLE
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -258,14 +276,13 @@ mod tests {
     /// which walks the whole z/x/y tree synchronously. At 40,061 tiles that
     /// was measured at 170 ms on the CPH2653, against a 100 ms mount budget.
     ///
-    /// Expected behaviour: the mount starts the walk and polls it, the
-    /// `start_backup` shape, and the figure it eventually reads is the same
-    /// figure the blocking walk gives.
+    /// Expected behaviour: the mount starts the walk and follows it, and the
+    /// figure it takes is the same figure the blocking walk gives, once.
     #[test]
     fn the_walk_runs_off_the_calling_thread_and_gives_the_same_figure() {
         let _guard = serial_global_state();
         let tmp = tempfile::TempDir::new().unwrap();
-        let heatmap = HeatmapManager::new();
+        let run = CacheSizeRun::new();
         let base = tmp.path().join("tiles");
         let base_str = base.to_string_lossy().into_owned();
         std::fs::create_dir_all(base.join("12").join("2130")).unwrap();
@@ -273,92 +290,130 @@ mod tests {
         std::fs::write(base.join("12").join("2130").join("1451.png"), [0u8; 200]).unwrap();
         clear_cache_size_slot();
 
-        assert_eq!(heatmap.poll_cache_size().unwrap().state, "idle");
-        heatmap.start_cache_size(base_str.clone()).unwrap();
+        assert_eq!(run.progress(), FfiRunProgress::at(FfiRunState::Idle));
+        assert!(run.take().is_none(), "nothing has been walked");
+        assert_eq!(run.start(base_str.clone()), FfiStartOutcome::Started);
 
-        let done = poll_until_complete(&heatmap);
-        assert_eq!(done.bytes, 500.0);
-        assert_eq!(done.bytes, walk_cache_size(&base_str) as f64);
-        // The slot is released, and the figure outlives the poll that took it:
-        // two of the three mount effects only ever see this.
-        let after = heatmap.poll_cache_size().unwrap();
-        assert_eq!(after.state, "idle");
-        assert_eq!(after.bytes, 500.0);
+        follow_until_complete(&run);
+        assert_eq!(run.take(), Some(500.0));
+        assert_eq!(walk_cache_size(&base_str), 500);
+        assert!(run.take().is_none(), "taken once");
+        assert_eq!(run.progress().state, FfiRunState::Idle);
     }
 
-    /// Scenario: three mount effects share one walk, and only the first poll
-    /// to observe completion takes the message off the channel.
+    /// Scenario: only the first read to observe the walk ending gets the
+    /// figure off the channel.
     ///
-    /// Expected behaviour: the two that missed it read the same figure, not
-    /// zero.
+    /// Expected behaviour: every later read still says complete, and the
+    /// figure is there for the take that follows.
     #[test]
-    fn a_poll_that_missed_the_completion_still_reads_the_figure() {
+    fn a_read_that_collected_the_figure_leaves_it_for_the_take() {
         let _guard = serial_global_state();
         let tmp = tempfile::TempDir::new().unwrap();
-        let heatmap = HeatmapManager::new();
+        let run = CacheSizeRun::new();
         let base = tmp.path().join("tiles");
         std::fs::create_dir_all(base.join("11").join("5")).unwrap();
         std::fs::write(base.join("11").join("5").join("9.png"), [0u8; 128]).unwrap();
         clear_cache_size_slot();
 
-        heatmap
-            .start_cache_size(base.to_string_lossy().into_owned())
-            .unwrap();
-        assert_eq!(poll_until_complete(&heatmap).bytes, 128.0);
+        run.start(base.to_string_lossy().into_owned());
+        follow_until_complete(&run);
 
-        assert_eq!(heatmap.poll_cache_size().unwrap().bytes, 128.0);
-        assert_eq!(heatmap.poll_cache_size().unwrap().bytes, 128.0);
+        assert_eq!(run.progress().state, FfiRunState::Complete);
+        assert_eq!(run.progress().state, FfiRunState::Complete);
+        assert_eq!(run.take(), Some(128.0));
+    }
+
+    /// Scenario: a take arrives before any read has seen the walk end.
+    ///
+    /// Expected behaviour: the take collects the finished walk itself rather
+    /// than answering nothing for a figure that is already there.
+    #[test]
+    fn a_take_collects_a_walk_no_read_has_seen_end() {
+        let _guard = serial_global_state();
+        let tmp = tempfile::TempDir::new().unwrap();
+        let run = CacheSizeRun::new();
+        let base = tmp.path().join("tiles");
+        std::fs::create_dir_all(base.join("8").join("1")).unwrap();
+        std::fs::write(base.join("8").join("1").join("2.png"), [0u8; 77]).unwrap();
+        clear_cache_size_slot();
+
+        run.start(base.to_string_lossy().into_owned());
+        let handle = cache_size_slot().take().expect("the walk holds the slot");
+        let bytes = handle.recv_blocking().expect("the walk sends its figure");
+        *last_cache_size() = Some(bytes);
+
+        assert_eq!(run.take(), Some(77.0));
     }
 
     #[test]
     fn a_second_mount_joins_the_walk_already_running_rather_than_starting_another() {
         let _guard = serial_global_state();
         let tmp = tempfile::TempDir::new().unwrap();
-        let heatmap = HeatmapManager::new();
+        let run = CacheSizeRun::new();
         let base = tmp.path().join("tiles");
         std::fs::create_dir_all(base.join("9").join("3")).unwrap();
         std::fs::write(base.join("9").join("3").join("7.png"), [0u8; 64]).unwrap();
         let base_str = base.to_string_lossy().into_owned();
         clear_cache_size_slot();
 
-        heatmap.start_cache_size(base_str.clone()).unwrap();
-        heatmap.start_cache_size(base_str.clone()).unwrap();
-        heatmap.start_cache_size(base_str).unwrap();
+        for _ in 0..3 {
+            assert_eq!(run.start(base_str.clone()), FfiStartOutcome::Started);
+        }
 
-        assert_eq!(poll_until_complete(&heatmap).bytes, 64.0);
+        follow_until_complete(&run);
+        assert_eq!(run.take(), Some(64.0));
         // One walk answered all three, so there is no second figure behind it.
-        assert_eq!(heatmap.poll_cache_size().unwrap().state, "idle");
+        assert_eq!(run.progress().state, FfiRunState::Idle);
     }
 
     #[test]
     fn a_tree_that_is_not_there_walks_to_zero_off_the_thread_too() {
         let _guard = serial_global_state();
         let tmp = tempfile::TempDir::new().unwrap();
-        let heatmap = HeatmapManager::new();
+        let run = CacheSizeRun::new();
         clear_cache_size_slot();
 
-        heatmap
-            .start_cache_size(
-                tmp.path()
-                    .join("never-written")
-                    .to_string_lossy()
-                    .into_owned(),
-            )
-            .unwrap();
+        run.start(
+            tmp.path()
+                .join("never-written")
+                .to_string_lossy()
+                .into_owned(),
+        );
 
-        assert_eq!(poll_until_complete(&heatmap).bytes, 0.0);
+        follow_until_complete(&run);
+        assert_eq!(run.take(), Some(0.0));
+    }
+
+    /// Scenario: the screen that asked for the figure goes away mid-walk.
+    ///
+    /// Expected behaviour: the cancel says there was a walk, the slot is free,
+    /// and the abandoned walk's figure reaches nobody.
+    #[test]
+    fn a_cancelled_walk_frees_the_slot_and_leaves_no_figure() {
+        let _guard = serial_global_state();
+        let tmp = tempfile::TempDir::new().unwrap();
+        let run = CacheSizeRun::new();
+        clear_cache_size_slot();
+
+        assert!(!run.cancel(), "nothing was walking");
+        run.start(tmp.path().to_string_lossy().into_owned());
+        assert!(run.cancel());
+        assert_eq!(run.progress().state, FfiRunState::Idle);
+        assert!(run.take().is_none());
     }
 
     /// Scenario: the athlete clears the tile cache and the settings row keeps
     /// showing the figure the last walk produced.
     ///
-    /// Expected behaviour: a clear forgets it, so the row reads zero rather
-    /// than a size for a tree that is gone.
+    /// Expected behaviour: a clear forgets it, so the row reads nothing
+    /// rather than a size for a tree that is gone.
     #[test]
     fn clearing_the_tiles_forgets_the_remembered_figure() {
         let _guard = serial_global_state();
         let tmp = init_global_engine("tiles-forget.db");
         let heatmap = HeatmapManager::new();
+        let run = CacheSizeRun::new();
         let base = tmp.path().join("heat");
         let base_str = base.to_string_lossy().into_owned();
         heatmap.set_tiles_path(base_str.clone()).unwrap();
@@ -366,11 +421,12 @@ mod tests {
         std::fs::write(base.join("10").join("1").join("1.png"), [0u8; 42]).unwrap();
         clear_cache_size_slot();
 
-        heatmap.start_cache_size(base_str.clone()).unwrap();
-        assert_eq!(poll_until_complete(&heatmap).bytes, 42.0);
+        run.start(base_str.clone());
+        follow_until_complete(&run);
 
         crate::runtime::block_on(heatmap.clear_tiles(base_str)).unwrap();
-        assert_eq!(heatmap.poll_cache_size().unwrap().bytes, 0.0);
+        assert!(run.take().is_none());
+        assert_eq!(run.progress().state, FfiRunState::Idle);
         heatmap.clear_tiles_path().unwrap();
     }
 
@@ -437,13 +493,13 @@ mod tests {
             .unwrap_or_else(|e| e.into_inner()) = None;
     }
 
-    fn poll_until_complete(heatmap: &HeatmapManager) -> CacheSizePoll {
+    fn follow_until_complete(run: &CacheSizeRun) {
         for _ in 0..2000 {
-            let poll = heatmap.poll_cache_size().unwrap();
-            if poll.state == "complete" {
-                return poll;
+            match run.progress().state {
+                FfiRunState::Complete => return,
+                FfiRunState::Running => {}
+                other => panic!("the walk ended as {other:?}"),
             }
-            assert_eq!(poll.state, "running");
             std::thread::sleep(std::time::Duration::from_millis(1));
         }
         panic!("the walk never completed");

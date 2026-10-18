@@ -1,8 +1,8 @@
 /**
  * The key to the activity map: a row for every colour the map draws, as
  * `activityKeyRows` lists them. While the line is coloured by gradient that is
- * a row for each of the base map's seven diverging steps with the grades it
- * holds.
+ * the base map's seven diverging steps as one scale ticked at the grades
+ * between them.
  */
 
 import React from 'react';
@@ -12,7 +12,7 @@ import { useTranslation } from 'react-i18next';
 
 import { colors, darkColors, typography, type MapPalette } from '@/theme';
 import type { ActivityKeyRow } from './activityMapKey';
-import { DivergingKeyRows } from './DivergingKeyRows';
+import { DivergingKeyScale } from './DivergingKeyScale';
 import { MapKey, MapKeySwatch } from './MapKey';
 
 export function ActivityMapKey({
@@ -35,9 +35,9 @@ export function ActivityMapKey({
         row.kind === 'diverging' ? (
           <React.Fragment key={row.id}>
             <Text style={[styles.caption, isDark && styles.captionDark]}>
-              {t('chartTypes.grade')}
+              {t('maps.keyGradePercent')}
             </Text>
-            <DivergingKeyRows kind={row.diverging} palette={palette} isDark={isDark} />
+            <DivergingKeyScale kind={row.diverging} palette={palette} isDark={isDark} />
           </React.Fragment>
         ) : (
           <MapKeySwatch

@@ -8,8 +8,10 @@
  */
 
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { render, fireEvent, screen } from '@testing-library/react-native';
 import { RecordingMap } from '@/features/recording/components/RecordingMap';
+import { MAP_ATTRIBUTIONS } from '@/features/maps/components/mapStyles';
 
 // The map page is hidden from screen readers, so a query reaching it includes hidden elements.
 const MAP_PAGE = { includeHiddenElements: true };
@@ -167,5 +169,22 @@ describe('RecordingMap', () => {
       await expect((async () => render(<RecordingMap {...props} />))()).resolves.not.toThrow();
       expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
     });
+  });
+
+  it.each([
+    ['the live map', {}],
+    ['the review map', { fitBounds: true }],
+  ])('credits the basemap on %s', async (_label, props) => {
+    await render(<RecordingMap coordinates={TRACK} currentLocation={HERE} {...props} />);
+
+    expect(screen.getByTestId('map-attribution-text').props.children).toBe(MAP_ATTRIBUTIONS.light);
+  });
+
+  it("sits the credit above whatever covers the map's foot", async () => {
+    await render(
+      <RecordingMap coordinates={TRACK} currentLocation={null} fitBounds coveredBottom={72} />
+    );
+
+    expect(StyleSheet.flatten(screen.getByTestId('map-attribution').props.style).bottom).toBe(72);
   });
 });

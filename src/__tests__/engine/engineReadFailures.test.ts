@@ -51,8 +51,8 @@ jest.mock('../../../modules/veloqrs/src/generated/veloqrs', () => {
     VeloqEngine: { create: () => mockNativeEngine },
     SectionPreview: class {
       centres = fail;
-      getProgress = fail;
-      takeResult = fail;
+      progress = fail;
+      take = fail;
     },
     takeQuarantineReport: fail,
     getCutoverDiff: fail,

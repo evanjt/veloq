@@ -9,7 +9,8 @@ use super::TileStore;
 use super::encoding;
 use futures::{Stream, StreamExt};
 use reqwest::header::{ACCEPT_ENCODING, CONTENT_ENCODING};
-use std::sync::Mutex;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 /// Identifies the app to tile hosts, most of which ask for it in their terms.
@@ -39,6 +40,20 @@ pub const POOL_IDLE_TIMEOUT: Duration = Duration::from_secs(5 * 60);
 /// a NAT on the way does not close it as dead while it waits in the pool.
 pub const HTTP2_KEEP_ALIVE_INTERVAL: Duration = Duration::from_secs(30);
 
+/// How long after a host's last answer its connection is taken as still open.
+/// Past it the connection is held open only by keep-alive pings, and a host or
+/// a NAT may have closed it anyway, so the next burst is sent as on a cold
+/// pool: one request first and the rest once it has answered, or once
+/// [`LEADER_WAIT`] has passed.
+pub const WARM_WINDOW: Duration = HTTP2_KEEP_ALIVE_INTERVAL;
+
+/// The most the rest of a burst waits on its leader, from when the leader was
+/// sent. A connect and a TLS handshake take 100 to 300 ms on a mobile network
+/// and the request after them one round trip more, so a leader still
+/// unanswered past this is a slow host rather than a cold connection, and the
+/// rest go on the wire without it.
+pub const LEADER_WAIT: Duration = Duration::from_secs(1);
+
 /// A tile request never reached a tile.
 #[derive(Debug, thiserror::Error)]
 pub enum TileFetchError {
@@ -65,6 +80,55 @@ pub struct TileFetcher {
     /// outside it, so concurrent callers queue rather than all sleeping to the
     /// same instant and firing together.
     next_slot: Mutex<Option<Instant>>,
+    /// What each host's last answer showed, by scheme, host and port.
+    hosts: Mutex<HashMap<String, HostAnswer>>,
+    /// One per host, held by the request that opens a cold pool's connection.
+    leaders: Mutex<HashMap<String, Arc<Leader>>>,
+}
+
+/// The request a cold pool's burst waits on, for one host.
+#[derive(Debug, Default)]
+struct Leader {
+    /// Held from when the leader is sent until it is answered or fails.
+    turn: tokio::sync::Mutex<()>,
+    /// When the current leader was sent.
+    sent: Mutex<Option<Instant>>,
+}
+
+/// What a host's last answer showed about the connection it came on.
+#[derive(Debug, Clone, Copy)]
+struct HostAnswer {
+    at: Instant,
+    /// Answered over HTTP/1.1, where one connection carries one request at a
+    /// time and a burst needs a connection per request whatever goes first.
+    http1: bool,
+}
+
+/// Whether a request to a host goes alone before the rest of its burst.
+///
+/// A connection to a host the pool has not heard from recently may be gone,
+/// and until a new one has answered the client cannot know the host speaks
+/// HTTP/2: each request of a burst would open its own connection and TLS
+/// handshake, and two dozen handshakes contend for the radio where one would
+/// have carried them all.
+fn leads_burst(last: Option<HostAnswer>, now: Instant) -> bool {
+    match last {
+        None => true,
+        Some(answer) => !answer.http1 && now.saturating_duration_since(answer.at) > WARM_WINDOW,
+    }
+}
+
+/// The pool's key for a URL: scheme, host and port.
+fn host_key(url: &str) -> String {
+    match reqwest::Url::parse(url) {
+        Ok(parsed) => format!(
+            "{}://{}:{}",
+            parsed.scheme(),
+            parsed.host_str().unwrap_or_default(),
+            parsed.port_or_known_default().unwrap_or_default()
+        ),
+        Err(_) => url.to_string(),
+    }
 }
 
 impl TileFetcher {
@@ -87,6 +151,8 @@ impl TileFetcher {
             client,
             pace,
             next_slot: Mutex::new(None),
+            hosts: Mutex::new(HashMap::new()),
+            leaders: Mutex::new(HashMap::new()),
         })
     }
 
@@ -136,48 +202,30 @@ impl TileFetcher {
     async fn body(&self, url: &str, cap: usize) -> Result<(Vec<u8>, bool), TileFetchError> {
         self.wait_for_slot().await;
 
-        let response = self
-            .client
-            .get(url)
-            .header(ACCEPT_ENCODING, "gzip")
-            .send()
-            .await
-            .map_err(|e| TileFetchError::Unreachable(e.to_string()))?;
-
-        let status = response.status();
-        if !status.is_success() {
-            return Err(TileFetchError::Rejected {
-                status: status.as_u16(),
-            });
-        }
-
-        let gzipped = match response.headers().get(CONTENT_ENCODING) {
-            None => false,
-            Some(value) => match value.to_str().map(str::trim) {
-                Ok(v) if v.eq_ignore_ascii_case("gzip") => true,
-                Ok(v) if v.eq_ignore_ascii_case("identity") || v.is_empty() => false,
-                _ => {
-                    return Err(TileFetchError::Garbled(format!(
-                        "content-encoding {:?} was never asked for",
-                        value
-                    )));
+        let host = host_key(url);
+        if self.leads(&host) {
+            let leader = self.leader(&host);
+            match leader.turn.try_lock() {
+                Ok(lead) => {
+                    *leader.sent.lock().unwrap_or_else(|e| e.into_inner()) = Some(Instant::now());
+                    let response = self.send(&host, url).await;
+                    drop(lead);
+                    return answered_body(response?, cap).await;
                 }
-            },
-        };
-
-        if declared_past_cap(response.content_length(), cap) {
-            return Err(TileFetchError::TooLarge { cap });
+                // The rest of the burst waits for the leader to be answered
+                // or to fail, and then goes together, or goes without it once
+                // the leader has waited past a cold connection. A leader that
+                // failed releases them all, so an outage is not met one
+                // request at a time.
+                Err(_) => {
+                    let sent = *leader.sent.lock().unwrap_or_else(|e| e.into_inner());
+                    let until = sent.unwrap_or_else(Instant::now) + LEADER_WAIT;
+                    let _ = tokio::time::timeout_at(until.into(), leader.turn.lock()).await;
+                }
+            }
         }
-        let bytes = read_capped(response.bytes_stream(), cap).await?;
-        if bytes.is_empty() {
-            return Err(TileFetchError::Empty);
-        }
-        if gzipped && !encoding::is_gzip(&bytes) {
-            return Err(TileFetchError::Garbled(
-                "labelled gzip but not a gzip stream".to_string(),
-            ));
-        }
-        Ok((bytes, gzipped))
+        let response = self.send(&host, url).await?;
+        answered_body(response, cap).await
     }
 
     /// Fetch one tile and store it as the host sent it. Returns the bytes
@@ -201,6 +249,48 @@ impl TileFetcher {
         Ok(bytes.len() as u64)
     }
 
+    /// Send one request and note what its answer showed about the host. Only
+    /// headers are awaited, so a burst waiting on a leader is released before
+    /// the leader's body has been read.
+    async fn send(&self, host: &str, url: &str) -> Result<reqwest::Response, TileFetchError> {
+        let response = self
+            .client
+            .get(url)
+            .header(ACCEPT_ENCODING, "gzip")
+            .send()
+            .await
+            .map_err(|e| TileFetchError::Unreachable(e.to_string()))?;
+        let answer = HostAnswer {
+            at: Instant::now(),
+            http1: response.version() <= reqwest::Version::HTTP_11,
+        };
+        self.hosts
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(host.to_string(), answer);
+        Ok(response)
+    }
+
+    fn leads(&self, host: &str) -> bool {
+        let last = self
+            .hosts
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(host)
+            .copied();
+        leads_burst(last, Instant::now())
+    }
+
+    fn leader(&self, host: &str) -> Arc<Leader> {
+        Arc::clone(
+            self.leaders
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .entry(host.to_string())
+                .or_default(),
+        )
+    }
+
     async fn wait_for_slot(&self) {
         if self.pace.is_zero() {
             return;
@@ -219,6 +309,47 @@ impl TileFetcher {
             tokio::time::sleep(wait).await;
         }
     }
+}
+
+/// The body of an answered request, as [`TileFetcher::body`] returns it.
+async fn answered_body(
+    response: reqwest::Response,
+    cap: usize,
+) -> Result<(Vec<u8>, bool), TileFetchError> {
+    let status = response.status();
+    if !status.is_success() {
+        return Err(TileFetchError::Rejected {
+            status: status.as_u16(),
+        });
+    }
+
+    let gzipped = match response.headers().get(CONTENT_ENCODING) {
+        None => false,
+        Some(value) => match value.to_str().map(str::trim) {
+            Ok(v) if v.eq_ignore_ascii_case("gzip") => true,
+            Ok(v) if v.eq_ignore_ascii_case("identity") || v.is_empty() => false,
+            _ => {
+                return Err(TileFetchError::Garbled(format!(
+                    "content-encoding {:?} was never asked for",
+                    value
+                )));
+            }
+        },
+    };
+
+    if declared_past_cap(response.content_length(), cap) {
+        return Err(TileFetchError::TooLarge { cap });
+    }
+    let bytes = read_capped(response.bytes_stream(), cap).await?;
+    if bytes.is_empty() {
+        return Err(TileFetchError::Empty);
+    }
+    if gzipped && !encoding::is_gzip(&bytes) {
+        return Err(TileFetchError::Garbled(
+            "labelled gzip but not a gzip stream".to_string(),
+        ));
+    }
+    Ok((bytes, gzipped))
 }
 
 /// Whether a declared `Content-Length` is already past `cap`.
@@ -340,16 +471,33 @@ mod tests {
     /// small body and keeps the connection open, counting the connections it
     /// accepts.
     fn counting_host() -> (String, std::sync::Arc<std::sync::atomic::AtomicUsize>) {
+        let (url, accepted, _) = holding_host(Duration::ZERO);
+        (url, accepted)
+    }
+
+    /// [`counting_host`] holding every answer for `hold`, and also counting
+    /// the connections it had accepted when it sent its first answer.
+    fn holding_host(
+        hold: Duration,
+    ) -> (
+        String,
+        std::sync::Arc<std::sync::atomic::AtomicUsize>,
+        std::sync::Arc<std::sync::OnceLock<usize>>,
+    ) {
         use std::io::{BufRead, BufReader, Write};
         use std::sync::atomic::{AtomicUsize, Ordering};
         let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
         let addr = listener.local_addr().expect("addr");
         let accepted = std::sync::Arc::new(AtomicUsize::new(0));
+        let at_first_answer = std::sync::Arc::new(std::sync::OnceLock::new());
         let counter = accepted.clone();
+        let first = at_first_answer.clone();
         std::thread::spawn(move || {
             for stream in listener.incoming() {
                 let Ok(stream) = stream else { return };
                 counter.fetch_add(1, Ordering::SeqCst);
+                let counter = counter.clone();
+                let first = first.clone();
                 std::thread::spawn(move || {
                     let mut writer = stream.try_clone().expect("clone");
                     let mut reader = BufReader::new(stream);
@@ -363,6 +511,8 @@ mod tests {
                                 Ok(_) => {}
                             }
                         }
+                        std::thread::sleep(hold);
+                        let _ = first.set(counter.load(Ordering::SeqCst));
                         let reply = "HTTP/1.1 200 OK\r\ncontent-length: 4\r\n\r\ntile";
                         if writer.write_all(reply.as_bytes()).is_err() {
                             return;
@@ -371,7 +521,81 @@ mod tests {
                 });
             }
         });
-        (format!("http://{}/0/0/0.pbf", addr), accepted)
+        (
+            format!("http://{}/0/0/0.pbf", addr),
+            accepted,
+            at_first_answer,
+        )
+    }
+
+    /// A pan on a cold pool asks for two dozen tiles at once. Until one
+    /// connection has answered, the client cannot know the host speaks HTTP/2,
+    /// so each request would open a connection and a handshake of its own and
+    /// all of them would contend for the radio. One goes first and the rest
+    /// wait for it.
+    #[test]
+    fn a_burst_on_a_cold_pool_opens_one_connection_before_it_fans_out() {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(4)
+            .enable_all()
+            .build()
+            .expect("runtime");
+        let (url, accepted, at_first_answer) = holding_host(Duration::from_millis(300));
+        let fetcher = std::sync::Arc::new(TileFetcher::new(Duration::ZERO).expect("fetcher"));
+        runtime.block_on(async {
+            let burst: Vec<_> = (0..24)
+                .map(|_| {
+                    let fetcher = fetcher.clone();
+                    let url = url.clone();
+                    tokio::spawn(async move { fetcher.fetch(&url).await })
+                })
+                .collect();
+            for fetch in burst {
+                assert_eq!(fetch.await.expect("join").expect("tile"), b"tile");
+            }
+        });
+        assert_eq!(at_first_answer.get().copied(), Some(1));
+        assert!(accepted.load(std::sync::atomic::Ordering::SeqCst) >= 1);
+    }
+
+    /// A host never heard from, and an HTTP/2 host quiet past the warm
+    /// window, send one request first. An HTTP/1.1 host never does, since its
+    /// burst needs a connection per request whatever goes first, and neither
+    /// does an HTTP/2 host that answered within the window.
+    #[test]
+    fn a_burst_is_led_only_where_its_connection_may_be_gone() {
+        let now = Instant::now() + Duration::from_secs(3600);
+        let answered = |ago: Duration, http1: bool| {
+            Some(HostAnswer {
+                at: now - ago,
+                http1,
+            })
+        };
+        assert!(leads_burst(None, now));
+        assert!(!leads_burst(answered(Duration::from_secs(1), false), now));
+        assert!(!leads_burst(answered(WARM_WINDOW, false), now));
+        assert!(leads_burst(
+            answered(WARM_WINDOW + Duration::from_millis(1), false),
+            now
+        ));
+        assert!(leads_burst(answered(Duration::from_secs(120), false), now));
+        assert!(!leads_burst(answered(Duration::from_secs(120), true), now));
+    }
+
+    #[test]
+    fn hosts_are_told_apart_by_scheme_host_and_port() {
+        assert_eq!(
+            host_key("https://tiles.example.org/planet/1/2/3.pbf"),
+            host_key("https://tiles.example.org:443/other/4/5/6.pbf")
+        );
+        assert_ne!(
+            host_key("https://tiles.example.org/1/2/3.pbf"),
+            host_key("http://tiles.example.org/1/2/3.pbf")
+        );
+        assert_ne!(
+            host_key("https://a.example.org/1/2/3.pbf"),
+            host_key("https://b.example.org/1/2/3.pbf")
+        );
     }
 
     /// A pan that resumes after a couple of minutes has to reach the tile host

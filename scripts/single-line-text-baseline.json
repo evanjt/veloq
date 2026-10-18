@@ -1,5 +1,4 @@
 {
-  "src/features/activity/components/ChartTypeSelector.tsx": 2,
   "src/features/fitness/components/ActivityDotsChart.tsx": 2,
   "src/features/maps/components/timeline/TimelineSlider.tsx": 1,
   "src/features/recording/components/UnlockTrack.tsx": 1,

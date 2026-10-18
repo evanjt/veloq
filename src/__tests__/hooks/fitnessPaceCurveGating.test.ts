@@ -19,9 +19,6 @@ jest.mock('@/features/wellness', () => ({
   useWellness: () => ({ data: undefined, isLoading: false }),
   timeRangeToDays: () => 42,
 }));
-jest.mock('@/features/activity/hooks', () => ({
-  useActivities: () => ({ data: undefined, isLoading: false, isFetching: false }),
-}));
 jest.mock('@/features/stats', () => ({
   usePaceCurve: jest.fn(() => ({ data: undefined })),
   useSeasonBests: () => ({ efforts: [], isLoading: false, headerSummary: undefined }),

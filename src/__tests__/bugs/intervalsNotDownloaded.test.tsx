@@ -46,6 +46,7 @@ jest.mock('@/shared/ui', () => {
     ComponentErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     DeviceAttribution: () => null,
     DisclosureChevron: () => null,
+    RowDivider: () => <View testID="row-divider" />,
     ScreenSafeAreaView: View,
   };
 });

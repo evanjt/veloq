@@ -11,6 +11,7 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import ActivityTypeSheet from '@/app/sheets/activity-type';
+import { rootScreenLayout } from '@/shared/ui/rootScreenLayout';
 import { openSheet } from '@/shared/app/sheetRequest';
 import { sheetScrollPlacement } from '../__shared__/sheetScrollPlacement';
 import { initialiseI18n } from '@/i18n';
@@ -45,7 +46,9 @@ type Input = { selectedType: ActivityType; mode: 'review' | 'recording' };
 async function open(input: Input) {
   const result = openSheet<Input, ActivityType>('sheets/activity-type', input);
   mockParams = { request: mockPush.mock.calls.at(-1)[0].params.request };
-  await render(<ActivityTypeSheet />);
+  await render(
+    rootScreenLayout({ route: { name: 'sheets/activity-type' }, children: <ActivityTypeSheet /> })
+  );
   return { result };
 }
 

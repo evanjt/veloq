@@ -1,4 +1,11 @@
-import type { DiscoveredSensor } from '../types';
+import type {
+  DiscoveredSensor,
+  KnownSensor,
+  SensorConnection,
+  SensorConnectionStatus,
+  SensorKind,
+} from '../types';
+import { metricsSuppliedBy } from './sensorSource';
 
 /** Bars of signal, from one for a sensor at the edge of range to three for one beside the phone. */
 export type SignalLevel = 1 | 2 | 3;
@@ -59,4 +66,64 @@ export function distinctLabels(rows: { id: string; label: string }[]): Map<strin
       (counts.get(row.label) ?? 0) > 1 ? `${row.label} · ${shortSensorId(row.id)}` : row.label,
     ])
   );
+}
+
+/** A paired sensor's state on the record entry screen, `off` when it has no link. */
+export type SessionSensorState = SensorConnectionStatus | 'off';
+
+export interface SessionSensorRow {
+  id: string;
+  sensor: KnownSensor;
+  state: SessionSensorState;
+  /** The metrics this sensor is the recorded source of, each with its last value. */
+  live: { kind: SensorKind; value: number }[];
+  batteryPercent: number | null;
+  signal: SignalLevel | null;
+  /** The last signal reading in dBm, null before one. */
+  rssi: number | null;
+}
+
+const RECORDING_KIND = { heartRate: 'heartrate', power: 'power', cadence: 'cadence' } as const;
+
+/**
+ * One row per paired sensor, in pairing order, from the sensor store and the
+ * recording store's live samples. A value shows only while the link is
+ * carrying data and only on the sensor the metric is recorded from, so the
+ * number beside a strap is the one the ride would take.
+ */
+export function sessionSensorRows({
+  knownSensors,
+  connections,
+  activeSources,
+  suppliedKinds,
+  latestSensor,
+}: {
+  knownSensors: KnownSensor[];
+  connections: Record<string, SensorConnection>;
+  activeSources: Partial<Record<SensorKind, string>>;
+  suppliedKinds: Record<string, SensorKind[]>;
+  latestSensor: Record<'heartrate' | 'power' | 'cadence', { value: number } | null>;
+}): SessionSensorRow[] {
+  return knownSensors.map((sensor) => {
+    const connection = connections[sensor.id];
+    const state: SessionSensorState = connection?.status ?? 'off';
+    const live =
+      state === 'connected'
+        ? metricsSuppliedBy(sensor, suppliedKinds[sensor.id]).flatMap((kind) => {
+            const sample = latestSensor[RECORDING_KIND[kind]];
+            return activeSources[kind] === sensor.id && sample
+              ? [{ kind, value: sample.value }]
+              : [];
+          })
+        : [];
+    return {
+      id: sensor.id,
+      sensor,
+      state,
+      live,
+      batteryPercent: connection?.batteryPercent ?? null,
+      signal: connection ? signalLevel(connection.rssi ?? null) : null,
+      rssi: connection?.rssi ?? null,
+    };
+  });
 }

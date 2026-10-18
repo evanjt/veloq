@@ -23,7 +23,6 @@ const ACTIVITY_NAMES = [
   'ActivitySectionsSection',
   'SkylineBar',
   'fixtures',
-  'useActivities',
   'useActivity',
   'useActivityBoundsCache',
   'useActivityIntervals',

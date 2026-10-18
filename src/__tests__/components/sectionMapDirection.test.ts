@@ -1,18 +1,24 @@
 /**
  * Expected behaviour: a section ridden both ways shows the direction the
- * performance panel is on as chevrons along the section line, every 80 px, in
- * the base's casing colour over the line. The direction is a rotation of the
- * one symbol layer on the section's own source, never a second line or source.
+ * performance panel is on as chevrons along the section line, every 80 px. The
+ * chevron is the inverse of the line: a casing glyph outlined in the route
+ * colour, so the glyph holds against the line and the outline against the
+ * ground its arms reach onto. The direction is a rotation of the one symbol
+ * layer on the section's own source, never a second line or source.
  */
 
 import {
   buildSectionLayers,
   buildSectionSources,
 } from '@/features/routes/components/sectionMapLayerSpecs';
-import { ENDPOINT_AND_DIRECTION_IMAGES } from '@/features/maps/lib/directionLayer';
+import {
+  ENDPOINT_AND_DIRECTION_IMAGES,
+  directionColours,
+} from '@/features/maps/lib/directionLayer';
 import { DIRECTION_ICON_ID } from '@/features/maps/lib/mapIcons';
 import type { MapLayerSpec } from '@/features/maps/lib/htmlBuilders';
 import { mapPalette } from '@/theme';
+import { contrastRatio } from '../__shared__/contrast';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 
@@ -74,6 +80,37 @@ describe('section map direction chevrons', () => {
       });
       expect(paint(layer)['icon-color']).toBe(mapPalette(base).casing);
       expect(paint(layer)['icon-opacity']).toBe(1);
+    }
+  );
+
+  it.each(['light', 'dark', 'satellite'] as const)(
+    'outlines the chevron in the %s route colour',
+    (base) => {
+      const layer = chevrons(buildSectionLayers(input('forward', {}, base)));
+      expect(paint(layer)['icon-halo-color']).toBe(mapPalette(base).route);
+      expect(paint(layer)['icon-halo-width']).toBeGreaterThan(0);
+    }
+  );
+
+  it.each(['light', 'dark'] as const)(
+    'holds the outline at 3:1 against every %s ground the arms reach onto',
+    (base) => {
+      const palette = mapPalette(base);
+      const { outline } = directionColours(palette);
+      for (const ground of [palette.land, palette.park, palette.water, palette.road]) {
+        expect(contrastRatio(outline, ground)).toBeGreaterThanOrEqual(3);
+      }
+    }
+  );
+
+  it.each(['light', 'dark', 'satellite'] as const)(
+    'holds the glyph at 3:1 against the %s line and every delta step',
+    (base) => {
+      const palette = mapPalette(base);
+      const { glyph } = directionColours(palette);
+      for (const line of [palette.route, ...Object.values(palette.div)]) {
+        expect(contrastRatio(glyph, line)).toBeGreaterThanOrEqual(3);
+      }
     }
   );
 

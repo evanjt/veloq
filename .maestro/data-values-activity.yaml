@@ -49,6 +49,10 @@ tags:
 - takeScreenshot: "screenshots/data-values-activity-initial"
 
 # Tap heart rate chart type and verify no crash
+- runFlow:
+    file: helpers/reveal-chart-type.yaml
+    env:
+      CHART_TYPE: heartrate
 - tapOn:
     id: "chart-type-heartrate"
     optional: true
@@ -58,6 +62,10 @@ tags:
 - takeScreenshot: "screenshots/data-values-activity-heartrate"
 
 # Tap power chart type and verify no crash
+- runFlow:
+    file: helpers/reveal-chart-type.yaml
+    env:
+      CHART_TYPE: power
 - tapOn:
     id: "chart-type-power"
     optional: true
@@ -67,6 +75,10 @@ tags:
 - takeScreenshot: "screenshots/data-values-activity-power"
 
 # Tap elevation chart type and verify no crash
+- runFlow:
+    file: helpers/reveal-chart-type.yaml
+    env:
+      CHART_TYPE: elevation
 - tapOn:
     id: "chart-type-elevation"
     optional: true
@@ -76,6 +88,10 @@ tags:
 - takeScreenshot: "screenshots/data-values-activity-elevation"
 
 # Tap speed chart type and verify no crash
+- runFlow:
+    file: helpers/reveal-chart-type.yaml
+    env:
+      CHART_TYPE: speed
 - tapOn:
     id: "chart-type-speed"
     optional: true

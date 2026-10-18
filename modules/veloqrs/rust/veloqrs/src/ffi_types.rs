@@ -14,7 +14,8 @@ use tracematch::{Bounds, GpsPoint};
 // crosses the FFI as `f64`, because an `i64` or `u64` lifts as a `bigint` in
 // TypeScript and `JSON.stringify` refuses one. `f64` is exact to 2^53, which
 // every one of those kinds stays under. Going out it is `value as f64`. Coming
-// in it is one of the two below, so every export floors the same way.
+// in it is one of the two below, so every export floors the same way. A record
+// field holds `crate::WholeNumber`, which does both.
 
 /// An integer the FFI carried as `f64`, floored. NaN is 0 and an infinity
 /// saturates, which is what `as` does.
@@ -915,37 +916,6 @@ impl From<tracematch::FrequentSection> for FfiSection {
 // Performance Types
 // ============================================================================
 
-/// Section lap for FFI.
-/// Represents a single traversal of a section within an activity.
-#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
-#[serde(rename_all = "camelCase")]
-pub struct FfiSectionLap {
-    pub id: String,
-    pub activity_id: String,
-    /// Lap time in seconds
-    pub time: f64,
-    /// Pace in m/s
-    pub pace: f64,
-    /// Distance in meters
-    pub distance: f64,
-    /// Direction: "same", "reverse" or "partial"
-    pub direction: String,
-    /// Start index in the activity's GPS track
-    pub start_index: u32,
-    /// End index in the activity's GPS track
-    pub end_index: u32,
-    /// Mean heart rate over the lap, when the activity carried a stream.
-    pub avg_hr: Option<f64>,
-    /// Mean watts over the lap, when the activity carried a power stream.
-    pub avg_power: Option<f64>,
-    /// The athlete excluded this traversal: listed so it can be restored,
-    /// counted nowhere.
-    pub excluded: bool,
-    /// This lap holds the section's record in its direction. Set by the
-    /// section read, false everywhere else.
-    pub is_record: bool,
-}
-
 /// One ledger row of a section.
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
@@ -1035,48 +1005,6 @@ pub struct FfiSectionLink {
     pub available: bool,
 }
 
-/// One ledger change on a section that names an activity, for that activity's
-/// screen. It is where the activity was around the change, never a cause.
-#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
-#[serde(rename_all = "camelCase")]
-pub struct FfiActivityLedgerChange {
-    pub event_id: f64,
-    pub section_id: String,
-    /// The section's name now, absent when it has none.
-    pub section_name: Option<String>,
-    /// `auto` or `custom`.
-    pub section_type: String,
-    pub at: String,
-    /// The ledger kind of the change, as in `FfiSectionHistoryEvent`.
-    pub kind: String,
-    /// How the row names the activity: around, fork_around, reanchored_from or
-    /// reanchored_to.
-    pub relation: String,
-}
-
-impl From<crate::persistence::sections::history::ActivityLedgerChange> for FfiActivityLedgerChange {
-    fn from(c: crate::persistence::sections::history::ActivityLedgerChange) -> Self {
-        let crate::persistence::sections::history::ActivityLedgerChange {
-            event_id,
-            section_id,
-            section_name,
-            section_type,
-            at,
-            kind,
-            relation,
-        } = c;
-        Self {
-            event_id: event_id as f64,
-            section_id,
-            section_name,
-            section_type,
-            at,
-            kind,
-            relation,
-        }
-    }
-}
-
 /// One stored geometry version of a section.
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
@@ -1085,43 +1013,6 @@ pub struct FfiSectionGeometryVersion {
     pub created_at: String,
     pub milestone: bool,
     pub pinned: bool,
-}
-
-/// A section the ledger remembers and the catalogue no longer holds.
-#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
-#[serde(rename_all = "camelCase")]
-pub struct FfiRetiredSection {
-    pub section_id: String,
-    pub kind: String,
-    pub at: String,
-    pub into: Option<String>,
-    pub versions: Vec<f64>,
-    /// The name it was last shown under.
-    pub name: Option<String>,
-    pub distance_meters: Option<f64>,
-}
-
-impl From<crate::persistence::sections::history::RetiredSection> for FfiRetiredSection {
-    fn from(r: crate::persistence::sections::history::RetiredSection) -> Self {
-        let crate::persistence::sections::history::RetiredSection {
-            section_id,
-            kind,
-            at,
-            into,
-            versions,
-            name,
-            distance_meters,
-        } = r;
-        Self {
-            section_id,
-            kind,
-            at,
-            into,
-            versions: versions.into_iter().map(|v| v as f64).collect(),
-            name,
-            distance_meters,
-        }
-    }
 }
 
 #[derive(Debug, Clone, uniffi::Record)]
@@ -1154,31 +1045,13 @@ pub struct FfiYearCount {
     pub count: u32,
 }
 
-/// One background job's last finished run.
-#[derive(Debug, Clone, PartialEq, uniffi::Record)]
-pub struct FfiJobRun {
-    /// detection, elevationBackfill, streamBackfill or cutover.
-    pub job: String,
-    /// When the run finished, in epoch milliseconds.
-    pub finished_at: f64,
-    /// complete, partial, failed, paused or stopped.
-    pub outcome: String,
-    /// Items the run took on. Each count is zero for a job that has no
-    /// measure of it.
-    pub handled: u32,
-    pub added: u32,
-    pub changed: u32,
-    pub retired: u32,
-    pub failed: u32,
-}
-
 /// What the background jobs have done and still owe, read once each time a job
 /// settles or activities land. The running progress is not here: it moves on
 /// every item and stays on the routes status poll.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiBackgroundJobsData {
     /// The last run of each job that has run on this install.
-    pub runs: Vec<FfiJobRun>,
+    pub runs: Vec<crate::persistence::job_runs::JobRun>,
     /// Stored activities no detect has seen. `None` when it cannot be counted,
     /// which must not read as nothing left to do.
     pub detection_awaiting: Option<u32>,
@@ -1202,107 +1075,6 @@ pub struct FfiSectionChange {
     pub encoded_polyline: Vec<u8>,
 }
 
-impl From<crate::SectionLap> for FfiSectionLap {
-    fn from(l: crate::SectionLap) -> Self {
-        Self {
-            id: l.id,
-            activity_id: l.activity_id,
-            time: l.time,
-            pace: l.pace,
-            distance: l.distance,
-            direction: l.direction,
-            start_index: l.start_index,
-            end_index: l.end_index,
-            avg_hr: l.avg_hr,
-            avg_power: l.avg_power,
-            excluded: l.excluded,
-            is_record: false,
-        }
-    }
-}
-
-/// Section performance record for FFI.
-/// Contains all traversals for a single activity on a section.
-#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
-#[serde(rename_all = "camelCase")]
-pub struct FfiSectionPerformanceRecord {
-    pub activity_id: String,
-    pub activity_name: String,
-    /// Unix timestamp
-    pub activity_date: f64,
-    /// All laps for this activity on this section
-    pub laps: Vec<FfiSectionLap>,
-    /// Number of times this section was traversed
-    pub lap_count: u32,
-    /// Best (fastest) lap time in seconds
-    pub best_time: f64,
-    /// Best pace in m/s
-    pub best_pace: f64,
-    /// Best eligible forward lap time.
-    pub best_forward_time: Option<f64>,
-    /// Best eligible reverse lap time.
-    pub best_reverse_time: Option<f64>,
-    /// Average lap time in seconds
-    pub avg_time: f64,
-    /// Average pace in m/s
-    pub avg_pace: f64,
-    /// Primary direction: "same" or "reverse"
-    pub direction: String,
-    /// Section distance in meters
-    pub section_distance: f64,
-}
-
-impl From<crate::SectionPerformanceRecord> for FfiSectionPerformanceRecord {
-    fn from(r: crate::SectionPerformanceRecord) -> Self {
-        Self {
-            activity_id: r.activity_id,
-            activity_name: r.activity_name,
-            activity_date: r.activity_date as f64,
-            laps: r.laps.into_iter().map(FfiSectionLap::from).collect(),
-            lap_count: r.lap_count,
-            best_time: r.best_time,
-            best_pace: r.best_pace,
-            best_forward_time: r.best_forward_time,
-            best_reverse_time: r.best_reverse_time,
-            avg_time: r.avg_time,
-            avg_pace: r.avg_pace,
-            direction: r.direction,
-            section_distance: r.section_distance,
-        }
-    }
-}
-
-/// Direction stats for FFI.
-/// Summary statistics for traversals in a single direction.
-#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
-#[serde(rename_all = "camelCase")]
-pub struct FfiDirectionStats {
-    /// Average time across counted traversals in this direction (seconds)
-    pub avg_time: Option<f64>,
-    /// Unix timestamp of most recent traversal in this direction
-    pub last_activity: Option<f64>,
-    /// Number of traversals in this direction
-    pub count: u32,
-    /// Average speed across all traversals in this direction (m/s).
-    /// Populated for route detail stats so the TS hook no longer has to
-    /// re-aggregate. Section performance queries currently leave it as None.
-    pub avg_speed: Option<f64>,
-    /// Timed route attempts outside the distance band.
-    pub outside_band_count: u32,
-}
-
-impl From<crate::DirectionStats> for FfiDirectionStats {
-    fn from(s: crate::DirectionStats) -> Self {
-        Self {
-            avg_time: s.avg_time,
-            last_activity: s.last_activity.map(|v| v as f64),
-            count: s.count,
-            avg_speed: s.avg_speed,
-            outside_band_count: s.outside_band_count,
-        }
-    }
-}
-
 /// Section performance result for FFI.
 /// Complete performance data for a section across all activities.
 /// Replaces the JSON-returning `persistent_engine_get_section_performances_json()`.
@@ -1310,19 +1082,19 @@ impl From<crate::DirectionStats> for FfiDirectionStats {
 #[serde(rename_all = "camelCase")]
 pub struct FfiSectionPerformanceResult {
     /// Performance records sorted by date (oldest first)
-    pub records: Vec<FfiSectionPerformanceRecord>,
+    pub records: Vec<crate::SectionPerformanceRecord>,
     /// Best record in forward/same direction
-    pub best_forward_record: Option<FfiSectionPerformanceRecord>,
+    pub best_forward_record: Option<crate::SectionPerformanceRecord>,
     /// Best record in reverse direction
-    pub best_reverse_record: Option<FfiSectionPerformanceRecord>,
+    pub best_reverse_record: Option<crate::SectionPerformanceRecord>,
     /// Whether the forward best strictly beats another forward outing.
     pub best_forward_is_pr: bool,
     /// Whether the reverse best strictly beats another reverse outing.
     pub best_reverse_is_pr: bool,
     /// Summary stats for forward/same direction
-    pub forward_stats: Option<FfiDirectionStats>,
+    pub forward_stats: Option<crate::DirectionStats>,
     /// Summary stats for reverse direction
-    pub reverse_stats: Option<FfiDirectionStats>,
+    pub reverse_stats: Option<crate::DirectionStats>,
 }
 
 impl From<crate::SectionPerformanceResult> for FfiSectionPerformanceResult {
@@ -1334,17 +1106,13 @@ impl From<crate::SectionPerformanceResult> for FfiSectionPerformanceResult {
         let best_forward_is_pr = is_pr(&r.best_forward_record);
         let best_reverse_is_pr = is_pr(&r.best_reverse_record);
         Self {
-            records: r
-                .records
-                .into_iter()
-                .map(FfiSectionPerformanceRecord::from)
-                .collect(),
+            records: r.records,
             best_forward_is_pr,
             best_reverse_is_pr,
-            best_forward_record: r.best_forward_record.map(FfiSectionPerformanceRecord::from),
-            best_reverse_record: r.best_reverse_record.map(FfiSectionPerformanceRecord::from),
-            forward_stats: r.forward_stats.map(FfiDirectionStats::from),
-            reverse_stats: r.reverse_stats.map(FfiDirectionStats::from),
+            best_forward_record: r.best_forward_record,
+            best_reverse_record: r.best_reverse_record,
+            forward_stats: r.forward_stats,
+            reverse_stats: r.reverse_stats,
         }
     }
 }
@@ -1357,65 +1125,6 @@ pub struct FfiSectionRecalcResult {
     pub distance_meters: f64,
 }
 
-/// Route performance for FFI.
-/// Performance data for a single activity on a route.
-#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
-#[serde(rename_all = "camelCase")]
-pub struct FfiRoutePerformance {
-    pub activity_id: String,
-    pub name: String,
-    /// Unix timestamp
-    pub date: f64,
-    /// Speed in m/s (distance / moving_time)
-    pub speed: f64,
-    /// Elapsed time in seconds
-    pub duration: u32,
-    /// Moving time in seconds
-    pub moving_time: u32,
-    /// Distance in meters
-    pub distance: f64,
-    /// Elevation gain in meters
-    pub elevation_gain: f64,
-    /// Average heart rate (optional)
-    pub avg_hr: Option<u16>,
-    /// Average power in watts (optional)
-    pub avg_power: Option<u16>,
-    /// Is this the current activity being viewed
-    pub is_current: bool,
-    /// Match direction: "same", "reverse", or "partial"
-    pub direction: String,
-    /// Match percentage (0-100), None if no match data available
-    pub match_percentage: Option<f64>,
-    /// True when the recorded distance sits outside the band around the
-    /// route's usual distance: drawn, but holding no record and uncounted.
-    pub outside_distance_band: bool,
-    /// True when this attempt beats every other counted attempt in its sport
-    /// and direction: the chart's ring and the tooltip's trophy.
-    pub is_record: bool,
-}
-
-impl From<crate::RoutePerformance> for FfiRoutePerformance {
-    fn from(p: crate::RoutePerformance) -> Self {
-        Self {
-            activity_id: p.activity_id,
-            name: p.name,
-            date: p.date as f64,
-            speed: p.speed,
-            duration: p.duration,
-            moving_time: p.moving_time,
-            distance: p.distance,
-            elevation_gain: p.elevation_gain,
-            avg_hr: p.avg_hr,
-            avg_power: p.avg_power,
-            is_current: p.is_current,
-            direction: p.direction,
-            match_percentage: p.match_percentage,
-            outside_distance_band: p.outside_distance_band,
-            is_record: p.is_record,
-        }
-    }
-}
-
 /// Route performance result for FFI.
 /// Complete performance data for a route group across all activities.
 /// Replaces the JSON-returning `persistent_engine_get_route_performances_json()`.
@@ -1423,21 +1132,21 @@ impl From<crate::RoutePerformance> for FfiRoutePerformance {
 #[serde(rename_all = "camelCase")]
 pub struct FfiRoutePerformanceResult {
     /// Performances sorted by date (oldest first)
-    pub performances: Vec<FfiRoutePerformance>,
+    pub performances: Vec<crate::RoutePerformance>,
     /// Activity metrics for all activities in the route (inlined to avoid duplicate FFI call)
     pub activity_metrics: Vec<FfiActivityMetrics>,
     /// Fastest forward performance, or fastest reverse when none ran forward.
-    pub best: Option<FfiRoutePerformance>,
+    pub best: Option<crate::RoutePerformance>,
     /// Best performance in forward/same direction
-    pub best_forward: Option<FfiRoutePerformance>,
+    pub best_forward: Option<crate::RoutePerformance>,
     /// Best performance in reverse direction
-    pub best_reverse: Option<FfiRoutePerformance>,
+    pub best_reverse: Option<crate::RoutePerformance>,
     /// Best performance in the current activity's direction.
-    pub current_direction_best: Option<FfiRoutePerformance>,
+    pub current_direction_best: Option<crate::RoutePerformance>,
     /// Summary stats for forward/same direction
-    pub forward_stats: Option<FfiDirectionStats>,
+    pub forward_stats: Option<crate::DirectionStats>,
     /// Summary stats for reverse direction
-    pub reverse_stats: Option<FfiDirectionStats>,
+    pub reverse_stats: Option<crate::DirectionStats>,
     /// Current activity's standing, with rank one reserved for a strict record.
     pub current_rank: Option<u32>,
     /// Timed comparable attempts in the current direction.
@@ -1492,22 +1201,18 @@ impl From<crate::RoutePerformanceResult> for FfiRoutePerformanceResult {
         Self {
             trend_curves,
             histograms,
-            performances: r
-                .performances
-                .into_iter()
-                .map(FfiRoutePerformance::from)
-                .collect(),
+            performances: r.performances,
             activity_metrics: r
                 .activity_metrics
                 .into_iter()
                 .map(FfiActivityMetrics::from)
                 .collect(),
-            best: r.best.map(FfiRoutePerformance::from),
-            best_forward: r.best_forward.map(FfiRoutePerformance::from),
-            best_reverse: r.best_reverse.map(FfiRoutePerformance::from),
-            current_direction_best: r.current_direction_best.map(FfiRoutePerformance::from),
-            forward_stats: r.forward_stats.map(FfiDirectionStats::from),
-            reverse_stats: r.reverse_stats.map(FfiDirectionStats::from),
+            best: r.best,
+            best_forward: r.best_forward,
+            best_reverse: r.best_reverse,
+            current_direction_best: r.current_direction_best,
+            forward_stats: r.forward_stats,
+            reverse_stats: r.reverse_stats,
             current_rank: r.current_rank,
             attempt_count: r.attempt_count,
             percentile_rank: r.percentile_rank,
@@ -2099,7 +1804,7 @@ pub struct FfiActivityRecord {
 pub struct FfiSampleLibrary {
     pub athlete_json: String,
     pub sport_settings_json: String,
-    pub wellness: Vec<FfiWellnessRow>,
+    pub wellness: Vec<crate::persistence::wellness::WellnessRow>,
     pub activities: Vec<FfiActivityBody>,
     /// The sets of the library's strength sessions, each naming its activity.
     pub exercise_sets: Vec<FfiExerciseSet>,
@@ -2173,23 +1878,6 @@ pub struct FfiActivityBodiesQuery {
     pub limit: Option<u32>,
 }
 
-/// One page of the feed's read, newest first.
-#[derive(Debug, Clone, uniffi::Record)]
-pub struct FfiActivityBodiesPage {
-    /// Untyped intervals.icu activity payloads.
-    pub bodies: Vec<String>,
-    /// The intervals.icu id a web link may name for each body, in the same
-    /// order. None for a demo row and for a recording no server has named.
-    pub intervals_ids: Vec<Option<String>>,
-    /// The row key each body is stored under, in the same order. A route or a
-    /// fetch names the activity by this, never by the body's own `id`, which
-    /// for an uploaded recording is the server's id rather than the row's.
-    pub keys: Vec<String>,
-    /// Every stored activity the query matched, not only this page.
-    pub matched_count: u32,
-    pub has_more: bool,
-}
-
 /// What one feed card draws, typed from the stored body.
 ///
 /// Built from the body rather than `activity_metrics`, which files a body
@@ -2235,8 +1923,8 @@ pub struct FfiFeedCard {
     pub has_altitude: bool,
 }
 
-/// One page of feed cards, newest first. The query and the paging are the
-/// body read's, so a search counts and pages the same.
+/// One page of feed cards, newest first, with the count of everything the
+/// query matched.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiFeedCardsPage {
     pub cards: Vec<FfiFeedCard>,
@@ -2254,31 +1942,6 @@ pub struct FfiActivityName {
     pub name: String,
     /// Start time as epoch seconds, so a caller can order what it draws.
     pub date: f64,
-}
-
-/// One wellness row passed in from TS (intervals.icu sync). Fields outside
-/// this subset (sleepQuality, spO2, etc.) aren't persisted yet - the TS
-/// sync helper only forwards the fields the Rust atomics consume.
-#[derive(Debug, Clone, uniffi::Record)]
-pub struct FfiWellnessRow {
-    /// ISO-8601 YYYY-MM-DD
-    pub date: String,
-    pub ctl: Option<f64>,
-    pub atl: Option<f64>,
-    pub ramp_rate: Option<f64>,
-    pub hrv: Option<f64>,
-    pub resting_hr: Option<f64>,
-    pub weight: Option<f64>,
-    pub sleep_secs: Option<f64>,
-    pub sleep_score: Option<f64>,
-    pub soreness: Option<i32>,
-    pub fatigue: Option<i32>,
-    pub stress: Option<i32>,
-    pub mood: Option<i32>,
-    pub motivation: Option<i32>,
-    /// The untyped intervals.icu body for this day, when the caller has it.
-    /// Omitting it leaves any previously stored body intact.
-    pub raw: Option<String>,
 }
 
 /// One sport's contribution to a day's load, as intervals.icu's `sportInfo`
@@ -2736,7 +2399,7 @@ pub struct FfiActivityDetailData {
     /// time or no zones to place it in.
     pub power_zones: Vec<FfiPowerZoneBand>,
     /// Section changes whose ledger rows name this activity, newest first.
-    pub ledger_changes: Vec<FfiActivityLedgerChange>,
+    pub ledger_changes: Vec<crate::persistence::sections::history::ActivityLedgerChange>,
     /// The intervals.icu id a web link may name. None for a demo row and for
     /// a recording no server has named, which have no page there.
     pub intervals_id: Option<String>,
@@ -2998,7 +2661,7 @@ pub struct FfiSectionPerformanceData {
     pub excluded_points: Vec<FfiSectionChartPoint>,
     /// Every activity's laps over the whole record, included and excluded,
     /// each flagged: the lap list, where an excluded lap keeps its undo.
-    pub lap_records: Vec<FfiSectionPerformanceRecord>,
+    pub lap_records: Vec<crate::SectionPerformanceRecord>,
     /// True when the forward best shown is the forward record: the same lap
     /// as the best over the whole included history, and a strict beat of that
     /// history's second best. A ranged best that is not is only the best of
@@ -3477,7 +3140,8 @@ pub struct FfiClimbBest {
 /// its grid and its season cards lay out the same days.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiFitnessScreenWindows {
-    /// The heatmap's first and last drawn day, `YYYY-MM-DD`, inclusive.
+    /// The first day the heatmap may draw, its cap, and its last drawn day,
+    /// `YYYY-MM-DD`, inclusive. The read answers the first day it draws.
     pub heatmap_first_day: String,
     pub heatmap_last_day: String,
     /// The span the monthly rows cover.
@@ -3573,8 +3237,16 @@ pub struct FfiFitnessScreenData {
     /// Every activity inside the longest span asked for, oldest first, for the
     /// strip under the fitness plot.
     pub load_dots: Vec<FfiLoadDot>,
-    /// Days with activities inside the calendar's window, oldest first.
+    /// Days with activities from `calendar_first_day` to the window's last
+    /// day, oldest first.
     pub heatmap: Vec<FfiHeatmapDay>,
+    /// The calendar's first drawn day, `YYYY-MM-DD`: the Monday of the latest
+    /// of the held window's oldest day and the account's oldest activity, and
+    /// never before the window's first day, which is the calendar's cap.
+    pub calendar_first_day: String,
+    /// The activities from the cap to the day before `calendar_first_day`
+    /// that the account holds and the device has not downloaded.
+    pub calendar_older_owed: u32,
     /// Calendar months with activities inside the monthly span, oldest first.
     pub months: Vec<FfiMonthlyStats>,
     pub year_current: FfiPeriodStats,
@@ -3852,10 +3524,77 @@ mod tests {
         assert_eq!(lowered_and_lifted(Some(bounds)), Some(bounds));
     }
 
+    /// Bytes `value` lowers to, read back as the type the app lifts them as.
+    fn lowered_as<T, U>(value: T) -> U
+    where
+        T: uniffi::Lower<crate::UniFfiTag>,
+        U: uniffi::Lift<crate::UniFfiTag>,
+    {
+        let mut buf = Vec::new();
+        <T as uniffi::Lower<crate::UniFfiTag>>::write(value, &mut buf);
+        let mut bytes = buf.as_slice();
+        let read = <U as uniffi::Lift<crate::UniFfiTag>>::try_read(&mut bytes).expect("lift");
+        assert!(bytes.is_empty(), "{} bytes left unread", bytes.len());
+        read
+    }
+
+    // A record the domain struct carries across itself keeps its integers as
+    // numbers the app reads, never a bigint, and a job run keeps its job and
+    // outcome as the tokens the app keys its rows on.
+    #[test]
+    fn whole_numbers_and_job_tokens_cross_as_the_app_reads_them() {
+        use crate::persistence::job_runs::{BackgroundJob, JobRun, RunOutcome};
+        assert_eq!(
+            lowered_as::<_, f64>(crate::WholeNumber(1_791_000_000_000)),
+            1_791_000_000_000.0
+        );
+        assert_eq!(
+            lowered_as::<_, Option<f64>>(direction_stats().last_activity),
+            Some(1_700_000_000.0)
+        );
+        assert_eq!(
+            lowered_as::<_, crate::WholeNumber>(27_000.9_f64),
+            crate::WholeNumber(27_000)
+        );
+        assert_eq!(
+            lowered_as::<_, crate::WholeNumber>(-0.5_f64),
+            crate::WholeNumber(-1),
+            "a value from the app is floored, as every export floors"
+        );
+        assert_eq!(
+            lowered_as::<_, String>(BackgroundJob::ElevationBackfill),
+            "elevationBackfill"
+        );
+        assert_eq!(lowered_as::<_, String>(RunOutcome::Deferred), "deferred");
+        let mut unknown = Vec::new();
+        <String as uniffi::Lower<crate::UniFfiTag>>::write("rebalance".to_string(), &mut unknown);
+        assert!(
+            <BackgroundJob as uniffi::Lift<crate::UniFfiTag>>::try_read(&mut unknown.as_slice())
+                .is_err(),
+            "an unknown token is refused"
+        );
+
+        let run = JobRun {
+            job: BackgroundJob::StreamBackfill,
+            finished_at: crate::WholeNumber(1_791_000_000_000),
+            outcome: RunOutcome::Partial,
+            handled: 2,
+            added: 0,
+            changed: 1,
+            retired: 0,
+            failed: 1,
+        };
+        assert_eq!(lowered_and_lifted(run.clone()), run);
+
+        let lap = lowered_and_lifted(section_lap());
+        assert_eq!((lap.start_index, lap.end_index), (17, 104));
+        assert_eq!(lap.coverage, Some(1.0));
+    }
+
     fn direction_stats() -> crate::DirectionStats {
         crate::DirectionStats {
             avg_time: Some(300.0),
-            last_activity: Some(1700000000),
+            last_activity: Some(crate::WholeNumber(1700000000)),
             count: 5,
             avg_speed: Some(4.5),
             outside_band_count: 1,
@@ -3878,6 +3617,7 @@ mod tests {
             excluded: false,
             outside_distance_band: false,
             match_percentage: None,
+            is_record: false,
         }
     }
 
@@ -3885,7 +3625,7 @@ mod tests {
         crate::SectionPerformanceRecord {
             activity_id: format!("act_{direction}"),
             activity_name: format!("{direction} effort"),
-            activity_date: 1700000000,
+            activity_date: crate::WholeNumber(1700000000),
             laps: vec![section_lap()],
             lap_count: 1,
             best_time,
@@ -3903,7 +3643,7 @@ mod tests {
         crate::RoutePerformance {
             activity_id: activity_id.to_string(),
             name: "Morning Ride".to_string(),
-            date: 1700000000,
+            date: crate::WholeNumber(1700000000),
             speed,
             duration: 3600,
             moving_time: 3500,
@@ -3936,87 +3676,6 @@ mod tests {
             power_zone_times: None,
             hr_zone_times: None,
         }
-    }
-
-    #[test]
-    fn direction_stats_carries_every_field() {
-        let ffi = FfiDirectionStats::from(direction_stats());
-        assert_eq!(ffi.avg_time, Some(300.0));
-        assert_eq!(ffi.last_activity, Some(1_700_000_000.0));
-        assert_eq!(ffi.count, 5);
-        // avg_speed and avg_time are both Option<f64>: a transposition here
-        // would show route stats as a speed in a seconds field.
-        assert_eq!(ffi.avg_speed, Some(4.5));
-    }
-
-    #[test]
-    fn direction_stats_keeps_an_absent_speed_absent() {
-        let mut stats = direction_stats();
-        stats.avg_speed = None;
-        let ffi = FfiDirectionStats::from(stats);
-        assert_eq!(ffi.avg_time, Some(300.0));
-        assert!(ffi.avg_speed.is_none());
-    }
-
-    #[test]
-    fn section_lap_carries_every_field() {
-        let ffi = FfiSectionLap::from(section_lap());
-        assert_eq!(ffi.id, "lap_1");
-        assert_eq!(ffi.activity_id, "act_123");
-        assert_eq!(ffi.time, 120.5);
-        assert_eq!(ffi.pace, 8.3);
-        assert_eq!(ffi.distance, 1000.0);
-        assert_eq!(ffi.direction, "same");
-        // Swapped track indices would draw the lap backwards on the map.
-        assert_eq!(ffi.start_index, 17);
-        assert_eq!(ffi.end_index, 104);
-        assert_eq!(ffi.avg_power, Some(250.0));
-    }
-
-    #[test]
-    fn section_performance_record_carries_every_field() {
-        let ffi = FfiSectionPerformanceRecord::from(section_record("same", 120.5));
-        assert_eq!(ffi.activity_id, "act_same");
-        assert_eq!(ffi.activity_name, "same effort");
-        assert_eq!(ffi.activity_date, 1_700_000_000.0);
-        assert_eq!(ffi.lap_count, 1);
-        // best_* against avg_*: a transposition would report the average as
-        // the PR on the section detail.
-        assert_eq!(ffi.best_time, 120.5);
-        assert_eq!(ffi.avg_time, 124.5);
-        assert_eq!(ffi.best_pace, 8.3);
-        assert_eq!(ffi.avg_pace, 7.9);
-        assert_eq!(ffi.direction, "same");
-        assert_eq!(ffi.section_distance, 1000.0);
-
-        assert_eq!(ffi.laps.len(), 1);
-        assert_eq!(ffi.laps[0].id, "lap_1");
-        assert_eq!(ffi.laps[0].start_index, 17);
-    }
-
-    #[test]
-    fn route_performance_keeps_duration_and_moving_time_apart() {
-        // The route PR delta chip is moving-time based, so a swap of these two
-        // u32 fields would silently compare the wrong clock.
-        let ffi = FfiRoutePerformance::from(route_performance("act_123", 8.5));
-        assert_eq!(ffi.duration, 3600, "duration is elapsed time");
-        assert_eq!(ffi.moving_time, 3500, "moving_time is moving time");
-    }
-
-    #[test]
-    fn route_performance_carries_every_field() {
-        let ffi = FfiRoutePerformance::from(route_performance("act_123", 8.5));
-        assert_eq!(ffi.activity_id, "act_123");
-        assert_eq!(ffi.name, "Morning Ride");
-        assert_eq!(ffi.date, 1_700_000_000.0);
-        assert_eq!(ffi.speed, 8.5);
-        assert_eq!(ffi.distance, 30000.0);
-        assert_eq!(ffi.elevation_gain, 500.0);
-        assert_eq!(ffi.avg_hr, Some(145));
-        assert_eq!(ffi.avg_power, Some(200));
-        assert!(!ffi.is_current);
-        assert_eq!(ffi.direction, "same");
-        assert_eq!(ffi.match_percentage, Some(95.5));
     }
 
     #[test]
@@ -4088,14 +3747,14 @@ mod tests {
             best_reverse_record: Some(section_record("reverse", 131.0)),
             forward_stats: Some(crate::DirectionStats {
                 avg_time: Some(300.0),
-                last_activity: Some(1700000000),
+                last_activity: Some(crate::WholeNumber(1700000000)),
                 count: 5,
                 avg_speed: Some(4.5),
                 outside_band_count: 0,
             }),
             reverse_stats: Some(crate::DirectionStats {
                 avg_time: Some(410.0),
-                last_activity: Some(1690000000),
+                last_activity: Some(crate::WholeNumber(1690000000)),
                 count: 2,
                 avg_speed: Some(3.1),
                 outside_band_count: 0,
@@ -4128,14 +3787,14 @@ mod tests {
             current_direction_best: Some(route_performance("act_current_dir", 6.1)),
             forward_stats: Some(crate::DirectionStats {
                 avg_time: Some(300.0),
-                last_activity: Some(1700000000),
+                last_activity: Some(crate::WholeNumber(1700000000)),
                 count: 5,
                 avg_speed: Some(4.5),
                 outside_band_count: 1,
             }),
             reverse_stats: Some(crate::DirectionStats {
                 avg_time: Some(410.0),
-                last_activity: Some(1690000000),
+                last_activity: Some(crate::WholeNumber(1690000000)),
                 count: 2,
                 avg_speed: Some(3.1),
                 outside_band_count: 2,
@@ -4396,49 +4055,6 @@ mod tests {
             uint_from_wire(9_007_199_254_740_992.0),
             9_007_199_254_740_992
         );
-    }
-
-    #[test]
-    fn an_activity_ledger_change_crosses_with_every_field() {
-        let change = FfiActivityLedgerChange::from(
-            crate::persistence::sections::history::ActivityLedgerChange {
-                event_id: 9_007_199_254_740_991,
-                section_id: "sec-heron".into(),
-                section_name: Some("Heron Ridge".into()),
-                section_type: "custom".into(),
-                at: "2025-03-04T05:06:07Z".into(),
-                kind: "merged".into(),
-                relation: "reanchored_to".into(),
-            },
-        );
-        assert_eq!(change.event_id, 9_007_199_254_740_991.0);
-        assert_eq!(change.section_id, "sec-heron");
-        assert_eq!(change.section_name.as_deref(), Some("Heron Ridge"));
-        assert_eq!(change.section_type, "custom");
-        assert_eq!(change.at, "2025-03-04T05:06:07Z");
-        assert_eq!(change.kind, "merged");
-        assert_eq!(change.relation, "reanchored_to");
-    }
-
-    #[test]
-    fn a_retired_section_crosses_with_every_field() {
-        let retired =
-            FfiRetiredSection::from(crate::persistence::sections::history::RetiredSection {
-                section_id: "sec-plover".into(),
-                kind: "superseded".into(),
-                at: "2025-08-09T10:11:12Z".into(),
-                into: Some("sec-kestrel".into()),
-                versions: vec![1, 3, 7],
-                name: Some("Plover Flats".into()),
-                distance_meters: Some(1234.5),
-            });
-        assert_eq!(retired.section_id, "sec-plover");
-        assert_eq!(retired.kind, "superseded");
-        assert_eq!(retired.at, "2025-08-09T10:11:12Z");
-        assert_eq!(retired.into.as_deref(), Some("sec-kestrel"));
-        assert_eq!(retired.versions, vec![1.0, 3.0, 7.0]);
-        assert_eq!(retired.name.as_deref(), Some("Plover Flats"));
-        assert_eq!(retired.distance_meters, Some(1234.5));
     }
 }
 
@@ -4728,15 +4344,6 @@ pub struct FfiActivityHighlightsBundle {
     pub strength_cards: Vec<FfiStrengthCardSummary>,
 }
 
-/// What an activity's card says about its ground, decided once in the engine.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
-pub enum FfiNewGroundBadge {
-    /// Every z17 tile the activity touched was untouched by earlier ones.
-    EntirelyNew,
-    /// At least half of them were.
-    MostlyNew,
-}
-
 /// How much of an activity's ground no earlier activity had covered, counted
 /// in z17 tiles. It is coverage of a fixed grid, not metres of new road.
 #[derive(Debug, Clone, PartialEq, uniffi::Record)]
@@ -4748,8 +4355,6 @@ pub struct FfiActivityNewGround {
     pub tiles: u32,
     /// Tiles no earlier activity touched.
     pub new_tiles: u32,
-    /// The badge the card shows, absent below half.
-    pub badge: Option<FfiNewGroundBadge>,
 }
 
 // ============================================================================

@@ -1558,7 +1558,7 @@ fn cutover_job_run(outcome: RunOutcome, diff: Option<&str>) -> JobRun {
     let count = |key: &str| counts[key].as_u64().unwrap_or(0) as u32;
     JobRun {
         job: BackgroundJob::Cutover,
-        finished_at: crate::persistence::attempts::now_ms(),
+        finished_at: crate::WholeNumber(crate::persistence::attempts::now_ms()),
         outcome,
         handled: count("proposed"),
         added: count("new"),

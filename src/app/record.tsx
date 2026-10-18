@@ -23,7 +23,7 @@ import { Stack } from 'expo-router';
 import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as haptics from '@/shared/ui/haptics';
 import { useTranslation } from 'react-i18next';
-import { useTheme } from '@/shared/app';
+import { useMetricSystem, useTheme } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { canTurnOnLocationServices } from '@/shared/app/permissions/locationServices';
 import {
@@ -62,7 +62,8 @@ import { useSheetOpener } from '@/shared/app/sheetRequest';
 import { getEngine } from '@/shared/native/engine';
 import { readPlannedWorkouts } from '@/features/home';
 import { replaceTo, navigateTo } from '@/shared/app/navigation';
-import { formatLocalDate, formatDuration } from '@/shared/format/format';
+import { formatLocalDate, formatDuration, formatElevation } from '@/shared/format/format';
+import { SessionSensorList, useEntrySensors } from '@/features/sensors';
 import type { ActivityTypeSheetInput } from '@/app/sheets/activity-type';
 import type { FfiPlannedEvent } from 'veloqrs';
 import type { ActivityType } from '@/types';
@@ -83,6 +84,10 @@ const NO_TRACK: [number, number][] = [];
  * Start only navigates. The recording screen begins the ride on arrival with
  * the map in view, and every prompt this screen needs is raised on arrival
  * rather than by the tap.
+ *
+ * The panel under the map holds what the ride will start with: the GPS fix and
+ * its accuracy, and each paired sensor, which this screen connects on arrival
+ * and the recording screen takes over on Start.
  */
 function RecordScreenContent() {
   const { t } = useTranslation();
@@ -112,6 +117,7 @@ function RecordScreenContent() {
   });
 
   const gps = useEntryLocation(mode === 'gps' && sessionStatus === 'idle');
+  useEntrySensors(gps.promptSettled);
 
   // A session is already in the store (cold navigation, notification tap, FAB
   // while recording, or a stopped ride not saved yet) - go straight back to it
@@ -293,6 +299,10 @@ function RecordScreenContent() {
           },
         ]}
       >
+        {/* What the ride starts with: the fix and the paired sensors */}
+        {mode === 'gps' ? <GpsAccuracyLine state={gps.state} accuracy={gps.accuracy} /> : null}
+        <SessionSensorList />
+
         {/* Today's planned workout - only when something is planned */}
         {todayEvents.map((event) => (
           <PressTarget
@@ -421,12 +431,9 @@ const GPS_STATUS: Record<
   servicesOff: { icon: 'map-marker-off', level: 'bad' },
 };
 
-/** The GPS state as one word over the map, beside the ring it describes. */
-function GpsStatusPill({ state, testID }: { state: EntryGpsState; testID?: string }) {
+function useGpsStateLabel(state: EntryGpsState): string {
   const { t } = useTranslation();
-  const { isDark } = useTheme();
-  const { icon, level } = GPS_STATUS[state];
-  const label = {
+  return {
     checking: t('recording.gpsAcquiring'),
     ready: t('recording.gpsReady'),
     weak: t('recording.gpsWeak'),
@@ -434,11 +441,28 @@ function GpsStatusPill({ state, testID }: { state: EntryGpsState; testID?: strin
     none: t('recording.gpsNone', 'Location denied'),
     servicesOff: t('recording.gpsServicesOff'),
   }[state];
+}
+
+/** The GPS state as one word over the map, beside the ring it describes. */
+function GpsStatusPill({ state, testID }: { state: EntryGpsState; testID?: string }) {
+  const { isDark } = useTheme();
+  const { icon, level } = GPS_STATUS[state];
+  const label = useGpsStateLabel(state);
   return (
     <SignalStatus testID={testID} variant="chip" level={level} icon={icon} label={label}>
       {state === 'checking' && <Spinner inControl color={signalColor(level, isDark)} />}
     </SignalStatus>
   );
+}
+
+/** The fix state with its accuracy in the athlete's units, once a fix has one. */
+function GpsAccuracyLine({ state, accuracy }: { state: EntryGpsState; accuracy: number | null }) {
+  const isMetric = useMetricSystem();
+  const { icon, level } = GPS_STATUS[state];
+  const stateLabel = useGpsStateLabel(state);
+  const label =
+    accuracy == null ? stateLabel : `${stateLabel} · ${formatElevation(accuracy, isMetric)}`;
+  return <SignalStatus testID="record-gps-accuracy" level={level} icon={icon} label={label} />;
 }
 
 /**

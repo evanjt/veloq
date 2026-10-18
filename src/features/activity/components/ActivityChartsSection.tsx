@@ -17,7 +17,7 @@ import {
 } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import * as ScreenOrientation from 'expo-screen-orientation';
-import { ActivityStreams, type ChartMetricValue } from './ActivityStreams';
+import { ActivityStreams } from './ActivityStreams';
 import { ChartTypeSelector } from './ChartTypeSelector';
 import { ChartXAxisSwitch, type ChartXAxisMode } from './ChartXAxisSwitch';
 import { HRZonesChart } from './HRZonesChart';
@@ -34,6 +34,7 @@ import {
   DisclosureChevron,
   IconButton,
   PressTarget,
+  RowDivider,
 } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { DebugInfoPanel, DebugWarningBanner } from '@/features/routes';
@@ -182,7 +183,6 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
   const [chartsInitialised, setChartsInitialised] = useState(false);
   const [isChartFullscreen, setIsChartFullscreen] = useState(false);
   const [xAxisMode, setXAxisMode] = useState<ChartXAxisMode>('distance');
-  const [chartMetrics, setChartMetrics] = useState<ChartMetricValue[]>([]);
   const [intervalsExpanded, setIntervalsExpanded] = useState(false);
   const [belowFoldMounted, setBelowFoldMounted] = useState(false);
 
@@ -233,11 +233,6 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
     });
   }, []);
 
-  // Handle chart metrics updates
-  const handleMetricsChange = useCallback((metrics: ChartMetricValue[]) => {
-    setChartMetrics(metrics);
-  }, []);
-
   // A phone's landscape lock lives exactly as long as the full-screen view, so
   // closing it and unmounting the section with it open both hand the app back to
   // portrait. An iPad is not rotated for the plot and takes no lock either way.
@@ -268,6 +263,10 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
   const intervalsOwed = !hasIntervals && intervalsOutcome === 'pending';
   const hasHrZones = (hrZones?.length ?? 0) > 0;
   const hasPowerZones = (powerZones?.length ?? 0) > 0;
+  const lanesShown = streams !== undefined && selectedCharts.length > 0;
+  // Anything the card draws above the Intervals row, which a divider then separates it from.
+  const chartAboveIntervals = !streamsDownloaded || availableCharts.length > 0 || lanesShown;
+  const chartCardShown = chartAboveIntervals || hasIntervals || intervalsOwed;
 
   return (
     <>
@@ -285,145 +284,144 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
         hasHrZones ||
         hasPowerZones ? (
           <View style={styles.chartSection}>
-            {!streamsDownloaded && (
+            {/* One card holds the chart from its toggles down to the Intervals row. */}
+            {chartCardShown ? (
               <View style={styles.cardFrame}>
-                <Card variant="raised" padding="none">
-                  <BodyNotDownloaded
-                    testID="streams-not-downloaded"
-                    style={styles.chartBody}
-                    message={t('statsScreen.curveNotDownloaded')}
-                    status={streamsStatus}
-                    onRetry={() => onRetryStreams?.()}
-                  />
-                </Card>
-              </View>
-            )}
-            {availableCharts.length > 0 && (
-              <View style={styles.chartControls}>
-                <View style={styles.chartSelectorContainer}>
-                  <ChartTypeSelector
-                    available={availableCharts}
-                    selected={selectedCharts}
-                    onToggle={handleChartToggle}
-                    metricValues={chartMetrics}
-                  />
-                </View>
-                <IconButton
-                  style={styles.fullscreenButton}
-                  onPress={openChartFullscreen}
-                  accessibilityLabel={t('maps.openFullscreen')}
-                >
-                  <Icon
-                    name="fullscreen"
-                    size={iconSize.sm}
-                    color={isDark ? colors.textOnFill : colors.textPrimary}
-                  />
-                </IconButton>
-              </View>
-            )}
+                <Card variant="raised" padding="none" testID="activity-chart-card">
+                  {availableCharts.length > 0 && (
+                    <View style={styles.chartControls}>
+                      <View style={styles.chartSelectorContainer}>
+                        <ChartTypeSelector
+                          available={availableCharts}
+                          selected={selectedCharts}
+                          onToggle={handleChartToggle}
+                        />
+                      </View>
+                      <IconButton
+                        style={styles.fullscreenButton}
+                        onPress={openChartFullscreen}
+                        accessibilityLabel={t('maps.openFullscreen')}
+                      >
+                        <Icon
+                          name="fullscreen"
+                          size={iconSize.sm}
+                          color={isDark ? colors.textOnFill : colors.textPrimary}
+                        />
+                      </IconButton>
+                    </View>
+                  )}
 
-            {/* Chart */}
-            {streams && selectedCharts.length > 0 ? (
-              <View style={styles.cardFrame}>
-                <Card variant="raised" padding="none">
-                  {canToggleXAxis ? (
-                    <ChartXAxisSwitch
-                      value={effectiveXAxisMode}
-                      onValueChange={setXAxisMode}
-                      style={styles.chartHeader}
+                  {!streamsDownloaded ? (
+                    <BodyNotDownloaded
+                      testID="streams-not-downloaded"
+                      style={styles.chartBody}
+                      message={t('statsScreen.curveNotDownloaded')}
+                      status={streamsStatus}
+                      onRetry={() => onRetryStreams?.()}
                     />
                   ) : null}
-                  <View style={styles.streamsBody}>
-                    <ActivityStreams
-                      streams={streams}
-                      elevationGain={activity.elevationGain}
-                      selectedCharts={selectedCharts}
-                      chartConfigs={effectiveChartConfigs}
-                      onPointSelect={onPointSelect}
-                      onInteractionChange={onInteractionChange}
-                      xAxisMode={effectiveXAxisMode}
-                      intervals={intervalsExpanded ? intervalsData : undefined}
-                      activityType={sport}
-                      onMetricsChange={handleMetricsChange}
-                    />
-                  </View>
-                </Card>
-              </View>
-            ) : null}
 
-            {/* Intervals zone bar. Its own source is the stored lap list, which is
-                persisted whether or not the streams were ever fetched. */}
-            {intervalsOwed ? (
-              <View style={styles.cardFrame}>
-                <Card variant="raised" padding="none">
-                  <BodyNotDownloaded
-                    testID="intervals-not-downloaded"
-                    style={styles.intervalsPending}
-                    textStyle={[styles.intervalsMessage, isDark && styles.textSecondary]}
-                    message={t('activityDetail.intervalsNotDownloaded')}
-                    status={intervalsStatus}
-                    onRetry={() => onRetryIntervals?.()}
-                  />
-                </Card>
-              </View>
-            ) : null}
-
-            {hasIntervals ? (
-              <View testID="activity-interval-table" style={styles.cardFrame}>
-                <Card variant="raised" padding="none">
-                  <PressTarget
-                    accessibilityRole="button"
-                    accessibilityLabel={t('activityDetail.tabs.intervals')}
-                    accessibilityState={{ expanded: intervalsExpanded }}
-                    style={[styles.intervalsBar, isDark && styles.intervalsBarDark]}
-                    onPress={() => setIntervalsExpanded((v) => !v)}
-                  >
-                    <CardHeader
-                      title={t('activityDetail.tabs.intervals')}
-                      accessory={
-                        <DisclosureChevron
-                          expanded={intervalsExpanded}
-                          size={iconSize.md}
-                          color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                  {lanesShown && streams ? (
+                    <>
+                      {canToggleXAxis ? (
+                        <ChartXAxisSwitch
+                          value={effectiveXAxisMode}
+                          onValueChange={setXAxisMode}
+                          style={styles.chartHeader}
                         />
-                      }
-                    />
-                    {intervalZoneSummary.length > 0 && (
-                      <View style={styles.intervalsChips}>
-                        {intervalZoneSummary.map((z, i) => (
-                          <View
-                            key={i}
-                            style={[
-                              styles.zoneChip,
-                              {
-                                backgroundColor:
-                                  z.color != null
-                                    ? colorWithOpacity(z.color, opacity.tint2)
-                                    : isDark
-                                      ? darkColors.fillNeutral
-                                      : colors.fillNeutral,
-                              },
-                            ]}
-                          >
-                            {z.color != null ? (
-                              <View style={[styles.zoneDot, { backgroundColor: z.color }]} />
-                            ) : null}
-                            <Text style={[styles.zoneChipText, isDark && styles.zoneChipTextDark]}>
-                              {z.label} {t('units.times', { value: z.count })}{' '}
-                              {formatDurationHuman(z.totalTime)}
-                            </Text>
-                          </View>
-                        ))}
+                      ) : null}
+                      <View style={styles.streamsBody}>
+                        <ActivityStreams
+                          streams={streams}
+                          elevationGain={activity.elevationGain}
+                          selectedCharts={selectedCharts}
+                          chartConfigs={effectiveChartConfigs}
+                          onPointSelect={onPointSelect}
+                          onInteractionChange={onInteractionChange}
+                          xAxisMode={effectiveXAxisMode}
+                          intervals={intervalsExpanded ? intervalsData : undefined}
+                          activityType={sport}
+                        />
                       </View>
-                    )}
-                  </PressTarget>
-                  {intervalsExpanded && intervalsData ? (
-                    <IntervalsTable
-                      intervals={intervalsData}
-                      activityType={sport}
-                      isMetric={isMetric}
-                      isDark={isDark}
+                    </>
+                  ) : null}
+
+                  {/* The Intervals row. Its own source is the stored lap list, which is
+                      persisted whether or not the streams were ever fetched. */}
+                  {(intervalsOwed || hasIntervals) && chartAboveIntervals ? (
+                    <RowDivider inset="none" />
+                  ) : null}
+
+                  {intervalsOwed ? (
+                    <BodyNotDownloaded
+                      testID="intervals-not-downloaded"
+                      style={styles.intervalsPending}
+                      textStyle={[styles.intervalsMessage, isDark && styles.textSecondary]}
+                      message={t('activityDetail.intervalsNotDownloaded')}
+                      status={intervalsStatus}
+                      onRetry={() => onRetryIntervals?.()}
                     />
+                  ) : null}
+
+                  {hasIntervals ? (
+                    <View testID="activity-interval-table">
+                      <PressTarget
+                        accessibilityRole="button"
+                        accessibilityLabel={t('activityDetail.tabs.intervals')}
+                        accessibilityState={{ expanded: intervalsExpanded }}
+                        style={styles.intervalsBar}
+                        onPress={() => setIntervalsExpanded((v) => !v)}
+                      >
+                        <CardHeader
+                          title={t('activityDetail.tabs.intervals')}
+                          accessory={
+                            <DisclosureChevron
+                              expanded={intervalsExpanded}
+                              size={iconSize.md}
+                              color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                            />
+                          }
+                        />
+                        {intervalZoneSummary.length > 0 && (
+                          <View style={styles.intervalsChips}>
+                            {intervalZoneSummary.map((z, i) => (
+                              <View
+                                key={i}
+                                style={[
+                                  styles.zoneChip,
+                                  {
+                                    backgroundColor:
+                                      z.color != null
+                                        ? colorWithOpacity(z.color, opacity.tint2)
+                                        : isDark
+                                          ? darkColors.fillNeutral
+                                          : colors.fillNeutral,
+                                  },
+                                ]}
+                              >
+                                {z.color != null ? (
+                                  <View style={[styles.zoneDot, { backgroundColor: z.color }]} />
+                                ) : null}
+                                <Text
+                                  style={[styles.zoneChipText, isDark && styles.zoneChipTextDark]}
+                                >
+                                  {z.label} {t('units.times', { value: z.count })}{' '}
+                                  {formatDurationHuman(z.totalTime)}
+                                </Text>
+                              </View>
+                            ))}
+                          </View>
+                        )}
+                      </PressTarget>
+                      {intervalsExpanded && intervalsData ? (
+                        <IntervalsTable
+                          intervals={intervalsData}
+                          activityType={sport}
+                          isMetric={isMetric}
+                          isDark={isDark}
+                        />
+                      ) : null}
+                    </View>
                   ) : null}
                 </Card>
               </View>
@@ -607,7 +605,8 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                     available={availableCharts}
                     selected={selectedCharts}
                     onToggle={handleChartToggle}
-                    metricValues={chartMetrics}
+                    ground={isDark ? darkColors.surface : colors.surface}
+                    centred
                   />
                   {canToggleXAxis ? (
                     <ChartXAxisSwitch
@@ -631,7 +630,6 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                     xAxisMode={effectiveXAxisMode}
                     intervals={intervalsExpanded ? intervalsData : undefined}
                     activityType={sport}
-                    onMetricsChange={handleMetricsChange}
                   />
                 ) : null
               }
@@ -746,11 +744,12 @@ const styles = StyleSheet.create({
   chartControls: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    gap: spacing.xs,
+    paddingStart: spacing.sm,
+    paddingTop: spacing.xs,
   },
   chartSelectorContainer: {
     flex: 1,
-    marginHorizontal: spacing.xs,
   },
   cardFrame: {
     marginBottom: spacing.sm,
@@ -785,9 +784,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xsPlus,
     minHeight: layout.minTapTarget,
-  },
-  intervalsBarDark: {
-    borderTopColor: darkColors.border,
   },
   intervalsChips: {
     flexDirection: 'row',

@@ -7,6 +7,49 @@
 use serde::{Deserialize, Serialize};
 
 // ============================================================================
+// Whole numbers at the boundary
+// ============================================================================
+
+/// An `i64` a record carries across the FFI as an `f64`, so the record can
+/// derive `uniffi::Record` itself rather than keep an `Ffi` copy. It goes out
+/// as `value as f64` and comes in through [`crate::ffi_types::int_from_wire`],
+/// the rule every export follows.
+#[derive(
+    Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+)]
+#[serde(transparent)]
+pub struct WholeNumber(pub i64);
+
+uniffi::custom_type!(WholeNumber, f64, {
+    lower: |n| n.0 as f64,
+    try_lift: |f| Ok(WholeNumber(crate::ffi_types::int_from_wire(f))),
+});
+
+impl From<i64> for WholeNumber {
+    fn from(n: i64) -> Self {
+        Self(n)
+    }
+}
+
+impl From<WholeNumber> for i64 {
+    fn from(n: WholeNumber) -> Self {
+        n.0
+    }
+}
+
+impl rusqlite::types::FromSql for WholeNumber {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        i64::column_result(value).map(Self)
+    }
+}
+
+impl rusqlite::types::ToSql for WholeNumber {
+    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+        Ok(self.0.into())
+    }
+}
+
+// ============================================================================
 // Activity Metrics
 // ============================================================================
 
@@ -47,13 +90,14 @@ pub struct ActivityMetrics {
 // ============================================================================
 
 /// A single performance point for route comparison.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
+#[uniffi(name = "FfiRoutePerformance")]
 pub struct RoutePerformance {
     pub activity_id: String,
     pub name: String,
     /// Unix timestamp
-    pub date: i64,
+    pub date: WholeNumber,
     /// Speed in m/s (distance / moving_time)
     pub speed: f64,
     /// Elapsed time in seconds
@@ -117,8 +161,9 @@ pub struct RoutePerformanceResult {
 // ============================================================================
 
 /// A single lap of a section.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
+#[uniffi(name = "FfiSectionLap")]
 pub struct SectionLap {
     pub id: String,
     #[serde(alias = "activity_id")]
@@ -159,6 +204,10 @@ pub struct SectionLap {
     /// section lap.
     #[serde(default)]
     pub match_percentage: Option<f64>,
+    /// This lap holds the section's record in its direction. Set by the
+    /// section read, false everywhere else.
+    #[serde(default)]
+    pub is_record: bool,
 }
 
 impl SectionLap {
@@ -176,8 +225,9 @@ impl SectionLap {
 }
 
 /// Section performance record for an activity.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
+#[uniffi(name = "FfiSectionPerformanceRecord")]
 pub struct SectionPerformanceRecord {
     #[serde(alias = "activity_id")]
     pub activity_id: String,
@@ -185,7 +235,7 @@ pub struct SectionPerformanceRecord {
     pub activity_name: String,
     /// Unix timestamp
     #[serde(alias = "activity_date")]
-    pub activity_date: i64,
+    pub activity_date: WholeNumber,
     /// All laps for this activity on this section
     pub laps: Vec<SectionLap>,
     /// Number of times this section was traversed
@@ -217,13 +267,14 @@ pub struct SectionPerformanceRecord {
 }
 
 /// Per-direction summary statistics.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
+#[uniffi(name = "FfiDirectionStats")]
 pub struct DirectionStats {
     /// Average time across counted traversals in this direction (seconds)
     pub avg_time: Option<f64>,
     /// Unix timestamp of most recent traversal in this direction
-    pub last_activity: Option<i64>,
+    pub last_activity: Option<WholeNumber>,
     /// Number of traversals in this direction
     pub count: u32,
     /// Counted distance over counted time in this direction (m/s).

@@ -15,7 +15,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
-import { navigateTo } from '@/shared/app/navigation';
+import { useOpenDetail } from '@/shared/app/MapSheetCards';
 import { formatDuration, formatPower, formatShortDateWithYear } from '@/shared/format/format';
 import { ChartMarkKey } from '@/shared/charts';
 import { formatAttemptHeadline, type AttemptBasis } from '@/features/routes/lib/attemptBasis';
@@ -61,6 +61,7 @@ export function SelectedAttemptCard({
   onIncludeActivity,
 }: SelectedAttemptCardProps) {
   const { t } = useTranslation();
+  const openDetail = useOpenDetail();
   const isMetric = useMetricSystem();
   const styles = themedStyles(makeStyles, isDark);
 
@@ -144,7 +145,7 @@ export function SelectedAttemptCard({
             size="sm"
             label={t('sections.attemptOpen')}
             accessibilityLabel={`${t('sections.attemptOpen')}, ${attempt.activityName}`}
-            onPress={() => navigateTo(`/activity/${activityId}`)}
+            onPress={() => openDetail({ kind: 'activity', id: activityId })}
             testID="selected-attempt-open"
           />
         ) : null}

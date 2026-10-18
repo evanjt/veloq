@@ -3,62 +3,100 @@
  * three settings mount effects. At 40,061 cached tiles that walk measured
  * 170 ms on the CPH2653, against the 100 ms a mount has for the whole screen.
  *
- * Expected behaviour: the walk runs on a Rust thread and this polls it, the
- * `startBackup` shape, and a caller that arrives after another caller's poll
- * observed completion still reads the figure rather than zero.
+ * Expected behaviour: the walk runs on a Rust thread and this follows it, and
+ * the engine's one take of the figure reaches every caller that asked while
+ * the walk ran rather than the first alone.
  */
 
 import { readHeatmapCacheSize } from '@/features/maps/lib/readHeatmapCacheSize';
 import type { CacheSizeEngine } from '@/features/maps/lib/readHeatmapCacheSize';
+import type { RunStatus } from 'veloqrs';
 
 const BASE = '/cache/heatmap-tiles/';
 
-function engineFrom(polls: { state: string; bytes: number }[]): CacheSizeEngine & {
-  started: string[];
-} {
-  const started: string[] = [];
+function engineFrom(
+  statuses: RunStatus[],
+  figure: number | null
+): CacheSizeEngine & { started: string[]; takes: number; cancels: number } {
   let n = 0;
-  return {
-    started,
-    startHeatmapCacheSize: (basePath) => {
-      started.push(basePath);
+  let held = figure;
+  const engine = {
+    started: [] as string[],
+    takes: 0,
+    cancels: 0,
+    startHeatmapCacheSize: (basePath: string) => {
+      engine.started.push(basePath);
     },
-    pollHeatmapCacheSize: () => polls[Math.min(n++, polls.length - 1)],
+    readHeatmapCacheSizeRun: () => ({
+      status: statuses[Math.min(n++, statuses.length - 1)],
+      phase: '',
+      completed: 0,
+      total: 0,
+      percent: 0,
+    }),
+    takeHeatmapCacheSize: () => {
+      engine.takes += 1;
+      const taken = held;
+      held = null;
+      return taken;
+    },
+    cancelHeatmapCacheSize: () => {
+      engine.cancels += 1;
+      return true;
+    },
   };
+  return engine;
 }
 
 describe('reading the heatmap cache size off the JS thread', () => {
   it('starts the walk and returns the figure it completes with', async () => {
-    const engine = engineFrom([
-      { state: 'running', bytes: 0 },
-      { state: 'running', bytes: 0 },
-      { state: 'complete', bytes: 2048 },
-    ]);
+    const engine = engineFrom(['running', 'running', 'complete'], 2048);
 
     await expect(readHeatmapCacheSize(engine, BASE)).resolves.toBe(2048);
     expect(engine.started).toEqual([BASE]);
   });
 
-  it('reads the figure from an idle poll, which is a walk another caller finished', async () => {
-    const engine = engineFrom([{ state: 'idle', bytes: 4096 }]);
-
-    await expect(readHeatmapCacheSize(engine, BASE)).resolves.toBe(4096);
-  });
-
   it('returns the figure without waiting when the walk is already done', async () => {
-    const engine = engineFrom([{ state: 'complete', bytes: 7 }]);
+    const engine = engineFrom(['complete'], 7);
 
     await expect(readHeatmapCacheSize(engine, BASE)).resolves.toBe(7);
   });
 
-  it('gives up on a walk that never finishes, with the last figure it had', async () => {
-    const engine = engineFrom([{ state: 'running', bytes: 512 }]);
+  it('gives every caller that asked during one walk the one figure', async () => {
+    const engine = engineFrom(['running', 'complete'], 4096);
 
-    await expect(readHeatmapCacheSize(engine, BASE, 0)).resolves.toBe(512);
+    const reads = [1, 2, 3].map(() => readHeatmapCacheSize(engine, BASE));
+
+    await expect(Promise.all(reads)).resolves.toEqual([4096, 4096, 4096]);
+    expect(engine.started).toEqual([BASE]);
+    expect(engine.takes).toBe(1);
+  });
+
+  it('starts a fresh walk for a caller who asks after the last one ended', async () => {
+    const engine = engineFrom(['complete'], 64);
+
+    await readHeatmapCacheSize(engine, BASE);
+    await readHeatmapCacheSize(engine, BASE);
+
+    expect(engine.started).toEqual([BASE, BASE]);
+  });
+
+  it('abandons a walk that never finishes and reads zero', async () => {
+    const engine = engineFrom(['running'], 512);
+
+    await expect(readHeatmapCacheSize(engine, BASE, 0)).resolves.toBe(0);
+    expect(engine.cancels).toBe(1);
+  });
+
+  it('reads zero for a walk that died rather than throwing', async () => {
+    const engine = engineFrom(['failed'], null);
+
+    await expect(readHeatmapCacheSize(engine, BASE)).resolves.toBe(0);
+    expect(engine.takes).toBe(0);
   });
 
   it('reads zero for an empty tree rather than treating it as unknown', async () => {
-    const engine = engineFrom([{ state: 'complete', bytes: 0 }]);
+    const engine = engineFrom(['complete'], 0);
 
     await expect(readHeatmapCacheSize(engine, BASE)).resolves.toBe(0);
   });
@@ -66,14 +104,18 @@ describe('reading the heatmap cache size off the JS thread', () => {
   it('does not count a suspension against the walk deadline', async () => {
     jest.useFakeTimers();
     try {
-      let polls = 0;
-      const engine: CacheSizeEngine = {
-        startHeatmapCacheSize: () => {},
-        pollHeatmapCacheSize: () => {
-          polls += 1;
-          if (polls === 2) jest.setSystemTime(Date.now() + 180_000);
-          return polls < 5 ? { state: 'running', bytes: 1 } : { state: 'complete', bytes: 99 };
-        },
+      let reads = 0;
+      const engine = engineFrom(['running'], 99);
+      engine.readHeatmapCacheSizeRun = () => {
+        reads += 1;
+        if (reads === 2) jest.setSystemTime(Date.now() + 180_000);
+        return {
+          status: reads < 5 ? 'running' : 'complete',
+          phase: '',
+          completed: 0,
+          total: 0,
+          percent: 0,
+        };
       };
 
       const read = readHeatmapCacheSize(engine, BASE);

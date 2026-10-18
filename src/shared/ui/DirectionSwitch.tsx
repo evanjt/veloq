@@ -131,8 +131,11 @@ const styles = StyleSheet.create({
     gap: spacing.xxs,
     borderRadius: layout.borderRadiusMd,
   },
+  // Each segment grows from its own content rather than from a zero basis, so
+  // inside a row, where the track sizes to its content, the words still fit.
   segment: {
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

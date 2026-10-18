@@ -1660,14 +1660,16 @@ fn the_archive_keeps_a_name_that_lives_on_its_intent() {
     assert_eq!(details["name"], "Ridge climb");
 }
 
-fn job_runs() -> Vec<veloqrs::FfiJobRun> {
+fn job_runs() -> Vec<veloqrs::persistence::job_runs::JobRun> {
     veloqrs::objects::error::with_reader(veloqrs::persistence::job_runs::job_runs)
         .expect("a reader")
         .expect("runs read")
 }
 
-fn cutover_run() -> Option<veloqrs::FfiJobRun> {
-    job_runs().into_iter().find(|run| run.job == "cutover")
+fn cutover_run() -> Option<veloqrs::persistence::job_runs::JobRun> {
+    job_runs()
+        .into_iter()
+        .find(|run| run.job == veloqrs::persistence::job_runs::BackgroundJob::Cutover)
 }
 
 /// Scenario: a rebuild completes on the synthetic library, and the app is
@@ -1688,15 +1690,20 @@ fn a_completed_rebuild_records_its_last_run_with_the_diffs_counts() {
     let diff = veloqrs::ffi::get_cutover_diff().expect("diff should be stored");
 
     let run = cutover_run().expect("the rebuild recorded its run");
-    assert_eq!(run.outcome, "complete");
+    assert_eq!(
+        run.outcome,
+        veloqrs::persistence::job_runs::RunOutcome::Complete
+    );
     assert_eq!(run.handled, diff.counts.proposed);
     assert_eq!(run.added, diff.counts.new);
     assert_eq!(run.changed, diff.counts.changed);
     assert_eq!(run.retired, diff.counts.gone);
     assert_eq!(run.failed, 0);
-    assert!(run.finished_at > 0.0);
+    assert!(run.finished_at > veloqrs::WholeNumber(0));
 
-    let detection = job_runs().iter().any(|run| run.job == "detection");
+    let detection = job_runs()
+        .iter()
+        .any(|run| run.job == veloqrs::persistence::job_runs::BackgroundJob::Detection);
     assert!(!detection, "a rebuild is not a detection run");
 
     let again = veloqrs::persistence::cutover::run_cutover().unwrap();
@@ -1723,6 +1730,9 @@ fn a_stopped_rebuild_records_stopped() {
     assert_eq!(outcome, CutoverOutcome::Cancelled);
 
     let run = cutover_run().expect("the stopped rebuild recorded its run");
-    assert_eq!(run.outcome, "stopped");
+    assert_eq!(
+        run.outcome,
+        veloqrs::persistence::job_runs::RunOutcome::Stopped
+    );
     assert_eq!((run.added, run.changed, run.retired), (0, 0, 0));
 }

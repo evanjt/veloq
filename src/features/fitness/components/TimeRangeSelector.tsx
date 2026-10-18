@@ -14,6 +14,7 @@ interface TimeRangeSelectorProps {
 
 /**
  * Pill-button group for selecting a fitness time range (1W/1M/3M/6M/1Y).
+ * It carries no outer margin, so the row that holds it sets the spacing.
  */
 export const TimeRangeSelector = React.memo(function TimeRangeSelector({
   timeRange,
@@ -41,6 +42,5 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'center',
     gap: spacing.xs,
-    marginBottom: spacing.md,
   },
 });

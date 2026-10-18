@@ -5,7 +5,7 @@
  * Two things used to make the read expensive and both are gone. It ran on a
  * timer, four times a second for as long as the fetch took, and Rust now
  * announces the landing on `bodyStored` with the id, so between the request
- * and the event this costs no engine call at all. And it read `getActivityBodies`
+ * and the event this costs no engine call at all. And it read the stored bodies
  * over a thirty-day window and parsed every body in JavaScript to find the one
  * id, which is a page of JSON work in the headless push task, the least
  * affordable place for it. `activity_bodies` is keyed by the id, so the engine

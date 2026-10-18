@@ -842,6 +842,44 @@ pub(crate) mod pooled {
         owed == 0
     }
 
+    /// The day of the oldest activity the census names for the athlete,
+    /// `YYYY-MM-DD`, or `None` when it names none.
+    pub(crate) fn census_oldest_day(
+        conn: &Connection,
+        athlete_id: &str,
+    ) -> SqlResult<Option<String>> {
+        conn.query_row(
+            "SELECT MIN(date(start_date_local)) FROM activity_census
+             WHERE athlete_id = ?1 AND start_date_local IS NOT NULL",
+            params![athlete_id],
+            |row| row.get(0),
+        )
+    }
+
+    /// How many activities the census names for the athlete from `oldest` to
+    /// `newest`, both inclusive, that still owe their download, by the owed
+    /// test `range_coverage` uses.
+    pub(crate) fn census_owed_count(
+        conn: &Connection,
+        athlete_id: &str,
+        oldest: &str,
+        newest: &str,
+    ) -> SqlResult<u32> {
+        conn.query_row(
+            &format!(
+                "SELECT COUNT(*) FROM activity_census c
+                 WHERE c.athlete_id = ?1
+                   AND c.start_date_local IS NOT NULL
+                   AND date(c.start_date_local) >= date(?2)
+                   AND date(c.start_date_local) <= date(?3)
+                   AND ({owed})",
+                owed = CENSUS_ROW_OWED.as_str(),
+            ),
+            params![athlete_id, oldest, newest],
+            |row| row.get(0),
+        )
+    }
+
     pub(crate) fn range_coverage(
         conn: &Connection,
         athlete_id: &str,
@@ -906,9 +944,18 @@ pub(crate) mod pooled {
     /// recorded reads it off the oldest activity it holds, leaving out the ones
     /// kept only because a section or record names them.
     pub(crate) fn activity_window_oldest(conn: &Connection, athlete_id: &str) -> String {
-        let default = (chrono::Local::now().date_naive()
-            - chrono::Duration::days(crate::objects::sync::ACTIVITY_DAYS))
-        .to_string();
+        activity_window_oldest_on(conn, athlete_id, chrono::Local::now().date_naive())
+    }
+
+    /// [`activity_window_oldest`] with the default window measured back from
+    /// `today`, for a read that is told the day it answers for.
+    pub(crate) fn activity_window_oldest_on(
+        conn: &Connection,
+        athlete_id: &str,
+        today: chrono::NaiveDate,
+    ) -> String {
+        let default =
+            (today - chrono::Duration::days(crate::objects::sync::ACTIVITY_DAYS)).to_string();
         if athlete_id.is_empty() {
             return default;
         }
@@ -1169,31 +1216,8 @@ pub(crate) mod pooled {
         .flatten()
     }
 
-    /// The bodies in a window, newest first, narrowed by a search and a sport
-    /// chip, then paged, each beside its row key and web link id.
-    pub(crate) fn activity_body_page(
-        conn: &Connection,
-        query: &crate::FfiActivityBodiesQuery,
-    ) -> rusqlite::Result<crate::FfiActivityBodiesPage> {
-        let mut bodies = Vec::new();
-        let mut intervals_ids = Vec::new();
-        let mut keys = Vec::new();
-        let (matched_count, has_more) = page_bodies(conn, query, |raw, key, web_id| {
-            bodies.push(raw);
-            intervals_ids.push(web_id);
-            keys.push(key);
-        })?;
-        Ok(crate::FfiActivityBodiesPage {
-            bodies,
-            intervals_ids,
-            keys,
-            matched_count,
-            has_more,
-        })
-    }
-
-    /// The feed's read: the same match and page as the body read, each body
-    /// typed as the card draws it. A body that will not parse is left off the
+    /// The feed's read: the bodies matched and paged, each typed as the card
+    /// draws it. A body that will not parse is left off the
     /// page and still counts, so the offsets of the pages after it hold.
     pub(crate) fn feed_card_page(
         conn: &Connection,

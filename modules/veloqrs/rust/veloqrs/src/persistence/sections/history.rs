@@ -166,7 +166,9 @@ pub struct SectionLineage {
 
 /// A section the ledger remembers and the catalogue no longer holds: its
 /// last event says how it left, and its stored versions still draw it.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+#[uniffi(name = "FfiRetiredSection")]
 pub struct RetiredSection {
     pub section_id: String,
     /// dissolved, merged or superseded. A state a record restore still holds
@@ -176,7 +178,7 @@ pub struct RetiredSection {
     /// The survivor a merge or supersession handed the ground to.
     pub into: Option<String>,
     /// Surviving geometry versions, newest last.
-    pub versions: Vec<i64>,
+    pub versions: Vec<crate::WholeNumber>,
     /// The name it was last shown under, so two retirements can be told
     /// apart. `None` when nothing the ledger kept names it.
     pub name: Option<String>,
@@ -198,14 +200,22 @@ pub struct SectionChange {
 /// lists a change attributes, `reanchored_from` and `reanchored_to` for the
 /// two ends of a reference re-anchor. None of them says the activity caused
 /// the change.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// It is where the activity was around the change, never a cause.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+#[uniffi(name = "FfiActivityLedgerChange")]
 pub struct ActivityLedgerChange {
-    pub event_id: i64,
+    pub event_id: crate::WholeNumber,
     pub section_id: String,
+    /// The section's name now, absent when it has none.
     pub section_name: Option<String>,
+    /// `auto` or `custom`.
     pub section_type: String,
     pub at: String,
+    /// The ledger kind of the change, as in `FfiSectionHistoryEvent`.
     pub kind: String,
+    /// How the row names the activity: around, fork_around, reanchored_from or
+    /// reanchored_to.
     pub relation: String,
 }
 
@@ -1843,9 +1853,9 @@ pub(crate) mod pooled {
     pub(crate) fn retired_distance(
         conn: &Connection,
         section_id: &str,
-        versions: &[i64],
+        versions: &[crate::WholeNumber],
     ) -> Option<f64> {
-        let (points, _) = section_geometry_version(conn, section_id, *versions.last()?)?;
+        let (points, _) = section_geometry_version(conn, section_id, versions.last()?.0)?;
         Some(tracematch::matching::calculate_route_distance(&points)).filter(|d| *d > 0.0)
     }
 
@@ -1880,10 +1890,11 @@ pub(crate) mod pooled {
                     .or_else(|| d.get("superseded_by"))
                     .and_then(|v| v.as_str())
                     .map(str::to_string);
-                let versions: Vec<i64> = section_geometry_versions(conn, &section_id)
-                    .into_iter()
-                    .map(|v| v.version)
-                    .collect();
+                let versions: Vec<crate::WholeNumber> =
+                    section_geometry_versions(conn, &section_id)
+                        .into_iter()
+                        .map(|v| crate::WholeNumber(v.version))
+                        .collect();
                 let name = d
                     .get("name")
                     .and_then(|v| v.as_str())
@@ -2210,7 +2221,7 @@ pub(crate) mod pooled {
             };
             for relation in relations {
                 found.push(super::ActivityLedgerChange {
-                    event_id,
+                    event_id: crate::WholeNumber(event_id),
                     section_id: section_id.clone(),
                     section_name: section_name.clone(),
                     section_type: section_type.clone(),

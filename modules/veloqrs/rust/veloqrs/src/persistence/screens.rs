@@ -805,8 +805,8 @@ impl super::PersistentEngine {
     ///
     /// **The GPS track and the stored upstream bodies are deliberately not
     /// here, and this is where that is written down.** The screen reads them
-    /// through `get_gps_track`, `get_activity_record`, `get_activity_bodies`,
-    /// `get_activity_intervals` and `get_activity_streams`, and it should keep doing so.
+    /// through `get_gps_track`, `get_activity_record`, `get_activity_intervals`
+    /// and `get_activity_streams`, and it should keep doing so.
     /// A track is the largest thing an activity owns and a body is the
     /// upstream JSON whole; pulling either in here would put both on the mount
     /// path of every activity opened, which is the cost the narrowing above
@@ -1393,7 +1393,7 @@ where
                 first.section_distance,
                 all.records
                     .iter()
-                    .filter(|r| r.activity_date >= cutoff)
+                    .filter(|r| r.activity_date >= crate::WholeNumber(cutoff))
                     .cloned()
                     .collect(),
             ),
@@ -1510,7 +1510,7 @@ fn shown_best_is_record(
 fn lap_records(
     all: &crate::SectionPerformanceResult,
     excluded: &[crate::SectionPerformanceRecord],
-) -> Vec<crate::FfiSectionPerformanceRecord> {
+) -> Vec<crate::SectionPerformanceRecord> {
     let record_laps: Vec<(&str, &str)> = [false, true]
         .into_iter()
         .filter_map(|reverse| crate::persistence::records::section_record_lap(all, reverse))
@@ -1518,7 +1518,6 @@ fn lap_records(
         .collect();
     with_excluded_laps(&all.records, excluded)
         .into_iter()
-        .map(crate::FfiSectionPerformanceRecord::from)
         .map(|mut record| {
             for lap in &mut record.laps {
                 lap.is_record = !lap.excluded
@@ -1810,7 +1809,7 @@ fn section_pr_standing(
         standing_count,
         percentile_faster,
         previous_best_time: previous.map(|(_, lap)| lap.time),
-        previous_best_date: previous.map(|(activity, _)| activity.activity_date as f64),
+        previous_best_date: previous.map(|(activity, _)| activity.activity_date.0 as f64),
         delta_seconds: previous.map(|(_, lap)| lap.time - record.best_time),
     }
 }
@@ -1877,6 +1876,8 @@ pub mod pooled {
         let (fitness_days, fatigue_days) = today_date.map_or(super::DEFAULT_FITNESS_DAYS, |day| {
             super::stored_fitness_days_on(conn, day)
         });
+        let (calendar_first_day, calendar_older_owed) =
+            calendar_span(conn, today_date, &windows.heatmap_first_day)?;
         let span = |r: &crate::FfiTimestampRange| (r.start_ts as i64, r.end_ts as i64);
         let totals = |r: &crate::FfiTimestampRange| {
             let (start, end) = span(r);
@@ -1904,7 +1905,9 @@ pub mod pooled {
             running_lthr: sport_settings::running_lthr(&settings),
             decoupling_sources: decoupling_sources(conn, today_date, span_days),
             load_dots: load_dots(conn, today_date, span_days),
-            heatmap: activity_heatmap(conn, &windows.heatmap_first_day, &windows.heatmap_last_day)?,
+            heatmap: activity_heatmap(conn, &calendar_first_day, &windows.heatmap_last_day)?,
+            calendar_first_day,
+            calendar_older_owed,
             months: monthly_stats(conn, months_start, months_end)?,
             year_current: totals(&windows.year_current)?,
             year_previous: totals(&windows.year_previous)?,
@@ -2065,6 +2068,56 @@ pub mod pooled {
     /// Rides, runs and swims among the most recent activities, each sport
     /// counting every member of its family, and the one with the most. A read
     /// that fails counts nothing, so the athlete keeps the sport they had.
+    /// The calendar's first drawn day, and how many activities between the
+    /// cap and that day the device still owes.
+    ///
+    /// The calendar draws what the device holds, so it opens on the Monday of
+    /// the latest of three days: the oldest day of the window the athlete holds,
+    /// the account's oldest activity when the census names any, and `cap`, the
+    /// first day the screen will draw at most. A first sync holds 90 days, and a
+    /// year drawn over it would read the rest of the year as no training. The
+    /// window is read here, so a widened ask grows the calendar with the read
+    /// that follows it. The owed count is the census rows from the cap to the
+    /// day before the first drawn day that still owe their download, so the
+    /// card can say the shorter calendar is not the whole year.
+    fn calendar_span(
+        conn: &Connection,
+        today: Option<chrono::NaiveDate>,
+        cap: &str,
+    ) -> rusqlite::Result<(String, u32)> {
+        use crate::persistence::activities::pooled::{census_oldest_day, census_owed_count};
+        use chrono::{Datelike, NaiveDate};
+        let parse = |day: &str| NaiveDate::parse_from_str(day.get(..10)?, "%Y-%m-%d").ok();
+        let monday = |day: NaiveDate| {
+            day - chrono::Duration::days(day.weekday().num_days_from_monday().into())
+        };
+        let Some(cap_day) = parse(cap) else {
+            return Ok((cap.to_string(), 0));
+        };
+        let today = today.unwrap_or_else(|| chrono::Local::now().date_naive());
+        let athlete = crate::persistence::stored_athlete_id(conn);
+        let mut first = cap_day;
+        if let Some(held) = parse(&crate::persistence::held_window_oldest_on(conn, today)) {
+            first = first.max(monday(held));
+        }
+        if !athlete.is_empty()
+            && let Some(oldest) = census_oldest_day(conn, &athlete)?
+                .as_deref()
+                .and_then(parse)
+        {
+            first = first.max(monday(oldest));
+        }
+        // An account whose oldest activity is in the future still draws this week.
+        first = first.min(monday(today).max(cap_day));
+        let older_owed = if athlete.is_empty() || first <= cap_day {
+            0
+        } else {
+            let before = (first - chrono::Duration::days(1)).to_string();
+            census_owed_count(conn, &athlete, &cap_day.to_string(), &before)?
+        };
+        Ok((first.to_string(), older_owed))
+    }
+
     fn sport_mix(conn: &Connection) -> crate::FfiSportMix {
         let rows: Vec<(String, u32)> = conn
             .prepare_cached(
@@ -2563,12 +2616,12 @@ pub mod pooled {
                 let efforts: Vec<Effort> = weighed
                     .iter()
                     .filter(|(p, _)| is_comparable_attempt(p, latest_direction))
-                    .filter(|(p, _)| p.date >= since)
+                    .filter(|(p, _)| p.date >= crate::WholeNumber(since))
                     .map(|(p, hr)| Effort {
                         time_secs: f64::from(p.moving_time),
                         avg_hr: f64::from(*hr),
                         distance_meters: p.distance,
-                        date: p.date,
+                        date: p.date.0,
                     })
                     .collect();
                 let name = group
@@ -2700,10 +2753,7 @@ pub mod pooled {
                     conn,
                     activity_id,
                     &names,
-                )
-                .into_iter()
-                .map(Into::into)
-                .collect(),
+                ),
             intervals_id: crate::persistence::activities::intervals_web_id(
                 activity_id,
                 activities::stored_intervals_id(conn, activity_id).as_deref(),
@@ -2800,9 +2850,9 @@ pub mod pooled {
             .filter(|(_, record)| crate::persistence::records::is_section_record_pr(&perf, record))
             .min_by(|(_, a), (_, b)| a.best_time.total_cmp(&b.best_time));
             if let Some((reverse, record)) = best
-                && record.activity_date >= recent_since
+                && record.activity_date >= crate::WholeNumber(recent_since)
             {
-                let days_ago = crate::calendar_days_between(record.activity_date, now_ts as i64);
+                let days_ago = crate::calendar_days_between(record.activity_date.0, now_ts as i64);
                 let standing = super::section_pr_standing(&perf.records, record, reverse);
                 // One row per (section, sport): a section holds a record in
                 // each sport that travels it, and neither replaces the other.
@@ -2828,7 +2878,7 @@ pub mod pooled {
                             |r| {
                                 (
                                     r.best_time,
-                                    r.activity_date as f64,
+                                    r.activity_date.0 as f64,
                                     Some(r.activity_id.clone()),
                                 )
                             },
@@ -2860,7 +2910,7 @@ pub mod pooled {
                             |r| {
                                 (
                                     r.best_time,
-                                    r.activity_date as f64,
+                                    r.activity_date.0 as f64,
                                     Some(r.activity_id.clone()),
                                 )
                             },
@@ -3749,7 +3799,7 @@ mod tests {
         crate::SectionPerformanceRecord {
             activity_id: format!("act{age_days}"),
             activity_name: String::new(),
-            activity_date: date,
+            activity_date: crate::WholeNumber(date),
             laps: vec![crate::SectionLap {
                 id: format!("lap{age_days}"),
                 activity_id: format!("act{age_days}"),
@@ -3765,6 +3815,7 @@ mod tests {
                 excluded: false,
                 outside_distance_band: false,
                 match_percentage: None,
+                is_record: false,
             }],
             lap_count: 1,
             best_time: time,
@@ -6611,7 +6662,7 @@ mod tests {
             );
         }
 
-        let page = crate::persistence::activities::pooled::activity_body_page(
+        let page = crate::persistence::activities::pooled::feed_card_page(
             &engine.db,
             &crate::FfiActivityBodiesQuery {
                 oldest_ts: None,
@@ -6623,15 +6674,11 @@ mod tests {
             },
         )
         .expect("page");
-        assert_eq!(page.bodies.len(), rows.len());
-        assert_eq!(page.intervals_ids.len(), page.bodies.len());
+        assert_eq!(page.cards.len(), rows.len());
         for (index, (key, expected)) in rows.iter().enumerate() {
-            assert!(
-                page.bodies[index].contains(key),
-                "page row {index} is {key}"
-            );
+            assert_eq!(page.cards[index].id, *key, "page row {index} is {key}");
             assert_eq!(
-                page.intervals_ids[index].as_deref(),
+                page.cards[index].intervals_web_id.as_deref(),
                 *expected,
                 "page row of {key}"
             );

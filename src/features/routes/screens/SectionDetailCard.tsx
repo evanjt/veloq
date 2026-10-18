@@ -48,15 +48,15 @@ import { detailCardWriter } from '../lib/detailCardState';
 import { useGpxExport, useDebugStore } from '@/features/settings';
 import { useTheme } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
-import { mapSheetHostKey } from '@/shared/app/mapSheetHost';
-import { useMapSheetHostHeader } from '@/shared/app/MapSheetHost';
+import { useMapSheetCardAddress, useMapSheetHostHeader } from '@/shared/app/MapSheetHost';
+import { useOpenDetail } from '@/shared/app/MapSheetCards';
 import { useMapSheetStop } from '@/shared/app/mapSheetStop';
 import { overMapHeaderOptions } from '@/shared/app/screenHeaders';
-import { navigateTo } from '@/shared/app/navigation';
 import { useReadRetry } from '@/shared/native/useEngineSubscription';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
 import { Button, EmptyState, ErrorState, useBottomClearance } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
+import { sheetScrollProps } from '@/shared/ui/SheetScrollView';
 import { type MaterialIconName } from '@/shared/activity/activityUtils';
 import { colors, darkColors, iconSize, spacing, themePalette } from '@/theme';
 import type { RoutePoint } from '@/types';
@@ -95,9 +95,10 @@ function SectionDetailCardContent({ id, activityId: navActivityId }: SectionDeta
   const { isDark } = useTheme();
   const palette = themePalette(isDark);
   const bottomClearance = useBottomClearance();
-  const hostKey = mapSheetHostKey('section', id);
-  const card = useMemo(() => detailCardWriter(hostKey), [hostKey]);
+  const { hostKey, index: cardIndex } = useMapSheetCardAddress('section', id);
+  const card = useMemo(() => detailCardWriter(hostKey, cardIndex), [hostKey, cardIndex]);
   const { enterTool } = useMapSheetStop(hostKey);
+  const openDetail = useOpenDetail();
 
   // Everything the card can paint before its time streams land, in one call.
   const [sectionRefreshTick, setSectionRefreshTick] = useState(0);
@@ -345,6 +346,7 @@ function SectionDetailCardContent({ id, activityId: navActivityId }: SectionDeta
         contentContainerStyle={{ paddingBottom: spacing.xl + bottomClearance }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        {...sheetScrollProps}
       >
         <SectionHeader
           section={section}
@@ -450,12 +452,13 @@ function SectionDetailCardContent({ id, activityId: navActivityId }: SectionDeta
             hasLaps={lapRecords.some((record) => record.laps.length > 1)}
             historyCount={ledger.history.length}
             onOpenLaps={() =>
-              navigateTo({
-                pathname: '/section/laps/[id]',
-                params: { id, range: sectionTimeRange, sport: effectiveSportType ?? '' },
+              openDetail({
+                kind: 'section-laps',
+                id,
+                params: { range: sectionTimeRange, sport: effectiveSportType ?? '' },
               })
             }
-            onOpenHistory={() => navigateTo(`/section/history/${id}`)}
+            onOpenHistory={() => openDetail({ kind: 'section-history', id })}
           />
         </SectionContentArea>
 

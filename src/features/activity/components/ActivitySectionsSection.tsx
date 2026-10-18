@@ -43,7 +43,7 @@ import {
   sectionGroupIndex,
   type SectionEncounterGroup,
 } from '@/features/activity/lib/groupSectionEncounters';
-import { navigateTo } from '@/shared/app/navigation';
+import { useOpenDetail } from '@/shared/app/MapSheetCards';
 import { formatDistance } from '@/shared/format/format';
 import { colors, darkColors, duration, spacing, typography } from '@/theme';
 import { debug } from '@/shared/debug/debug';
@@ -106,6 +106,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   onFocusHandled,
 }: ActivitySectionsSectionProps) {
   const { t } = useTranslation();
+  const openDetail = useOpenDetail();
   const bottomClearance = useBottomClearance();
 
   // Track open swipeable refs to close them when another opens
@@ -495,9 +496,9 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   // Handle section press navigation
   const handleSectionPress = useCallback(
     (sectionId: string) => {
-      navigateTo(`/section/${sectionId}?activityId=${activityId}`);
+      openDetail({ kind: 'section', id: sectionId, params: { activityId } });
     },
-    [activityId]
+    [activityId, openDetail]
   );
 
   // The swipe button and the screen reader's action are one action, so the
@@ -613,7 +614,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
                 accessibilityRole="button"
                 accessibilityLabel={spokenName}
                 style={styles.scanMatchInfo}
-                onPress={() => navigateTo(`/section/${match.sectionId}?activityId=${activityId}`)}
+                onPress={() => handleSectionPress(match.sectionId)}
               >
                 <Text
                   numberOfLines={2}
@@ -638,7 +639,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         </View>
       );
     },
-    [isDark, isMetric, handleRematch, activityId, t]
+    [isDark, isMetric, handleRematch, handleSectionPress, t]
   );
 
   // Render footer for section list

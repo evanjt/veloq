@@ -1,58 +1,46 @@
 # Scroll one row of the preview parameter card into view, drag its slider and
 # check the caption moved. KEY names the parameter, NEXT the row below it or
-# `presets` for the last row, DIRECTION the way to drag. A slider clipped by the
-# card still reads as visible, so the row counts as in view only once its
-# caption and what lies under its slider both are. Each scroll step is about one
-# row: on a short screen with a result the card holds two rows, and a swipe to
-# the screen edge carries the middle row straight past the top. The steps start
-# at 54% and 62% of the screen height, which is inside the card on a
-# phone-sized screen.
+# `presets` for the last row, DIRECTION the way to drag.
 appId: com.veloq.app.dev
 ---
-- repeat:
-    while:
-      notVisible:
-        id: "param-edit-${KEY}"
-    times: 6
-    commands:
-      - swipe:
-          start: 50%, 54%
-          end: 50%, 62%
-          duration: 1000
 - runFlow:
-    when:
-      true: ${NEXT !== 'presets'}
-    commands:
-      - repeat:
-          while:
-            notVisible:
-              id: "param-edit-${NEXT}"
-          times: 6
-          commands:
-            - swipe:
-                start: 50%, 62%
-                end: 50%, 54%
-                duration: 1000
-      - assertVisible:
-          id: "param-edit-${NEXT}"
-- runFlow:
-    when:
-      true: ${NEXT === 'presets'}
-    commands:
-      - repeat:
-          while:
-            notVisible:
-              id: "preset-default"
-          times: 6
-          commands:
-            - swipe:
-                start: 50%, 62%
-                end: 50%, 54%
-                duration: 1000
-      - assertVisible:
-          id: "preset-default"
-- assertVisible:
+    file: scroll-preview-param-row.yaml
+# A UISlider tracks only a touch that starts on its thumb, and the swipe starts
+# at the slider's centre, so the value is typed at the middle of the slider's
+# range first. Each entry is that middle in the unit the editor shows, read off
+# the caption: feet and miles on an imperial device, metres and kilometres
+# otherwise. The divergence has no step at its middle, so its thumb sits half a
+# step off it.
+- copyTextFrom:
     id: "param-edit-${KEY}"
+- evalScript: ${output.row = ['proximityThreshold', 'minSectionLength', 'maxSectionLength', 'minActivities', 'divergenceThreshold'].indexOf(KEY)}
+- evalScript: ${output.imperial = /\d\s*(ft|mi)\b/.test(maestro.copiedText)}
+- evalScript: '${output.middle = (output.imperial ? ["656", "3363", "62.76", "6", "0.3"] : ["200", "1025", "101", "6", "0.3"])[output.row]}'
+- tapOn:
+    id: "param-edit-${KEY}"
+- extendedWaitUntil:
+    visible:
+      id: "param-editor-input"
+    timeout: 10000
+- tapOn:
+    id: "param-editor-input"
+- eraseText: 12
+- inputText: ${output.middle}
+# On Android the keyboard covers the sheet's Save. iOS shows Save in the sheet's
+# header, above the keyboard.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
+- tapOn:
+    id: "param-editor-save"
+- extendedWaitUntil:
+    notVisible:
+      id: "param-editor-input"
+    timeout: 10000
+- runFlow:
+    file: scroll-preview-param-row.yaml
 - copyTextFrom:
     id: "param-edit-${KEY}"
 - evalScript: ${output.captionBefore = maestro.copiedText}

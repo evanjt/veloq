@@ -1,0 +1,31 @@
+# Scroll the activity chart's chip row until the chip CHART_TYPE is on screen.
+# The chips sit on one line that scrolls sideways, so a chip past the row's end
+# is off screen and an optional tap on it would be skipped without a word. Each
+# swipe starts on the row, which scrolls the row rather than paging the tabs:
+# toward the row's end first, then back toward its start for a chip passed on
+# the way. A stream the activity did not record has no chip, and the row is
+# left where it ends up.
+appId: com.veloq.app.dev
+---
+- repeat:
+    while:
+      notVisible:
+        id: "chart-type-${CHART_TYPE}"
+    times: 4
+    commands:
+      - swipe:
+          from:
+            id: "chart-type-selector"
+          direction: LEFT
+          duration: 400
+- repeat:
+    while:
+      notVisible:
+        id: "chart-type-${CHART_TYPE}"
+    times: 4
+    commands:
+      - swipe:
+          from:
+            id: "chart-type-selector"
+          direction: RIGHT
+          duration: 400

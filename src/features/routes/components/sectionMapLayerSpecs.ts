@@ -7,7 +7,11 @@
  */
 import type { MapPalette } from '@/theme';
 import {
+  boundsOfLngLat,
   DELTA_GAPS_SOURCE_ID,
+  ENDPOINT_AND_DIRECTION_IMAGES,
+  type LngLat,
+  type MapSubjectSpecs,
   buildDeltaGapLayer,
   lineBandExpression,
   type LineBand,
@@ -20,6 +24,7 @@ import {
   buildUserLocationLayers,
 } from '@/features/maps';
 import type { SectionMapLayers } from './useSectionMapLayers';
+import { SECTION_MAP_BOUNDS_PADDING } from '../lib/sectionMapCamera';
 
 interface SectionLayerInput extends SectionMapLayers {
   endpoints: GeoJSON.FeatureCollection;
@@ -255,4 +260,24 @@ export function buildSectionLayers(
     layers.push(...buildUserLocationLayers(!!input.hasUserLocation, palette));
 
   return layers;
+}
+
+/**
+ * Everything a section's map draws, and the extent it fits: the section, or the whole window
+ * around it while its bounds are being extended.
+ */
+export function sectionMapSpecs(
+  input: SectionLayerInput & {
+    palette: MapPalette;
+    /** The points the map frames. */
+    extentCoords: readonly LngLat[];
+  }
+): MapSubjectSpecs {
+  return {
+    sources: buildSectionSources(input),
+    layers: buildSectionLayers(input),
+    images: ENDPOINT_AND_DIRECTION_IMAGES,
+    interactiveLayers: undefined,
+    bounds: boundsOfLngLat(input.extentCoords, SECTION_MAP_BOUNDS_PADDING),
+  };
 }

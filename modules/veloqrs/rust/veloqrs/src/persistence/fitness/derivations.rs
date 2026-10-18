@@ -1844,7 +1844,7 @@ impl PersistentEngine {
     /// Get section encounters for an activity: one entry per
     /// `(section, direction)`, represented by the activity's fastest pass.
     /// Includes this activity's time, PR status, visit count, and sparkline
-    /// history. Individual laps are the `FfiSectionLap` surface.
+    /// history. Individual laps are the `SectionLap` surface.
     pub fn get_activity_section_encounters(
         &self,
         activity_id: &str,
@@ -1913,7 +1913,7 @@ pub(crate) fn calendar_from(
             let perf = slot.get_or_insert_with(|| DirPerf {
                 activity_id: record.activity_id.clone(),
                 activity_name: record.activity_name.clone(),
-                activity_date: record.activity_date,
+                activity_date: record.activity_date.0,
                 best_time: f64::MAX,
                 best_pace: 0.0,
                 is_reverse,
@@ -2803,6 +2803,7 @@ mod tests {
             excluded: false,
             outside_distance_band: false,
             match_percentage: None,
+            is_record: false,
         }
     }
 
@@ -2814,7 +2815,7 @@ mod tests {
         crate::SectionPerformanceRecord {
             activity_id: activity.to_string(),
             activity_name: format!("{activity} ride"),
-            activity_date: date,
+            activity_date: crate::WholeNumber(date),
             lap_count: laps.len() as u32,
             best_time: laps.iter().map(|l| l.time).fold(f64::INFINITY, f64::min),
             best_pace: 0.0,

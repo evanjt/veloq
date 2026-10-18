@@ -36,7 +36,6 @@ import {
   type BaseMap3DLayer,
   boundsOfLngLat,
   featureCollection,
-  getNextStyle,
   getStyleIcon,
   statusBarStyleForMap,
   lngLatFromShort,
@@ -46,12 +45,15 @@ import {
   type LineDirection,
   ENDPOINT_AND_DIRECTION_IMAGES,
   type MapCameraState,
-  MapSurface,
   type MapSurfaceRef,
+  AttributionOverlay,
+  SlottedMapSurface,
+  useInMapSurfaceSlot,
   pointFeature,
   TRIM_UPDATE_THROTTLE_MS,
   useMapFullscreen,
-  useDrawnMapStyle,
+  useMapStyleToggle,
+  useSurfaceAttribution,
   useTerrainFallback,
   buildSectionTrimCollection,
   EMPTY_FEATURE_COLLECTION,
@@ -86,7 +88,9 @@ import {
   buildSectionLayers,
   buildSectionSources,
   drawnSectionDirection,
+  sectionMapSpecs,
 } from './sectionMapLayerSpecs';
+import { useStableBy } from '@/shared/app/useStableBy';
 import {
   SECTION_MAP_BOUNDS_PADDING,
   SECTION_MAP_FIT_PADDING,
@@ -196,10 +200,14 @@ export const SectionMapView = memo(function SectionMapView({
     ? getStyleForActivity(validSportType)
     : preferences.defaultStyle;
   const [currentMapStyle, setCurrentMapStyle] = useState(preferredStyle);
-  const drawnMapStyle = useDrawnMapStyle(currentMapStyle);
+  const { drawn: drawnMapStyle, cycle: toggleMapStyle } = useMapStyleToggle(
+    currentMapStyle,
+    setCurrentMapStyle
+  );
   const activityColor = getActivityColor(validSportType ?? 'Other');
   const palette = mapPalette(drawnMapStyle);
   const surfaceRef = useRef<MapSurfaceRef>(null);
+  const inSlot = useInMapSurfaceSlot();
   // The surface is unmounted while the 3D layer covers it, so the viewport it
   // settled on is what a remount opens with, not the section fit again.
   const settledCameraRef = useRef<{
@@ -210,12 +218,19 @@ export const SectionMapView = memo(function SectionMapView({
     center: [number, number];
     zoom: number;
   } | null>(null);
-  const handleRegionDidChange = useCallback((state: MapCameraState) => {
-    settledCameraRef.current = { center: state.center, zoom: state.zoom };
-  }, []);
-
   // Interactive-mode state
   const [is3DMode, setIs3DMode] = useState(false);
+  const { attributionRef, initialAttribution, trackAttribution } = useSurfaceAttribution(
+    drawnMapStyle,
+    { is3D: is3DMode }
+  );
+  const handleRegionDidChange = useCallback(
+    (state: MapCameraState) => {
+      settledCameraRef.current = { center: state.center, zoom: state.zoom };
+      trackAttribution(state);
+    },
+    [trackAttribution]
+  );
   const camera3DRef = useRef<Camera3DState | null>(null);
   const handleCamera3DChange = useCallback((camera: Camera3DState) => {
     camera3DRef.current = camera;
@@ -246,15 +261,6 @@ export const SectionMapView = memo(function SectionMapView({
     () => (extensionTrack ? lngLatFromShort(extensionTrack) : []),
     [extensionTrack]
   );
-  const bounds = useMemo(
-    () =>
-      boundsOfLngLat(
-        extensionCoords.length > 0 ? extensionCoords : sectionCoords,
-        SECTION_MAP_BOUNDS_PADDING
-      ),
-    [extensionCoords, sectionCoords]
-  );
-
   const hasRoute = sectionCoords.length > 0;
   // Fullscreen button is part of control stack when interactive
   const isTrimming = !!trimRange;
@@ -284,8 +290,9 @@ export const SectionMapView = memo(function SectionMapView({
   const { isDark } = useTheme();
 
   // The 2D surface comes down once the 3D layer covers it, so where it was is
-  // captured on the way out and handed back to the remount.
-  const show2DSurface = !(is3DMode && is3DReady);
+  // captured on the way out and handed back to the remount. A slot's surface is
+  // shared with the subjects beneath this one, so it stays under the 3D layer.
+  const show2DSurface = inSlot || !(is3DMode && is3DReady);
   const is3DLoading = is3DMode && !is3DReady;
   useEffect(() => {
     if (!show2DSurface) setCameraOnHide(settledCameraRef.current);
@@ -308,7 +315,9 @@ export const SectionMapView = memo(function SectionMapView({
   // mode change, so it leaves the viewport alone too.
   const isExpanding = extensionCoords.length > 0;
   const frameKey = `${section.id}|${isExpanding}|${coveredBottom}`;
-  const framedSection = useRef<string | null>(null);
+  // A slot moves its shared camera to each subject it takes, or back to where one was left, so
+  // there only a later key refits the section.
+  const framedSection = useRef<string | null>(inSlot ? frameKey : null);
   useEffect(() => {
     if (framedSection.current === frameKey) return;
     const nextBounds = boundsOfLngLat(
@@ -353,11 +362,6 @@ export const SectionMapView = memo(function SectionMapView({
     },
     [bearingAnim]
   );
-
-  // Toggle map style
-  const toggleMapStyle = useCallback(() => {
-    setCurrentMapStyle((current) => getNextStyle(current));
-  }, []);
 
   // Toggle 3D mode
   const toggle3D = useCallback(() => {
@@ -500,23 +504,9 @@ export const SectionMapView = memo(function SectionMapView({
     [userLocation]
   );
 
-  const inlineSources = useMemo(
+  const specs = useMemo(
     () =>
-      buildSectionSources({
-        ...specInput,
-        userLocationGeoJSON,
-        showExtensionAndSection: true,
-        trimCasingWidth: 5,
-        trimLineWidth: 4,
-        traceCasingWidth: 5,
-        traceLineWidth: 4,
-      }),
-    [specInput, userLocationGeoJSON]
-  );
-
-  const inlineLayers = useMemo(
-    () =>
-      buildSectionLayers({
+      sectionMapSpecs({
         ...specInput,
         palette,
         userLocationGeoJSON,
@@ -526,9 +516,12 @@ export const SectionMapView = memo(function SectionMapView({
         trimLineWidth: 4,
         traceCasingWidth: 5,
         traceLineWidth: 4,
+        extentCoords: extensionCoords.length > 0 ? extensionCoords : sectionCoords,
       }),
-    [specInput, palette, userLocationGeoJSON, userLocation]
+    [specInput, palette, userLocationGeoJSON, userLocation, extensionCoords, sectionCoords]
   );
+  // The extent moves only with the line framed, not with what is picked on it.
+  const bounds = useStableBy(specs.bounds, JSON.stringify(specs.bounds));
 
   // Fullscreen already draws the section through BaseMapView's own route line,
   // so it only adds the overlays and draws the trim a touch heavier.
@@ -583,7 +576,7 @@ export const SectionMapView = memo(function SectionMapView({
   }
 
   const mapContent = (
-    <MapSurface
+    <SlottedMapSurface
       ref={surfaceRef}
       mapStyle={drawnMapStyle}
       initialCamera={
@@ -592,9 +585,10 @@ export const SectionMapView = memo(function SectionMapView({
           maxZoom: SECTION_MAP_MAX_ZOOM,
         }
       }
-      sources={inlineSources}
-      layers={inlineLayers}
-      images={ENDPOINT_AND_DIRECTION_IMAGES}
+      sources={specs.sources}
+      layers={specs.layers}
+      images={specs.images}
+      interactiveLayers={specs.interactiveLayers}
       scrollEnabled={interactive}
       zoomEnabled={interactive}
       rotateEnabled={interactive}
@@ -604,19 +598,37 @@ export const SectionMapView = memo(function SectionMapView({
     />
   );
 
+  const attributionOverlay = (
+    <AttributionOverlay
+      ref={attributionRef}
+      initialAttribution={initialAttribution}
+      bottomInset={coveredBottom}
+    />
+  );
+
   // Whether to show the interactive control stack (not during trim mode)
   const showControls = interactive;
+  const touchThrough = inSlot ? 'box-none' : 'auto';
   const showExpandOverlay = enableFullscreen && !interactive;
 
   return (
     <>
       {interactive ? (
         // Interactive map with control stack and optional 3D
-        <View style={[styles.outerContainer, { height }]}>
-          <View testID="section-map-container" style={styles.container}>
+        // A slot's surface sits under this view, so touches the overlays leave go through to it.
+        <View style={[styles.outerContainer, { height }]} pointerEvents={touchThrough}>
+          <View
+            testID="section-map-container"
+            style={styles.container}
+            pointerEvents={touchThrough}
+          >
             {/* 2D Map layer. Unmounted once the 3D layer covers it, because a
                 hidden WebView holds its GL context and tile textures. */}
-            {show2DSurface ? <View style={styles.mapLayer}>{mapContent}</View> : null}
+            {show2DSurface ? (
+              <View style={styles.mapLayer} pointerEvents={touchThrough}>
+                {mapContent}
+              </View>
+            ) : null}
 
             {/* 3D Map layer */}
             {is3DMode && hasRoute ? (
@@ -650,6 +662,8 @@ export const SectionMapView = memo(function SectionMapView({
 
             {terrainNotice}
           </View>
+
+          {attributionOverlay}
 
           {/* Control buttons - rendered OUTSIDE map container for reliable touch handling */}
           {showControls ? (
@@ -747,6 +761,7 @@ export const SectionMapView = memo(function SectionMapView({
           disabled={!enableFullscreen}
         >
           {mapContent}
+          {attributionOverlay}
           {showExpandOverlay ? (
             <View style={styles.expandOverlay}>
               <Icon name="fullscreen" size={iconSize.md} color={colors.textOnFill} />

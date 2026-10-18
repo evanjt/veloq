@@ -36,12 +36,20 @@ jest.mock('@tanstack/react-query', () => ({
 }));
 jest.mock('@/shared/native/useEngineSubscription', () => ({ useEngineSubscription: () => 0 }));
 
+// The screens draw the section's history and laps cards, so the modules those cards read are
+// stood in for and the cards themselves are real.
 jest.mock('@/features/routes', () => ({
-  DetailFallback: () => null,
+  SectionHistoryCard: jest.requireActual('@/features/routes/screens/SectionHistoryCard')
+    .SectionHistoryCard,
+  SectionLapsCard: jest.requireActual('@/features/routes/screens/SectionLapsCard').SectionLapsCard,
+}));
+jest.mock('@/features/routes/components', () => ({ DetailFallback: () => null }));
+jest.mock('@/features/routes/components/section', () => ({
   SectionLapList: () => null,
   SectionStreamsNotice: () => null,
   SectionHistoryPanel: () => null,
-  RANGE_DAYS: { all: 0 },
+}));
+jest.mock('@/features/routes/hooks/useSectionDetailData', () => ({
   useSectionDetailData: () => ({
     data: { section: { activityPortions: [] }, missingTimeStreamIds: [] },
     status: { kind: 'open' },
@@ -50,6 +58,8 @@ jest.mock('@/features/routes', () => ({
     data: { lapRecords: [], sportType: 'Ride', sportCounts: [] },
     error: undefined,
   }),
+}));
+jest.mock('@/features/routes/hooks/useSectionPerformances', () => ({
   useSectionTimeStreamSync: () => ({
     ready: true,
     error: undefined,
@@ -58,8 +68,12 @@ jest.mock('@/features/routes', () => ({
   }),
   toPerformanceRecord: (record: unknown) => record,
   withoutRecordMarks: (records: unknown) => records,
-  scopeLabels: () => [],
+}));
+jest.mock('@/features/routes/lib/heroStats', () => ({ scopeLabels: () => [] }));
+jest.mock('@/features/routes/hooks/useSectionLaps', () => ({
   useSectionLaps: () => ({ excludeLap: jest.fn(), includeLap: jest.fn() }),
+}));
+jest.mock('@/features/routes/hooks/useSectionLedger', () => ({
   useSectionLedger: () => ({
     history: [],
     versions: [],
@@ -67,6 +81,8 @@ jest.mock('@/features/routes', () => ({
     revert: jest.fn(),
     unpin: jest.fn(),
   }),
+}));
+jest.mock('@/features/routes/hooks/useLedgerActivityNames', () => ({
   useLedgerActivityNames: () => ({}),
 }));
 

@@ -1011,7 +1011,7 @@ fn record_run(install: u64, run: &BackfillRun) {
         BackfillRun::Refused => return,
         BackfillRun::Failed(_) => JobRun {
             job: BackgroundJob::ElevationBackfill,
-            finished_at: now_ms(),
+            finished_at: crate::WholeNumber(now_ms()),
             outcome: RunOutcome::Failed,
             handled: 0,
             added: 0,
@@ -1021,7 +1021,7 @@ fn record_run(install: u64, run: &BackfillRun) {
         },
         BackfillRun::Finished(outcome) => JobRun {
             job: BackgroundJob::ElevationBackfill,
-            finished_at: now_ms(),
+            finished_at: crate::WholeNumber(now_ms()),
             outcome: run_outcome(phase, outcome.failed),
             handled: outcome.queued,
             added: 0,
@@ -3184,7 +3184,7 @@ mod tests {
             tmp
         }
 
-        fn runs() -> Vec<crate::FfiJobRun> {
+        fn runs() -> Vec<crate::persistence::job_runs::JobRun> {
             with_persistent_engine(|e| crate::persistence::job_runs::job_runs(&e.db))
                 .expect("engine")
                 .expect("runs read")
@@ -3226,14 +3226,19 @@ mod tests {
             let runs = runs();
             let run = runs
                 .iter()
-                .find(|run| run.job == "elevationBackfill")
+                .find(|run| {
+                    run.job == crate::persistence::job_runs::BackgroundJob::ElevationBackfill
+                })
                 .expect("the pass recorded its run");
-            assert_eq!(run.outcome, "complete");
+            assert_eq!(
+                run.outcome,
+                crate::persistence::job_runs::RunOutcome::Complete
+            );
             assert_eq!(
                 (run.handled, run.added, run.changed, run.retired, run.failed),
                 (3, 0, 2, 1, 0)
             );
-            assert!(run.finished_at > 0.0);
+            assert!(run.finished_at > crate::WholeNumber(0));
         }
     }
 

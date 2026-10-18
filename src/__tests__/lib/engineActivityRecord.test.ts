@@ -28,7 +28,7 @@ function fakeEngine(records: Record<string, object>) {
       this.idReads.push(activityId);
       return stored[activityId] ?? null;
     },
-    getActivityBodies() {
+    getFeedCards() {
       this.windowReads += 1;
       return Object.values(stored);
     },
@@ -89,7 +89,7 @@ describe('readActivityRecord', () => {
   });
 
   it('reads null when the engine predates the primary-key read', () => {
-    withEngine({ getActivityBodies: () => [] });
+    withEngine({ getFeedCards: () => [] });
 
     expect(readActivityRecord('a')).toBeNull();
   });

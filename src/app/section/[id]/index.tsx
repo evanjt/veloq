@@ -1,25 +1,23 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 
-import { SectionDetailCard, SectionDetailMap } from '@/features/routes';
-import { MapSheetHostMap, useMapSheetHost } from '@/shared/app/MapSheetHost';
+import { DetailCardStack, DetailMapHost } from '@/features/routes';
+import { MapSheetHostMap } from '@/shared/app/MapSheetHost';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
-/** The section's map, filling the window under the sheet it presents, or beside its side panel. */
+/**
+ * The section's map, filling the window under the sheet it presents, or beside its side panel.
+ * The map follows the card on top of the sheet, the section's own at first.
+ */
 function SectionMapScreen() {
-  const host = useMapSheetHost();
   const { activityId, previewVersion } = useLocalSearchParams<{
     activityId?: string;
     previewVersion?: string;
   }>();
-  const id = host?.id ?? '';
+  const rootParams = useMemo(() => ({ activityId, previewVersion }), [activityId, previewVersion]);
   return (
-    <MapSheetHostMap panel={<SectionDetailCard id={id} activityId={activityId} />}>
-      <SectionDetailMap
-        sectionId={id}
-        pageActivityId={activityId}
-        previewVersion={previewVersion}
-      />
+    <MapSheetHostMap panel={<DetailCardStack rootParams={rootParams} />}>
+      <DetailMapHost rootParams={rootParams} />
     </MapSheetHostMap>
   );
 }

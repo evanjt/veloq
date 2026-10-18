@@ -26,7 +26,7 @@ fn direction_stats(
     let total_distance = counted.iter().map(|(_, distance)| distance).sum::<f64>();
     DirectionStats {
         avg_time: (count > 0).then(|| total_time / f64::from(count)),
-        last_activity,
+        last_activity: last_activity.map(crate::WholeNumber),
         count,
         avg_speed: (total_time > 0.0).then(|| total_distance / total_time),
         outside_band_count,
@@ -378,6 +378,7 @@ pub(crate) mod laps {
                             excluded: portion.excluded,
                             outside_distance_band: portion.outside_distance_band,
                             match_percentage: portion.match_percentage,
+                            is_record: false,
                         })
                     })
                     .collect();
@@ -409,7 +410,7 @@ pub(crate) mod laps {
                 Some(SectionPerformanceRecord {
                     activity_id: activity_id.to_string(),
                     activity_name,
-                    activity_date,
+                    activity_date: crate::WholeNumber(activity_date),
                     laps,
                     lap_count,
                     best_time,
@@ -457,9 +458,9 @@ pub(crate) mod laps {
                     (&mut fwd_laps, &mut fwd_last_date, &mut best_fwd)
                 };
                 laps.push((lap.time, lap.distance));
-                *last_date = Some(
-                    last_date.map_or(record.activity_date, |d: i64| d.max(record.activity_date)),
-                );
+                *last_date = Some(last_date.map_or(record.activity_date.0, |d: i64| {
+                    d.max(record.activity_date.0)
+                }));
                 if best.is_none_or(|(_, _, time)| lap.time < time) {
                     *best = Some((i, lap.pace, lap.time));
                 }
@@ -1209,7 +1210,7 @@ where
         performances.push(RoutePerformance {
             activity_id: id.clone(),
             name: metrics.name.clone(),
-            date: metrics.date,
+            date: crate::WholeNumber(metrics.date),
             speed,
             duration: metrics.moving_time,
             moving_time: metrics.moving_time,
@@ -1276,7 +1277,7 @@ pub(crate) fn route_attempts(
     let meta: HashMap<&str, (String, i64)> = attempts
         .performances
         .iter()
-        .map(|p| (p.activity_id.as_str(), (p.name.clone(), p.date)))
+        .map(|p| (p.activity_id.as_str(), (p.name.clone(), p.date.0)))
         .collect();
     laps::performances(
         route_distance,
@@ -1409,7 +1410,7 @@ where
             performances.push(RoutePerformance {
                 activity_id: id.clone(),
                 name: metrics.name.clone(),
-                date: metrics.date,
+                date: crate::WholeNumber(metrics.date),
                 speed,
                 duration: metrics.moving_time,
                 moving_time: metrics.moving_time,
@@ -1600,7 +1601,11 @@ fn route_direction_stats(
         .map(|p| (f64::from(p.moving_time), p.distance))
         .collect();
     let last_activity = counted.iter().map(|p| p.date).max();
-    Some(direction_stats(&laps, last_activity, outside_band_count))
+    Some(direction_stats(
+        &laps,
+        last_activity.map(|n| n.0),
+        outside_band_count,
+    ))
 }
 
 /// What a route with no group answers: nothing, rather than a shape with
@@ -2026,7 +2031,7 @@ mod tests {
         RoutePerformance {
             activity_id: activity_id.to_string(),
             name: activity_id.to_string(),
-            date: 1_700_000_000,
+            date: crate::WholeNumber(1_700_000_000),
             speed: 1.0,
             duration: moving_time,
             moving_time,

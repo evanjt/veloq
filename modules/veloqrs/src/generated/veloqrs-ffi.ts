@@ -179,6 +179,14 @@ interface NativeModuleInterface {
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_clone_cachesizerun(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_free_cachesizerun(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_fn_clone_detectionmanager(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -411,11 +419,6 @@ interface NativeModuleInterface {
     count: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
-  ubrn_uniffi_veloqrs_fn_method_activitymanager_get_activity_bodies(
-    uniffiSelf: bigint,
-    query: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_activitymanager_get_activity_names(
     uniffiSelf: bigint,
     activityIds: Uint8Array,
@@ -607,6 +610,26 @@ interface NativeModuleInterface {
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_basemapmanager_tile_listener(
+    uniffiSelf: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_constructor_cachesizerun_new(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_cachesizerun_cancel(
+    uniffiSelf: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_uniffi_veloqrs_fn_method_cachesizerun_progress(
+    uniffiSelf: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_cachesizerun_start(
+    uniffiSelf: bigint,
+    basePath: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_cachesizerun_take(
     uniffiSelf: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
@@ -890,10 +913,6 @@ interface NativeModuleInterface {
     uniffiSelf: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_method_heatmapmanager_poll_cache_size(
-    uniffiSelf: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_heatmapmanager_set_priority_view(
     uniffiSelf: bigint,
     latitude: number,
@@ -904,11 +923,6 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_method_heatmapmanager_set_tiles_path(
     uniffiSelf: bigint,
     path: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): void;
-  ubrn_uniffi_veloqrs_fn_method_heatmapmanager_start_cache_size(
-    uniffiSelf: bigint,
-    basePath: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
   ubrn_uniffi_veloqrs_fn_constructor_mapmanager_new(
@@ -1328,7 +1342,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_method_sectionpreview_cancel(
     uniffiSelf: bigint,
     uniffi_out_err: UniffiRustCallStatus,
-  ): void;
+  ): number;
   ubrn_uniffi_veloqrs_fn_method_sectionpreview_centres(
     uniffiSelf: bigint,
     limit: number,
@@ -1340,11 +1354,7 @@ interface NativeModuleInterface {
     lng: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_method_sectionpreview_get_progress(
-    uniffiSelf: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_method_sectionpreview_poll(
+  ubrn_uniffi_veloqrs_fn_method_sectionpreview_progress(
     uniffiSelf: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
@@ -1355,7 +1365,7 @@ interface NativeModuleInterface {
     config: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_method_sectionpreview_take_result(
+  ubrn_uniffi_veloqrs_fn_method_sectionpreview_take(
     uniffiSelf: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
@@ -1799,7 +1809,6 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_activity_notification(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_add(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_debug_clone(): number;
-  ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_activity_bodies(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_activity_names(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_activity_record(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_activity_streams(): number;
@@ -1837,6 +1846,11 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_basemapmanager_set_source_template(): number;
   ubrn_uniffi_veloqrs_checksum_method_basemapmanager_tile_counts(): number;
   ubrn_uniffi_veloqrs_checksum_method_basemapmanager_tile_listener(): number;
+  ubrn_uniffi_veloqrs_checksum_constructor_cachesizerun_new(): number;
+  ubrn_uniffi_veloqrs_checksum_method_cachesizerun_cancel(): number;
+  ubrn_uniffi_veloqrs_checksum_method_cachesizerun_progress(): number;
+  ubrn_uniffi_veloqrs_checksum_method_cachesizerun_start(): number;
+  ubrn_uniffi_veloqrs_checksum_method_cachesizerun_take(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_detectionmanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_awaiting_count(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_cancel(): number;
@@ -1895,10 +1909,8 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles_path(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_progress(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_poll(): number;
-  ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_poll_cache_size(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_set_priority_view(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_set_tiles_path(): number;
-  ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_start_cache_size(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_mapmanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_all_signatures(): number;
   ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_screen_data(): number;
@@ -1979,10 +1991,9 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_sectionpreview_cancel(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionpreview_centres(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionpreview_current(): number;
-  ubrn_uniffi_veloqrs_checksum_method_sectionpreview_get_progress(): number;
-  ubrn_uniffi_veloqrs_checksum_method_sectionpreview_poll(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionpreview_progress(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionpreview_start(): number;
-  ubrn_uniffi_veloqrs_checksum_method_sectionpreview_take_result(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionpreview_take(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_settingsmanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_background_jobs_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_backup_screen_data(): number;
@@ -2076,6 +2087,10 @@ interface NativeModuleInterface {
     uniffi_out_err: UniffiRustCallStatus,
   ): UniffiGcObject;
   ubrn_uniffi_internal_fn_method_basemapmanager_ffi__bless_pointer(
+    pointer: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): UniffiGcObject;
+  ubrn_uniffi_internal_fn_method_cachesizerun_ffi__bless_pointer(
     pointer: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): UniffiGcObject;

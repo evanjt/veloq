@@ -794,7 +794,7 @@ fn rows_without_a_body_still_read_as_a_whole_day() {
             hrv: Some(WELLNESS_HRV),
             resting_hr: Some(52.0),
             weight: None,
-            sleep_secs: Some(27000),
+            sleep_secs: Some(veloqrs::WholeNumber(27000)),
             sleep_score: None,
             soreness: None,
             fatigue: Some(2),

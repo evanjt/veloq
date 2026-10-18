@@ -64,7 +64,7 @@ const monthlyRows = jest.fn((_startTs: number, _endTs: number) => ROWS);
 
 const engine = {
   getFitnessScreenData: fitnessScreenRead({ months: monthlyRows, period: periodFrom }),
-  getActivityBodies: jest.fn(() => []),
+  getFeedCards: jest.fn(() => []),
   subscribe: jest.fn(() => () => {}),
 };
 
@@ -121,7 +121,7 @@ describe('SeasonComparison', () => {
     );
 
     await waitFor(() => expect(monthlyRows).toHaveBeenCalled());
-    expect(engine.getActivityBodies).not.toHaveBeenCalled();
+    expect(engine.getFeedCards).not.toHaveBeenCalled();
   });
 
   it('asks the engine for the two calendar years the chart shows', async () => {

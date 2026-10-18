@@ -7,14 +7,14 @@
 //! and leaves the caller running.
 
 use super::{BackgroundJob, JobRun, RunOutcome, job_runs, record_job_run};
+use crate::FfiBackgroundJobsData;
 use crate::persistence::PersistentEngine;
 use crate::persistence::screens::background_jobs_data;
-use crate::{FfiBackgroundJobsData, FfiJobRun};
 
 fn detection_run(finished_at: i64, handled: u32, added: u32, changed: u32) -> JobRun {
     JobRun {
         job: BackgroundJob::Detection,
-        finished_at,
+        finished_at: crate::WholeNumber(finished_at),
         outcome: RunOutcome::Complete,
         handled,
         added,
@@ -27,7 +27,7 @@ fn detection_run(finished_at: i64, handled: u32, added: u32, changed: u32) -> Jo
 fn elevation_run() -> JobRun {
     JobRun {
         job: BackgroundJob::ElevationBackfill,
-        finished_at: 1_791_000_500_000,
+        finished_at: crate::WholeNumber(1_791_000_500_000),
         outcome: RunOutcome::Partial,
         handled: 12,
         added: 0,
@@ -41,8 +41,9 @@ fn read(engine: &PersistentEngine) -> FfiBackgroundJobsData {
     background_jobs_data(&engine.db).expect("the screen read answers")
 }
 
-fn run_of<'a>(data: &'a FfiBackgroundJobsData, job: &str) -> Option<&'a FfiJobRun> {
-    data.runs.iter().find(|run| run.job == job)
+/// The run the app finds under `job`, the token it names the job by.
+fn run_of<'a>(data: &'a FfiBackgroundJobsData, job: &str) -> Option<&'a JobRun> {
+    data.runs.iter().find(|run| run.job.token() == job)
 }
 
 #[test]
@@ -62,8 +63,11 @@ fn recorded_runs_survive_a_reopen_and_a_second_run_replaces_the_first() {
     assert_eq!(data.runs.len(), 2, "one row per job that has run");
 
     let detection = run_of(&data, "detection").expect("the detection run");
-    assert_eq!(detection.finished_at, 1_791_000_000_000.0);
-    assert_eq!(detection.outcome, "complete");
+    assert_eq!(detection.finished_at, crate::WholeNumber(1_791_000_000_000));
+    assert_eq!(
+        detection.outcome,
+        crate::persistence::job_runs::RunOutcome::Complete
+    );
     assert_eq!(
         (
             detection.handled,
@@ -76,8 +80,11 @@ fn recorded_runs_survive_a_reopen_and_a_second_run_replaces_the_first() {
     );
 
     let elevation = run_of(&data, "elevationBackfill").expect("the elevation run");
-    assert_eq!(elevation.finished_at, 1_791_000_500_000.0);
-    assert_eq!(elevation.outcome, "partial");
+    assert_eq!(elevation.finished_at, crate::WholeNumber(1_791_000_500_000));
+    assert_eq!(
+        elevation.outcome,
+        crate::persistence::job_runs::RunOutcome::Partial
+    );
     assert_eq!(
         (
             elevation.handled,
@@ -93,7 +100,7 @@ fn recorded_runs_survive_a_reopen_and_a_second_run_replaces_the_first() {
     let data = read(&engine);
     assert_eq!(data.runs.len(), 2, "a second run replaces, it does not add");
     let detection = run_of(&data, "detection").unwrap();
-    assert_eq!(detection.finished_at, 1_791_000_900_000.0);
+    assert_eq!(detection.finished_at, crate::WholeNumber(1_791_000_900_000));
     assert_eq!(
         (detection.handled, detection.added, detection.changed),
         (5, 0, 0)
@@ -161,7 +168,7 @@ fn every_job_and_outcome_round_trips_through_its_token() {
             &engine.db,
             &JobRun {
                 job: *job,
-                finished_at: 1,
+                finished_at: crate::WholeNumber(1),
                 outcome: *outcome,
                 handled: 0,
                 added: 0,
@@ -179,7 +186,7 @@ fn every_job_and_outcome_round_trips_through_its_token() {
     );
     let data = read(&engine);
     for ((_, job), (_, outcome)) in jobs.iter().zip(outcomes.iter()) {
-        assert_eq!(run_of(&data, job).unwrap().outcome, *outcome);
+        assert_eq!(run_of(&data, job).unwrap().outcome.token(), *outcome);
     }
 
     record_job_run(
@@ -191,8 +198,46 @@ fn every_job_and_outcome_round_trips_through_its_token() {
     );
     assert_eq!(
         run_of(&read(&engine), "detection").unwrap().outcome,
-        "stopped"
+        RunOutcome::Stopped
     );
+}
+
+/// Scenario: a newer build recorded a run under a job or an outcome this build
+/// has no name for, and the athlete went back to this build.
+///
+/// Expected behaviour: the read leaves that row out and still answers with
+/// every run it can name, rather than failing the whole screen.
+#[test]
+fn a_run_this_build_cannot_name_is_left_out_of_the_read() {
+    let engine = PersistentEngine::in_memory().unwrap();
+    record_job_run(&engine.db, &elevation_run());
+    for (job, outcome) in [("detection", "abandoned"), ("rebalance", "complete")] {
+        engine
+            .db
+            .execute(
+                "INSERT OR REPLACE INTO job_runs
+                     (job, finished_at, outcome, handled, added, changed, retired, failed)
+                 VALUES (?, 1, ?, 0, 0, 0, 0, 0)",
+                rusqlite::params![job, outcome],
+            )
+            .unwrap();
+    }
+
+    let runs = job_runs(&engine.db).expect("the read answers");
+
+    assert_eq!(runs, vec![elevation_run()]);
+}
+
+#[test]
+fn every_token_names_its_own_job_and_outcome() {
+    for job in BackgroundJob::ALL {
+        assert_eq!(BackgroundJob::from_token(job.token()), Some(job));
+    }
+    for outcome in RunOutcome::ALL {
+        assert_eq!(RunOutcome::from_token(outcome.token()), Some(outcome));
+    }
+    assert_eq!(BackgroundJob::from_token("Detection"), None);
+    assert_eq!(RunOutcome::from_token(""), None);
 }
 
 #[test]

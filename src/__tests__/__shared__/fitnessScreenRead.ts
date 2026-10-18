@@ -22,6 +22,12 @@ type Comparisons = FitnessScreenData['comparisons'];
 
 interface Parts {
   heatmap?: (firstDay: string, lastDay: string) => HeatmapDay[];
+  /**
+   * The calendar's first drawn day given the most it may draw, and the older
+   * activities owed. By default it draws the most, with none owed.
+   */
+  calendarFirstDay?: (capDay: string) => string;
+  calendarOlderOwed?: number;
   months?: (startTs: number, endTs: number) => MonthlyStats[];
   period?: (startTs: number, endTs: number) => PeriodStats;
   /** The weekly card's ranges, given the instant the read runs to. */
@@ -78,6 +84,9 @@ export function noComparisons(now: number): Comparisons {
 export function noCalendarParts(now = 0) {
   return {
     heatmap: [],
+    // No day, so the calendar keeps the most it draws.
+    calendarFirstDay: '',
+    calendarOlderOwed: 0,
     months: [],
     yearCurrent: NO_TOTALS,
     yearPrevious: NO_TOTALS,
@@ -107,9 +116,12 @@ export function fitnessScreenRead(parts: Parts) {
     parts.period?.(range.startTs, range.endTs) ?? NO_TOTALS;
   return jest.fn((_spanDays: number[], w: FitnessScreenWindows): FitnessScreenData => {
     const now = w.nowWallSeconds;
+    const firstDay = parts.calendarFirstDay?.(w.heatmapFirstDay) ?? w.heatmapFirstDay;
     return {
       ...NO_FITNESS_PARTS,
-      heatmap: parts.heatmap?.(w.heatmapFirstDay, w.heatmapLastDay) ?? [],
+      heatmap: parts.heatmap?.(firstDay, w.heatmapLastDay) ?? [],
+      calendarFirstDay: firstDay,
+      calendarOlderOwed: parts.calendarOlderOwed ?? 0,
       months: parts.months?.(w.months.startTs, w.months.endTs) ?? [],
       yearCurrent: totals(w.yearCurrent),
       yearPrevious: totals(w.yearPrevious),

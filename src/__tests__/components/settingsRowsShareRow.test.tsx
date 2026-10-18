@@ -155,10 +155,10 @@ describe('chevrons on the settings screens', () => {
     expectOnlyRowChevrons(await render(<AboutScreen />), 1);
   });
 
-  it('draws the shared chevron on the tour, About and dashboard rows of the footer', async () => {
+  it('draws the shared chevron on the tour, release notes, About and dashboard rows of the footer', async () => {
     useDebugStore.setState({ unlocked: true, enabled: true });
     try {
-      expectOnlyRowChevrons(await render(<FooterSection />), 3);
+      expectOnlyRowChevrons(await render(<FooterSection />), 4);
     } finally {
       useDebugStore.setState({ unlocked: false, enabled: false });
     }

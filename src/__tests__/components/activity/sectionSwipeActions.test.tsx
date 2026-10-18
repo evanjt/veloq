@@ -134,6 +134,20 @@ describe('activity section swipe actions', () => {
     expect(swipe.UNSAFE_getByType(MaterialCommunityIcons).props.name).toBe('minus-circle-outline');
   });
 
+  it.each([
+    ['custom', 'delete'],
+    ['auto', 'remove'],
+  ])(
+    'names the %s section action by a copy-free id the flows can tap',
+    async (sectionType, kind) => {
+      const removeSection = jest.fn();
+      const swipe = await swipeActions('s1', sectionType, removeSection);
+
+      await fireEvent.press(swipe.getByTestId(`section-swipe-${kind}`));
+      if (kind === 'remove') expect(mockDisableSection).toHaveBeenCalledWith('s1');
+    }
+  );
+
   it('exposes the scan action and blocks a second press while scanning', async () => {
     let finishScan: (() => void) | undefined;
     const onScan = jest.fn(

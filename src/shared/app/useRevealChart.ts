@@ -7,6 +7,8 @@
  * the chart's anchor as soon as that anchor reports a position. Expanding a
  * section or switching a sport moves what sits below it, so the scroll follows
  * the anchor while it settles and lets go the moment the athlete scrolls.
+ * A page that pins a header reports it through `onHeaderLayout`, and the chart
+ * then lands below the header rather than under it.
  */
 
 import { useCallback, useEffect, useRef } from 'react';
@@ -24,6 +26,8 @@ export function useRevealChart<Chart extends string, Anchor extends string>(
   const anchors = useRef(new Map<Anchor, number>());
   // The anchor being followed. Nothing renders from it, so it is a ref.
   const revealing = useRef<Anchor | null>(null);
+  // The height of the page's pinned header, zero on a page without one.
+  const pinned = useRef(0);
 
   const anchorOfRef = useRef(anchorOf);
   const prepareRef = useRef(prepare);
@@ -34,7 +38,11 @@ export function useRevealChart<Chart extends string, Anchor extends string>(
 
   const scrollToAnchor = useCallback((anchor: Anchor) => {
     const y = anchors.current.get(anchor);
-    if (y !== undefined) scrollRef.current?.scrollTo({ y, animated: !isReduceMotionOn() });
+    if (y === undefined) return;
+    scrollRef.current?.scrollTo({
+      y: Math.max(0, y - pinned.current),
+      animated: !isReduceMotionOn(),
+    });
   }, []);
 
   useEffect(() => {
@@ -54,9 +62,17 @@ export function useRevealChart<Chart extends string, Anchor extends string>(
     [scrollToAnchor]
   );
 
+  const onHeaderLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      pinned.current = event.nativeEvent.layout.height;
+      if (revealing.current !== null) scrollToAnchor(revealing.current);
+    },
+    [scrollToAnchor]
+  );
+
   const onScrollBeginDrag = useCallback(() => {
     revealing.current = null;
   }, []);
 
-  return { scrollRef, onAnchorLayout, onScrollBeginDrag };
+  return { scrollRef, onAnchorLayout, onHeaderLayout, onScrollBeginDrag };
 }

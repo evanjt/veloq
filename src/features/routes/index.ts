@@ -21,6 +21,7 @@ export {
   PreviewRunCost,
   PreviewSectionPopover,
   RouteDetailDebugPanel,
+  DetailMapHost,
   RouteDetailMap,
   SectionDetailMap,
   routeDetailScreenStyles,
@@ -93,8 +94,11 @@ export { usePreviewCentres } from './hooks/usePreviewCentres';
 export { usePreviewCurrentSections } from './hooks/usePreviewCurrentSections';
 export { usePreviewDetect } from './hooks/usePreviewDetect';
 export { useRouteDetailData } from './hooks/useRouteDetailData';
+export { DetailCardStack } from './screens/DetailCardStack';
 export { RouteDetailCard } from './screens/RouteDetailCard';
 export { SectionDetailCard } from './screens/SectionDetailCard';
+export { SectionHistoryCard } from './screens/SectionHistoryCard';
+export { SectionLapsCard } from './screens/SectionLapsCard';
 export { useRouteReoptimisation } from './hooks/useRouteReoptimisation';
 export {
   useSectionDetailData,

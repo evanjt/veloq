@@ -7,7 +7,8 @@
  * expanded, a sport switched), scrolls to it as soon as it has a position,
  * follows it while the layout above it settles, stops when the athlete scrolls,
  * and clears the param so a later visit opens at the top. With reduce motion
- * on it jumps to the chart rather than scrolling.
+ * on it jumps to the chart rather than scrolling. A page that pins a header
+ * lands the chart below the header rather than under it.
  */
 
 import { act, renderHook } from '@testing-library/react-native';
@@ -26,8 +27,8 @@ type Chart = 'ftp' | 'week';
 type Anchor = 'trends' | 'weekly';
 const ANCHOR: Record<Chart, Anchor> = { ftp: 'trends', week: 'weekly' };
 
-const layoutAt = (y: number) =>
-  ({ nativeEvent: { layout: { x: 0, y, width: 1, height: 1 } } }) as LayoutChangeEvent;
+const layoutAt = (y: number, height = 1) =>
+  ({ nativeEvent: { layout: { x: 0, y, width: 1, height } } }) as LayoutChangeEvent;
 
 async function setup(initial: Chart | null) {
   const scrollTo = jest.fn();
@@ -115,5 +116,42 @@ describe('revealing a chart from the route', () => {
     await act(() => result.current.onAnchorLayout('weekly', layoutAt(900)));
 
     expect(scrollTo).toHaveBeenCalledWith({ y: 900, animated: false });
+  });
+});
+
+describe('revealing a chart below a pinned header', () => {
+  it('lands the chart below the pinned height', async () => {
+    const { result, scrollTo } = await setup('week');
+    await act(() => result.current.onHeaderLayout(layoutAt(0, 42)));
+
+    await act(() => result.current.onAnchorLayout('weekly', layoutAt(300)));
+
+    expect(scrollTo).toHaveBeenCalledWith({ y: 258, animated: true });
+  });
+
+  it('never scrolls above the top for an anchor inside the pinned height', async () => {
+    const { result, scrollTo } = await setup('week');
+    await act(() => result.current.onHeaderLayout(layoutAt(0, 42)));
+
+    await act(() => result.current.onAnchorLayout('weekly', layoutAt(20)));
+
+    expect(scrollTo).toHaveBeenCalledWith({ y: 0, animated: true });
+  });
+
+  it('scrolls to the anchor itself when no header reported', async () => {
+    const { result, scrollTo } = await setup('week');
+
+    await act(() => result.current.onAnchorLayout('weekly', layoutAt(300)));
+
+    expect(scrollTo).toHaveBeenCalledWith({ y: 300, animated: true });
+  });
+
+  it('follows the header when it lays out after the anchor', async () => {
+    const { result, scrollTo } = await setup('week');
+    await act(() => result.current.onAnchorLayout('weekly', layoutAt(300)));
+
+    await act(() => result.current.onHeaderLayout(layoutAt(0, 42)));
+
+    expect(scrollTo).toHaveBeenLastCalledWith({ y: 258, animated: true });
   });
 });

@@ -1,5 +1,4 @@
 export {
-  useActivities,
   useActivityWindowRequest,
   useInfiniteActivities,
   useFeedSearch,

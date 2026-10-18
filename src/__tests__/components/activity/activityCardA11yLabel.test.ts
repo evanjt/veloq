@@ -78,18 +78,6 @@ describe('activityCardA11yLabel', () => {
     expect(label).toContain('1 minute 15 seconds off PR');
   });
 
-  it('names the new ground badge the card draws', () => {
-    const label = activityCardA11yLabel(
-      {
-        activity,
-        isMetric: true,
-        newGround: { badge: 'entirelyNew' },
-      },
-      t
-    );
-    expect(label).toContain('New ground');
-  });
-
   it('never speaks a zero distance or climb the card leaves out', () => {
     const indoor = {
       ...activity,

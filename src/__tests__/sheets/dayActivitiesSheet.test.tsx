@@ -10,6 +10,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import DayActivitiesSheet, { type DayActivitiesInput } from '@/app/sheets/day-activities';
+import { rootScreenLayout } from '@/shared/ui/rootScreenLayout';
 import { openSheet } from '@/shared/app/sheetRequest';
 import { sheetScrollPlacement } from '../__shared__/sheetScrollPlacement';
 import { initialiseI18n } from '@/i18n';
@@ -99,7 +100,9 @@ const EMOJI = /\p{Extended_Pictographic}/u;
 async function open(input: DayActivitiesInput = INPUT) {
   const result = openSheet<DayActivitiesInput, string>('sheets/day-activities', input);
   mockParams = { request: mockPush.mock.calls.at(-1)[0].params.request };
-  await render(<DayActivitiesSheet />);
+  await render(
+    rootScreenLayout({ route: { name: 'sheets/day-activities' }, children: <DayActivitiesSheet /> })
+  );
   return { result };
 }
 

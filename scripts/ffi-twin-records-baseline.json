@@ -1,0 +1,18 @@
+{
+  "FfiActivityMetrics": "The domain row carries the power and heart rate zone-time vectors the engine sums; the route read crosses without them.",
+  "FfiActivityPattern": "The clustering's row carries its cluster id, season, distance, frequency, confidence and recency; the app is shown five of its twelve fields.",
+  "FfiActivityRecord": "The domain struct is the intervals.icu wire body, every field optional and under the API's names; the copy is the typed screen row built from it.",
+  "FfiBulkExportProgress": "The domain struct is the atomic counters the writing thread moves; the copy is a snapshot of them with the run id, read on a timer.",
+  "FfiClimbBest": "The domain struct holds the climb's stream indices and raw rates; the copy adds the label and the activity it came from, and drops the indices no screen reads.",
+  "FfiIndexActivitySummary": "The domain summary carries whether the indexer recomputed indicators, which only the engine acts on.",
+  "FfiNamedCorridor": "The domain struct holds the footprint as points; it crosses delta and varint encoded as bytes.",
+  "FfiRankedSection": "The domain struct is the ranking's private working state, its enrichment and rank features; the copy is the scored row the feed shows.",
+  "FfiRouteLine": "The domain struct is the map layer's stored line, a route id, its number and its encoded signature; the copy is the route list's row with name, count and distance.",
+  "FfiRoutePerformanceResult": "The copy carries the trend curves and attempt histograms computed from the attempts at the boundary, which the domain result does not hold.",
+  "FfiSampleLibrary": "The domain struct holds the stores' own row shapes, tuples and FIT sets; the copy is the shape the app hands over.",
+  "FfiSection": "The domain section holds its line as points, its type as an enum and its straightness; it crosses with an encoded line, the type's token and its activity portions.",
+  "FfiSectionChange": "The copy adds the name the athlete is shown and the section's current encoded line, resolved when the feed is read.",
+  "FfiSectionGeometryVersion": "The copy adds whether the version is the pinned one, read per section when the history is served.",
+  "FfiSectionHistoryEvent": "The domain row holds the ledger's stored payload as JSON; the copy carries it parsed into its typed fields.",
+  "FfiSectionPerformanceResult": "The copy adds whether each direction's best is a record under the one record rule, decided at the boundary."
+}

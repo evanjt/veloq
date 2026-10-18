@@ -30,6 +30,7 @@ import { overrideDaysOfUse, useDaysOfUse } from '@/features/settings';
 import { formatLocalDate } from '@/shared/format/format';
 import { readTaskRuns, clearTaskRuns, type TaskRunEntry } from '@/features/insights';
 import { SyncDebugSection } from '@/features/routes';
+import { readSensorLinkReport } from '@/features/sensors';
 import type { FfiDashboardData, FfiRequestBudget, PersistentEngineStats } from 'veloqrs';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import {
@@ -497,6 +498,7 @@ function DebugScreenContent() {
   // FFI metrics
   const ffiSummary = getFFIMetricsSummary();
   const queueReport = readSnapshotQueueReport();
+  const sensorLinkReport = readSensorLinkReport();
   const ffiMethods = Object.entries(ffiSummary).sort(([, a], [, b]) => b.totalMs - a.totalMs);
 
   const timelineRuns = freshLoginTimeline.runs();
@@ -714,6 +716,28 @@ function DebugScreenContent() {
           ) : (
             <Text style={[styles.emptyText, { color: mutedColor }]}>
               No preview pool has run this process.
+            </Text>
+          )}
+        </CollapsibleSection>
+
+        {/* Sensor link trace: each link's connect, monitors, samples and teardown */}
+        <CollapsibleSection
+          title="Sensor links"
+          icon="bluetooth-connect"
+          isDark={isDark}
+          testID="debug-section-sensor-links"
+        >
+          {sensorLinkReport ? (
+            <Text
+              selectable
+              style={[styles.tableCell, { color: textColor }]}
+              testID="debug-sensor-links-report"
+            >
+              {sensorLinkReport}
+            </Text>
+          ) : (
+            <Text style={[styles.emptyText, { color: mutedColor }]}>
+              No sensor has connected this process.
             </Text>
           )}
         </CollapsibleSection>

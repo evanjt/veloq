@@ -10,11 +10,17 @@
  */
 
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
+import { render, screen, within } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
+import type { ReactTestInstance } from 'react-test-renderer';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { initialiseI18n, changeLanguage } from '@/i18n';
 import { SectionMapView } from '@/features/routes/components/SectionMapView';
+import { DetailMapLegend } from '@/features/routes/components/DetailMapLegend';
+import { buildDirectionLayer } from '@/features/maps';
+import { mapPalette } from '@/theme';
 import { formatFullDate } from '@/shared/format/format';
 import type { FrequentSection, RoutePoint } from '@/types';
 
@@ -166,6 +172,38 @@ describe('the section detail map legend', () => {
     expect(screen.getByText('Reverse')).toBeTruthy();
     expect(screen.queryByText('Forward')).toBeNull();
   });
+
+  it.each(['light', 'dark', 'satellite'] as const)(
+    'keys the chevrons in the colours the %s chevron layer paints',
+    async (base) => {
+      const palette = mapPalette(base);
+      const paint = buildDirectionLayer({
+        id: 'chevrons',
+        source: 'line',
+        palette,
+        direction: 'forward',
+      }).paint as Record<string, unknown>;
+      await render(
+        <DetailMapLegend
+          isDark={palette.isDark}
+          palette={palette}
+          top={0}
+          testID="key"
+          showActivity={false}
+          showDelta={false}
+          direction="forward"
+        />
+      );
+
+      const row = screen.getByTestId('key-direction');
+      const [glyph] = row.findAllByType(MaterialCommunityIcons);
+      const line = within(row).getByTestId('map-key-swatch').children[0] as ReactTestInstance;
+      expect(glyph?.props.color).toBe(paint['icon-color']);
+      expect(StyleSheet.flatten(line.props.style)).toMatchObject({
+        backgroundColor: paint['icon-halo-color'],
+      });
+    }
+  );
 
   it('keys no direction while the bounds are trimmed', async () => {
     await renderMap({ shownDirection: 'forward', trimRange: { start: 0, end: 2 } });

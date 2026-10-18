@@ -14,7 +14,7 @@ import { formatDuration, formatPower, formatFullDate } from '@/shared/format/for
 import { Button, Card, composeAccessibilityLabel } from '@/shared/ui';
 import { PressTarget } from '@/shared/ui/PressTarget';
 import { Icon } from '@/shared/ui/Icon';
-import { navigateTo } from '@/shared/app/navigation';
+import { useOpenDetail } from '@/shared/app/MapSheetCards';
 import { colors, darkColors, iconSize, layout, opacity, spacing, typography } from '@/theme';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 import { NameText } from '@/shared/ui/NameText';
@@ -76,6 +76,7 @@ export function SectionLapList({
   onIncludeLap,
 }: SectionLapListProps) {
   const { t } = useTranslation();
+  const openDetail = useOpenDetail();
   const [showAll, setShowAll] = useState(initiallyExpanded);
   const lapped = records.filter((r) => r.laps.length > 1);
   if (lapped.length === 0) return null;
@@ -115,7 +116,7 @@ export function SectionLapList({
                   bestLap,
                   t('a11y.laps', { n: r.laps.length })
                 )}
-                onPress={() => navigateTo(`/activity/${r.activityId}`)}
+                onPress={() => openDetail({ kind: 'activity', id: r.activityId })}
               >
                 <View style={styles.summaryName}>
                   <NameText style={[styles.activityName, isDark && styles.textDark]}>

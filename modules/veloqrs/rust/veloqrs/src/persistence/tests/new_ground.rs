@@ -3,8 +3,8 @@
 //!
 //! Expected behaviour: the first activity in an empty library is entirely new
 //! ground, an exact repeat is none, a partial overlap lands between, a track
-//! that cannot be read adds no ground, and only the two measured states earn
-//! a badge.
+//! that cannot be read adds no ground, and an activity with no tiles has no
+//! fraction.
 
 use super::*;
 use crate::persistence::PersistentEngine;
@@ -36,10 +36,6 @@ fn the_first_activity_in_an_empty_library_is_entirely_new() {
 
     assert_eq!(measured, novelty(10, 10));
     assert_eq!(measured.fraction(), Some(1.0));
-    assert_eq!(
-        measured.badge(),
-        Some(crate::FfiNewGroundBadge::EntirelyNew)
-    );
 }
 
 #[test]
@@ -50,7 +46,6 @@ fn an_exact_repeat_has_no_new_ground() {
 
     assert_eq!(repeat, novelty(10, 0));
     assert_eq!(repeat.fraction(), Some(0.0));
-    assert_eq!(repeat.badge(), None);
 }
 
 #[test]
@@ -60,7 +55,7 @@ fn a_partial_overlap_is_the_share_not_yet_covered() {
     let outing = covered.measure(Some(&row_of_tiles(6, 10))).unwrap();
 
     assert_eq!(outing, novelty(10, 6));
-    assert_eq!(outing.badge(), Some(crate::FfiNewGroundBadge::MostlyNew));
+    assert_eq!(outing.fraction(), Some(0.6));
 }
 
 #[test]
@@ -118,15 +113,9 @@ fn an_unreadable_track_adds_no_ground() {
 }
 
 #[test]
-fn only_all_new_and_at_least_half_new_earn_a_badge() {
-    use crate::FfiNewGroundBadge::{EntirelyNew, MostlyNew};
-
-    assert_eq!(novelty(10, 10).badge(), Some(EntirelyNew));
-    assert_eq!(novelty(100, 99).badge(), Some(MostlyNew));
-    assert_eq!(novelty(100, 50).badge(), Some(MostlyNew));
-    assert_eq!(novelty(100, 49).badge(), None);
-    assert_eq!(novelty(100, 0).badge(), None);
-    assert_eq!(novelty(0, 0).badge(), None);
+fn an_activity_with_no_tiles_has_no_fraction() {
+    assert_eq!(novelty(100, 49).fraction(), Some(0.49));
+    assert_eq!(novelty(100, 0).fraction(), Some(0.0));
     assert_eq!(novelty(0, 0).fraction(), None);
 }
 
@@ -194,7 +183,8 @@ fn an_undecodable_track_is_measured_without_a_fraction_and_not_owed_again() {
     let read = pooled::new_ground_of(&engine.db, &ids);
     assert_eq!(read.len(), 1);
     assert_eq!(read[0].activity_id, "after");
-    assert_eq!(read[0].badge, Some(crate::FfiNewGroundBadge::EntirelyNew));
+    assert_eq!((read[0].tiles, read[0].new_tiles), (3, 3));
+    assert_eq!(read[0].fraction, 1.0);
 }
 
 #[test]

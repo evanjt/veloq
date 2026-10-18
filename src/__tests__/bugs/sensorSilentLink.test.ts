@@ -6,12 +6,19 @@
  *
  * Expected behaviour: connected means a sample has landed. A link that has
  * sent nothing for the watchdog interval reads as no data, is logged, and is
- * torn down for a reconnect.
+ * torn down for a reconnect. A link that stays silent through the reconnects is
+ * left subscribed longer each time and reconnected later each time, rather than
+ * toggled on a fixed cycle for the whole ride.
  */
 
 import { useSensorStore } from '@/features/sensors/store';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
-import { SENSOR_NO_DATA_MS, sensorConnectionHealth } from '@/features/sensors/lib/connectionHealth';
+import {
+  SENSOR_NO_DATA_MS,
+  SILENT_LINK_TEARDOWN_MAX_MS,
+  sensorConnectionHealth,
+  silentLinkTeardownMs,
+} from '@/features/sensors/lib/connectionHealth';
 import { connectKnownSensors, disconnectAllSensors } from '@/features/sensors/lib/sensorManager';
 
 const mockCancelDeviceConnection = jest.fn(async () => undefined);
@@ -81,6 +88,21 @@ describe('sensorConnectionHealth', () => {
     ).toBe('noData');
   });
 
+  it('stays no data through a reconnect after a silent cycle until a sample lands', () => {
+    const silent = { ...base, attempt: 'retry' as const, silentCycles: 1 };
+    expect(sensorConnectionHealth(silent)).toBe('noData');
+    expect(sensorConnectionHealth({ ...silent, subscribedAt: 1000, now: 1000 })).toBe('noData');
+    expect(
+      sensorConnectionHealth({
+        ...silent,
+        silentCycles: 0,
+        subscribedAt: 1000,
+        lastSampleAt: 1200,
+        now: 1300,
+      })
+    ).toBe('connected');
+  });
+
   it('is no data when a sensor that was sending goes quiet', () => {
     expect(
       sensorConnectionHealth({
@@ -90,6 +112,28 @@ describe('sensorConnectionHealth', () => {
         now: 2000 + SENSOR_NO_DATA_MS,
       })
     ).toBe('noData');
+  });
+});
+
+describe('silentLinkTeardownMs', () => {
+  it('tears the first silent cycle down at the no data interval', () => {
+    expect(silentLinkTeardownMs(0)).toBe(SENSOR_NO_DATA_MS);
+  });
+
+  it('doubles with each further silent cycle', () => {
+    expect(silentLinkTeardownMs(1)).toBe(2 * SENSOR_NO_DATA_MS);
+    expect(silentLinkTeardownMs(2)).toBe(4 * SENSOR_NO_DATA_MS);
+  });
+
+  it('never exceeds the cap', () => {
+    expect(SILENT_LINK_TEARDOWN_MAX_MS).toBe(60_000);
+    for (const cycles of [3, 4, 10, 100, 2000]) {
+      expect(silentLinkTeardownMs(cycles)).toBe(SILENT_LINK_TEARDOWN_MAX_MS);
+    }
+  });
+
+  it('reads a negative count as the first cycle', () => {
+    expect(silentLinkTeardownMs(-1)).toBe(SENSOR_NO_DATA_MS);
   });
 });
 
@@ -147,5 +191,49 @@ describe('a sensor that connects and sends nothing', () => {
     );
     expect(useSensorStore.getState().connections[SENSOR.id]?.status).not.toBe('connected');
     warn.mockRestore();
+  });
+
+  it('backs off further on each silent cycle and starts again once a sample lands', async () => {
+    const connects: number[] = [];
+    mockConnectToDevice.mockImplementation(async () => {
+      connects.push(Date.now());
+      return mockDevice;
+    });
+    const start = Date.now();
+    const statuses: { at: number; status: string | undefined }[] = [];
+    const runFor = async (ms: number) => {
+      for (let t = 0; t < ms; t += 500) {
+        jest.advanceTimersByTime(500);
+        await settle();
+        statuses.push({
+          at: Date.now() - start,
+          status: useSensorStore.getState().connections[SENSOR.id]?.status,
+        });
+      }
+    };
+
+    void connectKnownSensors();
+    await settle();
+    while (connects.length < 5 && Date.now() - start < 400_000) await runFor(500);
+    expect(connects).toHaveLength(5);
+
+    const gaps = connects.slice(1).map((at, i) => at - connects[i]);
+    for (let i = 0; i < gaps.length; i++) {
+      expect(gaps[i]).toBeGreaterThanOrEqual(silentLinkTeardownMs(i));
+      if (i > 0) expect(gaps[i]).toBeGreaterThan(gaps[i - 1]);
+    }
+    for (const { at, status } of statuses) {
+      if (at >= SENSOR_NO_DATA_MS) expect({ at, status }).toEqual({ at, status: 'noData' });
+    }
+
+    await runFor(1000);
+    deliver?.(null, HEART_RATE_72);
+    const sampleAt = Date.now();
+    expect(useSensorStore.getState().connections[SENSOR.id]?.status).toBe('connected');
+
+    while (connects.length < 6 && Date.now() - sampleAt < 400_000) await runFor(500);
+    expect(connects).toHaveLength(6);
+    expect(connects[5] - sampleAt).toBeGreaterThanOrEqual(silentLinkTeardownMs(0));
+    expect(connects[5] - sampleAt).toBeLessThan(silentLinkTeardownMs(1));
   });
 });

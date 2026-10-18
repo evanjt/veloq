@@ -8,7 +8,7 @@
  */
 
 import { rewriteVectorUrls } from '@/features/maps/components/mapStyles';
-import { DARK_MATTER_STYLE } from '@/features/maps/components/darkMatterStyle';
+import { DARK_MATTER_STYLE } from '@/features/maps/styles/darkMatter';
 
 const mockSetSourceTemplate = jest.fn();
 jest.mock('veloqrs', () =>

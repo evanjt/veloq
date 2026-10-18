@@ -102,7 +102,7 @@ fn test_feed_page_answers_the_row_key_for_a_synced_upload() {
         )
         .expect("synced body");
 
-    let page = super::pooled::activity_body_page(
+    let page = super::pooled::feed_card_page(
         &engine.db,
         &crate::FfiActivityBodiesQuery {
             oldest_ts: None,
@@ -115,10 +115,8 @@ fn test_feed_page_answers_the_row_key_for_a_synced_upload() {
     )
     .expect("page");
 
-    assert_eq!(
-        page.bodies,
-        vec![r#"{"id":"i900","type":"Ride"}"#.to_string()]
-    );
-    assert_eq!(page.keys, vec!["local-ride-1".to_string()]);
-    assert_eq!(page.intervals_ids, vec![Some("i900".to_string())]);
+    let ids: Vec<&str> = page.cards.iter().map(|card| card.id.as_str()).collect();
+    assert_eq!(ids, vec!["local-ride-1"]);
+    assert_eq!(page.cards[0].sport_type.as_deref(), Some("Ride"));
+    assert_eq!(page.cards[0].intervals_web_id.as_deref(), Some("i900"));
 }

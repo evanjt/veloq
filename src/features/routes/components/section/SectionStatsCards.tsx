@@ -13,7 +13,7 @@ import { formatAttemptFigure, type AttemptBasis } from '@/features/routes/lib/at
 import { colors, darkColors, iconSize, spacing, themePalette, typography } from '@/theme';
 import { Card, CardHeader, DisclosureChevron, IconButton, PressTarget } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
-import { navigateTo } from '@/shared/app/navigation';
+import { useOpenDetail } from '@/shared/app/MapSheetCards';
 import { directionColour } from '@/features/routes/lib/directionColour';
 import { DirectionArrow, directionWord } from './DirectionCue';
 
@@ -76,6 +76,7 @@ export function SectionStatsCards({
   recordsSettled = true,
 }: SectionStatsCardsProps) {
   const { t } = useTranslation();
+  const openDetail = useOpenDetail();
   const isMetric = useMetricSystem();
   const [expandedYears, setExpandedYears] = useState<Set<number>>(() => {
     if (calendarSummary.years.length > 0) {
@@ -242,7 +243,9 @@ export function SectionStatsCards({
                                 style={styles.calendarMonthEntry}
                                 accessibilityRole="button"
                                 accessibilityLabel={`${directionWord(t, 'forward')}, ${formatBest(fwd)}, ${fwd.bestActivityName}`}
-                                onPress={() => navigateTo(`/activity/${fwd.bestActivityId}`)}
+                                onPress={() =>
+                                  openDetail({ kind: 'activity', id: fwd.bestActivityId })
+                                }
                               >
                                 <DirectionArrow
                                   direction="forward"
@@ -289,7 +292,9 @@ export function SectionStatsCards({
                                 style={styles.calendarMonthEntry}
                                 accessibilityRole="button"
                                 accessibilityLabel={`${directionWord(t, 'reverse')}, ${formatBest(rev)}, ${rev.bestActivityName}`}
-                                onPress={() => navigateTo(`/activity/${rev.bestActivityId}`)}
+                                onPress={() =>
+                                  openDetail({ kind: 'activity', id: rev.bestActivityId })
+                                }
                               >
                                 <DirectionArrow
                                   direction="reverse"

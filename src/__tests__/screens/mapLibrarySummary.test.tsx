@@ -1,8 +1,9 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { render, fireEvent } from '@testing-library/react-native';
+import { fireEvent } from '@testing-library/react-native';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import MapScreen from '@/app/(tabs)/map';
+import { renderStaged } from '../__shared__/stagedRender';
 import { TAB_BAR_HEIGHT } from '@/shared/ui/tabBarClearance';
 import { type FfiMapEmptyReason, FfiMapEmptyReason_Tags, MapDistanceBand } from 'veloqrs';
 
@@ -102,7 +103,7 @@ describe('map library summary', () => {
   });
 
   it('opens on the period chips and the count line and shows the other filters once the handle is raised', async () => {
-    const view = await render(<MapScreen />);
+    const view = await renderStaged(<MapScreen />);
     expect(view.getByText('all')).toBeTruthy();
     expect(view.queryByText('5–10km')).toBeNull();
     expect(view.queryByText('Run', { exact: false })).toBeNull();
@@ -119,7 +120,7 @@ describe('map library summary', () => {
   });
 
   it('lifts the period chips clear of the tab bar and the navigation bar under it', async () => {
-    const view = await render(
+    const view = await renderStaged(
       <SafeAreaInsetsContext.Provider value={{ top: 0, left: 0, right: 0, bottom: 48 }}>
         <MapScreen />
       </SafeAreaInsetsContext.Provider>
@@ -135,7 +136,7 @@ describe('map library summary', () => {
   });
 
   it('keeps a distance filter applied while the sheet is lowered', async () => {
-    const view = await render(<MapScreen />);
+    const view = await renderStaged(<MapScreen />);
     await fireEvent.press(view.getByTestId('map-filter-handle'));
     await fireEvent.press(view.getByText('5–10km'));
     await fireEvent.press(view.getByTestId('map-filter-handle'));
@@ -145,7 +146,7 @@ describe('map library summary', () => {
   });
 
   it('names the distance, sport and name filters on the lowered sheet and clears them there', async () => {
-    const view = await render(<MapScreen />);
+    const view = await renderStaged(<MapScreen />);
     expect(view.queryByTestId('map-filter-summary')).toBeNull();
     expect(view.queryByText('mapScreen.emptyClearFilters')).toBeNull();
 
@@ -165,7 +166,7 @@ describe('map library summary', () => {
   });
 
   it('names a typed name on the lowered sheet and clears it there', async () => {
-    const view = await render(<MapScreen />);
+    const view = await renderStaged(<MapScreen />);
     await fireEvent.press(view.getByTestId('map-filter-handle'));
     await fireEvent.changeText(view.getByTestId('map-search-input'), '  harbour loop ');
     await fireEvent.press(view.getByTestId('map-filter-handle'));
@@ -177,13 +178,13 @@ describe('map library summary', () => {
   });
 
   it('leaves the lowered sheet without a filter line when only the period is chosen', async () => {
-    const view = await render(<MapScreen />);
+    const view = await renderStaged(<MapScreen />);
     await fireEvent.press(view.getByText('1m'));
     expect(view.queryByTestId('map-filter-summary')).toBeNull();
   });
 
   it('shows the full library while mapped activities arrive and narrows the mapped count', async () => {
-    const view = await render(<MapScreen />);
+    const view = await renderStaged(<MapScreen />);
     await fireEvent.press(view.getByTestId('map-filter-handle'));
     expect(view.getByText('292:0')).toBeTruthy();
 
@@ -249,7 +250,7 @@ describe('map with its screen read failing', () => {
   });
 
   it('keeps the map and its filters and shows the failure with a Retry', async () => {
-    const view = await render(<MapScreen />);
+    const view = await renderStaged(<MapScreen />);
     expect(view.getByTestId('regional-map')).toBeTruthy();
     expect(view.getByTestId('map-filter-handle')).toBeTruthy();
     expect(view.getByTestId('map-activities-failed')).toBeTruthy();
@@ -260,7 +261,7 @@ describe('map with its screen read failing', () => {
   });
 
   it('drops the failure once the read answers', async () => {
-    const view = await render(<MapScreen />);
+    const view = await renderStaged(<MapScreen />);
     expect(view.getByTestId('map-activities-failed')).toBeTruthy();
     mockUseMap.mockReturnValue(answered);
     await view.rerender(<MapScreen />);
@@ -296,7 +297,7 @@ describe('map with no activity to draw', () => {
     mockUseMap.mockReturnValue(
       read(emptyBecause(FfiMapEmptyReason_Tags.NoGps, { activities: 12 }))
     );
-    const view = await render(<MapScreen />);
+    const view = await renderStaged(<MapScreen />);
     expect(view.getByTestId('regional-map')).toBeTruthy();
     expect(view.getByTestId('map-empty-state')).toBeTruthy();
     expect(view.getByText('mapScreen.emptyNoGps')).toBeTruthy();
@@ -308,14 +309,14 @@ describe('map with no activity to draw', () => {
     mockUseMap.mockReturnValue(
       read(emptyBecause(FfiMapEmptyReason_Tags.TracksPending, { activities: 12, pending: 7 }))
     );
-    const view = await render(<MapScreen />);
+    const view = await renderStaged(<MapScreen />);
     expect(view.getByText('mapScreen.emptyTracksPending')).toBeTruthy();
     expect(mockTranslate).toHaveBeenCalledWith('mapScreen.emptyTracksPendingHint', { count: 7 });
   });
 
   it('offers the whole library for an empty period, and the sync range once on it', async () => {
     mockUseMap.mockReturnValue(read(emptyBecause(FfiMapEmptyReason_Tags.NoActivities)));
-    const view = await render(<MapScreen />);
+    const view = await renderStaged(<MapScreen />);
     await fireEvent.press(view.getByText('1m'));
     expect(mockUseMap).toHaveBeenLastCalledWith(
       expect.objectContaining({ startDate: new Date('2026-01-01') })
@@ -331,7 +332,7 @@ describe('map with no activity to draw', () => {
 
   it('clears the filters that hide every track', async () => {
     mockUseMap.mockReturnValue(read(emptyBecause(FfiMapEmptyReason_Tags.Filtered, { mapped: 4 })));
-    const view = await render(<MapScreen />);
+    const view = await renderStaged(<MapScreen />);
     await fireEvent.press(view.getByTestId('map-filter-handle'));
     await fireEvent.press(view.getByText('5–10km'));
     await fireEvent.press(view.getByText('Run', { exact: false }));
@@ -354,7 +355,7 @@ describe('map with no activity to draw', () => {
       ...read(undefined),
       activities: [{ id: 'ride-1', type: 'Ride' }],
     });
-    const view = await render(<MapScreen />);
+    const view = await renderStaged(<MapScreen />);
     expect(view.queryByTestId('map-empty-state')).toBeNull();
   });
 });

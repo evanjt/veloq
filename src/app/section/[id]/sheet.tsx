@@ -1,16 +1,17 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 
-import { SectionDetailCard } from '@/features/routes';
+import { DetailCardStack } from '@/features/routes';
 import { MapSheetHostSheet } from '@/shared/app/MapSheetHost';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
-/** The section's sheet, holding the section's card. */
+/** The section's sheet, holding the section's card and any card a row in it opens over it. */
 function SectionSheetScreen() {
-  const { id, activityId } = useLocalSearchParams<{ id: string; activityId?: string }>();
+  const { activityId } = useLocalSearchParams<{ activityId?: string }>();
+  const rootParams = useMemo(() => ({ activityId }), [activityId]);
   return (
     <MapSheetHostSheet>
-      <SectionDetailCard id={id} activityId={activityId} />
+      <DetailCardStack rootParams={rootParams} />
     </MapSheetHostSheet>
   );
 }

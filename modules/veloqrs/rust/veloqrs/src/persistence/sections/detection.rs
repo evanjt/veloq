@@ -582,7 +582,7 @@ fn settle_on_worker(
             &e.db,
             &super::super::job_runs::JobRun {
                 job: super::super::job_runs::BackgroundJob::Detection,
-                finished_at: super::super::attempts::now_ms(),
+                finished_at: crate::WholeNumber(super::super::attempts::now_ms()),
                 outcome: super::super::job_runs::RunOutcome::Complete,
                 handled: activity_ids.len().try_into().unwrap_or(u32::MAX),
                 added: counts.added,
@@ -675,7 +675,7 @@ pub(crate) fn record_failed_run(install: u64) {
             &e.db,
             &super::super::job_runs::JobRun {
                 job: super::super::job_runs::BackgroundJob::Detection,
-                finished_at: super::super::attempts::now_ms(),
+                finished_at: crate::WholeNumber(super::super::attempts::now_ms()),
                 outcome: super::super::job_runs::RunOutcome::Failed,
                 handled: 0,
                 added: 0,

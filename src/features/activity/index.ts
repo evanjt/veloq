@@ -37,7 +37,6 @@ export { fixtures } from '@/shared/demo/activity/activities';
 export type { ApiWellness } from '@/shared/demo/activity/types';
 
 export {
-  useActivities,
   useActivity,
   useActivityBoundsCache,
   useActivityIntervals,

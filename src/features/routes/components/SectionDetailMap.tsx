@@ -33,7 +33,8 @@ import {
   useCardSport,
 } from '../lib/detailCardState';
 import { mapSheetHostKey } from '@/shared/app/mapSheetHost';
-import { useMapSheetHostHeader } from '@/shared/app/MapSheetHost';
+import { useMapSheetHost, useMapSheetHostHeader } from '@/shared/app/MapSheetHost';
+import { useInMapSurfaceSlot, useMapSurfaceSlotLive } from '@/features/maps';
 import { mapSheetCoveredHeight, useMapSheetStop } from '@/shared/app/mapSheetStop';
 import { useAfterNavigationTransition } from '@/shared/async/useAfterNavigationTransition';
 import { Shimmer, SkeletonGroup } from '@/shared/ui';
@@ -56,7 +57,11 @@ export function SectionDetailMap({
   pageActivityId,
   previewVersion,
 }: SectionDetailMapProps) {
-  const hostKey = mapSheetHostKey('section', sectionId);
+  // A section card pushed onto another subject's host reads that host's entry.
+  const hostKey = useMapSheetHost()?.key ?? mapSheetHostKey('section', sectionId);
+  const inSlot = useInMapSurfaceSlot();
+  // A surface already up for an earlier card takes the section at once, with no placeholder.
+  const slotLive = useMapSurfaceSlotLive();
   const matchingEnabled = useRouteSettings((s) => s.settings.enabled);
   const [refreshTick, setRefreshTick] = useState(0);
   const refresh = useCallback(() => setRefreshTick((tick) => tick + 1), []);
@@ -150,8 +155,12 @@ export function SectionDetailMap({
   );
 
   return (
-    <View testID="section-detail-map" style={styles.fill}>
-      {section && mapReady ? (
+    <View
+      testID="section-detail-map"
+      style={styles.fill}
+      pointerEvents={inSlot ? 'box-none' : 'auto'}
+    >
+      {section && (mapReady || slotLive) ? (
         <SectionMapView
           section={section}
           sportType={sport}
@@ -170,7 +179,7 @@ export function SectionDetailMap({
           headerBottom={headerBottom}
           coveredBottom={coveredBottom}
         />
-      ) : (
+      ) : slotLive ? null : (
         <SkeletonGroup testID="section-map-skeleton" style={styles.fill}>
           <Shimmer width="100%" height={height} borderRadius={0} />
         </SkeletonGroup>

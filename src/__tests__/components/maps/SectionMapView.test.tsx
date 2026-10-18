@@ -19,6 +19,7 @@ import { CompassArrow } from '@/shared/ui';
 import { darkColors } from '@/theme';
 import { TERRAIN_UNAVAILABLE_TEST_ID } from '@/features/maps/components/TerrainUnavailableNotice';
 import type { FrequentSection, RoutePoint } from '@/types';
+import { MAP_ATTRIBUTIONS } from '@/features/maps/components/mapStyles';
 
 // The map page is hidden from screen readers, so a query reaching it includes hidden elements.
 const MAP_PAGE = { includeHiddenElements: true };
@@ -487,4 +488,18 @@ describe('SectionMapView', () => {
       expect(mockSetCamera).toHaveBeenLastCalledWith({ center: [7.447, 46.948], zoom: 13 }, 500);
     });
   });
+
+  it.each([
+    ['the interactive hero', true],
+    ['the static preview', false],
+  ])(
+    'credits the basemap inline on %s, outside the fullscreen view',
+    async (_label, interactive) => {
+      await renderSection({ interactive, enableFullscreen: true });
+
+      expect(screen.getByTestId('map-attribution-text').props.children).toBe(
+        MAP_ATTRIBUTIONS.light
+      );
+    }
+  );
 });

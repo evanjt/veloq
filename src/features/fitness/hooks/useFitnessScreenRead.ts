@@ -4,6 +4,7 @@ import { RangeCoverage, type FitnessScreenData } from 'veloqrs';
 import type { DecouplingSource } from '@/features/activity';
 import type { DayActivity } from '@/features/activity/light';
 import {
+  calendarWindows,
   NO_TRAINING_CARDS,
   trainingCardsView,
   trainingEngineWindows,
@@ -160,7 +161,9 @@ export function useFitnessScreenRead(): FitnessScreenRead {
       // the screen has no failure row for.
       ...(read ? fitnessPartsView(read) : NO_FITNESS_PARTS),
       training: {
-        windows,
+        // The calendar draws the span the read answers, so a widened window
+        // grows it on the read that follows.
+        windows: read ? calendarWindows(windows, read.calendarFirstDay) : windows,
         data: read ? trainingCardsView(read) : NO_TRAINING_CARDS,
         isPending: read === undefined && error === null,
         error,

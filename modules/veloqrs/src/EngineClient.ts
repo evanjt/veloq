@@ -55,7 +55,6 @@ import type {
   FfiStartupData,
   FfiRoutesScreenData,
   FfiRoutesScreenQuery,
-  FfiActivityBodiesPage,
   FfiActivityRecord,
   FfiFeedCard,
   FfiFeedCardsPage,
@@ -102,6 +101,7 @@ import type {
   PreviewSection,
 } from './delegates/preview';
 import * as heatmapDelegates from './delegates/heatmap';
+import type { RunProgress } from './delegates/run';
 import * as launchDelegates from './delegates/launch';
 import * as recordingDelegates from './delegates/recordings';
 import * as mapsDelegates from './delegates/maps';
@@ -1101,11 +1101,14 @@ class EngineClient implements DelegateHost {
 
   clearHeatmapPriorityView = (): void => heatmapDelegates.clearHeatmapPriorityView(this);
 
-  startHeatmapCacheSize = (basePath: string): void =>
+  startHeatmapCacheSize = (basePath: string): FfiStartResult =>
     heatmapDelegates.startHeatmapCacheSize(this, basePath);
 
-  pollHeatmapCacheSize = (): heatmapDelegates.HeatmapCacheSizePoll =>
-    heatmapDelegates.pollHeatmapCacheSize(this);
+  readHeatmapCacheSizeRun = (): RunProgress => heatmapDelegates.readHeatmapCacheSizeRun(this);
+
+  takeHeatmapCacheSize = (): number | null => heatmapDelegates.takeHeatmapCacheSize(this);
+
+  cancelHeatmapCacheSize = (): boolean => heatmapDelegates.cancelHeatmapCacheSize(this);
 
   /** Stop any tile pass, then clear the heatmap tiles. Rejects on a tile left on disk. */
   clearHeatmapTiles = (basePath: string): Promise<void> =>
@@ -1197,9 +1200,6 @@ class EngineClient implements DelegateHost {
 
   getActivityRecord = (activityId: string): FfiActivityRecord | null =>
     activityDelegates.getActivityRecord(this, activityId);
-
-  getActivityBodies = (oldestTs: number, newestTs: number): FfiActivityBodiesPage | undefined =>
-    activityDelegates.getActivityBodies(this, oldestTs, newestTs);
 
   getFeedCards = (oldestTs: number, newestTs: number): FfiFeedCard[] =>
     activityDelegates.getFeedCards(this, oldestTs, newestTs);

@@ -78,7 +78,7 @@ export function SectionSwipeAction({ kind, action, drag }: SectionSwipeActionPro
   }));
   return (
     <Animated.View style={[styles.action, { backgroundColor: fill.bg }, fade]}>
-      <RectButton style={styles.button} onPress={action.run}>
+      <RectButton style={styles.button} onPress={action.run} testID={`section-swipe-${kind}`}>
         <SectionActionGlyph kind={kind} size={iconSize.lg} color={fill.text} />
         <Text style={[styles.label, { color: fill.text }]}>{action.label}</Text>
       </RectButton>

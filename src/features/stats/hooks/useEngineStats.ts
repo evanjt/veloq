@@ -15,7 +15,7 @@ import type {
   SummaryComparison as EngineSummaryComparison,
 } from 'veloqrs';
 
-import { formatLocalDate } from '@/shared/format/format';
+import { formatLocalDate, parseDayString } from '@/shared/format/format';
 import type { TrendGlyph } from '@/shared/format/trend';
 import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
 import { heatmapLayout, type HeatmapLayout } from '../lib/heatmapGrid';
@@ -77,7 +77,11 @@ export interface TrainingWindows {
   today: Date;
   /** 1 January last year, where the season chart's two years begin. */
   seasonFrom: Date;
-  /** The heatmap grid, whose first and last cells bound its days. */
+  /**
+   * The heatmap grid, whose first and last cells bound its days. Before a
+   * read it is the most the grid draws, the span asked of the engine; after
+   * one, the span the read answers, from [`calendarWindows`].
+   */
   heatmap: HeatmapLayout;
   /** The year and the month to date, each against last year's same span. */
   season: SeasonWindows;
@@ -91,6 +95,13 @@ export function trainingWindows(now: Date): TrainingWindows {
     heatmap: heatmapLayout(today),
     season: seasonWindows(today),
   };
+}
+
+/** The windows with the grid laid out from the first day the read draws. */
+export function calendarWindows(w: TrainingWindows, firstDay: string): TrainingWindows {
+  const first = parseDayString(firstDay);
+  if (Number.isNaN(first.getTime())) return w;
+  return { ...w, heatmap: heatmapLayout(w.today, first) };
 }
 
 /**
@@ -177,6 +188,8 @@ function comparison(read: EngineSummaryComparison): SummaryComparison {
 /** What the fitness tab's calendar, weekly card and year comparison paint with. */
 export interface TrainingCards {
   heatmap: HeatmapDay[];
+  /** Activities in the year before the calendar's first day the device has not downloaded. */
+  calendarOlderOwed: number;
   months: MonthTotals[];
   yearCurrent: PeriodTotals;
   yearPrevious: PeriodTotals;
@@ -188,6 +201,7 @@ export interface TrainingCards {
 
 export const NO_TRAINING_CARDS: TrainingCards = {
   heatmap: [],
+  calendarOlderOwed: 0,
   months: NO_MONTHS,
   yearCurrent: NO_TOTALS,
   yearPrevious: NO_TOTALS,
@@ -200,6 +214,7 @@ export const NO_TRAINING_CARDS: TrainingCards = {
 export function trainingCardsView(read: FitnessScreenData): TrainingCards {
   return {
     heatmap: read.heatmap,
+    calendarOlderOwed: read.calendarOlderOwed,
     months: read.months.map((row: EngineMonthlyStats) => ({
       year: row.year,
       month: row.month,

@@ -30,9 +30,16 @@ export {
   type HomeRadiusMapProps,
 } from './components/HomeRadiusMap';
 export { Map3DWebView, type Map3DWebViewRef } from './components/Map3DWebView';
-export { MapKey, MapKeyNote, MapKeyRamp, MapKeySwatch } from './components/MapKey';
-export { DivergingKeyRows } from './components/DivergingKeyRows';
+export { MapKey, MapKeyRamp, MapKeySwatch } from './components/MapKey';
+export { DivergingKeyScale } from './components/DivergingKeyScale';
 export { type MapCameraState, MapSurface, type MapSurfaceRef } from './components/MapSurface';
+export {
+  MapSurfaceSlot,
+  SlottedMapSurface,
+  useInMapSurfaceSlot,
+  useMapSurfaceSlotLive,
+} from './components/MapSurfaceSlot';
+export type { MapSubjectSpecs } from './lib/mapSubjectSpecs';
 export { RegionalMapView } from './components/RegionalMapView';
 export { MapEmptyState } from './components/MapEmptyState';
 export { MapNameSearch } from './components/MapNameSearch';
@@ -49,7 +56,6 @@ export {
   type TerrainSnapshotWebViewRef,
 } from './components/TerrainSnapshotWebView';
 export {
-  getNextStyle,
   getStyleIcon,
   isDarkStyle,
   statusBarStyleForMap,
@@ -63,7 +69,8 @@ export {
   LEGACY_HEATMAP_TILES_DIR,
   readHeatmapTilesCacheSize,
 } from './lib/heatmapTiles';
-export { useDrawnMapStyle } from './hooks/useDrawnMapStyle';
+export { useDrawnMapStyle, useMapStyleToggle } from './hooks/useDrawnMapStyle';
+export { useSurfaceAttribution } from './hooks/useSurfaceAttribution';
 export { useMapFullscreen } from './hooks/useMapFullscreen';
 export { useLocateUser } from './hooks/useLocateUser';
 export { useTerrainFallback } from './hooks/useTerrainFallback';
@@ -90,6 +97,7 @@ export { ENDPOINT_IMAGES, buildEndpointLayers } from './lib/endpointLayers';
 export {
   ENDPOINT_AND_DIRECTION_IMAGES,
   buildDirectionLayer,
+  directionColours,
   type LineDirection,
 } from './lib/directionLayer';
 export {

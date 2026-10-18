@@ -12,6 +12,7 @@ import React from 'react';
 import { render, act } from '@testing-library/react-native';
 
 import { HomeRadiusMap } from '@/features/maps/components/HomeRadiusMap';
+import { MAP_ATTRIBUTIONS } from '@/features/maps/components/mapStyles';
 import { haversineDistance } from '@/shared/geo/distance';
 import type { LngLat } from '@/features/maps/lib/coordinates';
 import type { MapSurfaceProps } from '@/features/maps/components/MapSurface';
@@ -119,5 +120,11 @@ describe('HomeRadiusMap', () => {
 
     expect(last().scrollEnabled).toBe(false);
     expect(last().zoomEnabled).not.toBe(false);
+  });
+
+  it('credits the basemap it draws', async () => {
+    const tree = await render(<HomeRadiusMap home={HOME} radiusM={100} onMove={jest.fn()} />);
+
+    expect(tree.getByTestId('map-attribution-text').props.children).toBe(MAP_ATTRIBUTIONS.light);
   });
 });

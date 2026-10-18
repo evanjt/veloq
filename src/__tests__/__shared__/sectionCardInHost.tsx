@@ -1,7 +1,8 @@
 /**
  * The section's card as its sheet screen renders it, inside a host whose entry is open while it
  * is mounted and whose header options are handed to `onHeaderOptions`, for a suite that renders
- * the card without the navigators.
+ * the card without the navigators. With `inSheet`, the card sits in the host's sheet screen, the
+ * fill and Android's drawn handle around it, which needs `useNavigation` from `expo-router`.
  */
 import React, { useMemo } from 'react';
 import { useLocalSearchParams } from 'expo-router';
@@ -9,11 +10,15 @@ import { useLocalSearchParams } from 'expo-router';
 import { SectionDetailCard } from '@/features/routes/screens/SectionDetailCard';
 import {
   MapSheetHostContext,
+  MapSheetHostSheet,
   useMapSheetHostEntry,
   type MapSheetHostValue,
 } from '@/shared/app/MapSheetHost';
 
-export function sectionCardInHost(onHeaderOptions: (options: object) => void = () => {}) {
+export function sectionCardInHost(
+  onHeaderOptions: (options: object) => void = () => {},
+  { inSheet = false }: { inSheet?: boolean } = {}
+) {
   return function SectionCardInHost() {
     const { id, activityId } = useLocalSearchParams<{ id: string; activityId?: string }>();
     const key = useMapSheetHostEntry('section', id);
@@ -29,7 +34,13 @@ export function sectionCardInHost(onHeaderOptions: (options: object) => void = (
     );
     return (
       <MapSheetHostContext.Provider value={host}>
-        <SectionDetailCard id={id} activityId={activityId} />
+        {inSheet ? (
+          <MapSheetHostSheet>
+            <SectionDetailCard id={id} activityId={activityId} />
+          </MapSheetHostSheet>
+        ) : (
+          <SectionDetailCard id={id} activityId={activityId} />
+        )}
       </MapSheetHostContext.Provider>
     );
   };

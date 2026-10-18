@@ -31,3 +31,34 @@ export function sheetScrollPlacement(rendered: Rendered): SheetScrollPlacement {
   }
   return 'none';
 }
+
+function depthFirst(
+  rendered: Rendered,
+  match: (node: ReactTestRendererJSON) => boolean
+): ReactTestRendererJSON | null {
+  const stack = rendered == null ? [] : Array.isArray(rendered) ? [...rendered] : [rendered];
+  stack.reverse();
+  while (stack.length > 0) {
+    const node = stack.pop()!;
+    if (match(node)) return node;
+    const children = (node.children ?? []).filter(
+      (child): child is ReactTestRendererJSON => typeof child === 'object'
+    );
+    for (let i = children.length - 1; i >= 0; i--) stack.push(children[i]);
+  }
+  return null;
+}
+
+/**
+ * Whether the Android form sheet hands a drag inside it to the sheet's scrolling body.
+ *
+ * The sheet hands a drag to its content only through the first view, depth first, that scrolls
+ * nested. With none it takes every drag it can follow, so at its highest stop a drag down moves
+ * the sheet and the body never scrolls back to its top; with another view first, the drag goes
+ * there. So the first vertical scroll view must be the first nested scrolling view.
+ */
+export function sheetScrollHandsOff(rendered: Rendered): boolean {
+  const body = depthFirst(rendered, (node) => isScrollView(node) && !node.props.horizontal);
+  const nested = depthFirst(rendered, (node) => node.props.nestedScrollEnabled === true);
+  return body != null && nested === body;
+}

@@ -18,7 +18,7 @@ import { WellnessTrendsChart } from '@/features/wellness/components/WellnessTren
 import { CurveChart } from '@/shared/charts';
 import { useChartGestures } from '@/shared/charts/useChartGestures';
 import { initialiseI18n } from '@/i18n';
-import type { Activity, WellnessData } from '@/types';
+import type { FeedCard, WellnessData } from '@/types';
 import { dayActivityRow } from '@/features/activity/light';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -31,8 +31,8 @@ const DAYS = [
 ] as WellnessData[];
 
 const ACTIVITIES = [
-  { id: 'k1', name: 'Kiln walk', type: 'Ride', start_date_local: '2026-04-02T07:00:00' },
-] as Activity[];
+  { id: 'k1', name: 'Kiln walk', sportType: 'Ride', startDateLocal: '2026-04-02T07:00:00' },
+] as FeedCard[];
 
 const CURVE = [
   { x: 5, y: 900 },

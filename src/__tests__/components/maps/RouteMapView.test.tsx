@@ -8,10 +8,12 @@
  */
 
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { render, fireEvent, screen } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RouteMapView } from '@/features/routes/components/RouteMapView';
 import type { RoutePoint } from '@/types';
+import { MAP_ATTRIBUTIONS } from '@/features/maps/components/mapStyles';
 
 // The map page is hidden from screen readers, so a query reaching it includes hidden elements.
 const MAP_PAGE = { includeHiddenElements: true };
@@ -119,6 +121,12 @@ describe('RouteMapView', () => {
     expect(screen.getByTestId('route-map-container')).toBeTruthy();
   });
 
+  it("sits the credit above the sheet covering the map's foot", async () => {
+    await renderRoute({ interactive: true, coveredBottom: 240 });
+
+    expect(StyleSheet.flatten(screen.getByTestId('map-attribution').props.style).bottom).toBe(240);
+  });
+
   describe('degenerate input', () => {
     it('falls back to a placeholder when the signature is missing', async () => {
       await renderRoute({ routeGroup: routeGroup(null) });
@@ -170,5 +178,11 @@ describe('RouteMapView', () => {
       ).resolves.not.toThrow();
       expect(screen.getByTestId('route-map-container')).toBeTruthy();
     });
+  });
+
+  it('credits the basemap inline, outside the fullscreen view', async () => {
+    await renderRoute({ enableFullscreen: true });
+
+    expect(screen.getByTestId('map-attribution-text').props.children).toBe(MAP_ATTRIBUTIONS.light);
   });
 });

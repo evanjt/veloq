@@ -29,6 +29,7 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useIsFocused } from 'expo-router';
 import {
+  AttributionOverlay,
   EMPTY_FEATURE_COLLECTION,
   MapSurface,
   boundsOfLngLat,
@@ -37,6 +38,7 @@ import {
   type MapSourceSpec,
   type MapStyleType,
   type MapSurfaceRef,
+  useSurfaceAttribution,
 } from '@/features/maps';
 import type { PaintedRoute } from '../../lib/groupingParams';
 import { groupingLegendRows, groupingPreviewLayers } from '../../lib/groupingLegend';
@@ -166,6 +168,9 @@ export function GroupingPreviewMap({
 
   const palette = mapPalette(mapStyle);
   const layers = useMemo(() => groupingPreviewLayers(palette), [palette]);
+  const { attributionRef, initialAttribution, trackAttribution } = useSurfaceAttribution(mapStyle, {
+    center: centre ? [centre.lng, centre.lat] : null,
+  });
 
   const chipBg = isDark ? darkColors.surface : colors.surface;
   const chipBorder = isDark ? darkColors.border : colors.border;
@@ -180,8 +185,10 @@ export function GroupingPreviewMap({
         sources={sources}
         layers={layers}
         released={!screenFocused}
+        onRegionDidChange={trackAttribution}
         testID="grouping-preview-map"
       />
+      <AttributionOverlay ref={attributionRef} initialAttribution={initialAttribution} />
       <View
         style={[styles.legend, { backgroundColor: chipBg, borderColor: chipBorder }]}
         pointerEvents="none"

@@ -63,6 +63,7 @@ import {
   type SportFamily,
 } from '@/shared/activity/sportCategories';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
+import { StagedPage } from '@/shared/ui/StagedPage';
 import { formatMonthYear } from '@/shared/format/format';
 import { navigateTo } from '@/shared/app/navigation';
 
@@ -72,6 +73,12 @@ import { navigateTo } from '@/shared/app/navigation';
 const ALL_TIME_END = new Date('2099-12-31');
 
 const MAX_SEARCH_RESULTS = 5;
+
+/**
+ * The frame the map page mounts on. The first visit commits the screen and its
+ * sheet over the map's background, and the map with its WebView a frame later.
+ */
+const MAP_STAGE = 1;
 
 // A vertical drag this far claims the gesture; a horizontal one this far leaves
 // it to the chip rows, which scroll sideways.
@@ -365,25 +372,31 @@ function MapScreenContent() {
 
   return (
     <View style={styles.container} testID="map-screen" onLayout={handleScreenLayout}>
-      {/* Main map view */}
-      <ComponentErrorBoundary part="map" debugName="Map">
-        <RegionalMapView
-          activities={displayActivities}
-          routeCount={routeCount}
-          routeLines={routeLines}
-          sectionCount={sectionCount}
-          sections={sections}
-          sectionsGeoJSON={sectionsGeoJSON}
-          onAttributionChange={handleAttributionChange}
-          selectActivityId={selectActivityId}
-          focusActivityId={focusActivityId}
-          sectionsEnabled={sectionsEnabled}
-          selectSectionId={sectionsEnabled ? selectSectionId : undefined}
-          keyCategories={keyCategories}
-          bottomClearance={sheetHeight + attributionClearance}
-          mapLabel={activitySummary}
-        />
-      </ComponentErrorBoundary>
+      {/* Main map view, a frame after the screen and its sheet on the first visit */}
+      <StagedPage last={MAP_STAGE}>
+        {(stage) =>
+          stage < MAP_STAGE ? null : (
+            <ComponentErrorBoundary part="map" debugName="Map">
+              <RegionalMapView
+                activities={displayActivities}
+                routeCount={routeCount}
+                routeLines={routeLines}
+                sectionCount={sectionCount}
+                sections={sections}
+                sectionsGeoJSON={sectionsGeoJSON}
+                onAttributionChange={handleAttributionChange}
+                selectActivityId={selectActivityId}
+                focusActivityId={focusActivityId}
+                sectionsEnabled={sectionsEnabled}
+                selectSectionId={sectionsEnabled ? selectSectionId : undefined}
+                keyCategories={keyCategories}
+                bottomClearance={sheetHeight + attributionClearance}
+                mapLabel={activitySummary}
+              />
+            </ComponentErrorBoundary>
+          )
+        }
+      </StagedPage>
 
       <View
         testID="map-attribution-lane"

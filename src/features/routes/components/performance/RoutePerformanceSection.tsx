@@ -11,7 +11,7 @@ import { useTheme } from '@/shared/app';
 import { Card, PressTarget } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { Text } from 'react-native-paper';
-import { navigateTo } from '@/shared/app/navigation';
+import { useOpenDetail } from '@/shared/app/MapSheetCards';
 import { useTranslation } from 'react-i18next';
 import { useRoutePerformances } from '@/features/routes/hooks/useRoutePerformances';
 import { useDrawnMapStyle } from '@/features/maps';
@@ -50,6 +50,7 @@ export function RoutePerformanceSection({
   gapToBestSeconds = null,
 }: RoutePerformanceSectionProps) {
   const { t } = useTranslation();
+  const openDetail = useOpenDetail();
   const { isDark } = useTheme();
 
   const {
@@ -104,9 +105,9 @@ export function RoutePerformanceSection({
 
   const handleRoutePress = useCallback(() => {
     if (routeGroup) {
-      navigateTo(`/route/${routeGroup.id}?activityId=${encodeURIComponent(activityId)}`);
+      openDetail({ kind: 'route', id: routeGroup.id, params: { activityId } });
     }
-  }, [routeGroup, activityId]);
+  }, [routeGroup, activityId, openDetail]);
 
   if (error !== undefined) {
     return (

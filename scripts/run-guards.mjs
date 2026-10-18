@@ -476,6 +476,13 @@ const GUARDS = [
       'a record field, export parameter or export return TypeScript lifts as bigint, which JSON.stringify throws on in release',
   },
   {
+    name: 'lint:ffi-twin-records',
+    kind: 'correctness',
+    cmd: node('lint-ffi-twin-records.mjs'),
+    catches:
+      'a second struct for one domain record, an Ffi copy beside the domain struct, so a field added to one half never reaches the app',
+  },
+  {
     name: 'lint:decline-visible',
     kind: 'correctness',
     cmd: node('lint-decline-visible.mjs'),
@@ -967,6 +974,13 @@ const GUARDS = [
       'a haptic fired again by the navigation helpers, which every press that only opens a screen or goes back reaches',
   },
   {
+    name: 'lint:sheet-card-navigation',
+    kind: 'correctness',
+    cmd: node('lint-sheet-card-navigation.mjs'),
+    catches:
+      'a row in a map sheet card that pushes a detail screen, opening a second screen with its own sheet stacked over the first',
+  },
+  {
     name: 'lint:gesture-callbacks',
     kind: 'correctness',
     cmd: node('lint-gesture-callbacks.mjs'),
@@ -1203,6 +1217,12 @@ const GUARDS = [
     cmd: node('lint-react-native-text.mjs'),
     catches:
       "a new react-native Text, which skips the Material 3 type and colour defaults Android takes from Paper's",
+  },
+  {
+    name: 'check:sheet-scroll',
+    kind: 'correctness',
+    cmd: node('check-sheet-scroll.mjs'),
+    catches: 'a sheet whose content scrolls down and never back up on Android',
   },
   {
     name: 'lint:sheet-headers',

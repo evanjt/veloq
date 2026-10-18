@@ -7,7 +7,7 @@ fn record(date: i64, distance: f64, time: f64) -> SectionPerformanceRecord {
     SectionPerformanceRecord {
         activity_id: activity_id.clone(),
         activity_name: activity_id.clone(),
-        activity_date: date,
+        activity_date: crate::WholeNumber(date),
         laps: vec![SectionLap {
             id: format!("{activity_id}_lap"),
             activity_id,
@@ -23,6 +23,7 @@ fn record(date: i64, distance: f64, time: f64) -> SectionPerformanceRecord {
             excluded: false,
             outside_distance_band: false,
             match_percentage: None,
+            is_record: false,
         }],
         lap_count: 1,
         best_time: time,
