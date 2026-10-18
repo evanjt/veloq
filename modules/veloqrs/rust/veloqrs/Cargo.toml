@@ -63,7 +63,7 @@ lru = "0.18"
 rayon = "1.10"
 png = "0.18"
 rstar = "0.12"
-zip = { version = "8", default-features = false, features = ["deflate"] }
+zip = { version = "9", default-features = false, features = ["deflate"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
