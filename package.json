@@ -368,7 +368,7 @@
     "jest-expo": "~58.0.11",
     "pixelmatch": "^8.0.0",
     "pngjs": "^7.0.0",
-    "prettier": "^3.4.2",
+    "prettier": "^3.9.10",
     "react-dom": "19.3.0",
     "react-test-renderer": "19.3.0",
     "typescript": "~6.0.3",
