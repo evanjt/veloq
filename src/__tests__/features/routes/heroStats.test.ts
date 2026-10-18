@@ -1,16 +1,14 @@
 /**
- * Scenario: the section page and the route page each draw a stats row over
- * their map, and the route's counted every attempt across sports and dates
- * whatever chip or range was on screen, and showed no climbing.
+ * Scenario: a section card shows its climbing and grades under the Peek, and a stats row that
+ * named a level road's grade or a flat section's climbing read as noise.
  *
- * Expected behaviour: one list serves both heroes: the distance, the attempts
- * the chart plots labelled with the sport and range when either narrows them,
- * then the climbing. Grades stay with a section. Each stat carries the words a
- * screen reader says for it, naming what the value is.
+ * Expected behaviour: the gain, or the loss for a descent, then the average grade when it is not
+ * level, then the steepest grade of a climb or descent. Each stat carries the words a screen
+ * reader says for it, naming what the value is. The scope labels name what narrows a count.
  */
 
 import { i18n, initialiseI18n } from '@/i18n';
-import { heroStats, scopeLabels } from '@/features/routes/lib/heroStats';
+import { scopeLabels, sectionClimbStats } from '@/features/routes/lib/heroStats';
 import type { HeroStat } from '@/shared/ui/DetailHero';
 
 const t = i18n.t.bind(i18n);
@@ -20,109 +18,45 @@ beforeAll(async () => {
   await initialiseI18n('en-AU');
 });
 
-describe('a route hero', () => {
-  const route = { kind: 'route', distanceMeters: 12_400, elevationGainMeters: 236 } as const;
-
-  it('counts the attempts the chart plots in the sport and range on screen', () => {
-    const stats = heroStats(route, { count: 4, sport: 'Ride', sportsOffered: 2, range: '3m' }, t);
-
-    expect(texts(stats)).toEqual(['12.4 km', '4 activities · Ride · 3 months', '236 m']);
-    expect(stats.map((stat) => stat.label)).toEqual([
-      'Distance: 12.4 km',
-      '4 activities, Ride, 3 months',
-      'Elevation gain: 236 m',
-    ]);
-  });
-
-  it('gives the bare count when one sport is offered over every date', () => {
-    const stats = heroStats(route, { count: 7, sport: 'Ride', sportsOffered: 1, range: 'all' }, t);
-
-    expect(texts(stats)).toEqual(['12.4 km', '7 activities', '236 m']);
-  });
-
-  it('takes the singular at one attempt', () => {
-    const stats = heroStats(route, { count: 1, sport: 'Run', sportsOffered: 1, range: '1y' }, t);
-
-    expect(stats[1]?.text).toBe('1 activity · 1 year');
-  });
-
-  it('leaves the count off until the attempts are read', () => {
-    const stats = heroStats(
-      route,
-      { count: undefined, sport: undefined, sportsOffered: 0, range: 'all' },
-      t
-    );
-
-    expect(texts(stats)).toEqual(['12.4 km', '236 m']);
-  });
-
-  it('leaves the climbing off a route too flat to have any', () => {
-    const flat = { ...route, elevationGainMeters: 4 };
-
-    expect(
-      texts(heroStats(flat, { count: 2, sport: 'Run', sportsOffered: 1, range: 'all' }, t))
-    ).toEqual(['12.4 km', '2 activities']);
-  });
-
-  it('states the climbing in feet for an imperial athlete', () => {
-    const stats = heroStats(
-      route,
-      { count: 2, sport: 'Run', sportsOffered: 1, range: 'all' },
-      t,
-      false
-    );
-
-    expect(stats[2]?.text).toBe('774 ft');
-  });
-});
-
-describe('a section hero', () => {
+describe("a section's climbing", () => {
   const climb = {
-    kind: 'section',
-    section: {
-      distanceMeters: 1_800,
-      elevationGainM: 120,
-      elevationLossM: 2,
-      avgGradePercent: 6.7,
-      maxGradePercent: 11.2,
-      klass: 'climb',
-    },
+    elevationGainM: 120,
+    elevationLossM: 2,
+    avgGradePercent: 6.7,
+    maxGradePercent: 11.2,
+    klass: 'climb',
   } as const;
 
-  it('counts traversals in its own word, then the climbing and both grades', () => {
-    const stats = heroStats(climb, { count: 9, sport: 'Run', sportsOffered: 2, range: '6m' }, t);
+  it('states the climbing and both grades of a climb', () => {
+    expect(texts(sectionClimbStats(climb, t))).toEqual(['120 m', '6.7%', 'Steepest 11.2%']);
+  });
 
-    expect(texts(stats)).toEqual([
-      '1.8 km',
-      '9 traversals · Run · 6 months',
+  it('gives a descent its loss', () => {
+    const stats = sectionClimbStats({ elevationGainM: 3, elevationLossM: 80, klass: 'descent' }, t);
+
+    expect(texts(stats)).toEqual(['-80 m']);
+    expect(stats[0]?.label).toBe('Elevation: -80 m');
+  });
+
+  it('leaves a level average grade off', () => {
+    expect(texts(sectionClimbStats({ ...climb, avgGradePercent: 0.4 }, t))).toEqual([
       '120 m',
-      '6.7%',
       'Steepest 11.2%',
     ]);
   });
 
-  it('gives a descent its loss', () => {
-    const descent = {
-      kind: 'section',
-      section: { distanceMeters: 900, elevationGainM: 3, elevationLossM: 80, klass: 'descent' },
-    } as const;
-
-    const stats = heroStats(
-      descent,
-      { count: 3, sport: 'Ride', sportsOffered: 1, range: 'all' },
-      t
+  it('states nothing for flat ground', () => {
+    expect(sectionClimbStats({ elevationGainM: 0, elevationLossM: 0, klass: 'flat' }, t)).toEqual(
+      []
     );
+  });
 
-    expect(texts(stats)).toEqual(['900 m', '3 traversals', '-80 m']);
-    expect(stats[2]?.label).toBe('Elevation: -80 m');
+  it('states the climbing in feet for an imperial athlete', () => {
+    expect(texts(sectionClimbStats(climb, t, false))[0]).toBe('394 ft');
   });
 
   it('names each value for a screen reader', () => {
-    const stats = heroStats(climb, { count: 9, sport: 'Run', sportsOffered: 2, range: '6m' }, t);
-
-    expect(stats.map((stat) => stat.label)).toEqual([
-      'Distance: 1.8 km',
-      '9 traversals, Run, 6 months',
+    expect(sectionClimbStats(climb, t).map((stat) => stat.label)).toEqual([
       'Elevation gain: 120 m',
       'Avg grade: 6.7%',
       'Steepest 11.2%',

@@ -42,11 +42,8 @@ mod migration_section_numbers;
 #[path = "../migration_hr_zone_backfill.rs"]
 mod migration_hr_zone_backfill;
 
-#[path = "../migration_geocoded_names.rs"]
-mod migration_geocoded_names;
-
-#[path = "../migration_geocoded_places.rs"]
-mod migration_geocoded_places;
+#[path = "../migration_drop_geocoding.rs"]
+mod migration_drop_geocoding;
 
 #[path = "../migration_job_runs.rs"]
 mod migration_job_runs;
@@ -59,6 +56,9 @@ mod migration_metrics_caches;
 
 #[path = "../migration_pool_swims.rs"]
 mod migration_pool_swims;
+
+#[path = "../migration_push_runs_posted_entry.rs"]
+mod migration_push_runs_posted_entry;
 
 #[path = "../migration_upgrade.rs"]
 mod migration_upgrade;

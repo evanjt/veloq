@@ -6,7 +6,7 @@ import { useMapPreferences } from '@/features/settings';
 import { shareText } from '@/features/settings/light';
 import { type MapStyleType, resolveTerrain3D } from '@/features/maps';
 import { useMapPreviewCoordinates } from '../hooks/useMapPreviewCoordinates';
-import type { Activity } from '@/types';
+import type { ActivityType, FeedCard } from '@/types';
 import {
   ContextMenu,
   contextMenuHoldIsNative,
@@ -23,7 +23,7 @@ const log = debug.create('ActivityShare');
 interface ActivityCardContextMenuProps {
   visible: boolean;
   onDismiss: () => void;
-  activity: Activity;
+  activity: FeedCard;
   /** Whether the card draws a map; only then does the menu offer its style, 3D and reset. */
   hasMap: boolean;
   /** The card the menu belongs to. */
@@ -50,14 +50,14 @@ const MAP_STYLES: {
 // preview shares. Where the popup is drawn only while open, the track is read
 // only then; the system menu is declared before the hold, so it reads it always.
 function useTerrain3DShown(
-  activity: Activity,
+  activity: FeedCard,
   enabled: boolean,
   mode: Parameters<typeof resolveTerrain3D>[0]['mode'],
   override: Parameters<typeof resolveTerrain3D>[0]['override']
 ): boolean {
   const { coordinates, altitude } = useMapPreviewCoordinates(
     activity.id,
-    enabled && !!activity.stream_types?.includes('latlng')
+    enabled && activity.hasGps
   );
   return useMemo(
     () =>
@@ -65,11 +65,11 @@ function useTerrain3DShown(
         mode,
         coordinates: coordinates.map((c) => [c.longitude, c.latitude] as [number, number]),
         altitude,
-        gain: activity.total_elevation_gain,
-        distance: activity.distance,
+        gain: activity.elevationGain ?? NaN,
+        distance: activity.distance ?? NaN,
         override,
       }).show3D,
-    [mode, coordinates, altitude, activity.total_elevation_gain, activity.distance, override]
+    [mode, coordinates, altitude, activity.elevationGain, activity.distance, override]
   );
 }
 
@@ -90,12 +90,14 @@ export function ActivityCardContextMenu({
     getActivityCamera,
   } = useMapPreferences();
 
-  const currentStyle = getStyleForActivity(activity.type, activity.id);
+  // A body with no sport falls back to Other in every helper, as it always has.
+  const sport = activity.sportType as ActivityType;
+  const currentStyle = getStyleForActivity(sport, activity.id);
   const hasOverride = hasActivityOverride(activity.id);
   const is3DOn = useTerrain3DShown(
     activity,
     hasMap && (visible || contextMenuHoldIsNative()),
-    getTerrain3DMode(activity.type, activity.id),
+    getTerrain3DMode(sport, activity.id),
     getActivityCamera(activity.id) ?? null
   );
 

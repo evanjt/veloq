@@ -2,13 +2,6 @@ import { StyleSheet } from 'react-native';
 import { colors, darkColors, spacing, typography } from '@/theme';
 
 export const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.surfacePage,
-  },
-  containerDark: {
-    backgroundColor: darkColors.surfacePage,
-  },
   readFailure: {
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,

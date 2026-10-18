@@ -24,6 +24,13 @@ describe('visibleMapInset', () => {
     expect(inset.left).toBe(TRACK_FIT_PADDING);
   });
 
+  it('keeps the track beside a panel docked on the left', () => {
+    const inset = visibleMapInset({ width: 1024, height: 1366, coveredLeft: 400 });
+
+    expect(inset.left).toBe(400 + TRACK_FIT_PADDING);
+    expect(inset.right).toBe(TRACK_FIT_PADDING);
+  });
+
   it('is the plain margin on every edge when nothing covers the map', () => {
     expect(visibleMapInset({ width: 400, height: 600 })).toEqual({
       top: TRACK_FIT_PADDING,

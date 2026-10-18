@@ -16,7 +16,7 @@ import { PaperProvider } from 'react-native-paper';
 import { SwipeableTabs } from '@/shared/ui';
 import { ActivityCardContextMenu } from '@/features/activity/components/ActivityCardContextMenu';
 import { ChartXAxisSwitch } from '@/features/activity/components/ChartXAxisSwitch';
-import type { Activity } from '@/types';
+import type { FeedCard } from '@/types';
 
 jest.mock('expo-haptics', () => ({
   ...jest.requireActual('expo-haptics'),
@@ -73,9 +73,9 @@ jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 const ACTIVITY = {
   id: 'a1',
   name: 'Morning ride',
-  type: 'Ride',
-  stream_types: [],
-} as unknown as Activity;
+  sportType: 'Ride',
+  hasGps: false,
+} as FeedCard;
 
 // The card menu's popup, which a screen reader opens on iOS beside the system menu.
 // Opening fires its own light impact, so the haptics are cleared once it is open

@@ -16,7 +16,7 @@ import { router } from 'expo-router';
 
 import { ActivityCard } from '@/features/activity/components/ActivityCard';
 import { Card } from '@/shared/ui/Card';
-import type { Activity } from '@/types';
+import type { FeedCard } from '@/types';
 import { layout, spacing } from '@/theme';
 
 // The card's figures are drawn for the eye and hidden from a screen reader,
@@ -62,25 +62,24 @@ jest.mock('@/features/activity/components/ActivityMapPreview', () => {
   };
 });
 
-const activity = (overrides: Partial<Activity> = {}): Activity =>
+const activity = (overrides: Partial<FeedCard> = {}): FeedCard =>
   ({
     id: 'a1',
     name: 'Lausanne half marathon',
-    type: 'Run',
-    start_date_local: '2026-08-12T07:30:00',
+    sportType: 'Run',
+    startDateLocal: '2026-08-12T07:30:00',
     distance: 21097,
-    moving_time: 17209,
-    total_elevation_gain: 1047,
-    icu_training_load: 50,
-    average_heartrate: 157,
-    icu_average_watts: 342,
+    movingTime: 17209,
+    elevationGain: 1047,
+    trainingLoad: 50,
+    avgHr: 157,
+    avgPower: 342,
     calories: 382,
-    average_temp: 22,
-    stream_types: ['latlng', 'heartrate'],
+    hasGps: true,
     ...overrides,
-  }) as Activity;
+  }) as FeedCard;
 
-const renderCard = (detail: Activity = activity()) => render(<ActivityCard activity={detail} />);
+const renderCard = (detail: FeedCard = activity()) => render(<ActivityCard activity={detail} />);
 
 const bottomPaddingBottom = () =>
   StyleSheet.flatten(screen.getByTestId('activity-card-bottom').props.style).paddingBottom ?? 0;
@@ -91,12 +90,12 @@ describe('the feed card keeps its bottom band for the stats', () => {
     expect(mapped.UNSAFE_getByType(Card).props.variant).toBe('raised');
     await mapped.unmount();
 
-    const compact = await renderCard(activity({ stream_types: [] }));
+    const compact = await renderCard(activity({ hasGps: false }));
     expect(compact.UNSAFE_getByType(Card).props.variant).toBe('raised');
   });
 
   it('shows the synced power used by the metrics row', async () => {
-    await renderCard(activity({ icu_average_watts: 205 }));
+    await renderCard(activity({ avgPower: 205 }));
 
     expect(screen.getByText('205 W')).toBeTruthy();
   });
@@ -115,7 +114,7 @@ describe('the feed card keeps its bottom band for the stats', () => {
   });
 
   it('keeps every stat row over the full-height preview', async () => {
-    await renderCard(activity({ icu_average_watts: 205 }));
+    await renderCard(activity({ avgPower: 205 }));
 
     const band = within(screen.getByTestId('activity-card-bottom'));
     expect(band.getByTestId('activity-card-a1-distance')).toBeTruthy();
@@ -136,7 +135,7 @@ describe('the feed card keeps its stat row clear of the record button', () => {
 describe('the feed card draws no place line', () => {
   it('shows nothing for a locality an older stored body still carries', async () => {
     await renderCard(
-      activity({ locality: 'Lausanne', country: 'Switzerland' } as Partial<Activity>)
+      activity({ locality: 'Lausanne', country: 'Switzerland' } as Partial<FeedCard>)
     );
 
     expect(screen.queryByText('Lausanne')).toBeNull();

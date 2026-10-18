@@ -14,7 +14,7 @@ import { render, screen } from '@testing-library/react-native';
 import { initialiseI18n } from '@/i18n';
 import { spokenDistance, spokenDuration, spokenElevation } from '@/shared/format/spoken';
 import { ActivityCard } from '@/features/activity/components/ActivityCard';
-import type { Activity } from '@/types';
+import type { FeedCard } from '@/types';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
@@ -51,24 +51,24 @@ jest.mock('@/features/activity/components/ActivityMapPreview', () => {
 const mapped = {
   id: 'a1',
   name: 'Quarry hill repeats',
-  type: 'Ride',
-  start_date_local: '2026-08-12T07:30:00',
+  sportType: 'Ride',
+  startDateLocal: '2026-08-12T07:30:00',
   distance: 42000,
-  moving_time: 5400,
-  total_elevation_gain: 359,
-  average_heartrate: 142,
-  icu_average_watts: 230,
-  stream_types: ['latlng'],
-} as Activity;
+  movingTime: 5400,
+  elevationGain: 359,
+  avgHr: 142,
+  avgPower: 230,
+  hasGps: true,
+} as FeedCard;
 
 const indoor = {
   ...mapped,
   id: 'a2',
   name: 'Garage trainer',
   distance: 0,
-  total_elevation_gain: 0,
-  stream_types: [],
-} as unknown as Activity;
+  elevationGain: 0,
+  hasGps: false,
+} as FeedCard;
 
 const labelOf = (testID: string) =>
   String(screen.getByTestId(testID).props.accessibilityLabel ?? '');
@@ -104,8 +104,8 @@ describe('the feed card spoken name', () => {
     const label = labelOf('activity-card-a1');
     const isMetric = drawnMetric('activity-card-a1-distance');
     expect(label).toContain(spokenDistance(mapped.distance, isMetric));
-    expect(label).toContain(spokenElevation(mapped.total_elevation_gain, isMetric));
-    expect(label).toContain(spokenDuration(mapped.moving_time));
+    expect(label).toContain(spokenElevation(mapped.elevationGain, isMetric));
+    expect(label).toContain(spokenDuration(mapped.movingTime));
     expect(label).not.toContain(drawn('activity-card-a1-duration'));
     expect(label).toContain('142 bpm');
     expect(label).toContain('230 W');
@@ -144,7 +144,7 @@ describe('the feed card spoken name', () => {
       screen.queryByTestId('activity-card-a2-distance', { includeHiddenElements: true })
     ).toBeNull();
     expect(label).not.toMatch(/\b0(\.0)? (m|ft|km|mi)\b/);
-    expect(label).toContain(spokenDuration(indoor.moving_time));
+    expect(label).toContain(spokenDuration(indoor.movingTime));
     expect(label).toContain('142 bpm');
     expect(buttonNames().filter((name) => name === 'Garage trainer')).toEqual([]);
   });

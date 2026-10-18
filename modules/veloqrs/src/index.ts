@@ -66,8 +66,8 @@ import {
   FfiGroupSort,
   FfiSectionSort,
   FfiSportFamily,
-  type FfiActivityBodiesQuery,
   type FfiActivityBodiesPage,
+  type FfiFeedCard,
   type FfiGroupWithPolyline,
   type FfiSectionWithPolyline,
   type FfiStalePrOpportunity,
@@ -125,8 +125,6 @@ export type {
 export {
   FfiCallKind as CallKind,
   FfiUploadOutcome as UploadOutcome,
-  FfiPlaceNameKind as PlaceNameKind,
-  FfiPlaceNameOutcome as PlaceNameOutcome,
   FfiSyncErrorReason as SyncErrorReason,
   FfiSyncStep as SyncStep,
   FfiTrackStep as TrackStep,
@@ -271,9 +269,10 @@ export type RoutesScreenData = FfiRoutesScreenData;
 export type RoutesScreenQuery = FfiRoutesScreenQuery;
 export type SectionHiddenFilters = FfiSectionFilters;
 export { FfiGroupSort as GroupSort, FfiSectionSort as SectionSort };
-// Feed search over the whole library
-export type ActivityBodiesQuery = FfiActivityBodiesQuery;
+// A window of stored bodies, for the readers that still parse them
 export type ActivityBodiesPage = FfiActivityBodiesPage;
+// One feed card, typed by the engine from the stored body
+export type FeedCard = FfiFeedCard;
 export { FfiSportFamily as EngineSportFamily };
 export type GroupWithPolyline = FfiGroupWithPolyline;
 export type SectionWithPolyline = FfiSectionWithPolyline;

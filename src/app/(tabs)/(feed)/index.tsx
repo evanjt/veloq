@@ -44,7 +44,7 @@ import {
 import { useStrengthCardData } from '@/features/strength';
 import { isInfiniteActivitiesStale } from '@/shared/query/activitiesCache';
 import { useTheme, useStableBy } from '@/shared/app';
-import type { Activity } from '@/types';
+import type { FeedCard } from '@/types';
 import {
   SummaryCard,
   SummaryCardSkeleton,
@@ -325,7 +325,7 @@ function FeedScreenContent() {
   // reaches activities no loaded page holds, so only those are added to it.
   const searchActivities = search.activities;
   const highlightIds = useMemo(() => {
-    const loaded = allActivities.map((a: Activity) => a.id);
+    const loaded = allActivities.map((a: FeedCard) => a.id);
     if (!searching) return loaded;
     const held = new Set(loaded);
     const reached = searchActivities.filter((a) => !held.has(a.id)).map((a) => a.id);
@@ -431,7 +431,7 @@ function FeedScreenContent() {
   );
   const previewTracks = useStableBy(rawPreviewTracks, previewTracksKey);
   const renderActivity = useCallback(
-    ({ item, index }: { item: Activity; index: number }) => (
+    ({ item, index }: { item: FeedCard; index: number }) => (
       <ActivityCard
         activity={item}
         index={index}

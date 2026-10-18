@@ -10,7 +10,7 @@
  */
 
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
@@ -44,6 +44,8 @@ export interface MapToolBarProps {
   doneTestID?: string;
   /** Detail the tool shows above its row, such as a failure's technical details. */
   children?: React.ReactNode;
+  /** The bar's laid-out frame, for a map that fits what it draws above the bar. */
+  onLayout?: ((event: LayoutChangeEvent) => void) | undefined;
 }
 
 /** A title line and a hint line between the bar's padding: 76. */
@@ -66,6 +68,7 @@ export function MapToolBar({
   cancelTestID = 'map-tool-cancel',
   doneTestID = 'map-tool-save',
   children,
+  onLayout,
 }: MapToolBarProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -80,6 +83,7 @@ export function MapToolBar({
   return (
     <View
       testID={testID}
+      onLayout={onLayout}
       style={[
         styles.bar,
         raised('elevated', isDark),

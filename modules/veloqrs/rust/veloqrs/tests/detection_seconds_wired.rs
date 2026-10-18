@@ -166,6 +166,30 @@ fn a_stored_stream_reaches_the_detector_and_frees_the_ground_it_clears() {
         detected(&mut engine) > 0,
         "the streams say the climb was walked at 1 m/s, so the veto must not hold"
     );
+
+    // The badge reads the stored flag, so the detector's verdict has to be
+    // the one that reaches the screen: a walked climb is not lift ground.
+    let mid = offset(BASE, 0.0, 395.0);
+    let near_mid = |p: &GpsPoint| {
+        tracematch::geo_utils::haversine_distance(p, &GpsPoint::new(mid.0, mid.1)) < 50.0
+    };
+    let over_climb: Vec<String> = engine
+        .get_sections()
+        .iter()
+        .filter(|s| s.polyline.iter().any(near_mid))
+        .map(|s| s.id.clone())
+        .collect();
+    assert!(!over_climb.is_empty(), "a section runs over the climb");
+    for id in over_climb {
+        let section = engine
+            .section_detail_data(&id)
+            .section
+            .expect("the section reads back");
+        assert!(
+            !section.is_lift,
+            "{id} was cut because the streams say it was walked, so it is not lift ground"
+        );
+    }
 }
 
 /// The preview proposes what a Keep would apply, so it reads the same pool

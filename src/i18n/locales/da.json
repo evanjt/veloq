@@ -761,7 +761,13 @@
     "linkTrainingLoad": "Monitoring Training Load (Science2Sport)",
     "understandingMetrics": "Forstå målingerne",
     "rampRate": "Stigningsrate",
-    "perWeek": "/uge"
+    "perWeek": "/uge",
+    "places": {
+      "fitness": "Kondition",
+      "calendar": "Kalender",
+      "performance": "Præstation",
+      "trends": "Tendenser"
+    }
   },
   "formZones": {
     "transition": "Overgang",
@@ -1565,12 +1571,6 @@
     "noRoutesYet": "Ingen ruter endnu",
     "noSectionsMatchFilter": "Ingen sektioner matcher filteret",
     "noSectionsFor": "Ingen sektioner for {{filters}}",
-    "placeJourney": "{{start}} til {{end}}",
-    "placeLoop": "{{place}} rundtur",
-    "placeNameButton": "Navngiv efter steder",
-    "placeNameFailedMessage": "Stednavnet kunne ikke slås op, så navnet er uændret. Prøv igen senere.",
-    "placeNameFailedTitle": "Intet stednavn",
-    "placeNameNoPlaceMessage": "Der blev ikke fundet et sted, hvor dette starter, så navnet er uændret.",
     "renameFailedTitle": "Navnet kunne ikke gemmes",
     "renameFailedMessage": "Rutenavnet blev ikke gemt. Prøv igen.",
     "referenceFailedTitle": "Reference ikke angivet",
@@ -1911,14 +1911,6 @@
     "terrain3DSmartHint": "Intelligent tegner kort i forsiden og på aktiviteter i 3D af sig selv, når en rute har {{height}} eller mere mellem sit laveste og højeste punkt.",
     "noData": "Ingen data",
     "permissions": "Tilladelser",
-    "placeNames": {
-      "title": "Stednavne",
-      "attribution": "Stednavne © OpenStreetMap-bidragydere",
-      "noticeTitle": "Brug stednavne?",
-      "noticeBody": "Når en ny rute eller strækning bliver fundet, eller når du beder om at få en navngivet, sendes dens start- og slutpunkt til OpenStreetMaps Nominatim-tjeneste for at slå et stednavn op. Ingen anden rute eller strækning sendes, og intet om dig. Tjenestens brugspolitik gælder.",
-      "readPolicy": "Brugspolitik",
-      "accept": "Accepter"
-    },
     "primarySport": "Primær sport",
     "primarySportHintCycling": "eFTP vises på oversigtkortet. Fanen Kondition viser Power Curve, power zones, eFTP trend og decoupling.",
     "primarySportHintRunning": "Threshold pace og LTHR vises på oversigtkortet. Fanen Kondition viser Pace Curve, running power og HR zones.",

@@ -3,12 +3,12 @@
  * styles and the content area's banner styles, though only those two
  * components read them.
  *
- * Expected behaviour: the shared sheet holds what the screen itself places, and
- * each child owns its own sheet.
+ * Expected behaviour: the shared sheet holds what the section's card itself
+ * places, and each child owns its own sheet. The card sits in the map sheet,
+ * which paints the ground, so the card paints none over it.
  */
 
 import { StyleSheet } from 'react-native';
-import { colors } from '@/theme';
 import { styles as shell } from '@/features/routes/components/section/SectionDetail.styles';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
@@ -33,11 +33,9 @@ describe('the section screen shell styles', () => {
     expect(Object.keys(shell).filter((key) => childKeys.includes(key))).toEqual([]);
   });
 
-  it('keeps the keys the screen places itself', () => {
+  it('keeps the keys the card places itself, with no ground of its own', () => {
     expect(Object.keys(shell)).toEqual(
       expect.arrayContaining([
-        'container',
-        'containerDark',
         'scrollView',
         'listFooterContainer',
         'exportGpxButton',
@@ -46,6 +44,6 @@ describe('the section screen shell styles', () => {
         'rescanRefusalTextDark',
       ])
     );
-    expect(StyleSheet.flatten(shell.container)?.backgroundColor).toBe(colors.surfacePage);
+    expect(StyleSheet.flatten(shell.scrollView)).not.toHaveProperty('backgroundColor');
   });
 });

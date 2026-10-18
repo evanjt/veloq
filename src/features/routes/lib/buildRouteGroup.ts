@@ -1,4 +1,4 @@
-import type { RouteGroup as EngineRouteGroup } from 'veloqrs';
+import { decodeCoords, type RouteDetailData, type RouteGroup as EngineRouteGroup } from 'veloqrs';
 import { toActivityType } from '../types';
 import type { LatLngShort } from '@/shared/geo/distance';
 
@@ -31,4 +31,14 @@ export function buildFinalRouteGroup(
         }
       : null,
   };
+}
+
+/** The representative's points, decoded from the detail read, or null with none to draw. */
+export function representativePointsOf(
+  detail: Pick<RouteDetailData, 'encodedRepresentative'> | null | undefined
+): LatLngShort[] | null {
+  if (!detail?.encodedRepresentative) return null;
+  const decoded = decodeCoords(detail.encodedRepresentative);
+  if (decoded.length === 0) return null;
+  return decoded.map((p) => ({ lat: p.latitude, lng: p.longitude }));
 }

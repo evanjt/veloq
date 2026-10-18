@@ -1,6 +1,8 @@
 package com.veloq;
 
 import android.os.Build;
+import android.view.ViewGroup;
+import android.view.ViewParent;
 import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -54,7 +56,8 @@ public class VeloqMap3DWebViewManager extends VeloqWebViewManager {
   private static final String ADOPTED = "\"adopted\"";
 
   private final MapWebViewSlot<RNCWebView, ThemedReactContext> slot =
-      new MapWebViewSlot<>(Build.VERSION.SDK_INT, VeloqMap3DWebViewManager::destroyHeld);
+      new MapWebViewSlot<>(Build.VERSION.SDK_INT, VeloqMap3DWebViewManager::detach,
+          VeloqMap3DWebViewManager::destroyHeld);
   /** Only its wrapping is used, which reads none of the per-mount props. */
   private final RNCWebViewManagerImpl wrapping = new RNCWebViewManagerImpl(true);
   /** The revision of the HTML each view last loaded. */
@@ -88,8 +91,8 @@ public class VeloqMap3DWebViewManager extends VeloqWebViewManager {
   @Override
   protected RNCWebViewWrapper newView(@NonNull ThemedReactContext context) {
     MapWebViewSlot.Held<RNCWebView> held = slot.take(context);
+    if (!slot.holding()) stopListening();
     if (held == null) return super.newView(context);
-    stopListening();
     RNCWebViewWrapper view = wrapping.createViewInstance(context, held.view);
     awaitingSource.put(view, held.revision);
     return view;
@@ -178,6 +181,21 @@ public class VeloqMap3DWebViewManager extends VeloqWebViewManager {
     String html = source.getString("html");
     if (html == null) return;
     webView.loadDataWithBaseURL(baseUrl, html, "text/html", "UTF-8", null);
+  }
+
+  /**
+   * Takes the held view out of the wrapper it was dropped from. A screen's removal transition
+   * marks every view under it as transitioning and ends that only for the children still
+   * attached, so a view removed during the exit keeps its old parent until this ends it.
+   */
+  private static boolean detach(RNCWebView webView) {
+    ViewParent parent = webView.getParent();
+    if (parent instanceof ViewGroup) {
+      ViewGroup group = (ViewGroup) parent;
+      group.endViewTransition(webView);
+      if (webView.getParent() == group) group.removeView(webView);
+    }
+    return webView.getParent() == null;
   }
 
   private static void destroyHeld(RNCWebView webView) {

@@ -4005,11 +4005,11 @@ mod tests {
     }
 
     /// Scenario: a record zip the writer never produced names internal
-    /// settings, among them the geocoding consent.
+    /// settings, among them another install's write token.
     ///
     /// Expected behaviour: only the settings a backup carries are written, so
-    /// the restore cannot agree to geocoding for the athlete or move
-    /// bookkeeping into a state this library never reached.
+    /// the restore cannot hand this library a credential it never issued or
+    /// move bookkeeping into a state this library never reached.
     #[test]
     fn test_restore_writes_only_the_settings_a_backup_carries() {
         let dir = TempDir::new().unwrap();
@@ -4017,7 +4017,7 @@ mod tests {
             PersistentEngine::new(dir.path().join("crafted.db").to_str().unwrap()).unwrap();
         let record = json!({"version": 1, "entries": [
             {"table": "settings", "values": {"key": "units", "value": "imperial"}},
-            {"table": "settings", "values": {"key": "__geocoding_enabled", "value": "1"}},
+            {"table": "settings", "values": {"key": "__external_write_token", "value": "t0ken"}},
             {"table": "settings", "values": {"key": "__detector_cutover", "value": "local-only"}},
             {"table": "settings", "values": {"key": "__activity_window_oldest:i1", "value": "2020-01-01"}}
         ]});
@@ -4026,7 +4026,7 @@ mod tests {
         assert!(!paused(&engine));
         let setting = |key: &str| engine.get_setting(key).unwrap();
         assert_eq!(setting("units").as_deref(), Some("imperial"));
-        assert_eq!(setting("__geocoding_enabled"), None);
+        assert_eq!(setting("__external_write_token"), None);
         assert_eq!(setting("__detector_cutover"), None);
         assert_eq!(
             setting("__activity_window_oldest:i1").as_deref(),

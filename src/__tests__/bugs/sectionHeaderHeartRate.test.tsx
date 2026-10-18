@@ -10,7 +10,6 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 
 import { SectionHeader } from '@/features/routes/components/section/SectionHeader';
-import { createMapHighlightStore } from '@/features/routes/lib/mapHighlight';
 import type { FrequentSection } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -48,13 +47,7 @@ describe('the section header stats', () => {
         activityColor="#000000"
         iconName="bike"
         activityCount={8}
-        mapReady={true}
-        isTrimming={false}
-        isExpandMode={false}
-        trimStart={0}
-        trimEnd={1}
         customName={null}
-        highlight={createMapHighlightStore()}
         onSaveName={jest.fn()}
         {...legacyHeartRate}
       />

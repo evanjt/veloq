@@ -1,43 +1,37 @@
 /**
- * Scenario: the section detail screen hands its hooks values it builds from the
+ * Scenario: the section's card hands its hooks values it builds from the
  * engine's bundle. Built inline, a fresh object per render defeated their
- * memoisation on every root render, and a rename save renders the root through
+ * memoisation on every render, and a rename save renders the card through
  * the optimistic name the actions hook holds.
  *
  * Expected behaviour: a re-render with the same bundle passes the same section,
- * refresh callback and excluded-id list to `useSectionActions` and
- * `useSectionTrim`, the same ledger to `useSectionLedger` and the same id lists
- * to `useSectionTimeStreamSync`, so those hooks' memoisation holds across a
- * rename.
+ * refresh callback and excluded-id list to `useSectionActions`, the same ledger
+ * to `useSectionLedger` and the same id lists to `useSectionTimeStreamSync`, so
+ * those hooks' memoisation holds across a rename. A pick in the chart is the
+ * card's state in the host's entry, where the map reads it.
  */
 
 import React from 'react';
 import { act, render } from '@testing-library/react-native';
 import { ScrollView } from 'react-native';
 
-import SectionDetailScreen from '@/app/section/[id]';
+import { sectionCardInHost } from '../__shared__/sectionCardInHost';
+import { topCard, useMapSheetHosts } from '@/shared/app/mapSheetHost';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
-// The options each `Stack.Screen` the screen renders hands its navigation item, merged in order.
+// The options the card hands its host's navigation item, merged in order.
 let mockScreenOptions: Record<string, unknown> = {};
-jest.mock('expo-router', () => {
-  function Stack() {
-    return null;
-  }
-  Stack.Screen = function Screen({ options }: { options?: Record<string, unknown> }) {
-    mockScreenOptions = { ...mockScreenOptions, ...options };
-    return null;
-  };
-  return {
-    ...jest.requireActual('expo-router'),
-    useIsFocused: () => true,
-    useLocalSearchParams: () => ({ id: 'sec-1' }),
-    useFocusEffect: () => {},
-    router: { back: jest.fn(), push: jest.fn(), replace: jest.fn() },
-    Stack,
-  };
+const SectionDetailScreen = sectionCardInHost((options) => {
+  mockScreenOptions = { ...mockScreenOptions, ...options };
 });
+jest.mock('expo-router', () => ({
+  ...jest.requireActual('expo-router'),
+  useIsFocused: () => true,
+  useLocalSearchParams: () => ({ id: 'sec-1' }),
+  useFocusEffect: () => {},
+  router: { back: jest.fn(), push: jest.fn(), replace: jest.fn() },
+}));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 jest.mock('@/shared/ui/withScreenBoundary', () => ({
   withScreenBoundary: (component: unknown) => component,
@@ -60,7 +54,7 @@ jest.mock('@/shared/async/useAfterNavigationTransition', () => ({
 jest.mock('@/shared/ui', () => ({
   Button: () => null,
   ErrorState: () => null,
-  useHeroMapHeight: () => 300,
+  EmptyState: () => null,
   useBottomClearance: () => 0,
   useScrollEndInset: () => 0,
 }));
@@ -109,7 +103,6 @@ const mockUseSectionTimeStreamSync = jest.fn((..._args: unknown[]) => ({
   refetch: () => {},
 }));
 const mockUseSectionActions = jest.fn((_options: Record<string, unknown>) => ({}));
-const mockUseSectionTrim = jest.fn((..._args: unknown[]) => ({}));
 
 let capturedSaveName: ((name: string) => void) | undefined;
 let capturedActivitySelect: ((activityId: string | null) => void) | undefined;
@@ -125,7 +118,7 @@ const mockUseSectionDetailPerformance = jest.fn(
   })
 );
 
-jest.mock('@/features/routes', () => {
+function mockRoutes() {
   const React = require('react');
   const noop = () => {};
   const component = () => null;
@@ -144,7 +137,7 @@ jest.mock('@/features/routes', () => {
       reverseStats: undefined,
     },
     toPerformanceRecord: (record: unknown) => record,
-    toPerformanceView: () => jest.requireMock('@/features/routes').EMPTY_PERFORMANCE_VIEW,
+    toPerformanceView: () => mockRoutes().EMPTY_PERFORMANCE_VIEW,
     hasPartialExclusion: () => false,
     isSportOffered: () => true,
     rescanRefusalKey: () => null,
@@ -152,51 +145,31 @@ jest.mock('@/features/routes', () => {
     sectionStreamsState: jest.requireActual(
       '@/features/routes/components/section/SectionPerformanceSection'
     ).sectionStreamsState,
-    useRevealMapOnDraw: noop,
-    createMapHighlightStore: jest.requireActual('@/features/routes/lib/mapHighlight')
-      .createMapHighlightStore,
-    useMergeSections: () => ({ merge: noop, previewDropped: false }),
     useSectionDetailData: () => ({ data: mockDetail, status: 'ready', retirement: undefined }),
     useSectionDetailPerformance: (...args: unknown[]) => mockUseSectionDetailPerformance(...args),
     useSectionTimeStreamSync: (...args: unknown[]) => mockUseSectionTimeStreamSync(...args),
     useSectionChartData: () => ({ chartData: [] }),
     useSectionChartDataEnriched: () => ({ calendarSummary: null, combinedChartData: [] }),
     useSectionLedger: (...args: unknown[]) => mockUseSectionLedger(...args),
-    useSectionDataRefresh: (() => {
-      const handleTrimRefresh = () => {};
-      return () => ({ section: mockSection, sectionRefreshKey: 0, handleTrimRefresh });
-    })(),
-    useSectionUIState: () => {
-      const [mapReady, setMapReady] = React.useState(false);
-      return {
-        highlightedActivityId: null,
-        setHighlightedActivityId: noop,
-        highlightedActivityPoints: undefined,
-        setHighlightedActivityPoints: noop,
-        mapReady,
-        setMapReady,
-        sectionTimeRange: '3m',
-        setSectionTimeRange: noop,
-        selectedSportType: mockSelectedSport,
-        setSelectedSportType: noop,
-      };
-    },
+    useSectionDataRefresh: mockUseSectionDataRefresh,
+    useSectionUIState: () => ({
+      sectionTimeRange: '3m',
+      setSectionTimeRange: noop,
+      selectedSportType: mockSelectedSport,
+      setSelectedSportType: noop,
+    }),
     // The optimistic name lives inside this hook, as in the real one, so a
-    // save re-renders the screen root through it.
+    // save re-renders the card through it.
     useSectionActions: (options: Record<string, unknown>) => {
       mockUseSectionActions(options);
       const [customName, setCustomName] = React.useState(null as string | null);
       return { customName, handleSaveName: setCustomName };
     },
-    useSectionTrim: (...args: unknown[]) => {
-      mockUseSectionTrim(...args);
-      return { isTrimming: false };
-    },
     DataRangeFooter: component,
     DetailFallback: component,
-    SectionTrimOverlay: component,
     SportTypeSelector: component,
     SectionActionRow: component,
+    SectionOverflowMenu: component,
     SectionContentArea: (props: {
       onActivitySelect: (activityId: string | null) => void;
       efficiencyTrend?: unknown;
@@ -219,7 +192,29 @@ jest.mock('@/features/routes', () => {
       return null;
     },
   };
-});
+}
+
+const mockHandleTrimRefresh = () => {};
+function mockUseSectionDataRefresh() {
+  return { section: mockSection, sectionRefreshKey: 0, handleTrimRefresh: mockHandleTrimRefresh };
+}
+
+// The card reads its hooks and parts from their own modules, so each is replaced from one set.
+jest.mock('@/features/routes/components', () => mockRoutes());
+jest.mock('@/features/routes/components/section', () => mockRoutes());
+jest.mock('@/features/routes/stores/RouteSettingsStore', () => mockRoutes());
+jest.mock('@/features/routes/hooks', () => mockRoutes());
+jest.mock('@/features/routes/hooks/useSectionActions', () => mockRoutes());
+jest.mock('@/features/routes/hooks/useSectionDetailData', () => mockRoutes());
+jest.mock('@/features/routes/hooks/useSectionDataRefresh', () => mockRoutes());
+jest.mock('@/features/routes/hooks/useSectionUIState', () => mockRoutes());
+jest.mock('@/features/routes/hooks/useSectionMergeFlow', () => mockRoutes());
+jest.mock('@/features/routes/hooks/useSectionLedger', () => mockRoutes());
+jest.mock('@/features/routes/hooks/useSectionPerformances', () => mockRoutes());
+jest.mock('@/features/routes/hooks/useSectionLaps', () => mockRoutes());
+jest.mock('@/features/routes/lib/sectionSport', () => mockRoutes());
+jest.mock('@/features/routes/lib/rescanRefusal', () => mockRoutes());
+jest.mock('@/features/routes/constants', () => mockRoutes());
 
 describe('section detail screen', () => {
   beforeEach(() => {
@@ -242,7 +237,6 @@ describe('section detail screen', () => {
     await act(async () => {});
 
     const actionsBefore = mockUseSectionActions.mock.calls.at(-1)?.[0];
-    const trimBefore = mockUseSectionTrim.mock.calls.at(-1);
     const ledgerBefore = mockUseSectionLedger.mock.calls.at(-1);
     const streamsBefore = mockUseSectionTimeStreamSync.mock.calls.at(-1);
     expect(actionsBefore?.preComputedExcludedActivityIds).toEqual(['a2']);
@@ -261,9 +255,6 @@ describe('section detail screen', () => {
     expect(actionsAfter?.preComputedExcludedActivityIds).toBe(
       actionsBefore?.preComputedExcludedActivityIds
     );
-    const trimAfter = mockUseSectionTrim.mock.calls.at(-1);
-    expect(trimAfter?.[0]).toBe(trimBefore?.[0]);
-    expect(trimAfter?.[1]).toBe(trimBefore?.[1]);
     expect(mockUseSectionLedger.mock.calls.at(-1)?.[1]).toBe(ledgerBefore?.[1]);
     expect(mockUseSectionTimeStreamSync.mock.calls.at(-1)?.[0]).toBe(streamsBefore?.[0]);
     expect(mockUseSectionTimeStreamSync.mock.calls.at(-1)?.[1]).toBe(streamsBefore?.[1]);
@@ -289,6 +280,17 @@ describe('section detail screen', () => {
     } finally {
       scrollTo.mockRestore();
     }
+  });
+
+  it('writes a pick in the chart to the card it shows in the host, where the map reads it', async () => {
+    await render(<SectionDetailScreen />);
+    await act(async () => {});
+
+    await act(async () => capturedActivitySelect?.('attempt-e'));
+
+    const card = topCard(useMapSheetHosts.getState().hosts, 'section:sec-1');
+    expect(card?.kind).toBe('section');
+    expect(card?.state.attemptId).toBe('attempt-e');
   });
 });
 

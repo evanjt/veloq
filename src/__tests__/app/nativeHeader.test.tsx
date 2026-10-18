@@ -20,6 +20,7 @@ import {
   SCREEN_HEADERS,
   SCREEN_SHEETS,
   headerLargeTitle,
+  iosSheetTop,
   largeTitleScreenOptions,
   mapSheetScreenOptions,
   noHeroHeaderOptions,
@@ -41,6 +42,8 @@ const APP_ROOT = path.resolve(__dirname, '../../app');
 /**
  * Every route the root stack owns. The tab group is one route from the root
  * stack's side, so its children belong to `(tabs)/_layout` and are not listed.
+ * So is any directory with a layout of its own, such as a map detail screen's
+ * nested stack, whose screens belong to that layout.
  */
 function rootStackRoutes(): string[] {
   const routes: string[] = [];
@@ -48,7 +51,8 @@ function rootStackRoutes(): string[] {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       const name = entry.name.replace(/\.tsx?$/, '');
       if (entry.isDirectory()) {
-        if (name.startsWith('(')) {
+        const ownLayout = fs.existsSync(path.join(dir, entry.name, '_layout.tsx'));
+        if (name.startsWith('(') || ownLayout) {
           routes.push(prefix + name);
           continue;
         }
@@ -259,10 +263,22 @@ describe('sheet routes', () => {
   });
 });
 
+/** A phone window with the safe-area insets the system gives it. */
+function phone(width: number, height: number, topInset: number, bottomInset: number) {
+  return { width, height, topInset, bottomInset };
+}
+
+/** Windows measured on the iOS 26.2 simulator, with the insets each reported. */
+const PRO_MAX = phone(440, 956, 62, 34);
+const SE = phone(375, 667, 20, 0);
+const IPHONE_17 = phone(402, 874, 62, 34);
+const AIR = phone(420, 912, 68, 34);
+const ELEVEN_PRO = phone(375, 812, 44, 34);
+
 describe('map sheet stops', () => {
   it('rests at peek, half and full on a small and a tall phone', () => {
     for (const height of [667, 844]) {
-      const { detents, visibleMap } = sheetStops(height, 0);
+      const { detents, visibleMap } = sheetStops('android', 35, phone(390, height, 24, 0));
       expect(detents).toHaveLength(3);
       expect(detents[0]).toBeLessThan(detents[1]);
       expect(detents[1]).toBeLessThan(detents[2]);
@@ -276,27 +292,86 @@ describe('map sheet stops', () => {
   });
 
   it('keeps the peek row clear of the navigation bar, which the sheet runs under', () => {
-    const { detents, visibleMap } = sheetStops(844, 48);
+    const { detents, visibleMap } = sheetStops('android', 35, phone(390, 844, 24, 48));
     expect(detents[0] * 844).toBeCloseTo(198);
     expect(visibleMap[0]).toBeCloseTo(646);
     expect(detents[1]).toBe(0.52);
   });
 
   it('stays in ascending order on a window too short for the guide sizes', () => {
-    for (const height of [320, 260, 200]) {
-      const { detents, visibleMap } = sheetStops(height, 48);
-      expect(detents[0]).toBeLessThan(detents[1]);
-      expect(detents[1]).toBeLessThan(detents[2]);
-      expect(detents[2]).toBeLessThanOrEqual(1);
-      expect(detents[0]).toBeGreaterThan(0);
-      expect(visibleMap[0]).toBeGreaterThan(visibleMap[1]);
-      expect(visibleMap[1]).toBeGreaterThan(visibleMap[2]);
+    for (const os of ['android', 'ios'] as const) {
+      for (const height of [320, 260, 200]) {
+        const { detents, visibleMap } = sheetStops(os, os === 'ios' ? '26.2' : 35, {
+          width: 390,
+          height,
+          topInset: 24,
+          bottomInset: 48,
+        });
+        expect(detents[0]).toBeLessThan(detents[1]);
+        expect(detents[1]).toBeLessThan(detents[2]);
+        expect(detents[2]).toBeLessThanOrEqual(1);
+        expect(detents[0]).toBeGreaterThan(0);
+        expect(visibleMap[0]).toBeGreaterThan(visibleMap[1]);
+        expect(visibleMap[1]).toBeGreaterThan(visibleMap[2]);
+      }
     }
   });
 
   it('gives no stops for a window with no height yet', () => {
-    expect(sheetStops(0, 0).detents).toEqual([]);
-    expect(sheetStops(0, 0).visibleMap).toEqual([]);
+    for (const os of ['android', 'ios'] as const) {
+      expect(sheetStops(os, '26.2', phone(0, 0, 0, 0)).detents).toEqual([]);
+      expect(sheetStops(os, '26.2', phone(0, 0, 0, 0)).visibleMap).toEqual([]);
+    }
+  });
+
+  it('puts the iOS sheet at peek and half where the window fractions say', () => {
+    for (const window of [PRO_MAX, SE, IPHONE_17, AIR, ELEVEN_PRO]) {
+      const { visibleMap } = sheetStops('ios', '26.2', window);
+      expect(visibleMap[0]).toBeCloseTo(window.height - 150 - window.bottomInset);
+      expect(visibleMap[1]).toBeCloseTo(window.height * 0.48);
+    }
+  });
+
+  it('reports the strip iOS can give at full, which is the top inset where the strip is out of reach', () => {
+    expect(sheetStops('ios', '26.2', SE).visibleMap[2]).toBeCloseTo(72);
+    // The highest a floating sheet reaches on this phone is 86.5 pt from the top, so full is
+    // the system's full-height sheet, which starts at the top inset.
+    expect(sheetStops('ios', '26.2', PRO_MAX).visibleMap[2]).toBe(62);
+  });
+});
+
+describe('iOS sheet top', () => {
+  // Each row is a detent fraction and the sheet's top edge the iOS 26.2 simulator laid out for
+  // it, read from the presented view's frame.
+  const measured: [ReturnType<typeof phone>, number, number][] = [
+    [PRO_MAX, 0.19247, 755.59],
+    [PRO_MAX, 0.52, 484.17],
+    [PRO_MAX, 0.92469, 148.82],
+    [PRO_MAX, 0.3, 666.62],
+    [PRO_MAX, 0.98, 103.21],
+    [PRO_MAX, 1, 62],
+    [SE, 0.22489, 521.62],
+    [SE, 0.52, 342.12],
+    [SE, 0.89205, 115.23],
+    [SE, 0.98, 61.15],
+    [SE, 1, 30],
+    [IPHONE_17, 0.6, 385.26],
+    [IPHONE_17, 1, 62],
+    [AIR, 0.6, 403.81],
+    [AIR, 1, 68],
+    [ELEVEN_PRO, 0.6, 349.9],
+    [ELEVEN_PRO, 1, 44],
+  ];
+
+  it('lands where the simulator laid the sheet out, to half a point', () => {
+    for (const [window, fraction, top] of measured) {
+      expect(Math.abs(iosSheetTop(fraction, '26.2', window) - top)).toBeLessThan(0.5);
+    }
+  });
+
+  it('gives the edge-attached sheet before iOS 26, which takes no float', () => {
+    expect(iosSheetTop(0.5, '18.5', PRO_MAX)).toBeCloseTo(956 - 34 - 0.5 * 860);
+    expect(iosSheetTop(1, '18.5', PRO_MAX)).toBe(62);
   });
 });
 
@@ -307,7 +382,7 @@ describe('map sheet options', () => {
       ['ios', '18.5'],
       ['android', 35],
     ] as const) {
-      const options = mapSheetScreenOptions(os, version, 844, 0);
+      const options = mapSheetScreenOptions(os, version, phone(390, 844, 47, 0));
       expect(options).toMatchObject({
         presentation: 'formSheet',
         sheetGrabberVisible: true,
@@ -317,14 +392,28 @@ describe('map sheet options', () => {
       });
       expect(options.gestureEnabled).toBe(false);
     }
-    expect(mapSheetScreenOptions('ios', '26.2', 844, 0).sheetAllowedDetents).toEqual(
-      sheetStops(844, 0).detents
-    );
+  });
+
+  it('gives iOS fractions of its largest sheet that put the sheet top on each stop', () => {
+    for (const version of ['26.2', '18.5']) {
+      for (const window of [PRO_MAX, SE, IPHONE_17, AIR, ELEVEN_PRO]) {
+        const fractions = mapSheetScreenOptions('ios', version, window)
+          .sheetAllowedDetents as number[];
+        const { visibleMap } = sheetStops('ios', version, window);
+        expect(fractions).toHaveLength(3);
+        fractions.forEach((fraction, stop) => {
+          expect(fraction).toBeGreaterThan(0);
+          expect(fraction).toBeLessThanOrEqual(1);
+          expect(iosSheetTop(fraction, version, window)).toBeCloseTo(visibleMap[stop]);
+        });
+      }
+    }
   });
 
   it('gives Android the middle stop as a share of the highest, which its sheet sizes it by', () => {
-    const [peek, half, full] = sheetStops(914, 24).detents;
-    const options = mapSheetScreenOptions('android', 35, 914, 24);
+    const window = phone(411, 914, 24, 24);
+    const [peek, half, full] = sheetStops('android', 35, window).detents;
+    const options = mapSheetScreenOptions('android', 35, window);
     expect(options.sheetAllowedDetents).toEqual([peek, half * full, full]);
     // The Android sheet rests at the middle detent over the highest, of the whole window.
     const [, middle, highest] = options.sheetAllowedDetents as number[];
@@ -333,22 +422,87 @@ describe('map sheet options', () => {
   });
 
   it('keeps the dismiss gesture off, so a drag stops at peek rather than closing the sheet', () => {
-    expect(mapSheetScreenOptions('android', 35, 844, 48).gestureEnabled).toBe(false);
-    expect(mapSheetScreenOptions('ios', '26.2', 844, 34).gestureEnabled).toBe(false);
-    expect(mapSheetScreenOptions('ios', '26.2', 844, 34)).not.toHaveProperty(
+    expect(mapSheetScreenOptions('android', 35, phone(390, 844, 24, 48)).gestureEnabled).toBe(
+      false
+    );
+    expect(mapSheetScreenOptions('ios', '26.2', phone(390, 844, 47, 34)).gestureEnabled).toBe(
+      false
+    );
+    expect(mapSheetScreenOptions('ios', '26.2', phone(390, 844, 47, 34))).not.toHaveProperty(
       'sheetShouldOverflowTopInset'
     );
   });
 
   it('takes the same edges as every other sheet', () => {
-    expect(mapSheetScreenOptions('android', 35, 844, 48).sheetCornerRadius).toBe(
+    const android = mapSheetScreenOptions('android', 35, phone(390, 844, 24, 48));
+    const ios = mapSheetScreenOptions('ios', '26.2', phone(390, 844, 47, 34));
+    expect(android.sheetCornerRadius).toBe(
       sheetScreenOptions('sheets/insight', 'android', 35)?.sheetCornerRadius
     );
-    expect(mapSheetScreenOptions('ios', '26.2', 844, 34)).not.toHaveProperty('sheetCornerRadius');
-    expect(mapSheetScreenOptions('ios', '26.2', 844, 34).contentStyle).toEqual(
+    expect(ios).not.toHaveProperty('sheetCornerRadius');
+    expect(ios.contentStyle).toEqual(
       sheetScreenOptions('sheets/insight', 'ios', '26.2')?.contentStyle
     );
-    expect(mapSheetScreenOptions('android', 35, 844, 48)).not.toHaveProperty('contentStyle');
+    expect(android).not.toHaveProperty('contentStyle');
+  });
+});
+
+describe('map sheet at regular width', () => {
+  const IPAD_MINI = phone(744, 1133, 24, 20);
+  const IPAD_PRO_11 = phone(834, 1194, 24, 20);
+  const IPAD_PRO_13 = phone(1024, 1366, 24, 20);
+  const ANDROID_TABLET = phone(800, 1280, 24, 48);
+  const BIG_PHONE = phone(430, 932, 62, 34);
+
+  it('docks the data in a side panel 360 to 400 wide, with no stops, on every tablet', () => {
+    for (const [os, version, window] of [
+      ['ios', '26.2', IPAD_MINI],
+      ['ios', '26.2', IPAD_PRO_11],
+      ['ios', '26.2', IPAD_PRO_13],
+      ['ios', '18.5', IPAD_PRO_13],
+      ['android', 35, ANDROID_TABLET],
+    ] as const) {
+      const { detents, visibleMap, panelWidth } = sheetStops(os, version, window);
+      expect(detents).toEqual([]);
+      expect(visibleMap).toEqual([]);
+      expect(panelWidth).toBeGreaterThanOrEqual(360);
+      expect(panelWidth).toBeLessThanOrEqual(400);
+    }
+    expect(sheetStops('ios', '26.2', IPAD_MINI).panelWidth).toBe(360);
+    expect(sheetStops('ios', '26.2', IPAD_PRO_13).panelWidth).toBe(400);
+  });
+
+  it('presents no sheet there: no detents, no grabber, no form sheet', () => {
+    for (const [os, version, window] of [
+      ['ios', '26.2', IPAD_PRO_13],
+      ['android', 35, ANDROID_TABLET],
+    ] as const) {
+      const options = mapSheetScreenOptions(os, version, window);
+      expect(options.presentation).not.toBe('formSheet');
+      expect(options).not.toHaveProperty('sheetAllowedDetents');
+      expect(options).not.toHaveProperty('sheetInitialDetentIndex');
+      expect(options.sheetGrabberVisible).toBe(false);
+    }
+  });
+
+  it('keeps the three stops on a phone', () => {
+    for (const [os, version] of [
+      ['ios', '26.2'],
+      ['android', 35],
+    ] as const) {
+      const { detents, visibleMap, panelWidth } = sheetStops(os, version, BIG_PHONE);
+      expect(detents).toHaveLength(3);
+      expect(visibleMap).toHaveLength(3);
+      expect(panelWidth).toBeNull();
+      const options = mapSheetScreenOptions(os, version, BIG_PHONE);
+      expect(options.presentation).toBe('formSheet');
+      expect(options.sheetAllowedDetents).toHaveLength(3);
+    }
+  });
+
+  it('takes the panel from the narrowest tablet window and not below it', () => {
+    expect(sheetStops('android', 35, phone(600, 960, 24, 48)).panelWidth).toBe(360);
+    expect(sheetStops('android', 35, phone(599, 960, 24, 48)).panelWidth).toBeNull();
   });
 });
 

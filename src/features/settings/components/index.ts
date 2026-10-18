@@ -14,7 +14,6 @@ export { ExportPrivacyRow } from './ExportPrivacyRow';
 export { HeatmapRow } from './HeatmapRow';
 export { MapsSection } from './MapsSection';
 export { NotificationSection } from './NotificationSection';
-export { PlaceNamesSwitch } from './PlaceNamesSwitch';
 export { ProfileAccountSection } from './ProfileAccountSection';
 export { RecordingPermissionSection } from './RecordingPermissionSection';
 export { SettingsNavRow } from './SettingsNavRow';

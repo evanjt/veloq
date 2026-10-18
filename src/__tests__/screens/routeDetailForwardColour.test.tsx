@@ -10,11 +10,13 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { act, render, within } from '@testing-library/react-native';
-import RouteDetailScreen from '@/app/route/[id]';
+import { routeCardInHost } from '../__shared__/routeCardInHost';
+
 import { useThemePreferenceStore } from '@/shared/app';
 import { getActivityColor } from '@/shared/activity/activityUtils';
 import { directionPair } from '@/theme';
 
+const RouteDetailScreen = routeCardInHost();
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
     FfiCorrelation_Tags: {

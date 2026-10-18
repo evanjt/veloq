@@ -4,12 +4,12 @@
  * training screen read of their own beside the fitness one, so the tab made
  * two screen reads on mount and two on each `activities` event.
  *
- * Expected behaviour: the whole tab, its cards mounted as the screen mounts
- * them, paints from the one fitness screen read, once on mount and once more
- * when activities change.
+ * Expected behaviour: the whole tab, every page visited and its cards mounted
+ * as each page mounts them, paints from the one fitness screen read, once on
+ * mount and once more when activities change.
  */
 import React from 'react';
-import { act, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RangeCoverage } from 'veloqrs';
 
@@ -153,10 +153,20 @@ async function mountScreen() {
       <FitnessScreen />
     </QueryClientProvider>
   );
-  // Every staged card mounted, the calendar, the week and the year among them.
-  await waitFor(() => expect(screen.getByTestId('weekly-summary')).toBeTruthy());
-  await waitFor(() => expect(screen.getByText(i18n.t('stats.activityCalendar'))).toBeTruthy());
-  await waitFor(() => expect(screen.getByText(i18n.t('stats.seasonComparison'))).toBeTruthy());
+  // Every page visited and every staged card mounted, the calendar, the week
+  // and the year among them.
+  for (const place of ['performance', 'trends', 'calendar']) {
+    const tab = await screen.findByTestId(`tab-${place}`);
+    await fireEvent.press(tab);
+  }
+  const calendar = within(screen.getByTestId('tab-page-calendar'));
+  await waitFor(() => expect(calendar.getByTestId('weekly-summary')).toBeTruthy());
+  await waitFor(() => expect(calendar.getByText(i18n.t('stats.activityCalendar'))).toBeTruthy());
+  await waitFor(() => expect(calendar.getByText(i18n.t('stats.seasonComparison'))).toBeTruthy());
+  // The pages out of view are hidden from the accessibility tree, not unmounted.
+  const hidden = { includeHiddenElements: true } as const;
+  expect(screen.getByTestId('performance-curves', hidden)).toBeTruthy();
+  expect(screen.getByTestId('fitness-trends', hidden)).toBeTruthy();
   return view;
 }
 

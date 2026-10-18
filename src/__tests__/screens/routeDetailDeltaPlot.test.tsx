@@ -4,7 +4,8 @@
  *
  * Expected behaviour: the route chart offers the delta plot, and choosing it
  * with no attempt chosen hands the route map the typical attempt's splits to
- * colour the line by, then takes them back when another plot is chosen. A read with no curves
+ * colour the line by, through the card's state in the host's entry, then takes
+ * them back when another plot is chosen. A read with no curves
  * offers no delta plot and colours nothing. A read that leaves its curves
  * owed is loaded again off the JS thread, once the attempts missing a time
  * stream have fetched it, and the loaded curves are offered.
@@ -13,9 +14,12 @@
 import React from 'react';
 import { act, fireEvent, render } from '@testing-library/react-native';
 import { engine as mockStreams, StartOutcome } from 'veloqrs';
-import RouteDetailScreen from '@/app/route/[id]';
-import type { SectionDeltaLine } from '@/features/routes';
+import { routeCardInHost } from '../__shared__/routeCardInHost';
 
+import type { SectionDeltaLine } from '@/features/routes';
+import { topCard, useMapSheetHosts } from '@/shared/app/mapSheetHost';
+
+const RouteDetailScreen = routeCardInHost();
 jest.mock('veloqrs', () => {
   const stub = require('../__shared__/veloqrsStub');
   return stub.withOverrides({
@@ -59,14 +63,6 @@ jest.mock('@/shared/ui/withScreenBoundary', () => ({
 jest.mock('@/features/settings', () => ({
   useDebugStore: (select: (state: { enabled: boolean }) => unknown) => select({ enabled: false }),
   useGpxExport: () => ({ exportGpx: jest.fn(), exporting: false }),
-}));
-
-const mockMapDeltaLines: (SectionDeltaLine | null | undefined)[] = [];
-jest.mock('@/features/routes/components/RouteDetailMap', () => ({
-  RouteDetailMap: ({ deltaLine }: { deltaLine?: SectionDeltaLine | null }) => {
-    mockMapDeltaLines.push(deltaLine);
-    return null;
-  },
 }));
 
 const DAY = 86_400;
@@ -184,11 +180,15 @@ jest.mock('@/shared/native/engine', () => ({
   isEngineReady: () => true,
 }));
 
-const lastMapDeltaLine = () => mockMapDeltaLines[mockMapDeltaLines.length - 1];
+/** The line the map would colour, as the card left it in the host's entry. */
+const lastMapDeltaLine = () =>
+  topCard(useMapSheetHosts.getState().hosts, 'route:grp-quarry')?.state.deltaLine as
+    | SectionDeltaLine
+    | null
+    | undefined;
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockMapDeltaLines.length = 0;
   mockCurves = CURVES;
   mockCurvesPending = false;
   mockMissingStreams = [];

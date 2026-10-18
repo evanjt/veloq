@@ -13,7 +13,7 @@ import { render, screen } from '@testing-library/react-native';
 import { ActivityCard } from '@/features/activity/components/ActivityCard';
 import { StrengthActivityCard } from '@/features/strength/components/StrengthActivityCard';
 import { initialiseI18n } from '@/i18n';
-import type { Activity } from '@/types';
+import type { FeedCard } from '@/types';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
@@ -50,23 +50,23 @@ beforeAll(async () => {
 const ride = {
   id: 'r1',
   name: 'Harbour loop',
-  type: 'Ride',
-  start_date_local: '2026-08-12T07:30:00',
+  sportType: 'Ride',
+  startDateLocal: '2026-08-12T07:30:00',
   distance: 42000,
-  moving_time: 5400,
-  average_heartrate: 142,
-  icu_average_watts: 250,
+  movingTime: 5400,
+  avgHr: 142,
+  avgPower: 250,
   calories: 820,
-  stream_types: [],
-} as unknown as Activity;
+  hasGps: false,
+} as FeedCard;
 
 const lift = {
   ...ride,
   id: 's1',
   name: 'Pull day',
-  type: 'WeightTraining',
+  sportType: 'WeightTraining',
   distance: 0,
-} as unknown as Activity;
+} as FeedCard;
 
 const strengthData = { muscles: [], exerciseCount: 3, setCount: 9, totalWeight: 2400 };
 

@@ -1,7 +1,7 @@
 /**
- * The edit bounds tool: the handles, the step buttons and the expand toggle in
- * a panel below the map, and the shared map tool bar over the map with the kept
- * length, Reset, Cancel and Save.
+ * The edit bounds tool: the shared map tool bar over the foot of the map with the
+ * kept length, Reset, Cancel and Save, and above its row the handles, the step
+ * buttons and the expand toggle.
  *
  * Performance: slider handles and track run entirely on the UI thread via
  * Reanimated SharedValues at 60fps. Map updates are throttled to ~100ms
@@ -9,7 +9,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo } from 'react';
-import { View, StyleSheet, Text, LayoutChangeEvent } from 'react-native';
+import { View, StyleSheet, Text, type LayoutChangeEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
@@ -98,6 +98,12 @@ interface SectionTrimToolBarProps extends TrimRange {
   onConfirm: () => void;
   onCancel: () => void;
   onReset: () => void;
+  /** The space under the bar that belongs to the system, such as the home indicator. */
+  bottomInset?: number;
+  /** The bar's laid-out frame, for the map to fit the section above it. */
+  onLayout?: (event: LayoutChangeEvent) => void;
+  /** The handles, drawn above the bar's row. */
+  children?: React.ReactNode;
 }
 
 /** The edit bounds tool's bar over the map: the kept length, Reset, Cancel and Save. */
@@ -108,6 +114,9 @@ export function SectionTrimToolBar({
   onConfirm,
   onCancel,
   onReset,
+  bottomInset,
+  onLayout,
+  children,
   ...range
 }: SectionTrimToolBarProps) {
   const { t } = useTranslation();
@@ -131,7 +140,11 @@ export function SectionTrimToolBar({
       reset={canReset ? { onPress: onReset } : undefined}
       cancelTestID="section-trim-cancel"
       doneTestID="section-trim-confirm"
-    />
+      bottomInset={bottomInset ?? 0}
+      onLayout={onLayout}
+    >
+      {children}
+    </MapToolBar>
   );
 }
 
@@ -493,8 +506,6 @@ export function SectionTrimOverlay({
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
     gap: spacing.sm,
   },
   infoRow: {

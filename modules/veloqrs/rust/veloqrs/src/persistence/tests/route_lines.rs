@@ -239,6 +239,8 @@ fn a_library_upgraded_with_stored_groups_reads_its_lines_after_the_load() {
                  ALTER TABLE activity_census DROP COLUMN has_series;
                  ALTER TABLE evidence_cache DROP COLUMN dirty_clusters;
                  ALTER TABLE recordings DROP COLUMN upload_in_doubt;
+                 ALTER TABLE push_runs DROP COLUMN posted_title;
+                 ALTER TABLE push_runs DROP COLUMN posted_body;
                  DROP TRIGGER section_list_counts_ai;
                  DROP TRIGGER section_list_counts_ad;
                  DROP TRIGGER section_list_counts_au;

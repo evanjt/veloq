@@ -14,7 +14,6 @@ export {
   GroupingParamPanel,
   GroupingPreviewMap,
   type GroupingRoute,
-  PlaceNameButton,
   PreviewCentrePicker,
   PreviewDiffStrip,
   PreviewMapView,
@@ -23,6 +22,7 @@ export {
   PreviewSectionPopover,
   RouteDetailDebugPanel,
   RouteDetailMap,
+  SectionDetailMap,
   routeDetailScreenStyles,
   RoutePerformanceSection,
   RoutesList,
@@ -65,7 +65,6 @@ export {
   useDetectionHold,
   useExcludedActivities,
   useLedgerActivityNames,
-  useRevealMapOnDraw,
   useRouteGroupingPreview,
   useRouteMapSignatures,
   useRouteGroups,
@@ -94,6 +93,8 @@ export { usePreviewCentres } from './hooks/usePreviewCentres';
 export { usePreviewCurrentSections } from './hooks/usePreviewCurrentSections';
 export { usePreviewDetect } from './hooks/usePreviewDetect';
 export { useRouteDetailData } from './hooks/useRouteDetailData';
+export { RouteDetailCard } from './screens/RouteDetailCard';
+export { SectionDetailCard } from './screens/SectionDetailCard';
 export { useRouteReoptimisation } from './hooks/useRouteReoptimisation';
 export {
   useSectionDetailData,
@@ -140,9 +141,8 @@ export { ROW_PREVIEW_HEIGHT, ROW_PREVIEW_WIDTH } from './lib/rowLayout';
 export { informSectionWriteRefused } from './lib/sectionWriteRefusal';
 export { removeSectionWithUndo, restoreSection } from './lib/sectionVisibility';
 export { rescanRefusalKey } from './lib/rescanRefusal';
-export { createMapHighlightStore } from './lib/mapHighlight';
 export { routeHeadline } from './lib/routeHeadline';
-export { heroStats, scopeLabels } from './lib/heroStats';
+export { sectionClimbStats, scopeLabels } from './lib/heroStats';
 export { directionColour } from './lib/directionColour';
 export { PLOT_LABEL_KEYS } from './lib/performancePanel';
 export {

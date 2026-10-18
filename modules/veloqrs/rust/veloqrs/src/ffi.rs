@@ -744,6 +744,7 @@ fn start_fetch_and_store_run_ending(
         // Each store sweeps its tiles and would ask for a pass as the sweep
         // ends. The tail below starts the one pass the whole run owes.
         let tile_passes = crate::persistence::tiles::defer_tile_passes();
+        let ingest = conditioning::IngestDownload::begin(install);
         let storage_start = Instant::now();
         let mut synced_ids = Vec::new();
         let mut failed_ids = Vec::new();
@@ -1155,7 +1156,9 @@ fn start_fetch_and_store_run_ending(
             }
             // Sync-end cadence: a batch too small for the backfill threshold
             // still gets its detection run, started here rather than by the
-            // app after the fact.
+            // app after the fact. The download's stores are over, so the
+            // ingest ends first and this run is the one that can close it.
+            drop(ingest);
             if finalised.is_some() {
                 conditioning::condition_pending_for_install(install);
             }

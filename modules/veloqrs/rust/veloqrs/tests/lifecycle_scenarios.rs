@@ -119,14 +119,7 @@ fn fresh_engine() -> (PersistentEngine, TempDir) {
     (engine, dir)
 }
 
-fn ingest_step(
-    engine: &mut PersistentEngine,
-    label: &str,
-    activities: &[&LifecycleActivity],
-) -> StepMeasurement {
-    let new_activities_in_step = activities.len();
-
-    let ingest_start = Instant::now();
+fn store(engine: &mut PersistentEngine, activities: &[&LifecycleActivity]) {
     for a in activities {
         engine
             .add_activity(a.id.clone(), a.gps_points.clone(), a.sport_type.clone())
@@ -135,8 +128,10 @@ fn ingest_step(
             .update_activity_metadata(&a.id, Some(a.start_date_unix), None, None, None)
             .expect("update_activity_metadata");
     }
-    let ingest_ms = ingest_start.elapsed().as_millis();
+}
 
+/// One detect and its apply, timed apart.
+fn detect(engine: &mut PersistentEngine) -> (u128, u128) {
     let detect_start = Instant::now();
     let handle = engine.detect_sections_background();
     let (sections, processed_ids) = handle.recv().expect("the detect ran");
@@ -152,7 +147,21 @@ fn ingest_step(
     engine
         .save_processed_activity_ids(&processed_ids)
         .expect("save_processed_activity_ids");
-    let apply_ms = apply_start.elapsed().as_millis();
+    (detection_ms, apply_start.elapsed().as_millis())
+}
+
+fn ingest_step(
+    engine: &mut PersistentEngine,
+    label: &str,
+    activities: &[&LifecycleActivity],
+) -> StepMeasurement {
+    let new_activities_in_step = activities.len();
+
+    let ingest_start = Instant::now();
+    store(engine, activities);
+    let ingest_ms = ingest_start.elapsed().as_millis();
+
+    let (detection_ms, apply_ms) = detect(engine);
 
     let total_ms = ingest_start.elapsed().as_millis();
 
@@ -825,4 +834,136 @@ fn scenario_f_full_converges_to_incremental_baseline() {
         ground(&full_step.snapshot),
         "the full view was still moving after the ingest"
     );
+}
+
+// ============================================================================
+// Scenario G, a backfill conditioned while it downloads
+// ============================================================================
+
+/// The year's rides in the order a download stores them: the newest the feed
+/// shows first, then the rest as their downloads finish, which follows no
+/// date.
+fn download_order(rides: &[LifecycleActivity]) -> Vec<&LifecycleActivity> {
+    const FEED_HEAD: usize = 20;
+    // FNV-1a over the id: a fixed order that is neither date nor id order.
+    fn finished(id: &str) -> u64 {
+        id.bytes().fold(0xcbf2_9ce4_8422_2325, |h, b| {
+            (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3)
+        })
+    }
+    let mut order: Vec<&LifecycleActivity> = rides.iter().collect();
+    order.sort_by(|a, b| (b.start_date_unix, &b.id).cmp(&(a.start_date_unix, &a.id)));
+    let mut rest = order.split_off(FEED_HEAD.min(order.len()));
+    rest.sort_by_key(|a| finished(&a.id));
+    order.extend(rest);
+    order
+}
+
+/// Store `rides` as one download, with a conditioning run every
+/// `CONDITIONING_BATCH_ADDS` stores as the download's cadence fires them, then
+/// end the download and run the sync-end detect. With `kill_after`, the
+/// process dies after that many runs and the next one opens the library again
+/// and resumes the download.
+fn conditioned_backfill(
+    mut engine: PersistentEngine,
+    dir: &TempDir,
+    rides: &[&LifecycleActivity],
+    kill_after: Option<usize>,
+) -> PersistentEngine {
+    let every = veloqrs::persistence::sections::conditioning::CONDITIONING_BATCH_ADDS as usize;
+    engine.ingest_download_started();
+    for (run, chunk) in rides.chunks(every).enumerate() {
+        store(&mut engine, chunk);
+        if chunk.len() < every {
+            break;
+        }
+        let (detection_ms, apply_ms) = detect(&mut engine);
+        println!(
+            "[lifecycle/G_run_{}] stored={:>3} detect={:>6}ms apply={:>5}ms",
+            run + 1,
+            (run + 1) * every,
+            detection_ms,
+            apply_ms
+        );
+        if kill_after == Some(run + 1) {
+            drop(engine);
+            let path = dir.path().join("lifecycle.db");
+            engine = PersistentEngine::new(path.to_str().unwrap()).expect("reopen engine");
+            engine.load().expect("load");
+            engine.ingest_download_started();
+        }
+    }
+    engine.ingest_download_ended();
+    if engine.detection_owed() {
+        let (detection_ms, apply_ms) = detect(&mut engine);
+        println!("[lifecycle/G_sync_end] detect={detection_ms:>6}ms apply={apply_ms:>5}ms");
+    }
+    engine
+}
+
+/// Buckets A to D one sync each, D, the small batch, as a download whose one
+/// run comes after it.
+fn through_d_synced(engine: &mut PersistentEngine, corpus: &LifecycleCorpus) {
+    let _ = ingest_step(engine, "G_A", &corpus.through_a());
+    let _ = ingest_step(
+        engine,
+        "G_B",
+        &corpus.bucket_b_delta.iter().collect::<Vec<_>>(),
+    );
+    let _ = ingest_step(engine, "G_C", &[&corpus.bucket_c_single]);
+    engine.ingest_download_started();
+    store(engine, &corpus.bucket_d_delta.iter().collect::<Vec<_>>());
+    engine.ingest_download_ended();
+    let _ = detect(engine);
+    assert!(
+        !engine.section_identity_ingest_base_held(),
+        "a download whose only run follows it records nothing"
+    );
+}
+
+// The year expansion, step E, stored as a download does it: the feed's newest
+// rides first and the rest in no date order, with a conditioning run every 50
+// stores. Run by run, each chunk was a step of its own and the debounce
+// counted the chunks in storage order. The backfill must end where one detect
+// of the same rides ends, which counts them one after another in date order,
+// ids included, and so must a backfill killed after its third run and resumed.
+#[test]
+fn scenario_g_a_backfill_conditioned_while_it_downloads_ends_on_one_detect() {
+    let cfg = LifecycleConfig::default();
+    let corpus = LifecycleCorpus::generate(&cfg);
+
+    let (mut reference, _reference_dir) = fresh_engine();
+    through_d_synced(&mut reference, &corpus);
+    let one = ingest_step(
+        &mut reference,
+        "G_one_detect",
+        &corpus.bucket_e_delta.iter().collect::<Vec<_>>(),
+    );
+    one.print();
+    let expected_raw = raw_snapshot(&reference);
+
+    let order = download_order(&corpus.bucket_e_delta);
+    for kill_after in [None, Some(3)] {
+        let (mut engine, dir) = fresh_engine();
+        through_d_synced(&mut engine, &corpus);
+        let mut engine = conditioned_backfill(engine, &dir, &order, kill_after);
+        let view = snapshot(&mut engine);
+        print_ground_diff("G_conditioned", &view, &one.snapshot);
+        print_ground_diff("G_one_detect", &one.snapshot, &view);
+        assert_eq!(
+            ground(&raw_snapshot(&engine)),
+            ground(&expected_raw),
+            "the detector's catalogues differ (killed after {kill_after:?})"
+        );
+        assert_eq!(
+            view.sections.keys().collect::<Vec<_>>(),
+            one.snapshot.sections.keys().collect::<Vec<_>>(),
+            "the section ids differ (killed after {kill_after:?})"
+        );
+        assert!(
+            view == one.snapshot,
+            "the views differ (killed after {kill_after:?})"
+        );
+        assert!(!engine.section_identity_ingest_base_held());
+    }
 }

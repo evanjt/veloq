@@ -1,12 +1,13 @@
 /**
- * Scenario: the native map sheet takes its stop only when it opens, so the map's expand button,
- * a tap on the handle, a screen reader's adjust gesture and a tool's return each need one place
+ * Scenario: the native map sheet takes its stop only when it opens, so a tap on Android's handle,
+ * a screen reader's adjust gesture and a tool's return each need one place
  * that knows the stop the sheet rests at and asks for another.
  *
  * Expected behaviour: the stop is the last settled detent, a request for a different stop goes
  * to the screen's presenter once, the handle steps up and wraps Full to Peek, the adjustable
  * element reads the stop and clamps at either end, and a tool returns the sheet to the stop it
- * found.
+ * found. The map is fitted around what the settled stop covers, and holds the Half fit above it.
+ * At tablet width the sheet covers no height and the side panel covers the leading edge.
  */
 import React from 'react';
 import { act, fireEvent, render, renderHook, screen } from '@testing-library/react-native';
@@ -15,11 +16,14 @@ import {
   MAP_SHEET_HALF_STOP,
   MAP_SHEET_PEEK_STOP,
   MAP_SHEET_FULL_STOP,
+  mapSheetCoveredHeight,
+  mapSheetCoveredSides,
   mapSheetStopReducer,
   nextStop,
   useMapSheetStop,
   useMapSheetStops,
 } from '@/shared/app/mapSheetStop';
+import { sheetStops } from '@/shared/app/screenHeaders';
 import { MapSheetHandle } from '@/shared/ui/MapSheetHandle';
 
 jest.mock('@/shared/app/useTheme', () => ({ useTheme: () => ({ isDark: false }) }));
@@ -108,6 +112,30 @@ describe('mapSheetStopReducer', () => {
   });
 });
 
+describe.each([
+  ['android', 35, { width: 390, height: 844, topInset: 24, bottomInset: 48 }],
+  ['ios', '26.2', { width: 390, height: 844, topInset: 47, bottomInset: 34 }],
+] as const)('mapSheetCoveredHeight on %s', (os, version, window) => {
+  const covered = (stop: number) => mapSheetCoveredHeight(os, version, window, stop);
+
+  it('covers what the sheet takes at Peek and at Half', () => {
+    const { visibleMap } = sheetStops(os, version, window);
+    expect(covered(MAP_SHEET_PEEK_STOP)).toBeCloseTo(window.height - visibleMap[0]!);
+    expect(covered(MAP_SHEET_HALF_STOP)).toBeCloseTo(window.height - visibleMap[1]!);
+    expect(covered(MAP_SHEET_PEEK_STOP)).toBeLessThan(covered(MAP_SHEET_HALF_STOP));
+  });
+
+  it('holds the Half fit at Full', () => {
+    expect(covered(MAP_SHEET_FULL_STOP)).toBe(covered(MAP_SHEET_HALF_STOP));
+  });
+
+  it('covers nothing before the window has a height', () => {
+    expect(mapSheetCoveredHeight(os, version, { ...window, height: 0 }, MAP_SHEET_HALF_STOP)).toBe(
+      0
+    );
+  });
+});
+
 describe('useMapSheetStop', () => {
   it('opens at Half and follows the settled detent', () => {
     const { result } = renderHook(() => useMapSheetStop(KEY));
@@ -118,10 +146,10 @@ describe('useMapSheetStop', () => {
     expect(result.current.stop).toBe(MAP_SHEET_PEEK_STOP);
   });
 
-  it("sends the map's expand button to Peek through the screen's presenter", () => {
+  it("sends a request for another stop through the screen's presenter, once", () => {
     const present = jest.fn();
     const { result } = renderHook(() => useMapSheetStop(KEY, present));
-    act(() => result.current.expandMap());
+    act(() => result.current.request(MAP_SHEET_PEEK_STOP));
     expect(present).toHaveBeenCalledTimes(1);
     expect(present).toHaveBeenCalledWith(MAP_SHEET_PEEK_STOP);
     expect(result.current.stop).toBe(MAP_SHEET_PEEK_STOP);
@@ -149,7 +177,7 @@ describe('useMapSheetStop', () => {
     screenHook.unmount();
     const { result } = renderHook(() => useMapSheetStop(KEY));
     expect(result.current.stop).toBe(MAP_SHEET_HALF_STOP);
-    act(() => result.current.expandMap());
+    act(() => result.current.request(MAP_SHEET_PEEK_STOP));
     expect(present).not.toHaveBeenCalled();
   });
 
@@ -160,9 +188,59 @@ describe('useMapSheetStop', () => {
     act(() => result.current.enterTool());
     act(() => result.current.onDetentChanged({ index: 0, isStable: true }));
     act(() => result.current.leaveTool());
-    expect(present).toHaveBeenCalledTimes(1);
-    expect(present).toHaveBeenCalledWith(MAP_SHEET_FULL_STOP);
+    expect(present.mock.calls).toEqual([[null], [MAP_SHEET_FULL_STOP]]);
     expect(result.current.stop).toBe(MAP_SHEET_FULL_STOP);
+  });
+
+  it('puts the sheet away for a tool at Half and presents it at Half when the tool ends', () => {
+    const present = jest.fn();
+    const { result } = renderHook(() => useMapSheetStop(KEY, present));
+    act(() => result.current.enterTool());
+    expect(present.mock.calls).toEqual([[null]]);
+    expect(result.current.toolActive).toBe(true);
+    act(() => result.current.leaveTool());
+    expect(present.mock.calls).toEqual([[null], [MAP_SHEET_HALF_STOP]]);
+    expect(result.current.toolActive).toBe(false);
+  });
+
+  it('returns a tool to Peek after the athlete dragged the sheet there', () => {
+    const present = jest.fn();
+    const { result } = renderHook(() => useMapSheetStop(KEY, present));
+    act(() => result.current.onDetentChanged({ index: 0, isStable: true }));
+    act(() => result.current.enterTool());
+    act(() => result.current.leaveTool());
+    expect(present).toHaveBeenLastCalledWith(MAP_SHEET_PEEK_STOP);
+    expect(result.current.stop).toBe(MAP_SHEET_PEEK_STOP);
+  });
+
+  it('puts the sheet away once when a tool is entered twice', () => {
+    const present = jest.fn();
+    const { result } = renderHook(() => useMapSheetStop(KEY, present));
+    act(() => result.current.enterTool());
+    act(() => result.current.enterTool());
+    expect(present).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the sheet where it is when a tool that never started is left', () => {
+    const present = jest.fn();
+    const { result } = renderHook(() => useMapSheetStop(KEY, present));
+    act(() => result.current.leaveTool());
+    expect(present).not.toHaveBeenCalled();
+  });
+
+  it('keeps the screen beneath answering after a second screen of the same subject goes', () => {
+    const below = jest.fn();
+    const above = jest.fn();
+    renderHook(() => useMapSheetStop(KEY, below));
+    const second = renderHook(() => useMapSheetStop(KEY, above));
+    const sheet = renderHook(() => useMapSheetStop(KEY));
+    act(() => sheet.result.current.enterTool());
+    expect(above).toHaveBeenCalledWith(null);
+    expect(below).not.toHaveBeenCalled();
+    act(() => sheet.result.current.leaveTool());
+    second.unmount();
+    act(() => sheet.result.current.enterTool());
+    expect(below).toHaveBeenCalledWith(null);
   });
 
   it('keeps one sheet’s stop apart from another’s', () => {
@@ -220,5 +298,27 @@ describe('MapSheetHandle', () => {
     await render(<MapSheetHandle sheetKey={KEY} drawn={false} />);
     expect(screen.queryByTestId('map-sheet-handle-bar')).toBeNull();
     expect(element().props.accessibilityRole).toBe('adjustable');
+  });
+});
+
+describe('the map covered at tablet width', () => {
+  const tablet = { width: 1024, height: 1366, topInset: 24, bottomInset: 20 };
+
+  it('covers no height, since the data is a side panel and not a sheet', () => {
+    for (const [os, version] of [
+      ['ios', '26.2'],
+      ['android', 35],
+    ] as const) {
+      expect(mapSheetCoveredHeight(os, version, tablet, MAP_SHEET_HALF_STOP)).toBe(0);
+    }
+  });
+
+  it('covers the panel at the leading edge, the left or the right by layout direction', () => {
+    expect(mapSheetCoveredSides(tablet, false)).toEqual({ left: 400, right: 0 });
+    expect(mapSheetCoveredSides(tablet, true)).toEqual({ left: 0, right: 400 });
+  });
+
+  it('covers neither side on a phone', () => {
+    expect(mapSheetCoveredSides({ width: 430 }, false)).toEqual({ left: 0, right: 0 });
   });
 });

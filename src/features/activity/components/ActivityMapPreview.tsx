@@ -40,7 +40,7 @@ import {
 } from '@/theme';
 import { CARD_FOOTER_CLEARANCE } from '@/features/activity/lib/cardLayout';
 import { SyncState } from 'veloqrs';
-import type { Activity } from '@/types';
+import type { ActivityType, FeedCard } from '@/types';
 import type { PreviewTrack } from '@/features/home';
 import { debug } from '@/shared/debug/debug';
 import { freshLoginTimeline } from '@/shared/debug/freshLoginTimeline';
@@ -48,7 +48,7 @@ import { freshLoginTimeline } from '@/shared/debug/freshLoginTimeline';
 const log = debug.create('ActivityMapPreview');
 
 interface ActivityMapPreviewProps {
-  activity: Activity;
+  activity: FeedCard;
   height?: number | undefined;
   index?: number | undefined;
   /** Ref to the shared snapshot WebView for requesting 3D terrain previews */
@@ -75,9 +75,11 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   const { isDark } = useTheme();
   const { getStyleForActivity, getTerrain3DMode, hasActivityOverride, getActivityCamera } =
     useMapPreferences();
-  const mapStyle = getStyleForActivity(activity.type, activity.id);
-  const activityColor = getActivityColor(activity.type);
-  const terrain3DMode = getTerrain3DMode(activity.type, activity.id);
+  // A body with no sport falls back to Other in every helper, as it always has.
+  const sport = activity.sportType as ActivityType;
+  const mapStyle = getStyleForActivity(sport, activity.id);
+  const activityColor = getActivityColor(sport);
+  const terrain3DMode = getTerrain3DMode(sport, activity.id);
   const savedCamera = getActivityCamera(activity.id) ?? null;
 
   const [cacheReady, setCacheReady] = useState(() => isTerrainCacheInitialised());
@@ -87,7 +89,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   }, [cacheReady]);
 
   // Check if activity has GPS data available
-  const hasGpsData = activity.stream_types?.includes('latlng');
+  const hasGpsData = activity.hasGps;
 
   // Engine-first GPS coordinates (startup pre-fetched → engine SQLite → API fallback)
   const {
@@ -120,18 +122,11 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
         mode: terrain3DMode,
         coordinates: lngLatCoords,
         altitude,
-        gain: activity.total_elevation_gain,
-        distance: activity.distance,
+        gain: activity.elevationGain ?? NaN,
+        distance: activity.distance ?? NaN,
         override: savedCamera,
       }),
-    [
-      terrain3DMode,
-      lngLatCoords,
-      altitude,
-      activity.total_elevation_gain,
-      activity.distance,
-      savedCamera,
-    ]
+    [terrain3DMode, lngLatCoords, altitude, activity.elevationGain, activity.distance, savedCamera]
   );
 
   const flat = !show3D || !terrainCamera;
@@ -296,7 +291,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     );
   }
 
-  // No GPS data available for this activity (stream_types doesn't include latlng)
+  // No GPS data available for this activity: it recorded no latlng stream
   if (previewState === 'noGps') {
     return (
       <View

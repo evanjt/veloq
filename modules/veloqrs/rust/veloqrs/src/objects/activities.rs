@@ -210,11 +210,9 @@ impl ActivityManager {
         })
     }
 
-    /// The feed's read: untyped activity bodies in a window, newest first,
-    /// narrowed by a search and a sport chip and then paged. The screens read
-    /// fields no Rust type models, so they parse these rather than a
-    /// reconstruction from `activity_metrics`. A search or a chip reaches every
-    /// stored activity, not only the windows the feed has paged in.
+    /// Untyped activity bodies in a window, newest first, narrowed by a search
+    /// and a sport chip and then paged. The window readers outside the feed
+    /// still parse these; the feed reads `get_feed_cards`.
     fn get_activity_bodies(
         &self,
         query: crate::FfiActivityBodiesQuery,
@@ -225,6 +223,23 @@ impl ActivityManager {
                     msg: format!("{}", err),
                 },
             )
+        })?
+    }
+
+    /// The feed's read: one typed card per stored activity in a window,
+    /// newest first, narrowed by a search and a sport chip and then paged. A
+    /// search or a chip reaches every stored activity, not only the windows
+    /// the feed has paged in.
+    fn get_feed_cards(
+        &self,
+        query: crate::FfiActivityBodiesQuery,
+    ) -> Result<crate::FfiFeedCardsPage, VeloqError> {
+        with_reader(|conn| {
+            crate::persistence::activities::pooled::feed_card_page(conn, &query).map_err(|err| {
+                VeloqError::Database {
+                    msg: format!("{}", err),
+                }
+            })
         })?
     }
 

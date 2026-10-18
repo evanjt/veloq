@@ -9464,6 +9464,223 @@ const FfiConverterTypeFfiExerciseSummary = (() => {
 })();
 
 /**
+ * What one feed card draws, typed from the stored body.
+ *
+ * Built from the body rather than `activity_metrics`, which files a body
+ * with no sport as a ride and keeps heart rate and power as whole numbers.
+ */
+export type FfiFeedCard = {
+  /**
+   * The row key the body is stored under. A route or a fetch names the
+   * activity by this, never by the body's own `id`, which for an uploaded
+   * recording is the server's id rather than the row's.
+   */
+  id: string;
+  /**
+   * The intervals.icu id a web link may name. None for a demo row and for
+   * a recording no server has named.
+   */
+  intervalsWebId?: string;
+  /**
+   * The sport as the body carries it. None when it names none.
+   */
+  sportType?: string;
+  /**
+   * Empty when the body has none.
+   */
+  name: string;
+  /**
+   * The wall-clock start as the body carries it, with no zone. Empty when
+   * the body has none.
+   */
+  startDateLocal: string;
+  /**
+   * Metres.
+   */
+  distance?: number;
+  /**
+   * Seconds.
+   */
+  movingTime?: number;
+  /**
+   * Metres climbed.
+   */
+  elevationGain?: number;
+  /**
+   * Beats per minute.
+   */
+  avgHr?: number;
+  /**
+   * Watts.
+   */
+  avgPower?: number;
+  trainingLoad?: number;
+  /**
+   * Kilocalories.
+   */
+  calories?: number;
+  hasWeather: boolean;
+  /**
+   * Degrees Celsius.
+   */
+  averageWeatherTemp?: number;
+  /**
+   * The elevation skyline as intervals.icu encodes it, base64.
+   */
+  skylineChartBytes?: string;
+  /**
+   * Whether the activity recorded a `latlng` stream.
+   */
+  hasGps: boolean;
+  /**
+   * Whether the activity recorded an `altitude` stream, which makes a zero
+   * climb a measurement rather than a missing one.
+   */
+  hasAltitude: boolean;
+};
+
+/**
+ * Generated factory for {@link FfiFeedCard} record objects.
+ */
+export const FfiFeedCard = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiFeedCard, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiFeedCard>,
+  });
+})();
+
+const FfiConverterTypeFfiFeedCard = (() => {
+  type TypeName = FfiFeedCard;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        id: FfiConverterString.readFromCursor(c),
+        intervalsWebId: FfiConverterOptionalString.readFromCursor(c),
+        sportType: FfiConverterOptionalString.readFromCursor(c),
+        name: FfiConverterString.readFromCursor(c),
+        startDateLocal: FfiConverterString.readFromCursor(c),
+        distance: FfiConverterOptionalFloat64.readFromCursor(c),
+        movingTime: FfiConverterOptionalFloat64.readFromCursor(c),
+        elevationGain: FfiConverterOptionalFloat64.readFromCursor(c),
+        avgHr: FfiConverterOptionalFloat64.readFromCursor(c),
+        avgPower: FfiConverterOptionalFloat64.readFromCursor(c),
+        trainingLoad: FfiConverterOptionalFloat64.readFromCursor(c),
+        calories: FfiConverterOptionalFloat64.readFromCursor(c),
+        hasWeather: FfiConverterBool.readFromCursor(c),
+        averageWeatherTemp: FfiConverterOptionalFloat64.readFromCursor(c),
+        skylineChartBytes: FfiConverterOptionalString.readFromCursor(c),
+        hasGps: FfiConverterBool.readFromCursor(c),
+        hasAltitude: FfiConverterBool.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.id, c);
+      FfiConverterOptionalString.writeIntoCursor(value.intervalsWebId, c);
+      FfiConverterOptionalString.writeIntoCursor(value.sportType, c);
+      FfiConverterString.writeIntoCursor(value.name, c);
+      FfiConverterString.writeIntoCursor(value.startDateLocal, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.distance, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.movingTime, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.elevationGain, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.avgHr, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.avgPower, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.trainingLoad, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.calories, c);
+      FfiConverterBool.writeIntoCursor(value.hasWeather, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.averageWeatherTemp, c);
+      FfiConverterOptionalString.writeIntoCursor(value.skylineChartBytes, c);
+      FfiConverterBool.writeIntoCursor(value.hasGps, c);
+      FfiConverterBool.writeIntoCursor(value.hasAltitude, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.id) +
+        FfiConverterOptionalString.allocationSize(value.intervalsWebId) +
+        FfiConverterOptionalString.allocationSize(value.sportType) +
+        FfiConverterString.allocationSize(value.name) +
+        FfiConverterString.allocationSize(value.startDateLocal) +
+        FfiConverterOptionalFloat64.allocationSize(value.distance) +
+        FfiConverterOptionalFloat64.allocationSize(value.movingTime) +
+        FfiConverterOptionalFloat64.allocationSize(value.elevationGain) +
+        FfiConverterOptionalFloat64.allocationSize(value.avgHr) +
+        FfiConverterOptionalFloat64.allocationSize(value.avgPower) +
+        FfiConverterOptionalFloat64.allocationSize(value.trainingLoad) +
+        FfiConverterOptionalFloat64.allocationSize(value.calories) +
+        FfiConverterBool.allocationSize(value.hasWeather) +
+        FfiConverterOptionalFloat64.allocationSize(value.averageWeatherTemp) +
+        FfiConverterOptionalString.allocationSize(value.skylineChartBytes) +
+        FfiConverterBool.allocationSize(value.hasGps) +
+        FfiConverterBool.allocationSize(value.hasAltitude)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * One page of feed cards, newest first. The query and the paging are the
+ * body read's, so a search counts and pages the same.
+ */
+export type FfiFeedCardsPage = {
+  cards: Array<FfiFeedCard>;
+  /**
+   * Every stored activity the query matched, not only this page.
+   */
+  matchedCount: number;
+  hasMore: boolean;
+};
+
+/**
+ * Generated factory for {@link FfiFeedCardsPage} record objects.
+ */
+export const FfiFeedCardsPage = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiFeedCardsPage, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiFeedCardsPage>,
+  });
+})();
+
+const FfiConverterTypeFfiFeedCardsPage = (() => {
+  type TypeName = FfiFeedCardsPage;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        cards: FfiConverterSequenceTypeFfiFeedCard.readFromCursor(c),
+        matchedCount: FfiConverterUInt32.readFromCursor(c),
+        hasMore: FfiConverterBool.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterSequenceTypeFfiFeedCard.writeIntoCursor(value.cards, c);
+      FfiConverterUInt32.writeIntoCursor(value.matchedCount, c);
+      FfiConverterBool.writeIntoCursor(value.hasMore, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterSequenceTypeFfiFeedCard.allocationSize(value.cards) +
+        FfiConverterUInt32.allocationSize(value.matchedCount) +
+        FfiConverterBool.allocationSize(value.hasMore)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * One point of a history series: a value and when it was recorded.
  *
  * Every insight card draws a graphic of its own history, and the read carried
@@ -16428,11 +16645,6 @@ export type FfiRouteDetailData = {
    * before the delta curves can draw them
    */
   missingTimeStreamIds: Array<string>;
-  /**
-   * Whether the athlete may ask for the route to be named from its
-   * places: geocoding is on and they typed no name for it
-   */
-  canNameFromPlaces: boolean;
 };
 
 /**
@@ -16466,7 +16678,6 @@ const FfiConverterTypeFfiRouteDetailData = (() => {
         mapSignatures:
           FfiConverterSequenceTypeFfiMapSignature.readFromCursor(c),
         missingTimeStreamIds: FfiConverterSequenceString.readFromCursor(c),
-        canNameFromPlaces: FfiConverterBool.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -16481,7 +16692,6 @@ const FfiConverterTypeFfiRouteDetailData = (() => {
         c,
       );
       FfiConverterSequenceString.writeIntoCursor(value.missingTimeStreamIds, c);
-      FfiConverterBool.writeIntoCursor(value.canNameFromPlaces, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -16494,8 +16704,7 @@ const FfiConverterTypeFfiRouteDetailData = (() => {
         FfiConverterSequenceTypeFfiMapSignature.allocationSize(
           value.mapSignatures,
         ) +
-        FfiConverterSequenceString.allocationSize(value.missingTimeStreamIds) +
-        FfiConverterBool.allocationSize(value.canNameFromPlaces)
+        FfiConverterSequenceString.allocationSize(value.missingTimeStreamIds)
       );
     }
   }
@@ -19700,11 +19909,6 @@ export type FfiSectionDetailData = {
    * The pinned version, or `None` when the section follows the newest cut
    */
   pinnedVersion?: number;
-  /**
-   * Whether the athlete may ask for the section to be named from its
-   * places: geocoding is on and they typed no name for it
-   */
-  canNameFromPlaces: boolean;
 };
 
 /**
@@ -19748,7 +19952,6 @@ const FfiConverterTypeFfiSectionDetailData = (() => {
         geometryVersions:
           FfiConverterSequenceTypeFfiSectionGeometryVersion.readFromCursor(c),
         pinnedVersion: FfiConverterOptionalFloat64.readFromCursor(c),
-        canNameFromPlaces: FfiConverterBool.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -19782,7 +19985,6 @@ const FfiConverterTypeFfiSectionDetailData = (() => {
         c,
       );
       FfiConverterOptionalFloat64.writeIntoCursor(value.pinnedVersion, c);
-      FfiConverterBool.writeIntoCursor(value.canNameFromPlaces, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -19809,8 +20011,7 @@ const FfiConverterTypeFfiSectionDetailData = (() => {
         FfiConverterSequenceTypeFfiSectionGeometryVersion.allocationSize(
           value.geometryVersions,
         ) +
-        FfiConverterOptionalFloat64.allocationSize(value.pinnedVersion) +
-        FfiConverterBool.allocationSize(value.canNameFromPlaces)
+        FfiConverterOptionalFloat64.allocationSize(value.pinnedVersion)
       );
     }
   }
@@ -24620,104 +24821,6 @@ const FfiConverterTypeFfiPerformanceSubject = (() => {
   return new FFIConverter();
 })();
 
-/**
- * What the athlete asks to have named from its places. The discriminants
- * start at one so no member is falsy.
- */
-export enum FfiPlaceNameKind {
-  Route = 1,
-  Section = 2,
-}
-
-const FfiConverterTypeFfiPlaceNameKind = (() => {
-  type TypeName = FfiPlaceNameKind;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      switch (c.readI32()) {
-        case 1:
-          return FfiPlaceNameKind.Route;
-        case 2:
-          return FfiPlaceNameKind.Section;
-        default:
-          throw new UniffiInternalError.UnexpectedEnumCase();
-      }
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      switch (value) {
-        case FfiPlaceNameKind.Route:
-          return c.writeI32(1);
-        case FfiPlaceNameKind.Section:
-          return c.writeI32(2);
-      }
-    }
-    allocationSize(value: TypeName): number {
-      return 4;
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
- * What asking for one item's place name came to. The discriminants start at
- * one so no member is falsy.
- */
-export enum FfiPlaceNameOutcome {
-  /**
-   * The item now shows the name.
-   */
-  Named = 1,
-  /**
-   * The provider named no place there; the item keeps what it showed.
-   */
-  NoPlace = 2,
-  /**
-   * The lookup could not be sent or had no answer; the item keeps what it
-   * showed.
-   */
-  Failed = 3,
-  /**
-   * Geocoding is off, the item has a typed name or it has no line. Nothing
-   * was sent.
-   */
-  Refused = 4,
-}
-
-const FfiConverterTypeFfiPlaceNameOutcome = (() => {
-  type TypeName = FfiPlaceNameOutcome;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      switch (c.readI32()) {
-        case 1:
-          return FfiPlaceNameOutcome.Named;
-        case 2:
-          return FfiPlaceNameOutcome.NoPlace;
-        case 3:
-          return FfiPlaceNameOutcome.Failed;
-        case 4:
-          return FfiPlaceNameOutcome.Refused;
-        default:
-          throw new UniffiInternalError.UnexpectedEnumCase();
-      }
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      switch (value) {
-        case FfiPlaceNameOutcome.Named:
-          return c.writeI32(1);
-        case FfiPlaceNameOutcome.NoPlace:
-          return c.writeI32(2);
-        case FfiPlaceNameOutcome.Failed:
-          return c.writeI32(3);
-        case FfiPlaceNameOutcome.Refused:
-          return c.writeI32(4);
-      }
-    }
-    allocationSize(value: TypeName): number {
-      return 4;
-    }
-  }
-  return new FFIConverter();
-})();
-
 // Enum: FfiRecordSource
 export enum FfiRecordSource_Tags {
   Zip = "Zip",
@@ -26400,11 +26503,9 @@ export interface ActivityManagerLike {
   ) /*throws*/ : void;
   debugClone(sourceId: string, count: number) /*throws*/ : number;
   /**
-   * The feed's read: untyped activity bodies in a window, newest first,
-   * narrowed by a search and a sport chip and then paged. The screens read
-   * fields no Rust type models, so they parse these rather than a
-   * reconstruction from `activity_metrics`. A search or a chip reaches every
-   * stored activity, not only the windows the feed has paged in.
+   * Untyped activity bodies in a window, newest first, narrowed by a search
+   * and a sport chip and then paged. The window readers outside the feed
+   * still parse these; the feed reads `get_feed_cards`.
    */
   getActivityBodies(
     query: FfiActivityBodiesQuery,
@@ -26460,6 +26561,13 @@ export interface ActivityManagerLike {
     activityId: string,
     minRouteActivities: number,
   ) /*throws*/ : FfiActivityDetailData;
+  /**
+   * The feed's read: one typed card per stored activity in a window,
+   * newest first, narrowed by a search and a sport chip and then paged. A
+   * search or a chip reaches every stored activity, not only the windows
+   * the feed has paged in.
+   */
+  getFeedCards(query: FfiActivityBodiesQuery) /*throws*/ : FfiFeedCardsPage;
   /**
    * The tracks a GPS pass still owes between two local days, inclusive,
    * newest first: the census marks a track upstream, the body is stored,
@@ -26688,11 +26796,9 @@ export class ActivityManager
   }
 
   /**
-   * The feed's read: untyped activity bodies in a window, newest first,
-   * narrowed by a search and a sport chip and then paged. The screens read
-   * fields no Rust type models, so they parse these rather than a
-   * reconstruction from `activity_metrics`. A search or a chip reaches every
-   * stored activity, not only the windows the feed has paged in.
+   * Untyped activity bodies in a window, newest first, narrowed by a search
+   * and a sport chip and then paged. The window readers outside the feed
+   * still parse these; the feed reads `get_feed_cards`.
    */
   getActivityBodies(
     query: FfiActivityBodiesQuery,
@@ -26870,6 +26976,36 @@ export class ActivityManager
     );
     try {
       return FfiConverterTypeFfiActivityDetailData.lift(__rb);
+    } finally {
+      nativeModule().rustbuffer_free(__rb);
+    }
+  }
+
+  /**
+   * The feed's read: one typed card per stored activity in a window,
+   * newest first, narrowed by a search and a sport chip and then paged. A
+   * search or a chip reaches every stored activity, not only the windows
+   * the feed has paged in.
+   */
+  getFeedCards(query: FfiActivityBodiesQuery): FfiFeedCardsPage /*throws*/ {
+    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_get_feed_cards(
+          uniffiTypeActivityManagerObjectFactory.clonePointer(this),
+          FfiConverterTypeFfiActivityBodiesQuery.lower(
+            query,
+            nativeModule().rustbuffer_alloc,
+          ),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+      return FfiConverterTypeFfiFeedCardsPage.lift(__rb);
     } finally {
       nativeModule().rustbuffer_free(__rb);
     }
@@ -34271,11 +34407,6 @@ export interface SettingsManagerLike {
     radiusM: number,
   ) /*throws*/ : ExportPrivacyPreview;
   /**
-   * Whether the athlete has agreed to send points to the geocoder for place
-   * names. Off until they turn it on.
-   */
-  geocodingEnabled() /*throws*/ : boolean;
-  /**
    * The stored athlete profile, typed, or none when none is stored or its
    * body is not JSON.
    */
@@ -34290,26 +34421,7 @@ export interface SettingsManagerLike {
    * positive number.
    */
   hrZoneFor(sportType: string, bpm: number) /*throws*/ : number | undefined;
-  /**
-   * Name one route or section from the places it starts and ends in,
-   * because the athlete asked for that item, whether or not it existed
-   * before geocoding was turned on. Refuses, sending nothing, while
-   * geocoding is off or when the item has a typed name.
-   *
-   * The lookup waits its turn behind any other in the engine, so this
-   * resolves once it has been answered, off the calling thread.
-   */
-  nameFromPlaces(
-    kind: FfiPlaceNameKind,
-    itemId: string,
-    asyncOpts_?: { signal: AbortSignal },
-  ): Promise<FfiPlaceNameOutcome>;
   setAthleteProfile(json: string) /*throws*/ : void;
-  /**
-   * Turn geocoding on or off. Turning it on stamps the moment, and only
-   * what appears after it is named.
-   */
-  setGeocodingEnabled(enabled: boolean) /*throws*/ : void;
   /**
    * Hand the engine the notification templates for the locale the app is
    * running in. Answers whether anything was written, which is false for
@@ -34575,27 +34687,6 @@ export class SettingsManager
   }
 
   /**
-   * Whether the athlete has agreed to send points to the geocoder for place
-   * names. Off until they turn it on.
-   */
-  geocodingEnabled(): boolean /*throws*/ {
-    return FfiConverterBool.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_geocoding_enabled(
-            uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
-            callStatus,
-          );
-        },
-        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-      ),
-    );
-  }
-
-  /**
    * The stored athlete profile, typed, or none when none is stored or its
    * body is not JSON.
    */
@@ -34670,68 +34761,6 @@ export class SettingsManager
     }
   }
 
-  /**
-   * Name one route or section from the places it starts and ends in,
-   * because the athlete asked for that item, whether or not it existed
-   * before geocoding was turned on. Refuses, sending nothing, while
-   * geocoding is off or when the item has a typed name.
-   *
-   * The lookup waits its turn behind any other in the engine, so this
-   * resolves once it has been answered, off the calling thread.
-   */
-  async nameFromPlaces(
-    kind: FfiPlaceNameKind,
-    itemId: string,
-    asyncOpts_?: { signal: AbortSignal },
-  ): Promise<FfiPlaceNameOutcome> {
-    const __stack = uniffiIsDebug ? new Error().stack : undefined;
-    try {
-      return await uniffiRustCallAsync(
-        /*rustCaller:*/ uniffiCaller,
-        /*rustFutureFunc:*/ () => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_name_from_places(
-            uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
-            FfiConverterTypeFfiPlaceNameKind.lower(
-              kind,
-              nativeModule().rustbuffer_alloc,
-            ),
-            FfiConverterString.lower(itemId, nativeModule().rustbuffer_alloc),
-          );
-        },
-        /*pollFunc:*/ nativeModule()
-          .ubrn_ffi_veloqrs_rust_future_poll_rust_buffer,
-        /*cancelFunc:*/ nativeModule()
-          .ubrn_ffi_veloqrs_rust_future_cancel_rust_buffer,
-        /*completeFunc:*/ nativeModule()
-          .ubrn_ffi_veloqrs_rust_future_complete_rust_buffer,
-        /*freeFunc:*/ nativeModule()
-          .ubrn_ffi_veloqrs_rust_future_free_rust_buffer,
-        // Async returns always go through the JS-side converter: the
-        // FFI symbol returns the future handle (u64), and the user-level
-        // RustBuffer comes back via the shared `rust_future_complete_*`
-        // export. The bytes the runtime hands back must be deserialized
-        // here using the per-callable return-type converter.
-        // Borrowed view over foreign memory: the call site owns the free,
-        // as on the sync paths. Unconditional, a no-op where buffers are
-        // already JS-owned.
-        /*liftFunc:*/ (__rb) => {
-          try {
-            return FfiConverterTypeFfiPlaceNameOutcome.lift(__rb);
-          } finally {
-            nativeModule().rustbuffer_free(__rb);
-          }
-        },
-        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-        /*asyncOpts:*/ asyncOpts_,
-      );
-    } catch (__error: any) {
-      if (uniffiIsDebug && __error instanceof Error) {
-        __error.stack = __stack;
-      }
-      throw __error;
-    }
-  }
-
   setAthleteProfile(json: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
       /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
@@ -34741,26 +34770,6 @@ export class SettingsManager
         nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_athlete_profile(
           uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(json, nativeModule().rustbuffer_alloc),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-  }
-
-  /**
-   * Turn geocoding on or off. Turning it on stamps the moment, and only
-   * what appears after it is named.
-   */
-  setGeocodingEnabled(enabled: boolean): void /*throws*/ {
-    uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_geocoding_enabled(
-          uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
-          FfiConverterBool.lower(enabled, nativeModule().rustbuffer_alloc),
           callStatus,
         );
       },
@@ -37983,6 +37992,11 @@ const FfiConverterSequenceTypeFfiExerciseHistorySession = new FfiConverterArray(
   FfiConverterTypeFfiExerciseHistorySession,
 );
 
+// FfiConverter for Array<FfiFeedCard>
+const FfiConverterSequenceTypeFfiFeedCard = new FfiConverterArray(
+  FfiConverterTypeFfiFeedCard,
+);
+
 // FfiConverter for Array<FfiSeriesPoint>
 const FfiConverterSequenceTypeFfiSeriesPoint = new FfiConverterArray(
   FfiConverterTypeFfiSeriesPoint,
@@ -38917,7 +38931,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_activity_bodies() !==
-    52768
+    57535
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_activitymanager_get_activity_bodies",
@@ -38961,6 +38975,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_activitymanager_get_detail_data",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_feed_cards() !==
+    30949
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_activitymanager_get_feed_cards",
     );
   }
   if (
@@ -40444,14 +40466,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_geocoding_enabled() !==
-    55341
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_settingsmanager_geocoding_enabled",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_athlete_profile() !==
     33093
   ) {
@@ -40476,27 +40490,11 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_name_from_places() !==
-    25621
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_settingsmanager_name_from_places",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_athlete_profile() !==
     60840
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_settingsmanager_set_athlete_profile",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_geocoding_enabled() !==
-    39712
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_settingsmanager_set_geocoding_enabled",
     );
   }
   if (
@@ -41209,6 +41207,8 @@ export default Object.freeze({
     FfiConverterTypeFfiExerciseSession,
     FfiConverterTypeFfiExerciseSet,
     FfiConverterTypeFfiExerciseSummary,
+    FfiConverterTypeFfiFeedCard,
+    FfiConverterTypeFfiFeedCardsPage,
     FfiConverterTypeFfiFitnessScreenData,
     FfiConverterTypeFfiFitnessScreenWindows,
     FfiConverterTypeFfiFloat32Array,
@@ -41260,8 +41260,6 @@ export default Object.freeze({
     FfiConverterTypeFfiPerformanceSubject,
     FfiConverterTypeFfiPeriodComparison,
     FfiConverterTypeFfiPeriodStats,
-    FfiConverterTypeFfiPlaceNameKind,
-    FfiConverterTypeFfiPlaceNameOutcome,
     FfiConverterTypeFfiPlanLine,
     FfiConverterTypeFfiPlanLineKind,
     FfiConverterTypeFfiPlanTarget,

@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next';
 import Body, { type ExtendedBodyPart } from 'react-native-body-highlighter';
 
 import { useTheme, useMetricSystem, useAthlete } from '@/shared/app';
-import type { Activity } from '@/types';
+import type { ActivityType, FeedCard } from '@/types';
 import {
   ActivityCardContextMenu,
   SkylineBar,
@@ -67,7 +67,7 @@ export interface StrengthCardData {
 }
 
 interface StrengthActivityCardProps {
-  activity: Activity;
+  activity: FeedCard;
   strengthData: StrengthCardData;
 }
 
@@ -90,8 +90,8 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
   // Past the dense cap the text outgrows the fixed panel, so the name, the
   // diagram and the stats stack in flow and the panel grows with them.
   const largeText = useLargeText();
-  const averageHeartRate = activity.average_heartrate;
-  const averagePower = activity.icu_average_watts;
+  const averageHeartRate = activity.avgHr;
+  const averagePower = activity.avgPower;
 
   const handlePress = useCallback(() => {
     navigateTo(`/activity/${activity.id}`);
@@ -120,8 +120,10 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
     }
   }, []);
 
-  const activityColor = sportMarkColour(activity.type, isDark);
-  const iconName = getActivityIcon(activity.type);
+  // A body with no sport falls back to Other in every helper, as it always has.
+  const sport = activity.sportType as ActivityType;
+  const activityColor = sportMarkColour(sport, isDark);
+  const iconName = getActivityIcon(sport);
 
   const compactTextColor = isDark ? darkColors.textPrimary : colors.textPrimary;
   const compactMutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
@@ -147,11 +149,11 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
         accessibilityElementsHidden
         style={styles.secondaryStats}
       >
-        {!!activity.icu_training_load && (
+        {!!activity.trainingLoad && (
           <View style={styles.secondaryStat}>
             <Icon name="fire" size={iconSize.sm} color={palette.actionPrimary} />
             <RNText style={[styles.secondaryStatValue, { color: compactMutedColor }]}>
-              {formatLoad(activity.icu_training_load)}
+              {formatLoad(activity.trainingLoad)}
             </RNText>
           </View>
         )}
@@ -187,11 +189,11 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
             </RNText>
           </View>
         )}
-        {activity.has_weather && activity.average_weather_temp != null ? (
+        {activity.hasWeather && activity.averageWeatherTemp != null ? (
           <View style={styles.secondaryStat}>
             <Icon name="weather-partly-cloudy" size={iconSize.sm} color={colors.actionLink} />
             <RNText style={[styles.secondaryStatValue, { color: compactMutedColor }]}>
-              {formatTemperature(activity.average_weather_temp, isMetric)}
+              {formatTemperature(activity.averageWeatherTemp, isMetric)}
             </RNText>
           </View>
         ) : null}
@@ -224,8 +226,8 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
               accessibilityRole="button"
               accessibilityLabel={composeAccessibilityLabel(
                 activity.name,
-                formatRelativeDateTime(activity.start_date_local),
-                `${t('strength.durationLabel')}: ${spokenDuration(activity.moving_time)}`,
+                formatRelativeDateTime(activity.startDateLocal),
+                `${t('strength.durationLabel')}: ${spokenDuration(activity.movingTime)}`,
                 `${t('activityDetail.exercises')}: ${strengthData.exerciseCount}`,
                 `${t('strength.setsLabel')}: ${strengthData.setCount}`,
                 strengthData.totalWeight > 0 &&
@@ -262,7 +264,7 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
                       { color: compactMutedColor, textShadowColor: 'transparent' },
                     ]}
                   >
-                    {formatRelativeDateTime(activity.start_date_local)}
+                    {formatRelativeDateTime(activity.startDateLocal)}
                   </RNText>
                 </View>
               </View>
@@ -293,7 +295,7 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
               <View style={styles.strengthStats}>
                 <View style={styles.strengthStatRow}>
                   <RNText style={[styles.strengthStatValue, { color: compactTextColor }]}>
-                    {formatDuration(activity.moving_time)}
+                    {formatDuration(activity.movingTime ?? NaN)}
                   </RNText>
                   <RNText style={[styles.strengthStatLabel, { color: compactMutedColor }]}>
                     {t('strength.durationLabel')}
@@ -328,8 +330,8 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
               accessibilityElementsHidden
               importantForAccessibility="no-hide-descendants"
             >
-              {activity.skyline_chart_bytes ? (
-                <SkylineBar skylineBytes={activity.skyline_chart_bytes} isDark={isDark} />
+              {activity.skylineChartBytes ? (
+                <SkylineBar skylineBytes={activity.skylineChartBytes} isDark={isDark} />
               ) : (
                 <View style={[styles.dividerLine, { backgroundColor: compactDividerColor }]} />
               )}

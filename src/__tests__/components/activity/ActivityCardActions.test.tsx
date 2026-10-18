@@ -12,7 +12,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import { ActivityCard } from '@/features/activity/components/ActivityCard';
 import * as haptics from '@/shared/ui/haptics';
-import type { Activity } from '@/types';
+import type { FeedCard } from '@/types';
 
 const mockNavigateTo = jest.fn();
 jest.mock('@/shared/app/navigation', () => ({
@@ -68,14 +68,14 @@ jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly()
 const ride = {
   id: 'a1',
   name: 'Lakeside loop',
-  type: 'Ride',
-  start_date_local: '2026-08-12T07:30:00',
+  sportType: 'Ride',
+  startDateLocal: '2026-08-12T07:30:00',
   distance: 42000,
-  moving_time: 5400,
-  total_elevation_gain: 400,
-  average_heartrate: 142,
-  stream_types: ['latlng'],
-} as Activity;
+  movingTime: 5400,
+  elevationGain: 400,
+  avgHr: 142,
+  hasGps: true,
+} as FeedCard;
 
 const highlights = [{ sectionName: 'Climb', isPr: true, trend: 1, startIndex: 0, endIndex: 1 }];
 const route = { routeName: 'Lake', isPr: true, trend: 1, prImprovementSeconds: 12 };
@@ -132,7 +132,7 @@ describe('the map card for a screen reader', () => {
 });
 
 describe('the compact card for a screen reader', () => {
-  const indoor = { ...ride, stream_types: [] } as unknown as Activity;
+  const indoor = { ...ride, hasGps: false } as FeedCard;
 
   it('is one button that opens its menu from the hold action', () => {
     render(<ActivityCard activity={indoor} />);

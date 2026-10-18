@@ -779,7 +779,13 @@
     "linkTrainingLoad": "Monitoring Training Load (Science2Sport)",
     "understandingMetrics": "Entendendo as métricas",
     "rampRate": "Rampa",
-    "perWeek": "/sem"
+    "perWeek": "/sem",
+    "places": {
+      "fitness": "Forma",
+      "calendar": "Calendário",
+      "performance": "Desempenho",
+      "trends": "Tendências"
+    }
   },
   "formZones": {
     "transition": "Transição",
@@ -1587,12 +1593,6 @@
     "noRoutesYet": "Sem rotas ainda",
     "noSectionsMatchFilter": "Nenhum trecho corresponde ao filtro",
     "noSectionsFor": "Nenhum trecho para {{filters}}",
-    "placeJourney": "De {{start}} a {{end}}",
-    "placeLoop": "Circuito de {{place}}",
-    "placeNameButton": "Nomear pelos lugares",
-    "placeNameFailedMessage": "Não foi possível buscar o nome do lugar, então o nome continua o mesmo. Tente novamente mais tarde.",
-    "placeNameFailedTitle": "Sem nome de lugar",
-    "placeNameNoPlaceMessage": "Nenhum lugar foi encontrado no ponto de partida, então o nome continua o mesmo.",
     "renameFailedTitle": "Não foi possível salvar o nome",
     "renameFailedMessage": "O nome da rota não foi salvo. Tente novamente.",
     "referenceFailedTitle": "Referência não definida",
@@ -2011,14 +2011,6 @@
     "mapCache": "Cache dos mapas",
     "sizeAtLeast": "Pelo menos {{size}}",
     "permissions": "Permissões",
-    "placeNames": {
-      "title": "Nomes de lugares",
-      "attribution": "Nomes de lugares © colaboradores do OpenStreetMap",
-      "noticeTitle": "Usar nomes de lugares?",
-      "noticeBody": "Quando uma nova rota ou seção é encontrada, ou quando você pede para nomear uma, o ponto de partida e o de chegada são enviados ao serviço Nominatim do OpenStreetMap para buscar o nome de um lugar. Nenhuma outra rota ou seção é enviada, nem qualquer informação sobre você. Aplica-se a política de uso do serviço.",
-      "readPolicy": "Política de uso",
-      "accept": "Aceitar"
-    },
     "heatmapGeneration": "Mapa de calor",
     "heatmapDescription": "Usa armazenamento do dispositivo. Desative para economizar espaço.",
     "heatmapStorageUsed": "Usando {{size}} de armazenamento do dispositivo",

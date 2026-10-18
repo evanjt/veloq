@@ -4,6 +4,7 @@ import java.util.Collections;
 import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 /**
  * Keeps the last dropped map view, with its page, for the next mount on the same surface.
@@ -12,6 +13,9 @@ import java.util.function.Consumer;
  * one is held is destroyed as before. The held view goes at the trim level where the mounted
  * maps release theirs, when the host is destroyed, and when its renderer dies, since a view
  * whose renderer died must not be used again.
+ *
+ * <p>A take hands out only a view with no parent, since a mount adds it to a new one. A view
+ * that cannot leave the parent it was dropped from is destroyed instead.
  */
 final class MapWebViewSlot<V, C> {
   static final class Held<V> {
@@ -25,14 +29,17 @@ final class MapWebViewSlot<V, C> {
   }
 
   private final int releaseLevel;
+  private final Predicate<V> detach;
   private final Consumer<V> destroy;
   private final Set<V> rendererGone = Collections.newSetFromMap(new WeakHashMap<>());
   private V view;
   private C surface;
   private String revision;
 
-  MapWebViewSlot(int sdkInt, Consumer<V> destroy) {
+  /** `detach` takes a view out of any parent and answers true when it then has none. */
+  MapWebViewSlot(int sdkInt, Predicate<V> detach, Consumer<V> destroy) {
     this.releaseLevel = MapWebViewReclaimer.releaseLevel(sdkInt);
+    this.detach = detach;
     this.destroy = destroy;
   }
 
@@ -48,9 +55,16 @@ final class MapWebViewSlot<V, C> {
     return true;
   }
 
-  /** The held view when it was made on `mountSurface`, which empties the slot. */
+  /**
+   * The held view, detached from any parent, when it was made on `mountSurface`, which empties
+   * the slot.
+   */
   Held<V> take(C mountSurface) {
     if (view == null || surface != mountSurface) return null;
+    if (!detach.test(view)) {
+      evict();
+      return null;
+    }
     Held<V> held = new Held<>(view, revision);
     clear();
     return held;

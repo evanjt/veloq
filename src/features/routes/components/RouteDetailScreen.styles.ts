@@ -1,30 +1,14 @@
 import { StyleSheet } from 'react-native';
 
-import { colors, darkColors, spacing } from '@/theme';
+import { spacing } from '@/theme';
 
 export const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.surfacePage,
-  },
-  containerDark: {
-    backgroundColor: darkColors.surfacePage,
-  },
   scrollView: {
     flex: 1,
   },
   readFailure: {
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
-  },
-  // Hero section styles
-  mapContainer: {
-    flex: 1,
-  },
-  mapPlaceholder: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   listFooterContainer: {
     marginTop: spacing.md,

@@ -19,13 +19,11 @@ export { useSectionActions, type UseSectionActionsResult } from './useSectionAct
 export { useSectionDataRefresh } from './useSectionDataRefresh';
 export { useSectionMergeFlow } from './useSectionMergeFlow';
 export { useSectionUIState } from './useSectionUIState';
-export { useRevealMapOnDraw } from './useRevealMapOnDraw';
 export { useSectionChartDataEnriched } from './useSectionChartDataEnriched';
 export { useRouteMapSignatures } from './useRouteMapSignatures';
 export { useRouteReference } from './useRouteReference';
 export { useExcludedActivities } from './useExcludedActivities';
 export { useRouteRenaming } from './useRouteRenaming';
-export { usePlaceNameLookup } from './usePlaceNameLookup';
 export { isElevationHold, useCutoverHeld, useDetectionHold } from './useDetectionHold';
 export { useLedgerActivityNames } from './useLedgerActivityNames';
 export {

@@ -12,7 +12,7 @@ import {
   activityCardA11yLabel,
   activitySecondaryStatLabels,
 } from '@/features/activity/lib/activityCardA11yLabel';
-import type { Activity } from '@/types';
+import type { FeedCard } from '@/types';
 
 const t = i18n.t.bind(i18n);
 
@@ -24,15 +24,15 @@ beforeAll(async () => {
 const activity = {
   id: 'a1',
   name: 'Quarry hill repeats',
-  type: 'Ride',
-  start_date_local: '2026-08-12T07:30:00',
+  sportType: 'Ride',
+  startDateLocal: '2026-08-12T07:30:00',
   distance: 42000,
-  moving_time: 5400,
-  total_elevation_gain: 359,
-  average_heartrate: 142,
-  icu_average_watts: 230,
-  stream_types: ['latlng'],
-} as Activity;
+  movingTime: 5400,
+  elevationGain: 359,
+  avgHr: 142,
+  avgPower: 230,
+  hasGps: true,
+} as FeedCard;
 
 const occurrences = (text: string, part: string) => text.split(part).length - 1;
 
@@ -94,9 +94,9 @@ describe('activityCardA11yLabel', () => {
     const indoor = {
       ...activity,
       distance: 0,
-      total_elevation_gain: 0,
-      stream_types: [],
-    } as unknown as Activity;
+      elevationGain: 0,
+      hasGps: false,
+    } as FeedCard;
     const label = activityCardA11yLabel({ activity: indoor, isMetric: true }, t);
     expect(label).not.toMatch(/\b0 (kilo)?metres\b/);
     expect(label).toContain('1 hour 30 minutes');
@@ -104,7 +104,7 @@ describe('activityCardA11yLabel', () => {
   });
 
   it('says each secondary stat with the unit its formatter draws, once', () => {
-    const full = { ...activity, calories: 812, icu_training_load: 96 } as Activity;
+    const full = { ...activity, calories: 812, trainingLoad: 96 } as FeedCard;
     expect(activitySecondaryStatLabels(full, true, t)).toEqual([
       'Training load: 96',
       'Heart rate: 142 bpm',
@@ -114,7 +114,7 @@ describe('activityCardA11yLabel', () => {
   });
 
   it('gives no stat label for a stat the card does not draw', () => {
-    const bare = { ...activity, average_heartrate: undefined, icu_average_watts: undefined };
-    expect(activitySecondaryStatLabels(bare as Activity, true, t)).toEqual([]);
+    const { avgHr: _hr, avgPower: _power, ...bare } = activity;
+    expect(activitySecondaryStatLabels(bare, true, t)).toEqual([]);
   });
 });

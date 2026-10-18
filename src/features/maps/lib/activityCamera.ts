@@ -22,6 +22,8 @@ export interface VisibleMapInsetInput {
   coveredTop?: number | undefined;
   /** Height covered at the bottom, such as the hero's name and stats or a sheet. */
   coveredBottom?: number | undefined;
+  /** Width covered at the left, such as a side panel docked there. */
+  coveredLeft?: number | undefined;
   /** Width covered at the right, such as the control column. */
   coveredRight?: number | undefined;
   /** Room left between the fitted geometry and the visible part's edge. */
@@ -51,10 +53,11 @@ export function visibleMapInset({
   height,
   coveredTop = 0,
   coveredBottom = 0,
+  coveredLeft = 0,
   coveredRight = 0,
   margin = TRACK_FIT_PADDING,
 }: VisibleMapInsetInput): MapEdgeInset {
   const [top, bottom] = axisInset(height, coveredTop, coveredBottom, margin);
-  const [left, right] = axisInset(width, 0, coveredRight, margin);
+  const [left, right] = axisInset(width, coveredLeft, coveredRight, margin);
   return { top, right, bottom, left };
 }

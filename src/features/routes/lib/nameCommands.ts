@@ -1,4 +1,4 @@
-import { isRouteNameTakenError, PlaceNameOutcome, type PlaceNameKind } from 'veloqrs';
+import { isRouteNameTakenError } from 'veloqrs';
 import { getEngine } from '@/shared/native/engine';
 
 /**
@@ -23,11 +23,4 @@ export function setRouteName(routeId: string, name: string): 'saved' | 'nameTake
     if (isRouteNameTakenError(error)) return 'nameTaken';
     throw error;
   }
-}
-
-/** Ask for a route or section to be named from its places. */
-export function nameFromPlaces(kind: PlaceNameKind, itemId: string): Promise<PlaceNameOutcome> {
-  const engine = getEngine();
-  if (!engine) return Promise.resolve(PlaceNameOutcome.Failed);
-  return engine.nameFromPlaces(kind, itemId);
 }

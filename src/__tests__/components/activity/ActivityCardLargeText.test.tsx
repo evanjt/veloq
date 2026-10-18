@@ -18,7 +18,7 @@ import { router } from 'expo-router';
 import { ActivityCard } from '@/features/activity/components/ActivityCard';
 import { StrengthActivityCard } from '@/features/strength/components/StrengthActivityCard';
 import { CARD_HEIGHT } from '@/features/activity/lib/cardLayout';
-import type { Activity } from '@/types';
+import type { FeedCard } from '@/types';
 
 configure({ defaultIncludeHiddenElements: true });
 
@@ -67,27 +67,27 @@ const LARGEST = 3.57;
 const ride = {
   id: 'r1',
   name: 'Harbour lighthouse loop past the breakwater and the old ferry pier',
-  type: 'Ride',
-  start_date_local: '2026-08-12T07:30:00',
+  sportType: 'Ride',
+  startDateLocal: '2026-08-12T07:30:00',
   distance: 84210,
-  moving_time: 10840,
-  total_elevation_gain: 1290,
-  icu_training_load: 120,
-  average_heartrate: 141,
-  icu_average_watts: 212,
+  movingTime: 10840,
+  elevationGain: 1290,
+  trainingLoad: 120,
+  avgHr: 141,
+  avgPower: 212,
   calories: 1900,
-  stream_types: ['latlng', 'heartrate'],
-} as unknown as Activity;
+  hasGps: true,
+} as FeedCard;
 
 const lift = {
   id: 's1',
   name: 'Lighthouse keeper circuit',
-  type: 'WeightTraining',
-  start_date_local: '2026-08-12T07:30:00',
-  moving_time: 3600,
-  icu_training_load: 40,
-  stream_types: [],
-} as unknown as Activity;
+  sportType: 'WeightTraining',
+  startDateLocal: '2026-08-12T07:30:00',
+  movingTime: 3600,
+  trainingLoad: 40,
+  hasGps: false,
+} as FeedCard;
 
 const strengthData = { muscles: [], exerciseCount: 3, setCount: 9, totalWeight: 2400 };
 

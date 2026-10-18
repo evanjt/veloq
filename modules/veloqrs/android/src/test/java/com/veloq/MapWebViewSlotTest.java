@@ -16,7 +16,44 @@ public class MapWebViewSlotTest {
   private final Object surface = new Object();
 
   private MapWebViewSlot<Object, Object> slot(int sdkInt) {
-    return new MapWebViewSlot<>(sdkInt, destroyed::add);
+    return new MapWebViewSlot<>(sdkInt, view -> true, destroyed::add);
+  }
+
+  /** A view that may still hold the parent it was dropped from. */
+  private static final class ParentedView {
+    Object parent = new Object();
+  }
+
+  @Test
+  public void test_a_take_detaches_a_view_still_holding_its_old_parent() {
+    List<ParentedView> destroyedViews = new ArrayList<>();
+    MapWebViewSlot<ParentedView, Object> slot = new MapWebViewSlot<>(34, view -> {
+      view.parent = null;
+      return true;
+    }, destroyedViews::add);
+    ParentedView view = new ParentedView();
+    slot.offer(view, surface, "page-a");
+
+    MapWebViewSlot.Held<ParentedView> held = slot.take(surface);
+
+    assertSame(view, held.view);
+    assertNull(held.view.parent);
+    assertTrue(destroyedViews.isEmpty());
+  }
+
+  @Test
+  public void test_a_view_that_cannot_leave_its_parent_is_destroyed_rather_than_handed_out() {
+    List<ParentedView> destroyedViews = new ArrayList<>();
+    MapWebViewSlot<ParentedView, Object> slot =
+        new MapWebViewSlot<>(34, view -> view.parent == null, destroyedViews::add);
+    ParentedView view = new ParentedView();
+    slot.offer(view, surface, "page-a");
+
+    assertNull(slot.take(surface));
+    assertEquals(Collections.singletonList(view), destroyedViews);
+    assertFalse(slot.holding());
+    assertNull(slot.take(surface));
+    assertEquals(1, destroyedViews.size());
   }
 
   @Test

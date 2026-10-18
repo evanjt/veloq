@@ -22,12 +22,12 @@ import {
 } from '@/shared/format/format';
 import { spokenDistance, spokenDuration, spokenElevation } from '@/shared/format/spoken';
 import { composeAccessibilityLabel } from '@/shared/ui/accessibilityLabel';
-import type { Activity } from '@/types';
+import type { FeedCard } from '@/types';
 import type { ActivityNewGround } from '../hooks/useActivitySectionHighlights';
 import { cardPrimaryStats } from './cardPrimaryStats';
 
 export interface ActivityCardSpeech {
-  activity: Activity;
+  activity: FeedCard;
   isMetric: boolean;
   sectionHighlights?: { isPr: boolean; trend: number }[] | undefined;
   routeHighlight?:
@@ -46,26 +46,26 @@ export interface ActivityCardSpeech {
  * the unit, so it is not added again.
  */
 export function activitySecondaryStatLabels(
-  activity: Activity,
+  activity: FeedCard,
   isMetric: boolean,
   t: TFunction
 ): string[] {
   const labels: string[] = [];
-  if (activity.icu_training_load) {
-    labels.push(`${t('metrics.trainingLoad')}: ${formatLoad(activity.icu_training_load)}`);
+  if (activity.trainingLoad) {
+    labels.push(`${t('metrics.trainingLoad')}: ${formatLoad(activity.trainingLoad)}`);
   }
-  if (activity.average_heartrate) {
-    labels.push(`${t('activity.heartRate')}: ${formatHeartRate(activity.average_heartrate)}`);
+  if (activity.avgHr) {
+    labels.push(`${t('activity.heartRate')}: ${formatHeartRate(activity.avgHr)}`);
   }
-  if (activity.icu_average_watts) {
-    labels.push(`${t('activity.power')}: ${formatPower(activity.icu_average_watts)}`);
+  if (activity.avgPower) {
+    labels.push(`${t('activity.power')}: ${formatPower(activity.avgPower)}`);
   }
   if (activity.calories) {
     labels.push(`${t('activity.calories')}: ${formatCalories(activity.calories)}`);
   }
-  if (activity.has_weather && activity.average_weather_temp != null) {
+  if (activity.hasWeather && activity.averageWeatherTemp != null) {
     labels.push(
-      `${t('activity.stats.temperature')}: ${formatTemperature(activity.average_weather_temp, isMetric)}`
+      `${t('activity.stats.temperature')}: ${formatTemperature(activity.averageWeatherTemp, isMetric)}`
     );
   }
   return labels;
@@ -77,7 +77,7 @@ export function activityCardA11yLabel(speech: ActivityCardSpeech, t: TFunction):
   const drawn = cardPrimaryStats(activity, isMetric);
   const distance = drawn.distance != null ? spokenDistance(activity.distance, isMetric) : null;
   const elevation =
-    drawn.elevation != null ? spokenElevation(activity.total_elevation_gain, isMetric) : null;
+    drawn.elevation != null ? spokenElevation(activity.elevationGain, isMetric) : null;
 
   const ground =
     newGround?.badge === 'entirelyNew'
@@ -93,9 +93,9 @@ export function activityCardA11yLabel(speech: ActivityCardSpeech, t: TFunction):
 
   return composeAccessibilityLabel(
     activity.name,
-    formatRelativeDateTime(activity.start_date_local),
+    formatRelativeDateTime(activity.startDateLocal),
     distance,
-    spokenDuration(activity.moving_time),
+    spokenDuration(activity.movingTime),
     elevation,
     ...activitySecondaryStatLabels(activity, isMetric, t),
     ground,

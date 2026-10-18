@@ -14,6 +14,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { FlatList, Platform } from 'react-native';
 
 import { getEngine } from '@/shared/native/engine';
+import { feedCard } from '../__shared__/feedCard';
+import type { ActivityType } from '@/types';
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
 
@@ -63,9 +65,9 @@ jest.mock('@/shared/native/engine', () => ({
 }));
 
 const initialActivities = [
-  { id: 'a1', name: 'Morning ride', type: 'Ride' },
-  { id: 'a2', name: 'Zebra run', type: 'Run' },
-  { id: 'a3', name: 'Evening swim', type: 'Swim' },
+  { id: 'a1', name: 'Morning ride', sportType: 'Ride' },
+  { id: 'a2', name: 'Zebra run', sportType: 'Run' },
+  { id: 'a3', name: 'Evening swim', sportType: 'Swim' },
 ];
 let activities = initialActivities;
 let mockFeedData = { pages: [activities] };
@@ -189,7 +191,7 @@ const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 /** The engine's search over the stored library, which here is the loaded feed. */
 const FAMILY_OF_TYPE: Record<string, number> = { Ride: 0, Run: 2, Swim: 3 };
 const OTHER_FAMILY = 6;
-function searchActivityBodies(query: {
+function searchFeedCards(query: {
   needle: string;
   sportFamilies: number[];
   oldestTs?: number;
@@ -203,19 +205,19 @@ function searchActivityBodies(query: {
     query.sportFamilies.includes(FAMILY_OF_TYPE[type] ?? OTHER_FAMILY);
   const matched = library.filter(
     (a) =>
-      chip(a.type) &&
-      (a.name.toLowerCase().includes(needle) || a.type.toLowerCase().includes(needle))
+      chip(a.sportType) &&
+      (a.name.toLowerCase().includes(needle) || a.sportType.toLowerCase().includes(needle))
   );
   const page = matched.slice(query.offset, query.offset + (query.limit ?? matched.length));
   return {
-    bodies: page.map((a) => JSON.stringify(a)),
-    intervalsIds: page.map((a) => a.id),
-    keys: page.map((a) => a.id),
+    cards: page.map((a) =>
+      feedCard({ ...a, sportType: a.sportType as ActivityType, intervalsWebId: a.id })
+    ),
     matchedCount: matched.length,
     hasMore: false,
   };
 }
-const searchActivityBodiesSpy = jest.fn(searchActivityBodies);
+const searchFeedCardsSpy = jest.fn(searchFeedCards);
 const getActivityHighlightsBundle = jest.fn((_activityIds: string[]) => ({
   indicators: [],
   routeHighlights: [],
@@ -257,7 +259,7 @@ beforeEach(() => {
   mockSyncListeners.clear();
   mockGetEngine.mockReturnValue({
     getActivityHighlightsBundle,
-    searchActivityBodies: searchActivityBodiesSpy,
+    searchFeedCards: searchFeedCardsSpy,
     // The feed reads the sync state to decide whether an empty library is a
     // first launch standing by or a library with nothing in it.
     getSyncStatus: jest.fn(() => ({
@@ -503,8 +505,8 @@ describe('feed pull to refresh', () => {
 
 describe('a date range narrows the feed like a search or a sport chip', () => {
   const lastYear = [
-    { id: 'y1', name: 'Harbour ferry', type: 'Ride' },
-    { id: 'y2', name: 'Lock walk', type: 'Walk' },
+    { id: 'y1', name: 'Harbour ferry', sportType: 'Ride' },
+    { id: 'y2', name: 'Lock walk', sportType: 'Walk' },
   ];
 
   async function revealedAt(height: number) {
@@ -564,7 +566,7 @@ describe('a date range narrows the feed like a search or a sport chip', () => {
 
     await waitFor(() => expect(screen.getByTestId('card-y1')).toBeTruthy());
     expect(screen.getByText('feed.activitiesCount')).toBeTruthy();
-    expect(searchActivityBodiesSpy).toHaveBeenCalledWith(
+    expect(searchFeedCardsSpy).toHaveBeenCalledWith(
       expect.objectContaining({ needle: '', sportFamilies: [], limit: 0 })
     );
   });

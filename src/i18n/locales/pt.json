@@ -779,7 +779,13 @@
     "linkTrainingLoad": "Monitoring Training Load (Science2Sport)",
     "understandingMetrics": "Compreender as métricas",
     "rampRate": "Rampa",
-    "perWeek": "/sem"
+    "perWeek": "/sem",
+    "places": {
+      "fitness": "Forma",
+      "calendar": "Calendário",
+      "performance": "Desempenho",
+      "trends": "Tendências"
+    }
   },
   "formZones": {
     "transition": "Transição",
@@ -1589,12 +1595,6 @@
     "noRoutesYet": "Sem percursos ainda",
     "noSectionsMatchFilter": "Nenhum troço corresponde ao filtro",
     "noSectionsFor": "Nenhum troço para {{filters}}",
-    "placeJourney": "De {{start}} a {{end}}",
-    "placeLoop": "Circuito de {{place}}",
-    "placeNameButton": "Dar nome pelos locais",
-    "placeNameFailedMessage": "Não foi possível procurar o nome do local, por isso o nome mantém-se. Tenta novamente mais tarde.",
-    "placeNameFailedTitle": "Sem nome de local",
-    "placeNameNoPlaceMessage": "Não foi encontrado nenhum local no ponto de partida, por isso o nome mantém-se.",
     "renameFailedTitle": "Não foi possível guardar o nome",
     "renameFailedMessage": "O nome da rota não foi guardado. Tenta novamente.",
     "referenceFailedTitle": "Referência não definida",
@@ -2027,14 +2027,6 @@
     "mapCache": "Cache dos mapas",
     "sizeAtLeast": "Pelo menos {{size}}",
     "permissions": "Permissões",
-    "placeNames": {
-      "title": "Nomes de locais",
-      "attribution": "Nomes de locais © colaboradores do OpenStreetMap",
-      "noticeTitle": "Usar nomes de locais?",
-      "noticeBody": "Quando é encontrado um novo percurso ou uma nova secção, ou quando pede para dar nome a um, o seu ponto de partida e de chegada são enviados ao serviço Nominatim do OpenStreetMap para procurar o nome de um local. Nenhum outro percurso ou secção é enviado, nem nada sobre si. Aplica-se a política de utilização do serviço.",
-      "readPolicy": "Política de utilização",
-      "accept": "Aceitar"
-    },
     "heatmapGeneration": "Mapa de calor",
     "heatmapDescription": "Utiliza armazenamento do dispositivo. Desative para poupar espaço.",
     "heatmapStorageUsed": "A utilizar {{size}} de armazenamento do dispositivo",

@@ -23,6 +23,7 @@ import { useOldestActivityDate } from '@/shared/app/useOldestActivityDate';
 import { getEngine } from '@/shared/native/engine';
 import { addDaysToDay } from '@/shared/time/startDate';
 import { queryKeys } from '@/shared/query/queryKeys';
+import { feedCard } from '../__shared__/feedCard';
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: jest.fn(),
@@ -38,6 +39,7 @@ jest.mock('@/shared/app/NetworkContext', () => ({
 
 const engine = {
   getActivityBodies: jest.fn(),
+  getFeedCards: jest.fn(),
   syncActivitiesWindow: jest.fn(),
   getSetting: jest.fn(),
   subscribe: jest.fn(() => () => {}),
@@ -78,6 +80,7 @@ beforeEach(() => {
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
   engine.getActivityBodies.mockReturnValue(page([]));
+  engine.getFeedCards.mockReturnValue([]);
   engine.getSetting.mockReturnValue(null);
   engine.syncActivitiesWindow.mockReturnValue(StartOutcome.Started);
   mockIsOnline = true;
@@ -124,31 +127,6 @@ describe('useActivities', () => {
 
     await waitFor(() => expect(result.current.data?.length).toBe(1));
     expect(result.current.data?.[0].id).toBe('a1');
-    expect(result.current.data?.[0].intervalsWebId).toBe('i1');
-  });
-
-  it('carries the id a web link may name, as the engine answers it, onto each activity', async () => {
-    engine.getActivityBodies.mockReturnValue(
-      page(
-        [
-          JSON.stringify({ id: 'i901', name: 'Synced' }),
-          JSON.stringify({ id: 'demo-ride-1', name: 'Demo' }),
-          JSON.stringify({ id: 'local-ride-1', name: 'Unsent' }),
-          JSON.stringify({ id: 'local-ride-2', name: 'Uploaded' }),
-        ],
-        ['i901', null, null, 'i900']
-      )
-    );
-
-    const { result } = renderHook(() => useActivities({ days: 30 }), { wrapper });
-
-    await waitFor(() => expect(result.current.data?.length).toBe(4));
-    expect(result.current.data?.map((a) => [a.id, a.intervalsWebId])).toEqual([
-      ['i901', 'i901'],
-      ['demo-ride-1', null],
-      ['local-ride-1', null],
-      ['local-ride-2', 'i900'],
-    ]);
   });
 
   it('names an uploaded recording by the row that holds it, not by the server id in its body', async () => {
@@ -166,10 +144,7 @@ describe('useActivities', () => {
     const { result } = renderHook(() => useActivities({ days: 30 }), { wrapper });
 
     await waitFor(() => expect(result.current.data?.length).toBe(2));
-    expect(result.current.data?.map((a) => [a.id, a.intervalsWebId])).toEqual([
-      ['local-ride-1', 'i900'],
-      ['i901', 'i901'],
-    ]);
+    expect(result.current.data?.map((a) => a.id)).toEqual(['local-ride-1', 'i901']);
   });
 
   it('asks the engine to fill the window it is about to read', async () => {
@@ -315,6 +290,22 @@ describe('useOldestActivityDate', () => {
 });
 
 describe('useInfiniteActivities', () => {
+  it('lists the cards the engine typed for the window, without parsing a body', async () => {
+    engine.getFeedCards.mockReturnValue([
+      feedCard({ id: 'local-ride-3', name: 'Canal path', intervalsWebId: 'i903', hasGps: true }),
+    ]);
+
+    const { result } = await renderHook(() => useInfiniteActivities(), { wrapper });
+
+    await waitFor(() => expect(result.current.allActivities).toHaveLength(1));
+    expect(result.current.allActivities[0]).toMatchObject({
+      id: 'local-ride-3',
+      intervalsWebId: 'i903',
+      hasGps: true,
+    });
+    expect(engine.getActivityBodies).not.toHaveBeenCalled();
+  });
+
   it('can page back to the newest window after the cap evicts it', async () => {
     const { result } = await renderHook(() => useInfiniteActivities(), { wrapper });
     const head = () => (result.current.data?.pageParams[0] as { newest: string }).newest;
@@ -386,15 +377,13 @@ describe('useInfiniteActivities', () => {
 
 describe('useRangeActivities', () => {
   it('reads March 2024 from the engine with no scrolling and asks for nothing outside it', async () => {
-    engine.getActivityBodies.mockReturnValue(
-      page([JSON.stringify({ id: 'mar', name: 'March ride' })])
-    );
+    engine.getFeedCards.mockReturnValue([feedCard({ id: 'mar', name: 'March ride' })]);
     const range = { oldest: '2024-03-01', newest: '2024-03-31' };
 
     const { result } = await renderHook(() => useRangeActivities(range), { wrapper });
 
     await waitFor(() => expect(result.current.allActivities.map((a) => a.id)).toContain('mar'));
-    const windows = engine.getActivityBodies.mock.calls as [number, number][];
+    const windows = engine.getFeedCards.mock.calls as [number, number][];
     expect(windows[0][1]).toBe(Date.UTC(2024, 2, 31, 23, 59, 59) / 1000);
     for (const [from, to] of windows) {
       expect(from).toBeGreaterThanOrEqual(Date.UTC(2024, 2, 1) / 1000);
@@ -426,6 +415,6 @@ describe('useRangeActivities', () => {
 
   it('reads nothing while no range is set', async () => {
     await renderHook(() => useRangeActivities(null), { wrapper });
-    expect(engine.getActivityBodies).not.toHaveBeenCalled();
+    expect(engine.getFeedCards).not.toHaveBeenCalled();
   });
 });

@@ -8,7 +8,7 @@
 
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
-import RouteDetailScreen from '@/app/route/[id]';
+import { routeCardInHost } from '../__shared__/routeCardInHost';
 
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
@@ -149,6 +149,10 @@ jest.mock('@/features/routes/hooks', () => ({
     handleToggleShowExcluded: jest.fn(),
   }),
 }));
+
+const RouteDetailScreen = routeCardInHost((options) => {
+  mockScreenOptions = { ...mockScreenOptions, ...options };
+});
 
 beforeEach(() => {
   jest.useFakeTimers();

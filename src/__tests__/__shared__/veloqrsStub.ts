@@ -46,20 +46,6 @@ export enum UploadOutcome {
   NotStarted = 9,
 }
 
-/** `FfiPlaceNameKind` as generated, held to the source by the same test. */
-export enum PlaceNameKind {
-  Route = 1,
-  Section = 2,
-}
-
-/** `FfiPlaceNameOutcome` as generated, held to the source by the same test. */
-export enum PlaceNameOutcome {
-  Named = 1,
-  NoPlace = 2,
-  Failed = 3,
-  Refused = 4,
-}
-
 /** `FfiSyncErrorReason` as generated, held to the source by the same test. */
 export enum SyncErrorReason {
   Unauthorized = 1,
@@ -462,8 +448,6 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
   return {
     CallKind,
     UploadOutcome,
-    PlaceNameKind,
-    PlaceNameOutcome,
     SyncState,
     SyncErrorReason,
     SyncStep,

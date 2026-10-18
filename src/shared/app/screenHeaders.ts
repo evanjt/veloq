@@ -198,18 +198,137 @@ function mapSheetFractions(
 }
 
 /**
+ * The narrowest window that takes the map sheet as a side panel: Material's medium width class,
+ * which every iPad window and every Android tablet in portrait reaches and no phone in portrait
+ * does. Detents and a map behind the sheet belong to compact width; at regular width a form
+ * sheet is a centred card with no detents, so the data docks beside the map instead.
+ */
+const MAP_SHEET_PANEL_MIN_WINDOW = 600;
+/** The side panel's width bounds, and the share of the window it takes between them. */
+const MAP_SHEET_PANEL_MIN = 360;
+const MAP_SHEET_PANEL_MAX = 400;
+const MAP_SHEET_PANEL_SHARE = 0.4;
+
+/**
+ * The width of the side panel a map screen's data docks in at the window's leading edge, or null
+ * on a compact window, where the data is the three-stop sheet.
+ */
+export function mapSheetPanelWidth(window: Pick<SheetWindow, 'width'>): number | null {
+  if (window.width < MAP_SHEET_PANEL_MIN_WINDOW) return null;
+  return Math.round(
+    Math.min(
+      Math.max(window.width * MAP_SHEET_PANEL_SHARE, MAP_SHEET_PANEL_MIN),
+      MAP_SHEET_PANEL_MAX
+    )
+  );
+}
+
+/** A window and the safe-area insets the system gives it, in points. */
+export interface SheetWindow {
+  width: number;
+  height: number;
+  topInset: number;
+  bottomInset: number;
+}
+
+/*
+ * The iOS sheet's geometry, measured on the iOS 26.2 simulator with a sheet given custom detents
+ * of `maximumDetentValue * fraction`, which is how `react-native-screens` resolves them. The
+ * largest height is the window less both insets, and less 10 more under a 20 pt status bar:
+ * 860 of 956 on iPhone 17 Pro Max (insets 62, 34), 778 of 874 on iPhone 17 (62, 34), 810 of 912
+ * on iPhone Air (68, 34), 734 of 812 on iPhone 11 Pro (44, 34) and 637 of 667 on iPhone SE
+ * (20, 0). A detent's height leaves out the bottom inset, which the sheet adds below it. At the
+ * largest height the sheet is attached to the window's edges, its top on the top inset. Below
+ * it iOS 26 floats the sheet: its bottom 8 above the window's, and the whole sheet scaled by
+ * the width less 8 each side over the width. Every top read on those phones is within half a
+ * point of that. A detent under about 0.15 floats higher still, and no stop goes that low.
+ */
+const IOS_SHEET_STATUS_BAR_GAP = 10;
+/** The largest top inset with a plain status bar, under which the sheet keeps its gap. */
+const IOS_PLAIN_STATUS_BAR_MAX = 40;
+const IOS_SHEET_FLOAT_MARGIN = 8;
+
+function iosSheetFloats(osVersion: string | number): boolean {
+  return parseInt(String(osVersion), 10) >= 26;
+}
+
+/** The iOS sheet's largest height, the `maximumDetentValue` its detents are fractions of. */
+function iosSheetLargest(window: SheetWindow): number {
+  const gap = window.topInset <= IOS_PLAIN_STATUS_BAR_MAX ? IOS_SHEET_STATUS_BAR_GAP : 0;
+  return window.height - window.topInset - window.bottomInset - gap;
+}
+
+/** The scale a floating iOS sheet is drawn at, and its bottom edge's lift off the window's. */
+function iosSheetFloat(osVersion: string | number, window: SheetWindow) {
+  if (!iosSheetFloats(osVersion) || window.width <= 0) return { scale: 1, lift: 0 };
+  const scale = (window.width - 2 * IOS_SHEET_FLOAT_MARGIN) / window.width;
+  return { scale, lift: IOS_SHEET_FLOAT_MARGIN };
+}
+
+/** Where the top edge of an iOS sheet at this fraction of its largest height sits in the window. */
+export function iosSheetTop(
+  fraction: number,
+  osVersion: string | number,
+  window: SheetWindow
+): number {
+  const largest = iosSheetLargest(window);
+  if (fraction >= 1) return window.height - window.bottomInset - largest;
+  const { scale, lift } = iosSheetFloat(osVersion, window);
+  return window.height - lift - scale * (fraction * largest + window.bottomInset);
+}
+
+/**
+ * The fraction of its largest height that puts an iOS sheet's top edge at `top`, or 1, the
+ * edge-attached sheet, where no floating sheet reaches that high.
+ */
+function iosSheetFraction(top: number, osVersion: string | number, window: SheetWindow): number {
+  const { scale, lift } = iosSheetFloat(osVersion, window);
+  const fraction =
+    ((window.height - lift - top) / scale - window.bottomInset) / iosSheetLargest(window);
+  return Math.min(Math.max(fraction, 0), 1);
+}
+
+/** The map sheet's stops as the detents the platform's sheet takes, or null where it has none. */
+function mapSheetDetents(
+  os: string,
+  osVersion: string | number,
+  window: SheetWindow
+): number[] | null {
+  if (mapSheetPanelWidth(window) !== null) return null;
+  const stops = mapSheetFractions(window.height, window.bottomInset);
+  if (!stops) return null;
+  if (os === 'ios') {
+    return stops.map((stop) => iosSheetFraction(window.height * (1 - stop), osVersion, window));
+  }
+  if (os === 'android') return [stops[0], stops[1] * stops[2], stops[2]];
+  return stops;
+}
+
+/**
  * The three stops a map screen's data sheet rests at, low to high, as fractions of the window,
  * with the height of map left visible above the sheet at each. Peek shows its row clear of the
  * bottom inset, because the sheet runs under the navigation bar and the frame pads it. A window
  * too short for those sizes still gets three ascending stops, and one with no height yet gets
- * none.
+ * none. On iOS each stop is where the sheet actually rests, which at full is the edge-attached
+ * sheet's top where the strip is higher than a floating sheet reaches.
+ *
+ * A regular-width window has no stops: the data is a side panel `panelWidth` wide at the leading
+ * edge, the full height of the map, and `panelWidth` is null everywhere else.
  */
 export function sheetStops(
-  windowHeight: number,
-  bottomInset: number
-): { detents: number[]; visibleMap: number[] } {
-  const detents = mapSheetFractions(windowHeight, bottomInset) ?? [];
-  return { detents, visibleMap: detents.map((detent) => windowHeight * (1 - detent)) };
+  os: string,
+  osVersion: string | number,
+  window: SheetWindow
+): { detents: number[]; visibleMap: number[]; panelWidth: number | null } {
+  const panelWidth = mapSheetPanelWidth(window);
+  const detents = mapSheetDetents(os, osVersion, window);
+  if (!detents) return { detents: [], visibleMap: [], panelWidth };
+  const stops = mapSheetFractions(window.height, window.bottomInset) ?? [];
+  const visibleMap =
+    os === 'ios'
+      ? detents.map((fraction) => iosSheetTop(fraction, osVersion, window))
+      : stops.map((stop) => window.height * (1 - stop));
+  return { detents: visibleMap.map((map) => 1 - map / window.height), visibleMap, panelWidth };
 }
 
 /**
@@ -235,6 +354,21 @@ export function sheetScreenOptions(name: string, os: string, osVersion: string |
   return sheetOptions(detents, os, osVersion);
 }
 
+/** The stack options of the map sheet route, as `mapSheetScreenOptions` gives them. */
+export interface MapSheetScreenOptions {
+  presentation: 'formSheet' | 'card';
+  headerShown: boolean;
+  gestureEnabled: boolean;
+  sheetGrabberVisible: boolean;
+  /** Absent on a card, since the stack reads an empty list as a sheet with no stop to open at. */
+  sheetAllowedDetents?: number[] | 'fitToContents';
+  sheetInitialDetentIndex?: number;
+  sheetLargestUndimmedDetentIndex?: 'last';
+  sheetShouldOverflowTopInset?: boolean;
+  sheetCornerRadius?: number;
+  contentStyle?: { backgroundColor: string };
+}
+
 /**
  * The stack options of a map screen's data sheet: the sheet edges every other sheet takes, at
  * the three stops of `sheetStops`, opened at the middle one. No stop dims what is behind, so the
@@ -244,19 +378,29 @@ export function sheetScreenOptions(name: string, os: string, osVersion: string |
  * The Android sheet sizes its middle detent as that detent over the highest, of the whole
  * window, and its highest below the top inset unless told to overflow it. So Android is given
  * the middle stop scaled by the highest, and overflows the inset, which puts all three where
- * `sheetStops` says. iOS takes the stops as they are.
+ * `sheetStops` says. iOS takes each detent as a fraction of its largest sheet, so it is given
+ * the fraction that puts the sheet's top edge on the stop.
+ *
+ * A regular-width window presents no sheet: the map screen draws the data in its side panel, so
+ * the sheet route is a plain card with no detents and no grabber, which the host never pushes.
  */
 export function mapSheetScreenOptions(
   os: string,
   osVersion: string | number,
-  windowHeight: number,
-  bottomInset: number
-) {
-  const stops = mapSheetFractions(windowHeight, bottomInset);
-  const android = os === 'android' && stops !== null;
-  const detents = !stops ? [] : android ? [stops[0], stops[1] * stops[2], stops[2]] : stops;
+  window: SheetWindow
+): MapSheetScreenOptions {
+  if (mapSheetPanelWidth(window) !== null) {
+    return {
+      presentation: 'card',
+      headerShown: false,
+      gestureEnabled: false,
+      sheetGrabberVisible: false,
+    };
+  }
+  const detents = mapSheetDetents(os, osVersion, window);
+  const android = os === 'android' && detents !== null;
   return {
-    ...sheetOptions(detents, os, osVersion),
+    ...sheetOptions(detents ?? [], os, osVersion),
     sheetInitialDetentIndex: 1,
     sheetLargestUndimmedDetentIndex: 'last' as const,
     gestureEnabled: false,

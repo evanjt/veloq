@@ -15,7 +15,7 @@ import React from 'react';
 import { act, render } from '@testing-library/react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ActivityMapPreview } from '@/features/activity/components/ActivityMapPreview';
-import type { Activity } from '@/types';
+import type { FeedCard } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
@@ -76,9 +76,9 @@ jest.mock('@/features/activity/hooks/useMapPreviewCoordinates', () => ({
 
 const activity = {
   id: 'demo-1',
-  type: 'Ride',
-  stream_types: ['latlng'],
-} as unknown as Activity;
+  sportType: 'Ride',
+  hasGps: true,
+} as FeedCard;
 
 /** Every Skia primitive the deleted route line drew. */
 const SKIA_NODES = ['skia-canvas', 'Canvas', 'Path', 'Circle'];

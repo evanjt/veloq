@@ -1,32 +1,10 @@
 import type { TFunction } from 'i18next';
-import { formatDistance, formatElevation } from '@/shared/format/format';
+import { formatElevation } from '@/shared/format/format';
 import type { HeroStat } from '@/shared/ui/DetailHero';
 import { PERIOD_LABEL_KEYS, type Period } from '@/shared/app/period';
 import type { FrequentSection } from '@/types';
 import { sectionElevation } from './sectionElevation';
 import { formatPercent } from '@/shared/format';
-
-/** What a hero describes: a section with its grades, or a route. */
-export type HeroSubject =
-  | {
-      kind: 'section';
-      section: Pick<
-        FrequentSection,
-        | 'distanceMeters'
-        | 'elevationGainM'
-        | 'elevationLossM'
-        | 'avgGradePercent'
-        | 'maxGradePercent'
-        | 'klass'
-      >;
-    }
-  | {
-      kind: 'route';
-      /** The representative's length, which describes the line drawn. */
-      distanceMeters: number;
-      /** The representative's climbing. */
-      elevationGainMeters: number;
-    };
 
 /** The attempts the chart under the hero plots, and what they are narrowed to. */
 export interface HeroScope {
@@ -58,34 +36,20 @@ export function scopeLabels(scope: Omit<HeroScope, 'count'>, t: TFunction): stri
 const MIN_AVG_GRADE_PERCENT = 1.0;
 
 /**
- * The stats a section or route hero shows under its name: the distance, the
- * attempts the chart plots labelled with the sport and range when either
- * narrows them, then the climbing. The grades describe a climb or descent
- * class, which only a section has. Each carries the words a screen reader
- * says for it, naming what the value is.
+ * The climbing a section's card shows under its Peek: the gain, or the loss for a descent, then
+ * the average grade when the ground is not level and the steepest grade of a climb or descent.
+ * Empty for flat ground. Each carries the words a screen reader says for it.
  */
-export function heroStats(
-  subject: HeroSubject,
-  scope: HeroScope,
+export function sectionClimbStats(
+  section: Pick<
+    FrequentSection,
+    'elevationGainM' | 'elevationLossM' | 'avgGradePercent' | 'maxGradePercent' | 'klass'
+  >,
   t: TFunction,
   isMetric = true
 ): HeroStat[] {
-  const section = subject.kind === 'section' ? subject.section : undefined;
-  const distance =
-    subject.kind === 'section' ? subject.section.distanceMeters : subject.distanceMeters;
-  const elevation = sectionElevation(
-    subject.kind === 'section' ? subject.section : { elevationGainM: subject.elevationGainMeters }
-  );
-
-  const distanceText = formatDistance(distance, isMetric);
-  const stats: HeroStat[] = [
-    { text: distanceText, label: `${t('activity.distance')}: ${distanceText}` },
-  ];
-  if (scope.count != null) {
-    const countKey = section ? 'sections.traversalsCount' : 'maps.activitiesCount';
-    const parts = [t(countKey, { count: scope.count }), ...scopeLabels(scope, t)];
-    stats.push({ text: parts.join(' · '), label: parts.join(', ') });
-  }
+  const elevation = sectionElevation(section);
+  const stats: HeroStat[] = [];
   if (elevation) {
     const metres = formatElevation(elevation.metres, isMetric);
     stats.push(
@@ -95,7 +59,6 @@ export function heroStats(
     );
   }
   if (
-    section &&
     elevation &&
     section.avgGradePercent != null &&
     Math.abs(section.avgGradePercent) >= MIN_AVG_GRADE_PERCENT
@@ -104,7 +67,7 @@ export function heroStats(
     stats.push({ text: grade, label: `${t('sections.avgGrade')}: ${grade}` });
   }
   if (
-    section?.maxGradePercent != null &&
+    section.maxGradePercent != null &&
     (section.klass === 'climb' || section.klass === 'descent')
   ) {
     const steepest = t('sections.maxGradeValue', {

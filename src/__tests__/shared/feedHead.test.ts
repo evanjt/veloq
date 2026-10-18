@@ -1,12 +1,12 @@
 import { headPreviewIds } from '@/shared/activity/feedHead';
 
-const ride = (id: string) => ({ id, stream_types: ['latlng'] });
+const ride = (id: string) => ({ id, hasGps: true });
 
 describe('headPreviewIds', () => {
   const page = ['a', 'b', 'c', 'd', 'e', 'f', 'g'].map(ride);
 
   it('takes the first five rides with a track when the newest page is held', () => {
-    const ids = headPreviewIds([{ id: 'x', stream_types: ['watts'] }, ...page], false, []);
+    const ids = headPreviewIds([{ id: 'x', hasGps: false }, ...page], false, []);
     expect(ids).toEqual(['a', 'b', 'c', 'd', 'e']);
   });
 

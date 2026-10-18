@@ -1636,8 +1636,9 @@ impl PersistentEngine {
         // hysteresis registry into the id-stable, churn-damped VISIBLE catalogue
         // the app renders. Run on a clone of the registry so a failed save never
         // advances identity past what is durable in the DB; commit it only on Ok.
+        // With an ingest open the clone is the registry the ingest began on.
         let (trial_identity, applied) = prepared.unwrap_or_else(|| {
-            let mut identity = self.identity.clone();
+            let mut identity = self.identity.replay_origin();
             let applied =
                 self.section_identity_apply_into(&mut identity, SectionReplay::whole(sections));
             (identity, applied)

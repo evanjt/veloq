@@ -11,18 +11,22 @@
 
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { act, fireEvent, render } from '@testing-library/react-native';
+import { act, render } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { EfficiencyDirection, FfiOffScale } from 'veloqrs';
 import type { FfiCalendarSummary, FfiSectionChartPoint, FfiSectionPerformanceData } from 'veloqrs';
-import SectionDetailScreen from '@/app/section/[id]';
-import RouteDetailScreen from '@/app/route/[id]';
+import { sectionCardInHost } from '../__shared__/sectionCardInHost';
+import { routeCardInHost } from '../__shared__/routeCardInHost';
+
 import { fixtures } from '@/data/demo/fixtures';
 import { getRouteCoordinates } from '@/shared/demo/routes/routes';
 import { Button, paint } from '@/shared/ui/Button';
 import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 
 const DEMO_ROUTE = 'route-valais-ride-2';
+
+const RouteDetailScreen = routeCardInHost();
+const SectionDetailScreen = sectionCardInHost();
 
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
@@ -339,7 +343,6 @@ const mockEngine = {
     missingTimeStreamIds: [],
     history: [{ id: 1, at: '2026-01-01T00:00:00Z', kind: 'created' }],
     geometryVersions: [],
-    canNameFromPlaces: false,
   })),
   getSectionDetailPerformance: jest.fn(() => sectionRead),
   getExcludedActivityIds: jest.fn(() => []),
@@ -357,7 +360,6 @@ const mockEngine = {
     excludedActivityIds: [],
     mapSignatures: [],
     missingTimeStreamIds: [],
-    canNameFromPlaces: false,
   })),
   getRouteDetailPerformance: jest.fn(() => demoRead),
   excludeActivityFromRoute: jest.fn(),
@@ -409,13 +411,12 @@ const SHARED: SharedElement[] = [
 interface SectionOnlyElement {
   element: string;
   section: string;
-  /** A control pressed first, for an element the page draws only on demand. */
-  reveal?: string;
 }
 
 /** Elements that describe a section and not a whole route. */
 const SECTION_ONLY: SectionOnlyElement[] = [
-  { element: 'trim overlay', section: 'section-trim-overlay', reveal: 'section-trim-button' },
+  // The bounds are edited on the map under the sheet; the card holds the way in.
+  { element: 'edit bounds', section: 'section-trim-button' },
   { element: 'action row', section: 'section-action-row' },
   { element: 'lift badge', section: 'section-lift-badge' },
   { element: 'disabled banner', section: 'section-disabled-banner' },
@@ -497,17 +498,12 @@ describe('the section page and the route page over one demo route', () => {
     expectSecondary(routePage, 'route-export-gpx');
   });
 
-  it.each(SECTION_ONLY)(
-    'finds the $element on the section page alone',
-    async ({ section, reveal }) => {
-      const sectionPage = await openPage('section');
-      if (reveal) await fireEvent.press(sectionPage.getByTestId(reveal));
-      expect(sectionPage.queryByTestId(section)).not.toBeNull();
-      await sectionPage.unmount();
+  it.each(SECTION_ONLY)('finds the $element on the section page alone', async ({ section }) => {
+    const sectionPage = await openPage('section');
+    expect(sectionPage.queryByTestId(section)).not.toBeNull();
+    await sectionPage.unmount();
 
-      const routePage = await openPage('route');
-      if (reveal) expect(routePage.queryByTestId(reveal)).toBeNull();
-      expect(routePage.queryByTestId(section)).toBeNull();
-    }
-  );
+    const routePage = await openPage('route');
+    expect(routePage.queryByTestId(section)).toBeNull();
+  });
 });

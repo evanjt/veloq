@@ -2428,12 +2428,6 @@ pub mod pooled {
                 conn,
                 &activity_ids,
             ),
-            can_name_from_places: group.is_some()
-                && crate::persistence::geocoded_names::can_name_from_places(
-                    conn,
-                    crate::persistence::geocoded_names::NamedKind::Route,
-                    group_id,
-                ),
             group: group.map(crate::FfiRouteGroup::from),
         }
     }
@@ -3340,12 +3334,6 @@ pub mod pooled {
                 })
                 .collect(),
             pinned_version: pinned_version.map(|v| v as f64),
-            can_name_from_places: section.is_some()
-                && crate::persistence::geocoded_names::can_name_from_places(
-                    conn,
-                    crate::persistence::geocoded_names::NamedKind::Section,
-                    section_id,
-                ),
             section,
         }
     }

@@ -458,8 +458,8 @@ pub(crate) const RECORD_TABLES: &[(&str, &str)] = &[
 
 /// The internal settings a record backup carries: the athlete's choices that
 /// happen to sit behind the `__` prefix. Every other `__` key is this
-/// library's own state, or a consent such as geocoding the athlete gives on
-/// each library, so neither a backup writes it nor a restore places it.
+/// library's own state, so neither a backup writes it nor a restore places
+/// it.
 const RECORD_INTERNAL_SETTINGS: &[&str] = &[
     "__athlete_id",
     "__match_min_match_pct",

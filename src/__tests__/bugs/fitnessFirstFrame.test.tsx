@@ -1,16 +1,16 @@
 /**
- * Scenario: the fitness tab also holds the wellness trends, the weekly
- * summary, the activity calendar and the year comparison.
+ * Scenario: the fitness tab is four pages, and its first page holds the
+ * fitness chart, the wellness trends and the definitions, while the calendar
+ * page holds the week, the activity calendar and the year comparison.
  *
  * Expected behaviour: the first visit paints the range selector and a chart
- * placeholder before mounting chart canvases and lower sections, so the cards
- * it holds leave the first frame as it was; they mount with the sections below
- * the fold, in order under the fitness chart, and their canvases follow one
- * per frame.
+ * placeholder before mounting the chart canvas, the cards below it follow on
+ * the next frame and the wellness canvas on the one after. The calendar page
+ * mounts nothing until it is visited, then paints its cards one per frame.
  */
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { act, render, screen, within } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 
 import FitnessScreen from '@/app/(tabs)/fitness';
 
@@ -79,7 +79,7 @@ jest.mock('@/features/fitness', () => {
     FitnessChartCard: () => <View testID="fitness-chart-canvas" />,
     PerformanceCurveSection: () => <View testID="performance-curves" />,
     FitnessTrendSections: () => <View testID="fitness-trends" />,
-    FitnessDefinitionsCard: View,
+    FitnessDefinitionsCard: () => <View testID="fitness-definitions" />,
     WellnessTrendsCard: ({ drawn }: { drawn: boolean }) => (
       <View testID={drawn ? 'wellness-chart-canvas' : 'wellness-chart-shimmer'} />
     ),
@@ -115,73 +115,103 @@ jest.mock('@/features/fitness', () => {
   };
 });
 
-it('paints the range selector and a chart placeholder before mounting the chart and performance section', async () => {
+function runFrames() {
   const frames: FrameRequestCallback[] = [];
   const request = jest.spyOn(global, 'requestAnimationFrame').mockImplementation((callback) => {
     frames.push(callback);
     return frames.length;
   });
   const cancel = jest.spyOn(global, 'cancelAnimationFrame').mockImplementation(jest.fn());
+  let time = 0;
+  return {
+    /** Runs one frame: every callback asked for before it, at one timestamp. */
+    next: async () => {
+      const pending = frames.splice(0);
+      time += 16;
+      await act(() => pending.forEach((frame) => frame(time)));
+    },
+    restore: () => {
+      request.mockRestore();
+      cancel.mockRestore();
+    },
+  };
+}
 
+it('paints the range selector and a chart placeholder before mounting the chart and the cards under it', async () => {
+  const frames = runFrames();
   try {
     await render(<FitnessScreen />);
-    expect(screen.getByTestId('time-range')).toBeTruthy();
+    const page = within(screen.getByTestId('tab-page-fitness'));
+    expect(page.getByTestId('time-range')).toBeTruthy();
     expect(
-      StyleSheet.flatten(screen.getByTestId('fitness-chart-placeholder').props.style).height
+      StyleSheet.flatten(page.getByTestId('fitness-chart-placeholder').props.style).height
     ).toBe(500);
-    expect(screen.queryByTestId('fitness-chart-canvas')).toBeNull();
-    expect(screen.queryByTestId('performance-curves')).toBeNull();
-    expect(screen.queryByTestId('fitness-trends')).toBeNull();
+    expect(page.queryByTestId('fitness-chart-canvas')).toBeNull();
+    expect(page.queryByTestId('wellness-trends-chart')).toBeNull();
 
-    await act(() => frames.shift()?.(0));
-    expect(screen.queryByTestId('fitness-chart-canvas')).toBeNull();
+    await frames.next();
+    expect(page.queryByTestId('fitness-chart-canvas')).toBeNull();
 
-    await act(() => frames.shift()?.(16));
-    expect(screen.getByTestId('fitness-chart-canvas')).toBeTruthy();
-    expect(screen.queryByTestId('fitness-chart-placeholder')).toBeNull();
-    expect(screen.queryByTestId('performance-curves')).toBeNull();
+    await frames.next();
+    expect(page.getByTestId('fitness-chart-canvas')).toBeTruthy();
+    expect(page.queryByTestId('fitness-chart-placeholder')).toBeNull();
+    expect(page.queryByTestId('wellness-trends-chart')).toBeNull();
 
-    await act(() => frames.shift()?.(32));
-    expect(screen.getByTestId('performance-curves')).toBeTruthy();
-    expect(screen.getByTestId('fitness-trends')).toBeTruthy();
-    expect(screen.getByTestId('wellness-chart-shimmer')).toBeTruthy();
-    expect(screen.getByTestId('activity-heatmap-placeholder')).toBeTruthy();
-    expect(screen.queryByTestId('weekly-summary')).toBeNull();
-    expect(screen.queryByTestId('season-comparison')).toBeNull();
+    await frames.next();
+    expect(page.getByTestId('wellness-chart-shimmer')).toBeTruthy();
+    expect(page.getByTestId('fitness-definitions')).toBeTruthy();
 
-    await act(() => frames.shift()?.(48));
-    expect(screen.getByTestId('wellness-chart-canvas')).toBeTruthy();
-    expect(screen.getByTestId('activity-heatmap-placeholder')).toBeTruthy();
-
-    await act(() => frames.shift()?.(64));
-    expect(screen.getByTestId('activity-heatmap-canvas')).toBeTruthy();
-    expect(screen.queryByTestId('weekly-summary')).toBeNull();
-
-    await act(() => frames.shift()?.(80));
-    expect(screen.getByTestId('weekly-summary')).toBeTruthy();
-    expect(screen.queryByTestId('season-comparison')).toBeNull();
-
-    await act(() => frames.shift()?.(96));
-    expect(screen.getByTestId('season-comparison')).toBeTruthy();
-    expect(frames).toHaveLength(0);
+    await frames.next();
+    expect(page.getByTestId('wellness-chart-canvas')).toBeTruthy();
 
     const order = [
+      'time-range',
       'fitness-chart-canvas',
       'wellness-trends-chart',
-      'weekly-summary',
-      'activity-heatmap-canvas',
-      'season-comparison',
-      'sport-toggle',
-      'performance-curves',
+      'fitness-definitions',
     ];
-    const inScreen = within(screen.getByTestId('fitness-screen'));
-    const ids = inScreen
+    const ids = page
       .UNSAFE_queryAllByProps({})
       .map((node) => node.props.testID as string | undefined)
       .filter((id): id is string => !!id && order.includes(id));
     expect([...new Set(ids)]).toEqual(order);
   } finally {
-    request.mockRestore();
-    cancel.mockRestore();
+    frames.restore();
+  }
+});
+
+it('mounts the calendar page on its first visit and paints its cards one per frame', async () => {
+  const frames = runFrames();
+  try {
+    await render(<FitnessScreen />);
+    for (let i = 0; i < 4; i++) await frames.next();
+    expect(screen.queryByTestId('activity-heatmap-placeholder')).toBeNull();
+    expect(screen.queryByTestId('weekly-summary')).toBeNull();
+
+    await fireEvent.press(screen.getByTestId('tab-calendar'));
+    const page = within(screen.getByTestId('tab-page-calendar'));
+    expect(page.getByTestId('activity-heatmap-placeholder')).toBeTruthy();
+    expect(page.queryByTestId('weekly-summary')).toBeNull();
+    expect(page.queryByTestId('season-comparison')).toBeNull();
+
+    await frames.next();
+    expect(page.getByTestId('weekly-summary')).toBeTruthy();
+    expect(page.getByTestId('activity-heatmap-placeholder')).toBeTruthy();
+
+    await frames.next();
+    expect(page.getByTestId('activity-heatmap-canvas')).toBeTruthy();
+    expect(page.queryByTestId('season-comparison')).toBeNull();
+
+    await frames.next();
+    expect(page.getByTestId('season-comparison')).toBeTruthy();
+
+    const order = ['weekly-summary', 'activity-heatmap-canvas', 'season-comparison'];
+    const ids = page
+      .UNSAFE_queryAllByProps({})
+      .map((node) => node.props.testID as string | undefined)
+      .filter((id): id is string => !!id && order.includes(id));
+    expect([...new Set(ids)]).toEqual(order);
+  } finally {
+    frames.restore();
   }
 });

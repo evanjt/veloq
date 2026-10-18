@@ -761,7 +761,13 @@
     "linkTrainingLoad": "Monitoring Training Load (Science2Sport)",
     "understandingMetrics": "Die Metriken verstehen",
     "rampRate": "Anstieg",
-    "perWeek": "/Woche"
+    "perWeek": "/Woche",
+    "places": {
+      "fitness": "Fitness",
+      "calendar": "Kalender",
+      "performance": "Leistung",
+      "trends": "Trends"
+    }
   },
   "formZones": {
     "transition": "Übergang",
@@ -1565,12 +1571,6 @@
     "noRoutesYet": "Noch keine Routen",
     "noSectionsMatchFilter": "Keine Abschnitte entsprechen dem Filter",
     "noSectionsFor": "Keine Abschnitte für {{filters}}",
-    "placeJourney": "{{start}} nach {{end}}",
-    "placeLoop": "{{place}} Runde",
-    "placeNameButton": "Nach Orten benennen",
-    "placeNameFailedMessage": "Der Ortsname konnte nicht nachgeschlagen werden, der Name bleibt unverändert. Versuche es später erneut.",
-    "placeNameFailedTitle": "Kein Ortsname",
-    "placeNameNoPlaceMessage": "Am Startpunkt wurde kein Ort gefunden, der Name bleibt unverändert.",
     "renameFailedTitle": "Name konnte nicht gespeichert werden",
     "renameFailedMessage": "Der Routenname wurde nicht gespeichert. Versuche es erneut.",
     "referenceFailedTitle": "Referenz nicht gesetzt",
@@ -1987,14 +1987,6 @@
     "mapCache": "Kartencache",
     "sizeAtLeast": "Mindestens {{size}}",
     "permissions": "Berechtigungen",
-    "placeNames": {
-      "title": "Ortsnamen",
-      "attribution": "Ortsnamen © OpenStreetMap-Mitwirkende",
-      "noticeTitle": "Ortsnamen verwenden?",
-      "noticeBody": "Wird eine neue Route oder ein neuer Abschnitt gefunden oder bittest du darum, eine Route oder einen Abschnitt zu benennen, werden dessen Start- und Endpunkt an den Nominatim-Dienst von OpenStreetMap gesendet, um einen Ortsnamen nachzuschlagen. Andere Routen und Abschnitte werden nicht gesendet, und nichts über dich. Es gelten die Nutzungsbedingungen des Dienstes.",
-      "readPolicy": "Nutzungsbedingungen",
-      "accept": "Zustimmen"
-    },
     "heatmapGeneration": "Heatmap",
     "heatmapDescription": "Nutzt Gerätespeicher. Deaktivieren, um Platz zu sparen.",
     "heatmapStorageUsed": "Nutzt {{size}} Gerätespeicher",

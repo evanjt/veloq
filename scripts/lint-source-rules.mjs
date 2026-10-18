@@ -658,9 +658,6 @@ const DYNAMIC_KEYS = [
   'settings.terrain3DAlways',
 ];
 
-// The engine's one geocoder, the only file that may name a geocoding host.
-const ENGINE_GEOCODER = 'modules/veloqrs/rust/veloqrs/src/net/geocode.rs';
-
 const GEOCODING_HOSTS =
   /nominatim\.openstreetmap\.org|photon\.komoot\.(?:io|de)|geocode\.maps\.co|api\.opencagedata\.com|maps\.googleapis\.com\/maps\/api\/geocode|api\.mapbox\.com\/geocoding|geocoding-api\.open-meteo\.com/;
 
@@ -1776,13 +1773,12 @@ const RULES = {
     fix: 'set accessibilityIgnoresInvertColors on the WebView or Image, or on the View around it',
   },
 
-  // A point leaves the device for a place name only through the engine's one
-  // geocoder, which is off until the athlete turns it on, paces its requests
-  // and keeps every answer. So a geocoding host may be named in that file and
-  // nowhere else, and this holds the three ways a second geocoder comes back:
-  // the platform geocoder, a geocoding host named in TypeScript or another
-  // engine file, and a TypeScript module of that name. It matches the host and
-  // not the word, so a comment naming a geocoder's policy page stays legal.
+  // No point leaves the device for a place name: a route or section shows the
+  // name the athlete typed, else its number. This holds the three ways a
+  // geocoder comes back: the platform geocoder, a geocoding host named in
+  // TypeScript or in any engine file, and a TypeScript module of that name. It
+  // matches the host and not the word, so a comment naming a geocoder's policy
+  // page stays legal.
   'no-geocoding': {
     pathspec: ['src', 'modules/veloqrs/rust/veloqrs/src'],
     check(sources) {
@@ -1797,13 +1793,12 @@ const RULES = {
           out.push(`${file}  is a geocoding module`);
         if (!/\.(?:tsx?|rs)$/.test(file)) continue;
         for (const pattern of GEOCODING_PATTERNS) {
-          if (file === ENGINE_GEOCODER && pattern === GEOCODING_HOSTS) continue;
           out.push(...linesMatching(file, text, pattern));
         }
       }
       return out;
     },
-    fix: 'ask the engine geocoder in net/geocode.rs, which holds the switch, the pace and the kept answers',
+    fix: 'show the typed name or the numbered label; no coordinates are sent for a place name',
   },
 
   // Every key in the reference locale is reached, by its full dotted path in

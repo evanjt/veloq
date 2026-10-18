@@ -11,7 +11,7 @@ import { configure, render, screen } from '@testing-library/react-native';
 
 import { ActivityCard } from '@/features/activity/components/ActivityCard';
 import type { ActivityNewGround } from '@/features/activity/hooks/useActivitySectionHighlights';
-import type { Activity } from '@/types';
+import type { FeedCard } from '@/types';
 
 // The card's figures are drawn for the eye and hidden from a screen reader,
 // which hears them in the card's label, so queries reach hidden elements.
@@ -53,13 +53,13 @@ jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysWithVa
 const activity = {
   id: 'a1',
   name: 'Lakeside loop',
-  type: 'Ride',
-  start_date_local: '2026-08-12T07:30:00',
+  sportType: 'Ride',
+  startDateLocal: '2026-08-12T07:30:00',
   distance: 42000,
-  moving_time: 5400,
-  total_elevation_gain: 400,
-  stream_types: ['latlng'],
-} as Activity;
+  movingTime: 5400,
+  elevationGain: 400,
+  hasGps: true,
+} as FeedCard;
 
 const ground = (badge: ActivityNewGround['badge'], newTiles: number): ActivityNewGround => ({
   fraction: newTiles / 10,

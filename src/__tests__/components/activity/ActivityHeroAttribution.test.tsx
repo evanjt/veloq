@@ -13,6 +13,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import { ActivityHeader } from '@/features/activity/components/ActivityHeader';
 import type { ActivityRecord } from 'veloqrs';
+import { activityRecord } from '../../__shared__/activityRecord';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
@@ -41,14 +42,14 @@ jest.mock('@/features/maps/components/ActivityMapView', () => {
 
 const activity = (overrides: Partial<ActivityRecord> = {}): ActivityRecord =>
   ({
-    id: 'a1',
-    name: 'Lausanne half marathon',
-    type: 'Run',
-    start_date_local: '2026-08-12T07:30:00',
-    distance: 21097,
-    moving_time: 17209,
-    total_elevation_gain: 1047,
-    polyline: null,
+    ...activityRecord({
+      name: 'Lausanne half marathon',
+      sportType: 'Run',
+      startDateLocal: '2026-08-12T07:30:00',
+      distance: 21097,
+      movingTime: 17209,
+      elevationGain: 1047,
+    }),
     ...overrides,
   }) as ActivityRecord;
 

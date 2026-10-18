@@ -73,6 +73,14 @@ describe('the pager and the accessibility tree', () => {
     expect(screen.queryByText('catching drips', { includeHiddenElements: true })).toBeNull();
   });
 
+  it('mounts only the page a lazy pager opens on, not the first page as well', () => {
+    render(pager('saucer', true));
+
+    expect(screen.getByText('catching drips', visible)).toBeTruthy();
+    expect(screen.queryByText('boiling water', { includeHiddenElements: true })).toBeNull();
+    expect(screen.queryByText('steeping leaves', { includeHiddenElements: true })).toBeNull();
+  });
+
   it('leaves the tab strip itself in the tree', () => {
     render(pager('teapot'));
 

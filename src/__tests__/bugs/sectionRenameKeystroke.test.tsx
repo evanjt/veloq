@@ -13,7 +13,6 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import { SectionHeader } from '@/features/routes/components/section/SectionHeader';
 import { useSectionActions } from '@/features/routes/hooks/useSectionActions';
-import { createMapHighlightStore } from '@/features/routes/lib/mapHighlight';
 import { SectionRenameError } from '@/features/routes/lib/sectionRenameFailure';
 import type { FrequentSection } from '@/types';
 
@@ -52,7 +51,6 @@ const section: FrequentSection = {
   createdAt: '2026-01-01T00:00:00Z',
 };
 const noExclusions: string[] = [];
-const highlight = createMapHighlightStore();
 
 const rootRendered = jest.fn();
 
@@ -72,13 +70,7 @@ function Root({ currentSection = section }: { currentSection?: FrequentSection }
       section={currentSection}
       activityColor="#000000"
       iconName="bike"
-      mapReady={true}
-      isTrimming={false}
-      isExpandMode={false}
-      trimStart={0}
-      trimEnd={1}
       customName={actions.customName}
-      highlight={highlight}
       onSaveName={actions.handleSaveName}
     />
   );

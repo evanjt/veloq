@@ -25,7 +25,6 @@ import { isValidVerifier, newOpaqueToken, verifierMatches } from "./pkce";
 import { buildPushMessages, pushDataFor } from "./pushMessages";
 
 interface Env {
-  GEOCODER_ENDPOINT?: string;
   INTERVALS_CLIENT_ID: string;
   INTERVALS_CLIENT_SECRET: string;
   OAUTH_STATES: KVNamespace;
@@ -137,18 +136,16 @@ export default {
         return new Response("OK", { status: 200 });
       }
 
+      // Builds that named routes and sections from their places ask here for
+      // the geocoder to use. The answer is a stop, so they send nothing.
       if (path === "/geocoder" && request.method === "GET") {
-        const endpoint = env.GEOCODER_ENDPOINT;
-        return new Response(
-          JSON.stringify({ endpoint: endpoint && endpoint !== "stop" ? endpoint : null }),
-          {
-            status: 200,
-            headers: {
-              "Content-Type": "application/json",
-              "Cache-Control": "public, max-age=86400",
-            },
-          }
-        );
+        return new Response(JSON.stringify({ endpoint: null }), {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "public, max-age=86400",
+          },
+        });
       }
 
       // Register OAuth state (app calls this before starting OAuth flow)

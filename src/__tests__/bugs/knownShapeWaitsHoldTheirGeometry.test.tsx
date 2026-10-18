@@ -1,5 +1,5 @@
 /**
- * Scenario: a first load of content whose shape is known (the section hero
+ * Scenario: a first load of content whose shape is known (the section's
  * map, a list of bests, the weekly stats grid, the strength body diagram) drew
  * a spinner in a box sized by its padding, so the content pushed everything
  * below it down when it arrived.
@@ -13,8 +13,7 @@ import { ActivityIndicator } from 'react-native';
 import { render, screen, within } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-import { SectionHeader } from '@/features/routes/components/section/SectionHeader';
-import { createMapHighlightStore } from '@/features/routes/lib/mapHighlight';
+import { SectionDetailMap } from '@/features/routes/components/SectionDetailMap';
 import { SeasonBestsSection } from '@/features/fitness/components/SeasonBestsSection';
 import { WeeklySummary } from '@/features/stats/components/WeeklySummary';
 import { StrengthTab } from '@/features/insights/components/StrengthTab';
@@ -30,6 +29,10 @@ jest.mock('@/features/routes/components/SectionMapView', () => ({
   SectionMapView: () => null,
 }));
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn(() => null) }));
+// The map waits on the host route's push, which this suite has no navigator to make.
+jest.mock('@/shared/async/useAfterNavigationTransition', () => ({
+  useAfterNavigationTransition: () => undefined,
+}));
 jest.mock('@/features/strength/hooks/useStrengthScreenData', () => ({
   ...jest.requireActual('@/features/strength/hooks/useStrengthScreenData'),
   useStrengthScreenData: () => ({
@@ -80,28 +83,12 @@ function expectNoSpinner() {
   expect(screen.UNSAFE_queryAllByType(ActivityIndicator)).toHaveLength(0);
 }
 
-describe('the section hero before its map mounts', () => {
-  it('shimmers at the map height rather than spinning', async () => {
-    await render(
-      <SectionHeader
-        section={SECTION}
-        mapHeight={320}
-        activityColor="#000000"
-        iconName="bike"
-        activityCount={8}
-        mapReady={false}
-        isTrimming={false}
-        isExpandMode={false}
-        trimStart={0}
-        trimEnd={1}
-        customName={null}
-        highlight={createMapHighlightStore()}
-        onSaveName={jest.fn()}
-      />
-    );
+describe('the section map before it mounts', () => {
+  it('shimmers over the whole window rather than spinning', async () => {
+    await render(withQueries(<SectionDetailMap sectionId={SECTION.id} />));
 
-    const hero = screen.getByTestId('section-hero-skeleton');
-    expect(hero).toHaveStyle({ height: 320 });
+    const skeleton = screen.getByTestId('section-map-skeleton');
+    expect(skeleton).toHaveStyle({ flex: 1 });
     expectNoSpinner();
   });
 });

@@ -9,7 +9,7 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
 import { ActivityMapPreview } from '@/features/activity/components/ActivityMapPreview';
-import type { Activity } from '@/types';
+import type { FeedCard } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
@@ -56,10 +56,9 @@ jest.mock('@/features/activity/hooks/useMapPreviewCoordinates', () => ({
 
 const activity = {
   id: 'demo-1',
-  type: 'Ride',
-  country: 'Switzerland',
-  stream_types: ['latlng'],
-} as unknown as Activity;
+  sportType: 'Ride',
+  hasGps: true,
+} as FeedCard;
 
 async function renderCard(index = 0) {
   const requestSnapshot = jest.fn();

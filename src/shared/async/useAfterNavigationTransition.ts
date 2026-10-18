@@ -8,11 +8,17 @@ type TransitionNavigation = {
     name: 'transitionStart' | 'transitionEnd',
     listener: (event: TransitionEvent) => void
   ) => () => void;
+  getParent?: () => TransitionNavigation | undefined;
 };
 
-/** Runs a screen task after its opening transition, or after a settled mount. */
-export function useAfterNavigationTransition(task: () => void): void {
-  const navigation = useNavigation<TransitionNavigation>();
+/**
+ * Runs a screen task after its opening transition, or after a settled mount. A screen nested in
+ * a route that owns a stack of its own opens with that route's push, so it passes
+ * `fromParentRoute` and waits on the parent's transition rather than its own.
+ */
+export function useAfterNavigationTransition(task: () => void, fromParentRoute = false): void {
+  const own = useNavigation<TransitionNavigation>();
+  const navigation = (fromParentRoute ? own.getParent?.() : undefined) ?? own;
 
   useEffect(() => {
     let finished = false;

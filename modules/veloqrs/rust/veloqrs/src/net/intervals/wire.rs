@@ -21,9 +21,9 @@ pub struct ActivityRecord {
     pub activity_type: Option<String>,
     #[serde(default)]
     pub start_date_local: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "whole_seconds")]
     pub moving_time: Option<i64>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "whole_seconds")]
     pub elapsed_time: Option<i64>,
     #[serde(default)]
     pub distance: Option<f64>,
@@ -68,6 +68,10 @@ pub struct ActivityRecord {
     pub average_weather_temp: Option<f64>,
     #[serde(default)]
     pub stream_types: Option<Vec<String>>,
+    /// The elevation skyline the feed card draws, base64 as intervals.icu
+    /// sends it.
+    #[serde(default)]
+    pub skyline_chart_bytes: Option<String>,
     #[serde(default)]
     pub description: Option<String>,
     #[serde(default)]
@@ -173,6 +177,16 @@ where
 {
     let value = serde_json::Value::deserialize(d)?;
     Ok(serde_json::from_value(value).ok())
+}
+
+/// Read a duration in seconds that may arrive with a fraction. A recording
+/// saved on the device stores its measured duration, and refusing the float
+/// would drop the whole activity rather than round a second.
+fn whole_seconds<'de, D>(d: D) -> Result<Option<i64>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Ok(Option::<f64>::deserialize(d)?.map(|secs| secs.round() as i64))
 }
 
 /// The base field list the activities request asks for. Every name is a field

@@ -8,7 +8,6 @@
  */
 
 import type { DelegateHost } from './host';
-import { FfiPlaceNameKind, FfiPlaceNameOutcome } from '../generated/veloqrs';
 import type {
   AthleteProfile,
   SettingPair,
@@ -147,44 +146,6 @@ export function setSetting(host: DelegateHost, key: string, value: string): void
       // Settings write failed - non-critical
     }
   });
-}
-
-/** Whether the athlete has agreed to place names. False before the engine opens. */
-export function getGeocodingEnabled(host: DelegateHost): boolean {
-  if (!host.ready) return false;
-  return host.timed('getGeocodingEnabled', () => host.engine.settings().geocodingEnabled());
-}
-
-export function setGeocodingEnabled(host: DelegateHost, enabled: boolean): void {
-  host.write('setGeocodingEnabled', () => {
-    try {
-      host.engine.settings().setGeocodingEnabled(enabled);
-    } catch (e) {
-      console.error('[Engine] setGeocodingEnabled failed:', e);
-    }
-  });
-}
-
-/**
- * Name one route or section from the places it starts and ends in, because
- * the athlete asked for it. Resolves once the lookup has had its turn, and a
- * name kept is announced so the detail read shows it.
- */
-export function nameFromPlaces(
-  host: DelegateHost,
-  kind: FfiPlaceNameKind,
-  itemId: string
-): Promise<FfiPlaceNameOutcome> {
-  if (!host.ready) return Promise.resolve(FfiPlaceNameOutcome.Failed);
-  return host.engine
-    .settings()
-    .nameFromPlaces(kind, itemId)
-    .then((outcome) => {
-      if (outcome === FfiPlaceNameOutcome.Named) {
-        host.notify(kind === FfiPlaceNameKind.Route ? 'groups' : 'sections');
-      }
-      return outcome;
-    });
 }
 
 /**

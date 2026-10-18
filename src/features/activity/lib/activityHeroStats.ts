@@ -19,9 +19,9 @@ export function activityHeroStats(
   const stats = cardPrimaryStats(
     {
       distance: activity.distance,
-      moving_time: activity.movingTime,
-      total_elevation_gain: activity.elevationGain,
-      stream_types: activity.streamTypes,
+      movingTime: activity.movingTime,
+      elevationGain: activity.elevationGain,
+      hasAltitude: activity.streamTypes.includes('altitude'),
     },
     isMetric
   );

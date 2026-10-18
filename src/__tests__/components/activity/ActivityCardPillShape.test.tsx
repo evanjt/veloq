@@ -18,7 +18,7 @@ import { ActivityCard } from '@/features/activity/components/ActivityCard';
 import { useOpaqueChromeStore } from '@/shared/app/ThemeProvider';
 import { initialiseI18n } from '@/i18n';
 import { badgePaint } from '@/shared/ui/Badge';
-import type { Activity } from '@/types';
+import type { FeedCard } from '@/types';
 
 // The card's drawn text is hidden from assistive technology, which reads the
 // card's own label instead, and these cases check what is drawn.
@@ -69,13 +69,13 @@ jest.mock('react-native/Libraries/Utilities/useColorScheme', () => ({
 const activity = {
   id: 'a1',
   name: 'Lakeside loop',
-  type: 'Run',
-  start_date_local: '2026-08-12T07:30:00',
+  sportType: 'Run',
+  startDateLocal: '2026-08-12T07:30:00',
   distance: 21097,
-  moving_time: 17209,
-  total_elevation_gain: 1047,
-  stream_types: ['latlng'],
-} as Activity;
+  movingTime: 17209,
+  elevationGain: 1047,
+  hasGps: true,
+} as FeedCard;
 
 const flat = (id: string) => StyleSheet.flatten(screen.getByTestId(id).props.style);
 

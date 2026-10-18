@@ -34,6 +34,7 @@ import { useBackDismiss } from '@/shared/app/useBackDismiss';
 import { TextField, type TextFieldHandle } from './TextField';
 import { useHeroHeaderBottom } from './useHeroHeaderBottom';
 import { NameText } from './NameText';
+import { useTheme } from '@/shared/app/useTheme';
 
 type MaterialIconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -62,6 +63,21 @@ export const heroTextStyles = StyleSheet.create({
     ...mapTextShadow,
   },
 });
+
+function surfaceText(palette: typeof colors | typeof darkColors) {
+  return StyleSheet.create({
+    name: { ...typography.statsValue, color: palette.textPrimary },
+    stat: { ...typography.bodyCompactBold, color: palette.textPrimary },
+    statDivider: {
+      ...typography.bodyCompact,
+      color: palette.textSecondary,
+      marginHorizontal: spacing.xsPlus,
+    },
+  });
+}
+
+const surfaceTextStyles = surfaceText(colors);
+const surfaceTextStylesDark = surfaceText(darkColors);
 
 /** How far below the header the top scrim takes to fade out. */
 const TOP_SCRIM_FADE = spacing.xl;
@@ -176,10 +192,40 @@ export interface HeroNameRowProps {
   };
   /** A control drawn beside the name while it is not being edited. */
   accessory?: React.ReactNode;
+  /** Drawn on a sheet's surface in the theme's text, rather than over the map in white. */
+  onSurface?: boolean;
 }
 
-export function HeroNameRow({ name, nameTestID, icon, editable, accessory }: HeroNameRowProps) {
+/** The text styles of a name or stats row: over the map, or on a sheet's surface in the theme. */
+function useRowText(onSurface: boolean) {
+  const { isDark } = useTheme();
+  if (!onSurface) {
+    return {
+      text: {
+        name: heroTextStyles.name,
+        stat: heroTextStyles.stat,
+        statDivider: heroTextStyles.statDivider,
+      },
+      pencil: colorWithOpacity(colors.textOnFill, 0.6),
+    };
+  }
+  const palette = isDark ? darkColors : colors;
+  return {
+    text: isDark ? surfaceTextStylesDark : surfaceTextStyles,
+    pencil: palette.textSecondary,
+  };
+}
+
+export function HeroNameRow({
+  name,
+  nameTestID,
+  icon,
+  editable,
+  accessory,
+  onSurface = false,
+}: HeroNameRowProps) {
   const { t } = useTranslation();
+  const { text, pencil } = useRowText(onSurface);
   // Back cancels the rename, as the cross does, rather than leaving the screen with the name half typed.
   useBackDismiss(!!editable?.isEditing, editable?.onCancel ?? noop);
 
@@ -196,7 +242,7 @@ export function HeroNameRow({ name, nameTestID, icon, editable, accessory }: Her
             testID={`${editable.testIDPrefix}-rename-input`}
             ref={editable.inputRef}
             label={editable.label}
-            onDarkGround
+            onDarkGround={!onSurface}
             style={styles.editNameField}
             value={editable.editName}
             error={editable.error}
@@ -240,21 +286,16 @@ export function HeroNameRow({ name, nameTestID, icon, editable, accessory }: Her
           onPress={editable.onStartEdit}
           style={styles.nameEditTouchable}
         >
-          <NameText testID={nameTestID} style={[heroTextStyles.name, styles.heroName]}>
+          <NameText testID={nameTestID} style={[text.name, styles.heroName]}>
             {name}
           </NameText>
-          <Icon
-            name="pencil"
-            size={iconSize.sm}
-            color={colorWithOpacity(colors.textOnFill, 0.6)}
-            style={styles.editIcon}
-          />
+          <Icon name="pencil" size={iconSize.sm} color={pencil} style={styles.editIcon} />
         </PressTarget>
       ) : (
         <NameText
           testID={nameTestID}
           accessibilityRole="header"
-          style={[heroTextStyles.name, styles.heroName]}
+          style={[text.name, styles.heroName]}
         >
           {name}
         </NameText>
@@ -277,13 +318,22 @@ export interface HeroStatsRowProps {
   testID?: string;
   statTestIDs?: (string | undefined)[];
   style?: StyleProp<ViewStyle>;
+  /** Drawn on a sheet's surface in the theme's text, rather than over the map in white. */
+  onSurface?: boolean;
 }
 
 /**
  * A hero's stat strip, read as one element whose label names each value. The dividers are drawn
  * for the eye and kept out of the accessibility tree.
  */
-export function HeroStatsRow({ stats, testID, statTestIDs, style }: HeroStatsRowProps) {
+export function HeroStatsRow({
+  stats,
+  testID,
+  statTestIDs,
+  style,
+  onSurface = false,
+}: HeroStatsRowProps) {
+  const { text } = useRowText(onSurface);
   const visible = stats
     .map((stat, index) => (stat ? { ...stat, testID: statTestIDs?.[index] } : null))
     .filter((entry) => entry != null);
@@ -300,14 +350,14 @@ export function HeroStatsRow({ stats, testID, statTestIDs, style }: HeroStatsRow
         <React.Fragment key={index}>
           {index > 0 && (
             <Text
-              style={heroTextStyles.statDivider}
+              style={text.statDivider}
               accessibilityElementsHidden
               importantForAccessibility="no-hide-descendants"
             >
               ·
             </Text>
           )}
-          <Text testID={entry.testID} style={heroTextStyles.stat}>
+          <Text testID={entry.testID} style={text.stat}>
             {entry.text}
           </Text>
         </React.Fragment>

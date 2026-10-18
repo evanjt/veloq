@@ -245,13 +245,17 @@ pub(crate) struct RankedSection {
 impl RankPlan {
     /// Compute the pooled and within-sport scores from the stored passes,
     /// tracks and dates on `conn`. A section loaded without a profile (a row
-    /// older than the columns) gets one here from its own line. Effort per
+    /// older than the columns) gets one here from its own line, keeping its
+    /// stored lift flag, which only the detector decides. Effort per
     /// pass is the pass's average heart rate as a percentile of the athlete's
     /// own activities in that sport; a pass without one sits at neutral.
     pub(crate) fn compute(mut self, conn: &rusqlite::Connection) -> SqlResult<Vec<RankedSection>> {
         for s in self.sections.iter_mut() {
             if s.enrichment == Enrichment::default() && s.polyline.len() >= 2 {
-                s.enrichment = tracematch::enrich(&s.polyline, s.distance_meters);
+                s.enrichment = Enrichment {
+                    is_lift: s.enrichment.is_lift,
+                    ..tracematch::enrich(&s.polyline, s.distance_meters)
+                };
             }
         }
 

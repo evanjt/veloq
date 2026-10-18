@@ -1,6 +1,15 @@
+import type { FeedCard as EngineFeedCard } from 'veloqrs';
 import type { ActivityType } from '@/shared/native/sportTaxonomy.generated';
 
 export type { ActivityType };
+
+/**
+ * One feed card as the engine types it from the stored body. The sport is the
+ * body's own string, read as the taxonomy the screens key on.
+ */
+export type FeedCard = Omit<EngineFeedCard, 'sportType'> & {
+  sportType?: ActivityType | undefined;
+};
 
 export interface Activity {
   id: string;
@@ -48,12 +57,6 @@ export interface Activity {
   average_weather_humidity?: number | undefined; // Humidity percentage
   // Skyline chart - compact protobuf encoding of interval zones/durations
   skyline_chart_bytes?: string | undefined;
-  /**
-   * Not from intervals.icu: the id a web link to intervals.icu may name, as the
-   * engine's feed read answers it. Null for a demo row and for a recording no
-   * server has named, absent on a body not read through the feed.
-   */
-  intervalsWebId?: string | null | undefined;
 }
 
 // Processed streams in a usable format

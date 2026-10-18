@@ -442,6 +442,11 @@ interface NativeModuleInterface {
     minRouteActivities: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_activitymanager_get_feed_cards(
+    uniffiSelf: bigint,
+    query: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_activitymanager_get_gps_fetch_candidates(
     uniffiSelf: bigint,
     oldest: Uint8Array,
@@ -1393,10 +1398,6 @@ interface NativeModuleInterface {
     radiusM: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_method_settingsmanager_geocoding_enabled(
-    uniffiSelf: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): number;
   ubrn_uniffi_veloqrs_fn_method_settingsmanager_get_athlete_profile(
     uniffiSelf: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -1412,19 +1413,9 @@ interface NativeModuleInterface {
     bpm: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_method_settingsmanager_name_from_places(
-    uniffiSelf: bigint,
-    kind: Uint8Array,
-    itemId: Uint8Array,
-  ): bigint;
   ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_athlete_profile(
     uniffiSelf: bigint,
     json: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): void;
-  ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_geocoding_enabled(
-    uniffiSelf: bigint,
-    enabled: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
   ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_notification_templates(
@@ -1814,6 +1805,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_activity_streams(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_count(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_detail_data(): number;
+  ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_feed_cards(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_gps_fetch_candidates(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_gps_track(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_highlights_bundle(): number;
@@ -1999,13 +1991,10 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_delete_setting(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_engine_install(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_export_privacy_preview(): number;
-  ubrn_uniffi_veloqrs_checksum_method_settingsmanager_geocoding_enabled(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_athlete_profile(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_setting(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_hr_zone_for(): number;
-  ubrn_uniffi_veloqrs_checksum_method_settingsmanager_name_from_places(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_athlete_profile(): number;
-  ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_geocoding_enabled(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_notification_templates(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_setting(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_settings(): number;

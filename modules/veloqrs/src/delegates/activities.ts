@@ -19,6 +19,8 @@ import type {
   FfiActivityStreams,
   FfiActivityBodiesPage,
   FfiActivityBodiesQuery,
+  FfiFeedCard,
+  FfiFeedCardsPage,
   FfiPreviewTrack,
   FfiStrengthCardSummary,
 } from '../generated/veloqrs';
@@ -281,9 +283,8 @@ export function getActivityRecord(
  * with the intervals.icu id a web link may name beside each. Undefined when
  * the engine is not ready.
  *
- * The feed and detail screens read fields no Rust type models (calories,
- * weather, stream_types), so they parse these rather than a
- * reconstruction from `activity_metrics`.
+ * The window readers outside the feed still parse these. The feed reads the
+ * typed cards below.
  */
 export function getActivityBodies(
   host: DelegateHost,
@@ -291,41 +292,50 @@ export function getActivityBodies(
   newestTs: number
 ): FfiActivityBodiesPage | undefined {
   if (!host.ready) return undefined;
-  return readActivityBodies(host, 'getActivityBodies', {
-    oldestTs,
-    newestTs,
-    needle: '',
-    sportFamilies: [],
-    offset: 0,
-  });
+  return host.timed('getActivityBodies', () =>
+    host.engine.activities().getActivityBodies(windowQuery(oldestTs, newestTs))
+  );
+}
+
+/**
+ * Every activity in an inclusive timestamp window as a feed card, newest
+ * first, typed by the engine from the stored body. Empty when the engine is
+ * not ready.
+ */
+export function getFeedCards(
+  host: DelegateHost,
+  oldestTs: number,
+  newestTs: number
+): FfiFeedCard[] {
+  if (!host.ready) return [];
+  return host.timed(
+    'getFeedCards',
+    () => host.engine.activities().getFeedCards(windowQuery(oldestTs, newestTs)).cards
+  );
+}
+
+function windowQuery(oldestTs: number, newestTs: number): FfiActivityBodiesQuery {
+  return { oldestTs, newestTs, needle: '', sportFamilies: [], offset: 0 };
 }
 
 /** A feed search: the text and the chip, paged, over every stored activity. */
-export type ActivityBodiesSearch = Pick<
+export type FeedCardsSearch = Pick<
   FfiActivityBodiesQuery,
   'needle' | 'sportFamilies' | 'offset' | 'limit' | 'oldestTs' | 'newestTs'
 >;
 
 /**
- * The feed's search and sport family chips over every stored activity, newest first,
- * with the count of everything matched. The same engine read as the windowed
- * feed with no window, so a search reaches activities no loaded window holds.
- * Undefined when the engine is not ready.
+ * The feed's search and sport family chips over every stored activity as
+ * cards, newest first, with the count of everything matched. The same engine
+ * read as the windowed feed with no window, so a search reaches activities no
+ * loaded window holds. Undefined when the engine is not ready.
  */
-export function searchActivityBodies(
+export function searchFeedCards(
   host: DelegateHost,
-  query: ActivityBodiesSearch
-): FfiActivityBodiesPage | undefined {
+  query: FeedCardsSearch
+): FfiFeedCardsPage | undefined {
   if (!host.ready) return undefined;
-  return readActivityBodies(host, 'searchActivityBodies', query);
-}
-
-function readActivityBodies(
-  host: DelegateHost,
-  label: string,
-  query: FfiActivityBodiesQuery
-): FfiActivityBodiesPage | undefined {
-  return host.timed(label, () => host.engine.activities().getActivityBodies(query));
+  return host.timed('searchFeedCards', () => host.engine.activities().getFeedCards(query));
 }
 
 /** One activity's display name, as the engine knows it. */

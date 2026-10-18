@@ -1,7 +1,7 @@
 /**
  * Scenario: merging two sections navigates to the survivor with
- * `router.replace('/section/<id>')` in `app/section/[id].tsx`. The route
- * pattern does not change, so the screen is not remounted: the same
+ * `router.replace('/section/<id>')` from the section's screen. Where the route
+ * pattern does not change the screen is not remounted, and the same
  * `useSectionActions` instance is handed a different `id` and a different
  * section. Its name sync only wrote `customName` when the new section had a
  * name, so a survivor the detector never named kept the name of the section

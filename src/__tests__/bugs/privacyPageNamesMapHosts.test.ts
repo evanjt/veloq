@@ -1,8 +1,8 @@
 /**
  * Scenario: the privacy page and the About credit name the services that receive tile requests.
- * Expected behaviour: every https host the map styles request from, and the geocoder's default host, appears on the page, the page
- * names no provider the app never calls, and the credit repeats neither a dropped provider nor
- * omits the hosts' names.
+ * Expected behaviour: every https host the map styles request from appears on the page, the page
+ * names no provider the app never calls, no geocoder among them, and the credit repeats neither a
+ * dropped provider nor omits the hosts' names.
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -24,14 +24,6 @@ function tileHosts(): string[] {
   return [...hosts].sort();
 }
 
-function geocoderHost(): string {
-  const m = read('modules/veloqrs/rust/veloqrs/src/net/geocode.rs').match(
-    /NOMINATIM_ENDPOINT: &str = "https:\/\/([a-z0-9.-]+)"/
-  );
-  if (!m) throw new Error('the geocoder module declares no default endpoint');
-  return m[1];
-}
-
 const page = read('docs/privacy/index.html');
 const locales = fs
   .readdirSync(path.join(root, 'src/i18n/locales'))
@@ -50,21 +42,9 @@ describe('map tile hosts are disclosed', () => {
     expect(page).not.toMatch(/\b(carto|stadia)\b/i);
   });
 
-  it('privacy page names the geocoder host and the provider', () => {
-    expect(page).toContain(geocoderHost());
-    expect(page).toMatch(/Nominatim/);
-  });
-
-  it('every geocoder and worker endpoint line is translated in all three languages', () => {
-    const keys = [
-      ...page.matchAll(
-        /data-i18n="(thirdParty\.geocoder\.[a-z0-9]+|thirdParty\.cloudflare\.item6)"/g
-      ),
-    ].map((m) => m[1]);
-    expect(keys.length).toBe(5);
-    for (const key of keys) {
-      expect(page.split(`"${key}":`).length - 1).toBe(3);
-    }
+  it('privacy page names no geocoder, in any language', () => {
+    expect(page).not.toMatch(/nominatim|geocod|géocod/i);
+    expect(page).not.toMatch(/thirdParty\.geocoder\./);
   });
 
   it('every map list item is translated in all three languages', () => {

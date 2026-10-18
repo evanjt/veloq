@@ -93,7 +93,7 @@ jest.mock('@/features/activity/components', () => ({ ActivityCard: () => null })
 async function renderFeedDuringFirstSync() {
   (getEngine as jest.Mock).mockReturnValue({
     getActivityHighlightsBundle: () => ({ indicators: [], routeHighlights: [], newGround: [] }),
-    searchActivityBodies: () => ({ bodies: [], matchedCount: 0, hasMore: false }),
+    searchFeedCards: () => ({ cards: [], matchedCount: 0, hasMore: false }),
     getSyncStatus: () => ({
       state: SyncState.Syncing,
       inFlight: 1,

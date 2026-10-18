@@ -817,7 +817,13 @@
     "linkTrainingLoad": "Monitoring Training Load (Science2Sport)",
     "understandingMetrics": "Zrozumienie metryk",
     "rampRate": "Tempo",
-    "perWeek": "/tydz."
+    "perWeek": "/tydz.",
+    "places": {
+      "fitness": "Kondycja",
+      "calendar": "Kalendarz",
+      "performance": "Wydajność",
+      "trends": "Trendy"
+    }
   },
   "formZones": {
     "transition": "Przejściowa",
@@ -1653,12 +1659,6 @@
     "noRoutesYet": "Brak tras",
     "noSectionsMatchFilter": "Brak odcinków pasujących do filtra",
     "noSectionsFor": "Brak odcinków dla: {{filters}}",
-    "placeJourney": "{{start}} - {{end}}",
-    "placeLoop": "Pętla {{place}}",
-    "placeNameButton": "Nazwij według miejsc",
-    "placeNameFailedMessage": "Nie udało się wyszukać nazwy miejsca, więc nazwa pozostaje bez zmian. Spróbuj ponownie później.",
-    "placeNameFailedTitle": "Brak nazwy miejsca",
-    "placeNameNoPlaceMessage": "W punkcie początkowym nie znaleziono żadnego miejsca, więc nazwa pozostaje bez zmian.",
     "renameFailedTitle": "Nie udało się zapisać nazwy",
     "renameFailedMessage": "Nazwa trasy nie została zapisana. Spróbuj ponownie.",
     "referenceFailedTitle": "Nie ustawiono odniesienia",
@@ -2135,14 +2135,6 @@
     "mapCache": "Pamięć podręczna map",
     "sizeAtLeast": "Co najmniej {{size}}",
     "permissions": "Uprawnienia",
-    "placeNames": {
-      "title": "Nazwy miejsc",
-      "attribution": "Nazwy miejsc © współtwórcy OpenStreetMap",
-      "noticeTitle": "Używać nazw miejsc?",
-      "noticeBody": "Gdy zostanie znaleziona nowa trasa lub nowy odcinek albo gdy poprosisz o nadanie nazwy, jego punkt początkowy i końcowy są wysyłane do usługi Nominatim OpenStreetMap, aby wyszukać nazwę miejsca. Nie są wysyłane żadne inne trasy ani odcinki ani nic o Tobie. Obowiązuje polityka użytkowania usługi.",
-      "readPolicy": "Polityka użytkowania",
-      "accept": "Zaakceptuj"
-    },
     "heatmapGeneration": "Mapa ciepła",
     "heatmapDescription": "Używa pamięci urządzenia. Wyłącz, aby zaoszczędzić miejsce.",
     "heatmapStorageUsed": "Używa {{size}} pamięci urządzenia",
