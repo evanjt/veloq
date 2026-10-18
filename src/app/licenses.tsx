@@ -1,15 +1,14 @@
 import React, { useState } from 'react';
-import { Pressable, View, Text } from 'react-native';
+import { View, Text } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { openExternal } from '@/shared/app/openExternal';
 import {
   Card,
   CollapsibleSection,
   IconButton,
-  pressable,
-  pressRipple,
   ScreenSafeAreaView,
   ScreenScrollView,
+  PressTarget,
 } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import type { ParseKeys } from 'i18next';
@@ -562,10 +561,9 @@ function LicenseEntryRow({ entry, isDark, isLast, testID }: LicenseEntryRowProps
       <View style={styles.entryRow}>
         {/* The name and the licence together expand the licence text, so the
             target is the row's text block and not the licence line alone. */}
-        <Pressable
+        <PressTarget
           onPress={toggleLicense}
-          style={pressable(styles.entryInfo)}
-          android_ripple={pressRipple}
+          style={styles.entryInfo}
           accessibilityRole="button"
           accessibilityLabel={`${entry.name}: ${entry.license}`}
           accessibilityState={{ expanded: showLicense }}
@@ -579,7 +577,7 @@ function LicenseEntryRow({ entry, isDark, isLast, testID }: LicenseEntryRowProps
           >
             {entry.license}
           </Text>
-        </Pressable>
+        </PressTarget>
         {entry.repository ? (
           <IconButton
             accessibilityRole="link"

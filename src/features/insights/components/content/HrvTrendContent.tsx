@@ -17,6 +17,7 @@ import {
 import { ChartErrorBoundary } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { InsightSeriesChart } from '../InsightSeriesChart';
+import { insightGraphicColour } from '../../lib/insightCategory';
 import type { Insight } from '@/types';
 import { formatHrv } from '@/shared/format/format';
 
@@ -64,7 +65,7 @@ export const HrvTrendContent = React.memo(function HrvTrendContent({
             <InsightSeriesChart
               samples={series.points}
               title={series.label}
-              color={trendColor}
+              color={insightGraphicColour(insight.category, isDark)}
               formatValue={formatHrv}
             />
           </View>

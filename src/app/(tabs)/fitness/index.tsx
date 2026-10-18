@@ -187,6 +187,7 @@ function FitnessScreenContent() {
     loadingBests,
     bestsHeader,
     decouplingSource,
+    training,
     isLoading,
     isFetching,
     isError,
@@ -212,7 +213,7 @@ function FitnessScreenContent() {
     if (wellness) logMemory('FitnessScreen:wellnessLoaded');
   }, [wellness]);
   // Handle pull-to-refresh - invalidate all fitness-related queries
-  const { isRefreshing, onRefresh } = useFitnessRefresh(refetch);
+  const { isRefreshing, onRefresh } = useFitnessRefresh(refetch, training.retry);
 
   // Memoized derivations (FTP trend, dominant zone)
   const { ftpTrend, dominantZone } = useFitnessComputations({
@@ -328,25 +329,29 @@ function FitnessScreenContent() {
               />
             </View>
 
-            {/* The calendar-span cards read their own periods, whatever the range. */}
+            {/* The calendar-span cards paint their own periods, whatever the range, from the screen read. */}
             {stage >= WEEK_STAGE ? (
               <View onLayout={(event) => onAnchorLayout('week', event)} style={styles.frame}>
                 <Card variant="flat">
-                  <WeeklySummary />
+                  <WeeklySummary training={training} />
                 </Card>
               </View>
             ) : null}
 
             <View onLayout={(event) => onAnchorLayout('calendar', event)} style={styles.frame}>
               <Card variant="flat">
-                <ActivityHeatmap ref={heatmap} drawn={stage >= CALENDAR_STAGE} />
+                <ActivityHeatmap
+                  ref={heatmap}
+                  training={training}
+                  drawn={stage >= CALENDAR_STAGE}
+                />
               </Card>
             </View>
 
             {stage >= YEAR_STAGE ? (
               <View style={styles.frame}>
                 <Card variant="flat">
-                  <SeasonComparison height={180} />
+                  <SeasonComparison training={training} height={180} />
                 </Card>
               </View>
             ) : null}

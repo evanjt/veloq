@@ -58,7 +58,7 @@ describe('the tab strip', () => {
 
 describe('what a screen reader hears on a tab', () => {
   const BADGED = [
-    { key: 'laps', label: 'Laps', icon: 'flag-outline' as const, badgeText: '-12s' },
+    { key: 'laps', label: 'Laps', icon: 'flag-outline' as const, count: 12 },
     { key: 'notes', label: 'Notes', icon: 'note-outline' as const, count: 0 },
     { key: 'gear', label: 'Gear', icon: 'cog-outline' as const },
   ];
@@ -73,10 +73,10 @@ describe('what a screen reader hears on a tab', () => {
     );
   }
 
-  it('speaks the badge text the tab draws beside its name', () => {
+  it('speaks the count the tab draws beside its name', () => {
     const { getByRole } = renderBadged();
 
-    expect(getByRole('tab', { name: 'Laps, -12s' })).toBeTruthy();
+    expect(getByRole('tab', { name: 'Laps, 12' })).toBeTruthy();
   });
 
   it('speaks the count, a zero included', () => {

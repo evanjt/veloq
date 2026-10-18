@@ -197,6 +197,7 @@ it('the sections scrub fires one light impact when it lands on a row', async () 
           visitCount: 8,
           historyTimes: [],
           historyActivityIds: [],
+          historyDates: [],
         } as unknown as SectionEncounter,
       ]}
       coordinates={[]}

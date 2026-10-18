@@ -38,7 +38,7 @@ export function intervalChips(
       label = intervalTypeName(token.role, 'short', t);
     }
 
-    const movingTime = interval.moving_time ?? 0;
+    const movingTime = interval.movingTime ?? 0;
     const chip = byKey.get(key);
     if (chip) {
       chip.count++;

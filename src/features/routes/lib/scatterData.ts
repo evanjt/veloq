@@ -3,9 +3,9 @@
  *
  * Splits the counted performance data points into forward and reverse sets
  * (an excluded attempt is drawn but never counted), normalises
- * each point's time position to [0, 1], identifies the PR (fastest non-excluded)
- * in each direction, and computes padded Y domain bounds for each direction.
- * Also places the engine's trend curves on the chart's x axis.
+ * each point's time position to [0, 1], and says which directions have a
+ * drawn point. The y range is the engine's, read in `scatterMarks`. Also
+ * places the engine's trend curves on the chart's x axis.
  *
  * No React, no Victory - pure functions so they can be unit tested in
  * isolation and reused if another chart needs the same bisected layout.
@@ -17,13 +17,6 @@ import type { PerformanceDataPoint } from '@/types';
 /** A performance point as rendered on the chart - base record plus its normalised X. */
 export type ScatterChartPoint = PerformanceDataPoint & { x: number };
 
-export interface ScatterDomain {
-  minSpeed: number;
-  maxSpeed: number;
-  minTime: number;
-  maxTime: number;
-}
-
 /** Result of splitting chart data into forward + reverse buckets. */
 export interface ScatterSplitResult {
   /** All valid points sorted by date and x-normalised, union of both directions,
@@ -33,8 +26,8 @@ export interface ScatterSplitResult {
   forwardPoints: ScatterChartPoint[];
   /** Reverse-direction points that count, in date order. */
   reversePoints: ScatterChartPoint[];
-  /** Padded domains for the directions that have drawn points. */
-  domains: { forward: ScatterDomain | null; reverse: ScatterDomain | null };
+  /** Which directions have a drawn point, excluded attempts included. */
+  drawn: { forward: boolean; reverse: boolean };
 }
 
 /** Empty result used when input data is missing or invalid. */
@@ -42,30 +35,12 @@ const EMPTY_SPLIT: ScatterSplitResult = Object.freeze({
   allPoints: [] as ScatterChartPoint[],
   forwardPoints: [] as ScatterChartPoint[],
   reversePoints: [] as ScatterChartPoint[],
-  domains: { forward: null, reverse: null },
+  drawn: { forward: false, reverse: false },
 }) as ScatterSplitResult;
-
-function domainFor(points: ScatterChartPoint[]): ScatterDomain | null {
-  if (points.length === 0) return null;
-  const speeds = points.map((p) => p.speed);
-  const min = Math.min(...speeds);
-  const max = Math.max(...speeds);
-  const padding = (max - min) * 0.15 || 0.5;
-  const times = points.map((p) => p.sectionTime ?? 0).filter((t) => t > 0);
-  const tMin = times.length > 0 ? Math.min(...times) : 0;
-  const tMax = times.length > 0 ? Math.max(...times) : 1;
-  const tPadding = (tMax - tMin) * 0.15 || 30;
-  return {
-    minSpeed: Math.max(0, min - padding),
-    maxSpeed: max + padding,
-    minTime: Math.max(0, tMin - tPadding),
-    maxTime: tMax + tPadding,
-  };
-}
 
 /**
  * Split chart data into forward / reverse lists, normalise each point's X
- * position to [0.02, 0.98] by time, and compute padded speed bounds. The
+ * position to [0.02, 0.98] by time. The
  * record mark is each point's `isBest`, which the engine decides.
  *
  * Returns a frozen `EMPTY_SPLIT` when input is empty or contains no valid dates.
@@ -109,9 +84,9 @@ export function splitAndPositionChartData(
     forwardPoints: fwd,
     reversePoints: rev,
     allPoints: positioned,
-    domains: {
-      forward: domainFor(positioned.filter((p) => p.direction !== 'reverse')),
-      reverse: domainFor(positioned.filter((p) => p.direction === 'reverse')),
+    drawn: {
+      forward: positioned.some((p) => p.direction !== 'reverse'),
+      reverse: positioned.some((p) => p.direction === 'reverse'),
     },
   };
 }
@@ -154,24 +129,33 @@ export function placeEngineTrend(
  *
  * Both the tap and the points are compared in the chart's own normalised box,
  * x and y running 0 to 1 with y measured down from the top edge, so the axis
- * the chart draws is the axis the tap resolves against.
+ * the chart draws is the axis the tap resolves against. With `reach`, the box
+ * is measured in pixels and a point further than `reach.radius` from the tap
+ * is out of reach, so a tap on empty plot selects nothing. A value past the
+ * domain is drawn at its edge, and is reached there.
  */
 export function nearestScatterPointIndex(
   points: readonly { x: number; y: number | null | undefined }[],
   tap: { x: number; y: number },
-  yDomain: readonly [number, number]
+  yDomain: readonly [number, number],
+  reach?: { width: number; height: number; radius: number }
 ): number {
   const [bottom, top] = yDomain;
   const span = top - bottom || 1;
+  const width = reach?.width ?? 1;
+  const height = reach?.height ?? 1;
+  const limit = reach ? reach.radius * reach.radius : Infinity;
 
   let closestIdx = -1;
   let closestDist = Infinity;
   for (let i = 0; i < points.length; i++) {
     const value = points[i].y;
     if (value == null || !Number.isFinite(value)) continue;
-    const dx = points[i].x - tap.x;
-    const dy = 1 - (value - bottom) / span - tap.y;
+    const dx = (points[i].x - tap.x) * width;
+    const along = Math.min(1, Math.max(0, (value - bottom) / span));
+    const dy = (1 - along - tap.y) * height;
     const dist = dx * dx + dy * dy;
+    if (dist > limit) continue;
     if (dist < closestDist) {
       closestDist = dist;
       closestIdx = i;

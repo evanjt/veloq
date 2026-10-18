@@ -2,7 +2,6 @@ import React, { memo, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   StyleSheet,
-  Pressable,
   Text as RNText,
   type LayoutChangeEvent,
   type ViewInstance,
@@ -28,17 +27,22 @@ import {
   opacity,
 } from '@/theme';
 import { isPaceSport, isSwimmingActivity } from '@/shared/activity/activityUtils';
-import { formatDistance, formatDuration, formatSportSpeed } from '@/shared/format/format';
+import {
+  formatDistance,
+  formatDuration,
+  formatShortDate,
+  formatSportSpeed,
+} from '@/shared/format/format';
 import {
   type AccessibleAction,
   accessibleActions,
   composeAccessibilityLabel,
-  pressable,
-  pressRipple,
+  PressTarget,
 } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { RankRing } from '@/shared/charts/RankRing';
-import type { ActivityType, PerformanceDataPoint } from '@/types';
+import { seriesSummary, type SparklinePoint } from '@/shared/charts';
+import type { ActivityType } from '@/types';
 import { SectionSparkline } from '@/features/routes';
 import type { SectionEncounter } from 'veloqrs';
 import type { SectionEncounterGroup } from '@/features/activity/lib/groupSectionEncounters';
@@ -108,16 +112,18 @@ function placeKey(
  *
  * The section name, then each direction in the order the card draws it: the
  * direction word where the card marks one, the distance, the visits, the lap,
- * the partial word, the record and the place. Each direction is composed on
- * its own so a distance both directions share is spoken for each.
+ * the partial word, the record, the place and the sparkline's summary, which
+ * speaks its range. Each direction is composed on its own so a distance both
+ * directions share is spoken for each.
  */
 export function sectionCardAccessibilityLabel(
   group: SectionEncounterGroup,
   sportType: string | undefined,
   isMetric: boolean,
-  t: TFunction
+  t: TFunction,
+  sparklines: readonly (SectionSparklineData | undefined)[] = []
 ): string {
-  const directions = group.encounters.map((encounter) => {
+  const directions = group.encounters.map((encounter, i) => {
     const isReverse = encounter.direction === 'reverse';
     const isPartialDirection = encounter.direction === 'partial';
     const showDirection = !isPartialDirection && (group.hasBothDirections || isReverse);
@@ -132,23 +138,36 @@ export function sectionCardAccessibilityLabel(
       encounter.lapTime > 0 && formatLap(encounter.lapPace, encounter.lapTime, sportType, isMetric),
       !encounter.isComplete && !isPartialDirection && t('sections.partial'),
       encounter.isComplete && encounter.isPr && t('a11y.personalRecord'),
-      place && t(place)
+      place && t(place),
+      sparklines[i]?.summary
     );
   });
   return composeAccessibilityLabel(group.sectionName, ...directions);
 }
 
+/** One direction's sparkline: its points, this activity's place among them, and what it speaks. */
+export interface SectionSparklineData {
+  points: SparklinePoint[];
+  highlightIndex: number | undefined;
+  name: string;
+  format: (metresPerSecond: number) => string;
+  summary: string;
+}
+
 /**
- * Build sparkline points from one encounter's history.
+ * The sparkline for one encounter's history: speed per attempt at its date.
  *
  * Show a window of up to 5 points centred on the current activity (2 before +
  * current + 2 after), shifted to stay inside the history near either end. If
  * the current activity isn't in the history, fall back to the last 5.
  */
-function buildSparklineData(
+export function sectionSparklineData(
   encounter: SectionEncounter,
-  activityId: string
-): (PerformanceDataPoint & { x: number })[] | undefined {
+  activityId: string,
+  sportType: string | undefined,
+  isMetric: boolean,
+  t: TFunction
+): SectionSparklineData | undefined {
   const total = encounter.historyTimes.length;
   if (total < 2) return undefined;
 
@@ -177,21 +196,26 @@ function buildSparklineData(
     }
   }
 
-  const out: (PerformanceDataPoint & { x: number })[] = [];
+  const type = sportType as ActivityType;
+  const pace = isSwimmingActivity(type) || isPaceSport(type);
+  const format = (speed: number) => formatSportSpeed(speed, type, isMetric);
+  const name = t(pace ? 'chartTypes.pace' : 'chartTypes.speed');
+  const points: SparklinePoint[] = [];
+  let highlightIndex: number | undefined;
   for (let i = startIdx; i < endIdx; i++) {
-    const time = encounter.historyTimes[i];
-    out.push({
-      x: i - startIdx,
-      id: encounter.historyActivityIds[i] || '',
-      activityId: encounter.historyActivityIds[i] || '',
-      speed: time > 0 ? encounter.distanceMeters / time : 0,
-      date: new Date(),
-      activityName: '',
-      direction: encounter.direction as 'same' | 'reverse',
-      sectionTime: time,
+    const time = encounter.historyTimes[i] ?? 0;
+    const id = encounter.historyActivityIds[i] ?? '';
+    const date = encounter.historyDates[i];
+    if (id === activityId) highlightIndex = points.length;
+    points.push({
+      value: time > 0 ? encounter.distanceMeters / time : 0,
+      label: date !== undefined ? formatShortDate(new Date(date * 1000)) : String(i + 1),
+      key: `${id}-${i}`,
+      ...(date !== undefined ? { date } : {}),
     });
   }
-  return out;
+  const summary = seriesSummary({ name, points, format }, t);
+  return { points, highlightIndex, name, format, summary };
 }
 
 export const SectionInlinePlot = memo(
@@ -232,8 +256,11 @@ export const SectionInlinePlot = memo(
     const numberSlot = sectionPaletteIndex(group.sectionId);
 
     const sparklines = useMemo(
-      () => group.encounters.map((encounter) => buildSparklineData(encounter, activityId)),
-      [group.encounters, activityId]
+      () =>
+        group.encounters.map((encounter) =>
+          sectionSparklineData(encounter, activityId, sportType, isMetric, t)
+        ),
+      [group.encounters, activityId, sportType, isMetric, t]
     );
 
     const handleLayout = useCallback(
@@ -269,17 +296,22 @@ export const SectionInlinePlot = memo(
           overshootRight={false}
           friction={2}
         >
-          <Pressable
+          <PressTarget
             accessibilityRole="button"
-            accessibilityLabel={sectionCardAccessibilityLabel(group, sportType, isMetric, t)}
+            accessibilityLabel={sectionCardAccessibilityLabel(
+              group,
+              sportType,
+              isMetric,
+              t,
+              sparklines
+            )}
             {...cardActions}
             onPress={handlePress}
-            style={pressable([
+            style={[
               styles.card,
               isDark && styles.cardDark,
               isHighlighted && styles.cardHighlighted,
-            ])}
-            android_ripple={pressRipple}
+            ]}
           >
             <View style={styles.header}>
               <View style={[styles.numberDisc, { backgroundColor: sectionPalette[numberSlot] }]}>
@@ -388,18 +420,20 @@ export const SectionInlinePlot = memo(
                   {encounter.historyTimes.length > 0 && sparklineData ? (
                     <View testID={`section-inline-sparkline-${suffix}`}>
                       <SectionSparkline
-                        data={sparklineData}
-                        width={80}
-                        height={28}
-                        isDark={isDark}
-                        highlightActivityId={activityId}
+                        points={sparklineData.points}
+                        name={sparklineData.name}
+                        format={sparklineData.format}
+                        summary={sparklineData.summary}
+                        highlightIndex={sparklineData.highlightIndex}
+                        width={SPARKLINE_WIDTH}
+                        height={SPARKLINE_HEIGHT}
                       />
                     </View>
                   ) : null}
                 </View>
               );
             })}
-          </Pressable>
+          </PressTarget>
         </Swipeable>
       </View>
     );
@@ -434,6 +468,10 @@ export const SectionInlinePlot = memo(
       }
     )
 );
+
+/** The inline sparkline's plot, with its range printed beside it on two caption lines. */
+const SPARKLINE_WIDTH = 80;
+const SPARKLINE_HEIGHT = 2 * typography.caption.lineHeight;
 
 const DIRECTION_LABEL_WIDTH = 26;
 /** The index number's disc, as wide as the column the direction rows indent past. */

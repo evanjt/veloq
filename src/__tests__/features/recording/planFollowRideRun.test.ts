@@ -1,55 +1,37 @@
 import {
+  FfiAbsoluteUnits,
+  FfiPlanLineKind,
+  FfiPlannedCategory,
+  FfiTargetMetric,
+  type FfiPlanLine,
+  type FfiPlannedEvent,
+} from 'veloqrs';
+import {
   advance,
-  expandPlan,
   followablePlan,
   formatTarget,
+  readWorkoutFollow,
   remainingMetres,
   remainingSeconds,
   startFollow,
   syncFollow,
+  type PlanLine,
 } from '@/features/recording/lib/planFollow';
-import type { CalendarEvent, WorkoutStep } from '@/types';
 
 const SEC = 1000;
 
-const intervals: WorkoutStep[] = [
-  { text: 'Warm up', duration: 600, warmup: true },
-  {
-    reps: 2,
-    duration: 360,
-    distance: 1600,
-    steps: [
-      { text: 'Hard', duration: 240, distance: 1200 },
-      { text: 'Float', duration: 120, intensity: 'rest' },
-    ],
-  },
-];
-
-describe('expandPlan for a ride or run', () => {
-  it('expands repeats in order and never makes the parent a step of its own', () => {
-    const lines = expandPlan(intervals);
-    expect(lines.map((l) => l.text)).toEqual(['Warm up', 'Hard', 'Float', 'Hard', 'Float']);
-    expect(lines.map((l) => l.distanceMetres ?? null)).toEqual([null, 1200, null, 1200, null]);
-  });
-
-  it('keeps a step that has only a distance, or only a target', () => {
-    const lines = expandPlan([
-      { distance: 1000 },
-      { pace: { start: 90, end: 95, units: '%pace' } },
-    ]);
-    expect(lines).toHaveLength(2);
-    expect(lines[0].distanceMetres).toBe(1000);
-    expect(lines[1].targets).toHaveLength(1);
-  });
+const timed = (text: string, durationSeconds: number | null): PlanLine => ({
+  kind: 'work',
+  text,
+  durationSeconds,
+});
+const distance = (text: string, distanceMetres: number, durationSeconds: number | null = null) => ({
+  ...timed(text, durationSeconds),
+  distanceMetres,
 });
 
 describe('timed steps on the active clock', () => {
-  const lines = expandPlan([
-    { text: 'A', duration: 120 },
-    { text: 'B', duration: 60 },
-    { text: 'C', duration: 60 },
-    { text: 'D', duration: 60 },
-  ]);
+  const lines = [timed('A', 120), timed('B', 60), timed('C', 60), timed('D', 60)];
 
   it('counts the active clock it is given, so paused time never shows up', () => {
     // The caller's clock is the recording's moving time: 30 active seconds,
@@ -75,10 +57,7 @@ describe('timed steps on the active clock', () => {
 });
 
 describe('distance steps', () => {
-  const lines = expandPlan([
-    { text: 'Kilometre', distance: 1000, duration: 300 },
-    { text: 'Jog', duration: 60 },
-  ]);
+  const lines = [distance('Kilometre', 1000, 300), timed('Jog', 60)];
 
   it('holds a distance step past its estimated duration until the distance is covered', () => {
     const s = syncFollow(startFollow(lines, 0, 0), 300 * SEC, 800);
@@ -98,7 +77,7 @@ describe('distance steps', () => {
   });
 
   it('measures a later distance step from the distance it started at', () => {
-    const two = expandPlan([{ distance: 500 }, { distance: 500 }, { text: 'Done' }]);
+    const two = [distance('', 500), distance('', 500), timed('Done', null)];
     let s = startFollow(two, 0, 2000);
     s = syncFollow(s, 100 * SEC, 2499);
     expect(s.index).toBe(0);
@@ -128,7 +107,7 @@ describe('distance steps', () => {
 
 describe('untimed steps and the end of the plan', () => {
   it('never completes an untimed step on its own', () => {
-    const lines = expandPlan([{ text: 'Easy until the bridge' }, { text: 'Home', duration: 60 }]);
+    const lines = [timed('Easy until the bridge', null), timed('Home', 60)];
     const s = syncFollow(startFollow(lines, 0, 0), 7200 * SEC, 30000);
     expect(s.index).toBe(0);
     expect(s.finishedAt).toBeNull();
@@ -136,7 +115,7 @@ describe('untimed steps and the end of the plan', () => {
   });
 
   it('marks the plan finished at the last step boundary', () => {
-    const lines = expandPlan([{ text: 'Only', duration: 60 }]);
+    const lines = [timed('Only', 60)];
     const s = syncFollow(startFollow(lines, 0, null), 90 * SEC, null);
     expect(s.finishedAt).toBe(60 * SEC);
     expect(advance(s, 95 * SEC, null)).toBe(s);
@@ -144,60 +123,114 @@ describe('untimed steps and the end of the plan', () => {
 });
 
 describe('targets', () => {
-  it('shows a pace range in its supplied units without inventing an absolute pace', () => {
-    const [line] = expandPlan([{ distance: 1000, pace: { start: 90, end: 95, units: '%pace' } }], {
-      threshold_pace: 4.2,
-    });
-    expect(line.targets?.map(formatTarget)).toEqual(['90–95% pace']);
+  it('shows a pace range in its supplied units without an absolute pace', () => {
+    expect(formatTarget({ metric: 'pace', low: 90, high: 95, units: '%pace' })).toBe('90–95% pace');
   });
 
-  it('converts a relative heart-rate target only with a threshold to convert it by', () => {
-    const step: WorkoutStep = { duration: 600, hr: { start: 75, end: 85, units: '%lthr' } };
-    const [withRef] = expandPlan([step], { lthr: 170 });
-    expect(withRef.targets?.map(formatTarget)).toEqual(['75–85% LTHR (128–145 bpm)']);
-    for (const lthr of [undefined, 0, -1, NaN]) {
-      const [noRef] = expandPlan([step], { lthr } as { lthr: number });
-      expect(noRef.targets?.map(formatTarget)).toEqual(['75–85% LTHR']);
-    }
-  });
-
-  it('converts a power target relative to FTP, and keeps absolute watts as watts', () => {
-    const [relative, absolute, zone] = expandPlan(
-      [
-        { duration: 300, power: { value: 105, units: '%ftp' } },
-        { duration: 300, power: { start: 200, end: 220, units: 'w' } },
-        { duration: 300, power: { value: 2, units: 'power_zone' } },
-      ],
-      { ftp: 250 }
+  it('shows a relative heart-rate target with its conversion where it has one', () => {
+    const relative = { metric: 'hr', low: 75, high: 85, units: '%lthr' } as const;
+    expect(formatTarget(relative)).toBe('75–85% LTHR');
+    expect(formatTarget({ ...relative, absolute: { low: 128, high: 145, units: 'bpm' } })).toBe(
+      '75–85% LTHR (128–145 bpm)'
     );
-    expect(relative.targets?.map(formatTarget)).toEqual(['105% FTP (263 W)']);
-    expect(absolute.targets?.map(formatTarget)).toEqual(['200–220 W']);
-    expect(zone.targets?.map(formatTarget)).toEqual(['Z2 power']);
   });
 
-  it('leaves out a target that carries no number rather than showing zero', () => {
-    const [line] = expandPlan([{ duration: 60, power: { units: '%ftp' } }], { ftp: 250 });
-    expect(line.targets ?? []).toEqual([]);
+  it('shows power relative to FTP, absolute watts and a zone in their own terms', () => {
+    expect(
+      formatTarget({
+        metric: 'power',
+        low: 105,
+        high: 105,
+        units: '%ftp',
+        absolute: { low: 263, high: 263, units: 'W' },
+      })
+    ).toBe('105% FTP (263 W)');
+    expect(formatTarget({ metric: 'power', low: 200, high: 220, units: 'w' })).toBe('200–220 W');
+    expect(formatTarget({ metric: 'power', low: 2, high: 2, units: 'power_zone' })).toBe(
+      'Z2 power'
+    );
   });
 });
 
 describe('followablePlan', () => {
-  const event = (doc: unknown): CalendarEvent =>
-    ({ id: 7, name: 'Track session', workout_doc: doc }) as unknown as CalendarEvent;
-
-  it('carries the plan reference into the targets', () => {
-    const plan = followablePlan(
-      [event({ steps: [{ duration: 60, hr: { value: 80, units: '%lthr' } }], lthr: 150 })],
-      7
-    );
-    expect(plan?.lines[0].targets?.map(formatTarget)).toEqual(['80% LTHR (120 bpm)']);
+  const event = (lines: FfiPlanLine[]): FfiPlannedEvent => ({
+    id: 7,
+    name: 'Track session',
+    day: '2026-01-02',
+    sport: 'Run',
+    category: FfiPlannedCategory.Workout,
+    lines,
+    bar: [],
   });
 
-  it('gives nothing to follow for an empty, missing or malformed plan', () => {
-    expect(followablePlan([event({ steps: [] })], 7)).toBeNull();
-    expect(followablePlan([event(null)], 7)).toBeNull();
-    expect(followablePlan([event({ steps: 'not a list' })], 7)).toBeNull();
-    expect(followablePlan([event({ steps: [null, 3, 'x'] })], 7)).toBeNull();
-    expect(followablePlan([event({ steps: [{ text: 'A', duration: 60 }] })], 8)).toBeNull();
+  it('takes the engine lines in the shape a recording freezes', () => {
+    const plan = followablePlan(
+      [
+        event([
+          {
+            kind: FfiPlanLineKind.Work,
+            text: 'Hard',
+            durationSeconds: 240,
+            distanceMetres: 1200,
+            targets: [
+              {
+                metric: FfiTargetMetric.HeartRate,
+                low: 80,
+                high: 80,
+                units: '%lthr',
+                absolute: { low: 120, high: 120, units: FfiAbsoluteUnits.Bpm },
+              },
+              {
+                metric: FfiTargetMetric.Power,
+                low: 90,
+                high: 95,
+                units: '%ftp',
+                absolute: { low: 225, high: 238, units: FfiAbsoluteUnits.Watts },
+              },
+              { metric: FfiTargetMetric.Pace, low: 90, high: 95, units: '%pace' },
+            ],
+          },
+          { kind: FfiPlanLineKind.Rest, text: 'Float', targets: [] },
+        ]),
+      ],
+      7
+    );
+    expect(plan?.lines).toEqual([
+      {
+        kind: 'work',
+        text: 'Hard',
+        durationSeconds: 240,
+        distanceMetres: 1200,
+        targets: [
+          {
+            metric: 'hr',
+            low: 80,
+            high: 80,
+            units: '%lthr',
+            absolute: { low: 120, high: 120, units: 'bpm' },
+          },
+          {
+            metric: 'power',
+            low: 90,
+            high: 95,
+            units: '%ftp',
+            absolute: { low: 225, high: 238, units: 'W' },
+          },
+          { metric: 'pace', low: 90, high: 95, units: '%pace' },
+        ],
+      },
+      { kind: 'rest', text: 'Float', durationSeconds: null },
+    ]);
+    expect(plan?.lines[0].targets?.map(formatTarget)[0]).toBe('80% LTHR (120 bpm)');
+    // A recording freezes these lines into its crash backup, which reads them back.
+    const follow = startFollow(plan?.lines ?? [], 0, 0);
+    expect(readWorkoutFollow({ name: 'Track session', follow })?.follow.lines).toEqual(plan?.lines);
+  });
+
+  it('gives nothing to follow for an empty plan or another event', () => {
+    expect(followablePlan([event([])], 7)).toBeNull();
+    expect(
+      followablePlan([event([{ kind: FfiPlanLineKind.Work, text: 'A', targets: [] }])], 8)
+    ).toBeNull();
   });
 });

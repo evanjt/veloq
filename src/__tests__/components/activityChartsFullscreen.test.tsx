@@ -14,7 +14,8 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import * as ScreenOrientation from 'expo-screen-orientation';
 
 import { ActivityChartsSection } from '@/features/activity/components/ActivityChartsSection';
-import type { ActivityDetail, ActivityStreams } from '@/types';
+import type { ActivityStreams } from '@/types';
+import { activityRecord } from '../__shared__/activityRecord';
 
 jest.mock('expo-screen-orientation', () => ({
   ...jest.requireActual('expo-screen-orientation'),
@@ -76,8 +77,7 @@ jest.mock('@/shared/ui', () => {
         {children}
       </Pressable>
     ),
-    pressable: (style: unknown) => style,
-    pressRipple: undefined,
+    PressTarget: require('react-native').Pressable,
     ComponentErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     DeviceAttribution: () => <View />,
   };
@@ -112,13 +112,13 @@ jest.mock('@/shared/debug/useFFITimer', () => ({
 
 const lockAsync = ScreenOrientation.lockAsync as jest.Mock;
 
-const activity = {
+const activity = activityRecord({
   id: 'act-1',
-  type: 'Ride',
+  sportType: 'Ride',
   name: 'Morning ride',
-  start_date_local: '2026-09-12T07:00:00',
-  moving_time: 3600,
-} as unknown as ActivityDetail;
+  startDateLocal: '2026-09-12T07:00:00',
+  movingTime: 3600,
+});
 
 const streams = { time: [0, 1, 2], heartrate: [140, 150, 160] } as unknown as ActivityStreams;
 

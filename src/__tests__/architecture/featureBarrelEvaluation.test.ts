@@ -34,7 +34,6 @@ const ACTIVITY_NAMES = [
   'useFeedSearch',
   'useSectionOverlays',
   'useActivityDetailData',
-  'useActivityLabels',
   'FEED_GROUPS',
   'groupSectionEncounters',
   'setVisibleRange',
@@ -91,7 +90,7 @@ describe('the activity barrel evaluates whole, whichever end the app enters from
 });
 
 describe.each([
-  ['fitness', ['formatForm', 'formatEffortValue', 'useSportPreference', 'SPORT_TEXT_COLORS']],
+  ['fitness', ['formatForm', 'formatEffortValue', 'useSportPreference', 'PRIMARY_SPORT_FAMILY']],
   [
     'home',
     [

@@ -8,12 +8,10 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
 import { Canvas, Circle, Path } from '@shopify/react-native-skia';
-import {
-  SectionEfficiencyCard,
-  efficiencySeriesVertices,
-} from '@/features/routes/components/section/SectionEfficiencyCard';
+import { SectionEfficiencyCard } from '@/features/routes/components/section/SectionEfficiencyCard';
+import { SPARKLINE_RANGE_WIDTH } from '@/shared/charts';
 import type { EfficiencyTrend } from 'veloqrs';
-import { colors, darkColors, verdictColor } from '@/theme';
+import { colors, darkColors, spacing, verdictColor } from '@/theme';
 import { layoutViews } from '../../__shared__/layoutViews';
 
 // The binding registers a TurboModule at import time. A hook on this screen's
@@ -79,19 +77,21 @@ it('titles the card as a heading', async () => {
   expect(getByRole('header', { name: 'sections.aerobicEfficiency' })).toBeTruthy();
 });
 
-it('scales one vertex per point, lower ratio higher on the canvas', () => {
-  const vertices = efficiencySeriesVertices([point(0.64), point(0.62), point(0.59)], 100, 40);
+it('hands the sparkline every effort at its date, a lower ratio drawn higher', async () => {
+  const { UNSAFE_getByProps } = await render(
+    <SectionEfficiencyCard
+      trend={trend({ points: [point(0.64, 0), point(0.62, DAY), point(0.59, 31 * DAY)] })}
+      isDark={false}
+    />
+  );
 
-  expect(vertices).toHaveLength(3);
-  expect(vertices[0].x).toBeLessThan(vertices[2].x);
-  expect(vertices[2].y).toBeLessThan(vertices[0].y);
-});
-
-it('centres a flat series instead of dividing by a zero range', () => {
-  const vertices = efficiencySeriesVertices([point(0.6), point(0.6)], 100, 40);
-
-  expect(vertices.every((v) => Number.isFinite(v.y))).toBe(true);
-  expect(vertices[0].y).toBe(vertices[1].y);
+  const sparkline = UNSAFE_getByProps({
+    testID: 'section-efficiency-chart',
+    showRange: true,
+  }).props;
+  expect(sparkline.points.map((p: { date: number }) => p.date)).toEqual([0, DAY, 31 * DAY]);
+  expect(sparkline.points.map((p: { value: number }) => p.value)).toEqual([0.64, 0.62, 0.59]);
+  expect(sparkline.invert).toBe(true);
 });
 
 it('rounds a rise in heart rate with its sign kept', async () => {
@@ -108,24 +108,6 @@ it('renders nothing when the section has no efficiency series', async () => {
   expect(queryByTestId('section-efficiency-card')).toBeNull();
 });
 
-it('places the efforts by date, so a month-long gap is wider than a day', () => {
-  const vertices = efficiencySeriesVertices(
-    [point(0.64, 0), point(0.62, DAY), point(0.59, 31 * DAY)],
-    100,
-    40
-  );
-
-  const firstGap = vertices[1].x - vertices[0].x;
-  const secondGap = vertices[2].x - vertices[1].x;
-  expect(secondGap).toBeCloseTo(firstGap * 30);
-});
-
-it('spreads efforts that share one date evenly rather than stacking them', () => {
-  const vertices = efficiencySeriesVertices([point(0.64, DAY), point(0.62, DAY)], 100, 40);
-
-  expect(vertices[0].x).toBeLessThan(vertices[1].x);
-});
-
 it('draws the plot across the width the card gives it, not a fixed width', async () => {
   // A 412 dp window less the card's margins and padding.
   const contentWidth = 348;
@@ -134,7 +116,9 @@ it('draws the plot across the width the card gives it, not a fixed width', async
   await layoutViews(tree, contentWidth, 56);
 
   const canvas = tree.UNSAFE_getByType(Canvas);
-  expect(canvas.props.style).toEqual(expect.objectContaining({ width: contentWidth }));
+  expect(canvas.props.style).toEqual(
+    expect.objectContaining({ width: contentWidth - SPARKLINE_RANGE_WIDTH - spacing.xs })
+  );
 });
 
 describe.each([false, true])('an improving trend, dark %s', (isDark) => {
@@ -149,9 +133,12 @@ describe.each([false, true])('an improving trend, dark %s', (isDark) => {
   it('draws the series in the single-series colour, never the verdict colour', async () => {
     const tree = await drawn();
 
+    // The last effort's dot sits in a ring of the surface it is drawn on.
     const marks = [...tree.UNSAFE_queryAllByType(Path), ...tree.UNSAFE_getAllByType(Circle)];
     const series = isDark ? darkColors.chartSeries : colors.chartSeries;
-    expect(marks.map((mark) => mark.props.color)).toEqual(marks.map(() => series));
+    const surface = colors.surface;
+    const colours = new Set(marks.map((mark) => mark.props.color));
+    expect(colours).toEqual(new Set([series, surface]));
     expect(series).not.toBe(verdictColor('positive', isDark));
   });
 
@@ -183,7 +170,7 @@ it('prints the lowest and highest ratio and says a lower ratio is drawn higher',
     />
   );
 
-  const range = getByTestId('section-efficiency-range');
+  const range = getByTestId('section-efficiency-chart-range', { includeHiddenElements: true });
   expect(range).toHaveTextContent(/138/);
   expect(range).toHaveTextContent(/151/);
   expect(getByTestId('section-efficiency-axis')).toHaveTextContent(

@@ -30,7 +30,12 @@ export const EfficiencyTrendContent = React.memo(function EfficiencyTrendContent
         meta={t('insights.efficiencyTrend.sheetMeta')}
       />
 
-      {supportingData ? <SupportingDataSection data={{ ...supportingData, sections: [] }} /> : null}
+      {supportingData ? (
+        <SupportingDataSection
+          data={{ ...supportingData, sections: [] }}
+          category={insight.category}
+        />
+      ) : null}
     </View>
   );
 });

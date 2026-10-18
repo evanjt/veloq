@@ -1,19 +1,24 @@
 /**
  * Scenario: the delta plot places the engine's per-lap delta curves on an axis
  * of distance along the section, with the reference as the zero line.
- * Expected behaviour: a lap's path starts at its covered distance, a NaN run is
- * a gap, the newest lap is emphasised unless one is selected, and the scrub
- * stops every 100 m.
+ * Expected behaviour: ahead of the reference is drawn up, a lap's path starts
+ * at its covered distance, a NaN run is a gap, the newest lap is emphasised
+ * unless one is selected and its area to the zero line is split by side, a
+ * lap can be measured against another reference, and the scrub stops every 100 m.
  */
 
 import {
+  deltasAgainst,
   layoutDelta,
   layoutSplitSummary,
   pickEmphasisedLap,
   rebaseCurve,
+  referenceChoices,
+  resolveReference,
   scrubDeltaSecs,
   scrubStops,
 } from '@/features/routes/lib/deltaLayout';
+import { FfiReferenceSource } from 'veloqrs';
 import type { FfiDirectionDeltas, FfiLapDelta, FfiSplitSummary } from 'veloqrs';
 
 const FRAME = { width: 220, height: 120, padding: { left: 10, right: 10, top: 10, bottom: 10 } };
@@ -75,7 +80,7 @@ describe('layoutDelta', () => {
     expect(plot.laps[0]!.path).not.toMatch(/NaN/);
   });
 
-  it('puts ahead of the reference below the zero line and behind above it', () => {
+  it('puts ahead of the reference above the zero line and behind below it', () => {
     const plot = layoutDelta(
       deltas([lap('a', 1, [0, -3, 6])]),
       GRID_STEP_M,
@@ -85,8 +90,61 @@ describe('layoutDelta', () => {
     );
     const points = subpaths(plot.laps[0]!.path)[0]!;
 
-    expect(points[1]![1]).toBeGreaterThan(plot.zeroY);
-    expect(points[2]![1]).toBeLessThan(plot.zeroY);
+    expect(points[1]![1]).toBeLessThan(plot.zeroY);
+    expect(points[2]![1]).toBeGreaterThan(plot.zeroY);
+  });
+
+  it('fills the emphasised lap to the zero line, ahead above it and behind below it, split at the crossing', () => {
+    // Ahead by 4 s at 50 m, behind by 4 s at 100 m: the curve crosses zero at 75 m.
+    const plot = layoutDelta(
+      deltas([lap('a', 1, [0, -4, 4])]),
+      GRID_STEP_M,
+      SECTION_LENGTH_M,
+      FRAME,
+      undefined
+    );
+    const ahead = subpaths(plot.fill.ahead);
+    const behind = subpaths(plot.fill.behind);
+
+    expect(ahead).toHaveLength(1);
+    expect(behind).toHaveLength(1);
+    for (const [, y] of ahead.flat()) expect(y).toBeLessThanOrEqual(plot.zeroY);
+    for (const [, y] of behind.flat()) expect(y).toBeGreaterThanOrEqual(plot.zeroY);
+    expect(Math.min(...ahead.flat().map(([, y]) => y!))).toBeLessThan(plot.zeroY);
+    expect(Math.max(...behind.flat().map(([, y]) => y!))).toBeGreaterThan(plot.zeroY);
+    // Both areas meet at the crossing, on the zero line.
+    const crossing = plot.xForDistance(75);
+    expect(ahead[0]!.some(([x, y]) => Math.abs(x! - crossing) < 1e-6 && y === plot.zeroY)).toBe(
+      true
+    );
+    expect(behind[0]!.some(([x, y]) => Math.abs(x! - crossing) < 1e-6 && y === plot.zeroY)).toBe(
+      true
+    );
+    expect(plot.fill.ahead).toMatch(/Z/);
+    expect(plot.fill.behind).toMatch(/Z/);
+  });
+
+  it('fills nothing for a lap level with the reference, and only the side a lap reaches', () => {
+    const level = layoutDelta(
+      deltas([lap('a', 1, [0, 0, 0])]),
+      GRID_STEP_M,
+      SECTION_LENGTH_M,
+      FRAME,
+      undefined
+    );
+    expect(level.fill).toEqual({ ahead: '', behind: '' });
+
+    const behindOnly = layoutDelta(
+      deltas([lap('a', 1, [0, 2, NaN, 3, 5])]),
+      GRID_STEP_M,
+      SECTION_LENGTH_M,
+      FRAME,
+      undefined
+    );
+    expect(behindOnly.fill.ahead).toBe('');
+    // A gap in the curve closes the area before it and starts another after it.
+    expect(subpaths(behindOnly.fill.behind)).toHaveLength(2);
+    expect(behindOnly.fill.behind).not.toMatch(/NaN/);
   });
 
   it('keeps the zero line inside the frame for a lap level with the reference throughout', () => {
@@ -143,8 +201,9 @@ describe('layoutDelta', () => {
 
     it('keeps the extremes of every pixel column, so a surge stays on the plot', () => {
       const ys = runs.flat().map(([, y]) => y!);
-      const surgeY = plot.zeroY - (55.5 / plot.extentSecs) * ((FRAME.height - 20) / 2);
-      expect(Math.min(...ys)).toBeCloseTo(surgeY);
+      // A surge behind the reference is drawn below the zero line, the plot's lowest point.
+      const surgeY = plot.zeroY + (55.5 / plot.extentSecs) * ((FRAME.height - 20) / 2);
+      expect(Math.max(...ys)).toBeCloseTo(surgeY);
     });
 
     it('reads the scrub from the full-resolution curve', () => {
@@ -201,14 +260,14 @@ describe('layoutSplitSummary', () => {
   const plotWidth = FRAME.width - FRAME.padding.left - FRAME.padding.right;
   const xAt = (m: number) => plotLeft + (m / LENGTH_M) * plotWidth;
 
-  it('draws time lost above the zero line and time won below it, scaled to the largest median', () => {
+  it('draws time won above the zero line and time lost below it, scaled to the largest median', () => {
     const plot = layoutSplitSummary(summary([4, -2, NaN, 1]), STEP_M, LENGTH_M, FRAME);
 
     expect(plot.extentSecs).toBe(4);
     expect(plot.zeroY).toBe(60);
     const [lost, won] = plot.bars;
-    expect(lost).toMatchObject({ index: 0, lost: true, top: 10, bottom: 60 });
-    expect(won).toMatchObject({ index: 1, lost: false, top: 60, bottom: 85 });
+    expect(lost).toMatchObject({ index: 0, lost: true, top: 60, bottom: 110 });
+    expect(won).toMatchObject({ index: 1, lost: false, top: 35, bottom: 60 });
   });
 
   it('draws nothing for a split whose median is NaN', () => {
@@ -239,10 +298,10 @@ describe('layoutSplitSummary', () => {
     // The upper quartile of 6 s widens the axis past the largest median.
     expect(plot.extentSecs).toBe(6);
     const [lost, won] = plot.bars;
-    expect(lost!.whisker!.top).toBeCloseTo(10);
-    expect(lost!.whisker!.bottom).toBeCloseTo(60 - (2 / 6) * 50);
-    expect(won!.whisker!.top).toBeCloseTo(60 + (1 / 6) * 50);
-    expect(won!.whisker!.bottom).toBeCloseTo(60 + (3 / 6) * 50);
+    expect(lost!.whisker!.top).toBeCloseTo(60 + (2 / 6) * 50);
+    expect(lost!.whisker!.bottom).toBeCloseTo(110);
+    expect(won!.whisker!.top).toBeCloseTo(60 - (3 / 6) * 50);
+    expect(won!.whisker!.bottom).toBeCloseTo(60 - (1 / 6) * 50);
     expect(plot.bars[2]!.whisker).toBeNull();
   });
 
@@ -292,5 +351,91 @@ describe('rebaseCurve', () => {
     expect(Number.isNaN(rebased[2])).toBe(true);
     expect(Number.isNaN(rebased[3])).toBe(true);
     expect(rebased).toHaveLength(4);
+  });
+});
+
+describe('the reference the chart measures against', () => {
+  const previous = lap('prev', 0, [0, 1, 2, 4], {
+    splitDeltaSecs: Float32Array.from([1, 3]),
+    endDeltaSecs: 4,
+  });
+  const typical = Float32Array.from([0, 3, 3, NaN]);
+  const record = lap('rec', 1, [0, 0, 0, 0], { endDeltaSecs: 0 });
+  const later = lap('later', 2, [0, 2, 1, 6], {
+    splitDeltaSecs: Float32Array.from([1, 5]),
+    endDeltaSecs: 6,
+  });
+  const full: FfiDirectionDeltas = {
+    ...deltas([record, later]),
+    referenceActivityId: 'rec',
+    previousRecord: previous,
+    typicalDeltaSecs: typical,
+    splitSummary: {
+      medianSecs: Float32Array.from([2, 2]),
+      lowerQuartileSecs: new Float32Array(2),
+      upperQuartileSecs: new Float32Array(2),
+      laps: [5, 5],
+    },
+  };
+
+  it('offers the stored reference, the previous record and the typical lap the engine gave', () => {
+    expect(referenceChoices(full)).toEqual([
+      FfiReferenceSource.Record,
+      FfiReferenceSource.PreviousRecord,
+      FfiReferenceSource.Typical,
+    ]);
+    expect(referenceChoices(deltas([record]))).toEqual([FfiReferenceSource.Record]);
+    expect(
+      referenceChoices({ ...deltas([record]), referenceSource: FfiReferenceSource.AthleteSet })
+    ).toEqual([FfiReferenceSource.AthleteSet]);
+  });
+
+  it("opens on the engine's default, keeps a choice it offers, and falls back to the stored one", () => {
+    const opensOnPrevious = { ...full, defaultReference: FfiReferenceSource.PreviousRecord };
+    expect(resolveReference(opensOnPrevious, undefined)).toBe(FfiReferenceSource.PreviousRecord);
+    expect(resolveReference(opensOnPrevious, FfiReferenceSource.Typical)).toBe(
+      FfiReferenceSource.Typical
+    );
+    const noPrevious = { ...deltas([record]), defaultReference: FfiReferenceSource.PreviousRecord };
+    expect(resolveReference(noPrevious, undefined)).toBe(FfiReferenceSource.Record);
+    expect(resolveReference(noPrevious, FfiReferenceSource.Typical)).toBe(
+      FfiReferenceSource.Record
+    );
+  });
+
+  it('leaves the curves as the engine gave them against the stored reference', () => {
+    expect(deltasAgainst(full, FfiReferenceSource.Record)).toBe(full);
+  });
+
+  it('measures every lap against the previous record, which is then level with itself', () => {
+    const against = deltasAgainst(full, FfiReferenceSource.PreviousRecord);
+
+    expect(against.referenceSource).toBe(FfiReferenceSource.PreviousRecord);
+    expect(against.referenceActivityId).toBe('prev');
+    expect(Array.from(against.laps[0]!.deltaSecs)).toEqual([0, -1, -2, -4]);
+    expect(Array.from(against.laps[1]!.deltaSecs)).toEqual([0, 1, -1, 2]);
+    expect(against.laps[0]!.endDeltaSecs).toBe(-4);
+    expect(against.laps[1]!.endDeltaSecs).toBe(2);
+    expect(Array.from(against.laps[1]!.splitDeltaSecs)).toEqual([0, 2]);
+    expect(against.peakDeltaSecs).toBe(4);
+    // The stored curves are untouched.
+    expect(Array.from(record.deltaSecs)).toEqual([0, 0, 0, 0]);
+  });
+
+  it('measures against the typical lap, a point the typical does not reach a gap', () => {
+    const against = deltasAgainst(full, FfiReferenceSource.Typical);
+
+    expect(against.referenceSource).toBe(FfiReferenceSource.Typical);
+    expect(Array.from(against.laps[1]!.deltaSecs).slice(0, 3)).toEqual([0, -1, -2]);
+    expect(Number.isNaN(against.laps[1]!.deltaSecs[3])).toBe(true);
+    expect(against.laps[1]!.endDeltaSecs).toBeUndefined();
+    expect(Array.from(against.laps[1]!.splitDeltaSecs)).toEqual([-1, 3]);
+    expect(against.peakDeltaSecs).toBe(3);
+  });
+
+  it('keeps the stored reference when the engine gave no curve for the one asked', () => {
+    const bare = deltas([record, later]);
+    expect(deltasAgainst(bare, FfiReferenceSource.PreviousRecord)).toBe(bare);
+    expect(deltasAgainst(bare, FfiReferenceSource.Typical)).toBe(bare);
   });
 });

@@ -29,7 +29,6 @@ jest.mock('@/features/stats', () => ({
 jest.mock('@/features/fitness/components', () => ({ SeasonBestsSection: () => null }));
 
 jest.mock('@/features/activity', () => ({
-  useActivityLabels: () => ({ labels: new Map(), error: null }),
   useActivities: () => ({ data: [] }),
 }));
 

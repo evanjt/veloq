@@ -1,12 +1,12 @@
 import React from 'react';
-import { Pressable, View, FlatList, StyleSheet } from 'react-native';
+import { View, FlatList, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
 import { useSheetRequest } from '@/shared/app/sheetRequest';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
-import { pressable, pressRipple, SheetHeader } from '@/shared/ui';
+import { SheetHeader, PressTarget } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { ALL_DATA_FIELDS, CALORIES_ASSUMED_AGE, useCaloriesWeight } from '@/features/recording';
 import {
@@ -62,18 +62,17 @@ function FieldPickerSheetContent() {
         renderItem={({ item }) => {
           const isSelected = item === selectedField;
           return (
-            <Pressable
+            <PressTarget
               accessibilityRole="button"
               accessibilityState={{ selected: isSelected }}
               testID={`field-option-${item}`}
-              style={pressable([
+              style={[
                 styles.row,
                 { borderBottomColor: border },
                 isSelected && {
                   backgroundColor: colorWithOpacity(palette.actionPrimary, opacity.tint1),
                 },
-              ])}
-              android_ripple={pressRipple}
+              ]}
               onPress={() => resolve(item)}
             >
               <View style={styles.rowLabel}>
@@ -92,7 +91,7 @@ function FieldPickerSheetContent() {
               {isSelected ? (
                 <Icon name="check" size={iconSize.md} color={palette.actionPrimary} />
               ) : null}
-            </Pressable>
+            </PressTarget>
           );
         }}
       />

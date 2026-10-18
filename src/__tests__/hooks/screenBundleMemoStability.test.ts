@@ -176,6 +176,7 @@ describe('useSectionOverlays over a rebuilt bundle wrapper', () => {
       visitCount: 1,
       historyTimes: [],
       historyActivityIds: [],
+      historyDates: [],
     });
 
     const { result } = await renderHook(() =>
@@ -225,6 +226,7 @@ describe('useSectionOverlays over a rebuilt bundle wrapper', () => {
         visitCount: 10,
         historyTimes: [],
         historyActivityIds: [],
+        historyDates: [],
       },
       {
         sectionId: 's1',
@@ -240,6 +242,7 @@ describe('useSectionOverlays over a rebuilt bundle wrapper', () => {
         visitCount: 2,
         historyTimes: [],
         historyActivityIds: [],
+        historyDates: [],
       },
     ] as SectionEncounter[];
 

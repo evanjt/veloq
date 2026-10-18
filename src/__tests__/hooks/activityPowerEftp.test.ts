@@ -2,7 +2,8 @@ import { renderHook } from '@testing-library/react-native';
 
 import { useActivityStats } from '@/features/activity/components/stats/useActivityStats';
 import { initialiseI18n } from '@/i18n';
-import type { Activity } from '@/types';
+
+import { activityRecord } from '../__shared__/activityRecord';
 
 describe('the activity power estimate', () => {
   beforeAll(async () => {
@@ -10,13 +11,13 @@ describe('the activity power estimate', () => {
   });
 
   it('identifies the estimate as belonging to this activity and names its source', async () => {
-    const activity = {
+    const activity = activityRecord({
       id: 'ride-1',
-      type: 'Ride',
-      icu_average_watts: 150,
-      icu_pm_ftp_watts: 92,
-      icu_ftp: 155,
-    } as Activity;
+      sportType: 'Ride',
+      avgPower: 150,
+      eftp: 92,
+      ftp: 155,
+    });
     const { result } = await renderHook(() =>
       useActivityStats({ activity, isMetric: true, maxHR: 180 })
     );

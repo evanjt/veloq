@@ -10,12 +10,10 @@ import {
   vec,
 } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
-import Animated from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { chartStyles, darkColors, colors, colorWithOpacity, typography, spacing } from '@/theme';
+import { chartStyles, darkColors, colors, typography, spacing } from '@/theme';
 import { formZoneColor } from '@/features/fitness';
-import { summarySeriesColor } from '../lib/summaryMetricColour';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import { formBarLayout } from '../lib/formBar';
 import { riseDayPoints } from '../lib/fitnessChange';
@@ -23,10 +21,12 @@ import { scrubDateLabel } from '../lib/scrubDateLabel';
 import {
   BAR_GAP,
   buildMonotoneSvg,
+  ChartCrosshair,
   chartStroke,
   LINE_CAP,
   LINE_JOIN,
   ScrubDot,
+  useChartColors,
   useChartGestures,
 } from '@/shared/charts';
 import { DenseText, denseExtent } from '@/shared/ui/DenseText';
@@ -91,6 +91,7 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
   onTap,
 }: SummaryCardSparklineProps) {
   const { isDark } = useTheme();
+  const chartColors = useChartColors();
   const { t } = useTranslation();
 
   // Refs for stable access inside gesture callbacks (avoids stale closures)
@@ -222,11 +223,9 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
     return <View style={{ width, height: totalHeight }} />;
   }
 
-  const casingColor = isDark ? darkColors.chartCasing : colors.chartCasing;
-  const fitnessHue = summarySeriesColor('fitness', isDark);
-  const fatigueHue = summarySeriesColor('fatigue', isDark);
-  const fitnessLineColor = isDark ? fitnessHue : colorWithOpacity(fitnessHue, 0.85);
-  const fatigueLineColor = isDark ? fatigueHue : colorWithOpacity(fatigueHue, 0.75);
+  // Each line in its one hue, the colour the Fitness chart draws it in.
+  const fitnessLineColor = chartColors.fitness;
+  const fatigueLineColor = chartColors.fatigue;
 
   const dividerColor = isDark ? darkColors.surface : colors.surface;
 
@@ -258,16 +257,6 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
               {linePaths.fatigue ? (
                 <Path
                   path={linePaths.fatigue}
-                  color={casingColor}
-                  style="stroke"
-                  strokeWidth={chartStroke.casing}
-                  strokeJoin={LINE_JOIN}
-                  strokeCap={LINE_CAP}
-                />
-              ) : null}
-              {linePaths.fatigue ? (
-                <Path
-                  path={linePaths.fatigue}
                   color={fatigueLineColor}
                   style="stroke"
                   strokeWidth={chartStroke.series}
@@ -276,16 +265,6 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
                 />
               ) : null}
               {/* Fitness (CTL) - primary line, on top */}
-              {linePaths.fitness ? (
-                <Path
-                  path={linePaths.fitness}
-                  color={casingColor}
-                  style="stroke"
-                  strokeWidth={chartStroke.casing}
-                  strokeJoin={LINE_JOIN}
-                  strokeCap={LINE_CAP}
-                />
-              ) : null}
               {linePaths.fitness ? (
                 <Path
                   path={linePaths.fitness}
@@ -343,17 +322,7 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
               {t('units.daysShort', { days: fitnessData.length })}
             </DenseText>
 
-            {/* Crosshair overlay */}
-            <Animated.View style={[styles.crosshair, crosshairStyle]} pointerEvents="none">
-              <View
-                style={[
-                  styles.crosshairLine,
-                  {
-                    backgroundColor: isDark ? darkColors.textSecondary : colors.textSecondary,
-                  },
-                ]}
-              />
-            </Animated.View>
+            <ChartCrosshair style={crosshairStyle} topOffset={0} bottomOffset={0} />
           </View>
         </View>
       </View>
@@ -379,15 +348,5 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: '100%',
     right: 2,
-  },
-  crosshair: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 1.5,
-  },
-  crosshairLine: {
-    flex: 1,
-    width: 1.5,
   },
 });

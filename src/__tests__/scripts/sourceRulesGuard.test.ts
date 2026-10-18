@@ -783,14 +783,14 @@ describe('ground-token-text', () => {
       'src/theme/tokenFamilies.ts': FAMILIES,
       'src/features/a/Chip.tsx': [
         '<Text style={{ color: chartColors.green }} />',
-        '<Text style={{ color: SPORT_COLORS.Cycling }} />',
+        '<Text style={{ color: sportMarkColour(sport, isDark) }} />',
       ].join('\n'),
     });
 
     const { output } = runRule('ground-token-text', root);
 
     expect(output).toContain('chartColors.green');
-    expect(output).toContain('SPORT_COLORS.Cycling');
+    expect(output).toContain('sportMarkColour()');
   });
 
   it('fails a series hue read from a metric config as a text colour across lines', () => {
@@ -864,14 +864,13 @@ describe('ground-token-text', () => {
     expect(runRule('ground-token-text', root).status).toBe(0);
   });
 
-  it('fails a brand hue, a sport colour and a category colour drawn as text', () => {
+  it('fails a brand hue and a sport mark colour drawn as text', () => {
     const root = fixture({
       'src/theme/tokenFamilies.ts': FAMILIES,
       'src/features/a/Banner.tsx': [
         'const s = StyleSheet.create({ pr: { color: brand.blue600 } });',
         '<Text style={{ color: brand.gold }} />',
-        '<Text style={{ color: SPORT_COLORS.Ride }} />',
-        '<Text style={[s.pill, { color: ACTIVITY_CATEGORIES[group]?.color }]} />',
+        '<Text style={[s.pill, { color: sportMarkColour(group, isDark) }]} />',
       ].join('\n'),
     });
 
@@ -880,8 +879,7 @@ describe('ground-token-text', () => {
     expect(status).toBe(1);
     expect(output).toContain('src/features/a/Banner.tsx  colours text with brand.blue600');
     expect(output).toContain('src/features/a/Banner.tsx  colours text with brand.gold');
-    expect(output).toContain('src/features/a/Banner.tsx  colours text with SPORT_COLORS.Ride');
-    expect(output).toContain('src/features/a/Banner.tsx  colours text with ACTIVITY_CATEGORIES');
+    expect(output).toContain('src/features/a/Banner.tsx  colours text with sportMarkColour()');
   });
 
   it('reads both arms of a conditional colour', () => {
@@ -912,13 +910,13 @@ describe('ground-token-text', () => {
     );
   });
 
-  it('passes a brand hue as a fill or an icon, a category chip ink, and a themed text token', () => {
+  it('passes a brand hue as a fill or an icon, a sport mark as an icon, and a themed text token', () => {
     const root = fixture({
       'src/theme/tokenFamilies.ts': FAMILIES,
       'src/features/a/Chip.tsx': [
         'const s = StyleSheet.create({ badge: { backgroundColor: brand.gold, borderColor: brand.blue550 } });',
         '<Icon name="trophy" color={brand.gold} style={s.icon} />',
-        '<Text style={{ color: ACTIVITY_CATEGORIES[group].selectedInk }} />',
+        '<Icon name="bike" color={sportMarkColour(group, isDark)} />',
         '<Text style={{ color: isDark ? darkColors.actionLink : colors.actionLink }} />',
       ].join('\n'),
     });

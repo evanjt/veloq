@@ -13,7 +13,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { initialiseI18n } from '@/i18n';
 import { SectionMapView } from '@/features/routes/components/SectionMapView';
-import { layout, spacing } from '@/theme';
+import { MAP_CONTROL_GAP, MAP_CONTROL_SIZE } from '@/features/maps/components/MapControlButton';
 import type { FrequentSection, RoutePoint } from '@/types';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
@@ -62,7 +62,7 @@ const SECTION: FrequentSection = {
   createdAt: '2026-01-15T10:00:00Z',
 };
 
-const STEP = layout.minTapTarget + spacing.sm;
+const STEP = MAP_CONTROL_SIZE + MAP_CONTROL_GAP;
 
 function renderMap(props: Partial<React.ComponentProps<typeof SectionMapView>>) {
   return render(
@@ -78,7 +78,7 @@ function controlColumn() {
   const maxHeight = style.maxHeight as number;
   const shown = screen.getByTestId('section-map-controls').props.children;
   const count = React.Children.toArray(shown).length;
-  const perColumn = Math.floor((maxHeight + spacing.sm) / STEP);
+  const perColumn = Math.floor((maxHeight + MAP_CONTROL_GAP) / STEP);
   return { style, top, maxHeight, count, perColumn };
 }
 
@@ -96,10 +96,10 @@ describe('the section hero map control column', () => {
     // layout sizes a wrapping column to its first and the rest would land past the map's edge.
     expect(style.flexWrap).toBe('wrap-reverse');
     const columns = Math.ceil(count / perColumn);
-    expect(style.width).toBe(columns * STEP - spacing.sm);
+    expect(style.width).toBe(columns * STEP - MAP_CONTROL_GAP);
     expect(top + maxHeight).toBeLessThanOrEqual(294);
     // The buttons that fit one bounded column end inside the hero, and the rest wrap beside it.
-    expect(top + perColumn * STEP - spacing.sm).toBeLessThanOrEqual(294);
+    expect(top + perColumn * STEP - MAP_CONTROL_GAP).toBeLessThanOrEqual(294);
     expect(perColumn).toBeLessThan(count);
   });
 

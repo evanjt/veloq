@@ -14,6 +14,7 @@ import type {
   FfiActivityIndicator,
   FfiActivityNewGround,
   FfiActivityNotification,
+  FfiActivityRecord,
   FfiActivityRouteHighlight,
   FfiActivityStreams,
   FfiActivityBodiesPage,
@@ -256,18 +257,22 @@ export function upsertActivityBodies(host: DelegateHost, rows: ActivityBodyInput
 }
 
 /**
- * One activity's untyped body, or null when the engine has not got it.
+ * One stored activity typed as the detail screen reads it, or null when the
+ * engine has not got it.
  *
  * `activity_bodies` is keyed by the id, so this is a primary-key lookup. A
  * caller after one activity uses this rather than `getActivityBodies`, which
  * hands back a whole window for JavaScript to parse.
  */
-export function getActivityBody(host: DelegateHost, activityId: string): string | null {
+export function getActivityRecord(
+  host: DelegateHost,
+  activityId: string
+): FfiActivityRecord | null {
   if (!host.ready) return null;
   validateId(activityId, 'activity ID');
   return host.timed(
-    'getActivityBody',
-    () => host.engine.activities().getActivityBody(activityId) ?? null
+    'getActivityRecord',
+    () => host.engine.activities().getActivityRecord(activityId) ?? null
   );
 }
 

@@ -9,21 +9,22 @@ import React from 'react';
 import { render, screen } from '@testing-library/react-native';
 
 import { IntervalsTable } from '@/features/activity/components/IntervalsTable';
+import { colors, darkColors } from '@/theme';
 import { zoneColour } from '@/theme/zoneColour';
 import type { ActivityInterval, ActivityType } from '@/types';
+import { IntervalKind } from 'veloqrs';
 
 function interval(watts?: number): ActivityInterval {
   return {
     id: 1,
-    type: 'WORK',
-    start_index: 0,
-    end_index: 100,
+    kind: IntervalKind.Work,
+    startIndex: 0,
+    endIndex: 100,
     distance: 1200,
-    moving_time: 180,
-    elapsed_time: 180,
-    average_speed: 6.7,
-    average_heartrate: 150,
-    average_watts: watts,
+    movingTime: 180,
+    averageSpeed: 6.7,
+    averageHeartrate: 150,
+    averageWatts: watts,
     zone: 6,
   } as ActivityInterval;
 }
@@ -60,5 +61,18 @@ describe('the intervals table zone palette', () => {
 
   it('colours a run in the zone text tone of the dark theme', async () => {
     expect(await zoneLabelColour('Run', undefined, true)).toBe(zoneColour(6, true, 'text'));
+  });
+});
+
+describe('the intervals table measure columns', () => {
+  it.each([false, true])('sets heart rate and power in primary text, dark %s', async (isDark) => {
+    await render(
+      <IntervalsTable intervals={[interval(250)]} activityType="Ride" isMetric isDark={isDark} />
+    );
+    const ink = (isDark ? darkColors : colors).textPrimary;
+    for (const value of [/^150/, /^250/]) {
+      const cell = screen.getByText(value);
+      expect(cell).toHaveStyle({ color: ink });
+    }
   });
 });

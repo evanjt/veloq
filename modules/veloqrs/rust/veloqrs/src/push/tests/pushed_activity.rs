@@ -238,8 +238,7 @@ fn push(id: &str) {
 fn ready_pass(server: &MockServer) {
     crate::runtime::block_on(ready_newest_activities(
         crate::persistence::engine_install(),
-        &transport_to(server),
-        ATHLETE,
+        &crate::net::IntervalsSession::new(transport_to(server), ATHLETE),
         &|| false,
     ))
     .expect("the ready pass");

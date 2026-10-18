@@ -1,10 +1,10 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { runWhenIdle } from '@/shared/async/runWhenIdle';
 import { navigateTo } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
-import { KeyDot, pressable, pressRipple, Shimmer, TextSeparator } from '@/shared/ui';
+import { KeyDot, Shimmer, TextSeparator, PressTarget } from '@/shared/ui';
 import { colors, darkColors, layers, layout, spacing, typography } from '@/theme';
 import { SummaryCardSparkline, SPARKLINE_MIN_DAYS, type ScrubValues } from './SummaryCardSparkline';
 import { SummaryCardHRVSparkline } from './SummaryCardHRVSparkline';
@@ -239,7 +239,7 @@ export const SummaryCard = React.memo(function SummaryCard({
           {/* Top row: Hero value + zone */}
           <View style={styles.topRow}>
             {/* Hero metric - tappable */}
-            <Pressable
+            <PressTarget
               accessibilityRole={onHeroPress ? 'button' : undefined}
               // Only the plain hero is one number and its arrow; a sparkline
               // hero reads several numbers, each its own text.
@@ -247,8 +247,7 @@ export const SummaryCard = React.memo(function SummaryCard({
                 isLoading || fitnessSparkline || hrvSparkline ? undefined : heroAccessibilityLabel
               }
               testID="summary-card-hero"
-              style={pressable(styles.heroSection)}
-              android_ripple={pressRipple}
+              style={styles.heroSection}
               onPress={onHeroPress}
               disabled={!onHeroPress}
             >
@@ -373,7 +372,7 @@ export const SummaryCard = React.memo(function SummaryCard({
                   ) : null}
                 </View>
               )}
-            </Pressable>
+            </PressTarget>
           </View>
 
           {/* Sparkline row - fitness or HRV depending on hero metric */}
@@ -407,7 +406,6 @@ export const SummaryCard = React.memo(function SummaryCard({
                 hrvRead={hrvRead}
                 rhrRead={rhrRead}
                 width={sparklineWidth}
-                showLabels={showSparklineLabels}
                 onScrub={showSparklineLabels ? undefined : handleScrub}
                 onTap={showSparklineLabels ? undefined : onHeroPress}
               />
@@ -423,12 +421,11 @@ export const SummaryCard = React.memo(function SummaryCard({
                     style={[styles.metricDivider, isDark && styles.metricDividerDark]}
                   />
                 )}
-                <Pressable
+                <PressTarget
                   accessibilityRole="button"
                   testID={`summary-card-metric-${index}`}
                   accessibilityLabel={isLoading ? metric.name : metric.accessibilityLabel}
-                  style={pressable(styles.supportingMetric)}
-                  android_ripple={pressRipple}
+                  style={styles.supportingMetric}
                   onPress={() => navigateTo(metric.navigationTarget)}
                 >
                   <Text style={[styles.metricLabel, { color: labelInk }]}>{metric.label}</Text>
@@ -446,7 +443,7 @@ export const SummaryCard = React.memo(function SummaryCard({
                       {metric.trend ? <Text style={styles.metricTrend}>{metric.trend}</Text> : null}
                     </Text>
                   )}
-                </Pressable>
+                </PressTarget>
               </React.Fragment>
             ))}
           </View>

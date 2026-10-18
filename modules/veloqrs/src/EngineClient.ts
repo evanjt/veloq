@@ -33,9 +33,9 @@ import type {
   FfiBackgroundJobsData,
   FfiPreviewTrack,
   FfiMapScreenData,
+  FfiActivityIntervals,
   FfiBestEffortsData,
-  FfiTrainingScreenData,
-  FfiTrainingScreenWindows,
+  FfiPlannedEvent,
   MapDistanceBand,
   FfiRouteGroup,
   FfiSection,
@@ -49,12 +49,14 @@ import type {
   GroupSummary,
   FfiSummaryCardData,
   FfiFitnessScreenData,
+  FfiFitnessScreenWindows,
   FfiInsightsData,
   FfiInsightsParams,
   FfiStartupData,
   FfiRoutesScreenData,
   FfiRoutesScreenQuery,
   FfiActivityBodiesPage,
+  FfiActivityRecord,
   FfiMatchStrictness,
   FfiSectionConfig,
   FfiIndexActivitySummary,
@@ -1045,15 +1047,17 @@ class EngineClient implements DelegateHost {
 
   /** The activities that moved the accepted eFTP, oldest first. */
 
-  /** The fitness tab's one read, its range-led parts over each of `spanDays`. */
-  getFitnessScreenData = (spanDays: number[]): FfiFitnessScreenData =>
-    fitnessDelegates.getFitnessScreenData(this, spanDays);
+  /**
+   * The fitness tab's one read, its range-led parts over each of `spanDays`
+   * and its calendar, weekly card and year comparison over `windows`.
+   */
+  getFitnessScreenData = (
+    spanDays: number[],
+    windows: FfiFitnessScreenWindows
+  ): FfiFitnessScreenData => fitnessDelegates.getFitnessScreenData(this, spanDays, windows);
 
   getDailyActivityLoads = (startTs: number, endTs: number) =>
     fitnessDelegates.getDailyActivityLoads(this, startTs, endTs);
-
-  getTrainingScreenData = (windows: FfiTrainingScreenWindows): FfiTrainingScreenData =>
-    fitnessDelegates.getTrainingScreenData(this, windows);
 
   // ==========================================================================
   // Heatmap Tiles (Raster tile generation for map overlay)
@@ -1186,8 +1190,8 @@ class EngineClient implements DelegateHost {
 
   getWellnessLatestDate = (): string | null => fitnessDelegates.getWellnessLatestDate(this);
 
-  getActivityBody = (activityId: string): string | null =>
-    activityDelegates.getActivityBody(this, activityId);
+  getActivityRecord = (activityId: string): FfiActivityRecord | null =>
+    activityDelegates.getActivityRecord(this, activityId);
 
   getActivityBodies = (oldestTs: number, newestTs: number): FfiActivityBodiesPage | undefined =>
     activityDelegates.getActivityBodies(this, oldestTs, newestTs);
@@ -1234,11 +1238,11 @@ class EngineClient implements DelegateHost {
   getBestEffortsData = (days: number): FfiBestEffortsData | null =>
     fitnessDelegates.getBestEffortsData(this, days);
 
-  getIntervalBody = (activityId: string): string | null =>
-    fitnessDelegates.getIntervalBody(this, activityId);
+  getActivityIntervals = (activityId: string): FfiActivityIntervals | null =>
+    fitnessDelegates.getActivityIntervals(this, activityId);
 
-  getCalendarEventBodies = (oldestTs: number, newestTs: number): string[] =>
-    fitnessDelegates.getCalendarEventBodies(this, oldestTs, newestTs);
+  getPlannedEvents = (oldestTs: number, newestTs: number): FfiPlannedEvent[] =>
+    fitnessDelegates.getPlannedEvents(this, oldestTs, newestTs);
 
   getWeeklySummaries = (weekStarts: number[], weekLengthSecs: number) =>
     fitnessDelegates.getWeeklySummaries(this, weekStarts, weekLengthSecs);

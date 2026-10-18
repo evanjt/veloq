@@ -1,20 +1,14 @@
-import React, { useMemo } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import React from 'react';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { useActivityLabels } from '@/features/activity';
 import { useTheme } from '@/shared/app';
-import { EmptyState, ErrorState, pressable, pressRipple } from '@/shared/ui';
+import { EmptyState, PressTarget } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { formatDurationOrNull } from '@/shared/format/format';
 import { formatEffortValue } from '../lib/bestEfforts';
-import {
-  SPORT_COLORS,
-  SPORT_TEXT_COLORS,
-  SPORT_TEXT_COLORS_DARK,
-  type PrimarySport,
-} from '@/features/fitness/stores';
+import { type PrimarySport } from '@/features/fitness/stores';
 import {
   colors,
   colorWithOpacity,
@@ -26,6 +20,7 @@ import {
   typography,
   stroke,
   opacity,
+  themePalette,
 } from '@/theme';
 import {
   bestEffortsHref,
@@ -60,18 +55,7 @@ export function SeasonBestsSection({
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
-  const sportColor = SPORT_COLORS[sport];
-  const sportText = isDark ? SPORT_TEXT_COLORS_DARK[sport] : SPORT_TEXT_COLORS[sport];
-
-  const effortIds = useMemo(
-    () => efforts.map((effort) => effort.activityId).filter((id): id is string => !!id),
-    [efforts]
-  );
-  const {
-    labels: activityMap,
-    error: labelsError,
-    refetch: refetchLabels,
-  } = useActivityLabels(effortIds);
+  const palette = themePalette(isDark);
 
   const hasEfforts = efforts.some((e) => e.value !== null);
   const hasClimbingValues = climbing.some((b) => b.vam !== null || b.wattsPerKg !== null);
@@ -80,19 +64,18 @@ export function SeasonBestsSection({
   const hasClimbing = hasClimbingValues || hasClimbingNote;
 
   const viewAll = (
-    <Pressable
-      android_ripple={pressRipple}
+    <PressTarget
       accessibilityRole="button"
       accessibilityLabel={t('bestEffortsScreen.viewAll')}
       testID="season-bests-view-all"
-      style={pressable([styles.viewAllRow, isDark && styles.viewAllRowDark])}
+      style={[styles.viewAllRow, isDark && styles.viewAllRowDark]}
       onPress={() => navigateTo(bestEffortsHref(period))}
     >
-      <Text style={[styles.viewAllText, { color: sportText }]}>
+      <Text style={[styles.viewAllText, { color: palette.actionLink }]}>
         {t('bestEffortsScreen.viewAll')}
       </Text>
-      <Icon name="chevron-right" size={iconSize.sm} color={sportColor} />
-    </Pressable>
+      <Icon name="chevron-right" size={iconSize.sm} color={palette.actionLink} />
+    </PressTarget>
   );
 
   if (isLoading) {
@@ -115,16 +98,7 @@ export function SeasonBestsSection({
 
   return (
     <View>
-      {labelsError != null && (
-        <ErrorState
-          variant="inline"
-          error={labelsError}
-          onRetry={refetchLabels}
-          testID="season-bests-labels-failed"
-        />
-      )}
       {(hasEfforts ? efforts : []).map((effort, index) => {
-        const info = effort.activityId ? activityMap.get(effort.activityId) : undefined;
         const timeStr = formatDurationOrNull(effort.time);
         const valueStr = formatEffortValue(effort.value, sport, t('units.watts'), isMetric);
         const showTime = !!timeStr && sport !== 'Cycling';
@@ -136,9 +110,13 @@ export function SeasonBestsSection({
             label={effort.label}
             value={valueStr}
             secondary={showTime ? timeStr : null}
-            valueColor={sportText}
+            valueColor={palette.textPrimary}
             isLast={index === efforts.length - 1}
-            activity={info && effort.activityId ? { id: effort.activityId, ...info } : undefined}
+            activity={
+              effort.activity && effort.activityId
+                ? { id: effort.activityId, ...effort.activity }
+                : undefined
+            }
           />
         );
       })}
@@ -147,7 +125,7 @@ export function SeasonBestsSection({
           <Text style={[styles.climbingTitle, isDark && styles.climbingTitleDark]}>
             {t('bestEffortsScreen.climbingBests')}
           </Text>
-          {hasClimbingValues ? <ClimbingBestRows bests={climbing} sport={sport} /> : null}
+          {hasClimbingValues ? <ClimbingBestRows bests={climbing} /> : null}
           <ClimbingStatusNote status={climbingStatus} />
         </View>
       ) : null}

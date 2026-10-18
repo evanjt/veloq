@@ -30,6 +30,7 @@ const ACRONYMS = new Map([
   ['ATL', 'acute training load'],
   ['TSB', 'training stress balance'],
   ['CSS', 'critical swim speed'],
+  ['SWOLF', "swim golf, a length's time in seconds plus its stroke count"],
   ['GAP', 'grade-adjusted pace'],
   ['RPE', 'rate of perceived exertion'],
   ['BPM', 'beats per minute'],

@@ -167,7 +167,7 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
       source: 'routes',
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
-        'line-color': layer.casing,
+        'line-color': palette.casing,
         'line-width': selectedRouteId ? ['case', isSelectedRoute, 7, 0] : 0,
         'line-opacity': selectedRouteId && showRoutes ? 0.8 : 0,
       },
@@ -197,7 +197,7 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
       source: 'sections',
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
-        'line-color': layer.casing,
+        'line-color': palette.casing,
         'line-width': selectedSectionId ? ['case', isSelectedSection, 6, 0] : 0,
         'line-opacity': selectedSectionId && showSections ? 0.8 : 0,
       },
@@ -225,8 +225,9 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
       type: 'line',
       source: 'selected-route',
       layout: { 'line-cap': 'round', 'line-join': 'round' },
+      // A sport-coloured line on the Map tab is edged rather than cased.
       paint: {
-        'line-color': layer.selectedCasing,
+        'line-color': palette.edge,
         'line-width': 8,
         'line-opacity': hasRouteData ? 1 : 0,
       },
@@ -248,7 +249,7 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
       source: CLUSTER_SOURCE_ID,
       filter: ['has', 'point_count'],
       paint: {
-        'circle-color': layer.route,
+        'circle-color': palette.route,
         'circle-radius': ['step', ['get', 'point_count'], 20, 10, 25, 50, 30],
         // Opaque, so the count's contrast holds over any basemap beneath it.
         'circle-opacity': showActivities ? 1 : 0,
@@ -267,7 +268,7 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
         'text-allow-overlap': true,
         'text-ignore-placement': true,
       },
-      paint: { 'text-color': layer.onFill },
+      paint: { 'text-color': palette.badgeInk },
       visible: showActivities,
     },
     {
@@ -304,7 +305,7 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
           : 0,
         'circle-stroke-width': selectedActivityId ? ['case', isSelectedActivity, 2.5, 1.5] : 1.5,
         'circle-stroke-color': selectedActivityId
-          ? ['case', isSelectedActivity, layer.route, layer.pointRing]
+          ? ['case', isSelectedActivity, palette.ink, layer.pointRing]
           : layer.pointRing,
         'circle-stroke-opacity': showActivities ? 1 : 0,
       },
@@ -330,7 +331,7 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
         'circle-radius': 10,
         'circle-opacity': spiderVisible ? 1 : 0,
         'circle-stroke-width': 2,
-        'circle-stroke-color': layer.casing,
+        'circle-stroke-color': palette.casing,
         'circle-stroke-opacity': spiderVisible ? 1 : 0,
       },
       visible: spiderVisible,

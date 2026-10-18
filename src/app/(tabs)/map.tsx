@@ -1,13 +1,6 @@
 import { useTabFirstFrame } from '@/shared/debug/tabSwitchTiming';
 import React, { useState, useMemo, useEffect, useRef, useDeferredValue, useCallback } from 'react';
-import {
-  View,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  type LayoutChangeEvent,
-} from 'react-native';
+import { View, ScrollView, StyleSheet, Text, type LayoutChangeEvent } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useIsFocused, useLocalSearchParams } from 'expo-router';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -38,8 +31,7 @@ import {
   useBottomClearance,
   Shimmer,
   Button,
-  pressable,
-  pressRipple,
+  PressTarget,
 } from '@/shared/ui';
 import { useFootCover } from '@/shared/ui/bottomPills';
 import { logScreenRender } from '@/shared/debug/renderTimer';
@@ -64,10 +56,10 @@ import {
 import { ToggleButton } from '@/shared/ui/Button';
 import { SportChipRow } from '@/shared/ui/SportChipRow';
 import {
-  ACTIVITY_CATEGORIES,
   groupTypesByCategory,
   isSportFamily,
   SPORT_FAMILY_LABELS,
+  SPORT_FAMILY_MEMBERS,
   type SportFamily,
 } from '@/shared/activity/sportCategories';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
@@ -208,8 +200,7 @@ function MapScreenContent() {
   const sectionsEnabled = useRouteSettings((s) => s.settings.enabled);
 
   const selectedTypes = useMemo(
-    () =>
-      new Set([...selectedCategories].flatMap((category) => ACTIVITY_CATEGORIES[category].types)),
+    () => new Set([...selectedCategories].flatMap((category) => SPORT_FAMILY_MEMBERS[category])),
     [selectedCategories]
   );
 
@@ -428,7 +419,7 @@ function MapScreenContent() {
         ]}
       >
         <GestureDetector gesture={handleDrag}>
-          <Pressable
+          <PressTarget
             testID="map-filter-handle"
             onPress={() => setSheetExpanded((expanded) => !expanded)}
             accessibilityRole="button"
@@ -437,11 +428,10 @@ function MapScreenContent() {
             }
             accessibilityState={{ expanded: sheetExpanded }}
             hitSlop={HANDLE_SLOP}
-            style={pressable(styles.handleRow)}
-            android_ripple={pressRipple}
+            style={styles.handleRow}
           >
             <View style={[styles.handle, isDark && styles.handleDark]} />
-          </Pressable>
+          </PressTarget>
         </GestureDetector>
 
         <GestureDetector gesture={filtersDrag}>

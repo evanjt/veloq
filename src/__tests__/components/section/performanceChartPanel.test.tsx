@@ -8,7 +8,7 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
 import { fireEvent, render, within } from '@testing-library/react-native';
-import { DashPathEffect, Line, Rect } from '@shopify/react-native-skia';
+import { DashPathEffect, Line, RoundedRect } from '@shopify/react-native-skia';
 
 import { PerformanceChartPanel } from '@/features/routes/components/section/PerformanceChartPanel';
 import { AttemptHistogramChart } from '@/features/routes/components/section/AttemptHistogramChart';
@@ -16,7 +16,7 @@ import { SectionPerformanceSection } from '@/features/routes/components/section/
 import type { PerformanceDataPoint } from '@/types';
 import type { FfiAttemptHistogram, FfiAttemptHistograms } from 'veloqrs';
 import { DirectionSwitch, ToggleButton } from '@/shared/ui';
-import { colors } from '@/theme';
+import { colors, colourTokens } from '@/theme';
 import { layoutViews } from '../../__shared__/layoutViews';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
@@ -81,10 +81,10 @@ function panel(props: Partial<React.ComponentProps<typeof PerformanceChartPanel>
   );
 }
 
-/** The Rect props drawn on each render, so a test reads what was placed. */
+/** The bar props drawn on each render, so a test reads what was placed. */
 function captureRects() {
   const drawn: Record<string, unknown>[] = [];
-  const rect = Rect as unknown as {
+  const rect = RoundedRect as unknown as {
     render: (props: Record<string, unknown>, ref: unknown) => React.ReactNode;
   };
   const original = rect.render;
@@ -117,8 +117,31 @@ const isDashed = (mark: Record<string, unknown>) =>
     (child) => React.isValidElement(child) && child.type === DashPathEffect
   );
 
+const TOKENS = colourTokens.light;
+
 const barsOf = (drawn: Record<string, unknown>[]) =>
-  drawn.filter((r) => r.color === colors.actionPrimary);
+  drawn.filter((r) => r.color === TOKENS['chart-series']);
+
+/** The shortest line a mark across the plot draws, longer than a reticle's tick in a key. */
+const MARK_MIN_LENGTH = 24;
+
+/** A line across the plot's height: a mark rather than a key swatch, a reticle tick or a rule. */
+const isUpright = (line: Record<string, unknown>) => {
+  const p1 = line.p1 as { x: number; y: number };
+  const p2 = line.p2 as { x: number; y: number };
+  return p1.x === p2.x && Math.abs(p2.y - p1.y) >= MARK_MIN_LENGTH;
+};
+
+/** The x half way between the centres of the first two bars, where the first bin ends. */
+const firstBinEnd = (bars: Record<string, unknown>[]) => {
+  const centre = (bar: Record<string, unknown>) => Number(bar.x) + Number(bar.width) / 2;
+  return (centre(bars[0]) + centre(bars[1])) / 2;
+};
+
+const thisActivityMarks = (lines: Record<string, unknown>[]) =>
+  lines.filter((l) => isUpright(l) && l.color === TOKENS['text-primary']);
+const recordMarks = (lines: Record<string, unknown>[]) =>
+  lines.filter((l) => isUpright(l) && l.color === TOKENS['achievement-text']);
 
 describe('PerformanceChartPanel', () => {
   afterEach(() => jest.restoreAllMocks());
@@ -131,11 +154,43 @@ describe('PerformanceChartPanel', () => {
     const tree = await render(panel({ trendCurves: { forwardSpeed: trend } }));
 
     expect(tree.getByText('sections.legendTrend')).toBeTruthy();
-    expect(tree.getByText('sections.legendTrendBand')).toBeTruthy();
 
     await fireEvent.press(tree.getByTestId('section-chart-direction-reverse'));
     expect(tree.queryByText('sections.legendTrend')).toBeNull();
-    expect(tree.queryByText('sections.legendTrendBand')).toBeNull();
+  });
+
+  it('keys the direction on show and never a reverse swatch over a forward plot', async () => {
+    const forwardOnly = CHART_DATA.filter((p) => p.direction !== 'reverse');
+    const tree = await render(
+      panel({
+        chartData: forwardOnly,
+        bestReverseRecord: { bestTime: 600, activityDate: new Date(2026, 5, 2) },
+      })
+    );
+    const legend = within(tree.getByTestId('scatter-legend'));
+    expect(legend.queryByText('sections.reverse')).toBeNull();
+    expect(legend.getAllByText('sections.forward')).toHaveLength(1);
+  });
+
+  it('keys reverse once when both directions exist and reverse is plotted', async () => {
+    const tree = await render(panel());
+    await fireEvent.press(tree.getByTestId('section-chart-direction-reverse'));
+    const legend = within(tree.getByTestId('scatter-legend'));
+    expect(legend.getAllByText('sections.reverse')).toHaveLength(1);
+    expect(legend.queryByText('sections.forward')).toBeNull();
+  });
+
+  it('keys the record only when the plot rings one', async () => {
+    const unringed = await render(panel());
+    expect(
+      within(unringed.getByTestId('scatter-legend')).queryByText('sections.legendRecord')
+    ).toBeNull();
+
+    const ringed = CHART_DATA.map((p, i) => (i === 0 ? { ...p, isBest: true } : p));
+    const tree = await render(panel({ chartData: ringed }));
+    expect(
+      within(tree.getByTestId('scatter-legend')).getByText('sections.legendRecord')
+    ).toBeTruthy();
   });
 
   it('opens on the scatter and switches to the histogram and back', async () => {
@@ -248,28 +303,26 @@ describe('PerformanceChartPanel', () => {
     await fireEvent.press(tree.getByTestId('chart-plot-histogram'));
     await layoutViews(tree, 400, 300);
 
-    const green = lines.filter((l) => l.color === colors.chartGreenMark);
-    const gold = lines.filter((l) => l.color === colors.achievement);
-    expect(green).toHaveLength(1);
-    expect(gold).toHaveLength(1);
+    const attempt = thisActivityMarks(lines);
+    const record = recordMarks(lines);
+    expect(attempt).toHaveLength(1);
+    expect(record).toHaveLength(1);
     // 305 s and 310 s both fall in the first 30 s bin, 300 to 330.
-    const [first] = barsOf(drawn);
-    for (const mark of [green[0], gold[0]]) {
-      const centre = markX(mark);
-      expect(centre).toBeGreaterThanOrEqual(Number(first.x));
-      expect(centre).toBeLessThan(Number(first.x) + Number(first.width));
+    const bars = barsOf(drawn).slice(-2);
+    for (const mark of [attempt[0], record[0]]) {
+      expect(markX(mark)).toBeLessThan(firstBinEnd(bars));
     }
   });
 
   it('shows the scatter legend under the scatter only', async () => {
     const tree = await render(panel({ highlightedActivityId: 'act-0', bestForwardIsRecord: true }));
-    expect(tree.queryByText('sections.legendPr')).toBeTruthy();
+    expect(tree.getByTestId('scatter-legend-this-activity')).toBeTruthy();
 
     await fireEvent.press(tree.getByTestId('chart-plot-histogram'));
     // The histogram carries its own key, with the same two entries.
+    expect(tree.queryByTestId('scatter-legend')).toBeNull();
     expect(tree.queryAllByText('sections.legendPr')).toHaveLength(1);
     expect(tree.queryAllByText('sections.legendThisActivity')).toHaveLength(1);
-    expect(tree.queryByText('sections.legendReverse')).toBeNull();
   });
 });
 
@@ -290,13 +343,13 @@ describe('AttemptHistogramChart', () => {
     );
     await layoutViews(tree, 400, 300);
 
-    const bars = barsOf(drawn);
+    const bars = barsOf(drawn).slice(-2);
     expect(bars).toHaveLength(2);
     expect(Number(bars[0].height) / Number(bars[1].height)).toBeCloseTo(3 / 2);
-    const green = lines.find((l) => l.color === colors.chartGreenMark)!;
-    const gold = lines.find((l) => l.color === colors.achievement)!;
-    expect(markX(green)).toBeLessThan(Number(bars[0].x) + Number(bars[0].width));
-    expect(markX(gold)).toBeGreaterThan(Number(bars[1].x));
+    const attempt = thisActivityMarks(lines).at(-1)!;
+    const record = recordMarks(lines).at(-1)!;
+    expect(markX(attempt)).toBeLessThan(firstBinEnd(bars));
+    expect(markX(record)).toBeGreaterThan(firstBinEnd(bars));
   });
 
   it('draws the record mark dashed and the attempt mark solid, and keys them the same way', async () => {
@@ -313,19 +366,31 @@ describe('AttemptHistogramChart', () => {
     );
     await layoutViews(tree, 400, 300);
 
-    const record = drawn.find((l) => l.color === colors.achievement);
-    const attempt = drawn.find((l) => l.color === colors.chartGreenMark);
+    const record = recordMarks(drawn).at(-1);
+    const attempt = thisActivityMarks(drawn).at(-1);
     expect(record).toBeDefined();
     expect(attempt).toBeDefined();
     expect(isDashed(record!)).toBe(true);
     expect(isDashed(attempt!)).toBe(false);
 
-    const recordKey = within(tree.getByTestId('attempt-histogram-record-key'));
-    const attemptKey = within(tree.getByTestId('attempt-histogram-highlight-key'));
-    expect(recordKey.getByTestId('key-swatch-dashed')).toBeTruthy();
-    expect(recordKey.queryByTestId('key-swatch-solid')).toBeNull();
-    expect(attemptKey.getByTestId('key-swatch-solid')).toBeTruthy();
-    expect(attemptKey.queryByTestId('key-swatch-dashed')).toBeNull();
+    // Each key draws its line across, in the plot line's colour and stroke.
+    const swatches = drawn.filter((l) => !isUpright(l));
+    const recordSwatch = swatches.filter((l) => l.color === TOKENS['achievement-text']);
+    const attemptSwatch = swatches.filter((l) => l.color === TOKENS['text-primary']);
+    expect(recordSwatch.length).toBeGreaterThan(0);
+    expect(attemptSwatch.length).toBeGreaterThan(0);
+    expect(recordSwatch.every(isDashed)).toBe(true);
+    expect(attemptSwatch.some(isDashed)).toBe(false);
+    expect(
+      within(tree.getByTestId('attempt-histogram-record-key')).getByTestId(
+        'attempt-histogram-record-key-mark'
+      )
+    ).toBeTruthy();
+    expect(
+      within(tree.getByTestId('attempt-histogram-highlight-key')).getByTestId(
+        'attempt-histogram-highlight-key-mark'
+      )
+    ).toBeTruthy();
   });
 
   it('draws no mark for a time outside the bins', async () => {
@@ -341,8 +406,9 @@ describe('AttemptHistogramChart', () => {
     );
     await layoutViews(tree, 400, 300);
 
-    expect(barsOf(drawn)).toHaveLength(2);
-    expect(lines.filter((l) => l.color === colors.chartGreenMark)).toHaveLength(0);
+    expect(barsOf(drawn).slice(-2)).toHaveLength(2);
+    expect(thisActivityMarks(lines)).toHaveLength(0);
+    expect(tree.queryByTestId('attempt-histogram-highlight-key')).toBeNull();
   });
 
   it('says what is outside the distance band only when the engine reports some', async () => {
@@ -410,7 +476,7 @@ describe('the route page chart', () => {
         onSetAsReference={jest.fn()}
         referenceActivityId={undefined}
         showExcluded={false}
-        hasExcluded={false}
+        excludedCount={0}
         onToggleShowExcluded={jest.fn()}
         sectionTimeRange="all"
         onTimeRangeChange={jest.fn()}

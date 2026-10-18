@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
@@ -15,14 +15,7 @@ import { formatDuration } from '@/shared/format/format';
 import { brand, colors, darkColors, iconSize, layout, opacity, spacing, typography } from '@/theme';
 import type { Insight, SupportingSection } from '@/types';
 import { SheetContext } from './SheetContext';
-import {
-  Button,
-  Card,
-  composeAccessibilityLabel,
-  ErrorState,
-  pressable,
-  pressRipple,
-} from '@/shared/ui';
+import { Button, Card, composeAccessibilityLabel, ErrorState, PressTarget } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import type { TFunc } from '../../types';
 import { sectionRowKey, sectionWithSport } from '../../lib/cardSport';
@@ -124,7 +117,7 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
   return (
     <Animated.View layout={LinearTransition}>
       <Card variant="flat" padding="none">
-        <Pressable
+        <PressTarget
           accessibilityRole="button"
           accessibilityLabel={composeAccessibilityLabel(
             name,
@@ -137,8 +130,7 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
           accessibilityState={{ expanded }}
           onPress={handleToggle}
           testID={`section-trend-toggle-${section.sectionId}`}
-          style={pressable(styles.sectionHeader)}
-          android_ripple={pressRipple}
+          style={styles.sectionHeader}
         >
           <View style={styles.sectionContent}>
             <View style={styles.sectionNameRow}>
@@ -191,7 +183,7 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
               color={isDark ? darkColors.textSecondary : colors.textSecondary}
             />
           </View>
-        </Pressable>
+        </PressTarget>
 
         {expanded ? (
           <Animated.View entering={FadeIn} style={styles.expandedContent}>

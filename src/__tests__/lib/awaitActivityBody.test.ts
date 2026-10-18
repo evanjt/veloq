@@ -13,7 +13,7 @@
  * task is the least affordable place to do a page of JSON work.
  */
 
-import { StartOutcome } from 'veloqrs';
+import { StartOutcome, type ActivityRecord } from 'veloqrs';
 import { awaitActivityBody, readStoredActivity } from '@/features/insights/lib/awaitActivityBody';
 
 // Hoisted above the imports by babel-jest whatever it is written after, so it
@@ -23,20 +23,22 @@ jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides())
 
 type Listener = (payload?: { kind?: string; activityId?: string }) => void;
 
-function fakeEngine(stored: Record<string, string> = {}, outcome = StartOutcome.Started) {
+type Stored = { id: string; name?: string };
+
+function fakeEngine(stored: Record<string, Stored> = {}, outcome = StartOutcome.Started) {
   const listeners = new Map<string, Set<Listener>>();
   const reads: number[] = [];
   const windowReads: number[] = [];
   const engine = {
-    bodies: { ...stored },
+    bodies: { ...stored } as Record<string, Stored>,
     detailRequests: [] as string[],
     getActivityBodies(oldest: number, newest: number) {
       windowReads.push(newest - oldest);
       return Object.values(engine.bodies);
     },
-    getActivityBody(activityId: string) {
+    getActivityRecord(activityId: string) {
       reads.push(1);
-      return engine.bodies[activityId] ?? null;
+      return (engine.bodies[activityId] ?? null) as ActivityRecord | null;
     },
     syncActivityDetail(activityId: string) {
       engine.detailRequests.push(activityId);
@@ -49,8 +51,8 @@ function fakeEngine(stored: Record<string, string> = {}, outcome = StartOutcome.
       return () => set.delete(callback);
     },
     /** Stand in for Rust: store the body, then announce it. */
-    land(activityId: string, body: Record<string, unknown>) {
-      engine.bodies[activityId] = JSON.stringify({ id: activityId, ...body });
+    land(activityId: string, body: Omit<Stored, 'id'>) {
+      engine.bodies[activityId] = { id: activityId, ...body };
       listeners.get('bodyStored')?.forEach((cb) => cb({ kind: 'activity_detail', activityId }));
     },
     announceOnly(activityId: string) {
@@ -70,7 +72,7 @@ describe('awaiting an activity body', () => {
   afterEach(() => jest.useRealTimers());
 
   it('returns a body that is already stored without asking for it', async () => {
-    const engine = fakeEngine({ a1: JSON.stringify({ id: 'a1', name: 'Morning ride' }) });
+    const engine = fakeEngine({ a1: { id: 'a1', name: 'Morning ride' } });
 
     const body = await awaitActivityBody(engine, 'a1');
 
@@ -133,7 +135,7 @@ describe('awaiting an activity body', () => {
   });
 
   it('asks the engine for the one activity, never for a window of them', async () => {
-    const engine = fakeEngine({ 'i-1': JSON.stringify({ id: 'i-1', name: 'Ride' }) });
+    const engine = fakeEngine({ 'i-1': { id: 'i-1', name: 'Ride' } });
 
     await expect(awaitActivityBody(engine, 'i-1')).resolves.toEqual({ id: 'i-1', name: 'Ride' });
 
@@ -171,7 +173,7 @@ describe('awaiting an activity body', () => {
   });
 
   it('reads null for an activity the engine has not got, without scanning', () => {
-    const engine = fakeEngine({ 'i-9': JSON.stringify({ id: 'i-9' }) });
+    const engine = fakeEngine({ 'i-9': { id: 'i-9' } });
 
     expect(readStoredActivity(engine, 'i-1')).toBeNull();
     expect(engine.windowReads()).toBe(0);

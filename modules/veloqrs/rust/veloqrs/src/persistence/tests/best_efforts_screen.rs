@@ -458,6 +458,7 @@ fn a_checkpoint_row_carries_its_kind_and_measure_and_no_words() {
                 value: _,
                 time: _,
                 activity_id: _,
+                activity: _,
             } = effort;
             (*kind, *checkpoint)
         })
@@ -568,4 +569,96 @@ fn an_activity_with_no_elevation_is_neither_owed_nor_excluded_and_holds_no_best(
         assert_eq!(run.bests.len(), CLIMB_WINDOWS_S.len());
         assert_all_finite(&data);
     }
+}
+
+/// A metrics row naming `id`, which is what the device holds of an activity
+/// once its list sync has landed.
+fn named(engine: &PersistentEngine, id: &str, name: &str, date: i64) {
+    engine
+        .db
+        .execute(
+            "INSERT INTO activity_metrics (activity_id, name, date, distance, moving_time,
+                 elapsed_time, elevation_gain, sport_type)
+             VALUES (?1, ?2, ?3, 0, 0, 0, 0, 'Run')",
+            rusqlite::params![id, name, date],
+        )
+        .unwrap();
+}
+
+/// 2026-03-01T23:30:00 stamped as UTC, which is how a start is stored.
+const LATE_START: i64 = 1_772_407_800;
+
+/// The rows name the activity each best was set on, so the screen reads no
+/// activity of its own to label them. An activity the device does not hold
+/// has no name, which is the cue the screen shows as not cached.
+#[test]
+fn a_pace_best_carries_the_name_and_start_of_the_activity_holding_it() {
+    let engine = PersistentEngine::in_memory().unwrap();
+    engine
+        .set_curve_body(CurveKind::Pace, "Run", SEASON, false, RUN_PACE)
+        .unwrap();
+    named(&engine, "r3", "Lakeside tempo", LATE_START);
+
+    let data = read(&engine, SEASON);
+    let run = sport(&data, "Run");
+    let five_k = run.efforts.iter().find(|e| e.checkpoint == 5000.0).unwrap();
+    let activity = five_k.activity.as_ref().expect("the 5 km best is named");
+    assert_eq!(activity.activity_id, "r3");
+    assert_eq!(activity.name, "Lakeside tempo");
+    assert_eq!(activity.date, LATE_START as f64);
+
+    let quarter = run.efforts.iter().find(|e| e.checkpoint == 400.0).unwrap();
+    assert_eq!(quarter.activity_id.as_deref(), Some("r1"));
+    assert!(quarter.activity.is_none(), "r1 is not on the device");
+
+    let half = run.efforts.iter().find(|e| e.kind == HalfMarathon).unwrap();
+    assert!(
+        half.activity.is_none(),
+        "a checkpoint with no best names nothing"
+    );
+}
+
+#[test]
+fn a_power_best_carries_the_name_of_the_activity_holding_it() {
+    let engine = PersistentEngine::in_memory().unwrap();
+    engine
+        .set_curve_body(CurveKind::Power, "Ride", SEASON, false, RIDE_POWER)
+        .unwrap();
+    named(&engine, "p3", "Col sprint", NOW - DAY);
+
+    let data = read(&engine, SEASON);
+    let minute = sport(&data, "Ride")
+        .efforts
+        .iter()
+        .find(|e| e.checkpoint == 60.0)
+        .unwrap();
+    assert_eq!(
+        minute.activity.as_ref().map(|a| a.name.as_str()),
+        Some("Col sprint")
+    );
+}
+
+#[test]
+fn a_climb_best_carries_the_name_of_the_activity_holding_it() {
+    let _serial = crate::test_globals::serial_global_state();
+    let mut engine = PersistentEngine::in_memory().unwrap();
+    climbed(&mut engine, "steep-run", "Run", 10.0, 10);
+    named(&engine, "steep-run", "Quarry repeats", NOW - 10 * DAY);
+
+    let data = read(&engine, SEASON);
+    let best = climbing(&data, "Run")
+        .bests
+        .iter()
+        .find(|b| b.window_s == 15)
+        .unwrap();
+    let activity = best.activity.as_ref().expect("the 15 s best is named");
+    assert_eq!(activity.name, "Quarry repeats");
+    assert_eq!(activity.date, (NOW - 10 * DAY) as f64);
+    assert!(
+        climbing(&data, "Ride")
+            .bests
+            .iter()
+            .all(|b| b.activity.is_none()),
+        "no ride holds a best"
+    );
 }

@@ -2,7 +2,8 @@ import { View } from 'react-native';
 import { Text } from 'react-native-paper';
 
 import { useTheme } from '@/shared/app';
-import { getActivityIcon, getActivityInk } from '@/shared/activity/activityUtils';
+import { getActivityIcon } from '@/shared/activity/activityUtils';
+import { sportMarkColour } from '@/shared/activity/sportCategories';
 import type { ActivityType } from '@/types';
 import { styles } from '../RecordingScreen.styles';
 import { useTimer } from '../hooks/useTimer';
@@ -21,7 +22,7 @@ export function IndoorDisplay({
   textPrimary: string;
 }) {
   const { isDark } = useTheme();
-  const activityColor = getActivityInk(activityType, isDark);
+  const activityColor = sportMarkColour(activityType, isDark);
   const { formattedMoving } = useTimer();
   return (
     <View style={[styles.indoorDisplay, { backgroundColor: surface, borderColor: border }]}>

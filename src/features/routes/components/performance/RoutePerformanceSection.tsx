@@ -1,34 +1,36 @@
 /**
  * Route progression for the activity-detail Route tab.
- * Shows a tappable header (route name + best time) and a full-width scatter
- * chart of the route's history with this activity highlighted.
+ * Opens with the activity's standing on the route, then a tappable header
+ * (route name + best time) and the performance panel over the route's
+ * history, its card opening on this activity.
  */
 
-import React, { useMemo, useCallback, useState } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import React, { useMemo, useCallback } from 'react';
+import { View, StyleSheet } from 'react-native';
 import { useTheme } from '@/shared/app';
-import { Card, pressable, pressRipple } from '@/shared/ui';
+import { Card, PressTarget } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { Text } from 'react-native-paper';
 import { navigateTo } from '@/shared/app/navigation';
 import { useTranslation } from 'react-i18next';
 import { useRoutePerformances } from '@/features/routes/hooks/useRoutePerformances';
-import { getActivityColor, getActivityInk } from '@/shared/activity/activityUtils';
+import { useDrawnMapStyle } from '@/features/maps';
+import { useMapPreferences } from '@/features/settings';
+import { sportMarkColour } from '@/shared/activity/sportCategories';
 import { formatDuration } from '@/shared/format/format';
 import {
   colors,
   darkColors,
   iconSize,
   layout,
-  mapLayerColors,
+  mapPalette,
   spacing,
   typography,
   stroke,
 } from '@/theme';
 import type { ActivityType, PerformanceDataPoint } from '@/types';
-import { SectionScatterChart, ScatterLegend } from '@/features/routes/components/section';
+import { PerformanceChartPanel } from '@/features/routes/components/section';
 import { formatRouteStanding } from '@/features/routes/lib/routeStanding';
-import { directionColour } from '@/features/routes/lib/directionColour';
 import { ErrorState } from '@/shared/ui/ErrorState';
 import { NameText } from '@/shared/ui/NameText';
 
@@ -37,12 +39,15 @@ interface RoutePerformanceSectionProps {
   activityType: ActivityType;
   /** Seconds this activity's route record beat the previous best by, from the engine's route highlight. */
   improvementSeconds?: number | null;
+  /** Seconds this activity was off the route best, from the same highlight the feed card reads. */
+  gapToBestSeconds?: number | null;
 }
 
 export function RoutePerformanceSection({
   activityId,
   activityType,
   improvementSeconds = null,
+  gapToBestSeconds = null,
 }: RoutePerformanceSectionProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -65,16 +70,11 @@ export function RoutePerformanceSection({
     retry,
   } = useRoutePerformances(activityId);
 
-  const activityColor = getActivityColor(activityType);
-  const activityInk = getActivityInk(activityType, isDark);
-  const [trendDisplay, setTrendDisplay] = useState({ visible: false, reverse: false });
-  const onTrendChange = useCallback((visible: boolean, direction: 'forward' | 'reverse') => {
-    setTrendDisplay((current) =>
-      current.visible === visible && current.reverse === (direction === 'reverse')
-        ? current
-        : { visible, reverse: direction === 'reverse' }
-    );
-  }, []);
+  // The key repeats the colours the activity map draws its lines in, for the
+  // base that map opens on.
+  const { getStyleForActivity } = useMapPreferences();
+  const mapColours = mapPalette(useDrawnMapStyle(getStyleForActivity(activityType, activityId)));
+  const activityColor = sportMarkColour(activityType, isDark);
 
   const chartData = useMemo((): (PerformanceDataPoint & { x: number })[] => {
     const valid = performances.filter(
@@ -91,26 +91,16 @@ export function RoutePerformanceSection({
       matchPercentage: perf.matchPercentage,
       sectionTime: Math.round(perf.duration),
       outsideDistanceBand: perf.outsideDistanceBand,
+      isBest: perf.isRecord,
     }));
   }, [performances]);
 
-  // The gap uses the engine's best for this attempt's direction.
-  const standing = useMemo(() => {
-    const current = performances.find((p) => p.activityId === activityId);
-    const gapToBestSeconds =
-      current && currentDirectionBest && currentDirectionBest.bestTime > 0
-        ? current.movingTime - currentDirectionBest.bestTime
-        : null;
-    return { currentRank, attemptCount, percentileRank, gapToBestSeconds, improvementSeconds };
-  }, [
-    performances,
-    activityId,
-    currentDirectionBest,
-    currentRank,
-    attemptCount,
-    percentileRank,
-    improvementSeconds,
-  ]);
+  // The exact times are the route highlight's, so the page spells out the
+  // number the feed card's chip shows; the rank and percentile are the page's.
+  const standing = useMemo(
+    () => ({ currentRank, attemptCount, percentileRank, gapToBestSeconds, improvementSeconds }),
+    [currentRank, attemptCount, percentileRank, gapToBestSeconds, improvementSeconds]
+  );
 
   const handleRoutePress = useCallback(() => {
     if (routeGroup) {
@@ -144,16 +134,20 @@ export function RoutePerformanceSection({
 
   return (
     <View style={styles.frame}>
+      {standingText ? (
+        <Text testID="route-standing" style={[styles.standing, isDark && styles.textLight]}>
+          {standingText}
+        </Text>
+      ) : null}
       <Card variant="flat" padding="none">
-        <Pressable
+        <PressTarget
           onPress={handleRoutePress}
           accessibilityRole="button"
           accessibilityLabel={routeGroup.name}
-          style={pressable(styles.header)}
-          android_ripple={pressRipple}
+          style={styles.header}
         >
-          <View style={[styles.iconBadge, { borderColor: activityInk }]}>
-            <Icon name="map-marker-path" size={iconSize.xs} color={activityInk} />
+          <View style={[styles.iconBadge, { borderColor: activityColor }]}>
+            <Icon name="map-marker-path" size={iconSize.xs} color={activityColor} />
           </View>
           <View style={styles.headerInfo}>
             <NameText style={[styles.routeName, isDark && styles.textLight]}>
@@ -186,13 +180,13 @@ export function RoutePerformanceSection({
             size={iconSize.md}
             color={isDark ? darkColors.iconMuted : colors.iconMuted}
           />
-        </Pressable>
+        </PressTarget>
 
         <View style={styles.lineKey}>
           <View style={styles.lineKeyItem}>
             <View
               testID="route-key-activity"
-              style={[styles.swatch, { backgroundColor: activityColor }]}
+              style={[styles.swatch, { backgroundColor: mapColours.route }]}
             />
             <Text style={[styles.meta, isDark && styles.textSecondary]}>
               {t('activityDetail.lineKeyActivity')}
@@ -201,7 +195,7 @@ export function RoutePerformanceSection({
           <View style={styles.lineKeyItem}>
             <View
               testID="route-key-route"
-              style={[styles.swatch, { backgroundColor: mapLayerColors.routeOverlay }]}
+              style={[styles.swatch, { backgroundColor: mapColours.muted }]}
             />
             <Text style={[styles.meta, isDark && styles.textSecondary]}>
               {t('activityDetail.lineKeyRoute')}
@@ -209,18 +203,11 @@ export function RoutePerformanceSection({
           </View>
         </View>
 
-        {standingText ? (
-          <Text testID="route-standing" style={[styles.standing, isDark && styles.textSecondary]}>
-            {standingText}
-          </Text>
-        ) : null}
-
         {chartData.length >= 1 && (
           <View style={styles.chartWrap}>
-            <SectionScatterChart
+            <PerformanceChartPanel
               chartData={chartData}
               trendCurves={trendCurves}
-              onTrendChange={onTrendChange}
               activityType={activityType}
               isDark={isDark}
               useTimeAxis
@@ -231,14 +218,6 @@ export function RoutePerformanceSection({
               forwardStats={forwardStats}
               reverseStats={reverseStats}
               highlightedActivityId={activityId}
-            />
-            <ScatterLegend
-              isDark={isDark}
-              showTrend={trendDisplay.visible}
-              trendColor={directionColour(trendDisplay.reverse ? 'reverse' : 'forward', isDark)}
-              showReverse={!!bestReverseRecord}
-              showThisActivity
-              showOutsideBand={chartData.some((d) => d.outsideDistanceBand === true)}
             />
           </View>
         )}
@@ -306,10 +285,9 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusFull,
   },
   standing: {
-    fontSize: typography.label.fontSize,
-    color: colors.textSecondary,
-    paddingHorizontal: spacing.sm,
-    paddingBottom: spacing.sm,
+    ...typography.body,
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
   },
   chartWrap: {
     paddingTop: spacing.sm,

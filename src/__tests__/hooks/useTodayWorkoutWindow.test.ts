@@ -2,6 +2,7 @@ import { renderHook } from '@testing-library/react-native';
 import { useTodayWorkout } from '@/features/home/hooks/useTodayWorkout';
 import { getEngine } from '@/shared/native/engine';
 import { CLOCK_EDGES, localDay } from '../__shared__/clockEdges';
+import { plannedEvent } from '../__shared__/plannedEvent';
 
 /**
  * The engine stocks a forward fortnight, and the banner reads the same window.
@@ -38,20 +39,16 @@ function day(offset: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+let nextId = 1;
 function workout(dayString: string, name: string) {
-  return JSON.stringify({
-    id: name,
-    category: 'WORKOUT',
-    name,
-    start_date_local: `${dayString}T06:00:00`,
-  });
+  return plannedEvent({ id: nextId++, name, day: dayString });
 }
 
 beforeEach(() => {
   jest.clearAllMocks();
   readWindows.length = 0;
   mockedGetEngine.mockReturnValue({
-    getCalendarEventBodies: (oldest: number, newest: number) => {
+    getPlannedEvents: (oldest: number, newest: number) => {
       readWindows.push([oldest, newest]);
       return [workout(day(0), 'today'), workout(day(1), 'tomorrow'), workout(day(9), 'later')];
     },

@@ -2,23 +2,21 @@
  * The wellness trends card on the fitness tab: HRV, resting heart rate, sleep
  * and weight over the screen's own range, which the range selector above the
  * fitness chart sets for every chart on the screen. The smoothing window
- * drives only this chart, so its control is the card's header accessory.
+ * drives only this chart, so its control is the card's header accessory, and
+ * the chart names the window under its rows.
  */
 
 import React, { useCallback, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import type { RangeCoverage } from 'veloqrs';
 
 import { Card, CardHeader, ErrorState, IconButton, Shimmer } from '@/shared/ui';
 import { WellnessTrendsChart, type TimeRange } from '@/features/wellness';
 import type { WellnessData } from '@/types';
-import { useTheme } from '@/shared/app';
 import { useSheetOpener } from '@/shared/app/sheetRequest';
 import type { SmoothingSheetInput } from '@/app/sheets/smoothing';
-import { getSmoothingDescription, type SmoothingWindow } from '@/shared/math/smoothing';
-import { colors, darkColors, layout, spacing, typography } from '@/theme';
+import type { SmoothingWindow } from '@/shared/math/smoothing';
+import { layout } from '@/theme';
 
 const CHART_HEIGHT = 200;
 
@@ -49,7 +47,6 @@ export function WellnessTrendsCard({
   onDateSelect,
 }: WellnessTrendsCardProps) {
   const { t } = useTranslation();
-  const { isDark } = useTheme();
   const [smoothingWindow, setSmoothingWindow] = useState<SmoothingWindow>('auto');
   const openSheet = useSheetOpener();
   const pickSmoothing = useCallback(async () => {
@@ -67,20 +64,15 @@ export function WellnessTrendsCard({
         testID="wellness-trends-header"
         title={t('wellnessScreen.trends')}
         accessory={
-          <View style={styles.accessory}>
-            <Text style={[styles.smoothingLabel, isDark && styles.smoothingLabelDark]}>
-              {getSmoothingDescription(smoothingWindow, timeRange, t as never)}
-            </Text>
-            <IconButton
-              accessibilityLabel={t('wellness.smoothingTitle' as never)}
-              variant="secondary"
-              selected={smoothed}
-              onPress={pickSmoothing}
-              testID="wellness-smoothing-button"
-            >
-              <IconButton.Glyph name="chart-bell-curve-cumulative" />
-            </IconButton>
-          </View>
+          <IconButton
+            accessibilityLabel={t('wellness.smoothingTitle' as never)}
+            variant="secondary"
+            selected={smoothed}
+            onPress={pickSmoothing}
+            testID="wellness-smoothing-button"
+          >
+            <IconButton.Glyph name="chart-bell-curve-cumulative" />
+          </IconButton>
         }
       />
       {readError ? (
@@ -106,18 +98,3 @@ export function WellnessTrendsCard({
     </Card>
   );
 }
-
-const styles = StyleSheet.create({
-  accessory: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  smoothingLabel: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
-  smoothingLabelDark: {
-    color: darkColors.textSecondary,
-  },
-});

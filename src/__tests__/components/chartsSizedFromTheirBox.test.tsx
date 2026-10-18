@@ -233,11 +233,11 @@ describe('charts sized from their box, not the window', () => {
     );
     await layoutViews(tree, BOX, HEIGHT);
 
-    expect(tree.UNSAFE_getAllByType(Rect as unknown as React.ComponentType).length).toBeGreaterThan(
-      0
-    );
+    expect(
+      tree.UNSAFE_getAllByType(RoundedRect as unknown as React.ComponentType).length
+    ).toBeGreaterThan(0);
     expect(widestBox(tree)).toBeLessThanOrEqual(BOX);
-    expect(rightEdge(tree, Rect)).toBeLessThanOrEqual(BOX);
+    expect(rightEdge(tree, RoundedRect)).toBeLessThanOrEqual(BOX);
   });
 
   it('fits two tour panels to a row of its box', async () => {

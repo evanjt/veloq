@@ -14,7 +14,8 @@ import { RangeCoverage } from 'veloqrs';
 import { initialiseI18n } from '@/i18n';
 import { WeeklySummary } from '@/features/stats/components/WeeklySummary';
 import { getEngine } from '@/shared/native/engine';
-import { summaryComparison, trainingScreenRead } from '../__shared__/trainingScreenRead';
+import { summaryComparison, fitnessScreenRead } from '../__shared__/fitnessScreenRead';
+import { WithScreenRead } from '../__shared__/withScreenRead';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
@@ -22,7 +23,7 @@ jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 
 /** Five activities against three, and 120 load against 90, as the engine judged them. */
 const engine = {
-  getTrainingScreenData: trainingScreenRead({
+  getFitnessScreenData: fitnessScreenRead({
     comparisons: (now) => ({
       week: summaryComparison(now, {
         currentStats: { count: 5, totalDuration: 9000, totalDistance: 80000, totalTss: 120 },
@@ -60,7 +61,10 @@ beforeEach(() => {
 
 describe('the weekly summary trends for a screen reader', () => {
   it('names each trend with its judgement and no arrow', async () => {
-    const view = await render(<WeeklySummary />, { wrapper });
+    const view = await render(
+      <WithScreenRead>{(training) => <WeeklySummary training={training} />}</WithScreenRead>,
+      { wrapper }
+    );
 
     await waitFor(() => expect(view.getByLabelText('improved, 67%')).toBeTruthy());
     expect(view.getByLabelText('rose, 33%')).toBeTruthy();

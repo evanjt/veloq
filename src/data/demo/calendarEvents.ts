@@ -1,11 +1,17 @@
 import { formatLocalDate } from '@/shared/format/format';
-import type { CalendarEvent } from '@/types';
+
+/** An event body in the shape intervals.icu sends, which the engine stores and reads. */
+export interface DemoCalendarEventBody {
+  id: number;
+  start_date_local: string;
+  [field: string]: unknown;
+}
 
 /**
  * Generate demo calendar events relative to the current date.
  * Returns planned workouts for today and tomorrow.
  */
-export function getDemoCalendarEvents(): CalendarEvent[] {
+export function getDemoCalendarEvents(): DemoCalendarEventBody[] {
   const today = new Date();
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
@@ -53,7 +59,7 @@ export function getDemoCalendarEvents(): CalendarEvent[] {
       workout_doc: {
         steps: [
           { text: 'Warm up', duration: 300, warmup: true },
-          { text: 'Easy Z2', duration: 2100, hr: { start: 130, end: 145 } },
+          { text: 'Easy Z2', duration: 2100, hr: { start: 130, end: 145, units: 'bpm' } },
           { text: 'Cool down', duration: 300, cooldown: true },
         ],
         duration: 2700,

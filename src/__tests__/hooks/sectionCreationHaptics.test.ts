@@ -131,7 +131,7 @@ describe('useSectionCreation haptics', () => {
 
 describe('submitSectionCreation', () => {
   const selected = { polyline: [], startIndex: 2, endIndex: 9, distanceMeters: 800 };
-  const activity = { id: 'a1', type: 'Ride' };
+  const activity = { id: 'a1', sportType: 'Ride' };
 
   function setup(createSection: jest.Mock) {
     const calls: string[] = [];

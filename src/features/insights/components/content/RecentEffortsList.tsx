@@ -1,5 +1,5 @@
 import React, { useMemo, useCallback } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
@@ -7,7 +7,7 @@ import { navigateTo } from '@/shared/app/navigation';
 import { formatDuration, formatShortDate, safeGetTime } from '@/shared/format/format';
 import { colors, darkColors, iconSize, layout, opacity, spacing, typography } from '@/theme';
 import type { SectionPerformanceRecord } from '@/features/routes';
-import { Badge, pressable, pressRipple } from '@/shared/ui';
+import { Badge, PressTarget } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { directionEfforts, type DirectionBests } from '@/features/insights/lib/directionBests';
 
@@ -49,12 +49,11 @@ export const RecentEffortsList = React.memo(function RecentEffortsList({
       </Text>
       {recentEfforts.map(({ record, direction, time, isPr: isPR, delta }) => {
         return (
-          <Pressable
+          <PressTarget
             accessibilityRole="button"
             accessibilityLabel={`${formatShortDate(record.activityDate)}, ${formatDuration(time)}`}
             key={`${record.activityId}-${direction}`}
-            style={pressable([styles.row, isDark && styles.rowDark])}
-            android_ripple={pressRipple}
+            style={[styles.row, isDark && styles.rowDark]}
             onPress={() => handlePress(record.activityId)}
           >
             <View style={styles.rowLeft}>
@@ -77,7 +76,7 @@ export const RecentEffortsList = React.memo(function RecentEffortsList({
                 color={isDark ? darkColors.textSecondary : colors.textSecondary}
               />
             </View>
-          </Pressable>
+          </PressTarget>
         );
       })}
     </View>

@@ -17,13 +17,13 @@ fn test_get_weekly_summaries_writer_held() {
     assert_eq!(weeks.len(), 2);
 }
 
-/// Every window of the training screen read, over the whole of 2026.
-fn training_windows() -> crate::FfiTrainingScreenWindows {
+/// Every calendar window of the fitness screen read, over the whole of 2026.
+fn calendar_windows() -> crate::FfiFitnessScreenWindows {
     let year = crate::FfiTimestampRange {
         start_ts: 1_767_225_600.0,
         end_ts: 1_798_761_599.0,
     };
-    crate::FfiTrainingScreenWindows {
+    crate::FfiFitnessScreenWindows {
         heatmap_first_day: "2026-01-01".into(),
         heatmap_last_day: "2026-12-31".into(),
         months: year.clone(),
@@ -33,20 +33,6 @@ fn training_windows() -> crate::FfiTrainingScreenWindows {
         month_previous: year,
         now_wall_seconds: 1_782_000_000.0,
     }
-}
-
-#[test]
-fn test_get_training_screen_data_writer_held() {
-    let _serial = serial_global_state();
-    let _tmp = init_global_engine("training_screen_under_a_writer.db");
-    let data = read_while_writer_holds(|| {
-        FitnessManager::new()
-            .get_training_screen_data(training_windows())
-            .expect("training screen")
-    });
-    assert!(data.heatmap.is_empty());
-    assert!(data.months.is_empty());
-    assert_eq!(data.year_current.count, 0);
 }
 
 #[test]
@@ -92,11 +78,14 @@ fn test_get_fitness_screen_data_writer_held() {
     let _tmp = init_global_engine("fitness_screen_under_a_writer.db");
     let data = read_while_writer_holds(|| {
         FitnessManager::new()
-            .get_fitness_screen_data(vec![30])
+            .get_fitness_screen_data(vec![30], calendar_windows())
             .expect("fitness screen")
     });
     assert!(data.ftp_trend.changes.is_empty());
     assert_eq!(data.run_pace_trend.latest_pace, None);
+    assert!(data.heatmap.is_empty());
+    assert!(data.months.is_empty());
+    assert_eq!(data.year_current.count, 0);
 }
 
 #[test]
@@ -175,15 +164,15 @@ fn test_get_pace_curve_writer_held() {
 }
 
 #[test]
-fn test_get_calendar_event_bodies_writer_held() {
+fn test_get_planned_events_writer_held() {
     let _serial = serial_global_state();
     let _tmp = init_global_engine("calendar_under_a_writer.db");
-    let bodies = read_while_writer_holds(|| {
+    let events = read_while_writer_holds(|| {
         FitnessManager::new()
-            .get_calendar_event_bodies(0.0, 100.0)
+            .get_planned_events(0.0, 100.0)
             .expect("calendar")
     });
-    assert!(bodies.is_empty());
+    assert!(events.is_empty());
 }
 
 fn metrics(
@@ -282,8 +271,16 @@ fn test_fitness_reads_pooled_match_locked() {
                 0,
                 i64::MAX,
                 &[
-                    ("e2".into(), feb, r#"{"id":"e2"}"#.into()),
-                    ("e1".into(), jan, r#"{"id":"e1"}"#.into()),
+                    (
+                        "2".into(),
+                        feb,
+                        r#"{"id":2,"start_date_local":"2026-02-10T00:00:00"}"#.into(),
+                    ),
+                    (
+                        "1".into(),
+                        jan,
+                        r#"{"id":1,"start_date_local":"2026-01-15T00:00:00"}"#.into(),
+                    ),
                 ],
             )
             .expect("calendar");
@@ -323,30 +320,44 @@ fn test_fitness_reads_pooled_match_locked() {
     );
     assert_eq!(weekly[1].training_load, 100.0);
 
-    let training = fitness
-        .get_training_screen_data(training_windows())
-        .expect("training screen");
+    let screen = fitness
+        .get_fitness_screen_data(vec![], calendar_windows())
+        .expect("fitness screen");
     assert_eq!(
-        training
+        screen
             .months
             .iter()
             .map(|m| (m.year, m.month, m.stats.count))
             .collect::<Vec<_>>(),
         vec![(2026, 1, 1), (2026, 2, 2)]
     );
-    assert_eq!(training.year_current.count, 3);
-    assert_eq!(training.heatmap.len(), 2);
-    assert_eq!(training.heatmap[0].date, "2026-01-15");
-    assert_eq!(training.heatmap[0].intensity, 1);
-    assert_eq!(training.heatmap[0].max_duration, 1_800.0);
-    assert_eq!(training.heatmap[0].activity_count, 1);
-    assert_eq!(training.heatmap[1].activity_count, 2);
-    assert_eq!(
-        format!("{training:?}"),
-        locked(&|e| format!(
+    assert_eq!(screen.year_current.count, 3);
+    assert_eq!(screen.heatmap.len(), 2);
+    assert_eq!(screen.heatmap[0].date, "2026-01-15");
+    assert_eq!(screen.heatmap[0].intensity, 1);
+    assert_eq!(screen.heatmap[0].max_duration, 1_800.0);
+    assert_eq!(screen.heatmap[0].activity_count, 1);
+    assert_eq!(screen.heatmap[1].activity_count, 2);
+    // The calendar parts alone, since the rest is read as of the wall clock.
+    let calendar = |d: &crate::FfiFitnessScreenData| {
+        format!(
             "{:?}",
-            e.training_screen_data(&training_windows())
-                .expect("training screen")
+            (
+                &d.heatmap,
+                &d.months,
+                &d.year_current,
+                &d.year_previous,
+                &d.month_current,
+                &d.month_previous,
+                &d.comparisons,
+            )
+        )
+    };
+    assert_eq!(
+        calendar(&screen),
+        locked(&|e| calendar(
+            &e.fitness_screen_data("2026-12-31", &[], &calendar_windows())
+                .expect("fitness screen")
         ))
     );
 
@@ -391,7 +402,7 @@ fn test_fitness_reads_pooled_match_locked() {
     );
 
     let eftp = fitness
-        .get_fitness_screen_data(vec![30])
+        .get_fitness_screen_data(vec![30], calendar_windows())
         .expect("fitness screen")
         .ftp_trend
         .changes;
@@ -408,15 +419,12 @@ fn test_fitness_reads_pooled_match_locked() {
     );
 
     let calendar = fitness
-        .get_calendar_event_bodies(0.0, feb as f64)
+        .get_planned_events(0.0, feb as f64)
         .expect("calendar");
-    assert_eq!(calendar, vec![r#"{"id":"e1"}"#, r#"{"id":"e2"}"#]);
     assert_eq!(
-        format!("{calendar:?}"),
-        locked(&|e| format!(
-            "{:?}",
-            e.get_calendar_event_bodies(0, feb).expect("calendar")
-        ))
+        calendar.iter().map(|e| e.id).collect::<Vec<_>>(),
+        vec![1.0, 2.0],
+        "oldest first"
     );
 
     let power_curve = fitness

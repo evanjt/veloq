@@ -8,20 +8,21 @@
 
 import type {
   FfiActivityBody,
+  FfiActivityIntervals,
   FfiBestEffortsData,
   FfiDayLoad,
   FfiExerciseSet,
   FfiFitnessScreenData,
+  FfiFitnessScreenWindows,
   FfiFtpTrend,
   FfiInsightsData,
   FfiInsightsParams,
   FfiPaceTrend,
   FfiPeriodStats,
+  FfiPlannedEvent,
   FfiStartupData,
   FfiSummaryCardData,
   FfiSummaryComparison,
-  FfiTrainingScreenData,
-  FfiTrainingScreenWindows,
   FfiWellnessRow,
   FfiWellnessSummary,
   FfiZoneDistribution,
@@ -119,11 +120,24 @@ export function savePaceSnapshot(
  * mounted: the eFTP trend over the chart's three months with the activities
  * that moved it, the last stored running and swimming critical speeds, and
  * the sport the latest activities are mostly in, with the decoupling ride of
- * each of `spanDays` and the activities of the longest. Stale when
- * `activities` fires.
+ * each of `spanDays` and the activities of the longest; and over `windows`
+ * the heatmap days, the monthly rows, the year and month to date against the
+ * same spans of last year, and the weekly card's every range against the
+ * same elapsed span before it. Stale when `activities` fires.
  */
-export function getFitnessScreenData(host: DelegateHost, spanDays: number[]): FfiFitnessScreenData {
+export function getFitnessScreenData(
+  host: DelegateHost,
+  spanDays: number[],
+  windows: FfiFitnessScreenWindows
+): FfiFitnessScreenData {
   if (!host.ready) {
+    const now = { startTs: windows.nowWallSeconds, endTs: windows.nowWallSeconds };
+    const empty: FfiSummaryComparison = {
+      current: now,
+      previous: now,
+      currentStats: EMPTY_PERIOD_STATS,
+      previousStats: EMPTY_PERIOD_STATS,
+    };
     return {
       ftpTrend: EMPTY_FTP_TREND,
       ftpTrendCoverage: RangeCoverage.NotFetched,
@@ -135,10 +149,23 @@ export function getFitnessScreenData(host: DelegateHost, spanDays: number[]): Ff
       fatigueDays: 0,
       decouplingSources: [],
       loadDots: [],
+      heatmap: [],
+      months: [],
+      yearCurrent: EMPTY_PERIOD_STATS,
+      yearPrevious: EMPTY_PERIOD_STATS,
+      monthCurrent: EMPTY_PERIOD_STATS,
+      monthPrevious: EMPTY_PERIOD_STATS,
+      comparisons: {
+        week: empty,
+        month: empty,
+        threeMonths: empty,
+        sixMonths: empty,
+        year: empty,
+      },
     };
   }
   return host.timed('getFitnessScreenData', () =>
-    host.engine.fitness().getFitnessScreenData(spanDays)
+    host.engine.fitness().getFitnessScreenData(spanDays, windows)
   );
 }
 
@@ -161,45 +188,6 @@ export function getDailyActivityLoads(
   if (!host.ready) return [];
   return host.timed('getDailyActivityLoads', () =>
     host.engine.fitness().getDailyActivityLoads(startTs, endTs)
-  );
-}
-
-/**
- * Everything the training tab paints with that stays fixed while it is
- * mounted: the heatmap days, the monthly rows, the year and month to date
- * against the same spans of last year, and the weekly card's every range
- * against the same elapsed span before it. Stale when `activities` fires.
- */
-export function getTrainingScreenData(
-  host: DelegateHost,
-  windows: FfiTrainingScreenWindows
-): FfiTrainingScreenData {
-  if (!host.ready) {
-    const now = { startTs: windows.nowWallSeconds, endTs: windows.nowWallSeconds };
-    const empty: FfiSummaryComparison = {
-      current: now,
-      previous: now,
-      currentStats: EMPTY_PERIOD_STATS,
-      previousStats: EMPTY_PERIOD_STATS,
-    };
-    return {
-      heatmap: [],
-      months: [],
-      yearCurrent: EMPTY_PERIOD_STATS,
-      yearPrevious: EMPTY_PERIOD_STATS,
-      monthCurrent: EMPTY_PERIOD_STATS,
-      monthPrevious: EMPTY_PERIOD_STATS,
-      comparisons: {
-        week: empty,
-        month: empty,
-        threeMonths: empty,
-        sixMonths: empty,
-        year: empty,
-      },
-    };
-  }
-  return host.timed('getTrainingScreenData', () =>
-    host.engine.fitness().getTrainingScreenData(windows)
   );
 }
 
@@ -451,26 +439,32 @@ export function getBestEffortsData(host: DelegateHost, days: number): FfiBestEff
   return host.timed('getBestEffortsData', () => host.engine.fitness().getBestEffortsData(days));
 }
 
-/** An activity's stored interval body, or null if never fetched. */
-export function getIntervalBody(host: DelegateHost, activityId: string): string | null {
+/** An activity's laps, or null if its body was never fetched or will not parse. */
+export function getActivityIntervals(
+  host: DelegateHost,
+  activityId: string
+): FfiActivityIntervals | null {
   if (!host.ready) return null;
   return (
-    (host.timed('getIntervalBody', () => host.engine.fitness().getIntervalBody(activityId)) as
-      | string
-      | undefined) ?? null
+    host.timed('getActivityIntervals', () =>
+      host.engine.fitness().getActivityIntervals(activityId)
+    ) ?? null
   );
 }
 
-/** Calendar event bodies over an inclusive window, oldest first. */
-export function getCalendarEventBodies(
+/**
+ * The calendar events over an inclusive window, oldest first, each workout's
+ * steps already walked into plan lines and zoned step bar blocks.
+ */
+export function getPlannedEvents(
   host: DelegateHost,
   oldestTs: number,
   newestTs: number
-): string[] {
+): FfiPlannedEvent[] {
   if (!host.ready) return [];
   return (
-    host.timed('getCalendarEventBodies', () =>
-      host.engine.fitness().getCalendarEventBodies(oldestTs, newestTs)
+    host.timed('getPlannedEvents', () =>
+      host.engine.fitness().getPlannedEvents(oldestTs, newestTs)
     ) ?? []
   );
 }

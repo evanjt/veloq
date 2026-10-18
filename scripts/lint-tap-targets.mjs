@@ -2,14 +2,14 @@
 // A pressable with an explicitly undersized axis, or one sized by vertical
 // padding no thicker than spacing.xs, needs hit slop or a minimum height to
 // reach the platform tap-target floor. This checks styles passed to
-// pressable(), and refuses a hit slop written as a number: a literal says
-// nothing about the size it reaches, so it drifts under the floor as the
-// control or the platform minimum changes. Slop comes from slopToMinTapTarget,
-// which owns that sum. A Text that takes a press itself is drawn at its line
-// height, so only the shared link component may write one. A control that
-// takes a press never draws one platform's minimum as a literal size: 44 on
-// Android is 4 short of its 48, so a target is drawn at a control height and
-// lifted by slop, or sized from layout.minTapTarget.
+// pressable() or to PressTarget, which applies it, and refuses a hit slop
+// written as a number: a literal says nothing about the size it reaches, so it
+// drifts under the floor as the control or the platform minimum changes. Slop
+// comes from slopToMinTapTarget, which owns that sum. A Text that takes a press
+// itself is drawn at its line height, so only the shared link component may
+// write one. A control that takes a press never draws one platform's minimum
+// as a literal size: 44 on Android is 4 short of its 48, so a target is drawn
+// at a control height and lifted by slop, or sized from layout.minTapTarget.
 
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -112,7 +112,13 @@ function properties(expr, styleObjects, constants) {
 
 // The components that take a press, whose style is checked for a literal
 // platform minimum even when it is not passed through pressable().
-const PRESS_TAGS = ['Pressable', 'TouchableOpacity', 'TouchableHighlight', 'IconButton'];
+const PRESS_TAGS = [
+  'Pressable',
+  'PressTarget',
+  'TouchableOpacity',
+  'TouchableHighlight',
+  'IconButton',
+];
 
 // Size axes written as one platform's minimum, a numeric literal or a local
 // numeric constant, anywhere a style expression can reach: a style object or
@@ -209,6 +215,7 @@ for (const file of files) {
   const source = tree.text(file);
   if (
     !source?.includes('pressable(') &&
+    !source?.includes('<PressTarget') &&
     !source?.includes('hitSlop') &&
     !source?.includes('onPress')
   )
@@ -248,13 +255,14 @@ for (const file of files) {
           literalTargets.push(`${relative(root, file)}:${line}: ${literals.join(', ')}`);
         }
       }
-      if (
-        call &&
-        ts.isCallExpression(call) &&
-        call.expression.getText(parsed) === 'pressable' &&
-        !slop
-      ) {
-        const entries = call.arguments.flatMap((arg) => properties(arg, objects, constants));
+      // `PressTarget` applies `pressable()` itself, so its style is the same argument.
+      const sized = pressStyle
+        ? call.arguments
+        : call && node.tagName.getText(parsed) === 'PressTarget'
+          ? [call]
+          : [];
+      if (sized.length && !slop) {
+        const entries = sized.flatMap((arg) => properties(arg, objects, constants));
         const sizes = entries.filter(({ axis }) => SIZE_AXES.includes(axis));
         const small = sizes.filter(({ axis, value }) => {
           if (value >= floor) return false;

@@ -43,6 +43,22 @@ describe('tap target guard', () => {
     expect(result.output).toContain('height');
   });
 
+  it('refuses a short PressTarget style without hit slop, as it does a pressable one', () => {
+    const result = check(`
+      const styles = StyleSheet.create({ chip: { width: 32, height: 26 } });
+      export const Chip = () => <PressTarget style={[styles.chip, on && styles.on]} onPress={go} />;
+    `);
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('src/features/example/Chip.tsx:3: width, height');
+
+    expect(
+      check(`
+        const styles = StyleSheet.create({ chip: { width: 32, height: 26 } });
+        export const Chip = () => <PressTarget style={styles.chip} hitSlop={slop} onPress={go} />;
+      `).status
+    ).toBe(0);
+  });
+
   it('accepts hit slop or a full sized style', () => {
     expect(
       check(`

@@ -114,6 +114,7 @@ export {
   KeyboardClearance,
 } from './ScreenScrollView';
 export { SheetScrollView } from './SheetScrollView';
+export { flattenStyle } from './flattenStyle';
 export { TipButtons } from './TipButtons';
 export { canDrawProfilePhoto } from './profileAvatar';
 export { PressTarget, type PressTargetProps } from './PressTarget';

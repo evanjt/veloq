@@ -381,7 +381,7 @@ interface SharedElement {
 const SHARED: SharedElement[] = [
   { element: 'hero stats row', section: 'section-detail-stats', route: 'route-detail-stats' },
   { element: 'sport pills', section: 'sport-pill-Ride', route: 'sport-pill-Ride' },
-  { element: 'range chips', section: 'section-time-range-1y', route: 'section-time-range-1y' },
+  { element: 'range menu', section: 'section-time-range', route: 'section-time-range' },
   { element: 'scatter plot choice', section: 'chart-plot-scatter', route: 'chart-plot-scatter' },
   {
     element: 'histogram plot choice',

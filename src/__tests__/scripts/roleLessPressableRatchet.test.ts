@@ -63,6 +63,21 @@ describe('the role-less pressable ratchet', () => {
     expect(run.output).toContain(FILE);
   });
 
+  it('counts a role-less PressTarget the same as the Pressable it renders', () => {
+    const root = treeWith({ [FILE]: ROLELESS.replace(/Pressable/g, 'PressTarget') });
+
+    expect(runGuard(root, {}).status).toBe(1);
+    expect(runGuard(root, { [FILE]: 1 }).status).toBe(0);
+  });
+
+  it('refuses a PressTarget with a role and no name', () => {
+    const root = treeWith({
+      [FILE]: '<PressTarget accessibilityRole="button" onPress={go}><Icon /></PressTarget>',
+    });
+
+    expect(runGuard(root, {}).status).toBe(1);
+  });
+
   it('passes a file sitting exactly on its baseline', () => {
     const root = treeWith({ [FILE]: ROLELESS });
 

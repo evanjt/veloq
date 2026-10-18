@@ -1,13 +1,13 @@
 import React from 'react';
-import { StyleSheet, Pressable } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useIsFocused } from 'expo-router';
 
 import { navigateTo } from '@/shared/app/navigation';
 import { useBottomClearance } from '@/shared/ui';
+import { PressTarget } from '@/shared/ui/PressTarget';
 import { Icon } from '@/shared/ui/Icon';
 import { useFootCover } from '@/shared/ui/bottomPills';
-import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { useTheme } from '@/shared/app';
 import { colors, floatingLayers, iconSize, layout, raised, recording, spacing } from '@/theme';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
@@ -29,23 +29,22 @@ function RecordFABInner() {
   if (sessionActive) return null;
 
   return (
-    <Pressable
+    <PressTarget
       testID="record-fab"
-      style={pressable([
+      style={[
         styles.fab,
         raised('fab', isDark),
         {
           bottom: bottomClearance + FAB_OFFSET,
           backgroundColor: isDark ? recording.dark : recording.light,
         },
-      ])}
-      android_ripple={pressRipple}
+      ]}
       onPress={() => navigateTo('/record')}
       accessibilityRole="button"
       accessibilityLabel={t('recording.startActivity', 'Start activity')}
     >
       <Icon name="record-circle-outline" size={iconSize.xl} color={colors.textOnFill} />
-    </Pressable>
+    </PressTarget>
   );
 }
 

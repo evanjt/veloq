@@ -24,15 +24,16 @@ import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { isLiveActivitySupported } from '@/features/recording/lib/liveActivity/bridge';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { replaceTo } from '@/shared/app/navigation';
-import type { CalendarEvent } from '@/types';
+import { FfiPlannedCategory, type FfiPlannedEvent } from 'veloqrs';
+import { plannedEvent } from '../__shared__/plannedEvent';
 
 type Listener = (payload?: unknown) => void;
 const mockListeners: Record<string, Listener[]> = {};
-let mockEvents: CalendarEvent[] = [];
+let mockEvents: FfiPlannedEvent[] = [];
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => ({
-    getCalendarEventBodies: () => mockEvents.map((event) => JSON.stringify(event)),
+    getPlannedEvents: () => mockEvents,
     syncCalendarEvents: jest.fn(),
     subscribe: (event: string, listener: Listener) => {
       (mockListeners[event] ??= []).push(listener);
@@ -108,20 +109,21 @@ jest.mock('@/features/recording/components/RecordingMap', () => ({
   },
 }));
 
-const planned: CalendarEvent = {
+const planned = plannedEvent({
   id: 77,
-  category: 'WORKOUT',
+  day: '2026-01-02',
   name: 'Threshold 3 x 4 min',
-  type: 'Run',
-  moving_time: 2400,
-} as CalendarEvent;
+  sport: 'Run',
+  movingTime: 2400,
+});
 
-const note: CalendarEvent = {
+const note = plannedEvent({
   id: 78,
-  category: 'NOTE',
+  day: '2026-01-02',
+  category: FfiPlannedCategory.Note,
   name: 'Bike in for a service',
-  type: 'Ride',
-} as CalendarEvent;
+  sport: 'Ride',
+});
 
 beforeAll(async () => {
   await initialiseI18n('en-AU');

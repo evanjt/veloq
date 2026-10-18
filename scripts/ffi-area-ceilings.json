@@ -1,5 +1,5 @@
 {
-  "//": "getGpsTrack, getActivityBody, getActivityBodies, getIntervalBody and getActivityStreams are read outside the screen reads on purpose: a track and a stored body are large and belong on the path that needs them, not on every mount. The engine's doc comment on activity_detail_data carries the measurement. setInteracting is a command: a touch signal pushed from the root view that the engine uses to pace its background passes, and no screen read carries it. RouteManager.liveOverlaps measures a polyline the recording screen holds in memory against saved route groups; the polyline is an argument, so it is a computation and not data a screen read could return.",
+  "//": "getGpsTrack, getActivityRecord, getActivityBodies, getActivityIntervals and getActivityStreams are read outside the screen reads on purpose: a track and a stored body are large and belong on the path that needs them, not on every mount. The engine's doc comment on activity_detail_data carries the measurement. setInteracting is a command: a touch signal pushed from the root view that the engine uses to pace its background passes, and no screen read carries it. RouteManager.liveOverlaps measures a polyline the recording screen holds in memory against saved route groups; the polyline is an argument, so it is a computation and not data a screen read could return.",
   "app": [
     "DetectionManager.awaitingCount",
     "RouteManager.getScreenData",
@@ -16,14 +16,14 @@
   "features/activity": [
     "ActivityManager.debugClone",
     "ActivityManager.getActivityBodies",
-    "ActivityManager.getActivityBody",
+    "ActivityManager.getActivityRecord",
     "ActivityManager.getActivityStreams",
     "ActivityManager.getDetailData",
     "ActivityManager.getGpsTrack",
     "ActivityManager.getHighlightsBundle",
     "ActivityManager.getPreviewTrack",
     "DetectionManager.forceRedetect",
-    "FitnessManager.getIntervalBody",
+    "FitnessManager.getActivityIntervals",
     "SyncManager.syncActivitiesWindow",
     "SyncManager.syncActivityDetail",
     "SyncManager.syncActivityIntervals",
@@ -44,7 +44,7 @@
   ],
   "features/home": [
     "FitnessManager.composeWidgetSnapshot",
-    "FitnessManager.getCalendarEventBodies",
+    "FitnessManager.getPlannedEvents",
     "FitnessManager.getStartupData",
     "FitnessManager.getSummaryCardData",
     "FitnessManager.getWellnessSparklines",
@@ -54,7 +54,7 @@
   ],
   "features/insights": [
     "ActivityManager.activityNotification",
-    "ActivityManager.getActivityBody",
+    "ActivityManager.getActivityRecord",
     "ActivityManager.has",
     "FitnessManager.getInsightsData",
     "SectionManager.indexNewActivity",
@@ -201,7 +201,6 @@
     "FitnessManager.getBestEffortsData",
     "FitnessManager.getPaceCurve",
     "FitnessManager.getPowerCurve",
-    "FitnessManager.getTrainingScreenData",
     "FitnessManager.savePaceSnapshot",
     "SyncManager.syncPaceCurve",
     "SyncManager.syncPowerCurve"

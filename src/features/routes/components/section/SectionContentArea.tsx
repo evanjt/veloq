@@ -22,6 +22,8 @@ import type {
   FfiSectionCorrelation,
   FfiAttemptHistograms,
   FfiSectionLapCurves,
+  FfiRecordProgressions,
+  FfiScatterFocus,
   FfiSectionTrendCurves,
   MergeCandidate,
 } from 'veloqrs';
@@ -50,6 +52,10 @@ export interface SectionContentAreaProps {
   trendCurves: FfiSectionTrendCurves;
   /** The engine's attempt-time bins for the range and sport on screen. */
   histograms?: FfiAttemptHistograms | undefined;
+  /** The engine's scatter range per direction, with the attempts past it counted. */
+  scatterFocus?: FfiScatterFocus | undefined;
+  /** The engine's record progression per direction. */
+  recordProgression?: FfiRecordProgressions | undefined;
   /** The engine's lap delta curves for the range and sport on screen. */
   curves?: FfiSectionLapCurves | undefined;
   /** Called with the attempt the delta plot emphasises while it is shown, else null. */
@@ -72,8 +78,8 @@ export interface SectionContentAreaProps {
   navActivityId?: string | undefined;
   effectiveReferenceId?: string | undefined;
   showExcluded: boolean;
-  /** The range and sport hold excluded attempts the eye toggle can show. */
-  hasExcluded: boolean;
+  /** The excluded attempts the engine holds back for the range and sport, which a link can show. */
+  excludedCount: number;
   sectionTimeRange: SectionTimeRange;
   onActivitySelect: (activityId: string | null, activityPoints?: RoutePoint[], date?: Date) => void;
   onExcludeActivity: (activityId: string) => void;
@@ -102,6 +108,8 @@ export function SectionContentArea({
   lastActivityDate,
   trendCurves,
   histograms,
+  scatterFocus,
+  recordProgression,
   curves,
   onDeltaLineChange,
   forwardStats,
@@ -116,7 +124,7 @@ export function SectionContentArea({
   navActivityId,
   effectiveReferenceId,
   showExcluded,
-  hasExcluded,
+  excludedCount,
   sectionTimeRange,
   onActivitySelect,
   onExcludeActivity,
@@ -164,7 +172,7 @@ export function SectionContentArea({
         />
       ) : null}
 
-      {/* Performance chart with eye toggle */}
+      {/* Performance panel */}
       <SectionPerformanceSection
         subject={subject}
         isDark={isDark}
@@ -172,6 +180,8 @@ export function SectionContentArea({
         chartData={combinedChartData}
         trendCurves={trendCurves}
         histograms={histograms}
+        scatterFocus={scatterFocus}
+        recordProgression={recordProgression}
         curves={curves}
         onDeltaLineChange={onDeltaLineChange}
         forwardStats={forwardStats}
@@ -187,7 +197,7 @@ export function SectionContentArea({
         onSetAsReference={onSetAsReference}
         referenceActivityId={effectiveReferenceId}
         showExcluded={showExcluded}
-        hasExcluded={hasExcluded}
+        excludedCount={excludedCount}
         onToggleShowExcluded={onToggleShowExcluded}
         highlightedActivityId={navActivityId}
         sectionTimeRange={sectionTimeRange}

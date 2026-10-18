@@ -1,6 +1,6 @@
 /**
  * Scenario: the live GPS accuracy header and the power curve's per-kilogram
- * legend printed metres and kilograms whatever unit the athlete had chosen.
+ * FTP label printed metres and kilograms whatever unit the athlete had chosen.
  *
  * Expected behaviour: both follow the unit preference, so an imperial athlete
  * reads feet and pounds and a metric one reads metres and kilograms.
@@ -14,6 +14,7 @@ import { useUnitPreference } from '@/shared/app/UnitPreferenceStore';
 import { GpsSignalIndicator } from '@/features/recording/components/GpsSignalIndicator';
 import { PowerCurveChart } from '@/features/stats/components/PowerCurveChart';
 import type { PowerCurve } from '@/types';
+import { layoutViews } from '../../__shared__/layoutViews';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
 
@@ -57,11 +58,12 @@ describe('the GPS accuracy header', () => {
   });
 });
 
-describe('the power curve per-kilogram legend', () => {
+describe('the power curve per-kilogram FTP label', () => {
   async function showPerKg() {
-    await render(<PowerCurveChart ftp={300} />);
+    const tree = await render(<PowerCurveChart ftp={300} />);
+    await layoutViews(tree, 300, 200);
     await fireEvent.press(screen.getByTestId('power-curve-unit-per-kg'));
-    return screen.getByTestId('power-curve-ftp-legend');
+    return screen.getByTestId('power-curve-ftp-label');
   }
 
   it('names the weight in kilograms for a metric athlete', async () => {

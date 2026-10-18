@@ -5,13 +5,13 @@
 
 import { useMetricSystem } from '@/shared/app';
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { getIntlLocale } from '@/shared/format/format';
 import { formatAttemptFigure, type AttemptBasis } from '@/features/routes/lib/attemptBasis';
 import { colors, darkColors, iconSize, spacing, themePalette, typography } from '@/theme';
-import { Button, Card, CardHeader, DisclosureChevron, pressable, pressRipple } from '@/shared/ui';
+import { Button, Card, CardHeader, DisclosureChevron, PressTarget } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { navigateTo } from '@/shared/app/navigation';
 import { directionColour } from '@/features/routes/lib/directionColour';
@@ -136,9 +136,8 @@ export function SectionStatsCards({
 
           return (
             <View key={yearData.year}>
-              <Pressable
-                style={pressable([styles.calendarYearRow, isDark && styles.calendarYearRowDark])}
-                android_ripple={pressRipple}
+              <PressTarget
+                style={[styles.calendarYearRow, isDark && styles.calendarYearRowDark]}
                 accessibilityRole="button"
                 accessibilityLabel={`${t('stats.year')} ${yearData.year}`}
                 accessibilityState={{ expanded: isYearExpanded }}
@@ -208,7 +207,7 @@ export function SectionStatsCards({
                     ) : null}
                   </View>
                 ) : null}
-              </Pressable>
+              </PressTarget>
               {isYearExpanded
                 ? yearData.months.map((monthData) => {
                     const fwd = monthData.forward;
@@ -239,9 +238,8 @@ export function SectionStatsCards({
                         <View style={styles.calendarMonthEntries}>
                           {fwd ? (
                             <View style={styles.calendarMonthEntryRow}>
-                              <Pressable
-                                style={pressable(styles.calendarMonthEntry)}
-                                android_ripple={pressRipple}
+                              <PressTarget
+                                style={styles.calendarMonthEntry}
                                 accessibilityRole="button"
                                 accessibilityLabel={`${directionWord(t, 'forward')}, ${formatBest(fwd)}, ${fwd.bestActivityName}`}
                                 onPress={() => navigateTo(`/activity/${fwd.bestActivityId}`)}
@@ -268,7 +266,7 @@ export function SectionStatsCards({
                                     {t('sections.legendPr')}
                                   </Text>
                                 ) : null}
-                              </Pressable>
+                              </PressTarget>
                               {onSetAsReference ? (
                                 <ReferenceStar
                                   isReference={fwd.bestActivityId === referenceActivityId}
@@ -279,9 +277,8 @@ export function SectionStatsCards({
                           ) : null}
                           {rev ? (
                             <View style={styles.calendarMonthEntryRow}>
-                              <Pressable
-                                style={pressable(styles.calendarMonthEntry)}
-                                android_ripple={pressRipple}
+                              <PressTarget
+                                style={styles.calendarMonthEntry}
                                 accessibilityRole="button"
                                 accessibilityLabel={`${directionWord(t, 'reverse')}, ${formatBest(rev)}, ${rev.bestActivityName}`}
                                 onPress={() => navigateTo(`/activity/${rev.bestActivityId}`)}
@@ -308,7 +305,7 @@ export function SectionStatsCards({
                                     {t('sections.legendPr')}
                                   </Text>
                                 ) : null}
-                              </Pressable>
+                              </PressTarget>
                               {onSetAsReference ? (
                                 <ReferenceStar
                                   isReference={rev.bestActivityId === referenceActivityId}

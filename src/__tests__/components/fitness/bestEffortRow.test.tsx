@@ -28,13 +28,6 @@ jest.mock('@/shared/app/TopSafeAreaContext', () => ({
   useScreenSafeAreaEdges: () => [],
 }));
 
-jest.mock('@/features/activity', () => ({
-  useActivityLabels: () => ({
-    labels: new Map([['long-swim', { name: 'Lake crossing', date: '3 Mar' }]]),
-    error: null,
-  }),
-}));
-
 jest.mock('@/features/stats/hooks/useBestEfforts', () => ({
   useBestEfforts: () => ({
     data: {
@@ -44,7 +37,14 @@ jest.mock('@/features/stats/hooks/useBestEfforts', () => ({
           fetched: true,
           // Kind 1 is `BestEffortKind.Distance`.
           efforts: [
-            { kind: 1, checkpoint: 3800, value: 0.7, time: 5565, activityId: 'long-swim' },
+            {
+              kind: 1,
+              checkpoint: 3800,
+              value: 0.7,
+              time: 5565,
+              activityId: 'long-swim',
+              activity: { activityId: 'long-swim', name: 'Lake crossing', date: 1_772_524_800 },
+            },
             { kind: 1, checkpoint: 400, value: 1.2, time: 333 },
           ],
         },
@@ -149,7 +149,7 @@ describe('the three surfaces that draw a best', () => {
     const bests = [
       { label: '60m', windowS: 3600, vam: 1250, wattsPerKg: 3.4, activityId: 'long-swim' },
     ] as ClimbBest[];
-    await render(<ClimbingBestRows bests={bests} sport="Running" />);
+    await render(<ClimbingBestRows bests={bests} />);
 
     expectNoFixedWidth(screen.getByTestId('season-bests-climbing-3600'));
   });

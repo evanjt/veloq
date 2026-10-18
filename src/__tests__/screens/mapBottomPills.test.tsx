@@ -84,7 +84,7 @@ jest.mock('@/shared/ui', () => {
     ErrorState: jest.requireActual('@/shared/ui/ErrorState').ErrorState,
     useBottomClearance: jest.requireActual('@/shared/ui/tabBarClearance').useBottomClearance,
     Shimmer: () => null,
-    pressable: (style: unknown) => style,
+    PressTarget: require('react-native').Pressable,
   };
 });
 

@@ -24,8 +24,6 @@ export interface Activity {
   pacing_index?: number | undefined; // Aerobic decoupling metric
   start_latlng?: [number, number] | undefined;
   end_latlng?: [number, number] | undefined;
-  // Location info
-  icu_athlete_id?: string | undefined;
   // Stream types available for this activity
   stream_types?: string[] | undefined;
   // Zone time distributions
@@ -39,38 +37,15 @@ export interface Activity {
   // Training metrics
   icu_training_load?: number | undefined; // training load
   icu_ftp?: number | undefined; // FTP used for this activity
-  icu_pm_ftp_watts?: number | undefined; // Estimated FTP from this activity (eFTP)
   icu_rolling_ftp?: number | undefined; // eFTP intervals.icu accepted after this activity
   icu_rolling_ftp_delta?: number | undefined; // Change this activity made to it, zero or absent when none
-  icu_intensity?: number | undefined; // Intensity Factor as percentage (e.g., 92.26 = 92%)
-  icu_efficiency_factor?: number | undefined; // Power:HR efficiency
-  trimp?: number | undefined; // Training impulse (HR-based load)
-  /**
-   * Aerobic decoupling percentage as intervals.icu stored it. The interval field
-   * of the same name arrives as the string `-Infinity`, so read it through
-   * `storedDecoupling` rather than as a number.
-   */
-  decoupling?: number | string | null | undefined;
-  strain_score?: number | undefined; // Strain score
-  icu_hrr?: {
-    // Heart rate recovery
-    start_bpm: number;
-    end_bpm: number;
-    hrr: number; // BPM drop
-  };
   // Weather data (when available from intervals.icu)
   has_weather?: boolean | undefined;
   average_weather_temp?: number | undefined; // Temperature in Celsius
-  average_feels_like?: number | undefined; // Feels like temperature (alias for apparent_temperature)
-  apparent_temperature?: number | undefined; // Feels like temperature (primary field)
-  average_temp_feels_like?: number | undefined; // Deprecated: use apparent_temperature or average_feels_like
-  average_wind_speed?: number | undefined; // Wind speed in m/s
   average_weather_wind_speed?: number | undefined; // Deprecated: use average_wind_speed
   average_wind_gust?: number | undefined; // Wind gust in m/s
   average_clouds?: number | undefined; // Cloud cover percentage
   average_weather_humidity?: number | undefined; // Humidity percentage
-  // Device temperature (from watch sensor, not weather)
-  average_temp?: number | undefined;
   // Skyline chart - compact protobuf encoding of interval zones/durations
   skyline_chart_bytes?: string | undefined;
   /**
@@ -79,17 +54,6 @@ export interface Activity {
    * server has named, absent on a body not read through the feed.
    */
   intervalsWebId?: string | null | undefined;
-}
-
-export interface ActivityDetail extends Activity {
-  description?: string;
-  device_name?: string;
-  icu_power_hr_z2?: number;
-  icu_power_hr_z3?: number;
-  icu_power_hr_z4?: number;
-  icu_power_hr_z5?: number;
-  // HR zones - BPM thresholds (from intervals.icu)
-  icu_hr_zones?: number[];
 }
 
 // Processed streams in a usable format
@@ -114,281 +78,8 @@ export interface ActivityStreams {
   gap?: Float64Array;
 }
 
-/**
- * One interval of an activity, as intervals.icu sends it.
- *
- * Measured from the live body rather than hand-listed: 84 keys, of which the
- * six below are on every interval of every activity measured and the rest are
- * mostly null on any one of them. Optional and nullable are both true of the
- * body, so both are said. The fixture in
- * `src/__tests__/__fixtures__/intervalBodies.json` is three real bodies with
- * their values moved off the athlete's own readings, and it is what keeps this
- * shape true: the next census is a diff.
- */
-export interface ActivityInterval {
-  average_cadence?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_dfa_a1?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_epoc?: number | null | undefined;
-  average_feels_like?: number | null | undefined;
-  average_gradient?: number | null | undefined;
-  average_heartrate?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_impact_loading_rate?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_lactate?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_leg_spring_stiffness?: number | null | undefined;
-  average_respiration?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_smo2?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_smo2_2?: number | null | undefined;
-  average_speed?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_stance_time?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_stance_time_balance?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_stance_time_percent?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_step_length?: number | null | undefined;
-  average_stride?: number | null | undefined;
-  average_temp?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_thb?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_thb_2?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_tidal_volume?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_tidal_volume_min?: number | null | undefined;
-  average_torque?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_vertical_oscillation?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_vertical_ratio?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_vertical_speed?: number | null | undefined;
-  average_watts?: number | null | undefined;
-  average_watts_alt?: number | null | undefined;
-  average_watts_alt_acc?: number | null | undefined;
-  average_watts_kg?: number | null | undefined;
-  average_weather_temp?: number | null | undefined;
-  average_wind_gust?: number | null | undefined;
-  average_wind_speed?: number | null | undefined;
-  average_yaw?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  avg_lr_balance?: number | null | undefined;
-  /** A number, or the string `-Infinity` when the second half carried no power. */
-  decoupling?: number | string | null | undefined;
-  distance?: number | null | undefined;
-  elapsed_time?: number | null | undefined;
-  end_index: number;
-  /** Elapsed seconds from the activity start. */
-  end_time: number;
-  gap?: number | null | undefined;
-  /** The group's own id, a duration and an average rather than a number or an index. */
-  group_id?: string | null | undefined;
-  headwind_percent?: number | null | undefined;
-  id: number;
-  intensity?: number | null | undefined;
-  joules?: number | null | undefined;
-  joules_above_ftp?: number | null | undefined;
-  /** The athlete's own words for this interval, where a workout was planned. */
-  label?: string | null | undefined;
-  max_altitude?: number | null | undefined;
-  max_cadence?: number | null | undefined;
-  max_heartrate?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  max_lactate?: number | null | undefined;
-  max_speed?: number | null | undefined;
-  max_torque?: number | null | undefined;
-  max_watts?: number | null | undefined;
-  max_watts_kg?: number | null | undefined;
-  min_altitude?: number | null | undefined;
-  min_cadence?: number | null | undefined;
-  min_heartrate?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  min_lactate?: number | null | undefined;
-  min_speed?: number | null | undefined;
-  min_torque?: number | null | undefined;
-  min_watts?: number | null | undefined;
-  moving_time?: number | null | undefined;
-  prevailing_wind_deg?: number | null | undefined;
-  /** Null on every activity measured. A list where it is not. */
-  segment_effort_ids?: number[] | null | undefined;
-  ss_cp?: number | null | undefined;
-  ss_p_max?: number | null | undefined;
-  /** The server fits its own W prime, so this arrives whether or not the
-   * athlete configured one. */
-  ss_w_prime?: number | null | undefined;
-  start_index: number;
-  /** Elapsed seconds from the activity start. Index-free, so it survives the
-   * `latlng` reduction both stream readers apply, which `start_index` does not. */
-  start_time: number;
-  strain_score?: number | null | undefined;
-  tailwind_percent?: number | null | undefined;
-  total_elevation_gain?: number | null | undefined;
-  training_load?: number | null | undefined;
-  /** Only `WORK` and `RECOVERY` were witnessed on the measured account. The
-   * other four stay because unwitnessed is not the same as absent. */
-  type: 'WORK' | 'RECOVERY' | 'REST' | 'WARMUP' | 'COOLDOWN' | 'ACTIVE_RECOVERY';
-  w5s_variability?: number | null | undefined;
-  wbal_end?: number | null | undefined;
-  /** The server fits its own W prime, so this arrives whether or not the
-   * athlete configured one. */
-  wbal_start?: number | null | undefined;
-  weighted_average_watts?: number | null | undefined;
-  zone?: number | null | undefined;
-  zone_max_watts?: number | null | undefined;
-  zone_min_watts?: number | null | undefined;
-}
-
-// Response from /api/v1/activity/{id}/intervals
-export interface IntervalsDTO {
-  icu_intervals: ActivityInterval[];
-  icu_groups: ActivityIntervalGroup[];
-}
-
-/**
- * A group of intervals sharing a shape.
- *
- * The same field set as its members minus `intensity`, plus a `count`. Its
- * `id` is what a member's `group_id` holds. Nothing renders a group today.
- */
-export interface ActivityIntervalGroup {
-  average_cadence?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_dfa_a1?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_epoc?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_feels_like?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_gradient?: number | null | undefined;
-  average_heartrate?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_impact_loading_rate?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_lactate?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_leg_spring_stiffness?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_respiration?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_smo2?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_smo2_2?: number | null | undefined;
-  average_speed?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_stance_time?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_stance_time_balance?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_stance_time_percent?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_step_length?: number | null | undefined;
-  average_stride?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_temp?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_thb?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_thb_2?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_tidal_volume?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_tidal_volume_min?: number | null | undefined;
-  average_torque?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_vertical_oscillation?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_vertical_ratio?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_vertical_speed?: number | null | undefined;
-  average_watts?: number | null | undefined;
-  average_watts_alt?: number | null | undefined;
-  average_watts_alt_acc?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_watts_kg?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_weather_temp?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_wind_gust?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_wind_speed?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  average_yaw?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  avg_lr_balance?: number | null | undefined;
-  count: number;
-  /** A number, or the string `-Infinity` when the second half carried no power. */
-  decoupling?: number | string | null | undefined;
-  distance?: number | null | undefined;
-  elapsed_time?: number | null | undefined;
-  gap?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  headwind_percent?: number | null | undefined;
-  id: string;
-  /** Sport-specific, and null on every interval of the measured account. */
-  intensity?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  joules?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  joules_above_ftp?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  max_altitude?: number | null | undefined;
-  max_cadence?: number | null | undefined;
-  max_heartrate?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  max_lactate?: number | null | undefined;
-  max_speed?: number | null | undefined;
-  max_torque?: number | null | undefined;
-  max_watts?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  max_watts_kg?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  min_altitude?: number | null | undefined;
-  min_cadence?: number | null | undefined;
-  min_heartrate?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  min_lactate?: number | null | undefined;
-  min_speed?: number | null | undefined;
-  min_torque?: number | null | undefined;
-  min_watts?: number | null | undefined;
-  moving_time?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  prevailing_wind_deg?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  ss_cp?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  ss_p_max?: number | null | undefined;
-  /** The server fits its own W prime, so this arrives whether or not the
-   * athlete configured one. */
-  ss_w_prime?: number | null | undefined;
-  start_index?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  strain_score?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  tailwind_percent?: number | null | undefined;
-  total_elevation_gain?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  training_load?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  w5s_variability?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  wbal_end?: number | null | undefined;
-  /** The server fits its own W prime, so this arrives whether or not the
-   * athlete configured one. */
-  wbal_start?: number | null | undefined;
-  /** Sport-specific, and null on every interval of the measured account. */
-  weighted_average_watts?: number | null | undefined;
-  zone?: number | null | undefined;
-  zone_max_watts?: number | null | undefined;
-  zone_min_watts?: number | null | undefined;
-}
+/** One lap of an activity, typed by the engine from the stored interval body. */
+export type { ActivityInterval } from 'veloqrs';
 
 export interface Athlete {
   id: string;

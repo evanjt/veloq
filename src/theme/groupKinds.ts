@@ -26,8 +26,6 @@
  * no line here. So a group added tomorrow has to be classified before it lands.
  */
 
-import { activityTypeInk, activityTypeInkDark } from './colors';
-
 /** What kind of thing a group holds, and therefore how it is measured. */
 export type GroupKind = 'pair' | 'mark' | 'series';
 
@@ -106,10 +104,6 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
     kind: 'series',
     reason:
       'the strength data hue on the body diagram and its cards, primary and assisting muscles told apart with a legend',
-  },
-  workoutStepColors: {
-    kind: 'series',
-    reason: 'one hue per workout step, each with its name beside it',
   },
   sectionPalette: {
     kind: 'series',
@@ -191,24 +185,13 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
     kind: 'series',
     reason: 'five activity steps per mode, read as a ramp against the step beside it',
   },
-  errorScreen: {
-    kind: 'pair',
-    reason:
-      'the crash screen paints before any theme is mounted, so it carries its own ground, per mode',
-    pairs: [
-      { ground: 'light.bg', on: ['light.title', 'light.detail', 'light.message'], bar: 'text' },
-      { ground: 'light.bg', on: ['light.action'], bar: 'text' },
-      { ground: 'dark.bg', on: ['dark.title', 'dark.detail', 'dark.message'], bar: 'text' },
-      { ground: 'dark.bg', on: ['dark.action'], bar: 'text' },
-    ],
-  },
   bodyDiagram: {
     kind: 'mark',
     reason:
-      "the stroke outlining a selected group runs along the polygon boundaries, which are the page showing through and not the fill it encloses, so each mode's stroke is read against that mode's surfaces. The two fills are the ramp's base and are told apart by the ramp above them",
+      "the untrained outline and the selected outline run along the polygon boundaries, which are the page showing through, so each is read against its mode's surfaces. The untrained fill sits under the outline and the steps are the sequential ramp, told apart by the legend",
     marks: [
-      { paths: ['selectedStroke'], theme: 'light' },
-      { paths: ['selectedStrokeDark'], theme: 'dark' },
+      { paths: ['light.untrainedStroke', 'light.selectedStroke'], theme: 'light' },
+      { paths: ['dark.untrainedStroke', 'dark.selectedStroke'], theme: 'dark' },
     ],
   },
   shaderWarmup: {
@@ -216,17 +199,13 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
     reason:
       'drawn once off screen to compile the shaders, never seen. Primary red on purpose, so a frame that does reach the screen is obvious',
   },
-  cameraOverlay: {
-    kind: 'pair',
-    reason: 'the QR scanner chrome over the camera feed, fixed rather than themed',
-    pairs: [{ ground: 'bg', on: ['text', 'hint'], bar: 'text' }],
-  },
   loupeChrome: {
-    kind: 'pair',
-    reason: 'the magnifier: the crosshair over the clip background, per mode',
-    pairs: [
-      { ground: 'bgLight', on: ['crosshairDot'], bar: 'mark' },
-      { ground: 'bgDark', on: ['crosshairRing'], bar: 'mark' },
+    kind: 'mark',
+    reason:
+      "the crosshair over the loupe's clip, which is each mode's raised surface: the dot reads on the light one, the ring on the dark one",
+    marks: [
+      { paths: ['crosshairDot'], theme: 'light' },
+      { paths: ['crosshairRing'], theme: 'dark' },
     ],
   },
   opacity: {
@@ -236,16 +215,6 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
   activityTypeColors: {
     kind: 'series',
     reason: 'one hue per activity type, every site labelling or icon-ing it as well',
-  },
-  activityTypeInk: {
-    kind: 'mark',
-    reason: 'the activity-type hue as an icon on a light surface, held to 3:1',
-    marks: [{ paths: Object.keys(activityTypeInk), theme: 'light' }],
-  },
-  activityTypeInkDark: {
-    kind: 'mark',
-    reason: 'the activity-type hue as an icon on a dark surface, held to 3:1',
-    marks: [{ paths: Object.keys(activityTypeInkDark), theme: 'dark' }],
   },
   zoneColors: {
     kind: 'series',

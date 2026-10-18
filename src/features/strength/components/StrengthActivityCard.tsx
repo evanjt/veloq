@@ -3,7 +3,6 @@ import {
   View,
   ScrollView,
   StyleSheet,
-  Pressable,
   Text as RNText,
   type ScrollViewInstance,
 } from 'react-native';
@@ -17,7 +16,8 @@ import {
   SkylineBar,
   activitySecondaryStatLabels,
 } from '@/features/activity';
-import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
+import { getActivityIcon } from '@/shared/activity/activityUtils';
+import { sportMarkColour } from '@/shared/activity/sportCategories';
 import {
   formatDuration,
   formatRelativeDateTime,
@@ -47,9 +47,8 @@ import { spokenDuration } from '@/shared/format/spoken';
 import {
   accessibleActions,
   composeAccessibilityLabel,
-  pressable,
-  pressRipple,
   useLargeText,
+  PressTarget,
 } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { Card } from '@/shared/ui/Card';
@@ -121,7 +120,7 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
     }
   }, []);
 
-  const activityColor = getActivityColor(activity.type);
+  const activityColor = sportMarkColour(activity.type, isDark);
   const iconName = getActivityIcon(activity.type);
 
   const compactTextColor = isDark ? darkColors.textPrimary : colors.textPrimary;
@@ -140,14 +139,13 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
     >
       {/* A second touch area for the card's own press. The card's label speaks
           these stats, so a screen reader never reaches this. */}
-      <Pressable
+      <PressTarget
         onPress={handlePress}
         accessible={false}
         accessibilityRole="none"
         importantForAccessibility="no-hide-descendants"
         accessibilityElementsHidden
-        style={pressable(styles.secondaryStats)}
-        android_ripple={pressRipple}
+        style={styles.secondaryStats}
       >
         {!!activity.icu_training_load && (
           <View style={styles.secondaryStat}>
@@ -197,7 +195,7 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
             </RNText>
           </View>
         ) : null}
-      </Pressable>
+      </PressTarget>
     </ScrollView>
   );
 
@@ -216,14 +214,13 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
               isDark && styles.strengthPanelDark,
             ]}
           >
-            {/* Pressable overlay */}
-            <Pressable
+            {/* Press overlay */}
+            <PressTarget
               testID={`activity-card-${activity.id}`}
               onPress={handlePress}
               onLongPress={contextMenuHoldIsNative() ? undefined : handleLongPress}
               delayLongPress={PREVIEW_HOLD_MS}
-              style={pressable(styles.pressableOverlay)}
-              android_ripple={pressRipple}
+              style={styles.pressableOverlay}
               accessibilityRole="button"
               accessibilityLabel={composeAccessibilityLabel(
                 activity.name,

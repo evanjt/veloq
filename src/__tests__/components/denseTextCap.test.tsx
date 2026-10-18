@@ -61,6 +61,8 @@ const DENSE_SURFACES = [
   'src/features/maps/components/regional/ClusterCountOverlay.tsx',
   'src/features/strength/components/ExerciseTable.tsx',
   'src/features/home/components/SummaryCardSparkline.tsx',
+  'src/features/home/components/SummaryCardHRVSparkline.tsx',
+  'src/shared/charts/Sparkline.tsx',
   'src/features/stats/components/PowerCurveChart.tsx',
   'src/features/stats/components/PaceCurveChart.tsx',
   'src/features/stats/components/SwimPaceCurveChart.tsx',

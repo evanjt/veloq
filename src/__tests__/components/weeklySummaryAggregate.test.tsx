@@ -5,7 +5,7 @@
  * same week, one up and one down.
  *
  * Expected behaviour: the summary paints every range's totals and arrows from
- * the training screen read, as the engine judged them, and a tap between ranges
+ * the fitness screen read, as the engine judged them, and a tap between ranges
  * reads nothing more.
  */
 
@@ -17,7 +17,8 @@ import { RangeCoverage } from 'veloqrs';
 import { WeeklySummary } from '@/features/stats/components/WeeklySummary';
 import { initialiseI18n } from '@/i18n';
 import { getEngine } from '@/shared/native/engine';
-import { summaryComparison, trainingScreenRead } from '../__shared__/trainingScreenRead';
+import { summaryComparison, fitnessScreenRead } from '../__shared__/fitnessScreenRead';
+import { WithScreenRead } from '../__shared__/withScreenRead';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
@@ -31,7 +32,7 @@ const stats = (count: number, hours: number, km: number, load: number) => ({
 });
 
 const engine = {
-  getTrainingScreenData: trainingScreenRead({
+  getFitnessScreenData: fitnessScreenRead({
     comparisons: (now) => ({
       week: summaryComparison(now, {
         currentStats: stats(2, 1.5, 30, 80),
@@ -74,7 +75,10 @@ beforeEach(() => {
 
 describe('WeeklySummary', () => {
   it('draws the week up when the engine judged it up, with its percentage', async () => {
-    const view = await render(<WeeklySummary />, { wrapper });
+    const view = await render(
+      <WithScreenRead>{(training) => <WeeklySummary training={training} />}</WithScreenRead>,
+      { wrapper }
+    );
 
     await waitFor(() => expect(view.getByTestId('weekly-summary-duration')).toBeTruthy());
     expect(view.getByTestId('weekly-summary-duration-delta')).toHaveTextContent('↑ 50%');
@@ -86,10 +90,13 @@ describe('WeeklySummary', () => {
   });
 
   it('asks the engine for the moment it reads, so last week ends at the same hour', async () => {
-    await render(<WeeklySummary />, { wrapper });
+    await render(
+      <WithScreenRead>{(training) => <WeeklySummary training={training} />}</WithScreenRead>,
+      { wrapper }
+    );
 
-    await waitFor(() => expect(engine.getTrainingScreenData).toHaveBeenCalled());
-    const [windows] = engine.getTrainingScreenData.mock.calls[0];
+    await waitFor(() => expect(engine.getFitnessScreenData).toHaveBeenCalled());
+    const [, windows] = engine.getFitnessScreenData.mock.calls[0];
     const now = new Date();
     const wall = Date.UTC(
       now.getFullYear(),
@@ -103,8 +110,11 @@ describe('WeeklySummary', () => {
   });
 
   it('switches range from the one read rather than reading per range', async () => {
-    const view = await render(<WeeklySummary />, { wrapper });
-    await waitFor(() => expect(engine.getTrainingScreenData).toHaveBeenCalledTimes(1));
+    const view = await render(
+      <WithScreenRead>{(training) => <WeeklySummary training={training} />}</WithScreenRead>,
+      { wrapper }
+    );
+    await waitFor(() => expect(engine.getFitnessScreenData).toHaveBeenCalledTimes(1));
 
     await fireEvent.press(view.getByTestId('weekly-summary-range-year'));
 
@@ -112,6 +122,6 @@ describe('WeeklySummary', () => {
     expect(view.getByTestId('weekly-summary-count-delta')).toHaveTextContent('↓ 20%');
     // Nothing the year has no earlier total of is judged.
     expect(view.queryByTestId('weekly-summary-duration-delta')).toBeNull();
-    expect(engine.getTrainingScreenData).toHaveBeenCalledTimes(1);
+    expect(engine.getFitnessScreenData).toHaveBeenCalledTimes(1);
   });
 });

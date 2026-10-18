@@ -251,6 +251,128 @@ impl PersistentEngine {
     }
 }
 
+/// A yard in metres.
+const YARD_M: f64 = 0.9144;
+
+/// The unit a pool of this many metres is measured in: yards when the length
+/// is a whole number of yards and not a whole number of metres, as a 25 yd
+/// pool's 22.86 m is.
+fn pool_unit_of(pool_length_m: Option<f64>) -> crate::FfiPoolUnit {
+    let whole = |v: f64| (v - v.round()).abs() < 0.01;
+    match pool_length_m {
+        Some(m) if !whole(m) && whole(m / YARD_M) => crate::FfiPoolUnit::Yards,
+        _ => crate::FfiPoolUnit::Metres,
+    }
+}
+
+/// Shape a pool swim's stored lengths into what the screen paints: each
+/// length's speed and SWOLF, and the per-stroke totals over the active ones,
+/// so the screen computes and sums nothing.
+///
+/// A length's time is its elapsed time, the timer time when that is missing.
+/// Its speed is the pool length over that time, the device's own average when
+/// the pool length is unknown. A rest has neither speed nor SWOLF.
+pub(crate) fn shape_pool_swim(
+    state: crate::FfiPoolSwimState,
+    pool_length_m: Option<f64>,
+    lengths: &[crate::fit::FitPoolLength],
+) -> crate::FfiPoolSwim {
+    let positive = |v: f64| (v.is_finite() && v > 0.0).then_some(v);
+    let pool = pool_length_m.and_then(positive);
+
+    let shaped: Vec<crate::FfiPoolLength> = lengths
+        .iter()
+        .enumerate()
+        .map(|(index, length)| {
+            // The profile's LengthType: 0 is idle, which is a rest.
+            let active = length.length_type != Some(0);
+            let elapsed = length.total_elapsed_time.or(length.total_timer_time);
+            let speed = if active {
+                match (pool, elapsed.and_then(positive)) {
+                    (Some(metres), Some(secs)) => Some(metres / secs),
+                    (None, _) => length.avg_speed.and_then(positive),
+                    _ => None,
+                }
+            } else {
+                None
+            };
+            let swolf = if active {
+                elapsed
+                    .zip(length.total_strokes)
+                    .map(|(secs, strokes)| secs + f64::from(strokes))
+            } else {
+                None
+            };
+            crate::FfiPoolLength {
+                index: index as u32,
+                active,
+                stroke: if active { length.swim_stroke } else { None },
+                stroke_key: active.then(|| {
+                    length
+                        .swim_stroke
+                        .map_or("unknown", crate::fit::swim_stroke_key)
+                        .to_string()
+                }),
+                elapsed_secs: elapsed,
+                strokes: if active { length.total_strokes } else { None },
+                speed_mps: speed,
+                swolf,
+            }
+        })
+        .collect();
+
+    let mut totals: Vec<(crate::FfiPoolStrokeTotal, f64, u32)> = Vec::new();
+    for length in shaped.iter().filter(|l| l.active) {
+        let key = length.stroke_key.clone().unwrap_or_default();
+        let at = match totals.iter().position(|(t, _, _)| t.stroke_key == key) {
+            Some(at) => at,
+            None => {
+                totals.push((
+                    crate::FfiPoolStrokeTotal {
+                        stroke: length.stroke,
+                        stroke_key: key,
+                        lengths: 0,
+                        distance_m: None,
+                        elapsed_secs: 0.0,
+                        speed_mps: None,
+                        avg_swolf: None,
+                    },
+                    0.0,
+                    0,
+                ));
+                totals.len() - 1
+            }
+        };
+        let (total, swolf_sum, swolf_count) = &mut totals[at];
+        total.lengths += 1;
+        total.elapsed_secs += length.elapsed_secs.unwrap_or(0.0);
+        if let Some(swolf) = length.swolf {
+            *swolf_sum += swolf;
+            *swolf_count += 1;
+        }
+    }
+    let stroke_totals = totals
+        .into_iter()
+        .map(|(mut total, swolf_sum, swolf_count)| {
+            total.distance_m = pool.map(|metres| metres * f64::from(total.lengths));
+            total.speed_mps = total
+                .distance_m
+                .zip(positive(total.elapsed_secs))
+                .map(|(metres, secs)| metres / secs);
+            total.avg_swolf = (swolf_count > 0).then(|| swolf_sum / f64::from(swolf_count));
+            total
+        })
+        .collect();
+
+    crate::FfiPoolSwim {
+        state,
+        pool_length_m: pool,
+        pool_unit: pool_unit_of(pool),
+        lengths: shaped,
+        stroke_totals,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::commit_counter;
@@ -553,6 +675,165 @@ mod tests {
         assert_eq!(engine.owed_fit_ids().unwrap(), vec!["pool"]);
     }
 
+    fn close(a: Option<f64>, b: f64) -> bool {
+        a.is_some_and(|a| (a - b).abs() < 1e-9)
+    }
+
+    /// Scenario: the pool fixture, two freestyle lengths, a 30 s rest and two
+    /// breaststroke lengths of a 25 m pool, is stored for a pool swim.
+    ///
+    /// Expected behaviour: the screen's read holds all five in order with the
+    /// rest flagged, each active length's SWOLF its elapsed seconds plus its
+    /// strokes and its speed the pool length over its time, and one total per
+    /// stroke summing that stroke's active lengths.
+    #[test]
+    fn a_read_pool_swim_carries_its_lengths_swolf_and_stroke_totals() {
+        let (_dir, engine) = engine();
+        add_activity(&engine, "pool", "Swim", 200);
+        let swim = crate::fit::parse_fit_pool_swim(&crate::fit::pool_swim_fit()).unwrap();
+        engine.settle_pool_swim("pool", &swim).unwrap();
+
+        let read = pooled::pool_swim(&engine.db, "pool").unwrap().unwrap();
+
+        assert_eq!(read.state, crate::FfiPoolSwimState::Read);
+        assert_eq!(read.pool_length_m, Some(25.0));
+        assert_eq!(read.pool_unit, crate::FfiPoolUnit::Metres);
+        let shape: Vec<(u32, bool, Option<&str>, Option<u16>)> = read
+            .lengths
+            .iter()
+            .map(|l| (l.index, l.active, l.stroke_key.as_deref(), l.strokes))
+            .collect();
+        assert_eq!(
+            shape,
+            vec![
+                (0, true, Some("freestyle"), Some(18)),
+                (1, true, Some("freestyle"), Some(19)),
+                (2, false, None, None),
+                (3, true, Some("breaststroke"), Some(14)),
+                (4, true, Some("breaststroke"), Some(15)),
+            ]
+        );
+        let swolf: Vec<Option<f64>> = read.lengths.iter().map(|l| l.swolf).collect();
+        assert_eq!(
+            swolf,
+            vec![Some(43.0), Some(45.5), None, Some(46.0), Some(46.25)]
+        );
+        let elapsed: Vec<Option<f64>> = read.lengths.iter().map(|l| l.elapsed_secs).collect();
+        assert_eq!(
+            elapsed,
+            vec![Some(25.0), Some(26.5), Some(30.0), Some(32.0), Some(31.25)],
+            "a rest keeps its duration"
+        );
+        assert!(close(read.lengths[0].speed_mps, 1.0));
+        assert!(close(read.lengths[1].speed_mps, 25.0 / 26.5));
+        assert_eq!(read.lengths[2].speed_mps, None, "a rest has no speed");
+        assert!(close(read.lengths[3].speed_mps, 25.0 / 32.0));
+        assert!(close(read.lengths[4].speed_mps, 0.8));
+
+        assert_eq!(read.stroke_totals.len(), 2);
+        let free = &read.stroke_totals[0];
+        assert_eq!(
+            (free.stroke_key.as_str(), free.stroke),
+            ("freestyle", Some(0))
+        );
+        assert_eq!(free.lengths, 2);
+        assert_eq!(free.distance_m, Some(50.0));
+        assert_eq!(free.elapsed_secs, 51.5);
+        assert!(close(free.speed_mps, 50.0 / 51.5));
+        assert_eq!(free.avg_swolf, Some(44.25));
+        let breast = &read.stroke_totals[1];
+        assert_eq!(
+            (breast.stroke_key.as_str(), breast.stroke),
+            ("breaststroke", Some(2))
+        );
+        assert_eq!(breast.lengths, 2);
+        assert_eq!(breast.distance_m, Some(50.0));
+        assert_eq!(breast.elapsed_secs, 63.25);
+        assert_eq!(breast.avg_swolf, Some(46.125));
+        let active = read.lengths.iter().filter(|l| l.active).count() as u32;
+        assert_eq!(
+            read.stroke_totals.iter().map(|t| t.lengths).sum::<u32>(),
+            active
+        );
+    }
+
+    /// A swim whose file has not been read is owed, with nothing to show yet,
+    /// and one settled without lengths is told apart from it.
+    #[test]
+    fn a_pool_swim_reads_owed_until_settled_and_none_once_settled_empty() {
+        let (_dir, engine) = engine();
+        add_activity(&engine, "pool", "Swim", 200);
+
+        let owed = pooled::pool_swim(&engine.db, "pool").unwrap().unwrap();
+        assert_eq!(owed.state, crate::FfiPoolSwimState::Owed);
+        assert!(owed.lengths.is_empty() && owed.stroke_totals.is_empty());
+
+        engine
+            .settle_pool_swim("pool", &crate::fit::FitPoolSwim::default())
+            .unwrap();
+        let settled = pooled::pool_swim(&engine.db, "pool").unwrap().unwrap();
+        assert_eq!(settled.state, crate::FfiPoolSwimState::NoLengths);
+        assert!(settled.lengths.is_empty());
+
+        add_activity(&engine, "gone", "Swim", 300);
+        engine.mark_fit_outcome("gone", FitOutcome::Absent).unwrap();
+        assert_eq!(
+            pooled::pool_swim(&engine.db, "gone")
+                .unwrap()
+                .unwrap()
+                .state,
+            crate::FfiPoolSwimState::NoLengths
+        );
+    }
+
+    /// Only a pool swim has lengths: a ride, an open-water swim and an id the
+    /// library does not hold read none at all.
+    #[test]
+    fn only_a_pool_swim_reads_a_pool_swim() {
+        let (_dir, engine) = engine();
+        add_activity(&engine, "ride", "Ride", 100);
+        add_activity(&engine, "lake", "OpenWaterSwim", 200);
+
+        assert_eq!(pooled::pool_swim(&engine.db, "ride").unwrap(), None);
+        assert_eq!(pooled::pool_swim(&engine.db, "lake").unwrap(), None);
+        assert_eq!(pooled::pool_swim(&engine.db, "unknown").unwrap(), None);
+    }
+
+    /// A 25 yd pool is 22.86 m: its unit reads as yards, and a metre pool,
+    /// a 33⅓ m one included, as metres.
+    #[test]
+    fn a_pool_measured_in_yards_reads_as_yards() {
+        assert_eq!(pool_unit_of(Some(22.86)), crate::FfiPoolUnit::Yards);
+        assert_eq!(pool_unit_of(Some(45.72)), crate::FfiPoolUnit::Yards);
+        assert_eq!(pool_unit_of(Some(25.0)), crate::FfiPoolUnit::Metres);
+        assert_eq!(pool_unit_of(Some(50.0)), crate::FfiPoolUnit::Metres);
+        assert_eq!(pool_unit_of(Some(100.0 / 3.0)), crate::FfiPoolUnit::Metres);
+        assert_eq!(pool_unit_of(None), crate::FfiPoolUnit::Metres);
+    }
+
+    /// With no pool length the speed is the device's own and no distance is
+    /// claimed; a length with no stroke count has no SWOLF and an active
+    /// length with no stroke is totalled as unknown.
+    #[test]
+    fn a_swim_with_no_pool_length_falls_back_to_the_device_speed() {
+        let lengths = vec![crate::fit::FitPoolLength {
+            length_type: Some(1),
+            total_elapsed_time: Some(20.0),
+            avg_speed: Some(1.2),
+            ..Default::default()
+        }];
+
+        let read = shape_pool_swim(crate::FfiPoolSwimState::Read, None, &lengths);
+
+        assert_eq!(read.lengths[0].speed_mps, Some(1.2));
+        assert_eq!(read.lengths[0].swolf, None);
+        assert_eq!(read.lengths[0].stroke_key.as_deref(), Some("unknown"));
+        assert_eq!(read.stroke_totals[0].stroke_key, "unknown");
+        assert_eq!(read.stroke_totals[0].distance_m, None);
+        assert_eq!(read.stroke_totals[0].speed_mps, None);
+        assert_eq!(read.stroke_totals[0].avg_swolf, None);
+    }
+
     #[test]
     fn activity_names_answers_nothing_for_no_ids() {
         let (_dir, engine) = engine();
@@ -751,6 +1032,72 @@ pub(crate) mod pooled {
         ))?;
         let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
         rows.collect()
+    }
+
+    /// A pool swim's lengths as the activity detail screen paints them, or
+    /// `None` for any sport but `Swim` and for an id the library does not hold.
+    ///
+    /// Owed while no verdict is stored, read when lengths are, and no lengths
+    /// for every other settled verdict.
+    pub(crate) fn pool_swim(
+        conn: &Connection,
+        activity_id: &str,
+    ) -> SqlResult<Option<crate::FfiPoolSwim>> {
+        let row = conn
+            .query_row(
+                "SELECT m.sport_type,
+                        EXISTS(SELECT 1 FROM fit_file_status f WHERE f.activity_id = m.activity_id),
+                        (SELECT p.pool_length_m FROM pool_swims p WHERE p.activity_id = m.activity_id)
+                 FROM activity_metrics m WHERE m.activity_id = ?",
+                params![activity_id],
+                |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, bool>(1)?,
+                        row.get::<_, Option<f64>>(2)?,
+                    ))
+                },
+            )
+            .optional()?;
+        let Some((sport, settled, pool_length_m)) = row else {
+            return Ok(None);
+        };
+        if super::FitIntake::for_sport(Some(&sport)) != super::FitIntake::PoolSwim {
+            return Ok(None);
+        }
+
+        let mut stmt = conn.prepare(
+            "SELECT length_type, swim_stroke, total_strokes, elapsed_secs, timer_secs, avg_speed
+             FROM swim_lengths WHERE activity_id = ? ORDER BY length_index",
+        )?;
+        let lengths = stmt
+            .query_map(params![activity_id], |row| {
+                Ok(crate::fit::FitPoolLength {
+                    start_time: None,
+                    length_type: row
+                        .get::<_, Option<i64>>(0)?
+                        .and_then(|v| u8::try_from(v).ok()),
+                    swim_stroke: row
+                        .get::<_, Option<i64>>(1)?
+                        .and_then(|v| u8::try_from(v).ok()),
+                    total_strokes: row
+                        .get::<_, Option<i64>>(2)?
+                        .and_then(|v| u16::try_from(v).ok()),
+                    total_elapsed_time: row.get(3)?,
+                    total_timer_time: row.get(4)?,
+                    avg_speed: row.get(5)?,
+                })
+            })?
+            .collect::<SqlResult<Vec<_>>>()?;
+
+        let state = if !lengths.is_empty() {
+            crate::FfiPoolSwimState::Read
+        } else if settled {
+            crate::FfiPoolSwimState::NoLengths
+        } else {
+            crate::FfiPoolSwimState::Owed
+        };
+        Ok(Some(super::shape_pool_swim(state, pool_length_m, &lengths)))
     }
 
     /// Whether the activity's FIT file has a settled verdict.

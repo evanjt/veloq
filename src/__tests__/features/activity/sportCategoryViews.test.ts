@@ -1,5 +1,7 @@
 import {
-  ACTIVITY_CATEGORIES,
+  SPORT_FAMILY_ICONS,
+  SPORT_FAMILY_LABELS,
+  SPORT_FAMILY_MEMBERS,
   SPORT_FAMILY_ORDER,
   getActivityCategory,
 } from '@/shared/activity/sportCategories';
@@ -15,12 +17,13 @@ describe('sport family views', () => {
       'Strength',
       'Other',
     ]);
-    expect(Object.keys(ACTIVITY_CATEGORIES)).toEqual(SPORT_FAMILY_ORDER);
+    expect(Object.keys(SPORT_FAMILY_ICONS)).toEqual(SPORT_FAMILY_ORDER);
+    expect(Object.keys(SPORT_FAMILY_LABELS)).toEqual(SPORT_FAMILY_ORDER);
   });
 
   it('files each type under the family whose list names it', () => {
-    for (const [family, config] of Object.entries(ACTIVITY_CATEGORIES)) {
-      for (const type of config.types) expect(getActivityCategory(type)).toBe(family);
+    for (const [family, types] of Object.entries(SPORT_FAMILY_MEMBERS)) {
+      for (const type of types) expect(getActivityCategory(type)).toBe(family);
     }
     expect(getActivityCategory('IceSkate')).toBe('Winter');
     expect(getActivityCategory('Snowshoe')).toBe('Winter');

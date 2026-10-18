@@ -143,7 +143,7 @@ describe('SectionMapView fullscreen specs while the modal is shut', () => {
     const layers = fullscreenCalls(mockBuildLayers);
     expect(sources.length).toBeGreaterThan(0);
     expect(layers.length).toBeGreaterThan(0);
-    expect(sources[sources.length - 1].sectionOpacity).toBe(0.4);
+    expect(sources[sources.length - 1].sectionContext).toBe(true);
   });
 
   it('stops building fullscreen specs again once it is closed', async () => {

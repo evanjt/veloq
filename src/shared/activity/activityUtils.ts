@@ -5,10 +5,10 @@
  * Used throughout the app for consistent activity representation.
  */
 
-import type { Activity, ActivityType } from '@/types';
+import type { ActivityType } from '@/types';
 import type { ComponentProps } from 'react';
 import type { MaterialCommunityIcons } from '@expo/vector-icons';
-import { activityTypeColors, activityTypeInk, activityTypeInkDark } from '@/theme/colors';
+import { activityTypeColors } from '@/theme/colors';
 import { SPORT_FAMILIES } from '@/shared/native/sportTaxonomy.generated';
 
 /** Type for valid MaterialCommunityIcons names */
@@ -108,33 +108,11 @@ export function getActivityIcon(type: ActivityType | string): MaterialIconName {
 }
 
 /**
- * Get color for an activity type.
- *
- * Returns the theme color associated with each activity type.
- * Colors are semantic (blue for cycling, emerald for running, cyan for swimming).
- *
- * ```ts
- * getActivityColor('Ride');  // "#3B82F6" (blue)
- * getActivityColor('Run');   // "#10B981" (emerald)
- * ```
+ * The per-type hue a detail map draws its track in. Every other surface draws
+ * a sport from its family token through `sportMarkColour`.
  */
 export function getActivityColor(type: ActivityType): string {
   return activityTypeColors[type] || activityTypeColors.Other;
-}
-
-/**
- * Get the colour an activity type's icon is drawn in on a surface of the theme
- * on screen. Unlike `getActivityColor`, which is the sport hue for a fill or a
- * map track, this tone clears 3:1 on every surface of its theme.
- *
- * ```ts
- * getActivityInk('Run', false); // "#059669" (emerald-600)
- * getActivityInk('Run', true);  // "#10B981" (emerald-500)
- * ```
- */
-export function getActivityInk(type: ActivityType, isDark: boolean): string {
-  const ink = isDark ? activityTypeInkDark : activityTypeInk;
-  return ink[type] ?? ink.Other ?? getActivityColor(type);
 }
 
 // The sport families are the engine's (`veloqrs/src/sport.rs`), generated
@@ -210,16 +188,4 @@ const SPORT_DISPLAY: Record<string, string> = {
 export function getSportDisplayName(sportType?: string): string {
   if (!sportType) return '';
   return SPORT_DISPLAY[sportType] ?? sportType.toLowerCase();
-}
-
-/** Resolve the apparent/feels-like temperature from whichever field is populated */
-export function getApparentTemperature(
-  activity: Pick<
-    Activity,
-    'apparent_temperature' | 'average_feels_like' | 'average_temp_feels_like'
-  >
-): number | undefined {
-  return (
-    activity.apparent_temperature ?? activity.average_feels_like ?? activity.average_temp_feels_like
-  );
 }

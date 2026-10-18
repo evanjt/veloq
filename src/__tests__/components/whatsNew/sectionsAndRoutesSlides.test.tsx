@@ -37,10 +37,7 @@ const LOCALES_DIR = path.join(__dirname, '../../../i18n/locales');
 const SLIDE_KEYS = [
   'sectionPageTitle',
   'sectionPageBody',
-  'sectionPageTrend',
   'sectionPageTrendR',
-  'sectionPageHistogram',
-  'sectionPageDelta',
   'sectionPageLine',
   'routesTitle',
   'routesBody',
@@ -140,17 +137,18 @@ describe('the demo attempts the sections slide draws', () => {
 });
 
 describe('the sections and routes slides', () => {
-  it('captions each of the four pictures through the translator', async () => {
+  it("captions the three chart pictures with the section panel's own view names", async () => {
     const tree = await render(<SectionPerformanceSlide />);
     await layoutViews(tree, 320, 300);
     const { getByText } = tree;
     for (const key of [
-      'sectionPageTrend',
-      'sectionPageHistogram',
-      'sectionPageDelta',
-      'sectionPageLine',
-      'sectionPageTrendR',
+      'sections.viewOverTime',
+      'sections.viewSpread',
+      'sections.viewAheadOrBehind',
     ]) {
+      expect(getByText(key)).toBeTruthy();
+    }
+    for (const key of ['sectionPageLine', 'sectionPageTrendR']) {
       expect(getByText(`whatsNew.v040.${key}`)).toBeTruthy();
     }
   });

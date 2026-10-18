@@ -1,6 +1,6 @@
 // engine pulls in react-native through its import chain, so the mock must be
 // declared before any import that triggers it.
-import { SPORT_COLORS } from '@/features/fitness/stores/SportPreferenceStore';
+import { PRIMARY_SPORT_FAMILY } from '@/features/fitness/stores/SportPreferenceStore';
 import type { PrimarySport } from '@/features/fitness/stores/SportPreferenceStore';
 import { getFormZone, FORM_ZONE_BOUNDARIES, type FormZone } from '@/features/fitness/lib/fitness';
 
@@ -9,15 +9,15 @@ jest.mock('@/shared/native/engine', () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// SPORT_COLORS
+// PRIMARY_SPORT_FAMILY
 // ---------------------------------------------------------------------------
 
-describe('SPORT_COLORS', () => {
+describe('PRIMARY_SPORT_FAMILY', () => {
   const primarySports: PrimarySport[] = ['Cycling', 'Running', 'Swimming'];
 
-  it('each sport has a distinct color', () => {
-    const colors = primarySports.map((s) => SPORT_COLORS[s]);
-    const unique = new Set(colors);
+  it('each sport draws in a distinct family', () => {
+    const families = primarySports.map((s) => PRIMARY_SPORT_FAMILY[s]);
+    const unique = new Set(families);
     expect(unique.size).toBe(primarySports.length);
   });
 });

@@ -329,48 +329,6 @@
         "light"
       ]
     },
-    "ride": {
-      "role": "sport-ride"
-    },
-    "run": {
-      "role": "sport-run"
-    },
-    "swim": {
-      "role": "sport-water"
-    },
-    "rideText": {
-      "role": "sport-ride",
-      "also": [
-        "text-primary"
-      ]
-    },
-    "runText": {
-      "role": "sport-run",
-      "also": [
-        "text-primary"
-      ]
-    },
-    "swimText": {
-      "role": "sport-water",
-      "also": [
-        "text-primary"
-      ]
-    },
-    "walk": {
-      "role": "sport-foot"
-    },
-    "hike": {
-      "role": "sport-foot"
-    },
-    "workout": {
-      "role": "sport-strength"
-    },
-    "walkChipFill": {
-      "role": "sport-foot"
-    },
-    "workoutChipFill": {
-      "role": "sport-strength"
-    },
     "fitness": {
       "role": "fitness-ctl",
       "from": [
@@ -427,9 +385,6 @@
     "fatiguePurpleText": {
       "role": "text-primary"
     },
-    "chartCasing": {
-      "drop": "lines are 2px and hold 3:1 on their own"
-    },
     "chartHrv": {
       "role": "chart-series"
     },
@@ -441,15 +396,6 @@
     },
     "chartRhrText": {
       "role": "text-primary"
-    },
-    "chartSleep": {
-      "role": "chart-series"
-    },
-    "chartSleepScore": {
-      "role": "chart-series"
-    },
-    "chartWeight": {
-      "role": "chart-series"
     },
     "chartFtp": {
       "role": "stream-power",
@@ -474,18 +420,6 @@
         "dark"
       ]
     },
-    "chartGridFaint": {
-      "role": "chart-grid"
-    },
-    "chartZeroLine": {
-      "role": "chart-axis"
-    },
-    "chartMutedBar": {
-      "role": "chart-muted"
-    },
-    "chartDotMuted": {
-      "role": "chart-muted"
-    },
     "chartBandWarmup": {
       "role": "chart-muted"
     },
@@ -494,9 +428,6 @@
     },
     "chartBandNeutral": {
       "role": "chart-muted"
-    },
-    "chartZeroLineSolid": {
-      "role": "chart-axis"
     },
     "chartFormLine": {
       "role": "text-primary"
@@ -606,7 +537,9 @@
     "section-badge": "the section number disc in lists, read when sectionPalette folds into it",
     "section-badge-ink": "the ink on section-badge, read with it",
     "record": "the record button and Live Activity red, read when recording folds into it",
-    "chart-crosshair": "the chart scrubber line, read when the chart crosshair takes a token",
+    "chart-crosshair": "the chart scrub line, read by useChartColors",
+    "chart-grid": "the dotted gridline, read by useChartColors",
+    "chart-axis": "the chart baseline and zero line, read by useChartColors",
     "data-*": "the sequential and diverging data ramps, read by sequentialRamp and divergingRamp",
     "sport-*": "the sport families and their shades, read by sportFamilyColours",
     "stream-*": "one colour per activity stream, read by chartStreamColors",

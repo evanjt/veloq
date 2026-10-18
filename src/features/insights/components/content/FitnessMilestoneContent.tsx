@@ -91,7 +91,7 @@ export const FitnessMilestoneContent = React.memo(function FitnessMilestoneConte
 
       {/* The card's history in full, or the two values it compares when it had none */}
       {hasHistory ? (
-        <InsightHistoryChart history={history} color={rungColor} />
+        <InsightHistoryChart history={history} category={insight.category} />
       ) : (
         <View style={[styles.timelineCard, isDark && styles.timelineCardDark]}>
           {/* Previous value */}

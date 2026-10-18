@@ -16,7 +16,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { HeaderHeightContext } from 'expo-router/react-navigation';
 
 import { ActivityMapControls } from '@/features/maps/components/ActivityMapControls';
-import { layout, spacing } from '@/theme';
+import { MAP_CONTROL_GAP, MAP_CONTROL_SIZE } from '@/features/maps/components/MapControlButton';
 
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
@@ -33,7 +33,6 @@ function renderControls(handlers: Partial<React.ComponentProps<typeof ActivityMa
     <SafeAreaProvider initialMetrics={METRICS}>
       <HeaderHeightContext.Provider value={HEADER_BOTTOM}>
         <ActivityMapControls
-          isDark={false}
           mapStyle="satellite"
           onToggleStyle={jest.fn()}
           hasGradientData={true}
@@ -71,18 +70,18 @@ describe('the activity map control column', () => {
     await renderControls({ mapHeight: HEADER_BOTTOM + 200 });
 
     const style = StyleSheet.flatten(screen.getByTestId('activity-map-controls').props.style);
-    const step = layout.minTapTarget + spacing.sm;
-    const perColumn = Math.floor((style.maxHeight + spacing.sm) / step);
+    const step = MAP_CONTROL_SIZE + MAP_CONTROL_GAP;
+    const perColumn = Math.floor((style.maxHeight + MAP_CONTROL_GAP) / step);
     expect(perColumn).toBeLessThan(6);
     const columns = Math.ceil(6 / perColumn);
-    expect(style.width).toBe(columns * step - spacing.sm);
+    expect(style.width).toBe(columns * step - MAP_CONTROL_GAP);
   });
 
   it('holds one column when every button fits', async () => {
     await renderControls({ mapHeight: 2000 });
 
     const style = StyleSheet.flatten(screen.getByTestId('activity-map-controls').props.style);
-    expect(style.width).toBe(layout.minTapTarget);
+    expect(style.width).toBe(MAP_CONTROL_SIZE);
   });
 
   it.each([

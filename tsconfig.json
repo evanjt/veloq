@@ -7,7 +7,7 @@
     "exactOptionalPropertyTypes": true,
     "baseUrl": ".",
     "ignoreDeprecations": "6.0",
-    "types": ["jest", "node", "react", "geojson"],
+    "types": ["jest", "node", "react", "geojson", "expo/types"],
     "paths": {
       "@/*": ["src/*"],
       "@/theme": ["src/theme"],

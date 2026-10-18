@@ -48,7 +48,6 @@ jest.mock('@/features/stats/hooks/usePaceCurve', () => ({
 }));
 
 jest.mock('@/features/activity', () => ({
-  useActivityLabels: () => ({ labels: new Map(), error: null }),
   useActivities: () => ({ data: [] }),
 }));
 

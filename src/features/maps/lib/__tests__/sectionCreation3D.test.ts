@@ -11,7 +11,7 @@ import {
   sectionCreationLinePaint,
   sectionCreationMarkerPaint,
 } from '../sectionCreationPaint';
-import { colors, mapLayerColors, mapPalette } from '@/theme';
+import { colors, mapPalette } from '@/theme';
 
 const palette = mapPalette('light');
 
@@ -40,14 +40,14 @@ describe('3D section creation layers', () => {
     expect(html).not.toContain('section-creation-marker-border');
     expect(sectionCreationMarkerPaint('type', palette)['circle-radius']).toBe(11);
     expect(sectionCreationMarkerPaint('type', palette)['circle-stroke-width']).toBe(2);
-    expect(sectionCreationMarkerPaint('type', palette)['circle-stroke-color']).toBe(
-      mapLayerColors.casing
-    );
+    expect(sectionCreationMarkerPaint('type', palette)['circle-stroke-color']).toBe(palette.casing);
   });
 
   it('use the colour 2D uses for the line, hidden until creation starts', () => {
     const [line, marker] = sectionCreation3DLayers(false, palette);
-    expect(line).toMatchObject({ paint: { 'line-color': colors.successFill } });
+    expect(line).toMatchObject({
+      paint: { 'line-color': sectionCreationLinePaint(palette)['line-color'] },
+    });
     expect(line!.layout.visibility).toBe('none');
     expect(marker!.layout.visibility).toBe('none');
     expect(sectionCreation3DLayers(true, palette)[0]!.layout).not.toHaveProperty('visibility');

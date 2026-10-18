@@ -1,5 +1,5 @@
 import React, { useCallback, useRef } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
@@ -10,7 +10,7 @@ import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { buildCommit, formatVersionLine } from '@/shared/format/buildStamp';
 import { settingsStyles } from './settingsStyles';
-import { Row, pressable, pressRipple, SwitchRow } from '@/shared/ui';
+import { Row, SwitchRow, PressTarget } from '@/shared/ui';
 
 export function FooterSection() {
   const { isDark } = useTheme();
@@ -67,12 +67,10 @@ export function FooterSection() {
         </View>
       </Row>
 
-      <Pressable
+      <PressTarget
         accessibilityRole="button"
         accessibilityLabel={`${t('settings.version')} ${versionLine}`}
         onPress={handleVersionTap}
-        style={pressable()}
-        android_ripple={pressRipple}
       >
         <Text
           testID="settings-version-text"
@@ -80,7 +78,7 @@ export function FooterSection() {
         >
           {t('settings.version')} {versionLine}
         </Text>
-      </Pressable>
+      </PressTarget>
 
       {debugUnlocked || debugEnabled ? (
         <SwitchRow

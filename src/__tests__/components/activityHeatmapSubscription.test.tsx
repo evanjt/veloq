@@ -4,7 +4,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { ActivityHeatmap } from '@/features/stats/components/ActivityHeatmap';
 import { getEngine } from '@/shared/native/engine';
-import { trainingScreenRead } from '../__shared__/trainingScreenRead';
+import { fitnessScreenRead } from '../__shared__/fitnessScreenRead';
+import { WithScreenRead } from '../__shared__/withScreenRead';
 
 /**
  * Scenario: the heatmap read the engine's day cache inside a memo keyed on
@@ -12,7 +13,7 @@ import { trainingScreenRead } from '../__shared__/trainingScreenRead';
  * event. A sync that fills the cache without changing the prop never reached
  * the grid.
  *
- * Expected behaviour: the training screen read the grid paints from follows
+ * Expected behaviour: the fitness screen read the grid paints from follows
  * the `activities` channel.
  */
 
@@ -62,14 +63,14 @@ const engine = {
     listeners.set(event, set);
     return () => set.delete(cb);
   },
-  getTrainingScreenData: trainingScreenRead({ heatmap: heatmapDays }),
+  getFitnessScreenData: fitnessScreenRead({ heatmap: heatmapDays }),
 };
 
 function renderHeatmap() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <ActivityHeatmap />
+      <WithScreenRead>{(training) => <ActivityHeatmap training={training} />}</WithScreenRead>
     </QueryClientProvider>
   );
 }

@@ -25,7 +25,7 @@ import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import type { ReactTestInstance } from 'react-test-renderer';
 
 let mockParams: Record<string, string | undefined> = {};
-const mockBodies: string[] = [];
+const mockEvents: never[] = [];
 
 jest.mock('@/features/recording/hooks/useRecordingScreenColors', () => {
   const actual = jest.requireActual('@/features/recording/hooks/useRecordingScreenColors');
@@ -47,7 +47,7 @@ jest.mock('@/shared/app', () => ({
   useMetricSystem: () => true,
 }));
 jest.mock('@/shared/native/engine', () => ({
-  getEngine: () => ({ getCalendarEventBodies: () => mockBodies, subscribe: () => () => {} }),
+  getEngine: () => ({ getPlannedEvents: () => mockEvents, subscribe: () => () => {} }),
 }));
 jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn(), replaceTo: jest.fn() }));
 // A render error surfaces as itself rather than as the boundary's fallback.

@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { getEngine } from '@/shared/native/engine';
 import { attemptEngineRead } from '@/shared/native/engineError';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
-import { decodeCoords } from 'veloqrs';
+import { decodeCoords, PoolSwimState } from 'veloqrs';
+import { requestFitFile } from '@/features/strength/light';
 import type {
   ActivityHighlightsBundle,
   ActivityLedgerChange,
@@ -13,6 +14,7 @@ import type {
   HrZoneBand,
   PowerZoneBand,
   MaxHrSource,
+  PoolSwim,
   Section as NativeSection,
   SectionEncounter,
   SectionWithPolyline,
@@ -67,6 +69,8 @@ export interface ActivityDetailBundle {
   ledgerChanges: ActivityLedgerChange[];
   /** The intervals.icu id a web link may name; null when intervals.icu holds no page for it */
   intervalsId: string | null;
+  /** A pool swim's lengths, rests, SWOLF and per-stroke totals; null for every sport but a pool swim */
+  poolSwim: PoolSwim | null;
 }
 
 /** Route groups on the detail screen need at least this many attempts. */
@@ -137,6 +141,7 @@ function fetchActivityDetailData(activityId: string): DetailRead {
       summary: result.summary,
       ledgerChanges: result.ledgerChanges,
       intervalsId: result.intervalsId ?? null,
+      poolSwim: result.poolSwim ?? null,
     },
     error: undefined,
   };
@@ -178,6 +183,9 @@ export function prefetchActivityDetailData(activityId: string): void {
     }),
     engine.subscribe('timeStreamsStored', (payload) => {
       if (isTimeStreamFor(payload, activityId)) dropPrefetch();
+    }),
+    engine.subscribe('fitParsed', (payload) => {
+      if (isFitParsedFor(payload, activityId)) dropPrefetch();
     })
   );
   releasePrefetch = () => unsubscribes.forEach((unsubscribe) => unsubscribe());
@@ -203,6 +211,12 @@ function isTimeStreamFor(payload: unknown, activityId: string): boolean {
   if (!payload || typeof payload !== 'object') return false;
   const { activityIds } = payload as { activityIds?: unknown };
   return Array.isArray(activityIds) && activityIds.includes(activityId);
+}
+
+/** Whether a `fitParsed` announcement names this activity. */
+function isFitParsedFor(payload: unknown, activityId: string): boolean {
+  if (!payload || typeof payload !== 'object') return false;
+  return (payload as { activityId?: unknown }).activityId === activityId;
 }
 
 function takePrefetched(activityId: string): ActivityDetailBundle | null {
@@ -268,7 +282,8 @@ export function useActivityDetailData(
     }
   }, [activityId]);
 
-  // The detail body and the streams can land after the screen opens.
+  // The detail body, the streams and a pool swim's lengths can land after the
+  // screen opens.
   useEffect(() => {
     const engine = enabled && activityId ? getEngine() : null;
     if (!engine || !activityId) return undefined;
@@ -278,11 +293,27 @@ export function useActivityDetailData(
     const offTime = engine.subscribe('timeStreamsStored', (payload) => {
       if (isTimeStreamFor(payload, activityId)) refresh();
     });
+    const offFit = engine.subscribe('fitParsed', (payload) => {
+      if (isFitParsedFor(payload, activityId)) refresh();
+    });
     return () => {
       offBody();
       offTime();
+      offFit();
     };
   }, [activityId, enabled, refresh]);
 
-  return { data: read.data ?? initial.data, error: read.error, refresh };
+  const data = read.data ?? initial.data;
+
+  // A pool swim opened before the background download reached it asks for its
+  // file once; the parse announces `fitParsed`, which re-reads above.
+  const askedFitFor = useRef<string | null>(null);
+  const fitOwed = data?.poolSwim?.state === PoolSwimState.Owed;
+  useEffect(() => {
+    if (!fitOwed || !activityId || askedFitFor.current === activityId) return;
+    askedFitFor.current = activityId;
+    requestFitFile(activityId);
+  }, [activityId, fitOwed]);
+
+  return { data, error: read.error, refresh };
 }

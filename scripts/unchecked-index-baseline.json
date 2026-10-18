@@ -4,7 +4,7 @@
   "scripts": 1,
   "scripts/lib": 45,
   "src/app": 4,
-  "src/features/activity/components": 12,
+  "src/features/activity/components": 10,
   "src/features/activity/hooks": 7,
   "src/features/activity/lib": 5,
   "src/features/fitness/components": 9,
@@ -45,6 +45,5 @@
   "src/shared/demo/activity": 37,
   "src/shared/demo/fitness": 1,
   "src/shared/geo": 11,
-  "src/shared/theme": 1,
   "src/shared/ui": 2
 }

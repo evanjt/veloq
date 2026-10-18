@@ -10,13 +10,14 @@
  * the position is a value a screen reader can read and adjust.
  */
 import React from 'react';
-import { Modal, StyleSheet } from 'react-native';
+import { Modal } from 'react-native';
 import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import { advanceAnimationByTime, getAnimatedStyle } from '../__shared__/reanimatedJest';
 import { WhatsNewModal } from '@/features/settings/components/whatsNew/WhatsNewModal';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import { MapPreferencesProvider } from '@/features/settings/stores/MapPreferencesContext';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { flattenStyle } from '@/shared/ui/flattenStyle';
 import { layout, spacing } from '@/theme';
 
 const mockWindow = { width: 750, height: 1334, scale: 2, fontScale: 1 };
@@ -211,7 +212,7 @@ describe('the tour when the window changes width', () => {
   });
 
   const rowOffset = () =>
-    StyleSheet.flatten(getAnimatedStyle(screen.getByTestId('whats-new-slide-row')))?.transform?.[0];
+    flattenStyle(getAnimatedStyle(screen.getByTestId('whats-new-slide-row'))).transform?.[0];
 
   it('keeps the current slide in view after a fold, split or rotation', () => {
     openTour();

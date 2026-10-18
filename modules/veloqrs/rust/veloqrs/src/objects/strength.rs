@@ -195,6 +195,85 @@ where
     Ok(parsed)
 }
 
+/// The key the seeded demo corpus gives its pool swim.
+const DEMO_POOL_SWIM_KEY: &str = "demo-test-9";
+
+/// The lengths of the demo corpus's pool swim: four each of freestyle,
+/// breaststroke and backstroke in a 25 m pool, a rest after each stroke but
+/// the last. Every other demo swim has none.
+fn demo_pool_swim(activity_id: &str) -> fit::FitPoolSwim {
+    if activity_id != DEMO_POOL_SWIM_KEY {
+        return fit::FitPoolSwim::default();
+    }
+    // The profile's LengthType is 0 for a rest and 1 for a length swum; its
+    // SwimStroke is 0 freestyle, 1 backstroke, 2 breaststroke.
+    let swum = |stroke: u8, secs: f64, strokes: u16| fit::FitPoolLength {
+        total_elapsed_time: Some(secs),
+        length_type: Some(1),
+        swim_stroke: Some(stroke),
+        total_strokes: Some(strokes),
+        ..fit::FitPoolLength::default()
+    };
+    let rest = |secs: f64| fit::FitPoolLength {
+        total_elapsed_time: Some(secs),
+        length_type: Some(0),
+        ..fit::FitPoolLength::default()
+    };
+    fit::FitPoolSwim {
+        pool_length_m: Some(25.0),
+        lengths: vec![
+            swum(0, 24.0, 17),
+            swum(0, 25.0, 18),
+            swum(0, 25.0, 18),
+            swum(0, 26.0, 19),
+            rest(30.0),
+            swum(2, 33.0, 12),
+            swum(2, 34.0, 12),
+            swum(2, 34.0, 13),
+            swum(2, 35.0, 13),
+            rest(20.0),
+            swum(1, 29.0, 20),
+            swum(1, 30.0, 21),
+            swum(1, 30.0, 21),
+            swum(1, 31.0, 22),
+        ],
+    }
+}
+
+/// Settle a demo pool swim from the corpus, since no upstream holds a file for
+/// a demo key and demo mode holds no credential to ask with. None for any
+/// other activity, which is downloaded as usual.
+fn settle_demo_pool_swim(activity_id: &str) -> Option<crate::objects::start::FfiStartResult> {
+    if crate::persistence::origin::origin_of(activity_id)
+        != crate::persistence::origin::ActivityOrigin::Demo
+    {
+        return None;
+    }
+    let settled = with_engine(|e| -> Result<bool, VeloqError> {
+        let to_db = |err: rusqlite::Error| VeloqError::Database {
+            msg: format!("{}", err),
+        };
+        if e.fit_intake(activity_id).map_err(to_db)? != FitIntake::PoolSwim {
+            return Ok(false);
+        }
+        e.settle_pool_swim(activity_id, &demo_pool_swim(activity_id))
+            .map_err(to_db)?;
+        Ok(true)
+    });
+    match settled {
+        Ok(Ok(true)) => {
+            observer::notify(Announcement::FitParsed(activity_id.to_string()));
+            Some(crate::objects::start::FfiStartOutcome::Started.into())
+        }
+        Ok(Ok(false)) => None,
+        // Nothing was stored, so the ordinary path answers for it.
+        Ok(Err(e)) | Err(e) => {
+            log::error!("[FIT] Failed to settle demo swim {}: {}", activity_id, e);
+            None
+        }
+    }
+}
+
 #[derive(uniffi::Object)]
 pub struct StrengthManager {
     pub(crate) _private: (),
@@ -288,11 +367,14 @@ impl StrengthManager {
         &self,
         activity_id: String,
     ) -> crate::objects::start::FfiStartResult {
+        if let Some(started) = settle_demo_pool_swim(&activity_id) {
+            return started;
+        }
         info!("[Strength] Fetching FIT file for {}", activity_id);
         sync::spawn_once(
             JobKey::new("fit", &[&activity_id]),
-            move |install, transport, _athlete_id| async move {
-                let fetcher = ActivityFetcher::with_transport(transport);
+            move |install, session| async move {
+                let fetcher = ActivityFetcher::with_session(session);
                 let Some(upstream) = sync::upstream_id(install, &activity_id).await else {
                     return Ok(());
                 };
@@ -349,8 +431,9 @@ impl StrengthManager {
 
         sync::spawn_once(
             JobKey::new("fit", &["batch"]),
-            move |install, transport, athlete_id| async move {
-                let fetcher = ActivityFetcher::with_transport(transport);
+            move |install, session| async move {
+                let athlete_id = session.athlete_id().to_string();
+                let fetcher = ActivityFetcher::with_session(session);
                 let total = owed.len();
                 let parsed = drain_fit_batch_with(
                     &owed,
@@ -1612,6 +1695,65 @@ mod tests {
         assert_eq!(rows_in("swim_lengths", "swim-1"), 5);
         assert_eq!(rows_in("pool_swims", "swim-1"), 1);
         assert_eq!(rows_in("exercise_sets", "swim-1"), 0);
+    }
+
+    /// Scenario: demo mode opens a pool swim, which no upstream holds a file
+    /// for and which demo mode holds no credential to ask with.
+    ///
+    /// Expected behaviour: asking for the file settles the demo corpus's pool
+    /// swim from its own lengths, rests in place, and any other demo swim with
+    /// none, each announced; a demo strength session and a real swim are left
+    /// to the download.
+    #[test]
+    fn a_demo_pool_swim_settles_from_the_corpus_without_a_download() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("fit_demo_pool_swim.db");
+        add_activity(DEMO_POOL_SWIM_KEY, "Swim");
+        add_activity("demo-other-swim", "Swim");
+        add_activity("demo-lift", "WeightTraining");
+        add_activity("i90210", "Swim");
+        let recorder = Recorder::new();
+        set_observer(Some(recorder.clone()));
+
+        let manager = StrengthManager::new();
+        for id in [DEMO_POOL_SWIM_KEY, "demo-other-swim", "demo-lift", "i90210"] {
+            manager.fetch_and_parse_exercise_sets(id.to_string());
+        }
+        crate::objects::observer::flush();
+        set_observer(None);
+
+        assert_eq!(
+            recorder.events(),
+            vec![
+                format!("fit_parsed:{DEMO_POOL_SWIM_KEY}"),
+                "fit_parsed:demo-other-swim".to_string(),
+            ]
+        );
+        assert_eq!(fit_outcome(DEMO_POOL_SWIM_KEY).as_deref(), Some("parsed"));
+        assert_eq!(fit_outcome("demo-other-swim").as_deref(), Some("empty"));
+        assert_eq!(fit_outcome("demo-lift"), None);
+        assert_eq!(fit_outcome("i90210"), None);
+
+        let swim = with_reader(|conn| pooled::pool_swim(conn, DEMO_POOL_SWIM_KEY).unwrap())
+            .unwrap()
+            .expect("a swim reads as a pool swim");
+        assert_eq!(swim.state, crate::FfiPoolSwimState::Read);
+        assert_eq!(swim.pool_length_m, Some(25.0));
+        let rests: Vec<u32> = swim
+            .lengths
+            .iter()
+            .filter(|l| !l.active)
+            .map(|l| l.index)
+            .collect();
+        assert_eq!(rests, vec![4, 9], "a rest after each stroke but the last");
+        assert_eq!(swim.lengths[0].swolf, Some(24.0 + 17.0));
+        let strokes: Vec<&str> = swim
+            .stroke_totals
+            .iter()
+            .map(|t| t.stroke_key.as_str())
+            .collect();
+        assert_eq!(strokes, vec!["freestyle", "breaststroke", "backstroke"]);
+        assert!(swim.stroke_totals.iter().all(|t| t.lengths == 4));
     }
 
     /// A file with no lengths is a swim with nothing to read, not a failure.

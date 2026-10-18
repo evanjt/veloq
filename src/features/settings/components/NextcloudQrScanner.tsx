@@ -4,8 +4,9 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  cameraOverlay,
   colorWithOpacity,
+  colourTokens,
+  darkColors,
   iconSize,
   ink,
   layout,
@@ -84,7 +85,7 @@ export function NextcloudQrScanner({
   if (outcome !== 'granted') {
     return (
       <View style={[styles.container, styles.centered]}>
-        <Icon name="camera-off" size={iconSize.xxl} color={cameraOverlay.hint} />
+        <Icon name="camera-off" size={iconSize.xxl} color={chrome.hint} />
         <PermissionNotice
           testID="nextcloud-scanner-camera"
           outcome={outcome}
@@ -118,7 +119,7 @@ export function NextcloudQrScanner({
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
         <IconButton accessibilityLabel={t('common.close')} onPress={onClose}>
-          <Icon name="close" size={iconSize.lg} color={cameraOverlay.text} />
+          <Icon name="close" size={iconSize.lg} color={chrome.text} />
         </IconButton>
         <Text style={styles.headerTitle}>{t('backup.scanQrTitle', 'Scan Nextcloud QR code')}</Text>
         <IconButton
@@ -129,7 +130,7 @@ export function NextcloudQrScanner({
           <Icon
             name={torchOn ? 'flashlight-off' : 'flashlight'}
             size={iconSize.lg}
-            color={cameraOverlay.text}
+            color={chrome.text}
           />
         </IconButton>
       </View>
@@ -164,10 +165,19 @@ export function NextcloudQrScanner({
 
 const CORNER_SIZE = 24;
 
+// The scanner draws over the camera feed, or over black while the camera is
+// refused or starting, so its chrome is fixed rather than following the theme.
+const chrome = {
+  ground: ink.black,
+  strip: colourTokens.dark.scrim,
+  text: darkColors.textOnFill,
+  hint: colorWithOpacity(darkColors.textOnFill, opacity.pressed),
+};
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: cameraOverlay.bg,
+    backgroundColor: chrome.ground,
   },
   centered: {
     justifyContent: 'center',
@@ -181,23 +191,23 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
-    backgroundColor: colorWithOpacity(ink.black, opacity.disabled),
+    backgroundColor: chrome.strip,
   },
   headerTitle: {
     ...typography.cardTitle,
-    color: cameraOverlay.text,
+    color: chrome.text,
   },
   instructions: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: colorWithOpacity(ink.black, 0.6),
+    backgroundColor: chrome.strip,
     padding: spacing.lg,
   },
   instructionText: {
     ...typography.bodySmall,
-    color: cameraOverlay.text,
+    color: chrome.text,
     textAlign: 'center',
   },
   mismatch: {
@@ -210,9 +220,9 @@ const styles = StyleSheet.create({
   },
   mismatchText: {
     ...typography.bodySmall,
-    color: cameraOverlay.text,
+    color: chrome.text,
     textAlign: 'center',
-    backgroundColor: colorWithOpacity(ink.black, 0.6),
+    backgroundColor: chrome.strip,
     borderRadius: layout.borderRadiusSm,
     overflow: 'hidden',
     paddingHorizontal: spacing.md,
@@ -235,27 +245,27 @@ const styles = StyleSheet.create({
     left: 0,
     borderTopWidth: stroke.three,
     borderLeftWidth: stroke.three,
-    borderColor: cameraOverlay.text,
+    borderColor: chrome.text,
   },
   cornerTR: {
     top: 0,
     right: 0,
     borderTopWidth: stroke.three,
     borderRightWidth: stroke.three,
-    borderColor: cameraOverlay.text,
+    borderColor: chrome.text,
   },
   cornerBL: {
     bottom: 0,
     left: 0,
     borderBottomWidth: stroke.three,
     borderLeftWidth: stroke.three,
-    borderColor: cameraOverlay.text,
+    borderColor: chrome.text,
   },
   cornerBR: {
     bottom: 0,
     right: 0,
     borderBottomWidth: stroke.three,
     borderRightWidth: stroke.three,
-    borderColor: cameraOverlay.text,
+    borderColor: chrome.text,
   },
 });

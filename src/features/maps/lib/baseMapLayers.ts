@@ -9,6 +9,8 @@ interface BaseMapLayerInput {
   palette: MapPalette;
   /** The route line's colour, the palette's route colour when left out. */
   routeColor?: string | undefined;
+  /** The route is context under a selection, so it takes the palette's muted colour. */
+  routeContext?: boolean | undefined;
   /** Drawn first, so the route line sits over them. */
   underRouteLayers: MapLayerSpec[];
   /** Drawn over the route line. */
@@ -24,7 +26,8 @@ interface BaseMapLayerInput {
  */
 export function composeBaseMapLayers({
   palette,
-  routeColor = palette.layer.route,
+  routeColor,
+  routeContext = false,
   underRouteLayers,
   overlayLayers,
   userLocationLayers,
@@ -36,14 +39,21 @@ export function composeBaseMapLayers({
       type: 'line',
       source: 'route',
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': palette.layer.casing, 'line-width': 5 },
+      paint: {
+        'line-color': palette.casing,
+        'line-width': 5,
+        'line-opacity': routeContext ? 0 : 1,
+      },
     },
     {
       id: 'route-line',
       type: 'line',
       source: 'route',
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': routeColor, 'line-width': 4 },
+      paint: {
+        'line-color': routeColor ?? (routeContext ? palette.muted : palette.route),
+        'line-width': 4,
+      },
     },
     ...overlayLayers,
     ...userLocationLayers,

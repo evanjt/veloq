@@ -11,11 +11,12 @@
  */
 
 import type { TFunction } from 'i18next';
+import { IntervalKind } from 'veloqrs';
 
 import { i18n } from '@/i18n';
 
 export interface IntervalTypeLabelInput {
-  type: string;
+  kind: IntervalKind;
   zone?: number | null | undefined;
   label?: string | null | undefined;
   /** Whether the row draws a zone colour, which is what makes `Z<n>` readable. */
@@ -26,12 +27,12 @@ export type IntervalTypeForm = 'short' | 'long';
 
 export type IntervalTypeKind = 'work' | 'recovery' | 'warmup' | 'cooldown' | 'other';
 
-/** The word family an intervals.icu interval type belongs to. */
-export function intervalTypeKind(type: string): IntervalTypeKind {
-  if (type === 'WORK') return 'work';
-  if (type === 'RECOVERY' || type === 'REST') return 'recovery';
-  if (type === 'WARMUP') return 'warmup';
-  if (type === 'COOLDOWN') return 'cooldown';
+/** The word family an interval's kind belongs to. */
+export function intervalTypeKind(kind: IntervalKind): IntervalTypeKind {
+  if (kind === IntervalKind.Work) return 'work';
+  if (kind === IntervalKind.Recovery || kind === IntervalKind.Rest) return 'recovery';
+  if (kind === IntervalKind.Warmup) return 'warmup';
+  if (kind === IntervalKind.Cooldown) return 'cooldown';
   return 'other';
 }
 
@@ -56,13 +57,13 @@ export function intervalTypeName(
 }
 
 export function intervalTypeLabel(
-  { type, zone, label, zoneColoured }: IntervalTypeLabelInput,
+  { kind: intervalKind, zone, label, zoneColoured }: IntervalTypeLabelInput,
   form: IntervalTypeForm = 'short'
 ): string {
   const named = label?.trim();
   if (named) return named;
 
-  const kind = intervalTypeKind(type);
+  const kind = intervalTypeKind(intervalKind);
   if (kind === 'work' && zoneColoured) return `Z${zone}`;
   return intervalTypeName(kind, form);
 }

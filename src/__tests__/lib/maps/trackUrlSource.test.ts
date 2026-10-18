@@ -63,7 +63,6 @@ function activitySources(route: GeoJSON.Feature | GeoJSON.FeatureCollection | st
 const layers = buildActivityLayers({
   palette: mapPalette('light'),
   overlayHasData: false,
-  activityColor: '#14B8A6',
   gradientActive: true,
   gradientLineExpression: [
     'interpolate',

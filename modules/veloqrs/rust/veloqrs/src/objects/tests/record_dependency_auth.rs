@@ -54,12 +54,14 @@ fn a_401_ends_the_record_dependency_fetch_and_parks_only_when_confirmed() {
             then.status(status)
                 .json_body(serde_json::json!({"id": "1"}));
         });
-        let (transport, athlete_id) = current_session().expect("credential").expect("transport");
+        let (transport, athlete_id) = current_session()
+            .expect("credential")
+            .expect("transport")
+            .into_parts();
 
         let outcome = crate::runtime::block_on(fetch_owed_record_activities(
             crate::persistence::engine_install(),
-            &transport,
-            &athlete_id,
+            &crate::net::IntervalsSession::new(transport.clone(), athlete_id.clone()),
             &|| false,
             &|_, _| {},
         ));
@@ -133,13 +135,15 @@ fn a_sign_out_ends_the_record_dependency_fetch() {
             })
         })
         .collect();
-    let (transport, athlete_id) = current_session().expect("credential").expect("transport");
+    let (transport, athlete_id) = current_session()
+        .expect("credential")
+        .expect("transport")
+        .into_parts();
 
     let walk = std::thread::spawn(move || {
         crate::runtime::block_on(fetch_owed_record_activities(
             crate::persistence::engine_install(),
-            &transport,
-            &athlete_id,
+            &crate::net::IntervalsSession::new(transport.clone(), athlete_id.clone()),
             &|| false,
             &|_, _| {},
         ))

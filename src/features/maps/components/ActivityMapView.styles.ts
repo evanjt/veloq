@@ -1,6 +1,7 @@
 import { StyleSheet } from 'react-native';
 
-import { darkColors, layers, layout, spacing } from '@/theme';
+import { layers, layout } from '@/theme';
+import { MAP_CONTROL_GAP } from './MapControlButton';
 
 export const styles = StyleSheet.create({
   outerContainer: {
@@ -28,18 +29,10 @@ export const styles = StyleSheet.create({
   controlsContainer: {
     position: 'absolute',
     right: layout.cardMargin,
-    gap: spacing.sm,
+    gap: MAP_CONTROL_GAP,
     // Further columns go to the left, so the first stays on the map's edge.
     flexWrap: 'wrap-reverse',
     justifyContent: 'flex-start',
     zIndex: layers.mapOverlay,
-  },
-  controlButton: {
-    width: layout.minTapTarget,
-    height: layout.minTapTarget,
-    borderRadius: layout.borderRadiusFull,
-  },
-  controlButtonDark: {
-    backgroundColor: darkColors.surfaceRaised,
   },
 });

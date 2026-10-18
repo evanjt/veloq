@@ -32,11 +32,10 @@ pub fn set_engine_log_level(level: EngineLogLevel) {
 
 async fn park_track_auth_failure(
     result: &crate::http::ActivityMapResult,
-    transport: &crate::net::Transport,
-    athlete_id: &str,
+    session: &crate::net::IntervalsSession,
 ) {
     if result.error.as_deref() == Some("unauthorized") {
-        crate::objects::park_auth_expired(transport, athlete_id).await;
+        crate::objects::park_auth_expired(session).await;
     }
 }
 
@@ -477,7 +476,7 @@ pub fn start_fetch_and_store(
     // immediately rather than spawning a thread that can only fail.
     // The athlete is read with the transport, so the run is gated on the one
     // whose credential it carries.
-    let Some(Ok((transport, athlete_id))) = crate::objects::current_session() else {
+    let Some(Ok(session)) = crate::objects::current_session() else {
         info!("[RUST: start_fetch_and_store] No credentials set");
         store_fetch_run_result(
             run,
@@ -492,12 +491,13 @@ pub fn start_fetch_and_store(
         );
         return run as f64;
     };
+    let athlete_id = session.athlete_id().to_string();
     start_fetch_and_store_run(
         run,
         activity_ids,
         sport_types,
         priority,
-        crate::http::ActivityFetcher::with_transport(transport),
+        crate::http::ActivityFetcher::with_session(session),
         Some(athlete_id),
     ) as f64
 }
@@ -564,15 +564,16 @@ pub(crate) fn start_fetch_and_store_pass(
     sport_types: Vec<ActivitySportMapping>,
     on_end: impl FnOnce(bool) + Send + 'static,
 ) -> Option<u64> {
-    let Some(Ok((transport, athlete_id))) = crate::objects::current_session() else {
+    let Some(Ok(session)) = crate::objects::current_session() else {
         return None;
     };
+    let athlete_id = session.athlete_id().to_string();
     Some(start_fetch_and_store_run_ending(
         next_fetch_run(),
         activity_ids,
         sport_types,
         crate::http::DownloadPriority::Bulk,
-        crate::http::ActivityFetcher::with_transport(transport),
+        crate::http::ActivityFetcher::with_session(session),
         Some(athlete_id),
         Some(Box::new(on_end)),
     ))
@@ -820,11 +821,10 @@ fn start_fetch_and_store_run_ending(
             let fetch_ids = to_fetch.clone();
             let fetch_signed_in = signed_in.clone();
             let pass_wide = wide_ids.clone();
-            // Its own fetcher over a clone of the same transport, so the pooled
+            // Its own fetcher over a clone of the same session, so the pooled
             // client, the governor and the retry policy are still shared and the
             // time-stream pass below keeps the one it was given.
-            let downloader =
-                crate::http::ActivityFetcher::with_transport(fetcher.transport().clone());
+            let downloader = crate::http::ActivityFetcher::with_session(fetcher.session().clone());
             let fetch = crate::threads::spawn_named("veloq-gps-fetch", move || {
                 crate::runtime::block_on(downloader.fetch_activity_maps_into(
                     run,
@@ -869,12 +869,8 @@ fn start_fetch_and_store_run_ending(
                 }
                 if !auth_checked && result.error.as_deref() == Some("unauthorized") {
                     auth_checked = true;
-                    if let Some(Ok((transport, athlete_id))) = crate::objects::current_session() {
-                        crate::runtime::block_on(park_track_auth_failure(
-                            &result,
-                            &transport,
-                            &athlete_id,
-                        ));
+                    if let Some(Ok(session)) = crate::objects::current_session() {
+                        crate::runtime::block_on(park_track_auth_failure(&result, &session));
                     }
                 }
                 if result.success {
@@ -1058,17 +1054,17 @@ fn start_fetch_and_store_run_ending(
                 .unwrap_or_default();
                 let fetched = crate::runtime::block_on(async {
                     let requests = chunk.iter().map(|activity_id| {
-                        let transport = fetcher.transport().clone();
+                        let session = fetcher.session();
                         let named = crate::persistence::origin::upstream_or_key(
                             activity_id,
                             upstream.get(activity_id).map(String::as_str),
                         )
                         .to_string();
                         async move {
-                            let result = crate::net::intervals::endpoints::fetch_time_stream(
-                                &transport,
+                            let result = crate::net::source::Source::time_stream(
+                                session,
                                 &named,
-                                crate::governor::Lane::Backfill,
+                                crate::governor::Lane::Backfill.into(),
                             )
                             .await;
                             (activity_id.clone(), result)
@@ -1137,11 +1133,8 @@ fn start_fetch_and_store_run_ending(
                     break;
                 }
                 if refused {
-                    if let Some(Ok((transport, athlete_id))) = crate::objects::current_session() {
-                        crate::runtime::block_on(crate::objects::park_auth_expired(
-                            &transport,
-                            &athlete_id,
-                        ));
+                    if let Some(Ok(session)) = crate::objects::current_session() {
+                        crate::runtime::block_on(crate::objects::park_auth_expired(&session));
                     }
                     break;
                 }
@@ -1759,7 +1752,8 @@ pub(crate) fn fetch_and_index_activity_for(
         }
     })?;
 
-    let signed_in_as = crate::objects::current_session().and_then(|s| s.ok().map(|(_, id)| id));
+    let signed_in_as = crate::objects::current_session()
+        .and_then(|s| s.ok().map(|session| session.athlete_id().to_string()));
 
     // One id, and narrow: the extra series a wide fetch brings are for the
     // chart screens, and this call is paying a push's budget for a track and
@@ -1776,9 +1770,9 @@ pub(crate) fn fetch_and_index_activity_for(
         msg: format!("no result for {}", activity_id),
     })?;
     if result.error.as_deref() == Some("unauthorized")
-        && let Some(Ok((transport, athlete_id))) = crate::objects::current_session()
+        && let Some(Ok(session)) = crate::objects::current_session()
     {
-        crate::runtime::block_on(park_track_auth_failure(&result, &transport, &athlete_id));
+        crate::runtime::block_on(park_track_auth_failure(&result, &session));
     }
 
     // A plain sign-out keeps the library, so the install cannot see it: the

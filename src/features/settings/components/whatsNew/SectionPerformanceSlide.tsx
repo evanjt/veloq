@@ -1,16 +1,26 @@
 /**
- * What the section page shows, drawn on fixed demo attempts: every attempt over time with its
- * trend and Pearson r, the spread of times, seconds ahead or behind along the section, and the
- * line coloured where the newest attempt gained or lost.
+ * What the section page shows, drawn on fixed demo attempts and captioned with the panel's own
+ * view names: every attempt over time with its trend and Pearson r, the spread of times, seconds
+ * ahead or behind along the section, and the line coloured where the newest attempt gained or
+ * lost.
  */
 
 import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { Canvas, Circle, Line, Path, Rect, vec } from '@shopify/react-native-skia';
+import { Canvas, Line, Path, Rect, vec } from '@shopify/react-native-skia';
 import { useTheme } from '@/shared/app';
-import { useMeasuredWidth } from '@/shared/charts';
+import {
+  ChartDot,
+  RecordRing,
+  RecordStaircase,
+  RETICLE_REACH,
+  ReticleMark,
+  chartStroke,
+  useMeasuredWidth,
+} from '@/shared/charts';
+import { directionColour, PLOT_LABEL_KEYS } from '@/features/routes';
 import {
   colors,
   darkColors,
@@ -28,6 +38,7 @@ import {
   demoDeltaCurves,
   demoHistogram,
   demoLineStretches,
+  demoRecordSteps,
   demoTrendEnds,
   demoTrendR,
   type StretchKind,
@@ -108,13 +119,20 @@ export function SectionPerformanceSlide() {
     const slowest = Math.max(...times);
     const fastest = Math.min(...times);
     // Faster is higher, as the section page draws it.
+    // The scatter is inset by the reticle's reach, so the marks round its newest attempt stay
+    // inside the panel.
+    const scatterInner = panelWidth - PAD - RETICLE_REACH;
     const timeY = (secs: number) =>
-      PAD + ((secs - fastest) / (slowest - fastest)) * (PANEL_HEIGHT - PAD * 2);
+      RETICLE_REACH + ((secs - fastest) / (slowest - fastest)) * (PANEL_HEIGHT - RETICLE_REACH * 2);
     const points = times.map((secs, i) => ({
-      x: PAD + (i / (times.length - 1)) * inner,
+      x: PAD + (i / (times.length - 1)) * scatterInner,
       y: timeY(secs),
     }));
     const [trendFirst, trendLast] = demoTrendEnds();
+    const recordSteps = demoRecordSteps().flatMap((i) => {
+      const point = points[i];
+      return point ? [point] : [];
+    });
 
     const bins = demoHistogram(HISTOGRAM_BINS);
     const tallest = Math.max(...bins);
@@ -122,15 +140,8 @@ export function SectionPerformanceSlide() {
 
     const curves = demoDeltaCurves();
     const deltaMax = Math.max(...curves.flat().map(Math.abs));
-    // Ahead of the reference is drawn below the zero line, as the delta chart does.
-    const deltaPaths = curves.map((curve) =>
-      linePath(
-        curve.map((secs) => -secs),
-        panelWidth,
-        -deltaMax,
-        deltaMax
-      )
-    );
+    // Ahead of the reference is drawn above the zero line, as the delta chart does.
+    const deltaPaths = curves.map((curve) => linePath(curve, panelWidth, -deltaMax, deltaMax));
 
     const stretches = demoLineStretches().map((stretch) => ({
       ...stretch,
@@ -140,8 +151,9 @@ export function SectionPerformanceSlide() {
 
     return {
       points,
+      recordSteps,
       trendStart: vec(PAD, timeY(trendFirst)),
-      trendEnd: vec(PAD + inner, timeY(trendLast)),
+      trendEnd: vec(PAD + scatterInner, timeY(trendLast)),
       bars: bins.map((count, i) => ({
         x: PAD + i * barWidth + 1,
         width: barWidth - 2,
@@ -153,6 +165,8 @@ export function SectionPerformanceSlide() {
   }, [inner, panelWidth]);
 
   const r = demoTrendR();
+  const scatterColour = directionColour('forward', isDark);
+  const newest = pictures.points.at(-1);
   const captionColor = palette.textSecondary;
 
   return (
@@ -161,7 +175,7 @@ export function SectionPerformanceSlide() {
         <>
           <Panel
             width={panelWidth}
-            caption={t('whatsNew.v040.sectionPageTrend')}
+            caption={t(PLOT_LABEL_KEYS.scatter)}
             captionColor={captionColor}
             background={background}
             overlay={
@@ -170,19 +184,30 @@ export function SectionPerformanceSlide() {
               </Text>
             }
           >
-            {pictures.points.map((p, i) => (
-              <Circle key={i} cx={p.x} cy={p.y} r={2.5} color={palette.actionPrimary} />
-            ))}
+            {/* The section page's own marks: dots in the direction's colour, its trend, the
+                record's staircase, and the newest attempt, which holds the record, carrying
+                both the record ring and the reticle. */}
             <Line
               p1={pictures.trendStart}
               p2={pictures.trendEnd}
-              color={palette.textPrimary}
-              strokeWidth={1.5}
+              color={scatterColour}
+              strokeWidth={chartStroke.series}
+              strokeCap="round"
             />
+            <RecordStaircase steps={pictures.recordSteps} />
+            {pictures.points.map((p, i) => (
+              <ChartDot key={i} x={p.x} y={p.y} color={scatterColour} />
+            ))}
+            {newest ? (
+              <>
+                <RecordRing x={newest.x} y={newest.y} />
+                <ReticleMark x={newest.x} y={newest.y} />
+              </>
+            ) : null}
           </Panel>
           <Panel
             width={panelWidth}
-            caption={t('whatsNew.v040.sectionPageHistogram')}
+            caption={t(PLOT_LABEL_KEYS.histogram)}
             captionColor={captionColor}
             background={background}
           >
@@ -199,7 +224,7 @@ export function SectionPerformanceSlide() {
           </Panel>
           <Panel
             width={panelWidth}
-            caption={t('whatsNew.v040.sectionPageDelta')}
+            caption={t(PLOT_LABEL_KEYS.delta)}
             captionColor={captionColor}
             background={background}
           >

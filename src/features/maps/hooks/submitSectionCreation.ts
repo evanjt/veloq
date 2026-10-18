@@ -14,10 +14,11 @@ import {
   type SectionCreationMessageKey,
 } from '@/features/maps/lib/sectionCreationMessage';
 import * as haptics from '@/shared/ui/haptics';
+import { toActivityType } from '@/types';
 
 interface SubmitSectionCreationParams {
   result: SectionCreationResult;
-  activity: { id: string; type: string } | null | undefined;
+  activity: { id: string; sportType?: string | undefined } | null | undefined;
   createSection: (params: {
     startIndex: number;
     endIndex: number;
@@ -49,7 +50,7 @@ export async function submitSectionCreation({
       startIndex: result.startIndex,
       endIndex: result.endIndex,
       sourceActivityId: activity.id,
-      sportType: activity.type,
+      sportType: toActivityType(activity.sportType),
     });
   } catch (error) {
     setState('error');

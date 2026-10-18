@@ -25,7 +25,7 @@
  */
 
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { useTranslation } from 'react-i18next';
 import type { PreviewParams } from 'veloqrs';
@@ -33,7 +33,7 @@ import type { PreviewParams } from 'veloqrs';
 import { useMetricSystem, useTheme } from '@/shared/app';
 import { useSheetOpener } from '@/shared/app/sheetRequest';
 import { formatDistance } from '@/shared/format/format';
-import { pressable, pressRipple, ToggleButton } from '@/shared/ui';
+import { ToggleButton, PressTarget } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import {
   colors,
@@ -220,18 +220,17 @@ function ParamRow({
   const { min, max, step } = DETECTION_PARAM_RANGES[paramKey];
   return (
     <View style={styles.paramRow}>
-      <Pressable
+      <PressTarget
         onPress={onEdit}
         disabled={disabled}
         testID={`param-edit-${paramKey}`}
         accessibilityRole="button"
         accessibilityHint={t('settings.sectionParamEditHint')}
-        style={pressable(styles.editRow)}
-        android_ripple={pressRipple}
+        style={styles.editRow}
       >
         <Text style={[styles.paramLabel, { color: txt }]}>{label}</Text>
         <Icon name="pencil" size={iconSize.sm} color={txt} />
-      </Pressable>
+      </PressTarget>
       <Slider
         testID={`param-slider-${paramKey}`}
         accessibilityLabel={label}

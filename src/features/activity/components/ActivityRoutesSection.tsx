@@ -12,6 +12,8 @@ interface ActivityRoutesSectionProps {
   hasMatchedRoute: boolean;
   /** Seconds this activity's route record beat the previous best by, when it is one. */
   routeImprovementSeconds: number | null;
+  /** Seconds this activity was off the route best, from the engine's route highlight. */
+  routeGapSeconds: number | null;
   cacheDays: number;
   isDark: boolean;
 }
@@ -21,6 +23,7 @@ export const ActivityRoutesSection = React.memo(function ActivityRoutesSection({
   activityType,
   hasMatchedRoute,
   routeImprovementSeconds,
+  routeGapSeconds,
   cacheDays,
   isDark,
 }: ActivityRoutesSectionProps) {
@@ -43,6 +46,7 @@ export const ActivityRoutesSection = React.memo(function ActivityRoutesSection({
             activityId={activityId}
             activityType={activityType}
             improvementSeconds={routeImprovementSeconds}
+            gapToBestSeconds={routeGapSeconds}
           />
         </ComponentErrorBoundary>
       ) : (

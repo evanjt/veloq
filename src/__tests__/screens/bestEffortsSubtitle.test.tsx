@@ -21,10 +21,6 @@ jest.mock('@/shared/app/TopSafeAreaContext', () => ({
   useScreenSafeAreaEdges: () => [],
 }));
 
-jest.mock('@/features/activity', () => ({
-  useActivityLabels: () => ({ labels: new Map(), error: null }),
-}));
-
 let mockParams: { period?: string } = {};
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),

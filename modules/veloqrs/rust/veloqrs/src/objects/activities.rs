@@ -194,14 +194,19 @@ impl ActivityManager {
         })?
     }
 
-    /// One activity's untyped body, or None when the engine has not got it.
+    /// One stored activity typed as the detail screen reads it, or None when
+    /// the engine has not got it.
     ///
     /// A caller after a single activity uses this rather than the window read
     /// below: the table is keyed by the id, so this is one row instead of a
-    /// page of them parsed in JavaScript to find it.
-    fn get_activity_body(&self, activity_id: String) -> Result<Option<String>, VeloqError> {
+    /// page of them parsed in JavaScript to find it. `is_detail` says whether
+    /// the row is still the list form the detail fetch replaces.
+    fn get_activity_record(
+        &self,
+        activity_id: String,
+    ) -> Result<Option<crate::FfiActivityRecord>, VeloqError> {
         with_reader(|conn| {
-            crate::persistence::activities::pooled::activity_body(conn, &activity_id)
+            crate::persistence::activities::pooled::activity_record(conn, &activity_id)
         })
     }
 

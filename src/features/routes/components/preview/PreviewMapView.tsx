@@ -9,7 +9,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useIsFocused } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { decodeCoords } from 'veloqrs';
@@ -17,7 +17,6 @@ import {
   cameraMove,
   colors,
   darkColors,
-  iconSize,
   layout,
   mapPalette,
   opacity,
@@ -40,6 +39,7 @@ import {
   type LngLatBounds,
   type MapCameraState,
   type MapStyleType,
+  MapControlButton,
   MapSurface,
   type MapSurfaceRef,
   useDrawnMapStyle,
@@ -57,8 +57,7 @@ import {
   previewLayerSwatch,
   PREVIEW_INTERACTIVE_LAYERS,
 } from './previewMapLayerSpecs';
-import { pressable, pressRipple } from '@/shared/ui';
-import { Icon } from '@/shared/ui/Icon';
+import { PressTarget } from '@/shared/ui';
 
 /** Zoom assumed before the surface reports one, matching the camera fallback. */
 const DEFAULT_ATTRIBUTION_ZOOM = 11;
@@ -344,20 +343,14 @@ export function PreviewMapView({
       />
       <AttributionOverlay ref={attributionRef} initialAttribution={attribution} />
       {/* Opposite corner to the legend, which owns the right-hand side. */}
-      <Pressable
-        style={pressable([
-          styles.styleButton,
-          { backgroundColor: chipBg, borderColor: chipBorder },
-        ])}
-        android_ripple={pressRipple}
-        hitSlop={styleButtonSlop}
+      <MapControlButton
+        style={styles.styleButton}
         onPress={cycleStyle}
         testID="preview-map-style"
-        accessibilityRole="button"
         accessibilityLabel={t('maps.toggleStyle')}
       >
-        <Icon name={getStyleIcon(mapStyle)} size={iconSize.md} color={textPrimary} />
-      </Pressable>
+        <MapControlButton.Glyph name={getStyleIcon(mapStyle)} />
+      </MapControlButton>
       <View style={styles.legend} pointerEvents="box-none">
         <LegendChip
           testID="preview-layer-current"
@@ -426,13 +419,12 @@ function LegendChip({
   textOn: string;
 }) {
   return (
-    <Pressable
-      style={pressable([
+    <PressTarget
+      style={[
         styles.legendChip,
         { backgroundColor: background, borderColor: border },
         !on && styles.legendChipOff,
-      ])}
-      android_ripple={pressRipple}
+      ]}
       hitSlop={legendChipSlop}
       onPress={onPress}
       testID={testID}
@@ -448,12 +440,10 @@ function LegendChip({
         ]}
       />
       <Text style={[styles.legendText, { color: on ? textOn : text }]}>{label}</Text>
-    </Pressable>
+    </PressTarget>
   );
 }
 
-const STYLE_BUTTON_SIZE = iconSize.md + 2 * spacing.xs;
-const styleButtonSlop = slopToMinTapTarget(STYLE_BUTTON_SIZE, STYLE_BUTTON_SIZE);
 // The legend chips sit side by side, so their slop is vertical only.
 const LEGEND_CHIP_HEIGHT = typography.caption.lineHeight + 2 * spacing.xs;
 const legendChipSlop = slopToMinTapTarget(LEGEND_CHIP_HEIGHT);
@@ -464,11 +454,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: spacing.sm,
     left: spacing.sm,
-    padding: spacing.xs,
-    minWidth: STYLE_BUTTON_SIZE,
-    minHeight: STYLE_BUTTON_SIZE,
-    borderRadius: layout.borderRadiusSm,
-    borderWidth: stroke.hairline,
   },
   legend: {
     position: 'absolute',

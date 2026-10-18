@@ -21,6 +21,7 @@ export { SectionEfficiencyCard } from './SectionEfficiencyCard';
 export type { SectionEfficiencyCardProps } from './SectionEfficiencyCard';
 export { SectionActionRow } from './SectionActionRow';
 export type { SectionActionRowProps } from './SectionActionRow';
+export { SectionOverflowMenu } from './SectionOverflowMenu';
 export { SectionContentArea } from './SectionContentArea';
 export type { SectionContentAreaProps } from './SectionContentArea';
 export { SectionDebugPanel } from './SectionDebugPanel';

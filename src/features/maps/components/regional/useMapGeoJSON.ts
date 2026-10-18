@@ -13,7 +13,7 @@ import { useMemo } from 'react';
 
 import { convertLatLngTuples } from '@/shared/geo/polyline';
 import type { ActivityBoundsItem } from '@/types';
-import { getActivityTypeConfig } from '../../lib/activityCategories';
+import { getActivityCategory, sportMarkColour } from '../../lib/activityCategories';
 import type { SelectedActivity } from './ActivityPopup';
 import { EMPTY_FEATURE_COLLECTION } from '../../lib/coordinates';
 import { buildUserLocationCollection } from '../../lib/userLocationLayer';
@@ -32,6 +32,8 @@ interface UseMapGeoJSONOptions {
   selected: SelectedActivity | null;
   /** The engine's URL for the selected activity's stored track, from `useStoredTrackUrl`. */
   selectedTrackUrl?: string | null | undefined;
+  /** The app theme, which the map key beside the markers draws in too. */
+  isDark: boolean;
 }
 
 interface UseMapGeoJSONResult {
@@ -48,6 +50,7 @@ export function useMapGeoJSON({
   userLocation,
   selected,
   selectedTrackUrl,
+  isDark,
 }: UseMapGeoJSONOptions): UseMapGeoJSONResult {
   // ===========================================
   // 1. ACTIVITY MARKERS - Point features for CircleLayer hit detection
@@ -79,7 +82,6 @@ export function useMapGeoJSON({
           }
           return null;
         }
-        const config = getActivityTypeConfig(activity.type);
         const size = getMarkerSize(activity.distance);
         // Recency: 0 = today, 1 = 1+ year old (for opacity fade on unclustered points)
         const ageMs = now - new Date(activity.date).getTime();
@@ -92,7 +94,7 @@ export function useMapGeoJSON({
           properties: {
             id: activity.id,
             type: activity.type,
-            color: config.color,
+            color: sportMarkColour(getActivityCategory(activity.type), isDark),
             size: size,
             age: Math.round(age * 100) / 100, // 2 decimal places
           },
@@ -114,7 +116,7 @@ export function useMapGeoJSON({
       type: 'FeatureCollection' as const,
       features: features as GeoJSON.Feature[],
     };
-  }, [allActivities, activityCenters]);
+  }, [allActivities, activityCenters, isDark]);
 
   // ===========================================
   // 7. USER LOCATION - Rendered as a circle layer

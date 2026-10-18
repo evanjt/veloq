@@ -364,6 +364,7 @@ export function WhatsNewModal() {
       >
         {/* press-feedback: none, the scrim is the way out and not a control */}
         <Pressable
+          focusable={false}
           accessibilityRole="button"
           accessibilityLabel={t('common.close')}
           style={styles.backdrop}

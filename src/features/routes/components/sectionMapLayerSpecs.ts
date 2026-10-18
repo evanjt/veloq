@@ -17,8 +17,8 @@ import type { SectionMapLayers } from './useSectionMapLayers';
 
 interface SectionLayerInput extends SectionMapLayers {
   endpoints: GeoJSON.FeatureCollection;
-  activityColor: string;
-  sectionOpacity: number;
+  /** An attempt, a lap or a trim is shown, so the section itself is context. */
+  sectionContext: boolean;
   trimRange: { start: number; end: number } | null;
   hasExtension: boolean;
   /** Fullscreen drops the context overlays and draws the trim a touch heavier. */
@@ -29,7 +29,7 @@ interface SectionLayerInput extends SectionMapLayers {
   traceLineWidth: number;
   /**
    * `line-progress` stops colouring the section line by time won or lost, while
-   * the chart shows the delta plot. Without them the line keeps `activityColor`.
+   * the chart shows the delta plot. Without them the line is the base's route colour.
    */
   deltaLineStops?: (string | number)[] | null;
   /**
@@ -66,8 +66,7 @@ export function buildSectionLayers(
 ): MapLayerSpec[] {
   const {
     palette,
-    activityColor,
-    sectionOpacity,
+    sectionContext,
     trimRange,
     hasExtension,
     showExtensionAndSection,
@@ -80,7 +79,6 @@ export function buildSectionLayers(
     hasAllTraces,
   } = input;
 
-  const { layer } = palette;
   const roundLine = { 'line-cap': 'round', 'line-join': 'round' };
   const traceVisible = hasAllTraces && !!highlightedTraceFilter;
 
@@ -90,32 +88,21 @@ export function buildSectionLayers(
       type: 'line',
       source: 'shadow',
       layout: roundLine,
-      paint: { 'line-color': layer.shadow, 'line-opacity': 0.5, 'line-width': 3 },
+      paint: { 'line-color': palette.muted, 'line-width': 2 },
     },
   ];
 
   if (showExtensionAndSection) {
     layers.push(
       {
-        id: 'extension-casing',
-        type: 'line',
-        source: 'extension',
-        layout: roundLine,
-        paint: {
-          'line-color': layer.boundaryCasing,
-          'line-opacity': hasExtension ? 0.5 : 0,
-          'line-width': 6,
-        },
-      },
-      {
         id: 'extension-line',
         type: 'line',
         source: 'extension',
         layout: roundLine,
         paint: {
-          'line-color': layer.extension,
+          'line-color': palette.muted,
           'line-opacity': hasExtension ? 1 : 0,
-          'line-width': 4,
+          'line-width': 2,
         },
       },
       {
@@ -124,8 +111,9 @@ export function buildSectionLayers(
         source: 'section',
         layout: roundLine,
         paint: {
-          'line-color': layer.casing,
-          'line-opacity': sectionOpacity,
+          'line-color': palette.casing,
+          // Context lines carry no casing.
+          'line-opacity': sectionContext ? 0 : 1,
           'line-width': 5,
         },
       },
@@ -137,9 +125,8 @@ export function buildSectionLayers(
         paint: {
           ...(deltaLineStops
             ? { 'line-gradient': ['interpolate', ['linear'], ['line-progress'], ...deltaLineStops] }
-            : { 'line-color': activityColor }),
-          'line-opacity': sectionOpacity,
-          'line-width': 4,
+            : { 'line-color': sectionContext ? palette.muted : palette.route }),
+          'line-width': sectionContext ? 2 : 4,
         },
       }
     );
@@ -152,7 +139,7 @@ export function buildSectionLayers(
       source: 'trimmed',
       layout: roundLine,
       paint: {
-        'line-color': layer.casing,
+        'line-color': palette.casing,
         'line-opacity': trimRange ? 1 : 0,
         'line-width': trimCasingWidth,
       },
@@ -163,7 +150,7 @@ export function buildSectionLayers(
       source: 'trimmed',
       layout: roundLine,
       paint: {
-        'line-color': activityColor,
+        'line-color': palette.route,
         'line-opacity': trimRange ? 1 : 0,
         'line-width': trimLineWidth,
       },
@@ -175,7 +162,7 @@ export function buildSectionLayers(
       filter: highlightedTraceFilter as unknown[] | undefined,
       layout: roundLine,
       paint: {
-        'line-color': layer.traceCasing,
+        'line-color': palette.casing,
         'line-width': traceCasingWidth,
         'line-opacity': traceVisible ? 1 : 0,
       },
@@ -187,7 +174,7 @@ export function buildSectionLayers(
       filter: highlightedTraceFilter as unknown[] | undefined,
       layout: roundLine,
       paint: {
-        'line-color': layer.trace,
+        'line-color': palette.ink,
         'line-width': traceLineWidth,
         'line-opacity': traceVisible ? 1 : 0,
       },
@@ -197,28 +184,28 @@ export function buildSectionLayers(
       type: 'line',
       source: 'highlighted-lap',
       layout: roundLine,
-      paint: { 'line-color': layer.traceCasing, 'line-width': traceCasingWidth },
+      paint: { 'line-color': palette.casing, 'line-width': traceCasingWidth },
     },
     {
       id: 'highlighted-lap-line',
       type: 'line',
       source: 'highlighted-lap',
       layout: roundLine,
-      paint: { 'line-color': layer.trace, 'line-width': traceLineWidth },
+      paint: { 'line-color': palette.ink, 'line-width': traceLineWidth },
     },
     {
       id: 'highlighted-trace-casing',
       type: 'line',
       source: 'highlighted-trace',
       layout: roundLine,
-      paint: { 'line-color': layer.traceCasing, 'line-width': 5 },
+      paint: { 'line-color': palette.casing, 'line-width': 5 },
     },
     {
       id: 'highlighted-trace-line',
       type: 'line',
       source: 'highlighted-trace',
       layout: roundLine,
-      paint: { 'line-color': layer.trace, 'line-width': 4 },
+      paint: { 'line-color': palette.ink, 'line-width': 4 },
     },
     ...buildEndpointLayers(palette)
   );

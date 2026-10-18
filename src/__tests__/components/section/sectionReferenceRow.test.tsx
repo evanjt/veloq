@@ -78,7 +78,7 @@ describe('the calendar card reference row', () => {
     const { getAllByTestId, getByRole } = await renderCards();
 
     const labels = getAllByTestId('calendar-reference-button-label').map((l) => l.props.children);
-    expect(labels.sort()).toEqual(['Reference', 'Set as reference']);
-    expect(getByRole('button', { name: 'Set as reference' })).toBeTruthy();
+    expect(labels.sort()).toEqual(['Reference', 'Use as reference']);
+    expect(getByRole('button', { name: 'Use as reference' })).toBeTruthy();
   });
 });

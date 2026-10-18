@@ -17,7 +17,6 @@ import * as ExpoHaptics from 'expo-haptics';
 
 import { useFitnessRefresh } from '@/features/fitness/hooks/useFitnessRefresh';
 import { ScreenRefreshControl } from '@/shared/ui/ScreenRefreshControl';
-import { queryKeys } from '@/shared/query/queryKeys';
 
 jest.mock('@/shared/native/syncRefresh', () => ({ requestSyncRefresh: jest.fn() }));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
@@ -43,7 +42,7 @@ beforeEach(() => {
 describe('pull to refresh on the Fitness screen', () => {
   it('clears the spinner when the wellness refetch rejects', async () => {
     const refetch = jest.fn().mockRejectedValue(new Error('offline'));
-    const { result } = await renderHook(() => useFitnessRefresh(refetch), { wrapper });
+    const { result } = await renderHook(() => useFitnessRefresh(refetch, jest.fn()), { wrapper });
 
     await act(async () => {
       await result.current.onRefresh().catch(() => {});
@@ -52,21 +51,21 @@ describe('pull to refresh on the Fitness screen', () => {
     await waitFor(() => expect(result.current.isRefreshing).toBe(false));
   });
 
-  it('invalidates the engine stats behind the calendar, the week and the year comparison', async () => {
-    const invalidate = jest.spyOn(client, 'invalidateQueries');
+  it('reads the screen read behind the calendar, the week and the year comparison again', async () => {
+    const reread = jest.fn();
     const refetch = jest.fn().mockResolvedValue(undefined);
-    const { result } = await renderHook(() => useFitnessRefresh(refetch), { wrapper });
+    const { result } = await renderHook(() => useFitnessRefresh(refetch, reread), { wrapper });
 
     await act(async () => {
       await result.current.onRefresh();
     });
 
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: queryKeys.stats.all });
+    expect(reread).toHaveBeenCalledTimes(1);
   });
 
   it('clears the spinner on a refresh that resolves', async () => {
     const refetch = jest.fn().mockResolvedValue(undefined);
-    const { result } = await renderHook(() => useFitnessRefresh(refetch), { wrapper });
+    const { result } = await renderHook(() => useFitnessRefresh(refetch, jest.fn()), { wrapper });
 
     await act(async () => {
       await result.current.onRefresh();
@@ -85,7 +84,7 @@ describe('pull to refresh on the Fitness screen', () => {
       order.push('refetch');
       return Promise.resolve();
     });
-    const { result } = await renderHook(() => useFitnessRefresh(refetch), { wrapper });
+    const { result } = await renderHook(() => useFitnessRefresh(refetch, jest.fn()), { wrapper });
     await render(
       React.createElement(ScreenRefreshControl, {
         refreshing: result.current.isRefreshing,

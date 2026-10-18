@@ -11,15 +11,16 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { render, screen, waitFor, within } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { RangeCoverage, type TrainingScreenWindows } from 'veloqrs';
+import { RangeCoverage, type FitnessScreenWindows } from 'veloqrs';
 
 import { WellnessTrendsCard } from '@/features/fitness';
 import { ActivityHeatmap, SeasonComparison, WeeklySummary } from '@/features/stats';
 import { Card } from '@/shared/ui';
 import { i18n, initialiseI18n } from '@/i18n';
 import { getEngine } from '@/shared/native/engine';
-import { noComparisons } from '../__shared__/trainingScreenRead';
+import { NO_FITNESS_PARTS, noComparisons } from '../__shared__/fitnessScreenRead';
 import { typography } from '@/theme';
+import { WithScreenRead } from '../__shared__/withScreenRead';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
@@ -62,7 +63,8 @@ const totals = (count: number, hours: number) => ({
 const engine = {
   subscribe: jest.fn(() => () => {}),
   rangeCoverage: jest.fn(() => RangeCoverage.Loaded),
-  getTrainingScreenData: jest.fn((windows: TrainingScreenWindows) => ({
+  getFitnessScreenData: jest.fn((_spanDays: number[], windows: FitnessScreenWindows) => ({
+    ...NO_FITNESS_PARTS,
     heatmap: [],
     months: [],
     yearCurrent: totals(0, 0),
@@ -109,13 +111,17 @@ function FitnessCards() {
         onDateSelect={jest.fn()}
       />
       <Card variant="flat">
-        <WeeklySummary />
+        <WithScreenRead>{(training) => <WeeklySummary training={training} />}</WithScreenRead>
       </Card>
       <Card variant="flat">
-        <ActivityHeatmap drawn />
+        <WithScreenRead>
+          {(training) => <ActivityHeatmap training={training} drawn />}
+        </WithScreenRead>
       </Card>
       <Card variant="flat">
-        <SeasonComparison height={180} />
+        <WithScreenRead>
+          {(training) => <SeasonComparison training={training} height={180} />}
+        </WithScreenRead>
       </Card>
     </>
   );

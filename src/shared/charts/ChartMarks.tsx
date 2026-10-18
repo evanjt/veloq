@@ -3,6 +3,8 @@ import { StyleSheet } from 'react-native';
 import {
   Canvas,
   Circle,
+  DashPathEffect,
+  Group,
   Line as SkiaLine,
   PaintStyle,
   Path,
@@ -16,9 +18,14 @@ import {
 } from '@shopify/react-native-skia';
 
 import {
+  DOT_RADIUS,
   LINE_CAP,
   LINE_JOIN,
+  MARK_KEY_SIZE,
   RECORD_RING_RADIUS,
+  REFERENCE_DASH,
+  RETICLE_KEY_SCALE,
+  SELECTION_RING_RADIUS,
   barRadiusFor,
   chartStroke,
   dotDisks,
@@ -92,11 +99,11 @@ export function ChartBar({ x, from, to, width, color, opacity = 1, outline = fal
 }
 
 /** The reticle: four short ink ticks round a point, which always means this activity. */
-export function ReticleMark({ x, y }: XY) {
+export function ReticleMark({ x, y, inner, tick }: XY & { inner?: number; tick?: number }) {
   const { ink } = useChartColors();
   return (
     <>
-      {reticleTicks({ x, y }).map(({ from, to }, i) => (
+      {reticleTicks({ x, y }, inner, tick).map(({ from, to }, i) => (
         <SkiaLine
           key={i}
           p1={vec(from.x, from.y)}
@@ -125,20 +132,42 @@ export function RecordRing({ x, y }: XY) {
   );
 }
 
+/** The ring round a selected point, in the focus colour, outside every other mark. */
+export function SelectionRing({ x, y }: XY) {
+  const { focus } = useChartColors();
+  return (
+    <Circle
+      cx={x}
+      cy={y}
+      r={SELECTION_RING_RADIUS}
+      color={focus}
+      style="stroke"
+      strokeWidth={chartStroke.ring}
+    />
+  );
+}
+
 interface StaircaseProps {
   /** Each record in the progression, oldest first. */
   steps: readonly XY[];
-  /** Carries the newest record flat to this x. */
-  rightEdge?: number;
+  /** The record already held where the plot opens, its level carried in from this point. */
+  carriedIn?: XY | undefined;
+  /** Carries the newest record to this x in a dashed line. */
+  rightEdge?: number | undefined;
 }
 
-/** The record's progression: a gold staircase with a gold dot at each record. */
-export function RecordStaircase({ steps, rightEdge }: StaircaseProps) {
+/**
+ * The record's progression: a gold staircase with a gold dot at each record,
+ * a level carried in undotted from a record set before the plot opens, and the
+ * current record carried on dashed to the right edge.
+ */
+export function RecordStaircase({ steps, carriedIn, rightEdge }: StaircaseProps) {
   const { achievement } = useChartColors();
   const path = useMemo(() => {
-    const d = polylineSvgPath(staircasePoints(steps, rightEdge));
+    const d = polylineSvgPath(staircasePoints(carriedIn ? [carriedIn, ...steps] : steps));
     return d ? Skia.Path.MakeFromSVGString(d) : null;
-  }, [steps, rightEdge]);
+  }, [steps, carriedIn]);
+  const current = steps.at(-1) ?? carriedIn;
   return (
     <>
       {path ? (
@@ -151,10 +180,100 @@ export function RecordStaircase({ steps, rightEdge }: StaircaseProps) {
           strokeCap={LINE_CAP}
         />
       ) : null}
+      {current && rightEdge !== undefined && rightEdge > current.x ? (
+        <SkiaLine
+          p1={vec(current.x, current.y)}
+          p2={vec(rightEdge, current.y)}
+          color={achievement}
+          strokeWidth={chartStroke.reference}
+        >
+          <DashPathEffect intervals={REFERENCE_DASH} />
+        </SkiaLine>
+      ) : null}
       {steps.map((step, i) => (
         <ChartDot key={i} x={step.x} y={step.y} color={achievement} />
       ))}
     </>
+  );
+}
+
+/** An attempt past the axis range: a triangle at the plot's edge, pointing the way it lies. */
+export function EdgeTriangleMark({
+  x,
+  y,
+  color,
+  pointing,
+  opacity = 1,
+}: DotProps & { pointing: 'up' | 'down' }) {
+  const path = useMemo(
+    () => Skia.Path.MakeFromSVGString(triangleSvg({ x, y }, pointing)),
+    [x, y, pointing]
+  );
+  return path ? <Path path={path} style="fill" color={color} opacity={opacity} /> : null;
+}
+
+/** The marks a legend can key. */
+export type ChartMarkKeyKind = 'dot' | 'hollow' | 'record' | 'reticle' | 'line' | 'dashedLine';
+
+/** A hollow dot, the size of a filled one: an attempt drawn but not counted. */
+export function HollowDot({ x, y, color }: DotProps) {
+  return (
+    <Circle
+      cx={x}
+      cy={y}
+      r={DOT_RADIUS - chartStroke.ring / 2}
+      color={color}
+      style="stroke"
+      strokeWidth={chartStroke.ring}
+    />
+  );
+}
+
+/**
+ * One chart mark as a key beside its legend words, drawn by the same component
+ * the plot draws it with, in a canvas of its own.
+ */
+export function ChartMarkKey({
+  mark,
+  color,
+  testID,
+}: {
+  mark: ChartMarkKeyKind;
+  /** The dot's or the line's colour. The record and the reticle take their own. */
+  color?: string;
+  testID?: string;
+}) {
+  const c = MARK_KEY_SIZE / 2;
+  return (
+    <Canvas style={styles.markKey} testID={testID}>
+      {mark === 'dot' && color ? <ChartDot x={c} y={c} color={color} /> : null}
+      {mark === 'hollow' && color ? <HollowDot x={c} y={c} color={color} /> : null}
+      {mark === 'record' ? <RecordRing x={c} y={c} /> : null}
+      {mark === 'reticle' ? (
+        <Group transform={[{ scale: RETICLE_KEY_SCALE }]} origin={vec(c, c)}>
+          <ReticleMark x={c} y={c} />
+        </Group>
+      ) : null}
+      {mark === 'line' && color ? (
+        <SkiaLine
+          p1={vec(0, c)}
+          p2={vec(MARK_KEY_SIZE, c)}
+          color={color}
+          strokeWidth={chartStroke.series}
+          strokeCap={LINE_CAP}
+        />
+      ) : null}
+      {mark === 'dashedLine' && color ? (
+        <SkiaLine
+          p1={vec(0, c)}
+          p2={vec(MARK_KEY_SIZE, c)}
+          color={color}
+          strokeWidth={chartStroke.series}
+        >
+          <DashPathEffect intervals={REFERENCE_DASH} />
+        </SkiaLine>
+      ) : null}
+    </Canvas>
   );
 }
 
@@ -224,5 +343,9 @@ const styles = StyleSheet.create({
   triangleKey: {
     width: TRIANGLE_SIZE,
     height: TRIANGLE_SIZE,
+  },
+  markKey: {
+    width: MARK_KEY_SIZE,
+    height: MARK_KEY_SIZE,
   },
 });

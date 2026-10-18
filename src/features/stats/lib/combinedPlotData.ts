@@ -6,6 +6,8 @@
  * React and no Skia, so these are tested in isolation.
  */
 
+import { IntervalKind } from 'veloqrs';
+
 import type { ChartConfig, ChartTypeId } from '@/features/activity';
 import { measuresPower } from '@/shared/activity/activityUtils';
 import type { ActivityStreams, ActivityInterval, ActivityType } from '@/types';
@@ -216,20 +218,20 @@ export type BandColourToken =
  * recovery and rest are one role.
  */
 export function intervalBandToken(
-  interval: Pick<ActivityInterval, 'type' | 'zone'>,
+  interval: Pick<ActivityInterval, 'kind' | 'zone'>,
   scale: 'power' | 'hr'
 ): BandColourToken {
-  switch (interval.type) {
-    case 'WORK':
+  switch (interval.kind) {
+    case IntervalKind.Work:
       return interval.zone != null && interval.zone >= 1
         ? { kind: 'zone', scale, zone: interval.zone }
         : { kind: 'role', role: 'work' };
-    case 'RECOVERY':
-    case 'REST':
+    case IntervalKind.Recovery:
+    case IntervalKind.Rest:
       return { kind: 'role', role: 'recovery' };
-    case 'WARMUP':
+    case IntervalKind.Warmup:
       return { kind: 'role', role: 'warmup' };
-    case 'COOLDOWN':
+    case IntervalKind.Cooldown:
       return { kind: 'role', role: 'cooldown' };
     default:
       return { kind: 'role', role: 'other' };
@@ -421,12 +423,12 @@ function lastAtOrBefore(seconds: ArrayLike<number>, second: number): number {
 /**
  * Where an interval starts and ends in the stream the chart is drawing.
  *
- * `start_index` and `end_index` are intervals.icu's, into the response as it
+ * `startIndex` and `endIndex` are intervals.icu's, into the response as it
  * was sent. Both stream readers drop every sample without a coordinate before
  * the chart sees it, so a raw index is one sample late for every drop before
  * it, and the clamp hides the overshoot on the last interval. The seconds are
- * index-free and survive the reduction, so they are the anchor when the body
- * carries them.
+ * index-free and survive the reduction, so they are the anchor when the lap
+ * carries them and the chart has a time stream the length of its series.
  */
 function intervalIndices(
   interval: ActivityInterval,
@@ -434,13 +436,13 @@ function intervalIndices(
   length: number
 ): { startIdx: number; endIdx: number } {
   const last = length - 1;
-  if (seconds.length === length && interval.start_time != null && interval.end_time != null) {
-    const startIdx = firstAtOrAfter(seconds, interval.start_time);
-    return { startIdx, endIdx: Math.max(startIdx, lastAtOrBefore(seconds, interval.end_time)) };
+  if (seconds.length === length && interval.startTime != null && interval.endTime != null) {
+    const startIdx = firstAtOrAfter(seconds, interval.startTime);
+    return { startIdx, endIdx: Math.max(startIdx, lastAtOrBefore(seconds, interval.endTime)) };
   }
   return {
-    startIdx: Math.max(0, Math.min(interval.start_index, last)),
-    endIdx: Math.max(0, Math.min(interval.end_index, last)),
+    startIdx: Math.max(0, Math.min(interval.startIndex, last)),
+    endIdx: Math.max(0, Math.min(interval.endIndex, last)),
   };
 }
 
@@ -488,13 +490,13 @@ export function computeIntervalBands(
       endX = distanceInUnit(xSource[endIdx], isMetric);
     }
 
-    const isWork = interval.type === 'WORK';
+    const isWork = interval.kind === IntervalKind.Work;
 
     const bandColour = intervalBandToken(interval, hasPowerZones ? 'power' : 'hr');
     const averages = isWork
       ? {
-          power: finiteOrNull(interval.average_watts),
-          heartrate: finiteOrNull(interval.average_heartrate),
+          power: finiteOrNull(interval.averageWatts),
+          heartrate: finiteOrNull(interval.averageHeartrate),
         }
       : { power: null, heartrate: null };
 

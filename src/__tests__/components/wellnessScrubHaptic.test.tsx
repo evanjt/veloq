@@ -7,7 +7,6 @@
  */
 
 import React from 'react';
-import { View } from 'react-native';
 import { act, fireEvent, render } from '@testing-library/react-native';
 import * as Haptics from 'expo-haptics';
 
@@ -32,10 +31,18 @@ const DAYS: WellnessData[] = Array.from({ length: 30 }, (_, i) => ({
   weight: 72 + (i % 3) * 0.2,
 }));
 
+// The label and value columns the first row lays out either side of the sparkline column.
+const LABEL_SIDE = 93;
+const VALUE_SIDE = 63;
+
+/** The canvas is placed over the sparkline column the first row measures, so lay one out. */
 async function layout(tree: Awaited<ReturnType<typeof render>>, width = 360) {
-  const container = tree.UNSAFE_getAllByType(View).find((node) => node.props.onLayout);
   await act(async () => {
-    await fireEvent(container!, 'layout', { nativeEvent: { layout: { width, height: 300 } } });
+    await fireEvent(tree.getByTestId('wellness-sparkline-column-hrv'), 'layout', {
+      nativeEvent: {
+        layout: { x: LABEL_SIDE, y: 0, width: width - LABEL_SIDE - VALUE_SIDE, height: 50 },
+      },
+    });
   });
 }
 

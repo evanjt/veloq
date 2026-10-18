@@ -274,27 +274,27 @@ fn reads(small: Ids, large: Ids) -> Vec<(&'static str, Read)> {
             Box::new(|_, e| consume(e.best_efforts_data(0, NOW))),
         ),
         (
-            "training_screen_data",
+            "fitness_screen_data",
             Box::new(|_, e| {
                 let span = |days: i64| FfiTimestampRange {
                     start_ts: (NOW - days * DAY) as f64,
                     end_ts: NOW as f64,
                 };
-                consume(e.training_screen_data(&crate::FfiTrainingScreenWindows {
-                    heatmap_first_day: "2024-09-01".into(),
-                    heatmap_last_day: "2025-09-04".into(),
-                    months: span(730),
-                    year_current: span(365),
-                    year_previous: span(730),
-                    month_current: span(30),
-                    month_previous: span(60),
-                    now_wall_seconds: NOW as f64,
-                }))
+                consume(e.fitness_screen_data(
+                    "2025-09-04",
+                    &[7, 30, 90, 180, 365],
+                    &crate::FfiFitnessScreenWindows {
+                        heatmap_first_day: "2024-09-01".into(),
+                        heatmap_last_day: "2025-09-04".into(),
+                        months: span(730),
+                        year_current: span(365),
+                        year_previous: span(730),
+                        month_current: span(30),
+                        month_previous: span(60),
+                        now_wall_seconds: NOW as f64,
+                    },
+                ))
             }),
-        ),
-        (
-            "fitness_screen_data",
-            Box::new(|_, e| consume(e.fitness_screen_data("2025-09-04", &[7, 30, 90, 180, 365]))),
         ),
         (
             "widget_snapshot_data",
@@ -362,7 +362,6 @@ fn step_ceiling(name: &str) -> f64 {
         | "activity_count"
         | "map_screen_data"
         | "startup_data"
-        | "fitness_screen_data"
         | "section_detail_performance"
         | "route_detail_performance"
         | "widget_snapshot_data" => 1.0,
@@ -374,8 +373,8 @@ fn step_ceiling(name: &str) -> f64 {
         // the library and no faster.
         "best_efforts_data" => 3.0,
         // Two years of monthly rows and totals sum every activity in them, so
-        // it grows with the library and no faster.
-        "training_screen_data" => 3.0,
+        // the fitness read grows with the library and no faster.
+        "fitness_screen_data" => 3.0,
         "get_section_summaries" | "map_screen_data_with_sections" => 3.5,
         // The layer names every route it draws and counts its activities, a
         // lookup per route, so it grows with the routes and no faster.

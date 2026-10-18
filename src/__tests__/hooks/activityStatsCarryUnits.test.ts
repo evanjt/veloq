@@ -12,24 +12,25 @@ import { renderHook } from '@testing-library/react-native';
 
 import { useActivityStats } from '@/features/activity/components/stats/useActivityStats';
 import { initialiseI18n, i18n } from '@/i18n';
-import type { Activity, WellnessData } from '@/types';
+import type { WellnessData } from '@/types';
+import { activityRecord } from '../__shared__/activityRecord';
 
-const ride = {
+const ride = activityRecord({
   id: 'ride-units',
-  type: 'Ride',
+  sportType: 'Ride',
   name: 'Ride',
-  start_date_local: '2026-09-05T08:00:00',
-  moving_time: 5400,
-  average_heartrate: 152,
-  max_heartrate: 181,
-  icu_average_watts: 245,
-  icu_pm_p_max: 812,
-  icu_pm_ftp_watts: 262,
-  icu_ftp: 280,
-  icu_training_load: 96,
-  icu_intensity: 88,
+  startDateLocal: '2026-09-05T08:00:00',
+  movingTime: 5400,
+  avgHr: 152,
+  maxHr: 181,
+  avgPower: 245,
+  maxPower: 812,
+  eftp: 262,
+  ftp: 280,
+  trainingLoad: 96,
+  intensity: 88,
   calories: 820,
-} as Activity;
+});
 
 const wellness = { id: '2026-09-05', ctl: 60, atl: 70, hrv: 48.4, sleepScore: 85 } as WellnessData;
 
@@ -76,7 +77,7 @@ describe('the activity stat tiles', () => {
   it('reads the maximum power in the context line when there is no estimate', () => {
     const { result } = renderHook(() =>
       useActivityStats({
-        activity: { ...ride, icu_pm_ftp_watts: undefined } as Activity,
+        activity: activityRecord({ ...ride, eftp: undefined }),
         isMetric: true,
         maxHR: 190,
       })

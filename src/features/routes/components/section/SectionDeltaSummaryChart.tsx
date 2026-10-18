@@ -1,7 +1,7 @@
 /**
  * Delta plot of the typical attempt for one direction, shown while no attempt
  * is chosen: the engine's median time won or lost against the reference per
- * split, as one slim bar a split, lost above the zero line and won below, with
+ * split, as one slim bar a split, won above the zero line and lost below, with
  * the quartiles as a whisker where the engine gives them. Nothing is computed
  * here beyond placing the engine's numbers.
  */
@@ -17,17 +17,9 @@ import { useMetricSystem } from '@/shared/app';
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { formatDistance, formatDurationDelta } from '@/shared/format/format';
 import { layoutSplitSummary, type DeltaFrame } from '@/features/routes/lib/deltaLayout';
-import { useChartGestures, useMeasuredWidth } from '@/shared/charts';
-import {
-  chartStyles,
-  colors,
-  darkColors,
-  layout,
-  mapLayerColors,
-  spacing,
-  stroke,
-  typography,
-} from '@/theme';
+import { deltaColour } from '@/features/routes/lib/deltaColour';
+import { useChartColors, useChartGestures, useMeasuredWidth } from '@/shared/charts';
+import { chartStyles, colors, darkColors, layout, spacing, stroke, typography } from '@/theme';
 import { FfiReferenceSource, type FfiSplitSummary } from 'veloqrs';
 
 const CHART_HEIGHT = 160;
@@ -53,6 +45,7 @@ export function SectionDeltaSummaryChart({
   const isMetric = useMetricSystem();
   const { width: chartWidth, onLayout } = useMeasuredWidth();
   const palette = isDark ? darkColors : colors;
+  const chartColors = useChartColors();
 
   const frame: DeltaFrame = useMemo(
     () => ({ width: chartWidth, height: CHART_HEIGHT, padding: CHART_PADDING }),
@@ -104,7 +97,7 @@ export function SectionDeltaSummaryChart({
   } = useChartGestures({
     data: splits,
     describePoint: describeSplit,
-    accessibilityLabel: t('sections.plotDelta'),
+    accessibilityLabel: t('sections.viewAheadOrBehind'),
   });
   useEffect(() => {
     if (chartWidth > 0) syncXCoords(plot.splitCentres, (x) => x);
@@ -133,7 +126,7 @@ export function SectionDeltaSummaryChart({
                   y={plot.zeroY}
                   width={plotRight - plotLeft}
                   height={stroke.one}
-                  color={palette.border}
+                  color={chartColors.axis}
                 />
                 {plot.bars.map((bar) => (
                   <RoundedRect
@@ -147,7 +140,11 @@ export function SectionDeltaSummaryChart({
                       (bar.right - bar.left) / 2,
                       (bar.bottom - bar.top) / 2
                     )}
-                    color={bar.lost ? mapLayerColors.deltaLost : mapLayerColors.deltaWon}
+                    color={deltaColour(
+                      summary.medianSecs[bar.index] ?? NaN,
+                      plot.extentSecs,
+                      isDark
+                    )}
                   />
                 ))}
                 {plot.bars.map((bar) =>

@@ -11,7 +11,8 @@ import { render } from '@testing-library/react-native';
 
 import { ActivityHeader } from '@/features/activity/components/ActivityHeader';
 import type { SectionOverlay } from '@/features/maps';
-import type { ActivityDetail } from '@/types';
+
+import { activityRecord } from '../../__shared__/activityRecord';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
@@ -29,16 +30,15 @@ jest.mock('@/features/maps/components/ActivityMapView', () => ({
   },
 }));
 
-const activity = {
+const activity = activityRecord({
   id: 'a1',
   name: 'Gurten loop',
-  type: 'Ride',
-  start_date_local: '2026-08-12T07:30:00',
+  sportType: 'Ride',
+  startDateLocal: '2026-08-12T07:30:00',
   distance: 32000,
-  moving_time: 4200,
-  total_elevation_gain: 610,
-  polyline: null,
-} as unknown as ActivityDetail;
+  movingTime: 4200,
+  elevationGain: 610,
+});
 
 const point = { latitude: 46.948, longitude: 7.447 };
 

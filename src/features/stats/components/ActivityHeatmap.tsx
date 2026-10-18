@@ -10,7 +10,6 @@ import {
   View,
   StyleSheet,
   ScrollView,
-  Pressable,
   type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -40,7 +39,7 @@ import {
   stroke,
   themePalette,
 } from '@/theme';
-import { useTrainingScreenData } from '../hooks/useEngineStats';
+import type { TrainingCardsRead } from '../hooks/useEngineStats';
 import { useWindowCoverage } from '@/shared/native/useRangeCoverage';
 import {
   formatDurationHuman,
@@ -50,7 +49,6 @@ import {
 } from '@/shared/format/format';
 import { readActivities } from '@/shared/native/storedActivities';
 import { composeAccessibilityLabel } from '@/shared/ui/accessibilityLabel';
-import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { dayActivityRow, useOpenDayActivities } from '@/features/activity/light';
 import {
   cellPosition,
@@ -65,8 +63,11 @@ import { CardHeader } from '@/shared/ui/CardHeader';
 import { EmptyState } from '@/shared/ui/EmptyState';
 import { DENSE_TEXT_SCALE, denseExtent } from '@/shared/ui/DenseText';
 import { ABSENT } from '@/shared/format/absent';
+import { PressTarget } from '@/shared/ui/PressTarget';
 
 interface ActivityHeatmapProps {
+  /** The card's part of the fitness screen read, which the screen makes once. */
+  training: TrainingCardsRead;
   /**
    * False holds the grid's box empty, with no picture recorded and no canvas
    * mounted, so a screen can paint its first frame before the Skia work. The
@@ -84,10 +85,6 @@ export interface ActivityHeatmapHandle {
    */
   setHighlight: (date: string | null) => void;
 }
-
-// Color scale for activity intensity (based on training load or duration)
-const INTENSITY_COLORS = contributionRamp.dark;
-const INTENSITY_COLORS_LIGHT = contributionRamp.light;
 
 /**
  * The legend's bins, intensity 1 to 4, which the engine brackets on the day's
@@ -122,23 +119,24 @@ function columnAt(offset: number): number {
 }
 
 export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityHeatmapProps>(
-  function ActivityHeatmap({ drawn = true }, ref) {
+  function ActivityHeatmap({ training, drawn = true }, ref) {
     const [highlightDate, setHighlight] = useState<string | null>(null);
     useImperativeHandle(ref, () => ({ setHighlight }), []);
     const { t } = useTranslation();
     const { isDark } = useTheme();
     const palette = themePalette(isDark);
-    const intensityColors = isDark ? INTENSITY_COLORS : INTENSITY_COLORS_LIGHT;
+    // Level 0 to 4, the engine's bracket of the day's longest session.
+    const intensityColors = contributionRamp[isDark ? 'dark' : 'light'];
     const scrollRef = useRef<ScrollViewInstance>(null);
 
     // The one interval every part of the card describes, and the days the
-    // training screen read takes for it. It moves with the local date, so a
+    // fitness screen read takes for it. It moves with the local date, so a
     // calendar left open past midnight moves with it.
     const {
       windows: { heatmap: grid },
       data: { heatmap },
       isPending,
-    } = useTrainingScreenData();
+    } = training;
     const firstDay = grid.cells[0].date;
     const lastDay = grid.cells[grid.cells.length - 1].date;
 
@@ -278,17 +276,16 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
             : null
         );
         return (
-          <Pressable
+          <PressTarget
             key={cell.date}
             testID={`activity-heatmap-day-${cell.date}`}
             accessibilityRole="button"
             accessibilityLabel={label}
             onPress={() => openDayOn(cell.date)}
-            android_ripple={pressRipple}
-            style={pressable([
+            style={[
               styles.dayControl,
               { left: x - HEATMAP_CELL_GAP / 2, top: y - HEATMAP_CELL_GAP / 2 },
-            ])}
+            ]}
           />
         );
       });

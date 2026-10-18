@@ -6,23 +6,18 @@
  * these hooks replaced said the engine could only answer the 90-day GPS window,
  * which is why a year of bodies was being parsed to sum a dozen numbers.
  */
-import { useEffect, useMemo } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
-
 import type {
+  FitnessScreenData,
+  FitnessScreenWindows,
   HeatmapDay,
   MonthlyStats as EngineMonthlyStats,
   StatTrend,
   SummaryComparison as EngineSummaryComparison,
-  TrainingScreenWindows,
 } from 'veloqrs';
 
-import { formatLocalDate, parseDayString } from '@/shared/format/format';
+import { formatLocalDate } from '@/shared/format/format';
 import type { TrendGlyph } from '@/shared/format/trend';
 import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
-import { getEngine } from '@/shared/native/engine';
-import { queryKeys } from '@/shared/query/queryKeys';
 import { heatmapLayout, type HeatmapLayout } from '../lib/heatmapGrid';
 import { seasonWindows, type SeasonWindows } from '../lib/periodWindows';
 
@@ -73,7 +68,10 @@ export function localDayEnd(date: Date): number {
   return localDayStart(date) + 86_399;
 }
 
-/** The windows the training tab draws, every one fixed by the local date. */
+/**
+ * The windows the fitness tab's calendar, weekly card and year comparison
+ * draw, every one fixed by the local date.
+ */
 export interface TrainingWindows {
   /** Today, at local midnight. */
   today: Date;
@@ -99,7 +97,7 @@ export function trainingWindows(now: Date): TrainingWindows {
  * The windows as the engine takes them, whole local days in its timebase, and
  * the instant the weekly card's periods run to.
  */
-function engineWindows(w: TrainingWindows, now: Date): TrainingScreenWindows {
+export function trainingEngineWindows(w: TrainingWindows, now: Date): FitnessScreenWindows {
   const days = (start: Date, end: Date) => ({
     startTs: localDayStart(start),
     endTs: localDayEnd(end),
@@ -176,8 +174,8 @@ function comparison(read: EngineSummaryComparison): SummaryComparison {
   };
 }
 
-/** What the training tab's heatmap and season cards paint with. */
-export interface TrainingScreen {
+/** What the fitness tab's calendar, weekly card and year comparison paint with. */
+export interface TrainingCards {
   heatmap: HeatmapDay[];
   months: MonthTotals[];
   yearCurrent: PeriodTotals;
@@ -188,7 +186,7 @@ export interface TrainingScreen {
   comparisons: Record<SummaryRange, SummaryComparison> | null;
 }
 
-const NO_TRAINING_SCREEN: TrainingScreen = {
+export const NO_TRAINING_CARDS: TrainingCards = {
   heatmap: [],
   months: NO_MONTHS,
   yearCurrent: NO_TOTALS,
@@ -198,75 +196,42 @@ const NO_TRAINING_SCREEN: TrainingScreen = {
   comparisons: null,
 };
 
-/**
- * The training tab's one screen read: the heatmap days, the season chart's
- * monthly rows and its to-date totals, all over windows fixed by today's date,
- * and the weekly card's every range to the instant of the read, judged by the
- * engine.
- *
- * Every card that paints from it calls this, and they share the one query, so
- * the tab costs one engine call on mount and one per `activities` event, the
- * event the read names as what makes it stale. A tap between the weekly
- * card's ranges reads nothing.
- *
- * `isPending` is true until the first answer, so a card can tell an empty
- * library from one not read yet. `error` is what the read threw.
- */
-export function useTrainingScreenData(): {
-  windows: TrainingWindows;
-  data: TrainingScreen;
-  isPending: boolean;
-  error: unknown;
-} {
-  // A day key rather than the instant, so the windows hold across renders and
-  // move when the tab is next painted after midnight.
-  const day = formatLocalDate(new Date());
-  const windows = useMemo(() => trainingWindows(parseDayString(day)), [day]);
-
-  // Every card on the tab subscribes, so one event arrives once per card. The
-  // read is synchronous, so a refetch the first card started has already read
-  // the new rows, and the rest join it rather than cancel it and read again.
-  const queryClient = useQueryClient();
-  useEffect(() => {
-    const engine = getEngine();
-    if (!engine) return undefined;
-    return engine.subscribe('activities', () => {
-      void queryClient.invalidateQueries(
-        { queryKey: queryKeys.stats.training.all },
-        { cancelRefetch: false }
-      );
-    });
-  }, [queryClient]);
-
-  const { data, isPending, error } = useQuery({
-    ...LOCAL_READ_QUERY,
-    queryKey: queryKeys.stats.training.byDay(day),
-    queryFn: (): TrainingScreen => {
-      const read = getEngine()?.getTrainingScreenData(engineWindows(windows, new Date()));
-      if (!read) return NO_TRAINING_SCREEN;
-      return {
-        heatmap: read.heatmap,
-        months: read.months.map((row: EngineMonthlyStats) => ({
-          year: row.year,
-          month: row.month,
-          ...totals(row.stats),
-        })),
-        yearCurrent: totals(read.yearCurrent),
-        yearPrevious: totals(read.yearPrevious),
-        monthCurrent: totals(read.monthCurrent),
-        monthPrevious: totals(read.monthPrevious),
-        comparisons: {
-          week: comparison(read.comparisons.week),
-          month: comparison(read.comparisons.month),
-          '3m': comparison(read.comparisons.threeMonths),
-          '6m': comparison(read.comparisons.sixMonths),
-          year: comparison(read.comparisons.year),
-        },
-      };
+/** The calendar, weekly and year parts of the fitness screen read. */
+export function trainingCardsView(read: FitnessScreenData): TrainingCards {
+  return {
+    heatmap: read.heatmap,
+    months: read.months.map((row: EngineMonthlyStats) => ({
+      year: row.year,
+      month: row.month,
+      ...totals(row.stats),
+    })),
+    yearCurrent: totals(read.yearCurrent),
+    yearPrevious: totals(read.yearPrevious),
+    monthCurrent: totals(read.monthCurrent),
+    monthPrevious: totals(read.monthPrevious),
+    comparisons: {
+      week: comparison(read.comparisons.week),
+      month: comparison(read.comparisons.month),
+      '3m': comparison(read.comparisons.threeMonths),
+      '6m': comparison(read.comparisons.sixMonths),
+      year: comparison(read.comparisons.year),
     },
-    // SQLite is the source, so a sync decides freshness, not a clock.
-    staleTime: Infinity,
-  });
+  };
+}
 
-  return { windows, data: data ?? NO_TRAINING_SCREEN, isPending, error };
+/**
+ * A card's part of the fitness screen read, which the screen makes once and
+ * hands down, so the tab costs one engine call on mount and one per
+ * `activities` event however many cards paint from it, and a tap between the
+ * weekly card's ranges reads nothing.
+ */
+export interface TrainingCardsRead {
+  windows: TrainingWindows;
+  data: TrainingCards;
+  /** True until the first answer, so a card can tell an empty library from one not read yet. */
+  isPending: boolean;
+  /** What the read threw, null when it answered. */
+  error: unknown;
+  /** Read again, after a failure or a pull to refresh. */
+  retry: () => void;
 }

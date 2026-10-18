@@ -7,7 +7,8 @@ import { SeasonComparison } from '@/features/stats/components/SeasonComparison';
 import { getEngine } from '@/shared/native/engine';
 import { darkColors } from '@/theme';
 import { capturePans, scrub, scrubPan } from '../__shared__/chartScrub';
-import { trainingScreenRead } from '../__shared__/trainingScreenRead';
+import { fitnessScreenRead } from '../__shared__/fitnessScreenRead';
+import { WithScreenRead } from '../__shared__/withScreenRead';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
@@ -18,7 +19,7 @@ afterEach(() => jest.restoreAllMocks());
 
 it('draws the season summary with a visible dark region tint', async () => {
   (getEngine as jest.MockedFunction<typeof getEngine>).mockReturnValue({
-    getTrainingScreenData: trainingScreenRead({
+    getFitnessScreenData: fitnessScreenRead({
       months: () => [
         {
           year: 2026,
@@ -33,7 +34,7 @@ it('draws the season summary with a visible dark region tint', async () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const view = await render(
     <QueryClientProvider client={client}>
-      <SeasonComparison />
+      <WithScreenRead>{(training) => <SeasonComparison training={training} />}</WithScreenRead>
     </QueryClientProvider>
   );
 

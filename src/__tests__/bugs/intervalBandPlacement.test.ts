@@ -14,6 +14,7 @@
 import { computeIntervalBands } from '@/features/stats/lib/combinedPlotData';
 import type { ActivityInterval, ActivityStreams } from '@/types';
 import { streamsFromArrays } from '@/features/activity/lib/streams';
+import { IntervalKind } from 'veloqrs';
 
 /**
  * Ten seconds recorded, four of them without a fix. The reader keeps the six
@@ -32,15 +33,14 @@ function interval(over: {
 }): ActivityInterval {
   return {
     id: 1,
-    type: 'WORK',
-    start_index: 8,
-    end_index: 9,
-    start_time: 8,
-    end_time: 9,
+    kind: IntervalKind.Work,
+    startIndex: 8,
+    endIndex: 9,
+    startTime: 8,
+    endTime: 9,
     distance: 10,
-    moving_time: 1,
-    elapsed_time: 1,
-    average_speed: 10,
+    movingTime: 1,
+    averageSpeed: 10,
     ...over,
   } as ActivityInterval;
 }
@@ -71,7 +71,7 @@ describe('where an interval band lands when samples were dropped', () => {
     const clean = streamsFromArrays({ time: [0, 1, 2, 3, 4], distance: [0, 10, 20, 30, 40] });
 
     const bands = computeIntervalBands(
-      [interval({ start_index: 1, end_index: 3, start_time: 1, end_time: 3 })],
+      [interval({ startIndex: 1, endIndex: 3, startTime: 1, endTime: 3 })],
       5,
       clean,
       'time',
@@ -85,7 +85,7 @@ describe('where an interval band lands when samples were dropped', () => {
 
   it('takes the nearest sample when the second itself was dropped', () => {
     const bands = computeIntervalBands(
-      [interval({ start_time: 5, end_time: 9, start_index: 5, end_index: 9 })],
+      [interval({ startTime: 5, endTime: 9, startIndex: 5, endIndex: 9 })],
       6,
       reducedStreams(),
       'time',
@@ -99,7 +99,7 @@ describe('where an interval band lands when samples were dropped', () => {
 
   it('falls back to the raw index for an interval with no seconds', () => {
     const bands = computeIntervalBands(
-      [interval({ start_time: undefined, end_time: undefined, start_index: 1, end_index: 2 })],
+      [interval({ startTime: undefined, endTime: undefined, startIndex: 1, endIndex: 2 })],
       6,
       reducedStreams(),
       'time',
@@ -122,7 +122,7 @@ describe('where an interval band lands when samples were dropped', () => {
 
   it('ends the last interval on the final sample when its seconds run past the stream', () => {
     const bands = computeIntervalBands(
-      [interval({ start_time: 2, end_time: 400, start_index: 2, end_index: 400 })],
+      [interval({ startTime: 2, endTime: 400, startIndex: 2, endIndex: 400 })],
       6,
       reducedStreams(),
       'time',

@@ -165,7 +165,7 @@ describe('background insight task, cold start', () => {
     mockAwaitActivityBody.mockResolvedValue({
       id: 'i1234',
       name: 'Morning Ride',
-      type: 'Ride',
+      sportType: 'Ride',
     } as never);
     const { startFetchAndStore } = require('veloqrs') as typeof import('veloqrs');
 

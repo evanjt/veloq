@@ -115,7 +115,6 @@ const builders: [string, (palette: MapPalette) => unknown][] = [
       buildActivityLayers({
         palette,
         overlayHasData: true,
-        activityColor: SPORT,
         gradientActive: false,
         gradientLineExpression: null,
         hasSectionOverlays: true,
@@ -142,8 +141,7 @@ const builders: [string, (palette: MapPalette) => unknown][] = [
         highlightedTraceFilter: ['==', 'id', 'a'],
         hasAllTraces: true,
         endpoints: empty,
-        activityColor: SPORT,
-        sectionOpacity: 1,
+        sectionContext: false,
         trimRange: { start: 0, end: 1 },
         hasExtension: true,
         showExtensionAndSection: true,
@@ -197,9 +195,7 @@ const builders: [string, (palette: MapPalette) => unknown][] = [
     (palette) =>
       buildRouteLayers({
         palette,
-        activityColor: SPORT,
-        representativeOpacity: 1,
-        fadedOpacity: 0.2,
+        routeContext: false,
         fadedFilter: undefined,
         includeRoute: true,
       }),
@@ -220,12 +216,11 @@ describe.each(BASES)('on the %s base', (base) => {
     expect(drawn.filter((c) => c !== SPORT && !colours.has(c))).toEqual([]);
   });
 
-  it("draws the activity line's casing in the palette's casing", () => {
+  it("draws the activity line in the palette's route colour on its casing", () => {
     const { palette } = sentinelPalette(base);
     const layers = buildActivityLayers({
       palette,
       overlayHasData: false,
-      activityColor: SPORT,
       gradientActive: false,
       gradientLineExpression: null,
       hasSectionOverlays: false,
@@ -235,8 +230,8 @@ describe.each(BASES)('on the %s base', (base) => {
       hasUserLocation: false,
     });
     const casing = layers.find((l) => l.id === 'route-casing');
-    const line = layers.find((l) => l.source === 'route' && l.paint?.['line-color'] === SPORT);
-    expect(casing?.paint?.['line-color']).toBe(palette.layer.casing);
-    expect(line).toBeDefined();
+    const line = layers.find((l) => l.id === 'route-line');
+    expect(casing?.paint?.['line-color']).toBe(palette.casing);
+    expect(line?.paint?.['line-color']).toBe(palette.route);
   });
 });

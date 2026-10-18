@@ -134,13 +134,11 @@ fn test_detail_body_returns_while_engine_writer_holds() {
     seed_body();
     read_while_writer_holds(|| {
         let manager = ActivityManager::new();
-        assert_eq!(
-            manager.get_activity_body("a1".into()).unwrap().as_deref(),
-            Some(BODY)
-        );
+        let record = manager.get_activity_record("a1".into()).unwrap();
+        assert_eq!(record.and_then(|r| r.name).as_deref(), Some("Ride"));
         assert!(
             manager
-                .get_activity_body("missing".into())
+                .get_activity_record("missing".into())
                 .unwrap()
                 .is_none()
         );

@@ -15,6 +15,7 @@ import { RangeCoverage } from 'veloqrs';
 import { useFitnessScreenRead } from '@/features/fitness/hooks/useFitnessScreenRead';
 import { getEngine } from '@/shared/native/engine';
 import { atUtcOffsetAsync } from '../__shared__/fixedOffsetDate';
+import { noCalendarParts } from '../__shared__/fitnessScreenRead';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
@@ -65,6 +66,7 @@ function screenRead(
     fatigueDays: 5,
     decouplingSources: [] as unknown[],
     loadDots: [] as unknown[],
+    ...noCalendarParts(),
   };
 }
 
@@ -121,7 +123,10 @@ describe('the fitness screen read', () => {
 
     const { result } = await renderHook(useFitnessScreenRead);
 
-    expect(engine.getFitnessScreenData).toHaveBeenCalledWith([7, 30, 90, 180, 365]);
+    expect(engine.getFitnessScreenData).toHaveBeenCalledWith(
+      [7, 30, 90, 180, 365],
+      expect.objectContaining({ heatmapLastDay: expect.any(String) })
+    );
     expect(result.current.decouplingBySpan.has(7)).toBe(false);
     expect(result.current.decouplingBySpan.get(30)).toEqual({
       activityId: 'r-steady',

@@ -126,7 +126,7 @@ describe('the supporting history chart', () => {
   };
 
   it('names its series, labels its dates and reads out a sample', async () => {
-    const t = await render(<SupportingDataSection data={data} />);
+    const t = await render(<SupportingDataSection data={data} category="efficiency_trend" />);
     await layout(t);
 
     expect(t.getByTestId('insight-series-chart')).toBeTruthy();
@@ -154,7 +154,7 @@ describe('the supporting history chart', () => {
         ],
       },
     };
-    const t = await render(<SupportingDataSection data={ratios} />);
+    const t = await render(<SupportingDataSection data={ratios} category="efficiency_trend" />);
     await layout(t);
 
     expect(t.getByTestId('insight-series-readout-value').props.children).toBe('1.16');

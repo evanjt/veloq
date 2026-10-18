@@ -10,7 +10,8 @@ import { fireEvent, render, screen, within } from '@testing-library/react-native
 
 import { InsightfulStats } from '@/features/activity/components/stats/InsightfulStats';
 import StatDetailSheet from '@/app/sheets/stat-detail';
-import type { Activity } from '@/types';
+
+import { activityRecord } from '../__shared__/activityRecord';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysWithValues());
@@ -33,13 +34,13 @@ jest.mock('@/shared/app', () => ({
   useMetricSystem: () => true,
 }));
 
-const activity = {
+const activity = activityRecord({
   id: 'a1',
-  type: 'Ride',
+  sportType: 'Ride',
   name: 'Ride',
-  start_date_local: '2026-09-05T08:00:00',
-  icu_training_load: 100,
-} as Activity;
+  startDateLocal: '2026-09-05T08:00:00',
+  trainingLoad: 100,
+});
 const impact = {
   fitness: 100 / 42,
   fatigue: 100 / 7,

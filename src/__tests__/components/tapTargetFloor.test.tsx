@@ -21,7 +21,7 @@ import { PreviewParamPanel } from '@/features/routes/components/preview/PreviewP
 import { GroupingParamPanel } from '@/features/routes/components/preview/GroupingParamPanel';
 import { DETECTION_PRESETS } from '@/features/routes/lib/detectionParams';
 import { FitnessChart } from '@/features/fitness/components/FitnessChart';
-import { PerformanceTooltip } from '@/features/routes/components/section/PerformanceTooltip';
+import { SelectedAttemptCard } from '@/features/routes/components/section/SelectedAttemptCard';
 import type { WellnessData } from '@/types';
 import { SearchBar } from '@/shared/ui/SearchBar';
 import { ChartTypeSelector } from '@/features/activity/components/ChartTypeSelector';
@@ -211,7 +211,7 @@ describe('tap-target floor', () => {
     }
   });
 
-  it('holds the section tooltip exclude and include controls to the minimum', async () => {
+  it('holds the selected attempt card exclude and include controls to the minimum', async () => {
     const point = {
       id: 'p1',
       activityId: 'a1',
@@ -224,11 +224,13 @@ describe('tap-target floor', () => {
       x: 0,
     };
     const tooltip = (isExcluded: boolean) => (
-      <PerformanceTooltip
-        selectedPoint={{ ...point, isExcluded }}
+      <SelectedAttemptCard
+        attempt={{ ...point, isExcluded }}
         isDark={false}
+        activityType="Run"
         basis="pace"
-        onClearSelection={jest.fn()}
+        progression={[]}
+        recordsSettled
         onSetAsReference={jest.fn()}
         onExcludeActivity={jest.fn()}
         onIncludeActivity={jest.fn()}
@@ -236,15 +238,18 @@ describe('tap-target floor', () => {
     );
 
     const { rerender } = await render(tooltip(false));
-    for (const label of ['sections.excludeActivity', 'sections.setAsReference'] as const) {
-      const { width, height } = reach(screen.getByLabelText(i18n.t(label)));
-      expect(width).toBeGreaterThanOrEqual(layout.minTapTarget);
+    // Labelled buttons: the label sets the width, the slop holds the height to the floor.
+    for (const label of ['sections.attemptExclude', 'sections.setAsReference'] as const) {
+      expect(screen.getByText(i18n.t(label))).toBeTruthy();
+      const { height } = reach(screen.getByRole('button', { name: i18n.t(label) }));
       expect(height).toBeGreaterThanOrEqual(layout.minTapTarget);
     }
 
     await rerender(tooltip(true));
-    const { width, height } = reach(screen.getByLabelText(i18n.t('sections.includeActivity')));
-    expect(width).toBeGreaterThanOrEqual(layout.minTapTarget);
+    expect(screen.getByText(i18n.t('sections.attemptInclude'))).toBeTruthy();
+    const { height } = reach(
+      screen.getByRole('button', { name: i18n.t('sections.attemptInclude') })
+    );
     expect(height).toBeGreaterThanOrEqual(layout.minTapTarget);
   });
 

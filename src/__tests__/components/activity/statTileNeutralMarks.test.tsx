@@ -19,25 +19,26 @@ import { useActivityStats } from '@/features/activity/components/stats/useActivi
 import type { StatDetail } from '@/features/activity/components/stats/types';
 import { initialiseI18n } from '@/i18n';
 import { chartStreamColour, colors, darkColors } from '@/theme';
-import type { Activity, WellnessData } from '@/types';
+import type { WellnessData } from '@/types';
 import type { ActivityFitnessImpact } from 'veloqrs';
+import { activityRecord } from '../../__shared__/activityRecord';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 
-const ride = {
+const ride = activityRecord({
   id: 'ride-marks',
-  type: 'Ride',
+  sportType: 'Ride',
   name: 'Ride',
-  start_date_local: '2026-09-05T08:00:00',
-  moving_time: 5400,
-  average_heartrate: 152,
-  max_heartrate: 181,
-  icu_average_watts: 245,
-  icu_training_load: 96,
-  icu_intensity: 88,
+  startDateLocal: '2026-09-05T08:00:00',
+  movingTime: 5400,
+  avgHr: 152,
+  maxHr: 181,
+  avgPower: 245,
+  trainingLoad: 96,
+  intensity: 88,
   calories: 820,
-} as Activity;
+});
 
 const wellness = { id: '2026-09-05', ctl: 60, atl: 70 } as WellnessData;
 const fitnessImpact = { fitness: 2.1, fatigue: 9.4, form: -7.3 } as ActivityFitnessImpact;

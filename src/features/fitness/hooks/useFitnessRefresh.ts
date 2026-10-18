@@ -8,11 +8,12 @@ type Refetcher = () => Promise<unknown>;
 /**
  * Orchestrates pull-to-refresh across every query the Fitness screen depends on.
  *
- * Re-fetches wellness (via the passed refetcher) and invalidates activity,
- * power-curve, pace-curve, athlete-summary and engine stats caches in parallel.
- * The stats caches hold the calendar, the weekly totals and the year comparison.
+ * Re-fetches wellness (via the passed refetcher), invalidates activity,
+ * power-curve, pace-curve and athlete-summary caches in parallel, and reads
+ * the screen read again, which holds the calendar, the weekly totals and the
+ * year comparison.
  */
-export function useFitnessRefresh(refetchWellness: Refetcher) {
+export function useFitnessRefresh(refetchWellness: Refetcher, rereadScreen: () => void) {
   const queryClient = useQueryClient();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { requestRefresh } = useSyncRefreshNotice();
@@ -20,6 +21,7 @@ export function useFitnessRefresh(refetchWellness: Refetcher) {
   const onRefresh = useCallback(async () => {
     setIsRefreshing(true);
     requestRefresh();
+    rereadScreen();
     try {
       await Promise.all([
         refetchWellness(),
@@ -28,14 +30,13 @@ export function useFitnessRefresh(refetchWellness: Refetcher) {
         queryClient.invalidateQueries({ queryKey: queryKeys.charts.paceCurve.all }),
         queryClient.invalidateQueries({ queryKey: queryKeys.charts.bestEfforts.all }),
         queryClient.invalidateQueries({ queryKey: queryKeys.athleteSummary.all }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.stats.all }),
       ]);
     } finally {
       // A rejected refetch is offline, not broken. Leaving the spinner on has
       // no way back short of leaving the screen.
       setIsRefreshing(false);
     }
-  }, [refetchWellness, queryClient, requestRefresh]);
+  }, [refetchWellness, rereadScreen, queryClient, requestRefresh]);
 
   return { isRefreshing, onRefresh };
 }

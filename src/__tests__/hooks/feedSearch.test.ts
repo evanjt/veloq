@@ -51,6 +51,7 @@ beforeEach(() => {
   engine.searchActivityBodies.mockReturnValue({
     bodies: [],
     intervalsIds: [],
+    keys: [],
     matchedCount: 0,
     hasMore: false,
   });
@@ -74,6 +75,7 @@ describe('useFeedSearch', () => {
     engine.searchActivityBodies.mockReturnValue({
       bodies: [body('old')],
       intervalsIds: [null],
+      keys: ['old'],
       matchedCount: 1,
       hasMore: false,
     });
@@ -127,6 +129,7 @@ describe('useFeedSearch', () => {
     engine.searchActivityBodies.mockReturnValue({
       bodies: [body('old')],
       intervalsIds: [null],
+      keys: ['old'],
       matchedCount: 1,
       hasMore: false,
     });
@@ -141,6 +144,7 @@ describe('useFeedSearch', () => {
     engine.searchActivityBodies.mockReturnValue({
       bodies: [body('older')],
       intervalsIds: [null],
+      keys: ['older'],
       matchedCount: 1,
       hasMore: false,
     });
@@ -167,10 +171,17 @@ describe('useFeedSearch', () => {
       .mockReturnValueOnce({
         bodies: Array.from({ length: 30 }, (_, i) => body(`p1-${i}`)),
         intervalsIds: Array.from({ length: 30 }, () => null),
+        keys: Array.from({ length: 30 }, (_, i) => `p1-${i}`),
         matchedCount: 31,
         hasMore: true,
       })
-      .mockReturnValueOnce({ bodies: [], intervalsIds: [], matchedCount: 31, hasMore: false });
+      .mockReturnValueOnce({
+        bodies: [],
+        intervalsIds: [],
+        keys: [],
+        matchedCount: 31,
+        hasMore: false,
+      });
     const { result } = await render('ferry', null, MARCH_2024);
 
     await waitFor(() => expect(result.current.activities).toHaveLength(30));
@@ -240,12 +251,14 @@ describe('useFeedSearch', () => {
       .mockReturnValueOnce({
         bodies: Array.from({ length: 30 }, (_, i) => body(`p1-${i}`)),
         intervalsIds: Array.from({ length: 30 }, () => null),
+        keys: Array.from({ length: 30 }, (_, i) => `p1-${i}`),
         matchedCount: 31,
         hasMore: true,
       })
       .mockReturnValueOnce({
         bodies: [body('p2-0')],
         intervalsIds: [null],
+        keys: ['p2-0'],
         matchedCount: 31,
         hasMore: false,
       });
@@ -275,6 +288,7 @@ describe('useFeedSearch', () => {
     engine.searchActivityBodies.mockReturnValue({
       bodies: ['{broken', body('kept')],
       intervalsIds: [null, 'i7'],
+      keys: ['broken', 'kept'],
       matchedCount: 2,
       hasMore: false,
     });

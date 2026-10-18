@@ -1,108 +1,73 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { layout, spacing, workoutStepColors } from '@/theme';
-import type { WorkoutStep } from '@/types';
+import type { FfiStepBlock } from 'veloqrs';
+import { useTheme } from '@/shared/app';
+import { colourTokens, layout, spacing, zoneColour } from '@/theme';
 
 interface WorkoutStepBarProps {
-  steps: WorkoutStep[];
+  /** The engine's blocks for the plan, one per line it follows. */
+  blocks: readonly FfiStepBlock[];
   height?: number;
 }
 
 /**
- * Visual workout intensity bar showing workout structure as colored blocks.
- * Each block width is proportional to duration. Colors encode intensity:
- * warmup/tempo=amber, threshold/VO2=red, rest=grey, cooldown=blue.
+ * The workout's structure as a row of blocks, each as wide as its share of
+ * the plan. A work block takes the colour of the training zone the engine
+ * placed its target in. Rest, and a step with no zone, take the muted chart
+ * colour, and rest stands at half height.
  */
 export const WorkoutStepBar = React.memo(function WorkoutStepBar({
-  steps,
+  blocks,
   height = 6,
 }: WorkoutStepBarProps) {
-  const flatSteps = flattenSteps(steps);
-  const totalDuration = flatSteps.reduce((sum, s) => sum + (s.duration || 60), 0);
+  const { isDark } = useTheme();
+  const total = blocks.reduce((sum, block) => sum + block.seconds, 0);
+  if (!(total > 0)) return null;
 
-  if (totalDuration === 0 || flatSteps.length === 0) return null;
+  const muted = colourTokens[isDark ? 'dark' : 'light']['chart-muted'];
+  const last = blocks.length - 1;
 
   return (
-    <View style={[styles.container, { height }]}>
-      {flatSteps.map((step, i) => {
-        const duration = step.duration || 60;
-        const widthPercent = (duration / totalDuration) * 100;
-        const color = getStepColor(step);
-        return (
-          <View
-            key={i}
-            style={[
-              styles.block,
-              {
-                width: `${widthPercent}%`,
-                backgroundColor: color,
-                borderTopLeftRadius: i === 0 ? layout.borderRadiusXs : 0,
-                borderBottomLeftRadius: i === 0 ? layout.borderRadiusXs : 0,
-                borderTopRightRadius: i === flatSteps.length - 1 ? layout.borderRadiusXs : 0,
-                borderBottomRightRadius: i === flatSteps.length - 1 ? layout.borderRadiusXs : 0,
-              },
-            ]}
-          />
-        );
-      })}
+    <View testID="workout-step-bar" style={[styles.container, { height }]}>
+      {blocks.map((block, i) => (
+        <View
+          key={i}
+          style={[
+            styles.block,
+            block.rest && styles.rest,
+            {
+              width: `${(block.seconds / total) * 100}%`,
+              backgroundColor:
+                !block.rest && block.zone != null ? zoneColour(block.zone, isDark, 'fill') : muted,
+            },
+            i === 0 && styles.first,
+            i === last && styles.last,
+          ]}
+        />
+      ))}
     </View>
   );
 });
 
-/** Flatten nested repeat blocks into a linear step array */
-function flattenSteps(steps: WorkoutStep[]): WorkoutStep[] {
-  const result: WorkoutStep[] = [];
-  for (const step of steps) {
-    if (step.steps && step.reps) {
-      for (let r = 0; r < step.reps; r++) {
-        result.push(...flattenSteps(step.steps));
-      }
-    } else {
-      result.push(step);
-    }
-  }
-  return result;
-}
-
-function getStepColor(step: WorkoutStep): string {
-  if (step.warmup) return workoutStepColors.warmup;
-  if (step.cooldown) return workoutStepColors.cooldown;
-
-  // Check intensity from resolved power targets.
-  // Estimate intensity relative to typical FTP (~280W); exact FTP isn't
-  // critical, we just need visual differentiation.
-  const power = step._power;
-  if (power) {
-    const target = power.value ?? power.end ?? power.start ?? 0;
-    if (target === 0) return workoutStepColors.rest;
-    if (target < 150) return workoutStepColors.rest;
-    if (target < 220) return workoutStepColors.tempo;
-    return workoutStepColors.threshold;
-  }
-
-  // Check HR targets
-  if (step.hr) {
-    const target = step.hr.value ?? step.hr.end ?? 0;
-    if (target === 0) return workoutStepColors.rest;
-    if (target < 140) return workoutStepColors.rest;
-    if (target < 160) return workoutStepColors.tempo;
-    return workoutStepColors.threshold;
-  }
-
-  // No target = rest interval
-  if (step.text?.toLowerCase().includes('recover')) return workoutStepColors.rest;
-  if (step.text?.toLowerCase().includes('rest')) return workoutStepColors.rest;
-
-  return workoutStepColors.threshold;
-}
-
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
+    alignItems: 'flex-end',
     marginTop: spacing.xs,
     overflow: 'hidden',
   },
   block: {
     height: '100%',
+  },
+  rest: {
+    height: '50%',
+  },
+  first: {
+    borderTopLeftRadius: layout.borderRadiusXs,
+    borderBottomLeftRadius: layout.borderRadiusXs,
+  },
+  last: {
+    borderTopRightRadius: layout.borderRadiusXs,
+    borderBottomRightRadius: layout.borderRadiusXs,
   },
 });

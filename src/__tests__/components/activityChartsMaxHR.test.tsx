@@ -11,7 +11,8 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 
 import { ActivityChartsSection } from '@/features/activity/components/ActivityChartsSection';
-import type { ActivityDetail, ActivityStreams } from '@/types';
+import type { ActivityStreams } from '@/types';
+import { activityRecord } from '../__shared__/activityRecord';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
@@ -61,14 +62,14 @@ jest.mock('@/shared/debug/useFFITimer', () => ({
   useFFITimer: () => ({ getPageMetrics: () => [] }),
 }));
 
-const activity = {
+const activity = activityRecord({
   id: 'act-1',
-  type: 'Ride',
+  sportType: 'Ride',
   name: 'Morning ride',
-  start_date_local: '2026-09-12T07:00:00',
-  average_heartrate: 150,
-  moving_time: 4090,
-} as unknown as ActivityDetail;
+  startDateLocal: '2026-09-12T07:00:00',
+  avgHr: 150,
+  movingTime: 4090,
+});
 
 const streams = { time: [0, 1, 2], heartrate: [140, 150, 160] } as unknown as ActivityStreams;
 const hrZones = [{ zone: 1, minBpm: 0, maxBpm: 140, seconds: 60, percent: 100, share: 100 }];

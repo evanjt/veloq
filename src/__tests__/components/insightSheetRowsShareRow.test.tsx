@@ -42,8 +42,8 @@ const SECTIONS: SupportingSection[] = [
   { sectionId: 'dock', sectionName: 'Dockside', bestTime: 140, traversalCount: 4, trend: -1 },
 ];
 
-function insight(sections: SupportingSection[]): Insight {
-  return { supportingData: { sections } } as unknown as Insight;
+function insight(sections: SupportingSection[], category: Insight['category']): Insight {
+  return { category, supportingData: { sections } } as unknown as Insight;
 }
 
 function rootStyle(node: { props: { style?: unknown } }) {
@@ -75,27 +75,31 @@ beforeEach(() => {
 
 describe('section rows in the insight sheets', () => {
   it('draws the supporting sections as shared rows that open the section', async () => {
-    const tree = await render(<SupportingDataSection data={{ sections: SECTIONS }} />);
+    const tree = await render(
+      <SupportingDataSection data={{ sections: SECTIONS }} category="route" />
+    );
     expectSectionRows(tree, ['Quarry Hill', 'Dockside']);
     await fireEvent.press(tree.getByRole('button', { name: 'Dockside' }));
     expect(navigateTo).toHaveBeenCalledWith('/section/dock');
   });
 
   it('draws the stale record sections as shared rows that open the section', async () => {
-    const tree = await render(<StalePRContent insight={insight(SECTIONS)} />);
+    const tree = await render(<StalePRContent insight={insight(SECTIONS, 'stale_pr')} />);
     expectSectionRows(tree, ['Quarry Hill', 'Dockside']);
     await fireEvent.press(tree.getByRole('button', { name: 'Quarry Hill' }));
     expect(navigateTo).toHaveBeenCalledWith('/section/hill');
   });
 
   it('leaves the efficiency section to the sheet data link rather than a row of its own', async () => {
-    const tree = await render(<EfficiencyTrendContent insight={insight(SECTIONS.slice(0, 1))} />);
+    const tree = await render(
+      <EfficiencyTrendContent insight={insight(SECTIONS.slice(0, 1), 'efficiency_trend')} />
+    );
     expect(chevronIds(tree)).toEqual([]);
     expect(tree.queryAllByRole('button', { name: 'Quarry Hill' })).toEqual([]);
   });
 
   it('holds each section trend accordion item in a flat card', async () => {
-    const tree = await render(<SectionTrendContent insight={insight(SECTIONS)} />);
+    const tree = await render(<SectionTrendContent insight={insight(SECTIONS, 'section_trend')} />);
     const cards = tree
       .UNSAFE_queryAllByType(Card)
       .filter((card) => card.props.testID !== 'sheet-context');

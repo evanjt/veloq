@@ -105,7 +105,9 @@ function strengthProgression(): Insight {
 
 /** The comparison's change glyph, which is drawn after the sparkline's own arrow. */
 async function comparisonOf(data: InsightSupportingData) {
-  const { UNSAFE_root } = await render(<SupportingDataSection data={data} />);
+  const { UNSAFE_root } = await render(
+    <SupportingDataSection data={data} category="efficiency_trend" />
+  );
   const glyph = icons(UNSAFE_root)
     .filter((icon) => COMPARISON_GLYPHS.has(icon.name))
     .at(-1);

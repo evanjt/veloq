@@ -9,10 +9,25 @@ import Animated, {
 } from 'react-native-reanimated';
 import Body, { type ExtendedBodyPart } from 'react-native-body-highlighter';
 
-import { bodyDiagram, strengthTone, duration, layers, layout, loupeChrome, stroke } from '@/theme';
+import {
+  bodyDiagram,
+  colors,
+  darkColors,
+  strengthTone,
+  duration,
+  layers,
+  layout,
+  loupeChrome,
+  stroke,
+} from '@/theme';
 import { useTheme } from '@/shared/app';
 
-import { BODY_INTRINSIC_H, BODY_INTRINSIC_W, bodyPairLayout } from '../lib/bodyScale';
+import {
+  BODY_INTRINSIC_H,
+  BODY_INTRINSIC_W,
+  bodyPairLayout,
+  viewBoxStroke,
+} from '../lib/bodyScale';
 import { findMuscleAtPoint } from '../lib/polygons';
 import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
 import * as haptics from '@/shared/ui/haptics';
@@ -33,7 +48,6 @@ interface BodyPairWithLoupeProps {
   /** The largest scale the figures are drawn at; a narrower row draws them smaller. */
   maxScale: number;
   colors: readonly string[];
-  defaultFill?: string | undefined;
   onMuscleTap?: ((slug: string) => void) | undefined;
   onMuscleScrub?: ((slug: string) => void) | undefined;
   tappableSlugs?: Set<string> | undefined;
@@ -69,7 +83,6 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
   gender,
   maxScale,
   colors,
-  defaultFill,
   onMuscleTap,
   onMuscleScrub,
   tappableSlugs,
@@ -80,28 +93,6 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
   accessibilityValueText,
 }: BodyPairWithLoupeProps) {
   const { isDark } = useTheme();
-  const stroke = isDark ? bodyDiagram.selectedStrokeDark : bodyDiagram.selectedStroke;
-  // Each part's selected form is made once per data and theme, so a scrub step hands
-  // Body the same objects for every part whose stroke did not change.
-  const selectedParts = useMemo(
-    () =>
-      new Map(
-        baseData.map((part) => [
-          part.slug,
-          { ...part, styles: { ...part.styles, stroke, strokeWidth: 2.5 } },
-        ])
-      ),
-    [baseData, stroke]
-  );
-  const data = useMemo(
-    () =>
-      selectedSlug == null
-        ? baseData
-        : baseData.map((part) =>
-            part.slug === selectedSlug ? (selectedParts.get(part.slug) ?? part) : part
-          ),
-    [baseData, selectedSlug, selectedParts]
-  );
   const [layoutSize, setLayoutSize] = useState<{ width: number; height: number } | null>(null);
   const lastScrubSlug = useRef<string | null>(null);
   // The loupe's two bodies are drawn two and a half times larger than the pair
@@ -166,6 +157,49 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
   const bodyPixelH = BODY_INTRINSIC_H * scale;
   // The loupe renders the body at a larger scale directly (no CSS transform)
   const loupeScale = scale * LOUPE_SCALE;
+
+  const roles = bodyDiagram[isDark ? 'dark' : 'light'];
+  const selectedStroke = roles.selectedStroke;
+  // Untrained muscles take the figure's track outline through Body's default
+  // stroke, so a trained one sets its own stroke to none and only its fill shows.
+  const drawnParts = useMemo(
+    () => baseData.map((part) => ({ ...part, styles: { stroke: 'none', ...part.styles } })),
+    [baseData]
+  );
+  // Each part's selected form is made once per data and theme, so a scrub step hands
+  // Body the same objects for every part whose stroke did not change.
+  const selectedParts = useMemo(
+    () =>
+      new Map(
+        drawnParts.map((part) => [
+          part.slug,
+          {
+            ...part,
+            styles: {
+              ...part.styles,
+              stroke: selectedStroke,
+              strokeWidth: viewBoxStroke(stroke.two, scale),
+            },
+          },
+        ])
+      ),
+    [drawnParts, selectedStroke, scale]
+  );
+  const data = useMemo(
+    () =>
+      selectedSlug == null
+        ? drawnParts
+        : drawnParts.map((part) =>
+            part.slug === selectedSlug ? (selectedParts.get(part.slug) ?? part) : part
+          ),
+    [drawnParts, selectedSlug, selectedParts]
+  );
+  const untrained = {
+    defaultFill: roles.untrained,
+    defaultStroke: roles.untrainedStroke,
+    defaultStrokeWidth: viewBoxStroke(stroke.one, scale),
+    border: roles.untrainedStroke,
+  };
 
   // Convert touch coordinates to normalised SVG space (0-1) and find muscle
   const touchToMuscle = useCallback(
@@ -360,7 +394,7 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
               side="front"
               scale={scale}
               colors={colors}
-              {...(defaultFill !== undefined && { defaultFill })}
+              {...untrained}
             />
           </View>
 
@@ -374,7 +408,7 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
               side="back"
               scale={scale}
               colors={colors}
-              {...(defaultFill !== undefined && { defaultFill })}
+              {...untrained}
             />
           </View>
 
@@ -392,7 +426,7 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
                     side="front"
                     scale={loupeScale}
                     colors={colors}
-                    {...(defaultFill !== undefined && { defaultFill })}
+                    {...untrained}
                   />
                 </Animated.View>
                 <Animated.View style={[styles.loupeBody, loupeBackStyle]}>
@@ -402,7 +436,7 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
                     side="back"
                     scale={loupeScale}
                     colors={colors}
-                    {...(defaultFill !== undefined && { defaultFill })}
+                    {...untrained}
                   />
                 </Animated.View>
                 <View style={styles.loupeCrosshair} />
@@ -452,12 +486,12 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: stroke.three,
     borderColor: strengthTone.primary,
-    backgroundColor: loupeChrome.bgLight,
+    backgroundColor: colors.surfaceRaised,
     justifyContent: 'center',
     alignItems: 'center',
   },
   loupeClipDark: {
-    backgroundColor: loupeChrome.bgDark,
+    backgroundColor: darkColors.surfaceRaised,
   },
   loupeBody: {
     position: 'absolute',

@@ -7,7 +7,7 @@ import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { shareCrashLog } from '@/shared/app/supportLinks';
 import { recordBoundaryCrash } from '@/shared/debug/boundaryCrash';
 import { settleForcedRenderCrash } from '@/shared/debug/forcedRenderCrash';
-import { errorScreen, layout, typography, spacing, stroke } from '@/theme';
+import { colors, darkColors, layout, typography, spacing, stroke } from '@/theme';
 import { PressTarget } from './PressTarget';
 import { StatusLine } from './StatusLine';
 
@@ -72,7 +72,7 @@ function GlobalErrorFallback({ error, onRetry }: { error: Error | null; onRetry:
   const [stoppedHere, setStoppedHere] = useState(false);
   const [shareFailed, setShareFailed] = useState(false);
   const dark = Appearance.getColorScheme() !== 'light';
-  const palette = dark ? errorScreen.dark : errorScreen.light;
+  const palette = dark ? darkColors : colors;
   const insets = initialWindowMetrics?.insets;
   const live = status === 'recording' || status === 'paused';
 
@@ -110,8 +110,8 @@ function GlobalErrorFallback({ error, onRetry }: { error: Error | null; onRetry:
   const retryLabel = fallbackText('common.retry', 'Retry');
   const shareLabel = fallbackText('support.shareCrashLog', 'Share crash log');
 
-  const actionStyle = [styles.action, { borderColor: palette.action }];
-  const actionText = [styles.actionText, { color: palette.action }];
+  const actionStyle = [styles.action, { borderColor: palette.actionLink }];
+  const actionText = [styles.actionText, { color: palette.actionLink }];
 
   return (
     <StatusLine
@@ -120,21 +120,23 @@ function GlobalErrorFallback({ error, onRetry }: { error: Error | null; onRetry:
       style={[
         styles.container,
         {
-          backgroundColor: palette.bg,
+          backgroundColor: palette.surfacePage,
           paddingTop: (insets?.top ?? 0) + spacing.xl,
           paddingBottom: (insets?.bottom ?? 0) + spacing.xxl,
         },
       ]}
     >
-      <Text accessibilityRole="header" style={[styles.title, { color: palette.title }]}>
+      <Text accessibilityRole="header" style={[styles.title, { color: palette.textPrimary }]}>
         {title}
       </Text>
-      <Text style={[styles.body, { color: palette.detail }]}>{body}</Text>
+      <Text style={[styles.body, { color: palette.textSecondary }]}>{body}</Text>
       {rideLine ? (
-        <Text style={[styles.body, styles.rideLine, { color: palette.title }]}>{rideLine}</Text>
+        <Text style={[styles.body, styles.rideLine, { color: palette.textPrimary }]}>
+          {rideLine}
+        </Text>
       ) : null}
       {__DEV__ && error?.message ? (
-        <Text style={[styles.devError, { color: palette.message }]}>{error.message}</Text>
+        <Text style={[styles.devError, { color: palette.errorText }]}>{error.message}</Text>
       ) : null}
       <View style={styles.actions}>
         {live ? (
@@ -184,7 +186,7 @@ function GlobalErrorFallback({ error, onRetry }: { error: Error | null; onRetry:
         ) : null}
       </View>
       {shareFailed ? (
-        <Text style={[styles.body, styles.rideLine, { color: palette.message }]}>
+        <Text style={[styles.body, styles.rideLine, { color: palette.errorText }]}>
           {fallbackText('errorState.shareFailed', "Couldn't share the crash log.")}
         </Text>
       ) : null}

@@ -15,7 +15,6 @@ import {
 } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import type { Period } from '@/shared/app/period';
-import { useActivityLabels } from '@/features/activity';
 import {
   BEST_EFFORTS_SPORT,
   BEST_EFFORTS_PERIODS,
@@ -39,12 +38,11 @@ import {
   ClimbingBestRows,
   ClimbingStatusNote,
   formatEffortValue,
-  SPORT_COLORS,
-  SPORT_TEXT_COLORS,
-  SPORT_TEXT_COLORS_DARK,
+  PRIMARY_SPORT_FAMILY,
   type PrimarySport,
 } from '@/features/fitness';
-import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, layout, spacing, themePalette, typography } from '@/theme';
+import { sportMarkColour } from '@/shared/activity/sportCategories';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
@@ -70,19 +68,9 @@ interface SportSectionProps {
 function SportSection({ sport, efforts, curve, isLoading, isDark }: SportSectionProps) {
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
-  // The rows name at most fourteen activities, so they are read by id. The
-  // curves are what decide which, and they are only known here.
-  const effortIds = useMemo(
-    () => efforts.map((e) => e.activityId).filter((id): id is string => !!id),
-    [efforts]
-  );
-  const {
-    labels: activityMap,
-    error: labelsError,
-    refetch: refetchLabels,
-  } = useActivityLabels(effortIds);
-  const sportColor = SPORT_COLORS[sport];
-  const sportText = isDark ? SPORT_TEXT_COLORS_DARK[sport] : SPORT_TEXT_COLORS[sport];
+  // The values are text, so they take the primary ink; the family shows in the header glyph.
+  const sportColor = sportMarkColour(PRIMARY_SPORT_FAMILY[sport], isDark);
+  const valueInk = themePalette(isDark).textPrimary;
   const hasAnyValue = efforts.some((e) => e.value !== null);
   const notFetched = curve !== undefined && !curve.fetched;
 
@@ -111,15 +99,6 @@ function SportSection({ sport, efforts, curve, isLoading, isDark }: SportSection
           </Text>
         </View>
 
-        {labelsError != null && (
-          <ErrorState
-            variant="inline"
-            error={labelsError}
-            onRetry={refetchLabels}
-            testID={`best-efforts-labels-failed-${sport}`}
-          />
-        )}
-
         {isLoading || (notFetched && curve.status === 'waiting') ? (
           <BestEffortRowsSkeleton rows={BEST_EFFORT_ROW_COUNT[sport]} />
         ) : notFetched ? (
@@ -135,7 +114,6 @@ function SportSection({ sport, efforts, curve, isLoading, isDark }: SportSection
           <EmptyState variant="inline" title={t('statsScreen.noEffortData')} />
         ) : (
           efforts.map((effort, index) => {
-            const activityInfo = effort.activityId ? activityMap.get(effort.activityId) : undefined;
             const timeStr = formatDurationOrNull(effort.time);
             const shownTime = timeStr && sport !== 'Cycling' ? timeStr : null;
             const valueText = formatEffortValue(effort.value, sport, t('units.watts'), isMetric);
@@ -148,15 +126,15 @@ function SportSection({ sport, efforts, curve, isLoading, isDark }: SportSection
                 label={effort.label}
                 value={valueText}
                 secondary={shownTime}
-                valueColor={sportText}
+                valueColor={valueInk}
                 isLast={isLast}
                 activity={
-                  activityInfo && effort.activityId
-                    ? { id: effort.activityId, ...activityInfo }
+                  effort.activity && effort.activityId
+                    ? { id: effort.activityId, ...effort.activity }
                     : undefined
                 }
               >
-                {effort.value !== null && labelsError == null ? (
+                {effort.value !== null ? (
                   <Text style={[styles.activityMissing, isDark && styles.activityMissingDark]}>
                     {t('activitySummary.notDownloaded')}
                   </Text>
@@ -190,7 +168,7 @@ function ClimbingSection({ sport, bests, status, isLoading, isDark }: ClimbingSe
           <Icon
             name={sportIcon(sport)}
             size={iconSize.md}
-            color={SPORT_COLORS[sport]}
+            color={sportMarkColour(PRIMARY_SPORT_FAMILY[sport], isDark)}
             style={styles.cardHeaderIcon}
           />
           <Text
@@ -207,7 +185,7 @@ function ClimbingSection({ sport, bests, status, isLoading, isDark }: ClimbingSe
           <EmptyState variant="inline" title={t('statsScreen.noEffortData')} />
         ) : (
           <>
-            {hasAnyValue ? <ClimbingBestRows bests={bests} sport={sport} /> : null}
+            {hasAnyValue ? <ClimbingBestRows bests={bests} /> : null}
             <ClimbingStatusNote status={status} />
           </>
         )}

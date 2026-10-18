@@ -1,36 +1,67 @@
 /**
  * Histogram plot of the engine's attempt-time bins for one direction.
  * Fastest attempts are at the left. Bars, ticks and marks are placed from the
- * engine's bins alone; nothing is binned here. The record's line is dashed and
- * this activity's is solid, so the two read apart without their colours.
+ * engine's bins alone; nothing is binned here. The count axis starts at zero,
+ * each bar is capped and centred in its bin, the record's line is dashed and
+ * this activity's is solid, so the two read apart without their colours, and
+ * each line is keyed on its own row only while it is drawn.
  */
 
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { Canvas, DashPathEffect, Line, Rect, vec } from '@shopify/react-native-skia';
+import { GestureDetector } from 'react-native-gesture-handler';
+import { DashPathEffect, Line, vec } from '@shopify/react-native-skia';
 
 import { useMetricSystem } from '@/shared/app';
-import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
+import { DenseText } from '@/shared/ui/DenseText';
 import { formatDuration } from '@/shared/format/format';
-import { layoutHistogram } from '@/features/routes/lib/histogramLayout';
+import {
+  binsContain,
+  integerCountTicks,
+  layoutHistogram,
+} from '@/features/routes/lib/histogramLayout';
+import { attemptBasis } from '@/features/routes/lib/attemptBasis';
 import { formatSectionSpeed } from '@/features/routes/lib/sectionSpeedFormat';
-import { useMeasuredWidth } from '@/shared/charts';
-import { chartStyles, colors, darkColors, spacing, typography } from '@/theme';
+import {
+  ChartBar,
+  ChartCanvas,
+  ChartCrosshair,
+  ChartMarkKey,
+  ChartSurface,
+  REFERENCE_DASH,
+  YAxisLabels,
+  Y_LABEL_BOX,
+  chartStroke,
+  partsSummary,
+  partsTable,
+  useChartColors,
+  useChartGestures,
+  type ChartMarkKeyKind,
+} from '@/shared/charts';
+import { chartStyles, spacing } from '@/theme';
 import type { FfiAttemptHistogram } from 'veloqrs';
 import type { ActivityType } from '@/types';
 
 const CHART_HEIGHT = 120;
-const CHART_PADDING = { left: 12, right: 8, top: 12, bottom: 12 } as const;
-const MARK_WIDTH = 2;
-const RECORD_DASH_ON = 4;
-const RECORD_DASH_OFF = 3;
-const RECORD_DASH = [RECORD_DASH_ON, RECORD_DASH_OFF];
-const KEY_DASH_COUNT = 3;
-/** The key's swatch is a short run of the mark's own dash pattern. */
-const KEY_STROKE_LENGTH = KEY_DASH_COUNT * RECORD_DASH_ON + (KEY_DASH_COUNT - 1) * RECORD_DASH_OFF;
-const GRID_THICKNESS = 1;
+const X_STRIP = Y_LABEL_BOX;
+/** Half a label line above the top tick and below the zero, so each label centres on its row. */
+const PLOT_PADDING = {
+  left: chartStroke.series,
+  right: chartStroke.series,
+  top: Y_LABEL_BOX / 2,
+  bottom: Y_LABEL_BOX / 2 + X_STRIP,
+} as const;
+const X_DOMAIN: [number, number] = [0, 1];
+const NO_SERIES = {} as Record<never, (bin: HistogramBin) => number>;
+const NO_DATA: never[] = [];
+const xOfNothing = () => 0;
+
+interface HistogramBin {
+  index: number;
+  count: number;
+  range: string;
+}
 
 export interface AttemptHistogramChartProps {
   histogram: FfiAttemptHistogram;
@@ -57,186 +88,244 @@ export function AttemptHistogramChart({
 }: AttemptHistogramChartProps) {
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
-  const { width: chartWidth, onLayout } = useMeasuredWidth();
-  const palette = isDark ? darkColors : colors;
+  const chartColors = useChartColors();
 
-  const plot = useMemo(
-    () =>
-      layoutHistogram(histogram, {
-        width: chartWidth,
-        height: CHART_HEIGHT,
-        padding: CHART_PADDING,
-      }),
-    [histogram, chartWidth]
-  );
-
-  const edgeLabels = useMemo(() => {
-    const edges = histogram.counts.length;
-    const at = [0, Math.floor(edges / 2), edges];
-    return at.map((edge) => {
+  const edgeLabel = useCallback(
+    (edge: number) => {
       const speed = histogram.edgeSpeeds?.[edge];
       if (!useTimeAxis && speed !== undefined) {
         return formatSectionSpeed(speed, activityType, isMetric);
       }
       return formatDuration(histogram.startSecs + edge * histogram.binWidthSecs);
-    });
-  }, [histogram, useTimeAxis, activityType, isMetric]);
+    },
+    [histogram, useTimeAxis, activityType, isMetric]
+  );
 
-  const highlightX =
-    highlightedTime != null && Number.isFinite(highlightedTime)
-      ? plot.xForTime(highlightedTime)
-      : null;
-  const recordX =
-    recordTime != null && Number.isFinite(recordTime) ? plot.xForTime(recordTime) : null;
-  const plotTop = CHART_PADDING.top;
-  const plotHeight = CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom;
+  const edgeLabels = useMemo(() => {
+    const edges = histogram.counts.length;
+    return [0, Math.floor(edges / 2), edges].map(edgeLabel);
+  }, [histogram.counts.length, edgeLabel]);
+
+  const bins = useMemo<HistogramBin[]>(
+    () =>
+      histogram.counts.map((count, index) => ({
+        index,
+        count,
+        range: `${edgeLabel(index)}–${edgeLabel(index + 1)}`,
+      })),
+    [histogram.counts, edgeLabel]
+  );
+
+  const ticks = useMemo(
+    () =>
+      integerCountTicks(Math.max(0, ...histogram.counts)).map((count, i) => ({
+        value: count,
+        label: String(count),
+        testID: `attempt-histogram-y-axis-${i}`,
+      })),
+    [histogram.counts]
+  );
+  const yDomain = useMemo<[number, number]>(
+    () => [0, Math.max(1, ...histogram.counts)],
+    [histogram.counts]
+  );
+  const gridValues = useMemo(() => ticks.map((tick) => tick.value), [ticks]);
+
+  const describeBin = useCallback(
+    (bin: HistogramBin) =>
+      `${bin.range}, ${t('sections.correlationAttempts', { count: bin.count })}`,
+    [t]
+  );
+
+  const spoken = useMemo(() => {
+    const title = t('sections.viewSpread');
+    const basis = attemptBasis(activityType, !!useTimeAxis);
+    const binHeader =
+      basis === 'time'
+        ? t('charts.column.time')
+        : basis === 'speed'
+          ? t('chartTypes.speed')
+          : t('chartTypes.pace');
+    return {
+      summary: partsSummary(
+        title,
+        bins.map((bin) => ({
+          label: bin.range,
+          value: t('sections.correlationAttempts', { count: bin.count }),
+        })),
+        t
+      ),
+      table: partsTable(
+        title,
+        binHeader,
+        t('charts.column.attempts'),
+        bins.map((bin) => ({ label: bin.range, value: String(bin.count) }))
+      ),
+    };
+  }, [bins, activityType, useTimeAxis, t]);
+
+  const { gesture, crosshairStyle, syncBounds, syncXCoords, accessibilityProps, scrubIndex } =
+    useChartGestures<HistogramBin>({
+      data: bins,
+      accessibilityLabel: t('sections.viewSpread'),
+      describePoint: describeBin,
+    });
+
+  // Whether a line is drawn does not depend on the box, so its key row is
+  // decided before the canvas has measured.
+  const record = recordTime != null && binsContain(histogram, recordTime) ? recordTime : null;
+  const highlight =
+    highlightedTime != null && binsContain(histogram, highlightedTime) ? highlightedTime : null;
+
+  const scrubbed = scrubIndex >= 0 ? bins[scrubIndex] : undefined;
+  const labelStyle = [chartStyles.chartLabel, isDark && chartStyles.chartLabelDark];
 
   return (
-    <View testID="attempt-histogram" style={[styles.container]}>
-      <View style={[styles.plot, chartStyles.plotDirection]} onLayout={onLayout}>
-        {chartWidth > 0 && (
-          <>
-            <Canvas style={StyleSheet.absoluteFill}>
-              {plot.countTicks.map((tick) => (
-                <Rect
-                  key={`grid-${tick.count}`}
-                  x={CHART_PADDING.left}
-                  y={tick.y}
-                  width={chartWidth - CHART_PADDING.left - CHART_PADDING.right}
-                  height={GRID_THICKNESS}
-                  color={palette.border}
-                />
-              ))}
-              {plot.bars.map((bar, i) => (
-                <Rect
-                  key={`bar-${i}`}
-                  x={bar.x + 1}
-                  y={bar.y}
-                  width={Math.max(0, bar.width - 2)}
-                  height={bar.height}
-                  color={palette.actionPrimary}
-                  opacity={0.7}
-                />
-              ))}
-              {recordX !== null && (
-                <Line
-                  p1={vec(recordX, plotTop)}
-                  p2={vec(recordX, plotTop + plotHeight)}
-                  strokeWidth={MARK_WIDTH}
-                  color={palette.achievement}
-                >
-                  <DashPathEffect intervals={RECORD_DASH} />
-                </Line>
-              )}
-              {highlightX !== null && (
-                <Line
-                  p1={vec(highlightX, plotTop)}
-                  p2={vec(highlightX, plotTop + plotHeight)}
-                  strokeWidth={MARK_WIDTH}
-                  color={palette.chartGreenMark}
-                />
-              )}
-            </Canvas>
-            <View
-              style={styles.yAxisOverlay}
-              pointerEvents="none"
-              testID="attempt-histogram-y-axis"
-            >
-              {plot.countTicks.map((tick) => (
-                <Text
-                  key={tick.count}
-                  maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                  style={[
-                    chartStyles.chartLabel,
-                    isDark && chartStyles.chartLabelDark,
-                    styles.yLabel,
-                    { top: tick.y - typography.caption.lineHeight },
-                  ]}
-                >
-                  {tick.count}
-                </Text>
-              ))}
-            </View>
-          </>
-        )}
-      </View>
-      <View style={[styles.edgeAxis, chartStyles.plotDirection]} testID="attempt-histogram-x-axis">
-        {edgeLabels.map((label, i) => (
-          <Text
-            key={i}
-            maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-            style={[chartStyles.chartLabel, isDark && chartStyles.chartLabelDark]}
-          >
-            {label}
-          </Text>
-        ))}
-      </View>
-      <View style={styles.key}>
-        {highlightedTime != null && (
-          <KeyEntry
-            testID="attempt-histogram-highlight-key"
-            color={palette.chartGreenMark}
-            label={t('sections.legendThisActivity')}
-            isDark={isDark}
-          />
-        )}
-        <KeyEntry
-          testID="attempt-histogram-record-key"
-          color={palette.achievement}
-          dashed
-          label={recordHeld ? t('sections.legendPr') : t('sections.best')}
-          isDark={isDark}
-        />
-      </View>
-      <Text
-        testID="attempt-histogram-caption"
-        maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-        style={[styles.caption, isDark && styles.textDark]}
+    <View testID="attempt-histogram" style={styles.container}>
+      <DenseText
+        testID="attempt-histogram-readout"
+        style={[chartStyles.chartLabelStrong, isDark && chartStyles.chartLabelStrongDark]}
       >
+        {scrubbed ? describeBin(scrubbed) : ' '}
+      </DenseText>
+      <ChartSurface
+        testID="attempt-histogram-plot"
+        summary={spoken.summary}
+        table={spoken.table}
+        style={styles.plot}
+      >
+        <View style={styles.row}>
+          <YAxisLabels
+            ticks={ticks}
+            domain={yDomain}
+            padding={PLOT_PADDING}
+            testID="attempt-histogram-y-axis"
+          />
+          <GestureDetector gesture={gesture}>
+            <View
+              style={chartStyles.chartWrapper}
+              testID="attempt-histogram-scrub"
+              {...accessibilityProps}
+            >
+              <ChartCanvas
+                data={NO_DATA}
+                x={xOfNothing}
+                series={NO_SERIES}
+                xDomain={X_DOMAIN}
+                yDomain={yDomain}
+                padding={PLOT_PADDING}
+                gridValues={gridValues}
+              >
+                {({ bounds, width, height }) => {
+                  const plot = layoutHistogram(histogram, {
+                    width,
+                    height,
+                    padding: PLOT_PADDING,
+                  });
+                  syncBounds(bounds);
+                  syncXCoords(plot.bars, (bar) => bar.centre);
+                  const recordX = record !== null ? plot.xForTime(record) : null;
+                  const highlightX = highlight !== null ? plot.xForTime(highlight) : null;
+                  return (
+                    <>
+                      {plot.bars.map((bar, i) => (
+                        <ChartBar
+                          key={i}
+                          x={bar.centre}
+                          from={plot.baseline}
+                          to={bar.y}
+                          width={bar.width}
+                          color={chartColors.series}
+                        />
+                      ))}
+                      {recordX !== null ? (
+                        <Line
+                          p1={vec(recordX, bounds.top)}
+                          p2={vec(recordX, bounds.bottom)}
+                          strokeWidth={chartStroke.series}
+                          color={chartColors.recordLine}
+                        >
+                          <DashPathEffect intervals={REFERENCE_DASH} />
+                        </Line>
+                      ) : null}
+                      {highlightX !== null ? (
+                        <Line
+                          p1={vec(highlightX, bounds.top)}
+                          p2={vec(highlightX, bounds.bottom)}
+                          strokeWidth={chartStroke.series}
+                          color={chartColors.ink}
+                        />
+                      ) : null}
+                    </>
+                  );
+                }}
+              </ChartCanvas>
+              <ChartCrosshair style={crosshairStyle} />
+              <View style={styles.edgeAxis} pointerEvents="none" testID="attempt-histogram-x-axis">
+                {edgeLabels.map((label, i) => (
+                  <DenseText key={i} style={labelStyle}>
+                    {label}
+                  </DenseText>
+                ))}
+              </View>
+            </View>
+          </GestureDetector>
+        </View>
+      </ChartSurface>
+      {record !== null || highlight !== null ? (
+        <View style={styles.key} testID="attempt-histogram-key">
+          {highlight !== null ? (
+            <KeyRow
+              testID="attempt-histogram-highlight-key"
+              mark="line"
+              color={chartColors.ink}
+              label={t('sections.legendThisActivity')}
+              isDark={isDark}
+            />
+          ) : null}
+          {record !== null ? (
+            <KeyRow
+              testID="attempt-histogram-record-key"
+              mark="dashedLine"
+              color={chartColors.recordLine}
+              label={recordHeld ? t('sections.legendPr') : t('sections.best')}
+              isDark={isDark}
+            />
+          ) : null}
+        </View>
+      ) : null}
+      <DenseText testID="attempt-histogram-caption" style={[labelStyle, styles.caption]}>
         {t('sections.histogramBinned', { attempts: histogram.binned })}
-      </Text>
+      </DenseText>
       {histogram.unbinnedOutsideBand > 0 && (
-        <Text
-          testID="attempt-histogram-outside-band"
-          maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-          style={[styles.caption, isDark && styles.textDark]}
-        >
+        <DenseText testID="attempt-histogram-outside-band" style={[labelStyle, styles.caption]}>
           {t('sections.histogramOutsideBand', { attempts: histogram.unbinnedOutsideBand })}
-        </Text>
+        </DenseText>
       )}
     </View>
   );
 }
 
-function KeyEntry({
+/** One line's key: its mark drawn as the plot draws it, then its name. */
+function KeyRow({
+  mark,
   color,
   label,
   isDark,
-  dashed = false,
   testID,
 }: {
+  mark: ChartMarkKeyKind;
   color: string;
   label: string;
   isDark: boolean;
-  /** Draw the swatch as the dashed stroke its mark is drawn with. */
-  dashed?: boolean;
-  testID?: string;
+  testID: string;
 }) {
   return (
-    <View style={styles.keyEntry} testID={testID}>
-      {dashed ? (
-        <View testID="key-swatch-dashed" style={styles.keyStroke}>
-          {Array.from({ length: KEY_DASH_COUNT }, (_, i) => (
-            <View key={i} style={[styles.keyDash, { backgroundColor: color }]} />
-          ))}
-        </View>
-      ) : (
-        <View
-          testID="key-swatch-solid"
-          style={[styles.keyStroke, styles.keySolid, { backgroundColor: color }]}
-        />
-      )}
-      <Text style={[styles.keyText, isDark && styles.textDark]}>{label}</Text>
+    <View style={styles.keyRow} testID={testID}>
+      <ChartMarkKey mark={mark} color={color} testID={`${testID}-mark`} />
+      <DenseText style={[chartStyles.chartLabel, isDark && chartStyles.chartLabelDark]}>
+        {label}
+      </DenseText>
     </View>
   );
 }
@@ -247,54 +336,34 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xs,
   },
   plot: {
+    flex: 0,
     height: CHART_HEIGHT,
   },
-  yAxisOverlay: {
-    ...StyleSheet.absoluteFill,
-  },
-  yLabel: {
-    position: 'absolute',
-    left: CHART_PADDING.left + spacing.xxs,
+  row: {
+    flex: 1,
+    flexDirection: 'row',
   },
   edgeAxis: {
+    position: 'absolute',
+    left: PLOT_PADDING.left,
+    right: PLOT_PADDING.right,
+    bottom: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: CHART_PADDING.left,
   },
   key: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: spacing.md,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: spacing.xxs,
     marginTop: spacing.xs,
   },
-  keyEntry: {
+  keyRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xsPlus,
   },
-  keyStroke: {
-    width: KEY_STROKE_LENGTH,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  keySolid: {
-    height: MARK_WIDTH,
-  },
-  keyDash: {
-    width: RECORD_DASH_ON,
-    height: MARK_WIDTH,
-  },
-  keyText: {
-    fontSize: typography.label.fontSize,
-    color: colors.textSecondary,
-  },
   caption: {
     textAlign: 'center',
-    fontSize: typography.pillLabel.fontSize,
-    color: colors.textSecondary,
     marginTop: spacing.xxs,
-  },
-  textDark: {
-    color: darkColors.textSecondary,
   },
 });

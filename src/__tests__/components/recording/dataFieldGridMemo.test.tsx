@@ -24,8 +24,7 @@ jest.mock('@/shared/app', () => ({
 }));
 jest.mock('@/shared/ui', () => ({
   accessibleActions: jest.requireActual('@/shared/ui/accessibleActions').accessibleActions,
-  pressable: (styles: unknown) => styles,
-  pressRipple: {},
+  PressTarget: require('react-native').Pressable,
 }));
 
 const fields = ['speed', 'distance', 'heartrate', 'power'] as const;

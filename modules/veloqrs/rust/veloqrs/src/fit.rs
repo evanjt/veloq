@@ -460,6 +460,21 @@ pub fn swim_stroke_display_name(stroke: u8) -> String {
     }
 }
 
+/// A locale key for a FIT SwimStroke number, the name a screen translates.
+pub fn swim_stroke_key(stroke: u8) -> &'static str {
+    match stroke {
+        0 => "freestyle",
+        1 => "backstroke",
+        2 => "breaststroke",
+        3 => "butterfly",
+        4 => "drill",
+        5 => "mixed",
+        6 | 7 => "im",
+        8 => "reverseIm",
+        _ => "unknown",
+    }
+}
+
 // ============================================================================
 // Muscle Group Mapping
 // ============================================================================

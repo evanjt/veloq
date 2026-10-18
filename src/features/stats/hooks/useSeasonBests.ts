@@ -7,10 +7,11 @@ import {
   formatSwimPace,
   paceUnitLabel,
   swimPaceUnitLabel,
+  epochDayKeyUtc,
 } from '@/shared/format/format';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { bestEffortCheckpointLabel, type PrimarySport } from '@/features/fitness';
-import type { BestEffortsData } from 'veloqrs';
+import type { BestEffortsData, BestEffort as ReadBestEffort } from 'veloqrs';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 
@@ -22,12 +23,21 @@ export interface ClimbStatus {
   sourceExcluded: number;
 }
 
+/** The activity a best was set in, as a row names it. */
+export interface BestActivityLabel {
+  name: string;
+  /** The start's `YYYY-MM-DD` day. */
+  date: string;
+}
+
 export interface BestEffort {
   /** The checkpoint in the athlete's language. */
   label: string;
   value: number | null; // watts for power, m/s for pace
   time: number | null; // elapsed time in seconds (pace curves only)
   activityId: string | undefined;
+  /** Empty when the device does not hold the activity, which the row shows as not cached. */
+  activity: BestActivityLabel | undefined;
   checkpoint: number; // secs for power, meters for pace
 }
 
@@ -39,6 +49,7 @@ export interface ClimbBest {
   vam: number | null;
   wattsPerKg: number | null;
   activityId: string | undefined;
+  activity: BestActivityLabel | undefined;
 }
 
 export interface UseSeasonBestsResult {
@@ -61,6 +72,15 @@ export const BEST_EFFORTS_SPORT: Record<PrimarySport, BestEffortsSport> = {
   Swimming: 'Swim',
 };
 
+/**
+ * The name and day the read gives the activity holding a best. The start is the
+ * wall clock stamped as UTC, so its day is read in UTC: a local reading moves a
+ * late start onto the next or previous day.
+ */
+function bestActivityLabel(activity: ReadBestEffort['activity']): BestActivityLabel | undefined {
+  return activity && { name: activity.name, date: epochDayKeyUtc(activity.date) };
+}
+
 /** One sport's bests from the screen read, as the rows draw them. */
 export function bestEffortsOf(
   data: BestEffortsData | null | undefined,
@@ -75,6 +95,7 @@ export function bestEffortsOf(
     value: e.value ?? null,
     time: e.time ?? null,
     activityId: e.activityId,
+    activity: bestActivityLabel(e.activity),
     checkpoint: e.checkpoint,
   }));
 }
@@ -91,6 +112,7 @@ export function climbBestsOf(
     vam: b.vam ?? null,
     wattsPerKg: b.wattsPerKg ?? null,
     activityId: b.activityId,
+    activity: bestActivityLabel(b.activity),
   }));
 }
 

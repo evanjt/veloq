@@ -14,6 +14,7 @@ import { render, screen } from '@testing-library/react-native';
 import { PerformanceCurveSection } from '@/features/fitness/components/sections/PerformanceCurveSection';
 import { PowerZonesChart } from '@/features/activity/components/PowerZonesChart';
 import { PowerCurveChart } from '@/features/stats/components/PowerCurveChart';
+import { layoutViews } from '../../__shared__/layoutViews';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysWithValues());
@@ -73,10 +74,11 @@ describe('the FTP setting is labelled as the setting', () => {
     expect(screen.queryByText(/statsScreen\.ftpLabel|units\.watts/)).toBeNull();
   });
 
-  it("in the power curve's reference line", () => {
-    render(<PowerCurveChart ftp={280} />);
+  it("in the power curve's reference line", async () => {
+    const tree = await render(<PowerCurveChart ftp={280} />);
+    await layoutViews(tree, 300, 200);
 
-    expect(screen.getByTestId('power-curve-ftp-legend')).toHaveTextContent(
+    expect(screen.getByTestId('power-curve-ftp-label')).toHaveTextContent(
       'statsScreen.ftpLabel:{"value":"280 W"}'
     );
   });

@@ -25,8 +25,8 @@ jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides())
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 
 const engine = {
-  getActivityBody: jest.fn(() => JSON.stringify({ id: 'a1', name: 'Morning ride' })),
-  getIntervalBody: jest.fn(() => JSON.stringify({ icu_intervals: [], icu_groups: [] })),
+  getActivityRecord: jest.fn(() => ({ id: 'a1', name: 'Morning ride', isDetail: true })),
+  getActivityIntervals: jest.fn(() => ({ intervals: [] })),
   getActivityStreams: jest.fn(() => streamBuffers({ time: [0, 1, 2] })),
   syncActivityDetail: jest.fn(),
   syncActivityIntervals: jest.fn(),
@@ -68,34 +68,34 @@ async function openDetail() {
 describe('activity detail retention', () => {
   it('keeps the body an open detail is showing', async () => {
     const view = await openDetail();
-    const readsAtOpen = engine.getActivityBody.mock.calls.length;
+    const readsAtOpen = engine.getActivityRecord.mock.calls.length;
 
     jest.advanceTimersByTime(PAST_THE_WINDOW_MS);
 
     expect(view.result.current.data).toMatchObject({ id: 'a1' });
-    expect(engine.getActivityBody).toHaveBeenCalledTimes(readsAtOpen);
+    expect(engine.getActivityRecord).toHaveBeenCalledTimes(readsAtOpen);
   });
 
   it('lets a closed detail go and reads the engine again on reopen', async () => {
     const view = await openDetail();
-    const readsAtOpen = engine.getActivityBody.mock.calls.length;
+    const readsAtOpen = engine.getActivityRecord.mock.calls.length;
     await view.unmount();
 
     jest.advanceTimersByTime(PAST_THE_WINDOW_MS);
     await openDetail();
 
-    expect(engine.getActivityBody.mock.calls.length).toBeGreaterThan(readsAtOpen);
+    expect(engine.getActivityRecord.mock.calls.length).toBeGreaterThan(readsAtOpen);
   });
 
   it('still has the body for a step to a neighbour and back', async () => {
     const view = await openDetail();
-    const readsAtOpen = engine.getActivityBody.mock.calls.length;
+    const readsAtOpen = engine.getActivityRecord.mock.calls.length;
     await view.unmount();
 
     jest.advanceTimersByTime(WITHIN_THE_WINDOW_MS);
     await openDetail();
 
-    expect(engine.getActivityBody).toHaveBeenCalledTimes(readsAtOpen);
+    expect(engine.getActivityRecord).toHaveBeenCalledTimes(readsAtOpen);
   });
 
   const detailQueries: [string, () => { data: unknown }, readonly unknown[]][] = [

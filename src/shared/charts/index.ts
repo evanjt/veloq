@@ -37,15 +37,20 @@ export { CurveLine, CurveArea } from './CurvePaths';
 export {
   ChartBar,
   ChartDot,
+  ChartMarkKey,
+  EdgeTriangleMark,
+  HollowDot,
   RecordRing,
   RecordStaircase,
   ReticleMark,
   ScrubDot,
+  SelectionRing,
   TriangleKey,
   TriangleMark,
   chartLinePaint,
   drawChartDot,
 } from './ChartMarks';
+export type { ChartMarkKeyKind } from './ChartMarks';
 export {
   BAR_GAP,
   BAR_MAX_WIDTH,
@@ -55,6 +60,9 @@ export {
   LINE_JOIN,
   REFERENCE_DASH,
   TRIANGLE_SIZE,
+  MARK_KEY_SIZE,
+  RETICLE_REACH,
+  SPARKLINE_RETICLE,
   barRadiusFor,
   barWidthFor,
   chartStroke,
@@ -67,7 +75,7 @@ export {
 export { areaFillsFromZero, areaWashOpacity } from './areaFill';
 
 export { CurveChart } from './CurveChart';
-export type { CurveChartProps, PlacedLabel } from './CurveChart';
+export type { CurveChartProps, FurtherSeries, PlacedLabel } from './CurveChart';
 
 export { YAxisLabels, Y_LABEL_BOX } from './YAxisLabels';
 export type { YAxisLabelsProps } from './YAxisLabels';
@@ -116,3 +124,8 @@ export type {
 
 export { ChartShowDataButton, ChartSurface } from './ChartSurface';
 export type { ChartSurfaceProps } from './ChartSurface';
+
+export { Sparkline, SPARKLINE_RANGE_WIDTH } from './Sparkline';
+export type { SparklinePoint, SparklineProps } from './Sparkline';
+export { sparklinePlacement, sparklineSvg } from './sparklinePlacement';
+export type { SparklineBox, SparklinePlacement } from './sparklinePlacement';

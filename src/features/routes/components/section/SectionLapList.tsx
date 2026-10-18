@@ -7,12 +7,12 @@
  */
 
 import React, { useState } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { formatDuration, formatPower, formatFullDate } from '@/shared/format/format';
 import { Button, Card, composeAccessibilityLabel } from '@/shared/ui';
+import { PressTarget } from '@/shared/ui/PressTarget';
 import { Icon } from '@/shared/ui/Icon';
 import { navigateTo } from '@/shared/app/navigation';
 import { colors, darkColors, iconSize, layout, opacity, spacing, typography } from '@/theme';
@@ -103,9 +103,9 @@ export function SectionLapList({
               best !== null ? t('sections.bestLapValue', { time: formatDuration(best) }) : null;
             const lapCount = `×${r.laps.length}`;
             return (
-              <Pressable
+              <PressTarget
                 key={r.activityId}
-                style={pressable(styles.summaryRow)}
+                style={styles.summaryRow}
                 testID={`section-lap-summary-${r.activityId}`}
                 accessibilityRole="button"
                 accessibilityLabel={composeAccessibilityLabel(
@@ -116,7 +116,6 @@ export function SectionLapList({
                   t('a11y.laps', { n: r.laps.length })
                 )}
                 onPress={() => navigateTo(`/activity/${r.activityId}`)}
-                android_ripple={pressRipple}
               >
                 <View style={styles.summaryName}>
                   <NameText style={[styles.activityName, isDark && styles.textDark]}>
@@ -144,7 +143,7 @@ export function SectionLapList({
                 <FitText style={[styles.lapCount, isDark && styles.textSecondaryDark]}>
                   {lapCount}
                 </FitText>
-              </Pressable>
+              </PressTarget>
             );
           })
         : lapped.map((r) => (

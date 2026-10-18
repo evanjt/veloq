@@ -1,9 +1,8 @@
 import React, { useCallback } from 'react';
-import { Pressable } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { navigateTo } from '@/shared/app/navigation';
-import { pressable, pressRipple } from '@/shared/ui';
+import { PressTarget } from '@/shared/ui';
 import type { Insight, TFunc } from '../../types';
 import { dataLinkLabel } from '../../lib/dataLink';
 import { insightGraphicColour } from '../../lib/insightCategory';
@@ -35,19 +34,17 @@ export const SectionChangedContent = React.memo(function SectionChangedContent({
   if (!line || !drawable || drawable.length < 2) return null;
 
   return (
-    <Pressable
+    <PressTarget
       testID="section-changed-link"
       accessibilityRole="link"
       accessibilityLabel={dataLinkLabel(insight, target, t as unknown as TFunc)}
       onPress={onPress}
-      android_ripple={pressRipple}
-      style={pressable()}
     >
       <SheetTrackDrawing
         testID="section-changed-line"
         points={line.points}
         color={insightGraphicColour(insight.category, isDark)}
       />
-    </Pressable>
+    </PressTarget>
   );
 });

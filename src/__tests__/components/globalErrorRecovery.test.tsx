@@ -9,14 +9,14 @@
  */
 
 import React from 'react';
-import { Appearance } from 'react-native';
+import { Appearance, StyleSheet } from 'react-native';
 import { act, fireEvent, render } from '@testing-library/react-native';
 
 import { GlobalErrorBoundary } from '@/shared/ui/GlobalErrorBoundary';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { endRecordingSession } from '@/features/recording/lib/endRecordingSession';
 import { shareFile } from '@/features/settings/lib/shareFile';
-import { errorScreen } from '@/theme';
+import { colors, darkColors } from '@/theme';
 
 jest.mock('@/shared/debug/boundaryCrash', () => ({ recordBoundaryCrash: jest.fn() }));
 jest.mock('@/shared/debug/crashLog', () => ({
@@ -138,11 +138,51 @@ describe('the app crash screen in a release build', () => {
     }
   );
 
-  it('follows the light appearance', async () => {
-    jest.spyOn(Appearance, 'getColorScheme').mockReturnValue('light');
+  it.each([
+    ['light', colors],
+    ['dark', darkColors],
+  ] as const)('draws the %s appearance from the theme roles', async (scheme, roles) => {
+    jest.spyOn(Appearance, 'getColorScheme').mockReturnValue(scheme);
     const tree = await renderCrash();
 
     const container = tree.getByText('Something went wrong').parent?.parent;
-    expect(container).toHaveStyle({ backgroundColor: errorScreen.light.bg });
+    expect(container).toHaveStyle({ backgroundColor: roles.surfacePage });
+    expect(tree.getByText('Something went wrong')).toHaveStyle({ color: roles.textPrimary });
+    expect(tree.getByText('Your activities on this device are unaffected.')).toHaveStyle({
+      color: roles.textSecondary,
+    });
+
+    const action = StyleSheet.flatten(tree.getByText('Retry').props.style).color as string;
+    expect(action).toBe(roles.actionLink);
+    expect(isTeal(action)).toBe(false);
+    expect(contrast(action, roles.surfacePage)).toBeGreaterThanOrEqual(4.5);
   });
 });
+
+function luminance(hex: string): number {
+  const [r, g, b] = [1, 3, 5].map((i) => {
+    const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function contrast(a: string, b: string): number {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/** A hue between green and cyan, where the retired teal sat. */
+function isTeal(hex: string): boolean {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const max = Math.max(r, g, b);
+  const span = max - Math.min(r, g, b);
+  if (span === 0) return false;
+  const hue =
+    max === r
+      ? 60 * (((g - b) / span) % 6)
+      : max === g
+        ? 60 * ((b - r) / span + 2)
+        : 60 * ((r - g) / span + 4);
+  return hue >= 150 && hue <= 195;
+}

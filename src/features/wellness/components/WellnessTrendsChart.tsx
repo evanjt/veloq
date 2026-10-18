@@ -3,18 +3,21 @@ import { View, StyleSheet, LayoutChangeEvent } from 'react-native';
 import { Text } from 'react-native-paper';
 import { RangeCoverage } from 'veloqrs';
 import { useTranslation } from 'react-i18next';
-import { Canvas, Picture, Skia } from '@shopify/react-native-skia';
+import {
+  Canvas,
+  DashPathEffect,
+  Line as SkiaLine,
+  Picture,
+  Skia,
+  vec,
+} from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 
 import { useTheme } from '@/shared/app';
 import {
   colors,
   spacing,
-  layout,
   typography,
-  opacity,
-  colorWithOpacity,
-  ink,
   themedStyles,
   type Palette,
   stroke,
@@ -25,6 +28,7 @@ import {
   chartStroke,
   ChartSurface,
   drawChartDot,
+  REFERENCE_DASH,
   lanesSummary,
   seriesTable,
   useChartColors,
@@ -37,15 +41,17 @@ import { toDisplayWeight, weightUnitLabel } from '@/shared/format/weight';
 import { formatShortDate, formatShortDateWithWeekday } from '@/shared/format/format';
 import { ABSENT } from '@/shared/format/absent';
 import { DENSE_TEXT_SCALE, denseExtent } from '@/shared/ui/DenseText';
+import { FitText } from '@/shared/ui/FitText';
 import {
   smoothDataPoints,
   getEffectiveWindow,
+  getSmoothingDescription,
   type SmoothingWindow,
 } from '@/shared/math/smoothing';
 import type { WellnessData } from '@/types';
 
 import type { TimeRange } from '../hooks';
-import { wellnessRowDomain, wellnessRowReading } from '../lib';
+import { wellnessRowDomain, wellnessRowMarker, wellnessRowReading, wellnessRowStats } from '../lib';
 import { EmptyState } from '@/shared/ui/EmptyState';
 import { formatDecimal } from '@/shared/format';
 
@@ -81,39 +87,45 @@ const SPARKLINE_PADDING = { left: 4, right: 4, top: 8, bottom: 8 } as const;
 interface MetricConfig {
   key: string;
   data: MetricChartData[];
-  color: string;
   label: string;
   unit: string;
   formatValue: (v: number) => string;
 }
 
-/**
- * Build a smooth Skia path from data points using Catmull-Rom → cubic Bezier conversion.
- * Returns the path offset to a given yOffset within the combined canvas.
- */
-function buildSparklinePath(
-  data: MetricChartData[],
+interface RowScale {
+  sx: (x: number) => number;
+  sy: (y: number) => number;
+}
+
+/** A row's day index and value to canvas pixels, offset to the row's place in the combined canvas. */
+function rowScale(
   width: number,
   rowHeight: number,
   yOffset: number,
   totalDays: number,
   yMin: number,
   yMax: number
-): {
-  path: ReturnType<typeof Skia.Path.Make>;
-  sx: (x: number) => number;
-  sy: (y: number) => number;
-} | null {
-  if (data.length < 2 || width <= 0) return null;
-
+): RowScale {
   const pad = SPARKLINE_PADDING;
   const cw = width - pad.left - pad.right;
   const ch = rowHeight - pad.top - pad.bottom;
   const xRange = Math.max(totalDays - 1, 1);
   const yRange = yMax - yMin || 1;
+  return {
+    sx: (x: number) => pad.left + (x / xRange) * cw,
+    sy: (y: number) => yOffset + pad.top + ((yMax - y) / yRange) * ch,
+  };
+}
 
-  const sx = (x: number) => pad.left + (x / xRange) * cw;
-  const sy = (y: number) => yOffset + pad.top + ((yMax - y) / yRange) * ch;
+/**
+ * Build a smooth Skia path from data points using Catmull-Rom → cubic Bezier conversion.
+ * The curve passes through every point, so a dot at a point's value sits on it.
+ */
+function buildSparklinePath(
+  data: MetricChartData[],
+  { sx, sy }: RowScale
+): ReturnType<typeof Skia.Path.Make> | null {
+  if (data.length < 2) return null;
 
   // Build the "d" string for Skia.Path.MakeFromSVGString - the imperative
   // Skia.Path.Make().moveTo()/cubicTo() API is deprecated in react-native-skia 2.x.
@@ -138,10 +150,7 @@ function buildSparklinePath(
     }
   }
 
-  const path = Skia.Path.MakeFromSVGString(d);
-  if (!path) return null;
-
-  return { path, sx, sy };
+  return Skia.Path.MakeFromSVGString(d);
 }
 
 export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
@@ -158,8 +167,11 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
   const styles = themedStyles(makeStyles, isDark);
   const chartColors = useChartColors();
   const isMetric = useMetricSystem();
-  const [containerWidth, setContainerWidth] = useState(0);
+  // The sparkline column as the first row lays it out, which places the one canvas over every row.
+  const [sparklineColumn, setSparklineColumn] = useState({ left: 0, width: 0 });
   const [rowHeight, setRowHeight] = useState(MIN_ROW_HEIGHT);
+  // The hint names the gesture until the reader has found it.
+  const [explored, setExplored] = useState(false);
 
   // Calculate effective smoothing window
   const effectiveWindow = useMemo(
@@ -256,7 +268,6 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
       metrics.push({
         key: 'hrv',
         data: hrvData,
-        color: chartColors.hrv,
         label: t('metrics.hrv'),
         unit: t('units.ms'),
         formatValue: (v) => formatDecimal(v, 0),
@@ -265,7 +276,6 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
       metrics.push({
         key: 'rhr',
         data: rhrData,
-        color: chartColors.rhr,
         label: t('wellness.restingHR'),
         unit: t('units.bpm'),
         formatValue: (v) => formatDecimal(v, 0),
@@ -274,7 +284,6 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
       metrics.push({
         key: 'sleep',
         data: sleepData,
-        color: chartColors.sleep,
         label: t('wellness.sleep'),
         unit: '',
         formatValue: (v) => t('wellness.sleepDuration', splitSleepDuration(v)),
@@ -283,7 +292,6 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
       metrics.push({
         key: 'sleepScore',
         data: sleepScoreData,
-        color: chartColors.sleepScore,
         label: t('wellness.sleepScore'),
         unit: '',
         formatValue: (v) => formatDecimal(v, 0),
@@ -292,13 +300,12 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
       metrics.push({
         key: 'weight',
         data: weightData,
-        color: chartColors.weight,
         label: t('wellness.weight'),
         unit: weightUnitLabel(isMetric),
         formatValue: (v) => formatDecimal(v, 1),
       });
     return metrics;
-  }, [hrvData, rhrData, sleepData, sleepScoreData, weightData, chartColors, t, isMetric]);
+  }, [hrvData, rhrData, sleepData, sleepScoreData, weightData, t, isMetric]);
 
   const hasAnyData = activeMetrics.length > 0;
 
@@ -325,14 +332,8 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
     };
   }, [activeMetrics, sortedData, t]);
 
-  // The sparkline column is what the label and value columns leave, less its margins.
-  const sparklineWidth = Math.max(
-    0,
-    containerWidth - LABEL_COLUMN_WIDTH - VALUE_COLUMN_WIDTH - spacing.sm * 2
-  );
-
-  // Calculate x position to index (for gesture)
-  const leftPadding = SPARKLINE_LEFT;
+  const sparklineWidth = sparklineColumn.width;
+  const leftPadding = sparklineColumn.left;
   const chartWidth = sparklineWidth;
 
   const sparklineHeight = rowHeight;
@@ -357,7 +358,8 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
 
   const handleInteractionChange = useCallback(
     (active: boolean) => {
-      if (!active) onDateSelect?.(null);
+      if (active) setExplored(true);
+      else onDateSelect?.(null);
     },
     [onDateSelect]
   );
@@ -407,48 +409,40 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
     return activeMetrics.map((metric, i) => {
       const yOffset = i * sparklineHeight;
       const domain = wellnessRowDomain(metric.data);
+      const scale = rowScale(
+        sparklineWidth,
+        sparklineHeight,
+        yOffset,
+        totalDays,
+        domain.min,
+        domain.max
+      );
+      const stats = wellnessRowStats(metric.data);
       return {
         metric,
         yOffset,
-        path: buildSparklinePath(
-          metric.data,
-          sparklineWidth,
-          sparklineHeight,
-          yOffset,
-          totalDays,
-          domain.min,
-          domain.max
-        ),
+        scale,
+        path: buildSparklinePath(metric.data, scale),
+        averageY: stats ? scale.sy(stats.average) : null,
       };
     });
   }, [activeMetrics, sparklineWidth, sparklineHeight, totalDays]);
 
-  // The sparklines and the row separators. Nothing here depends on the
-  // selection, so a scrub tick re-records none of it.
+  // The sparklines, every row in the one series colour since the row label
+  // names it. Nothing here depends on the selection, so a scrub tick
+  // re-records none of it.
   const chartPicture = useMemo(() => {
     if (!metricGeometry) return null;
 
     const totalHeight = metricGeometry.length * sparklineHeight;
     const recorder = Skia.PictureRecorder();
     const canvas = recorder.beginRecording(Skia.XYWHRect(0, 0, sparklineWidth, totalHeight));
-
-    const separatorPaint = Skia.Paint();
-    separatorPaint.setStyle(1);
-    separatorPaint.setStrokeWidth(StyleSheet.hairlineWidth);
-    separatorPaint.setColor(
-      Skia.Color(isDark ? opacity.overlayDark.medium : opacity.overlay.light)
-    );
-
-    metricGeometry.forEach(({ metric, yOffset, path }, i) => {
-      if (path) canvas.drawPath(path.path, chartLinePaint(metric.color));
-      if (i < metricGeometry.length - 1) {
-        const separatorY = yOffset + sparklineHeight;
-        canvas.drawLine(0, separatorY, sparklineWidth, separatorY, separatorPaint);
-      }
-    });
-
+    const linePaint = chartLinePaint(chartColors.series);
+    for (const { path } of metricGeometry) {
+      if (path) canvas.drawPath(path, linePaint);
+    }
     return recorder.finishRecordingAsPicture();
-  }, [metricGeometry, sparklineWidth, sparklineHeight, isDark]);
+  }, [metricGeometry, sparklineWidth, sparklineHeight, chartColors.series]);
 
   // The selection line and dots, the only thing a scrub tick redraws.
   const selectionPicture = useMemo(() => {
@@ -460,49 +454,51 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
 
     const linePaint = Skia.Paint();
     linePaint.setStyle(1);
-    linePaint.setStrokeWidth(chartStroke.reference);
-    linePaint.setColor(
-      Skia.Color(
-        isDark
-          ? colorWithOpacity(ink.white, opacity.tint4)
-          : colorWithOpacity(ink.black, opacity.tint3)
-      )
-    );
+    linePaint.setStrokeWidth(chartStroke.crosshair);
+    linePaint.setColor(Skia.Color(chartColors.crosshair));
 
-    for (const { metric, yOffset, path } of metricGeometry) {
-      if (!path) continue;
-      const reading = wellnessRowReading(metric.data, selectedIdx);
-      if (!reading) continue;
+    for (const { metric, yOffset, scale } of metricGeometry) {
+      const marker = wellnessRowMarker(metric.data, selectedIdx);
+      if (!marker) continue;
       canvas.drawLine(
-        path.sx(selectedIdx),
+        scale.sx(selectedIdx),
         yOffset + SPARKLINE_PADDING.top,
-        path.sx(selectedIdx),
+        scale.sx(selectedIdx),
         yOffset + sparklineHeight - SPARKLINE_PADDING.bottom,
         linePaint
       );
       drawChartDot(
         canvas,
-        { x: path.sx(reading.x), y: path.sy(reading.value) },
-        metric.color,
+        { x: scale.sx(marker.x), y: scale.sy(marker.value) },
+        chartColors.series,
         chartColors.surface
       );
     }
 
     return recorder.finishRecordingAsPicture();
-  }, [metricGeometry, sparklineWidth, sparklineHeight, selectedIdx, isDark, chartColors]);
+  }, [metricGeometry, sparklineWidth, sparklineHeight, selectedIdx, chartColors]);
 
-  // Compute display values for each metric row
+  const smoothingDescription = getSmoothingDescription(smoothingWindow, timeRange, t as never);
+
+  // What each row prints: its own range and period average, the day's reading,
+  // and while scrubbing under smoothing the line's value the dot sits on.
   const metricDisplayValues = useMemo(() => {
     return activeMetrics.map((metric) => {
-      const avgValue =
-        metric.data.length > 0
-          ? metric.data.reduce((sum, d) => sum + d.rawValue, 0) / metric.data.length
-          : null;
+      const stats = wellnessRowStats(metric.data);
       const isSelected = selectedIdx !== null;
       const displayValue = wellnessRowReading(metric.data, selectedIdx);
-      return { displayValue, avgValue, isSelected };
+      const marker = effectiveWindow > 0 ? wellnessRowMarker(metric.data, selectedIdx) : null;
+      const withUnit = (v: number) =>
+        metric.unit ? `${metric.formatValue(v)} ${metric.unit}` : metric.formatValue(v);
+      return {
+        displayValue,
+        avgValue: stats?.average ?? null,
+        range: stats ? `${metric.formatValue(stats.low)}-${withUnit(stats.high)}` : null,
+        smoothedText: marker ? `${smoothingDescription} ${metric.formatValue(marker.value)}` : null,
+        isSelected,
+      };
     });
-  }, [activeMetrics, selectedIdx]);
+  }, [activeMetrics, selectedIdx, effectiveWindow, smoothingDescription]);
 
   // At rest the header names the newest reading across the rows, and a row whose
   // own reading is older carries its date, so no stale value reads as today's.
@@ -515,8 +511,11 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
     [activeMetrics]
   );
 
-  const onLayout = useCallback((e: LayoutChangeEvent) => {
-    setContainerWidth(e.nativeEvent.layout.width);
+  const onSparklineLayout = useCallback((e: LayoutChangeEvent) => {
+    const { x, width } = e.nativeEvent.layout;
+    setSparklineColumn((current) =>
+      current.left === x && current.width === width ? current : { left: x, width }
+    );
   }, []);
 
   // Every row takes the tallest row's height, so the one canvas behind them keeps a sparkline
@@ -553,7 +552,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
   const canvasHeight = activeMetrics.length * sparklineHeight;
 
   return (
-    <View style={styles.container} onLayout={onLayout}>
+    <View style={styles.container}>
       {/* Date header - the scrubbed day, or at rest the newest reading */}
       <View style={styles.dateHeader}>
         <Text
@@ -566,8 +565,12 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
               ? formatShortDateWithWeekday(newestReadingDate)
               : t('time.today')}
         </Text>
-        {selectedIdx !== null && (
-          <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.dateHint}>
+        {!explored && (
+          <Text
+            maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+            style={styles.dateHint}
+            testID="wellness-explore-hint"
+          >
             {t('wellness.dragToExplore')}
           </Text>
         )}
@@ -589,31 +592,41 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
                 style={[
                   styles.metricRow,
                   { minHeight: rowHeight },
-                  isDark && styles.metricRowDark,
                   i === activeMetrics.length - 1 && styles.metricRowLast,
                 ]}
               >
-                {/* Left: label */}
+                {/* Left: the label, which names the row's line, and the row's own range */}
                 <View style={styles.metricInfo}>
-                  <View style={[styles.metricDot, { backgroundColor: metric.color }]} />
                   <Text
                     maxFontSizeMultiplier={DENSE_TEXT_SCALE}
                     style={[
                       chartStyles.chartLabelStrong,
-                      styles.metricLabel,
                       isDark && chartStyles.chartLabelStrongDark,
                     ]}
                   >
                     {metric.label}
                   </Text>
+                  {metricDisplayValues[i]?.range ? (
+                    <FitText
+                      maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                      testID={`wellness-range-${metric.key}`}
+                      style={[chartStyles.chartLabel, isDark && chartStyles.chartLabelDark]}
+                    >
+                      {metricDisplayValues[i].range}
+                    </FitText>
+                  ) : null}
                 </View>
 
-                {/* Center: spacer for sparkline area (canvas is overlaid absolutely) */}
-                <View style={styles.sparklineContainer} />
+                {/* Center: the sparkline column, measured by the first row; the canvas overlays it */}
+                <View
+                  style={styles.sparklineContainer}
+                  testID={`wellness-sparkline-column-${metric.key}`}
+                  onLayout={i === 0 ? onSparklineLayout : undefined}
+                />
 
                 {/* Right: values */}
                 <View style={styles.metricValues}>
-                  <Text
+                  <FitText
                     maxFontSizeMultiplier={DENSE_TEXT_SCALE}
                     testID={`wellness-value-${metric.key}`}
                     style={[styles.metricValue, isDark && styles.textLight]}
@@ -621,22 +634,37 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
                     {metricDisplayValues[i]?.displayValue
                       ? metric.formatValue(metricDisplayValues[i].displayValue.value)
                       : ABSENT}
-                  </Text>
-                  <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.metricUnit}>
-                    {metric.unit}
-                  </Text>
-                  {!metricDisplayValues[i]?.isSelected &&
-                    metricDisplayValues[i]?.avgValue != null && (
-                      <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.metricAvg}>
-                        {t('sections.avg')} {metric.formatValue(metricDisplayValues[i].avgValue)}
-                      </Text>
-                    )}
+                  </FitText>
+                  {metric.unit ? (
+                    <FitText maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.metricUnit}>
+                      {metric.unit}
+                    </FitText>
+                  ) : null}
+                  {metricDisplayValues[i]?.isSelected ? (
+                    metricDisplayValues[i].smoothedText ? (
+                      <FitText
+                        maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                        testID={`wellness-smoothed-${metric.key}`}
+                        style={styles.metricAvg}
+                      >
+                        {metricDisplayValues[i].smoothedText}
+                      </FitText>
+                    ) : null
+                  ) : metricDisplayValues[i]?.avgValue != null ? (
+                    <FitText
+                      maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                      testID={`wellness-average-${metric.key}`}
+                      style={styles.metricAvg}
+                    >
+                      {t('sections.avg')} {metric.formatValue(metricDisplayValues[i].avgValue)}
+                    </FitText>
+                  ) : null}
                   {!metricDisplayValues[i]?.isSelected &&
                   metricDisplayValues[i]?.displayValue &&
                   metricDisplayValues[i].displayValue.date !== newestReadingDate ? (
-                    <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.metricAvg}>
+                    <FitText maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.metricAvg}>
                       {formatShortDate(metricDisplayValues[i].displayValue.date)}
-                    </Text>
+                    </FitText>
                   ) : null}
                 </View>
               </View>
@@ -648,13 +676,27 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
                 style={{
                   position: 'absolute',
                   top: 0,
-                  left: SPARKLINE_LEFT,
+                  left: sparklineColumn.left,
                   width: sparklineWidth,
                   height: canvasHeight,
                 }}
                 pointerEvents="none"
               >
                 <Canvas style={{ width: sparklineWidth, height: canvasHeight }}>
+                  {/* Each row's period average, a dashed reference rule under its line */}
+                  {metricGeometry?.map(({ metric, averageY }) =>
+                    averageY === null ? null : (
+                      <SkiaLine
+                        key={metric.key}
+                        p1={vec(SPARKLINE_PADDING.left, averageY)}
+                        p2={vec(sparklineWidth - SPARKLINE_PADDING.right, averageY)}
+                        color={chartColors.reference}
+                        strokeWidth={chartStroke.reference}
+                      >
+                        <DashPathEffect intervals={REFERENCE_DASH} />
+                      </SkiaLine>
+                    )
+                  )}
                   <Picture picture={chartPicture} />
                   {selectionPicture ? <Picture picture={selectionPicture} /> : null}
                 </Canvas>
@@ -664,9 +706,13 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
         </GestureDetector>
       </ChartSurface>
 
-      {/* Period label */}
-      <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.periodLabel}>
-        {t('wellness.lastDays', { count: data.length })}
+      {/* The period drawn and the smoothing the lines carry, named once under the rows */}
+      <Text
+        maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+        style={styles.periodLabel}
+        testID="wellness-period-label"
+      >
+        {`${t('wellness.lastDays', { count: data.length })} · ${smoothingDescription}`}
       </Text>
     </View>
   );
@@ -678,8 +724,6 @@ const MIN_ROW_HEIGHT = 50;
 const LABEL_COLUMN_WIDTH = denseExtent(typography.caption.fontSize, 5.4);
 /** The value column fits a five-figure reading such as "103.4" at the cap. */
 const VALUE_COLUMN_WIDTH = denseExtent(typography.pillValue.fontSize, 3);
-/** Where the sparkline canvas starts: past the label column and the sparkline's own margin. */
-const SPARKLINE_LEFT = LABEL_COLUMN_WIDTH + spacing.sm;
 
 const makeStyles = (palette: Palette) =>
   StyleSheet.create({
@@ -715,29 +759,15 @@ const makeStyles = (palette: Palette) =>
     metricRow: {
       flexDirection: 'row',
       alignItems: 'center',
+      paddingVertical: spacing.xs,
       borderBottomWidth: stroke.hairline,
-      borderBottomColor: opacity.overlay.light,
-    },
-    metricRowDark: {
-      borderBottomColor: opacity.overlayDark.medium,
+      borderBottomColor: palette.border,
     },
     metricRowLast: {
       borderBottomWidth: 0,
     },
     metricInfo: {
-      flexDirection: 'row',
-      alignItems: 'center',
       width: LABEL_COLUMN_WIDTH,
-    },
-    metricDot: {
-      width: spacing.sm,
-      height: spacing.sm,
-      borderRadius: layout.borderRadiusXs,
-      marginRight: spacing.xs,
-    },
-    // The lane title names its line, keyed by the dot beside it.
-    metricLabel: {
-      flexShrink: 1,
     },
     sparklineContainer: {
       flex: 1,

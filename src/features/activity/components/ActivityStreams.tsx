@@ -353,8 +353,6 @@ export const ActivityStreams = React.memo(function ActivityStreams({
 
               <ChartCrosshair
                 style={crosshairStyle}
-                color={chartColors.crosshair}
-                width={chartStroke.reference}
                 topOffset={0}
                 bottomOffset={LANE_AXIS_HEIGHT}
               />
@@ -543,7 +541,7 @@ function LaneMarks({ lane, frame, isDark, average, bands, scrubbed, colours }: L
           <SkiaLine
             p1={vec(bounds.left, yFor(0))}
             p2={vec(bounds.right, yFor(0))}
-            color={colours.baseline}
+            color={colours.axis}
             strokeWidth={chartStroke.axis}
           />
         </>

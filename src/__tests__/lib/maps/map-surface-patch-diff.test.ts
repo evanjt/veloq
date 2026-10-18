@@ -389,7 +389,6 @@ describe('the first send of a large source', () => {
       const layers = buildActivityLayers({
         palette: mapPalette('light'),
         overlayHasData: false,
-        activityColor: '#00ff00',
         gradientActive,
         gradientLineExpression: [
           'interpolate',

@@ -1,10 +1,10 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
-import { Button, pressable, pressRipple, Stepper } from '@/shared/ui';
+import { Button, Stepper, PressTarget } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { useActivities } from '@/features/activity';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
@@ -58,9 +58,8 @@ function Section({
 
   return (
     <View style={[styles.section, isDark && styles.sectionDark]}>
-      <Pressable
-        style={pressable(styles.sectionHeader)}
-        android_ripple={pressRipple}
+      <PressTarget
+        style={styles.sectionHeader}
         onPress={() => setOpen(!open)}
         accessibilityRole="button"
         accessibilityLabel={title}
@@ -71,7 +70,7 @@ function Section({
           <Text style={[styles.sectionTitle, { color: textColor }]}>{title}</Text>
         </View>
         <Icon name={open ? 'chevron-up' : 'chevron-down'} size={iconSize.md} color={mutedColor} />
-      </Pressable>
+      </PressTarget>
       {open ? <View style={styles.sectionContent}>{children}</View> : null}
     </View>
   );

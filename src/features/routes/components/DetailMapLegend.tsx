@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next';
 
 import { MapKey, MapKeySwatch } from '@/features/maps';
 import { formatFullDate } from '@/shared/format/format';
-import { colors, mapLayerColors } from '@/theme';
+import { mapLayerColors, type MapPalette } from '@/theme';
 
 /** The attempt drawn over the subject's line, which the activity row names. */
 export interface PickedAttempt {
@@ -32,6 +32,8 @@ export interface DetailMapLegendLayers {
 
 export interface DetailMapLegendProps extends DetailMapLegendLayers {
   isDark: boolean;
+  /** The colours of the base map the key sits over, which its swatches repeat. */
+  palette: MapPalette;
   /** The attempt the activity row names; absent names it as the selected attempt. */
   pickedAttempt?: PickedAttempt | undefined;
   /** Where the map's top-left corner is free, below the inset and the hero header. */
@@ -62,6 +64,7 @@ function pickedAttemptLabel(t: TFunction, pickedAttempt: PickedAttempt | undefin
 
 export function DetailMapLegend({
   isDark,
+  palette,
   top,
   testID,
   pickedAttempt,
@@ -83,14 +86,14 @@ export function DetailMapLegend({
       ) : null}
       {showActivity ? (
         <MapKeySwatch
-          swatch={colors.chartCyan}
+          swatch={palette.ink}
           label={pickedAttemptLabel(t, pickedAttempt)}
           isDark={isDark}
         />
       ) : null}
       {showEarlierVersion ? (
         <MapKeySwatch
-          swatch={colors.iconSecondary}
+          swatch={palette.muted}
           label={t('sections.legendEarlierVersion')}
           isDark={isDark}
         />

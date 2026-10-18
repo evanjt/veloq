@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Pressable, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import type { ViewStyle } from 'react-native';
 
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
@@ -31,7 +31,7 @@ import {
 } from '@/theme';
 import type { ActivityType, DataFieldType } from '@/types';
 import { isSwimmingActivity } from '@/shared/activity/activityUtils';
-import { accessibleActions, pressable, pressRipple } from '@/shared/ui';
+import { accessibleActions, PressTarget } from '@/shared/ui';
 import { FitText } from '@/shared/ui/FitText';
 import { useTextScaleColumns } from '@/shared/ui/useLargeText';
 import type { SensorKind } from '@/features/sensors';
@@ -197,7 +197,7 @@ const DataFieldTile = React.memo(function DataFieldTile({
 
   // Only an empty sensor tile does anything on a tap, so only it is a button.
   return (
-    <Pressable
+    <PressTarget
       testID={`data-field-${field}`}
       onPress={emptyKind ? handleEmptyTap : undefined}
       onLongPress={onLongPressField ? handleLongPress : undefined}
@@ -205,7 +205,7 @@ const DataFieldTile = React.memo(function DataFieldTile({
       accessibilityRole={emptyKind ? 'button' : undefined}
       accessibilityLabel={`${label}, ${absentLabel(value, t) ?? value}`}
       {...actions}
-      style={pressable([
+      style={[
         styles.cell,
         {
           width,
@@ -216,8 +216,7 @@ const DataFieldTile = React.memo(function DataFieldTile({
               : colors.surface,
           borderColor: isDark ? darkColors.border : colors.border,
         },
-      ])}
-      android_ripple={pressRipple}
+      ]}
     >
       <FitText
         maxFontSizeMultiplier={DENSE_TEXT_SCALE}
@@ -243,7 +242,7 @@ const DataFieldTile = React.memo(function DataFieldTile({
           </FitText>
         ) : null}
       </View>
-    </Pressable>
+    </PressTarget>
   );
 });
 

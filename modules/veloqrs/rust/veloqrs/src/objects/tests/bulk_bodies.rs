@@ -156,8 +156,7 @@ fn mock_single_activity_requests(server: &MockServer) -> httpmock::Mock<'_> {
 fn sweep_with(transport: &Transport) -> Result<(), NetError> {
     crate::runtime::block_on(sync_interval_bodies(
         crate::persistence::engine_install(),
-        transport,
-        ATHLETE,
+        &crate::net::IntervalsSession::new(transport.clone(), ATHLETE),
         &|| false,
         &|_, _| {},
     ))
@@ -508,8 +507,7 @@ fn progress_counts_activities_not_requests() {
     let reports = std::sync::Mutex::new(Vec::new());
     crate::runtime::block_on(sync_interval_bodies(
         crate::persistence::engine_install(),
-        &transport_to(&server),
-        ATHLETE,
+        &crate::net::IntervalsSession::new(transport_to(&server), ATHLETE),
         &|| false,
         &|done, total| reports.lock().unwrap().push((done, total)),
     ))
@@ -576,8 +574,7 @@ fn a_cancelled_sweep_asks_for_nothing() {
 
     crate::runtime::block_on(sync_interval_bodies(
         crate::persistence::engine_install(),
-        &transport_to(&server),
-        ATHLETE,
+        &crate::net::IntervalsSession::new(transport_to(&server), ATHLETE),
         &|| true,
         &|_, _| {},
     ))
@@ -603,8 +600,7 @@ fn the_newest_five_cost_one_bulk_request_and_their_stream_requests() {
 
     crate::runtime::block_on(ready_newest_activities(
         crate::persistence::engine_install(),
-        &transport_to(&server),
-        ATHLETE,
+        &crate::net::IntervalsSession::new(transport_to(&server), ATHLETE),
         &|| false,
     ))
     .expect("the step");
@@ -696,14 +692,14 @@ fn the_bulk_path_stores_what_the_single_requests_store() {
         for id in FIXTURE_IDS {
             let _ = crate::runtime::block_on(ready_detail_body(
                 install,
-                &transport,
+                &crate::net::IntervalsSession::new(transport.clone(), "i1"),
                 id,
                 id,
                 Lane::Backfill.into(),
             ));
             crate::runtime::block_on(fetch_one_interval_body(
                 install,
-                &transport,
+                &crate::net::IntervalsSession::new(transport.clone(), "i1"),
                 id,
                 id,
                 Lane::Backfill,

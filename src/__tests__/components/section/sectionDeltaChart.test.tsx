@@ -7,7 +7,7 @@
  */
 
 import React from 'react';
-import { fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import { Path } from '@shopify/react-native-skia';
 
 import { SectionDeltaChart } from '@/features/routes/components/section/SectionDeltaChart';
@@ -15,6 +15,7 @@ import { SectionDeltaSummaryChart } from '@/features/routes/components/section/S
 import { PerformanceChartPanel } from '@/features/routes/components/section/PerformanceChartPanel';
 import type { PerformanceDataPoint } from '@/types';
 import { light as lightHaptic } from '@/shared/ui/haptics';
+import { SelectButton } from '@/shared/ui';
 import { layoutViews } from '../../__shared__/layoutViews';
 import {
   capturePans,
@@ -26,6 +27,8 @@ import {
   touchAt,
 } from '../../__shared__/chartScrub';
 import { SCRUB_SLOP } from '@/shared/charts/scrubPanDecision';
+import { chartStroke } from '@/shared/charts';
+import { colourTokens } from '@/theme';
 import type {
   FfiDirectionDeltas,
   FfiLapDelta,
@@ -118,7 +121,10 @@ function capturePaths() {
   return drawn;
 }
 
-const full = (drawn: Record<string, unknown>[]) => drawn.filter((p) => p.opacity === undefined);
+const lines = (drawn: Record<string, unknown>[]) => drawn.filter((p) => p.style === 'stroke');
+const full = (drawn: Record<string, unknown>[]) =>
+  lines(drawn).filter((p) => p.strokeWidth === chartStroke.series);
+const fills = (drawn: Record<string, unknown>[]) => drawn.filter((p) => p.style === 'fill');
 
 describe('SectionDeltaChart', () => {
   afterEach(() => jest.restoreAllMocks());
@@ -129,12 +135,18 @@ describe('SectionDeltaChart', () => {
 
     const emphasised = full(drawn);
     expect(emphasised).toHaveLength(1);
-    // The newest attempt is ahead of the reference throughout, so it runs below the zero line.
+    // The newest attempt is ahead of the reference throughout, so it runs above the zero line.
     const ys = String(emphasised[0]!.path)
       .match(/ (-?[\d.]+)/g)!
       .map((y) => Number(y));
-    expect(Math.min(...ys)).toBeGreaterThan(0);
-    expect(drawn.length).toBe(LAPS.length);
+    // It starts level on the zero line and only ever rises from it.
+    expect(Math.max(...ys)).toBeCloseTo(ys[0]!);
+    expect(Math.min(...ys)).toBeLessThan(ys[0]!);
+    expect(lines(drawn).length).toBe(LAPS.length);
+    expect(emphasised[0]!.color).toBe(colourTokens.light['text-primary']);
+    for (const muted of lines(drawn).filter((p) => p !== emphasised[0])) {
+      expect(muted.color).toBe(colourTokens.light['chart-muted']);
+    }
   });
 
   it('draws the selected attempt in full instead of the newest', async () => {
@@ -186,20 +198,61 @@ describe('SectionDeltaChart', () => {
     expect(tree.queryByTestId('section-delta-missing')).toBeNull();
   });
 
-  it('names the record as the reference, with its date', async () => {
-    const record = await render(chart());
-    expect(record.getByTestId('section-delta-caption').props.children).toContain(
-      'sections.deltaVsRecord'
-    );
-    await record.unmount();
+  it('fills an attempt behind the reference in another colour than one ahead of it', async () => {
+    const drawn = capturePaths();
+    const ahead = await render(chart({ highlightedActivityId: 'newest' }));
+    await layoutViews(ahead, 400, 300);
+    const aheadFills = fills(drawn).map((p) => p.color);
+    await ahead.unmount();
+    drawn.length = 0;
 
-    const set = await render(
+    await layoutViews(await render(chart({ highlightedActivityId: 'older' })), 400, 300);
+    const behindFills = fills(drawn).map((p) => p.color);
+
+    expect(aheadFills).toEqual([colourTokens.light['data-div-cool-3']]);
+    expect(behindFills).toEqual([colourTokens.light['data-div-warm-3']]);
+  });
+
+  it('names the record on the flat line and in the legend, with its date', async () => {
+    const tree = await render(chart());
+    await layoutViews(tree, 400, 300);
+
+    expect(tree.getByTestId('section-delta-reference-name').props.children).toBe(
+      'sections.deltaReferenceRecord'
+    );
+    const legend = String(tree.getByTestId('section-delta-caption').props.children);
+    expect(legend).toContain('sections.deltaFlatLineDated');
+    expect(legend).toContain('sections.deltaReferenceRecordPhrase');
+  });
+
+  it('names the previous record when this attempt is the record', async () => {
+    const previous = lap('prev', -3, [0, 1, 2, 3, 4, 5, 6, 7, 8]);
+    const deltas = direction(LAPS, {
+      referenceActivityId: 'ref',
+      defaultReference: 2 as FfiDirectionDeltas['defaultReference'],
+      previousRecord: previous,
+    });
+    const tree = await render(chart({ deltas, highlightedActivityId: 'ref' }));
+    await layoutViews(tree, 400, 300);
+
+    expect(tree.getByTestId('section-delta-reference-name').props.children).toBe(
+      'sections.deltaReferencePreviousRecord'
+    );
+    expect(String(tree.getByTestId('section-delta-caption').props.children)).toContain(
+      'sections.deltaReferencePreviousRecordPhrase'
+    );
+  });
+
+  it('names a set reference when the reference is not the record', async () => {
+    const tree = await render(
       chart({
         deltas: direction(LAPS, { referenceSource: 1 as FfiDirectionDeltas['referenceSource'] }),
       })
     );
-    expect(set.getByTestId('section-delta-caption').props.children).toContain(
-      'sections.deltaVsReference'
+    await layoutViews(tree, 400, 300);
+
+    expect(tree.getByTestId('section-delta-reference-name').props.children).toBe(
+      'sections.deltaReferenceAthleteSet'
     );
   });
 });
@@ -317,15 +370,15 @@ describe('PerformanceChartPanel delta plot', () => {
     expect(Array.from(lastLine(onDeltaLineChange)!.splits)).toEqual(OLDER_SPLITS);
   });
 
-  it('with no attempt chosen and no typical attempt, offers no delta and hands the map nothing', async () => {
+  it('with no attempt chosen and no typical attempt, still offers delta and hands the map nothing until shown', async () => {
     const onDeltaLineChange = jest.fn();
     const tree = await render(panel(curvesWith(undefined), { onDeltaLineChange }));
 
-    expect(tree.queryByTestId('chart-plot-delta')).toBeNull();
+    expect(tree.getByTestId('chart-plot-delta')).toBeTruthy();
     expect(onDeltaLineChange.mock.calls.every(([line]) => line === null)).toBe(true);
   });
 
-  it('returns to the scatter when the attempt is cleared and no typical attempt exists', async () => {
+  it('keeps drawing the curves when the attempt is cleared and no typical attempt exists', async () => {
     const onDeltaLineChange = jest.fn();
     const tree = await render(
       panel(curvesWith(undefined), { onDeltaLineChange, highlightedActivityId: 'older' })
@@ -335,9 +388,28 @@ describe('PerformanceChartPanel delta plot', () => {
 
     await tree.rerender(panel(curvesWith(undefined), { onDeltaLineChange }));
 
-    expect(tree.queryByTestId('section-delta-chart')).toBeNull();
-    expect(tree.queryByTestId('chart-plot-delta')).toBeNull();
-    expect(lastLine(onDeltaLineChange)).toBeNull();
+    expect(tree.getByTestId('section-delta-chart')).toBeTruthy();
+    expect(tree.getByTestId('chart-plot-delta').props.accessibilityState.selected).toBe(true);
+  });
+
+  it('offers the references the engine gave and re-measures the attempt against the one chosen', async () => {
+    const onDeltaLineChange = jest.fn();
+    const previous = lap('prev', -3, LEVEL, { splitDeltaSecs: Float32Array.from([1, 1, 1, 1]) });
+    const curves = curvesWith(TYPICAL);
+    curves.forward = { ...curves.forward!, previousRecord: previous };
+    const tree = await render(panel(curves, { onDeltaLineChange, highlightedActivityId: 'older' }));
+    await fireEvent.press(tree.getByTestId('chart-plot-delta'));
+
+    const compare = tree.UNSAFE_getByType(SelectButton);
+    expect(compare.props.options.map((o: { value: string }) => o.value)).toEqual(['0', '2']);
+    await act(async () => {
+      compare.props.onChange('2');
+    });
+
+    expect(tree.getByTestId('section-delta-reference-name').props.children).toBe(
+      'sections.deltaReferencePreviousRecord'
+    );
+    expect(Array.from(lastLine(onDeltaLineChange)!.splits)).toEqual([0, 1, 2, 1]);
   });
 
   it('offers no delta option when curves is absent', async () => {

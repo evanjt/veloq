@@ -1,5 +1,5 @@
 /**
- * Scenario: the engine throws while the Training tab's weekly summary reads
+ * Scenario: the engine throws while the fitness tab's weekly summary reads
  * its totals.
  *
  * Expected behaviour: the card shows the engine failure line and a Retry in
@@ -12,6 +12,7 @@ import React from 'react';
 
 import { WeeklySummary } from '@/features/stats/components/WeeklySummary';
 import { getEngine } from '@/shared/native/engine';
+import { WithScreenRead } from '../__shared__/withScreenRead';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
@@ -21,7 +22,7 @@ jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
 const engine = {
-  getTrainingScreenData: jest.fn(() => {
+  getFitnessScreenData: jest.fn(() => {
     throw { tag: 'Database', inner: { msg: 'disk' } };
   }),
   rangeCoverage: jest.fn(() => 0),
@@ -41,16 +42,17 @@ beforeEach(() => {
 });
 
 it('shows the failure line and Retry, not the empty state, for a thrown read', async () => {
-  const view = await render(<WeeklySummary />, { wrapper });
+  const view = await render(
+    <WithScreenRead>{(training) => <WeeklySummary training={training} />}</WithScreenRead>,
+    { wrapper }
+  );
   await fireEvent.press(view.getByTestId('weekly-summary-range-month'));
 
   await waitFor(() => expect(view.getByTestId('weekly-summary-failed')).toBeTruthy());
   expect(view.getByText('engine.failure.database')).toBeTruthy();
   expect(view.queryByTestId('weekly-summary-empty')).toBeNull();
 
-  const calls = engine.getTrainingScreenData.mock.calls.length;
+  const calls = engine.getFitnessScreenData.mock.calls.length;
   await fireEvent.press(view.getByText('common.retry'));
-  await waitFor(() =>
-    expect(engine.getTrainingScreenData.mock.calls.length).toBeGreaterThan(calls)
-  );
+  await waitFor(() => expect(engine.getFitnessScreenData.mock.calls.length).toBeGreaterThan(calls));
 });

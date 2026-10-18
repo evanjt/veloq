@@ -10,25 +10,18 @@ import {
   colorWithOpacity,
   darkColors,
   duration,
-  iconSize,
   ink,
   layers,
   layout,
   mapPalette,
   opacity,
-  raised,
   spacing,
   typography,
 } from '@/theme';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import { MapSurface, type MapPressEvent, type MapSurfaceRef } from './MapSurface';
-import {
-  CompassArrow,
-  ComponentErrorBoundary,
-  ICON_BUTTON_GAP,
-  IconButton,
-  iconButtonSkin,
-} from '@/shared/ui';
+import { ComponentErrorBoundary } from '@/shared/ui';
+import { MAP_CONTROL_GAP, MAP_CONTROL_SIZE, MapControlButton } from './MapControlButton';
 import {
   featureCollection,
   lineFeature,
@@ -75,8 +68,10 @@ export type BaseMap3DLayer = Pick<
 export interface BaseMapViewProps {
   /** Route coordinates as [lng, lat] pairs for GeoJSON */
   routeCoordinates?: LngLat[] | undefined;
-  /** Route line color */
+  /** Route line colour, the base's route colour when left out. */
   routeColor?: string | undefined;
+  /** The route is context under a selection, drawn in the base's muted colour. */
+  routeContext?: boolean | undefined;
   /** Bounds to fit camera to */
   bounds?: { ne: LngLat; sw: LngLat } | undefined;
   /** Camera padding in pixels */
@@ -126,6 +121,7 @@ const NO_LAYERS: MapLayersForBase = () => [];
 export function BaseMapView({
   routeCoordinates,
   routeColor,
+  routeContext = false,
   bounds,
   padding = DEFAULT_FIT_PADDING,
   initialStyle,
@@ -294,11 +290,12 @@ export function BaseMapView({
       composeBaseMapLayers({
         palette,
         routeColor,
+        routeContext,
         underRouteLayers: underRouteLayers(palette),
         overlayLayers: overlayLayers(palette),
         userLocationLayers: buildUserLocationLayers(userLocation !== null, palette),
       }),
-    [palette, routeColor, underRouteLayers, overlayLayers, userLocation]
+    [palette, routeColor, routeContext, underRouteLayers, overlayLayers, userLocation]
   );
 
   // Satellite mode reads its attribution from the viewport, so the sources named
@@ -320,101 +317,64 @@ export function BaseMapView({
     <>
       {/* Close button */}
       {onClose ? (
-        <IconButton
+        <MapControlButton
           testID="map-fullscreen-close"
-          style={[
-            styles.button,
-            raised('mapOverlay', isDark),
-            styles.closeButton,
-            { top: insets.top + 12 },
-            isDark && styles.buttonDark,
-          ]}
+          style={[styles.button, styles.closeButton, { top: insets.top + 12 }]}
           onPress={onClose}
-          variant="secondary"
           accessibilityLabel={t('maps.closeMap')}
         >
-          <IconButton.Glyph name="close" size={iconSize.lg} />
-        </IconButton>
+          <MapControlButton.Glyph name="close" />
+        </MapControlButton>
       ) : null}
 
       {/* Style toggle */}
       {showStyleToggle ? (
-        <IconButton
+        <MapControlButton
           testID="map-style-toggle"
-          style={[
-            styles.button,
-            raised('mapOverlay', isDark),
-            styles.styleButton,
-            { top: insets.top + 12 },
-            isDark && styles.buttonDark,
-          ]}
+          style={[styles.button, styles.styleButton, { top: insets.top + 12 }]}
           onPress={toggleStyle}
-          variant="secondary"
           accessibilityLabel={t('maps.toggleStyle')}
         >
-          <IconButton.Glyph name={getStyleIcon(mapStyle)} size={iconSize.lg} />
-        </IconButton>
+          <MapControlButton.Glyph name={getStyleIcon(mapStyle)} />
+        </MapControlButton>
       ) : null}
 
       {/* Control stack - positioned at same level as style toggle, horizontal layout */}
       <View style={[styles.controlStack, { top: insets.top + 12 }]}>
         {show3DToggle && has3DRoute ? (
-          <IconButton
+          <MapControlButton
             testID="map-3d-toggle"
-            style={[
-              styles.controlButton,
-              raised('mapOverlay', isDark),
-              isDark && styles.controlButtonDark,
-            ]}
             onPress={toggle3D}
-            variant="secondary"
             selected={is3DMode}
             accessibilityLabel={is3DMode ? t('maps.disable3D') : t('maps.enable3D')}
           >
-            <IconButton.Glyph name="terrain" size={iconSize.lg} />
-          </IconButton>
+            <MapControlButton.Glyph name="terrain" />
+          </MapControlButton>
         ) : null}
 
         {showOrientationButton ? (
-          <IconButton
-            style={[
-              styles.controlButton,
-              raised('mapOverlay', isDark),
-              isDark && styles.controlButtonDark,
-            ]}
+          <MapControlButton
             onPress={resetOrientation}
-            variant="secondary"
             accessibilityLabel={t('maps.resetOrientation')}
           >
-            <CompassArrow
-              size={iconSize.lg}
-              rotation={bearingAnim}
-              northColor={colors.compassNorth}
-              southColor={iconButtonSkin({ variant: 'secondary', isDark }).glyph}
-            />
-          </IconButton>
+            <MapControlButton.Compass rotation={bearingAnim} />
+          </MapControlButton>
         ) : null}
 
         {showLocationButton ? (
-          <IconButton
-            style={[
-              styles.controlButton,
-              raised('mapOverlay', isDark),
-              isDark && styles.controlButtonDark,
-            ]}
+          <MapControlButton
             onPress={handleGetLocation}
             disabled={locationLoading}
-            variant="secondary"
             selected={userLocation !== null}
             accessibilityLabel={t('maps.goToLocation')}
-            accessibilityState={{ disabled: locationLoading, busy: locationLoading }}
+            accessibilityState={{ busy: locationLoading }}
           >
             {locationLoading ? (
-              <IconButton.Spinner />
+              <MapControlButton.Spinner />
             ) : (
-              <IconButton.Glyph name={LOCATE_GLYPH} size={iconSize.lg} />
+              <MapControlButton.Glyph name={LOCATE_GLYPH} />
             )}
-          </IconButton>
+          </MapControlButton>
         ) : null}
 
         {extraControls}
@@ -470,7 +430,7 @@ export function BaseMapView({
               ref={map3DRef}
               coordinates={routeCoords}
               mapStyle={mapStyle}
-              routeColor={routeColor}
+              routeColor={routeColor ?? (routeContext ? palette.muted : palette.route)}
               onMapReady={handleMap3DReady}
               onMapFailed={() => setIs3DMode(false)}
               onTerrainUnavailable={onTerrainUnavailable}
@@ -502,13 +462,7 @@ const styles = StyleSheet.create({
   },
   button: {
     position: 'absolute',
-    width: layout.minTapTarget,
-    height: layout.minTapTarget,
-    borderRadius: layout.borderRadiusFull,
     zIndex: layers.mapOverlay,
-  },
-  buttonDark: {
-    backgroundColor: darkColors.surfaceRaised,
   },
   closeButton: {
     left: spacing.md,
@@ -519,18 +473,10 @@ const styles = StyleSheet.create({
   controlStack: {
     position: 'absolute',
     // To the left of the style toggle, one control and the gap between two away.
-    right: spacing.md + layout.minTapTarget + ICON_BUTTON_GAP,
+    right: spacing.md + MAP_CONTROL_SIZE + MAP_CONTROL_GAP,
     flexDirection: 'row', // Horizontal layout to reduce vertical occlusion
-    gap: ICON_BUTTON_GAP,
+    gap: MAP_CONTROL_GAP,
     zIndex: layers.mapOverlay,
-  },
-  controlButton: {
-    width: layout.minTapTarget,
-    height: layout.minTapTarget,
-    borderRadius: layout.borderRadiusFull,
-  },
-  controlButtonDark: {
-    backgroundColor: darkColors.surfaceRaised,
   },
   attribution: {
     position: 'absolute',

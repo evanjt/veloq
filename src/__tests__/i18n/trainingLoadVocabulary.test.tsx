@@ -130,11 +130,14 @@ describe('the Today banner', () => {
 
   it('prints a planned workout load as training load, not TSS', async () => {
     mockWorkout.todayWorkout = {
-      id: 'planned-1',
+      id: 1,
       name: 'Lantern climb',
-      type: 'Ride',
-      moving_time: 3600,
-      icu_training_load: 72,
+      day: '2026-01-02',
+      sport: 'Ride',
+      movingTime: 3600,
+      trainingLoad: 72,
+      lines: [],
+      bar: [],
     };
     const { getByText, queryByText } = await render(<TodayBanner form={null} />);
 

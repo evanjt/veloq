@@ -7,7 +7,7 @@
  * scale the caller asked for, and on a row too narrow to hold both beside the
  * column at a legible size the column moves under them.
  */
-import { BODY_INTRINSIC_W, bodyPairLayout } from '@/features/strength/lib/bodyScale';
+import { BODY_INTRINSIC_W, bodyPairLayout, viewBoxStroke } from '@/features/strength/lib/bodyScale';
 
 function rowWidth(scale: number, gap: number): number {
   return 2 * BODY_INTRINSIC_W * scale + gap;
@@ -44,5 +44,19 @@ describe('bodyPairLayout', () => {
 
   it('draws nothing rather than a negative scale before the row has a width', () => {
     expect(bodyPairLayout(0, 120, 0.65).scale).toBe(0);
+  });
+});
+
+describe('viewBoxStroke', () => {
+  // The library's view box is 724 units across a figure 200 points wide at scale 1.
+  it('draws an outline the asked width on screen at any scale', () => {
+    for (const scale of [0.4, 0.6, 1.5]) {
+      const onScreen = (viewBoxStroke(2, scale) * BODY_INTRINSIC_W * scale) / 724;
+      expect(onScreen).toBeCloseTo(2);
+    }
+  });
+
+  it('falls back to the width itself before the figure has a size', () => {
+    expect(viewBoxStroke(2, 0)).toBe(2);
   });
 });

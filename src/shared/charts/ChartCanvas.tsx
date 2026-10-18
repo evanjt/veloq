@@ -134,7 +134,7 @@ export function ChartCanvas<T, K extends string>({
             <SkiaLine
               p1={vec(frame.bounds.left, frame.bounds.bottom)}
               p2={vec(frame.bounds.right, frame.bounds.bottom)}
-              color={chartColors.baseline}
+              color={chartColors.axis}
               strokeWidth={chartStroke.axis}
             />
           ) : null}

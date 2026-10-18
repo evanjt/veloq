@@ -4,6 +4,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { useTodayWorkout } from '@/features/home/hooks/useTodayWorkout';
 import { getEngine } from '@/shared/native/engine';
+import type { FfiPlannedEvent } from 'veloqrs';
+import { plannedEvent } from '../__shared__/plannedEvent';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
@@ -17,12 +19,12 @@ const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 it('re-reads the planned workout after the engine stores a calendar window', async () => {
   const listeners = new Map<string, (payload?: unknown) => void>();
   let oldest = 0;
-  let bodies: string[] = [];
+  let events: FfiPlannedEvent[] = [];
   const syncCalendarEvents = jest.fn();
   mockGetEngine.mockReturnValue({
-    getCalendarEventBodies: (start: number) => {
+    getPlannedEvents: (start: number) => {
       oldest = start;
-      return bodies;
+      return events;
     },
     syncCalendarEvents,
     getBodiesStored: () => 0,
@@ -44,14 +46,7 @@ it('re-reads the planned workout after the engine stores a calendar window', asy
     expect(result.current.todayWorkout).toBeNull();
 
     const today = new Date(oldest * 1000).toISOString().slice(0, 10);
-    bodies = [
-      JSON.stringify({
-        id: 'intervals',
-        name: 'Intervals',
-        category: 'WORKOUT',
-        start_date_local: `${today}T07:00:00`,
-      }),
-    ];
+    events = [plannedEvent({ id: 1, name: 'Intervals', day: today })];
     await act(() => listeners.get('bodyStored')?.({ kind: 'calendar' }));
 
     await waitFor(() => expect(result.current.todayWorkout?.name).toBe('Intervals'));

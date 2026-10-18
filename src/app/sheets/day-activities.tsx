@@ -9,7 +9,8 @@ import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { composeAccessibilityLabel, Row, SheetHeader } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { goBack } from '@/shared/app/navigation';
-import { getActivityIcon, getActivityInk } from '@/shared/activity/activityUtils';
+import { getActivityIcon } from '@/shared/activity/activityUtils';
+import { sportMarkColour } from '@/shared/activity/sportCategories';
 import {
   formatClockTime,
   formatDistance,
@@ -73,7 +74,7 @@ function DayActivitiesSheetContent() {
               <Icon
                 name={getActivityIcon(activity.type)}
                 size={iconSize.lg}
-                color={getActivityInk(activity.type, isDark)}
+                color={sportMarkColour(activity.type, isDark)}
               />
               <View style={styles.info}>
                 <NameText style={[styles.name, { color: textPrimary }]}>{activity.name}</NameText>

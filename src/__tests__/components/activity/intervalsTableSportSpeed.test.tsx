@@ -11,17 +11,17 @@ import { render, screen } from '@testing-library/react-native';
 import { IntervalsTable } from '@/features/activity/components/IntervalsTable';
 import { formatSportSpeed } from '@/shared/format/format';
 import type { ActivityInterval, ActivityType } from '@/types';
+import { IntervalKind } from 'veloqrs';
 
 function interval(distance: number, seconds: number): ActivityInterval {
   return {
     id: 1,
-    type: 'WORK',
-    start_index: 0,
-    end_index: 100,
+    kind: IntervalKind.Work,
+    startIndex: 0,
+    endIndex: 100,
     distance,
-    moving_time: seconds,
-    elapsed_time: seconds,
-    average_speed: distance / seconds,
+    movingTime: seconds,
+    averageSpeed: distance / seconds,
   } as ActivityInterval;
 }
 

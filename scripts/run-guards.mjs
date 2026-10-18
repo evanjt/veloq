@@ -389,6 +389,13 @@ const GUARDS = [
       'an intervals.icu request built outside the endpoint module, which a second data source could not be put behind',
   },
   {
+    name: 'lint:intervals-source',
+    kind: 'style',
+    cmd: node('lint-intervals-source.mjs'),
+    catches:
+      'an intervals.icu request that calls the endpoint module past the session, bypassing the source boundary a second data source is put behind',
+  },
+  {
     name: 'lint:point-shapes',
     kind: 'correctness',
     cmd: node('lint-point-shapes.mjs'),
@@ -909,7 +916,7 @@ const GUARDS = [
     kind: 'style',
     cmd: node('lint-press-feedback.mjs'),
     catches:
-      'a pressable with no pressed state, a rendered Touchable control, a press wrapper that skips the platform press answer, or an icon glyph that takes a press itself',
+      'a new press target that shows no focus ring, a pressable with no pressed state, a rendered Touchable control, a press wrapper that skips the platform press answer, or an icon glyph that takes a press itself',
   },
   {
     name: 'lint:dialog-owner',

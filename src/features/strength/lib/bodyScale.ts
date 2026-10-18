@@ -10,6 +10,18 @@
 export const BODY_INTRINSIC_W = 200;
 export const BODY_INTRINSIC_H = 400;
 
+/** The width of the body library's view box, the units a part's stroke is given in. */
+const BODY_VIEW_BOX_W = 724;
+
+/**
+ * A stroke width in view box units that draws `width` points wide on a figure at
+ * `scale`, so an outline stays the same weight however large the figure is drawn.
+ * The loupe draws the same parts larger, so it magnifies the outline with them.
+ */
+export function viewBoxStroke(width: number, scale: number): number {
+  return scale > 0 ? (width * BODY_VIEW_BOX_W) / (BODY_INTRINSIC_W * scale) : width;
+}
+
 /**
  * Below this, two figures beside the centre column are too small to tap a
  * muscle on, so the column moves under them and they take the whole row.

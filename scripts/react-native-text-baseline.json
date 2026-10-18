@@ -10,7 +10,6 @@
   "src/features/activity/components/SectionInlinePlot.tsx",
   "src/features/activity/components/ZoneTimeCard.tsx",
   "src/features/activity/components/stats/StatDetailSheet.tsx",
-  "src/features/home/components/SummaryCardHRVSparkline.tsx",
   "src/features/maps/components/BaseMapView.tsx",
   "src/features/maps/components/MapNameSearch.tsx",
   "src/features/maps/components/MapSurface.tsx",

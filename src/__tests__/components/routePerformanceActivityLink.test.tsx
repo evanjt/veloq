@@ -15,9 +15,12 @@ import { navigateTo } from '@/shared/app/navigation';
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
+jest.mock('@/shared/app/NetworkContext', () => ({ useIsOnline: () => true }));
+jest.mock('@/features/settings', () => ({
+  useMapPreferences: () => ({ getStyleForActivity: () => 'light' }),
+}));
 jest.mock('@/features/routes/components/section', () => ({
-  SectionScatterChart: () => null,
-  ScatterLegend: () => null,
+  PerformanceChartPanel: () => null,
 }));
 jest.mock('@/features/routes/hooks/useRoutePerformances', () => ({
   useRoutePerformances: () => ({

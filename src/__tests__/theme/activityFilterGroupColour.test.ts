@@ -9,8 +9,9 @@
  * the card.
  */
 
-import { ACTIVITY_CATEGORIES, FILTER_CHIP } from '@/features/maps/lib/activityCategories';
-import { colors } from '@/theme';
+import { FILTER_CHIP, sportMarkColour } from '@/features/maps/lib/activityCategories';
+import { SPORT_FAMILY_ORDER } from '@/shared/activity/sportCategories';
+import { colors, darkColors } from '@/theme';
 
 const BARS = { text: 4.5, mark: 3 } as const;
 
@@ -38,18 +39,27 @@ function contrastRatio(a: string, b: string): number {
 }
 
 describe('no sport family is painted from the verdict palette', () => {
-  const verdicts = new Set(VERDICT_TOKENS.map((token) => colors[token].toUpperCase()));
+  const verdicts = new Set(
+    [colors, darkColors].flatMap((palette) =>
+      VERDICT_TOKENS.map((token) => palette[token].toUpperCase())
+    )
+  );
 
-  it.each(Object.entries(ACTIVITY_CATEGORIES))('%s', (_name, config) => {
-    expect(verdicts.has(config.color.toUpperCase())).toBe(false);
+  it.each(
+    SPORT_FAMILY_ORDER.flatMap((family) => [[family, false] as const, [family, true] as const])
+  )('%s, dark %s', (family, isDark) => {
+    expect(verdicts.has(sportMarkColour(family, isDark).toUpperCase())).toBe(false);
   });
 });
 
 describe('the Other hue stands as its own mark', () => {
-  const other = ACTIVITY_CATEGORIES.Other.color;
+  const other = sportMarkColour('Other', false);
 
-  it('reads as a mark on the card', () => {
+  it('reads as a mark on the card in both themes', () => {
     expect(contrastRatio(other, colors.surface)).toBeGreaterThanOrEqual(BARS.mark);
+    expect(
+      contrastRatio(sportMarkColour('Other', true), darkColors.surface)
+    ).toBeGreaterThanOrEqual(BARS.mark);
   });
 
   it('is its own entry rather than a fallback', () => {

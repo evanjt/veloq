@@ -16,6 +16,8 @@ export interface DataTableProps {
   rows: DataTableRow[];
   /** Each row's test id is this prefix and the row's index. */
   rowTestIDPrefix?: string | undefined;
+  /** Each column's share of the row's width, one per column. Equal when omitted. */
+  columnWeights?: number[] | undefined;
 }
 
 /**
@@ -23,11 +25,12 @@ export interface DataTableProps {
  * A screen reader reads each row as one element, every cell after its column's header, so a row
  * makes sense heard alone.
  */
-export function DataTable({ columns, rows, rowTestIDPrefix }: DataTableProps) {
+export function DataTable({ columns, rows, rowTestIDPrefix, columnWeights }: DataTableProps) {
   const { isDark } = useTheme();
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const divider = isDark ? darkColors.border : colors.border;
+  const weight = (i: number) => (columnWeights ? { flex: columnWeights[i] ?? 1 } : null);
 
   return (
     <View>
@@ -35,7 +38,7 @@ export function DataTable({ columns, rows, rowTestIDPrefix }: DataTableProps) {
         {columns.map((column, i) => (
           <Text
             key={column}
-            style={[styles.header, i > 0 && styles.numeric, { color: textSecondary }]}
+            style={[styles.header, weight(i), i > 0 && styles.numeric, { color: textSecondary }]}
           >
             {column}
           </Text>
@@ -52,7 +55,10 @@ export function DataTable({ columns, rows, rowTestIDPrefix }: DataTableProps) {
           style={[styles.tableRow, { borderBottomColor: divider }]}
         >
           {row.cells.map((cell, i) => (
-            <Text key={i} style={[styles.cell, i > 0 && styles.numeric, { color: textPrimary }]}>
+            <Text
+              key={i}
+              style={[styles.cell, weight(i), i > 0 && styles.numeric, { color: textPrimary }]}
+            >
               {cell}
             </Text>
           ))}

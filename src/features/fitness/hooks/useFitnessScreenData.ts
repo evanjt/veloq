@@ -61,6 +61,7 @@ export function useFitnessScreenData({ timeRange, sportMode }: UseFitnessScreenD
     runningLthr,
     decouplingBySpan,
     loadDots,
+    training,
   } = useFitnessScreenRead();
 
   // Only the sport in view renders a threshold from these, so only that one is
@@ -115,6 +116,8 @@ export function useFitnessScreenData({ timeRange, sportMode }: UseFitnessScreenD
     // The value intervals.icu stored on the ride, which is what its activity
     // screen prints, so the card and that screen cannot disagree.
     decouplingSource: decouplingBySpan.get(days) ?? null,
+    // The calendar's, the weekly card's and the year comparison's part.
+    training,
     isLoading,
     isFetching,
     isError,

@@ -11,7 +11,8 @@ import { StyleSheet } from 'react-native';
 import { render, screen } from '@testing-library/react-native';
 
 import { ActivityHeader } from '@/features/activity/components/ActivityHeader';
-import type { ActivityDetail } from '@/types';
+
+import { activityRecord } from '../../__shared__/activityRecord';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
@@ -24,16 +25,15 @@ jest.mock('@/features/maps/components/ActivityMapView', () => ({
   ActivityMapView: () => null,
 }));
 
-const activity = {
+const activity = activityRecord({
   id: 'a1',
   name: 'Ride',
-  type: 'Ride',
-  start_date_local: '2026-08-12T07:30:00',
+  sportType: 'Ride',
+  startDateLocal: '2026-08-12T07:30:00',
   distance: 21097,
-  moving_time: 3609,
-  total_elevation_gain: 147,
-  polyline: null,
-} as unknown as ActivityDetail;
+  movingTime: 3609,
+  elevationGain: 147,
+});
 
 const renderHeader = (debugEnabled: boolean) =>
   render(

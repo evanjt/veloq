@@ -20,6 +20,7 @@ import { WeeklySummary } from '@/features/stats/components/WeeklySummary';
 import { StrengthTab } from '@/features/insights/components/StrengthTab';
 import BestEffortsScreen from '@/app/best-efforts';
 import type { FrequentSection } from '@/types';
+import { WithScreenRead } from '../__shared__/withScreenRead';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
@@ -27,9 +28,6 @@ jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 jest.mock('@/features/routes/components/SectionMapView', () => ({
   SectionMapView: () => null,
-}));
-jest.mock('@/features/activity', () => ({
-  useActivityLabels: () => ({ labels: new Map(), error: null, refetch: jest.fn() }),
 }));
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn(() => null) }));
 jest.mock('@/features/strength/hooks/useStrengthScreenData', () => ({
@@ -120,7 +118,11 @@ describe('season bests while the read is pending', () => {
 
 describe('the weekly summary while its totals load', () => {
   it('draws the four-cell stats grid as placeholders', async () => {
-    await render(withQueries(<WeeklySummary />));
+    await render(
+      withQueries(
+        <WithScreenRead>{(training) => <WeeklySummary training={training} />}</WithScreenRead>
+      )
+    );
 
     expect(screen.getByTestId('weekly-summary-skeleton')).toBeTruthy();
     expect(

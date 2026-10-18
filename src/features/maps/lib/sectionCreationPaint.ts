@@ -14,10 +14,10 @@ export const SECTION_CREATION_LINE_WIDTH = 6;
 export const SECTION_CREATION_MARKER_RADIUS = 11;
 export const SECTION_CREATION_MARKER_STROKE_WIDTH = 2;
 
-/** Line colour; the activity map draws it with no casing. */
+/** The range being picked is a selection, so it is ink; the activity map draws it with no casing. */
 export function sectionCreationLinePaint(palette: MapPalette) {
   return {
-    'line-color': palette.layer.added,
+    'line-color': palette.ink,
     'line-width': SECTION_CREATION_LINE_WIDTH,
   } as const;
 }
@@ -29,11 +29,11 @@ export function sectionCreationMarkerPaint(positionProperty: string, palette: Ma
     'circle-color': [
       'case',
       ['==', ['get', positionProperty], 'start'],
-      palette.layer.startSolid,
-      palette.layer.endSolid,
+      palette.start,
+      palette.ink,
     ],
     'circle-stroke-width': SECTION_CREATION_MARKER_STROKE_WIDTH,
-    'circle-stroke-color': palette.layer.casing,
+    'circle-stroke-color': palette.casing,
   } as const;
 }
 
@@ -78,7 +78,7 @@ export function sectionCreation3DLayers(visible: boolean, palette: MapPalette) {
         'icon-anchor': 'center',
         ...layout,
       },
-      paint: { 'icon-color': palette.layer.casing },
+      paint: { 'icon-color': palette.casing },
     },
   ];
 }

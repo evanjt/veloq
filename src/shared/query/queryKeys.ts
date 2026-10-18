@@ -33,8 +33,6 @@ export const queryKeys = {
       ) => ['activities-search', athleteId, needle, groups, range?.oldest, range?.newest] as const,
     },
     detail: (id: string) => ['activity', id] as const,
-    labels: ['activity-labels'] as const,
-    labelsFor: (ids: readonly string[]) => ['activity-labels', ids.join(',')] as const,
     streams: (id: string) => ['activity-streams-v3', id] as const,
     intervals: (id: string) => ['activity-intervals', id] as const,
     mapPreview: (activityId: string) => ['map-preview-streams', activityId] as const,
@@ -60,14 +58,6 @@ export const queryKeys = {
       ['wellness', range, oldest, newest] as const,
     byDate: (date: string | undefined) => ['wellness', 'date', date] as const,
     latestDate: ['wellness', 'latestDate'] as const,
-  },
-
-  stats: {
-    all: ['engine-stats'] as const,
-    training: {
-      all: ['engine-stats', 'training'] as const,
-      byDay: (day: string) => ['engine-stats', 'training', day] as const,
-    },
   },
 
   athleteSummary: {

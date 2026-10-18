@@ -1,14 +1,8 @@
 import React from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { DenseText } from '@/shared/ui/DenseText';
 import { useTheme } from '@/shared/app';
-import {
-  chipFrame,
-  composeAccessibilityLabel,
-  pressable,
-  pressRipple,
-  selectedChipPaint,
-} from '@/shared/ui';
+import { chipFrame, composeAccessibilityLabel, selectedChipPaint, PressTarget } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { useTranslation } from 'react-i18next';
 import {
@@ -102,14 +96,13 @@ export function ChartTypeSelector({
         const reservedMark = `${restMark} `;
 
         return (
-          <Pressable
+          <PressTarget
             key={config.id}
             testID={`chart-type-${config.id}`}
             accessibilityRole="button"
             accessibilityLabel={composeAccessibilityLabel(label, spokenValue)}
             accessibilityState={{ selected: isSelected }}
-            style={pressable([styles.chip, metric && styles.chipWithValue, frame])}
-            android_ripple={pressRipple}
+            style={[styles.chip, metric && styles.chipWithValue, frame]}
             hitSlop={metric ? CHIP_WITH_VALUE_SLOP : CHIP_SLOP}
             onPress={() => onToggle(config.id)}
           >
@@ -147,7 +140,7 @@ export function ChartTypeSelector({
                 </DenseText>
               </View>
             ) : null}
-          </Pressable>
+          </PressTarget>
         );
       })}
     </View>

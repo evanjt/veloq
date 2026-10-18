@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { Canvas, Path } from '@shopify/react-native-skia';
 import { chartStroke, LINE_CAP, LINE_JOIN } from '@/shared/charts';
 import { useTranslation } from 'react-i18next';
-import type { TFunc } from '../types';
+import type { InsightCategory, TFunc } from '../types';
 import { sectionRowKey, sectionWithSport } from '../lib/cardSport';
 import { rowTrendColor, rowTrendIcon, rowTrendWord } from '../lib/rowTrend';
 import { navigateTo } from '@/shared/app/navigation';
@@ -36,6 +36,8 @@ const SPARKLINE_HEIGHT = 60;
 
 interface SupportingDataSectionProps {
   data: InsightSupportingData;
+  /** The card's category, which names the colour its history is drawn in. */
+  category: InsightCategory;
 }
 
 /**
@@ -91,6 +93,7 @@ function buildSparklinePath(
 
 export const SupportingDataSection = React.memo(function SupportingDataSection({
   data,
+  category,
 }: SupportingDataSectionProps) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
@@ -113,7 +116,7 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
     <View style={styles.container}>
       <InsightHistoryChart
         history={data.history}
-        color={trendColor}
+        category={category}
         accessory={
           trendGlyph && trendGlyph !== 'minus' ? (
             <Icon

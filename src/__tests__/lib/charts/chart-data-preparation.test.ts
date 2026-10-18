@@ -13,6 +13,7 @@ import { type ChartConfig, type ChartTypeId } from '@/features/activity/lib/char
 import type { ActivityStreams, ActivityInterval } from '@/types';
 import { minMaxBuckets } from '@/shared/charts/minMaxBuckets';
 import { streamsFromArrays, type StreamArrays } from '@/features/activity/lib/streams';
+import { IntervalKind } from 'veloqrs';
 
 function powerConfig(): ChartConfig {
   return {
@@ -260,10 +261,10 @@ describe('computeIntervalBands', () => {
 
   it('assigns a distinct colour token to WORK/RECOVERY/WARMUP/COOLDOWN', () => {
     const intervals: ActivityInterval[] = [
-      { type: 'WARMUP', start_index: 0, end_index: 2 } as ActivityInterval,
-      { type: 'WORK', start_index: 2, end_index: 5, zone: 3 } as ActivityInterval,
-      { type: 'RECOVERY', start_index: 5, end_index: 7 } as ActivityInterval,
-      { type: 'COOLDOWN', start_index: 7, end_index: 9 } as ActivityInterval,
+      { kind: IntervalKind.Warmup, startIndex: 0, endIndex: 2 } as ActivityInterval,
+      { kind: IntervalKind.Work, startIndex: 2, endIndex: 5, zone: 3 } as ActivityInterval,
+      { kind: IntervalKind.Recovery, startIndex: 5, endIndex: 7 } as ActivityInterval,
+      { kind: IntervalKind.Cooldown, startIndex: 7, endIndex: 9 } as ActivityInterval,
     ];
     const bands = computeIntervalBands(intervals, 10, streams(), 'distance', true, 'Ride');
     expect(bands).toHaveLength(4);
@@ -277,14 +278,14 @@ describe('computeIntervalBands', () => {
   it('carries the average power and heart rate of WORK intervals only', () => {
     const intervals: ActivityInterval[] = [
       {
-        type: 'WORK',
-        start_index: 0,
-        end_index: 2,
+        kind: IntervalKind.Work,
+        startIndex: 0,
+        endIndex: 2,
         zone: 2,
-        average_watts: 200,
-        average_heartrate: 151,
+        averageWatts: 200,
+        averageHeartrate: 151,
       } as ActivityInterval,
-      { type: 'RECOVERY', start_index: 2, end_index: 4 } as ActivityInterval,
+      { kind: IntervalKind.Recovery, startIndex: 2, endIndex: 4 } as ActivityInterval,
     ];
     const bands = computeIntervalBands(intervals, 10, streams(), 'distance', true, 'Ride');
     expect(bands[0].averages).toEqual({ power: 200, heartrate: 151 });
@@ -293,7 +294,7 @@ describe('computeIntervalBands', () => {
 
   it('falls back to the work role when a WORK interval has no zone', () => {
     const intervals: ActivityInterval[] = [
-      { type: 'WORK', start_index: 0, end_index: 2 } as ActivityInterval,
+      { kind: IntervalKind.Work, startIndex: 0, endIndex: 2 } as ActivityInterval,
     ];
     const bands = computeIntervalBands(intervals, 10, streams(), 'distance', true, 'Ride');
     expect(bands[0].isWork).toBe(true);

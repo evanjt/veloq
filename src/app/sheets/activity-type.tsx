@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Pressable, View, SectionList, StyleSheet } from 'react-native';
+import { View, SectionList, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
@@ -19,15 +19,16 @@ import {
   themePalette,
   opacity,
 } from '@/theme';
-import { getActivityIcon, getActivityInk } from '@/shared/activity/activityUtils';
+import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { useRecordingPreferences } from '@/features/recording';
 import {
-  ACTIVITY_CATEGORIES,
   SPORT_FAMILY_LABELS,
+  SPORT_FAMILY_MEMBERS,
   type SportFamily,
+  sportMarkColour,
 } from '@/shared/activity/sportCategories';
 import type { ActivityType } from '@/types';
-import { pressable, pressRipple, SheetHeader } from '@/shared/ui';
+import { SheetHeader, PressTarget } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { goBack } from '@/shared/app/navigation';
 
@@ -62,7 +63,7 @@ function activityTypeSections(
   const sections: TypeSection[] = [];
   if (recent.length > 0) sections.push({ key: 'recent', data: [...recent] });
   const listed = new Set<string>();
-  for (const [key, { types }] of Object.entries(ACTIVITY_CATEGORIES)) {
+  for (const [key, types] of Object.entries(SPORT_FAMILY_MEMBERS)) {
     types.forEach((type) => listed.add(type));
     sections.push({ key: key as SportFamily, data: [...types] as ActivityType[] });
   }
@@ -124,24 +125,23 @@ function ActivityTypeSheetContent() {
           const isSelected = item === selectedType;
           const rowKind = section.key === 'recent' ? 'recent' : 'option';
           return (
-            <Pressable
+            <PressTarget
               testID={`activity-type-${rowKind}-${item}`}
               accessibilityRole="button"
               accessibilityState={{ selected: isSelected }}
-              style={pressable([
+              style={[
                 styles.row,
                 { borderBottomColor: border },
                 isSelected && {
                   backgroundColor: colorWithOpacity(palette.actionPrimary, opacity.tint1),
                 },
-              ])}
+              ]}
               onPress={() => resolve(item)}
-              android_ripple={pressRipple}
             >
               <Icon
                 name={getActivityIcon(item)}
                 size={iconSize.lg}
-                color={getActivityInk(item, isDark)}
+                color={sportMarkColour(item, isDark)}
                 style={styles.icon}
               />
               <Text style={[styles.label, { color: textPrimary }]}>
@@ -150,7 +150,7 @@ function ActivityTypeSheetContent() {
               {isSelected ? (
                 <Icon name="check" size={iconSize.md} color={palette.actionPrimary} />
               ) : null}
-            </Pressable>
+            </PressTarget>
           );
         }}
       />

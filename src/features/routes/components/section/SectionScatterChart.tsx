@@ -1,30 +1,46 @@
 /**
- * Scatter chart for section performance data.
- * Fixed-width chart showing one direction at a time, with an engine trend
- * and confidence band on that direction's Y axis.
+ * The attempt scatter: one direction at a time on the engine's focus range,
+ * with its trend and spread band, the record's progression as a gold
+ * staircase, and each attempt drawn with the marks `scatterMarks` gives it.
+ * The reticle is this activity, a gold ring the record, a triangle at the edge
+ * an attempt past the range, and a focus ring the selection.
  */
 
 import { useMetricSystem } from '@/shared/app';
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { View, StyleSheet, type ViewStyle } from 'react-native';
+import React, { useMemo, useCallback } from 'react';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
-import { Circle, Path, Skia } from '@shopify/react-native-skia';
+import { Path, Skia } from '@shopify/react-native-skia';
 import {
   ChartCanvas,
+  ChartCrosshair,
+  ChartDot,
+  ChartShowDataButton,
+  ChartSurface,
+  EdgeTriangleMark,
+  HollowDot,
+  RETICLE_REACH,
+  RecordRing,
+  RecordStaircase,
+  ReticleMark,
+  SelectionRing,
+  YAxisLabels,
+  areaWashOpacity,
   bandSvgPath,
-  chartBoundsFor,
+  chartStroke,
   polylineSvgPath,
+  seriesSummary,
+  seriesTable,
+  useChartColors,
   useChartGestures,
   useMeasuredWidth,
-  xForValue,
-  yForValue,
+  type SummarySeries,
 } from '@/shared/charts';
 import { GestureDetector } from 'react-native-gesture-handler';
-import Animated from 'react-native-reanimated';
-import { formatAxisDate, formatDuration } from '@/shared/format/format';
+import { formatAxisDate, formatDuration, formatShortDate } from '@/shared/format/format';
 import { formatSectionSpeed } from '@/features/routes/lib/sectionSpeedFormat';
 import { attemptBasis } from '@/features/routes/lib/attemptBasis';
 import { directionColour } from '@/features/routes/lib/directionColour';
@@ -34,27 +50,42 @@ import {
   nearestScatterPointIndex,
   resolveChartDirection,
   type ChartDirection,
-  type TrendBandPoint,
+  type ScatterChartPoint,
 } from '@/features/routes/lib/scatterData';
+import {
+  TAP_REACH_PX,
+  clampToRange,
+  placeRecordStaircase,
+  scatterMarkFor,
+  scatterRange,
+  scatterStanding,
+  scatterStandingText,
+  type ScatterMark,
+} from '@/features/routes/lib/scatterMarks';
 import { computeTimeAxisLabels, axisLabelsNeedDay } from '@/features/stats';
-import { chartStyles, colors, darkColors, iconSize, spacing, themePalette } from '@/theme';
-import type { FfiSectionTrendCurves } from 'veloqrs';
-import type { ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
+import { chartStyles, colors, darkColors, iconSize, opacity, spacing, typography } from '@/theme';
+import type { FfiRecordProgressions, FfiScatterFocus, FfiSectionTrendCurves } from 'veloqrs';
+import type { ActivityType, PerformanceDataPoint } from '@/types';
 import type {
   DirectionBestRecord,
   DirectionSummaryStats,
 } from '@/features/routes/lib/performanceTypes';
 import { StatsRow } from './StatsRow';
-import { PerformanceTooltip } from './PerformanceTooltip';
-import { DirectionSwitch, IconButton } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 
-const CHART_HEIGHT = 120;
-const CHART_PADDING = { left: 12, right: 8, top: 12, bottom: 12 } as const;
-const MINI_HEIGHT = 56;
-const MINI_PADDING = { left: 4, right: 4, top: 4, bottom: 4 } as const;
+const CHART_HEIGHT = 220;
+const X_STRIP = typography.caption.lineHeight;
+/** Every mark round a point reaches as far as the reticle, so the plot is inset by it. */
+const PLOT_PADDING = {
+  left: RETICLE_REACH,
+  right: RETICLE_REACH,
+  top: RETICLE_REACH,
+  bottom: RETICLE_REACH + X_STRIP,
+} as const;
 const X_DOMAIN: [number, number] = [0, 1];
-const NO_SERIES = {} as Record<never, (p: PerformanceDataPoint) => number>;
+const NO_SERIES = {} as Record<never, (p: ScatterChartPoint) => number>;
+const NO_PROGRESSION: FfiRecordProgressions = { forward: [], reverse: [] };
+const NO_FOCUS: FfiScatterFocus = {};
 const xOf = (p: { x: number }) => p.x;
 
 export interface SectionScatterChartProps {
@@ -72,34 +103,37 @@ export interface SectionScatterChartProps {
   recordsSettled?: boolean | undefined;
   forwardStats: DirectionSummaryStats | null;
   reverseStats: DirectionSummaryStats | null;
-  onActivitySelect?:
-    | ((activityId: string | null, activityPoints?: RoutePoint[], date?: Date) => void)
-    | undefined;
-  onExcludeActivity?: ((activityId: string) => void) | undefined;
-  onIncludeActivity?: ((activityId: string) => void) | undefined;
-  onSetAsReference?: ((activityId: string) => void) | undefined;
-  referenceActivityId?: string | undefined;
-  showExcluded?: boolean | undefined;
-  hasExcluded?: boolean | undefined;
-  onToggleShowExcluded?: (() => void) | undefined;
-  /** When true, hides tooltip/scrub hint and disables long-press scrub gesture */
-  compact?: boolean | undefined;
-  /** When true, renders a minimal chart: no text overlays, no gestures, smaller dots */
-  mini?: boolean | undefined;
-  /** External style for controlling width in flex layouts */
-  containerStyle?: ViewStyle | undefined;
-  /** Activity ID to highlight with a green ring (e.g., the activity that navigated here) */
+  /** This activity, the one the screen was opened from, which carries the reticle. */
   highlightedActivityId?: string | undefined;
   /** When true, Y-axis shows time (inverted: shorter = higher) instead of speed */
   useTimeAxis?: boolean | undefined;
   /** The engine's trend curves for the counted attempts. */
   trendCurves: FfiSectionTrendCurves;
   /**
-   * The direction shown, when a parent owns the direction control. The chart
-   * then draws no direction toggles of its own.
+   * The engine's range per direction, with the attempts past it counted. A
+   * read that carries none draws every attempt on the axis.
+   */
+  scatterFocus?: FfiScatterFocus | undefined;
+  /** The engine's record progression per direction, drawn as the staircase. */
+  recordProgression?: FfiRecordProgressions | undefined;
+  /**
+   * The direction shown, which the panel owns. Absent, the chart opens on this
+   * activity's direction, else the one with attempts.
    */
   selectedDirection?: ChartDirection | undefined;
-  onTrendChange?: ((visible: boolean, direction: ChartDirection) => void) | undefined;
+  /** The point the panel's card describes, which carries the focus ring. */
+  selectedPointId?: string | undefined;
+  /** Called with the point a tap or a scrub lands on. */
+  onSelectPoint?: ((point: ScatterChartPoint) => void) | undefined;
+  /** Drawn at the start of the row that holds Show data, such as the excluded attempts link. */
+  showDataRowStart?: React.ReactNode;
+}
+
+interface PlacedPoint {
+  point: ScatterChartPoint;
+  mark: ScatterMark;
+  x: number;
+  y: number;
 }
 
 export function SectionScatterChart({
@@ -113,77 +147,41 @@ export function SectionScatterChart({
   recordsSettled = true,
   forwardStats,
   reverseStats,
-  onActivitySelect,
-  onExcludeActivity,
-  onIncludeActivity,
-  onSetAsReference,
-  referenceActivityId,
-  showExcluded,
-  hasExcluded,
-  onToggleShowExcluded,
-  compact,
-  mini,
-  containerStyle,
   highlightedActivityId,
   useTimeAxis,
   trendCurves,
+  scatterFocus = NO_FOCUS,
+  recordProgression = NO_PROGRESSION,
   selectedDirection: controlledDirection,
-  onTrendChange,
+  selectedPointId,
+  onSelectPoint,
+  showDataRowStart,
 }: SectionScatterChartProps) {
   const basis = attemptBasis(activityType, !!useTimeAxis);
-  const palette = themePalette(isDark);
-  // The ring is the only thing that says "personal best" or "this activity",
-  // so it is a mark and owes 3:1 rather than a chart tone.
-  const prMarkColor = isDark ? darkColors.achievement : colors.achievement;
-  const highlightMarkColor = isDark ? darkColors.chartGreenMark : colors.chartGreenMark;
-  const forwardColour = directionColour('forward', isDark);
-  const reverseColour = directionColour('reverse', isDark);
-
-  const effectiveHeight = mini ? MINI_HEIGHT : CHART_HEIGHT;
-  const effectivePadding = mini ? MINI_PADDING : CHART_PADDING;
-  const dotRadius = mini ? 3 : 4;
-  const prRingRadius = mini ? 4.5 : 6;
-
-  const [selectedPoint, setSelectedPoint] = useState<(PerformanceDataPoint & { x: number }) | null>(
-    null
-  );
-  const [requestedDirection, setRequestedDirection] = useState<ChartDirection | null>(null);
+  const axis = useTimeAxis ? 'time' : 'speed';
+  const chartColors = useChartColors();
   const { t } = useTranslation();
 
-  // Clear selection when chart data changes (e.g., sport type filter switch).
-  // Clearing while rendering keeps the previous selection out of the first
-  // frame drawn against the new data.
-  const [selectionFor, setSelectionFor] = useState(chartData);
-  const [selectionDirection, setSelectionDirection] = useState(controlledDirection);
-  if (chartData !== selectionFor || controlledDirection !== selectionDirection) {
-    setSelectionFor(chartData);
-    setSelectionDirection(controlledDirection);
-    setSelectedPoint(null);
-  }
-
   const isMetric = useMetricSystem();
-  const { width: chartWidth, onLayout: onChartLayout } = useMeasuredWidth();
+  const { width: plotWidth, onLayout: onPlotLayout } = useMeasuredWidth();
 
-  const formatSpeedValue = useCallback(
-    (speed: number) => formatSectionSpeed(speed, activityType, isMetric),
-    [activityType, isMetric]
+  const formatValue = useCallback(
+    (value: number) =>
+      useTimeAxis ? formatDuration(value) : formatSectionSpeed(value, activityType, isMetric),
+    [useTimeAxis, activityType, isMetric]
   );
 
-  // Separate forward/reverse, compute positions, find PRs (pure fn in lib/scatterData)
-  // Gold ring = the points the engine flags as a record, whichever axis is shown
-  const { forwardPoints, reversePoints, allPoints, domains } = useMemo(
+  const { forwardPoints, reversePoints, allPoints, drawn } = useMemo(
     () => splitAndPositionChartData(chartData),
     [chartData]
   );
-  const hasForward = domains.forward !== null;
-  const hasReverse = domains.reverse !== null;
   const originDirection =
     allPoints.find((point) => point.activityId === highlightedActivityId)?.direction === 'reverse'
       ? 'reverse'
       : 'forward';
   const selectedDirection =
     controlledDirection ??
-    resolveChartDirection(requestedDirection, originDirection, hasForward, hasReverse);
+    resolveChartDirection(null, originDirection, drawn.forward, drawn.reverse);
   const selectedColour = directionColour(selectedDirection, isDark);
   const drawnPoints = useMemo(
     () =>
@@ -192,25 +190,34 @@ export function SectionScatterChart({
       ),
     [allPoints, selectedDirection]
   );
-  const { minSpeed, maxSpeed, minTime, maxTime } = domains[selectedDirection] ?? {
-    minSpeed: 0,
-    maxSpeed: 1,
-    minTime: 0,
-    maxTime: 1,
-  };
-
-  const yMin = useTimeAxis ? maxTime : minSpeed;
-  const yMax = useTimeAxis ? minTime : maxSpeed;
-  const yDomain = useMemo<[number, number]>(() => [yMin, yMax], [yMin, yMax]);
 
   /** The value each point is drawn at, and the one a tap is resolved against. */
   const yOf = useCallback(
-    (p: PerformanceDataPoint) => (useTimeAxis ? p.sectionTime : p.speed),
+    (p: PerformanceDataPoint) => (useTimeAxis ? (p.sectionTime ?? NaN) : p.speed),
     [useTimeAxis]
   );
 
-  // Trend lines with confidence bands: the engine's curves placed on the
-  // chart's x axis.
+  const focus = scatterFocus[selectedDirection];
+  const range = useMemo(
+    () => scatterRange(focus, drawnPoints.map(yOf)) ?? ([0, 1] as [number, number]),
+    [focus, drawnPoints, yOf]
+  );
+  // Faster is up: speed rises up the axis, time falls.
+  const yDomain = useMemo<[number, number]>(
+    () => (useTimeAxis ? [range[1], range[0]] : [range[0], range[1]]),
+    [range, useTimeAxis]
+  );
+  const yTicks = useMemo(
+    () =>
+      [yDomain[1], (yDomain[0] + yDomain[1]) / 2, yDomain[0]].map((value, i) => ({
+        value,
+        label: formatValue(value),
+        testID: `section-scatter-y-axis-${i}`,
+      })),
+    [yDomain, formatValue]
+  );
+  const gridValues = useMemo(() => yTicks.map((tick) => tick.value), [yTicks]);
+
   const selectedTrend = useMemo(
     () =>
       placeEngineTrend(
@@ -225,120 +232,143 @@ export function SectionScatterChart({
       ),
     [trendCurves, allPoints, useTimeAxis, selectedDirection]
   );
-  useEffect(() => {
-    onTrendChange?.(selectedTrend !== null && selectedTrend.length >= 2, selectedDirection);
-  }, [onTrendChange, selectedTrend, selectedDirection]);
+  const staircase = useMemo(() => {
+    const first = allPoints.at(0);
+    const last = allPoints.at(-1);
+    return placeRecordStaircase(
+      recordsSettled ? recordProgression[selectedDirection] : [],
+      first && last ? { first: first.date, last: last.date } : null,
+      axis,
+      range
+    );
+  }, [recordProgression, selectedDirection, allPoints, axis, range, recordsSettled]);
 
-  // Time axis labels: start, middle, end - include day when months repeat
   const timeAxisLabels = useMemo(() => computeTimeAxisLabels(allPoints), [allPoints]);
   const needsDayLabel = useMemo(() => axisLabelsNeedDay(timeAxisLabels), [timeAxisLabels]);
 
-  const handlePointPress = useCallback(
-    (point: PerformanceDataPoint & { x: number }) => {
-      setSelectedPoint(point);
-      onActivitySelect?.(point.activityId, point.lapPoints, point.date);
-    },
-    [onActivitySelect]
+  const selectedPoint = drawnPoints.find((point) => point.id === selectedPointId);
+  const markContext = useMemo(
+    () => ({
+      highlightedActivityId,
+      selected: selectedPoint
+        ? { id: selectedPoint.id, activityId: selectedPoint.activityId }
+        : null,
+      recordsSettled,
+    }),
+    [highlightedActivityId, selectedPoint, recordsSettled]
+  );
+  const marks = useMemo(
+    () => drawnPoints.map((point) => scatterMarkFor(point, markContext)),
+    [drawnPoints, markContext]
   );
 
-  // Points carry a normalised x, so turn them into pixels once for the scrub
-  // to snap against.
-  const pointXCoords = useMemo(() => {
-    const contentWidth = chartWidth - effectivePadding.left - effectivePadding.right;
-    return drawnPoints.map((point) => effectivePadding.left + point.x * contentWidth);
-  }, [drawnPoints, effectivePadding, chartWidth]);
+  const highlighted = drawnPoints.find((p) => p.activityId === highlightedActivityId);
+  const standingText = highlighted
+    ? scatterStandingText(
+        recordsSettled
+          ? scatterStanding(highlighted, recordProgression[selectedDirection], axis)
+          : null,
+        highlighted,
+        axis,
+        activityType,
+        isMetric,
+        t
+      )
+    : null;
 
-  // The tap has to resolve against the axis the chart drew, so the points go
-  // in on the same accessor and domain the dots are placed with.
-  const tapPoints = useMemo(
-    () => drawnPoints.map((p) => ({ x: p.x, y: yOf(p) })),
-    [drawnPoints, yOf]
-  );
-
-  // Trend and band paths are pixels, so they only move when the box or the
-  // domain does. Rebuilding them inside the render prop re-parsed the SVG
-  // strings on every scrub tick.
-  const trendPaths = useMemo(() => {
-    if (chartWidth <= 0) return { line: null, band: null };
-    const bounds = chartBoundsFor(chartWidth, effectiveHeight, effectivePadding);
-    const xFor = (value: number) => xForValue(value, X_DOMAIN, bounds);
-    const yFor = (value: number) => yForValue(value, yDomain, bounds);
-    const build = (trend: TrendBandPoint[] | null) => {
-      if (!trend || trend.length < 2) return { line: null, band: null };
-      const linePts = trend.map((p) => ({ x: xFor(p.x), y: yFor(p.y) }));
-      // Band: upper edge forward, then lower edge backward (closed shape)
-      const upperPts = trend.map((p) => ({ x: xFor(p.x), y: yFor(p.upper) }));
-      const lowerPts = trend.map((p) => ({ x: xFor(p.x), y: yFor(p.lower) }));
-      return {
-        line: Skia.Path.MakeFromSVGString(polylineSvgPath(linePts)),
-        band: Skia.Path.MakeFromSVGString(bandSvgPath(upperPts, lowerPts)),
-      };
+  const spoken = useMemo(() => {
+    const title = t('sections.performanceOverTime');
+    const series: SummarySeries = {
+      name: title,
+      points: drawnPoints
+        .filter((p) => p.isExcluded !== true)
+        .map((p) => ({ label: formatShortDate(p.date), key: p.id, value: yOf(p) })),
+      format: formatValue,
+      lowerIsBetter: !!useTimeAxis,
     };
-    return build(selectedTrend);
-  }, [selectedTrend, chartWidth, effectiveHeight, effectivePadding, yDomain]);
+    return {
+      summary: seriesSummary(series, t),
+      table: seriesTable(title, t('charts.column.date'), [series]),
+    };
+  }, [drawnPoints, yOf, formatValue, useTimeAxis, t]);
 
-  // Taps match on 2D distance so an outlier high above the trend is reachable.
+  const handlePointPress = useCallback(
+    (point: ScatterChartPoint) => onSelectPoint?.(point),
+    [onSelectPoint]
+  );
+
+  const contentWidth = plotWidth - PLOT_PADDING.left - PLOT_PADDING.right;
+  const contentHeight = CHART_HEIGHT - PLOT_PADDING.top - PLOT_PADDING.bottom;
+
+  // A point past the range is drawn at the edge, so a tap reaches it there.
+  const tapPoints = useMemo(
+    () => drawnPoints.map((p) => ({ x: p.x, y: clampToRange(yOf(p), range) })),
+    [drawnPoints, yOf, range]
+  );
+
   const resolveTapIndex = useCallback(
-    (x: number, y: number) => {
-      const contentWidth = chartWidth - effectivePadding.left - effectivePadding.right;
-      const contentHeight = effectiveHeight - effectivePadding.top - effectivePadding.bottom;
-      return nearestScatterPointIndex(
+    (x: number, y: number) =>
+      nearestScatterPointIndex(
         tapPoints,
         {
-          x: Math.max(0, Math.min(1, (x - effectivePadding.left) / contentWidth)),
-          y: Math.max(0, Math.min(1, (y - effectivePadding.top) / contentHeight)),
+          x: (x - PLOT_PADDING.left) / contentWidth,
+          y: (y - PLOT_PADDING.top) / contentHeight,
         },
-        yDomain
-      );
-    },
-    [tapPoints, effectivePadding, effectiveHeight, chartWidth, yDomain]
+        yDomain,
+        { width: contentWidth, height: contentHeight, radius: TAP_REACH_PX }
+      ),
+    [tapPoints, contentWidth, contentHeight, yDomain]
   );
 
-  const { gesture, crosshairStyle, syncBounds, syncXCoords } = useChartGestures<
-    PerformanceDataPoint & { x: number }
-  >({
-    data: drawnPoints,
-    accessibilityLabel: t('sections.performanceOverTime'),
-    enabled: !mini,
-    scrubEnabled: !compact,
-    crosshairMode: 'finger',
-    onSelect: handlePointPress,
-    resolveTapIndex,
-  });
+  const describePoint = useCallback(
+    (point: ScatterChartPoint) => `${formatShortDate(point.date)}, ${formatValue(yOf(point))}`,
+    [formatValue, yOf]
+  );
 
-  useEffect(() => {
-    syncBounds({ left: 0, right: chartWidth, top: 0, bottom: effectiveHeight });
-    syncXCoords(pointXCoords, (value) => value);
-  }, [syncBounds, syncXCoords, pointXCoords, effectiveHeight, chartWidth]);
+  const { gesture, crosshairStyle, syncBounds, syncXCoords, accessibilityProps } =
+    useChartGestures<ScatterChartPoint>({
+      data: drawnPoints,
+      accessibilityLabel: t('sections.performanceOverTime'),
+      crosshairMode: 'finger',
+      onSelect: handlePointPress,
+      resolveTapIndex,
+      describePoint,
+    });
+
+  // Trend and band paths are pixels, so they only move when the box or the
+  // domain does, never on a scrub tick.
+  const trendPaths = useMemo(() => {
+    if (plotWidth <= 0 || !selectedTrend || selectedTrend.length < 2) {
+      return { line: null, band: null };
+    }
+    const xFor = (value: number) => PLOT_PADDING.left + value * contentWidth;
+    const yFor = (value: number) => {
+      const along = (value - yDomain[0]) / (yDomain[1] - yDomain[0] || 1);
+      return PLOT_PADDING.top + (1 - along) * contentHeight;
+    };
+    const held = (value: number) => yFor(clampToRange(value, range));
+    return {
+      line: Skia.Path.MakeFromSVGString(
+        polylineSvgPath(selectedTrend.map((p) => ({ x: xFor(p.x), y: held(p.y) })))
+      ),
+      band: Skia.Path.MakeFromSVGString(
+        bandSvgPath(
+          selectedTrend.map((p) => ({ x: xFor(p.x), y: held(p.upper) })),
+          selectedTrend.map((p) => ({ x: xFor(p.x), y: held(p.lower) }))
+        )
+      ),
+    };
+  }, [selectedTrend, plotWidth, contentWidth, contentHeight, yDomain, range]);
 
   if (chartData.length < 1) return null;
 
+  const labelStyle = [chartStyles.chartLabel, isDark && chartStyles.chartLabelDark];
+  const slowCount = focus?.slowCount ?? 0;
+  const fastCount = focus?.fastCount ?? 0;
+
   return (
-    <View style={[styles.container, containerStyle]}>
-      {/* Eye toggle for excluded activities */}
-      {!mini && hasExcluded && onToggleShowExcluded ? (
-        <ExcludedActivitiesToggle
-          isDark={isDark}
-          showExcluded={!!showExcluded}
-          onToggle={onToggleShowExcluded}
-        />
-      ) : null}
-      {!mini && controlledDirection === undefined && hasForward && hasReverse ? (
-        <DirectionSwitch
-          testID="section-chart-direction"
-          style={styles.directionControl}
-          value={selectedDirection}
-          counts={{ forward: forwardStats?.count ?? 0, reverse: reverseStats?.count ?? 0 }}
-          marks={{ forward: forwardColour, reverse: reverseColour }}
-          onChange={(direction) => {
-            setRequestedDirection(direction);
-            setSelectedPoint(null);
-            onActivitySelect?.(null);
-          }}
-        />
-      ) : null}
-      {/* Forward stats row above chart */}
-      {!mini && selectedDirection === 'forward' && forwardPoints.length > 0 && (
+    <View style={styles.container}>
+      {selectedDirection === 'forward' && forwardPoints.length > 0 && (
         <StatsRow
           direction="forward"
           stats={forwardStats}
@@ -350,234 +380,157 @@ export function SectionScatterChart({
         />
       )}
 
-      {/* Chart */}
-      <View
-        style={[{ height: effectiveHeight }, chartStyles.plotDirection]}
-        onLayout={onChartLayout}
+      <ChartSurface
+        testID="section-scatter-chart"
+        summary={spoken.summary}
+        table={spoken.table}
+        style={styles.plot}
+        showDataButton={false}
       >
-        {chartWidth > 0 && (
-          <View style={StyleSheet.absoluteFill}>
-            <ChartCanvas
-              data={drawnPoints}
-              x={xOf}
-              series={NO_SERIES}
-              xDomain={X_DOMAIN}
-              yDomain={yDomain}
-              padding={effectivePadding}
-              grid={5}
-            >
-              {({ xFor, yFor }) => {
-                return (
-                  <>
-                    {/* Confidence bands (drawn first, behind everything) */}
-                    {trendPaths.band ? (
-                      <Path
-                        path={trendPaths.band}
-                        color={selectedColour}
-                        style="fill"
-                        opacity={0.08}
-                      />
-                    ) : null}
-                    {/* Trend lines */}
-                    {trendPaths.line ? (
-                      <Path
-                        path={trendPaths.line}
-                        color={selectedColour}
-                        style="stroke"
-                        strokeWidth={2}
-                        opacity={0.6}
-                      />
-                    ) : null}
-
-                    {/* Scatter points */}
-                    {(() => {
-                      const highlight: { x: number; y: number }[] = [];
-
-                      const dots = drawnPoints.map((dataPoint, idx) => {
-                        const yValue = yOf(dataPoint);
-                        if (yValue == null || !Number.isFinite(yValue)) return null;
-                        const point = { x: xFor(dataPoint.x), y: yFor(yValue) };
-
-                        const isReverse = dataPoint.direction === 'reverse';
-                        const dotColor = isReverse ? reverseColour : forwardColour;
-                        const isPointExcluded = dataPoint.isExcluded === true;
-
-                        const isBest =
-                          recordsSettled && !isPointExcluded && dataPoint.isBest === true;
-
-                        // Track highlighted point for rendering last (on top)
-                        const isHighlighted =
-                          highlightedActivityId != null &&
-                          dataPoint.activityId === highlightedActivityId;
-                        if (isHighlighted && highlight.length === 0) {
-                          highlight.push(point);
-                        }
-
-                        const isSelected =
-                          selectedPoint?.activityId === dataPoint.activityId &&
-                          selectedPoint?.id === dataPoint.id;
-
-                        if (isSelected) {
-                          return (
-                            <React.Fragment key={`pt-${idx}`}>
-                              <Circle
-                                cx={point.x}
-                                cy={point.y}
-                                r={dotRadius + 3}
-                                color={colors.chartCyan}
-                              />
-                              <Circle cx={point.x} cy={point.y} r={dotRadius} color={dotColor} />
-                            </React.Fragment>
-                          );
-                        }
-
-                        // Skip highlighted point in main loop - rendered on top below
-                        if (isHighlighted) return null;
-
-                        if (isPointExcluded) {
-                          return (
-                            <Circle
-                              key={`pt-${idx}`}
-                              cx={point.x}
-                              cy={point.y}
-                              r={dotRadius - 1}
-                              color={isDark ? darkColors.textSecondary : colors.textSecondary}
-                              opacity={0.25}
-                            />
-                          );
-                        }
-
-                        if (dataPoint.outsideDistanceBand === true) {
-                          return (
-                            <Circle
-                              key={`pt-${idx}`}
-                              cx={point.x}
-                              cy={point.y}
-                              r={dotRadius - 0.75}
-                              color={dotColor}
-                              style="stroke"
-                              strokeWidth={1.5}
-                            />
-                          );
-                        }
-
-                        if (isBest) {
-                          return (
-                            <React.Fragment key={`pt-${idx}`}>
-                              <Circle cx={point.x} cy={point.y} r={dotRadius} color={dotColor} />
-                              <Circle
-                                cx={point.x}
-                                cy={point.y}
-                                r={prRingRadius}
-                                color={prMarkColor}
-                                style="stroke"
-                                strokeWidth={1.5}
-                              />
-                            </React.Fragment>
-                          );
-                        }
-
-                        return (
-                          <Circle
-                            key={`pt-${idx}`}
-                            cx={point.x}
-                            cy={point.y}
-                            r={dotRadius}
-                            color={dotColor}
-                            opacity={0.7}
-                          />
-                        );
-                      });
-
-                      const hp = highlight[0];
-                      return (
-                        <>
-                          {dots}
-                          {hp ? (
-                            <React.Fragment key="highlighted-activity">
-                              <Circle
-                                cx={hp.x}
-                                cy={hp.y}
-                                r={dotRadius + 3}
-                                color={highlightMarkColor}
-                                style="stroke"
-                                strokeWidth={1.5}
-                              />
-                              <Circle
-                                cx={hp.x}
-                                cy={hp.y}
-                                r={dotRadius + 1}
-                                color={highlightMarkColor}
-                              />
-                            </React.Fragment>
-                          ) : null}
-                        </>
-                      );
-                    })()}
-                  </>
-                );
-              }}
-            </ChartCanvas>
-          </View>
-        )}
-
-        {/* Gesture target for tap + long-press scrub */}
-        {!mini && (
-          <GestureDetector gesture={gesture}>
-            <Animated.View style={styles.tapTarget} />
-          </GestureDetector>
-        )}
-
-        {/* Crosshair (visible during scrubbing) */}
-        {!mini && (
-          <Animated.View
-            style={[styles.crosshair, { backgroundColor: palette.textSecondary }, crosshairStyle]}
-            pointerEvents="none"
+        <View style={styles.row}>
+          <YAxisLabels
+            ticks={yTicks}
+            domain={yDomain}
+            padding={PLOT_PADDING}
+            testID="section-scatter-y-axis"
           />
-        )}
+          <GestureDetector gesture={gesture}>
+            <View style={chartStyles.chartWrapper} onLayout={onPlotLayout} {...accessibilityProps}>
+              <ChartCanvas
+                data={drawnPoints}
+                x={xOf}
+                series={NO_SERIES}
+                xDomain={X_DOMAIN}
+                yDomain={yDomain}
+                padding={PLOT_PADDING}
+                gridValues={gridValues}
+              >
+                {({ bounds, xFor, yFor }) => {
+                  syncBounds(bounds);
+                  syncXCoords(drawnPoints, (p) => xFor(p.x));
+                  const placed: PlacedPoint[] = [];
+                  drawnPoints.forEach((point, i) => {
+                    const value = yOf(point);
+                    const mark = marks[i];
+                    if (!mark || !Number.isFinite(value)) return;
+                    placed.push({
+                      point,
+                      mark,
+                      x: xFor(point.x),
+                      y: yFor(clampToRange(value, range)),
+                    });
+                  });
+                  const carried = staircase.carriedIn;
+                  return (
+                    <>
+                      {trendPaths.band ? (
+                        <Path
+                          path={trendPaths.band}
+                          color={selectedColour}
+                          style="fill"
+                          opacity={areaWashOpacity(isDark)}
+                        />
+                      ) : null}
+                      {trendPaths.line ? (
+                        <Path
+                          path={trendPaths.line}
+                          color={selectedColour}
+                          style="stroke"
+                          strokeWidth={chartStroke.series}
+                          strokeJoin="round"
+                          strokeCap="round"
+                        />
+                      ) : null}
+                      {staircase.steps.length > 0 || carried != null ? (
+                        <RecordStaircase
+                          steps={staircase.steps.map((s) => ({ x: xFor(s.x), y: yFor(s.value) }))}
+                          carriedIn={
+                            carried != null ? { x: bounds.left, y: yFor(carried) } : undefined
+                          }
+                          rightEdge={bounds.right}
+                        />
+                      ) : null}
+                      {placed.map(({ point, mark, x, y }) => (
+                        <PointMark
+                          key={`${point.activityId}-${point.id}`}
+                          mark={mark}
+                          x={x}
+                          y={y}
+                          colour={selectedColour}
+                          mutedColour={chartColors.muted}
+                        />
+                      ))}
+                      {/* The record, this activity and the selection sit above every dot. */}
+                      {placed.map(({ point, mark, x, y }) => (
+                        <React.Fragment key={`marks-${point.activityId}-${point.id}`}>
+                          {mark.record ? <RecordRing x={x} y={y} /> : null}
+                          {mark.thisActivity ? <ReticleMark x={x} y={y} /> : null}
+                          {mark.selected ? <SelectionRing x={x} y={y} /> : null}
+                        </React.Fragment>
+                      ))}
+                    </>
+                  );
+                }}
+              </ChartCanvas>
 
-        {/* Y-axis labels */}
-        {!mini && (
-          <View style={styles.yAxisOverlay} pointerEvents="none" testID="section-scatter-y-axis">
-            <Text
-              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-              style={[chartStyles.chartLabel, isDark && chartStyles.chartLabelDark]}
-            >
-              {useTimeAxis ? formatDuration(minTime) : formatSpeedValue(maxSpeed)}
-            </Text>
-            <Text
-              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-              style={[chartStyles.chartLabel, isDark && chartStyles.chartLabelDark]}
-            >
-              {useTimeAxis ? formatDuration(maxTime) : formatSpeedValue(minSpeed)}
-            </Text>
-          </View>
-        )}
+              <ChartCrosshair style={crosshairStyle} />
+
+              {standingText && highlighted && plotWidth > 0 ? (
+                <StandingLabel
+                  text={standingText}
+                  x={PLOT_PADDING.left + highlighted.x * contentWidth}
+                  y={
+                    PLOT_PADDING.top +
+                    (1 -
+                      (clampToRange(yOf(highlighted), range) - yDomain[0]) /
+                        (yDomain[1] - yDomain[0] || 1)) *
+                      contentHeight
+                  }
+                  plotWidth={plotWidth}
+                  isDark={isDark}
+                />
+              ) : null}
+
+              {timeAxisLabels.length > 0 ? (
+                <View style={styles.timeAxis} pointerEvents="none">
+                  {timeAxisLabels.map((date, idx) => (
+                    <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} key={idx} style={labelStyle}>
+                      {formatAxisDate(date, needsDayLabel)}
+                    </Text>
+                  ))}
+                </View>
+              ) : null}
+            </View>
+          </GestureDetector>
+        </View>
+      </ChartSurface>
+      <View style={styles.showDataRow}>
+        <View style={styles.showDataRowStart}>{showDataRowStart}</View>
+        <ChartShowDataButton table={spoken.table} testID="section-scatter-chart" />
       </View>
 
-      {/* Time axis: start / middle / end */}
-      {!mini && timeAxisLabels.length > 0 && (
-        <View style={[styles.timeAxis, chartStyles.plotDirection]}>
-          {timeAxisLabels.map((date, idx) => (
-            <Text
-              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-              key={idx}
-              style={[
-                chartStyles.chartLabel,
-                isDark && chartStyles.chartLabelDark,
-                idx === 0 && styles.timeAxisLabelFirst,
-                idx === 1 && styles.timeAxisLabelMiddle,
-                idx === timeAxisLabels.length - 1 && styles.timeAxisLabelLast,
-              ]}
-            >
-              {formatAxisDate(date, needsDayLabel)}
-            </Text>
-          ))}
+      {fastCount > 0 || slowCount > 0 ? (
+        <View style={styles.offScaleRow} testID="section-scatter-off-scale">
+          {fastCount > 0 ? (
+            <OffScaleCount
+              pointing="up"
+              isDark={isDark}
+              label={t('sections.scatterOffScale', { count: fastCount })}
+              spoken={t('sections.scatterOffScaleFaster', { count: fastCount })}
+            />
+          ) : null}
+          {slowCount > 0 ? (
+            <OffScaleCount
+              pointing="down"
+              isDark={isDark}
+              label={t('sections.scatterOffScale', { count: slowCount })}
+              spoken={t('sections.scatterOffScaleSlower', { count: slowCount })}
+            />
+          ) : null}
         </View>
-      )}
+      ) : null}
 
-      {/* Reverse stats row below chart */}
-      {!mini && selectedDirection === 'reverse' && reversePoints.length > 0 && (
+      {selectedDirection === 'reverse' && reversePoints.length > 0 && (
         <StatsRow
           direction="reverse"
           stats={reverseStats}
@@ -588,54 +541,94 @@ export function SectionScatterChart({
           isDark={isDark}
         />
       )}
-
-      {/* Tooltip - hidden in compact mode */}
-      {!compact && (
-        <PerformanceTooltip
-          selectedPoint={selectedPoint}
-          isDark={isDark}
-          basis={basis}
-          referenceActivityId={referenceActivityId}
-          onSetAsReference={onSetAsReference}
-          onExcludeActivity={onExcludeActivity}
-          onIncludeActivity={onIncludeActivity}
-          recordsSettled={recordsSettled}
-          onClearSelection={() => {
-            setSelectedPoint(null);
-            onActivitySelect?.(null);
-          }}
-        />
-      )}
     </View>
   );
 }
 
-interface ExcludedActivitiesToggleProps {
-  isDark: boolean;
-  showExcluded: boolean;
-  onToggle: () => void;
+/** The dot, dimmed dot, hollow ring or edge triangle one point is drawn as. */
+function PointMark({
+  mark,
+  x,
+  y,
+  colour,
+  mutedColour,
+}: {
+  mark: ScatterMark;
+  x: number;
+  y: number;
+  colour: string;
+  mutedColour: string;
+}) {
+  switch (mark.kind) {
+    case 'excluded':
+      return <ChartDot x={x} y={y} color={mutedColour} opacity={opacity.dim} />;
+    case 'outsideBand':
+      return <HollowDot x={x} y={y} color={colour} />;
+    case 'offScaleTop':
+      return <EdgeTriangleMark x={x} y={y} color={colour} pointing="up" />;
+    case 'offScaleBottom':
+      return <EdgeTriangleMark x={x} y={y} color={colour} pointing="down" />;
+    default:
+      return <ChartDot x={x} y={y} color={colour} />;
+  }
 }
 
-export function ExcludedActivitiesToggle({
+/** This activity's standing, beside its reticle, on whichever side has room. */
+function StandingLabel({
+  text,
+  x,
+  y,
+  plotWidth,
   isDark,
-  showExcluded,
-  onToggle,
-}: ExcludedActivitiesToggleProps) {
-  const { t } = useTranslation();
-
+}: {
+  text: string;
+  x: number;
+  y: number;
+  plotWidth: number;
+  isDark: boolean;
+}) {
+  const leftHalf = x < plotWidth / 2;
+  const top = y - RETICLE_REACH - typography.caption.lineHeight;
   return (
-    <View style={styles.eyeToggleRow}>
-      <IconButton
-        accessibilityLabel={t('sections.showExcludedActivities')}
-        accessibilityState={{ selected: showExcluded }}
-        onPress={onToggle}
+    <Text
+      testID="section-scatter-standing"
+      maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+      pointerEvents="none"
+      style={[
+        chartStyles.chartLabel,
+        isDark && chartStyles.chartLabelDark,
+        styles.standing,
+        { top: Math.max(0, top) },
+        leftHalf ? { left: x + RETICLE_REACH } : { right: plotWidth - x + RETICLE_REACH },
+      ]}
+    >
+      {text}
+    </Text>
+  );
+}
+
+/** How many attempts lie past one end of the range, with an arrow pointing to that end. */
+function OffScaleCount({
+  pointing,
+  isDark,
+  label,
+  spoken,
+}: {
+  pointing: 'up' | 'down';
+  isDark: boolean;
+  label: string;
+  spoken: string;
+}) {
+  const ink = isDark ? darkColors.textSecondary : colors.textSecondary;
+  return (
+    <View style={styles.offScaleItem} accessible accessibilityLabel={spoken}>
+      <Text
+        maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+        style={[chartStyles.chartLabel, isDark && chartStyles.chartLabelDark]}
       >
-        <Icon
-          name={showExcluded ? 'eye' : 'eye-off'}
-          size={iconSize.sm}
-          color={isDark ? darkColors.textSecondary : colors.textSecondary}
-        />
-      </IconButton>
+        {label}
+      </Text>
+      <Icon name={pointing === 'up' ? 'arrow-up' : 'arrow-down'} size={iconSize.xs} color={ink} />
     </View>
   );
 }
@@ -644,45 +637,42 @@ const styles = StyleSheet.create({
   container: {
     overflow: 'hidden',
   },
-  eyeToggleRow: {
+  plot: {
+    height: CHART_HEIGHT,
+  },
+  showDataRow: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingHorizontal: spacing.smPlus,
-    paddingBottom: spacing.xs,
+    alignItems: 'center',
+    gap: spacing.sm,
   },
-  directionControl: {
-    alignSelf: 'center',
-    marginBottom: spacing.xs,
+  showDataRowStart: {
+    flex: 1,
   },
-  tapTarget: {
-    ...StyleSheet.absoluteFill,
-  },
-  crosshair: {
-    position: 'absolute',
-    top: CHART_PADDING.top,
-    bottom: CHART_PADDING.bottom,
-    width: 1,
-  },
-  yAxisOverlay: {
-    position: 'absolute',
-    left: CHART_PADDING.left + 2,
-    top: CHART_PADDING.top,
-    bottom: CHART_PADDING.bottom,
-    justifyContent: 'space-between',
+  row: {
+    flex: 1,
+    flexDirection: 'row',
   },
   timeAxis: {
+    position: 'absolute',
+    left: PLOT_PADDING.left,
+    right: PLOT_PADDING.right,
+    bottom: 0,
+    height: X_STRIP,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: CHART_PADDING.left,
-    paddingBottom: spacing.xs,
   },
-  timeAxisLabelFirst: {
-    textAlign: 'left',
+  standing: {
+    position: 'absolute',
   },
-  timeAxisLabelMiddle: {
-    textAlign: 'center',
+  offScaleRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing.md,
+    paddingTop: spacing.xs,
   },
-  timeAxisLabelLast: {
-    textAlign: 'right',
+  offScaleItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xxs,
   },
 });

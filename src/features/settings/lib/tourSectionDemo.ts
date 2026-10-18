@@ -14,6 +14,22 @@ export const TOUR_DEMO_ATTEMPTS: readonly DemoAttempt[] = [
   312, 305, 309, 298, 303, 294, 297, 289, 293, 286, 290, 281, 285, 279,
 ].map((timeSecs) => ({ timeSecs }));
 
+/**
+ * The demo attempts that set a record, oldest first: each strictly faster
+ * than every attempt before it, as the engine's progression is defined.
+ */
+export function demoRecordSteps(): number[] {
+  const steps: number[] = [];
+  let best = Infinity;
+  TOUR_DEMO_ATTEMPTS.forEach(({ timeSecs }, i) => {
+    if (timeSecs < best) {
+      best = timeSecs;
+      steps.push(i);
+    }
+  });
+  return steps;
+}
+
 /** Samples along the section in each demo delta curve. */
 const DELTA_SAMPLES = 24;
 

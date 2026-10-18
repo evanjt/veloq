@@ -8,63 +8,23 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
-import { Canvas, Circle, Path, Skia } from '@shopify/react-native-skia';
 import { useTranslation } from 'react-i18next';
 import { Card, ChangeChip } from '@/shared/ui';
 import {
-  ChartSurface,
   lanesSummary,
-  polylineSvgPath,
-  seriesTable,
+  Sparkline,
+  SPARKLINE_RANGE_WIDTH,
   useMeasuredWidth,
+  type SparklinePoint,
   type SummarySeries,
-  type XY,
 } from '@/shared/charts';
 import { formatSigned } from '@/shared/format';
 import { formatShortDate } from '@/shared/format/format';
 import type { TrendDirection, TrendVerdict } from '@/shared/format/trend';
-import { colors, darkColors, spacing, stroke, typography } from '@/theme';
-import { EfficiencyDirection, type EfficiencyPoint, type EfficiencyTrend } from 'veloqrs';
+import { colors, darkColors, spacing, typography } from '@/theme';
+import { EfficiencyDirection, type EfficiencyTrend } from 'veloqrs';
 
 const CHART_HEIGHT = 56;
-const PAD = 6;
-const LATEST_DOT_RADIUS = 3;
-
-/**
- * Scale a ratio series onto the canvas. A lower ratio is less cardiac cost
- * for the same pace, so it sits higher. Efforts are placed by date, so a long
- * gap between two of them reads as one. A flat series has no range to scale
- * against and is drawn down the middle, and a series whose efforts share one
- * date has no time to spread over and is spaced evenly.
- */
-export function efficiencySeriesVertices(
-  points: EfficiencyPoint[],
-  width: number,
-  height: number
-): XY[] {
-  const first = points[0];
-  const last = points[points.length - 1];
-  if (!first || !last) return [];
-
-  const ratios = points.map((p) => p.hrPaceRatio);
-  const min = Math.min(...ratios);
-  const max = Math.max(...ratios);
-  const range = max - min;
-  const span = last.date - first.date;
-  const byDate = Number.isFinite(span) && span > 0;
-  const w = width - PAD * 2;
-  const h = height - PAD * 2;
-
-  const along = (date: number, i: number) => {
-    if (points.length === 1) return 0.5;
-    return byDate ? (date - first.date) / span : i / (points.length - 1);
-  };
-
-  return points.map(({ date, hrPaceRatio }, i) => ({
-    x: PAD + along(date, i) * w,
-    y: range === 0 ? PAD + h / 2 : PAD + ((hrPaceRatio - min) / range) * h,
-  }));
-}
 
 /** The engine's direction as the badge states it: its word, its judgement, and the ratio's move. */
 const VERDICTS = {
@@ -102,40 +62,34 @@ export function SectionEfficiencyCard({ trend, isDark }: SectionEfficiencyCardPr
     if (!trend || trend.points.length === 0) return null;
     const unit = t('units.bpmSecondsPerKm');
     const format = (ratio: number) => `${Math.round(ratio)} ${unit}`;
-    const ratios = trend.points.map((p) => p.hrPaceRatio);
-    const series: SummarySeries = {
-      name: t('insights.efficiencyTrend.quantity'),
-      unit,
-      points: trend.points.map((p) => ({
-        label: formatShortDate(new Date(p.date * 1000)),
-        key: String(p.date),
-        value: p.hrPaceRatio,
-      })),
-      format,
-    };
-    const title = t('sections.aerobicEfficiency');
+    const name = t('insights.efficiencyTrend.quantity');
+    // Efforts sit at their date, so a long gap between two of them reads as one.
+    const points: SparklinePoint[] = trend.points.map((p) => ({
+      label: formatShortDate(new Date(p.date * 1000)),
+      key: String(p.date),
+      value: p.hrPaceRatio,
+      date: p.date,
+    }));
+    const series: SummarySeries = { name, unit, points, format };
     return {
-      range: t('sections.aerobicEfficiencyRange', {
-        min: format(Math.min(...ratios)),
-        max: format(Math.max(...ratios)),
-      }),
+      name,
+      unit,
+      points,
+      format,
       summary: lanesSummary(
-        t('sections.aerobicEfficiencySpoken', { title, efforts: trend.effortCount }),
+        t('sections.aerobicEfficiencySpoken', {
+          title: t('sections.aerobicEfficiency'),
+          efforts: trend.effortCount,
+        }),
         [series],
         t
       ),
-      table: seriesTable(title, t('charts.column.date'), [series]),
     };
   }, [trend, t]);
 
   if (!trend) return null;
 
-  const vertices = width > 0 ? efficiencySeriesVertices(trend.points, width, CHART_HEIGHT) : [];
-  const linePath =
-    vertices.length > 1 ? Skia.Path.MakeFromSVGString(polylineSvgPath(vertices)) : null;
-  const latest = vertices[vertices.length - 1];
   const signedHrChange = formatSigned(trend.hrChangeBpm, 0);
-  const seriesColor = isDark ? darkColors.chartSeries : colors.chartSeries;
   const verdict = VERDICTS[trend.direction];
 
   return (
@@ -167,33 +121,27 @@ export function SectionEfficiencyCard({ trend, isDark }: SectionEfficiencyCardPr
       </View>
 
       <View onLayout={onLayout}>
-        <ChartSurface
-          testID="section-efficiency-chart"
-          summary={reading?.summary ?? ''}
-          table={reading?.table ?? null}
-          style={styles.plot}
-        >
-          {width > 0 ? (
-            <Canvas style={{ width, height: CHART_HEIGHT }}>
-              {linePath ? (
-                <Path path={linePath} color={seriesColor} style="stroke" strokeWidth={stroke.two} />
-              ) : null}
-              {latest ? (
-                <Circle cx={latest.x} cy={latest.y} r={LATEST_DOT_RADIUS} color={seriesColor} />
-              ) : null}
-            </Canvas>
-          ) : null}
-        </ChartSurface>
+        {reading ? (
+          // A lower ratio is less cardiac cost for the same pace, so it sits higher.
+          <Sparkline
+            testID="section-efficiency-chart"
+            name={reading.name}
+            unit={reading.unit}
+            points={reading.points}
+            format={reading.format}
+            summary={reading.summary}
+            width={Math.max(0, width - SPARKLINE_RANGE_WIDTH - spacing.xs)}
+            height={CHART_HEIGHT}
+            color={isDark ? darkColors.chartSeries : colors.chartSeries}
+            showRange
+            invert
+            showDataButton
+          />
+        ) : (
+          <View style={styles.plot} />
+        )}
       </View>
 
-      {reading ? (
-        <Text
-          testID="section-efficiency-range"
-          style={[styles.caption, isDark && styles.captionDark]}
-        >
-          {reading.range}
-        </Text>
-      ) : null}
       <Text testID="section-efficiency-axis" style={[styles.caption, isDark && styles.captionDark]}>
         {t('sections.aerobicEfficiencyInverted')}
       </Text>

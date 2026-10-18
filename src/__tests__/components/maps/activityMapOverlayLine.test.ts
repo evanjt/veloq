@@ -3,8 +3,9 @@
  * activity track. At 5px and half opacity, in the same cyan the selected trace
  * uses, it disappeared into satellite terrain and into the green track above it.
  *
- * Expected behaviour: the matched route has its own casing, is wider than the
- * activity line drawn over it, and uses the colour reserved for a saved route.
+ * Expected behaviour: the matched route is context, drawn opaque in the base's
+ * muted colour with no casing, and wider than the activity line drawn over it,
+ * so a margin of it shows on either side of the track.
  */
 
 import {
@@ -15,7 +16,7 @@ import {
   buildFullscreenSectionSources,
 } from '@/features/maps/components/activityMapLayerSpecs';
 import { composeBaseMapLayers } from '@/features/maps/lib/baseMapLayers';
-import { mapLayerColors, mapPalette } from '@/theme';
+import { mapPalette } from '@/theme';
 
 const palette = mapPalette('light');
 
@@ -25,7 +26,6 @@ function layers(overrides: Record<string, unknown> = {}) {
   return buildActivityLayers({
     palette,
     overlayHasData: true,
-    activityColor: '#00FF00',
     gradientActive: false,
     gradientLineExpression: null,
     hasSectionOverlays: false,
@@ -44,34 +44,32 @@ function layer(id: string, overrides: Record<string, unknown> = {}) {
 }
 
 describe('matched route overlay', () => {
-  it('draws a casing under the matched route, so it reads on any basemap', () => {
-    expect(layer('overlay-casing').paint['line-color']).toBe(mapLayerColors.casing);
+  it('colours the matched route as context, not as the subject or a selection', () => {
+    expect(layer('overlay-line').paint['line-color']).toBe(palette.muted);
+    expect(layer('overlay-line').paint['line-color']).not.toBe(palette.route);
+    expect(layer('overlay-line').paint['line-color']).not.toBe(palette.ink);
   });
 
-  it('colours the matched route as a saved route, not as the selected trace', () => {
-    expect(layer('overlay-line').paint['line-color']).toBe(mapLayerColors.routeOverlay);
-    expect(layer('overlay-line').paint['line-color']).not.toBe(mapLayerColors.highlight);
+  it('draws no casing under the matched route, as context carries none', () => {
+    expect(layers().some((l) => l.id === 'overlay-casing')).toBe(false);
   });
 
   it('draws the matched route wider than the activity line above it', () => {
     const overlay = layer('overlay-line').paint['line-width'] as number;
     const routeCasing = layer('route-casing').paint['line-width'] as number;
     expect(overlay).toBeGreaterThan(routeCasing);
-    expect(layer('overlay-casing').paint['line-width'] as number).toBeGreaterThan(overlay);
   });
 
   it('keeps the matched route opaque enough to follow', () => {
-    expect(layer('overlay-line').paint['line-opacity'] as number).toBeGreaterThanOrEqual(0.9);
+    expect(layer('overlay-line').paint['line-opacity']).toBe(1);
   });
 
-  it('puts both overlay layers behind the activity line', () => {
+  it('puts the overlay behind the activity line', () => {
     const ids = layers().map((l) => l.id);
-    expect(ids.indexOf('overlay-casing')).toBeLessThan(ids.indexOf('overlay-line'));
     expect(ids.indexOf('overlay-line')).toBeLessThan(ids.indexOf('route-casing'));
   });
 
-  it('reads both overlay layers from the one overlay source', () => {
-    expect(layer('overlay-casing').source).toBe('overlay');
+  it('reads the overlay from its own source', () => {
     expect(layer('overlay-line').source).toBe('overlay');
     const sources = buildActivitySources({
       routeGeoJSON: EMPTY_COLLECTION,
@@ -99,7 +97,6 @@ function fullscreenOrder(
   const { hasSectionOverlays = true, overlayHasData = true } = overrides;
   return composeBaseMapLayers({
     palette,
-    routeColor: '#00FF00',
     underRouteLayers: buildFullscreenMatchedRouteLayers(overlayHasData, palette),
     overlayLayers: buildFullscreenSectionLayers(hasSectionOverlays, palette),
     userLocationLayers: [],
@@ -109,14 +106,11 @@ function fullscreenOrder(
 describe('matched route overlay in fullscreen', () => {
   it('carries the matched route into fullscreen, where it was missing entirely', () => {
     const ids = buildFullscreenMatchedRouteLayers(true, palette).map((l) => l.id);
-    expect(ids).toEqual(['fullscreen-overlay-casing', 'fullscreen-overlay-line']);
+    expect(ids).toEqual(['fullscreen-overlay-line']);
   });
 
   it('draws the matched route behind the activity line, as the embedded map does', () => {
     const ids = fullscreenOrder();
-    expect(ids.indexOf('fullscreen-overlay-casing')).toBeLessThan(
-      ids.indexOf('fullscreen-overlay-line')
-    );
     expect(ids.indexOf('fullscreen-overlay-line')).toBeLessThan(ids.indexOf('route-casing'));
     expect(ids.indexOf('route-casing')).toBeLessThan(ids.indexOf('route-line'));
   });
@@ -136,7 +130,6 @@ describe('matched route overlay in fullscreen', () => {
   it('puts the layers a caller adds beneath the route first and the location dot last', () => {
     const ids = composeBaseMapLayers({
       palette,
-      routeColor: '#00FF00',
       underRouteLayers: [{ id: 'under', type: 'line', source: 's', paint: {} }],
       overlayLayers: [{ id: 'over', type: 'line', source: 's', paint: {} }],
       userLocationLayers: [{ id: 'dot', type: 'circle', source: 's', paint: {} }],
@@ -155,7 +148,7 @@ describe('matched route overlay in fullscreen', () => {
     const full = buildFullscreenMatchedRouteLayers(true, palette).find(
       (l) => l.id === 'fullscreen-overlay-line'
     ) as { paint: Record<string, unknown> };
-    expect(full.paint['line-color']).toBe(mapLayerColors.routeOverlay);
+    expect(full.paint['line-color']).toBe(palette.muted);
     expect(full.paint['line-width']).toBe(layer('overlay-line').paint['line-width']);
   });
 

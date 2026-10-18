@@ -11,9 +11,7 @@ const empty = { type: 'FeatureCollection', features: [] } as GeoJSON.FeatureColl
 const routeLine = (stops: (string | number)[] | null) =>
   buildRouteLayers({
     palette: mapPalette('light'),
-    activityColor: '#123456',
-    representativeOpacity: 1,
-    fadedOpacity: 0.2,
+    routeContext: false,
     fadedFilter: undefined,
     includeRoute: true,
     deltaLineStops: stops,
@@ -40,7 +38,7 @@ describe('route map delta line', () => {
 
   it('keeps the flat colour without delta stops', () => {
     const paint = routeLine(null).paint as Record<string, unknown>;
-    expect(paint['line-color']).toBe('#123456');
+    expect(paint['line-color']).toBe(mapPalette('light').route);
     expect(paint['line-gradient']).toBeUndefined();
   });
 });

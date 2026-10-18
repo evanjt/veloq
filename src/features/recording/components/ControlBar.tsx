@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { View, StyleSheet, Animated, Pressable } from 'react-native';
+import { View, StyleSheet, Animated } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import { Text } from 'react-native-paper';
 import type { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -7,7 +7,6 @@ import { useTranslation } from 'react-i18next';
 import * as haptics from '@/shared/ui/haptics';
 
 import { useTheme } from '@/shared/app';
-import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import {
   colors,
   darkColors,
@@ -20,6 +19,7 @@ import {
 } from '@/theme';
 import type { RecordingStatus, RecordingMode } from '@/types';
 import { Icon } from '@/shared/ui/Icon';
+import { PressTarget } from '@/shared/ui/PressTarget';
 
 interface ControlBarProps {
   status: RecordingStatus;
@@ -191,16 +191,15 @@ function PrimaryButton({
   const fill = isDark ? recording.dark : recording.light;
   return (
     <View style={styles.buttonContainer}>
-      <Pressable
+      <PressTarget
         testID={testID}
-        style={pressable([styles.primaryButton, { backgroundColor: fill }])}
-        android_ripple={pressRipple}
+        style={[styles.primaryButton, { backgroundColor: fill }]}
         onPress={onPress}
         accessibilityLabel={label}
         accessibilityRole="button"
       >
         <Icon name={icon} size={iconSize.xl} color={colors.textOnFill} />
-      </Pressable>
+      </PressTarget>
       <Text style={[styles.buttonLabel, { color: themePalette(isDark).textSecondary }]}>
         {label}
       </Text>
@@ -226,16 +225,15 @@ function SecondaryButton({
 }) {
   return (
     <View style={styles.buttonContainer}>
-      <Pressable
+      <PressTarget
         testID={testID}
-        style={pressable([styles.secondaryButton, { backgroundColor }])}
-        android_ripple={pressRipple}
+        style={[styles.secondaryButton, { backgroundColor }]}
         onPress={onPress}
         accessibilityLabel={label}
         accessibilityRole="button"
       >
         <Icon name={icon} size={iconSize.lg} color={textColor} />
-      </Pressable>
+      </PressTarget>
       <Text style={[styles.buttonLabel, { color: textColor }]}>{label}</Text>
     </View>
   );

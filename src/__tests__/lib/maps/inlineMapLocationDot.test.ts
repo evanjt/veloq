@@ -47,7 +47,6 @@ function activityLayers(hasUserLocation: boolean) {
   return buildActivityLayers({
     palette: mapPalette('light'),
     overlayHasData: false,
-    activityColor: '#00FF00',
     gradientActive: false,
     gradientLineExpression: null,
     hasSectionOverlays: false,
@@ -68,8 +67,7 @@ const sectionInput = {
   highlightedTraceGeoJSON: EMPTY,
   highlightedLapGeoJSON: EMPTY,
   endpoints: EMPTY,
-  activityColor: '#00FF00',
-  sectionOpacity: 1,
+  sectionContext: false,
   trimRange: null,
   hasExtension: false,
   showExtensionAndSection: true,

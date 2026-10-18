@@ -15,12 +15,12 @@ import type { ActivityLedgerChange } from 'veloqrs';
 import { StatCard } from '@/features/activity/components/stats/StatCard';
 import { StatDetailSheet } from '@/features/activity/components/stats/StatDetailSheet';
 import { ActivityLedgerChanges } from '@/features/activity/components/ActivityLedgerChanges';
-import { PerformanceTooltip } from '@/features/routes/components/section/PerformanceTooltip';
+import { SelectedAttemptCard } from '@/features/routes/components/section/SelectedAttemptCard';
 import { MuscleGroupView } from '@/features/strength/components/MuscleGroupView';
-import { darkColors, loupeChrome } from '@/theme';
-import type { ActivityDetail } from '@/types';
+import { darkColors } from '@/theme';
 
 import { textCount, themed, underBar } from '../__shared__/drawnContrast';
+import { activityRecord } from '../__shared__/activityRecord';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
@@ -89,12 +89,12 @@ const TOOLTIP_POINT = {
   x: 0,
 };
 
-const MUSCLE_ACTIVITY = {
+const MUSCLE_ACTIVITY = activityRecord({
   id: 'demo-test-6',
   name: 'Upper body',
-  start_date_local: '2026-09-05T08:00:00',
-  moving_time: 3000,
-} as unknown as ActivityDetail;
+  startDateLocal: '2026-09-05T08:00:00',
+  movingTime: 3000,
+});
 
 async function renderMuscles() {
   await render(
@@ -139,14 +139,18 @@ describe('in the dark theme every word and mark clears its bar on its ground', (
     expect(underBar(darkColors.surface)).toEqual([]);
   });
 
-  it('the selected attempt tooltip and its lap badge, on the elevated surface', async () => {
+  it('the selected attempt card, its lap badge and its actions, on the elevated surface', async () => {
     await render(
       themed(
-        <PerformanceTooltip
-          selectedPoint={TOOLTIP_POINT}
+        <SelectedAttemptCard
+          attempt={TOOLTIP_POINT}
           isDark
+          activityType="Run"
           basis="pace"
-          onClearSelection={() => {}}
+          progression={[]}
+          recordsSettled
+          onSetAsReference={() => {}}
+          onExcludeActivity={() => {}}
         />,
         true
       )
@@ -160,7 +164,7 @@ describe('in the dark theme every word and mark clears its bar on its ground', (
     await renderMuscles();
 
     expect(textCount()).toBeGreaterThan(2);
-    expect(underBar(loupeChrome.bgDark)).toEqual([]);
+    expect(underBar(darkColors.surfaceRaised)).toEqual([]);
   });
 
   it('the muscle detail, on the dark loupe ground', async () => {
@@ -177,7 +181,7 @@ describe('in the dark theme every word and mark clears its bar on its ground', (
     await renderMuscles();
 
     expect(textCount()).toBeGreaterThan(4);
-    expect(underBar(loupeChrome.bgDark)).toEqual([]);
+    expect(underBar(darkColors.surfaceRaised)).toEqual([]);
   });
 
   it('the muscle read failure, on the dark loupe ground', async () => {
@@ -186,6 +190,6 @@ describe('in the dark theme every word and mark clears its bar on its ground', (
     await renderMuscles();
 
     expect(textCount()).toBeGreaterThan(2);
-    expect(underBar(loupeChrome.bgDark)).toEqual([]);
+    expect(underBar(darkColors.surfaceRaised)).toEqual([]);
   });
 });

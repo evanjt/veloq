@@ -2020,6 +2020,65 @@ pub struct FfiActivityBody {
     pub raw: String,
 }
 
+/// One stored activity as the detail screen reads it, typed from the body
+/// intervals.icu sent. A figure the body does not carry is `None`; the three
+/// the screen always draws are zero instead, as a manual entry sends them.
+#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+pub struct FfiActivityRecord {
+    /// The key the body is stored under, which is the id the screen asked for.
+    pub id: String,
+    /// Whether the body is the detail form rather than the list row, which
+    /// lacks most of the figures below until the detail fetch replaces it.
+    pub is_detail: bool,
+    pub name: Option<String>,
+    /// The sport as the body names it, absent when it names none.
+    pub sport_type: Option<String>,
+    /// The wall-clock start, as stored.
+    pub start_date_local: Option<String>,
+    pub description: Option<String>,
+    pub device_name: Option<String>,
+    /// Seconds.
+    pub moving_time: u32,
+    /// Metres.
+    pub distance: f64,
+    /// Metres climbed.
+    pub elevation_gain: f64,
+    /// Beats per minute.
+    pub avg_hr: Option<f64>,
+    pub max_hr: Option<f64>,
+    /// Watts.
+    pub avg_power: Option<f64>,
+    pub max_power: Option<f64>,
+    /// Kilocalories.
+    pub calories: Option<f64>,
+    pub training_load: Option<f64>,
+    /// Intensity factor as a percentage.
+    pub intensity: Option<f64>,
+    /// The FTP the activity was scored against, and the eFTP it estimated.
+    pub ftp: Option<f64>,
+    pub eftp: Option<f64>,
+    pub trimp: Option<f64>,
+    pub strain_score: Option<f64>,
+    /// Heart rate recovery, the drop in beats per minute.
+    pub hr_recovery: Option<f64>,
+    pub efficiency_factor: Option<f64>,
+    /// Aerobic decoupling in percent, `None` when intervals.icu stored no
+    /// finite value.
+    pub decoupling: Option<f64>,
+    /// Whether the temperatures below include intervals.icu's weather.
+    pub has_weather: bool,
+    /// Degrees Celsius from the weather.
+    pub weather_temp: Option<f64>,
+    /// Degrees Celsius from the device's own sensor.
+    pub sensor_temp: Option<f64>,
+    /// Degrees Celsius, from whichever of its names the body carries.
+    pub feels_like: Option<f64>,
+    /// Metres a second.
+    pub wind_speed: Option<f64>,
+    /// The stream kinds intervals.icu holds for the activity.
+    pub stream_types: Vec<String>,
+}
+
 /// The rows of a sample library, in the shapes the stores take them, for the
 /// widgets to draw while no account is signed in.
 #[derive(Debug, Clone, uniffi::Record)]
@@ -2108,6 +2167,10 @@ pub struct FfiActivityBodiesPage {
     /// The intervals.icu id a web link may name for each body, in the same
     /// order. None for a demo row and for a recording no server has named.
     pub intervals_ids: Vec<Option<String>>,
+    /// The row key each body is stored under, in the same order. A route or a
+    /// fetch names the activity by this, never by the body's own `id`, which
+    /// for an uploaded recording is the server's id rather than the row's.
+    pub keys: Vec<String>,
     /// Every stored activity the query matched, not only this page.
     pub matched_count: u32,
     pub has_more: bool,
@@ -2608,6 +2671,84 @@ pub struct FfiActivityDetailData {
     /// The intervals.icu id a web link may name. None for a demo row and for
     /// a recording no server has named, which have no page there.
     pub intervals_id: Option<String>,
+    /// A pool swim's lengths, rests, SWOLF and per-stroke totals. None for
+    /// every sport but `Swim`.
+    pub pool_swim: Option<FfiPoolSwim>,
+}
+
+/// Where a pool swim's lengths stand, read from its FIT file. The
+/// discriminants start at one so no member is falsy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[repr(u8)]
+pub enum FfiPoolSwimState {
+    /// The file has not been read yet: no verdict is stored for it.
+    Owed = 1,
+    /// The file was read and its lengths are stored.
+    Read = 2,
+    /// Settled with no lengths: upstream has no file, the file carries none,
+    /// or the decoder refused it.
+    NoLengths = 3,
+}
+
+/// The unit a pool is measured in, inferred from its length. The
+/// discriminants start at one so no member is falsy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[repr(u8)]
+pub enum FfiPoolUnit {
+    Metres = 1,
+    Yards = 2,
+}
+
+/// A pool swim's lengths as the activity detail screen paints them.
+#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+pub struct FfiPoolSwim {
+    pub state: FfiPoolSwimState,
+    /// The pool length in metres, whichever unit the device showed.
+    pub pool_length_m: Option<f64>,
+    /// The unit the pool is measured in. Metres when the length is unknown.
+    pub pool_unit: FfiPoolUnit,
+    /// Every length in file order, rests in place. Empty unless `Read`.
+    pub lengths: Vec<FfiPoolLength>,
+    /// One per stroke swum, in the order each stroke first appears, over the
+    /// active lengths alone.
+    pub stroke_totals: Vec<FfiPoolStrokeTotal>,
+}
+
+/// One length of the pool, or one rest.
+#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+pub struct FfiPoolLength {
+    /// The length's place in the file, from zero, rests counted.
+    pub index: u32,
+    /// False for a rest, which the device records as an idle length.
+    pub active: bool,
+    /// The FIT SwimStroke number. None for a rest or an unrecorded stroke.
+    pub stroke: Option<u8>,
+    /// A locale key naming the stroke (`freestyle`, `breaststroke`, ...),
+    /// `unknown` for an active length with no stroke. None for a rest.
+    pub stroke_key: Option<String>,
+    /// Seconds from the push-off to the wall, or the rest's duration.
+    pub elapsed_secs: Option<f64>,
+    pub strokes: Option<u16>,
+    /// Metres per second over the pool length. None for a rest.
+    pub speed_mps: Option<f64>,
+    /// Elapsed seconds plus strokes. None for a rest or a length with no
+    /// stroke count or no time.
+    pub swolf: Option<f64>,
+}
+
+/// One stroke's share of a pool swim, over its active lengths.
+#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+pub struct FfiPoolStrokeTotal {
+    pub stroke: Option<u8>,
+    pub stroke_key: String,
+    pub lengths: u32,
+    /// Lengths times the pool length. None when the pool length is unknown.
+    pub distance_m: Option<f64>,
+    pub elapsed_secs: f64,
+    /// Distance over time. None when either is unknown or zero.
+    pub speed_mps: Option<f64>,
+    /// The mean SWOLF of the lengths that have one.
+    pub avg_swolf: Option<f64>,
 }
 
 /// The summary intervals.icu stored with an activity. Each field is `None`
@@ -3232,6 +3373,10 @@ pub struct FfiBestEffort {
     /// Seconds taken to cover the distance, for pace only.
     pub time: Option<f64>,
     pub activity_id: Option<String>,
+    /// The name and start of the activity holding the best, when the device
+    /// holds that activity. Empty for one it does not, which the screen shows
+    /// as not cached.
+    pub activity: Option<FfiActivityName>,
 }
 
 /// A climbing family's best window per stored length.
@@ -3255,17 +3400,20 @@ pub struct FfiClimbBest {
     pub vam: Option<f64>,
     pub watts_per_kg: Option<f64>,
     pub activity_id: Option<String>,
+    /// The name and start of the activity holding the best, when the device
+    /// holds that activity.
+    pub activity: Option<FfiActivityName>,
 }
 
 // ============================================================================
-// Training Screen Types
+// Fitness Screen Calendar Types
 // ============================================================================
 
-/// The windows the training tab draws, each fixed for as long as it stays
-/// mounted. The front end names them because its grid and its season cards
-/// lay out the same days.
+/// The windows the fitness tab's calendar, week and year cards draw, each
+/// fixed for as long as it stays mounted. The front end names them because
+/// its grid and its season cards lay out the same days.
 #[derive(Debug, Clone, uniffi::Record)]
-pub struct FfiTrainingScreenWindows {
+pub struct FfiFitnessScreenWindows {
     /// The heatmap's first and last drawn day, `YYYY-MM-DD`, inclusive.
     pub heatmap_first_day: String,
     pub heatmap_last_day: String,
@@ -3323,30 +3471,15 @@ pub struct FfiSummaryComparisons {
     pub year: FfiSummaryComparison,
 }
 
-/// Everything the training tab paints with that stays fixed while it is
-/// mounted, the weekly card's every range among it.
-#[derive(Debug, Clone, uniffi::Record)]
-pub struct FfiTrainingScreenData {
-    /// Days with activities inside the heatmap's window, oldest first.
-    pub heatmap: Vec<FfiHeatmapDay>,
-    /// Calendar months with activities inside the monthly span, oldest first.
-    pub months: Vec<FfiMonthlyStats>,
-    pub year_current: FfiPeriodStats,
-    pub year_previous: FfiPeriodStats,
-    pub month_current: FfiPeriodStats,
-    pub month_previous: FfiPeriodStats,
-    /// The weekly card's periods to now, each against the same span before.
-    pub comparisons: FfiSummaryComparisons,
-}
-
 // ============================================================================
 // Fitness Screen Types
 // ============================================================================
 
 /// Everything the fitness tab paints with that stays fixed while it is
-/// mounted. Its sport is chosen with a tap, so the reads over it are their
-/// own; the parts that follow the range carry every span, so a tap reads
-/// nothing.
+/// mounted, its calendar, weekly card and year comparison among it. Its sport
+/// is chosen with a tap, so the reads over it are their own; the parts that
+/// follow the range carry every span, and the weekly card every range, so a
+/// tap reads nothing.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiFitnessScreenData {
     /// The cycling eFTP compared across the chart's three months, with the
@@ -3377,6 +3510,16 @@ pub struct FfiFitnessScreenData {
     /// Every activity inside the longest span asked for, oldest first, for the
     /// strip under the fitness plot.
     pub load_dots: Vec<FfiLoadDot>,
+    /// Days with activities inside the calendar's window, oldest first.
+    pub heatmap: Vec<FfiHeatmapDay>,
+    /// Calendar months with activities inside the monthly span, oldest first.
+    pub months: Vec<FfiMonthlyStats>,
+    pub year_current: FfiPeriodStats,
+    pub year_previous: FfiPeriodStats,
+    pub month_current: FfiPeriodStats,
+    pub month_previous: FfiPeriodStats,
+    /// The weekly card's periods to now, each against the same span before.
+    pub comparisons: FfiSummaryComparisons,
 }
 
 /// The ride the decoupling card names for one span of the range picker.
@@ -4620,6 +4763,9 @@ pub struct FfiSectionEncounter {
     pub history_times: Vec<f64>,
     /// Activity IDs corresponding to history_times (for highlighting current activity)
     pub history_activity_ids: Vec<String>,
+    /// Start of each activity in history_times, Unix seconds, so the sparkline
+    /// can place each outing at its date
+    pub history_dates: Vec<f64>,
 }
 
 // ============================================================================

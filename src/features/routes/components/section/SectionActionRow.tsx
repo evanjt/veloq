@@ -4,23 +4,20 @@ import { useTranslation } from 'react-i18next';
 import { colors, darkColors, iconSize, layout, spacing, typography, themePalette } from '@/theme';
 import type { FrequentSection } from '@/types';
 import { sectionActionChips } from '../../lib/sectionActionChips';
-import { SectionActionGlyph } from '../SectionSwipeAction';
-import { Button, IconButton } from '@/shared/ui';
+import { Button } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { FitText } from '@/shared/ui/FitText';
 
+/**
+ * The section page's row under the map: a labelled Edit bounds, Accept while the
+ * section is offered, and the section's state chips. Delete or remove and
+ * rematch are rarer and live in the header's overflow menu.
+ */
 export interface SectionActionRowProps {
   isDark: boolean;
-  isSectionDisabled: boolean;
-  isRematching: boolean;
-  /** Detection is held, so a rematch would be refused. */
-  isRematchHeld?: boolean;
   section: FrequentSection;
   startTrim: () => void;
-  handleDeleteSection: () => void;
-  handleToggleDisable: () => void;
-  handleRematchActivities?: () => void;
   handleAcceptSection: () => void;
   /** The stored version the section is pinned to, if any. */
   pinnedVersion?: number | null;
@@ -30,14 +27,8 @@ export interface SectionActionRowProps {
 
 export function SectionActionRow({
   isDark,
-  isSectionDisabled,
-  isRematching,
-  isRematchHeld = false,
   section,
   startTrim,
-  handleDeleteSection,
-  handleToggleDisable,
-  handleRematchActivities,
   handleAcceptSection,
   pinnedVersion = null,
   partlyExcluded = false,
@@ -59,49 +50,6 @@ export function SectionActionRow({
         onPress={startTrim}
         icon="content-cut"
       />
-      {section.sectionType === 'custom' ? (
-        <IconButton
-          variant="secondary"
-          accessibilityLabel={t('sections.deleteSection')}
-          onPress={handleDeleteSection}
-        >
-          <SectionActionGlyph kind="delete" size={iconSize.sm} color={colors.errorText} />
-        </IconButton>
-      ) : (
-        <IconButton
-          variant="secondary"
-          accessibilityLabel={
-            isSectionDisabled ? t('sections.restoreSection') : t('sections.removeSection')
-          }
-          onPress={handleToggleDisable}
-        >
-          <SectionActionGlyph
-            kind={isSectionDisabled ? 'restore' : 'remove'}
-            size={iconSize.sm}
-            color={
-              isSectionDisabled
-                ? colors.successText
-                : isDark
-                  ? darkColors.textSecondary
-                  : colors.textSecondary
-            }
-          />
-        </IconButton>
-      )}
-      {handleRematchActivities ? (
-        <IconButton
-          variant="secondary"
-          accessibilityLabel={t('sections.rematchActivities')}
-          onPress={handleRematchActivities}
-          disabled={isRematching || isRematchHeld}
-        >
-          <Icon
-            name={isRematching ? 'loading' : 'refresh'}
-            size={iconSize.sm}
-            color={isDark ? darkColors.textSecondary : colors.textSecondary}
-          />
-        </IconButton>
-      ) : null}
       <View style={styles.actionChips}>
         {partlyExcluded ? (
           <View

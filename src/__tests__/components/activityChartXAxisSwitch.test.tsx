@@ -12,7 +12,8 @@ import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import { ActivityChartsSection } from '@/features/activity/components/ActivityChartsSection';
-import type { ActivityDetail, ActivityStreams } from '@/types';
+import type { ActivityStreams } from '@/types';
+import { activityRecord } from '../__shared__/activityRecord';
 
 jest.mock('react-native-gesture-handler', () => ({
   ...jest.requireActual('react-native-gesture-handler'),
@@ -77,13 +78,13 @@ jest.mock('@/shared/debug/useFFITimer', () => ({
   useFFITimer: () => ({ getPageMetrics: () => [] }),
 }));
 
-const activity = {
+const activity = activityRecord({
   id: 'act-1',
-  type: 'Ride',
+  sportType: 'Ride',
   name: 'Harbour loop',
-  start_date_local: '2026-09-12T07:00:00',
-  moving_time: 3600,
-} as unknown as ActivityDetail;
+  startDateLocal: '2026-09-12T07:00:00',
+  movingTime: 3600,
+});
 
 const bothAxes = {
   time: [0, 1, 2],

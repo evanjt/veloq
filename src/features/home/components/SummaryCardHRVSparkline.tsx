@@ -1,31 +1,30 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef } from 'react';
-import { View, StyleSheet, Text as RNText } from 'react-native';
-import { Canvas, Path, Skia } from '@shopify/react-native-skia';
+import { View, StyleSheet } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
-import Animated from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { chartStyles, darkColors, colors, colorWithOpacity, typography, spacing } from '@/theme';
+import { chartStyles, darkColors, colors, typography, spacing } from '@/theme';
 import { summarySeriesColor } from '../lib/summaryMetricColour';
 import {
-  buildMonotoneSvg,
-  chartStroke,
-  LINE_CAP,
-  LINE_JOIN,
-  ScrubDot,
-  useChartColors,
+  ChartCrosshair,
+  dotDisks,
+  Sparkline,
+  SPARKLINE_RANGE_WIDTH,
   useChartGestures,
+  type SparklinePoint,
 } from '@/shared/charts';
-import { riseDayPoints } from '../lib/fitnessChange';
+import { DENSE_TEXT_SCALE, DenseText, denseExtent } from '@/shared/ui/DenseText';
+import { FitText } from '@/shared/ui/FitText';
 import { SPARKLINE_MIN_DAYS, type ScrubValues } from './SummaryCardSparkline';
 import { scrubDateLabel } from '../lib/scrubDateLabel';
 
-/** Match total height of fitness sparkline (44 chart + 4 form bar) */
-const CHART_HEIGHT = 48;
-const PLOT_TOP = 2;
-const PLOT_BOTTOM = 2;
-const HRV_DOMAIN_MIN = -6;
-const HRV_DOMAIN_MAX = 106;
+/** One row's plot height, which holds its range's high and low on two caption lines. */
+export const HRV_ROW_HEIGHT = 2 * typography.caption.lineHeight;
+const ROW_GAP = spacing.xs;
+/** The row label column holds one short word, "HRV" or "RHR", at the cap. */
+const LABEL_WIDTH = denseExtent(typography.caption.fontSize, 3.6);
+/** Where the rows' first and last days sit in from the plot's edges, the last day's dot. */
+const PLOT_INSET = dotDisks().ring;
 
 interface SummaryCardHRVSparklineProps {
   hrvData: number[];
@@ -34,17 +33,20 @@ interface SummaryCardHRVSparklineProps {
   hrvRead?: boolean[] | undefined;
   rhrRead?: boolean[] | undefined;
   width: number;
-  showLabels?: boolean | undefined;
   onScrub?: ((values: ScrubValues | null) => void) | undefined;
   onTap?: (() => void) | undefined;
 }
 
+/** A daily series as sparkline points, each labelled with its day. */
+function dailyPoints(values: number[]): SparklinePoint[] {
+  return values.map((value, i) => ({ value, label: scrubDateLabel(values.length - 1 - i) }));
+}
+
 /**
- * HRV + Resting HR sparkline chart for the SummaryCard.
- *
- * HRV rendered as a sparkline with gradient fill in the HRV series colour.
- * RHR as a subtler line in the resting HR colour (inverted - high RHR = low position).
- * Long-press to scrub - updates hero value via onScrub callback.
+ * HRV and resting heart rate for the SummaryCard, each in its own labelled row
+ * on its own scale with its range printed beside it. Neither is inverted: a
+ * higher reading draws higher in both. One scrub runs across both rows and
+ * updates the hero value through onScrub.
  */
 export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
   hrvData,
@@ -52,13 +54,11 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
   hrvRead,
   rhrRead,
   width,
-  showLabels = false,
   onScrub,
   onTap,
 }: SummaryCardHRVSparklineProps) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
-  const chartColors = useChartColors();
 
   const hrvRef = useRef(hrvData);
   hrvRef.current = hrvData;
@@ -71,31 +71,14 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
   const onTapRef = useRef(onTap);
   onTapRef.current = onTap;
 
-  const hasRhr = rhrData && rhrData.length === hrvData.length;
+  const rhrSeries = rhrData && rhrData.length === hrvData.length ? rhrData : null;
+  const plotWidth = Math.max(0, width - LABEL_WIDTH - SPARKLINE_RANGE_WIDTH - 2 * spacing.xs);
+  const totalHeight = rhrSeries ? 2 * HRV_ROW_HEIGHT + ROW_GAP : HRV_ROW_HEIGHT;
 
-  // HRV and RHR live on independent y-scales. Normalise both to 0-100 so they
-  // share one domain ([-6, 106]) - RHR inverted (higher HR = worse = lower).
-  const normalised = useMemo(() => {
-    const hrvMin = Math.min(...hrvData);
-    const hrvMax = Math.max(...hrvData);
-    const hrvRange = hrvMax - hrvMin || 1;
-
-    let rhrMin = 0;
-    let rhrRange = 1;
-    if (hasRhr) {
-      rhrMin = Math.min(...rhrData);
-      const rhrMax = Math.max(...rhrData);
-      rhrRange = rhrMax - rhrMin || 1;
-    }
-
-    const hrv = hrvData.map((v) => ((v - hrvMin) / hrvRange) * 100);
-    const rhr = hasRhr ? rhrData.map((v) => (1 - (v - rhrMin) / rhrRange) * 100) : null;
-    return { hrv, rhr };
-  }, [hrvData, rhrData, hasRhr]);
-
-  // Crosshair state
-  const labelWidth = showLabels ? 42 : 0;
-  const chartWidth = width - labelWidth;
+  const hrvPoints = useMemo(() => dailyPoints(hrvData), [hrvData]);
+  const rhrPoints = useMemo(() => (rhrSeries ? dailyPoints(rhrSeries) : null), [rhrSeries]);
+  const formatHrv = useCallback((v: number) => `${Math.round(v)} ${t('units.ms')}`, [t]);
+  const formatRhr = useCallback((v: number) => `${Math.round(v)} ${t('units.bpm')}`, [t]);
 
   const notifyScrub = useCallback((_point: number, index: number) => {
     const hrv = hrvRef.current;
@@ -133,162 +116,68 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
     onTap: onTap ? fireTap : undefined,
   });
 
+  // The plot starts past the label column, and its first and last days sit in
+  // from its edges by the dot, so the scrub maps over the days as drawn.
+  const plotLeft = LABEL_WIDTH + spacing.xs;
   useEffect(() => {
-    syncBounds({ left: 0, right: chartWidth, top: 0, bottom: CHART_HEIGHT });
-  }, [syncBounds, chartWidth]);
-
-  // Direct-Skia paths (replaces Victory CartesianChart): same monotoneX geometry,
-  // no chart-tree mount cost. HRV is normalised from its own minimum, so it is a
-  // bare line with no area under it.
-  const skiaPaths = useMemo(() => {
-    const plotHeight = CHART_HEIGHT - PLOT_TOP - PLOT_BOTTOM;
-    const hrvSvg = buildMonotoneSvg(
-      normalised.hrv,
-      HRV_DOMAIN_MIN,
-      HRV_DOMAIN_MAX,
-      chartWidth,
-      PLOT_TOP,
-      plotHeight
-    );
-    const rhrSvg = normalised.rhr
-      ? buildMonotoneSvg(
-          normalised.rhr,
-          HRV_DOMAIN_MIN,
-          HRV_DOMAIN_MAX,
-          chartWidth,
-          PLOT_TOP,
-          plotHeight
-        )
-      : null;
-    return {
-      hrv: hrvSvg ? Skia.Path.MakeFromSVGString(hrvSvg) : null,
-      rhr: rhrSvg ? Skia.Path.MakeFromSVGString(rhrSvg) : null,
-    };
-  }, [normalised, chartWidth]);
-
-  // The scrubbed day on each line, which a dot marks.
-  const scrubPoints = useMemo(() => {
-    if (scrubIndex < 0) return null;
-    const plot = {
-      width: chartWidth,
-      top: PLOT_TOP,
-      height: CHART_HEIGHT - PLOT_TOP - PLOT_BOTTOM,
-      min: HRV_DOMAIN_MIN,
-      max: HRV_DOMAIN_MAX,
-    };
-    return {
-      hrv: riseDayPoints(normalised.hrv, [scrubIndex], plot)[0],
-      rhr: normalised.rhr ? riseDayPoints(normalised.rhr, [scrubIndex], plot)[0] : undefined,
-    };
-  }, [scrubIndex, normalised, chartWidth]);
+    syncBounds({
+      left: plotLeft + PLOT_INSET,
+      right: plotLeft + plotWidth - PLOT_INSET,
+      top: 0,
+      bottom: totalHeight,
+    });
+  }, [syncBounds, plotLeft, plotWidth, totalHeight]);
 
   if (hrvData.length < SPARKLINE_MIN_DAYS || width <= 0) {
-    return <View style={{ width, height: CHART_HEIGHT }} />;
+    return <View style={{ width, height: totalHeight }} />;
   }
 
-  // The wellness series colours, the same two the health charts draw HRV and
-  // resting HR in.
-  const hrvHue = summarySeriesColor('hrv', isDark);
-  const rhrHue = summarySeriesColor('rhr', isDark);
-  const hrvLineColor = isDark ? hrvHue : colorWithOpacity(hrvHue, 0.85);
-  const rhrLineColor = isDark ? rhrHue : colorWithOpacity(rhrHue, 0.65);
+  const labelStyle = [chartStyles.chartLabelStrong, isDark && chartStyles.chartLabelStrongDark];
+  const scrubbed = scrubIndex >= 0 ? scrubIndex : undefined;
+  const row = (
+    key: 'hrv' | 'rhr',
+    points: SparklinePoint[],
+    format: (v: number) => string,
+    unit: string
+  ) => (
+    <View style={styles.row}>
+      <FitText style={[labelStyle, styles.label]} maxFontSizeMultiplier={DENSE_TEXT_SCALE}>
+        {t(`metrics.${key}`)}
+      </FitText>
+      <Sparkline
+        testID={`summary-card-${key}-row`}
+        name={t(`metrics.${key}`)}
+        unit={unit}
+        points={points}
+        format={format}
+        width={plotWidth}
+        height={HRV_ROW_HEIGHT}
+        color={summarySeriesColor(key, isDark)}
+        scrubIndex={scrubbed}
+        showRange
+      />
+    </View>
+  );
 
   return (
     <GestureDetector gesture={gesture}>
-      <View style={[styles.container, chartStyles.plotDirection, { width, height: CHART_HEIGHT }]}>
-        <View style={styles.chartRow}>
-          {showLabels ? (
-            <View style={[styles.labelColumn, { width: labelWidth }]}>
-              <RNText
-                style={[chartStyles.chartLabelStrong, isDark && chartStyles.chartLabelStrongDark]}
-              >
-                {t('metrics.hrv')}
-              </RNText>
-              <View style={{ flex: 1 }} />
-              {hasRhr ? (
-                <RNText
-                  style={[chartStyles.chartLabelStrong, isDark && chartStyles.chartLabelStrongDark]}
-                >
-                  {t('metrics.rhr')}
-                </RNText>
-              ) : null}
-            </View>
-          ) : null}
+      <View
+        style={[styles.container, chartStyles.plotDirection, { width, minHeight: totalHeight }]}
+      >
+        {row('hrv', hrvPoints, formatHrv, t('units.ms'))}
+        {rhrPoints ? row('rhr', rhrPoints, formatRhr, t('units.bpm')) : null}
 
-          <View style={{ width: chartWidth, height: CHART_HEIGHT }}>
-            <Canvas style={{ width: chartWidth, height: CHART_HEIGHT }}>
-              {/* RHR line (drawn first so HRV renders on top) */}
-              {hasRhr && skiaPaths.rhr ? (
-                <Path
-                  path={skiaPaths.rhr}
-                  color={chartColors.casing}
-                  style="stroke"
-                  strokeWidth={chartStroke.casing}
-                  strokeJoin={LINE_JOIN}
-                  strokeCap={LINE_CAP}
-                />
-              ) : null}
-              {hasRhr && skiaPaths.rhr ? (
-                <Path
-                  path={skiaPaths.rhr}
-                  color={rhrLineColor}
-                  style="stroke"
-                  strokeWidth={chartStroke.series}
-                  strokeJoin={LINE_JOIN}
-                  strokeCap={LINE_CAP}
-                />
-              ) : null}
+        {/* Time range label */}
+        <DenseText
+          style={[
+            styles.rangeLabel,
+            { color: isDark ? darkColors.textSecondary : colors.textSecondary },
+          ]}
+        >
+          {t('units.daysShort', { days: hrvData.length })}
+        </DenseText>
 
-              {/* HRV line - primary, on top */}
-              {skiaPaths.hrv ? (
-                <Path
-                  path={skiaPaths.hrv}
-                  color={chartColors.casing}
-                  style="stroke"
-                  strokeWidth={chartStroke.casing}
-                  strokeJoin={LINE_JOIN}
-                  strokeCap={LINE_CAP}
-                />
-              ) : null}
-              {skiaPaths.hrv ? (
-                <Path
-                  path={skiaPaths.hrv}
-                  color={hrvLineColor}
-                  style="stroke"
-                  strokeWidth={chartStroke.series}
-                  strokeJoin={LINE_JOIN}
-                  strokeCap={LINE_CAP}
-                />
-              ) : null}
-              {hasRhr && scrubPoints?.rhr ? (
-                <ScrubDot at={scrubPoints.rhr} color={rhrLineColor} />
-              ) : null}
-              {scrubPoints?.hrv ? <ScrubDot at={scrubPoints.hrv} color={hrvLineColor} /> : null}
-            </Canvas>
-
-            {/* Time range label */}
-            <RNText
-              style={[
-                styles.rangeLabel,
-                { color: isDark ? darkColors.textSecondary : colors.textSecondary },
-              ]}
-            >
-              {t('units.daysShort', { days: hrvData.length })}
-            </RNText>
-
-            {/* Crosshair overlay */}
-            <Animated.View style={[styles.crosshair, crosshairStyle]} pointerEvents="none">
-              <View
-                style={[
-                  styles.crosshairLine,
-                  {
-                    backgroundColor: isDark ? darkColors.textSecondary : colors.textSecondary,
-                  },
-                ]}
-              />
-            </Animated.View>
-          </View>
-        </View>
+        <ChartCrosshair style={crosshairStyle} topOffset={0} bottomOffset={0} />
       </View>
     </GestureDetector>
   );
@@ -297,30 +186,20 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
 const styles = StyleSheet.create({
   container: {
     position: 'relative',
+    gap: ROW_GAP,
   },
-  chartRow: {
+  row: {
     flexDirection: 'row',
-    alignItems: 'stretch',
-    flex: 1,
+    alignItems: 'center',
+    gap: spacing.xs,
   },
-  labelColumn: {
-    justifyContent: 'space-between',
-    paddingVertical: spacing.xxs,
+  label: {
+    width: LABEL_WIDTH,
   },
   rangeLabel: {
     ...typography.caption,
     position: 'absolute',
-    top: -typography.caption.lineHeight,
+    bottom: '100%',
     right: 2,
-  },
-  crosshair: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 1.5,
-  },
-  crosshairLine: {
-    flex: 1,
-    width: 1.5,
   },
 });

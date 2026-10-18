@@ -3,21 +3,18 @@
  * control. The layer toggles and fit-all sit in the menu the layers control
  * opens, so the column stays four controls tall however much the map holds.
  *
- * Each control is drawn at the icon-button size and reaches the platform tap
- * minimum through hit slop, as `IconButton` does everywhere else.
+ * Each control is a `MapControlButton`, drawn at the map button's size and
+ * lifted to the platform tap minimum through hit slop.
  */
 
 import React, { useState } from 'react';
 import { View, Pressable, StyleSheet, Text, Animated } from 'react-native';
 import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { IconButton, iconButtonSkin } from '@/shared/ui/IconButton';
 import { RowDivider } from '@/shared/ui/RowGroup';
-import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import {
   colors,
   colorWithOpacity,
-  controlHeight,
   darkColors,
   iconSize,
   ink,
@@ -26,13 +23,18 @@ import {
   spacing,
   typography,
 } from '@/theme';
-import { CompassArrow } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { useBackDismiss } from '@/shared/app/useBackDismiss';
 import { MapKeyRamp, MapKeySwatch } from '../MapKey';
-import { ACTIVITY_CATEGORIES, type SportFamily } from '../../lib/activityCategories';
+import { MAP_CONTROL_SIZE, MapControlButton } from '../MapControlButton';
+import {
+  SPORT_FAMILY_LABELS,
+  sportMarkColour,
+  type SportFamily,
+} from '../../lib/activityCategories';
 import { RECENCY_FADE } from './regionalMapLayerSpecs';
 import { FIT_GLYPH, LOCATE_GLYPH } from '@/features/maps/lib/mapGlyphs';
+import { PressTarget } from '@/shared/ui/PressTarget';
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -53,10 +55,9 @@ function recencyRamp(dot: string): string[] {
   );
 }
 
-/** One round control in the column, on a disc that carries the map shadow. */
+/** One round control in the column. */
 function ColumnButton({
   testID,
-  isDark,
   active = false,
   disabled = false,
   expanded,
@@ -65,7 +66,6 @@ function ColumnButton({
   children,
 }: {
   testID: string;
-  isDark: boolean;
   active?: boolean;
   disabled?: boolean;
   expanded?: boolean;
@@ -74,20 +74,16 @@ function ColumnButton({
   children: React.ReactNode;
 }) {
   return (
-    <View style={[styles.columnDisc, raised('mapOverlay', isDark), isDark && styles.surfaceDark]}>
-      <IconButton
-        testID={testID}
-        variant="ghost"
-        selected={active}
-        style={styles.columnButton}
-        onPress={onPress}
-        disabled={disabled}
-        accessibilityLabel={accessibilityLabel}
-        {...(expanded === undefined ? {} : { accessibilityState: { expanded } })}
-      >
-        {children}
-      </IconButton>
-    </View>
+    <MapControlButton
+      testID={testID}
+      selected={active}
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityLabel={accessibilityLabel}
+      {...(expanded === undefined ? {} : { accessibilityState: { expanded } })}
+    >
+      {children}
+    </MapControlButton>
   );
 }
 
@@ -110,14 +106,13 @@ function MenuRow({
   const palette = isDark ? darkColors : colors;
   const isToggle = checked !== undefined;
   return (
-    <Pressable
+    <PressTarget
       testID={testID}
-      style={pressable(styles.menuRow)}
+      style={styles.menuRow}
       onPress={onPress}
       accessibilityLabel={label}
       accessibilityRole={isToggle ? 'checkbox' : 'button'}
       accessibilityState={isToggle ? { checked } : undefined}
-      android_ripple={pressRipple}
     >
       <Icon
         name={icon}
@@ -132,7 +127,7 @@ function MenuRow({
           color={checked ? palette.actionPrimary : 'transparent'}
         />
       ) : null}
-    </Pressable>
+    </PressTarget>
   );
 }
 
@@ -237,6 +232,7 @@ export function MapControlStack({
       {menuOpen ? (
         // press-feedback: none, an invisible scrim over the map that only closes the menu
         <Pressable
+          focusable={false}
           testID="map-layers-backdrop"
           style={StyleSheet.absoluteFill}
           onPress={() => setLayersOpen(false)}
@@ -247,50 +243,45 @@ export function MapControlStack({
       <View style={[styles.controlStack, { top }]}>
         <ColumnButton
           testID="map-toggle-3d"
-          isDark={isDark}
           active={show3D}
           disabled={!can3D}
           onPress={closing(onToggle3D)}
           accessibilityLabel={show3D ? t('maps.disable3D') : t('maps.enable3D')}
         >
-          <IconButton.Glyph name="terrain" />
+          <MapControlButton.Glyph name="terrain" />
         </ColumnButton>
 
         <ColumnButton
           testID="map-compass"
-          isDark={isDark}
           onPress={closing(onResetOrientation)}
           accessibilityLabel={t('maps.resetOrientation')}
         >
-          <CompassArrow
-            size={iconSize.md}
-            rotation={bearingAnim}
-            northColor={colors.compassNorth}
-            southColor={iconButtonSkin({ variant: 'ghost', isDark }).glyph}
-          />
+          <MapControlButton.Compass rotation={bearingAnim} />
         </ColumnButton>
 
         <ColumnButton
           testID="map-location"
-          isDark={isDark}
           active={userLocationActive}
           disabled={locationLoading}
           onPress={closing(onGetLocation)}
           accessibilityLabel={t('maps.goToLocation')}
         >
-          {locationLoading ? <IconButton.Spinner /> : <IconButton.Glyph name={LOCATE_GLYPH} />}
+          {locationLoading ? (
+            <MapControlButton.Spinner />
+          ) : (
+            <MapControlButton.Glyph name={LOCATE_GLYPH} />
+          )}
         </ColumnButton>
 
         {hasLayers ? (
           <ColumnButton
             testID="map-layers"
-            isDark={isDark}
             active={menuOpen}
             expanded={menuOpen}
             onPress={() => setLayersOpen((open) => !open)}
             accessibilityLabel={t('maps.layers')}
           >
-            <IconButton.Glyph name="layers-outline" />
+            <MapControlButton.Glyph name="layers-outline" />
           </ColumnButton>
         ) : null}
       </View>
@@ -302,7 +293,7 @@ export function MapControlStack({
             styles.menu,
             raised('mapOverlay', isDark),
             isDark && styles.surfaceDark,
-            { top: top + CONTROLS_ABOVE_LAYERS * (controlHeight.button + spacing.sm) },
+            { top: top + CONTROLS_ABOVE_LAYERS * (MAP_CONTROL_SIZE + spacing.sm) },
           ]}
         >
           {hasActivities ? (
@@ -317,19 +308,16 @@ export function MapControlStack({
           ) : null}
           {hasActivities && showActivities ? (
             <View style={styles.menuKey}>
-              {keyCategories.map((category) => {
-                const config = ACTIVITY_CATEGORIES[category];
-                return (
-                  <MapKeySwatch
-                    key={category}
-                    testID={`map-key-category-${category}`}
-                    swatch={config.color}
-                    shape="dot"
-                    label={t(config.label)}
-                    isDark={isDark}
-                  />
-                );
-              })}
+              {keyCategories.map((category) => (
+                <MapKeySwatch
+                  key={category}
+                  testID={`map-key-category-${category}`}
+                  swatch={sportMarkColour(category, isDark)}
+                  shape="dot"
+                  label={t(SPORT_FAMILY_LABELS[category])}
+                  isDark={isDark}
+                />
+              ))}
               <MapKeyRamp
                 testID="map-key-recency"
                 ramp={recencyRamp(palette.textPrimary)}
@@ -404,23 +392,12 @@ const styles = StyleSheet.create({
     right: spacing.md,
     gap: spacing.sm,
   },
-  columnDisc: {
-    width: controlHeight.button,
-    height: controlHeight.button,
-    borderRadius: layout.borderRadiusFull,
-    backgroundColor: colorWithOpacity(ink.white, 0.95),
-  },
   surfaceDark: {
     backgroundColor: darkColors.surfaceRaised,
   },
-  columnButton: {
-    width: controlHeight.button,
-    height: controlHeight.button,
-    borderRadius: layout.borderRadiusFull,
-  },
   menu: {
     position: 'absolute',
-    right: spacing.md + controlHeight.button + spacing.sm,
+    right: spacing.md + MAP_CONTROL_SIZE + spacing.sm,
     borderRadius: layout.borderRadiusMd,
     backgroundColor: colorWithOpacity(ink.white, 0.95),
     paddingVertical: spacing.xs,

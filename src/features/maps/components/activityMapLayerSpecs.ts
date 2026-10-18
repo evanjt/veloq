@@ -1,7 +1,7 @@
 /**
  * Source and layer specs for the activity detail map.
  *
- * Back to front: the matched route overlay and its casing, the activity line
+ * Back to front: the matched route overlay, the activity line
  * (solid or gradient), the section portions cut out of that line, the ticks that
  * mark where each portion starts and ends, the section markers, and finally
  * the chart-scrub highlight.
@@ -10,7 +10,7 @@
  * native renderer could not be trusted with a boolean filter. GL JS filters
  * work, so numbered and PR markers now come out of one source split by filter.
  */
-import { colourIndexExpression, type MapPalette } from '@/theme';
+import type { MapPalette } from '@/theme';
 import type { MapGeoJSONData, MapLayerSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
 import {
   SECTION_END_ICON_ID,
@@ -32,10 +32,9 @@ import {
 export const SECTION_MARKER_LAYER_IDS = ['section-marker-pr-icon', 'section-marker-circle'];
 
 // The matched route runs under the activity track, often within a metre of it.
-// It needs its own casing and more width than the track above it, or satellite
-// terrain and the track between them leave nothing to follow.
-const OVERLAY_CASING_WIDTH = 12;
-const OVERLAY_LINE_WIDTH = 9;
+// It is context, so it takes the base's muted colour and no casing, and it is
+// wider than the track above it so a margin of it shows on either side.
+const OVERLAY_LINE_WIDTH = 8;
 
 interface ActivitySourceInput {
   /** The activity line, or the engine's URL for it when the engine holds the track. */
@@ -55,7 +54,6 @@ interface ActivityLayerInput {
   /** The colours of the base map drawn under the layers. */
   palette: MapPalette;
   overlayHasData: boolean;
-  activityColor: string;
   gradientActive: boolean;
   gradientLineExpression: unknown;
   /** Truthy when the sections tab has overlays to draw. */
@@ -105,26 +103,17 @@ export function buildActivitySources(input: ActivitySourceInput): Record<string,
   };
 }
 
-/** Route opacity yields to whatever is drawn on top of it. */
-function routeOpacity(hasSectionOverlays: boolean, highlighted: boolean, overlayHasData: boolean) {
-  if (hasSectionOverlays) return highlighted ? 0.25 : 0.8;
-  return overlayHasData ? 0.85 : 1;
-}
-
-/** A section portion's colour: gold for a personal record, else its palette colour. */
+/**
+ * A section portion's colour: the record colour for a personal record, else the
+ * subject line's own colour. Its number badge is what tells sections apart.
+ */
 function sectionPortionColour(palette: MapPalette): unknown[] {
-  return [
-    'case',
-    ['==', ['get', 'isPR'], true],
-    palette.layer.personalRecord,
-    colourIndexExpression(palette.layer.sections, ['get', 'colorIndex']),
-  ];
+  return ['case', ['==', ['get', 'isPR'], true], palette.record, palette.route];
 }
 
 export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
   const {
     palette,
-    activityColor,
     gradientActive,
     gradientLineExpression,
     hasSectionOverlays,
@@ -138,7 +127,10 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
   const highlighted = !!highlightedSectionId;
   const isHighlightedSection = ['==', ['get', 'id'], highlightedSectionId ?? ''];
   const roundLine = { 'line-cap': 'round', 'line-join': 'round' };
-  const lineOpacity = routeOpacity(hasSectionOverlays, highlighted, overlayHasData);
+  // While a section is highlighted the rest of the track is context: it is
+  // drawn in the muted colour at full opacity, which holds its contrast on
+  // every base where a fainter subject colour would not.
+  const routeColour = highlighted ? palette.muted : palette.route;
   const layer = palette.layer;
   const portionColor = sectionPortionColour(palette);
 
@@ -150,9 +142,9 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       source: 'route',
       layout: roundLine,
       paint: {
-        'line-color': layer.casing,
+        'line-color': palette.casing,
         'line-width': 5,
-        'line-opacity': lineOpacity,
+        'line-opacity': highlighted ? 0 : 1,
       },
     },
     {
@@ -161,10 +153,10 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       source: 'route',
       layout: roundLine,
       paint: {
-        'line-color': activityColor,
+        'line-color': routeColour,
         'line-width': 4,
         // The solid line gives way entirely when gradient colouring is on.
-        'line-opacity': gradientActive ? 0 : lineOpacity,
+        'line-opacity': gradientActive ? 0 : 1,
       },
     },
     {
@@ -173,7 +165,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       source: 'route',
       layout: roundLine,
       paint: {
-        'line-color': activityColor,
+        'line-color': palette.route,
         'line-width': 4,
         'line-opacity': gradientActive ? 1 : 0,
         ...(gradientActive && gradientLineExpression
@@ -187,12 +179,13 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       source: 'portions',
       layout: roundLine,
       paint: {
-        'line-color': layer.casing,
+        'line-color': palette.casing,
         'line-width': highlighted ? ['case', isHighlightedSection, 7, 5] : 6,
+        // A portion outside the highlight is context, which carries no casing.
         'line-opacity': hasSectionOverlays
           ? highlighted
-            ? ['case', isHighlightedSection, 1, 0.15]
-            : 0.9
+            ? ['case', isHighlightedSection, 1, 0]
+            : 1
           : 0,
       },
     },
@@ -203,16 +196,13 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       layout: { 'line-cap': 'butt', 'line-join': 'round' },
       paint: {
         'line-color': highlighted
-          ? ['case', isHighlightedSection, layer.highlight, portionColor]
+          ? ['case', isHighlightedSection, palette.ink, palette.muted]
           : portionColor,
         'line-width': highlighted ? ['case', isHighlightedSection, 5, 3] : 4,
-        // Dashed so overlapping portions let each other's colour show through.
+        // Dashed over its casing, so a portion reads as the track with the
+        // casing showing through and overlapping portions stay apart.
         'line-dasharray': [2, 1.2],
-        'line-opacity': hasSectionOverlays
-          ? highlighted
-            ? ['case', isHighlightedSection, 1, 0.25]
-            : 0.95
-          : 0,
+        'line-opacity': hasSectionOverlays ? 1 : 0,
       },
     },
     {
@@ -231,7 +221,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       type: 'line',
       source: 'section-boundaries',
       layout: { 'line-cap': 'round' },
-      paint: { 'line-color': layer.casing, 'line-width': 3.5 },
+      paint: { 'line-color': palette.casing, 'line-width': 3.5 },
     },
     ...buildEndpointLayers(palette),
     {
@@ -270,7 +260,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
         'icon-ignore-placement': true,
         'icon-anchor': 'center',
       },
-      paint: { 'icon-color': layer.onFill, 'icon-opacity': creationMode ? 1 : 0 },
+      paint: { 'icon-color': palette.casing, 'icon-opacity': creationMode ? 1 : 0 },
       visible: creationMode,
     },
     {
@@ -278,7 +268,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       type: 'circle',
       source: 'section-markers',
       filter: ['!=', ['get', 'isPR'], true],
-      paint: { 'circle-radius': 14, 'circle-color': layer.casing },
+      paint: { 'circle-radius': 14, 'circle-color': palette.casing },
     },
     {
       id: 'section-marker-circle',
@@ -287,9 +277,9 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       filter: ['!=', ['get', 'isPR'], true],
       paint: {
         'circle-radius': 12,
-        'circle-color': colourIndexExpression(layer.sections, ['get', 'colorIndex']),
+        'circle-color': palette.route,
         'circle-stroke-width': 2,
-        'circle-stroke-color': layer.casing,
+        'circle-stroke-color': palette.casing,
       },
     },
     {
@@ -305,7 +295,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
         'text-allow-overlap': true,
         'text-ignore-placement': true,
       },
-      paint: { 'text-color': layer.onFill },
+      paint: { 'text-color': palette.badgeInk },
     },
     {
       id: 'section-marker-pr-icon',
@@ -319,7 +309,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
         'icon-ignore-placement': true,
         'icon-anchor': 'center',
       },
-      paint: { 'icon-color': layer.trophy },
+      paint: { 'icon-color': palette.record },
     },
     {
       id: 'highlight-border',
@@ -327,7 +317,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       source: 'highlight',
       paint: {
         'circle-radius': 7,
-        'circle-color': layer.casing,
+        'circle-color': palette.casing,
         'circle-opacity': hasHighlightPoint ? 1 : 0,
       },
     },
@@ -337,7 +327,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       source: 'highlight',
       paint: {
         'circle-radius': 5,
-        'circle-color': layer.sections[0],
+        'circle-color': palette.ink,
         'circle-opacity': hasHighlightPoint ? 1 : 0,
       },
     },
@@ -354,25 +344,14 @@ function overlayLayers(
   const roundLine = { 'line-cap': 'round', 'line-join': 'round' };
   return [
     {
-      id: `${prefix}overlay-casing`,
-      type: 'line',
-      source: 'overlay',
-      layout: roundLine,
-      paint: {
-        'line-color': palette.layer.casing,
-        'line-width': OVERLAY_CASING_WIDTH,
-        'line-opacity': overlayHasData ? 0.9 : 0,
-      },
-    },
-    {
       id: `${prefix}overlay-line`,
       type: 'line',
       source: 'overlay',
       layout: roundLine,
       paint: {
-        'line-color': palette.layer.routeOverlay,
+        'line-color': palette.muted,
         'line-width': OVERLAY_LINE_WIDTH,
-        'line-opacity': overlayHasData ? 0.95 : 0,
+        'line-opacity': overlayHasData ? 1 : 0,
       },
     },
   ];
@@ -415,9 +394,9 @@ export function buildFullscreenSectionLayers(
       source: 'portions',
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
-        'line-color': palette.layer.casing,
+        'line-color': palette.casing,
         'line-width': 6,
-        'line-opacity': hasSectionOverlays ? 0.9 : 0,
+        'line-opacity': hasSectionOverlays ? 1 : 0,
       },
     },
     {
@@ -442,7 +421,7 @@ export function buildFullscreenSectionLayers(
         'icon-ignore-placement': true,
         'icon-anchor': 'center',
       },
-      paint: { 'icon-color': palette.layer.trophy },
+      paint: { 'icon-color': palette.record },
     },
   ];
 }

@@ -1,5 +1,5 @@
 import React, { useCallback, useRef } from 'react';
-import { View, StyleSheet, Pressable, type ViewInstance } from 'react-native';
+import { View, StyleSheet, type ViewInstance } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTheme } from '@/shared/app';
 import { INTERVALS_URLS } from '@/shared/app/constants';
@@ -17,14 +17,7 @@ import {
   offerCrashLog,
 } from '@/shared/app/supportLinks';
 import { colors, darkColors, iconSize, layout, spacing, typography, themePalette } from '@/theme';
-import {
-  Button,
-  Card,
-  ExternalLinkRow,
-  ListSectionHeader,
-  pressable,
-  pressRipple,
-} from '@/shared/ui';
+import { Button, Card, ExternalLinkRow, ListSectionHeader, PressTarget } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 
 export function SupportSection() {
@@ -134,19 +127,18 @@ export function SupportSection() {
             <RowDivider inset="none" />
           </View>
 
-          <Pressable
+          <PressTarget
             ref={crashLogAnchor}
             accessibilityRole="button"
             accessibilityLabel={t('support.shareCrashLog')}
             testID="support-crash-log"
             onPress={handleShareCrashLog}
-            style={pressable(styles.row)}
-            android_ripple={pressRipple}
+            style={styles.row}
           >
             <Icon name="bug-outline" size={iconSize.md} color={mutedColor} />
             <Text style={[styles.rowText, { color: textColor }]}>{t('support.shareCrashLog')}</Text>
             <ChromeIcon name="share" size={iconSize.md} color={mutedColor} />
-          </Pressable>
+          </PressTarget>
         </Card>
       </View>
     </>

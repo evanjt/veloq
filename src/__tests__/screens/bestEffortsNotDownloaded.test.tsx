@@ -24,10 +24,6 @@ jest.mock('@/shared/app/TopSafeAreaContext', () => ({
   useScreenSafeAreaEdges: () => [],
 }));
 
-jest.mock('@/features/activity', () => ({
-  useActivityLabels: () => ({ labels: new Map(), error: null }),
-}));
-
 const NOT_DOWNLOADED = 'statsScreen.curveNotDownloaded';
 const NO_DATA = 'statsScreen.noEffortData';
 

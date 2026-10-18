@@ -12,6 +12,7 @@ import { readCalendarEvents } from '@/features/home/lib/calendarEvents';
 import { getEngine } from '@/shared/native/engine';
 import { startDateLocalToEpochSeconds } from '@/shared/time/startDate';
 import { atUtcOffset } from '../__shared__/fixedOffsetDate';
+import { plannedEvent } from '../__shared__/plannedEvent';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 
@@ -23,15 +24,15 @@ const EVENTS = [
   '2026-09-23T15:00:00',
   '2026-09-23T23:00:00',
   '2026-09-24T00:00:00',
-].map((start) => ({ id: start, start_date_local: start }));
+];
 
 /** The engine's `WHERE date >= ? AND date <= ?` over wall-clock stamps. */
 const engine = {
-  getCalendarEventBodies: (from: number, to: number) =>
-    EVENTS.filter((event) => {
-      const stamp = startDateLocalToEpochSeconds(event.start_date_local)!;
+  getPlannedEvents: (from: number, to: number) =>
+    EVENTS.filter((start) => {
+      const stamp = startDateLocalToEpochSeconds(start)!;
       return stamp >= from && stamp <= to;
-    }).map((event) => JSON.stringify(event)),
+    }).map((start, i) => plannedEvent({ id: i, name: start, day: start.slice(0, 10) })),
 };
 
 beforeEach(() => {
@@ -45,7 +46,7 @@ describe.each([
 ])('at %s', (_zone, offset) => {
   it("returns today's events, from midnight to the last hour, and no others", () => {
     const ids = atUtcOffset(offset, () => readCalendarEvents('2026-09-23', '2026-09-23')).map(
-      (e) => e.id
+      (e) => e.name
     );
 
     expect(ids).toEqual(['2026-09-23T00:00:00', '2026-09-23T15:00:00', '2026-09-23T23:00:00']);
@@ -53,9 +54,9 @@ describe.each([
 
   it('spans a multi-day window inclusive of both ends', () => {
     const ids = atUtcOffset(offset, () => readCalendarEvents('2026-09-22', '2026-09-24')).map(
-      (e) => e.id
+      (e) => e.name
     );
 
-    expect(ids).toEqual(EVENTS.map((e) => e.id));
+    expect(ids).toEqual(EVENTS);
   });
 });

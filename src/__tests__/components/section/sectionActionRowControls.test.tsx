@@ -1,7 +1,10 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 import { SectionActionRow } from '@/features/routes/components/section/SectionActionRow';
-import { SectionTrimOverlay } from '@/features/routes/components/SectionTrimOverlay';
+import {
+  SectionTrimOverlay,
+  SectionTrimToolBar,
+} from '@/features/routes/components/SectionTrimOverlay';
 import type { FrequentSection } from '@/types';
 import type { ReactTestInstance } from 'react-test-renderer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -12,6 +15,11 @@ jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => key,
   }),
+}));
+
+jest.mock('@/shared/app', () => ({
+  ...jest.requireActual('@/shared/app'),
+  useMetricSystem: () => true,
 }));
 
 jest.mock('react-native-gesture-handler', () => {
@@ -30,20 +38,10 @@ const section = (sectionType: 'custom' | 'auto'): FrequentSection =>
 async function renderRow(sectionType: 'custom' | 'auto', over: Record<string, unknown> = {}) {
   const handlers = {
     startTrim: jest.fn(),
-    handleDeleteSection: jest.fn(),
-    handleToggleDisable: jest.fn(),
-    handleRematchActivities: jest.fn(),
     handleAcceptSection: jest.fn(),
   };
   const utils = await render(
-    <SectionActionRow
-      isDark={false}
-      isSectionDisabled={false}
-      isRematching={false}
-      section={section(sectionType)}
-      {...handlers}
-      {...over}
-    />
+    <SectionActionRow isDark={false} section={section(sectionType)} {...handlers} {...over} />
   );
   return { ...utils, handlers };
 }
@@ -56,46 +54,12 @@ describe('SectionActionRow controls', () => {
     await fireEvent.press(byRole);
     expect(handlers.startTrim).toHaveBeenCalledTimes(1);
   });
-
-  it('labels delete on a custom section', async () => {
-    const { getByRole, handlers } = await renderRow('custom');
-    await fireEvent.press(getByRole('button', { name: 'sections.deleteSection' }));
-    expect(handlers.handleDeleteSection).toHaveBeenCalledTimes(1);
-  });
-
-  it('labels disable on an auto section and restore once disabled', async () => {
-    const first = await renderRow('auto');
-    await fireEvent.press(first.getByRole('button', { name: 'sections.removeSection' }));
-    expect(first.handlers.handleToggleDisable).toHaveBeenCalledTimes(1);
-    await first.unmount();
-
-    const second = await renderRow('auto', { isSectionDisabled: true });
-    expect(second.getByRole('button', { name: 'sections.restoreSection' })).toBeTruthy();
-  });
-
-  it('labels rematch and refuses the press while rematching', async () => {
-    const idle = await renderRow('auto');
-    await fireEvent.press(idle.getByRole('button', { name: 'sections.rematchActivities' }));
-    expect(idle.handlers.handleRematchActivities).toHaveBeenCalledTimes(1);
-    await idle.unmount();
-
-    const busy = await renderRow('auto', { isRematching: true });
-    await fireEvent.press(busy.getByRole('button', { name: 'sections.rematchActivities' }));
-    expect(busy.handlers.handleRematchActivities).not.toHaveBeenCalled();
-  });
-
-  it('omits rematch when no handler is given', async () => {
-    const { queryByRole } = await renderRow('auto', { handleRematchActivities: undefined });
-    expect(queryByRole('button', { name: 'sections.rematchActivities' })).toBeNull();
-  });
 });
 
 /**
- * Scenario: one glyph stood for permanent Delete and reversible Remove, and
- * one pin for Pinned and for Accepted.
+ * Scenario: one pin stood for Pinned and for Accepted.
  *
- * Expected behaviour: each control draws a glyph of its own, and only the
- * permanent delete draws the bin.
+ * Expected behaviour: Pinned, Accepted and Accept each draw a glyph of their own.
  */
 describe('SectionActionRow glyphs', () => {
   type Node = { props: { name?: string } };
@@ -104,19 +68,6 @@ describe('SectionActionRow glyphs', () => {
   function glyph(element: Found): string | undefined {
     return element.findAll((n) => typeof n.props.name === 'string')[0]?.props.name;
   }
-
-  it('draws the bin only for the permanent delete', async () => {
-    const custom = await renderRow('custom');
-    const del = glyph(custom.getByRole('button', { name: 'sections.deleteSection' }));
-    await custom.unmount();
-
-    const auto = await renderRow('auto');
-    const remove = glyph(auto.getByRole('button', { name: 'sections.removeSection' }));
-
-    expect(del).toBe('delete');
-    expect(remove).toBeDefined();
-    expect(remove).not.toMatch(/^delete/);
-  });
 
   it('draws Pinned, Accepted and Accept with different glyphs', async () => {
     const pinned = await renderRow('auto', { pinnedVersion: 2 });
@@ -143,46 +94,98 @@ describe('SectionActionRow glyphs', () => {
   });
 });
 
-describe('SectionTrimOverlay reset control', () => {
+describe('section trim reset control', () => {
   const props = {
     pointCount: 100,
     startIndex: 10,
     endIndex: 60,
     trimmedDistance: 500,
-    originalDistance: 1000,
     isSaving: false,
     canReset: true,
     isExpandMode: false,
-    onStartChange: jest.fn(),
-    onEndChange: jest.fn(),
     onConfirm: jest.fn(),
     onCancel: jest.fn(),
     onReset: jest.fn(),
-    onToggleExpand: jest.fn(),
   };
 
-  it('finds reset by role and name and fires it', async () => {
+  it('finds reset in the tool bar by role and name and fires it', async () => {
     const onReset = jest.fn();
-    const { getByRole } = await render(<SectionTrimOverlay {...props} onReset={onReset} />);
-    await fireEvent.press(getByRole('button', { name: 'sections.resetBounds' }));
+    const { getByRole } = await render(<SectionTrimToolBar {...props} onReset={onReset} />);
+    await fireEvent.press(getByRole('button', { name: 'common.reset' }));
     expect(onReset).toHaveBeenCalledTimes(1);
   });
 
   it('hides reset when there is nothing to reset', async () => {
-    const { queryByRole } = await render(<SectionTrimOverlay {...props} canReset={false} />);
-    expect(queryByRole('button', { name: 'sections.resetBounds' })).toBeNull();
+    const { queryByRole } = await render(<SectionTrimToolBar {...props} canReset={false} />);
+    expect(queryByRole('button', { name: 'common.reset' })).toBeNull();
   });
 
   it('disables reset while an edit is pending', async () => {
     const onReset = jest.fn();
     const { getByRole } = await render(
-      <SectionTrimOverlay {...props} isSaving onReset={onReset} />
+      <SectionTrimToolBar {...props} isSaving onReset={onReset} />
     );
-    const reset = getByRole('button', { name: 'sections.resetBounds' });
+    const reset = getByRole('button', { name: 'common.reset' });
 
     expect(reset).toBeDisabled();
     await fireEvent.press(reset);
     expect(onReset).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Scenario: editing a section's bounds is work done on the map, like creating one.
+ * Expected behaviour: the edit runs in the shared map tool bar, headed with the kept length, and
+ * the panel under the map keeps only the handles, the steps and the expand toggle.
+ */
+describe('section trim in the map tool bar', () => {
+  const panelProps = {
+    pointCount: 100,
+    startIndex: 10,
+    endIndex: 60,
+    isSaving: false,
+    isExpandMode: false,
+    onStartChange: jest.fn(),
+    onEndChange: jest.fn(),
+    onToggleExpand: jest.fn(),
+  };
+
+  it('heads the bar with the tool and the kept length, and saves from Save', async () => {
+    const onConfirm = jest.fn();
+    const onCancel = jest.fn();
+    const { getByTestId, getByText, getByRole } = await render(
+      <SectionTrimToolBar
+        pointCount={100}
+        startIndex={10}
+        endIndex={60}
+        trimmedDistance={7600}
+        isSaving={false}
+        canReset={false}
+        isExpandMode={false}
+        onConfirm={onConfirm}
+        onCancel={onCancel}
+        onReset={jest.fn()}
+      />
+    );
+    expect(getByTestId('map-tool-bar')).toBeTruthy();
+    expect(getByText('sections.editBounds · 7.6 km')).toBeTruthy();
+    expect(getByText('sections.trimPrecisionHint')).toBeTruthy();
+    await fireEvent.press(getByRole('button', { name: 'common.save' }));
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    await fireEvent.press(getByTestId('section-trim-cancel'));
+    expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the panel without its own length, Cancel, Save or Reset', async () => {
+    const { getByTestId, queryByTestId, queryByRole, queryByText } = await render(
+      <SectionTrimOverlay {...panelProps} />
+    );
+    expect(getByTestId('section-trim-overlay')).toBeTruthy();
+    expect(getByTestId('section-expand-toggle')).toBeTruthy();
+    expect(queryByTestId('section-trim-confirm')).toBeNull();
+    expect(queryByTestId('section-trim-cancel')).toBeNull();
+    expect(queryByRole('button', { name: 'sections.resetBounds' })).toBeNull();
+    expect(queryByText('500 m')).toBeNull();
   });
 });
 
@@ -199,16 +202,10 @@ describe('SectionTrimOverlay step buttons', () => {
     pointCount: 100,
     startIndex: 0,
     endIndex: 99,
-    trimmedDistance: 1000,
-    originalDistance: 1000,
     isSaving: false,
-    canReset: false,
     isExpandMode: false,
     onStartChange: jest.fn(),
     onEndChange: jest.fn(),
-    onConfirm: jest.fn(),
-    onCancel: jest.fn(),
-    onReset: jest.fn(),
     onToggleExpand: jest.fn(),
   };
 
@@ -243,28 +240,24 @@ describe('SectionTrimOverlay step buttons', () => {
  * Expected behaviour: Save is disabled while the kept range is under the
  * minimum, with the reason beside it; at the minimum it is live again.
  */
-describe('SectionTrimOverlay minimum kept range', () => {
+describe('section trim minimum kept range', () => {
   const props = {
     pointCount: 60,
     startIndex: 10,
     endIndex: 13,
     trimmedDistance: 40,
-    originalDistance: 600,
     isSaving: false,
     canReset: false,
     isExpandMode: false,
-    onStartChange: jest.fn(),
-    onEndChange: jest.fn(),
     onConfirm: jest.fn(),
     onCancel: jest.fn(),
     onReset: jest.fn(),
-    onToggleExpand: jest.fn(),
   };
 
   it('disables Save and names the reason when four points are kept', async () => {
     const onConfirm = jest.fn();
     const { getByTestId, getByText } = await render(
-      <SectionTrimOverlay {...props} onConfirm={onConfirm} />
+      <SectionTrimToolBar {...props} onConfirm={onConfirm} />
     );
     const save = getByTestId('section-trim-confirm');
 
@@ -277,7 +270,7 @@ describe('SectionTrimOverlay minimum kept range', () => {
   it('enables Save with no reason when five points are kept', async () => {
     const onConfirm = jest.fn();
     const { getByTestId, queryByText } = await render(
-      <SectionTrimOverlay {...props} endIndex={14} onConfirm={onConfirm} />
+      <SectionTrimToolBar {...props} endIndex={14} onConfirm={onConfirm} />
     );
     const save = getByTestId('section-trim-confirm');
 
@@ -289,7 +282,7 @@ describe('SectionTrimOverlay minimum kept range', () => {
 
   it('holds the same minimum in expand mode', async () => {
     const { getByTestId, getByText } = await render(
-      <SectionTrimOverlay
+      <SectionTrimToolBar
         {...props}
         isExpandMode
         sectionStartInWindow={5}

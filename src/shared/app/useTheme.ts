@@ -29,9 +29,6 @@ export interface ThemeColors {
   border: string;
   divider: string;
 
-  // Activity colors
-  ride: string;
-
   // Chart colors
   fitness: string;
   fatigue: string;
@@ -89,9 +86,6 @@ export function useTheme(): Theme {
     // Borders
     border: isDark ? darkColors.border : colors.border,
     divider: isDark ? darkColors.border : colors.border,
-
-    // Activity colors (same in both modes)
-    ride: colors.ride,
 
     // Chart colors
     fitness: palette.fitness,

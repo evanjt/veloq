@@ -1,5 +1,4 @@
-import { colors, activityTypeColors, sportFamilyColours } from '@/theme';
-import type { ActivityType } from '@/types';
+import { colors, sportFamilyColours } from '@/theme';
 import type { MaterialIconName } from '@/shared/activity/activityUtils';
 import {
   SPORT_FAMILY_MEMBERS,
@@ -8,6 +7,7 @@ import {
 } from '@/shared/native/sportTaxonomy.generated';
 
 export type { SportFamily };
+export { SPORT_FAMILY_MEMBERS };
 
 /** The families in the order a stack of them is drawn, as the engine declares them. */
 export const SPORT_FAMILY_ORDER = Object.keys(SPORT_FAMILY_MEMBERS) as SportFamily[];
@@ -23,40 +23,16 @@ export const SPORT_FAMILY_LABELS = {
   Other: 'sportFamilies.other',
 } as const satisfies Record<SportFamily, string>;
 
-const OTHER_COLOR: string = activityTypeColors.Other || colors.swim;
-const WINTER_COLOR: string = activityTypeColors.AlpineSki || colors.swim;
-
-/** How a family draws, until the family colour tokens replace these hues. */
-const FAMILY_LOOK: Record<SportFamily, { color: string; icon: MaterialIconName }> = {
-  Ride: { color: colors.ride, icon: 'bike' },
-  Winter: { color: WINTER_COLOR, icon: 'ski' },
-  Run: { color: colors.run, icon: 'run' },
-  Water: { color: colors.swim, icon: 'swim' },
-  Foot: { color: colors.walk, icon: 'walk' },
-  Strength: { color: colors.workout, icon: 'dumbbell' },
-  Other: { color: OTHER_COLOR, icon: 'heart-pulse' },
+/** Each family's glyph. */
+export const SPORT_FAMILY_ICONS: Record<SportFamily, MaterialIconName> = {
+  Ride: 'bike',
+  Winter: 'ski',
+  Run: 'run',
+  Water: 'swim',
+  Foot: 'walk',
+  Strength: 'dumbbell',
+  Other: 'heart-pulse',
 };
-
-export interface SportFamilyConfig {
-  color: string;
-  icon: MaterialIconName;
-  /** The family's label, as a translation key. */
-  label: (typeof SPORT_FAMILY_LABELS)[SportFamily];
-  /** The API types the engine files under this family. */
-  types: string[];
-}
-
-/** Every family, keyed by its engine name, in stack order. */
-export const ACTIVITY_CATEGORIES: Record<SportFamily, SportFamilyConfig> = Object.fromEntries(
-  SPORT_FAMILY_ORDER.map((family) => [
-    family,
-    {
-      ...FAMILY_LOOK[family],
-      label: SPORT_FAMILY_LABELS[family],
-      types: [...SPORT_FAMILY_MEMBERS[family]],
-    },
-  ])
-) as Record<SportFamily, SportFamilyConfig>;
 
 const FAMILY_OF: ReadonlyMap<string, SportFamily> = new Map(
   SPORT_FAMILY_ORDER.flatMap((family) =>
@@ -99,11 +75,6 @@ export function sportMarkColour(familyOrType: string, isDark: boolean): string {
   const shades = steps[getActivityCategory(familyOrType)];
   // Other has no shades of its own, so a sport filed under it takes the family colour.
   return shades[SHADE_OF.get(familyOrType) ?? 0] ?? shades[0];
-}
-
-/** The family config of any activity type. */
-export function getActivityTypeConfig(type: ActivityType | string): SportFamilyConfig {
-  return ACTIVITY_CATEGORIES[getActivityCategory(type)];
 }
 
 /** Activity types grouped by family, each family in the order its types arrive. */

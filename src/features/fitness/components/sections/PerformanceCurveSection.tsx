@@ -17,11 +17,7 @@ import {
   type ClimbStatus,
 } from '@/features/stats';
 import { useTheme } from '@/shared/app';
-import {
-  SPORT_TEXT_COLORS,
-  SPORT_TEXT_COLORS_DARK,
-  type PrimarySport,
-} from '@/features/fitness/stores';
+import { type PrimarySport } from '@/features/fitness/stores';
 import {
   formatPaceCompact,
   formatPower,
@@ -30,7 +26,7 @@ import {
   swimPaceUnitLabel,
 } from '@/shared/format/format';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
-import { spacing, typography } from '@/theme';
+import { spacing, themePalette, typography } from '@/theme';
 import { SeasonBestsSection } from '..';
 import type { TimeRange } from '@/shared/app/timeRange';
 
@@ -72,7 +68,7 @@ export const PerformanceCurveSection = React.memo(function PerformanceCurveSecti
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
-  const sportText = isDark ? SPORT_TEXT_COLORS_DARK : SPORT_TEXT_COLORS;
+  const valueInk = themePalette(isDark).textPrimary;
 
   // The chart under each row decides whether there is a series, so the header
   // asks the same query it does. Both read one cache entry.
@@ -128,16 +124,16 @@ export const PerformanceCurveSection = React.memo(function PerformanceCurveSecti
             estimatedHeight={sportMode === 'Cycling' ? 270 : 240}
             headerRight={
               sportMode === 'Cycling' && headerFtp ? (
-                <Text style={[styles.headerValue, { color: sportText.Cycling }]}>
+                <Text style={[styles.headerValue, { color: valueInk }]}>
                   {t('statsScreen.ftpLabel', { value: formatPower(headerFtp) })}
                 </Text>
               ) : sportMode === 'Running' && headerRunPace ? (
-                <Text style={[styles.headerValue, { color: sportText.Running }]}>
+                <Text style={[styles.headerValue, { color: valueInk }]}>
                   {formatPaceCompact(headerRunPace, isMetric)}
                   {paceUnitLabel(isMetric)}
                 </Text>
               ) : sportMode === 'Swimming' && headerSwimPace ? (
-                <Text style={[styles.headerValue, { color: sportText.Swimming }]}>
+                <Text style={[styles.headerValue, { color: valueInk }]}>
                   {formatSwimPace(headerSwimPace, isMetric)}
                   {swimPaceUnitLabel(isMetric)}
                 </Text>
@@ -146,12 +142,9 @@ export const PerformanceCurveSection = React.memo(function PerformanceCurveSecti
           >
             <View style={styles.collapsibleContent}>
               <CurveFreshnessLine freshness={freshness} />
-              {sportMode === 'Cycling' && (
-                // Taller than the pace charts by the row of fitted models under it.
-                <PowerCurveChart height={230} days={days} ftp={currentFTP} />
-              )}
-              {sportMode === 'Running' && <PaceCurveChart height={200} days={days} />}
-              {sportMode === 'Swimming' && <SwimPaceCurveChart height={200} days={days} />}
+              {sportMode === 'Cycling' && <PowerCurveChart days={days} ftp={currentFTP} />}
+              {sportMode === 'Running' && <PaceCurveChart days={days} />}
+              {sportMode === 'Swimming' && <SwimPaceCurveChart days={days} />}
             </View>
           </CollapsibleSection>
         </Card>
@@ -169,9 +162,7 @@ export const PerformanceCurveSection = React.memo(function PerformanceCurveSecti
             estimatedHeight={200}
             headerRight={
               bestsHeader ? (
-                <Text style={[styles.headerValue, { color: sportText[sportMode] }]}>
-                  {bestsHeader}
-                </Text>
+                <Text style={[styles.headerValue, { color: valueInk }]}>{bestsHeader}</Text>
               ) : null
             }
           >

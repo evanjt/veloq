@@ -8,7 +8,12 @@
  */
 
 import { useMemo } from 'react';
-import { fromUnixSeconds, castDirection, ensureFinite } from '@/shared/ffi/ffiConversions';
+import {
+  fromUnixSeconds,
+  castDirection,
+  castOffScale,
+  ensureFinite,
+} from '@/shared/ffi/ffiConversions';
 import type { FfiSectionChartData } from 'veloqrs';
 import type { PerformanceDataPoint } from '@/types';
 
@@ -20,8 +25,6 @@ interface UseSectionChartDataParams {
 export interface UseSectionChartDataResult {
   // Chart data (from Rust)
   chartData: (PerformanceDataPoint & { x: number })[];
-  minSpeed: number;
-  maxSpeed: number;
   hasReverseRuns: boolean;
 
   // Stats (from Rust)
@@ -36,21 +39,16 @@ export function useSectionChartData({
 }: UseSectionChartDataParams): UseSectionChartDataResult {
   const rustChart = preComputedChart;
 
-  const { chartData, minSpeed, maxSpeed, hasReverseRuns } = useMemo(() => {
+  const { chartData, hasReverseRuns } = useMemo(() => {
     if (!rustChart) {
       return {
         chartData: [] as (PerformanceDataPoint & { x: number })[],
-        minSpeed: 0,
-        maxSpeed: 1,
         hasReverseRuns: false,
       };
     }
 
-    // Sanitise raw Rust speeds before deriving axis bounds - a non-finite
-    // min/max would poison padding and the whole y-axis range.
-    const minSpeed = ensureFinite(rustChart.minSpeed, 0);
-    const maxSpeed = ensureFinite(rustChart.maxSpeed, 1);
-    const padding = (maxSpeed - minSpeed) * 0.15 || 0.5;
+    // The axis range is the engine's focus range, so nothing here pads or
+    // bounds the speeds.
     const chartData: (PerformanceDataPoint & { x: number })[] = rustChart.points.map((p, idx) => ({
       x: idx,
       id: p.lapId,
@@ -67,12 +65,13 @@ export function useSectionChartData({
       // A route attempt's band and match; false and absent on a section.
       outsideDistanceBand: p.outsideDistanceBand,
       matchPercentage: p.matchPercentage ?? undefined,
+      offScale: castOffScale(p.offScale),
+      recordGapSecs: p.recordGapSecs ?? undefined,
+      recordGapSpeed: p.recordGapSpeed ?? undefined,
     }));
 
     return {
       chartData,
-      minSpeed: Math.max(0, minSpeed - padding),
-      maxSpeed: maxSpeed + padding,
       hasReverseRuns: rustChart.hasReverseRuns,
     };
   }, [rustChart]);
@@ -99,8 +98,6 @@ export function useSectionChartData({
 
   return {
     chartData,
-    minSpeed,
-    maxSpeed,
     hasReverseRuns,
     bestTimeValue,
     firstActivityDate,

@@ -34,6 +34,7 @@ import {
 } from 'react-native';
 import { useWindowInsets } from '@/shared/app/TopSafeAreaContext';
 import { layout } from '@/theme';
+import { flattenStyle } from './flattenStyle';
 import { useScrollEndInset } from './tabBarClearance';
 
 /** Whether the keyboard has to be cleared by padding, read once like the defaults below. */
@@ -139,7 +140,7 @@ function KeyboardPadding({ children }: { children: ReactNode }) {
 /** A content style with its bottom padding grown by `extra`, read through the shorthands. */
 export function withEndPadding(style: StyleProp<ViewStyle>, extra: number): StyleProp<ViewStyle> {
   if (extra === 0) return style;
-  const flat = StyleSheet.flatten(style) ?? {};
+  const flat = flattenStyle(style);
   const own = flat.paddingBottom ?? flat.paddingVertical ?? flat.padding ?? 0;
   return [style, { paddingBottom: (typeof own === 'number' ? own : 0) + extra }];
 }

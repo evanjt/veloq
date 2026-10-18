@@ -10,7 +10,7 @@
 
 import { colors, darkColors } from '@/theme';
 import { dayPillTone } from '@/features/fitness/lib/dayPillTone';
-import { ACTIVITY_CATEGORIES } from '@/shared/activity/sportCategories';
+import { SPORT_FAMILY_ORDER } from '@/shared/activity/sportCategories';
 
 /** WCAG 2.2 AA for body text. */
 const AA_TEXT = 4.5;
@@ -65,7 +65,7 @@ const THEMES = [
 ] as const;
 
 describe('the days-trained pill', () => {
-  const groups = [...Object.keys(ACTIVITY_CATEGORIES), undefined];
+  const groups = [...SPORT_FAMILY_ORDER, undefined];
 
   it.each(THEMES.flatMap(([name, isDark]) => groups.map((g) => [name, g, isDark] as const)))(
     'draws the %s label for %s at text contrast on its tint',

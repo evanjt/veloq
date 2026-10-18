@@ -111,6 +111,42 @@ it('keys the first-use detail streams as the detail screen reads them', () => {
   expect(key?.replace(/\\\s*/g, '')).toBe(streamTypesKey(DETAIL_STREAM_TYPES));
 });
 
+// The detail screen's stat cards read the engine's activity record by these
+// generated names. A field the Rust record stops carrying draws as a card that
+// silently never appears, which no type check on the screen can catch once a
+// test double stands in for the record.
+it('types every field the activity stat cards read in the engine record', () => {
+  const block = read(GENERATED).match(/export type FfiActivityRecord = \{([\s\S]*?)\n\};/)?.[1];
+  expect(block).toBeDefined();
+  const fields = [...(block ?? '').matchAll(/^ {2}(\w+)\??:/gm)].map((match) => match[1]);
+  expect(fields).toEqual(
+    expect.arrayContaining([
+      'isDetail',
+      'sportType',
+      'movingTime',
+      'trainingLoad',
+      'intensity',
+      'trimp',
+      'strainScore',
+      'avgHr',
+      'maxHr',
+      'hrRecovery',
+      'calories',
+      'weatherTemp',
+      'sensorTemp',
+      'feelsLike',
+      'windSpeed',
+      'hasWeather',
+      'avgPower',
+      'maxPower',
+      'eftp',
+      'ftp',
+      'efficiencyFactor',
+      'decoupling',
+    ])
+  );
+});
+
 // The FTP milestone compares eFTP against the value this many days earlier,
 // and every locale's methodology says so in words.
 it('says the FTP comparison window Rust uses in every locale', () => {
@@ -1968,15 +2004,24 @@ const SETS: SetContract[] = [
   // The Jest stub for the binding cannot import the generated module, so it
   // carries its own copy of each enum, held here member for member and value
   // for value.
-  {
-    agree:
-      'the binding stub carries FfiReferenceSource, declared without discriminants, in the generated order',
-    mode: 'equal',
-    a: () => enumMembers(stub.FfiReferenceSource as unknown as Record<string, unknown>),
-    // An undeclared discriminant is the member's position.
-    b: () =>
-      generatedEnum('FfiReferenceSource').map((member, i) => member.replace('=unset', `=${i}`)),
-  },
+  ...(
+    [
+      ['FfiReferenceSource', stub.FfiReferenceSource],
+      ['FfiPlannedCategory', stub.FfiPlannedCategory],
+      ['FfiPlanTarget', stub.FfiPlanTarget],
+      ['FfiPlanLineKind', stub.FfiPlanLineKind],
+      ['FfiTargetMetric', stub.FfiTargetMetric],
+      ['FfiAbsoluteUnits', stub.FfiAbsoluteUnits],
+    ] as const
+  ).map(
+    ([name, value]): SetContract => ({
+      agree: `the binding stub carries ${name}, declared without discriminants, in the generated order`,
+      mode: 'equal',
+      a: () => enumMembers(value as unknown as Record<string, unknown>),
+      // An undeclared discriminant is the member's position.
+      b: () => generatedEnum(name).map((member, i) => member.replace('=unset', `=${i}`)),
+    })
+  ),
   ...(
     [
       ['FfiCallKind', stub.CallKind],
@@ -1991,6 +2036,8 @@ const SETS: SetContract[] = [
       ['BulkExportFormat', stub.BulkExportFormat],
       ['FfiStartOutcome', stub.StartOutcome],
       ['FfiInitOutcome', stub.InitOutcome],
+      ['FfiPoolSwimState', stub.PoolSwimState],
+      ['FfiPoolUnit', stub.PoolUnit],
     ] as const
   ).map(
     ([name, value]): SetContract => ({

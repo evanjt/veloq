@@ -1,6 +1,7 @@
 /**
- * Inline trim/expand panel for adjusting section bounds.
- * Full-width layout below the map, replaces the performance chart when active.
+ * The edit bounds tool: the handles, the step buttons and the expand toggle in
+ * a panel below the map, and the shared map tool bar over the map with the kept
+ * length, Reset, Cancel and Save.
  *
  * Performance: slider handles and track run entirely on the UI thread via
  * Reanimated SharedValues at 60fps. Map updates are throttled to ~100ms
@@ -29,7 +30,6 @@ import {
   type Palette,
   themePalette,
 } from '@/theme';
-import { formatDistance } from '@/shared/format/format';
 import {
   keepsEnoughPoints,
   stepTrimBound,
@@ -37,8 +37,9 @@ import {
   type TrimBound,
 } from '@/shared/math/trimRange';
 import { useMetricSystem, useTheme } from '@/shared/app';
-import { Button, COMPACT_ICON_BUTTON_GAP, IconButton, ToggleButton, Spinner } from '@/shared/ui';
+import { COMPACT_ICON_BUTTON_GAP, IconButton, ToggleButton } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
+import { MapToolBar, mapToolTitle } from '@/features/maps';
 import {
   levelRatio,
   precisionLevel,
@@ -58,22 +59,86 @@ const primaryStyles = (palette: Palette) =>
     handleBar: { backgroundColor: palette.actionPrimary },
   });
 
-interface SectionTrimOverlayProps {
+/** The kept range the handles mark, in the points the tool shows. */
+interface TrimRange {
   pointCount: number;
   startIndex: number;
   endIndex: number;
-  trimmedDistance: number;
-  originalDistance: number;
-  isSaving: boolean;
-  canReset: boolean;
   isExpandMode: boolean;
   sectionStartInWindow?: number | undefined;
   sectionEndInWindow?: number | undefined;
-  onStartChange: (index: number) => void;
-  onEndChange: (index: number) => void;
+}
+
+/**
+ * Whether the handles have moved off the stored bounds, and whether what they
+ * keep is enough to save. In expand mode the stored bounds sit inside the window.
+ */
+function trimEdit({
+  pointCount,
+  startIndex,
+  endIndex,
+  isExpandMode,
+  sectionStartInWindow,
+  sectionEndInWindow,
+}: TrimRange): { isTrimmed: boolean; tooShort: boolean; canSave: boolean } {
+  const maxIndex = Math.max(pointCount - 1, 1);
+  const hasWindowMarkers =
+    isExpandMode && sectionStartInWindow != null && sectionEndInWindow != null;
+  const isTrimmed = hasWindowMarkers
+    ? startIndex !== sectionStartInWindow || endIndex !== sectionEndInWindow
+    : startIndex > 0 || endIndex < maxIndex;
+  const tooShort = !keepsEnoughPoints(startIndex, endIndex);
+  return { isTrimmed, tooShort, canSave: isTrimmed && !tooShort };
+}
+
+interface SectionTrimToolBarProps extends TrimRange {
+  trimmedDistance: number;
+  isSaving: boolean;
+  canReset: boolean;
   onConfirm: () => void;
   onCancel: () => void;
   onReset: () => void;
+}
+
+/** The edit bounds tool's bar over the map: the kept length, Reset, Cancel and Save. */
+export function SectionTrimToolBar({
+  trimmedDistance,
+  isSaving,
+  canReset,
+  onConfirm,
+  onCancel,
+  onReset,
+  ...range
+}: SectionTrimToolBarProps) {
+  const { t } = useTranslation();
+  const isMetric = useMetricSystem();
+  const { tooShort, canSave } = trimEdit(range);
+  const hint = isSaving
+    ? t('phaseNames.saving')
+    : tooShort
+      ? t('sections.trimTooShort', 'Section must have at least 5 points')
+      : t('sections.trimPrecisionHint', 'Drag handle up or down for finer control');
+
+  return (
+    <MapToolBar
+      title={mapToolTitle(t('sections.editBounds'), trimmedDistance, isMetric)}
+      hint={hint}
+      hintTone={tooShort && !isSaving ? 'error' : 'muted'}
+      onCancel={onCancel}
+      onDone={onConfirm}
+      doneDisabled={!canSave}
+      busy={isSaving}
+      reset={canReset ? { onPress: onReset } : undefined}
+      cancelTestID="section-trim-cancel"
+      doneTestID="section-trim-confirm"
+    />
+  );
+}
+
+interface SectionTrimOverlayProps extends TrimRange {
+  isSaving: boolean;
+  onStartChange: (index: number) => void;
+  onEndChange: (index: number) => void;
   onToggleExpand: () => void;
 }
 
@@ -81,22 +146,15 @@ export function SectionTrimOverlay({
   pointCount,
   startIndex,
   endIndex,
-  trimmedDistance,
-  originalDistance,
   isSaving,
-  canReset,
   isExpandMode,
   sectionStartInWindow,
   sectionEndInWindow,
   onStartChange,
   onEndChange,
-  onConfirm,
-  onCancel,
-  onReset,
   onToggleExpand,
 }: SectionTrimOverlayProps) {
   const { t } = useTranslation();
-  const isMetric = useMetricSystem();
   const { isDark } = useTheme();
   const palette = themePalette(isDark);
   const primary = themedStyles(primaryStyles, isDark);
@@ -317,21 +375,20 @@ export function SectionTrimOverlay({
   }));
 
   // ── JS-thread derived values (for info display - updates at React render rate) ──
-  const percentage =
-    originalDistance > 0 ? Math.round((trimmedDistance / originalDistance) * 100) : 100;
-  const isTrimmed = hasWindowMarkers
-    ? startIndex !== sectionStartInWindow || endIndex !== sectionEndInWindow
-    : startIndex > 0 || endIndex < maxIndex;
-  const tooShort = !keepsEnoughPoints(startIndex, endIndex);
-  const canSave = isTrimmed && !tooShort;
+  const { isTrimmed } = trimEdit({
+    pointCount,
+    startIndex,
+    endIndex,
+    isExpandMode,
+    sectionStartInWindow,
+    sectionEndInWindow,
+  });
 
-  const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
   const startEarlierOut = stepped('start', -1) === startIndex;
   const startLaterOut = stepped('start', 1) === startIndex;
   const endEarlierOut = stepped('end', -1) === endIndex;
   const endLaterOut = stepped('end', 1) === endIndex;
-  const accentText = isDark ? darkColors.actionLink : colors.actionLink;
 
   return (
     <View testID="section-trim-overlay" style={styles.container}>
@@ -342,18 +399,6 @@ export function SectionTrimOverlay({
           size={iconSize.sm}
           color={isTrimmed ? palette.actionPrimary : mutedColor}
         />
-        {isSaving ? (
-          <Spinner label={t('phaseNames.saving')} />
-        ) : (
-          <>
-            <Text style={[styles.infoValue, { color: isTrimmed ? accentText : textColor }]}>
-              {formatDistance(trimmedDistance, isMetric)}
-            </Text>
-            {isTrimmed ? (
-              <Text style={[styles.infoMuted, { color: mutedColor }]}>{percentage}%</Text>
-            ) : null}
-          </>
-        )}
         <Text style={[styles.infoMuted, { color: mutedColor }]}>
           {endIndex - startIndex + 1} / {t('sections.pointsCount', { count: pointCount })}
         </Text>
@@ -365,15 +410,6 @@ export function SectionTrimOverlay({
           onPress={onToggleExpand}
           disabled={isSaving}
         />
-        {canReset ? (
-          <IconButton
-            accessibilityLabel={t('sections.resetBounds')}
-            onPress={onReset}
-            disabled={isSaving}
-          >
-            <Icon name="refresh" size={iconSize.sm} color={palette.actionPrimary} />
-          </IconButton>
-        ) : null}
       </View>
 
       {/* Full-width slider - handles + track driven by SharedValues (60fps) */}
@@ -451,41 +487,6 @@ export function SectionTrimOverlay({
           </IconButton>
         </View>
       </View>
-
-      {/* Precision hint */}
-      <Text style={[styles.hint, { color: mutedColor }]}>
-        {t('sections.trimPrecisionHint', 'Drag handle up or down for finer control')}
-      </Text>
-
-      {tooShort ? (
-        <Text
-          testID="section-trim-too-short"
-          style={[styles.reason, { color: isDark ? darkColors.errorText : colors.errorText }]}
-        >
-          {t('sections.trimTooShort', 'Section must have at least 5 points')}
-        </Text>
-      ) : null}
-
-      {/* Action buttons */}
-      <View style={styles.actions}>
-        <Button
-          testID="section-trim-cancel"
-          variant="secondary"
-          label={t('common.cancel')}
-          onPress={onCancel}
-          disabled={isSaving}
-          style={styles.actionBtn}
-          icon="close"
-        />
-        <Button
-          testID="section-trim-confirm"
-          label={t('common.save')}
-          onPress={onConfirm}
-          disabled={!canSave || isSaving}
-          style={styles.actionBtn}
-          icon="check"
-        />
-      </View>
     </View>
   );
 }
@@ -500,9 +501,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-  },
-  infoValue: {
-    ...typography.bodyBold,
   },
   infoMuted: {
     ...typography.caption,
@@ -562,21 +560,5 @@ const styles = StyleSheet.create({
   stepGroup: {
     flexDirection: 'row',
     gap: COMPACT_ICON_BUTTON_GAP,
-  },
-  hint: {
-    ...typography.caption,
-    textAlign: 'center',
-  },
-  reason: {
-    ...typography.caption,
-    textAlign: 'center',
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.xs,
-  },
-  actionBtn: {
-    flex: 1,
   },
 });

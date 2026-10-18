@@ -2,9 +2,11 @@
 //! activity intervals, and calendar events.
 //!
 //! Each is stored as the body the server sent, keyed by whatever parameters
-//! produced it. The screens read fields no Rust type models, and a curve only
+//! produced it, and parsed on read into the shapes the screens draw:
+//! `curves.rs` for the curves and `intervals.rs` for the laps. A curve only
 //! means anything alongside the sport, window and gap flag it was computed
-//! for, so a typed row would be both lossy and ambiguous.
+//! for, so a typed row would be both lossy and ambiguous, and an interval
+//! carries about eighty keys of which the screens read thirteen.
 
 use std::borrow::Cow;
 

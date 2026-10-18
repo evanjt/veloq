@@ -33,7 +33,6 @@ export function buildUserLocationLayers(
   hasUserLocation: boolean,
   palette: MapPalette
 ): MapLayerSpec[] {
-  const { layer } = palette;
   return [
     {
       id: 'user-location-outer',
@@ -41,7 +40,7 @@ export function buildUserLocationLayers(
       source: USER_LOCATION_SOURCE_ID,
       paint: {
         'circle-radius': 12,
-        'circle-color': layer.route,
+        'circle-color': palette.location,
         'circle-opacity': hasUserLocation ? 0.3 : 0,
       },
     },
@@ -51,10 +50,10 @@ export function buildUserLocationLayers(
       source: USER_LOCATION_SOURCE_ID,
       paint: {
         'circle-radius': 6,
-        'circle-color': layer.route,
+        'circle-color': palette.location,
         'circle-opacity': hasUserLocation ? 1 : 0,
         'circle-stroke-width': 2,
-        'circle-stroke-color': layer.onFill,
+        'circle-stroke-color': palette.locationRing,
       },
     },
   ];

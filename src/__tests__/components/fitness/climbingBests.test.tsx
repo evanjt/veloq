@@ -16,12 +16,6 @@ import { useUnitPreference } from '@/shared/app/UnitPreferenceStore';
 import type { BestEffortsData } from 'veloqrs';
 import { ABSENT } from '@/shared/format/absent';
 
-jest.mock('@/features/activity', () => ({
-  useActivityLabels: () => ({
-    labels: new Map([['hill-run', { name: 'Hill reps', date: '' }]]),
-    error: null,
-  }),
-}));
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 
 const read = {
@@ -32,9 +26,23 @@ const read = {
       owed: 0,
       sourceExcluded: 0,
       bests: [
-        { label: '15s', windowS: 15, vam: 1800, wattsPerKg: 4.905, activityId: 'hill-run' },
+        {
+          label: '15s',
+          windowS: 15,
+          vam: 1800,
+          wattsPerKg: 4.905,
+          activityId: 'hill-run',
+          activity: { activityId: 'hill-run', name: 'Hill reps', date: 0 },
+        },
         { label: '5m', windowS: 300, vam: undefined, wattsPerKg: undefined },
-        { label: '10m', windowS: 600, vam: 900, wattsPerKg: 2.45, activityId: 'hill-run' },
+        {
+          label: '10m',
+          windowS: 600,
+          vam: 900,
+          wattsPerKg: 2.45,
+          activityId: 'hill-run',
+          activity: { activityId: 'hill-run', name: 'Hill reps', date: 0 },
+        },
       ],
     },
   ],

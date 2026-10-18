@@ -10,7 +10,6 @@
  * import) so the codegen can run outside the RN runtime.
  */
 import {
-  activityTypeColors,
   bodyDiagram,
   brand,
   colors,
@@ -18,7 +17,6 @@ import {
   insightToneColor,
   opacity,
   recording,
-  sequentialRamp,
   verdictColor,
 } from '@/theme/colors';
 import { layout, spacing } from '@/theme/spacing';
@@ -105,8 +103,8 @@ export const widgetPalette: { light: WidgetPalette; dark: WidgetPalette } = {
     toneInfo: insightToneColor('info', false),
     toneOpportunity: insightToneColor('opportunity', false),
     border: colors.border,
-    bodyFill: bodyDiagram.fillLight,
-    strengthRamp: sequentialRamp.light,
+    bodyFill: bodyDiagram.light.untrained,
+    strengthRamp: bodyDiagram.light.steps,
   },
   dark: {
     background: darkColors.surfacePage,
@@ -137,8 +135,8 @@ export const widgetPalette: { light: WidgetPalette; dark: WidgetPalette } = {
     toneInfo: insightToneColor('info', true),
     toneOpportunity: insightToneColor('opportunity', true),
     border: darkColors.border,
-    bodyFill: bodyDiagram.fillDark,
-    strengthRamp: sequentialRamp.dark,
+    bodyFill: bodyDiagram.dark.untrained,
+    strengthRamp: bodyDiagram.dark.steps,
   },
 };
 
@@ -172,11 +170,6 @@ export const widgetRecord = {
   /** One line at `textMax`, the least the label's box is, which grows with the font scale. */
   labelHeight: 16,
 } as const;
-
-/** Per-sport tint, mirroring the app's activity-type colours. */
-export function widgetActivityTint(sportType: string): string {
-  return activityTypeColors[sportType] ?? activityTypeColors.Other;
-}
 
 /** Widget layout constants (8px grid, 16px card radius, same as the home cards). */
 export const widgetLayout = {

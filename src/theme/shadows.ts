@@ -9,6 +9,16 @@ export const mapTextShadow: Pick<TextStyle, 'textShadowOffset' | 'textShadowRadi
 };
 
 /**
+ * The halo behind a chart label that crosses the plot, such as a reference
+ * rule's name on its line: 3px of the surface colour, set as `textShadowColor`
+ * by the chart, so the marks under the label do not run through it.
+ */
+export const chartLabelHalo: Pick<TextStyle, 'textShadowOffset' | 'textShadowRadius'> = {
+  textShadowOffset: { width: 0, height: 0 },
+  textShadowRadius: 3,
+};
+
+/**
  * Platform-specific shadow utilities for iOS optimisation.
  *
  * iOS renders shadows differently than Android's elevation system:

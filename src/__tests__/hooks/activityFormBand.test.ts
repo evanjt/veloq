@@ -13,17 +13,18 @@ import { useActivityStats } from '@/features/activity/components/stats/useActivi
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import { getFormZone, formZoneLabel, type FormZone } from '@/features/fitness/lib/fitness';
 import type { StatDetail } from '@/features/activity/components/stats/types';
-import type { Activity, WellnessData } from '@/types';
+import type { WellnessData } from '@/types';
 import { MaxHrSource } from 'veloqrs';
+import { activityRecord } from '../__shared__/activityRecord';
 
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysWithValues());
 
-const activity = {
+const activity = activityRecord({
   id: 'a1',
-  type: 'Ride',
+  sportType: 'Ride',
   name: 'Ride',
-  start_date_local: '2026-09-05T08:00:00',
-} as Activity;
+  startDateLocal: '2026-09-05T08:00:00',
+});
 
 // The athlete's own max, the source a percent of max was once graded against.
 const settings = { isMetric: true, maxHR: 185, maxHrSource: MaxHrSource.SportSettings };
@@ -107,13 +108,13 @@ describe('the form card names its zone', () => {
  * intensity factor without a band word.
  */
 describe('a card grades nothing the data source does not', () => {
-  async function stats(fields: Partial<Activity>) {
+  async function stats(fields: Parameters<typeof activityRecord>[0]) {
     const { result } = await renderHook(() =>
-      useActivityStats({ activity: { ...activity, ...fields } as Activity, ...settings })
+      useActivityStats({ activity: activityRecord({ ...activity, ...fields }), ...settings })
     );
     return result.current.stats;
   }
-  const titled = async (title: string, fields: Partial<Activity>) =>
+  const titled = async (title: string, fields: Parameters<typeof activityRecord>[0]) =>
     (await stats(fields)).find((s) => s.title === title);
   // Everything a card could tint itself with: its stream key and any colour value.
   const marks = (stat: StatDetail | undefined) => [
@@ -122,7 +123,7 @@ describe('a card grades nothing the data source does not', () => {
   ];
 
   it('omits intensity when a stored activity has load but no intensity', async () => {
-    const stat = await titled('metrics.trainingLoad', { icu_training_load: 60 });
+    const stat = await titled('metrics.trainingLoad', { trainingLoad: 60 });
 
     expect(stat?.value).toBe('60');
     expect(stat?.context).toBeUndefined();
@@ -134,8 +135,8 @@ describe('a card grades nothing the data source does not', () => {
   it('tints training load at no intensity', async () => {
     for (const intensity of [undefined, 0, 60, 78, 92, 100, 105, 140]) {
       const stat = await titled('metrics.trainingLoad', {
-        icu_training_load: 60,
-        icu_intensity: intensity,
+        trainingLoad: 60,
+        intensity,
       });
       expect(stat).toBeDefined();
       expect(marks(stat)).toEqual([undefined]);
@@ -146,8 +147,8 @@ describe('a card grades nothing the data source does not', () => {
     'states an IF of %d with no band word',
     async (intensity) => {
       const stat = await titled('metrics.trainingLoad', {
-        icu_training_load: 60,
-        icu_intensity: intensity,
+        trainingLoad: 60,
+        intensity,
       });
       expect(stat?.context).toBe(
         `activity.stats.intensityContext:${JSON.stringify({ percent: intensity })}`
@@ -158,7 +159,7 @@ describe('a card grades nothing the data source does not', () => {
   it('keys heart rate to its stream alone at every share of max', async () => {
     for (const share of [0.5, 0.6, 0.8, 0.81, 0.9, 0.95, 1.05]) {
       const stat = await titled('activity.heartRate', {
-        average_heartrate: Math.round(settings.maxHR * share),
+        avgHr: Math.round(settings.maxHR * share),
       });
       expect(marks(stat)).toEqual(['heartrate']);
     }
@@ -166,7 +167,7 @@ describe('a card grades nothing the data source does not', () => {
 
   it('tints conditions at no temperature', async () => {
     for (const temp of [-10, 0, 9, 10, 20, 28, 29, 40]) {
-      const stat = await titled('activity.stats.conditions', { average_temp: temp });
+      const stat = await titled('activity.stats.conditions', { sensorTemp: temp });
       expect(stat).toBeDefined();
       expect(marks(stat)).toEqual([undefined]);
     }

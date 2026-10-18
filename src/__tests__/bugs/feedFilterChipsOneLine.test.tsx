@@ -13,7 +13,8 @@ import { ScrollView, StyleSheet } from 'react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import { FeedFilterChips } from '@/features/activity/components/FeedFilterChips';
-import type { FeedGroup } from '@/features/activity/lib/feedActivityGroups';
+import { FEED_GROUPS, type FeedGroup } from '@/features/activity/lib/feedActivityGroups';
+import { sportMarkColour } from '@/shared/activity/sportCategories';
 
 jest.mock('react-i18next', () => ({
   ...jest.requireActual('react-i18next'),
@@ -42,6 +43,17 @@ describe('feed filter chips', () => {
       'home-filter-other',
     ]) {
       expect(screen.getByTestId(testID)).toBeTruthy();
+    }
+  });
+
+  it('draws every sport chip with its family dot', async () => {
+    await renderChips();
+
+    for (const group of FEED_GROUPS) {
+      const dot = screen.getByTestId(`home-filter-${group.toLowerCase()}-mark`);
+      expect(StyleSheet.flatten(dot.props.style).backgroundColor).toBe(
+        sportMarkColour(group, false)
+      );
     }
   });
 

@@ -14,18 +14,21 @@ import {
   themedStyles,
   typography,
 } from '@/theme';
-import { CurveChart, useChartColors, type PlacedLabel } from '@/shared/charts';
+import { CurveChart, useChartColors } from '@/shared/charts';
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { RangeCoverage } from 'veloqrs';
 import { BodyNotDownloaded, ErrorState, Row, Switch, EmptyState } from '@/shared/ui';
 import { CurveLoadingPlaceholder } from './CurveLoadingPlaceholder';
-import { paceChartSeries } from '../lib/curveChartSeries';
+import {
+  CURVE_PLOT_HEIGHT,
+  paceAxisUnit,
+  paceChartSeries,
+  paceCurveAxisLabels,
+} from '../lib/curveChartSeries';
 import { usePaceCurve } from '../hooks/usePaceCurve';
-import { useActivities } from '@/features/activity';
 import {
   formatFullDate,
   formatDistance,
-  formatLocalDate,
   speedToSecsPerKm,
   formatPaceFromSecsPerKm,
   paceUnitLabel,
@@ -34,23 +37,14 @@ import {
 import { navigateTo } from '@/shared/app/navigation';
 import { formatDecimal } from '@/shared/format';
 import { NameText } from '@/shared/ui/NameText';
+import { sportMarkColour } from '@/shared/activity/sportCategories';
 
 interface PaceCurveChartProps {
   sport?: string;
   days?: number;
-  height?: number;
+  /** The plot's own height; the toggle, values row and footer take their own rows. */
+  plotHeight?: number;
 }
-
-const CS_LINE_COLOR = colorWithOpacity(colors.chartGuideLine, 0.6);
-
-// Standard distance markers for the log x axis
-const X_LABELS: PlacedLabel[] = [
-  { value: Math.log10(400), label: '400m' },
-  { value: Math.log10(1000), label: '1km' },
-  { value: Math.log10(5000), label: '5km' },
-  { value: Math.log10(10000), label: '10km' },
-  { value: Math.log10(21097.5), label: '21km' },
-];
 
 interface ChartPoint {
   x: number; // log10(distance) for chart positioning
@@ -67,7 +61,11 @@ interface HeldPoint {
   of: readonly ChartPoint[];
 }
 
-export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceCurveChartProps) {
+export function PaceCurveChart({
+  sport = 'Run',
+  days = 42,
+  plotHeight = CURVE_PLOT_HEIGHT,
+}: PaceCurveChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const styles = themedStyles(makeStyles, isDark);
@@ -110,32 +108,10 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
     gap: isRunning && showGap,
   });
 
-  // Get activities to look up names for activity IDs
-  // Fetch a wider range to cover all possible activities in the curve
-  const daysAgo = new Date();
-  daysAgo.setDate(daysAgo.getDate() - days);
-  const { data: activities } = useActivities({
-    oldest: formatLocalDate(daysAgo),
-  });
-
   const [tooltipData, setTooltipData] = useState<HeldPoint | null>(null);
   const [persistedTooltip, setPersistedTooltip] = useState<HeldPoint | null>(null);
 
   const lastPointRef = useRef<HeldPoint | null>(null);
-
-  // Build activity lookup map
-  const activityMap = useMemo(() => {
-    const map = new Map<string, { name: string; date: string }>();
-    if (activities) {
-      for (const activity of activities) {
-        map.set(activity.id, {
-          name: activity.name,
-          date: activity.start_date_local,
-        });
-      }
-    }
-    return map;
-  }, [activities]);
 
   // Process curve data - use distances directly from API
   const { chartData, criticalSpeedPace, yDomain, xDomain } = useMemo(() => {
@@ -199,8 +175,15 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
   }, []);
 
   const referenceLine = useMemo(
-    () => (criticalSpeedPace ? { value: criticalSpeedPace, color: CS_LINE_COLOR } : null),
-    [criticalSpeedPace]
+    () =>
+      criticalSpeedPace
+        ? {
+            value: criticalSpeedPace,
+            label: `${t('metrics.cs')} ${formatPaceFromSecsPerKm(criticalSpeedPace, isMetric)}${paceUnitLabel(isMetric)}`,
+            testID: 'pace-curve-cs-label',
+          }
+        : null,
+    [criticalSpeedPace, isMetric, t]
   );
 
   // A point scrubbed on another curve, before GAP or the range changed, names
@@ -212,8 +195,10 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
     heldOnThisCurve(persistedTooltip) ??
     chartData[chartData.length - 1];
 
-  // Get activity info for the selected point
-  const selectedActivity = displayData?.activityId ? activityMap.get(displayData.activityId) : null;
+  // The curve read names every activity its points came from.
+  const selectedActivity = displayData?.activityId
+    ? curve.activities?.[displayData.activityId]
+    : undefined;
 
   // Navigate to activity when tapped
   const handleActivityTap = useCallback(() => {
@@ -226,15 +211,15 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
 
   if (isLoading || awaitingBody) {
     return (
-      <View style={[styles.container, { height }]}>
-        <CurveLoadingPlaceholder height={height} />
+      <View style={styles.container}>
+        <CurveLoadingPlaceholder plotHeight={plotHeight} />
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={[styles.container, { height }]}>
+      <View style={[styles.container, { minHeight: plotHeight }]}>
         <ErrorState
           variant="inline"
           error={error}
@@ -247,7 +232,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
 
   if (chartData.length === 0) {
     return (
-      <View style={[styles.container, { height }]}>
+      <View style={[styles.container, { minHeight: plotHeight }]}>
         <View style={styles.emptyState}>
           {coverage === RangeCoverage.NotFetched ? (
             <BodyNotDownloaded
@@ -267,7 +252,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
   }
 
   return (
-    <View style={[styles.container, { height }]}>
+    <View style={styles.container}>
       {/* The GAP toggle, which only running has; the section names the curve. */}
       {isRunning ? (
         <View style={styles.gapToggle}>
@@ -342,8 +327,11 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
         yDomain={yDomain}
         color={chartColors.paceCurve}
         referenceLine={referenceLine}
-        xLabels={X_LABELS}
+        xLabels={paceCurveAxisLabels(isMetric)}
         formatY={formatPaceAxis}
+        yAxisUnit={paceAxisUnit(paceUnitLabel(isMetric))}
+        plotHeight={plotHeight}
+        testID="pace-curve-plot"
         reading={reading}
         crosshairMode="finger"
         describePoint={(p) =>
@@ -357,23 +345,6 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
         onInteractionChange={handleInteractionChange}
         held={isPlaceholderData}
       />
-
-      {/* The rule the chart draws, named. The power and swim curves carry the
-          same row; without it the dashed line crosses the curve saying nothing,
-          and the figure sits in the model line among D' and R². */}
-      {criticalSpeedPace ? (
-        <View style={styles.legend}>
-          <View style={[styles.legendDash, { backgroundColor: CS_LINE_COLOR }]} />
-          <Text
-            maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-            testID="pace-curve-cs-legend"
-            style={styles.legendText}
-          >
-            {t('metrics.cs')} {formatPaceFromSecsPerKm(criticalSpeedPace, isMetric)}
-            {paceUnitLabel(isMetric)}
-          </Text>
-        </View>
-      ) : null}
 
       {/* Model info */}
       <View style={styles.footer}>
@@ -434,16 +405,16 @@ const makeStyles = (palette: Palette) =>
 
     activityPill: {
       flexShrink: 1,
-      backgroundColor: colorWithOpacity(colors.run, opacity.tint2),
+      backgroundColor: colorWithOpacity(sportMarkColour('Run', false), opacity.tint2),
       paddingHorizontal: layout.borderRadius,
       paddingVertical: spacing.xs,
       borderRadius: layout.borderRadius,
       borderWidth: stroke.one,
-      borderColor: colorWithOpacity(colors.run, opacity.tint4),
+      borderColor: colorWithOpacity(sportMarkColour('Run', false), opacity.tint4),
     },
     activityPillDark: {
-      backgroundColor: colorWithOpacity(colors.run, opacity.tint3),
-      borderColor: colorWithOpacity(colors.run, opacity.dim),
+      backgroundColor: colorWithOpacity(sportMarkColour('Run', true), opacity.tint3),
+      borderColor: colorWithOpacity(sportMarkColour('Run', true), opacity.dim),
     },
     activityLabel: {
       ...typography.captionBold,
@@ -459,22 +430,6 @@ const makeStyles = (palette: Palette) =>
     },
     notDownloadedText: {
       ...typography.bodyCompact,
-      color: palette.textSecondary,
-    },
-    legend: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginTop: spacing.xs,
-      gap: spacing.xsPlus,
-    },
-    legendDash: {
-      width: spacing.md,
-      height: 2,
-      borderRadius: layout.borderRadiusFull,
-    },
-    legendText: {
-      fontSize: typography.label.fontSize,
       color: palette.textSecondary,
     },
     footer: {

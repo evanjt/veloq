@@ -1,7 +1,7 @@
 import { useQuery, useInfiniteQuery, keepPreviousData } from '@tanstack/react-query';
 import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { hasDetailBody, readActivityBody } from '@/features/activity/lib/engineActivityBody';
+import { readActivityRecord } from '@/features/activity/lib/engineActivityRecord';
 import {
   DETAIL_STREAM_TYPES,
   readStreams,
@@ -11,12 +11,12 @@ import { formatLocalDate } from '@/shared/format/format';
 import { addDaysToDay, dayEndEpochSeconds, dayStartEpochSeconds } from '@/shared/time/startDate';
 import { CACHE } from '@/shared/app/constants';
 import { queryKeys } from '@/shared/query/queryKeys';
-import { hasStarted } from 'veloqrs';
+import { hasStarted, type ActivityRecord } from 'veloqrs';
 import { freshLoginTimeline, type TrackWait } from '@/shared/debug/freshLoginTimeline';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineBody } from '@/shared/native/engineBodies';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
-import type { Activity, ActivityDetail, ActivityStreams, IntervalsDTO } from '@/types';
+import type { Activity, ActivityInterval, ActivityStreams } from '@/types';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useOldestActivityDate } from '@/shared/app/useOldestActivityDate';
@@ -304,13 +304,10 @@ export function useFeedSearch(
 export function useActivity(id: string) {
   const queryKey = queryKeys.activities.detail(id);
 
-  const query = useQuery<ActivityDetail | null>({
+  const query = useQuery<ActivityRecord | null>({
     ...LOCAL_READ_QUERY,
     queryKey,
-    queryFn: () => {
-      const stored = readActivityBody(id);
-      return (stored as ActivityDetail | null) ?? null;
-    },
+    queryFn: () => readActivityRecord(id),
     // SQLite is the source, so a sync decides freshness, not a clock.
     staleTime: Infinity,
     // A closed detail is let go within minutes. SQLite is the source and the
@@ -323,8 +320,7 @@ export function useActivity(id: string) {
   // The list sync stores a lighter body for every activity. Opening one asks
   // for the full detail, which replaces that row in place. Presence comes from
   // the query's own result rather than a second read: the row existing is not
-  // proof the detail landed, so it is read for the one field only the detail
-  // endpoint returns.
+  // proof the detail landed, so the engine says which form it holds.
   // A push can name an activity the library has never held, so this is not
   // only the "replace the light row with the full detail" case: the fetch is
   // the only thing that puts the activity on screen at all. The wait is
@@ -332,7 +328,7 @@ export function useActivity(id: string) {
   // able to say the download failed rather than spin on an announcement that
   // is never coming.
   const wait = useEngineBody(
-    hasDetailBody(query.data),
+    query.data?.isDetail ?? false,
     () => getEngine()?.syncActivityDetail(id),
     queryKey,
     // `undefined` is the query not having run, which is not the same as
@@ -415,22 +411,12 @@ export type IntervalsOutcome = 'loaded' | 'empty' | 'pending';
 export function useActivityIntervals(id: string) {
   const queryKey = queryKeys.activities.intervals(id);
 
-  // The query is the only reader of the stored body. `null` is "never
-  // fetched", which is the cue to ask Rust for it.
-  const query = useQuery<IntervalsDTO | null>({
+  // The query is the only reader of the stored laps. `null` is "never
+  // fetched", which is the cue to ask Rust for them.
+  const query = useQuery<ActivityInterval[] | null>({
     ...LOCAL_READ_QUERY,
     queryKey,
-    queryFn: () => {
-      const stored = getEngine()?.getIntervalBody(id);
-      if (!stored) return null;
-      try {
-        return JSON.parse(stored) as IntervalsDTO;
-      } catch {
-        // empty-on-error: a JSON.parse of a stored body, not an engine read. A row that will
-        // not parse is corrupt, not a ride with no laps, and `null` is what asks Rust for it again.
-        return null;
-      }
-    },
+    queryFn: () => getEngine()?.getActivityIntervals(id)?.intervals ?? null,
     // Intervals never change
     staleTime: Infinity,
     // Held for as long as the body they belong to, and no longer.
@@ -456,13 +442,13 @@ export function useActivityIntervals(id: string) {
   };
 }
 
-function outcomeOf(stored: IntervalsDTO | null | undefined): IntervalsOutcome {
+function outcomeOf(stored: ActivityInterval[] | null | undefined): IntervalsOutcome {
   if (!stored) return 'pending';
-  return (stored.icu_intervals?.length ?? 0) > 0 ? 'loaded' : 'empty';
+  return stored.length > 0 ? 'loaded' : 'empty';
 }
 
 /** Rendered as "no intervals" rather than an error while the fetch is in flight. */
-const EMPTY_INTERVALS = { icu_intervals: [], icu_groups: [] } as unknown as IntervalsDTO;
+const EMPTY_INTERVALS: ActivityInterval[] = [];
 
 /**
  * The feed over one date range, newest first in pages that stay inside it.

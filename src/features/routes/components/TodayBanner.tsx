@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Pressable, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
+import { FfiPlanTarget, type FfiPlannedEvent } from 'veloqrs';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useTodayWorkout, useWorkoutSections, type WorkoutSection } from '@/features/home';
@@ -22,9 +23,8 @@ import {
   verdictColor,
   stroke,
 } from '@/theme';
-import type { CalendarEvent } from '@/types';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
-import { pressable, pressRipple } from '@/shared/ui';
+import { PressTarget } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { navigateTo } from '@/shared/app/navigation';
 import { NameText } from '@/shared/ui/NameText';
@@ -47,7 +47,7 @@ export const TodayBanner = React.memo(function TodayBanner({ form: formLoads }: 
   const { isDark } = useTheme();
   const { todayWorkout, tomorrowWorkout, isLoading } = useTodayWorkout();
 
-  const sportType = todayWorkout?.type ?? tomorrowWorkout?.type;
+  const sportType = todayWorkout?.sport ?? tomorrowWorkout?.sport;
   const { sections } = useWorkoutSections(sportType);
 
   if (isLoading) return null;
@@ -116,17 +116,17 @@ const WorkoutCard = React.memo(function WorkoutCard({
   isTomorrow,
   isDark,
 }: {
-  workout: CalendarEvent;
+  workout: FfiPlannedEvent;
   isTomorrow: boolean;
   isDark: boolean;
 }) {
   const { t } = useTranslation();
   const targetLabel =
-    workout.target === 'POWER'
+    workout.target === FfiPlanTarget.Power
       ? t('routes.targetPower')
-      : workout.target === 'HR'
+      : workout.target === FfiPlanTarget.HeartRate
         ? t('routes.targetHr')
-        : workout.target === 'PACE'
+        : workout.target === FfiPlanTarget.Pace
           ? t('routes.targetPace')
           : '';
 
@@ -134,19 +134,19 @@ const WorkoutCard = React.memo(function WorkoutCard({
     <View style={[styles.workoutCard, isTomorrow && styles.dimmed]}>
       <Text style={[styles.workoutName, isDark && styles.textLight]}>
         <Icon
-          name={getActivityIcon(workout.type)}
+          name={getActivityIcon(workout.sport)}
           size={iconSize.md}
           color={isDark ? darkColors.textPrimary : colors.textPrimary}
         />{' '}
         {workout.name}
       </Text>
       <Text style={[styles.workoutMeta, isDark && styles.textSecondary]}>
-        {formatDuration(workout.moving_time)}
-        {workout.icu_training_load > 0 &&
-          ` \u00B7 ${t('metrics.trainingLoad')} ${formatLoad(workout.icu_training_load)}`}
+        {formatDuration(workout.movingTime ?? Number.NaN)}
+        {workout.trainingLoad != null &&
+          ` \u00B7 ${t('metrics.trainingLoad')} ${formatLoad(workout.trainingLoad)}`}
         {targetLabel ? ` \u00B7 ${targetLabel}` : null}
       </Text>
-      {workout.workout_doc?.steps ? <WorkoutStepBar steps={workout.workout_doc.steps} /> : null}
+      <WorkoutStepBar blocks={workout.bar} />
     </View>
   );
 });
@@ -189,10 +189,9 @@ const SectionHighlights = React.memo(function SectionHighlights({
         const gain = delta != null && delta > 0 ? delta : null;
 
         return (
-          <Pressable
+          <PressTarget
             key={section.id}
-            style={pressable(styles.sectionRow)}
-            android_ripple={pressRipple}
+            style={styles.sectionRow}
             onPress={() => navigateTo(`/section/${section.id}`)}
             accessibilityRole="button"
             accessibilityLabel={section.name}
@@ -236,7 +235,7 @@ const SectionHighlights = React.memo(function SectionHighlights({
                 </Text>
               ) : null}
             </View>
-          </Pressable>
+          </PressTarget>
         );
       })}
     </View>

@@ -35,7 +35,7 @@ const isTestFile = (rel) => /(^|\/)tests(\/|\.rs$)/.test(rel);
 // `source` with every comment blanked and every line break kept, so a match
 // is code and its line number is the file's. A string literal is skipped
 // whole, so `//` inside one is not read as a comment.
-const withoutComments = (source) => {
+export const withoutComments = (source) => {
   let out = '';
   for (let i = 0; i < source.length; i++) {
     const ch = source[i];

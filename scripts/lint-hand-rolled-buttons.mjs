@@ -11,8 +11,8 @@
 // fails, and a file the tree has already beaten fails with the number to paste
 // back, so ground a sweep takes cannot be given away again.
 //
-// Counted: a rendered `<TouchableOpacity` or `<Pressable`, which is the shape a
-// hand-rolled button takes. Not the imports: a file can import one and render
+// Counted: a rendered `<TouchableOpacity`, `<Pressable` or `<PressTarget`, which
+// is the shape a hand-rolled button takes. Not the imports: a file can import one and render
 // several, and it is the rendered controls the sweep replaces.
 //
 // Not counted: `src/shared/ui/`, where `Button` and the press primitives are
@@ -27,7 +27,7 @@
 // reaches a screen reader as "button" and nothing else, under the label and
 // tap-target guards both.
 //
-// A press target that is not a button, a card or a row stays on `Pressable`.
+// A press target that is not a button, a card or a row stays on `PressTarget`.
 // The ratchet does not know the difference, which is why it is a ceiling that
 // falls rather than a rule that refuses: a sweep lowers the number for the
 // controls it converted and leaves the rest standing.
@@ -51,7 +51,7 @@ const WRITE = process.argv.includes('--write');
 const EXEMPT = ['src/shared/ui/', 'src/__tests__/'];
 
 /** A rendered press primitive, opening tag only. */
-const RENDERED = /<(?:TouchableOpacity|Pressable)[\s/>]/g;
+const RENDERED = /<(?:TouchableOpacity|Pressable|PressTarget)[\s/>]/g;
 
 const tree = treeView(ROOT, [relative(ROOT, SRC)]);
 

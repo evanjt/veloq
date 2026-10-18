@@ -5,12 +5,11 @@
  */
 
 import React, { useMemo, useState, useCallback } from 'react';
-import { View, StyleSheet, Pressable, StatusBar } from 'react-native';
+import { View, StyleSheet, StatusBar } from 'react-native';
 import { FullWindowModal } from '@/shared/ui/FullWindowModal';
 import { useTranslation } from 'react-i18next';
 import { useIsFocused } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { useHeroHeaderBottom } from '@/shared/ui/useHeroHeaderBottom';
 import { useTheme } from '@/shared/app';
 import { getActivityColor } from '@/shared/activity/activityUtils';
@@ -47,6 +46,7 @@ import type { ActivityType, RouteGroup, RoutePoint } from '@/types';
 import type { SectionDeltaLine } from '../lib/deltaLayout';
 import { DetailMapLegend, hasLegendLayers, type DetailMapLegendLayers } from './DetailMapLegend';
 import { Icon } from '@/shared/ui/Icon';
+import { PressTarget } from '@/shared/ui/PressTarget';
 
 /** Minimal route group type for map display - only needs points and distance for signature */
 type RouteGroupForMap = Omit<RouteGroup, 'signature'> & {
@@ -214,43 +214,43 @@ export function RouteMapView({
     [overlaySources, routeLine]
   );
 
-  // Highlighting one activity pushes everything else back rather than hiding it.
-  const representativeOpacity = highlightedActivityId ? 0.3 : 1;
-  const fadedOpacity = highlightedActivityId ? 0.1 : 0.2;
+  // Highlighting one activity turns the route itself into context, drawn in
+  // the muted colour rather than hidden.
+  const routeContext = highlightedActivityId !== null;
 
   const layers = useMemo<MapLayerSpec[]>(
     () =>
       buildRouteLayers({
         palette,
-        activityColor,
-        representativeOpacity,
-        fadedOpacity,
+        routeContext,
         fadedFilter,
         includeRoute: true,
         deltaLineStops,
       }),
-    [palette, activityColor, representativeOpacity, fadedOpacity, fadedFilter, deltaLineStops]
+    [palette, routeContext, fadedFilter, deltaLineStops]
   );
 
-  // Fullscreen has room to show the other attempts at full strength. Its shell
-  // draws the route itself and carries no delta colouring.
+  // The fullscreen shell draws the route itself and carries no delta colouring.
   const fullscreenLayers = useCallback(
     (fullscreenPalette: MapPalette) =>
       buildRouteLayers({
         palette: fullscreenPalette,
-        activityColor,
-        representativeOpacity: 1,
-        fadedOpacity: FULLSCREEN_FADED_OPACITY,
+        routeContext,
         fadedFilter,
         includeRoute: false,
       }),
-    [activityColor, fadedFilter]
+    [routeContext, fadedFilter]
   );
 
   const fullscreenLayer3D = useMemo(
     () =>
-      buildRoute3DLayer({ fadedTraces, highlightedTrace, highlightedActivityId, activityColor }),
-    [fadedTraces, highlightedTrace, highlightedActivityId, activityColor]
+      buildRoute3DLayer({
+        fadedTraces,
+        highlightedTrace,
+        highlightedActivityId,
+        contextColor: palette.muted,
+      }),
+    [fadedTraces, highlightedTrace, highlightedActivityId, palette]
   );
 
   const handleMapPress = useCallback(() => {
@@ -280,15 +280,14 @@ export function RouteMapView({
 
   return (
     <>
-      <Pressable
+      <PressTarget
         testID="route-map-container"
-        style={pressable([styles.container, { height }])}
+        style={[styles.container, { height }]}
         onPress={handleMapPress}
         accessibilityRole="button"
         accessibilityLabel={t('maps.openFullscreen')}
         accessibilityState={{ disabled: !enableFullscreen && !onPress }}
         disabled={!enableFullscreen && !onPress}
-        android_ripple={pressRipple}
       >
         <MapSurface
           mapStyle={mapStyle}
@@ -312,13 +311,14 @@ export function RouteMapView({
         {hasLegendLayers(inlineLegendLayers) ? (
           <DetailMapLegend
             isDark={isDark}
+            palette={palette}
             top={headerBottom + spacing.sm}
             testID="route-map-legend"
             pickedAttempt={pickedAttempt}
             {...inlineLegendLayers}
           />
         ) : null}
-      </Pressable>
+      </PressTarget>
 
       <FullWindowModal
         visible={isFullscreen}
@@ -329,7 +329,7 @@ export function RouteMapView({
         <StatusBar barStyle={`${statusBarStyleForMap(mapStyle)}-content`} />
         <BaseMapView
           routeCoordinates={routeCoords}
-          routeColor={activityColor}
+          routeContext={routeContext}
           bounds={bounds ?? undefined}
           initialStyle={chosenStyle}
           onClose={closeFullscreen}
@@ -341,6 +341,7 @@ export function RouteMapView({
         {hasLegendLayers(fullscreenLegendLayers) ? (
           <DetailMapLegend
             isDark={isDark}
+            palette={palette}
             top={fullscreenInsets.top + spacing.sm}
             testID="route-map-legend"
             pickedAttempt={pickedAttempt}
@@ -352,27 +353,25 @@ export function RouteMapView({
   );
 }
 
-/** The fullscreen map's faded attempts, the strength `fullscreenLayers` gives them. */
-const FULLSCREEN_FADED_OPACITY = 0.2;
-
 /**
- * The fullscreen overlays as the 3D page takes them. The page has no faded
+ * The fullscreen overlays as the 3D page takes them. The page has no context
  * trace collection, so the other attempts go in its sections collection, the
- * one that takes a colour per feature, faded there to the strength the flat
- * map gives them and without the highlighted attempt, which draws in its own.
+ * one that takes a colour per feature, in the context colour the flat map
+ * draws them in and without the highlighted attempt, which draws in its own.
  */
 export function buildRoute3DLayer({
   fadedTraces,
   highlightedTrace,
   highlightedActivityId,
-  activityColor,
+  contextColor,
 }: {
   fadedTraces: GeoJSON.FeatureCollection;
   highlightedTrace: GeoJSON.FeatureCollection;
   highlightedActivityId: string | null;
-  activityColor: string;
+  /** The base's muted colour, which the flat map draws the other attempts in. */
+  contextColor: string;
 }): BaseMap3DLayer {
-  const color = colorWithOpacity(activityColor, FULLSCREEN_FADED_OPACITY);
+  const color = contextColor;
   return {
     sectionsGeoJSON: {
       type: 'FeatureCollection',

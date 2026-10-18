@@ -1,9 +1,13 @@
 import React from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useMetricSystem, useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
-import { ACTIVITY_CATEGORIES } from '@/shared/activity/sportCategories';
+import {
+  SPORT_FAMILY_LABELS,
+  SPORT_FAMILY_MEMBERS,
+  type SportFamily,
+} from '@/shared/activity/sportCategories';
 import { useMapPreferences } from '../stores/MapPreferencesContext';
 import { clearTerrainPreviews, SMART_3D_MIN_RELIEF_M, type MapStyleType } from '@/features/maps';
 import { formatElevation } from '@/shared/format/format';
@@ -21,7 +25,7 @@ import {
 } from '@/theme';
 import { Row } from '@/shared/ui/Row';
 import { RowDivider } from '@/shared/ui/RowGroup';
-import { composeAccessibilityLabel, pressable, pressRipple, SelectButton } from '@/shared/ui';
+import { composeAccessibilityLabel, SelectButton, PressTarget } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { HeatmapRow } from './HeatmapRow';
 import { groupStyleState, groupTerrainState } from '../lib/mapStyleGroupState';
@@ -32,10 +36,10 @@ export const MAP_ACTIVITY_GROUPS: {
   key: string;
   labelKey: string;
   types: ActivityType[];
-}[] = Object.entries(ACTIVITY_CATEGORIES).map(([key, config]) => ({
+}[] = (Object.keys(SPORT_FAMILY_MEMBERS) as SportFamily[]).map((key) => ({
   key,
-  labelKey: config.label,
-  types: config.types as ActivityType[],
+  labelKey: SPORT_FAMILY_LABELS[key],
+  types: [...SPORT_FAMILY_MEMBERS[key]] as ActivityType[],
 }));
 
 const MAP_STYLES: MapStyleType[] = ['light', 'dark', 'satellite'];
@@ -120,13 +124,12 @@ export function MapsSection() {
         <Text style={[styles.mapStyleLabel, isDark && settingsStyles.textLight]}>
           {t('settings.defaultStyle')}
         </Text>
-        <Pressable
+        <PressTarget
           accessibilityRole="button"
           accessibilityLabel={`${t('settings.terrain3D')}: ${terrain3DLabel}`}
-          style={pressable(styles.terrain3DBadge)}
+          style={styles.terrain3DBadge}
           hitSlop={pillSlop}
           onPress={cycleTerrain3DMode}
-          android_ripple={pressRipple}
         >
           <Icon
             name="image-filter-hdr"
@@ -144,7 +147,7 @@ export function MapsSection() {
           >
             {t('settings.terrain3DMode', { mode: terrain3DLabel })}
           </Text>
-        </Pressable>
+        </PressTarget>
       </View>
       <Text style={[styles.terrainHint, isDark && settingsStyles.textSecondary]}>
         {t('settings.terrain3DSmartHint', {
@@ -219,18 +222,17 @@ export function MapsSection() {
                 options={styleOptions}
                 onChange={(choice) => chooseActivityGroupStyle(types, choice)}
               />
-              <Pressable
+              <PressTarget
                 accessibilityRole="button"
                 accessibilityLabel={composeAccessibilityLabel(sportName, terrainText)}
                 accessibilityHint={t('a11y.cycleHint')}
-                style={pressable([styles.pill, { backgroundColor: pillBg }])}
+                style={[styles.pill, { backgroundColor: pillBg }]}
                 hitSlop={pillSlop}
                 testID={`map-terrain-pill-${key}`}
                 onPress={() => cycleTerrain3DGroup(types)}
-                android_ripple={pressRipple}
               >
                 <Text style={[styles.pillText, { color: mutedColor }]}>{terrainText}</Text>
-              </Pressable>
+              </PressTarget>
             </View>
           );
         })}

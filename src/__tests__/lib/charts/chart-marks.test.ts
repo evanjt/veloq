@@ -22,12 +22,12 @@ import {
 } from '@/shared/charts/chartMarks';
 
 describe('chart strokes', () => {
-  it('draws a series at 2px and a reference, grid and axis at 1px', () => {
+  it('draws a series at 2px and a reference, grid, axis and scrub line at 1px', () => {
     expect(chartStroke.series).toBe(2);
     expect(chartStroke.reference).toBe(1);
     expect(chartStroke.grid).toBe(1);
     expect(chartStroke.axis).toBe(1);
-    expect(chartStroke.casing).toBeGreaterThan(chartStroke.series);
+    expect(chartStroke.crosshair).toBe(1);
   });
 });
 

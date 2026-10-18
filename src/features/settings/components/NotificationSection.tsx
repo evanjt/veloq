@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
@@ -9,7 +9,7 @@ import { useNotificationPreferences } from '@/features/settings/stores/Notificat
 import { useNotificationPermission } from '@/shared/app/permissions/notifications';
 import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import { settingsStyles } from './settingsStyles';
-import { PermissionNotice, pressable, pressRipple, SwitchRow } from '@/shared/ui';
+import { PermissionNotice, SwitchRow, PressTarget } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { confirmAction } from '@/shared/ui/dialog';
 import { openExternal } from '@/shared/app/openExternal';
@@ -141,14 +141,13 @@ export function NotificationSection() {
             {t('notifications.settings.requiresOAuth')}
           </Text>
         ) : (
-          <Pressable
+          <PressTarget
             accessibilityRole="link"
             accessibilityLabel={t('notifications.settings.privacyHint')}
             onPress={() => {
               void openExternal(VELOQ_PRIVACY_URL);
             }}
-            style={pressable(styles.privacyRow)}
-            android_ripple={pressRipple}
+            style={styles.privacyRow}
           >
             <Icon
               name="information-outline"
@@ -158,7 +157,7 @@ export function NotificationSection() {
             <Text style={[styles.privacyText, isDark && settingsStyles.textSecondary]}>
               {t('notifications.settings.privacyHint')}
             </Text>
-          </Pressable>
+          </PressTarget>
         )}
       </View>
     </>

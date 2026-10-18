@@ -1,9 +1,8 @@
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import { useIsFocused } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { useTheme } from '@/shared/app';
 import {
   boundsOfLngLat,
@@ -17,6 +16,8 @@ import {
   lngLatFromShort,
   type MapSourceSpec,
   type MapStyleType,
+  MAP_CONTROL_GAP,
+  MapControlButton,
   MapSurface,
   type MapSurfaceRef,
   useDrawnMapStyle,
@@ -24,20 +25,9 @@ import {
   pointsBetweenSourceIndices,
 } from '@/features/maps';
 import { recordingMapLayers } from '../lib/recordingMapLayers';
-import {
-  brand,
-  cameraMove,
-  colors,
-  darkColors,
-  iconSize,
-  layout,
-  mapPalette,
-  spacing,
-  stroke,
-} from '@/theme';
+import { cameraMove, darkColors, mapPalette, spacing } from '@/theme';
 import type { LatLngShort } from '@/shared/geo/distance';
 import { LOCATE_GLYPH } from '@/features/maps';
-import { Icon } from '@/shared/ui/Icon';
 
 /** Zoom held while the camera follows the current position. */
 const FOLLOW_ZOOM = 15;
@@ -269,46 +259,30 @@ function RecordingMapInner({
       {!fitBounds && (
         <View style={styles.controls}>
           {onOpenRoutePicker ? (
-            <Pressable
+            <MapControlButton
               testID="recording-map-route-overlay"
-              style={pressable([
-                styles.controlButton,
-                routeOverlay ? styles.controlButtonActive : null,
-              ])}
+              selected={!!routeOverlay}
               onPress={onOpenRoutePicker}
-              accessibilityRole="button"
               accessibilityLabel={t('recording.routeOverlay.title')}
-              accessibilityState={{ selected: !!routeOverlay }}
-              android_ripple={pressRipple}
             >
-              <Icon
-                name="map-marker-path"
-                size={iconSize.md}
-                color={routeOverlay ? colors.textOnFill : darkColors.textPrimary}
-              />
-            </Pressable>
+              <MapControlButton.Glyph name="map-marker-path" />
+            </MapControlButton>
           ) : null}
-          <Pressable
+          <MapControlButton
             testID="recording-map-style"
-            style={pressable(styles.controlButton)}
             onPress={cycleStyle}
-            accessibilityRole="button"
             accessibilityLabel={t('maps.toggleStyle')}
-            android_ripple={pressRipple}
           >
-            <Icon name="layers" size={iconSize.md} color={darkColors.textPrimary} />
-          </Pressable>
+            <MapControlButton.Glyph name="layers" />
+          </MapControlButton>
           {!isFollowing && (
-            <Pressable
+            <MapControlButton
               testID="recording-map-recenter"
-              style={pressable(styles.controlButton)}
               onPress={() => setIsFollowing(true)}
-              accessibilityRole="button"
               accessibilityLabel={t('maps.goToLocation')}
-              android_ripple={pressRipple}
             >
-              <Icon name={LOCATE_GLYPH} size={iconSize.md} color={darkColors.textPrimary} />
-            </Pressable>
+              <MapControlButton.Glyph name={LOCATE_GLYPH} />
+            </MapControlButton>
           )}
         </View>
       )}
@@ -327,20 +301,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: spacing.sm,
     top: spacing.sm,
-    gap: spacing.xs,
-  },
-  controlButton: {
-    width: layout.minTapTarget,
-    height: layout.minTapTarget,
-    borderRadius: layout.borderRadiusFull,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: darkColors.surface,
-    borderWidth: stroke.hairline,
-    borderColor: darkColors.border,
-  },
-  controlButtonActive: {
-    backgroundColor: brand.blue,
-    borderColor: brand.blue,
+    gap: MAP_CONTROL_GAP,
   },
 });
