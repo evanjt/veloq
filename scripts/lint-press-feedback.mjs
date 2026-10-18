@@ -18,6 +18,13 @@
 // and the reason is for the next reader rather than for this script.
 // Rendered Touchable controls use the shared controls or pressable() instead.
 //
+// Outside the shared controls a `Pressable` is refused even with both answers:
+// keyboard focus is not in its style callback's state, so it shows focus only
+// as the ripple's grey wash, near 1.2:1 on white. `PressTarget` holds the
+// focus state and draws the ring, so every press target outside
+// `src/shared/ui` renders through it. A press that is not a control keeps its
+// comment and stays a bare `Pressable`.
+//
 // A press wrapper of its own skips that answer for every tag that renders it:
 // one sprang a 1 to 3 % shrink with no ripple on Android and buzzed on
 // touch-down, before a scroll could take the touch. So `AnimatedPressable` and
@@ -33,6 +40,9 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const rootFlag = process.argv.indexOf('--root');
 const ROOT = rootFlag === -1 ? join(HERE, '..') : resolve(process.argv[rootFlag + 1]);
 const SRC = join(ROOT, 'src');
+
+/** The shared controls, the one place a `Pressable` is still written by hand. */
+const SHARED_UI = 'shared/ui/';
 
 /** Where the feedback itself is defined, so they answer for themselves. */
 const DEFINES_IT = ['shared/ui/pressFeedback.ts', 'shared/ui/Button.tsx'];
@@ -127,6 +137,7 @@ function wrapsPressable(node) {
 }
 
 const failures = [];
+const focusFailures = [];
 const touchableFailures = [];
 const wrapperFailures = [];
 const iconFailures = [];
@@ -163,12 +174,10 @@ for (const file of walk(SRC)) {
     if (
       (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) &&
       tagName(node) === 'Pressable' &&
-      !saysWhatAPressLooksLike(node) &&
       !declaredSilent(sf, node)
     ) {
-      failures.push(
-        `${relative(ROOT, file)}:${sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1}`
-      );
+      if (!rel.startsWith(SHARED_UI)) focusFailures.push(at(node));
+      else if (!saysWhatAPressLooksLike(node)) failures.push(at(node));
     }
     if (
       (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) &&
@@ -201,6 +210,16 @@ if (failures.length > 0) {
   for (const f of failures) console.error(`  ${f}`);
 }
 
+if (focusFailures.length > 0) {
+  console.error(
+    `Press targets that show no focus ring: ${focusFailures.length}. A bare Pressable outside src/shared/ui shows keyboard focus as the ripple's wash only.`
+  );
+  console.error(
+    "Render PressTarget from '@/shared/ui' with the same style, or mark a press that is not a control with // press-feedback: none, <why>.\n"
+  );
+  for (const f of focusFailures) console.error(`  ${f}`);
+}
+
 if (touchableFailures.length > 0) {
   console.error(
     `Touchable tags rendered: ${touchableFailures.length}. Use Button, ToggleButton, IconButton or Pressable with pressable().`
@@ -224,6 +243,7 @@ if (iconFailures.length > 0) {
 
 if (
   failures.length > 0 ||
+  focusFailures.length > 0 ||
   touchableFailures.length > 0 ||
   wrapperFailures.length > 0 ||
   iconFailures.length > 0
@@ -231,5 +251,5 @@ if (
   process.exit(1);
 
 console.log(
-  'Press feedback guard: Pressable tags set feedback; no Touchable tags, press wrappers or pressed icons render.'
+  'Press feedback guard: press targets outside the shared controls render PressTarget; Pressable tags set feedback; no Touchable tags, press wrappers or pressed icons render.'
 );

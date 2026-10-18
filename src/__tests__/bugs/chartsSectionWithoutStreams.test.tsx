@@ -12,8 +12,9 @@ import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 
 import { ActivityChartsSection } from '@/features/activity/components/ActivityChartsSection';
-import type { ActivityDetail, ActivityInterval, ActivityStreams } from '@/types';
-import type { HrZoneBand, PowerZoneBand } from 'veloqrs';
+import type { ActivityInterval, ActivityStreams } from '@/types';
+import { IntervalKind, type ActivityRecord, type HrZoneBand, type PowerZoneBand } from 'veloqrs';
+import { activityRecord } from '../__shared__/activityRecord';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
@@ -31,7 +32,7 @@ jest.mock('@/shared/ui', () => {
     BodyNotDownloaded: jest.requireActual('@/shared/ui/BodyNotDownloaded').BodyNotDownloaded,
     CardHeader: jest.requireActual('@/shared/ui/CardHeader').CardHeader,
     IconButton: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-    pressable: (style: unknown) => style,
+    PressTarget: require('react-native').Pressable,
     ComponentErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     DeviceAttribution: () => null,
     DisclosureChevron: () => null,
@@ -70,17 +71,26 @@ jest.mock('@/shared/debug/useFFITimer', () => ({
 }));
 
 const intervals: ActivityInterval[] = [
-  { type: 'WORK', zone: 3, moving_time: 300, start_index: 0, end_index: 100 },
-] as unknown as ActivityInterval[];
+  {
+    id: 1,
+    kind: IntervalKind.Work,
+    zone: 3,
+    movingTime: 300,
+    startTime: 0,
+    endTime: 300,
+    startIndex: 0,
+    endIndex: 100,
+  },
+];
 
-function activityWith(extra: Partial<ActivityDetail> = {}): ActivityDetail {
-  return {
+function activityWith(extra: Partial<ActivityRecord> = {}): ActivityRecord {
+  return activityRecord({
     id: 'act-1',
-    type: 'Ride',
+    sportType: 'Ride',
     name: 'Morning ride',
-    start_date_local: '2026-09-12T07:00:00',
+    startDateLocal: '2026-09-12T07:00:00',
     ...extra,
-  } as unknown as ActivityDetail;
+  });
 }
 
 const powerZones: PowerZoneBand[] = [
@@ -98,8 +108,8 @@ function renderSection(props: {
   streamsDownloaded?: boolean | undefined;
   streamsStatus?: 'waiting' | 'timedOut' | undefined;
   onRetryStreams?: (() => void) | undefined;
-  activity?: ActivityDetail | undefined;
-  intervalsData?: { icu_intervals: ActivityInterval[] } | undefined;
+  activity?: ActivityRecord | undefined;
+  intervalsData?: ActivityInterval[] | undefined;
   hrZones?: HrZoneBand[] | undefined;
   powerZones?: PowerZoneBand[] | undefined;
 }) {
@@ -134,7 +144,7 @@ function renderSection(props: {
 it('shows the interval table for an activity with no streams', async () => {
   const { getByTestId, queryByTestId } = await renderSection({
     streams: undefined,
-    intervalsData: { icu_intervals: intervals },
+    intervalsData: intervals,
   });
 
   expect(getByTestId('activity-interval-table')).toBeTruthy();
@@ -178,7 +188,7 @@ it('still shows the chart and the HR zones when the streams are there', async ()
       heartrate: [120, 130],
       time: [0, 1],
     } as unknown as ActivityStreams,
-    intervalsData: { icu_intervals: intervals },
+    intervalsData: intervals,
     hrZones,
     powerZones,
   });
@@ -195,7 +205,7 @@ it('keeps independent sections while a stream download waits and offers retry af
     streamsDownloaded: false,
     streamsStatus: 'timedOut',
     onRetryStreams: retry,
-    intervalsData: { icu_intervals: intervals },
+    intervalsData: intervals,
     powerZones,
   });
   expect(view.getByTestId('streams-not-downloaded')).toBeTruthy();

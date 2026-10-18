@@ -32,7 +32,7 @@ jest.mock('@/shared/app/NetworkContext', () => ({
 const engine = {
   getPowerCurve: jest.fn(),
   getPaceCurve: jest.fn(),
-  getIntervalBody: jest.fn(),
+  getActivityIntervals: jest.fn(),
   syncPowerCurve: jest.fn(),
   syncPaceCurve: jest.fn(),
   syncActivityIntervals: jest.fn(),
@@ -67,7 +67,7 @@ const PACE = (sport: string) => ({
   activities: {},
   fetchedAt: Date.UTC(2026, 7, 8),
 });
-const INTERVALS = JSON.stringify({ icu_intervals: [{ id: 1 }] });
+const INTERVALS = { intervals: [{ id: 1 }] };
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -75,7 +75,7 @@ beforeEach(() => {
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
   engine.getPowerCurve.mockReturnValue(null);
   engine.getPaceCurve.mockReturnValue(null);
-  engine.getIntervalBody.mockReturnValue(null);
+  engine.getActivityIntervals.mockReturnValue(null);
   useAuthStore.setState({ isAuthenticated: true });
 });
 
@@ -157,14 +157,14 @@ describe('usePaceCurve', () => {
 
 describe('useActivityIntervals', () => {
   it('reads the stored body once across re-renders', async () => {
-    engine.getIntervalBody.mockReturnValue(INTERVALS);
+    engine.getActivityIntervals.mockReturnValue(INTERVALS);
 
     const { result, rerender } = await renderHook(() => useActivityIntervals('a1'), { wrapper });
-    await waitFor(() => expect(result.current.data?.icu_intervals).toHaveLength(1));
+    await waitFor(() => expect(result.current.data).toHaveLength(1));
     await rerender({});
     await rerender({});
 
-    expect(engine.getIntervalBody).toHaveBeenCalledTimes(1);
+    expect(engine.getActivityIntervals).toHaveBeenCalledTimes(1);
     expect(engine.syncActivityIntervals).not.toHaveBeenCalled();
   });
 
@@ -172,7 +172,7 @@ describe('useActivityIntervals', () => {
     const { result, rerender } = await renderHook(() => useActivityIntervals('a1'), { wrapper });
 
     await waitFor(() => expect(engine.syncActivityIntervals).toHaveBeenCalledWith('a1'));
-    await waitFor(() => expect(result.current.data?.icu_intervals).toEqual([]));
+    await waitFor(() => expect(result.current.data).toEqual([]));
     await rerender({});
 
     expect(engine.syncActivityIntervals).toHaveBeenCalledTimes(1);
@@ -182,7 +182,7 @@ describe('useActivityIntervals', () => {
     const { rerender } = await renderHook(() => useActivityIntervals(''), { wrapper });
     await rerender({});
 
-    expect(engine.getIntervalBody).not.toHaveBeenCalled();
+    expect(engine.getActivityIntervals).not.toHaveBeenCalled();
     expect(engine.syncActivityIntervals).not.toHaveBeenCalled();
   });
 });

@@ -1,8 +1,8 @@
 export {
-  ACTIVITY_CATEGORIES,
   FILTER_CHIP,
   getActivityCategory,
-  getActivityTypeConfig,
   groupTypesByCategory,
+  sportMarkColour,
+  SPORT_FAMILY_LABELS,
   type SportFamily,
 } from '@/shared/activity/sportCategories';

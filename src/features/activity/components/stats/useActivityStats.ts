@@ -8,11 +8,7 @@
  */
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  getApparentTemperature,
-  isPaceSport,
-  isSwimmingActivity,
-} from '@/shared/activity/activityUtils';
+import { isPaceSport, isSwimmingActivity } from '@/shared/activity/activityUtils';
 import {
   formatCalorieRate,
   formatCalories,
@@ -26,9 +22,13 @@ import {
 } from '@/shared/format/format';
 import { formZoneFromLoads, formatForm, formZoneLabel } from '@/features/fitness';
 import { cadenceUnitLabel } from '@/features/activity/lib/cadenceUnit';
-import { storedDecoupling } from '@/features/activity/lib/decoupling';
-import type { Activity, WellnessData } from '@/types';
-import { MaxHrSource, type ActivityFitnessImpact, type ActivitySummary } from 'veloqrs';
+import { toActivityType, type WellnessData } from '@/types';
+import {
+  MaxHrSource,
+  type ActivityFitnessImpact,
+  type ActivityRecord,
+  type ActivitySummary,
+} from 'veloqrs';
 import type { StatDetail } from './types';
 import type { ActivityNewGround } from '../../hooks/useActivitySectionHighlights';
 import { FEELS_LIKE_THRESHOLD } from '@/constants';
@@ -50,7 +50,7 @@ const METRIC_EXPLANATION_KEYS: Record<string, string> = {
 };
 
 interface UseActivityStatsOptions {
-  activity: Activity;
+  activity: ActivityRecord;
   wellness?: WellnessData | null | undefined;
   /**
    * The athlete's unit system, for temperature and wind. Required, so a caller
@@ -101,11 +101,11 @@ export function useActivityStats({
     const result: StatDetail[] = [];
 
     // Training Load with context
-    if (activity.icu_training_load && activity.icu_training_load > 0) {
-      const load = activity.icu_training_load;
+    if (activity.trainingLoad && activity.trainingLoad > 0) {
+      const load = activity.trainingLoad;
       // The intensity factor is stated, never graded: a band word or a colour
       // per band would be a judgement the data source does not make.
-      const intensity = activity.icu_intensity;
+      const intensity = activity.intensity;
 
       result.push({
         title: t('metrics.trainingLoad'),
@@ -129,10 +129,10 @@ export function useActivityStats({
                 value: `${Math.round(activity.trimp)}`,
               }
             : null,
-          activity.strain_score
+          activity.strainScore
             ? {
                 label: t('activity.stats.strain'),
-                value: `${Math.round(activity.strain_score)}`,
+                value: `${Math.round(activity.strainScore)}`,
               }
             : null,
           wellness?.ctl
@@ -191,7 +191,7 @@ export function useActivityStats({
     const avgSpeed = summary?.averageSpeed;
     if (avgSpeed != null) {
       const maxSpeed = summary?.maxSpeed;
-      const sport = activity.type;
+      const sport = toActivityType(activity.sportType);
       // The sports `formatSportSpeed` reads as a pace.
       const metric = isPaceSport(sport) || isSwimmingActivity(sport) ? 'Pace' : 'Speed';
       const formatted = (speed: number) => formatSportSpeed(speed, sport, isMetric);
@@ -225,8 +225,8 @@ export function useActivityStats({
     }
 
     // Heart Rate with % of max context
-    const avgHRValue = activity.average_heartrate;
-    const maxHRValue = activity.max_heartrate;
+    const avgHRValue = activity.avgHr;
+    const maxHRValue = activity.maxHr;
     if (avgHRValue) {
       const hrPercent = maxHR ? Math.round((avgHRValue / maxHR) * 100) : null;
       const ownMax =
@@ -264,11 +264,11 @@ export function useActivityStats({
                   : t('activity.stats.percentOfDefaultMaxHRLabel', { value: maxHR }),
                 value: `${hrPercent}%`,
               },
-          activity.icu_hrr
+          activity.hrRecovery != null
             ? {
                 label: t('activity.stats.hrRecovery'),
                 value: t('activity.stats.bpmDrop', {
-                  value: activity.icu_hrr.hrr,
+                  value: activity.hrRecovery,
                 }),
               }
             : null,
@@ -311,8 +311,8 @@ export function useActivityStats({
       // moving_time can be 0 (manual indoor entries), so gate the burn rate to
       // avoid rendering "Infinity kcal/h".
       const burnRate =
-        activity.moving_time > 0
-          ? formatCalorieRate((activity.calories / activity.moving_time) * 3600)
+        activity.movingTime > 0
+          ? formatCalorieRate((activity.calories / activity.movingTime) * 3600)
           : undefined;
       result.push({
         title: t('activity.stats.energy'),
@@ -328,7 +328,7 @@ export function useActivityStats({
           },
           {
             label: t('activity.stats.movingTime'),
-            value: formatDuration(activity.moving_time),
+            value: formatDuration(activity.movingTime),
           },
           ...(summary?.elapsedTime != null
             ? [
@@ -344,11 +344,11 @@ export function useActivityStats({
     }
 
     // Temperature/Conditions
-    const temp = activity.average_weather_temp ?? activity.average_temp;
+    const temp = activity.weatherTemp ?? activity.sensorTemp;
     if (temp != null) {
       // Build context from available weather data
       const conditionParts: string[] = [];
-      const feelsLike = getApparentTemperature(activity);
+      const feelsLike = activity.feelsLike;
       if (feelsLike != null && Math.abs(feelsLike - temp) >= FEELS_LIKE_THRESHOLD) {
         conditionParts.push(
           t('activity.stats.feelsLike', {
@@ -356,24 +356,24 @@ export function useActivityStats({
           })
         );
       }
-      if (activity.average_wind_speed != null && activity.average_wind_speed > 2) {
+      if (activity.windSpeed != null && activity.windSpeed > 2) {
         conditionParts.push(
           t('activity.stats.windSpeed', {
-            speed: formatSpeed(activity.average_wind_speed, isMetric),
+            speed: formatSpeed(activity.windSpeed, isMetric),
           })
         );
       }
       const contextStr =
         conditionParts.length > 0
           ? conditionParts.join(', ')
-          : activity.has_weather
+          : activity.hasWeather
             ? t('activity.stats.weatherData')
             : t('activity.stats.deviceSensor');
 
       result.push({
         title: t('activity.stats.conditions'),
         value: formatTemperature(temp, isMetric),
-        icon: activity.has_weather ? 'weather-partly-cloudy' : 'thermometer',
+        icon: activity.hasWeather ? 'weather-partly-cloudy' : 'thermometer',
         context: contextStr,
         explanation: t(METRIC_EXPLANATION_KEYS['Conditions'] as never),
         details: [
@@ -387,10 +387,10 @@ export function useActivityStats({
                 value: formatTemperature(feelsLike, isMetric),
               }
             : null,
-          activity.average_wind_speed != null
+          activity.windSpeed != null
             ? {
                 label: t('activity.stats.wind'),
-                value: formatSpeed(activity.average_wind_speed, isMetric),
+                value: formatSpeed(activity.windSpeed, isMetric),
               }
             : null,
         ].filter(Boolean) as { label: string; value: string }[],
@@ -442,10 +442,10 @@ export function useActivityStats({
     }
 
     // Power - Average watts (includes eFTP, decoupling, efficiency in details)
-    const avgPower = activity.icu_average_watts;
+    const avgPower = activity.avgPower;
     if (avgPower && avgPower > 0) {
-      const eftp = activity.icu_pm_ftp_watts;
-      const decoupling = storedDecoupling(activity);
+      const eftp = activity.eftp;
+      const decoupling = activity.decoupling;
       result.push({
         title: t('activity.power'),
         value: `${Math.round(avgPower)}`,
@@ -454,8 +454,8 @@ export function useActivityStats({
         stream: 'power',
         context: eftp
           ? t('activity.stats.eftpContext', { value: formatPower(eftp) })
-          : activity.icu_pm_p_max
-            ? t('activity.stats.max', { value: formatPower(activity.icu_pm_p_max) })
+          : activity.maxPower
+            ? t('activity.stats.max', { value: formatPower(activity.maxPower) })
             : undefined,
         explanation: eftp
           ? t('common.sentencePair', {
@@ -468,16 +468,16 @@ export function useActivityStats({
             label: t('activity.stats.average'),
             value: formatPower(avgPower),
           },
-          activity.icu_pm_p_max
+          activity.maxPower
             ? {
                 label: t('activity.stats.maxLabel'),
-                value: formatPower(activity.icu_pm_p_max),
+                value: formatPower(activity.maxPower),
               }
             : null,
-          activity.icu_ftp
+          activity.ftp
             ? {
                 label: t('activity.stats.percentOfFTP'),
-                value: `${Math.round((avgPower / activity.icu_ftp) * 100)}%`,
+                value: `${Math.round((avgPower / activity.ftp) * 100)}%`,
               }
             : null,
           eftp
@@ -486,13 +486,13 @@ export function useActivityStats({
                 value: formatPower(eftp),
               }
             : null,
-          activity.icu_efficiency_factor
+          activity.efficiencyFactor
             ? {
                 label: t('activity.stats.efficiencyFactor'),
-                value: formatDecimal(activity.icu_efficiency_factor, 2),
+                value: formatDecimal(activity.efficiencyFactor, 2),
               }
             : null,
-          decoupling !== null
+          decoupling != null
             ? {
                 label: t('activity.stats.decoupling'),
                 value: formatPercent(decoupling, 1),

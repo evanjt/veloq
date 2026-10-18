@@ -11,7 +11,8 @@ import React from 'react';
 import { renderHook } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { layout, spacing } from '@/theme';
+import { layout } from '@/theme';
+import { MAP_CONTROL_GAP, MAP_CONTROL_SIZE } from '@/features/maps/components/MapControlButton';
 import {
   MAX_MAP_CONTROLS,
   activityMapControlCount,
@@ -21,26 +22,27 @@ import {
 
 const SMALLEST_HERO = Math.round(560 * 0.42);
 const TOP = 48;
-const BUTTON = layout.minTapTarget;
+const BUTTON = MAP_CONTROL_SIZE;
+const GAP = MAP_CONTROL_GAP;
 
 describe('mapControlColumnLayout', () => {
   it('keeps every button inside the hero at the smallest hero height with six buttons', () => {
     const result = mapControlColumnLayout(MAX_MAP_CONTROLS, SMALLEST_HERO, TOP);
     expect(TOP + result.maxHeight).toBeLessThanOrEqual(SMALLEST_HERO);
-    const perColumn = Math.floor((result.maxHeight + spacing.sm) / (BUTTON + spacing.sm));
+    const perColumn = Math.floor((result.maxHeight + GAP) / (BUTTON + GAP));
     expect(perColumn * result.columns).toBeGreaterThanOrEqual(MAX_MAP_CONTROLS);
   });
 
   it('uses one column when the buttons fit', () => {
     const result = mapControlColumnLayout(3, 600, TOP);
     expect(result.columns).toBe(1);
-    expect(result.footprint).toBe(layout.cardMargin + BUTTON + spacing.sm);
+    expect(result.footprint).toBe(layout.cardMargin + BUTTON + GAP);
   });
 
   it('widens the footprint by one button and gap per extra column', () => {
     const one = mapControlColumnLayout(1, 600, TOP);
     const two = mapControlColumnLayout(MAX_MAP_CONTROLS, SMALLEST_HERO, TOP);
-    expect(two.footprint).toBe(one.footprint + (two.columns - 1) * (BUTTON + spacing.sm));
+    expect(two.footprint).toBe(one.footprint + (two.columns - 1) * (BUTTON + GAP));
   });
 
   it('is drawn as wide as every column, since layout sizes a wrapping column to its first', () => {
@@ -48,7 +50,7 @@ describe('mapControlColumnLayout', () => {
     const two = mapControlColumnLayout(MAX_MAP_CONTROLS, SMALLEST_HERO, TOP);
     expect(one.width).toBe(BUTTON);
     expect(two.columns).toBeGreaterThan(1);
-    expect(two.width).toBe(two.columns * BUTTON + (two.columns - 1) * spacing.sm);
+    expect(two.width).toBe(two.columns * BUTTON + (two.columns - 1) * GAP);
   });
 
   it('reserves nothing for no buttons', () => {
@@ -107,7 +109,7 @@ describe('useMapControlColumn', () => {
     React.createElement(SafeAreaProvider, { initialMetrics: METRICS }, children);
 
   it('reserves one column for three buttons on a hero where six would wrap', async () => {
-    const height = 320;
+    const height = 280;
     const { result: three } = await renderHook(() => useMapControlColumn(height, 3), { wrapper });
     const { result: six } = await renderHook(() => useMapControlColumn(height, MAX_MAP_CONTROLS), {
       wrapper,

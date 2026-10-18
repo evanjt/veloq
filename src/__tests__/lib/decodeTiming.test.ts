@@ -61,6 +61,7 @@ describe('the decoding after an engine read', () => {
     const parsed = parseBodies({
       bodies: ['{"id":"i1"}', 'not json', '{"id":"i2"}'],
       intervalsIds: [],
+      keys: ['i1', 'k2', 'i2'],
     });
     expect(parsed.map((activity) => activity.id)).toEqual(['i1', 'i2']);
     expect(rows(DECODE_ACTIVITY_BODIES)).toHaveLength(1);
@@ -82,7 +83,7 @@ describe('the decoding after an engine read', () => {
 
   it('records no decoding row while Debug Mode is off', () => {
     setAppMetricsEnabled(false);
-    parseBodies({ bodies: ['{"id":"i1"}'], intervalsIds: [] });
+    parseBodies({ bodies: ['{"id":"i1"}'], intervalsIds: [], keys: ['i1'] });
     streamsFromBuffers(streamBuffers({ time: [0] }));
     expect(getFFIMetrics()).toEqual([]);
   });

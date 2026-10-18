@@ -8,7 +8,6 @@ import { View, StatusBar, Animated, Image, useWindowDimensions } from 'react-nat
 import { FullWindowModal } from '@/shared/ui/FullWindowModal';
 import { useIsFocused } from 'expo-router';
 
-import { getActivityColor } from '@/shared/activity/activityUtils';
 import { LatLng } from '@/shared/geo/polyline';
 import { useDrawnMapStyle } from '@/features/maps/hooks/useDrawnMapStyle';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
@@ -352,7 +351,6 @@ export const ActivityMapView = memo(function ActivityMapView({
   const {
     creationState,
     startIndex,
-    endIndex,
     sectionDistance,
     sectionPointCount,
     sectionGeoJSON,
@@ -628,7 +626,6 @@ export const ActivityMapView = memo(function ActivityMapView({
     [creationMode, sectionEndPoint]
   );
 
-  const activityColor = getActivityColor(activityType);
   const startPoint = validCoordinates[0];
   const endPoint = validCoordinates[validCoordinates.length - 1];
 
@@ -734,7 +731,6 @@ export const ActivityMapView = memo(function ActivityMapView({
       buildActivityLayers({
         palette: basePalette,
         overlayHasData,
-        activityColor,
         gradientActive,
         gradientLineExpression,
         hasSectionOverlays,
@@ -746,7 +742,6 @@ export const ActivityMapView = memo(function ActivityMapView({
     [
       basePalette,
       overlayHasData,
-      activityColor,
       gradientActive,
       gradientLineExpression,
       hasSectionOverlays,
@@ -924,7 +919,7 @@ export const ActivityMapView = memo(function ActivityMapView({
                 ref={map3DRef}
                 coordinates={routeCoords}
                 mapStyle={mapStyle}
-                routeColor={activityColor}
+                routeColor={basePalette.route}
                 fitPadding={fitPadding}
                 routeGradient={gradientActive ? gradientLineExpression : null}
                 highlightCoordinate={highlightCoordinate}
@@ -967,7 +962,6 @@ export const ActivityMapView = memo(function ActivityMapView({
       {/* Control buttons - rendered OUTSIDE map container for reliable touch handling */}
       {showStyleToggle && !isFullscreen ? (
         <ActivityMapControls
-          isDark={isDark}
           mapStyle={mapStyle}
           onToggleStyle={toggleMapStyle}
           hasGradientData={hasGradientData}
@@ -998,7 +992,6 @@ export const ActivityMapView = memo(function ActivityMapView({
         <StatusBar barStyle={`${statusBarStyleForMap(mapStyle)}-content`} />
         <BaseMapView
           routeCoordinates={routeCoords}
-          routeColor={activityColor}
           bounds={bounds}
           initialStyle={chosenStyle}
           onClose={closeFullscreen}
@@ -1017,8 +1010,6 @@ export const ActivityMapView = memo(function ActivityMapView({
         <SectionCreationOverlay
           state={externalCreationState ?? creationState}
           startIndex={startIndex}
-          endIndex={endIndex}
-          coordinateCount={validCoordinates.length}
           sectionDistance={sectionDistance}
           sectionPointCount={sectionPointCount}
           error={creationError}

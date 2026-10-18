@@ -16,7 +16,8 @@ import { ActivityMapView } from '@/features/maps/components/ActivityMapView';
 import { Map3DWebView } from '@/features/maps/components/Map3DWebView';
 import { TRACK_FIT_PADDING } from '@/features/maps/lib/activityCamera';
 import type { LatLng } from '@/shared/geo/polyline';
-import type { ActivityDetail } from '@/types';
+
+import { activityRecord } from '../../__shared__/activityRecord';
 
 interface Page {
   html: string[];
@@ -240,16 +241,15 @@ describe.each(['sections', 'charts'])('scrubbing the 2D activity map on %s', (ta
 });
 
 describe('scrubbing the chart on the charts tab', () => {
-  const activity = {
+  const activity = activityRecord({
     id: 'a1',
     name: 'Gurten loop',
-    type: 'Ride',
-    start_date_local: '2026-08-12T07:30:00',
+    sportType: 'Ride',
+    startDateLocal: '2026-08-12T07:30:00',
     distance: 32000,
-    moving_time: 4200,
-    total_elevation_gain: 610,
-    polyline: null,
-  } as unknown as ActivityDetail;
+    movingTime: 4200,
+    elevationGain: 610,
+  });
 
   const header = (highlightIndex: number | null) => (
     <SafeAreaProvider initialMetrics={METRICS}>

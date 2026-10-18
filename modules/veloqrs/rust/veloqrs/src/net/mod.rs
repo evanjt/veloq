@@ -17,7 +17,15 @@ pub mod types;
 pub mod chart_streams;
 
 pub mod intervals;
-pub use intervals::endpoints;
+pub use intervals::{IntervalsSession, endpoints};
+
+/// What the sync asks the athlete's source, implemented by the session.
+pub mod source;
+pub use source::Source;
+
+#[cfg(test)]
+#[path = "tests/recording_source.rs"]
+pub(crate) mod recording_source;
 
 pub mod elevation_backfill;
 

@@ -12,7 +12,8 @@ import React from 'react';
 import { render, screen } from '@testing-library/react-native';
 
 import { MuscleGroupView } from '@/features/strength/components/MuscleGroupView';
-import type { ActivityDetail } from '@/types';
+
+import { activityRecord } from '../__shared__/activityRecord';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
@@ -72,7 +73,7 @@ describe('the muscle detail rows', () => {
     await render(
       <MuscleGroupView
         activityId="demo-test-6"
-        activity={{ id: 'demo-test-6' } as unknown as ActivityDetail}
+        activity={activityRecord({ id: 'demo-test-6' })}
         hasExercises
         isDark={false}
       />

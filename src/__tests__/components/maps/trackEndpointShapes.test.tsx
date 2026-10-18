@@ -26,7 +26,6 @@ const activityLayers = () =>
   buildActivityLayers({
     palette: mapPalette('light'),
     overlayHasData: false,
-    activityColor: '#00FF00',
     gradientActive: false,
     gradientLineExpression: null,
     hasSectionOverlays: false,
@@ -39,9 +38,7 @@ const activityLayers = () =>
 const routeLayers = () =>
   buildRouteLayers({
     palette: mapPalette('light'),
-    activityColor: '#123456',
-    representativeOpacity: 1,
-    fadedOpacity: 0.2,
+    routeContext: false,
     fadedFilter: undefined,
     includeRoute: true,
   });
@@ -59,8 +56,7 @@ const sectionLayers = () =>
     highlightedTraceFilter: undefined,
     hasAllTraces: false,
     endpoints: empty,
-    activityColor: '#123456',
-    sectionOpacity: 1,
+    sectionContext: false,
     trimRange: null,
     hasExtension: false,
     showExtensionAndSection: true,

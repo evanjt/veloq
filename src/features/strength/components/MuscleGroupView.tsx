@@ -5,19 +5,18 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Stack } from 'expo-router';
 import type { ExtendedBodyPart } from 'react-native-body-highlighter';
 import { useTranslation } from 'react-i18next';
-import type { ExerciseSet } from 'veloqrs';
+import type { ActivityRecord, ExerciseSet } from 'veloqrs';
 
 import { useMetricSystem } from '@/shared/app';
 import { formatDateTime, formatDuration } from '@/shared/format/format';
 import {
-  strengthTone,
+  bodyDiagram,
   colors,
   colorWithOpacity,
   iconSize,
   ink,
   layers,
   layout,
-  loupeChrome,
   mapTextShadow,
   opacity,
   spacing,
@@ -25,7 +24,6 @@ import {
   type Palette,
   typography,
 } from '@/theme';
-import type { ActivityDetail } from '@/types';
 
 import { useMuscleGroups } from '../hooks/useExerciseSets';
 import { useMuscleDetail } from '../hooks/useMuscleDetail';
@@ -39,16 +37,21 @@ import { NameText } from '@/shared/ui/NameText';
 
 interface MuscleGroupViewProps {
   activityId: string;
-  activity: ActivityDetail;
+  activity: ActivityRecord;
   hasExercises: boolean;
   isDark: boolean;
   athleteSex?: string | undefined;
   exerciseSets?: ExerciseSet[];
 }
 
-const PRIMARY_COLOR = strengthTone.primary;
-const SECONDARY_COLOR = strengthTone.secondary;
-const BODY_COLORS: readonly string[] = [SECONDARY_COLOR, PRIMARY_COLOR] as const;
+// A primary muscle is drawn at the top sequential step and an assisting one at the
+// middle step, the same scale the strength body diagram shades volume on.
+function muscleRoleColours(isDark: boolean) {
+  const steps = bodyDiagram[isDark ? 'dark' : 'light'].steps;
+  const primary = steps[4];
+  const secondary = steps[2];
+  return { primary, secondary, body: [secondary, primary] as const };
+}
 
 export function MuscleGroupView({
   activityId,
@@ -60,6 +63,7 @@ export function MuscleGroupView({
 }: MuscleGroupViewProps) {
   const { t } = useTranslation();
   const styles = themedStyles(makeStyles, isDark);
+  const roleColours = muscleRoleColours(isDark);
   const headerBottom = useHeroHeaderBottom();
   const isMetric = useMetricSystem();
   const {
@@ -114,7 +118,7 @@ export function MuscleGroupView({
           selectedSlug={selectedMuscle}
           gender={gender}
           maxScale={0.65}
-          colors={BODY_COLORS}
+          colors={roleColours.body}
           onMuscleTap={hasInteractiveData ? handleMuscleTap : undefined}
           onMuscleScrub={hasInteractiveData ? handleMuscleScrub : undefined}
           tappableSlugs={tappableSlugs}
@@ -128,11 +132,11 @@ export function MuscleGroupView({
           centerContent={
             <View style={styles.centerColumn}>
               <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: PRIMARY_COLOR }]} />
+                <View style={[styles.legendDot, { backgroundColor: roleColours.primary }]} />
                 <Text style={styles.legendText}>{t('activityDetail.primary')}</Text>
               </View>
               <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: SECONDARY_COLOR }]} />
+                <View style={[styles.legendDot, { backgroundColor: roleColours.secondary }]} />
                 <Text style={styles.legendText}>{t('activityDetail.secondary')}</Text>
               </View>
 
@@ -156,7 +160,9 @@ export function MuscleGroupView({
                         styles.detailDot,
                         {
                           backgroundColor:
-                            muscleDetail.primaryExercises > 0 ? PRIMARY_COLOR : SECONDARY_COLOR,
+                            muscleDetail.primaryExercises > 0
+                              ? roleColours.primary
+                              : roleColours.secondary,
                         },
                       ]}
                     />
@@ -195,7 +201,9 @@ export function MuscleGroupView({
                               styles.detailExDot,
                               {
                                 backgroundColor:
-                                  ex.role === 'primary' ? PRIMARY_COLOR : SECONDARY_COLOR,
+                                  ex.role === 'primary'
+                                    ? roleColours.primary
+                                    : roleColours.secondary,
                               },
                             ]}
                           />
@@ -234,13 +242,13 @@ export function MuscleGroupView({
         </NameText>
         <View style={styles.metaRow}>
           <Text style={[styles.activityDate, !isDark && styles.activityDateLight]}>
-            {formatDateTime(activity.start_date_local)}
+            {activity.startDateLocal ? formatDateTime(activity.startDateLocal) : null}
           </Text>
           <Text
-            accessibilityLabel={`${t('activity.duration')}: ${formatDuration(activity.moving_time)}`}
+            accessibilityLabel={`${t('activity.duration')}: ${formatDuration(activity.movingTime)}`}
             style={[styles.durationStat, !isDark && styles.durationStatLight]}
           >
-            {formatDuration(activity.moving_time)}
+            {formatDuration(activity.movingTime)}
           </Text>
         </View>
       </View>
@@ -253,11 +261,11 @@ const CENTER_COLUMN_WIDTH = 120;
 
 const MUSCLE_VIEW_BOTTOM_PADDING = spacing.xl + spacing.lg;
 
-const makeStyles = (palette: Palette, isDark: boolean) =>
+const makeStyles = (palette: Palette) =>
   StyleSheet.create({
     hero: {
       position: 'relative',
-      backgroundColor: isDark ? loupeChrome.bgDark : loupeChrome.bgLight,
+      backgroundColor: palette.surfaceRaised,
     },
     bodyContainer: {
       paddingHorizontal: spacing.sm,

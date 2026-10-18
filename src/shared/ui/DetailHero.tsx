@@ -88,6 +88,11 @@ export interface DetailHeroProps {
   overlayInsetEnd?: number;
   /** The map (or placeholder) filling the hero. */
   children: React.ReactNode;
+  /**
+   * A map tool's bar, drawn over the map's foot while the tool runs. It takes the place of the
+   * info overlay and the gradient under it, so the map work has one way out.
+   */
+  tool?: React.ReactNode;
 }
 
 export function DetailHero({
@@ -97,6 +102,7 @@ export function DetailHero({
   attributionClearance = 0,
   overlayInsetEnd,
   children,
+  tool,
 }: DetailHeroProps) {
   const headerBottom = useHeroHeaderBottom();
   const topScrimHeight = headerBottom + TOP_SCRIM_FADE;
@@ -120,14 +126,18 @@ export function DetailHero({
         pointerEvents="none"
       />
 
-      <LinearGradient
-        testID="detail-hero-gradient"
-        colors={['transparent', opacity.overlay.full]}
-        style={styles.mapGradient}
-        pointerEvents="none"
-      />
+      {tool == null && (
+        <LinearGradient
+          testID="detail-hero-gradient"
+          colors={['transparent', opacity.overlay.full]}
+          style={styles.mapGradient}
+          pointerEvents="none"
+        />
+      )}
 
-      {overlay != null && (
+      {tool != null ? tool : null}
+
+      {tool == null && overlay != null && (
         <View
           testID="detail-hero-overlay"
           style={[

@@ -447,6 +447,48 @@ export function generateStableTestActivities(): (ApiActivity & { _routeId: strin
       ],
       _routeId: 'route-rio-run-3-laps',
     },
+    // demo-test-9: 10 days ago, a pool swim with no track. The engine settles
+    // its lengths from the demo corpus when its detail screen asks for its FIT
+    // file, so the Lengths tab has rows. Distance and times match them.
+    {
+      id: 'demo-test-9',
+      start_date_local: (() => {
+        const d = new Date(referenceDate);
+        d.setDate(d.getDate() - 10);
+        d.setHours(6, 30, 0, 0);
+        return formatLocalISOString(d);
+      })(),
+      type: 'Swim',
+      name: 'Pool Swim',
+      description: null,
+      distance: 300,
+      moving_time: 356,
+      elapsed_time: 406,
+      total_elevation_gain: 0,
+      total_elevation_loss: 0,
+      average_speed: 0.84,
+      max_speed: 1.04,
+      average_heartrate: 132,
+      max_heartrate: 151,
+      average_cadence: null,
+      average_temp: 27,
+      calories: 90,
+      device_name: 'Demo Device',
+      trainer: false,
+      commute: false,
+      icu_average_watts: null,
+      icu_weighted_avg_watts: null,
+      icu_training_load: 12,
+      icu_intensity: 62,
+      icu_ftp: 250,
+      icu_atl: 40,
+      icu_ctl: 38,
+      icu_hr_zones: [130, 145, 160, 170, 180, 190],
+      icu_power_zones: [55, 75, 90, 105, 120, 150, 999],
+      icu_zone_times: null,
+      stream_types: ['time', 'heartrate', 'distance'],
+      _routeId: null,
+    },
   ];
 
   return stableActivities;

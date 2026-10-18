@@ -41,12 +41,14 @@ import {
   rescanRefusalKey,
   shouldShowSportChips,
   SectionTrimOverlay,
+  SectionTrimToolBar,
   SportTypeSelector,
   useRevealMapOnDraw,
   createMapHighlightStore,
   SectionHeader,
   sectionHeroName,
   SectionActionRow,
+  SectionOverflowMenu,
   SectionContentArea,
   sectionStreamsState,
   type SectionDeltaLine,
@@ -324,11 +326,40 @@ function SectionDetailScreenContent() {
   );
 
   // A fallback state takes the opaque header, so the hero puts the transparent one back, named
-  // after the section.
-  const heroHeaderOptions = useMemo(
-    () => overMapHeaderOptions({ title: heroTitle, isDark, scrolledPastHero }),
-    [heroTitle, isDark, scrolledPastHero]
-  );
+  // after the section. Its overflow menu holds the rarer actions, and leaves while a map tool
+  // runs so the tool's bar is the one way out.
+  const sectionType = section?.sectionType;
+  const heroHeaderOptions = useMemo(() => {
+    const options = overMapHeaderOptions({ title: heroTitle, isDark, scrolledPastHero });
+    if (sectionType === undefined || isTrimming) return { ...options, headerRight: () => null };
+    return {
+      ...options,
+      headerRight: () => (
+        <SectionOverflowMenu
+          sectionType={sectionType}
+          isSectionDisabled={isSectionDisabled}
+          isRematching={isRematching}
+          isRematchHeld={isRematchHeld}
+          onDelete={handleDeleteSection}
+          onToggleDisable={handleToggleDisable}
+          onRematch={handleRematchActivities}
+          tint={options.headerTintColor}
+        />
+      ),
+    };
+  }, [
+    heroTitle,
+    isDark,
+    scrolledPastHero,
+    sectionType,
+    isTrimming,
+    isSectionDisabled,
+    isRematching,
+    isRematchHeld,
+    handleDeleteSection,
+    handleToggleDisable,
+    handleRematchActivities,
+  ]);
 
   if (!section) {
     return (
@@ -357,6 +388,7 @@ function SectionDetailScreenContent() {
   }
 
   const activityColor = palette.actionPrimary;
+  const trimPointCount = effectivePointCount || section.polyline?.length || 0;
   const iconName: MaterialIconName = 'road-variant';
 
   return (
@@ -389,6 +421,24 @@ function SectionDetailScreenContent() {
             scopeRange={sectionTimeRange}
             mapReady={mapReady}
             isTrimming={isTrimming}
+            toolBar={
+              isTrimming ? (
+                <SectionTrimToolBar
+                  pointCount={trimPointCount}
+                  startIndex={trimStart}
+                  endIndex={trimEnd}
+                  isExpandMode={isExpandMode}
+                  sectionStartInWindow={sectionStartInWindow}
+                  sectionEndInWindow={sectionEndInWindow}
+                  trimmedDistance={trimmedDistance}
+                  isSaving={isTrimSaving}
+                  canReset={canResetBounds}
+                  onConfirm={confirmTrim}
+                  onCancel={cancelTrim}
+                  onReset={resetBounds}
+                />
+              ) : undefined
+            }
             isExpandMode={isExpandMode}
             trimStart={trimStart}
             trimEnd={trimEnd}
@@ -418,14 +468,8 @@ function SectionDetailScreenContent() {
           {!isTrimming && (
             <SectionActionRow
               isDark={isDark}
-              isSectionDisabled={isSectionDisabled}
-              isRematching={isRematching}
-              isRematchHeld={isRematchHeld}
               section={section}
               startTrim={startTrim}
-              handleDeleteSection={handleDeleteSection}
-              handleToggleDisable={handleToggleDisable}
-              handleRematchActivities={handleRematchActivities}
               handleAcceptSection={handleAcceptSection}
               pinnedVersion={ledger.pinnedVersion}
               partlyExcluded={partlyExcluded}
@@ -444,24 +488,18 @@ function SectionDetailScreenContent() {
             </View>
           )}
 
-          {/* Trim panel - replaces chart when trimming */}
+          {/* Trim handles - replace the chart while the bounds are edited */}
           {isTrimming ? (
             <SectionTrimOverlay
-              pointCount={effectivePointCount || section.polyline?.length || 0}
+              pointCount={trimPointCount}
               startIndex={trimStart}
               endIndex={trimEnd}
-              trimmedDistance={trimmedDistance}
-              originalDistance={section.distanceMeters}
               isSaving={isTrimSaving}
-              canReset={canResetBounds}
               isExpandMode={isExpandMode}
               sectionStartInWindow={sectionStartInWindow}
               sectionEndInWindow={sectionEndInWindow}
               onStartChange={setTrimStart}
               onEndChange={setTrimEnd}
-              onConfirm={confirmTrim}
-              onCancel={cancelTrim}
-              onReset={resetBounds}
               onToggleExpand={toggleExpand}
             />
           ) : null}
@@ -493,6 +531,8 @@ function SectionDetailScreenContent() {
               lastActivityDate={lastActivityDate}
               trendCurves={performance?.trendCurves ?? NO_TREND_CURVES}
               histograms={performance?.histograms ?? NO_HISTOGRAMS}
+              scatterFocus={performance?.scatterFocus}
+              recordProgression={performance?.recordProgression}
               curves={performance?.curves}
               onDeltaLineChange={setDeltaLine}
               forwardStats={forwardStats}
@@ -507,7 +547,7 @@ function SectionDetailScreenContent() {
               navActivityId={navActivityId}
               effectiveReferenceId={effectiveReferenceId}
               showExcluded={showExcluded}
-              hasExcluded={excludedPoints.length > 0}
+              excludedCount={excludedPoints.length}
               sectionTimeRange={sectionTimeRange}
               onActivitySelect={highlight.set}
               onExcludeActivity={handleExcludeActivity}

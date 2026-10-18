@@ -38,6 +38,7 @@ const pendingSeen: string[][] = [];
 const page = (bodies: string[]): ActivityBodiesPage => ({
   bodies,
   intervalsIds: bodies.map(() => undefined),
+  keys: bodies.map((body) => (JSON.parse(body) as { id: string }).id),
   matchedCount: bodies.length,
   hasMore: false,
 });

@@ -3,7 +3,6 @@ import {
   View,
   ScrollView,
   StyleSheet,
-  Pressable,
   Text as RNText,
   type ScrollViewInstance,
 } from 'react-native';
@@ -11,7 +10,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
 import type { Activity } from '@/types';
-import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
+import { getActivityIcon } from '@/shared/activity/activityUtils';
+import { sportMarkColour } from '@/shared/activity/sportCategories';
 import {
   formatHeartRate,
   formatPower,
@@ -55,10 +55,8 @@ import type { ActivityNewGround } from '../hooks/useActivitySectionHighlights';
 import {
   accessibleActions,
   composeAccessibilityLabel,
-  pressable,
-  pressRipple,
-  pressRippleOver,
   useLargeText,
+  PressTarget,
 } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { Card } from '@/shared/ui/Card';
@@ -286,7 +284,7 @@ export const ActivityCard = React.memo(
     }, []);
 
     const { getStyleForActivity } = useMapPreferences();
-    const activityColor = getActivityColor(activity.type);
+    const activityColor = sportMarkColour(activity.type, isDark);
     const iconName = getActivityIcon(activity.type);
     const mapStyle = getStyleForActivity(activity.type, activity.id);
     const theme = getGradientTheme(isDark, mapStyle);
@@ -322,14 +320,13 @@ export const ActivityCard = React.memo(
       >
         {/* A second touch area for the card's own press. The card's label speaks
             these stats, so a screen reader never reaches this. */}
-        <Pressable
+        <PressTarget
           accessible={false}
           accessibilityRole="none"
           importantForAccessibility="no-hide-descendants"
           accessibilityElementsHidden
           onPress={handlePress}
-          style={pressable(styles.secondaryStats)}
-          android_ripple={pressRipple}
+          style={styles.secondaryStats}
         >
           {!!activity.icu_training_load && (
             <View style={styles.secondaryStat}>
@@ -379,7 +376,7 @@ export const ActivityCard = React.memo(
               </RNText>
             </View>
           ) : null}
-        </Pressable>
+        </PressTarget>
       </ScrollView>
     );
 
@@ -417,7 +414,7 @@ export const ActivityCard = React.memo(
     if (!hasGpsData) {
       return withMenu(
         <View style={styles.cardWrapper}>
-          <Pressable
+          <PressTarget
             testID={`activity-card-${activity.id}`}
             onPress={handlePress}
             onLongPress={onHold}
@@ -425,8 +422,7 @@ export const ActivityCard = React.memo(
             accessibilityRole="button"
             accessibilityLabel={activityCardA11yLabel({ activity, isMetric }, t)}
             {...cardActions}
-            style={pressable()}
-            android_ripple={pressRippleOver}
+            ripple="over"
           >
             <Card variant="raised" padding="none" testID={`activity-card-${activity.id}-container`}>
               {/* Read through the card's own label, so the name is heard once. */}
@@ -503,7 +499,7 @@ export const ActivityCard = React.memo(
                 {secondaryStatsRow(compactMutedColor)}
               </View>
             </Card>
-          </Pressable>
+          </PressTarget>
         </View>,
         false
       );
@@ -528,7 +524,7 @@ export const ActivityCard = React.memo(
 
     const routeChip =
       routeHighlight && showsRouteChip ? (
-        <Pressable
+        <PressTarget
           accessibilityRole="button"
           accessibilityLabel={composeAccessibilityLabel(
             t('activityDetail.tabs.route'),
@@ -538,7 +534,7 @@ export const ActivityCard = React.memo(
           testID={`activity-card-${activity.id}-route-chip`}
           onPress={() => openActivity('routes')}
           hitSlop={CHIP_SLOP}
-          style={pressable([
+          style={[
             styles.routeTrendBadge,
             largeText && styles.flowRouteChip,
             routeHighlight.isPr
@@ -548,8 +544,7 @@ export const ActivityCard = React.memo(
               : preferOpaqueChrome
                 ? styles.routeTrendBadgeDeltaOpaque
                 : styles.routeTrendBadgeDelta,
-          ])}
-          android_ripple={pressRipple}
+          ]}
         >
           {routeHighlight.isPr ? (
             <>
@@ -568,7 +563,7 @@ export const ActivityCard = React.memo(
               {formatPrDelta(routeHighlight.timeDeltaSeconds)}
             </RNText>
           ) : null}
-        </Pressable>
+        </PressTarget>
       ) : null;
 
     // Sport icon + name/date stacked, with the route trend beside them over the
@@ -609,12 +604,11 @@ export const ActivityCard = React.memo(
         {/* Primary stats: a second touch area for the card's own press,
               spoken in the card's label. The section chip inside is
               reached through the card's actions. */}
-        <Pressable
+        <PressTarget
           accessible={false}
           accessibilityRole="none"
           onPress={handlePress}
-          style={pressable([styles.primaryRow, largeText && styles.flowPrimaryRow])}
-          android_ripple={pressRipple}
+          style={[styles.primaryRow, largeText && styles.flowPrimaryRow]}
         >
           <View
             style={[styles.primaryStats, largeText && styles.flowPrimaryStats]}
@@ -678,7 +672,7 @@ export const ActivityCard = React.memo(
                 </View>
               ) : null}
               {sectionHighlights && showsSectionChip ? (
-                <Pressable
+                <PressTarget
                   accessibilityRole="button"
                   accessibilityLabel={composeAccessibilityLabel(
                     t('activityDetail.tabs.sections'),
@@ -689,8 +683,7 @@ export const ActivityCard = React.memo(
                   testID={`activity-card-${activity.id}-section-chip`}
                   onPress={() => openActivity('sections')}
                   hitSlop={CHIP_SLOP}
-                  style={pressable(styles.trendBadge)}
-                  android_ripple={pressRipple}
+                  style={styles.trendBadge}
                 >
                   {(() => {
                     const { faster: improving, slower: declining, prs: prCount } = sectionCounts;
@@ -741,11 +734,11 @@ export const ActivityCard = React.memo(
                       </>
                     );
                   })()}
-                </Pressable>
+                </PressTarget>
               ) : null}
             </View>
           ) : null}
-        </Pressable>
+        </PressTarget>
         {activity.skyline_chart_bytes ? (
           <SkylineBar skylineBytes={activity.skyline_chart_bytes} isDark={isDark} />
         ) : (
@@ -769,13 +762,12 @@ export const ActivityCard = React.memo(
     // Tap and hold for the whole card. The name and the stats sit above it so
     // their own chips take the tap, and a press anywhere else lands here.
     const pressOverlay = (
-      <Pressable
+      <PressTarget
         testID={`activity-card-${activity.id}`}
         onPress={handlePress}
         onLongPress={onHold}
         delayLongPress={PREVIEW_HOLD_MS}
-        style={pressable(styles.pressableOverlay)}
-        android_ripple={pressRipple}
+        style={styles.pressableOverlay}
         accessibilityRole="button"
         accessibilityLabel={cardLabel}
         {...cardActions}

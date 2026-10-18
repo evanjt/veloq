@@ -4,16 +4,16 @@ import type { XY } from './svgPath';
 
 /**
  * The widths every chart stroke is drawn at. A series line is 2px with round
- * joins and caps, its casing one step wider so half a pixel shows each side, a
- * reference rule 1px dashed, the grid 1px dotted and the axis baseline 1px
- * solid. A dot's surface ring and a mark's ring are 2px.
+ * joins and caps and holds 3:1 on its own, so nothing is drawn under it. A
+ * reference rule is 1px dashed, the grid 1px dotted, the axis baseline and the
+ * scrub line 1px solid. A dot's surface ring and a mark's ring are 2px.
  */
 export const chartStroke = {
   series: stroke.two,
-  casing: stroke.three,
   reference: stroke.one,
   grid: stroke.one,
   axis: stroke.one,
+  crosshair: stroke.one,
   ring: stroke.two,
 } as const;
 
@@ -91,14 +91,30 @@ export const RECORD_RING_RADIUS = DOT_RADIUS + DOT_RING + chartStroke.ring / 2;
 export const RETICLE_INNER = RECORD_RING_RADIUS + chartStroke.ring + 1;
 export const RETICLE_TICK = 4;
 
+/** How far the reticle reaches from its point, which a plot pads its edges by. */
+export const RETICLE_REACH = RETICLE_INNER + RETICLE_TICK;
+
+/** The selection ring's radius, outside the reticle, a size no other mark uses. */
+export const SELECTION_RING_RADIUS = RETICLE_REACH + chartStroke.ring;
+
+/**
+ * The reticle a sparkline draws, closer in: a sparkline has no record ring to
+ * clear, only the dot on its last point.
+ */
+export const SPARKLINE_RETICLE = { inner: DOT_RADIUS + DOT_RING, tick: 3 } as const;
+
 /** The four ticks of the reticle, above, right, below and left of the point. */
-export function reticleTicks(at: XY): { from: XY; to: XY }[] {
-  const outer = RETICLE_INNER + RETICLE_TICK;
+export function reticleTicks(
+  at: XY,
+  inner: number = RETICLE_INNER,
+  tick: number = RETICLE_TICK
+): { from: XY; to: XY }[] {
+  const outer = inner + tick;
   return [
-    { from: { x: at.x, y: at.y - RETICLE_INNER }, to: { x: at.x, y: at.y - outer } },
-    { from: { x: at.x + RETICLE_INNER, y: at.y }, to: { x: at.x + outer, y: at.y } },
-    { from: { x: at.x, y: at.y + RETICLE_INNER }, to: { x: at.x, y: at.y + outer } },
-    { from: { x: at.x - RETICLE_INNER, y: at.y }, to: { x: at.x - outer, y: at.y } },
+    { from: { x: at.x, y: at.y - inner }, to: { x: at.x, y: at.y - outer } },
+    { from: { x: at.x + inner, y: at.y }, to: { x: at.x + outer, y: at.y } },
+    { from: { x: at.x, y: at.y + inner }, to: { x: at.x, y: at.y + outer } },
+    { from: { x: at.x - inner, y: at.y }, to: { x: at.x - outer, y: at.y } },
   ];
 }
 
@@ -121,10 +137,20 @@ export function staircasePoints(steps: readonly XY[], rightEdge?: number): XY[] 
   return out;
 }
 
-/** The eFTP mark: an 8px triangle standing on its base, centred on the point. */
+/**
+ * An 8px triangle centred on the point: standing on its base, the eFTP mark,
+ * or pointing up or down at a plot's edge, an attempt past the axis range.
+ */
 export const TRIANGLE_SIZE = 2 * DOT_RADIUS;
 
-export function triangleSvg(at: XY): string {
+export function triangleSvg(at: XY, pointing: 'up' | 'down' = 'up'): string {
   const half = TRIANGLE_SIZE / 2;
-  return `M${at.x} ${at.y - half}L${at.x + half} ${at.y + half}L${at.x - half} ${at.y + half}Z`;
+  const tip = pointing === 'up' ? -half : half;
+  return `M${at.x} ${at.y + tip}L${at.x + half} ${at.y - tip}L${at.x - half} ${at.y - tip}Z`;
 }
+
+/** The box a legend key draws its mark in. */
+export const MARK_KEY_SIZE = 2 * RECORD_RING_RADIUS + chartStroke.ring;
+
+/** The scale the reticle is drawn at in a legend key, so its ticks fit the key's box. */
+export const RETICLE_KEY_SCALE = MARK_KEY_SIZE / (2 * (RETICLE_INNER + RETICLE_TICK));

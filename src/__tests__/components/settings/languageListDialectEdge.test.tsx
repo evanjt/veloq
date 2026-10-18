@@ -7,11 +7,12 @@
  */
 
 import React from 'react';
-import { StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
 import { act, fireEvent, render } from '@testing-library/react-native';
 
 import { LanguagePicker } from '@/features/auth/components/LanguagePicker';
 import { useLanguageStore } from '@/shared/app/LanguageStore';
+import { flattenStyle } from '@/shared/ui/flattenStyle';
 import { LanguageList } from '@/shared/ui/LanguageList';
 import { brand, colors, controlHeight, darkColors, layout } from '@/theme';
 
@@ -36,7 +37,7 @@ const GOLDS = Object.entries(brand)
   .map(([, value]) => String(value).toUpperCase());
 
 function styleOf(node: { props: { style?: StyleProp<ViewStyle> } }): ViewStyle {
-  return StyleSheet.flatten(node.props.style) ?? {};
+  return flattenStyle<ViewStyle>(node.props.style);
 }
 
 function expectNoGold(style: { borderColor?: unknown; backgroundColor?: unknown }) {

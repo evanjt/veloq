@@ -16,30 +16,30 @@ import { ActivitySummaryStrip } from '@/features/activity/components/ActivitySum
 import { activityHeroStats } from '@/features/activity/lib/activityHeroStats';
 import { initialiseI18n, i18n } from '@/i18n';
 import { formatDateTime, formatDuration } from '@/shared/format/format';
-import type { ActivityDetail } from '@/types';
+
+import { activityRecord } from '../__shared__/activityRecord';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
-const indoorRide = {
+const indoorRide = activityRecord({
   id: 'indoor-1',
   name: 'Trainer session',
-  type: 'VirtualRide',
-  start_date_local: '2026-09-05T18:30:00',
-  moving_time: 3600,
-  elapsed_time: 3720,
+  sportType: 'VirtualRide',
+  startDateLocal: '2026-09-05T18:30:00',
+  movingTime: 3600,
   distance: 30_000,
-  total_elevation_gain: 120,
-  stream_types: ['altitude', 'watts'],
-} as ActivityDetail;
+  elevationGain: 120,
+  streamTypes: ['altitude', 'watts'],
+});
 
-const poolSwim = {
+const poolSwim = activityRecord({
   ...indoorRide,
   id: 'pool-1',
-  type: 'Swim',
+  sportType: 'Swim',
   distance: 2000,
-  total_elevation_gain: 0,
-  stream_types: [],
-} as ActivityDetail;
+  elevationGain: 0,
+  streamTypes: [],
+});
 
 beforeAll(async () => {
   await initialiseI18n('en-GB');
@@ -48,7 +48,7 @@ beforeAll(async () => {
 describe('the activity screen without a map', () => {
   it('shows the date and the time it took', async () => {
     await render(<ActivitySummaryStrip activity={indoorRide} isMetric isDark={false} />);
-    expect(screen.getByText(formatDateTime(indoorRide.start_date_local))).toBeTruthy();
+    expect(screen.getByText(formatDateTime(indoorRide.startDateLocal ?? ''))).toBeTruthy();
     expect(screen.getByTestId('activity-summary-duration').props.children).toBe(
       formatDuration(3600)
     );

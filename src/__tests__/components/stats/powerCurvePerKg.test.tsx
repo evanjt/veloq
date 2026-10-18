@@ -72,19 +72,20 @@ describe('the power curve per-kilogram toggle', () => {
     // asserted as keys and the numbers, which sit outside `t`, as numbers.
     expect(screen.getByTestId('power-curve-watts')).toHaveTextContent('3.25 units.wattsPerKg');
     expect(screen.getByTestId('power-curve-axis-top')).toHaveTextContent(/units\.wattsPerKg/);
-    expect(screen.getByTestId('power-curve-ftp-legend')).toHaveTextContent(
+    expect(screen.getByTestId('power-curve-ftp-label')).toHaveTextContent(
       /statsScreen\.ftpLabelAtWeight/
     );
   });
 
   it('switches back to watts', async () => {
-    await render(<PowerCurveChart ftp={300} />);
+    const tree = await render(<PowerCurveChart ftp={300} />);
+    await layoutViews(tree, 300, 200);
 
     await fireEvent.press(screen.getByTestId('power-curve-unit-per-kg'));
     await fireEvent.press(screen.getByTestId('power-curve-unit-watts'));
 
     expect(screen.getByTestId('power-curve-watts')).toHaveTextContent('260 W');
-    expect(screen.getByTestId('power-curve-ftp-legend')).not.toHaveTextContent(/stats\.atWeight/);
+    expect(screen.getByTestId('power-curve-ftp-label')).not.toHaveTextContent(/stats\.atWeight/);
   });
 
   it('offers no toggle for a curve without a per-kilogram series', async () => {

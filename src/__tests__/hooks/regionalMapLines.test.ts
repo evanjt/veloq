@@ -14,6 +14,7 @@ function buildArgs(): Parameters<typeof useMapGeoJSON>[0] {
     activityCenters: {},
     userLocation: null,
     selected: null,
+    isDark: false,
   };
 }
 

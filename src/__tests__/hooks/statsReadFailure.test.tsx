@@ -1,6 +1,5 @@
 /**
- * Scenario: the engine throws a tagged failure while the Training tab's stats
- * hooks read it.
+ * Scenario: the engine throws a tagged failure while the stats hooks read it.
  *
  * Expected behaviour: each hook hands the thrown value back as `error` and
  * keeps its empty value apart from it, so a screen can tell a failed read from
@@ -13,21 +12,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { getEngine } from '@/shared/native/engine';
 import { engineErrorTag } from '@/shared/native/engineError';
-import { useTrainingScreenData } from '@/features/stats/hooks/useEngineStats';
-import { noComparisons } from '../__shared__/trainingScreenRead';
+import { useFitnessScreenRead } from '@/features/fitness/hooks/useFitnessScreenRead';
+import { NO_FITNESS_PARTS, noComparisons } from '../__shared__/fitnessScreenRead';
 import { useAthleteSummary } from '@/features/fitness/hooks/useAthleteSummary';
-import { useActivityLabels } from '@/features/activity/hooks/useActivityLabels';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides({}));
 jest.mock('@/shared/app/AuthStore', () => ({
   useAuthStore: (select: (s: { isAuthenticated: boolean }) => unknown) =>
     select({ isAuthenticated: true }),
-}));
-jest.mock('@/features/activity/lib/activityLabels', () => ({
-  activityLabels: jest.fn(() => {
-    throw { tag: 'Database', inner: { msg: 'disk' } };
-  }),
 }));
 
 const database = { tag: 'Database', inner: { msg: 'disk' } };
@@ -37,7 +30,7 @@ const failing = () => {
 
 const engine = {
   subscribe: () => () => undefined,
-  getTrainingScreenData: jest.fn(failing),
+  getFitnessScreenData: jest.fn(failing),
   getWeeklySummaries: jest.fn(failing),
 };
 
@@ -55,12 +48,13 @@ beforeEach(() => {
 });
 
 describe('stats hooks', () => {
-  it('useTrainingScreenData reports a thrown read rather than an empty year', async () => {
-    const { result } = await renderHook(() => useTrainingScreenData(), { wrapper: wrapper() });
-    await waitFor(() => expect(engineErrorTag(result.current.error)).toBe('Database'));
-    expect(result.current.isPending).toBe(false);
-    expect(result.current.data.months).toEqual([]);
-    expect(result.current.data.heatmap).toEqual([]);
+  it('the fitness screen read hands its calendar cards a thrown read rather than an empty year', async () => {
+    const { result } = await renderHook(() => useFitnessScreenRead(), { wrapper: wrapper() });
+    const { training } = result.current;
+    expect(engineErrorTag(training.error)).toBe('Database');
+    expect(training.isPending).toBe(false);
+    expect(training.data.months).toEqual([]);
+    expect(training.data.heatmap).toEqual([]);
   });
 
   it('useAthleteSummary reports a thrown read rather than an empty week', async () => {
@@ -69,17 +63,12 @@ describe('stats hooks', () => {
     expect(result.current.data.currentWeek).toBeNull();
   });
 
-  it('useActivityLabels reports a thrown read rather than no labels', async () => {
-    const { result } = await renderHook(() => useActivityLabels(['a1']), { wrapper: wrapper() });
-    await waitFor(() => expect(engineErrorTag(result.current.error)).toBe('Database'));
-    expect(result.current.labels.size).toBe(0);
-  });
-
   it('a read that answers nothing is not an error', async () => {
     const none = { count: 0, totalDuration: 0, totalDistance: 0, totalTss: 0 };
-    engine.getTrainingScreenData.mockImplementation(
+    engine.getFitnessScreenData.mockImplementation(
       () =>
         ({
+          ...NO_FITNESS_PARTS,
           heatmap: [],
           months: [],
           yearCurrent: none,
@@ -89,8 +78,8 @@ describe('stats hooks', () => {
           comparisons: noComparisons(0),
         }) as never
     );
-    const training = await renderHook(() => useTrainingScreenData(), { wrapper: wrapper() });
-    await waitFor(() => expect(training.result.current.isPending).toBe(false));
-    expect(training.result.current.error).toBeNull();
+    const screen = await renderHook(() => useFitnessScreenRead(), { wrapper: wrapper() });
+    expect(screen.result.current.training.isPending).toBe(false);
+    expect(screen.result.current.training.error).toBeNull();
   });
 });

@@ -1,7 +1,7 @@
 /**
  * Scenario: an athlete with a 280 W setting and power zones up to 300 W reads
  * the zone chart, the power curve and the eFTP milestone. The zone chart said
- * 'FTP: 280W' over '200-250W' and '300W+', the curve's legend 'FTP 300w', and
+ * 'FTP: 280W' over '200-250W' and '300W+', the curve's FTP label 'FTP 300w', and
  * the milestone 'Cycling eFTP: 252W (+12W)', each written by hand.
  *
  * Expected behaviour: every power value goes through the one formatter, so it
@@ -18,6 +18,7 @@ import { FitnessMilestoneContent } from '@/features/insights/components/content/
 import { initialiseI18n, i18n } from '@/i18n';
 import type { PowerCurve } from '@/types';
 import type { TFunc } from '@/features/insights/types';
+import { layoutViews } from '../__shared__/layoutViews';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
@@ -82,14 +83,15 @@ describe('the power zone chart', () => {
   });
 });
 
-describe('the power curve FTP legend', () => {
-  it('prints the FTP setting in watts, and in W/kg under the toggle', () => {
-    render(<PowerCurveChart ftp={300} />);
+describe('the power curve FTP label', () => {
+  it('prints the FTP setting in watts, and in W/kg under the toggle', async () => {
+    const tree = await render(<PowerCurveChart ftp={300} />);
+    await layoutViews(tree, 300, 200);
 
-    expect(screen.getByTestId('power-curve-ftp-legend')).toHaveTextContent('FTP setting 300 W');
+    expect(screen.getByTestId('power-curve-ftp-label')).toHaveTextContent('FTP setting 300 W');
 
-    fireEvent.press(screen.getByTestId('power-curve-unit-per-kg'));
-    expect(screen.getByTestId('power-curve-ftp-legend')).toHaveTextContent(
+    await fireEvent.press(screen.getByTestId('power-curve-unit-per-kg'));
+    expect(screen.getByTestId('power-curve-ftp-label')).toHaveTextContent(
       /^FTP setting 3\.75 W\/kg /
     );
   });

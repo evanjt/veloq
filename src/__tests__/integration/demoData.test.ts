@@ -212,6 +212,7 @@ describe('Demo data realism (periodization model)', () => {
       { id: 'demo-test-5', type: 'Run' },
       { id: 'demo-test-6', type: 'WeightTraining' },
       { id: 'demo-test-8', type: 'Run' },
+      { id: 'demo-test-9', type: 'Swim' },
     ];
     expected.forEach(({ id, type }) => {
       const found = demoActivities.find((a) => a.id === id);

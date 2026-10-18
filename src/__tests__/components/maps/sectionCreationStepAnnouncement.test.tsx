@@ -27,8 +27,6 @@ function overlay(state: CreationState, endIndex: number | null = null) {
     <SectionCreationOverlay
       state={state}
       startIndex={state === 'selectingStart' ? null : 10}
-      endIndex={endIndex}
-      coordinateCount={100}
       sectionDistance={endIndex === null ? null : 1000}
       sectionPointCount={endIndex === null ? null : 40}
       onConfirm={jest.fn()}

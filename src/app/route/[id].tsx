@@ -364,6 +364,8 @@ function RouteDetailScreenContent() {
             lastActivityDate={lastActivityDate}
             trendCurves={performance?.trendCurves ?? NO_TREND_CURVES}
             histograms={performance?.histograms ?? NO_HISTOGRAMS}
+            scatterFocus={performance?.scatterFocus}
+            recordProgression={performance?.recordProgression}
             curves={performance?.curves}
             onDeltaLineChange={setDeltaLine}
             streams={streams}
@@ -378,7 +380,7 @@ function RouteDetailScreenContent() {
             navActivityId={navActivityId}
             effectiveReferenceId={effectiveRepresentativeId}
             showExcluded={showExcluded}
-            hasExcluded={excludedPoints.length > 0}
+            excludedCount={excludedPoints.length}
             sectionTimeRange={routeTimeRange}
             onActivitySelect={highlight.set}
             onExcludeActivity={handleExcludeActivity}

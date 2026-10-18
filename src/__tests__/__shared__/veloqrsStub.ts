@@ -114,6 +114,17 @@ export enum EngineSportFamily {
   Other = 6,
 }
 
+/** `FfiIntervalKind` as generated, what intervals.icu calls a lap. */
+export enum IntervalKind {
+  Work = 0,
+  Recovery = 1,
+  Rest = 2,
+  Warmup = 3,
+  Cooldown = 4,
+  ActiveRecovery = 5,
+  Other = 6,
+}
+
 export enum MapDistanceBand {
   All,
   XShort,
@@ -166,6 +177,19 @@ export enum MaxHrSource {
   ActivityZones = 0,
   SportSettings = 1,
   Default = 2,
+}
+
+/** `FfiPoolSwimState` as generated, where a pool swim's lengths stand. */
+export enum PoolSwimState {
+  Owed = 1,
+  Read = 2,
+  NoLengths = 3,
+}
+
+/** `FfiPoolUnit` as generated, the unit a pool is measured in. */
+export enum PoolUnit {
+  Metres = 1,
+  Yards = 2,
 }
 
 /** `FfiCadenceUnit` as generated, the unit an activity's cadence crosses in. */
@@ -232,6 +256,42 @@ export enum RangeCoverage {
   Empty = 1,
   NotFetched = 2,
   Loaded = 3,
+}
+
+/** `FfiPlannedCategory` as generated, held to the source by the same test. */
+export enum FfiPlannedCategory {
+  Workout,
+  Race,
+  Note,
+  Target,
+  Season,
+  Other,
+}
+
+/** `FfiPlanTarget` as generated, held to the source by the same test. */
+export enum FfiPlanTarget {
+  Power,
+  HeartRate,
+  Pace,
+}
+
+/** `FfiPlanLineKind` as generated, held to the source by the same test. */
+export enum FfiPlanLineKind {
+  Work,
+  Rest,
+}
+
+/** `FfiTargetMetric` as generated, held to the source by the same test. */
+export enum FfiTargetMetric {
+  Power,
+  HeartRate,
+  Pace,
+}
+
+/** `FfiAbsoluteUnits` as generated, held to the source by the same test. */
+export enum FfiAbsoluteUnits {
+  Watts,
+  Bpm,
 }
 
 /** `FfiReferenceSource` as generated, held to the source by the same test. */
@@ -410,6 +470,7 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     BulkExportFormat,
     GroupSort,
     EngineSportFamily,
+    IntervalKind,
     MapDistanceBand,
     FfiNewGroundBadge,
     EfficiencyDirection,
@@ -418,12 +479,19 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     LoadMetric,
     DayLoadStatus,
     MaxHrSource,
+    PoolSwimState,
+    PoolUnit,
     CadenceUnit,
     BestEffortKind,
     StartOutcome,
     InitOutcome,
     RangeCoverage,
     FfiReferenceSource,
+    FfiPlannedCategory,
+    FfiPlanTarget,
+    FfiPlanLineKind,
+    FfiTargetMetric,
+    FfiAbsoluteUnits,
     FfiCatalogueEmptyReason_Tags,
     FfiDetectionHold_Tags,
     FfiMapEmptyReason_Tags,

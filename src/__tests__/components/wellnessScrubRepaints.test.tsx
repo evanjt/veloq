@@ -9,7 +9,6 @@
  */
 
 import React from 'react';
-import { View } from 'react-native';
 import { act, fireEvent, render } from '@testing-library/react-native';
 import { Skia } from '@shopify/react-native-skia';
 
@@ -29,11 +28,18 @@ const DAYS: WellnessData[] = Array.from({ length: 30 }, (_, i) => ({
   weight: 72 + (i % 3) * 0.2,
 }));
 
-/** The chart sizes itself from its container's onLayout, so give it a width. */
-async function layout(tree: Awaited<ReturnType<typeof render>>) {
-  const container = tree.UNSAFE_getAllByType(View).find((node) => node.props.onLayout);
+// The label and value columns the first row lays out either side of the sparkline column.
+const LABEL_SIDE = 93;
+const VALUE_SIDE = 63;
+
+/** The canvas is placed over the sparkline column the first row measures, so lay one out. */
+async function layout(tree: Awaited<ReturnType<typeof render>>, width = 360) {
   await act(async () => {
-    await fireEvent(container!, 'layout', { nativeEvent: { layout: { width: 360, height: 300 } } });
+    await fireEvent(tree.getByTestId('wellness-sparkline-column-hrv'), 'layout', {
+      nativeEvent: {
+        layout: { x: LABEL_SIDE, y: 0, width: width - LABEL_SIDE - VALUE_SIDE, height: 50 },
+      },
+    });
   });
 }
 

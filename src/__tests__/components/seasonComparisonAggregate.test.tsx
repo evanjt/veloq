@@ -15,7 +15,8 @@ import { useUnitPreference } from '@/shared/app/UnitPreferenceStore';
 import { SeasonComparison } from '@/features/stats/components/SeasonComparison';
 import { getEngine } from '@/shared/native/engine';
 import { CLOCK_EDGES, localDay } from '../__shared__/clockEdges';
-import { trainingScreenRead } from '../__shared__/trainingScreenRead';
+import { fitnessScreenRead } from '../__shared__/fitnessScreenRead';
+import { WithScreenRead } from '../__shared__/withScreenRead';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
@@ -58,11 +59,11 @@ function periodFrom(startTs: number, endTs: number) {
   };
 }
 
-/** The monthly rows of the training screen read, asked over the span it names. */
+/** The monthly rows of the fitness screen read, asked over the span it names. */
 const monthlyRows = jest.fn((_startTs: number, _endTs: number) => ROWS);
 
 const engine = {
-  getTrainingScreenData: trainingScreenRead({ months: monthlyRows, period: periodFrom }),
+  getFitnessScreenData: fitnessScreenRead({ months: monthlyRows, period: periodFrom }),
   getActivityBodies: jest.fn(() => []),
   subscribe: jest.fn(() => () => {}),
 };
@@ -83,7 +84,10 @@ beforeEach(() => {
 
 describe('SeasonComparison', () => {
   it('totals the year from the engine aggregate, with no activities given', async () => {
-    const view = await render(<SeasonComparison />, { wrapper });
+    const view = await render(
+      <WithScreenRead>{(training) => <SeasonComparison training={training} />}</WithScreenRead>,
+      { wrapper }
+    );
 
     // 3600 + 10800 seconds this year, 7200 last, in hours to one decimal.
     await waitFor(() => expect(view.getByText('4h')).toBeTruthy());
@@ -97,7 +101,10 @@ describe('SeasonComparison', () => {
     'totals the distance in %s units, labelled in the unit it is read in',
     async (preference, current, previous, unit) => {
       useUnitPreference.setState({ unitPreference: preference });
-      const view = await render(<SeasonComparison />, { wrapper });
+      const view = await render(
+        <WithScreenRead>{(training) => <SeasonComparison training={training} />}</WithScreenRead>,
+        { wrapper }
+      );
       await waitFor(() => expect(view.getByText('4h')).toBeTruthy());
 
       await fireEvent.press(view.getByText('activity.distance'));
@@ -108,14 +115,20 @@ describe('SeasonComparison', () => {
   );
 
   it('reads no activity bodies', async () => {
-    await render(<SeasonComparison />, { wrapper });
+    await render(
+      <WithScreenRead>{(training) => <SeasonComparison training={training} />}</WithScreenRead>,
+      { wrapper }
+    );
 
     await waitFor(() => expect(monthlyRows).toHaveBeenCalled());
     expect(engine.getActivityBodies).not.toHaveBeenCalled();
   });
 
   it('asks the engine for the two calendar years the chart shows', async () => {
-    await render(<SeasonComparison />, { wrapper });
+    await render(
+      <WithScreenRead>{(training) => <SeasonComparison training={training} />}</WithScreenRead>,
+      { wrapper }
+    );
 
     await waitFor(() => expect(monthlyRows).toHaveBeenCalled());
     const [startTs, endTs] = monthlyRows.mock.calls[0] as unknown as [number, number];
@@ -129,7 +142,10 @@ describe.each(CLOCK_EDGES)('SeasonComparison on %s', (_name, at) => {
   beforeEach(() => jest.setSystemTime(at));
 
   it('asks for 1 January last year through the end of today, by the local calendar', async () => {
-    await render(<SeasonComparison />, { wrapper });
+    await render(
+      <WithScreenRead>{(training) => <SeasonComparison training={training} />}</WithScreenRead>,
+      { wrapper }
+    );
 
     await waitFor(() => expect(monthlyRows).toHaveBeenCalled());
     const [startTs, endTs] = monthlyRows.mock.calls[0] as unknown as [number, number];

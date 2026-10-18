@@ -1,5 +1,6 @@
 import { useHeroHeaderBottom } from '@/shared/ui';
-import { layout, spacing } from '@/theme';
+import { layout } from '@/theme';
+import { MAP_CONTROL_GAP, MAP_CONTROL_SIZE } from '../components/MapControlButton';
 
 /** Most buttons the activity map's control column ever holds. */
 export const MAX_MAP_CONTROLS = 6;
@@ -42,7 +43,7 @@ export interface MapControlColumnLayout {
 }
 
 /**
- * Lays `count` round tap-target buttons down the right edge of a map `mapHeight` tall, starting `top` below its top edge. When they do
+ * Lays `count` round map buttons down the right edge of a map `mapHeight` tall, starting `top` below its top edge. When they do
  * not fit one column they wrap into further columns to its left.
  */
 export function mapControlColumnLayout(
@@ -51,14 +52,14 @@ export function mapControlColumnLayout(
   top: number
 ): MapControlColumnLayout {
   if (count <= 0) return { columns: 0, maxHeight: 0, width: 0, footprint: 0 };
-  const step = layout.minTapTarget + spacing.sm;
+  const step = MAP_CONTROL_SIZE + MAP_CONTROL_GAP;
   const maxHeight = Math.max(step, mapHeight - top - layout.cardMargin);
-  const perColumn = Math.max(1, Math.floor((maxHeight + spacing.sm) / step));
+  const perColumn = Math.max(1, Math.floor((maxHeight + MAP_CONTROL_GAP) / step));
   const columns = Math.ceil(count / perColumn);
   return {
     columns,
     maxHeight,
-    width: columns * step - spacing.sm,
+    width: columns * step - MAP_CONTROL_GAP,
     footprint: layout.cardMargin + columns * step,
   };
 }

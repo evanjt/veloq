@@ -12,7 +12,7 @@ import { render, fireEvent, screen } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RegionalMapView } from '@/features/maps/components/RegionalMapView';
 import { mapPalette } from '@/theme';
-import { getActivityTypeConfig } from '@/features/maps/lib/activityCategories';
+import { sportMarkColour } from '@/features/maps/lib/activityCategories';
 import type { ActivityBoundsItem } from '@/types';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
@@ -104,6 +104,6 @@ describe('RegionalMapView 3D selected line colour', () => {
 
     await fireEvent.press(screen.getByTestId('map-layers'));
     await fireEvent.press(screen.getByTestId('map-toggle-heatmap'));
-    expect(lastRouteColor()).toBe(getActivityTypeConfig('Ride').color);
+    expect(lastRouteColor()).toBe(sportMarkColour('Ride', false));
   });
 });

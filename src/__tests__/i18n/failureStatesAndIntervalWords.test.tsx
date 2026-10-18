@@ -18,6 +18,7 @@ import { StartupErrorBanner } from '@/shared/ui/StartupErrorBanner';
 import { intervalTypeLabel } from '@/features/activity/lib/intervalTypeLabel';
 import { formatPrDelta } from '@/shared/format/format';
 import { recordBoundaryCrash } from '@/shared/debug/boundaryCrash';
+import { IntervalKind } from 'veloqrs';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 jest.mock('@/shared/debug/boundaryCrash', () => ({ recordBoundaryCrash: jest.fn() }));
@@ -125,7 +126,7 @@ describe('the launch banner', () => {
 describe('interval type words', () => {
   it('reads a warm up in the athlete language, not the raw type', async () => {
     await changeLanguage('de-DE');
-    const shown = intervalTypeLabel({ type: 'WARMUP', zone: null, zoneColoured: false });
+    const shown = intervalTypeLabel({ kind: IntervalKind.Warmup, zone: null, zoneColoured: false });
 
     expect(shown).toBe(i18n.t('intervalTypes.warmup.short'));
     expect(shown).not.toBe('WARMUP');
@@ -134,14 +135,17 @@ describe('interval type words', () => {
 
   it('gives a screen reader the long form', async () => {
     await changeLanguage('de-DE');
-    const spoken = intervalTypeLabel({ type: 'RECOVERY', zone: null, zoneColoured: false }, 'long');
+    const spoken = intervalTypeLabel(
+      { kind: IntervalKind.Recovery, zone: null, zoneColoured: false },
+      'long'
+    );
 
     expect(spoken).toBe(i18n.t('intervalTypes.recovery.long'));
     expect(spoken).not.toBe('Rec');
   });
 
   it('calls a type it does not know other, rather than showing the raw type', async () => {
-    const shown = intervalTypeLabel({ type: 'RAMP', zone: null, zoneColoured: false });
+    const shown = intervalTypeLabel({ kind: IntervalKind.Other, zone: null, zoneColoured: false });
 
     expect(shown).toBe(i18n.t('intervalTypes.other.short'));
   });

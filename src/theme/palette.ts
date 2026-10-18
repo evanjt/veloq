@@ -5,7 +5,6 @@ import {
   darkColors,
   ink,
   mapLayerColors,
-  mapPreviewColors,
   opacity,
   recording,
   routePalette,
@@ -73,16 +72,6 @@ function layerColours(base: MapBase) {
     sections: sectionPalette as readonly string[],
     /** Route lines, indexed by the engine's hash of the route id. */
     routes: routePalette as readonly string[],
-    /** Attempts traced over a section or route map, and the lap the chart scrubs. */
-    trace: colors.chartCyan,
-    traceCasing: mapPreviewColors.routeHalo,
-    /** A route line the surface gives no colour of its own, and the location dot. */
-    route: colors.actionPrimary,
-    /** A glyph or a count drawn on a coloured fill. */
-    onFill: colors.textOnFill,
-    trophy: brand.gold,
-    /** The section's line behind its trim handles. */
-    shadow: colors.iconSecondary,
     /** The sections the catalogue holds now, under a preview of a regroup. */
     current: colors.iconMuted,
     removed: colors.dangerFill,
@@ -91,8 +80,6 @@ function layerColours(base: MapBase) {
     merging: colors.warningFill,
     /** The ring around an activity point that is not selected. */
     pointRing: colorWithOpacity(ink.white, 0.8),
-    /** The selected activity's route casing on the regional map. */
-    selectedCasing: ink.black,
     /** The selected activity's route while the heatmap is drawn under it. */
     heatmapRoute: ink.white,
     /** The legs from a spread cluster to its points, drawn for the base under them. */
@@ -121,6 +108,8 @@ interface MapPaletteCommon {
   start: string;
   edge: string;
   location: string;
+  /** The location dot's ring, white on every base. */
+  locationRing: string;
   record: string;
   removed: string;
   badgeInk: string;
@@ -175,6 +164,7 @@ function buildMapPalette(base: MapBase): MapPalette {
     start: role('start'),
     edge: role('edge'),
     location: role('location'),
+    locationRing: ink.white,
     record: role('record'),
     removed: role('removed'),
     badgeInk: role('badge-ink'),

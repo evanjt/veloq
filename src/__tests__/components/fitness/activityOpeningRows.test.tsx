@@ -38,14 +38,6 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ category: '7' }),
 }));
 
-jest.mock('@/features/activity', () => ({
-  useActivityLabels: () => ({
-    labels: new Map([['kite-day', { name: 'Kite session', date: '14 Feb 2026' }]]),
-    error: null,
-    refetch: jest.fn(),
-  }),
-}));
-
 jest.mock('@tanstack/react-query', () => ({
   ...jest.requireActual('@tanstack/react-query'),
   useQuery: () => ({
@@ -91,7 +83,14 @@ describe('Season Bests', () => {
       <SeasonBestsSection
         efforts={
           [
-            { label: '1km', checkpoint: 1000, activityId: 'kite-day', value: 300, time: 180 },
+            {
+              label: '1km',
+              checkpoint: 1000,
+              activityId: 'kite-day',
+              activity: { name: 'Kite session', date: '14 Feb 2026' },
+              value: 300,
+              time: 180,
+            },
           ] as never
         }
         sport="Cycling"
@@ -116,9 +115,16 @@ describe('Season Bests', () => {
 describe('climbing bests', () => {
   it('states the date and opens the activity from the whole row', async () => {
     const bests = [
-      { label: '10m', windowS: 600, vam: 1100, wattsPerKg: 3.2, activityId: 'kite-day' },
+      {
+        label: '10m',
+        windowS: 600,
+        vam: 1100,
+        wattsPerKg: 3.2,
+        activityId: 'kite-day',
+        activity: { name: 'Kite session', date: '14 Feb 2026' },
+      },
     ] as ClimbBest[];
-    await render(<ClimbingBestRows bests={bests} sport="Running" />);
+    await render(<ClimbingBestRows bests={bests} />);
 
     expect(screen.getByText('14 Feb 2026')).toBeTruthy();
     const row = screen.getByTestId('season-bests-climbing-600');

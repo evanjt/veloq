@@ -480,7 +480,11 @@ const DEFAULT_HR_ZONE_UPPER_FRACTIONS: [f64; 5] = [0.6, 0.7, 0.8, 0.9, 1.0];
 /// [`DEFAULT_MAX_HR`]. A reading at or above the top bound is the top zone, and
 /// a reading that is not a positive number has none.
 fn hr_zone_number(sport_settings: Option<&str>, sport_type: &str, bpm: f64) -> Option<u32> {
-    let settings = SportSettings::parse(sport_settings);
+    hr_zone_in(&SportSettings::parse(sport_settings), sport_type, bpm)
+}
+
+/// [`hr_zone_number`] over sport settings already parsed.
+pub(crate) fn hr_zone_in(settings: &SportSettings, sport_type: &str, bpm: f64) -> Option<u32> {
     let entry = settings.entry_for(sport_type);
     let max_hr = positive(entry.and_then(|e| e.max_hr)).unwrap_or(DEFAULT_MAX_HR);
     hr_zone_index(&hr_zone_bounds(&[], entry, max_hr), bpm)
@@ -801,8 +805,8 @@ impl super::PersistentEngine {
     ///
     /// **The GPS track and the stored upstream bodies are deliberately not
     /// here, and this is where that is written down.** The screen reads them
-    /// through `get_gps_track`, `get_activity_body`, `get_activity_bodies`,
-    /// `get_interval_body` and `get_activity_streams`, and it should keep doing so.
+    /// through `get_gps_track`, `get_activity_record`, `get_activity_bodies`,
+    /// `get_activity_intervals` and `get_activity_streams`, and it should keep doing so.
     /// A track is the largest thing an activity owns and a body is the
     /// upstream JSON whole; pulling either in here would put both on the mount
     /// path of every activity opened, which is the cost the narrowing above
@@ -1023,26 +1027,17 @@ impl super::PersistentEngine {
         pooled::best_efforts_data(self.cold_connection(), days, now)
     }
 
-    /// Everything the training tab paints with that stays fixed while it is
-    /// mounted. The app reads it through the pool, and this is the same read
-    /// on the engine's connection.
-    pub fn training_screen_data(
-        &self,
-        windows: &crate::FfiTrainingScreenWindows,
-    ) -> rusqlite::Result<crate::FfiTrainingScreenData> {
-        pooled::training_screen_data(self.cold_connection(), windows)
-    }
-
     /// Everything the fitness tab paints with that stays fixed while it is
-    /// mounted, as of `today`, its range-led parts over each of `span_days`.
-    /// The app reads it through the pool, and this is the same read on the
-    /// engine's connection.
+    /// mounted, as of `today`, its range-led parts over each of `span_days`
+    /// and its calendar parts over `windows`. The app reads it through the
+    /// pool, and this is the same read on the engine's connection.
     pub fn fitness_screen_data(
         &self,
         today: &str,
         span_days: &[u32],
-    ) -> crate::FfiFitnessScreenData {
-        pooled::fitness_screen_data(self.cold_connection(), today, span_days)
+        windows: &crate::FfiFitnessScreenWindows,
+    ) -> rusqlite::Result<crate::FfiFitnessScreenData> {
+        pooled::fitness_screen_data(self.cold_connection(), today, span_days, windows)
     }
 
     /// Everything the map tab paints with: the engine total, the sport types
@@ -1168,6 +1163,7 @@ fn power_bests(
                 activity_id: value
                     .and(index)
                     .and_then(|i| curve?.activity_ids.as_ref()?.get(i).cloned()),
+                activity: None,
             }
         })
         .collect()
@@ -1196,6 +1192,7 @@ fn pace_bests(
                 activity_id: value
                     .and(index)
                     .and_then(|i| curve?.activity_ids.as_ref()?.get(i).cloned()),
+                activity: None,
             }
         })
         .collect()
@@ -1272,10 +1269,52 @@ fn climb_bests(
                     vam: best.as_ref().map(|(vam, _)| *vam),
                     watts_per_kg: best.as_ref().map(|(vam, _)| watts_per_kg_of_vam(*vam)),
                     activity_id: best.map(|(_, id)| id),
+                    activity: None,
                 }
             })
             .collect(),
     })
+}
+
+/// Name the activity holding each best, in one read over every id the screen
+/// shows. An id the device holds no metrics row for stays unnamed.
+fn name_best_activities(
+    conn: &rusqlite::Connection,
+    data: &mut crate::FfiBestEffortsData,
+) -> rusqlite::Result<()> {
+    let mut ids: Vec<String> = Vec::new();
+    {
+        let held = data
+            .sports
+            .iter()
+            .flat_map(|s| s.efforts.iter().map(|e| e.activity_id.as_ref()))
+            .chain(
+                data.climbing
+                    .iter()
+                    .flat_map(|c| c.bests.iter().map(|b| b.activity_id.as_ref())),
+            );
+        for id in held.flatten() {
+            if !ids.contains(id) {
+                ids.push(id.clone());
+            }
+        }
+    }
+    let named = crate::persistence::strength::pooled::activity_names(conn, &ids)?;
+    let name_of = |id: &Option<String>| {
+        let id = id.as_ref()?;
+        named.get(id).map(|(name, date)| crate::FfiActivityName {
+            activity_id: id.clone(),
+            name: name.clone(),
+            date: *date as f64,
+        })
+    };
+    for effort in data.sports.iter_mut().flat_map(|s| s.efforts.iter_mut()) {
+        effort.activity = name_of(&effort.activity_id);
+    }
+    for best in data.climbing.iter_mut().flat_map(|c| c.bests.iter_mut()) {
+        best.activity = name_of(&best.activity_id);
+    }
+    Ok(())
 }
 
 /// The section detail performance bundle, built from one sport's reads.
@@ -1807,12 +1846,28 @@ pub mod pooled {
     /// athlete taps are not here: a tap would otherwise re-read the trend to
     /// get a curve. The decoupling ride and the strip's activities follow the
     /// range, so the read answers each of `span_days` and a tap reads nothing.
+    ///
+    /// The calendar, the weekly card and the year comparison sit on the same
+    /// tab and go stale on the same event, so they are here too: the heatmap
+    /// days, the monthly rows, and the year and month to date against the
+    /// same spans of last year, each over the window `windows` names, and each
+    /// of the weekly card's ranges to now against the same elapsed span of the
+    /// period before. Every one is an aggregate of `activity_metrics`, or of
+    /// the heatmap cache the metrics writer keeps beside it. The weekly card's
+    /// range is chosen with a tap, so all five ranges are here; each is two
+    /// indexed sums. A calendar part that cannot be read fails the read, so
+    /// the cards never draw a year of nothing from a table they could not
+    /// read.
     pub fn fitness_screen_data(
         conn: &Connection,
         today: &str,
         span_days: &[u32],
-    ) -> crate::FfiFitnessScreenData {
+        windows: &crate::FfiFitnessScreenWindows,
+    ) -> rusqlite::Result<crate::FfiFitnessScreenData> {
         use crate::persistence::fitness::derivations::pooled as fitness;
+        use crate::persistence::fitness::derivations::pooled::{
+            activity_heatmap, monthly_stats, try_period_stats,
+        };
         use crate::persistence::fitness::sport_settings::{self, SportSettings};
         let settings = SportSettings::read(conn);
         let today_date = chrono::NaiveDate::parse_from_str(today, "%Y-%m-%d").ok();
@@ -1822,7 +1877,18 @@ pub mod pooled {
         let (fitness_days, fatigue_days) = today_date.map_or(super::DEFAULT_FITNESS_DAYS, |day| {
             super::stored_fitness_days_on(conn, day)
         });
-        crate::FfiFitnessScreenData {
+        let span = |r: &crate::FfiTimestampRange| (r.start_ts as i64, r.end_ts as i64);
+        let totals = |r: &crate::FfiTimestampRange| {
+            let (start, end) = span(r);
+            try_period_stats(conn, start, end)
+        };
+        let (months_start, months_end) = span(&windows.months);
+        let [week, month, three_months, six_months, year] =
+            crate::widget_snapshot::summary_period_bounds(crate::ffi_types::int_from_wire(
+                windows.now_wall_seconds,
+            ))
+            .map(|bounds| super::summary_comparison(conn, bounds));
+        Ok(crate::FfiFitnessScreenData {
             ftp_trend: fitness::ftp_trend_with_history(conn, today, FITNESS_FTP_LOOKBACK_DAYS),
             ftp_trend_coverage: crate::persistence::wellness::pooled::coverage(
                 conn,
@@ -1838,7 +1904,20 @@ pub mod pooled {
             running_lthr: sport_settings::running_lthr(&settings),
             decoupling_sources: decoupling_sources(conn, today_date, span_days),
             load_dots: load_dots(conn, today_date, span_days),
-        }
+            heatmap: activity_heatmap(conn, &windows.heatmap_first_day, &windows.heatmap_last_day)?,
+            months: monthly_stats(conn, months_start, months_end)?,
+            year_current: totals(&windows.year_current)?,
+            year_previous: totals(&windows.year_previous)?,
+            month_current: totals(&windows.month_current)?,
+            month_previous: totals(&windows.month_previous)?,
+            comparisons: crate::FfiSummaryComparisons {
+                week: week?,
+                month: month?,
+                three_months: three_months?,
+                six_months: six_months?,
+                year: year?,
+            },
+        })
     }
 
     /// The shortest ride the decoupling card reports, in seconds.
@@ -2023,52 +2102,6 @@ pub mod pooled {
         }
     }
 
-    /// Everything the training tab paints with that stays fixed while it is
-    /// mounted: the heatmap days, the monthly rows, and the year and month to
-    /// date against the same spans of last year, and each of the weekly card's
-    /// ranges to now against the same elapsed span of the period before.
-    ///
-    /// Every part is an aggregate of `activity_metrics`, or of the heatmap
-    /// cache the metrics writer keeps beside it, so the `activities` event is
-    /// the one that makes it stale. The weekly card's range is chosen with a
-    /// tap, so all five ranges are here and a tap reads nothing; each is two
-    /// indexed sums.
-    pub fn training_screen_data(
-        conn: &Connection,
-        windows: &crate::FfiTrainingScreenWindows,
-    ) -> rusqlite::Result<crate::FfiTrainingScreenData> {
-        use crate::persistence::fitness::derivations::pooled::{
-            activity_heatmap, monthly_stats, try_period_stats,
-        };
-
-        let span = |r: &crate::FfiTimestampRange| (r.start_ts as i64, r.end_ts as i64);
-        let totals = |r: &crate::FfiTimestampRange| {
-            let (start, end) = span(r);
-            try_period_stats(conn, start, end)
-        };
-        let (months_start, months_end) = span(&windows.months);
-        let [week, month, three_months, six_months, year] =
-            crate::widget_snapshot::summary_period_bounds(crate::ffi_types::int_from_wire(
-                windows.now_wall_seconds,
-            ))
-            .map(|bounds| super::summary_comparison(conn, bounds));
-        Ok(crate::FfiTrainingScreenData {
-            heatmap: activity_heatmap(conn, &windows.heatmap_first_day, &windows.heatmap_last_day)?,
-            months: monthly_stats(conn, months_start, months_end)?,
-            year_current: totals(&windows.year_current)?,
-            year_previous: totals(&windows.year_previous)?,
-            month_current: totals(&windows.month_current)?,
-            month_previous: totals(&windows.month_previous)?,
-            comparisons: crate::FfiSummaryComparisons {
-                week: week?,
-                month: month?,
-                three_months: three_months?,
-                six_months: six_months?,
-                year: year?,
-            },
-        })
-    }
-
     /// Everything the Best Efforts screen paints with over the last `days`
     /// days to `now`, or over all time when `days` is 0.
     ///
@@ -2112,7 +2145,9 @@ pub mod pooled {
             .map(|sport| super::climb_bests(conn, sport, since))
             .collect::<rusqlite::Result<Vec<_>>>()?;
 
-        Ok(crate::FfiBestEffortsData { sports, climbing })
+        let mut data = crate::FfiBestEffortsData { sports, climbing };
+        super::name_best_activities(conn, &mut data)?;
+        Ok(data)
     }
 
     /// Everything the map tab paints with.
@@ -2679,6 +2714,8 @@ pub mod pooled {
                 activity_id,
                 activities::stored_intervals_id(conn, activity_id).as_deref(),
             ),
+            pool_swim: crate::persistence::strength::pooled::pool_swim(conn, activity_id)
+                .unwrap_or_default(),
         }
     }
 
@@ -3686,8 +3723,8 @@ mod performance_cache_tests;
 mod best_efforts_tests;
 
 #[cfg(test)]
-#[path = "tests/training_screen.rs"]
-mod training_screen_tests;
+#[path = "tests/fitness_screen_calendar.rs"]
+mod fitness_screen_calendar_tests;
 
 #[cfg(test)]
 #[path = "tests/fitness_screen.rs"]
@@ -6205,10 +6242,28 @@ mod tests {
         let path = path.to_str().expect("utf-8");
         let engine = crate::persistence::PersistentEngine::new(path).expect("engine");
         let today = "2026-06-30";
+        let day = crate::FfiTimestampRange {
+            start_ts: 1_782_777_600.0,
+            end_ts: 1_782_863_999.0,
+        };
+        let windows = crate::FfiFitnessScreenWindows {
+            heatmap_first_day: today.into(),
+            heatmap_last_day: today.into(),
+            months: day.clone(),
+            year_current: day.clone(),
+            year_previous: day.clone(),
+            month_current: day.clone(),
+            month_previous: day,
+            now_wall_seconds: 1_782_820_800.0,
+        };
+        let read = |today| pooled::fitness_screen_data(&engine.db, today, &[], &windows).unwrap();
 
-        let read = pooled::fitness_screen_data(&engine.db, today, &[]);
-        assert!(read.ftp_trend.history.is_empty());
-        assert_eq!(read.ftp_trend_coverage, crate::RangeCoverage::NotFetched);
+        let read_now = read(today);
+        assert!(read_now.ftp_trend.history.is_empty());
+        assert_eq!(
+            read_now.ftp_trend_coverage,
+            crate::RangeCoverage::NotFetched
+        );
 
         let before_window = "2026-03-01";
         engine
@@ -6219,7 +6274,7 @@ mod tests {
             )
             .expect("wellness");
         assert_eq!(
-            pooled::fitness_screen_data(&engine.db, today, &[]).ftp_trend_coverage,
+            read(today).ftp_trend_coverage,
             crate::RangeCoverage::Empty,
             "wellness stored only before the chart's window"
         );
@@ -6231,12 +6286,12 @@ mod tests {
                 rusqlite::params!["2026-06-29"],
             )
             .expect("wellness");
-        let read = pooled::fitness_screen_data(&engine.db, today, &[]);
+        let read_now = read(today);
         assert!(
-            read.ftp_trend.history.is_empty(),
+            read_now.ftp_trend.history.is_empty(),
             "no day carries an estimate"
         );
-        assert_eq!(read.ftp_trend_coverage, crate::RangeCoverage::Loaded);
+        assert_eq!(read_now.ftp_trend_coverage, crate::RangeCoverage::Loaded);
 
         crate::persistence::read_cache::close();
     }
@@ -6637,6 +6692,69 @@ mod tests {
                 .fitness_impact
                 .is_none()
         );
+        crate::persistence::read_cache::close();
+    }
+
+    /// Scenario: a library holds a pool swim whose file was read, one still
+    /// owed its file, one settled with no lengths, and a ride.
+    ///
+    /// Expected behaviour: the detail read carries the read swim's five
+    /// lengths, says owed and none for the other two, carries nothing for the
+    /// ride, and the engine's path and the pooled reader answer the same.
+    #[test]
+    fn activity_detail_carries_a_pool_swims_lengths_on_both_paths() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().expect("tempdir");
+        let path = dir.path().join("pool_swim_detail.db");
+        let mut engine =
+            crate::persistence::PersistentEngine::new(path.to_str().unwrap()).expect("engine");
+        let swim = |id: &str| {
+            let mut metric = widget_metric(id, 1_700_000_000, 600);
+            metric.sport_type = "Swim".into();
+            metric
+        };
+        engine
+            .set_activity_metrics(vec![
+                swim("read"),
+                swim("owed"),
+                swim("settled"),
+                widget_metric("ride", 1_700_000_000, 600),
+            ])
+            .expect("metrics");
+        let fixture = crate::fit::parse_fit_pool_swim(&crate::fit::pool_swim_fit()).unwrap();
+        engine.settle_pool_swim("read", &fixture).unwrap();
+        engine
+            .settle_pool_swim("settled", &crate::fit::FitPoolSwim::default())
+            .unwrap();
+
+        let read = engine.activity_detail_data("read", 1).pool_swim.unwrap();
+        assert_eq!(read.state, crate::FfiPoolSwimState::Read);
+        assert_eq!(read.lengths.len(), 5);
+        assert!(!read.lengths[2].active, "the third length is the rest");
+        assert_eq!(read.lengths[0].swolf, Some(43.0));
+        assert_eq!(read.stroke_totals.len(), 2);
+        assert_eq!(
+            engine
+                .activity_detail_data("owed", 1)
+                .pool_swim
+                .map(|p| p.state),
+            Some(crate::FfiPoolSwimState::Owed)
+        );
+        assert_eq!(
+            engine
+                .activity_detail_data("settled", 1)
+                .pool_swim
+                .map(|p| p.state),
+            Some(crate::FfiPoolSwimState::NoLengths)
+        );
+        assert_eq!(engine.activity_detail_data("ride", 1).pool_swim, None);
+        for id in ["read", "owed", "settled", "ride"] {
+            assert_eq!(
+                engine.activity_detail_data(id, 1).pool_swim,
+                pooled::activity_detail_data(&engine.db, id, 1).pool_swim,
+                "{id} reads the same on both paths"
+            );
+        }
         crate::persistence::read_cache::close();
     }
 

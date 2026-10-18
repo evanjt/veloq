@@ -1,10 +1,10 @@
 //! Per-ID activity fetch for record restore dependencies.
 
 use crate::GpsPoint;
-use crate::governor::Lane;
-use crate::net::intervals::endpoints;
+use crate::governor::{Dispatch, Lane};
 use crate::net::intervals::wire::ActivityRecord;
-use crate::net::transport::{NetError, Transport};
+use crate::net::source::Source;
+use crate::net::transport::NetError;
 use crate::persistence::ElevationSeries;
 
 pub(crate) enum FetchedRecordActivity {
@@ -20,10 +20,11 @@ pub(crate) enum FetchedRecordActivity {
 
 /// Fetch the named activity and track without walking a date window.
 pub(crate) async fn fetch_one_record_activity(
-    transport: &Transport,
+    source: &impl Source,
     activity_id: &str,
 ) -> Result<FetchedRecordActivity, NetError> {
-    let body = match endpoints::fetch_activity_body(transport, activity_id, Lane::Backfill).await {
+    let lane = Dispatch::from(Lane::Backfill);
+    let body = match source.activity_body(activity_id, lane).await {
         Ok(body) => body,
         Err(NetError::Http { status: 404, .. }) => return Ok(FetchedRecordActivity::Missing),
         Err(error) => return Err(error),
@@ -36,14 +37,11 @@ pub(crate) async fn fetch_one_record_activity(
             record.id
         )));
     }
-    let streams =
-        match endpoints::fetch_streams(transport, activity_id, "latlng,altitude", Lane::Backfill)
-            .await
-        {
-            Ok(streams) => streams,
-            Err(NetError::Http { status: 404, .. }) => return Ok(FetchedRecordActivity::Missing),
-            Err(error) => return Err(error),
-        };
+    let streams = match source.streams(activity_id, "latlng,altitude", lane).await {
+        Ok(streams) => streams,
+        Err(NetError::Http { status: 404, .. }) => return Ok(FetchedRecordActivity::Missing),
+        Err(error) => return Err(error),
+    };
     if streams.latlng.is_empty() {
         return Ok(FetchedRecordActivity::Missing);
     }
@@ -107,7 +105,7 @@ mod tests {
             ]));
         });
         let fetched = crate::runtime::block_on(fetch_one_record_activity(
-            &transport(server.base_url()),
+            &crate::net::IntervalsSession::new(transport(server.base_url()), "i1"),
             "old-ride",
         ))
         .unwrap();
@@ -131,7 +129,7 @@ mod tests {
             then.status(404);
         });
         let fetched = crate::runtime::block_on(fetch_one_record_activity(
-            &transport(server.base_url()),
+            &crate::net::IntervalsSession::new(transport(server.base_url()), "i1"),
             "old-ride",
         ))
         .unwrap();

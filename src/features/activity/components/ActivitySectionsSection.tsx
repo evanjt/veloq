@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   View,
   FlatList,
-  Pressable,
   StyleSheet,
   type LayoutChangeEvent,
   type ViewInstance,
@@ -35,10 +34,9 @@ import {
   Card,
   composeAccessibilityLabel,
   EmptyState,
-  pressable,
-  pressRipple,
   useBottomClearance,
   type AccessibleAction,
+  PressTarget,
 } from '@/shared/ui';
 import {
   groupSectionEncounters,
@@ -611,11 +609,10 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         <View key={`${match.sectionId}-${match.startIndex}`} style={styles.scanMatchFrame}>
           <Card variant="flat" padding="none">
             <View style={styles.scanMatchRow}>
-              <Pressable
+              <PressTarget
                 accessibilityRole="button"
                 accessibilityLabel={spokenName}
-                style={pressable(styles.scanMatchInfo)}
-                android_ripple={pressRipple}
+                style={styles.scanMatchInfo}
                 onPress={() => navigateTo(`/section/${match.sectionId}?activityId=${activityId}`)}
               >
                 <Text
@@ -629,7 +626,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
                   {` · ${position}`}
                   {qualityText ? ` · ${qualityText}` : ''}
                 </Text>
-              </Pressable>
+              </PressTarget>
               <Button
                 label={t('sections.addToSection')}
                 variant="secondary"

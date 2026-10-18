@@ -2,32 +2,30 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
-import { SPORT_COLORS, SPORT_TEXT_COLORS } from '@/features/fitness/stores';
+import { colors, sportFamilyColours } from '@/theme';
 import { SeasonBestsSection } from '@/features/fitness/components/SeasonBestsSection';
 
-const mockUseActivityLabels = jest.fn((_ids: string[]) => ({
-  labels: new Map([['a1', { name: 'Hill ride', date: '' }]]),
-  error: null as unknown,
-}));
+const HILL_RIDE = { name: 'Hill ride', date: '' };
+
 const mockUseActivities = jest.fn(() => ({ data: [] }));
 jest.mock('@/features/activity', () => ({
-  useActivityLabels: (ids: string[]) => mockUseActivityLabels(ids),
   useActivities: () => mockUseActivities(),
 }));
 
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 
-it('reads only the ids named by the best efforts', async () => {
+it('names the activity the read carries on the best, reading no activity of its own', async () => {
   await render(
     <SeasonBestsSection
-      efforts={[{ label: '5 km', activityId: 'a1', value: 1200, time: 1200 }] as never}
+      efforts={
+        [{ label: '5 km', activityId: 'a1', activity: HILL_RIDE, value: 1200, time: 1200 }] as never
+      }
       sport="Cycling"
       period="6m"
       isLoading={false}
     />
   );
 
-  expect(mockUseActivityLabels).toHaveBeenCalledWith(['a1']);
   expect(mockUseActivities).not.toHaveBeenCalled();
   expect(screen.getByText(/Hill ride/)).toBeTruthy();
 });
@@ -42,8 +40,8 @@ it('leaves an uncached effort without an activity', async () => {
     />
   );
 
-  expect(mockUseActivityLabels).toHaveBeenCalledWith(['a2']);
   expect(screen.queryByText(/Hill ride/)).toBeNull();
+  expect(screen.queryByRole('button', { name: /10 km/ })).toBeNull();
 });
 
 describe('the Best Efforts link', () => {
@@ -75,10 +73,12 @@ describe('the Best Efforts link', () => {
   });
 });
 
-it('sets the link and effort text in the sport text tone, not the fill', async () => {
+it('sets the link in the link ink and the effort in the primary text, never a sport colour', async () => {
   await render(
     <SeasonBestsSection
-      efforts={[{ label: '5 km', activityId: 'a1', value: 1200, time: 1200 }] as never}
+      efforts={
+        [{ label: '5 km', activityId: 'a1', activity: HILL_RIDE, value: 1200, time: 1200 }] as never
+      }
       sport="Running"
       period="6m"
       isLoading={false}
@@ -89,8 +89,10 @@ it('sets the link and effort text in the sport text tone, not the fill', async (
     .UNSAFE_getAllByType(require('react-native').Text)
     .map((node) => StyleSheet.flatten(node.props.style)?.color)
     .filter(Boolean);
-  expect(colorsUsed).toContain(SPORT_TEXT_COLORS.Running);
-  expect(colorsUsed).not.toContain(SPORT_COLORS.Running);
+  expect(colorsUsed).toContain(colors.actionLink);
+  expect(colorsUsed).toContain(colors.textPrimary);
+  const sportColours = Object.values(sportFamilyColours.light).flat();
+  expect(colorsUsed.filter((colour) => sportColours.includes(colour))).toEqual([]);
 });
 
 describe('the activity row for a screen reader', () => {
@@ -99,7 +101,11 @@ describe('the activity row for a screen reader', () => {
   it('speaks the row in reading order: best, value, activity', () => {
     render(
       <SeasonBestsSection
-        efforts={[{ label: '5 km', activityId: 'a1', value: 250, time: 1200 }] as never}
+        efforts={
+          [
+            { label: '5 km', activityId: 'a1', activity: HILL_RIDE, value: 250, time: 1200 },
+          ] as never
+        }
         sport="Cycling"
         period="6m"
         isLoading={false}
@@ -112,7 +118,9 @@ describe('the activity row for a screen reader', () => {
   it('carries the time a running best draws under its pace', () => {
     render(
       <SeasonBestsSection
-        efforts={[{ label: '5 km', activityId: 'a1', value: 4, time: 1200 }] as never}
+        efforts={
+          [{ label: '5 km', activityId: 'a1', activity: HILL_RIDE, value: 4, time: 1200 }] as never
+        }
         sport="Running"
         period="6m"
         isLoading={false}
@@ -127,7 +135,11 @@ describe('the activity row for a screen reader', () => {
   it('reads the best and its value through the one row, not as elements of their own', () => {
     render(
       <SeasonBestsSection
-        efforts={[{ label: '5 km', activityId: 'a1', value: 250, time: 1200 }] as never}
+        efforts={
+          [
+            { label: '5 km', activityId: 'a1', activity: HILL_RIDE, value: 250, time: 1200 },
+          ] as never
+        }
         sport="Cycling"
         period="6m"
         isLoading={false}

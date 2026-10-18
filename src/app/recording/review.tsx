@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, StyleSheet, Pressable, useWindowDimensions } from 'react-native';
+import { View, StyleSheet, useWindowDimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams } from 'expo-router';
@@ -11,10 +11,11 @@ import { useDiscardGuard } from '@/shared/app/useDiscardGuard';
 import { overMapHeaderOptions } from '@/shared/app/screenHeaders';
 import { colors, darkColors, iconSize, layout, spacing, typography, stroke } from '@/theme';
 import { Button, InlineNotice, ScreenScrollView, TextField } from '@/shared/ui';
+import { PressTarget } from '@/shared/ui/PressTarget';
 import { Icon } from '@/shared/ui/Icon';
-import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { formatDistance, formatDuration } from '@/shared/format/format';
-import { getActivityIcon, getActivityInk } from '@/shared/activity/activityUtils';
+import { getActivityIcon } from '@/shared/activity/activityUtils';
+import { sportMarkColour } from '@/shared/activity/sportCategories';
 
 import {
   useRecordingStore,
@@ -262,7 +263,7 @@ function ReviewScreenContent() {
   const bg = isDark ? darkColors.surfacePage : colors.surfacePage;
   const surface = isDark ? darkColors.surface : colors.surface;
   const border = isDark ? darkColors.border : colors.border;
-  const activityColor = getActivityInk(type, isDark);
+  const activityColor = sportMarkColour(type, isDark);
   const isProcessing = isUploading;
   // The header back hides while a save is in flight, and Android's back control is held with it.
   useBackIntercept(
@@ -334,11 +335,10 @@ function ReviewScreenContent() {
         ) : null}
 
         {/* Activity Type (tappable) */}
-        <Pressable
+        <PressTarget
           accessibilityRole="button"
           testID="review-activity-type"
-          style={pressable([styles.typeChip, { backgroundColor: surface, borderColor: border }])}
-          android_ripple={pressRipple}
+          style={[styles.typeChip, { backgroundColor: surface, borderColor: border }]}
           onPress={() => !isProcessing && openTypePicker()}
         >
           <Icon name={getActivityIcon(type)} size={iconSize.md} color={activityColor} />
@@ -346,7 +346,7 @@ function ReviewScreenContent() {
             {t(`activityTypes.${type}`, type)}
           </Text>
           <Icon name="chevron-down" size={iconSize.md} color={textSecondary} />
-        </Pressable>
+        </PressTarget>
 
         {/* Notes */}
         <TextField

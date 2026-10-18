@@ -5,6 +5,7 @@
  * These eliminate duplicate conversion logic scattered across hooks.
  */
 
+import { FfiOffScale } from 'veloqrs';
 import type { DirectionStats } from '@/types';
 
 /**
@@ -58,6 +59,13 @@ export function toDirectionStats(
  */
 export function castDirection(direction: string | null | undefined): 'same' | 'reverse' {
   return direction === 'reverse' ? 'reverse' : 'same';
+}
+
+/** The side of its focus range the engine found a scatter point past, absent when inside. */
+export function castOffScale(offScale: FfiOffScale | undefined): 'slow' | 'fast' | undefined {
+  if (offScale === FfiOffScale.Slow) return 'slow';
+  if (offScale === FfiOffScale.Fast) return 'fast';
+  return undefined;
 }
 
 /**

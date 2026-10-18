@@ -1,23 +1,20 @@
 /**
- * Consistent crosshair component for chart interactions.
+ * The scrub line: the one vertical line that follows a finger across a chart,
+ * drawn in the crosshair colour at the crosshair width on every chart.
  *
- * Provides a vertical line indicator that follows touch position.
  * Works with useChartGestures hook for unified chart interaction.
  */
 
 import React from 'react';
 import { StyleSheet, ViewStyle } from 'react-native';
 import Animated, { AnimatedStyle } from 'react-native-reanimated';
-import { colors, darkColors, spacing } from '@/theme';
-import { useTheme } from '@/shared/app';
+import { spacing } from '@/theme';
+import { chartStroke } from './chartMarks';
+import { useChartColors } from './useChartColors';
 
 export interface ChartCrosshairProps {
   /** Animated style from useChartGestures */
   style: AnimatedStyle<ViewStyle>;
-  /** Override default color */
-  color?: string;
-  /** Override default width */
-  width?: number;
   /** Top offset from chart container */
   topOffset?: number;
   /** Bottom offset from chart container */
@@ -26,22 +23,18 @@ export interface ChartCrosshairProps {
 
 export const ChartCrosshair = React.memo(function ChartCrosshair({
   style,
-  color,
-  width = 1.5,
   topOffset = spacing.xs,
   bottomOffset = 20,
 }: ChartCrosshairProps) {
-  const { isDark } = useTheme();
-
-  const defaultColor = isDark ? darkColors.textSecondary : colors.textSecondary;
+  const { crosshair } = useChartColors();
 
   return (
     <Animated.View
       style={[
         styles.crosshair,
         {
-          width,
-          backgroundColor: color || defaultColor,
+          width: chartStroke.crosshair,
+          backgroundColor: crosshair,
           top: topOffset,
           bottom: bottomOffset,
         },

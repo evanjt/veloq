@@ -19,7 +19,8 @@ import { FitnessChartCard } from '@/features/fitness/components/sections/Fitness
 import { StrengthProgressionCard } from '@/features/strength/components/StrengthProgressionCard';
 import { Card } from '@/shared/ui/Card';
 import { darkColors, layout } from '@/theme';
-import type { Activity, Insight, MuscleVolume } from '@/types';
+import type { Insight, MuscleVolume } from '@/types';
+import { activityRecord } from '../__shared__/activityRecord';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysWithValues());
@@ -65,13 +66,13 @@ const insight = {
   iconTone: 'neutral',
 } as unknown as Insight;
 
-const ride = {
+const ride = activityRecord({
   id: 'a1',
-  type: 'Ride',
+  sportType: 'Ride',
   name: 'Ride',
-  start_date_local: '2026-09-05T08:00:00',
-  average_heartrate: 150,
-} as Activity;
+  startDateLocal: '2026-09-05T08:00:00',
+  avgHr: 150,
+});
 
 const volume = {
   slug: 'chest',

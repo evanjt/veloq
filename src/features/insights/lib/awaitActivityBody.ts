@@ -13,31 +13,30 @@
  */
 
 import { awaitEngineAnnouncement } from '@/shared/native/awaitEngineAnnouncement';
-import { hasStarted, isRetryableStart, type StartOutcome, type StartResult } from 'veloqrs';
+import {
+  hasStarted,
+  isRetryableStart,
+  type ActivityRecord,
+  type StartOutcome,
+  type StartResult,
+} from 'veloqrs';
 
 /** Max time to wait for the engine to store the body. */
 const DEFAULT_TIMEOUT_MS = 15_000;
 
 /** The engine surface this needs, so a caller can hand it a double. */
 export interface ActivityBodyReader {
-  getActivityBody: (activityId: string) => string | null;
+  getActivityRecord: (activityId: string) => ActivityRecord | null;
   syncActivityDetail: (activityId: string) => StartOutcome | StartResult;
   subscribe: (event: string, callback: (payload?: { activityId?: string }) => void) => () => void;
 }
 
-/** The stored body for one activity, or null if the engine has not got it. */
+/** The stored activity, typed by the engine, or null if it has not got it. */
 export function readStoredActivity(
   engine: ActivityBodyReader,
   activityId: string
-): Record<string, unknown> | null {
-  const raw = engine.getActivityBody(activityId);
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as Record<string, unknown>;
-  } catch {
-    // A body that will not parse is no better than one that is not there.
-    return null;
-  }
+): ActivityRecord | null {
+  return engine.getActivityRecord(activityId) ?? null;
 }
 
 /**
@@ -49,7 +48,7 @@ export function awaitActivityBody(
   engine: ActivityBodyReader,
   activityId: string,
   timeoutMs: number = DEFAULT_TIMEOUT_MS
-): Promise<Record<string, unknown> | null> {
+): Promise<ActivityRecord | null> {
   const stored = readStoredActivity(engine, activityId);
   if (stored) return Promise.resolve(stored);
 
@@ -59,7 +58,7 @@ export function awaitActivityBody(
   // one costs nothing. Only ours is read back, and only once. The
   // announcement is the write, so the body should be there. If it is not,
   // keep waiting rather than reporting a body we have not read.
-  const body = awaitEngineAnnouncement<Record<string, unknown> | null>({
+  const body = awaitEngineAnnouncement<ActivityRecord | null>({
     channel: 'bodyStored',
     timeoutMs,
     read: (payload) =>

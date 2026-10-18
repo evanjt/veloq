@@ -20,16 +20,6 @@ jest.mock('@/shared/app/TopSafeAreaContext', () => ({
   useScreenSafeAreaEdges: () => [],
 }));
 
-jest.mock('@/features/activity', () => ({
-  useActivityLabels: () => ({
-    labels: new Map([
-      ['ride-1', { name: 'Lantern Loop', date: '3 March' }],
-      ['run-1', { name: 'Harbour Steps', date: '9 April' }],
-    ]),
-    error: null,
-  }),
-}));
-
 jest.mock('@/features/stats/hooks/useBestEfforts', () => {
   const { BestEffortKind } = jest.requireActual('../__shared__/veloqrsStub');
   return {
@@ -45,6 +35,7 @@ jest.mock('@/features/stats/hooks/useBestEfforts', () => {
                 checkpoint: 300,
                 value: 312.4,
                 activityId: 'ride-1',
+                activity: { activityId: 'ride-1', name: 'Lantern Loop', date: 1_772_524_800 },
               },
             ],
           },
@@ -58,6 +49,7 @@ jest.mock('@/features/stats/hooks/useBestEfforts', () => {
                 value: 3.5,
                 time: 1428,
                 activityId: 'run-1',
+                activity: { activityId: 'run-1', name: 'Harbour Steps', date: 1_775_721_600 },
               },
             ],
           },
@@ -85,7 +77,7 @@ describe('a Best Efforts row tied to a cached activity', () => {
     render(<BestEffortsScreen />);
 
     const row = screen.getByTestId('best-efforts-row-Cycling-300');
-    expect(row.props.accessibilityLabel).toBe('5 min, 312 W, Lantern Loop, 3 March');
+    expect(row.props.accessibilityLabel).toBe('5 min, 312 W, Lantern Loop, 2026-03-03');
   });
 
   it('speaks the pace and the elapsed time a run row draws', () => {
@@ -93,6 +85,6 @@ describe('a Best Efforts row tied to a cached activity', () => {
 
     const label = screen.getByTestId('best-efforts-row-Running-5000').props
       .accessibilityLabel as string;
-    expect(label).toMatch(/^5K, \d+:\d{2}\/(km|mi), 23:48, Harbour Steps, 9 April$/);
+    expect(label).toMatch(/^5K, \d+:\d{2}\/(km|mi), 23:48, Harbour Steps, 2026-04-09$/);
   });
 });

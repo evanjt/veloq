@@ -11,25 +11,27 @@
 import { renderHook } from '@testing-library/react-native';
 
 import { useActivityStats } from '@/features/activity/components/stats/useActivityStats';
-import type { Activity } from '@/types';
+
 import { MaxHrSource } from 'veloqrs';
+import { activityRecord } from '../__shared__/activityRecord';
+import type { ActivityRecord } from 'veloqrs';
 
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysWithValues());
 
-const ride = {
+const ride = activityRecord({
   id: 'a1',
-  type: 'Ride',
+  sportType: 'Ride',
   name: 'Ride',
-  start_date_local: '2026-09-05T08:00:00',
-  average_weather_temp: 30,
-  apparent_temperature: 34,
-  average_wind_speed: 5,
-  has_weather: true,
-} as Activity;
+  startDateLocal: '2026-09-05T08:00:00',
+  weatherTemp: 30,
+  feelsLike: 34,
+  windSpeed: 5,
+  hasWeather: true,
+});
 
 // A max HR given without a source is the athlete's own sport setting.
 async function stat(
-  activity: Activity,
+  activity: ActivityRecord,
   title: string,
   options: { isMetric?: boolean; maxHR?: number; maxHrSource?: MaxHrSource }
 ) {
@@ -69,8 +71,8 @@ describe('the Conditions card', () => {
 });
 
 describe('the Power card', () => {
-  it('uses the engine power precedence when both fields differ', async () => {
-    const activity = { ...ride, average_watts: 198, icu_average_watts: 205 } as Activity;
+  it('shows the stored average power', async () => {
+    const activity = activityRecord({ ...ride, avgPower: 205 });
     const card = await stat(activity, 'activity.power', {});
 
     expect(card?.value).toBe('205');
@@ -80,11 +82,11 @@ describe('the Power card', () => {
 
 describe('one max HR for the stat card and the zones chart', () => {
   it('shows the list body peak heart rate', async () => {
-    const activity = { ...ride, average_heartrate: 150, max_heartrate: 184 } as Activity;
+    const activity = activityRecord({ ...ride, avgHr: 150, maxHr: 184 });
     const card = await stat(activity, 'activity.heartRate', { maxHR: 190 });
     expect(row(card, 'activity.stats.maxLabel')).toBe('184 bpm');
   });
-  const hr = { ...ride, average_heartrate: 150 } as Activity;
+  const hr = activityRecord({ ...ride, avgHr: 150 });
 
   // The precedence behind the max HR is the engine's, pinned in the screen
   // read's own tests. The card divides by whatever the read resolved.
@@ -110,7 +112,7 @@ describe('one max HR for the stat card and the zones chart', () => {
   });
 
   it('divides by the resolved bound, not the default, for a zoned activity', async () => {
-    const zoned = { ...hr, icu_hr_zones: [120, 140, 160, 175] } as Activity;
+    const zoned = activityRecord({ ...hr });
     const card = await stat(zoned, 'activity.heartRate', {
       maxHR: 175,
       maxHrSource: MaxHrSource.ActivityZones,
@@ -121,7 +123,7 @@ describe('one max HR for the stat card and the zones chart', () => {
 
 describe('the Power card', () => {
   it('shows the measured peak power field', async () => {
-    const activity = { ...ride, icu_average_watts: 210, icu_pm_p_max: 1012 } as Activity;
+    const activity = activityRecord({ ...ride, avgPower: 210, maxPower: 1012 });
     const card = await stat(activity, 'activity.power', {});
     expect(row(card, 'activity.stats.maxLabel')).toBe('1012 W');
   });
@@ -129,8 +131,8 @@ describe('the Power card', () => {
 
 describe('activity stat card marks', () => {
   it('keys heart rate and power to their streams at every value', async () => {
-    for (const average_heartrate of [135, 153, 171]) {
-      const activity = { ...ride, average_heartrate, icu_average_watts: 220 } as Activity;
+    for (const avgHr of [135, 153, 171]) {
+      const activity = activityRecord({ ...ride, avgHr, avgPower: 220 });
       const { result } = await renderHook(() =>
         useActivityStats({
           activity,

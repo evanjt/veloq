@@ -1,8 +1,6 @@
 export {
   useSportPreference,
   initialiseSportPreference,
-  SPORT_COLORS,
-  SPORT_TEXT_COLORS,
-  SPORT_TEXT_COLORS_DARK,
+  PRIMARY_SPORT_FAMILY,
   type PrimarySport,
 } from './SportPreferenceStore';

@@ -15,9 +15,17 @@ import RecordingScreen from '@/app/recording/[type]';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { navigateTo, replaceTo } from '@/shared/app/navigation';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import {
+  FfiAbsoluteUnits,
+  FfiPlanLineKind,
+  FfiTargetMetric,
+  type FfiPlanLine,
+  type FfiPlannedEvent,
+} from 'veloqrs';
+import { plannedEvent } from '../__shared__/plannedEvent';
 
 let mockParams: Record<string, string | undefined> = {};
-let mockBodies: string[] = [];
+let mockEvents: FfiPlannedEvent[] = [];
 const mockScreenColorsRender = jest.fn();
 
 jest.mock('@/features/recording/hooks/useRecordingScreenColors', () => {
@@ -41,7 +49,7 @@ jest.mock('@/shared/app', () => ({
   useMetricSystem: () => true,
 }));
 jest.mock('@/shared/native/engine', () => ({
-  getEngine: () => ({ getCalendarEventBodies: () => mockBodies, subscribe: () => () => {} }),
+  getEngine: () => ({ getPlannedEvents: () => mockEvents, subscribe: () => () => {} }),
 }));
 jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn(), replaceTo: jest.fn() }));
 // A render error surfaces as itself rather than as the boundary's fallback.
@@ -88,19 +96,37 @@ jest.mock('@/features/recording/components/DataFieldGrid', () => ({
 }));
 
 const TODAY = new Date();
-const event = (steps: unknown) =>
-  JSON.stringify({
+const event = (lines: FfiPlanLine[]) =>
+  plannedEvent({
     id: 7,
     name: 'Kilometre repeats',
-    category: 'WORKOUT',
-    type: 'Run',
-    start_date_local: TODAY.toISOString().slice(0, 19),
-    workout_doc: { steps, lthr: 170 },
+    sport: 'Run',
+    day: TODAY.toISOString().slice(0, 10),
+    lines,
   });
 
-const plannedRun = [
-  { text: 'Warm up', duration: 120, hr: { start: 70, end: 80, units: '%lthr' } },
-  { text: 'Kilometre', distance: 1000, duration: 300, pace: { value: 95, units: '%pace' } },
+const plannedRun: FfiPlanLine[] = [
+  {
+    kind: FfiPlanLineKind.Work,
+    text: 'Warm up',
+    durationSeconds: 120,
+    targets: [
+      {
+        metric: FfiTargetMetric.HeartRate,
+        low: 70,
+        high: 80,
+        units: '%lthr',
+        absolute: { low: 119, high: 136, units: FfiAbsoluteUnits.Bpm },
+      },
+    ],
+  },
+  {
+    kind: FfiPlanLineKind.Work,
+    text: 'Kilometre',
+    durationSeconds: 300,
+    distanceMetres: 1000,
+    targets: [{ metric: FfiTargetMetric.Pace, low: 95, high: 95, units: '%pace' }],
+  },
 ];
 
 beforeEach(() => {
@@ -113,7 +139,7 @@ beforeEach(() => {
 });
 
 it('advances the timer without rendering the recording screen on each clock tick', async () => {
-  mockBodies = [];
+  mockEvents = [];
   mockParams = { type: 'Ride' };
   await render(<RecordingScreen />);
 
@@ -136,7 +162,7 @@ afterEach(() => {
 });
 
 it('follows the planned run beside the map and controls, and Stop reaches the paired review', async () => {
-  mockBodies = [event(plannedRun)];
+  mockEvents = [event(plannedRun)];
   mockParams = { type: 'Run', pairedEventId: '7' };
   await render(<RecordingScreen />);
 
@@ -151,7 +177,11 @@ it('follows the planned run beside the map and controls, and Stop reaches the pa
   expect(screen.getByTestId('control-stop')).toBeTruthy();
 
   // A calendar refresh that changes the event does not move the plan in hand.
-  mockBodies = [event([{ text: 'Something else', duration: 60 }])];
+  mockEvents = [
+    event([
+      { kind: FfiPlanLineKind.Work, text: 'Something else', durationSeconds: 60, targets: [] },
+    ]),
+  ];
 
   await act(() => jest.advanceTimersByTime(30_000));
   expect(screen.getByTestId('workout-countdown')).toHaveTextContent('1:30');
@@ -178,8 +208,8 @@ it('follows the planned run beside the map and controls, and Stop reaches the pa
 });
 
 it('records an ordinary run when the planned event has nothing to follow', async () => {
-  for (const bodies of [[event([])], ['{not json'], []]) {
-    mockBodies = bodies;
+  for (const events of [[event([])], []]) {
+    mockEvents = events;
     mockParams = { type: 'Run', pairedEventId: '7' };
     const view = await render(<RecordingScreen />);
     expect(useRecordingStore.getState().status).toBe('recording');
@@ -194,7 +224,7 @@ it('records an ordinary run when the planned event has nothing to follow', async
 
 it('sends a link naming an unknown sport to the picker and starts nothing', async () => {
   for (const type of ['Bogus', 'constructor', 'toString']) {
-    mockBodies = [];
+    mockEvents = [];
     mockParams = { type };
     const view = await render(<RecordingScreen />);
     expect(replaceTo).toHaveBeenCalledWith('/record');
@@ -207,7 +237,7 @@ it('sends a link naming an unknown sport to the picker and starts nothing', asyn
 
 it('records an unpaired run when the planned event id is not a positive whole number', async () => {
   for (const pairedEventId of ['abc', '0', '-7', '7.5']) {
-    mockBodies = [event(plannedRun)];
+    mockEvents = [event(plannedRun)];
     mockParams = { type: 'Run', pairedEventId };
     const view = await render(<RecordingScreen />);
     expect(useRecordingStore.getState().status).toBe('recording');

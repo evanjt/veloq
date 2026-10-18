@@ -46,6 +46,7 @@ function loadFor(os: 'ios' | 'android') {
   cleanups.push(rtl.cleanup);
   return {
     ...(require('@/shared/ui/ScreenScrollView') as typeof import('@/shared/ui/ScreenScrollView')),
+    ...(require('@/shared/ui/flattenStyle') as typeof import('@/shared/ui/flattenStyle')),
     rn,
     rtl,
     SafeAreaProvider: (
@@ -81,7 +82,7 @@ const statusBar = {
 
 /** A form on the screen scroll view under a 24 point status bar, and its outermost padding. */
 async function renderForm(ui: Loaded) {
-  const { ScreenScrollView, SafeAreaProvider, rn, rtl } = ui;
+  const { ScreenScrollView, SafeAreaProvider, flattenStyle, rn, rtl } = ui;
   const tree = await rtl.render(
     <SafeAreaProvider initialMetrics={statusBar}>
       <ScreenScrollView>
@@ -91,7 +92,7 @@ async function renderForm(ui: Loaded) {
   );
   return () => {
     const root = tree.toJSON() as { props: { style?: StyleProp<ViewStyle> } };
-    return rn.StyleSheet.flatten(root.props.style)?.paddingBottom;
+    return flattenStyle(root.props.style).paddingBottom;
   };
 }
 

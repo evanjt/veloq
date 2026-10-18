@@ -5,7 +5,7 @@
 //! at the next sync. A 404 is final and leaves the list; any other failure
 //! keeps the id owed for the next pass.
 
-use crate::net::Transport;
+use crate::net::Source;
 use crate::net::record_dependency_fetch::{FetchedRecordActivity, fetch_one_record_activity};
 use crate::net::transport::NetError;
 use crate::persistence::PersistentEngine;
@@ -21,11 +21,11 @@ use crate::net::intervals::activity_metrics_row;
 /// the sync's credential latch sees it.
 pub(crate) async fn fetch_owed_record_activities(
     install: u64,
-    transport: &Transport,
-    athlete_id: &str,
+    source: &impl Source,
     cancelled: &(dyn Fn() -> bool + Sync),
     progress: &(dyn Fn(u32, u32) + Sync),
 ) -> Result<(), NetError> {
+    let athlete_id = source.account();
     let owner = athlete_id.to_string();
     let owed = crate::persistence::with_persistent_engine_blocking_for(install, move |engine| {
         let library_owner = engine
@@ -73,7 +73,7 @@ pub(crate) async fn fetch_owed_record_activities(
         if !still_signed_in(athlete_id) {
             return signed_out(fetched);
         }
-        match fetch_one_record_activity(transport, &activity_id).await {
+        match fetch_one_record_activity(source, &activity_id).await {
             Ok(FetchedRecordActivity::Missing) => {
                 crate::persistence::with_persistent_engine_blocking_for(install, move |engine| {
                     engine.mark_record_activity_unavailable(&activity_id)
@@ -232,8 +232,11 @@ mod tests {
         let transport =
             Transport::with_governor(server.base_url(), AuthMethod::ApiKey("test"), governor)
                 .unwrap();
-        let fetched =
-            crate::runtime::block_on(fetch_one_record_activity(&transport, "old-ride")).unwrap();
+        let fetched = crate::runtime::block_on(fetch_one_record_activity(
+            &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+            "old-ride",
+        ))
+        .unwrap();
         store_record_dependency(&mut engine, fetched).unwrap();
         let placed = engine.retry_record_restore().unwrap();
         assert_eq!(placed.placed, 1);
@@ -310,8 +313,7 @@ mod tests {
                 .unwrap();
         let first = crate::runtime::block_on(super::fetch_owed_record_activities(
             install,
-            &transport,
-            "i1",
+            &crate::net::IntervalsSession::new(transport.clone(), "i1"),
             &|| false,
             &|_, _| {},
         ));
@@ -336,8 +338,7 @@ mod tests {
         mock_found(&server, "flaky-ride", &points);
         let second = crate::runtime::block_on(super::fetch_owed_record_activities(
             install,
-            &transport,
-            "i1",
+            &crate::net::IntervalsSession::new(transport.clone(), "i1"),
             &|| false,
             &|_, _| {},
         ));
@@ -386,8 +387,7 @@ mod tests {
                 .unwrap();
         let outcome = crate::runtime::block_on(super::fetch_owed_record_activities(
             crate::persistence::engine_install(),
-            &transport,
-            "i1",
+            &crate::net::IntervalsSession::new(transport.clone(), "i1"),
             &|| false,
             &|_, _| {},
         ));
@@ -422,8 +422,7 @@ mod tests {
                 .unwrap();
         let outcome = crate::runtime::block_on(super::fetch_owed_record_activities(
             crate::persistence::engine_install(),
-            &transport,
-            "i1",
+            &crate::net::IntervalsSession::new(transport.clone(), "i1"),
             &|| false,
             &|_, _| {},
         ));
@@ -466,9 +465,11 @@ mod tests {
         let transport =
             Transport::with_governor(server.base_url(), AuthMethod::ApiKey("test"), governor)
                 .unwrap();
-        let fetched =
-            crate::runtime::block_on(fetch_one_record_activity(&transport, "missing-ride"))
-                .unwrap();
+        let fetched = crate::runtime::block_on(fetch_one_record_activity(
+            &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+            "missing-ride",
+        ))
+        .unwrap();
         assert!(!store_record_dependency(&mut engine, fetched).unwrap());
         let result = engine.retry_record_restore().unwrap();
         assert_eq!(result.unplaced, 1);
@@ -565,8 +566,7 @@ mod uploaded_recording_tests {
     fn run_owed_step(server: &MockServer) {
         let outcome = crate::runtime::block_on(super::fetch_owed_record_activities(
             crate::persistence::engine_install(),
-            &transport(server),
-            "i1",
+            &crate::net::IntervalsSession::new(transport(server), "i1"),
             &|| false,
             &|_, _| {},
         ));

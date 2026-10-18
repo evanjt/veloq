@@ -148,8 +148,8 @@ async function fetchAndIngestActivity(
     if (getStoredCredentials().athleteId !== expectedAthleteId) return null;
 
     const activityInfo: ActivityInfo = {
-      name: typeof activity.name === 'string' ? activity.name : 'Activity',
-      type: typeof activity.type === 'string' ? activity.type : 'Ride',
+      name: activity.name ?? 'Activity',
+      type: activity.sportType ?? 'Ride',
       ingested: false,
     };
 
@@ -173,9 +173,7 @@ async function fetchAndIngestActivity(
       return activityInfo;
     }
 
-    const startDate = activityStartEpoch(
-      typeof activity.start_date_local === 'string' ? activity.start_date_local : undefined
-    );
+    const startDate = activityStartEpoch(activity.startDateLocal);
     const run = engine.startFetchAndStore(
       [activityId],
       [

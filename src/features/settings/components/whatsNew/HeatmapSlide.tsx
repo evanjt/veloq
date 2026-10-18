@@ -29,9 +29,6 @@ const ROWS = 5;
 const CELL_SIZE = 16;
 const GAP = 3;
 
-const INTENSITY_COLORS = contributionRamp.dark;
-const INTENSITY_COLORS_LIGHT = contributionRamp.light;
-
 // Hardcoded intensity grid (5 rows x 7 cols)
 const GRID: number[][] = [
   [0, 1, 2, 0, 3, 1, 0],
@@ -108,15 +105,17 @@ function getPointPos(
 // Which data point corresponds to the selected heatmap cell
 const SELECTED_DATA_INDEX = 18;
 
-const HRV_COLOR = colors.chartHrv;
-const RHR_COLOR = colors.chartRhr;
-
 export function HeatmapSlide() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const palette = isDark ? INTENSITY_COLORS : INTENSITY_COLORS_LIGHT;
-  const primaryColor = isDark ? darkColors.actionPrimary : colors.actionPrimary;
-  const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
+  // The calendar's own ramp and series colours, so the picture matches the screen in either theme.
+  const palette = contributionRamp[isDark ? 'dark' : 'light'];
+  const theme = isDark ? darkColors : colors;
+  const hrvColor = theme.chartHrv;
+  const rhrColor = theme.chartRhr;
+  const primaryColor = theme.actionPrimary;
+  const mutedColor = theme.textSecondary;
+  const valueColor = theme.textPrimary;
   const dashLineColor = isDark
     ? colorWithOpacity(ink.white, opacity.tint4)
     : colorWithOpacity(ink.black, opacity.tint2);
@@ -214,7 +213,7 @@ export function HeatmapSlide() {
         {/* HRV sparkline */}
         <Path
           path={hrvPath}
-          color={HRV_COLOR}
+          color={hrvColor}
           style="stroke"
           strokeWidth={2}
           strokeCap="round"
@@ -222,18 +221,13 @@ export function HeatmapSlide() {
           transform={[{ translateY: HEATMAP_HEIGHT + 8 }]}
         />
         {/* HRV selected point */}
-        <Circle cx={hrvPoint.x} cy={hrvPoint.y + HEATMAP_HEIGHT + 8} r={4} color={HRV_COLOR} />
-        <Circle
-          cx={hrvPoint.x}
-          cy={hrvPoint.y + HEATMAP_HEIGHT + 8}
-          r={2}
-          color={isDark ? darkColors.surface : colors.surface}
-        />
+        <Circle cx={hrvPoint.x} cy={hrvPoint.y + HEATMAP_HEIGHT + 8} r={4} color={hrvColor} />
+        <Circle cx={hrvPoint.x} cy={hrvPoint.y + HEATMAP_HEIGHT + 8} r={2} color={theme.surface} />
 
         {/* RHR sparkline */}
         <Path
           path={rhrPath}
-          color={RHR_COLOR}
+          color={rhrColor}
           style="stroke"
           strokeWidth={2}
           strokeCap="round"
@@ -245,31 +239,31 @@ export function HeatmapSlide() {
           cx={rhrPoint.x}
           cy={rhrPoint.y + HEATMAP_HEIGHT + 8 + SPARKLINE_HEIGHT + 4}
           r={4}
-          color={RHR_COLOR}
+          color={rhrColor}
         />
         <Circle
           cx={rhrPoint.x}
           cy={rhrPoint.y + HEATMAP_HEIGHT + 8 + SPARKLINE_HEIGHT + 4}
           r={2}
-          color={isDark ? darkColors.surface : colors.surface}
+          color={theme.surface}
         />
       </Canvas>
 
       {/* Sparkline labels */}
       <View style={styles.labels}>
         <View style={styles.labelRow}>
-          <View style={[styles.dot, { backgroundColor: HRV_COLOR }]} />
+          <View style={[styles.dot, { backgroundColor: hrvColor }]} />
           <Text style={[styles.labelText, { color: mutedColor }]}>{t('metrics.hrv')}</Text>
-          <Text style={[styles.valueText, { color: HRV_COLOR }]}>
+          <Text style={[styles.valueText, { color: valueColor }]}>
             {HRV_VALUES[SELECTED_DATA_INDEX]} {t('units.ms')}
           </Text>
         </View>
         <View style={styles.labelRow}>
-          <View style={[styles.dot, { backgroundColor: RHR_COLOR }]} />
+          <View style={[styles.dot, { backgroundColor: rhrColor }]} />
           <Text style={[styles.labelText, { color: mutedColor }]}>
             {t('wellness.restingHR' as never)}
           </Text>
-          <Text style={[styles.valueText, { color: RHR_COLOR }]}>
+          <Text style={[styles.valueText, { color: valueColor }]}>
             {RHR_VALUES[SELECTED_DATA_INDEX]} {t('units.bpm')}
           </Text>
         </View>

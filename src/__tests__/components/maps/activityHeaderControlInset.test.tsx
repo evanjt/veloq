@@ -12,8 +12,10 @@ import { StyleSheet } from 'react-native';
 
 import { ActivityHeader } from '@/features/activity/components/ActivityHeader';
 import { DetailHero } from '@/shared/ui/DetailHero';
-import { layout, spacing } from '@/theme';
-import type { ActivityDetail } from '@/types';
+import { layout } from '@/theme';
+import { MAP_CONTROL_GAP, MAP_CONTROL_SIZE } from '@/features/maps/components/MapControlButton';
+
+import { activityRecord } from '../../__shared__/activityRecord';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
@@ -38,19 +40,18 @@ jest.mock('@/features/maps/components/ActivityMapView', () => ({
   },
 }));
 
-const activity = {
+const activity = activityRecord({
   id: 'a1',
   name: 'Harbour paddle',
-  type: 'Kayaking',
-  start_date_local: '2026-08-12T07:30:00',
+  sportType: 'Kayaking',
+  startDateLocal: '2026-08-12T07:30:00',
   distance: 8200,
-  moving_time: 3600,
-  total_elevation_gain: null,
-  polyline: null,
-} as unknown as ActivityDetail;
+  movingTime: 3600,
+  elevationGain: 0,
+});
 
 /** Short enough that six buttons wrap into a second column and three do not. */
-const SHORT_HERO = 300;
+const SHORT_HERO = 280;
 
 const renderHero = () =>
   render(
@@ -99,13 +100,15 @@ describe('activity hero control reserve', () => {
   it('reserves one button column when the map draws three buttons', async () => {
     mockDrawnControls = 3;
     await renderHero();
-    expect(overlayPaddingRight()).toBe(layout.cardMargin + layout.minTapTarget + spacing.sm);
+    expect(overlayPaddingRight()).toBe(layout.cardMargin + MAP_CONTROL_SIZE + MAP_CONTROL_GAP);
   });
 
   it('reserves a second column when six buttons wrap', async () => {
     mockDrawnControls = 6;
     await renderHero();
-    expect(overlayPaddingRight()).toBe(layout.cardMargin + 2 * (layout.minTapTarget + spacing.sm));
+    expect(overlayPaddingRight()).toBe(
+      layout.cardMargin + 2 * (MAP_CONTROL_SIZE + MAP_CONTROL_GAP)
+    );
   });
 
   it('reserves nothing when the map draws no buttons', async () => {

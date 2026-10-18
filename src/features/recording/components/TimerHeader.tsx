@@ -1,15 +1,15 @@
 import React from 'react';
-import { View, Pressable, Animated } from 'react-native';
+import { View, Animated } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
 import { colors, iconSize, recording } from '@/theme';
 import { IconButton } from '@/shared/ui/IconButton';
-import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { useTheme } from '@/shared/app';
-import { getActivityIcon, getActivityInk } from '@/shared/activity/activityUtils';
+import { getActivityIcon } from '@/shared/activity/activityUtils';
+import { sportMarkColour } from '@/shared/activity/sportCategories';
 import type { ActivityType } from '@/types';
 import type { RecordingMode, RecordingStatus } from '../types';
 import { GpsSignalIndicator } from './GpsSignalIndicator';
@@ -18,6 +18,7 @@ import { styles } from '../RecordingScreen.styles';
 import { useTimer } from '../hooks/useTimer';
 import { FitText } from '@/shared/ui/FitText';
 import { Icon } from '@/shared/ui/Icon';
+import { PressTarget } from '@/shared/ui/PressTarget';
 
 /** The clock reads in the secondary ink while auto-pause holds it, and in the primary ink otherwise. */
 function ElapsedTime({ color }: { color: string }) {
@@ -62,7 +63,7 @@ function TimerHeaderInner({
 }) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const currentActivityColor = getActivityInk(currentActivityType, isDark);
+  const currentActivityColor = sportMarkColour(currentActivityType, isDark);
   const statusSpoken = status === 'recording' ? t('spoken.rec') : t('recording.paused', 'Paused');
   // The phone is mounted or pocketed during a ride, so a change of state is
   // spoken: through the live regions below on Android, announced on iOS.
@@ -91,10 +92,9 @@ function TimerHeaderInner({
         ) : null}
       </View>
       <View style={styles.headerRight}>
-        <Pressable
+        <PressTarget
           testID="recording-type-badge"
-          style={pressable([styles.typeBadge, { borderColor: border }])}
-          android_ripple={pressRipple}
+          style={[styles.typeBadge, { borderColor: border }]}
           onPress={onOpenTypePicker}
           disabled={isLocked}
           accessibilityRole="button"
@@ -109,7 +109,7 @@ function TimerHeaderInner({
             {t(`activityTypes.${currentActivityType}`, currentActivityType)}
           </FitText>
           <Icon name="chevron-down" size={iconSize.sm} color={textSecondary} />
-        </Pressable>
+        </PressTarget>
         <View style={styles.statusRow}>
           <IconButton
             testID="recording-lock-toggle"

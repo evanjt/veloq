@@ -34,7 +34,7 @@ jest.mock('expo-task-manager', () => ({
   unregisterTaskAsync: jest.fn(async () => undefined),
 }));
 jest.mock('@/features/insights/lib/awaitActivityBody', () => ({
-  awaitActivityBody: jest.fn(async () => ({ id: 'i1234', name: 'A ride', type: 'Ride' })),
+  awaitActivityBody: jest.fn(async () => ({ id: 'i1234', name: 'A ride', sportType: 'Ride' })),
 }));
 jest.mock('@/features/settings/lib/notificationService', () => ({
   presentActivityNotification: jest.fn(async () => undefined),
@@ -74,7 +74,7 @@ describe('the push task asking whether an activity is already held', () => {
     mockAwaitActivityBody.mockResolvedValue({
       id: 'i1234',
       name: 'A ride',
-      type: 'Ride',
+      sportType: 'Ride',
     } as never);
     useAuthStore.setState({
       apiKey: null,

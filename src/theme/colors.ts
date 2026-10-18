@@ -177,17 +177,6 @@ export const strengthTone = {
   deep: '#0F766E',
 } as const;
 
-// Workout step intensity colors for WorkoutStepBar.
-// warmup/tempo use amber (warning), threshold/VO2 use red (error),
-// cooldown uses light blue, rest/recovery use gray.
-export const workoutStepColors = {
-  warmup: '#FFA726', // amber
-  cooldown: '#64B5F6', // light blue
-  rest: '#BDBDBD',
-  tempo: '#FFA726', // amber
-  threshold: '#EF4444', // red
-} as const;
-
 // =============================================================================
 // SECTION OVERLAY PALETTE
 // =============================================================================
@@ -325,24 +314,6 @@ export const colors = {
   // The keys that read a role from the colour token file, per colourRoles.json.
   ...roleColours.light,
 
-  // Activity type colors
-  ride: '#3B82F6', // Blue-500 - Royal blue for cycling
-  run: '#10B981', // Emerald-500 - Fresh green
-  swim: '#06B6D4', // Cyan-500 - Aqua/teal
-  // The three sport hues as text. The fitness screens set a threshold headline
-  // in the sport's colour, where the hue is the information, and all three fills
-  // sit between 2.18:1 and 3.31:1 on white. Worst light surface: ride 4.92:1,
-  // run 4.93:1, swim 4.97:1.
-  rideText: '#0B5FEA',
-  runText: '#0A7854',
-  swimText: '#047386',
-  walk: '#8B5CF6', // Violet-500
-  hike: '#A78BFA', // Violet-400
-  workout: '#6366F1', // Indigo-500
-  // Selected sport chip fills for the two hues that clear 4.5:1 under neither ink: white on these is 5.70 and 6.29.
-  walkChipFill: '#7C3AED',
-  workoutChipFill: '#4F46E5',
-
   // Chart accent colors
   chartBlue: brand.blue,
   chartPurple: '#A855F7',
@@ -363,7 +334,6 @@ export const colors = {
   chartPurpleText: '#7E22CE',
   fitnessBlueText: '#0F62C4',
   fatiguePurpleText: '#8E24AA',
-  chartCasing: '#00000026', // Under-stroke behind chart lines for edge contrast
 
   // Wellness metric colors
   chartHrv: '#EC4899', // Pink-500
@@ -372,9 +342,6 @@ export const colors = {
   // drawn in them. Worst light surface: chartHrvText 5.43:1, chartRhrText 5.82:1.
   chartHrvText: '#BE185D',
   chartRhrText: '#B91C1C',
-  chartSleep: '#A855F7', // Purple-500
-  chartSleepScore: '#6366F1', // Indigo-500
-  chartWeight: '#64748B', // Slate-500
   // The same amber as text: the estimated-FTP headline reads in it, and
   // `chartFtp` is 1.61:1 on white. 4.91:1 on the worst light surface.
   chartFtpText: '#8B6200',
@@ -386,19 +353,12 @@ export const colors = {
   // by opacity.
   chartPreviousSeason: '#4682DC',
 
-  // Neutral chart overlays
-  chartGridFaint: 'rgba(0, 0, 0, 0.06)', // Axis gridlines on an insight card
-  chartZeroLine: 'rgba(0, 0, 0, 0.15)', // Baseline rule through zero
-  chartMutedBar: 'rgba(0, 0, 0, 0.12)', // Comparison bar for the weaker period
-  chartDotMuted: 'rgba(0, 0, 0, 0.25)', // Scatter dots that are not the record
-
   // Interval band backgrounds on the combined activity chart
   chartBandWarmup: '#22C55E', // Green-500
   chartBandCooldown: '#8B5CF6', // Violet-500
   chartBandNeutral: '#808080', // Grey - recovery, rest and anything unclassified
 
   // Form zone chart, drawn over opaque zone fills so these stay solid
-  chartZeroLineSolid: '#CCCCCC',
   chartFormLine: '#333333',
 
   // Form zone text. The zone fills, which read the diverging ramp, are bands
@@ -585,35 +545,22 @@ export const contributionRamp = {
   dark: [colourTokens.dark['fill-neutral'], ...sequentialRamp.dark.slice(0, 4)],
 } as const;
 
-// The crash screen paints itself before any theme provider is mounted, so it
-// carries its own chrome, one set per mode, chosen from the system appearance.
-export const errorScreen = {
-  light: {
-    bg: '#FAFAFA',
-    title: '#18181B',
-    detail: '#52525B',
-    message: '#B91C1C',
-    action: brand.blue600,
-  },
-  dark: {
-    bg: '#1A1A1A',
-    title: '#FFFFFF',
-    detail: '#999999',
-    message: '#FF6B6B',
-    action: brand.blueLight,
-  },
-} as const;
+// Muscle body diagram, per mode. Untrained muscles take the neutral fill with a
+// track outline, so none is told from a little by its edge rather than by being
+// darker than every step. Trained muscles take the five sequential steps, and the
+// selected one is outlined in the primary text colour.
+function bodyDiagramRoles(t: Tokens) {
+  return {
+    untrained: t['fill-neutral'],
+    untrainedStroke: t.track,
+    steps: sequentialSteps(t),
+    selectedStroke: t['text-primary'],
+  } as const;
+}
 
-// Muscle body diagram: the base fill under the volume ramp, the neutral fill of
-// each mode, and the outline on the selected group, one per mode. The outline
-// runs along the polygon boundaries, which are the page showing through rather
-// than the fill, so a near-black stroke that reads at 17:1 on the light page is
-// drawn in the colour of the dark one.
 export const bodyDiagram = {
-  fillLight: colourTokens.light['fill-neutral'],
-  fillDark: colourTokens.dark['fill-neutral'],
-  selectedStroke: '#1A1A1A',
-  selectedStrokeDark: '#FAFAFA',
+  light: bodyDiagramRoles(colourTokens.light),
+  dark: bodyDiagramRoles(colourTokens.dark),
 } as const;
 
 // The one-frame Skia warmup surface. Primaries on purpose: it compiles the
@@ -625,19 +572,9 @@ export const shaderWarmup = {
   shadow: '#000000',
 } as const;
 
-// The QR scanner covers the screen with the camera feed, so its chrome is
-// fixed against the preview rather than following the theme.
-export const cameraOverlay = {
-  bg: '#000000',
-  text: '#FFFFFF',
-  hint: '#999999',
-} as const;
-
-// Loupe magnifier chrome (strength body diagram). The clip background follows
-// the theme; the crosshair dot/ring stay fixed for contrast on body fills.
+// The loupe's crosshair on the strength body diagram, fixed in both modes so
+// it reads over any muscle fill. The clip under it is the theme's raised surface.
 export const loupeChrome = {
-  bgLight: '#F0F0F0',
-  bgDark: '#18181B',
   crosshairDot: '#1A1A1A',
   crosshairRing: '#FFFFFF',
 } as const;
@@ -661,7 +598,6 @@ export const darkColors = {
   // Chart colors for dark mode (optimised for visibility)
   chartPurple: '#C084FC', // Custom tag ground
   chartForm: brand.blueLight, // Brighter blue for TSB (neutral, zone-based at runtime)
-  chartCasing: '#00000080', // Under-stroke behind chart lines for edge contrast
 
   // Wellness metric colors for dark mode (one Tailwind step lighter)
   chartHrv: '#F472B6', // Pink-400
@@ -670,26 +606,17 @@ export const darkColors = {
   // the worst, so the text tone is the fill.
   chartHrvText: '#F472B6',
   chartRhrText: '#F87171',
-  chartSleep: '#C084FC', // Purple-400
-  chartSleepScore: '#818CF8', // Indigo-400
-  chartWeight: '#94A3B8', // Slate-400
   chartGuideLine: '#969696',
   chartPreviousSeason: '#6495ED', // Lighter cornflower, to carry on a dark ground
 
-  // Neutral chart overlays for dark mode
-  chartGridFaint: 'rgba(255, 255, 255, 0.06)',
-  chartZeroLine: 'rgba(255, 255, 255, 0.25)',
-  chartMutedBar: 'rgba(255, 255, 255, 0.15)',
-  chartDotMuted: 'rgba(255, 255, 255, 0.5)',
-  chartZeroLineSolid: '#71717A',
+  // Form zone chart line for dark mode
   chartFormLine: '#FFFFFF',
 
   // Text variants of the series hues, the dark counterparts of the light ones.
-  // On a near-black ground the fill itself already clears 4.5:1 for four
-  // of the six, so the token is the fill and the pair still exists: a caller
-  // reads one name in both themes. Worst of the three dark surfaces:
-  // chartGoldText 7.44:1, chartFtpText 8.71:1, formOptimalText 6.62:1,
-  // runText 6.17:1, swimText 6.44:1. Only `ride` needs its own tone, at 4.25:1.
+  // On a near-black ground the fill itself already clears 4.5:1 for these,
+  // so the token is the fill and the pair still exists: a caller reads one
+  // name in both themes. Worst of the three dark surfaces:
+  // chartGoldText 7.44:1, chartFtpText 8.71:1, formOptimalText 6.62:1.
   chartFtpText: '#FFB300',
   // The B950 half of the pair. On the dark surfaces the fitness blue already
   // carries at 5.91:1 and is its own text tone; pink, purple and the fatigue
@@ -699,9 +626,6 @@ export const darkColors = {
   chartPurpleText: '#C084FC',
   fitnessBlueText: '#42A5F5',
   fatiguePurpleText: '#CE93D8',
-  rideText: '#4F8FF7',
-  runText: '#10B981',
-  swimText: '#06B6D4',
   // The rest of the form zone text family. Same story: four of the five
   // are the fill, and the red is the one that does not carry, 4.49:1 on the
   // raised surface, so it takes the lighter tone the dark palette uses for error.
@@ -791,35 +715,6 @@ export const activityTypeColors: Record<string, string> = {
   BackcountrySki: '#0EA5E9',
 
   Other: '#71717A', // Zinc-500
-};
-
-// The sport hue as an icon drawn straight on a surface, a mark that owes 3:1
-// on every surface of its theme. The hue is kept where it already clears that,
-// and a type that does not takes the next tone of its own family: deeper on
-// the light surfaces, lighter on the dark ones. The fills, map tracks and
-// widget tints keep `activityTypeColors`, since they sit on other grounds.
-// Worst light surface: Run, Hike and the water sports 3.37:1 or more, the
-// rest 3.31:1 or more. Worst dark surface: MountainBikeRide 3.03:1, the
-// racket family 3.02:1, GravelRide 4.25:1, WeightTraining 3.50:1.
-export const activityTypeInk: Record<string, string> = {
-  ...activityTypeColors,
-  EBikeRide: '#3B82F6', // Blue-500
-  Run: '#059669', // Emerald-600
-  VirtualRun: '#059669',
-  Swim: '#0891B2', // Cyan-600
-  Hike: '#8B5CF6', // Violet-500
-  Rowing: '#0D9488', // Teal-600
-  Kayaking: '#0D9488',
-  Canoeing: '#0D9488',
-  Snowboard: '#0284C7', // Sky-600
-  AlpineSki: '#0284C7',
-  BackcountrySki: '#0284C7',
-};
-
-export const activityTypeInkDark: Record<string, string> = {
-  ...activityTypeColors,
-  GravelRide: '#3B82F6', // Blue-500
-  WeightTraining: '#6366F1', // Indigo-500
 };
 
 // =============================================================================

@@ -13,7 +13,7 @@ import { Animated, StyleSheet } from 'react-native';
 import { act, render, fireEvent, screen, within } from '@testing-library/react-native';
 import { MapControlStack } from '@/features/maps/components/regional/MapControlStack';
 import { controlHeight, layout } from '@/theme';
-import { ACTIVITY_CATEGORIES } from '@/shared/activity/sportCategories';
+import { sportMarkColour } from '@/shared/activity/sportCategories';
 import { initialiseI18n } from '@/i18n';
 import { stubHardwareBack } from '../../__shared__/hardwareBack';
 
@@ -201,8 +201,8 @@ describe('MapControlStack', () => {
     it('names each sport in view beside a swatch in the colour its dots are drawn in', async () => {
       await openKey();
 
-      expect(swatchColour('map-key-category-Ride')).toBe(ACTIVITY_CATEGORIES.Ride.color);
-      expect(swatchColour('map-key-category-Run')).toBe(ACTIVITY_CATEGORIES.Run.color);
+      expect(swatchColour('map-key-category-Ride')).toBe(sportMarkColour('Ride', false));
+      expect(swatchColour('map-key-category-Run')).toBe(sportMarkColour('Run', false));
       expect(within(screen.getByTestId('map-key-category-Ride')).getByText('Cycling')).toBeTruthy();
       expect(within(screen.getByTestId('map-key-category-Run')).getByText('Running')).toBeTruthy();
       expect(screen.queryByTestId('map-key-category-Water')).toBeNull();

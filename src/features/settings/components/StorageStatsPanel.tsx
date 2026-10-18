@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
-import { Pressable, View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { navigateTo } from '@/shared/app/navigation';
 import { useSheetOpener } from '@/shared/app/sheetRequest';
@@ -22,14 +22,7 @@ import {
 
 import { StreamBackfillRow } from './StreamBackfillRow';
 import { StreamHistoryRow } from './StreamHistoryRow';
-import {
-  Button,
-  composeAccessibilityLabel,
-  pressable,
-  pressRipple,
-  ProgressBar,
-  StatTile,
-} from '@/shared/ui';
+import { Button, composeAccessibilityLabel, ProgressBar, StatTile, PressTarget } from '@/shared/ui';
 import { ABSENT } from '@/shared/format/absent';
 
 /** Every segment the bar can draw. A key, never a literal: the legend and
@@ -375,16 +368,15 @@ export function StorageStatsPanel({
           <Text style={[styles.infoLabel, isDark && styles.textSecondary]}>
             {t('settings.tileCacheLimit')}
           </Text>
-          <Pressable
+          <PressTarget
             testID="settings-tile-cache-limit"
             onPress={chooseBudget}
-            style={pressable(styles.infoValueRow)}
+            style={styles.infoValueRow}
             accessibilityRole="button"
             accessibilityLabel={composeAccessibilityLabel(
               t('settings.tileCacheLimit'),
               formatFileSize(budgetBytes)
             )}
-            android_ripple={pressRipple}
           >
             <Text
               style={[
@@ -395,7 +387,7 @@ export function StorageStatsPanel({
             >
               {formatFileSize(budgetBytes)}
             </Text>
-          </Pressable>
+          </PressTarget>
         </View>
         <Text
           testID="settings-tile-cache-subtitle"

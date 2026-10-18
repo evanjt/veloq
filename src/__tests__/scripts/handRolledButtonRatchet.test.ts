@@ -53,6 +53,15 @@ describe('the hand-rolled button ratchet', () => {
     expect(runGuard(root, { 'src/features/a/A.tsx': 2 }).status).toBe(0);
   });
 
+  it('counts a rendered PressTarget, which is the same hand-rolled shape', () => {
+    const root = treeWith({
+      'src/features/a/A.tsx': 'export const A = () => <PressTarget onPress={go} />;\n',
+    });
+
+    expect(runGuard(root, {}).status).toBe(1);
+    expect(runGuard(root, { 'src/features/a/A.tsx': 1 }).status).toBe(0);
+  });
+
   it('refuses a file that gained one, and names it', () => {
     const root = treeWith({ 'src/features/a/A.tsx': TWO_BUTTONS });
     const run = runGuard(root, { 'src/features/a/A.tsx': 1 });

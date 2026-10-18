@@ -2,10 +2,10 @@
  * The start and end markers of a track, shared by the activity, route and
  * section maps so all three mark them the same way.
  *
- * Green and red alone do not separate under a red-green colour deficiency, so
- * each dot carries the glyph section creation already uses: a triangle for the
- * start and a square for the end. The source holds one point per end, its
- * `position` property `start` or `end`.
+ * The start is a disc in the base's start colour and the finish an ink disc,
+ * each carrying the glyph section creation already uses: a triangle for the
+ * start and a square for the end, so colour is never the only signal. The
+ * source holds one point per end, its `position` property `start` or `end`.
  */
 import type { MapPalette } from '@/theme';
 import type { MapImageSpec, MapLayerSpec } from '@/features/maps/lib/htmlBuilders';
@@ -27,13 +27,12 @@ const ENDPOINT_ICON_SIZE = 0.14;
 const isStart = ['==', ['get', 'position'], 'start'];
 
 export function buildEndpointLayers(palette: MapPalette): MapLayerSpec[] {
-  const { layer } = palette;
   return [
     {
       id: 'endpoint-border',
       type: 'circle',
       source: 'endpoints',
-      paint: { 'circle-radius': ENDPOINT_BORDER_RADIUS, 'circle-color': layer.casing },
+      paint: { 'circle-radius': ENDPOINT_BORDER_RADIUS, 'circle-color': palette.casing },
     },
     {
       id: 'endpoint-fill',
@@ -41,7 +40,7 @@ export function buildEndpointLayers(palette: MapPalette): MapLayerSpec[] {
       source: 'endpoints',
       paint: {
         'circle-radius': ENDPOINT_RADIUS,
-        'circle-color': ['case', isStart, layer.startSolid, layer.endSolid],
+        'circle-color': ['case', isStart, palette.start, palette.ink],
       },
     },
     {
@@ -55,7 +54,7 @@ export function buildEndpointLayers(palette: MapPalette): MapLayerSpec[] {
         'icon-ignore-placement': true,
         'icon-anchor': 'center',
       },
-      paint: { 'icon-color': layer.casing },
+      paint: { 'icon-color': palette.casing },
     },
   ];
 }

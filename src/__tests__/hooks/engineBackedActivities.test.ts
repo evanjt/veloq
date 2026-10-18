@@ -45,14 +45,26 @@ const engine = {
 
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 
-/** A feed page of these bodies, none of them named upstream unless told otherwise. */
-function page(bodies: string[], intervalsIds?: (string | null)[]) {
+/**
+ * A feed page of these bodies, none of them named upstream unless told
+ * otherwise, each stored under its own id unless told otherwise.
+ */
+function page(bodies: string[], intervalsIds?: (string | null)[], keys?: string[]) {
   return {
     bodies,
     intervalsIds: intervalsIds ?? bodies.map(() => null),
+    keys: keys ?? bodies.map(rowKeyOf),
     matchedCount: bodies.length,
     hasMore: false,
   };
+}
+
+function rowKeyOf(body: string, index: number): string {
+  try {
+    return (JSON.parse(body) as { id: string }).id;
+  } catch {
+    return `row-${index}`;
+  }
 }
 
 let client: QueryClient;
@@ -136,6 +148,27 @@ describe('useActivities', () => {
       ['demo-ride-1', null],
       ['local-ride-1', null],
       ['local-ride-2', 'i900'],
+    ]);
+  });
+
+  it('names an uploaded recording by the row that holds it, not by the server id in its body', async () => {
+    engine.getActivityBodies.mockReturnValue(
+      page(
+        [
+          JSON.stringify({ id: 'i900', name: 'Uploaded' }),
+          JSON.stringify({ id: 'i901', name: 'Synced' }),
+        ],
+        ['i900', 'i901'],
+        ['local-ride-1', 'i901']
+      )
+    );
+
+    const { result } = renderHook(() => useActivities({ days: 30 }), { wrapper });
+
+    await waitFor(() => expect(result.current.data?.length).toBe(2));
+    expect(result.current.data?.map((a) => [a.id, a.intervalsWebId])).toEqual([
+      ['local-ride-1', 'i900'],
+      ['i901', 'i901'],
     ]);
   });
 

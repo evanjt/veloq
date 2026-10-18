@@ -6,7 +6,7 @@
  */
 
 import React, { useMemo } from 'react';
-import { Pressable, View, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 import Svg, { Polyline } from 'react-native-svg';
@@ -15,10 +15,9 @@ import {
   Card,
   EmptyState,
   IconButton,
-  pressable,
-  pressRipple,
   ScreenSafeAreaView,
   ScreenScrollView,
+  PressTarget,
 } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
 import { EngineReadPlaceholder } from '@/shared/app/EngineUnavailableState';
@@ -145,16 +144,15 @@ function NamedCorridorsScreenContent() {
                   ) : (
                     // The text beside the footprint opens the section, named by the
                     // link line, so the target is the block and not one line of it.
-                    <Pressable
+                    <PressTarget
                       testID={`named-corridor-${corridor.intentId}-open`}
                       onPress={() => navigateTo(`/section/${corridor.sectionId}`)}
-                      style={pressable(styles.body)}
-                      android_ripple={pressRipple}
+                      style={styles.body}
                       accessibilityRole="link"
                       accessibilityLabel={onSection(corridor)}
                     >
                       {details}
-                    </Pressable>
+                    </PressTarget>
                   )}
                   <IconButton
                     testID={`named-corridor-${corridor.intentId}-delete`}

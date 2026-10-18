@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Pressable, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import {
@@ -19,14 +19,13 @@ import {
   DetailHero,
   HERO_GRADIENT_HEIGHT,
   HeroStatsRow,
-  pressable,
-  pressRipple,
+  PressTarget,
 } from '@/shared/ui';
 import { heroTextStyles } from '@/shared/ui/DetailHero';
-import type { ActivityDetail, ActivityStreams } from '@/types';
+import { toActivityType, type ActivityStreams } from '@/types';
 import { formatDateTime } from '@/shared/format/format';
 import { activityHeroStats } from '../lib/activityHeroStats';
-import { engine } from 'veloqrs';
+import { engine, type ActivityRecord } from 'veloqrs';
 import type { LatLng } from '@/shared/geo/polyline';
 import { colors, mapTextShadow, opacity, spacing, typography } from '@/theme';
 import { CONFIRM_HOLD_MS } from '@/shared/ui/holdDurations';
@@ -34,7 +33,7 @@ import { chooseAction, inform } from '@/shared/ui/dialog';
 import { NameText } from '@/shared/ui/NameText';
 
 interface ActivityHeaderProps {
-  activity: ActivityDetail;
+  activity: ActivityRecord;
   activityId: string;
   coordinates: LatLng[];
   /** Whether the engine holds the track, so the map draws it from the engine's URL */
@@ -113,7 +112,7 @@ export const ActivityHeader = React.memo(function ActivityHeader({
       overlay={
         <>
           {debugEnabled ? (
-            <Pressable
+            <PressTarget
               accessibilityRole="button"
               accessibilityLabel={activity.name}
               testID="activity-detail-name"
@@ -146,11 +145,10 @@ export const ActivityHeader = React.memo(function ActivityHeader({
                   ],
                 });
               }}
-              style={(state) => [pressable()(state), styles.namePressable]}
-              android_ripple={pressRipple}
+              style={styles.namePressable}
             >
               <NameText style={heroTextStyles.name}>{activity.name}</NameText>
-            </Pressable>
+            </PressTarget>
           ) : (
             <NameText
               testID="activity-detail-name"
@@ -163,7 +161,9 @@ export const ActivityHeader = React.memo(function ActivityHeader({
           )}
 
           <View style={styles.metaRow} pointerEvents="none">
-            <Text style={styles.activityDate}>{formatDateTime(activity.start_date_local)}</Text>
+            <Text style={styles.activityDate}>
+              {activity.startDateLocal ? formatDateTime(activity.startDateLocal) : null}
+            </Text>
             <HeroStatsRow
               testID="activity-detail-stats"
               style={styles.inlineStats}
@@ -178,7 +178,7 @@ export const ActivityHeader = React.memo(function ActivityHeader({
         <ActivityMapView
           coordinates={coordinates}
           hasStoredTrack={hasStoredTrack}
-          activityType={activity.type}
+          activityType={toActivityType(activity.sportType)}
           activityId={activity.id}
           streams={streams}
           height={mapHeight}

@@ -66,6 +66,7 @@ function announce(channel: string) {
 const page = (bodies: string[]) => ({
   bodies,
   intervalsIds: bodies.map(() => null),
+  keys: bodies.map((body) => (JSON.parse(body) as { id: string }).id),
   matchedCount: bodies.length,
   hasMore: false,
 });

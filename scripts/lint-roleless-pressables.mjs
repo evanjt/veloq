@@ -8,10 +8,11 @@
 // file still carries. A file above its baseline fails, a file the baseline never listed fails, and
 // a file the tree has already beaten fails with the flag to paste back.
 //
-// Counted: an opening `<TouchableOpacity`, `<Pressable` or `<AnimatedPressable` tag, read to its
-// closing `>`, that holds neither `accessibilityRole` nor a `{...props}` spread. A spread forwards
-// the role from the caller, which the caller is counted for. An icon that takes the press itself,
-// a tag whose name ends in `Icon` or `Icons` and that carries `onPress`, is a press target too.
+// Counted: an opening `<TouchableOpacity`, `<Pressable`, `<PressTarget` or `<AnimatedPressable`
+// tag, read to its closing `>`, that holds neither `accessibilityRole` nor a `{...props}` spread.
+// A spread forwards the role from the caller, which the caller is counted for. An icon that takes
+// the press itself, a tag whose name ends in `Icon` or `Icons` and that carries `onPress`, is a
+// press target too.
 //
 // Not counted: `src/shared/ui/` and tests.
 //
@@ -39,7 +40,7 @@ const WRITE = process.argv.includes('--write');
 
 const EXEMPT = ['src/shared/ui/', 'src/__tests__/'];
 
-const OPENING = /<(?:TouchableOpacity|Pressable|AnimatedPressable)(?=[\s/>])/g;
+const OPENING = /<(?:TouchableOpacity|Pressable|PressTarget|AnimatedPressable)(?=[\s/>])/g;
 const ICON_OPENING = /<([A-Z]\w*Icons?)(?=[\s/>])/g;
 const PRESSED = /\bonPress\b/;
 
@@ -58,7 +59,7 @@ function openingTag(text, start) {
 const SPREAD = /\{\s*\.\.\.\w+\s*\}/;
 const NAMED = /\baccessibilityLabel\b|\baria-label\b/;
 const TEXT_CHILD = /<[\w.]*Text(?=[\s/>])/;
-const PRESS_TAG = /<\/?(?:TouchableOpacity|Pressable|AnimatedPressable)(?=[\s/>])/g;
+const PRESS_TAG = /<\/?(?:TouchableOpacity|Pressable|PressTarget|AnimatedPressable)(?=[\s/>])/g;
 
 /**
  * The children of the press target opening at `start`, with any nested press target's own

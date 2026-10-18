@@ -12,6 +12,7 @@
  */
 
 import {
+  activityTypeColors,
   brand,
   colors,
   colourTokens,
@@ -149,9 +150,6 @@ describe('body text clears AA on every surface it is drawn on', () => {
   const TEXT_VARIANTS = [
     'chartFtpText',
     'formOptimalText',
-    'rideText',
-    'runText',
-    'swimText',
     'chartHrvText',
     'chartRhrText',
   ] as const;
@@ -312,7 +310,7 @@ describe('the widget stale age line clears AA on its surface', () => {
  * graphical object and owes 3:1.
  *
  * Expected behaviour: the mark-grade tokens clear it on every surface they are
- * drawn on. `chartGold` and the emerald `run` fill do not, which is why the mark tokens
+ * drawn on. `chartGold` and the emerald run track do not, which is why the mark tokens
  * exist beside them.
  */
 describe('a mark that carries its own meaning clears AA for a graphical object', () => {
@@ -343,7 +341,7 @@ describe('a mark that carries its own meaning clears AA for a graphical object',
   });
 
   it('is a lift of the chart tones, which are the ones that fail', () => {
-    expect(contrastRatio(colors.run, colors.surface)).toBeLessThan(AA_MARK);
+    expect(contrastRatio(activityTypeColors.Run, colors.surface)).toBeLessThan(AA_MARK);
   });
 });
 
@@ -364,7 +362,7 @@ const MARK_FAMILY = {
 /** The fill token each mark tone darkens, and which is why it exists. */
 const MARK_REPLACES = {
   markCyan: colors.chartCyan,
-  markGreen: colors.run,
+  markGreen: activityTypeColors.Run,
   markAmber: colors.chartAmber,
 };
 

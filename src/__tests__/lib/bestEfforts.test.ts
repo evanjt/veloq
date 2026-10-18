@@ -33,6 +33,7 @@ describe('formatClimbValue', () => {
     vam,
     wattsPerKg,
     activityId: undefined,
+    activity: undefined,
   });
 
   it('writes a short window as W/kg and a long one as m/h', () => {

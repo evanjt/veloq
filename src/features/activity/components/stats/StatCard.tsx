@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import {
   chartStreamColour,
   darkColors,
@@ -16,10 +16,9 @@ import {
 import {
   composeAccessibilityLabel,
   KeyDot,
-  pressable,
-  pressRipple,
   StatTile,
   useTextScaleColumns,
+  PressTarget,
 } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 
@@ -43,12 +42,11 @@ export const StatCard = React.memo(function StatCard({ stat, isDark, onPress }: 
   const styles = themedStyles(makeStyles, isDark);
   const width = cardWidth(useTextScaleColumns(GRID_COLUMNS));
   return (
-    <Pressable
+    <PressTarget
       accessibilityRole="button"
       accessibilityLabel={composeAccessibilityLabel(stat.title, stat.value, stat.context)}
       onPress={() => onPress(stat)}
-      style={pressable([styles.statCard, { width }])}
-      android_ripple={pressRipple}
+      style={[styles.statCard, { width }]}
     >
       {/* The icon names the measure in the secondary ink; only a stream measure
           carries a colour, as the dot that keys it to its chart line. */}
@@ -68,7 +66,7 @@ export const StatCard = React.memo(function StatCard({ stat, isDark, onPress }: 
         caption={stat.context}
         accessible={false}
       />
-    </Pressable>
+    </PressTarget>
   );
 });
 

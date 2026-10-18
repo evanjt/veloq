@@ -32,6 +32,7 @@ export {
   sectionSwipeKind,
   type SectionSwipeKind,
   SectionTrimOverlay,
+  SectionTrimToolBar,
   SportTypeSelector,
   SyncDebugSection,
   TodayBanner,
@@ -39,6 +40,7 @@ export {
 export { type RoutesSortOption } from './components/RoutesList';
 export {
   SectionActionRow,
+  SectionOverflowMenu,
   SectionContentArea,
   SectionDebugPanel,
   SectionDetailLinks,
@@ -142,6 +144,7 @@ export { createMapHighlightStore } from './lib/mapHighlight';
 export { routeHeadline } from './lib/routeHeadline';
 export { heroStats, scopeLabels } from './lib/heroStats';
 export { directionColour } from './lib/directionColour';
+export { PLOT_LABEL_KEYS } from './lib/performancePanel';
 export {
   DEFAULT_SECTION_HIDE_FLAGS,
   groupSortFor,

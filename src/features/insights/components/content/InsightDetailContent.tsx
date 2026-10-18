@@ -21,7 +21,7 @@ interface InsightContentProps {
 /** The flat list, for a category with no screen of its own. */
 function SupportingDataOnly({ insight }: InsightContentProps) {
   if (!insight.supportingData) return null;
-  return <SupportingDataSection data={insight.supportingData} />;
+  return <SupportingDataSection data={insight.supportingData} category={insight.category} />;
 }
 
 /**

@@ -35,6 +35,7 @@ function encounter(overrides: Partial<SectionEncounter> & { sectionId: string })
     visitCount: 8,
     historyTimes: [],
     historyActivityIds: [],
+    historyDates: [],
     ...overrides,
   };
 }
@@ -255,13 +256,14 @@ describe('SectionInlinePlot', () => {
         isPr: true,
         historyTimes: [140, 150],
         historyActivityIds: ['act-1', 'act-0'],
+        historyDates: [1_700_000_000, 1_700_086_400],
       }),
       encounter({ sectionId: 'sec-63', direction: 'reverse', lapTime: 150, rank: 2 }),
     ]);
 
     expect(getByRole('button').props.accessibilityLabel).toBe(
       'Mont d’Orge, sections.forward, 1.2 km, sections.traversalsCount, 2:20, a11y.personalRecord, ' +
-        'sections.reverse, 1.2 km, 2:30, sections.placeSecond'
+        'charts.summary.series, sections.reverse, 1.2 km, 2:30, sections.placeSecond'
     );
   });
 

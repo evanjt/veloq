@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useCallback, useState, useEffect } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { RangeCoverage } from 'veloqrs';
@@ -22,7 +22,7 @@ import {
 import { formFromLoads } from '@/shared/math';
 import { sortByDateId } from '@/shared/activity/activityUtils';
 import { formatLocalDate, formatShortDate } from '@/shared/format/format';
-import { ChartErrorBoundary, EmptyState, pressable, pressRipple } from '@/shared/ui';
+import { ChartErrorBoundary, EmptyState, PressTarget } from '@/shared/ui';
 import {
   ChartCanvas,
   ChartCrosshair,
@@ -328,12 +328,11 @@ export const FitnessChart = React.memo(function FitnessChart({
           </View>
           <View style={[styles.valuesRow, largeText && styles.valuesWrapped]}>
             {/* Each line's readout is its legend entry and the switch that shows or hides it. */}
-            <Pressable
+            <PressTarget
               accessibilityRole="switch"
               accessibilityLabel={t('fitness.fitnessCTL')}
               accessibilityState={{ checked: visibleLines.fitness }}
-              style={pressable([styles.readoutSwitch, !visibleLines.fitness && styles.lineHidden])}
-              android_ripple={pressRipple}
+              style={[styles.readoutSwitch, !visibleLines.fitness && styles.lineHidden]}
               onPress={() => toggleLine('fitness')}
               hitSlop={READOUT_SLOP}
             >
@@ -353,13 +352,12 @@ export const FitnessChart = React.memo(function FitnessChart({
               >
                 {fitnessText}
               </Text>
-            </Pressable>
-            <Pressable
+            </PressTarget>
+            <PressTarget
               accessibilityRole="switch"
               accessibilityLabel={t('fitness.fatigueATL')}
               accessibilityState={{ checked: visibleLines.fatigue }}
-              style={pressable([styles.readoutSwitch, !visibleLines.fatigue && styles.lineHidden])}
-              android_ripple={pressRipple}
+              style={[styles.readoutSwitch, !visibleLines.fatigue && styles.lineHidden]}
               onPress={() => toggleLine('fatigue')}
               hitSlop={READOUT_SLOP}
             >
@@ -379,7 +377,7 @@ export const FitnessChart = React.memo(function FitnessChart({
               >
                 {fatigueText}
               </Text>
-            </Pressable>
+            </PressTarget>
             <View style={styles.valueItem}>
               <View style={styles.keyedLabel}>
                 {formZone ? (
@@ -461,21 +459,11 @@ export const FitnessChart = React.memo(function FitnessChart({
                               color={chartColors.fitness}
                               isDark={isDark}
                             />
-                            <CurveLine
-                              points={points.fitness}
-                              color={chartColors.casing}
-                              strokeWidth={chartStroke.casing}
-                            />
                             <CurveLine points={points.fitness} color={chartColors.fitness} />
                           </>
                         ) : null}
                         {visibleLines.fatigue ? (
                           <>
-                            <CurveLine
-                              points={points.fatigue}
-                              color={chartColors.casing}
-                              strokeWidth={chartStroke.casing}
-                            />
                             <CurveLine points={points.fatigue} color={chartColors.fatigue} />
                           </>
                         ) : null}

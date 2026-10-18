@@ -14,8 +14,9 @@ import { render, renderHook } from '@testing-library/react-native';
 import { InsightfulStats } from '@/features/activity/components/stats/InsightfulStats';
 import { HRZonesChart } from '@/features/activity/components/HRZonesChart';
 import { useActivityStats } from '@/features/activity/components/stats/useActivityStats';
-import type { Activity } from '@/types';
+
 import { MaxHrSource } from 'veloqrs';
+import { activityRecord } from '../__shared__/activityRecord';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysWithValues());
@@ -26,16 +27,16 @@ jest.mock('@/shared/app', () => ({
   useMetricSystem: () => mockIsMetric,
 }));
 
-const ride = {
+const ride = activityRecord({
   id: 'a1',
-  type: 'Ride',
+  sportType: 'Ride',
   name: 'Ride',
-  start_date_local: '2026-09-05T08:00:00',
-  average_weather_temp: 30,
-  average_wind_speed: 5,
-  average_heartrate: 150,
-  has_weather: true,
-} as Activity;
+  startDateLocal: '2026-09-05T08:00:00',
+  weatherTemp: 30,
+  windSpeed: 5,
+  avgHr: 150,
+  hasWeather: true,
+});
 
 beforeEach(() => {
   mockIsMetric = true;
@@ -43,7 +44,7 @@ beforeEach(() => {
 
 describe('InsightfulStats', () => {
   it('shows the engine impact beside training load', async () => {
-    const activity = { ...ride, icu_training_load: 100 } as Activity;
+    const activity = activityRecord({ ...ride, trainingLoad: 100 });
     const impact = {
       fitness: 100 / 42,
       fatigue: 100 / 7,
@@ -91,7 +92,7 @@ describe('InsightfulStats', () => {
 
 describe('the fitness impact explanation', () => {
   const explanation = async (fitnessDays: number, fatigueDays: number) => {
-    const activity = { ...ride, icu_training_load: 100 } as Activity;
+    const activity = activityRecord({ ...ride, trainingLoad: 100 });
     const fitnessImpact = {
       fitness: 100 / fitnessDays,
       fatigue: 100 / fatigueDays,
@@ -121,7 +122,7 @@ describe('the fitness impact explanation', () => {
 });
 
 describe('the heart rate card over a default max HR', () => {
-  const runner = { ...ride, type: 'Run', average_heartrate: 170 } as Activity;
+  const runner = activityRecord({ ...ride, sportType: 'Run', avgHr: 170 });
   const heartRateCard = async (maxHR: number, maxHrSource: MaxHrSource) => {
     const { result } = await renderHook(() =>
       useActivityStats({ activity: runner, isMetric: true, maxHR, maxHrSource })

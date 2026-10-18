@@ -18,7 +18,9 @@ import { useActivityIntervals } from '@/features/activity/hooks/useActivities';
 import { getEngine } from '@/shared/native/engine';
 import type { EngineBodyStatus } from '@/shared/native/engineBodies';
 import { layout } from '@/theme/layout';
-import type { ActivityDetail, ActivityInterval } from '@/types';
+import type { ActivityInterval } from '@/types';
+import { activityRecord } from '../__shared__/activityRecord';
+import { IntervalKind, type ActivityRecord } from 'veloqrs';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
@@ -40,7 +42,7 @@ jest.mock('@/shared/ui', () => {
     BodyNotDownloaded: jest.requireActual('@/shared/ui/BodyNotDownloaded').BodyNotDownloaded,
     CardHeader: jest.requireActual('@/shared/ui/CardHeader').CardHeader,
     IconButton: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-    pressable: (style: unknown) => style,
+    PressTarget: require('react-native').Pressable,
     ComponentErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     DeviceAttribution: () => null,
     DisclosureChevron: () => null,
@@ -77,7 +79,7 @@ jest.mock('@/shared/debug/useFFITimer', () => ({
 }));
 
 const engine = {
-  getIntervalBody: jest.fn(),
+  getActivityIntervals: jest.fn(),
   syncActivityIntervals: jest.fn(),
   subscribe: jest.fn(() => () => {}),
   getBodiesStored: jest.fn(() => 0),
@@ -93,20 +95,29 @@ function wrapper({ children }: { children: React.ReactNode }) {
 }
 
 const intervals: ActivityInterval[] = [
-  { type: 'WORK', zone: 3, moving_time: 300, start_index: 0, end_index: 100 },
-] as unknown as ActivityInterval[];
+  {
+    id: 1,
+    kind: IntervalKind.Work,
+    zone: 3,
+    movingTime: 300,
+    startTime: 0,
+    endTime: 300,
+    startIndex: 0,
+    endIndex: 100,
+  },
+];
 
-function activity(): ActivityDetail {
-  return {
+function activity(): ActivityRecord {
+  return activityRecord({
     id: 'act-1',
-    type: 'Ride',
+    sportType: 'Ride',
     name: 'Morning ride',
-    start_date_local: '2026-09-12T07:00:00',
-  } as unknown as ActivityDetail;
+    startDateLocal: '2026-09-12T07:00:00',
+  });
 }
 
 function renderSection(props: {
-  intervalsData?: { icu_intervals: ActivityInterval[] };
+  intervalsData?: ActivityInterval[];
   intervalsOutcome?: 'loaded' | 'empty' | 'pending';
   intervalsStatus?: EngineBodyStatus;
   onRetryIntervals?: () => void;
@@ -141,7 +152,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
-  engine.getIntervalBody.mockReturnValue(null);
+  engine.getActivityIntervals.mockReturnValue(null);
 });
 
 afterEach(() => {
@@ -153,11 +164,11 @@ describe('the intervals hook', () => {
     const { result } = await renderHook(() => useActivityIntervals('act-1'), { wrapper });
 
     await waitFor(() => expect(result.current.outcome).toBe('pending'));
-    expect(result.current.data.icu_intervals).toEqual([]);
+    expect(result.current.data).toEqual([]);
   });
 
   it('says a fetched body with no laps is empty', async () => {
-    engine.getIntervalBody.mockReturnValue(JSON.stringify({ icu_intervals: [], icu_groups: [] }));
+    engine.getActivityIntervals.mockReturnValue({ intervals: [] });
 
     const { result } = await renderHook(() => useActivityIntervals('act-1'), { wrapper });
 
@@ -165,13 +176,12 @@ describe('the intervals hook', () => {
   });
 
   it('says a fetched body with laps is loaded', async () => {
-    engine.getIntervalBody.mockReturnValue(
-      JSON.stringify({ icu_intervals: intervals, icu_groups: [] })
-    );
+    engine.getActivityIntervals.mockReturnValue({ intervals });
 
     const { result } = await renderHook(() => useActivityIntervals('act-1'), { wrapper });
 
     await waitFor(() => expect(result.current.outcome).toBe('loaded'));
+    expect(result.current.data).toEqual(intervals);
   });
 
   it('hands back the wait for a body never fetched, and a retry that asks again', async () => {
@@ -182,15 +192,6 @@ describe('the intervals hook', () => {
 
     result.current.retryBody();
     await waitFor(() => expect(engine.syncActivityIntervals).toHaveBeenCalledTimes(2));
-  });
-
-  /** A body that will not parse is a corrupt row, and re-asking is what fixes it. */
-  it('says pending for a body that will not parse', async () => {
-    engine.getIntervalBody.mockReturnValue('{not json');
-
-    const { result } = await renderHook(() => useActivityIntervals('act-1'), { wrapper });
-
-    await waitFor(() => expect(result.current.outcome).toBe('pending'));
   });
 });
 
@@ -237,7 +238,7 @@ describe('the charts section with no intervals', () => {
 
   it('draws the table, and no caveat, once the laps are there', async () => {
     const { getByTestId, queryByTestId } = await renderSection({
-      intervalsData: { icu_intervals: intervals },
+      intervalsData: intervals,
       intervalsOutcome: 'loaded',
     });
 
@@ -249,7 +250,7 @@ describe('the charts section with no intervals', () => {
 describe('the intervals bar', () => {
   it('reaches the tap-target floor, since the card clips any hit slop', () => {
     const { getByLabelText } = renderSection({
-      intervalsData: { icu_intervals: intervals },
+      intervalsData: intervals,
       intervalsOutcome: 'loaded',
     });
 

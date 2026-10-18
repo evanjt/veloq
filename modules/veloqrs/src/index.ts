@@ -41,17 +41,19 @@ import {
   type FfiBestEffort,
   type FfiClimbBests,
   type FfiClimbBest,
-  type FfiTrainingScreenData,
-  type FfiTrainingScreenWindows,
   type FfiSummaryComparison,
   type FfiStatTrend,
   type FfiFitnessScreenData,
+  type FfiFitnessScreenWindows,
   type FfiLoadDot,
   type FfiPreviewTrack,
   type FfiActivityStreams,
   type FfiActivityDetailData,
   type FfiActivityFitnessImpact,
   type FfiActivitySummary,
+  type FfiActivityRecord,
+  type FfiActivityInterval,
+  FfiIntervalKind,
   type FfiActivityLedgerChange,
   type FfiHrZoneBand,
   type FfiPowerZoneBand,
@@ -237,13 +239,12 @@ export type BestEffort = FfiBestEffort;
 export { FfiBestEffortKind as BestEffortKind } from './generated/veloqrs';
 export type ClimbBests = FfiClimbBests;
 export type ClimbBest = FfiClimbBest;
-// Training screen types
-export type TrainingScreenData = FfiTrainingScreenData;
-export type TrainingScreenWindows = FfiTrainingScreenWindows;
+// Weekly card comparison types
 export type SummaryComparison = FfiSummaryComparison;
 export type StatTrend = FfiStatTrend;
 // Fitness screen types
 export type FitnessScreenData = FfiFitnessScreenData;
+export type FitnessScreenWindows = FfiFitnessScreenWindows;
 /** One activity as the fitness strip marks it and its day picker lists it. */
 export type LoadDot = FfiLoadDot;
 export type PreviewTrack = FfiPreviewTrack;
@@ -253,6 +254,11 @@ export type ActivityStreamBuffers = FfiActivityStreams;
 export type ActivityDetailData = FfiActivityDetailData;
 export type ActivityFitnessImpact = FfiActivityFitnessImpact;
 export type ActivitySummary = FfiActivitySummary;
+/** One stored activity typed as the detail screen reads it. */
+export type ActivityRecord = FfiActivityRecord;
+/** One lap of an activity, as the lap table, the chart bands and the chips read it. */
+export type ActivityInterval = FfiActivityInterval;
+export { FfiIntervalKind as IntervalKind };
 export type ActivityLedgerChange = FfiActivityLedgerChange;
 export type HrZoneBand = FfiHrZoneBand;
 export type PowerZoneBand = FfiPowerZoneBand;
@@ -296,6 +302,14 @@ export type {
   FfiMuscleGroup as MuscleGroup,
   FfiActivityNotification as ActivityNotification,
 } from './generated/veloqrs';
+// Pool swim types
+export type {
+  FfiPoolSwim as PoolSwim,
+  FfiPoolLength as PoolLength,
+  FfiPoolStrokeTotal as PoolStrokeTotal,
+} from './generated/veloqrs';
+export { FfiPoolSwimState as PoolSwimState } from './generated/veloqrs';
+export { FfiPoolUnit as PoolUnit } from './generated/veloqrs';
 
 export const engine = EngineClient.getInstance();
 

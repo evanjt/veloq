@@ -1221,18 +1221,17 @@ const RULES = {
           }
           for (const [, value] of region.matchAll(/(?<![A-Za-z])color:([^,}\n]*)/g)) {
             for (const [, holder, token] of value.matchAll(
-              /(?<![A-Za-z.])(colors|darkColors|chartColors|SPORT_COLORS|brand)\.([A-Za-z0-9_]+)/g
+              /(?<![A-Za-z.])(colors|darkColors|chartColors|brand)\.([A-Za-z0-9_]+)/g
             )) {
               const ground =
-                holder === 'SPORT_COLORS' ||
                 (holder === 'brand' && !brandText.includes(token)) ||
                 (holder === 'chartColors' &&
                   grounds.includes(`chart${token[0].toUpperCase()}${token.slice(1)}`)) ||
                 ((holder === 'colors' || holder === 'darkColors') && grounds.includes(token));
               if (ground) offenders.push({ file, token: `${holder}.${token}` });
             }
-            if (/(?<![A-Za-z.])ACTIVITY_CATEGORIES\b[^?:]*?\??\.color\b/.test(value)) {
-              offenders.push({ file, token: 'ACTIVITY_CATEGORIES[…].color' });
+            if (/(?<![A-Za-z.])sportMarkColour\(/.test(value)) {
+              offenders.push({ file, token: 'sportMarkColour()' });
             }
           }
         }

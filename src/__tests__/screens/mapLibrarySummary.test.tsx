@@ -34,10 +34,6 @@ jest.mock('@/features/maps', () => ({
   ...jest.requireActual('@/features/maps/lib/filterSheet'),
   ATTRIBUTION_CLEARANCE: 26,
   AttributionOverlay: () => null,
-  ACTIVITY_CATEGORIES: {
-    Ride: { color: 'blue', labelKey: 'ride', types: ['Ride'] },
-    Run: { color: 'red', labelKey: 'run', types: ['Run'] },
-  },
   FILTER_CHIP: { fill: 'teal', ink: 'black' },
   DEFAULT_MAP_PERIOD: 'all',
   getPeriodStart: (period: string) => new Date(period === 'all' ? '2000-01-01' : '2026-01-01'),
@@ -86,7 +82,7 @@ jest.mock('@/shared/ui', () => {
     ErrorState: jest.requireActual('@/shared/ui/ErrorState').ErrorState,
     useBottomClearance: jest.requireActual('@/shared/ui/tabBarClearance').useBottomClearance,
     Shimmer: () => null,
-    pressable: (style: unknown) => style,
+    PressTarget: require('react-native').Pressable,
   };
 });
 

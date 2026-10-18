@@ -25,7 +25,6 @@ function activityLayers(creationMode: boolean): MapLayerSpec[] {
   return buildActivityLayers({
     palette: mapPalette('light'),
     overlayHasData: true,
-    activityColor: '#123456',
     gradientActive: false,
     gradientLineExpression: null,
     hasSectionOverlays: true,

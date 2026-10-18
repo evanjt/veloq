@@ -18,8 +18,7 @@ const input = (deltaLineStops: (string | number)[] | null) =>
     highlightedTraceFilter: undefined,
     hasAllTraces: false,
     endpoints: empty,
-    activityColor: '#123456',
-    sectionOpacity: 1,
+    sectionContext: false,
     trimRange: null,
     hasExtension: false,
     showExtensionAndSection: true,
@@ -56,7 +55,7 @@ describe('section map delta line', () => {
 
   it('keeps the flat colour without delta stops', () => {
     const paint = sectionLine(null).paint as Record<string, unknown>;
-    expect(paint['line-color']).toBe('#123456');
+    expect(paint['line-color']).toBe(mapPalette('light').route);
     expect(paint['line-gradient']).toBeUndefined();
   });
 });

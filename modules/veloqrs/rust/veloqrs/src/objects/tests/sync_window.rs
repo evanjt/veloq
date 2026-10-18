@@ -83,8 +83,7 @@ fn test_failed_census_uses_fixed_window_despite_stored_rows() {
         Transport::with_governor(server.base_url(), AuthMethod::ApiKey("k"), governor).unwrap();
     let outcome = crate::runtime::block_on(sync_activity_history_summary(
         crate::persistence::engine_install(),
-        &transport,
-        "i1",
+        &crate::net::IntervalsSession::new(transport.clone(), "i1"),
     ));
     assert!(outcome.is_err());
 
@@ -119,8 +118,7 @@ fn test_failed_census_uses_fixed_window_despite_stored_rows() {
         Transport::with_governor(activities.base_url(), AuthMethod::ApiKey("k"), governor).unwrap();
     crate::runtime::block_on(sync_activity_windows(
         crate::persistence::engine_install(),
-        &transport,
-        "i1",
+        &crate::net::IntervalsSession::new(transport.clone(), "i1"),
         &windows,
         LIBRARY_HISTORY,
         &|| false,
@@ -277,8 +275,7 @@ fn test_failed_body_write_keeps_changed_day_owed() {
         Transport::with_governor(server.base_url(), AuthMethod::ApiKey("k"), governor).unwrap();
     let result = crate::runtime::block_on(sync_activity_window(
         crate::persistence::engine_install(),
-        &transport,
-        "i1",
+        &crate::net::IntervalsSession::new(transport.clone(), "i1"),
         day,
         day,
         None,
@@ -341,8 +338,7 @@ fn test_failed_metrics_write_rolls_back_body_and_leaves_summary_owed() {
         Transport::with_governor(server.base_url(), AuthMethod::ApiKey("k"), governor).unwrap();
     crate::runtime::block_on(sync_activity_window(
         crate::persistence::engine_install(),
-        &transport,
-        "i1",
+        &crate::net::IntervalsSession::new(transport.clone(), "i1"),
         day,
         day,
         None,
@@ -414,8 +410,7 @@ fn test_changed_summary_invalidates_stored_interval_body() {
         Transport::with_governor(server.base_url(), AuthMethod::ApiKey("k"), governor).unwrap();
     crate::runtime::block_on(sync_activity_window(
         crate::persistence::engine_install(),
-        &transport,
-        "i1",
+        &crate::net::IntervalsSession::new(transport.clone(), "i1"),
         day,
         day,
         None,
@@ -428,8 +423,7 @@ fn test_changed_summary_invalidates_stored_interval_body() {
     .unwrap();
     crate::runtime::block_on(sync_interval_bodies(
         crate::persistence::engine_install(),
-        &transport,
-        "i1",
+        &crate::net::IntervalsSession::new(transport.clone(), "i1"),
         &|| false,
         &|_, _| {},
     ))
@@ -532,8 +526,7 @@ fn test_launch_plans_old_changed_rows_without_old_never_fetched_rows() {
         Transport::with_governor(server.base_url(), AuthMethod::ApiKey("k"), governor).unwrap();
     crate::runtime::block_on(sync_activity_windows(
         crate::persistence::engine_install(),
-        &transport,
-        "i1",
+        &crate::net::IntervalsSession::new(transport.clone(), "i1"),
         &windows,
         LIBRARY_HISTORY,
         &|| false,
@@ -648,8 +641,7 @@ fn test_old_changed_head_prefetch_keeps_never_fetched_body_outside_library() {
         Transport::with_governor(server.base_url(), AuthMethod::ApiKey("k"), governor).unwrap();
     crate::runtime::block_on(sync_newest_activities(
         crate::persistence::engine_install(),
-        &transport,
-        "i1",
+        &crate::net::IntervalsSession::new(transport.clone(), "i1"),
         &windows,
         &|| false,
     ))
@@ -774,8 +766,7 @@ fn test_scattered_old_changes_keep_unchanged_days_outside_windows() {
         Transport::with_governor(server.base_url(), AuthMethod::ApiKey("k"), governor).unwrap();
     crate::runtime::block_on(sync_activity_windows(
         crate::persistence::engine_install(),
-        &transport,
-        "i1",
+        &crate::net::IntervalsSession::new(transport.clone(), "i1"),
         &windows,
         LIBRARY_HISTORY,
         &|| false,
@@ -911,8 +902,7 @@ fn test_a_list_page_stores_the_decoupling_it_asked_for() {
     let sync = || {
         crate::runtime::block_on(sync_activity_window(
             crate::persistence::engine_install(),
-            &transport_to(server.base_url()),
-            "i1",
+            &crate::net::IntervalsSession::new(transport_to(server.base_url()), "i1"),
             &day,
             &day,
             None,

@@ -211,14 +211,14 @@ describe('a bars history', () => {
   });
 
   it('draws bars, not a line, in the supporting data', async () => {
-    await render(<SupportingDataSection data={{ history: weekly }} />);
+    await render(<SupportingDataSection data={{ history: weekly }} category="period_comparison" />);
     await layout();
 
     expect(bars()).toHaveLength(weeks.length);
   });
 
   it('stands its bars on zero', async () => {
-    await render(<SupportingDataSection data={{ history: weekly }} />);
+    await render(<SupportingDataSection data={{ history: weekly }} category="period_comparison" />);
     await layout();
 
     const [bottom] = screen.UNSAFE_getByType(CurveChart).props.yDomain as [number, number];

@@ -51,6 +51,8 @@ export interface ContextMenuAction {
   onPress: () => void;
   /** Set on a checkable item, its state; absent on a plain action. */
   checked?: boolean | undefined;
+  /** Removes or deletes something: drawn in the error text, and placed last by the caller. */
+  destructive?: boolean | undefined;
 }
 
 export interface ContextMenuGroup {
@@ -156,14 +158,18 @@ function MenuRow({
   closeOnSelect,
   textColor,
   mutedColor,
+  destructiveColor,
 }: {
   item: MenuPopupAction;
   onDismiss: () => void;
   closeOnSelect: boolean;
   textColor: string;
   mutedColor: string;
+  destructiveColor: string;
 }) {
   const checkable = item.checked !== undefined;
+  const labelColor = item.destructive ? destructiveColor : textColor;
+  const glyphColor = item.destructive ? destructiveColor : mutedColor;
   return (
     <PressTarget
       accessibilityRole="menuitem"
@@ -176,8 +182,8 @@ function MenuRow({
       }}
       style={styles.row}
     >
-      {item.icon ? <Icon name={item.icon} size={iconSize.md} color={mutedColor} /> : null}
-      <Text style={[styles.rowLabel, { color: textColor }]}>{item.label}</Text>
+      {item.icon ? <Icon name={item.icon} size={iconSize.md} color={glyphColor} /> : null}
+      <Text style={[styles.rowLabel, { color: labelColor }]}>{item.label}</Text>
       {checkable ? (
         <Icon
           name="check"
@@ -208,6 +214,7 @@ export function MenuPopup({
   const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
   const hairline = isDark ? darkColors.border : colors.border;
+  const destructiveColor = isDark ? darkColors.errorText : colors.errorText;
   const openAllowed = useOpenAllowed(visible);
 
   return (
@@ -250,6 +257,7 @@ export function MenuPopup({
                   closeOnSelect={closeOnSelect}
                   textColor={textColor}
                   mutedColor={mutedColor}
+                  destructiveColor={destructiveColor}
                 />
               ))}
             </View>
@@ -261,6 +269,7 @@ export function MenuPopup({
               closeOnSelect={closeOnSelect}
               textColor={textColor}
               mutedColor={mutedColor}
+              destructiveColor={destructiveColor}
             />
           )
         )}
@@ -284,6 +293,7 @@ function nativeAction(item: ContextMenuAction) {
       key={item.key}
       icon={item.systemIcon}
       {...(item.checked !== undefined && { isOn: item.checked })}
+      {...(item.destructive && { destructive: true })}
       onPress={item.onPress}
     >
       {item.label}

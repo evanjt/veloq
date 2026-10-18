@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme, useMetricSystem } from '@/shared/app';
-import { getActivityInk } from '@/shared/activity/activityUtils';
+import { sportMarkColour } from '@/shared/activity/sportCategories';
 import { formatEpochDayUtc } from '@/shared/format/format';
 import { formatWeight } from '@/shared/format/weight';
 import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
@@ -46,7 +46,7 @@ function ExerciseDetailScreen() {
   const sessions = useMemo(() => data?.sessions ?? [], [data]);
   const trend = useMemo(() => exerciseTrendSamples(sessions), [sessions]);
   const formatEstimate = useCallback((value: number) => formatWeight(value, isMetric), [isMetric]);
-  const trendColor = getActivityInk('WeightTraining', isDark);
+  const trendColor = sportMarkColour('WeightTraining', isDark);
 
   return (
     <ScreenScrollView

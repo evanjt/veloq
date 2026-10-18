@@ -18,6 +18,7 @@ import {
   Spinner,
 } from '@/shared/ui';
 import { logScreenRender } from '@/shared/debug/renderTimer';
+import { toActivityType } from '@/types';
 import { useLocalSearchParams, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import {
@@ -48,6 +49,7 @@ import { useGpxExport, useDebugStore, useMapPreferences } from '@/features/setti
 import { useActivityMapChoices } from '../hooks/useActivityMapChoices';
 import { routeOverlayLine } from '../lib/routeOverlayLine';
 import { ActivitySummaryStrip } from './ActivitySummaryStrip';
+import { PoolLengthsTable, showsPoolLengthsTab } from './PoolLengthsTable';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
 import { waitEnded } from '@/shared/native/engineBodies';
@@ -60,7 +62,6 @@ import {
   submitSectionCreation,
   type TerrainCamera,
 } from '@/features/maps';
-import { formatPrDelta, formatPrImprovement } from '@/shared/format/format';
 import type { RouteGroup as NativeRouteGroup, Section as NativeSection } from 'veloqrs';
 import { useExerciseSets, ExerciseTable, MuscleGroupView } from '@/features/strength';
 import { useAthlete } from '@/shared/app/useAthlete';
@@ -121,12 +122,12 @@ export function ActivityDetailScreenContent({
   const detailReadFailed = !detail && detailError !== undefined;
 
   // Get the activity date for wellness lookup
-  const activityDate = activity?.start_date_local?.split('T')[0];
+  const activityDate = activity?.startDateLocal?.split('T')[0];
   const { data: activityWellness } = useWellnessForDate(activityDate);
 
   // Tab state for swipeable tabs
-  type TabType = 'charts' | 'exercises' | 'routes' | 'sections';
-  const validTabs: TabType[] = ['charts', 'exercises', 'routes', 'sections'];
+  type TabType = 'charts' | 'exercises' | 'lengths' | 'routes' | 'sections';
+  const validTabs: TabType[] = ['charts', 'exercises', 'lengths', 'routes', 'sections'];
   const initialTab = validTabs.includes(tab as TabType) ? (tab as TabType) : 'charts';
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
 
@@ -165,7 +166,7 @@ export function ActivityDetailScreenContent({
   // Get matched route for this activity
   const { routeGroup: matchedRoute } = useRouteMatch(id, detail?.routeGroups ?? NO_ROUTE_GROUPS);
 
-  // Route PR delta for the Routes tab badge (negative = ahead of PR)
+  // The route result the Routes page opens with, read from the highlight the feed card reads
   const activityIdsForHighlights = useMemo(() => (id ? [id] : []), [id]);
   const { routes: routeHighlightsMap, newGround: newGroundMap } = useActivitySectionHighlights(
     activityIdsForHighlights,
@@ -183,10 +184,12 @@ export function ActivityDetailScreenContent({
   const pinnedScrollMaxHeight =
     windowHeight * LARGE_TEXT_PINNED_FRACTION - (hasGpsData ? mapHeight : 0);
   const isRouteMatchingOn = useRouteSettings((s) => s.settings.enabled);
-  const isStrength = activity?.type === 'WeightTraining';
-  const { data: exerciseSets } = useExerciseSets(id || '', activity?.type ?? '');
+  const isStrength = activity?.sportType === 'WeightTraining';
+  const { data: exerciseSets } = useExerciseSets(id || '', activity?.sportType ?? '');
   const { data: athlete } = useAthlete();
   const hasExercises = (exerciseSets?.length ?? 0) > 0;
+  const poolSwim = detail?.poolSwim ?? null;
+  const hasLengths = showsPoolLengthsTab(poolSwim);
 
   // Memoised so a chart scrub, which re-renders this screen per touch move,
   // hands the hooks the same bundle wrapper rather than a fresh literal.
@@ -270,29 +273,19 @@ export function ActivityDetailScreenContent({
         icon: 'dumbbell',
       });
     }
+    if (hasLengths) {
+      allTabs.push({
+        key: 'lengths',
+        label: t('activityDetail.tabs.lengths'),
+        icon: 'swim',
+      });
+    }
     if (hasGpsData && isRouteMatchingOn) {
-      const routeBadge: {
-        badgeText?: string;
-        badgeTone?: NonNullable<SwipeableTab['badgeTone']>;
-      } = {};
-      if (routeHighlight) {
-        if (routeHighlight.isPr) {
-          const improvement = formatPrImprovement(routeHighlight.prImprovementSeconds);
-          routeBadge.badgeText = t('activityDetail.routePrBadge', {
-            improvement: improvement ?? '',
-          }).trim();
-          routeBadge.badgeTone = 'pr';
-        } else if (routeHighlight.timeDeltaSeconds != null && routeHighlight.timeDeltaSeconds > 0) {
-          routeBadge.badgeText = formatPrDelta(routeHighlight.timeDeltaSeconds);
-          routeBadge.badgeTone = 'negative';
-        }
-      }
       allTabs.push(
         {
           key: 'routes',
           label: t('activityDetail.tabs.route'),
           icon: 'map-marker-path',
-          ...routeBadge,
         },
         {
           key: 'sections',
@@ -303,7 +296,7 @@ export function ActivityDetailScreenContent({
       );
     }
     return allTabs;
-  }, [t, isStrength, hasGpsData, isRouteMatchingOn, sectionCardCount, routeHighlight]);
+  }, [t, isStrength, hasLengths, hasGpsData, isRouteMatchingOn, sectionCardCount]);
 
   // Handle chart point selection
   const handlePointSelect = useCallback((index: number | null) => {
@@ -336,7 +329,9 @@ export function ActivityDetailScreenContent({
   );
 
   // Restore saved 3D camera angle, or auto-calculate based on terrain mode
-  const terrain3DMode = activity?.type ? getTerrain3DMode(activity.type, activity?.id) : 'off';
+  const terrain3DMode = activity?.sportType
+    ? getTerrain3DMode(toActivityType(activity.sportType), activity.id)
+    : 'off';
 
   const saved3DCamera = useMemo(() => {
     if (!activity?.id || terrain3DMode === 'off') return null;
@@ -345,7 +340,7 @@ export function ActivityDetailScreenContent({
       mode: terrain3DMode,
       coordinates: lngLatCoords,
       altitude: streams?.altitude,
-      gain: activity.total_elevation_gain,
+      gain: activity.elevationGain,
       distance: activity.distance,
       override: getActivityCamera(activity.id) ?? null,
     });
@@ -395,8 +390,8 @@ export function ActivityDetailScreenContent({
         exportGpx({
           name: activity.name || 'Activity',
           points: coordinates,
-          time: activity.start_date_local,
-          sport: activity.type,
+          ...(activity.startDateLocal !== undefined && { time: activity.startDateLocal }),
+          ...(activity.sportType !== undefined && { sport: activity.sportType }),
           anchor,
         });
       }
@@ -636,11 +631,21 @@ export function ActivityDetailScreenContent({
           >
             <ExerciseTable
               activityId={id}
-              activityType={activity.type}
+              activityType={toActivityType(activity.sportType)}
               isDark={isDark}
               athleteSex={athlete?.sex}
               exerciseGroups={detail?.exerciseGroups}
             />
+          </ScrollView>
+        ) : null}
+
+        {/* Lengths (only for a pool swim with lengths, or one still owed its file) */}
+        {hasLengths && poolSwim ? (
+          <ScrollView
+            style={styles.exercisesTab}
+            contentContainerStyle={styles.exercisesTabContent}
+          >
+            <PoolLengthsTable poolSwim={poolSwim} />
           </ScrollView>
         ) : null}
 
@@ -654,11 +659,12 @@ export function ActivityDetailScreenContent({
         {hasGpsData && !detailReadFailed ? (
           <ActivityRoutesSection
             activityId={activity.id}
-            activityType={activity.type}
+            activityType={toActivityType(activity.sportType)}
             hasMatchedRoute={!!matchedRoute}
             routeImprovementSeconds={
               routeHighlight?.isPr ? (routeHighlight.prImprovementSeconds ?? null) : null
             }
+            routeGapSeconds={routeHighlight?.timeDeltaSeconds ?? null}
             cacheDays={cacheDays}
             isDark={isDark}
           />
@@ -668,7 +674,7 @@ export function ActivityDetailScreenContent({
         {hasGpsData && !detailReadFailed ? (
           <ActivitySectionsSection
             activityId={id}
-            sportType={activity.type}
+            sportType={toActivityType(activity.sportType)}
             encounters={encounters}
             ledgerChanges={detail?.ledgerChanges}
             coordinates={coordinates}

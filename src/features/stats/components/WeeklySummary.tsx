@@ -1,5 +1,4 @@
 import React, { useMemo, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import { View, StyleSheet } from 'react-native';
 import { getISOWeekNumber, formatWeekRange } from '@/features/fitness';
 import { useTheme, useMetricSystem } from '@/shared/app';
@@ -18,12 +17,12 @@ import {
   formatDurationHuman,
 } from '@/shared/format/format';
 import { useWindowCoverage } from '@/shared/native/useRangeCoverage';
-import {
-  useTrainingScreenData,
-  type PeriodTotals,
-  type StatMove,
-  type SummaryRange,
-  type SummaryStat,
+import type {
+  PeriodTotals,
+  StatMove,
+  SummaryRange,
+  SummaryStat,
+  TrainingCardsRead,
 } from '@/features/stats/hooks/useEngineStats';
 import {
   CardHeader,
@@ -35,7 +34,6 @@ import {
   ToggleButton,
   type StatTileDelta,
 } from '@/shared/ui';
-import { queryKeys } from '@/shared/query/queryKeys';
 
 type TimeRange = SummaryRange;
 
@@ -124,17 +122,21 @@ function StatsGridSkeleton() {
   );
 }
 
-export function WeeklySummary() {
+interface WeeklySummaryProps {
+  /** The card's part of the fitness screen read, which the screen makes once. */
+  training: TrainingCardsRead;
+}
+
+export function WeeklySummary({ training }: WeeklySummaryProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
   const [timeRange, setTimeRange] = useState<TimeRange>('week');
-  const queryClient = useQueryClient();
 
-  // Every range's two windows, totals and moves come from the training read,
-  // judged once by the engine, so a tap between ranges reads nothing and the
-  // week says what the home card says.
-  const { data, isPending, error: readError } = useTrainingScreenData();
+  // Every range's two windows, totals and moves come from the fitness screen
+  // read, judged once by the engine, so a tap between ranges reads nothing
+  // and the week says what the home card says.
+  const { data, isPending, error: readError, retry } = training;
   const comparison = data.comparisons?.[timeRange] ?? null;
   const currentStats = comparison?.current ?? NO_TOTALS;
   const rangeTexts = useMemo(
@@ -177,10 +179,6 @@ export function WeeklySummary() {
   // The engine read settles in a tick; once it has, the empty-state branch
   // handles a period with nothing in it rather than spinning indefinitely.
   const isLoading = isPending;
-
-  const retry = () => {
-    void queryClient.invalidateQueries({ queryKey: queryKeys.stats.training.all });
-  };
 
   // Show empty state if no activities in current period
   if (readError != null || (!isLoading && currentStats.count === 0)) {

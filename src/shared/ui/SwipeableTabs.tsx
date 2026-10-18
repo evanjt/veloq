@@ -60,16 +60,13 @@ export interface SwipeableTab {
   key: string;
   label: string;
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  /** A tab names a place, so its badge is a count at most; a result lives on its page. */
   count?: number;
-  /** Free-form badge text shown in place of `count` (e.g. "-12s", "+5s"). */
-  badgeText?: string;
-  /** Visual tone for `badgeText`. Ignored when `count` is used. */
-  badgeTone?: 'neutral' | 'positive' | 'negative' | 'pr';
 }
 
-/** A tab's name with the badge it draws, the badge text in place of the count as on screen. */
+/** A tab's name with the count it draws. */
 function tabAccessibilityLabel(tab: SwipeableTab): string {
-  return composeAccessibilityLabel(tab.label, tab.badgeText ?? tab.count);
+  return composeAccessibilityLabel(tab.label, tab.count);
 }
 
 interface SwipeableTabsProps {
@@ -92,23 +89,9 @@ function tabInk(isActive: boolean, isDark: boolean): string {
   return isActive ? palette.textPrimary : palette.textSecondary;
 }
 
-/**
- * The badge tone a tab's count or badge text draws in. A count is a count on
- * the selected tab and quiet on the others; a result names its own meaning,
- * so a slower time reads as a decline in both themes rather than as grey.
- */
-export function tabBadgeTone(tab: SwipeableTab, isActive: boolean): BadgeTone {
-  if (tab.badgeText === undefined) return isActive ? 'count' : 'neutral';
-  switch (tab.badgeTone) {
-    case 'pr':
-      return 'record';
-    case 'positive':
-      return 'positive';
-    case 'negative':
-      return 'negative';
-    default:
-      return 'neutral';
-  }
+/** A count is a count on the selected tab and quiet on the others. */
+function tabBadgeTone(isActive: boolean): BadgeTone {
+  return isActive ? 'count' : 'neutral';
 }
 
 function TabContent({
@@ -125,7 +108,6 @@ function TabContent({
   onLayout?: (event: LayoutChangeEvent) => void;
 }) {
   const ink = tabInk(isActive, isDark);
-  const badge = tab.badgeText ?? tab.count;
   return (
     <View testID={testID} style={styles.tabContent} onLayout={onLayout}>
       <Icon name={tab.icon} size={iconSize.md} color={ink} />
@@ -139,11 +121,11 @@ function TabContent({
       >
         {tab.label}
       </Text>
-      {badge !== undefined ? (
+      {tab.count !== undefined ? (
         <Badge
-          tone={tabBadgeTone(tab, isActive)}
+          tone={tabBadgeTone(isActive)}
           size="sm"
-          text={badge}
+          text={tab.count}
           isDark={isDark}
           testID={`tab-badge-${tab.key}`}
         />

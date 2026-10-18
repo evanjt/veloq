@@ -13,16 +13,19 @@
 import { act, fireEvent, render, renderHook, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
+import { StyleSheet, Text } from 'react-native';
 import { RangeCoverage } from 'veloqrs';
 
 import ChartDataSheet from '@/app/sheets/chart-data';
 import { ActivityHeatmap } from '@/features/stats/components/ActivityHeatmap';
 import { initialiseI18n } from '@/i18n';
+import { chartStyles } from '@/theme';
 import { getEngine } from '@/shared/native/engine';
 import { useSheetRequest } from '@/shared/app/sheetRequest';
 import { localDay } from '../__shared__/clockEdges';
-import { trainingScreenRead } from '../__shared__/trainingScreenRead';
+import { fitnessScreenRead } from '../__shared__/fitnessScreenRead';
 import { dayStartEpochSeconds } from '@/shared/time/startDate';
+import { WithScreenRead } from '../__shared__/withScreenRead';
 
 const mockPush = jest.fn();
 const mockParams: { request?: string } = {};
@@ -67,11 +70,15 @@ const heatmapDays = jest.fn((_firstDay: string, _lastDay: string) => [
 
 const engine = {
   subscribe: () => () => {},
-  getTrainingScreenData: trainingScreenRead({ heatmap: heatmapDays }),
+  getFitnessScreenData: fitnessScreenRead({ heatmap: heatmapDays }),
   getActivityBodies: jest.fn((start: number, _end: number) => {
     const day = Object.keys(BODIES).find((d) => dayStartEpochSeconds(d) === start);
     const bodies = day ? BODIES[day] : [];
-    return { bodies, intervalsIds: bodies.map(() => null) };
+    return {
+      bodies,
+      intervalsIds: bodies.map(() => null),
+      keys: bodies.map((body) => (JSON.parse(body) as { id: string }).id),
+    };
   }),
   rangeCoverage: jest.fn(() => RangeCoverage.Loaded),
 };
@@ -85,7 +92,12 @@ function wrapper({ children }: { children: React.ReactNode }) {
 const pushedRoutes = () => mockPush.mock.calls.map(([target]) => target);
 
 async function renderHeatmap(props: { drawn?: boolean } = {}) {
-  const view = await render(<ActivityHeatmap {...props} />, { wrapper });
+  const view = await render(
+    <WithScreenRead>
+      {(training) => <ActivityHeatmap training={training} {...props} />}
+    </WithScreenRead>,
+    { wrapper }
+  );
   await waitFor(() => expect(view.getByTestId('activity-heatmap-count')).toBeTruthy());
   return view;
 }
@@ -115,6 +127,25 @@ describe('ActivityHeatmap legend', () => {
     expect(view.getByText('Over 2 h')).toBeTruthy();
     expect(view.queryByText('Less')).toBeNull();
     expect(view.queryByText('More')).toBeNull();
+  });
+});
+
+describe('ActivityHeatmap labels', () => {
+  it('sets the month, weekday and legend labels at the chart label size or above', async () => {
+    const view = await renderHeatmap();
+
+    for (const part of [
+      'activity-heatmap-months',
+      'activity-heatmap-gutter',
+      'activity-heatmap-legend',
+    ]) {
+      const labels = view.getByTestId(part).findAll((node) => node.type === Text);
+      expect(labels.length).toBeGreaterThan(0);
+      for (const label of labels) {
+        const style = StyleSheet.flatten(label.props.style) as { fontSize?: number };
+        expect(style.fontSize).toBeGreaterThanOrEqual(chartStyles.chartLabel.fontSize);
+      }
+    }
   });
 });
 

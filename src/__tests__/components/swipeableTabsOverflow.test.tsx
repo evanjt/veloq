@@ -16,7 +16,7 @@ import { StyleSheet } from 'react-native';
 import { act, fireEvent, render, within } from '@testing-library/react-native';
 import { advanceAnimationByTime, getAnimatedStyle } from '../__shared__/reanimatedJest';
 
-import { SwipeableTabs } from '@/shared/ui';
+import { SwipeableTabs, flattenStyle } from '@/shared/ui';
 import { spacing, typography } from '@/theme';
 
 jest.mock('expo-haptics', () => ({
@@ -109,9 +109,7 @@ describe('the tab strip when labels are measured', () => {
     await measure([60, wide, 60]);
     await act(() => advanceAnimationByTime(300));
 
-    expect(StyleSheet.flatten(getAnimatedStyle(getByTestId('tab-indicator')))?.width).toBe(
-      wide + PADDING
-    );
+    expect(flattenStyle(getAnimatedStyle(getByTestId('tab-indicator'))).width).toBe(wide + PADDING);
   });
 
   it('never limits a label to a line that can cut it off', async () => {

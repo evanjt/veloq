@@ -7,7 +7,11 @@ import { Icon } from '@/shared/ui/Icon';
 import { formatDistance, formatShortDateWithYear } from '@/shared/format/format';
 import { spokenDistance } from '@/shared/format/spoken';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
-import { ACTIVITY_CATEGORIES, getActivityCategory } from '@/shared/activity/sportCategories';
+import {
+  getActivityCategory,
+  sportFamilyLabel,
+  sportMarkColour,
+} from '@/shared/activity/sportCategories';
 import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import type { ActivityBoundsItem } from '@/types';
 import { NameText } from '@/shared/ui/NameText';
@@ -61,8 +65,7 @@ export function MapNameSearch({
           {results.map((a) => {
             const date = formatShortDateWithYear(new Date(a.date));
             const distance = formatDistance(a.distance, isMetric);
-            const category = ACTIVITY_CATEGORIES[getActivityCategory(a.type)];
-            const sport = t(category.label);
+            const sport = t(sportFamilyLabel(getActivityCategory(a.type)));
             return (
               <Row
                 key={a.id}
@@ -80,7 +83,7 @@ export function MapNameSearch({
                   testID={`map-search-result-${a.id}-icon`}
                   name={getActivityIcon(a.type)}
                   size={iconSize.md}
-                  color={category.color}
+                  color={sportMarkColour(a.type, isDark)}
                 />
                 <NameText style={[styles.resultName, isDark && styles.textOnDark]}>
                   {a.name}

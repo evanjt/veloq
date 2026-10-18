@@ -2,7 +2,6 @@ import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   ScrollView,
-  Pressable,
   Platform,
   StyleSheet,
   type LayoutChangeEvent,
@@ -34,8 +33,7 @@ import {
   DeviceAttribution,
   DisclosureChevron,
   IconButton,
-  pressable,
-  pressRipple,
+  PressTarget,
 } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { DebugInfoPanel, DebugWarningBanner } from '@/features/routes';
@@ -46,6 +44,7 @@ import type {
   HrZoneBand,
   PowerZoneBand,
   ActivityFitnessImpact,
+  ActivityRecord,
   ActivitySummary,
   MaxHrSource,
 } from 'veloqrs';
@@ -62,12 +61,12 @@ import { fullscreenPlotFrame } from '@/features/activity/lib/fullscreenPlotFrame
 import { fullscreenPlotOrientation } from '@/features/activity/lib/fullscreenPlotOrientation';
 import { formatDurationHuman } from '@/shared/format/format';
 import { type ChartTypeId } from '@/features/activity/lib/chartConfig';
-import type {
-  ActivityDetail,
-  ActivityStreams as StreamsData,
-  ActivityInterval,
-  ActivityType,
-  WellnessData,
+import {
+  toActivityType,
+  type ActivityStreams as StreamsData,
+  type ActivityInterval,
+  type ActivityType,
+  type WellnessData,
 } from '@/types';
 import {
   colorWithOpacity,
@@ -92,13 +91,13 @@ function defaultChartFor(type: ActivityType): ChartTypeId {
 }
 
 interface ActivityChartsSectionProps {
-  activity: ActivityDetail;
+  activity: ActivityRecord;
   activityId: string;
   streams: StreamsData | undefined;
   streamsDownloaded?: boolean | undefined;
   streamsStatus?: EngineBodyStatus | undefined;
   onRetryStreams?: (() => void) | undefined;
-  intervalsData: { icu_intervals: ActivityInterval[] } | undefined;
+  intervalsData: ActivityInterval[] | undefined;
   /**
    * Why `intervalsData` is empty. An empty lap list is either a steady ride
    * with no laps or a body the sync has not reached, and only the second of
@@ -174,6 +173,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
   onExportGpx,
 }: ActivityChartsSectionProps) {
   const { t } = useTranslation();
+  const sport = toActivityType(activity.sportType);
   const { getPageMetrics } = useFFITimer();
   const exportAnchor = useRef<ViewInstance>(null);
 
@@ -196,14 +196,14 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
   }, [belowFoldMounted, transitionSettled]);
 
   const effectiveChartConfigs = useMemo(
-    () => (activity ? chartConfigsFor(activity.type, summary?.cadenceUnit) : CHART_CONFIGS),
-    [activity, summary?.cadenceUnit]
+    () => (activity ? chartConfigsFor(sport, summary?.cadenceUnit) : CHART_CONFIGS),
+    [activity, sport, summary?.cadenceUnit]
   );
 
   // The streams this activity has data for, with speed or pace as its sport reads it.
   const availableCharts = useMemo(
-    () => (activity ? getAvailableCharts(streams || {}, activity.type, effectiveChartConfigs) : []),
-    [streams, activity, effectiveChartConfigs]
+    () => (activity ? getAvailableCharts(streams || {}, sport, effectiveChartConfigs) : []),
+    [streams, activity, sport, effectiveChartConfigs]
   );
 
   // Determine effective x-axis mode and whether toggle is available
@@ -215,7 +215,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
   // Initialise with single default chart when data loads. Set during render
   // rather than in an effect, so the first frame with streams already carries it.
   if (!chartsInitialised && availableCharts.length > 0 && activity) {
-    const defaultChart = defaultChartFor(activity.type);
+    const defaultChart = defaultChartFor(sport);
     const isDefaultAvailable = availableCharts.some((c) => c.id === defaultChart);
     const initialChart = isDefaultAvailable ? defaultChart : availableCharts[0].id;
     setSelectedCharts([initialChart]);
@@ -255,15 +255,15 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
 
   // The key above the intervals table, one chip per zone or role in its band's fill.
   const intervalZoneSummary = useMemo(() => {
-    if (!intervalsData?.icu_intervals || !activity) return [];
-    const scale = measuresPower(activity.type) ? 'power' : 'hr';
-    return intervalChips(intervalsData.icu_intervals, scale, isDark, t);
-  }, [intervalsData, activity, isDark, t]);
+    if (!intervalsData || !activity) return [];
+    const scale = measuresPower(sport) ? 'power' : 'hr';
+    return intervalChips(intervalsData, scale, isDark, t);
+  }, [intervalsData, activity, sport, isDark, t]);
 
   // Each block is gated on the source it reads. Only the chart needs a stream;
   // the intervals are a persisted column and both zone cards are the engine's
   // bands, which come from the activity body when no stream was fetched.
-  const hasIntervals = (intervalsData?.icu_intervals?.length ?? 0) > 0;
+  const hasIntervals = (intervalsData?.length ?? 0) > 0;
   const intervalsOwed = !hasIntervals && intervalsOutcome === 'pending';
   const hasHrZones = (hrZones?.length ?? 0) > 0;
   const hasPowerZones = (powerZones?.length ?? 0) > 0;
@@ -335,14 +335,14 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                   <View style={styles.streamsBody}>
                     <ActivityStreams
                       streams={streams}
-                      elevationGain={activity.total_elevation_gain}
+                      elevationGain={activity.elevationGain}
                       selectedCharts={selectedCharts}
                       chartConfigs={effectiveChartConfigs}
                       onPointSelect={onPointSelect}
                       onInteractionChange={onInteractionChange}
                       xAxisMode={effectiveXAxisMode}
-                      intervals={intervalsExpanded ? intervalsData?.icu_intervals : undefined}
-                      activityType={activity.type}
+                      intervals={intervalsExpanded ? intervalsData : undefined}
+                      activityType={sport}
                       onMetricsChange={handleMetricsChange}
                     />
                   </View>
@@ -350,7 +350,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
               </View>
             ) : null}
 
-            {/* Intervals zone bar. Its own source is `icu_intervals`, which is
+            {/* Intervals zone bar. Its own source is the stored lap list, which is
                 persisted whether or not the streams were ever fetched. */}
             {intervalsOwed ? (
               <View style={styles.cardFrame}>
@@ -370,12 +370,11 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
             {hasIntervals ? (
               <View testID="activity-interval-table" style={styles.cardFrame}>
                 <Card variant="raised" padding="none">
-                  <Pressable
+                  <PressTarget
                     accessibilityRole="button"
                     accessibilityLabel={t('activityDetail.tabs.intervals')}
                     accessibilityState={{ expanded: intervalsExpanded }}
-                    style={pressable([styles.intervalsBar, isDark && styles.intervalsBarDark])}
-                    android_ripple={pressRipple}
+                    style={[styles.intervalsBar, isDark && styles.intervalsBarDark]}
                     onPress={() => setIntervalsExpanded((v) => !v)}
                   >
                     <CardHeader
@@ -407,11 +406,11 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                         ))}
                       </View>
                     )}
-                  </Pressable>
-                  {intervalsExpanded && intervalsData?.icu_intervals ? (
+                  </PressTarget>
+                  {intervalsExpanded && intervalsData ? (
                     <IntervalsTable
-                      intervals={intervalsData.icu_intervals}
-                      activityType={activity.type}
+                      intervals={intervalsData}
+                      activityType={sport}
                       isMetric={isMetric}
                       isDark={isDark}
                     />
@@ -430,7 +429,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                         hrZones={hrZones}
                         maxHR={maxHR}
                         maxHrSource={maxHrSource}
-                        movingTime={activity.moving_time}
+                        movingTime={activity.movingTime}
                       />
                     </ComponentErrorBoundary>
                   </View>
@@ -446,8 +445,8 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                     <ComponentErrorBoundary part="powerZonesChart" debugName="Power Zones Chart">
                       <PowerZonesChart
                         powerZones={powerZones}
-                        ftp={activity.icu_ftp}
-                        movingTime={activity.moving_time}
+                        ftp={activity.ftp}
+                        movingTime={activity.movingTime}
                       />
                     </ComponentErrorBoundary>
                   </View>
@@ -488,9 +487,9 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
             )}
 
             {/* Device attribution */}
-            {activity.device_name ? (
+            {activity.deviceName ? (
               <View style={styles.deviceAttributionContainer}>
-                <DeviceAttribution deviceName={activity.device_name} />
+                <DeviceAttribution deviceName={activity.deviceName} />
               </View>
             ) : null}
 
@@ -538,7 +537,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                             label: 'Activity ID',
                             value: activityId?.slice(0, 24) ?? ABSENT,
                           },
-                          { label: 'Sport', value: activity.type ?? ABSENT },
+                          { label: 'Sport', value: activity.sportType ?? ABSENT },
                           {
                             label: 'GPS Points',
                             value: streams?.latlng ? String(gpsPoints) : ABSENT,
@@ -613,15 +612,15 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                 streams && selectedCharts.length > 0 ? (
                   <ActivityStreams
                     streams={streams}
-                    elevationGain={activity.total_elevation_gain}
+                    elevationGain={activity.elevationGain}
                     selectedCharts={selectedCharts}
                     chartConfigs={effectiveChartConfigs}
                     height={plotHeight}
                     onPointSelect={onPointSelect}
                     onInteractionChange={onInteractionChange}
                     xAxisMode={effectiveXAxisMode}
-                    intervals={intervalsExpanded ? intervalsData?.icu_intervals : undefined}
-                    activityType={activity.type}
+                    intervals={intervalsExpanded ? intervalsData : undefined}
+                    activityType={sport}
                     onMetricsChange={handleMetricsChange}
                   />
                 ) : null
@@ -677,20 +676,19 @@ function FullscreenPlotLayout({
         },
       ]}
     >
-      <Pressable
+      <PressTarget
         accessibilityRole="button"
         accessibilityLabel={closeLabel}
-        style={pressable([styles.fullscreenCloseButton, frame.closeButton])}
+        style={[styles.fullscreenCloseButton, frame.closeButton]}
         onPress={onClose}
         hitSlop={CLOSE_SLOP}
-        android_ripple={pressRipple}
       >
         <Icon
           name="close"
           size={iconSize.lg}
           color={isDark ? colors.textOnFill : colors.textPrimary}
         />
-      </Pressable>
+      </PressTarget>
 
       <View
         testID="fullscreen-chart-controls"

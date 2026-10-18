@@ -14,7 +14,6 @@ import { SectionPerformanceTimeline } from './SectionPerformanceTimeline';
 import { RecentEffortsList } from './RecentEffortsList';
 import { formatDuration, formatShortDate } from '@/shared/format/format';
 import {
-  brand,
   colors,
   darkColors,
   iconSize,
@@ -25,6 +24,7 @@ import {
   typography,
 } from '@/theme';
 import { prRecordOf } from '@/features/insights/lib/directionBests';
+import { insightGraphicColour } from '@/features/insights/lib/insightCategory';
 import type { Insight } from '@/types';
 import { NameText } from '@/shared/ui/NameText';
 import { Icon } from '@/shared/ui/Icon';
@@ -150,7 +150,11 @@ export const SectionPRContent = React.memo(function SectionPRContent({
           <Shimmer width="100%" height={160} borderRadius={8} />
         </View>
       ) : records.length >= 2 ? (
-        <SectionPerformanceTimeline records={records} bests={bests} lineColor={brand.gold} />
+        <SectionPerformanceTimeline
+          records={records}
+          bests={bests}
+          lineColor={insightGraphicColour(insight.category, isDark)}
+        />
       ) : null}
 
       {/* Recent efforts list */}

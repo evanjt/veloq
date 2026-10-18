@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Pressable, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useLanguageStore, languageLabel } from '@/shared/app/LanguageStore';
@@ -14,7 +14,7 @@ import {
   stroke,
 } from '@/theme';
 import { useTheme } from '@/shared/app';
-import { LanguageList, pressable, pressRipple } from '@/shared/ui';
+import { LanguageList, PressTarget } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 
 export const LanguagePicker = React.memo(function LanguagePicker() {
@@ -36,15 +36,14 @@ export const LanguagePicker = React.memo(function LanguagePicker() {
     <>
       {/* Language Selector - top right */}
       <View style={styles.languagePickerContainer}>
-        <Pressable
+        <PressTarget
           testID="login-language-button"
-          style={pressable([
+          style={[
             styles.languageButton,
             isDark && styles.languageButtonDark,
             isDialectSelected && styles.languageButtonDialect,
             isDialectSelected && isDark && styles.languageButtonDialectDark,
-          ])}
-          android_ripple={pressRipple}
+          ]}
           hitSlop={slopToMinTapTarget(LANGUAGE_BUTTON_HEIGHT)}
           onPress={() => setShowLanguages(!showLanguages)}
           accessibilityRole="button"
@@ -64,7 +63,7 @@ export const LanguagePicker = React.memo(function LanguagePicker() {
             size={iconSize.md}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
-        </Pressable>
+        </PressTarget>
       </View>
 
       {/* Language Dropdown */}

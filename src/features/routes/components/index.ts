@@ -16,7 +16,7 @@ export { DataRangeFooter } from './DataRangeFooter';
 export { DebugInfoPanel } from './DebugInfoPanel';
 export { DebugWarningBanner } from './DebugWarningBanner';
 export { SyncDebugSection } from './SyncDebugSection';
-export { SectionTrimOverlay } from './SectionTrimOverlay';
+export { SectionTrimOverlay, SectionTrimToolBar } from './SectionTrimOverlay';
 export { TodayBanner } from './TodayBanner';
 export { WorkoutStepBar } from './WorkoutStepBar';
 export { DetailFallback } from './DetailFallback';

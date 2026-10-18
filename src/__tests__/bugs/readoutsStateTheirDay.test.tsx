@@ -21,7 +21,8 @@ import { MethodologySection } from '@/features/insights/components/MethodologySe
 import { generateFitnessMilestoneInsights } from '@/features/insights/generators/fitnessMilestone';
 import type { Insight, InsightCategory, TFunc } from '@/features/insights/types';
 import { formatEpochDayUtc, formatLocalDate, formatShortDate } from '@/shared/format/format';
-import type { Activity, WellnessData } from '@/types';
+import type { WellnessData } from '@/types';
+import { activityRecord } from '../__shared__/activityRecord';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
@@ -44,16 +45,16 @@ afterEach(async () => {
 });
 
 describe('the activity cards on a past activity', () => {
-  const ride = {
+  const ride = activityRecord({
     id: 'march-ride',
-    type: 'Ride',
+    sportType: 'Ride',
     name: 'Harbour loop',
-    start_date_local: '2026-03-14T08:00:00',
-    icu_training_load: 80,
-    icu_intensity: 75,
-    average_heartrate: 142,
-    max_heartrate: 171,
-  } as Activity;
+    startDateLocal: '2026-03-14T08:00:00',
+    trainingLoad: 80,
+    intensity: 75,
+    avgHr: 142,
+    maxHr: 171,
+  });
   const marchWellness = {
     id: '2026-03-14',
     restingHR: 48,

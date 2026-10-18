@@ -5,16 +5,8 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CurveChart, useChartColors, type PlacedLabel } from '@/shared/charts';
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
-import {
-  colors,
-  typography,
-  spacing,
-  layout,
-  colorWithOpacity,
-  themedStyles,
-  type Palette,
-} from '@/theme';
-import { powerChartSeries } from '../lib/curveChartSeries';
+import { colors, typography, spacing, themedStyles, type Palette } from '@/theme';
+import { CURVE_PLOT_HEIGHT, powerChartSeries } from '../lib/curveChartSeries';
 import { usePowerCurve } from '../hooks/usePowerCurve';
 import { formatDurationHuman, formatEnergy, formatPower } from '@/shared/format/format';
 import { getCurrentLanguage } from '@/i18n';
@@ -28,14 +20,14 @@ interface PowerCurveChartProps {
   sport?: string | undefined;
   /** Number of days to include (default 365) */
   days?: number | undefined;
-  height?: number | undefined;
+  /** The plot's own height; the values row, toggle and model row take their own rows. */
+  plotHeight?: number | undefined;
   /** Chart color override */
   color?: string | undefined;
   /** FTP value for threshold line */
   ftp?: number | null | undefined;
 }
 
-const FTP_LINE_COLOR = colorWithOpacity(colors.chartGuideLine, 0.6);
 const X_TICKS_S = [5, 60, 300, 1200, 3600];
 
 let axisLabels: { language: string; labels: PlacedLabel[] } | null = null;
@@ -91,7 +83,7 @@ function formatValue(value: number, perKg: boolean, unit: string): string {
 export const PowerCurveChart = React.memo(function PowerCurveChart({
   sport,
   days = 365,
-  height = 200,
+  plotHeight = CURVE_PLOT_HEIGHT,
   color,
   ftp,
 }: PowerCurveChartProps) {
@@ -176,24 +168,37 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
     }),
     [t, perKg, unit]
   );
+  const weight = curve?.weight ?? 0;
   const referenceLine = useMemo(
-    () => (ftpValue ? { value: ftpValue, color: FTP_LINE_COLOR } : null),
-    [ftpValue]
+    () =>
+      ftpValue
+        ? {
+            value: ftpValue,
+            label: perKg
+              ? t('statsScreen.ftpLabelAtWeight', {
+                  value: formatValue(ftpValue, true, unit),
+                  weight: formatWeightRounded(weight, isMetric),
+                })
+              : t('statsScreen.ftpLabel', { value: formatValue(ftpValue, false, unit) }),
+            testID: 'power-curve-ftp-label',
+          }
+        : null,
+    [ftpValue, perKg, t, unit, weight, isMetric]
   );
 
   const awaitingBody = bodyStatus === 'waiting' && chartData.length === 0;
 
   if (isLoading || awaitingBody) {
     return (
-      <View style={[styles.container, { height }]} testID="power-curve-loading">
-        <CurveLoadingPlaceholder height={height} />
+      <View style={styles.container} testID="power-curve-loading">
+        <CurveLoadingPlaceholder plotHeight={plotHeight} />
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={[styles.container, { height }]}>
+      <View style={[styles.container, { minHeight: plotHeight }]}>
         <ErrorState
           variant="inline"
           error={error}
@@ -206,7 +211,7 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
 
   if (chartData.length === 0) {
     return (
-      <View style={[styles.container, { height }]}>
+      <View style={[styles.container, { minHeight: plotHeight }]}>
         <View style={styles.emptyState}>
           {coverage === RangeCoverage.NotFetched ? (
             <BodyNotDownloaded
@@ -229,7 +234,7 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
   const displayData = tooltipData || chartData[chartData.length - 1];
 
   return (
-    <View style={[styles.container, { height }]} testID="power-curve-chart">
+    <View style={styles.container} testID="power-curve-chart">
       {/* The scrubbed point, or the longest effort at rest; the section names the curve. */}
       <View style={styles.valuesRow}>
         <View style={styles.valueItem}>
@@ -282,6 +287,8 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
         referenceLine={referenceLine}
         xLabels={xLabels}
         formatY={formatY}
+        yAxisUnit={perKg ? unit : t('units.watts')}
+        plotHeight={plotHeight}
         reading={reading}
         topAxisTestID="power-curve-axis-top"
         describePoint={(p) =>
@@ -313,25 +320,6 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
           ))}
         </View>
       )}
-
-      {/* FTP Legend */}
-      {ftpValue ? (
-        <View style={styles.legend}>
-          <View style={[styles.legendDash, { backgroundColor: FTP_LINE_COLOR }]} />
-          <Text
-            maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-            testID="power-curve-ftp-legend"
-            style={styles.legendText}
-          >
-            {perKg
-              ? t('statsScreen.ftpLabelAtWeight', {
-                  value: formatValue(ftpValue, true, unit),
-                  weight: formatWeightRounded(curve.weight ?? 0, isMetric),
-                })
-              : t('statsScreen.ftpLabel', { value: formatValue(ftpValue, false, unit) })}
-          </Text>
-        </View>
-      ) : null}
     </View>
   );
 });
@@ -369,18 +357,6 @@ const makeStyles = (palette: Palette) =>
       ...typography.bodyCompact,
       color: palette.textSecondary,
     },
-    legend: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginTop: spacing.xs,
-      gap: spacing.xsPlus,
-    },
-    legendDash: {
-      width: spacing.md,
-      height: 2,
-      borderRadius: layout.borderRadiusFull,
-    },
     models: {
       flexDirection: 'row',
       flexWrap: 'wrap',
@@ -389,10 +365,6 @@ const makeStyles = (palette: Palette) =>
       columnGap: spacing.sm,
     },
     modelText: {
-      fontSize: typography.label.fontSize,
-      color: palette.textSecondary,
-    },
-    legendText: {
       fontSize: typography.label.fontSize,
       color: palette.textSecondary,
     },

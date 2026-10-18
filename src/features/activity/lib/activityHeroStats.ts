@@ -1,6 +1,6 @@
 import type { TFunction } from 'i18next';
 import type { HeroStat } from '@/shared/ui';
-import type { Activity } from '@/types';
+import type { ActivityRecord } from 'veloqrs';
 import { cardPrimaryStats } from './cardPrimaryStats';
 
 /**
@@ -12,11 +12,19 @@ import { cardPrimaryStats } from './cardPrimaryStats';
  * spoken by its name rather than the mark.
  */
 export function activityHeroStats(
-  activity: Pick<Activity, 'distance' | 'moving_time' | 'total_elevation_gain' | 'stream_types'>,
+  activity: Pick<ActivityRecord, 'distance' | 'movingTime' | 'elevationGain' | 'streamTypes'>,
   isMetric: boolean,
   t: TFunction
 ): [HeroStat | null, HeroStat, HeroStat | null] {
-  const stats = cardPrimaryStats(activity, isMetric);
+  const stats = cardPrimaryStats(
+    {
+      distance: activity.distance,
+      moving_time: activity.movingTime,
+      total_elevation_gain: activity.elevationGain,
+      stream_types: activity.streamTypes,
+    },
+    isMetric
+  );
   return [
     stats.distance != null ? labelled(t('activity.distance'), stats.distance) : null,
     labelled(t('activity.duration'), stats.duration),

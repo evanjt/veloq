@@ -477,6 +477,7 @@ pub(crate) mod pooled {
 
             let mut history_times: Vec<f64> = Vec::new();
             let mut history_ids: Vec<String> = Vec::new();
+            let mut history_dates: Vec<f64> = Vec::new();
 
             if trav.direction != "partial" {
                 let mut hist_stmt = match conn.prepare(&history_query) {
@@ -485,11 +486,18 @@ pub(crate) mod pooled {
                 };
                 if let Ok(rows) = hist_stmt.query_map(
                     rusqlite::params![trav.section_id, trav.direction, activity_id],
-                    |row| Ok((row.get::<_, f64>(0)?, row.get::<_, String>(1)?)),
+                    |row| {
+                        Ok((
+                            row.get::<_, f64>(0)?,
+                            row.get::<_, String>(1)?,
+                            row.get::<_, i64>(2)? as f64,
+                        ))
+                    },
                 ) {
-                    for row in rows.flatten() {
-                        history_times.push(row.0);
-                        history_ids.push(row.1);
+                    for (time, id, date) in rows.flatten() {
+                        history_times.push(time);
+                        history_ids.push(id);
+                        history_dates.push(date);
                     }
                 }
             }
@@ -533,6 +541,7 @@ pub(crate) mod pooled {
                 visit_count: history_times.len() as u32,
                 history_times,
                 history_activity_ids: history_ids,
+                history_dates,
             });
         }
 

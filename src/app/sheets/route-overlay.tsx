@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, View, StyleSheet, FlatList } from 'react-native';
+import { View, StyleSheet, FlatList } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
@@ -24,7 +24,7 @@ import {
 } from '@/theme';
 import type { ActivityType } from '@/types';
 import { engineErrorKey } from '@/shared/native/engineError';
-import { EmptyState, pressable, pressRipple, SheetHeader } from '@/shared/ui';
+import { EmptyState, SheetHeader, PressTarget } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { goBack } from '@/shared/app/navigation';
 import { NameText } from '@/shared/ui/NameText';
@@ -113,12 +113,11 @@ function RouteOverlaySheetContent() {
         cancelTestID="route-overlay-cancel"
       />
 
-      <Pressable
+      <PressTarget
         accessibilityRole="button"
         accessibilityState={{ selected: selectedRouteId == null }}
         testID="route-overlay-none"
-        style={pressable([styles.row, { borderBottomColor: border }])}
-        android_ripple={pressRipple}
+        style={[styles.row, { borderBottomColor: border }]}
         onPress={() => resolve(null)}
       >
         <Icon
@@ -131,7 +130,7 @@ function RouteOverlaySheetContent() {
         >
           {t('recording.routeOverlay.none', 'No route')}
         </Text>
-      </Pressable>
+      </PressTarget>
 
       {groupsError !== undefined ? (
         <View style={styles.failureLine}>
@@ -171,12 +170,11 @@ function RouteOverlaySheetContent() {
                 : ABSENT,
             ].join(' · ');
             return (
-              <Pressable
+              <PressTarget
                 accessibilityRole="button"
                 accessibilityState={{ selected: isSelected }}
                 testID={`route-overlay-option-${item.id}`}
-                style={pressable([styles.row, { borderBottomColor: border }])}
-                android_ripple={pressRipple}
+                style={[styles.row, { borderBottomColor: border }]}
                 onPress={() => resolve(item.id)}
               >
                 <Icon
@@ -200,7 +198,7 @@ function RouteOverlaySheetContent() {
                 {isSelected ? (
                   <Icon name="check" size={iconSize.md} color={palette.actionPrimary} />
                 ) : null}
-              </Pressable>
+              </PressTarget>
             );
           }}
         />

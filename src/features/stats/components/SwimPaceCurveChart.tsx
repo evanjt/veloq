@@ -5,19 +5,11 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CurveChart, useChartColors, type PlacedLabel } from '@/shared/charts';
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
-import {
-  colors,
-  typography,
-  spacing,
-  layout,
-  colorWithOpacity,
-  themedStyles,
-  type Palette,
-} from '@/theme';
+import { colors, typography, spacing, themedStyles, type Palette } from '@/theme';
 import { RangeCoverage } from 'veloqrs';
 import { BodyNotDownloaded, EmptyState, ErrorState } from '@/shared/ui';
 import { CurveLoadingPlaceholder } from './CurveLoadingPlaceholder';
-import { paceChartSeries } from '../lib/curveChartSeries';
+import { CURVE_PLOT_HEIGHT, paceAxisUnit, paceChartSeries } from '../lib/curveChartSeries';
 import { usePaceCurve } from '../hooks/usePaceCurve';
 import {
   formatDistance,
@@ -30,10 +22,11 @@ import {
 interface SwimPaceCurveChartProps {
   /** Number of days to include (default 365) */
   days?: number;
-  height?: number;
+  /** The plot's own height; the values row takes its own row above it. */
+  plotHeight?: number;
 }
 
-const CSS_LINE_COLOR = colorWithOpacity(colors.chartGuideLine, 0.6);
+// Pool distances, which stay in metres in every unit setting.
 const X_LABELS: PlacedLabel[] = [
   { label: '100m', value: Math.log10(100) },
   { label: '200m', value: Math.log10(200) },
@@ -69,7 +62,10 @@ interface ChartPoint {
   paceMs: number; // Original m/s for display
 }
 
-export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveChartProps) {
+export function SwimPaceCurveChart({
+  days = 365,
+  plotHeight = CURVE_PLOT_HEIGHT,
+}: SwimPaceCurveChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const styles = themedStyles(makeStyles, isDark);
@@ -147,23 +143,30 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
     if (!active) setTooltipData(null);
   }, []);
   const referenceLine = useMemo(
-    () => (cssPace ? { value: cssPace, color: CSS_LINE_COLOR } : null),
-    [cssPace]
+    () =>
+      cssPace
+        ? {
+            value: cssPace,
+            label: `${t('metrics.css')} ${formatMinSec(paceSecondsForUnit(cssPace, 'swim', isMetric))}${swimPaceUnitLabel(isMetric)}`,
+            testID: 'swim-pace-curve-css-label',
+          }
+        : null,
+    [cssPace, isMetric, t]
   );
 
   const awaitingBody = bodyStatus === 'waiting' && chartData.length === 0;
 
   if (isLoading || awaitingBody) {
     return (
-      <View style={[styles.container, { height }]}>
-        <CurveLoadingPlaceholder height={height} />
+      <View style={styles.container}>
+        <CurveLoadingPlaceholder plotHeight={plotHeight} />
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={[styles.container, { height }]}>
+      <View style={[styles.container, { minHeight: plotHeight }]}>
         <ErrorState
           variant="inline"
           error={error}
@@ -176,7 +179,7 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
 
   if (chartData.length === 0) {
     return (
-      <View style={[styles.container, { height }]}>
+      <View style={[styles.container, { minHeight: plotHeight }]}>
         <View style={styles.emptyState}>
           {coverage === RangeCoverage.NotFetched ? (
             <BodyNotDownloaded
@@ -199,7 +202,7 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
   const displayData = tooltipData || chartData[chartData.length - 1];
 
   return (
-    <View style={[styles.container, { height }]}>
+    <View style={styles.container}>
       {/* The scrubbed point, or the longest effort at rest; the section names the curve. */}
       <View style={styles.valuesRow}>
         <View style={styles.valueItem}>
@@ -245,6 +248,8 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
         referenceLine={referenceLine}
         xLabels={X_LABELS}
         formatY={formatPaceAxis}
+        yAxisUnit={paceAxisUnit(swimPaceUnitLabel(isMetric))}
+        plotHeight={plotHeight}
         reading={reading}
         crosshairMode="finger"
         describePoint={(p) =>
@@ -258,17 +263,6 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
         onInteractionChange={handleInteractionChange}
         held={isPlaceholderData}
       />
-
-      {/* CSS Legend */}
-      {cssPace ? (
-        <View style={styles.legend}>
-          <View style={[styles.legendDash, { backgroundColor: CSS_LINE_COLOR }]} />
-          <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.legendText}>
-            {t('metrics.css')} {formatMinSec(paceSecondsForUnit(cssPace, 'swim', isMetric))}
-            {swimPaceUnitLabel(isMetric)}
-          </Text>
-        </View>
-      ) : null}
     </View>
   );
 }
@@ -304,22 +298,6 @@ const makeStyles = (palette: Palette) =>
     },
     notDownloadedText: {
       ...typography.bodyCompact,
-      color: palette.textSecondary,
-    },
-    legend: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginTop: spacing.xs,
-      gap: spacing.xsPlus,
-    },
-    legendDash: {
-      width: spacing.md,
-      height: 2,
-      borderRadius: layout.borderRadiusFull,
-    },
-    legendText: {
-      fontSize: typography.label.fontSize,
       color: palette.textSecondary,
     },
   });

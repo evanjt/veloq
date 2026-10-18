@@ -14,8 +14,6 @@ function renderSelection(sectionPointCount: number) {
     <SectionCreationOverlay
       state="complete"
       startIndex={0}
-      endIndex={sectionPointCount - 1}
-      coordinateCount={sectionPointCount}
       sectionDistance={1000}
       sectionPointCount={sectionPointCount}
       onConfirm={jest.fn()}
@@ -28,15 +26,12 @@ function renderSelection(sectionPointCount: number) {
 describe('large section selection', () => {
   it('warns about processing time at both large sizes without claiming save will fail', async () => {
     const view = await renderSelection(5000);
-    await fireEvent.press(screen.getByText('1.0 km'));
     expect(screen.getByText('routes.largeSectionPerformanceWarning')).toBeTruthy();
 
     await view.rerender(
       <SectionCreationOverlay
         state="complete"
         startIndex={0}
-        endIndex={7999}
-        coordinateCount={8000}
         sectionDistance={1000}
         sectionPointCount={8000}
         onConfirm={jest.fn()}
@@ -61,8 +56,6 @@ describe('section creation technical details', () => {
       <SectionCreationOverlay
         state="error"
         startIndex={0}
-        endIndex={9}
-        coordinateCount={10}
         sectionDistance={1000}
         sectionPointCount={10}
         error={{ message: 'Could not save', technicalDetails: 'engine said no' }}

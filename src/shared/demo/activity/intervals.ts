@@ -1,9 +1,45 @@
-import type { ActivityInterval, IntervalsDTO, ActivityIntervalGroup } from '@/types';
 import { createActivitySeededRandom } from '@/data/demo/random';
 
 import { getActivity } from './activities';
 
-export function getActivityIntervals(id: string): IntervalsDTO {
+/** The summary keys an interval and a group both carry on the wire. */
+interface WireSummary {
+  distance?: number | undefined;
+  moving_time?: number | undefined;
+  elapsed_time?: number | undefined;
+  average_speed?: number | undefined;
+  average_heartrate?: number | undefined;
+  average_watts?: number | undefined;
+  weighted_average_watts?: number | undefined;
+  average_cadence?: number | undefined;
+  max_heartrate?: number | undefined;
+  max_watts?: number | undefined;
+  total_elevation_gain?: number | undefined;
+}
+
+/** An interval in the shape intervals.icu sends, with the keys the demo writes. */
+interface WireInterval extends WireSummary {
+  id: number;
+  type: 'WORK' | 'RECOVERY';
+  label: string | null;
+  start_index: number;
+  end_index: number;
+  start_time: number;
+  end_time: number;
+}
+
+interface WireGroup extends WireSummary {
+  id: string;
+  count: number;
+}
+
+/** An interval body as the engine stores it, for the demo to seed. */
+export interface DemoIntervalBody {
+  icu_intervals: WireInterval[];
+  icu_groups: WireGroup[];
+}
+
+export function getActivityIntervals(id: string): DemoIntervalBody {
   const activity = getActivity(id);
   if (!activity) return { icu_intervals: [], icu_groups: [] };
 
@@ -14,7 +50,7 @@ export function getActivityIntervals(id: string): IntervalsDTO {
   // Only generate intervals for cycling and running
   if (!isRide && !isRun) return { icu_intervals: [], icu_groups: [] };
 
-  const intervals: ActivityInterval[] = [];
+  const intervals: WireInterval[] = [];
   const splitDist = isRide ? 5000 : 1000; // 5km splits for rides, 1km for runs
   const totalDist = activity.distance;
   const numSplits = Math.max(2, Math.min(12, Math.floor(totalDist / splitDist)));
@@ -28,7 +64,7 @@ export function getActivityIntervals(id: string): IntervalsDTO {
     const segTime = Math.round(segDist / avgSpeed);
     const endIndex = currentIndex + Math.round(segTime / 5); // ~5 sec per sample
 
-    const interval: ActivityInterval = {
+    const interval: WireInterval = {
       id: i + 1,
       type: isWork ? 'WORK' : 'RECOVERY',
       label: isWork ? `Interval ${Math.ceil((i + 1) / 2)}` : null,
@@ -80,7 +116,7 @@ export function getActivityIntervals(id: string): IntervalsDTO {
 
   // Build a summary group
   const workIntervals = intervals.filter((i) => i.type === 'WORK');
-  const group: ActivityIntervalGroup = {
+  const group: WireGroup = {
     id: 'work',
     count: workIntervals.length,
     distance: workIntervals.reduce((s, i) => s + (i.distance ?? 0), 0),

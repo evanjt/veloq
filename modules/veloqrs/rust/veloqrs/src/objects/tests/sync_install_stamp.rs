@@ -46,8 +46,7 @@ fn an_activity_page_fetched_before_a_restore_is_not_written() {
 
     let outcome = crate::runtime::block_on(sync_activity_window(
         started,
-        &transport(&server),
-        "i1",
+        &crate::net::IntervalsSession::new(transport(&server), "i1"),
         "2025-06-01",
         "2025-06-05",
         None,
@@ -71,8 +70,7 @@ fn a_history_summary_fetched_before_a_restore_is_not_written() {
 
     let outcome = crate::runtime::block_on(sync_activity_history_summary(
         started,
-        &transport(&server),
-        "i1",
+        &crate::net::IntervalsSession::new(transport(&server), "i1"),
     ));
 
     assert!(matches!(outcome, Err(NetError::EngineClosed)));

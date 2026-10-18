@@ -232,8 +232,8 @@ describe('activity detail for an activity that is not stored', () => {
       data: {
         id: 'act-9',
         name: 'Trainer ride',
-        type: 'VirtualRide',
-        start_date_local: '2026-01-01T07:00:00',
+        sportType: 'VirtualRide',
+        startDateLocal: '2026-01-01T07:00:00',
       },
       bodyStatus: 'ready',
     });
@@ -252,8 +252,8 @@ describe('activity detail for an activity that is not stored', () => {
       data: {
         id: 'act-9',
         name: 'Trainer ride',
-        type: 'VirtualRide',
-        start_date_local: '2026-01-01T07:00:00',
+        sportType: 'VirtualRide',
+        startDateLocal: '2026-01-01T07:00:00',
       },
       bodyStatus: 'ready',
     });
@@ -293,8 +293,8 @@ describe('activity detail for an activity that is not stored', () => {
       data: {
         id: 'act-9',
         name: 'Leg day',
-        type: 'WeightTraining',
-        start_date_local: '2026-01-01T07:00:00',
+        sportType: 'WeightTraining',
+        startDateLocal: '2026-01-01T07:00:00',
       },
       bodyStatus: 'ready',
     });

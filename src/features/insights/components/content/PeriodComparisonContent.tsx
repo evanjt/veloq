@@ -113,16 +113,17 @@ export const PeriodComparisonContent = React.memo(function PeriodComparisonConte
   const changeIcon =
     trend?.direction === 'up' ? 'arrow-up' : trend?.direction === 'down' ? 'arrow-down' : 'minus';
 
-  const barColor = verdictColor(rung, isDark);
+  // The bars draw what they count; the verdict is the change badge's alone.
+  const barColor = chartColors.series;
   const history = insight.supportingData?.history;
   const hasHistory = history != null && 'series' in history && history.series[0] != null;
-  const mutedBarColor = chartColors.mutedBar;
+  const mutedBarColor = chartColors.muted;
 
   return (
     <View style={styles.container}>
       {/* The card's weekly bars in full, or the two weeks it compares when it had too few */}
       {hasHistory ? (
-        <InsightHistoryChart history={history} color={barColor} />
+        <InsightHistoryChart history={history} category={insight.category} />
       ) : (
         <ChartErrorBoundary height={CHART_HEIGHT}>
           <View style={[styles.chartCard, isDark && styles.chartCardDark]}>

@@ -90,6 +90,7 @@ jest.mock('@/features/fitness', () => {
     useFitnessRefresh: () => ({ isRefreshing: false, onRefresh: jest.fn() }),
     useFitnessComputations: () => ({ ftpTrend: [], dominantZone: null }),
     useFitnessScreenData: () => ({
+      training: { retry: jest.fn() },
       wellness: [],
       activities: [],
       dailyLoads: [],

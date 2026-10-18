@@ -1,7 +1,6 @@
 {
   "da": {
     "backup.entryAppVersion": "Danish word or phrase with the same spelling.",
-    "activityDetail.routePrBadge": "PR is the conventional abbreviation for personal record.",
     "activity.stats.trimp": "Conventional training or recording abbreviation.",
     "activityTypes.Badminton": "Danish sport name or established sport loanword.",
     "activityTypes.Crossfit": "Danish sport name or established sport loanword.",
@@ -46,8 +45,6 @@
     "sections.correlationVarStress": "Established loanword with the same spelling.",
     "sections.legendPr": "Conventional training or recording abbreviation.",
     "sections.liftGround": "Danish word or phrase with the same spelling.",
-    "sections.plotDelta": "Established statistical term, written the same in this language.",
-    "sections.plotHistogram": "Established statistical term, written the same in this language.",
     "settings.cutoverStop": "Danish word or phrase with the same spelling.",
     "settings.storageDatabase": "Established Danish loanword or technical term.",
     "stats.gap": "Conventional training or recording abbreviation.",
@@ -103,7 +100,11 @@
     "charts.summary.parts": "Placeholders and punctuation only, no translatable words.",
     "charts.column.distance": "The same word in this language.",
     "charts.column.zone": "The same word in this language.",
-    "recording.settingsAutoPause": "Established loanword for the recording feature."
+    "recording.settingsAutoPause": "Established loanword for the recording feature.",
+    "poolSwim.columns.number": "Number sign, read the same in every language.",
+    "poolSwim.columns.distance": "Danish word or phrase with the same spelling.",
+    "poolSwim.columns.swolf": "Conventional training or recording abbreviation.",
+    "poolSwim.strokes.butterfly": "Danish sport name or established sport loanword."
   },
   "de-CH": {
     "activity.stats.maxLabel": "Abbreviation of the German label with the same spelling.",
@@ -154,7 +155,6 @@
     "sections.correlationVarStress": "Established loanword with the same spelling.",
     "sections.legendPr": "Conventional training or recording abbreviation.",
     "sections.liftGround": "German word or phrase with the same spelling.",
-    "sections.plotDelta": "Established statistical term, written the same in this language.",
     "settings.storageHeatmap": "Established German loanword or technical term.",
     "stats.gap": "Conventional training or recording abbreviation.",
     "statsScreen.lthr": "Conventional training or recording abbreviation.",
@@ -197,7 +197,9 @@
     "charts.summary.title": "Placeholder and full stop only, no translatable words.",
     "charts.summary.single": "Placeholders and punctuation only, no translatable words.",
     "charts.summary.parts": "Placeholders and punctuation only, no translatable words.",
-    "charts.column.zone": "The same word in this language."
+    "charts.column.zone": "The same word in this language.",
+    "poolSwim.columns.pace": "Established German loanword or technical term.",
+    "poolSwim.columns.swolf": "Conventional training or recording abbreviation."
   },
   "de-DE": {
     "backup.entryAppVersion": "German word or phrase with the same spelling.",
@@ -267,7 +269,6 @@
     "sections.correlationVarStress": "Established loanword with the same spelling.",
     "sections.legendPr": "Conventional training or recording abbreviation.",
     "sections.liftGround": "German word or phrase with the same spelling.",
-    "sections.plotDelta": "Established statistical term, written the same in this language.",
     "settings.heatmapGeneration": "Established German loanword or technical term.",
     "settings.storageHeatmap": "Established German loanword or technical term.",
     "settings.system": "German word or phrase with the same spelling.",
@@ -316,7 +317,9 @@
     "charts.summary.title": "Placeholder and full stop only, no translatable words.",
     "charts.summary.single": "Placeholders and punctuation only, no translatable words.",
     "charts.summary.parts": "Placeholders and punctuation only, no translatable words.",
-    "charts.column.zone": "The same word in this language."
+    "charts.column.zone": "The same word in this language.",
+    "poolSwim.columns.pace": "Established German loanword or technical term.",
+    "poolSwim.columns.swolf": "Conventional training or recording abbreviation."
   },
   "es-419": {
     "activity.stats.maxLabel": "Abbreviation of the Spanish label with the same spelling.",
@@ -355,7 +358,6 @@
     "recording.rpe": "Conventional training or recording abbreviation.",
     "recording.splitBanner": "Interpolation and punctuation only; the inserted names and units are localised.",
     "sections.legendPr": "Conventional training or recording abbreviation.",
-    "sections.plotDelta": "Established statistical term, written the same in this language.",
     "settings.unitsAuto": "Abbreviation of the Spanish label with the same spelling.",
     "settings.unitsImperial": "Spanish word or phrase with the same spelling.",
     "strength.repsColumn": "Established Spanish loanword or technical term.",
@@ -396,7 +398,8 @@
     "charts.summary.title": "Placeholder and full stop only, no translatable words.",
     "charts.summary.single": "Placeholders and punctuation only, no translatable words.",
     "charts.summary.parts": "Placeholders and punctuation only, no translatable words.",
-    "statsScreen.lthr": "Conventional training or recording abbreviation."
+    "statsScreen.lthr": "Conventional training or recording abbreviation.",
+    "poolSwim.columns.swolf": "Conventional training or recording abbreviation."
   },
   "es-ES": {
     "activity.stats.maxLabel": "Abbreviation of the Spanish label with the same spelling.",
@@ -440,7 +443,6 @@
     "recording.rpe": "Conventional training or recording abbreviation.",
     "recording.splitBanner": "Interpolation and punctuation only; the inserted names and units are localised.",
     "sections.legendPr": "Conventional training or recording abbreviation.",
-    "sections.plotDelta": "Established statistical term, written the same in this language.",
     "settings.unitsAuto": "Abbreviation of the Spanish label with the same spelling.",
     "settings.unitsImperial": "Spanish word or phrase with the same spelling.",
     "strength.repsColumn": "Established Spanish loanword or technical term.",
@@ -481,7 +483,8 @@
     "charts.summary.title": "Placeholder and full stop only, no translatable words.",
     "charts.summary.single": "Placeholders and punctuation only, no translatable words.",
     "charts.summary.parts": "Placeholders and punctuation only, no translatable words.",
-    "statsScreen.lthr": "Conventional training or recording abbreviation."
+    "statsScreen.lthr": "Conventional training or recording abbreviation.",
+    "poolSwim.columns.swolf": "Conventional training or recording abbreviation."
   },
   "es": {
     "activity.stats.trimp": "Conventional training or recording abbreviation.",
@@ -520,7 +523,6 @@
     "recording.rpe": "Conventional training or recording abbreviation.",
     "recording.splitBanner": "Interpolation and punctuation only; the inserted names and units are localised.",
     "sections.legendPr": "Conventional training or recording abbreviation.",
-    "sections.plotDelta": "Established statistical term, written the same in this language.",
     "strength.repsColumn": "Established Spanish loanword or technical term.",
     "strength.totalLabel": "Spanish word or phrase with the same spelling.",
     "support.idea": "Spanish word or phrase with the same spelling.",
@@ -559,7 +561,8 @@
     "charts.summary.title": "Placeholder and full stop only, no translatable words.",
     "charts.summary.single": "Placeholders and punctuation only, no translatable words.",
     "charts.summary.parts": "Placeholders and punctuation only, no translatable words.",
-    "statsScreen.lthr": "Conventional training or recording abbreviation."
+    "statsScreen.lthr": "Conventional training or recording abbreviation.",
+    "poolSwim.columns.swolf": "Conventional training or recording abbreviation."
   },
   "fr": {
     "backup.entryAppVersion": "French word or phrase with the same spelling.",
@@ -697,7 +700,10 @@
     "charts.column.date": "The same word in this language.",
     "charts.column.distance": "The same word in this language.",
     "charts.column.zone": "The same word in this language.",
-    "statsScreen.lthr": "Conventional training or recording abbreviation."
+    "statsScreen.lthr": "Conventional training or recording abbreviation.",
+    "sections.deltaReferenceRecord": "French word or phrase with the same spelling.",
+    "poolSwim.columns.distance": "French word or phrase with the same spelling.",
+    "poolSwim.columns.swolf": "Conventional training or recording abbreviation."
   },
   "it": {
     "activity.stats.maxLabel": "Abbreviation of the Italian label with the same spelling.",
@@ -748,7 +754,6 @@
     "recording.splitBanner": "Interpolation and punctuation only; the inserted names and units are localised.",
     "sections.correlationVarStress": "Established loanword with the same spelling.",
     "sections.legendPr": "Conventional training or recording abbreviation.",
-    "sections.plotDelta": "Established statistical term, written the same in this language.",
     "settings.account": "Established Italian loanword or technical term.",
     "settings.database": "Established Italian loanword or technical term.",
     "settings.storageDatabase": "Established Italian loanword or technical term.",
@@ -792,7 +797,9 @@
     "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language.",
     "charts.summary.title": "Placeholder and full stop only, no translatable words.",
     "charts.summary.single": "Placeholders and punctuation only, no translatable words.",
-    "charts.summary.parts": "Placeholders and punctuation only, no translatable words."
+    "charts.summary.parts": "Placeholders and punctuation only, no translatable words.",
+    "sections.deltaReferenceRecord": "Established loanword in this locale.",
+    "poolSwim.columns.swolf": "Conventional training or recording abbreviation."
   },
   "ja": {
     "activity.stats.trimp": "Conventional training or recording abbreviation.",
@@ -836,10 +843,10 @@
     "backup.carrierIcloud": "Service and product names.",
     "activity.gainStat": "An arrow mark before a formatted value, the same in every language.",
     "units.rpm": "Conventional measurement unit symbol.",
-    "units.spm": "Conventional measurement unit symbol."
+    "units.spm": "Conventional measurement unit symbol.",
+    "poolSwim.columns.swolf": "Conventional training or recording abbreviation."
   },
   "nl": {
-    "activityDetail.routePrBadge": "PR is the conventional abbreviation for personal record.",
     "backup.carrierGoogleDrive": "Service and product names.",
     "backup.carrierIcloud": "Service and product names.",
     "maps.layerHeatmap": "Established Dutch loanword or technical term.",
@@ -908,8 +915,6 @@
     "sections.legendPr": "Conventional training or recording abbreviation.",
     "sections.liftGround": "Dutch word or phrase with the same spelling.",
     "sections.overlapLabel": "Dutch word or phrase with the same spelling.",
-    "sections.plotDelta": "Established statistical term, written the same in this language.",
-    "sections.plotHistogram": "Established statistical term, written the same in this language.",
     "sections.routesCountLabel_one": "Dutch word or phrase with the same spelling.",
     "sections.routesCountLabel_other": "Dutch word or phrase with the same spelling.",
     "settings.account": "Established Dutch loanword or technical term.",
@@ -984,7 +989,9 @@
     "charts.summary.single": "Placeholders and punctuation only, no translatable words.",
     "charts.summary.parts": "Placeholders and punctuation only, no translatable words.",
     "charts.column.zone": "The same word in this language.",
-    "licenses.sectionNativeEngine": "Dutch words with the same spelling, beside the library's own name."
+    "licenses.sectionNativeEngine": "Dutch words with the same spelling, beside the library's own name.",
+    "sections.deltaReferenceRecord": "Dutch word or phrase with the same spelling.",
+    "poolSwim.columns.swolf": "Conventional training or recording abbreviation."
   },
   "pl": {
     "activity.stats.trimp": "Conventional training or recording abbreviation.",
@@ -1028,8 +1035,6 @@
     "recording.rpe": "Conventional training or recording abbreviation.",
     "recording.splitBanner": "Interpolation and punctuation only; the inserted names and units are localised.",
     "sections.legendPr": "Conventional training or recording abbreviation.",
-    "sections.plotDelta": "Established statistical term, written the same in this language.",
-    "sections.plotHistogram": "Established statistical term, written the same in this language.",
     "settings.unitsAuto": "Abbreviation of the Polish label with the same spelling.",
     "stats.gap": "Conventional training or recording abbreviation.",
     "statsScreen.lthr": "Conventional training or recording abbreviation.",
@@ -1070,7 +1075,8 @@
     "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language.",
     "charts.summary.title": "Placeholder and full stop only, no translatable words.",
     "charts.summary.single": "Placeholders and punctuation only, no translatable words.",
-    "charts.summary.parts": "Placeholders and punctuation only, no translatable words."
+    "charts.summary.parts": "Placeholders and punctuation only, no translatable words.",
+    "poolSwim.columns.swolf": "Conventional training or recording abbreviation."
   },
   "pt-BR": {
     "activity.stats.maxLabel": "Abbreviation of the Brazilian Portuguese label with the same spelling.",
@@ -1121,7 +1127,6 @@
     "recording.splitBanner": "Interpolation and punctuation only; the inserted names and units are localised.",
     "sections.correlationVarStress": "Established loanword with the same spelling.",
     "sections.legendPr": "Conventional training or recording abbreviation.",
-    "sections.plotDelta": "Established statistical term, written the same in this language.",
     "stats.gap": "Conventional training or recording abbreviation.",
     "statsScreen.lthr": "Conventional training or recording abbreviation.",
     "strength.repsColumn": "Established Brazilian Portuguese loanword or technical term.",
@@ -1162,7 +1167,8 @@
     "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language.",
     "charts.summary.title": "Placeholder and full stop only, no translatable words.",
     "charts.summary.single": "Placeholders and punctuation only, no translatable words.",
-    "charts.summary.parts": "Placeholders and punctuation only, no translatable words."
+    "charts.summary.parts": "Placeholders and punctuation only, no translatable words.",
+    "poolSwim.columns.swolf": "Conventional training or recording abbreviation."
   },
   "pt": {
     "activity.stats.maxLabel": "Abbreviation of the Portuguese label with the same spelling.",
@@ -1211,7 +1217,6 @@
     "recording.splitBanner": "Interpolation and punctuation only; the inserted names and units are localised.",
     "sections.correlationVarStress": "Established loanword with the same spelling.",
     "sections.legendPr": "Conventional training or recording abbreviation.",
-    "sections.plotDelta": "Established statistical term, written the same in this language.",
     "settings.unitsAuto": "Abbreviation of the Portuguese label with the same spelling.",
     "settings.unitsImperial": "Portuguese word or phrase with the same spelling.",
     "stats.gap": "Conventional training or recording abbreviation.",
@@ -1254,7 +1259,8 @@
     "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language.",
     "charts.summary.title": "Placeholder and full stop only, no translatable words.",
     "charts.summary.single": "Placeholders and punctuation only, no translatable words.",
-    "charts.summary.parts": "Placeholders and punctuation only, no translatable words."
+    "charts.summary.parts": "Placeholders and punctuation only, no translatable words.",
+    "poolSwim.columns.swolf": "Conventional training or recording abbreviation."
   },
   "zh-Hans": {
     "backgroundJobs.progressPercent": "Numeric percentage template.",
@@ -1287,6 +1293,7 @@
     "activity.gainStat": "An arrow mark before a formatted value, the same in every language.",
     "units.rpm": "Conventional measurement unit symbol.",
     "units.spm": "Conventional measurement unit symbol.",
-    "statsScreen.lthr": "Conventional training or recording abbreviation."
+    "statsScreen.lthr": "Conventional training or recording abbreviation.",
+    "poolSwim.columns.swolf": "Conventional training or recording abbreviation."
   }
 }

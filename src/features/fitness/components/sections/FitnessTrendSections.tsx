@@ -8,11 +8,7 @@ import { Icon } from '@/shared/ui/Icon';
 import { ZoneDistributionChart, FTPTrendChart, DecouplingChart } from '@/features/stats';
 import { type DecouplingSource } from '@/features/activity';
 import { useTheme } from '@/shared/app';
-import {
-  SPORT_TEXT_COLORS,
-  SPORT_TEXT_COLORS_DARK,
-  type PrimarySport,
-} from '@/features/fitness/stores';
+import { type PrimarySport } from '@/features/fitness/stores';
 import { formatPaceCompact, paceUnitLabel } from '@/shared/format/format';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { PERIOD_LABEL_KEYS } from '@/shared/app/period';
@@ -25,6 +21,7 @@ import {
   stroke,
   typography,
   verdictColor,
+  themePalette,
 } from '@/theme';
 import { trendIcon, trendVerdict, verdictRung, type TrendDirection } from '@/shared/format/trend';
 import { type TimeRange } from '@/features/wellness';
@@ -97,9 +94,8 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
   const zonesHeight = sportMode === 'Cycling' ? ZONES_HEIGHT_CYCLING : ZONES_HEIGHT;
-  // A headline number is text, and the sport fills are 2.3:1 to 3.6:1 on the
-  // light card. The text pair is the same hues at text grade.
-  const sportText = isDark ? SPORT_TEXT_COLORS_DARK : SPORT_TEXT_COLORS;
+  // A headline number is text, so it takes the primary ink rather than a sport colour.
+  const valueInk = themePalette(isDark).textPrimary;
 
   // The chart and the arrow read the engine's daily series, so the headline is that series'
   // latest estimate, never the FTP setting, and it is stated only when the series has one. A row that offers a figure its own chart calls
@@ -123,7 +119,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
             estimatedHeight={zonesHeight}
             headerRight={
               dominantZone ? (
-                <Text style={[styles.headerValue, { color: sportText[sportMode] }]}>
+                <Text style={[styles.headerValue, { color: valueInk }]}>
                   {dominantZone.name}: {dominantZone.share}%
                 </Text>
               ) : null
@@ -167,7 +163,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
               headerRight={
                 headerFtp ? (
                   <View style={styles.headerValueRow}>
-                    <Text style={[styles.headerValue, { color: sportText.Cycling }]}>
+                    <Text style={[styles.headerValue, { color: valueInk }]}>
                       {headerFtp} {t('units.watts')}
                     </Text>
                     {ftpTrend ? (
@@ -210,12 +206,12 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
               estimatedHeight={100}
               headerRight={
                 thresholdPace ? (
-                  <Text style={[styles.headerValue, { color: sportText.Running }]}>
+                  <Text style={[styles.headerValue, { color: valueInk }]}>
                     {formatPaceCompact(thresholdPace, isMetric)}
                     {paceUnitLabel(isMetric)}
                   </Text>
                 ) : runLthr ? (
-                  <Text style={[styles.headerValue, { color: sportText.Running }]}>
+                  <Text style={[styles.headerValue, { color: valueInk }]}>
                     {runLthr} {t('units.bpm')}
                   </Text>
                 ) : null
@@ -241,7 +237,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
                             ? `${formatPaceCompact(thresholdPace, isMetric)}${paceUnitLabel(isMetric)}`
                             : ABSENT
                         }
-                        valueColor={sportText.Running}
+                        valueColor={valueInk}
                       />
                     </View>
                     {runLthr ? (
@@ -254,7 +250,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
                             label={t('statsScreen.lthr')}
                             value={runLthr}
                             unit={t('units.bpm')}
-                            valueColor={sportText.Running}
+                            valueColor={valueInk}
                           />
                         </View>
                       </>
@@ -282,7 +278,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
                 // The open section's tile prints the figure, so the header carries it only
                 // while the section is closed.
                 decouplingSource && !efficiencyExpanded ? (
-                  <Text style={[styles.headerValue, { color: sportText.Cycling }]}>
+                  <Text style={[styles.headerValue, { color: valueInk }]}>
                     {formatPercent(decouplingSource.decoupling, 1)}
                   </Text>
                 ) : null

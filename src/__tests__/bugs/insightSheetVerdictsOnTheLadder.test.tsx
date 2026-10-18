@@ -58,7 +58,7 @@ function comparison(trend: SupportingTrend): Promise<string[]> {
     },
     trend,
   };
-  return drawn(<SupportingDataSection data={data} />);
+  return drawn(<SupportingDataSection data={data} category="efficiency_trend" />);
 }
 
 describe.each([false, true])('the insight sheet verdicts, dark %s', (isDark) => {

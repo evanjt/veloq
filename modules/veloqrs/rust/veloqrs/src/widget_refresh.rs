@@ -150,9 +150,9 @@ fn refresh_open_engine(deadline: Duration) -> Option<WidgetRefresh> {
     }
 
     let status = match crate::objects::current_session() {
-        Some(Ok((transport, athlete_id))) => {
+        Some(Ok(session)) => {
             let install = crate::persistence::engine_install();
-            let pull = refresh_wellness(install, &transport, &athlete_id, WELLNESS_REFRESH_DAYS);
+            let pull = refresh_wellness(install, &session, WELLNESS_REFRESH_DAYS);
             match crate::runtime::block_on(async { tokio::time::timeout(deadline, pull).await }) {
                 Ok(Ok(())) => PullStatus::Pulled,
                 Ok(Err(NetError::Unauthorized)) => PullStatus::Expired,

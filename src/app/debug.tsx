@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, Pressable, Platform, type ViewInstance } from 'react-native';
+import { View, Text, StyleSheet, Platform, type ViewInstance } from 'react-native';
 import { ScreenRefreshControl } from '@/shared/ui/ScreenRefreshControl';
 import Constants from 'expo-constants';
-import { Button, pressable, pressRipple, ScreenScrollView } from '@/shared/ui';
+import { Button, ScreenScrollView, PressTarget } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { shareText } from '@/features/settings/light';
 import type { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -89,21 +89,20 @@ function CollapsibleSection({
 
   return (
     <View style={[styles.section, isDark && styles.sectionDark]}>
-      <Pressable
+      <PressTarget
         accessibilityRole="button"
         accessibilityLabel={title}
         accessibilityState={{ expanded: open }}
         testID={testID}
-        style={pressable(styles.sectionHeader)}
+        style={styles.sectionHeader}
         onPress={() => setOpen(!open)}
-        android_ripple={pressRipple}
       >
         <View style={styles.sectionHeaderLeft}>
           <Icon name={icon} size={iconSize.md} color={mutedColor} />
           <Text style={[styles.sectionTitle, { color: textColor }]}>{title}</Text>
         </View>
         <Icon name={open ? 'chevron-up' : 'chevron-down'} size={iconSize.md} color={mutedColor} />
-      </Pressable>
+      </PressTarget>
       {open ? <View style={styles.sectionContent}>{children}</View> : null}
     </View>
   );

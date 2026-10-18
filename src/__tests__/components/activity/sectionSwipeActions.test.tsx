@@ -40,6 +40,7 @@ function encounter(sectionId: string, sectionType: string): SectionEncounter {
     visitCount: 8,
     historyTimes: [],
     historyActivityIds: [],
+    historyDates: [],
   } as SectionEncounter;
 }
 

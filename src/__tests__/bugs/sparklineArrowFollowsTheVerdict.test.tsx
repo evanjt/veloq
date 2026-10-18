@@ -5,9 +5,10 @@
  * the sheet compared the first and last points and called any fall bad. A
  * series that moved a tenth of a per cent drew an arrow too.
  *
- * Expected behaviour: the sheet draws the verdict the generator carried. A
- * falling efficiency ratio is the positive rung, a move the generator judged
- * flat is neutral, and a series that carries no verdict is neutral.
+ * Expected behaviour: the sheet draws the verdict the generator carried on its
+ * glyph. A falling efficiency ratio is the positive rung, a move the generator
+ * judged flat is neutral, and a series that carries no verdict is neutral. The
+ * line draws what it measures, in the chart series colour, whatever the verdict.
  */
 
 import React from 'react';
@@ -17,7 +18,7 @@ import type { EfficiencyTrend } from 'veloqrs';
 import { SupportingDataSection } from '@/features/insights/components/SupportingDataSection';
 import { generateEfficiencyTrendInsights } from '@/features/insights/generators/efficiencyTrend';
 import type { InsightSupportingData } from '@/types';
-import { verdictColor } from '@/theme';
+import { colourTokens, verdictColor } from '@/theme';
 import { CurveChart } from '@/shared/charts';
 import { initialiseI18n } from '@/i18n';
 
@@ -49,6 +50,8 @@ const EFFICIENCY = {
   points: [830, 820, 805, 790, 785, 781].map((hrPaceRatio, i) => ({ hrPaceRatio, date: i })),
 } as unknown as EfficiencyTrend;
 
+const SERIES = colourTokens.light['chart-series'];
+
 const TRENDING = new Set(['trending-up', 'trending-down']);
 
 type Node = { type: { displayName?: string }; props: Record<string, unknown> };
@@ -59,7 +62,9 @@ type Node = { type: { displayName?: string }; props: Record<string, unknown> };
  * icon and the chart as the component handed them over.
  */
 async function drawn(data: InsightSupportingData) {
-  const { UNSAFE_root } = await render(<SupportingDataSection data={data} />);
+  const { UNSAFE_root } = await render(
+    <SupportingDataSection data={data} category="efficiency_trend" />
+  );
   const all = UNSAFE_root.findAll(() => true) as unknown as Node[];
   const glyphs = all.filter(
     (n) => n.type.displayName === 'MaterialCommunityIcons' && TRENDING.has(n.props.name as string)
@@ -79,7 +84,7 @@ describe('the sheet sparkline', () => {
     const [efficiency] = generateEfficiencyTrendInsights([EFFICIENCY], 0, t);
     const { glyph, line } = await drawn(efficiency.supportingData!);
 
-    expect(line).toBe(verdictColor('positive', false));
+    expect(line).toBe(SERIES);
     expect(glyph?.color).toBe(verdictColor('positive', false));
     expect(glyph?.name).toBe('trending-up');
   });
@@ -96,14 +101,14 @@ describe('the sheet sparkline', () => {
       trend: { direction: 'flat', verdict: 'flat' },
     });
 
-    expect(line).toBe(verdictColor('neutral', false));
+    expect(line).toBe(SERIES);
     expect(glyphCount).toBe(0);
   });
 
   it('draws a series that carries no verdict on the neutral rung, with no arrow', async () => {
     const { glyphCount, line } = await drawn({ history: history([10, 12, 15]) });
 
-    expect(line).toBe(verdictColor('neutral', false));
+    expect(line).toBe(SERIES);
     expect(glyphCount).toBe(0);
   });
 
@@ -113,7 +118,7 @@ describe('the sheet sparkline', () => {
       trend: { direction: 'up', verdict: 'moved' },
     });
 
-    expect(line).toBe(verdictColor('neutral', false));
+    expect(line).toBe(SERIES);
     expect(glyph).toEqual(
       expect.objectContaining({ name: 'trending-up', color: verdictColor('neutral', false) })
     );

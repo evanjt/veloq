@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import type { FfiPlannedEvent } from 'veloqrs';
 import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 import { formatLocalDate } from '@/shared/format/format';
 import { CACHE } from '@/shared/app/constants';
@@ -6,7 +7,6 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import { readPlannedWorkouts } from '@/features/home/lib/calendarEvents';
 import { queryKeys } from '@/shared/query/queryKeys';
-import type { CalendarEvent } from '@/types';
 
 /**
  * Read the planned workouts ahead from the engine's stored calendar window.
@@ -33,7 +33,7 @@ export function useTodayWorkout() {
 
   useEngineChannel('bodyStored', queryKey, 'calendar');
 
-  const query = useQuery<CalendarEvent[]>({
+  const query = useQuery<FfiPlannedEvent[]>({
     ...LOCAL_READ_QUERY,
     queryKey,
     queryFn: () => readPlannedWorkouts(today, horizon),
@@ -43,8 +43,8 @@ export function useTodayWorkout() {
     gcTime: CACHE.HOUR, // 1 hour
   });
 
-  const todayWorkout = query.data?.find((e) => e.start_date_local?.startsWith(today)) ?? null;
-  const tomorrowWorkout = query.data?.find((e) => e.start_date_local?.startsWith(tomorrow)) ?? null;
+  const todayWorkout = query.data?.find((e) => e.day === today) ?? null;
+  const tomorrowWorkout = query.data?.find((e) => e.day === tomorrow) ?? null;
 
   return {
     todayWorkout,

@@ -133,7 +133,7 @@ describe('render-time engine read lint', () => {
         '  useEffect(() => { setN(getEngine()?.getActivityCount() ?? 0); }, []);',
         '  const refresh = useCallback(() => getEngine()?.getStats(), []);',
         '  const onPress = () => { const engine = getEngine(); engine?.triggerRefresh("activities"); };',
-        '  useQuery({ queryKey: ["x", id], queryFn: () => getEngine()?.getIntervalBody(id) ?? null });',
+        '  useQuery({ queryKey: ["x", id], queryFn: () => getEngine()?.getActivityIntervals(id) ?? null });',
         '  return { n, refresh, onPress };',
         '}',
         '',

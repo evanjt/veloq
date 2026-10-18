@@ -42,7 +42,8 @@ import type {
 import { RangeCoverage } from 'veloqrs';
 import { layoutViews } from '../__shared__/layoutViews';
 import { localDay } from '../__shared__/clockEdges';
-import { trainingScreenRead } from '../__shared__/trainingScreenRead';
+import { fitnessScreenRead } from '../__shared__/fitnessScreenRead';
+import { WithScreenRead } from '../__shared__/withScreenRead';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
@@ -200,12 +201,7 @@ describe('under a right-to-left layout', () => {
 
   it("keeps the HRV sparkline's labels beside the plot they name", async () => {
     const tree = await mounted(
-      <SummaryCardHRVSparkline
-        hrvData={SERIES}
-        rhrData={SERIES.map((v) => v + 10)}
-        width={300}
-        showLabels
-      />
+      <SummaryCardHRVSparkline hrvData={SERIES} rhrData={SERIES.map((v) => v + 10)} width={300} />
     );
 
     expectPinned(tree, tree.UNSAFE_getAllByType(Text));
@@ -296,7 +292,7 @@ describe('under a right-to-left layout', () => {
     const today = localDay(new Date());
     const engine = {
       subscribe: () => () => {},
-      getTrainingScreenData: trainingScreenRead({
+      getFitnessScreenData: fitnessScreenRead({
         heatmap: () => [{ date: today, intensity: 2, maxDuration: 3600, activityCount: 1 }],
       }),
       rangeCoverage: () => RangeCoverage.Loaded,
@@ -309,7 +305,9 @@ describe('under a right-to-left layout', () => {
     try {
       tree = await mounted(
         <QueryClientProvider client={client}>
-          <ActivityHeatmap ref={handle} />
+          <WithScreenRead>
+            {(training) => <ActivityHeatmap training={training} ref={handle} />}
+          </WithScreenRead>
         </QueryClientProvider>
       );
       const view = tree;

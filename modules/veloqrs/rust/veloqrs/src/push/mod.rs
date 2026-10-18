@@ -421,12 +421,11 @@ pub fn activity_push_json(
     // Taken before the session is read: every write this run makes is refused
     // once a wipe has moved the install, whatever the session still names.
     let install = crate::persistence::engine_install();
-    if let Some(session) = crate::objects::current_session() {
-        let (_, signed_in_athlete_id) = session?;
-        if signed_in_athlete_id != incoming_athlete_id {
-            runs::record_for(install, activity_id, PushRunOutcome::AthleteMismatch, None);
-            return Ok(None);
-        }
+    if let Some(session) = crate::objects::current_session()
+        && session?.athlete_id() != incoming_athlete_id
+    {
+        runs::record_for(install, activity_id, PushRunOutcome::AthleteMismatch, None);
+        return Ok(None);
     }
     let row = crate::persistence::read_pool::with_read_conn(|conn| {
         crate::persistence::settings::setting_from(
@@ -521,8 +520,8 @@ fn activity_push_run(
     announce_prs: bool,
     announce_milestones: bool,
 ) -> Result<Option<Result<String, Quiet>>, String> {
-    let transport =
-        crate::objects::current_transport().ok_or_else(|| "no credentials set".to_string())??;
+    let session =
+        crate::objects::current_session().ok_or_else(|| "no credentials set".to_string())??;
     // The upstream id is a read, so it comes off the pool rather than the
     // engine lock, which a sync page may be holding.
     let stored = crate::persistence::read_pool::with_read_conn(|conn| {
@@ -537,16 +536,16 @@ fn activity_push_run(
     .flatten();
     let upstream =
         crate::persistence::origin::upstream_or_key(activity_id, stored.as_deref()).to_string();
-    let body = crate::runtime::block_on(crate::net::intervals::endpoints::fetch_activity_body(
-        &transport,
+    let body = crate::runtime::block_on(crate::net::source::Source::activity_body(
+        &session,
         &upstream,
-        crate::governor::Lane::Interactive,
+        crate::governor::Lane::Interactive.into(),
     ))
     .map_err(|e| {
         if matches!(e, crate::net::transport::NetError::Unauthorized)
-            && let Some(Ok((current, athlete_id))) = crate::objects::current_session()
+            && let Some(Ok(current)) = crate::objects::current_session()
         {
-            crate::runtime::block_on(crate::objects::park_auth_expired(&current, &athlete_id));
+            crate::runtime::block_on(crate::objects::park_auth_expired(&current));
         }
         format!("the detail of {activity_id}: {e}")
     })?;
@@ -575,7 +574,7 @@ fn activity_push_run(
             // whatever did land.
             let readied = crate::runtime::block_on(crate::objects::sync::ready_activity(
                 install,
-                &transport,
+                &session,
                 gap,
                 &upstream,
                 crate::governor::Lane::Interactive,
@@ -583,11 +582,8 @@ fn activity_push_run(
             match readied {
                 Ok(()) => {}
                 Err(crate::net::transport::NetError::Unauthorized) => {
-                    if let Some(Ok((current, athlete_id))) = crate::objects::current_session() {
-                        crate::runtime::block_on(crate::objects::park_auth_expired(
-                            &current,
-                            &athlete_id,
-                        ));
+                    if let Some(Ok(current)) = crate::objects::current_session() {
+                        crate::runtime::block_on(crate::objects::park_auth_expired(&current));
                     }
                     return Err(format!("the bodies of {activity_id}: unauthorized"));
                 }

@@ -138,8 +138,8 @@ describe('widgetPalette', () => {
   });
 
   it('carries the body fill and the five-step strength ramp the body diagram draws, on both platforms', () => {
-    expect(widgetPalette.light.bodyFill).toBe(bodyDiagram.fillLight);
-    expect(widgetPalette.dark.bodyFill).toBe(bodyDiagram.fillDark);
+    expect(widgetPalette.light.bodyFill).toBe(bodyDiagram.light.untrained);
+    expect(widgetPalette.dark.bodyFill).toBe(bodyDiagram.dark.untrained);
     expect(widgetPalette.light.strengthRamp).toEqual(sequentialRamp.light);
     expect(widgetPalette.dark.strengthRamp).toEqual(sequentialRamp.dark);
 
@@ -147,8 +147,10 @@ describe('widgetPalette', () => {
     const read = (file: string) => readFileSync(join(root, file), 'utf8');
     const light = read('widget/android/res/values/widget_theme.xml');
     const night = read('widget/android/res/values-night/widget_theme.xml');
-    expect(light).toContain(`<color name="widget_body_fill">${bodyDiagram.fillLight}</color>`);
-    expect(night).toContain(`<color name="widget_body_fill">${bodyDiagram.fillDark}</color>`);
+    expect(light).toContain(
+      `<color name="widget_body_fill">${bodyDiagram.light.untrained}</color>`
+    );
+    expect(night).toContain(`<color name="widget_body_fill">${bodyDiagram.dark.untrained}</color>`);
     sequentialRamp.light.forEach((hex, i) => {
       expect(light).toContain(`<color name="widget_strength_ramp_${i + 1}">${hex}</color>`);
     });
@@ -157,8 +159,8 @@ describe('widgetPalette', () => {
     });
 
     const swift = read('widget/ios/VeloqWidget/WidgetTheme.swift');
-    expect(swift).toContain(`static let bodyFill = Color(hex: "${bodyDiagram.fillLight}")`);
-    expect(swift).toContain(`static let bodyFill = Color(hex: "${bodyDiagram.fillDark}")`);
+    expect(swift).toContain(`static let bodyFill = Color(hex: "${bodyDiagram.light.untrained}")`);
+    expect(swift).toContain(`static let bodyFill = Color(hex: "${bodyDiagram.dark.untrained}")`);
     for (const ramp of [sequentialRamp.light, sequentialRamp.dark]) {
       const line = `static let strengthRamp = [${ramp
         .map((hex) => `Color(hex: "${hex}")`)

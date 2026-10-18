@@ -23,8 +23,9 @@ import { TextLink } from '@/shared/ui/TextLink';
 import { chartStyles, colors, darkColors, typography, zoneColour } from '@/theme';
 import { initialiseI18n } from '@/i18n';
 import { getEngine } from '@/shared/native/engine';
-import { trainingScreenRead } from '../__shared__/trainingScreenRead';
+import { fitnessScreenRead } from '../__shared__/fitnessScreenRead';
 import type { WellnessData } from '@/types';
+import { WithScreenRead } from '../__shared__/withScreenRead';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
@@ -210,18 +211,21 @@ describe('chart text', () => {
     const day = '2026-06-15';
     (getEngine as jest.MockedFunction<typeof getEngine>).mockReturnValue({
       subscribe: () => () => {},
-      getTrainingScreenData: trainingScreenRead({
+      getFitnessScreenData: fitnessScreenRead({
         heatmap: () => [{ date: day, intensity: 2, maxDuration: 3900, activityCount: 1 }],
       }),
       getActivityBodies: jest.fn(() => ({ bodies: [], intervalsIds: [] })),
       rangeCoverage: jest.fn(() => RangeCoverage.NotFetched),
     } as unknown as ReturnType<typeof getEngine>);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const tree = await render(<ActivityHeatmap />, {
-      wrapper: ({ children }) => (
-        <QueryClientProvider client={client}>{children}</QueryClientProvider>
-      ),
-    });
+    const tree = await render(
+      <WithScreenRead>{(training) => <ActivityHeatmap training={training} />}</WithScreenRead>,
+      {
+        wrapper: ({ children }) => (
+          <QueryClientProvider client={client}>{children}</QueryClientProvider>
+        ),
+      }
+    );
     await waitFor(() => expect(tree.getByTestId('activity-heatmap-count')).toBeTruthy());
     expectChartText(tree);
   });

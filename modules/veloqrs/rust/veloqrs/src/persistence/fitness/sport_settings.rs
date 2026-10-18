@@ -53,13 +53,6 @@ impl SportSettingsEntry {
     /// bound is the top of its zone and belongs to it, and a reading over the
     /// last bound is the top zone. `None` when the entry lists no zones, a
     /// bound is not positive, or `watts` or `ftp` is not a positive number.
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "a planned workout's steps are the first to be placed"
-        )
-    )]
     pub(crate) fn zone_for_power(&self, watts: f64, ftp: f64) -> Option<u32> {
         let positive = |v: f64| v.is_finite() && v > 0.0;
         if !positive(watts) || !positive(ftp) || self.power_zones.is_empty() {

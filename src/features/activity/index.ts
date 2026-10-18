@@ -50,7 +50,6 @@ export {
   useSectionOverlays,
 } from './hooks';
 export { useActivityDetailData } from './hooks/useActivityDetailData';
-export { useActivityLabels } from './hooks/useActivityLabels';
 
 export type { ChartConfig, ChartTypeId } from './lib/chartConfig';
 export { FEED_GROUPS } from './lib/feedActivityGroups';
@@ -65,7 +64,6 @@ export { CARD_MARGIN } from './lib/cardLayout';
 export { activitySecondaryStatLabels } from './lib/activityCardA11yLabel';
 export type { FeedGroup } from './lib/feedActivityGroups';
 export { groupSectionEncounters, sectionRowLabels } from './lib/groupSectionEncounters';
-export { storedDecoupling } from './lib/decoupling';
 export type { DecouplingSource } from './lib/decoupling';
 export type { SectionEncounterGroup } from './lib/groupSectionEncounters';
 export { setVisibleRange } from './lib/previewRange';

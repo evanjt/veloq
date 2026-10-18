@@ -15,7 +15,8 @@ import { initialiseI18n } from '@/i18n';
 import { useActivityStats } from '@/features/activity/components/stats/useActivityStats';
 import { FitnessChart } from '@/features/fitness/components/FitnessChart';
 import { TodayBanner } from '@/features/routes/components/TodayBanner';
-import type { Activity, WellnessData } from '@/types';
+import type { WellnessData } from '@/types';
+import { activityRecord } from '../__shared__/activityRecord';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
@@ -30,12 +31,12 @@ jest.mock('@/features/home/hooks/useWorkoutSections', () => ({
   useWorkoutSections: () => ({ sections: [] }),
 }));
 
-const activity = {
+const activity = activityRecord({
   id: 'a1',
-  type: 'Ride',
+  sportType: 'Ride',
   name: 'Ride',
-  start_date_local: '2026-09-05T08:00:00',
-} as Activity;
+  startDateLocal: '2026-09-05T08:00:00',
+});
 
 function fitnessTabReadout(day: WellnessData) {
   return render(<FitnessChart data={[day]} />);

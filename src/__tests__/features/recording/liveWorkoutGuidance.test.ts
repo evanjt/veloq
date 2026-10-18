@@ -3,7 +3,7 @@
  * the moving clock and the recorded distance, and travels through the crash
  * backup with the ride.
  */
-import { expandPlan } from '@/features/recording/lib/planFollow';
+import type { PlanLine } from '@/features/recording/lib/planFollow';
 import { restoreRecordingBackup } from '@/features/recording/lib/restoreRecordingBackup';
 import {
   buildRecordingBackup,
@@ -53,11 +53,11 @@ function fixAt(seconds: number, metresNorth: number) {
 
 const plan = {
   name: 'Kilometre repeats',
-  lines: expandPlan([
-    { text: 'Warm up', duration: 120 },
-    { text: 'Kilometre', distance: 1000, duration: 300 },
-    { text: 'Jog', duration: 60 },
-  ]),
+  lines: [
+    { kind: 'work', text: 'Warm up', durationSeconds: 120 },
+    { kind: 'work', text: 'Kilometre', durationSeconds: 300, distanceMetres: 1000 },
+    { kind: 'work', text: 'Jog', durationSeconds: 60 },
+  ] satisfies PlanLine[],
 };
 
 function start(type: 'Run' | 'VirtualRun', mode: 'gps' | 'indoor', withPlan: typeof plan | null) {

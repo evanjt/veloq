@@ -27,7 +27,7 @@ beforeEach(() => changeLanguage('en-GB'));
 
 describe('the supporting data section rows', () => {
   function rows(sections: NonNullable<InsightSupportingData['sections']>) {
-    render(<SupportingDataSection data={{ sections }} />);
+    render(<SupportingDataSection data={{ sections }} category="route" />);
     return screen.getAllByRole('button').map((row) => row.props.accessibilityLabel);
   }
 

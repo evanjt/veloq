@@ -11,7 +11,6 @@ import type { TextInstance } from 'react-native';
 import { render, screen } from '@testing-library/react-native';
 import type { ReactTestInstance } from 'react-test-renderer';
 
-import { PerformanceTooltip } from '@/features/routes/components/section/PerformanceTooltip';
 import { MapPopup } from '@/features/maps/components/regional/MapPopup';
 import { spacing } from '@/theme';
 
@@ -52,38 +51,7 @@ function expectApart(a: ReactTestInstance, b: ReactTestInstance) {
   expect(gap).toBeGreaterThanOrEqual(left.props.hitSlop.right + right.props.hitSlop.left);
 }
 
-const POINT = {
-  id: 'p1',
-  activityId: 'a1',
-  speed: 4,
-  bestSpeed: 5,
-  bestTime: 160,
-  date: new Date('2026-01-01T00:00:00Z'),
-  activityName: 'Harbour loop',
-  direction: 'same' as const,
-  sectionTime: 200,
-  isBest: false,
-  x: 0,
-};
-
 describe('icon button rows', () => {
-  it('keeps the attempt tooltip reference and exclude buttons apart', async () => {
-    await render(
-      <PerformanceTooltip
-        selectedPoint={POINT}
-        isDark={false}
-        basis="speed"
-        onSetAsReference={jest.fn()}
-        onExcludeActivity={jest.fn()}
-        onClearSelection={jest.fn()}
-      />
-    );
-    expectApart(
-      screen.getByLabelText('sections.setAsReference'),
-      screen.getByLabelText('sections.excludeActivity')
-    );
-  });
-
   it('keeps the map popup zoom and close buttons apart', async () => {
     await render(
       <MapPopup

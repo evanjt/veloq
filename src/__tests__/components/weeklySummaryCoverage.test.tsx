@@ -15,11 +15,8 @@ import { RangeCoverage } from 'veloqrs';
 
 import { WeeklySummary } from '@/features/stats/components/WeeklySummary';
 import { getEngine } from '@/shared/native/engine';
-import {
-  summaryComparison,
-  trainingScreenRead,
-  wallSeconds,
-} from '../__shared__/trainingScreenRead';
+import { summaryComparison, fitnessScreenRead, wallSeconds } from '../__shared__/fitnessScreenRead';
+import { WithScreenRead } from '../__shared__/withScreenRead';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
@@ -42,7 +39,7 @@ const WINDOWS = {
 let held = 3;
 
 const engine = {
-  getTrainingScreenData: trainingScreenRead({
+  getFitnessScreenData: fitnessScreenRead({
     comparisons: (now) => {
       const of = ([currentStart, previousStart, previousEnd]: readonly [Date, Date, Date]) =>
         summaryComparison(now, {
@@ -85,7 +82,10 @@ beforeEach(() => {
 
 describe('WeeklySummary over a range never downloaded', () => {
   it('asks the census about each period it compares, by its own dates', async () => {
-    const view = await render(<WeeklySummary />, { wrapper });
+    const view = await render(
+      <WithScreenRead>{(training) => <WeeklySummary training={training} />}</WithScreenRead>,
+      { wrapper }
+    );
 
     await fireEvent.press(view.getByTestId('weekly-summary-range-month'));
 
@@ -100,7 +100,10 @@ describe('WeeklySummary over a range never downloaded', () => {
     held = 0;
     coverageBy({ '2026-06-01': RangeCoverage.NotFetched });
 
-    const view = await render(<WeeklySummary />, { wrapper });
+    const view = await render(
+      <WithScreenRead>{(training) => <WeeklySummary training={training} />}</WithScreenRead>,
+      { wrapper }
+    );
     await fireEvent.press(view.getByTestId('weekly-summary-range-month'));
 
     await waitFor(() => expect(view.getByText('stats.rangeNotDownloaded')).toBeTruthy());
@@ -111,7 +114,10 @@ describe('WeeklySummary over a range never downloaded', () => {
     held = 0;
     coverageBy({ '2026-06-01': RangeCoverage.Empty });
 
-    const view = await render(<WeeklySummary />, { wrapper });
+    const view = await render(
+      <WithScreenRead>{(training) => <WeeklySummary training={training} />}</WithScreenRead>,
+      { wrapper }
+    );
     await fireEvent.press(view.getByTestId('weekly-summary-range-month'));
 
     await waitFor(() => expect(view.getByText('stats.noActivitiesInPeriod')).toBeTruthy());
@@ -121,7 +127,10 @@ describe('WeeklySummary over a range never downloaded', () => {
   it('adds a quiet line when the year is partly downloaded', async () => {
     coverageBy({ '2026-01-01': RangeCoverage.NotFetched });
 
-    const view = await render(<WeeklySummary />, { wrapper });
+    const view = await render(
+      <WithScreenRead>{(training) => <WeeklySummary training={training} />}</WithScreenRead>,
+      { wrapper }
+    );
     await fireEvent.press(view.getByTestId('weekly-summary-range-year'));
 
     await waitFor(() => expect(view.getByTestId('weekly-summary-count')).toBeTruthy());
@@ -131,7 +140,10 @@ describe('WeeklySummary over a range never downloaded', () => {
   it('adds the quiet line when the period compared against is not downloaded', async () => {
     coverageBy({ '2025-01-01': RangeCoverage.NotFetched });
 
-    const view = await render(<WeeklySummary />, { wrapper });
+    const view = await render(
+      <WithScreenRead>{(training) => <WeeklySummary training={training} />}</WithScreenRead>,
+      { wrapper }
+    );
     await fireEvent.press(view.getByTestId('weekly-summary-range-year'));
 
     await waitFor(() => expect(view.getByTestId('weekly-summary-count')).toBeTruthy());
@@ -139,7 +151,10 @@ describe('WeeklySummary over a range never downloaded', () => {
   });
 
   it('carries no line when both periods are downloaded', async () => {
-    const view = await render(<WeeklySummary />, { wrapper });
+    const view = await render(
+      <WithScreenRead>{(training) => <WeeklySummary training={training} />}</WithScreenRead>,
+      { wrapper }
+    );
     await fireEvent.press(view.getByTestId('weekly-summary-range-year'));
 
     await waitFor(() => expect(view.getByTestId('weekly-summary-count')).toBeTruthy());
@@ -147,7 +162,10 @@ describe('WeeklySummary over a range never downloaded', () => {
   });
 
   it('asks the census about this week so far and last week to the same weekday', async () => {
-    await render(<WeeklySummary />, { wrapper });
+    await render(
+      <WithScreenRead>{(training) => <WeeklySummary training={training} />}</WithScreenRead>,
+      { wrapper }
+    );
 
     await waitFor(() =>
       expect(engine.rangeCoverage).toHaveBeenCalledWith('2026-06-15', '2026-06-17')
@@ -159,7 +177,10 @@ describe('WeeklySummary over a range never downloaded', () => {
     held = 0;
     coverageBy({ '2026-06-15': RangeCoverage.NotFetched });
 
-    const view = await render(<WeeklySummary />, { wrapper });
+    const view = await render(
+      <WithScreenRead>{(training) => <WeeklySummary training={training} />}</WithScreenRead>,
+      { wrapper }
+    );
 
     await waitFor(() => expect(view.getByText('stats.rangeNotDownloaded')).toBeTruthy());
   });

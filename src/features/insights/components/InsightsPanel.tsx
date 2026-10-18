@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Pressable, ScrollView, StyleSheet, View, type ScrollViewInstance } from 'react-native';
+import { ScrollView, StyleSheet, View, type ScrollViewInstance } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
@@ -11,9 +11,8 @@ import {
   EmptyState,
   ErrorState,
   ExplanationCard,
-  pressable,
-  pressRipple,
   useScrollEndInset,
+  PressTarget,
 } from '@/shared/ui';
 import { ScreenRefreshControl } from '@/shared/ui/ScreenRefreshControl';
 import { formatRelativeDate } from '@/shared/format/format';
@@ -102,16 +101,14 @@ export const InsightsPanel = React.memo(function InsightsPanel({
         }
       >
         {__DEV__ ? (
-          <Pressable
+          <PressTarget
             accessibilityRole="button"
             accessibilityLabel={t('insights.title')}
             onLongPress={handleLongPress}
             delayLongPress={CONFIRM_HOLD_MS}
-            style={pressable()}
-            android_ripple={pressRipple}
           >
             <TodayBanner form={form} />
-          </Pressable>
+          </PressTarget>
         ) : (
           <TodayBanner form={form} />
         )}

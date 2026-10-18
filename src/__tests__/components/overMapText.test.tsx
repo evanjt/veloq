@@ -6,7 +6,9 @@ import { ActivityCard } from '@/features/activity/components/ActivityCard';
 import { ActivityHeader } from '@/features/activity/components/ActivityHeader';
 import { DetailHero, HeroNameRow, HeroStatsRow } from '@/shared/ui/DetailHero';
 import { opacity, typography } from '@/theme';
-import type { Activity, ActivityDetail } from '@/types';
+import type { Activity } from '@/types';
+
+import { activityRecord } from '../__shared__/activityRecord';
 
 // The card's drawn text is hidden from assistive technology, which reads the
 // card's own label instead, and these cases check what is drawn.
@@ -50,6 +52,17 @@ const activity = {
   stream_types: ['latlng'],
 } as Activity;
 
+const detail = activityRecord({
+  id: 'sample-1',
+  name: 'Morning ride',
+  sportType: 'Ride',
+  startDateLocal: '2026-08-12T07:30:00',
+  distance: 42000,
+  movingTime: 7200,
+  elevationGain: 450,
+  streamTypes: ['latlng'],
+});
+
 const styleOf = (node: { props: { style?: unknown } }) =>
   StyleSheet.flatten(node.props.style as never) as Record<string, unknown>;
 
@@ -83,7 +96,6 @@ it('uses one shadow geometry and full type roles for map text', async () => {
   const heroName = styleOf(hero.getByTestId('hero-name'));
   const heroStat = styleOf(hero.getByTestId('hero-stat'));
 
-  const detail = activity as unknown as ActivityDetail;
   const header = await render(
     <ActivityHeader
       activity={detail}

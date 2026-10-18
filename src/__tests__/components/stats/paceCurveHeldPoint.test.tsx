@@ -5,7 +5,8 @@
  *
  * Expected behaviour: a held point belongs to the curve it was scrubbed on.
  * Once another curve is drawn the header reads that curve's longest effort and
- * names its activity, and a held point survives a re-render of the same curve.
+ * names its activity from the curve read itself, and a held point survives a
+ * re-render of the same curve.
  */
 
 import React from 'react';
@@ -22,6 +23,7 @@ interface Curve {
   times: number[];
   pace: number[];
   activity_ids: string[];
+  activities: Record<string, { id: string; name: string; start_date_local: string }>;
   days: number;
 }
 
@@ -29,11 +31,18 @@ interface HeldChartPoint {
   distance: number;
 }
 
+/** A curve read's entry for an activity it names. */
+const START = '2026-03-01T07:00:00';
+
 const sixWeeks: Curve = {
   distances: [400, 1000, 5000, 10000],
   times: [80, 220, 1200, 2500],
   pace: [5, 4.55, 4.17, 4],
   activity_ids: ['harbour-400', 'harbour-1k', 'harbour-5k', 'harbour-10k'],
+  activities: {
+    'harbour-5k': { id: 'harbour-5k', name: 'Harbour loop', start_date_local: START },
+    'harbour-10k': { id: 'harbour-10k', name: 'Harbour long loop', start_date_local: START },
+  },
   days: 42,
 };
 
@@ -42,6 +51,9 @@ const fullYear: Curve = {
   times: [78, 215, 1180, 2460, 5400],
   pace: [5.13, 4.65, 4.24, 4.07, 3.91],
   activity_ids: ['ridge-400', 'ridge-1k', 'ridge-5k', 'ridge-10k', 'ridge-half'],
+  activities: {
+    'ridge-half': { id: 'ridge-half', name: 'Ridge half', start_date_local: START },
+  },
   days: 365,
 };
 
@@ -50,14 +62,15 @@ const gradeAdjusted: Curve = {
   times: [79, 218, 1190, 3800],
   pace: [5.06, 4.59, 4.2, 3.95],
   activity_ids: ['harbour-400', 'harbour-1k', 'harbour-5k', 'lighthouse-15k'],
+  activities: {
+    'harbour-5k': { id: 'harbour-5k', name: 'Harbour loop', start_date_local: START },
+    'lighthouse-15k': {
+      id: 'lighthouse-15k',
+      name: 'Lighthouse out and back',
+      start_date_local: START,
+    },
+  },
   days: 42,
-};
-
-const activityNames: Record<string, string> = {
-  'harbour-5k': 'Harbour loop',
-  'harbour-10k': 'Harbour long loop',
-  'ridge-half': 'Ridge half',
-  'lighthouse-15k': 'Lighthouse out and back',
 };
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
@@ -72,15 +85,6 @@ jest.mock('@/features/stats/hooks/usePaceCurve', () => ({
     error: null,
   }),
 }));
-
-jest.mock('@/features/activity/hooks/useActivities', () => {
-  const activities = Object.entries(activityNames).map(([id, name]) => ({
-    id,
-    name,
-    start_date_local: '2026-03-01T07:00:00',
-  }));
-  return { useActivities: () => ({ data: activities, isLoading: false }) };
-});
 
 // The scrub gesture lives in the shared chart; this drives the two callbacks
 // the pace chart hands it, with the points it was given.

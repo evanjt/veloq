@@ -3,7 +3,6 @@ import { View, LayoutChangeEvent, StyleSheet } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
-import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Canvas, Picture, Skia } from '@shopify/react-native-skia';
 import { RangeCoverage } from 'veloqrs';
@@ -22,13 +21,12 @@ import {
   verdictColor,
   themePalette,
 } from '@/theme';
-import {
-  useTrainingScreenData,
-  type MonthTotals,
-  type PeriodTotals,
+import type {
+  MonthTotals,
+  PeriodTotals,
+  TrainingCardsRead,
 } from '@/features/stats/hooks/useEngineStats';
 import { ErrorState, ToggleButton, CardHeader, EmptyState } from '@/shared/ui';
-import { queryKeys } from '@/shared/query/queryKeys';
 import { seasonChange, seasonMonthChange } from '@/features/stats/lib/periodWindows';
 import { useWindowCoverage } from '@/shared/native/useRangeCoverage';
 import {
@@ -53,6 +51,8 @@ import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { formatDecimalTrimmed } from '@/shared/format';
 
 interface SeasonComparisonProps {
+  /** The card's part of the fitness screen read, which the screen makes once. */
+  training: TrainingCardsRead;
   /** Height of the chart */
   height?: number;
 }
@@ -125,7 +125,7 @@ function monthCentreX(width: number, monthIndex: number): number {
   return groupWidth * monthIndex + groupWidth / 2;
 }
 
-export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
+export function SeasonComparison({ training, height = 200 }: SeasonComparisonProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const palette = themePalette(isDark);
@@ -136,13 +136,13 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
   // The two calendar years the chart draws, and no more: the totals come from
   // the engine's own GROUP BY rather than from a parsed year of bodies. The
   // year and month to date are set against the same span of last year, never
-  // against a whole one, and all of it is the training screen's one read.
+  // against a whole one, and all of it is the fitness screen's one read.
   const {
     windows,
     data: { months, yearCurrent, yearPrevious, monthCurrent, monthPrevious },
     error: readError,
-  } = useTrainingScreenData();
-  const queryClient = useQueryClient();
+    retry,
+  } = training;
   const { currentYear, currentMonth, firstDay, lastDay } = useMemo(
     () => ({
       currentYear: windows.today.getFullYear(),
@@ -429,9 +429,7 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
         <ErrorState
           variant="inline"
           error={readError}
-          onRetry={() =>
-            void queryClient.invalidateQueries({ queryKey: queryKeys.stats.training.all })
-          }
+          onRetry={retry}
           testID="season-comparison-failed"
         />
       </View>

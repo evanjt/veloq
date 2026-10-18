@@ -46,8 +46,7 @@ fn run_with_bulk(server: &MockServer, cancelled: bool) -> Result<(), NetError> {
     enqueue_download(BULK_RUN, 64, DownloadPriority::Bulk);
     let outcome = crate::runtime::block_on(ready_newest_activities(
         crate::persistence::engine_install(),
-        &transport_to(server),
-        "i1",
+        &crate::net::IntervalsSession::new(transport_to(server), "i1"),
         &|| {
             assert!(
                 should_yield_to_interactive(BULK_RUN),

@@ -10,13 +10,14 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { render, screen, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { RangeCoverage, type TrainingScreenWindows } from 'veloqrs';
+import { RangeCoverage, type FitnessScreenWindows } from 'veloqrs';
 
 import { ActivityHeatmap } from '@/features/stats/components/ActivityHeatmap';
 import { HEATMAP_PITCH, HEATMAP_WEEKS } from '@/features/stats/lib/heatmapGrid';
 import { initialiseI18n } from '@/i18n';
 import { getEngine } from '@/shared/native/engine';
-import { noComparisons } from '../__shared__/trainingScreenRead';
+import { NO_FITNESS_PARTS, noComparisons } from '../__shared__/fitnessScreenRead';
+import { WithScreenRead } from '../__shared__/withScreenRead';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
@@ -32,7 +33,8 @@ const totals = { count: 2, totalDuration: 7200, totalDistance: 20_000, totalTss:
 const engine = {
   subscribe: () => () => {},
   rangeCoverage: () => RangeCoverage.Loaded,
-  getTrainingScreenData: (windows: TrainingScreenWindows) => ({
+  getFitnessScreenData: (_spanDays: number[], windows: FitnessScreenWindows) => ({
+    ...NO_FITNESS_PARTS,
     heatmap: [{ date: windows.heatmapLastDay, intensity: 3, maxDuration: 6000, activityCount: 2 }],
     months: [],
     yearCurrent: totals,
@@ -57,7 +59,9 @@ it('paints the count and a grid-sized placeholder before its canvas, then draws 
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const card = (drawn: boolean) => (
     <QueryClientProvider client={client}>
-      <ActivityHeatmap drawn={drawn} />
+      <WithScreenRead>
+        {(training) => <ActivityHeatmap training={training} drawn={drawn} />}
+      </WithScreenRead>
     </QueryClientProvider>
   );
 

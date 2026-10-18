@@ -11,8 +11,6 @@ export {
   nativeColours,
   opacity,
   activityTypeColors,
-  activityTypeInk,
-  activityTypeInkDark,
   zoneColors,
   zoneColorsDark,
   zoneColorsLight,
@@ -26,7 +24,6 @@ export {
   directionPair,
   sportFamilyColours,
   strengthTone,
-  workoutStepColors,
   mapPreviewColors,
   mapLayerColors,
   chartStreamColors,
@@ -41,10 +38,8 @@ export {
   insightToneColor,
   recording,
   contributionRamp,
-  errorScreen,
   bodyDiagram,
   shaderWarmup,
-  cameraOverlay,
   ink,
   loupeChrome,
   sectionPalette,
@@ -83,7 +78,14 @@ export {
   UNDER_BAR,
   type TokenFamily,
 } from './tokenFamilies';
-export { shadows, raised, createShadow, smallElementShadow, mapTextShadow } from './shadows';
+export {
+  shadows,
+  raised,
+  createShadow,
+  smallElementShadow,
+  mapTextShadow,
+  chartLabelHalo,
+} from './shadows';
 export { chartStyles } from './chartStyles';
 export {
   duration,

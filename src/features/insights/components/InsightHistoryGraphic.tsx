@@ -14,7 +14,7 @@
  */
 
 import React, { useCallback, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Canvas, Circle, Path, Rect } from '@shopify/react-native-skia';
 
@@ -30,12 +30,13 @@ import {
 
 import { navigateTo } from '@/shared/app/navigation';
 import { formatShortDate } from '@/shared/format/format';
-import { ChartErrorBoundary, pressable, pressRipple } from '@/shared/ui';
+import { ChartErrorBoundary, PressTarget } from '@/shared/ui';
 import { fitTrackToBox, normaliseTrackPoints } from '@/shared/ui/TrackPreview';
 import {
   chartStyles,
   colors,
   colorWithOpacity,
+  colourTokens,
   darkColors,
   mapPreviewColors,
   opacity,
@@ -313,7 +314,7 @@ function LineDrawing({
       <Path
         path={path}
         style="stroke"
-        strokeWidth={chartStroke.casing}
+        strokeWidth={LINE_WIDTH}
         strokeCap={LINE_CAP}
         strokeJoin={LINE_JOIN}
         color={palette.mark}
@@ -363,7 +364,7 @@ export const InsightHistoryGraphic = React.memo(function InsightHistoryGraphic({
   const palette: Palette = {
     mark: color,
     markSecond: colorWithOpacity(color, 0.55),
-    muted: isDark ? darkColors.chartMutedBar : colors.chartMutedBar,
+    muted: colourTokens[isDark ? 'dark' : 'light']['chart-muted'],
     mutedLine: colorWithOpacity(secondary, opacity.disabled),
     shade: colorWithOpacity(color, opacity.tint2),
   };
@@ -394,13 +395,12 @@ export const InsightHistoryGraphic = React.memo(function InsightHistoryGraphic({
   const labelStyle = [styles.label, { color: secondary }];
 
   return (
-    <Pressable
+    <PressTarget
       testID="insight-graphic"
       accessibilityRole="link"
       accessibilityLabel={accessibilityLabel}
       onPress={onPress}
-      android_ripple={pressRipple}
-      style={pressable([styles.graphic, chartStyles.plotDirection])}
+      style={[styles.graphic, chartStyles.plotDirection]}
     >
       <View style={styles.plotColumn}>
         <View testID="insight-graphic-plot" style={styles.plot} onLayout={onLayout}>
@@ -423,7 +423,7 @@ export const InsightHistoryGraphic = React.memo(function InsightHistoryGraphic({
           <Text style={labelStyle}>{scale.bottom}</Text>
         </View>
       ) : null}
-    </Pressable>
+    </PressTarget>
   );
 });
 

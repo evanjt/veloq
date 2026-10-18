@@ -4,10 +4,9 @@
  */
 
 import React from 'react';
-import { StyleSheet, Pressable } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { useMetricSystem } from '@/shared/app';
 import {
   DetailHero,
@@ -17,6 +16,7 @@ import {
   useHeroHeaderBottom,
   useHeroMapHeight,
 } from '@/shared/ui';
+import { PressTarget } from '@/shared/ui/PressTarget';
 import { Icon } from '@/shared/ui/Icon';
 import { PlaceNameKind } from 'veloqrs';
 import { SectionNameEditor } from './SectionNameEditor';
@@ -56,6 +56,8 @@ export interface SectionHeaderProps {
   scopeRange?: Period | undefined;
   mapReady: boolean;
   isTrimming: boolean;
+  /** The running map tool's bar, drawn over the map's foot in place of the name and stats. */
+  toolBar?: React.ReactNode;
   isExpandMode: boolean;
   trimStart: number;
   trimEnd: number;
@@ -98,6 +100,7 @@ export function SectionHeader({
   mapReady,
   mapHeight: mapHeightProp,
   isTrimming,
+  toolBar,
   isExpandMode,
   trimStart,
   trimEnd,
@@ -127,6 +130,7 @@ export function SectionHeader({
   return (
     <DetailHero
       height={mapHeight}
+      tool={toolBar}
       overlay={
         <>
           <SectionNameEditor
@@ -146,14 +150,13 @@ export function SectionHeader({
             }
           />
           {section.isLift ? (
-            <Pressable
-              style={pressable(styles.liftBadge)}
+            <PressTarget
+              style={styles.liftBadge}
               testID="section-lift-badge"
               accessibilityRole="button"
               accessibilityLabel={t('sections.notLift')}
               onPress={onUnflagLift}
               disabled={!onUnflagLift}
-              android_ripple={pressRipple}
               hitSlop={liftBadgeSlop}
             >
               <Icon name="gondola" size={iconSize.sm} color={colors.textOnFill} />
@@ -166,7 +169,7 @@ export function SectionHeader({
                   testID="section-lift-unflag"
                 />
               ) : null}
-            </Pressable>
+            </PressTarget>
           ) : null}
           <HeroStatsRow testID="section-detail-stats" stats={stats} />
         </>

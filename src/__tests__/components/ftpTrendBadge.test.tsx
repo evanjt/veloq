@@ -22,10 +22,26 @@ jest.mock('@shopify/react-native-skia', () => ({
   LinearGradient: () => null,
   vec: () => ({}),
 }));
+jest.mock('react-native-gesture-handler', () => ({
+  ...jest.requireActual('react-native-gesture-handler'),
+  GestureDetector: ({ children }: { children: React.ReactNode }) => children,
+}));
 jest.mock('@/shared/charts', () => ({
   ...jest.requireActual('@/shared/charts/chartSummary'),
   ...jest.requireActual('@/shared/charts/axisLabels'),
+  ...jest.requireActual('@/shared/charts/cartesian'),
   YAxisLabels: () => null,
+  ChartCrosshair: () => null,
+  ScrubDot: () => null,
+  useChartGestures: () => ({
+    gesture: {},
+    crosshairStyle: {},
+    syncBounds: () => undefined,
+    syncXCoords: () => undefined,
+    accessibilityProps: {},
+    scrubIndex: -1,
+    selectedPoint: null,
+  }),
   ChartSurface: ({ children }: { children: React.ReactNode }) => children,
   ChartCanvas: () => null,
   CurveArea: () => null,

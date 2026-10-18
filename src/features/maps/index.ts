@@ -10,12 +10,18 @@ export {
   SectionCreationResult,
   type SectionOverlay,
 } from './components/ActivityMapView';
-export { ACTIVITY_CATEGORIES, FILTER_CHIP, groupTypesByCategory } from './lib/activityCategories';
+export { FILTER_CHIP, groupTypesByCategory } from './lib/activityCategories';
 export {
   ATTRIBUTION_CLEARANCE,
   AttributionOverlay,
   type AttributionOverlayRef,
 } from './components/AttributionOverlay';
+export {
+  MAP_CONTROL_GAP,
+  MAP_CONTROL_SIZE,
+  MapControlButton,
+  type MapControlButtonProps,
+} from './components/MapControlButton';
 export { BaseMapView, type BaseMap3DLayer } from './components/BaseMapView';
 export { ACTIVITY_COUNT_GLYPH, FIT_GLYPH, LOCATE_GLYPH } from './lib/mapGlyphs';
 export {
@@ -29,6 +35,13 @@ export { type MapCameraState, MapSurface, type MapSurfaceRef } from './component
 export { RegionalMapView } from './components/RegionalMapView';
 export { MapEmptyState } from './components/MapEmptyState';
 export { MapNameSearch } from './components/MapNameSearch';
+export {
+  MAP_TOOL_BAR_HEIGHT,
+  MapToolBar,
+  type MapToolBarProps,
+  type MapToolHintTone,
+} from './components/MapToolBar';
+export { mapToolTitle } from './lib/mapToolTitle';
 export { type CreationState } from './components/SectionCreationOverlay';
 export {
   TerrainSnapshotWebView,

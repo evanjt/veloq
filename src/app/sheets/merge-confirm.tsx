@@ -1,12 +1,12 @@
 import React, { useMemo, useState } from 'react';
-import { View, Pressable, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useSheetRequest } from '@/shared/app/sheetRequest';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
-import { pressable, pressRipple, SheetActions, SheetHeader, SheetScrollView } from '@/shared/ui';
+import { SheetActions, SheetHeader, SheetScrollView, PressTarget } from '@/shared/ui';
 import { formatDistance, formatFullDate } from '@/shared/format/format';
 import { SportIcons } from '@/shared/activity/SportIcons';
 import {
@@ -69,14 +69,13 @@ function MergeConfirmSheetContent() {
   const renderOption = (section: MergeSectionInfo) => {
     const isSelected = section.id === kept.id;
     return (
-      <Pressable
+      <PressTarget
         testID={`merge-keep-${section.id}`}
-        style={pressable([
+        style={[
           styles.option,
           { borderColor: isSelected ? accent : border },
           isSelected && { backgroundColor: colorWithOpacity(accent, opacity.tint1) },
-        ])}
-        android_ripple={pressRipple}
+        ]}
         accessibilityRole="button"
         accessibilityLabel={section.name}
         accessibilityState={{ selected: isSelected }}
@@ -97,7 +96,7 @@ function MergeConfirmSheetContent() {
             </Text>
           </View>
         </View>
-      </Pressable>
+      </PressTarget>
     );
   };
 

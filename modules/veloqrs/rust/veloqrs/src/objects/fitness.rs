@@ -122,10 +122,13 @@ impl FitnessManager {
         Ok(curve)
     }
 
-    /// An activity's stored interval body, or `None` if never fetched.
-    fn get_interval_body(&self, activity_id: String) -> Result<Option<String>, VeloqError> {
+    /// An activity's laps, or `None` if its body was never fetched or will not parse.
+    fn get_activity_intervals(
+        &self,
+        activity_id: String,
+    ) -> Result<Option<crate::persistence::intervals::FfiActivityIntervals>, VeloqError> {
         with_reader(|conn| {
-            crate::persistence::bodies::pooled::interval_body(conn, &activity_id).map_err(|err| {
+            crate::persistence::intervals::activity_intervals(conn, &activity_id).map_err(|err| {
                 VeloqError::Database {
                     msg: format!("{}", err),
                 }
@@ -133,16 +136,18 @@ impl FitnessManager {
         })?
     }
 
-    /// Calendar event bodies over an inclusive window, oldest first.
-    fn get_calendar_event_bodies(
+    /// The calendar events over an inclusive window, oldest first, each
+    /// workout's steps walked into the lines a recording follows and the step
+    /// bar the banner draws, zoned against the athlete's own settings.
+    fn get_planned_events(
         &self,
         oldest_ts: f64,
         newest_ts: f64,
-    ) -> Result<Vec<String>, VeloqError> {
+    ) -> Result<Vec<crate::persistence::calendar::FfiPlannedEvent>, VeloqError> {
         let oldest_ts = crate::ffi_types::int_from_wire(oldest_ts);
         let newest_ts = crate::ffi_types::int_from_wire(newest_ts);
         with_reader(|conn| {
-            crate::persistence::bodies::pooled::calendar_event_bodies(conn, oldest_ts, newest_ts)
+            crate::persistence::calendar::pooled::planned_events(conn, oldest_ts, newest_ts)
                 .map_err(|err| VeloqError::Database {
                     msg: format!("{}", err),
                 })
@@ -195,19 +200,26 @@ impl FitnessManager {
     /// mounted: the cycling eFTP trend over the chart's three months with the
     /// activities that moved it, and the last stored running and swimming
     /// critical speeds, with the decoupling ride of each of `span_days` and
-    /// the activities of the longest. Off the engine lock, since it reads only
-    /// committed rows. Stale when the `activities` event fires.
+    /// the activities of the longest, and the calendar, the weekly card's
+    /// every range and the year comparison over `windows`. Off the engine
+    /// lock, since it reads only committed rows. Stale when the `activities`
+    /// event fires.
     fn get_fitness_screen_data(
         &self,
         span_days: Vec<u32>,
+        windows: crate::FfiFitnessScreenWindows,
     ) -> Result<crate::FfiFitnessScreenData, VeloqError> {
         with_reader(|conn| {
             crate::persistence::screens::pooled::fitness_screen_data(
                 conn,
                 &crate::persistence::wellness::today_iso(),
                 &span_days,
+                &windows,
             )
-        })
+            .map_err(|err| VeloqError::Database {
+                msg: format!("{}", err),
+            })
+        })?
     }
 
     fn get_available_sport_types(&self) -> Result<Vec<String>, VeloqError> {
@@ -215,22 +227,6 @@ impl FitnessManager {
             crate::persistence::fitness::derivations::pooled::try_available_sport_types(conn)
                 .unwrap_or_default()
         })
-    }
-
-    /// Everything the training tab paints with that stays fixed while it is
-    /// mounted, over the windows it draws. Off the engine lock, since it reads
-    /// only committed rows. Stale when the `activities` event fires.
-    fn get_training_screen_data(
-        &self,
-        windows: crate::FfiTrainingScreenWindows,
-    ) -> Result<crate::FfiTrainingScreenData, VeloqError> {
-        with_reader(|conn| {
-            crate::persistence::screens::pooled::training_screen_data(conn, &windows).map_err(
-                |err| VeloqError::Database {
-                    msg: format!("{}", err),
-                },
-            )
-        })?
     }
 
     fn get_summary_card_data(

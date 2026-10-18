@@ -55,7 +55,9 @@
 //! a pass regardless.
 
 use crate::governor::Lane;
-use crate::net::intervals::endpoints::{DEFAULT_STREAM_TYPES, fetch_streams_bytes};
+use crate::net::IntervalsSession;
+use crate::net::intervals::endpoints::DEFAULT_STREAM_TYPES;
+use crate::net::source::Source;
 use crate::net::transport::{NetError, Transport};
 use crate::net::types::{
     StreamDto, TrackClock, parse_streams, storable_series, track_clock, trackless_series,
@@ -558,8 +560,9 @@ fn says_something_about_the_activity(e: &NetError) -> bool {
 
 /// One activity's series, reduced to the index space its stored track is in,
 /// or kept in the server's own when it has no track.
-async fn fetch_one(transport: &Transport, upstream: &str, points: Option<usize>) -> Fetched {
-    let bytes = match fetch_streams_bytes(transport, upstream, DEFAULT_STREAM_TYPES, Lane::Backfill)
+async fn fetch_one(source: &impl Source, upstream: &str, points: Option<usize>) -> Fetched {
+    let bytes = match source
+        .streams_bytes(upstream, DEFAULT_STREAM_TYPES, Lane::Backfill.into())
         .await
     {
         Ok(b) => b,
@@ -616,7 +619,7 @@ fn reduce(body: &[u8], points: Option<usize>, named: &str) -> Fetched {
 
 /// One batch of asks, at [`FETCH_CONCURRENCY`] in flight.
 async fn fetch_batch(
-    transport: &Transport,
+    source: &impl Source,
     batch: &[StreamGap],
     upstream: &std::collections::HashMap<String, String>,
 ) -> Vec<(String, Fetched)> {
@@ -630,7 +633,7 @@ async fn fetch_batch(
             )
             .to_string();
             async move {
-                let fetched = fetch_one(transport, &named, gap.point_count).await;
+                let fetched = fetch_one(source, &named, gap.point_count).await;
                 (gap.activity_id, fetched)
             }
         })
@@ -713,16 +716,15 @@ pub fn run_stream_backfill(transport: &Transport, athlete_id: &str) -> StreamBac
         log::info!("[Streams] backfill refused: a pass is already in flight");
         return StreamBackfillRun::Refused;
     };
-    run_in_slot(slot, engine_install(), transport, athlete_id)
+    run_in_slot(
+        slot,
+        engine_install(),
+        &IntervalsSession::new(transport.clone(), athlete_id),
+    )
 }
 
-fn run_in_slot(
-    _slot: RunGuard,
-    install: u64,
-    transport: &Transport,
-    athlete_id: &str,
-) -> StreamBackfillRun {
-    let run = run_pass(install, transport, athlete_id);
+fn run_in_slot(_slot: RunGuard, install: u64, session: &IntervalsSession) -> StreamBackfillRun {
+    let run = run_pass(install, session);
     record_run(install, &run);
     run
 }
@@ -769,7 +771,7 @@ fn run_outcome(phase: &str, failed: u32) -> RunOutcome {
     }
 }
 
-fn run_pass(install: u64, transport: &Transport, athlete_id: &str) -> StreamBackfillRun {
+fn run_pass(install: u64, session: &IntervalsSession) -> StreamBackfillRun {
     let queue = match with_persistent_engine_for(install, |engine| {
         engine.activities_missing_streams(STREAM_ATTEMPT_LIMIT)
     }) {
@@ -795,7 +797,7 @@ fn run_pass(install: u64, transport: &Transport, athlete_id: &str) -> StreamBack
         queue.len()
     );
 
-    let (outcome, stopped) = drain_queue(install, transport, athlete_id, &queue);
+    let (outcome, stopped) = drain_queue(install, session, &queue);
     BACKFILL.failed.store(outcome.failed, Ordering::Relaxed);
 
     match stopped {
@@ -806,7 +808,7 @@ fn run_pass(install: u64, transport: &Transport, athlete_id: &str) -> StreamBack
         Some(Stopped::Unauthorized) => {
             set_phase(STREAM_PHASE_FAILED);
             log::warn!("[Streams] backfill stopped: unauthorized");
-            crate::runtime::block_on(crate::objects::park_auth_expired(transport, athlete_id));
+            crate::runtime::block_on(crate::objects::park_auth_expired(session));
             return StreamBackfillRun::Failed("unauthorized".to_string());
         }
         Some(Stopped::NothingToWorkWith) => {
@@ -828,7 +830,8 @@ fn run_pass(install: u64, transport: &Transport, athlete_id: &str) -> StreamBack
         // wake-up starts the next pass then.
         Some(Stopped::Refused { until }) => {
             set_phase(STREAM_PHASE_WAITING);
-            let at = until.unwrap_or_else(|| transport.cooldown_lifts_at(chrono::Utc::now()));
+            let at =
+                until.unwrap_or_else(|| session.transport().cooldown_lifts_at(chrono::Utc::now()));
             log::info!("[Streams] backfill stopped: refused until {at}");
             crate::net::resume::resume_at(at);
         }
@@ -965,8 +968,7 @@ fn drain_queue_with_auth(
 
 fn drain_queue(
     install: u64,
-    transport: &Transport,
-    athlete_id: &str,
+    session: &IntervalsSession,
     queue: &[StreamGap],
 ) -> (StreamBackfillOutcome, Option<Stopped>) {
     let ids: Vec<String> = queue.iter().map(|g| g.activity_id.clone()).collect();
@@ -978,7 +980,7 @@ fn drain_queue(
 
     drain_queue_with_auth(
         queue,
-        |batch| crate::runtime::block_on(fetch_batch(transport, batch, &upstream)),
+        |batch| crate::runtime::block_on(fetch_batch(session, batch, &upstream)),
         |results| {
             let applied =
                 with_persistent_engine_for(install, |engine| engine.apply_stream_batch(results))
@@ -993,7 +995,7 @@ fn drain_queue(
         },
         stream_backfill_cancelled,
         crate::net::connectivity::is_offline,
-        || crate::objects::sync::still_signed_in(athlete_id),
+        || crate::objects::sync::still_signed_in(session.athlete_id()),
         || engine_install() == install,
     )
 }
@@ -1026,7 +1028,7 @@ pub fn start_stream_backfill() -> FfiStartOutcome {
         log::info!("[Streams] backfill deferred: offline");
         return FfiStartOutcome::Offline;
     }
-    let Some(Ok((transport, athlete_id))) = crate::objects::current_session() else {
+    let Some(Ok(session)) = crate::objects::current_session() else {
         log::info!("[Streams] backfill deferred: no credential yet");
         return FfiStartOutcome::NotConfigured;
     };
@@ -1036,7 +1038,7 @@ pub fn start_stream_backfill() -> FfiStartOutcome {
     // streams fetched against the old library's activity ids.
     let install = engine_install();
     crate::threads::spawn_named("veloq-streams", move || {
-        run_in_slot(slot, install, &transport, &athlete_id);
+        run_in_slot(slot, install, &session);
     });
     FfiStartOutcome::Started
 }
@@ -1657,8 +1659,9 @@ mod tests {
         let gov = std::sync::Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
         let transport =
             Transport::with_governor(server.base_url(), AuthMethod::ApiKey("k"), gov).unwrap();
+        let session = IntervalsSession::new(transport, "1");
 
-        let fetched = crate::runtime::block_on(fetch_one(&transport, "i3", Some(4)));
+        let fetched = crate::runtime::block_on(fetch_one(&session, "i3", Some(4)));
 
         mock.assert();
         let Fetched::Series(series, _) = fetched else {
@@ -2241,3 +2244,7 @@ mod auth_tests;
 #[cfg(test)]
 #[path = "tests/stream_time.rs"]
 mod time_tests;
+
+#[cfg(test)]
+#[path = "tests/stream_source.rs"]
+mod source_tests;

@@ -13,7 +13,7 @@ import { render, within } from '@testing-library/react-native';
 
 import { initialiseI18n } from '@/i18n';
 import { SectionContentArea } from '@/features/routes/components/section/SectionContentArea';
-import { PerformanceTooltip } from '@/features/routes/components/section/PerformanceTooltip';
+import { SelectedAttemptCard } from '@/features/routes/components/section/SelectedAttemptCard';
 import type { CalendarSummary } from '@/features/routes/components/section/SectionStatsCards';
 import type { PerformanceDataPoint } from '@/types';
 
@@ -88,7 +88,7 @@ function area(subject: 'route' | 'section') {
       calendarSummary={CALENDAR}
       effectiveSportType="Run"
       showExcluded={false}
-      hasExcluded={false}
+      excludedCount={0}
       sectionTimeRange="all"
       onActivitySelect={jest.fn()}
       onExcludeActivity={jest.fn()}
@@ -130,32 +130,33 @@ describe('the figures beside a route chart', () => {
   });
 });
 
-describe('the route tooltip', () => {
+describe('the route attempt card', () => {
   beforeAll(async () => {
     await initialiseI18n('en-AU');
   });
 
   const point = (time: number) => ({
-    ...CHART_DATA[0],
+    ...CHART_DATA[0]!,
     speed: DISTANCE / time,
     sectionTime: time,
-    bestSpeed: DISTANCE / 1500,
-    bestTime: 1500,
+    recordGapSecs: time - 1500,
     isBest: false,
   });
 
-  it('heads the selected attempt with its moving time and its gap to the best', () => {
-    const { getByTestId, queryByText } = render(
-      <PerformanceTooltip
-        selectedPoint={point(1600)}
+  it('heads the selected attempt with its moving time and its gap to the record', async () => {
+    const { getByTestId, queryByText } = await render(
+      <SelectedAttemptCard
+        attempt={point(1600)}
         isDark={false}
+        activityType="Ride"
         basis="time"
-        onClearSelection={jest.fn()}
+        progression={[]}
+        recordsSettled
       />
     );
 
-    expect(getByTestId('performance-tooltip-value').props.children).toBe('26:40');
-    expect(queryByText(/\+1:40/)).toBeTruthy();
+    expect(getByTestId('selected-attempt-value')).toHaveTextContent('26:40');
+    expect(getByTestId('selected-attempt-standing')).toHaveTextContent(/1:40/);
     expect(queryByText(/\/(mi|km)/)).toBeNull();
   });
 });

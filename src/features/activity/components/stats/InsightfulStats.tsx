@@ -15,8 +15,8 @@ import { useSheetOpener } from '@/shared/app/sheetRequest';
 import { useTranslation } from 'react-i18next';
 import { openExternal } from '@/shared/app/openExternal';
 import { spacing } from '@/theme';
-import type { Activity, WellnessData } from '@/types';
-import type { ActivityFitnessImpact, ActivitySummary, MaxHrSource } from 'veloqrs';
+import type { WellnessData } from '@/types';
+import type { ActivityFitnessImpact, ActivityRecord, ActivitySummary, MaxHrSource } from 'veloqrs';
 import { useActivityStats } from './useActivityStats';
 import { StatCard } from './StatCard';
 import { Card } from '@/shared/ui/Card';
@@ -25,7 +25,7 @@ import type { StatDetail } from './types';
 import type { ActivityNewGround } from '../../hooks/useActivitySectionHighlights';
 
 interface InsightfulStatsProps {
-  activity: Activity;
+  activity: ActivityRecord;
   /** Wellness data for the activity date (for context) */
   wellness?: WellnessData | null | undefined;
   /** The max HR from the detail screen read, the one the zones chart divides by. */

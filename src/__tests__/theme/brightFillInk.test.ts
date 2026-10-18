@@ -21,7 +21,6 @@ import {
 import { md3DarkScheme, md3LightScheme } from '@/theme/md3Scheme';
 import { paint } from '@/shared/ui/Button';
 import { badgePaint } from '@/shared/ui/Badge';
-import { tabBadgeTone } from '@/shared/ui/SwipeableTabs';
 
 const AA_TEXT = 4.5;
 
@@ -53,10 +52,9 @@ describe('bright fills take the bright-fill ink', () => {
     }
   });
 
-  it.each(THEMES)('draws the PR and positive tab badges readable in the %s theme', (_, isDark) => {
-    const tab = { key: 'k', label: 'k', icon: 'trophy', badgeText: '1' } as const;
-    for (const tone of ['pr', 'positive'] as const) {
-      const { fill, ink } = badgePaint(tabBadgeTone({ ...tab, badgeTone: tone }, false), isDark);
+  it.each(THEMES)('draws the record and positive badges readable in the %s theme', (_, isDark) => {
+    for (const tone of ['record', 'positive'] as const) {
+      const { fill, ink } = badgePaint(tone, isDark);
       expectReadable(tone, ink, fill);
     }
   });

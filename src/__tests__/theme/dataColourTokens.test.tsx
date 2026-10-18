@@ -13,6 +13,8 @@
 
 import { renderHook } from '@testing-library/react-native';
 
+import { contrastRatio } from '../__shared__/contrast';
+
 import { formZoneColor } from '@/features/fitness/lib/fitness';
 import { summaryFormZoneColor, summarySeriesColor } from '@/features/home/lib/summaryMetricColour';
 import { useChartColors } from '@/shared/charts';
@@ -82,7 +84,16 @@ describe.each(THEMES)('the %s theme', (theme) => {
 
     expect(sequentialRamp[theme]).toEqual(steps);
     expect(contributionRamp[theme]).toEqual([token['fill-neutral'], ...steps.slice(0, 4)]);
-    expect(isDark ? bodyDiagram.fillDark : bodyDiagram.fillLight).toBe(token['fill-neutral']);
+    expect(bodyDiagram[theme].untrained).toBe(token['fill-neutral']);
+  });
+
+  it('runs the activity calendar from the page outwards, each level further from it', () => {
+    const page = palette(theme).surfacePage;
+    const distance = contributionRamp[theme].map((level) => contrastRatio(level, page));
+
+    for (let level = 1; level < distance.length; level++) {
+      expect(distance[level]).toBeGreaterThan(distance[level - 1]);
+    }
   });
 
   it('runs the diverging ramp from the grey midpoint out to three steps each side', () => {

@@ -79,9 +79,6 @@ export const TOKEN_FAMILIES: Record<string, TokenFamily> = {
   infoBg: 'ground',
 
   // Text: the variants cut out of the series and zone hues.
-  rideText: 'text',
-  runText: 'text',
-  swimText: 'text',
   chartFtpText: 'text',
   chartPinkText: 'text',
   chartHrvText: 'text',
@@ -108,15 +105,7 @@ export const TOKEN_FAMILIES: Record<string, TokenFamily> = {
   // Fills that have not folded into a role yet.
   secondary: 'ground',
 
-  // Sport and fitness fills.
-  ride: 'ground',
-  run: 'ground',
-  swim: 'ground',
-  walk: 'ground',
-  hike: 'ground',
-  workout: 'ground',
-  walkChipFill: 'ground',
-  workoutChipFill: 'ground',
+  // Fitness fills.
   fitness: 'ground',
   fatigue: 'ground',
 
@@ -129,23 +118,14 @@ export const TOKEN_FAMILIES: Record<string, TokenFamily> = {
   chartCyan: 'ground',
   chartPink: 'ground',
   chartAmber: 'ground',
-  chartCasing: 'ground',
   chartHrv: 'ground',
   chartRhr: 'ground',
-  chartSleep: 'ground',
-  chartSleepScore: 'ground',
-  chartWeight: 'ground',
   chartFtp: 'ground',
   chartGuideLine: 'ground',
   chartPreviousSeason: 'ground',
-  chartGridFaint: 'ground',
-  chartZeroLine: 'ground',
-  chartMutedBar: 'ground',
-  chartDotMuted: 'ground',
   chartBandWarmup: 'ground',
   chartBandCooldown: 'ground',
   chartBandNeutral: 'ground',
-  chartZeroLineSolid: 'ground',
   chartForm: 'ground',
 
   // Map lines and zone fills. A map line is drawn over tiles behind a casing,
@@ -318,9 +298,8 @@ export const ROLE_EXEMPTIONS: Record<string, string> = {
  * text colour: a blue that reads on white is too dark on near-black, and the
  * gold is 2.10:1 on white. A word in the action blue takes `actionLink`, one in
  * the gold takes `achievementText`, each read for the theme it is drawn in. The
- * same holds for every entry of `SPORT_COLORS` and every category colour in
- * `ACTIVITY_CATEGORIES`, which are fills: their words take the sport text
- * variants or the body ink. `ground-token-text` refuses each as a Text colour.
+ * same holds for a sport's mark colour from `sportMarkColour`: its words take
+ * the body ink. `ground-token-text` refuses each as a Text colour.
  */
 export const BRAND_FAMILIES: Record<string, TokenFamily> = {
   // A selected tick, a slider handle, a trophy beside its label.

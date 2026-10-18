@@ -11,7 +11,8 @@ import { View } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import { getVisibleRecording } from '@/features/recording/lib/storage/recordingLibrary';
-import { getActivityIcon, getActivityInk } from '@/shared/activity/activityUtils';
+import { getActivityIcon } from '@/shared/activity/activityUtils';
+import { sportMarkColour } from '@/shared/activity/sportCategories';
 import type { RecordingLibraryEntry } from '@/types';
 import { NameText } from '@/shared/ui/NameText';
 import { Icon } from '@/shared/ui/Icon';
@@ -40,7 +41,7 @@ export function RecordingTitle() {
       <Icon
         name={getActivityIcon(entry.activityType)}
         size={iconSize.lg}
-        color={getActivityInk(entry.activityType, isDark)}
+        color={sportMarkColour(entry.activityType, isDark)}
       />
       <NameText
         style={{

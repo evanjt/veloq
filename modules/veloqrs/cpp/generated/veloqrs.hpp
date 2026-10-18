@@ -52,10 +52,10 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_fn_method_activitymanager_get_activity_bodies(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
-  jsi::Value cpp_uniffi_veloqrs_fn_method_activitymanager_get_activity_body(
+  jsi::Value cpp_uniffi_veloqrs_fn_method_activitymanager_get_activity_names(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
-  jsi::Value cpp_uniffi_veloqrs_fn_method_activitymanager_get_activity_names(
+  jsi::Value cpp_uniffi_veloqrs_fn_method_activitymanager_get_activity_record(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_activitymanager_get_activity_streams(
@@ -343,15 +343,14 @@ protected:
   cpp_uniffi_veloqrs_fn_method_fitnessmanager_compose_widget_snapshot(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
+  jsi::Value cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_activity_intervals(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
   jsi::Value
   cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_available_sport_types(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_best_efforts_data(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
-  jsi::Value
-  cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_calendar_event_bodies(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value
@@ -365,10 +364,10 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_insights_data(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
-  jsi::Value cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_interval_body(
+  jsi::Value cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_pace_curve(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
-  jsi::Value cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_pace_curve(
+  jsi::Value cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_planned_events(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_power_curve(
@@ -378,10 +377,6 @@ protected:
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_summary_card_data(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
-  jsi::Value
-  cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_training_screen_data(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_weekly_summaries(
@@ -1365,11 +1360,11 @@ protected:
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value
-  cpp_uniffi_veloqrs_checksum_method_activitymanager_get_activity_body(
+  cpp_uniffi_veloqrs_checksum_method_activitymanager_get_activity_names(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value
-  cpp_uniffi_veloqrs_checksum_method_activitymanager_get_activity_names(
+  cpp_uniffi_veloqrs_checksum_method_activitymanager_get_activity_record(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value
@@ -1639,15 +1634,15 @@ protected:
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value
+  cpp_uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_intervals(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value
   cpp_uniffi_veloqrs_checksum_method_fitnessmanager_get_available_sport_types(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value
   cpp_uniffi_veloqrs_checksum_method_fitnessmanager_get_best_efforts_data(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
-  jsi::Value
-  cpp_uniffi_veloqrs_checksum_method_fitnessmanager_get_calendar_event_bodies(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value
@@ -1662,11 +1657,11 @@ protected:
   cpp_uniffi_veloqrs_checksum_method_fitnessmanager_get_insights_data(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
-  jsi::Value
-  cpp_uniffi_veloqrs_checksum_method_fitnessmanager_get_interval_body(
+  jsi::Value cpp_uniffi_veloqrs_checksum_method_fitnessmanager_get_pace_curve(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
-  jsi::Value cpp_uniffi_veloqrs_checksum_method_fitnessmanager_get_pace_curve(
+  jsi::Value
+  cpp_uniffi_veloqrs_checksum_method_fitnessmanager_get_planned_events(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_fitnessmanager_get_power_curve(
@@ -1677,10 +1672,6 @@ protected:
       size_t count);
   jsi::Value
   cpp_uniffi_veloqrs_checksum_method_fitnessmanager_get_summary_card_data(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
-  jsi::Value
-  cpp_uniffi_veloqrs_checksum_method_fitnessmanager_get_training_screen_data(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value

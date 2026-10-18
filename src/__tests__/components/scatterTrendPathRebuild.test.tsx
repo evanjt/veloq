@@ -8,11 +8,12 @@
  */
 
 import React from 'react';
-import { fireEvent, render } from '@testing-library/react-native';
+import { render } from '@testing-library/react-native';
 import { Circle, Skia } from '@shopify/react-native-skia';
 
 import { SectionScatterChart } from '@/features/routes/components/section/SectionScatterChart';
 import type { PerformanceDataPoint } from '@/types';
+import { DirectionSwitch } from '@/shared/ui';
 import { colors, directionPair } from '@/theme';
 import { layoutViews } from '../__shared__/layoutViews';
 
@@ -72,7 +73,7 @@ function chart(props: Partial<React.ComponentProps<typeof SectionScatterChart>> 
 describe('section scatter trend paths', () => {
   afterEach(() => jest.restoreAllMocks());
 
-  it('shows only the selected direction and opens on the linked activity direction', async () => {
+  it('shows only one direction, opening on the linked activity direction', async () => {
     const rendered: Record<string, unknown>[] = [];
     const circleComponent = Circle as unknown as {
       render: (props: Record<string, unknown>, ref: unknown) => React.ReactNode;
@@ -84,25 +85,20 @@ describe('section scatter trend paths', () => {
     });
     const tree = await render(chart({ highlightedActivityId: 'act-0' }));
     await layoutViews(tree, 400, 300);
-    const forward = tree.getByTestId('section-chart-direction-forward');
-    const reverse = tree.getByTestId('section-chart-direction-reverse');
 
-    expect(reverse.props.accessibilityState.selected).toBe(true);
-    expect(rendered.filter((dot) => dot.color === directionPair.light.reverse)).toHaveLength(3);
+    // Every reverse attempt, this activity among them, is a dot in the reverse colour.
+    expect(rendered.filter((dot) => dot.color === directionPair.light.reverse)).toHaveLength(4);
 
     rendered.length = 0;
-    await fireEvent.press(forward);
+    await tree.rerender(chart({ highlightedActivityId: 'act-0', selectedDirection: 'forward' }));
 
-    expect(forward.props.accessibilityState.selected).toBe(true);
     expect(rendered.filter((dot) => dot.color === directionPair.light.reverse)).toHaveLength(0);
   });
 
-  it('omits the direction switch for a single direction', async () => {
-    const tree = await render(
-      chart({ chartData: CHART_DATA.filter((point) => point.direction !== 'reverse') })
-    );
-    expect(tree.queryByTestId('section-chart-direction-forward')).toBeNull();
-    expect(tree.queryByTestId('section-chart-direction-reverse')).toBeNull();
+  it('draws no direction switch of its own, the panel holding the one', async () => {
+    const tree = await render(chart());
+
+    expect(tree.UNSAFE_queryAllByType(DirectionSwitch)).toHaveLength(0);
   });
 
   // Built from the box the chart is given rather than from the canvas's own

@@ -1,6 +1,7 @@
 import { StyleSheet } from 'react-native';
 
-import { colorWithOpacity, darkColors, ink, layers, layout, opacity, spacing } from '@/theme';
+import { colorWithOpacity, ink, layers, layout, opacity, spacing } from '@/theme';
+import { MAP_CONTROL_GAP } from '@/features/maps';
 
 export const styles = StyleSheet.create({
   outerContainer: {
@@ -36,21 +37,10 @@ export const styles = StyleSheet.create({
     // `maxHeight`, which keeps the column inside the map and wraps the rest beside it.
     position: 'absolute',
     right: layout.cardMargin,
-    gap: spacing.sm,
+    gap: MAP_CONTROL_GAP,
     // Further columns go to the left, so the first stays on the map's edge.
     flexWrap: 'wrap-reverse',
     justifyContent: 'flex-start',
     zIndex: layers.mapOverlay,
-  },
-  controlButton: {
-    width: layout.minTapTarget,
-    height: layout.minTapTarget,
-    borderRadius: layout.borderRadiusFull,
-    backgroundColor: colorWithOpacity(ink.white, 0.95),
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  controlButtonDark: {
-    backgroundColor: darkColors.surfaceRaised,
   },
 });

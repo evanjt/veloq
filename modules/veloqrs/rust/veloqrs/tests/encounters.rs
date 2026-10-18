@@ -189,8 +189,28 @@ fn history_arrays_are_aligned_in_length() {
         e.history_activity_ids.len(),
         "history arrays must be aligned"
     );
+    assert_eq!(e.history_dates.len(), e.history_times.len());
     assert_eq!(e.history_times.len(), 5);
     assert_eq!(e.visit_count, 5);
+}
+
+#[test]
+fn history_carries_each_outing_start_date_beside_its_time() {
+    let setup = setup();
+    insert_section(&setup.raw, "s1", "Repeated", 500.0);
+    let starts = [1_700_000_000, 1_700_086_400, 1_702_678_400];
+    for (i, start) in starts.iter().enumerate() {
+        let id = format!("a{}", i);
+        insert_activity(&setup.raw, &id, *start, 500.0, 200);
+        insert_traversal(&setup.raw, "s1", &id, "same", 0, 500.0, 200.0 - i as f64);
+    }
+
+    let result = setup.engine.get_activity_section_encounters("a2");
+    assert_eq!(result.len(), 1);
+    let e = &result[0];
+    let starts: Vec<f64> = starts.iter().map(|s| *s as f64).collect();
+    assert_eq!(e.history_dates, starts);
+    assert_eq!(e.history_times, vec![200.0, 199.0, 198.0]);
 }
 
 #[test]

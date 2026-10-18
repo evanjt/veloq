@@ -591,6 +591,53 @@ fn signature_from_parts(
 /// feed card's preview line come from a pooled read-only connection while a
 /// write is in flight. The method above is the same function on the write
 /// connection.
+/// A stored body typed as the detail screen reads it, under the key it is
+/// stored by. The payload's own id can differ from the key for an activity
+/// the device recorded and later uploaded, and a payload with no id at all
+/// is still drawn.
+pub(crate) fn activity_record(key: &str, raw: &str) -> Option<crate::FfiActivityRecord> {
+    let mut value: serde_json::Value = serde_json::from_str(raw).ok()?;
+    value
+        .as_object_mut()?
+        .insert("id".into(), serde_json::Value::String(key.to_string()));
+    let body: crate::net::types::ActivityRecord = serde_json::from_value(value).ok()?;
+    let positive = |v: Option<f64>| v.filter(|v| v.is_finite()).unwrap_or(0.0).max(0.0);
+    Some(crate::FfiActivityRecord {
+        is_detail: body.is_detail(),
+        feels_like: body.feels_like(),
+        moving_time: body
+            .moving_time
+            .map_or(0, |t| u32::try_from(t.max(0)).unwrap_or(u32::MAX)),
+        distance: positive(body.distance),
+        elevation_gain: positive(body.total_elevation_gain),
+        hr_recovery: body.icu_hrr.and_then(|r| r.hrr),
+        decoupling: body.decoupling.filter(|d| d.is_finite()),
+        has_weather: body.has_weather.unwrap_or(false),
+        stream_types: body.stream_types.unwrap_or_default(),
+        id: body.id,
+        name: body.name,
+        sport_type: body.activity_type,
+        start_date_local: body.start_date_local,
+        description: body.description,
+        device_name: body.device_name,
+        avg_hr: body.average_heartrate,
+        max_hr: body.max_heartrate,
+        avg_power: body.icu_average_watts,
+        max_power: body.icu_pm_p_max,
+        calories: body.calories,
+        training_load: body.icu_training_load,
+        intensity: body.icu_intensity,
+        ftp: body.icu_ftp,
+        eftp: body.icu_pm_ftp_watts,
+        trimp: body.trimp,
+        strain_score: body.strain_score,
+        efficiency_factor: body.icu_efficiency_factor,
+        weather_temp: body.average_weather_temp,
+        sensor_temp: body.average_temp,
+        wind_speed: body.average_wind_speed,
+    })
+}
+
 pub(crate) mod pooled {
     use super::{
         Bounds, CENSUS_ROW_OWED, CENSUS_TRACK_SETTLED_OUT, CENSUS_TRACK_STORED,
@@ -1009,6 +1056,16 @@ pub(crate) mod pooled {
         .flatten()
     }
 
+    /// One activity's stored body typed as the detail screen reads it, or
+    /// `None` when nothing is stored under `activity_id` or the body is not
+    /// a JSON object.
+    pub(crate) fn activity_record(
+        conn: &Connection,
+        activity_id: &str,
+    ) -> Option<crate::FfiActivityRecord> {
+        super::activity_record(activity_id, &activity_body(conn, activity_id)?)
+    }
+
     pub(crate) fn activity_body(conn: &Connection, activity_id: &str) -> Option<String> {
         conn.query_row(
             "SELECT raw FROM activity_bodies WHERE activity_id = ?",
@@ -1092,6 +1149,7 @@ pub(crate) mod pooled {
         ])?;
         let mut bodies = Vec::new();
         let mut intervals_ids = Vec::new();
+        let mut keys = Vec::new();
         let mut matched = 0usize;
         while let Some(row) = rows.next()? {
             let hit = !filtered
@@ -1113,17 +1171,20 @@ pub(crate) mod pooled {
                 continue;
             }
             if (first..last).contains(&matched) {
+                let key = row.get::<_, String>(3)?;
                 bodies.push(row.get(0)?);
                 intervals_ids.push(super::intervals_web_id(
-                    &row.get::<_, String>(3)?,
+                    &key,
                     row.get::<_, Option<String>>(4)?.as_deref(),
                 ));
+                keys.push(key);
             }
             matched += 1;
         }
         Ok(crate::FfiActivityBodiesPage {
             bodies,
             intervals_ids,
+            keys,
             matched_count: matched as u32,
             has_more: matched > last,
         })
@@ -4629,6 +4690,10 @@ mod synced_activity_bodies_tests;
 #[cfg(test)]
 #[path = "tests/activity_body_metrics.rs"]
 mod activity_body_metrics_tests;
+
+#[cfg(test)]
+#[path = "tests/activity_record.rs"]
+mod activity_record_tests;
 
 #[cfg(test)]
 mod tests {

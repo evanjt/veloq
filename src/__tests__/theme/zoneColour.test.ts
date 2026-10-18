@@ -16,6 +16,7 @@ import { intervalBandToken, resolveBandColour, resolveBandTextColour } from '@/f
 import { intervalChips } from '@/features/activity/lib/intervalChips';
 import { skylineColours } from '@/features/activity/lib/skylineColours';
 import type { ActivityInterval } from '@/types';
+import { IntervalKind } from 'veloqrs';
 
 function relativeLuminance(hex: string): number {
   const [r, g, b] = [1, 3, 5]
@@ -65,25 +66,26 @@ describe('zoneColour', () => {
   });
 });
 
-function interval(type: string, zone?: number): ActivityInterval {
+function interval(kind: IntervalKind, zone?: number): ActivityInterval {
   return {
     id: 1,
-    type,
-    start_index: 0,
-    end_index: 10,
-    moving_time: 60,
-    elapsed_time: 60,
-    zone,
-  } as ActivityInterval;
+    kind,
+    startTime: 0,
+    endTime: 60,
+    startIndex: 0,
+    endIndex: 10,
+    movingTime: 60,
+    ...(zone === undefined ? {} : { zone }),
+  };
 }
 
 const KINDS: [string, ActivityInterval][] = [
-  ...ZONES.map((z): [string, ActivityInterval] => [`WORK Z${z}`, interval('WORK', z)]),
-  ['WORK with no zone', interval('WORK')],
-  ['RECOVERY', interval('RECOVERY')],
-  ['REST', interval('REST')],
-  ['WARMUP', interval('WARMUP')],
-  ['COOLDOWN', interval('COOLDOWN')],
+  ...ZONES.map((z): [string, ActivityInterval] => [`WORK Z${z}`, interval(IntervalKind.Work, z)]),
+  ['WORK with no zone', interval(IntervalKind.Work)],
+  ['RECOVERY', interval(IntervalKind.Recovery)],
+  ['REST', interval(IntervalKind.Rest)],
+  ['WARMUP', interval(IntervalKind.Warmup)],
+  ['COOLDOWN', interval(IntervalKind.Cooldown)],
 ];
 
 describe('one colour per interval kind', () => {
@@ -100,8 +102,8 @@ describe('one colour per interval kind', () => {
 
   it('keys recovery and rest with the same colour on the band and as text', () => {
     for (const isDark of [true, false]) {
-      const recovery = intervalBandToken(interval('RECOVERY'), 'power');
-      const rest = intervalBandToken(interval('REST'), 'power');
+      const recovery = intervalBandToken(interval(IntervalKind.Recovery), 'power');
+      const rest = intervalBandToken(interval(IntervalKind.Rest), 'power');
       expect(resolveBandColour(recovery, isDark)).toBe(resolveBandColour(rest, isDark));
       expect(resolveBandTextColour(recovery, isDark)).toBe(resolveBandTextColour(rest, isDark));
     }
@@ -110,7 +112,7 @@ describe('one colour per interval kind', () => {
   it('labels a zoned work interval with the zone text tone and draws its band in the fill', () => {
     for (const isDark of [true, false]) {
       for (const zone of ZONES) {
-        const token = intervalBandToken(interval('WORK', zone), 'hr');
+        const token = intervalBandToken(interval(IntervalKind.Work, zone), 'hr');
         expect(resolveBandColour(token, isDark)).toBe(zoneColour(zone, isDark, 'fill'));
         expect(resolveBandTextColour(token, isDark)).toBe(zoneColour(zone, isDark, 'text'));
       }

@@ -10,19 +10,19 @@ import { renderHook } from '@testing-library/react-native';
 import { useActivityStats } from '@/features/activity/components/stats/useActivityStats';
 import { chartConfigsFor } from '@/features/activity/lib/chartConfig';
 import { initialiseI18n } from '@/i18n';
-import type { Activity } from '@/types';
-import { CadenceUnit, type ActivitySummary } from 'veloqrs';
 
-const run = {
+import { CadenceUnit, type ActivityRecord, type ActivitySummary } from 'veloqrs';
+import { activityRecord } from '../../__shared__/activityRecord';
+
+const run = activityRecord({
   id: 'cadence-run',
-  type: 'Run',
+  sportType: 'Run',
   name: 'Run',
-  start_date_local: '2026-09-05T08:00:00',
-  moving_time: 3600,
-  elapsed_time: 3700,
-} as Activity;
+  startDateLocal: '2026-09-05T08:00:00',
+  movingTime: 3600,
+});
 
-function cadenceCard(activity: Activity, summary: ActivitySummary) {
+function cadenceCard(activity: ActivityRecord, summary: ActivitySummary) {
   const { result } = renderHook(() => useActivityStats({ activity, isMetric: true, summary }));
   const card = result.current.stats.find((s) => s.title === 'Cadence');
   if (!card) throw new Error('no cadence card');
@@ -60,7 +60,7 @@ describe('the cadence unit', () => {
   });
 
   it('reads the unit off the engine, not the sport name', () => {
-    const unnamed = { ...run, type: 'Other' } as Activity;
+    const unnamed = activityRecord({ ...run, sportType: 'Other' });
     expect(
       cadenceCard(unnamed, { averageCadence: 60, cadenceUnit: CadenceUnit.Rpm })
     ).toMatchObject({ value: '60', unit: 'rpm' });

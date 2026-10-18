@@ -1,16 +1,15 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, ScrollView, StyleSheet, Pressable, Platform } from 'react-native';
+import { View, ScrollView, StyleSheet, Platform } from 'react-native';
 import { Text } from 'react-native-paper';
 import {
   Button,
   ICON_BUTTON_GAP,
   IconButton,
-  pressable,
-  pressRipple,
   ScreenSafeAreaView,
   ToggleButton,
   useBottomClearance,
   Spinner,
+  PressTarget,
 } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import {
@@ -37,7 +36,8 @@ import {
   typography,
   stroke,
 } from '@/theme';
-import { getActivityIcon, getActivityInk } from '@/shared/activity/activityUtils';
+import { getActivityIcon } from '@/shared/activity/activityUtils';
+import { sportMarkColour } from '@/shared/activity/sportCategories';
 import {
   getRecordingMode,
   defaultEntrySport,
@@ -64,7 +64,8 @@ import { readPlannedWorkouts } from '@/features/home';
 import { replaceTo, navigateTo } from '@/shared/app/navigation';
 import { formatLocalDate, formatDuration } from '@/shared/format/format';
 import type { ActivityTypeSheetInput } from '@/app/sheets/activity-type';
-import type { ActivityType, CalendarEvent } from '@/types';
+import type { FfiPlannedEvent } from 'veloqrs';
+import type { ActivityType } from '@/types';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { NameText } from '@/shared/ui/NameText';
 
@@ -105,7 +106,7 @@ function RecordScreenContent() {
 
   // Read at first render rather than in an effect. An engine that is not open
   // yet answers empty either way, and the subscriptions below recover it.
-  const [todayEvents, setTodayEvents] = useState<CalendarEvent[]>(() => {
+  const [todayEvents, setTodayEvents] = useState<FfiPlannedEvent[]>(() => {
     const today = formatLocalDate(new Date());
     return readPlannedWorkouts(today, today);
   });
@@ -294,25 +295,24 @@ function RecordScreenContent() {
       >
         {/* Today's planned workout - only when something is planned */}
         {todayEvents.map((event) => (
-          <Pressable
+          <PressTarget
             key={event.id}
             testID={`record-event-${event.id}`}
-            style={pressable([styles.eventCard, { borderColor: border }])}
-            android_ripple={pressRipple}
-            onPress={() => start(event.type as ActivityType, event.id)}
+            style={[styles.eventCard, { borderColor: border }]}
+            onPress={() => start(event.sport as ActivityType, event.id)}
             accessibilityRole="button"
           >
             <Icon
-              name={getActivityIcon(event.type as ActivityType)}
+              name={getActivityIcon(event.sport as ActivityType)}
               size={iconSize.lg}
-              color={getActivityInk(event.type as ActivityType, isDark)}
+              color={sportMarkColour(event.sport as ActivityType, isDark)}
               style={styles.eventIcon}
             />
             <View style={styles.eventDetails}>
               <NameText style={[styles.eventName, { color: textPrimary }]}>{event.name}</NameText>
-              {event.moving_time != null && event.moving_time > 0 && (
+              {event.movingTime != null && (
                 <Text style={[styles.eventMeta, { color: textSecondary }]}>
-                  {formatDuration(event.moving_time)}
+                  {formatDuration(event.movingTime)}
                 </Text>
               )}
             </View>
@@ -324,7 +324,7 @@ function RecordScreenContent() {
             >
               {t('recording.followWorkout')}
             </Text>
-          </Pressable>
+          </PressTarget>
         ))}
 
         {/* The sport: recent ones as chips, the full list behind More */}
@@ -343,7 +343,7 @@ function RecordScreenContent() {
                 selected={selected}
                 onPress={() => setChosenSport(type)}
                 // The sport's own colour is part of how its chip is told apart.
-                icon={{ name: getActivityIcon(type), ink: getActivityInk(type, isDark) }}
+                icon={{ name: getActivityIcon(type), ink: sportMarkColour(type, isDark) }}
               />
             );
           })}
@@ -394,7 +394,7 @@ function SportSurface({
       <Icon
         name={getActivityIcon(sport)}
         size={iconSize.xxl}
-        color={getActivityInk(sport, isDark)}
+        color={sportMarkColour(sport, isDark)}
       />
       <Text style={[styles.sportSurfaceTitle, { color: textPrimary }]}>
         {t(`activityTypes.${sport}` as never, sport) as string}

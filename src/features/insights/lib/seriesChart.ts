@@ -17,6 +17,8 @@ export interface SeriesDatum {
   /** Position in the series the caller passed, before any sample was dropped. */
   index: number;
   partial: boolean;
+  /** Each further series' value at the same position, null where it has none. */
+  others: (number | null)[];
 }
 
 export interface SeriesChartModel {
@@ -35,6 +37,11 @@ interface SeriesChartOptions {
   invert?: boolean;
   /** Keep zero inside the value range, for bars that stand on it. */
   fromZero?: boolean;
+  /**
+   * Further series drawn beside the first, read at the same positions in the
+   * caller's arrays, such as a week's second total. The axis fits them too.
+   */
+  others?: readonly (readonly SeriesSample[])[];
 }
 
 /** Share of the span added above and below the data, and either side of the dates. */
@@ -60,7 +67,7 @@ function decimalsFor(span: number, magnitude: number): number {
  */
 export function seriesChartModel(
   samples: readonly SeriesSample[],
-  { formatDate, invert = false, fromZero = false }: SeriesChartOptions
+  { formatDate, invert = false, fromZero = false, others = [] }: SeriesChartOptions
 ): SeriesChartModel | null {
   const usable = samples
     .map((sample, index) => ({ sample, index }))
@@ -79,10 +86,14 @@ export function seriesChartModel(
     date: dated ? (sample.date as number) : null,
     index,
     partial: sample.partial === true,
+    others: others.map((series) => {
+      const value = series[index]?.value;
+      return value != null && Number.isFinite(value) ? value : null;
+    }),
   }));
   data.sort((a, b) => a.x - b.x);
 
-  const values = data.map((d) => d.value);
+  const values = data.flatMap((d) => [d.value, ...d.others.filter((v): v is number => v !== null)]);
   const min = fromZero ? Math.min(0, ...values) : Math.min(...values);
   const max = fromZero ? Math.max(0, ...values) : Math.max(...values);
   const magnitude = Math.max(Math.abs(min), Math.abs(max));

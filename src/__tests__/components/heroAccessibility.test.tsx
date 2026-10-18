@@ -13,7 +13,9 @@ import { render, screen } from '@testing-library/react-native';
 
 import { ActivityHeader } from '@/features/activity/components/ActivityHeader';
 import { DetailHero, HeroNameRow, HeroStatsRow } from '@/shared/ui/DetailHero';
-import type { ActivityDetail } from '@/types';
+
+import { activityRecord } from '../__shared__/activityRecord';
+import type { ActivityRecord } from 'veloqrs';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
@@ -30,18 +32,18 @@ jest.mock('@/features/maps/components/ActivityMapView', () => {
   return { ActivityMapView: () => <MockView /> };
 });
 
-const activity = {
+const activity = activityRecord({
   id: 'sample-1',
   name: 'Harbour loop',
-  type: 'Ride',
-  start_date_local: '2026-08-12T07:30:00',
+  sportType: 'Ride',
+  startDateLocal: '2026-08-12T07:30:00',
   distance: 12300,
-  moving_time: 3753,
-  total_elevation_gain: 245,
-  stream_types: ['latlng'],
-} as unknown as ActivityDetail;
+  movingTime: 3753,
+  elevationGain: 245,
+  streamTypes: ['latlng'],
+});
 
-async function renderActivityHeader(shown: ActivityDetail = activity) {
+async function renderActivityHeader(shown: ActivityRecord = activity) {
   return render(
     <ActivityHeader
       activity={shown}
@@ -86,12 +88,14 @@ describe('the activity hero', () => {
   });
 
   it('reads only the time for a ride with no distance and no climb', async () => {
-    await renderActivityHeader({
-      ...activity,
-      distance: 0,
-      total_elevation_gain: 0,
-      stream_types: ['time', 'watts'],
-    } as ActivityDetail);
+    await renderActivityHeader(
+      activityRecord({
+        ...activity,
+        distance: 0,
+        elevationGain: 0,
+        streamTypes: ['time', 'watts'],
+      })
+    );
     expect(screen.getByTestId('activity-detail-stats').props.accessibilityLabel).toBe(
       'activity.duration: 1:02:33'
     );

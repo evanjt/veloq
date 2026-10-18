@@ -79,6 +79,79 @@ pub struct ActivityRecord {
     pub created: Option<String>,
     #[serde(default)]
     pub icu_sync_date: Option<String>,
+    /// The athlete the activity belongs to. Only `GET /activity/{id}` sends
+    /// it, so a body carrying it is the detail form rather than a list row.
+    #[serde(default, deserialize_with = "lenient")]
+    pub icu_athlete_id: Option<String>,
+    /// The detail figures the list request does not ask for, and the stored
+    /// intensity and decoupling it does. Each is read leniently: a key in a
+    /// shape not modelled costs that key, not the activity.
+    #[serde(default, deserialize_with = "lenient")]
+    pub icu_intensity: Option<f64>,
+    #[serde(default, deserialize_with = "lenient")]
+    pub icu_pm_ftp_watts: Option<f64>,
+    #[serde(default, deserialize_with = "lenient")]
+    pub icu_efficiency_factor: Option<f64>,
+    /// Aerobic decoupling in percent. It arrives as the string `-Infinity`
+    /// when a half carried no power, which reads as none.
+    #[serde(default, deserialize_with = "lenient")]
+    pub decoupling: Option<f64>,
+    #[serde(default, deserialize_with = "lenient")]
+    pub trimp: Option<f64>,
+    #[serde(default, deserialize_with = "lenient")]
+    pub strain_score: Option<f64>,
+    #[serde(default, deserialize_with = "lenient")]
+    pub icu_hrr: Option<HeartRateRecovery>,
+    /// The device sensor's average temperature, not the weather's.
+    #[serde(default, deserialize_with = "lenient")]
+    pub average_temp: Option<f64>,
+    /// Feels-like temperature under its current name and the two older ones,
+    /// in the order they are preferred.
+    #[serde(default, deserialize_with = "lenient")]
+    pub apparent_temperature: Option<f64>,
+    #[serde(default, deserialize_with = "lenient")]
+    pub average_feels_like: Option<f64>,
+    #[serde(default, deserialize_with = "lenient")]
+    pub average_temp_feels_like: Option<f64>,
+    /// Wind speed in m/s.
+    #[serde(default, deserialize_with = "lenient")]
+    pub average_wind_speed: Option<f64>,
+}
+
+/// Heart rate recovery after the activity, as intervals.icu sends it.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct HeartRateRecovery {
+    #[serde(default)]
+    pub start_bpm: Option<f64>,
+    #[serde(default)]
+    pub end_bpm: Option<f64>,
+    /// The drop in beats per minute.
+    #[serde(default)]
+    pub hrr: Option<f64>,
+}
+
+impl ActivityRecord {
+    /// Whether this is the detail form `GET /activity/{id}` answers rather
+    /// than the lighter row the list sync stores.
+    ///
+    /// The list asks for a fixed field set and intervals.icu drops the ones
+    /// the activity has nothing for, so a list body's key set varies and its
+    /// size says nothing. `icu_athlete_id` is not in that set. Measured against
+    /// the real API on 2026-09-12: a list pull returned 20 keys for a run and
+    /// the detail 183, and the detail carried `icu_athlete_id` on all twelve
+    /// activities sampled, across sports and uploading clients.
+    pub fn is_detail(&self) -> bool {
+        self.icu_athlete_id
+            .as_deref()
+            .is_some_and(|id| !id.is_empty())
+    }
+
+    /// The feels-like temperature, from whichever of its names is present.
+    pub fn feels_like(&self) -> Option<f64> {
+        self.apparent_temperature
+            .or(self.average_feels_like)
+            .or(self.average_temp_feels_like)
+    }
 }
 
 /// One power zone's time, as intervals.icu sends it: `{"id": "Z1", "secs": 123}`.

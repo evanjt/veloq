@@ -16,7 +16,8 @@ import { SeasonComparison } from '@/features/stats/components/SeasonComparison';
 import { getIntlLocale } from '@/shared/format/format';
 import { getEngine } from '@/shared/native/engine';
 import { capturePans, scrub, scrubPan, pressAndLift, release } from '../__shared__/chartScrub';
-import { trainingScreenRead } from '../__shared__/trainingScreenRead';
+import { fitnessScreenRead } from '../__shared__/fitnessScreenRead';
+import { WithScreenRead } from '../__shared__/withScreenRead';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
@@ -40,7 +41,7 @@ async function renderChart() {
   pans = capturePans();
   await render(
     <QueryClientProvider client={client}>
-      <SeasonComparison />
+      <WithScreenRead>{(training) => <SeasonComparison training={training} />}</WithScreenRead>
     </QueryClientProvider>
   );
   const chart = await waitFor(() => screen.getByTestId('season-chart-surface'));
@@ -52,7 +53,7 @@ async function renderChart() {
 beforeEach(() => {
   jest.clearAllMocks();
   (getEngine as jest.MockedFunction<typeof getEngine>).mockReturnValue({
-    getTrainingScreenData: trainingScreenRead({
+    getFitnessScreenData: fitnessScreenRead({
       months: () => [
         {
           year: 2026,

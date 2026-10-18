@@ -20,6 +20,15 @@ function isDemo(): boolean {
 }
 
 /**
+ * Ask the engine to download and read one activity's FIT file, for whatever
+ * its sport takes from it: a strength session's sets, a pool swim's lengths.
+ * The read lands in the engine and announces `fitParsed`; nothing is returned.
+ */
+export function requestFitFile(activityId: string): void {
+  getEngine()?.fetchAndParseExerciseSets(activityId);
+}
+
+/**
  * Fetch and cache exercise set data for a WeightTraining activity.
  *
  * On first view Rust downloads the FIT file in the background, parses it and
@@ -106,7 +115,7 @@ export function useExerciseSets(activityId: string, activityType: string) {
           return { session: engine.getExerciseSets(activityId), settled: true };
         }
 
-        engine.fetchAndParseExerciseSets(activityId);
+        requestFitFile(activityId);
         return unsettled;
       } catch (err) {
         console.error('[ExerciseSets] Error:', err);
@@ -245,7 +254,7 @@ export function useStrengthCardData(
         if (seed) {
           engine.bulkInsertExerciseSets(row.activityId, seed);
         } else {
-          engine.fetchAndParseExerciseSets(row.activityId);
+          requestFitFile(row.activityId);
         }
       } catch (err) {
         console.error('[StrengthCards] Error:', err);

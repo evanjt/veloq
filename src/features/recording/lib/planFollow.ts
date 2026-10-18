@@ -1,10 +1,18 @@
-import type { CalendarEvent, WorkoutDoc, WorkoutStep } from '@/types';
+import {
+  FfiAbsoluteUnits,
+  FfiPlanLineKind,
+  FfiTargetMetric,
+  type FfiPlanLine,
+  type FfiPlannedEvent,
+  type FfiStepTarget,
+} from 'veloqrs';
 import { formatDurationHuman } from '@/shared/format/format';
 
 /**
  * A step's target as the plan supplied it, a single value being a range of
  * one. `absolute` is there only when the plan carries a positive threshold to
- * convert a relative target by.
+ * convert a relative target by. This is the shape a recording freezes, so a
+ * backup written by an earlier build reads back.
  */
 export interface StepTarget {
   metric: 'power' | 'hr' | 'pace';
@@ -38,104 +46,33 @@ export interface FollowState {
   finishedAt: number | null;
 }
 
-/** The thresholds the plan carries, which relative targets convert by. */
-export type PlanReferences = Partial<Pick<WorkoutDoc, 'ftp' | 'lthr' | 'threshold_pace'>>;
+const METRICS: Record<FfiTargetMetric, StepTarget['metric']> = {
+  [FfiTargetMetric.Power]: 'power',
+  [FfiTargetMetric.HeartRate]: 'hr',
+  [FfiTargetMetric.Pace]: 'pace',
+};
 
-const MAX_LINES = 500;
-
-function isRest(step: WorkoutStep): boolean {
-  return step.intensity === 'rest' || /^rest\b/i.test(step.text ?? '');
-}
-
-function positive(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null;
-}
-
-function finite(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
-function target(
-  metric: StepTarget['metric'],
-  supplied: WorkoutStep['power'],
-  refs: PlanReferences
-): StepTarget | null {
-  if (!supplied || typeof supplied !== 'object') return null;
-  const value = finite(supplied.value);
-  const start = finite(supplied.start) ?? value;
-  const end = finite(supplied.end) ?? value ?? start;
-  if (start == null || end == null) return null;
-  const units = typeof supplied.units === 'string' ? supplied.units : '';
-  const out: StepTarget = {
-    metric,
-    low: Math.min(start, end),
-    high: Math.max(start, end),
-    units,
-  };
-  // Pace is left as supplied: converting it needs the threshold's unit and
-  // which way the percentage runs, and a wrong pace is worse than none.
-  const ref =
-    units === '%ftp' ? positive(refs.ftp) : units === '%lthr' ? positive(refs.lthr) : null;
-  if (ref != null) {
+function stepTarget(t: FfiStepTarget): StepTarget {
+  const out: StepTarget = { metric: METRICS[t.metric], low: t.low, high: t.high, units: t.units };
+  if (t.absolute) {
     out.absolute = {
-      low: Math.round((out.low * ref) / 100),
-      high: Math.round((out.high * ref) / 100),
-      units: units === '%ftp' ? 'W' : 'bpm',
+      low: t.absolute.low,
+      high: t.absolute.high,
+      units: t.absolute.units === FfiAbsoluteUnits.Watts ? 'W' : 'bpm',
     };
   }
   return out;
 }
 
-function stepTargets(step: WorkoutStep, refs: PlanReferences): StepTarget[] {
-  const out: StepTarget[] = [];
-  for (const [metric, supplied] of [
-    ['power', step.power],
-    ['hr', step.hr],
-    ['pace', step.pace],
-  ] as const) {
-    const t = target(metric, supplied, refs);
-    if (t) out.push(t);
-  }
-  return out;
-}
-
-function walk(steps: readonly unknown[], refs: PlanReferences, out: PlanLine[]): void {
-  for (const raw of steps) {
-    if (out.length >= MAX_LINES) return;
-    if (!raw || typeof raw !== 'object') continue;
-    const step = raw as WorkoutStep;
-    // A repeat's own duration and distance are its children's sum, not a step.
-    if (Array.isArray(step.steps) && step.steps.length) {
-      const reps = step.reps ?? 1;
-      for (let i = 0; i < reps; i++) walk(step.steps, refs, out);
-      continue;
-    }
-    const text = typeof step.text === 'string' ? step.text.trim() : '';
-    const durationSeconds = positive(step.duration);
-    const distanceMetres = positive(step.distance);
-    const targets = stepTargets(step, refs);
-    if (!text && durationSeconds == null && distanceMetres == null && targets.length === 0) {
-      continue;
-    }
-    out.push({
-      kind: isRest(step) ? 'rest' : 'work',
-      text,
-      durationSeconds,
-      ...(distanceMetres != null ? { distanceMetres } : {}),
-      ...(targets.length ? { targets } : {}),
-    });
-  }
-}
-
-/**
- * The plan as the flat list the athlete follows. Repeats expand in order. A
- * rest line exists only where the plan has a rest step: the plan prescribes no
- * rest between lines, so none is made up.
- */
-export function expandPlan(steps: readonly unknown[], refs: PlanReferences = {}): PlanLine[] {
-  const out: PlanLine[] = [];
-  walk(steps, refs, out);
-  return out;
+/** An engine plan line in the shape a recording follows and freezes. */
+function planLine(line: FfiPlanLine): PlanLine {
+  return {
+    kind: line.kind === FfiPlanLineKind.Rest ? 'rest' : 'work',
+    text: line.text,
+    durationSeconds: line.durationSeconds ?? null,
+    ...(line.distanceMetres != null ? { distanceMetres: line.distanceMetres } : {}),
+    ...(line.targets.length ? { targets: line.targets.map(stepTarget) } : {}),
+  };
 }
 
 function targetRange(low: number, high: number): string {
@@ -285,20 +222,26 @@ export function remainingMetres(state: FollowState, distance: number | null): nu
 
 /** The lines of a planned workout, null when the event has nothing to follow. */
 export function followablePlan(
-  events: readonly CalendarEvent[],
+  events: readonly FfiPlannedEvent[],
   eventId: number
 ): { name: string; lines: PlanLine[] } | null {
   const event = events.find((e) => e.id === eventId);
-  const doc = event?.workout_doc;
-  if (!event || !doc || !Array.isArray(doc.steps)) return null;
-  const lines = expandPlan(doc.steps, doc);
-  return lines.length > 0 ? { name: event.name, lines } : null;
+  if (!event || event.lines.length === 0) return null;
+  return { name: event.name, lines: event.lines.map(planLine) };
 }
 
 /** The plan a recording follows, frozen when it starts, and the progress through it. */
 export interface WorkoutFollow {
   name: string;
   follow: FollowState;
+}
+
+function positive(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null;
+}
+
+function finite(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
 function isTarget(value: unknown): value is StepTarget {

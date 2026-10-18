@@ -1,5 +1,10 @@
 import { useMemo } from 'react';
-import { castDirection, ensureFinite, fromUnixSeconds } from '@/shared/ffi/ffiConversions';
+import {
+  castDirection,
+  castOffScale,
+  ensureFinite,
+  fromUnixSeconds,
+} from '@/shared/ffi/ffiConversions';
 import type { FfiCalendarSummary, FfiSectionChartPoint } from 'veloqrs';
 import type { PerformanceDataPoint } from '@/types';
 import type { SectionPerformanceRecord } from './useSectionPerformances';
@@ -49,6 +54,7 @@ export function useSectionChartDataEnriched({
           avgPower: p.avgPower ?? undefined,
           outsideDistanceBand: p.outsideDistanceBand,
           matchPercentage: p.matchPercentage ?? undefined,
+          offScale: castOffScale(p.offScale),
         },
       ];
     });

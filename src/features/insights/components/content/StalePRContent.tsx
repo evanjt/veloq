@@ -17,15 +17,7 @@ import { navigateTo } from '@/shared/app/navigation';
 import { formatDuration } from '@/shared/format/format';
 import { SheetTrackDrawing } from './SheetTrackDrawing';
 import { InsightHistoryChart } from '../InsightHistoryChart';
-import {
-  colors,
-  darkColors,
-  iconSize,
-  insightToneColor,
-  spacing,
-  themePalette,
-  typography,
-} from '@/theme';
+import { colors, darkColors, iconSize, spacing, themePalette, typography } from '@/theme';
 import type { ActivityType, Insight, SupportingSection } from '@/types';
 import { SheetContext } from './SheetContext';
 import { composeAccessibilityLabel, ErrorState, Row } from '@/shared/ui';
@@ -137,10 +129,7 @@ export const StalePRContent = React.memo(function StalePRContent({ insight }: St
     <View style={styles.container}>
       {topSectionId ? <TopSectionMap sectionId={topSectionId} /> : null}
 
-      <InsightHistoryChart
-        history={insight.supportingData?.history}
-        color={insightToneColor('opportunity', isDark)}
-      />
+      <InsightHistoryChart history={insight.supportingData?.history} category={insight.category} />
 
       <SheetContext heading={contextCopy.heading} body={contextCopy.body} meta={contextCopy.meta} />
 

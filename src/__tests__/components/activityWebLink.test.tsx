@@ -12,7 +12,8 @@ import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import * as WebBrowser from 'expo-web-browser';
 
 import { InsightfulStats } from '@/features/activity/components/stats/InsightfulStats';
-import type { Activity } from '@/types';
+
+import { activityRecord } from '../__shared__/activityRecord';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysWithValues());
@@ -29,13 +30,13 @@ const openBrowser = WebBrowser.openBrowserAsync as jest.MockedFunction<
   typeof WebBrowser.openBrowserAsync
 >;
 
-const recording = {
+const recording = activityRecord({
   id: 'local-ride-7',
-  type: 'Ride',
+  sportType: 'Ride',
   name: 'Ride',
-  start_date_local: '2026-09-05T08:00:00',
-  average_heartrate: 150,
-} as Activity;
+  startDateLocal: '2026-09-05T08:00:00',
+  avgHr: 150,
+});
 
 beforeEach(() => openBrowser.mockClear());
 

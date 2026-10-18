@@ -13,11 +13,10 @@
  */
 
 import React, { useMemo, useRef, useState, useCallback, useEffect, memo } from 'react';
-import { View, Pressable, StatusBar, Animated, useWindowDimensions } from 'react-native';
+import { View, StatusBar, Animated, useWindowDimensions } from 'react-native';
 import { FullWindowModal } from '@/shared/ui/FullWindowModal';
 import { useIsFocused } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { getActivityColor } from '@/shared/activity/activityUtils';
 import {
   cameraMove,
@@ -28,8 +27,6 @@ import {
   mapPalette,
   opacity,
   spacing,
-  raised,
-  themePalette,
   type MapPalette,
 } from '@/theme';
 import { useMapPreferences } from '@/features/settings';
@@ -63,10 +60,12 @@ import {
   buildUserLocationCollection,
   useLocateUser,
   mapControlColumnLayout,
+  MapControlButton,
   visibleMapInset,
 } from '@/features/maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CompassArrow, ComponentErrorBoundary, Spinner } from '@/shared/ui';
+import { ComponentErrorBoundary } from '@/shared/ui';
+import { PressTarget } from '@/shared/ui/PressTarget';
 import { Icon } from '@/shared/ui/Icon';
 import type { FrequentSection, RoutePoint, ActivityType } from '@/types';
 import { toActivityType } from '@/features/routes/types';
@@ -256,7 +255,6 @@ export const SectionMapView = memo(function SectionMapView({
   );
   // Controls and legends over the map follow the app theme, not the base drawn under them.
   const { isDark } = useTheme();
-  const activeControl = { backgroundColor: themePalette(isDark).actionPrimary };
 
   // The 2D surface comes down once the 3D layer covers it, so where it was is
   // captured on the way out and handed back to the remount.
@@ -402,7 +400,7 @@ export const SectionMapView = memo(function SectionMapView({
   const fullscreenLegendLayers = { ...legendLayers, showDelta: false };
 
   // Adjust opacity when something is highlighted or trimming
-  const sectionOpacity = highlightedActivityId || highlightedLapPoints || trimRange ? 0.4 : 1;
+  const sectionContext = !!(highlightedActivityId || highlightedLapPoints || trimRange);
 
   // Use trimmed positions for markers when trimming
   // In expand mode, indices are relative to the extension track, not the section polyline
@@ -445,8 +443,7 @@ export const SectionMapView = memo(function SectionMapView({
       deltaLineStops,
       trimmedGeoJSON,
       endpoints,
-      activityColor,
-      sectionOpacity,
+      sectionContext,
       trimRange,
       hasExtension: extensionCoords.length > 0,
     }),
@@ -455,8 +452,7 @@ export const SectionMapView = memo(function SectionMapView({
       deltaLineStops,
       trimmedGeoJSON,
       endpoints,
-      activityColor,
-      sectionOpacity,
+      sectionContext,
       trimRange,
       extensionCoords.length,
     ]
@@ -600,7 +596,7 @@ export const SectionMapView = memo(function SectionMapView({
                     ref={map3DRef}
                     coordinates={sectionCoords}
                     mapStyle={drawnMapStyle}
-                    routeColor={activityColor}
+                    routeColor={palette.route}
                     fitPadding={fitPadding}
                     sectionTrimGeoJSON={sectionTrimGeoJSON}
                     highlightedTraceGeoJSON={overlays3D.highlightGeoJSON}
@@ -628,131 +624,65 @@ export const SectionMapView = memo(function SectionMapView({
               ]}
             >
               {/* Style toggle */}
-              <Pressable
+              <MapControlButton
                 testID="section-map-style-toggle"
-                accessibilityRole="button"
                 accessibilityLabel={t('maps.toggleStyle')}
-                style={pressable([
-                  styles.controlButton,
-                  raised('modal', isDark),
-                  isDark && styles.controlButtonDark,
-                ])}
                 onPress={toggleMapStyle}
-                android_ripple={pressRipple}
               >
-                <Icon
-                  name={getStyleIcon(drawnMapStyle)}
-                  size={iconSize.lg}
-                  color={isDark ? colors.textOnFill : colors.textSecondary}
-                />
-              </Pressable>
+                <MapControlButton.Glyph name={getStyleIcon(drawnMapStyle)} />
+              </MapControlButton>
 
               {/* 3D toggle */}
               {hasRoute ? (
-                <Pressable
+                <MapControlButton
                   testID="section-map-3d-toggle"
-                  accessibilityRole="button"
                   accessibilityLabel={t(is3DMode ? 'maps.disable3D' : 'maps.enable3D')}
-                  accessibilityState={{
-                    selected: is3DMode,
-                    busy: is3DLoading,
-                    disabled: is3DLoading,
-                  }}
-                  style={pressable([
-                    styles.controlButton,
-                    raised('modal', isDark),
-                    isDark && styles.controlButtonDark,
-                    is3DMode && activeControl,
-                  ])}
+                  accessibilityState={{ busy: is3DLoading }}
+                  selected={is3DMode}
                   onPress={toggle3D}
                   disabled={is3DLoading}
-                  android_ripple={pressRipple}
                 >
                   {is3DLoading ? (
-                    <Spinner inControl testID="section-map-3d-busy" color={colors.textOnFill} />
+                    <MapControlButton.Spinner testID="section-map-3d-busy" />
                   ) : (
-                    <Icon
-                      name="terrain"
-                      size={iconSize.lg}
-                      color={
-                        is3DMode
-                          ? colors.textOnFill
-                          : isDark
-                            ? colors.textOnFill
-                            : colors.textSecondary
-                      }
-                    />
+                    <MapControlButton.Glyph name="terrain" />
                   )}
-                </Pressable>
+                </MapControlButton>
               ) : null}
 
               {/* Compass */}
-              <Pressable
+              <MapControlButton
                 testID="section-map-compass"
-                style={pressable([
-                  styles.controlButton,
-                  raised('modal', isDark),
-                  isDark && styles.controlButtonDark,
-                ])}
-                accessibilityRole="button"
                 accessibilityLabel={t('maps.resetOrientation')}
                 onPress={resetOrientation}
-                android_ripple={pressRipple}
               >
-                <CompassArrow
-                  size={iconSize.lg}
-                  rotation={bearingAnim}
-                  northColor={colors.compassNorth}
-                  southColor={isDark ? colors.textOnFill : colors.textSecondary}
-                />
-              </Pressable>
+                <MapControlButton.Compass rotation={bearingAnim} />
+              </MapControlButton>
 
               {/* GPS location */}
-              <Pressable
-                style={pressable([
-                  styles.controlButton,
-                  raised('modal', isDark),
-                  isDark && styles.controlButtonDark,
-                  userLocation !== null && activeControl,
-                ])}
-                accessibilityRole="button"
+              <MapControlButton
                 accessibilityLabel={t('maps.goToLocation')}
-                accessibilityState={{ disabled: locationLoading }}
-                onPress={locationLoading ? undefined : handleGetLocation}
+                accessibilityState={{ busy: locationLoading }}
+                selected={userLocation !== null}
+                onPress={handleGetLocation}
                 disabled={locationLoading}
-                android_ripple={pressRipple}
               >
                 {locationLoading ? (
-                  <Spinner inControl color={isDark ? colors.textOnFill : colors.textSecondary} />
+                  <MapControlButton.Spinner />
                 ) : (
-                  <Icon
-                    name={LOCATE_GLYPH}
-                    size={iconSize.lg}
-                    color={isDark ? colors.textOnFill : colors.textSecondary}
-                  />
+                  <MapControlButton.Glyph name={LOCATE_GLYPH} />
                 )}
-              </Pressable>
+              </MapControlButton>
 
               {/* Fullscreen expand (hidden during trim mode) */}
               {enableFullscreen && !isTrimming ? (
-                <Pressable
+                <MapControlButton
                   testID="section-map-fullscreen"
-                  accessibilityRole="button"
                   accessibilityLabel={t('maps.openFullscreen')}
-                  style={pressable([
-                    styles.controlButton,
-                    raised('modal', isDark),
-                    isDark && styles.controlButtonDark,
-                  ])}
                   onPress={openFullscreen}
-                  android_ripple={pressRipple}
                 >
-                  <Icon
-                    name="fullscreen"
-                    size={iconSize.lg}
-                    color={isDark ? colors.textOnFill : colors.textSecondary}
-                  />
-                </Pressable>
+                  <MapControlButton.Glyph name="fullscreen" />
+                </MapControlButton>
               ) : null}
             </View>
           ) : null}
@@ -761,6 +691,7 @@ export const SectionMapView = memo(function SectionMapView({
           {interactive && hasLegendLayers(inlineLegendLayers) ? (
             <DetailMapLegend
               isDark={isDark}
+              palette={palette}
               top={overlayTop}
               testID="section-map-legend"
               pickedAttempt={pickedAttempt}
@@ -770,14 +701,13 @@ export const SectionMapView = memo(function SectionMapView({
         </View>
       ) : (
         // Non-interactive map - tap anywhere to fullscreen
-        <Pressable
-          style={pressable([styles.container, { height }])}
+        <PressTarget
+          style={[styles.container, { height }]}
           accessibilityRole="button"
           accessibilityLabel={t('maps.openFullscreen')}
           accessibilityState={{ disabled: !enableFullscreen }}
           onPress={openFullscreen}
           disabled={!enableFullscreen}
-          android_ripple={pressRipple}
         >
           {mapContent}
           {showExpandOverlay ? (
@@ -785,7 +715,7 @@ export const SectionMapView = memo(function SectionMapView({
               <Icon name="fullscreen" size={iconSize.md} color={colors.textOnFill} />
             </View>
           ) : null}
-        </Pressable>
+        </PressTarget>
       )}
 
       {/* Fullscreen modal using BaseMapView */}
@@ -798,11 +728,7 @@ export const SectionMapView = memo(function SectionMapView({
         <StatusBar barStyle={`${statusBarStyleForMap(drawnMapStyle)}-content`} />
         <BaseMapView
           routeCoordinates={sectionCoords}
-          routeColor={
-            highlightedActivityId || sectionLayerData.highlightedTraceGeoJSON
-              ? colorWithOpacity(activityColor, opacity.dim)
-              : activityColor
-          }
+          routeContext={!!(highlightedActivityId || sectionLayerData.highlightedTraceGeoJSON)}
           bounds={bounds || undefined}
           initialStyle={currentMapStyle}
           onClose={closeFullscreen}
@@ -814,6 +740,7 @@ export const SectionMapView = memo(function SectionMapView({
         {hasLegendLayers(fullscreenLegendLayers) && (
           <DetailMapLegend
             isDark={isDark}
+            palette={palette}
             testID="section-map-legend"
             top={fullscreenInsets.top + spacing.sm}
             pickedAttempt={pickedAttempt}

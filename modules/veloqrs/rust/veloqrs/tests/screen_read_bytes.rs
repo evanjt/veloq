@@ -21,9 +21,9 @@ use tracematch::GpsPoint;
 use veloqrs::sections::CreateSectionParams;
 use veloqrs::{
     ActivityMetrics, FfiActivityDetailData, FfiBestEffortsData, FfiFitnessScreenData,
-    FfiMapScreenData, FfiRouteDetailData, FfiRoutesScreenData, FfiRoutesScreenQuery,
-    FfiSectionDetailData, FfiSectionPerformanceData, FfiStartupData, MapDistanceBand,
-    PersistentEngine, UniFfiTag,
+    FfiFitnessScreenWindows, FfiMapScreenData, FfiRouteDetailData, FfiRoutesScreenData,
+    FfiRoutesScreenQuery, FfiSectionDetailData, FfiSectionPerformanceData, FfiStartupData,
+    FfiTimestampRange, MapDistanceBand, PersistentEngine, UniFfiTag,
 };
 
 // ------------------------------------------------------------ allocator
@@ -222,6 +222,7 @@ fn activity_detail(v: FfiActivityDetailData) -> Lowered {
         power_zones => |v: &FfiActivityDetailData| v.power_zones.len(),
         ledger_changes => |v: &FfiActivityDetailData| v.ledger_changes.len(),
         intervals_id,
+        pool_swim,
     )
 }
 
@@ -345,6 +346,13 @@ fn fitness(v: FfiFitnessScreenData) -> Lowered {
         running_lthr,
         decoupling_sources,
         load_dots => |v: &FfiFitnessScreenData| v.load_dots.len(),
+        heatmap => |v: &FfiFitnessScreenData| v.heatmap.len(),
+        months => |v: &FfiFitnessScreenData| v.months.len(),
+        year_current,
+        year_previous,
+        month_current,
+        month_previous,
+        comparisons,
     )
 }
 
@@ -456,7 +464,27 @@ fn reads() -> Vec<(&'static str, Shape, Read)> {
         }),
         ("fitness_screen_data", Shape::Listing, |e, _| {
             measure(
-                || e.fitness_screen_data("2025-09-04", &[7, 30, 90, 180, 365]),
+                || {
+                    let span = |days: i64| FfiTimestampRange {
+                        start_ts: (NOW - days * DAY) as f64,
+                        end_ts: NOW as f64,
+                    };
+                    e.fitness_screen_data(
+                        "2025-09-04",
+                        &[7, 30, 90, 180, 365],
+                        &FfiFitnessScreenWindows {
+                            heatmap_first_day: "2024-09-01".into(),
+                            heatmap_last_day: "2025-09-04".into(),
+                            months: span(730),
+                            year_current: span(365),
+                            year_previous: span(730),
+                            month_current: span(30),
+                            month_previous: span(60),
+                            now_wall_seconds: NOW as f64,
+                        },
+                    )
+                    .expect("fitness screen")
+                },
                 fitness,
             )
         }),

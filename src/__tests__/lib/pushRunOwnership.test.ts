@@ -34,7 +34,7 @@ jest.mock('expo-task-manager', () => ({
   unregisterTaskAsync: jest.fn(async () => undefined),
 }));
 jest.mock('@/features/insights/lib/awaitActivityBody', () => ({
-  awaitActivityBody: jest.fn(async () => ({ id: 'i1', name: 'A ride', type: 'Ride' })),
+  awaitActivityBody: jest.fn(async () => ({ id: 'i1', name: 'A ride', sportType: 'Ride' })),
 }));
 jest.mock('@/features/settings/lib/notificationService', () => ({
   presentActivityNotification: jest.fn(async () => undefined),
@@ -66,7 +66,11 @@ describe('the push task reading its download result', () => {
   beforeEach(async () => {
     jest.useFakeTimers();
     mockIndexNewActivity.mockClear();
-    (awaitActivityBody as jest.Mock).mockResolvedValue({ id: 'i1', name: 'A ride', type: 'Ride' });
+    (awaitActivityBody as jest.Mock).mockResolvedValue({
+      id: 'i1',
+      name: 'A ride',
+      sportType: 'Ride',
+    });
     startFetchAndStore.mockReset().mockReturnValue(OWN_RUN);
     takeFetchAndStoreResult.mockReset();
     (SecureStore.getItemAsync as jest.Mock).mockImplementation(async (key: string) => {

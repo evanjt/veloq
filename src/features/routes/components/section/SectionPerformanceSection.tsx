@@ -1,25 +1,33 @@
 /**
- * Performance chart section for the section and route detail pages.
- * Uses a fixed-width scatter chart with a Gaussian kernel trend and a local
- * standard deviation band per direction.
+ * The performance block of the section and route detail pages: the title, the
+ * timing method and the range menu, then the panel, or what stands in for it
+ * while the time streams load, after they failed, or when nothing is left.
  */
 
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { ExcludedAttemptsLink } from './ExcludedAttemptsLink';
 import { PerformanceChartPanel } from './PerformanceChartPanel';
 import { SectionStreamsNotice } from './SectionStreamsNotice';
-import { ExcludedActivitiesToggle } from './SectionScatterChart';
 import type {
   DirectionBestRecord,
   DirectionSummaryStats,
 } from '@/features/routes/lib/performanceTypes';
 import { SECTION_TIME_RANGES, type SectionTimeRange } from '@/features/routes/constants';
+import { PERIOD_LABEL_KEYS } from '@/shared/app/period';
 import { colors, darkColors, spacing, typography } from '@/theme';
-import type { FfiAttemptHistograms, FfiSectionLapCurves, FfiSectionTrendCurves } from 'veloqrs';
+import type {
+  FfiAttemptHistograms,
+  FfiRecordProgressions,
+  FfiScatterFocus,
+  FfiSectionLapCurves,
+  FfiSectionTrendCurves,
+} from 'veloqrs';
 import type { SectionDeltaLine } from '@/features/routes/lib/deltaLayout';
 import type { ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
-import { EmptyState, ErrorState, Shimmer, ToggleButtonRow } from '@/shared/ui';
+import { EmptyState, ErrorState, SelectButton, Shimmer } from '@/shared/ui';
+import { attemptBasis, readsPace } from '@/features/routes/lib/attemptBasis';
 import { FLOW_EXPAND, completeFlowAfterFrame, markFlow } from '@/shared/debug/flowTiming';
 import type { UseSectionTimeStreamSyncResult } from '@/features/routes/hooks/useSectionPerformances';
 
@@ -62,6 +70,10 @@ export interface SectionPerformanceSectionProps {
   trendCurves: FfiSectionTrendCurves;
   /** The engine's attempt-time bins for the range and sport on screen. */
   histograms?: FfiAttemptHistograms | undefined;
+  /** The engine's scatter range per direction, with the attempts past it counted. */
+  scatterFocus?: FfiScatterFocus | undefined;
+  /** The engine's record progression per direction. */
+  recordProgression?: FfiRecordProgressions | undefined;
   /** The engine's lap delta curves for the range and sport on screen. */
   curves?: FfiSectionLapCurves | undefined;
   /** Called with the attempt the delta plot emphasises while it is shown, else null. */
@@ -83,7 +95,8 @@ export interface SectionPerformanceSectionProps {
   onSetAsReference?: ((activityId: string) => void) | undefined;
   referenceActivityId?: string | undefined;
   showExcluded?: boolean | undefined;
-  hasExcluded?: boolean | undefined;
+  /** The excluded attempts the engine holds back for the range and sport on screen. */
+  excludedCount?: number | undefined;
   onToggleShowExcluded?: (() => void) | undefined;
   highlightedActivityId?: string | undefined;
   sectionTimeRange: SectionTimeRange;
@@ -99,6 +112,8 @@ export function SectionPerformanceSection({
   chartData,
   trendCurves,
   histograms,
+  scatterFocus,
+  recordProgression,
   curves,
   onDeltaLineChange,
   forwardStats,
@@ -114,7 +129,7 @@ export function SectionPerformanceSection({
   onSetAsReference,
   referenceActivityId,
   showExcluded,
-  hasExcluded,
+  excludedCount = 0,
   onToggleShowExcluded,
   highlightedActivityId,
   sectionTimeRange,
@@ -124,6 +139,11 @@ export function SectionPerformanceSection({
   const { t } = useTranslation();
   const hasEfforts = chartData.length > 0;
   const isRoute = subject === 'route';
+  const method = t(isRoute ? 'routes.timeMethod' : 'sections.timeMethod');
+  // A time or a pace reads lower as faster, so the line says which way is up.
+  const basis = attemptBasis(sportType as ActivityType, isRoute);
+  const methodLine =
+    basis === 'time' || readsPace(basis) ? t('sections.methodFasterAtTop', { method }) : method;
 
   useEffect(() => {
     completeFlowAfterFrame(FLOW_EXPAND);
@@ -135,23 +155,23 @@ export function SectionPerformanceSection({
         <Text style={[styles.chartTitle, isDark && styles.chartTitleDark]}>
           {t('sections.performanceOverTime')}
         </Text>
-        <ToggleButtonRow
-          layout="hug"
-          style={styles.timeRangePills}
+        <SelectButton
+          testID="section-time-range"
+          style={styles.timeRange}
+          accessibilityLabel={t('settings.dateRange')}
           options={SECTION_TIME_RANGES.map((r) => ({
             value: r.id,
-            label: t(r.labelKey as never),
-            testID: `section-time-range-${r.id}`,
+            label: t(PERIOD_LABEL_KEYS.long[r.id]),
           }))}
           value={sectionTimeRange}
-          onValueChange={(id) => {
+          onChange={(id) => {
             markFlow(FLOW_EXPAND);
             onTimeRangeChange(id);
           }}
         />
       </View>
       <Text testID={`${subject}-time-method`} style={[styles.method, isDark && styles.methodDark]}>
-        {t(isRoute ? 'routes.timeMethod' : 'sections.timeMethod')}
+        {methodLine}
       </Text>
       {streams?.status === 'partial' ? (
         <SectionStreamsNotice
@@ -165,6 +185,8 @@ export function SectionPerformanceSection({
           chartData={chartData}
           trendCurves={trendCurves}
           histograms={histograms}
+          scatterFocus={scatterFocus}
+          recordProgression={recordProgression}
           curves={curves}
           onDeltaLineChange={onDeltaLineChange}
           activityType={sportType as ActivityType}
@@ -183,7 +205,7 @@ export function SectionPerformanceSection({
           onSetAsReference={onSetAsReference}
           referenceActivityId={referenceActivityId}
           showExcluded={showExcluded}
-          hasExcluded={hasExcluded}
+          excludedCount={excludedCount}
           onToggleShowExcluded={onToggleShowExcluded}
           highlightedActivityId={highlightedActivityId}
         />
@@ -201,10 +223,10 @@ export function SectionPerformanceSection({
       ) : streams?.status === 'partial' ? null : (
         <View testID="section-performance-empty" style={styles.emptyState}>
           {/* Every attempt excluded leaves no chart to carry the eye, so it stays here. */}
-          {hasExcluded && onToggleShowExcluded ? (
-            <ExcludedActivitiesToggle
-              isDark={isDark}
-              showExcluded={!!showExcluded}
+          {excludedCount > 0 && onToggleShowExcluded ? (
+            <ExcludedAttemptsLink
+              count={excludedCount}
+              shown={!!showExcluded}
               onToggle={onToggleShowExcluded}
             />
           ) : null}
@@ -232,7 +254,7 @@ const styles = StyleSheet.create({
   chartTitleDark: {
     color: darkColors.textPrimary,
   },
-  timeRangePills: {
+  timeRange: {
     flexShrink: 0,
   },
   method: {

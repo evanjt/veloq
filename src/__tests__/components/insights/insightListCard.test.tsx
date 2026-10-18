@@ -32,7 +32,7 @@ import type {
 import { navigateTo } from '@/shared/app/navigation';
 import { formatShortDate } from '@/shared/format/format';
 import { insightGraphicColour } from '@/features/insights/lib/insightCategory';
-import { colors, darkColors, insightToneColor, verdictColor } from '@/theme';
+import { colors, colourTokens, darkColors, insightToneColor, verdictColor } from '@/theme';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysWithValues());
@@ -240,7 +240,7 @@ describe('the insight list card', () => {
     expect(
       bars.filter((color) => color === insightGraphicColour('period_comparison', false))
     ).toHaveLength(1);
-    expect(bars.filter((color) => color === colors.chartMutedBar)).toHaveLength(5);
+    expect(bars.filter((color) => color === colourTokens.light['chart-muted'])).toHaveLength(5);
   });
 
   it('draws the running week as an outline beside the whole weeks', async () => {

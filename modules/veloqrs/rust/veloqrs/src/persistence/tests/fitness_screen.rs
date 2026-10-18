@@ -17,6 +17,25 @@ const TODAY: &str = "2026-09-05";
 /// The spans the fitness picker offers, in days.
 const SPANS: [u32; 5] = [7, 30, 90, 180, 365];
 
+/// The calendar windows as the screen names them on `TODAY`, which the
+/// trend, the speeds and the strip do not depend on.
+fn windows() -> crate::FfiFitnessScreenWindows {
+    let today = crate::FfiTimestampRange {
+        start_ts: 1_788_566_400.0,
+        end_ts: 1_788_652_799.0,
+    };
+    crate::FfiFitnessScreenWindows {
+        heatmap_first_day: TODAY.into(),
+        heatmap_last_day: TODAY.into(),
+        months: today.clone(),
+        year_current: today.clone(),
+        year_previous: today.clone(),
+        month_current: today.clone(),
+        month_previous: today,
+        now_wall_seconds: 1_788_609_600.0,
+    }
+}
+
 fn eftp_day(date: &str, eftp: f64) -> WellnessRow {
     WellnessRow {
         date: date.into(),
@@ -79,7 +98,7 @@ fn test_fitness_screen_read_uses_shared_ftp_comparison_and_stored_speeds() {
     let engine = library();
     let conn = engine.cold_connection();
 
-    let read = fitness_screen_data(conn, TODAY, &SPANS);
+    let read = fitness_screen_data(conn, TODAY, &SPANS, &windows()).unwrap();
 
     assert_eq!(read.ftp_trend.latest_ftp, Some(260));
     assert_eq!(
@@ -128,7 +147,9 @@ fn test_fitness_screen_ftp_direction_matches_summary_with_older_gain() {
     let conn = engine.cold_connection();
 
     assert_eq!(FITNESS_FTP_LOOKBACK_DAYS, 90);
-    let fitness = fitness_screen_data(conn, TODAY, &SPANS).ftp_trend;
+    let fitness = fitness_screen_data(conn, TODAY, &SPANS, &windows())
+        .unwrap()
+        .ftp_trend;
     let summary = ftp_trend_to(conn, TODAY);
     assert_eq!(fitness.delta_watts, summary.delta_watts);
     assert_eq!(fitness.delta_watts, Some(-3));
@@ -153,7 +174,9 @@ fn test_fitness_screen_ftp_trend_names_the_window_its_step_spans() {
         .unwrap();
     let conn = engine.cold_connection();
 
-    let fitness = fitness_screen_data(conn, TODAY, &SPANS).ftp_trend;
+    let fitness = fitness_screen_data(conn, TODAY, &SPANS, &windows())
+        .unwrap()
+        .ftp_trend;
     assert_eq!(
         fitness.lookback_days,
         ftp_trend_to(conn, TODAY).lookback_days
@@ -167,7 +190,7 @@ fn test_fitness_screen_ftp_trend_names_the_window_its_step_spans() {
 fn an_empty_library_answers_no_trend_and_no_speed() {
     let engine = PersistentEngine::in_memory().unwrap();
 
-    let read = fitness_screen_data(engine.cold_connection(), TODAY, &SPANS);
+    let read = fitness_screen_data(engine.cold_connection(), TODAY, &SPANS, &windows()).unwrap();
 
     assert!(read.ftp_trend.history.is_empty());
     assert_eq!(read.ftp_trend.latest_ftp, None);
@@ -179,7 +202,8 @@ fn an_empty_library_answers_no_trend_and_no_speed() {
 #[test]
 fn the_fitness_screen_read_carries_the_fitness_and_fatigue_days_in_effect_today() {
     let engine = PersistentEngine::in_memory().unwrap();
-    let defaults = fitness_screen_data(engine.cold_connection(), TODAY, &SPANS);
+    let defaults =
+        fitness_screen_data(engine.cold_connection(), TODAY, &SPANS, &windows()).unwrap();
     assert_eq!((defaults.fitness_days, defaults.fatigue_days), (42, 7));
 
     engine
@@ -190,7 +214,7 @@ fn the_fitness_screen_read_carries_the_fitness_and_fatigue_days_in_effect_today(
         )
         .unwrap();
 
-    let read = fitness_screen_data(engine.cold_connection(), TODAY, &SPANS);
+    let read = fitness_screen_data(engine.cold_connection(), TODAY, &SPANS, &windows()).unwrap();
     assert_eq!((read.fitness_days, read.fatigue_days), (28, 5));
 }
 
@@ -224,7 +248,9 @@ fn a_library_of_runs_reports_running_as_its_dominant_sport() {
     insert_activities(&engine, "trail", "TrailRun", 50, RECENT);
     insert_activities(&engine, "old-ride", "Ride", 400, LONG_AGO);
 
-    let mix = fitness_screen_data(engine.cold_connection(), TODAY, &SPANS).sport_mix;
+    let mix = fitness_screen_data(engine.cold_connection(), TODAY, &SPANS, &windows())
+        .unwrap()
+        .sport_mix;
 
     assert_eq!(
         mix.runs, SPORT_MIX_ACTIVITIES,
@@ -246,7 +272,9 @@ fn the_dominant_sport_names_each_family_and_counts_its_members() {
     insert_activities(&engine, "zwift", "VirtualRide", 4, RECENT);
     insert_activities(&engine, "lift", "WeightTraining", 9, RECENT);
 
-    let mix = fitness_screen_data(engine.cold_connection(), TODAY, &SPANS).sport_mix;
+    let mix = fitness_screen_data(engine.cold_connection(), TODAY, &SPANS, &windows())
+        .unwrap()
+        .sport_mix;
 
     assert_eq!((mix.rides, mix.runs, mix.swims), (4, 0, 5));
     assert_eq!(
@@ -262,7 +290,9 @@ fn the_mix_counts_the_latest_activities_and_none_older() {
     insert_activities(&engine, "old-ride", "Ride", 400, LONG_AGO);
     insert_activities(&engine, "swim", "Swim", 10, RECENT);
 
-    let mix = fitness_screen_data(engine.cold_connection(), TODAY, &SPANS).sport_mix;
+    let mix = fitness_screen_data(engine.cold_connection(), TODAY, &SPANS, &windows())
+        .unwrap()
+        .sport_mix;
 
     assert_eq!((mix.rides, mix.swims), (40, 10));
     assert_eq!(
@@ -275,13 +305,17 @@ fn the_mix_counts_the_latest_activities_and_none_older() {
 #[test]
 fn a_tie_or_an_empty_library_names_no_dominant_sport() {
     let engine = PersistentEngine::in_memory().unwrap();
-    let empty = fitness_screen_data(engine.cold_connection(), TODAY, &SPANS).sport_mix;
+    let empty = fitness_screen_data(engine.cold_connection(), TODAY, &SPANS, &windows())
+        .unwrap()
+        .sport_mix;
     assert_eq!((empty.rides, empty.runs, empty.swims), (0, 0, 0));
     assert_eq!(empty.dominant, None);
 
     insert_activities(&engine, "ride", "Ride", 6, RECENT);
     insert_activities(&engine, "run", "Run", 6, RECENT);
-    let tied = fitness_screen_data(engine.cold_connection(), TODAY, &SPANS).sport_mix;
+    let tied = fitness_screen_data(engine.cold_connection(), TODAY, &SPANS, &windows())
+        .unwrap()
+        .sport_mix;
     assert_eq!(tied.dominant, None, "a tie is no evidence for either sport");
 }
 
@@ -307,7 +341,7 @@ fn the_read_carries_the_set_cycling_ftp_and_running_lthr() {
         .unwrap();
     ride_with_ftp(&engine, "a1", RECENT, "Ride", Some(260));
 
-    let read = fitness_screen_data(engine.cold_connection(), TODAY, &SPANS);
+    let read = fitness_screen_data(engine.cold_connection(), TODAY, &SPANS, &windows()).unwrap();
 
     assert_eq!(
         read.cycling_ftp_setting,
@@ -332,7 +366,8 @@ fn with_no_ride_ftp_set_the_newest_cycling_activity_supplies_it() {
         ride_with_ftp(&engine, "zero", RECENT + 2, "Ride", Some(0));
         ride_with_ftp(&engine, "run", RECENT + 3, "Run", Some(330));
 
-        let read = fitness_screen_data(engine.cold_connection(), TODAY, &SPANS);
+        let read =
+            fitness_screen_data(engine.cold_connection(), TODAY, &SPANS, &windows()).unwrap();
 
         assert_eq!(read.cycling_ftp_setting, Some(250.0), "{settings}");
         assert_eq!(
@@ -347,7 +382,7 @@ fn with_no_settings_and_no_activity_ftp_the_read_has_no_thresholds() {
     let engine = PersistentEngine::in_memory().unwrap();
     ride_with_ftp(&engine, "a1", RECENT, "Ride", None);
 
-    let read = fitness_screen_data(engine.cold_connection(), TODAY, &SPANS);
+    let read = fitness_screen_data(engine.cold_connection(), TODAY, &SPANS, &windows()).unwrap();
 
     assert_eq!(read.cycling_ftp_setting, None);
     assert_eq!(read.running_lthr, None);
@@ -449,7 +484,7 @@ fn each_span_names_the_newest_ride_with_a_finite_stored_decoupling() {
         },
     );
 
-    let read = fitness_screen_data(engine.cold_connection(), TODAY, &[7, 30]);
+    let read = fitness_screen_data(engine.cold_connection(), TODAY, &[7, 30], &windows()).unwrap();
 
     assert_eq!(
         read.decoupling_sources
@@ -472,7 +507,7 @@ fn each_span_names_the_newest_ride_with_a_finite_stored_decoupling() {
 #[test]
 fn a_ride_of_exactly_half_an_hour_qualifies_and_an_empty_library_names_none() {
     let engine = PersistentEngine::in_memory().unwrap();
-    let empty = fitness_screen_data(engine.cold_connection(), TODAY, &SPANS);
+    let empty = fitness_screen_data(engine.cold_connection(), TODAY, &SPANS, &windows()).unwrap();
     assert_eq!(empty.decoupling_sources.len(), SPANS.len());
     assert!(empty.decoupling_sources.iter().all(|s| s.source.is_none()));
     assert!(empty.load_dots.is_empty());
@@ -483,7 +518,7 @@ fn a_ride_of_exactly_half_an_hour_qualifies_and_an_empty_library_names_none() {
         &ride("unstored", SEP_04_0700 + 60, 90, serde_json::Value::Null),
     );
 
-    let read = fitness_screen_data(engine.cold_connection(), TODAY, &SPANS);
+    let read = fitness_screen_data(engine.cold_connection(), TODAY, &SPANS, &windows()).unwrap();
     for span in &read.decoupling_sources {
         let source = span.source.as_ref().unwrap();
         assert_eq!(
@@ -522,7 +557,9 @@ fn the_read_carries_one_load_dot_per_activity_in_the_longest_span() {
     );
     store_session(&engine, &ride("too-old", SEP_04_2025_2300, 60, 1.0.into()));
 
-    let dots = fitness_screen_data(engine.cold_connection(), TODAY, &[30, 365]).load_dots;
+    let dots = fitness_screen_data(engine.cold_connection(), TODAY, &[30, 365], &windows())
+        .unwrap()
+        .load_dots;
 
     assert_eq!(
         dots.iter()

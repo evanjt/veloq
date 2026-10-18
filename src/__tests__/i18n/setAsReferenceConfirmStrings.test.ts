@@ -1,6 +1,6 @@
 /**
  * Using an attempt as a section's reference changes three things the athlete sees: the line the
- * section draws, the zero of the ahead-or-behind plot, and which rides match. The confirm must
+ * section draws, the zero of the Ahead or behind view, and which rides match. The confirm must
  * name all three before the athlete accepts, in every locale.
  */
 
@@ -24,8 +24,8 @@ describe('the use as reference confirm', () => {
   it('names the line, the plot and the re-match in the source locale', () => {
     const message = confirmOf('en-GB');
     expect(message).toMatch(/\bline\b/);
-    expect(message).toMatch(/Delta plot/);
-    expect(message).toMatch(/ahead or behind/);
+    // The plot is named as the section panel names the view.
+    expect(message).toMatch(/Ahead or behind view/);
     expect(message).toMatch(/re-matched/);
   });
 

@@ -12,7 +12,7 @@ import { StyleSheet } from 'react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import { ActivityHeader } from '@/features/activity/components/ActivityHeader';
-import type { ActivityDetail } from '@/types';
+import type { ActivityRecord } from 'veloqrs';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
@@ -39,7 +39,7 @@ jest.mock('@/features/maps/components/ActivityMapView', () => {
   };
 });
 
-const activity = (overrides: Partial<ActivityDetail> = {}): ActivityDetail =>
+const activity = (overrides: Partial<ActivityRecord> = {}): ActivityRecord =>
   ({
     id: 'a1',
     name: 'Lausanne half marathon',
@@ -50,9 +50,9 @@ const activity = (overrides: Partial<ActivityDetail> = {}): ActivityDetail =>
     total_elevation_gain: 1047,
     polyline: null,
     ...overrides,
-  }) as ActivityDetail;
+  }) as ActivityRecord;
 
-const renderHero = (insetTop: number, detail: ActivityDetail) =>
+const renderHero = (insetTop: number, detail: ActivityRecord) =>
   render(
     <ActivityHeader
       activity={detail}
@@ -96,7 +96,7 @@ const overlayPaddingBottom = () =>
   StyleSheet.flatten(screen.getByTestId('detail-hero-overlay').props.style).paddingBottom ?? 0;
 
 describe('activity hero clears the map attribution', () => {
-  const cases: [string, number, ActivityDetail][] = [
+  const cases: [string, number, ActivityRecord][] = [
     ['no safe-area inset', 0, activity()],
     ['a large safe-area inset', 62, activity()],
     ['the tallest hero content', 62, activity()],
@@ -146,7 +146,7 @@ describe('activity hero place line', () => {
   it('shows nothing for a locality an older stored body still carries', async () => {
     await renderHero(
       0,
-      activity({ locality: 'Lausanne', country: 'Switzerland' } as Partial<ActivityDetail>)
+      activity({ locality: 'Lausanne', country: 'Switzerland' } as Partial<ActivityRecord>)
     );
 
     expect(screen.queryByText(/Lausanne,|^Lausanne$/)).toBeNull();

@@ -17,7 +17,6 @@ import { demoLibrary } from '@/shared/app/seedDemoEngine';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { getRecentRecordingTypes, getRecordedRecordingTypes } from '@/shared/recording';
 import { getActivityCategory } from '@/shared/activity/sportCategories';
-import { activityTypeColors } from '@/theme/colors';
 import { widgetPalette, type WidgetPalette } from '@/shared/theme/widgetTheme';
 import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
 import type { SampleWidgetLibrary } from 'veloqrs/src/delegates/fitness';
@@ -189,8 +188,6 @@ export interface WidgetContext {
   /** Null hides the widget summary block. */
   summaryCard: SummaryCardPreferences | null;
   theme: { light: WidgetPalette; dark: WidgetPalette };
-  /** Sport tint by sport type, `Other` the fallback, so the widget needs no sport-to-colour map. */
-  activityTints: Record<string, string>;
   /**
    * The recent sports, most recent first, pre-localised. One source for every
    * record surface: the widgets and the iOS control take the head, the Android
@@ -266,7 +263,6 @@ export function composeWidgetContext(input: WidgetContextInput): WidgetContext {
     numbers: input.numbers ?? widgetNumberWords(),
     summaryCard: input.summaryPrefs ?? null,
     theme: { light: widgetPalette.light, dark: widgetPalette.dark },
-    activityTints: { ...activityTypeColors },
     recordShortcuts: composeRecordShortcuts(
       [...(input.recentRecordingTypes ?? []), ...(input.recordedRecordingTypes ?? [])],
       t

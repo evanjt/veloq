@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -27,14 +27,7 @@ import {
 } from '@/theme';
 import { TipButtons } from '@/shared/ui/TipButtons';
 import { Card } from '@/shared/ui/Card';
-import {
-  Button,
-  DisclosureChevron,
-  pressable,
-  pressRipple,
-  TextSeparator,
-  useLargeText,
-} from '@/shared/ui';
+import { Button, DisclosureChevron, TextSeparator, useLargeText, PressTarget } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 
 /**
@@ -165,21 +158,20 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
           />
         </View>
 
-        <Pressable
+        <PressTarget
           testID="support-card-tip-toggle"
           onPress={toggleTips}
           accessibilityRole="button"
           accessibilityLabel={t('support.supportDevelopment')}
           accessibilityState={{ expanded: tipsExpanded }}
-          style={pressable(styles.tipToggle)}
-          android_ripple={pressRipple}
+          style={styles.tipToggle}
         >
           <Icon name="wrench-outline" size={iconSize.sm} color={mutedColor} />
           <Text style={[styles.tipToggleText, { color: mutedColor }]}>
             {t('support.supportDevelopment')}
           </Text>
           <DisclosureChevron expanded={tipsExpanded} size={iconSize.sm} color={mutedColor} />
-        </Pressable>
+        </PressTarget>
 
         {/* Mounted only while open: the panel is as tall as its buttons at any text
             size, and a collapsed one leaves no purchase button for a screen reader. */}

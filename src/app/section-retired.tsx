@@ -5,11 +5,11 @@
  */
 
 import React, { useMemo } from 'react';
-import { StyleSheet, Pressable } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { Card, EmptyState, ScreenSafeAreaView, ScreenScrollView } from '@/shared/ui';
+import { PressTarget } from '@/shared/ui/PressTarget';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useEngineRead, useEngineReadState } from '@/shared/native/useEngineSubscription';
 import { EngineReadPlaceholder } from '@/shared/app/EngineUnavailableState';
@@ -81,19 +81,18 @@ function SectionRetiredScreenContent() {
             // A retirement merged into another section opens it from anywhere on
             // the card, named by the link, rather than from one line of small text.
             return into ? (
-              <Pressable
+              <PressTarget
                 key={r.sectionId}
                 testID={`section-retired-${r.sectionId}`}
                 onPress={() => navigateTo(`/section/${r.into}`)}
                 accessibilityRole="link"
                 accessibilityLabel={into}
-                android_ripple={pressRipple}
-                style={pressable(styles.target)}
+                style={styles.target}
               >
                 <Card variant="flat" style={{ gap: spacing.xs }}>
                   {body}
                 </Card>
-              </Pressable>
+              </PressTarget>
             ) : (
               <Card
                 key={r.sectionId}

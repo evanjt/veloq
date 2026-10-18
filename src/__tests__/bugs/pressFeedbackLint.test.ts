@@ -4,8 +4,10 @@
  * a `Pressable` showed nothing at all.
  *
  * Expected behaviour: the guard fails a `Pressable` with neither a pressed
- * style nor a ripple, accepts the shared helper, accepts a press that says in
- * a comment why it is not a control, and passes on this repository.
+ * style nor a ripple, accepts the shared helper inside the shared controls,
+ * fails any bare `Pressable` outside them, which draws no keyboard focus ring,
+ * accepts `PressTarget`, and accepts a press that says in a comment why it is
+ * not a control.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -69,12 +71,45 @@ it('fails one with no style at all', () => {
   expect(runGuard(root).status).toBe(1);
 });
 
-it('accepts the shared helper and a ripple', () => {
+it('accepts the shared helper and a ripple inside the shared controls', () => {
   const root = fixture({
-    'src/features/x/Helper.tsx':
+    'src/shared/ui/Helper.tsx':
       '<Pressable style={pressable(styles.row)} android_ripple={pressRipple} onPress={go} />\n',
-    'src/features/x/Ripple.tsx':
+    'src/shared/ui/Ripple.tsx':
       '<Pressable style={styles.row} android_ripple={{ borderless: false }} onPress={go} />\n',
+  });
+
+  expect(runGuard(root).status).toBe(0);
+});
+
+it('fails a bare Pressable outside the shared controls, which shows no focus ring', () => {
+  const root = fixture({
+    'src/features/x/Row.tsx': [
+      'export const Row = () => (',
+      '  <Pressable style={pressable(styles.row)} android_ripple={pressRipple} onPress={go} />',
+      ');',
+    ].join('\n'),
+    'src/app/screen.tsx':
+      '<Animated.Pressable style={pressable()} android_ripple={pressRippleOver} onPress={go} />\n',
+  });
+
+  const { status, output } = runGuard(root);
+
+  expect(status).toBe(1);
+  expect(output).toContain('src/features/x/Row.tsx:2');
+  expect(output).toContain('src/app/screen.tsx:1');
+  expect(output).toContain('PressTarget');
+});
+
+it('accepts PressTarget outside the shared controls', () => {
+  const root = fixture({
+    'src/features/x/Row.tsx': [
+      'export const Row = () => (',
+      '  <PressTarget style={styles.row} ripple="over" onPress={go}>',
+      '    {child}',
+      '  </PressTarget>',
+      ');',
+    ].join('\n'),
   });
 
   expect(runGuard(root).status).toBe(0);

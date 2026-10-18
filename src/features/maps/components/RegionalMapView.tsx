@@ -5,21 +5,11 @@ import { StatusBar } from 'expo-status-bar';
 import { useMapPreferences } from '@/features/settings/light';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import {
-  colors,
-  controlHeight,
-  darkColors,
-  iconSize,
-  ink,
-  layout,
-  mapPalette,
-  raised,
-  spacing,
-} from '@/theme';
-import { getActivityTypeConfig, type SportFamily } from '../lib/activityCategories';
+import { darkColors, ink, mapPalette, spacing } from '@/theme';
+import { getActivityCategory, sportMarkColour, type SportFamily } from '../lib/activityCategories';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
-import { ComponentErrorBoundary, IconButton } from '@/shared/ui';
-import { Icon } from '@/shared/ui/Icon';
+import { ComponentErrorBoundary } from '@/shared/ui';
+import { MapControlButton } from './MapControlButton';
 import { type MapStyleType, getNextStyle, getStyleIcon, statusBarStyleForMap } from './mapStyles';
 import { MapSurface, type MapCameraState, type MapSurfaceRef } from './MapSurface';
 import { useDrawnMapStyle } from '@/features/maps/hooks/useDrawnMapStyle';
@@ -364,6 +354,7 @@ export function RegionalMapView({
     userLocation,
     selected,
     selectedTrackUrl,
+    isDark,
   });
 
   // The markers are drawn into the canvas, so a link names the activity whose
@@ -587,7 +578,7 @@ export function RegionalMapView({
   const palette = mapPalette(mapStyle);
   const routeColor = selected
     ? selectedRouteColor(
-        getActivityTypeConfig(selected.activity.type).color,
+        sportMarkColour(getActivityCategory(selected.activity.type), isDark),
         { enabled: heatmapEnabled, shown: showHeatmap },
         palette
       )
@@ -702,24 +693,13 @@ export function RegionalMapView({
       {terrainNotice}
 
       {/* Style toggle */}
-      <IconButton
-        style={[
-          styles.button,
-          raised('mapOverlay', isDark),
-          styles.styleButton,
-          { top: insets.top + spacing.smPlus },
-          isDark && styles.buttonDark,
-        ]}
+      <MapControlButton
+        style={[styles.button, styles.styleButton, { top: insets.top + spacing.smPlus }]}
         onPress={toggleStyle}
-        variant="secondary"
         accessibilityLabel={t('maps.toggleStyle')}
       >
-        <Icon
-          name={getStyleIcon(mapStyle)}
-          size={iconSize.md}
-          color={isDark ? colors.textOnFill : colors.textSecondary}
-        />
-      </IconButton>
+        <MapControlButton.Glyph name={getStyleIcon(mapStyle)} />
+      </MapControlButton>
       {/* The control column, one rung below the style toggle. */}
       <MapControlStack
         top={mapTopControlsBottom(insets.top)}
@@ -790,12 +770,6 @@ const styles = StyleSheet.create({
   },
   button: {
     position: 'absolute',
-    width: controlHeight.button,
-    height: controlHeight.button,
-    borderRadius: layout.borderRadiusFull,
-  },
-  buttonDark: {
-    backgroundColor: darkColors.surfaceRaised,
   },
   styleButton: {
     right: spacing.md,

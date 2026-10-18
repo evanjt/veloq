@@ -134,7 +134,6 @@ function activitySpecs(route: GeoJSON.FeatureCollection, gradientActive: boolean
   const layers = buildActivityLayers({
     palette: mapPalette('light'),
     overlayHasData: false,
-    activityColor: '#14B8A6',
     gradientActive,
     gradientLineExpression: gradientActive
       ? ['interpolate', ['linear'], ['line-progress'], 0, '#14B8A6', 1, '#F59E0B']

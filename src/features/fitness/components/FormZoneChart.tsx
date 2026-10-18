@@ -277,14 +277,9 @@ export const FormZoneChart = React.memo(function FormZoneChart({
                       <SkiaLine
                         p1={vec(bounds.left, yFor(0))}
                         p2={vec(bounds.right, yFor(0))}
-                        color={chartColors.zeroLineSolid}
+                        color={chartColors.axis}
                         strokeWidth={chartStroke.axis}
                         style="stroke"
-                      />
-                      <CurveLine
-                        points={points.form}
-                        color={chartColors.casing}
-                        strokeWidth={chartStroke.casing}
                       />
                       <CurveLine points={points.form} color={chartColors.formLine} />
                       <ScrubDot

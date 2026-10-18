@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { navigateTo } from '@/shared/app/navigation';
@@ -19,7 +19,7 @@ import { InsightDetailContent } from './content/InsightDetailContent';
 import { MethodologySection } from './MethodologySection';
 import { viewInDetailTarget } from '../lib/dataLink';
 import type { Insight } from '@/types';
-import { pressable, pressRipple, SheetHeader, SheetScrollView } from '@/shared/ui';
+import { SheetHeader, SheetScrollView, PressTarget } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 
 interface InsightDetailSheetProps {
@@ -91,11 +91,10 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
 
       {/* Navigation link */}
       {hasNavTarget ? (
-        <Pressable
+        <PressTarget
           accessibilityRole="button"
           accessibilityLabel={t('insights.viewInDetail')}
-          style={pressable([styles.navLink, isDark && styles.navLinkDark])}
-          android_ripple={pressRipple}
+          style={[styles.navLink, isDark && styles.navLinkDark]}
           onPress={handleNavigate}
         >
           <Text style={[styles.navLinkText, isDark && styles.navLinkTextDark]}>
@@ -106,7 +105,7 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
             size={iconSize.md}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
-        </Pressable>
+        </PressTarget>
       ) : null}
     </SheetScrollView>
   );

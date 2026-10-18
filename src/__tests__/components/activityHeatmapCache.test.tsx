@@ -20,7 +20,8 @@ import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { changeLanguage, initialiseI18n } from '@/i18n';
 import { getEngine } from '@/shared/native/engine';
 import { CLOCK_EDGES, localDay } from '../__shared__/clockEdges';
-import { trainingScreenRead } from '../__shared__/trainingScreenRead';
+import { fitnessScreenRead } from '../__shared__/fitnessScreenRead';
+import { WithScreenRead } from '../__shared__/withScreenRead';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
@@ -28,14 +29,14 @@ jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 
 const today = new Date().toISOString().slice(0, 10);
 
-/** The heatmap part of the training screen read, asked over the drawn grid. */
+/** The heatmap part of the fitness screen read, asked over the drawn grid. */
 const heatmapDays = jest.fn((_firstDay: string, _lastDay: string) => [
   { date: today, intensity: 3, maxDuration: 6000, activityCount: 1 },
 ]);
 
 const engine = {
   subscribe: () => () => {},
-  getTrainingScreenData: trainingScreenRead({ heatmap: heatmapDays }),
+  getFitnessScreenData: fitnessScreenRead({ heatmap: heatmapDays }),
   getActivityBodies: jest.fn(() => []),
   rangeCoverage: jest.fn(() => RangeCoverage.Loaded),
 };
@@ -60,21 +61,30 @@ beforeEach(() => {
 
 describe('ActivityHeatmap', () => {
   it('reads the engine cache and no activity bodies', async () => {
-    await render(<ActivityHeatmap />, { wrapper });
+    await render(
+      <WithScreenRead>{(training) => <ActivityHeatmap training={training} />}</WithScreenRead>,
+      { wrapper }
+    );
 
     await waitFor(() => expect(heatmapDays).toHaveBeenCalled());
     expect(engine.getActivityBodies).not.toHaveBeenCalled();
   });
 
   it('draws the grid from the cache alone', async () => {
-    const view = await render(<ActivityHeatmap />, { wrapper });
+    const view = await render(
+      <WithScreenRead>{(training) => <ActivityHeatmap training={training} />}</WithScreenRead>,
+      { wrapper }
+    );
 
     await waitFor(() => expect(view.getByTestId('activity-heatmap-count')).toBeTruthy());
     expect(heatmapDays).toHaveBeenCalled();
   });
 
   it('caps the weekday, month and legend labels, which sit at the cell pitch', async () => {
-    const view = await render(<ActivityHeatmap />, { wrapper });
+    const view = await render(
+      <WithScreenRead>{(training) => <ActivityHeatmap training={training} />}</WithScreenRead>,
+      { wrapper }
+    );
 
     await waitFor(() => expect(view.getByTestId('activity-heatmap-count')).toBeTruthy());
     const labels = [
@@ -92,7 +102,10 @@ describe('ActivityHeatmap', () => {
   it('shows the empty state when the cache holds no day, rather than waiting for an array', async () => {
     heatmapDays.mockReturnValueOnce([]);
 
-    const view = await render(<ActivityHeatmap />, { wrapper });
+    const view = await render(
+      <WithScreenRead>{(training) => <ActivityHeatmap training={training} />}</WithScreenRead>,
+      { wrapper }
+    );
 
     await waitFor(() => expect(heatmapDays).toHaveBeenCalled());
     expect(view.queryByTestId('activity-heatmap-count')).toBeNull();
@@ -108,7 +121,10 @@ describe.each(CLOCK_EDGES)('ActivityHeatmap on %s', (_name, at) => {
       { date: localDay(at), intensity: 3, maxDuration: 6000, activityCount: 1 },
     ]);
 
-    const view = await render(<ActivityHeatmap />, { wrapper });
+    const view = await render(
+      <WithScreenRead>{(training) => <ActivityHeatmap training={training} />}</WithScreenRead>,
+      { wrapper }
+    );
 
     await waitFor(() => expect(heatmapDays).toHaveBeenCalled());
     const [startDate, endDate] = heatmapDays.mock.calls[0] as unknown as [string, string];
@@ -137,7 +153,10 @@ describe('ActivityHeatmap header', () => {
       { date: dayFrom(0), intensity: 3, maxDuration: 6000, activityCount: 2 },
     ]);
 
-    const view = await render(<ActivityHeatmap />, { wrapper });
+    const view = await render(
+      <WithScreenRead>{(training) => <ActivityHeatmap training={training} />}</WithScreenRead>,
+      { wrapper }
+    );
 
     await waitFor(() => expect(view.getByTestId('activity-heatmap-count')).toBeTruthy());
     expect(view.getByTestId('activity-heatmap-count')).toHaveTextContent(/^5 /);
@@ -148,7 +167,10 @@ describe('ActivityHeatmap header', () => {
       { date: dayFrom(-3), intensity: 0, maxDuration: 0, activityCount: 1 },
     ]);
 
-    const view = await render(<ActivityHeatmap />, { wrapper });
+    const view = await render(
+      <WithScreenRead>{(training) => <ActivityHeatmap training={training} />}</WithScreenRead>,
+      { wrapper }
+    );
 
     await waitFor(() => expect(view.getByTestId('activity-heatmap-count')).toBeTruthy());
     expect(view.getByTestId('activity-heatmap-count')).toHaveTextContent(/^1 /);
@@ -164,7 +186,10 @@ describe('ActivityHeatmap header', () => {
       { date: localDay(at), intensity: 3, maxDuration: 6000, activityCount: 1 },
     ]);
 
-    const view = await render(<ActivityHeatmap />, { wrapper });
+    const view = await render(
+      <WithScreenRead>{(training) => <ActivityHeatmap training={training} />}</WithScreenRead>,
+      { wrapper }
+    );
 
     await waitFor(() => expect(view.getByTestId('activity-heatmap-header-subtitle')).toBeTruthy());
     expect(view.getByTestId('activity-heatmap-header-subtitle')).toHaveTextContent(range);
@@ -174,7 +199,10 @@ describe('ActivityHeatmap header', () => {
     heatmapDays.mockReturnValueOnce([]);
     engine.rangeCoverage.mockReturnValueOnce(RangeCoverage.Empty);
 
-    const view = await render(<ActivityHeatmap />, { wrapper });
+    const view = await render(
+      <WithScreenRead>{(training) => <ActivityHeatmap training={training} />}</WithScreenRead>,
+      { wrapper }
+    );
 
     await waitFor(() => expect(heatmapDays).toHaveBeenCalled());
     expect(view.queryByTestId('activity-heatmap-header-subtitle')).toBeNull();
@@ -198,7 +226,10 @@ describe('ActivityHeatmap month labels', () => {
   it('keeps the leftmost labels apart on 24 September 2026', async () => {
     jest.setSystemTime(new Date(2026, 8, 24, 12, 0));
 
-    const view = await render(<ActivityHeatmap />, { wrapper });
+    const view = await render(
+      <WithScreenRead>{(training) => <ActivityHeatmap training={training} />}</WithScreenRead>,
+      { wrapper }
+    );
 
     await waitFor(() => expect(view.getByTestId('activity-heatmap-count')).toBeTruthy());
     const lefts = view
@@ -218,7 +249,10 @@ describe('ActivityHeatmap year in view', () => {
   it('pins the year of the leftmost visible column and labels January with its own', async () => {
     jest.setSystemTime(new Date(2027, 0, 10, 12, 0));
 
-    const view = await render(<ActivityHeatmap />, { wrapper });
+    const view = await render(
+      <WithScreenRead>{(training) => <ActivityHeatmap training={training} />}</WithScreenRead>,
+      { wrapper }
+    );
     await waitFor(() => expect(view.getByTestId('activity-heatmap-count')).toBeTruthy());
     await fireEvent(view.getByTestId('activity-heatmap-scroll'), 'layout', {
       nativeEvent: { layout: { width: VIEWPORT, height: 100, x: 0, y: 0 } },
@@ -238,7 +272,10 @@ describe('ActivityHeatmap year in view', () => {
       { date: localDay(at), intensity: 3, maxDuration: 6000, activityCount: 1 },
     ]);
 
-    const view = await render(<ActivityHeatmap />, { wrapper });
+    const view = await render(
+      <WithScreenRead>{(training) => <ActivityHeatmap training={training} />}</WithScreenRead>,
+      { wrapper }
+    );
     await waitFor(() => expect(view.getByTestId('activity-heatmap-count')).toBeTruthy());
     await fireEvent(view.getByTestId('activity-heatmap-scroll'), 'layout', {
       nativeEvent: { layout: { width: VIEWPORT, height: 100, x: 0, y: 0 } },
@@ -250,7 +287,10 @@ describe('ActivityHeatmap year in view', () => {
   it('follows the scroll back to the first column', async () => {
     jest.setSystemTime(new Date(2026, 8, 23, 12, 0));
 
-    const view = await render(<ActivityHeatmap />, { wrapper });
+    const view = await render(
+      <WithScreenRead>{(training) => <ActivityHeatmap training={training} />}</WithScreenRead>,
+      { wrapper }
+    );
     await waitFor(() => expect(view.getByTestId('activity-heatmap-count')).toBeTruthy());
     const scroll = view.getByTestId('activity-heatmap-scroll');
     await fireEvent(scroll, 'layout', {
@@ -282,7 +322,10 @@ describe('ActivityHeatmap in the app language', () => {
   it('names months and weekdays in that language', async () => {
     jest.setSystemTime(new Date(2026, 9, 15, 12, 0));
 
-    const view = await render(<ActivityHeatmap />, { wrapper });
+    const view = await render(
+      <WithScreenRead>{(training) => <ActivityHeatmap training={training} />}</WithScreenRead>,
+      { wrapper }
+    );
 
     await waitFor(() => expect(view.getByTestId('activity-heatmap-count')).toBeTruthy());
     expect(view.getByText('Mo')).toBeTruthy();
@@ -296,7 +339,10 @@ describe('ActivityHeatmap over a range never downloaded', () => {
     heatmapDays.mockReturnValueOnce([]);
     engine.rangeCoverage.mockReturnValueOnce(RangeCoverage.NotFetched);
 
-    const view = await render(<ActivityHeatmap />, { wrapper });
+    const view = await render(
+      <WithScreenRead>{(training) => <ActivityHeatmap training={training} />}</WithScreenRead>,
+      { wrapper }
+    );
 
     await waitFor(() => expect(view.getByText('Not downloaded yet')).toBeTruthy());
     expect(view.queryByText(/No activity data/)).toBeNull();
@@ -306,7 +352,10 @@ describe('ActivityHeatmap over a range never downloaded', () => {
     heatmapDays.mockReturnValueOnce([]);
     engine.rangeCoverage.mockReturnValueOnce(RangeCoverage.Empty);
 
-    const view = await render(<ActivityHeatmap />, { wrapper });
+    const view = await render(
+      <WithScreenRead>{(training) => <ActivityHeatmap training={training} />}</WithScreenRead>,
+      { wrapper }
+    );
 
     await waitFor(() => expect(view.getByText(/No activity data/)).toBeTruthy());
     expect(view.queryByText('Not downloaded yet')).toBeNull();
@@ -315,7 +364,10 @@ describe('ActivityHeatmap over a range never downloaded', () => {
   it('adds a quiet line when part of the drawn range is not downloaded', async () => {
     engine.rangeCoverage.mockReturnValueOnce(RangeCoverage.NotFetched);
 
-    const view = await render(<ActivityHeatmap />, { wrapper });
+    const view = await render(
+      <WithScreenRead>{(training) => <ActivityHeatmap training={training} />}</WithScreenRead>,
+      { wrapper }
+    );
 
     await waitFor(() => expect(view.getByTestId('activity-heatmap-partial')).toBeTruthy());
   });
@@ -323,7 +375,10 @@ describe('ActivityHeatmap over a range never downloaded', () => {
   it('asks the census about the drawn range', async () => {
     jest.setSystemTime(new Date(2026, 8, 23, 12, 0));
 
-    await render(<ActivityHeatmap />, { wrapper });
+    await render(
+      <WithScreenRead>{(training) => <ActivityHeatmap training={training} />}</WithScreenRead>,
+      { wrapper }
+    );
 
     await waitFor(() => expect(engine.rangeCoverage).toHaveBeenCalled());
     expect(engine.rangeCoverage).toHaveBeenCalledWith('2025-09-29', '2026-09-23');

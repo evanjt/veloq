@@ -67,12 +67,7 @@ jest.mock('@/shared/async/useAfterNavigationTransition', () => ({
 
 jest.mock('react-i18next', () => ({
   ...jest.requireActual('react-i18next'),
-  useTranslation: () => ({
-    t: (key: string, values?: { improvement?: string }) =>
-      key === 'activityDetail.routePrBadge'
-        ? `Record${values?.improvement ? ` ${values.improvement}` : ''}`
-        : key,
-  }),
+  useTranslation: () => ({ t: (key: string) => key }),
 }));
 jest.mock('@/features/activity/components/ActivityDetailSkeleton', () => ({
   ActivityDetailSkeleton: ({ onPosterSettled }: { onPosterSettled?: () => void }) => {
@@ -90,7 +85,7 @@ jest.mock('@/shared/app/useCacheDays', () => ({ useCacheDays: () => 90 }));
 jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: undefined }) }));
 jest.mock('@/shared/debug/renderTimer', () => ({ logScreenRender: () => () => {} }));
 
-const capturedTabs: { current: { key: string; count?: number; badgeText?: string }[] } = {
+const capturedTabs: { current: Record<string, unknown>[] } = {
   current: [],
 };
 jest.mock('@/shared/ui', () => {
@@ -106,7 +101,7 @@ jest.mock('@/shared/ui', () => {
       tabs,
     }: {
       children: React.ReactNode;
-      tabs: { key: string; count?: number; badgeText?: string }[];
+      tabs: Record<string, unknown>[];
     }) => {
       capturedTabs.current = tabs;
       return <>{children}</>;
@@ -117,9 +112,14 @@ jest.mock('@/shared/ui', () => {
 const mockActivity: { description?: string; [key: string]: unknown } = {
   id: 'act-1',
   name: 'Morning Ride',
-  type: 'Ride',
-  start_date_local: '2026-09-01T08:00:00',
-  polyline: null,
+  sportType: 'Ride',
+  startDateLocal: '2026-09-01T08:00:00',
+  isDetail: true,
+  movingTime: 0,
+  distance: 0,
+  elevationGain: 0,
+  hasWeather: false,
+  streamTypes: [],
 };
 
 // One array for the life of the test, because the real hook memoises on its
@@ -182,7 +182,10 @@ const mockDetail: { encounters: SectionEncounter[]; [key: string]: unknown } = {
   activityCount: 1,
 };
 const mockStreamReads: string[] = [];
-const mockRouteHighlights = new Map<string, { isPr: boolean; prImprovementSeconds?: number }>();
+const mockRouteHighlights = new Map<
+  string,
+  { isPr: boolean; prImprovementSeconds?: number; timeDeltaSeconds?: number }
+>();
 jest.mock('@/features/activity/hooks/useActivityDetailData', () => ({
   useActivityDetailData: () => ({ data: mockDetail }),
 }));
@@ -299,8 +302,15 @@ jest.mock('@/features/activity/components/ActivityHeader', () => ({
     return null;
   },
 }));
+let capturedRoutesProps: {
+  routeImprovementSeconds?: number | null;
+  routeGapSeconds?: number | null;
+} = {};
 jest.mock('@/features/activity/components/ActivityRoutesSection', () => ({
-  ActivityRoutesSection: () => null,
+  ActivityRoutesSection: (props: typeof capturedRoutesProps) => {
+    capturedRoutesProps = props;
+    return null;
+  },
 }));
 jest.mock('@/features/activity/components/ActivitySectionsSection', () => ({
   ActivitySectionsSection: (props: { encounters: { sectionId: string; direction: string }[] }) => {
@@ -319,6 +329,7 @@ describe('activity detail screen', () => {
     capturedSectionEncounters = [];
     capturedTabs.current = [];
     capturedHeaderProps = {};
+    capturedRoutesProps = {};
     mockRouteMatchingOn = true;
     capturedOnPointSelect = null;
     capturedTransitionSettled = null;
@@ -386,18 +397,27 @@ describe('activity detail screen', () => {
     expect(view.queryByTestId('activity-detail-pinned-scroll')).toBeNull();
   });
 
-  it('shows the translated route record badge with and without an improvement', async () => {
-    mockRouteHighlights.set('act-1', { isPr: true, prImprovementSeconds: 12 });
-    const view = await render(<ActivityDetailScreen />);
+  it('keeps a route record off the Routes tab and hands its improvement to the page', async () => {
+    mockSearchParams = { id: 'act-1', tab: 'routes' };
+    mockRouteHighlights.set('act-1', { isPr: true, prImprovementSeconds: 65, timeDeltaSeconds: 0 });
+    await render(<ActivityDetailScreen />);
     await act(async () => {});
-    expect(capturedTabs.current.find((tab) => tab.key === 'routes')?.badgeText).toBe(
-      'Record -12 s'
-    );
 
-    mockRouteHighlights.set('act-1', { isPr: true });
-    await view.rerender(<ActivityDetailScreen />);
+    const routesTab = capturedTabs.current.find((tab) => tab.key === 'routes');
+    expect(Object.keys(routesTab ?? {}).sort()).toStrictEqual(['icon', 'key', 'label']);
+    expect(capturedRoutesProps.routeImprovementSeconds).toBe(65);
+  });
+
+  it('keeps a slower route time off the Routes tab and hands its gap to the page', async () => {
+    mockSearchParams = { id: 'act-1', tab: 'routes' };
+    mockRouteHighlights.set('act-1', { isPr: false, timeDeltaSeconds: 95 });
+    await render(<ActivityDetailScreen />);
     await act(async () => {});
-    expect(capturedTabs.current.find((tab) => tab.key === 'routes')?.badgeText).toBe('Record');
+
+    const routesTab = capturedTabs.current.find((tab) => tab.key === 'routes');
+    expect(Object.keys(routesTab ?? {}).sort()).toStrictEqual(['icon', 'key', 'label']);
+    expect(capturedRoutesProps.routeImprovementSeconds).toBeNull();
+    expect(capturedRoutesProps.routeGapSeconds).toBe(95);
   });
 
   it("draws the Routes tab overlay from the detail read's signature, reading no representative streams", async () => {
@@ -460,6 +480,7 @@ describe('activity detail screen', () => {
         visitCount: 8,
         historyTimes: [],
         historyActivityIds: [],
+        historyDates: [],
       },
       {
         sectionId: 'sec-65',
@@ -475,6 +496,7 @@ describe('activity detail screen', () => {
         visitCount: 5,
         historyTimes: [],
         historyActivityIds: [],
+        historyDates: [],
       },
     ];
 
@@ -522,6 +544,7 @@ describe('activity detail screen', () => {
         visitCount: 8,
         historyTimes: [],
         historyActivityIds: [],
+        historyDates: [],
       },
       {
         sectionId: 'sec-65',
@@ -537,6 +560,7 @@ describe('activity detail screen', () => {
         visitCount: 5,
         historyTimes: [],
         historyActivityIds: [],
+        historyDates: [],
       },
       {
         sectionId: 'sec-66',
@@ -552,6 +576,7 @@ describe('activity detail screen', () => {
         visitCount: 2,
         historyTimes: [],
         historyActivityIds: [],
+        historyDates: [],
       },
     ];
 

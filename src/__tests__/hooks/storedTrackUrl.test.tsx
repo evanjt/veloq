@@ -203,6 +203,7 @@ describe('a regional tap on an activity', () => {
         userLocation: null,
         selected,
         selectedTrackUrl,
+        isDark: false,
       });
       const sources = buildRegionalSources({
         markersGeoJSON: EMPTY,

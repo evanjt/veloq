@@ -59,7 +59,6 @@ describe('the words the engine writes', () => {
     expect(context.isMetric).toBe(false);
     expect(context.formAsPercent).toBe(true);
     expect(context.summaryCard).toEqual(summaryPrefs);
-    expect(context.activityTints.Other).toMatch(/^#[0-9A-F]{6}$/i);
   });
 
   it('hide the summary block when there are no settings to follow', () => {

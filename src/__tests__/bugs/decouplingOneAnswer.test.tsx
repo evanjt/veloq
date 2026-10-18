@@ -15,25 +15,27 @@ import { render, renderHook } from '@testing-library/react-native';
 import { useActivityStats } from '@/features/activity/components/stats/useActivityStats';
 import { FitnessTrendSections } from '@/features/fitness/components/sections/FitnessTrendSections';
 import { useFitnessScreenData } from '@/features/fitness/hooks/useFitnessScreenData';
-import { storedDecoupling } from '@/features/activity/lib/decoupling';
 import { formatRelativeDate } from '@/shared/format/format';
-import type { Activity } from '@/types';
+import type { ActivityRecord } from 'veloqrs';
+import { activityRecord } from '../__shared__/activityRecord';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 const HALF = 60;
-const descentRide = {
+const RIDE_NAME = 'Col loop';
+const RIDE_START = '2026-09-05T08:00:00';
+const descentRide = activityRecord({
   id: 'i-descent',
-  type: 'Ride',
-  name: 'Col loop',
-  start_date_local: '2026-09-05T08:00:00',
-  moving_time: 2 * 60 * 60,
-  icu_average_watts: 180,
-  average_heartrate: 140,
+  sportType: 'Ride',
+  name: RIDE_NAME,
+  startDateLocal: RIDE_START,
+  movingTime: 2 * 60 * 60,
+  avgPower: 180,
+  avgHr: 140,
   decoupling: 3.4,
-} as Activity;
+});
 
 // Steady first half, then half the second half coasting at zero watts.
 const mockDescentStreams = {
@@ -56,6 +58,7 @@ const mockEngine = {
     fatigueDays: 7,
     decouplingSources: mockSources,
     loadDots: [],
+    ...require('../__shared__/fitnessScreenRead').noCalendarParts(),
   })),
 };
 jest.mock('@/shared/native/engine', () => ({ getEngine: () => mockEngine }));
@@ -108,7 +111,7 @@ function FitnessDecouplingCard() {
   );
 }
 
-async function activityDecouplingRow(activity: Activity) {
+async function activityDecouplingRow(activity: ActivityRecord) {
   const { result } = await renderHook(() => useActivityStats({ activity, isMetric: true }));
   const power = result.current.stats.find((s) => s.title === 'activity.power');
   return power?.details?.find((d) => d.label === 'activity.stats.decoupling')?.value;
@@ -116,8 +119,8 @@ async function activityDecouplingRow(activity: Activity) {
 
 const descentSource = {
   activityId: descentRide.id,
-  name: descentRide.name,
-  startDateLocal: descentRide.start_date_local,
+  name: RIDE_NAME,
+  startDateLocal: RIDE_START,
   decoupling: 3.4,
 };
 
@@ -144,10 +147,8 @@ describe('aerobic decoupling', () => {
   it('names the ride and its date on the Fitness card', async () => {
     const tree = await render(<FitnessDecouplingCard />);
 
-    expect(tree.getByText(new RegExp(descentRide.name))).toBeTruthy();
-    expect(
-      tree.getByText(new RegExp(formatRelativeDate(descentRide.start_date_local)))
-    ).toBeTruthy();
+    expect(tree.getByText(new RegExp(RIDE_NAME))).toBeTruthy();
+    expect(tree.getByText(new RegExp(formatRelativeDate(RIDE_START)))).toBeTruthy();
   });
 
   it('grades nothing: no verdict badge and no target line', async () => {
@@ -177,24 +178,21 @@ describe('aerobic decoupling', () => {
     mockSources = [{ days: 7 }, { days: 30 }, { days: 365, source: descentSource }];
     const tree = await render(<FitnessDecouplingCard />);
 
-    expect(tree.queryByText(new RegExp(descentRide.name))).toBeNull();
+    expect(tree.queryByText(new RegExp(RIDE_NAME))).toBeNull();
     expect(tree.getByText('stats.noDecouplingData')).toBeTruthy();
   });
 });
 
-describe('the stored decoupling reader', () => {
-  it('reads a finite number and nothing else', () => {
-    expect(storedDecoupling({ decoupling: 3.4 })).toBe(3.4);
-    expect(storedDecoupling({ decoupling: -12.5 })).toBe(-12.5);
-    expect(storedDecoupling({ decoupling: 0 })).toBe(0);
-    expect(storedDecoupling({ decoupling: '-Infinity' })).toBeNull();
-    expect(storedDecoupling({ decoupling: Number.NaN })).toBeNull();
-    expect(storedDecoupling({ decoupling: null })).toBeNull();
-    expect(storedDecoupling({})).toBeNull();
+describe('the stored decoupling on the activity screen', () => {
+  it('prints a stored zero, which is a reading', async () => {
+    expect(await activityDecouplingRow(activityRecord({ ...descentRide, decoupling: 0 }))).toBe(
+      '0.0%'
+    );
   });
 
-  it('keeps an activity whose stored value is a string off the activity screen', async () => {
-    const notANumber = { ...descentRide, decoupling: '-Infinity' } as unknown as Activity;
-    expect(await activityDecouplingRow(notANumber)).toBeUndefined();
+  it('prints no row for an activity the engine typed no value for', async () => {
+    expect(
+      await activityDecouplingRow(activityRecord({ ...descentRide, decoupling: undefined }))
+    ).toBeUndefined();
   });
 });

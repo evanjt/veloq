@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, FlatList, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { IntervalKind } from 'veloqrs';
 import { measuresPower } from '@/shared/activity/activityUtils';
 import { intervalTypeLabel } from '@/features/activity/lib/intervalTypeLabel';
 import {
@@ -12,8 +13,6 @@ import {
 } from '@/shared/format/format';
 import { intervalBandToken, resolveBandTextColour } from '@/features/stats';
 import {
-  colors,
-  darkColors,
   spacing,
   typography,
   ink,
@@ -38,28 +37,28 @@ export function IntervalsTable({ intervals, activityType, isMetric, isDark }: In
   const { t } = useTranslation();
   const styles = themedStyles(makeStyles, isDark);
   const hasPowerZones = measuresPower(activityType);
-  const hasHR = useMemo(() => intervals.some((i) => i.average_heartrate != null), [intervals]);
-  const hasPower = useMemo(() => intervals.some((i) => i.average_watts != null), [intervals]);
+  const hasHR = useMemo(() => intervals.some((i) => i.averageHeartrate != null), [intervals]);
+  const hasPower = useMemo(() => intervals.some((i) => i.averageWatts != null), [intervals]);
 
   const renderItem = ({ item, index }: { item: ActivityInterval; index: number }) => {
-    const isRecovery = item.type === 'RECOVERY' || item.type === 'REST';
+    const isRecovery = item.kind === IntervalKind.Recovery || item.kind === IntervalKind.Rest;
 
     // The label is the text tone of the colour the interval's chip and band are drawn in.
     const token = intervalBandToken(item, hasPowerZones ? 'power' : 'hr');
     const labelColour = resolveBandTextColour(token, isDark);
 
     const distance = item.distance != null ? formatDistance(item.distance, isMetric) : ABSENT;
-    const duration = item.moving_time != null ? formatDuration(item.moving_time) : ABSENT;
+    const duration = item.movingTime != null ? formatDuration(item.movingTime) : ABSENT;
     const speed =
-      item.average_speed == null || item.average_speed <= 0
+      item.averageSpeed == null || item.averageSpeed <= 0
         ? ABSENT
-        : formatSportSpeed(item.average_speed, activityType, isMetric);
+        : formatSportSpeed(item.averageSpeed, activityType, isMetric);
     const heartRate =
-      item.average_heartrate != null ? formatHeartRate(item.average_heartrate) : ABSENT;
-    const power = item.average_watts != null ? formatPower(item.average_watts) : ABSENT;
+      item.averageHeartrate != null ? formatHeartRate(item.averageHeartrate) : ABSENT;
+    const power = item.averageWatts != null ? formatPower(item.averageWatts) : ABSENT;
 
     const typeInput = {
-      type: item.type,
+      kind: item.kind,
       zone: item.zone,
       label: item.label,
       zoneColoured: token.kind === 'zone',
@@ -92,28 +91,12 @@ export function IntervalsTable({ intervals, activityType, isMetric, isDark }: In
             {speed}
           </Text>
           {hasHR ? (
-            <Text
-              style={[
-                styles.colStat,
-                item.average_heartrate != null && {
-                  color: isDark ? darkColors.chartPinkText : colors.chartPinkText,
-                },
-              ]}
-              accessibilityLabel={absentLabel(heartRate, t)}
-            >
+            <Text style={styles.colStat} accessibilityLabel={absentLabel(heartRate, t)}>
               {heartRate}
             </Text>
           ) : null}
           {hasPower ? (
-            <Text
-              style={[
-                styles.colStat,
-                item.average_watts != null && {
-                  color: isDark ? darkColors.chartPurpleText : colors.chartPurpleText,
-                },
-              ]}
-              accessibilityLabel={absentLabel(power, t)}
-            >
+            <Text style={styles.colStat} accessibilityLabel={absentLabel(power, t)}>
               {power}
             </Text>
           ) : null}

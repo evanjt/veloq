@@ -27,6 +27,7 @@ function encounter(overrides: Partial<SectionEncounter> & { sectionId: string })
     visitCount: 3,
     historyTimes: [],
     historyActivityIds: [],
+    historyDates: [],
     ...overrides,
   };
 }

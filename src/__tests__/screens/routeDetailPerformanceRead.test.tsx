@@ -13,7 +13,8 @@
 
 import React from 'react';
 import { Alert } from 'react-native';
-import { fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
+import { SelectButton } from '@/shared/ui';
 import RouteDetailScreen from '@/app/route/[id]';
 
 jest.mock('veloqrs', () =>
@@ -57,12 +58,12 @@ jest.mock('@/features/routes/components/RouteDetailMap', () => ({ RouteDetailMap
 jest.mock('@/features/routes/components/section/PerformanceChartPanel', () => ({
   PerformanceChartPanel: ({
     chartData,
-    hasExcluded,
+    excludedCount,
     onToggleShowExcluded,
     onExcludeActivity,
   }: {
     chartData: { activityId: string }[];
-    hasExcluded?: boolean;
+    excludedCount?: number;
     onToggleShowExcluded?: () => void;
     onExcludeActivity?: (activityId: string) => void;
   }) => {
@@ -73,12 +74,8 @@ jest.mock('@/features/routes/components/section/PerformanceChartPanel', () => ({
           testID="exclude-first-attempt"
           onPress={() => onExcludeActivity?.(chartData[0].activityId)}
         />
-        {hasExcluded ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="sections.showExcludedActivities"
-            onPress={onToggleShowExcluded}
-          />
+        {excludedCount ? (
+          <Pressable testID="performance-excluded-link" onPress={onToggleShowExcluded} />
         ) : null}
       </View>
     );
@@ -86,6 +83,13 @@ jest.mock('@/features/routes/components/section/PerformanceChartPanel', () => ({
 }));
 
 type SportCount = { sportType: string; count: number };
+
+/** Chooses a range from the header's menu, as a pick from its list does. */
+async function chooseRange(screen: Awaited<ReturnType<typeof render>>, id: string) {
+  await act(async () => {
+    screen.UNSAFE_getByType(SelectButton).props.onChange(id);
+  });
+}
 
 const efficiencyPoint = (date: number, ratio: number) => ({
   date,
@@ -249,21 +253,21 @@ describe('route page on a route ridden and run', () => {
     );
   });
 
-  it('offers the range chips and one pill per sport the read counts', async () => {
+  it('offers the range menu and one pill per sport the read counts', async () => {
     const screen = await render(<RouteDetailScreen />);
 
-    for (const range of ['1m', '3m', '6m', '1y', 'all']) {
-      expect(screen.getByTestId(`section-time-range-${range}`)).toBeTruthy();
-    }
+    expect(
+      screen.UNSAFE_getByType(SelectButton).props.options.map((o: { value: string }) => o.value)
+    ).toEqual(['1m', '3m', '6m', '1y', 'all']);
     expect(screen.getByRole('button', { name: 'activityTypes.Ride' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'activityTypes.Run' })).toBeTruthy();
     expect(screen.getByTestId('attempt-chart').props.accessibilityValue.text).toBe('2');
   });
 
-  it('re-reads at ninety days when the three-month chip is tapped', async () => {
+  it('re-reads at ninety days when three months is chosen', async () => {
     const screen = await render(<RouteDetailScreen />);
 
-    await fireEvent.press(screen.getByTestId('section-time-range-3m'));
+    await chooseRange(screen, '3m');
 
     expect(mockEngine.getRouteDetailPerformance).toHaveBeenLastCalledWith(
       'grp-heath',
@@ -310,7 +314,7 @@ describe('route page on a route ridden and run', () => {
     const screen = await render(<RouteDetailScreen />);
 
     await fireEvent.press(screen.getByRole('button', { name: 'activityTypes.Run' }));
-    await fireEvent.press(screen.getByRole('button', { name: 'sections.showExcludedActivities' }));
+    await fireEvent.press(screen.getByTestId('performance-excluded-link'));
 
     expect(mockEngine.getRoutePerformances).not.toHaveBeenCalled();
   });
@@ -328,7 +332,7 @@ describe('route page on a route of one sport', () => {
       '1.9 mi·maps.activitiesCount·774 ft'
     );
 
-    await fireEvent.press(screen.getByTestId('section-time-range-3m'));
+    await chooseRange(screen, '3m');
 
     expect(screen.getByTestId('route-detail-stats')).toHaveTextContent(
       '1.9 mi·maps.activitiesCount · period.long.3m·774 ft'
@@ -358,14 +362,14 @@ describe('route page after an exclusion', () => {
     expect(mockEngine.getRouteDetailPerformance.mock.calls.length).toBe(before + 1);
   });
 
-  it('keeps the eye when every attempt is excluded and draws them when it is pressed', async () => {
+  it('keeps the excluded attempts link when every attempt is excluded and draws them when it is pressed', async () => {
     mockCounted = false;
     const screen = await render(<RouteDetailScreen />);
 
     expect(screen.getByTestId('section-performance-empty')).toBeTruthy();
     expect(screen.queryByTestId('attempt-chart')).toBeNull();
 
-    await fireEvent.press(screen.getByRole('button', { name: 'sections.showExcludedActivities' }));
+    await fireEvent.press(screen.getByTestId('performance-excluded-link'));
 
     expect(screen.getByTestId('attempt-chart').props.accessibilityValue.text).toBe('1');
   });

@@ -6,7 +6,8 @@
  */
 
 import React, { useMemo, useState } from 'react';
-import { fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
+import { SelectButton } from '@/shared/ui';
 import {
   SectionPerformanceSection,
   sectionStreamsState,
@@ -77,6 +78,18 @@ function Harness({ efforts }: { efforts: (PerformanceDataPoint & { x: number })[
   );
 }
 
+type Tree = Awaited<ReturnType<typeof render>>;
+
+/** The range menu, the one control the header offers for it. */
+const rangeMenu = (tree: Tree) => tree.UNSAFE_getByType(SelectButton);
+
+/** Chooses a range from the menu, as a pick from its list does. */
+async function chooseRange(tree: Tree, id: SectionTimeRange) {
+  await act(async () => {
+    rangeMenu(tree).props.onChange(id);
+  });
+}
+
 describe('SectionPerformanceSection time range', () => {
   it('explains that section times include stops beside the performance chart', async () => {
     const { getByTestId } = await render(<Harness efforts={[effort(1)]} />);
@@ -85,44 +98,72 @@ describe('SectionPerformanceSection time range', () => {
     expect(enGB.sections.timeMethod).toMatch(/elapsed/i);
     expect(enGB.sections.timeMethod).toMatch(/stops/i);
   });
+  it('says faster is up for a pace sport, whose axis reads lower as faster', async () => {
+    const { getByTestId } = await render(
+      <SectionPerformanceSection
+        isDark={false}
+        sportType="Run"
+        chartData={[effort(1)]}
+        trendCurves={{}}
+        forwardStats={null}
+        reverseStats={null}
+        bestForwardRecord={null}
+        bestReverseRecord={null}
+        bestForwardIsRecord={false}
+        bestReverseIsRecord={false}
+        onActivitySelect={jest.fn()}
+        sectionTimeRange="all"
+        onTimeRangeChange={jest.fn()}
+      />
+    );
+
+    expect(getByTestId('section-time-method').props.children).toBe(
+      'sections.methodFasterAtTop:sections.timeMethod'
+    );
+  });
+
   it('keeps the range control on screen when the chosen range is empty', async () => {
-    const { getByTestId, queryByTestId } = await render(<Harness efforts={[effort(200)]} />);
+    const tree = await render(<Harness efforts={[effort(200)]} />);
 
-    await fireEvent.press(getByTestId('section-time-range-1m'));
+    await chooseRange(tree, '1m');
 
-    expect(getByTestId('section-time-range-all')).toBeTruthy();
-    expect(queryByTestId('section-performance-empty')).toBeTruthy();
+    expect(rangeMenu(tree).props.value).toBe('1m');
+    expect(tree.queryByTestId('section-performance-empty')).toBeTruthy();
 
-    await fireEvent.press(getByTestId('section-time-range-all'));
+    await chooseRange(tree, 'all');
 
-    expect(queryByTestId('section-performance-empty')).toBeNull();
+    expect(tree.queryByTestId('section-performance-empty')).toBeNull();
   });
 
   it('survives a second pass through the same empty range', async () => {
-    const { getByTestId, queryByTestId } = await render(<Harness efforts={[effort(200)]} />);
+    const tree = await render(<Harness efforts={[effort(200)]} />);
 
     for (const _pass of [0, 1]) {
-      await fireEvent.press(getByTestId('section-time-range-1m'));
-      expect(queryByTestId('section-performance-empty')).toBeTruthy();
-      await fireEvent.press(getByTestId('section-time-range-1y'));
-      expect(queryByTestId('section-performance-empty')).toBeNull();
+      await chooseRange(tree, '1m');
+      expect(tree.queryByTestId('section-performance-empty')).toBeTruthy();
+      await chooseRange(tree, '1y');
+      expect(tree.queryByTestId('section-performance-empty')).toBeNull();
     }
   });
 
   it('offers the control when the section has no efforts in any range', async () => {
-    const { getByTestId, queryByTestId } = await render(<Harness efforts={[]} />);
+    const tree = await render(<Harness efforts={[]} />);
 
-    expect(queryByTestId('section-performance-empty')).toBeTruthy();
-    for (const id of ['1m', '3m', '6m', '1y', 'all']) {
-      expect(getByTestId(`section-time-range-${id}`)).toBeTruthy();
-    }
+    expect(tree.queryByTestId('section-performance-empty')).toBeTruthy();
+    expect(rangeMenu(tree).props.options.map((o: { value: string }) => o.value)).toEqual([
+      '1m',
+      '3m',
+      '6m',
+      '1y',
+      'all',
+    ]);
   });
 
   it('plots a single effort rather than treating one point as empty', async () => {
-    const { queryByTestId } = await render(<Harness efforts={[effort(1)]} />);
+    const tree = await render(<Harness efforts={[effort(1)]} />);
 
-    expect(queryByTestId('section-performance-empty')).toBeNull();
-    expect(queryByTestId('section-time-range-all')).toBeTruthy();
+    expect(tree.queryByTestId('section-performance-empty')).toBeNull();
+    expect(tree.getByTestId('section-time-range')).toBeTruthy();
   });
 });
 
@@ -150,7 +191,7 @@ describe('SectionPerformanceSection while time streams download', () => {
 
     expect(queryByTestId('section-performance-pending')).toBeTruthy();
     expect(queryByTestId('section-performance-empty')).toBeNull();
-    expect(queryByTestId('section-time-range-all')).toBeTruthy();
+    expect(queryByTestId('section-time-range')).toBeTruthy();
   });
 
   it('offers a retry when the stream sync failed and calls it on press', async () => {
@@ -305,38 +346,41 @@ describe('SectionPerformanceSection for a route', () => {
       <SectionPerformanceSection {...base} chartData={[effort(1)]} />
     );
 
-    expect(getByTestId('route-time-method').props.children).toBe('routes.timeMethod');
+    // A route plots time, which reads lower as faster, so the line says faster is up.
+    expect(getByTestId('route-time-method').props.children).toBe(
+      'sections.methodFasterAtTop:routes.timeMethod'
+    );
     expect(queryByTestId('section-time-method')).toBeNull();
     expect(enGB.routes.timeMethod).toMatch(/moving time/i);
   });
 
-  it('keeps the eye on screen when every attempt is excluded', async () => {
+  it('keeps the excluded attempts link on screen when every attempt is excluded', async () => {
     const onToggleShowExcluded = jest.fn();
-    const { getByTestId, getByRole } = await render(
+    const { getByTestId } = await render(
       <SectionPerformanceSection
         {...base}
         chartData={[]}
-        hasExcluded
+        excludedCount={3}
         showExcluded={false}
         onToggleShowExcluded={onToggleShowExcluded}
       />
     );
 
     expect(getByTestId('section-performance-empty')).toBeTruthy();
-    await fireEvent.press(getByRole('button', { name: 'sections.showExcludedActivities' }));
+    await fireEvent.press(getByTestId('performance-excluded-link'));
     expect(onToggleShowExcluded).toHaveBeenCalledTimes(1);
   });
 
-  it('offers no eye in an empty range with nothing excluded', async () => {
-    const { queryByRole } = await render(
+  it('offers no excluded attempts link in an empty range with nothing excluded', async () => {
+    const { queryByTestId } = await render(
       <SectionPerformanceSection
         {...base}
         chartData={[]}
-        hasExcluded={false}
+        excludedCount={0}
         onToggleShowExcluded={jest.fn()}
       />
     );
 
-    expect(queryByRole('button', { name: 'sections.showExcludedActivities' })).toBeNull();
+    expect(queryByTestId('performance-excluded-link')).toBeNull();
   });
 });

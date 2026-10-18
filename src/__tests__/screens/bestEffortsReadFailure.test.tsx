@@ -1,11 +1,10 @@
 /**
- * Scenario: the engine throws while Best Efforts reads its bests, or while it
- * reads the names of the activities behind them.
+ * Scenario: the engine throws while Best Efforts reads its bests.
  *
  * Expected behaviour: a thrown bests read shows one failure with a Retry that
  * reads again, in place of cards that each claim their curve was never
- * downloaded. A thrown names read does not label every row as an activity
- * missing from the device.
+ * downloaded. A read that answers names no activity for a best the device
+ * does not hold, and that row says so.
  */
 
 import React from 'react';
@@ -24,11 +23,6 @@ jest.mock('@/shared/app/TopSafeAreaContext', () => ({
 
 const THROWN = { tag: 'Database', inner: { msg: 'disk' } };
 const NOT_CACHED = 'activitySummary.notDownloaded';
-
-const mockLabelsError: { current: unknown } = { current: null };
-jest.mock('@/features/activity', () => ({
-  useActivityLabels: () => ({ labels: new Map(), error: mockLabelsError.current }),
-}));
 
 const mockReadError: { current: unknown } = { current: null };
 const mockRefetch = jest.fn();
@@ -75,7 +69,6 @@ jest.mock('@/features/stats/hooks/useBestEfforts', () => ({
 beforeEach(() => {
   jest.clearAllMocks();
   mockReadError.current = null;
-  mockLabelsError.current = null;
 });
 
 describe('a Best Efforts read that threw', () => {
@@ -96,15 +89,7 @@ describe('a Best Efforts read that threw', () => {
   });
 });
 
-describe('an activity names read that threw', () => {
-  it('names the failure and does not call each activity missing', () => {
-    mockLabelsError.current = THROWN;
-    render(<BestEffortsScreen />);
-
-    expect(screen.getByTestId('best-efforts-labels-failed-Cycling')).toBeTruthy();
-    expect(screen.queryByText(NOT_CACHED)).toBeNull();
-  });
-
+describe('a best whose activity the device does not hold', () => {
   it('still says not downloaded for a best whose activity the read did not find', () => {
     render(<BestEffortsScreen />);
 

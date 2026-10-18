@@ -7,8 +7,6 @@
   "src/features/maps/components/AttributionOverlay.tsx": 2,
   "src/features/maps/components/BaseMapView.tsx": 1,
   "src/features/maps/components/timeline/TimelineSlider.tsx": 2,
-  "src/features/routes/components/section/AttemptHistogramChart.tsx": 1,
-  "src/features/routes/components/section/SectionDeltaChart.tsx": 1,
   "src/features/routes/components/section/StatsRow.tsx": 1,
   "src/features/settings/components/DataAttribution.tsx": 1,
   "src/features/settings/components/whatsNew/SectionPerformanceSlide.tsx": 1,
@@ -19,6 +17,5 @@
   "src/features/stats/components/WeeklySummary.tsx": 1,
   "src/features/strength/components/MuscleGroupView.tsx": 3,
   "src/features/strength/components/StrengthActivityCard.tsx": 1,
-  "src/features/strength/components/StrengthBodyDiagram.tsx": 2,
   "src/shared/ui/GarminAttribution.tsx": 1
 }

@@ -18,7 +18,7 @@ import type { ReactTestInstance } from 'react-test-renderer';
 
 import { BottomTabBar } from '@/shared/ui/BottomTabBar';
 import { DeviceAttribution } from '@/shared/ui/GarminAttribution';
-import { SwipeableTabs, badgePaint, type SwipeableTab } from '@/shared/ui';
+import { SwipeableTabs, type SwipeableTab } from '@/shared/ui';
 import { DataSourcesSection } from '@/features/settings/components/DataSourcesSection';
 import { colors, darkColors, ink } from '@/theme';
 
@@ -112,10 +112,7 @@ describe('the swipeable tab strip badges', () => {
   const TABS: SwipeableTab[] = [
     { key: 'active', label: 'Active', icon: 'map-marker-path', count: 11 },
     { key: 'counted', label: 'Counted', icon: 'chart-line', count: 22 },
-    { key: 'slower', label: 'Slower', icon: 'dumbbell', badgeText: '+12s', badgeTone: 'negative' },
-    { key: 'faster', label: 'Faster', icon: 'run', badgeText: '-5s', badgeTone: 'positive' },
-    { key: 'best', label: 'Best', icon: 'trophy', badgeText: 'PR', badgeTone: 'pr' },
-    { key: 'plain', label: 'Plain', icon: 'bike', badgeText: '3', badgeTone: 'neutral' },
+    { key: 'plain', label: 'Plain', icon: 'bike', count: 3 },
   ];
 
   function renderStrip(isDark: boolean) {
@@ -141,7 +138,7 @@ describe('the swipeable tab strip badges', () => {
     const { getByText } = await renderStrip(theme.isDark);
     const page = theme.palette.surfacePage;
 
-    const failing = ['11', '22', '+12s', '-5s', 'PR', '3'].flatMap((text) => {
+    const failing = ['11', '22', '3'].flatMap((text) => {
       const node = getByText(text);
       const fill = nearestFill(node);
       const ground = fill ? composite(fill, page) : page;
@@ -150,15 +147,6 @@ describe('the swipeable tab strip badges', () => {
     });
 
     expect(failing).toStrictEqual([]);
-  });
-
-  it.each(THEMES)('draws a slower time in the decline tone in the $name theme', async (theme) => {
-    const { getByText } = await renderStrip(theme.isDark);
-
-    const fill = nearestFill(getByText('+12s'));
-
-    expect(fill).toBe(badgePaint('negative', theme.isDark).fill);
-    expect(fill).not.toBe(badgePaint('neutral', theme.isDark).fill);
   });
 
   it.each(THEMES)(

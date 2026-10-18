@@ -20,11 +20,8 @@ import { initialiseI18n } from '@/i18n';
 import { PERIOD_LABEL_KEYS } from '@/shared/app/period';
 import { formatFullDate } from '@/shared/format/format';
 import { getEngine } from '@/shared/native/engine';
-import {
-  summaryComparison,
-  trainingScreenRead,
-  wallSeconds,
-} from '../__shared__/trainingScreenRead';
+import { summaryComparison, fitnessScreenRead, wallSeconds } from '../__shared__/fitnessScreenRead';
+import { WithScreenRead } from '../__shared__/withScreenRead';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
@@ -49,7 +46,7 @@ const range = ([start, end]: readonly [Date, Date]) => ({
 });
 
 const engine = {
-  getTrainingScreenData: trainingScreenRead({
+  getFitnessScreenData: fitnessScreenRead({
     comparisons: (now) => {
       const of = (w: (typeof WINDOWS)['3m' | '6m']) =>
         summaryComparison(now, {
@@ -102,7 +99,10 @@ describe('WeeklySummary calendar windows', () => {
   it.each(['3m', '6m'] as const)(
     'shows the dates of both %s windows it compares',
     async (range) => {
-      const view = await render(<WeeklySummary />, { wrapper });
+      const view = await render(
+        <WithScreenRead>{(training) => <WeeklySummary training={training} />}</WithScreenRead>,
+        { wrapper }
+      );
 
       await fireEvent.press(view.getByTestId(`weekly-summary-range-${range}`));
 
@@ -121,7 +121,10 @@ describe('WeeklySummary calendar windows', () => {
   it.each(['3m', '6m'] as const)(
     'labels the %s chip and heading apart from every trailing period',
     async (range) => {
-      const view = await render(<WeeklySummary />, { wrapper });
+      const view = await render(
+        <WithScreenRead>{(training) => <WeeklySummary training={training} />}</WithScreenRead>,
+        { wrapper }
+      );
 
       await fireEvent.press(view.getByTestId(`weekly-summary-range-${range}`));
 

@@ -2,13 +2,13 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import type { ActivityDetail } from '@/types';
+import type { ActivityRecord } from 'veloqrs';
 import { formatDateTime } from '@/shared/format/format';
 import { colors, darkColors, spacing, typography, stroke } from '@/theme';
 import { activityHeroStats } from '../lib/activityHeroStats';
 
 interface ActivitySummaryStripProps {
-  activity: ActivityDetail;
+  activity: ActivityRecord;
   isMetric: boolean;
   isDark: boolean;
 }
@@ -36,7 +36,7 @@ export function ActivitySummaryStrip({ activity, isMetric, isDark }: ActivitySum
       style={[styles.container, isDark && styles.containerDark]}
     >
       <Text style={[styles.date, isDark && styles.secondaryDark]}>
-        {formatDateTime(activity.start_date_local)}
+        {activity.startDateLocal ? formatDateTime(activity.startDateLocal) : null}
       </Text>
       <View
         testID="activity-summary-stats"

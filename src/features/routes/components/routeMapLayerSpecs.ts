@@ -16,30 +16,27 @@ export function buildRouteSources(
 }
 
 /**
- * Layer stack, back to front: other attempts, then the representative route, then
+ * Layer stack, back to front: other attempts in the muted colour, then the route, then
  * whatever the caller singled out, then the endpoint dots.
  */
 export function buildRouteLayers({
   palette,
-  activityColor,
-  representativeOpacity,
-  fadedOpacity,
+  routeContext,
   fadedFilter,
   includeRoute,
   deltaLineStops = null,
 }: {
   /** The colours of the base map drawn under the layers. */
   palette: MapPalette;
-  activityColor: string;
-  representativeOpacity: number;
-  fadedOpacity: number;
+  /** An attempt is picked, so the route itself is context and takes the muted colour. */
+  routeContext: boolean;
   /** Hides the highlighted attempt from the faded layer. */
   fadedFilter: unknown[] | undefined;
   /** Off in fullscreen, where the shell draws the route itself. */
   includeRoute: boolean;
   /**
    * `line-progress` stops colouring the route line by time won or lost, while
-   * the chart shows the delta plot. Without them the line keeps `activityColor`.
+   * the chart shows the delta plot. Without them the line is the base's route colour.
    */
   deltaLineStops?: (string | number)[] | null;
 }): MapLayerSpec[] {
@@ -51,8 +48,9 @@ export function buildRouteLayers({
           source: 'route',
           layout: { 'line-cap': 'round', 'line-join': 'round' },
           paint: {
-            'line-color': palette.layer.casing,
-            'line-opacity': representativeOpacity,
+            'line-color': palette.casing,
+            // Context lines carry no casing.
+            'line-opacity': routeContext ? 0 : 1,
             'line-width': 5,
           },
         },
@@ -71,8 +69,7 @@ export function buildRouteLayers({
                     ...deltaLineStops,
                   ],
                 }
-              : { 'line-color': activityColor }),
-            'line-opacity': representativeOpacity,
+              : { 'line-color': routeContext ? palette.muted : palette.route }),
             'line-width': 4,
           },
         },
@@ -87,8 +84,7 @@ export function buildRouteLayers({
       filter: fadedFilter,
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
-        'line-color': activityColor,
-        'line-opacity': fadedOpacity,
+        'line-color': palette.muted,
         'line-width': 2,
       },
     },
@@ -98,14 +94,14 @@ export function buildRouteLayers({
       type: 'line',
       source: 'highlighted-trace',
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': palette.layer.casing, 'line-width': 5 },
+      paint: { 'line-color': palette.casing, 'line-width': 5 },
     },
     {
       id: 'highlighted-line',
       type: 'line',
       source: 'highlighted-trace',
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': palette.layer.trace, 'line-width': 4 },
+      paint: { 'line-color': palette.ink, 'line-width': 4 },
     },
     ...buildEndpointLayers(palette),
   ];

@@ -73,9 +73,9 @@
 //! code to clear it, so a forgotten pause can never strand the migration.
 
 use crate::governor::Lane;
-use crate::net::intervals::endpoints::{
-    DEFAULT_STREAM_TYPES, TRACK_STREAM_TYPES, fetch_altitude, fetch_stream_series, fetch_streams,
-};
+use crate::net::IntervalsSession;
+use crate::net::intervals::endpoints::{DEFAULT_STREAM_TYPES, TRACK_STREAM_TYPES};
+use crate::net::source::Source;
 use crate::net::transport::{NetError, Transport};
 use crate::net::types::{
     ParsedStreams, StreamDto, TrackClock, parse_streams, storable_series, track_clock, track_times,
@@ -924,7 +924,7 @@ fn reduce_wide(raw: Vec<StreamDto>) -> Fetched {
 /// maps from the local key. A key it does not hold is its own upstream id. The
 /// results stay keyed by the local key.
 async fn fetch_batch(
-    transport: &Transport,
+    source: &impl Source,
     ids: &[String],
     ask: Ask,
     upstream: &std::collections::HashMap<String, String>,
@@ -938,24 +938,20 @@ async fn fetch_batch(
                 upstream.get(&id).map(String::as_str),
             );
             let outcome = match ask {
-                Ask::Elevation => match fetch_altitude(transport, named, Lane::Backfill).await {
+                Ask::Elevation => match source.altitude(named, Lane::Backfill.into()).await {
                     Ok(altitudes) => reduce_altitudes(altitudes),
                     Err(e) => Fetched::Failed(e),
                 },
-                Ask::Track => {
-                    match fetch_streams(transport, named, TRACK_STREAM_TYPES, Lane::Backfill).await
-                    {
-                        Ok(parsed) => reduce(parsed),
-                        Err(e) => Fetched::Failed(e),
-                    }
-                }
-                Ask::Wide => match fetch_stream_series(
-                    transport,
-                    named,
-                    DEFAULT_STREAM_TYPES,
-                    Lane::Backfill,
-                )
-                .await
+                Ask::Track => match source
+                    .streams(named, TRACK_STREAM_TYPES, Lane::Backfill.into())
+                    .await
+                {
+                    Ok(parsed) => reduce(parsed),
+                    Err(e) => Fetched::Failed(e),
+                },
+                Ask::Wide => match source
+                    .stream_series(named, DEFAULT_STREAM_TYPES, Lane::Backfill.into())
+                    .await
                 {
                     Ok(raw) => reduce_wide(raw),
                     Err(e) => Fetched::Failed(e),
@@ -984,7 +980,11 @@ pub fn run_elevation_backfill(transport: &Transport, athlete_id: &str) -> Backfi
         log::info!("[Elevation] backfill refused: a run is already in flight");
         return BackfillRun::Refused;
     };
-    run_in_slot(slot, engine_install(), transport, athlete_id)
+    run_in_slot(
+        slot,
+        engine_install(),
+        &IntervalsSession::new(transport.clone(), athlete_id),
+    )
 }
 
 /// The pass proper, on a slot the caller already holds. The guard lives to
@@ -994,15 +994,10 @@ pub fn run_elevation_backfill(transport: &Transport, athlete_id: &str) -> Backfi
 /// A pass that ran its queue without being stopped then settles the series of
 /// the tracks fetched before the engine recorded it, after the suspension has
 /// dropped: that walk moves no point, so it holds nothing.
-fn run_in_slot(
-    _slot: RunGuard,
-    install: u64,
-    transport: &Transport,
-    athlete_id: &str,
-) -> BackfillRun {
-    let (run, stopped) = run_queue(install, transport, athlete_id);
+fn run_in_slot(_slot: RunGuard, install: u64, session: &IntervalsSession) -> BackfillRun {
+    let (run, stopped) = run_queue(install, session);
     if matches!(run, BackfillRun::Finished(_)) && !stopped {
-        resolve_sources(install, transport, athlete_id);
+        resolve_sources(install, session);
     }
     record_run(install, &run);
     run
@@ -1052,7 +1047,7 @@ fn run_outcome(phase: &str, failed: u32) -> RunOutcome {
 
 /// The elevation queue, under the detection suspension. Returns how the pass
 /// ended and whether it was stopped before its queue was.
-fn run_queue(install: u64, transport: &Transport, athlete_id: &str) -> (BackfillRun, bool) {
+fn run_queue(install: u64, session: &IntervalsSession) -> (BackfillRun, bool) {
     let queue =
         match with_persistent_engine_for(install, |engine| engine.tracks_missing_elevation()) {
             Some(Ok(queue)) => queue,
@@ -1094,8 +1089,8 @@ fn run_queue(install: u64, transport: &Transport, athlete_id: &str) -> (Backfill
 
     let _suspend = suspend_detection();
 
-    let walk = drain_queue(install, transport, athlete_id, &queue, true);
-    let (mut outcome, stopped, owed) = re_ask(install, transport, athlete_id, walk);
+    let walk = drain_queue(install, session, &queue, true);
+    let (mut outcome, stopped, owed) = re_ask(install, session, walk);
     // Whatever is still owed was asked and refused, so it is this pass's
     // failure count. Stored rather than added: the gauge counted every refusal
     // as it happened, and a track that landed on a later round is not one.
@@ -1114,7 +1109,7 @@ fn run_queue(install: u64, transport: &Transport, athlete_id: &str) -> (Backfill
             // conversion, so a credential rejected here is reported the way
             // sync reports one. Nothing else would ask until the next sync,
             // and until then the revoked session stands.
-            crate::runtime::block_on(crate::objects::park_auth_expired(transport, athlete_id));
+            crate::runtime::block_on(crate::objects::park_auth_expired(session));
             return (BackfillRun::Failed("unauthorized".to_string()), true);
         }
         // Not a failed pass: the rows are untouched and the queue is
@@ -1150,7 +1145,8 @@ fn run_queue(install: u64, transport: &Transport, athlete_id: &str) -> (Backfill
         // Not a failed pass either. Nothing more is sent until the refusal
         // lifts, and the engine's own wake-up starts the next pass then.
         Some(Stopped::Refused { until }) => {
-            let at = until.unwrap_or_else(|| transport.cooldown_lifts_at(chrono::Utc::now()));
+            let at =
+                until.unwrap_or_else(|| session.transport().cooldown_lifts_at(chrono::Utc::now()));
             log::info!(
                 "[Elevation] backfill stopped: refused until {}, {} of {} tracks still to ask",
                 at,
@@ -1266,8 +1262,7 @@ fn is_connectivity(e: &NetError) -> bool {
 /// outcome, why the pass ended if it did, and what is still owed.
 fn re_ask(
     install: u64,
-    transport: &Transport,
-    athlete_id: &str,
+    session: &IntervalsSession,
     first: Walk,
 ) -> (BackfillOutcome, Option<Stopped>, Vec<(String, String)>) {
     re_ask_with(
@@ -1276,7 +1271,7 @@ fn re_ask(
             std::thread::sleep(delay);
             true
         },
-        |queue| drain_queue(install, transport, athlete_id, queue, false),
+        |queue| drain_queue(install, session, queue, false),
     )
 }
 
@@ -1357,8 +1352,7 @@ struct Walk {
 /// progress line past its own total.
 fn drain_queue(
     install: u64,
-    transport: &Transport,
-    athlete_id: &str,
+    session: &IntervalsSession,
     queue: &[(String, String)],
     count_progress: bool,
 ) -> Walk {
@@ -1371,9 +1365,9 @@ fn drain_queue(
         install,
         queue,
         count_progress,
-        || crate::objects::sync::still_signed_in(athlete_id),
+        || crate::objects::sync::still_signed_in(session.athlete_id()),
         |ids| wide_asks(install, ids),
-        |ids, ask| crate::runtime::block_on(fetch_batch(transport, ids, ask, &upstream)),
+        |ids, ask| crate::runtime::block_on(fetch_batch(session, ids, ask, &upstream)),
     )
 }
 
@@ -2081,7 +2075,7 @@ pub struct SourceWalk {
 /// One elevation-only read per track, the cheap ask the backfill makes. A
 /// track handed back is owed elevation again, so the ladder that drains that
 /// queue is armed for it.
-fn resolve_sources(install: u64, transport: &Transport, athlete_id: &str) -> SourceWalk {
+fn resolve_sources(install: u64, session: &IntervalsSession) -> SourceWalk {
     let (queue, upstream) = match with_persistent_engine_for(install, |engine| {
         let queue = engine.tracks_owed_elevation_source()?;
         let upstream = engine.intervals_ids(&queue);
@@ -2101,8 +2095,8 @@ fn resolve_sources(install: u64, transport: &Transport, athlete_id: &str) -> Sou
     let walk = resolve_sources_with(
         install,
         &queue,
-        || crate::objects::sync::still_signed_in(athlete_id),
-        |ids| crate::runtime::block_on(fetch_batch(transport, ids, Ask::Elevation, &upstream)),
+        || crate::objects::sync::still_signed_in(session.athlete_id()),
+        |ids| crate::runtime::block_on(fetch_batch(session, ids, Ask::Elevation, &upstream)),
     );
     log::info!(
         "[Elevation] series settled: {} recorded, {} handed back, {} unanswered{}",
@@ -2219,13 +2213,13 @@ fn start_source_pass() {
     let Some(slot) = RunGuard::claim() else {
         return;
     };
-    let Some(Ok((transport, athlete_id))) = crate::objects::current_session() else {
+    let Some(Ok(session)) = crate::objects::current_session() else {
         return;
     };
     let install = engine_install();
     crate::threads::spawn_background("veloq-elev", move || {
         let _slot = slot;
-        resolve_sources(install, &transport, &athlete_id);
+        resolve_sources(install, &session);
     });
 }
 
@@ -2442,7 +2436,7 @@ fn start_pass() -> FfiStartOutcome {
         log::warn!("[Elevation] backfill deferred: offline");
         return FfiStartOutcome::Offline;
     }
-    let Some(Ok((transport, athlete_id))) = crate::objects::current_session() else {
+    let Some(Ok(session)) = crate::objects::current_session() else {
         log::warn!("[Elevation] backfill deferred: no credential yet");
         return FfiStartOutcome::NotConfigured;
     };
@@ -2452,7 +2446,7 @@ fn start_pass() -> FfiStartOutcome {
     // take elevation computed from the old library's tracks.
     let install = engine_install();
     crate::threads::spawn_background("veloq-elev", move || {
-        run_in_slot(slot, install, &transport, &athlete_id);
+        run_in_slot(slot, install, &session);
     });
     FfiStartOutcome::Started
 }
@@ -4894,6 +4888,10 @@ mod auth_tests;
 #[cfg(test)]
 #[path = "tests/elevation_wide.rs"]
 mod wide_tests;
+
+#[cfg(test)]
+#[path = "tests/elevation_source.rs"]
+mod source_tests;
 
 /// Scenario: a climbing best keeps to the corrected series, so every track the
 /// backfill writes, and every track it wrote before the engine recorded the

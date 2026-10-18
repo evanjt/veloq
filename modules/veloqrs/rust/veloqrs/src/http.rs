@@ -13,6 +13,8 @@
 //! ground.
 
 use crate::governor::Lane;
+use crate::net::IntervalsSession;
+use crate::net::source::Source;
 use crate::net::transport::{NetError, Transport};
 use crate::net::types::{StreamDto, parse_streams};
 use log::{debug, info};
@@ -394,28 +396,39 @@ impl DispatchCounter {
 
 /// Batch fetcher for activity maps and FIT files.
 pub struct ActivityFetcher {
-    transport: Transport,
+    session: IntervalsSession,
 }
 
 impl ActivityFetcher {
     /// Build a fetcher from the credential the sync service holds. Errors when
     /// no credential is set, rather than issuing an unauthenticated request.
     pub fn from_credentials() -> Result<Self, String> {
-        let transport = crate::objects::current_transport()
-            .ok_or_else(|| "no credentials set".to_string())??;
-        Ok(Self { transport })
+        let session =
+            crate::objects::current_session().ok_or_else(|| "no credentials set".to_string())??;
+        Ok(Self { session })
+    }
+
+    /// Build a fetcher over the signed-in athlete's session.
+    pub fn with_session(session: IntervalsSession) -> Self {
+        Self { session }
     }
 
     /// Build a fetcher over a caller-supplied transport, so tests can point it
-    /// at a mock server.
+    /// at a mock server. Every request it makes names an activity, so the
+    /// session it builds names no athlete.
     pub fn with_transport(transport: Transport) -> Self {
-        Self { transport }
+        Self::with_session(IntervalsSession::new(transport, String::new()))
     }
 
-    /// The shared transport, so callers can issue their own paced requests
-    /// against the same client rather than building a second one.
+    /// The session every request goes through, so callers can issue their own
+    /// paced requests against the same client rather than building a second one.
+    pub fn session(&self) -> &IntervalsSession {
+        &self.session
+    }
+
+    /// The shared transport, for the pacing and refusal state it carries.
     pub fn transport(&self) -> &Transport {
-        &self.transport
+        self.session.transport()
     }
 
     /// Download the raw FIT file for an activity.
@@ -432,8 +445,7 @@ impl ActivityFetcher {
         activity_id: &str,
         lane: Lane,
     ) -> Result<Vec<u8>, NetError> {
-        crate::net::intervals::endpoints::fetch_original_file(&self.transport, activity_id, lane)
-            .await
+        self.session.original_file(activity_id, lane.into()).await
     }
 }
 
@@ -549,7 +561,7 @@ impl ActivityFetcher {
         // Buffered parallel fetch; the governor paces dispatch across all tasks.
         let downloads = stream::iter(activity_ids)
             .map(|id| {
-                let transport = &self.transport;
+                let session = &self.session;
                 let counter = Arc::clone(&counter);
                 let completed = Arc::clone(&completed);
                 let total_bytes = Arc::clone(&total_bytes);
@@ -592,7 +604,7 @@ impl ActivityFetcher {
                         &id,
                         upstream.get(&id).map(String::as_str),
                     );
-                    let result = Self::fetch_single_track(transport, &id, named, wide, lane).await;
+                    let result = Self::fetch_single_track(session, &id, named, wide, lane).await;
                     if result.error.as_deref() == Some("unauthorized") {
                         unauthorized.store(true, Ordering::Release);
                     }
@@ -712,7 +724,7 @@ impl ActivityFetcher {
     /// the intervals.icu id the URL names. Equal for every row an older build
     /// stored, and the whole point of the column is that they stop being.
     async fn fetch_single_track(
-        transport: &Transport,
+        source: &impl Source,
         activity_id: &str,
         upstream: &str,
         wide: bool,
@@ -737,11 +749,7 @@ impl ActivityFetcher {
         } else {
             crate::net::intervals::endpoints::TRACK_STREAM_TYPES
         };
-        let bytes = match crate::net::intervals::endpoints::fetch_streams_bytes(
-            transport, upstream, types, lane,
-        )
-        .await
-        {
+        let bytes = match source.streams_bytes(upstream, types, lane.into()).await {
             Ok(b) => b,
             // Unauthorized is worth naming: it means the whole batch will fail
             // the same way, and the sync service turns it into a re-login.
@@ -2025,3 +2033,7 @@ mod tests {
 #[cfg(test)]
 #[path = "tests/http_auth.rs"]
 mod auth_tests;
+
+#[cfg(test)]
+#[path = "tests/http_source.rs"]
+mod source_tests;

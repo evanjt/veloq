@@ -1,15 +1,13 @@
 import { Animated, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { colors, iconSize, raised } from '@/theme';
-import { CompassArrow, IconButton, iconButtonSkin } from '@/shared/ui';
 import { getStyleIcon, type MapStyleType } from './mapStyles';
+import { MapControlButton } from './MapControlButton';
 import { activityMapControlCount, useMapControlColumn } from '../lib/mapControlColumnLayout';
 import { styles } from './ActivityMapView.styles';
 import { LOCATE_GLYPH } from '@/features/maps/lib/mapGlyphs';
 
 interface ActivityMapControlsProps {
-  isDark: boolean;
   mapStyle: MapStyleType;
   onToggleStyle: () => void;
   hasGradientData: boolean;
@@ -33,7 +31,6 @@ interface ActivityMapControlsProps {
 }
 
 export function ActivityMapControls({
-  isDark,
   mapStyle,
   onToggleStyle,
   hasGradientData,
@@ -64,106 +61,77 @@ export function ActivityMapControls({
       style={[styles.controlsContainer, { top, maxHeight, width }]}
     >
       {/* Style toggle */}
-      <IconButton
+      <MapControlButton
         testID="activity-map-style-toggle"
         accessibilityLabel={t('maps.toggleStyle')}
-        style={[styles.controlButton, raised('modal', isDark), isDark && styles.controlButtonDark]}
-        variant="secondary"
         onPress={onToggleStyle}
       >
-        <IconButton.Glyph name={getStyleIcon(mapStyle)} size={iconSize.lg} />
-      </IconButton>
+        <MapControlButton.Glyph name={getStyleIcon(mapStyle)} />
+      </MapControlButton>
 
       {/* Gradient coloring toggle - only shown when gradient data is available */}
       {hasGradientData ? (
-        <IconButton
+        <MapControlButton
           testID="activity-map-gradient-toggle"
           accessibilityLabel={t('maps.colorByGradient')}
-          style={[
-            styles.controlButton,
-            raised('modal', isDark),
-            isDark && styles.controlButtonDark,
-          ]}
-          variant="secondary"
           selected={gradientActive}
           onPress={onToggleGradient}
         >
-          <IconButton.Glyph name="slope-uphill" size={iconSize.lg} />
-        </IconButton>
+          <MapControlButton.Glyph name="slope-uphill" />
+        </MapControlButton>
       ) : null}
 
       {/* 3D toggle */}
       {hasRoute ? (
-        <IconButton
+        <MapControlButton
           testID="activity-map-3d-toggle"
           accessibilityLabel={is3DMode ? t('maps.disable3D') : t('maps.enable3D')}
           accessibilityState={{ busy: is3DLoading }}
-          style={[
-            styles.controlButton,
-            raised('modal', isDark),
-            isDark && styles.controlButtonDark,
-          ]}
-          variant="secondary"
           selected={is3DMode}
           onPress={onToggle3D}
           disabled={is3DLoading}
         >
           {is3DLoading ? (
-            <IconButton.Spinner testID="activity-map-3d-busy" />
+            <MapControlButton.Spinner testID="activity-map-3d-busy" />
           ) : (
-            <IconButton.Glyph name="terrain" size={iconSize.lg} />
+            <MapControlButton.Glyph name="terrain" />
           )}
-        </IconButton>
+        </MapControlButton>
       ) : null}
 
       {/* Compass */}
-      <IconButton
+      <MapControlButton
         accessibilityLabel={t('maps.resetOrientation')}
-        style={[styles.controlButton, raised('modal', isDark), isDark && styles.controlButtonDark]}
-        variant="secondary"
         onPress={onResetOrientation}
       >
-        <CompassArrow
-          size={iconSize.lg}
-          rotation={bearingAnim}
-          northColor={colors.compassNorth}
-          southColor={iconButtonSkin({ variant: 'secondary', isDark }).glyph}
-        />
-      </IconButton>
+        <MapControlButton.Compass rotation={bearingAnim} />
+      </MapControlButton>
 
       {/* GPS location */}
-      <IconButton
+      <MapControlButton
         testID="activity-map-location"
         accessibilityLabel={t('maps.goToLocation')}
         accessibilityState={{ busy: locationLoading }}
-        style={[styles.controlButton, raised('modal', isDark), isDark && styles.controlButtonDark]}
-        variant="secondary"
         selected={userLocationActive}
         onPress={onGetLocation}
         disabled={locationLoading}
       >
         {locationLoading ? (
-          <IconButton.Spinner />
+          <MapControlButton.Spinner />
         ) : (
-          <IconButton.Glyph name={LOCATE_GLYPH} size={iconSize.lg} />
+          <MapControlButton.Glyph name={LOCATE_GLYPH} />
         )}
-      </IconButton>
+      </MapControlButton>
 
       {/* Fullscreen expand */}
       {enableFullscreen ? (
-        <IconButton
+        <MapControlButton
           testID="activity-map-fullscreen"
           accessibilityLabel={t('maps.openFullscreen')}
-          style={[
-            styles.controlButton,
-            raised('modal', isDark),
-            isDark && styles.controlButtonDark,
-          ]}
-          variant="secondary"
           onPress={onOpenFullscreen}
         >
-          <IconButton.Glyph name="fullscreen" size={iconSize.lg} />
-        </IconButton>
+          <MapControlButton.Glyph name="fullscreen" />
+        </MapControlButton>
       ) : null}
     </View>
   );

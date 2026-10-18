@@ -1,8 +1,8 @@
-# Section Detail. Time Range Pills
-# US-D1: time-range pills live inside the chart header (compact, not full-width)
+# Section Detail. Time Range Menu
+# US-D1: the time range is one menu control in the chart header
 # US-D2: traversal count + chart data reflect the selected range
 #
-# The Forward/Reverse counts shown per pill state are the strongest proof that
+# The Forward/Reverse counts shown per range are the strongest proof that
 # the range filter is actually filtering data. The top section in the list
 # has the most traversals; narrowing to 1M reduces the count meaningfully.
 # We open it by list index for stability across demo data changes.
@@ -65,37 +65,49 @@ tags:
     commands:
       - takeScreenshot: "screenshots/section-detail-default-range"
       - assertVisible:
-          id: "section-time-range-1m"
-      - assertVisible:
-          id: "section-time-range-3m"
-      - assertVisible:
-          id: "section-time-range-6m"
-      - assertVisible:
-          id: "section-time-range-1y"
-      - assertVisible:
-          id: "section-time-range-all"
+          id: "section-time-range"
       - tapOn:
-          id: "section-time-range-1m"
+          id: "section-time-range"
+      - tapOn:
+          text: "1 month"
+          childOf:
+            id: "context-menu"
       - waitForAnimationToEnd:
           timeout: 2000
       - takeScreenshot: "screenshots/section-detail-1M"
       - tapOn:
-          id: "section-time-range-3m"
+          id: "section-time-range"
+      - tapOn:
+          text: "3 months"
+          childOf:
+            id: "context-menu"
       - waitForAnimationToEnd:
           timeout: 2000
       - takeScreenshot: "screenshots/section-detail-3M"
       - tapOn:
-          id: "section-time-range-6m"
+          id: "section-time-range"
+      - tapOn:
+          text: "6 months"
+          childOf:
+            id: "context-menu"
       - waitForAnimationToEnd:
           timeout: 2000
       - takeScreenshot: "screenshots/section-detail-6M"
       - tapOn:
-          id: "section-time-range-1y"
+          id: "section-time-range"
+      - tapOn:
+          text: "1 year"
+          childOf:
+            id: "context-menu"
       - waitForAnimationToEnd:
           timeout: 2000
       - takeScreenshot: "screenshots/section-detail-1Y"
       - tapOn:
-          id: "section-time-range-all"
+          id: "section-time-range"
+      - tapOn:
+          text: "All"
+          childOf:
+            id: "context-menu"
       - waitForAnimationToEnd:
           timeout: 2000
       - takeScreenshot: "screenshots/section-detail-all"

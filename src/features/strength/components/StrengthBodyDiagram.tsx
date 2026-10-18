@@ -1,36 +1,35 @@
 import React, { useMemo } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import type { ExtendedBodyPart } from 'react-native-body-highlighter';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { Card, pressable, pressRipple, Shimmer, SkeletonFrame } from '@/shared/ui';
+import { Card, Shimmer, SkeletonFrame, PressTarget } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { ChartSurface, partsSummary, partsTable } from '@/shared/charts';
 import {
   bodyDiagram,
+  chartStyles,
   strengthTone,
   colors,
   darkColors,
   iconSize,
   layout,
   spacing,
-  sequentialRamp,
+  stroke,
   typography,
 } from '@/theme';
 import type { MuscleVolume } from '@/types';
 
 import { BodyPairWithLoupe } from './BodyPairWithLoupe';
 import { BODY_INTRINSIC_H } from '../lib/bodyScale';
+import { volumeStepCeilings } from '../lib/volumeSteps';
 import { muscleName } from '../lib/muscleNames';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { formatWeightRounded } from '@/shared/format/weight';
 import { FitText } from '@/shared/ui/FitText';
 
-const BODY_FILL_LIGHT = bodyDiagram.fillLight;
-const BODY_FILL_DARK = bodyDiagram.fillDark;
 /** The largest scale the figures are drawn at, which sets the card's height. */
 const BODY_MAX_SCALE = 0.6;
 
@@ -61,9 +60,15 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
   const { isDark } = useTheme();
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
-  // The legend's zero names the colour an untrained muscle is drawn in.
-  const untrainedFill = isDark ? BODY_FILL_DARK : BODY_FILL_LIGHT;
-  const volumeRamp = sequentialRamp[isDark ? 'dark' : 'light'];
+  const roles = bodyDiagram[isDark ? 'dark' : 'light'];
+  // The legend keys untrained first, then each step with the most sets it covers.
+  const legend = useMemo(() => {
+    const ceilings = volumeStepCeilings(maxWeightedSets);
+    return [
+      { fill: roles.untrained, label: '0' },
+      ...roles.steps.map((fill, i) => ({ fill, label: String(ceilings[i] ?? 0) })),
+    ];
+  }, [roles, maxWeightedSets]);
   const selectedName = selectedVolume ? muscleName(selectedVolume.slug, t) : '';
   const selectedSummary = selectedVolume
     ? `${t('strength.setsCount', { count: Math.round(selectedVolume.weightedSets * 10) / 10 })} · ${formatWeightRounded(selectedVolume.volumeKg, isMetric)}`
@@ -98,11 +103,10 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
             </Text>
           </View>
           {selectedVolume ? (
-            <Pressable
-              android_ripple={pressRipple}
+            <PressTarget
               accessibilityRole="button"
               accessibilityLabel={`${t('strength.clearMuscle', { muscle: selectedName })}, ${selectedSummary}`}
-              style={pressable(styles.subtitleRow)}
+              style={styles.subtitleRow}
               onPress={onClearSelection}
             >
               <View
@@ -130,7 +134,7 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
                 size={iconSize.sm}
                 color={isDark ? darkColors.textSecondary : colors.textSecondary}
               />
-            </Pressable>
+            </PressTarget>
           ) : (
             <Text style={[styles.bodyHint, isDark && styles.bodyHintDark]}>
               {t('strength.tapMuscleGroup')}
@@ -142,18 +146,17 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
             selectedSlug={selectedVolume?.slug ?? null}
             gender={gender}
             maxScale={BODY_MAX_SCALE}
-            colors={volumeRamp}
+            colors={roles.steps}
             onMuscleTap={onMuscleTap}
             onMuscleScrub={onMuscleScrub}
             tappableSlugs={tappableSlugs}
-            defaultFill={untrainedFill}
             accessibilityLabel={t('strength.muscleGroupVolume')}
             accessibilityValueText={
               selectedVolume ? `${selectedName}, ${selectedSummary}` : undefined
             }
           />
 
-          {/* Continuous scale bar. The figures are their own adjustable control, so the
+          {/* Stepped legend. The figures are their own adjustable control, so the
               chart's reading sits on the scale that keys them rather than around them. */}
           <ChartSurface
             summary={reading.summary}
@@ -162,22 +165,35 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
             testID="strength-body-plot"
           >
             <View style={styles.scaleBarContainer}>
-              <Text style={[styles.scaleLabel, isDark && styles.scaleLabelDark]}>
+              <Text
+                style={[
+                  chartStyles.chartLabel,
+                  isDark && chartStyles.chartLabelDark,
+                  styles.scaleLabel,
+                ]}
+              >
                 {t('strength.relativeVolume')}
               </Text>
-              <View style={styles.scaleBar}>
-                <LinearGradient
-                  colors={[untrainedFill, ...volumeRamp]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.scaleGradient}
-                />
-              </View>
-              <View style={styles.scaleLabels}>
-                <Text style={[styles.scaleValue, isDark && styles.scaleValueDark]}>0</Text>
-                <Text style={[styles.scaleValue, isDark && styles.scaleValueDark]}>
-                  {t('strength.setsCount', { count: Math.round(maxWeightedSets * 10) / 10 })}
-                </Text>
+              <View style={styles.legendRow}>
+                {legend.map((step, i) => (
+                  <View key={i} style={styles.legendStep}>
+                    <View
+                      testID={`strength-legend-step-${i}`}
+                      style={[
+                        styles.legendSwatch,
+                        i === 0 && { borderColor: roles.untrainedStroke },
+                        i === 0 && styles.legendSwatchUntrained,
+                        { backgroundColor: step.fill },
+                      ]}
+                    />
+                    <Text
+                      testID={`strength-legend-label-${i}`}
+                      style={[chartStyles.chartLabel, isDark && chartStyles.chartLabelDark]}
+                    >
+                      {step.label}
+                    </Text>
+                  </View>
+                ))}
               </View>
             </View>
           </ChartSurface>
@@ -290,33 +306,29 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   scaleLabel: {
-    ...typography.micro,
-    color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: spacing.xs,
-  },
-  scaleLabelDark: {
-    color: darkColors.textSecondary,
   },
   scaleBar: {
     height: 8,
     borderRadius: layout.borderRadiusFull,
     overflow: 'hidden',
   },
-  scaleGradient: {
+  legendRow: {
+    flexDirection: 'row',
+    gap: spacing.xxs,
+  },
+  legendStep: {
     flex: 1,
+    alignItems: 'center',
+    gap: spacing.xxs,
+  },
+  legendSwatch: {
+    alignSelf: 'stretch',
+    height: 8,
     borderRadius: layout.borderRadiusXs,
   },
-  scaleLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: spacing.xxs,
-  },
-  scaleValue: {
-    ...typography.micro,
-    color: colors.textSecondary,
-  },
-  scaleValueDark: {
-    color: darkColors.textSecondary,
+  legendSwatchUntrained: {
+    borderWidth: stroke.one,
   },
 });

@@ -17,7 +17,8 @@ import { changeLanguage, initialiseI18n } from '@/i18n';
 import { getEngine } from '@/shared/native/engine';
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { capturePans, scrub, scrubPan } from '../__shared__/chartScrub';
-import { trainingScreenRead } from '../__shared__/trainingScreenRead';
+import { fitnessScreenRead } from '../__shared__/fitnessScreenRead';
+import { WithScreenRead } from '../__shared__/withScreenRead';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
@@ -65,7 +66,7 @@ function setRows(next: typeof DEFAULT_ROWS) {
 }
 
 const engine = {
-  getTrainingScreenData: trainingScreenRead({
+  getFitnessScreenData: fitnessScreenRead({
     months: () => rows,
     period: (startTs, endTs) => periodFrom(rows, startTs, endTs),
   }),
@@ -81,7 +82,7 @@ function renderCard() {
   pans = capturePans();
   return render(
     <QueryClientProvider client={client}>
-      <SeasonComparison />
+      <WithScreenRead>{(training) => <SeasonComparison training={training} />}</WithScreenRead>
     </QueryClientProvider>
   );
 }

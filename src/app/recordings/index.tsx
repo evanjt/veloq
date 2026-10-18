@@ -30,7 +30,8 @@ import {
   themePalette,
 } from '@/theme';
 import { formatDateTime, formatDistance, formatDuration } from '@/shared/format/format';
-import { getActivityIcon, getActivityInk } from '@/shared/activity/activityUtils';
+import { getActivityIcon } from '@/shared/activity/activityUtils';
+import { sportMarkColour } from '@/shared/activity/sportCategories';
 import {
   useRecordingLibrary,
   recordingActions,
@@ -138,7 +139,7 @@ function RecordingsLibraryScreenContent() {
             <Icon
               name={getActivityIcon(item.activityType)}
               size={iconSize.lg}
-              color={getActivityInk(item.activityType, isDark)}
+              color={sportMarkColour(item.activityType, isDark)}
               style={styles.activityIcon}
             />
             <View style={styles.cardBody}>

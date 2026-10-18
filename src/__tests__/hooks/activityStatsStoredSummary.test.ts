@@ -9,20 +9,17 @@ import { renderHook } from '@testing-library/react-native';
 import { useActivityStats } from '@/features/activity/components/stats/useActivityStats';
 import { initialiseI18n } from '@/i18n';
 import { formatDuration, formatSportSpeed } from '@/shared/format/format';
-import type { Activity } from '@/types';
-import { CadenceUnit, type ActivitySummary } from 'veloqrs';
 
-const ride = {
+import { CadenceUnit, type ActivityRecord, type ActivitySummary } from 'veloqrs';
+import { activityRecord } from '../__shared__/activityRecord';
+
+const ride = activityRecord({
   id: 'ride-summary',
-  type: 'Ride',
+  sportType: 'Ride',
   name: 'Ride',
-  start_date_local: '2026-09-05T08:00:00',
-  moving_time: 3600,
-  elapsed_time: 3720,
-  average_speed: 8.2,
-  max_speed: 15.4,
-  average_cadence: 88.5,
-} as Activity;
+  startDateLocal: '2026-09-05T08:00:00',
+  movingTime: 3600,
+});
 
 const rideSummary: ActivitySummary = {
   movingTime: 3600,
@@ -33,7 +30,7 @@ const rideSummary: ActivitySummary = {
   cadenceUnit: CadenceUnit.Rpm,
 };
 
-function stats(activity: Activity, summary: ActivitySummary | undefined, isMetric = true) {
+function stats(activity: ActivityRecord, summary: ActivitySummary | undefined, isMetric = true) {
   const { result } = renderHook(() => useActivityStats({ activity, isMetric, summary }));
   return result.current.stats;
 }
@@ -73,7 +70,7 @@ describe('the stored summary on the activity stat cards', () => {
   });
 
   it('shows a run its pace, not its speed', () => {
-    const run = { ...ride, type: 'Run' } as Activity;
+    const run = activityRecord({ ...ride, sportType: 'Run' });
     const list = stats(run, { ...rideSummary, averageSpeed: 3, averageCadence: 172 });
     expect(list.find((s) => s.title === 'Speed')).toBeUndefined();
     expect(card(list, 'Pace').value).toBe(formatSportSpeed(3, 'Run', true));
@@ -81,7 +78,7 @@ describe('the stored summary on the activity stat cards', () => {
 
   it('shows cadence in the unit of the sport', () => {
     expect(card(stats(ride, rideSummary), 'Cadence')).toMatchObject({ value: '89', unit: 'rpm' });
-    const run = { ...ride, type: 'Run' } as Activity;
+    const run = activityRecord({ ...ride, sportType: 'Run' });
     const runSummary = {
       ...rideSummary,
       averageCadence: 172,

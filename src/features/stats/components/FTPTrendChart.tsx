@@ -1,5 +1,6 @@
-import React, { useMemo } from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { View, StyleSheet, type LayoutChangeEvent } from 'react-native';
+import { GestureDetector } from 'react-native-gesture-handler';
 import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { RangeCoverage } from 'veloqrs';
@@ -12,14 +13,18 @@ import { spokenVerdict } from '@/shared/format/spoken';
 import { trendVerdict, verdictRung, type TrendDirection } from '@/shared/format/trend';
 import {
   ChartCanvas,
+  ChartCrosshair,
   ChartDot,
-  chartStroke,
   ChartSurface,
   CurveLine,
+  ScrubDot,
+  chartBoundsFor,
   niceScale,
   seriesSummary,
   seriesTable,
   useChartColors,
+  useChartGestures,
+  yForValue,
   YAxisLabels,
   type SummarySeries,
 } from '@/shared/charts';
@@ -60,9 +65,13 @@ interface FtpPoint {
 
 // Half a label line above the top tick, and a label line under the plot for the dates.
 const CHART_PADDING = {
+  left: 0,
+  right: 0,
   top: typography.caption.lineHeight / 2,
   bottom: typography.caption.lineHeight,
 } as const;
+/** The end label's line, which sits above the end dot, or under it when the dot is near the top. */
+const END_LABEL_LINE = typography.caption.lineHeight;
 /** Steps the watts axis is cut into, so the gutter carries three or four round values. */
 const Y_INTERVALS = 2;
 const SERIES = { y: (d: FtpPoint) => d.y };
@@ -105,7 +114,7 @@ export function FTPTrendChart({
     return {
       minFTP: Math.min(...values) - 10,
       maxFTP: Math.max(...values) + 10,
-      latestFTP: values[values.length - 1],
+      latestFTP: values.at(-1) ?? 0,
     };
   }, [chartData]);
 
@@ -141,6 +150,45 @@ export function FTPTrendChart({
     };
   }, [chartData, t]);
 
+  const formatWatts = useCallback(
+    (value: number) => `${Math.round(value)} ${t('units.watts')}`,
+    [t]
+  );
+  const describePoint = useCallback(
+    (d: FtpPoint) => `${formatShortDate(d.date)}, ${formatWatts(d.y)}`,
+    [formatWatts]
+  );
+  const {
+    gesture,
+    crosshairStyle,
+    syncBounds,
+    syncXCoords,
+    accessibilityProps,
+    scrubIndex,
+    selectedPoint,
+  } = useChartGestures<FtpPoint>({
+    data: chartData,
+    accessibilityLabel: t('stats.estimatedFtp'),
+    describePoint,
+  });
+  const shown = selectedPoint ?? chartData[chartData.length - 1];
+
+  // The plot's box, measured, places the end label on the latest value.
+  const [plot, setPlot] = useState<{ width: number; height: number } | null>(null);
+  const onPlotLayout = useCallback((e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    setPlot((prev) =>
+      prev && prev.width === width && prev.height === height ? prev : { width, height }
+    );
+  }, []);
+  const endLabelTop = useMemo(() => {
+    if (!plot || plot.width <= 0 || plot.height <= 0) return null;
+    const bounds = chartBoundsFor(plot.width, plot.height, CHART_PADDING);
+    const y = yForValue(latestFTP, yDomain, bounds);
+    const above = y - END_LABEL_LINE - spacing.xs;
+    return above >= bounds.top ? above : y + spacing.xs;
+  }, [plot, latestFTP, yDomain]);
+
   // Show empty state if no data
   if (!data || data.length === 0) {
     const notDownloaded = coverage === RangeCoverage.NotFetched;
@@ -170,10 +218,14 @@ export function FTPTrendChart({
       {/* Header with current FTP */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.label}>{t('stats.estimatedFtp')}</Text>
+          <Text style={styles.label}>
+            {selectedPoint
+              ? `${t('stats.estimatedFtp')} · ${formatShortDate(selectedPoint.date)}`
+              : t('stats.estimatedFtp')}
+          </Text>
           <View style={styles.ftpRow}>
-            <Text style={styles.ftpValue}>
-              {latestFTP} {t('units.watts')}
+            <Text testID="ftp-trend-value" style={styles.ftpValue}>
+              {shown ? formatWatts(shown.y) : null}
             </Text>
             <Badge
               tone={verdictTone(rung)}
@@ -200,51 +252,75 @@ export function FTPTrendChart({
             padding={CHART_PADDING}
             testID="ftp-trend-y-axis"
           />
-          <View style={chartStyles.chartWrapper}>
-            <ChartCanvas
-              data={chartData}
-              x={xOf}
-              series={SERIES}
-              yDomain={yDomain}
-              padding={CHART_PADDING}
-              gridValues={yScale.ticks}
+          <GestureDetector gesture={gesture}>
+            <View
+              testID="ftp-trend-surface"
+              style={chartStyles.chartWrapper}
+              onLayout={onPlotLayout}
+              {...accessibilityProps}
             >
-              {({ points }) => {
-                const last = points.y[points.y.length - 1];
-                return (
-                  <>
-                    <CurveLine
-                      points={points.y}
-                      color={chartColors.casing}
-                      strokeWidth={chartStroke.casing}
-                    />
-                    <CurveLine points={points.y} color={chartColors.ftp} />
-                    {last ? <ChartDot x={last.x} y={last.y} color={chartColors.ftp} /> : null}
-                  </>
-                );
-              }}
-            </ChartCanvas>
+              <ChartCanvas
+                data={chartData}
+                x={xOf}
+                series={SERIES}
+                yDomain={yDomain}
+                padding={CHART_PADDING}
+                gridValues={yScale.ticks}
+              >
+                {({ points, bounds }) => {
+                  syncBounds(bounds);
+                  syncXCoords(points.y, (p) => p.x);
+                  const last = points.y[points.y.length - 1];
+                  return (
+                    <>
+                      <CurveLine points={points.y} color={chartColors.ftp} />
+                      {last ? <ChartDot x={last.x} y={last.y} color={chartColors.ftp} /> : null}
+                      <ScrubDot at={points.y[scrubIndex]} color={chartColors.ftp} />
+                    </>
+                  );
+                }}
+              </ChartCanvas>
 
-            {/* X-axis labels */}
-            <View style={styles.xAxisOverlay} pointerEvents="none">
-              {chartData.length > 0 && (
-                <>
-                  <Text
-                    maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                    style={[chartStyles.chartLabel, isDark && chartStyles.chartLabelDark]}
-                  >
-                    {formatMonth(chartData[0].date)}
-                  </Text>
-                  <Text
-                    maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                    style={[chartStyles.chartLabel, isDark && chartStyles.chartLabelDark]}
-                  >
-                    {formatMonth(chartData[chartData.length - 1].date)}
-                  </Text>
-                </>
-              )}
+              <ChartCrosshair style={crosshairStyle} />
+
+              {/* The latest value, labelled at the end of the line */}
+              {endLabelTop != null ? (
+                <Text
+                  testID="ftp-trend-end-label"
+                  maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                  style={[
+                    chartStyles.chartLabelStrong,
+                    isDark && chartStyles.chartLabelStrongDark,
+                    styles.endLabel,
+                    { top: endLabelTop },
+                  ]}
+                  pointerEvents="none"
+                >
+                  {formatWatts(latestFTP)}
+                </Text>
+              ) : null}
+
+              {/* X-axis labels */}
+              <View style={styles.xAxisOverlay} pointerEvents="none">
+                {chartData.length > 0 && (
+                  <>
+                    <Text
+                      maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                      style={[chartStyles.chartLabel, isDark && chartStyles.chartLabelDark]}
+                    >
+                      {formatMonth(chartData[0].date)}
+                    </Text>
+                    <Text
+                      maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                      style={[chartStyles.chartLabel, isDark && chartStyles.chartLabelDark]}
+                    >
+                      {formatMonth(chartData[chartData.length - 1].date)}
+                    </Text>
+                  </>
+                )}
+              </View>
             </View>
-          </View>
+          </GestureDetector>
         </View>
       </ChartSurface>
     </View>
@@ -278,6 +354,10 @@ const makeStyles = (palette: Palette) =>
     plotRow: {
       flex: 1,
       flexDirection: 'row',
+    },
+    endLabel: {
+      position: 'absolute',
+      right: 0,
     },
     xAxisOverlay: {
       position: 'absolute',

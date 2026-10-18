@@ -4,8 +4,8 @@
  * stats row already shows its best as a best and not as the record.
  *
  * Expected behaviour: every other record mark on the screen holds back too,
- * the calendar's overall-record trophies, the scatter's ring and the tooltip's
- * PR mark, and all of them return once the streams are in.
+ * the calendar's overall-record trophies, the scatter's ring and the selected
+ * attempt card's trophy, and all of them return once the streams are in.
  */
 
 import React from 'react';
@@ -19,7 +19,7 @@ import {
   type CalendarSummary,
 } from '@/features/routes/components/section/SectionStatsCards';
 import { SectionScatterChart } from '@/features/routes/components/section/SectionScatterChart';
-import { PerformanceTooltip } from '@/features/routes/components/section/PerformanceTooltip';
+import { SelectedAttemptCard } from '@/features/routes/components/section/SelectedAttemptCard';
 import type { PerformanceDataPoint } from '@/types';
 import { colors, iconSize } from '@/theme';
 import { layoutViews } from '../../__shared__/layoutViews';
@@ -61,7 +61,7 @@ const summary: CalendarSummary = {
 
 function trophies(tree: Awaited<ReturnType<typeof render>>) {
   return tree
-    .UNSAFE_getAllByType(MaterialCommunityIcons)
+    .UNSAFE_queryAllByType(MaterialCommunityIcons)
     .filter((icon) => icon.props.name === 'trophy');
 }
 
@@ -177,34 +177,33 @@ describe('the scatter while time streams are outstanding', () => {
   });
 });
 
-describe('the scrub tooltip while time streams are outstanding', () => {
+describe('the selected-attempt card while time streams are outstanding', () => {
   beforeAll(async () => {
     await initialiseI18n('en-AU');
   });
 
-  function renderTooltip(recordsSettled: boolean) {
+  function renderCard(recordsSettled: boolean) {
     return render(
-      <PerformanceTooltip
-        selectedPoint={POINTS[0]}
+      <SelectedAttemptCard
+        attempt={POINTS[0]!}
         isDark={false}
+        activityType="Ride"
         basis="speed"
+        progression={[]}
         recordsSettled={recordsSettled}
-        onClearSelection={() => {}}
       />
     );
   }
 
-  it('does not call the best point a PR', async () => {
-    const tree = await renderTooltip(false);
+  it('does not mark the best point as the record', async () => {
+    const tree = await renderCard(false);
 
     expect(trophies(tree)).toHaveLength(0);
-    expect(tree.queryAllByText('PR')).toHaveLength(0);
   });
 
-  it('calls it a PR once the streams are in', async () => {
-    const tree = await renderTooltip(true);
+  it('marks it once the streams are in', async () => {
+    const tree = await renderCard(true);
 
     expect(trophies(tree)).toHaveLength(1);
-    expect(tree.getAllByText('PR')).toHaveLength(1);
   });
 });

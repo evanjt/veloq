@@ -18,28 +18,25 @@ function point(overrides: Partial<InputPoint>): InputPoint {
 }
 
 describe('splitAndPositionChartData', () => {
-  it('scales each direction from its own speeds and times', () => {
+  it('says which directions have a drawn point', () => {
     const result = splitAndPositionChartData([
       point({ date: new Date('2024-01-01'), speed: 4, sectionTime: 250 }),
-      point({ date: new Date('2024-02-01'), speed: 4.2, sectionTime: 240 }),
       point({ date: new Date('2024-03-01'), speed: 12, sectionTime: 85, direction: 'reverse' }),
-      point({ date: new Date('2024-04-01'), speed: 13, sectionTime: 80, direction: 'reverse' }),
     ]);
-
-    expect(result.domains.forward?.minSpeed).toBeCloseTo(3.97);
-    expect(result.domains.forward?.maxSpeed).toBeCloseTo(4.23);
-    expect(result.domains.forward?.minTime).toBeCloseTo(238.5);
-    expect(result.domains.forward?.maxTime).toBeCloseTo(251.5);
-    expect(result.domains.reverse?.minSpeed).toBeCloseTo(11.85);
-    expect(result.domains.reverse?.maxSpeed).toBeCloseTo(13.15);
-    expect(result.domains.reverse?.minTime).toBeCloseTo(79.25);
-    expect(result.domains.reverse?.maxTime).toBeCloseTo(85.75);
+    expect(result.drawn).toEqual({ forward: true, reverse: true });
   });
 
-  it('has no reverse domain when only forward attempts exist', () => {
+  it('has no reverse direction when only forward attempts exist', () => {
     const result = splitAndPositionChartData([point({ speed: 4, sectionTime: 250 })]);
-    expect(result.domains.forward).toBeTruthy();
-    expect(result.domains.reverse).toBeNull();
+    expect(result.drawn).toEqual({ forward: true, reverse: false });
+  });
+
+  it('counts an excluded attempt as drawn, since it is plotted dimmed', () => {
+    const result = splitAndPositionChartData([
+      point({ speed: 4, sectionTime: 250, direction: 'reverse', isExcluded: true }),
+    ]);
+    expect(result.drawn.reverse).toBe(true);
+    expect(result.reversePoints).toEqual([]);
   });
 
   it('returns EMPTY_SPLIT for empty input', () => {
@@ -146,38 +143,6 @@ describe('splitAndPositionChartData', () => {
     expect(xs[xs.length - 1]).toBeCloseTo(0.98, 5);
     expect(xs[1]).toBeGreaterThan(xs[0]);
     expect(xs[1]).toBeLessThan(xs[2]);
-  });
-
-  it('applies 15% padding to speed domain with floor at 0', () => {
-    const pts: InputPoint[] = [
-      point({ date: new Date('2024-01-01'), speed: 10 }),
-      point({ date: new Date('2024-02-01'), speed: 20 }),
-    ];
-    const result = splitAndPositionChartData(pts);
-    // Range is 10, 15% padding = 1.5
-    expect(result.domains.forward?.maxSpeed).toBeCloseTo(21.5, 4);
-    expect(result.domains.forward?.minSpeed).toBeCloseTo(8.5, 4);
-  });
-
-  it('uses fallback padding of 0.5 when all speeds are identical', () => {
-    const pts: InputPoint[] = [
-      point({ date: new Date('2024-01-01'), speed: 5 }),
-      point({ date: new Date('2024-02-01'), speed: 5 }),
-    ];
-    const result = splitAndPositionChartData(pts);
-    // max - min = 0, so padding = 0.5 (from `|| 0.5`)
-    expect(result.domains.forward?.maxSpeed).toBeCloseTo(5.5, 4);
-    expect(result.domains.forward?.minSpeed).toBeCloseTo(4.5, 4);
-  });
-
-  it('floors minSpeed at 0 when padding would push it negative', () => {
-    // Zero speed with small delta → 15% padding pushes min to -0.015, clamped to 0
-    const pts: InputPoint[] = [
-      point({ date: new Date('2024-01-01'), speed: 0 }),
-      point({ date: new Date('2024-02-01'), speed: 0.1 }),
-    ];
-    const result = splitAndPositionChartData(pts);
-    expect(result.domains.forward?.minSpeed).toBe(0);
   });
 
   it('sorts points by date before assigning x coordinates', () => {
