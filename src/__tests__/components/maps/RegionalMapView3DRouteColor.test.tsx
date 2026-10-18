@@ -57,7 +57,6 @@ jest.mock('@/shared/native/engine', () => ({
   getEngine: () => ({
     getGpsTrack: () => 'encoded',
     subscribe: () => () => {},
-    startFetchAndStore: () => 0,
   }),
 }));
 

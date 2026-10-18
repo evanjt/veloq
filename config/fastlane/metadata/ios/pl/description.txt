@@ -21,6 +21,8 @@ Kondycja
 Prywatność
 Twoje dane treningowe pozostają na Twoim urządzeniu. Brak analityki, brak śledzenia. Opcjonalne powiadomienia push przechowują Twój identyfikator (ID) sportowca intervals.icu i token urządzenia na naszym serwerze, usuwane automatycznie po 30 dniach. Otwarte źródło na licencji Apache 2.0.
 
+Dostępność: etykiety dla czytnika ekranu przy każdym elemencie sterującym, tekst dopasowany do systemowego rozmiaru tekstu oraz kontrast kolorów według proporcji AA w jasnym i ciemnym motywie.
+
 Obsługuje kolarstwo, bieganie, pływanie i ponad 20 typów aktywności. Wypróbuj wbudowany tryb demo, aby poznać aplikację bez zakładania konta.
 
 Wymaga konta intervals.icu do danych na żywo. Nie jest powiązany z intervals.icu.

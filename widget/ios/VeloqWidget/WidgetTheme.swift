@@ -107,8 +107,8 @@ enum WidgetTheme {
     static let hero: CGFloat = 32
     static let metric: CGFloat = 22
     static let value: CGFloat = 18
-    static let label: CGFloat = 12
-    static let caption: CGFloat = 11
+    static let label: CGFloat = 11
+    static let caption: CGFloat = 10
     static let floor: CGFloat = 9
   }
 

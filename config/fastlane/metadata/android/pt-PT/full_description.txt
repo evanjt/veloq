@@ -21,6 +21,8 @@ Acompanhe a sua forma com rastreamento CTL/ATL/TSB e zonas visuais. Monitorize H
 <b>Privacidade</b>
 Os seus dados de treino permanecem no seu dispositivo. Sem análises, sem rastreamento. As notificações push opcionais armazenam o seu ID de atleta do intervals.icu e um token do dispositivo no nosso servidor, apagados automaticamente após 30 dias. Código aberto sob licença Apache 2.0.
 
+Acessibilidade: etiquetas para leitor de ecrã em todos os controlos, texto que acompanha o tamanho de letra do sistema e contraste de cores nas proporções AA nos temas claro e escuro.
+
 Compatível com ciclismo, corrida, natação e mais de 20 tipos de atividade. Experimente o modo de demonstração integrado para explorar sem criar conta.
 
 Requer uma conta intervals.icu para dados em tempo real. Não é afiliado ao intervals.icu.

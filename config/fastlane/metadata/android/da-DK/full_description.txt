@@ -21,6 +21,8 @@ Følg din form med CTL/ATL/TSB-sporing og visuelle zoner. Overvåg HRV, hvilepul
 <b>Privatliv</b>
 Dine træningsdata forbliver på din enhed. Ingen analyse, ingen sporing. Valgfrie push-notifikationer gemmer dit intervals.icu-atlet-ID og et enhedstoken på vores server, som slettes automatisk efter 30 dage. Open source under Apache 2.0.
 
+Tilgængelighed: skærmlæserbeskrivelser på alle betjeningselementer, tekst der følger din systemtekststørrelse, og farvekontrast efter AA-forholdene i lyst og mørkt tema.
+
 Understøtter cykling, løb, svømning og over 20 aktivitetstyper. Prøv den indbyggede demotilstand for at udforske uden en konto.
 
 Kræver en intervals.icu-konto for livedata. Ikke tilknyttet intervals.icu.

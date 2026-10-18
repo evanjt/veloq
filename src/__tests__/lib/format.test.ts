@@ -32,7 +32,7 @@ import {
   formatRelativeDate,
   calendarDaysBetween,
   formatTimeDelta,
-  formatPrDelta,
+  formatPrGap,
   formatPrImprovement,
   formatPerformanceDelta,
   speedToSecsPerKm,
@@ -380,6 +380,31 @@ describe('formatDurationDelta', () => {
   });
 });
 
+describe('formatPrGap', () => {
+  it.each([
+    [26, '+26 s'],
+    [65, '+1:05'],
+    [599, '+9:59'],
+    [59.6, '+1:00'],
+    [599.6, '+10:00'],
+    [1575, '+26:15'],
+    [3599.6, '+1:00:00'],
+    [3723, '+1:02:03'],
+  ])('%p seconds behind the record reads %p', (input, expected) => {
+    expect(formatPrGap(input)).toBe(expected);
+  });
+
+  it('keeps every gap under ten minutes to five characters in en-GB', async () => {
+    await initialiseI18n('en-GB');
+    for (let s = 1; s < 600; s++) expect(formatPrGap(s).length).toBeLessThanOrEqual(5);
+  });
+
+  it('shows the absent mark rather than a signed one for a value it cannot read', () => {
+    expect(formatPrGap(NaN)).toBe(ABSENT);
+    expect(formatPrGap(-5)).toBe(ABSENT);
+  });
+});
+
 /**
  * BUG: formatDurationHuman(59.5) returned "60s" instead of one minute - the "< 60"
  * branch ran before rounding. Locked here so the fix stays in place.
@@ -534,7 +559,7 @@ describe("durations in the locale's units", () => {
 
   it('writes the same seconds unit in every short form', () => {
     expect(formatDurationDelta(12)).toBe('12 s');
-    expect(formatPrDelta(12)).toBe('PR+12 s');
+    expect(formatPrGap(12)).toBe('+12 s');
     expect(formatPrImprovement(14)).toBe('-14 s');
   });
 });

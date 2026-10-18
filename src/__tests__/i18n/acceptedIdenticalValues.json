@@ -104,7 +104,8 @@
     "poolSwim.columns.number": "Number sign, read the same in every language.",
     "poolSwim.columns.distance": "Danish word or phrase with the same spelling.",
     "poolSwim.columns.swolf": "Conventional training or recording abbreviation.",
-    "poolSwim.strokes.butterfly": "Danish sport name or established sport loanword."
+    "poolSwim.strokes.butterfly": "Danish sport name or established sport loanword.",
+    "activity.prBadge": "Conventional training or recording abbreviation."
   },
   "de-CH": {
     "activity.stats.maxLabel": "Abbreviation of the German label with the same spelling.",
@@ -983,7 +984,8 @@
     "charts.column.zone": "The same word in this language.",
     "licenses.sectionNativeEngine": "Dutch words with the same spelling, beside the library's own name.",
     "sections.deltaReferenceRecord": "Dutch word or phrase with the same spelling.",
-    "poolSwim.columns.swolf": "Conventional training or recording abbreviation."
+    "poolSwim.columns.swolf": "Conventional training or recording abbreviation.",
+    "activity.prBadge": "Conventional training or recording abbreviation."
   },
   "pl": {
     "activity.stats.trimp": "Conventional training or recording abbreviation.",

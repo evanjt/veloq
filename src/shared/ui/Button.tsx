@@ -321,7 +321,11 @@ export interface ToggleButtonProps {
    * another ground; the ink has to clear 4.5:1 on the fill.
    */
   accent?: ChipAccent;
-  /** A leading dot in this colour, in both states, for an option that stands for a sport or a series. */
+  /**
+   * A leading dot in this colour, in both states, for an option that stands for a sport or a
+   * series. The dot repeats the chip's label, so it owes no contrast on the chip ground; a colour
+   * that has to be read on its own is not a chip mark.
+   */
   mark?: string;
   /** A number after the label, drawn smaller in the label's ink, such as how many items the option holds. */
   count?: number;

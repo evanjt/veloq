@@ -11,6 +11,9 @@
 import vm from 'vm';
 
 import { buildMap3DHtml, type Map3DHtmlConfig } from '@/features/maps/lib/htmlBuilders';
+import { buildMap3DBuildScript, map3DPageRevision } from '@/features/maps/lib/htmlBuilders/map3D';
+import { buildReleaseMapScript } from '@/features/maps/lib/htmlBuilders/shared';
+import { MAP_3D_READY_TIMEOUT_MS } from '@/features/maps/lib/mapBudgets';
 
 const COORDINATES: [number, number][] = [
   [7.447, 46.948],
@@ -50,6 +53,9 @@ function extractPageScript(html: string): string {
 type Posted = { type: string; [key: string]: unknown };
 
 interface FakeMap {
+  options: Record<string, unknown>;
+  addSource: jest.Mock;
+  remove: jest.Mock;
   jumpTo: jest.Mock;
   queryTerrainElevation: jest.Mock;
   fire: (event: string, payload?: unknown) => void;
@@ -59,7 +65,13 @@ interface FakeMap {
 interface RunResult {
   posted: Posted[];
   map: FakeMap | null;
+  /** Every map the page made, oldest first. */
+  maps: FakeMap[];
+  prewarms: number;
   threw: Error | null;
+  /** Runs a script the host injects into the same page. */
+  run: (script: string) => void;
+  window: Record<string, unknown>;
 }
 
 /**
@@ -78,6 +90,8 @@ function runPage(
   const { withMapLibre = true, mapFactory, queryTerrainElevation } = options;
   const posted: Posted[] = [];
   let map: FakeMap | null = null;
+  const maps: FakeMap[] = [];
+  let prewarms = 0;
 
   const makeMap = (): FakeMap => {
     if (mapFactory) return mapFactory();
@@ -117,6 +131,7 @@ function runPage(
       jumpTo: jest.fn(),
       queryTerrainElevation: jest.fn(queryTerrainElevation ?? (() => 0)),
       transform: { fov: 36.87, height: 600 },
+      remove: jest.fn(),
     } as unknown as FakeMap;
   };
 
@@ -161,20 +176,38 @@ function runPage(
   if (withMapLibre) {
     sandbox.maplibregl = {
       addProtocol: () => {},
-      Map: function MapCtor(this: unknown) {
+      prewarm: () => {
+        prewarms += 1;
+      },
+      Map: function MapCtor(this: unknown, options: Record<string, unknown>) {
         map = makeMap();
+        map.options = options;
+        maps.push(map);
         return map;
       },
     };
   }
 
   let threw: Error | null = null;
+  const context = vm.createContext(sandbox);
   try {
-    vm.runInNewContext(extractPageScript(html), sandbox);
+    vm.runInContext(extractPageScript(html), context);
   } catch (e) {
     threw = e as Error;
   }
-  return { posted, map, threw };
+  return {
+    posted,
+    get map() {
+      return map;
+    },
+    maps,
+    get prewarms() {
+      return prewarms;
+    },
+    threw,
+    run: (script: string) => vm.runInContext(script, context),
+    window: sandbox,
+  };
 }
 
 const typesOf = (posted: Posted[]) => posted.map((m) => m.type);
@@ -320,5 +353,128 @@ describe('3D page opening camera', () => {
     map!.fire('idle');
 
     expect(map!.jumpTo).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('3D page rebuilt in place for a new mount', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.runOnlyPendingTimers();
+    jest.useRealTimers();
+  });
+
+  const readyCount = (posted: Posted[]) => posted.filter((m) => m.type === 'mapReady').length;
+  const settle = (map: FakeMap) => {
+    map.fire('load');
+    map.fire('idle');
+    jest.runOnlyPendingTimers();
+  };
+  const otherRoute: [number, number][] = [
+    [8.1, 45.9],
+    [8.2, 45.95],
+  ];
+
+  it('builds its first map through the function a later mount calls', () => {
+    const page = runPage(buildMap3DHtml(buildConfig()));
+
+    expect(typeof page.window._veloqBuildMap).toBe('function');
+    expect(page.maps).toHaveLength(1);
+    expect(page.maps[0].options.bounds).toEqual([
+      [7.447, 46.948],
+      [7.449, 46.95],
+    ]);
+  });
+
+  it('holds the worker pool for the life of the page, so a released map keeps it', () => {
+    const page = runPage(buildMap3DHtml(buildConfig()));
+    settle(page.maps[0]);
+
+    page.run(buildReleaseMapScript());
+    page.run(
+      buildMap3DBuildScript(
+        buildConfig({ coordinates: otherRoute, bounds: null, centerOverride: [8.15, 45.92] })
+      )
+    );
+
+    expect(page.prewarms).toBe(1);
+  });
+
+  it('builds a released page again at the new camera and route, and reports ready again', () => {
+    const page = runPage(buildMap3DHtml(buildConfig()));
+    settle(page.maps[0]);
+    expect(readyCount(page.posted)).toBe(1);
+
+    page.run(buildReleaseMapScript());
+    expect(page.window.map).toBeNull();
+    page.run(
+      buildMap3DBuildScript(
+        buildConfig({
+          coordinates: otherRoute,
+          bounds: null,
+          centerOverride: [8.15, 45.92],
+          zoom: 14,
+          bearing: 45,
+          pitch: 50,
+          hasSavedCamera: true,
+          initStyle: 'dark',
+          mapStyle: 'dark',
+        })
+      )
+    );
+
+    expect(page.maps).toHaveLength(2);
+    const rebuilt = page.maps[1];
+    expect(page.window.map).toBe(rebuilt);
+    expect(rebuilt.options).toEqual(
+      expect.objectContaining({ center: [8.15, 45.92], zoom: 14, bearing: 45, pitch: 50 })
+    );
+    expect(rebuilt.options.bounds).toBeUndefined();
+
+    settle(rebuilt);
+    const route = rebuilt.addSource.mock.calls.find(([id]) => id === 'route');
+    expect(route?.[1].data.features[0].geometry.coordinates).toEqual(otherRoute);
+    expect(page.window._routeCoords).toEqual(otherRoute);
+    expect(readyCount(page.posted)).toBe(2);
+  });
+
+  it('removes a map still standing when it is built again', () => {
+    const page = runPage(buildMap3DHtml(buildConfig()));
+    settle(page.maps[0]);
+
+    page.run(buildMap3DBuildScript(buildConfig({ coordinates: otherRoute })));
+
+    expect(page.maps[0].remove).toHaveBeenCalledTimes(1);
+    expect(page.window.map).toBe(page.maps[1]);
+  });
+
+  it('posts nothing into the rebuilt map from a timer the released one left', () => {
+    const page = runPage(buildMap3DHtml(buildConfig()));
+    page.maps[0].fire('load');
+
+    jest.advanceTimersByTime(1000);
+    page.run(buildReleaseMapScript());
+    page.run(buildMap3DBuildScript(buildConfig({ coordinates: otherRoute })));
+    // Past the released build's deadlines, short of the rebuilt one's.
+    jest.advanceTimersByTime(MAP_3D_READY_TIMEOUT_MS - 500);
+
+    expect(page.posted.map((m) => m.type)).not.toContain('mapFailed');
+    expect(readyCount(page.posted)).toBe(0);
+
+    settle(page.maps[1]);
+    expect(readyCount(page.posted)).toBe(1);
+  });
+
+  it('names one revision in the head of every page it builds', () => {
+    const revision = map3DPageRevision();
+    const meta = `<meta name="veloq-page-revision" content="${revision}">`;
+
+    expect(revision).toMatch(/^[0-9a-f]{8}$/);
+    expect(buildMap3DHtml(buildConfig())).toContain(meta);
+    expect(
+      buildMap3DHtml(buildConfig({ coordinates: otherRoute, initStyle: 'satellite', pitch: 10 }))
+    ).toContain(meta);
   });
 });

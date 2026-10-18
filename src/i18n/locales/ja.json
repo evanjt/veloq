@@ -136,7 +136,7 @@
     "zoneMaxFromSettings": "ゾーン上限 {{value}} bpm(スポーツ設定)",
     "zoneMaxDefault": "最大心拍が未設定のため、ゾーンは {{value}} bpm と仮定しています",
     "zoneMaxDefaultHint": "intervals.icu のスポーツ設定で最大心拍を設定してください",
-    "prDelta": "PR比 +{{delta}}",
+    "prBadge": "自己記録",
     "chartAverage": "平均",
     "chartGain": "獲得",
     "gainStat": "↑ {{value}}"

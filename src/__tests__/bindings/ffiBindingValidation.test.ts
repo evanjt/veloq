@@ -100,7 +100,7 @@ describe('FFI Binding Validation', () => {
       expect(names.has('validate_backup_database')).toBe(true);
       // Conversion opens a picked database copy before the live engine exists.
       expect(names.has('convert_legacy_database_to_record_backup')).toBe(true);
-      expect(names.has('start_fetch_and_store')).toBe(true);
+      expect(names.has('start_gps_pass')).toBe(true);
       expect(names.has('take_fetch_and_store_result')).toBe(true);
       // A fetch that could not be called off stranded the progress flag and
       // spun the reader at 10 Hz for the rest of the session.

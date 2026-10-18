@@ -4,16 +4,25 @@
  * want to open.
  *
  * Expected behaviour: the legend names that measure and its four bins, every
- * day with activities is a control a screen reader announces with its date,
- * count and longest session, and pressing it opens that day's activities the
- * way the fitness strip does: one activity directly, several through the
- * day's picker.
+ * day with activities is a cell a finger can press, and pressing it opens that
+ * day's activities the way the fitness strip does: one activity directly,
+ * several through the day's picker. A screen reader meets none of those cells:
+ * it gets one adjustable element that steps through the active days, reads
+ * each with its date, count and longest session, and opens the day it holds.
  */
 
-import { act, fireEvent, render, renderHook, waitFor } from '@testing-library/react-native';
+import {
+  act,
+  fireEvent,
+  isHiddenFromAccessibility,
+  render,
+  renderHook,
+  waitFor,
+} from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 import { StyleSheet, Text } from 'react-native';
+import type { ReactTestInstance } from 'react-test-renderer';
 import { RangeCoverage } from 'veloqrs';
 
 import ChartDataSheet from '@/app/sheets/chart-data';
@@ -63,10 +72,20 @@ const BODIES: Record<string, string[]> = {
   [ONE_RIDE]: [body('ride-1', 'Valley ride', 'Ride', ONE_RIDE, 9, 65 * 60)],
 };
 
-const heatmapDays = jest.fn((_firstDay: string, _lastDay: string) => [
+const TWO_DAYS = [
   { date: TWO_RUNS, intensity: 1, maxDuration: 55 * 60, activityCount: 2 },
   { date: ONE_RIDE, intensity: 2, maxDuration: 65 * 60, activityCount: 1 },
-]);
+];
+
+/** Twenty active days, every third day back from yesterday. */
+const TWENTY_DAYS = Array.from({ length: 20 }, (_, i) => ({
+  date: localDay(NOW, -1 - 3 * i),
+  intensity: 1,
+  maxDuration: 30 * 60,
+  activityCount: 1,
+}));
+
+const heatmapDays = jest.fn((_firstDay: string, _lastDay: string) => TWO_DAYS);
 
 const engine = {
   subscribe: () => () => {},
@@ -90,6 +109,16 @@ function wrapper({ children }: { children: React.ReactNode }) {
 }
 
 const pushedRoutes = () => mockPush.mock.calls.map(([target]) => target);
+
+/** A day's cell, which a finger reaches and a screen reader does not. */
+const dayCell = (view: Awaited<ReturnType<typeof render>>, date: string) =>
+  view.getByTestId(`activity-heatmap-day-${date}`, { includeHiddenElements: true });
+
+const step = async (node: ReactTestInstance, actionName: string) => {
+  await act(async () => {
+    node.props.onAccessibilityAction({ nativeEvent: { actionName } });
+  });
+};
 
 async function renderHeatmap(props: { drawn?: boolean } = {}) {
   const view = await render(
@@ -150,21 +179,12 @@ describe('ActivityHeatmap labels', () => {
 });
 
 describe('ActivityHeatmap days', () => {
-  it('announces a day with its date, count and longest session', async () => {
+  it('leaves a day with no activity out of the cells', async () => {
     const view = await renderHeatmap();
 
-    const ride = view.getByTestId(`activity-heatmap-day-${ONE_RIDE}`);
-    expect(ride.props.accessibilityLabel).toBe('Jun 16, 2026, 1 activity, longest 1 h 5 min');
-    expect(ride.props.accessibilityRole).toBe('button');
-
-    const runs = view.getByTestId(`activity-heatmap-day-${TWO_RUNS}`);
-    expect(runs.props.accessibilityLabel).toBe('Jun 15, 2026, 2 activities, longest 55 min');
-  });
-
-  it('leaves a day with no activity out of the controls', async () => {
-    const view = await renderHeatmap();
-
-    expect(view.queryByTestId(`activity-heatmap-day-${EMPTY_DAY}`)).toBeNull();
+    expect(
+      view.queryByTestId(`activity-heatmap-day-${EMPTY_DAY}`, { includeHiddenElements: true })
+    ).toBeNull();
   });
 
   it('reads no activity until a day is pressed', async () => {
@@ -176,7 +196,7 @@ describe('ActivityHeatmap days', () => {
   it('opens the activity directly on a one-activity day', async () => {
     const view = await renderHeatmap();
 
-    await fireEvent.press(view.getByTestId(`activity-heatmap-day-${ONE_RIDE}`));
+    await fireEvent.press(dayCell(view, ONE_RIDE));
     await act(async () => {});
 
     expect(engine.getActivityBodies).toHaveBeenCalledWith(
@@ -189,7 +209,7 @@ describe('ActivityHeatmap days', () => {
   it('opens the day picker with both activities and then the chosen one', async () => {
     const view = await renderHeatmap();
 
-    void fireEvent.press(view.getByTestId(`activity-heatmap-day-${TWO_RUNS}`));
+    void fireEvent.press(dayCell(view, TWO_RUNS));
     await act(async () => {});
     const sheet = pushedRoutes()[0];
     expect(sheet.pathname).toBe('sheets/day-activities');
@@ -213,7 +233,80 @@ describe('ActivityHeatmap days', () => {
   it('mounts no day controls while the grid is held undrawn', async () => {
     const view = await renderHeatmap({ drawn: false });
 
-    expect(view.queryByTestId(`activity-heatmap-day-${ONE_RIDE}`)).toBeNull();
+    expect(
+      view.queryByTestId(`activity-heatmap-day-${ONE_RIDE}`, { includeHiddenElements: true })
+    ).toBeNull();
+    expect(view.queryByRole('adjustable')).toBeNull();
+  });
+});
+
+describe('ActivityHeatmap days for a screen reader', () => {
+  it('is one adjustable element over twenty active days, with no day cell of its own', async () => {
+    heatmapDays.mockReturnValueOnce(TWENTY_DAYS);
+    const view = await renderHeatmap();
+
+    expect(view.queryAllByRole('button', { name: /activity/ })).toHaveLength(0);
+    for (const day of TWENTY_DAYS) {
+      expect(isHiddenFromAccessibility(dayCell(view, day.date))).toBe(true);
+    }
+    const calendar = view.getAllByRole('adjustable');
+    expect(calendar).toHaveLength(1);
+    expect(calendar[0].props.accessibilityActions.map((a: { name: string }) => a.name)).toEqual(
+      expect.arrayContaining(['increment', 'decrement'])
+    );
+  });
+
+  it('holds the latest active day and reads its date, count and longest session', async () => {
+    const view = await renderHeatmap();
+
+    const calendar = view.getByRole('adjustable');
+    expect(calendar.props.accessibilityLabel).toBe('Activity calendar');
+    expect(calendar.props.accessibilityValue).toEqual({
+      text: 'Jun 16, 2026, 1 activity, longest 1 h 5 min',
+    });
+  });
+
+  it('steps back and forward through the active days and stops at either end', async () => {
+    const view = await renderHeatmap();
+    const value = () => view.getByRole('adjustable').props.accessibilityValue.text;
+
+    await step(view.getByRole('adjustable'), 'increment');
+    expect(value()).toBe('Jun 16, 2026, 1 activity, longest 1 h 5 min');
+
+    await step(view.getByRole('adjustable'), 'decrement');
+    expect(value()).toBe('Jun 15, 2026, 2 activities, longest 55 min');
+
+    await step(view.getByRole('adjustable'), 'decrement');
+    expect(value()).toBe('Jun 15, 2026, 2 activities, longest 55 min');
+
+    await step(view.getByRole('adjustable'), 'increment');
+    expect(value()).toBe('Jun 16, 2026, 1 activity, longest 1 h 5 min');
+  });
+
+  it('marks the day it holds on the grid', async () => {
+    const view = await renderHeatmap();
+
+    await step(view.getByRole('adjustable'), 'decrement');
+
+    const highlight = view.getByTestId('activity-heatmap-highlight', {
+      includeHiddenElements: true,
+    });
+    const cell = StyleSheet.flatten(dayCell(view, TWO_RUNS).props.style) as {
+      left: number;
+      top: number;
+    };
+    const mark = StyleSheet.flatten(highlight.props.style) as { left: number; top: number };
+    expect(mark.left - cell.left).toBe(mark.top - cell.top);
+    expect(Math.abs(mark.left - cell.left)).toBeLessThan(4);
+  });
+
+  it('opens the day it holds when activated', async () => {
+    const view = await renderHeatmap();
+
+    await step(view.getByRole('adjustable'), 'activate');
+    await act(async () => {});
+
+    expect(pushedRoutes()).toEqual(['/activity/ride-1']);
   });
 });
 
@@ -237,14 +330,14 @@ describe('ActivityHeatmap read without seeing it', () => {
     expect(table.getAllByTestId(/^chart-data-row-/)).toHaveLength(2);
   });
 
-  it('keeps each day a control of its own beside the plot', async () => {
+  it('keeps the day cells and the stepped days beside the plot', async () => {
     const view = await renderHeatmap();
 
+    const plot = view.getByTestId('activity-heatmap-plot');
     expect(
-      view
-        .getByTestId('activity-heatmap-plot')
-        .findAll((node) => node.props.testID === `activity-heatmap-day-${ONE_RIDE}`)
+      plot.findAll((node) => node.props.testID === `activity-heatmap-day-${ONE_RIDE}`)
     ).toHaveLength(0);
-    expect(view.getByTestId(`activity-heatmap-day-${ONE_RIDE}`)).toBeTruthy();
+    expect(plot.findAll((node) => node.props.accessibilityRole === 'adjustable')).toHaveLength(0);
+    expect(dayCell(view, ONE_RIDE)).toBeTruthy();
   });
 });

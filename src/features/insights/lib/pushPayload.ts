@@ -7,6 +7,8 @@
  * flat. The worker sends `{ event_type, athlete_id, activity_id }`.
  */
 
+import type { FitnessPlace } from '@/shared/app/fitnessEntry';
+
 export type PushPayloadShape = 'dataString' | 'body' | 'flat' | 'nested' | 'none';
 
 export interface PushEventPayload {
@@ -223,7 +225,8 @@ const DEVELOPER_ROUTES = /^(debug|detection-preview|route-grouping-preview)$/;
  * widget's own and passes. A link to the retired summary route is checked the
  * same way and sent to the activity. A link to the retired health tab, whose
  * cards and charts the fitness tab now holds under the same chart names, is
- * sent to fitness with its query.
+ * sent to fitness with its query and, unless it names a page, the calendar
+ * page. A chart it names still opens on the page that draws that chart.
  */
 export function openableSystemPath(
   path: string,
@@ -233,7 +236,11 @@ export function openableSystemPath(
   const route = path.replace(/^[a-z][a-z0-9+.-]*:\/\/(?:[^/]*\/--\/)?/i, '').replace(/^\/+/, '');
   const screen = route.replace(/[?#].*$/, '').replace(/\/+$/, '');
   const retiredHealth = /^training\/?(?:\?([^#]*))?(?:#.*)?$/.exec(route);
-  if (retiredHealth) return retiredHealth[1] ? `/fitness?${retiredHealth[1]}` : '/fitness';
+  if (retiredHealth) {
+    const query = new URLSearchParams(retiredHealth[1] ?? '');
+    if (!query.has('tab')) query.set('tab', 'calendar' satisfies FitnessPlace);
+    return `/fitness?${query.toString()}`;
+  }
   const link = /^(activity|summary)\/([^/?#]+)\/?(?:\?([^#]*))?(?:#.*)?$/.exec(route);
   if (!link) {
     if (ENTRY_ROUTES.some((entry) => entry.test(screen))) return path;

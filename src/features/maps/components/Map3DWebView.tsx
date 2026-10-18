@@ -11,7 +11,10 @@ import { addSectionCreation3DLayersScript } from '@/features/maps/lib/sectionCre
 import { AppState, View, StyleSheet, PixelRatio } from 'react-native';
 
 import { WebView } from 'react-native-webview';
-import { veloqWebViewNativeConfig, type WebViewHandle } from '@/features/maps/lib/veloqWebView';
+import {
+  veloqMap3DWebViewNativeConfig,
+  type WebViewHandle,
+} from '@/features/maps/lib/veloqWebView';
 import { mapPageBaseUrl } from '@/features/maps/lib/tileTransport';
 
 import { darkColors, mapPalette } from '@/theme';
@@ -34,10 +37,12 @@ import {
 } from '@/features/maps/lib/htmlBuilders';
 import type {
   LayerKey,
+  Map3DHtmlConfig,
   MapCameraSpec,
   MapPadding,
   UpdateLayersParams,
 } from '@/features/maps/lib/htmlBuilders';
+import { buildMap3DBuildScript, map3DPageRevision } from '@/features/maps/lib/htmlBuilders/map3D';
 import type { LngLatBounds } from '@/features/maps/lib/coordinates';
 import {
   buildReleaseMapScript,
@@ -498,6 +503,74 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       if (mapReadyRef.current) syncReduceMotion();
     }, [reduceMotion, syncReduceMotion]);
 
+    // What a page is built with, read when it is built, in `mapStyle`. A built
+    // page holds nothing yet, so this also resets what is known of the page.
+    const pageConfig = useCallback(
+      (mapStyle: MapStyleType): Map3DHtmlConfig => {
+        mapReadyRef.current = false;
+        pageStyleRef.current = mapStyle;
+        // A rebuilt page holds nothing, so the next update sends everything.
+        sentLayersRef.current = {};
+        // Built from what is selected now, not from what was when the page first
+        // mounted, so a rebuild for pitch or exaggeration keeps the selection.
+        pageRouteRef.current = {
+          coordinates: coordinatesRef.current,
+          color: routeColorRef.current,
+        };
+        drawnRouteRef.current = pageRouteRef.current;
+        drawnGradientRef.current = null;
+
+        // Use saved camera position if available (from previous style change),
+        // then fall back to initialCamera override (from parent), then to initial props.
+        const savedCamera = savedCameraRef.current ?? initialCameraRef.current;
+        pageCameraRef.current = savedCamera;
+        pageReduceMotionRef.current = reduceMotionRef.current;
+        const centerOverride = savedCamera
+          ? savedCamera.center
+          : (initialCenterRef.current ?? null);
+        const zoom = savedCamera ? savedCamera.zoom : (initialZoomRef.current ?? 12);
+        const bearing = savedCamera ? savedCamera.bearing : 0;
+        const pitch = savedCamera ? savedCamera.pitch : initialPitch;
+
+        return {
+          coordinates: coordinatesRef.current,
+          bounds: boundsRef.current,
+          centerOverride,
+          zoom,
+          bearing,
+          pitch,
+          hasSavedCamera: !!savedCamera,
+          terrainExaggeration,
+          // The style in effect when the page is built, so a rebuild after a
+          // basemap toggle does not come up in the first-mounted one. It is not a
+          // memo dependency because style changes go through setStyle() injection,
+          // not HTML regeneration.
+          initStyle: mapStyle,
+          mapStyle,
+          routeColor: routeColorRef.current,
+          showHeatmap: showHeatmapRef.current,
+          heatmapGeneration: heatmapGenerationRef.current,
+          devicePixelRatio: Math.min(PixelRatio.get(), 2), // Cap at 2x for 3D terrain
+          reduceMotion: pageReduceMotionRef.current,
+          fitPadding: fitPaddingRef.current,
+        };
+      },
+      [initialPitch, terrainExaggeration]
+    );
+
+    // A held page handed to this mount runs the document this mount would load,
+    // with its map released. Its map is built in place from what this mount
+    // shows now, and its ready message is taken as a reload's. One that runs
+    // another document is never handed over, so a revision that does not match
+    // is not built.
+    const adoptPage = useCallback(
+      (revision: unknown) => {
+        if (!webViewRef.current || revision !== map3DPageRevision()) return;
+        webViewRef.current.injectJavaScript(buildMap3DBuildScript(pageConfig(mapStyleRef.current)));
+      },
+      [pageConfig]
+    );
+
     const handleMessage = useMap3DBridge({
       mapReadyRef,
       savedCameraRef,
@@ -518,6 +591,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         webViewRef.current?.injectJavaScript(buildReleaseMapScript());
         return true;
       },
+      onPageAdopted: adoptPage,
       onNativeMapReleased: () => {
         const surface = registeredSurfaceRef.current;
         if (surface && markNativeReleasedSurface(surface) && AppState.currentState === 'active') {
@@ -815,58 +889,11 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       syncRoute();
     }, [coordinates, routeColor, routeGradient, bounds, syncRoute]);
 
-    // Use initial center/zoom when no coordinates provided
-
     // Generate the HTML for the WebView
     // IMPORTANT: Only depends on style-related props, NOT GeoJSON data
     // GeoJSON layers are updated dynamically via injectJavaScript
     const html = useMemo(() => {
-      // Reset map ready state when HTML regenerates
-      mapReadyRef.current = false;
-      pageStyleRef.current = mapStyle;
-      // A rebuilt page holds nothing, so the next update sends everything.
-      sentLayersRef.current = {};
-      // Built from what is selected now, not from what was when the page first
-      // mounted, so a rebuild for pitch or exaggeration keeps the selection.
-      pageRouteRef.current = {
-        coordinates: coordinatesRef.current,
-        color: routeColorRef.current,
-      };
-      drawnRouteRef.current = pageRouteRef.current;
-      drawnGradientRef.current = null;
-
-      // Use saved camera position if available (from previous style change),
-      // then fall back to initialCamera override (from parent), then to initial props.
-      const savedCamera = savedCameraRef.current ?? initialCameraRef.current;
-      pageCameraRef.current = savedCamera;
-      pageReduceMotionRef.current = reduceMotionRef.current;
-      const centerOverride = savedCamera ? savedCamera.center : (initialCenterRef.current ?? null);
-      const zoom = savedCamera ? savedCamera.zoom : (initialZoomRef.current ?? 12);
-      const bearing = savedCamera ? savedCamera.bearing : 0;
-      const pitch = savedCamera ? savedCamera.pitch : initialPitch;
-
-      return buildMap3DHtml({
-        coordinates: coordinatesRef.current,
-        bounds: boundsRef.current,
-        centerOverride,
-        zoom,
-        bearing,
-        pitch,
-        hasSavedCamera: !!savedCamera,
-        terrainExaggeration,
-        // The style in effect when the page is built, so a rebuild after a
-        // basemap toggle does not come up in the first-mounted one. It is not a
-        // memo dependency because style changes go through setStyle() injection,
-        // not HTML regeneration.
-        initStyle: mapStyle,
-        mapStyle,
-        routeColor: routeColorRef.current,
-        showHeatmap: showHeatmapRef.current,
-        heatmapGeneration: heatmapGenerationRef.current,
-        devicePixelRatio: Math.min(PixelRatio.get(), 2), // Cap at 2x for 3D terrain
-        reduceMotion: pageReduceMotionRef.current,
-        fitPadding: fitPaddingRef.current,
-      });
+      return buildMap3DHtml(pageConfig(mapStyle));
       // `mapStyle` is read above and deliberately not a dependency: it is
       // applied by setStyle() injection, and listing it here would regenerate
       // the whole HTML on every style change. `coordinates` and `bounds` come
@@ -878,7 +905,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       // listing it here reloaded the page and dropped the camera with it.
       // `pageEpoch` moves when a released map comes back at a new camera.
       // eslint-disable-next-line react-hooks/exhaustive-deps -- Style and geometry updates enter the existing page through injection.
-    }, [initialPitch, terrainExaggeration, pageEpoch]);
+    }, [pageConfig, pageEpoch]);
 
     return (
       <View style={styles.container} accessibilityIgnoresInvertColors>
@@ -900,7 +927,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
               showsHorizontalScrollIndicator={false}
               originWhitelist={['*']}
               mixedContentMode="always"
-              nativeConfig={veloqWebViewNativeConfig}
+              nativeConfig={veloqMap3DWebViewNativeConfig}
               onMessage={handleMessage}
               onError={handleWebViewError}
               onContentProcessDidTerminate={onRendererGone}

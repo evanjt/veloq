@@ -16,6 +16,7 @@ export type TaskRunStage =
   | 'ingested'
   | 'indexed'
   | 'notified'
+  | 'readied'
   | 'error';
 
 export interface TaskRunEntry {

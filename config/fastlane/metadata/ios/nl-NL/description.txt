@@ -21,6 +21,8 @@ Volg je vorm met CTL/ATL/TSB-tracking en visuele zones. Monitor HRV, rusthartsla
 Privacy
 Je trainingsgegevens blijven op je apparaat. Geen analyses, geen tracking. Optionele pushmeldingen slaan je intervals.icu-atleet-ID en een apparaattoken op onze server op, die na 30 dagen automatisch worden verwijderd. Open source onder Apache 2.0.
 
+Toegankelijkheid: schermlezerlabels op elk bedieningselement, tekst die de tekstgrootte van je systeem volgt en kleurcontrast volgens de AA-verhoudingen in het lichte en donkere thema.
+
 Ondersteunt fietsen, hardlopen, zwemmen en meer dan 20 activiteitstypen. Probeer de ingebouwde demomodus om te verkennen zonder account.
 
 Vereist een intervals.icu-account voor live gegevens. Niet gelieerd aan intervals.icu.

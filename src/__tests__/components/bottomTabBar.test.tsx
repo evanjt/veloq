@@ -8,12 +8,16 @@
  */
 
 import React from 'react';
-import { Platform } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 
 import { BottomTabBar } from '@/shared/ui/BottomTabBar';
+import { colorWithOpacity, colors, darkColors, opacity } from '@/theme';
+
+// A tab's glyph is decoration, hidden from the screen reader, so a query reaches it only here.
+const HIDDEN = { includeHiddenElements: true };
 
 jest.mock('expo-haptics', () => ({
   ...jest.requireActual('expo-haptics'),
@@ -24,19 +28,21 @@ jest.mock('expo-haptics', () => ({
 }));
 
 let mockSegments: string[] = ['(tabs)'];
+let mockPathname = '/';
+let mockIsDark = false;
 
 // The router refuses to navigate before an app root has rendered, and the bar renders alone.
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
   router: { navigate: jest.fn() },
-  usePathname: () => '/',
+  usePathname: () => mockPathname,
   useSegments: () => mockSegments,
 }));
 
 const authState = { isAuthenticated: false, isDemoMode: false };
 
 jest.mock('@/shared/app', () => ({
-  useTheme: () => ({ isDark: false }),
+  useTheme: () => ({ isDark: mockIsDark, preferOpaqueChrome: false }),
 }));
 
 jest.mock('@/shared/app/AuthStore', () => ({
@@ -55,6 +61,8 @@ describe('BottomTabBar', () => {
     authState.isAuthenticated = false;
     authState.isDemoMode = false;
     mockSegments = ['(tabs)'];
+    mockPathname = '/';
+    mockIsDark = false;
     jest.clearAllMocks();
   });
 
@@ -147,5 +155,128 @@ describe('BottomTabBar', () => {
     } finally {
       Platform.OS = originalOS;
     }
+  });
+
+  describe('the bar itself', () => {
+    const TABS = [
+      { key: 'feed', path: '/' },
+      { key: 'fitness', path: '/fitness' },
+      { key: 'map', path: '/map' },
+      { key: 'insights', path: '/insights' },
+      { key: 'settingsTab', path: '/settings' },
+    ] as const;
+    const THEMES = [
+      { name: 'light', isDark: false, palette: colors },
+      { name: 'dark', isDark: true, palette: darkColors },
+    ] as const;
+    const originalOS = Platform.OS;
+
+    beforeEach(() => {
+      authState.isAuthenticated = true;
+    });
+
+    afterEach(() => {
+      Platform.OS = originalOS;
+    });
+
+    async function glyph(key: string) {
+      const { UNSAFE_getByProps } = await render(<BottomTabBar />);
+      return UNSAFE_getByProps({ testID: `bottom-tab-${key}-glyph` }).props;
+    }
+
+    it.each(THEMES)(
+      'draws on an opaque surface with a hairline and no fade in $name',
+      async (theme) => {
+        mockIsDark = theme.isDark;
+        const { getByTestId, queryByTestId } = await render(<BottomTabBar />);
+
+        expect(queryByTestId('bottom-tab-bar-gradient')).toBeNull();
+        const surface = StyleSheet.flatten(getByTestId('bottom-tab-bar-surface').props.style);
+        expect(surface.backgroundColor).toBe(theme.palette.surface);
+        expect(surface.borderTopColor).toBe(theme.palette.border);
+        expect(surface.borderTopWidth).toBeGreaterThan(0);
+      }
+    );
+
+    it.each(TABS)('fills the $key glyph when selected and outlines it when not', async (tab) => {
+      mockPathname = tab.path;
+      const selected = (await glyph(tab.key)).name;
+      mockPathname = tab.path === '/' ? '/map' : '/';
+      const unselected = (await glyph(tab.key)).name;
+
+      expect(selected).not.toBe(unselected);
+      expect(unselected).toMatch(/-outline$/);
+      expect(`${selected}-outline`).toBe(unselected);
+    });
+
+    it.each(THEMES)(
+      'draws the selected glyph in controlOn and the others in iconSecondary in $name',
+      async (theme) => {
+        Platform.OS = 'ios';
+        mockIsDark = theme.isDark;
+
+        expect((await glyph('feed')).color).toBe(theme.palette.controlOn);
+        expect((await glyph('fitness')).color).toBe(theme.palette.iconSecondary);
+      }
+    );
+
+    it.each(THEMES)(
+      'draws the selected label in textPrimary and the others in textSecondary in $name',
+      async (theme) => {
+        mockIsDark = theme.isDark;
+        const { getByText } = await render(<BottomTabBar />);
+
+        expect(StyleSheet.flatten(getByText('navigation.feed').props.style).color).toBe(
+          theme.palette.textPrimary
+        );
+        expect(StyleSheet.flatten(getByText('navigation.fitness').props.style).color).toBe(
+          theme.palette.textSecondary
+        );
+      }
+    );
+
+    it('shrinks a long label to a 0.8 floor on one line rather than cutting it off', async () => {
+      const { getByText } = await render(<BottomTabBar />);
+      const label = getByText('navigation.fitness').props;
+
+      expect(label.numberOfLines).toBe(1);
+      expect(label.adjustsFontSizeToFit).toBe(true);
+      expect(label.minimumFontScale).toBe(0.8);
+    });
+
+    it('draws no indicator on iOS', async () => {
+      Platform.OS = 'ios';
+      const { queryAllByTestId } = await render(<BottomTabBar />);
+
+      expect(queryAllByTestId(/^bottom-tab-.*-indicator$/, HIDDEN)).toHaveLength(0);
+    });
+
+    it.each(THEMES)(
+      'puts the Android indicator behind the selected tab only, in $name',
+      async (theme) => {
+        Platform.OS = 'android';
+        mockIsDark = theme.isDark;
+        mockPathname = '/insights';
+        const { getAllByTestId, UNSAFE_getByProps } = await render(<BottomTabBar />);
+
+        const indicators = getAllByTestId(/^bottom-tab-.*-indicator$/, HIDDEN);
+        expect(indicators.map((node) => node.props.testID)).toEqual([
+          'bottom-tab-insights-indicator',
+        ]);
+        const style = StyleSheet.flatten(indicators[0].props.style);
+        expect(style.width).toBe(56);
+        expect(style.height).toBe(28);
+        expect(style.borderRadius).toBeGreaterThanOrEqual(14);
+        expect(style.backgroundColor).toBe(
+          colorWithOpacity(theme.palette.controlOn, opacity.tint3)
+        );
+        expect(UNSAFE_getByProps({ testID: 'bottom-tab-insights-glyph' }).props.color).toBe(
+          theme.isDark ? theme.palette.textPrimary : theme.palette.controlOn
+        );
+        expect(UNSAFE_getByProps({ testID: 'bottom-tab-feed-glyph' }).props.color).toBe(
+          theme.palette.iconSecondary
+        );
+      }
+    );
   });
 });

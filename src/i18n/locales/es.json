@@ -137,7 +137,7 @@
     "zoneMaxFromSettings": "Máx. de zonas {{value}} lpm, ajustes del deporte",
     "zoneMaxDefault": "Sin FC máx. definida, las zonas suponen {{value}} lpm",
     "zoneMaxDefaultHint": "Define tu FC máx. en los ajustes del deporte de intervals.icu",
-    "prDelta": "+{{delta}} sobre el PR",
+    "prBadge": "MP",
     "chartAverage": "media",
     "chartGain": "desnivel",
     "gainStat": "↑ {{value}}"

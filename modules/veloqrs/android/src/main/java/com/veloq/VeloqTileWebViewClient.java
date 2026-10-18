@@ -14,10 +14,11 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Serves basemap tiles straight out of the Rust-owned store, and lets Rust
- * fetch and keep the tile when the store does not have it, answering the page
- * at once with a body that follows. Serves the map renderer, the sprite and
- * glyphs out of the app's assets, and GeoJSON Rust writes from what it stores.
+ * Serves heatmap tiles out of what Rust has drawn, the map renderer, the
+ * sprite and glyphs out of the app's assets, and GeoJSON Rust writes from what
+ * it stores. Basemap tiles are not answered here: a miss would hold this
+ * client's thread while the host is asked, so the page fetches them from the
+ * engine's loopback listener.
  *
  * <p>Android calls this on a background thread with no JavaScript context, so
  * the only route into Rust is {@link TileBridge}, which this module owns.

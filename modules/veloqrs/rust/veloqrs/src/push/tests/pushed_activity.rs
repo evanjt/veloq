@@ -559,3 +559,204 @@ fn a_push_then_a_sync_leaves_the_library_the_sync_alone_would() {
     }
     crate::objects::clear_test_credentials();
 }
+
+/// How many times the feed's channel was announced to `recorder`.
+fn activities_announced(recorder: &crate::objects::observer::recorder::Recorder) -> usize {
+    recorder
+        .events()
+        .iter()
+        .filter(|event| *event == "activities_stored")
+        .count()
+}
+
+/// Scenario: the app is alive when the push runs in its process, so the feed
+/// already read its list before the ride existed.
+///
+/// Expected behaviour: the push announces the stored ride on the feed's
+/// channel, as a sync does once its rows are committed, so the list reads it
+/// again rather than waiting for the next sync.
+#[test]
+fn a_stored_push_tells_the_feed_its_list_changed() {
+    use crate::objects::observer::{recorder::Recorder, set_observer};
+
+    let _guard = serial_global_state();
+    let _tmp = signed_in_library("pushed-announced.db");
+    let server = MockServer::start();
+    let _base = crate::objects::sync::test_base_url(server.base_url());
+    let shape = &shapes()[0];
+    let _served = serve(&server, shape, "2026-09-17T09:05:00Z");
+    let recorder = Recorder::new();
+    set_observer(Some(recorder.clone()));
+
+    push(shape.id);
+
+    set_observer(None);
+    let events = recorder.events();
+    assert_eq!(activities_announced(&recorder), 1, "{events:?}");
+    assert_eq!(
+        events.last().map(String::as_str),
+        Some("activities_stored"),
+        "the feed was told before the ride's bodies and index landed: {events:?}"
+    );
+    crate::objects::clear_test_credentials();
+}
+
+/// Scenario: the library changed owner under the push, so nothing of the ride
+/// was written.
+///
+/// Expected behaviour: the feed is not told anything landed.
+#[test]
+fn a_dropped_push_tells_the_feed_nothing() {
+    use crate::objects::observer::{recorder::Recorder, set_observer};
+
+    let _guard = serial_global_state();
+    let _tmp = signed_in_library("pushed-dropped.db");
+    crate::persistence::with_persistent_engine(|engine| {
+        engine
+            .set_setting(crate::persistence::settings_keys::ATHLETE_ID, "i7")
+            .expect("another owner");
+    })
+    .expect("the engine");
+    let server = MockServer::start();
+    let _base = crate::objects::sync::test_base_url(server.base_url());
+    let shape = &shapes()[0];
+    let _served = serve(&server, shape, "2026-09-17T09:05:00Z");
+    let recorder = Recorder::new();
+    set_observer(Some(recorder.clone()));
+
+    let run = activity_push_run(
+        crate::persistence::engine_install(),
+        shape.id,
+        ATHLETE,
+        false,
+        false,
+    )
+    .expect("the push ran");
+
+    set_observer(None);
+    assert!(
+        run.is_none(),
+        "the push wrote into another athlete's library"
+    );
+    assert_eq!(
+        activities_announced(&recorder),
+        0,
+        "{:?}",
+        recorder.events()
+    );
+    crate::objects::clear_test_credentials();
+}
+
+/// Scenario: the athlete turned notifications off, so the push stops at the
+/// gate and fetches nothing.
+///
+/// Expected behaviour: the feed is not told anything landed.
+#[test]
+fn a_gated_push_tells_the_feed_nothing() {
+    use crate::objects::observer::{recorder::Recorder, set_observer};
+
+    let _guard = serial_global_state();
+    let _tmp = signed_in_library("pushed-gated.db");
+    let server = MockServer::start();
+    let _base = crate::objects::sync::test_base_url(server.base_url());
+    let shape = &shapes()[0];
+    let served = serve(&server, shape, "2026-09-17T09:05:00Z");
+    let recorder = Recorder::new();
+    set_observer(Some(recorder.clone()));
+
+    let answer = activity_push_json(shape.id, ATHLETE).expect("the push ran");
+
+    set_observer(None);
+    assert!(answer.is_none(), "a gated push answered {answer:?}");
+    assert_eq!(served[0].calls(), 0, "a gated push fetched the detail");
+    assert_eq!(
+        activities_announced(&recorder),
+        0,
+        "{:?}",
+        recorder.events()
+    );
+    crate::objects::clear_test_credentials();
+}
+
+/// The route a ride over `coords(30)` joins: three earlier rides over the same
+/// track, grouped and settled, each slower than the ride the test pushes.
+fn grouped_route_of_three() {
+    use tracematch::GpsPoint;
+    let (lat, lng) = coords(30);
+    let track: Vec<GpsPoint> = lat
+        .iter()
+        .zip(&lng)
+        .map(|(la, ln)| GpsPoint::new(la.as_f64().unwrap(), ln.as_f64().unwrap()))
+        .collect();
+    crate::persistence::with_persistent_engine(|engine| {
+        engine
+            .set_notification_templates("en-AU", &super::tests::bundle())
+            .expect("the bundle");
+        let mut rows = Vec::new();
+        for (n, id) in ["i801", "i802", "i803"].into_iter().enumerate() {
+            engine
+                .add_activity(id.to_string(), track.clone(), "Ride".to_string())
+                .expect("the earlier ride");
+            rows.push(crate::ActivityMetrics {
+                activity_id: id.to_string(),
+                name: format!("Earlier ride {n}"),
+                date: 1_757_000_000 + n as i64 * 86_400,
+                distance: 30000.5,
+                moving_time: 4000 + n as u32 * 100,
+                elapsed_time: 4100 + n as u32 * 100,
+                elevation_gain: 0.0,
+                avg_hr: None,
+                avg_power: None,
+                sport_type: "Ride".to_string(),
+                training_load: None,
+                ftp: None,
+                power_zone_times: None,
+                hr_zone_times: None,
+            });
+        }
+        engine.set_activity_metrics(rows).expect("the metrics");
+        let groups = engine.get_groups().to_vec();
+        assert_eq!(groups.len(), 1, "the earlier rides form one route");
+        assert!(!engine.groups_are_dirty());
+    })
+    .expect("the engine");
+}
+
+/// Scenario: a new ride over a route the athlete has ridden three times,
+/// faster than every one of them. The push stores it, indexes it and reads the
+/// ladder, and the ride joins the route only when a regroup commits.
+///
+/// Expected behaviour: the sentence is the route PR, read once the ride's
+/// route membership has settled rather than before the regroup that settles
+/// it has committed.
+#[test]
+fn a_new_ride_faster_than_every_earlier_one_on_its_route_is_announced_as_a_route_pr() {
+    let _guard = serial_global_state();
+    let _tmp = signed_in_library("pushed-route-pr.db");
+    grouped_route_of_three();
+    let server = MockServer::start();
+    let _base = crate::objects::sync::test_base_url(server.base_url());
+    let shape = Shape {
+        label: "a ride over the route",
+        id: "i804",
+        sport: "Ride",
+        stream_types: vec!["time", "latlng", "altitude", "distance"],
+        streams: Some(track_streams(30, &[])),
+        intervals: Some(no_intervals()),
+    };
+    let _served = serve(&server, &shape, "2026-09-17T09:05:00Z");
+
+    let run = activity_push_run(
+        crate::persistence::engine_install(),
+        shape.id,
+        ATHLETE,
+        true,
+        false,
+    )
+    .expect("the push ran")
+    .expect("the library it started in");
+
+    let sentence = run.map_err(|quiet| quiet.outcome).expect("a sentence");
+    assert!(sentence.contains("Route PR"), "{sentence}");
+    crate::objects::clear_test_credentials();
+}

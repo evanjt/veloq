@@ -103,17 +103,13 @@ describe('a camera number written into the 3D map page', () => {
     const html = buildMap3DHtml(map3DConfig({ zoom: HOSTILE, bearing: HOSTILE, pitch: HOSTILE }));
 
     expect(html).not.toContain('__injected');
-    expect(html).toContain('const savedZoom = 12;');
-    expect(html).toContain('const savedBearing = 0;');
-    expect(html).toContain('const savedPitch = 0;');
+    expect(html).toMatch(/\n\s*zoom: 12,\n\s*bearing: 0,\n\s*pitch: 0,\n/);
   });
 
   it('writes a valid camera through unchanged', () => {
     const html = buildMap3DHtml(map3DConfig({ zoom: 13.25, bearing: 210, pitch: 60 }));
 
-    expect(html).toContain('const savedZoom = 13.25;');
-    expect(html).toContain('const savedBearing = 210;');
-    expect(html).toContain('const savedPitch = 60;');
+    expect(html).toMatch(/\n\s*zoom: 13\.25,\n\s*bearing: 210,\n\s*pitch: 60,\n/);
   });
 });
 

@@ -9,28 +9,23 @@ package com.veloq;
  * generates for JSI. The symbol below is exported by libveloqrs.so directly.
  *
  * <p>A tile never waits on a tile host here: the caller is the WebView's own
- * small pool, which a held thread starves. A glyph range still waits, since
- * one is fetched only for a script the app does not bundle.
+ * small pool, which a held thread starves, so basemap tiles go to the engine's
+ * loopback listener and only the heatmap is answered here. A glyph range still
+ * waits, since one is fetched only for a script the app does not bundle.
  */
 public final class TileBridge {
   private static volatile boolean loaded = false;
 
   private TileBridge() {}
 
-  /** What {@code status[0]} reads when the bytes are on their way. Kept equal to the engine's. */
-  public static final int PENDING = 202;
-
   /**
-   * Bytes for one tile already held, or null when there are none to hand over yet.
-   * {@code status[0]} is set to what the page is answered with: 200 with the bytes, and
-   * without them 404 for a refusal, 429 or 503 when the tile host asked to be left alone,
-   * 502 when it failed, and {@link #PENDING} when the host is being asked and
-   * {@code pending} will be completed or failed from the engine's runtime.
+   * Bytes for one tile already held, or null when there are none. {@code status[0]} is set
+   * to what the page is answered with: 200 with the bytes, and without them 404 for a
+   * refusal or a tile not held, and 429 or 503 when the tile host asked to be left alone.
    */
-  public static byte[] answer(
-      String source, int z, int x, int y, int[] status, PendingTile pending) {
+  public static byte[] answer(String source, int z, int x, int y, int[] status) {
     load();
-    return nativeAnswer(source, z, x, y, status, pending);
+    return nativeAnswer(source, z, x, y, status);
   }
 
   /**
@@ -65,8 +60,7 @@ public final class TileBridge {
     }
   }
 
-  private static native byte[] nativeAnswer(
-      String source, int z, int x, int y, int[] status, PendingTile pending);
+  private static native byte[] nativeAnswer(String source, int z, int x, int y, int[] status);
 
   private static native byte[] nativeGetGlyph(String fontstack, String range, int[] status);
 

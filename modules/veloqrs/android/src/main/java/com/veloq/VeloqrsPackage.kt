@@ -20,9 +20,10 @@ class VeloqrsPackage : TurboReactPackage() {
 
   // Not generated. The map's tile interceptor is a WebViewClient, and only a
   // view manager of ours can attach it, so it is registered beside TileBridge
-  // rather than in a module of its own.
+  // rather than in a module of its own. The 3D map has a manager of its own,
+  // which keeps its last dropped page for the next 3D mount.
   override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> {
-    return listOf(VeloqWebViewManager())
+    return listOf(VeloqWebViewManager(), VeloqMap3DWebViewManager())
   }
 
   override fun getReactModuleInfoProvider(): ReactModuleInfoProvider {

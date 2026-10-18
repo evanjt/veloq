@@ -11,10 +11,10 @@ import { TipButtons } from '@/shared/ui/TipButtons';
 import { RowDivider } from '@/shared/ui/RowGroup';
 import {
   GITHUB_ISSUES_URL,
-  GITHUB_SPONSORS_URL,
   openForum,
   openStorePage,
   offerCrashLog,
+  outsideTipUrl,
 } from '@/shared/app/supportLinks';
 import { colors, darkColors, iconSize, layout, spacing, typography, themePalette } from '@/theme';
 import { Button, Card, ExternalLinkRow, ListSectionHeader, PressTarget } from '@/shared/ui';
@@ -25,6 +25,10 @@ export function SupportSection() {
   const palette = themePalette(isDark);
   const { t } = useTranslation();
   const { products, isAvailable, isPurchasing, purchaseSuccess, purchase } = useDonation();
+
+  const sponsorUrl = outsideTipUrl();
+  // The thank-you stays in the row a store tip just opened.
+  const offersTip = isAvailable || purchaseSuccess || sponsorUrl !== null;
 
   const crashLogAnchor = useRef<ViewInstance>(null);
   const handleShareCrashLog = useCallback(() => offerCrashLog(t, crashLogAnchor), [t]);
@@ -76,38 +80,42 @@ export function SupportSection() {
             <RowDivider inset="none" />
           </View>
 
-          {/* Tips */}
-          <View style={styles.row}>
-            <Icon name="wrench-outline" size={iconSize.md} color={palette.actionPrimary} />
-            <Text style={[styles.rowText, { color: textColor }]}>
-              {purchaseSuccess ? t('support.thankYou') : t('support.tipTitle')}
-            </Text>
-          </View>
-          {!purchaseSuccess &&
-            (isAvailable ? (
-              <View testID="support-tip-buttons" style={styles.tipContent}>
-                <TipButtons
-                  products={products}
-                  isPurchasing={isPurchasing}
-                  onTip={(id) => purchase(id)}
-                />
+          {offersTip ? (
+            <>
+              {/* Tips */}
+              <View style={styles.row}>
+                <Icon name="wrench-outline" size={iconSize.md} color={palette.actionPrimary} />
+                <Text style={[styles.rowText, { color: textColor }]}>
+                  {purchaseSuccess ? t('support.thankYou') : t('support.tipTitle')}
+                </Text>
               </View>
-            ) : (
-              <Button
-                testID="support-sponsor-button"
-                label={t('support.sponsorGitHub')}
-                onPress={() => {
-                  void openExternal(GITHUB_SPONSORS_URL);
-                }}
-                variant="secondary"
-                size="sm"
-                icon="github"
-              />
-            ))}
+              {!purchaseSuccess &&
+                (isAvailable ? (
+                  <View testID="support-tip-buttons" style={styles.tipContent}>
+                    <TipButtons
+                      products={products}
+                      isPurchasing={isPurchasing}
+                      onTip={(id) => purchase(id)}
+                    />
+                  </View>
+                ) : (
+                  <Button
+                    testID="support-sponsor-button"
+                    label={t('support.sponsorGitHub')}
+                    onPress={() => {
+                      if (sponsorUrl) void openExternal(sponsorUrl);
+                    }}
+                    variant="secondary"
+                    size="sm"
+                    icon="github"
+                  />
+                ))}
 
-          <View style={styles.dividerGap}>
-            <RowDivider inset="none" />
-          </View>
+              <View style={styles.dividerGap}>
+                <RowDivider inset="none" />
+              </View>
+            </>
+          ) : null}
 
           {/* intervals.icu row */}
           {/* The card's own padding is the row's inset, so the row runs to its edges. */}

@@ -16,7 +16,7 @@ import { changeLanguage, i18n, initialiseI18n } from '@/i18n';
 import { ComponentErrorBoundary } from '@/shared/ui/ComponentErrorBoundary';
 import { StartupErrorBanner } from '@/shared/ui/StartupErrorBanner';
 import { intervalTypeLabel } from '@/features/activity/lib/intervalTypeLabel';
-import { formatPrDelta } from '@/shared/format/format';
+import { formatPrGap } from '@/shared/format/format';
 import { recordBoundaryCrash } from '@/shared/debug/boundaryCrash';
 import { IntervalKind } from 'veloqrs';
 
@@ -152,11 +152,11 @@ describe('interval type words', () => {
 });
 
 describe('the route PR badge', () => {
-  it('builds its words in French', async () => {
+  it('reads the record in the French abbreviation and the gap in French units', async () => {
     await changeLanguage('fr');
 
-    expect(formatPrDelta(12)).not.toMatch(/^PR\+/);
-    expect(formatPrDelta(12)).toContain('12');
-    expect(formatPrDelta(72)).toContain('1:12');
+    expect(i18n.t('activity.prBadge')).toBe('RP');
+    expect(formatPrGap(12)).toBe(`+${i18n.t('units.secondsValue', { value: 12 })}`);
+    expect(formatPrGap(72)).toBe('+1:12');
   });
 });

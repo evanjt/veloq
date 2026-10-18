@@ -10,9 +10,9 @@ import { useSupportStore } from '@/shared/app/SupportStore';
 import { useDaysOfUse, useSessionAsk } from '@/features/settings';
 import {
   GITHUB_ISSUES_URL,
-  GITHUB_SPONSORS_URL,
   openForum,
   openStorePage,
+  outsideTipUrl,
 } from '@/shared/app/supportLinks';
 import { useDonation } from '@/shared/app/useDonation';
 import {
@@ -68,6 +68,9 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
   const { products, isAvailable, isPurchasing, purchaseSuccess, purchase } = useDonation();
 
   const [tipsExpanded, setTipsExpanded] = useState(false);
+  const sponsorUrl = outsideTipUrl();
+  // With no store tips and no outside link the panel would open on nothing.
+  const offersTip = isAvailable || sponsorUrl !== null;
   // Past the large-text cap the two dismiss labels cannot share a row, so they
   // stack and the dot between them goes.
   const stackDismiss = useLargeText();
@@ -97,9 +100,10 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
   );
 
   const handleSponsor = useCallback(() => {
-    void openExternal(GITHUB_SPONSORS_URL);
+    if (!sponsorUrl) return;
+    void openExternal(sponsorUrl);
     recordAction();
-  }, [recordAction]);
+  }, [sponsorUrl, recordAction]);
 
   const handleRemindLater = useCallback(() => {
     remindLater();
@@ -161,42 +165,46 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
           />
         </View>
 
-        <PressTarget
-          testID="support-card-tip-toggle"
-          onPress={toggleTips}
-          accessibilityRole="button"
-          accessibilityLabel={t('support.supportDevelopment')}
-          accessibilityState={{ expanded: tipsExpanded }}
-          style={styles.tipToggle}
-        >
-          <Icon name="wrench-outline" size={iconSize.sm} color={mutedColor} />
-          <Text style={[styles.tipToggleText, { color: mutedColor }]}>
-            {t('support.supportDevelopment')}
-          </Text>
-          <DisclosureChevron expanded={tipsExpanded} size={iconSize.sm} color={mutedColor} />
-        </PressTarget>
+        {offersTip ? (
+          <>
+            <PressTarget
+              testID="support-card-tip-toggle"
+              onPress={toggleTips}
+              accessibilityRole="button"
+              accessibilityLabel={t('support.supportDevelopment')}
+              accessibilityState={{ expanded: tipsExpanded }}
+              style={styles.tipToggle}
+            >
+              <Icon name="wrench-outline" size={iconSize.sm} color={mutedColor} />
+              <Text style={[styles.tipToggleText, { color: mutedColor }]}>
+                {t('support.supportDevelopment')}
+              </Text>
+              <DisclosureChevron expanded={tipsExpanded} size={iconSize.sm} color={mutedColor} />
+            </PressTarget>
 
-        {/* Mounted only while open: the panel is as tall as its buttons at any text
-            size, and a collapsed one leaves no purchase button for a screen reader. */}
-        {tipsExpanded ? (
-          <Animated.View
-            entering={FadeIn.duration(duration.standard)}
-            exiting={FadeOut.duration(duration.quick)}
-          >
-            {isAvailable ? (
-              <View testID="support-card-tip-buttons">
-                <TipButtons products={products} isPurchasing={isPurchasing} onTip={handleTip} />
-              </View>
-            ) : (
-              <Button
-                testID="support-card-sponsor-button"
-                onPress={handleSponsor}
-                label={t('support.sponsorGitHub')}
-                variant="secondary"
-                icon="github"
-              />
-            )}
-          </Animated.View>
+            {/* Mounted only while open: the panel is as tall as its buttons at any text
+                size, and a collapsed one leaves no purchase button for a screen reader. */}
+            {tipsExpanded ? (
+              <Animated.View
+                entering={FadeIn.duration(duration.standard)}
+                exiting={FadeOut.duration(duration.quick)}
+              >
+                {isAvailable ? (
+                  <View testID="support-card-tip-buttons">
+                    <TipButtons products={products} isPurchasing={isPurchasing} onTip={handleTip} />
+                  </View>
+                ) : (
+                  <Button
+                    testID="support-card-sponsor-button"
+                    onPress={handleSponsor}
+                    label={t('support.sponsorGitHub')}
+                    variant="secondary"
+                    icon="github"
+                  />
+                )}
+              </Animated.View>
+            ) : null}
+          </>
         ) : null}
 
         <Animated.View

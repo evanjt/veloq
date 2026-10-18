@@ -82,6 +82,26 @@ describe('unsupportedClaimsIn', () => {
     ).toEqual([]);
   });
 
+  it('refuses a conformance claim to an accessibility standard', () => {
+    expect(unsupportedClaimsIn('Meets WCAG 2.2 AA for every screen.')).toEqual([
+      'accessibility conformance',
+    ]);
+    expect(unsupportedClaimsIn('Conforme à la norme EN 301 549.')).toEqual([
+      'accessibility conformance',
+    ]);
+    expect(unsupportedClaimsIn('Vollständig barrierefrei.')).toEqual(['accessibility conformance']);
+    expect(unsupportedClaimsIn('完全无障碍')).toEqual(['accessibility conformance']);
+  });
+
+  it('accepts a sentence naming the accessibility the app supports', () => {
+    expect(
+      unsupportedClaimsIn(
+        'Accessibility: screen reader labels on every control, text that follows your ' +
+          'system text size, and colour contrast to the AA ratios in light and dark themes.'
+      )
+    ).toEqual([]);
+  });
+
   it('finds no unsupported claim in any store description', () => {
     const claims = validateMetadata().filter((e) => e.type === 'unsupported_claim');
     expect(claims.map((e) => e.message)).toEqual([]);

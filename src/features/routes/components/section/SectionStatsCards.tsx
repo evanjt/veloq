@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { getIntlLocale } from '@/shared/format/format';
 import { formatAttemptFigure, type AttemptBasis } from '@/features/routes/lib/attemptBasis';
 import { colors, darkColors, iconSize, spacing, themePalette, typography } from '@/theme';
-import { Button, Card, CardHeader, DisclosureChevron, PressTarget } from '@/shared/ui';
+import { Card, CardHeader, DisclosureChevron, IconButton, PressTarget } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { navigateTo } from '@/shared/app/navigation';
 import { directionColour } from '@/features/routes/lib/directionColour';
@@ -250,6 +250,7 @@ export function SectionStatsCards({
                                   size={iconSize.xs}
                                 />
                                 <Text
+                                  testID="calendar-month-time"
                                   style={[
                                     styles.calendarMonthTime,
                                     isDark && styles.textLight,
@@ -264,6 +265,13 @@ export function SectionStatsCards({
                                 {isMonthFwdOverallPr ? (
                                   <Text style={[styles.prTag, isDark && styles.prTagDark]}>
                                     {t('sections.legendPr')}
+                                  </Text>
+                                ) : null}
+                                {onSetAsReference && fwd.bestActivityId === referenceActivityId ? (
+                                  <Text
+                                    style={[styles.referenceTag, isDark && styles.textSecondary]}
+                                  >
+                                    {t('sections.legendReference')}
                                   </Text>
                                 ) : null}
                               </PressTarget>
@@ -289,6 +297,7 @@ export function SectionStatsCards({
                                   size={iconSize.xs}
                                 />
                                 <Text
+                                  testID="calendar-month-time"
                                   style={[
                                     styles.calendarMonthTime,
                                     isDark && styles.textLight,
@@ -303,6 +312,13 @@ export function SectionStatsCards({
                                 {isMonthRevOverallPr ? (
                                   <Text style={[styles.prTag, isDark && styles.prTagDark]}>
                                     {t('sections.legendPr')}
+                                  </Text>
+                                ) : null}
+                                {onSetAsReference && rev.bestActivityId === referenceActivityId ? (
+                                  <Text
+                                    style={[styles.referenceTag, isDark && styles.textSecondary]}
+                                  >
+                                    {t('sections.legendReference')}
                                   </Text>
                                 ) : null}
                               </PressTarget>
@@ -332,18 +348,24 @@ interface ReferenceStarProps {
   onPress: () => void;
 }
 
-/** The reference attempt says so; any other best offers to become it. */
+/**
+ * The reference attempt's star is filled, any other best's is an outline that
+ * offers to become it. Icon-only in the small square, so the month's time
+ * keeps the width; the row's text tag and the label say which it is.
+ */
 function ReferenceStar({ isReference, onPress }: ReferenceStarProps) {
   const { t } = useTranslation();
   return (
-    <Button
+    <IconButton
       testID="calendar-reference-button"
-      label={isReference ? t('sections.legendReference') : t('sections.setAsReference')}
-      variant="ghost"
-      size="sm"
-      icon={isReference ? 'star' : 'star-outline'}
+      accessibilityLabel={
+        isReference ? t('sections.legendReference') : t('sections.setAsReference')
+      }
+      compact
       onPress={onPress}
-    />
+    >
+      <IconButton.Glyph name={isReference ? 'star' : 'star-outline'} size={iconSize.sm} />
+    </IconButton>
   );
 }
 
@@ -418,10 +440,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
   },
+  // The time fills the entry but never shrinks below its own width; the tags
+  // after it give way first.
   calendarMonthTime: {
     ...typography.bodySmall,
     color: colors.textPrimary,
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 0,
   },
   calendarMonthTimeBest: {
     ...typography.bodySmallBold,
@@ -435,5 +460,10 @@ const styles = StyleSheet.create({
   },
   prTagDark: {
     color: darkColors.achievementText,
+  },
+  referenceTag: {
+    ...typography.captionBold,
+    color: colors.textSecondary,
+    flexShrink: 1,
   },
 });

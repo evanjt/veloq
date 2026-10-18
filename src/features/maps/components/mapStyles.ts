@@ -1,7 +1,7 @@
 // Shared map style definitions and constants
 // All sources are commercially licensed (MIT, BSD, OGD, CC BY, Public Domain)
 
-import { mapPageBaseUrl, nativeTileUrl } from '@/features/maps/lib/tileTransport';
+import { mapPageBaseUrl, nativeTileUrls } from '@/features/maps/lib/tileTransport';
 import { TERRAIN_UPSTREAM_TEMPLATE } from '@/features/maps/lib/terrainTemplate';
 import { LIBERTY_STYLE } from '@/features/maps/styles/liberty';
 import { NATURAL_EARTH_ORIGIN } from '@/features/maps/styles/liberty/sources';
@@ -660,8 +660,8 @@ export function getCombinedSatelliteAttribution(
 /**
  * Point every satellite raster at the tile store.
  *
- * Each source's upstream template goes to Rust once and the page asks for an
- * intercepted URL, so the store answers a hit and fills a miss without the page
+ * Each source's upstream template goes to Rust once and the page asks the
+ * store's own URLs, so the store answers a hit and fills a miss without the page
  * knowing which happened. Where Rust cannot be reached, which is the test
  * bench, a source keeps its upstream URL.
  */
@@ -669,8 +669,8 @@ export function rewriteSatelliteUrls(style: CombinedSatelliteMapStyle): Combined
   const rewritten: CombinedSatelliteMapStyle = JSON.parse(JSON.stringify(style));
   for (const [key, source] of Object.entries(rewritten.sources)) {
     if (source.type !== 'raster' || !source.tiles) continue;
-    const native = nativeTileUrl(key, source.tiles[0]);
-    if (native) source.tiles = [native];
+    const native = nativeTileUrls(key, source.tiles[0]);
+    if (native) source.tiles = native;
   }
   return rewritten;
 }
@@ -693,8 +693,8 @@ export function rewriteGroundRasterUrls<T extends object>(style: T): T {
     if (source.type !== 'raster' || !Array.isArray(source.tiles)) continue;
     const tiles = source.tiles as string[];
     if (!tiles.some((url) => url.startsWith(NATURAL_EARTH_ORIGIN))) continue;
-    const native = nativeTileUrl(key, tiles[0]);
-    if (native) source.tiles = [native];
+    const native = nativeTileUrls(key, tiles[0]);
+    if (native) source.tiles = native;
   }
   return rewritten;
 }
@@ -730,9 +730,9 @@ export function rewriteVectorUrls<T extends object>(style: T): T {
       ) {
         // `pbf` is stated rather than read off the template: a TileJSON url
         // names no file, and a vector tile is always protobuf.
-        const native = nativeTileUrl(key, source.url, 'pbf');
+        const native = nativeTileUrls(key, source.url, 'pbf');
         if (native) {
-          source.tiles = [native];
+          source.tiles = native;
           delete source.url;
           // The TileJSON carried it, and the store hands none to MapLibre.
           source.maxzoom = 14;
@@ -832,9 +832,9 @@ function hillshadeInsertIndex(layers, candidates) {
  * upstream template.
  */
 export function terrain3DSource() {
-  const native = nativeTileUrl('terrain', TERRAIN_UPSTREAM_TEMPLATE);
+  const native = nativeTileUrls('terrain', TERRAIN_UPSTREAM_TEMPLATE);
   return {
     ...TERRAIN_3D_CONFIG.source,
-    tiles: [native ?? TERRAIN_UPSTREAM_TEMPLATE],
+    tiles: native ?? [TERRAIN_UPSTREAM_TEMPLATE],
   };
 }

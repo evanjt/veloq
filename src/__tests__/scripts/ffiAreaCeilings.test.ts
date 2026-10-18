@@ -155,7 +155,7 @@ describe('the committed ceilings', () => {
   });
 });
 
-/** A tree whose one caller reaches `startFetchAndStore` from the insights area. */
+/** A tree whose one caller reaches `startGpsPass` from the insights area. */
 function callerTree(): string {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ffi-area-'));
   roots.push(root);
@@ -163,7 +163,7 @@ function callerTree(): string {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(
     file,
-    "import { startFetchAndStore } from 'veloqrs';\n\nexport function fetchAll() {\n  startFetchAndStore();\n}\n"
+    "import { startGpsPass } from 'veloqrs';\n\nexport function fetchAll() {\n  startGpsPass();\n}\n"
   );
   return root;
 }
@@ -275,7 +275,7 @@ describe('the area check through the client', () => {
     const { status, output } = checkAreas(
       root,
       withCeilings(root, {
-        'features/insights': ['startFetchAndStore'],
+        'features/insights': ['startGpsPass'],
         'features/strength': ['StrengthManager.getScreenData'],
       })
     );
@@ -292,7 +292,7 @@ describe('the area check', () => {
 
     const { status, output } = checkAreas(
       root,
-      withCeilings(root, { 'features/insights': ['startFetchAndStore'] })
+      withCeilings(root, { 'features/insights': ['startGpsPass'] })
     );
 
     expect(output).toContain('1 areas reach 1 exports');
@@ -304,7 +304,7 @@ describe('the area check', () => {
 
     const { status, output } = checkAreas(
       root,
-      withCeilings(root, { 'features/insights': ['getDownloadProgress', 'startFetchAndStore'] })
+      withCeilings(root, { 'features/insights': ['getDownloadProgress', 'startGpsPass'] })
     );
 
     expect(output).toContain('features/insights no longer reaches 1 export(s)');
@@ -319,7 +319,7 @@ describe('the area check', () => {
     const { status, output } = checkAreas(
       root,
       withCeilings(root, {
-        'features/insights': ['startFetchAndStore'],
+        'features/insights': ['startGpsPass'],
         'features/routes': ['VeloqEngine.getStats'],
       })
     );
@@ -334,7 +334,7 @@ describe('the area check', () => {
     const { status, output } = checkAreas(root, withCeilings(root, {}));
 
     expect(output).toContain('features/insights reaches the engine and has no entry');
-    expect(output).toContain('- startFetchAndStore');
+    expect(output).toContain('- startGpsPass');
     expect(status).toBe(1);
   });
 });
@@ -353,7 +353,7 @@ describe('the guard under a hook’s environment', () => {
   it('reads the checkout it was pointed at even when the environment names another tree', () => {
     const root = callerTree();
     initFixtureRepo(root);
-    const ceilings = withCeilings(root, { 'features/insights': ['startFetchAndStore'] });
+    const ceilings = withCeilings(root, { 'features/insights': ['startGpsPass'] });
 
     const { status, output } = checkAreas(root, ceilings, {
       GIT_INDEX_FILE: path.join(os.tmpdir(), 'veloq-guard-absent-index'),
@@ -422,11 +422,15 @@ describe('a ceiling raised against its merge base', () => {
     runGit(['add', 'scripts/ffi-area-ceilings.json', 'package.json'], root);
   }
 
-  function growth(root: string, base?: string): { status: number; output: string } {
+  function growth(
+    root: string,
+    base?: string,
+    accept?: string
+  ): { status: number; output: string } {
     const result = spawnSync('node', [GROWTH, ...(base ? ['--base', base] : [])], {
       cwd: root,
       encoding: 'utf8',
-      env: gitFreeEnv(),
+      env: { ...gitFreeEnv(), VELOQ_RATCHET_ACCEPT: accept },
     });
     return { status: result.status ?? -1, output: `${result.stdout}${result.stderr}` };
   }
@@ -530,6 +534,146 @@ describe('a ceiling raised against its merge base', () => {
     expect(output).toContain('no merge base');
   });
 
+  describe('with a rise the owner accepted', () => {
+    const raised = (): [string, string] => {
+      const [root, base] = baseRepo({ 'features/orchard': ['A.one'] });
+      stage(root, { 'features/orchard': ['A.one', 'A.two'] });
+      return [root, base];
+    };
+
+    it('passes the named rise and prints its reason', () => {
+      const [root, base] = raised();
+
+      const { status, output } = growth(root, base, 'features/orchard:A.two=decided');
+
+      expect(output).toContain('features/orchard + A.two');
+      expect(output).toContain('decided');
+      expect(status).toBe(0);
+    });
+
+    it('passes several accepted keys and a reason holding a colon or an equals sign', () => {
+      const [root, base] = baseRepo({ 'features/orchard': ['A.one'] });
+      stage(root, {
+        'features/orchard': ['A.one', 'A.two'],
+        'features/press': ['B.one'],
+      });
+
+      const { status, output } = growth(
+        root,
+        base,
+        'features/orchard:A.two=agreed: a=b; features/press:B.one=new reader'
+      );
+
+      expect(output).toContain('agreed: a=b');
+      expect(output).toContain('features/press + B.one');
+      expect(status).toBe(0);
+    });
+
+    it('refuses the rise with no acceptance', () => {
+      const [root, base] = raised();
+
+      const { status, output } = growth(root, base);
+
+      expect(status).toBe(1);
+      expect(output).toContain('+ A.two');
+    });
+
+    it('refuses an acceptance of a key the growth does not hold, naming it', () => {
+      const [root, base] = raised();
+
+      const { status, output } = growth(root, base, 'features/orchard:A.three=decided');
+
+      expect(status).toBe(1);
+      expect(output).toContain('A.three');
+      expect(output).toContain('+ A.two');
+    });
+
+    it('refuses a stale acceptance beside a rise it does cover', () => {
+      const [root, base] = raised();
+
+      const { status, output } = growth(
+        root,
+        base,
+        'features/orchard:A.two=decided;features/orchard:A.three=decided'
+      );
+
+      expect(status).toBe(1);
+      expect(output).toContain('A.three');
+    });
+
+    it('refuses a stale acceptance when nothing grew', () => {
+      const [root, base] = baseRepo({ 'features/orchard': ['A.one'] });
+      stage(root, { 'features/orchard': ['A.one'] });
+
+      const { status, output } = growth(root, base, 'features/orchard:A.two=decided');
+
+      expect(status).toBe(1);
+      expect(output).toContain('A.two');
+    });
+
+    it('refuses a key accepted for another area', () => {
+      const [root, base] = raised();
+
+      const { status, output } = growth(root, base, 'features/press:A.two=decided');
+
+      expect(status).toBe(1);
+      expect(output).toContain('A.two');
+    });
+
+    it('refuses a rise only partly accepted, naming the key left over', () => {
+      const [root, base] = baseRepo({ 'features/orchard': ['A.one'] });
+      stage(root, { 'features/orchard': ['A.one', 'A.two', 'A.four'] });
+
+      const { status, output } = growth(root, base, 'features/orchard:A.two=decided');
+
+      expect(status).toBe(1);
+      expect(output).toContain('+ A.four');
+    });
+
+    it('refuses a new area unless every key in it is accepted', () => {
+      const [root, base] = baseRepo({ 'features/orchard': ['A.one'] });
+      stage(root, {
+        'features/orchard': ['A.one'],
+        'features/press': ['B.one', 'B.two'],
+      });
+
+      expect(growth(root, base, 'features/press:B.one=decided').status).toBe(1);
+      expect(
+        growth(root, base, 'features/press:B.one=decided;features/press:B.two=decided').status
+      ).toBe(0);
+    });
+
+    it.each([
+      ['an empty reason', 'features/orchard:A.two='],
+      ['a blank reason', 'features/orchard:A.two=   '],
+      ['no reason at all', 'features/orchard:A.two'],
+      ['no area', 'A.two=decided'],
+      ['a bare 1', '1'],
+      ['an empty value', ''],
+    ])('refuses %s', (_label, accept) => {
+      const [root, base] = raised();
+
+      const { status, output } = growth(root, base, accept);
+
+      expect(status).toBe(1);
+      expect(output).toContain('VELOQ_RATCHET_ACCEPT');
+    });
+
+    it('leaves a higher engine-surface number refused', () => {
+      const [root, base] = baseRepo({ 'features/orchard': ['A.one'] });
+      stage(
+        root,
+        { 'features/orchard': ['A.one', 'A.two'] },
+        'node scripts/lint-engine-surface.mjs --engine-ceiling 97 --store-ceiling 19'
+      );
+
+      const { status, output } = growth(root, base, 'features/orchard:A.two=decided');
+
+      expect(status).toBe(1);
+      expect(output).toContain('--engine-ceiling');
+    });
+  });
+
   it('reads the base from the merge-gate variable', () => {
     const [root, base] = baseRepo({ 'features/maps': ['a'] });
     stage(root, { 'features/maps': ['a', 'b'] });
@@ -537,7 +681,7 @@ describe('a ceiling raised against its merge base', () => {
     const result = spawnSync('node', [GROWTH], {
       cwd: root,
       encoding: 'utf8',
-      env: { ...gitFreeEnv(), VELOQ_MERGE_BASE: base },
+      env: { ...gitFreeEnv(), VELOQ_MERGE_BASE: base, VELOQ_RATCHET_ACCEPT: undefined },
     });
 
     expect(result.status).toBe(1);

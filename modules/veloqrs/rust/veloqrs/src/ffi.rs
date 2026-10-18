@@ -458,13 +458,12 @@ pub(crate) fn store_track(
     Some((stored, attached_portions, install))
 }
 
-/// Start one fetch+store run and answer its id.
+/// Start one fetch+store run on the process credential and answer its id.
 ///
-/// The id is what `take_fetch_and_store_result` reads back with. Three callers
-/// start runs, a silent push arriving during a foreground sync is ordinary, and
-/// before the id they shared one result slot and took each other's answers.
-#[uniffi::export]
-pub fn start_fetch_and_store(
+/// The id is what `take_fetch_and_store_result` reads back with. The app starts
+/// its runs through the GPS pass, and the tests drive one run through here.
+#[cfg(test)]
+pub(crate) fn start_fetch_and_store(
     activity_ids: Vec<String>,
     sport_types: Vec<ActivitySportMapping>,
     priority: crate::http::DownloadPriority,
@@ -594,6 +593,7 @@ impl Drop for RunEnd {
     }
 }
 
+#[cfg(test)]
 fn start_fetch_and_store_run(
     run: u64,
     activity_ids: Vec<String>,

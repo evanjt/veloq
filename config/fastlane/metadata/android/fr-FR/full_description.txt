@@ -21,6 +21,8 @@ Suivez votre forme avec le suivi CTL/ATL/TSB et les zones visuelles. Surveillez 
 <b>Confidentialite</b>
 Vos donnees d'entrainement restent sur votre appareil. Pas d'analyse, pas de suivi. Les notifications push optionnelles stockent votre identifiant d'athlete intervals.icu et un jeton d'appareil sur notre serveur, supprimes automatiquement apres 30 jours. Code source ouvert sous Apache 2.0.
 
+Accessibilite : libelles pour lecteur d'ecran sur chaque commande, texte qui suit la taille de texte de votre systeme, et contraste des couleurs aux ratios AA dans les themes clair et sombre.
+
 Compatible avec le cyclisme, la course, la natation et plus de 20 types d'activites. Essayez le mode demo integre pour explorer sans compte.
 
 Necessite un compte intervals.icu pour les donnees en direct. Non affilie a intervals.icu.

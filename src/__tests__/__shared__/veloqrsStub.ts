@@ -367,10 +367,11 @@ export const createPreviewClientStub = () => ({
   setSectionConfig: jest.fn(),
   forceRedetectSections: jest.fn(() => StartOutcome.Held),
 });
-export const startFetchAndStore = jest.fn(() => 0);
 export const takeFetchAndStoreResult = jest.fn(() => undefined);
 export const cancelFetchAndStore = jest.fn(() => true);
 export const getFetchRunProgress = jest.fn(() => ({ active: false, completed: 0, total: 0 }));
+/** Readying one activity's owed bodies, answering that it still owes them. */
+export const readyActivityBodies = jest.fn(async (_activityId: string) => false);
 /** A GPS pass the engine started, as run 0 over the ids it was handed. */
 export const startGpsPass = jest.fn((_oldest?: string, _newest?: string, head: string[] = []) => ({
   outcome: StartOutcome.Started,
@@ -379,11 +380,11 @@ export const startGpsPass = jest.fn((_oldest?: string, _newest?: string, head: s
 }));
 /** The fetch-and-store calls as the engine client carries them, for a test that overrides `engine`. */
 export const fetchCalls = {
-  startFetchAndStore,
   startGpsPass,
   takeFetchAndStoreResult,
   cancelFetchAndStore,
   getFetchRunProgress,
+  readyActivityBodies,
 };
 
 /**
@@ -437,6 +438,7 @@ export const connectivity = {
 export const basemap = {
   setPath: jest.fn(),
   setSourceTemplate: jest.fn(),
+  tileListener: jest.fn(() => undefined),
   getTile: jest.fn(() => undefined),
   getOrFetchTile: jest.fn(() => undefined),
   getCacheSize: jest.fn(() => Promise.resolve(0)),
@@ -504,7 +506,6 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     decodeCoords,
     decodeCoordsFlat,
     createPreviewClientStub,
-    startFetchAndStore,
     takeFetchAndStoreResult,
     engine,
     elevation,

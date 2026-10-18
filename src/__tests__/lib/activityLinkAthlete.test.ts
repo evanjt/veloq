@@ -24,6 +24,7 @@ import { isForSignedInAthlete, openableSystemPath } from '@/features/insights/li
 import { redirectSystemPath } from '@/app/+native-intent';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useDebugStore } from '@/features/settings';
+import { fitnessEntryFromParams, fitnessPlaceOf } from '@/shared/app/fitnessEntry';
 
 const ATHLETE = 'i12345';
 
@@ -86,15 +87,39 @@ describe('openableSystemPath', () => {
   });
 
   it.each([
-    ['veloq://training', '/fitness'],
-    ['veloq:///training/', '/fitness'],
-    ['veloq://training?chart=week', '/fitness?chart=week'],
-    ['veloq://training?chart=hrv#top', '/fitness?chart=hrv'],
-    ['/training?chart=weight', '/fitness?chart=weight'],
-    ['exp://192.0.2.1:8081/--/training?chart=rhr', '/fitness?chart=rhr'],
+    ['veloq://training', '/fitness?tab=calendar'],
+    ['veloq:///training/', '/fitness?tab=calendar'],
+    ['veloq://training?chart=week', '/fitness?chart=week&tab=calendar'],
+    ['veloq://training?chart=hrv#top', '/fitness?chart=hrv&tab=calendar'],
+    ['/training?chart=weight', '/fitness?chart=weight&tab=calendar'],
+    ['exp://192.0.2.1:8081/--/training?chart=rhr', '/fitness?chart=rhr&tab=calendar'],
   ])('sends %s from the retired health tab to fitness, query and all', (link, opened) => {
     expect(openableSystemPath(link, ATHLETE)).toBe(opened);
     expect(openableSystemPath(link, null)).toBe(opened);
+  });
+
+  it('lands a bare retired health link on the calendar place', () => {
+    const opened = openableSystemPath('veloq://training', ATHLETE) ?? '';
+    const entry = fitnessEntryFromParams(
+      Object.fromEntries(new URLSearchParams(opened.split('?')[1] ?? ''))
+    );
+
+    expect(opened.split('?')[0]).toBe('/fitness');
+    expect(fitnessPlaceOf(entry)).toBe('calendar');
+  });
+
+  it('lands a retired health link to a wellness chart on the place that draws it', () => {
+    const opened = openableSystemPath('veloq://training?chart=hrv', ATHLETE) ?? '';
+    const entry = fitnessEntryFromParams(
+      Object.fromEntries(new URLSearchParams(opened.split('?')[1] ?? ''))
+    );
+
+    expect(entry.chart).toBe('hrv');
+    expect(fitnessPlaceOf(entry)).toBe('fitness');
+  });
+
+  it('keeps a place the retired link already named', () => {
+    expect(openableSystemPath('veloq://training?tab=trends', ATHLETE)).toBe('/fitness?tab=trends');
   });
 
   it('opens nothing below the retired health tab', () => {

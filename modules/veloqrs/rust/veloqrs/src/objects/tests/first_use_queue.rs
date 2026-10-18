@@ -148,3 +148,101 @@ fn test_ready_newest_activities_failure_releases_bulk() {
 
     assert!(run_with_bulk(&server, false).is_err());
 }
+
+fn owing(id: &str) -> Option<crate::persistence::BodiesOwed> {
+    with_persistent_engine(|engine| {
+        engine
+            .activity_owing_bodies(id, DETAIL_STREAM_TYPES_KEY)
+            .expect("owed read")
+    })
+    .expect("engine")
+}
+
+fn ready_one(server: &MockServer, id: &str) -> Result<bool, NetError> {
+    crate::runtime::block_on(ready_owed_activity(
+        crate::persistence::engine_install(),
+        &crate::net::IntervalsSession::new(transport_to(server), "i1"),
+        id,
+    ))
+}
+
+/// Scenario: a push stored the detail and the narrow track, and the streams
+/// and intervals are still owed. The app's own task readies the one activity.
+///
+/// Expected behaviour: afterwards the activity owes nothing, so its screen
+/// opens with no network, and the answer says so.
+#[test]
+fn test_ready_owed_activity_leaves_nothing_owed() {
+    let _guard = serial_global_state();
+    let _dir = crate::test_globals::init_global_engine("first-use-queue.db");
+    library_of(2);
+    let server = MockServer::start();
+    mock_all_bodies(&server);
+    assert!(owing("r0").is_some_and(|gap| gap.streams && gap.intervals));
+
+    assert!(ready_one(&server, "r0").expect("readied"));
+    assert!(owing("r0").is_none(), "r0 owes nothing");
+    assert!(owing("r1").is_some(), "only the named activity is readied");
+}
+
+/// Scenario: the activity already owes nothing, as on a platform whose push
+/// readied it, or a second delivery of the same push.
+///
+/// Expected behaviour: no request is made and the answer is ready.
+#[test]
+fn test_ready_owed_activity_asks_nothing_when_nothing_is_owed() {
+    let _guard = serial_global_state();
+    let _dir = crate::test_globals::init_global_engine("first-use-queue.db");
+    library_of(1);
+    let server = MockServer::start();
+    mock_all_bodies(&server);
+    assert!(ready_one(&server, "r0").expect("readied"));
+
+    let quiet = MockServer::start();
+    let any = quiet.mock(|when, then| {
+        when.any_request();
+        then.status(500);
+    });
+    assert!(ready_one(&quiet, "r0").expect("nothing owed"));
+    any.assert_calls(0);
+}
+
+/// Scenario: upstream fails every body the activity owes.
+///
+/// Expected behaviour: the activity still owes them, and the answer is not
+/// ready, so the caller records that the next sync has work left.
+#[test]
+fn test_ready_owed_activity_reports_what_is_still_owed() {
+    let _guard = serial_global_state();
+    let _dir = crate::test_globals::init_global_engine("first-use-queue.db");
+    library_of(1);
+    let server = MockServer::start();
+    server.mock(|when, then| {
+        when.method(GET);
+        then.status(500);
+    });
+
+    assert!(!ready_one(&server, "r0").unwrap_or(false));
+    assert!(owing("r0").is_some_and(|gap| gap.streams && gap.intervals));
+}
+
+/// Scenario: the credential is refused while readying.
+///
+/// Expected behaviour: the refusal is the answer, so the caller can park the
+/// session rather than record a body failure.
+#[test]
+fn test_ready_owed_activity_returns_a_refused_credential() {
+    let _guard = serial_global_state();
+    let _dir = crate::test_globals::init_global_engine("first-use-queue.db");
+    library_of(1);
+    let server = MockServer::start();
+    server.mock(|when, then| {
+        when.method(GET);
+        then.status(401);
+    });
+
+    assert!(matches!(
+        ready_one(&server, "r0"),
+        Err(NetError::Unauthorized)
+    ));
+}

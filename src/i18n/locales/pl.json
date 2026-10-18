@@ -140,7 +140,7 @@
     "zoneMaxFromSettings": "Maks. stref {{value}} bpm, ustawienia sportu",
     "zoneMaxDefault": "Brak ustawionego maks. HR, strefy zakładają {{value}} bpm",
     "zoneMaxDefaultHint": "Ustaw swoje maks. HR w ustawieniach sportu w intervals.icu",
-    "prDelta": "+{{delta}} do PR",
+    "prBadge": "RŻ",
     "chartAverage": "śr.",
     "chartGain": "przewyż.",
     "gainStat": "↑ {{value}}"

@@ -1,16 +1,15 @@
 /**
- * Minimalist bottom navigation tab bar.
- * Gradient fade from content, subtle icons and labels. With the system asking
- * for less transparency or more contrast, an opaque surface with a divider.
+ * The bottom navigation tab bar: an opaque surface with a hairline on top, five
+ * tabs of a 24 dp glyph over one label style. The selected tab fills its glyph,
+ * and on Android sits it on an indicator pill.
  */
 import { markTabPress } from '@/shared/debug/tabSwitchTiming';
 import React, { memo, useCallback, useRef } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 
-import { Icon } from './Icon';
+import { Icon, type IconName } from './Icon';
 import { DENSE_TEXT_SCALE } from './DenseText';
 import { FitText } from './FitText';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePathname, useSegments } from 'expo-router';
 import * as haptics from './haptics';
@@ -22,8 +21,9 @@ import {
   colorWithOpacity,
   darkColors,
   iconSize,
-  ink,
   layers,
+  layout,
+  opacity,
   spacing,
   stroke,
   typography,
@@ -32,29 +32,39 @@ import { PERF_DEBUG } from '@/shared/debug/renderTimer';
 import { navigateTab } from '@/shared/app/navigation';
 import { debug } from '@/shared/debug/debug';
 import { PressTarget } from './PressTarget';
-import { GRADIENT_HEIGHT, TAB_BAR_HEIGHT, isTabBarRoute } from './tabBarClearance';
+import { TAB_BAR_HEIGHT, isTabBarRoute } from './tabBarClearance';
 import { emitTabReselect, type TabRoute } from './tabReselect';
 
 const log = debug.create('BottomTabBar');
 
 // Labels come from i18n, and each has to fit a fifth of a 320 dp phone at the 1.3 text cap.
 // Settings reads a short label of its own: the screen's title is too wide for its slot in
-// several locales.
+// several locales. Each tab draws its outline glyph unselected and the filled twin selected, so
+// every tab shows selection the same way.
 const MENU_ITEMS = [
-  { key: 'feed', icon: 'home-outline', route: '/' },
-  { key: 'fitness', icon: 'chart-line', route: '/fitness' },
-  { key: 'map', icon: 'map-outline', route: '/map' },
-  { key: 'insights', icon: 'lightbulb-outline', route: '/insights' },
-  { key: 'settingsTab', icon: 'cog-outline', route: '/settings' },
-] as const;
+  { key: 'feed', icon: 'home-outline', selectedIcon: 'home', route: '/' },
+  { key: 'fitness', icon: 'chart-box-outline', selectedIcon: 'chart-box', route: '/fitness' },
+  { key: 'map', icon: 'map-outline', selectedIcon: 'map', route: '/map' },
+  { key: 'insights', icon: 'lightbulb-outline', selectedIcon: 'lightbulb', route: '/insights' },
+  { key: 'settingsTab', icon: 'cog-outline', selectedIcon: 'cog', route: '/settings' },
+] as const satisfies readonly {
+  key: string;
+  icon: IconName;
+  selectedIcon: IconName;
+  route: TabRoute;
+}[];
 
-// The labels are text and hold 4.5:1, the icons are marks and hold 3:1, both
-// over the worst ground the bar can have: its densest scrim stop over content
-// of the opposite extreme, #EBEBEB in light and #141414 in dark. An inactive
-// tab is an operable control, so it answers to the bar as much as the active
-// one. The active tab is told apart by its weight and its icon, with the brand
-// carried by the icon: the label is `textPrimary`, 14.9:1 there, since the
-// primary teal is 3.14:1 and passes only as the icon's mark.
+// The labels are text and hold 4.5:1 on the bar's `surface`, the glyphs are
+// marks and hold 3:1. An unselected tab is an operable control, so it answers
+// to the bar as much as the selected one: `textSecondary` for its label and
+// `iconSecondary` for its glyph. The selected label is `textPrimary` and the
+// selected glyph `controlOn`, the blue every selected control takes. On the
+// Android indicator, a `controlOn` tint, the glyph keeps `controlOn` in light
+// and takes `textPrimary` in dark, where the blue on its own tint is under 3:1.
+
+// The shrink floor of a label: every label fits its fifth of a 320 dp phone at
+// the text cap well above it.
+const LABEL_MIN_FONT_SCALE = 0.8;
 
 function BottomTabBarComponent() {
   // Performance: Track render count
@@ -69,31 +79,12 @@ function BottomTabBarComponent() {
   const segments = useSegments();
   // Demo mode counts as a session, `enterDemoMode` sets `isAuthenticated`.
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const { isDark, preferOpaqueChrome } = useTheme();
+  const { isDark } = useTheme();
   const { t } = useTranslation();
   const palette = isDark ? darkColors : colors;
-  const activeLabel = palette.textPrimary;
-  const activeIcon = isDark ? palette.textPrimary : palette.actionPrimary;
-  const inactiveColor = palette.textSecondary;
-
-  // Gradient: smooth fade, slightly transparent at bottom (92% max)
-  const gradientColors = isDark
-    ? ([
-        'transparent',
-        colorWithOpacity(ink.black, 0.35),
-        colorWithOpacity(ink.black, 0.6),
-        colorWithOpacity(ink.black, 0.8),
-        colorWithOpacity(ink.black, 0.9),
-        colorWithOpacity(ink.black, 0.92),
-      ] as const)
-    : ([
-        'transparent',
-        colorWithOpacity(ink.white, 0.35),
-        colorWithOpacity(ink.white, 0.6),
-        colorWithOpacity(ink.white, 0.8),
-        colorWithOpacity(ink.white, 0.9),
-        colorWithOpacity(ink.white, 0.92),
-      ] as const);
+  const withIndicator = Platform.OS === 'android';
+  const activeIcon = withIndicator && isDark ? palette.textPrimary : palette.controlOn;
+  const indicatorColor = colorWithOpacity(palette.controlOn, opacity.tint3);
 
   const handlePress = useCallback(
     (route: TabRoute) => {
@@ -129,7 +120,7 @@ function BottomTabBarComponent() {
   // the last rows of a list and lets a stray touch leave a live recording.
   if (!isTabBarRoute(segments)) return null;
 
-  const totalHeight = GRADIENT_HEIGHT + TAB_BAR_HEIGHT + insets.bottom;
+  const totalHeight = TAB_BAR_HEIGHT + insets.bottom;
 
   return (
     <View
@@ -137,28 +128,14 @@ function BottomTabBarComponent() {
       style={[styles.container, { height: totalHeight }]}
       pointerEvents="box-none"
     >
-      {preferOpaqueChrome ? (
-        <View
-          testID="bottom-tab-bar-surface"
-          style={[
-            styles.opaqueSurface,
-            {
-              height: TAB_BAR_HEIGHT + insets.bottom,
-              backgroundColor: palette.surface,
-              borderTopColor: palette.border,
-            },
-          ]}
-          pointerEvents="none"
-        />
-      ) : (
-        <LinearGradient
-          testID="bottom-tab-bar-gradient"
-          colors={gradientColors}
-          locations={[0, 0.1, 0.22, 0.38, 0.6, 1]}
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-        />
-      )}
+      <View
+        testID="bottom-tab-bar-surface"
+        style={[
+          styles.surface,
+          { backgroundColor: palette.surface, borderTopColor: palette.border },
+        ]}
+        pointerEvents="none"
+      />
       {/* Icons row - positioned at bottom above safe area */}
       <View accessibilityRole="tablist" style={[styles.tabRow, { marginBottom: insets.bottom }]}>
         {MENU_ITEMS.map((item) => {
@@ -178,16 +155,27 @@ function BottomTabBarComponent() {
               accessibilityRole="tab"
               accessibilityState={{ selected: isActive }}
             >
-              <View style={styles.iconContainer}>
+              <View
+                testID={withIndicator && isActive ? `bottom-tab-${item.key}-indicator` : undefined}
+                style={[
+                  withIndicator ? styles.indicator : styles.iconContainer,
+                  withIndicator && isActive && { backgroundColor: indicatorColor },
+                ]}
+              >
                 <Icon
-                  name={item.icon as never}
+                  testID={`bottom-tab-${item.key}-glyph`}
+                  name={isActive ? item.selectedIcon : item.icon}
                   size={iconSize.lg}
-                  color={isActive ? activeIcon : inactiveColor}
+                  color={isActive ? activeIcon : palette.iconSecondary}
                 />
               </View>
               <FitText
                 maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                style={[styles.label, { color: isActive ? activeLabel : inactiveColor }]}
+                minimumFontScale={LABEL_MIN_FONT_SCALE}
+                style={[
+                  styles.label,
+                  { color: isActive ? palette.textPrimary : palette.textSecondary },
+                ]}
               >
                 {label}
               </FitText>
@@ -210,8 +198,9 @@ const styles = StyleSheet.create({
     zIndex: layers.tabBar,
     justifyContent: 'flex-end',
   },
-  opaqueSurface: {
+  surface: {
     position: 'absolute',
+    top: 0,
     left: 0,
     right: 0,
     bottom: 0,
@@ -234,6 +223,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     height: iconSize.lg,
     width: iconSize.lg,
+  },
+  // A full-radius pill behind the glyph, 16 either side of it and 2 above and below.
+  indicator: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: iconSize.lg + spacing.xxs * 2,
+    width: iconSize.lg + spacing.md * 2,
+    borderRadius: layout.borderRadiusFull,
   },
   label: {
     ...typography.badge,

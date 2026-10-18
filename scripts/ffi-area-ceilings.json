@@ -58,9 +58,8 @@
     "ActivityManager.has",
     "FitnessManager.getInsightsData",
     "SectionManager.indexNewActivity",
-    "SyncManager.syncActivityDetail",
-    "startFetchAndStore",
-    "takeFetchAndStoreResult"
+    "SyncManager.readyActivityBodies",
+    "SyncManager.syncActivityDetail"
   ],
   "features/maps": [
     "ActivityManager.getGpsTrack",
@@ -217,6 +216,7 @@
   ],
   "features/wellness": ["FitnessManager.getWellnessDays"],
   "shared": [
+    "ActivityManager.getActivityBodies",
     "ActivityManager.replaceCalendarEvents",
     "ActivityManager.setCurveBody",
     "ActivityManager.setIntervalBody",

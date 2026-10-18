@@ -3,6 +3,7 @@ import { StyleSheet } from 'react-native';
 import { render, fireEvent } from '@testing-library/react-native';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import MapScreen from '@/app/(tabs)/map';
+import { TAB_BAR_HEIGHT } from '@/shared/ui/tabBarClearance';
 import { type FfiMapEmptyReason, FfiMapEmptyReason_Tags, MapDistanceBand } from 'veloqrs';
 
 const mockUseMap = jest.fn();
@@ -127,8 +128,10 @@ describe('map library summary', () => {
     while (sheet && StyleSheet.flatten(sheet.props.style)?.paddingBottom === undefined) {
       sheet = sheet.parent;
     }
-    // The bar draws the tab row over the inset and its gradient above that.
-    expect(StyleSheet.flatten(sheet?.props.style).paddingBottom).toBeGreaterThanOrEqual(80 + 48);
+    // The bar draws its tab row over the inset.
+    expect(StyleSheet.flatten(sheet?.props.style).paddingBottom).toBeGreaterThanOrEqual(
+      TAB_BAR_HEIGHT + 48
+    );
   });
 
   it('keeps a distance filter applied while the sheet is lowered', async () => {

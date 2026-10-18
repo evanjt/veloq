@@ -1,20 +1,24 @@
 /**
  * Scenario: the calendar card marks the reference attempt with a star alone,
  * and every month row carries a 44 point star button that makes the row tall.
+ * Drawn as a labelled button, "Use as reference" took the whole entries column
+ * and squeezed the month's best time to nothing.
  *
  * Expected behaviour: the reference attempt's row says so in text, and the
- * star button does not set the row height.
+ * star is a small icon-only button that names itself to a screen reader, so
+ * it neither sets the row height nor takes the time's width.
  */
 
 import React from 'react';
 import { render } from '@testing-library/react-native';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 
 import { initialiseI18n } from '@/i18n';
 import {
   SectionStatsCards,
   type CalendarSummary,
 } from '@/features/routes/components/section/SectionStatsCards';
+import { controlHeight } from '@/theme';
 
 const best = (id: string, time: number) => ({
   count: 1,
@@ -74,11 +78,34 @@ describe('the calendar card reference row', () => {
     }
   });
 
-  it('draws each reference control as a Button that says what it is or what it does', async () => {
-    const { getAllByTestId, getByRole } = await renderCards();
+  it('draws each reference control as a small icon button with no text of its own', async () => {
+    const { getAllByTestId, queryAllByTestId } = await renderCards();
 
-    const labels = getAllByTestId('calendar-reference-button-label').map((l) => l.props.children);
-    expect(labels.sort()).toEqual(['Reference', 'Use as reference']);
-    expect(getByRole('button', { name: 'Use as reference' })).toBeTruthy();
+    expect(queryAllByTestId('calendar-reference-button-label')).toHaveLength(0);
+    const buttons = getAllByTestId('calendar-reference-button');
+    expect(buttons.map((b) => b.props.accessibilityLabel).sort()).toEqual([
+      'Reference',
+      'Use as reference',
+    ]);
+    for (const button of buttons) {
+      expect(button.props.accessibilityRole).toBe('button');
+      expect(button.findAll((node) => node.type === Text)).toHaveLength(0);
+      const style = StyleSheet.flatten(button.props.style);
+      expect(style.minWidth).toBe(controlHeight.buttonSm);
+      expect(style.flex ?? 0).toBe(0);
+      expect(style.flexGrow ?? 0).toBe(0);
+    }
+  });
+
+  it('keeps each month time from shrinking below its own width', async () => {
+    const { getAllByTestId } = await renderCards();
+
+    const times = getAllByTestId('calendar-month-time');
+    expect(times).toHaveLength(2);
+    for (const time of times) {
+      const style = StyleSheet.flatten(time.props.style);
+      expect(style.flexShrink).toBe(0);
+      expect(style.flexBasis ?? 'auto').toBe('auto');
+    }
   });
 });

@@ -317,7 +317,7 @@ describe('under a right-to-left layout', () => {
       expectPinned(view, [
         view.getByTestId('activity-heatmap-months'),
         view.getByTestId('activity-heatmap-highlight'),
-        view.getByTestId(`activity-heatmap-day-${today}`),
+        view.getByTestId(`activity-heatmap-day-${today}`, { includeHiddenElements: true }),
       ]);
     } finally {
       tree?.unmount();

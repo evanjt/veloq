@@ -16,8 +16,11 @@ import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import { spacing } from '@/theme';
 import { ScreenSafeAreaView } from '@/shared/ui/ScreenSafeAreaView';
 import {
+  TAB_BAR_HEIGHT,
   TAB_BAR_SAFE_PADDING,
+  bottomClearance,
   isTabBarRoute,
+  scrollEndInset,
   useBottomClearance,
   useScrollEndInset,
   useTabBarClearance,
@@ -61,6 +64,18 @@ async function scrollEnd(bottom: number, inSafeArea = false) {
 const platform = Platform.OS;
 afterEach(() => {
   Platform.OS = platform;
+});
+
+describe('the clearance figures', () => {
+  // The bar is opaque to its top edge, so content ends at the bar and not above a fade zone.
+  it('ends content at the top of the 60 dp bar', () => {
+    expect(TAB_BAR_HEIGHT).toBe(60);
+    expect(TAB_BAR_SAFE_PADDING).toBe(TAB_BAR_HEIGHT);
+    expect(scrollEndInset(true, 24, false, 'ios')).toBe(60);
+    expect(scrollEndInset(true, 24, false, 'android')).toBe(84);
+    expect(bottomClearance(true, 24, false)).toBe(84);
+    expect(bottomClearance(true, 24, true)).toBe(60);
+  });
 });
 
 describe('useBottomClearance', () => {

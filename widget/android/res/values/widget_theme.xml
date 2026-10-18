@@ -54,8 +54,8 @@
   <dimen name="widget_text_hero">32sp</dimen>
   <dimen name="widget_text_metric">22sp</dimen>
   <dimen name="widget_text_value">18sp</dimen>
-  <dimen name="widget_text_label">12sp</dimen>
-  <dimen name="widget_text_caption">11sp</dimen>
+  <dimen name="widget_text_label">11sp</dimen>
+  <dimen name="widget_text_caption">10sp</dimen>
   <dimen name="widget_text_floor">9sp</dimen>
   <item name="widget_text_scale_max" format="float" type="dimen">1.3</item>
   <dimen name="widget_chart_fatigue_dash_on">3dp</dimen>

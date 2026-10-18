@@ -20,7 +20,11 @@ import {
 } from '@/features/maps/assets/maplibreRenderer.generated';
 
 import { VELOQ_TILE_SCHEME } from '@/features/maps/lib/tileTransport';
-import { VELOQ_WEBVIEW_COMPONENT_NAME } from '@/features/maps/lib/veloqWebView';
+import { PAGE_REVISION_META } from '@/features/maps/lib/htmlBuilders/shared';
+import {
+  VELOQ_MAP3D_WEBVIEW_COMPONENT_NAME,
+  VELOQ_WEBVIEW_COMPONENT_NAME,
+} from '@/features/maps/lib/veloqWebView';
 import { SATELLITE_SOURCES } from '@/features/maps/components/mapStyles';
 import { buildRegionalLayers } from '@/features/maps/components/regional/regionalMapLayerSpecs';
 import { mapPalette } from '@/theme';
@@ -452,40 +456,26 @@ const CONTRACTS: Contract[] = [
     },
   },
   {
-    agree:
-      'the Android tile bridge hands Rust the status array and pending body its JNI symbol takes',
+    agree: 'the Android tile bridge hands Rust the status array its JNI symbol takes',
     a: {
       file: `${TILE_ANDROID}/TileBridge.java`,
-      has: /nativeAnswer\(\s*String source, int z, int x, int y, int\[\] status, PendingTile pending\)/,
+      has: 'private static native byte[] nativeAnswer(String source, int z, int x, int y, int[] status);',
     },
     b: {
       file: 'modules/veloqrs/rust/veloqrs/src/basemap/jni.rs',
-      has: /status: JIntArray<'local>,\s*pending: JObject<'local>,/,
+      has: /y: jint,\s*status: JIntArray<'local>,\s*\) -> jbyteArray/,
     },
   },
   {
-    agree: 'the Android tile bridge and Rust read the same status as a body still to come',
-    a: { file: `${TILE_ANDROID}/TileBridge.java`, has: 'public static final int PENDING = 202;' },
+    agree: 'the loopback tile listener admits the origin the Android map page loads on',
+    a: {
+      file: 'src/features/maps/lib/tileTransport.ts',
+      has: "Platform.OS === 'ios' ? `${VELOQ_TILE_SCHEME}://map/` : 'https://veloq.fit/'",
+    },
     b: {
-      file: 'modules/veloqrs/rust/veloqrs/src/basemap/jni.rs',
-      has: 'const PENDING: u16 = 202;',
+      file: 'modules/veloqrs/rust/veloqrs/src/basemap/listener.rs',
+      has: 'pub const PAGE_ORIGIN: &str = "https://veloq.fit";',
     },
-  },
-  {
-    agree: 'Rust completes a pending tile through the method the body declares',
-    a: {
-      file: `${TILE_ANDROID}/PendingTile.java`,
-      has: 'public synchronized void complete(byte[] tile)',
-    },
-    b: { file: 'modules/veloqrs/rust/veloqrs/src/basemap/jni.rs', has: /"complete",\s*"\(\[B\)V"/ },
-  },
-  {
-    agree: 'Rust fails a pending tile through the method the body declares',
-    a: {
-      file: `${TILE_ANDROID}/PendingTile.java`,
-      has: 'public synchronized void fail(int status)',
-    },
-    b: { file: 'modules/veloqrs/rust/veloqrs/src/basemap/jni.rs', has: /"fail",\s*"\(I\)V"/ },
   },
   {
     agree: 'the iOS scheme handler passes the status out-parameter its C symbol writes',
@@ -512,7 +502,7 @@ const CONTRACTS: Contract[] = [
     },
     b: {
       file: `${TILE_ANDROID}/TileBridge.java`,
-      has: /public static byte\[\] answer\(\s*String source, int z, int x, int y, int\[\] status, PendingTile pending\)/,
+      has: 'public static byte[] answer(String source, int z, int x, int y, int[] status)',
     },
   },
   {
@@ -575,6 +565,36 @@ const CONTRACTS: Contract[] = [
     agree: 'the Android package registers that view manager',
     a: { file: `${TILE_ANDROID}/VeloqrsPackage.kt`, has: 'VeloqWebViewManager()' },
     b: { file: `${TILE_ANDROID}/VeloqWebViewManager.java`, has: 'class VeloqWebViewManager' },
+  },
+  {
+    agree: 'the Android 3D view manager is named what the 3D map mounts ask for',
+    a: {
+      file: `${TILE_ANDROID}/VeloqMap3DWebViewManager.java`,
+      has: `NAME = "${VELOQ_MAP3D_WEBVIEW_COMPONENT_NAME}";`,
+    },
+    b: {
+      file: 'src/features/maps/lib/veloqWebView.ts',
+      has: `'${VELOQ_MAP3D_WEBVIEW_COMPONENT_NAME}'`,
+    },
+  },
+  {
+    agree: 'the Android package registers the 3D view manager',
+    a: { file: `${TILE_ANDROID}/VeloqrsPackage.kt`, has: 'VeloqMap3DWebViewManager()' },
+    b: {
+      file: `${TILE_ANDROID}/VeloqMap3DWebViewManager.java`,
+      has: 'class VeloqMap3DWebViewManager extends VeloqWebViewManager',
+    },
+  },
+  {
+    agree: 'the Android manager reads the revision meta the 3D page names',
+    a: {
+      file: `${TILE_ANDROID}/PageRevision.java`,
+      has: `META = "<meta name=\\"${PAGE_REVISION_META}\\" content=\\"";`,
+    },
+    b: {
+      file: 'src/features/maps/lib/htmlBuilders/shared.ts',
+      has: `PAGE_REVISION_META = '${PAGE_REVISION_META}'`,
+    },
   },
 
   // Native module functions the JavaScript bridge calls.

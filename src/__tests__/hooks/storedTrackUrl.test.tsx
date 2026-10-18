@@ -45,7 +45,6 @@ const listeners = new Map<string, Set<Listener>>();
 const engine = {
   hasActivity: jest.fn(() => true),
   getGpsTrack: jest.fn(() => new ArrayBuffer(0)),
-  startFetchAndStore: jest.fn(),
   subscribe: jest.fn((event: string, cb: Listener) => {
     const set = listeners.get(event) ?? new Set<Listener>();
     listeners.set(event, set);
@@ -232,7 +231,6 @@ describe('a regional tap on an activity', () => {
     expect(result.current.routeHasData).toBe(true);
     expect(result.current.selected?.isLoading).toBe(false);
     expect(engine.getGpsTrack).not.toHaveBeenCalled();
-    expect(engine.startFetchAndStore).not.toHaveBeenCalled();
   });
 
   it('draws the second marker when it is tapped over the first', async () => {

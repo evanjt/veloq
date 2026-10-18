@@ -210,6 +210,30 @@ export const UNSUPPORTED_LISTING_CLAIMS: ListingClaim[] = [
       'sans donnees identifiantes',
     ],
   },
+  {
+    claim: 'accessibility conformance',
+    reason: 'the listing describes what the app supports and claims conformance to no standard',
+    phrases: [
+      'WCAG',
+      'EN 301 549',
+      'fully accessible',
+      'fuldt tilgængelig',
+      'vollständig barrierefrei',
+      'totalmente accesible',
+      'entièrement accessible',
+      'entierement accessible',
+      'totalement accessible',
+      'completamente accessibile',
+      'pienamente accessibile',
+      '完全にアクセシブル',
+      'アクセシビリティに完全対応',
+      'volledig toegankelijk',
+      'w pełni dostępn',
+      'totalmente acessível',
+      'totalmente acessivel',
+      '完全无障碍',
+    ],
+  },
 ];
 
 /** The unsupported claims a description's text makes, by claim name. */

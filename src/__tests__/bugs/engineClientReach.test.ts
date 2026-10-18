@@ -9,6 +9,7 @@
  */
 
 import {
+  clientMethodExports,
   clientMethods,
   clientMethodReach,
   clientReachProblems,
@@ -169,5 +170,58 @@ describe('the EngineClient reach check', () => {
         getGrafts: 'why',
       })
     ).toEqual({ unlisted: [], stale: ['getOrchards', 'getGrafts'] });
+  });
+});
+
+describe('the EngineClient export reach', () => {
+  const CLIENT = `
+import * as orchard from './delegates/orchard';
+
+export class EngineClient {
+  pickPears = () => orchard.pickPears(this);
+
+  searchPears = (term: string) => orchard.searchPears(this, term);
+}
+`;
+  const KEYS = [
+    { key: 'OrchardManager.getPears', object: 'OrchardManager', camelName: 'getPears' },
+  ];
+  const LOCAL = { orchard: 'OrchardManager' };
+
+  const HELPER = `
+function readPears(host) {
+  return host.engine.orchard().getPears();
+}
+`;
+  const EXPORTS = `
+export function pickPears(host) {
+  return readPears(host);
+}
+
+export function searchPears(host, term) {
+  return readPears(host).filter((pear) => pear.name.includes(term));
+}
+`;
+
+  const rowsFor = (delegate: string) =>
+    clientMethodExports(
+      CLIENT,
+      new Map([['modules/veloqrs/src/delegates/orchard.ts', delegate]]),
+      KEYS,
+      LOCAL
+    );
+
+  it('follows an unexported helper declared after the exports into both callers', () => {
+    const rows = rowsFor(EXPORTS + HELPER);
+
+    expect(rows.get('pickPears')).toEqual(['OrchardManager.getPears']);
+    expect(rows.get('searchPears')).toEqual(['OrchardManager.getPears']);
+  });
+
+  it('follows an unexported helper declared before the exports into both callers', () => {
+    const rows = rowsFor(HELPER + EXPORTS);
+
+    expect(rows.get('pickPears')).toEqual(['OrchardManager.getPears']);
+    expect(rows.get('searchPears')).toEqual(['OrchardManager.getPears']);
   });
 });

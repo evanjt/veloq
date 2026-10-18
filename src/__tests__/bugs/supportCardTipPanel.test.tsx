@@ -9,7 +9,7 @@
  */
 
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ReactTestInstance } from 'react-test-renderer';
 
@@ -60,8 +60,16 @@ function fixedHeightsAbove(node: ReactTestInstance): number[] {
   return heights;
 }
 
+// The sponsor button is the probe for an open panel, and it is offered only off iOS.
+const originalOS = Platform.OS;
+
 beforeEach(() => {
   openLaunchSession();
+  Platform.OS = 'android';
+});
+
+afterEach(() => {
+  Platform.OS = originalOS;
 });
 
 describe('the support card tip panel', () => {

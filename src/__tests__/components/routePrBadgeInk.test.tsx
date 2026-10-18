@@ -1,10 +1,10 @@
 /**
- * Scenario: a feed card whose activity set a route PR shows a gold badge with
- * a trophy and the time gained, and a section's recent efforts mark the record
- * with a gold PR label. White on the gold measures 2.1:1.
+ * Scenario: a feed card whose activity set a route PR shows a record badge with
+ * a trophy, and a section's recent efforts mark the record with a PR label.
+ * White on the gold measures 2.1:1.
  *
- * Expected behaviour: text on the gold fill reaches 4.5:1 in both themes, and
- * the slower-than-PR delta keeps its light text on the dark badge.
+ * Expected behaviour: text on the record fill reaches 4.5:1 in both themes, and
+ * the slower-than-PR gap reads in an ink its own fill can carry.
  */
 import React from 'react';
 import { StyleSheet } from 'react-native';
@@ -14,7 +14,6 @@ import { ActivityCard } from '@/features/activity/components/ActivityCard';
 import { RecentEffortsList } from '@/features/insights/components/content/RecentEffortsList';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 import { badgePaint } from '@/shared/ui/Badge';
-import { brand, ink } from '@/theme';
 import type { Activity } from '@/types';
 import { contrastRatio } from '../__shared__/contrast';
 
@@ -73,33 +72,40 @@ describe.each([false, true])('the route PR badge (dark %s)', (isDark) => {
     mockScheme.current = isDark ? 'dark' : 'light';
   });
 
-  it('draws the time gained in an ink the gold can carry', async () => {
+  it('draws the record word and its trophy in an ink the fill can carry', async () => {
     const { getByTestId } = await render(
       <ActivityCard
         activity={activity}
         routeHighlight={{ routeName: 'Harbour', isPr: true, trend: 1, prImprovementSeconds: 12 }}
       />
     );
-    const fill = flat(getByTestId('activity-card-sample-7-route-chip').props.style)
-      .backgroundColor as string;
-    const ink = flat(getByTestId('activity-card-sample-7-route-improvement').props.style)
-      .color as string;
+    const badge = getByTestId('activity-card-sample-7-route-badge');
+    const fill = flat(badge.props.style).backgroundColor as string;
+    const [text] = badge.findAll(
+      (n) => typeof n.type === 'string' && typeof n.props.children === 'string'
+    );
+    const [trophy] = badge.findAll((n) => n.props.name === 'trophy');
 
-    expect(fill).toBe(brand.gold);
-    expect(contrastRatio(ink, fill)).toBeGreaterThanOrEqual(4.5);
+    expect(fill).toBe(badgePaint('record', isDark).fill);
+    expect(contrastRatio(flat(text.props.style).color as string, fill)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(trophy.props.color, fill)).toBeGreaterThanOrEqual(4.5);
   });
 
-  it('keeps light text on the dark delta badge', async () => {
+  it('draws the slower gap in an ink its fill can carry', async () => {
     const { getByTestId } = await render(
       <ActivityCard
         activity={activity}
         routeHighlight={{ routeName: 'Harbour', isPr: false, trend: -1, timeDeltaSeconds: 30 }}
       />
     );
-    const chip = getByTestId('activity-card-sample-7-route-chip');
-    const [text] = chip.findAll((n) => typeof n.props.children === 'string');
+    const badge = getByTestId('activity-card-sample-7-route-badge');
+    const fill = flat(badge.props.style).backgroundColor as string;
+    const [text] = badge.findAll(
+      (n) => typeof n.type === 'string' && typeof n.props.children === 'string'
+    );
 
-    expect(flat(text.props.style).color).toBe(ink.white);
+    expect(fill).toBe(badgePaint('negative', isDark).fill);
+    expect(contrastRatio(flat(text.props.style).color as string, fill)).toBeGreaterThanOrEqual(4.5);
   });
 });
 

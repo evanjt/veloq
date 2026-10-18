@@ -152,7 +152,7 @@ export {
   resetBasemapTileCounts,
   type BasemapTileSizes,
 } from './lib/basemapCache';
-export { handOverGroundTemplates } from './lib/tileTransport';
+export { handOverGroundTemplates, registerTileListenerResume } from './lib/tileTransport';
 export {
   MAX_MAP_CONTROLS,
   activityMapControlCount,

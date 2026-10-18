@@ -17,8 +17,12 @@ final class MapWebViewReclaimer<T> {
    * the last warning before the low-memory killer; below 34 it is TRIM_MEMORY_MODERATE (60).
    * TRIM_MEMORY_UI_HIDDEN (20) never releases, so switching apps does not reload the map.
    */
+  static int releaseLevel(int sdkInt) {
+    return sdkInt >= 34 ? 40 : 60;
+  }
+
   MapWebViewReclaimer(int sdkInt, Consumer<Runnable> post, Consumer<T> release) {
-    this.releaseLevel = sdkInt >= 34 ? 40 : 60;
+    this.releaseLevel = releaseLevel(sdkInt);
     this.post = post;
     this.release = release;
   }
