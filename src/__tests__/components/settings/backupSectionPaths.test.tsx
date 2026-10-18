@@ -7,7 +7,7 @@ import { SyncState, SyncStep } from 'veloqrs';
 import { BackupSection } from '@/features/settings/components/BackupSection';
 import { darkColors } from '@/theme';
 import { formatDateTime } from '@/shared/format/format';
-import { performBackup } from '@/features/settings/lib/autobackup';
+import { performBackup, turnOnAutoBackup } from '@/features/settings/lib/autobackup';
 import {
   discardRecordImport,
   discardUnplacedRecords,
@@ -221,6 +221,10 @@ jest.mock('@/features/settings/hooks/exportIndex', () => ({
 jest.mock('@/features/settings/lib/autobackup', () => ({
   isAutoBackupEnabled: () => mockAutoEnabled,
   setAutoBackupEnabled: (value: boolean) => mockSetAutoEnabled(value),
+  turnOnAutoBackup: jest.fn(async () => {
+    mockSetAutoEnabled(true);
+    return { wroteZip: true, carriers: {} };
+  }),
   getLastBackupTimestamp: () => null,
   getDestinationLastBackup: (id: string) => mockDestinationStamps[id] ?? null,
   getUnplacedBackupRecords: async () => mockUnplaced(),
@@ -936,6 +940,19 @@ describe('carriers', () => {
 
     expect(mockSetAutoEnabled).not.toHaveBeenCalled();
     expect(screen.getByTestId('backup-auto-switch')).toBeChecked();
+  });
+
+  it('turns automatic backup on through the path that writes the first backup at once', async () => {
+    mockAutoEnabled = false;
+    await render(<BackupSection />);
+
+    await act(async () => {
+      await fireEvent.press(screen.getByTestId('backup-auto-switch'));
+    });
+
+    expect(turnOnAutoBackup).toHaveBeenCalledTimes(1);
+    expect(mockSetAutoEnabled).toHaveBeenCalledWith(true);
+    expect(screen.getByTestId('backup-success-message')).toBeTruthy();
   });
 
   it('names every destination a Back Up Now run wrote', async () => {

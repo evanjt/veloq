@@ -13,6 +13,20 @@ use super::{GroupSummary, PersistentEngine, codec, get_route_word};
 /// were made under.
 pub(crate) const GROUPS_MATCH_RULE_KEY: &str = "groups_match_rule";
 
+/// `schema_info` key holding the [`ROUTE_MATCHER_REVISION`] the stored
+/// signatures were built under. Absent means revision 0.
+pub(crate) const SIGNATURES_MATCHER_REVISION_KEY: &str = "signatures_matcher_revision";
+
+/// Revision of the route matcher's code, bumped by hand whenever a change makes
+/// the same track build a different signature, or the same two signatures pair
+/// differently, with no [`tracematch::MatchConfig`] field moving.
+///
+/// It is folded into [`match_rule_digest`], so a bump reads as a changed rule
+/// and both writers group the whole library again, and the stored signatures
+/// are rebuilt from their tracks before that regroup. Revision 0 is the config
+/// alone, which is the digest every group stamped before this constant carries.
+pub(crate) const ROUTE_MATCHER_REVISION: u32 = 1;
+
 /// Share of the travelled line within the active match rule's near-route distance.
 pub(crate) fn live_overlap_percentage(
     track: &[GpsPoint],
@@ -57,7 +71,16 @@ pub(crate) fn live_overlap_percentage(
 
 /// The rule a grouping is made under, as the text stored beside the groups.
 pub(crate) fn match_rule_digest(config: &tracematch::MatchConfig) -> String {
-    format!("{config:?}")
+    match_rule_digest_at(config, ROUTE_MATCHER_REVISION)
+}
+
+/// [`match_rule_digest`] under an explicit matcher revision.
+pub(crate) fn match_rule_digest_at(config: &tracematch::MatchConfig, revision: u32) -> String {
+    if revision == 0 {
+        format!("{config:?}")
+    } else {
+        format!("{config:?}|matcher_revision={revision}")
+    }
 }
 
 /// Record the rule the groups just written were made under. Called inside the
@@ -74,16 +97,101 @@ pub(crate) fn stamp_groups_match_rule(
 }
 
 /// Record a rule for groups that carry none, which are groups saved before the
-/// rule was stamped. They are taken to have been made under `config`.
+/// rule was stamped. They are taken to have been made under `config`, by the
+/// matcher of that time, which is revision 0.
 pub(crate) fn stamp_groups_match_rule_if_absent(
     conn: &Connection,
     config: &tracematch::MatchConfig,
 ) -> SqlResult<()> {
     conn.execute(
         "INSERT OR IGNORE INTO schema_info (key, value) VALUES (?, ?)",
-        params![GROUPS_MATCH_RULE_KEY, match_rule_digest(config)],
+        params![GROUPS_MATCH_RULE_KEY, match_rule_digest_at(config, 0)],
     )
     .map(|_| ())
+}
+
+/// Record the stored signatures as built under the current matcher revision.
+pub(crate) fn stamp_signatures_matcher_revision(conn: &Connection) -> SqlResult<()> {
+    conn.execute(
+        "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, ?)",
+        params![
+            SIGNATURES_MATCHER_REVISION_KEY,
+            ROUTE_MATCHER_REVISION.to_string()
+        ],
+    )
+    .map(|_| ())
+}
+
+/// Record a library holding no signature as at the current matcher revision,
+/// so a new library's first regroup rebuilds nothing.
+pub(crate) fn stamp_signatures_matcher_revision_if_empty(conn: &Connection) -> SqlResult<()> {
+    conn.execute(
+        "INSERT OR IGNORE INTO schema_info (key, value)
+         SELECT ?, ? WHERE NOT EXISTS (SELECT 1 FROM signatures)",
+        params![
+            SIGNATURES_MATCHER_REVISION_KEY,
+            ROUTE_MATCHER_REVISION.to_string()
+        ],
+    )
+    .map(|_| ())
+}
+
+/// Whether the stored signatures were built by an earlier matcher revision.
+/// No stamp is revision 0. An unreadable stamp counts as current: a rebuild
+/// that cannot write would hold every regroup back.
+pub(crate) fn signatures_behind_matcher(conn: &Connection) -> bool {
+    match conn
+        .query_row(
+            "SELECT value FROM schema_info WHERE key = ?",
+            params![SIGNATURES_MATCHER_REVISION_KEY],
+            |row| row.get::<_, String>(0),
+        )
+        .optional()
+    {
+        Ok(Some(stored)) => stored
+            .parse::<u32>()
+            .map_or(true, |revision| revision < ROUTE_MATCHER_REVISION),
+        Ok(None) => true,
+        Err(error) => {
+            log::warn!("veloqrs: [signatures_matcher_revision] read failed: {error}");
+            false
+        }
+    }
+}
+
+/// Rebuild every stored signature from its stored track under the current
+/// matcher, then stamp the revision. Runs inside the caller's transaction, so
+/// the stamp commits with every row it vouches for and a kill part-way leaves
+/// the old rows and the old stamp for the next regroup to redo. A signature
+/// whose track is missing, unreadable or now too short to build one stays as
+/// it was. Answers how many rows it rewrote.
+pub(crate) fn rebuild_signatures(
+    conn: &Connection,
+    config: &tracematch::MatchConfig,
+) -> SqlResult<usize> {
+    let ids: Vec<String> = conn
+        .prepare("SELECT activity_id FROM signatures")?
+        .query_map([], |row| row.get(0))?
+        .collect::<SqlResult<_>>()?;
+    let mut read = conn.prepare("SELECT track_data FROM gps_tracks WHERE activity_id = ?")?;
+    let mut rebuilt = 0;
+    for id in &ids {
+        let Some(blob) = read
+            .query_row(params![id], |row| row.get::<_, Vec<u8>>(0))
+            .optional()?
+        else {
+            continue;
+        };
+        let codec::TrackRead::Present(points) = codec::TrackRead::from_blob(&blob) else {
+            continue;
+        };
+        if let Some(signature) = RouteSignature::from_points(id, &points, config) {
+            super::activities::write_signature(conn, id, &signature)?;
+            rebuilt += 1;
+        }
+    }
+    stamp_signatures_matcher_revision(conn)?;
+    Ok(rebuilt)
 }
 
 /// Whether the stored groups were made under a rule other than `config`. Only
@@ -539,6 +647,10 @@ mod live_route_overlap_tests;
 #[cfg(test)]
 #[path = "tests/regroup_on_reopen.rs"]
 mod regroup_on_reopen_tests;
+
+#[cfg(test)]
+#[path = "tests/matcher_revision_upgrade.rs"]
+mod matcher_revision_upgrade_tests;
 
 /// Insert route groups into an emptied `route_groups`, the one writer of its
 /// rows. Every row carries its member count, which the size tally's triggers
@@ -1025,6 +1137,7 @@ impl PersistentEngine {
         if !self.groups.is_empty() {
             stamp_groups_match_rule_if_absent(&self.db, &self.match_config)?;
         }
+        stamp_signatures_matcher_revision_if_empty(&self.db)?;
         if !self.groups.is_empty() && self.activity_matches.is_empty() {
             log::info!(
                 "veloqrs: Forcing groups recompute: groups exist but activity_matches is empty"
@@ -1328,6 +1441,41 @@ impl PersistentEngine {
         Ok(())
     }
 
+    /// Rebuild the stored signatures when an earlier matcher revision built
+    /// them. Answers false when the rebuild failed, and the regroup then waits
+    /// for the next read rather than grouping the signatures it replaces.
+    fn bring_signatures_to_matcher(&mut self) -> bool {
+        if !signatures_behind_matcher(&self.db) {
+            return true;
+        }
+        let started = std::time::Instant::now();
+        let rebuilt = self
+            .db
+            .execute_batch("BEGIN IMMEDIATE")
+            .and_then(|()| rebuild_signatures(&self.db, &self.match_config))
+            .and_then(|rebuilt| super::commit_write_txn(&self.db).map(|()| rebuilt));
+        match rebuilt {
+            Ok(rebuilt) => {
+                self.signature_cache.clear();
+                log::info!(
+                    "veloqrs: [recompute_groups] rebuilt {} signatures for matcher revision {} in {}ms",
+                    rebuilt,
+                    ROUTE_MATCHER_REVISION,
+                    started.elapsed().as_millis()
+                );
+                true
+            }
+            Err(e) => {
+                let _ = self.db.execute_batch("ROLLBACK");
+                log::error!(
+                    "veloqrs: [recompute_groups] signature rebuild failed: {}",
+                    e
+                );
+                false
+            }
+        }
+    }
+
     /// Recompute route groups.
     fn recompute_groups(&mut self) {
         use std::time::Instant;
@@ -1339,6 +1487,12 @@ impl PersistentEngine {
         // groups that commit replaced would mint ids it already holds and carry
         // its names onto other routes, so the regroup starts from the commit.
         self.follow_committed_groups();
+
+        // Grouping signatures an earlier matcher built would stamp them with
+        // the current rule, and nothing would group them again.
+        if !self.bring_signatures_to_matcher() {
+            return;
+        }
 
         // Phase 1: Load all signatures (Arc avoids full clone on cache hit)
         let sig_start = Instant::now();

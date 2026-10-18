@@ -46,6 +46,7 @@ describe('the first-run tour', () => {
       'whatsNew.tutorial.firstLoadTitle',
       'whatsNew.tutorial.feedTitle',
       'whatsNew.tutorial.activityTitle',
+      'whatsNew.tutorial.notificationsTitle',
       'whatsNew.v022.mapStylesTitle',
       'whatsNew.v022.fitnessTitle',
       'whatsNew.v040.sectionPageTitle',
@@ -95,6 +96,7 @@ describe('Show Me over the library the first run sees', () => {
     expect(routes).toEqual([
       undefined,
       '/',
+      undefined,
       undefined,
       '/',
       '/fitness',

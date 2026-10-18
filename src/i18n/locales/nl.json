@@ -1261,9 +1261,7 @@
     "privacy": {
       "title": "Privacymelding",
       "brief": "Je atleet-ID en een pushtoken worden opgeslagen op onze server (30 dagen geldig). Meldingen worden via Apple of Google verzonden, maar alle inzichtinhoud wordt op je apparaat gegenereerd. Je kunt dit op elk moment uitschakelen.",
-      "accept": "Ik begrijp het",
-      "briefEnabled": "Je ontvangt deze meldingen. Je atleet-ID en een pushtoken worden op onze server opgeslagen (verloopt na 30 dagen) en meldingen lopen via Expo, daarna Apple of Google, naar je toestel. Alle inzichten worden op je toestel gegenereerd. Je kunt ze op elk moment uitschakelen.",
-      "turnOff": "Uitschakelen"
+      "accept": "Ik begrijp het"
     },
     "settings": {
       "title": "Meldingen",
@@ -1274,12 +1272,7 @@
       "fitnessMilestone": "Fitnessmijlpalen"
     },
     "prompt": {
-      "title": "Blijf op de hoogte",
-      "description": "Ontvang meldingen over nieuwe activiteiten, persoonlijke records en fitnessmijlpalen.",
-      "enable": "Inschakelen",
-      "dismiss": "Niet nu",
       "settingsHint": "Je kunt meldingen op elk moment inschakelen via Instellingen",
-      "keep": "Aan laten",
       "howItWorks": "Hoe het werkt"
     },
     "activityBody": {
@@ -2420,7 +2413,20 @@
       "feedBody": "Elke activiteit verschijnt hier met haar kaart, de nieuwste eerst.",
       "feedTip": "Trek omlaag om intervals.icu op nieuwe activiteiten te controleren, of tik op een activiteit om die te openen.",
       "activityTitle": "Binnen een activiteit",
-      "activityBody": "Open een activiteit voor haar kaart en grafieken, haar intervallen en de routes en secties waar ze bij hoort."
+      "activityBody": "Open een activiteit voor haar kaart en grafieken, haar intervallen en de routes en secties waar ze bij hoort.",
+      "notificationsTitle": "Meldingen",
+      "notificationsBody": "Als intervals.icu een nieuwe activiteit ontvangt, kan Veloq je vertellen wat het vond: een persoonlijk record, een snellere tijd dan normaal of een stap vooruit in fitheid. Dit zijn voorbeelden van wat er binnenkomt.",
+      "turnOn": "Inschakelen",
+      "neverRemind": "Nooit meer herinneren",
+      "notificationsNeedSignIn": "Meldingen vereisen inloggen met intervals.icu.",
+      "notificationsOn": "Meldingen staan aan. Je kunt ze wijzigen in Instellingen.",
+      "notificationsExampleSection": "Havenheuvel-klim",
+      "notificationsExampleRoute": "Rivierlus",
+      "notificationsExampleRide": "Ochtendrit",
+      "notificationsExampleRun": "Avondloop",
+      "backupWhere": "Elke back-up gaat naar de eigen back-up van je toestel. In Instellingen kun je ook een server, een map of een cloudopslag toevoegen.",
+      "backupOn": "Automatische back-up staat aan. Je kunt het wijzigen in Instellingen.",
+      "backupLater": "Je kunt automatische back-up altijd aanzetten in Instellingen."
     }
   },
   "strength": {
@@ -2597,6 +2603,15 @@
     "empty": "Nog geen wijzigingen vastgelegd",
     "around": "Rond deze wijziging",
     "forkAround": "Verkeer bij de splitsing",
+    "boundaries": "Waarom de lijn hier eindigt",
+    "cut_usage_change": "De meeste activiteiten op dit stuk gebruiken het vanaf hier anders: ze keren om, rijden een lus of draaien rondjes.",
+    "cut_fork": "Het verkeer splitst zich hier. Genoeg ervan gaat naar een ander stuk dat de lijn bij de splitsing stopt.",
+    "cut_traffic_cliff": "De meeste activiteiten aan de drukkere kant gaan nooit verder dan dit punt.",
+    "cut_trim": "Het terrein voorbij dit punt hoort al bij een ander stuk, dus de lijn stopt waar die twee zouden overlappen.",
+    "cut_low_support": "Minder eigen activiteiten van dit stuk dekken het terrein voorbij dit punt dan nodig is, dus de lijn stopt bij het laatste goed gedekte punt.",
+    "cut_terminus": "Genoeg activiteiten beginnen of eindigen hier dat het terrein verderop door andere wordt gebruikt, dus de lijn stopt waar ze aansluiten of afslaan.",
+    "cut_pass_end": "De passage waaruit deze lijn is getekend eindigt hier. Het terrein daarna wordt apart geteld.",
+    "cut_seam_clip": "De lijn is {{distance}} ingekort waar die een drukker stuk raakte. De aantallen zijn vóór het inkorten geteld.",
     "prEra": "Beste toen: {{time}}",
     "prMoved": "Record {{from}} naar {{to}}",
     "versions": "Opgeslagen versies",

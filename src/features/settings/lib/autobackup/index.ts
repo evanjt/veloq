@@ -6,6 +6,7 @@ export {
   onBackupReconnect,
   isAutoBackupEnabled,
   setAutoBackupEnabled,
+  turnOnAutoBackup,
   getLastBackupTimestamp,
   getDestinationLastBackup,
   getUnplacedBackupRecords,

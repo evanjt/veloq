@@ -15,9 +15,11 @@
 //! identical from outside, because the detector re-derives the pre-tail shape
 //! from the ground on the next sync and the tail edits it again.
 //!
-//! Rounds run the production apply: the evidence cache advances with the save
-//! and the processed activity ids are saved, so every round after the first
-//! enters the no-new-activities short-circuit rather than a cold re-detect.
+//! Rounds run the production apply with the evidence cache advancing on the
+//! save, but leave the processed activity ids unsaved, so every round re-derives
+//! the catalogue from the pool. A sync with nothing new steps nothing and
+//! writes nothing, so it cannot cycle; a re-derivation over the same pool, as a
+//! detect owing a recompute runs, is what this contract is about.
 //!
 //! Run: `cargo test -p veloqrs --features synthetic --test detection_synthetic -- detection_fixed_point::`
 
@@ -83,16 +85,15 @@ fn loaded_engine(path: &std::path::Path, corpus: &LifecycleCorpus) -> Persistent
     engine
 }
 
-/// Detect, then run the hot half of the production apply: the cache-aware save
-/// followed by the processed-id save, in that order and under one lock.
+/// Detect, then run the hot half of the production apply, the cache-aware
+/// save. The processed ids stay unsaved, so the next round re-derives too.
 fn detect_and_save(engine: &mut PersistentEngine) {
     let handle = engine.detect_sections_background();
     let (main, cache_update) = handle.recv_with_cache();
-    let (sections, processed_ids) = main.unwrap_or_default();
+    let (sections, _) = main.unwrap_or_default();
     engine
         .apply_sections_save_with_cache(sections, cache_update)
         .unwrap();
-    engine.save_processed_activity_ids(&processed_ids).unwrap();
 }
 
 /// One detect+apply round, both halves.

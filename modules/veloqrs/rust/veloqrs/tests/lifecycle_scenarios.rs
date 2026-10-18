@@ -670,27 +670,29 @@ fn raw_snapshot(engine: &PersistentEngine) -> SectionSnapshot {
     }
 }
 
-/// Re-detect with no new activities until the view stops moving, or `limit`
-/// rounds have passed. Each round is one decisive step for the debounce, so a
-/// dissolve armed on the last ingest needs `k` of them before the view can
-/// agree with the detector. Returns the rounds actually run.
-fn settle(engine: &mut PersistentEngine, limit: usize) -> usize {
-    let mut previous = snapshot(engine);
-    for round in 1..=limit {
-        let handle = engine.detect_sections_background();
-        let (sections, processed_ids) = handle.recv().expect("the detect ran");
-        engine.apply_sections(sections).expect("apply_sections");
-        engine
-            .save_processed_activity_ids(&processed_ids)
-            .expect("save_processed_activity_ids");
-        let now = snapshot(engine);
-        if now == previous {
-            return round;
-        }
-        previous = now;
+/// Sync `rides` rides one at a time, each on ground of its own far from every
+/// corridor, so each is an arrival that confirms every change still pending and
+/// rides none of them. A detect with no new activity steps nothing, so this is
+/// how the debounce runs out. The rides are dated in 2100, after the corpus.
+fn drain(engine: &mut PersistentEngine, rides: usize) {
+    const DRAIN_FROM: i64 = 4_102_444_800;
+    for i in 0..rides {
+        let lat = -40.0 + i as f64;
+        let filler = LifecycleActivity {
+            id: format!("drain-{i}"),
+            sport_type: "Ride".to_string(),
+            start_date_unix: DRAIN_FROM + i as i64 * 86_400,
+            gps_points: vec![
+                tracematch::GpsPoint::new(lat, 150.0),
+                tracematch::GpsPoint::new(lat, 150.005),
+            ],
+        };
+        let _ = ingest_step(engine, "drain", &[&filler]);
     }
-    limit
 }
+
+/// The debounce's depth: the arrivals a pending change needs before it applies.
+const DEBOUNCE: usize = tracematch::sections::DEFAULT_K as usize;
 
 // ============================================================================
 // Scenario F, full-rebuild convergence (incremental sequence vs single-shot)
@@ -755,9 +757,7 @@ fn scenario_f_full_converges_to_incremental_baseline() {
 
     // The same comparison one layer down. `get_sections` above is the DAMPED
     // view: the identity registry holds a section the detector has stopped
-    // emitting until k consecutive decisive steps have passed, and the
-    // incremental path spent its last step ingesting 396 activities, so any
-    // dissolve that step armed cannot have applied. The raw catalogue is what
+    // emitting until k confirmations have passed. The raw catalogue is what
     // the detector actually emitted, and it is the one a detector defect moves.
     let inc_raw = raw_snapshot(&e_inc);
     let full_raw = raw_snapshot(&e_full);
@@ -769,28 +769,30 @@ fn scenario_f_full_converges_to_incremental_baseline() {
     print_ground_diff("F_raw_inc", &inc_raw, &full_raw);
     print_ground_diff("F_raw_full", &full_raw, &inc_raw);
 
-    // And the view once the debounce has run out. Neither engine gains an
-    // activity here, so every round is the same detection against the same
-    // pool: what still differs after this is a difference the athlete keeps.
-    let inc_rounds = settle(&mut e_inc, 8);
-    let full_rounds = settle(&mut e_full, 8);
+    // And the view once the debounce has run out. A sync with nothing new
+    // steps nothing, so it runs out on arrivals: both engines take the same
+    // rides on ground of their own, which confirm whatever is still pending and
+    // move nothing else. What still differs after this is a difference the
+    // athlete keeps.
+    drain(&mut e_inc, DEBOUNCE);
+    drain(&mut e_full, DEBOUNCE);
     let inc_settled = snapshot(&mut e_inc);
     let full_settled = snapshot(&mut e_full);
     println!(
-        "[lifecycle/F_settled] incremental={} (after {} rounds) full={} (after {} rounds)",
+        "[lifecycle/F_settled] incremental={} full={} (after {} arrivals)",
         inc_settled.sections.len(),
-        inc_rounds,
         full_settled.sections.len(),
-        full_rounds
+        DEBOUNCE
     );
     print_ground_diff("F_settled_inc", &inc_settled, &full_settled);
     print_ground_diff("F_settled_full", &full_settled, &inc_settled);
 
     // The owner's rule: "the same activities played one by one since a year, vs
     // 1 batch of the exact same, should end up with the same library". Asserted
-    // on the two catalogues that can carry that claim, and not on the damped
-    // view above, which is read one step after a 396-activity ingest and is
-    // still pressing ten dissolves through the k-step debounce.
+    // on the detector's catalogues, on the damped view read straight after the
+    // 396-activity ingest, and on the view once the debounce has run out. The
+    // ingest counts for the debounce as its rides one after another, so the
+    // changes its earlier rides support have applied within it.
     assert_eq!(
         ground(&inc_raw),
         ground(&full_raw),
@@ -799,18 +801,28 @@ fn scenario_f_full_converges_to_incremental_baseline() {
         full_raw.sections.len()
     );
     assert_eq!(
+        ground(&inc_step.snapshot),
+        ground(&full_step.snapshot),
+        "the views straight after the ingest differ: incremental {} sections, full {}",
+        inc_step.section_count,
+        full_step.section_count
+    );
+    assert_eq!(
         ground(&inc_settled),
         ground(&full_settled),
-        "the settled views differ: incremental {} sections after {} rounds, full {} after {}",
+        "the settled views differ: incremental {} sections, full {}",
         inc_settled.sections.len(),
-        inc_rounds,
-        full_settled.sections.len(),
-        full_rounds
+        full_settled.sections.len()
     );
-    // A view that was still moving when `settle` gave up proves nothing: the
-    // equality above would then be between two arbitrary intermediate states.
-    assert!(
-        inc_rounds < 8 && full_rounds < 8,
-        "a view was still moving when settle gave up: incremental {inc_rounds}, full {full_rounds}"
+    // Nothing was left pending for the arrivals to apply on either path.
+    assert_eq!(
+        ground(&inc_settled),
+        ground(&inc_step.snapshot),
+        "the incremental view was still moving after the ingest"
+    );
+    assert_eq!(
+        ground(&full_settled),
+        ground(&full_step.snapshot),
+        "the full view was still moving after the ingest"
     );
 }

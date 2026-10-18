@@ -490,33 +490,80 @@ fn apply_on_worker(
     regroup_owed: bool,
     groups_epoch_at_spawn: u64,
 ) -> bool {
+    settle_on_worker(
+        install,
+        Some((sections, update)),
+        activity_ids,
+        progress,
+        regroup_owed,
+        groups_epoch_at_spawn,
+    )
+}
+
+/// `apply_on_worker` for a detect with nothing new, which steps the debounce
+/// zero times: the catalogue and the registry are left as they are and only
+/// the processed ids are saved.
+fn settle_idle_on_worker(
+    install: u64,
+    activity_ids: &[String],
+    progress: &SectionDetectionProgress,
+    groups_epoch_at_spawn: u64,
+) -> bool {
+    settle_on_worker(
+        install,
+        None,
+        activity_ids,
+        progress,
+        false,
+        groups_epoch_at_spawn,
+    )
+}
+
+/// The worker's settle, applying `batch` when there is one.
+fn settle_on_worker(
+    install: u64,
+    batch: Option<(Vec<FrequentSection>, Option<CacheUpdate>)>,
+    activity_ids: &[String],
+    progress: &SectionDetectionProgress,
+    regroup_owed: bool,
+    groups_epoch_at_spawn: u64,
+) -> bool {
     // Off the lock: a 1,000-activity cache is about 13 MB to encode and every
     // reader used to wait it out inside the apply.
-    let encoded = encode_cache_for_apply(update.as_ref());
-    let prepared = replay_off_lock(install, &sections, update.as_ref());
+    let batch = batch.map(|(sections, update)| {
+        let encoded = encode_cache_for_apply(update.as_ref());
+        let prepared = replay_off_lock(install, &sections, update.as_ref());
+        (sections, update, encoded, prepared)
+    });
+    let applies = batch.is_some();
     // Stamped with the install the run started against. A cancel is
     // cooperative, so a worker past its last check still arrives here after a
     // restore, and the catalogue it computed from the old library would
     // otherwise be written into the new one.
     let saved = super::super::with_persistent_engine_for(install, |e| {
-        let replay = prepared.and_then(|prepared| {
-            let version =
-                e.db.query_row("PRAGMA data_version", [], |row| row.get::<_, i64>(0));
-            (super::super::ENGINE_ACCESS_EPOCH.load(Ordering::Acquire)
-                == prepared.epoch.wrapping_add(1)
-                && version.ok() == Some(prepared.data_version))
-            .then_some((prepared.identity, prepared.applied))
-        });
-        let counts = match e.apply_sections_save_with_cache_row_ranked_prepared(
-            sections, update, encoded, false, replay,
-        ) {
-            Ok(counts) => counts,
-            Err(err) => {
-                log::error!(
-                    "veloqrs: [SectionDetection] apply_sections_save failed on the worker: {}",
-                    err
-                );
-                return false;
+        let counts = match batch {
+            None => super::identity::SectionChangeCounts::default(),
+            Some((sections, update, encoded, prepared)) => {
+                let replay = prepared.and_then(|prepared| {
+                    let version =
+                        e.db.query_row("PRAGMA data_version", [], |row| row.get::<_, i64>(0));
+                    (super::super::ENGINE_ACCESS_EPOCH.load(Ordering::Acquire)
+                        == prepared.epoch.wrapping_add(1)
+                        && version.ok() == Some(prepared.data_version))
+                    .then_some((prepared.identity, prepared.applied))
+                });
+                match e.apply_sections_save_with_cache_row_ranked_prepared(
+                    sections, update, encoded, false, replay,
+                ) {
+                    Ok(counts) => counts,
+                    Err(err) => {
+                        log::error!(
+                            "veloqrs: [SectionDetection] apply_sections_save failed on the worker: {}",
+                            err
+                        );
+                        return false;
+                    }
+                }
             }
         };
         if let Err(err) = e.save_processed_activity_ids(activity_ids) {
@@ -547,7 +594,7 @@ fn apply_on_worker(
         true
     });
 
-    if saved == Some(true) {
+    if saved == Some(true) && applies {
         rank_off_lock(install);
     }
 
@@ -897,17 +944,15 @@ impl PersistentEngine {
 
         let groups_epoch_at_spawn = self.groups_dirty_epoch;
 
-        // Short-circuit: no new activities means nothing to detect. Re-emit the
-        // last RAW batch, not the damped visible view: the visible catalogue can
-        // lag the batch while a dissolve debounces, and echoing it back through
-        // identity would count as a decisive continuation and hold the laggards
-        // forever. The raw batch is what a re-fold over the unchanged pool would
-        // emit, so the debounce keeps pressing and the view converges. A known
-        // EMPTY raw batch is echoed as empty for the same reason: it is the
-        // detector's answer, and echoing the visible view instead would
-        // resurrect sections the pool no longer supports. The raw batch lives
-        // in memory only; in a fresh process the visible catalogue is the best
-        // available echo.
+        // Short-circuit: no new activities and no cluster owing a recompute
+        // means nothing to detect, and no evidence for the debounce. The
+        // debounce counts arrivals, so this detect steps it zero times: the
+        // visible catalogue, the pending ledger and the registry stay as the
+        // last ingest left them, and a dissolve that ingest began converges on
+        // the arrivals of the next one rather than on idle syncs. Only the
+        // processed ids are saved. A blocking caller still receives a batch to
+        // hand to the apply, the last raw one or, in a fresh process, the
+        // visible catalogue, and the apply recognises it and steps nothing.
         //
         // Every caller holds the engine lock here, so the test reads the
         // engine in place and copies nothing first. The cache's debt is read
@@ -925,27 +970,16 @@ impl PersistentEngine {
                 "veloqrs: [SectionDetection] No new activities, skipping detection ({} already processed)",
                 self.processed_activity_ids.len()
             );
-            let echo: Arc<[FrequentSection]> = match &self.raw_sections {
-                Some(raw) => Arc::clone(raw),
-                None => self
-                    .sections
-                    .iter()
-                    .filter(|s| !s.is_user_defined)
-                    .map(|s| FrequentSection::clone(s))
-                    .collect(),
-            };
             let all_ids = self.sorted_activity_ids();
             // No detection ran, so the evidence cache is unchanged: `cache_tx` is
             // dropped unsent, `take_cache` returns None, and the caller leaves the
             // engine cache as-is.
-            //
-            // Echoing the last batch is still a full catalogue write, so the
-            // owned copy it saves is made on a thread of its own, never on the
-            // one that asked for the detect.
             match &worker_applied {
-                // A self-applying run saves on that thread too, so neither the
-                // ask nor the poll behind it pays for the save.
+                // A self-applying run saves the processed ids on a thread of
+                // its own, so neither the ask nor the poll behind it pays for
+                // the write.
                 Some(flag) => {
+                    self.idle_batch = None;
                     let flag = Arc::clone(flag);
                     let echo_progress = progress.clone();
                     let completion_slot = Arc::clone(&checkpoint_slot);
@@ -958,13 +992,10 @@ impl PersistentEngine {
                         // once the outcome is readable.
                         let ended = DetectionEnded::holding(tx).settling(Some(completion_slot));
                         echo_progress.set_phase("saving", 1);
-                        if apply_on_worker(
+                        if settle_idle_on_worker(
                             install_at_spawn,
-                            echo.to_vec(),
-                            None,
                             &all_ids,
                             &echo_progress,
-                            false,
                             groups_epoch_at_spawn,
                         ) {
                             flag.store(true, Ordering::SeqCst);
@@ -981,7 +1012,19 @@ impl PersistentEngine {
                         cancel: Arc::new(AtomicBool::new(false)),
                     };
                 }
+                // The owned copy the caller receives is made on a thread of
+                // its own, never on the one that asked for the detect.
                 None => {
+                    let echo: Arc<[FrequentSection]> = match &self.raw_sections {
+                        Some(raw) => Arc::clone(raw),
+                        None => self
+                            .sections
+                            .iter()
+                            .filter(|s| !s.is_user_defined)
+                            .map(|s| FrequentSection::clone(s))
+                            .collect(),
+                    };
+                    self.idle_batch = Some(Arc::clone(&echo));
                     crate::threads::spawn_background("veloq-echo", move || {
                         tx.send((echo.to_vec(), all_ids)).ok();
                     });
@@ -994,11 +1037,15 @@ impl PersistentEngine {
                 checkpoint: Arc::new(CheckpointSlot::default()),
                 progress,
                 worker_applied,
-                // The echo is one write and already under way; there is no
+                // The echo is one send and already under way; there is no
                 // stage boundary to stop it at.
                 cancel: Arc::new(AtomicBool::new(false)),
             };
         }
+
+        // This detect has evidence to offer, so a batch an earlier idle one
+        // handed out and nobody applied is no longer the next apply's.
+        self.idle_batch = None;
 
         let db_path = self.db_path.clone();
         let section_config = self.section_config.clone();
@@ -1572,6 +1619,11 @@ impl PersistentEngine {
         // boundary, so this catches an upstream regression in debug only.
         // A pinned section is the exception: a pin freezes existence, so the
         // fold carries it with whatever portions it still has, none included.
+        // The batch an idle detect handed out has no arrival behind it, so it
+        // is a replay of no step: nothing moves and nothing is written.
+        if prepared.is_none() && self.take_idle_batch(&sections) {
+            return Ok(super::identity::SectionChangeCounts::default());
+        }
         let pinned: std::collections::HashSet<String> =
             self.pinned_section_ids().into_iter().collect();
         debug_assert!(
@@ -1684,6 +1736,14 @@ impl PersistentEngine {
         }
     }
 
+    /// Whether `sections` is the batch the last idle detect handed out,
+    /// forgetting that batch either way: it answers one apply.
+    fn take_idle_batch(&mut self, sections: &[FrequentSection]) -> bool {
+        self.idle_batch.take().is_some_and(|idle| {
+            idle.len() == sections.len() && idle.iter().zip(sections).all(|(a, b)| a.id == b.id)
+        })
+    }
+
     /// Cache-aware hot save: `apply_sections_save`, then advance the
     /// evidence cache iff the save succeeded. `update` is the worker's
     /// `CacheUpdate`, or None for the no-new-activities short-circuit.
@@ -1757,12 +1817,12 @@ impl PersistentEngine {
             !update.as_ref().is_some_and(|u| u.checkpoint),
             "apply_sections_save_with_cache adopted a mid-fold checkpoint as the final cache"
         );
-        self.fork_records = update
+        self.boundary_records = update
             .as_ref()
             .map(|u| u.boundaries.clone())
             .unwrap_or_default();
         let saved = self.apply_sections_save_ranked(sections, rank, prepared);
-        self.fork_records.clear();
+        self.boundary_records.clear();
         match saved {
             Ok(counts) => {
                 if let Some(u) = update {

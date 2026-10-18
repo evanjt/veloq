@@ -10,7 +10,8 @@ use crate::lifecycle_support::*;
 /// Target gate (order-free incremental): the drip MUST converge to the batch
 /// catalogue exactly. Sync delivers one ride at a time, so the same rides played
 /// one by one and ingested as one batch must draw the same ground, on the
-/// detector's own catalogue and again on the view once the debounce has run out.
+/// detector's own catalogue and again on the view once the debounce has run out,
+/// which takes arrivals: a sync with nothing new steps nothing.
 /// Ground-based so it survives id renumbering. Extra drip sections fail it as
 /// surely as missing ones.
 ///
@@ -48,21 +49,22 @@ fn playback_converges_to_batch() {
         batch_raw.sections.len()
     );
 
-    let drip_rounds = settle_to_detector(&mut ep, 8);
-    let batch_rounds = settle_to_detector(&mut eb, 8);
+    drain(&mut ep, "drain", DEBOUNCE);
+    drain(&mut eb, "drain", DEBOUNCE);
     let drip_settled = snapshot(&mut ep);
     let batch_settled = snapshot(&mut eb);
     assert_eq!(
         ground(&drip_settled),
         ground(&batch_settled),
-        "the settled views differ: drip {} sections after {} rounds, batch {} after {}",
+        "the settled views differ: drip {} sections, batch {}",
         drip_settled.sections.len(),
-        drip_rounds,
-        batch_settled.sections.len(),
-        batch_rounds
+        batch_settled.sections.len()
     );
-    assert!(
-        drip_rounds <= 8 && batch_rounds <= 8,
-        "a view had not caught up with the detector when settle gave up: drip {drip_rounds}, batch {batch_rounds}"
-    );
+    for (path, view, engine) in [("drip", &drip_settled, &ep), ("batch", &batch_settled, &eb)] {
+        assert_eq!(
+            ground(view),
+            ground(&raw_snapshot(engine)),
+            "the {path} view had not caught up with the detector after {DEBOUNCE} arrivals"
+        );
+    }
 }

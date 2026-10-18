@@ -449,50 +449,29 @@ pub fn ground(snapshot: &SectionSnapshot) -> Vec<Vec<String>> {
     all
 }
 
-/// Re-detect with no new activities until the view stops moving, or `limit`
-/// rounds have passed. Each round is one decisive step for the debounce, so a
-/// dissolve armed on the last ingest needs `k` of them before the view can
-/// agree with the detector. Returns the rounds actually run.
-pub fn settle(engine: &mut PersistentEngine, limit: usize) -> usize {
-    let mut previous = snapshot(engine);
-    for round in 1..=limit {
-        let handle = engine.detect_sections_background();
-        let (sections, processed_ids) = handle.recv().expect("the detect ran");
-        engine.apply_sections(sections).expect("apply_sections");
-        engine
-            .save_processed_activity_ids(&processed_ids)
-            .expect("save_processed_activity_ids");
-        let now = snapshot(engine);
-        if now == previous {
-            return round;
-        }
-        previous = now;
+/// Sync `rides` rides one at a time, each on ground of its own far from every
+/// corridor, so each is an arrival that confirms every change still pending and
+/// rides none of them. A detect with no new activity steps nothing, so this is
+/// how the debounce runs out: `k` of them carry any change the last ingest
+/// began to the view. `label` names the rides, so two drains on one engine
+/// need two labels. The rides are dated after any corpus, in 2100, so they
+/// arrive last.
+pub fn drain(engine: &mut PersistentEngine, label: &str, rides: usize) {
+    const DRAIN_FROM: i64 = 4_102_444_800;
+    for i in 0..rides {
+        let lat = -40.0 + i as f64;
+        let filler = LifecycleActivity {
+            id: format!("{label}-{i}"),
+            sport_type: "Ride".to_string(),
+            start_date_unix: DRAIN_FROM + i as i64 * 86_400,
+            gps_points: vec![GpsPoint::new(lat, 150.0), GpsPoint::new(lat, 150.005)],
+        };
+        ingest_step(engine, label, &[&filler]);
     }
-    limit
 }
 
-/// Re-detect with no new activities until the damped view carries the ground
-/// the detector emits, or `limit` rounds have passed. `settle` stops at the
-/// first round that leaves the view unchanged, which is too early while a
-/// debounced dissolve is still counting toward its threshold and moves nothing
-/// in between. Returns the rounds run, `limit + 1` when the view never caught up.
-pub fn settle_to_detector(engine: &mut PersistentEngine, limit: usize) -> usize {
-    for round in 0..=limit {
-        if ground(&snapshot(engine)) == ground(&raw_snapshot(engine)) {
-            return round;
-        }
-        if round == limit {
-            break;
-        }
-        let handle = engine.detect_sections_background();
-        let (sections, processed_ids) = handle.recv().expect("the detect ran");
-        engine.apply_sections(sections).expect("apply_sections");
-        engine
-            .save_processed_activity_ids(&processed_ids)
-            .expect("save_processed_activity_ids");
-    }
-    limit + 1
-}
+/// The debounce's depth: the arrivals a pending change needs before it applies.
+pub const DEBOUNCE: usize = tracematch::sections::DEFAULT_K as usize;
 
 /// One user-visible step. Panics on any engine error (the common case for the
 /// growth scenarios). Use `try_ingest_step` when a test must assert the step

@@ -1282,9 +1282,7 @@
     "privacy": {
       "title": "Aviso de privacidad",
       "brief": "Tu ID de atleta y un token push se almacenarán en nuestro servidor (caducidad de 30 días). Las notificaciones se enrutan a través de Apple o Google, pero todo el contenido de las perspectivas se genera en tu dispositivo. Puedes desactivarlo en cualquier momento.",
-      "accept": "Entendido",
-      "briefEnabled": "Estás recibiendo estas notificaciones. Tu ID de atleta y un token push se guardan en nuestro servidor (caducan a los 30 días), y las notificaciones se enrutan a través de Expo, luego Apple o Google, hasta tu dispositivo. Todo el contenido de los análisis se genera en tu dispositivo. Puedes desactivarlas en cualquier momento.",
-      "turnOff": "Desactivar"
+      "accept": "Entendido"
     },
     "settings": {
       "title": "Notificaciones",
@@ -1295,12 +1293,7 @@
       "fitnessMilestone": "Hitos de forma"
     },
     "prompt": {
-      "title": "Mantente al día",
-      "description": "Recibe notificaciones sobre nuevas actividades, récords personales e hitos de forma.",
-      "enable": "Activar",
-      "dismiss": "Ahora no",
       "settingsHint": "Puedes activar las notificaciones en cualquier momento en Ajustes",
-      "keep": "Mantener",
       "howItWorks": "Cómo funciona"
     },
     "activityBody": {
@@ -2483,7 +2476,20 @@
       "feedBody": "Cada actividad llega aquí como una tarjeta con su mapa, de la más reciente a la más antigua.",
       "feedTip": "Desliza hacia abajo para buscar actividades nuevas en intervals.icu, o toca una tarjeta para abrirla.",
       "activityTitle": "Dentro de una actividad",
-      "activityBody": "Abre una actividad para ver su mapa y gráficos, sus intervalos y las rutas y secciones a las que pertenece."
+      "activityBody": "Abre una actividad para ver su mapa y gráficos, sus intervalos y las rutas y secciones a las que pertenece.",
+      "notificationsTitle": "Notificaciones",
+      "notificationsBody": "Cuando intervals.icu recibe una actividad nueva, Veloq puede contarte lo que encontró: una marca personal, un tiempo más rápido de lo habitual o un avance en tu forma. Estos son ejemplos de lo que llega.",
+      "turnOn": "Activar",
+      "neverRemind": "No volver a recordar",
+      "notificationsNeedSignIn": "Las notificaciones necesitan un inicio de sesión con intervals.icu.",
+      "notificationsOn": "Las notificaciones están activadas. Puedes cambiarlas en Ajustes.",
+      "notificationsExampleSection": "Subida del Puerto",
+      "notificationsExampleRoute": "Vuelta del río",
+      "notificationsExampleRide": "Salida matinal",
+      "notificationsExampleRun": "Carrera vespertina",
+      "backupWhere": "Cada copia se guarda en la copia de seguridad de tu dispositivo. En Ajustes también puedes añadir un servidor, una carpeta o un almacenamiento en la nube.",
+      "backupOn": "La copia de seguridad automática está activada. Puedes cambiarla en Ajustes.",
+      "backupLater": "Puedes activar la copia de seguridad automática cuando quieras en Ajustes."
     }
   },
   "strength": {
@@ -2661,6 +2667,15 @@
     "empty": "Aún no hay cambios registrados",
     "around": "En torno a este cambio",
     "forkAround": "Tráfico en el cruce",
+    "boundaries": "Por qué la línea termina donde termina",
+    "cut_usage_change": "La mayoría de las actividades que comparten este terreno lo usan de otra forma a partir de aquí: dan la vuelta, hacen un bucle o dan vueltas.",
+    "cut_fork": "El tráfico se divide aquí. Una parte suficiente se desvía hacia otro tramo, así que la línea se detiene en el cruce.",
+    "cut_traffic_cliff": "La mayoría de las actividades del lado más transitado nunca pasan de este punto.",
+    "cut_trim": "El terreno a partir de aquí ya pertenece a otro tramo, así que la línea se detiene donde ambos se solaparían.",
+    "cut_low_support": "Menos actividades propias de este tramo cubren el terreno a partir de aquí de las que el tramo necesita, así que la línea se detiene en el último punto bien cubierto.",
+    "cut_terminus": "Suficientes actividades empiezan o terminan aquí como para que el terreno de más allá lo usen otras, así que la línea se detiene donde se unen o se separan.",
+    "cut_pass_end": "La pasada de la que se trazó esta línea termina aquí. El terreno siguiente se cuenta por separado.",
+    "cut_seam_clip": "La línea se acortó {{distance}} donde se encontraba con un tramo más transitado. Sus cifras se tomaron antes del recorte.",
     "prEra": "Mejor de entonces: {{time}}",
     "prMoved": "Récord {{from}} a {{to}}",
     "versions": "Versiones guardadas",

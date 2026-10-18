@@ -1282,9 +1282,7 @@
     "privacy": {
       "title": "Aviso de privacidade",
       "brief": "O seu ID de atleta e um token push serão armazenados no nosso servidor (expira em 30 dias). As notificações são encaminhadas pela Apple ou Google, mas todo o conteúdo dos insights é gerado no seu dispositivo. Pode desativar a qualquer momento.",
-      "accept": "Compreendo",
-      "briefEnabled": "Está a receber estas notificações. O seu ID de atleta e um token push estão guardados no nosso servidor (expiram aos 30 dias) e as notificações são encaminhadas pelo Expo, depois pela Apple ou Google, até ao seu dispositivo. Todo o conteúdo das análises é gerado no seu dispositivo. Pode desativá-las a qualquer momento.",
-      "turnOff": "Desativar"
+      "accept": "Compreendo"
     },
     "settings": {
       "title": "Notificações",
@@ -1295,12 +1293,7 @@
       "fitnessMilestone": "Marcos de forma"
     },
     "prompt": {
-      "title": "Fique a par",
-      "description": "Receba notificações sobre novas atividades, recordes pessoais e marcos de forma.",
-      "enable": "Ativar",
-      "dismiss": "Agora não",
       "settingsHint": "Pode ativar as notificações a qualquer momento nas Definições",
-      "keep": "Manter",
       "howItWorks": "Como funciona"
     },
     "activityBody": {
@@ -2460,7 +2453,20 @@
       "feedBody": "Cada atividade chega aqui como um cartão com o seu mapa, da mais recente para a mais antiga.",
       "feedTip": "Puxe para baixo para procurar novas atividades no intervals.icu, ou toque num cartão para o abrir.",
       "activityTitle": "Dentro de uma atividade",
-      "activityBody": "Abra uma atividade para ver o mapa e os gráficos, os intervalos e os percursos e troços a que pertence."
+      "activityBody": "Abra uma atividade para ver o mapa e os gráficos, os intervalos e os percursos e troços a que pertence.",
+      "notificationsTitle": "Notificações",
+      "notificationsBody": "Quando o intervals.icu recebe uma nova atividade, o Veloq pode dizer-lhe o que encontrou: um recorde pessoal, um tempo mais rápido do que o habitual ou um avanço na forma. Estes são exemplos do que chega.",
+      "turnOn": "Ativar",
+      "neverRemind": "Não voltar a lembrar",
+      "notificationsNeedSignIn": "As notificações precisam de uma sessão iniciada com o intervals.icu.",
+      "notificationsOn": "As notificações estão ativadas. Pode alterá-las nas Definições.",
+      "notificationsExampleSection": "Subida do Porto",
+      "notificationsExampleRoute": "Volta do rio",
+      "notificationsExampleRide": "Treino da manhã",
+      "notificationsExampleRun": "Corrida ao fim do dia",
+      "backupWhere": "Cada cópia vai para a cópia de segurança do próprio dispositivo. Nas Definições pode também adicionar um servidor, uma pasta ou um armazenamento na nuvem.",
+      "backupOn": "A cópia de segurança automática está ativada. Pode alterá-la nas Definições.",
+      "backupLater": "Pode ativar a cópia de segurança automática a qualquer momento nas Definições."
     }
   },
   "strength": {
@@ -2638,6 +2644,15 @@
     "empty": "Ainda sem alterações registadas",
     "around": "Em torno desta alteração",
     "forkAround": "Tráfego na bifurcação",
+    "boundaries": "Porque é que a linha acaba aqui",
+    "cut_usage_change": "A maioria das atividades que partilham este terreno usa-o de outra forma a partir daqui: dão a volta, fazem um laço ou dão voltas.",
+    "cut_fork": "O tráfego divide-se aqui. Uma parte suficiente segue para outro troço, por isso a linha para na bifurcação.",
+    "cut_traffic_cliff": "A maioria das atividades do lado mais movimentado nunca passa deste ponto.",
+    "cut_trim": "O terreno a partir daqui já pertence a outro troço, por isso a linha para onde os dois se sobreporiam.",
+    "cut_low_support": "Menos atividades deste troço cobrem o terreno a partir daqui do que o troço precisa, por isso a linha para no último ponto bem coberto.",
+    "cut_terminus": "Atividades suficientes começam ou terminam aqui para que o terreno seguinte seja usado por outras, por isso a linha para onde se juntam ou saem.",
+    "cut_pass_end": "A passagem a partir da qual esta linha foi traçada termina aqui. O terreno seguinte é contado à parte.",
+    "cut_seam_clip": "A linha foi encurtada em {{distance}} onde encontrava um troço mais movimentado. As suas contagens foram feitas antes do corte.",
     "prEra": "Melhor na altura: {{time}}",
     "prMoved": "Recorde {{from}} para {{to}}",
     "versions": "Versões guardadas",

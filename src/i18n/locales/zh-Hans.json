@@ -1261,9 +1261,7 @@
     "privacy": {
       "title": "隐私声明",
       "brief": "您的运动员 ID 和推送令牌将存储在我们的服务器上（30天过期）。通知通过 Apple 或 Google 路由，但所有洞察内容均在您的设备上生成。您可以随时禁用。",
-      "accept": "我了解",
-      "briefEnabled": "你正在接收这些通知。你的运动员 ID 和推送令牌存储在我们的服务器上（30 天后过期），通知通过 Expo，再经 Apple 或 Google 送达你的设备。所有洞察内容均在你的设备上生成。你可以随时关闭。",
-      "turnOff": "关闭"
+      "accept": "我了解"
     },
     "settings": {
       "title": "通知",
@@ -1274,12 +1272,7 @@
       "fitnessMilestone": "体能里程碑"
     },
     "prompt": {
-      "title": "保持同步",
-      "description": "获取新活动、个人最佳和体能里程碑的通知。",
-      "enable": "启用",
-      "dismiss": "暂不",
       "settingsHint": "您可以随时在设置中启用通知",
-      "keep": "保持开启",
       "howItWorks": "工作原理"
     },
     "activityBody": {
@@ -2420,7 +2413,20 @@
       "feedBody": "每项活动都会以带地图的卡片出现在这里，最新的在最前。",
       "feedTip": "下拉可在 intervals.icu 检查新活动，点按卡片即可打开。",
       "activityTitle": "活动详情",
-      "activityBody": "打开活动即可查看其地图和图表、间歇，以及它所属的路线和路段。"
+      "activityBody": "打开活动即可查看其地图和图表、间歇，以及它所属的路线和路段。",
+      "notificationsTitle": "通知",
+      "notificationsBody": "intervals.icu 收到新活动时，Veloq 可以告诉你它发现了什么：个人最佳、比平时更快的用时，或体能上的进步。以下是通知的示例。",
+      "turnOn": "开启",
+      "neverRemind": "不再提醒",
+      "notificationsNeedSignIn": "通知需要通过 intervals.icu 登录。",
+      "notificationsOn": "通知已开启。你可以在设置中更改。",
+      "notificationsExampleSection": "海港山爬坡",
+      "notificationsExampleRoute": "河畔环线",
+      "notificationsExampleRide": "晨骑",
+      "notificationsExampleRun": "傍晚跑",
+      "backupWhere": "每次备份都会保存到设备自带的备份中。你还可以在设置中添加服务器、文件夹或云盘。",
+      "backupOn": "自动备份已开启。你可以在设置中更改。",
+      "backupLater": "你可以随时在设置中开启自动备份。"
     }
   },
   "strength": {
@@ -2597,6 +2603,15 @@
     "empty": "尚未记录任何变化",
     "around": "此次变化前后",
     "forkAround": "岔口的通行",
+    "boundaries": "路线为何在此结束",
+    "cut_usage_change": "共用这段路的大多数活动从这里开始用法不同：掉头、绕圈或刷圈。",
+    "cut_fork": "交通在此分流。有足够多的活动转向另一个路段，因此路线在路口结束。",
+    "cut_traffic_cliff": "较繁忙一侧的大多数活动从未越过这一点。",
+    "cut_trim": "此处以外的路段已属于另一个路段，因此路线在两者将要重叠的地方结束。",
+    "cut_low_support": "此处以外覆盖这段路的本路段活动少于所需数量，因此路线在最后一个覆盖充分的点结束。",
+    "cut_terminus": "足够多的活动在此开始或结束，此后的路段由其他活动使用，因此路线在它们汇入或离开的地方结束。",
+    "cut_pass_end": "绘制这条路线所依据的那次通过在此结束。此后的路段单独计算。",
+    "cut_seam_clip": "路线在与更繁忙路段相接处缩短了 {{distance}}。其计数是在缩短前统计的。",
     "prEra": "当时最佳：{{time}}",
     "prMoved": "纪录 {{from}} 变为 {{to}}",
     "versions": "已保存的版本",

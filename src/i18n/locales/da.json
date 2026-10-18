@@ -1261,9 +1261,7 @@
     "privacy": {
       "title": "Privatlivsmeddelelse",
       "brief": "Dit atlet-ID og et push-token gemmes på vores server (30 dages udløb). Notifikationer sendes via Apple eller Google, men alt indsigtsindhold genereres på din enhed. Du kan deaktivere når som helst.",
-      "accept": "Jeg forstår",
-      "briefEnabled": "Du modtager disse notifikationer. Dit atlet-ID og et push-token er gemt på vores server (udløber efter 30 dage), og notifikationer sendes via Expo, derefter Apple eller Google, til din enhed. Alt indhold genereres på din enhed. Du kan slå dem fra når som helst.",
-      "turnOff": "Slå fra"
+      "accept": "Jeg forstår"
     },
     "settings": {
       "title": "Notifikationer",
@@ -1274,12 +1272,7 @@
       "fitnessMilestone": "Formmilepæle"
     },
     "prompt": {
-      "title": "Hold dig opdateret",
-      "description": "Få besked om nye aktiviteter, personlige rekorder og formmilepæle.",
-      "enable": "Aktivér",
-      "dismiss": "Ikke nu",
       "settingsHint": "Du kan aktivere notifikationer når som helst i Indstillinger",
-      "keep": "Behold",
       "howItWorks": "Sådan virker det"
     },
     "activityBody": {
@@ -2420,7 +2413,20 @@
       "feedBody": "Hver aktivitet lander her med sit kort, nyeste først.",
       "feedTip": "Træk ned for at tjekke intervals.icu for nye aktiviteter, eller tryk på en aktivitet for at åbne den.",
       "activityTitle": "Inde i en aktivitet",
-      "activityBody": "Åbn en aktivitet for at se dens kort og grafer, dens intervaller og de ruter og sektioner, den hører til."
+      "activityBody": "Åbn en aktivitet for at se dens kort og grafer, dens intervaller og de ruter og sektioner, den hører til.",
+      "notificationsTitle": "Notifikationer",
+      "notificationsBody": "Når intervals.icu modtager en ny aktivitet, kan Veloq fortælle dig, hvad den fandt: en personlig rekord, en tid hurtigere end normalt eller et skridt op i form. Her er eksempler på, hvad der kommer.",
+      "turnOn": "Slå til",
+      "neverRemind": "Mind mig aldrig om det igen",
+      "notificationsNeedSignIn": "Notifikationer kræver et log-ind med intervals.icu.",
+      "notificationsOn": "Notifikationer er slået til. Du kan ændre dem i Indstillinger.",
+      "notificationsExampleSection": "Havnebakken",
+      "notificationsExampleRoute": "Åsløjfen",
+      "notificationsExampleRide": "Morgentur",
+      "notificationsExampleRun": "Aftenløb",
+      "backupWhere": "Hver sikkerhedskopi gemmes i enhedens egen sikkerhedskopi. I Indstillinger kan du også tilføje en server, en mappe eller et cloud-drev.",
+      "backupOn": "Automatisk sikkerhedskopi er slået til. Du kan ændre det i Indstillinger.",
+      "backupLater": "Du kan altid slå automatisk sikkerhedskopi til i Indstillinger."
     }
   },
   "strength": {
@@ -2597,6 +2603,15 @@
     "empty": "Ingen ændringer registreret endnu",
     "around": "Omkring denne ændring",
     "forkAround": "Trafik ved krydset",
+    "boundaries": "Hvorfor linjen slutter, hvor den gør",
+    "cut_usage_change": "De fleste aktiviteter, der deler dette terræn, bruger det anderledes herfra: de vender om, kører en sløjfe eller kører omgange.",
+    "cut_fork": "Trafikken deler sig her. Nok af den drejer af mod en anden strækning til, at linjen stopper ved krydset.",
+    "cut_traffic_cliff": "De fleste aktiviteter på den mest befærdede side fortsætter aldrig forbi dette punkt.",
+    "cut_trim": "Terrænet herfra hører allerede til en anden strækning, så linjen stopper, hvor de to ville overlappe.",
+    "cut_low_support": "Færre af strækningens egne aktiviteter dækker terrænet herfra, end strækningen kræver, så linjen stopper ved det sidste veldækkede punkt.",
+    "cut_terminus": "Nok aktiviteter starter eller slutter her til, at terrænet bagved bruges af andre aktiviteter, så linjen stopper, hvor de kommer til eller forlader den.",
+    "cut_pass_end": "Den gennemkørsel, linjen er tegnet ud fra, slutter her. Terrænet bagved tælles for sig.",
+    "cut_seam_clip": "Linjen blev afkortet med {{distance}}, hvor den løb ind i en mere befærdet strækning. Dens tal blev opgjort før afkortningen.",
     "prEra": "Bedste dengang: {{time}}",
     "prMoved": "Rekord {{from}} til {{to}}",
     "versions": "Gemte versioner",

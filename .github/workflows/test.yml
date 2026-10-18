@@ -44,6 +44,12 @@ jobs:
         with:
           fetch-depth: 2
 
+      # A commit made in a hookless clone met no pre-commit hook, and every
+      # other job here can be skipped, so this one judges every tracked path on
+      # every push and pull request before anything else runs.
+      - name: Private data
+        run: bash scripts/check-no-private-data.sh --all
+
       # A Dependabot major runs every job. The update type is read here, and a
       # read that fails leaves it empty, which ci-required.mjs counts as a major.
       - name: Fetch Dependabot metadata

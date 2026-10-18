@@ -6,7 +6,7 @@
 
 use serde_json::Value;
 
-use crate::{FfiSectionEraRecord, FfiSectionEventDetails, FfiSectionLink};
+use crate::{FfiBoundaryReason, FfiSectionEraRecord, FfiSectionEventDetails, FfiSectionLink};
 
 const KIND_FORMED: &str = "formed";
 const KIND_SPLIT: &str = "split";
@@ -48,7 +48,7 @@ pub(crate) fn event_details(
         moved: stored.get("moved").and_then(Value::as_bool),
         split_from,
         split_into,
-        reasons: reason_tags(stored.get("reasons")),
+        boundaries: boundary_reasons(stored.get("boundaries")),
     })
 }
 
@@ -115,18 +115,20 @@ fn era_records(stored: &serde_json::Map<String, Value>) -> Vec<FfiSectionEraReco
     records
 }
 
-/// The tag of each boundary reason: the string itself, or the `kind` of an
-/// object carrying the detector's serde tag. A reason with neither is skipped.
-fn reason_tags(value: Option<&Value>) -> Vec<String> {
+/// Why the detector cut the line, one entry per record the change stored:
+/// its serde tag and, for a seam clip, how much of the line it took. An entry
+/// with no tag is skipped.
+fn boundary_reasons(value: Option<&Value>) -> Vec<FfiBoundaryReason> {
     value
         .and_then(Value::as_array)
         .map(|items| {
             items
                 .iter()
-                .filter_map(|item| match item {
-                    Value::String(tag) => Some(tag.clone()),
-                    Value::Object(reason) => text(reason.get("kind")),
-                    _ => None,
+                .filter_map(|item| {
+                    Some(FfiBoundaryReason {
+                        kind: text(item.get("kind"))?,
+                        clipped_metres: number(item.get("clipped_metres")),
+                    })
                 })
                 .collect()
         })
@@ -323,13 +325,54 @@ mod tests {
     }
 
     #[test]
-    fn boundary_reasons_cross_as_their_tags() {
+    fn boundary_reasons_cross_as_the_identity_writer_stores_them() {
         let details = read(
             "recut",
-            r#"{"reasons":[{"kind":"fork","through":4},"trim",{"kind":"usage_change"},{"through":2},7]}"#,
+            r#"{"fork_around":["f1"],"boundaries":[
+                {"kind":"fork","through":4,"needed":2.0,"branch_leavers":3},
+                {"kind":"seam_clip","clipped_metres":120.5,"kept_metres":400.0},
+                {"kind":"traffic_cliff","thin":2,"thick":9}]}"#,
         )
         .expect("details");
-        assert_eq!(details.reasons, strings(&["fork", "trim", "usage_change"]));
+        assert_eq!(
+            details.boundaries,
+            vec![
+                FfiBoundaryReason {
+                    kind: "fork".into(),
+                    clipped_metres: None,
+                },
+                FfiBoundaryReason {
+                    kind: "seam_clip".into(),
+                    clipped_metres: Some(120.5),
+                },
+                FfiBoundaryReason {
+                    kind: "traffic_cliff".into(),
+                    clipped_metres: None,
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn a_boundary_reason_without_a_kind_is_skipped_and_the_rest_still_reads() {
+        let details = read(
+            "formed",
+            r#"{"boundaries":[{"through":2},7,"trim",{"kind":"seam_clip","clipped_metres":"far"},
+                {"kind":"pass_end","requeued_cells":3}]}"#,
+        )
+        .expect("details");
+        let kinds: Vec<(&str, Option<f64>)> = details
+            .boundaries
+            .iter()
+            .map(|b| (b.kind.as_str(), b.clipped_metres))
+            .collect();
+        assert_eq!(kinds, vec![("seam_clip", None), ("pass_end", None)]);
+    }
+
+    #[test]
+    fn a_change_with_no_boundary_reason_reads_none() {
+        let details = read("formed", r#"{"around":["a1"]}"#).expect("details");
+        assert!(details.boundaries.is_empty());
     }
 
     #[test]

@@ -141,7 +141,6 @@
     "src/app/about.tsx": 3,
     "src/app/licenses.tsx": 4,
     "src/app/login.tsx": 1,
-    "src/features/home/components/NotificationOptInCard.tsx": 1,
     "src/features/home/components/SummaryCard.tsx": 3,
     "src/features/home/components/SupportCard.tsx": 1,
     "src/features/insights/components/RankingFactorsGroup.tsx": 1,

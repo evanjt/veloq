@@ -11,11 +11,8 @@ import { StyleSheet } from 'react-native';
 import { render, screen } from '@testing-library/react-native';
 
 import { PendingUploadsCard } from '@/features/recording/components/PendingUploadsCard';
-import { NotificationOptInCard } from '@/features/home/components/NotificationOptInCard';
 import { StreamConsentCard } from '@/features/settings/components/StreamConsentCard';
-import { useNotificationPrompt } from '@/features/settings/stores/NotificationPromptStore';
 import { getVisibleUnuploadedCount } from '@/features/recording/lib/storage/recordingLibrary';
-import { Card } from '@/shared/ui/Card';
 import { InlineNotice } from '@/shared/ui/InlineNotice';
 import { openLaunchSession } from '../../__shared__/launchSession';
 
@@ -75,15 +72,6 @@ describe('pinned feed cards', () => {
     expect(screen.UNSAFE_getByType(InlineNotice).props.tone).toBe('info');
     expect(card.props.accessibilityRole).toBe('button');
     expect(card.props.accessibilityLabel).toContain('recording.library.pendingUploads');
-    expect(sideMargins()).toEqual([0, 0, 0, 0, 0, 0]);
-  });
-
-  it('draws the notification settings hint as a flat card named for a screen reader', async () => {
-    useNotificationPrompt.setState({ isLoaded: true, dismissed: true, showingSettingsHint: true });
-    await render(<NotificationOptInCard libraryCount={1} />);
-    const card = screen.UNSAFE_getByType(Card);
-    expect(card.props.variant).toBe('flat');
-    expect(card.props.accessibilityLabel).toContain('notifications.prompt.settingsHint');
     expect(sideMargins()).toEqual([0, 0, 0, 0, 0, 0]);
   });
 

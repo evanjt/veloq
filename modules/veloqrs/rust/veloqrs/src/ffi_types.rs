@@ -996,8 +996,22 @@ pub struct FfiSectionEventDetails {
     pub split_from: Option<FfiSectionLink>,
     /// The pieces a split left, with their standing now.
     pub split_into: Vec<FfiSectionLink>,
-    /// The serde tag of each boundary reason the detector gave the change.
-    pub reasons: Vec<String>,
+    /// Why the detector cut the line where it did, one entry per record that
+    /// names this section, in the detector's order. Empty when the change
+    /// recorded none.
+    pub boundaries: Vec<FfiBoundaryReason>,
+}
+
+/// One reason the detector gave for where a section's line was cut.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiBoundaryReason {
+    /// The reason's serde tag: usage_change, fork, traffic_cliff, trim,
+    /// low_support, terminus, pass_end or seam_clip.
+    pub kind: String,
+    /// How much of the drawn line a seam clip took off, in metres; absent on
+    /// every other reason.
+    pub clipped_metres: Option<f64>,
 }
 
 /// One sport's record in one direction on a section when an era ended.

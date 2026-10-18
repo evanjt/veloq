@@ -14,6 +14,7 @@ import {
   afterTourClosed,
   NO_TOUR_OFFER,
   offerEnded,
+  setupSlidesAnswerable,
   tourOffer,
   type TourOfferFacts,
 } from '@/features/settings/lib/tourOffer';
@@ -112,5 +113,23 @@ describe('the setup slides a tour left unanswered', () => {
     const answered = afterLeftoverAnswered(afterTourClosed(NO_TOUR_OFFER));
     expect(tourOffer({ ...seen, record: answered })).toBeNull();
     expect(tourOffer({ ...seen, record: afterTourClosed(answered) })).toBeNull();
+  });
+});
+
+describe('the setup slides an account can answer', () => {
+  it('keeps the notification slide for an account that can receive pushes', () => {
+    expect(setupSlidesAnswerable(['notifications', 'backup'], { push: true })).toEqual([
+      'notifications',
+      'backup',
+    ]);
+  });
+
+  it('leaves out the notification slide where pushes cannot arrive, so it is never owed', () => {
+    const slides = setupSlidesAnswerable(['notifications', 'backup'], { push: false });
+    expect(slides).toEqual(['backup']);
+    const closed = afterTourClosed(NO_TOUR_OFFER);
+    expect(
+      tourOffer({ ...unseen, lastSeenVersion: '0.4.0', record: closed, tourSetupSlides: slides })
+    ).toEqual({ kind: 'leftover', slides: ['backup'] });
   });
 });

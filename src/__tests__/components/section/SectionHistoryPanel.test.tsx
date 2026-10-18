@@ -2,7 +2,7 @@ import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 import { SectionHistoryPanel } from '@/features/routes/components/section/SectionHistoryPanel';
 import { NO_EVENT_DETAILS } from '@/features/routes/lib/sectionLedger';
-import type { FfiSectionEventDetails } from 'veloqrs';
+import type { FfiBoundaryReason, FfiSectionEventDetails } from 'veloqrs';
 import { router } from 'expo-router';
 
 jest.mock('react-i18next', () => ({
@@ -11,6 +11,12 @@ jest.mock('react-i18next', () => ({
     t: (key: string, params?: Record<string, unknown>) =>
       params ? `${key}:${Object.values(params).join(',')}` : key,
   }),
+}));
+
+let mockMetric = true;
+jest.mock('@/shared/app', () => ({
+  ...jest.requireActual('@/shared/app'),
+  useMetricSystem: () => mockMetric,
 }));
 
 /** A ledger row's details, with only the fields the case names. */
@@ -337,5 +343,106 @@ describe('SectionHistoryPanel actions', () => {
     expect(getByRole('button', { name: 'Sunday hills' })).toBe(
       getByTestId('section-history-around-2-act_a')
     );
+  });
+});
+
+describe('why the line was cut', () => {
+  const cutEvent = (id: number, kind: string, boundaries: FfiBoundaryReason[]) => ({
+    id,
+    at: '2026-10-10 00:00:00',
+    kind,
+    details: details({ boundaries }),
+    geometryVersion: 2,
+  });
+
+  it('gives one sentence per reason the detector recorded on the change', async () => {
+    const { getByTestId, getByText } = await renderPanel({
+      history: [
+        cutEvent(9, 'recut', [
+          { kind: 'fork' },
+          { kind: 'seam_clip', clippedMetres: 120 },
+          { kind: 'traffic_cliff' },
+        ]),
+      ],
+    });
+    const reasons = getByTestId('section-history-boundaries-9');
+    expect(reasons).toBeTruthy();
+    expect(getByText('sectionHistory.boundaries')).toBeTruthy();
+    expect(getByText('sectionHistory.cut_fork')).toBeTruthy();
+    expect(getByText('sectionHistory.cut_seam_clip:120 m')).toBeTruthy();
+    expect(getByText('sectionHistory.cut_traffic_cliff')).toBeTruthy();
+  });
+
+  it('words every cut reason the engine writes on a formed, split or recut change', async () => {
+    const kinds = [
+      'usage_change',
+      'fork',
+      'traffic_cliff',
+      'trim',
+      'low_support',
+      'terminus',
+      'pass_end',
+    ];
+    const { getByText } = await renderPanel({
+      history: [
+        cutEvent(
+          10,
+          'formed',
+          kinds.map((kind) => ({ kind }))
+        ),
+        cutEvent(11, 'split', [{ kind: 'seam_clip', clippedMetres: 40 }]),
+      ],
+    });
+    for (const kind of kinds) expect(getByText(`sectionHistory.cut_${kind}`)).toBeTruthy();
+    expect(getByText('sectionHistory.cut_seam_clip:40 m')).toBeTruthy();
+  });
+
+  it('gives a seam clip in the units the athlete reads', async () => {
+    mockMetric = false;
+    try {
+      const { getByText } = await renderPanel({
+        history: [cutEvent(17, 'recut', [{ kind: 'seam_clip', clippedMetres: 120 }])],
+      });
+      expect(getByText('sectionHistory.cut_seam_clip:394 ft')).toBeTruthy();
+    } finally {
+      mockMetric = true;
+    }
+  });
+
+  it('draws a change that recorded no reason as a change with no reason', async () => {
+    const { getByTestId, queryByTestId, queryByText } = await renderPanel({
+      history: [
+        cutEvent(12, 'baseline', []),
+        { ...cutEvent(13, 'formed', []), details: undefined },
+      ],
+    });
+    expect(getByTestId('section-history-event-baseline')).toBeTruthy();
+    expect(queryByTestId('section-history-boundaries-12')).toBeNull();
+    expect(queryByTestId('section-history-boundaries-13')).toBeNull();
+    expect(queryByText('sectionHistory.boundaries')).toBeNull();
+  });
+
+  it('draws nothing for a reason this build cannot word, never its tag', async () => {
+    const { queryByTestId, queryByText, getByText } = await renderPanel({
+      history: [
+        cutEvent(14, 'recut', [{ kind: 'a_future_reason' }]),
+        cutEvent(15, 'recut', [
+          { kind: 'a_future_reason' },
+          { kind: 'seam_clip' },
+          { kind: 'trim' },
+        ]),
+      ],
+    });
+    expect(queryByTestId('section-history-boundaries-14')).toBeNull();
+    expect(queryByText('a_future_reason')).toBeNull();
+    expect(queryByText(/cut_seam_clip/)).toBeNull();
+    expect(getByText('sectionHistory.cut_trim')).toBeTruthy();
+  });
+
+  it('says a reason recorded at both ends of the line once', async () => {
+    const { getAllByText } = await renderPanel({
+      history: [cutEvent(16, 'recut', [{ kind: 'fork' }, { kind: 'fork' }])],
+    });
+    expect(getAllByText('sectionHistory.cut_fork')).toHaveLength(1);
   });
 });

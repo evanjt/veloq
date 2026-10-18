@@ -1261,9 +1261,7 @@
     "privacy": {
       "title": "Privacy notice",
       "brief": "Your athlete ID and a push token will be stored on our server (30-day expiry). Notifications are routed through Expo, then Apple or Google, to reach your device. All insight content is generated on your device. You can disable at any time.",
-      "accept": "I understand",
-      "briefEnabled": "You are receiving these notifications. Your athlete ID and a push token are stored on our server (30-day expiry), and notifications are routed through Expo, then Apple or Google, to reach your device. All insight content is generated on your device. You can turn them off at any time.",
-      "turnOff": "Turn off"
+      "accept": "I understand"
     },
     "settings": {
       "title": "Notifications",
@@ -1274,12 +1272,7 @@
       "fitnessMilestone": "Fitness milestones"
     },
     "prompt": {
-      "title": "Stay in the loop",
-      "description": "Get notified about new activities, personal bests and fitness milestones.",
-      "enable": "Enable",
-      "dismiss": "Not now",
       "settingsHint": "You can enable notifications anytime in Settings",
-      "keep": "Keep on",
       "howItWorks": "Details"
     },
     "activityBody": {
@@ -2420,7 +2413,20 @@
       "feedBody": "Every activity lands here as a card with its map, newest first.",
       "feedTip": "Pull down to check intervals.icu for new activities, or tap a card to open it.",
       "activityTitle": "Inside an activity",
-      "activityBody": "Open an activity for its map and charts, its intervals, and the routes and sections it belongs to."
+      "activityBody": "Open an activity for its map and charts, its intervals, and the routes and sections it belongs to.",
+      "notificationsTitle": "Notifications",
+      "notificationsBody": "When intervals.icu receives a new activity, Veloq can tell you what it found: a personal best, a time faster than usual, or a step up in fitness. These are examples of what arrives.",
+      "turnOn": "Turn on",
+      "neverRemind": "Never remind me again",
+      "notificationsNeedSignIn": "Notifications need an intervals.icu sign-in.",
+      "notificationsOn": "Notifications are on. You can change them in Settings.",
+      "notificationsExampleSection": "Harbour climb",
+      "notificationsExampleRoute": "River loop",
+      "notificationsExampleRide": "Morning ride",
+      "notificationsExampleRun": "Evening run",
+      "backupWhere": "Each backup goes to your device's own backup. In Settings you can add a server, a folder or a cloud drive as well.",
+      "backupOn": "Automatic backup is on. You can change it in Settings.",
+      "backupLater": "You can turn on automatic backup any time in Settings."
     }
   },
   "strength": {
@@ -2597,6 +2603,15 @@
     "empty": "No changes recorded yet",
     "around": "Around this change",
     "forkAround": "Traffic at the junction",
+    "boundaries": "Why the line ends where it does",
+    "cut_usage_change": "Most of the activities that share this ground use it differently from here, turning back, looping or lapping.",
+    "cut_fork": "The traffic splits here. Enough of it leaves for another section that the line stops at the junction.",
+    "cut_traffic_cliff": "Most of the activities on the busier side never continue past this point.",
+    "cut_trim": "The ground past here already belongs to another section, so the line stops where the two would overlap.",
+    "cut_low_support": "Fewer of this section's own activities cover the ground past here than the section needs, so the line stops at the last well-covered point.",
+    "cut_terminus": "Enough activities start or finish here that the ground beyond is used by different ones, so the line stops where they join or leave.",
+    "cut_pass_end": "The pass this line was drawn from ends here. The ground beyond it is counted on its own.",
+    "cut_seam_clip": "The line was shortened by {{distance}} where it ran into a busier section. Its counts were taken before the clip.",
     "prEra": "Best at the time: {{time}}",
     "prMoved": "Record {{from}} to {{to}}",
     "versions": "Stored versions",

@@ -48,7 +48,7 @@ fn rides_between_parallel_routes_never_mint_twin_sections() {
         routes.extend(refs(&right));
         ingest_step(&mut engine, "routes", &routes);
         ingest_step(&mut engine, "between", &refs(&middle));
-        settle_to_detector(&mut engine, 8);
+        drain(&mut engine, "drain", DEBOUNCE);
         let snap = snapshot(&mut engine);
         let sections: Vec<_> = snap.sections.iter().collect();
         for (i, (id_a, a)) in sections.iter().enumerate() {

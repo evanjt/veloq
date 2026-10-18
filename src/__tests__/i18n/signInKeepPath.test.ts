@@ -45,7 +45,7 @@ describe('sign-in warnings preserve the keep path', () => {
   });
 
   it('addresses the athlete as du in the notification consent text', () => {
-    expect(deDE.notifications.privacy.briefEnabled).not.toMatch(/\bSie\b/);
-    expect(deDE.notifications.privacy.briefEnabled).toMatch(/\bdu\b|\bdein/);
+    expect(deDE.notifications.privacy.brief).not.toMatch(/\bSie\b/);
+    expect(deDE.notifications.privacy.brief).toMatch(/\bdu\b|\bdein/);
   });
 });

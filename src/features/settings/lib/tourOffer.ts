@@ -65,6 +65,17 @@ export function tourOffer(facts: TourOfferFacts): TourOffer | null {
   return slides.length > 0 ? { kind: 'leftover', slides } : null;
 }
 
+/**
+ * The setup slides an account can answer. The notification slide offers no
+ * buttons where pushes cannot arrive, so it is never owed there.
+ */
+export function setupSlidesAnswerable(
+  slides: readonly SetupSlide[],
+  can: { push: boolean }
+): SetupSlide[] {
+  return slides.filter((slide) => slide !== 'notifications' || can.push);
+}
+
 export function afterOfferDeclined(record: TourOfferRecord): TourOfferRecord {
   return { ...record, declines: record.declines + 1 };
 }

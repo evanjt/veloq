@@ -1289,6 +1289,10 @@ pub struct PersistentEngine {
     /// this process: an applied EMPTY batch is a known answer, not an absence,
     /// so the two must stay distinguishable.
     raw_sections: Option<Arc<[FrequentSection]>>,
+    /// The batch a detect with nothing new handed its caller, until an apply
+    /// takes it. Such a detect has no evidence, so applying that batch steps
+    /// nothing: the debounce counts arrivals, and an idle sync is none.
+    idle_batch: Option<Arc<[FrequentSection]>>,
 
     /// Activities that have been through section detection (persisted in SQLite)
     processed_activity_ids: HashSet<String>,
@@ -1303,7 +1307,7 @@ pub struct PersistentEngine {
     section_evidence_cache: Arc<SectionEvidenceCache>,
     /// The boundary records of the detect being applied, held only for the
     /// duration of one apply so the event emitter can read them.
-    fork_records: Vec<tracematch::BoundaryRecord>,
+    boundary_records: Vec<tracematch::BoundaryRecord>,
 
     /// The activity ids `section_evidence_cache` has folded, an engine-side
     /// shadow of the cache's per-cluster membership (tracematch does not expose
@@ -1605,9 +1609,10 @@ impl PersistentEngine {
             named_overlay_stamp: std::sync::atomic::AtomicI64::new(-1),
             identity: sections::SectionIdentity::default(),
             raw_sections: None,
+            idle_batch: None,
             processed_activity_ids: HashSet::new(),
             section_evidence_cache: Arc::new(SectionEvidenceCache::new()),
-            fork_records: Vec::new(),
+            boundary_records: Vec::new(),
             cache_folded_ids: Arc::default(),
             evidence_cache_restored: true,
             evidence_row_current: false,
