@@ -7,13 +7,16 @@
  * the sheet, pressing the title opens the sheet and nothing else, the marked
  * point or week is the one drawn in the category colour, the scale and the
  * first and last dates are printed beside a series, and a card with no history
- * draws no graphic at all.
+ * draws no graphic at all. The card names its category with a neutral icon and
+ * draws no coloured edge, and the insight's own glyph keeps its verdict tone.
  */
 
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { act, fireEvent, render, within } from '@testing-library/react-native';
-import { Circle, Rect } from '@shopify/react-native-skia';
+import { Circle, RoundedRect } from '@shopify/react-native-skia';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { dotDisks } from '@/shared/charts/chartMarks';
 
 import { InsightListCard } from '@/features/insights/components/InsightListCard';
 import { generateSectionPRInsights } from '@/features/insights/generators/sectionPR';
@@ -28,7 +31,8 @@ import type {
 } from '@/features/insights/types';
 import { navigateTo } from '@/shared/app/navigation';
 import { formatShortDate } from '@/shared/format/format';
-import { colors, insightCategoryColor, verdictColor } from '@/theme';
+import { insightGraphicColour } from '@/features/insights/lib/insightCategory';
+import { colors, darkColors, insightToneColor, verdictColor } from '@/theme';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysWithValues());
@@ -144,6 +148,15 @@ function sectionTrendCard(): Insight {
   return card;
 }
 
+/** The icon the card draws under a test id, as the icon set receives it. */
+function glyph(tree: Awaited<ReturnType<typeof render>>, testID: string) {
+  const found = tree
+    .UNSAFE_getAllByType(MaterialCommunityIcons)
+    .find((icon) => icon.props.testID === testID);
+  if (!found) throw new Error(`no icon ${testID}`);
+  return found;
+}
+
 async function laidOut(tree: Awaited<ReturnType<typeof render>>) {
   await act(async () => {
     await fireEvent(tree.getByTestId('insight-graphic-plot'), 'layout', {
@@ -189,31 +202,31 @@ describe('the insight list card', () => {
     );
   });
 
-  it('rings the best effort on the section timeline', async () => {
+  it('marks the best effort on the section timeline with the dot', async () => {
     const tree = await laidOut(
       await render(<InsightListCard insight={sectionPrCard()} onPress={jest.fn()} />)
     );
 
-    const rings = tree
+    const marks = tree
       .UNSAFE_getAllByType(Circle)
-      .filter((circle) => circle.props.style === 'stroke');
+      .filter((circle) => circle.props.r === dotDisks().fill);
 
-    expect(rings).toHaveLength(1);
-    expect(rings[0].props.color).toBe(insightCategoryColor('section_pr', false));
+    expect(marks).toHaveLength(1);
+    expect(marks[0].props.color).toBe(insightGraphicColour('section_pr', false));
   });
 
-  it('rings the best effort in the dark step on the dark theme', async () => {
+  it('marks the best effort in the dark step on the dark theme', async () => {
     mockIsDark = true;
     const tree = await laidOut(
       await render(<InsightListCard insight={sectionPrCard()} onPress={jest.fn()} />)
     );
 
-    const rings = tree
+    const marks = tree
       .UNSAFE_getAllByType(Circle)
-      .filter((circle) => circle.props.style === 'stroke');
+      .filter((circle) => circle.props.r === dotDisks().fill);
 
-    expect(rings).toHaveLength(1);
-    expect(rings[0].props.color).toBe(insightCategoryColor('section_pr', true));
+    expect(marks).toHaveLength(1);
+    expect(marks[0].props.color).toBe(insightGraphicColour('section_pr', true));
   });
 
   it('draws the weekly bars with only the compared week marked', async () => {
@@ -221,11 +234,11 @@ describe('the insight list card', () => {
       await render(<InsightListCard insight={periodCard()} onPress={jest.fn()} />)
     );
 
-    const bars = tree.UNSAFE_getAllByType(Rect).map((bar) => bar.props.color);
+    const bars = tree.UNSAFE_getAllByType(RoundedRect).map((bar) => bar.props.color);
 
     expect(bars).toHaveLength(6);
     expect(
-      bars.filter((color) => color === insightCategoryColor('period_comparison', false))
+      bars.filter((color) => color === insightGraphicColour('period_comparison', false))
     ).toHaveLength(1);
     expect(bars.filter((color) => color === colors.chartMutedBar)).toHaveLength(5);
   });
@@ -235,7 +248,7 @@ describe('the insight list card', () => {
       await render(<InsightListCard insight={periodCard()} onPress={jest.fn()} />)
     );
 
-    const styles = tree.UNSAFE_getAllByType(Rect).map((bar) => bar.props.style ?? 'fill');
+    const styles = tree.UNSAFE_getAllByType(RoundedRect).map((bar) => bar.props.style ?? 'fill');
 
     expect(styles).toEqual(['fill', 'fill', 'fill', 'fill', 'fill', 'stroke']);
   });
@@ -324,7 +337,7 @@ describe('the insight list card', () => {
       await render(<InsightListCard insight={sectionTrendCard()} onPress={jest.fn()} />)
     );
 
-    const bars = tree.UNSAFE_getAllByType(Rect).filter((bar) => bar.props.height > 0);
+    const bars = tree.UNSAFE_getAllByType(RoundedRect).filter((bar) => bar.props.height > 0);
     const faster = bars.find((bar) => bar.props.color === verdictColor('positive', false));
     const slower = bars.find((bar) => bar.props.color === verdictColor('negative', false));
 
@@ -345,6 +358,41 @@ describe('the insight list card', () => {
 
     expect(onPress).toHaveBeenCalledWith(insight);
     expect(navigateTo).not.toHaveBeenCalled();
+  });
+});
+
+describe('the insight list card category', () => {
+  it.each([false, true])(
+    'draws the category icon in the neutral icon colour (dark %s)',
+    async (isDark) => {
+      mockIsDark = isDark;
+      const tree = await render(<InsightListCard insight={periodCard()} onPress={jest.fn()} />);
+
+      expect(glyph(tree, 'insight-category-icon').props.color).toBe(
+        (isDark ? darkColors : colors).iconSecondary
+      );
+    }
+  );
+
+  it.each([false, true])('draws no coloured edge down the card (dark %s)', async (isDark) => {
+    mockIsDark = isDark;
+    const tree = await render(<InsightListCard insight={sectionPrCard()} onPress={jest.fn()} />);
+
+    const edges = tree
+      .UNSAFE_getAllByType(View)
+      .map((view) => StyleSheet.flatten(view.props.style) ?? {})
+      .filter((style) => style.alignSelf === 'stretch' && style.backgroundColor != null);
+
+    expect(edges).toEqual([]);
+  });
+
+  it("keeps the insight's own glyph in its verdict tone beside the title", async () => {
+    const insight = periodCard();
+    const tree = await render(<InsightListCard insight={insight} onPress={jest.fn()} />);
+
+    const trend = glyph(tree, 'insight-trend-glyph');
+    expect(trend.props.name).toBe(insight.icon);
+    expect(trend.props.color).toBe(insightToneColor(insight.iconTone, false));
   });
 });
 

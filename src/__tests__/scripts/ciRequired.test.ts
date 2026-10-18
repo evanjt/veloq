@@ -98,7 +98,11 @@ describe('ciRequired', () => {
 });
 
 describe('plan', () => {
-  const dependabot = { event: 'pull_request', author: 'dependabot[bot]' };
+  const dependabot = {
+    event: 'pull_request',
+    author: 'dependabot[bot]',
+    updateType: 'version-update:semver-patch',
+  };
   const pureJsBump = {
     ...dependabot,
     paths: ['package.json', 'package-lock.json'],
@@ -128,6 +132,21 @@ describe('plan', () => {
       'verify-bindings': true,
     });
     expect(out.zones).toEqual(['Pacific/Kiritimati']);
+  });
+
+  it('runs a pure JavaScript minor as narrowly as a patch', () => {
+    const minor = plan({ ...pureJsBump, updateType: 'version-update:semver-minor' });
+    expect(minor).toEqual(plan(pureJsBump));
+    expect(minor.zones).toHaveLength(1);
+  });
+
+  it('runs every job in both zones for a major, and for a bump whose update type is unread', () => {
+    for (const updateType of ['version-update:semver-major', undefined, '', 'unknown']) {
+      const out = plan({ ...pureJsBump, updateType });
+      expect(out.areas).toEqual(EVERY_AREA);
+      expect(Object.values(out.run).every(Boolean)).toBe(true);
+      expect(out.zones).toEqual(['Pacific/Kiritimati', 'America/Los_Angeles']);
+    }
   });
 
   it('keeps both zones for a bump of a native package', () => {
@@ -267,6 +286,17 @@ describe('buildsNative', () => {
   it('builds natively for a pull request that reaches the engine crate, which both builds compile', () => {
     const areas = { appJs: false, native: false, rust: true, oauthProxy: false };
     expect(call<boolean>('buildsNative', { ...pr, areas })).toBe(true);
+  });
+
+  it('builds natively for a Dependabot major that reaches only app code, and for an unread update type', () => {
+    const areas = { appJs: true, native: false, rust: false, oauthProxy: false };
+    const bump = { ...pr, author: 'dependabot[bot]', areas };
+    for (const updateType of ['version-update:semver-major', undefined, '']) {
+      expect(call<boolean>('buildsNative', { ...bump, updateType })).toBe(true);
+    }
+    for (const updateType of ['version-update:semver-patch', 'version-update:semver-minor']) {
+      expect(call<boolean>('buildsNative', { ...bump, updateType })).toBe(false);
+    }
   });
 
   it('builds natively for a pull request whose areas are unknown', () => {

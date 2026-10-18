@@ -73,7 +73,6 @@ describe('icon button rows', () => {
         selectedPoint={POINT}
         isDark={false}
         basis="speed"
-        activityColor="#000000"
         onSetAsReference={jest.fn()}
         onExcludeActivity={jest.fn()}
         onClearSelection={jest.fn()}

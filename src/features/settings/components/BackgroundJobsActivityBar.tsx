@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { Card, CollapsibleSection, RowGroup } from '@/shared/ui';
+import { Card, CollapsibleSection, RowGroup, Spinner } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { getPhaseDisplayKey } from '@/features/routes';
 import { formatClockOrDate } from '@/shared/format/format';
@@ -176,11 +176,7 @@ function JobRow({ job }: { job: BackgroundJob }) {
         ) : null}
       </View>
       {job.state === 'running' ? (
-        <ActivityIndicator
-          size="small"
-          color={textSecondary}
-          testID={`background-job-${job.id}-spinner`}
-        />
+        <Spinner label={t(TITLE_KEYS[job.id])} testID={`background-job-${job.id}-spinner`} />
       ) : null}
     </View>
   );

@@ -10,9 +10,9 @@ tags:
     file: helpers/setup-demo-mode.yaml
 
 - runFlow:
-    file: helpers/navigate-to-training.yaml
+    file: helpers/navigate-to-fitness.yaml
 
-# Scroll down to the weekly summary (the heatmap and the wellness chart fill
+# Scroll down to the weekly summary (the fitness and wellness charts fill
 # the viewport above it), then bring its range buttons clear of the tab bar
 - runFlow:
     file: helpers/reveal.yaml

@@ -45,7 +45,6 @@ async function mount() {
   const pans = capturePans();
   const tree = await render(
     <SummaryCard
-      onProfilePress={() => {}}
       heroMetric="hrv"
       heroValue={62}
       heroLabel="metrics.hrv"
@@ -121,7 +120,6 @@ describe('the HRV hero at rest', () => {
   }) {
     const tree = await render(
       <SummaryCard
-        onProfilePress={() => {}}
         heroMetric="hrv"
         heroValue={ABSENT}
         heroLabel="metrics.hrv"

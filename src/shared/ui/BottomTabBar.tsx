@@ -5,10 +5,11 @@
  */
 import { markTabPress } from '@/shared/debug/tabSwitchTiming';
 import React, { memo, useCallback, useRef } from 'react';
-import { StyleSheet, View, Text } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { Icon } from './Icon';
 import { DENSE_TEXT_SCALE } from './DenseText';
+import { FitText } from './FitText';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePathname, useSegments } from 'expo-router';
@@ -37,12 +38,14 @@ import { emitTabReselect, type TabRoute } from './tabReselect';
 const log = debug.create('BottomTabBar');
 
 // Labels come from i18n, and each has to fit a fifth of a 320 dp phone at the 1.3 text cap.
+// Settings reads a short label of its own: the screen's title is too wide for its slot in
+// several locales.
 const MENU_ITEMS = [
   { key: 'feed', icon: 'home-outline', route: '/' },
   { key: 'fitness', icon: 'chart-line', route: '/fitness' },
   { key: 'map', icon: 'map-outline', route: '/map' },
   { key: 'insights', icon: 'lightbulb-outline', route: '/insights' },
-  { key: 'health', icon: 'heart-pulse', route: '/training' },
+  { key: 'settingsTab', icon: 'cog-outline', route: '/settings' },
 ] as const;
 
 // The labels are text and hold 4.5:1, the icons are marks and hold 3:1, both
@@ -182,13 +185,12 @@ function BottomTabBarComponent() {
                   color={isActive ? activeIcon : inactiveColor}
                 />
               </View>
-              <Text
+              <FitText
                 maxFontSizeMultiplier={DENSE_TEXT_SCALE}
                 style={[styles.label, { color: isActive ? activeLabel : inactiveColor }]}
-                numberOfLines={1}
               >
                 {label}
-              </Text>
+              </FitText>
             </PressTarget>
           );
         })}

@@ -4,9 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { navigateTo } from '@/shared/app/navigation';
 import { pressable, pressRipple } from '@/shared/ui';
-import { insightCategoryColor } from '@/theme';
 import type { Insight, TFunc } from '../../types';
 import { dataLinkLabel } from '../../lib/dataLink';
+import { insightGraphicColour } from '../../lib/insightCategory';
 import { SheetTrackDrawing } from './SheetTrackDrawing';
 
 interface SectionChangedContentProps {
@@ -14,7 +14,7 @@ interface SectionChangedContentProps {
 }
 
 /**
- * The section that changed, drawn at the sheet's width in the card's colour,
+ * The section that changed, drawn at the sheet's width in the card's graphic colour,
  * opening the section. The card draws this line, so the sheet it opens does
  * too rather than showing less than the card.
  */
@@ -46,7 +46,7 @@ export const SectionChangedContent = React.memo(function SectionChangedContent({
       <SheetTrackDrawing
         testID="section-changed-line"
         points={line.points}
-        color={insightCategoryColor(insight.category, isDark)}
+        color={insightGraphicColour(insight.category, isDark)}
       />
     </Pressable>
   );

@@ -24,17 +24,6 @@ jest.mock('@/i18n', () => ({
 }));
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn(() => null) }));
 jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: undefined }) }));
-jest.mock('@/shared/app/useSportSettings', () => ({
-  useSportSettings: () => ({ data: [] }),
-  // The athlete's configured thresholds: a CSS and a run pace both slower
-  // than what they now measure.
-  getSettingsForSport: (_settings: unknown, sport: string) =>
-    sport === 'Swim'
-      ? { threshold_pace: 1.25 }
-      : sport === 'Run'
-        ? { threshold_pace: 3.2 }
-        : undefined,
-}));
 const mockPaceCurve = jest.fn((_options: unknown) => ({ data: { criticalSpeed: 3.1 } }));
 jest.mock('@/features/stats', () => ({ usePaceCurve: (o: unknown) => mockPaceCurve(o) }));
 let mockMetric = true;

@@ -102,7 +102,7 @@ function Card() {
     <FitnessChartCard
       wellness={DAYS}
       wellnessCoverage={RangeCoverage.Loaded}
-      activities={[]}
+      loadDots={[]}
       dailyLoads={[]}
       eftpChanges={[]}
       selectedDate={null}

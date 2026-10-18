@@ -47,12 +47,6 @@ appId: com.veloq.app.dev
 - takeScreenshot: "${OUT}/02-fitness"
 
 - runFlow:
-    file: ../../.maestro/helpers/navigate-to-training.yaml
-- waitForAnimationToEnd:
-    timeout: 3000
-- takeScreenshot: "${OUT}/03-training"
-
-- runFlow:
     file: ../../.maestro/helpers/navigate-to-map.yaml
 - waitForAnimationToEnd:
     timeout: 5000

@@ -10,14 +10,14 @@ import { Card, Shimmer } from '@/shared/ui';
 import { useTranslation } from 'react-i18next';
 import { formatFullDate } from '@/shared/format/format';
 import { formatAttemptFigure, type AttemptBasis } from '@/features/routes/lib/attemptBasis';
-import { colors, darkColors, iconSize, spacing, typography, themePalette } from '@/theme';
+import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import type { DirectionStats } from '@/types';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
+import { directionColour } from '@/features/routes/lib/directionColour';
 import { DirectionArrow, directionWord, type SectionDirection } from './DirectionCue';
 import { FitText } from '@/shared/ui/FitText';
 
 const INFO_CARD_PLACEHOLDER_HEIGHT = 96;
-const REVERSE_COLOR = colors.reverseDirection;
 
 export interface SectionInfoCardProps {
   /** The oldest included attempt in the range, as the engine dates it. */
@@ -31,8 +31,6 @@ export interface SectionInfoCardProps {
   /** What Best and Avg read as, the basis the chart plots on. */
   basis: AttemptBasis;
   isDark: boolean;
-  /** Colour of the forward direction's arrow. */
-  activityColor?: string;
   /** Streams are still downloading, so the card holds its place. */
   pending?: boolean;
 }
@@ -46,7 +44,6 @@ export function SectionInfoCard({
   reverseStats,
   basis,
   isDark,
-  activityColor,
   pending = false,
 }: SectionInfoCardProps) {
   const { t } = useTranslation();
@@ -100,21 +97,20 @@ export function SectionInfoCard({
   const bestLabel = t('sections.best', 'Best');
   const avgLabel = t('sections.avg', 'Avg');
   if (bothDirections) {
-    const forwardColor = activityColor ?? themePalette(isDark).actionPrimary;
     const entries = [
-      [bestLabel, forwardBest, 'section-best-forward', 'forward', forwardColor],
-      [bestLabel, reverseBest, 'section-best-reverse', 'reverse', REVERSE_COLOR],
-      [avgLabel, forwardAvg, 'section-avg-forward', 'forward', forwardColor],
-      [avgLabel, reverseAvg, 'section-avg-reverse', 'reverse', REVERSE_COLOR],
+      [bestLabel, forwardBest, 'section-best-forward', 'forward'],
+      [bestLabel, reverseBest, 'section-best-reverse', 'reverse'],
+      [avgLabel, forwardAvg, 'section-avg-forward', 'forward'],
+      [avgLabel, reverseAvg, 'section-avg-reverse', 'reverse'],
     ] as const;
-    for (const [label, value, testID, direction, arrowColor] of entries) {
+    for (const [label, value, testID, direction] of entries) {
       if (value) {
         columns.push({
           label: `${label} · ${directionWord(t, direction)}`,
           value,
           testID,
           direction,
-          arrowColor,
+          arrowColor: directionColour(direction, isDark),
         });
       }
     }

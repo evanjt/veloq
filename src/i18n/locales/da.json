@@ -34,7 +34,6 @@
     "terrainRow": "3D-terræn",
     "activityStats": "Aktivitetsstatistik",
     "calories": "Kalorier",
-    "chartHint": "Hold for at skrubbe • Hold chip for akse",
     "distance": "Afstand",
     "xAxis": {
       "distance": "Afstand",
@@ -139,6 +138,7 @@
     "zoneMaxDefaultHint": "Angiv din maks puls i dine sportsindstillinger på intervals.icu",
     "prDelta": "+{{delta}} efter PR",
     "chartAverage": "gns.",
+    "chartGain": "stign.",
     "gainStat": "↑ {{value}}"
   },
   "activityDetail": {
@@ -733,6 +733,7 @@
     "activitiesCount_one": "{{count}} aktivitet",
     "activitiesCount_other": "{{count}} aktiviteter",
     "daysTrained": "Træningsdage",
+    "eftpChanged": "eFTP ændret",
     "fatigueATL": "Træthed (ATL)",
     "fitnessCTL": "Kondition (CTL)",
     "loadPartial": "Delvis",
@@ -765,9 +766,6 @@
     "greyZone": "Gråzone",
     "optimal": "Optimalt",
     "highRisk": "Høj risiko"
-  },
-  "healthScreen": {
-    "title": "Sundhed"
   },
   "insights": {
     "ranking": {
@@ -1230,9 +1228,9 @@
     "activities": "Aktiviteter",
     "feed": "Forside",
     "fitness": "Kondition",
-    "health": "Sundhed",
     "map": "Kort",
     "settings": "Indstillinger",
+    "settingsTab": "Valg",
     "training": "Træning",
     "wellness": "Velvære",
     "insights": "Indsigt"
@@ -1594,6 +1592,7 @@
     "searchSections": "Søg i sektioner…",
     "searchRoutes": "Søg ruter…",
     "sortActivities": "Aktiviteter",
+    "sortBy": "Sortér",
     "sortDistance": "Afstand",
     "sortMostVisited": "Mest besøgte",
     "sortNameAZ": "Navn A-Z",

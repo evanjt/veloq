@@ -54,8 +54,6 @@ export interface SectionPerformanceSectionProps {
   /** Absent means a section. */
   subject?: PerformanceSubject | undefined;
   isDark: boolean;
-  /** Forward's colour, which the page draws on every view of it. */
-  forwardColour: string;
   /** The sport whose efforts are plotted. Decides pace against speed units. */
   /** The sport on screen, absent until the engine has answered. */
   sportType: string | undefined;
@@ -97,7 +95,6 @@ export interface SectionPerformanceSectionProps {
 export function SectionPerformanceSection({
   subject = 'section',
   isDark,
-  forwardColour,
   sportType,
   chartData,
   trendCurves,
@@ -172,7 +169,6 @@ export function SectionPerformanceSection({
           onDeltaLineChange={onDeltaLineChange}
           activityType={sportType as ActivityType}
           isDark={isDark}
-          forwardColour={forwardColour}
           useTimeAxis={isRoute}
           bestForwardRecord={bestForwardRecord}
           bestReverseRecord={bestReverseRecord}

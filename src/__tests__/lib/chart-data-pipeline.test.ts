@@ -1,5 +1,5 @@
 import { CHART_CONFIGS, getAvailableCharts } from '@/features/activity/lib/chartConfig';
-import type { ActivityStreams } from '@/types';
+import type { ActivityStreams, ActivityType } from '@/types';
 import { streamsFromArrays as streamsOf } from '@/features/activity/lib/streams';
 
 describe('stream unit conversion', () => {
@@ -41,8 +41,8 @@ describe('available charts filtering', () => {
       heartrate: [120, 130, 140],
       velocity_smooth: [3, 4, 5],
     });
-    const ids = getAvailableCharts(streams).map((c) => c.id);
-    for (const id of ['power', 'heartrate', 'speed', 'pace']) {
+    const ids = getAvailableCharts(streams, 'Ride').map((c) => c.id);
+    for (const id of ['power', 'heartrate', 'speed']) {
       expect(ids).toContain(id);
     }
     for (const id of ['elevation', 'temp', 'wbal', 'gap']) {
@@ -51,11 +51,11 @@ describe('available charts filtering', () => {
   });
 
   it('returns empty for empty streams', () => {
-    expect(getAvailableCharts({})).toHaveLength(0);
+    expect(getAvailableCharts({}, 'Ride')).toHaveLength(0);
   });
 
   it('excludes power and elevation when only heartrate is present', () => {
-    const ids = getAvailableCharts(streamsOf({ heartrate: [120, 130] })).map((c) => c.id);
+    const ids = getAvailableCharts(streamsOf({ heartrate: [120, 130] }), 'Ride').map((c) => c.id);
     expect(ids).toContain('heartrate');
     expect(ids).not.toContain('power');
     expect(ids).not.toContain('elevation');
@@ -66,7 +66,7 @@ describe('available charts filtering', () => {
       distance: [0, 100, 200],
       altitude: [100, 200, 300],
     });
-    const ids = getAvailableCharts(streams).map((c) => c.id);
+    const ids = getAvailableCharts(streams, 'Ride').map((c) => c.id);
     // altitude maps to elevation (primary), distance is not primary
     expect(ids).toContain('elevation');
     for (const id of ['distance', 'moving_time', 'elapsed_time']) {
@@ -95,8 +95,44 @@ describe('available charts filtering', () => {
       ],
     ];
     for (const [id, withStream, withoutStream] of presence) {
-      expect(getAvailableCharts(withStream).map((c) => c.id)).toContain(id);
-      expect(getAvailableCharts(withoutStream).map((c) => c.id)).not.toContain(id);
+      expect(getAvailableCharts(withStream, 'Run').map((c) => c.id)).toContain(id);
+      expect(getAvailableCharts(withoutStream, 'Run').map((c) => c.id)).not.toContain(id);
+    }
+  });
+});
+
+describe('speed or pace by sport', () => {
+  const moving = streamsOf({ heartrate: [120, 130, 140], velocity_smooth: [3, 4, 5] });
+  const offered = (type: ActivityType) => getAvailableCharts(moving, type).map((c) => c.id);
+
+  it('offers pace and not speed for a run', () => {
+    expect(offered('Run')).toContain('pace');
+    expect(offered('Run')).not.toContain('speed');
+  });
+
+  it('offers pace and not speed for a walk and a hike', () => {
+    for (const type of ['Walk', 'Hike'] as const) {
+      expect(offered(type)).toContain('pace');
+      expect(offered(type)).not.toContain('speed');
+    }
+  });
+
+  it('offers pace per 100 and not speed for a swim', () => {
+    expect(offered('Swim')).toContain('pace');
+    expect(offered('Swim')).not.toContain('speed');
+    const swimPace = getAvailableCharts(moving, 'Swim').find((c) => c.id === 'pace');
+    expect(swimPace?.unit).toBe('/100m');
+  });
+
+  it('offers speed and not pace for a ride', () => {
+    expect(offered('Ride')).toContain('speed');
+    expect(offered('Ride')).not.toContain('pace');
+  });
+
+  it('never offers both, whatever the sport', () => {
+    for (const type of ['Run', 'Ride', 'Swim', 'Walk', 'Rowing', 'AlpineSki', 'Workout'] as const) {
+      const ids = offered(type);
+      expect(ids.includes('speed') && ids.includes('pace')).toBe(false);
     }
   });
 });

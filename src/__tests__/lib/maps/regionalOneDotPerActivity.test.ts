@@ -16,10 +16,11 @@ import {
   UNCLUSTERED_POINT_LAYER_ID,
 } from '@/features/maps/components/regional/regionalMapLayerSpecs';
 import { TRACE_ZOOM_THRESHOLD } from '@/features/maps/lib/mapBudgets';
+import { mapPalette } from '@/theme';
 
 function layers(selectedActivityId: string | null = null) {
   return buildRegionalLayers({
-    mapStyle: 'light',
+    palette: mapPalette('light'),
     showActivities: true,
     showSections: false,
     showRoutes: false,

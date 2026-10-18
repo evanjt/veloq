@@ -1,6 +1,6 @@
 # Weekly Summary Component Tests
 # Tests the summary card's sparkline tap, then the weekly summary stats and
-# time range toggles on training screen
+# time range toggles on the fitness screen
 
 appId: com.veloq.app.dev
 tags:
@@ -26,9 +26,9 @@ tags:
 - takeScreenshot: "screenshots/summary-card-sparkline-tap"
 
 - runFlow:
-    file: helpers/navigate-to-training.yaml
+    file: helpers/navigate-to-fitness.yaml
 
-# WeeklySummary sits below the heatmap and the wellness chart, under the
+# WeeklySummary sits below the fitness and wellness charts, under the
 # fold on a phone. Reveal it, then its year button clear of the tab bar.
 - runFlow:
     file: helpers/reveal.yaml

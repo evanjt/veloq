@@ -2,9 +2,9 @@
 
 use crate::GpsPoint;
 use crate::governor::Lane;
-use crate::net::endpoints;
+use crate::net::intervals::endpoints;
+use crate::net::intervals::wire::ActivityRecord;
 use crate::net::transport::{NetError, Transport};
-use crate::net::types::ActivityRecord;
 use crate::persistence::ElevationSeries;
 
 pub(crate) enum FetchedRecordActivity {

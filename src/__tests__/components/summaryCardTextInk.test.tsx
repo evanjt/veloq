@@ -31,10 +31,6 @@ jest.mock('@/shared/app/ThemeProvider', () => ({
 }));
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn(() => null) }));
 jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: undefined }) }));
-jest.mock('@/shared/app/useSportSettings', () => ({
-  useSportSettings: () => ({ data: undefined }),
-  getSettingsForSport: () => undefined,
-}));
 jest.mock('@/features/stats', () => ({ usePaceCurve: () => ({ data: undefined }) }));
 jest.mock('@/shared/app/useMetricSystem', () => ({ useMetricSystem: () => true }));
 
@@ -85,7 +81,7 @@ async function renderCard(heroMetric: 'fitness' | 'form' | 'hrv', showSparkline:
   const { result } = await renderHook(() =>
     useSummaryCardData(CARD, { awaitPrecomputed: true, precomputedSparklines: SPARKLINES })
   );
-  const tree = await render(<SummaryCard onProfilePress={() => {}} {...result.current} />);
+  const tree = await render(<SummaryCard {...result.current} />);
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
   });

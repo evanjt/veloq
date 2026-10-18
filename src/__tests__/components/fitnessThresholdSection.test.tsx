@@ -18,11 +18,7 @@ import { FitnessTrendSections } from '@/features/fitness/components/sections/Fit
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 
-function renderRunning(props: {
-  thresholdPace?: number;
-  runLthr?: number;
-  hasActivities?: boolean;
-}) {
+function renderRunning(props: { thresholdPace?: number; runLthr?: number }) {
   return render(
     <FitnessTrendSections
       sportMode="Running"
@@ -30,8 +26,6 @@ function renderRunning(props: {
       powerZones={undefined}
       hrZones={undefined}
       periodCoverage={RangeCoverage.Loaded}
-      loadingActivities={false}
-      hasActivities={props.hasActivities ?? false}
       dominantZone={null}
       zonesExpanded={false}
       onZonesToggle={jest.fn()}
@@ -62,7 +56,7 @@ describe('the running threshold section', () => {
   });
 
   it('names the missing LTHR and pace curve, not a run count, for an athlete with runs', async () => {
-    const tree = await renderRunning({ hasActivities: true });
+    const tree = await renderRunning({});
 
     const empty = tree.getByTestId('fitness-threshold-empty');
     expect(empty).not.toHaveTextContent(/not enough runs/i);

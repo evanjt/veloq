@@ -37,6 +37,7 @@ import {
   pressRipple,
 } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
+import { RankRing } from '@/shared/charts/RankRing';
 import type { ActivityType, PerformanceDataPoint } from '@/types';
 import { SectionSparkline } from '@/features/routes';
 import type { SectionEncounter } from 'veloqrs';
@@ -371,26 +372,14 @@ export const SectionInlinePlot = memo(
                         </View>
                       ) : null}
                       {encounter.isComplete && (encounter.rank === 2 || encounter.rank === 3) ? (
-                        <View
-                          testID={`section-inline-place-${suffix}`}
-                          accessible
-                          accessibilityLabel={t(
-                            encounter.rank === 2 ? 'sections.placeSecond' : 'sections.placeThird'
-                          )}
-                          style={{ marginLeft: spacing.xxs }}
-                        >
-                          <Icon
-                            name="medal"
-                            size={iconSize.xs}
-                            color={
-                              encounter.rank === 2
-                                ? isDark
-                                  ? darkColors.chartSilverMark
-                                  : colors.chartSilverMark
-                                : isDark
-                                  ? darkColors.chartBronzeMark
-                                  : colors.chartBronzeMark
-                            }
+                        <View style={{ marginLeft: spacing.xxs }}>
+                          <RankRing
+                            testID={`section-inline-place-${suffix}`}
+                            rank={encounter.rank}
+                            isDark={isDark}
+                            accessibilityLabel={t(
+                              encounter.rank === 2 ? 'sections.placeSecond' : 'sections.placeThird'
+                            )}
                           />
                         </View>
                       ) : null}

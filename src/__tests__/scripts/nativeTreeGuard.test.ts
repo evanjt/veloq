@@ -8,7 +8,9 @@
  * it starts, names what resolves outside the checkout and the setup command
  * that gives the tree an installation of its own, and lets a self-contained
  * tree through. It also refuses an installation whose screens sheet width patch
- * never ran, since that build draws every sheet across the full width of a tablet.
+ * never ran, since that build draws every sheet across the full width of a tablet,
+ * and one whose nitro JSI install patch never ran, since that build aborts at every
+ * iOS launch.
  */
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -19,6 +21,7 @@ import { gitFreeEnv, runGit } from '../__shared__/gitFixture';
 
 const screens = require('../../../scripts/patch-screens-sheet-width');
 const screensHide = require('../../../scripts/patch-screens-sheet-hide');
+const nitro = require('../../../scripts/patch-nitro-jsi-install');
 
 const projectRoot = path.join(__dirname, '../../..');
 const script = path.join(projectRoot, 'scripts/check-native-tree.mjs');
@@ -234,6 +237,37 @@ describe('the native build tree check', () => {
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('sheet hide patch');
     expect(result.stderr).toContain('node scripts/patch-screens-sheet-hide.js');
+  });
+
+  /** The installed nitro TurboModule copied into `root`, patched or as it ships. */
+  function installNitro(root: string, patched: boolean): void {
+    const from = path.join(projectRoot, 'node_modules', 'react-native-nitro-modules');
+    const to = path.join(root, 'node_modules', 'react-native-nitro-modules');
+    fs.mkdirSync(path.dirname(path.join(to, nitro.FILE)), { recursive: true });
+    fs.copyFileSync(path.join(from, 'package.json'), path.join(to, 'package.json'));
+    const shipped = nitro.unpatchSource(fs.readFileSync(path.join(from, nitro.FILE), 'utf8'));
+    fs.writeFileSync(path.join(to, nitro.FILE), patched ? nitro.patchSource(shipped) : shipped);
+  }
+
+  it('lets an installation carrying the nitro JSI install patch through', () => {
+    const { main } = pair();
+    installNitro(main, true);
+
+    const result = check(main);
+
+    expect(result.stderr).toBe('');
+    expect(result.status).toBe(0);
+  });
+
+  it('refuses an installation whose nitro JSI install patch never ran', () => {
+    const { main } = pair();
+    installNitro(main, false);
+
+    const result = check(main);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('JSI install patch');
+    expect(result.stderr).toContain('node scripts/patch-nitro-jsi-install.js');
   });
 
   it('refuses an installation whose screens sheet width patch never ran before the build lock', () => {

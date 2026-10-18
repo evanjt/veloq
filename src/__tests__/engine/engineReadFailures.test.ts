@@ -112,7 +112,6 @@ const READS: [string, (client: EngineClient) => unknown][] = [
   ['acceptAllSections', (c) => c.acceptAllSections()],
   ['getSectionExtensionTrack', (c) => c.getSectionExtensionTrack('sec-1')],
   ['getAthleteProfile', (c) => c.getAthleteProfile()],
-  ['getSportSettings', (c) => c.getSportSettings()],
   ['hrZoneFor', (c) => c.hrZoneFor('Ride', 140)],
   ['suggestExportHome', (c) => c.suggestExportHome()],
   ['exportPrivacyPreview', (c) => c.exportPrivacyPreview(46.5, 6.6, 200)],

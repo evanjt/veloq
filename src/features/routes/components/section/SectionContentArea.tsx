@@ -69,7 +69,6 @@ export interface SectionContentAreaProps {
   /** The sport whose efforts are on screen, the one the engine answered for.
    *  Units follow it: a section has no sport of its own. */
   effectiveSportType?: string | undefined;
-  forwardColour: string;
   navActivityId?: string | undefined;
   effectiveReferenceId?: string | undefined;
   showExcluded: boolean;
@@ -114,7 +113,6 @@ export function SectionContentArea({
   recordsSettled,
   calendarSummary,
   effectiveSportType,
-  forwardColour,
   navActivityId,
   effectiveReferenceId,
   showExcluded,
@@ -170,7 +168,6 @@ export function SectionContentArea({
       <SectionPerformanceSection
         subject={subject}
         isDark={isDark}
-        forwardColour={forwardColour}
         sportType={effectiveSportType}
         chartData={combinedChartData}
         trendCurves={trendCurves}
@@ -208,7 +205,6 @@ export function SectionContentArea({
         reverseStats={reverseStats}
         basis={basis}
         isDark={isDark}
-        activityColor={forwardColour}
         pending={streams?.status === 'loading'}
       />
 
@@ -227,7 +223,6 @@ export function SectionContentArea({
           calendarSummary={calendarSummary}
           isDark={isDark}
           basis={basis}
-          activityColor={forwardColour}
           onSetAsReference={onSetAsReference}
           referenceActivityId={effectiveReferenceId}
           recordsSettled={recordsSettled}

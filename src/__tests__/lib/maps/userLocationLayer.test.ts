@@ -11,6 +11,7 @@ import {
   buildUserLocationLayers,
 } from '@/features/maps/lib/userLocationLayer';
 import { EMPTY_FEATURE_COLLECTION } from '@/features/maps/lib/coordinates';
+import { mapPalette } from '@/theme';
 
 describe('buildUserLocationCollection', () => {
   it('is the empty collection with no fix', () => {
@@ -27,13 +28,13 @@ describe('buildUserLocationCollection', () => {
 
 describe('buildUserLocationLayers', () => {
   const opacities = (hasFix: boolean) =>
-    buildUserLocationLayers(hasFix).map(
+    buildUserLocationLayers(hasFix, mapPalette('light')).map(
       (layer) => (layer.paint as Record<string, unknown>)['circle-opacity']
     );
 
   it('keeps both circles on the dot source whether or not a fix is held', () => {
     for (const hasFix of [true, false]) {
-      const layers = buildUserLocationLayers(hasFix);
+      const layers = buildUserLocationLayers(hasFix, mapPalette('light'));
       expect(layers.map((l) => l.id)).toEqual(['user-location-outer', 'user-location-inner']);
       expect(layers.every((l) => l.source === USER_LOCATION_SOURCE_ID)).toBe(true);
     }

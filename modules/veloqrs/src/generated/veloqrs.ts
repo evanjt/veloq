@@ -6675,6 +6675,69 @@ const FfiConverterTypeFfiDayLoad = (() => {
 })();
 
 /**
+ * The newest cycling activity of half an hour or more with power, heart rate
+ * and a finite decoupling stored by intervals.icu, and that value.
+ */
+export type FfiDecouplingSource = {
+  activityId: string;
+  name: string;
+  /**
+   * Wall-clock start, `YYYY-MM-DDTHH:MM:SS`.
+   */
+  startDateLocal: string;
+  /**
+   * Percentage, as intervals.icu computed it.
+   */
+  decoupling: number;
+};
+
+/**
+ * Generated factory for {@link FfiDecouplingSource} record objects.
+ */
+export const FfiDecouplingSource = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiDecouplingSource, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiDecouplingSource>,
+  });
+})();
+
+const FfiConverterTypeFfiDecouplingSource = (() => {
+  type TypeName = FfiDecouplingSource;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        activityId: FfiConverterString.readFromCursor(c),
+        name: FfiConverterString.readFromCursor(c),
+        startDateLocal: FfiConverterString.readFromCursor(c),
+        decoupling: FfiConverterFloat64.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.activityId, c);
+      FfiConverterString.writeIntoCursor(value.name, c);
+      FfiConverterString.writeIntoCursor(value.startDateLocal, c);
+      FfiConverterFloat64.writeIntoCursor(value.decoupling, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.activityId) +
+        FfiConverterString.allocationSize(value.name) +
+        FfiConverterString.allocationSize(value.startDateLocal) +
+        FfiConverterFloat64.allocationSize(value.decoupling)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * A ride a section edit took out of the section: its library name and its
  * start as seconds since the epoch.
  */
@@ -8613,9 +8676,147 @@ const FfiConverterTypeFfiSportMix = (() => {
 })();
 
 /**
+ * The ride the decoupling card names for one span of the range picker.
+ */
+export type FfiSpanDecoupling = {
+  /**
+   * The span's length in days, back from today.
+   */
+  days: number;
+  /**
+   * `None` when no ride inside the span qualifies.
+   */
+  source?: FfiDecouplingSource;
+};
+
+/**
+ * Generated factory for {@link FfiSpanDecoupling} record objects.
+ */
+export const FfiSpanDecoupling = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiSpanDecoupling, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiSpanDecoupling>,
+  });
+})();
+
+const FfiConverterTypeFfiSpanDecoupling = (() => {
+  type TypeName = FfiSpanDecoupling;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        days: FfiConverterUInt32.readFromCursor(c),
+        source: FfiConverterOptionalTypeFfiDecouplingSource.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterUInt32.writeIntoCursor(value.days, c);
+      FfiConverterOptionalTypeFfiDecouplingSource.writeIntoCursor(
+        value.source,
+        c,
+      );
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt32.allocationSize(value.days) +
+        FfiConverterOptionalTypeFfiDecouplingSource.allocationSize(value.source)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * One activity as the fitness strip marks it and its day picker lists it.
+ */
+export type FfiLoadDot = {
+  activityId: string;
+  name: string;
+  sportType: string;
+  /**
+   * Wall-clock start, `YYYY-MM-DDTHH:MM:SS`.
+   */
+  startDateLocal: string;
+  /**
+   * Seconds.
+   */
+  movingTime: number;
+  /**
+   * Metres.
+   */
+  distance: number;
+  /**
+   * The recorded training load, zero when none is recorded.
+   */
+  load: number;
+};
+
+/**
+ * Generated factory for {@link FfiLoadDot} record objects.
+ */
+export const FfiLoadDot = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiLoadDot, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLoadDot>,
+  });
+})();
+
+const FfiConverterTypeFfiLoadDot = (() => {
+  type TypeName = FfiLoadDot;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        activityId: FfiConverterString.readFromCursor(c),
+        name: FfiConverterString.readFromCursor(c),
+        sportType: FfiConverterString.readFromCursor(c),
+        startDateLocal: FfiConverterString.readFromCursor(c),
+        movingTime: FfiConverterUInt32.readFromCursor(c),
+        distance: FfiConverterFloat64.readFromCursor(c),
+        load: FfiConverterFloat64.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.activityId, c);
+      FfiConverterString.writeIntoCursor(value.name, c);
+      FfiConverterString.writeIntoCursor(value.sportType, c);
+      FfiConverterString.writeIntoCursor(value.startDateLocal, c);
+      FfiConverterUInt32.writeIntoCursor(value.movingTime, c);
+      FfiConverterFloat64.writeIntoCursor(value.distance, c);
+      FfiConverterFloat64.writeIntoCursor(value.load, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.activityId) +
+        FfiConverterString.allocationSize(value.name) +
+        FfiConverterString.allocationSize(value.sportType) +
+        FfiConverterString.allocationSize(value.startDateLocal) +
+        FfiConverterUInt32.allocationSize(value.movingTime) +
+        FfiConverterFloat64.allocationSize(value.distance) +
+        FfiConverterFloat64.allocationSize(value.load)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Everything the fitness tab paints with that stays fixed while it is
- * mounted. Its range and sport are chosen with a tap, so the reads over them
- * are their own.
+ * mounted. Its sport is chosen with a tap, so the reads over it are their
+ * own; the parts that follow the range carry every span, so a tap reads
+ * nothing.
  */
 export type FfiFitnessScreenData = {
   /**
@@ -8648,6 +8849,24 @@ export type FfiFitnessScreenData = {
    * The fatigue time constant in days in effect today
    */
   fatigueDays: number;
+  /**
+   * The cycling FTP the athlete set, in watts, else the one the newest
+   * cycling activity was analysed against.
+   */
+  cyclingFtpSetting?: number;
+  /**
+   * The running LTHR the athlete set, in bpm.
+   */
+  runningLthr?: number;
+  /**
+   * The decoupling ride of each span the read was asked for, in that order.
+   */
+  decouplingSources: Array<FfiSpanDecoupling>;
+  /**
+   * Every activity inside the longest span asked for, oldest first, for the
+   * strip under the fitness plot.
+   */
+  loadDots: Array<FfiLoadDot>;
 };
 
 /**
@@ -8680,6 +8899,11 @@ const FfiConverterTypeFfiFitnessScreenData = (() => {
         sportMix: FfiConverterTypeFfiSportMix.readFromCursor(c),
         fitnessDays: FfiConverterUInt32.readFromCursor(c),
         fatigueDays: FfiConverterUInt32.readFromCursor(c),
+        cyclingFtpSetting: FfiConverterOptionalFloat64.readFromCursor(c),
+        runningLthr: FfiConverterOptionalFloat64.readFromCursor(c),
+        decouplingSources:
+          FfiConverterSequenceTypeFfiSpanDecoupling.readFromCursor(c),
+        loadDots: FfiConverterSequenceTypeFfiLoadDot.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -8690,6 +8914,13 @@ const FfiConverterTypeFfiFitnessScreenData = (() => {
       FfiConverterTypeFfiSportMix.writeIntoCursor(value.sportMix, c);
       FfiConverterUInt32.writeIntoCursor(value.fitnessDays, c);
       FfiConverterUInt32.writeIntoCursor(value.fatigueDays, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.cyclingFtpSetting, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.runningLthr, c);
+      FfiConverterSequenceTypeFfiSpanDecoupling.writeIntoCursor(
+        value.decouplingSources,
+        c,
+      );
+      FfiConverterSequenceTypeFfiLoadDot.writeIntoCursor(value.loadDots, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -8699,7 +8930,13 @@ const FfiConverterTypeFfiFitnessScreenData = (() => {
         FfiConverterTypeFfiPaceTrend.allocationSize(value.swimPaceTrend) +
         FfiConverterTypeFfiSportMix.allocationSize(value.sportMix) +
         FfiConverterUInt32.allocationSize(value.fitnessDays) +
-        FfiConverterUInt32.allocationSize(value.fatigueDays)
+        FfiConverterUInt32.allocationSize(value.fatigueDays) +
+        FfiConverterOptionalFloat64.allocationSize(value.cyclingFtpSetting) +
+        FfiConverterOptionalFloat64.allocationSize(value.runningLthr) +
+        FfiConverterSequenceTypeFfiSpanDecoupling.allocationSize(
+          value.decouplingSources,
+        ) +
+        FfiConverterSequenceTypeFfiLoadDot.allocationSize(value.loadDots)
       );
     }
   }
@@ -26798,10 +27035,13 @@ export interface FitnessManagerLike {
    * Everything the fitness tab paints with that stays fixed while it is
    * mounted: the cycling eFTP trend over the chart's three months with the
    * activities that moved it, and the last stored running and swimming
-   * critical speeds. Off the engine lock, since it reads only committed
-   * rows. Stale when the `activities` event fires.
+   * critical speeds, with the decoupling ride of each of `span_days` and
+   * the activities of the longest. Off the engine lock, since it reads only
+   * committed rows. Stale when the `activities` event fires.
    */
-  getFitnessScreenData() /*throws*/ : FfiFitnessScreenData;
+  getFitnessScreenData(
+    spanDays: Array<number>,
+  ) /*throws*/ : FfiFitnessScreenData;
   /**
    * Batch insights data: combines period stats, trends, patterns, recent PRs
    * and the section and strength tail. Reduces the Insights hook to a single
@@ -27126,10 +27366,13 @@ export class FitnessManager
    * Everything the fitness tab paints with that stays fixed while it is
    * mounted: the cycling eFTP trend over the chart's three months with the
    * activities that moved it, and the last stored running and swimming
-   * critical speeds. Off the engine lock, since it reads only committed
-   * rows. Stale when the `activities` event fires.
+   * critical speeds, with the decoupling ride of each of `span_days` and
+   * the activities of the longest. Off the engine lock, since it reads only
+   * committed rows. Stale when the `activities` event fires.
    */
-  getFitnessScreenData(): FfiFitnessScreenData /*throws*/ {
+  getFitnessScreenData(
+    spanDays: Array<number>,
+  ): FfiFitnessScreenData /*throws*/ {
     const __rb: Uint8Array = uniffiCaller.rustCallWithError(
       /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
         FfiConverterTypeVeloqError,
@@ -27137,6 +27380,10 @@ export class FitnessManager
       /*caller:*/ (callStatus) => {
         return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_fitness_screen_data(
           uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
+          FfiConverterSequenceUInt32.lower(
+            spanDays,
+            nativeModule().rustbuffer_alloc,
+          ),
           callStatus,
         );
       },
@@ -31683,7 +31930,6 @@ export interface SettingsManagerLike {
    * Get a single user preference by key.
    */
   getSetting(key: string) /*throws*/ : string | undefined;
-  getSportSettings() /*throws*/ : string | undefined;
   /**
    * The heart rate zone, numbered from 1, a reading falls in for a sport
    * type, from the athlete's own zones. None when the reading is not a
@@ -32027,26 +32273,6 @@ export class SettingsManager
         return nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_get_setting(
           uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(key, nativeModule().rustbuffer_alloc),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-      return FfiConverterOptionalString.lift(__rb);
-    } finally {
-      nativeModule().rustbuffer_free(__rb);
-    }
-  }
-
-  getSportSettings(): string | undefined /*throws*/ {
-    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_get_sport_settings(
-          uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
           callStatus,
         );
       },
@@ -32457,14 +32683,16 @@ const FfiConverterTypeSettingsManager = new FfiConverterObject(
 
 export interface StrengthManagerLike {
   /**
-   * Start FIT downloads for a batch of activities. Returns the start
-   * verdict and any backoff deadline.
+   * Start FIT downloads for every activity the engine's queue owes one, of
+   * every sport that reads its file, newest first. Returns the start verdict
+   * and any backoff deadline, and `NotOwed` when the queue is empty.
    *
-   * Runs in the background for the same reason the single fetch does: the
-   * caller is the sync path on the JS thread, and this loop is one blocking
-   * request per activity.
+   * The queue is read here rather than handed in: the caller used to read
+   * the strength queue and pass it straight back, and a sport the caller
+   * did not know about never reached the download. Runs in the background
+   * because the loop is one request per activity.
    */
-  batchFetchExerciseSets(activityIds: Array<string>): FfiStartResult;
+  batchFetchOwedFitFiles(): FfiStartResult;
   /**
    * Insert pre-parsed exercise sets for an activity without touching the
    * network or FIT-file pipeline. Demo mode uses this to seed synthetic
@@ -32477,8 +32705,9 @@ export interface StrengthManagerLike {
     sets: Array<FfiExerciseSet>,
   ) /*throws*/ : void;
   /**
-   * Start a FIT download for one activity, parse its exercise sets and store
-   * them. Returns the start verdict and any backoff deadline.
+   * Start a FIT download for one activity, parse what its sport reads from
+   * it, its exercise sets or its lengths, and store that. Returns the start
+   * verdict and any backoff deadline.
    *
    * Nothing is returned to the caller: the download ran on the JS thread
    * before, so a black-hole network froze the UI for as long as the request
@@ -32581,22 +32810,20 @@ export class StrengthManager
   }
 
   /**
-   * Start FIT downloads for a batch of activities. Returns the start
-   * verdict and any backoff deadline.
+   * Start FIT downloads for every activity the engine's queue owes one, of
+   * every sport that reads its file, newest first. Returns the start verdict
+   * and any backoff deadline, and `NotOwed` when the queue is empty.
    *
-   * Runs in the background for the same reason the single fetch does: the
-   * caller is the sync path on the JS thread, and this loop is one blocking
-   * request per activity.
+   * The queue is read here rather than handed in: the caller used to read
+   * the strength queue and pass it straight back, and a sport the caller
+   * did not know about never reached the download. Runs in the background
+   * because the loop is one request per activity.
    */
-  batchFetchExerciseSets(activityIds: Array<string>): FfiStartResult {
+  batchFetchOwedFitFiles(): FfiStartResult {
     const __rb: Uint8Array = uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_batch_fetch_exercise_sets(
+        return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_batch_fetch_owed_fit_files(
           uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
-          FfiConverterSequenceString.lower(
-            activityIds,
-            nativeModule().rustbuffer_alloc,
-          ),
           callStatus,
         );
       },
@@ -32640,8 +32867,9 @@ export class StrengthManager
   }
 
   /**
-   * Start a FIT download for one activity, parse its exercise sets and store
-   * them. Returns the start verdict and any backoff deadline.
+   * Start a FIT download for one activity, parse what its sport reads from
+   * it, its exercise sets or its lengths, and store that. Returns the start
+   * verdict and any backoff deadline.
    *
    * Nothing is returned to the caller: the download ran on the JS thread
    * before, so a black-hole network froze the UI for as long as the request
@@ -35306,6 +35534,21 @@ const FfiConverterSequenceTypeFfiEftpChange = new FfiConverterArray(
   FfiConverterTypeFfiEftpChange,
 );
 
+// FfiConverter for FfiDecouplingSource | undefined
+const FfiConverterOptionalTypeFfiDecouplingSource = new FfiConverterOptional(
+  FfiConverterTypeFfiDecouplingSource,
+);
+
+// FfiConverter for Array<FfiSpanDecoupling>
+const FfiConverterSequenceTypeFfiSpanDecoupling = new FfiConverterArray(
+  FfiConverterTypeFfiSpanDecoupling,
+);
+
+// FfiConverter for Array<FfiLoadDot>
+const FfiConverterSequenceTypeFfiLoadDot = new FfiConverterArray(
+  FfiConverterTypeFfiLoadDot,
+);
+
 // FfiConverter for Array<GroupSummary>
 const FfiConverterSequenceTypeGroupSummary = new FfiConverterArray(
   FfiConverterTypeGroupSummary,
@@ -36724,7 +36967,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_fitness_screen_data() !==
-    45400
+    186
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_fitnessmanager_get_fitness_screen_data",
@@ -37699,14 +37942,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_sport_settings() !==
-    14187
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_settingsmanager_get_sport_settings",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_hr_zone_for() !==
     32941
   ) {
@@ -37811,11 +38046,11 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_exercise_sets() !==
-    43287
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_owed_fit_files() !==
+    22556
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_exercise_sets",
+      "uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_owed_fit_files",
     );
   }
   if (
@@ -37828,7 +38063,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_fetch_and_parse_exercise_sets() !==
-    64188
+    14754
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_strengthmanager_fetch_and_parse_exercise_sets",
@@ -38412,6 +38647,7 @@ export default Object.freeze({
     FfiConverterTypeFfiDashboardData,
     FfiConverterTypeFfiDayLoad,
     FfiConverterTypeFfiDayLoadStatus,
+    FfiConverterTypeFfiDecouplingSource,
     FfiConverterTypeFfiDepartedRide,
     FfiConverterTypeFfiDetectionHold,
     FfiConverterTypeFfiDetectionProgress,
@@ -38452,6 +38688,7 @@ export default Object.freeze({
     FfiConverterTypeFfiLapDelta,
     FfiConverterTypeFfiLapDeltaMissing,
     FfiConverterTypeFfiLapDeltaMissingReason,
+    FfiConverterTypeFfiLoadDot,
     FfiConverterTypeFfiLoadMetric,
     FfiConverterTypeFfiMapCategoryCount,
     FfiConverterTypeFfiMapEmptyReason,
@@ -38549,6 +38786,7 @@ export default Object.freeze({
     FfiConverterTypeFfiSectionTrendCurves,
     FfiConverterTypeFfiSectionWithPolyline,
     FfiConverterTypeFfiSeriesPoint,
+    FfiConverterTypeFfiSpanDecoupling,
     FfiConverterTypeFfiSplitSummary,
     FfiConverterTypeFfiSportFamily,
     FfiConverterTypeFfiSportLoad,

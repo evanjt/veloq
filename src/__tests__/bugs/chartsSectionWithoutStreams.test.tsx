@@ -42,9 +42,9 @@ jest.mock('@/shared/ui', () => {
 jest.mock('@/features/activity/components/ChartTypeSelector', () => ({
   ChartTypeSelector: () => null,
 }));
-jest.mock('@/features/activity/components/CombinedPlot', () => {
+jest.mock('@/features/activity/components/ActivityStreams', () => {
   const { View } = require('react-native');
-  return { CombinedPlot: () => <View testID="combined-plot" /> };
+  return { ActivityStreams: () => <View testID="activity-streams" /> };
 });
 jest.mock('@/features/activity/components/HRZonesChart', () => {
   const { View } = require('react-native');
@@ -138,7 +138,7 @@ it('shows the interval table for an activity with no streams', async () => {
   });
 
   expect(getByTestId('activity-interval-table')).toBeTruthy();
-  expect(queryByTestId('combined-plot')).toBeNull();
+  expect(queryByTestId('activity-streams')).toBeNull();
 });
 
 it('shows the power zone chart for an activity with no streams', async () => {
@@ -160,7 +160,7 @@ it('hides the HR zone card when the engine has no bands, though a heart rate str
     hrZones: [],
   });
 
-  expect(getByTestId('combined-plot')).toBeTruthy();
+  expect(getByTestId('activity-streams')).toBeTruthy();
   expect(queryByTestId('activity-zone-chart')).toBeNull();
 });
 
@@ -183,7 +183,7 @@ it('still shows the chart and the HR zones when the streams are there', async ()
     powerZones,
   });
 
-  expect(getByTestId('combined-plot')).toBeTruthy();
+  expect(getByTestId('activity-streams')).toBeTruthy();
   expect(getByTestId('hr-zones-chart')).toBeTruthy();
   expect(getByTestId('activity-interval-table')).toBeTruthy();
   expect(getByTestId('power-zones-chart')).toBeTruthy();

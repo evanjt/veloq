@@ -48,13 +48,13 @@ tags:
     timeout: 15000
 - takeScreenshot: "screenshots/02-fitness-dark"
 
-# Screenshot 3: Training Calendar
+# Screenshot 3: Training Calendar, on the fitness tab below the fitness chart
 - runFlow:
-    file: helpers/navigate-to-training.yaml
-- extendedWaitUntil:
-    visible:
-      id: "weekly-summary"
-    timeout: 10000
+    file: helpers/navigate-to-fitness.yaml
+- runFlow:
+    file: helpers/reveal.yaml
+    env:
+      ELEMENT: "weekly-summary"
 - takeScreenshot: "screenshots/03-training-dark"
 
 # Screenshot 4: Regional Map

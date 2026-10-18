@@ -1,5 +1,6 @@
 import { useTabFirstFrame } from '@/shared/debug/tabSwitchTiming';
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, StyleSheet } from 'react-native';
 import { ScreenRefreshControl } from '@/shared/ui/ScreenRefreshControl';
 import { ScrollView } from 'react-native-gesture-handler';
@@ -22,6 +23,7 @@ import {
   TimeRangeSelector,
   SportToggleSelector,
   BestEffortsHeaderButton,
+  WellnessTrendsCard,
   resolveThresholdPace,
   useFitnessRefresh,
   useFitnessComputations,
@@ -31,12 +33,15 @@ import {
   type PrimarySport,
 } from '@/features/fitness';
 import { timeRangeToDays } from '@/features/wellness';
+import { ActivityHeatmap, SeasonComparison, WeeklySummary } from '@/features/stats';
+import type { ActivityHeatmapHandle } from '@/features/stats';
 import { useTheme, useCollapsibleSections } from '@/shared/app';
 import { spacing, layout } from '@/theme';
 import { createSharedStyles } from '@/styles';
 
 import {
   FITNESS_CHART_PLACEMENT,
+  fitnessChartAnchor,
   fitnessEntryFromParams,
   type FitnessChart,
 } from '@/shared/app/fitnessEntry';
@@ -44,16 +49,23 @@ import { useRevealChart } from '@/shared/app/useRevealChart';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { useScrollToTopOnReselect } from '@/shared/ui/tabReselect';
 
-const NO_ACTIVITIES: NonNullable<ReturnType<typeof useFitnessScreenData>['activities']> = [];
 const NO_WELLNESS: NonNullable<ReturnType<typeof useFitnessScreenData>['wellness']> = [];
 
-/** The fitness and form charts sit in the card at the top; the rest in their section. */
-function fitnessChartAnchor(chart: FitnessChart): 'chart' | 'performance' | 'trends' {
-  return FITNESS_CHART_PLACEMENT[chart].section ?? 'chart';
-}
+/**
+ * The frames the screen mounts across after the first: the fitness chart on
+ * the second, the cards below it on the third, then one canvas or card per
+ * frame for the wellness chart, the calendar, the week and the year comparison.
+ */
+const CHART_STAGE = 2;
+const BELOW_FOLD_STAGE = 3;
+const WELLNESS_STAGE = 4;
+const CALENDAR_STAGE = 5;
+const WEEK_STAGE = 6;
+const YEAR_STAGE = 7;
 
 function FitnessScreenContent() {
   useTabFirstFrame('/fitness');
+  const { t } = useTranslation();
   // Performance timing
   const perfEndRef = useRef<(() => void) | null>(null);
   // Deliberately during render: the timer has to start where the render does,
@@ -64,24 +76,23 @@ function FitnessScreenContent() {
     perfEndRef.current?.();
   });
 
-  // Let the header paint before mounting the chart canvases, then
-  // mount the sections below the chart on a later frame.
-  const [chartReady, setChartReady] = useState(false);
-  const [belowFoldReady, setBelowFoldReady] = useState(false);
+  // Let the header paint before mounting the chart canvases, then mount the
+  // sections below the chart and their canvases on the frames that follow.
+  const [stage, setStage] = useState(0);
   useEffect(() => {
-    let chartFrame = 0;
-    let belowFoldFrame = 0;
-    const firstFrame = requestAnimationFrame(() => {
-      chartFrame = requestAnimationFrame(() => {
-        setChartReady(true);
-        belowFoldFrame = requestAnimationFrame(() => setBelowFoldReady(true));
-      });
-    });
-    return () => {
-      cancelAnimationFrame(firstFrame);
-      cancelAnimationFrame(chartFrame);
-      cancelAnimationFrame(belowFoldFrame);
-    };
+    if (stage >= YEAR_STAGE) return undefined;
+    const id = requestAnimationFrame(() => setStage(stage + 1));
+    return () => cancelAnimationFrame(id);
+  }, [stage]);
+  const chartReady = stage >= CHART_STAGE;
+  const belowFoldReady = stage >= BELOW_FOLD_STAGE;
+
+  // Cross-chart scrubbing: the wellness scrub highlights its day in the
+  // calendar, which holds the highlight itself so the screen does not
+  // re-render per day the gesture crosses.
+  const heatmap = useRef<ActivityHeatmapHandle>(null);
+  const highlightCalendarDay = useCallback((date: string | null) => {
+    heatmap.current?.setHighlight(date);
   }, []);
 
   const { isDark } = useTheme();
@@ -148,12 +159,12 @@ function FitnessScreenContent() {
   );
   useScrollToTopOnReselect('/fitness', scrollRef);
 
-  // Gather all screen data via consolidated hook (wellness, activities, zones, curves, bests)
+  // Gather all screen data via consolidated hook (wellness, load dots, zones, curves, bests)
   const {
     wellness,
     wellnessCoverage,
     wellnessHeld,
-    activities,
+    loadDots,
     dailyLoads,
     powerZones,
     hrZones,
@@ -167,13 +178,12 @@ function FitnessScreenContent() {
     fitnessDays,
     fatigueDays,
     currentFTP,
-    runSettings,
+    runLthr,
     runPaceCurve,
     swimPaceCurve,
     bestsEfforts,
     bestsClimbing,
     bestsClimbingStatus,
-    loadingActivities,
     loadingBests,
     bestsHeader,
     decouplingSource,
@@ -190,7 +200,6 @@ function FitnessScreenContent() {
     if (sportLoaded) void adoptLibrarySport(librarySport);
   }, [adoptLibrarySport, librarySport, sportLoaded]);
 
-  const runLthr = runSettings?.lthr;
   // The curve is a download, so offline it is absent and the stored critical
   // speed behind it is the only reading the screen has.
   const thresholdPace =
@@ -225,12 +234,12 @@ function FitnessScreenContent() {
     () => ({
       headerRight: () => (
         <View style={styles.headerActions}>
-          {fetchingInBackground ? <Spinner /> : null}
+          {fetchingInBackground ? <Spinner label={t('common.loading')} /> : null}
           <BestEffortsHeaderButton period={timeRange} />
         </View>
       ),
     }),
-    [fetchingInBackground, timeRange]
+    [fetchingInBackground, timeRange, t]
   );
 
   // Only show full loading on initial load (no data yet)
@@ -278,7 +287,7 @@ function FitnessScreenContent() {
             <FitnessChartCard
               wellness={wellness ?? NO_WELLNESS}
               wellnessCoverage={wellnessCoverage}
-              activities={activities ?? NO_ACTIVITIES}
+              loadDots={loadDots}
               dailyLoads={dailyLoads}
               eftpChanges={eftpChanges}
               selectedDate={selectedDate}
@@ -300,6 +309,48 @@ function FitnessScreenContent() {
 
         {belowFoldReady ? (
           <>
+            {/* Wellness follows the screen's one range. */}
+            <View
+              testID="wellness-trends-chart"
+              onLayout={(event) => onAnchorLayout('wellness', event)}
+              style={styles.frame}
+            >
+              <WellnessTrendsCard
+                wellness={wellness}
+                coverage={wellnessCoverage}
+                timeRange={timeRange}
+                drawn={stage >= WELLNESS_STAGE}
+                isLoading={isLoading}
+                held={wellnessHeld}
+                readError={isError ? error : undefined}
+                onRetry={retryWellness}
+                onDateSelect={highlightCalendarDay}
+              />
+            </View>
+
+            {/* The calendar-span cards read their own periods, whatever the range. */}
+            {stage >= WEEK_STAGE ? (
+              <View onLayout={(event) => onAnchorLayout('week', event)} style={styles.frame}>
+                <Card variant="flat">
+                  <WeeklySummary />
+                </Card>
+              </View>
+            ) : null}
+
+            <View onLayout={(event) => onAnchorLayout('calendar', event)} style={styles.frame}>
+              <Card variant="flat">
+                <ActivityHeatmap ref={heatmap} drawn={stage >= CALENDAR_STAGE} />
+              </Card>
+            </View>
+
+            {stage >= YEAR_STAGE ? (
+              <View style={styles.frame}>
+                <Card variant="flat">
+                  <SeasonComparison height={180} />
+                </Card>
+              </View>
+            ) : null}
+
             {/* Sport toggle */}
             <SportToggleSelector sportMode={sportMode} onSportModeChange={setSportMode} />
 
@@ -332,8 +383,6 @@ function FitnessScreenContent() {
                 powerZones={powerZones}
                 hrZones={hrZones}
                 periodCoverage={periodCoverage}
-                loadingActivities={loadingActivities}
-                hasActivities={!!activities}
                 dominantZone={dominantZone}
                 zonesExpanded={sections.expanded('zones')}
                 onZonesToggle={sections.onToggle('zones')}
@@ -343,7 +392,7 @@ function FitnessScreenContent() {
                 trendsExpanded={sections.expanded('trends')}
                 onTrendsToggle={sections.onToggle('trends')}
                 thresholdPace={thresholdPace}
-                runLthr={runLthr}
+                runLthr={runLthr ?? undefined}
                 decouplingSource={decouplingSource}
                 efficiencyExpanded={sections.expanded('efficiency')}
                 onEfficiencyToggle={sections.onToggle('efficiency')}
@@ -373,6 +422,9 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
   },
   chartPlaceholder: {
+    marginBottom: spacing.md,
+  },
+  frame: {
     marginBottom: spacing.md,
   },
   chartPlaceholderBody: {

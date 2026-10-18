@@ -12,17 +12,11 @@
   <color name="widget_fatigue">#9A338A</color>
   <color name="widget_chart_fitness">#3688EC</color>
   <color name="widget_chart_fatigue">#9A338A</color>
-  <color name="widget_chart_casing">#26000000</color>
   <color name="widget_form_high_risk">#6B2800</color>
   <color name="widget_form_optimal">#BF795A</color>
   <color name="widget_form_grey_zone">#878F9C</color>
   <color name="widget_form_fresh">#568FC2</color>
   <color name="widget_form_transition">#1C3F61</color>
-  <color name="widget_form_high_risk_text">#C62828</color>
-  <color name="widget_form_optimal_text">#1B5E20</color>
-  <color name="widget_form_grey_zone_text">#616161</color>
-  <color name="widget_form_fresh_text">#2E7D32</color>
-  <color name="widget_form_transition_text">#1565C0</color>
   <color name="widget_trend_up">#15803D</color>
   <color name="widget_trend_down">#7F1D1D</color>
   <color name="widget_trend_flat">#52525B</color>
@@ -32,8 +26,8 @@
   <color name="widget_tone_positive">#15803D</color>
   <color name="widget_tone_neutral">#52525B</color>
   <color name="widget_tone_record">#806A22</color>
-  <color name="widget_tone_info">#1976D2</color>
-  <color name="widget_tone_opportunity">#E65100</color>
+  <color name="widget_tone_info">#2F6699</color>
+  <color name="widget_tone_opportunity">#92400E</color>
   <color name="widget_border">#E3E6EB</color>
   <color name="widget_body_fill">#EFF1F4</color>
   <color name="widget_strength_ramp_1">#568FC2</color>
@@ -64,4 +58,7 @@
   <dimen name="widget_text_caption">11sp</dimen>
   <dimen name="widget_text_floor">9sp</dimen>
   <item name="widget_text_scale_max" format="float" type="dimen">1.3</item>
+  <dimen name="widget_chart_fatigue_dash_on">3dp</dimen>
+  <dimen name="widget_chart_fatigue_dash_off">2dp</dimen>
+  <item name="widget_chart_band_opacity" format="float" type="dimen">0.3</item>
 </resources>

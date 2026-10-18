@@ -9,7 +9,7 @@ import { Icon } from '@/shared/ui/Icon';
 import { useFootCover } from '@/shared/ui/bottomPills';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { useTheme } from '@/shared/app';
-import { colors, floatingLayers, iconSize, layout, recording, shadows, spacing } from '@/theme';
+import { colors, floatingLayers, iconSize, layout, raised, recording, spacing } from '@/theme';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 
 const FAB_OFFSET = spacing.md;
@@ -33,6 +33,7 @@ function RecordFABInner() {
       testID="record-fab"
       style={pressable([
         styles.fab,
+        raised('fab', isDark),
         {
           bottom: bottomClearance + FAB_OFFSET,
           backgroundColor: isDark ? recording.dark : recording.light,
@@ -59,7 +60,6 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusFull,
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadows.fab,
     zIndex: floatingLayers.recordButton,
     minWidth: layout.minTapTarget,
     minHeight: layout.minTapTarget,

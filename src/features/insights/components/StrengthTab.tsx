@@ -1,11 +1,5 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
-import {
-  View,
-  ScrollView,
-  StyleSheet,
-  ActivityIndicator,
-  type ScrollViewInstance,
-} from 'react-native';
+import { View, ScrollView, StyleSheet, type ScrollViewInstance } from 'react-native';
 import { Text } from 'react-native-paper';
 import type { ExtendedBodyPart } from 'react-native-body-highlighter';
 import { useTranslation } from 'react-i18next';
@@ -32,6 +26,7 @@ import {
   ExplanationCard,
   ToggleButton,
   useScrollEndInset,
+  Spinner,
 } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { ScreenRefreshControl } from '@/shared/ui/ScreenRefreshControl';
@@ -193,11 +188,7 @@ export const StrengthTab = React.memo(function StrengthTab({
       ) : !summary || summary.activityCount === 0 ? (
         periodDownloading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator
-              size="small"
-              color={colors.actionPrimary}
-              testID="strength-downloading"
-            />
+            <Spinner label={t('strength.downloading')} testID="strength-downloading" />
             <EmptyState
               variant="inline"
               title={t('strength.downloading')}

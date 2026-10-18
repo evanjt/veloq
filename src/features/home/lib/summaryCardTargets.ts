@@ -6,7 +6,6 @@
 
 import type { MetricId } from '@/features/settings';
 import { fitnessTarget } from '@/shared/app/fitnessEntry';
-import { trainingTarget } from '@/shared/app/trainingEntry';
 
 const TARGETS: Record<MetricId, string> = {
   fitness: fitnessTarget({ chart: 'fitness' }),
@@ -14,11 +13,11 @@ const TARGETS: Record<MetricId, string> = {
   ftp: fitnessTarget({ chart: 'ftp' }),
   thresholdPace: fitnessTarget({ chart: 'pace' }),
   css: fitnessTarget({ chart: 'css' }),
-  hrv: trainingTarget('hrv'),
-  rhr: trainingTarget('rhr'),
-  weight: trainingTarget('weight'),
-  weekHours: trainingTarget('week'),
-  weekCount: trainingTarget('week'),
+  hrv: fitnessTarget({ chart: 'hrv' }),
+  rhr: fitnessTarget({ chart: 'rhr' }),
+  weight: fitnessTarget({ chart: 'weight' }),
+  weekHours: fitnessTarget({ chart: 'week' }),
+  weekCount: fitnessTarget({ chart: 'week' }),
 };
 
 /** The route and chart a tap on `metric` opens. */

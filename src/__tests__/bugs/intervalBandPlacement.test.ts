@@ -11,11 +11,9 @@
  * carries no seconds.
  */
 
-import { computeIntervalBands, type SeriesInfo } from '@/features/stats/lib/combinedPlotData';
+import { computeIntervalBands } from '@/features/stats/lib/combinedPlotData';
 import type { ActivityInterval, ActivityStreams } from '@/types';
 import { streamsFromArrays } from '@/features/activity/lib/streams';
-
-const seriesInfo: SeriesInfo[] = [];
 
 /**
  * Ten seconds recorded, four of them without a fix. The reader keeps the six
@@ -49,15 +47,7 @@ function interval(over: {
 
 describe('where an interval band lands when samples were dropped', () => {
   it('places the band at the second the athlete rode, not the raw index', () => {
-    const bands = computeIntervalBands(
-      [interval({})],
-      6,
-      reducedStreams(),
-      'time',
-      true,
-      'Ride',
-      seriesInfo
-    );
+    const bands = computeIntervalBands([interval({})], 6, reducedStreams(), 'time', true, 'Ride');
 
     expect(bands[0].startX).toBe(8);
     expect(bands[0].endX).toBe(9);
@@ -70,8 +60,7 @@ describe('where an interval band lands when samples were dropped', () => {
       reducedStreams(),
       'distance',
       true,
-      'Ride',
-      seriesInfo
+      'Ride'
     );
 
     expect(bands[0].startX).toBe(0.08);
@@ -87,8 +76,7 @@ describe('where an interval band lands when samples were dropped', () => {
       clean,
       'time',
       true,
-      'Ride',
-      seriesInfo
+      'Ride'
     );
 
     expect(bands[0].startX).toBe(1);
@@ -102,8 +90,7 @@ describe('where an interval band lands when samples were dropped', () => {
       reducedStreams(),
       'time',
       true,
-      'Ride',
-      seriesInfo
+      'Ride'
     );
 
     expect(bands[0].startX).toBe(8);
@@ -117,8 +104,7 @@ describe('where an interval band lands when samples were dropped', () => {
       reducedStreams(),
       'time',
       true,
-      'Ride',
-      seriesInfo
+      'Ride'
     );
 
     expect(bands[0].startX).toBe(1);
@@ -128,15 +114,7 @@ describe('where an interval band lands when samples were dropped', () => {
   it('still renders on the distance axis when the body carries no time series', () => {
     const noTime = streamsFromArrays({ distance: [0, 10, 20, 30, 80, 90] });
 
-    const bands = computeIntervalBands(
-      [interval({})],
-      6,
-      noTime,
-      'distance',
-      true,
-      'Ride',
-      seriesInfo
-    );
+    const bands = computeIntervalBands([interval({})], 6, noTime, 'distance', true, 'Ride');
 
     expect(bands).toHaveLength(1);
     expect(bands[0].endX).toBe(0.09);
@@ -149,8 +127,7 @@ describe('where an interval band lands when samples were dropped', () => {
       reducedStreams(),
       'time',
       true,
-      'Ride',
-      seriesInfo
+      'Ride'
     );
 
     expect(bands[0].startX).toBe(2);

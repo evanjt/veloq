@@ -8,7 +8,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo } from 'react';
-import { Pressable, View, StyleSheet, Text, LayoutChangeEvent } from 'react-native';
+import { View, StyleSheet, Text, LayoutChangeEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
@@ -22,7 +22,6 @@ import {
   iconSize,
   ink,
   layout,
-  slopToMinTapTarget,
   spacing,
   typography,
   stroke,
@@ -38,7 +37,7 @@ import {
   type TrimBound,
 } from '@/shared/math/trimRange';
 import { useMetricSystem, useTheme } from '@/shared/app';
-import { Button, IconButton, pressable, pressRipple, Spinner, ToggleButton } from '@/shared/ui';
+import { Button, COMPACT_ICON_BUTTON_GAP, IconButton, ToggleButton, Spinner } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import {
   levelRatio,
@@ -49,8 +48,6 @@ import {
 
 const HANDLE_SIZE = 28;
 const TRACK_HEIGHT = 4;
-const STEP_BUTTON_WIDTH = 30;
-const STEP_BUTTON_HEIGHT = 28;
 
 /** The parts of the slider drawn in the theme's primary. */
 const primaryStyles = (palette: Palette) =>
@@ -59,15 +56,6 @@ const primaryStyles = (palette: Palette) =>
     trackActive: { backgroundColor: palette.actionPrimary },
     handleInner: { borderColor: palette.actionPrimary },
     handleBar: { backgroundColor: palette.actionPrimary },
-    stepButton: {
-      width: STEP_BUTTON_WIDTH,
-      height: STEP_BUTTON_HEIGHT,
-      borderRadius: layout.borderRadiusSm,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: colorWithOpacity(palette.actionPrimary, opacity.tint1),
-    },
-    stepButtonDark: { backgroundColor: colorWithOpacity(palette.actionPrimary, opacity.tint2) },
   });
 
 interface SectionTrimOverlayProps {
@@ -339,12 +327,10 @@ export function SectionTrimOverlay({
 
   const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const disabledInk = isDark ? darkColors.textDisabled : colors.textDisabled;
   const startEarlierOut = stepped('start', -1) === startIndex;
   const startLaterOut = stepped('start', 1) === startIndex;
   const endEarlierOut = stepped('end', -1) === endIndex;
   const endLaterOut = stepped('end', 1) === endIndex;
-  const stepInk = (out: boolean) => (out ? disabledInk : palette.actionPrimary);
   const accentText = isDark ? darkColors.actionLink : colors.actionLink;
 
   return (
@@ -357,7 +343,7 @@ export function SectionTrimOverlay({
           color={isTrimmed ? palette.actionPrimary : mutedColor}
         />
         {isSaving ? (
-          <Spinner />
+          <Spinner label={t('phaseNames.saving')} />
         ) : (
           <>
             <Text style={[styles.infoValue, { color: isTrimmed ? accentText : textColor }]}>
@@ -425,52 +411,44 @@ export function SectionTrimOverlay({
       {/* Step buttons */}
       <View style={styles.stepRow}>
         <View style={styles.stepGroup}>
-          <Pressable
-            style={pressable([primary.stepButton, isDark && primary.stepButtonDark])}
-            accessibilityRole="button"
+          <IconButton
+            compact
+            variant="secondary"
             accessibilityLabel={t('sections.trimStartEarlier')}
-            hitSlop={slopToMinTapTarget(STEP_BUTTON_HEIGHT, STEP_BUTTON_WIDTH)}
             onPress={() => nudgeStart(-1)}
             disabled={startEarlierOut}
-            android_ripple={pressRipple}
           >
-            <Icon name="chevron-left" size={iconSize.sm} color={stepInk(startEarlierOut)} />
-          </Pressable>
-          <Pressable
-            style={pressable([primary.stepButton, isDark && primary.stepButtonDark])}
-            accessibilityRole="button"
+            <IconButton.Glyph name="chevron-left" size={iconSize.sm} />
+          </IconButton>
+          <IconButton
+            compact
+            variant="secondary"
             accessibilityLabel={t('sections.trimStartLater')}
-            hitSlop={slopToMinTapTarget(STEP_BUTTON_HEIGHT, STEP_BUTTON_WIDTH)}
             onPress={() => nudgeStart(1)}
             disabled={startLaterOut}
-            android_ripple={pressRipple}
           >
-            <Icon name="chevron-right" size={iconSize.sm} color={stepInk(startLaterOut)} />
-          </Pressable>
+            <IconButton.Glyph name="chevron-right" size={iconSize.sm} />
+          </IconButton>
         </View>
         <View style={styles.stepGroup}>
-          <Pressable
-            style={pressable([primary.stepButton, isDark && primary.stepButtonDark])}
-            accessibilityRole="button"
+          <IconButton
+            compact
+            variant="secondary"
             accessibilityLabel={t('sections.trimEndEarlier')}
-            hitSlop={slopToMinTapTarget(STEP_BUTTON_HEIGHT, STEP_BUTTON_WIDTH)}
             onPress={() => nudgeEnd(-1)}
             disabled={endEarlierOut}
-            android_ripple={pressRipple}
           >
-            <Icon name="chevron-left" size={iconSize.sm} color={stepInk(endEarlierOut)} />
-          </Pressable>
-          <Pressable
-            style={pressable([primary.stepButton, isDark && primary.stepButtonDark])}
-            accessibilityRole="button"
+            <IconButton.Glyph name="chevron-left" size={iconSize.sm} />
+          </IconButton>
+          <IconButton
+            compact
+            variant="secondary"
             accessibilityLabel={t('sections.trimEndLater')}
-            hitSlop={slopToMinTapTarget(STEP_BUTTON_HEIGHT, STEP_BUTTON_WIDTH)}
             onPress={() => nudgeEnd(1)}
             disabled={endLaterOut}
-            android_ripple={pressRipple}
           >
-            <Icon name="chevron-right" size={iconSize.sm} color={stepInk(endLaterOut)} />
-          </Pressable>
+            <IconButton.Glyph name="chevron-right" size={iconSize.sm} />
+          </IconButton>
         </View>
       </View>
 
@@ -583,7 +561,7 @@ const styles = StyleSheet.create({
   },
   stepGroup: {
     flexDirection: 'row',
-    gap: spacing.xxs,
+    gap: COMPACT_ICON_BUTTON_GAP,
   },
   hint: {
     ...typography.caption,

@@ -2,7 +2,6 @@ import { useTabFirstFrame } from '@/shared/debug/tabSwitchTiming';
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { Stack, useFocusEffect, router, useLocalSearchParams } from 'expo-router';
 import { View, StyleSheet } from 'react-native';
-import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import {
   IconButton,
@@ -11,6 +10,7 @@ import {
   type SwipeableTab,
   SwipeableTabs,
 } from '@/shared/ui';
+import { Badge } from '@/shared/ui/Badge';
 import { Icon } from '@/shared/ui/Icon';
 import { aboutInsightsBody, InsightsPanel, StrengthTab, useInsights } from '@/features/insights';
 import {
@@ -38,16 +38,7 @@ import { formatTrackStage } from '@/features/maps';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { useSyncRefreshNotice } from '@/shared/native/useSyncRefreshNotice';
 import { useTrackStage } from '@/shared/native/useSyncStatus';
-import {
-  colors,
-  darkColors,
-  iconSize,
-  layout,
-  spacing,
-  typography,
-  stroke,
-  themePalette,
-} from '@/theme';
+import { colors, darkColors, iconSize, spacing } from '@/theme';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { openExplainer } from '@/shared/app/explainer';
 
@@ -505,14 +496,12 @@ function InsightsScreenContent() {
     () => ({
       headerRight: () => (
         <View style={styles.headerActions}>
-          <View
+          <Badge
+            tone="neutral"
+            text={t('insights.beta')}
+            isDark={isDark}
             testID="insights-beta-marker"
-            style={[styles.betaMarker, { borderColor: themePalette(isDark).actionPrimary }]}
-          >
-            <Text style={[styles.betaText, isDark && styles.betaTextDark]}>
-              {t('insights.beta')}
-            </Text>
-          </View>
+          />
           <IconButton
             testID="insights-about-button"
             accessibilityLabel={t('insights.aboutTitle')}
@@ -622,18 +611,6 @@ const styles = StyleSheet.create({
   disabledHintRow: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-  },
-  betaMarker: {
-    borderWidth: stroke.one,
-    borderRadius: layout.borderRadiusFull,
-    paddingHorizontal: spacing.xs,
-  },
-  betaText: {
-    ...typography.badge,
-    color: colors.actionLink,
-  },
-  betaTextDark: {
-    color: darkColors.actionLink,
   },
   routeTabPage: {
     flex: 1,

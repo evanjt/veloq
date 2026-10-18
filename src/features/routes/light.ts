@@ -5,4 +5,4 @@
  * reaches `./components` or `./index`.
  */
 export { useRouteGroups } from './hooks/useRouteGroups';
-export { requestOwedStrengthFiles } from './hooks/useRouteDataSync';
+export { requestOwedFitFiles } from './hooks/useRouteDataSync';

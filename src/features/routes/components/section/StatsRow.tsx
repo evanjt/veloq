@@ -15,22 +15,15 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
 import { formatAttemptFigure, type AttemptBasis } from '@/features/routes/lib/attemptBasis';
+import { directionColour } from '@/features/routes/lib/directionColour';
 import { DirectionArrow, directionWord } from './DirectionCue';
-import {
-  colors,
-  colorWithOpacity,
-  darkColors,
-  iconSize,
-  layout,
-  spacing,
-  typography,
-  opacity,
-} from '@/theme';
+import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import type {
   DirectionBestRecord,
   DirectionSummaryStats,
 } from '@/features/routes/lib/performanceTypes';
 import { Icon } from '@/shared/ui/Icon';
+import { Badge } from '@/shared/ui/Badge';
 
 export interface StatsRowProps {
   direction: 'forward' | 'reverse';
@@ -39,8 +32,6 @@ export interface StatsRowProps {
   /** True when `bestRecord` is the direction's record, as the engine judges it. */
   bestIsRecord: boolean;
   pointCount: number;
-  /** Direction accent color (activity color for forward, reverseDirection for reverse). */
-  color: string;
   /** What the avg and best read as, the basis the chart plots on. */
   basis: AttemptBasis;
   isDark: boolean;
@@ -52,14 +43,15 @@ export function StatsRow({
   bestRecord,
   bestIsRecord,
   pointCount,
-  color,
   basis,
   isDark,
 }: StatsRowProps) {
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
   if (pointCount === 0) return null;
+  const color = directionColour(direction, isDark);
 
+  const count = stats?.count ?? pointCount;
   const bestValue = bestRecord
     ? formatAttemptFigure(basis, bestRecord.bestTime, bestRecord.bestPace, isMetric)
     : '';
@@ -72,13 +64,14 @@ export function StatsRow({
           <Text style={[styles.statsDirection, isDark && styles.textLight]}>
             {directionWord(t, direction)}
           </Text>
-          <View
-            style={[styles.countBadge, { backgroundColor: colorWithOpacity(color, opacity.tint2) }]}
-          >
-            <Text testID={`stats-row-count-${direction}`} style={[styles.countText, { color }]}>
-              {stats?.count ?? pointCount}
-            </Text>
-          </View>
+          <Badge
+            tone="count"
+            text={count}
+            label={t('sections.traversalsCount', { count })}
+            isDark={isDark}
+            style={styles.countBadgePlace}
+            testID={`stats-row-count-${direction}`}
+          />
         </View>
         <View style={styles.statsMiddle}>
           {stats?.avgTime != null && (
@@ -141,14 +134,8 @@ const styles = StyleSheet.create({
     ...typography.captionBold,
     color: colors.textPrimary,
   },
-  countBadge: {
-    paddingHorizontal: spacing.xsPlus,
-    paddingVertical: spacing.xxs,
-    borderRadius: layout.borderRadiusSm,
+  countBadgePlace: {
     marginLeft: spacing.xxs,
-  },
-  countText: {
-    ...typography.badge,
   },
   statsMiddle: {
     flex: 1,

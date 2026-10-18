@@ -16,7 +16,7 @@ import { Map3DWebView } from '@/features/maps/components/Map3DWebView';
 import { buildMap3DHtml } from '@/features/maps/lib/htmlBuilders';
 import { addSectionCreation3DLayersScript } from '@/features/maps/lib/sectionCreationPaint';
 import { SECTION_END_ICON_ID, SECTION_START_ICON_ID } from '@/features/maps/lib/mapIcons';
-import { colors, mapLayerColors } from '@/theme';
+import { colors, mapLayerColors, mapPalette } from '@/theme';
 
 const injected: string[] = [];
 let onMessage: ((event: { nativeEvent: { data: string } }) => void) | null = null;
@@ -87,7 +87,12 @@ describe('3D section creation markers', () => {
   it('register both icons as signed distance fields and label the markers with them', async () => {
     const map = fakeMap();
     await run(
-      addSectionCreation3DLayersScript('window.map', 'section-creation-markers', true),
+      addSectionCreation3DLayersScript(
+        'window.map',
+        'section-creation-markers',
+        true,
+        mapPalette('light')
+      ),
       map
     );
 
@@ -108,11 +113,21 @@ describe('3D section creation markers', () => {
   it('register each icon once when the layers are added a second time', async () => {
     const map = fakeMap();
     await run(
-      addSectionCreation3DLayersScript('window.map', 'section-creation-markers', true),
+      addSectionCreation3DLayersScript(
+        'window.map',
+        'section-creation-markers',
+        true,
+        mapPalette('light')
+      ),
       map
     );
     await run(
-      addSectionCreation3DLayersScript('window.map', 'section-creation-markers', true),
+      addSectionCreation3DLayersScript(
+        'window.map',
+        'section-creation-markers',
+        true,
+        mapPalette('light')
+      ),
       map
     );
 
@@ -121,7 +136,15 @@ describe('3D section creation markers', () => {
 
   it('add only the line for the line source', async () => {
     const map = fakeMap();
-    await run(addSectionCreation3DLayersScript('window.map', 'section-creation-line', false), map);
+    await run(
+      addSectionCreation3DLayersScript(
+        'window.map',
+        'section-creation-line',
+        false,
+        mapPalette('light')
+      ),
+      map
+    );
 
     expect(map.layers.map((l) => l.type)).toEqual(['line']);
     expect(map.layers[0]!.layout?.visibility).toBe('none');
@@ -182,7 +205,12 @@ describe('3D section creation markers', () => {
 
     expect(html).not.toMatch(BUNDLE_MISSING_GLYPHS);
     expect(html).toContain(
-      addSectionCreation3DLayersScript('map', 'section-creation-markers', false)
+      addSectionCreation3DLayersScript(
+        'map',
+        'section-creation-markers',
+        false,
+        mapPalette('light')
+      )
     );
   });
 });

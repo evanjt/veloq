@@ -3,7 +3,8 @@ import { StyleSheet } from 'react-native';
 import { render, screen } from '@testing-library/react-native';
 
 import { StrengthProgressionCard } from '@/features/strength/components/StrengthProgressionCard';
-import { verdictColor } from '@/theme';
+import type { ReactTestInstance } from 'react-test-renderer';
+import { badgePaint } from '@/shared/ui/Badge';
 import type { MuscleVolume, StrengthProgression } from '@/types';
 
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
@@ -34,6 +35,15 @@ function progression(trend: 'up' | 'down', changePct: number): StrengthProgressi
   } as unknown as StrengthProgression;
 }
 
+/** The fill of the closest view behind a text, which is the badge it sits on. */
+function badgeFill(node: ReactTestInstance): string | undefined {
+  for (let at: ReactTestInstance | null = node; at; at = at.parent) {
+    const fill = StyleSheet.flatten(at.props.style ?? {}).backgroundColor;
+    if (typeof fill === 'string') return fill;
+  }
+  return undefined;
+}
+
 it.each([
   ['up', 120],
   ['down', -80],
@@ -46,5 +56,6 @@ it.each([
     />
   );
   const text = screen.getByText(`${changePct > 0 ? '+' : ''}${changePct}%`);
-  expect(StyleSheet.flatten(text.props.style).color).toBe(verdictColor('neutral', false));
+  expect(badgeFill(text)).toBe(badgePaint('neutral', false).fill);
+  expect(StyleSheet.flatten(text.props.style).color).toBe(badgePaint('neutral', false).ink);
 });

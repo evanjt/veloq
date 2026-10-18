@@ -47,7 +47,7 @@ import {
 } from '@/features/activity/lib/groupSectionEncounters';
 import { navigateTo } from '@/shared/app/navigation';
 import { formatDistance } from '@/shared/format/format';
-import { colors, darkColors, duration, shadows, spacing, typography } from '@/theme';
+import { colors, darkColors, duration, spacing, typography } from '@/theme';
 import { debug } from '@/shared/debug/debug';
 import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
 import { confirmAction, inform } from '@/shared/ui/dialog';
@@ -761,7 +761,6 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.md,
     marginTop: spacing.lg,
     marginBottom: spacing.md,
-    ...shadows.elevated,
   },
   scanLink: {
     marginHorizontal: spacing.md,

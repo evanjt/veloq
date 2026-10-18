@@ -26,6 +26,7 @@ jest.mock('@/shared/app', () => ({
 jest.mock('@/shared/ui', () => {
   const { View, Text } = require('react-native');
   return {
+    Spinner: jest.requireActual('@/shared/ui/Spinner').Spinner,
     ScreenSafeAreaView: View,
     useBottomClearance: () => 0,
     useScrollEndInset: () => 0,

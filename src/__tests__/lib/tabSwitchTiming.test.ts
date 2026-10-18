@@ -46,8 +46,9 @@ describe('tab switch timing', () => {
   });
 
   it('names the home tab and each other tab distinctly', () => {
-    const names = ['/', '/fitness', '/map', '/insights', '/training'].map(tabSwitchMetric);
+    const names = ['/', '/fitness', '/map', '/insights', '/settings'].map(tabSwitchMetric);
     expect(new Set(names).size).toBe(5);
+    expect(tabSwitchMetric('/settings')).toBe('tab.settings');
     expect(tabSwitchMetric('/')).toBe('tab.feed');
   });
 });

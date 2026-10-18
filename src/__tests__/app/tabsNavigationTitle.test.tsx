@@ -18,16 +18,24 @@ type Listeners = (props: {
   route: { name: string };
 }) => Record<string, () => void>;
 let mockScreenListeners: Listeners | undefined;
+const mockScreenNames: string[] = [];
 const mockSetOptions = jest.fn();
 // A tab's navigation, whose parent is the tab group's entry in the root stack.
 const tabNavigation = { getParent: () => ({ setOptions: mockSetOptions }) };
 
 jest.mock('expo-router', () => {
-  function Tabs({ screenListeners }: { screenListeners?: Listeners }) {
+  function Tabs({
+    screenListeners,
+    children,
+  }: {
+    screenListeners?: Listeners;
+    children?: React.ReactNode;
+  }) {
     mockScreenListeners = screenListeners;
-    return null;
+    return children ?? null;
   }
-  Tabs.Screen = function TabsScreen() {
+  Tabs.Screen = function TabsScreen({ name }: { name: string }) {
+    mockScreenNames.push(name);
     return null;
   };
   return { ...jest.requireActual('expo-router'), Tabs };
@@ -36,6 +44,7 @@ jest.mock('expo-router', () => {
 describe('the tab group title', () => {
   beforeEach(() => {
     mockScreenListeners = undefined;
+    mockScreenNames.length = 0;
     mockSetOptions.mockClear();
   });
 
@@ -44,11 +53,16 @@ describe('the tab group title', () => {
     ['fitness', 'navigation.fitness'],
     ['map', 'navigation.map'],
     ['insights', 'navigation.insights'],
-    ['training', 'navigation.health'],
+    ['settings', 'navigation.settings'],
   ])('names the group after the %s tab when it takes focus', async (tab, title) => {
     await render(<TabsLayout />);
     mockScreenListeners?.({ navigation: tabNavigation, route: { name: tab } }).focus?.();
     expect(mockSetOptions).toHaveBeenLastCalledWith({ title });
+  });
+
+  it('registers Settings as a tab of the group', async () => {
+    await render(<TabsLayout />);
+    expect(mockScreenNames).toContain('settings');
   });
 
   it('follows a second tab focus rather than keeping the first', async () => {

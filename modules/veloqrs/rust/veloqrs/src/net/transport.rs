@@ -603,7 +603,7 @@ impl Transport {
     /// Hand a success to the governor, and resume at once whatever waited on
     /// a cooldown it ended.
     fn note_success(&self, budget: &RateBudget) {
-        if self.governor.note_success(budget, chrono::Utc::now()) {
+        if self.governor.note_success(budget, self.governor.now()) {
             crate::net::resume::cooldown_cleared();
         }
     }
@@ -625,7 +625,7 @@ impl Transport {
         let via = headers.get("via").and_then(|v| v.to_str().ok());
         let after = self
             .governor
-            .note_refusal(budget, via, &body, probe, chrono::Utc::now());
+            .note_refusal(budget, via, &body, probe, self.governor.now());
         log::warn!(
             "veloqrs: [transport] refused, {after:?}: {}",
             refusal_record(status, &headers, &body)
@@ -770,6 +770,7 @@ fn refusal_record(status: u16, headers: &reqwest::header::HeaderMap, body: &[u8]
 mod tests {
     use super::*;
     use crate::governor::NoopPolicy;
+    use chrono::{DateTime, Utc};
     use httpmock::prelude::*;
     use serde_json::json;
 
@@ -953,12 +954,25 @@ mod tests {
         assert_eq!(write.calls(), 2);
     }
 
-    /// Expected behaviour: inside a cooldown a user request goes as the one
-    /// probe, is not retried inline when refused, and its refusal holds every
-    /// intent until the next midnight; a probe that answers ends the cooldown.
-    #[test]
-    fn a_probe_is_sent_once_and_its_refusal_holds_until_midnight() {
-        let server = MockServer::start();
+    fn budgeted_at(base: String, clock: fn() -> DateTime<Utc>) -> (Transport, Arc<Governor>) {
+        let gov = Arc::new(
+            Governor::new(1000, Box::new(NoopPolicy))
+                .with_budget(governor::Budget::new(0), None, || 0.0)
+                .with_clock(clock),
+        );
+        let t = Transport::with_governor(base, AuthMethod::ApiKey("k"), gov.clone()).unwrap();
+        (t, gov)
+    }
+
+    fn utc(rfc3339: &str) -> DateTime<Utc> {
+        DateTime::parse_from_rfc3339(rfc3339)
+            .unwrap()
+            .with_timezone(&Utc)
+    }
+
+    /// Put the transport into a cooldown, then send a user request as its
+    /// probe and have it refused. Returns the deferral the probe reports.
+    fn refuse_the_probe(server: &MockServer, t: &Transport) -> DateTime<Utc> {
         server.mock(|when, then| {
             when.method(GET).path("/quota");
             then.status(429)
@@ -969,7 +983,6 @@ mod tests {
             when.method(GET).path("/probe");
             then.status(429).header("retry-after", "1");
         });
-        let (t, gov) = budgeted(server.base_url());
         let res: Result<serde_json::Value, _> =
             crate::runtime::block_on(t.get_json("/quota", &[], Lane::Backfill));
         assert!(matches!(res, Err(NetError::Deferred { .. })));
@@ -980,21 +993,63 @@ mod tests {
             panic!("expected a deferral, got {res:?}");
         };
         assert_eq!(probe.calls(), 1, "the probe was retried inline");
-        let now = chrono::Utc::now();
-        assert!(until > now + chrono::TimeDelta::minutes(5), "{until}");
-        assert_eq!(until.time(), chrono::NaiveTime::MIN, "{until}");
 
-        // The next user request inside five minutes is not sent.
         let res: Result<serde_json::Value, _> =
             crate::runtime::block_on(t.get_json("/probe", &[], Lane::Interactive));
         assert!(matches!(res, Err(NetError::Deferred { .. })));
-        assert_eq!(probe.calls(), 1);
+        assert_eq!(probe.calls(), 1, "a request inside the hold was sent");
+        until
+    }
 
-        gov.note_success(&RateBudget::default(), now);
+    /// Expected behaviour: inside a cooldown a user request goes as the one
+    /// probe, is not retried inline when refused, and its refusal holds every
+    /// intent until the next midnight; a probe that answers ends the cooldown.
+    #[test]
+    fn a_probe_is_sent_once_and_its_refusal_holds_until_midnight() {
+        fn morning() -> DateTime<Utc> {
+            utc("2026-03-04T10:00:00Z")
+        }
+        let server = MockServer::start();
+        let (t, gov) = budgeted_at(server.base_url(), morning);
+        let until = refuse_the_probe(&server, &t);
+        assert_eq!(until, utc("2026-03-05T00:00:00Z"));
+
+        gov.note_success(&RateBudget::default(), gov.now());
         let ok = server.mock(|when, then| {
             when.method(GET).path("/ok");
             then.status(200).json_body(json!({}));
         });
+        let res: Result<serde_json::Value, _> =
+            crate::runtime::block_on(t.get_json("/ok", &[], Lane::Backfill));
+        assert!(res.is_ok(), "{res:?}");
+        assert_eq!(ok.calls(), 1);
+    }
+
+    /// Expected behaviour: a probe refused minutes before midnight holds only
+    /// until that midnight, not the one after, and the backfill goes again
+    /// once it passes with no success in between.
+    #[test]
+    fn a_probe_refused_just_before_midnight_holds_only_until_that_midnight() {
+        static NOW: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
+        fn clock() -> DateTime<Utc> {
+            DateTime::from_timestamp(NOW.load(std::sync::atomic::Ordering::SeqCst), 0).unwrap()
+        }
+        let set = |at: &str| NOW.store(utc(at).timestamp(), std::sync::atomic::Ordering::SeqCst);
+        set("2026-03-04T23:57:30Z");
+        let server = MockServer::start();
+        let (t, _gov) = budgeted_at(server.base_url(), clock);
+        let until = refuse_the_probe(&server, &t);
+        assert_eq!(until, utc("2026-03-05T00:00:00Z"));
+
+        let ok = server.mock(|when, then| {
+            when.method(GET).path("/ok");
+            then.status(200).json_body(json!({}));
+        });
+        set("2026-03-04T23:59:59Z");
+        let res: Result<serde_json::Value, _> =
+            crate::runtime::block_on(t.get_json("/ok", &[], Lane::Backfill));
+        assert!(matches!(res, Err(NetError::Deferred { .. })), "{res:?}");
+        set("2026-03-05T00:00:00Z");
         let res: Result<serde_json::Value, _> =
             crate::runtime::block_on(t.get_json("/ok", &[], Lane::Backfill));
         assert!(res.is_ok(), "{res:?}");

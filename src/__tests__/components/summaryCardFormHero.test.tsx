@@ -17,10 +17,6 @@ jest.mock('@/i18n', () => ({
 }));
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn(() => null) }));
 jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: undefined }) }));
-jest.mock('@/shared/app/useSportSettings', () => ({
-  useSportSettings: () => ({ data: undefined }),
-  getSettingsForSport: () => undefined,
-}));
 jest.mock('@/features/stats', () => ({ usePaceCurve: () => ({ data: undefined }) }));
 jest.mock('@/shared/app/useMetricSystem', () => ({ useMetricSystem: () => true }));
 
@@ -59,7 +55,7 @@ it('keeps a stored Form hero and draws its value and zone', async () => {
   const { result } = await renderHook(() =>
     useSummaryCardData(card, { awaitPrecomputed: true, precomputedSparklines: sparklines })
   );
-  const tree = await render(<SummaryCard onProfilePress={() => {}} {...result.current} />);
+  const tree = await render(<SummaryCard {...result.current} />);
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
@@ -84,9 +80,7 @@ it('keeps a stored Form hero and draws its value and zone', async () => {
   expect(tree.queryByText('+8')).toBeNull();
 
   await act(() => scrub(null));
-  await tree.rerender(
-    <SummaryCard onProfilePress={() => {}} {...result.current} showSparkline={false} />
-  );
+  await tree.rerender(<SummaryCard {...result.current} showSparkline={false} />);
   expect(tree.getByText('+8')).toBeTruthy();
   expect(tree.getByText(/^formZones\./)).toBeTruthy();
 });

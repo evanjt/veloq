@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useMemo, ReactNode, useEffect } from 'react';
-import { View, Text, StyleSheet, Animated, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Animated } from 'react-native';
 import { useTheme } from '@/shared/app';
 // Straight from the context, not the app barrel: a surface mounted with no
 // app shell still has to draw, and the barrel is what such a caller stubs.
@@ -14,15 +14,21 @@ import {
   ink,
   layers,
   layout,
+  mapPalette,
   opacity,
-  shadows,
+  raised,
   spacing,
   typography,
 } from '@/theme';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import { MapSurface, type MapPressEvent, type MapSurfaceRef } from './MapSurface';
-import { CompassArrow, ComponentErrorBoundary, ICON_BUTTON_GAP, IconButton } from '@/shared/ui';
-import { Icon } from '@/shared/ui/Icon';
+import {
+  CompassArrow,
+  ComponentErrorBoundary,
+  ICON_BUTTON_GAP,
+  IconButton,
+  iconButtonSkin,
+} from '@/shared/ui';
 import {
   featureCollection,
   lineFeature,
@@ -32,7 +38,7 @@ import {
 } from '@/features/maps/lib/coordinates';
 import type { MapImageSpec, MapLayerSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
 import { type MapStyleType, getNextStyle, getStyleIcon } from './mapStyles';
-import { composeBaseMapLayers } from '@/features/maps/lib/baseMapLayers';
+import { composeBaseMapLayers, type MapLayersForBase } from '@/features/maps/lib/baseMapLayers';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
 import { cameraAfter3D, type Camera3DState } from '@/features/maps/lib/cameraAfter3D';
 import { useDrawnMapStyle } from '@/features/maps/hooks/useDrawnMapStyle';
@@ -95,10 +101,13 @@ export interface BaseMapViewProps {
    * renderer is behind the surface.
    */
   overlaySources?: Record<string, MapSourceSpec> | undefined;
-  /** Extra layers over the route, in draw order. */
-  overlayLayers?: MapLayerSpec[] | undefined;
+  /**
+   * Extra layers over the route, in draw order, built for the palette of the
+   * base this map draws, which the athlete can change here.
+   */
+  overlayLayers?: MapLayersForBase | undefined;
   /** Extra layers beneath the route line, in draw order; they read the overlay sources. */
-  underRouteLayers?: MapLayerSpec[] | undefined;
+  underRouteLayers?: MapLayersForBase | undefined;
   /** Images the overlay layers reference by id. */
   overlayImages?: MapImageSpec[] | undefined;
   /** Overlay layers that respond to a tap, most specific first. */
@@ -112,11 +121,11 @@ export interface BaseMapViewProps {
 }
 
 const NO_SOURCES: Record<string, MapSourceSpec> = {};
-const NO_LAYERS: MapLayerSpec[] = [];
+const NO_LAYERS: MapLayersForBase = () => [];
 
 export function BaseMapView({
   routeCoordinates,
-  routeColor = colors.actionPrimary,
+  routeColor,
   bounds,
   padding = DEFAULT_FIT_PADDING,
   initialStyle,
@@ -279,15 +288,17 @@ export function BaseMapView({
     [routeCoords, overlaySources, userLocationCollection]
   );
 
+  const palette = mapPalette(mapStyle);
   const mapLayers = useMemo<MapLayerSpec[]>(
     () =>
       composeBaseMapLayers({
+        palette,
         routeColor,
-        underRouteLayers,
-        overlayLayers,
-        userLocationLayers: buildUserLocationLayers(userLocation !== null),
+        underRouteLayers: underRouteLayers(palette),
+        overlayLayers: overlayLayers(palette),
+        userLocationLayers: buildUserLocationLayers(userLocation !== null, palette),
       }),
-    [routeColor, underRouteLayers, overlayLayers, userLocation]
+    [palette, routeColor, underRouteLayers, overlayLayers, userLocation]
   );
 
   // Satellite mode reads its attribution from the viewport, so the sources named
@@ -313,6 +324,7 @@ export function BaseMapView({
           testID="map-fullscreen-close"
           style={[
             styles.button,
+            raised('mapOverlay', isDark),
             styles.closeButton,
             { top: insets.top + 12 },
             isDark && styles.buttonDark,
@@ -321,11 +333,7 @@ export function BaseMapView({
           variant="secondary"
           accessibilityLabel={t('maps.closeMap')}
         >
-          <Icon
-            name="close"
-            size={iconSize.lg}
-            color={isDark ? colors.textOnFill : colors.textSecondary}
-          />
+          <IconButton.Glyph name="close" size={iconSize.lg} />
         </IconButton>
       ) : null}
 
@@ -335,6 +343,7 @@ export function BaseMapView({
           testID="map-style-toggle"
           style={[
             styles.button,
+            raised('mapOverlay', isDark),
             styles.styleButton,
             { top: insets.top + 12 },
             isDark && styles.buttonDark,
@@ -343,11 +352,7 @@ export function BaseMapView({
           variant="secondary"
           accessibilityLabel={t('maps.toggleStyle')}
         >
-          <Icon
-            name={getStyleIcon(mapStyle)}
-            size={iconSize.lg}
-            color={isDark ? colors.textOnFill : colors.textSecondary}
-          />
+          <IconButton.Glyph name={getStyleIcon(mapStyle)} size={iconSize.lg} />
         </IconButton>
       ) : null}
 
@@ -356,24 +361,27 @@ export function BaseMapView({
         {show3DToggle && has3DRoute ? (
           <IconButton
             testID="map-3d-toggle"
-            style={[styles.controlButton, isDark && !is3DMode && styles.controlButtonDark]}
+            style={[
+              styles.controlButton,
+              raised('mapOverlay', isDark),
+              isDark && styles.controlButtonDark,
+            ]}
             onPress={toggle3D}
-            variant={is3DMode ? 'primary' : 'secondary'}
+            variant="secondary"
+            selected={is3DMode}
             accessibilityLabel={is3DMode ? t('maps.disable3D') : t('maps.enable3D')}
           >
-            <Icon
-              name="terrain"
-              size={iconSize.lg}
-              color={
-                is3DMode ? colors.textOnFill : isDark ? colors.textOnFill : colors.textSecondary
-              }
-            />
+            <IconButton.Glyph name="terrain" size={iconSize.lg} />
           </IconButton>
         ) : null}
 
         {showOrientationButton ? (
           <IconButton
-            style={[styles.controlButton, isDark && styles.controlButtonDark]}
+            style={[
+              styles.controlButton,
+              raised('mapOverlay', isDark),
+              isDark && styles.controlButtonDark,
+            ]}
             onPress={resetOrientation}
             variant="secondary"
             accessibilityLabel={t('maps.resetOrientation')}
@@ -382,37 +390,29 @@ export function BaseMapView({
               size={iconSize.lg}
               rotation={bearingAnim}
               northColor={colors.compassNorth}
-              southColor={isDark ? colors.textOnFill : colors.textSecondary}
+              southColor={iconButtonSkin({ variant: 'secondary', isDark }).glyph}
             />
           </IconButton>
         ) : null}
 
         {showLocationButton ? (
           <IconButton
-            style={[styles.controlButton, isDark && !userLocation && styles.controlButtonDark]}
+            style={[
+              styles.controlButton,
+              raised('mapOverlay', isDark),
+              isDark && styles.controlButtonDark,
+            ]}
             onPress={handleGetLocation}
             disabled={locationLoading}
-            variant={userLocation ? 'primary' : 'secondary'}
+            variant="secondary"
+            selected={userLocation !== null}
             accessibilityLabel={t('maps.goToLocation')}
             accessibilityState={{ disabled: locationLoading, busy: locationLoading }}
           >
             {locationLoading ? (
-              <ActivityIndicator
-                size="small"
-                color={isDark ? colors.textOnFill : colors.textSecondary}
-              />
+              <IconButton.Spinner />
             ) : (
-              <Icon
-                name={LOCATE_GLYPH}
-                size={iconSize.lg}
-                color={
-                  userLocation
-                    ? colors.textOnFill
-                    : isDark
-                      ? colors.textOnFill
-                      : colors.textSecondary
-                }
-              />
+              <IconButton.Glyph name={LOCATE_GLYPH} size={iconSize.lg} />
             )}
           </IconButton>
         ) : null}
@@ -505,7 +505,6 @@ const styles = StyleSheet.create({
     width: layout.minTapTarget,
     height: layout.minTapTarget,
     borderRadius: layout.borderRadiusFull,
-    ...shadows.mapOverlay,
     zIndex: layers.mapOverlay,
   },
   buttonDark: {
@@ -529,7 +528,6 @@ const styles = StyleSheet.create({
     width: layout.minTapTarget,
     height: layout.minTapTarget,
     borderRadius: layout.borderRadiusFull,
-    ...shadows.mapOverlay,
   },
   controlButtonDark: {
     backgroundColor: darkColors.surfaceRaised,

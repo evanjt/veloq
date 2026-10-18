@@ -141,7 +141,7 @@ export { rescanRefusalKey } from './lib/rescanRefusal';
 export { createMapHighlightStore } from './lib/mapHighlight';
 export { routeHeadline } from './lib/routeHeadline';
 export { heroStats, scopeLabels } from './lib/heroStats';
-export { forwardDirectionColour } from './lib/directionColour';
+export { directionColour } from './lib/directionColour';
 export {
   DEFAULT_SECTION_HIDE_FLAGS,
   groupSortFor,

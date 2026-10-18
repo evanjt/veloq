@@ -15,7 +15,7 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
@@ -25,7 +25,7 @@ import { readRoutesStatus } from '@/shared/native/routesStatusPoll';
 import { getPhaseDisplayKey, useCutoverSummary } from '@/features/routes';
 import { CUTOVER_FAILURE_KEYS } from '../lib/cutoverPhaseKeys';
 import { colors, darkColors, spacing, typography } from '@/theme';
-import { Button } from '@/shared/ui';
+import { Button, Spinner } from '@/shared/ui';
 
 export const CUTOVER_STATUS_TEST_ID = 'cutover-status';
 export const CUTOVER_CANCEL_TEST_ID = 'cutover-cancel';
@@ -62,7 +62,7 @@ export function CutoverStatus() {
     return (
       <View style={styles.block} testID={CUTOVER_STATUS_TEST_ID}>
         <View style={styles.row}>
-          <ActivityIndicator size="small" color={textSecondary} />
+          <Spinner label={t('settings.cutoverRebuilding', { phase: t(phaseKey) })} />
           <Text style={[styles.line, { color: textSecondary }]}>
             {t('settings.cutoverRebuilding', { phase: t(phaseKey) })}
           </Text>

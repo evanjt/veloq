@@ -1045,8 +1045,9 @@ class EngineClient implements DelegateHost {
 
   /** The activities that moved the accepted eFTP, oldest first. */
 
-  /** The cycling FTP trend across `lookbackDays`, with that window's daily series. */
-  getFitnessScreenData = (): FfiFitnessScreenData => fitnessDelegates.getFitnessScreenData(this);
+  /** The fitness tab's one read, its range-led parts over each of `spanDays`. */
+  getFitnessScreenData = (spanDays: number[]): FfiFitnessScreenData =>
+    fitnessDelegates.getFitnessScreenData(this, spanDays);
 
   getDailyActivityLoads = (startTs: number, endTs: number) =>
     fitnessDelegates.getDailyActivityLoads(this, startTs, endTs);
@@ -1254,8 +1255,6 @@ class EngineClient implements DelegateHost {
   getAthleteProfile = (): string => settingsDelegates.getAthleteProfile(this);
 
   setSportSettings = (json: string): void => settingsDelegates.setSportSettings(this, json);
-
-  getSportSettings = (): string => settingsDelegates.getSportSettings(this);
 
   hrZoneFor = (sportType: string, bpm: number): number | null =>
     settingsDelegates.hrZoneFor(this, sportType, bpm);
@@ -1568,8 +1567,8 @@ class EngineClient implements DelegateHost {
   /** Every strength activity still owed a FIT. */
   getUnprocessedStrengthIds = (): string[] => strengthDelegates.getUnprocessedStrengthIds(this);
 
-  batchFetchExerciseSets = (activityIds: string[]): FfiStartResult =>
-    strengthDelegates.batchFetchExerciseSets(this, activityIds);
+  /** Start the downloads of every FIT file the engine's queue owes, of every sport. */
+  batchFetchOwedFitFiles = (): FfiStartResult => strengthDelegates.batchFetchOwedFitFiles(this);
 
   getStrengthScreenData = (
     startTs: number,

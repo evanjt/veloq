@@ -92,7 +92,7 @@ fn test_get_fitness_screen_data_writer_held() {
     let _tmp = init_global_engine("fitness_screen_under_a_writer.db");
     let data = read_while_writer_holds(|| {
         FitnessManager::new()
-            .get_fitness_screen_data()
+            .get_fitness_screen_data(vec![30])
             .expect("fitness screen")
     });
     assert!(data.ftp_trend.changes.is_empty());
@@ -391,7 +391,7 @@ fn test_fitness_reads_pooled_match_locked() {
     );
 
     let eftp = fitness
-        .get_fitness_screen_data()
+        .get_fitness_screen_data(vec![30])
         .expect("fitness screen")
         .ftp_trend
         .changes;

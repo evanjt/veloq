@@ -341,6 +341,10 @@ fn fitness(v: FfiFitnessScreenData) -> Lowered {
         sport_mix,
         fitness_days,
         fatigue_days,
+        cycling_ftp_setting,
+        running_lthr,
+        decoupling_sources,
+        load_dots => |v: &FfiFitnessScreenData| v.load_dots.len(),
     )
 }
 
@@ -450,8 +454,11 @@ fn reads() -> Vec<(&'static str, Shape, Read)> {
                 startup,
             )
         }),
-        ("fitness_screen_data", Shape::Item, |e, _| {
-            measure(|| e.fitness_screen_data("2025-09-04"), fitness)
+        ("fitness_screen_data", Shape::Listing, |e, _| {
+            measure(
+                || e.fitness_screen_data("2025-09-04", &[7, 30, 90, 180, 365]),
+                fitness,
+            )
         }),
         ("best_efforts_data", Shape::Listing, |e, _| {
             measure(

@@ -8,7 +8,8 @@
  * for the athlete signed in now, through the same check a tapped entry passes.
  * An activity link that names another athlete opens the app where it is. A link
  * naming no athlete is one the app or a widget made itself and passes. A link
- * to the retired summary route opens the same check against the activity.
+ * to the retired summary route opens the same check against the activity, and
+ * one to the retired health tab opens fitness with its query.
  * A link to a route the app publishes as an entry passes through untouched;
  * a link to a sheet, the recording review, the login screen or anything else
  * opens nothing, and the developer screens open only for a developer.
@@ -84,6 +85,22 @@ describe('openableSystemPath', () => {
     );
   });
 
+  it.each([
+    ['veloq://training', '/fitness'],
+    ['veloq:///training/', '/fitness'],
+    ['veloq://training?chart=week', '/fitness?chart=week'],
+    ['veloq://training?chart=hrv#top', '/fitness?chart=hrv'],
+    ['/training?chart=weight', '/fitness?chart=weight'],
+    ['exp://192.0.2.1:8081/--/training?chart=rhr', '/fitness?chart=rhr'],
+  ])('sends %s from the retired health tab to fitness, query and all', (link, opened) => {
+    expect(openableSystemPath(link, ATHLETE)).toBe(opened);
+    expect(openableSystemPath(link, null)).toBe(opened);
+  });
+
+  it('opens nothing below the retired health tab', () => {
+    expect(openableSystemPath('veloq://training/extra', ATHLETE)).toBeNull();
+  });
+
   /** Every link a widget, a notification, the app or a test flow opens from outside. */
   const PUBLISHED = [
     'veloq://',
@@ -95,7 +112,6 @@ describe('openableSystemPath', () => {
     'veloq://map',
     'veloq://map?activity=demo-test-0',
     'veloq://map?section=s_47075_-6084',
-    'veloq://training',
     'veloq://activity/demo-test-0',
     'veloq://activity/demo-test-0?tab=sections',
     'veloq://record',

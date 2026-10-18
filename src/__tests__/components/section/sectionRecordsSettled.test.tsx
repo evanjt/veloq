@@ -71,7 +71,6 @@ function renderCalendar(recordsSettled: boolean) {
       calendarSummary={summary}
       isDark={false}
       basis="speed"
-      activityColor="#3B82F6"
       recordsSettled={recordsSettled}
     />
   );
@@ -147,7 +146,6 @@ async function scatterCircles(recordsSettled: boolean) {
       chartData={POINTS}
       activityType="Ride"
       isDark={false}
-      forwardColour="#0D9488"
       bestForwardRecord={null}
       bestReverseRecord={null}
       bestForwardIsRecord={false}
@@ -190,7 +188,6 @@ describe('the scrub tooltip while time streams are outstanding', () => {
         selectedPoint={POINTS[0]}
         isDark={false}
         basis="speed"
-        activityColor="#000000"
         recordsSettled={recordsSettled}
         onClearSelection={() => {}}
       />

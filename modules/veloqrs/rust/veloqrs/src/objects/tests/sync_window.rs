@@ -869,7 +869,10 @@ fn test_a_fresh_database_is_at_the_current_field_set() {
             .unwrap()
     })
     .unwrap();
-    assert_eq!(stamp, Some(crate::net::types::stored_activity_fields()));
+    assert_eq!(
+        stamp,
+        Some(crate::net::intervals::wire::stored_activity_fields())
+    );
     assert!(
         crate::runtime::block_on(owed_activity_windows("i1", true))
             .fields
@@ -1001,7 +1004,7 @@ fn test_an_older_field_set_plans_one_refetch_of_every_stored_activity() {
     let plan = crate::runtime::block_on(owed_activity_windows("i1", true));
     assert_eq!(
         plan.fields,
-        Some(crate::net::types::stored_activity_fields())
+        Some(crate::net::intervals::wire::stored_activity_fields())
     );
     let ranges: Vec<_> = plan.windows.iter().map(|w| w.range.clone()).collect();
     assert_eq!(

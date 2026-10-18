@@ -1065,7 +1065,7 @@ fn start_fetch_and_store_run_ending(
                         )
                         .to_string();
                         async move {
-                            let result = crate::net::endpoints::fetch_time_stream(
+                            let result = crate::net::intervals::endpoints::fetch_time_stream(
                                 &transport,
                                 &named,
                                 crate::governor::Lane::Backfill,

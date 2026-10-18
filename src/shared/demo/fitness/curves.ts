@@ -84,41 +84,30 @@ export const demoPaceCurve: PaceCurve = {
   days: 42,
 };
 
-// Demo sport settings with zones
+/**
+ * Demo sport settings, in the shape the athlete endpoint sends: heart rate
+ * zones as the upper bpm edge of each, power zones as the upper edge in percent
+ * of FTP with 999 for the open top zone, and threshold pace in m/s.
+ */
 export const demoSportSettings = [
   {
     id: 'Ride',
     types: ['Ride', 'VirtualRide'],
+    other: false,
     ftp: 250,
-    icu_power_zones: [
-      { id: 1, name: 'Recovery', min: 0, max: 55, color: '#808080' },
-      { id: 2, name: 'Endurance', min: 55, max: 75, color: '#00BFFF' },
-      { id: 3, name: 'Tempo', min: 75, max: 90, color: '#32CD32' },
-      { id: 4, name: 'Threshold', min: 90, max: 105, color: '#FFD700' },
-      { id: 5, name: 'VO2max', min: 105, max: 120, color: '#FF4500' },
-      { id: 6, name: 'Anaerobic', min: 120, max: 150, color: '#FF0000' },
-      { id: 7, name: 'Neuromuscular', min: 150, max: null, color: '#8B0000' },
-    ],
-    threshold_hr: 165,
-    icu_hr_zones: [
-      { id: 1, name: 'Recovery', min: 0, max: 60, color: '#808080' },
-      { id: 2, name: 'Endurance', min: 60, max: 70, color: '#00BFFF' },
-      { id: 3, name: 'Tempo', min: 70, max: 80, color: '#32CD32' },
-      { id: 4, name: 'Threshold', min: 80, max: 90, color: '#FFD700' },
-      { id: 5, name: 'VO2max', min: 90, max: 100, color: '#FF4500' },
-    ],
+    power_zones: [55, 75, 90, 105, 120, 150, 999],
+    lthr: 165,
+    max_hr: 190,
+    hr_zones: [130, 145, 160, 170, 180, 190],
   },
   {
     id: 'Run',
     types: ['Run', 'TrailRun'],
-    threshold_pace: 300, // 5:00/km in seconds per km
-    threshold_hr: 170,
-    icu_hr_zones: [
-      { id: 1, name: 'Recovery', min: 0, max: 65, color: '#808080' },
-      { id: 2, name: 'Endurance', min: 65, max: 75, color: '#00BFFF' },
-      { id: 3, name: 'Tempo', min: 75, max: 85, color: '#32CD32' },
-      { id: 4, name: 'Threshold', min: 85, max: 92, color: '#FFD700' },
-      { id: 5, name: 'VO2max', min: 92, max: 100, color: '#FF4500' },
-    ],
+    other: false,
+    // 5:00 per km
+    threshold_pace: 1000 / 300,
+    lthr: 170,
+    max_hr: 190,
+    hr_zones: [135, 150, 163, 172, 181, 190],
   },
 ];

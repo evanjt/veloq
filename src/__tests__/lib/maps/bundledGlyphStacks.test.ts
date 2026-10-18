@@ -19,9 +19,11 @@ import {
 import { buildRegionalLayers } from '@/features/maps/components/regional/regionalMapLayerSpecs';
 import type { MapLayerSpec } from '@/features/maps/lib/htmlBuilders/mapSurface';
 import { resolveStyleForWebView } from '@/features/maps/lib/htmlBuilders/styleResolution';
+import { mapPalette } from '@/theme';
 
 function activityLayers(creationMode: boolean): MapLayerSpec[] {
   return buildActivityLayers({
+    palette: mapPalette('light'),
     overlayHasData: true,
     activityColor: '#123456',
     gradientActive: false,
@@ -36,7 +38,7 @@ function activityLayers(creationMode: boolean): MapLayerSpec[] {
 
 function regionalLayers(mapStyle: 'light' | 'dark' | 'satellite'): MapLayerSpec[] {
   return buildRegionalLayers({
-    mapStyle,
+    palette: mapPalette(mapStyle),
     showActivities: true,
     showSections: true,
     showRoutes: false,
@@ -68,8 +70,8 @@ function everyBuiltLayer(): MapLayerSpec[] {
     ...regionalLayers('light'),
     ...regionalLayers('dark'),
     ...regionalLayers('satellite'),
-    ...buildFullscreenMatchedRouteLayers(true),
-    ...buildFullscreenSectionLayers(true),
+    ...buildFullscreenMatchedRouteLayers(true, mapPalette('light')),
+    ...buildFullscreenSectionLayers(true, mapPalette('light')),
   ];
 }
 

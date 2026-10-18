@@ -9,7 +9,7 @@
 
 use super::*;
 use crate::governor::{AuthMethod, Governor, NoopPolicy};
-use crate::net::endpoints::{DEFAULT_STREAM_TYPES, ELEVATION_STREAM_TYPES};
+use crate::net::intervals::endpoints::{DEFAULT_STREAM_TYPES, ELEVATION_STREAM_TYPES};
 use crate::net::stream_backfill::{STREAM_ATTEMPT_LIMIT, STREAM_CONSENT_KEY};
 use crate::persistence::{
     ELEVATION_SOURCE_CORRECTED, ELEVATION_STATE_FETCHED, with_persistent_engine,
@@ -536,7 +536,7 @@ mod equivalence {
         for r in recorded {
             for types in [
                 ELEVATION_STREAM_TYPES,
-                crate::net::endpoints::TRACK_STREAM_TYPES,
+                crate::net::intervals::endpoints::TRACK_STREAM_TYPES,
                 DEFAULT_STREAM_TYPES,
                 "time,latlng",
             ] {
@@ -645,11 +645,13 @@ mod equivalence {
     /// activity owed, as the pass does.
     fn owed_clocks(server: &MockServer, ids: &[String]) {
         for id in owed_time(&ids.iter().map(String::as_str).collect::<Vec<_>>()) {
-            let Ok(times) = crate::runtime::block_on(crate::net::endpoints::fetch_time_stream(
-                &transport(server),
-                &id,
-                crate::governor::Lane::Backfill,
-            )) else {
+            let Ok(times) =
+                crate::runtime::block_on(crate::net::intervals::endpoints::fetch_time_stream(
+                    &transport(server),
+                    &id,
+                    crate::governor::Lane::Backfill,
+                ))
+            else {
                 continue;
             };
             with_persistent_engine(|e| {

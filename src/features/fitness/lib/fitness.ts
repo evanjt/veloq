@@ -1,6 +1,6 @@
 import { i18n } from '@/i18n';
 import type { WellnessData } from '@/types';
-import { colors, darkColors } from '@/theme/colors';
+import { colors, colorWithOpacity, darkColors, opacity } from '@/theme/colors';
 import { formFromLoads } from '@/shared/math';
 import { sortByDateId } from '@/shared/activity/activityUtils';
 
@@ -133,30 +133,11 @@ export function formZoneColor(zone: FormZone, isDark: boolean): string {
 }
 
 /**
- * Text: the form number, the zone name and any word coloured by zone. The fills
- * run from 1.8:1 to 3.1:1 on white, and a zone label beside the number does not
- * exempt it: 1.4.11 covers a graphic whose information is carried another way,
- * text is held to 4.5:1 regardless.
+ * A zone's band behind the form line: its colour washed at the second tint
+ * step on light and the third on dark, where the same alpha reads fainter.
  */
-export const FORM_ZONE_TEXT_COLORS: Record<FormZone, string> = {
-  highRisk: colors.formHighRiskText,
-  optimal: colors.formOptimalText,
-  greyZone: colors.formGreyZoneText,
-  fresh: colors.formFreshText,
-  transition: colors.formTransitionText,
-};
-
-export const FORM_ZONE_TEXT_COLORS_DARK: Record<FormZone, string> = {
-  highRisk: darkColors.formHighRiskText,
-  optimal: darkColors.formOptimalText,
-  greyZone: darkColors.formGreyZoneText,
-  fresh: darkColors.formFreshText,
-  transition: darkColors.formTransitionText,
-};
-
-/** The zone's text colour for the scheme on screen. */
-export function formZoneTextColor(zone: FormZone, isDark: boolean): string {
-  return isDark ? FORM_ZONE_TEXT_COLORS_DARK[zone] : FORM_ZONE_TEXT_COLORS[zone];
+export function formZoneBandColor(zone: FormZone, isDark: boolean): string {
+  return colorWithOpacity(formZoneColor(zone, isDark), isDark ? opacity.tint3 : opacity.tint2);
 }
 
 /**

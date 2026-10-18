@@ -15,7 +15,6 @@ import { useDetectionHold } from '@/features/routes/hooks/useDetectionHold';
 import { useElevationBackfill } from '@/features/routes/hooks/useElevationBackfill';
 import { useTheme } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ScreenRefreshControl } from '@/shared/ui/ScreenRefreshControl';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, spacing } from '@/theme';
@@ -394,33 +393,13 @@ export const SectionsList = memo(function SectionsList({
     return <EmptyState icon="filter-remove-outline" title={t('routes.noSectionsMatchFilter')} />;
   };
 
-  const sortChips: {
-    key: SectionsSortOption;
-    label: string;
-    icon: keyof typeof MaterialCommunityIcons.glyphMap;
-  }[] = useMemo(
+  const sortChips: { key: SectionsSortOption; label: string }[] = useMemo(
     () => [
-      { key: 'nearby', label: t('routes.sortNearby' as never) as string, icon: 'crosshairs-gps' },
-      {
-        key: 'signature',
-        label: t('routes.sortRelevance' as never) as string,
-        icon: 'star-four-points-outline',
-      },
-      {
-        key: 'visits',
-        label: t('routes.sortMostVisited' as never) as string,
-        icon: 'sort-numeric-descending',
-      },
-      {
-        key: 'distance',
-        label: t('routes.sortDistance' as never) as string,
-        icon: 'map-marker-distance',
-      },
-      {
-        key: 'name',
-        label: t('routes.sortNameAZ' as never) as string,
-        icon: 'sort-alphabetical-ascending',
-      },
+      { key: 'nearby', label: t('routes.sortNearby' as never) as string },
+      { key: 'signature', label: t('routes.sortRelevance' as never) as string },
+      { key: 'visits', label: t('routes.sortMostVisited' as never) as string },
+      { key: 'distance', label: t('routes.sortDistance' as never) as string },
+      { key: 'name', label: t('routes.sortNameAZ' as never) as string },
     ],
     [t]
   );

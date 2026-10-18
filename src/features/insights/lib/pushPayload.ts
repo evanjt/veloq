@@ -195,7 +195,7 @@ function linkAthlete(query: string | undefined): string | undefined | null {
  */
 const ENTRY_ROUTES: readonly RegExp[] = [
   /^$/,
-  /^(fitness|insights|map|training)$/,
+  /^(fitness|insights|map)$/,
   /^(activity|route|recordings)\/[^/]+$/,
   /^section\/((history|laps)\/)?[^/]+$/,
   /^recording\/(?!review$)[^/]+$/,
@@ -221,7 +221,9 @@ const DEVELOPER_ROUTES = /^(debug|detection-preview|route-grouping-preview)$/;
  * activity link that names another athlete, or names none after the parameter
  * is present, opens nothing; one without the parameter is the app's or a
  * widget's own and passes. A link to the retired summary route is checked the
- * same way and sent to the activity.
+ * same way and sent to the activity. A link to the retired health tab, whose
+ * cards and charts the fitness tab now holds under the same chart names, is
+ * sent to fitness with its query.
  */
 export function openableSystemPath(
   path: string,
@@ -230,6 +232,8 @@ export function openableSystemPath(
 ): string | null {
   const route = path.replace(/^[a-z][a-z0-9+.-]*:\/\/(?:[^/]*\/--\/)?/i, '').replace(/^\/+/, '');
   const screen = route.replace(/[?#].*$/, '').replace(/\/+$/, '');
+  const retiredHealth = /^training\/?(?:\?([^#]*))?(?:#.*)?$/.exec(route);
+  if (retiredHealth) return retiredHealth[1] ? `/fitness?${retiredHealth[1]}` : '/fitness';
   const link = /^(activity|summary)\/([^/?#]+)\/?(?:\?([^#]*))?(?:#.*)?$/.exec(route);
   if (!link) {
     if (ENTRY_ROUTES.some((entry) => entry.test(screen))) return path;

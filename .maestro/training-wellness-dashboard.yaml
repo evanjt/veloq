@@ -1,5 +1,5 @@
 # Training Wellness Dashboard Test
-# Tests wellness indicators on the training screen
+# Tests wellness indicators on the fitness screen
 
 appId: com.veloq.app.dev
 tags:
@@ -10,13 +10,12 @@ tags:
     file: helpers/setup-demo-mode.yaml
 
 - runFlow:
-    file: helpers/navigate-to-training.yaml
+    file: helpers/navigate-to-fitness.yaml
 
-# Verify training screen loads (WellnessDashboard component is not rendered here;
-# wellness data is shown via WellnessTrendsChart and WeeklySummary)
+# Wellness data is shown via WellnessTrendsChart and WeeklySummary
 - extendedWaitUntil:
     visible:
-      id: "training-screen"
+      id: "fitness-screen"
     timeout: 10000
 - takeScreenshot: "screenshots/training-wellness-dashboard-loaded"
 

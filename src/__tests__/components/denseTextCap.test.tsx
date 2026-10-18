@@ -18,7 +18,8 @@ import { act, fireEvent, render } from '@testing-library/react-native';
 import { DENSE_TEXT_SCALE, DenseText } from '@/shared/ui/DenseText';
 import { TextLink } from '@/shared/ui/TextLink';
 import { ChartXAxisLabel } from '@/features/activity/components/ChartXAxisLabel';
-import { ChartYAxisLabel } from '@/features/activity/components/ChartYAxisLabel';
+import { ActivityStreams } from '@/features/activity/components/ActivityStreams';
+import { CHART_CONFIGS } from '@/features/activity/lib/chartConfig';
 import { StatCard } from '@/features/activity/components/stats/StatCard';
 import { SummaryCardSparkline } from '@/features/home/components/SummaryCardSparkline';
 import { AttributionOverlay } from '@/features/maps/components/AttributionOverlay';
@@ -38,12 +39,12 @@ import type { WellnessData } from '@/types';
 const DENSE_SURFACES = [
   'src/features/activity/components/ChartTypeSelector.tsx',
   'src/features/activity/components/ChartXAxisLabel.tsx',
-  'src/features/activity/components/ChartYAxisLabel.tsx',
+  'src/features/activity/components/ActivityStreams.tsx',
   'src/features/recording/components/DataFieldGrid.tsx',
   'src/features/recording/components/TimerHeader.tsx',
   'src/features/recording/components/UnlockTrack.tsx',
   'src/shared/charts/CurveChart.tsx',
-  'src/features/fitness/components/FitnessChart.tsx',
+  'src/features/fitness/components/FormZoneChart.tsx',
   'src/features/routes/components/section/AttemptHistogramChart.tsx',
   'src/features/routes/components/section/SectionDeltaChart.tsx',
   'src/features/routes/components/section/SectionDeltaSummaryChart.tsx',
@@ -65,7 +66,9 @@ const DENSE_SURFACES = [
   'src/features/stats/components/SwimPaceCurveChart.tsx',
   'src/features/maps/components/AttributionOverlay.tsx',
   'src/shared/ui/Button.tsx',
+  'src/shared/ui/Badge.tsx',
   'src/shared/ui/ChangeChip.tsx',
+  'src/shared/ui/DirectionSwitch.tsx',
   'src/features/routes/components/section/SectionActionRow.tsx',
 ];
 
@@ -140,43 +143,29 @@ describe('the dense text cap', () => {
     expect(caps.every((cap) => cap === DENSE_TEXT_SCALE)).toBe(true);
   });
 
-  it('caps the activity plot axis labels and anchors the min label to its measured height', async () => {
+  it('caps the activity lanes, their titles, value gutters and axis', async () => {
     const x = await render(
       <ChartXAxisLabel xAxisMode="distance" maxX={10} xUnit="km" isDark={false} />
     );
     expect(capsOf(x).every((cap) => cap === DENSE_TEXT_SCALE)).toBe(true);
 
-    const series = { range: { min: 0, max: 10 }, config: { color: '#000000' } } as never;
-    const y = await render(
-      <ChartYAxisLabel
-        yAxisSeries={series}
-        yAxisAvgInfo={{ normalised: 0.5, raw: 5 }}
-        showYAxisAccent={false}
-        chartPaddingTop={10}
-        chartPaddingBottom={20}
-        height={200}
-        isDark={false}
-        unit=""
-        formatYAxisValue={(v) => String(v)}
+    const time = Float64Array.from({ length: 10 }, (_, i) => i * 60);
+    const lanes = await render(
+      <ActivityStreams
+        streams={{ time, distance: time.map((t) => t * 8), watts: time.map((t) => 200 + t / 10) }}
+        elevationGain={0}
+        selectedCharts={['power']}
+        chartConfigs={CHART_CONFIGS}
       />
     );
-    expect(capsOf(y).every((cap) => cap === DENSE_TEXT_SCALE)).toBe(true);
-    const labels = y.UNSAFE_getAllByType(Text);
-    const tops = () =>
-      labels.map((n) => {
-        const flat = Object.assign({}, ...[n.props.style].flat(Infinity).filter(Boolean));
-        return flat.top as number;
+    for (const box of lanes.UNSAFE_getAllByType(View).filter((node) => node.props.onLayout)) {
+      await act(async () => {
+        await fireEvent(box, 'layout', { nativeEvent: { layout: { width: 320, height: 56 } } });
       });
-    await act(() => {
-      labels.forEach((n) => n.props.onLayout({ nativeEvent: { layout: { height: 40 } } }));
-    });
-    const after = y.UNSAFE_getAllByType(Text).map((n) => {
-      const flat = Object.assign({}, ...[n.props.style].flat(Infinity).filter(Boolean));
-      return flat.top as number;
-    });
-    expect(tops()).toBeDefined();
-    expect(after[1]).toBe(200 - 20 - 40);
-    expect(after[2]).toBe(10 + 0.5 * 170 - 20);
+    }
+    const caps = capsOf(lanes);
+    expect(caps.length).toBeGreaterThan(3);
+    expect(caps.every((cap) => cap === DENSE_TEXT_SCALE)).toBe(true);
   });
 
   it('caps every label of a zone histogram, compact and full', async () => {

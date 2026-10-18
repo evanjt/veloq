@@ -12,7 +12,7 @@ import React from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
 
-import SettingsScreen from '@/app/settings';
+import SettingsScreen from '@/app/(tabs)/settings';
 import { SCREEN_HEADERS } from '@/shared/app/screenHeaders';
 import { spacing } from '@/theme';
 

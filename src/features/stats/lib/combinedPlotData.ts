@@ -1,13 +1,12 @@
 /**
- * Pure data-prep helpers for the combined activity chart.
+ * Pure data-prep helpers for the activity stream lanes.
  *
- * Extracts normalisation, averages, and interval band math out of
- * `CombinedPlot.tsx` so the component focuses on rendering. No React,
- * no Victory, no Skia - pure TypeScript so these can be unit tested in
- * isolation.
+ * Thinning, each lane's extent, averages, the lane stack and the interval
+ * band math, out of `ActivityStreams.tsx` so the component only draws. No
+ * React and no Skia, so these are tested in isolation.
  */
 
-import { type ChartConfig, type ChartTypeId } from '@/features/activity';
+import type { ChartConfig, ChartTypeId } from '@/features/activity';
 import { measuresPower } from '@/shared/activity/activityUtils';
 import type { ActivityStreams, ActivityInterval, ActivityType } from '@/types';
 import { finiteExtent, type Extent } from '@/shared/charts/extent';
@@ -111,10 +110,64 @@ export function seriesExtent(config: ChartConfig, rawData: ArrayLike<number>): E
   return finiteExtent(config.motion?.kind === 'pace' ? movingSamples(config, rawData) : rawData);
 }
 
-/** A series with its min/max range and an optional "preview" flag. */
+/** How a lane draws its stream: a line, a grey context area, or a fill either side of zero. */
+export type LaneKind = 'line' | 'context' | 'signed';
+
+/** A drawn stream with the y extent of its own lane, in its own units. */
 export interface SeriesInfo extends DataSeries {
-  range: { min: number; max: number; range: number };
-  isPreview?: boolean;
+  /** The lane's [bottom, top] in the stream's units. No two streams share one. */
+  domain: [number, number];
+  kind: LaneKind;
+}
+
+/** A lane's plot height when the page scrolls, and its title above it. */
+export const LANE_PLOT_HEIGHT = 56;
+export const LANE_TITLE_HEIGHT = 18;
+/** The distance or time axis under the last lane. */
+export const LANE_AXIS_HEIGHT = 20;
+/** No lane is squeezed below its two tick labels when a fixed height is shared out. */
+const LANE_MIN_PLOT_HEIGHT = 32;
+
+/**
+ * The height of each lane's plot and of the whole stack. With no height given
+ * every lane is the lane height and the stack grows, since the page scrolls;
+ * given one, as the full screen view gives, the lanes share what the titles
+ * and the axis leave. `titleHeight` is the title as the text size draws it.
+ */
+export function laneStack(
+  count: number,
+  height?: number,
+  titleHeight: number = LANE_TITLE_HEIGHT
+): { plotHeight: number; height: number } {
+  const lanes = Math.max(1, count);
+  const plotHeight =
+    height === undefined
+      ? LANE_PLOT_HEIGHT
+      : Math.max(
+          LANE_MIN_PLOT_HEIGHT,
+          Math.floor((height - LANE_AXIS_HEIGHT - lanes * titleHeight) / lanes)
+        );
+  return { plotHeight, height: lanes * (titleHeight + plotHeight) + LANE_AXIS_HEIGHT };
+}
+
+function laneKind(config: ChartConfig): LaneKind {
+  return config.lane ?? 'line';
+}
+
+/**
+ * A lane's [bottom, top] from its stream's extent. A quantity measured from
+ * zero starts at zero, grade spans zero either side, and every other stream
+ * fills its lane from its lowest sample to its highest. A flat stream is given
+ * a unit either side, so its line sits mid-lane rather than on the floor.
+ */
+export function laneDomain(config: ChartConfig, extent: Extent | null): [number, number] {
+  if (!extent) return [0, 1];
+  let low = extent.min;
+  let high = extent.max;
+  if (config.zeroBased || config.lane === 'signed') low = Math.min(low, 0);
+  if (config.lane === 'signed') high = Math.max(high, 0);
+  if (high === low) return low === 0 ? [0, 1] : [low - 1, high + 1];
+  return [low, high];
 }
 
 /** Per-series metric value exposed to parent for display in chips. */
@@ -127,6 +180,8 @@ export interface ChartMetricValue {
   maxValueWidth?: string | undefined;
   /** The value is the activity's average rather than the sample under a scrub. */
   isAverage?: boolean | undefined;
+  /** The value is the activity's elevation gain rather than the altitude under a scrub. */
+  isGain?: boolean | undefined;
 }
 
 /**
@@ -181,23 +236,16 @@ export function intervalBandToken(
   }
 }
 
-const BAND_OPACITY = {
-  zone: 0.35,
-  work: 0.3,
-  recovery: 0.15,
-  warmup: 0.15,
-  cooldown: 0.15,
-  other: 0.08,
-} as const;
-
-/** Zone-colored band behind the chart for a single interval. */
+/** The band behind every lane for a single interval. */
 export interface IntervalBand {
   startX: number;
   endX: number;
   bandColour: BandColourToken;
-  bandOpacity: number;
-  /** Normalised Y (0..1) of the interval's average value, or null for non-WORK intervals. */
-  avgNormY: number | null;
+  /**
+   * A WORK interval's average power and heart rate, which the power and heart
+   * rate lanes mark across it. Null where the interval is not WORK or carries none.
+   */
+  averages: { power: number | null; heartrate: number | null };
   isWork: boolean;
 }
 
@@ -212,24 +260,20 @@ function emptyResult(emptyCause: EmptyPlotCause): ChartDataResult {
 }
 
 /**
- * Thin and normalise stream data across all selected series.
+ * Thin the selected streams for drawing, each at its own lane's extent.
  *
- * For each selected chart, reads the raw stream via `config.getStream`,
- * computes its min/max, then emits normalised [0,1] values alongside an
- * x-axis value (distance in km/mi or time in seconds). `buckets` is the plot
- * width in layout pixels: each series keeps its extremes per pixel, so a
- * short spike is drawn at any length of activity.
- *
- * If `previewMetricId` is provided and not already in `selectedCharts`, it
- * is appended as a "preview" series (rendered with reduced opacity at the
- * call site).
+ * For each selected chart, reads the raw stream via `config.getStream` and
+ * emits its value at every kept sample, in its own units, beside an x value
+ * (distance in km/mi or time in seconds). `buckets` is the plot width in
+ * layout pixels: each series keeps its extremes per pixel, so a short spike
+ * is drawn at any length of activity. A stopped pace sample is NaN, so the
+ * line breaks there.
  */
 export function buildChartData(
   streams: ActivityStreams,
   selectedCharts: ChartTypeId[],
   chartConfigs: Record<ChartTypeId, ChartConfig>,
   isMetric: boolean,
-  previewMetricId: ChartTypeId | null | undefined,
   xAxisMode: 'distance' | 'time',
   buckets: number
 ): ChartDataResult {
@@ -240,54 +284,38 @@ export function buildChartData(
     return emptyResult(xAxisMode === 'distance' && hasTime ? 'noDistance' : 'noSamples');
   }
 
-  // Determine which charts to render (selected + preview if unselected)
-  const chartsToRender = [...selectedCharts];
-  if (previewMetricId && !selectedCharts.includes(previewMetricId)) {
-    chartsToRender.push(previewMetricId);
-  }
-
-  // Collect all series data
-  const series: (DataSeries & { isPreview?: boolean })[] = [];
-  for (const chartId of chartsToRender) {
+  const drawnSeries: { info: SeriesInfo; drawn: Float64Array }[] = [];
+  for (const chartId of selectedCharts) {
     const config = chartConfigs[chartId];
     if (!config) continue;
     const rawData = config.getStream?.(streams);
     if (!rawData || rawData.length === 0) continue;
-    series.push({
-      id: chartId,
-      config,
-      rawData,
-      isPreview: chartId === previewMetricId && !selectedCharts.includes(chartId),
+    const drawn = new Float64Array(xSource.length);
+    for (let i = 0; i < xSource.length; i++) {
+      const rawVal = rawData[i];
+      drawn[i] =
+        rawVal === undefined || !Number.isFinite(rawVal) || isStoppedSample(config, rawVal)
+          ? NaN
+          : rawVal;
+    }
+    drawnSeries.push({
+      info: {
+        id: chartId,
+        config,
+        rawData,
+        domain: laneDomain(config, seriesExtent(config, rawData)),
+        kind: laneKind(config),
+      },
+      drawn,
     });
   }
 
-  if (series.length === 0) return emptyResult('noMetrics');
-
-  // Each series with its min/max for normalisation, and its drawn value at
-  // every raw sample, normalised to 0..1. A stopped pace sample is NaN so the
-  // line breaks there.
-  const normalised = series.map((s) => {
-    // A stream with no finite sample normalises against a flat range. Its points
-    // are non-finite anyway, so the chart draws a gap rather than a floor line.
-    // A pace with no moving sample does the same, its stops on the floor.
-    const extent = seriesExtent(s.config, s.rawData);
-    const range = extent
-      ? { min: extent.min, max: extent.max, range: extent.max - extent.min || 1 }
-      : { min: 0, max: 0, range: 1 };
-    const drawn = new Float64Array(xSource.length);
-    for (let i = 0; i < xSource.length; i++) {
-      const rawVal = s.rawData[i] ?? 0;
-      drawn[i] = isStoppedSample(s.config, rawVal)
-        ? NaN
-        : Math.max(0, Math.min(1, (rawVal - range.min) / range.range));
-    }
-    return { info: { ...s, range }, drawn };
-  });
+  if (drawnSeries.length === 0) return emptyResult('noMetrics');
 
   // Thin each series to its first, lowest, highest and last sample per pixel,
-  // and draw the union so every series keeps its spikes on one shared x.
+  // and draw the union so every lane keeps its spikes on one shared x.
   const kept = new Set<number>();
-  for (const { drawn } of normalised) {
+  for (const { drawn } of drawnSeries) {
     for (const i of minMaxBuckets(xSource, drawn, buckets)) kept.add(i);
   }
   const indices = [...kept].sort((a, b) => a - b);
@@ -297,7 +325,7 @@ export function buildChartData(
     const point: Record<string, number> = {
       x: xAxisMode === 'time' ? xRaw : distanceInUnit(xRaw, isMetric),
     };
-    for (const { info, drawn } of normalised) point[info.id] = drawn[i] ?? NaN;
+    for (const { info, drawn } of drawnSeries) point[info.id] = drawn[i] ?? NaN;
     return point;
   });
 
@@ -306,7 +334,7 @@ export function buildChartData(
 
   return {
     chartData: points,
-    seriesInfo: normalised.map(({ info }) => info),
+    seriesInfo: drawnSeries.map(({ info }) => info),
     indexMap: indices,
     maxX: computedMaxX,
     emptyCause: null,
@@ -365,6 +393,7 @@ export function computeAllAverages(
       maxValueWidth: widest,
       // The gain is a total and carries its own '+'.
       isAverage: config.defaultMetric !== 'gain',
+      isGain: config.defaultMetric === 'gain',
     });
   }
   return results;
@@ -415,13 +444,18 @@ function intervalIndices(
   };
 }
 
+/** A finite average, or null. */
+function finiteOrNull(value: number | null | undefined): number | null {
+  return value != null && Number.isFinite(value) ? value : null;
+}
+
 /**
- * Compute the interval bands behind the chart.
+ * Compute the interval bands behind every lane.
  *
- * Each interval becomes a colour token plus an opacity and a normalised Y
- * position for the dashed-line indicator (WORK only). A WORK interval inside
- * a zone carries the zone number and which scale it indexes, so the chart
- * layer can pick the swatch for the current theme.
+ * Each interval becomes a colour token and, for a WORK interval, its average
+ * power and heart rate for the lanes that draw those streams. A WORK interval
+ * inside a zone carries the zone number and which scale it indexes, so the
+ * chart layer can pick the swatch for the current theme.
  */
 export function computeIntervalBands(
   intervals: ActivityInterval[] | undefined,
@@ -429,18 +463,13 @@ export function computeIntervalBands(
   streams: ActivityStreams,
   xAxisMode: 'distance' | 'time',
   isMetric: boolean,
-  activityType: ActivityType | undefined,
-  seriesInfo: SeriesInfo[]
+  activityType: ActivityType | undefined
 ): IntervalBand[] {
   if (!intervals || intervals.length === 0 || chartDataLength === 0) return [];
   const xSource = xAxisMode === 'time' ? streams.time || [] : streams.distance || [];
   if (xSource.length === 0) return [];
 
   const hasPowerZones = activityType ? measuresPower(activityType) : false;
-
-  // Find the series whose avg values we'll use for dashed lines
-  // Prefer the first selected series (power for cycling users, HR for runners)
-  const primarySeries = seriesInfo[0];
 
   // The bands are placed against `time`, not against the axis being drawn, so
   // the distance axis is read at the index the seconds lookup returns.
@@ -462,24 +491,13 @@ export function computeIntervalBands(
     const isWork = interval.type === 'WORK';
 
     const bandColour = intervalBandToken(interval, hasPowerZones ? 'power' : 'hr');
-    const bandOpacity = BAND_OPACITY[bandColour.kind === 'zone' ? 'zone' : bandColour.role];
+    const averages = isWork
+      ? {
+          power: finiteOrNull(interval.average_watts),
+          heartrate: finiteOrNull(interval.average_heartrate),
+        }
+      : { power: null, heartrate: null };
 
-    // Normalised avg Y for dashed line (only for WORK intervals)
-    let avgNormY: number | null = null;
-    if (isWork && primarySeries) {
-      // Pick the avg value that matches the primary series type
-      const avgRaw =
-        primarySeries.id === 'power'
-          ? interval.average_watts
-          : primarySeries.id === 'heartrate'
-            ? interval.average_heartrate
-            : null;
-      if (avgRaw != null && Number.isFinite(avgRaw)) {
-        const { min, range } = primarySeries.range;
-        avgNormY = Math.max(0, Math.min(1, (avgRaw - min) / range));
-      }
-    }
-
-    return { startX, endX, bandColour, bandOpacity, avgNormY, isWork };
+    return { startX, endX, bandColour, averages, isWork };
   });
 }

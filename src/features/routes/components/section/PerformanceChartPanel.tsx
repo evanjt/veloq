@@ -8,8 +8,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { Card, ToggleButtonRow } from '@/shared/ui';
-import { colors, spacing } from '@/theme';
+import { Card, DirectionSwitch, ToggleButtonRow } from '@/shared/ui';
+import { spacing } from '@/theme';
+import { directionColour } from '@/features/routes/lib/directionColour';
 import { pickEmphasisedLap, type SectionDeltaLine } from '@/features/routes/lib/deltaLayout';
 import {
   resolveChartDirection,
@@ -31,8 +32,6 @@ const PLOT_LABEL_KEYS = {
   histogram: 'sections.plotHistogram',
   delta: 'sections.plotDelta',
 } as const;
-
-const DIRECTIONS = ['forward', 'reverse'] as const;
 
 const NO_HISTOGRAMS: FfiAttemptHistograms = {};
 
@@ -62,13 +61,14 @@ export function PerformanceChartPanel({
     chartData,
     isDark,
     activityType,
-    forwardColour,
     useTimeAxis,
     highlightedActivityId,
     bestForwardRecord,
     bestReverseRecord,
     bestForwardIsRecord,
     bestReverseIsRecord,
+    forwardStats,
+    reverseStats,
     onActivitySelect,
   } = scatterProps;
   const { t } = useTranslation();
@@ -160,17 +160,16 @@ export function PerformanceChartPanel({
         />
       )}
       {hasForward && hasReverse ? (
-        <ToggleButtonRow
-          layout="hug"
+        <DirectionSwitch
+          testID="section-chart-direction"
           style={styles.control}
-          options={DIRECTIONS.map((value) => ({
-            value,
-            label: t(value === 'reverse' ? 'sections.reverse' : 'sections.forward'),
-            mark: value === 'reverse' ? colors.reverseDirection : forwardColour,
-            testID: `section-chart-direction-${value}`,
-          }))}
           value={direction}
-          onValueChange={(value) => {
+          counts={{ forward: forwardStats?.count ?? 0, reverse: reverseStats?.count ?? 0 }}
+          marks={{
+            forward: directionColour('forward', isDark),
+            reverse: directionColour('reverse', isDark),
+          }}
+          onChange={(value) => {
             setRequestedDirection(value);
             onActivitySelect?.(null);
           }}
@@ -216,7 +215,7 @@ export function PerformanceChartPanel({
           <ScatterLegend
             isDark={isDark}
             showTrend={!!trend && trend.length >= 2}
-            trendColor={direction === 'reverse' ? colors.reverseDirection : forwardColour}
+            trendColor={directionColour(direction, isDark)}
             showReverse={!!bestReverseRecord}
             showThisActivity={!!highlightedActivityId}
             showOutsideBand={chartData.some((d) => d.outsideDistanceBand === true)}

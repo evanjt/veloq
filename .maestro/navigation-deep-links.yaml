@@ -22,8 +22,8 @@ tags:
     timeout: 10000
 - takeScreenshot: "screenshots/navigation-deep-links-fitness"
 
-# Test training deep link
-- openLink: "veloq://training"
+# A link naming a chart opens fitness on the card that draws it
+- openLink: "veloq://fitness?chart=week"
 - runFlow:
     when:
       visible: "Open"
@@ -31,9 +31,9 @@ tags:
       - tapOn: "Open"
 - extendedWaitUntil:
     visible:
-      id: "training-screen"
-    timeout: 10000
-- takeScreenshot: "screenshots/navigation-deep-links-training"
+      id: "weekly-summary"
+    timeout: 15000
+- takeScreenshot: "screenshots/navigation-deep-links-fitness-week"
 
 # Test map deep link
 - openLink: "veloq://map"

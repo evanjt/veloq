@@ -20,8 +20,9 @@ import {
   iconSize,
   ink,
   layout,
-  mapLayerColors,
+  mapPalette,
   opacity,
+  type MapPalette,
   spacing,
 } from '@/theme';
 import { useMapPreferences } from '@/features/settings';
@@ -30,7 +31,6 @@ import {
   type BaseMap3DLayer,
   boundsOfLngLat,
   buildDeltaLineStops,
-  buildEndpointLayers,
   ENDPOINT_IMAGES,
   featureCollection,
   lineFeature,
@@ -42,6 +42,7 @@ import {
   statusBarStyleForMap,
   useDrawnMapStyle,
 } from '@/features/maps';
+import { buildRouteLayers, buildRouteSources } from './routeMapLayerSpecs';
 import type { ActivityType, RouteGroup, RoutePoint } from '@/types';
 import type { SectionDeltaLine } from '../lib/deltaLayout';
 import { DetailMapLegend, hasLegendLayers, type DetailMapLegendLayers } from './DetailMapLegend';
@@ -104,6 +105,7 @@ export function RouteMapView({
     : preferences.defaultStyle;
   const mapStyle = useDrawnMapStyle(chosenStyle);
   const activityColor = getActivityColor(selectedSportType ?? 'Other');
+  const palette = mapPalette(mapStyle);
 
   // Memoised so the empty fallback is one array rather than a fresh one each
   // render, which recomputed every projection below it.
@@ -160,10 +162,11 @@ export function RouteMapView({
             deltaLine.splits,
             deltaLine.splitStepM,
             deltaLine.sectionLengthM,
-            deltaLine.direction
+            deltaLine.direction,
+            palette
           )
         : null,
-    [deltaLine]
+    [deltaLine, palette]
   );
 
   // The inline map draws the route line itself; the fullscreen shell draws it
@@ -218,6 +221,7 @@ export function RouteMapView({
   const layers = useMemo<MapLayerSpec[]>(
     () =>
       buildRouteLayers({
+        palette,
         activityColor,
         representativeOpacity,
         fadedOpacity,
@@ -225,14 +229,15 @@ export function RouteMapView({
         includeRoute: true,
         deltaLineStops,
       }),
-    [activityColor, representativeOpacity, fadedOpacity, fadedFilter, deltaLineStops]
+    [palette, activityColor, representativeOpacity, fadedOpacity, fadedFilter, deltaLineStops]
   );
 
   // Fullscreen has room to show the other attempts at full strength. Its shell
   // draws the route itself and carries no delta colouring.
-  const fullscreenLayers = useMemo<MapLayerSpec[]>(
-    () =>
+  const fullscreenLayers = useCallback(
+    (fullscreenPalette: MapPalette) =>
       buildRouteLayers({
+        palette: fullscreenPalette,
         activityColor,
         representativeOpacity: 1,
         fadedOpacity: FULLSCREEN_FADED_OPACITY,
@@ -377,110 +382,6 @@ export function buildRoute3DLayer({
     },
     highlightedTraceGeoJSON: highlightedTrace,
   };
-}
-
-/**
- * The inline map's sources: the overlays and the route itself. line-gradient
- * addresses the route by line-progress, which needs line metrics.
- */
-export function buildRouteSources(
-  overlaySources: Record<string, MapSourceSpec>,
-  routeLine: GeoJSON.FeatureCollection
-): Record<string, MapSourceSpec> {
-  return { ...overlaySources, route: { kind: 'geojson', data: routeLine, lineMetrics: true } };
-}
-
-/**
- * Layer stack, back to front: other attempts, then the representative route, then
- * whatever the caller singled out, then the endpoint dots.
- */
-export function buildRouteLayers({
-  activityColor,
-  representativeOpacity,
-  fadedOpacity,
-  fadedFilter,
-  includeRoute,
-  deltaLineStops = null,
-}: {
-  activityColor: string;
-  representativeOpacity: number;
-  fadedOpacity: number;
-  /** Hides the highlighted attempt from the faded layer. */
-  fadedFilter: unknown[] | undefined;
-  /** Off in fullscreen, where the shell draws the route itself. */
-  includeRoute: boolean;
-  /**
-   * `line-progress` stops colouring the route line by time won or lost, while
-   * the chart shows the delta plot. Without them the line keeps `activityColor`.
-   */
-  deltaLineStops?: (string | number)[] | null;
-}): MapLayerSpec[] {
-  const routeLayers: MapLayerSpec[] = includeRoute
-    ? [
-        {
-          id: 'route-casing',
-          type: 'line',
-          source: 'route',
-          layout: { 'line-cap': 'round', 'line-join': 'round' },
-          paint: {
-            'line-color': mapLayerColors.casing,
-            'line-opacity': representativeOpacity,
-            'line-width': 5,
-          },
-        },
-        {
-          id: 'route-line',
-          type: 'line',
-          source: 'route',
-          layout: { 'line-cap': 'round', 'line-join': 'round' },
-          paint: {
-            ...(deltaLineStops
-              ? {
-                  'line-gradient': [
-                    'interpolate',
-                    ['linear'],
-                    ['line-progress'],
-                    ...deltaLineStops,
-                  ],
-                }
-              : { 'line-color': activityColor }),
-            'line-opacity': representativeOpacity,
-            'line-width': 4,
-          },
-        },
-      ]
-    : [];
-
-  return [
-    {
-      id: 'faded-traces-line',
-      type: 'line',
-      source: 'faded-traces',
-      filter: fadedFilter,
-      layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: {
-        'line-color': activityColor,
-        'line-opacity': fadedOpacity,
-        'line-width': 2,
-      },
-    },
-    ...routeLayers,
-    {
-      id: 'highlighted-casing',
-      type: 'line',
-      source: 'highlighted-trace',
-      layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': mapLayerColors.casing, 'line-width': 5 },
-    },
-    {
-      id: 'highlighted-line',
-      type: 'line',
-      source: 'highlighted-trace',
-      layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': colors.chartCyan, 'line-width': 4 },
-    },
-    ...buildEndpointLayers(),
-  ];
 }
 
 const styles = StyleSheet.create({

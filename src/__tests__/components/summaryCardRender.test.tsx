@@ -31,10 +31,6 @@ jest.mock('@/i18n', () => ({
 }));
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn(() => null) }));
 jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: undefined }) }));
-jest.mock('@/shared/app/useSportSettings', () => ({
-  useSportSettings: () => ({ data: undefined }),
-  getSettingsForSport: () => undefined,
-}));
 jest.mock('@/features/stats', () => ({ usePaceCurve: () => ({ data: undefined }) }));
 jest.mock('@/shared/app/useMetricSystem', () => ({ useMetricSystem: () => true }));
 const mockFormBar = jest.fn();
@@ -52,7 +48,6 @@ jest.mock('@/features/home/lib/formBar', () => {
 async function renderCard(props: Partial<SummaryCardProps>) {
   const tree = await render(
     <SummaryCard
-      onProfilePress={() => {}}
       heroValue={0}
       heroLabel="metrics.fitness"
       showSparkline
@@ -68,6 +63,17 @@ async function renderCard(props: Partial<SummaryCardProps>) {
 
 const DEFAULTS = useDashboardPreferences.getState().summaryCard;
 afterEach(() => useDashboardPreferences.setState({ summaryCard: DEFAULTS }));
+
+describe('the way into settings', () => {
+  it('is not on the card, since Settings is a tab of its own', async () => {
+    const tree = await renderCard({
+      fitnessData: [40, 41],
+      fatigueData: [42, 43],
+      formData: [-2, -2],
+    });
+    expect(tree.queryByLabelText('common.openSettings')).toBeNull();
+  });
+});
 
 describe('the fitness sparkline', () => {
   it('mounts no row on a single day, as the HRV one does not', async () => {

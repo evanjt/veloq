@@ -8,7 +8,7 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
 
-import SettingsScreen from '@/app/settings';
+import SettingsScreen from '@/app/(tabs)/settings';
 import { useAuthStore, type AuthMethod } from '@/shared/app/AuthStore';
 // The binding registers a TurboModule at import time. A hook on this screen's
 // import path compares against one of its generated enums, so the stub is the

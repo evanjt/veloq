@@ -3,7 +3,7 @@ export { FeedFilterChips } from './FeedFilterChips';
 export { ActivityCardContextMenu } from './ActivityCardContextMenu';
 export { ActivityMapPreview } from './ActivityMapPreview';
 export { ChartTypeSelector } from './ChartTypeSelector';
-export { CombinedPlot, type ChartMetricValue } from './CombinedPlot';
+export { ActivityStreams, type ChartMetricValue } from './ActivityStreams';
 export { HRZonesChart } from './HRZonesChart';
 export { PowerZonesChart } from './PowerZonesChart';
 export { IntervalsTable } from './IntervalsTable';

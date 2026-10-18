@@ -52,6 +52,7 @@ jest.mock('@/shared/debug/renderTimer', () => ({ logScreenRender: () => () => {}
 jest.mock('@/shared/ui', () => {
   const { View, Text } = require('react-native');
   return {
+    Spinner: jest.requireActual('@/shared/ui/Spinner').Spinner,
     ScreenSafeAreaView: View,
     ChartSkeleton: () => null,
     ComponentErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,

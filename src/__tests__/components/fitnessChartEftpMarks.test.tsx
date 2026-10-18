@@ -1,6 +1,6 @@
 /**
  * Scenario: the Fitness & Fatigue chart marks each day the athlete's eFTP
- * moved with a dot at the top of the plot. The fitness line is the app's
+ * moved with a triangle at the top of the plot. The fitness line is the app's
  * primary blue, so a mark drawn in the primary sits on that line and cannot be
  * told from it.
  *
@@ -13,6 +13,7 @@ import { View } from 'react-native';
 import { act, fireEvent, render } from '@testing-library/react-native';
 
 import { FitnessChart } from '@/features/fitness/components/FitnessChart';
+import { TriangleMark } from '@/shared/charts/ChartMarks';
 import type { EftpChange } from '@/features/fitness/lib/eftpChanges';
 import { colors, darkColors } from '@/theme';
 import type { WellnessData } from '@/types';
@@ -52,9 +53,7 @@ describe('the eFTP marks on the fitness chart', () => {
       fireEvent(canvas, 'layout', { nativeEvent: { layout: { width: 360, height: 200 } } })
     );
 
-    const marks = tree.UNSAFE_root.findAll(
-      (node) => (node.type as { displayName?: string }).displayName === 'Circle'
-    );
+    const marks = tree.UNSAFE_queryAllByType(TriangleMark);
     expect(marks).toHaveLength(1);
     expect(marks[0].props.color).toBe(power);
     expect(marks[0].props.color).not.toBe(fitnessLine);

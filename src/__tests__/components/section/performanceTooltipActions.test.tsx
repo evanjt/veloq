@@ -46,13 +46,7 @@ beforeEach(() => jest.clearAllMocks());
 
 async function renderTooltip(point: typeof POINT & { isExcluded?: boolean }) {
   await render(
-    <PerformanceTooltip
-      selectedPoint={point}
-      isDark={false}
-      basis="speed"
-      activityColor="#000000"
-      {...handlers}
-    />
+    <PerformanceTooltip selectedPoint={point} isDark={false} basis="speed" {...handlers} />
   );
   return screen.getByRole('button', { name: /^Harbour loop/ });
 }
@@ -63,7 +57,6 @@ async function renderTooltipFor(point: typeof POINT, recordsSettled: boolean) {
       selectedPoint={point}
       isDark={false}
       basis="speed"
-      activityColor="#000000"
       recordsSettled={recordsSettled}
       {...handlers}
     />
@@ -146,7 +139,6 @@ describe('the selected attempt row for a screen reader', () => {
         selectedPoint={POINT}
         isDark={false}
         basis="speed"
-        activityColor="#000000"
         onClearSelection={() => {}}
       />
     );

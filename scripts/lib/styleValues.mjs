@@ -210,6 +210,13 @@ export const STYLE_CLASSES = [
       'Card, Button, ToggleButtonRow, TextField, NoticeBanner, SheetHeader or Row from src/shared/ui',
   },
   {
+    name: 'badge',
+    keys: [],
+    owner: [],
+    guard: 'lint:style-badges',
+    instead: 'Badge from src/shared/ui, with the tone that names what it means',
+  },
+  {
     name: 'theme-import',
     keys: [],
     owner: [],
@@ -280,9 +287,12 @@ export function judged(rel) {
 /**
  * Whether `className` judges `rel`. The containers are built in
  * `src/shared/ui`, so a card or a button drawn there is the owner, not a copy.
+ * The badge has one owner, `Badge.tsx`, so a badge drawn anywhere else in the
+ * shared ui is a copy too.
  */
 export function judgedFor(className, rel) {
   if (className === 'container' && rel.startsWith('src/shared/ui/')) return false;
+  if (className === 'badge' && rel === 'src/shared/ui/Badge.tsx') return false;
   return judged(rel);
 }
 
@@ -511,6 +521,17 @@ const CONTAINER_KINDS = [
   ['row', /row$/i, 'divider'],
 ];
 
+/**
+ * Whether a `StyleSheet.create` entry draws a badge by hand: named as a badge
+ * or a tag, and giving itself a radius. Its fill may come from a style beside
+ * it or from the element, so the radius is what marks the shape. The text
+ * inside one is named for its text and sets no radius.
+ */
+function isHandBuiltBadge(name, style) {
+  if (!/(badge|tag)/i.test(name)) return false;
+  return style.properties.some((p) => keyName(p.name) === 'borderRadius');
+}
+
 const DIVIDER_KEYS = new Set(['borderBottomWidth', 'borderTopWidth']);
 
 /**
@@ -699,6 +720,21 @@ export function literalSites(sf, className) {
             if (!name || !style || !ts.isObjectLiteralExpression(style)) continue;
             const kind = containerKind(name, style);
             if (kind) at(p, `${name}: a hand-built ${kind}`);
+          }
+        }
+        break;
+      case 'badge':
+        if (
+          ts.isCallExpression(node) &&
+          /StyleSheet\.create$/.test(node.expression.getText(sf)) &&
+          node.arguments[0] &&
+          ts.isObjectLiteralExpression(unwrap(node.arguments[0]))
+        ) {
+          for (const p of unwrap(node.arguments[0]).properties) {
+            const name = keyName(p.name);
+            const style = ts.isPropertyAssignment(p) ? unwrap(p.initializer) : null;
+            if (!name || !style || !ts.isObjectLiteralExpression(style)) continue;
+            if (isHandBuiltBadge(name, style)) at(p, `${name}: a hand-built badge`);
           }
         }
         break;

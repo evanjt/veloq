@@ -4,8 +4,7 @@
  *
  * Expected behaviour: the fitness chart's gutter labels the rounded top of its
  * domain; the form chart puts its zero label on the zero line; every axis label
- * reads the shared style's dark colour in dark mode; the activity plot prints
- * its series unit on the top label.
+ * reads the shared style's dark colour in dark mode.
  */
 
 import React from 'react';
@@ -16,9 +15,6 @@ import type { ReactTestInstance } from 'react-test-renderer';
 import { FitnessChart } from '@/features/fitness/components/FitnessChart';
 import { FormZoneChart } from '@/features/fitness/components/FormZoneChart';
 import { AttemptHistogramChart } from '@/features/routes/components/section/AttemptHistogramChart';
-import { ChartYAxisLabel } from '@/features/activity/components/ChartYAxisLabel';
-import { CHART_CONFIGS } from '@/features/activity/lib/chartConfig';
-import { seriesUnit } from '@/features/stats';
 import { Y_LABEL_BOX } from '@/shared/charts';
 import { darkColors } from '@/theme';
 import type { WellnessData } from '@/types';
@@ -88,9 +84,10 @@ describe('the chart value axis', () => {
     const labels = gutterLabels(tree, 'form-chart-y-axis');
     const zero = labels.find((n) => n.props.children === '0');
     expect(zero).toBeDefined();
-    // The domain is -35 to +30 over the plot inside half a label line of padding.
+    // The domain is -35 to +30 over the plot inside half a label line of padding,
+    // above the card's date row, one label line, under the plot.
     const plotTop = Y_LABEL_BOX / 2;
-    const plotBottom = HEIGHT - Y_LABEL_BOX / 2;
+    const plotBottom = HEIGHT - Y_LABEL_BOX / 2 - Y_LABEL_BOX;
     const zeroY = plotTop + (30 / 65) * (plotBottom - plotTop);
     expect(topOf(zero!) + Y_LABEL_BOX / 2).toBeCloseTo(zeroY, 5);
   });
@@ -112,27 +109,5 @@ describe('the chart value axis', () => {
     ] as ReactTestInstance[];
     expect(labels.length).toBeGreaterThan(6);
     for (const label of labels) expect(colourOf(label)).toBe(darkColors.textSecondary);
-  });
-
-  it('prints the heart rate unit on the activity plot top label', async () => {
-    const config = CHART_CONFIGS.heartrate;
-    const series = { range: { min: 90, max: 180 }, config } as never;
-    const tree = await render(
-      <ChartYAxisLabel
-        yAxisSeries={series}
-        yAxisAvgInfo={null}
-        showYAxisAccent={false}
-        chartPaddingTop={10}
-        chartPaddingBottom={20}
-        height={HEIGHT}
-        isDark={false}
-        unit={seriesUnit(config, true)}
-        formatYAxisValue={(v) => String(v)}
-      />
-    );
-
-    expect(
-      tree.getByTestId('activity-plot-y-max', { includeHiddenElements: true })
-    ).toHaveTextContent('180 bpm', { exact: true });
   });
 });

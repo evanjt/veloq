@@ -13,8 +13,18 @@ export type {
   ToggleButtonRowOption,
   ToggleButtonRowProps,
 } from './Button';
+export { DirectionSwitch } from './DirectionSwitch';
+export type { DirectionSwitchProps, SwitchDirection } from './DirectionSwitch';
 export { SelectButton, selectLabel } from './SelectButton';
 export type { SelectButtonProps, SelectOption } from './SelectButton';
+export {
+  BADGE_TONES,
+  Badge,
+  badgePaint,
+  verdictTone,
+  type BadgeSize,
+  type BadgeTone,
+} from './Badge';
 export { ChangeChip } from './ChangeChip';
 export { Card } from './Card';
 export { KeyDot } from './KeyDot';
@@ -33,7 +43,13 @@ export { Switch, switchColors } from './Switch';
 export type { SwitchColors, SwitchProps } from './Switch';
 export { SwitchRow } from './SwitchRow';
 export type { SwitchRowInset, SwitchRowProps } from './SwitchRow';
-export { ICON_BUTTON_GAP, IconButton } from './IconButton';
+export {
+  COMPACT_ICON_BUTTON_GAP,
+  ICON_BUTTON_GAP,
+  IconButton,
+  iconButtonSkin,
+  useIconButtonInk,
+} from './IconButton';
 export { ChromeIcon, chromeMenuIcon, type ChromeRole } from './ChromeIcon';
 export { Icon, hiddenFromScreenReader, type IconName, type IconProps } from './Icon';
 export { TextSeparator } from './TextSeparator';

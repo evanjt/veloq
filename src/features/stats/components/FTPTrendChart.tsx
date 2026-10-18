@@ -6,23 +6,14 @@ import { RangeCoverage } from 'veloqrs';
 
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { useTranslation } from 'react-i18next';
-import { Circle } from '@shopify/react-native-skia';
-import {
-  colors,
-  typography,
-  spacing,
-  layout,
-  chartStyles,
-  themedStyles,
-  verdictColor,
-  verdictFill,
-  type Palette,
-} from '@/theme';
+import { typography, spacing, chartStyles, themedStyles, type Palette } from '@/theme';
 import { formatMonth, formatShortDate } from '@/shared/format/format';
 import { spokenVerdict } from '@/shared/format/spoken';
 import { trendVerdict, verdictRung, type TrendDirection } from '@/shared/format/trend';
 import {
   ChartCanvas,
+  ChartDot,
+  chartStroke,
   ChartSurface,
   CurveLine,
   niceScale,
@@ -33,6 +24,7 @@ import {
   type SummarySeries,
 } from '@/shared/charts';
 import { EmptyState } from '@/shared/ui/EmptyState';
+import { Badge, verdictTone } from '@/shared/ui/Badge';
 import { formatSignedPercentage } from '@/shared/format';
 
 /** One daily eFTP estimate: the local day and the watts. */
@@ -183,15 +175,12 @@ export function FTPTrendChart({
             <Text style={styles.ftpValue}>
               {latestFTP} {t('units.watts')}
             </Text>
-            <View style={[styles.changeBadge, { backgroundColor: verdictFill(rung, isDark) }]}>
-              <Text
-                accessibilityLabel={changeLabel}
-                style={[styles.changeText, { color: verdictColor(rung, isDark) }]}
-              >
-                {arrow}
-                {Math.abs(ftpChange)} {t('units.watts')}
-              </Text>
-            </View>
+            <Badge
+              tone={verdictTone(rung)}
+              text={`${arrow}${Math.abs(ftpChange)} ${t('units.watts')}`}
+              label={changeLabel}
+              isDark={isDark}
+            />
           </View>
           {lookbackDays ? (
             <Text style={styles.changeSubtext}>
@@ -224,14 +213,13 @@ export function FTPTrendChart({
                 const last = points.y[points.y.length - 1];
                 return (
                   <>
-                    <CurveLine points={points.y} color={chartColors.casing} strokeWidth={2.5} />
-                    <CurveLine points={points.y} color={chartColors.ftp} strokeWidth={1.5} />
-                    {last ? (
-                      <>
-                        <Circle cx={last.x} cy={last.y} r={6} color={chartColors.ftp} />
-                        <Circle cx={last.x} cy={last.y} r={3} color={colors.textOnFill} />
-                      </>
-                    ) : null}
+                    <CurveLine
+                      points={points.y}
+                      color={chartColors.casing}
+                      strokeWidth={chartStroke.casing}
+                    />
+                    <CurveLine points={points.y} color={chartColors.ftp} />
+                    {last ? <ChartDot x={last.x} y={last.y} color={chartColors.ftp} /> : null}
                   </>
                 );
               }}
@@ -281,14 +269,6 @@ const makeStyles = (palette: Palette) =>
     ftpValue: {
       ...typography.headlineNumber,
       color: palette.textPrimary,
-    },
-    changeBadge: {
-      paddingHorizontal: spacing.sm,
-      paddingVertical: spacing.xxs,
-      borderRadius: layout.borderRadius,
-    },
-    changeText: {
-      ...typography.captionBold,
     },
     changeSubtext: {
       ...typography.caption,

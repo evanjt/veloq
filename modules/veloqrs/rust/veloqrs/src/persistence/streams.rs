@@ -14,7 +14,7 @@
 use rusqlite::{Connection, OptionalExtension, Result as SqlResult, params};
 
 use super::{PersistentEngine, codec};
-use crate::net::endpoints::DEFAULT_STREAM_TYPES;
+use crate::net::intervals::endpoints::DEFAULT_STREAM_TYPES;
 use crate::net::types::StreamDto;
 
 /// What is kept when the athlete has never chosen: everything.

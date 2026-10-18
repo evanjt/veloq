@@ -16,12 +16,13 @@ import {
   buildRegionalSources,
 } from '@/features/maps/components/regional/regionalMapLayerSpecs';
 import { buildMapSurfaceHtml } from '@/features/maps/lib/htmlBuilders';
+import { mapPalette } from '@/theme';
 
 const empty: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 
 function layers(overrides: Partial<Parameters<typeof buildRegionalLayers>[0]> = {}) {
   return buildRegionalLayers({
-    mapStyle: 'light',
+    palette: mapPalette('light'),
     showActivities: true,
     showSections: true,
     showRoutes: false,

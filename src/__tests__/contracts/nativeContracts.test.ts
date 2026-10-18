@@ -23,6 +23,7 @@ import { VELOQ_TILE_SCHEME } from '@/features/maps/lib/tileTransport';
 import { VELOQ_WEBVIEW_COMPONENT_NAME } from '@/features/maps/lib/veloqWebView';
 import { SATELLITE_SOURCES } from '@/features/maps/components/mapStyles';
 import { buildRegionalLayers } from '@/features/maps/components/regional/regionalMapLayerSpecs';
+import { mapPalette } from '@/theme';
 import { HEATMAP_TILE_STOPS } from '@/features/maps/lib/heatmapPaint';
 import { LIBERTY_SOURCES } from '@/features/maps/styles/liberty/sources';
 import { widgetPalette } from '@/shared/theme/widgetTheme';
@@ -2127,7 +2128,7 @@ describe('the light heatmap paint agrees with the contrast test that gates it', 
     ['LIGHT_HUE_ROTATE_DEGREES', 'raster-hue-rotate'],
   ])('%s is the %s of the regional heatmap layer', (name, property) => {
     const layer = buildRegionalLayers({
-      mapStyle: 'light',
+      palette: mapPalette('light'),
       heatmapEnabled: true,
       showHeatmap: true,
       hasSpider: false,
@@ -2157,29 +2158,25 @@ it('keys the heatmap in the colour stops the engine paints its tiles with', () =
 describe('the widget palette agrees with the committed Android resources', () => {
   const resource = (dir: string) => read(`widget/android/res/${dir}/widget_theme.xml`);
 
-  const TEXT_RESOURCES = [
-    ['widget_form_high_risk_text', 'formHighRiskText'],
-    ['widget_form_optimal_text', 'formOptimalText'],
-    ['widget_form_grey_zone_text', 'formGreyZoneText'],
-    ['widget_form_fresh_text', 'formFreshText'],
-    ['widget_form_transition_text', 'formTransitionText'],
+  // The zone fills are the form chart's bands and the key dot beside a form value, whose text is
+  // primary, so the renderer reads them by resource name.
+  const ZONE_RESOURCES = [
+    ['widget_form_high_risk', 'formHighRisk'],
+    ['widget_form_optimal', 'formOptimal'],
+    ['widget_form_grey_zone', 'formGreyZone'],
+    ['widget_form_fresh', 'formFresh'],
+    ['widget_form_transition', 'formTransition'],
   ] as const;
 
-  it.each(TEXT_RESOURCES)('values/%s matches the light palette', (name, key) => {
+  it.each(ZONE_RESOURCES)('values/%s matches the light palette', (name, key) => {
     expect(resource('values')).toContain(
       `<color name="${name}">${widgetPalette.light[key]}</color>`
     );
   });
 
-  it.each(TEXT_RESOURCES)('values-night/%s matches the dark palette', (name, key) => {
+  it.each(ZONE_RESOURCES)('values-night/%s matches the dark palette', (name, key) => {
     expect(resource('values-night')).toContain(
       `<color name="${name}">${widgetPalette.dark[key]}</color>`
-    );
-  });
-
-  it('keeps the fills, which the form bar draws as a ground', () => {
-    expect(resource('values')).toContain(
-      `<color name="widget_form_grey_zone">${widgetPalette.light.formGreyZone}</color>`
     );
   });
 });

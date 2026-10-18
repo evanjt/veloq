@@ -48,14 +48,7 @@ function summary(traversalCount: number, activityCount: number): CalendarSummary
 }
 
 function renderCards(calendar: CalendarSummary) {
-  return render(
-    <SectionStatsCards
-      calendarSummary={calendar}
-      isDark={false}
-      basis="speed"
-      activityColor="#3B82F6"
-    />
-  );
+  return render(<SectionStatsCards calendarSummary={calendar} isDark={false} basis="speed" />);
 }
 
 describe('the calendar year line', () => {

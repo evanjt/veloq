@@ -4,7 +4,7 @@
  * same day drew differently at different ranges.
  *
  * Expected behaviour: one constant-height mark per active date at every
- * range, sport groups in equal portions in a stable order whatever their load,
+ * range, sport groups in equal portions in the families' fixed stack order whatever their load,
  * marks bound to the date slot so they never overlap, and nothing for rest.
  */
 
@@ -13,6 +13,18 @@ import type { StripDay } from '@/features/fitness/lib/stripMarks';
 import type { ActivityType } from '@/types';
 
 const WIDTH = 324;
+
+/** One activity of every family, listed so that neither name nor arrival order is the stack order. */
+const ALL_FAMILIES: StripDay['activities'] = [
+  { type: 'WeightTraining', load: 30 },
+  { type: 'Tennis', load: 20 },
+  { type: 'Walk', load: 10 },
+  { type: 'Swim', load: 40 },
+  { type: 'Run', load: 50 },
+  { type: 'AlpineSki', load: 60 },
+  { type: 'Ride', load: 70 },
+];
+const STACK_ORDER = ['Ride', 'Winter', 'Run', 'Water', 'Foot', 'Strength', 'Other'];
 
 function day(n: number, activities: { type: ActivityType; load: number }[] = []): StripDay {
   const d = new Date(Date.UTC(2026, 5, 1 + n));
@@ -108,6 +120,12 @@ describe('stripMarks', () => {
     expect(a.noLoad).toBe(false);
   });
 
+  it("stacks a day's families ride, winter, run, water, foot, strength, other from the bottom", () => {
+    const [mark] = stripMarks([day(0, ALL_FAMILIES)], WIDTH);
+
+    expect(mark.segments.map((s) => s.group)).toEqual(STACK_ORDER);
+  });
+
   it('does not weight a sport by how many activities it has', () => {
     const [mark] = stripMarks(
       [
@@ -181,7 +199,7 @@ describe('stripMarks', () => {
  * load is zero, so no sport can be told from another by load.
  *
  * Expected behaviour: a day that trained without load says so, is drawn in
- * the muted neutral at the same height as any other active day, and is never
+ * a neutral outline at the same height as any other active day, and is never
  * drawn as a load the athlete did not record.
  */
 describe('a group that trained without load', () => {
@@ -211,11 +229,11 @@ describe('a group that trained without load', () => {
     expect(marks.map((m) => m.noLoad)).toEqual([false, true, false]);
   });
 
-  it('draws once, in the muted neutral, rather than as a sport at the floor', () => {
+  it('draws once, as a neutral outline, rather than as a sport at the floor', () => {
     const [mark] = stripMarks([day(0, [{ type: 'Walk', load: 0 }])], WIDTH);
 
     expect(mark.height).toBe(MARK_HEIGHT);
-    expect(markFills(mark, MUTED, colorOf)).toEqual([{ color: MUTED, fraction: 1 }]);
+    expect(markFills(mark, MUTED, colorOf)).toEqual([{ color: MUTED, fraction: 1, outline: true }]);
   });
 
   it('mutes every mark when no group in the window carries load', () => {
@@ -234,7 +252,9 @@ describe('a group that trained without load', () => {
     // The window an athlete whose device reports no load sees always. Every
     // bar the same height is honest only while none of them is a sport colour.
     for (const mark of marks) {
-      expect(markFills(mark, MUTED, colorOf)).toEqual([{ color: MUTED, fraction: 1 }]);
+      expect(markFills(mark, MUTED, colorOf)).toEqual([
+        { color: MUTED, fraction: 1, outline: true },
+      ]);
     }
   });
 
@@ -265,14 +285,14 @@ describe('a group that trained without load', () => {
 
     expect(mark.noLoad).toBe(false);
     expect(markFills(mark, MUTED, colorOf)).toEqual([
-      { color: '#Ride', fraction: 0.5 },
-      { color: '#Run', fraction: 0.5 },
+      { color: '#Ride', fraction: 0.5, outline: false },
+      { color: '#Run', fraction: 0.5, outline: false },
     ]);
   });
 });
 
 describe('stripKey', () => {
-  it('lists the sports the marks draw in colour, in name order, once each', () => {
+  it('lists the sports the marks draw in colour, in stack order, once each', () => {
     const key = stripKey([
       day(0, [{ type: 'Run', load: 30 }]),
       day(1, [
@@ -297,7 +317,13 @@ describe('stripKey', () => {
       day(5, [{ type: 'Squash', load: 20 }]),
     ]);
 
-    expect(key.groups).toEqual(['Other', 'Ride', 'Run']);
+    expect(key.groups).toEqual(['Ride', 'Run', 'Other']);
+  });
+
+  it('lists the families in the order a mark stacks them', () => {
+    const key = stripKey([day(0, ALL_FAMILIES)]);
+
+    expect(key.groups).toEqual(STACK_ORDER);
   });
 
   it('names only the sport that appears for a single-sport window', () => {

@@ -14,9 +14,8 @@ import { colors, darkColors, iconSize, spacing, themePalette, typography } from 
 import { Button, Card, CardHeader, DisclosureChevron, pressable, pressRipple } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { navigateTo } from '@/shared/app/navigation';
+import { directionColour } from '@/features/routes/lib/directionColour';
 import { DirectionArrow, directionWord } from './DirectionCue';
-
-const REVERSE_COLOR = colors.reverseDirection;
 
 interface CalendarDirectionBest {
   count: number;
@@ -59,7 +58,6 @@ export interface SectionStatsCardsProps {
   isDark: boolean;
   /** What the year and month bests read as, the basis the chart plots on. */
   basis: AttemptBasis;
-  activityColor: string;
   onSetAsReference?: ((activityId: string) => void) | undefined;
   referenceActivityId?: string | undefined;
   /**
@@ -73,7 +71,6 @@ export function SectionStatsCards({
   calendarSummary,
   isDark,
   basis,
-  activityColor,
   onSetAsReference,
   referenceActivityId,
   recordsSettled = true,
@@ -116,6 +113,8 @@ export function SectionStatsCards({
   // The trophy marks the record and nothing else, in the one gold on every
   // row. A year's best that is not the record is told by its bold time.
   const recordGold = themePalette(isDark).achievement;
+  const forwardColour = directionColour('forward', isDark);
+  const reverseColour = directionColour('reverse', isDark);
 
   return (
     <Card variant="flat" padding="none" testID="section-calendar">
@@ -159,7 +158,7 @@ export function SectionStatsCards({
                       {`${t('sections.traversalsCount', { count: yearData.traversalCount })} · `}
                       <DirectionArrow
                         direction="forward"
-                        color={activityColor}
+                        color={forwardColour}
                         size={iconSize.xs}
                       />
                       {` ${directionWord(t, 'forward')} `}
@@ -169,7 +168,7 @@ export function SectionStatsCards({
                       {'  '}
                       <DirectionArrow
                         direction="reverse"
-                        color={REVERSE_COLOR}
+                        color={reverseColour}
                         size={iconSize.xs}
                       />
                       {` ${directionWord(t, 'reverse')} `}
@@ -191,7 +190,7 @@ export function SectionStatsCards({
                     {yearRev ? (
                       <DirectionArrow
                         direction="forward"
-                        color={activityColor}
+                        color={forwardColour}
                         size={iconSize.xs}
                       />
                     ) : null}
@@ -203,7 +202,7 @@ export function SectionStatsCards({
                     {yearFwd ? (
                       <DirectionArrow
                         direction="reverse"
-                        color={REVERSE_COLOR}
+                        color={reverseColour}
                         size={iconSize.xs}
                       />
                     ) : null}
@@ -249,7 +248,7 @@ export function SectionStatsCards({
                               >
                                 <DirectionArrow
                                   direction="forward"
-                                  color={activityColor}
+                                  color={forwardColour}
                                   size={iconSize.xs}
                                 />
                                 <Text
@@ -289,7 +288,7 @@ export function SectionStatsCards({
                               >
                                 <DirectionArrow
                                   direction="reverse"
-                                  color={REVERSE_COLOR}
+                                  color={reverseColour}
                                   size={iconSize.xs}
                                 />
                                 <Text

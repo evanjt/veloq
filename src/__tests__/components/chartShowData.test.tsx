@@ -12,7 +12,7 @@ import { View } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import ChartDataSheet from '@/app/sheets/chart-data';
-import { CombinedPlot } from '@/features/activity/components/CombinedPlot';
+import { ActivityStreams } from '@/features/activity/components/ActivityStreams';
 import { CHART_CONFIGS } from '@/features/activity/lib/chartConfig';
 import { ActivityDotsChart } from '@/features/fitness/components/ActivityDotsChart';
 import { FitnessChart } from '@/features/fitness/components/FitnessChart';
@@ -20,7 +20,8 @@ import { StrengthBodyDiagram } from '@/features/strength/components/StrengthBody
 import { WellnessTrendsChart } from '@/features/wellness/components/WellnessTrendsChart';
 import { CurveChart } from '@/shared/charts';
 import { initialiseI18n } from '@/i18n';
-import type { Activity, ActivityStreams, MuscleVolume, WellnessData } from '@/types';
+import type { Activity, ActivityStreams as StreamsData, MuscleVolume, WellnessData } from '@/types';
+import { dayActivityRow } from '@/features/activity/light';
 
 const mockPush = jest.fn();
 let mockParams: { request?: string } = {};
@@ -101,7 +102,7 @@ const volume = (slug: string, weightedSets: number): MuscleVolume => ({
 });
 
 // Ten samples a kilometre apart, power climbing by 10 W from 200 W.
-const KILN_RIDE: ActivityStreams = {
+const KILN_RIDE: StreamsData = {
   time: Float64Array.from({ length: 10 }, (_, i) => i * 120),
   distance: Float64Array.from({ length: 10 }, (_, i) => i * 1000),
   watts: Float64Array.from({ length: 10 }, (_, i) => 200 + i * 10),
@@ -199,7 +200,7 @@ describe('a chart can be read without seeing it', () => {
 
   it('speaks each drawn activity stream in its unit and opens one row per plotted point', async () => {
     await render(
-      <CombinedPlot
+      <ActivityStreams
         streams={KILN_RIDE}
         elevationGain={0}
         selectedCharts={['power']}
@@ -217,7 +218,7 @@ describe('a chart can be read without seeing it', () => {
 
   it('keeps the activity chart axis values from a screen reader', async () => {
     await render(
-      <CombinedPlot
+      <ActivityStreams
         streams={KILN_RIDE}
         elevationGain={0}
         selectedCharts={['power']}
@@ -225,13 +226,17 @@ describe('a chart can be read without seeing it', () => {
       />
     );
     await layOut();
-    expect(screen.getByTestId('activity-plot-y-max', { includeHiddenElements: true })).toBeTruthy();
-    expect(screen.queryByTestId('activity-plot-y-max')).toBeNull();
+    expect(
+      screen.getByTestId('activity-lane-power-max', { includeHiddenElements: true })
+    ).toBeTruthy();
+    expect(screen.queryByTestId('activity-lane-power-max')).toBeNull();
     expect(screen.queryByText('245')).toBeNull();
   });
 
   it('speaks the days trained with its longest break and lists each day trained', async () => {
-    await render(<ActivityDotsChart data={STRIP_DAYS} activities={STRIP_ACTIVITIES} />);
+    await render(
+      <ActivityDotsChart data={STRIP_DAYS} activities={STRIP_ACTIVITIES.map(dayActivityRow)} />
+    );
     expect(plot().props.accessibilityLabel).toBe(
       'Days trained, May 1 to May 5: active on 2 of 5 days. Longest break 2 days.'
     );

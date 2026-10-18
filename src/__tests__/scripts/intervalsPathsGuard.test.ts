@@ -118,7 +118,7 @@ it('passes the same literal in test code, a comment and the endpoint module', ()
     ].join('\n'),
     'objects/tests/ledger.rs': lapsPath,
     'objects/tests.rs': lapsPath,
-    'net/endpoints.rs': [
+    'net/intervals/endpoints.rs': [
       'pub async fn laps(t: &Transport, id: &str) -> Vec<u8> {',
       lapsPath,
       '    t.get_bytes(&path, &[], Lane::Backfill).await.unwrap()',

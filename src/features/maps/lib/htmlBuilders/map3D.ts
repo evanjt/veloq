@@ -32,7 +32,7 @@ import { jsLiteral, jsNumber, jsPadding } from '@/features/maps/lib/webViewLiter
 import { addSectionCreation3DLayersScript } from '@/features/maps/lib/sectionCreationPaint';
 import { heatmapRasterPaint } from '@/features/maps/lib/heatmapPaint';
 import { HEATMAP_SOURCE_MINZOOM, heatmapTileTemplate } from '@/features/maps/lib/heatmapTiles';
-import { colors, colorWithOpacity, mapLayerColors, sectionPalette } from '@/theme';
+import { colors, colorWithOpacity, mapLayerColors, mapPalette, sectionPalette } from '@/theme';
 
 /**
  * What the app says when it declines a tile request of its own.
@@ -530,14 +530,14 @@ ${terrainVisibilityScript()}
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
       });
-      ${addSectionCreation3DLayersScript('map', 'section-creation-line', false)}
+      ${addSectionCreation3DLayersScript('map', 'section-creation-line', false, mapPalette(mapStyle))}
 
       // Section creation start/end markers
       map.addSource('section-creation-markers', {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
       });
-      ${addSectionCreation3DLayersScript('map', 'section-creation-markers', false)}
+      ${addSectionCreation3DLayersScript('map', 'section-creation-markers', false, mapPalette(mapStyle))}
 
       // Click handler - posts map coordinates back to React Native
       map.on('click', function(e) {

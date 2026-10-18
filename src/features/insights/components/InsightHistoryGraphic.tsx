@@ -18,11 +18,22 @@ import { Pressable, StyleSheet, View, type LayoutChangeEvent } from 'react-nativ
 import { Text } from 'react-native-paper';
 import { Canvas, Circle, Path, Rect } from '@shopify/react-native-skia';
 
+import {
+  ChartBar,
+  ChartDot,
+  chartStroke,
+  groupedBarCentre,
+  groupedBarWidth,
+  LINE_CAP,
+  LINE_JOIN,
+} from '@/shared/charts';
+
 import { navigateTo } from '@/shared/app/navigation';
 import { formatShortDate } from '@/shared/format/format';
 import { ChartErrorBoundary, pressable, pressRipple } from '@/shared/ui';
 import { fitTrackToBox, normaliseTrackPoints } from '@/shared/ui/TrackPreview';
 import {
+  chartStyles,
   colors,
   colorWithOpacity,
   darkColors,
@@ -46,11 +57,9 @@ export const GRAPHIC_HEIGHT = spacing.xxl;
 
 /** Room for a ringed point at the top and bottom edge without clipping it. */
 const INSET = spacing.xsPlus;
-const RING_RADIUS = 4;
+/** A timeline's muted effort, a context point under the line rather than a mark. */
 const DOT_RADIUS = 2;
-const LINE_WIDTH = 1.5;
-/** The share of each week's slot its bars take, the rest is the gap between weeks. */
-const BAR_FILL = 0.7;
+const LINE_WIDTH = chartStroke.series;
 
 interface Box {
   width: number;
@@ -141,28 +150,28 @@ function SeriesDrawing({
         path={linePath(placed)}
         style="stroke"
         strokeWidth={LINE_WIDTH}
+        strokeJoin={LINE_JOIN}
+        strokeCap={LINE_CAP}
         color={palette.mutedLine}
       />
       {span.length > 1 ? (
-        <Path path={linePath(span)} style="stroke" strokeWidth={LINE_WIDTH} color={palette.mark} />
+        <Path
+          path={linePath(span)}
+          style="stroke"
+          strokeWidth={LINE_WIDTH}
+          strokeJoin={LINE_JOIN}
+          strokeCap={LINE_CAP}
+          color={palette.mark}
+        />
       ) : null}
       {kind === 'timeline'
         ? placed.map((p, index) => (
             <Circle key={index} cx={p.x} cy={p.y} r={DOT_RADIUS} color={palette.mutedLine} />
           ))
         : null}
-      {marked ? (
-        <Circle
-          cx={marked.x}
-          cy={marked.y}
-          r={RING_RADIUS}
-          style="stroke"
-          strokeWidth={LINE_WIDTH}
-          color={palette.mark}
-        />
-      ) : null}
+      {marked ? <ChartDot x={marked.x} y={marked.y} color={palette.mark} /> : null}
       {kind === 'sparkline' && last ? (
-        <Circle cx={last.x} cy={last.y} r={DOT_RADIUS + 0.5} color={palette.mark} />
+        <ChartDot x={last.x} y={last.y} color={palette.mark} />
       ) : null}
     </>
   );
@@ -194,7 +203,7 @@ function BarsDrawing({
   const h = box.height - INSET * 2;
   const zeroY = INSET + downFrom(range, 0) * h;
   const slot = (box.width - INSET * 2) / Math.max(weeks.length, 1);
-  const barWidth = (slot * BAR_FILL) / Math.max(series.length, 1);
+  const barWidth = groupedBarWidth(slot, series.length);
 
   return (
     <>
@@ -203,16 +212,21 @@ function BarsDrawing({
           const marked = isMarked(point.date, mark);
           const length = (Math.abs(point.value) / span) * h;
           return (
-            <Rect
+            <ChartBar
               key={`${seriesIndex}-${weekIndex}`}
-              x={INSET + weekIndex * slot + (slot * (1 - BAR_FILL)) / 2 + seriesIndex * barWidth}
-              y={point.value >= 0 ? zeroY - length : zeroY}
+              x={groupedBarCentre(
+                INSET + (weekIndex + 0.5) * slot,
+                barWidth,
+                series.length,
+                seriesIndex
+              )}
+              from={zeroY}
+              to={point.value >= 0 ? zeroY - length : zeroY + length}
               width={barWidth}
-              height={length}
               color={
                 marked ? (seriesIndex === 0 ? palette.mark : palette.markSecond) : palette.muted
               }
-              {...(point.partial ? { style: 'stroke' as const, strokeWidth: LINE_WIDTH } : {})}
+              outline={point.partial === true}
             />
           );
         })
@@ -244,7 +258,7 @@ function ChangesDrawing({
   const h = box.height - INSET * 2;
   const zeroY = INSET + downFrom(range, 0) * h;
   const slot = (box.width - INSET * 2) / Math.max(bars.length, 1);
-  const barWidth = slot * BAR_FILL;
+  const barWidth = groupedBarWidth(slot, 1);
 
   return (
     <>
@@ -254,19 +268,19 @@ function ChangesDrawing({
           { x: box.width - INSET, y: zeroY },
         ])}
         style="stroke"
-        strokeWidth={1}
+        strokeWidth={chartStroke.axis}
         color={palette.mutedLine}
       />
       {bars.map((bar, index) => {
         const length = (Math.abs(bar.value) / span) * h;
         const rung = bar.value > 0 ? 'positive' : bar.value < 0 ? 'negative' : 'neutral';
         return (
-          <Rect
+          <ChartBar
             key={bar.key}
-            x={INSET + index * slot + (slot - barWidth) / 2}
-            y={bar.value >= 0 ? zeroY - length : zeroY}
+            x={INSET + (index + 0.5) * slot}
+            from={zeroY}
+            to={bar.value >= 0 ? zeroY - length : zeroY + length}
             width={barWidth}
-            height={length}
             color={verdictColor(rung, isDark)}
           />
         );
@@ -299,9 +313,9 @@ function LineDrawing({
       <Path
         path={path}
         style="stroke"
-        strokeWidth={LINE_WIDTH + 1}
-        strokeCap="round"
-        strokeJoin="round"
+        strokeWidth={chartStroke.casing}
+        strokeCap={LINE_CAP}
+        strokeJoin={LINE_JOIN}
         color={palette.mark}
       />
     </>
@@ -386,7 +400,7 @@ export const InsightHistoryGraphic = React.memo(function InsightHistoryGraphic({
       accessibilityLabel={accessibilityLabel}
       onPress={onPress}
       android_ripple={pressRipple}
-      style={pressable(styles.graphic)}
+      style={pressable([styles.graphic, chartStyles.plotDirection])}
     >
       <View style={styles.plotColumn}>
         <View testID="insight-graphic-plot" style={styles.plot} onLayout={onLayout}>

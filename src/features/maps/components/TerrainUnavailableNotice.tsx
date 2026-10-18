@@ -1,11 +1,9 @@
 import { useEffect, useRef } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { darkColors, iconSize, layout, spacing, typography } from '@/theme';
-import { pressable, pressRipple } from '@/shared/ui';
-import { Icon } from '@/shared/ui/Icon';
-import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
+import { spacing } from '@/theme';
+import { FloatingPill } from '@/shared/ui/FloatingPill';
 
 export const TERRAIN_UNAVAILABLE_TEST_ID = 'terrain-unavailable-notice';
 
@@ -19,9 +17,10 @@ const DISMISS_AFTER_MS = 6000;
  * app but the DEM tiles do not, so an offline 3D open used to leave a flat map
  * that read as broken 3D.
  *
- * It clears itself, because the athlete cannot act on it while offline and a
- * pill that has to be dismissed is worse than the silence it replaced. So it
- * speaks as it appears, since a screen reader may not reach it before it goes.
+ * It is a status pill and clears itself, because the athlete cannot act on it
+ * while offline and a pill that has to be dismissed is worse than the silence it
+ * replaced. So it speaks as it appears, since a screen reader may not reach it
+ * before it goes, and passes every touch through to the map under it.
  *
  * At `mapFoot` it floats at the foot of the map it explains. In `pillStack` it lays out in the
  * bottom pill stack's slot, which places it.
@@ -35,7 +34,6 @@ export function TerrainUnavailableNotice({
 }) {
   const { t } = useTranslation();
   const message = t('maps.threeDUnavailable');
-  useAnnounceOnAppear(message);
 
   // Callers pass a fresh arrow each render, so keying the timer on it would restart the clock.
   const dismissRef = useRef(onDismiss);
@@ -49,21 +47,14 @@ export function TerrainUnavailableNotice({
   }, []);
 
   return (
-    <Pressable
-      style={pressable(placement === 'mapFoot' ? styles.mapFoot : styles.pillStack)}
-      android_ripple={pressRipple}
-      onPress={onDismiss}
-      accessibilityRole="button"
-      accessibilityLabel={message}
-      accessibilityHint={t('common.close')}
-      accessibilityLiveRegion="polite"
-      testID={TERRAIN_UNAVAILABLE_TEST_ID}
-    >
-      <View style={styles.pill}>
-        <Icon name="terrain" size={iconSize.md} color={darkColors.textSecondary} />
-        <Text style={styles.text}>{message}</Text>
-      </View>
-    </Pressable>
+    <View style={placement === 'mapFoot' ? styles.mapFoot : styles.pillStack} pointerEvents="none">
+      <FloatingPill
+        icon="terrain"
+        title={message}
+        announcement={message}
+        testID={TERRAIN_UNAVAILABLE_TEST_ID}
+      />
+    </View>
   );
 }
 
@@ -78,19 +69,5 @@ const styles = StyleSheet.create({
   pillStack: {
     marginHorizontal: spacing.md,
     alignItems: 'center',
-  },
-  pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    borderRadius: layout.borderRadiusFull,
-    backgroundColor: darkColors.surfaceRaised,
-  },
-  text: {
-    ...typography.bodySmall,
-    color: darkColors.textPrimary,
-    flexShrink: 1,
   },
 });

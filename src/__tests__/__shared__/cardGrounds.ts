@@ -24,7 +24,7 @@ export function strayCardGrounds(root: ReactTestInstance): string[] {
     const isCard =
       ground === darkColors.surfaceRaised &&
       style.borderRadius === layout.borderRadius &&
-      (edge == null || (edge === 1 && style.borderColor === darkColors.border));
+      (edge == null || (edge === 1 && style.borderColor === darkColors.cardEdge));
     if (!isCard) {
       stray.push(
         `${node.props.testID ?? 'view'}: ground ${String(ground)}, radius ${String(style.borderRadius)}, edge ${String(edge)}`

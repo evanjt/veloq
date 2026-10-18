@@ -82,7 +82,7 @@ describe('a run refused while another is in flight', () => {
         getStats: () => ({ libraryCount: 1 }),
         getGpsFetchCandidates: () => owed.map((activityId) => ({ activityId, sportType: 'Ride' })),
         getUnprocessedStrengthIds: () => [],
-        batchFetchExerciseSets: () => 0,
+        batchFetchOwedFitFiles: () => 0,
         pollSectionDetection: () => 'idle',
         startGpsPass: mockStartGpsPass,
         subscribe: () => () => {},

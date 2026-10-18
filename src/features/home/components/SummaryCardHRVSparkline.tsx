@@ -7,7 +7,16 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { chartStyles, darkColors, colors, colorWithOpacity, typography, spacing } from '@/theme';
 import { summarySeriesColor } from '../lib/summaryMetricColour';
-import { buildMonotoneSvg, useChartColors, useChartGestures } from '@/shared/charts';
+import {
+  buildMonotoneSvg,
+  chartStroke,
+  LINE_CAP,
+  LINE_JOIN,
+  ScrubDot,
+  useChartColors,
+  useChartGestures,
+} from '@/shared/charts';
+import { riseDayPoints } from '../lib/fitnessChange';
 import { SPARKLINE_MIN_DAYS, type ScrubValues } from './SummaryCardSparkline';
 import { scrubDateLabel } from '../lib/scrubDateLabel';
 
@@ -113,7 +122,7 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
     onTapRef.current?.();
   }, []);
 
-  const { gesture, crosshairStyle, syncBounds } = useChartGestures<number>({
+  const { gesture, crosshairStyle, syncBounds, scrubIndex } = useChartGestures<number>({
     data: hrvData,
     accessibilityLabel: t('metrics.hrv'),
     scrubEnabled: !!onScrub,
@@ -157,6 +166,22 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
     };
   }, [normalised, chartWidth]);
 
+  // The scrubbed day on each line, which a dot marks.
+  const scrubPoints = useMemo(() => {
+    if (scrubIndex < 0) return null;
+    const plot = {
+      width: chartWidth,
+      top: PLOT_TOP,
+      height: CHART_HEIGHT - PLOT_TOP - PLOT_BOTTOM,
+      min: HRV_DOMAIN_MIN,
+      max: HRV_DOMAIN_MAX,
+    };
+    return {
+      hrv: riseDayPoints(normalised.hrv, [scrubIndex], plot)[0],
+      rhr: normalised.rhr ? riseDayPoints(normalised.rhr, [scrubIndex], plot)[0] : undefined,
+    };
+  }, [scrubIndex, normalised, chartWidth]);
+
   if (hrvData.length < SPARKLINE_MIN_DAYS || width <= 0) {
     return <View style={{ width, height: CHART_HEIGHT }} />;
   }
@@ -170,7 +195,7 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
 
   return (
     <GestureDetector gesture={gesture}>
-      <View style={[styles.container, { width, height: CHART_HEIGHT }]}>
+      <View style={[styles.container, chartStyles.plotDirection, { width, height: CHART_HEIGHT }]}>
         <View style={styles.chartRow}>
           {showLabels ? (
             <View style={[styles.labelColumn, { width: labelWidth }]}>
@@ -198,9 +223,9 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
                   path={skiaPaths.rhr}
                   color={chartColors.casing}
                   style="stroke"
-                  strokeWidth={2}
-                  strokeJoin="round"
-                  strokeCap="round"
+                  strokeWidth={chartStroke.casing}
+                  strokeJoin={LINE_JOIN}
+                  strokeCap={LINE_CAP}
                 />
               ) : null}
               {hasRhr && skiaPaths.rhr ? (
@@ -208,9 +233,9 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
                   path={skiaPaths.rhr}
                   color={rhrLineColor}
                   style="stroke"
-                  strokeWidth={1}
-                  strokeJoin="round"
-                  strokeCap="round"
+                  strokeWidth={chartStroke.series}
+                  strokeJoin={LINE_JOIN}
+                  strokeCap={LINE_CAP}
                 />
               ) : null}
 
@@ -220,9 +245,9 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
                   path={skiaPaths.hrv}
                   color={chartColors.casing}
                   style="stroke"
-                  strokeWidth={2}
-                  strokeJoin="round"
-                  strokeCap="round"
+                  strokeWidth={chartStroke.casing}
+                  strokeJoin={LINE_JOIN}
+                  strokeCap={LINE_CAP}
                 />
               ) : null}
               {skiaPaths.hrv ? (
@@ -230,11 +255,15 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
                   path={skiaPaths.hrv}
                   color={hrvLineColor}
                   style="stroke"
-                  strokeWidth={1.5}
-                  strokeJoin="round"
-                  strokeCap="round"
+                  strokeWidth={chartStroke.series}
+                  strokeJoin={LINE_JOIN}
+                  strokeCap={LINE_CAP}
                 />
               ) : null}
+              {hasRhr && scrubPoints?.rhr ? (
+                <ScrubDot at={scrubPoints.rhr} color={rhrLineColor} />
+              ) : null}
+              {scrubPoints?.hrv ? <ScrubDot at={scrubPoints.hrv} color={hrvLineColor} /> : null}
             </Canvas>
 
             {/* Time range label */}

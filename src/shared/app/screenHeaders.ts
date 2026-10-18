@@ -92,7 +92,6 @@ export const SCREEN_HEADERS: Record<string, ScreenHeader | null> = {
   'recordings/index': { titleKey: 'recording.library.title', largeTitle: true },
   'section-retired': { titleKey: 'sectionHistory.retiredTitle', largeTitle: true },
   'sensor-settings': { titleKey: 'sensors.title', largeTitle: true },
-  settings: { titleKey: 'settings.title', largeTitle: true },
   'summary-card-settings': { titleKey: 'settings.summaryCard', largeTitle: true },
   'sync-settings': { titleKey: 'settings.localDataRange', largeTitle: true },
 };
@@ -109,7 +108,7 @@ export const TAB_HEADERS: Record<string, ScreenHeader | null> = {
   fitness: { titleKey: 'navigation.fitness', largeTitle: true },
   map: null,
   insights: { titleKey: 'insights.title' },
-  training: { titleKey: 'healthScreen.title', largeTitle: true },
+  settings: { titleKey: 'settings.title', largeTitle: true },
 };
 
 /** The title a header shows: the literal one, else its key translated, else none. */
@@ -130,7 +129,7 @@ export const TAB_TITLE_KEYS: Record<string, ParseKeys> = {
   fitness: 'navigation.fitness',
   map: 'navigation.map',
   insights: 'navigation.insights',
-  training: 'navigation.health',
+  settings: 'navigation.settings',
 };
 
 /**

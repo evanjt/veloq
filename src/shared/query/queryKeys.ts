@@ -99,7 +99,6 @@ export const queryKeys = {
 
   profile: {
     athlete: ['athlete'] as const,
-    sportSettings: ['sportSettings'] as const,
   },
 
   calendar: {

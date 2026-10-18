@@ -63,6 +63,8 @@ function screenRead(
     },
     fitnessDays: 28,
     fatigueDays: 5,
+    decouplingSources: [] as unknown[],
+    loadDots: [] as unknown[],
   };
 }
 
@@ -103,6 +105,61 @@ describe('the fitness screen read', () => {
     expect(engine.getFitnessScreenData).toHaveBeenCalledTimes(1);
     expect(engine.getFtpTrend).not.toHaveBeenCalled();
     expect(engine.getSummaryCardData).not.toHaveBeenCalled();
+  });
+
+  it('asks for every span of the range picker and keys each decoupling ride by its days', async () => {
+    const steady = {
+      activityId: 'r-steady',
+      name: 'Steady ride',
+      startDateLocal: '2026-08-20T07:00:00',
+      decoupling: 4.2,
+    };
+    engine.getFitnessScreenData.mockImplementation(() => ({
+      ...screenRead(),
+      decouplingSources: [{ days: 7 }, { days: 30, source: steady }],
+    }));
+
+    const { result } = await renderHook(useFitnessScreenRead);
+
+    expect(engine.getFitnessScreenData).toHaveBeenCalledWith([7, 30, 90, 180, 365]);
+    expect(result.current.decouplingBySpan.has(7)).toBe(false);
+    expect(result.current.decouplingBySpan.get(30)).toEqual({
+      activityId: 'r-steady',
+      name: 'Steady ride',
+      date: '2026-08-20T07:00:00',
+      decoupling: 4.2,
+    });
+  });
+
+  it('hands the strip each load dot as the day picker lists it', async () => {
+    engine.getFitnessScreenData.mockImplementation(() => ({
+      ...screenRead(),
+      loadDots: [
+        {
+          activityId: 'p1',
+          name: 'Pool session',
+          sportType: 'Swim',
+          startDateLocal: '2026-09-01T07:00:00',
+          movingTime: 2100,
+          distance: 2000,
+          load: 0,
+        },
+      ],
+    }));
+
+    const { result } = await renderHook(useFitnessScreenRead);
+
+    expect(result.current.loadDots).toEqual([
+      {
+        id: 'p1',
+        name: 'Pool session',
+        type: 'Swim',
+        load: 0,
+        startDateLocal: '2026-09-01T07:00:00',
+        movingTime: 2100,
+        distance: 2000,
+      },
+    ]);
   });
 
   it('carries the fitness and fatigue days the engine read gives', async () => {

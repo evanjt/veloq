@@ -12,8 +12,6 @@ import {
   opacity,
   layout,
   strengthTone,
-  verdictColor,
-  verdictFill,
   typography,
   stroke,
 } from '@/theme';
@@ -22,6 +20,7 @@ import type { ExerciseSummary, MuscleVolume, StrengthProgression } from '@/types
 import { muscleName as nameOf } from '../lib/muscleNames';
 import { formatSetCount } from '../lib/formatting';
 import { formatWeightRounded as formatWeight } from '@/shared/format/weight';
+import { Badge, verdictTone } from '@/shared/ui/Badge';
 import { Card } from '@/shared/ui/Card';
 import { StatTile } from '@/shared/ui/StatTile';
 
@@ -100,32 +99,11 @@ export const StrengthProgressionCard = React.memo(function StrengthProgressionCa
           ) : null}
 
           {progression?.changePct != null && (
-            <View
-              style={[
-                styles.trendBadge,
-                {
-                  backgroundColor: verdictFill(
-                    verdictRung(trendVerdict('weekSets', progression.trend)),
-                    isDark,
-                    true
-                  ),
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.trendText,
-                  {
-                    color: verdictColor(
-                      verdictRung(trendVerdict('weekSets', progression.trend)),
-                      isDark
-                    ),
-                  },
-                ]}
-              >
-                {`${progression.changePct > 0 ? '+' : ''}${Math.round(progression.changePct)}%`}
-              </Text>
-            </View>
+            <Badge
+              tone={verdictTone(verdictRung(trendVerdict('weekSets', progression.trend)))}
+              text={`${progression.changePct > 0 ? '+' : ''}${Math.round(progression.changePct)}%`}
+              isDark={isDark}
+            />
           )}
         </View>
 
@@ -235,15 +213,6 @@ const styles = StyleSheet.create({
   miniBar: {
     width: MINI_BAR_WIDTH,
     borderRadius: layout.borderRadiusXs,
-  },
-  trendBadge: {
-    borderRadius: layout.borderRadiusSm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  trendText: {
-    ...typography.badge,
-    color: colors.textPrimary,
   },
   statsRow: {
     flexDirection: 'row',

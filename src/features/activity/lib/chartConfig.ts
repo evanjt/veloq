@@ -16,7 +16,7 @@ import {
   MPS_TO_KPH,
   YARDS_100_IN_METRES,
 } from '@/shared/format';
-import { isSwimmingActivity } from '@/shared/activity/activityUtils';
+import { isPaceSport, isSwimmingActivity } from '@/shared/activity/activityUtils';
 import { paceMinutesFromSample } from '@/shared/math/kinematics';
 import type { ChartStream } from '@/theme';
 import { DEFAULT_AUTO_PAUSE_KMH, stoppedSpeedMs } from '@/shared/recording';
@@ -70,6 +70,14 @@ export interface ChartConfig {
   formatValue?: (value: number, metric: boolean) => string;
   /** How to compute the default chip value. Default: 'avg' */
   defaultMetric?: 'avg' | 'gain';
+  /** A quantity measured from zero, whose lane starts at zero rather than at its lowest sample. */
+  zeroBased?: boolean;
+  /**
+   * How its lane draws it: `context` is a grey area under its edge, for the
+   * ground and the air the effort happened in; `signed` fills either side of
+   * zero. Absent, it is a line in its stream colour.
+   */
+  lane?: 'context' | 'signed';
   /**
    * A speed series in km/h, or a pace series in minutes per `perMetres`. Its
    * average is taken over moving samples as the mean speed, and a pace series
@@ -113,6 +121,38 @@ export function chartTypeLabel(config: ChartConfig, t: TFunction): string {
   return key ? t(key) : config.label;
 }
 
+type LaneNameKey =
+  | 'activity.power'
+  | 'activity.heartRate'
+  | 'activity.stats.cadence'
+  | 'activity.stats.speed'
+  | 'activity.stats.pace'
+  | 'chartTypes.gap'
+  | 'recording.fields.elevation'
+  | 'chartTypes.grade'
+  | 'chartTypes.wbal'
+  | 'activity.stats.temperature';
+
+/** The translation of each stream's full name, which titles its lane. */
+const LANE_NAME_KEYS: Partial<Record<ChartTypeId, LaneNameKey>> = {
+  power: 'activity.power',
+  heartrate: 'activity.heartRate',
+  cadence: 'activity.stats.cadence',
+  speed: 'activity.stats.speed',
+  pace: 'activity.stats.pace',
+  gap: 'chartTypes.gap',
+  elevation: 'recording.fields.elevation',
+  grade: 'chartTypes.grade',
+  wbal: 'chartTypes.wbal',
+  temp: 'activity.stats.temperature',
+};
+
+/** A stream's full name in the app language, the short name where it has none. */
+export function chartLaneName(config: ChartConfig, t: TFunction): string {
+  const key = LANE_NAME_KEYS[config.id];
+  return key ? t(key) : chartTypeLabel(config, t);
+}
+
 /** Chart configuration registry - labels kept short for compact chip display */
 export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
   power: {
@@ -122,6 +162,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     stream: 'power',
     streamKey: 'watts',
     unit: 'W',
+    zeroBased: true,
     getStream: (streams) => streams.watts,
     formatValue: (v) => formatDecimal(v, 0),
   },
@@ -142,6 +183,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     stream: 'cadence',
     streamKey: 'cadence',
     // The unit is the sport's, which the engine names: see `chartConfigsFor`.
+    zeroBased: true,
     getStream: (streams) => streams.cadence,
     formatValue: (v) => formatDecimal(v, 0),
   },
@@ -153,6 +195,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     streamKey: 'velocity_smooth',
     unit: 'km/h',
     unitImperial: 'mph',
+    zeroBased: true,
     // velocity_smooth is in m/s
     getStream: (streams) => streams.velocity_smooth?.map((v) => v * MPS_TO_KPH),
     convertToImperial: (v) => v * KM_TO_MI, // km/h to mph
@@ -187,6 +230,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     convertToImperial: (v) => v * M_TO_FT,
     formatValue: (v) => formatDecimal(v, 0),
     defaultMetric: 'gain',
+    lane: 'context',
   },
   grade: {
     id: 'grade',
@@ -195,6 +239,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     stream: 'grade',
     streamKey: 'grade_smooth',
     unit: '%',
+    lane: 'signed',
     getStream: (streams) => streams.grade_smooth,
     formatValue: (v) => formatDecimal(v, 1),
   },
@@ -204,6 +249,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     icon: 'flash-outline',
     stream: 'wbal',
     unit: 'kJ',
+    zeroBased: true,
     // Sourced from intervals.icu's `w_bal` stream (joules). Displayed in kJ.
     getStream: (streams) => streams.wbal?.map((j) => j / 1000),
     formatValue: (v) => formatDecimal(v, 0),
@@ -244,6 +290,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     getStream: (streams) => streams.temp,
     convertToImperial: celsiusToFahrenheit,
     formatValue: (v) => formatDecimal(v, 0),
+    lane: 'context',
   },
   moving_time: {
     id: 'moving_time',
@@ -274,15 +321,31 @@ const PRIMARY_CHART_IDS: ChartTypeId[] = [
 ];
 
 /**
- * Get available chart types based on activity streams
- * Only returns primary charts that have actual data to display
+ * Which of speed and pace a sport reads, the other never offered beside it: a
+ * run, a walk and a swim read pace, every other sport speed. They are the one
+ * measurement inverted, so both at once is the same line twice.
  */
-export function getAvailableCharts(streams: ActivityStreams): ChartConfig[] {
+export function motionChartFor(type: ActivityType): 'speed' | 'pace' {
+  return isPaceSport(type) || isSwimmingActivity(type) ? 'pace' : 'speed';
+}
+
+/**
+ * The streams an activity offers: each primary chart with data, and speed or
+ * pace as the sport reads it. `configs` are the sport's, `chartConfigsFor`
+ * by default, so a swim offers its pace per 100.
+ */
+export function getAvailableCharts(
+  streams: ActivityStreams,
+  type: ActivityType,
+  configs: Record<ChartTypeId, ChartConfig> = chartConfigsFor(type)
+): ChartConfig[] {
   const available: ChartConfig[] = [];
+  const skipped = motionChartFor(type) === 'pace' ? 'speed' : 'pace';
 
   // Only check primary chart types (excludes duplicates like watts, altitude)
   for (const chartId of PRIMARY_CHART_IDS) {
-    const config = CHART_CONFIGS[chartId];
+    if (chartId === skipped) continue;
+    const config = configs[chartId];
     if (!config) continue;
 
     // Use getStream to check if data exists

@@ -6,7 +6,7 @@
  * rebuild, and the layer count stays fixed.
  */
 
-import { colors, brand, mapLayerColors } from '@/theme';
+import type { MapPalette } from '@/theme';
 import { EMPTY_FEATURE_COLLECTION, type MapLayerSpec, type MapSourceSpec } from '@/features/maps';
 
 export const PREVIEW_INTERACTIVE_LAYERS = ['proposed-line', 'gone-line', 'current-line'];
@@ -30,7 +30,8 @@ export function buildPreviewSources(input: PreviewLayerInput): Record<string, Ma
   };
 }
 
-export function buildPreviewLayers(): MapLayerSpec[] {
+export function buildPreviewLayers(palette: MapPalette): MapLayerSpec[] {
+  const { layer } = palette;
   const roundLine = { 'line-cap': 'round', 'line-join': 'round' };
   return [
     // Bottom of the stack and not interactive: it says which ground the
@@ -41,7 +42,7 @@ export function buildPreviewLayers(): MapLayerSpec[] {
       source: 'preview-area',
       layout: roundLine,
       paint: {
-        'line-color': mapLayerColors.casing,
+        'line-color': layer.casing,
         'line-opacity': 0.8,
         'line-width': 1.5,
         'line-dasharray': [4, 3],
@@ -59,7 +60,7 @@ export function buildPreviewLayers(): MapLayerSpec[] {
       source: 'current-sections',
       layout: roundLine,
       paint: {
-        'line-color': mapLayerColors.casing,
+        'line-color': layer.casing,
         'line-opacity': 0.85,
         'line-width': 5,
       },
@@ -70,7 +71,7 @@ export function buildPreviewLayers(): MapLayerSpec[] {
       source: 'current-sections',
       layout: roundLine,
       paint: {
-        'line-color': colors.iconMuted,
+        'line-color': layer.current,
         'line-opacity': 1,
         'line-width': 3,
         'line-dasharray': [2, 2],
@@ -82,7 +83,7 @@ export function buildPreviewLayers(): MapLayerSpec[] {
       source: 'gone-sections',
       layout: roundLine,
       paint: {
-        'line-color': colors.dangerFill,
+        'line-color': layer.removed,
         'line-opacity': 0.6,
         'line-width': 3,
         'line-dasharray': [2, 2],
@@ -94,7 +95,7 @@ export function buildPreviewLayers(): MapLayerSpec[] {
       source: 'selected-section',
       layout: roundLine,
       paint: {
-        'line-color': mapLayerColors.casing,
+        'line-color': layer.casing,
         'line-opacity': 1,
         'line-width': 7,
       },
@@ -107,7 +108,7 @@ export function buildPreviewLayers(): MapLayerSpec[] {
       paint: {
         // 'changed' and 'unchanged' both render teal; the popover status chip
         // carries the distinction.
-        'line-color': ['match', ['get', 'status'], 'new', colors.successFill, brand.blue600],
+        'line-color': ['match', ['get', 'status'], 'new', layer.added, layer.proposed],
         'line-opacity': 0.9,
         'line-width': 4,
       },
@@ -121,10 +122,10 @@ export function buildPreviewLayers(): MapLayerSpec[] {
  * paints new sections apart with a match expression, and the swatch takes its
  * fallback, the colour every other proposed line gets.
  */
-export function previewLayerSwatch(layerId: string): string {
-  const colour = buildPreviewLayers().find((l) => l.id === layerId)?.paint?.['line-color'];
+export function previewLayerSwatch(layerId: string, palette: MapPalette): string {
+  const colour = buildPreviewLayers(palette).find((l) => l.id === layerId)?.paint?.['line-color'];
   if (Array.isArray(colour)) return colour[colour.length - 1] as string;
-  return typeof colour === 'string' ? colour : colors.iconMuted;
+  return typeof colour === 'string' ? colour : palette.layer.current;
 }
 
 export { EMPTY_FEATURE_COLLECTION };

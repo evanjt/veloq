@@ -97,8 +97,6 @@ export const TOKEN_FAMILIES: Record<string, TokenFamily> = {
 
   // Marks: a ring, a legend swatch, a mark tone of a data hue.
   chartFormLine: 'mark',
-  chartSilverMark: 'mark',
-  chartBronzeMark: 'mark',
   chartGreenMark: 'mark',
   chartSeries: 'mark',
   markCyan: 'mark',
@@ -109,11 +107,6 @@ export const TOKEN_FAMILIES: Record<string, TokenFamily> = {
 
   // Fills that have not folded into a role yet.
   secondary: 'ground',
-  appColourPillBackground: 'ground',
-  eventPriorityA: 'ground',
-  eventPriorityB: 'ground',
-  eventPriorityC: 'ground',
-  workoutCooldown: 'ground',
 
   // Sport and fitness fills.
   ride: 'ground',
@@ -133,13 +126,9 @@ export const TOKEN_FAMILIES: Record<string, TokenFamily> = {
   // information without the hue.
   chartBlue: 'ground',
   chartPurple: 'ground',
-  chartGreen: 'ground',
-  chartYellow: 'ground',
   chartCyan: 'ground',
   chartPink: 'ground',
-  chartIndigo: 'ground',
   chartAmber: 'ground',
-  chartRed: 'ground',
   chartCasing: 'ground',
   chartHrv: 'ground',
   chartRhr: 'ground',
@@ -162,8 +151,6 @@ export const TOKEN_FAMILIES: Record<string, TokenFamily> = {
   // Map lines and zone fills. A map line is drawn over tiles behind a casing,
   // so the surface it is measured against is not a palette token at all, and the
   // direction it means is in the label beside it.
-  sameDirection: 'ground',
-  reverseDirection: 'ground',
   formTransition: 'ground',
   formFresh: 'ground',
   formGreyZone: 'ground',
@@ -354,9 +341,9 @@ export const BRAND_FAMILIES: Record<string, TokenFamily> = {
  * is the ground token, in the same theme, that the pair is measured against.
  */
 export const TOKEN_GROUNDS: Record<string, readonly string[]> = {
-  // White sits on the filled primary, on the sync pill's fill in both themes
-  // and on the destructive fill. The bright fills take the dark ink instead.
-  textOnFill: ['actionPrimary', 'appColourPillBackground', 'dangerFill'],
+  // White sits on the filled primary and on the destructive fill. The bright
+  // fills take the dark ink instead.
+  textOnFill: ['actionPrimary', 'dangerFill'],
   textOnBright: ['achievement', 'successFill', 'warningFill'],
 };
 

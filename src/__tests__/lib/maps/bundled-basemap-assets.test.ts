@@ -123,7 +123,7 @@ describe('the page', () => {
       interaction: {},
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any),
-    buildMap3DHtml({ initialStyle: 'dark' } as never),
+    buildMap3DHtml({ initStyle: 'dark', mapStyle: 'dark' } as never),
   ];
 
   it('registers no asset protocol and asks the host for nothing', () => {

@@ -37,10 +37,6 @@ jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysWithValues());
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn(() => null) }));
 jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: undefined }) }));
-jest.mock('@/shared/app/useSportSettings', () => ({
-  useSportSettings: () => ({ data: undefined }),
-  getSettingsForSport: () => undefined,
-}));
 jest.mock('@/shared/app/useMetricSystem', () => ({ useMetricSystem: () => true }));
 
 const BOX = 540;
@@ -122,7 +118,6 @@ function scatter() {
       chartData={SCATTER_DATA}
       activityType="Ride"
       isDark={false}
-      forwardColour="#0D9488"
       bestForwardRecord={null}
       bestReverseRecord={null}
       bestForwardIsRecord={false}
@@ -259,7 +254,6 @@ describe('charts sized from their box, not the window', () => {
     const tree = await render(
       inBox(
         <SummaryCard
-          onProfilePress={() => {}}
           heroValue={40}
           heroLabel="metrics.fitness"
           fitnessData={[38, 39, 40, 41]}

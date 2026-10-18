@@ -34,7 +34,6 @@
     "terrainRow": "3D 地形",
     "activityStats": "活动统计",
     "calories": "卡路里",
-    "chartHint": "长按拖动 • 长按芯片切换坐标轴",
     "distance": "距离",
     "xAxis": {
       "distance": "距离",
@@ -139,6 +138,7 @@
     "zoneMaxDefaultHint": "请在 intervals.icu 的运动设置中设置最大心率",
     "prDelta": "比PR慢{{delta}}",
     "chartAverage": "平均",
+    "chartGain": "爬升",
     "gainStat": "↑ {{value}}"
   },
   "activityDetail": {
@@ -733,6 +733,7 @@
     "activitiesCount_one": "{{count}} 个活动",
     "activitiesCount_other": "{{count}} 个活动",
     "daysTrained": "训练天数",
+    "eftpChanged": "eFTP 变化",
     "fatigueATL": "疲劳 (ATL)",
     "fitnessCTL": "体能 (CTL)",
     "loadPartial": "部分",
@@ -765,9 +766,6 @@
     "greyZone": "灰色区间",
     "optimal": "最佳区间",
     "highRisk": "高风险"
-  },
-  "healthScreen": {
-    "title": "健康"
   },
   "insights": {
     "ranking": {
@@ -1230,9 +1228,9 @@
     "activities": "活动",
     "feed": "动态",
     "fitness": "体能",
-    "health": "健康",
     "map": "地图",
     "settings": "设置",
+    "settingsTab": "设置",
     "training": "训练",
     "wellness": "健康",
     "insights": "洞察"
@@ -1594,6 +1592,7 @@
     "searchSections": "搜索路段…",
     "searchRoutes": "搜索路线…",
     "sortActivities": "活动",
+    "sortBy": "排序",
     "sortDistance": "距离",
     "sortMostVisited": "最常访问",
     "sortNameAZ": "名称 A-Z",

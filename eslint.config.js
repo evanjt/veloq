@@ -87,8 +87,17 @@ const italicSelector = {
   message:
     'Italic. The type face has no italic, so it draws a synthetic slant. Use colors.textSecondary for a hint or note, or a leading icon for a warning.',
 };
+// A raised preset spread by hand draws the light shadow in dark, where it does
+// not read. `raised(level, isDark)` carries the dark edge.
+const raisedSelector = {
+  selector:
+    'MemberExpression[object.name="shadows"][property.name=/^(card|elevated|modal|pill|mapOverlay|fab)$/]',
+  message:
+    'Shadow preset read by hand. Use raised(level, isDark) from src/theme, which adds the dark card edge.',
+};
 const scaleSelectors = [
   italicSelector,
+  raisedSelector,
   textShadowRadiusSelector,
   textShadowOffsetSelector,
   radiusSelector,
@@ -226,10 +235,6 @@ module.exports = [
   {
     // These palettes serve external images or seeded data, outside the app theme.
     files: [
-      // Map style assets are authored as a self-contained basemap.
-      'src/features/maps/styles/**',
-      // Basemap JSON uses source colour values.
-      'src/features/maps/components/darkMatterStyle.ts',
       // Basemap JSON uses source colour values.
       'src/features/maps/components/mapStyles.ts',
       // Imagery line ramps are measured against aerial tiles.
@@ -479,10 +484,10 @@ module.exports = [
       'src/app/\\(tabs\\)/_layout.tsx',
       'src/app/\\(tabs\\)/insights/index.tsx',
       'src/app/\\(tabs\\)/map.tsx',
+      'src/app/\\(tabs\\)/settings/index.tsx',
       'src/app/activity/\\[id\\].tsx',
       'src/app/route/\\[id\\].tsx',
       'src/app/section/\\[id\\].tsx',
-      'src/app/settings.tsx',
       'src/shared/ui/BottomTabBar.tsx',
     ],
     rules: { 'react-hooks/refs': 'off' },

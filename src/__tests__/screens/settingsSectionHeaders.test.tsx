@@ -14,7 +14,7 @@ import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 import { render } from '@testing-library/react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-import SettingsScreen from '@/app/settings';
+import SettingsScreen from '@/app/(tabs)/settings';
 import AboutScreen from '@/app/about';
 import RecordingSettingsScreen from '@/app/recording-settings';
 import { DisplaySettings } from '@/features/settings/components/DisplaySettings';

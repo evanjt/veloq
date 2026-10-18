@@ -33,7 +33,6 @@
     "terrainRow": "3D-Gländ",
     "activityStats": "Stats",
     "calories": "Kalorii",
-    "chartHint": "Halte zum Scrolle • Chip halte für d Achse",
     "distance": "Distanz",
     "xAxis": {
       "distance": "Distanz",
@@ -138,6 +137,7 @@
     "zoneMaxDefaultHint": "Lege deine max. HF in deinen Sporteinstellungen auf intervals.icu fest",
     "prDelta": "+{{delta}} hinter em PR",
     "chartAverage": "Ø",
+    "chartGain": "Ufstiig",
     "gainStat": "↑ {{value}}"
   },
   "activityDetail": {
@@ -724,6 +724,7 @@
     "activitiesCount_one": "{{count}} Aktivität",
     "activitiesCount_other": "{{count}} Aktivitäte",
     "daysTrained": "Trainingstage",
+    "eftpChanged": "eFTP geändert",
     "fatigueATL": "Müedigkeit (ATL)",
     "fitnessCTL": "Fitnäss (CTL)",
     "loadPartial": "Teilwiis",
@@ -756,9 +757,6 @@
     "greyZone": "Grauzone",
     "optimal": "Optimaal",
     "highRisk": "Ufpasse!"
-  },
-  "healthScreen": {
-    "title": "Gsundheit"
   },
   "insights": {
     "ranking": {
@@ -1207,9 +1205,9 @@
     "activities": "Aktivitäte",
     "feed": "Aktuell",
     "fitness": "Fitnäss",
-    "health": "Befinde",
     "map": "Charte",
     "settings": "Istellige",
+    "settingsTab": "Istellige",
     "training": "Trainig",
     "wellness": "Wohlsii",
     "insights": "Einblicke"
@@ -1565,6 +1563,7 @@
     "searchSections": "Abschnitt sueche…",
     "searchRoutes": "Route sueche…",
     "sortActivities": "Aktivitäte",
+    "sortBy": "Sortieren",
     "sortDistance": "Distanz",
     "sortMostVisited": "Am meischte bsuecht",
     "sortNameAZ": "Name A bis Z",

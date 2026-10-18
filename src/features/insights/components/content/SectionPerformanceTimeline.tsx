@@ -4,16 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
 import { formatDuration, safeGetTime } from '@/shared/format/format';
-import {
-  colors,
-  darkColors,
-  spacing,
-  opacity,
-  ink,
-  layout,
-  colorWithOpacity,
-  themePalette,
-} from '@/theme';
+import { spacing, opacity, ink, layout, colorWithOpacity, themePalette } from '@/theme';
 import { ChartErrorBoundary } from '@/shared/ui';
 import type { SectionPerformanceRecord } from '@/features/routes';
 import {
@@ -62,13 +53,10 @@ export const SectionPerformanceTimeline = React.memo(function SectionPerformance
     [sorted]
   );
 
-  // The 5 px dot among the faint ones is the only thing that says best record,
-  // so it is a mark and owes 3:1 rather than the amber chart tone.
-  const bestMarkColor = isDark ? darkColors.achievement : colors.achievement;
   const bestIndex = sorted.findIndex((e) => e.isPr);
   const marker = useMemo(
-    () => (bestIndex >= 0 ? { index: bestIndex, color: bestMarkColor } : null),
-    [bestIndex, bestMarkColor]
+    () => (bestIndex >= 0 ? { index: bestIndex, kind: 'record' as const } : null),
+    [bestIndex]
   );
 
   if (sorted.length < 2) return null;

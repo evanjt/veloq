@@ -3,7 +3,9 @@ import { fireEvent, render } from '@testing-library/react-native';
 import { SectionActionRow } from '@/features/routes/components/section/SectionActionRow';
 import { SectionTrimOverlay } from '@/features/routes/components/SectionTrimOverlay';
 import type { FrequentSection } from '@/types';
-import { colors } from '@/theme';
+import type { ReactTestInstance } from 'react-test-renderer';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { colors, opacity } from '@/theme';
 
 jest.mock('react-i18next', () => ({
   ...jest.requireActual('react-i18next'),
@@ -188,8 +190,9 @@ describe('SectionTrimOverlay reset control', () => {
  * Scenario: a step button at the end of its range refuses the press, but its
  * chevron kept the primary colour, so it looked as live as its neighbour.
  *
- * Expected behaviour: a refused step reads disabled and draws its chevron in
- * the disabled colour; a live one keeps the primary.
+ * Expected behaviour: a refused step reads disabled and draws at the disabled
+ * opacity; a live one draws at full strength, its chevron in the secondary
+ * icon ink.
  */
 describe('SectionTrimOverlay step buttons', () => {
   const props = {
@@ -209,12 +212,12 @@ describe('SectionTrimOverlay step buttons', () => {
     onToggleExpand: jest.fn(),
   };
 
-  function chevronColour(button: {
-    findAll: (p: (n: { props: { name?: string } }) => boolean) => { props: { color?: string } }[];
-  }) {
-    return button.findAll(
-      (node) => typeof node.props.name === 'string' && node.props.name.startsWith('chevron-')
-    )[0].props.color;
+  function chevronColour(button: ReactTestInstance) {
+    return button.findAllByType(MaterialCommunityIcons)[0].props.color;
+  }
+
+  function drawnOpacity(button: ReactTestInstance) {
+    return Object.assign({}, ...[button.props.style].flat(Infinity).filter(Boolean)).opacity;
   }
 
   it('greys the steps that cannot move and keeps the ones that can', async () => {
@@ -225,10 +228,11 @@ describe('SectionTrimOverlay step buttons', () => {
 
     for (const refused of [startEarlier, endLater]) {
       expect(refused).toBeDisabled();
-      expect(chevronColour(refused)).toBe(colors.textDisabled);
+      expect(drawnOpacity(refused)).toBe(opacity.disabled);
     }
     expect(startLater).not.toBeDisabled();
-    expect(chevronColour(startLater)).toBe(colors.actionPrimary);
+    expect(drawnOpacity(startLater)).toBe(1);
+    expect(chevronColour(startLater)).toBe(colors.iconSecondary);
   });
 });
 

@@ -79,7 +79,7 @@ describe('the tracks a route sync owes', () => {
         getStats: () => ({ libraryCount: 3 }),
         getGpsFetchCandidates: mockGetGpsFetchCandidates,
         getUnprocessedStrengthIds: () => [],
-        batchFetchExerciseSets: () => 0,
+        batchFetchOwedFitFiles: () => 0,
         pollSectionDetection: () => 'idle',
         getSectionDetectionProgress: () => null,
         subscribe: () => () => {},

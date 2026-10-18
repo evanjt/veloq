@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -8,7 +8,7 @@ import { useMetricSystem, useTheme } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { replaceTo, navigateTo } from '@/shared/app/navigation';
 import { useBackIntercept } from '@/shared/app/useBackIntercept';
-import { useBottomClearance } from '@/shared/ui';
+import { useBottomClearance, Spinner } from '@/shared/ui';
 import {
   parsePairedEventId,
   parseRecordingType,
@@ -53,7 +53,7 @@ import {
 import { useSheetOpener } from '@/shared/app/sheetRequest';
 import { useSensorSession, useSensorIssue } from '@/features/sensors';
 import { useRepresentativeRoute } from '@/features/routes';
-import { colors, spacing, themePalette } from '@/theme';
+import { spacing, themePalette } from '@/theme';
 import type { ActivityTypeSheetInput } from '@/app/sheets/activity-type';
 import type { FieldPickerSheetInput } from '@/app/sheets/field-picker';
 import type { RouteOverlaySheetInput } from '@/app/sheets/route-overlay';
@@ -264,7 +264,7 @@ function RecordingContent({ activityType }: { activityType: ActivityType }) {
         testID="recording-checking"
       >
         {noHeader}
-        <ActivityIndicator size="large" color={colors.actionPrimary} />
+        <Spinner size="large" label={t('common.loading')} />
         <RecordingCloseButton />
       </View>
     );

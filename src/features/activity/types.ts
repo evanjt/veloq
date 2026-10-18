@@ -511,33 +511,6 @@ export interface PaceCurve {
   days?: number | undefined; // Number of days in the period
 }
 
-// Sport settings including zones
-export interface SportSettings {
-  id?: string;
-  types: string[]; // Activity types this applies to
-  // Power zones
-  ftp?: number; // Functional Threshold Power
-  power_zones?: Zone[];
-  // HR zones
-  lthr?: number; // Lactate Threshold Heart Rate
-  max_hr?: number;
-  hr_zones?: Zone[];
-  // Pace zones (running)
-  threshold_pace?: number; // m/s
-  pace_zones?: Zone[];
-  // Other settings
-  weight?: number;
-}
-
-// Zone definition
-export interface Zone {
-  id: number;
-  name: string;
-  min?: number;
-  max?: number;
-  color?: string;
-}
-
 // Zone distribution for a time period
 export interface ZoneDistribution {
   zone: number;

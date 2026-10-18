@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
@@ -20,6 +20,7 @@ import {
   ErrorState,
   Row,
   ScreenScrollView,
+  Spinner,
 } from '@/shared/ui';
 import { InsightSeriesChart } from '@/features/insights';
 import { colors, darkColors, spacing, typography } from '@/theme';
@@ -53,7 +54,7 @@ function ExerciseDetailScreen() {
       contentContainerStyle={styles.content}
     >
       <Stack.Screen options={{ title: data?.exerciseName || t('strength.history') }} />
-      {isLoading ? <ActivityIndicator color={colors.actionPrimary} /> : null}
+      {isLoading ? <Spinner label={t('common.loading')} /> : null}
       {isError ? (
         <ErrorState
           error={error}

@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next';
 import type { FfiSectionEventDetails, FfiSectionLink } from 'veloqrs';
 import { formatDuration, formatFullDate } from '@/shared/format/format';
 import { colors, controlHeight, darkColors, layout, spacing, typography, stroke } from '@/theme';
-import { Button, Card } from '@/shared/ui';
+import { Button, Card, EmptyState } from '@/shared/ui';
 import type {
   SectionGeometryVersion,
   SectionHistoryEvent,
@@ -234,9 +234,7 @@ export function SectionHistoryPanel({
       )}
 
       {history.length === 0 ? (
-        <Text style={[styles.empty, isDark && styles.textSecondaryDark]}>
-          {t('sectionHistory.empty')}
-        </Text>
+        <EmptyState variant="inline" title={t('sectionHistory.empty')} />
       ) : (
         history.map((e) => {
           const d = e.details ?? NO_EVENT_DETAILS;
@@ -409,10 +407,6 @@ const styles = StyleSheet.create({
   },
   more: {
     ...typography.caption,
-    color: colors.textSecondary,
-  },
-  empty: {
-    ...typography.bodySmall,
     color: colors.textSecondary,
   },
   textDark: {

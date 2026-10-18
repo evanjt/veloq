@@ -29,7 +29,6 @@ import { CHART_CONFIGS } from '@/features/activity/lib/chartConfig';
 import { SummaryCard } from '@/features/home/components/SummaryCard';
 import { RoutesList } from '@/features/routes/components/RoutesList';
 import { layout } from '@/theme/layout';
-import { typography } from '@/theme';
 import type { GroupWithPolyline } from 'veloqrs';
 
 jest.mock('@/shared/app/useTheme', () => ({
@@ -153,13 +152,13 @@ describe('tap-target floor', () => {
     expect(reach(chip).height).toBeGreaterThanOrEqual(layout.minTapTarget);
   });
 
-  it('holds each sections filter chip to the minimum height', async () => {
+  it('holds the sections sort and each filter chip to the minimum height', async () => {
     const { getAllByRole } = await render(
       <SectionsListFiltersBar
         regularSectionsCount={2}
         sortOption="name"
         onSortChange={jest.fn()}
-        sortChips={[{ key: 'name', label: 'Name', icon: 'sort-alphabetical-ascending' }]}
+        sortChips={[{ key: 'name', label: 'Name' }]}
         customCount={1}
         hiddenFilters={{ custom: false, auto: false, disabled: false, unaccepted: false }}
         onFilterPress={jest.fn()}
@@ -169,19 +168,10 @@ describe('tap-target floor', () => {
       />
     );
 
-    const chips = getAllByRole('button');
-    expect(chips).toHaveLength(4);
-    for (const chip of chips) {
-      const style = StyleSheet.flatten(chip.props.style) as {
-        paddingVertical: number;
-        borderWidth: number;
-      };
-      const drawnHeight =
-        typography.caption.lineHeight + 2 * (style.paddingVertical + style.borderWidth);
-      const hitSlop = chip.props.hitSlop as Slop;
-      expect(
-        drawnHeight + slopOn(hitSlop, 'top') + slopOn(hitSlop, 'bottom')
-      ).toBeGreaterThanOrEqual(layout.minTapTarget);
+    const controls = getAllByRole('button');
+    expect(controls).toHaveLength(4);
+    for (const control of controls) {
+      expect(reach(control).height).toBeGreaterThanOrEqual(layout.minTapTarget);
     }
   });
 
@@ -238,7 +228,6 @@ describe('tap-target floor', () => {
         selectedPoint={{ ...point, isExcluded }}
         isDark={false}
         basis="pace"
-        activityColor="#000000"
         onClearSelection={jest.fn()}
         onSetAsReference={jest.fn()}
         onExcludeActivity={jest.fn()}
@@ -294,7 +283,6 @@ describe('tap-target floor', () => {
   it('holds a summary card metric to the minimum height', async () => {
     render(
       <SummaryCard
-        onProfilePress={jest.fn()}
         heroValue={42}
         heroLabel="Fitness"
         showSparkline={false}
@@ -310,7 +298,7 @@ describe('tap-target floor', () => {
     );
   });
 
-  it('holds each routes sort chip to the minimum height', () => {
+  it('holds the routes sort to the minimum height', () => {
     const group = (groupId: string) => ({ groupId }) as unknown as GroupWithPolyline;
     render(
       <RoutesList
@@ -324,12 +312,8 @@ describe('tap-target floor', () => {
       />
     );
 
-    const chips = screen
-      .getAllByRole('button')
-      .filter((node) => node.props.accessibilityState?.selected !== undefined);
-    expect(chips.length).toBeGreaterThan(1);
-    for (const chip of chips) {
-      expect(reach(chip).height).toBeGreaterThanOrEqual(layout.minTapTarget);
-    }
+    expect(reach(screen.getByTestId('routes-sort')).height).toBeGreaterThanOrEqual(
+      layout.minTapTarget
+    );
   });
 });

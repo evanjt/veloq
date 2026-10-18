@@ -16,7 +16,7 @@ import TabsLayout from '@/app/(tabs)/_layout';
 import FeedLayout from '@/app/(tabs)/(feed)/_layout';
 import FitnessLayout from '@/app/(tabs)/fitness/_layout';
 import InsightsLayout from '@/app/(tabs)/insights/_layout';
-import TrainingLayout from '@/app/(tabs)/training/_layout';
+import SettingsLayout from '@/app/(tabs)/settings/_layout';
 import { useAuthStore } from '@/shared/app/AuthStore';
 // After the layout: the testing library mocks reanimated for every later import,
 // and that mock lacks the logger the root layout configures at load.
@@ -88,13 +88,13 @@ const APP = {
   '(tabs)/(feed)/index': leaf('feed'),
   '(tabs)/fitness/_layout': FitnessLayout,
   '(tabs)/fitness/index': leaf('fitness'),
-  '(tabs)/training/_layout': TrainingLayout,
-  '(tabs)/training/index': leaf('training'),
   '(tabs)/insights/_layout': InsightsLayout,
   '(tabs)/insights/index': leaf('insights'),
   '(tabs)/map': leaf('map'),
+  '(tabs)/settings/_layout': SettingsLayout,
+  '(tabs)/settings/index': leaf('settings'),
   'activity/[id]': leaf('activity'),
-  settings: leaf('settings'),
+  'display-settings': leaf('display-settings'),
   about: leaf('about'),
   login: leaf('login'),
 };
@@ -155,7 +155,16 @@ async function expectFeedInFront(result: Awaited<ReturnType<typeof renderRouter>
   expect(screen.getByText('feed')).toBeVisible();
 }
 
-it.each([['/fitness'], ['/training'], ['/map'], ['/insights']])(
+it('a link to /settings opens the Settings tab rather than a screen over the tabs', async () => {
+  const result = await open({ initialUrl: '/' });
+  await settle();
+
+  await openLink('/settings');
+  expect(result.getPathname()).toBe('/settings');
+  expect(focusedChain()).toEqual(['__root', '(tabs)', 'settings', 'index']);
+});
+
+it.each([['/fitness'], ['/map'], ['/insights'], ['/settings']])(
   'a root link after a link to %s brings the Feed to the front',
   async (tab) => {
     const result = await open({ initialUrl: '/' });
@@ -170,7 +179,7 @@ it.each([['/fitness'], ['/training'], ['/map'], ['/insights']])(
   }
 );
 
-it.each([['/settings'], ['/about'], ['/activity/a1']])(
+it.each([['/display-settings'], ['/about'], ['/activity/a1']])(
   'a root link over the stack screen %s pops it and brings the Feed to the front',
   async (stackScreen) => {
     const result = await open({ initialUrl: '/' });
@@ -190,12 +199,12 @@ it('the Feed is in front after every root link in a run of rapid links', async (
   await settle();
 
   for (let cycle = 0; cycle < 2; cycle++) {
-    for (const tab of ['/fitness', '/training', '/map']) await openLink(tab);
+    for (const tab of ['/fitness', '/map', '/insights', '/settings']) await openLink(tab);
     await openLink('/');
     await expectFeedInFront(result);
   }
   for (let cycle = 0; cycle < 2; cycle++) {
-    for (const path of ['/settings', '/about', '/insights']) await openLink(path);
+    for (const path of ['/display-settings', '/about', '/insights']) await openLink(path);
     await openLink('/');
     await expectFeedInFront(result);
   }

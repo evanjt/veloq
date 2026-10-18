@@ -5,11 +5,11 @@
  * offered, and the entry being restored is busy on every screen.
  */
 import React from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
-import { Row } from '@/shared/ui';
+import { Row, Spinner } from '@/shared/ui';
 import { composeAccessibilityLabel } from '@/shared/ui/accessibilityLabel';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, typography } from '@/theme';
@@ -58,13 +58,7 @@ export function BackupEntryRow({
           <Text style={[styles.detail, isDark && styles.detailDark]}>{details}</Text>
         ) : null}
       </View>
-      {busy ? (
-        <ActivityIndicator
-          testID={`${testID}-spinner`}
-          size="small"
-          color={isDark ? darkColors.textSecondary : colors.textSecondary}
-        />
-      ) : null}
+      {busy ? <Spinner label={title} testID={`${testID}-spinner`} /> : null}
     </Row>
   );
 }

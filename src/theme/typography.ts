@@ -273,10 +273,13 @@ export const typography = {
     letterSpacing: 0.3,
     textTransform: 'uppercase' as const,
   },
+  // A badge's count, record word or signed change, in tabular figures so a
+  // count keeps its width as it changes.
   badge: {
     fontFamily,
     fontSize: 11,
     fontWeight: faceWeight('600'),
     lineHeight: 14,
+    fontVariant: tabularFigures,
   },
 } as const;

@@ -9,18 +9,12 @@ use rusqlite::{OptionalExtension, Result as SqlResult, params, types::Type};
 use super::codec;
 use super::codec::{TrackRead, TrackWalk};
 use super::{ActivityBoundsEntry, ActivityMetadata, PersistentEngine};
-use crate::net::types::{ActivityCensusEntry, ActivityRecord};
+use crate::net::intervals::metrics_from_body;
+use crate::net::types::ActivityCensusEntry;
 use crate::{
     ActivityMatchInfo, ActivityMetrics, Bounds, FrequentSection, GpsPoint, RouteSignature,
 };
 use crate::{LibraryCoverage, RangeCoverage};
-
-fn metrics_from_body(raw: &str, date: i64, id: &str) -> SqlResult<ActivityMetrics> {
-    let mut record: ActivityRecord = serde_json::from_str(raw)
-        .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
-    record.id = id.to_string();
-    Ok(crate::objects::sync::activity_metrics_row(record, date))
-}
 
 struct RemovalMemory {
     identity: super::sections::SectionIdentity,
@@ -424,6 +418,8 @@ const ACTIVITY_KEYED_TABLES: &[&str] = &[
     "stream_bodies",
     "interval_bodies",
     "exercise_sets",
+    "swim_lengths",
+    "pool_swims",
     "fit_file_status",
     "eftp_changes",
     "section_forced_matches",
@@ -2225,6 +2221,8 @@ impl PersistentEngine {
              DELETE FROM curve_bodies;
              DELETE FROM calendar_event_bodies;
              DELETE FROM exercise_sets;
+             DELETE FROM swim_lengths;
+             DELETE FROM pool_swims;
              DELETE FROM fit_file_status;
              DELETE FROM wellness;
              DELETE FROM eftp_changes;
@@ -4629,6 +4627,10 @@ mod activities_pool_tests;
 mod synced_activity_bodies_tests;
 
 #[cfg(test)]
+#[path = "tests/activity_body_metrics.rs"]
+mod activity_body_metrics_tests;
+
+#[cfg(test)]
 mod tests {
     use super::super::commit_counter;
     use super::*;
@@ -6009,6 +6011,8 @@ mod tests {
         ("interval_bodies", "activity_id"),
         ("exercise_sets", "activity_id"),
         ("fit_file_status", "activity_id"),
+        ("swim_lengths", "activity_id"),
+        ("pool_swims", "activity_id"),
         ("section_forced_matches", "activity_id"),
     ];
 
@@ -6030,6 +6034,8 @@ mod tests {
             "INSERT INTO exercise_sets (activity_id, set_order, exercise_category, set_type)
              VALUES (?1, 0, 0, 0)",
             "INSERT INTO fit_file_status (activity_id, processed_at) VALUES (?1, 0)",
+            "INSERT INTO swim_lengths (activity_id, length_index) VALUES (?1, 0)",
+            "INSERT INTO pool_swims (activity_id, pool_length_m) VALUES (?1, 25)",
             "INSERT INTO section_forced_matches (section_id, activity_id, forced_at)
              VALUES ('s1', ?1, 0)",
             "INSERT INTO section_rank_dirty_activity (activity_id) VALUES (?1) ON CONFLICT DO NOTHING",

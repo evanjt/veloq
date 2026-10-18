@@ -19,14 +19,14 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useAfterNavigationTransition } from '@/shared/async/useAfterNavigationTransition';
 // Straight from the module, not the app barrel: the barrel reaches the
 // in-app purchase binding, which a screen that only needs the theme should not.
 import { useTheme } from '@/shared/app/useTheme';
-import { Button, ErrorState, ScreenSafeAreaView, useBottomClearance } from '@/shared/ui';
+import { Button, ErrorState, ScreenSafeAreaView, useBottomClearance, Spinner } from '@/shared/ui';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { getEngine } from '@/shared/native/engine';
 import { attemptEngineRead } from '@/shared/native/engineError';
@@ -259,7 +259,7 @@ function RouteGroupingPreviewScreenContent() {
         )}
 
         <View style={styles.statusRow}>
-          {status === 'running' && <ActivityIndicator size="small" color={textSecondary} />}
+          {status === 'running' && <Spinner label={statusText} />}
           <Text
             style={[
               styles.statusText,

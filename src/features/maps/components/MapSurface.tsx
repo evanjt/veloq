@@ -20,7 +20,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { ActivityIndicator, AppState, PixelRatio, StyleSheet, Text, View } from 'react-native';
+import { AppState, PixelRatio, StyleSheet, Text, View } from 'react-native';
 
 import { WebView } from 'react-native-webview';
 import { veloqWebViewNativeConfig, type WebViewHandle } from '@/features/maps/lib/veloqWebView';
@@ -28,7 +28,7 @@ import { mapPageBaseUrl } from '@/features/maps/lib/tileTransport';
 import { useTranslation } from 'react-i18next';
 
 import { darkColors, iconSize, spacing, typography } from '@/theme';
-import { ComponentErrorBoundary } from '@/shared/ui';
+import { ComponentErrorBoundary, Spinner } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { debug } from '@/shared/debug/debug';
 import { useWebViewBridge } from '@/features/maps/hooks/useWebViewBridge';
@@ -609,7 +609,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
             pointerEvents="none"
             testID={MAP_SURFACE_TILES_LOADING_TEST_ID}
           >
-            <ActivityIndicator size="small" color={darkColors.textSecondary} />
+            <Spinner color={darkColors.textSecondary} label={t('common.loading')} />
           </View>
         ) : null}
         {unavailable ? (

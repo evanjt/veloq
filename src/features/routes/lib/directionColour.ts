@@ -1,10 +1,12 @@
-import { colors, darkColors } from '@/theme';
+import { directionPair } from '@/theme';
+import type { ChartDirection } from '@/features/routes/lib/scatterData';
 
 /**
- * The colour a route or section page draws Forward in, on every view of the
- * page. It is the brand primary rather than the sport's colour, because Reverse
- * is a fixed pink and the pair has to read the same whatever the sport.
+ * The colour a route or section page draws a direction in, on every chart and
+ * cue of the page. The pair is fixed rather than the sport's colour, so it
+ * reads the same whatever the sport, and every reader pairs it with the
+ * direction's word or arrow.
  */
-export function forwardDirectionColour(isDark: boolean): string {
-  return isDark ? darkColors.actionPrimary : colors.actionPrimary;
+export function directionColour(direction: ChartDirection, isDark: boolean): string {
+  return directionPair[isDark ? 'dark' : 'light'][direction];
 }

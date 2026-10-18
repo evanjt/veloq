@@ -74,7 +74,7 @@ const engine = {
   getSyncStatus: jest.fn(() => ({ state: SyncState.Idle })),
   getStrengthScreenData: jest.fn(),
   getUnprocessedStrengthIds: jest.fn((): string[] => []),
-  batchFetchExerciseSets: jest.fn((_ids: string[]) => ({ outcome: StartOutcome.NotOwed })),
+  batchFetchOwedFitFiles: jest.fn(() => ({ outcome: StartOutcome.NotOwed })),
   getBodiesStored: jest.fn(() => 0),
 };
 
@@ -152,7 +152,7 @@ beforeEach(() => {
   engine.getStrengthScreenData.mockReturnValue(screenRead());
   engine.getSyncStatus.mockReturnValue({ state: SyncState.Idle });
   engine.getUnprocessedStrengthIds.mockReturnValue([]);
-  engine.batchFetchExerciseSets.mockReturnValue({ outcome: StartOutcome.NotOwed });
+  engine.batchFetchOwedFitFiles.mockReturnValue({ outcome: StartOutcome.NotOwed });
 });
 
 afterEach(() => {
@@ -162,7 +162,7 @@ afterEach(() => {
 /** Three strength sessions owe their files, and asking for them answers `outcome`. */
 function owesFiles(outcome: StartOutcome) {
   engine.getUnprocessedStrengthIds.mockReturnValue(['w1', 'w2', 'w3']);
-  engine.batchFetchExerciseSets.mockReturnValue({ outcome });
+  engine.batchFetchOwedFitFiles.mockReturnValue({ outcome });
 }
 
 function emptyPeriodOwing() {
@@ -188,7 +188,7 @@ describe('an empty period whose workouts are owed their files', () => {
     await renderTab();
 
     await waitFor(() => expect(screen.getByText('strength.downloading')).toBeTruthy());
-    expect(engine.batchFetchExerciseSets).toHaveBeenCalledWith(['w1', 'w2', 'w3']);
+    expect(engine.batchFetchOwedFitFiles).toHaveBeenCalledWith();
     expect(screen.queryByTestId('strength-not-downloaded-retry')).toBeNull();
 
     await act(() => {
@@ -198,7 +198,7 @@ describe('an empty period whose workouts are owed their files', () => {
     expect(screen.getByText('strength.notDownloaded')).toBeTruthy();
     expect(screen.queryByText('strength.notDownloadedHint')).toBeNull();
     await fireEvent.press(screen.getByTestId('strength-not-downloaded-retry'));
-    expect(engine.batchFetchExerciseSets).toHaveBeenCalledTimes(2);
+    expect(engine.batchFetchOwedFitFiles).toHaveBeenCalledTimes(2);
   });
 
   it.each([
@@ -221,7 +221,7 @@ describe('an empty period whose workouts are owed their files', () => {
     await renderTab();
 
     await waitFor(() => expect(screen.getByTestId('strength-tab')).toBeTruthy());
-    expect(engine.batchFetchExerciseSets).not.toHaveBeenCalled();
+    expect(engine.batchFetchOwedFitFiles).not.toHaveBeenCalled();
   });
 });
 

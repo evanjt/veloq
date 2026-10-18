@@ -30,6 +30,7 @@ import {
   type SummaryDay,
 } from '@/shared/charts';
 import {
+  chartStyles,
   colors,
   darkColors,
   typography,
@@ -400,9 +401,14 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
             scrollEventThrottle={16}
             onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
           >
-            <View>
+            {/* The month labels, the highlight and the day controls are placed in the canvas's
+                own coordinates, so they share its left to right box. */}
+            <View style={chartStyles.plotDirection}>
               {/* Month labels, January carrying its year */}
-              <View style={[styles.monthLabels, { width: GRID_WIDTH }]}>
+              <View
+                testID="activity-heatmap-months"
+                style={[styles.monthLabels, { width: GRID_WIDTH }]}
+              >
                 {labels.months.map((m) =>
                   m.year !== undefined ? (
                     <View
@@ -459,6 +465,7 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
                 </ChartSurface>
                 {highlightPos ? (
                   <View
+                    testID="activity-heatmap-highlight"
                     style={[
                       styles.highlightCell,
                       {

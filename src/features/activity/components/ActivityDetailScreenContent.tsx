@@ -4,7 +4,6 @@ import {
   View,
   ScrollView,
   StyleSheet,
-  ActivityIndicator,
   useWindowDimensions,
   type ViewInstance,
 } from 'react-native';
@@ -16,6 +15,7 @@ import {
   ErrorState,
   showNotice,
   useHeroMapHeight,
+  Spinner,
 } from '@/shared/ui';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { useLocalSearchParams, Stack } from 'expo-router';
@@ -465,10 +465,7 @@ export function ActivityDetailScreenContent({
             />
           ) : (
             <View testID="activity-detail-waiting" style={styles.waiting}>
-              <ActivityIndicator
-                size="large"
-                color={isDark ? darkColors.textSecondary : colors.textSecondary}
-              />
+              <Spinner size="large" label={t('activitySummary.downloading')} />
               <Text style={{ color: isDark ? darkColors.textSecondary : colors.textSecondary }}>
                 {t('activitySummary.downloading')}
               </Text>

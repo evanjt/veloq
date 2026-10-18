@@ -13,7 +13,7 @@ import { Circle, Skia } from '@shopify/react-native-skia';
 
 import { SectionScatterChart } from '@/features/routes/components/section/SectionScatterChart';
 import type { PerformanceDataPoint } from '@/types';
-import { colors } from '@/theme';
+import { colors, directionPair } from '@/theme';
 import { layoutViews } from '../__shared__/layoutViews';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -57,13 +57,12 @@ function chart(props: Partial<React.ComponentProps<typeof SectionScatterChart>> 
       chartData={CHART_DATA}
       activityType="Ride"
       isDark={false}
-      forwardColour="#0D9488"
       bestForwardRecord={null}
       bestReverseRecord={null}
       bestForwardIsRecord={false}
       bestReverseIsRecord={false}
-      forwardStats={null}
-      reverseStats={null}
+      forwardStats={{ avgTime: 560, lastActivity: null, count: 3 }}
+      reverseStats={{ avgTime: 560, lastActivity: null, count: 3 }}
       trendCurves={TREND_CURVES}
       {...props}
     />
@@ -89,13 +88,13 @@ describe('section scatter trend paths', () => {
     const reverse = tree.getByTestId('section-chart-direction-reverse');
 
     expect(reverse.props.accessibilityState.selected).toBe(true);
-    expect(rendered.filter((dot) => dot.color === colors.reverseDirection)).toHaveLength(3);
+    expect(rendered.filter((dot) => dot.color === directionPair.light.reverse)).toHaveLength(3);
 
     rendered.length = 0;
     await fireEvent.press(forward);
 
     expect(forward.props.accessibilityState.selected).toBe(true);
-    expect(rendered.filter((dot) => dot.color === colors.reverseDirection)).toHaveLength(0);
+    expect(rendered.filter((dot) => dot.color === directionPair.light.reverse)).toHaveLength(0);
   });
 
   it('omits the direction switch for a single direction', async () => {

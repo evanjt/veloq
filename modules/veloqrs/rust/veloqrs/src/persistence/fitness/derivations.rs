@@ -1451,35 +1451,16 @@ pub(crate) mod pooled {
         sport_type: &str,
         zone_type: &str,
     ) -> Vec<String> {
-        let key = match zone_type {
-            "power" => "power_zone_names",
-            "hr" => "hr_zone_names",
+        let settings =
+            crate::persistence::fitness::sport_settings::SportSettings::parse(sport_settings);
+        let Some(entry) = settings.family_entry_for(sport_type) else {
+            return Vec::new();
+        };
+        let mut names = match zone_type {
+            "power" => entry.power_zone_names.clone(),
+            "hr" => entry.hr_zone_names.clone(),
             _ => return Vec::new(),
         };
-        let family = crate::sport::family_of(sport_type);
-        let names = sport_settings
-            .and_then(|raw| serde_json::from_str::<serde_json::Value>(raw).ok())
-            .and_then(|settings| {
-                settings
-                    .as_array()?
-                    .iter()
-                    .find(|entry| {
-                        entry
-                            .get("types")
-                            .and_then(|t| t.as_array())
-                            .is_some_and(|types| {
-                                types
-                                    .iter()
-                                    .any(|t| t.as_str().is_some_and(|t| family.contains(&t)))
-                            })
-                    })?
-                    .get(key)?
-                    .as_array()?
-                    .iter()
-                    .map(|name| name.as_str().map(str::to_string))
-                    .collect::<Option<Vec<_>>>()
-            });
-        let mut names = names.unwrap_or_default();
         names.truncate(crate::persistence::fitness::ZONE_COLUMNS);
         names
     }

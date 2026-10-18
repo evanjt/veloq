@@ -17,13 +17,13 @@ import {
   colors,
   colorWithOpacity,
   darkColors,
-  layout,
   opacity,
   spacing,
   typography,
   themePalette,
 } from '@/theme';
 import { confirmAction, inform } from '@/shared/ui/dialog';
+import { ProgressBar } from '@/shared/ui/ProgressRow';
 
 export function SyncRangePanel() {
   const { isDark } = useTheme();
@@ -144,18 +144,12 @@ export function SyncRangePanel() {
               },
             ]}
           >
-            <View style={[styles.progressBarTrack, isDark && styles.progressBarTrackDark]}>
-              <View
-                testID="settings-sync-range-progress-fill"
-                style={[
-                  styles.progressBarFill,
-                  {
-                    width: `${Math.max(trackLine?.percent ?? 0, 2)}%`,
-                    backgroundColor: palette.actionPrimary,
-                  },
-                ]}
-              />
-            </View>
+            <ProgressBar
+              done={trackLine?.percent ?? 0}
+              total={100}
+              label={trackLine?.text ?? t('cache.fetchingActivities')}
+              fillTestID="settings-sync-range-progress-fill"
+            />
             <Text style={[styles.progressText, isDark && styles.progressTextDark]}>
               {trackLine?.text ?? t('cache.fetchingActivities')}
               {trackLine?.countText ? ` (${trackLine.countText})` : null}
@@ -176,22 +170,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
-  progressBarTrack: {
-    height: 4,
-    backgroundColor: colors.border,
-    borderRadius: layout.borderRadiusFull,
-    overflow: 'hidden',
-    marginBottom: spacing.xs,
-  },
-  progressBarTrackDark: {
-    backgroundColor: darkColors.border,
-  },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: layout.borderRadiusXs,
-  },
   progressText: {
     ...typography.caption,
+    marginTop: spacing.xs,
     color: colors.textSecondary,
   },
   progressTextDark: {

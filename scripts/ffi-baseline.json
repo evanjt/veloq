@@ -93,9 +93,6 @@
     "getSetting": {
       "p95Ms": 0.6
     },
-    "getSportSettings": {
-      "p95Ms": 0.2
-    },
     "getStartupData": {
       "p95Ms": 17.1
     },

@@ -1,4 +1,5 @@
 import { MAP_TEXT_FONT_BOLD, MAP_TEXT_FONT_REGULAR } from '@/features/maps/lib/bundledGlyphs';
+import { tones } from '../tones';
 
 export const LIBERTY_LAYERS_LABEL = [
   // --- Buildings ---
@@ -10,16 +11,8 @@ export const LIBERTY_LAYERS_LABEL = [
     minzoom: 13,
     maxzoom: 14,
     paint: {
-      'fill-color': 'hsl(35,8%,85%)',
-      'fill-outline-color': [
-        'interpolate',
-        ['linear'],
-        ['zoom'],
-        13,
-        'hsla(35,6%,79%,0.32)',
-        14,
-        'hsl(35,6%,79%)',
-      ],
+      'fill-color': tones.building,
+      'fill-outline-color': tones.buildingEdge,
     },
   },
   {
@@ -30,7 +23,7 @@ export const LIBERTY_LAYERS_LABEL = [
     minzoom: 14,
     paint: {
       'fill-extrusion-base': ['get', 'render_min_height'],
-      'fill-extrusion-color': 'hsl(35,8%,85%)',
+      'fill-extrusion-color': tones.building,
       'fill-extrusion-height': ['get', 'render_height'],
       'fill-extrusion-opacity': 0.8,
     },
@@ -51,7 +44,7 @@ export const LIBERTY_LAYERS_LABEL = [
       ['!', ['has', 'claimed_by']],
     ],
     paint: {
-      'line-color': 'hsl(0,0%,70%)',
+      'line-color': tones.boundary,
       'line-dasharray': [1, 1],
       'line-width': ['interpolate', ['linear', 1], ['zoom'], 7, 1, 11, 2],
     },
@@ -70,7 +63,7 @@ export const LIBERTY_LAYERS_LABEL = [
     ],
     layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: {
-      'line-color': 'hsl(248,1%,41%)',
+      'line-color': tones.label,
       'line-opacity': ['interpolate', ['linear'], ['zoom'], 0, 0.4, 4, 1],
       'line-width': ['interpolate', ['linear'], ['zoom'], 3, 1, 5, 1.2, 12, 3],
     },
@@ -82,7 +75,7 @@ export const LIBERTY_LAYERS_LABEL = [
     'source-layer': 'boundary',
     filter: ['all', ['!=', ['get', 'maritime'], 1], ['==', ['get', 'disputed'], 1]],
     paint: {
-      'line-color': 'hsl(248,1%,41%)',
+      'line-color': tones.label,
       'line-dasharray': [1, 2],
       'line-width': ['interpolate', ['linear'], ['zoom'], 3, 1, 5, 1.2, 12, 3],
     },
@@ -105,8 +98,8 @@ export const LIBERTY_LAYERS_LABEL = [
       'text-size': 14,
     },
     paint: {
-      'text-color': '#74aee9',
-      'text-halo-color': 'rgba(255,255,255,0.7)',
+      'text-color': tones.label,
+      'text-halo-color': tones.halo,
       'text-halo-width': 1.5,
     },
   },
@@ -124,8 +117,8 @@ export const LIBERTY_LAYERS_LABEL = [
       'text-size': ['interpolate', ['linear'], ['zoom'], 0, 10, 8, 14],
     },
     paint: {
-      'text-color': '#495e91',
-      'text-halo-color': 'rgba(255,255,255,0.7)',
+      'text-color': tones.label,
+      'text-halo-color': tones.halo,
       'text-halo-width': 1.5,
     },
   },
@@ -145,8 +138,8 @@ export const LIBERTY_LAYERS_LABEL = [
       'text-size': 14,
     },
     paint: {
-      'text-color': '#495e91',
-      'text-halo-color': 'rgba(255,255,255,0.7)',
+      'text-color': tones.label,
+      'text-halo-color': tones.halo,
       'text-halo-width': 1.5,
     },
   },
@@ -177,9 +170,9 @@ export const LIBERTY_LAYERS_LABEL = [
       'text-size': 12,
     },
     paint: {
-      'text-color': '#666',
+      'text-color': tones.label,
       'text-halo-blur': 0.5,
-      'text-halo-color': '#ffffff',
+      'text-halo-color': tones.halo,
       'text-halo-width': 1,
     },
   },
@@ -211,9 +204,9 @@ export const LIBERTY_LAYERS_LABEL = [
       'text-size': 12,
     },
     paint: {
-      'text-color': '#666',
+      'text-color': tones.label,
       'text-halo-blur': 0.5,
-      'text-halo-color': '#ffffff',
+      'text-halo-color': tones.halo,
       'text-halo-width': 1,
     },
   },
@@ -245,9 +238,9 @@ export const LIBERTY_LAYERS_LABEL = [
       'text-size': 12,
     },
     paint: {
-      'text-color': '#666',
+      'text-color': tones.label,
       'text-halo-blur': 0.5,
-      'text-halo-color': '#ffffff',
+      'text-halo-color': tones.halo,
       'text-halo-width': 1,
     },
   },
@@ -268,9 +261,9 @@ export const LIBERTY_LAYERS_LABEL = [
       'text-size': 12,
     },
     paint: {
-      'text-color': '#2e5a80',
+      'text-color': tones.label,
       'text-halo-blur': 0.5,
-      'text-halo-color': '#ffffff',
+      'text-halo-color': tones.halo,
       'text-halo-width': 1,
     },
   },
@@ -289,8 +282,8 @@ export const LIBERTY_LAYERS_LABEL = [
       'text-size': ['interpolate', ['linear'], ['zoom'], 13, 12, 14, 13],
     },
     paint: {
-      'text-color': 'hsl(30,23%,62%)',
-      'text-halo-color': '#f8f4f0',
+      'text-color': tones.label,
+      'text-halo-color': tones.halo,
       'text-halo-width': 0.5,
     },
   },
@@ -312,7 +305,7 @@ export const LIBERTY_LAYERS_LABEL = [
       'text-rotation-alignment': 'map',
       'text-size': ['interpolate', ['linear'], ['zoom'], 13, 12, 14, 13],
     },
-    paint: { 'text-color': '#666', 'text-halo-blur': 0.5, 'text-halo-width': 1 },
+    paint: { 'text-color': tones.label, 'text-halo-blur': 0.5, 'text-halo-width': 1 },
   },
   {
     id: 'highway-name-major',
@@ -328,7 +321,7 @@ export const LIBERTY_LAYERS_LABEL = [
       'text-rotation-alignment': 'map',
       'text-size': ['interpolate', ['linear'], ['zoom'], 13, 12, 14, 13],
     },
-    paint: { 'text-color': '#666', 'text-halo-blur': 0.5, 'text-halo-width': 1 },
+    paint: { 'text-color': tones.label, 'text-halo-blur': 0.5, 'text-halo-width': 1 },
   },
   {
     id: 'highway-shield-non-us',
@@ -422,9 +415,9 @@ export const LIBERTY_LAYERS_LABEL = [
       'text-size': 12,
     },
     paint: {
-      'text-color': '#666',
+      'text-color': tones.label,
       'text-halo-blur': 0.5,
-      'text-halo-color': '#ffffff',
+      'text-halo-color': tones.halo,
       'text-halo-width': 1,
     },
   },
@@ -450,9 +443,9 @@ export const LIBERTY_LAYERS_LABEL = [
       'text-transform': 'uppercase',
     },
     paint: {
-      'text-color': '#333',
+      'text-color': tones.label,
       'text-halo-blur': 1,
-      'text-halo-color': '#fff',
+      'text-halo-color': tones.halo,
       'text-halo-width': 1,
     },
   },
@@ -475,9 +468,9 @@ export const LIBERTY_LAYERS_LABEL = [
       'text-size': ['interpolate', ['exponential', 1.2], ['zoom'], 7, 10, 11, 12],
     },
     paint: {
-      'text-color': '#000',
+      'text-color': tones.labelStrong,
       'text-halo-blur': 1,
-      'text-halo-color': '#fff',
+      'text-halo-color': tones.halo,
       'text-halo-width': 1,
     },
   },
@@ -500,9 +493,9 @@ export const LIBERTY_LAYERS_LABEL = [
       'text-size': ['interpolate', ['exponential', 1.2], ['zoom'], 7, 12, 11, 14],
     },
     paint: {
-      'text-color': '#000',
+      'text-color': tones.labelStrong,
       'text-halo-blur': 1,
-      'text-halo-color': '#fff',
+      'text-halo-color': tones.halo,
       'text-halo-width': 1,
     },
   },
@@ -523,9 +516,9 @@ export const LIBERTY_LAYERS_LABEL = [
       'text-transform': 'uppercase',
     },
     paint: {
-      'text-color': '#333',
+      'text-color': tones.label,
       'text-halo-blur': 1,
-      'text-halo-color': '#fff',
+      'text-halo-color': tones.halo,
       'text-halo-width': 1,
     },
   },
@@ -549,9 +542,9 @@ export const LIBERTY_LAYERS_LABEL = [
       'text-size': ['interpolate', ['exponential', 1.2], ['zoom'], 4, 11, 7, 13, 11, 18],
     },
     paint: {
-      'text-color': '#000',
+      'text-color': tones.labelStrong,
       'text-halo-blur': 1,
-      'text-halo-color': '#fff',
+      'text-halo-color': tones.halo,
       'text-halo-width': 1,
     },
   },
@@ -575,9 +568,9 @@ export const LIBERTY_LAYERS_LABEL = [
       'text-size': ['interpolate', ['exponential', 1.2], ['zoom'], 4, 12, 7, 14, 11, 20],
     },
     paint: {
-      'text-color': '#000',
+      'text-color': tones.labelStrong,
       'text-halo-blur': 1,
-      'text-halo-color': '#fff',
+      'text-halo-color': tones.halo,
       'text-halo-width': 1,
     },
   },
@@ -596,9 +589,9 @@ export const LIBERTY_LAYERS_LABEL = [
       'text-size': ['interpolate', ['linear'], ['zoom'], 3, 9, 7, 17],
     },
     paint: {
-      'text-color': '#000',
+      'text-color': tones.labelStrong,
       'text-halo-blur': 1,
-      'text-halo-color': '#fff',
+      'text-halo-color': tones.halo,
       'text-halo-width': 1,
     },
   },
@@ -616,9 +609,9 @@ export const LIBERTY_LAYERS_LABEL = [
       'text-size': ['interpolate', ['linear'], ['zoom'], 2, 9, 5, 17],
     },
     paint: {
-      'text-color': '#000',
+      'text-color': tones.labelStrong,
       'text-halo-blur': 1,
-      'text-halo-color': '#fff',
+      'text-halo-color': tones.halo,
       'text-halo-width': 1,
     },
   },
@@ -636,9 +629,9 @@ export const LIBERTY_LAYERS_LABEL = [
       'text-size': ['interpolate', ['linear'], ['zoom'], 1, 9, 4, 17],
     },
     paint: {
-      'text-color': '#000',
+      'text-color': tones.labelStrong,
       'text-halo-blur': 1,
-      'text-halo-color': '#fff',
+      'text-halo-color': tones.halo,
       'text-halo-width': 1,
     },
   },

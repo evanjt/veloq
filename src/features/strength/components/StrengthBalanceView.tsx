@@ -5,16 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
 import { navigateTo } from '@/shared/app/navigation';
-import {
-  colors,
-  darkColors,
-  iconSize,
-  layout,
-  spacing,
-  typography,
-  verdictFill,
-  stroke,
-} from '@/theme';
+import { colors, darkColors, iconSize, spacing, typography, stroke } from '@/theme';
 import type { StrengthBalancePair } from '@/types';
 
 import {
@@ -73,16 +64,9 @@ export const StrengthBalanceView = React.memo(function StrengthBalanceView({
             </Text>
           </View>
           {featuredBalancePair ? (
-            <View
-              style={[
-                styles.balanceHeroBadge,
-                { backgroundColor: verdictFill('neutral', isDark, true) },
-              ]}
-            >
-              <Text style={[styles.balanceHeroBadgeText, isDark && styles.balanceBadgeTextDark]}>
-                {formatBalanceRatio(featuredBalancePair, balanceCopy)}
-              </Text>
-            </View>
+            <Text style={[styles.balanceHeroRatio, isDark && styles.balanceBandTextDark]}>
+              {formatBalanceRatio(featuredBalancePair, balanceCopy)}
+            </Text>
           ) : null}
         </View>
 
@@ -114,16 +98,9 @@ export const StrengthBalanceView = React.memo(function StrengthBalanceView({
               <Text style={[styles.balanceRowTitle, isDark && styles.balanceRowTitleDark]}>
                 {pair.label}
               </Text>
-              <View
-                style={[
-                  styles.balanceStatusBadge,
-                  { backgroundColor: verdictFill('neutral', isDark) },
-                ]}
-              >
-                <Text style={[styles.balanceStatusText, isDark && styles.balanceBadgeTextDark]}>
-                  {t(balanceStatusLabelKey(pair.status))}
-                </Text>
-              </View>
+              <Text style={[styles.balanceBandText, isDark && styles.balanceBandTextDark]}>
+                {t(balanceStatusLabelKey(pair.status))}
+              </Text>
             </View>
 
             <View style={styles.balanceValueRow}>
@@ -181,12 +158,9 @@ const styles = StyleSheet.create({
   balanceSubtitleDark: {
     color: darkColors.textSecondary,
   },
-  balanceHeroBadge: {
-    borderRadius: layout.borderRadiusMd,
-    paddingHorizontal: spacing.smPlus,
-    paddingVertical: spacing.xs,
-  },
-  balanceHeroBadgeText: {
+  // The ratio and the band are results longer than a badge holds, so they
+  // are drawn as text beside what they describe.
+  balanceHeroRatio: {
     ...typography.captionBold,
     color: colors.textSecondary,
   },
@@ -224,16 +198,11 @@ const styles = StyleSheet.create({
   balanceRowTitleDark: {
     color: darkColors.textPrimary,
   },
-  balanceStatusBadge: {
-    borderRadius: layout.borderRadiusSm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  balanceStatusText: {
-    ...typography.badge,
+  balanceBandText: {
+    ...typography.caption,
     color: colors.textSecondary,
   },
-  balanceBadgeTextDark: {
+  balanceBandTextDark: {
     color: darkColors.textSecondary,
   },
   balanceValueRow: {

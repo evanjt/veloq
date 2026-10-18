@@ -33,9 +33,9 @@ jest.mock('@/shared/ui', () => {
 jest.mock('@/features/activity/components/ChartTypeSelector', () => ({
   ChartTypeSelector: () => null,
 }));
-jest.mock('@/features/activity/components/CombinedPlot', () => {
+jest.mock('@/features/activity/components/ActivityStreams', () => {
   const { View } = require('react-native');
-  return { CombinedPlot: () => <View testID="combined-plot" /> };
+  return { ActivityStreams: () => <View testID="activity-streams" /> };
 });
 const mockHRZonesChart = jest.fn((_props: { maxHR?: number; movingTime: number }) => null);
 jest.mock('@/features/activity/components/HRZonesChart', () => ({

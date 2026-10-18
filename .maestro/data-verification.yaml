@@ -23,11 +23,11 @@ tags:
 - assertNotVisible:
     text: "undefined"
 
-# Navigate to training screen to check weekly summary
+# Navigate to the fitness screen to check weekly summary
 - runFlow:
-    file: helpers/navigate-to-training.yaml
+    file: helpers/navigate-to-fitness.yaml
 
-# WeeklySummary sits below the heatmap and the wellness chart, under the fold.
+# WeeklySummary sits below the fitness and wellness charts, under the fold.
 - runFlow:
     file: helpers/reveal.yaml
     env:
@@ -35,7 +35,7 @@ tags:
 
 - takeScreenshot: "screenshots/data-verification-training"
 
-# Check for bad values on training screen
+# Check for bad values on the fitness screen
 - assertNotVisible:
     text: "NaN"
 - assertNotVisible:

@@ -139,4 +139,31 @@ describe('the widget previews in the Android picker', () => {
       );
     expect(unfilled).toEqual([]);
   });
+
+  /**
+   * A preview is inflated by the launcher with nothing bound, so a colour it names that the
+   * theme no longer defines fails the app's resource link rather than any one widget.
+   */
+  it('names only colours the widget theme defines', () => {
+    const theme = fs.readFileSync(path.join(res, 'values', 'widget_theme.xml'), 'utf8');
+    const defined = new Set([...theme.matchAll(/<color name="([\w]+)"/g)].map((m) => m[1]));
+    const undefinedColours = infos().flatMap((info) => {
+      const xml = fs.readFileSync(path.join(res, 'layout', `${previewOf(info)}.xml`), 'utf8');
+      return [...xml.matchAll(/@color\/(widget_[\w]+)/g)]
+        .map((m) => m[1])
+        .filter((name) => !defined.has(name))
+        .map((name) => `${info}: ${name}`);
+    });
+    expect(undefinedColours).toEqual([]);
+  });
+
+  /** A value is primary text: the measure's colour is said by the key dot beside it. */
+  it('draws the Summary values in primary text with a key dot in the measure colour', () => {
+    const xml = fs.readFileSync(path.join(res, 'layout', 'widget_preview_summary.xml'), 'utf8');
+    const element = (id: string) =>
+      new RegExp(`<[A-Za-z][\\w.]*\\b[^>]*?android:id="@\\+id/${id}"[^>]*?>`).exec(xml)?.[0] ?? '';
+    expect(element('sum_value')).toContain('android:textColor="@color/widget_text_primary"');
+    expect(element('sum_line')).not.toMatch(/textColor="@color\/widget_(form|blue|fatigue)/);
+    expect(element('sum_key')).toMatch(/android:tint="@color\/widget_(form_\w+|blue|fatigue)"/);
+  });
 });

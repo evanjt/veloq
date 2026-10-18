@@ -15,7 +15,6 @@ import {
   lineFeature,
   type LngLat,
   lngLatFromShort,
-  type MapLayerSpec,
   type MapSourceSpec,
   type MapStyleType,
   MapSurface,
@@ -24,28 +23,21 @@ import {
   pointFeature,
   pointsBetweenSourceIndices,
 } from '@/features/maps';
+import { recordingMapLayers } from '../lib/recordingMapLayers';
 import {
   brand,
   cameraMove,
   colors,
-  colorWithOpacity,
   darkColors,
   iconSize,
   layout,
-  opacity,
-  recording,
+  mapPalette,
   spacing,
   stroke,
 } from '@/theme';
 import type { LatLngShort } from '@/shared/geo/distance';
 import { LOCATE_GLYPH } from '@/features/maps';
 import { Icon } from '@/shared/ui/Icon';
-
-const EXCLUDED_COLOR = colorWithOpacity(colors.iconMuted, opacity.disabled);
-const POSITION_DOT_COLOR = colors.secondary;
-const POSITION_DOT_HALO = colors.surface;
-const OVERLAY_COLOR = brand.blue;
-const ACCURACY_RING_COLOR = colors.secondary;
 
 /** Zoom held while the camera follows the current position. */
 const FOLLOW_ZOOM = 15;
@@ -102,80 +94,6 @@ interface RecordingMapProps {
   /** Opens the route picker; the layers button only renders when provided */
   onOpenRoutePicker?: (() => void) | undefined;
   style?: ViewStyle | undefined;
-}
-
-/**
- * The map's layers, bottom to top. The live track draws in the record role, the same as every
- * other recording surface.
- */
-export function recordingMapLayers(isDark: boolean): MapLayerSpec[] {
-  const roundLine = { 'line-cap': 'round', 'line-join': 'round' };
-  return [
-    {
-      id: 'route-overlay-line',
-      type: 'line',
-      source: 'route-overlay',
-      layout: roundLine,
-      paint: {
-        'line-color': OVERLAY_COLOR,
-        'line-opacity': 0.75,
-        'line-width': 5,
-      },
-    },
-    {
-      id: 'excluded-route-line',
-      type: 'line',
-      source: 'excluded-route',
-      layout: roundLine,
-      paint: { 'line-color': EXCLUDED_COLOR, 'line-width': 4 },
-    },
-    {
-      id: 'recording-route-casing',
-      type: 'line',
-      source: 'recording-route',
-      layout: roundLine,
-      paint: { 'line-color': POSITION_DOT_HALO, 'line-width': 5 },
-    },
-    {
-      id: 'recording-route-line',
-      type: 'line',
-      source: 'recording-route',
-      layout: roundLine,
-      paint: { 'line-color': recording[isDark ? 'dark' : 'light'], 'line-width': 4 },
-    },
-    {
-      id: 'current-accuracy-fill',
-      type: 'fill',
-      source: 'current-accuracy',
-      paint: { 'fill-color': ACCURACY_RING_COLOR, 'fill-opacity': 0.15 },
-    },
-    {
-      id: 'current-accuracy-outline',
-      type: 'line',
-      source: 'current-accuracy',
-      paint: {
-        'line-color': ACCURACY_RING_COLOR,
-        'line-opacity': 0.5,
-        'line-width': 1,
-      },
-    },
-    {
-      id: 'current-position-halo',
-      type: 'circle',
-      source: 'current-position',
-      paint: {
-        'circle-radius': 10,
-        'circle-color': POSITION_DOT_HALO,
-        'circle-opacity': 0.9,
-      },
-    },
-    {
-      id: 'current-position-dot',
-      type: 'circle',
-      source: 'current-position',
-      paint: { 'circle-radius': 7, 'circle-color': POSITION_DOT_COLOR },
-    },
-  ];
 }
 
 function RecordingMapInner({
@@ -318,7 +236,10 @@ function RecordingMapInner({
     [overlayRoute, excludedRoute, activeRoute, accuracyRing, position]
   );
 
-  const layers = useMemo(() => recordingMapLayers(isDark), [isDark]);
+  const layers = useMemo(
+    () => recordingMapLayers(mapPalette(mapStyle), isDark),
+    [mapStyle, isDark]
+  );
 
   const initialCamera = useMemo(
     () =>

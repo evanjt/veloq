@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Shimmer } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, layout, spacing, shadows } from '@/theme';
+import { colors, darkColors, layout, spacing } from '@/theme';
 import {
   ROW_BORDER_RADIUS,
   ROW_MARGIN_BOTTOM,
@@ -42,7 +42,6 @@ const styles = StyleSheet.create({
     marginBottom: ROW_MARGIN_BOTTOM,
     borderRadius: ROW_BORDER_RADIUS,
     padding: ROW_PADDING,
-    ...shadows.pill,
   },
   containerDark: {
     backgroundColor: darkColors.surface,

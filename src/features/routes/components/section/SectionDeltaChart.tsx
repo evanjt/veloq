@@ -118,7 +118,11 @@ export function SectionDeltaChart({
   return (
     <View testID="section-delta-chart" style={[styles.container]}>
       <GestureDetector gesture={gesture}>
-        <View style={styles.plot} onLayout={onLayout} {...accessibilityProps}>
+        <View
+          style={[styles.plot, chartStyles.plotDirection]}
+          onLayout={onLayout}
+          {...accessibilityProps}
+        >
           {chartWidth > 0 && (
             <>
               <Canvas style={StyleSheet.absoluteFill}>
@@ -191,7 +195,7 @@ export function SectionDeltaChart({
           )}
         </View>
       </GestureDetector>
-      <View style={styles.edgeAxis} testID="section-delta-x-axis">
+      <View style={[styles.edgeAxis, chartStyles.plotDirection]} testID="section-delta-x-axis">
         <Text
           maxFontSizeMultiplier={DENSE_TEXT_SCALE}
           style={[chartStyles.chartLabel, isDark && chartStyles.chartLabelDark]}

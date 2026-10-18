@@ -101,7 +101,6 @@ export function GlobalDataSync() {
       queryClient.invalidateQueries({ queryKey: queryKeys.strength.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.athleteSummary.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.profile.athlete });
-      queryClient.invalidateQueries({ queryKey: queryKeys.profile.sportSettings });
       queryClient.invalidateQueries({
         queryKey: queryKeys.charts.powerCurve.all,
       });

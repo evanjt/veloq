@@ -5,7 +5,7 @@ import { decodeSkylineBytes } from '@/features/activity/lib/skylineDecoder';
 import { skylineColours } from '@/features/activity/lib/skylineColours';
 import { skylineSegmentHeight, skylineZoneTotals } from '@/features/activity/lib/skylineIntensity';
 import { ZONE_STRIP_HEIGHT } from '@/features/activity/lib/cardLayout';
-import { DEFAULT_ZONE_NAME_KEYS } from '@/shared/app/useSportSettings';
+import { DEFAULT_ZONE_NAME_KEYS } from '@/shared/app/zoneNameKeys';
 import { formatDurationHuman } from '@/shared/format/format';
 import { ChartSurface, partsSummary, partsTable } from '@/shared/charts';
 import { colors, darkColors, spacing, layout } from '@/theme';

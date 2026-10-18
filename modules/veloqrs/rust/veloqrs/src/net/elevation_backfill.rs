@@ -73,7 +73,7 @@
 //! code to clear it, so a forgotten pause can never strand the migration.
 
 use crate::governor::Lane;
-use crate::net::endpoints::{
+use crate::net::intervals::endpoints::{
     DEFAULT_STREAM_TYPES, TRACK_STREAM_TYPES, fetch_altitude, fetch_stream_series, fetch_streams,
 };
 use crate::net::transport::{NetError, Transport};

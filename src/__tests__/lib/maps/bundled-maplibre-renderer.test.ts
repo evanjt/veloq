@@ -32,7 +32,7 @@ const pages: [string, string][] = [
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any),
   ],
-  ['3D map', buildMap3DHtml({ initialStyle: 'dark' } as never)],
+  ['3D map', buildMap3DHtml({ initStyle: 'dark', mapStyle: 'dark' } as never)],
   ['snapshot worker', buildSnapshotWorkerHtml(0)],
 ];
 

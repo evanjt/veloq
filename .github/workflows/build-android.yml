@@ -369,12 +369,6 @@ jobs:
           max-size: 1G
           save: ${{ github.ref == 'refs/heads/main' }}
 
-      - name: Clean stale dex archives
-        if: steps.apk-cache.outputs.cache-hit != 'true'
-        run: |
-          rm -rf android/app/build/intermediates/project_dex_archive
-          rm -rf android/app/build/intermediates/dex
-
       - name: Build Android APK
         if: steps.apk-cache.outputs.cache-hit != 'true' && env.RELEASE_BUILD != 'true'
         env:

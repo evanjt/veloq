@@ -5,7 +5,7 @@
  * the two views cannot drift apart. Every source stays declared even when it is
  * empty, which keeps a toggle to a data swap rather than a layer rebuild.
  */
-import { colors, mapLayerColors, mapPreviewColors } from '@/theme';
+import type { MapPalette } from '@/theme';
 import {
   type MapLayerSpec,
   type MapSourceSpec,
@@ -58,8 +58,14 @@ export function buildSectionSources(input: SectionLayerInput): Record<string, Ma
   };
 }
 
-export function buildSectionLayers(input: SectionLayerInput): MapLayerSpec[] {
+export function buildSectionLayers(
+  input: SectionLayerInput & {
+    /** The colours of the base map drawn under the layers. */
+    palette: MapPalette;
+  }
+): MapLayerSpec[] {
   const {
+    palette,
     activityColor,
     sectionOpacity,
     trimRange,
@@ -74,6 +80,7 @@ export function buildSectionLayers(input: SectionLayerInput): MapLayerSpec[] {
     hasAllTraces,
   } = input;
 
+  const { layer } = palette;
   const roundLine = { 'line-cap': 'round', 'line-join': 'round' };
   const traceVisible = hasAllTraces && !!highlightedTraceFilter;
 
@@ -83,7 +90,7 @@ export function buildSectionLayers(input: SectionLayerInput): MapLayerSpec[] {
       type: 'line',
       source: 'shadow',
       layout: roundLine,
-      paint: { 'line-color': colors.iconSecondary, 'line-opacity': 0.5, 'line-width': 3 },
+      paint: { 'line-color': layer.shadow, 'line-opacity': 0.5, 'line-width': 3 },
     },
   ];
 
@@ -95,7 +102,7 @@ export function buildSectionLayers(input: SectionLayerInput): MapLayerSpec[] {
         source: 'extension',
         layout: roundLine,
         paint: {
-          'line-color': mapLayerColors.boundaryCasing,
+          'line-color': layer.boundaryCasing,
           'line-opacity': hasExtension ? 0.5 : 0,
           'line-width': 6,
         },
@@ -106,7 +113,7 @@ export function buildSectionLayers(input: SectionLayerInput): MapLayerSpec[] {
         source: 'extension',
         layout: roundLine,
         paint: {
-          'line-color': mapLayerColors.extension,
+          'line-color': layer.extension,
           'line-opacity': hasExtension ? 1 : 0,
           'line-width': 4,
         },
@@ -117,7 +124,7 @@ export function buildSectionLayers(input: SectionLayerInput): MapLayerSpec[] {
         source: 'section',
         layout: roundLine,
         paint: {
-          'line-color': mapLayerColors.casing,
+          'line-color': layer.casing,
           'line-opacity': sectionOpacity,
           'line-width': 5,
         },
@@ -145,7 +152,7 @@ export function buildSectionLayers(input: SectionLayerInput): MapLayerSpec[] {
       source: 'trimmed',
       layout: roundLine,
       paint: {
-        'line-color': mapLayerColors.casing,
+        'line-color': layer.casing,
         'line-opacity': trimRange ? 1 : 0,
         'line-width': trimCasingWidth,
       },
@@ -168,7 +175,7 @@ export function buildSectionLayers(input: SectionLayerInput): MapLayerSpec[] {
       filter: highlightedTraceFilter as unknown[] | undefined,
       layout: roundLine,
       paint: {
-        'line-color': mapPreviewColors.routeHalo,
+        'line-color': layer.traceCasing,
         'line-width': traceCasingWidth,
         'line-opacity': traceVisible ? 1 : 0,
       },
@@ -180,7 +187,7 @@ export function buildSectionLayers(input: SectionLayerInput): MapLayerSpec[] {
       filter: highlightedTraceFilter as unknown[] | undefined,
       layout: roundLine,
       paint: {
-        'line-color': colors.chartCyan,
+        'line-color': layer.trace,
         'line-width': traceLineWidth,
         'line-opacity': traceVisible ? 1 : 0,
       },
@@ -190,33 +197,34 @@ export function buildSectionLayers(input: SectionLayerInput): MapLayerSpec[] {
       type: 'line',
       source: 'highlighted-lap',
       layout: roundLine,
-      paint: { 'line-color': mapPreviewColors.routeHalo, 'line-width': traceCasingWidth },
+      paint: { 'line-color': layer.traceCasing, 'line-width': traceCasingWidth },
     },
     {
       id: 'highlighted-lap-line',
       type: 'line',
       source: 'highlighted-lap',
       layout: roundLine,
-      paint: { 'line-color': colors.chartCyan, 'line-width': traceLineWidth },
+      paint: { 'line-color': layer.trace, 'line-width': traceLineWidth },
     },
     {
       id: 'highlighted-trace-casing',
       type: 'line',
       source: 'highlighted-trace',
       layout: roundLine,
-      paint: { 'line-color': mapPreviewColors.routeHalo, 'line-width': 5 },
+      paint: { 'line-color': layer.traceCasing, 'line-width': 5 },
     },
     {
       id: 'highlighted-trace-line',
       type: 'line',
       source: 'highlighted-trace',
       layout: roundLine,
-      paint: { 'line-color': colors.chartCyan, 'line-width': 4 },
+      paint: { 'line-color': layer.trace, 'line-width': 4 },
     },
-    ...buildEndpointLayers()
+    ...buildEndpointLayers(palette)
   );
 
-  if (input.userLocationGeoJSON) layers.push(...buildUserLocationLayers(!!input.hasUserLocation));
+  if (input.userLocationGeoJSON)
+    layers.push(...buildUserLocationLayers(!!input.hasUserLocation, palette));
 
   return layers;
 }

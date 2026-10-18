@@ -419,7 +419,8 @@ RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_daily_activity_loads(
     /*handle*/ uint64_t ptr, double start_ts, double end_ts,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_fitness_screen_data(
-    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer span_days,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_insights_data(
     /*handle*/ uint64_t ptr, RustBuffer params, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_interval_body(
@@ -794,8 +795,6 @@ RustBuffer uniffi_veloqrs_fn_method_settingsmanager_get_athlete_profile(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_settingsmanager_get_setting(
     /*handle*/ uint64_t ptr, RustBuffer key, RustCallStatus *uniffi_out_err);
-RustBuffer uniffi_veloqrs_fn_method_settingsmanager_get_sport_settings(
-    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_settingsmanager_hr_zone_for(
     /*handle*/ uint64_t ptr, RustBuffer sport_type, double bpm,
     RustCallStatus *uniffi_out_err);
@@ -829,9 +828,8 @@ void uniffi_veloqrs_fn_free_strengthmanager(
     /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
 /*handle*/ uint64_t uniffi_veloqrs_fn_constructor_strengthmanager_new(
     RustCallStatus *uniffi_out_err);
-RustBuffer uniffi_veloqrs_fn_method_strengthmanager_batch_fetch_exercise_sets(
-    /*handle*/ uint64_t ptr, RustBuffer activity_ids,
-    RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_strengthmanager_batch_fetch_owed_fit_files(
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_strengthmanager_bulk_insert_exercise_sets(
     /*handle*/ uint64_t ptr, RustBuffer activity_id, RustBuffer sets,
     RustCallStatus *uniffi_out_err);
@@ -1385,7 +1383,6 @@ uniffi_veloqrs_checksum_method_settingsmanager_export_privacy_preview();
 uint16_t uniffi_veloqrs_checksum_method_settingsmanager_geocoding_enabled();
 uint16_t uniffi_veloqrs_checksum_method_settingsmanager_get_athlete_profile();
 uint16_t uniffi_veloqrs_checksum_method_settingsmanager_get_setting();
-uint16_t uniffi_veloqrs_checksum_method_settingsmanager_get_sport_settings();
 uint16_t uniffi_veloqrs_checksum_method_settingsmanager_hr_zone_for();
 uint16_t uniffi_veloqrs_checksum_method_settingsmanager_name_from_places();
 uint16_t uniffi_veloqrs_checksum_method_settingsmanager_set_athlete_profile();
@@ -1401,7 +1398,7 @@ uint16_t uniffi_veloqrs_checksum_method_settingsmanager_stream_retention_days();
 uint16_t uniffi_veloqrs_checksum_method_settingsmanager_stream_store_bytes();
 uint16_t uniffi_veloqrs_checksum_method_settingsmanager_suggest_export_home();
 uint16_t
-uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_exercise_sets();
+uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_owed_fit_files();
 uint16_t
 uniffi_veloqrs_checksum_method_strengthmanager_bulk_insert_exercise_sets();
 uint16_t
@@ -6828,7 +6825,7 @@ NativeVeloqrs::NativeVeloqrs(
       rt,
       jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_method_"
                                     "fitnessmanager_get_fitness_screen_data"),
-      1,
+      2,
       [this](jsi::Runtime &rt, const jsi::Value &thisVal,
              const jsi::Value *args, size_t count) -> jsi::Value {
         return this
@@ -8576,18 +8573,6 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_method_settingsmanager_get_setting(
                     rt, thisVal, args, count);
           });
-  props["ubrn_uniffi_veloqrs_fn_method_settingsmanager_get_sport_settings"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_method_"
-                                        "settingsmanager_get_sport_settings"),
-          1,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_fn_method_settingsmanager_get_sport_settings(
-                    rt, thisVal, args, count);
-          });
   props["ubrn_uniffi_veloqrs_fn_method_settingsmanager_hr_zone_for"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -8770,17 +8755,17 @@ NativeVeloqrs::NativeVeloqrs(
             return this->cpp_uniffi_veloqrs_fn_constructor_strengthmanager_new(
                 rt, thisVal, args, count);
           });
-  props["ubrn_uniffi_veloqrs_fn_method_strengthmanager_batch_fetch_exercise_"
-        "sets"] = jsi::Function::createFromHostFunction(
+  props["ubrn_uniffi_veloqrs_fn_method_strengthmanager_batch_fetch_owed_fit_"
+        "files"] = jsi::Function::createFromHostFunction(
       rt,
       jsi::PropNameID::forAscii(rt,
                                 "ubrn_uniffi_veloqrs_fn_method_strengthmanager_"
-                                "batch_fetch_exercise_sets"),
-      2,
+                                "batch_fetch_owed_fit_files"),
+      1,
       [this](jsi::Runtime &rt, const jsi::Value &thisVal,
              const jsi::Value *args, size_t count) -> jsi::Value {
         return this
-            ->cpp_uniffi_veloqrs_fn_method_strengthmanager_batch_fetch_exercise_sets(
+            ->cpp_uniffi_veloqrs_fn_method_strengthmanager_batch_fetch_owed_fit_files(
                 rt, thisVal, args, count);
       });
   props["ubrn_uniffi_veloqrs_fn_method_strengthmanager_bulk_insert_exercise_"
@@ -12995,18 +12980,6 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_checksum_method_settingsmanager_get_setting(
                     rt, thisVal, args, count);
           });
-  props["ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_sport_"
-        "settings"] = jsi::Function::createFromHostFunction(
-      rt,
-      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
-                                    "settingsmanager_get_sport_settings"),
-      0,
-      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-             const jsi::Value *args, size_t count) -> jsi::Value {
-        return this
-            ->cpp_uniffi_veloqrs_checksum_method_settingsmanager_get_sport_settings(
-                rt, thisVal, args, count);
-      });
   props["ubrn_uniffi_veloqrs_checksum_method_settingsmanager_hr_zone_for"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -13153,17 +13126,17 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_checksum_method_settingsmanager_suggest_export_home(
                 rt, thisVal, args, count);
       });
-  props["ubrn_uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_"
-        "exercise_sets"] = jsi::Function::createFromHostFunction(
+  props["ubrn_uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_owed_"
+        "fit_files"] = jsi::Function::createFromHostFunction(
       rt,
       jsi::PropNameID::forAscii(rt,
                                 "ubrn_uniffi_veloqrs_checksum_method_"
-                                "strengthmanager_batch_fetch_exercise_sets"),
+                                "strengthmanager_batch_fetch_owed_fit_files"),
       0,
       [this](jsi::Runtime &rt, const jsi::Value &thisVal,
              const jsi::Value *args, size_t count) -> jsi::Value {
         return this
-            ->cpp_uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_exercise_sets(
+            ->cpp_uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_owed_fit_files(
                 rt, thisVal, args, count);
       });
   props["ubrn_uniffi_veloqrs_checksum_method_strengthmanager_bulk_insert_"
@@ -16037,6 +16010,7 @@ jsi::Value NativeVeloqrs::
   auto value = uniffi_veloqrs_fn_method_fitnessmanager_get_fitness_screen_data(
       uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
                                                         args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
@@ -18319,21 +18293,6 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_settingsmanager_get_setting(
   return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_settingsmanager_get_sport_settings(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_method_settingsmanager_get_sport_settings(
-      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
-                                                        args[0]),
-      &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_settingsmanager_hr_zone_for(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -18564,17 +18523,15 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_constructor_strengthmanager_new(
                                                          value);
 }
 jsi::Value NativeVeloqrs::
-    cpp_uniffi_veloqrs_fn_method_strengthmanager_batch_fetch_exercise_sets(
+    cpp_uniffi_veloqrs_fn_method_strengthmanager_batch_fetch_owed_fit_files(
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
         size_t count) {
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value =
-      uniffi_veloqrs_fn_method_strengthmanager_batch_fetch_exercise_sets(
+      uniffi_veloqrs_fn_method_strengthmanager_batch_fetch_owed_fit_files(
           uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
                                                             args[0]),
-          uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                        args[1]),
           &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
@@ -22084,15 +22041,6 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_settingsmanager_get_setting(
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
-jsi::Value NativeVeloqrs::
-    cpp_uniffi_veloqrs_checksum_method_settingsmanager_get_sport_settings(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  auto value =
-      uniffi_veloqrs_checksum_method_settingsmanager_get_sport_settings();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_settingsmanager_hr_zone_for(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -22199,11 +22147,11 @@ jsi::Value NativeVeloqrs::
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeVeloqrs::
-    cpp_uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_exercise_sets(
+    cpp_uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_owed_fit_files(
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
         size_t count) {
   auto value =
-      uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_exercise_sets();
+      uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_owed_fit_files();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

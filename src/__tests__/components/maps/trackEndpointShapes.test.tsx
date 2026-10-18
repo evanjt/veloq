@@ -11,11 +11,12 @@ import { render } from '@testing-library/react-native';
 import { Circle, Rect } from 'react-native-svg';
 
 import { buildActivityLayers } from '@/features/maps/components/activityMapLayerSpecs';
-import { buildRouteLayers } from '@/features/routes/components/RouteMapView';
+import { buildRouteLayers } from '@/features/routes/components/routeMapLayerSpecs';
 import { buildSectionLayers } from '@/features/routes/components/sectionMapLayerSpecs';
 import { SECTION_END_ICON_ID, SECTION_START_ICON_ID } from '@/features/maps/lib/mapIcons';
 import type { MapLayerSpec } from '@/features/maps/lib/htmlBuilders';
 import { TrackPreview, fitTrackToBox } from '@/shared/ui/TrackPreview';
+import { mapPalette } from '@/theme';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
@@ -23,6 +24,7 @@ const empty = { type: 'FeatureCollection', features: [] } as GeoJSON.FeatureColl
 
 const activityLayers = () =>
   buildActivityLayers({
+    palette: mapPalette('light'),
     overlayHasData: false,
     activityColor: '#00FF00',
     gradientActive: false,
@@ -36,6 +38,7 @@ const activityLayers = () =>
 
 const routeLayers = () =>
   buildRouteLayers({
+    palette: mapPalette('light'),
     activityColor: '#123456',
     representativeOpacity: 1,
     fadedOpacity: 0.2,
@@ -45,6 +48,7 @@ const routeLayers = () =>
 
 const sectionLayers = () =>
   buildSectionLayers({
+    palette: mapPalette('light'),
     shadowGeoJSON: empty,
     extensionGeoJSON: empty,
     sectionGeoJSON: empty,

@@ -19,6 +19,7 @@ import {
   buildActivitySources,
 } from '@/features/maps/components/activityMapLayerSpecs';
 import type { MapLayerSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
+import { mapPalette } from '@/theme';
 
 const points = (n: number, from = 0): GeoJSON.Position[] =>
   Array.from({ length: n }, (_, i) => [7.3 + (from + i) * 0.001, 46.2]);
@@ -386,6 +387,7 @@ describe('the first send of a large source', () => {
 
     for (const gradientActive of [false, true]) {
       const layers = buildActivityLayers({
+        palette: mapPalette('light'),
         overlayHasData: false,
         activityColor: '#00ff00',
         gradientActive,

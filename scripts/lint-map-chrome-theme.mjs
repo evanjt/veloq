@@ -1,18 +1,16 @@
 #!/usr/bin/env node
 // Chrome drawn over a map (buttons, keys, legends, the credit, popups) follows the app
 // theme. The base drawn under it decides only what is drawn on the map itself, so
-// `isDarkStyle` is read by the file that declares it, for the status bar, and by the
-// layer builders. A control that reads it is drawn from the base instead of the theme.
+// `isDarkStyle` is read by the file that declares it, for the status bar, and the layer
+// builders read the base through `mapPalette`. A control that reads it is drawn from the
+// base instead of the theme.
 
 import { indexedSources, refuseEmptyListing } from './lib/indexedSources.mjs';
 
 const rootFlag = process.argv.indexOf('--root');
 const root = rootFlag === -1 ? process.cwd() : process.argv[rootFlag + 1];
 
-const READERS = new Set([
-  'src/features/maps/components/mapStyles.ts',
-  'src/features/maps/components/regional/regionalMapLayerSpecs.ts',
-]);
+const READERS = new Set(['src/features/maps/components/mapStyles.ts']);
 const CALL = /\bisDarkStyle\s*\(/g;
 
 function skipped(file) {
@@ -40,7 +38,7 @@ if (failures.length > 0) {
   console.error(`Map chrome reads the base map instead of the app theme: ${failures.length}.\n`);
   for (const f of failures) console.error(`  ${f}`);
   console.error('\nRead `useTheme().isDark` for chrome. Only the status bar and the layers');
-  console.error('follow the base, through `statusBarStyleForMap` and the layer builders.');
+  console.error('follow the base, through `statusBarStyleForMap` and `mapPalette`.');
   process.exit(1);
 }
 

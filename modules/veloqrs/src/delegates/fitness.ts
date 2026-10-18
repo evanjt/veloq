@@ -118,9 +118,11 @@ export function savePaceSnapshot(
  * Everything the fitness tab paints with that stays fixed while it is
  * mounted: the eFTP trend over the chart's three months with the activities
  * that moved it, the last stored running and swimming critical speeds, and
- * the sport the latest activities are mostly in. Stale when `activities` fires.
+ * the sport the latest activities are mostly in, with the decoupling ride of
+ * each of `spanDays` and the activities of the longest. Stale when
+ * `activities` fires.
  */
-export function getFitnessScreenData(host: DelegateHost): FfiFitnessScreenData {
+export function getFitnessScreenData(host: DelegateHost, spanDays: number[]): FfiFitnessScreenData {
   if (!host.ready) {
     return {
       ftpTrend: EMPTY_FTP_TREND,
@@ -131,9 +133,13 @@ export function getFitnessScreenData(host: DelegateHost): FfiFitnessScreenData {
       // The engine never answers zero days, so zero says there is no read.
       fitnessDays: 0,
       fatigueDays: 0,
+      decouplingSources: [],
+      loadDots: [],
     };
   }
-  return host.timed('getFitnessScreenData', () => host.engine.fitness().getFitnessScreenData());
+  return host.timed('getFitnessScreenData', () =>
+    host.engine.fitness().getFitnessScreenData(spanDays)
+  );
 }
 
 export function getAvailableSportTypes(host: DelegateHost): string[] {

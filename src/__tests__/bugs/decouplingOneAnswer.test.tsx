@@ -15,7 +15,7 @@ import { render, renderHook } from '@testing-library/react-native';
 import { useActivityStats } from '@/features/activity/components/stats/useActivityStats';
 import { FitnessTrendSections } from '@/features/fitness/components/sections/FitnessTrendSections';
 import { useFitnessScreenData } from '@/features/fitness/hooks/useFitnessScreenData';
-import { decouplingSource, storedDecoupling } from '@/features/activity/lib/decoupling';
+import { storedDecoupling } from '@/features/activity/lib/decoupling';
 import { formatRelativeDate } from '@/shared/format/format';
 import type { Activity } from '@/types';
 
@@ -41,21 +41,32 @@ const mockDescentStreams = {
   heartrate: Array(HALF * 2).fill(140),
 };
 
-let mockActivities: Activity[] = [];
+/** The ride the engine names for each span, as the fitness screen read answers it. */
+let mockSources: { days: number; source?: unknown }[] = [];
+const mockEngine = {
+  subscribe: () => () => undefined,
+  getDailyActivityLoads: () => [],
+  getFitnessScreenData: jest.fn(() => ({
+    ftpTrend: { sampleCount: 0, history: [], changes: [] },
+    ftpTrendCoverage: require('veloqrs').RangeCoverage.Loaded,
+    runPaceTrend: { sampleCount: 0, history: [] },
+    swimPaceTrend: { sampleCount: 0, history: [] },
+    sportMix: { rides: 1, runs: 0, swims: 0 },
+    fitnessDays: 42,
+    fatigueDays: 7,
+    decouplingSources: mockSources,
+    loadDots: [],
+  })),
+};
+jest.mock('@/shared/native/engine', () => ({ getEngine: () => mockEngine }));
 jest.mock('@/features/wellness', () => ({
   useWellness: () => ({ data: [], isLoading: false }),
   useWellnessCoverage: () => require('veloqrs').RangeCoverage.Loaded,
-  timeRangeToDays: () => 42,
+  timeRangeToDays: () => 30,
 }));
 jest.mock('@/features/activity/hooks', () => ({
-  useActivities: () => ({ data: mockActivities, isLoading: false }),
   // A screen that reads the streams again would split these to 50%.
   useActivityStreams: () => ({ data: mockDescentStreams, isLoading: false }),
-  getLatestFTP: () => undefined,
-}));
-jest.mock('@/shared/app/useSportSettings', () => ({
-  useSportSettings: () => ({ data: undefined }),
-  getSettingsForSport: () => undefined,
 }));
 // The rides are on the device, so the census calls the period downloaded.
 jest.mock('@/shared/native/useRangeCoverage', () => ({
@@ -80,8 +91,6 @@ function FitnessDecouplingCard() {
       powerZones={undefined}
       hrZones={undefined}
       periodCoverage={data.periodCoverage}
-      loadingActivities={false}
-      hasActivities
       dominantZone={null}
       zonesExpanded={false}
       onZonesToggle={jest.fn()}
@@ -105,8 +114,19 @@ async function activityDecouplingRow(activity: Activity) {
   return power?.details?.find((d) => d.label === 'activity.stats.decoupling')?.value;
 }
 
+const descentSource = {
+  activityId: descentRide.id,
+  name: descentRide.name,
+  startDateLocal: descentRide.start_date_local,
+  decoupling: 3.4,
+};
+
 beforeEach(() => {
-  mockActivities = [descentRide];
+  mockSources = [
+    { days: 7 },
+    { days: 30, source: descentSource },
+    { days: 365, source: descentSource },
+  ];
 });
 
 describe('aerobic decoupling', () => {
@@ -146,10 +166,18 @@ describe('aerobic decoupling', () => {
   });
 
   it('shows the empty state for a library whose rides carry no stored value', async () => {
-    mockActivities = [{ ...descentRide, decoupling: undefined }];
+    mockSources = [{ days: 7 }, { days: 30 }, { days: 365 }];
     const tree = await render(<FitnessDecouplingCard />);
 
     expect(tree.queryByText(/%$/)).toBeNull();
+    expect(tree.getByText('stats.noDecouplingData')).toBeTruthy();
+  });
+
+  it('names the ride of the range in view, not one only a longer range holds', async () => {
+    mockSources = [{ days: 7 }, { days: 30 }, { days: 365, source: descentSource }];
+    const tree = await render(<FitnessDecouplingCard />);
+
+    expect(tree.queryByText(new RegExp(descentRide.name))).toBeNull();
     expect(tree.getByText('stats.noDecouplingData')).toBeTruthy();
   });
 });
@@ -168,27 +196,5 @@ describe('the stored decoupling reader', () => {
   it('keeps an activity whose stored value is a string off the activity screen', async () => {
     const notANumber = { ...descentRide, decoupling: '-Infinity' } as unknown as Activity;
     expect(await activityDecouplingRow(notANumber)).toBeUndefined();
-  });
-
-  it('picks the newest qualifying ride that carries a stored value', () => {
-    const run = { ...descentRide, id: 'run', type: 'Run' } as Activity;
-    const short = { ...descentRide, id: 'short', moving_time: 20 * 60 } as Activity;
-    const unstored = { ...descentRide, id: 'unstored', decoupling: undefined } as Activity;
-    const older = {
-      ...descentRide,
-      id: 'older',
-      name: 'Older ride',
-      start_date_local: '2026-08-01T08:00:00',
-      decoupling: -1.2,
-    } as Activity;
-
-    expect(decouplingSource([run, short, unstored, older])).toEqual({
-      activityId: 'older',
-      name: 'Older ride',
-      date: '2026-08-01T08:00:00',
-      decoupling: -1.2,
-    });
-    expect(decouplingSource([run, short, unstored])).toBeNull();
-    expect(decouplingSource(undefined)).toBeNull();
   });
 });

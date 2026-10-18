@@ -60,8 +60,6 @@ export function SummaryCardSection() {
         {/* Live Preview using actual SummaryCard with real data */}
         <View style={styles.summaryCardPreview}>
           <SummaryCard
-            profileUrl={summaryCardData.profileUrl}
-            onProfilePress={() => {}}
             heroMetric={summaryCardData.heroMetric}
             heroValue={summaryCardData.heroValue}
             heroLabel={summaryCardData.heroLabel}

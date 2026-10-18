@@ -2,28 +2,18 @@ import { useTabFirstFrame } from '@/shared/debug/tabSwitchTiming';
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { Stack, useIsFocused } from 'expo-router';
 import type { SearchBarCommands } from 'react-native-screens';
-import {
-  View,
-  ActivityIndicator,
-  FlatList,
-  Image,
-  Platform,
-  StyleSheet,
-  type LayoutChangeEvent,
-} from 'react-native';
+import { View, FlatList, Platform, StyleSheet, type LayoutChangeEvent } from 'react-native';
 import { Text } from 'react-native-paper';
 import {
   ActivityCardSkeleton,
-  canDrawProfilePhoto,
   ComponentErrorBoundary,
   EmptyState,
   ErrorState,
-  IconButton,
   ScreenSafeAreaView,
   useLargeText,
   useScrollEndInset,
+  Spinner,
 } from '@/shared/ui';
-import { Icon } from '@/shared/ui/Icon';
 import { logScreenRender, PERF_DEBUG } from '@/shared/debug/renderTimer';
 import { RestoreOfferCard, StreamConsentCard, useDashboardPreferences } from '@/features/settings';
 import { navigateTo } from '@/shared/app/navigation';
@@ -67,16 +57,7 @@ import {
   TerrainSnapshotWebView,
   type TerrainSnapshotWebViewRef,
 } from '@/features/maps';
-import {
-  colors,
-  darkColors,
-  iconSize,
-  layout,
-  opacity,
-  spacing,
-  themePalette,
-  typography,
-} from '@/theme';
+import { colors, darkColors, layout, spacing, themePalette, typography } from '@/theme';
 import { createSharedStyles } from '@/styles';
 import {
   CARD_MARGIN,
@@ -99,7 +80,6 @@ import { debug } from '@/shared/debug/debug';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 const log = debug.create('Feed');
-const PROFILE_BUTTON_SIZE = 36;
 
 // iOS applies the estimate before layout; the section's onLayout sets the measured offset.
 const INITIAL_CONTENT_OFFSET = { x: 0, y: ESTIMATED_FILTER_SECTION_HEIGHT } as const;
@@ -152,8 +132,6 @@ function FeedScreenContent() {
   const [selectedTypeGroups, setSelectedTypeGroups] = useState<Set<FeedGroup>>(new Set());
   const [rangePreset, setRangePreset] = useState<FeedRangePreset | null>(null);
   const feedRange = useFeedRange(rangePreset);
-  // A stored URL stays truthy after the image fails, so presence is not enough.
-  const [profileImageFailed, setProfileImageFailed] = useState(false);
 
   // Basemap snapshot WebView pool - every card gets a snapshot (3D or flat),
   // so the pool always mounts; deferred so initial renders settle first
@@ -245,7 +223,6 @@ function FeedScreenContent() {
   // Summary card data - uses precomputed data from getStartupData to skip redundant FFI
   const t0 = PERF_DEBUG ? performance.now() : 0;
   const {
-    profileUrl,
     heroMetric,
     heroValue,
     heroLabel,
@@ -492,10 +469,6 @@ function FeedScreenContent() {
     []
   );
 
-  const navigateToSettings = useCallback(() => {
-    navigateTo('/settings');
-  }, []);
-
   const navigateToHeroMetric = useCallback(() => {
     navigateTo(summaryCardTarget(summaryCard.heroMetric));
   }, [summaryCard.heroMetric]);
@@ -533,11 +506,9 @@ function FeedScreenContent() {
     [filtered]
   );
 
-  // The search field and Settings are the header's, so both are there on the first frame. Settings
-  // sits in the summary card while the card is on, and in the header's trailing items otherwise.
+  // The search field is the header's, so it is there on the first frame.
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const showProfileButton = !summaryCard.enabled;
   const headerOptions = useMemo(
     () => ({
       headerSearchBarOptions: {
@@ -553,39 +524,8 @@ function FeedScreenContent() {
         hintTextColor: textSecondary,
         headerIconColor: textPrimary,
       },
-      // Always a function: the stack merges options, so a key left out keeps the last button.
-      headerRight: () =>
-        showProfileButton ? (
-          <IconButton
-            testID="home-profile-button"
-            onPress={navigateToSettings}
-            accessibilityLabel={t('navigation.settings')}
-            style={[styles.headerProfile, isDark && styles.headerProfileDark]}
-          >
-            {canDrawProfilePhoto(profileUrl, profileImageFailed) ? (
-              <Image
-                accessibilityIgnoresInvertColors
-                source={{ uri: profileUrl }}
-                style={StyleSheet.absoluteFill}
-                resizeMode="cover"
-                onError={() => setProfileImageFailed(true)}
-              />
-            ) : (
-              <Icon name="account" size={iconSize.md} color={textSecondary} />
-            )}
-          </IconButton>
-        ) : null,
     }),
-    [
-      t,
-      isDark,
-      textPrimary,
-      textSecondary,
-      showProfileButton,
-      navigateToSettings,
-      profileUrl,
-      profileImageFailed,
-    ]
+    [t, isDark, textPrimary, textSecondary]
   );
 
   // List header: filter chips + section title
@@ -711,7 +651,7 @@ function FeedScreenContent() {
     if (!loadingMore) return null;
     return (
       <View style={styles.footerLoader}>
-        <ActivityIndicator size="small" color={colors.actionPrimary} />
+        <Spinner label={t('common.loadingMore')} />
         <Text style={[styles.footerText, isDark && styles.textDark]}>
           {t('common.loadingMore')}
         </Text>
@@ -767,8 +707,6 @@ function FeedScreenContent() {
         <PendingUploadsCard />
         {summaryCard.enabled && !standingBy ? (
           <SummaryCard
-            profileUrl={profileUrl}
-            onProfilePress={navigateToSettings}
             heroMetric={heroMetric}
             heroValue={heroValue}
             heroLabel={heroLabel}
@@ -884,18 +822,6 @@ const styles = StyleSheet.create({
   // above, its own below.
   filterSection: {
     paddingBottom: CARD_MARGIN,
-  },
-  headerProfile: {
-    width: PROFILE_BUTTON_SIZE,
-    height: PROFILE_BUTTON_SIZE,
-    borderRadius: layout.borderRadiusFull,
-    backgroundColor: opacity.overlay.light,
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerProfileDark: {
-    backgroundColor: opacity.overlayDark.medium,
   },
   sectionHeader: {
     paddingHorizontal: layout.screenPadding,

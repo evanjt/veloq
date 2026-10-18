@@ -7,7 +7,6 @@
     "display-settings": [],
     "feed": [{ "name": "feed card map previews", "x0": 0, "y0": 0.3, "x1": 1, "y1": 0.98 }],
     "fitness": [],
-    "health": [],
     "map": [],
     "routes": [{ "name": "routes progress spinner", "x0": 0, "y0": 0.08, "x1": 1, "y1": 0.22 }],
     "activity-detail": [{ "name": "activity hero map", "x0": 0, "y0": 0.05, "x1": 1, "y1": 0.5 }],

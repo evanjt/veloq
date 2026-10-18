@@ -1,7 +1,11 @@
-import { colors, activityTypeColors } from '@/theme';
+import { colors, activityTypeColors, sportFamilyColours } from '@/theme';
 import type { ActivityType } from '@/types';
 import type { MaterialIconName } from '@/shared/activity/activityUtils';
-import { SPORT_FAMILY_MEMBERS, type SportFamily } from '@/shared/native/sportTaxonomy.generated';
+import {
+  SPORT_FAMILY_MEMBERS,
+  SPORT_SHADES,
+  type SportFamily,
+} from '@/shared/native/sportTaxonomy.generated';
 
 export type { SportFamily };
 
@@ -23,59 +27,18 @@ const OTHER_COLOR: string = activityTypeColors.Other || colors.swim;
 const WINTER_COLOR: string = activityTypeColors.AlpineSki || colors.swim;
 
 /** How a family draws, until the family colour tokens replace these hues. */
-const FAMILY_LOOK: Record<
-  SportFamily,
-  { color: string; selectedFill: string; selectedInk: string; icon: MaterialIconName }
-> = {
-  Ride: {
-    color: colors.ride,
-    selectedFill: colors.ride,
-    selectedInk: colors.textPrimary,
-    icon: 'bike',
-  },
-  Winter: {
-    color: WINTER_COLOR,
-    selectedFill: WINTER_COLOR,
-    selectedInk: colors.textPrimary,
-    icon: 'ski',
-  },
-  Run: {
-    color: colors.run,
-    selectedFill: colors.run,
-    selectedInk: colors.textPrimary,
-    icon: 'run',
-  },
-  Water: {
-    color: colors.swim,
-    selectedFill: colors.swim,
-    selectedInk: colors.textPrimary,
-    icon: 'swim',
-  },
-  Foot: {
-    color: colors.walk,
-    selectedFill: colors.walkChipFill,
-    selectedInk: colors.textOnFill,
-    icon: 'walk',
-  },
-  Strength: {
-    color: colors.workout,
-    selectedFill: colors.workoutChipFill,
-    selectedInk: colors.textOnFill,
-    icon: 'dumbbell',
-  },
-  Other: {
-    color: OTHER_COLOR,
-    selectedFill: OTHER_COLOR,
-    selectedInk: colors.textOnFill,
-    icon: 'heart-pulse',
-  },
+const FAMILY_LOOK: Record<SportFamily, { color: string; icon: MaterialIconName }> = {
+  Ride: { color: colors.ride, icon: 'bike' },
+  Winter: { color: WINTER_COLOR, icon: 'ski' },
+  Run: { color: colors.run, icon: 'run' },
+  Water: { color: colors.swim, icon: 'swim' },
+  Foot: { color: colors.walk, icon: 'walk' },
+  Strength: { color: colors.workout, icon: 'dumbbell' },
+  Other: { color: OTHER_COLOR, icon: 'heart-pulse' },
 };
 
 export interface SportFamilyConfig {
   color: string;
-  // Fill and ink of the selected chip, measured against each other rather than against white.
-  selectedFill: string;
-  selectedInk: string;
   icon: MaterialIconName;
   /** The family's label, as a translation key. */
   label: (typeof SPORT_FAMILY_LABELS)[SportFamily];
@@ -119,16 +82,23 @@ export function getActivityCategory(type: string): SportFamily {
 /** Fill and label ink of a selected period or distance chip. */
 export const FILTER_CHIP = { fill: colors.actionPrimary, ink: colors.textOnFill } as const;
 
-/** A sport chip's fill and label ink: the measured pair when selected, the icon hue on the card otherwise. */
-export function categoryChipColours(
-  category: string,
-  selected: boolean
-): { fill: string | null; ink: string } {
-  if (!isSportFamily(category)) return { fill: null, ink: colors.textSecondary };
-  const config = ACTIVITY_CATEGORIES[category];
-  return selected
-    ? { fill: config.selectedFill, ink: config.selectedInk }
-    : { fill: null, ink: config.color };
+const SHADE_OF: ReadonlyMap<string, number> = new Map(
+  Object.entries(SPORT_SHADES).flatMap(([shade, types]) =>
+    types.map((type) => [type, Number(shade) - 1] as const)
+  )
+);
+
+/**
+ * The identity colour of a family, or of a sport within its family: a family
+ * takes its own colour, a sport its fixed shade of its family's colour. It is a
+ * mark, never a ground under a label.
+ */
+export function sportMarkColour(familyOrType: string, isDark: boolean): string {
+  const steps = sportFamilyColours[isDark ? 'dark' : 'light'];
+  if (isSportFamily(familyOrType)) return steps[familyOrType][0];
+  const shades = steps[getActivityCategory(familyOrType)];
+  // Other has no shades of its own, so a sport filed under it takes the family colour.
+  return shades[SHADE_OF.get(familyOrType) ?? 0] ?? shades[0];
 }
 
 /** The family config of any activity type. */

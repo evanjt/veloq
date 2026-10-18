@@ -4,7 +4,7 @@
  * sync uses. A missing table here shows as an empty screen in demo only.
  */
 
-import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
+import { demoLibrary, seedDemoEngine } from '@/shared/app/seedDemoEngine';
 import { getEngine } from '@/shared/native/engine';
 import { PACE_SNAPSHOT_WINDOW_DAYS, TIME_RANGES } from '@/shared/app/constants';
 import { timeRangeToDays } from '@/features/wellness';
@@ -49,6 +49,32 @@ describe('seedDemoEngine', () => {
     const settings = JSON.parse(engine.setSportSettings.mock.calls[0][0]);
     expect(Array.isArray(settings)).toBe(true);
     expect(settings.length).toBeGreaterThan(0);
+  });
+
+  /**
+   * The engine reads sport settings in the shape the athlete endpoint sends:
+   * `lthr`, and zones as plain numbers. Demo settings in any other shape read
+   * as unset, so the running card had no threshold heart rate in demo.
+   */
+  it('stores sport settings in the shape the athlete endpoint sends', () => {
+    const entries = JSON.parse(demoLibrary().sportSettingsJson) as Record<string, unknown>[];
+    const covering = (sport: string) =>
+      entries.find((entry) => (entry.types as string[]).includes(sport));
+    const ascendingNumbers = (value: unknown) =>
+      Array.isArray(value) &&
+      value.length > 0 &&
+      value.every((n, i) => typeof n === 'number' && (i === 0 || n > value[i - 1]));
+
+    const run = covering('Run');
+    expect(typeof run?.lthr).toBe('number');
+    expect(ascendingNumbers(run?.hr_zones)).toBe(true);
+    expect(run?.threshold_pace).toBeLessThan(10);
+
+    const ride = covering('Ride');
+    expect(typeof ride?.ftp).toBe('number');
+    expect(typeof ride?.lthr).toBe('number');
+    expect(ascendingNumbers(ride?.hr_zones)).toBe(true);
+    expect(ascendingNumbers(ride?.power_zones)).toBe(true);
   });
 
   it('upserts wellness rows keyed by date', () => {

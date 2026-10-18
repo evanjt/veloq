@@ -46,6 +46,7 @@ import {
   type FfiSummaryComparison,
   type FfiStatTrend,
   type FfiFitnessScreenData,
+  type FfiLoadDot,
   type FfiPreviewTrack,
   type FfiActivityStreams,
   type FfiActivityDetailData,
@@ -243,6 +244,8 @@ export type SummaryComparison = FfiSummaryComparison;
 export type StatTrend = FfiStatTrend;
 // Fitness screen types
 export type FitnessScreenData = FfiFitnessScreenData;
+/** One activity as the fitness strip marks it and its day picker lists it. */
+export type LoadDot = FfiLoadDot;
 export type PreviewTrack = FfiPreviewTrack;
 /** An activity's chart series as float buffers, `latlng` in the track encoding. */
 export type ActivityStreamBuffers = FfiActivityStreams;

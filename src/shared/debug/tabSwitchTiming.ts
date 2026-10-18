@@ -17,7 +17,7 @@ const TAB_NAMES: Record<string, string> = {
   '/fitness': 'fitness',
   '/map': 'map',
   '/insights': 'insights',
-  '/training': 'training',
+  '/settings': 'settings',
 };
 
 export function tabSwitchMetric(route: string): string {

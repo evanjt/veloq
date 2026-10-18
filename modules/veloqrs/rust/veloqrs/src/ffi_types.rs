@@ -3344,8 +3344,9 @@ pub struct FfiTrainingScreenData {
 // ============================================================================
 
 /// Everything the fitness tab paints with that stays fixed while it is
-/// mounted. Its range and sport are chosen with a tap, so the reads over them
-/// are their own.
+/// mounted. Its sport is chosen with a tap, so the reads over it are their
+/// own; the parts that follow the range carry every span, so a tap reads
+/// nothing.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiFitnessScreenData {
     /// The cycling eFTP compared across the chart's three months, with the
@@ -3366,6 +3367,53 @@ pub struct FfiFitnessScreenData {
     pub fitness_days: u32,
     /// The fatigue time constant in days in effect today
     pub fatigue_days: u32,
+    /// The cycling FTP the athlete set, in watts, else the one the newest
+    /// cycling activity was analysed against.
+    pub cycling_ftp_setting: Option<f64>,
+    /// The running LTHR the athlete set, in bpm.
+    pub running_lthr: Option<f64>,
+    /// The decoupling ride of each span the read was asked for, in that order.
+    pub decoupling_sources: Vec<FfiSpanDecoupling>,
+    /// Every activity inside the longest span asked for, oldest first, for the
+    /// strip under the fitness plot.
+    pub load_dots: Vec<FfiLoadDot>,
+}
+
+/// The ride the decoupling card names for one span of the range picker.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSpanDecoupling {
+    /// The span's length in days, back from today.
+    pub days: u32,
+    /// `None` when no ride inside the span qualifies.
+    pub source: Option<FfiDecouplingSource>,
+}
+
+/// The newest cycling activity of half an hour or more with power, heart rate
+/// and a finite decoupling stored by intervals.icu, and that value.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiDecouplingSource {
+    pub activity_id: String,
+    pub name: String,
+    /// Wall-clock start, `YYYY-MM-DDTHH:MM:SS`.
+    pub start_date_local: String,
+    /// Percentage, as intervals.icu computed it.
+    pub decoupling: f64,
+}
+
+/// One activity as the fitness strip marks it and its day picker lists it.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiLoadDot {
+    pub activity_id: String,
+    pub name: String,
+    pub sport_type: String,
+    /// Wall-clock start, `YYYY-MM-DDTHH:MM:SS`.
+    pub start_date_local: String,
+    /// Seconds.
+    pub moving_time: u32,
+    /// Metres.
+    pub distance: f64,
+    /// The recorded training load, zero when none is recorded.
+    pub load: f64,
 }
 
 /// The latest activities by the three sports the fitness tab draws.

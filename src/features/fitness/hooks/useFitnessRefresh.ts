@@ -9,7 +9,8 @@ type Refetcher = () => Promise<unknown>;
  * Orchestrates pull-to-refresh across every query the Fitness screen depends on.
  *
  * Re-fetches wellness (via the passed refetcher) and invalidates activity,
- * power-curve, pace-curve, and athlete-summary caches in parallel.
+ * power-curve, pace-curve, athlete-summary and engine stats caches in parallel.
+ * The stats caches hold the calendar, the weekly totals and the year comparison.
  */
 export function useFitnessRefresh(refetchWellness: Refetcher) {
   const queryClient = useQueryClient();
@@ -27,6 +28,7 @@ export function useFitnessRefresh(refetchWellness: Refetcher) {
         queryClient.invalidateQueries({ queryKey: queryKeys.charts.paceCurve.all }),
         queryClient.invalidateQueries({ queryKey: queryKeys.charts.bestEfforts.all }),
         queryClient.invalidateQueries({ queryKey: queryKeys.athleteSummary.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.stats.all }),
       ]);
     } finally {
       // A rejected refetch is offline, not broken. Leaving the spinner on has

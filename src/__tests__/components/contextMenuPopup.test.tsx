@@ -15,7 +15,7 @@ import { render, screen } from '@testing-library/react-native';
 import { PaperProvider } from 'react-native-paper';
 
 import { ContextMenu, type ContextMenuEntry } from '@/shared/ui/ContextMenu';
-import { darkColors, layout, MIN_TAP_TARGET, shadows, typography } from '@/theme';
+import { darkColors, layout, MIN_TAP_TARGET, shadows, stroke, typography } from '@/theme';
 
 let mockIsDark = false;
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: mockIsDark }) }));
@@ -108,17 +108,16 @@ describe('the context menu popup', () => {
     expect(surface.maxWidth).toBeLessThanOrEqual(280);
   });
 
-  it('raises the dark popup with an edge and no shadow', async () => {
+  it('raises the dark popup with its shadow and the card edge, since it floats', async () => {
     mockIsDark = true;
     await renderPopup();
 
     const surface = flat(screen.getByTestId('context-menu-surface'));
     expect(surface).toMatchObject({
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: darkColors.border,
+      ...shadows.elevated,
+      borderWidth: stroke.one,
+      borderColor: darkColors.cardEdge,
       borderRadius: layout.borderRadiusMd,
     });
-    expect(surface.elevation ?? 0).toBe(0);
-    expect(surface.shadowOpacity ?? 0).toBe(0);
   });
 });

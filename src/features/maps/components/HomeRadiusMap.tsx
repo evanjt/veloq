@@ -11,15 +11,20 @@ import { StyleSheet, View } from 'react-native';
 import { useIsFocused } from 'expo-router';
 
 import { useTheme } from '@/shared/app';
-import { layout, mapLayerColors } from '@/theme';
+import { layout, mapPalette } from '@/theme';
 import {
   EMPTY_FEATURE_COLLECTION,
   featureCollection,
   pointFeature,
   type LngLat,
 } from '@/features/maps/lib/coordinates';
-import type { MapCameraSpec, MapLayerSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
+import type { MapCameraSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
 import { circleBounds, circlePolygon } from '@/features/maps/lib/radiusCircle';
+import {
+  HOME_POINT_SOURCE,
+  HOME_RADIUS_SOURCE,
+  homeRadiusLayers,
+} from '@/features/maps/lib/homeRadiusLayers';
 import { MapSurface, type MapPressEvent, type MapSurfaceRef } from './MapSurface';
 
 export const HOME_RADIUS_MAP_HEIGHT = 180;
@@ -29,35 +34,6 @@ const MAX_ZOOM = 17;
 const FIT_PADDING = 24;
 /** A circle smaller than this is fitted as if it were this, so a street stays legible. */
 const MIN_FIT_M = 100;
-
-const RADIUS_SOURCE = 'home-radius';
-const HOME_SOURCE = 'home-point';
-
-const LAYERS: MapLayerSpec[] = [
-  {
-    id: 'home-radius-fill',
-    type: 'fill',
-    source: RADIUS_SOURCE,
-    paint: { 'fill-color': mapLayerColors.homeRadiusFill },
-  },
-  {
-    id: 'home-radius-line',
-    type: 'line',
-    source: RADIUS_SOURCE,
-    paint: { 'line-color': mapLayerColors.homeRadius, 'line-width': 2 },
-  },
-  {
-    id: 'home-point',
-    type: 'circle',
-    source: HOME_SOURCE,
-    paint: {
-      'circle-radius': 7,
-      'circle-color': mapLayerColors.homeRadius,
-      'circle-stroke-color': mapLayerColors.casing,
-      'circle-stroke-width': 2,
-    },
-  },
-];
 
 export interface HomeRadiusMapProps {
   home: LngLat;
@@ -76,17 +52,20 @@ export function homeRadiusCamera(home: LngLat, radiusM: number): MapCameraSpec {
 
 export function HomeRadiusMap({ home, radiusM, onMove, testID }: HomeRadiusMapProps) {
   const { isDark } = useTheme();
+  // A settings row has no base of its own to pick, so it draws the theme's.
+  const base = isDark ? 'dark' : 'light';
+  const layers = useMemo(() => homeRadiusLayers(mapPalette(base)), [base]);
   const surfaceRef = useRef<MapSurfaceRef>(null);
   const screenFocused = useIsFocused();
 
   const sources = useMemo<Record<string, MapSourceSpec>>(() => {
     const circle = circlePolygon(home, radiusM);
     return {
-      [RADIUS_SOURCE]: {
+      [HOME_RADIUS_SOURCE]: {
         kind: 'geojson',
         data: circle ? featureCollection([circle]) : EMPTY_FEATURE_COLLECTION,
       },
-      [HOME_SOURCE]: { kind: 'geojson', data: featureCollection([pointFeature(home)]) },
+      [HOME_POINT_SOURCE]: { kind: 'geojson', data: featureCollection([pointFeature(home)]) },
     };
   }, [home, radiusM]);
 
@@ -104,10 +83,10 @@ export function HomeRadiusMap({ home, radiusM, onMove, testID }: HomeRadiusMapPr
     <View style={styles.frame} testID={testID}>
       <MapSurface
         ref={surfaceRef}
-        mapStyle={isDark ? 'dark' : 'light'}
+        mapStyle={base}
         initialCamera={initialCamera}
         sources={sources}
-        layers={LAYERS}
+        layers={layers}
         scrollEnabled={false}
         rotateEnabled={false}
         released={!screenFocused}

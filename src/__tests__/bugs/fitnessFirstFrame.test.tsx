@@ -1,10 +1,16 @@
 /**
- * The first visit paints the range selector and a chart placeholder before
- * mounting chart canvases and lower sections.
+ * Scenario: the fitness tab also holds the wellness trends, the weekly
+ * summary, the activity calendar and the year comparison.
+ *
+ * Expected behaviour: the first visit paints the range selector and a chart
+ * placeholder before mounting chart canvases and lower sections, so the cards
+ * it holds leave the first frame as it was; they mount with the sections below
+ * the fold, in order under the fitness chart, and their canvases follow one
+ * per frame.
  */
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { act, render, screen } from '@testing-library/react-native';
+import { act, render, screen, within } from '@testing-library/react-native';
 
 import FitnessScreen from '@/app/(tabs)/fitness';
 
@@ -57,6 +63,16 @@ jest.mock('@/shared/app/useRevealChart', () => ({
   }),
 }));
 jest.mock('@/features/wellness', () => ({ timeRangeToDays: () => 90 }));
+jest.mock('@/features/stats', () => {
+  const { View } = require('react-native');
+  return {
+    ActivityHeatmap: ({ drawn }: { drawn: boolean }) => (
+      <View testID={drawn ? 'activity-heatmap-canvas' : 'activity-heatmap-placeholder'} />
+    ),
+    WeeklySummary: () => <View testID="weekly-summary" />,
+    SeasonComparison: () => <View testID="season-comparison" />,
+  };
+});
 jest.mock('@/features/fitness', () => {
   const { View } = require('react-native');
   return {
@@ -64,6 +80,9 @@ jest.mock('@/features/fitness', () => {
     PerformanceCurveSection: () => <View testID="performance-curves" />,
     FitnessTrendSections: () => <View testID="fitness-trends" />,
     FitnessDefinitionsCard: View,
+    WellnessTrendsCard: ({ drawn }: { drawn: boolean }) => (
+      <View testID={drawn ? 'wellness-chart-canvas' : 'wellness-chart-shimmer'} />
+    ),
     TimeRangeSelector: () => <View testID="time-range" />,
     SportToggleSelector: () => <View testID="sport-toggle" />,
     BestEffortsHeaderButton: () => null,
@@ -124,6 +143,42 @@ it('paints the range selector and a chart placeholder before mounting the chart 
     await act(() => frames.shift()?.(32));
     expect(screen.getByTestId('performance-curves')).toBeTruthy();
     expect(screen.getByTestId('fitness-trends')).toBeTruthy();
+    expect(screen.getByTestId('wellness-chart-shimmer')).toBeTruthy();
+    expect(screen.getByTestId('activity-heatmap-placeholder')).toBeTruthy();
+    expect(screen.queryByTestId('weekly-summary')).toBeNull();
+    expect(screen.queryByTestId('season-comparison')).toBeNull();
+
+    await act(() => frames.shift()?.(48));
+    expect(screen.getByTestId('wellness-chart-canvas')).toBeTruthy();
+    expect(screen.getByTestId('activity-heatmap-placeholder')).toBeTruthy();
+
+    await act(() => frames.shift()?.(64));
+    expect(screen.getByTestId('activity-heatmap-canvas')).toBeTruthy();
+    expect(screen.queryByTestId('weekly-summary')).toBeNull();
+
+    await act(() => frames.shift()?.(80));
+    expect(screen.getByTestId('weekly-summary')).toBeTruthy();
+    expect(screen.queryByTestId('season-comparison')).toBeNull();
+
+    await act(() => frames.shift()?.(96));
+    expect(screen.getByTestId('season-comparison')).toBeTruthy();
+    expect(frames).toHaveLength(0);
+
+    const order = [
+      'fitness-chart-canvas',
+      'wellness-trends-chart',
+      'weekly-summary',
+      'activity-heatmap-canvas',
+      'season-comparison',
+      'sport-toggle',
+      'performance-curves',
+    ];
+    const inScreen = within(screen.getByTestId('fitness-screen'));
+    const ids = inScreen
+      .UNSAFE_queryAllByProps({})
+      .map((node) => node.props.testID as string | undefined)
+      .filter((id): id is string => !!id && order.includes(id));
+    expect([...new Set(ids)]).toEqual(order);
   } finally {
     request.mockRestore();
     cancel.mockRestore();

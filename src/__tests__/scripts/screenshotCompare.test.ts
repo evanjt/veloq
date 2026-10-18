@@ -222,8 +222,8 @@ describe('the committed masks and the capture flow', () => {
   ) as typeof MASKS;
   const rects = [...masks.everyScreen, ...Object.values(masks.screens).flat()];
 
-  it('holds the eight screens', () => {
-    expect(Object.keys(masks.screens)).toHaveLength(8);
+  it('holds the seven screens', () => {
+    expect(Object.keys(masks.screens)).toHaveLength(7);
   });
 
   it.each(rects.map((r) => [r.name, r] as const))('%s is a rectangle inside the image', (_n, r) => {

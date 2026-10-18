@@ -70,9 +70,7 @@ module.exports = {
     boundaryCasing: '#000000',
     sectionCreation: '#22C55E',
     extension: '#FF6B00',
-    userLocation: '#2196F3',
   },
-  mapStyleSwatch: { light: '#E5E7EB', dark: '#374151', satellite: '#1E6B5A' },
   mapStylePreview: {
     light: { land: '#EFEDE7', water: '#A5CFE3', road: '#FFFFFF' },
     dark: { land: '#1F2933', water: '#20405C', road: '#3E4C59' },
@@ -95,8 +93,6 @@ module.exports = {
   ],
   sectionPaletteIndex: () => 0,
   sectionPaletteExpression: () => ['match', ['get', 'colorIndex'], 0, '#00BCD4', '#00BCD4'],
-  gradients: {},
-  glows: {},
   opacity: {
     overlay: {
       subtle: 'rgba(0, 0, 0, 0.03)',
@@ -116,6 +112,7 @@ module.exports = {
   zoneColors: {},
   colorWithOpacity: (color) => color,
   shadows: {},
+  raised: () => ({}),
   createShadow: () => ({}),
   smallElementShadow: {},
 };

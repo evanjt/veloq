@@ -60,11 +60,6 @@ appId: ${APP_ID}
     visible:
       id: 'routes-screen'
     timeout: 20000
-- tapOn: 'Health'
-- extendedWaitUntil:
-    visible:
-      id: 'training-screen'
-    timeout: 20000
 - tapOn: 'Feed'
 - extendedWaitUntil:
     visible:

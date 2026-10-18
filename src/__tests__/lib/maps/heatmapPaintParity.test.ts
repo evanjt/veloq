@@ -8,6 +8,7 @@
 
 import { buildMap3DHtml, type Map3DHtmlConfig } from '@/features/maps/lib/htmlBuilders';
 import { buildRegionalLayers } from '@/features/maps/components/regional/regionalMapLayerSpecs';
+import { mapPalette } from '@/theme';
 import { heatmapRasterPaint } from '@/features/maps/lib/heatmapPaint';
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
 
@@ -39,7 +40,7 @@ function html(mapStyle: MapStyleType): string {
 describe('heatmap raster paint', () => {
   it.each(STYLES)('3D page paints %s as the 2D layer does', (style) => {
     const layers = buildRegionalLayers({
-      mapStyle: style,
+      palette: mapPalette(style),
       heatmapEnabled: true,
       showHeatmap: true,
       hasSpider: false,

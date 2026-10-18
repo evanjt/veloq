@@ -10,6 +10,7 @@ import {
   CLUSTER_CIRCLE_LAYER_ID,
 } from '@/features/maps/components/regional/regionalMapLayerSpecs';
 import { composite, contrastRatio } from '../../__shared__/contrast';
+import { mapPalette } from '@/theme';
 
 // The light basemap's paper, plain white, and black standing in for the
 // darkest a dark or satellite basemap gets.
@@ -17,7 +18,7 @@ const GROUNDS = ['#FFFFFF', '#F2EFE9', '#000000'];
 
 function clusterLayers(mapStyle: 'light' | 'dark' | 'satellite') {
   const layers = buildRegionalLayers({
-    mapStyle,
+    palette: mapPalette(mapStyle),
     showActivities: true,
     showSections: false,
     showRoutes: false,

@@ -5,9 +5,9 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { navigateTo } from '@/shared/app/navigation';
 import { formatDuration, formatShortDate, safeGetTime } from '@/shared/format/format';
-import { brand, colors, darkColors, iconSize, layout, opacity, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, layout, opacity, spacing, typography } from '@/theme';
 import type { SectionPerformanceRecord } from '@/features/routes';
-import { pressable, pressRipple } from '@/shared/ui';
+import { Badge, pressable, pressRipple } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { directionEfforts, type DirectionBests } from '@/features/insights/lib/directionBests';
 
@@ -65,10 +65,7 @@ export const RecentEffortsList = React.memo(function RecentEffortsList({
             <View style={styles.rowRight}>
               <Text style={[styles.time, isDark && styles.timeDark]}>{formatDuration(time)}</Text>
               {isPR ? (
-                <View style={styles.prBadge}>
-                  <Icon name="trophy" size={iconSize.xs} color={colors.textOnBright} />
-                  <Text style={styles.prText}>{t('sections.legendPr')}</Text>
-                </View>
+                <Badge tone="record" icon="trophy" text={t('sections.legendPr')} isDark={isDark} />
               ) : delta != null ? (
                 <Text style={[styles.delta, isDark && styles.deltaDark]}>
                   +{formatDuration(delta)}
@@ -139,18 +136,5 @@ const styles = StyleSheet.create({
   },
   deltaDark: {
     color: darkColors.textSecondary,
-  },
-  prBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xxs,
-    backgroundColor: brand.gold,
-    paddingHorizontal: spacing.xsPlus,
-    paddingVertical: spacing.xxs,
-    borderRadius: layout.borderRadiusSm,
-  },
-  prText: {
-    ...typography.badge,
-    color: colors.textOnBright,
   },
 });

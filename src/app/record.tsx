@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, ScrollView, StyleSheet, Pressable, ActivityIndicator, Platform } from 'react-native';
+import { View, ScrollView, StyleSheet, Pressable, Platform } from 'react-native';
 import { Text } from 'react-native-paper';
 import {
   Button,
@@ -10,6 +10,7 @@ import {
   ScreenSafeAreaView,
   ToggleButton,
   useBottomClearance,
+  Spinner,
 } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import {
@@ -435,9 +436,7 @@ function GpsStatusPill({ state, testID }: { state: EntryGpsState; testID?: strin
   }[state];
   return (
     <SignalStatus testID={testID} variant="chip" level={level} icon={icon} label={label}>
-      {state === 'checking' && (
-        <ActivityIndicator size="small" color={signalColor(level, isDark)} />
-      )}
+      {state === 'checking' && <Spinner inControl color={signalColor(level, isDark)} />}
     </SignalStatus>
   );
 }

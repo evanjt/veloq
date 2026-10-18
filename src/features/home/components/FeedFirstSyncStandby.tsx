@@ -17,7 +17,8 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { Spinner } from '@/shared/ui';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
@@ -41,16 +42,10 @@ export function FeedFirstSyncStandby() {
 
   return (
     <View style={styles.container} testID="feed-first-sync-standby">
-      <ActivityIndicator
+      <Spinner
         size="large"
-        color={colors.actionPrimary}
-        accessible
-        accessibilityRole="progressbar"
-        accessibilityLabel={t('feed.firstSyncTitle')}
-        accessibilityState={{ busy: true }}
-        accessibilityValue={
-          itemsTotal > 0 ? progressValue(status?.stepItemsDone ?? 0, itemsTotal) : undefined
-        }
+        label={t('feed.firstSyncTitle')}
+        progress={itemsTotal > 0 ? progressValue(status?.stepItemsDone ?? 0, itemsTotal) : true}
       />
       <SectionTitle align="center" testID="feed-first-sync-title">
         {t('feed.firstSyncTitle')}

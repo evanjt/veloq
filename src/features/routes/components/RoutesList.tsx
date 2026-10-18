@@ -8,37 +8,16 @@
 
 import { listCountLabel, ROUTE_COUNT_KEYS } from '@/features/routes/lib/listCountLabel';
 import React, { memo, useMemo, useRef } from 'react';
-import { View, StyleSheet, FlatList, Pressable } from 'react-native';
+import { View, StyleSheet, FlatList } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
 import type { FfiCatalogueEmptyReason, GroupWithPolyline } from 'veloqrs';
 import { Text } from 'react-native-paper';
-import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import {
-  colorWithOpacity,
-  opacity,
-  colors,
-  darkColors,
-  iconSize,
-  layout,
-  slopToMinTapTarget,
-  spacing,
-  typography,
-  stroke,
-  themePalette,
-} from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 import { haversineDistance, type LatLngShort } from '@/shared/geo/distance';
 import { filterSummary } from '@/shared/format/filterSummary';
-import {
-  EmptyState,
-  ErrorState,
-  ExplanationCard,
-  pressable,
-  pressRipple,
-  SearchBar,
-} from '@/shared/ui';
-import { Icon } from '@/shared/ui/Icon';
+import { EmptyState, ErrorState, ExplanationCard, SearchBar, SelectButton } from '@/shared/ui';
 import { ScreenRefreshControl } from '@/shared/ui/ScreenRefreshControl';
 import { useScrollToTopOnReselect } from '@/shared/ui/tabReselect';
 import { RowSkeleton } from '@/features/routes/components/RowSkeleton';
@@ -120,7 +99,6 @@ export const RoutesList = memo(function RoutesList({
 }: RoutesListProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const palette = themePalette(isDark);
   const listRef = useRef<FlatList<RouteGroup>>(null);
   useScrollToTopOnReselect('/insights', listRef);
 
@@ -150,28 +128,12 @@ export const RoutesList = memo(function RoutesList({
   // Note: useFocusEffect refresh removed - useGroupSummaries subscribes to engine events
   // and automatically refreshes when data changes (e.g., after renaming on detail page)
 
-  const sortChips: {
-    key: RoutesSortOption;
-    label: string;
-    icon: keyof typeof MaterialCommunityIcons.glyphMap;
-  }[] = useMemo(
+  const sortChips: { key: RoutesSortOption; label: string }[] = useMemo(
     () => [
-      { key: 'nearby', label: t('routes.sortNearby' as never) as string, icon: 'crosshairs-gps' },
-      {
-        key: 'activities',
-        label: t('routes.sortActivities' as never) as string,
-        icon: 'sort-numeric-descending',
-      },
-      {
-        key: 'distance',
-        label: t('routes.sortDistance' as never) as string,
-        icon: 'map-marker-distance',
-      },
-      {
-        key: 'name',
-        label: t('routes.sortNameAZ' as never) as string,
-        icon: 'sort-alphabetical-ascending',
-      },
+      { key: 'nearby', label: t('routes.sortNearby' as never) as string },
+      { key: 'activities', label: t('routes.sortActivities' as never) as string },
+      { key: 'distance', label: t('routes.sortDistance' as never) as string },
+      { key: 'name', label: t('routes.sortNameAZ' as never) as string },
     ],
     [t]
   );
@@ -268,54 +230,17 @@ export const RoutesList = memo(function RoutesList({
               {routeCountLabel}
             </Text>
           </View>
-          {/* Sort chips */}
-          <View style={styles.sortChipRow}>
-            {groups.length > 1 &&
-              sortChips.map((chip) => {
-                const isActive = sortOption === chip.key;
-                return (
-                  <Pressable
-                    key={chip.key}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: isActive }}
-                    accessibilityLabel={chip.label}
-                    style={pressable([
-                      styles.sortChip,
-                      isDark && styles.sortChipDark,
-                      isActive && {
-                        backgroundColor: colorWithOpacity(palette.actionPrimary, opacity.tint1),
-                        borderColor: palette.actionPrimary,
-                      },
-                    ])}
-                    android_ripple={pressRipple}
-                    hitSlop={sortChipHitSlop}
-                    onPress={() => onSortChange(chip.key)}
-                  >
-                    <Icon
-                      name={chip.icon}
-                      size={iconSize.xs}
-                      color={
-                        isActive
-                          ? palette.actionPrimary
-                          : isDark
-                            ? darkColors.textSecondary
-                            : colors.textSecondary
-                      }
-                    />
-                    <Text
-                      style={[
-                        styles.sortChipLabel,
-                        isDark && styles.textSecondary,
-                        isActive && styles.sortChipLabelActive,
-                        isActive && isDark && { color: darkColors.actionLink },
-                      ]}
-                    >
-                      {chip.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-          </View>
+          {groups.length > 1 && (
+            <View style={styles.sortRow}>
+              <SelectButton
+                testID="routes-sort"
+                accessibilityLabel={t('routes.sortBy')}
+                value={sortOption}
+                options={sortChips.map((chip) => ({ value: chip.key, label: chip.label }))}
+                onChange={onSortChange}
+              />
+            </View>
+          )}
         </View>
       )}
       <FlatList
@@ -353,9 +278,6 @@ export const RoutesList = memo(function RoutesList({
   );
 });
 
-const SORT_CHIP_HEIGHT = typography.caption.lineHeight + 2 * (spacing.xs + stroke.one);
-const sortChipHitSlop = slopToMinTapTarget(SORT_CHIP_HEIGHT);
-
 const styles = StyleSheet.create({
   outerContainer: {
     flex: 1,
@@ -388,42 +310,15 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.md,
     marginTop: spacing.sm,
   },
-  sortChipRow: {
+  sortRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: spacing.xs,
     paddingHorizontal: spacing.md,
     marginTop: spacing.xxs,
     marginBottom: spacing.md,
   },
-  sortChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.smPlus,
-    paddingVertical: spacing.xs,
-    minHeight: SORT_CHIP_HEIGHT,
-    borderRadius: layout.borderRadius,
-    borderWidth: stroke.one,
-    borderColor: colors.border,
-  },
-  sortChipDark: {
-    borderColor: darkColors.border,
-  },
-  sortChipLabel: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
-  sortChipLabelActive: {
-    color: colors.actionLink,
-  },
   emptyList: {
     flexGrow: 1,
     paddingTop: spacing.md,
-  },
-  textSecondary: {
-    color: darkColors.textSecondary,
   },
   skeletonList: {
     paddingTop: spacing.md,

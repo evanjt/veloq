@@ -20,7 +20,8 @@ import {
   iconSize,
   layers,
   layout,
-  shadows,
+  raised,
+  smallElementShadow,
   spacing,
   stroke,
   typography,
@@ -266,7 +267,10 @@ export function TrimSlider({
   };
 
   return (
-    <View style={[styles.pill, { backgroundColor: pillBg }]} testID="review-trim-slider">
+    <View
+      style={[styles.pill, raised('elevated', isDark), { backgroundColor: pillBg }]}
+      testID="review-trim-slider"
+    >
       {/* Title + time labels */}
       <View style={styles.headerRow}>
         <Text style={[styles.title, { color: textPrimary }]}>
@@ -375,7 +379,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
     paddingBottom: spacing.smPlus,
-    ...shadows.elevated,
   },
   headerRow: {
     flexDirection: 'row',
@@ -430,7 +433,7 @@ const styles = StyleSheet.create({
     borderWidth: stroke.two,
     justifyContent: 'center',
     alignItems: 'center',
-    ...shadows.elevated,
+    ...smallElementShadow(),
   },
   handleBar: {
     width: 8,

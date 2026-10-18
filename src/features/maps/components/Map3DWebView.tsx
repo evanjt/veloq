@@ -14,7 +14,7 @@ import { WebView } from 'react-native-webview';
 import { veloqWebViewNativeConfig, type WebViewHandle } from '@/features/maps/lib/veloqWebView';
 import { mapPageBaseUrl } from '@/features/maps/lib/tileTransport';
 
-import { colors, darkColors } from '@/theme';
+import { colors, darkColors, mapPalette } from '@/theme';
 import { getBoundsFromPoints } from '@/shared/geo/polyline';
 import { useMap3DBridge } from '@/features/maps/hooks/useMap3DBridge';
 import { useRendererRecovery } from '@/features/maps/hooks/useRendererRecovery';
@@ -642,7 +642,12 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
               }
             } else if (lineData) {
               window.map.addSource('section-creation-line', { type: 'geojson', data: lineData });
-              ${addSectionCreation3DLayersScript('window.map', 'section-creation-line', true)}
+              ${addSectionCreation3DLayersScript(
+                'window.map',
+                'section-creation-line',
+                true,
+                mapPalette(mapStyleRef.current)
+              )}
             }
             // Update section creation markers - re-create if missing
             var markersData = ${markersJSON};
@@ -658,7 +663,12 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
               }
             } else if (markersData) {
               window.map.addSource('section-creation-markers', { type: 'geojson', data: markersData });
-              ${addSectionCreation3DLayersScript('window.map', 'section-creation-markers', true)}
+              ${addSectionCreation3DLayersScript(
+                'window.map',
+                'section-creation-markers',
+                true,
+                mapPalette(mapStyleRef.current)
+              )}
             }
           } catch (e) { console.warn('[3D] Section creation layer error:', e); }
         })();

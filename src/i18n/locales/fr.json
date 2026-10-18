@@ -34,7 +34,6 @@
     "terrainRow": "Terrain 3D",
     "activityStats": "Statistiques d'activité",
     "calories": "Calories",
-    "chartHint": "Maintenez pour parcourir • Maintenez la puce pour l'axe",
     "distance": "Distance",
     "xAxis": {
       "distance": "Distance",
@@ -140,6 +139,7 @@
     "zoneMaxDefaultHint": "Définissez votre FC max dans les réglages du sport sur intervals.icu",
     "prDelta": "+{{delta}} sur le PR",
     "chartAverage": "moy.",
+    "chartGain": "D+",
     "gainStat": "↑ {{value}}"
   },
   "activityDetail": {
@@ -751,6 +751,7 @@
     "activitiesCount_many": "{{count}} d'activités",
     "activitiesCount_other": "{{count}} activités",
     "daysTrained": "Jours d'entraînement",
+    "eftpChanged": "eFTP modifié",
     "fatigueATL": "Fatigue (ATL)",
     "fitnessCTL": "Forme physique (CTL)",
     "loadPartial": "Partielle",
@@ -783,9 +784,6 @@
     "greyZone": "Zone grise",
     "optimal": "Optimal",
     "highRisk": "Haut risque"
-  },
-  "healthScreen": {
-    "title": "Santé"
   },
   "insights": {
     "ranking": {
@@ -1251,9 +1249,9 @@
     "activities": "Activités",
     "feed": "Fil",
     "fitness": "Forme",
-    "health": "Santé",
     "map": "Carte",
     "settings": "Paramètres",
+    "settingsTab": "Réglages",
     "training": "Entraînement",
     "wellness": "Bien-être",
     "insights": "Aperçus"
@@ -1619,6 +1617,7 @@
     "searchSections": "Rechercher des sections…",
     "searchRoutes": "Rechercher des parcours…",
     "sortActivities": "Activités",
+    "sortBy": "Trier",
     "sortDistance": "Distance",
     "sortMostVisited": "Plus visitées",
     "sortNameAZ": "Nom A-Z",

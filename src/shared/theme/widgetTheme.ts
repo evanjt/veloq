@@ -16,6 +16,7 @@ import {
   colors,
   darkColors,
   insightToneColor,
+  opacity,
   recording,
   sequentialRamp,
   verdictColor,
@@ -42,21 +43,16 @@ export interface WidgetPalette {
   chartFitness: string;
   /** Fatigue (ATL) chart line, matching the feed summary-card sparkline. */
   chartFatigue: string;
-  /** Under-stroke behind chart lines for edge contrast (RRGGBBAA). */
-  chartCasing: string;
-  /** Form zone fills keyed by the snapshot's `metrics.form.zone` enum. */
+  /**
+   * Form zone fills keyed by the snapshot's `metrics.form.zone` enum: a band on the form chart
+   * and the key dot beside a form value, whose text stays `textPrimary`.
+   */
   formHighRisk: string;
   formOptimal: string;
   formGreyZone: string;
   formFresh: string;
   formTransition: string;
-  /** Form zone text: the hero value and the impact numbers, which carry no label. */
-  formHighRiskText: string;
-  formOptimalText: string;
-  formGreyZoneText: string;
-  formFreshText: string;
-  formTransitionText: string;
-  /** An improving trend (green). */
+  /** An improving trend (green), drawn as the arrow beside a value and never as its text. */
   trendUp: string;
   /** A declining trend (the negative rung). */
   trendDown: string;
@@ -92,17 +88,11 @@ export const widgetPalette: { light: WidgetPalette; dark: WidgetPalette } = {
     fatigue: colors.fatigue,
     chartFitness: colors.fitness,
     chartFatigue: colors.fatigue,
-    chartCasing: colors.chartCasing,
     formHighRisk: colors.formHighRisk,
     formOptimal: colors.formOptimal,
     formGreyZone: colors.formGreyZone,
     formFresh: colors.formFresh,
     formTransition: colors.formTransition,
-    formHighRiskText: colors.formHighRiskText,
-    formOptimalText: colors.formOptimalText,
-    formGreyZoneText: colors.formGreyZoneText,
-    formFreshText: colors.formFreshText,
-    formTransitionText: colors.formTransitionText,
     trendUp: verdictColor('positive', false),
     trendDown: verdictColor('negative', false),
     trendFlat: verdictColor('neutral', false),
@@ -130,17 +120,11 @@ export const widgetPalette: { light: WidgetPalette; dark: WidgetPalette } = {
     fatigue: darkColors.fatigue,
     chartFitness: darkColors.fitness,
     chartFatigue: darkColors.fatigue,
-    chartCasing: darkColors.chartCasing,
     formHighRisk: darkColors.formHighRisk,
     formOptimal: darkColors.formOptimal,
     formGreyZone: darkColors.formGreyZone,
     formFresh: darkColors.formFresh,
     formTransition: darkColors.formTransition,
-    formHighRiskText: darkColors.formHighRiskText,
-    formOptimalText: darkColors.formOptimalText,
-    formGreyZoneText: darkColors.formGreyZoneText,
-    formFreshText: darkColors.formFreshText,
-    formTransitionText: darkColors.formTransitionText,
     trendUp: verdictColor('positive', true),
     trendDown: verdictColor('negative', true),
     trendFlat: verdictColor('neutral', true),
@@ -257,11 +241,11 @@ export const widgetChart = {
   /** Fatigue is dashed, so it reads apart from the solid fitness line. */
   fatigueDash: [3, 2],
   /** A form zone band's fill over its zone colour. */
-  bandOpacity: 0.3,
+  bandOpacity: opacity.tint4,
   /** In one colour, neighbouring bands alternate between these two alphas. */
-  bandAccentedOpacities: [0.12, 0.3],
+  bandAccentedOpacities: [opacity.tint2, opacity.tint4],
   /** The line drawn at each band boundary. */
-  bandBoundary: 0.5,
+  bandBoundary: opacity.disabled,
 } as const;
 
 /**

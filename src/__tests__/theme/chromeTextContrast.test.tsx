@@ -18,7 +18,7 @@ import type { ReactTestInstance } from 'react-test-renderer';
 
 import { BottomTabBar } from '@/shared/ui/BottomTabBar';
 import { DeviceAttribution } from '@/shared/ui/GarminAttribution';
-import { SwipeableTabs, type SwipeableTab } from '@/shared/ui';
+import { SwipeableTabs, badgePaint, type SwipeableTab } from '@/shared/ui';
 import { DataSourcesSection } from '@/features/settings/components/DataSourcesSection';
 import { colors, darkColors, ink } from '@/theme';
 
@@ -155,14 +155,14 @@ describe('the swipeable tab strip badges', () => {
   it.each(THEMES)('draws a slower time in the decline tone in the $name theme', async (theme) => {
     const { getByText } = await renderStrip(theme.isDark);
 
-    const colour = StyleSheet.flatten(getByText('+12s').props.style).color;
+    const fill = nearestFill(getByText('+12s'));
 
-    expect(colour).not.toBe(theme.palette.textSecondary);
-    expect(colour).not.toBe(colors.textOnFill);
+    expect(fill).toBe(badgePaint('negative', theme.isDark).fill);
+    expect(fill).not.toBe(badgePaint('neutral', theme.isDark).fill);
   });
 
   it.each(THEMES)(
-    'draws the active icon and label in one teal in the $name theme',
+    'draws the active icon and label in one ink in the $name theme',
     async (theme) => {
       const { getByText, UNSAFE_getAllByProps } = await renderStrip(theme.isDark);
 

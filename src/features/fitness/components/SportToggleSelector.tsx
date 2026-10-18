@@ -4,7 +4,7 @@ import { SportChipRow, type SportChip } from '@/shared/ui/SportChipRow';
 import type { PrimarySport } from '@/features/fitness/stores';
 import { spacing } from '@/theme';
 
-/** Each sport's chip, drawn with its family's fill and ink. */
+/** Each sport's chip, its dot in its family's colour. */
 const SPORT_CHIPS = [
   {
     key: 'Cycling',

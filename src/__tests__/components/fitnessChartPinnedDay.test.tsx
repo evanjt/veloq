@@ -18,6 +18,7 @@ import { ActivityDotsChart } from '@/features/fitness/components/ActivityDotsCha
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import type { Activity, WellnessData } from '@/types';
 import { ABSENT } from '@/shared/format/absent';
+import { dayActivityRow } from '@/features/activity/light';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/i18n', () => ({
@@ -136,12 +137,16 @@ describe('the activity strip on a pinned day with no row', () => {
 
   it('drops the day selected before it rather than keeping its activity label', async () => {
     const tree = await render(
-      <ActivityDotsChart data={DAYS} activities={[RIDE]} selectedDate="2026-03-02" />
+      <ActivityDotsChart
+        data={DAYS}
+        activities={[dayActivityRow(RIDE)]}
+        selectedDate="2026-03-02"
+      />
     );
     expect(tree.queryByText(/Morning Ride/)).not.toBeNull();
 
     await tree.rerender(
-      <ActivityDotsChart data={DAYS} activities={[RIDE]} selectedDate={MISSING} />
+      <ActivityDotsChart data={DAYS} activities={[dayActivityRow(RIDE)]} selectedDate={MISSING} />
     );
 
     expect(tree.queryByText(/Morning Ride/)).toBeNull();

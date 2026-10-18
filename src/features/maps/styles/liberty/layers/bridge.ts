@@ -1,3 +1,5 @@
+import { tones } from '../tones';
+
 export const LIBERTY_LAYERS_BRIDGE = [
   // --- Bridges ---
   {
@@ -13,7 +15,7 @@ export const LIBERTY_LAYERS_BRIDGE = [
     ],
     layout: { 'line-join': 'round' },
     paint: {
-      'line-color': '#e9ac77',
+      'line-color': tones.roadMajorCasing,
       'line-width': ['interpolate', ['exponential', 1.2], ['zoom'], 12, 1, 13, 3, 14, 4, 20, 15],
     },
   },
@@ -29,7 +31,7 @@ export const LIBERTY_LAYERS_BRIDGE = [
     ],
     layout: { 'line-join': 'round' },
     paint: {
-      'line-color': '#cfcdca',
+      'line-color': tones.roadCasing,
       'line-width': ['interpolate', ['exponential', 1.2], ['zoom'], 15, 1, 16, 4, 20, 11],
     },
   },
@@ -41,7 +43,7 @@ export const LIBERTY_LAYERS_BRIDGE = [
     filter: ['all', ['==', ['get', 'class'], 'link'], ['==', ['get', 'brunnel'], 'bridge']],
     layout: { 'line-join': 'round' },
     paint: {
-      'line-color': '#e9ac77',
+      'line-color': tones.roadMajorCasing,
       'line-width': ['interpolate', ['exponential', 1.2], ['zoom'], 12, 1, 13, 3, 14, 4, 20, 15],
     },
   },
@@ -57,7 +59,7 @@ export const LIBERTY_LAYERS_BRIDGE = [
     ],
     layout: { 'line-join': 'round' },
     paint: {
-      'line-color': 'hsl(36,6%,74%)',
+      'line-color': tones.roadCasing,
       'line-opacity': ['interpolate', ['linear'], ['zoom'], 12, 0, 12.5, 1],
       'line-width': ['interpolate', ['exponential', 1.2], ['zoom'], 12, 0.5, 13, 1, 14, 4, 20, 25],
     },
@@ -74,7 +76,7 @@ export const LIBERTY_LAYERS_BRIDGE = [
       ['match', ['get', 'class'], ['path', 'pedestrian'], true, false],
     ],
     paint: {
-      'line-color': 'hsl(35,6%,80%)',
+      'line-color': tones.roadCasing,
       'line-dasharray': [1, 0],
       'line-width': ['interpolate', ['exponential', 1.2], ['zoom'], 14, 1.5, 20, 18],
     },
@@ -91,7 +93,7 @@ export const LIBERTY_LAYERS_BRIDGE = [
     ],
     layout: { 'line-join': 'round' },
     paint: {
-      'line-color': '#e9ac77',
+      'line-color': tones.roadMajorCasing,
       'line-width': ['interpolate', ['exponential', 1.2], ['zoom'], 8, 1.5, 20, 17],
     },
   },
@@ -107,7 +109,7 @@ export const LIBERTY_LAYERS_BRIDGE = [
     ],
     layout: { 'line-join': 'round' },
     paint: {
-      'line-color': '#e9ac77',
+      'line-color': tones.roadMajorCasing,
       'line-width': [
         'interpolate',
         ['exponential', 1.2],
@@ -136,7 +138,7 @@ export const LIBERTY_LAYERS_BRIDGE = [
     ],
     layout: { 'line-join': 'round' },
     paint: {
-      'line-color': '#e9ac77',
+      'line-color': tones.roadMajorCasing,
       'line-width': [
         'interpolate',
         ['exponential', 1.2],
@@ -164,7 +166,7 @@ export const LIBERTY_LAYERS_BRIDGE = [
       ['match', ['get', 'class'], ['path', 'pedestrian'], true, false],
     ],
     paint: {
-      'line-color': 'hsl(0,0%,100%)',
+      'line-color': tones.roadMinor,
       'line-dasharray': [1, 0.3],
       'line-width': ['interpolate', ['exponential', 1.2], ['zoom'], 14, 0.5, 20, 10],
     },
@@ -182,7 +184,7 @@ export const LIBERTY_LAYERS_BRIDGE = [
     ],
     layout: { 'line-join': 'round' },
     paint: {
-      'line-color': '#fc8',
+      'line-color': tones.road,
       'line-width': [
         'interpolate',
         ['exponential', 1.2],
@@ -210,7 +212,7 @@ export const LIBERTY_LAYERS_BRIDGE = [
     ],
     layout: { 'line-join': 'round' },
     paint: {
-      'line-color': '#fff',
+      'line-color': tones.roadMinor,
       'line-width': ['interpolate', ['exponential', 1.2], ['zoom'], 15.5, 0, 16, 2, 20, 7.5],
     },
   },
@@ -222,7 +224,7 @@ export const LIBERTY_LAYERS_BRIDGE = [
     filter: ['all', ['==', ['get', 'class'], 'link'], ['==', ['get', 'brunnel'], 'bridge']],
     layout: { 'line-join': 'round' },
     paint: {
-      'line-color': '#fea',
+      'line-color': tones.road,
       'line-width': [
         'interpolate',
         ['exponential', 1.2],
@@ -250,7 +252,7 @@ export const LIBERTY_LAYERS_BRIDGE = [
     ],
     layout: { 'line-join': 'round' },
     paint: {
-      'line-color': '#fff',
+      'line-color': tones.roadMinor,
       'line-width': ['interpolate', ['exponential', 1.2], ['zoom'], 13.5, 0, 14, 2.5, 20, 18],
     },
   },
@@ -266,7 +268,7 @@ export const LIBERTY_LAYERS_BRIDGE = [
     ],
     layout: { 'line-join': 'round' },
     paint: {
-      'line-color': '#fea',
+      'line-color': tones.road,
       'line-width': ['interpolate', ['exponential', 1.2], ['zoom'], 6.5, 0, 7, 0.5, 20, 10],
     },
   },
@@ -282,7 +284,7 @@ export const LIBERTY_LAYERS_BRIDGE = [
     ],
     layout: { 'line-join': 'round' },
     paint: {
-      'line-color': '#fea',
+      'line-color': tones.road,
       'line-width': ['interpolate', ['exponential', 1.2], ['zoom'], 5, 0, 7, 1, 20, 18],
     },
   },
@@ -299,7 +301,7 @@ export const LIBERTY_LAYERS_BRIDGE = [
     ],
     layout: { 'line-join': 'round' },
     paint: {
-      'line-color': '#fc8',
+      'line-color': tones.road,
       'line-width': ['interpolate', ['exponential', 1.2], ['zoom'], 5, 0, 7, 1, 20, 18],
     },
   },
@@ -310,7 +312,7 @@ export const LIBERTY_LAYERS_BRIDGE = [
     'source-layer': 'transportation',
     filter: ['all', ['==', ['get', 'class'], 'rail'], ['==', ['get', 'brunnel'], 'bridge']],
     paint: {
-      'line-color': '#bbb',
+      'line-color': tones.rail,
       'line-width': ['interpolate', ['exponential', 1.4], ['zoom'], 14, 0.4, 15, 0.75, 20, 2],
     },
   },
@@ -321,7 +323,7 @@ export const LIBERTY_LAYERS_BRIDGE = [
     'source-layer': 'transportation',
     filter: ['all', ['==', ['get', 'class'], 'rail'], ['==', ['get', 'brunnel'], 'bridge']],
     paint: {
-      'line-color': '#bbb',
+      'line-color': tones.rail,
       'line-dasharray': [0.2, 8],
       'line-width': ['interpolate', ['exponential', 1.4], ['zoom'], 14.5, 0, 15, 3, 20, 8],
     },
@@ -333,7 +335,7 @@ export const LIBERTY_LAYERS_BRIDGE = [
     'source-layer': 'transportation',
     filter: ['all', ['==', ['get', 'class'], 'transit'], ['==', ['get', 'brunnel'], 'bridge']],
     paint: {
-      'line-color': '#bbb',
+      'line-color': tones.rail,
       'line-width': ['interpolate', ['exponential', 1.4], ['zoom'], 14, 0.4, 15, 0.75, 20, 2],
     },
   },
@@ -344,7 +346,7 @@ export const LIBERTY_LAYERS_BRIDGE = [
     'source-layer': 'transportation',
     filter: ['all', ['==', ['get', 'class'], 'transit'], ['==', ['get', 'brunnel'], 'bridge']],
     paint: {
-      'line-color': '#bbb',
+      'line-color': tones.rail,
       'line-dasharray': [0.2, 8],
       'line-width': ['interpolate', ['exponential', 1.4], ['zoom'], 14.5, 0, 15, 3, 20, 8],
     },

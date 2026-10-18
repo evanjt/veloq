@@ -26,7 +26,7 @@
  * no line here. So a group added tomorrow has to be classified before it lands.
  */
 
-import { activityTypeInk, activityTypeInkDark, insightCategoryColors } from './colors';
+import { activityTypeInk, activityTypeInkDark } from './colors';
 
 /** What kind of thing a group holds, and therefore how it is measured. */
 export type GroupKind = 'pair' | 'mark' | 'series';
@@ -149,32 +149,9 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
       { ground: 'restore.bg', on: ['restore.text'], bar: 'text' },
     ],
   },
-  mapStyleSwatch: {
-    kind: 'pair',
-    reason: 'the picker chip: its icon sits on the swatch, which is the ground',
-    pairs: [
-      { ground: 'light', on: ['..mapStyleSwatchIcon.light'], bar: 'mark' },
-      { ground: 'dark', on: ['..mapStyleSwatchIcon.dark'], bar: 'mark' },
-      { ground: 'satellite', on: ['..mapStyleSwatchIcon.dark'], bar: 'mark' },
-    ],
-  },
   mapStylePreview: {
     kind: 'series',
     reason: 'each style thumbnail is its own land, water and road, recognised as a picture',
-  },
-  mapStyleSwatchIcon: {
-    kind: 'pair',
-    reason: 'measured as the foreground of mapStyleSwatch, which names the ground',
-    pairs: [],
-  },
-  insightIcon: {
-    kind: 'mark',
-    reason:
-      "the two category tones of an insight. In the app the icon sits on a tint of itself beside the insight's title, but a widget row's dot is the only mark of its tone, so each theme's tone answers to 3:1 on that theme's surfaces. Read only through insightToneColor",
-    marks: [
-      { paths: ['info.light', 'opportunity.light'], theme: 'light' },
-      { paths: ['info.dark', 'opportunity.dark'], theme: 'dark' },
-    ],
   },
   verdict: {
     kind: 'pair',
@@ -191,6 +168,15 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
         on: ['negative.dark', 'caution.dark', 'positive.dark', 'neutral.dark', 'record.dark'],
         bar: 'text',
       },
+    ],
+  },
+  directionPair: {
+    kind: 'mark',
+    reason:
+      'the forward and reverse colours of a section chart, each a dot, a line or an arrow beside its direction word, so each theme answers to 3:1 on its surfaces',
+    marks: [
+      { paths: ['light.forward', 'light.reverse'], theme: 'light' },
+      { paths: ['dark.forward', 'dark.reverse'], theme: 'dark' },
     ],
   },
   recording: {
@@ -243,15 +229,6 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
       { ground: 'bgDark', on: ['crosshairRing'], bar: 'mark' },
     ],
   },
-  gradients: {
-    kind: 'series',
-    reason:
-      'two-stop fills. A gradient is a ground, and what sits on it is a token tokenFamilies covers',
-  },
-  glows: {
-    kind: 'series',
-    reason: 'translucent shadow colours, which draw no information at all',
-  },
   opacity: {
     kind: 'series',
     reason: 'alpha steps, not colours',
@@ -303,14 +280,6 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
     marks: [
       { paths: ['zone1', 'zone2', 'zone3', 'zone4', 'zone5', 'zone6', 'zone7'], theme: 'dark' },
     ],
-  },
-  insightCategoryColors: {
-    kind: 'mark',
-    reason: 'one hue per insight category, drawn as the history graphic and the card edge',
-    marks: (['light', 'dark'] as const).map((theme) => ({
-      paths: Object.keys(insightCategoryColors).map((category) => `${category}.${theme}`),
-      theme,
-    })),
   },
   verdictFill: {
     kind: 'series',

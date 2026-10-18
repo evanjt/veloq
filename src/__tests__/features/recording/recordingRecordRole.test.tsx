@@ -10,11 +10,11 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { render } from '@testing-library/react-native';
 
-import { recordingMapLayers } from '@/features/recording/components/RecordingMap';
+import { recordingMapLayers } from '@/features/recording/lib/recordingMapLayers';
 import { RecordingReturnPill } from '@/features/recording/components/RecordingReturnPill';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { brand, colors, darkColors, recording } from '@/theme';
+import { brand, colors, darkColors, mapPalette, recording } from '@/theme';
 
 let mockIsDark = false;
 
@@ -37,7 +37,9 @@ const themes = [
 
 describe('the recording map live track', () => {
   it.each(themes)('draws in the record role in the %s theme', (tone, isDark) => {
-    const line = recordingMapLayers(isDark).find((l) => l.id === 'recording-route-line');
+    const line = recordingMapLayers(mapPalette('light'), isDark).find(
+      (l) => l.id === 'recording-route-line'
+    );
 
     expect(line?.paint?.['line-color']).toBe(recording[tone]);
     expect(line?.paint?.['line-color']).not.toBe(brand.blue600);

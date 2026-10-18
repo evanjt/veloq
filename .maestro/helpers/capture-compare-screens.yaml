@@ -55,12 +55,6 @@ appId: com.veloq.app.dev
 - takeScreenshot: "screenshots/compare/${THEME}/fitness"
 
 - runFlow:
-    file: navigate-to-training.yaml
-- waitForAnimationToEnd:
-    timeout: 3000
-- takeScreenshot: "screenshots/compare/${THEME}/health"
-
-- runFlow:
     file: navigate-to-map.yaml
 - waitForAnimationToEnd:
     timeout: 5000

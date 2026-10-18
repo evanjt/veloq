@@ -36,7 +36,7 @@ jest.mock('@/features/routes/hooks/useGpsDataFetcher', () => ({
 
 const mockGetNativeModule = getNativeModule as jest.MockedFunction<typeof getNativeModule>;
 const mockPollDetection = jest.fn(() => 'idle');
-const mockStrengthIds = jest.fn(() => []);
+const mockFitBatch = jest.fn(() => 0);
 
 describe('online, with work to fetch', () => {
   const plan = routeSyncPlan({ online: true, isDemo: false, newGpsCount: 12 });
@@ -45,7 +45,7 @@ describe('online, with work to fetch', () => {
     expect(plan).toEqual({
       fetchGps: true,
       oweGpsToEngine: false,
-      fetchStrength: true,
+      fetchFitFiles: true,
       backfillStreams: true,
       recoverDetection: false,
     });
@@ -57,7 +57,7 @@ describe('offline', () => {
     expect(routeSyncPlan({ online: false, isDemo: false, newGpsCount: 12 })).toEqual({
       fetchGps: false,
       oweGpsToEngine: true,
-      fetchStrength: false,
+      fetchFitFiles: false,
       backfillStreams: false,
       recoverDetection: true,
     });
@@ -67,7 +67,7 @@ describe('offline', () => {
     expect(routeSyncPlan({ online: false, isDemo: false, newGpsCount: 0 })).toEqual({
       fetchGps: false,
       oweGpsToEngine: false,
-      fetchStrength: false,
+      fetchFitFiles: false,
       backfillStreams: false,
       recoverDetection: true,
     });
@@ -79,7 +79,7 @@ describe('demo mode', () => {
     expect(routeSyncPlan({ online: false, isDemo: true, newGpsCount: 3 })).toEqual({
       fetchGps: true,
       oweGpsToEngine: false,
-      fetchStrength: false,
+      fetchFitFiles: false,
       backfillStreams: false,
       recoverDetection: false,
     });
@@ -89,7 +89,7 @@ describe('demo mode', () => {
     expect(routeSyncPlan({ online: true, isDemo: true, newGpsCount: 0 })).toEqual({
       fetchGps: false,
       oweGpsToEngine: false,
-      fetchStrength: false,
+      fetchFitFiles: false,
       backfillStreams: false,
       recoverDetection: true,
     });
@@ -101,7 +101,7 @@ describe('online with nothing new', () => {
     expect(routeSyncPlan({ online: true, isDemo: false, newGpsCount: 0 })).toEqual({
       fetchGps: false,
       oweGpsToEngine: false,
-      fetchStrength: true,
+      fetchFitFiles: true,
       backfillStreams: true,
       recoverDetection: true,
     });
@@ -123,8 +123,7 @@ describe('the hook, offline with a new track', () => {
         getActivityCount: () => 0,
         getStats: () => ({ libraryCount: 1 }),
         getGpsFetchCandidates: () => [{ activityId: 'a1', sportType: 'Ride' }],
-        getUnprocessedStrengthIds: mockStrengthIds,
-        batchFetchExerciseSets: () => 0,
+        batchFetchOwedFitFiles: mockFitBatch,
         pollSectionDetection: mockPollDetection,
         getSectionDetectionProgress: () => null,
         startGpsPass: () => ({ outcome: 8, run: 0, total: 0 }),
@@ -146,6 +145,6 @@ describe('the hook, offline with a new track', () => {
     expect(mockPollDetection).toHaveBeenCalled();
     expect(mockFetchApiGps).not.toHaveBeenCalled();
     expect(mockFetchDemoGps).not.toHaveBeenCalled();
-    expect(mockStrengthIds).not.toHaveBeenCalled();
+    expect(mockFitBatch).not.toHaveBeenCalled();
   });
 });

@@ -6,7 +6,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { Canvas, Line as SkiaLine, vec } from '@shopify/react-native-skia';
+import { Canvas, DashPathEffect, Line as SkiaLine, vec } from '@shopify/react-native-skia';
 
 import {
   chartBoundsFor,
@@ -19,6 +19,7 @@ import {
   type Domain,
   type ProjectedPoint,
 } from './cartesian';
+import { GRID_DASH, chartStroke } from './chartMarks';
 import type { ChartBounds } from './useChartGestures';
 import { useChartColors } from './useChartColors';
 
@@ -51,6 +52,8 @@ export interface ChartCanvasProps<T, K extends string> {
   /** Horizontal rules at these y values, the ticks an axis labels, in place of `grid`. */
   gridValues?: readonly number[] | undefined;
   gridColor?: string;
+  /** The solid axis under the plot. On by default; off where the chart draws its own. */
+  baseline?: boolean;
   style?: StyleProp<ViewStyle>;
   children: (frame: ChartFrame<K>) => React.ReactNode;
 }
@@ -72,6 +75,7 @@ export function ChartCanvas<T, K extends string>({
   grid = 0,
   gridValues,
   gridColor,
+  baseline = true,
   style,
   children,
 }: ChartCanvasProps<T, K>) {
@@ -113,15 +117,27 @@ export function ChartCanvas<T, K extends string>({
     <View style={[styles.fill, style]} onLayout={onLayout}>
       {frame ? (
         <Canvas style={StyleSheet.absoluteFill}>
-          {(gridValues ? gridValues.map(frame.yFor) : gridLineYs(frame.bounds, grid)).map((y) => (
+          {(gridValues ? gridValues.map(frame.yFor) : gridLineYs(frame.bounds, grid))
+            .filter((y) => !baseline || Math.abs(y - frame.bounds.bottom) >= chartStroke.grid)
+            .map((y) => (
+              <SkiaLine
+                key={y}
+                p1={vec(frame.bounds.left, y)}
+                p2={vec(frame.bounds.right, y)}
+                color={gridColor ?? chartColors.grid}
+                strokeWidth={chartStroke.grid}
+              >
+                <DashPathEffect intervals={GRID_DASH} />
+              </SkiaLine>
+            ))}
+          {baseline ? (
             <SkiaLine
-              key={y}
-              p1={vec(frame.bounds.left, y)}
-              p2={vec(frame.bounds.right, y)}
-              color={gridColor ?? chartColors.grid}
-              strokeWidth={StyleSheet.hairlineWidth}
+              p1={vec(frame.bounds.left, frame.bounds.bottom)}
+              p2={vec(frame.bounds.right, frame.bounds.bottom)}
+              color={chartColors.baseline}
+              strokeWidth={chartStroke.axis}
             />
-          ))}
+          ) : null}
           {children(frame)}
         </Canvas>
       ) : null}

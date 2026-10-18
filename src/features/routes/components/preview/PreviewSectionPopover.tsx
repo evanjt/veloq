@@ -11,7 +11,7 @@ import { useTheme, useMetricSystem } from '@/shared/app';
 import { formatDistance, formatElevation } from '@/shared/format/format';
 import { colors, darkColors, iconSize, layout, spacing, typography, stroke } from '@/theme';
 import type { PreviewSection, PreviewSectionStatus } from 'veloqrs';
-import { IconButton } from '@/shared/ui';
+import { Badge, IconButton, type BadgeTone } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { formatPercent } from '@/shared/format';
 import { NameText } from '@/shared/ui/NameText';
@@ -21,6 +21,14 @@ const STATUS_KEYS: Record<PreviewSectionStatus, string> = {
   changed: 'settings.previewStatusChanged',
   new: 'settings.previewStatusNew',
   gone: 'settings.previewStatusGone',
+};
+
+/** The badge tone each preview status draws in: a new section gained, one gone lost. */
+const STATUS_TONES: Record<PreviewSectionStatus, BadgeTone> = {
+  unchanged: 'neutral',
+  changed: 'warning',
+  new: 'positive',
+  gone: 'negative',
 };
 
 interface PreviewSectionPopoverProps {
@@ -37,15 +45,6 @@ export function PreviewSectionPopover({ section, newNumber, onClose }: PreviewSe
   const border = isDark ? darkColors.border : colors.border;
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const success = isDark ? darkColors.successText : colors.successText;
-  const danger = isDark ? darkColors.errorText : colors.errorText;
-
-  const statusColor: Record<PreviewSectionStatus, string> = {
-    unchanged: textSecondary,
-    changed: isDark ? darkColors.actionLink : colors.actionLink,
-    new: success,
-    gone: danger,
-  };
 
   return (
     <View
@@ -66,18 +65,13 @@ export function PreviewSectionPopover({ section, newNumber, onClose }: PreviewSe
       </View>
 
       <View style={styles.badgeRow}>
-        <View style={[styles.badge, { borderColor: statusColor[section.status] }]}>
-          <Text style={[styles.badgeText, { color: statusColor[section.status] }]}>
-            {t(STATUS_KEYS[section.status] as never)}
-          </Text>
-        </View>
+        <Badge
+          tone={STATUS_TONES[section.status]}
+          text={t(STATUS_KEYS[section.status] as never)}
+          isDark={isDark}
+        />
         {section.pinned ? (
-          <View style={[styles.badge, { borderColor: textSecondary }]}>
-            <Icon name="pin" size={iconSize.xs} color={textSecondary} />
-            <Text style={[styles.badgeText, { color: textSecondary }]}>
-              {t('sections.accepted')}
-            </Text>
-          </View>
+          <Badge tone="neutral" icon="pin" text={t('sections.accepted')} isDark={isDark} />
         ) : null}
       </View>
 
@@ -123,18 +117,6 @@ const styles = StyleSheet.create({
   badgeRow: {
     flexDirection: 'row',
     gap: spacing.xs,
-  },
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xxs,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xxs,
-    borderRadius: layout.borderRadiusSm,
-    borderWidth: stroke.one,
-  },
-  badgeText: {
-    ...typography.label,
   },
   metricsRow: {
     flexDirection: 'row',

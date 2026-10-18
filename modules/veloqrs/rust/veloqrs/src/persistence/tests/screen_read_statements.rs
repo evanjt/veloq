@@ -294,7 +294,7 @@ fn reads(small: Ids, large: Ids) -> Vec<(&'static str, Read)> {
         ),
         (
             "fitness_screen_data",
-            Box::new(|_, e| consume(e.fitness_screen_data("2025-09-04"))),
+            Box::new(|_, e| consume(e.fitness_screen_data("2025-09-04", &[7, 30, 90, 180, 365]))),
         ),
         (
             "widget_snapshot_data",

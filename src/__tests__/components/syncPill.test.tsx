@@ -1,10 +1,10 @@
 /**
  * Scenario: the launch sync walks a dozen steps, several of them inside a
  * second, and every route reports it.
- * Expected behaviour: the pill passes touches through, fills from its own theme
- * token, wraps the label while the counts stay whole, keeps each step on screen
- * for a minimum time and cross-fades into the next, and draws nothing once the
- * sync settles.
+ * Expected behaviour: the pill passes touches through, draws the status pill on
+ * the raised surface with the ring's arc as its only blue, wraps the label
+ * while the counts stay whole, keeps each step on screen for a minimum time and
+ * cross-fades into the next, and draws nothing once the sync settles.
  */
 
 import React from 'react';
@@ -14,7 +14,7 @@ import { SyncState, SyncStep } from 'veloqrs';
 
 import { SyncPill, SYNC_MESSAGE_HOLD_MS } from '@/shared/ui/SyncPill';
 import { getEngine } from '@/shared/native/engine';
-import { colors, darkColors, motionPresets } from '@/theme';
+import { brand, colors, darkColors, motionPresets, stroke } from '@/theme';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -90,18 +90,55 @@ test('the pill passes touches through', async () => {
 test.each([
   ['light', false],
   ['dark', true],
-])('the pill takes its fill from the token and draws white on it in %s mode', async (_, isDark) => {
+])('the pill draws the status pill on the raised surface in %s mode', async (_, isDark) => {
   mockIsDark = isDark;
   const palette = isDark ? darkColors : colors;
   status = { state: SyncState.Syncing, completed: 2, total: 8, step: SyncStep.Wellness };
   const { getByTestId } = await render(<SyncPill />);
 
   const pill = StyleSheet.flatten(getByTestId('sync-progress-pill').props.style);
-  expect(pill.backgroundColor).toBe(palette.appColourPillBackground);
+  expect(pill.backgroundColor).toBe(palette.surfaceRaised);
   const message = StyleSheet.flatten(getByTestId('sync-progress-pill-title').props.style);
   const counts = StyleSheet.flatten(getByTestId('sync-progress-pill-detail').props.style);
-  expect(message.color).toBe(colors.textOnFill);
-  expect(counts.color).toBe(colors.textOnFill);
+  expect(message.color).toBe(palette.textPrimary);
+  expect(counts.color).toBe(palette.textSecondary);
+
+  if (isDark) {
+    expect(pill.borderWidth).toBe(stroke.one);
+    expect(pill.borderColor).toBe(palette.cardEdge);
+  } else {
+    expect(pill.borderWidth).toBeUndefined();
+  }
+});
+
+test.each([
+  ['light', false],
+  ['dark', true],
+])(
+  'the ring turns in the on colour over the track, the only blue, in %s mode',
+  async (_, isDark) => {
+    mockIsDark = isDark;
+    const palette = isDark ? darkColors : colors;
+    status = { state: SyncState.Syncing, completed: 2, total: 8, step: SyncStep.Wellness };
+    const { getByTestId } = await render(<SyncPill />);
+
+    const ring = StyleSheet.flatten(getByTestId('sync-progress-mark').props.style);
+    expect(ring.borderTopColor).toBe(palette.controlOn);
+    expect(ring.borderColor).toBe(palette.track);
+
+    const blues = [brand.blue, brand.blueDark].map((c) => c.toLowerCase());
+    const drawn = getByTestId('sync-progress-pill')
+      .findAll(() => true)
+      .flatMap((node) => Object.values(StyleSheet.flatten(node.props.style) ?? {}))
+      .filter((value): value is string => typeof value === 'string')
+      .map((value) => value.toLowerCase());
+    for (const blue of blues) expect(drawn).not.toContain(blue);
+  }
+);
+
+test("neither palette keeps a fill of the sync pill's own", () => {
+  expect(colors).not.toHaveProperty('appColourPillBackground');
+  expect(darkColors).not.toHaveProperty('appColourPillBackground');
 });
 
 test('a long label wraps and the counts stay whole', async () => {

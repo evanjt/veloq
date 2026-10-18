@@ -12,7 +12,18 @@ import { PERIOD_DAYS, SPAN_PERIODS } from '@/shared/app/period';
 import type { TimeRange } from '@/shared/app/timeRange';
 
 /** The charts on the fitness tab a link can open. */
-export const FITNESS_CHARTS = ['fitness', 'form', 'ftp', 'pace', 'css'] as const;
+export const FITNESS_CHARTS = [
+  'fitness',
+  'form',
+  'ftp',
+  'pace',
+  'css',
+  'hrv',
+  'rhr',
+  'weight',
+  'week',
+  'calendar',
+] as const;
 
 export type FitnessChart = (typeof FITNESS_CHARTS)[number];
 
@@ -34,7 +45,8 @@ export type FitnessSection = 'performance' | 'trends';
 /**
  * Where a chart sits on the fitness tab: the section to expand, if it is in
  * one, and the sport the tab must show for it to be drawn at all. Fitness and
- * form are the always-open card at the top.
+ * form are the always-open card at the top; the wellness readings, the week
+ * and the calendar are always-open cards drawn for every sport.
  */
 export const FITNESS_CHART_PLACEMENT: Record<
   FitnessChart,
@@ -45,7 +57,29 @@ export const FITNESS_CHART_PLACEMENT: Record<
   ftp: { section: 'trends', sport: 'Cycling' },
   pace: { section: 'performance', sport: 'Running' },
   css: { section: 'performance', sport: 'Swimming' },
+  hrv: { section: null, sport: null },
+  rhr: { section: null, sport: null },
+  weight: { section: null, sport: null },
+  week: { section: null, sport: null },
+  calendar: { section: null, sport: null },
 };
+
+/** A place on the fitness tab a link scrolls to: a section, or a card outside one. */
+export type FitnessAnchor = FitnessSection | 'chart' | 'wellness' | 'week' | 'calendar';
+
+/** The always-open card that draws a chart, beside the fitness and form card. */
+const FITNESS_CHART_CARD: Partial<Record<FitnessChart, FitnessAnchor>> = {
+  hrv: 'wellness',
+  rhr: 'wellness',
+  weight: 'wellness',
+  week: 'week',
+  calendar: 'calendar',
+};
+
+/** Where the tab scrolls to reveal a chart: its card, else its section, else the top card. */
+export function fitnessChartAnchor(chart: FitnessChart): FitnessAnchor {
+  return FITNESS_CHART_CARD[chart] ?? FITNESS_CHART_PLACEMENT[chart].section ?? 'chart';
+}
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 

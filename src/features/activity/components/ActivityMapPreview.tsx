@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { View, Image, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Image, StyleSheet } from 'react-native';
 import { useIsFocused } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { getActivityColor } from '@/shared/activity/activityUtils';
 import { getMapLibreBounds } from '@/shared/geo/polyline';
 import { useMapPreferences } from '@/features/settings';
@@ -18,7 +19,7 @@ import {
   subscribeSnapshotFailure,
   type TerrainSnapshotWebViewRef,
 } from '@/features/maps';
-import { StaticCompassArrow } from '@/shared/ui';
+import { StaticCompassArrow, Spinner } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { useIsOnline } from '@/shared/app/NetworkContext';
 import { useReconnect } from '@/shared/app/useRetryTriggers';
@@ -60,6 +61,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   // Read focus locally so a tab switch re-renders only this leaf preview, not the
   // whole ActivityCard. The snapshot effect below defers requests when unfocused.
   const screenFocused = useIsFocused();
+  const { t } = useTranslation();
   const { getStyleForActivity, getTerrain3DMode, hasActivityOverride, getActivityCamera } =
     useMapPreferences();
   const mapStyle = getStyleForActivity(activity.type, activity.id);
@@ -308,7 +310,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
           { height, backgroundColor: colorWithOpacity(activityColor, opacity.tint1) },
         ]}
       >
-        <ActivityIndicator size="small" color={activityColor} />
+        <Spinner color={activityColor} label={t('common.loading')} />
       </View>
     );
   }
@@ -384,7 +386,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
           { height, backgroundColor: colorWithOpacity(activityColor, opacity.tint1) },
         ]}
       >
-        <ActivityIndicator size="small" color={activityColor} />
+        <Spinner color={activityColor} label={t('common.loading')} />
       </View>
     );
   }

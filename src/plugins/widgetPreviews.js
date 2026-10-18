@@ -32,19 +32,33 @@ function trendColor(verdict) {
   return '@color/widget_trend_flat';
 }
 
-const ZONE_TEXT = {
-  highRisk: '@color/widget_form_high_risk_text',
-  optimal: '@color/widget_form_optimal_text',
-  greyZone: '@color/widget_form_grey_zone_text',
-  fresh: '@color/widget_form_fresh_text',
-  transition: '@color/widget_form_transition_text',
+const ZONE_FILL = {
+  highRisk: '@color/widget_form_high_risk',
+  optimal: '@color/widget_form_optimal',
+  greyZone: '@color/widget_form_grey_zone',
+  fresh: '@color/widget_form_fresh',
+  transition: '@color/widget_form_transition',
 };
 
-function summaryColor(colorKey, zone) {
+/**
+ * The colour of the key dot beside a value, as the renderer's `keyTone` picks it: the value is
+ * primary text, and an entry with no measure colour or a zone this build does not know has no dot.
+ */
+function keyColor(colorKey, zone) {
   if (colorKey === 'blue') return '@color/widget_blue';
   if (colorKey === 'fatigue') return '@color/widget_fatigue';
-  if (colorKey === 'formZone') return ZONE_TEXT[zone] ?? '@color/widget_text_primary';
-  return '@color/widget_text_primary';
+  if (colorKey === 'formZone') return ZONE_FILL[zone] ?? null;
+  return null;
+}
+
+/** The key dot beside a value, shown in its measure colour or left out. */
+function keyDot(b, id, color) {
+  if (!color) {
+    b.gone.add(id);
+    return;
+  }
+  b.set(id, 'visibility', 'visible');
+  b.set(id, 'tint', color);
 }
 
 const TONE = {
@@ -89,14 +103,14 @@ function summary(sample) {
   const card = sample.summaryCard;
   const zone = sample.metrics?.form?.zone;
   const hero = card.hero;
-  const heroColor = summaryColor(hero.colorKey, zone);
   b.line('sum_label', hero.label);
+  keyDot(b, 'sum_key', keyColor(hero.colorKey, zone));
   b.line('sum_value', hero.value);
-  b.set('sum_value', 'textColor', heroColor);
+  b.set('sum_value', 'textColor', '@color/widget_text_primary');
   b.line('sum_trend', TREND_ARROW[hero.trendDir] ?? '–');
   b.set('sum_trend', 'textColor', trendColor(hero.verdict));
   b.line('sum_line', hero.id === 'form' ? sample.display?.formZone : null);
-  b.set('sum_line', 'textColor', heroColor);
+  b.set('sum_line', 'textColor', '@color/widget_text_primary');
   b.gone.add('sum_sparkline');
   b.gone.add('sum_chart_caption');
   ageRow(b, sample, 'med_updated');
@@ -108,8 +122,9 @@ function summary(sample) {
       continue;
     }
     b.line(`sum_cell${i}_label`, entry.label);
+    keyDot(b, `sum_cell${i}_key`, keyColor(entry.colorKey, zone));
     b.line(`sum_cell${i}_value`, entry.value);
-    b.set(`sum_cell${i}_value`, 'textColor', summaryColor(entry.colorKey, zone));
+    b.set(`sum_cell${i}_value`, 'textColor', '@color/widget_text_primary');
     b.line(`sum_cell${i}_trend`, TREND_ARROW[entry.trendDir] ?? '–');
     b.set(`sum_cell${i}_trend`, 'textColor', trendColor(entry.verdict));
   }
@@ -122,7 +137,7 @@ function activity(sample) {
   const latest = sample.latest;
   const headline = latest.headline;
   b.line('act_name', latest.name);
-  if (latest.tintHex) b.set('act_name', 'textColor', latest.tintHex);
+  keyDot(b, 'act_sport', latest.name ? latest.tintHex : null);
   if (latest.isPr && latest.name) b.set('act_pr', 'visibility', 'visible');
   b.line('act_label', headline?.label);
   b.line('act_hero', headline?.hero);

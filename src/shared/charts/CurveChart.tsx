@@ -3,17 +3,19 @@ import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
-import { Circle, DashPathEffect, Line as SkiaLine, Rect, vec } from '@shopify/react-native-skia';
+import { DashPathEffect, Line as SkiaLine, vec } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { chartStyles, ink, typography } from '@/theme';
+import { chartStyles, opacity, typography } from '@/theme';
 
 import { dataExtent, domainContains, placeLabels, type Domain } from './cartesian';
 import { ChartCanvas } from './ChartCanvas';
 import { ChartCrosshair } from './ChartCrosshair';
+import { ChartBar, ChartDot, RecordRing, ReticleMark, ScrubDot } from './ChartMarks';
+import { REFERENCE_DASH, barWidthFor, chartStroke } from './chartMarks';
 import { ChartSurface } from './ChartSurface';
 import { curveSummary, seriesSummary, seriesTable, type SummarySeries } from './chartSummary';
 import { CurveArea, CurveLine } from './CurvePaths';
@@ -74,10 +76,11 @@ export interface CurveChartProps<T extends ChartSample> {
   /** A dot on every sample, for a series of discrete events. */
   pointColor?: string;
   /**
-   * A ringed dot on one sample, such as a record, by its index in `data`. As
-   * bars, the marked bar is drawn in full and the others faded.
+   * One sample marked by its index in `data`: the record with the gold ring, or
+   * this activity or period with the reticle. As bars, the marked bar is drawn
+   * in full and the others dimmed.
    */
-  marker?: { index: number; color: string } | null;
+  marker?: { index: number; kind: 'record' | 'this' } | null;
   /** One bar per sample from zero, for totals over a period, in place of the line. */
   bars?: boolean;
   crosshairMode?: 'point' | 'finger';
@@ -95,20 +98,6 @@ export interface CurveChartProps<T extends ChartSample> {
 const X_STRIP = typography.caption.lineHeight;
 const PADDING = { top: typography.caption.lineHeight / 2, bottom: X_STRIP } as const;
 const PLACED_LABEL_HALF_WIDTH = 15;
-/** The share of the gap between neighbouring samples a bar takes. */
-const BAR_FILL = 0.7;
-const BAR_MIN_WIDTH = 2;
-const FADED_BAR = 0.45;
-
-/** The narrowest gap between neighbouring samples, which every bar's width is cut from. */
-function barWidth(xs: readonly number[], span: number): number {
-  let gap = span;
-  xs.forEach((x, i) => {
-    const previous = xs[i - 1];
-    if (previous !== undefined) gap = Math.min(gap, Math.abs(x - previous));
-  });
-  return Math.max(gap * BAR_FILL, BAR_MIN_WIDTH);
-}
 
 /**
  * One line over a log or linear x axis with a casing stroke, an optional
@@ -162,7 +151,7 @@ export function CurveChart<T extends ChartSample>({
     };
   }, [data, reading, formatY, t]);
 
-  const { gesture, crosshairStyle, syncBounds, syncXCoords, accessibilityProps } =
+  const { gesture, crosshairStyle, syncBounds, syncXCoords, accessibilityProps, scrubIndex } =
     useChartGestures<T>({
       data: data as T[],
       accessibilityLabel: reading.title,
@@ -214,24 +203,22 @@ export function CurveChart<T extends ChartSample>({
                 const marked = marker ? points.y[marker.index] : undefined;
                 if (bars) {
                   const zero = yFor(Math.min(Math.max(0, yDomain[0]), yDomain[1]));
-                  const width = barWidth(
+                  const width = barWidthFor(
                     points.y.map((p) => p.x),
                     bounds.right - bounds.left
                   );
                   return (
                     <>
                       {points.y.map((p, i) => (
-                        <Rect
+                        <ChartBar
                           key={i}
-                          x={p.x - width / 2}
-                          y={Math.min(p.y, zero)}
+                          x={p.x}
+                          from={zero}
+                          to={p.y}
                           width={width}
-                          height={Math.abs(zero - p.y)}
                           color={color}
-                          opacity={marker && i !== marker.index ? FADED_BAR : 1}
-                          {...(data[i]?.partial
-                            ? { style: 'stroke' as const, strokeWidth: 1.5 }
-                            : {})}
+                          opacity={marker && i !== marker.index ? opacity.dim : 1}
+                          outline={data[i]?.partial === true}
                         />
                       ))}
                     </>
@@ -254,38 +241,38 @@ export function CurveChart<T extends ChartSample>({
                         p1={vec(bounds.left, yFor(referenceLine.value))}
                         p2={vec(bounds.right, yFor(referenceLine.value))}
                         color={referenceLine.color}
-                        strokeWidth={1}
+                        strokeWidth={chartStroke.reference}
                       >
-                        <DashPathEffect intervals={[6, 4]} />
+                        <DashPathEffect intervals={REFERENCE_DASH} />
                       </SkiaLine>
                     ) : null}
                     <CurveLine
                       points={points.y}
                       color={chartColors.casing}
-                      strokeWidth={2.5}
+                      strokeWidth={chartStroke.casing}
                       curve={curve}
                     />
-                    <CurveLine points={points.y} color={color} strokeWidth={1.5} curve={curve} />
+                    <CurveLine points={points.y} color={color} curve={curve} />
                     {pointColor
-                      ? points.y.map((p, i) =>
-                          i === marker?.index ? null : (
-                            <Circle key={i} cx={p.x} cy={p.y} r={3} color={pointColor} />
-                          )
-                        )
+                      ? points.y.map((p, i) => (
+                          <ChartDot key={i} x={p.x} y={p.y} color={pointColor} />
+                        ))
                       : null}
                     {marker && marked ? (
                       <>
-                        <Circle
-                          cx={marked.x}
-                          cy={marked.y}
-                          r={7}
-                          color={marker.color}
-                          opacity={0.3}
+                        <ChartDot
+                          x={marked.x}
+                          y={marked.y}
+                          color={marker.kind === 'record' ? chartColors.achievement : color}
                         />
-                        <Circle cx={marked.x} cy={marked.y} r={5} color={marker.color} />
-                        <Circle cx={marked.x} cy={marked.y} r={2.5} color={ink.white} />
+                        {marker.kind === 'record' ? (
+                          <RecordRing x={marked.x} y={marked.y} />
+                        ) : (
+                          <ReticleMark x={marked.x} y={marked.y} />
+                        )}
                       </>
                     ) : null}
+                    <ScrubDot at={points.y[scrubIndex]} color={color} />
                   </>
                 );
               }}

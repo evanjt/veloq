@@ -172,6 +172,46 @@ function stylesPaddingOnly(expression, paddingOnly) {
   );
 }
 
+/**
+ * Every import of react-native's `name` in a file, under any local name, and
+ * every `<namespace>.name` read through a namespace import of react-native.
+ */
+function reactNativeComponentSites(file, text, name) {
+  if (!text.includes(name)) return [];
+  const kind = file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+  const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, kind);
+  const at = (node) => sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
+  const sites = [];
+  for (const statement of sf.statements) {
+    if (!ts.isImportDeclaration(statement) || statement.moduleSpecifier.text !== 'react-native') {
+      continue;
+    }
+    const bindings = statement.importClause?.namedBindings;
+    if (!bindings) continue;
+    if (ts.isNamedImports(bindings)) {
+      for (const spec of bindings.elements) {
+        if ((spec.propertyName ?? spec.name).text === name)
+          sites.push(`${file}:${at(spec)}  imports ${name} from react-native`);
+      }
+    } else if (ts.isNamespaceImport(bindings)) {
+      const namespace = bindings.name.text;
+      const visit = (node) => {
+        if (
+          ts.isPropertyAccessExpression(node) &&
+          ts.isIdentifier(node.expression) &&
+          node.expression.text === namespace &&
+          node.name.text === name
+        ) {
+          sites.push(`${file}:${at(node)}  draws ${namespace}.${name}`);
+        }
+        ts.forEachChild(node, visit);
+      };
+      visit(sf);
+    }
+  }
+  return sites;
+}
+
 /** Every element whose only child is a spinner and whose style is padding-only. */
 function loneSpinnerSites(file, text) {
   const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -418,7 +458,6 @@ const COVERAGE_HOOKS = [
 
 const PICKER_OPENINGS = {
   'src/features/fitness/hooks/useFitnessWindow.ts': 'DEFAULT_PERIOD',
-  'src/app/(tabs)/training/index.tsx': 'DEFAULT_PERIOD',
   'src/features/routes/hooks/useSectionUIState.ts': 'DEFAULT_PERIOD',
   'src/features/insights/components/StrengthTab.tsx': 'DEFAULT_PERIOD',
   'src/app/(tabs)/map.tsx': 'DEFAULT_MAP_PERIOD',
@@ -607,6 +646,7 @@ const DYNAMIC_KEYS = [
   'navigation.map',
   'navigation.insights',
   'navigation.health',
+  'navigation.settingsTab',
   // `settings.${themePreference}` in settings.tsx.
   'settings.light',
   'settings.dark',
@@ -845,44 +885,27 @@ const RULES = {
       for (const [file, text] of sources) {
         if (!/\.tsx?$/.test(file) || TESTS.test(file) || file.startsWith('src/shared/ui/'))
           continue;
-        if (!text.includes('RefreshControl')) continue;
-        const kind = file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
-        const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, kind);
-        const at = (node) => sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
-        for (const statement of sf.statements) {
-          if (
-            !ts.isImportDeclaration(statement) ||
-            statement.moduleSpecifier.text !== 'react-native'
-          ) {
-            continue;
-          }
-          const bindings = statement.importClause?.namedBindings;
-          if (!bindings) continue;
-          if (ts.isNamedImports(bindings)) {
-            for (const spec of bindings.elements) {
-              if ((spec.propertyName ?? spec.name).text === 'RefreshControl')
-                out.push(`${file}:${at(spec)}  imports RefreshControl from react-native`);
-            }
-          } else if (ts.isNamespaceImport(bindings)) {
-            const namespace = bindings.name.text;
-            const visit = (node) => {
-              if (
-                ts.isPropertyAccessExpression(node) &&
-                ts.isIdentifier(node.expression) &&
-                node.expression.text === namespace &&
-                node.name.text === 'RefreshControl'
-              ) {
-                out.push(`${file}:${at(node)}  draws ${namespace}.RefreshControl`);
-              }
-              ts.forEachChild(node, visit);
-            };
-            visit(sf);
-          }
-        }
+        out.push(...reactNativeComponentSites(file, text, 'RefreshControl'));
       }
       return out;
     },
     fix: "pass ScreenRefreshControl from '@/shared/ui', which takes the theme's colours and the pull haptic",
+  },
+
+  // A wait is drawn by Spinner, which takes the theme's link colour and names
+  // what is loading. Button draws its own in the label's colour.
+  'bare-spinner': {
+    pathspec: ['src'],
+    check(sources) {
+      const owners = new Set(['src/shared/ui/Spinner.tsx', 'src/shared/ui/Button.tsx']);
+      const out = [];
+      for (const [file, text] of sources) {
+        if (!/\.tsx?$/.test(file) || TESTS.test(file) || owners.has(file)) continue;
+        out.push(...reactNativeComponentSites(file, text, 'ActivityIndicator'));
+      }
+      return out;
+    },
+    fix: "draw Spinner from '@/shared/ui' with a label, or with inControl inside a control",
   },
 
   'lone-spinner-in-padding': {
@@ -1587,8 +1610,8 @@ const RULES = {
   // A banner that appears on its own is spoken by a screen reader: Android
   // through a live region on its outer view, iOS through an announcement when
   // it mounts. Each listed banner declares both, or draws the shared
-  // NoticeBanner, which is listed and declares both for it. A result, error or
-  // fallback that appears in place does the same through `StatusLine` or
+  // NoticeBanner or FloatingPill, which are listed and declare both for it. A
+  // result, error or fallback that appears in place does the same through `StatusLine` or
   // `InlineNotice`, which each carry both, so each listed file renders one, and
   // so does every error boundary under src/shared/ui, including one added later.
   'banner-live-region': {
@@ -1653,7 +1676,10 @@ const RULES = {
         }
         if (
           file !== 'src/shared/ui/NoticeBanner.tsx' &&
-          (text.includes('<NoticeBanner') || text.includes('<InlineNotice'))
+          file !== 'src/shared/ui/FloatingPill.tsx' &&
+          (text.includes('<NoticeBanner') ||
+            text.includes('<InlineNotice') ||
+            text.includes('<FloatingPill'))
         )
           continue;
         if (!text.includes('accessibilityLiveRegion='))

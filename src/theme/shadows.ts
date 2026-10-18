@@ -1,6 +1,7 @@
 import { Platform, TextStyle, ViewStyle } from 'react-native';
 
-import { brand, ink } from './colors';
+import { darkColors, ink } from './colors';
+import { stroke } from './stroke';
 
 export const mapTextShadow: Pick<TextStyle, 'textShadowOffset' | 'textShadowRadius'> = {
   textShadowOffset: { width: 0, height: 1 },
@@ -75,9 +76,6 @@ export const shadows = {
   /** Strong shadow for modals and overlays (elevation 8) */
   modal: createShadow(8),
 
-  /** Small shadow for buttons and chips (elevation 2) */
-  button: createShadow(2, { iosOpacityMultiplier: 1.8 }),
-
   /** FAB shadow (elevation 6) */
   fab: createShadow(6, { iosOpacityMultiplier: 1.6 }),
 
@@ -100,87 +98,45 @@ export const shadows = {
     },
     default: {},
   }) as ShadowStyle,
-
-  // =========================================================================
-  // PREMIUM GLOW EFFECTS (Brand signature)
-  // =========================================================================
-
-  /** Gold glow for achievements, PRs, and celebration moments ONLY */
-  goldGlow: Platform.select({
-    ios: {
-      shadowColor: brand.gold,
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.35,
-      shadowRadius: 12,
-    },
-    android: {
-      elevation: 4,
-    },
-    default: {
-      shadowColor: brand.gold,
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.3,
-      shadowRadius: 12,
-    },
-  }) as ShadowStyle,
-
-  /** Blue glow for data highlights and chart interactions */
-  blueGlow: Platform.select({
-    ios: {
-      shadowColor: brand.blue,
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.3,
-      shadowRadius: 8,
-    },
-    android: {
-      elevation: 3,
-    },
-    default: {
-      shadowColor: brand.blue,
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.25,
-      shadowRadius: 8,
-    },
-  }) as ShadowStyle,
-
-  /** Subtle gold accent glow (for achievement pressed states) */
-  goldGlowSubtle: Platform.select({
-    ios: {
-      shadowColor: brand.gold,
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.2,
-      shadowRadius: 6,
-    },
-    android: {
-      elevation: 2,
-    },
-    default: {
-      shadowColor: brand.gold,
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.15,
-      shadowRadius: 6,
-    },
-  }) as ShadowStyle,
-
-  /** Subtle blue accent glow (for data focus states) */
-  blueGlowSubtle: Platform.select({
-    ios: {
-      shadowColor: brand.blue,
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.15,
-      shadowRadius: 4,
-    },
-    android: {
-      elevation: 2,
-    },
-    default: {
-      shadowColor: brand.blue,
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.12,
-      shadowRadius: 4,
-    },
-  }) as ShadowStyle,
 };
+
+/** The presets a raised surface reads through `raised`. */
+export type RaisedLevel = 'card' | 'elevated' | 'modal' | 'pill' | 'mapOverlay' | 'fab';
+
+type RaisedStyle = ShadowStyle & Pick<ViewStyle, 'borderWidth' | 'borderColor'>;
+
+const cardEdge = { borderWidth: stroke.one, borderColor: darkColors.cardEdge };
+
+const raisedStyles: Record<'light' | 'dark', Record<RaisedLevel, RaisedStyle>> = {
+  light: {
+    card: shadows.card,
+    elevated: shadows.elevated,
+    modal: shadows.modal,
+    pill: shadows.pill,
+    mapOverlay: shadows.mapOverlay,
+    fab: shadows.fab,
+  },
+  // A shadow does not read on the near-black dark ground. A card that sits in
+  // the page swaps it for the card edge; anything that floats over content
+  // keeps its shadow and adds the same edge, so it still lifts off a map.
+  dark: {
+    card: { ...shadows.none, ...cardEdge },
+    elevated: { ...shadows.elevated, ...cardEdge },
+    modal: { ...shadows.modal, ...cardEdge },
+    pill: { ...shadows.pill, ...cardEdge },
+    mapOverlay: { ...shadows.mapOverlay, ...cardEdge },
+    fab: { ...shadows.fab, ...cardEdge },
+  },
+};
+
+/**
+ * The elevation of a raised surface in one theme: the shadow preset in light,
+ * and in dark the edge that replaces or joins it. The one place the dark rule
+ * is written, so no surface spreads a preset and leaves the dark branch out.
+ */
+export function raised(level: RaisedLevel, isDark: boolean): RaisedStyle {
+  return raisedStyles[isDark ? 'dark' : 'light'][level];
+}
 
 /**
  * Creates shadow for small interactive elements like handles and buttons.

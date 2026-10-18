@@ -34,7 +34,6 @@
     "terrainRow": "3D terrain",
     "activityStats": "Activity stats",
     "calories": "Calories",
-    "chartHint": "Hold to scrub • Hold chip for axis",
     "distance": "Distance",
     "xAxis": {
       "distance": "Distance",
@@ -139,6 +138,7 @@
     "zoneMaxDefaultHint": "Set your max HR in your intervals.icu sport settings",
     "prDelta": "PR+{{delta}}",
     "chartAverage": "avg",
+    "chartGain": "gain",
     "gainStat": "↑ {{value}}"
   },
   "activityDetail": {
@@ -733,6 +733,7 @@
     "activitiesCount_one": "{{count}} activity",
     "activitiesCount_other": "{{count}} activities",
     "daysTrained": "Days trained",
+    "eftpChanged": "eFTP changed",
     "fatigueATL": "Fatigue (ATL)",
     "fitnessCTL": "Fitness (CTL)",
     "loadPartial": "Partial",
@@ -765,9 +766,6 @@
     "greyZone": "Grey zone",
     "optimal": "Optimal",
     "highRisk": "High risk"
-  },
-  "healthScreen": {
-    "title": "Health"
   },
   "insights": {
     "ranking": {
@@ -1230,9 +1228,9 @@
     "activities": "Activities",
     "feed": "Feed",
     "fitness": "Fitness",
-    "health": "Health",
     "map": "Map",
     "settings": "Settings",
+    "settingsTab": "Settings",
     "training": "Training",
     "wellness": "Wellness",
     "insights": "Insights"
@@ -1596,6 +1594,7 @@
     "searchSections": "Search sections…",
     "searchRoutes": "Search routes…",
     "sortActivities": "Activities",
+    "sortBy": "Sort",
     "sortDistance": "Distance",
     "sortMostVisited": "Most visited",
     "sortNameAZ": "Name A-Z",

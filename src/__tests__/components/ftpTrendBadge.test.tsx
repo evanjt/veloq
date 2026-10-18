@@ -3,16 +3,17 @@
  * direction, so a fall read as green on a red tint, and a zero change counted
  * as a rise.
  *
- * Expected behaviour: the text takes the verdict colour of the direction, and a
- * zero change is neutral with no arrow.
+ * Expected behaviour: the badge takes the tone of the direction's verdict, and
+ * a zero change is neutral with no arrow.
  */
 
 import React from 'react';
 import { render } from '@testing-library/react-native';
-import { StyleSheet, type StyleProp, type TextStyle } from 'react-native';
+import { StyleSheet } from 'react-native';
+import type { ReactTestInstance } from 'react-test-renderer';
 
 import { initialiseI18n } from '@/i18n';
-import { verdictColor } from '@/theme/colors';
+import { badgePaint } from '@/shared/ui/Badge';
 import { FTPTrendChart } from '@/features/stats/components/FTPTrendChart';
 
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
@@ -37,8 +38,13 @@ const series = [
   { date: '2026-09-30', eftp: 250 },
 ];
 
-function badgeColor(node: { props: { style?: unknown } }) {
-  return StyleSheet.flatten(node.props.style as StyleProp<TextStyle>)?.color;
+/** The fill of the closest view behind a text, which is the badge it sits on. */
+function badgeFill(node: ReactTestInstance): string | undefined {
+  for (let at: ReactTestInstance | null = node; at; at = at.parent) {
+    const fill = StyleSheet.flatten(at.props.style ?? {}).backgroundColor;
+    if (typeof fill === 'string') return fill;
+  }
+  return undefined;
 }
 
 describe('the eFTP change badge', () => {
@@ -50,34 +56,34 @@ describe('the eFTP change badge', () => {
     const { getByText } = await render(
       <FTPTrendChart data={series} change={-12} changePercent={-4.6} />
     );
-    expect(badgeColor(getByText('▼ 12 W'))).toBe(verdictColor('negative', false));
+    expect(badgeFill(getByText('▼ 12 W'))).toBe(badgePaint('negative', false).fill);
   });
 
   it('colours a rise as positive', async () => {
     const { getByText } = await render(
       <FTPTrendChart data={series} change={12} changePercent={4.8} />
     );
-    expect(badgeColor(getByText('▲ 12 W'))).toBe(verdictColor('positive', false));
+    expect(badgeFill(getByText('▲ 12 W'))).toBe(badgePaint('positive', false).fill);
   });
 
   it('shows a flat series as neutral with no arrow', async () => {
     const { getByText } = await render(
       <FTPTrendChart data={series} change={0} changePercent={0} />
     );
-    expect(badgeColor(getByText('0 W'))).toBe(verdictColor('neutral', false));
+    expect(badgeFill(getByText('0 W'))).toBe(badgePaint('neutral', false).fill);
   });
 
   it('names the change for a screen reader with its judgement, not the triangle', async () => {
     const rise = await render(<FTPTrendChart data={series} change={12} changePercent={4.8} />);
-    expect(rise.getByText('▲ 12 W').props.accessibilityLabel).toBe('improved, 12 W');
+    expect(rise.getByLabelText('improved, 12 W')).toBeTruthy();
     await rise.unmount();
 
     const fall = await render(<FTPTrendChart data={series} change={-12} changePercent={-4.6} />);
-    expect(fall.getByText('▼ 12 W').props.accessibilityLabel).toBe('declined, 12 W');
+    expect(fall.getByLabelText('declined, 12 W')).toBeTruthy();
     await fall.unmount();
 
     const flat = await render(<FTPTrendChart data={series} change={0} changePercent={0} />);
-    expect(flat.getByText('0 W').props.accessibilityLabel).toBe('no change, 0 W');
+    expect(flat.getByLabelText('no change, 0 W')).toBeTruthy();
   });
 });
 

@@ -38,9 +38,9 @@ jest.mock('@/shared/ui', () => {
 jest.mock('@/features/activity/components/ChartTypeSelector', () => ({
   ChartTypeSelector: () => null,
 }));
-jest.mock('@/features/activity/components/CombinedPlot', () => {
+jest.mock('@/features/activity/components/ActivityStreams', () => {
   const { View } = require('react-native');
-  return { CombinedPlot: () => <View testID="combined-plot" /> };
+  return { ActivityStreams: () => <View testID="activity-streams" /> };
 });
 jest.mock('@/features/activity/components/HRZonesChart', () => {
   const { View } = require('react-native');
@@ -130,7 +130,7 @@ afterEach(() => jest.restoreAllMocks());
 it('mounts the top chart with the screen and holds the rest while the transition runs', async () => {
   await render(section(false));
 
-  expect(screen.getByTestId('combined-plot')).toBeTruthy();
+  expect(screen.getByTestId('activity-streams')).toBeTruthy();
   expect(screen.getByTestId('hr-zones-chart')).toBeTruthy();
   expectBelowFold(false);
 
@@ -147,13 +147,13 @@ it('mounts the rest a frame after the transition settles', async () => {
 
   await flushFrame();
   expectBelowFold(true);
-  expect(screen.getByTestId('combined-plot')).toBeTruthy();
+  expect(screen.getByTestId('activity-streams')).toBeTruthy();
 });
 
 it('keeps the rest out of the first commit when the transition settled before the tab mounted', async () => {
   await render(section(true));
 
-  expect(screen.getByTestId('combined-plot')).toBeTruthy();
+  expect(screen.getByTestId('activity-streams')).toBeTruthy();
   expectBelowFold(false);
 
   await flushFrame();

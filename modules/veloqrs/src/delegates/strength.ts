@@ -69,10 +69,10 @@ export function getUnprocessedStrengthIds(host: DelegateHost): string[] {
   );
 }
 
-export function batchFetchExerciseSets(host: DelegateHost, activityIds: string[]): FfiStartResult {
+export function batchFetchOwedFitFiles(host: DelegateHost): FfiStartResult {
   if (!host.ready) return startResult(FfiStartOutcome.NotReady);
-  return host.timed('batchFetchExerciseSets', () =>
-    host.engine.strength().batchFetchExerciseSets(activityIds)
+  return host.timed('batchFetchOwedFitFiles', () =>
+    host.engine.strength().batchFetchOwedFitFiles()
   );
 }
 

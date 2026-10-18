@@ -14,7 +14,7 @@ import { render, renderHook } from '@testing-library/react-native';
 import { InsightfulStats } from '@/features/activity/components/stats/InsightfulStats';
 import { HRZonesChart } from '@/features/activity/components/HRZonesChart';
 import { useActivityStats } from '@/features/activity/components/stats/useActivityStats';
-import type { Activity, SportSettings } from '@/types';
+import type { Activity } from '@/types';
 import { MaxHrSource } from 'veloqrs';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
@@ -24,12 +24,6 @@ let mockIsMetric = true;
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
   useMetricSystem: () => mockIsMetric,
-}));
-
-let mockSportSettings: SportSettings[] | undefined;
-jest.mock('@/shared/app/useSportSettings', () => ({
-  ...jest.requireActual('@/shared/app/useSportSettings'),
-  useSportSettings: () => ({ data: mockSportSettings }),
 }));
 
 const ride = {
@@ -45,7 +39,6 @@ const ride = {
 
 beforeEach(() => {
   mockIsMetric = true;
-  mockSportSettings = undefined;
 });
 
 describe('InsightfulStats', () => {

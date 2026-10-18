@@ -17,6 +17,7 @@ import * as ExpoHaptics from 'expo-haptics';
 
 import { useFitnessRefresh } from '@/features/fitness/hooks/useFitnessRefresh';
 import { ScreenRefreshControl } from '@/shared/ui/ScreenRefreshControl';
+import { queryKeys } from '@/shared/query/queryKeys';
 
 jest.mock('@/shared/native/syncRefresh', () => ({ requestSyncRefresh: jest.fn() }));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
@@ -49,6 +50,18 @@ describe('pull to refresh on the Fitness screen', () => {
     });
 
     await waitFor(() => expect(result.current.isRefreshing).toBe(false));
+  });
+
+  it('invalidates the engine stats behind the calendar, the week and the year comparison', async () => {
+    const invalidate = jest.spyOn(client, 'invalidateQueries');
+    const refetch = jest.fn().mockResolvedValue(undefined);
+    const { result } = await renderHook(() => useFitnessRefresh(refetch), { wrapper });
+
+    await act(async () => {
+      await result.current.onRefresh();
+    });
+
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: queryKeys.stats.all });
   });
 
   it('clears the spinner on a refresh that resolves', async () => {

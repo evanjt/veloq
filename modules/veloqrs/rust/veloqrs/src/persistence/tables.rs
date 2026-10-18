@@ -175,6 +175,16 @@ static TABLES: &[Table] = &[
         "strength sets as intervals.icu holds them",
     ),
     t(
+        "swim_lengths",
+        Mirror,
+        "a pool swim's lengths as its FIT file on intervals.icu holds them",
+    ),
+    t(
+        "pool_swims",
+        Mirror,
+        "a pool swim's pool length as its FIT file on intervals.icu holds it",
+    ),
+    t(
         "fit_file_status",
         Derived,
         "bookkeeping for the local FIT parse",

@@ -1,10 +1,9 @@
 /**
- * Scenario: the sync banner, the unlock handle and the map control column each
- * draw content on a filled teal ground. White measures 2.28:1 to 3.74:1 on those
- * fills, under the 4.5:1 text and the 3:1 icons owe, while
- * `colors.textOnPrimary` is the ink they can carry. The recording control bar's
- * main button takes the record red in every state and theme, and its Stop and
- * Lap stay secondary.
+ * Scenario: the sync banner and the unlock handle draw content on a filled
+ * ground, and a map column control that is on fills the control on blue. An
+ * ink chosen for another ground falls under the 4.5:1 text and the 3:1 icons
+ * owe. The recording control bar's main button takes the record red in every
+ * state and theme, and its Stop and Lap stay secondary.
  *
  * Expected behaviour: every text and glyph on such a fill reaches 4.5:1
  * against it, drawn at full opacity.
@@ -148,8 +147,9 @@ describe('the slide to unlock handle', () => {
 
 describe('the map control column', () => {
   it.each([false, true])(
-    'draws an active glyph in the ink the teal can carry (dark %s)',
+    'draws an on control on the control on blue under an ink it carries (dark %s)',
     async (isDark) => {
+      mockIsDark = isDark;
       const { getByTestId } = await render(
         <MapControlStack
           top={100}
@@ -181,7 +181,8 @@ describe('the map control column', () => {
         const fill = flat(button.props.style).backgroundColor as string;
         const [glyph] = button.findAllByType(MaterialCommunityIcons);
 
-        expect(fill).toBe(themePalette(isDark).actionPrimary);
+        expect(fill).toBe(themePalette(isDark).controlOn);
+        expect(button.props.accessibilityState).toMatchObject({ selected: true });
         expect(contrastRatio(glyph.props.color, fill)).toBeGreaterThanOrEqual(4.5);
       }
     }

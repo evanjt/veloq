@@ -19,7 +19,7 @@ use std::sync::{LazyLock, Mutex};
 
 use serde::Deserialize;
 
-use crate::net::types::{ListedActivity, ManualActivityBody};
+use crate::net::intervals::wire::{ListedActivity, ManualActivityBody};
 use crate::objects::observer::{Announcement, notify};
 use crate::objects::sync::{FfiCallKind, FfiCallOutcome};
 use crate::persistence::recordings::UploadTransition;

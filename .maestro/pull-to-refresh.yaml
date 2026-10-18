@@ -1,5 +1,5 @@
 # Pull-to-Refresh Test
-# Tests pull-to-refresh gesture on home, fitness, and training screens
+# Tests pull-to-refresh gesture on the home and fitness screens
 
 appId: com.veloq.app.dev
 tags:
@@ -53,23 +53,5 @@ tags:
     timeout: 10000
 
 - takeScreenshot: "screenshots/pull-to-refresh-fitness"
-
-# Navigate to training screen
-- runFlow:
-    file: helpers/navigate-to-training.yaml
-
-# Pull to refresh on training screen
-- swipe:
-    start: 50%, 25%
-    end: 50%, 75%
-    duration: 500
-
-# Wait for training screen to remain visible
-- extendedWaitUntil:
-    visible:
-      id: "training-screen"
-    timeout: 10000
-
-- takeScreenshot: "screenshots/pull-to-refresh-training"
 
 - takeScreenshot: "screenshots/pull-to-refresh-complete"

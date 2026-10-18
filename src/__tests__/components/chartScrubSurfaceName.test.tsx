@@ -19,6 +19,7 @@ import { CurveChart } from '@/shared/charts';
 import { useChartGestures } from '@/shared/charts/useChartGestures';
 import { initialiseI18n } from '@/i18n';
 import type { Activity, WellnessData } from '@/types';
+import { dayActivityRow } from '@/features/activity/light';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
@@ -55,7 +56,7 @@ describe('an adjustable chart surface carries its chart title as its name', () =
   });
 
   it('names the activity strip by its label and keeps the stepped day as the value', async () => {
-    await render(<ActivityDotsChart data={DAYS} activities={ACTIVITIES} />);
+    await render(<ActivityDotsChart data={DAYS} activities={ACTIVITIES.map(dayActivityRow)} />);
     const strip = surface('Days trained');
     expect(strip.props.testID).toBe('activity-dots-surface');
     expect(strip.props.accessibilityValue).toBeUndefined();

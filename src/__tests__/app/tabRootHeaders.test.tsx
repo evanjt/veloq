@@ -26,7 +26,7 @@ const HEADERED: [string, string][] = [
   ['(feed)', 'navigation.feed'],
   ['fitness', 'navigation.fitness'],
   ['insights', 'insights.title'],
-  ['training', 'healthScreen.title'],
+  ['settings', 'settings.title'],
 ];
 
 describe('tab root headers', () => {
@@ -56,7 +56,7 @@ describe('tab root headers', () => {
     const large = Object.keys(TAB_HEADERS ?? {})
       .filter((tab) => headerLargeTitle(tab, 'ios', TAB_HEADERS))
       .sort();
-    expect(large).toEqual(['fitness', 'training']);
+    expect(large).toEqual(['fitness', 'settings']);
     for (const tab of Object.keys(TAB_HEADERS ?? {})) {
       expect(headerLargeTitle(tab, 'android', TAB_HEADERS)).toBe(false);
     }

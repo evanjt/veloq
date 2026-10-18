@@ -93,7 +93,7 @@ export function AttemptHistogramChart({
 
   return (
     <View testID="attempt-histogram" style={[styles.container]}>
-      <View style={styles.plot} onLayout={onLayout}>
+      <View style={[styles.plot, chartStyles.plotDirection]} onLayout={onLayout}>
         {chartWidth > 0 && (
           <>
             <Canvas style={StyleSheet.absoluteFill}>
@@ -160,7 +160,7 @@ export function AttemptHistogramChart({
           </>
         )}
       </View>
-      <View style={styles.edgeAxis} testID="attempt-histogram-x-axis">
+      <View style={[styles.edgeAxis, chartStyles.plotDirection]} testID="attempt-histogram-x-axis">
         {edgeLabels.map((label, i) => (
           <Text
             key={i}

@@ -68,7 +68,7 @@ const dated = (values: number[], stepDays = 1) =>
 
 /** The bars inside the sheet's history chart, which draws its grid as one picture. */
 function bars() {
-  return within(screen.getByTestId('insight-history-chart')).queryAllByTestId('skia-rect');
+  return within(screen.getByTestId('insight-history-chart')).queryAllByTestId('skia-rounded-rect');
 }
 
 function chartData(): { value: number }[] {

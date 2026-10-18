@@ -167,6 +167,12 @@ export interface ChartGestureResult<T> {
   /** Selected data point, null when nothing is selected. */
   selectedPoint: T | null;
 
+  /**
+   * The sample a scrub, tap or step selected, -1 for none, which a chart marks
+   * with a dot on each line.
+   */
+  scrubIndex: number;
+
   /** Animated style for the crosshair overlay. */
   crosshairStyle: AnimatedStyle<ViewStyle>;
 
@@ -517,6 +523,7 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
   return {
     gesture,
     selectedIndex,
+    scrubIndex: heldIndex,
     crosshairX: touchX,
     isActive,
     selectedPoint,

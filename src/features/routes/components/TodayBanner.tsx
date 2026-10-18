@@ -4,13 +4,7 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useTodayWorkout, useWorkoutSections, type WorkoutSection } from '@/features/home';
-import {
-  formZoneFromLoads,
-  formatForm,
-  formZoneColor,
-  formZoneTextColor,
-  formZoneLabel,
-} from '@/features/fitness';
+import { formZoneFromLoads, formatForm, formZoneColor, formZoneLabel } from '@/features/fitness';
 import { formatDuration, formatLoad, isolateNumeric } from '@/shared/format/format';
 import { formFromLoads } from '@/shared/math';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
@@ -22,7 +16,7 @@ import {
   iconSize,
   layout,
   opacity,
-  shadows,
+  raised,
   spacing,
   typography,
   verdictColor,
@@ -96,7 +90,6 @@ const ReadinessRow = React.memo(function ReadinessRow({
   const form = formFromLoads(ctl, atl);
   const formZone = formZoneFromLoads(ctl, atl, asPercent);
   const formColor = formZone ? formZoneColor(formZone, isDark) : 'transparent';
-  const formTextColor = formZone ? formZoneTextColor(formZone, isDark) : undefined;
   const formLabel = formZone ? formZoneLabel(formZone) : '';
   const formValue = formatForm(form, Math.round(ctl), asPercent);
 
@@ -108,7 +101,7 @@ const ReadinessRow = React.memo(function ReadinessRow({
           ? t('routeIntelligence.tomorrow', 'Tomorrow')
           : t('routeIntelligence.today', 'Today')}
       </Text>
-      <Text style={[styles.readinessValue, { color: formTextColor }]}>
+      <Text style={[styles.readinessValue, isDark && styles.textLight]}>
         {formLabel}
         {formValue !== null &&
           ` \u00B7 ${t(asPercent ? 'metrics.form' : 'activity.stats.formTSB')} ${isolateNumeric(formValue)}`}
@@ -263,13 +256,11 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderRadius: layout.borderRadius,
     backgroundColor: colors.surface,
-    ...shadows.card,
+    ...raised('card', false),
   },
   containerDark: {
     backgroundColor: darkColors.surfaceRaised,
-    borderWidth: stroke.one,
-    borderColor: darkColors.border,
-    ...shadows.none,
+    ...raised('card', true),
   },
   readinessRow: {
     flexDirection: 'row',
@@ -287,8 +278,10 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginRight: spacing.sm,
   },
+  // The zone is named in body text; the dot beside it carries the zone colour.
   readinessValue: {
     ...typography.captionBold,
+    color: colors.textPrimary,
   },
   textLight: {
     color: darkColors.textPrimary,

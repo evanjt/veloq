@@ -2,6 +2,7 @@ package __PKG__.widget
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.DashPathEffect
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.Typeface
@@ -12,26 +13,25 @@ import kotlin.math.roundToInt
 /**
  * Renders the fitness trend chart to a Bitmap for RemoteViews. Mirrors the in-app
  * feed summary-card sparkline: monotone-cubic fitness and fatigue lines over a
- * shared domain, each with a dark casing under-stroke, and a per-day form zone bar
- * underneath. Adds a y-axis rail (min/max training-load values with gridlines) so
+ * shared domain, fatigue dashed, and a per-day form zone bar underneath. Adds a y-axis rail (min/max training-load values with gridlines) so
  * the scale is readable, as on intervals.icu. Values are oldest-first.
  */
 object FitnessChart {
-  /** What the trend chart paints with: its lines, their casing, the gridlines and the labels. */
+  /** What the trend chart paints with: its lines, fatigue's dash in dp, the gridlines and the labels. */
   data class ChartColors(
     val fitness: Int,
     val fatigue: Int,
-    val casing: Int,
+    val fatigueDashDp: List<Float>,
     val axisText: Int,
     val grid: Int,
     val labelFace: Typeface,
   )
 
-  /** What the form chart paints with: a fill per zone key, the line, its casing and the labels. */
+  /** What the form chart paints with: a fill per zone key at the band alpha, the line and the labels. */
   data class ZoneColors(
     val zones: Map<String, Int>,
+    val bandOpacity: Float,
     val line: Int,
-    val casing: Int,
     val axisText: Int,
     val labelFace: Typeface,
   )
@@ -75,7 +75,7 @@ object FitnessChart {
       val fill =
         Paint().apply {
           color = colors.zones[band.zone] ?: colors.axisText
-          alpha = ZONE_BAND_ALPHA
+          alpha = (colors.bandOpacity * 255f).roundToInt()
         }
       canvas.drawRect(plot.left, plot.yOf(band.to), plot.right, plot.yOf(band.from), fill)
     }
@@ -104,29 +104,18 @@ object FitnessChart {
         open.add(point)
       }
     }
-    for ((color, width) in listOf(colors.casing to 2f * density, colors.line to 1.5f * density)) {
-      val stroke =
-        Paint(Paint.ANTI_ALIAS_FLAG).apply {
-          this.color = color
-          style = Paint.Style.STROKE
-          strokeWidth = width
-          strokeCap = Paint.Cap.ROUND
-          strokeJoin = Paint.Join.ROUND
-        }
-      for (points in runs) {
-        if (points.size == 1) {
-          canvas.drawPoint(points[0].first, points[0].second, stroke)
-          continue
-        }
-        val path = Path().apply { moveTo(points[0].first, points[0].second) }
-        for (p in points.drop(1)) path.lineTo(p.first, p.second)
-        canvas.drawPath(path, stroke)
+    val stroke = linePaint(colors.line, ChartStroke.solid(density))
+    for (points in runs) {
+      if (points.size == 1) {
+        canvas.drawPoint(points[0].first, points[0].second, stroke)
+        continue
       }
+      val path = Path().apply { moveTo(points[0].first, points[0].second) }
+      for (p in points.drop(1)) path.lineTo(p.first, p.second)
+      canvas.drawPath(path, stroke)
     }
     return bmp
   }
-
-  private const val ZONE_BAND_ALPHA = 70
 
   /** Feed-style chart: fitness + fatigue lines, axis rail. */
   fun fitnessBitmap(
@@ -150,17 +139,15 @@ object FitnessChart {
     val plot = layoutPlot(canvas, w, h, density, labelPx, colors, rawMin, rawMax)
 
     if (fatigue.size >= 2) {
-      drawLine(canvas, plot, fatigue, colors.casing, 2f * density)
-      drawLine(canvas, plot, fatigue, colors.fatigue, 1f * density)
+      drawLine(canvas, plot, fatigue, colors.fatigue, ChartStroke.fatigue(density, colors.fatigueDashDp))
     }
     if (fitness.size >= 2) {
-      drawLine(canvas, plot, fitness, colors.casing, 2f * density)
-      drawLine(canvas, plot, fitness, colors.fitness, 1.5f * density)
+      drawLine(canvas, plot, fitness, colors.fitness, ChartStroke.solid(density))
     }
     return bmp
   }
 
-  /** Single-series variant (HRV): one cased line with a faint fill, same axis rail. */
+  /** Single-series variant (HRV): one line with a faint fill, same axis rail. */
   fun singleBitmap(
     values: List<Float>,
     lineColor: Int,
@@ -179,13 +166,12 @@ object FitnessChart {
 
     val plot = layoutPlot(canvas, w, h, density, labelPx, colors, values.min(), values.max())
     drawFill(canvas, plot, values, lineColor, fillAlpha)
-    drawLine(canvas, plot, values, colors.casing, 2f * density)
-    drawLine(canvas, plot, values, lineColor, 1.5f * density)
+    drawLine(canvas, plot, values, lineColor, ChartStroke.solid(density))
     return bmp
   }
 
-  // Plot geometry plus the y domain (buffered like the feed chart so casing strokes
-  // at the extremes aren't clipped).
+  // Plot geometry plus the y domain (buffered like the feed chart so a line at the
+  // extremes isn't clipped).
   private class Plot(
     val left: Float,
     val top: Float,
@@ -253,19 +239,27 @@ object FitnessChart {
     return FloatArray(n) { plot.left + it * step }
   }
 
-  private fun drawLine(canvas: Canvas, plot: Plot, values: List<Float>, colorInt: Int, width: Float) {
+  private fun drawLine(
+    canvas: Canvas,
+    plot: Plot,
+    values: List<Float>,
+    colorInt: Int,
+    stroke: ChartStroke.Stroke,
+  ) {
     val xs = xPositions(plot, values.size)
     val ys = FloatArray(values.size) { plot.yOf(values[it]) }
-    val paint =
-      Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = colorInt
-        style = Paint.Style.STROKE
-        strokeWidth = width
-        strokeCap = Paint.Cap.ROUND
-        strokeJoin = Paint.Join.ROUND
-      }
-    canvas.drawPath(monotonePath(xs, ys), paint)
+    canvas.drawPath(monotonePath(xs, ys), linePaint(colorInt, stroke))
   }
+
+  private fun linePaint(colorInt: Int, stroke: ChartStroke.Stroke): Paint =
+    Paint(Paint.ANTI_ALIAS_FLAG).apply {
+      color = colorInt
+      style = Paint.Style.STROKE
+      strokeWidth = stroke.width
+      strokeCap = Paint.Cap.ROUND
+      strokeJoin = Paint.Join.ROUND
+      stroke.dash?.let { pathEffect = DashPathEffect(it.toFloatArray(), 0f) }
+    }
 
   private fun drawFill(canvas: Canvas, plot: Plot, values: List<Float>, colorInt: Int, alpha: Int) {
     if (alpha <= 0) return

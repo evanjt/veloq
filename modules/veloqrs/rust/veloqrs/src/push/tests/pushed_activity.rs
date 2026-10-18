@@ -158,7 +158,7 @@ fn list_body(shape: &Shape, sync_date: &str) -> String {
 }
 
 fn census_entry(shape: &Shape, sync_date: &str) -> crate::net::types::ActivityCensusEntry {
-    let record: crate::net::types::ActivityRecord =
+    let record: crate::net::intervals::wire::ActivityRecord =
         serde_json::from_str(&detail_body(shape, sync_date)).expect("the body");
     crate::net::types::ActivityCensusEntry::from(&record)
 }
@@ -256,9 +256,10 @@ fn record_census(entries: Vec<crate::net::types::ActivityCensusEntry>) {
 
 fn store_list_page(shape: &Shape, sync_date: &str) {
     let raw = list_body(shape, sync_date);
-    let record: crate::net::types::ActivityRecord = serde_json::from_str(&raw).expect("the row");
+    let record: crate::net::intervals::wire::ActivityRecord =
+        serde_json::from_str(&raw).expect("the row");
     let date = crate::objects::sync::start_date_to_timestamp(Some(START)).expect("a date");
-    let metrics = vec![crate::objects::sync::activity_metrics_row(record, date)];
+    let metrics = vec![crate::net::intervals::activity_metrics_row(record, date)];
     let id = shape.id.to_string();
     crate::persistence::with_persistent_engine(move |engine| {
         engine

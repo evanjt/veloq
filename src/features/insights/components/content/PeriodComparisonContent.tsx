@@ -4,6 +4,7 @@ import { Text } from 'react-native-paper';
 import { Canvas, RoundedRect } from '@shopify/react-native-skia';
 import { useTheme } from '@/shared/app';
 import {
+  chartStyles,
   colors,
   darkColors,
   iconSize,
@@ -125,7 +126,7 @@ export const PeriodComparisonContent = React.memo(function PeriodComparisonConte
       ) : (
         <ChartErrorBoundary height={CHART_HEIGHT}>
           <View style={[styles.chartCard, isDark && styles.chartCardDark]}>
-            <View style={styles.chartWrapper} onLayout={onLayout}>
+            <View style={[styles.chartWrapper, chartStyles.plotDirection]} onLayout={onLayout}>
               {chartWidth > 0 && (
                 <Canvas style={{ width: chartWidth, height: CHART_HEIGHT }}>
                   {barChart.map((bar, i) => (

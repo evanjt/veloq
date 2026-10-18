@@ -8,25 +8,29 @@
  */
 
 import {
-  HEATMAP_ROUTE_COLOR,
   buildRegionalLayers,
   selectedRouteColor,
 } from '@/features/maps/components/regional/regionalMapLayerSpecs';
+import { mapPalette } from '@/theme';
 
 const SPORT = '#3B82F6';
+const palette = mapPalette('light');
+const HEATMAP_ROUTE_COLOR = palette.layer.heatmapRoute;
 
 describe('the selected line colour on the global map', () => {
   it('is the sport colour when the heatmap is hidden on the map', () => {
-    expect(selectedRouteColor(SPORT, { enabled: true, shown: false })).toBe(SPORT);
+    expect(selectedRouteColor(SPORT, { enabled: true, shown: false }, palette)).toBe(SPORT);
   });
 
   it('is the sport colour when the heatmap is off in settings', () => {
-    expect(selectedRouteColor(SPORT, { enabled: false, shown: false })).toBe(SPORT);
-    expect(selectedRouteColor(SPORT, { enabled: false, shown: true })).toBe(SPORT);
+    expect(selectedRouteColor(SPORT, { enabled: false, shown: false }, palette)).toBe(SPORT);
+    expect(selectedRouteColor(SPORT, { enabled: false, shown: true }, palette)).toBe(SPORT);
   });
 
   it('switches to the heatmap fallback while the heatmap is drawn', () => {
-    expect(selectedRouteColor(SPORT, { enabled: true, shown: true })).toBe(HEATMAP_ROUTE_COLOR);
+    expect(selectedRouteColor(SPORT, { enabled: true, shown: true }, palette)).toBe(
+      HEATMAP_ROUTE_COLOR
+    );
   });
 });
 
@@ -44,14 +48,11 @@ function contrast(a: string, b: string): number {
 }
 
 describe('the selected line against its casing', () => {
-  const basemaps = [
-    { isDark: false, mapStyle: 'light' as const },
-    { isDark: true, mapStyle: 'dark' as const },
-  ];
+  const basemaps = [{ base: 'light' as const }, { base: 'dark' as const }];
 
-  it.each(basemaps)('has an opaque casing and a 3:1 line on $mapStyle', (basemap) => {
+  it.each(basemaps)('has an opaque casing and a 3:1 line on $base', ({ base }) => {
     const layers = buildRegionalLayers({
-      ...basemap,
+      palette: mapPalette(base),
       showActivities: true,
       showSections: false,
       showRoutes: false,

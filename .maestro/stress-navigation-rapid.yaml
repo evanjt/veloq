@@ -23,11 +23,6 @@ tags:
           visible:
             id: "fitness-screen"
           timeout: 15000
-      - openLink: "veloq://training"
-      - extendedWaitUntil:
-          visible:
-            id: "training-screen"
-          timeout: 15000
       - openLink: "veloq://map"
       - extendedWaitUntil:
           visible:

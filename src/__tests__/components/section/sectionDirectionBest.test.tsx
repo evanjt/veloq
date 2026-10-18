@@ -93,12 +93,7 @@ describe('direction Best and Avg', () => {
       sectionDistance: 2000,
     };
     const { getByTestId } = await render(
-      <SectionStatsCards
-        calendarSummary={calendar}
-        isDark={false}
-        basis="speed"
-        activityColor="#3B82F6"
-      />
+      <SectionStatsCards calendarSummary={calendar} isDark={false} basis="speed" />
     );
 
     expect(getByTestId('year-best-forward-2026').props.children).toBe('9:10');
@@ -151,12 +146,7 @@ describe('direction Best and Avg', () => {
       sectionDistance: 2000,
     };
     const { getAllByText, getByLabelText } = await render(
-      <SectionStatsCards
-        calendarSummary={calendar}
-        isDark={false}
-        basis="speed"
-        activityColor="#3B82F6"
-      />
+      <SectionStatsCards calendarSummary={calendar} isDark={false} basis="speed" />
     );
 
     expect(getAllByText(/Forward/).length).toBeGreaterThan(0);
