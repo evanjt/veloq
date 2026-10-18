@@ -2344,8 +2344,8 @@ mod tests {
     }
 
     /// A global engine holding a catalogue with every activity already
-    /// processed, which is what the no-new-activities echo needs: it re-sends
-    /// the last batch rather than folding anything.
+    /// processed, which is what the no-new-activities short-circuit needs: it
+    /// folds nothing and steps nothing.
     pub fn engine_with_a_catalogue() -> TempDir {
         let tmp = seeded_global_engine();
         with_engine(|engine| {
@@ -2361,14 +2361,14 @@ mod tests {
         assert_eq!(
             with_engine(|e| e.get_sections().len()).expect("engine"),
             1,
-            "the fixture has to leave a catalogue for the echo to write"
+            "the fixture has to leave a catalogue for the short-circuit to keep"
         );
         tmp
     }
 
-    /// Expected behaviour: the start that finds nothing new echoes the last
-    /// batch, which is still a full catalogue write. It applies on a thread
-    /// of its own too, so the poll behind it is as cheap as the first.
+    /// Expected behaviour: the start that finds nothing new still saves the
+    /// processed ids. It settles on a thread of its own too, so the poll
+    /// behind it is as cheap as the first.
     #[test]
     pub fn a_run_with_nothing_new_applies_off_the_poller_as_well() {
         let _serial = serial_global_state();

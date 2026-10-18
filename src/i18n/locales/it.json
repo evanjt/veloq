@@ -1282,9 +1282,7 @@
     "privacy": {
       "title": "Informativa sulla privacy",
       "brief": "Il tuo ID atleta e un token push verranno conservati sul nostro server (scadenza 30 giorni). Le notifiche passano attraverso Apple o Google ma tutti i contenuti sono generati sul tuo dispositivo. Puoi disattivare in qualsiasi momento.",
-      "accept": "Ho capito",
-      "briefEnabled": "Stai ricevendo queste notifiche. Il tuo ID atleta e un token push sono memorizzati sul nostro server (scadenza 30 giorni) e le notifiche passano da Expo, poi Apple o Google, fino al tuo dispositivo. Tutti i contenuti delle analisi sono generati sul tuo dispositivo. Puoi disattivarle in qualsiasi momento.",
-      "turnOff": "Disattiva"
+      "accept": "Ho capito"
     },
     "settings": {
       "title": "Notifiche",
@@ -1295,12 +1293,7 @@
       "fitnessMilestone": "Traguardi di forma"
     },
     "prompt": {
-      "title": "Resta aggiornato",
-      "description": "Ricevi notifiche su nuove attività, record personali e traguardi di forma.",
-      "enable": "Attiva",
-      "dismiss": "Non ora",
       "settingsHint": "Puoi attivare le notifiche in qualsiasi momento nelle Impostazioni",
-      "keep": "Mantieni",
       "howItWorks": "Come funziona"
     },
     "activityBody": {
@@ -2483,7 +2476,20 @@
       "feedBody": "Ogni attività arriva qui come una scheda con la sua mappa, dalla più recente.",
       "feedTip": "Trascina verso il basso per cercare nuove attività su intervals.icu, oppure tocca una scheda per aprirla.",
       "activityTitle": "Dentro un'attività",
-      "activityBody": "Apri un'attività per vederne la mappa e i grafici, gli intervalli e i percorsi e i tratti a cui appartiene."
+      "activityBody": "Apri un'attività per vederne la mappa e i grafici, gli intervalli e i percorsi e i tratti a cui appartiene.",
+      "notificationsTitle": "Notifiche",
+      "notificationsBody": "Quando intervals.icu riceve una nuova attività, Veloq può dirti cosa ha trovato: un record personale, un tempo più veloce del solito o un passo avanti nella forma. Ecco alcuni esempi di ciò che arriva.",
+      "turnOn": "Attiva",
+      "neverRemind": "Non ricordarmelo più",
+      "notificationsNeedSignIn": "Le notifiche richiedono l'accesso con intervals.icu.",
+      "notificationsOn": "Le notifiche sono attive. Puoi cambiarle in Impostazioni.",
+      "notificationsExampleSection": "Salita del Porto",
+      "notificationsExampleRoute": "Anello del fiume",
+      "notificationsExampleRide": "Uscita mattutina",
+      "notificationsExampleRun": "Corsa serale",
+      "backupWhere": "Ogni backup finisce nel backup del dispositivo. In Impostazioni puoi aggiungere anche un server, una cartella o uno spazio cloud.",
+      "backupOn": "Il backup automatico è attivo. Puoi cambiarlo in Impostazioni.",
+      "backupLater": "Puoi attivare il backup automatico in qualsiasi momento in Impostazioni."
     }
   },
   "strength": {
@@ -2661,6 +2667,15 @@
     "empty": "Nessuna modifica registrata",
     "around": "Intorno a questa modifica",
     "forkAround": "Traffico al bivio",
+    "boundaries": "Perché la linea finisce qui",
+    "cut_usage_change": "La maggior parte delle attività che condividono questo tratto lo usa in modo diverso da qui: inversioni, anelli o giri.",
+    "cut_fork": "Il traffico si divide qui. Abbastanza ne prosegue verso un altro tratto, quindi la linea si ferma al bivio.",
+    "cut_traffic_cliff": "La maggior parte delle attività sul lato più frequentato non prosegue mai oltre questo punto.",
+    "cut_trim": "Il terreno oltre questo punto appartiene già a un altro tratto, quindi la linea si ferma dove le due si sovrapporrebbero.",
+    "cut_low_support": "Meno attività di questo tratto coprono il terreno oltre questo punto di quante ne servano, quindi la linea si ferma all'ultimo punto ben coperto.",
+    "cut_terminus": "Abbastanza attività iniziano o finiscono qui perché il terreno oltre sia usato da altre, quindi la linea si ferma dove si uniscono o se ne vanno.",
+    "cut_pass_end": "Il passaggio da cui è stata tracciata questa linea finisce qui. Il terreno oltre viene contato a parte.",
+    "cut_seam_clip": "La linea è stata accorciata di {{distance}} dove incontrava un tratto più frequentato. I suoi conteggi sono stati presi prima del taglio.",
     "prEra": "Migliore all'epoca: {{time}}",
     "prMoved": "Record da {{from}} a {{to}}",
     "versions": "Versioni salvate",

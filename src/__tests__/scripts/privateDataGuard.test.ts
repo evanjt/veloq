@@ -9,7 +9,7 @@
  * that adds personal data even when a later commit in it deletes the file.
  */
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -76,6 +76,22 @@ const PRIVATE = [
   'data/a\tb.gpx',
   'private/a"b.txt',
   'screenshots/a"b.txt',
+  'fullcorpus/a.gpx',
+  'fullcorpus/notes.json',
+  'modules/engine/tests/citycorpus/sections.json',
+  'fullcorpus/_bitwise_golden.txt',
+  'tests/fixtures/_bitwise_golden.txt',
+  'tests/fixtures/city_bitwise_golden.txt',
+];
+
+// The public corpus's golden is fetched data run on public tracks, and the
+// engine's own corpus tests sit in a directory named for what they test.
+const PUBLIC = [
+  'src/app.ts',
+  'tests/fixtures/v12_demo.sql',
+  'modules/engine/tests/fixtures/geolife_bitwise_golden.txt',
+  'modules/engine/tests/corpus/main.rs',
+  'modules/engine/tests/corpus_migration.rs',
 ];
 
 describe('the staged mode', () => {
@@ -113,7 +129,7 @@ describe('a path holding a newline', () => {
 
 describe('the whole-tree mode', () => {
   it('passes a clean tree', () => {
-    expect(guard(repo(['src/app.ts', 'tests/fixtures/v12_demo.sql']), ['--all'])).toBe(0);
+    expect(guard(repo(PUBLIC), ['--all'])).toBe(0);
   });
 
   it.each(PRIVATE)('refuses %s already tracked, which staging never sees again', (path) => {
@@ -302,5 +318,60 @@ describe('the gates', () => {
     expect(guards.map((g) => g.cmd.join(' '))).toContain(
       'bash scripts/check-no-private-data.sh --all'
     );
+  });
+});
+
+// CI checks out a tree and stages nothing, and a commit made in a hookless
+// clone meets no hook at all, so CI is the one judge every push reaches.
+describe('the CI workflow', () => {
+  type Step = { name?: string; uses?: string; run?: string };
+  type Job = { if?: string; needs?: string | string[]; steps?: Step[] };
+  const yaml = require('js-yaml') as { load: (source: string) => unknown };
+  const workflow = yaml.load(readFileSync(join(ROOT, '.github/workflows/test.yml'), 'utf8')) as {
+    on: Record<string, unknown>;
+    jobs: Record<string, Job>;
+  };
+
+  const unconditional = Object.entries(workflow.jobs).filter(
+    ([, job]) => job.if === undefined && job.needs === undefined
+  );
+  const guardStep = (job: Job) =>
+    (job.steps ?? []).findIndex((step) =>
+      /scripts\/check-no-private-data\.sh --all/.test(step.run ?? '')
+    );
+
+  it('runs on every push to main and every pull request', () => {
+    expect(Object.keys(workflow.on).sort()).toEqual(['pull_request', 'push']);
+  });
+
+  it('runs the whole-tree guard in a job no change can skip, straight after checkout', () => {
+    const holders = unconditional.filter(([, job]) => guardStep(job) >= 0);
+    expect(holders.map(([name]) => name)).not.toEqual([]);
+    for (const [, job] of holders) {
+      const index = guardStep(job);
+      const before = (job.steps ?? []).slice(0, index);
+      expect(before.every((step) => step.uses?.startsWith('actions/checkout@'))).toBe(true);
+    }
+  });
+
+  function runStep(files: string[]): number {
+    const [, job] = unconditional.find(([, j]) => guardStep(j) >= 0)!;
+    const step = job.steps![guardStep(job)];
+    const root = repo(files);
+    mkdirSync(join(root, 'scripts'), { recursive: true });
+    copyFileSync(GUARD, join(root, 'scripts/check-no-private-data.sh'));
+    return run('bash', ['-e', '-c', step.run!], root);
+  }
+
+  it('fails the step on a tree holding a private corpus track', () => {
+    expect(runStep(['src/app.ts', 'fullcorpus/a.gpx'])).not.toBe(0);
+  });
+
+  it('fails the step on a tree holding the private golden', () => {
+    expect(runStep(['src/app.ts', 'fullcorpus/_bitwise_golden.txt'])).not.toBe(0);
+  });
+
+  it('passes the step on a clean tree', () => {
+    expect(runStep(PUBLIC)).toBe(0);
   });
 });

@@ -201,8 +201,6 @@
   },
   "notifications": {
     "prompt": {
-      "title": "Want a heads-up?",
-      "description": "Get a heads-up about new activities, personal bests and fitness milestones.",
       "settingsHint": "You can switch notifications on any time in Settings"
     },
     "activityBody": {

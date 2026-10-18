@@ -80,11 +80,7 @@
   "maps": {
     "unavailableHint": "No se ha podido cargar el mapa. Revisa tu conexión y ábrelo de nuevo."
   },
-  "notifications": {
-    "prompt": {
-      "title": "Manteneos al día"
-    }
-  },
+  "notifications": {},
   "recording": {
     "distanceInvalid": "Por favor, introduce una distancia válida (0-999).",
     "durationRequired": "Por favor, introduce una duración válida.",

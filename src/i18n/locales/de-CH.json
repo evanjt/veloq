@@ -1238,9 +1238,7 @@
     "privacy": {
       "title": "Dateschutz-Hinwiis",
       "brief": "Dini Athleten-ID und en Push-Token wärded uf üsem Server gspicheret (30-Täg-Ablauf). Benachrichtigunge werded über Apple oder Google gschickt, aber de ganzi Inhalt wird uf dim Grät erstellt. Chasch jederzit deaktiviere.",
-      "accept": "Verstande",
-      "briefEnabled": "Sie erhalten diese Benachrichtigungen. Ihre Athleten-ID und ein Push-Token sind auf unserem Server gespeichert (30 Tage Ablauf), und Benachrichtigungen werden über Expo, dann Apple oder Google, an Ihr Gerät geleitet. Alle Insight-Inhalte werden auf Ihrem Gerät erzeugt. Sie können sie jederzeit ausschalten.",
-      "turnOff": "Ausschalten"
+      "accept": "Verstande"
     },
     "settings": {
       "title": "Benachrichtigunge",
@@ -1251,12 +1249,7 @@
       "fitnessMilestone": "Fitness-Meilensteine"
     },
     "prompt": {
-      "title": "Bliib uf em Laufende",
-      "description": "Krieg Benachrichtigunge über nöii Aktivitäte, Bestleistungen und Fitness-Meilensteine.",
-      "enable": "Aktiviere",
-      "dismiss": "Nicht jetzt",
       "settingsHint": "Du chasch Benachrichtigunge jederzit i de Iistellige aktiviere",
-      "keep": "Anbehalten",
       "howItWorks": "So funktioniert es"
     },
     "activityBody": {
@@ -2307,7 +2300,20 @@
       "feedBody": "Jedi Aktivität chunnt da als Iitrag mit ihrere Charte aa, di nöischt zersch.",
       "feedTip": "Zieh nach unde, zum bi intervals.icu nach neue Aktivitäte z luege, oder tipp uf e Aktivität, zum si z öffne.",
       "activityTitle": "I ere Aktivität",
-      "activityBody": "Öffne e Aktivität für ihri Charte und Diagramm, ihri Intervall und d Strecki und Abschnitt, wo si dezue ghört."
+      "activityBody": "Öffne e Aktivität für ihri Charte und Diagramm, ihri Intervall und d Strecki und Abschnitt, wo si dezue ghört.",
+      "notificationsTitle": "Benachrichtigunge",
+      "notificationsBody": "Wänn intervals.icu e neui Aktivität überchunnt, cha dir Veloq säge, was es gfunde hät: e persönlichi Bestziit, e schnelleri Ziit als suscht oder en Schritt füre i de Fitness. Das sind Biispiel für das, was aachunnt.",
+      "turnOn": "Iischalte",
+      "neverRemind": "Nie meh erinnere",
+      "notificationsNeedSignIn": "Benachrichtigunge bruuched e Aamäldig bi intervals.icu.",
+      "notificationsOn": "Benachrichtigunge sind aa. Du chasch si i de Istellige ändere.",
+      "notificationsExampleSection": "Hafebärg-Uffahrt",
+      "notificationsExampleRoute": "Flussrundi",
+      "notificationsExampleRide": "Morgefahrt",
+      "notificationsExampleRun": "Abiglauf",
+      "backupWhere": "Jedi Sicherig gaht i d Sicherig vo dim Grät. I de Istellige chasch au en Server, en Ordner oder en Cloud-Speicher dezueneh.",
+      "backupOn": "Automatischi Sicherig isch aa. Du chasch si i de Istellige ändere.",
+      "backupLater": "Du chasch d automatisch Sicherig jederziit i de Istellige iischalte."
     }
   },
   "strength": {
@@ -2484,6 +2490,15 @@
     "empty": "Noch keine Änderungen aufgezeichnet",
     "around": "Rund um diese Änderung",
     "forkAround": "Verkehr an der Abzweigung",
+    "boundaries": "Warum die Linie hier endet",
+    "cut_usage_change": "Die meisten Aktivitäten auf diesem Abschnitt nutzen ihn ab hier anders: Sie kehren um, fahren eine Schleife oder Runden.",
+    "cut_fork": "Der Verkehr teilt sich hier. So viel davon biegt zu einem anderen Abschnitt ab, dass die Linie an der Abzweigung endet.",
+    "cut_traffic_cliff": "Die meisten Aktivitäten auf der stärker befahrenen Seite kommen nie über diesen Punkt hinaus.",
+    "cut_trim": "Das Gelände ab hier gehört bereits zu einem anderen Abschnitt, daher endet die Linie dort, wo sich beide überschneiden würden.",
+    "cut_low_support": "Weniger der eigenen Aktivitäten dieses Abschnitts decken das Gelände ab hier ab, als der Abschnitt braucht, daher endet die Linie am letzten gut abgedeckten Punkt.",
+    "cut_terminus": "Genug Aktivitäten beginnen oder enden hier, dass das Gelände dahinter von anderen genutzt wird, daher endet die Linie dort, wo sie hinzukommen oder abgehen.",
+    "cut_pass_end": "Die Durchfahrt, aus der diese Linie gezeichnet wurde, endet hier. Das Gelände dahinter wird für sich gezählt.",
+    "cut_seam_clip": "Die Linie wurde um {{distance}} gekürzt, wo sie auf einen stärker befahrenen Abschnitt traf. Die Zahlen wurden vor der Kürzung erhoben.",
     "prEra": "Bestzeit damals: {{time}}",
     "prMoved": "Rekord {{from}} zu {{to}}",
     "versions": "Gespeicherte Versionen",

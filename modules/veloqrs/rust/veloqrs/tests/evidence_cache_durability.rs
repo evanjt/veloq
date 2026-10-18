@@ -476,3 +476,68 @@ fn a_cache_written_plain_by_an_earlier_build_restores_warm_and_is_rewritten_smal
         "the next persist wrote {rewritten} B over a {plain} B plain row"
     );
 }
+
+/// Rewrite the stored evidence row as a build that also persisted the memos a
+/// restart rebuilds cheaply wrote it, under the same version byte. Returns
+/// the length of the row it left.
+fn rewrite_with_rebuildable_memos(
+    dir: &TempDir,
+    cache: &tracematch::SectionEvidenceCache,
+) -> usize {
+    let conn = Connection::open(dir.path().join("evidence.db")).expect("open");
+    let blob: Vec<u8> = conn
+        .query_row("SELECT cache FROM evidence_cache WHERE id = 1", [], |r| {
+            r.get(0)
+        })
+        .expect("the detect wrote an evidence row");
+    let version = *blob.first().expect("a tagged row");
+    let body = veloqrs::persistence::codec::serialize_named(&cache.with_rebuildable_memos())
+        .expect("encode");
+    let mut old = vec![version];
+    old.extend(body);
+    conn.execute("UPDATE evidence_cache SET cache = ?1 WHERE id = 1", [&old])
+        .expect("rewrite the row");
+    old.len()
+}
+
+/// Scenario: every installed device holds an evidence row that carries the
+/// per-track cuts, their intern table and the support cells, and the build
+/// that stops persisting them opens it.
+///
+/// Expected behaviour: the row restores warm on the same catalogue, so the
+/// upgrade costs no cold rebatch, and the next persist leaves those memos out.
+#[test]
+fn a_cache_carrying_the_rebuildable_memos_restores_warm_and_is_rewritten_without_them() {
+    let dir = TempDir::new().unwrap();
+    let pool = corpus();
+    let (held, seed) = pool.split_last().expect("a corpus");
+    let mut first = open(&dir);
+    ingest(&mut first, seed);
+    detect(&mut first);
+    let folded = first.evidence_cache_folded_count();
+    assert!(folded > 0, "the detect folded nothing");
+    let before = catalogue_with_ids(&mut first);
+    let (live, _folded) = first.shared_evidence_cache();
+    drop(first);
+
+    let old = rewrite_with_rebuildable_memos(&dir, &live);
+    let (_digest, current) = cache_row(&dir).expect("the row");
+    assert_eq!(current, old);
+
+    let mut second = open(&dir);
+    assert_eq!(
+        second.evidence_cache_folded_count(),
+        folded,
+        "the old row was not adopted, so the upgrade rebatches cold"
+    );
+    assert_eq!(catalogue_with_ids(&mut second), before);
+
+    ingest(&mut second, std::slice::from_ref(held));
+    detect(&mut second);
+    assert_eq!(second.evidence_cache_folded_count(), folded + 1);
+    let (_digest, rewritten) = cache_row(&dir).expect("the apply wrote an evidence row");
+    assert!(
+        rewritten < old,
+        "the next persist wrote {rewritten} B over a {old} B row carrying every memo"
+    );
+}

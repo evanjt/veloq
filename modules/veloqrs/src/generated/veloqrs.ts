@@ -6274,6 +6274,62 @@ const FfiConverterTypeFfiBestEffortsData = (() => {
 })();
 
 /**
+ * One reason the detector gave for where a section's line was cut.
+ */
+export type FfiBoundaryReason = {
+  /**
+   * The reason's serde tag: usage_change, fork, traffic_cliff, trim,
+   * low_support, terminus, pass_end or seam_clip.
+   */
+  kind: string;
+  /**
+   * How much of the drawn line a seam clip took off, in metres; absent on
+   * every other reason.
+   */
+  clippedMetres?: number;
+};
+
+/**
+ * Generated factory for {@link FfiBoundaryReason} record objects.
+ */
+export const FfiBoundaryReason = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiBoundaryReason, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiBoundaryReason>,
+  });
+})();
+
+const FfiConverterTypeFfiBoundaryReason = (() => {
+  type TypeName = FfiBoundaryReason;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        kind: FfiConverterString.readFromCursor(c),
+        clippedMetres: FfiConverterOptionalFloat64.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.kind, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.clippedMetres, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.kind) +
+        FfiConverterOptionalFloat64.allocationSize(value.clippedMetres)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * How far an export has got. Read on a timer while one runs, which is
  * what a progress bar is: an event per activity would park the writing thread
  * on the JS thread once per file.
@@ -19393,9 +19449,11 @@ export type FfiSectionEventDetails = {
    */
   splitInto: Array<FfiSectionLink>;
   /**
-   * The serde tag of each boundary reason the detector gave the change.
+   * Why the detector cut the line where it did, one entry per record that
+   * names this section, in the detector's order. Empty when the change
+   * recorded none.
    */
-  reasons: Array<string>;
+  boundaries: Array<FfiBoundaryReason>;
 };
 
 /**
@@ -19436,7 +19494,7 @@ const FfiConverterTypeFfiSectionEventDetails = (() => {
         moved: FfiConverterOptionalBoolean.readFromCursor(c),
         splitFrom: FfiConverterOptionalTypeFfiSectionLink.readFromCursor(c),
         splitInto: FfiConverterSequenceTypeFfiSectionLink.readFromCursor(c),
-        reasons: FfiConverterSequenceString.readFromCursor(c),
+        boundaries: FfiConverterSequenceTypeFfiBoundaryReason.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -19460,7 +19518,10 @@ const FfiConverterTypeFfiSectionEventDetails = (() => {
         value.splitInto,
         c,
       );
-      FfiConverterSequenceString.writeIntoCursor(value.reasons, c);
+      FfiConverterSequenceTypeFfiBoundaryReason.writeIntoCursor(
+        value.boundaries,
+        c,
+      );
     }
     allocationSize(value: TypeName): number {
       return (
@@ -19478,7 +19539,9 @@ const FfiConverterTypeFfiSectionEventDetails = (() => {
         FfiConverterOptionalBoolean.allocationSize(value.moved) +
         FfiConverterOptionalTypeFfiSectionLink.allocationSize(value.splitFrom) +
         FfiConverterSequenceTypeFfiSectionLink.allocationSize(value.splitInto) +
-        FfiConverterSequenceString.allocationSize(value.reasons)
+        FfiConverterSequenceTypeFfiBoundaryReason.allocationSize(
+          value.boundaries,
+        )
       );
     }
   }
@@ -38167,6 +38230,11 @@ const FfiConverterSequenceTypeFfiSectionLink = new FfiConverterArray(
   FfiConverterTypeFfiSectionLink,
 );
 
+// FfiConverter for Array<FfiBoundaryReason>
+const FfiConverterSequenceTypeFfiBoundaryReason = new FfiConverterArray(
+  FfiConverterTypeFfiBoundaryReason,
+);
+
 // FfiConverter for FfiSectionEventDetails | undefined
 const FfiConverterOptionalTypeFfiSectionEventDetails = new FfiConverterOptional(
   FfiConverterTypeFfiSectionEventDetails,
@@ -40980,6 +41048,7 @@ export default Object.freeze({
     FfiConverterTypeFfiBestEffortKind,
     FfiConverterTypeFfiBestEffortsData,
     FfiConverterTypeFfiBestEffortsSport,
+    FfiConverterTypeFfiBoundaryReason,
     FfiConverterTypeFfiBounds,
     FfiConverterTypeFfiBulkExportProgress,
     FfiConverterTypeFfiBulkExportResult,

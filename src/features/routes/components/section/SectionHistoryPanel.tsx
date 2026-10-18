@@ -7,8 +7,9 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import type { FfiSectionEventDetails, FfiSectionLink } from 'veloqrs';
-import { formatDuration, formatFullDate } from '@/shared/format/format';
+import type { FfiBoundaryReason, FfiSectionEventDetails, FfiSectionLink } from 'veloqrs';
+import { formatDistance, formatDuration, formatFullDate } from '@/shared/format/format';
+import { useMetricSystem } from '@/shared/app';
 import { colors, controlHeight, darkColors, layout, spacing, typography, stroke } from '@/theme';
 import { Button, Card, EmptyState } from '@/shared/ui';
 import type {
@@ -16,6 +17,7 @@ import type {
   SectionHistoryEvent,
 } from '@/features/routes/hooks/useSectionLedger';
 import {
+  BOUNDARY_REASON_KEYS,
   FIXED_LABEL_LEDGER_KINDS,
   ledgerDate,
   NO_EVENT_DETAILS,
@@ -130,6 +132,7 @@ export function SectionHistoryPanel({
   activityNames,
 }: SectionHistoryPanelProps) {
   const { t } = useTranslation();
+  const isMetric = useMetricSystem();
   const newest = useMemo(() => Math.max(0, ...versions.map((v) => v.version)), [versions]);
 
   // A record is held within one sport and one direction, so a line about one
@@ -164,6 +167,24 @@ export function SectionHistoryPanel({
           ? t(`sectionHistory.kind_${e.kind}` as never)
           : e.kind;
     }
+  };
+
+  // Why the detector cut the line, one sentence per reason, each said once:
+  // a fork at both ends of a line is one sentence. A reason this build cannot
+  // word, or a seam clip that stored no length, says nothing.
+  const boundarySentences = (boundaries: FfiBoundaryReason[]): string[] => {
+    const sentences = new Set<string>();
+    for (const reason of boundaries) {
+      if (!Object.hasOwn(BOUNDARY_REASON_KEYS, reason.kind)) continue;
+      const key = BOUNDARY_REASON_KEYS[reason.kind as keyof typeof BOUNDARY_REASON_KEYS];
+      if (key === BOUNDARY_REASON_KEYS.seam_clip) {
+        if (reason.clippedMetres == null) continue;
+        sentences.add(t(key, { distance: formatDistance(reason.clippedMetres, isMetric) }));
+      } else {
+        sentences.add(t(key));
+      }
+    }
+    return [...sentences];
   };
 
   return (
@@ -238,6 +259,7 @@ export function SectionHistoryPanel({
       ) : (
         history.map((e) => {
           const d = e.details ?? NO_EVENT_DETAILS;
+          const reasons = boundarySentences(d.boundaries);
           return (
             <View
               key={e.id}
@@ -295,6 +317,18 @@ export function SectionHistoryPanel({
                     )}
                   </Text>
                 ))}
+              {reasons.length > 0 && (
+                <View testID={`section-history-boundaries-${e.id}`}>
+                  <Text style={[styles.label, isDark && styles.textSecondaryDark]}>
+                    {t('sectionHistory.boundaries')}
+                  </Text>
+                  {reasons.map((sentence) => (
+                    <Text key={sentence} style={[styles.meta, isDark && styles.textSecondaryDark]}>
+                      {sentence}
+                    </Text>
+                  ))}
+                </View>
+              )}
               {d.around.length > 0 && (
                 <>
                   <Text style={[styles.label, isDark && styles.textSecondaryDark]}>

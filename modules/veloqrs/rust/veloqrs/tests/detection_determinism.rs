@@ -225,7 +225,7 @@ fn restored_and_overlapped_signature() -> String {
         start_unix + 80 * day,
     );
     ingest_step(&mut engine, "hand-built overlap", &refs(&between));
-    settle(&mut engine, 8);
+    drain(&mut engine, "settle", DEBOUNCE);
     let joined = snapshot(&mut engine);
     let carried = busiest_section_near(&joined, 35.0).expect("the middle route forms a section");
     assert!(

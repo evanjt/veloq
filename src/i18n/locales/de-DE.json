@@ -1261,9 +1261,7 @@
     "privacy": {
       "title": "Datenschutzhinweis",
       "brief": "Deine Athleten-ID und ein Push-Token werden auf unserem Server gespeichert (30 Tage Ablauf). Benachrichtigungen werden über Apple oder Google geleitet, aber alle Einblicke werden auf deinem Gerät erzeugt. Du kannst jederzeit deaktivieren.",
-      "accept": "Verstanden",
-      "briefEnabled": "Du erhältst diese Benachrichtigungen. Deine Athleten-ID und ein Push-Token sind auf unserem Server gespeichert (30 Tage Ablauf), und Benachrichtigungen werden über Expo, dann Apple oder Google, an dein Gerät geleitet. Alle Insight-Inhalte werden auf deinem Gerät erzeugt. Du kannst sie jederzeit ausschalten.",
-      "turnOff": "Ausschalten"
+      "accept": "Verstanden"
     },
     "settings": {
       "title": "Benachrichtigungen",
@@ -1274,12 +1272,7 @@
       "fitnessMilestone": "Fitness-Meilensteine"
     },
     "prompt": {
-      "title": "Bleib auf dem Laufenden",
-      "description": "Erhalte Benachrichtigungen über neue Aktivitäten, Bestleistungen und Fitness-Meilensteine.",
-      "enable": "Aktivieren",
-      "dismiss": "Nicht jetzt",
       "settingsHint": "Du kannst Benachrichtigungen jederzeit in den Einstellungen aktivieren",
-      "keep": "Anbehalten",
       "howItWorks": "So funktioniert es"
     },
     "activityBody": {
@@ -2420,7 +2413,20 @@
       "feedBody": "Jede Aktivität erscheint hier als Eintrag mit ihrer Karte, die neueste zuerst.",
       "feedTip": "Zieh nach unten, um intervals.icu nach neuen Aktivitäten zu fragen, oder tippe auf eine Aktivität, um sie zu öffnen.",
       "activityTitle": "In einer Aktivität",
-      "activityBody": "Öffne eine Aktivität für ihre Karte und Diagramme, ihre Intervalle und die Routen und Abschnitte, zu denen sie gehört."
+      "activityBody": "Öffne eine Aktivität für ihre Karte und Diagramme, ihre Intervalle und die Routen und Abschnitte, zu denen sie gehört.",
+      "notificationsTitle": "Benachrichtigungen",
+      "notificationsBody": "Wenn intervals.icu eine neue Aktivität erhält, kann Veloq dir sagen, was es gefunden hat: eine persönliche Bestzeit, eine schnellere Zeit als sonst oder einen Schritt nach vorn in der Fitness. Das sind Beispiele für das, was ankommt.",
+      "turnOn": "Einschalten",
+      "neverRemind": "Nie wieder erinnern",
+      "notificationsNeedSignIn": "Benachrichtigungen brauchen eine Anmeldung bei intervals.icu.",
+      "notificationsOn": "Benachrichtigungen sind an. Du kannst sie in den Einstellungen ändern.",
+      "notificationsExampleSection": "Hafenberg-Anstieg",
+      "notificationsExampleRoute": "Flussrunde",
+      "notificationsExampleRide": "Morgenfahrt",
+      "notificationsExampleRun": "Abendlauf",
+      "backupWhere": "Jede Sicherung landet in der Gerätesicherung. In den Einstellungen kannst du zusätzlich einen Server, einen Ordner oder einen Cloud-Speicher hinzufügen.",
+      "backupOn": "Die automatische Sicherung ist an. Du kannst sie in den Einstellungen ändern.",
+      "backupLater": "Du kannst die automatische Sicherung jederzeit in den Einstellungen einschalten."
     }
   },
   "strength": {
@@ -2597,6 +2603,15 @@
     "empty": "Noch keine Änderungen aufgezeichnet",
     "around": "Rund um diese Änderung",
     "forkAround": "Verkehr an der Abzweigung",
+    "boundaries": "Warum die Linie hier endet",
+    "cut_usage_change": "Die meisten Aktivitäten auf diesem Abschnitt nutzen ihn ab hier anders: Sie kehren um, fahren eine Schleife oder Runden.",
+    "cut_fork": "Der Verkehr teilt sich hier. So viel davon biegt zu einem anderen Abschnitt ab, dass die Linie an der Abzweigung endet.",
+    "cut_traffic_cliff": "Die meisten Aktivitäten auf der stärker befahrenen Seite kommen nie über diesen Punkt hinaus.",
+    "cut_trim": "Das Gelände ab hier gehört bereits zu einem anderen Abschnitt, daher endet die Linie dort, wo sich beide überschneiden würden.",
+    "cut_low_support": "Weniger der eigenen Aktivitäten dieses Abschnitts decken das Gelände ab hier ab, als der Abschnitt braucht, daher endet die Linie am letzten gut abgedeckten Punkt.",
+    "cut_terminus": "Genug Aktivitäten beginnen oder enden hier, dass das Gelände dahinter von anderen genutzt wird, daher endet die Linie dort, wo sie hinzukommen oder abgehen.",
+    "cut_pass_end": "Die Durchfahrt, aus der diese Linie gezeichnet wurde, endet hier. Das Gelände dahinter wird für sich gezählt.",
+    "cut_seam_clip": "Die Linie wurde um {{distance}} gekürzt, wo sie auf einen stärker befahrenen Abschnitt traf. Die Zahlen wurden vor der Kürzung erhoben.",
     "prEra": "Bestzeit damals: {{time}}",
     "prMoved": "Rekord {{from}} zu {{to}}",
     "versions": "Gespeicherte Versionen",

@@ -116,8 +116,6 @@ const MOST_SEEN = [
   'alerts.clearCacheMessage',
   'alerts.disconnectAndClearMessage',
   'recording.resumePreviousMessage',
-  'notifications.prompt.title',
-  'notifications.prompt.description',
   'notifications.activityBody.fasterOnRoute',
   'systemSurfaces.toSeeTraining',
   'systemSurfaces.insightsEmpty',

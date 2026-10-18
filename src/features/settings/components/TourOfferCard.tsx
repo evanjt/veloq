@@ -16,11 +16,12 @@ import { Icon } from '@/shared/ui/Icon';
 import { Card } from '@/shared/ui/Card';
 import { useTheme } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { sourceFor } from '@/shared/app/source';
 import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 
 import { getTutorialSetupSlides } from './whatsNew/slides';
 import { useSessionAsk } from '../hooks/useLaunchSurfaces';
-import { tourOffer } from '../lib/tourOffer';
+import { setupSlidesAnswerable, tourOffer } from '../lib/tourOffer';
 import { useWhatsNewStore } from '../stores/WhatsNewStore';
 
 export function TourOfferCard() {
@@ -28,6 +29,7 @@ export function TourOfferCard() {
   const { isDark } = useTheme();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
+  const authMethod = useAuthStore((s) => s.authMethod);
   const isLoaded = useWhatsNewStore((s) => s.isLoaded);
   const lastSeenVersion = useWhatsNewStore((s) => s.lastSeenVersion);
   const record = useWhatsNewStore((s) => s.tourOffer);
@@ -43,7 +45,9 @@ export function TourOfferCard() {
         lastSeenVersion,
         record,
         settledThisSession,
-        tourSetupSlides: getTutorialSetupSlides(),
+        tourSetupSlides: setupSlidesAnswerable(getTutorialSetupSlides(), {
+          push: sourceFor({ authMethod, isDemoMode })?.can.push === true,
+        }),
       })
     : null;
   const holdsAsk = useSessionAsk('tourOffer', offer !== null);

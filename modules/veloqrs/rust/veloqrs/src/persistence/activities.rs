@@ -91,6 +91,33 @@ pub fn mint_local_activity_id() -> String {
 
 /// Mark every id of a batch the SQL failure covers as `Corrupt`, leaving ids
 /// the query already answered alone.
+/// Write one activity's signature row, the one writer of `signatures` rows.
+pub(super) fn write_signature(
+    conn: &rusqlite::Connection,
+    id: &str,
+    sig: &RouteSignature,
+) -> SqlResult<()> {
+    // One codec for stored GPS, ~3 B/point against postcard's 25. Every
+    // earlier container still reads, so no bulk rewrite runs: a row moves
+    // when its activity is next stored.
+    let points_blob = codec::serialize_track_points(&sig.points);
+    conn.execute(
+        "INSERT OR REPLACE INTO signatures (activity_id, points, start_point_lat, start_point_lng, end_point_lat, end_point_lng, total_distance, point_count)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        params![
+            id,
+            points_blob,
+            sig.start_point.latitude,
+            sig.start_point.longitude,
+            sig.end_point.latitude,
+            sig.end_point.longitude,
+            sig.total_distance,
+            sig.points.len() as i64
+        ],
+    )?;
+    Ok(())
+}
+
 fn fail_chunk(decoded: &mut HashMap<String, TrackRead>, chunk: &[String], reason: &str) {
     log::error!("[tracks_batch] {}", reason);
     for id in chunk {
@@ -2358,6 +2385,9 @@ impl PersistentEngine {
             "DELETE FROM schema_info WHERE key = ?",
             params![super::routes::GROUPS_MATCH_RULE_KEY],
         )?;
+        // No signature is left, so whatever is stored next is built by the
+        // matcher in force.
+        super::routes::stamp_signatures_matcher_revision(&tx)?;
         // The curve sweep's removal stamps and kept-departure markers name the
         // departed activities of the library that went, and the next sync
         // would read them as its own.
@@ -3012,25 +3042,7 @@ impl PersistentEngine {
     }
 
     pub(super) fn store_signature(&self, id: &str, sig: &RouteSignature) -> SqlResult<()> {
-        // One codec for stored GPS, ~3 B/point against postcard's 25. Every
-        // earlier container still reads, so no bulk rewrite runs: a row moves
-        // when its activity is next stored.
-        let points_blob = codec::serialize_track_points(&sig.points);
-        self.db.execute(
-            "INSERT OR REPLACE INTO signatures (activity_id, points, start_point_lat, start_point_lng, end_point_lat, end_point_lng, total_distance, point_count)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            params![
-                id,
-                points_blob,
-                sig.start_point.latitude,
-                sig.start_point.longitude,
-                sig.end_point.latitude,
-                sig.end_point.longitude,
-                sig.total_distance,
-                sig.points.len() as i64
-            ],
-        )?;
-        Ok(())
+        write_signature(&self.db, id, sig)
     }
 
     pub(super) fn rebuild_spatial_index(&mut self) {

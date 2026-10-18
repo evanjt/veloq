@@ -3215,6 +3215,7 @@ dependencies = [
  "proptest",
  "rand 0.8.6",
  "rayon",
+ "rmp-serde",
  "rstar",
  "serde",
  "serde_json",

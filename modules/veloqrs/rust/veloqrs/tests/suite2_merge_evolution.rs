@@ -16,7 +16,7 @@ use rusqlite::Connection;
 use std::collections::{BTreeSet, HashMap};
 use std::path::Path;
 use tracematch::GpsPoint;
-use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
+use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
 
 use crate::lifecycle_support::*;
 
@@ -310,9 +310,12 @@ fn track(snap: &SectionSnapshot, corridor: &SectionFingerprint) -> Option<(Strin
 }
 
 /// Auto-morph honesty: as a corridor accumulates traversals across two resyncs
-/// it must never lose history. Its visit_count is monotone non-decreasing, and
-/// the ground never vanishes from the catalogue while activities are only being
-/// added. A red here is a section silently shedding traversals as it grows.
+/// it must never shed history silently. Its visit_count falls only on a step
+/// that fired a re-cut of that section, which the ledger narrates and which
+/// takes the count of the line it fired with, the line one batch of the same
+/// rides draws. The ground never vanishes from the catalogue while activities
+/// are only being added. A red here is a section silently shedding traversals
+/// as it grows.
 #[test]
 fn unpinned_corridor_never_loses_visits_as_it_grows() {
     let corpus = corpus();
@@ -322,21 +325,34 @@ fn unpinned_corridor_never_loses_visits_as_it_grows() {
     let (busy_id, busy) = busiest_section(&s_a).expect("a busy corridor to follow");
     let corridor = ground_fp(busy.polyline.clone());
 
-    let s_b = ingest_step(&mut engine, "b/expand", &refs(&corpus.bucket_b_delta)).snapshot;
-    let s_c = ingest_step(&mut engine, "c/single", &[&corpus.bucket_c_single]).snapshot;
-
     let at = |snap: &SectionSnapshot, step: &str| {
         track(snap, &corridor)
             .unwrap_or_else(|| panic!("corridor {busy_id} vanished from the catalogue at {step}"))
     };
-    let (_, va, _) = at(&s_a, "a/cold");
-    let (_, vb, _) = at(&s_b, "b/expand");
-    let (_, vc, _) = at(&s_c, "c/single");
-
-    assert!(
-        va <= vb && vb <= vc,
-        "corridor {busy_id} lost traversals while activities were only added: visit_count {va} -> {vb} -> {vc}",
-    );
+    let mut held = at(&s_a, "a/cold");
+    let steps: [(&str, Vec<&LifecycleActivity>); 2] = [
+        ("b/expand", refs(&corpus.bucket_b_delta)),
+        ("c/single", vec![&corpus.bucket_c_single]),
+    ];
+    for (label, activities) in steps {
+        let events_before = engine.section_history(&held.0).len();
+        let snap = ingest_step(&mut engine, label, &activities).snapshot;
+        let now = at(&snap, label);
+        if now.1 < held.1 {
+            let recut = engine
+                .section_history(&held.0)
+                .iter()
+                .skip(events_before)
+                .any(|e| e.kind == "recut");
+            assert!(
+                now.0 == held.0 && recut,
+                "corridor {busy_id} lost traversals at {label} with no re-cut fired: visit_count {} -> {}",
+                held.1,
+                now.1
+            );
+        }
+        held = now;
+    }
 }
 
 /// Invariant 7, hysteresis: an unpinned section keeps its identity as its

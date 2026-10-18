@@ -28,6 +28,7 @@ import { useEngineRead, useEngineSubscription } from '@/shared/native/useEngineS
 import {
   isAutoBackupEnabled,
   setAutoBackupEnabled,
+  turnOnAutoBackup,
   getLastBackupTimestamp,
   getDestinationLastBackup,
   getUnplacedBackupRecords,
@@ -88,6 +89,9 @@ import { getAndroidAutoBackupStatus } from '@/shared/native/androidAutoBackup';
 import { androidAutoBackupLines } from '@/features/settings/lib/androidAutoBackupLines';
 import { confirmAction, inform } from '@/shared/ui/dialog';
 import { restoreDropLines, showRestoreNotice } from '@/features/settings/lib/restoreNotice';
+
+/** Back Up Now: every carrier, whatever the schedule says. */
+const forcedBackup = () => performBackup(true);
 
 /** The entries one carrier listed, restored through that carrier. */
 interface CarrierEntries {
@@ -406,45 +410,49 @@ export function BackupSection() {
     [t]
   );
 
-  const runBackup = useCallback(async () => {
-    setBackingUp(true);
-    setBackupResult(null);
-    setBackupError(null);
-    setBackupCancelled(false);
-    setRunResult(null);
-    try {
-      // A half-typed server is a destination the athlete meant to include, so
-      // its refusal stops the run rather than leaving WebDAV quietly out.
-      const committed = await commitWebdav();
-      if (committed.kind === 'refused') {
+  const runBackup = useCallback(
+    async (start = forcedBackup) => {
+      setBackingUp(true);
+      setBackupResult(null);
+      setBackupError(null);
+      setBackupCancelled(false);
+      setRunResult(null);
+      try {
+        // A half-typed server is a destination the athlete meant to include, so
+        // its refusal stops the run rather than leaving WebDAV quietly out.
+        const committed = await commitWebdav();
+        if (committed.kind === 'refused') {
+          setBackupResult('error');
+          setBackupError(committed.message);
+          // A switch turned on that never reached the run left the setting as it was.
+          setAutoEnabled(isAutoBackupEnabled());
+          return;
+        }
+        const result = await start();
+        const success = result.wroteZip;
+        setRunResult(result);
+        setBackupResult(success ? 'success' : 'error');
+        if (!success) setBackupError(t('backup.backupFailedMessage'));
+      } catch (error) {
+        // A stop the athlete asked for wrote nothing and is not a failure.
+        if (engineErrorTag(error) === 'Cancelled') {
+          setBackupCancelled(true);
+          return;
+        }
         setBackupResult('error');
-        setBackupError(committed.message);
-        return;
+        setBackupError(describeBackupError(error));
+      } finally {
+        setBackingUp(false);
       }
-      const result = await performBackup(true);
-      const success = result.wroteZip;
-      setRunResult(result);
-      setBackupResult(success ? 'success' : 'error');
-      if (!success) setBackupError(t('backup.backupFailedMessage'));
-    } catch (error) {
-      // A stop the athlete asked for wrote nothing and is not a failure.
-      if (engineErrorTag(error) === 'Cancelled') {
-        setBackupCancelled(true);
-        return;
-      }
-      setBackupResult('error');
-      setBackupError(describeBackupError(error));
-    } finally {
-      setBackingUp(false);
-    }
-  }, [commitWebdav, describeBackupError, t]);
+    },
+    [commitWebdav, describeBackupError, t]
+  );
 
   const handleToggleAutoBackup = useCallback(
     async (value: boolean) => {
-      setAutoBackupEnabled(value);
       setAutoEnabled(value);
-      // Trigger immediate backup when enabling auto-backup
-      if (value) await runBackup();
+      if (value) await runBackup(turnOnAutoBackup);
+      else setAutoBackupEnabled(false);
     },
     [runBackup]
   );

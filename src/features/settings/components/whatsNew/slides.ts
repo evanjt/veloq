@@ -172,8 +172,8 @@ export const WHATS_NEW_SLIDES: Record<string, WhatsNewSlideDefinition[]> = {
 
 /**
  * The first-run tour, in the order the athlete meets things: what Veloq reads and the first load
- * that is running while the tour is open, then the feed, an activity, the map, fitness, sections
- * and routes, and backup. A release slide that only explains a change, such as the section
+ * that is running while the tour is open, then the feed, an activity and the notifications one
+ * posts, the map, fitness, sections and routes, and backup. A release slide that only explains a change, such as the section
  * preview, stays in What's New.
  */
 const TUTORIAL_SLIDES: WhatsNewSlideDefinition[] = [
@@ -202,6 +202,15 @@ const TUTORIAL_SLIDES: WhatsNewSlideDefinition[] = [
     icon: 'chart-line',
     get Component() {
       return require('./ActivitySlide').ActivitySlide;
+    },
+  },
+  {
+    titleKey: 'whatsNew.tutorial.notificationsTitle',
+    bodyKey: 'whatsNew.tutorial.notificationsBody',
+    icon: 'bell-ring-outline',
+    setup: 'notifications',
+    get Component() {
+      return require('./NotificationsSlide').NotificationsSlide;
     },
   },
   MAP_STYLES,

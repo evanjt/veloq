@@ -104,6 +104,17 @@ $(echo "$staged" | grep -iE '\.(db|sqlite3?)(\.(gz|bz2|xz|zip))?$' || true)"
 blocked="$blocked
 $(echo "$staged" | grep -E '(^|/)private/' || true)"
 
+# The detection corpora and anything inside them, whatever it is named. A bare
+# corpus/ directory is not among them: the engine's corpus tests live in one.
+blocked="$blocked
+$(echo "$staged" | grep -E '(^|/)(fullcorpus|citycorpus|citycorpus_sections|aussietest|unified-lab)/' || true)"
+
+# A bitwise golden is the detector's output over its corpus, so it carries the
+# corpus's places. Only the public corpus's golden may be tracked.
+blocked="$blocked
+$(echo "$staged" | grep -E '(^|/)[^/]*_bitwise_golden[^/]*$' |
+  grep -vE '(^|/)geolife_bitwise_golden\.txt$' || true)"
+
 # Maestro captures, which land under screenshots/ or, from a flow that forgot
 # the directory, in the repository root. The store shots under docs/ are ours.
 blocked="$blocked

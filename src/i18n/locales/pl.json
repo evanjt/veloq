@@ -1341,9 +1341,7 @@
     "privacy": {
       "title": "Informacja o prywatności",
       "brief": "Twój identyfikator sportowca i token push będą przechowywane na naszym serwerze (wygasają po 30 dniach). Powiadomienia są kierowane przez Apple lub Google, ale cała treść analiz jest generowana na Twoim urządzeniu. Możesz wyłączyć w dowolnym momencie.",
-      "accept": "Rozumiem",
-      "briefEnabled": "Otrzymujesz te powiadomienia. Twój identyfikator sportowca i token push są przechowywane na naszym serwerze (wygasają po 30 dniach), a powiadomienia trafiają na urządzenie przez Expo, a następnie Apple lub Google. Cała treść analiz jest generowana na Twoim urządzeniu. Możesz je wyłączyć w dowolnej chwili.",
-      "turnOff": "Wyłącz"
+      "accept": "Rozumiem"
     },
     "settings": {
       "title": "Powiadomienia",
@@ -1354,12 +1352,7 @@
       "fitnessMilestone": "Kamienie milowe formy"
     },
     "prompt": {
-      "title": "Bądź na bieżąco",
-      "description": "Otrzymuj powiadomienia o nowych aktywnościach, rekordach życiowych i kamieniach milowych formy.",
-      "enable": "Włącz",
-      "dismiss": "Nie teraz",
       "settingsHint": "Możesz włączyć powiadomienia w dowolnym momencie w Ustawieniach",
-      "keep": "Zostaw włączone",
       "howItWorks": "Jak to działa"
     },
     "activityBody": {
@@ -2642,7 +2635,20 @@
       "feedBody": "Każda aktywność trafia tutaj jako karta z mapą, od najnowszej.",
       "feedTip": "Przeciągnij w dół, aby sprawdzić nowe aktywności w intervals.icu, albo stuknij kartę, aby ją otworzyć.",
       "activityTitle": "Wnętrze aktywności",
-      "activityBody": "Otwórz aktywność, aby zobaczyć jej mapę i wykresy, interwały oraz trasy i odcinki, do których należy."
+      "activityBody": "Otwórz aktywność, aby zobaczyć jej mapę i wykresy, interwały oraz trasy i odcinki, do których należy.",
+      "notificationsTitle": "Powiadomienia",
+      "notificationsBody": "Gdy intervals.icu otrzyma nową aktywność, Veloq może powiedzieć, co w niej znalazł: rekord osobisty, czas szybszy niż zwykle albo krok naprzód w formie. Oto przykłady tego, co przychodzi.",
+      "turnOn": "Włącz",
+      "neverRemind": "Nie przypominaj więcej",
+      "notificationsNeedSignIn": "Powiadomienia wymagają logowania przez intervals.icu.",
+      "notificationsOn": "Powiadomienia są włączone. Możesz je zmienić w Ustawieniach.",
+      "notificationsExampleSection": "Podjazd pod Portowe Wzgórze",
+      "notificationsExampleRoute": "Pętla nad rzeką",
+      "notificationsExampleRide": "Poranna jazda",
+      "notificationsExampleRun": "Wieczorny bieg",
+      "backupWhere": "Każda kopia trafia do kopii zapasowej urządzenia. W Ustawieniach możesz też dodać serwer, katalog lub dysk w chmurze.",
+      "backupOn": "Automatyczna kopia zapasowa jest włączona. Możesz to zmienić w Ustawieniach.",
+      "backupLater": "Automatyczną kopię zapasową możesz włączyć w każdej chwili w Ustawieniach."
     }
   },
   "strength": {
@@ -2829,6 +2835,15 @@
     "empty": "Brak zapisanych zmian",
     "around": "Wokół tej zmiany",
     "forkAround": "Ruch na rozwidleniu",
+    "boundaries": "Dlaczego linia kończy się tutaj",
+    "cut_usage_change": "Większość aktywności na tym terenie korzysta z niego od tego miejsca inaczej: zawraca, robi pętlę lub okrążenia.",
+    "cut_fork": "Ruch rozdziela się tutaj. Wystarczająco dużo go skręca na inny odcinek, więc linia kończy się na rozwidleniu.",
+    "cut_traffic_cliff": "Większość aktywności po bardziej uczęszczanej stronie nigdy nie wychodzi poza ten punkt.",
+    "cut_trim": "Teren za tym punktem należy już do innego odcinka, więc linia kończy się tam, gdzie oba by się nakładały.",
+    "cut_low_support": "Za mało własnych aktywności tego odcinka pokrywa teren za tym punktem, więc linia kończy się w ostatnim dobrze pokrytym miejscu.",
+    "cut_terminus": "Wystarczająco wiele aktywności zaczyna się lub kończy tutaj, że teren dalej służy innym, więc linia kończy się tam, gdzie dołączają lub odchodzą.",
+    "cut_pass_end": "Przejazd, z którego narysowano tę linię, kończy się tutaj. Teren dalej liczony jest osobno.",
+    "cut_seam_clip": "Linię skrócono o {{distance}} w miejscu, gdzie wchodziła na bardziej uczęszczany odcinek. Jej liczby zebrano przed skróceniem.",
     "prEra": "Najlepszy wtedy: {{time}}",
     "prMoved": "Rekord {{from}} na {{to}}",
     "versions": "Zapisane wersje",

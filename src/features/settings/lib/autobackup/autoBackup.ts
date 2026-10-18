@@ -80,6 +80,15 @@ export function setAutoBackupEnabled(enabled: boolean): void {
 }
 
 /**
+ * Turn auto-backup on and write the first backup now, rather than on the
+ * schedule's next trigger. Every place that turns it on comes through here.
+ */
+export function turnOnAutoBackup(): Promise<BackupRunResult> {
+  setAutoBackupEnabled(true);
+  return performBackup(true);
+}
+
+/**
  * Drop the setting the single chosen backend lived in. The switch, the stamp
  * and any WebDAV configuration stay as the athlete left them, and the files
  * the old local backend wrote are left alone.

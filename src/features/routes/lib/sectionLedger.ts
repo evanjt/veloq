@@ -11,7 +11,7 @@ export const NO_EVENT_DETAILS: FfiSectionEventDetails = {
   prs: [],
   siblings: [],
   splitInto: [],
-  reasons: [],
+  boundaries: [],
 };
 
 /**
@@ -40,6 +40,22 @@ export const FIXED_LABEL_LEDGER_KINDS: ReadonlySet<string> = new Set([
   'renamed',
   'absorbed',
 ]);
+
+/**
+ * The sentence for each reason the detector gives for where a section's line
+ * was cut, by the reason's tag. A tag not listed is one this build cannot word,
+ * and the panel draws nothing for it rather than the tag.
+ */
+export const BOUNDARY_REASON_KEYS = {
+  usage_change: 'sectionHistory.cut_usage_change',
+  fork: 'sectionHistory.cut_fork',
+  traffic_cliff: 'sectionHistory.cut_traffic_cliff',
+  trim: 'sectionHistory.cut_trim',
+  low_support: 'sectionHistory.cut_low_support',
+  terminus: 'sectionHistory.cut_terminus',
+  pass_end: 'sectionHistory.cut_pass_end',
+  seam_clip: 'sectionHistory.cut_seam_clip',
+} as const;
 
 /** The ledger writes SQLite datetimes in UTC without a zone marker. */
 export function ledgerDate(at: string): Date {

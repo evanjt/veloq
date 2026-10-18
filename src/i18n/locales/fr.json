@@ -1282,9 +1282,7 @@
     "privacy": {
       "title": "Avis de confidentialité",
       "brief": "Votre identifiant athlète et un jeton push seront stockés sur notre serveur (expiration à 30 jours). Les notifications transitent par Apple ou Google mais tout le contenu des aperçus est généré sur votre appareil. Vous pouvez désactiver à tout moment.",
-      "accept": "J'ai compris",
-      "briefEnabled": "Vous recevez ces notifications. Votre identifiant d'athlète et un jeton push sont stockés sur notre serveur (expiration à 30 jours), et les notifications transitent par Expo, puis Apple ou Google, pour atteindre votre appareil. Tout le contenu des analyses est généré sur votre appareil. Vous pouvez les désactiver à tout moment.",
-      "turnOff": "Désactiver"
+      "accept": "J'ai compris"
     },
     "settings": {
       "title": "Notifications",
@@ -1295,12 +1293,7 @@
       "fitnessMilestone": "Étapes de forme"
     },
     "prompt": {
-      "title": "Restez informé",
-      "description": "Recevez des notifications pour les nouvelles activités, les records personnels et les étapes de forme.",
-      "enable": "Activer",
-      "dismiss": "Pas maintenant",
       "settingsHint": "Vous pouvez activer les notifications à tout moment dans les Réglages",
-      "keep": "Garder",
       "howItWorks": "Comment ça marche"
     },
     "activityBody": {
@@ -2483,7 +2476,20 @@
       "feedBody": "Chaque activité arrive ici avec la carte de son parcours, la plus récente en premier.",
       "feedTip": "Tirez vers le bas pour chercher de nouvelles activités sur intervals.icu, ou touchez une activité pour l’ouvrir.",
       "activityTitle": "Dans une activité",
-      "activityBody": "Ouvrez une activité pour voir sa carte et ses graphiques, ses intervalles, et les parcours et sections dont elle fait partie."
+      "activityBody": "Ouvrez une activité pour voir sa carte et ses graphiques, ses intervalles, et les parcours et sections dont elle fait partie.",
+      "notificationsTitle": "Vos notifications",
+      "notificationsBody": "Quand intervals.icu reçoit une nouvelle activité, Veloq peut vous dire ce qu'il y a trouvé : un record personnel, un temps plus rapide que d'habitude ou un progrès de forme. Voici des exemples de ce qui arrive.",
+      "turnOn": "Activer",
+      "neverRemind": "Ne plus me le rappeler",
+      "notificationsNeedSignIn": "Les notifications nécessitent une connexion avec intervals.icu.",
+      "notificationsOn": "Les notifications sont activées. Vous pouvez les modifier dans Paramètres.",
+      "notificationsExampleSection": "Montée du Port",
+      "notificationsExampleRoute": "Boucle de la rivière",
+      "notificationsExampleRide": "Sortie du matin",
+      "notificationsExampleRun": "Course du soir",
+      "backupWhere": "Chaque sauvegarde va dans la sauvegarde de votre appareil. Dans Paramètres, vous pouvez aussi ajouter un serveur, un dossier ou un stockage en ligne.",
+      "backupOn": "La sauvegarde automatique est activée. Vous pouvez la modifier dans Paramètres.",
+      "backupLater": "Vous pouvez activer la sauvegarde automatique à tout moment dans Paramètres."
     }
   },
   "strength": {
@@ -2661,6 +2667,15 @@
     "empty": "Aucun changement enregistré",
     "around": "Autour de ce changement",
     "forkAround": "Trafic à l'embranchement",
+    "boundaries": "Pourquoi la ligne s'arrête ici",
+    "cut_usage_change": "La plupart des activités qui partagent ce terrain l'utilisent autrement à partir d'ici : demi-tour, boucle ou tours.",
+    "cut_fork": "Le trafic se divise ici. Une part suffisante part vers un autre tronçon, donc la ligne s'arrête à l'embranchement.",
+    "cut_traffic_cliff": "La plupart des activités du côté le plus fréquenté ne vont jamais au-delà de ce point.",
+    "cut_trim": "Le terrain au-delà appartient déjà à un autre tronçon, donc la ligne s'arrête là où les deux se chevaucheraient.",
+    "cut_low_support": "Trop peu des activités propres à ce tronçon couvrent le terrain au-delà, donc la ligne s'arrête au dernier point bien couvert.",
+    "cut_terminus": "Assez d'activités commencent ou finissent ici pour que le terrain au-delà serve à d'autres, donc la ligne s'arrête là où elles arrivent ou repartent.",
+    "cut_pass_end": "Le passage dont cette ligne est tirée se termine ici. Le terrain au-delà est compté à part.",
+    "cut_seam_clip": "La ligne a été raccourcie de {{distance}} là où elle rejoignait un tronçon plus fréquenté. Ses chiffres ont été établis avant ce raccourcissement.",
     "prEra": "Meilleur à l'époque : {{time}}",
     "prMoved": "Record {{from}} à {{to}}",
     "versions": "Versions enregistrées",

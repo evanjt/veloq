@@ -33,6 +33,9 @@ jest.mock('@/shared/storage', () => ({
 jest.mock('@/features/settings/lib/autobackup', () => ({
   isAutoBackupEnabled: () => false,
 }));
+jest.mock('@/features/settings/lib/notificationService', () => ({
+  requestNotificationPermission: jest.fn(),
+}));
 
 async function laterSession(): Promise<void> {
   await act(async () => {
@@ -55,7 +58,7 @@ async function closeTour(): Promise<void> {
 beforeEach(() => {
   jest.mocked(setSetting).mockClear();
   openLaunchSession();
-  useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });
+  useAuthStore.setState({ isAuthenticated: true, isDemoMode: false, authMethod: 'apiKey' });
   useWhatsNewStore.setState({
     isLoaded: true,
     lastSeenVersion: null,
@@ -141,4 +144,33 @@ it('owes nothing when backup was turned on in the tour', async () => {
   await closeTour();
   await laterSession();
   expect(screen.queryByTestId('tour-offer-card')).toBeNull();
+});
+
+it('returns to the notification slide too on an account that can receive pushes', async () => {
+  useAuthStore.setState({ authMethod: 'oauth' });
+  await render(<TourOfferCard />);
+  await press('tour-offer-open');
+  await closeTour();
+
+  await laterSession();
+  expect(screen.getByText('whatsNew.setupLeftoverTitleTwo')).toBeTruthy();
+  await press('tour-offer-open');
+  expect(useWhatsNewStore.getState().tourState).toMatchObject({
+    mode: 'tutorial',
+    only: ['notifications', 'backup'],
+  });
+});
+
+it('never returns for notifications once Never remind me again was pressed', async () => {
+  useAuthStore.setState({ authMethod: 'oauth' });
+  await render(<TourOfferCard />);
+  await press('tour-offer-open');
+  await act(async () => {
+    useWhatsNewStore.getState().answerSetup('notifications', 'never');
+  });
+  await closeTour();
+
+  await laterSession();
+  await press('tour-offer-open');
+  expect(useWhatsNewStore.getState().tourState).toMatchObject({ only: ['backup'] });
 });

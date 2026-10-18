@@ -105,6 +105,18 @@ pub(crate) fn recompute_and_save_groups(
 ) -> (Vec<RouteGroup>, GroupSave) {
     let start = Instant::now();
 
+    // Grouping signatures an earlier matcher built would stamp them with the
+    // current rule, and nothing would group them again.
+    if super::routes::signatures_behind_matcher(conn) {
+        let rebuilt = worker_write(conn, install, || {
+            super::routes::rebuild_signatures(conn, match_config).map(|_| ())
+        });
+        if let Err(e) = rebuilt {
+            log::error!("[BG Groups] Keeping the existing groups: signature rebuild failed: {e}");
+            return (existing_groups.to_vec(), GroupSave::Kept);
+        }
+    }
+
     let (signatures, corrupt) = load_all_signatures(conn);
     let sig_ms = start.elapsed().as_millis();
 
