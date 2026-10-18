@@ -31,14 +31,14 @@ describe('the words the engine writes', () => {
       translate: (key) => `de:${key}`,
     });
 
-    expect(Object.keys(context.strings)).toEqual([...WIDGET_STRING_KEYS]);
-    expect(context.strings['fitnessScreen.perWeek']).toBe('de:fitnessScreen.perWeek');
+    expect([...context.strings.keys()]).toEqual([...WIDGET_STRING_KEYS]);
+    expect(context.strings.get('fitnessScreen.perWeek')).toBe('de:fitnessScreen.perWeek');
   });
 
   it('fall back to the key with no translator, as i18next does for a missing one', () => {
     const context = composeWidgetContext({ locale: 'en-AU', isMetric: true, dates: NO_DATES });
 
-    expect(context.strings['metrics.form']).toBe('metrics.form');
+    expect(context.strings.get('metrics.form')).toBe('metrics.form');
   });
 
   it('carry the settings the summary card and the units follow', () => {
@@ -64,7 +64,7 @@ describe('the words the engine writes', () => {
   it('hide the summary block when there are no settings to follow', () => {
     expect(
       composeWidgetContext({ locale: 'en-AU', isMetric: true, dates: NO_DATES }).summaryCard
-    ).toBeNull();
+    ).toBeUndefined();
   });
 });
 

@@ -46,3 +46,17 @@ export const SECTION_END_ICON: MapImageSpec = {
   uri: `data:image/png;base64,${SECTION_END_BASE64}`,
   sdf: true,
 };
+
+export const DIRECTION_ICON_ID = 'direction-chevron';
+
+// A chevron pointing along the line, the way a line-placed symbol reads its
+// own x axis: from the line's first coordinate towards its last. A signed
+// distance field like the endpoint glyphs, so `icon-color` tints it.
+const DIRECTION_BASE64 =
+  'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAADlklEQVR42tWba67jIAxGvxDoLGFmIbP/hfWSZH5MErmubSBPB8mq2ltV9xxMIMR0AP4C+AXgpUQir0tEEv0cYY5uDgCY5hjnGObIJH6UeBt/q/1uRqFRiKhEIq+WhECCtpEJyEzW2S2XBPQsNAnJkCBlAZTevxK+KEES0CpCygJNQL4B3pQQ539IgtdEJHZdkLKAC5B634WEyMYuheiN60MpCyQBd/a+KoEL0ET0FSIi+T0uwAv8lwRNQIsILqFnAgZn8B8SIhmPS2gigiGCSwhkCswO4VcJUYDvlNCyg0p4kSwA6X23jQuAIaArDJVFxCIBznt/FQAGDuGzGkFUxIt8F08RcHRLeECjApYbFwif0b9NStD5vnMuYaICagEndmMzVi5zk2MBUxQAa+GHhhVeeoqAyehhDt66vE2O4FfWaKQ1hdXAW1d4yRO8JaAGfOvyNjkQMGoCOHie53YJfM8cn+4Y71JnR6GXKbjV63sXOemOlOcdHgV4Ld3PuKNLd8IDiLEB/KxlbbpqvBPw9Y62B/CncBdYk+4tcrpKCXt+U1vHfL32AH7vhPciQYMfhWz4mAazcot71MXuquEgpfwwL/cHYYcrAAjxhCnuDgmTMc5FcE1A50BAq4RpC7gkwAt8i4RJAQ8G+Md1LuL/Q8Q7xvteCRzeBNX2PSPbwPC4hZUM8FDTy9a23pIBcCyASuDPGYqAxj4nAOdb1le0AP3RtxWvi79LCx6Gws6Vtpcp7n0G2M//PcFTCZntUvGYagWFh8HTchgqYmiQMHIBpVIYj/A/ioRB2cdUxVABlgSP8FyCJGIoDJWRC3gavCShSYQkIG64MN4JXxKRLRH8yW5tiZxH+FI2ZGH3a82APRI8wL8LErK296lViNUOB4/wTSIkAbUingCvSVivD1LdT22doGf4agmlqrC4U8Kd8DXDIe8pj4sPgH+XRFg1glvqBJ8A/8MFHF0n6BVelBBwfJ2gZ/ivCDi+TvAx8EsGiHtlxt5aTZ3gE+DXDDireYX/+O5ZdYJLy57hFwFH1wlifg/yuUt4ScARdYIjvsvlXcJjLpc/sk5weXDB32eP8Jiv2EfVCU6k96UjM9kbvCWgtU6QP6/TDk1lT/CSgC11gtJTWu3YXL55ZhCPzW2tE+TFCbUHJ/OGBctp54j31glqz+ito7P5hpnBPDq7tU5Q6/2aw9P5wpmheHhaG+dW3ZBUl/PI4/P/AC+43SI1JcTXAAAAAElFTkSuQmCC';
+
+export const DIRECTION_ICON: MapImageSpec = {
+  id: DIRECTION_ICON_ID,
+  uri: `data:image/png;base64,${DIRECTION_BASE64}`,
+  sdf: true,
+};

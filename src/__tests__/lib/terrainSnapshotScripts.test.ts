@@ -20,7 +20,6 @@ import type {
   SnapshotRequest,
   SnapshotStylesHeld,
 } from '@/features/maps/lib/htmlBuilders/terrainSnapshotScripts';
-import { mapLayerColors } from '@/theme/colors';
 
 /**
  * What one request runs on the page: the page's render function, as the
@@ -39,24 +38,11 @@ function makeRequest(overrides: Partial<SnapshotRequest> = {}): SnapshotRequest 
     ],
     camera: { center: [7.05, 46.05], zoom: 12, bearing: 30, pitch: 58 },
     mapStyle: 'light',
-    routeColor: '#14B8A6',
     ...overrides,
   };
 }
 
 describe('buildRenderSnapshotScript', () => {
-  it('reads route casing from the shared map palette', () => {
-    const layers = mapLayerColors as { casing: string };
-    const casing = layers.casing;
-
-    try {
-      layers.casing = '#123456';
-      expect(snapshotRenderScript()).toContain('\'line-color\': "#123456"');
-    } finally {
-      layers.casing = casing;
-    }
-  });
-
   it('injects terrain, sky, and hillshade for 3D requests', () => {
     const page = snapshotRenderScript();
     expect(page).toContain("styleObj.sources['terrain'] = terrainSource");
@@ -95,15 +81,6 @@ describe('buildRenderSnapshotScript', () => {
     const script = snapshotRenderScript();
     expect(script).toContain('if (ctx && !isFlat) {');
     expect(script).toContain('if (ctx && (!isFlat || isSatellite)) {');
-  });
-
-  it('always includes the route layers regardless of mode', () => {
-    // One render function serves both modes, so the layers are in it once for
-    // the fast path and once for the full one.
-    const script = snapshotRenderScript();
-    expect(script.match(/id: 'route-line'/g)).toHaveLength(2);
-    expect(script.match(/id: 'route-outline'/g)).toHaveLength(2);
-    expect(script.match(/id: 'start-end-fill'/g)).toHaveLength(2);
   });
 });
 
@@ -331,7 +308,7 @@ describe.each([true, false])('fast snapshot settle (flat=%s)', (flat) => {
     const result = render();
     jest.advanceTimersByTime(16);
     expect(result.layersAtIdle).toEqual([
-      ['route-outline', 'route-line', 'start-end-border', 'start-end-fill'],
+      ['route-outline', 'route-line', 'start-end-border', 'start-end-fill', 'start-end-icon'],
     ]);
     result.idle.shift()!();
     jest.advanceTimersByTime(6000);

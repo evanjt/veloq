@@ -232,6 +232,26 @@ describe('PerformanceChartPanel', () => {
     expect(tree.queryByTestId('section-chart-direction-reverse')).toBeNull();
   });
 
+  it('hands the map the direction on show while both are drawn', async () => {
+    const onShownDirectionChange = jest.fn();
+    const tree = await render(panel({ onShownDirectionChange }));
+    expect(onShownDirectionChange).toHaveBeenLastCalledWith('forward');
+
+    await fireEvent.press(tree.getByTestId('section-chart-direction-reverse'));
+    expect(onShownDirectionChange).toHaveBeenLastCalledWith('reverse');
+
+    await tree.unmount();
+    expect(onShownDirectionChange).toHaveBeenLastCalledWith(null);
+  });
+
+  it('hands the map no direction for a section ridden one way', async () => {
+    const onShownDirectionChange = jest.fn();
+    const forwardOnly = CHART_DATA.filter((p) => p.direction !== 'reverse');
+    await render(panel({ chartData: forwardOnly, onShownDirectionChange }));
+    expect(onShownDirectionChange).toHaveBeenCalledWith(null);
+    expect(onShownDirectionChange.mock.calls.every(([d]) => d === null)).toBe(true);
+  });
+
   it('draws the reverse bins after reverse is chosen, not the forward ones', async () => {
     const drawn = captureRects();
     const tree = await render(panel());

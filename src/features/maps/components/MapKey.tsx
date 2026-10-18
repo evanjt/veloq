@@ -2,17 +2,23 @@
  * The key to what a map's colours mean. `MapKey` is the card that sits over the
  * map; its rows also sit inside a menu that is already a card.
  *
- * - `MapKeySwatch`: one colour, or a run of colours, beside what it stands for.
+ * - `MapKeySwatch`: one colour, or a run of colours, beside what it stands for,
+ *   optionally with the glyph the map draws along that line.
  * - `MapKeyRamp`: a continuous scale, with its two ends named or its values
  *   ticked where they fall along it.
+ * - `MapKeyNote`: a line about how to read the rows above it.
  */
 
 import React from 'react';
 import { View, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { Text } from 'react-native-paper';
 
-import { colors, darkColors, raised, spacing, typography, layout } from '@/theme';
+import { Icon, type IconName } from '@/shared/ui/Icon';
+import { colors, darkColors, iconSize, raised, spacing, typography, layout } from '@/theme';
 
+/** A row's swatch, the 16 by 4 bar the guide draws for a line. */
+const SWATCH_WIDTH = 16;
+const SWATCH_HEIGHT = 4;
 /** Width of a ramp, fixed so a tick lands at its share of the scale. */
 const RAMP_WIDTH = 160;
 /** Room a tick's label is centred in. */
@@ -26,12 +32,17 @@ export function MapKey({
 }: {
   isDark: boolean;
   style?: StyleProp<ViewStyle>;
-  testID?: string;
+  testID?: string | undefined;
   children: React.ReactNode;
 }) {
   return (
     <View
-      style={[styles.card, raised('card', isDark), isDark && styles.cardDark, style]}
+      style={[
+        styles.card,
+        { backgroundColor: (isDark ? darkColors : colors).surfaceRaised },
+        raised('mapOverlay', isDark),
+        style,
+      ]}
       testID={testID}
       pointerEvents="none"
     >
@@ -43,6 +54,7 @@ export function MapKey({
 export function MapKeySwatch({
   swatch,
   shape = 'line',
+  glyph,
   label,
   isDark,
   testID,
@@ -51,14 +63,27 @@ export function MapKeySwatch({
   swatch: string | readonly string[];
   /** A line for a drawn line, a dot for a point. */
   shape?: 'line' | 'dot';
+  /** A symbol the map draws along the line, drawn over a single-colour line swatch. */
+  glyph?: { name: IconName; color: string } | undefined;
   label: string;
   isDark: boolean;
-  testID?: string;
+  testID?: string | undefined;
 }) {
   const runs = typeof swatch === 'string' ? [swatch] : swatch;
   return (
     <View style={styles.row} testID={testID}>
-      {runs.length === 1 ? (
+      {runs.length === 1 && glyph ? (
+        <View testID="map-key-swatch" style={styles.glyphSwatch}>
+          <View style={[styles.line, { backgroundColor: runs[0] }]} />
+          <Icon
+            name={glyph.name}
+            size={iconSize.xs}
+            color={glyph.color}
+            style={styles.glyph}
+            testID="map-key-swatch-glyph"
+          />
+        </View>
+      ) : runs.length === 1 ? (
         <View
           testID="map-key-swatch"
           style={[shape === 'dot' ? styles.dot : styles.line, { backgroundColor: runs[0] }]}
@@ -75,6 +100,10 @@ export function MapKeySwatch({
   );
 }
 
+export function MapKeyNote({ text, isDark }: { text: string; isDark: boolean }) {
+  return <Text style={[styles.text, isDark && styles.textDark]}>{text}</Text>;
+}
+
 export function MapKeyRamp({
   ramp,
   ends,
@@ -89,7 +118,7 @@ export function MapKeyRamp({
   /** Values named where they fall along the scale, `at` from 0 to 1. */
   ticks?: readonly { at: number; label: string }[];
   isDark: boolean;
-  testID?: string;
+  testID?: string | undefined;
 }) {
   const textStyle = [styles.text, isDark && styles.textDark];
   return (
@@ -141,10 +170,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xsPlus,
     borderRadius: layout.borderRadiusMd,
-    backgroundColor: colors.surface,
-  },
-  cardDark: {
-    backgroundColor: darkColors.surface,
   },
   row: {
     flexDirection: 'row',
@@ -152,9 +177,18 @@ const styles = StyleSheet.create({
     gap: spacing.xsPlus,
   },
   line: {
-    width: 16,
-    height: 3,
+    width: SWATCH_WIDTH,
+    height: SWATCH_HEIGHT,
     borderRadius: layout.borderRadiusFull,
+  },
+  glyphSwatch: {
+    width: SWATCH_WIDTH,
+    height: iconSize.xs,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  glyph: {
+    position: 'absolute',
   },
   runs: {
     width: 28,
@@ -180,7 +214,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   ticks: {
-    height: typography.label.lineHeight,
+    height: typography.caption.lineHeight,
   },
   tick: {
     position: 'absolute',
@@ -201,7 +235,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   text: {
-    fontSize: typography.label.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
   },
   textDark: {

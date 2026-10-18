@@ -76,13 +76,10 @@ describe('the surfaces are handed no ride-starting URL while signed out', () => 
   // The engine copies the shortcuts off the context it is handed, so the
   // context is what these read.
   const mockEngine = {
-    composeWidgetSnapshot: jest.fn((_context: string) => '{}'),
+    composeWidgetSnapshot: jest.fn((_context: { recordShortcuts: { type: string }[] }) => '{}'),
     setWidgetContext: jest.fn(() => true),
   };
-  const handed = () =>
-    JSON.parse(mockEngine.composeWidgetSnapshot.mock.calls.at(-1)![0]) as {
-      recordShortcuts: { type: string }[];
-    };
+  const handed = () => mockEngine.composeWidgetSnapshot.mock.calls.at(-1)![0];
 
   beforeEach(() => {
     jest.resetModules();

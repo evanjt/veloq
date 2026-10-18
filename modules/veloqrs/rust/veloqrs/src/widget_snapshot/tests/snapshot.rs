@@ -161,7 +161,7 @@ fn make_raw() -> Raw {
 
 fn english_dates() -> DateWords {
     let literal = |kind: &str, value: &str| DatePart {
-        kind: kind.to_string(),
+        r#type: kind.to_string(),
         value: value.to_string(),
     };
     DateWords {
@@ -192,8 +192,8 @@ fn english_dates() -> DateWords {
     }
 }
 
-fn context(raw: &Raw) -> WidgetContext {
-    WidgetContext {
+fn context(raw: &Raw) -> FfiWidgetContext {
+    FfiWidgetContext {
         locale: "en-AU".to_string(),
         is_metric: raw.is_metric,
         form_as_percent: raw.form_as_percent,
@@ -203,19 +203,21 @@ fn context(raw: &Raw) -> WidgetContext {
             .collect(),
         dates: english_dates(),
         summary_card: raw.summary_prefs.clone(),
-        theme: serde_json::json!({
-            "light": {
-                "primary": "#0D9488",
-                "gold": "#D4AF37",
-                "formOptimal": "#66BB6A",
-                "fatigue": "#A855F7",
-            },
-            "dark": {
-                "primary": "#2DD4BF",
-                "formOptimal": "#66BB6A",
-                "fatigue": "#C084FC",
-            },
-        }),
+        theme: WidgetTheme {
+            light: Some(WidgetPalette {
+                primary: "#0D9488".to_string(),
+                gold: "#D4AF37".to_string(),
+                form_optimal: "#66BB6A".to_string(),
+                fatigue: "#A855F7".to_string(),
+                ..WidgetPalette::default()
+            }),
+            dark: Some(WidgetPalette {
+                primary: "#2DD4BF".to_string(),
+                form_optimal: "#66BB6A".to_string(),
+                fatigue: "#C084FC".to_string(),
+                ..WidgetPalette::default()
+            }),
+        },
         activity_tints: [("Ride", "#3B82F6"), ("Other", "#64748B")]
             .iter()
             .map(|(k, v)| (k.to_string(), v.to_string()))
@@ -660,7 +662,7 @@ fn computes_the_weekly_delta_percent_and_none_when_last_week_had_no_load() {
 
 #[test]
 fn is_null_safe_with_no_engine_data_and_never_emits_a_non_finite_number() {
-    let ctx = WidgetContext {
+    let ctx = FfiWidgetContext {
         locale: "en-US".to_string(),
         is_metric: true,
         ..Default::default()
@@ -1703,7 +1705,6 @@ fn lists_the_insights_the_context_carries_in_order_and_an_empty_list_without() {
             icon: "map".to_string(),
             tone: "info".to_string(),
             url: format!("veloq://route/{id}"),
-            tone_label: String::new(),
         })
         .collect();
     let s = compose(&data_of(&raw), &ctx, CLOCK);

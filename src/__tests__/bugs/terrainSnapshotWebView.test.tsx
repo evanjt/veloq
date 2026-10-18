@@ -128,7 +128,6 @@ const request = (activityId: string, flat = true): SnapshotRequest => ({
   ],
   camera: { center: [8.71, 47.51], zoom: 12, pitch: 0, bearing: 0 },
   mapStyle: 'light',
-  routeColor: '#ff0000',
   flat,
 });
 
@@ -1011,7 +1010,6 @@ describe('a drape that runs out falls back to the flat basemap', () => {
     ],
     camera: { center: [8.71, 47.51], zoom: 12, pitch: 60, bearing: 0 },
     mapStyle: 'light',
-    routeColor: '#ff0000',
     flat,
   });
 
@@ -1057,7 +1055,6 @@ describe('a drape that runs out falls back to the flat basemap', () => {
         coordinates: original.coordinates,
         camera: original.camera,
         mapStyle: original.mapStyle,
-        routeColor: original.routeColor,
       });
     });
   });
@@ -1322,7 +1319,6 @@ describe('an override jumps the snapshot queue', () => {
     ],
     camera: { center: [8.71, 47.51], zoom: 12, pitch: 0, bearing: 0 },
     mapStyle: 'light',
-    routeColor: '#ff0000',
     flat: true,
     ...over,
   });
@@ -2034,7 +2030,6 @@ describe('the pool timers', () => {
     ],
     camera: { center: [8.71, 47.51], zoom: 12, pitch: 0, bearing: 0 },
     mapStyle: 'light',
-    routeColor: '#ff0000',
     flat: true,
     ...over,
   });

@@ -1,9 +1,9 @@
 /**
  * The athlete profile comes from SQLite, not the API.
  *
- * Rust's sync service stores the raw intervals.icu body, so the unit
- * preferences this hook reads (`measurement_preference`, `fahrenheit`,
- * `wind_speed`) survive even though no Rust type models them.
+ * Rust's sync service stores the raw intervals.icu body and the engine reads
+ * it into a typed profile, so the unit and form preferences this hook lifts
+ * arrive as fields rather than keys dug out of the body.
  */
 import { useQuery } from '@tanstack/react-query';
 import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
@@ -20,15 +20,7 @@ import type { Athlete } from '@/types';
 import { TIME } from '@/shared/app/time';
 
 function readAthlete(): Athlete | null {
-  const engine = getEngine();
-  if (!engine) return null;
-  const json = engine.getAthleteProfile();
-  if (!json) return null;
-  try {
-    return JSON.parse(json) as Athlete;
-  } catch {
-    return null;
-  }
+  return getEngine()?.getAthleteProfile() ?? null;
 }
 
 export function useAthlete() {
@@ -55,25 +47,20 @@ export function useAthlete() {
     if (query.data) {
       setAthlete(query.data);
 
-      // Extract unit preferences from athlete data if available
-      // These fields come from the intervals.icu API but aren't typed in Athlete
-      const athleteData = query.data as unknown as Record<string, unknown>;
-      if ('measurement_preference' in athleteData) {
+      const { measurementPreference, formAsPercent } = query.data;
+      if (measurementPreference != null) {
         setIntervalsPreferences({
-          measurementPreference:
-            (athleteData.measurement_preference as string) === 'feet' ? 'feet' : 'meters',
-          fahrenheit: Boolean(athleteData.fahrenheit),
-          windSpeed: (athleteData.wind_speed as 'KMH' | 'MPH' | 'MS') || 'KMH',
+          measurementPreference: measurementPreference === 'feet' ? 'feet' : 'meters',
         });
       }
       // What the form number on every screen means, absolute TSB or a share of
       // fitness. Absent on a record from before the setting existed, which
       // reads as absolute.
-      if ('icu_form_as_percent' in athleteData) {
+      if (formAsPercent != null) {
         // The widget colours from zones stored in its snapshot, so a flag that
         // moved reaches it only when the snapshot is rebuilt. Rebuilding on
         // the data alone left it a sync behind.
-        const moved = setFormAsPercent(Boolean(athleteData.icu_form_as_percent));
+        const moved = setFormAsPercent(formAsPercent);
         if (moved) scheduleWidgetSnapshot();
       }
     }

@@ -97,10 +97,6 @@ export const TOKEN_FAMILIES: Record<string, TokenFamily> = {
   chartGreenMark: 'mark',
   chartSeries: 'mark',
   markCyan: 'mark',
-  markGreen: 'mark',
-  markAmber: 'mark',
-  markYellow: 'mark',
-  markOrange: 'mark',
 
   // Fills that have not folded into a role yet.
   secondary: 'ground',
@@ -113,7 +109,6 @@ export const TOKEN_FAMILIES: Record<string, TokenFamily> = {
   // the lines sit between labelled axes with the value printed at the crosshair,
   // the bands have a y-axis, the zero rule has its `0`, so the chart carries the
   // information without the hue.
-  chartBlue: 'ground',
   chartPurple: 'ground',
   chartCyan: 'ground',
   chartPink: 'ground',
@@ -122,10 +117,6 @@ export const TOKEN_FAMILIES: Record<string, TokenFamily> = {
   chartRhr: 'ground',
   chartFtp: 'ground',
   chartGuideLine: 'ground',
-  chartPreviousSeason: 'ground',
-  chartBandWarmup: 'ground',
-  chartBandCooldown: 'ground',
-  chartBandNeutral: 'ground',
   chartForm: 'ground',
 
   // Map lines and zone fills. A map line is drawn over tiles behind a casing,

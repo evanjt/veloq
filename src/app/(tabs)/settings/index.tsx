@@ -15,6 +15,7 @@ import { useScrollToTopOnReselect } from '@/shared/ui/tabReselect';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useAthlete } from '@/shared/app/useAthlete';
+import type { Athlete } from '@/types';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { SCHEME_LABEL_KEY, sourceFor, type AuthMethod } from '@/shared/app/source';
 import { useRouteSettings } from '@/features/routes';
@@ -45,7 +46,7 @@ import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { NameText } from '@/shared/ui/NameText';
 
 interface AccountRowProps {
-  athlete?: { name?: string; profile?: string; profile_medium?: string } | undefined;
+  athlete?: Athlete | undefined;
   authMethod: AuthMethod;
   profileImageError: boolean;
   onProfileImageError: () => void;
@@ -60,7 +61,7 @@ function AccountRow({
   isDark,
 }: AccountRowProps) {
   const { t } = useTranslation();
-  const profileUrl = athlete?.profile_medium || athlete?.profile;
+  const profileUrl = athlete?.profileMedium;
 
   const badgeLabel = t(SCHEME_LABEL_KEY[sourceFor({ authMethod })?.scheme ?? 'demo']);
 

@@ -6,8 +6,6 @@ import { TERRAIN_UPSTREAM_TEMPLATE } from '@/features/maps/lib/terrainTemplate';
 import { LIBERTY_STYLE } from '@/features/maps/styles/liberty';
 import { NATURAL_EARTH_ORIGIN } from '@/features/maps/styles/liberty/sources';
 import type { LngLatBounds } from '@/features/maps/lib/coordinates';
-import { ink, colorWithOpacity, opacity } from '@/theme';
-import { HILLSHADE_DARK_SHADOW, HILLSHADE_DARK_HIGHLIGHT } from '@/features/maps/styles/hillshade';
 
 export type MapStyleType = 'light' | 'dark' | 'satellite';
 
@@ -771,7 +769,8 @@ export const TERRAIN_ATTRIBUTION = 'Terrain: USGS, NOAA (Mapzen Terrain Tiles)';
 /**
  * Shared 3D terrain configuration - single source of truth for both
  * Map3DWebView (interactive detail) and TerrainSnapshotWebView (feed previews).
- * Keeps terrain source, sky, and hillshade definitions in sync.
+ * The sky and the hillshade colours belong to the base map, so they come from
+ * its palette through `terrain3DPaint`.
  */
 export { TERRAIN_UPSTREAM_TEMPLATE } from '@/features/maps/lib/terrainTemplate';
 
@@ -784,49 +783,6 @@ export const TERRAIN_3D_CONFIG = {
     maxzoom: 15,
   },
   defaultExaggeration: 1.5,
-  sky: {
-    satellite: {
-      'sky-color': '#1a3a5c',
-      'horizon-color': '#2a4a6c',
-      'fog-color': '#1a3050',
-      'fog-ground-blend': 0.5,
-      'horizon-fog-blend': 0.8,
-      'sky-horizon-blend': 0.5,
-      'atmosphere-blend': 0.8,
-    },
-    dark: {
-      'sky-color': '#0a1428',
-      'horizon-color': '#1a2538',
-      'fog-color': '#0e1520',
-      'fog-ground-blend': 0.5,
-      'horizon-fog-blend': 0.8,
-      'sky-horizon-blend': 0.5,
-      'atmosphere-blend': 0.8,
-    },
-    light: {
-      'sky-color': '#88C6FC',
-      'horizon-color': '#B0C8DC',
-      'fog-color': '#D8E4EE',
-      'fog-ground-blend': 0.5,
-      'horizon-fog-blend': 0.8,
-      'sky-horizon-blend': 0.5,
-      'atmosphere-blend': 0.8,
-    },
-  },
-  hillshadePaint: {
-    dark: {
-      'hillshade-shadow-color': HILLSHADE_DARK_SHADOW,
-      'hillshade-highlight-color': HILLSHADE_DARK_HIGHLIGHT,
-      'hillshade-illumination-anchor': 'map',
-      'hillshade-exaggeration': 0.4,
-    },
-    light: {
-      'hillshade-shadow-color': '#473B24',
-      'hillshade-highlight-color': colorWithOpacity(ink.white, opacity.tint2),
-      'hillshade-illumination-anchor': 'map',
-      'hillshade-exaggeration': 0.3,
-    },
-  },
   /**
    * Insert hillshade before the first transportation/building layer found.
    * In Liberty, 'building' is after all roads (layer ~85) - using it would

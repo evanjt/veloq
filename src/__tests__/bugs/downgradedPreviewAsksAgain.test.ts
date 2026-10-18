@@ -22,7 +22,6 @@ const request = (overrides: Partial<SnapshotRequest> = {}): SnapshotRequest => (
   ],
   camera: { center: [8.71, 47.51], zoom: 12, pitch: 60, bearing: 0 } as never,
   mapStyle: 'light' as never,
-  routeColor: '#ff0000',
   flat: false,
   ...overrides,
 });

@@ -13,7 +13,9 @@ import {
   buildUpdateLayersScript,
 } from '@/features/maps/lib/htmlBuilders';
 import { TRACK_FIT_PADDING } from '@/features/maps/lib/activityCamera';
-import { mapLayerColors, sectionPalette } from '@/theme/colors';
+import { mapPalette } from '@/theme';
+
+const light = mapPalette('light');
 
 const collection = (n: number): GeoJSON.FeatureCollection => ({
   type: 'FeatureCollection',
@@ -25,57 +27,48 @@ const collection = (n: number): GeoJSON.FeatureCollection => ({
 });
 
 describe('buildUpdateLayersScript', () => {
-  it('reads the current section and PR colours from the shared map palette', () => {
-    const palette = sectionPalette as unknown as string[];
-    const layers = mapLayerColors as { personalRecord: string };
-    const sectionColor = palette[0];
-    const prColor = layers.personalRecord;
+  it('reads the section and record colours from the palette it is given', () => {
+    const dark = mapPalette('dark');
+    const palette = {
+      ...dark,
+      record: '#654321',
+      layer: { ...dark.layer, sections: ['#123456', ...dark.layer.sections.slice(1)] },
+    };
+    const script = buildUpdateLayersScript({ tracesGeoJSON: collection(1) }, palette);
 
-    try {
-      palette[0] = '#123456';
-      layers.personalRecord = '#654321';
-      const script = buildUpdateLayersScript({ tracesGeoJSON: collection(1) });
-
-      expect(script).toContain('0,"#123456"');
-      expect(script).toContain("['get', 'isPR'], true], \"#654321\"");
-    } finally {
-      palette[0] = sectionColor as string;
-      layers.personalRecord = prColor;
-    }
+    expect(script).toContain('0,"#123456"');
+    expect(script).toContain("['get', 'isPR'], true], \"#654321\"");
   });
 
-  it('reads the highlight, route overlay and trophy colours from the shared map palette', () => {
-    const layers = mapLayerColors as {
-      personalRecord: string;
-      highlight: string;
-      routeOverlay: string;
+  it('reads the highlight, matched route and trophy colours from the palette it is given', () => {
+    const dark = mapPalette('dark');
+    const palette = {
+      ...dark,
+      muted: '#222222',
+      record: '#333333',
+      layer: { ...dark.layer, highlight: '#111111' as typeof dark.layer.highlight },
     };
-    const saved = { ...layers };
-
-    try {
-      layers.highlight = '#111111';
-      layers.routeOverlay = '#222222';
-      layers.personalRecord = '#333333';
-      const script = buildUpdateLayersScript({
+    const script = buildUpdateLayersScript(
+      {
         tracesGeoJSON: collection(1),
         sectionsGeoJSON: collection(1),
         routesGeoJSON: collection(1),
         pointMarkersGeoJSON: collection(1),
-      });
+        highlightedSectionId: 's1',
+      },
+      palette
+    );
 
-      expect(script).toContain('"#111111"');
-      expect(script).toContain('"#222222"');
-      expect(script).toContain('\'icon-color\': "#333333"');
-      expect(script).not.toContain(saved.highlight);
-      expect(script).not.toContain(saved.routeOverlay);
-      expect(script).not.toContain(saved.personalRecord);
-    } finally {
-      Object.assign(layers, saved);
-    }
+    expect(script).toContain('"#111111"');
+    expect(script).toContain('"#222222"');
+    expect(script).toContain('\'icon-color\': "#333333"');
+    expect(script).not.toContain(dark.layer.highlight);
+    expect(script).not.toContain(dark.muted);
+    expect(script).not.toContain(dark.record);
   });
 
   it('marks an omitted collection unchanged rather than empty', () => {
-    const script = buildUpdateLayersScript({ highlightedSectionId: 's1' });
+    const script = buildUpdateLayersScript({ highlightedSectionId: 's1' }, light);
 
     expect(script).toContain('const tracesData = undefined;');
     expect(script).toContain('const sectionsData = undefined;');
@@ -83,24 +76,27 @@ describe('buildUpdateLayersScript', () => {
   });
 
   it('still clears a collection the caller names with nothing in it', () => {
-    const script = buildUpdateLayersScript({
-      tracesGeoJSON: undefined,
-      sectionsGeoJSON: undefined,
-    });
+    const script = buildUpdateLayersScript(
+      {
+        tracesGeoJSON: undefined,
+        sectionsGeoJSON: undefined,
+      },
+      light
+    );
 
     expect(script).toContain('const tracesData = null;');
     expect(script).toContain('const sectionsData = null;');
   });
 
   it('carries the collection that changed', () => {
-    const script = buildUpdateLayersScript({ tracesGeoJSON: collection(1) });
+    const script = buildUpdateLayersScript({ tracesGeoJSON: collection(1) }, light);
 
     expect(script).toContain('"type":"FeatureCollection"');
     expect(script).toContain('const pointMarkersData = undefined;');
   });
 
   it('leaves a layer alone when its data is unchanged', () => {
-    const script = buildUpdateLayersScript({ highlightedSectionId: 's1' });
+    const script = buildUpdateLayersScript({ highlightedSectionId: 's1' }, light);
 
     // The guards the page reads, so an unchanged layer is neither redrawn
     // nor hidden.
@@ -111,9 +107,9 @@ describe('buildUpdateLayersScript', () => {
   });
 
   it('carries the highlighted trace as its own collection and clears it when empty', () => {
-    const drawn = buildUpdateLayersScript({ highlightedTraceGeoJSON: collection(1) });
-    const cleared = buildUpdateLayersScript({ highlightedTraceGeoJSON: undefined });
-    const untouched = buildUpdateLayersScript({ highlightedSectionId: 's1' });
+    const drawn = buildUpdateLayersScript({ highlightedTraceGeoJSON: collection(1) }, light);
+    const cleared = buildUpdateLayersScript({ highlightedTraceGeoJSON: undefined }, light);
+    const untouched = buildUpdateLayersScript({ highlightedSectionId: 's1' }, light);
 
     expect(drawn).toContain('const highlightedTraceData = {"type":"FeatureCollection"');
     expect(drawn).toContain("'highlighted-trace-layer'");
@@ -122,7 +118,7 @@ describe('buildUpdateLayersScript', () => {
   });
 
   it('only repaints the traces highlight when the highlight itself moved', () => {
-    const script = buildUpdateLayersScript({ tracesGeoJSON: collection(1) });
+    const script = buildUpdateLayersScript({ tracesGeoJSON: collection(1) }, light);
 
     expect(script).toContain(
       "if (highlightedSectionId !== undefined && window.map.getLayer('traces-layer'))"
@@ -176,23 +172,6 @@ describe('buildSetRouteScript', () => {
 });
 
 describe('the 3D page', () => {
-  it('reads its line casing from the shared map palette', () => {
-    const layers = mapLayerColors as { casing: string };
-    const casing = layers.casing;
-
-    try {
-      layers.casing = '#123456';
-      const html = buildMap3DHtml({
-        initStyle: 'dark',
-        mapStyle: 'dark',
-        coordinates: [],
-      } as never);
-      expect(html).toContain('\'line-color\': "#123456"');
-    } finally {
-      layers.casing = casing;
-    }
-  });
-
   it('mounts the route layers whether or not it was built with a route', () => {
     const empty = buildMap3DHtml({ initStyle: 'dark', mapStyle: 'dark', coordinates: [] } as never);
 
@@ -220,19 +199,19 @@ describe('the matched route layer in 3D', () => {
   type Layer = { id: string; paint: Record<string, number> };
   const routeOverlay = (): { layers: Layer[] } =>
     new Function(
-      `${buildStyleOverlayScript()}; return veloqLineOverlay(veloqLine('routes'), arguments[0]);`
+      `${buildStyleOverlayScript(light)}; return veloqLineOverlay(veloqLine('routes'), arguments[0]);`
     )(collection(1));
 
   it('is drawn under the activity track, as the flat map draws it', () => {
-    expect(new Function(`${buildStyleOverlayScript()}; return veloqLine('routes').below;`)()).toBe(
-      'route-outline'
-    );
+    expect(
+      new Function(`${buildStyleOverlayScript(light)}; return veloqLine('routes').below;`)()
+    ).toBe('route-outline');
   });
 
-  it('is as wide as the flat map draws it, casing included', () => {
-    const [casing, line] = routeOverlay().layers;
+  it('is the flat context line at three quarters of its width, with no casing', () => {
+    const layers = routeOverlay().layers;
 
-    expect(casing?.paint['line-width']).toBe(12);
-    expect(line?.paint['line-width']).toBe(9);
+    expect(layers.map((l) => l.id)).toEqual(['routes-layer']);
+    expect(layers[0]?.paint['line-width']).toBe(6);
   });
 });

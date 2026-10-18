@@ -27,7 +27,6 @@ function request(overrides: Partial<SnapshotRequest> = {}): SnapshotRequest {
     coordinates: ROUTE,
     camera: { center: CENTRE, zoom: 13, bearing: 0, pitch: 60 },
     mapStyle: 'dark',
-    routeColor: '#ff0000',
     ...overrides,
   };
 }

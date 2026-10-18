@@ -27,7 +27,17 @@ import { useSyncState } from '@/shared/native/useSyncStatus';
 import { useMapPreviewCoordinates } from '../hooks/useMapPreviewCoordinates';
 import { isWithinPreviewRange, onPreviewRangeChange } from '../lib/previewRange';
 import { mapPreviewState } from '../lib/mapPreviewState';
-import { colorWithOpacity, iconSize, ink, layout, opacity, spacing } from '@/theme';
+import { useTheme } from '@/shared/app';
+import {
+  colors,
+  colorWithOpacity,
+  darkColors,
+  iconSize,
+  layout,
+  opacity,
+  raised,
+  spacing,
+} from '@/theme';
 import { CARD_FOOTER_CLEARANCE } from '@/features/activity/lib/cardLayout';
 import { SyncState } from 'veloqrs';
 import type { Activity } from '@/types';
@@ -62,6 +72,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   // whole ActivityCard. The snapshot effect below defers requests when unfocused.
   const screenFocused = useIsFocused();
   const { t } = useTranslation();
+  const { isDark } = useTheme();
   const { getStyleForActivity, getTerrain3DMode, hasActivityOverride, getActivityCamera } =
     useMapPreferences();
   const mapStyle = getStyleForActivity(activity.type, activity.id);
@@ -245,7 +256,6 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
       camera: snapshotCamera,
       cameraPinned: savedCamera !== null,
       mapStyle,
-      routeColor: activityColor,
       flat: flat || !downgraded,
       standIn: !flat && !downgraded,
       firstPaint: !flat && !downgraded,
@@ -263,7 +273,6 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     validCoordinates,
     activity.id,
     mapStyle,
-    activityColor,
     snapshotRef,
     snapshotReady,
     hasActivityOverride,
@@ -363,12 +372,15 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
           }}
         />
         {Math.abs(bearing) > 5 && (
-          <View style={styles.compassOverlay} testID="activity-map-preview-compass">
-            <StaticCompassArrow
-              bearing={bearing}
-              size={iconSize.sm}
-              southColor={colorWithOpacity(ink.white, opacity.pressed)}
-            />
+          <View
+            style={[
+              styles.compassOverlay,
+              { backgroundColor: (isDark ? darkColors : colors).surfaceRaised },
+              raised('mapOverlay', isDark),
+            ]}
+            testID="activity-map-preview-compass"
+          >
+            <StaticCompassArrow bearing={bearing} size={iconSize.sm} />
           </View>
         )}
       </View>
@@ -418,7 +430,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: CARD_FOOTER_CLEARANCE,
     right: spacing.smPlus,
-    backgroundColor: colorWithOpacity(ink.black, opacity.dim),
     borderRadius: layout.borderRadiusFull,
     width: spacing.lg,
     height: spacing.lg,

@@ -87,6 +87,9 @@ const point = (id: string, day: number, time: number) => ({
   matchPercentage: 96,
 });
 
+/** The reference's time over each split, so the map's percentages are twice the seconds. */
+const REFERENCE_SPLIT_SECS = 50;
+
 const lapDelta = (id: string, day: number, splits: number[]) => ({
   activityId: id,
   startIndex: 0,
@@ -96,6 +99,7 @@ const lapDelta = (id: string, day: number, splits: number[]) => ({
     ...splits.map((_, i) => splits.slice(0, i + 1).reduce((a, b) => a + b, 0)),
   ]),
   splitDeltaSecs: Float32Array.from(splits),
+  splitSecs: Float32Array.from(splits, (behind) => REFERENCE_SPLIT_SECS + behind),
   endDeltaSecs: splits.reduce((a, b) => a + b, 0),
 });
 
@@ -199,7 +203,7 @@ describe('route page delta plot', () => {
 
     expect(screen.getByTestId('section-delta-summary-chart')).toBeTruthy();
     expect(lastMapDeltaLine()).toEqual({
-      splits: Float32Array.from(TYPICAL_SPLITS),
+      percents: Float32Array.from(TYPICAL_SPLITS, (behind) => behind * 2),
       splitStepM: 100,
       sectionLengthM: ROUTE_LENGTH_M,
       direction: 'forward',
@@ -246,7 +250,9 @@ describe('route page curves owed', () => {
       undefined
     );
     await fireEvent.press(screen.getByTestId('chart-plot-delta'));
-    expect(lastMapDeltaLine()?.splits).toEqual(Float32Array.from(TYPICAL_SPLITS));
+    expect(lastMapDeltaLine()?.percents).toEqual(
+      Float32Array.from(TYPICAL_SPLITS, (behind) => behind * 2)
+    );
   });
 
   it('fetches the missing streams and loads the curves only once they land', async () => {

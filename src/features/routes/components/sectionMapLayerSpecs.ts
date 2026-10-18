@@ -7,9 +7,15 @@
  */
 import type { MapPalette } from '@/theme';
 import {
+  DELTA_GAPS_SOURCE_ID,
+  buildDeltaGapLayer,
+  lineBandExpression,
+  type LineBand,
+  type LineDirection,
   type MapLayerSpec,
   type MapSourceSpec,
   USER_LOCATION_SOURCE_ID,
+  buildDirectionLayer,
   buildEndpointLayers,
   buildUserLocationLayers,
 } from '@/features/maps';
@@ -28,16 +34,35 @@ interface SectionLayerInput extends SectionMapLayers {
   traceCasingWidth: number;
   traceLineWidth: number;
   /**
-   * `line-progress` stops colouring the section line by time won or lost, while
-   * the chart shows the delta plot. Without them the line is the base's route colour.
+   * The bands of the section line by how far ahead or behind the shown attempt
+   * is, while the chart shows the delta plot. Without them the line is the
+   * base's route colour.
    */
-  deltaLineStops?: (string | number)[] | null;
+  deltaBands?: readonly LineBand[] | null;
+  /** The stretches of the section line the shown attempt has no data for, cut as geometry. */
+  deltaGapsGeoJSON: GeoJSON.FeatureCollection;
+  /**
+   * The direction the performance panel is on, drawn as chevrons along the
+   * section line. Null where the section is ridden one way only.
+   */
+  shownDirection?: LineDirection | null;
   /**
    * The athlete's position, drawn as a dot above the section. Left out where a
    * shell draws its own dot, so the same source id is never declared twice.
    */
   userLocationGeoJSON?: GeoJSON.FeatureCollection;
   hasUserLocation?: boolean;
+}
+
+/**
+ * The direction the section line's chevrons show, which the map key names. A
+ * trim is about the bounds rather than a way of riding them, so it shows none.
+ */
+export function drawnSectionDirection(
+  shownDirection: LineDirection | null | undefined,
+  trimRange: { start: number; end: number } | null
+): LineDirection | null {
+  return trimRange ? null : (shownDirection ?? null);
 }
 
 export function buildSectionSources(input: SectionLayerInput): Record<string, MapSourceSpec> {
@@ -52,6 +77,7 @@ export function buildSectionSources(input: SectionLayerInput): Record<string, Ma
     'highlighted-lap': { kind: 'geojson', data: input.highlightedLapGeoJSON },
     'highlighted-trace': { kind: 'geojson', data: input.highlightedTraceGeoJSON },
     endpoints: { kind: 'geojson', data: input.endpoints },
+    [DELTA_GAPS_SOURCE_ID]: { kind: 'geojson', data: input.deltaGapsGeoJSON },
     ...(input.userLocationGeoJSON
       ? { [USER_LOCATION_SOURCE_ID]: { kind: 'geojson' as const, data: input.userLocationGeoJSON } }
       : {}),
@@ -74,7 +100,8 @@ export function buildSectionLayers(
     trimLineWidth,
     traceCasingWidth,
     traceLineWidth,
-    deltaLineStops,
+    deltaBands,
+    shownDirection,
     highlightedTraceFilter,
     hasAllTraces,
   } = input;
@@ -123,14 +150,28 @@ export function buildSectionLayers(
         source: 'section',
         layout: roundLine,
         paint: {
-          ...(deltaLineStops
-            ? { 'line-gradient': ['interpolate', ['linear'], ['line-progress'], ...deltaLineStops] }
+          ...(deltaBands
+            ? { 'line-gradient': lineBandExpression(deltaBands, palette) }
             : { 'line-color': sectionContext ? palette.muted : palette.route }),
           'line-width': sectionContext ? 2 : 4,
         },
       }
     );
   }
+
+  // Fullscreen draws the section as the base map's route line, at its width.
+  layers.push(buildDeltaGapLayer(palette, showExtensionAndSection && sectionContext ? 2 : 4));
+
+  // Over the section line, whichever map draws it: the base map draws it in
+  // fullscreen, from the same source.
+  layers.push(
+    buildDirectionLayer({
+      id: 'section-direction',
+      source: 'section',
+      palette,
+      direction: drawnSectionDirection(shownDirection, trimRange),
+    })
+  );
 
   layers.push(
     {

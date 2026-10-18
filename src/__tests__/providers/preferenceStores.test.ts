@@ -114,15 +114,11 @@ describe('UnitPreferenceStore', () => {
       useUnitPreference.setState({ unitPreference: 'auto' });
       useUnitPreference.getState().setIntervalsPreferences({
         measurementPreference: 'feet',
-        fahrenheit: true,
-        windSpeed: 'MPH',
       });
       expect(resolveIsMetric()).toBe(false);
 
       useUnitPreference.getState().setIntervalsPreferences({
         measurementPreference: 'meters',
-        fahrenheit: false,
-        windSpeed: 'KMH',
       });
       expect(resolveIsMetric()).toBe(true);
     });
@@ -134,8 +130,6 @@ describe('UnitPreferenceStore', () => {
       await useUnitPreference.getState().setUnitPreference('auto');
       useUnitPreference.getState().setIntervalsPreferences({
         measurementPreference: 'meters',
-        fahrenheit: false,
-        windSpeed: 'KMH',
       });
       expect(await AsyncStorage.getItem('veloq-resolved-unit-system')).toBe('metric');
     });
@@ -184,8 +178,6 @@ describe('UnitPreferenceStore', () => {
         withLocale('AU', 'us');
         useUnitPreference.getState().setIntervalsPreferences({
           measurementPreference: 'meters',
-          fahrenheit: false,
-          windSpeed: 'KMH',
         });
         expect(resolveIsMetric()).toBe(true);
       });
@@ -197,15 +189,11 @@ describe('UnitPreferenceStore', () => {
       expect(
         getIntervalsUnitSystem({
           measurementPreference: 'meters',
-          fahrenheit: false,
-          windSpeed: 'KMH',
         })
       ).toBe('metric');
       expect(
         getIntervalsUnitSystem({
           measurementPreference: 'feet',
-          fahrenheit: true,
-          windSpeed: 'MPH',
         })
       ).toBe('imperial');
       expect(getIntervalsUnitSystem(null)).toBeNull();

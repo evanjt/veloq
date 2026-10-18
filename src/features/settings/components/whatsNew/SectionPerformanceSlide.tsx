@@ -25,12 +25,13 @@ import {
   colors,
   darkColors,
   layout,
-  mapLayerColors,
+  mapPalette,
   spacing,
   typography,
   colorWithOpacity,
   ink,
   opacity,
+  type MapDivStep,
 } from '@/theme';
 import { tourPanelColour } from './tourPanel';
 import {
@@ -50,10 +51,11 @@ const PAD = 6;
 const HISTOGRAM_BINS = 6;
 const FAINT_OPACITY = 0.3;
 
-const STRETCH_COLOURS: Record<StretchKind, string> = {
-  won: mapLayerColors.deltaWon,
-  lost: mapLayerColors.deltaLost,
-  level: mapLayerColors.deltaNeutral,
+/** The step of the map line's ramp each demo stretch is drawn in, as the section map bands it. */
+const STRETCH_STEPS: Record<StretchKind, MapDivStep> = {
+  won: 'cool-2',
+  lost: 'warm-2',
+  level: 'mid',
 };
 
 function linePath(values: readonly number[], width: number, min: number, max: number): string {
@@ -107,6 +109,8 @@ export function SectionPerformanceSlide() {
   const { width: gridWidth, onLayout } = useMeasuredWidth();
   const palette = isDark ? darkColors : colors;
   const background = tourPanelColour(isDark);
+  // The demo line sits on a panel of the app theme, so it takes that base's ramp.
+  const stretchRamp = mapPalette(isDark ? 'dark' : 'light').div;
   const gridColor = isDark
     ? colorWithOpacity(ink.white, opacity.tint4)
     : colorWithOpacity(ink.black, opacity.tint3);
@@ -263,7 +267,7 @@ export function SectionPerformanceSlide() {
                 key={i}
                 p1={vec(stretch.p1.x, stretch.p1.y)}
                 p2={vec(stretch.p2.x, stretch.p2.y)}
-                color={STRETCH_COLOURS[stretch.kind]}
+                color={stretchRamp[STRETCH_STEPS[stretch.kind]]}
                 strokeWidth={4}
                 strokeCap="round"
               />

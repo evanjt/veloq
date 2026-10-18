@@ -39,11 +39,11 @@ pub(super) fn rising_fitness() -> FfiWidgetSnapshotData {
     }
 }
 
-pub(super) fn context(strings: std::collections::BTreeMap<String, String>) -> WidgetContext {
-    WidgetContext {
+pub(super) fn context(strings: std::collections::BTreeMap<String, String>) -> FfiWidgetContext {
+    FfiWidgetContext {
         locale: "en-GB".to_string(),
         is_metric: true,
-        strings,
+        strings: strings.into_iter().collect(),
         summary_card: Some(SummaryPrefs {
             enabled: true,
             hero_metric: "fitness".to_string(),

@@ -7,11 +7,11 @@ import { useTheme, useMetricSystem } from '@/shared/app';
 import { trendVerdict, verdictRung } from '@/shared/format/trend';
 import {
   colors,
+  colourTokens,
   darkColors,
   spacing,
   opacity,
   layout,
-  strengthTone,
   typography,
   stroke,
 } from '@/theme';
@@ -55,6 +55,7 @@ export const StrengthProgressionCard = React.memo(function StrengthProgressionCa
   const { isDark } = useTheme();
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
+  const tokens = colourTokens[isDark ? 'dark' : 'light'];
 
   const muscleName = nameOf(selectedVolume.slug, t);
 
@@ -89,7 +90,7 @@ export const StrengthProgressionCard = React.memo(function StrengthProgressionCa
                           3,
                           (point.weightedSets / maxProgressWeightedSets) * MINI_BAR_HEIGHT
                         ),
-                        backgroundColor: isCurrent ? strengthTone.primary : strengthTone.secondary,
+                        backgroundColor: isCurrent ? tokens['chart-series'] : tokens['chart-muted'],
                       },
                     ]}
                   />

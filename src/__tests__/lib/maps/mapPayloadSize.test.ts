@@ -260,7 +260,6 @@ describe('snapshot request size', () => {
         coordinates,
         camera: { center: coordinates[50], zoom: 12, bearing: 30, pitch: 58 },
         mapStyle: 'light',
-        routeColor: '#14B8A6',
       },
       0,
       1

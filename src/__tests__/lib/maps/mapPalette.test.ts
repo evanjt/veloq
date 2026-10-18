@@ -17,7 +17,11 @@ import { composeBaseMapLayers } from '@/features/maps/lib/baseMapLayers';
 import { buildEndpointLayers } from '@/features/maps/lib/endpointLayers';
 import { buildUserLocationLayers } from '@/features/maps/lib/userLocationLayer';
 import { sectionCreation3DLayers } from '@/features/maps/lib/sectionCreationPaint';
-import { buildDeltaLineStops } from '@/features/maps/lib/deltaLineColor';
+import {
+  buildDeltaGapLayer,
+  deltaLineBands,
+  lineBandExpression,
+} from '@/features/maps/lib/deltaLineColor';
 import { homeRadiusLayers } from '@/features/maps/lib/homeRadiusLayers';
 import { buildSectionLayers } from '@/features/routes/components/sectionMapLayerSpecs';
 import { buildRouteLayers } from '@/features/routes/components/routeMapLayerSpecs';
@@ -60,8 +64,11 @@ function sentinelPalette(base: (typeof BASES)[number]): {
   return { palette: swap(mapPalette(base)) as MapPalette, colours };
 }
 
+/** A fully clear colour draws nothing, so it cannot be another base's. */
+const CLEAR = /^rgba\(.*,\s*0\)$/i;
+
 function coloursIn(value: unknown, out: string[] = []): string[] {
-  if (typeof value === 'string' && COLOUR.test(value)) out.push(value);
+  if (typeof value === 'string' && COLOUR.test(value) && !CLEAR.test(value)) out.push(value);
   else if (Array.isArray(value)) value.forEach((v) => coloursIn(v, out));
   else if (value && typeof value === 'object')
     Object.values(value).forEach((v) => coloursIn(v, out));
@@ -149,7 +156,8 @@ const builders: [string, (palette: MapPalette) => unknown][] = [
         trimLineWidth: 4,
         traceCasingWidth: 5,
         traceLineWidth: 4,
-        deltaLineStops: null,
+        deltaBands: null,
+        deltaGapsGeoJSON: empty,
         userLocationGeoJSON: empty,
         hasUserLocation: true,
       } as unknown as Parameters<typeof buildSectionLayers>[0]),
@@ -188,7 +196,10 @@ const builders: [string, (palette: MapPalette) => unknown][] = [
   ['the 3D section creation', (palette) => sectionCreation3DLayers(true, palette)],
   [
     'the delta line',
-    (palette) => buildDeltaLineStops([-3, 0, 2, Number.NaN], 100, 400, 'forward', palette),
+    (palette) => [
+      lineBandExpression(deltaLineBands([-3, 0, 2, Number.NaN], 100, 400, 'forward')!, palette),
+      buildDeltaGapLayer(palette, 4),
+    ],
   ],
   [
     'the route map',

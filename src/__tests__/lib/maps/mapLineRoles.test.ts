@@ -72,7 +72,8 @@ function section(palette: MapPalette, sectionContext = false) {
     trimLineWidth: 4,
     traceCasingWidth: 5,
     traceLineWidth: 4,
-    deltaLineStops: null,
+    deltaBands: null,
+    deltaGapsGeoJSON: empty,
   } as unknown as Parameters<typeof buildSectionLayers>[0]);
 }
 
@@ -188,6 +189,14 @@ describe.each(BASES)('on the %s base', (base) => {
     expect(
       paint(composeBaseMapLayers({ ...input, routeContext: true }), 'route-line')['line-color']
     ).toBe(palette.muted);
+  });
+
+  it('draws the fullscreen subject in the ramp the inline map draws, when it is banded', () => {
+    const ramp = ['step', ['line-progress'], palette.div['warm-1'], 0.5, palette.div.mid];
+    const input = { palette, underRouteLayers: [], overlayLayers: [], userLocationLayers: [] };
+    const banded = paint(composeBaseMapLayers({ ...input, routeGradient: ramp }), 'route-line');
+    expect(banded['line-gradient']).toEqual(ramp);
+    expect(banded['line-color']).toBeUndefined();
   });
 
   it('draws the location dot in the location colour', () => {

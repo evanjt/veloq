@@ -12,7 +12,6 @@ import { i18n } from '@/i18n';
 import { getEngine, isEngineReady } from '@/shared/native/engine';
 import { engineErrorKey } from '@/shared/native/engineError';
 import { DEMO_ATHLETE_ID, useAuthStore } from '@/shared/app/AuthStore';
-import { safeJsonParse } from '@/shared/validation/validation';
 import { rememberCachedAthleteId, readCachedAthleteIdMirror, wipeLibrary } from '@/shared/storage';
 import { confirmAction, inform } from '@/shared/ui/dialog';
 
@@ -37,9 +36,7 @@ export async function getCachedAthleteId(): Promise<string | null> {
   if (engine) {
     let id: string | undefined;
     try {
-      const json = engine.getAthleteProfile();
-      const parsed = json ? safeJsonParse<{ id?: number | string }>(json, {}) : null;
-      id = parsed?.id ? String(parsed.id) : engine.getSetting('__athlete_id');
+      id = engine.getAthleteProfile()?.id || engine.getSetting('__athlete_id');
     } catch {
       // A failed read names no one, and the mirror below is the fallback for that.
       id = undefined;

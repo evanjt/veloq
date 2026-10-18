@@ -343,14 +343,6 @@
         "dark"
       ]
     },
-    "chartBlue": {
-      "role": "data-seq-1",
-      "also": [
-        "data-seq-2",
-        "data-seq-3",
-        "data-seq-4"
-      ]
-    },
     "chartPurple": {
       "role": "fill-neutral",
       "also": [
@@ -410,24 +402,12 @@
     "chartGuideLine": {
       "role": "chart-reference"
     },
-    "chartPreviousSeason": {
-      "role": "chart-muted"
-    },
     "chartSeries": {
       "role": "chart-series",
       "from": [
         "light",
         "dark"
       ]
-    },
-    "chartBandWarmup": {
-      "role": "chart-muted"
-    },
-    "chartBandCooldown": {
-      "role": "chart-muted"
-    },
-    "chartBandNeutral": {
-      "role": "chart-muted"
     },
     "chartFormLine": {
       "role": "text-primary"
@@ -490,38 +470,6 @@
         "data-seq-4"
       ]
     },
-    "markGreen": {
-      "role": "data-seq-1",
-      "also": [
-        "data-seq-2",
-        "data-seq-3",
-        "data-seq-4"
-      ]
-    },
-    "markAmber": {
-      "role": "data-seq-1",
-      "also": [
-        "data-seq-2",
-        "data-seq-3",
-        "data-seq-4"
-      ]
-    },
-    "markYellow": {
-      "role": "data-seq-1",
-      "also": [
-        "data-seq-2",
-        "data-seq-3",
-        "data-seq-4"
-      ]
-    },
-    "markOrange": {
-      "role": "data-seq-1",
-      "also": [
-        "data-seq-2",
-        "data-seq-3",
-        "data-seq-4"
-      ]
-    },
     "chartForm": {
       "role": "text-primary"
     }
@@ -540,11 +488,12 @@
     "chart-crosshair": "the chart scrub line, read by useChartColors",
     "chart-grid": "the dotted gridline, read by useChartColors",
     "chart-axis": "the chart baseline and zero line, read by useChartColors",
+    "chart-muted": "the series set back beside the one that matters, read by useChartColors",
     "data-*": "the sequential and diverging data ramps, read by sequentialRamp and divergingRamp",
     "sport-*": "the sport families and their shades, read by sportFamilyColours",
     "stream-*": "one colour per activity stream, read by chartStreamColors",
     "direction-*": "the forward and reverse pair, read by directionPair",
-    "zone-*": "the zone ladder, read when zoneColors, the interval bands and the workout steps fold into it",
+    "zone-*": "the zone ladder, read by zoneColorsLight and zoneColorsDark, and when the workout steps fold into it",
     "map-*": "the map's own paints and basemap, read when the map layers and styles take the map tokens",
     "direction-forward": "the forward direction, read when the forward section line folds into it from actionPrimary"
   }

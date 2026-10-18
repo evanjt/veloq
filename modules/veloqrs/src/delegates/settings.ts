@@ -10,6 +10,7 @@
 import type { DelegateHost } from './host';
 import { FfiPlaceNameKind, FfiPlaceNameOutcome } from '../generated/veloqrs';
 import type {
+  AthleteProfile,
   SettingPair,
   SuggestedHome as FfiSuggestedHome,
   ExportPrivacyPreview as FfiExportPrivacyPreview,
@@ -38,9 +39,9 @@ export function setAthleteProfile(host: DelegateHost, json: string): void {
   });
 }
 
-export function getAthleteProfile(host: DelegateHost): string {
-  if (!host.ready) return '';
-  return host.timed('getAthleteProfile', () => host.engine.settings().getAthleteProfile()) ?? '';
+export function getAthleteProfile(host: DelegateHost): AthleteProfile | null {
+  if (!host.ready) return null;
+  return host.timed('getAthleteProfile', () => host.engine.settings().getAthleteProfile()) ?? null;
 }
 
 export function setSportSettings(host: DelegateHost, json: string): void {

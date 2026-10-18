@@ -1,70 +1,94 @@
-import { buildDeltaLineStops, deltaToColor } from '../deltaLineColor';
-import { mapLayerColors, mapPalette } from '@/theme';
+/**
+ * Scenario: the section line is banded by how far ahead or behind the shown
+ * attempt is over each stretch, as a percentage of the reference's time there,
+ * on the scale grade shares.
+ * Expected behaviour: the same percentage is the same band on any attempt, and a
+ * stretch the attempt did not cover is a no-data range drawn by its own layer.
+ */
+
+import { deltaLineBands, lineBandExpression, noDataRanges, type LineBand } from '../deltaLineColor';
+import { colorWithOpacity, mapPalette } from '@/theme';
 
 const palette = mapPalette('light');
+const stepsOf = (bands: LineBand[] | null) => (bands ?? []).map((band) => band.step);
+const startsOf = (bands: LineBand[] | null) => (bands ?? []).map((band) => band.start);
 
-const progressOf = (stops: (string | number)[] | null) =>
-  (stops ?? []).filter((_, i) => i % 2 === 0) as number[];
-const colourOf = (stops: (string | number)[] | null) =>
-  (stops ?? []).filter((_, i) => i % 2 === 1) as string[];
-
-describe('buildDeltaLineStops', () => {
-  it('places a stop at each bin edge and ends at 1', () => {
-    const splits = [1, 2, -1, 0, 3, -2, 1, 0, -3, 2];
-    const stops = buildDeltaLineStops(splits, 100, 1000, 'forward', palette);
-    const progress = progressOf(stops);
-    expect(progress).toHaveLength(11);
-    progress.forEach((p, i) => expect(p).toBeCloseTo(i / 10, 10));
-    expect(progress[10]).toBe(1);
-    progress.slice(1).forEach((p, i) => expect(p).toBeGreaterThan(progress[i]));
+describe('deltaLineBands', () => {
+  it('bands each stretch by its own percentage, not by the attempt', () => {
+    const close = deltaLineBands([0.5, 2, -2], 100, 300, 'forward');
+    const wild = deltaLineBands([0.5, 2, -2, 40], 100, 400, 'forward');
+    expect(stepsOf(close)).toEqual(['mid', 'warm-1', 'cool-1']);
+    expect(stepsOf(wild).slice(0, 3)).toEqual(stepsOf(close));
+    expect(stepsOf(wild)[3]).toBe('warm-3');
   });
 
-  it('colours a bin with no data in the no-data grey', () => {
-    const stops = buildDeltaLineStops([2, NaN, -2], 100, 300, 'forward', palette);
-    expect(colourOf(stops)[1]).toBe(mapLayerColors.deltaNoData);
+  it('starts each band where its stretch begins on the line', () => {
+    const bands = deltaLineBands([5, 5, -5, 0], 100, 350, 'forward')!;
+    expect(bands.map((band) => [band.start, band.end, band.step])).toEqual([
+      [0, 200 / 350, 'warm-2'],
+      [200 / 350, 300 / 350, 'cool-2'],
+      [300 / 350, 1, 'mid'],
+    ]);
   });
 
-  it('clamps the scale symmetrically at the largest absolute bin', () => {
-    const stops = buildDeltaLineStops([6, -2], 100, 200, 'forward', palette);
-    expect(colourOf(stops)[0]).toBe(mapLayerColors.deltaLost);
-    expect(colourOf(stops)[1]).toBe(deltaToColor(-2 / 6, palette));
-    expect(deltaToColor(-1, palette)).toBe(mapLayerColors.deltaWon);
-    expect(deltaToColor(0, palette)).toBe(mapLayerColors.deltaNeutral);
+  it('gives a stretch the attempt did not cover no step', () => {
+    expect(stepsOf(deltaLineBands([2, NaN, -2], 100, 300, 'forward'))).toEqual([
+      'warm-1',
+      null,
+      'cool-1',
+    ]);
   });
 
-  it('ends the last short bin at 1, not past it', () => {
-    const splits = new Array(10).fill(1);
-    const progress = progressOf(buildDeltaLineStops(splits, 100, 950, 'forward', palette));
-    expect(progress[9]).toBeCloseTo(900 / 950, 10);
-    expect(progress[10]).toBe(1);
-    expect(Math.max(...progress)).toBe(1);
+  it('puts the first stretch of a reverse attempt at the far end of the line', () => {
+    const reverse = deltaLineBands([7, 0, 0], 100, 250, 'reverse')!;
+    expect(stepsOf(reverse)).toEqual(['mid', 'warm-3']);
+    expect(startsOf(reverse)).toEqual([0, 150 / 250]);
+    expect(reverse[1]!.end).toBe(1);
   });
 
-  it('puts the first bin of a reverse attempt at the far end of the line', () => {
-    const forward = buildDeltaLineStops([6, 0, 0], 100, 300, 'forward', palette);
-    const reverse = buildDeltaLineStops([6, 0, 0], 100, 300, 'reverse', palette);
-    expect(colourOf(forward)[0]).toBe(mapLayerColors.deltaLost);
-    expect(colourOf(reverse)[0]).toBe(mapLayerColors.deltaNeutral);
-    expect(colourOf(reverse)[2]).toBe(mapLayerColors.deltaLost);
-    expect(progressOf(reverse)[2]).toBeCloseTo(2 / 3, 10);
+  it('draws nothing without stretches or a length', () => {
+    expect(deltaLineBands([], 100, 1000, 'forward')).toBeNull();
+    expect(deltaLineBands([1], 100, 0, 'forward')).toBeNull();
+    expect(deltaLineBands([1], 0, 100, 'forward')).toBeNull();
+  });
+});
+
+describe('noDataRanges', () => {
+  it('lists each run of stretches with no step, as fractions of the line', () => {
+    const bands = deltaLineBands([NaN, NaN, 2, NaN], 100, 400, 'forward');
+    expect(noDataRanges(bands)).toEqual([
+      [0, 0.5],
+      [0.75, 1],
+    ]);
   });
 
-  it('mirrors a short last bin to the start of the line on a reverse attempt', () => {
-    const progress = progressOf(buildDeltaLineStops([1, 1, 1], 100, 250, 'reverse', palette));
-    expect(progress).toEqual([0, 0.2, 0.6, 1]);
+  it('is empty for a fully covered attempt and for no attempt', () => {
+    expect(noDataRanges(deltaLineBands([1, 2], 100, 200, 'forward'))).toEqual([]);
+    expect(noDataRanges(null)).toEqual([]);
+  });
+});
+
+describe('lineBandExpression', () => {
+  it('steps over line-progress in the base map ramp, clear where there is no data', () => {
+    const bands = deltaLineBands([-7, NaN, 2], 100, 300, 'forward')!;
+    expect(lineBandExpression(bands, palette)).toEqual([
+      'step',
+      ['line-progress'],
+      palette.div['cool-3'],
+      1 / 3,
+      colorWithOpacity(palette.muted, 0),
+      2 / 3,
+      palette.div['warm-1'],
+    ]);
   });
 
-  it('draws nothing without bins or a length', () => {
-    expect(buildDeltaLineStops([], 100, 1000, 'forward', palette)).toBeNull();
-    expect(buildDeltaLineStops([1], 100, 0, 'forward', palette)).toBeNull();
-    expect(buildDeltaLineStops([1], 0, 100, 'forward', palette)).toBeNull();
-  });
-
-  it('paints a level attempt neutral', () => {
-    expect(colourOf(buildDeltaLineStops([0, 0], 100, 200, 'forward', palette))).toEqual([
-      mapLayerColors.deltaNeutral,
-      mapLayerColors.deltaNeutral,
-      mapLayerColors.deltaNeutral,
+  it('reads the ramp of the base it is drawn over', () => {
+    const bands = deltaLineBands([4], 100, 100, 'forward')!;
+    const dark = mapPalette('dark');
+    expect(lineBandExpression(bands, dark)).toEqual([
+      'step',
+      ['line-progress'],
+      dark.div['warm-2'],
     ]);
   });
 });

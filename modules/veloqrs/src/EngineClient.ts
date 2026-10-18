@@ -7,7 +7,9 @@
  */
 
 import type {
+  AthleteProfile,
   FfiStartResult,
+  FfiWidgetContext,
   SuggestedHome,
   ExportPrivacyPreview,
   FfiGpsPoint,
@@ -1013,15 +1015,15 @@ class EngineClient implements DelegateHost {
     fitnessDelegates.getStartupData(this, params, previewActivityIds);
 
   composeWidgetSnapshot = (
-    contextJson: string,
+    ctx: FfiWidgetContext,
     nowSeconds: number,
     nowWallSeconds: number,
     sample?: fitnessDelegates.SampleWidgetLibrary
   ): string | undefined =>
-    fitnessDelegates.composeWidgetSnapshot(this, contextJson, nowSeconds, nowWallSeconds, sample);
+    fitnessDelegates.composeWidgetSnapshot(this, ctx, nowSeconds, nowWallSeconds, sample);
 
-  setWidgetContext = (contextJson: string): boolean =>
-    fitnessDelegates.setWidgetContext(this, contextJson);
+  setWidgetContext = (ctx: FfiWidgetContext): boolean =>
+    fitnessDelegates.setWidgetContext(this, ctx);
 
   getZoneDistribution = (sportType: string, zoneType: string, startTs: number, endTs: number) =>
     fitnessDelegates.getZoneDistribution(this, sportType, zoneType, startTs, endTs);
@@ -1256,7 +1258,7 @@ class EngineClient implements DelegateHost {
 
   setAthleteProfile = (json: string): void => settingsDelegates.setAthleteProfile(this, json);
 
-  getAthleteProfile = (): string => settingsDelegates.getAthleteProfile(this);
+  getAthleteProfile = (): AthleteProfile | null => settingsDelegates.getAthleteProfile(this);
 
   setSportSettings = (json: string): void => settingsDelegates.setSportSettings(this, json);
 

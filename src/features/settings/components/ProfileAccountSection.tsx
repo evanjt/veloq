@@ -20,12 +20,7 @@ import { offlineConfirmMessage } from '../lib/offlineConfirmCopy';
 import { useExportRecordBackup } from '../hooks/useBackup';
 import { chooseAction, confirmAction, inform } from '@/shared/ui/dialog';
 import { Icon } from '@/shared/ui/Icon';
-
-interface Athlete {
-  name?: string;
-  profile?: string;
-  profile_medium?: string;
-}
+import type { Athlete } from '@/types';
 
 interface ProfileAccountSectionProps {
   athlete?: Athlete | undefined;
@@ -148,7 +143,7 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
     if ((await exportRecordBackup()) === 'complete') handleLogoutAndClearData();
   };
 
-  const profileUrl = athlete?.profile_medium || athlete?.profile;
+  const profileUrl = athlete?.profileMedium;
   const hasValidProfileUrl =
     profileUrl && typeof profileUrl === 'string' && profileUrl.startsWith('http');
 

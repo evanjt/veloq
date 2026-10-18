@@ -10,7 +10,8 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, rpeRamp, spacing, typography, layout } from '@/theme';
+import { colors, darkColors, spacing, typography, layout, zoneColour } from '@/theme';
+import { RPE_MAX, RPE_MIN, rpeZone } from '../lib/rpeZone';
 
 type RpeLabelKey = 'easy' | 'moderate' | 'hard' | 'veryHard' | 'max';
 
@@ -22,13 +23,6 @@ function getRpeLabelKey(value: number): RpeLabelKey {
   return 'max';
 }
 
-/** The effort hue, drawn on the thumb and the fill. The value beside it is text. */
-function getRpeColor(value: number): string {
-  return rpeRamp[Math.min(4, Math.floor((Math.max(1, value) - 1) / 2))];
-}
-
-const RPE_MIN = 1;
-const RPE_MAX = 10;
 const STEP_ACTIONS = [{ name: 'increment' }, { name: 'decrement' }];
 
 function clampRpe(value: number): number {
@@ -102,13 +96,15 @@ function RpeSliderInner({ value, onValueChange, textSecondary }: RpeSliderProps)
 
   const band = t(`recording.rpeLabels.${getRpeLabelKey(value)}`);
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
+  // The effort's zone, drawn on the swatch, the thumb and the fill. The value beside it is text.
+  const effortColour = zoneColour(rpeZone(value), isDark);
 
   return (
     <View testID="review-rpe" style={styles.rpeSection}>
       <View style={styles.rpeHeader}>
         <Text style={[styles.label, { color: textSecondary }]}>{t('recording.rpe', 'RPE')}</Text>
         <View style={styles.rpeReading}>
-          <View style={[styles.rpeSwatch, { backgroundColor: getRpeColor(value) }]} />
+          <View style={[styles.rpeSwatch, { backgroundColor: effortColour }]} />
           <Text style={[styles.rpeValue, { color: textPrimary }]}>
             {value} - {band}
           </Text>
@@ -141,7 +137,7 @@ function RpeSliderInner({ value, onValueChange, textSecondary }: RpeSliderProps)
                 inputRange: [1, 10],
                 outputRange: ['0%', '100%'],
               }),
-              backgroundColor: getRpeColor(value),
+              backgroundColor: effortColour,
             },
           ]}
         />
@@ -155,7 +151,7 @@ function RpeSliderInner({ value, onValueChange, textSecondary }: RpeSliderProps)
                 inputRange: [1, 10],
                 outputRange: ['0%', '100%'],
               }),
-              backgroundColor: getRpeColor(value),
+              backgroundColor: effortColour,
             },
           ]}
         />

@@ -863,6 +863,103 @@ const FfiConverterTypeActivitySportMapping = (() => {
 })();
 
 /**
+ * The fields of the stored intervals.icu athlete body that the screens and
+ * the widget read, typed once here.
+ *
+ * The body is stored as it arrived and carries far more. Each field is read
+ * leniently: missing, `null` or of another type reads as absent and costs the
+ * record nothing else.
+ */
+export type AthleteProfile = {
+  /**
+   * The intervals.icu athlete id, as `i123`. A number on the wire reads as its digits.
+   */
+  id?: string;
+  name?: string;
+  /**
+   * The URL of the athlete's medium profile photo.
+   */
+  profileMedium?: string;
+  /**
+   * `M` or `F` as intervals.icu sends it.
+   */
+  sex?: string;
+  /**
+   * `meters` or `feet`, the units the athlete chose on intervals.icu.
+   */
+  measurementPreference?: string;
+  /**
+   * Whether the athlete reads form as a share of fitness rather than as
+   * absolute TSB, from `icu_form_as_percent`. Absent on a body from before
+   * the setting existed.
+   */
+  formAsPercent?: boolean;
+  /**
+   * The athlete's weight in kilograms: `icu_weight`, which is where the body
+   * sends it, else `weight`. Absent unless positive.
+   */
+  weightKg?: number;
+};
+
+/**
+ * Generated factory for {@link AthleteProfile} record objects.
+ */
+export const AthleteProfile = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<AthleteProfile, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<AthleteProfile>,
+  });
+})();
+
+const FfiConverterTypeAthleteProfile = (() => {
+  type TypeName = AthleteProfile;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        id: FfiConverterOptionalString.readFromCursor(c),
+        name: FfiConverterOptionalString.readFromCursor(c),
+        profileMedium: FfiConverterOptionalString.readFromCursor(c),
+        sex: FfiConverterOptionalString.readFromCursor(c),
+        measurementPreference: FfiConverterOptionalString.readFromCursor(c),
+        formAsPercent: FfiConverterOptionalBoolean.readFromCursor(c),
+        weightKg: FfiConverterOptionalFloat64.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterOptionalString.writeIntoCursor(value.id, c);
+      FfiConverterOptionalString.writeIntoCursor(value.name, c);
+      FfiConverterOptionalString.writeIntoCursor(value.profileMedium, c);
+      FfiConverterOptionalString.writeIntoCursor(value.sex, c);
+      FfiConverterOptionalString.writeIntoCursor(
+        value.measurementPreference,
+        c,
+      );
+      FfiConverterOptionalBoolean.writeIntoCursor(value.formAsPercent, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.weightKg, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterOptionalString.allocationSize(value.id) +
+        FfiConverterOptionalString.allocationSize(value.name) +
+        FfiConverterOptionalString.allocationSize(value.profileMedium) +
+        FfiConverterOptionalString.allocationSize(value.sex) +
+        FfiConverterOptionalString.allocationSize(value.measurementPreference) +
+        FfiConverterOptionalBoolean.allocationSize(value.formAsPercent) +
+        FfiConverterOptionalFloat64.allocationSize(value.weightKg)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * What one poll of the cache-size walk says. `bytes` is meaningful only
  * while `state` is "complete".
  */
@@ -968,6 +1065,171 @@ const FfiConverterTypeCutoverProgress = (() => {
         FfiConverterString.allocationSize(value.phase) +
         FfiConverterBool.allocationSize(value.running) +
         FfiConverterOptionalFloat64.allocationSize(value.run)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * A piece of a date format: `month`, `day` or `year`, or `literal` with its text.
+ */
+export type DatePart = {
+  type: string;
+  value: string;
+};
+
+/**
+ * Generated factory for {@link DatePart} record objects.
+ */
+export const DatePart = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<DatePart, ReturnType<typeof defaults>>(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<DatePart>,
+  });
+})();
+
+const FfiConverterTypeDatePart = (() => {
+  type TypeName = DatePart;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        type: FfiConverterString.readFromCursor(c),
+        value: FfiConverterString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.type, c);
+      FfiConverterString.writeIntoCursor(value.value, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.type) +
+        FfiConverterString.allocationSize(value.value)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * One date format: its parts in order, and the month names it writes.
+ */
+export type DatePattern = {
+  parts: Array<DatePart>;
+  /**
+   * January first.
+   */
+  months: Array<string>;
+};
+
+/**
+ * Generated factory for {@link DatePattern} record objects.
+ */
+export const DatePattern = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<DatePattern, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<DatePattern>,
+  });
+})();
+
+const FfiConverterTypeDatePattern = (() => {
+  type TypeName = DatePattern;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        parts: FfiConverterSequenceTypeDatePart.readFromCursor(c),
+        months: FfiConverterSequenceString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterSequenceTypeDatePart.writeIntoCursor(value.parts, c);
+      FfiConverterSequenceString.writeIntoCursor(value.months, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterSequenceTypeDatePart.allocationSize(value.parts) +
+        FfiConverterSequenceString.allocationSize(value.months)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * The locale's own names for days and months, and the order a short date is
+ * written in, so a relative date label needs no locale data here.
+ */
+export type DateWords = {
+  /**
+   * Long weekday names, Sunday first.
+   */
+  weekdays: Array<string>;
+  /**
+   * A day and month in this year, as "Jan 5".
+   */
+  monthDay: DatePattern;
+  /**
+   * A day and month in another year, as "Jan 5, 2023".
+   */
+  monthDayYear: DatePattern;
+  /**
+   * Long month names as a label writes one alone, January first. Empty in a
+   * context stored before they were handed over.
+   */
+  months: Array<string>;
+};
+
+/**
+ * Generated factory for {@link DateWords} record objects.
+ */
+export const DateWords = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<DateWords, ReturnType<typeof defaults>>(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<DateWords>,
+  });
+})();
+
+const FfiConverterTypeDateWords = (() => {
+  type TypeName = DateWords;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        weekdays: FfiConverterSequenceString.readFromCursor(c),
+        monthDay: FfiConverterTypeDatePattern.readFromCursor(c),
+        monthDayYear: FfiConverterTypeDatePattern.readFromCursor(c),
+        months: FfiConverterSequenceString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterSequenceString.writeIntoCursor(value.weekdays, c);
+      FfiConverterTypeDatePattern.writeIntoCursor(value.monthDay, c);
+      FfiConverterTypeDatePattern.writeIntoCursor(value.monthDayYear, c);
+      FfiConverterSequenceString.writeIntoCursor(value.months, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterSequenceString.allocationSize(value.weekdays) +
+        FfiConverterTypeDatePattern.allocationSize(value.monthDay) +
+        FfiConverterTypeDatePattern.allocationSize(value.monthDayYear) +
+        FfiConverterSequenceString.allocationSize(value.months)
       );
     }
   }
@@ -22661,6 +22923,652 @@ const FfiConverterTypeFfiWellnessDays = (() => {
 })();
 
 /**
+ * The locale's decimal and group separators, so a number reads as the app
+ * writes it. Empty in a context stored before they were handed over, which
+ * writes a point and no grouping.
+ */
+export type NumberWords = {
+  decimal: string;
+  group: string;
+  /**
+   * The fewest digits ahead of the first group: 1 groups 1,234, 2 waits
+   * for 12,345.
+   */
+  minimumGroupingDigits: number;
+};
+
+/**
+ * Generated factory for {@link NumberWords} record objects.
+ */
+export const NumberWords = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<NumberWords, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<NumberWords>,
+  });
+})();
+
+const FfiConverterTypeNumberWords = (() => {
+  type TypeName = NumberWords;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        decimal: FfiConverterString.readFromCursor(c),
+        group: FfiConverterString.readFromCursor(c),
+        minimumGroupingDigits: FfiConverterUInt32.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.decimal, c);
+      FfiConverterString.writeIntoCursor(value.group, c);
+      FfiConverterUInt32.writeIntoCursor(value.minimumGroupingDigits, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.decimal) +
+        FfiConverterString.allocationSize(value.group) +
+        FfiConverterUInt32.allocationSize(value.minimumGroupingDigits)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+export type SummaryPrefs = {
+  enabled: boolean;
+  heroMetric: string;
+  showSparkline: boolean;
+  supportingMetrics: Array<string>;
+};
+
+/**
+ * Generated factory for {@link SummaryPrefs} record objects.
+ */
+export const SummaryPrefs = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<SummaryPrefs, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<SummaryPrefs>,
+  });
+})();
+
+const FfiConverterTypeSummaryPrefs = (() => {
+  type TypeName = SummaryPrefs;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        enabled: FfiConverterBool.readFromCursor(c),
+        heroMetric: FfiConverterString.readFromCursor(c),
+        showSparkline: FfiConverterBool.readFromCursor(c),
+        supportingMetrics: FfiConverterSequenceString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterBool.writeIntoCursor(value.enabled, c);
+      FfiConverterString.writeIntoCursor(value.heroMetric, c);
+      FfiConverterBool.writeIntoCursor(value.showSparkline, c);
+      FfiConverterSequenceString.writeIntoCursor(value.supportingMetrics, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterBool.allocationSize(value.enabled) +
+        FfiConverterString.allocationSize(value.heroMetric) +
+        FfiConverterBool.allocationSize(value.showSparkline) +
+        FfiConverterSequenceString.allocationSize(value.supportingMetrics)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Flat, resolved colour set a native widget renders from, as hex strings.
+ */
+export type WidgetPalette = {
+  background: string;
+  surface: string;
+  textPrimary: string;
+  textSecondary: string;
+  /**
+   * The action blue: values, accents, selected state.
+   */
+  primary: string;
+  /**
+   * Ink on a filled primary control, such as a picker's Save button.
+   */
+  textOnPrimary: string;
+  /**
+   * Gold: achievements and PR moments only.
+   */
+  gold: string;
+  /**
+   * Blue: CTL and data-viz series.
+   */
+  blue: string;
+  /**
+   * Purple: ATL and fatigue series.
+   */
+  fatigue: string;
+  /**
+   * Fitness (CTL) chart line, matching the feed summary card's sparkline.
+   */
+  chartFitness: string;
+  /**
+   * Fatigue (ATL) chart line, matching the feed summary card's sparkline.
+   */
+  chartFatigue: string;
+  /**
+   * Form zone fills keyed by the snapshot's `metrics.form.zone`: a band on
+   * the form chart and the key dot beside a form value, whose text stays
+   * `text_primary`.
+   */
+  formHighRisk: string;
+  formOptimal: string;
+  formGreyZone: string;
+  formFresh: string;
+  formTransition: string;
+  /**
+   * An improving trend, drawn as the arrow beside a value and never as its text.
+   */
+  trendUp: string;
+  /**
+   * A declining trend.
+   */
+  trendDown: string;
+  /**
+   * A flat trend, or one with no judgement.
+   */
+  trendFlat: string;
+  /**
+   * An age line past the point the numbers can still be called current.
+   */
+  warning: string;
+  /**
+   * An insight's tone, the mark beside its row: one field per tone.
+   */
+  toneNegative: string;
+  toneCaution: string;
+  tonePositive: string;
+  toneNeutral: string;
+  toneRecord: string;
+  toneInfo: string;
+  toneOpportunity: string;
+  border: string;
+  /**
+   * The body diagram's fill for a part with no volume, under the ramp.
+   */
+  bodyFill: string;
+  /**
+   * The body diagram's volume shades, lightest first: shade n is index n - 1.
+   */
+  strengthRamp: Array<string>;
+};
+
+/**
+ * Generated factory for {@link WidgetPalette} record objects.
+ */
+export const WidgetPalette = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<WidgetPalette, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<WidgetPalette>,
+  });
+})();
+
+const FfiConverterTypeWidgetPalette = (() => {
+  type TypeName = WidgetPalette;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        background: FfiConverterString.readFromCursor(c),
+        surface: FfiConverterString.readFromCursor(c),
+        textPrimary: FfiConverterString.readFromCursor(c),
+        textSecondary: FfiConverterString.readFromCursor(c),
+        primary: FfiConverterString.readFromCursor(c),
+        textOnPrimary: FfiConverterString.readFromCursor(c),
+        gold: FfiConverterString.readFromCursor(c),
+        blue: FfiConverterString.readFromCursor(c),
+        fatigue: FfiConverterString.readFromCursor(c),
+        chartFitness: FfiConverterString.readFromCursor(c),
+        chartFatigue: FfiConverterString.readFromCursor(c),
+        formHighRisk: FfiConverterString.readFromCursor(c),
+        formOptimal: FfiConverterString.readFromCursor(c),
+        formGreyZone: FfiConverterString.readFromCursor(c),
+        formFresh: FfiConverterString.readFromCursor(c),
+        formTransition: FfiConverterString.readFromCursor(c),
+        trendUp: FfiConverterString.readFromCursor(c),
+        trendDown: FfiConverterString.readFromCursor(c),
+        trendFlat: FfiConverterString.readFromCursor(c),
+        warning: FfiConverterString.readFromCursor(c),
+        toneNegative: FfiConverterString.readFromCursor(c),
+        toneCaution: FfiConverterString.readFromCursor(c),
+        tonePositive: FfiConverterString.readFromCursor(c),
+        toneNeutral: FfiConverterString.readFromCursor(c),
+        toneRecord: FfiConverterString.readFromCursor(c),
+        toneInfo: FfiConverterString.readFromCursor(c),
+        toneOpportunity: FfiConverterString.readFromCursor(c),
+        border: FfiConverterString.readFromCursor(c),
+        bodyFill: FfiConverterString.readFromCursor(c),
+        strengthRamp: FfiConverterSequenceString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.background, c);
+      FfiConverterString.writeIntoCursor(value.surface, c);
+      FfiConverterString.writeIntoCursor(value.textPrimary, c);
+      FfiConverterString.writeIntoCursor(value.textSecondary, c);
+      FfiConverterString.writeIntoCursor(value.primary, c);
+      FfiConverterString.writeIntoCursor(value.textOnPrimary, c);
+      FfiConverterString.writeIntoCursor(value.gold, c);
+      FfiConverterString.writeIntoCursor(value.blue, c);
+      FfiConverterString.writeIntoCursor(value.fatigue, c);
+      FfiConverterString.writeIntoCursor(value.chartFitness, c);
+      FfiConverterString.writeIntoCursor(value.chartFatigue, c);
+      FfiConverterString.writeIntoCursor(value.formHighRisk, c);
+      FfiConverterString.writeIntoCursor(value.formOptimal, c);
+      FfiConverterString.writeIntoCursor(value.formGreyZone, c);
+      FfiConverterString.writeIntoCursor(value.formFresh, c);
+      FfiConverterString.writeIntoCursor(value.formTransition, c);
+      FfiConverterString.writeIntoCursor(value.trendUp, c);
+      FfiConverterString.writeIntoCursor(value.trendDown, c);
+      FfiConverterString.writeIntoCursor(value.trendFlat, c);
+      FfiConverterString.writeIntoCursor(value.warning, c);
+      FfiConverterString.writeIntoCursor(value.toneNegative, c);
+      FfiConverterString.writeIntoCursor(value.toneCaution, c);
+      FfiConverterString.writeIntoCursor(value.tonePositive, c);
+      FfiConverterString.writeIntoCursor(value.toneNeutral, c);
+      FfiConverterString.writeIntoCursor(value.toneRecord, c);
+      FfiConverterString.writeIntoCursor(value.toneInfo, c);
+      FfiConverterString.writeIntoCursor(value.toneOpportunity, c);
+      FfiConverterString.writeIntoCursor(value.border, c);
+      FfiConverterString.writeIntoCursor(value.bodyFill, c);
+      FfiConverterSequenceString.writeIntoCursor(value.strengthRamp, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.background) +
+        FfiConverterString.allocationSize(value.surface) +
+        FfiConverterString.allocationSize(value.textPrimary) +
+        FfiConverterString.allocationSize(value.textSecondary) +
+        FfiConverterString.allocationSize(value.primary) +
+        FfiConverterString.allocationSize(value.textOnPrimary) +
+        FfiConverterString.allocationSize(value.gold) +
+        FfiConverterString.allocationSize(value.blue) +
+        FfiConverterString.allocationSize(value.fatigue) +
+        FfiConverterString.allocationSize(value.chartFitness) +
+        FfiConverterString.allocationSize(value.chartFatigue) +
+        FfiConverterString.allocationSize(value.formHighRisk) +
+        FfiConverterString.allocationSize(value.formOptimal) +
+        FfiConverterString.allocationSize(value.formGreyZone) +
+        FfiConverterString.allocationSize(value.formFresh) +
+        FfiConverterString.allocationSize(value.formTransition) +
+        FfiConverterString.allocationSize(value.trendUp) +
+        FfiConverterString.allocationSize(value.trendDown) +
+        FfiConverterString.allocationSize(value.trendFlat) +
+        FfiConverterString.allocationSize(value.warning) +
+        FfiConverterString.allocationSize(value.toneNegative) +
+        FfiConverterString.allocationSize(value.toneCaution) +
+        FfiConverterString.allocationSize(value.tonePositive) +
+        FfiConverterString.allocationSize(value.toneNeutral) +
+        FfiConverterString.allocationSize(value.toneRecord) +
+        FfiConverterString.allocationSize(value.toneInfo) +
+        FfiConverterString.allocationSize(value.toneOpportunity) +
+        FfiConverterString.allocationSize(value.border) +
+        FfiConverterString.allocationSize(value.bodyFill) +
+        FfiConverterSequenceString.allocationSize(value.strengthRamp)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * The light and dark palettes the widgets draw in. A scheme left out is left
+ * out of the snapshot too, and the native draws its generated theme for it.
+ */
+export type WidgetTheme = {
+  light?: WidgetPalette;
+  dark?: WidgetPalette;
+};
+
+/**
+ * Generated factory for {@link WidgetTheme} record objects.
+ */
+export const WidgetTheme = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<WidgetTheme, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<WidgetTheme>,
+  });
+})();
+
+const FfiConverterTypeWidgetTheme = (() => {
+  type TypeName = WidgetTheme;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        light: FfiConverterOptionalTypeWidgetPalette.readFromCursor(c),
+        dark: FfiConverterOptionalTypeWidgetPalette.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterOptionalTypeWidgetPalette.writeIntoCursor(value.light, c);
+      FfiConverterOptionalTypeWidgetPalette.writeIntoCursor(value.dark, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterOptionalTypeWidgetPalette.allocationSize(value.light) +
+        FfiConverterOptionalTypeWidgetPalette.allocationSize(value.dark)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * One recent sport: the id, the name a surface shows, the deep link that starts
+ * it, and the glyph a launcher draws for it. The app composes the link, so no
+ * native holds a second copy of the rule.
+ */
+export type RecordShortcut = {
+  type: string;
+  label: string;
+  url: string;
+  /**
+   * The sport's category key, `ride` to `other`, the same grouping the app's
+   * sport chips draw. Each launcher maps the key to its own glyph, so no
+   * native holds a sport-to-category map. Empty in a row stored before it.
+   */
+  glyph: string;
+};
+
+/**
+ * Generated factory for {@link RecordShortcut} record objects.
+ */
+export const RecordShortcut = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<RecordShortcut, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<RecordShortcut>,
+  });
+})();
+
+const FfiConverterTypeRecordShortcut = (() => {
+  type TypeName = RecordShortcut;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        type: FfiConverterString.readFromCursor(c),
+        label: FfiConverterString.readFromCursor(c),
+        url: FfiConverterString.readFromCursor(c),
+        glyph: FfiConverterString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.type, c);
+      FfiConverterString.writeIntoCursor(value.label, c);
+      FfiConverterString.writeIntoCursor(value.url, c);
+      FfiConverterString.writeIntoCursor(value.glyph, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.type) +
+        FfiConverterString.allocationSize(value.label) +
+        FfiConverterString.allocationSize(value.url) +
+        FfiConverterString.allocationSize(value.glyph)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * One insight row of the widget: its copy, its icon and tone, and the link it opens.
+ */
+export type WidgetInsight = {
+  id: string;
+  category: string;
+  title: string;
+  subtitle: string;
+  icon: string;
+  tone: string;
+  url: string;
+};
+
+/**
+ * Generated factory for {@link WidgetInsight} record objects.
+ */
+export const WidgetInsight = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<WidgetInsight, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<WidgetInsight>,
+  });
+})();
+
+const FfiConverterTypeWidgetInsight = (() => {
+  type TypeName = WidgetInsight;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        id: FfiConverterString.readFromCursor(c),
+        category: FfiConverterString.readFromCursor(c),
+        title: FfiConverterString.readFromCursor(c),
+        subtitle: FfiConverterString.readFromCursor(c),
+        icon: FfiConverterString.readFromCursor(c),
+        tone: FfiConverterString.readFromCursor(c),
+        url: FfiConverterString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.id, c);
+      FfiConverterString.writeIntoCursor(value.category, c);
+      FfiConverterString.writeIntoCursor(value.title, c);
+      FfiConverterString.writeIntoCursor(value.subtitle, c);
+      FfiConverterString.writeIntoCursor(value.icon, c);
+      FfiConverterString.writeIntoCursor(value.tone, c);
+      FfiConverterString.writeIntoCursor(value.url, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.id) +
+        FfiConverterString.allocationSize(value.category) +
+        FfiConverterString.allocationSize(value.title) +
+        FfiConverterString.allocationSize(value.subtitle) +
+        FfiConverterString.allocationSize(value.icon) +
+        FfiConverterString.allocationSize(value.tone) +
+        FfiConverterString.allocationSize(value.url)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Everything the snapshot needs that the engine does not hold, resolved by the
+ * app for the locale and settings it is running with. The serde shape is the
+ * stored row's, and every part defaults so an older row still reads.
+ */
+export type FfiWidgetContext = {
+  locale: string;
+  isMetric: boolean;
+  /**
+   * Whether the athlete reads form as a share of fitness (`icu_form_as_percent`).
+   */
+  formAsPercent: boolean;
+  /**
+   * Translations by i18next key. A key not here prints as itself.
+   */
+  strings: Map<string, string>;
+  dates: DateWords;
+  numbers: NumberWords;
+  /**
+   * The in-app summary card settings; absent hides the widget summary block.
+   */
+  summaryCard?: SummaryPrefs;
+  /**
+   * The resolved light and dark palettes, carried through untouched.
+   */
+  theme: WidgetTheme;
+  /**
+   * Sport tint by sport type, with `Other` as the fallback.
+   */
+  activityTints: Map<string, string>;
+  /**
+   * Every recent sport, most recent first, already labelled and linked.
+   */
+  recordShortcuts: Array<RecordShortcut>;
+  /**
+   * The head of `record_shortcuts`, capped at what a launcher shows.
+   */
+  launcherShortcuts: Array<RecordShortcut>;
+  /**
+   * The top-ranked insights the athlete's picked kinds allow, in the order
+   * the Insights tab ranks them, already worded and linked.
+   */
+  insights: Array<WidgetInsight>;
+  /**
+   * The library behind the snapshot is the sample one, so every widget wears
+   * the demo label: demo mode, and the sample shown while signed out.
+   */
+  demo: boolean;
+  /**
+   * The app composed the file from a sample library it supplied, and the
+   * rows the engine holds are not what the widgets show. A native refresh
+   * reads this context as none, so it leaves that file standing rather than
+   * redrawing the stored rows over it.
+   */
+  sample: boolean;
+};
+
+/**
+ * Generated factory for {@link FfiWidgetContext} record objects.
+ */
+export const FfiWidgetContext = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiWidgetContext, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiWidgetContext>,
+  });
+})();
+
+const FfiConverterTypeFfiWidgetContext = (() => {
+  type TypeName = FfiWidgetContext;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        locale: FfiConverterString.readFromCursor(c),
+        isMetric: FfiConverterBool.readFromCursor(c),
+        formAsPercent: FfiConverterBool.readFromCursor(c),
+        strings: FfiConverterMapStringString.readFromCursor(c),
+        dates: FfiConverterTypeDateWords.readFromCursor(c),
+        numbers: FfiConverterTypeNumberWords.readFromCursor(c),
+        summaryCard: FfiConverterOptionalTypeSummaryPrefs.readFromCursor(c),
+        theme: FfiConverterTypeWidgetTheme.readFromCursor(c),
+        activityTints: FfiConverterMapStringString.readFromCursor(c),
+        recordShortcuts:
+          FfiConverterSequenceTypeRecordShortcut.readFromCursor(c),
+        launcherShortcuts:
+          FfiConverterSequenceTypeRecordShortcut.readFromCursor(c),
+        insights: FfiConverterSequenceTypeWidgetInsight.readFromCursor(c),
+        demo: FfiConverterBool.readFromCursor(c),
+        sample: FfiConverterBool.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.locale, c);
+      FfiConverterBool.writeIntoCursor(value.isMetric, c);
+      FfiConverterBool.writeIntoCursor(value.formAsPercent, c);
+      FfiConverterMapStringString.writeIntoCursor(value.strings, c);
+      FfiConverterTypeDateWords.writeIntoCursor(value.dates, c);
+      FfiConverterTypeNumberWords.writeIntoCursor(value.numbers, c);
+      FfiConverterOptionalTypeSummaryPrefs.writeIntoCursor(
+        value.summaryCard,
+        c,
+      );
+      FfiConverterTypeWidgetTheme.writeIntoCursor(value.theme, c);
+      FfiConverterMapStringString.writeIntoCursor(value.activityTints, c);
+      FfiConverterSequenceTypeRecordShortcut.writeIntoCursor(
+        value.recordShortcuts,
+        c,
+      );
+      FfiConverterSequenceTypeRecordShortcut.writeIntoCursor(
+        value.launcherShortcuts,
+        c,
+      );
+      FfiConverterSequenceTypeWidgetInsight.writeIntoCursor(value.insights, c);
+      FfiConverterBool.writeIntoCursor(value.demo, c);
+      FfiConverterBool.writeIntoCursor(value.sample, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.locale) +
+        FfiConverterBool.allocationSize(value.isMetric) +
+        FfiConverterBool.allocationSize(value.formAsPercent) +
+        FfiConverterMapStringString.allocationSize(value.strings) +
+        FfiConverterTypeDateWords.allocationSize(value.dates) +
+        FfiConverterTypeNumberWords.allocationSize(value.numbers) +
+        FfiConverterOptionalTypeSummaryPrefs.allocationSize(value.summaryCard) +
+        FfiConverterTypeWidgetTheme.allocationSize(value.theme) +
+        FfiConverterMapStringString.allocationSize(value.activityTints) +
+        FfiConverterSequenceTypeRecordShortcut.allocationSize(
+          value.recordShortcuts,
+        ) +
+        FfiConverterSequenceTypeRecordShortcut.allocationSize(
+          value.launcherShortcuts,
+        ) +
+        FfiConverterSequenceTypeWidgetInsight.allocationSize(value.insights) +
+        FfiConverterBool.allocationSize(value.demo) +
+        FfiConverterBool.allocationSize(value.sample)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Enriched workout section for the home-screen "Sections for you" list.
  * Composes ranking + performance lookups server-side so the TS hook is a
  * thin pass-through instead of a per-section FFI loop.
@@ -28366,7 +29274,7 @@ export interface FitnessManagerLike {
    * whatever the engine holds.
    */
   composeWidgetSnapshot(
-    contextJson: string,
+    ctx: FfiWidgetContext,
     nowSeconds: number,
     nowWallSeconds: number,
     sample: FfiSampleLibrary | undefined,
@@ -28525,13 +29433,13 @@ export interface FitnessManagerLike {
   /**
    * Store the widget context, so a push handler with no JavaScript can
    * compose the snapshot the app would. Answers whether anything was
-   * written. A context that does not parse is refused rather than stored.
+   * written.
    *
    * The app hands it over on every refresh, so the comparison is read off
    * the pool first and the engine lock is taken only for a context that
    * changed, which is a locale, a unit or a setting and not a sync.
    */
-  setWidgetContext(contextJson: string) /*throws*/ : boolean;
+  setWidgetContext(ctx: FfiWidgetContext) /*throws*/ : boolean;
   /**
    * Sync a batch of wellness rows from the intervals.icu API into SQLite.
    * Idempotent on `date`; call whenever the TS wellness query refreshes.
@@ -28580,7 +29488,7 @@ export class FitnessManager
    * whatever the engine holds.
    */
   composeWidgetSnapshot(
-    contextJson: string,
+    ctx: FfiWidgetContext,
     nowSeconds: number,
     nowWallSeconds: number,
     sample: FfiSampleLibrary | undefined,
@@ -28592,8 +29500,8 @@ export class FitnessManager
       /*caller:*/ (callStatus) => {
         return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_compose_widget_snapshot(
           uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
-          FfiConverterString.lower(
-            contextJson,
+          FfiConverterTypeFfiWidgetContext.lower(
+            ctx,
             nativeModule().rustbuffer_alloc,
           ),
           FfiConverterFloat64.lower(
@@ -29160,13 +30068,13 @@ export class FitnessManager
   /**
    * Store the widget context, so a push handler with no JavaScript can
    * compose the snapshot the app would. Answers whether anything was
-   * written. A context that does not parse is refused rather than stored.
+   * written.
    *
    * The app hands it over on every refresh, so the comparison is read off
    * the pool first and the engine lock is taken only for a context that
    * changed, which is a locale, a unit or a setting and not a sync.
    */
-  setWidgetContext(contextJson: string): boolean /*throws*/ {
+  setWidgetContext(ctx: FfiWidgetContext): boolean /*throws*/ {
     return FfiConverterBool.lift(
       uniffiCaller.rustCallWithError(
         /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
@@ -29175,8 +30083,8 @@ export class FitnessManager
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_set_widget_context(
             uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
-            FfiConverterString.lower(
-              contextJson,
+            FfiConverterTypeFfiWidgetContext.lower(
+              ctx,
               nativeModule().rustbuffer_alloc,
             ),
             callStatus,
@@ -33268,7 +34176,11 @@ export interface SettingsManagerLike {
    * names. Off until they turn it on.
    */
   geocodingEnabled() /*throws*/ : boolean;
-  getAthleteProfile() /*throws*/ : string | undefined;
+  /**
+   * The stored athlete profile, typed, or none when none is stored or its
+   * body is not JSON.
+   */
+  getAthleteProfile() /*throws*/ : AthleteProfile | undefined;
   /**
    * Get a single user preference by key.
    */
@@ -33584,7 +34496,11 @@ export class SettingsManager
     );
   }
 
-  getAthleteProfile(): string | undefined /*throws*/ {
+  /**
+   * The stored athlete profile, typed, or none when none is stored or its
+   * body is not JSON.
+   */
+  getAthleteProfile(): AthleteProfile | undefined /*throws*/ {
     const __rb: Uint8Array = uniffiCaller.rustCallWithError(
       /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
         FfiConverterTypeVeloqError,
@@ -33598,7 +34514,7 @@ export class SettingsManager
       /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
     );
     try {
-      return FfiConverterOptionalString.lift(__rb);
+      return FfiConverterOptionalTypeAthleteProfile.lift(__rb);
     } finally {
       nativeModule().rustbuffer_free(__rb);
     }
@@ -36606,11 +37522,19 @@ const FfiConverterOptionalFloat64 = new FfiConverterOptional(
   FfiConverterFloat64,
 );
 
-// FfiConverter for Array<string>
-const FfiConverterSequenceString = new FfiConverterArray(FfiConverterString);
-
 // FfiConverter for string | undefined
 const FfiConverterOptionalString = new FfiConverterOptional(FfiConverterString);
+
+// FfiConverter for boolean | undefined
+const FfiConverterOptionalBoolean = new FfiConverterOptional(FfiConverterBool);
+
+// FfiConverter for Array<DatePart>
+const FfiConverterSequenceTypeDatePart = new FfiConverterArray(
+  FfiConverterTypeDatePart,
+);
+
+// FfiConverter for Array<string>
+const FfiConverterSequenceString = new FfiConverterArray(FfiConverterString);
 
 // FfiConverter for Array<string | undefined>
 const FfiConverterSequenceOptionalString = new FfiConverterArray(
@@ -37233,9 +38157,6 @@ const FfiConverterSequenceTypeFfiSectionEraRecord = new FfiConverterArray(
   FfiConverterTypeFfiSectionEraRecord,
 );
 
-// FfiConverter for boolean | undefined
-const FfiConverterOptionalBoolean = new FfiConverterOptional(FfiConverterBool);
-
 // FfiConverter for FfiSectionLink | undefined
 const FfiConverterOptionalTypeFfiSectionLink = new FfiConverterOptional(
   FfiConverterTypeFfiSectionLink,
@@ -37365,6 +38286,32 @@ const FfiConverterSequenceTypeFfiWellnessDay = new FfiConverterArray(
   FfiConverterTypeFfiWellnessDay,
 );
 
+// FfiConverter for Map<string, string>
+const FfiConverterMapStringString = new FfiConverterMap(
+  FfiConverterString,
+  FfiConverterString,
+);
+
+// FfiConverter for SummaryPrefs | undefined
+const FfiConverterOptionalTypeSummaryPrefs = new FfiConverterOptional(
+  FfiConverterTypeSummaryPrefs,
+);
+
+// FfiConverter for WidgetPalette | undefined
+const FfiConverterOptionalTypeWidgetPalette = new FfiConverterOptional(
+  FfiConverterTypeWidgetPalette,
+);
+
+// FfiConverter for Array<RecordShortcut>
+const FfiConverterSequenceTypeRecordShortcut = new FfiConverterArray(
+  FfiConverterTypeRecordShortcut,
+);
+
+// FfiConverter for Array<WidgetInsight>
+const FfiConverterSequenceTypeWidgetInsight = new FfiConverterArray(
+  FfiConverterTypeWidgetInsight,
+);
+
 // FfiConverter for Array<FfiRouteGroupPreview>
 const FfiConverterSequenceTypeFfiRouteGroupPreview = new FfiConverterArray(
   FfiConverterTypeFfiRouteGroupPreview,
@@ -37464,12 +38411,6 @@ const FfiConverterSequenceTypeLiveRouteOverlap = new FfiConverterArray(
   FfiConverterTypeLiveRouteOverlap,
 );
 
-// FfiConverter for Map<string, string>
-const FfiConverterMapStringString = new FfiConverterMap(
-  FfiConverterString,
-  FfiConverterString,
-);
-
 // FfiConverter for Array<FfiNamedCorridor>
 const FfiConverterSequenceTypeFfiNamedCorridor = new FfiConverterArray(
   FfiConverterTypeFfiNamedCorridor,
@@ -37517,6 +38458,11 @@ const FfiConverterSequenceTypeFfiGpsPoint = new FfiConverterArray(
 // FfiConverter for GpxFile | undefined
 const FfiConverterOptionalTypeGpxFile = new FfiConverterOptional(
   FfiConverterTypeGpxFile,
+);
+
+// FfiConverter for AthleteProfile | undefined
+const FfiConverterOptionalTypeAthleteProfile = new FfiConverterOptional(
+  FfiConverterTypeAthleteProfile,
 );
 
 // FfiConverter for Array<SettingPair>
@@ -38338,7 +39284,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_compose_widget_snapshot() !==
-    44892
+    49668
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_fitnessmanager_compose_widget_snapshot",
@@ -38482,7 +39428,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_set_widget_context() !==
-    14941
+    15773
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_fitnessmanager_set_widget_context",
@@ -39330,7 +40276,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_athlete_profile() !==
-    18956
+    33093
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_settingsmanager_get_athlete_profile",
@@ -39985,10 +40931,14 @@ export default Object.freeze({
   converters: {
     FfiConverterTypeActivityManager,
     FfiConverterTypeActivitySportMapping,
+    FfiConverterTypeAthleteProfile,
     FfiConverterTypeBasemapManager,
     FfiConverterTypeBulkExportFormat,
     FfiConverterTypeCacheSizePoll,
     FfiConverterTypeCutoverProgress,
+    FfiConverterTypeDatePart,
+    FfiConverterTypeDatePattern,
+    FfiConverterTypeDateWords,
     FfiConverterTypeDerivedClear,
     FfiConverterTypeDerivedClearCounts,
     FfiConverterTypeDetectionManager,
@@ -40247,6 +41197,7 @@ export default Object.freeze({
     FfiConverterTypeFfiWellnessRow,
     FfiConverterTypeFfiWellnessSparklines,
     FfiConverterTypeFfiWellnessSummary,
+    FfiConverterTypeFfiWidgetContext,
     FfiConverterTypeFfiWorkoutSection,
     FfiConverterTypeFfiYearCount,
     FfiConverterTypeFfiZoneDistribution,
@@ -40259,8 +41210,10 @@ export default Object.freeze({
     FfiConverterTypeMapActivityComplete,
     FfiConverterTypeMapDistanceBand,
     FfiConverterTypeMapManager,
+    FfiConverterTypeNumberWords,
     FfiConverterTypePersistentEngineStats,
     FfiConverterTypeRangeCoverage,
+    FfiConverterTypeRecordShortcut,
     FfiConverterTypeRecordingManager,
     FfiConverterTypeRouteGroupingPreview,
     FfiConverterTypeRouteManager,
@@ -40273,11 +41226,15 @@ export default Object.freeze({
     FfiConverterTypeStreamBackfillProgress,
     FfiConverterTypeStrengthManager,
     FfiConverterTypeSuggestedHome,
+    FfiConverterTypeSummaryPrefs,
     FfiConverterTypeSyncManager,
     FfiConverterTypeSyncState,
     FfiConverterTypeUploadRefusal,
     FfiConverterTypeUploadTransition,
     FfiConverterTypeVeloqEngine,
     FfiConverterTypeVeloqError,
+    FfiConverterTypeWidgetInsight,
+    FfiConverterTypeWidgetPalette,
+    FfiConverterTypeWidgetTheme,
   },
 });

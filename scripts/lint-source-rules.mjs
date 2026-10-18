@@ -483,7 +483,7 @@ const GROUND_TEXT_BASELINE = [];
  * ramps and thumbs, so a member is held to being told apart from its
  * neighbours and not to any text bar.
  */
-const FILL_SERIES = ['sectionPalette', 'routePalette', 'rpeRamp', 'sequentialRamp'];
+const FILL_SERIES = ['sectionPalette', 'routePalette', 'sequentialRamp'];
 
 /**
  * Tokens whose light value is read through the static `colors` object and whose

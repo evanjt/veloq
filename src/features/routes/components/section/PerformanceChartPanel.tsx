@@ -20,7 +20,9 @@ import {
   deltasAgainst,
   pickEmphasisedLap,
   referenceChoices,
+  referenceSplitSecs,
   resolveReference,
+  splitPercents,
   type SectionDeltaLine,
 } from '@/features/routes/lib/deltaLayout';
 import { referenceNameKey } from '@/features/routes/lib/deltaReference';
@@ -83,12 +85,18 @@ export interface PerformanceChartPanelProps extends Omit<
    * section map can colour its line by it.
    */
   onDeltaLineChange?: ((line: SectionDeltaLine | null) => void) | undefined;
+  /**
+   * Called with the direction on show while both directions are drawn, and
+   * with null otherwise, so the section map reads the panel's one direction.
+   */
+  onShownDirectionChange?: ((direction: ChartDirection | null) => void) | undefined;
 }
 
 export function PerformanceChartPanel({
   histograms = NO_HISTOGRAMS,
   curves,
   onDeltaLineChange,
+  onShownDirectionChange,
   onActivitySelect,
   onExcludeActivity,
   onIncludeActivity,
@@ -189,27 +197,36 @@ export function PerformanceChartPanel({
     () => (deltas && reference !== undefined ? deltasAgainst(deltas, reference) : undefined),
     [deltas, reference]
   );
-  const deltaSplits =
-    shownPlot !== 'delta' || !measured
-      ? undefined
-      : typical
-        ? typical.medianSecs
-        : pickEmphasisedLap(measured.laps, emphasisedId)?.splitDeltaSecs;
+  const emphasisedLap =
+    shownPlot === 'delta' && measured && !typical
+      ? pickEmphasisedLap(measured.laps, emphasisedId)
+      : undefined;
+  const typicalLine = shownPlot === 'delta' && measured ? typical : undefined;
+  const deltaPercents = useMemo(() => {
+    // The typical lap is measured against the stored reference.
+    if (typicalLine && deltas) {
+      return splitPercents(typicalLine.medianSecs, referenceSplitSecs(deltas.laps));
+    }
+    if (emphasisedLap) {
+      return splitPercents(emphasisedLap.splitDeltaSecs, referenceSplitSecs([emphasisedLap]));
+    }
+    return undefined;
+  }, [typicalLine, deltas, emphasisedLap]);
   const deltaSplitStepM = curves?.splitStepM;
   const deltaSectionLengthM = curves?.sectionLengthM;
   useEffect(() => {
     if (!onDeltaLineChange) return;
     onDeltaLineChange(
-      deltaSplits && deltaSplitStepM !== undefined && deltaSectionLengthM !== undefined
+      deltaPercents && deltaSplitStepM !== undefined && deltaSectionLengthM !== undefined
         ? {
-            splits: deltaSplits,
+            percents: deltaPercents,
             splitStepM: deltaSplitStepM,
             sectionLengthM: deltaSectionLengthM,
             direction,
           }
         : null
     );
-  }, [onDeltaLineChange, deltaSplits, deltaSplitStepM, deltaSectionLengthM, direction]);
+  }, [onDeltaLineChange, deltaPercents, deltaSplitStepM, deltaSectionLengthM, direction]);
   // The map keeps no line of its own once the chart is gone.
   useEffect(() => () => onDeltaLineChange?.(null), [onDeltaLineChange]);
 
@@ -232,6 +249,11 @@ export function PerformanceChartPanel({
   const showsCompare =
     shownPlot === 'delta' && compareChoices.length > 1 && reference !== undefined;
   const showsDirection = hasForward && hasReverse;
+  const mapDirection = showsDirection ? direction : null;
+  useEffect(() => {
+    onShownDirectionChange?.(mapDirection);
+  }, [onShownDirectionChange, mapDirection]);
+  useEffect(() => () => onShownDirectionChange?.(null), [onShownDirectionChange]);
 
   return (
     <View testID="performance-chart-panel">

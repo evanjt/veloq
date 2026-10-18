@@ -34,18 +34,18 @@ jest.mock('@/shared/native/engine', () => ({
 describe('getCachedAthleteId', () => {
   beforeEach(async () => {
     mockEngineReady = true;
-    mockEngine.getAthleteProfile.mockReset().mockReturnValue('');
+    mockEngine.getAthleteProfile.mockReset().mockReturnValue(null);
     mockEngine.getSetting.mockReset().mockReturnValue(undefined);
     await AsyncStorage.clear();
   });
 
   it('reads the profile blob when the engine is up', async () => {
-    mockEngine.getAthleteProfile.mockReturnValue(JSON.stringify({ id: 42 }));
+    mockEngine.getAthleteProfile.mockReturnValue({ id: '42' });
     await expect(getCachedAthleteId()).resolves.toBe('42');
   });
 
   it('mirrors the engine identity so a later cold start can read it', async () => {
-    mockEngine.getAthleteProfile.mockReturnValue(JSON.stringify({ id: 42 }));
+    mockEngine.getAthleteProfile.mockReturnValue({ id: '42' });
     await getCachedAthleteId();
     await expect(readCachedAthleteIdMirror()).resolves.toBe('42');
   });

@@ -29,7 +29,7 @@ const mockEngine = {
   setSetting: jest.fn(),
   getSetting: jest.fn(),
   deleteSetting: jest.fn(),
-  getAthleteProfile: jest.fn().mockReturnValue(''),
+  getAthleteProfile: jest.fn().mockReturnValue(null),
 };
 
 const mockClearCredentials = jest.fn();

@@ -68,7 +68,7 @@ fn test_get_athlete_profile_writer_held() {
         .set_athlete_profile("{\"id\":\"i1\"}".into())
         .unwrap();
     let profile = read_while_writer_holds(|| settings.get_athlete_profile().unwrap());
-    assert_eq!(profile.as_deref(), Some("{\"id\":\"i1\"}"));
+    assert_eq!(profile.and_then(|p| p.id).as_deref(), Some("i1"));
 }
 
 #[test]

@@ -52,6 +52,7 @@ import {
   SectionContentArea,
   sectionStreamsState,
   type SectionDeltaLine,
+  type ChartDirection,
   SectionDebugPanel,
   SectionDetailLinks,
   sectionDetailStyles as styles,
@@ -116,6 +117,7 @@ function SectionDetailScreenContent() {
   // Everything the screen can paint before its time streams land, in one call.
   const [sectionRefreshTick, setSectionRefreshTick] = useState(0);
   const [deltaLine, setDeltaLine] = useState<SectionDeltaLine | null>(null);
+  const [shownDirection, setShownDirection] = useState<ChartDirection | null>(null);
   const bumpSectionRefresh = useCallback(() => setSectionRefreshTick((k) => k + 1), []);
   const hasFocused = useRef(false);
   useFocusEffect(
@@ -448,6 +450,7 @@ function SectionDetailScreenContent() {
             highlight={highlight}
             pageActivityId={navActivityId}
             deltaLine={deltaLine}
+            shownDirection={shownDirection}
             allActivityTraces={allActivityTraces}
             onUnflagLift={isTrimming ? undefined : handleUnflagLift}
             onSaveName={handleSaveName}
@@ -535,6 +538,7 @@ function SectionDetailScreenContent() {
               recordProgression={performance?.recordProgression}
               curves={performance?.curves}
               onDeltaLineChange={setDeltaLine}
+              onShownDirectionChange={setShownDirection}
               forwardStats={forwardStats}
               reverseStats={reverseStats}
               bestForwardRecord={bestForwardRecord}

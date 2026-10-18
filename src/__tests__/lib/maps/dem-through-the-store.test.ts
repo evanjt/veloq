@@ -62,7 +62,6 @@ const request: SnapshotRequest = {
   ],
   camera: { center: [7.448, 46.949], zoom: 12, bearing: 0, pitch: 60 },
   mapStyle: 'light',
-  routeColor: '#ff0000',
 };
 
 describe('no page keeps a DEM cache of its own', () => {

@@ -27,7 +27,7 @@ use tempfile::TempDir;
 use veloqrs::persistence::settings::settings_keys::NOTIFICATION_PREFERENCES;
 use veloqrs::push::native_auth_choice;
 use veloqrs::sections::CreateSectionParams;
-use veloqrs::widget_snapshot::WidgetContext;
+use veloqrs::widget_snapshot::FfiWidgetContext;
 use veloqrs::{ActivityMetrics, Direction, GpsPoint, PersistentEngine, SectionPortion};
 
 unsafe extern "C" {
@@ -239,12 +239,12 @@ fn freeing_a_null_answer_is_a_no_op() {
 /// the connection.
 fn seed_a_section_pr(db_path: &str, preferences: &str) {
     let mut engine = PersistentEngine::new(db_path).expect("the engine");
-    let context = WidgetContext {
+    let context = FfiWidgetContext {
         locale: "fr".to_string(),
-        ..WidgetContext::default()
+        ..FfiWidgetContext::default()
     };
     engine
-        .set_widget_context(&serde_json::to_string(&context).expect("the context"))
+        .set_widget_context(&context)
         .expect("the widget context");
     engine
         .set_notification_templates("en-AU", &bundle())

@@ -17,36 +17,21 @@ import { demoLibrary } from '@/shared/app/seedDemoEngine';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { getRecentRecordingTypes, getRecordedRecordingTypes } from '@/shared/recording';
 import { getActivityCategory } from '@/shared/activity/sportCategories';
-import { widgetPalette, type WidgetPalette } from '@/shared/theme/widgetTheme';
+import { widgetPalette } from '@/shared/theme/widgetTheme';
 import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
+import type {
+  DatePart,
+  DatePattern,
+  DateWords,
+  FfiWidgetContext,
+  NumberWords,
+  RecordShortcut,
+} from 'veloqrs';
 import type { SampleWidgetLibrary } from 'veloqrs/src/delegates/fitness';
 
 import { useDashboardPreferences, type SummaryCardPreferences } from '@/features/settings/light';
 import { MUSCLE_NAME_KEYS, demoStrengthSets } from '@/features/strength/light';
-import {
-  widgetInsights,
-  type Insight,
-  type TFunc,
-  type WidgetInsight,
-} from '@/features/insights/light';
-
-/**
- * One recent sport: the id, the name a surface shows, the deep link that starts
- * it, and the glyph a launcher draws for it. The URL is composed here and nowhere
- * else, so no native holds a second copy of the rule and no surface can drift
- * from the others.
- */
-export interface WidgetRecordShortcut {
-  type: string;
-  label: string;
-  url: string;
-  /**
-   * The sport's category key, `ride` to `other`, the same grouping the app's sport
-   * chips draw. Each launcher maps the key to its own glyph, so no native holds a
-   * sport-to-category map.
-   */
-  glyph: string;
-}
+import { widgetInsights, type Insight, type TFunc } from '@/features/insights/light';
 
 /** Where a record surface goes when no sport is known: the picker, as before. */
 export const RECORD_PICKER_URL = 'veloq://record';
@@ -147,76 +132,6 @@ export const WIDGET_STRING_KEYS = [
   ...Object.values(MUSCLE_NAME_KEYS),
 ] as const;
 
-/** One piece of a date format, as `Intl.DateTimeFormat.formatToParts` names it. */
-export interface WidgetDatePart {
-  type: 'month' | 'day' | 'year' | 'literal';
-  value: string;
-}
-
-/** A date format: its parts in order, and the month names it writes, January first. */
-export interface WidgetDatePattern {
-  parts: WidgetDatePart[];
-  months: string[];
-}
-
-/** The locale's day and month names, so the engine writes a relative date with no locale data. */
-export interface WidgetDateWords {
-  /** Long weekday names, Sunday first. */
-  weekdays: string[];
-  monthDay: WidgetDatePattern;
-  monthDayYear: WidgetDatePattern;
-  /** Long month names as a label writes one alone, January first. */
-  months: string[];
-}
-
-/** The locale's decimal and group separators, so the engine writes a number as the app does. */
-export interface WidgetNumberWords {
-  decimal: string;
-  group: string;
-  /** The fewest digits ahead of the first group: 1 groups 1,234, 2 waits for 12,345. */
-  minimumGroupingDigits: number;
-}
-
-/** What the engine composes the snapshot with beside its own rows. */
-export interface WidgetContext {
-  locale: string;
-  isMetric: boolean;
-  formAsPercent: boolean;
-  strings: Record<string, string>;
-  dates: WidgetDateWords;
-  numbers: WidgetNumberWords;
-  /** Null hides the widget summary block. */
-  summaryCard: SummaryCardPreferences | null;
-  theme: { light: WidgetPalette; dark: WidgetPalette };
-  /**
-   * The recent sports, most recent first, pre-localised. One source for every
-   * record surface: the widgets and the iOS control take the head, the Android
-   * launcher publishes the list as dynamic shortcuts and the Quick Settings tile
-   * draws the head's label. Empty until something has been recorded, which is
-   * the signal to fall back to the picker.
-   */
-  recordShortcuts: WidgetRecordShortcut[];
-  /**
-   * The head of `recordShortcuts`, capped at what a launcher will show on a long
-   * press. Carried rather than derived natively so the cap is decided once, and
-   * so a Siri phrase can offer every sport while the icon offers three.
-   */
-  launcherShortcuts: WidgetRecordShortcut[];
-  /**
-   * The Insights tab's ranked list, in its order and of every kind: each placed
-   * widget filters the kinds for itself and shows as many rows as its size
-   * allows. Empty when there is none.
-   */
-  insights: WidgetInsight[];
-  /** The library behind the snapshot is the sample one, so every widget wears the demo label. */
-  demo: boolean;
-  /**
-   * The snapshot is composed from a library the app supplies and not from the
-   * engine's rows, so a native refresh leaves the file to the app.
-   */
-  sample: boolean;
-}
-
 export interface WidgetContextInput {
   locale: string;
   isMetric: boolean;
@@ -231,9 +146,9 @@ export interface WidgetContextInput {
   /** Every distinct sport recorded, most recent first. Offered by the pickers only. */
   recordedRecordingTypes?: string[] | null | undefined;
   /** The locale's date words; read from `Intl` when absent. */
-  dates?: WidgetDateWords | undefined;
+  dates?: DateWords | undefined;
   /** The locale's number separators; read from `Intl` when absent. */
-  numbers?: WidgetNumberWords | undefined;
+  numbers?: NumberWords | undefined;
   /** The Insights tab's ranked list, best first. */
   insights?: readonly Insight[] | undefined;
   /** The snapshot is of the sample library: demo mode, or nobody signed in. */
@@ -245,14 +160,26 @@ export interface WidgetContextInput {
 /** What the bridge writes: the snapshot file, and the launcher's own copy of the shortcuts. */
 export interface WidgetSnapshotPayload {
   json: string;
-  launcherShortcuts: WidgetRecordShortcut[];
+  launcherShortcuts: RecordShortcut[];
 }
 
-/** The context for the engine's composer. Pure, so every choice in it is testable. */
-export function composeWidgetContext(input: WidgetContextInput): WidgetContext {
+/**
+ * The context for the engine's composer. Pure, so every choice in it is testable.
+ *
+ * The recent sports, most recent first, are one source for every record surface:
+ * the widgets and the iOS control take the head, the Android launcher publishes
+ * the list as dynamic shortcuts and the Quick Settings tile draws the head's
+ * label. Empty until something has been recorded, which is the signal to fall
+ * back to the picker. `launcherShortcuts` is their head, capped at what a
+ * launcher shows on a long press, carried rather than derived natively so the
+ * cap is decided once and a Siri phrase can offer every sport while the icon
+ * offers three. `insights` is the Insights tab's ranked list of every kind, which
+ * each placed widget filters for itself.
+ */
+export function composeWidgetContext(input: WidgetContextInput): FfiWidgetContext {
   const t = input.translate ?? ((k: string) => k);
-  const strings: Record<string, string> = {};
-  for (const key of WIDGET_STRING_KEYS) strings[key] = t(key);
+  const strings = new Map<string, string>();
+  for (const key of WIDGET_STRING_KEYS) strings.set(key, t(key));
   const launcher = composeRecordShortcuts(input.recentRecordingTypes, t);
   return {
     locale: input.locale,
@@ -261,8 +188,11 @@ export function composeWidgetContext(input: WidgetContextInput): WidgetContext {
     strings,
     dates: input.dates ?? widgetDateWords(),
     numbers: input.numbers ?? widgetNumberWords(),
-    summaryCard: input.summaryPrefs ?? null,
+    // Absent hides the widget summary block.
+    ...(input.summaryPrefs ? { summaryCard: input.summaryPrefs } : {}),
     theme: { light: widgetPalette.light, dark: widgetPalette.dark },
+    // Each sport mark draws its family token natively, so no tint is handed over.
+    activityTints: new Map(),
     recordShortcuts: composeRecordShortcuts(
       [...(input.recentRecordingTypes ?? []), ...(input.recordedRecordingTypes ?? [])],
       t
@@ -286,9 +216,9 @@ export function composeWidgetContext(input: WidgetContextInput): WidgetContext {
 function composeRecordShortcuts(
   types: string[] | null | undefined,
   t: (key: string) => string
-): WidgetRecordShortcut[] {
+): RecordShortcut[] {
   const seen = new Set<string>();
-  const out: WidgetRecordShortcut[] = [];
+  const out: RecordShortcut[] = [];
   for (const raw of types ?? []) {
     const type = typeof raw === 'string' ? raw.trim() : '';
     if (type.length === 0 || seen.has(type)) continue;
@@ -315,7 +245,7 @@ const SAMPLE_YEAR = 2001;
  * The app locale's weekday and month names and its short date order, read from
  * `Intl`, so the engine writes "Friday" or "5 janv." as the app would.
  */
-export function widgetDateWords(locale: string = getIntlLocale()): WidgetDateWords {
+export function widgetDateWords(locale: string = getIntlLocale()): DateWords {
   const weekdays = Array.from({ length: 7 }, (_, i) =>
     new Date(FIRST_SUNDAY.year, FIRST_SUNDAY.month, FIRST_SUNDAY.day + i).toLocaleDateString(
       locale,
@@ -332,13 +262,13 @@ export function widgetDateWords(locale: string = getIntlLocale()): WidgetDateWor
   };
 }
 
-function datePattern(locale: string, options: Intl.DateTimeFormatOptions): WidgetDatePattern {
+function datePattern(locale: string, options: Intl.DateTimeFormatOptions): DatePattern {
   try {
     const format = new Intl.DateTimeFormat(locale, options);
     if (typeof format.formatToParts !== 'function') return { parts: [], months: [] };
     const sample = (month: number) =>
       format.formatToParts(new Date(SAMPLE_YEAR, month, SAMPLE_DAY));
-    const parts: WidgetDatePart[] = [];
+    const parts: DatePart[] = [];
     for (const part of sample(0)) {
       if (part.type === 'month' || part.type === 'day' || part.type === 'year') {
         parts.push({ type: part.type, value: '' });
@@ -364,7 +294,7 @@ function datePattern(locale: string, options: Intl.DateTimeFormatOptions): Widge
  * The app locale's decimal and group separators, read from `Intl`. Empty where
  * the runtime cannot say, and the engine then writes a point and no grouping.
  */
-export function widgetNumberWords(locale: string = getIntlLocale()): WidgetNumberWords {
+export function widgetNumberWords(locale: string = getIntlLocale()): NumberWords {
   try {
     const format = new Intl.NumberFormat(locale, { minimumFractionDigits: 1 });
     if (typeof format.formatToParts !== 'function') {
@@ -444,13 +374,12 @@ export function gatherWidgetSnapshot(opts: {
     demo: showsDemoLibrary(),
     sample: sampleOnly,
   });
-  const contextJson = JSON.stringify(context);
   const { nowSeconds, nowWallSeconds } = clock(opts.now ?? new Date());
 
   let json: string | undefined;
   try {
     json = engine.composeWidgetSnapshot(
-      contextJson,
+      context,
       nowSeconds,
       nowWallSeconds,
       sampleOnly ? sampleLibrary() : undefined
@@ -467,7 +396,7 @@ export function gatherWidgetSnapshot(opts: {
   // same words and the same settings as the file the app just wrote. A sample's
   // context is stored too, marked, so the worker leaves its file alone instead
   // of redrawing a previous athlete's stored rows over it.
-  engine.setWidgetContext(contextJson);
+  engine.setWidgetContext(context);
   return { json, launcherShortcuts: context.launcherShortcuts };
 }
 

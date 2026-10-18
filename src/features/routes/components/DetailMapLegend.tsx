@@ -1,16 +1,25 @@
 /**
  * Legend for the section and route detail maps: a row for each layer the map
  * draws over the subject's own line, the picked activity or lap, the ledger
- * version being shown and the delta colouring. The subject's line needs no row.
+ * version being shown, the steps the line is banded in and the direction its
+ * chevrons show. The subject's line needs no row.
  */
 
 import React from 'react';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
+import { StyleSheet } from 'react-native';
+import { Text } from 'react-native-paper';
 
-import { MapKey, MapKeySwatch } from '@/features/maps';
+import {
+  DIRECTION_GLYPH,
+  DivergingKeyRows,
+  MapKey,
+  MapKeySwatch,
+  type LineDirection,
+} from '@/features/maps';
 import { formatFullDate } from '@/shared/format/format';
-import { mapLayerColors, type MapPalette } from '@/theme';
+import { colors, darkColors, typography, type MapPalette } from '@/theme';
 
 /** The attempt drawn over the subject's line, which the activity row names. */
 export interface PickedAttempt {
@@ -26,8 +35,12 @@ export interface DetailMapLegendLayers {
   showActivity: boolean;
   /** A ledger version's line is drawn behind the subject's line. */
   showEarlierVersion?: boolean | undefined;
-  /** The subject's line is coloured by the shown attempt's time won or lost. */
+  /** The subject's line is banded by how far ahead or behind the shown attempt is. */
   showDelta: boolean;
+  /** The banded line has stretches the shown attempt has no data for. */
+  showDeltaGaps?: boolean | undefined;
+  /** The direction the chevrons along the subject's line show, absent when none are drawn. */
+  direction?: LineDirection | null | undefined;
 }
 
 export interface DetailMapLegendProps extends DetailMapLegendLayers {
@@ -47,9 +60,15 @@ export function hasLegendLayers({
   showActivity,
   showEarlierVersion = false,
   showDelta,
+  direction = null,
 }: DetailMapLegendLayers): boolean {
-  return showActivity || showEarlierVersion || showDelta;
+  return showActivity || showEarlierVersion || showDelta || direction !== null;
 }
+
+const DIRECTION_LABEL_KEYS = {
+  forward: 'sections.forward',
+  reverse: 'sections.reverse',
+} as const;
 
 /**
  * "This activity" means the activity the page was opened from and no other, so
@@ -71,16 +90,33 @@ export function DetailMapLegend({
   showActivity,
   showEarlierVersion = false,
   showDelta,
+  showDeltaGaps = false,
+  direction = null,
 }: DetailMapLegendProps) {
   const { t } = useTranslation();
 
   return (
     <MapKey isDark={isDark} style={{ top }} testID={testID}>
       {showDelta ? (
+        <>
+          <Text testID={`${testID}-delta`} style={[styles.caption, isDark && styles.captionDark]}>
+            {t('sections.viewAheadOrBehind')}
+          </Text>
+          <DivergingKeyRows
+            kind="pace"
+            palette={palette}
+            isDark={isDark}
+            showNoData={showDeltaGaps}
+            testID={`${testID}-delta`}
+          />
+        </>
+      ) : null}
+      {direction ? (
         <MapKeySwatch
-          testID={`${testID}-delta`}
-          swatch={[mapLayerColors.deltaWon, mapLayerColors.deltaNeutral, mapLayerColors.deltaLost]}
-          label={t('sections.legendDeltaWonLost')}
+          testID={`${testID}-direction`}
+          swatch={palette.route}
+          glyph={{ name: DIRECTION_GLYPH, color: palette.casing }}
+          label={t(DIRECTION_LABEL_KEYS[direction])}
           isDark={isDark}
         />
       ) : null}
@@ -101,3 +137,13 @@ export function DetailMapLegend({
     </MapKey>
   );
 }
+
+const styles = StyleSheet.create({
+  caption: {
+    ...typography.label,
+    color: colors.textPrimary,
+  },
+  captionDark: {
+    color: darkColors.textPrimary,
+  },
+});

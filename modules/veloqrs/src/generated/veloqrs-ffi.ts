@@ -744,7 +744,7 @@ interface NativeModuleInterface {
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_compose_widget_snapshot(
     uniffiSelf: bigint,
-    contextJson: Uint8Array,
+    ctx: Uint8Array,
     nowSeconds: number,
     nowWallSeconds: number,
     sample: Uint8Array,
@@ -852,7 +852,7 @@ interface NativeModuleInterface {
   ): void;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_set_widget_context(
     uniffiSelf: bigint,
-    contextJson: Uint8Array,
+    ctx: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_upsert_wellness(

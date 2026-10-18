@@ -56,7 +56,8 @@ import {
 } from './mapStyles';
 import { AttributionOverlay, type AttributionOverlayRef } from './AttributionOverlay';
 import { ActivityMapControls } from './ActivityMapControls';
-import { GradientMapKey } from './GradientMapKey';
+import { ActivityMapKey } from './ActivityMapKey';
+import { activityKeyRows } from './activityMapKey';
 import { activityMapControlCount, useMapControlColumn } from '../lib/mapControlColumnLayout';
 import {
   buildActivity3DCollections,
@@ -725,7 +726,27 @@ export const ActivityMapView = memo(function ActivityMapView({
   // the layer list alone.
   const hasHighlightPoint = !!highlightPoint;
   const hasSectionOverlays = !!sectionOverlaysGeoJSON;
+  const hasRecord = !!sectionOverlaysGeoJSON?.some((overlay) => overlay.isPR);
   const basePalette = mapPalette(mapStyle);
+  const keyRows = useMemo(
+    () =>
+      activityKeyRows({
+        palette: basePalette,
+        overlayHasData,
+        gradientActive,
+        hasSectionOverlays,
+        hasRecord,
+        highlightedSectionId,
+      }),
+    [
+      basePalette,
+      overlayHasData,
+      gradientActive,
+      hasSectionOverlays,
+      hasRecord,
+      highlightedSectionId,
+    ]
+  );
   const layers = useMemo(
     () =>
       buildActivityLayers({
@@ -955,8 +976,8 @@ export const ActivityMapView = memo(function ActivityMapView({
         ) : null}
       </View>
 
-      {gradientActive && !isFullscreen ? (
-        <GradientMapKey isDark={isDark} mapStyle={mapStyle} top={keyTop} />
+      {!isFullscreen ? (
+        <ActivityMapKey rows={keyRows} palette={basePalette} isDark={isDark} top={keyTop} />
       ) : null}
 
       {/* Control buttons - rendered OUTSIDE map container for reliable touch handling */}

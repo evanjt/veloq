@@ -81,10 +81,6 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
       'colours native code posts under, such as the notification light, which no screen draws on a surface',
     series: ['notificationAccent'],
   },
-  rpeRamp: {
-    kind: 'series',
-    reason: 'a six-step effort ramp, read against its neighbours and labelled with the number',
-  },
   sequentialRamp: {
     kind: 'series',
     reason:
@@ -216,10 +212,6 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
     kind: 'series',
     reason: 'one hue per activity type, every site labelling or icon-ing it as well',
   },
-  zoneColors: {
-    kind: 'series',
-    reason: "intervals.icu's own zone ladder, with the zone number beside every use",
-  },
   zoneColorsDark: {
     kind: 'mark',
     reason: 'the zone ladder as a bar, dot or skyline step on a dark ground, held to 3:1',
@@ -232,22 +224,6 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
     reason: 'the zone ladder as a bar, dot or skyline step on a light ground, held to 3:1',
     marks: [
       { paths: ['zone1', 'zone2', 'zone3', 'zone4', 'zone5', 'zone6', 'zone7'], theme: 'light' },
-    ],
-  },
-  zoneTextColors: {
-    kind: 'mark',
-    reason:
-      'the zone ladder as text on the light zone tint, held to 4.5:1 by zoneTextOnTint.test.ts',
-    marks: [
-      { paths: ['zone1', 'zone2', 'zone3', 'zone4', 'zone5', 'zone6', 'zone7'], theme: 'light' },
-    ],
-  },
-  zoneTextColorsDark: {
-    kind: 'mark',
-    reason:
-      'the zone ladder as text on the dark zone tint and every dark surface, held to 4.5:1 by zoneTextOnTint.test.ts and zoneColour.test.ts',
-    marks: [
-      { paths: ['zone1', 'zone2', 'zone3', 'zone4', 'zone5', 'zone6', 'zone7'], theme: 'dark' },
     ],
   },
   verdictFill: {

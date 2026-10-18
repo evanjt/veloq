@@ -111,6 +111,27 @@ it('keys the first-use detail streams as the detail screen reads them', () => {
   expect(key?.replace(/\\\s*/g, '')).toBe(streamTypesKey(DETAIL_STREAM_TYPES));
 });
 
+// The profile hook, the account screens, the calories estimate and the strength
+// body read the engine's athlete profile by these generated names. The test
+// doubles for the profile are records, so a field the Rust record stops
+// carrying, or carries under another name, reads as absent on every one of them.
+it('types every field the screens read in the athlete profile record', () => {
+  const block = read(GENERATED).match(/export type AthleteProfile = \{([\s\S]*?)\n\};/)?.[1];
+  expect(block).toBeDefined();
+  const fields = [...(block ?? '').matchAll(/^ {2}(\w+)\??:/gm)].map((match) => match[1]);
+  expect(fields).toEqual(
+    expect.arrayContaining([
+      'id',
+      'name',
+      'profileMedium',
+      'sex',
+      'measurementPreference',
+      'formAsPercent',
+      'weightKg',
+    ])
+  );
+});
+
 // The detail screen's stat cards read the engine's activity record by these
 // generated names. A field the Rust record stops carrying draws as a card that
 // silently never appears, which no type check on the screen can catch once a
@@ -1163,12 +1184,12 @@ const CONTRACTS: Contract[] = [
       file: 'widget/ios/VeloqWidget/WidgetSnapshotModel.swift',
       has: 'let insights: [WidgetInsight]?',
     },
-    b: { file: `${RUST}/widget_snapshot.rs`, has: 'pub insights: Vec<WidgetInsight>' },
+    b: { file: `${RUST}/widget_snapshot.rs`, has: 'pub insights: Vec<SnapshotInsight>' },
   },
   {
     agree: 'the Android Insights widget reads the insight rows the engine writes',
     a: { file: 'widget/android/java/WidgetSnapshot.kt', has: 'root.optJSONArray("insights")' },
-    b: { file: `${RUST}/widget_snapshot.rs`, has: 'pub insights: Vec<WidgetInsight>' },
+    b: { file: `${RUST}/widget_snapshot.rs`, has: 'pub insights: Vec<SnapshotInsight>' },
   },
   {
     agree:

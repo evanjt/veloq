@@ -200,7 +200,6 @@ const PAGES: PageUnderTest[] = [
             coordinates: ROUTE,
             camera: { center: [7.665, 45.975], zoom: 12, bearing: 30, pitch: flat ? 0 : 60 },
             mapStyle,
-            routeColor: '#e4572e',
             flat,
           };
           await page.evaluate(`${buildRenderSnapshotScript(request, 0, gen)}; window.__frameNow()`);

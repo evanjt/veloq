@@ -1,9 +1,9 @@
 /**
- * Scenario: the effort value on the recording review took its ramp hue, the
- * same green to red the track fills with, and green on white is 2.28:1.
+ * Scenario: the effort value on the recording review sits beside the thumb and
+ * fill, which are drawn in the effort's zone on the zone ladder.
  *
  * Expected behaviour: the value reads at 4.5:1 on every surface of its theme
- * at every effort, and the hue stays on the thumb and the fill.
+ * at every effort, and the zone colour stays on the thumb and the fill.
  */
 
 import React from 'react';
@@ -11,7 +11,7 @@ import { StyleSheet } from 'react-native';
 import { render } from '@testing-library/react-native';
 
 import { RpeSlider } from '@/features/recording/components/RpeSlider';
-import { colors, darkColors, rpeRamp } from '@/theme';
+import { colors, darkColors, zoneColour } from '@/theme';
 
 const theme = { isDark: false };
 
@@ -53,12 +53,19 @@ describe('the effort value on the review', () => {
     }
   });
 
-  it('keeps the effort hue on the thumb', async () => {
-    theme.isDark = false;
-    const { toJSON } = await render(
-      <RpeSlider value={1} onValueChange={jest.fn()} textSecondary={colors.textSecondary} />
-    );
+  it.each([
+    [1, 1, false],
+    [5, 3, false],
+    [10, 6, true],
+  ])(
+    'draws effort %i on the thumb in zone %i of its theme (dark %s)',
+    async (value, zone, isDark) => {
+      theme.isDark = isDark;
+      const { toJSON } = await render(
+        <RpeSlider value={value} onValueChange={jest.fn()} textSecondary={colors.textSecondary} />
+      );
 
-    expect(JSON.stringify(toJSON())).toContain(rpeRamp[0]);
-  });
+      expect(JSON.stringify(toJSON())).toContain(zoneColour(zone, isDark));
+    }
+  );
 });

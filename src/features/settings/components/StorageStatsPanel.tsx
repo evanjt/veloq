@@ -7,13 +7,12 @@ import type { TileCacheBudgetSheetInput } from '@/app/sheets/tile-cache-budget';
 import { formatDateOrDash, formatFileSize } from '@/shared/format/format';
 import { BYTES_PER_BUDGET_MB, type BasemapTileSizes, useTileCacheSettings } from '@/features/maps';
 import { mapCacheTotal } from '../lib/mapCacheTotal';
+import { storageSegments } from '../lib/storageSegments';
 import {
   colors,
-  colorWithOpacity,
   darkColors,
-  ink,
   layout,
-  opacity,
+  sequentialRamp,
   spacing,
   themePalette,
   stroke,
@@ -24,22 +23,6 @@ import { StreamBackfillRow } from './StreamBackfillRow';
 import { StreamHistoryRow } from './StreamHistoryRow';
 import { Button, composeAccessibilityLabel, ProgressBar, StatTile, PressTarget } from '@/shared/ui';
 import { ABSENT } from '@/shared/format/absent';
-
-/** Every segment the bar can draw. A key, never a literal: the legend and
- * the total line beside it were once English literals. */
-type SegmentKey =
-  | 'settings.storageDatabase'
-  | 'settings.storageHeatmap'
-  | 'settings.storageVector'
-  | 'settings.storageGround'
-  | 'settings.storagePreviews'
-  | 'settings.storageBackups';
-
-interface StorageBarSegment {
-  labelKey: SegmentKey;
-  bytes: number;
-  color: string;
-}
 
 /** Segment names are keys, never literals: this is the only chart on the screen
  * and its legend was the one thing on it that stayed in English. */
@@ -61,77 +44,42 @@ function StorageBreakdownBar({
   isDark: boolean;
 }) {
   const { t } = useTranslation();
-  const segments = useMemo<StorageBarSegment[]>(() => {
-    const result: StorageBarSegment[] = [];
-    if (routesSize > 0) {
-      result.push({
-        labelKey: 'settings.storageDatabase',
-        bytes: routesSize,
-        color: colors.actionLink,
-      });
-    }
-    if (heatmapCacheSize > 0) {
-      result.push({
-        labelKey: 'settings.storageHeatmap',
-        bytes: heatmapCacheSize,
-        color: colors.markOrange,
-      });
-    }
+  const segments = useMemo(() => {
     const vectorBytes = basemapTiles?.vectorBytes ?? 0;
     const groundBytes = Math.max(0, (basemapTiles?.totalBytes ?? 0) - vectorBytes);
-    if (vectorBytes > 0) {
-      result.push({
-        labelKey: 'settings.storageVector',
-        bytes: vectorBytes,
-        color: colors.markCyan,
-      });
-    }
-    if (groundBytes > 0) {
-      result.push({
-        labelKey: 'settings.storageGround',
-        bytes: groundBytes,
-        color: colors.markAmber,
-      });
-    }
-    if (terrainCacheSize > 0) {
-      result.push({
-        labelKey: 'settings.storagePreviews',
-        bytes: terrainCacheSize,
-        color: colors.markYellow,
-      });
-    }
-    if (athleteFilesSize > 0) {
-      result.push({
-        labelKey: 'settings.storageBackups',
-        bytes: athleteFilesSize,
-        color: colors.markGreen,
-      });
-    }
-    return result;
+    return storageSegments([
+      { labelKey: 'settings.storageDatabase', bytes: routesSize },
+      { labelKey: 'settings.storageHeatmap', bytes: heatmapCacheSize },
+      { labelKey: 'settings.storageVector', bytes: vectorBytes },
+      { labelKey: 'settings.storageGround', bytes: groundBytes },
+      { labelKey: 'settings.storagePreviews', bytes: terrainCacheSize },
+      { labelKey: 'settings.storageBackups', bytes: athleteFilesSize },
+    ]);
   }, [routesSize, basemapTiles, terrainCacheSize, heatmapCacheSize, athleteFilesSize]);
 
-  // The bar segment and its legend dot read the one colour, so the mark tones
-  // keep the two in step while making the segment visible on the light theme.
   const totalCacheBytes = segments.reduce((sum, s) => sum + s.bytes, 0);
 
   if (totalCacheBytes === 0) return null;
 
-  const freeColor = isDark
-    ? colorWithOpacity(ink.white, opacity.tint2)
-    : colorWithOpacity(ink.black, opacity.tint1);
-  const totalDevice = freeStorage !== null ? totalCacheBytes + freeStorage : 0;
-  const deviceUsagePct = totalDevice > 0 ? (totalCacheBytes / totalDevice) * 100 : 0;
+  // The bar segment and its key dot read the one step, so the two stay in step.
+  const ramp = sequentialRamp[isDark ? 'dark' : 'light'];
+  const stepColour = (step: number) => ramp[step - 1];
+  const palette = themePalette(isDark);
 
   return (
-    <View style={[styles.storageBarContainer, { borderTopColor: themePalette(isDark).border }]}>
+    <View style={[styles.storageBarContainer, { borderTopColor: palette.border }]}>
       <View style={styles.storageBar}>
         {segments.map((seg) => {
-          const pct = totalCacheBytes > 0 ? (seg.bytes / totalCacheBytes) * 100 : 0;
+          const pct = (seg.bytes / totalCacheBytes) * 100;
           if (pct < 0.5) return null;
           return (
             <View
               key={seg.labelKey}
-              style={[styles.storageBarSegment, { width: `${pct}%`, backgroundColor: seg.color }]}
+              testID="storage-bar-segment"
+              style={[
+                styles.storageBarSegment,
+                { width: `${pct}%`, backgroundColor: stepColour(seg.step) },
+              ]}
             />
           );
         })}
@@ -139,7 +87,10 @@ function StorageBreakdownBar({
       <View style={styles.storageLegend}>
         {segments.map((seg) => (
           <View key={seg.labelKey} style={styles.storageLegendItem}>
-            <View style={[styles.storageLegendDot, { backgroundColor: seg.color }]} />
+            <View
+              testID="storage-legend-dot"
+              style={[styles.storageLegendDot, { backgroundColor: stepColour(seg.step) }]}
+            />
             <Text
               testID="storage-legend-label"
               style={[styles.storageLegendText, isDark && styles.textSecondary]}
@@ -152,16 +103,15 @@ function StorageBreakdownBar({
       {freeStorage !== null && (
         <>
           <View style={styles.deviceUsageBar}>
-            <View
-              style={[
-                styles.deviceUsageBarFill,
-                {
-                  width: `${Math.max(deviceUsagePct, 2)}%`,
-                  backgroundColor: colors.chartBlue,
-                },
-              ]}
+            <ProgressBar
+              testID="storage-device-usage"
+              done={totalCacheBytes}
+              total={totalCacheBytes + freeStorage}
+              label={t('settings.storageUsedAndFree', {
+                used: formatFileSize(totalCacheBytes),
+                free: formatFileSize(freeStorage),
+              })}
             />
-            <View style={[styles.deviceUsageBarFree, { backgroundColor: freeColor }]} />
           </View>
           <Text
             style={[
@@ -515,8 +465,10 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderTopWidth: stroke.one,
   },
+  // The 2px gap between segments shows the card's surface through it.
   storageBar: {
     flexDirection: 'row',
+    gap: spacing.xxs,
     height: 10,
     borderRadius: layout.borderRadiusFull,
     overflow: 'hidden',
@@ -525,18 +477,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   deviceUsageBar: {
-    flexDirection: 'row',
-    height: 4,
-    borderRadius: layout.borderRadiusFull,
-    overflow: 'hidden',
     marginTop: spacing.sm,
-  },
-  deviceUsageBarFill: {
-    height: '100%',
-  },
-  deviceUsageBarFree: {
-    flex: 1,
-    height: '100%',
   },
   storageLegend: {
     flexDirection: 'row',

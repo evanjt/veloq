@@ -39,7 +39,7 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 }));
 
 const engine = {
-  getAthleteProfile: jest.fn(() => JSON.stringify({ id: 900001, name: 'Alex' })),
+  getAthleteProfile: jest.fn(() => ({ id: 'i1', name: 'Test Rider' })),
   clear: jest.fn(async () => undefined),
   subscribe: jest.fn(() => () => {}),
 };
@@ -71,7 +71,7 @@ describe('a plain sign-out', () => {
     // went with the sign-out that called it, and the only path left is the
     // wipe the destructive sign-out takes below.
     expect(engine.clear).not.toHaveBeenCalled();
-    expect(engine.getAthleteProfile()).toContain('Alex');
+    expect(engine.getAthleteProfile().name).toBe('Test Rider');
   });
 
   it('still drops the query cache, which is the previous session and not the athlete', async () => {
@@ -97,7 +97,7 @@ describe('who the app draws while signed out', () => {
   it('reads the profile while there is a credential', async () => {
     const { result } = await renderHook(() => useAthlete(), { wrapper });
 
-    await waitFor(() => expect(result.current.data?.name).toBe('Alex'));
+    await waitFor(() => expect(result.current.data?.name).toBe('Test Rider'));
     expect(engine.getAthleteProfile).toHaveBeenCalled();
   });
 

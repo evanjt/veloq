@@ -7,7 +7,7 @@
  */
 import { buildMap3DHtml, buildStyleOverlayScript } from '../htmlBuilders';
 import { buildSetRouteGradientScript } from '../htmlBuilders/map3DScripts';
-import { colors } from '@/theme';
+import { colors, mapPalette } from '@/theme';
 
 const expression = [
   'interpolate',
@@ -48,7 +48,7 @@ describe('3D route gradient', () => {
       reduceMotion: false,
     });
     expect(html).toContain('lineMetrics: true');
-    expect(buildStyleOverlayScript()).toContain('lineMetrics: true');
-    expect(buildStyleOverlayScript()).toContain("'line-gradient'");
+    expect(buildStyleOverlayScript(mapPalette('light'))).toContain('lineMetrics: true');
+    expect(buildStyleOverlayScript(mapPalette('light'))).toContain("'line-gradient'");
   });
 });

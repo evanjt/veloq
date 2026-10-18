@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, opacity, layout, strengthTone } from '@/theme';
+import { colors, darkColors, directionPair, opacity, layout } from '@/theme';
 
 interface StrengthBalanceScaleProps {
   leftWeightedSets: number;
@@ -11,19 +11,32 @@ interface StrengthBalanceScaleProps {
 
 /**
  * One antagonist pair's volume split, the left muscle's weighted sets against
- * the right's. A side with no sets keeps a sliver so both colours stay visible.
+ * the right's. Neither side is the better one, so the pair takes the two
+ * direction colours. A side with no sets keeps a sliver so both colours stay
+ * visible.
  */
 export function StrengthBalanceScale({
   leftWeightedSets,
   rightWeightedSets,
 }: StrengthBalanceScaleProps) {
   const { isDark } = useTheme();
+  const sides = directionPair[isDark ? 'dark' : 'light'];
 
   return (
     <View testID="strength-balance-scale" style={[styles.scale, isDark && styles.scaleDark]}>
-      <View style={[styles.side, { flex: Math.max(leftWeightedSets, 0.2) }]} />
+      <View
+        style={[
+          styles.side,
+          { flex: Math.max(leftWeightedSets, 0.2), backgroundColor: sides.forward },
+        ]}
+      />
       <View style={[styles.gap, isDark && styles.gapDark]} />
-      <View style={[styles.sideSecondary, { flex: Math.max(rightWeightedSets, 0.2) }]} />
+      <View
+        style={[
+          styles.side,
+          { flex: Math.max(rightWeightedSets, 0.2), backgroundColor: sides.reverse },
+        ]}
+      />
     </View>
   );
 }
@@ -42,11 +55,6 @@ const styles = StyleSheet.create({
   },
   side: {
     height: '100%',
-    backgroundColor: strengthTone.primary,
-  },
-  sideSecondary: {
-    height: '100%',
-    backgroundColor: strengthTone.secondary,
   },
   gap: {
     width: 2,

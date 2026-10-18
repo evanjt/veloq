@@ -81,20 +81,8 @@ export interface ActivityStreams {
 /** One lap of an activity, typed by the engine from the stored interval body. */
 export type { ActivityInterval } from 'veloqrs';
 
-export interface Athlete {
-  id: string;
-  name: string;
-  email?: string;
-  sex?: string; // "M" or "F" from intervals.icu
-  profile?: string; // URL to profile photo
-  profile_medium?: string; // URL to medium profile photo
-  /**
-   * Anaerobic work capacity in joules. Used for W'bal chart computation.
-   * Defaults to 20 kJ when not provided by intervals.icu (common mid-range
-   * value for trained amateurs; elites can exceed 30 kJ).
-   */
-  wPrime?: number;
-}
+/** The stored intervals.icu athlete profile, typed by the engine. */
+export type { AthleteProfile as Athlete } from 'veloqrs';
 
 /**
  * One stored wellness day, as the screens read it.

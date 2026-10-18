@@ -309,23 +309,18 @@ describe('useRecordingMetrics', () => {
     }
   });
 
-  it('weighs the athlete by the profile weight intervals.icu sends', async () => {
-    // The profile body carries the weight as `icu_weight` and leaves `weight`
-    // null. One moving hour of a ride without heart rate is 8 MET times the
-    // weight; with no weight on the profile the estimate keeps 70 kg.
-    const cases: { profile: Record<string, unknown>; expected: number }[] = [
-      { profile: { weight: null, icu_weight: 90 }, expected: 720 },
-      { profile: { icu_weight: 75 }, expected: 600 },
-      { profile: { weight: 82 }, expected: 656 },
-      { profile: { weight: 82, icu_weight: 90 }, expected: 720 },
+  it("weighs the athlete by the profile's weight", async () => {
+    // One moving hour of a ride without heart rate is 8 MET times the weight;
+    // with no weight on the profile the estimate keeps 70 kg.
+    const cases: { profile: Partial<Athlete>; expected: number }[] = [
+      { profile: { weightKg: 90 }, expected: 720 },
+      { profile: { weightKg: 75 }, expected: 600 },
       { profile: {}, expected: 560 },
-      { profile: { weight: null, icu_weight: null }, expected: 560 },
-      { profile: { icu_weight: 0 }, expected: 560 },
     ];
 
     for (const { profile, expected } of cases) {
       useAuthStore.setState({
-        athlete: { id: 'a1', name: 'Test Rider', ...profile } as Athlete,
+        athlete: { id: 'a1', name: 'Test Rider', ...profile },
       });
       setStoreState({
         status: 'recording',

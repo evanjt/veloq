@@ -14,12 +14,12 @@ import { getIsMetric } from '@/shared/app/UnitPreferenceStore';
 import { runWhenIdle, type Cancel } from '@/shared/async/runWhenIdle';
 import { debug } from '@/shared/debug/debug';
 import type { TFunc } from '@/features/insights/light';
+import type { RecordShortcut } from 'veloqrs';
 
 import {
   gatherWidgetSnapshot,
   showsDemoLibrary,
   showsSampleLibrary,
-  type WidgetRecordShortcut,
   type WidgetSnapshotPayload,
 } from './widgetSnapshot';
 
@@ -31,7 +31,7 @@ interface VeloqWidgetModule {
   clearSnapshot(): void;
   reloadWidgets(): void;
   /** The recent sports as Android launcher shortcuts and iOS Home Screen quick actions. */
-  publishRecordShortcuts?(shortcuts: WidgetRecordShortcut[]): void;
+  publishRecordShortcuts?(shortcuts: RecordShortcut[]): void;
 }
 
 const VeloqWidget = requireOptionalNativeModule<VeloqWidgetModule>('VeloqWidget');

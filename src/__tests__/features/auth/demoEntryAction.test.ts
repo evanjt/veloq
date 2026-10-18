@@ -19,7 +19,7 @@ jest.mock('@/shared/native/engine', () => ({
   getEngine: () => ({
     getActivityCount: () => 0,
     getStats: () => ({ activityCount: 0, libraryCount: mockEngineState.count }),
-    getAthleteProfile: () => '',
+    getAthleteProfile: () => null,
     getSetting: () => mockEngineState.athleteId,
   }),
 }));

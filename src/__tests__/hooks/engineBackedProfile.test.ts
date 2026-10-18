@@ -1,8 +1,8 @@
 /**
- * Scenario: athlete and wellness are read from SQLite rather
- * than fetched. Each read must survive a body the engine cannot produce
- * (missing, empty, unparseable) without taking a screen down, and must return
- * the fields only the untyped body carries.
+ * Scenario: athlete and wellness are read from SQLite rather than fetched.
+ * Each read must survive the engine having nothing stored without taking a
+ * screen down, and the profile's unit and form preferences must reach the
+ * stores that every screen reads them from.
  */
 
 import { renderHook, waitFor } from '@testing-library/react-native';
@@ -12,6 +12,7 @@ import { RangeCoverage, type WellnessDay } from 'veloqrs';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useAthlete } from '@/shared/app/useAthlete';
+import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import { useWellness, useWellnessForDate } from '@/features/wellness/hooks/useWellness';
 import { getEngine } from '@/shared/native/engine';
 
@@ -21,10 +22,17 @@ jest.mock('@/shared/native/engine', () => ({
 
 // One stable identity per store field: a fresh jest.fn() per render would make
 // the profile effect re-run forever.
+const mockSetIntervalsPreferences = jest.fn();
 jest.mock('@/shared/app/UnitPreferenceStore', () => {
-  const state = { setIntervalsPreferences: jest.fn() };
+  const state = {
+    setIntervalsPreferences: (prefs: unknown) => mockSetIntervalsPreferences(prefs),
+  };
   return { useUnitPreference: (selector: (s: unknown) => unknown) => selector(state) };
 });
+
+jest.mock('@/features/home/lib/widgetBridge', () => ({
+  scheduleWidgetSnapshot: jest.fn(),
+}));
 
 const setAthlete = jest.fn();
 
@@ -54,6 +62,7 @@ beforeEach(() => {
   engine.getAthleteProfile.mockReturnValue(null);
   engine.getWellnessDays.mockReturnValue(stored([]));
   useAuthStore.setState({ isAuthenticated: true, setAthlete });
+  useFormPreference.getState().reset();
 });
 
 afterEach(() => {
@@ -61,30 +70,41 @@ afterEach(() => {
 });
 
 describe('useAthlete', () => {
-  it('returns the stored body including fields no Rust type models', async () => {
-    engine.getAthleteProfile.mockReturnValue(
-      JSON.stringify({ id: 'i1', name: 'Demo', measurement_preference: 'feet', fahrenheit: true })
-    );
+  it("lifts the units and the form denominator off the engine's profile", async () => {
+    const profile = { id: 'i1', name: 'Demo', measurementPreference: 'feet', formAsPercent: true };
+    engine.getAthleteProfile.mockReturnValue(profile);
 
     const { result } = await renderHook(() => useAthlete(), { wrapper });
 
     await waitFor(() => expect(result.current.data).not.toBeUndefined());
-    expect(result.current.data?.name).toBe('Demo');
-    expect((result.current.data as unknown as Record<string, unknown>).measurement_preference).toBe(
-      'feet'
+    expect(result.current.data).toEqual(profile);
+    expect(setAthlete).toHaveBeenCalledWith(profile);
+    expect(mockSetIntervalsPreferences).toHaveBeenCalledWith({ measurementPreference: 'feet' });
+    expect(useFormPreference.getState().formAsPercent).toBe(true);
+  });
+
+  it('reads any measurement preference but feet as metres', async () => {
+    engine.getAthleteProfile.mockReturnValue({ id: 'i1', measurementPreference: 'yards' });
+
+    await renderHook(() => useAthlete(), { wrapper });
+
+    await waitFor(() =>
+      expect(mockSetIntervalsPreferences).toHaveBeenCalledWith({ measurementPreference: 'meters' })
     );
   });
 
-  it('reads as absent when nothing has been synced', async () => {
+  it('leaves the preferences unset when the profile carries none', async () => {
+    engine.getAthleteProfile.mockReturnValue({ id: 'i1', name: 'Demo' });
+
     const { result } = await renderHook(() => useAthlete(), { wrapper });
 
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data).toBeNull();
+    await waitFor(() => expect(setAthlete).toHaveBeenCalled());
+    expect(result.current.data?.name).toBe('Demo');
+    expect(mockSetIntervalsPreferences).not.toHaveBeenCalled();
+    expect(useFormPreference.getState().formAsPercent).toBeNull();
   });
 
-  it('survives an unparseable body', async () => {
-    engine.getAthleteProfile.mockReturnValue('{not json');
-
+  it('reads as absent when nothing has been synced', async () => {
     const { result } = await renderHook(() => useAthlete(), { wrapper });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));

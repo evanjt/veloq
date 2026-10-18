@@ -94,7 +94,7 @@ fn date_words(
     separator: &str,
 ) -> DateWords {
     let part = |kind: &str, value: &str| DatePart {
-        kind: kind.to_string(),
+        r#type: kind.to_string(),
         value: value.to_string(),
     };
     let month_day = vec![part("day", ""), part("literal", " "), part("month", "")];
@@ -181,11 +181,12 @@ fn long_dates() -> DateWords {
     )
 }
 
-fn shortcut(kind: &str, label: &str) -> RecordShortcut {
+fn shortcut(kind: &str, label: &str, glyph: &str) -> RecordShortcut {
     RecordShortcut {
-        kind: kind.to_string(),
+        r#type: kind.to_string(),
         label: label.to_string(),
         url: format!("veloq://record?type={kind}"),
+        glyph: glyph.to_string(),
     }
 }
 
@@ -198,15 +199,14 @@ fn insight(id: &str, tone: &str, title: &str, subtitle: &str) -> WidgetInsight {
         icon: "trending-up".to_string(),
         tone: tone.to_string(),
         url: "veloq://fitness".to_string(),
-        tone_label: String::new(),
     }
 }
 
-fn context(strings: BTreeMap<String, String>, dates: DateWords, demo: bool) -> WidgetContext {
-    WidgetContext {
+fn context(strings: BTreeMap<String, String>, dates: DateWords, demo: bool) -> FfiWidgetContext {
+    FfiWidgetContext {
         locale: "en-AU".to_string(),
         is_metric: true,
-        strings,
+        strings: strings.into_iter().collect(),
         dates,
         summary_card: Some(SummaryPrefs {
             enabled: true,
@@ -216,7 +216,6 @@ fn context(strings: BTreeMap<String, String>, dates: DateWords, demo: bool) -> W
                 .map(String::from)
                 .to_vec(),
         }),
-        theme: serde_json::json!({}),
         activity_tints: [
             ("Ride", "#3B82F6"),
             ("Run", "#F97316"),
@@ -354,7 +353,7 @@ fn store_session(
         .expect("the outcome");
 }
 
-fn compose_fixture(library: &Library, ctx: &WidgetContext) -> serde_json::Value {
+fn compose_fixture(library: &Library, ctx: &FfiWidgetContext) -> serde_json::Value {
     let mut scratch = crate::persistence::PersistentEngine::in_memory().expect("a database");
     scratch
         .set_athlete_profile(r#"{"id":"sample","name":"Sample Athlete"}"#)
@@ -405,7 +404,10 @@ fn compose_fixture(library: &Library, ctx: &WidgetContext) -> serde_json::Value 
 
 pub(super) fn demo() -> serde_json::Value {
     let mut ctx = context(english(), english_dates(), true);
-    ctx.record_shortcuts = vec![shortcut("Ride", "Ride"), shortcut("Run", "Run")];
+    ctx.record_shortcuts = vec![
+        shortcut("Ride", "Ride", "ride"),
+        shortcut("Run", "Run", "run"),
+    ];
     ctx.launcher_shortcuts = ctx.record_shortcuts.clone();
     ctx.insights = vec![
         insight(
@@ -480,8 +482,8 @@ fn long_text() -> serde_json::Value {
     let strings = longest_strings();
     let mut ctx = context(strings, long_dates(), false);
     ctx.record_shortcuts = vec![
-        shortcut("VirtualRide", "Ciclismo virtual en interiores"),
-        shortcut("Run", "Corsa su pista"),
+        shortcut("VirtualRide", "Ciclismo virtual en interiores", "ride"),
+        shortcut("Run", "Corsa su pista", "run"),
     ];
     ctx.launcher_shortcuts = ctx.record_shortcuts.clone();
     ctx.insights = vec![

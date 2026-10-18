@@ -4,7 +4,7 @@
  *
  * Expected behaviour: nothing draws or is named for neighbouring sections, and
  * the legend appears only when the highlighted activity, a ledger version or
- * the delta colouring is on the map. A picked attempt is keyed "This activity"
+ * the delta colouring is on the map, or the chevrons naming the chart's direction. A picked attempt is keyed "This activity"
  * only when it is the activity the page was opened from, and otherwise by its
  * date, or as the selected attempt when no date is to hand.
  */
@@ -157,6 +157,20 @@ describe('the section detail map legend', () => {
 
     expect(screen.getByText('Earlier version')).toBeTruthy();
     expect(screen.queryByText('This activity')).toBeNull();
+  });
+
+  it('keys the chevrons with the direction the chart is on', async () => {
+    await renderMap({ shownDirection: 'reverse' });
+
+    expect(screen.getByTestId('section-map-legend-direction')).toBeTruthy();
+    expect(screen.getByText('Reverse')).toBeTruthy();
+    expect(screen.queryByText('Forward')).toBeNull();
+  });
+
+  it('keys no direction while the bounds are trimmed', async () => {
+    await renderMap({ shownDirection: 'forward', trimRange: { start: 0, end: 2 } });
+
+    expect(screen.queryByTestId('section-map-legend-direction')).toBeNull();
   });
 
   it('stays out of the preview form, which carries no controls', async () => {

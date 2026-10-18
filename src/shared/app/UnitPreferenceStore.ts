@@ -13,8 +13,6 @@ export type UnitPreference = 'auto' | 'metric' | 'imperial';
  */
 export interface IntervalsUnitPreferences {
   measurementPreference: 'meters' | 'feet';
-  fahrenheit: boolean;
-  windSpeed: 'KMH' | 'MPH' | 'MS';
 }
 
 interface UnitPreferenceState {

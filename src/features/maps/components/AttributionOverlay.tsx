@@ -15,7 +15,6 @@ import {
   colors,
   colorWithOpacity,
   darkColors,
-  ink,
   layers,
   layout,
   opacity,
@@ -81,7 +80,12 @@ export const AttributionOverlay = memo(
             testID="map-attribution-pill"
             style={[
               attributionStyles.attributionPill,
-              isDark && attributionStyles.attributionPillDark,
+              {
+                backgroundColor: colorWithOpacity(
+                  (isDark ? darkColors : colors).surfaceRaised,
+                  opacity.pressed
+                ),
+              },
             ]}
             onLayout={handleLayout}
           >
@@ -120,13 +124,9 @@ const attributionStyles = StyleSheet.create({
   },
   attributionPill: {
     alignSelf: 'flex-end',
-    backgroundColor: colorWithOpacity(ink.white, opacity.pressed),
     paddingHorizontal: spacing.smPlus,
     paddingVertical: PILL_PADDING_VERTICAL,
     borderRadius: layout.borderRadiusSm,
-  },
-  attributionPillDark: {
-    backgroundColor: colorWithOpacity(darkColors.surfaceRaised, 0.8),
   },
   attributionText: {
     ...typography.micro,

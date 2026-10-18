@@ -31,8 +31,8 @@ fn data() -> FfiWidgetSnapshotData {
     }
 }
 
-fn context(form_as_percent: bool) -> WidgetContext {
-    WidgetContext {
+fn context(form_as_percent: bool) -> FfiWidgetContext {
+    FfiWidgetContext {
         locale: "en-AU".to_string(),
         is_metric: true,
         form_as_percent,

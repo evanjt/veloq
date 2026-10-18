@@ -129,7 +129,7 @@ pub mod settings_keys {
     pub const NOTIFICATION_TEMPLATES: &str = "__notification_templates";
 
     /// What the widget snapshot needs that only the app knows, as the JSON
-    /// `widget_snapshot::WidgetContext` reads: the translated words, the date
+    /// `widget_snapshot::FfiWidgetContext` reads: the translated words, the date
     /// names, the palette, the summary card settings and the recent sports. A
     /// push handler that writes the snapshot with no JavaScript composes from it.
     pub const WIDGET_CONTEXT: &str = "__widget_context";
@@ -450,6 +450,98 @@ pub fn athlete_profile_from(conn: &rusqlite::Connection) -> Option<String> {
     .ok()
 }
 
+/// The fields of the stored intervals.icu athlete body that the screens and
+/// the widget read, typed once here.
+///
+/// The body is stored as it arrived and carries far more. Each field is read
+/// leniently: missing, `null` or of another type reads as absent and costs the
+/// record nothing else.
+#[derive(Debug, Clone, Default, PartialEq, uniffi::Record)]
+pub struct AthleteProfile {
+    /// The intervals.icu athlete id, as `i123`. A number on the wire reads as its digits.
+    pub id: Option<String>,
+    pub name: Option<String>,
+    /// The URL of the athlete's medium profile photo.
+    pub profile_medium: Option<String>,
+    /// `M` or `F` as intervals.icu sends it.
+    pub sex: Option<String>,
+    /// `meters` or `feet`, the units the athlete chose on intervals.icu.
+    pub measurement_preference: Option<String>,
+    /// Whether the athlete reads form as a share of fitness rather than as
+    /// absolute TSB, from `icu_form_as_percent`. Absent on a body from before
+    /// the setting existed.
+    pub form_as_percent: Option<bool>,
+    /// The athlete's weight in kilograms: `icu_weight`, which is where the body
+    /// sends it, else `weight`. Absent unless positive.
+    pub weight_kg: Option<f64>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct AthleteBody {
+    #[serde(deserialize_with = "lenient_id")]
+    id: Option<String>,
+    #[serde(deserialize_with = "lenient")]
+    name: Option<String>,
+    #[serde(deserialize_with = "lenient")]
+    profile_medium: Option<String>,
+    #[serde(deserialize_with = "lenient")]
+    sex: Option<String>,
+    #[serde(deserialize_with = "lenient")]
+    measurement_preference: Option<String>,
+    #[serde(deserialize_with = "lenient")]
+    icu_form_as_percent: Option<bool>,
+    #[serde(deserialize_with = "lenient")]
+    icu_weight: Option<f64>,
+    #[serde(deserialize_with = "lenient")]
+    weight: Option<f64>,
+}
+
+fn lenient<'de, D, T>(d: D) -> Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: serde::de::DeserializeOwned,
+{
+    let value = serde_json::Value::deserialize(d)?;
+    Ok(serde_json::from_value(value).ok())
+}
+
+fn lenient_id<'de, D>(d: D) -> Result<Option<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Ok(match serde_json::Value::deserialize(d)? {
+        serde_json::Value::String(id) => Some(id),
+        serde_json::Value::Number(id) => Some(id.to_string()),
+        _ => None,
+    })
+}
+
+impl From<AthleteBody> for AthleteProfile {
+    fn from(body: AthleteBody) -> Self {
+        let positive = |kg: Option<f64>| kg.filter(|kg| kg.is_finite() && *kg > 0.0);
+        Self {
+            id: body.id,
+            name: body.name,
+            profile_medium: body.profile_medium,
+            sex: body.sex,
+            measurement_preference: body.measurement_preference,
+            form_as_percent: body.icu_form_as_percent,
+            weight_kg: positive(body.icu_weight).or(positive(body.weight)),
+        }
+    }
+}
+
+/// The stored athlete profile, typed, from a connection that holds no engine
+/// lock. `None` when none is stored, the read fails, or the body is not a JSON
+/// object, which the store keeps as given.
+pub fn athlete_profile(conn: &rusqlite::Connection) -> Option<AthleteProfile> {
+    let body = athlete_profile_from(conn)?;
+    serde_json::from_str::<AthleteBody>(&body)
+        .ok()
+        .map(AthleteProfile::from)
+}
+
 impl PersistentEngine {
     /// Get a single setting by key.
     pub fn get_setting(&self, key: &str) -> SqlResult<Option<String>> {
@@ -581,11 +673,15 @@ impl PersistentEngine {
     /// Store the widget context the app resolved, replacing whatever was held.
     /// Answers whether anything was written, which is false for the ordinary
     /// refresh that hands over the context it handed over last time.
-    pub fn set_widget_context(&self, json: &str) -> SqlResult<bool> {
-        if self.get_setting(settings_keys::WIDGET_CONTEXT)?.as_deref() == Some(json) {
+    pub fn set_widget_context(
+        &self,
+        ctx: &crate::widget_snapshot::FfiWidgetContext,
+    ) -> SqlResult<bool> {
+        let json = crate::widget_snapshot::context_row(ctx);
+        if self.get_setting(settings_keys::WIDGET_CONTEXT)?.as_deref() == Some(json.as_str()) {
             return Ok(false);
         }
-        self.set_setting(settings_keys::WIDGET_CONTEXT, json)?;
+        self.set_setting(settings_keys::WIDGET_CONTEXT, &json)?;
         Ok(true)
     }
 
@@ -698,5 +794,84 @@ mod tests {
         let read = request_budget_from(&engine.db).unwrap().unwrap();
         assert_eq!(read.cooldown_until, None);
         assert_eq!(read.backfill_today, 0);
+    }
+
+    fn engine_holding_profile(body: &str) -> (tempfile::TempDir, PersistentEngine) {
+        let dir = tempfile::tempdir().unwrap();
+        let engine =
+            PersistentEngine::new(dir.path().join("profile.db").to_str().unwrap()).unwrap();
+        engine.set_athlete_profile(body).unwrap();
+        (dir, engine)
+    }
+
+    /// Expected behaviour: the fields the screens and the widget read come
+    /// off the stored body typed, the weight from `icu_weight` when the body
+    /// leaves `weight` null, which is how the athlete endpoint sends it.
+    #[test]
+    fn the_stored_athlete_body_reads_into_a_typed_profile() {
+        let (_dir, engine) = engine_holding_profile(
+            r#"{"id":"i1","name":"Test Rider","profile_medium":"https://example.test/a.png","sex":"F","measurement_preference":"feet","icu_form_as_percent":true,"weight":null,"icu_weight":78.9,"sportSettings":[]}"#,
+        );
+        let profile = athlete_profile(&engine.db).expect("a stored profile");
+        assert_eq!(
+            profile,
+            AthleteProfile {
+                id: Some("i1".into()),
+                name: Some("Test Rider".into()),
+                profile_medium: Some("https://example.test/a.png".into()),
+                sex: Some("F".into()),
+                measurement_preference: Some("feet".into()),
+                form_as_percent: Some(true),
+                weight_kg: Some(78.9),
+            }
+        );
+    }
+
+    #[test]
+    fn an_empty_athlete_body_reads_as_a_profile_of_absent_fields() {
+        let (_dir, engine) = engine_holding_profile("{}");
+        assert_eq!(athlete_profile(&engine.db), Some(AthleteProfile::default()));
+    }
+
+    /// Expected behaviour: a field of an unexpected type reads as absent and
+    /// costs the record nothing else, and an id sent as a number still names
+    /// the athlete.
+    #[test]
+    fn a_field_of_another_shape_reads_as_absent_without_losing_the_rest() {
+        let (_dir, engine) = engine_holding_profile(
+            r#"{"id":42,"name":7,"sex":"M","measurement_preference":null,"icu_form_as_percent":"yes","icu_weight":"heavy","weight":81.5}"#,
+        );
+        let profile = athlete_profile(&engine.db).expect("a stored profile");
+        assert_eq!(
+            profile,
+            AthleteProfile {
+                id: Some("42".into()),
+                sex: Some("M".into()),
+                weight_kg: Some(81.5),
+                ..AthleteProfile::default()
+            }
+        );
+    }
+
+    #[test]
+    fn the_intervals_weight_is_read_before_the_plain_one() {
+        let (_dir, engine) = engine_holding_profile(r#"{"icu_weight":90,"weight":82}"#);
+        assert_eq!(athlete_profile(&engine.db).unwrap().weight_kg, Some(90.0));
+    }
+
+    #[test]
+    fn a_weight_that_is_not_positive_reads_as_absent() {
+        let (_dir, engine) = engine_holding_profile(r#"{"icu_weight":0,"weight":-3}"#);
+        assert_eq!(athlete_profile(&engine.db).unwrap().weight_kg, None);
+    }
+
+    #[test]
+    fn a_body_that_is_not_json_or_no_body_reads_as_no_profile() {
+        let (_dir, engine) = engine_holding_profile("not json");
+        assert_eq!(athlete_profile(&engine.db), None);
+
+        let dir = tempfile::tempdir().unwrap();
+        let empty = PersistentEngine::new(dir.path().join("none.db").to_str().unwrap()).unwrap();
+        assert_eq!(athlete_profile(&empty.db), None);
     }
 }

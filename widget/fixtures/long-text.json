@@ -598,11 +598,13 @@
   },
   "launcherShortcuts": [
     {
+      "glyph": "ride",
       "label": "Ciclismo virtual en interiores",
       "type": "VirtualRide",
       "url": "veloq://record?type=VirtualRide"
     },
     {
+      "glyph": "run",
       "label": "Corsa su pista",
       "type": "Run",
       "url": "veloq://record?type=Run"
@@ -653,11 +655,13 @@
   },
   "recordShortcuts": [
     {
+      "glyph": "ride",
       "label": "Ciclismo virtual en interiores",
       "type": "VirtualRide",
       "url": "veloq://record?type=VirtualRide"
     },
     {
+      "glyph": "run",
       "label": "Corsa su pista",
       "type": "Run",
       "url": "veloq://record?type=Run"

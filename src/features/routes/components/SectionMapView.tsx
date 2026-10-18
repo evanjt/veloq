@@ -35,7 +35,6 @@ import {
   BaseMapView,
   type BaseMap3DLayer,
   boundsOfLngLat,
-  ENDPOINT_IMAGES,
   featureCollection,
   getNextStyle,
   getStyleIcon,
@@ -44,6 +43,8 @@ import {
   lngLatFromShortPoint,
   Map3DWebView,
   type Map3DWebViewRef,
+  type LineDirection,
+  ENDPOINT_AND_DIRECTION_IMAGES,
   type MapCameraState,
   MapSurface,
   type MapSurfaceRef,
@@ -72,10 +73,20 @@ import { toActivityType } from '@/features/routes/types';
 import { onlySport } from '@/shared/activity/sportSet';
 import { useSectionMapLayers } from './useSectionMapLayers';
 import { buildSection3DOverlays } from './sectionMap3DOverlays';
-import { buildDeltaLineStops, LOCATE_GLYPH } from '@/features/maps';
+import {
+  cutLineByProgress,
+  deltaLineBands,
+  lineBandExpression,
+  LOCATE_GLYPH,
+  noDataRanges,
+} from '@/features/maps';
 import type { SectionDeltaLine } from '../lib/deltaLayout';
 import { DetailMapLegend, hasLegendLayers } from './DetailMapLegend';
-import { buildSectionLayers, buildSectionSources } from './sectionMapLayerSpecs';
+import {
+  buildSectionLayers,
+  buildSectionSources,
+  drawnSectionDirection,
+} from './sectionMapLayerSpecs';
 import {
   SECTION_MAP_BOUNDS_PADDING,
   SECTION_MAP_FIT_PADDING,
@@ -126,6 +137,11 @@ interface SectionMapViewProps {
   headerBottom?: number | undefined;
   /** The attempt the chart's delta plot shows. While set, the section line is coloured by it. */
   deltaLine?: SectionDeltaLine | null | undefined;
+  /**
+   * The direction the performance panel is on, drawn as chevrons along the
+   * section line. Null where the section is ridden one way only.
+   */
+  shownDirection?: LineDirection | null | undefined;
 }
 
 // Stable identities, so the closed-modal memos below return the same empty set
@@ -149,6 +165,7 @@ export const SectionMapView = memo(function SectionMapView({
   extensionTrack = null,
   headerBottom = 0,
   deltaLine = null,
+  shownDirection = null,
 }: SectionMapViewProps) {
   const { t } = useTranslation();
   const { isFullscreen, openFullscreen, closeFullscreen } = useMapFullscreen({
@@ -366,18 +383,27 @@ export const SectionMapView = memo(function SectionMapView({
     [sectionLayerData, highlightedActivityId]
   );
 
-  const deltaLineStops = useMemo(
+  const deltaBands = useMemo(
     () =>
       deltaLine
-        ? buildDeltaLineStops(
-            deltaLine.splits,
+        ? deltaLineBands(
+            deltaLine.percents,
             deltaLine.splitStepM,
             deltaLine.sectionLengthM,
-            deltaLine.direction,
-            palette
+            deltaLine.direction
           )
         : null,
-    [deltaLine, palette]
+    [deltaLine]
+  );
+  const deltaGapsGeoJSON = useMemo(
+    () => cutLineByProgress(sectionCoords, noDataRanges(deltaBands)),
+    [sectionCoords, deltaBands]
+  );
+  // The fullscreen map draws the section as its route line, in the same ramp.
+  const fullscreenGradient = useCallback(
+    (fullscreenPalette: MapPalette) =>
+      deltaBands ? lineBandExpression(deltaBands, fullscreenPalette) : null,
+    [deltaBands]
   );
 
   const legendLayers = {
@@ -385,20 +411,16 @@ export const SectionMapView = memo(function SectionMapView({
       sectionLayerData.highlightedTraceGeoJSON !== EMPTY_FEATURE_COLLECTION ||
       sectionLayerData.highlightedTraceFilter !== undefined,
     showEarlierVersion: sectionLayerData.shadowGeoJSON !== EMPTY_FEATURE_COLLECTION,
+    showDelta: deltaBands !== null,
+    showDeltaGaps: deltaGapsGeoJSON.features.length > 0,
+    // Both maps draw the chevrons, so both keys name them.
+    direction: drawnSectionDirection(shownDirection, trimRange),
   };
   const pickedAttempt = {
     activityId: highlightedActivityId,
     date: highlightedActivityDate,
     pageActivityId,
   };
-  // The inline map draws the section line itself; the fullscreen modal draws
-  // it through the base map and carries no delta colouring.
-  const inlineLegendLayers = {
-    ...legendLayers,
-    showDelta: deltaLineStops !== null,
-  };
-  const fullscreenLegendLayers = { ...legendLayers, showDelta: false };
-
   // Adjust opacity when something is highlighted or trimming
   const sectionContext = !!(highlightedActivityId || highlightedLapPoints || trimRange);
 
@@ -440,7 +462,9 @@ export const SectionMapView = memo(function SectionMapView({
   const specInput = useMemo(
     () => ({
       ...sectionLayerData,
-      deltaLineStops,
+      deltaBands,
+      deltaGapsGeoJSON,
+      shownDirection,
       trimmedGeoJSON,
       endpoints,
       sectionContext,
@@ -449,7 +473,9 @@ export const SectionMapView = memo(function SectionMapView({
     }),
     [
       sectionLayerData,
-      deltaLineStops,
+      deltaBands,
+      deltaGapsGeoJSON,
+      shownDirection,
       trimmedGeoJSON,
       endpoints,
       sectionContext,
@@ -557,7 +583,7 @@ export const SectionMapView = memo(function SectionMapView({
       }
       sources={inlineSources}
       layers={inlineLayers}
-      images={ENDPOINT_IMAGES}
+      images={ENDPOINT_AND_DIRECTION_IMAGES}
       scrollEnabled={interactive}
       zoomEnabled={interactive}
       rotateEnabled={interactive}
@@ -688,14 +714,14 @@ export const SectionMapView = memo(function SectionMapView({
           ) : null}
 
           {/* The layers drawn over the section's own line, named. */}
-          {interactive && hasLegendLayers(inlineLegendLayers) ? (
+          {interactive && hasLegendLayers(legendLayers) ? (
             <DetailMapLegend
               isDark={isDark}
               palette={palette}
               top={overlayTop}
               testID="section-map-legend"
               pickedAttempt={pickedAttempt}
-              {...inlineLegendLayers}
+              {...legendLayers}
             />
           ) : null}
         </View>
@@ -729,22 +755,23 @@ export const SectionMapView = memo(function SectionMapView({
         <BaseMapView
           routeCoordinates={sectionCoords}
           routeContext={!!(highlightedActivityId || sectionLayerData.highlightedTraceGeoJSON)}
+          routeGradient={fullscreenGradient}
           bounds={bounds || undefined}
           initialStyle={currentMapStyle}
           onClose={closeFullscreen}
           overlaySources={fullscreenSources}
           overlayLayers={fullscreenLayers}
-          overlayImages={ENDPOINT_IMAGES}
+          overlayImages={ENDPOINT_AND_DIRECTION_IMAGES}
           layer3D={fullscreenLayer3D}
         />
-        {hasLegendLayers(fullscreenLegendLayers) && (
+        {hasLegendLayers(legendLayers) && (
           <DetailMapLegend
             isDark={isDark}
             palette={palette}
             testID="section-map-legend"
             top={fullscreenInsets.top + spacing.sm}
             pickedAttempt={pickedAttempt}
-            {...fullscreenLegendLayers}
+            {...legendLayers}
           />
         )}
       </FullWindowModal>

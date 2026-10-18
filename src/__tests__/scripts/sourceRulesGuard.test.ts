@@ -812,7 +812,7 @@ describe('ground-token-text', () => {
     expect(output).toContain('src/features/a/Row.tsx  colours text with metric.color');
   });
 
-  it('fails a map palette or effort ramp hue drawn as text, directly or through a local', () => {
+  it('fails a map palette or data ramp hue drawn as text, directly or through a local', () => {
     const root = fixture({
       'src/theme/tokenFamilies.ts': FAMILIES,
       'src/features/a/Badge.tsx': '<Text style={{ color: sectionPalette[i] }} />\n',
@@ -822,7 +822,7 @@ describe('ground-token-text', () => {
       ].join('\n'),
       'src/features/a/Effort.tsx': [
         'function effortHue(value: number): string {',
-        '  return rpeRamp[Math.floor(value / 2)];',
+        '  return sequentialRamp[Math.floor(value / 2)];',
         '}',
         '<Text style={[styles.value, { color: effortHue(value) }]} />',
       ].join('\n'),
@@ -833,16 +833,16 @@ describe('ground-token-text', () => {
     expect(status).toBe(1);
     expect(output).toContain('src/features/a/Badge.tsx  colours text with sectionPalette[]');
     expect(output).toContain('src/features/a/Card.tsx  colours text with sectionPalette[]');
-    expect(output).toContain('src/features/a/Effort.tsx  colours text with rpeRamp[]');
+    expect(output).toContain('src/features/a/Effort.tsx  colours text with sequentialRamp[]');
   });
 
-  it('passes a map palette or effort ramp hue drawn as a fill', () => {
+  it('passes a map palette or data ramp hue drawn as a fill', () => {
     const root = fixture({
       'src/theme/tokenFamilies.ts': FAMILIES,
       'src/features/a/Card.tsx': [
         'const numberColor = sectionPalette[slot];',
         'function effortHue(value: number): string {',
-        '  return rpeRamp[Math.floor(value / 2)];',
+        '  return sequentialRamp[Math.floor(value / 2)];',
         '}',
         '<View style={[styles.disc, { backgroundColor: numberColor }]} />',
         '<View style={[styles.thumb, { backgroundColor: effortHue(value) }]} />',

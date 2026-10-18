@@ -25,16 +25,16 @@ import { buildEndpointLayers } from '@/features/maps/lib/endpointLayers';
 import { BUNDLED_TEXT_FONT } from '@/features/maps/lib/bundledGlyphs';
 import { EMPTY_FEATURE_COLLECTION } from '@/features/maps/lib/coordinates';
 import {
+  OVERLAY_LINE_WIDTH,
+  SUBJECT_CASING_WIDTH,
+  SUBJECT_LINE_WIDTH,
+} from '@/features/maps/lib/mapLineWidths';
+import {
   USER_LOCATION_SOURCE_ID,
   buildUserLocationLayers,
 } from '@/features/maps/lib/userLocationLayer';
 
 export const SECTION_MARKER_LAYER_IDS = ['section-marker-pr-icon', 'section-marker-circle'];
-
-// The matched route runs under the activity track, often within a metre of it.
-// It is context, so it takes the base's muted colour and no casing, and it is
-// wider than the track above it so a margin of it shows on either side.
-const OVERLAY_LINE_WIDTH = 8;
 
 interface ActivitySourceInput {
   /** The activity line, or the engine's URL for it when the engine holds the track. */
@@ -143,7 +143,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       layout: roundLine,
       paint: {
         'line-color': palette.casing,
-        'line-width': 5,
+        'line-width': SUBJECT_CASING_WIDTH,
         'line-opacity': highlighted ? 0 : 1,
       },
     },
@@ -154,7 +154,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       layout: roundLine,
       paint: {
         'line-color': routeColour,
-        'line-width': 4,
+        'line-width': SUBJECT_LINE_WIDTH,
         // The solid line gives way entirely when gradient colouring is on.
         'line-opacity': gradientActive ? 0 : 1,
       },
@@ -166,7 +166,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       layout: roundLine,
       paint: {
         'line-color': palette.route,
-        'line-width': 4,
+        'line-width': SUBJECT_LINE_WIDTH,
         'line-opacity': gradientActive ? 1 : 0,
         ...(gradientActive && gradientLineExpression
           ? { 'line-gradient': gradientLineExpression }
@@ -309,7 +309,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
         'icon-ignore-placement': true,
         'icon-anchor': 'center',
       },
-      paint: { 'icon-color': palette.record },
+      paint: { 'icon-color': palette.record, 'icon-opacity': hasSectionOverlays ? 1 : 0 },
     },
     {
       id: 'highlight-border',

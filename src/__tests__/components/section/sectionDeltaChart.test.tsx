@@ -298,13 +298,28 @@ const TYPICAL: FfiSplitSummary = {
   laps: [6, 6, 5, 5],
 };
 const OLDER_SPLITS = [1, 2, 3, 2];
+/** The reference takes 100 s over every split, so a second behind is a percent. */
+const REFERENCE_SPLIT_SECS = 100;
+const ownSplits = (deltas: number[]) =>
+  Float32Array.from(deltas, (delta) => REFERENCE_SPLIT_SECS + delta);
 const SPLIT_LAPS = [
-  lap('ref', 0, LEVEL),
-  lap('older', 1, [0, 1, 2, 3, 4, 5, 6, 7, 8], { splitDeltaSecs: Float32Array.from(OLDER_SPLITS) }),
+  lap('ref', 0, LEVEL, {
+    splitDeltaSecs: Float32Array.from([0, 0, 0, 0]),
+    splitSecs: ownSplits([0, 0, 0, 0]),
+  }),
+  lap('older', 1, [0, 1, 2, 3, 4, 5, 6, 7, 8], {
+    splitDeltaSecs: Float32Array.from(OLDER_SPLITS),
+    splitSecs: ownSplits(OLDER_SPLITS),
+  }),
   lap('newest', 2, [0, -1, -2, -3, -4, -5, -6, -7, -8], {
     splitDeltaSecs: Float32Array.from([-1, -2, -3, -2]),
+    splitSecs: ownSplits([-1, -2, -3, -2]),
   }),
 ];
+
+/** The percentages the map was handed, each to four places. */
+const percentsOf = (line: SectionDeltaLine | null) =>
+  Array.from(line!.percents, (percent) => Number(percent.toFixed(4)));
 
 function curvesWith(splitSummary: FfiSplitSummary | undefined): FfiSectionLapCurves {
   return {
@@ -349,7 +364,7 @@ describe('PerformanceChartPanel delta plot', () => {
     expect(tree.getByTestId('section-delta-summary-chart')).toBeTruthy();
     expect(tree.queryByTestId('section-delta-chart')).toBeNull();
     const line = lastLine(onDeltaLineChange);
-    expect(Array.from(line!.splits)).toEqual(Array.from(TYPICAL.medianSecs));
+    expect(percentsOf(line)).toEqual(MEDIAN);
     expect(line).toMatchObject({
       splitStepM: 100,
       sectionLengthM: SECTION_LENGTH_M,
@@ -367,7 +382,7 @@ describe('PerformanceChartPanel delta plot', () => {
 
     expect(tree.getByTestId('section-delta-chart')).toBeTruthy();
     expect(tree.queryByTestId('section-delta-summary-chart')).toBeNull();
-    expect(Array.from(lastLine(onDeltaLineChange)!.splits)).toEqual(OLDER_SPLITS);
+    expect(percentsOf(lastLine(onDeltaLineChange))).toEqual(OLDER_SPLITS);
   });
 
   it('with no attempt chosen and no typical attempt, still offers delta and hands the map nothing until shown', async () => {
@@ -394,7 +409,10 @@ describe('PerformanceChartPanel delta plot', () => {
 
   it('offers the references the engine gave and re-measures the attempt against the one chosen', async () => {
     const onDeltaLineChange = jest.fn();
-    const previous = lap('prev', -3, LEVEL, { splitDeltaSecs: Float32Array.from([1, 1, 1, 1]) });
+    const previous = lap('prev', -3, LEVEL, {
+      splitDeltaSecs: Float32Array.from([1, 1, 1, 1]),
+      splitSecs: ownSplits([1, 1, 1, 1]),
+    });
     const curves = curvesWith(TYPICAL);
     curves.forward = { ...curves.forward!, previousRecord: previous };
     const tree = await render(panel(curves, { onDeltaLineChange, highlightedActivityId: 'older' }));
@@ -409,7 +427,10 @@ describe('PerformanceChartPanel delta plot', () => {
     expect(tree.getByTestId('section-delta-reference-name').props.children).toBe(
       'sections.deltaReferencePreviousRecord'
     );
-    expect(Array.from(lastLine(onDeltaLineChange)!.splits)).toEqual([0, 1, 2, 1]);
+    // Measured against the previous record, which takes 101 s over each split.
+    expect(percentsOf(lastLine(onDeltaLineChange))).toEqual(
+      [0, 1, 2, 1].map((behind) => Number(((behind / 101) * 100).toFixed(4)))
+    );
   });
 
   it('offers no delta option when curves is absent', async () => {

@@ -185,7 +185,7 @@ export function FitnessHeroSlide() {
                   <View
                     style={[
                       styles.zoneBar,
-                      { width: `${percent}%`, backgroundColor: zoneColour(zone, isDark, 'fill') },
+                      { width: `${percent}%`, backgroundColor: zoneColour(zone, isDark) },
                     ]}
                   />
                 </View>

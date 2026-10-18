@@ -23,14 +23,15 @@ export {
   type MapControlButtonProps,
 } from './components/MapControlButton';
 export { BaseMapView, type BaseMap3DLayer } from './components/BaseMapView';
-export { ACTIVITY_COUNT_GLYPH, FIT_GLYPH, LOCATE_GLYPH } from './lib/mapGlyphs';
+export { ACTIVITY_COUNT_GLYPH, DIRECTION_GLYPH, FIT_GLYPH, LOCATE_GLYPH } from './lib/mapGlyphs';
 export {
   HOME_RADIUS_MAP_HEIGHT,
   HomeRadiusMap,
   type HomeRadiusMapProps,
 } from './components/HomeRadiusMap';
 export { Map3DWebView, type Map3DWebViewRef } from './components/Map3DWebView';
-export { MapKey, MapKeyRamp, MapKeySwatch } from './components/MapKey';
+export { MapKey, MapKeyNote, MapKeyRamp, MapKeySwatch } from './components/MapKey';
+export { DivergingKeyRows } from './components/DivergingKeyRows';
 export { type MapCameraState, MapSurface, type MapSurfaceRef } from './components/MapSurface';
 export { RegionalMapView } from './components/RegionalMapView';
 export { MapEmptyState } from './components/MapEmptyState';
@@ -87,6 +88,11 @@ export {
   buildUserLocationLayers,
 } from './lib/userLocationLayer';
 export { ENDPOINT_IMAGES, buildEndpointLayers } from './lib/endpointLayers';
+export {
+  ENDPOINT_AND_DIRECTION_IMAGES,
+  buildDirectionLayer,
+  type LineDirection,
+} from './lib/directionLayer';
 export {
   boundsOfLngLat,
   EMPTY_FEATURE_COLLECTION,
@@ -161,4 +167,12 @@ export {
   isHeatmapEnabled,
   useHeatmapPreference,
 } from './stores/HeatmapPreferenceStore';
-export { buildDeltaLineStops, deltaToColor } from './lib/deltaLineColor';
+export {
+  DELTA_GAPS_SOURCE_ID,
+  buildDeltaGapLayer,
+  deltaLineBands,
+  lineBandExpression,
+  noDataRanges,
+  type LineBand,
+} from './lib/deltaLineColor';
+export { cutLineByProgress } from './lib/lineProgressCut';

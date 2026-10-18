@@ -391,17 +391,13 @@ impl FitnessManager {
     /// whatever the engine holds.
     fn compose_widget_snapshot(
         &self,
-        context_json: String,
+        ctx: crate::widget_snapshot::FfiWidgetContext,
         now_seconds: f64,
         now_wall_seconds: f64,
         sample: Option<crate::FfiSampleLibrary>,
     ) -> Result<String, VeloqError> {
         let now_seconds = crate::ffi_types::int_from_wire(now_seconds);
         let now_wall_seconds = crate::ffi_types::int_from_wire(now_wall_seconds);
-        let ctx: crate::widget_snapshot::WidgetContext = serde_json::from_str(&context_json)
-            .map_err(|e| VeloqError::Database {
-                msg: format!("widget context: {e}"),
-            })?;
         let clock = crate::widget_snapshot::Clock {
             now_seconds,
             now_wall_seconds,
@@ -447,17 +443,16 @@ impl FitnessManager {
 
     /// Store the widget context, so a push handler with no JavaScript can
     /// compose the snapshot the app would. Answers whether anything was
-    /// written. A context that does not parse is refused rather than stored.
+    /// written.
     ///
     /// The app hands it over on every refresh, so the comparison is read off
     /// the pool first and the engine lock is taken only for a context that
     /// changed, which is a locale, a unit or a setting and not a sync.
-    fn set_widget_context(&self, context_json: String) -> Result<bool, VeloqError> {
-        serde_json::from_str::<crate::widget_snapshot::WidgetContext>(&context_json).map_err(
-            |e| VeloqError::Database {
-                msg: format!("widget context: {e}"),
-            },
-        )?;
+    fn set_widget_context(
+        &self,
+        ctx: crate::widget_snapshot::FfiWidgetContext,
+    ) -> Result<bool, VeloqError> {
+        let context_json = crate::widget_snapshot::context_row(&ctx);
         let held = with_reader(|conn| {
             crate::persistence::settings::setting_from(
                 conn,
@@ -470,7 +465,7 @@ impl FitnessManager {
             return Ok(false);
         }
         with_engine(|e| {
-            e.set_widget_context(&context_json)
+            e.set_widget_context(&ctx)
                 .map_err(|e| VeloqError::Database {
                     msg: format!("{e}"),
                 })
@@ -661,3 +656,7 @@ mod fitness_pooled_tests;
 #[cfg(test)]
 #[path = "tests/fitness_week_bounds.rs"]
 mod fitness_week_bounds_tests;
+
+#[cfg(test)]
+#[path = "tests/fitness_widget_context.rs"]
+mod fitness_widget_context_tests;

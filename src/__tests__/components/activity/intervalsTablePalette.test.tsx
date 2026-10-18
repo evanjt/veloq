@@ -1,8 +1,8 @@
 /**
  * Scenario: a work interval in zone 6 on rides of several cycling types, and
  * on a run, in both themes.
- * Expected behaviour: the zone label is the zone's text tone, never its fill,
- * whether or not the interval carries watts.
+ * Expected behaviour: the zone label is set in primary text, never in a zone
+ * colour, whether or not the interval carries watts.
  */
 
 import React from 'react';
@@ -49,18 +49,20 @@ async function zoneLabelColour(
 
 describe('the intervals table zone palette', () => {
   it.each(['Ride', 'GravelRide', 'MountainBikeRide', 'Handcycle', 'Velomobile', 'VirtualRide'])(
-    'colours a %s work interval with watts in the zone text tone',
+    'sets a %s work interval with watts in primary text',
     async (type) => {
-      expect(await zoneLabelColour(type as ActivityType, 250)).toBe(zoneColour(6, false, 'text'));
+      const colour = await zoneLabelColour(type as ActivityType, 250);
+      expect(colour).toBe(colors.textPrimary);
+      expect(colour).not.toBe(zoneColour(6, false));
     }
   );
 
-  it('keeps the zone text tone on a ride with no watts at all', async () => {
-    expect(await zoneLabelColour('Ride', undefined)).toBe(zoneColour(6, false, 'text'));
+  it('keeps primary text on a ride with no watts at all', async () => {
+    expect(await zoneLabelColour('Ride', undefined)).toBe(colors.textPrimary);
   });
 
-  it('colours a run in the zone text tone of the dark theme', async () => {
-    expect(await zoneLabelColour('Run', undefined, true)).toBe(zoneColour(6, true, 'text'));
+  it('sets a run in the dark theme in its primary text', async () => {
+    expect(await zoneLabelColour('Run', undefined, true)).toBe(darkColors.textPrimary);
   });
 });
 

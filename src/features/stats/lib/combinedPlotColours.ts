@@ -5,61 +5,28 @@
  * and can be tested without one.
  */
 
-import { colors, darkColors, zoneColour, type ZoneColourRole } from '@/theme';
+import { colourTokens, zoneColour } from '@/theme';
 import type { BandColourToken } from './combinedPlotData';
 
-type Role = Extract<BandColourToken, { kind: 'role' }>['role'];
-
 /**
- * Each interval role as a fill (the band, the chip) and as the text tone of the
- * same hue (the table row's label), in each theme.
+ * The colour an interval is drawn in, its band and the chip that keys it, or
+ * null where it has no band. Intensity is always the zone ladder: a work
+ * interval takes its zone, or the chart series colour where it carries none,
+ * recovery takes zone 1, warm-up and cool-down take the muted chart colour,
+ * and any other interval is drawn bare.
  */
-const ROLE_COLOURS: Record<ZoneColourRole, Record<'light' | 'dark', Record<Role, string>>> = {
-  fill: {
-    light: {
-      work: colors.actionPrimary,
-      recovery: colors.chartBandNeutral,
-      warmup: colors.chartBandWarmup,
-      cooldown: colors.chartBandCooldown,
-      other: colors.chartBandNeutral,
-    },
-    dark: {
-      work: darkColors.actionPrimary,
-      recovery: colors.chartBandNeutral,
-      warmup: colors.chartBandWarmup,
-      cooldown: colors.chartBandCooldown,
-      other: colors.chartBandNeutral,
-    },
-  },
-  text: {
-    light: {
-      work: colors.actionLink,
-      recovery: colors.textSecondary,
-      warmup: colors.successText,
-      cooldown: colors.chartPurpleText,
-      other: colors.textSecondary,
-    },
-    dark: {
-      work: darkColors.actionLink,
-      recovery: darkColors.textSecondary,
-      warmup: darkColors.successText,
-      cooldown: darkColors.chartPurpleText,
-      other: darkColors.textSecondary,
-    },
-  },
-};
-
-function resolve(token: BandColourToken, isDark: boolean, role: ZoneColourRole): string {
-  if (token.kind === 'zone') return zoneColour(token.zone, isDark, role);
-  return ROLE_COLOURS[role][isDark ? 'dark' : 'light'][token.role];
-}
-
-/** The fill an interval is drawn in: its band, and the chip that keys it. */
-export function resolveBandColour(token: BandColourToken, isDark: boolean): string {
-  return resolve(token, isDark, 'fill');
-}
-
-/** The same interval colour as words, for a label set on a surface. */
-export function resolveBandTextColour(token: BandColourToken, isDark: boolean): string {
-  return resolve(token, isDark, 'text');
+export function resolveBandColour(token: BandColourToken, isDark: boolean): string | null {
+  if (token.kind === 'zone') return zoneColour(token.zone, isDark);
+  const tokens = colourTokens[isDark ? 'dark' : 'light'];
+  switch (token.role) {
+    case 'work':
+      return tokens['chart-series'];
+    case 'recovery':
+      return zoneColour(1, isDark);
+    case 'warmup':
+    case 'cooldown':
+      return tokens['chart-muted'];
+    default:
+      return null;
+  }
 }

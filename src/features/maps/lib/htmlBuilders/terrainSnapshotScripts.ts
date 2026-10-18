@@ -8,7 +8,15 @@ import type { TerrainCamera } from '@/features/maps/lib/cameraAngle';
 import { resolveStyleForWebView } from './styleResolution';
 import { setStyleStatement } from './shared';
 import { jsLiteral } from '@/features/maps/lib/webViewLiterals';
-import { colors, colorWithOpacity, mapLayerColors } from '@/theme';
+import { mapPalette } from '@/theme';
+import {
+  ENDPOINT_3D_LAYER_IDS,
+  ROUTE_3D_LINE_WIDTH,
+  endpoint3DLayers,
+  routeCasing3DPaint,
+  terrainHillshadePaint,
+  terrainSky,
+} from '@/features/maps/lib/terrain3DPaint';
 
 /**
  * JPEG quality for a captured preview.
@@ -81,7 +89,6 @@ export interface SnapshotRequest {
   /** The athlete saved this camera, so it is drawn as given and never turned. */
   cameraPinned?: boolean;
   mapStyle: MapStyleType;
-  routeColor: string;
   /** Flat top-down basemap - no terrain drape, sky, or hillshade */
   flat?: boolean;
   /**
@@ -168,6 +175,9 @@ export function snapshotRenderScript(): string {
               var isFlat = request.isFlat;
               var cameraPinned = request.cameraPinned;
               var routeColor = request.routeColor;
+              var routeCasingPaint = request.routeCasingPaint;
+              var routeLineWidth = request.routeLineWidth;
+              var endpointLayers = request.endpointLayers;
               var activityId = request.activityId;
               var mapStyle = request.mapStyle;
               var myGen = request.gen;
@@ -386,12 +396,25 @@ export function snapshotRenderScript(): string {
               // At IIFE scope so both fast path and full path can use it.
               var hasRoute = coords.length > 0;
 
+              // The route on its casing and the end markers, in the request's base colours.
+              function routeLayers() {
+                return [
+                  { id: 'route-outline', type: 'line', source: 'route',
+                    layout: { 'line-join': 'round', 'line-cap': 'round' },
+                    paint: routeCasingPaint },
+                  { id: 'route-line', type: 'line', source: 'route',
+                    layout: { 'line-join': 'round', 'line-cap': 'round' },
+                    paint: { 'line-color': routeColor, 'line-width': routeLineWidth } },
+                ].concat(endpointLayers);
+              }
+
               function addRouteLayers() {
                 if (!hasRoute) return;
                 var startPt = coords[0];
                 var endPt = coords[coords.length - 1];
-                try { window.map.removeLayer('start-end-fill'); } catch(e) {}
-                try { window.map.removeLayer('start-end-border'); } catch(e) {}
+                ${JSON.stringify([...ENDPOINT_3D_LAYER_IDS].reverse())}.forEach(function(id) {
+                  try { window.map.removeLayer(id); } catch(e) {}
+                });
                 try { window.map.removeLayer('route-line'); } catch(e) {}
                 try { window.map.removeLayer('route-outline'); } catch(e) {}
                 try { window.map.removeSource('start-end-markers'); } catch(e) {}
@@ -411,27 +434,7 @@ export function snapshotRenderScript(): string {
                     ],
                   },
                 });
-                window.map.addLayer({
-                  id: 'route-outline', type: 'line', source: 'route',
-                  layout: { 'line-join': 'round', 'line-cap': 'round' },
-                  paint: { 'line-color': ${jsLiteral(mapLayerColors.casing)}, 'line-width': 5, 'line-opacity': 0.8 },
-                });
-                window.map.addLayer({
-                  id: 'route-line', type: 'line', source: 'route',
-                  layout: { 'line-join': 'round', 'line-cap': 'round' },
-                  paint: { 'line-color': routeColor, 'line-width': 3 },
-                });
-                window.map.addLayer({
-                  id: 'start-end-border', type: 'circle', source: 'start-end-markers',
-                  paint: { 'circle-radius': 7, 'circle-color': ${jsLiteral(mapLayerColors.casing)} },
-                });
-                window.map.addLayer({
-                  id: 'start-end-fill', type: 'circle', source: 'start-end-markers',
-                  paint: {
-                    'circle-radius': 5,
-                    'circle-color': ['case', ['==', ['get', 'type'], 'start'], ${jsLiteral(colorWithOpacity(colors.successFill, 0.75))}, ${jsLiteral(colorWithOpacity(colors.dangerFill, 0.75))}],
-                  },
-                });
+                routeLayers().forEach(function(layer) { window.map.addLayer(layer); });
                 window._rn_log('Route layers added via API');
               }
 
@@ -532,27 +535,7 @@ export function snapshotRenderScript(): string {
                   },
                 };
 
-                styleObj.layers.push({
-                  id: 'route-outline', type: 'line', source: 'route',
-                  layout: { 'line-join': 'round', 'line-cap': 'round' },
-                  paint: { 'line-color': ${jsLiteral(mapLayerColors.casing)}, 'line-width': 5, 'line-opacity': 0.8 },
-                });
-                styleObj.layers.push({
-                  id: 'route-line', type: 'line', source: 'route',
-                  layout: { 'line-join': 'round', 'line-cap': 'round' },
-                  paint: { 'line-color': routeColor, 'line-width': 3 },
-                });
-                styleObj.layers.push({
-                  id: 'start-end-border', type: 'circle', source: 'start-end-markers',
-                  paint: { 'circle-radius': 7, 'circle-color': ${jsLiteral(mapLayerColors.casing)} },
-                });
-                styleObj.layers.push({
-                  id: 'start-end-fill', type: 'circle', source: 'start-end-markers',
-                  paint: {
-                    'circle-radius': 5,
-                    'circle-color': ['case', ['==', ['get', 'type'], 'start'], ${jsLiteral(colorWithOpacity(colors.successFill, 0.75))}, ${jsLiteral(colorWithOpacity(colors.dangerFill, 0.75))}],
-                  },
-                });
+                routeLayers().forEach(function(layer) { styleObj.layers.push(layer); });
               }
 
               window._rn_log('setStyle (all-in-one): ' + styleObj.layers.length + ' layers, '
@@ -653,6 +636,8 @@ export function buildRenderSnapshotScript(
 ): string {
   const isSatellite = request.mapStyle === 'satellite';
   const isDark = request.mapStyle === 'dark' || request.mapStyle === 'satellite';
+  // The card previews a detail map, so it draws the base's subject colour.
+  const palette = mapPalette(request.mapStyle);
 
   // Every style is an inline object, so the vector tiles, sprite and glyphs
   // all go through the interceptor and the page fetches no style.
@@ -677,18 +662,15 @@ export function buildRenderSnapshotScript(
     isDark,
     isFlat: request.flat === true,
     cameraPinned: request.cameraPinned === true,
-    routeColor: request.routeColor,
+    routeColor: palette.route,
+    routeCasingPaint: routeCasing3DPaint(palette),
+    routeLineWidth: ROUTE_3D_LINE_WIDTH,
+    endpointLayers: endpoint3DLayers(palette),
     // Built here rather than read off the config, because building it is
     // what points it at the intercept and hands Rust the upstream template.
     terrainSource: terrain3DSource(),
-    skyConfig: isSatellite
-      ? TERRAIN_3D_CONFIG.sky.satellite
-      : isDark
-        ? TERRAIN_3D_CONFIG.sky.dark
-        : TERRAIN_3D_CONFIG.sky.light,
-    hillshadePaint: isDark
-      ? TERRAIN_3D_CONFIG.hillshadePaint.dark
-      : TERRAIN_3D_CONFIG.hillshadePaint.light,
+    skyConfig: terrainSky(palette),
+    hillshadePaint: terrainHillshadePaint(palette),
     gapBackground: gapBackgroundFor(request.mapStyle, style),
   };
 

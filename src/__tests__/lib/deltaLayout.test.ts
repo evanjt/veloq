@@ -14,6 +14,8 @@ import {
   pickEmphasisedLap,
   rebaseCurve,
   referenceChoices,
+  referenceSplitSecs,
+  splitPercents,
   resolveReference,
   scrubDeltaSecs,
   scrubStops,
@@ -437,5 +439,54 @@ describe('the reference the chart measures against', () => {
     const bare = deltas([record, later]);
     expect(deltasAgainst(bare, FfiReferenceSource.PreviousRecord)).toBe(bare);
     expect(deltasAgainst(bare, FfiReferenceSource.Typical)).toBe(bare);
+  });
+});
+
+describe('the percentage the map line bands', () => {
+  const quick = lap('quick', 1, [0, 0, 0], {
+    splitSecs: Float32Array.from([90, 95, NaN]),
+    splitDeltaSecs: Float32Array.from([-10, -5, NaN]),
+  });
+  const slow = lap('slow', 2, [0, 0, 0], {
+    splitSecs: Float32Array.from([NaN, 103, 121]),
+    splitDeltaSecs: Float32Array.from([NaN, 3, 11]),
+  });
+
+  it("reads the reference's time over each split from any lap that covers it", () => {
+    expect(Array.from(referenceSplitSecs([quick, slow]))).toEqual([100, 100, 110]);
+    const alone = referenceSplitSecs([quick]);
+    expect(Array.from(alone).slice(0, 2)).toEqual([100, 100]);
+    expect(Number.isNaN(alone[2])).toBe(true);
+    expect(referenceSplitSecs([])).toHaveLength(0);
+  });
+
+  it('is the share of the reference time a lap is behind, negative when ahead', () => {
+    const percents = splitPercents(slow.splitDeltaSecs, referenceSplitSecs([quick, slow]));
+    expect(Number.isNaN(percents[0])).toBe(true);
+    expect(percents[1]).toBeCloseTo(3);
+    expect(percents[2]).toBeCloseTo(10);
+    expect(Array.from(splitPercents(quick.splitDeltaSecs, referenceSplitSecs([quick])))).toEqual([
+      -10,
+      -5,
+      NaN,
+    ]);
+  });
+
+  it('has no percentage over a split the reference has no time for', () => {
+    const percents = splitPercents(Float32Array.from([2, 2]), Float32Array.from([0, NaN]));
+    expect(Array.from(percents).every(Number.isNaN)).toBe(true);
+  });
+
+  it('follows a reference chosen on the chart', () => {
+    const previous = lap('prev', 0, [0, 0, 0], {
+      splitSecs: Float32Array.from([95, 105, 115]),
+      splitDeltaSecs: Float32Array.from([-5, 5, 5]),
+    });
+    const stored: FfiDirectionDeltas = { ...deltas([quick, slow]), previousRecord: previous };
+    const against = deltasAgainst(stored, FfiReferenceSource.PreviousRecord);
+    const emphasised = against.laps[1]!;
+    const percents = splitPercents(emphasised.splitDeltaSecs, referenceSplitSecs(against.laps));
+    expect(percents[1]).toBeCloseTo((-2 / 105) * 100);
+    expect(percents[2]).toBeCloseTo((6 / 115) * 100);
   });
 });
