@@ -21,9 +21,6 @@
     "getActivitiesNeedingTimeStreams": {
       "p95Ms": 4.2
     },
-    "getActivityBodies": {
-      "p95Ms": 5.1
-    },
     "getActivityCount": {
       "p95Ms": 0.1
     },

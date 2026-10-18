@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useSheetRequest } from '@/shared/app/sheetRequest';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
-import { SheetHeader, PressTarget } from '@/shared/ui';
+import { SheetHeader, PressTarget, sheetScrollProps } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { ALL_DATA_FIELDS, CALORIES_ASSUMED_AGE, useCaloriesWeight } from '@/features/recording';
 import {
@@ -59,6 +59,7 @@ function FieldPickerSheetContent() {
         keyExtractor={(item) => item}
         style={styles.list}
         initialNumToRender={ALL_DATA_FIELDS.length}
+        {...sheetScrollProps}
         renderItem={({ item }) => {
           const isSelected = item === selectedField;
           return (

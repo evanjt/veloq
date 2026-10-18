@@ -21,6 +21,7 @@ export { TodayBanner } from './TodayBanner';
 export { WorkoutStepBar } from './WorkoutStepBar';
 export { DetailFallback } from './DetailFallback';
 export { SectionHistoryPanel, SectionLapList } from './section';
+export { DetailMapHost } from './DetailMapHost';
 export { RouteDetailMap } from './RouteDetailMap';
 export { SectionDetailMap } from './SectionDetailMap';
 export { SportTypeSelector } from './SportTypeSelector';

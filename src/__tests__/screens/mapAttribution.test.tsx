@@ -7,8 +7,9 @@
  */
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { render, fireEvent } from '@testing-library/react-native';
+import { fireEvent } from '@testing-library/react-native';
 import MapScreen from '@/app/(tabs)/map';
+import { renderStaged } from '../__shared__/stagedRender';
 import { darkColors } from '@/theme';
 import { ATTRIBUTION_CLEARANCE } from '@/features/maps/components/AttributionOverlay';
 
@@ -92,14 +93,14 @@ describe('map tab attribution', () => {
   });
 
   it('credits the basemap once, through the shared bounded overlay', async () => {
-    const view = await render(<MapScreen />);
+    const view = await renderStaged(<MapScreen />);
     expect(view.getAllByTestId('map-attribution-pill')).toHaveLength(1);
     expect(view.getAllByText(MOCK_CREDIT)).toHaveLength(1);
     expect(view.getByTestId('map-attribution-text').props.children).toBe(MOCK_CREDIT);
   });
 
   it('sits on the top edge of the sheet as measured, and follows it as it grows', async () => {
-    const view = await render(<MapScreen />);
+    const view = await renderStaged(<MapScreen />);
     const lane = () => view.getByTestId('map-attribution-lane');
     const sheet = view.getByTestId('map-filter-sheet');
 
@@ -115,7 +116,7 @@ describe('map tab attribution', () => {
   });
 
   it('hands the map the raised sheet and its credit to clear, as measured', async () => {
-    const view = await render(<MapScreen />);
+    const view = await renderStaged(<MapScreen />);
     const sheet = view.getByTestId('map-filter-sheet');
 
     await fireEvent(sheet, 'layout', {
@@ -136,7 +137,7 @@ describe('map tab attribution', () => {
   });
 
   it('bounds the raised sheet by the space under the top controls', async () => {
-    const view = await render(<MapScreen />);
+    const view = await renderStaged(<MapScreen />);
     await fireEvent(view.getByTestId('map-screen'), 'layout', {
       nativeEvent: { layout: { x: 0, y: 0, width: 400, height: 600 } },
     });
@@ -151,7 +152,7 @@ describe('map tab attribution', () => {
   it('themes the pill by the app, not by the basemap drawn under it', async () => {
     mockBasemapDark = false;
     mockAppDark = true;
-    const darkAppOnLightMap = await render(<MapScreen />);
+    const darkAppOnLightMap = await renderStaged(<MapScreen />);
     expect(
       StyleSheet.flatten(darkAppOnLightMap.getByTestId('map-attribution-text').props.style).color
     ).toBe(darkColors.textSecondary);
@@ -159,7 +160,7 @@ describe('map tab attribution', () => {
 
     mockBasemapDark = true;
     mockAppDark = false;
-    const lightAppOnDarkMap = await render(<MapScreen />);
+    const lightAppOnDarkMap = await renderStaged(<MapScreen />);
     expect(
       StyleSheet.flatten(lightAppOnDarkMap.getByTestId('map-attribution-text').props.style).color
     ).not.toBe(darkColors.textSecondary);

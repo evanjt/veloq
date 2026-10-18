@@ -6,6 +6,7 @@ import { useRouteSyncContext, resetGlobalSyncState } from './useRouteSyncContext
 import { feedHeadIds } from '@/shared/activity/feedHead';
 import { headFirst } from '@/features/routes/lib/gpsFetchOrder';
 import { demoGpsCandidates } from '@/features/routes/lib/demoGpsCandidates';
+import { readFeedCards } from '@/features/activity/light';
 
 import { useGpsDataFetcher } from './useGpsDataFetcher';
 import { i18n } from '@/i18n';
@@ -16,7 +17,6 @@ import { engine, hasStarted, startOutcome, type StartVerdict } from 'veloqrs';
 import { getSyncGeneration, useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
 import { useEngineReady } from '@/shared/native/useEngineReady';
-import { readActivities } from '@/shared/native/storedActivities';
 import type { SyncProgress } from './useRouteSyncProgress';
 import { backfillTimeStreams, timeStreamsProgress } from '@/features/routes/lib/timeStreamBackfill';
 import { awaitTilePass, tilePassProgress } from '@/features/routes/lib/tilePass';
@@ -210,7 +210,7 @@ export function useRouteDataSync(enabled: boolean = true): UseRouteDataSyncResul
       const { oldest, newest } = useSyncDateRange.getState();
       const candidates = isDemo
         ? demoGpsCandidates(
-            readActivities(oldest, newest),
+            readFeedCards(oldest, newest),
             new Set(nativeModule.engine.getActivityIds())
           )
         : nativeModule.engine.getGpsFetchCandidates(oldest, newest);

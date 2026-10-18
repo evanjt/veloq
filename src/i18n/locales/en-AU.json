@@ -339,7 +339,9 @@
     "noSwimPaceData": "No swim pace data yet",
     "noZoneData": "No zone data yet",
     "rangeNotDownloaded": "Hasn't come down yet",
-    "rangePartlyDownloaded": "Some of this range hasn't come down yet"
+    "rangePartlyDownloaded": "Some of this range hasn't come down yet",
+    "calendarOlderOwed_one": "{{count}} older activity from this year hasn't come down yet",
+    "calendarOlderOwed_other": "{{count}} older activities from this year haven't come down yet"
   },
   "statsScreen": {
     "noEffortData": "No best effort data yet",

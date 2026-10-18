@@ -14,8 +14,8 @@ use std::time::{Duration, Instant};
 use tracematch::GpsPoint;
 use veloqrs::FfiSectionConfig;
 use veloqrs::PersistentEngine;
-use veloqrs::objects::SectionPreview;
 use veloqrs::objects::start::FfiStartOutcome;
+use veloqrs::objects::{FfiRunState, SectionPreview};
 use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
 use veloqrs::persistence::with_persistent_engine;
 
@@ -225,10 +225,10 @@ fn the_preview_sees_the_same_ground_as_the_detect() {
 
     let deadline = Instant::now() + Duration::from_secs(120);
     let payload = loop {
-        match preview.poll().expect("poll").as_str() {
-            "complete" => break preview.take_result().expect("take").expect("payload"),
-            "running" => {}
-            other => panic!("preview ended as {other}"),
+        match preview.progress().state {
+            FfiRunState::Complete => break preview.take().expect("payload"),
+            FfiRunState::Running => {}
+            other => panic!("preview ended as {other:?}"),
         }
         assert!(Instant::now() < deadline, "preview never completed");
         std::thread::sleep(Duration::from_millis(50));

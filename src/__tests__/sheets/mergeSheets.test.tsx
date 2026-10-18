@@ -18,6 +18,7 @@ import MergeCandidatesSheet from '@/app/sheets/merge-candidates';
 import MergeConfirmSheet from '@/app/sheets/merge-confirm';
 import { openSheet } from '@/shared/app/sheetRequest';
 import { sheetScrollPlacement } from '../__shared__/sheetScrollPlacement';
+import { rootScreenLayout } from '@/shared/ui/rootScreenLayout';
 import { initialiseI18n } from '@/i18n';
 import type { MergeCandidatesSheetInput, MergeConfirmSheetInput } from '@/features/routes';
 
@@ -76,7 +77,7 @@ const OTHER = {
 async function open<I, R>(route: string, input: I, Sheet: React.ComponentType) {
   const result = openSheet<I, R>(route, input);
   mockParams = { request: mockPush.mock.calls.at(-1)[0].params.request };
-  const tree = await render(<Sheet />);
+  const tree = await render(rootScreenLayout({ route: { name: route }, children: <Sheet /> }));
   return { result, tree };
 }
 
@@ -214,7 +215,7 @@ describe('merge confirm sheet', () => {
 
   it('keeps its scroll view where the iOS sheet sizes it', async () => {
     await openConfirm();
-    expect(sheetScrollPlacement(screen.toJSON())).not.toBe('nested');
+    expect(sheetScrollPlacement(screen.toJSON())).toBe('root');
   });
 
   it.each(['ios', 'android'] as const)(
@@ -231,7 +232,8 @@ describe('merge confirm sheet', () => {
           }))
         );
         await openConfirm();
-        expect(sheetScrollPlacement(screen.toJSON())).toBe('root');
+        // Android's frame draws its handle above the list; only the iOS sheet sizes a root list.
+        expect(sheetScrollPlacement(screen.toJSON())).toBe(os === 'ios' ? 'root' : 'none');
         const list = within(screen.UNSAFE_getByType(ScrollView));
         expect(list.getByTestId('merge-dropped-rides')).toBeTruthy();
         expect(screen.getByTestId('merge-confirm-merge')).toBeTruthy();

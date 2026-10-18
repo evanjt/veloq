@@ -24,7 +24,7 @@ import { FitnessChart } from '@/features/fitness/components/FitnessChart';
 import { SelectedAttemptCard } from '@/features/routes/components/section/SelectedAttemptCard';
 import type { WellnessData } from '@/types';
 import { SearchBar } from '@/shared/ui/SearchBar';
-import { ChartTypeSelector } from '@/features/activity/components/ChartTypeSelector';
+import { CHIP_HEIGHT, ChartTypeSelector } from '@/features/activity/components/ChartTypeSelector';
 import { CHART_CONFIGS } from '@/features/activity/lib/chartConfig';
 import { SummaryCard } from '@/features/home/components/SummaryCard';
 import { RoutesList } from '@/features/routes/components/RoutesList';
@@ -263,25 +263,16 @@ describe('tap-target floor', () => {
     expect(input.props.accessibilityLabel).toBe('Search routes');
   });
 
-  it('holds every chart chip to the minimum height, with or without its value', () => {
+  it('holds every one-line chart chip to the minimum height through its slop', () => {
     const available = Object.values(CHART_CONFIGS).filter((config) =>
       ['power', 'heartrate', 'speed'].includes(config.id)
     );
-    for (const metricValues of [[], [{ id: 'power', value: '245', unit: 'W' }]]) {
-      const { unmount } = render(
-        <ChartTypeSelector
-          available={available}
-          selected={['power']}
-          onToggle={jest.fn()}
-          metricValues={metricValues}
-        />
-      );
-      for (const config of available) {
-        expect(reach(screen.getByTestId(`chart-type-${config.id}`)).height).toBeGreaterThanOrEqual(
-          layout.minTapTarget
-        );
-      }
-      unmount();
+    render(<ChartTypeSelector available={available} selected={['power']} onToggle={jest.fn()} />);
+    for (const config of available) {
+      const chip = screen.getByTestId(`chart-type-${config.id}`);
+      expect(StyleSheet.flatten(chip.props.style).minHeight).toBe(CHIP_HEIGHT);
+      expect(CHIP_HEIGHT).toBeLessThan(layout.minTapTarget);
+      expect(reach(chip).height).toBeGreaterThanOrEqual(layout.minTapTarget);
     }
   });
 

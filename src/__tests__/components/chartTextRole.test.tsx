@@ -209,7 +209,7 @@ describe('chart text', () => {
       getFitnessScreenData: fitnessScreenRead({
         heatmap: () => [{ date: day, intensity: 2, maxDuration: 3900, activityCount: 1 }],
       }),
-      getActivityBodies: jest.fn(() => ({ bodies: [], intervalsIds: [] })),
+      getFeedCards: jest.fn(() => []),
       rangeCoverage: jest.fn(() => RangeCoverage.NotFetched),
     } as unknown as ReturnType<typeof getEngine>);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });

@@ -37,6 +37,10 @@ tags:
 - takeScreenshot: "screenshots/activity-chart-default"
 
 # Toggle heart rate chart
+- runFlow:
+    file: helpers/reveal-chart-type.yaml
+    env:
+      CHART_TYPE: heartrate
 - tapOn:
     id: "chart-type-heartrate"
     optional: true
@@ -44,6 +48,10 @@ tags:
 - takeScreenshot: "screenshots/activity-chart-heartrate"
 
 # Toggle power chart
+- runFlow:
+    file: helpers/reveal-chart-type.yaml
+    env:
+      CHART_TYPE: power
 - tapOn:
     id: "chart-type-power"
     optional: true
@@ -51,6 +59,10 @@ tags:
 - takeScreenshot: "screenshots/activity-chart-power"
 
 # Toggle elevation chart
+- runFlow:
+    file: helpers/reveal-chart-type.yaml
+    env:
+      CHART_TYPE: elevation
 - tapOn:
     id: "chart-type-elevation"
     optional: true
@@ -58,6 +70,10 @@ tags:
 - takeScreenshot: "screenshots/activity-chart-elevation"
 
 # Toggle speed chart
+- runFlow:
+    file: helpers/reveal-chart-type.yaml
+    env:
+      CHART_TYPE: speed
 - tapOn:
     id: "chart-type-speed"
     optional: true
@@ -65,6 +81,10 @@ tags:
 - takeScreenshot: "screenshots/activity-chart-speed"
 
 # Toggle cadence chart
+- runFlow:
+    file: helpers/reveal-chart-type.yaml
+    env:
+      CHART_TYPE: cadence
 - tapOn:
     id: "chart-type-cadence"
     optional: true
@@ -72,6 +92,10 @@ tags:
 - takeScreenshot: "screenshots/activity-chart-cadence"
 
 # Toggle grade chart
+- runFlow:
+    file: helpers/reveal-chart-type.yaml
+    env:
+      CHART_TYPE: grade
 - tapOn:
     id: "chart-type-grade"
     optional: true
@@ -79,6 +103,10 @@ tags:
 - takeScreenshot: "screenshots/activity-chart-grade"
 
 # Toggle pace chart (may not be available for cycling activities)
+- runFlow:
+    file: helpers/reveal-chart-type.yaml
+    env:
+      CHART_TYPE: pace
 - tapOn:
     id: "chart-type-pace"
     optional: true

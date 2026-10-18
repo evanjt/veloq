@@ -5,11 +5,11 @@ import { useIsFocused } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import {
+  AttributionOverlay,
   boundsOfLngLat,
   circlePolygon,
   emptyGrowingLngLat,
   featureCollection,
-  getNextStyle,
   growLngLat,
   lineFeature,
   type LngLat,
@@ -18,9 +18,11 @@ import {
   type MapStyleType,
   MAP_CONTROL_GAP,
   MapControlButton,
+  type MapCameraState,
   MapSurface,
   type MapSurfaceRef,
-  useDrawnMapStyle,
+  useMapStyleToggle,
+  useSurfaceAttribution,
   pointFeature,
   pointsBetweenSourceIndices,
 } from '@/features/maps';
@@ -83,6 +85,8 @@ interface RecordingMapProps {
   routeOverlay?: LatLngShort[] | null | undefined;
   /** Opens the route picker; the layers button only renders when provided */
   onOpenRoutePicker?: (() => void) | undefined;
+  /** Height over the map's foot that something else covers, which the credit sits above. */
+  coveredBottom?: number | undefined;
   style?: ViewStyle | undefined;
 }
 
@@ -96,6 +100,7 @@ function RecordingMapInner({
   trimEnd,
   routeOverlay,
   onOpenRoutePicker,
+  coveredBottom,
   style,
 }: RecordingMapProps) {
   const { isDark } = useTheme();
@@ -104,11 +109,14 @@ function RecordingMapInner({
   // survives the athlete leaving the tab, and this is only what redraws.
   const [, bumpStyle] = useState(0);
   const themeStyle: MapStyleType = isDark ? 'dark' : 'light';
-  const mapStyle: MapStyleType = useDrawnMapStyle(chosenStyle ?? themeStyle);
-  const cycleStyle = useCallback(() => {
-    chosenStyle = getNextStyle(mapStyle);
+  const chooseStyle = useCallback((next: MapStyleType) => {
+    chosenStyle = next;
     bumpStyle((n) => n + 1);
-  }, [mapStyle]);
+  }, []);
+  const { drawn: mapStyle, cycle: cycleStyle } = useMapStyleToggle(
+    chosenStyle ?? themeStyle,
+    chooseStyle
+  );
   const surfaceRef = useRef<MapSurfaceRef>(null);
   // Released only when another screen covers this one, never while it is in
   // front, however long the recording runs.
@@ -117,10 +125,17 @@ function RecordingMapInner({
   // button restores following.
   const [isFollowing, setIsFollowing] = useState(true);
 
-  // Only a gesture breaks the follow. A camera move we asked for does not.
-  const handleRegionDidChange = useCallback((_state: unknown, isUserInteraction: boolean) => {
-    if (isUserInteraction) setIsFollowing(false);
-  }, []);
+  const { attributionRef, initialAttribution, trackAttribution } = useSurfaceAttribution(mapStyle);
+
+  // Only a gesture breaks the follow, and only on the live map. A camera move
+  // we asked for does not.
+  const handleRegionDidChange = useCallback(
+    (state: MapCameraState, isUserInteraction: boolean) => {
+      trackAttribution(state);
+      if (isUserInteraction && !fitBounds) setIsFollowing(false);
+    },
+    [trackAttribution, fitBounds]
+  );
 
   // Recording streams arrive as [lat, lng]; the map wants [lng, lat]. Each
   // point is flipped once, on the fix that brought it, rather than the whole
@@ -252,7 +267,12 @@ function RecordingMapInner({
         sources={sources}
         layers={layers}
         released={!screenFocused}
-        onRegionDidChange={fitBounds ? undefined : handleRegionDidChange}
+        onRegionDidChange={handleRegionDidChange}
+      />
+      <AttributionOverlay
+        ref={attributionRef}
+        initialAttribution={initialAttribution}
+        bottomInset={coveredBottom}
       />
 
       {/* Map controls (live mode only) */}

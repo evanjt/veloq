@@ -48,9 +48,8 @@ import {
   formatMonth,
   getIntlLocale,
 } from '@/shared/format/format';
-import { readActivities } from '@/shared/native/storedActivities';
 import { composeAccessibilityLabel } from '@/shared/ui/accessibilityLabel';
-import { dayActivityRow, useOpenDayActivities } from '@/features/activity/light';
+import { dayActivityRow, readFeedCards, useOpenDayActivities } from '@/features/activity/light';
 import {
   cellPosition,
   columnYear,
@@ -58,7 +57,6 @@ import {
   HEATMAP_CELL_GAP,
   HEATMAP_CELL_SIZE,
   HEATMAP_PITCH,
-  HEATMAP_WEEKS,
 } from '../lib/heatmapGrid';
 import { CardHeader } from '@/shared/ui/CardHeader';
 import { EmptyState } from '@/shared/ui/EmptyState';
@@ -108,7 +106,6 @@ const DAY_ACTIONS = [{ name: 'increment' }, { name: 'decrement' }, { name: 'acti
 const NAMED_ROWS = new Set([0, 2, 4]);
 
 const CELL_SIZE = HEATMAP_CELL_SIZE;
-const GRID_WIDTH = HEATMAP_WEEKS * HEATMAP_PITCH;
 const GRID_HEIGHT = 7 * HEATMAP_PITCH;
 /** The fixed column left of the scroll view, wide enough for a four digit year at the cap. */
 const GUTTER_WIDTH = denseExtent(typography.captionBold.fontSize, 2.6);
@@ -138,12 +135,15 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
 
     // The one interval every part of the card describes, and the days the
     // fitness screen read takes for it. It moves with the local date, so a
-    // calendar left open past midnight moves with it.
+    // calendar left open past midnight moves with it. The grid is as wide as
+    // the weeks the read draws, from the first day the device holds, at most
+    // a year.
     const {
       windows: { heatmap: grid },
-      data: { heatmap },
+      data: { heatmap, calendarOlderOwed },
       isPending,
     } = training;
+    const gridWidth = grid.weeks * HEATMAP_PITCH;
     const firstDay = grid.cells[0].date;
     const lastDay = grid.cells[grid.cells.length - 1].date;
 
@@ -165,7 +165,7 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
     // activities on the days drawn. A day whose activities have no moving time
     // has no intensity and still counts.
     const { intensities, totalActivities } = useMemo(() => {
-      const intensities = new Uint8Array(HEATMAP_WEEKS * 7);
+      const intensities = new Uint8Array(grid.weeks * 7);
       let total = 0;
       for (const cell of grid.cells) {
         const day = days.get(cell.date);
@@ -223,7 +223,7 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
     const heatmapPicture = useMemo(() => {
       if (!drawn) return null;
       const recorder = Skia.PictureRecorder();
-      const canvas = recorder.beginRecording(Skia.XYWHRect(0, 0, GRID_WIDTH, GRID_HEIGHT));
+      const canvas = recorder.beginRecording(Skia.XYWHRect(0, 0, gridWidth, GRID_HEIGHT));
       const paint = Skia.Paint();
 
       for (const cell of grid.cells) {
@@ -253,14 +253,14 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
       }
 
       return recorder.finishRecordingAsPicture();
-    }, [drawn, grid, intensities, intensityColors, dividerColor]);
+    }, [drawn, grid, gridWidth, intensities, intensityColors, dividerColor]);
 
-    // A day's activities are read only when it is pressed, from the stored
-    // bodies for that one date.
+    // A day's activities are read only when it is pressed, from the feed
+    // cards for that one date.
     const openDay = useOpenDayActivities();
     const openDayOn = useCallback(
       (date: string) => {
-        void openDay(readActivities(date, date).map(dayActivityRow));
+        void openDay(readFeedCards(date, date).map(dayActivityRow));
       },
       [openDay]
     );
@@ -364,7 +364,7 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
     const onScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
       setScrolledColumn(columnAt(event.nativeEvent.contentOffset.x));
     }, []);
-    const leftColumn = scrolledColumn ?? columnAt(GRID_WIDTH - viewportWidth);
+    const leftColumn = scrolledColumn ?? columnAt(gridWidth - viewportWidth);
     const pinnedYear = columnYear(grid, leftColumn);
 
     // Auto-scroll to highlighted cell
@@ -456,7 +456,7 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
               {/* Month labels, January carrying its year */}
               <View
                 testID="activity-heatmap-months"
-                style={[styles.monthLabels, { width: GRID_WIDTH }]}
+                style={[styles.monthLabels, { width: gridWidth }]}
               >
                 {labels.months.map((m) =>
                   m.year !== undefined ? (
@@ -501,16 +501,19 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
                 <ChartSurface
                   summary={reading.summary}
                   table={reading.table}
-                  style={styles.grid}
+                  style={[styles.grid, { width: gridWidth }]}
                   showDataButton={false}
                   testID="activity-heatmap-plot"
                 >
                   {heatmapPicture ? (
-                    <Canvas style={styles.grid}>
+                    <Canvas style={[styles.grid, { width: gridWidth }]}>
                       <Picture picture={heatmapPicture} />
                     </Canvas>
                   ) : (
-                    <View testID="activity-heatmap-placeholder" style={styles.grid} />
+                    <View
+                      testID="activity-heatmap-placeholder"
+                      style={[styles.grid, { width: gridWidth }]}
+                    />
                   )}
                 </ChartSurface>
                 {highlightPos ? (
@@ -566,6 +569,17 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
           </Text>
         )}
 
+        {/* The grid draws what the device holds, so a shorter one says the
+            year before it is not all downloaded rather than untrained. */}
+        {calendarOlderOwed > 0 && (
+          <Text
+            testID="activity-heatmap-older-owed"
+            style={[styles.partial, isDark && styles.textDark]}
+          >
+            {t('stats.calendarOlderOwed', { count: calendarOlderOwed })}
+          </Text>
+        )}
+
         {/* Legend: the measure the colour stands for, and its bins */}
         <View testID="activity-heatmap-legend" style={styles.legend}>
           <Text
@@ -615,7 +629,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   grid: {
-    width: GRID_WIDTH,
     height: GRID_HEIGHT,
   },
   gutter: {

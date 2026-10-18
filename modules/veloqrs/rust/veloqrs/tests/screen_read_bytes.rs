@@ -355,6 +355,8 @@ fn fitness(v: FfiFitnessScreenData) -> Lowered {
         decoupling_sources,
         load_dots => |v: &FfiFitnessScreenData| v.load_dots.len(),
         heatmap => |v: &FfiFitnessScreenData| v.heatmap.len(),
+        calendar_first_day,
+        calendar_older_owed,
         months => |v: &FfiFitnessScreenData| v.months.len(),
         year_current,
         year_previous,

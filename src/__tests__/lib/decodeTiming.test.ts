@@ -1,12 +1,11 @@
 /**
  * Scenario: an engine row in the Developer Dashboard times the call and the
- * lift, and the decoding a screen does afterwards, parsing bodies, viewing
- * stream buffers, decoding preview tracks, falls outside every row.
+ * lift, and the decoding a screen does afterwards, viewing stream buffers and
+ * decoding preview tracks, falls outside every row.
  * Expected behaviour: each decoding step records its own row while Debug Mode
  * is on, returns what it decoded, and records nothing while it is off.
  */
 
-import { parseBodies, DECODE_ACTIVITY_BODIES } from '@/shared/native/storedActivities';
 import { DECODE_STREAMS, streamsFromBuffers } from '@/features/activity/lib/streams';
 import { buildPreviewTracks, DECODE_PREVIEW_TRACKS } from '@/features/home/hooks/useStartupData';
 import {
@@ -57,15 +56,6 @@ describe('timeAppWork', () => {
 });
 
 describe('the decoding after an engine read', () => {
-  it('times parsing the stored activity bodies', () => {
-    const parsed = parseBodies({
-      bodies: ['{"id":"i1"}', 'not json', '{"id":"i2"}'],
-      keys: ['i1', 'k2', 'i2'],
-    });
-    expect(parsed.map((activity) => activity.id)).toEqual(['i1', 'i2']);
-    expect(rows(DECODE_ACTIVITY_BODIES)).toHaveLength(1);
-  });
-
   it('times viewing the stream buffers as chart arrays', () => {
     const streams = streamsFromBuffers(streamBuffers({ time: [0, 5, 10] }));
     expect(Array.from(streams.time ?? [])).toEqual([0, 5, 10]);
@@ -82,7 +72,6 @@ describe('the decoding after an engine read', () => {
 
   it('records no decoding row while Debug Mode is off', () => {
     setAppMetricsEnabled(false);
-    parseBodies({ bodies: ['{"id":"i1"}'], keys: ['i1'] });
     streamsFromBuffers(streamBuffers({ time: [0] }));
     expect(getFFIMetrics()).toEqual([]);
   });

@@ -22,7 +22,7 @@ import { SeasonBestsSection } from '@/features/fitness/components/SeasonBestsSec
 import { ActivityDotsChart } from '@/features/fitness/components/ActivityDotsChart';
 import ExerciseDetailScreen from '@/features/strength/components/ExerciseDetailScreen';
 import type { ClimbBest } from '@/features/stats';
-import type { Activity, WellnessData } from '@/types';
+import type { FeedCard, WellnessData } from '@/types';
 import { layout } from '@/theme';
 import { dayActivityRow } from '@/features/activity/light';
 
@@ -145,10 +145,10 @@ describe('the days-trained strip', () => {
       {
         id: 'kite-day',
         name: 'Kite session',
-        type: 'Ride',
-        start_date_local: '2026-02-14T07:00:00',
+        sportType: 'Ride',
+        startDateLocal: '2026-02-14T07:00:00',
       },
-    ] as Activity[];
+    ] as FeedCard[];
     await render(
       <ActivityDotsChart
         data={wellness}

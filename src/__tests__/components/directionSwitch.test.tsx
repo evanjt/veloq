@@ -11,7 +11,7 @@
  */
 
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
 
 import * as haptics from '@/shared/ui/haptics';
@@ -77,6 +77,20 @@ describe('DirectionSwitch', () => {
     for (const id of ['dir-forward', 'dir-reverse']) {
       const segment = StyleSheet.flatten(tree.getByTestId(id).props.style);
       expect(segment.backgroundColor).not.toBe(colors.controlOn);
+    }
+  });
+
+  it('keeps each segment as wide as its word in a row parent', async () => {
+    const tree = await render(<View style={{ flexDirection: 'row' }}>{switchOf()}</View>);
+
+    // In a row the track sizes to its content, so a segment with a zero basis
+    // contributes no width and its word and count collapse to nothing.
+    for (const id of ['dir-forward', 'dir-reverse']) {
+      const segment = StyleSheet.flatten(tree.getByTestId(id).props.style);
+      expect(segment.flex).toBeUndefined();
+      expect(segment.flexBasis ?? 'auto').toBe('auto');
+      expect(segment.flexGrow).toBe(1);
+      expect(segment.flexShrink).toBe(1);
     }
   });
 

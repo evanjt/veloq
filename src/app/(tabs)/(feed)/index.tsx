@@ -334,7 +334,6 @@ function FeedScreenContent() {
   const {
     sections: sectionHighlightsMap,
     routes: routeHighlightsMap,
-    newGround: newGroundMap,
     strengthCards: strengthCardRows,
   } = useActivitySectionHighlights(highlightIds);
   const strengthCards = useStrengthCardData(strengthCardRows);
@@ -441,7 +440,6 @@ function FeedScreenContent() {
         colorScheme={isDark}
         sectionHighlights={sectionHighlightsMap.get(item.id)}
         routeHighlight={routeHighlightsMap.get(item.id)}
-        newGround={newGroundMap.get(item.id)}
         strengthData={strengthCards.get(item.id)}
       />
     ),
@@ -450,7 +448,6 @@ function FeedScreenContent() {
       isDark,
       sectionHighlightsMap,
       routeHighlightsMap,
-      newGroundMap,
       strengthCards,
       previewTracks,
     ]

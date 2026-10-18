@@ -75,7 +75,7 @@ describe('the add-one span', () => {
     useSyncDateRange.setState({ oldest: '2026-01-01', newest: '2026-03-31' });
     // The engine stored the track before the sync looked, so nothing is owed.
     mockGetGpsFetchCandidates.mockReturnValue([]);
-    (getEngine as jest.Mock).mockReturnValue({ getActivityBodies: () => [], subscribe });
+    (getEngine as jest.Mock).mockReturnValue({ getFeedCards: () => [], subscribe });
     (getNativeModule as jest.Mock).mockReturnValue({
       engine: {
         getActivityIds: () => ['harbour-swim'],

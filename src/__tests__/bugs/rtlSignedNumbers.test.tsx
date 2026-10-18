@@ -10,17 +10,21 @@
  */
 
 import React from 'react';
-import { render } from '@testing-library/react-native';
-import { I18nManager } from 'react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
+import type { ReactTestInstance } from 'react-test-renderer';
+import { I18nManager, View } from 'react-native';
 
 import { isolateNumeric, formatTimeDelta } from '@/shared/format/format';
-import { ChartTypeSelector } from '@/features/activity/components/ChartTypeSelector';
+import { ActivityStreams } from '@/features/activity/components/ActivityStreams';
 import { CHART_CONFIGS } from '@/features/activity/lib/chartConfig';
 import { TodayBanner } from '@/features/routes/components/TodayBanner';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 
-jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
+jest.mock('@/shared/app', () => ({
+  useTheme: () => ({ isDark: false }),
+  useMetricSystem: () => true,
+}));
 
 jest.mock('@/features/home/hooks/useTodayWorkout', () => ({
   useTodayWorkout: () => ({ todayWorkout: null, tomorrowWorkout: null, isLoading: false }),
@@ -92,39 +96,48 @@ describe('a delta chip under a right-to-left layout', () => {
   });
 });
 
-describe('the grade chip under a right-to-left layout', () => {
-  const grade = CHART_CONFIGS.grade;
+describe('the grade lane title under a right-to-left layout', () => {
+  const streams = {
+    time: Float64Array.from([0, 60, 120]),
+    distance: Float64Array.from([0, 400, 800]),
+    grade_smooth: Float64Array.from([-0.2, -0.2, -0.2]),
+  };
 
-  it('keeps the minus with the digits and the unit outside the run', async () => {
-    await withRtl(async () => {
-      const tree = await render(
-        <ChartTypeSelector
-          available={[grade]}
-          selected={['grade']}
-          onToggle={() => {}}
-          metricValues={[{ id: 'grade', value: '-0.2', unit: '%', maxValueWidth: '-0.2' }]}
-        />
-      );
-      const shown = tree
-        .UNSAFE_getAllByType(require('react-native').Text)
-        .flatMap((n) => n.props.children)
-        .filter((c: unknown) => typeof c === 'string')
+  async function drawGradeLane() {
+    const tree = await render(
+      <ActivityStreams
+        streams={streams}
+        elevationGain={0}
+        selectedCharts={['grade']}
+        chartConfigs={CHART_CONFIGS}
+      />
+    );
+    for (const box of tree.UNSAFE_getAllByType(View).filter((node) => node.props.onLayout)) {
+      await act(async () => {
+        await fireEvent(box, 'layout', { nativeEvent: { layout: { width: 320, height: 56 } } });
+      });
+    }
+    return tree;
+  }
+
+  function drawnValue(tree: Awaited<ReturnType<typeof render>>): string {
+    const flatten = (node: ReactTestInstance): string =>
+      node.children
+        .map((c: ReactTestInstance | string) => (typeof c === 'string' ? c : flatten(c)))
         .join('');
+    return flatten(tree.getByTestId('activity-lane-grade-value'));
+  }
+
+  it('keeps the minus with the digits', async () => {
+    await withRtl(async () => {
+      const shown = drawnValue(await drawGradeLane());
       expect(shown).toContain(`${FSI}-0.2${PDI}`);
       expect(signTouchesDigits(shown)).toBe(true);
     });
   });
 
   it('renders the plain value left to right', async () => {
-    const tree = await render(
-      <ChartTypeSelector
-        available={[grade]}
-        selected={['grade']}
-        onToggle={() => {}}
-        metricValues={[{ id: 'grade', value: '-0.2', unit: '%' }]}
-      />
-    );
-    expect(tree.getAllByText('-0.2 %').length).toBeGreaterThan(0);
+    expect(drawnValue(await drawGradeLane())).toMatch(/-0\.2$/);
   });
 });
 

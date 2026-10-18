@@ -275,6 +275,7 @@ export function PerformanceChartPanel({
           {showsDirection ? (
             <DirectionSwitch
               testID="section-chart-direction"
+              style={styles.directionSwitch}
               value={direction}
               counts={{ forward: forwardStats?.count ?? 0, reverse: reverseStats?.count ?? 0 }}
               marks={{
@@ -399,6 +400,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.sm,
     marginBottom: spacing.xs,
+  },
+  // The switch grows from its words into the row's width, beside Compare with when it shows.
+  directionSwitch: {
+    flexGrow: 1,
+    flexShrink: 1,
   },
   card: {
     marginTop: spacing.sm,

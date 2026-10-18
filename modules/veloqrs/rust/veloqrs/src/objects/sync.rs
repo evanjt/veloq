@@ -4323,7 +4323,7 @@ async fn sync_wellness_window(
             hrv: r.hrv,
             resting_hr: r.resting_hr,
             weight: r.weight,
-            sleep_secs: r.sleep_secs.map(|s| s as i64),
+            sleep_secs: r.sleep_secs.map(|s| crate::WholeNumber(s as i64)),
             sleep_score: r.sleep_score,
             soreness: r.soreness,
             fatigue: r.fatigue,

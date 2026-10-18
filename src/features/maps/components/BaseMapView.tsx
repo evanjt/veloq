@@ -30,7 +30,7 @@ import {
   type LngLatBounds,
 } from '@/features/maps/lib/coordinates';
 import type { MapImageSpec, MapLayerSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
-import { type MapStyleType, getNextStyle, getStyleIcon } from './mapStyles';
+import { type MapStyleType, getStyleIcon } from './mapStyles';
 import {
   composeBaseMapLayers,
   type MapGradientForBase,
@@ -38,7 +38,7 @@ import {
 } from '@/features/maps/lib/baseMapLayers';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
 import { cameraAfter3D, type Camera3DState } from '@/features/maps/lib/cameraAfter3D';
-import { useDrawnMapStyle } from '@/features/maps/hooks/useDrawnMapStyle';
+import { useMapStyleToggle } from '@/features/maps/hooks/useDrawnMapStyle';
 import { useLocateUser } from '@/features/maps/hooks/useLocateUser';
 import { useTerrainFallback } from '@/features/maps/hooks/useTerrainFallback';
 import {
@@ -157,7 +157,7 @@ export function BaseMapView({
   const systemStyle: MapStyleType = isDark ? 'dark' : 'light';
 
   const [chosenStyle, setChosenStyle] = useState<MapStyleType>(initialStyle ?? systemStyle);
-  const mapStyle = useDrawnMapStyle(chosenStyle);
+  const { drawn: mapStyle, cycle: toggleStyle } = useMapStyleToggle(chosenStyle, setChosenStyle);
   const [is3DMode, setIs3DMode] = useState(false);
   const [is3DReady, setIs3DReady] = useState(false);
   const { onTerrainUnavailable, terrainNotice } = useTerrainFallback(() => {
@@ -215,10 +215,6 @@ export function BaseMapView({
     },
     [bearingAnim]
   );
-
-  const toggleStyle = useCallback(() => {
-    setChosenStyle((current) => getNextStyle(current));
-  }, []);
 
   const toggle3D = useCallback(() => {
     setIs3DMode((current) => !current);

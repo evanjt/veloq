@@ -31,15 +31,31 @@ tags:
 - repeat:
     times: 10
     commands:
+      - runFlow:
+          file: helpers/reveal-chart-type.yaml
+          env:
+            CHART_TYPE: heartrate
       - tapOn:
           id: "chart-type-heartrate"
           optional: true
+      - runFlow:
+          file: helpers/reveal-chart-type.yaml
+          env:
+            CHART_TYPE: power
       - tapOn:
           id: "chart-type-power"
           optional: true
+      - runFlow:
+          file: helpers/reveal-chart-type.yaml
+          env:
+            CHART_TYPE: elevation
       - tapOn:
           id: "chart-type-elevation"
           optional: true
+      - runFlow:
+          file: helpers/reveal-chart-type.yaml
+          env:
+            CHART_TYPE: speed
       - tapOn:
           id: "chart-type-speed"
           optional: true

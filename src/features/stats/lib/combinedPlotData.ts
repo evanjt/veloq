@@ -13,7 +13,7 @@ import { measuresPower } from '@/shared/activity/activityUtils';
 import type { ActivityStreams, ActivityInterval, ActivityType } from '@/types';
 import { finiteExtent, type Extent } from '@/shared/charts/extent';
 import { minMaxBuckets } from '@/shared/charts/minMaxBuckets';
-import { KM_TO_MI, MPS_TO_KPH } from '@/shared/format/format';
+import { isolateNumeric, KM_TO_MI, MPS_TO_KPH } from '@/shared/format/format';
 import { paceMinutesFromSpeed, speedFromPaceMinutes } from '@/shared/math/kinematics';
 import { ABSENT } from '@/shared/format/absent';
 
@@ -170,20 +170,6 @@ export function laneDomain(config: ChartConfig, extent: Extent | null): [number,
   if (config.lane === 'signed') high = Math.max(high, 0);
   if (high === low) return low === 0 ? [0, 1] : [low - 1, high + 1];
   return [low, high];
-}
-
-/** Per-series metric value exposed to parent for display in chips. */
-export interface ChartMetricValue {
-  id: ChartTypeId;
-  label: string;
-  value: string;
-  unit: string;
-  /** Longest formatted value (for stable chip width during scrubbing) */
-  maxValueWidth?: string | undefined;
-  /** The value is the activity's average rather than the sample under a scrub. */
-  isAverage?: boolean | undefined;
-  /** The value is the activity's elevation gain rather than the altitude under a scrub. */
-  isGain?: boolean | undefined;
 }
 
 /**
@@ -343,62 +329,51 @@ export function buildChartData(
   };
 }
 
+/** What a lane's readout says its value is: the activity's average, the climb's gain, or a sample. */
+export type LaneReadoutMark = 'average' | 'gain' | null;
+
+/** The value a lane's title carries, in the athlete's units. */
+export interface LaneReadout {
+  /** Null while a scrub reads a sample. */
+  mark: LaneReadoutMark;
+  /** Formatted and isolated, so a sign stays with its digits in either direction. */
+  value: string;
+  unit: string;
+}
+
 /**
- * Compute average values for every available chart type (not just selected).
- *
- * For altitude (`defaultMetric === 'gain'`) the idle value is the activity's
- * elevation gain with a `+` prefix. For everything else, it is `seriesAverage`.
- * Both format through `formatScrubValue`, so the idle chip and a scrub of the
- * same value read alike.
- *
- * Returns one entry per available chart, including a `maxValueWidth` string
- * so callers can lock the chip width during scrubbing.
+ * A lane's readout. Idle, a lane reads its stream's average, and elevation
+ * reads the activity's gain with a `+`, each with a mark saying so. Scrubbed,
+ * it reads the sample at `sample` with no mark, and the absent mark where the
+ * stream has no sample there. Both format through `formatScrubValue`, so an
+ * idle value and a scrub of the same value read alike.
  */
-export function computeAllAverages(
-  chartConfigs: Record<ChartTypeId, ChartConfig>,
-  streams: ActivityStreams,
+export function laneReadout(
+  config: ChartConfig,
+  rawData: ArrayLike<number>,
+  sample: number | null,
   isMetric: boolean,
   elevationGain: number | null | undefined
-): ChartMetricValue[] {
-  const results: ChartMetricValue[] = [];
-  for (const chartId of Object.keys(chartConfigs) as ChartTypeId[]) {
-    const config = chartConfigs[chartId];
-    if (!config) continue;
-    const rawData = config.getStream?.(streams);
-    if (!rawData || rawData.length === 0) continue;
-    // Every sample a scrub can read, so the chip is locked to the widest. A
-    // pace scrub reads a stop as absent, so its stops are left out.
-    const scrubExtent = seriesExtent(config, rawData);
-    if (!scrubExtent && !finiteExtent(rawData)) continue;
-    const maxFormatted = formatScrubValue(config, scrubExtent?.max, isMetric);
-
-    let formatted: string;
-    let widest: string;
-    if (config.defaultMetric === 'gain') {
-      const gain = elevationGain != null && Number.isFinite(elevationGain) ? elevationGain : 0;
-      formatted = `+${formatScrubValue(config, gain, isMetric)}`;
-      // The gain holds while idle and a scrub shows altitude, so the chip
-      // takes the wider of the two.
-      widest = formatted.length >= maxFormatted.length ? formatted : maxFormatted;
-    } else {
-      formatted = formatScrubValue(config, seriesAverage(config, rawData) ?? undefined, isMetric);
-      widest = maxFormatted;
-    }
-
-    const unit = seriesUnit(config, isMetric);
-
-    results.push({
-      id: chartId,
-      label: config.label,
-      value: formatted,
-      unit,
-      maxValueWidth: widest,
-      // The gain is a total and carries its own '+'.
-      isAverage: config.defaultMetric !== 'gain',
-      isGain: config.defaultMetric === 'gain',
-    });
+): LaneReadout {
+  const unit = seriesUnit(config, isMetric);
+  if (sample !== null) {
+    const raw = sample >= 0 && sample < rawData.length ? rawData[sample] : undefined;
+    return { mark: null, value: isolateNumeric(formatScrubValue(config, raw, isMetric)), unit };
   }
-  return results;
+  if (config.defaultMetric === 'gain') {
+    const gain = elevationGain != null && Number.isFinite(elevationGain) ? elevationGain : 0;
+    return {
+      mark: 'gain',
+      value: isolateNumeric(`+${formatScrubValue(config, gain, isMetric)}`),
+      unit,
+    };
+  }
+  const average = seriesAverage(config, rawData);
+  return {
+    mark: 'average',
+    value: isolateNumeric(formatScrubValue(config, average ?? undefined, isMetric)),
+    unit,
+  };
 }
 
 /** The first sample at or after `second`, or the last sample when it is past the end. */

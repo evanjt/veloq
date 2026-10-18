@@ -37,7 +37,7 @@ const heatmapDays = jest.fn((_firstDay: string, _lastDay: string) => [
 const engine = {
   subscribe: () => () => {},
   getFitnessScreenData: fitnessScreenRead({ heatmap: heatmapDays }),
-  getActivityBodies: jest.fn(() => []),
+  getFeedCards: jest.fn(() => []),
   rangeCoverage: jest.fn(() => RangeCoverage.Loaded),
 };
 
@@ -67,7 +67,7 @@ describe('ActivityHeatmap', () => {
     );
 
     await waitFor(() => expect(heatmapDays).toHaveBeenCalled());
-    expect(engine.getActivityBodies).not.toHaveBeenCalled();
+    expect(engine.getFeedCards).not.toHaveBeenCalled();
   });
 
   it('draws the grid from the cache alone', async () => {
@@ -109,7 +109,7 @@ describe('ActivityHeatmap', () => {
 
     await waitFor(() => expect(heatmapDays).toHaveBeenCalled());
     expect(view.queryByTestId('activity-heatmap-count')).toBeNull();
-    expect(engine.getActivityBodies).not.toHaveBeenCalled();
+    expect(engine.getFeedCards).not.toHaveBeenCalled();
   });
 });
 

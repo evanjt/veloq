@@ -4,14 +4,15 @@
  * the athlete's whole window, to use only its length and its identity.
  *
  * Expected behaviour: a live library runs one route sync pass per
- * announcement from the engine's own candidate read and reads no body. Demo
- * mode pulls no census, so its pass still reads the fixture bodies.
+ * announcement from the engine's own candidate read and reads no feed card.
+ * Demo mode pulls no census, so its pass reads the fixtures' cards.
  */
 
 import React from 'react';
 import { act, render } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { stubIdleScheduler, type IdleScheduler } from '../__shared__/idleScheduler';
+import { feedCard } from '../__shared__/feedCard';
 
 import { GlobalDataSync } from '@/shared/app/GlobalDataSync';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -63,21 +64,13 @@ function announce(channel: string) {
   listeners.get(channel)?.forEach((listener) => listener());
 }
 
-const page = (bodies: string[]) => ({
-  bodies,
-  intervalsIds: bodies.map(() => null),
-  keys: bodies.map((body) => (JSON.parse(body) as { id: string }).id),
-  matchedCount: bodies.length,
-  hasMore: false,
-});
-
-const fixtureBodies = page([
-  JSON.stringify({ id: 'kite-1', type: 'Ride', stream_types: ['latlng'] }),
-  JSON.stringify({ id: 'kite-2', type: 'Run', stream_types: ['time'] }),
-]);
+const fixtureCards = [
+  feedCard({ id: 'kite-1', sportType: 'Ride', hasGps: true }),
+  feedCard({ id: 'kite-2', sportType: 'Run', hasGps: false }),
+];
 
 const fakeEngine = {
-  getActivityBodies: jest.fn((_oldest: number, _newest: number) => fixtureBodies),
+  getFeedCards: jest.fn((_oldest: number, _newest: number) => fixtureCards),
   // No track has landed yet, which is when a first sync owes its pass.
   getActivityCount: jest.fn(() => 0),
   getStats: jest.fn(() => ({ libraryCount: 2 })),
@@ -123,7 +116,7 @@ beforeEach(() => {
   idle = stubIdleScheduler('immediate');
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   fakeEngine.getStats.mockReturnValue({ libraryCount: 2 });
-  fakeEngine.getActivityBodies.mockReturnValue(fixtureBodies);
+  fakeEngine.getFeedCards.mockReturnValue(fixtureCards);
   (getEngine as jest.Mock).mockReturnValue(fakeEngine);
   (getNativeModule as jest.Mock).mockReturnValue({ engine: fakeEngine });
   useAuthStore.setState({ isAuthenticated: true, isDemoMode: false, athleteId: 'i1' });
@@ -136,7 +129,7 @@ afterEach(() => {
 });
 
 describe('the sync tree on an activities announcement', () => {
-  it('runs one route pass per announcement and reads no activity body', async () => {
+  it('runs one route pass per announcement and reads no feed card', async () => {
     await mountSyncTree();
     const passesAtMount = fakeEngine.getGpsFetchCandidates.mock.calls.length;
     expect(passesAtMount).toBe(1);
@@ -147,7 +140,7 @@ describe('the sync tree on an activities announcement', () => {
 
     expect(fakeEngine.getGpsFetchCandidates).toHaveBeenCalledTimes(passesAtMount + 3);
     expect(fakeEngine.getGpsFetchCandidates).toHaveBeenLastCalledWith('2026-01-01', '2026-03-31');
-    expect(fakeEngine.getActivityBodies).not.toHaveBeenCalled();
+    expect(fakeEngine.getFeedCards).not.toHaveBeenCalled();
   });
 
   it('still asks the engine for the selected window', async () => {
@@ -158,21 +151,21 @@ describe('the sync tree on an activities announcement', () => {
 
   it('runs no pass while the library is empty', async () => {
     fakeEngine.getStats.mockReturnValue({ libraryCount: 0 });
-    fakeEngine.getActivityBodies.mockReturnValue(page([]));
+    fakeEngine.getFeedCards.mockReturnValue([]);
     await mountSyncTree();
     await announceActivities();
 
     expect(fakeEngine.getGpsFetchCandidates).not.toHaveBeenCalled();
   });
 
-  it('hands the demo fixtures from the stored bodies to the demo download', async () => {
+  it('hands the demo fixtures from the feed cards to the demo download', async () => {
     useAuthStore.setState({ isAuthenticated: true, isDemoMode: true, athleteId: 'demo' });
     await mountSyncTree();
     mockFetchDemoGps.mockClear();
 
     await announceActivities();
 
-    expect(fakeEngine.getActivityBodies).toHaveBeenCalled();
+    expect(fakeEngine.getFeedCards).toHaveBeenCalled();
     expect(fakeEngine.getGpsFetchCandidates).not.toHaveBeenCalled();
     const handed = mockFetchDemoGps.mock.calls[0]?.[0] as { activityId: string }[];
     expect(handed.map((c) => c.activityId)).toEqual(['kite-1']);

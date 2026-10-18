@@ -924,55 +924,6 @@ const FfiConverterTypeAthleteProfile = (() => {
 })();
 
 /**
- * What one poll of the cache-size walk says. `bytes` is meaningful only
- * while `state` is "complete".
- */
-export type CacheSizePoll = {
-  state: string;
-  bytes: number;
-};
-
-/**
- * Generated factory for {@link CacheSizePoll} record objects.
- */
-export const CacheSizePoll = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<CacheSizePoll, ReturnType<typeof defaults>>(
-      defaults,
-    );
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () => Object.freeze(defaults()) as Partial<CacheSizePoll>,
-  });
-})();
-
-const FfiConverterTypeCacheSizePoll = (() => {
-  type TypeName = CacheSizePoll;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      return {
-        state: FfiConverterString.readFromCursor(c),
-        bytes: FfiConverterFloat64.readFromCursor(c),
-      };
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      FfiConverterString.writeIntoCursor(value.state, c);
-      FfiConverterFloat64.writeIntoCursor(value.bytes, c);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterString.allocationSize(value.state) +
-        FfiConverterFloat64.allocationSize(value.bytes)
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
  * How far a detector cutover has got. The phase is the whole story: a cut has
  * no unit of work to count, unlike the elevation queue.
  */
@@ -1682,82 +1633,6 @@ const FfiConverterTypeFfiAbsoluteTarget = (() => {
         FfiConverterFloat64.allocationSize(value.low) +
         FfiConverterFloat64.allocationSize(value.high) +
         FfiConverterTypeFfiAbsoluteUnits.allocationSize(value.units)
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
- * One page of the feed's read, newest first.
- */
-export type FfiActivityBodiesPage = {
-  /**
-   * Untyped intervals.icu activity payloads.
-   */
-  bodies: Array<string>;
-  /**
-   * The intervals.icu id a web link may name for each body, in the same
-   * order. None for a demo row and for a recording no server has named.
-   */
-  intervalsIds: Array<string | undefined>;
-  /**
-   * The row key each body is stored under, in the same order. A route or a
-   * fetch names the activity by this, never by the body's own `id`, which
-   * for an uploaded recording is the server's id rather than the row's.
-   */
-  keys: Array<string>;
-  /**
-   * Every stored activity the query matched, not only this page.
-   */
-  matchedCount: number;
-  hasMore: boolean;
-};
-
-/**
- * Generated factory for {@link FfiActivityBodiesPage} record objects.
- */
-export const FfiActivityBodiesPage = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<
-      FfiActivityBodiesPage,
-      ReturnType<typeof defaults>
-    >(defaults);
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () => Object.freeze(defaults()) as Partial<FfiActivityBodiesPage>,
-  });
-})();
-
-const FfiConverterTypeFfiActivityBodiesPage = (() => {
-  type TypeName = FfiActivityBodiesPage;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      return {
-        bodies: FfiConverterSequenceString.readFromCursor(c),
-        intervalsIds: FfiConverterSequenceOptionalString.readFromCursor(c),
-        keys: FfiConverterSequenceString.readFromCursor(c),
-        matchedCount: FfiConverterUInt32.readFromCursor(c),
-        hasMore: FfiConverterBool.readFromCursor(c),
-      };
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      FfiConverterSequenceString.writeIntoCursor(value.bodies, c);
-      FfiConverterSequenceOptionalString.writeIntoCursor(value.intervalsIds, c);
-      FfiConverterSequenceString.writeIntoCursor(value.keys, c);
-      FfiConverterUInt32.writeIntoCursor(value.matchedCount, c);
-      FfiConverterBool.writeIntoCursor(value.hasMore, c);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterSequenceString.allocationSize(value.bodies) +
-        FfiConverterSequenceOptionalString.allocationSize(value.intervalsIds) +
-        FfiConverterSequenceString.allocationSize(value.keys) +
-        FfiConverterUInt32.allocationSize(value.matchedCount) +
-        FfiConverterBool.allocationSize(value.hasMore)
       );
     }
   }
@@ -3035,48 +2910,6 @@ const FfiConverterTypeFfiActivityRouteHighlight = (() => {
 })();
 
 /**
- * What an activity's card says about its ground, decided once in the engine.
- */
-export enum FfiNewGroundBadge {
-  /**
-   * Every z17 tile the activity touched was untouched by earlier ones.
-   */
-  EntirelyNew,
-  /**
-   * At least half of them were.
-   */
-  MostlyNew,
-}
-
-const FfiConverterTypeFfiNewGroundBadge = (() => {
-  type TypeName = FfiNewGroundBadge;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      switch (c.readI32()) {
-        case 1:
-          return FfiNewGroundBadge.EntirelyNew;
-        case 2:
-          return FfiNewGroundBadge.MostlyNew;
-        default:
-          throw new UniffiInternalError.UnexpectedEnumCase();
-      }
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      switch (value) {
-        case FfiNewGroundBadge.EntirelyNew:
-          return c.writeI32(1);
-        case FfiNewGroundBadge.MostlyNew:
-          return c.writeI32(2);
-      }
-    }
-    allocationSize(value: TypeName): number {
-      return 4;
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
  * How much of an activity's ground no earlier activity had covered, counted
  * in z17 tiles. It is coverage of a fixed grid, not metres of new road.
  */
@@ -3094,10 +2927,6 @@ export type FfiActivityNewGround = {
    * Tiles no earlier activity touched.
    */
   newTiles: number;
-  /**
-   * The badge the card shows, absent below half.
-   */
-  badge?: FfiNewGroundBadge;
 };
 
 /**
@@ -3127,7 +2956,6 @@ const FfiConverterTypeFfiActivityNewGround = (() => {
         fraction: FfiConverterFloat64.readFromCursor(c),
         tiles: FfiConverterUInt32.readFromCursor(c),
         newTiles: FfiConverterUInt32.readFromCursor(c),
-        badge: FfiConverterOptionalTypeFfiNewGroundBadge.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -3135,15 +2963,13 @@ const FfiConverterTypeFfiActivityNewGround = (() => {
       FfiConverterFloat64.writeIntoCursor(value.fraction, c);
       FfiConverterUInt32.writeIntoCursor(value.tiles, c);
       FfiConverterUInt32.writeIntoCursor(value.newTiles, c);
-      FfiConverterOptionalTypeFfiNewGroundBadge.writeIntoCursor(value.badge, c);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterString.allocationSize(value.activityId) +
         FfiConverterFloat64.allocationSize(value.fraction) +
         FfiConverterUInt32.allocationSize(value.tiles) +
-        FfiConverterUInt32.allocationSize(value.newTiles) +
-        FfiConverterOptionalTypeFfiNewGroundBadge.allocationSize(value.badge)
+        FfiConverterUInt32.allocationSize(value.newTiles)
       );
     }
   }
@@ -3780,11 +3606,24 @@ const FfiConverterTypeFfiPowerZoneBand = (() => {
 })();
 
 /**
- * One ledger change on a section that names an activity, for that activity's
- * screen. It is where the activity was around the change, never a cause.
+ * Typealias from the type name used in the UDL file to the builtin type.  This
+ * is needed because the UDL type name is used in function/method signatures.
+ */
+export type WholeNumber = number;
+// FfiConverter for WholeNumber, a type alias for number.
+const FfiConverterTypeWholeNumber = FfiConverterFloat64;
+
+/**
+ * A ledger row that names one activity, with the section it sits on.
+ *
+ * `relation` says how the row names it: `around` and `fork_around` for the
+ * lists a change attributes, `reanchored_from` and `reanchored_to` for the
+ * two ends of a reference re-anchor. None of them says the activity caused
+ * the change.
+ * It is where the activity was around the change, never a cause.
  */
 export type FfiActivityLedgerChange = {
-  eventId: number;
+  eventId: WholeNumber;
   sectionId: string;
   /**
    * The section's name now, absent when it has none.
@@ -3830,7 +3669,7 @@ const FfiConverterTypeFfiActivityLedgerChange = (() => {
   class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
     readFromCursor(c: Cursor): TypeName {
       return {
-        eventId: FfiConverterFloat64.readFromCursor(c),
+        eventId: FfiConverterTypeWholeNumber.readFromCursor(c),
         sectionId: FfiConverterString.readFromCursor(c),
         sectionName: FfiConverterOptionalString.readFromCursor(c),
         sectionType: FfiConverterString.readFromCursor(c),
@@ -3840,7 +3679,7 @@ const FfiConverterTypeFfiActivityLedgerChange = (() => {
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
-      FfiConverterFloat64.writeIntoCursor(value.eventId, c);
+      FfiConverterTypeWholeNumber.writeIntoCursor(value.eventId, c);
       FfiConverterString.writeIntoCursor(value.sectionId, c);
       FfiConverterOptionalString.writeIntoCursor(value.sectionName, c);
       FfiConverterString.writeIntoCursor(value.sectionType, c);
@@ -3850,7 +3689,7 @@ const FfiConverterTypeFfiActivityLedgerChange = (() => {
     }
     allocationSize(value: TypeName): number {
       return (
-        FfiConverterFloat64.allocationSize(value.eventId) +
+        FfiConverterTypeWholeNumber.allocationSize(value.eventId) +
         FfiConverterString.allocationSize(value.sectionId) +
         FfiConverterOptionalString.allocationSize(value.sectionName) +
         FfiConverterString.allocationSize(value.sectionType) +
@@ -5490,24 +5329,40 @@ const FfiConverterTypeFfiAttemptHistograms = (() => {
 })();
 
 /**
- * One background job's last finished run.
+ * Typealias from the type name used in the UDL file to the builtin type.  This
+ * is needed because the UDL type name is used in function/method signatures.
+ */
+export type BackgroundJob = string;
+// FfiConverter for BackgroundJob, a type alias for string.
+const FfiConverterTypeBackgroundJob = FfiConverterString;
+
+/**
+ * Typealias from the type name used in the UDL file to the builtin type.  This
+ * is needed because the UDL type name is used in function/method signatures.
+ */
+export type RunOutcome = string;
+// FfiConverter for RunOutcome, a type alias for string.
+const FfiConverterTypeRunOutcome = FfiConverterString;
+
+/**
+ * One job's last run. A job leaves at zero the counts it has no measure of.
  */
 export type FfiJobRun = {
   /**
    * detection, elevationBackfill, streamBackfill or cutover.
    */
-  job: string;
+  job: BackgroundJob;
   /**
-   * When the run finished, in epoch milliseconds.
+   * When the run finished, in epoch milliseconds, from
+   * [`super::attempts::now_ms`].
    */
-  finishedAt: number;
+  finishedAt: WholeNumber;
   /**
-   * complete, partial, failed, paused or stopped.
+   * complete, partial, failed, paused, stopped or deferred.
    */
-  outcome: string;
+  outcome: RunOutcome;
   /**
-   * Items the run took on. Each count is zero for a job that has no
-   * measure of it.
+   * Items the run took on.
    */
   handled: number;
   added: number;
@@ -5536,9 +5391,9 @@ const FfiConverterTypeFfiJobRun = (() => {
   class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
     readFromCursor(c: Cursor): TypeName {
       return {
-        job: FfiConverterString.readFromCursor(c),
-        finishedAt: FfiConverterFloat64.readFromCursor(c),
-        outcome: FfiConverterString.readFromCursor(c),
+        job: FfiConverterTypeBackgroundJob.readFromCursor(c),
+        finishedAt: FfiConverterTypeWholeNumber.readFromCursor(c),
+        outcome: FfiConverterTypeRunOutcome.readFromCursor(c),
         handled: FfiConverterUInt32.readFromCursor(c),
         added: FfiConverterUInt32.readFromCursor(c),
         changed: FfiConverterUInt32.readFromCursor(c),
@@ -5547,9 +5402,9 @@ const FfiConverterTypeFfiJobRun = (() => {
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
-      FfiConverterString.writeIntoCursor(value.job, c);
-      FfiConverterFloat64.writeIntoCursor(value.finishedAt, c);
-      FfiConverterString.writeIntoCursor(value.outcome, c);
+      FfiConverterTypeBackgroundJob.writeIntoCursor(value.job, c);
+      FfiConverterTypeWholeNumber.writeIntoCursor(value.finishedAt, c);
+      FfiConverterTypeRunOutcome.writeIntoCursor(value.outcome, c);
       FfiConverterUInt32.writeIntoCursor(value.handled, c);
       FfiConverterUInt32.writeIntoCursor(value.added, c);
       FfiConverterUInt32.writeIntoCursor(value.changed, c);
@@ -5558,9 +5413,9 @@ const FfiConverterTypeFfiJobRun = (() => {
     }
     allocationSize(value: TypeName): number {
       return (
-        FfiConverterString.allocationSize(value.job) +
-        FfiConverterFloat64.allocationSize(value.finishedAt) +
-        FfiConverterString.allocationSize(value.outcome) +
+        FfiConverterTypeBackgroundJob.allocationSize(value.job) +
+        FfiConverterTypeWholeNumber.allocationSize(value.finishedAt) +
+        FfiConverterTypeRunOutcome.allocationSize(value.outcome) +
         FfiConverterUInt32.allocationSize(value.handled) +
         FfiConverterUInt32.allocationSize(value.added) +
         FfiConverterUInt32.allocationSize(value.changed) +
@@ -8593,8 +8448,7 @@ const FfiConverterTypeFfiDirectionDeltas = (() => {
 })();
 
 /**
- * Direction stats for FFI.
- * Summary statistics for traversals in a single direction.
+ * Per-direction summary statistics.
  */
 export type FfiDirectionStats = {
   /**
@@ -8604,19 +8458,17 @@ export type FfiDirectionStats = {
   /**
    * Unix timestamp of most recent traversal in this direction
    */
-  lastActivity?: number;
+  lastActivity?: WholeNumber;
   /**
    * Number of traversals in this direction
    */
   count: number;
   /**
-   * Average speed across all traversals in this direction (m/s).
-   * Populated for route detail stats so the TS hook no longer has to
-   * re-aggregate. Section performance queries currently leave it as None.
+   * Counted distance over counted time in this direction (m/s).
    */
   avgSpeed?: number;
   /**
-   * Timed route attempts outside the distance band.
+   * Timed route attempts outside the distance band, absent from the averages.
    */
   outsideBandCount: number;
 };
@@ -8644,7 +8496,7 @@ const FfiConverterTypeFfiDirectionStats = (() => {
     readFromCursor(c: Cursor): TypeName {
       return {
         avgTime: FfiConverterOptionalFloat64.readFromCursor(c),
-        lastActivity: FfiConverterOptionalFloat64.readFromCursor(c),
+        lastActivity: FfiConverterOptionalTypeWholeNumber.readFromCursor(c),
         count: FfiConverterUInt32.readFromCursor(c),
         avgSpeed: FfiConverterOptionalFloat64.readFromCursor(c),
         outsideBandCount: FfiConverterUInt32.readFromCursor(c),
@@ -8652,7 +8504,10 @@ const FfiConverterTypeFfiDirectionStats = (() => {
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
       FfiConverterOptionalFloat64.writeIntoCursor(value.avgTime, c);
-      FfiConverterOptionalFloat64.writeIntoCursor(value.lastActivity, c);
+      FfiConverterOptionalTypeWholeNumber.writeIntoCursor(
+        value.lastActivity,
+        c,
+      );
       FfiConverterUInt32.writeIntoCursor(value.count, c);
       FfiConverterOptionalFloat64.writeIntoCursor(value.avgSpeed, c);
       FfiConverterUInt32.writeIntoCursor(value.outsideBandCount, c);
@@ -8660,7 +8515,7 @@ const FfiConverterTypeFfiDirectionStats = (() => {
     allocationSize(value: TypeName): number {
       return (
         FfiConverterOptionalFloat64.allocationSize(value.avgTime) +
-        FfiConverterOptionalFloat64.allocationSize(value.lastActivity) +
+        FfiConverterOptionalTypeWholeNumber.allocationSize(value.lastActivity) +
         FfiConverterUInt32.allocationSize(value.count) +
         FfiConverterOptionalFloat64.allocationSize(value.avgSpeed) +
         FfiConverterUInt32.allocationSize(value.outsideBandCount)
@@ -9625,8 +9480,8 @@ const FfiConverterTypeFfiFeedCard = (() => {
 })();
 
 /**
- * One page of feed cards, newest first. The query and the paging are the
- * body read's, so a search counts and pages the same.
+ * One page of feed cards, newest first, with the count of everything the
+ * query matched.
  */
 export type FfiFeedCardsPage = {
   cards: Array<FfiFeedCard>;
@@ -10752,9 +10607,21 @@ export type FfiFitnessScreenData = {
    */
   loadDots: Array<FfiLoadDot>;
   /**
-   * Days with activities inside the calendar's window, oldest first.
+   * Days with activities from `calendar_first_day` to the window's last
+   * day, oldest first.
    */
   heatmap: Array<FfiHeatmapDay>;
+  /**
+   * The calendar's first drawn day, `YYYY-MM-DD`: the Monday of the latest
+   * of the held window's oldest day and the account's oldest activity, and
+   * never before the window's first day, which is the calendar's cap.
+   */
+  calendarFirstDay: string;
+  /**
+   * The activities from the cap to the day before `calendar_first_day`
+   * that the account holds and the device has not downloaded.
+   */
+  calendarOlderOwed: number;
   /**
    * Calendar months with activities inside the monthly span, oldest first.
    */
@@ -10805,6 +10672,8 @@ const FfiConverterTypeFfiFitnessScreenData = (() => {
           FfiConverterSequenceTypeFfiSpanDecoupling.readFromCursor(c),
         loadDots: FfiConverterSequenceTypeFfiLoadDot.readFromCursor(c),
         heatmap: FfiConverterSequenceTypeFfiHeatmapDay.readFromCursor(c),
+        calendarFirstDay: FfiConverterString.readFromCursor(c),
+        calendarOlderOwed: FfiConverterUInt32.readFromCursor(c),
         months: FfiConverterSequenceTypeFfiMonthlyStats.readFromCursor(c),
         yearCurrent: FfiConverterTypeFfiPeriodStats.readFromCursor(c),
         yearPrevious: FfiConverterTypeFfiPeriodStats.readFromCursor(c),
@@ -10829,6 +10698,8 @@ const FfiConverterTypeFfiFitnessScreenData = (() => {
       );
       FfiConverterSequenceTypeFfiLoadDot.writeIntoCursor(value.loadDots, c);
       FfiConverterSequenceTypeFfiHeatmapDay.writeIntoCursor(value.heatmap, c);
+      FfiConverterString.writeIntoCursor(value.calendarFirstDay, c);
+      FfiConverterUInt32.writeIntoCursor(value.calendarOlderOwed, c);
       FfiConverterSequenceTypeFfiMonthlyStats.writeIntoCursor(value.months, c);
       FfiConverterTypeFfiPeriodStats.writeIntoCursor(value.yearCurrent, c);
       FfiConverterTypeFfiPeriodStats.writeIntoCursor(value.yearPrevious, c);
@@ -10855,6 +10726,8 @@ const FfiConverterTypeFfiFitnessScreenData = (() => {
         ) +
         FfiConverterSequenceTypeFfiLoadDot.allocationSize(value.loadDots) +
         FfiConverterSequenceTypeFfiHeatmapDay.allocationSize(value.heatmap) +
+        FfiConverterString.allocationSize(value.calendarFirstDay) +
+        FfiConverterUInt32.allocationSize(value.calendarOlderOwed) +
         FfiConverterSequenceTypeFfiMonthlyStats.allocationSize(value.months) +
         FfiConverterTypeFfiPeriodStats.allocationSize(value.yearCurrent) +
         FfiConverterTypeFfiPeriodStats.allocationSize(value.yearPrevious) +
@@ -10874,7 +10747,8 @@ const FfiConverterTypeFfiFitnessScreenData = (() => {
  */
 export type FfiFitnessScreenWindows = {
   /**
-   * The heatmap's first and last drawn day, `YYYY-MM-DD`, inclusive.
+   * The first day the heatmap may draw, its cap, and its last drawn day,
+   * `YYYY-MM-DD`, inclusive. The read answers the first day it draws.
    */
   heatmapFirstDay: string;
   heatmapLastDay: string;
@@ -16531,18 +16405,33 @@ const FfiConverterTypeFfiRecordingEntry = (() => {
 })();
 
 /**
- * A section the ledger remembers and the catalogue no longer holds.
+ * A section the ledger remembers and the catalogue no longer holds: its
+ * last event says how it left, and its stored versions still draw it.
  */
 export type FfiRetiredSection = {
   sectionId: string;
+  /**
+   * dissolved, merged or superseded. A state a record restore still holds
+   * pending reads superseded, with no survivor.
+   */
   kind: string;
   at: string;
-  into?: string;
-  versions: Array<number>;
   /**
-   * The name it was last shown under.
+   * The survivor a merge or supersession handed the ground to.
+   */
+  into?: string;
+  /**
+   * Surviving geometry versions, newest last.
+   */
+  versions: Array<WholeNumber>;
+  /**
+   * The name it was last shown under, so two retirements can be told
+   * apart. `None` when nothing the ledger kept names it.
    */
   name?: string;
+  /**
+   * Its length when it left, else its newest stored line's.
+   */
   distanceMeters?: number;
 };
 
@@ -16572,7 +16461,7 @@ const FfiConverterTypeFfiRetiredSection = (() => {
         kind: FfiConverterString.readFromCursor(c),
         at: FfiConverterString.readFromCursor(c),
         into: FfiConverterOptionalString.readFromCursor(c),
-        versions: FfiConverterSequenceFloat64.readFromCursor(c),
+        versions: FfiConverterSequenceTypeWholeNumber.readFromCursor(c),
         name: FfiConverterOptionalString.readFromCursor(c),
         distanceMeters: FfiConverterOptionalFloat64.readFromCursor(c),
       };
@@ -16582,7 +16471,7 @@ const FfiConverterTypeFfiRetiredSection = (() => {
       FfiConverterString.writeIntoCursor(value.kind, c);
       FfiConverterString.writeIntoCursor(value.at, c);
       FfiConverterOptionalString.writeIntoCursor(value.into, c);
-      FfiConverterSequenceFloat64.writeIntoCursor(value.versions, c);
+      FfiConverterSequenceTypeWholeNumber.writeIntoCursor(value.versions, c);
       FfiConverterOptionalString.writeIntoCursor(value.name, c);
       FfiConverterOptionalFloat64.writeIntoCursor(value.distanceMeters, c);
     }
@@ -16592,7 +16481,7 @@ const FfiConverterTypeFfiRetiredSection = (() => {
         FfiConverterString.allocationSize(value.kind) +
         FfiConverterString.allocationSize(value.at) +
         FfiConverterOptionalString.allocationSize(value.into) +
-        FfiConverterSequenceFloat64.allocationSize(value.versions) +
+        FfiConverterSequenceTypeWholeNumber.allocationSize(value.versions) +
         FfiConverterOptionalString.allocationSize(value.name) +
         FfiConverterOptionalFloat64.allocationSize(value.distanceMeters)
       );
@@ -16770,8 +16659,7 @@ const FfiConverterTypeFfiRouteGroupPreview = (() => {
 })();
 
 /**
- * Route performance for FFI.
- * Performance data for a single activity on a route.
+ * A single performance point for route comparison.
  */
 export type FfiRoutePerformance = {
   activityId: string;
@@ -16779,7 +16667,7 @@ export type FfiRoutePerformance = {
   /**
    * Unix timestamp
    */
-  date: number;
+  date: WholeNumber;
   /**
    * Speed in m/s (distance / moving_time)
    */
@@ -16822,12 +16710,13 @@ export type FfiRoutePerformance = {
   matchPercentage?: number;
   /**
    * True when the recorded distance sits outside the band around the
-   * route's usual distance: drawn, but holding no record and uncounted.
+   * route's usual distance, so the attempt holds no record and is not
+   * counted in the rank.
    */
   outsideDistanceBand: boolean;
   /**
-   * True when this attempt beats every other counted attempt in its sport
-   * and direction: the chart's ring and the tooltip's trophy.
+   * True when this attempt strictly beats every other counted attempt in
+   * its sport and direction, under the one record rule.
    */
   isRecord: boolean;
 };
@@ -16856,7 +16745,7 @@ const FfiConverterTypeFfiRoutePerformance = (() => {
       return {
         activityId: FfiConverterString.readFromCursor(c),
         name: FfiConverterString.readFromCursor(c),
-        date: FfiConverterFloat64.readFromCursor(c),
+        date: FfiConverterTypeWholeNumber.readFromCursor(c),
         speed: FfiConverterFloat64.readFromCursor(c),
         duration: FfiConverterUInt32.readFromCursor(c),
         movingTime: FfiConverterUInt32.readFromCursor(c),
@@ -16874,7 +16763,7 @@ const FfiConverterTypeFfiRoutePerformance = (() => {
     writeIntoCursor(value: TypeName, c: Cursor): void {
       FfiConverterString.writeIntoCursor(value.activityId, c);
       FfiConverterString.writeIntoCursor(value.name, c);
-      FfiConverterFloat64.writeIntoCursor(value.date, c);
+      FfiConverterTypeWholeNumber.writeIntoCursor(value.date, c);
       FfiConverterFloat64.writeIntoCursor(value.speed, c);
       FfiConverterUInt32.writeIntoCursor(value.duration, c);
       FfiConverterUInt32.writeIntoCursor(value.movingTime, c);
@@ -16892,7 +16781,7 @@ const FfiConverterTypeFfiRoutePerformance = (() => {
       return (
         FfiConverterString.allocationSize(value.activityId) +
         FfiConverterString.allocationSize(value.name) +
-        FfiConverterFloat64.allocationSize(value.date) +
+        FfiConverterTypeWholeNumber.allocationSize(value.date) +
         FfiConverterFloat64.allocationSize(value.speed) +
         FfiConverterUInt32.allocationSize(value.duration) +
         FfiConverterUInt32.allocationSize(value.movingTime) +
@@ -18454,9 +18343,166 @@ const FfiConverterTypeFfiRoutesStatusData = (() => {
 })();
 
 /**
- * One wellness row passed in from TS (intervals.icu sync). Fields outside
- * this subset (sleepQuality, spO2, etc.) aren't persisted yet - the TS
- * sync helper only forwards the fields the Rust atomics consume.
+ * Where a run stands.
+ *
+ * The wire carries the variant's position, so the order here is the
+ * contract: append, never reorder. The discriminants start at one so no
+ * member is falsy.
+ */
+export enum FfiRunState {
+  /**
+   * No run holds the slot, and none has finished untaken.
+   */
+  Idle = 1,
+  /**
+   * A run holds the slot and has not ended.
+   */
+  Running = 2,
+  /**
+   * The run ended with a result, which `take` hands over.
+   */
+  Complete = 3,
+  /**
+   * The run was asked to stop and did, and has no result.
+   */
+  Cancelled = 4,
+  /**
+   * The run ended without a result: it failed, or its worker died.
+   */
+  Failed = 5,
+  /**
+   * The run looked at its input and declined to produce from it, because
+   * too little of it could be read. Not a failure of the run: asking again
+   * over the same input answers the same.
+   */
+  Refused = 6,
+}
+
+const FfiConverterTypeFfiRunState = (() => {
+  type TypeName = FfiRunState;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return FfiRunState.Idle;
+        case 2:
+          return FfiRunState.Running;
+        case 3:
+          return FfiRunState.Complete;
+        case 4:
+          return FfiRunState.Cancelled;
+        case 5:
+          return FfiRunState.Failed;
+        case 6:
+          return FfiRunState.Refused;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value) {
+        case FfiRunState.Idle:
+          return c.writeI32(1);
+        case FfiRunState.Running:
+          return c.writeI32(2);
+        case FfiRunState.Complete:
+          return c.writeI32(3);
+        case FfiRunState.Cancelled:
+          return c.writeI32(4);
+        case FfiRunState.Failed:
+          return c.writeI32(5);
+        case FfiRunState.Refused:
+          return c.writeI32(6);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return 4;
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Where a run stands and how far along it is, read in one call.
+ *
+ * The counters describe the current phase only. `percent` is the run's own
+ * estimate across every phase, so a bar can move monotonically while the
+ * counters restart at each phase.
+ */
+export type FfiRunProgress = {
+  state: FfiRunState;
+  /**
+   * The phase the run is in, such as "loading" or "analyzing". Empty when
+   * the run has no phases or none is running.
+   */
+  phase: string;
+  /**
+   * Items done in the current phase.
+   */
+  completed: number;
+  /**
+   * Items in the current phase, 0 when the run cannot count them.
+   */
+  total: number;
+  /**
+   * Phase-weighted overall percent, 0 to 100.
+   */
+  percent: number;
+};
+
+/**
+ * Generated factory for {@link FfiRunProgress} record objects.
+ */
+export const FfiRunProgress = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiRunProgress, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiRunProgress>,
+  });
+})();
+
+const FfiConverterTypeFfiRunProgress = (() => {
+  type TypeName = FfiRunProgress;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        state: FfiConverterTypeFfiRunState.readFromCursor(c),
+        phase: FfiConverterString.readFromCursor(c),
+        completed: FfiConverterUInt32.readFromCursor(c),
+        total: FfiConverterUInt32.readFromCursor(c),
+        percent: FfiConverterUInt32.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterTypeFfiRunState.writeIntoCursor(value.state, c);
+      FfiConverterString.writeIntoCursor(value.phase, c);
+      FfiConverterUInt32.writeIntoCursor(value.completed, c);
+      FfiConverterUInt32.writeIntoCursor(value.total, c);
+      FfiConverterUInt32.writeIntoCursor(value.percent, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterTypeFfiRunState.allocationSize(value.state) +
+        FfiConverterString.allocationSize(value.phase) +
+        FfiConverterUInt32.allocationSize(value.completed) +
+        FfiConverterUInt32.allocationSize(value.total) +
+        FfiConverterUInt32.allocationSize(value.percent)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * One wellness record - shape used by upsert and range queries, and the row
+ * the app hands over from an intervals.icu sync. Fields outside this subset
+ * (sleepQuality, spO2, etc.) aren't persisted yet.
  */
 export type FfiWellnessRow = {
   /**
@@ -18469,7 +18515,7 @@ export type FfiWellnessRow = {
   hrv?: number;
   restingHr?: number;
   weight?: number;
-  sleepSecs?: number;
+  sleepSecs?: WholeNumber;
   sleepScore?: number;
   soreness?: number;
   fatigue?: number;
@@ -18477,8 +18523,9 @@ export type FfiWellnessRow = {
   mood?: number;
   motivation?: number;
   /**
-   * The untyped intervals.icu body for this day, when the caller has it.
-   * Omitting it leaves any previously stored body intact.
+   * The untyped intervals.icu body for this day. The typed columns above
+   * are what Rust computes on; the UI reads fields beyond them. A row the
+   * app hands over without one leaves any previously stored body intact.
    */
   raw?: string;
 };
@@ -18512,7 +18559,7 @@ const FfiConverterTypeFfiWellnessRow = (() => {
         hrv: FfiConverterOptionalFloat64.readFromCursor(c),
         restingHr: FfiConverterOptionalFloat64.readFromCursor(c),
         weight: FfiConverterOptionalFloat64.readFromCursor(c),
-        sleepSecs: FfiConverterOptionalFloat64.readFromCursor(c),
+        sleepSecs: FfiConverterOptionalTypeWholeNumber.readFromCursor(c),
         sleepScore: FfiConverterOptionalFloat64.readFromCursor(c),
         soreness: FfiConverterOptionalInt32.readFromCursor(c),
         fatigue: FfiConverterOptionalInt32.readFromCursor(c),
@@ -18530,7 +18577,7 @@ const FfiConverterTypeFfiWellnessRow = (() => {
       FfiConverterOptionalFloat64.writeIntoCursor(value.hrv, c);
       FfiConverterOptionalFloat64.writeIntoCursor(value.restingHr, c);
       FfiConverterOptionalFloat64.writeIntoCursor(value.weight, c);
-      FfiConverterOptionalFloat64.writeIntoCursor(value.sleepSecs, c);
+      FfiConverterOptionalTypeWholeNumber.writeIntoCursor(value.sleepSecs, c);
       FfiConverterOptionalFloat64.writeIntoCursor(value.sleepScore, c);
       FfiConverterOptionalInt32.writeIntoCursor(value.soreness, c);
       FfiConverterOptionalInt32.writeIntoCursor(value.fatigue, c);
@@ -18548,7 +18595,7 @@ const FfiConverterTypeFfiWellnessRow = (() => {
         FfiConverterOptionalFloat64.allocationSize(value.hrv) +
         FfiConverterOptionalFloat64.allocationSize(value.restingHr) +
         FfiConverterOptionalFloat64.allocationSize(value.weight) +
-        FfiConverterOptionalFloat64.allocationSize(value.sleepSecs) +
+        FfiConverterOptionalTypeWholeNumber.allocationSize(value.sleepSecs) +
         FfiConverterOptionalFloat64.allocationSize(value.sleepScore) +
         FfiConverterOptionalInt32.allocationSize(value.soreness) +
         FfiConverterOptionalInt32.allocationSize(value.fatigue) +
@@ -20160,8 +20207,7 @@ const FfiConverterTypeFfiSectionFilter = (() => {
 })();
 
 /**
- * Section lap for FFI.
- * Represents a single traversal of a section within an activity.
+ * A single lap of a section.
  */
 export type FfiSectionLap = {
   id: string;
@@ -20199,10 +20245,25 @@ export type FfiSectionLap = {
    */
   avgPower?: number;
   /**
-   * The athlete excluded this traversal: listed so it can be restored,
-   * counted nowhere.
+   * Share of the section this lap spans, `None` until it is measured.
+   */
+  coverage?: number;
+  /**
+   * The athlete excluded this traversal. Only a read that asked for
+   * excluded rows carries one, and it never counts.
    */
   excluded: boolean;
+  /**
+   * A route attempt whose distance sits outside the band around the
+   * route's usual distance: drawn, never counted. Always false for a
+   * section lap.
+   */
+  outsideDistanceBand: boolean;
+  /**
+   * How much of the route a route attempt matched, 0 to 100. `None` for a
+   * section lap.
+   */
+  matchPercentage?: number;
   /**
    * This lap holds the section's record in its direction. Set by the
    * section read, false everywhere else.
@@ -20242,7 +20303,10 @@ const FfiConverterTypeFfiSectionLap = (() => {
         endIndex: FfiConverterUInt32.readFromCursor(c),
         avgHr: FfiConverterOptionalFloat64.readFromCursor(c),
         avgPower: FfiConverterOptionalFloat64.readFromCursor(c),
+        coverage: FfiConverterOptionalFloat64.readFromCursor(c),
         excluded: FfiConverterBool.readFromCursor(c),
+        outsideDistanceBand: FfiConverterBool.readFromCursor(c),
+        matchPercentage: FfiConverterOptionalFloat64.readFromCursor(c),
         isRecord: FfiConverterBool.readFromCursor(c),
       };
     }
@@ -20257,7 +20321,10 @@ const FfiConverterTypeFfiSectionLap = (() => {
       FfiConverterUInt32.writeIntoCursor(value.endIndex, c);
       FfiConverterOptionalFloat64.writeIntoCursor(value.avgHr, c);
       FfiConverterOptionalFloat64.writeIntoCursor(value.avgPower, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.coverage, c);
       FfiConverterBool.writeIntoCursor(value.excluded, c);
+      FfiConverterBool.writeIntoCursor(value.outsideDistanceBand, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.matchPercentage, c);
       FfiConverterBool.writeIntoCursor(value.isRecord, c);
     }
     allocationSize(value: TypeName): number {
@@ -20272,7 +20339,10 @@ const FfiConverterTypeFfiSectionLap = (() => {
         FfiConverterUInt32.allocationSize(value.endIndex) +
         FfiConverterOptionalFloat64.allocationSize(value.avgHr) +
         FfiConverterOptionalFloat64.allocationSize(value.avgPower) +
+        FfiConverterOptionalFloat64.allocationSize(value.coverage) +
         FfiConverterBool.allocationSize(value.excluded) +
+        FfiConverterBool.allocationSize(value.outsideDistanceBand) +
+        FfiConverterOptionalFloat64.allocationSize(value.matchPercentage) +
         FfiConverterBool.allocationSize(value.isRecord)
       );
     }
@@ -20490,8 +20560,7 @@ const FfiConverterTypeFfiSectionSportCount = (() => {
 })();
 
 /**
- * Section performance record for FFI.
- * Contains all traversals for a single activity on a section.
+ * Section performance record for an activity.
  */
 export type FfiSectionPerformanceRecord = {
   activityId: string;
@@ -20499,7 +20568,7 @@ export type FfiSectionPerformanceRecord = {
   /**
    * Unix timestamp
    */
-  activityDate: number;
+  activityDate: WholeNumber;
   /**
    * All laps for this activity on this section
    */
@@ -20568,7 +20637,7 @@ const FfiConverterTypeFfiSectionPerformanceRecord = (() => {
       return {
         activityId: FfiConverterString.readFromCursor(c),
         activityName: FfiConverterString.readFromCursor(c),
-        activityDate: FfiConverterFloat64.readFromCursor(c),
+        activityDate: FfiConverterTypeWholeNumber.readFromCursor(c),
         laps: FfiConverterSequenceTypeFfiSectionLap.readFromCursor(c),
         lapCount: FfiConverterUInt32.readFromCursor(c),
         bestTime: FfiConverterFloat64.readFromCursor(c),
@@ -20584,7 +20653,7 @@ const FfiConverterTypeFfiSectionPerformanceRecord = (() => {
     writeIntoCursor(value: TypeName, c: Cursor): void {
       FfiConverterString.writeIntoCursor(value.activityId, c);
       FfiConverterString.writeIntoCursor(value.activityName, c);
-      FfiConverterFloat64.writeIntoCursor(value.activityDate, c);
+      FfiConverterTypeWholeNumber.writeIntoCursor(value.activityDate, c);
       FfiConverterSequenceTypeFfiSectionLap.writeIntoCursor(value.laps, c);
       FfiConverterUInt32.writeIntoCursor(value.lapCount, c);
       FfiConverterFloat64.writeIntoCursor(value.bestTime, c);
@@ -20600,7 +20669,7 @@ const FfiConverterTypeFfiSectionPerformanceRecord = (() => {
       return (
         FfiConverterString.allocationSize(value.activityId) +
         FfiConverterString.allocationSize(value.activityName) +
-        FfiConverterFloat64.allocationSize(value.activityDate) +
+        FfiConverterTypeWholeNumber.allocationSize(value.activityDate) +
         FfiConverterSequenceTypeFfiSectionLap.allocationSize(value.laps) +
         FfiConverterUInt32.allocationSize(value.lapCount) +
         FfiConverterFloat64.allocationSize(value.bestTime) +
@@ -26503,14 +26572,6 @@ export interface ActivityManagerLike {
   ) /*throws*/ : void;
   debugClone(sourceId: string, count: number) /*throws*/ : number;
   /**
-   * Untyped activity bodies in a window, newest first, narrowed by a search
-   * and a sport chip and then paged. The window readers outside the feed
-   * still parse these; the feed reads `get_feed_cards`.
-   */
-  getActivityBodies(
-    query: FfiActivityBodiesQuery,
-  ) /*throws*/ : FfiActivityBodiesPage;
-  /**
    * Display names for a batch of activity ids, for a caller that holds ids
    * and has to draw something an athlete recognises.
    *
@@ -26529,7 +26590,7 @@ export interface ActivityManagerLike {
    *
    * A caller after a single activity uses this rather than the window read
    * below: the table is keyed by the id, so this is one row instead of a
-   * page of them parsed in JavaScript to find it. `is_detail` says whether
+   * page of them read to find it. `is_detail` says whether
    * the row is still the list form the detail fetch replaces.
    */
   getActivityRecord(
@@ -26796,37 +26857,6 @@ export class ActivityManager
   }
 
   /**
-   * Untyped activity bodies in a window, newest first, narrowed by a search
-   * and a sport chip and then paged. The window readers outside the feed
-   * still parse these; the feed reads `get_feed_cards`.
-   */
-  getActivityBodies(
-    query: FfiActivityBodiesQuery,
-  ): FfiActivityBodiesPage /*throws*/ {
-    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_get_activity_bodies(
-          uniffiTypeActivityManagerObjectFactory.clonePointer(this),
-          FfiConverterTypeFfiActivityBodiesQuery.lower(
-            query,
-            nativeModule().rustbuffer_alloc,
-          ),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-      return FfiConverterTypeFfiActivityBodiesPage.lift(__rb);
-    } finally {
-      nativeModule().rustbuffer_free(__rb);
-    }
-  }
-
-  /**
    * Display names for a batch of activity ids, for a caller that holds ids
    * and has to draw something an athlete recognises.
    *
@@ -26868,7 +26898,7 @@ export class ActivityManager
    *
    * A caller after a single activity uses this rather than the window read
    * below: the table is keyed by the id, so this is one row instead of a
-   * page of them parsed in JavaScript to find it. `is_detail` says whether
+   * page of them read to find it. `is_detail` says whether
    * the row is still the list form the detail fetch replaces.
    */
   getActivityRecord(
@@ -28226,6 +28256,242 @@ const uniffiTypeBasemapManagerObjectFactory: UniffiObjectFactory<BasemapManagerL
   })();
 const FfiConverterTypeBasemapManager = new FfiConverterObject(
   uniffiTypeBasemapManagerObjectFactory,
+);
+
+/**
+ * The walk that measures the heatmap tile cache, as a run handle.
+ *
+ * The walk reads directory metadata and nothing else, so it takes no engine
+ * lock and no connection. What it does take is time: 40,061 tiles measured
+ * 170 ms on the other handset, against 100 ms for the whole mount that asks.
+ */
+export interface CacheSizeRunLike {
+  /**
+   * Abandon the walk. Returns whether there was one.
+   *
+   * The thread is not stopped: it reads metadata only and ends on its own,
+   * and its figure goes nowhere once the slot is empty.
+   */
+  cancel(): boolean;
+  /**
+   * Where the walk stands. The walk has no phases and no count it can know
+   * in advance, so only the state moves.
+   */
+  progress(): FfiRunProgress;
+  /**
+   * Walk the tile tree at `base_path` on its own thread.
+   *
+   * A walk already running answers `Started` rather than `Busy`: the
+   * figure it will give is the one this caller wants, so the caller follows
+   * that walk instead of a second pass over the same tree.
+   */
+  start(basePath: string): FfiStartResult;
+  /**
+   * The figure in bytes, once. None while the walk runs or after taken.
+   */
+  take(): number | undefined;
+}
+/**
+ * @deprecated Use `CacheSizeRunLike` instead.
+ */
+export type CacheSizeRunInterface = CacheSizeRunLike;
+
+/**
+ * The walk that measures the heatmap tile cache, as a run handle.
+ *
+ * The walk reads directory metadata and nothing else, so it takes no engine
+ * lock and no connection. What it does take is time: 40,061 tiles measured
+ * 170 ms on the other handset, against 100 ms for the whole mount that asks.
+ */
+export class CacheSizeRun
+  extends UniffiAbstractObject
+  implements CacheSizeRunLike
+{
+  readonly [uniffiTypeNameSymbol] = "CacheSizeRun";
+  readonly [destructorGuardSymbol]: UniffiGcObject;
+  readonly [pointerLiteralSymbol]: UniffiHandle;
+  constructor() {
+    super();
+    const pointer = uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_cachesizerun_new(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    this[pointerLiteralSymbol] = pointer;
+    this[destructorGuardSymbol] =
+      uniffiTypeCacheSizeRunObjectFactory.bless(pointer);
+  }
+
+  /**
+   * Abandon the walk. Returns whether there was one.
+   *
+   * The thread is not stopped: it reads metadata only and ends on its own,
+   * and its figure goes nowhere once the slot is empty.
+   */
+  cancel(): boolean {
+    return FfiConverterBool.lift(
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_cachesizerun_cancel(
+            uniffiTypeCacheSizeRunObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+      ),
+    );
+  }
+
+  /**
+   * Where the walk stands. The walk has no phases and no count it can know
+   * in advance, so only the state moves.
+   */
+  progress(): FfiRunProgress {
+    const __rb: Uint8Array = uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_method_cachesizerun_progress(
+          uniffiTypeCacheSizeRunObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+      return FfiConverterTypeFfiRunProgress.lift(__rb);
+    } finally {
+      nativeModule().rustbuffer_free(__rb);
+    }
+  }
+
+  /**
+   * Walk the tile tree at `base_path` on its own thread.
+   *
+   * A walk already running answers `Started` rather than `Busy`: the
+   * figure it will give is the one this caller wants, so the caller follows
+   * that walk instead of a second pass over the same tree.
+   */
+  start(basePath: string): FfiStartResult {
+    const __rb: Uint8Array = uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_method_cachesizerun_start(
+          uniffiTypeCacheSizeRunObjectFactory.clonePointer(this),
+          FfiConverterString.lower(basePath, nativeModule().rustbuffer_alloc),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+      return FfiConverterTypeFfiStartResult.lift(__rb);
+    } finally {
+      nativeModule().rustbuffer_free(__rb);
+    }
+  }
+
+  /**
+   * The figure in bytes, once. None while the walk runs or after taken.
+   */
+  take(): number | undefined {
+    const __rb: Uint8Array = uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_method_cachesizerun_take(
+          uniffiTypeCacheSizeRunObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+      return FfiConverterOptionalFloat64.lift(__rb);
+    } finally {
+      nativeModule().rustbuffer_free(__rb);
+    }
+  }
+
+  uniffiDestroy(): void {
+    const ptr = (this as any)[destructorGuardSymbol];
+    if (ptr !== undefined) {
+      const pointer = uniffiTypeCacheSizeRunObjectFactory.pointer(this);
+      uniffiTypeCacheSizeRunObjectFactory.freePointer(pointer);
+      uniffiTypeCacheSizeRunObjectFactory.unbless(ptr);
+      delete (this as any)[destructorGuardSymbol];
+    }
+  }
+
+  static instanceOf(obj_: any): obj_ is CacheSizeRun {
+    return uniffiTypeCacheSizeRunObjectFactory.isConcreteType(obj_);
+  }
+}
+
+const uniffiTypeCacheSizeRunObjectFactory: UniffiObjectFactory<CacheSizeRunLike> =
+  (() => {
+    return {
+      create(pointer: UniffiHandle): CacheSizeRunLike {
+        const instance = Object.create(CacheSizeRun.prototype);
+        instance[pointerLiteralSymbol] = pointer;
+        instance[destructorGuardSymbol] = this.bless(pointer);
+        instance[uniffiTypeNameSymbol] = "CacheSizeRun";
+        return instance;
+      },
+
+      bless(p: UniffiHandle): UniffiGcObject {
+        return uniffiCaller.rustCall(
+          /*caller:*/ (status) =>
+            nativeModule().ubrn_uniffi_internal_fn_method_cachesizerun_ffi__bless_pointer(
+              p,
+              status,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      unbless(ptr_: UniffiGcObject) {
+        ptr_.markDestroyed();
+      },
+
+      pointer(obj_: CacheSizeRunLike): UniffiHandle {
+        if ((obj_ as any)[destructorGuardSymbol] === undefined) {
+          throw new UniffiInternalError.UnexpectedNullPointer();
+        }
+        return (obj_ as any)[pointerLiteralSymbol];
+      },
+
+      clonePointer(obj_: CacheSizeRunLike): UniffiHandle {
+        const pointer = this.pointer(obj_);
+        return uniffiCaller.rustCall(
+          /*caller:*/ (callStatus) =>
+            nativeModule().ubrn_uniffi_veloqrs_fn_clone_cachesizerun(
+              pointer,
+              callStatus,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      freePointer(pointer: UniffiHandle): void {
+        uniffiCaller.rustCall(
+          /*caller:*/ (callStatus) =>
+            nativeModule().ubrn_uniffi_veloqrs_fn_free_cachesizerun(
+              pointer,
+              callStatus,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      isConcreteType(obj_: any): obj_ is CacheSizeRunLike {
+        return (
+          obj_[destructorGuardSymbol] &&
+          obj_[uniffiTypeNameSymbol] === "CacheSizeRun"
+        );
+      },
+    };
+  })();
+const FfiConverterTypeCacheSizeRun = new FfiConverterObject(
+  uniffiTypeCacheSizeRunObjectFactory,
 );
 
 export interface DetectionManagerLike {
@@ -30475,20 +30741,6 @@ export interface HeatmapManagerLike {
    */
   poll() /*throws*/ : string;
   /**
-   * Poll the running walk. `state` is "idle", "running" or "complete", and
-   * `bytes` is the last figure walked, whichever of the three it is.
-   *
-   * The figure outlives the poll that observed it. Only one poll gets the
-   * message off the channel, and three mount effects share one walk, so a
-   * figure that vanished with the first reader would leave the other two
-   * showing nothing.
-   *
-   * A walk that died reports "complete" against whatever was last known
-   * rather than erroring: this is a storage readout, and a screen that
-   * cannot show one is not a screen that should refuse to open.
-   */
-  pollCacheSize() /*throws*/ : CacheSizePoll;
-  /**
    * Draw the ground the athlete is looking at before the rest of the sweep.
    *
    * The pass writes every zoom in full before the next one, so without this
@@ -30503,16 +30755,6 @@ export interface HeatmapManagerLike {
    * Called once at engine init from JS (documentDirectory + "heatmap-tiles/").
    */
   setTilesPath(path: string) /*throws*/ : void;
-  /**
-   * Start the cache-size walk on its own thread. Poll `poll_cache_size`
-   * for the figure.
-   *
-   * A walk already running is not an error: the answer it will give is the
-   * answer this caller wants, and three settings mount effects ask for it
-   * at once. Starting a second one would walk the same tree twice for one
-   * number.
-   */
-  startCacheSize(basePath: string) /*throws*/ : void;
 }
 /**
  * @deprecated Use `HeatmapManagerLike` instead.
@@ -30688,39 +30930,6 @@ export class HeatmapManager
   }
 
   /**
-   * Poll the running walk. `state` is "idle", "running" or "complete", and
-   * `bytes` is the last figure walked, whichever of the three it is.
-   *
-   * The figure outlives the poll that observed it. Only one poll gets the
-   * message off the channel, and three mount effects share one walk, so a
-   * figure that vanished with the first reader would leave the other two
-   * showing nothing.
-   *
-   * A walk that died reports "complete" against whatever was last known
-   * rather than erroring: this is a storage readout, and a screen that
-   * cannot show one is not a screen that should refuse to open.
-   */
-  pollCacheSize(): CacheSizePoll /*throws*/ {
-    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_method_heatmapmanager_poll_cache_size(
-          uniffiTypeHeatmapManagerObjectFactory.clonePointer(this),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-      return FfiConverterTypeCacheSizePoll.lift(__rb);
-    } finally {
-      nativeModule().rustbuffer_free(__rb);
-    }
-  }
-
-  /**
    * Draw the ground the athlete is looking at before the rest of the sweep.
    *
    * The pass writes every zoom in full before the next one, so without this
@@ -30757,31 +30966,6 @@ export class HeatmapManager
         nativeModule().ubrn_uniffi_veloqrs_fn_method_heatmapmanager_set_tiles_path(
           uniffiTypeHeatmapManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(path, nativeModule().rustbuffer_alloc),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-  }
-
-  /**
-   * Start the cache-size walk on its own thread. Poll `poll_cache_size`
-   * for the figure.
-   *
-   * A walk already running is not an error: the answer it will give is the
-   * answer this caller wants, and three settings mount effects ask for it
-   * at once. Starting a second one would walk the same tree twice for one
-   * number.
-   */
-  startCacheSize(basePath: string): void /*throws*/ {
-    uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        nativeModule().ubrn_uniffi_veloqrs_fn_method_heatmapmanager_start_cache_size(
-          uniffiTypeHeatmapManagerObjectFactory.clonePointer(this),
-          FfiConverterString.lower(basePath, nativeModule().rustbuffer_alloc),
           callStatus,
         );
       },
@@ -33999,10 +34183,12 @@ const FfiConverterTypeSectionManager = new FfiConverterObject(
 
 export interface SectionPreviewLike {
   /**
+   * Ask the run to stop. Returns whether there was one.
+   *
    * Cooperative: aborts within one load chunk; once inside the detect the
    * run completes and is discarded.
    */
-  cancel() /*throws*/ : void;
+  cancel(): boolean;
   /**
    * Ranked riding areas. Sections substrate (bounds cache + visit_count)
    * when any auto section carries bounds, activity-bbox bins otherwise
@@ -34020,11 +34206,15 @@ export interface SectionPreviewLike {
     lat: number,
     lng: number,
   ) /*throws*/ : Array<FfiPreviewSection> | undefined;
-  getProgress() /*throws*/ : FfiDetectionProgress | undefined;
   /**
-   * "idle" | "running" | "complete" | "cancelled" | "pool_unusable" | "error"
+   * Where the run stands and how far along it is.
+   *
+   * A read only: an ended run keeps the slot and reads the same until the
+   * next start reaps it, or until `take` collects a complete one. So no
+   * read of progress can swallow how the run ended before the reader that
+   * settles it gets there.
    */
-  poll() /*throws*/ : string;
+  progress(): FfiRunProgress;
   /**
    * Resolve the whole geo component containing (lat, lng) and start the
    * pure preview detect over it. Only the five exposed fields of `config`
@@ -34053,7 +34243,7 @@ export interface SectionPreviewLike {
   /**
    * The one payload, once. None while running or after taken.
    */
-  takeResult() /*throws*/ : FfiPreviewResult | undefined;
+  take(): FfiPreviewResult | undefined;
 }
 /**
  * @deprecated Use `SectionPreviewLike` instead.
@@ -34083,21 +34273,22 @@ export class SectionPreview
   }
 
   /**
+   * Ask the run to stop. Returns whether there was one.
+   *
    * Cooperative: aborts within one load chunk; once inside the detect the
    * run completes and is discarded.
    */
-  cancel(): void /*throws*/ {
-    uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
+  cancel(): boolean {
+    return FfiConverterBool.lift(
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionpreview_cancel(
+            uniffiTypeSectionPreviewObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
       ),
-      /*caller:*/ (callStatus) => {
-        nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionpreview_cancel(
-          uniffiTypeSectionPreviewObjectFactory.clonePointer(this),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
     );
   }
 
@@ -34159,36 +34350,18 @@ export class SectionPreview
     }
   }
 
-  getProgress(): FfiDetectionProgress | undefined /*throws*/ {
-    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionpreview_get_progress(
-          uniffiTypeSectionPreviewObjectFactory.clonePointer(this),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-      return FfiConverterOptionalTypeFfiDetectionProgress.lift(__rb);
-    } finally {
-      nativeModule().rustbuffer_free(__rb);
-    }
-  }
-
   /**
-   * "idle" | "running" | "complete" | "cancelled" | "pool_unusable" | "error"
+   * Where the run stands and how far along it is.
+   *
+   * A read only: an ended run keeps the slot and reads the same until the
+   * next start reaps it, or until `take` collects a complete one. So no
+   * read of progress can swallow how the run ended before the reader that
+   * settles it gets there.
    */
-  poll(): string /*throws*/ {
-    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+  progress(): FfiRunProgress {
+    const __rb: Uint8Array = uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionpreview_poll(
+        return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionpreview_progress(
           uniffiTypeSectionPreviewObjectFactory.clonePointer(this),
           callStatus,
         );
@@ -34196,7 +34369,7 @@ export class SectionPreview
       /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
     );
     try {
-      return FfiConverterString.lift(__rb);
+      return FfiConverterTypeFfiRunProgress.lift(__rb);
     } finally {
       nativeModule().rustbuffer_free(__rb);
     }
@@ -34255,13 +34428,10 @@ export class SectionPreview
   /**
    * The one payload, once. None while running or after taken.
    */
-  takeResult(): FfiPreviewResult | undefined /*throws*/ {
-    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+  take(): FfiPreviewResult | undefined {
+    const __rb: Uint8Array = uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionpreview_take_result(
+        return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionpreview_take(
           uniffiTypeSectionPreviewObjectFactory.clonePointer(this),
           callStatus,
         );
@@ -37709,11 +37879,6 @@ const FfiConverterSequenceTypeDatePart = new FfiConverterArray(
 // FfiConverter for Array<string>
 const FfiConverterSequenceString = new FfiConverterArray(FfiConverterString);
 
-// FfiConverter for Array<string | undefined>
-const FfiConverterSequenceOptionalString = new FfiConverterArray(
-  FfiConverterOptionalString,
-);
-
 // FfiConverter for Array<FfiSportFamily>
 const FfiConverterSequenceTypeFfiSportFamily = new FfiConverterArray(
   FfiConverterTypeFfiSportFamily,
@@ -37804,11 +37969,6 @@ const FfiConverterOptionalInt32 = new FfiConverterOptional(FfiConverterInt32);
 // FfiConverter for Array<FfiActivityRouteHighlight>
 const FfiConverterSequenceTypeFfiActivityRouteHighlight = new FfiConverterArray(
   FfiConverterTypeFfiActivityRouteHighlight,
-);
-
-// FfiConverter for FfiNewGroundBadge | undefined
-const FfiConverterOptionalTypeFfiNewGroundBadge = new FfiConverterOptional(
-  FfiConverterTypeFfiNewGroundBadge,
 );
 
 // FfiConverter for Array<FfiActivityNewGround>
@@ -37975,6 +38135,11 @@ const FfiConverterOptionalTypeFfiFloat32Array = new FfiConverterOptional(
 // FfiConverter for FfiLapDelta | undefined
 const FfiConverterOptionalTypeFfiLapDelta = new FfiConverterOptional(
   FfiConverterTypeFfiLapDelta,
+);
+
+// FfiConverter for WholeNumber | undefined
+const FfiConverterOptionalTypeWholeNumber = new FfiConverterOptional(
+  FfiConverterTypeWholeNumber,
 );
 
 // FfiConverter for Array<FfiEfficiencyPoint>
@@ -38235,6 +38400,11 @@ const FfiConverterSequenceTypeFfiPreviewSection = new FfiConverterArray(
 // FfiConverter for Array<FfiRecordStep>
 const FfiConverterSequenceTypeFfiRecordStep = new FfiConverterArray(
   FfiConverterTypeFfiRecordStep,
+);
+
+// FfiConverter for Array<WholeNumber>
+const FfiConverterSequenceTypeWholeNumber = new FfiConverterArray(
+  FfiConverterTypeWholeNumber,
 );
 
 // FfiConverter for FfiRouteGroup | undefined
@@ -38930,14 +39100,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_activity_bodies() !==
-    57535
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_activitymanager_get_activity_bodies",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_activity_names() !==
     60614
   ) {
@@ -38947,7 +39109,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_activity_record() !==
-    27894
+    50611
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_activitymanager_get_activity_record",
@@ -39231,6 +39393,46 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_basemapmanager_tile_listener",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_cachesizerun_new() !==
+    65204
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_constructor_cachesizerun_new",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_cachesizerun_cancel() !==
+    14410
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_cachesizerun_cancel",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_cachesizerun_progress() !==
+    8692
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_cachesizerun_progress",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_cachesizerun_start() !==
+    8473
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_cachesizerun_start",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_cachesizerun_take() !==
+    63034
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_cachesizerun_take",
     );
   }
   if (
@@ -39635,7 +39837,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_upsert_wellness() !==
-    34868
+    55420
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_fitnessmanager_upsert_wellness",
@@ -39698,14 +39900,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_poll_cache_size() !==
-    48950
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_heatmapmanager_poll_cache_size",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_set_priority_view() !==
     61824
   ) {
@@ -39719,14 +39913,6 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_heatmapmanager_set_tiles_path",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_start_cache_size() !==
-    14282
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_heatmapmanager_start_cache_size",
     );
   }
   if (
@@ -40203,7 +40389,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_retired() !==
-    36172
+    20855
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_get_retired",
@@ -40347,7 +40533,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_cancel() !==
-    25120
+    18602
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionpreview_cancel",
@@ -40370,19 +40556,11 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_get_progress() !==
-    62565
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_progress() !==
+    15307
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionpreview_get_progress",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_poll() !==
-    49176
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionpreview_poll",
+      "uniffi_veloqrs_checksum_method_sectionpreview_progress",
     );
   }
   if (
@@ -40394,11 +40572,11 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_take_result() !==
-    38654
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_take() !==
+    29849
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionpreview_take_result",
+      "uniffi_veloqrs_checksum_method_sectionpreview_take",
     );
   }
   if (
@@ -41115,9 +41293,10 @@ export default Object.freeze({
     FfiConverterTypeActivityManager,
     FfiConverterTypeActivitySportMapping,
     FfiConverterTypeAthleteProfile,
+    FfiConverterTypeBackgroundJob,
     FfiConverterTypeBasemapManager,
     FfiConverterTypeBulkExportFormat,
-    FfiConverterTypeCacheSizePoll,
+    FfiConverterTypeCacheSizeRun,
     FfiConverterTypeCutoverProgress,
     FfiConverterTypeDatePart,
     FfiConverterTypeDatePattern,
@@ -41135,7 +41314,6 @@ export default Object.freeze({
     FfiConverterTypeFetchAndStoreResult,
     FfiConverterTypeFfiAbsoluteTarget,
     FfiConverterTypeFfiAbsoluteUnits,
-    FfiConverterTypeFfiActivityBodiesPage,
     FfiConverterTypeFfiActivityBodiesQuery,
     FfiConverterTypeFfiActivityBody,
     FfiConverterTypeFfiActivityDetailData,
@@ -41253,7 +41431,6 @@ export default Object.freeze({
     FfiConverterTypeFfiMuscleGroupDetail,
     FfiConverterTypeFfiMuscleVolume,
     FfiConverterTypeFfiNamedCorridor,
-    FfiConverterTypeFfiNewGroundBadge,
     FfiConverterTypeFfiOffScale,
     FfiConverterTypeFfiPaceCurve,
     FfiConverterTypeFfiPaceTrend,
@@ -41303,6 +41480,8 @@ export default Object.freeze({
     FfiConverterTypeFfiRoutesScreenData,
     FfiConverterTypeFfiRoutesScreenQuery,
     FfiConverterTypeFfiRoutesStatusData,
+    FfiConverterTypeFfiRunProgress,
+    FfiConverterTypeFfiRunState,
     FfiConverterTypeFfiSampleLibrary,
     FfiConverterTypeFfiScatterFocus,
     FfiConverterTypeFfiSection,
@@ -41401,6 +41580,7 @@ export default Object.freeze({
     FfiConverterTypeRecordingManager,
     FfiConverterTypeRouteGroupingPreview,
     FfiConverterTypeRouteManager,
+    FfiConverterTypeRunOutcome,
     FfiConverterTypeSectionManager,
     FfiConverterTypeSectionPreview,
     FfiConverterTypeSectionSummary,
@@ -41418,6 +41598,7 @@ export default Object.freeze({
     FfiConverterTypeUploadTransition,
     FfiConverterTypeVeloqEngine,
     FfiConverterTypeVeloqError,
+    FfiConverterTypeWholeNumber,
     FfiConverterTypeWidgetInsight,
     FfiConverterTypeWidgetPalette,
     FfiConverterTypeWidgetTheme,

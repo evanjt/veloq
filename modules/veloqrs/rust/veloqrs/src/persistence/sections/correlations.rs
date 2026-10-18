@@ -149,6 +149,7 @@ mod tests {
             excluded: false,
             outside_distance_band: false,
             match_percentage: None,
+            is_record: false,
         }
     }
 
@@ -156,7 +157,7 @@ mod tests {
         SectionPerformanceRecord {
             activity_id: id.into(),
             activity_name: id.into(),
-            activity_date: date,
+            activity_date: crate::WholeNumber(date),
             lap_count: laps.len() as u32,
             best_time: 0.0,
             best_pace: 0.0,

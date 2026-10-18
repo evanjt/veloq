@@ -8,13 +8,16 @@
  * bottom inset.
  */
 import React from 'react';
-import { Platform, StyleSheet, Text } from 'react-native';
+import { Platform, ScrollView, StyleSheet, Text } from 'react-native';
 import { render, screen } from '@testing-library/react-native';
+import type { ReactTestRendererJSON } from 'react-test-renderer';
 
 import { SheetFrame, sheetScreenLayout } from '@/shared/ui/SheetFrame';
+import { SheetScrollView } from '@/shared/ui/SheetScrollView';
 import { colors, darkColors } from '@/theme';
 
 import { contrastRatio } from '../__shared__/contrast';
+import { sheetScrollPlacement } from '../__shared__/sheetScrollPlacement';
 
 const mockInsets = { top: 0, bottom: 48, left: 0, right: 0 };
 
@@ -125,7 +128,7 @@ describe('SheetFrame on iOS', () => {
   it('paints nothing on iOS 26 and later, so the system material is the one background', async () => {
     setVersion('26.2');
     await render(
-      <SheetFrame name="sheets/insight">
+      <SheetFrame name="sheets/field-picker">
         <Text>body</Text>
       </SheetFrame>
     );
@@ -135,7 +138,7 @@ describe('SheetFrame on iOS', () => {
 
   it('leaves the grabber to the system and pads a resizable sheet', async () => {
     await render(
-      <SheetFrame name="sheets/insight">
+      <SheetFrame name="sheets/field-picker">
         <Text>body</Text>
       </SheetFrame>
     );
@@ -150,6 +153,98 @@ describe('SheetFrame on iOS', () => {
       </SheetFrame>
     );
     expect(frameStyle().paddingBottom).toBe(0);
+  });
+});
+
+describe('SheetFrame around a sheet whose root is its scroll view', () => {
+  function scrollStyle() {
+    return StyleSheet.flatten(screen.UNSAFE_getByType(ScrollView).props.style);
+  }
+
+  it.each(['18.5', '26.2'])(
+    'draws no view around the scroll view on iOS %s, so the form sheet sizes it',
+    async (version) => {
+      Platform.OS = 'ios';
+      setVersion(version);
+      await render(
+        <SheetFrame name="sheets/insight">
+          <SheetScrollView>
+            <Text>body</Text>
+          </SheetScrollView>
+        </SheetFrame>
+      );
+      expect(screen.queryByTestId('sheet-frame')).toBeNull();
+      expect(sheetScrollPlacement(screen.toJSON())).toBe('root');
+      expect(screen.getByText('body')).toBeTruthy();
+    }
+  );
+
+  it('hands the scroll view the surface fill before iOS 26 and none after', async () => {
+    Platform.OS = 'ios';
+    setVersion('18.5');
+    const sheet = (
+      <SheetFrame name="sheets/chart-data">
+        <SheetScrollView>
+          <Text>body</Text>
+        </SheetScrollView>
+      </SheetFrame>
+    );
+    await render(sheet);
+    expect(scrollStyle().backgroundColor).toBe(colors.surface);
+    setVersion('26.2');
+    await render(sheet);
+    expect(scrollStyle().backgroundColor).toBeUndefined();
+  });
+
+  it('ends the scrolled content clear of the home indicator', async () => {
+    Platform.OS = 'ios';
+    setVersion('26.2');
+    await render(
+      <SheetFrame name="sheets/insight">
+        <SheetScrollView>
+          <Text>body</Text>
+        </SheetScrollView>
+      </SheetFrame>
+    );
+    const content = screen.toJSON() as ReactTestRendererJSON;
+    const rows = (content.children?.[0] as ReactTestRendererJSON).children ?? [];
+    const last = rows.at(-1) as ReactTestRendererJSON;
+    expect(StyleSheet.flatten(last.props.style).paddingBottom).toBe(48);
+  });
+
+  it('pads the footer rather than the list when the sheet has one', async () => {
+    Platform.OS = 'ios';
+    setVersion('18.5');
+    await render(
+      <SheetFrame name="sheets/merge-confirm">
+        <SheetScrollView footer={<Text testID="footer">actions</Text>}>
+          <Text>body</Text>
+        </SheetScrollView>
+      </SheetFrame>
+    );
+    expect(sheetScrollPlacement(screen.toJSON())).toBe('root');
+    const footer = screen.getByTestId('footer').parent?.parent;
+    expect(StyleSheet.flatten(footer?.props.style)).toEqual({
+      backgroundColor: colors.surface,
+      paddingBottom: 48,
+    });
+    const list = (screen.toJSON() as ReactTestRendererJSON[])[0];
+    expect((list.children?.[0] as ReactTestRendererJSON).children).toHaveLength(1);
+  });
+
+  it('keeps the frame view and its handle on Android', async () => {
+    Platform.OS = 'android';
+    setVersion(35);
+    await render(
+      <SheetFrame name="sheets/insight">
+        <SheetScrollView>
+          <Text>body</Text>
+        </SheetScrollView>
+      </SheetFrame>
+    );
+    expect(frameStyle().paddingBottom).toBe(48);
+    expect(screen.getByTestId('sheet-handle', { includeHiddenElements: true })).toBeTruthy();
+    expect(scrollStyle().backgroundColor).toBeUndefined();
   });
 });
 

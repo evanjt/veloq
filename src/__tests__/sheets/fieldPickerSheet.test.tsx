@@ -10,6 +10,7 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import FieldPickerSheet, { type FieldPickerSheetInput } from '@/app/sheets/field-picker';
+import { rootScreenLayout } from '@/shared/ui/rootScreenLayout';
 import { ALL_DATA_FIELDS } from '@/features/recording';
 import { openSheet } from '@/shared/app/sheetRequest';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -41,7 +42,9 @@ async function open(selectedField: DataFieldType | null) {
     selectedField,
   });
   mockParams = { request: mockPush.mock.calls.at(-1)[0].params.request };
-  await render(<FieldPickerSheet />);
+  await render(
+    rootScreenLayout({ route: { name: 'sheets/field-picker' }, children: <FieldPickerSheet /> })
+  );
   return { result };
 }
 

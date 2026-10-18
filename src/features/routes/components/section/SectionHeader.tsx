@@ -9,6 +9,7 @@ import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useMetricSystem, useTheme } from '@/shared/app';
+import { MapSheetCardCloseSpace } from '@/shared/app/MapSheetCards';
 import { HeroStatsRow } from '@/shared/ui';
 import { FitText } from '@/shared/ui/FitText';
 import { PressTarget } from '@/shared/ui/PressTarget';
@@ -99,6 +100,7 @@ export function SectionHeader({
         iconName={iconName}
         activityColor={activityColor}
         onSaveName={onSaveName}
+        accessory={<MapSheetCardCloseSpace />}
       />
       {dateLine ? (
         <FitText

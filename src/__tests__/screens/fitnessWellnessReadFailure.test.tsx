@@ -63,6 +63,7 @@ jest.mock('@/shared/app/useRevealChart', () => ({
   useRevealChart: () => ({
     scrollRef: { current: null },
     onAnchorLayout: jest.fn(),
+    onHeaderLayout: jest.fn(),
     onScrollBeginDrag: jest.fn(),
   }),
 }));

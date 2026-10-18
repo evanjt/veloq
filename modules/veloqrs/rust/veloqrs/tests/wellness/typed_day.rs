@@ -20,7 +20,7 @@ fn row(date: &str, ctl: Option<f64>, raw: Option<&str>) -> WellnessRow {
         hrv: Some(48.0),
         resting_hr: Some(52.0),
         weight: None,
-        sleep_secs: Some(27_000),
+        sleep_secs: Some(veloqrs::WholeNumber(27_000)),
         sleep_score: Some(81.0),
         soreness: None,
         fatigue: None,

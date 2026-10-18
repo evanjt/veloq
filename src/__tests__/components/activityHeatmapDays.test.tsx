@@ -26,6 +26,7 @@ import type { ReactTestInstance } from 'react-test-renderer';
 import { RangeCoverage } from 'veloqrs';
 
 import ChartDataSheet from '@/app/sheets/chart-data';
+import type { DayActivitiesInput } from '@/app/sheets/day-activities';
 import { ActivityHeatmap } from '@/features/stats/components/ActivityHeatmap';
 import { initialiseI18n } from '@/i18n';
 import { chartStyles } from '@/theme';
@@ -53,23 +54,32 @@ const TWO_RUNS = localDay(NOW, -2);
 const ONE_RIDE = localDay(NOW, -1);
 const EMPTY_DAY = localDay(NOW, -3);
 
-const body = (id: string, name: string, type: string, day: string, hour: number, moving: number) =>
-  JSON.stringify({
-    id,
-    name,
-    type,
-    start_date_local: `${day}T${String(hour).padStart(2, '0')}:00:00`,
-    moving_time: moving,
-    distance: 10_000,
-    icu_training_load: 40,
-  });
+const card = (
+  id: string,
+  name: string,
+  sport: string,
+  day: string,
+  hour: number,
+  moving: number
+) => ({
+  id,
+  name,
+  sportType: sport,
+  startDateLocal: `${day}T${String(hour).padStart(2, '0')}:00:00`,
+  movingTime: moving,
+  distance: 10_000,
+  trainingLoad: 40,
+  hasWeather: false,
+  hasGps: true,
+  hasAltitude: false,
+});
 
-const BODIES: Record<string, string[]> = {
+const CARDS: Record<string, ReturnType<typeof card>[]> = {
   [TWO_RUNS]: [
-    body('run-am', 'Harbour loop', 'Run', TWO_RUNS, 7, 55 * 60),
-    body('run-pm', 'Park loop', 'Run', TWO_RUNS, 18, 55 * 60),
+    card('run-am', 'Harbour loop', 'Run', TWO_RUNS, 7, 55 * 60),
+    card('run-pm', 'Park loop', 'Run', TWO_RUNS, 18, 55 * 60),
   ],
-  [ONE_RIDE]: [body('ride-1', 'Valley ride', 'Ride', ONE_RIDE, 9, 65 * 60)],
+  [ONE_RIDE]: [card('ride-1', 'Valley ride', 'Ride', ONE_RIDE, 9, 65 * 60)],
 };
 
 const TWO_DAYS = [
@@ -90,14 +100,9 @@ const heatmapDays = jest.fn((_firstDay: string, _lastDay: string) => TWO_DAYS);
 const engine = {
   subscribe: () => () => {},
   getFitnessScreenData: fitnessScreenRead({ heatmap: heatmapDays }),
-  getActivityBodies: jest.fn((start: number, _end: number) => {
-    const day = Object.keys(BODIES).find((d) => dayStartEpochSeconds(d) === start);
-    const bodies = day ? BODIES[day] : [];
-    return {
-      bodies,
-      intervalsIds: bodies.map(() => null),
-      keys: bodies.map((body) => (JSON.parse(body) as { id: string }).id),
-    };
+  getFeedCards: jest.fn((start: number, _end: number) => {
+    const day = Object.keys(CARDS).find((d) => dayStartEpochSeconds(d) === start);
+    return day ? CARDS[day] : [];
   }),
   rangeCoverage: jest.fn(() => RangeCoverage.Loaded),
 };
@@ -190,7 +195,7 @@ describe('ActivityHeatmap days', () => {
   it('reads no activity until a day is pressed', async () => {
     await renderHeatmap();
 
-    expect(engine.getActivityBodies).not.toHaveBeenCalled();
+    expect(engine.getFeedCards).not.toHaveBeenCalled();
   });
 
   it('opens the activity directly on a one-activity day', async () => {
@@ -199,7 +204,7 @@ describe('ActivityHeatmap days', () => {
     await fireEvent.press(dayCell(view, ONE_RIDE));
     await act(async () => {});
 
-    expect(engine.getActivityBodies).toHaveBeenCalledWith(
+    expect(engine.getFeedCards).toHaveBeenCalledWith(
       dayStartEpochSeconds(ONE_RIDE),
       expect.any(Number)
     );
@@ -215,14 +220,28 @@ describe('ActivityHeatmap days', () => {
     expect(sheet.pathname).toBe('sheets/day-activities');
 
     mockParams.request = sheet.params.request;
-    const reader = await renderHook(() =>
-      useSheetRequest<{ activities: { id: string; movingTime: number }[] }, string>()
+    const reader = await renderHook(() => useSheetRequest<DayActivitiesInput, string>());
+    const rows = [...(reader.result.current.input?.activities ?? [])].sort((x, y) =>
+      x.id.localeCompare(y.id)
     );
-    expect(reader.result.current.input?.activities.map((a) => a.id).sort()).toEqual([
-      'run-am',
-      'run-pm',
+    expect(rows).toEqual([
+      expect.objectContaining({
+        id: 'run-am',
+        name: 'Harbour loop',
+        type: 'Run',
+        load: 40,
+        distance: 10_000,
+        movingTime: 55 * 60,
+      }),
+      expect.objectContaining({
+        id: 'run-pm',
+        name: 'Park loop',
+        type: 'Run',
+        load: 40,
+        distance: 10_000,
+        movingTime: 55 * 60,
+      }),
     ]);
-    expect(reader.result.current.input?.activities[0].movingTime).toBe(55 * 60);
     await act(() => reader.result.current.resolve('run-pm'));
     await reader.unmount();
     await act(async () => {});

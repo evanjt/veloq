@@ -565,13 +565,10 @@ impl SectionManager {
         with_reader(|conn| history::pinned_section_version(conn, &section_id).map(|v| v as f64))
     }
 
-    fn get_retired(&self) -> Result<Vec<crate::FfiRetiredSection>, VeloqError> {
-        with_reader(|conn| {
-            history::retired_sections(conn)
-                .into_iter()
-                .map(Into::into)
-                .collect()
-        })
+    fn get_retired(
+        &self,
+    ) -> Result<Vec<crate::persistence::sections::history::RetiredSection>, VeloqError> {
+        with_reader(history::retired_sections)
     }
 
     fn delete(&self, section_id: String) -> Result<(), VeloqError> {

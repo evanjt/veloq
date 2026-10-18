@@ -264,7 +264,7 @@ pub fn section_record_progression(
         steps.push(crate::FfiRecordStep {
             activity_id: record.activity_id.clone(),
             lap_id: lap.id.clone(),
-            activity_date: record.activity_date as f64,
+            activity_date: record.activity_date.0 as f64,
             section_time: lap.time,
             speed: lap.pace,
             improvement_secs: previous.map(|step| step.section_time - lap.time),

@@ -6,8 +6,8 @@
 
 import {
   buildChartData,
-  computeAllAverages,
   computeIntervalBands,
+  laneReadout,
 } from '@/features/stats/lib/combinedPlotData';
 import { type ChartConfig, type ChartTypeId } from '@/features/activity/lib/chartConfig';
 import type { ActivityStreams, ActivityInterval } from '@/types';
@@ -184,72 +184,40 @@ describe('buildChartData', () => {
   });
 });
 
-describe('computeAllAverages', () => {
-  it('returns empty array when streams have no data for configured charts', () => {
-    const configs = {
-      power: powerConfig(),
-    } as unknown as Record<ChartTypeId, ChartConfig>;
-    const result = computeAllAverages(configs, streams({ watts: [] }), true, 0);
-    expect(result).toEqual([]);
-  });
+describe('laneReadout at rest', () => {
+  const idle = (config: ChartConfig, s: ActivityStreams, isMetric: boolean, gain: number) =>
+    laneReadout(config, config.getStream?.(s) ?? [], null, isMetric, gain);
 
   it('computes arithmetic mean for standard metrics', () => {
-    const configs = {
-      power: powerConfig(),
-    } as unknown as Record<ChartTypeId, ChartConfig>;
-    const result = computeAllAverages(configs, streams(), true, 0);
-    expect(result).toHaveLength(1);
+    const result = idle(powerConfig(), streams(), true, 0);
     // mean([100,120,150,180,200,210,220,205,180,160]) = 172.5 → rounds to "173"
-    expect(result[0].value).toBe('173');
-    expect(result[0].unit).toBe('W');
+    expect(result.value).toBe('173');
+    expect(result.unit).toBe('W');
   });
 
   it('uses the activity gain instead of noisy altitude steps', () => {
-    const configs = {
-      altitude: altitudeConfig(),
-    } as unknown as Record<ChartTypeId, ChartConfig>;
-    const result = computeAllAverages(
-      configs,
-      streams({ altitude: [100, 200, 123, 245] }),
-      true,
-      145
-    );
-    expect(result[0].value).toBe('+145');
+    const result = idle(altitudeConfig(), streams({ altitude: [100, 200, 123, 245] }), true, 145);
+    expect(result.value).toBe('+145');
   });
 
   it('skips NaN and Infinity values', () => {
-    const configs = {
-      power: powerConfig(),
-    } as unknown as Record<ChartTypeId, ChartConfig>;
-    const result = computeAllAverages(
-      configs,
+    const result = idle(
+      powerConfig(),
       streams({ watts: [100, NaN, 200, Infinity, -Infinity] }),
       true,
       0
     );
     // Valid values: [100, 200] → mean 150
-    expect(result[0].value).toBe('150');
+    expect(result.value).toBe('150');
   });
 
   it('applies imperial conversion when isMetric is false', () => {
-    const configs = {
-      altitude: altitudeConfig(),
-    } as unknown as Record<ChartTypeId, ChartConfig>;
-    const metric = computeAllAverages(configs, streams(), true, 42);
-    const imperial = computeAllAverages(configs, streams(), false, 42);
-    expect(metric[0].value).toBe('+42');
-    expect(imperial[0].value).toBe('+138');
-    expect(metric[0].unit).toBe('m');
-    expect(imperial[0].unit).toBe('ft');
-  });
-
-  it('provides maxValueWidth for chip width stability during scrubbing', () => {
-    const configs = {
-      power: powerConfig(),
-    } as unknown as Record<ChartTypeId, ChartConfig>;
-    const result = computeAllAverages(configs, streams(), true, 0);
-    // Max raw value is 220, so maxValueWidth is "220"
-    expect(result[0].maxValueWidth).toBe('220');
+    const metric = idle(altitudeConfig(), streams(), true, 42);
+    const imperial = idle(altitudeConfig(), streams(), false, 42);
+    expect(metric.value).toBe('+42');
+    expect(imperial.value).toBe('+138');
+    expect(metric.unit).toBe('m');
+    expect(imperial.unit).toBe('ft');
   });
 });
 

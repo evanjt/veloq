@@ -3,13 +3,65 @@
  */
 import type { MapPalette } from '@/theme';
 import {
+  boundsOfLngLat,
   buildDeltaGapLayer,
   buildEndpointLayers,
+  DELTA_GAPS_SOURCE_ID,
+  ENDPOINT_IMAGES,
   lineBandExpression,
   type LineBand,
+  type LngLat,
   type MapLayerSpec,
   type MapSourceSpec,
+  type MapSubjectSpecs,
 } from '@/features/maps';
+
+/** Room around the route's own line for traces that stray outside it, as a fraction of its span. */
+export const ROUTE_MAP_BOUNDS_PADDING = 0.1;
+
+export interface RouteMapSpecInput {
+  /** The route's representative line, as points and as the collection drawn. */
+  routeCoords: readonly LngLat[];
+  routeLine: GeoJSON.FeatureCollection;
+  /** Every attempt's trace, each carrying its activity id. */
+  fadedTraces: GeoJSON.FeatureCollection;
+  /** The picked attempt or lap, drawn over the rest. */
+  highlightedTrace: GeoJSON.FeatureCollection;
+  endpoints: GeoJSON.FeatureCollection;
+  /** The stretches of the route line the shown attempt has no data for. */
+  deltaGaps: GeoJSON.FeatureCollection;
+  palette: MapPalette;
+  /** Hides the highlighted attempt from the faded layer. */
+  fadedFilter: unknown[] | undefined;
+  /** An attempt is picked, so the route itself is context. */
+  routeContext: boolean;
+  deltaBands: readonly LineBand[] | null;
+}
+
+/** Everything a route's map draws, and the extent it fits. */
+export function routeMapSpecs(input: RouteMapSpecInput): MapSubjectSpecs {
+  return {
+    sources: buildRouteSources(
+      {
+        'faded-traces': { kind: 'geojson', data: input.fadedTraces },
+        'highlighted-trace': { kind: 'geojson', data: input.highlightedTrace },
+        endpoints: { kind: 'geojson', data: input.endpoints },
+        [DELTA_GAPS_SOURCE_ID]: { kind: 'geojson', data: input.deltaGaps },
+      },
+      input.routeLine
+    ),
+    layers: buildRouteLayers({
+      palette: input.palette,
+      routeContext: input.routeContext,
+      fadedFilter: input.fadedFilter,
+      includeRoute: true,
+      deltaBands: input.deltaBands,
+    }),
+    images: ENDPOINT_IMAGES,
+    interactiveLayers: undefined,
+    bounds: boundsOfLngLat(input.routeCoords, ROUTE_MAP_BOUNDS_PADDING),
+  };
+}
 
 /**
  * The inline map's sources: the overlays and the route itself. line-gradient

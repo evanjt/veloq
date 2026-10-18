@@ -22,6 +22,13 @@ pub enum BackgroundJob {
 }
 
 impl BackgroundJob {
+    pub(crate) const ALL: [Self; 4] = [
+        Self::Detection,
+        Self::ElevationBackfill,
+        Self::StreamBackfill,
+        Self::Cutover,
+    ];
+
     /// The stored token, which is also the id the app names the job by.
     pub fn token(self) -> &'static str {
         match self {
@@ -31,7 +38,21 @@ impl BackgroundJob {
             Self::Cutover => "cutover",
         }
     }
+
+    /// The job a stored token names, `None` for one this build does not know.
+    pub fn from_token(token: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|job| job.token() == token)
+    }
 }
+
+// The app keys its rows on the token, so the job crosses as it.
+uniffi::custom_type!(BackgroundJob, String, {
+    lower: |job| job.token().to_string(),
+    try_lift: |token| match BackgroundJob::from_token(&token) {
+        Some(job) => Ok(job),
+        None => uniffi::deps::anyhow::bail!("{token} names no background job"),
+    },
+});
 
 /// How a run ended.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -52,6 +73,15 @@ pub enum RunOutcome {
 }
 
 impl RunOutcome {
+    pub(crate) const ALL: [Self; 6] = [
+        Self::Complete,
+        Self::Partial,
+        Self::Failed,
+        Self::Paused,
+        Self::Stopped,
+        Self::Deferred,
+    ];
+
     pub fn token(self) -> &'static str {
         match self {
             Self::Complete => "complete",
@@ -62,14 +92,34 @@ impl RunOutcome {
             Self::Deferred => "deferred",
         }
     }
+
+    /// The outcome a stored token names, `None` for one this build does not know.
+    pub fn from_token(token: &str) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|outcome| outcome.token() == token)
+    }
 }
 
+// The app reads the outcome by its token, so it crosses as it.
+uniffi::custom_type!(RunOutcome, String, {
+    lower: |outcome| outcome.token().to_string(),
+    try_lift: |token| match RunOutcome::from_token(&token) {
+        Some(outcome) => Ok(outcome),
+        None => uniffi::deps::anyhow::bail!("{token} names no run outcome"),
+    },
+});
+
 /// One job's last run. A job leaves at zero the counts it has no measure of.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+#[uniffi(name = "FfiJobRun")]
 pub struct JobRun {
+    /// detection, elevationBackfill, streamBackfill or cutover.
     pub job: BackgroundJob,
-    /// Epoch milliseconds, from [`super::attempts::now_ms`].
-    pub finished_at: i64,
+    /// When the run finished, in epoch milliseconds, from
+    /// [`super::attempts::now_ms`].
+    pub finished_at: crate::WholeNumber,
+    /// complete, partial, failed, paused, stopped or deferred.
     pub outcome: RunOutcome,
     /// Items the run took on.
     pub handled: u32,
@@ -109,25 +159,35 @@ pub fn record_job_run(conn: &Connection, run: &JobRun) {
 }
 
 /// Every job's last run, in job order. A job that has never run on this
-/// install has no row.
-pub fn job_runs(conn: &Connection) -> SqlResult<Vec<crate::FfiJobRun>> {
+/// install has no row, and a row whose job or outcome this build does not know,
+/// written by a newer one, is logged and left out.
+pub fn job_runs(conn: &Connection) -> SqlResult<Vec<JobRun>> {
     let mut stmt = conn.prepare_cached(
         "SELECT job, finished_at, outcome, handled, added, changed, retired, failed
          FROM job_runs ORDER BY job",
     )?;
-    stmt.query_map([], |row| {
-        Ok(crate::FfiJobRun {
-            job: row.get(0)?,
-            finished_at: row.get::<_, i64>(1)? as f64,
-            outcome: row.get(2)?,
+    let rows = stmt.query_map([], |row| {
+        let job: String = row.get(0)?;
+        let outcome: String = row.get(2)?;
+        let (Some(job), Some(outcome)) = (
+            BackgroundJob::from_token(&job),
+            RunOutcome::from_token(&outcome),
+        ) else {
+            log::warn!("veloqrs: [job_runs] Skipping a {job} run ending {outcome}");
+            return Ok(None);
+        };
+        Ok(Some(JobRun {
+            job,
+            finished_at: row.get(1)?,
+            outcome,
             handled: row.get(3)?,
             added: row.get(4)?,
             changed: row.get(5)?,
             retired: row.get(6)?,
             failed: row.get(7)?,
-        })
-    })?
-    .collect()
+        }))
+    })?;
+    rows.filter_map(Result::transpose).collect()
 }
 
 #[cfg(test)]

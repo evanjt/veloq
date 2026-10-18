@@ -41,6 +41,7 @@ export function FooterSection() {
   return (
     <>
       <Row
+        testID="settings-app-tour"
         behaviour="navigate"
         accessibilityLabel={t('settings.appTour')}
         onPress={() => useWhatsNewStore.getState().startTour('tutorial')}
@@ -51,6 +52,22 @@ export function FooterSection() {
           </Text>
           <Text style={[styles.toggleDescription, isDark && styles.toggleDescriptionDark]}>
             {t('settings.appTourDescription')}
+          </Text>
+        </View>
+      </Row>
+
+      <Row
+        testID="settings-release-notes"
+        behaviour="navigate"
+        accessibilityLabel={t('settings.releaseNotes')}
+        onPress={() => useWhatsNewStore.getState().startTour('whatsNew')}
+      >
+        <View style={styles.toggleInfo}>
+          <Text style={[styles.toggleLabel, isDark && settingsStyles.textLight]}>
+            {t('settings.releaseNotes')}
+          </Text>
+          <Text style={[styles.toggleDescription, isDark && styles.toggleDescriptionDark]}>
+            {t('settings.releaseNotesDescription')}
           </Text>
         </View>
       </Row>

@@ -26,6 +26,7 @@ fn lap(activity: &str, start: u32, time: f64, coverage: f64) -> crate::SectionLa
         excluded: false,
         outside_distance_band: false,
         match_percentage: None,
+        is_record: false,
     }
 }
 
@@ -38,7 +39,7 @@ fn outing(
     crate::SectionPerformanceRecord {
         activity_id: activity.to_string(),
         activity_name: activity.to_string(),
-        activity_date: chrono::Utc::now().timestamp() - age_days * 86_400,
+        activity_date: crate::WholeNumber(chrono::Utc::now().timestamp() - age_days * 86_400),
         lap_count: laps.len() as u32,
         laps,
         best_time: first.time,

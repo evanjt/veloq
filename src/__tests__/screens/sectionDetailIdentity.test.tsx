@@ -13,9 +13,10 @@
 
 import React from 'react';
 import { act, render } from '@testing-library/react-native';
-import { ScrollView } from 'react-native';
+import { Platform, ScrollView } from 'react-native';
 
 import { sectionCardInHost } from '../__shared__/sectionCardInHost';
+import { sheetScrollHandsOff } from '../__shared__/sheetScrollPlacement';
 import { topCard, useMapSheetHosts } from '@/shared/app/mapSheetHost';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -30,6 +31,7 @@ jest.mock('expo-router', () => ({
   useIsFocused: () => true,
   useLocalSearchParams: () => ({ id: 'sec-1' }),
   useFocusEffect: () => {},
+  useNavigation: () => ({ getParent: () => undefined }),
   router: { back: jest.fn(), push: jest.fn(), replace: jest.fn() },
 }));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
@@ -279,6 +281,21 @@ describe('section detail screen', () => {
       expect(scrollTo).not.toHaveBeenCalled();
     } finally {
       scrollTo.mockRestore();
+    }
+  });
+
+  it('hands a drag in its sheet on Android to the card, before the sheet takes it', async () => {
+    const realOS = Platform.OS;
+    Platform.OS = 'android';
+    try {
+      const SectionSheet = sectionCardInHost(undefined, { inSheet: true });
+      const screen = await render(<SectionSheet />);
+      await act(async () => {});
+      const tree = screen.toJSON();
+      expect(Array.isArray(tree) ? null : tree?.props.testID).toBe('map-sheet');
+      expect(sheetScrollHandsOff(tree)).toBe(true);
+    } finally {
+      Platform.OS = realOS;
     }
   });
 

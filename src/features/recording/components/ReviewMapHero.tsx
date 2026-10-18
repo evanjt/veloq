@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { View, StyleSheet, type LayoutChangeEvent } from 'react-native';
 import { spacing } from '@/theme';
 import { RecordingMap } from '@/features/recording/components/RecordingMap';
 import { TrimSlider } from '@/features/recording/components/TrimSlider';
@@ -38,6 +38,13 @@ function ReviewMapHeroInner({
   onTrimChange,
   onTrimCommit,
 }: ReviewMapHeroProps) {
+  // The slider spans the map's foot, so the map's credit sits above it.
+  const [trimHeight, setTrimHeight] = useState(0);
+  const handleTrimLayout = useCallback(
+    (event: LayoutChangeEvent) => setTrimHeight(event.nativeEvent.layout.height),
+    []
+  );
+
   return (
     <View style={[styles.mapContainer, { height: mapHeight, paddingTop: topInset }]}>
       <RecordingMap
@@ -46,12 +53,13 @@ function ReviewMapHeroInner({
         fitBounds
         trimStart={canTrim ? mapTrimStart : undefined}
         trimEnd={canTrim ? mapTrimEnd : undefined}
+        coveredBottom={canTrim ? trimHeight : 0}
         style={styles.map}
       />
 
       {/* Trim slider overlaid at bottom of map */}
       {canTrim ? (
-        <View testID="review-trim" style={styles.trimOverlay}>
+        <View testID="review-trim" style={styles.trimOverlay} onLayout={handleTrimLayout}>
           <TrimSlider
             totalDuration={totalDuration}
             totalPoints={totalPoints}

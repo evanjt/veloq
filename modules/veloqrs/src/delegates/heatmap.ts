@@ -7,7 +7,15 @@
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
+import {
+  CacheSizeRun,
+  FfiStartOutcome,
+  type CacheSizeRunLike,
+  type FfiStartResult,
+} from '../generated/veloqrs';
 import type { DelegateHost } from './host';
+import { runAt, toRunProgress, type RunProgress } from './run';
+import { startResult } from './start';
 
 /**
  * Where tiles go, with the `file://` the engine cannot open stripped off.
@@ -100,31 +108,40 @@ export function cancelHeatmapWork(host: DelegateHost): boolean {
   }
 }
 
+let cacheSizeObject: CacheSizeRunLike | null = null;
+
+/** One CacheSizeRun handle per JS runtime; the walk's slot lives in Rust. */
+function cacheSizeRun(): CacheSizeRunLike {
+  if (!cacheSizeObject) cacheSizeObject = new CacheSizeRun();
+  return cacheSizeObject;
+}
+
 /**
- * Start the cache-size walk on its own thread. Poll it with
- * `pollHeatmapCacheSize`.
- *
- * Starting one while a walk is already running joins that walk rather than
- * beginning a second, so three mount effects asking at once cost one pass.
+ * Start the cache-size walk on its own thread, or join the one running: the
+ * figure it gives is the one this caller wants.
  */
-export function startHeatmapCacheSize(host: DelegateHost, basePath: string): void {
-  if (!host.ready) return;
-  host.timed('startHeatmapCacheSize', () =>
-    host.engine.heatmap().startCacheSize(nativePath(basePath))
-  );
+export function startHeatmapCacheSize(host: DelegateHost, basePath: string): FfiStartResult {
+  if (!host.ready) return startResult(FfiStartOutcome.NotReady);
+  return host.timed('startHeatmapCacheSize', () => cacheSizeRun().start(nativePath(basePath)));
 }
 
-/** What one poll of the walk says. `bytes` is meaningful only when complete. */
-export interface HeatmapCacheSizePoll {
-  state: 'idle' | 'running' | 'complete';
-  bytes: number;
+/** Where the walk stands. */
+export function readHeatmapCacheSizeRun(host: DelegateHost): RunProgress {
+  if (!host.ready) return runAt('idle');
+  return toRunProgress(host.timed('readHeatmapCacheSizeRun', () => cacheSizeRun().progress()));
 }
 
-/** Poll the running cache-size walk. */
-export function pollHeatmapCacheSize(host: DelegateHost): HeatmapCacheSizePoll {
-  if (!host.ready) return { state: 'idle', bytes: 0 };
-  const poll = host.timed('pollHeatmapCacheSize', () => host.engine.heatmap().pollCacheSize());
-  return { state: poll.state as HeatmapCacheSizePoll['state'], bytes: Number(poll.bytes) };
+/** The walk's figure in bytes, once. Null while it runs or after taken. */
+export function takeHeatmapCacheSize(host: DelegateHost): number | null {
+  if (!host.ready) return null;
+  const bytes = host.timed('takeHeatmapCacheSize', () => cacheSizeRun().take());
+  return bytes === undefined ? null : Number(bytes);
+}
+
+/** Abandon the walk. Whether there was one. */
+export function cancelHeatmapCacheSize(host: DelegateHost): boolean {
+  if (!host.ready) return false;
+  return host.timed('cancelHeatmapCacheSize', () => cacheSizeRun().cancel());
 }
 
 /** Rust wants a filesystem path, and expo hands out `file://` URLs. */

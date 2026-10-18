@@ -32,19 +32,20 @@ tags:
 - runFlow:
     file: helpers/navigate-to-settings.yaml
 
-# The tour row sits in the footer, below the fold.
+# The release notes row sits in the footer, below the fold. Demo mode never offers
+# the What's New card, so this row is the way in.
 - scrollUntilVisible:
     element:
-      text: "App tour"
+      id: "settings-release-notes"
     direction: DOWN
     timeout: 30000
     speed: 40
     visibilityPercentage: 50
 
 - tapOn:
-    text: "App tour"
+    id: "settings-release-notes"
 
-# The 0.4.0 slide is the last in the tour. Walk forward from the first one.
+# The 0.4.0 slide is the last of the release slides. Walk forward from the first one.
 - repeat:
     times: 12
     commands:
@@ -53,7 +54,8 @@ tags:
             notVisible:
               id: "change-card"
           commands:
-            - tapOn: "Next"
+            - tapOn:
+                id: "whats-new-next"
 
 - extendedWaitUntil:
     visible:
@@ -106,13 +108,13 @@ tags:
     file: helpers/navigate-to-settings.yaml
 - scrollUntilVisible:
     element:
-      text: "App tour"
+      id: "settings-release-notes"
     direction: DOWN
     timeout: 30000
     speed: 40
     visibilityPercentage: 50
 - tapOn:
-    text: "App tour"
+    id: "settings-release-notes"
 
 - repeat:
     times: 12
@@ -122,7 +124,8 @@ tags:
             notVisible:
               id: "change-card"
           commands:
-            - tapOn: "Next"
+            - tapOn:
+                id: "whats-new-next"
 
 - extendedWaitUntil:
     visible:

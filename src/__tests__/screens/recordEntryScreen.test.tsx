@@ -24,6 +24,16 @@ import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { isLiveActivitySupported } from '@/features/recording/lib/liveActivity/bridge';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { replaceTo } from '@/shared/app/navigation';
+import { useSensorStore } from '@/features/sensors/store';
+import {
+  connectKnownSensors,
+  connectSensorForSession,
+  dropSensorForSession,
+  holdSensors,
+  holdsSensors,
+  releaseSensors,
+  requestBlePermissions,
+} from '@/features/sensors/lib/sensorManager';
 import { FfiPlannedCategory, type FfiPlannedEvent } from 'veloqrs';
 import { plannedEvent } from '../__shared__/plannedEvent';
 
@@ -42,6 +52,17 @@ jest.mock('@/shared/native/engine', () => ({
       };
     },
   }),
+}));
+jest.mock('@/features/sensors/lib/sensorManager', () => ({
+  ...jest.requireActual('@/features/sensors/lib/sensorManager'),
+  requestBlePermissions: jest.fn(async () => 'granted'),
+  connectKnownSensors: jest.fn(async () => undefined),
+  connectSensorForSession: jest.fn(async () => undefined),
+  dropSensorForSession: jest.fn(async () => undefined),
+  disconnectSensor: jest.fn(async () => undefined),
+  holdSensors: jest.fn(),
+  holdsSensors: jest.fn(() => true),
+  releaseSensors: jest.fn(),
 }));
 jest.mock('expo-notifications', () => ({
   ...jest.requireActual('expo-notifications'),
@@ -154,6 +175,13 @@ beforeEach(() => {
     initialise: initialisePreferences,
   } as never);
   useAuthStore.setState({ athleteId: 'athlete-a', isAuthenticated: true, authMethod: 'apiKey' });
+  useSensorStore.setState({
+    knownSensors: [],
+    connections: {},
+    activeSources: {},
+    suppliedKinds: {},
+    isLoaded: true,
+  });
 });
 
 describe('a Start tap is answered at once', () => {
@@ -538,5 +566,147 @@ describe('the bottom edge', () => {
       node = node.parent;
     }
     expect((fromPanel ?? 0) + fromSafeArea).toBe(34);
+  });
+});
+
+describe('the paired sensors and the fix before Start', () => {
+  const STRAP = { id: 'strap-1', name: 'Chest strap', kinds: ['heartRate' as const] };
+  const METER = { id: 'meter-1', name: 'Crank meter', kinds: ['power' as const] };
+
+  it('connects the paired sensors on arrival and holds them for this screen', async () => {
+    useSensorStore.setState({ knownSensors: [STRAP] });
+    await render(<RecordScreen />);
+
+    await waitFor(() => expect(connectKnownSensors).toHaveBeenCalledTimes(1));
+    expect(holdSensors).toHaveBeenCalledWith('entry');
+  });
+
+  it('connects nothing when no sensor is paired, and lists none', async () => {
+    await render(<RecordScreen />);
+    await act(async () => {});
+
+    expect(connectKnownSensors).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('entry-sensors')).toBeNull();
+  });
+
+  it('connects nothing when the screen is left while Bluetooth access is being asked', async () => {
+    let answer!: (access: string) => void;
+    (requestBlePermissions as jest.Mock).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          answer = resolve;
+        })
+    );
+    (holdsSensors as jest.Mock).mockReturnValueOnce(false);
+    useSensorStore.setState({ knownSensors: [STRAP] });
+    const entry = await render(<RecordScreen />);
+    await waitFor(() => expect(requestBlePermissions).toHaveBeenCalled());
+
+    await entry.unmount();
+    await act(async () => {
+      answer('granted');
+    });
+
+    expect(holdsSensors).toHaveBeenCalledWith('entry');
+    expect(connectKnownSensors).not.toHaveBeenCalled();
+  });
+
+  it('lets go of the sensors when the screen is left', async () => {
+    useSensorStore.setState({ knownSensors: [STRAP] });
+    const entry = await render(<RecordScreen />);
+    await waitFor(() => expect(holdSensors).toHaveBeenCalledWith('entry'));
+
+    await entry.unmount();
+
+    expect(releaseSensors).toHaveBeenCalledWith('entry');
+  });
+
+  it('lists each paired sensor with its kind, state, live value and battery', async () => {
+    useSensorStore.setState({
+      knownSensors: [STRAP, METER],
+      connections: {
+        [STRAP.id]: {
+          status: 'connected',
+          name: STRAP.name,
+          kinds: STRAP.kinds,
+          batteryPercent: 64,
+          rssi: -55,
+        },
+        [METER.id]: { status: 'noData', name: METER.name, kinds: METER.kinds },
+      },
+      activeSources: { heartRate: STRAP.id },
+    });
+    useRecordingStore.getState().setSensorSample('heartrate', 141);
+    await render(<RecordScreen />);
+
+    expect(screen.getByTestId('entry-sensor-strap-1')).toHaveTextContent(/Chest strap/);
+    expect(screen.getByTestId('entry-sensor-status-strap-1')).toHaveTextContent(
+      /Heart rate · Connected · 141.* · 64%/
+    );
+    expect(screen.getByTestId('entry-sensor-signal-strap-1')).toBeTruthy();
+    expect(screen.getByTestId('entry-sensor-status-meter-1')).toHaveTextContent(
+      'Power · Connected, no data'
+    );
+  });
+
+  it('disconnects one sensor for the session, and offers to connect it again', async () => {
+    useSensorStore.setState({
+      knownSensors: [STRAP],
+      connections: { [STRAP.id]: { status: 'connected', name: STRAP.name, kinds: STRAP.kinds } },
+    });
+    await render(<RecordScreen />);
+
+    await fireEvent.press(screen.getByTestId('entry-sensor-disconnect-strap-1'));
+    expect(dropSensorForSession).toHaveBeenCalledWith(STRAP.id);
+
+    await act(async () => {
+      useSensorStore.getState().setConnection(STRAP.id, null);
+    });
+    expect(screen.getByTestId('entry-sensor-status-strap-1')).toHaveTextContent(
+      'Heart rate · Not connected'
+    );
+    await fireEvent.press(screen.getByTestId('entry-sensor-connect-strap-1'));
+    expect(connectSensorForSession).toHaveBeenCalledWith(STRAP.id);
+  });
+
+  it('forgets a pairing from its row', async () => {
+    useSensorStore.setState({ knownSensors: [STRAP, METER] });
+    await render(<RecordScreen />);
+
+    await fireEvent.press(screen.getByTestId('entry-sensor-forget-strap-1'));
+
+    expect(useSensorStore.getState().knownSensors.map((s) => s.id)).toEqual([METER.id]);
+    expect(screen.queryByTestId('entry-sensor-strap-1')).toBeNull();
+    expect(screen.getByTestId('entry-sensor-meter-1')).toBeTruthy();
+  });
+
+  it('lists the sensors indoors too, where there is no fix to show', async () => {
+    useRecordingPreferences.setState({ recentActivityTypes: ['VirtualRide'] });
+    useSensorStore.setState({ knownSensors: [STRAP] });
+    await render(<RecordScreen />);
+
+    expect(screen.getByTestId('entry-sensor-strap-1')).toBeTruthy();
+    expect(screen.queryByTestId('record-gps-accuracy')).toBeNull();
+  });
+
+  it('gives the fix state with its accuracy in metres', async () => {
+    (Location.watchPositionAsync as jest.Mock).mockImplementationOnce(
+      async (_options: unknown, onFix: (p: unknown) => void) => {
+        onFix({ coords: { latitude: -33.9, longitude: 151.2, accuracy: 6 } });
+        return { remove: jest.fn() };
+      }
+    );
+    await render(<RecordScreen />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('record-gps-accuracy')).toHaveTextContent('GPS ready · 6 m')
+    );
+  });
+
+  it('names the fix state alone before the first fix', async () => {
+    await render(<RecordScreen />);
+    await act(async () => {});
+
+    expect(screen.getByTestId('record-gps-accuracy')).toHaveTextContent('Hunting for GPS…');
   });
 });

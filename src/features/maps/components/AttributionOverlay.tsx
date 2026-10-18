@@ -47,11 +47,13 @@ export interface AttributionOverlayProps {
   initialAttribution: string;
   /** Measured pill height plus its inset, reported whenever the wrap changes. */
   onClearanceChange?: ((clearance: number) => void) | undefined;
+  /** Height over the map's foot that something else covers, which the pill sits above. */
+  bottomInset?: number | undefined;
 }
 
 export const AttributionOverlay = memo(
   forwardRef<AttributionOverlayRef, AttributionOverlayProps>(
-    ({ initialAttribution, onClearanceChange }, ref) => {
+    ({ initialAttribution, onClearanceChange, bottomInset = 0 }, ref) => {
       // The pill is chrome, so it follows the app theme rather than the base drawn under it.
       const { isDark } = useTheme();
       const [attribution, setAttribution] = useState(initialAttribution);
@@ -75,7 +77,11 @@ export const AttributionOverlay = memo(
       if (!attribution) return null;
 
       return (
-        <View testID="map-attribution" style={attributionStyles.attribution} pointerEvents="none">
+        <View
+          testID="map-attribution"
+          style={[attributionStyles.attribution, bottomInset > 0 && { bottom: bottomInset }]}
+          pointerEvents="none"
+        >
           <View
             testID="map-attribution-pill"
             style={[

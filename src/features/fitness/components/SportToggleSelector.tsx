@@ -1,8 +1,6 @@
 import React from 'react';
-import { StyleSheet } from 'react-native';
 import { SportChipRow, type SportChip } from '@/shared/ui/SportChipRow';
 import type { PrimarySport } from '@/features/fitness/stores';
-import { spacing } from '@/theme';
 
 /** Each sport's chip, its dot in its family's colour. */
 const SPORT_CHIPS = [
@@ -31,7 +29,10 @@ interface SportToggleSelectorProps {
   onSportModeChange: (sport: PrimarySport) => void;
 }
 
-/** Chip row for selecting the active fitness sport (Cycling/Running/Swimming). */
+/**
+ * Chip row for selecting the active fitness sport (Cycling/Running/Swimming).
+ * It carries no outer margin, so the row that holds it sets the spacing.
+ */
 export const SportToggleSelector = React.memo(function SportToggleSelector({
   sportMode,
   onSportModeChange,
@@ -41,11 +42,6 @@ export const SportToggleSelector = React.memo(function SportToggleSelector({
       chips={SPORT_CHIPS}
       value={sportMode}
       onSelect={(key) => onSportModeChange(key as PrimarySport)}
-      style={styles.row}
     />
   );
-});
-
-const styles = StyleSheet.create({
-  row: { marginBottom: spacing.md },
 });

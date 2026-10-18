@@ -695,7 +695,7 @@ fn a_dissolved_section_is_listed_as_retired() {
         "it keeps the corridor's length, read {distance}"
     );
     assert!(
-        entry.versions.contains(&1),
+        entry.versions.contains(&veloqrs::WholeNumber(1)),
         "its birth geometry still draws it"
     );
     assert!(

@@ -108,7 +108,7 @@ fn attempt(duration: u32, direction: &str, outside: bool, speed: f64) -> crate::
     crate::RoutePerformance {
         activity_id: format!("a{duration}"),
         name: String::new(),
-        date: 1_700_000_000,
+        date: crate::WholeNumber(1_700_000_000),
         speed,
         duration,
         moving_time: duration,

@@ -1,7 +1,7 @@
-import { useQuery, useInfiniteQuery, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { readActivityRecord } from '@/features/activity/lib/engineActivityRecord';
+import { readActivityRecord, readFeedCards } from '@/features/activity/lib/engineActivityRecord';
 import {
   DETAIL_STREAM_TYPES,
   readStreams,
@@ -16,12 +16,11 @@ import { freshLoginTimeline, type TrackWait } from '@/shared/debug/freshLoginTim
 import { getEngine } from '@/shared/native/engine';
 import { useEngineBody } from '@/shared/native/engineBodies';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
-import type { Activity, ActivityInterval, ActivityStreams, FeedCard } from '@/types';
+import type { ActivityInterval, ActivityStreams, FeedCard } from '@/types';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useOldestActivityDate } from '@/shared/app/useOldestActivityDate';
 import { useDetailCoordinates } from './useDetailCoordinates';
-import { readActivities } from '@/shared/native/storedActivities';
 import { feedSportGroup, type FeedGroup } from '../lib/feedActivityGroups';
 import { firstRangePage, olderRangePage, type FeedRange } from '../lib/feedRange';
 import { isFeedSearch } from '../lib/feedFilter';
@@ -72,59 +71,6 @@ export function useActivityWindowRequest(oldest: string, newest: string, enabled
   }, [enabled, athleteId, oldest, newest]);
 
   useEffect(askForWindow, [askForWindow]);
-}
-
-interface UseActivitiesOptions {
-  /** Number of days to fetch (from today backwards) */
-  days?: number;
-  /** Start date (YYYY-MM-DD) - overrides days */
-  oldest?: string;
-  /** End date (YYYY-MM-DD) - defaults to today */
-  newest?: string;
-  /** Whether to enable the query (default: true) */
-  enabled?: boolean;
-}
-
-/**
- * Standard activities hook for fixed date ranges.
- * Use this for specific date range queries (e.g., stats page, wellness).
- */
-export function useActivities(options: UseActivitiesOptions = {}) {
-  const { days, oldest, newest, enabled = true } = options;
-  const athleteId = useAuthStore((s) => s.athleteId);
-
-  // Both ends are always resolved. An `oldest` with no `newest` used to leave
-  // the far end undefined, which reaches the engine as NaN and reads back an
-  // empty window, so an open-ended range read nothing at all.
-  const today = new Date();
-  const windowStart = new Date(today);
-  windowStart.setDate(windowStart.getDate() - (days || 30));
-  const queryOldest = oldest ?? formatLocalDate(windowStart);
-  const queryNewest = newest ?? formatLocalDate(today);
-
-  useEngineChannel('activities', queryKeys.activities.all);
-  useActivityWindowRequest(queryOldest, queryNewest, enabled);
-
-  return useQuery<Activity[]>({
-    ...LOCAL_READ_QUERY,
-    queryKey: queryKeys.activities.list(athleteId ?? 'anon', queryOldest, queryNewest),
-    queryFn: () => readActivities(queryOldest, queryNewest),
-    // SQLite is the source, so a sync decides freshness, not a clock.
-    staleTime: Infinity,
-    gcTime: CACHE.HOUR, // 1 hour - keep in memory for navigation
-    placeholderData: keepPreviousData,
-    enabled: enabled && !!athleteId,
-  });
-}
-
-/** The feed's cards over a date window, newest first, typed by the engine. */
-function readFeedCards(oldest: string, newest: string): FeedCard[] {
-  const engine = getEngine();
-  if (!engine?.getFeedCards) return [];
-  return engine.getFeedCards(
-    dayStartEpochSeconds(oldest),
-    dayEndEpochSeconds(newest)
-  ) as FeedCard[];
 }
 
 /**

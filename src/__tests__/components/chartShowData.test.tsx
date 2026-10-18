@@ -20,7 +20,7 @@ import { StrengthBodyDiagram } from '@/features/strength/components/StrengthBody
 import { WellnessTrendsChart } from '@/features/wellness/components/WellnessTrendsChart';
 import { CurveChart } from '@/shared/charts';
 import { initialiseI18n } from '@/i18n';
-import type { Activity, ActivityStreams as StreamsData, MuscleVolume, WellnessData } from '@/types';
+import type { FeedCard, ActivityStreams as StreamsData, MuscleVolume, WellnessData } from '@/types';
 import { dayActivityRow } from '@/features/activity/light';
 
 const mockPush = jest.fn();
@@ -85,10 +85,10 @@ const STRIP_DAYS = [
   { id: '2026-05-05', ctl: 30, atl: 30 },
 ] as WellnessData[];
 const STRIP_ACTIVITIES = [
-  { id: 'g1', name: 'Glaze run', type: 'Run', start_date_local: '2026-05-01T07:00:00' },
-  { id: 'g2', name: 'Kiln ride', type: 'Ride', start_date_local: '2026-05-04T07:00:00' },
-  { id: 'g3', name: 'Clay swim', type: 'Swim', start_date_local: '2026-05-04T18:00:00' },
-] as Activity[];
+  { id: 'g1', name: 'Glaze run', sportType: 'Run', startDateLocal: '2026-05-01T07:00:00' },
+  { id: 'g2', name: 'Kiln ride', sportType: 'Ride', startDateLocal: '2026-05-04T07:00:00' },
+  { id: 'g3', name: 'Clay swim', sportType: 'Swim', startDateLocal: '2026-05-04T18:00:00' },
+] as FeedCard[];
 
 const volume = (slug: string, weightedSets: number): MuscleVolume => ({
   slug,

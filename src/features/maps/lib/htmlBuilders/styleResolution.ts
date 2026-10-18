@@ -8,7 +8,7 @@ import {
   MAP_STYLE_URLS,
 } from '@/features/maps/components/mapStyles';
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
-import { DARK_MATTER_STYLE } from '@/features/maps/components/darkMatterStyle';
+import { DARK_MATTER_STYLE } from '@/features/maps/styles/darkMatter';
 
 /** Hosted Liberty style. Used where MapLibre should resolve TileJSON itself. */
 export const LIGHT_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';

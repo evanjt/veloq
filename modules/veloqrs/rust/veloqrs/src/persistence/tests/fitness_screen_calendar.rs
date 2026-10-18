@@ -83,6 +83,11 @@ fn windows() -> FfiFitnessScreenWindows {
 
 fn library() -> PersistentEngine {
     let mut engine = PersistentEngine::in_memory().unwrap();
+    // A window held back past the heatmap's cap, so the calendar draws the cap.
+    engine
+        .set_setting(crate::persistence::settings_keys::ATHLETE_ID, "i1")
+        .unwrap();
+    engine.record_activity_window("i1", "2024-01-01").unwrap();
     engine
         .set_activity_metrics(vec![
             // Before every window.
@@ -449,4 +454,195 @@ fn one_more_activity_than_last_week_is_a_move_up() {
         .comparisons
         .week;
     assert_eq!(glyph(&week.count), Some(("↑", Some(50))));
+}
+
+// The calendar's span. Today is Sunday 18 October 2026, the screen's 52-week
+// cap opens on Monday 20 October 2025, and a first sync holds the 90 days
+// back to Monday 20 July 2026.
+
+const SPAN_TODAY: &str = "2026-10-18";
+const ATHLETE: &str = "i77";
+
+fn span_windows() -> FfiFitnessScreenWindows {
+    FfiFitnessScreenWindows {
+        heatmap_first_day: "2025-10-20".into(),
+        heatmap_last_day: SPAN_TODAY.into(),
+        ..windows()
+    }
+}
+
+fn span_read(engine: &PersistentEngine) -> crate::FfiFitnessScreenData {
+    fitness_screen_data(&engine.db, SPAN_TODAY, &[], &span_windows()).unwrap()
+}
+
+/// An engine signed in to the athlete, holding activities back to `oldest`.
+fn signed_in(oldest: &str) -> PersistentEngine {
+    let engine = PersistentEngine::in_memory().unwrap();
+    engine
+        .set_setting(crate::persistence::settings_keys::ATHLETE_ID, ATHLETE)
+        .unwrap();
+    engine.record_activity_window(ATHLETE, oldest).unwrap();
+    engine
+}
+
+fn census_row(id: String, date: NaiveDate) -> crate::net::types::ActivityCensusEntry {
+    crate::net::types::ActivityCensusEntry {
+        id,
+        start_date_local: Some(format!("{date}T09:00:00")),
+        created: None,
+        icu_sync_date: Some("v1".into()),
+        has_latlng: true,
+        has_series: false,
+    }
+}
+
+/// One census row each Monday from `first` to the week of today, none of
+/// them downloaded.
+fn weekly_census(engine: &mut PersistentEngine, first: &str) -> Vec<NaiveDate> {
+    let today = NaiveDate::parse_from_str(SPAN_TODAY, "%Y-%m-%d").unwrap();
+    let mut dates = Vec::new();
+    let mut date = NaiveDate::parse_from_str(first, "%Y-%m-%d").unwrap();
+    while date <= today {
+        dates.push(date);
+        date += chrono::Duration::days(7);
+    }
+    let rows: Vec<_> = dates
+        .iter()
+        .map(|d| census_row(format!("c{d}"), *d))
+        .collect();
+    engine.record_activity_census(ATHLETE, &rows).unwrap();
+    dates
+}
+
+/// Download the census rows on `dates`, as a window sync stores a page.
+fn download(engine: &mut PersistentEngine, dates: &[NaiveDate]) {
+    let ts = |d: &NaiveDate| d.and_hms_opt(9, 0, 0).unwrap().and_utc().timestamp();
+    let rows: Vec<_> = dates
+        .iter()
+        .map(|d| (format!("c{d}"), ts(d), "{}".to_string()))
+        .collect();
+    let ids: Vec<_> = dates.iter().map(|d| format!("c{d}")).collect();
+    let metrics = dates
+        .iter()
+        .map(|d| ActivityMetrics {
+            date: ts(d),
+            ..activity(&format!("c{d}"), &d.to_string(), "Ride", 3_600)
+        })
+        .collect();
+    engine
+        .store_synced_activity_bodies(ATHLETE, &rows, &ids, metrics)
+        .unwrap();
+}
+
+fn before(dates: &[NaiveDate], day: &str) -> Vec<NaiveDate> {
+    let day = NaiveDate::parse_from_str(day, "%Y-%m-%d").unwrap();
+    dates.iter().copied().filter(|d| *d < day).collect()
+}
+
+fn from(dates: &[NaiveDate], day: &str) -> Vec<NaiveDate> {
+    let day = NaiveDate::parse_from_str(day, "%Y-%m-%d").unwrap();
+    dates.iter().copied().filter(|d| *d >= day).collect()
+}
+
+#[test]
+fn the_calendar_spans_the_held_window_and_counts_the_older_activities_owed() {
+    let mut engine = signed_in("2026-07-20");
+    let census = weekly_census(&mut engine, "2025-11-03");
+    // Before the cap, so never counted, however owed.
+    engine
+        .record_activity_census(
+            ATHLETE,
+            &census
+                .iter()
+                .map(|d| census_row(format!("c{d}"), *d))
+                .chain([census_row(
+                    "older-than-a-year".into(),
+                    NaiveDate::from_ymd_opt(2025, 6, 2).unwrap(),
+                )])
+                .collect::<Vec<_>>(),
+        )
+        .unwrap();
+    download(&mut engine, &from(&census, "2026-07-20"));
+
+    let data = span_read(&engine);
+
+    assert_eq!(data.calendar_first_day, "2026-07-20");
+    // The Mondays from 3 November 2025 to 13 July 2026.
+    assert_eq!(before(&census, "2026-07-20").len(), 37);
+    assert_eq!(data.calendar_older_owed, 37);
+    assert_eq!(
+        data.heatmap.first().map(|d| d.date.as_str()),
+        Some("2026-07-20"),
+        "the heatmap reads from the span's first day"
+    );
+}
+
+#[test]
+fn a_window_older_than_the_cap_answers_the_cap() {
+    let mut engine = signed_in("2024-01-01");
+    // An account older than the cap too.
+    let census = weekly_census(&mut engine, "2025-06-02");
+    download(&mut engine, &from(&census, "2026-07-20"));
+
+    let data = span_read(&engine);
+
+    assert_eq!(data.calendar_first_day, "2025-10-20");
+    assert_eq!(
+        data.calendar_older_owed, 0,
+        "every owed row is inside the drawn span, which its coverage caption covers"
+    );
+}
+
+#[test]
+fn an_account_younger_than_the_window_starts_on_the_monday_of_its_oldest_activity() {
+    let mut engine = signed_in("2026-07-20");
+    // Wednesday 2 September 2026.
+    let census = weekly_census(&mut engine, "2026-09-02");
+    download(&mut engine, &census);
+
+    let data = span_read(&engine);
+
+    assert_eq!(data.calendar_first_day, "2026-08-31");
+    assert_eq!(data.calendar_older_owed, 0);
+}
+
+#[test]
+fn no_stored_athlete_answers_the_default_window() {
+    let engine = PersistentEngine::in_memory().unwrap();
+
+    let data = span_read(&engine);
+
+    // 90 days back from Sunday 18 October 2026 is Monday 20 July.
+    assert_eq!(data.calendar_first_day, "2026-07-20");
+    assert_eq!(data.calendar_older_owed, 0);
+}
+
+#[test]
+fn a_widened_ask_grows_the_span_and_the_older_rows_leave_the_count() {
+    let mut engine = signed_in("2026-07-20");
+    let census = weekly_census(&mut engine, "2025-11-03");
+    download(&mut engine, &from(&census, "2026-07-20"));
+    assert_eq!(span_read(&engine).calendar_older_owed, 37);
+
+    engine
+        .record_activity_window(ATHLETE, "2025-10-20")
+        .unwrap();
+    let asked = span_read(&engine);
+    assert_eq!(
+        asked.calendar_first_day, "2025-11-03",
+        "the widened window, as far back as the account goes"
+    );
+    assert_eq!(asked.calendar_older_owed, 0);
+}
+
+#[test]
+fn older_rows_downloaded_are_not_owed() {
+    let mut engine = signed_in("2026-07-20");
+    let census = weekly_census(&mut engine, "2025-11-03");
+    download(&mut engine, &census);
+
+    let data = span_read(&engine);
+
+    assert_eq!(data.calendar_first_day, "2026-07-20");
+    assert_eq!(data.calendar_older_owed, 0);
 }

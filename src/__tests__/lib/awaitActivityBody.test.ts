@@ -32,7 +32,7 @@ function fakeEngine(stored: Record<string, Stored> = {}, outcome = StartOutcome.
   const engine = {
     bodies: { ...stored } as Record<string, Stored>,
     detailRequests: [] as string[],
-    getActivityBodies(oldest: number, newest: number) {
+    getFeedCards(oldest: number, newest: number) {
       windowReads.push(newest - oldest);
       return Object.values(engine.bodies);
     },

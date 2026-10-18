@@ -1,0 +1,122 @@
+# Scroll one row of the preview parameter card into view. KEY names the
+# parameter, NEXT the row below it or `presets` for the last row. iOS reports a
+# row clipped by the card at its unclipped place, over the area picker or the
+# rows under the card, so it reads as visible there. `below` and `above` compare
+# top edges, so a row counts as in view only once its caption starts below the
+# card's top and the caption under its slider starts above whatever is under
+# the card: the diff strip once there is a result, the run button before. A run
+# swaps that button for its progress, so any run in flight ends first. Each
+# scroll step is about one row: on a short screen with a result the card holds
+# two rows, and a swipe to the screen edge carries the middle row straight past
+# the top. The steps start at 54% and 62% of the screen height, which is inside
+# the card on a phone-sized screen.
+appId: com.veloq.app.dev
+---
+- extendedWaitUntil:
+    notVisible:
+      id: "preview-progress"
+    timeout: 300000
+- repeat:
+    while:
+      notVisible:
+        id: "param-edit-${KEY}"
+        below:
+          id: "preview-param-panel"
+    times: 6
+    commands:
+      - swipe:
+          start: 50%, 54%
+          end: 50%, 62%
+          duration: 1000
+- runFlow:
+    when:
+      true: ${NEXT !== 'presets'}
+      visible:
+        id: "preview-diff-strip"
+    commands:
+      - repeat:
+          while:
+            notVisible:
+              id: "param-edit-${NEXT}"
+              above:
+                id: "preview-diff-strip"
+          times: 6
+          commands:
+            - swipe:
+                start: 50%, 62%
+                end: 50%, 54%
+                duration: 1000
+      - assertVisible:
+          id: "param-edit-${NEXT}"
+          above:
+            id: "preview-diff-strip"
+- runFlow:
+    when:
+      true: ${NEXT !== 'presets'}
+      notVisible:
+        id: "preview-diff-strip"
+    commands:
+      - repeat:
+          while:
+            notVisible:
+              id: "param-edit-${NEXT}"
+              above:
+                id: "preview-run-button"
+          times: 6
+          commands:
+            - swipe:
+                start: 50%, 62%
+                end: 50%, 54%
+                duration: 1000
+      - assertVisible:
+          id: "param-edit-${NEXT}"
+          above:
+            id: "preview-run-button"
+- runFlow:
+    when:
+      true: ${NEXT === 'presets'}
+      visible:
+        id: "preview-diff-strip"
+    commands:
+      - repeat:
+          while:
+            notVisible:
+              id: "preset-default"
+              above:
+                id: "preview-diff-strip"
+          times: 6
+          commands:
+            - swipe:
+                start: 50%, 62%
+                end: 50%, 54%
+                duration: 1000
+      - assertVisible:
+          id: "preset-default"
+          above:
+            id: "preview-diff-strip"
+- runFlow:
+    when:
+      true: ${NEXT === 'presets'}
+      notVisible:
+        id: "preview-diff-strip"
+    commands:
+      - repeat:
+          while:
+            notVisible:
+              id: "preset-default"
+              above:
+                id: "preview-run-button"
+          times: 6
+          commands:
+            - swipe:
+                start: 50%, 62%
+                end: 50%, 54%
+                duration: 1000
+      - assertVisible:
+          id: "preset-default"
+          above:
+            id: "preview-run-button"
+- assertVisible:
+    id: "param-edit-${KEY}"
+    below:
+      id: "preview-param-panel"

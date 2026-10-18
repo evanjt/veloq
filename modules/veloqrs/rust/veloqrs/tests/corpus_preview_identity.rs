@@ -23,8 +23,8 @@ use std::time::{Duration, Instant};
 use tempfile::TempDir;
 use tracematch::GpsPoint;
 use veloqrs::FfiSectionConfig;
-use veloqrs::objects::SectionPreview;
 use veloqrs::objects::start::FfiStartOutcome::Started;
+use veloqrs::objects::{FfiRunState, SectionPreview};
 use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
 use veloqrs::persistence::with_persistent_engine;
 
@@ -196,21 +196,20 @@ fn a_preview_on_the_live_config_proposes_the_catalogue_it_already_holds() {
 
         let deadline = Instant::now() + Duration::from_secs(600);
         loop {
-            let status = preview.poll().expect("poll");
-            if status == "complete" {
+            let status = preview.progress().state;
+            if status == FfiRunState::Complete {
                 break;
             }
             assert!(
-                status == "running",
-                "preview ended in '{status}' instead of completing"
+                status == FfiRunState::Running,
+                "preview ended in {status:?} instead of completing"
             );
             assert!(Instant::now() < deadline, "preview never completed");
             std::thread::sleep(Duration::from_millis(50));
         }
 
         let payload = preview
-            .take_result()
-            .expect("take call")
+            .take()
             .expect("a completed preview yields a payload");
         let counts = &payload.counts;
 

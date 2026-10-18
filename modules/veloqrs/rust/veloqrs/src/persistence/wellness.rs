@@ -17,9 +17,13 @@ const HRV_TREND_FLOOR: f64 = 0.02;
 /// athlete's own day-to-day readings across the window.
 const HRV_WORTHWHILE_SPREADS: f64 = 0.5;
 
-/// One wellness record - shape used by upsert and range queries.
-#[derive(Debug, Clone)]
+/// One wellness record - shape used by upsert and range queries, and the row
+/// the app hands over from an intervals.icu sync. Fields outside this subset
+/// (sleepQuality, spO2, etc.) aren't persisted yet.
+#[derive(Debug, Clone, uniffi::Record)]
+#[uniffi(name = "FfiWellnessRow")]
 pub struct WellnessRow {
+    /// ISO-8601 YYYY-MM-DD
     pub date: String,
     pub ctl: Option<f64>,
     pub atl: Option<f64>,
@@ -27,7 +31,7 @@ pub struct WellnessRow {
     pub hrv: Option<f64>,
     pub resting_hr: Option<f64>,
     pub weight: Option<f64>,
-    pub sleep_secs: Option<i64>,
+    pub sleep_secs: Option<crate::WholeNumber>,
     pub sleep_score: Option<f64>,
     pub soreness: Option<i32>,
     pub fatigue: Option<i32>,
@@ -35,7 +39,8 @@ pub struct WellnessRow {
     pub mood: Option<i32>,
     pub motivation: Option<i32>,
     /// The untyped intervals.icu body for this day. The typed columns above
-    /// are what Rust computes on; the UI reads fields beyond them.
+    /// are what Rust computes on; the UI reads fields beyond them. A row the
+    /// app hands over without one leaves any previously stored body intact.
     pub raw: Option<String>,
 }
 

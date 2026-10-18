@@ -380,7 +380,7 @@ fn pr_independent_per_direction() {
 
 // --- One encounter per (section, direction) ---
 //
-// The junction holds a row per lap; laps themselves are the FfiSectionLap
+// The junction holds a row per lap; laps themselves are the SectionLap
 // surface.
 
 #[test]

@@ -3,20 +3,20 @@ import { useCallback } from 'react';
 import type { DayActivitiesInput } from '@/app/sheets/day-activities';
 import { useSheetOpener } from '@/shared/app/sheetRequest';
 import { navigateTo } from '@/shared/app/navigation';
-import type { Activity } from '@/types';
+import type { FeedCard } from '@/types';
 
 export type DayActivity = DayActivitiesInput['activities'][number];
 
-/** An activity as the day picker lists it. */
-export function dayActivityRow(activity: Activity): DayActivity {
+/** A feed card as the day picker lists it. */
+export function dayActivityRow(card: FeedCard): DayActivity {
   return {
-    id: activity.id,
-    name: activity.name,
-    type: activity.type,
-    load: activity.icu_training_load || 0,
-    startDateLocal: activity.start_date_local,
-    movingTime: activity.moving_time,
-    distance: activity.distance,
+    id: card.id,
+    name: card.name,
+    type: card.sportType ?? 'Other',
+    load: card.trainingLoad ?? 0,
+    startDateLocal: card.startDateLocal,
+    movingTime: card.movingTime ?? 0,
+    distance: card.distance ?? 0,
   };
 }
 

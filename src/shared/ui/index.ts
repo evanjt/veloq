@@ -76,6 +76,7 @@ export type { StatTileDelta, StatTileLayout, StatTileProps, StatTileSize } from 
 export { DeviceAttribution, isGarminDevice } from './GarminAttribution';
 export { SwipeableTabs, type SwipeableTab } from './SwipeableTabs';
 export { pageAccessibility } from './pagerAccessibility';
+export { usePagerScrollerGesture } from './pagerScrollers';
 export { FloatingPill } from './FloatingPill';
 export { FloatingPillStack } from './FloatingPillStack';
 export { hideNotice, NoticeHost, showNotice, type NoticeArgs } from './Notice';
@@ -119,7 +120,7 @@ export {
   formKeyboardProps,
   KeyboardClearance,
 } from './ScreenScrollView';
-export { SheetScrollView } from './SheetScrollView';
+export { SheetScrollView, sheetScrollProps } from './SheetScrollView';
 export { flattenStyle } from './flattenStyle';
 export { TipButtons } from './TipButtons';
 export { canDrawProfilePhoto } from './profileAvatar';

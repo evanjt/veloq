@@ -12,6 +12,7 @@
  */
 
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { act, fireEvent, render, within } from '@testing-library/react-native';
 
 import { PerformanceChartPanel } from '@/features/routes/components/section/PerformanceChartPanel';
@@ -345,6 +346,19 @@ describe('the direction row and the views', () => {
     expect(
       within(tree.getByTestId('performance-direction-row')).getByTestId('delta-compare')
     ).toBeTruthy();
+  });
+
+  it("gives the direction switch the row's width, alone and beside Compare with", async () => {
+    const tree = await draw(
+      panel({ histograms: HISTOGRAMS, curves: CURVES, highlightedActivityId: 'ride-4' })
+    );
+    const grows = () =>
+      StyleSheet.flatten(tree.getByTestId('section-chart-direction').props.style).flexGrow;
+
+    expect(grows()).toBe(1);
+    await fireEvent.press(tree.getByTestId('chart-plot-delta'));
+    expect(tree.getByTestId('delta-compare')).toBeTruthy();
+    expect(grows()).toBe(1);
   });
 
   it('offers Ahead or behind with curves and nothing chosen', async () => {

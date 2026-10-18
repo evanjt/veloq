@@ -1,24 +1,31 @@
 /**
  * Scenario: a stats grid card and a chart chip are each one pressable, so a
- * screen reader speaks their label in place of what they draw.
+ * screen reader speaks their label in place of what they draw, and a stream
+ * lane's title carries the value the chip used to.
  *
- * Expected behaviour: the label carries the value the element draws, not the
- * bare title. A chip at rest draws the activity's average, and says so where
- * it is drawn and where it is spoken, so it never reads as a live reading.
+ * Expected behaviour: the label carries what the element draws, not the bare
+ * title, and a chip draws no value so it speaks its stream alone. A lane at
+ * rest draws the activity's average, and says so where it is drawn and where
+ * it is spoken, so it never reads as a live reading.
  */
 
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { View } from 'react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 
 import { StatCard } from '@/features/activity/components/stats/StatCard';
+import { ActivityStreams } from '@/features/activity/components/ActivityStreams';
 import { ChartTypeSelector } from '@/features/activity/components/ChartTypeSelector';
 import { CHART_CONFIGS } from '@/features/activity/lib/chartConfig';
 import { streamsFromArrays } from '@/features/activity/lib/streams';
-import { computeAllAverages } from '@/features/stats/lib/combinedPlotData';
+import { laneReadout } from '@/features/stats/lib/combinedPlotData';
 import { initialiseI18n } from '@/i18n';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
-jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
+jest.mock('@/shared/app', () => ({
+  useTheme: () => ({ isDark: false }),
+  useMetricSystem: () => true,
+}));
 
 beforeAll(async () => {
   await initialiseI18n('en-GB');
@@ -58,64 +65,50 @@ describe('the stats grid card label', () => {
 describe('the chart chip label', () => {
   const power = CHART_CONFIGS.power;
 
-  it('speaks the visible value with its unit, not the width reserve', () => {
+  it('speaks the stream name alone, since the chip carries no value', () => {
     const tree = render(
-      <ChartTypeSelector
-        available={[power]}
-        selected={['power']}
-        onToggle={() => {}}
-        metricValues={[{ id: 'power', value: '212', unit: 'W', maxValueWidth: '1888' }]}
-      />
-    );
-    const label = tree.getByTestId('chart-type-power').props.accessibilityLabel as string;
-    expect(label).toMatch(/212 W/);
-    expect(label).not.toMatch(/1888/);
-  });
-
-  it('speaks the stream name alone when the chip carries no value', () => {
-    const tree = render(
-      <ChartTypeSelector available={[power]} selected={[]} onToggle={() => {}} />
+      <ChartTypeSelector available={[power]} selected={['power']} onToggle={() => {}} />
     );
     expect(tree.getByTestId('chart-type-power').props.accessibilityLabel).toBe('Power');
   });
 });
 
-describe('the chart chip at rest', () => {
-  const power = CHART_CONFIGS.power;
-  const streams = streamsFromArrays({ watts: [200, 224], altitude: [100, 130] });
-
-  it('is marked as an average, and the climb chip is not', () => {
-    const chips = computeAllAverages(CHART_CONFIGS, streams, true, 30);
-    expect(chips.find((c) => c.id === 'power')?.isAverage).toBe(true);
-    expect(chips.find((c) => c.id === 'elevation')?.isAverage).toBeFalsy();
+describe('the lane readout at rest', () => {
+  const streams = streamsFromArrays({
+    time: [0, 60],
+    distance: [0, 500],
+    watts: [200, 224],
+    altitude: [100, 130],
   });
 
-  it('draws and speaks the average mark beside the value', () => {
-    const [chip] = computeAllAverages({ power } as typeof CHART_CONFIGS, streams, true, 0);
-    const tree = render(
-      <ChartTypeSelector
-        available={[power]}
-        selected={['power']}
-        onToggle={() => {}}
-        metricValues={[chip!]}
-      />
-    );
-    expect(tree.getByTestId('chart-type-power-average')).toBeTruthy();
-    expect(tree.getByTestId('chart-type-power').props.accessibilityLabel).toBe(
-      'Power, Average 212 W'
+  it('is marked as an average, and the climb as its gain', () => {
+    expect(laneReadout(CHART_CONFIGS.power, streams.watts!, null, true, 30).mark).toBe('average');
+    expect(laneReadout(CHART_CONFIGS.elevation, streams.altitude!, null, true, 30).mark).toBe(
+      'gain'
     );
   });
 
   it('drops the mark while scrubbing', () => {
-    const tree = render(
-      <ChartTypeSelector
-        available={[power]}
-        selected={['power']}
-        onToggle={() => {}}
-        metricValues={[{ id: 'power', value: '205', unit: 'W' }]}
+    expect(laneReadout(CHART_CONFIGS.power, streams.watts!, 1, true, 30).mark).toBeNull();
+  });
+
+  it('draws and speaks the average mark beside the value', async () => {
+    const tree = await render(
+      <ActivityStreams
+        streams={streams}
+        elevationGain={0}
+        selectedCharts={['power']}
+        chartConfigs={CHART_CONFIGS}
       />
     );
-    expect(tree.queryByTestId('chart-type-power-average')).toBeNull();
-    expect(tree.getByTestId('chart-type-power').props.accessibilityLabel).toBe('Power, 205 W');
+    for (const box of tree.UNSAFE_getAllByType(View).filter((node) => node.props.onLayout)) {
+      await act(async () => {
+        await fireEvent(box, 'layout', { nativeEvent: { layout: { width: 320, height: 56 } } });
+      });
+    }
+    expect(tree.getByTestId('activity-lane-power-average')).toBeTruthy();
+    expect(tree.getByTestId('activity-lane-power-value').props.accessibilityLabel).toBe(
+      'Average 212 W'
+    );
   });
 });

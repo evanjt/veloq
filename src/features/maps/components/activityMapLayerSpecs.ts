@@ -11,17 +11,25 @@
  * work, so numbered and PR markers now come out of one source split by filter.
  */
 import type { MapPalette } from '@/theme';
-import type { MapGeoJSONData, MapLayerSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
+import type {
+  MapGeoJSONData,
+  MapImageSpec,
+  MapLayerSpec,
+  MapSourceSpec,
+} from '@/features/maps/lib/htmlBuilders';
+import type { MapSubjectSpecs } from '@/features/maps/lib/mapSubjectSpecs';
+import { getMapLibreBounds, type LatLng } from '@/shared/geo/polyline';
 import {
   SECTION_END_ICON_ID,
   SECTION_START_ICON_ID,
+  TROPHY_ICON,
   TROPHY_ICON_ID,
 } from '@/features/maps/lib/mapIcons';
 import {
   sectionCreationLinePaint,
   sectionCreationMarkerPaint,
 } from '@/features/maps/lib/sectionCreationPaint';
-import { buildEndpointLayers } from '@/features/maps/lib/endpointLayers';
+import { buildEndpointLayers, ENDPOINT_IMAGES } from '@/features/maps/lib/endpointLayers';
 import { BUNDLED_TEXT_FONT } from '@/features/maps/lib/bundledGlyphs';
 import { EMPTY_FEATURE_COLLECTION } from '@/features/maps/lib/coordinates';
 import {
@@ -36,7 +44,7 @@ import {
 
 export const SECTION_MARKER_LAYER_IDS = ['section-marker-pr-icon', 'section-marker-circle'];
 
-interface ActivitySourceInput {
+export interface ActivitySourceInput {
   /** The activity line, or the engine's URL for it when the engine holds the track. */
   routeGeoJSON: MapGeoJSONData;
   overlayGeoJSON: GeoJSON.FeatureCollection | GeoJSON.Feature;
@@ -50,7 +58,7 @@ interface ActivitySourceInput {
   userLocationGeoJSON: GeoJSON.FeatureCollection;
 }
 
-interface ActivityLayerInput {
+export interface ActivityLayerInput {
   /** The colours of the base map drawn under the layers. */
   palette: MapPalette;
   overlayHasData: boolean;
@@ -100,6 +108,40 @@ export function buildActivitySources(input: ActivitySourceInput): Record<string,
     endpoints: geojsonSource(input.endpointsGeoJSON),
     highlight: geojsonSource(input.highlightGeoJSON),
     [USER_LOCATION_SOURCE_ID]: geojsonSource(input.userLocationGeoJSON),
+  };
+}
+
+/** The icons the activity map's layers draw: the record trophy and the endpoints. */
+export const ACTIVITY_MAP_IMAGES: MapImageSpec[] = [TROPHY_ICON, ...ENDPOINT_IMAGES];
+
+// A scrub hands a new source input and the same layer input, so the layer list
+// keeps its identity and the patcher sends the highlight alone.
+const builtLayers = new WeakMap<ActivityLayerInput, MapLayerSpec[]>();
+const builtBounds = new WeakMap<readonly LatLng[], ReturnType<typeof getMapLibreBounds>>();
+
+/** Everything an activity's map draws, and the extent of its track. */
+export function activityMapSpecs(input: {
+  sources: ActivitySourceInput;
+  layers: ActivityLayerInput;
+  /** The track's points with a position. */
+  coordinates: readonly LatLng[];
+}): MapSubjectSpecs {
+  let layers = builtLayers.get(input.layers);
+  if (!layers) {
+    layers = buildActivityLayers(input.layers);
+    builtLayers.set(input.layers, layers);
+  }
+  let bounds = builtBounds.get(input.coordinates);
+  if (bounds === undefined) {
+    bounds = getMapLibreBounds([...input.coordinates]);
+    builtBounds.set(input.coordinates, bounds);
+  }
+  return {
+    sources: buildActivitySources(input.sources),
+    layers,
+    images: ACTIVITY_MAP_IMAGES,
+    interactiveLayers: SECTION_MARKER_LAYER_IDS,
+    bounds,
   };
 }
 

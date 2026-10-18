@@ -6,6 +6,7 @@
 
 import {
   cellPositions,
+  positionsOf as cellPositionsOf,
   columnYear,
   heatmapLayout,
   HEATMAP_CELL_GAP,
@@ -170,5 +171,49 @@ describe('heatmap column year', () => {
 
     expect(columnYear(layout, 0)).toBe(2026);
     expect(columnYear(layout, HEATMAP_WEEKS - 1)).toBe(2027);
+  });
+});
+
+describe('heatmap span follows the first drawn day', () => {
+  /** Sunday 18 October 2026, the end of a whole week. */
+  const SUNDAY = new Date(2026, 9, 18, 10, 0);
+
+  it('lays out the weeks from the first day to the week holding today', () => {
+    const layout = heatmapLayout(SUNDAY, day('2026-07-20'));
+
+    expect(layout.weeks).toBe(13);
+    expect(new Set(layout.cells.map((c) => c.col)).size).toBe(13);
+    expect(layout.cells[0]).toMatchObject({ date: '2026-07-20', col: 0, row: 0 });
+    expect(layout.cells.at(-1)).toMatchObject({ date: '2026-10-18', col: 12, row: 6 });
+    expect(layout.cells.every((c) => c.date >= '2026-07-20')).toBe(true);
+    expect(cellPositionsOf(layout).get('2026-10-18')).toEqual({ x: 12 * PITCH, y: 6 * PITCH });
+  });
+
+  it('caps a first day older than a year at fifty-two weeks', () => {
+    const layout = heatmapLayout(SUNDAY, day('2024-03-04'));
+
+    expect(layout.weeks).toBe(HEATMAP_WEEKS);
+    expect(formatLocalDate(layout.first)).toBe('2025-10-20');
+  });
+
+  it('draws the week holding today when the first day is in it', () => {
+    const layout = heatmapLayout(SUNDAY, day('2026-10-15'));
+
+    expect(layout.weeks).toBe(1);
+    expect(layout.cells[0].date).toBe('2026-10-12');
+    expect(layout.cells).toHaveLength(7);
+  });
+
+  it('keeps every month label inside the drawn columns', () => {
+    const layout = heatmapLayout(SUNDAY, day('2026-07-20'));
+
+    // July's two columns are too few for its label beside August's.
+    expect(layout.monthLabels.map((l) => [l.month, l.col])).toEqual([
+      [7, 2],
+      [8, 7],
+      [9, 11],
+    ]);
+    expect(layout.monthLabels.every((l) => l.col < layout.weeks)).toBe(true);
+    expect(columnYear(layout, HEATMAP_WEEKS - 1)).toBe(2026);
   });
 });

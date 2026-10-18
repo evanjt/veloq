@@ -47,7 +47,6 @@ import { StrengthActivityCard, type StrengthCardData } from '@/features/strength
 import { debug } from '@/shared/debug/debug';
 import { rowIsUnchanged } from '@/shared/ui/rowMemo';
 import { prefetchActivityDetailData } from '../hooks/useActivityDetailData';
-import type { ActivityNewGround } from '../hooks/useActivitySectionHighlights';
 import {
   accessibleActions,
   composeAccessibilityLabel,
@@ -92,8 +91,6 @@ interface ActivityCardProps {
         endIndex: number;
       }[]
     | undefined;
-  /** Tile coverage against earlier activities; the badge is decided in the engine */
-  newGround?: ActivityNewGround | undefined;
   /** Route highlight for this activity (trend, PR) */
   routeHighlight?:
     | {
@@ -201,7 +198,6 @@ export const ActivityCard = React.memo(
     snapshotReady,
     sectionHighlights,
     routeHighlight,
-    newGround,
     strengthData,
   }: ActivityCardProps) {
     // Log actual function body execution (not useEffect which is deferred)
@@ -516,7 +512,6 @@ export const ActivityCard = React.memo(
         isMetric,
         sectionHighlights,
         routeHighlight,
-        newGround,
       },
       t
     );
@@ -645,24 +640,9 @@ export const ActivityCard = React.memo(
               </>
             )}
           </View>
-          {/* Right column: ground coverage, section trend indicators + PR counts. */}
-          {newGround?.badge || showsSectionChip ? (
+          {/* Right column: section trend indicators + PR counts. */}
+          {showsSectionChip ? (
             <View style={[styles.rightColumn, largeText && styles.flowRightColumn]}>
-              {newGround?.badge ? (
-                <View importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
-                  <Badge
-                    tone="neutral"
-                    icon="compass-outline"
-                    text={
-                      newGround.badge === 'entirelyNew'
-                        ? t('activity.newGround')
-                        : t('activity.mostlyNewGround')
-                    }
-                    isDark={isDark}
-                    testID={`activity-card-${activity.id}-new-ground-pill`}
-                  />
-                </View>
-              ) : null}
               {sectionHighlights && showsSectionChip ? (
                 <PressTarget
                   accessibilityRole="button"
@@ -833,7 +813,6 @@ export const ActivityCard = React.memo(
           prev.snapshotReady,
           prev.sectionHighlights,
           prev.routeHighlight,
-          prev.newGround,
           prev.strengthData,
         ],
       },
@@ -846,7 +825,6 @@ export const ActivityCard = React.memo(
           next.snapshotReady,
           next.sectionHighlights,
           next.routeHighlight,
-          next.newGround,
           next.strengthData,
         ],
       }

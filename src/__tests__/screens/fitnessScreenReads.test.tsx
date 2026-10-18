@@ -51,6 +51,7 @@ jest.mock('@/shared/app/useRevealChart', () => ({
   useRevealChart: () => ({
     scrollRef: { current: null },
     onAnchorLayout: jest.fn(),
+    onHeaderLayout: jest.fn(),
     onScrollBeginDrag: jest.fn(),
   }),
 }));
@@ -131,7 +132,7 @@ const engine = {
     period: () => totals(2, 4),
   }),
   getTrainingScreenData: jest.fn(),
-  getActivityBodies: jest.fn(() => []),
+  getFeedCards: jest.fn(() => []),
 };
 
 beforeAll(async () => {

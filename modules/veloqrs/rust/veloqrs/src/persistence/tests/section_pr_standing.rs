@@ -18,7 +18,7 @@ fn test_section_pr_standing_counts_only_timed_forward_laps() {
     assert_eq!(standing.previous_best_time, Some(310.0));
     assert_eq!(
         standing.previous_best_date,
-        Some(records[2].activity_date as f64)
+        Some(records[2].activity_date.0 as f64)
     );
     assert_eq!(standing.delta_seconds, Some(10.0));
 }

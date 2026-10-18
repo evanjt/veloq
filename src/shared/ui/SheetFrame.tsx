@@ -10,6 +10,10 @@
  * handle has no action to offer a screen reader, and scrolling the content
  * expands the sheet while back dismisses it. A map sheet moves between its stops
  * by being presented again, so it draws `MapSheetHandle` instead.
+ *
+ * On iOS a route whose root is its scroll view gets no frame view: the form sheet sizes only a
+ * scroll view that is the first view of its content. The frame then hands its fill and padding
+ * down through `SheetFrameContext`, and `SheetScrollView` draws them.
  */
 
 import React from 'react';
@@ -25,19 +29,27 @@ import {
 } from '@/shared/app/screenHeaders';
 import { colors, darkColors, layout, spacing } from '@/theme';
 
+import { SheetFrameContext } from './sheetFrameContext';
+
 export function SheetFrame({ name, children }: { name: string; children: React.ReactNode }) {
   const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
-  const { handle, paddingBottom } = sheetFrame(name, Platform.OS, insets.bottom);
+  const { handle, paddingBottom, wraps } = sheetFrame(name, Platform.OS, insets.bottom);
   const palette = isDark ? darkColors : colors;
+  const backgroundColor = sheetSurface(Platform.OS, Platform.Version, isDark);
+
+  if (!wraps) {
+    return (
+      <SheetFrameContext.Provider value={{ backgroundColor, paddingBottom }}>
+        {children}
+      </SheetFrameContext.Provider>
+    );
+  }
 
   return (
     <View
       testID="sheet-frame"
-      style={[
-        sheetHasDetents(name) && styles.fill,
-        { backgroundColor: sheetSurface(Platform.OS, Platform.Version, isDark), paddingBottom },
-      ]}
+      style={[sheetHasDetents(name) && styles.fill, { backgroundColor, paddingBottom }]}
     >
       {handle ? (
         <View

@@ -25,6 +25,8 @@ import {
   HOME_RADIUS_SOURCE,
   homeRadiusLayers,
 } from '@/features/maps/lib/homeRadiusLayers';
+import { useSurfaceAttribution } from '@/features/maps/hooks/useSurfaceAttribution';
+import { AttributionOverlay } from './AttributionOverlay';
 import { MapSurface, type MapPressEvent, type MapSurfaceRef } from './MapSurface';
 
 export const HOME_RADIUS_MAP_HEIGHT = 180;
@@ -78,6 +80,9 @@ export function HomeRadiusMap({ home, radiusM, onMove, testID }: HomeRadiusMapPr
   }, [camera, initialCamera]);
 
   const handlePress = useCallback((event: MapPressEvent) => onMove(event.coordinate), [onMove]);
+  const { attributionRef, initialAttribution, trackAttribution } = useSurfaceAttribution(base, {
+    center: home,
+  });
 
   return (
     <View style={styles.frame} testID={testID}>
@@ -91,7 +96,9 @@ export function HomeRadiusMap({ home, radiusM, onMove, testID }: HomeRadiusMapPr
         rotateEnabled={false}
         released={!screenFocused}
         onPress={handlePress}
+        onRegionDidChange={trackAttribution}
       />
+      <AttributionOverlay ref={attributionRef} initialAttribution={initialAttribution} />
     </View>
   );
 }

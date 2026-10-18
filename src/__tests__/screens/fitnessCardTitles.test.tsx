@@ -73,7 +73,7 @@ const engine = {
     monthPrevious: totals(0, 0),
     comparisons: noComparisons(windows.nowWallSeconds),
   })),
-  getActivityBodies: jest.fn(() => []),
+  getFeedCards: jest.fn(() => []),
 };
 
 let client: QueryClient;

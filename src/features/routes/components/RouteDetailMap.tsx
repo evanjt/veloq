@@ -1,7 +1,8 @@
 /**
  * A route's map filling its host's map screen, under the sheet that holds the route's card. It
  * reads the route from the engine as the card does, and what the card picked (the attempt, the
- * sport on show, the line the delta plot colours) from the host's entry. The route is fitted to
+ * sport on show, the line the delta plot colours) from the host's entry. Inside the host's slot it
+ * draws on the host's one surface, which the other cards' maps share. The route is fitted to
  * the part of the map the header and the sheet's settled stop leave visible, or beside the side
  * panel at regular width.
  */
@@ -18,7 +19,8 @@ import {
   mapSheetCoveredSides,
   useMapSheetStop,
 } from '@/shared/app/mapSheetStop';
-import { visibleMapInset } from '@/features/maps';
+import { useInMapSurfaceSlot, visibleMapInset } from '@/features/maps';
+import { useMapSheetHost } from '@/shared/app/MapSheetHost';
 import { getActivityColor } from '@/shared/activity/activityUtils';
 import { useRouteDetailData } from '../hooks/useRouteDetailData';
 import { useRouteMapSignatures } from '../hooks';
@@ -41,7 +43,9 @@ interface RouteDetailMapProps {
 }
 
 export function RouteDetailMap({ routeId, pageActivityId }: RouteDetailMapProps) {
-  const hostKey = mapSheetHostKey('route', routeId);
+  // A route card pushed onto another subject's host reads that host's entry.
+  const hostKey = useMapSheetHost()?.key ?? mapSheetHostKey('route', routeId);
+  const inSlot = useInMapSurfaceSlot();
   const { data: detail } = useRouteDetailData(routeId);
   const { activityId, lapPoints, date } = useCardAttempt(hostKey);
   const sport = useCardSport(hostKey);
@@ -51,6 +55,12 @@ export function RouteDetailMap({ routeId, pageActivityId }: RouteDetailMapProps)
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const headerBottom = useHeroHeaderBottom();
+  const coveredBottom = mapSheetCoveredHeight(
+    Platform.OS,
+    Platform.Version,
+    { width, height, topInset: insets.top, bottomInset: insets.bottom },
+    stop
+  );
   const fitPadding = useMemo(() => {
     const sides = mapSheetCoveredSides({ width }, I18nManager.isRTL);
     return visibleMapInset({
@@ -59,15 +69,10 @@ export function RouteDetailMap({ routeId, pageActivityId }: RouteDetailMapProps)
       coveredTop: headerBottom,
       coveredLeft: sides.left,
       coveredRight: sides.right,
-      coveredBottom: mapSheetCoveredHeight(
-        Platform.OS,
-        Platform.Version,
-        { width, height, topInset: insets.top, bottomInset: insets.bottom },
-        stop
-      ),
+      coveredBottom,
       margin: ROUTE_MAP_FIT_PADDING,
     });
-  }, [width, height, headerBottom, insets.top, insets.bottom, stop]);
+  }, [width, height, headerBottom, coveredBottom]);
 
   const engineGroup = detail?.group;
   const routeGroup = useMemo(
@@ -86,7 +91,11 @@ export function RouteDetailMap({ routeId, pageActivityId }: RouteDetailMapProps)
   const activityColor = getActivityColor(displayType);
 
   return (
-    <View testID="route-detail-map" style={styles.fill}>
+    <View
+      testID="route-detail-map"
+      style={styles.fill}
+      pointerEvents={inSlot ? 'box-none' : 'auto'}
+    >
       {routeGroup && engineGroup?.activityIds.length ? (
         <RouteMapView
           routeGroup={routeGroup}
@@ -100,6 +109,7 @@ export function RouteDetailMap({ routeId, pageActivityId }: RouteDetailMapProps)
           activitySignatures={signatures}
           deltaLine={deltaLine}
           fitPadding={fitPadding}
+          coveredBottom={coveredBottom}
         />
       ) : (
         <View

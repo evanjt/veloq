@@ -239,13 +239,13 @@ fn enrich_from_ranked(
 
     let banner = banner_record(&perf);
     let pr_time_secs = banner.map(|(r, _)| r.best_time);
-    let pr_days_ago = banner.map(|(r, _)| days_since_epoch(r.activity_date));
+    let pr_days_ago = banner.map(|(r, _)| days_since_epoch(r.activity_date.0));
     let previous_best_time_secs = banner.and_then(|(_, rival)| rival);
 
     let mut sorted: Vec<_> = perf.records.clone();
     sorted.sort_by_key(|b| std::cmp::Reverse(b.activity_date));
     let last_time_secs = sorted.first().map(|r| r.best_time);
-    let days_since_last = sorted.first().map(|r| days_since_epoch(r.activity_date));
+    let days_since_last = sorted.first().map(|r| days_since_epoch(r.activity_date.0));
 
     crate::FfiWorkoutSection {
         id: rs.section_id,
@@ -265,13 +265,13 @@ fn enrich_from_summary(
 ) -> crate::FfiWorkoutSection {
     let banner = banner_record(&perf);
     let pr_time_secs = banner.map(|(r, _)| r.best_time);
-    let pr_days_ago = banner.map(|(r, _)| days_since_epoch(r.activity_date));
+    let pr_days_ago = banner.map(|(r, _)| days_since_epoch(r.activity_date.0));
     let previous_best_time_secs = banner.and_then(|(_, rival)| rival);
 
     let mut sorted = perf.records.clone();
     sorted.sort_by_key(|b| std::cmp::Reverse(b.activity_date));
     let last_time_secs = sorted.first().map(|r| r.best_time);
-    let days_since_last = sorted.first().map(|r| days_since_epoch(r.activity_date));
+    let days_since_last = sorted.first().map(|r| days_since_epoch(r.activity_date.0));
 
     let times: Vec<f64> = sorted.iter().rev().map(|r| r.best_time).collect();
     let trend = Some(crate::trend::median_window_trend(&times, TREND_DEADBAND));
@@ -460,7 +460,7 @@ pub(crate) fn chart_from_cutoff(
                 lap_id: record.activity_id.clone(),
                 activity_id: record.activity_id.clone(),
                 activity_name: record.activity_name.clone(),
-                activity_date: record.activity_date as f64,
+                activity_date: record.activity_date.0 as f64,
                 speed: record.best_pace,
                 section_time: record.best_time.round().max(0.0) as u32,
                 section_distance: record.section_distance,
@@ -504,7 +504,7 @@ pub(crate) fn chart_from_cutoff(
                     lap_id: lap.id.clone(),
                     activity_id: record.activity_id.clone(),
                     activity_name: record.activity_name.clone(),
-                    activity_date: record.activity_date as f64,
+                    activity_date: record.activity_date.0 as f64,
                     speed: lap.pace,
                     section_time: lap.time.round().max(0.0) as u32,
                     section_distance: if lap.distance > 0.0 {
@@ -659,7 +659,7 @@ mod workout_trend_encoding_tests {
         crate::SectionPerformanceRecord {
             activity_id: format!("act_{activity_date}"),
             activity_name: "Ride".to_string(),
-            activity_date,
+            activity_date: crate::WholeNumber(activity_date),
             laps: Vec::new(),
             lap_count: 1,
             best_time,
@@ -695,6 +695,7 @@ mod workout_trend_encoding_tests {
             excluded: false,
             outside_distance_band: false,
             match_percentage: None,
+            is_record: false,
         };
         let mut perf = empty_performances();
         perf.records.push(crate::SectionPerformanceRecord {
@@ -746,6 +747,7 @@ mod workout_trend_encoding_tests {
             excluded: false,
             outside_distance_band: false,
             match_percentage: None,
+            is_record: false,
         };
         let mut perf = empty_performances();
         perf.records.push(crate::SectionPerformanceRecord {
@@ -781,6 +783,7 @@ mod workout_trend_encoding_tests {
             excluded: false,
             outside_distance_band: false,
             match_percentage: None,
+            is_record: false,
         };
         crate::SectionPerformanceRecord {
             laps: vec![lap],
@@ -1042,6 +1045,7 @@ mod workout_trend_encoding_tests {
                 excluded: false,
                 outside_distance_band: false,
                 match_percentage: None,
+                is_record: false,
             }
         }
 
@@ -1051,7 +1055,7 @@ mod workout_trend_encoding_tests {
                 .map(|(date, lap)| crate::SectionPerformanceRecord {
                     activity_id: lap.activity_id.clone(),
                     activity_name: lap.id.clone(),
-                    activity_date: date,
+                    activity_date: crate::WholeNumber(date),
                     laps: vec![lap],
                     lap_count: 1,
                     best_time: 1.0,

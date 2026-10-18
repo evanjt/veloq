@@ -106,6 +106,9 @@ public class VeloqMap3DWebViewManager extends VeloqWebViewManager {
     ThemedReactContext context = webView.getThemedReactContext();
     String revision = webView.getProgress() >= 100 ? revisions.get(webView) : null;
     if (!slot.offer(webView, context, revision)) return false;
+    // A drop during a screen's removal transition would only defer this removal, and once the
+    // wrapper leaves the window the view is orphaned with its parent still set.
+    view.endViewTransition(webView);
     view.removeView(webView);
     context.removeLifecycleEventListener(webView);
     webView.setWebViewClient(new WebViewClient() {

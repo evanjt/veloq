@@ -16,8 +16,8 @@ use std::time::{Duration, Instant};
 use sha2::{Digest, Sha256};
 use tempfile::TempDir;
 use tracematch::GpsPoint;
-use veloqrs::objects::SectionPreview;
 use veloqrs::objects::start::FfiStartOutcome::Started;
+use veloqrs::objects::{FfiRunState, SectionPreview};
 use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
 use veloqrs::persistence::with_persistent_engine;
 use veloqrs::{FfiPreviewSection, FfiSectionConfig};
@@ -175,15 +175,15 @@ fn a_named_corridor_reads_its_name_on_the_preview_and_diff() {
     assert_eq!(preview.start(46.01, 7.0, ffi_cfg).unwrap(), Started);
     let deadline = Instant::now() + Duration::from_secs(120);
     loop {
-        let status = preview.poll().unwrap();
-        if status == "complete" {
+        let status = preview.progress().state;
+        if status == FfiRunState::Complete {
             break;
         }
-        assert_eq!(status, "running");
+        assert_eq!(status, FfiRunState::Running);
         assert!(Instant::now() < deadline);
         std::thread::sleep(Duration::from_millis(50));
     }
-    let diff = preview.take_result().unwrap().unwrap();
+    let diff = preview.take().unwrap();
     assert!(diff.sections.iter().any(|s| {
         (s.id == id || s.live_id.as_deref() == Some(id.as_str()))
             && s.name.as_deref() == Some("Col de la Croix")
@@ -213,15 +213,18 @@ fn the_current_catalogue_is_the_one_a_run_diffs_against() {
 
     let deadline = Instant::now() + Duration::from_secs(120);
     loop {
-        let status = preview.poll().expect("poll");
-        if status == "complete" {
+        let status = preview.progress().state;
+        if status == FfiRunState::Complete {
             break;
         }
-        assert!(status == "running", "preview ended in '{status}'");
+        assert!(
+            status == FfiRunState::Running,
+            "preview ended in {status:?}"
+        );
         assert!(Instant::now() < deadline, "preview never completed");
         std::thread::sleep(Duration::from_millis(50));
     }
-    let payload = preview.take_result().expect("take").expect("payload");
+    let payload = preview.take().expect("payload");
 
     // The run's own view of the live catalogue: every row it paired against a
     // live section, plus every live section it retires.

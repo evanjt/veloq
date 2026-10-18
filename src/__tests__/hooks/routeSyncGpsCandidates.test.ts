@@ -5,12 +5,12 @@
  *
  * Expected behaviour: a live run hands the engine's candidates, for the range
  * the athlete selected, to the download and publishes their ids as pending,
- * without reading a stored body. Demo mode pulls no census, so its fixture
- * bodies decide.
+ * without reading a feed card. Demo mode pulls no census, so its fixtures'
+ * cards decide.
  */
 import { act, renderHook } from '@testing-library/react-native';
-import type { ActivityBodiesPage } from 'veloqrs';
 import { stubIdleScheduler, type IdleScheduler } from '../__shared__/idleScheduler';
+import { feedCard } from '../__shared__/feedCard';
 
 import { useRouteDataSync } from '@/features/routes/hooks/useRouteDataSync';
 import { resetGlobalSyncState } from '@/features/routes/hooks/useRouteSyncContext';
@@ -18,6 +18,7 @@ import { getEngine, getNativeModule } from '@/shared/native/engine';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { setFeedHeadIds } from '@/shared/activity/feedHead';
+import type { FeedCard } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({
@@ -35,16 +36,7 @@ jest.mock('@/features/routes/hooks/useGpsDataFetcher', () => ({
 }));
 
 const pendingSeen: string[][] = [];
-const page = (bodies: string[]): ActivityBodiesPage => ({
-  bodies,
-  intervalsIds: bodies.map(() => undefined),
-  keys: bodies.map((body) => (JSON.parse(body) as { id: string }).id),
-  matchedCount: bodies.length,
-  hasMore: false,
-});
-const mockGetActivityBodies = jest.fn(
-  (_oldest: number, _newest: number): ActivityBodiesPage | undefined => page([])
-);
+const mockGetFeedCards = jest.fn((_oldest: number, _newest: number): FeedCard[] => []);
 const mockGetGpsFetchCandidates = jest.fn();
 
 let idle: IdleScheduler;
@@ -66,7 +58,7 @@ describe('the tracks a route sync owes', () => {
       },
     });
     (getEngine as jest.Mock).mockReturnValue({
-      getActivityBodies: mockGetActivityBodies,
+      getFeedCards: mockGetFeedCards,
       subscribe: () => () => {},
     });
     mockGetGpsFetchCandidates.mockReturnValue([
@@ -104,7 +96,7 @@ describe('the tracks a route sync owes', () => {
     ]);
     expect(pendingSeen[0]).toEqual(['ride', 'run']);
     expect(mockFetchDemoGps).not.toHaveBeenCalled();
-    expect(mockGetActivityBodies).not.toHaveBeenCalled();
+    expect(mockGetFeedCards).not.toHaveBeenCalled();
   });
 
   it('puts the cards the feed is showing first', async () => {
@@ -126,20 +118,16 @@ describe('the tracks a route sync owes', () => {
 
   it('asks the fixtures, not the engine, in demo mode', async () => {
     useAuthStore.setState({ isAuthenticated: true, isDemoMode: true });
-    mockGetActivityBodies.mockReturnValue(
-      page(
-        [
-          { id: 'stored', stream_types: ['latlng'], type: 'Ride' },
-          {
-            id: 'fresh',
-            stream_types: ['latlng'],
-            type: 'Run',
-            start_date_local: '2026-03-16T06:30:00',
-          },
-          { id: 'pool', stream_types: ['time'], type: 'Swim' },
-        ].map((body) => JSON.stringify(body))
-      )
-    );
+    mockGetFeedCards.mockReturnValue([
+      feedCard({ id: 'stored', hasGps: true, sportType: 'Ride' }),
+      feedCard({
+        id: 'fresh',
+        hasGps: true,
+        sportType: 'Run',
+        startDateLocal: '2026-03-16T06:30:00',
+      }),
+      feedCard({ id: 'pool', hasGps: false, sportType: 'Swim' }),
+    ]);
 
     await renderHook(() => useRouteDataSync(true));
     await act(async () => {});

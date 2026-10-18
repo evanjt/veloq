@@ -25,9 +25,9 @@ fn seed_body() {
         .unwrap();
 }
 
-fn window(oldest_ts: i64, newest_ts: i64) -> crate::FfiActivityBodiesPage {
+fn window(oldest_ts: i64, newest_ts: i64) -> crate::FfiFeedCardsPage {
     ActivityManager::new()
-        .get_activity_bodies(crate::FfiActivityBodiesQuery {
+        .get_feed_cards(crate::FfiActivityBodiesQuery {
             oldest_ts: Some(oldest_ts as f64),
             newest_ts: Some(newest_ts as f64),
             needle: String::new(),
@@ -54,13 +54,13 @@ fn seed_stream(stale: bool) {
 }
 
 #[test]
-fn test_feed_bodies_return_while_engine_writer_holds() {
+fn test_feed_cards_return_while_engine_writer_holds() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("feed_reads_under_writer.db");
     seed_body();
     read_while_writer_holds(|| {
-        assert_eq!(window(0, 50).bodies, vec![BODY]);
-        assert!(window(51, 100).bodies.is_empty());
+        assert_eq!(ids(&window(0, 50)), vec!["a1"]);
+        assert!(window(51, 100).cards.is_empty());
     });
 }
 
@@ -357,9 +357,9 @@ fn search(
     family: Option<crate::FfiSportFamily>,
     offset: u32,
     limit: u32,
-) -> crate::FfiActivityBodiesPage {
+) -> crate::FfiFeedCardsPage {
     ActivityManager::new()
-        .get_activity_bodies(crate::FfiActivityBodiesQuery {
+        .get_feed_cards(crate::FfiActivityBodiesQuery {
             oldest_ts: None,
             newest_ts: None,
             needle: needle.into(),
@@ -370,16 +370,8 @@ fn search(
         .unwrap()
 }
 
-fn ids(page: &crate::FfiActivityBodiesPage) -> Vec<String> {
-    page.bodies
-        .iter()
-        .map(|raw| {
-            serde_json::from_str::<serde_json::Value>(raw).unwrap()["id"]
-                .as_str()
-                .unwrap()
-                .to_string()
-        })
-        .collect()
+fn ids(page: &crate::FfiFeedCardsPage) -> Vec<String> {
+    page.cards.iter().map(|card| card.id.clone()).collect()
 }
 
 /// Scenario: the feed reads thirty-day windows and holds ten of them at most,
@@ -416,10 +408,10 @@ fn test_feed_search_reaches_activities_past_the_loaded_windows() {
     assert_eq!(ids(&foot), vec!["old-walk"]);
 
     let other = search("", Some(crate::FfiSportFamily::Other), 0, 30);
-    assert!(other.bodies.is_empty());
+    assert!(other.cards.is_empty());
 
     let cycling_and_foot = ActivityManager::new()
-        .get_activity_bodies(crate::FfiActivityBodiesQuery {
+        .get_feed_cards(crate::FfiActivityBodiesQuery {
             oldest_ts: None,
             newest_ts: None,
             needle: String::new(),
@@ -439,12 +431,12 @@ fn test_feed_search_reaches_activities_past_the_loaded_windows() {
     assert_eq!(ids(&runs)[0], "run0");
 
     let both = search("lantern", Some(crate::FfiSportFamily::Run), 0, 30);
-    assert!(both.bodies.is_empty());
+    assert!(both.cards.is_empty());
     assert_eq!(both.matched_count, 0);
     assert!(!both.has_more);
 
     let nothing = search("no such activity", None, 0, 30);
-    assert!(nothing.bodies.is_empty());
+    assert!(nothing.cards.is_empty());
     assert_eq!(nothing.matched_count, 0);
 }
 
@@ -468,18 +460,18 @@ fn test_feed_search_pages_newest_first_and_counts_the_whole_match() {
     assert!(!second.has_more);
 
     let past_the_end = search("club", None, 9, 2);
-    assert!(past_the_end.bodies.is_empty());
+    assert!(past_the_end.cards.is_empty());
     assert!(!past_the_end.has_more);
 
     let unpaged = search("club", None, 0, 0);
-    assert!(unpaged.bodies.is_empty());
+    assert!(unpaged.cards.is_empty());
     assert_eq!(unpaged.matched_count, 3);
     assert!(unpaged.has_more);
 }
 
 /// Scenario: the unfiltered feed reads one thirty-day window at a time.
 /// Expected behaviour: the window bounds hold, inclusive at both ends, every
-/// body in it comes back newest first with no limit, and a search inside a
+/// card in it comes back newest first with no limit, and a search inside a
 /// window stays inside it.
 #[test]
 fn test_feed_window_read_is_bounded_and_unpaged() {
@@ -497,7 +489,7 @@ fn test_feed_window_read_is_bounded_and_unpaged() {
     assert_eq!(ids(&edge), vec!["club-a"]);
 
     let year_of_clubs = ActivityManager::new()
-        .get_activity_bodies(crate::FfiActivityBodiesQuery {
+        .get_feed_cards(crate::FfiActivityBodiesQuery {
             oldest_ts: Some(NOW - 550.0 * DAY),
             newest_ts: Some(NOW),
             needle: "club".into(),

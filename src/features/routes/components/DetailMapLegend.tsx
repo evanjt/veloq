@@ -1,7 +1,7 @@
 /**
  * Legend for the section and route detail maps: a row for each layer the map
  * draws over the subject's own line, the picked activity or lap, the ledger
- * version being shown, the steps the line is banded in and the direction its
+ * version being shown, the scale the line is banded on and the direction its
  * chevrons show. The subject's line needs no row.
  */
 
@@ -13,7 +13,8 @@ import { Text } from 'react-native-paper';
 
 import {
   DIRECTION_GLYPH,
-  DivergingKeyRows,
+  DivergingKeyScale,
+  directionColours,
   MapKey,
   MapKeySwatch,
   type LineDirection,
@@ -94,15 +95,16 @@ export function DetailMapLegend({
   direction = null,
 }: DetailMapLegendProps) {
   const { t } = useTranslation();
+  const chevron = directionColours(palette);
 
   return (
     <MapKey isDark={isDark} style={{ top }} testID={testID}>
       {showDelta ? (
         <>
           <Text testID={`${testID}-delta`} style={[styles.caption, isDark && styles.captionDark]}>
-            {t('sections.viewAheadOrBehind')}
+            {t('maps.keyAheadOrBehindPercent')}
           </Text>
-          <DivergingKeyRows
+          <DivergingKeyScale
             kind="pace"
             palette={palette}
             isDark={isDark}
@@ -114,8 +116,8 @@ export function DetailMapLegend({
       {direction ? (
         <MapKeySwatch
           testID={`${testID}-direction`}
-          swatch={palette.route}
-          glyph={{ name: DIRECTION_GLYPH, color: palette.casing }}
+          swatch={chevron.outline}
+          glyph={{ name: DIRECTION_GLYPH, color: chevron.glyph }}
           label={t(DIRECTION_LABEL_KEYS[direction])}
           isDark={isDark}
         />

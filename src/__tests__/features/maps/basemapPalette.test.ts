@@ -1,5 +1,5 @@
 import { LIBERTY_STYLE } from '@/features/maps/styles/liberty';
-import { DARK_MATTER_STYLE } from '@/features/maps/components/darkMatterStyle';
+import { DARK_MATTER_STYLE } from '@/features/maps/styles/darkMatter';
 import { basemapTones } from '@/features/maps/styles/basemapTones';
 import { mapPalette, mapStylePreview } from '@/theme';
 

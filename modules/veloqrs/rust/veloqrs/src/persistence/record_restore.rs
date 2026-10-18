@@ -1602,7 +1602,7 @@ pub(crate) fn pending_retired_sections(conn: &Connection) -> Vec<sections::Retir
             .find(|r| r.section_id == state.section_id)
         {
             Some(existing) => {
-                existing.versions.push(state.version);
+                existing.versions.push(crate::WholeNumber(state.version));
                 existing.at = existing.at.clone().max(at);
             }
             None => retired.push(sections::RetiredSection {
@@ -1610,7 +1610,7 @@ pub(crate) fn pending_retired_sections(conn: &Connection) -> Vec<sections::Retir
                 kind: "superseded".to_string(),
                 at,
                 into: None,
-                versions: vec![state.version],
+                versions: vec![crate::WholeNumber(state.version)],
                 name: None,
                 distance_meters: None,
             }),
@@ -3273,13 +3273,13 @@ mod tests {
         let (section_id, version) = (retired[0].section_id.clone(), retired[0].versions[0]);
         assert_eq!(
             restored
-                .section_geometry_polyline(&section_id, version)
+                .section_geometry_polyline(&section_id, version.0)
                 .unwrap(),
             restored.get_gps_track("ride-1").unwrap()[10..40].to_vec()
         );
 
         restored
-            .revert_section_to_version(&section_id, version)
+            .revert_section_to_version(&section_id, version.0)
             .unwrap();
 
         let (name, count): (Option<String>, i64) = restored
@@ -3292,7 +3292,10 @@ mod tests {
             .unwrap();
         assert_eq!(name.as_deref(), Some("Old climb"));
         assert_eq!(count, 1);
-        assert_eq!(restored.pinned_section_version(&section_id), Some(version));
+        assert_eq!(
+            restored.pinned_section_version(&section_id),
+            Some(version.0)
+        );
         assert_eq!(pending_rows(&restored), 0);
         assert!(restored.retired_sections().is_empty());
     }

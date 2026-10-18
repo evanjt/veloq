@@ -3,7 +3,7 @@
  *
  * The card is one pressable element, so its label stands in for everything it
  * draws: the name, the date, the headline figures, the secondary stats with
- * their units, the ground badge, the section PR and trend counts and the route
+ * their units, the section PR and trend counts and the route
  * chip. Each part is the figure the card draws: a clock-style duration and an
  * abbreviated distance or climb are said through their spoken twins, which
  * reach the same quantity through the same arithmetic, and the rest is the
@@ -23,7 +23,6 @@ import {
 import { spokenDistance, spokenDuration, spokenElevation } from '@/shared/format/spoken';
 import { composeAccessibilityLabel } from '@/shared/ui/accessibilityLabel';
 import type { FeedCard } from '@/types';
-import type { ActivityNewGround } from '../hooks/useActivitySectionHighlights';
 import { cardPrimaryStats } from './cardPrimaryStats';
 
 export interface ActivityCardSpeech {
@@ -38,7 +37,6 @@ export interface ActivityCardSpeech {
         prImprovementSeconds?: number | null | undefined;
       }
     | undefined;
-  newGround?: Pick<ActivityNewGround, 'badge'> | undefined;
 }
 
 /**
@@ -72,19 +70,12 @@ export function activitySecondaryStatLabels(
 }
 
 export function activityCardA11yLabel(speech: ActivityCardSpeech, t: TFunction): string {
-  const { activity, isMetric, sectionHighlights, routeHighlight, newGround } = speech;
+  const { activity, isMetric, sectionHighlights, routeHighlight } = speech;
   // A slot the card leaves out is not spoken either.
   const drawn = cardPrimaryStats(activity, isMetric);
   const distance = drawn.distance != null ? spokenDistance(activity.distance, isMetric) : null;
   const elevation =
     drawn.elevation != null ? spokenElevation(activity.elevationGain, isMetric) : null;
-
-  const ground =
-    newGround?.badge === 'entirelyNew'
-      ? t('activity.newGround')
-      : newGround?.badge === 'mostlyNew'
-        ? t('activity.mostlyNewGround')
-        : null;
 
   const highlights = sectionHighlights ?? [];
   const prCount = highlights.filter((h) => h.isPr).length;
@@ -98,7 +89,6 @@ export function activityCardA11yLabel(speech: ActivityCardSpeech, t: TFunction):
     spokenDuration(activity.movingTime),
     elevation,
     ...activitySecondaryStatLabels(activity, isMetric, t),
-    ground,
     prCount > 0 && t('a11y.prs', { n: prCount }),
     faster > 0 && t('a11y.faster', { n: faster }),
     slower > 0 && t('a11y.slower', { n: slower }),

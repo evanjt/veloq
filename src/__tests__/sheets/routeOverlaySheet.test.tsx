@@ -11,8 +11,9 @@ import React from 'react';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import RouteOverlaySheet, { type RouteOverlaySheetInput } from '@/app/sheets/route-overlay';
+import { rootScreenLayout } from '@/shared/ui/rootScreenLayout';
 import { openSheet } from '@/shared/app/sheetRequest';
-import { sheetScrollPlacement } from '../__shared__/sheetScrollPlacement';
+import { sheetScrollHandsOff, sheetScrollPlacement } from '../__shared__/sheetScrollPlacement';
 import { useGroupSummaries } from '@/features/routes/hooks/useEngine';
 import { getEngine } from '@/shared/native/engine';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
@@ -56,7 +57,12 @@ async function renderPicker(selectedRouteId: string | null = null) {
     selectedRouteId,
   });
   mockParams = { request: mockPush.mock.calls.at(-1)[0].params.request };
-  return { screen: await render(<RouteOverlaySheet />), result };
+  return {
+    screen: await render(
+      rootScreenLayout({ route: { name: 'sheets/route-overlay' }, children: <RouteOverlaySheet /> })
+    ),
+    result,
+  };
 }
 
 beforeEach(() => {
@@ -200,6 +206,11 @@ it('marks the current route as selected', async () => {
 it('keeps its scroll view where the iOS sheet sizes it', async () => {
   const { screen } = await renderPicker();
   expect(sheetScrollPlacement(screen.toJSON())).not.toBe('nested');
+});
+
+it('hands a drag to its list on Android, before the sheet takes it', async () => {
+  const { screen } = await renderPicker();
+  expect(sheetScrollHandsOff(screen.toJSON())).toBe(true);
 });
 
 it('resolves cancelled when it unmounts without a tap', async () => {

@@ -30,19 +30,15 @@ import { useTheme } from '@/shared/app';
 // app shell still has to draw, and the barrel is what such a caller stubs.
 import {
   AttributionOverlay,
-  type AttributionOverlayRef,
-  computeAttribution,
   EMPTY_FEATURE_COLLECTION,
-  getNextStyle,
   getStyleIcon,
   type LngLat,
-  type LngLatBounds,
-  type MapCameraState,
   type MapStyleType,
   MapControlButton,
   MapSurface,
   type MapSurfaceRef,
-  useDrawnMapStyle,
+  useMapStyleToggle,
+  useSurfaceAttribution,
 } from '@/features/maps';
 import { sectionCameraSpec } from '@/features/routes/lib/sectionMapCamera';
 import {
@@ -58,9 +54,6 @@ import {
   PREVIEW_INTERACTIVE_LAYERS,
 } from './previewMapLayerSpecs';
 import { PressTarget } from '@/shared/ui';
-
-/** Zoom assumed before the surface reports one, matching the camera fallback. */
-const DEFAULT_ATTRIBUTION_ZOOM = 11;
 
 /** The delegate hands the bytes over already decoded. */
 function decodePolyline(polyline: ArrayBuffer): LngLat[] {
@@ -260,15 +253,6 @@ export function PreviewMapView({
     surfaceRef.current?.fitBounds(bounds, 60, cameraMove.brisk);
   }, [bounds, areaKey]);
 
-  // Attribution is a licence condition, so the credit line has to name the
-  // imagery actually drawn. Satellite sources are regional, so it follows the
-  // viewport rather than the area the picker started on.
-  const [viewport, setViewport] = useState<{
-    center: LngLat;
-    zoom: number;
-    bounds: LngLatBounds;
-  } | null>(null);
-
   // Every other map in the app takes the athlete's global basemap, and on this
   // one that is wrong: the screen exists to read a diff, and satellite imagery
   // carries as much weight as the lines drawn over it. The street style is the
@@ -284,34 +268,17 @@ export function PreviewMapView({
   const themeStyle: MapStyleType = isDark ? 'dark' : 'light';
   // Imagery is never kept offline, so the satellite choice draws the vector
   // basemap until the connection is back rather than a grey grid.
-  const mapStyle: MapStyleType = useDrawnMapStyle(chosenStyle ?? themeStyle);
+  const { drawn: mapStyle, cycle: cycleStyle } = useMapStyleToggle(
+    chosenStyle ?? themeStyle,
+    setChosenStyle
+  );
   const palette = mapPalette(mapStyle);
   const layers = useMemo(() => buildPreviewLayers(palette), [palette]);
-  const cycleStyle = useCallback(() => {
-    setChosenStyle(getNextStyle(mapStyle));
-  }, [mapStyle]);
-  const attribution = useMemo(
-    () =>
-      computeAttribution({
-        style: mapStyle,
-        is3D: false,
-        center: viewport?.center ?? (centre ? [centre.lng, centre.lat] : null),
-        zoom: viewport?.zoom ?? DEFAULT_ATTRIBUTION_ZOOM,
-        bounds: viewport?.bounds ?? null,
-      }),
-    [mapStyle, viewport, centre]
-  );
-
-  // The overlay keeps its own state so a camera move never re-renders the
-  // surface, so the text goes in through the ref rather than the prop.
-  const attributionRef = useRef<AttributionOverlayRef>(null);
-  useEffect(() => {
-    attributionRef.current?.setAttribution(attribution);
-  }, [attribution]);
-
-  const handleRegionDidChange = useCallback((state: MapCameraState) => {
-    setViewport({ center: state.center, zoom: state.zoom, bounds: state.bounds });
-  }, []);
+  // Satellite sources are regional, so the credit follows the viewport rather
+  // than the area the picker started on.
+  const { attributionRef, initialAttribution, trackAttribution } = useSurfaceAttribution(mapStyle, {
+    center: centre ? [centre.lng, centre.lat] : null,
+  });
 
   const handlePress = useCallback(
     (event: { feature: { properties: Record<string, unknown> } | null }) => {
@@ -338,10 +305,10 @@ export function PreviewMapView({
         interactiveLayers={PREVIEW_INTERACTIVE_LAYERS}
         released={!screenFocused}
         onPress={handlePress}
-        onRegionDidChange={handleRegionDidChange}
+        onRegionDidChange={trackAttribution}
         testID="preview-map"
       />
-      <AttributionOverlay ref={attributionRef} initialAttribution={attribution} />
+      <AttributionOverlay ref={attributionRef} initialAttribution={initialAttribution} />
       {/* Opposite corner to the legend, which owns the right-hand side. */}
       <MapControlButton
         style={styles.styleButton}

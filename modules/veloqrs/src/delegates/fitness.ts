@@ -151,6 +151,8 @@ export function getFitnessScreenData(
       decouplingSources: [],
       loadDots: [],
       heatmap: [],
+      calendarFirstDay: windows.heatmapFirstDay,
+      calendarOlderOwed: 0,
       months: [],
       yearCurrent: EMPTY_PERIOD_STATS,
       yearPrevious: EMPTY_PERIOD_STATS,

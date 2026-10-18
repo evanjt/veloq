@@ -57,7 +57,7 @@ function rideStreams(): StreamsData {
 }
 
 /** Mounts and lays out a chart over streams only it holds, and hands back a weak handle to them. */
-async function mountChart(onMetricsChange: jest.Mock) {
+async function mountChart(onPointSelect: jest.Mock) {
   const streams = rideStreams();
   const view = await render(
     <ActivityStreams
@@ -65,7 +65,7 @@ async function mountChart(onMetricsChange: jest.Mock) {
       elevationGain={0}
       selectedCharts={['power']}
       chartConfigs={CHART_CONFIGS}
-      onMetricsChange={onMetricsChange}
+      onPointSelect={onPointSelect}
     />
   );
   const box = view.UNSAFE_getAllByType(View).find((node) => node.props.onLayout);
@@ -87,25 +87,25 @@ beforeEach(() => {
 
 describe('the activity chart scrub after the chart closes', () => {
   it('reports a scrub index while mounted', async () => {
-    const onMetricsChange = jest.fn();
-    await mountChart(onMetricsChange);
-    onMetricsChange.mockClear();
+    const onPointSelect = jest.fn();
+    await mountChart(onPointSelect);
+    onPointSelect.mockClear();
 
     scrubTo(10);
 
-    expect(onMetricsChange).toHaveBeenCalledWith(expect.any(Array), true);
+    expect(onPointSelect).toHaveBeenCalledWith(expect.any(Number));
   });
 
   it('reports nothing for a scrub that arrives after unmount', async () => {
-    const onMetricsChange = jest.fn();
-    const chart = await mountChart(onMetricsChange);
+    const onPointSelect = jest.fn();
+    const chart = await mountChart(onPointSelect);
     scrubTo(10);
     chart.view.unmount();
-    onMetricsChange.mockClear();
+    onPointSelect.mockClear();
 
     for (const held of mockHeldByWorklets) held(20);
 
-    expect(onMetricsChange).not.toHaveBeenCalled();
+    expect(onPointSelect).not.toHaveBeenCalled();
   });
 
   it('lets the closed chart streams be collected', async () => {

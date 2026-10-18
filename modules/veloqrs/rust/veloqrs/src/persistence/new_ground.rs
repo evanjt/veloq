@@ -65,20 +65,6 @@ impl Novelty {
     pub(crate) fn fraction(self) -> Option<f64> {
         (self.tiles > 0).then(|| f64::from(self.new_tiles) / f64::from(self.tiles))
     }
-
-    /// The badge the activity's card earns: entirely new ground when every
-    /// tile is new, mostly new from half of them, otherwise none.
-    pub(crate) fn badge(self) -> Option<crate::FfiNewGroundBadge> {
-        if self.tiles == 0 {
-            None
-        } else if self.new_tiles == self.tiles {
-            Some(crate::FfiNewGroundBadge::EntirelyNew)
-        } else if u64::from(self.new_tiles) * 2 >= u64::from(self.tiles) {
-            Some(crate::FfiNewGroundBadge::MostlyNew)
-        } else {
-            None
-        }
-    }
 }
 
 /// The ground covered by the activities measured so far.
@@ -231,7 +217,6 @@ pub(crate) mod pooled {
                     fraction: novelty.fraction().unwrap_or(0.0),
                     tiles: novelty.tiles,
                     new_tiles: novelty.new_tiles,
-                    badge: novelty.badge(),
                 })
             })?;
             rows.collect()

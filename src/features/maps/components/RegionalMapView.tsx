@@ -10,9 +10,9 @@ import { getActivityCategory, sportMarkColour, type SportFamily } from '../lib/a
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import { ComponentErrorBoundary } from '@/shared/ui';
 import { MapControlButton } from './MapControlButton';
-import { type MapStyleType, getNextStyle, getStyleIcon, statusBarStyleForMap } from './mapStyles';
+import { type MapStyleType, getStyleIcon, statusBarStyleForMap } from './mapStyles';
 import { MapSurface, type MapCameraState, type MapSurfaceRef } from './MapSurface';
-import { useDrawnMapStyle } from '@/features/maps/hooks/useDrawnMapStyle';
+import { useMapStyleToggle } from '@/features/maps/hooks/useDrawnMapStyle';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
 import { heatmapKeyColours } from '@/features/maps/lib/heatmapPaint';
 import type { ActivityBoundsItem } from '@/types';
@@ -134,7 +134,14 @@ export function RegionalMapView({
   const { getGlobalMapStyle, setGlobalMapStyle } = useMapPreferences();
   const insets = useSafeAreaInsets();
   const [chosenStyle, setMapStyleLocal] = useState<MapStyleType>(getGlobalMapStyle());
-  const mapStyle = useDrawnMapStyle(chosenStyle);
+  const chooseStyle = useCallback(
+    (next: MapStyleType) => {
+      setMapStyleLocal(next);
+      setGlobalMapStyle(next);
+    },
+    [setGlobalMapStyle]
+  );
+  const { drawn: mapStyle, cycle: toggleStyle } = useMapStyleToggle(chosenStyle, chooseStyle);
   const [selected, setSelected] = useState<SelectedActivity | null>(null);
   const {
     showActivities,
@@ -435,14 +442,6 @@ export function RegionalMapView({
   if (selectedRouteId && (!showRoutes || (routeLines && !selectedRoute))) {
     setSelectedRouteId(null);
   }
-
-  const toggleStyle = () => {
-    setMapStyleLocal((current) => {
-      const next = getNextStyle(current);
-      setGlobalMapStyle(next);
-      return next;
-    });
-  };
 
   // Handle 3D section click - receives section ID string, looks up section to select
   const handle3DSectionClick = useCallback((sectionId: string) => {

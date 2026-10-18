@@ -47,6 +47,16 @@ const buildSharedStyles = (isDark: boolean) => {
       backgroundColor: isDark ? darkColors.surfacePage : colors.surfacePage,
     },
 
+    /**
+     * The row a scroll pins at its top: the page's own background to its bottom edge,
+     * so nothing scrolling under it shows through the gap below its controls.
+     */
+    pinnedRow: {
+      backgroundColor: isDark ? darkColors.surfacePage : colors.surfacePage,
+      paddingBottom: spacing.md,
+      gap: spacing.md,
+    },
+
     /** ScrollView content container with standard padding */
     scrollContent: {
       paddingHorizontal: layout.screenPadding,

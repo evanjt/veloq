@@ -785,7 +785,7 @@ fn record_run(install: u64, run: &StreamBackfillRun) {
         StreamBackfillRun::Refused => return,
         StreamBackfillRun::Failed(_) => JobRun {
             job: BackgroundJob::StreamBackfill,
-            finished_at: now_ms(),
+            finished_at: crate::WholeNumber(now_ms()),
             outcome: RunOutcome::Failed,
             handled: 0,
             added: 0,
@@ -795,7 +795,7 @@ fn record_run(install: u64, run: &StreamBackfillRun) {
         },
         StreamBackfillRun::Finished(outcome) => JobRun {
             job: BackgroundJob::StreamBackfill,
-            finished_at: now_ms(),
+            finished_at: crate::WholeNumber(now_ms()),
             outcome: run_outcome(phase, outcome.failed),
             handled: outcome.queued,
             added: 0,
@@ -2110,12 +2110,12 @@ mod tests {
             assert_eq!(of("latlng"), None);
         }
 
-        fn recorded_run() -> crate::FfiJobRun {
+        fn recorded_run() -> crate::persistence::job_runs::JobRun {
             with_persistent_engine(|e| crate::persistence::job_runs::job_runs(&e.db))
                 .expect("engine")
                 .expect("runs read")
                 .into_iter()
-                .find(|run| run.job == "streamBackfill")
+                .find(|run| run.job == crate::persistence::job_runs::BackgroundJob::StreamBackfill)
                 .expect("the pass recorded its run")
         }
 
@@ -2154,12 +2154,15 @@ mod tests {
             run_stream_backfill(&transport(&server), "1");
 
             let run = recorded_run();
-            assert_eq!(run.outcome, "partial");
+            assert_eq!(
+                run.outcome,
+                crate::persistence::job_runs::RunOutcome::Partial
+            );
             assert_eq!(
                 (run.handled, run.added, run.changed, run.retired, run.failed),
                 (2, 0, 1, 0, 1)
             );
-            assert!(run.finished_at > 0.0);
+            assert!(run.finished_at > crate::WholeNumber(0));
         }
 
         /// Scenario: a pass cannot read its queue because there is no engine.

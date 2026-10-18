@@ -200,8 +200,12 @@ fn metrics(
     }
 }
 
-fn wellness_row(date: String, hrv: f64, raw: Option<&str>) -> crate::FfiWellnessRow {
-    crate::FfiWellnessRow {
+fn wellness_row(
+    date: String,
+    hrv: f64,
+    raw: Option<&str>,
+) -> crate::persistence::wellness::WellnessRow {
+    crate::persistence::wellness::WellnessRow {
         date,
         ctl: Some(50.0),
         atl: Some(60.0),
@@ -290,11 +294,18 @@ fn test_fitness_reads_pooled_match_locked() {
         engine
             .set_eftp_change("r1", jan, 255.0, 3.0, "r1 name")
             .expect("eftp change");
+        // Held back to the calendar's first day, so the calendar draws it.
+        engine
+            .set_setting(crate::persistence::settings_keys::ATHLETE_ID, "i1")
+            .expect("athlete");
+        engine
+            .record_activity_window("i1", "2026-01-01")
+            .expect("window");
     })
     .expect("engine");
 
     let today = chrono::Local::now().date_naive();
-    let rows: Vec<crate::FfiWellnessRow> = (0..10)
+    let rows: Vec<crate::persistence::wellness::WellnessRow> = (0..10)
         .map(|back| {
             let date = (today - chrono::Duration::days(back)).to_string();
             let raw = (back == 0).then_some(r#"{"sportInfo":[{"type":"Ride","load":42.0}]}"#);

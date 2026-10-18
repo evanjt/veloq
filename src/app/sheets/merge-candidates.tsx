@@ -7,7 +7,7 @@ import { decodeCoords, type MergeCandidate } from 'veloqrs';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useSheetRequest } from '@/shared/app/sheetRequest';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
-import { Row, SheetHeader } from '@/shared/ui';
+import { Row, SheetHeader, sheetScrollProps } from '@/shared/ui';
 import { TrackPreview, normaliseTrackPoints } from '@/shared/ui/TrackPreview';
 import { formatDistance } from '@/shared/format/format';
 import { SportIcons } from '@/shared/activity/SportIcons';
@@ -108,6 +108,7 @@ function MergeCandidatesSheetContent() {
           keyExtractor={(item) => item.sectionId}
           renderItem={renderItem}
           style={styles.list}
+          {...sheetScrollProps}
         />
       </View>
     </View>

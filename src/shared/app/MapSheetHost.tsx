@@ -34,6 +34,7 @@ import {
   mapSheetHostKey,
   openHost,
   useHostCardCount,
+  type MapSheetCardKind,
   type MapSheetKind,
 } from './mapSheetHost';
 import { MAP_SHEET_HALF_STOP, useMapSheetStop } from './mapSheetStop';
@@ -75,12 +76,54 @@ export function useMapHeldFocus(): boolean {
   return host ? host.focused : screenFocused;
 }
 
-/** Sets the host route's header options while the caller is mounted inside a host, unless null. */
+/** The card of a host's sheet a component renders inside: where it sits in the stack. */
+export interface MapSheetCardValue {
+  /** The key of the host's entry the card belongs to. */
+  hostKey: string;
+  /** The card's place in the stack, the root at 0. */
+  index: number;
+  /** Whether the card is the one on show. */
+  onTop: boolean;
+  /** Whether a subject of this kind opens as a card in this host's sheet. */
+  opens: (kind: MapSheetCardKind) => boolean;
+}
+
+export const MapSheetCardContext = createContext<MapSheetCardValue | null>(null);
+
+/** The card a component renders inside, or null outside a host's card stack. */
+export function useMapSheetCard(): MapSheetCardValue | null {
+  return useContext(MapSheetCardContext);
+}
+
+/**
+ * Where a card of `kind` and `id` writes its state: its own place in the host's stack, the root
+ * of the host it sits in when it is drawn outside the stack, or a root of its own outside a host.
+ */
+export function useMapSheetCardAddress(
+  kind: MapSheetKind,
+  id: string
+): { hostKey: string; index: number } {
+  const card = useContext(MapSheetCardContext);
+  const hostKey = useContext(MapSheetHostContext)?.key;
+  return useMemo(
+    () =>
+      card
+        ? { hostKey: card.hostKey, index: card.index }
+        : { hostKey: hostKey ?? mapSheetHostKey(kind, id), index: 0 },
+    [card, hostKey, kind, id]
+  );
+}
+
+/**
+ * Sets the host route's header options while the caller is mounted inside a host, unless null.
+ * Inside a card stack only the card on show sets them, and sets them again when a pop shows it.
+ */
 export function useMapSheetHostHeader(options: object | null): void {
   const setHeaderOptions = useContext(MapSheetHostContext)?.setHeaderOptions;
+  const shown = useContext(MapSheetCardContext)?.onTop ?? true;
   useEffect(() => {
-    if (options) setHeaderOptions?.(options);
-  }, [setHeaderOptions, options]);
+    if (options && shown) setHeaderOptions?.(options);
+  }, [setHeaderOptions, options, shown]);
 }
 
 /**
@@ -265,8 +308,8 @@ function MapSheetHostPanel({ width, children }: { width: number; children: React
  * The host's sheet screen: the sheet's fill, Android's drawn handle, and Android's system back.
  *
  * Android's back on the sheet would close only the sheet and leave the bare map, so while the
- * host is focused and its sheet holds only the root card, back leaves the host route instead. It
- * is a plain back handler rather than a hold on the sheet's removal, because a hold there would
+ * host is focused and its sheet holds only the root card, back leaves the host route instead.
+ * Above the root, `MapSheetCards` takes back and pops the top card. It is a plain back handler rather than a hold on the sheet's removal, because a hold there would
  * also hold the host's own pop, which removes the sheet with it. iOS draws the system grabber,
  * which the athlete drags, and its back is the header chip and the edge swipe.
  */

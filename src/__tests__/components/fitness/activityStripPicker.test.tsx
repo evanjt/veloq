@@ -10,7 +10,7 @@ import { act, fireEvent, render, renderHook } from '@testing-library/react-nativ
 import { ActivityDotsChart } from '@/features/fitness/components/ActivityDotsChart';
 import { answerSheet } from '../../__shared__/answerSheet';
 import { useSheetRequest } from '@/shared/app/sheetRequest';
-import type { Activity, WellnessData } from '@/types';
+import type { FeedCard, WellnessData } from '@/types';
 import { dayActivityRow } from '@/features/activity/light';
 
 const mockPush = jest.fn();
@@ -29,8 +29,8 @@ const WELLNESS = [
   { id: '2026-03-11', ctl: 41, atl: 49 },
 ] as WellnessData[];
 
-const activity = (id: string, day: string): Activity =>
-  ({ id, name: `Ride ${id}`, type: 'Ride', start_date_local: `${day}T07:00:00` }) as Activity;
+const activity = (id: string, day: string): FeedCard =>
+  ({ id, name: `Ride ${id}`, sportType: 'Ride', startDateLocal: `${day}T07:00:00` }) as FeedCard;
 
 const ACTIVITIES = [
   activity('a1', '2026-03-10'),

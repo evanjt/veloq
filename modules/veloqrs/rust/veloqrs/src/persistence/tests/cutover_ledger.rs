@@ -418,7 +418,10 @@ fn rolling_back_a_retired_section_recreates_it_on_the_archived_line() {
     engine.archive_current_catalogue().expect("archive");
     let (_, version) = archived_state(&engine, "s_auto");
     retire(&engine, "s_auto");
-    assert_eq!(engine.retired_sections()[0].versions, vec![version]);
+    assert_eq!(
+        engine.retired_sections()[0].versions,
+        vec![crate::WholeNumber(version)]
+    );
 
     engine
         .revert_section_to_version("s_auto", version)

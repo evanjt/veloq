@@ -8,7 +8,7 @@ import { goBack } from '@/shared/app/navigation';
 import { useSheetRequest } from '@/shared/app/sheetRequest';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { formatDistance } from '@/shared/format/format';
-import { Row, SheetHeader } from '@/shared/ui';
+import { Row, SheetHeader, sheetScrollProps } from '@/shared/ui';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { NameText } from '@/shared/ui/NameText';
 
@@ -37,7 +37,7 @@ function SectionChooserSheetContent() {
         onCancel={() => goBack()}
         cancelTestID="section-chooser-cancel"
       />
-      <ScrollView>
+      <ScrollView {...sheetScrollProps}>
         {(input?.sections ?? []).map((section) => {
           const distance = formatDistance(section.distanceMeters, isMetric);
           return (

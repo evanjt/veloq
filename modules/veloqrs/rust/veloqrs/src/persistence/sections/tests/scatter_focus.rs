@@ -48,11 +48,12 @@ fn outings(attempts: &[Attempt], excluded: bool) -> Vec<crate::SectionPerformanc
                 excluded,
                 outside_distance_band: a.outside_band,
                 match_percentage: None,
+                is_record: false,
             };
             crate::SectionPerformanceRecord {
                 activity_id: a.activity.clone(),
                 activity_name: a.activity.clone(),
-                activity_date: now - (count - i as i64) * 86_400,
+                activity_date: crate::WholeNumber(now - (count - i as i64) * 86_400),
                 lap_count: 1,
                 laps: vec![lap],
                 best_time: a.time,
@@ -266,7 +267,7 @@ fn the_progression_covers_the_whole_history_whatever_the_range() {
     let all = std::sync::Arc::new(laps::summarise(MILE_M, {
         let mut records = outings(&included, false);
         // The old outing two years back, outside a 90-day range.
-        records[0].activity_date -= 730 * 86_400;
+        records[0].activity_date.0 -= 730 * 86_400;
         records
     }));
     let data = crate::persistence::screens::section_detail_from(

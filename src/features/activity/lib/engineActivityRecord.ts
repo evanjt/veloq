@@ -1,5 +1,7 @@
 import type { ActivityRecord } from 'veloqrs';
 import { getEngine } from '@/shared/native/engine';
+import { dayEndEpochSeconds, dayStartEpochSeconds } from '@/shared/time/startDate';
+import type { FeedCard } from '../types';
 
 /**
  * The stored activity for one id, typed by the engine.
@@ -15,4 +17,17 @@ export function readActivityRecord(id: string): ActivityRecord | null {
   const engine = getEngine();
   if (!engine?.getActivityRecord || !id) return null;
   return engine.getActivityRecord(id) ?? null;
+}
+
+/**
+ * The feed's cards over an inclusive date window, newest first, typed by the
+ * engine. Empty when the engine is not open.
+ */
+export function readFeedCards(oldest: string, newest: string): FeedCard[] {
+  const engine = getEngine();
+  if (!engine?.getFeedCards) return [];
+  return engine.getFeedCards(
+    dayStartEpochSeconds(oldest),
+    dayEndEpochSeconds(newest)
+  ) as FeedCard[];
 }

@@ -7,9 +7,11 @@
  * placeholder before mounting the chart canvas, the cards below it follow on
  * the next frame and the wellness canvas on the one after. The calendar page
  * mounts nothing until it is visited, then paints its cards one per frame.
+ * The pages that read the range pin it, with the sport row where the page has
+ * one, as the scroll's sticky header; the calendar page pins nothing.
  */
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 
 import FitnessScreen from '@/app/(tabs)/fitness';
@@ -59,6 +61,7 @@ jest.mock('@/shared/app/useRevealChart', () => ({
   useRevealChart: () => ({
     scrollRef: { current: null },
     onAnchorLayout: jest.fn(),
+    onHeaderLayout: jest.fn(),
     onScrollBeginDrag: jest.fn(),
   }),
 }));
@@ -214,4 +217,47 @@ it('mounts the calendar page on its first visit and paints its cards one per fra
   } finally {
     frames.restore();
   }
+});
+
+/** The page's scroll, and the ids inside its first child when that child is pinned. */
+function pinnedOn(place: string) {
+  const scroll = within(screen.getByTestId(`tab-page-${place}`)).UNSAFE_getByType(ScrollView);
+  const sticky = scroll.props.stickyHeaderIndices as number[] | undefined;
+  const header = within(scroll).queryByTestId('fitness-pinned-header');
+  const first = React.Children.toArray(scroll.props.children)[0] as React.ReactElement<{
+    testID?: string;
+  }>;
+  const ids = header
+    ? header
+        .findAll((node) => typeof node.props.testID === 'string', { deep: true })
+        .map((node) => node.props.testID as string)
+    : [];
+  return { sticky, firstIsHeader: first?.props.testID === 'fitness-pinned-header', ids };
+}
+
+it('pins the range on the fitness page, the range and the sport row on performance and trends, and nothing on the calendar', async () => {
+  await render(<FitnessScreen />);
+
+  const fitness = pinnedOn('fitness');
+  expect(fitness.sticky).toEqual([0]);
+  expect(fitness.firstIsHeader).toBe(true);
+  expect(fitness.ids).toContain('time-range');
+  expect(fitness.ids).not.toContain('sport-toggle');
+
+  for (const place of ['performance', 'trends']) {
+    await fireEvent.press(screen.getByTestId(`tab-${place}`));
+    const pinned = pinnedOn(place);
+    expect(pinned.sticky).toEqual([0]);
+    expect(pinned.firstIsHeader).toBe(true);
+    expect([...new Set(pinned.ids)].filter((id) => id !== 'fitness-pinned-header')).toEqual([
+      'time-range',
+      'sport-toggle',
+    ]);
+  }
+
+  await fireEvent.press(screen.getByTestId('tab-calendar'));
+  const calendar = pinnedOn('calendar');
+  expect(calendar.sticky).toBeUndefined();
+  expect(calendar.firstIsHeader).toBe(false);
+  expect(calendar.ids).toEqual([]);
 });

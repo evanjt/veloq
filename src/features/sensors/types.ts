@@ -29,6 +29,8 @@ export interface SensorConnection {
   name: string;
   kinds: SensorKind[];
   batteryPercent?: number;
+  /** Received signal strength in dBm, read while the link is open. */
+  rssi?: number;
 }
 
 /**

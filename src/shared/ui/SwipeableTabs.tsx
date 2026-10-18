@@ -38,6 +38,7 @@ import {
 import { PressTarget } from '@/shared/ui/PressTarget';
 import { layoutTabStrip, scrollOffsetToShow } from '@/shared/ui/tabStripLayout';
 import { pagerPanDecision } from '@/shared/ui/pagerPanDecision';
+import { PagerScrollerContext, type RegisterPagerScroller } from './pagerScrollers';
 import { pageAccessibility } from './pagerAccessibility';
 import { isReduceMotionOn } from './reduceMotion';
 import { composeAccessibilityLabel } from './accessibilityLabel';
@@ -253,11 +254,20 @@ export function SwipeableTabs({
     scrollRef.current?.scrollTo({ x, animated: !isReduceMotionOn() });
   }, [scrolls, activeTab, getTabIndex, tabOffsets, tabWidths, contentWidth, pageWidth]);
 
+  // The horizontal scrollers on the pages, which the pan waits on, so a pan
+  // that starts on one scrolls it rather than paging.
+  const [scrollers, setScrollers] = useState<Parameters<RegisterPagerScroller>[0][]>([]);
+  const registerScroller = useCallback<RegisterPagerScroller>((gesture) => {
+    setScrollers((prev) => [...prev, gesture]);
+    return () => setScrollers((prev) => prev.filter((g) => g !== gesture));
+  }, []);
+
   // Memoize pan gesture to prevent recreation on every render
   const panGesture = useMemo(
     () =>
       Gesture.Pan()
         .enabled(gestureEnabled)
+        .requireExternalGestureToFail(...scrollers)
         // Decided by hand so a swipe the pager cannot use, or one from the
         // leading edge, fails and is left to the system back swipe.
         .manualActivation(true)
@@ -338,6 +348,7 @@ export function SwipeableTabs({
       windowWidth,
       swipeThreshold,
       gestureEnabled,
+      scrollers,
     ]
   );
 
@@ -488,16 +499,18 @@ export function SwipeableTabs({
         <Animated.View
           style={[styles.contentContainer, { width: pageWidth * tabCount }, contentStyle]}
         >
-          {React.Children.toArray(children).map((child, index) => (
-            <View
-              key={index}
-              testID={`tab-page-${tabs[index]?.key ?? index}`}
-              style={{ width: pageWidth }}
-              {...pageAccessibility(index, exposedIndex)}
-            >
-              {lazy && !visitedRef.current.has(index) ? null : child}
-            </View>
-          ))}
+          <PagerScrollerContext.Provider value={registerScroller}>
+            {React.Children.toArray(children).map((child, index) => (
+              <View
+                key={index}
+                testID={`tab-page-${tabs[index]?.key ?? index}`}
+                style={{ width: pageWidth }}
+                {...pageAccessibility(index, exposedIndex)}
+              >
+                {lazy && !visitedRef.current.has(index) ? null : child}
+              </View>
+            ))}
+          </PagerScrollerContext.Provider>
         </Animated.View>
       </GestureDetector>
     </View>

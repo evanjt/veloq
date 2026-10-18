@@ -16,7 +16,7 @@ import { render } from '@testing-library/react-native';
 import { FitnessChart } from '@/features/fitness/components/FitnessChart';
 import { ActivityDotsChart } from '@/features/fitness/components/ActivityDotsChart';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
-import type { Activity, WellnessData } from '@/types';
+import type { FeedCard, WellnessData } from '@/types';
 import { ABSENT } from '@/shared/format/absent';
 import { dayActivityRow } from '@/features/activity/light';
 
@@ -131,9 +131,9 @@ describe('the activity strip on a pinned day with no row', () => {
   const RIDE = {
     id: 'r1',
     name: 'Morning Ride',
-    type: 'Ride',
-    start_date_local: '2026-03-02T07:00:00',
-  } as Activity;
+    sportType: 'Ride',
+    startDateLocal: '2026-03-02T07:00:00',
+  } as FeedCard;
 
   it('drops the day selected before it rather than keeping its activity label', async () => {
     const tree = await render(

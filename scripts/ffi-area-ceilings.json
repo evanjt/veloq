@@ -1,5 +1,5 @@
 {
-  "//": "getGpsTrack, getActivityRecord, getActivityBodies, getActivityIntervals and getActivityStreams are read outside the screen reads on purpose: a track and a stored body are large and belong on the path that needs them, not on every mount. The engine's doc comment on activity_detail_data carries the measurement. setInteracting is a command: a touch signal pushed from the root view that the engine uses to pace its background passes, and no screen read carries it. RouteManager.liveOverlaps measures a polyline the recording screen holds in memory against saved route groups; the polyline is an argument, so it is a computation and not data a screen read could return.",
+  "//": "getGpsTrack, getActivityRecord, getActivityIntervals and getActivityStreams are read outside the screen reads on purpose: a track and a stored body are large and belong on the path that needs them, not on every mount. The engine's doc comment on activity_detail_data carries the measurement. setInteracting is a command: a touch signal pushed from the root view that the engine uses to pace its background passes, and no screen read carries it. RouteManager.liveOverlaps measures a polyline the recording screen holds in memory against saved route groups; the polyline is an argument, so it is a computation and not data a screen read could return.",
   "app": [
     "DetectionManager.awaitingCount",
     "RouteManager.getScreenData",
@@ -63,11 +63,14 @@
   ],
   "features/maps": [
     "ActivityManager.getGpsTrack",
+    "CacheSizeRun.cancel",
+    "CacheSizeRun.new",
+    "CacheSizeRun.progress",
+    "CacheSizeRun.start",
+    "CacheSizeRun.take",
     "HeatmapManager.clearPriorityView",
     "HeatmapManager.clearTiles",
-    "HeatmapManager.pollCacheSize",
     "HeatmapManager.setPriorityView",
-    "HeatmapManager.startCacheSize",
     "MapManager.getScreenData",
     "SettingsManager.getSetting"
   ],
@@ -215,7 +218,6 @@
   ],
   "features/wellness": ["FitnessManager.getWellnessDays"],
   "shared": [
-    "ActivityManager.getActivityBodies",
     "ActivityManager.replaceCalendarEvents",
     "ActivityManager.setCurveBody",
     "ActivityManager.setIntervalBody",

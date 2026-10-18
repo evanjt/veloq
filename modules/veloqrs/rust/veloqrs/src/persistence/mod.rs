@@ -2297,6 +2297,16 @@ pub(crate) fn pooled_stats(conn: &Connection) -> PersistentEngineStats {
 /// the window is the default one, as a legacy fallback read off the stored
 /// bodies would name a library nobody has signed in to.
 fn held_window_oldest(conn: &Connection) -> String {
+    activities::pooled::activity_window_oldest(conn, &stored_athlete_id(conn))
+}
+
+/// [`held_window_oldest`] with the default window measured back from `today`.
+pub(crate) fn held_window_oldest_on(conn: &Connection, today: chrono::NaiveDate) -> String {
+    activities::pooled::activity_window_oldest_on(conn, &stored_athlete_id(conn), today)
+}
+
+/// The athlete the library is stored for, empty when none is.
+pub(crate) fn stored_athlete_id(conn: &Connection) -> String {
     let athlete: Option<String> = conn
         .query_row(
             "SELECT value FROM settings WHERE key = ?1",
@@ -2306,7 +2316,7 @@ fn held_window_oldest(conn: &Connection) -> String {
         .optional()
         .ok()
         .flatten();
-    activities::pooled::activity_window_oldest(conn, athlete.as_deref().unwrap_or(""))
+    athlete.unwrap_or_default()
 }
 
 /// The committed catalogue for the routes screen. A deferred regroup is
@@ -3958,10 +3968,10 @@ pub mod persistent_engine_ffi {
     pub static CACHE_SIZE_HANDLE: LazyLock<Mutex<Option<CacheSizeHandle>>> =
         LazyLock::new(|| Mutex::new(None));
 
-    /// The figure the last walk produced. Three mount effects poll for one
-    /// walk, and only the first poll to observe completion gets the message
-    /// off the channel, so the other two read the figure from here or read
-    /// nothing at all. Cleared by `clear_tiles`, which makes it wrong.
+    /// The figure a finished walk produced, held until `CacheSizeRun::take`.
+    /// Only one read gets the message off the channel, so the figure moves
+    /// here and outlives that read. Cleared by `clear_tiles`, which makes it
+    /// wrong.
     pub static CACHE_SIZE_LAST: LazyLock<Mutex<Option<u64>>> = LazyLock::new(|| Mutex::new(None));
 
     /// Handle for the running derived-catalogue wipe, if any.

@@ -54,7 +54,7 @@ tags:
     duration: 800
 
 - assertVisible:
-    text: "Remove"
+    id: "section-swipe-remove"
 
 - swipe:
     from:
@@ -63,14 +63,14 @@ tags:
     duration: 800
 
 - assertVisible:
-    text: "Remove"
+    id: "section-swipe-remove"
 - assertNotVisible:
-    text: "Remove"
+    id: "section-swipe-remove"
     index: 1
 
 # Removal keeps the section, so it runs at once and offers Undo in a notice.
 - tapOn:
-    text: "Remove"
+    id: "section-swipe-remove"
 - extendedWaitUntil:
     visible:
       id: "notice-snackbar"

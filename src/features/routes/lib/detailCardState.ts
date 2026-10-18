@@ -6,7 +6,7 @@
  */
 import { useMemo } from 'react';
 
-import { patchHostTopCard, useHostTopCardField } from '@/shared/app/mapSheetHost';
+import { patchHostCard, useHostTopCardField } from '@/shared/app/mapSheetHost';
 import type { RoutePoint } from '@/types';
 import type { SectionDeltaLine } from './deltaLayout';
 import type { MapHighlight } from './mapHighlight';
@@ -28,18 +28,23 @@ export interface DetailCardWriter {
   setShownDirection: (direction: ChartDirection | null) => void;
 }
 
-/** The writes a card makes to the card on show in its host. */
-export function detailCardWriter(hostKey: string): DetailCardWriter {
+/**
+ * The writes a card makes to its own state, at `index` in its host's stack, the root at 0. A card
+ * kept mounted under another writes to itself rather than to the card on show.
+ */
+export function detailCardWriter(hostKey: string, index: number): DetailCardWriter {
+  const patch = (fields: Readonly<Record<string, unknown>>) =>
+    patchHostCard(hostKey, index, fields);
   return {
     selectAttempt: (activityId, lapPoints, date) =>
-      patchHostTopCard(hostKey, {
+      patch({
         [ATTEMPT_ID]: activityId,
         [ATTEMPT_LAP_POINTS]: lapPoints,
         [ATTEMPT_DATE]: date?.getTime(),
       }),
-    setSport: (sport) => patchHostTopCard(hostKey, { [SPORT]: sport }),
-    setDeltaLine: (deltaLine) => patchHostTopCard(hostKey, { [DELTA_LINE]: deltaLine }),
-    setShownDirection: (direction) => patchHostTopCard(hostKey, { [SHOWN_DIRECTION]: direction }),
+    setSport: (sport) => patch({ [SPORT]: sport }),
+    setDeltaLine: (deltaLine) => patch({ [DELTA_LINE]: deltaLine }),
+    setShownDirection: (direction) => patch({ [SHOWN_DIRECTION]: direction }),
   };
 }
 

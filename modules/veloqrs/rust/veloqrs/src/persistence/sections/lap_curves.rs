@@ -770,7 +770,7 @@ where
                 let missed = |reason| FfiLapDeltaMissing {
                     activity_id: record.activity_id.clone(),
                     start_index: lap.start_index,
-                    activity_date: record.activity_date as f64,
+                    activity_date: record.activity_date.0 as f64,
                     reason,
                 };
                 let clock = match clocks.get(&key_of(lap)) {
@@ -785,7 +785,7 @@ where
                     Some(d) => laps.push(FfiLapDelta {
                         activity_id: record.activity_id.clone(),
                         start_index: lap.start_index,
-                        activity_date: record.activity_date as f64,
+                        activity_date: record.activity_date.0 as f64,
                         delta_secs: d.delta_secs.into(),
                         split_delta_secs: d.split_delta_secs.into(),
                         split_secs: d.split_secs.into(),

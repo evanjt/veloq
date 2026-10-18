@@ -1,95 +1,24 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import {
-  DetailFallback,
-  SectionHistoryPanel,
-  useLedgerActivityNames,
-  useSectionDetailData,
-  useSectionLedger,
-} from '@/features/routes';
-import { colors, darkColors, layout, spacing } from '@/theme';
+import { SectionHistoryCard } from '@/features/routes';
 import { ScreenScrollView } from '@/shared/ui';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
-import { navigateTo } from '@/shared/app/navigation';
-import { confirmAction } from '@/shared/ui/dialog';
+import { colors, darkColors, layout, spacing } from '@/theme';
 
-function SectionHistoryScreenContent() {
+/** A section's history on its own screen, opened from outside a map sheet or by a link. */
+function SectionHistoryScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { t } = useTranslation();
+  return <SectionHistoryCard id={id} Scroll={ScreenScroll} />;
+}
+
+/** The screen's own scroll under its stack header, on the page's ground. */
+function ScreenScroll({ children }: { children: React.ReactNode }) {
   const { isDark } = useTheme();
-  const [refreshKey, setRefreshKey] = useState(0);
-  const refresh = useCallback(() => setRefreshKey((key) => key + 1), []);
-  const { data: detail, status } = useSectionDetailData(id, refreshKey);
-  const bundledLedger = useMemo(
-    () =>
-      detail
-        ? {
-            history: detail.history,
-            geometryVersions: detail.geometryVersions,
-            pinnedVersion: detail.pinnedVersion,
-          }
-        : undefined,
-    [detail]
-  );
-  const ledger = useSectionLedger(id, bundledLedger);
-  const activityNames = useLedgerActivityNames(ledger.history);
-  const revert = useCallback(
-    (version: number) => {
-      if (ledger.isReverting) return;
-      confirmAction({
-        title: t('sectionHistory.revert'),
-        message: t('sectionHistory.revertConfirm', { version }),
-        confirmLabel: t('sectionHistory.revert'),
-        cancelLabel: t('common.cancel'),
-        onConfirm: async () => {
-          if (await ledger.revert(version)) refresh();
-        },
-      });
-    },
-    [ledger, refresh, t]
-  );
-  const unpin = useCallback(() => {
-    if (ledger.isReverting) return;
-    if (ledger.unpin()) refresh();
-  }, [ledger, refresh]);
-  const showVersion = useCallback(
-    (version: number | null) => {
-      if (version === null) return;
-      navigateTo({ pathname: '/section/[id]', params: { id, previewVersion: String(version) } });
-    },
-    [id]
-  );
-
-  if (!detail?.section) {
-    return (
-      <DetailFallback
-        isDark={isDark}
-        status={status}
-        onRetry={refresh}
-        notFoundMessage={t('sections.sectionNotFound')}
-      />
-    );
-  }
-
   return (
     <View style={[styles.screen, isDark && styles.screenDark]}>
-      <ScreenScrollView contentContainerStyle={styles.content}>
-        <SectionHistoryPanel
-          isDark={isDark}
-          history={ledger.history}
-          versions={ledger.versions}
-          pinnedVersion={ledger.pinnedVersion}
-          shownVersion={null}
-          onShowVersion={showVersion}
-          onRevert={revert}
-          onUnpin={unpin}
-          isReverting={ledger.isReverting}
-          activityNames={activityNames}
-        />
-      </ScreenScrollView>
+      <ScreenScrollView contentContainerStyle={styles.content}>{children}</ScreenScrollView>
     </View>
   );
 }
@@ -100,4 +29,4 @@ const styles = StyleSheet.create({
   content: { padding: layout.screenPadding, paddingBottom: spacing.xl },
 });
 
-export default withScreenBoundary(SectionHistoryScreenContent, 'Section History');
+export default withScreenBoundary(SectionHistoryScreen, 'Section History');

@@ -30,9 +30,9 @@ use rusqlite::Connection;
 use tempfile::TempDir;
 use tracematch::GpsPoint;
 use veloqrs::FfiSectionConfig;
-use veloqrs::objects::SectionPreview;
 use veloqrs::objects::start::FfiStartOutcome;
 use veloqrs::objects::start::FfiStartOutcome::Started;
+use veloqrs::objects::{FfiRunState, SectionPreview};
 use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
 use veloqrs::persistence::{detection_suspended, with_persistent_engine};
 
@@ -213,7 +213,7 @@ fn an_abandoned_preview_does_not_wedge_the_slot() {
         preview.start(46.01, 7.0, ffi_cfg.clone()).expect("start"),
         Started
     );
-    preview.cancel().expect("cancel");
+    preview.cancel();
     // No further polls: the poller is gone, exactly as an unmounted screen.
 
     let deadline = Instant::now() + Duration::from_secs(120);
@@ -231,19 +231,19 @@ fn an_abandoned_preview_does_not_wedge_the_slot() {
     // Drive the superseding run to its end so the slot is clean.
     let deadline = Instant::now() + Duration::from_secs(120);
     loop {
-        match preview.poll().expect("poll").as_str() {
-            "complete" => {
-                preview.take_result().expect("take");
+        match preview.progress().state {
+            FfiRunState::Complete => {
+                preview.take();
                 break;
             }
-            "cancelled" | "error" | "idle" => break,
+            FfiRunState::Cancelled | FfiRunState::Failed | FfiRunState::Idle => break,
             _ => {
                 assert!(Instant::now() < deadline, "second preview never ended");
                 std::thread::sleep(Duration::from_millis(50));
             }
         }
     }
-    assert_eq!(preview.poll().expect("final poll"), "idle");
+    assert_ne!(preview.progress().state, FfiRunState::Running);
 }
 
 /// Scenario: the athlete opens the preview screen, runs a detect over a
@@ -297,21 +297,20 @@ fn a_full_preview_run_leaves_everything_the_athlete_saved_alone() {
 
     let deadline = Instant::now() + Duration::from_secs(120);
     loop {
-        let status = preview.poll().expect("poll");
-        if status == "complete" {
+        let status = preview.progress().state;
+        if status == FfiRunState::Complete {
             break;
         }
         assert!(
-            status == "running",
-            "preview ended in '{status}' instead of completing"
+            status == FfiRunState::Running,
+            "preview ended in {status:?} instead of completing"
         );
         assert!(Instant::now() < deadline, "preview never completed");
         std::thread::sleep(Duration::from_millis(50));
     }
 
     let payload = preview
-        .take_result()
-        .expect("take call")
+        .take()
         .expect("a completed preview yields a payload");
     assert_eq!(
         payload.pool.activities, 4,
@@ -321,11 +320,8 @@ fn a_full_preview_run_leaves_everything_the_athlete_saved_alone() {
         !payload.sections.is_empty(),
         "the payload names no sections over a pool the real detect cut one from"
     );
-    assert!(
-        preview.take_result().expect("second take").is_none(),
-        "the payload leaves exactly once"
-    );
-    assert_eq!(preview.poll().expect("poll after take"), "idle");
+    assert!(preview.take().is_none(), "the payload leaves exactly once");
+    assert_eq!(preview.progress().state, FfiRunState::Idle);
 
     assert_eq!(
         changed_tables(&rows_before, &table_rows(&path, PREVIEW_BOOKKEEPING)),

@@ -72,7 +72,7 @@ async function setup() {
   }
 
   await render(<Root />);
-  return { card: detailCardWriter(KEY), rootRenders };
+  return { card: detailCardWriter(KEY, 0), rootRenders };
 }
 
 const lastMapProps = () => mockMapProps.mock.calls[mockMapProps.mock.calls.length - 1][0];

@@ -66,7 +66,6 @@ import {
   FfiGroupSort,
   FfiSectionSort,
   FfiSportFamily,
-  type FfiActivityBodiesPage,
   type FfiFeedCard,
   type FfiGroupWithPolyline,
   type FfiSectionWithPolyline,
@@ -160,6 +159,9 @@ export type {
   CutoverSettings,
   CutoverSettingsReset,
 } from './delegates/cutover';
+
+// Where an engine run stands, as every run handle reports it
+export type { RunProgress, RunStatus } from './delegates/run';
 
 // Preview detection consumer types
 export type {
@@ -269,8 +271,6 @@ export type RoutesScreenData = FfiRoutesScreenData;
 export type RoutesScreenQuery = FfiRoutesScreenQuery;
 export type SectionHiddenFilters = FfiSectionFilters;
 export { FfiGroupSort as GroupSort, FfiSectionSort as SectionSort };
-// A window of stored bodies, for the readers that still parse them
-export type ActivityBodiesPage = FfiActivityBodiesPage;
 // One feed card, typed by the engine from the stored body
 export type FeedCard = FfiFeedCard;
 export { FfiSportFamily as EngineSportFamily };

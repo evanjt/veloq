@@ -4,7 +4,7 @@
  * Expected behaviour: the scrub chip reads the absent mark over a missing sample for every
  * metric, pace included, rather than NaN or a 0:00 pace nobody ran, and swim
  * pace per 100 yd agrees with `formatSwimPace` for the same speed. The idle
- * chip formats as the scrub does, and its pace is the pace of the mean moving
+ * lane readout formats as the scrub does, and its pace is the pace of the mean moving
  * speed, so a stop neither reads as a faster pace nor stretches the axis.
  */
 
@@ -16,8 +16,8 @@ import {
 } from '@/features/activity/lib/chartConfig';
 import {
   buildChartData,
-  computeAllAverages,
   formatScrubValue,
+  laneReadout,
   seriesAverage,
 } from '@/features/stats/lib/combinedPlotData';
 import { paceMinutesFromSample, paceMinutesFromSpeed } from '@/shared/math/kinematics';
@@ -178,17 +178,16 @@ describe('the chart converts units as the shared formatters do', () => {
 
 function idleChip(
   configs: Record<ChartTypeId, ChartConfig>,
-  streams: Parameters<typeof computeAllAverages>[1],
+  streams: ReturnType<typeof streamsOf>,
   id: ChartTypeId,
   isMetric = true,
   elevationGain = 0
 ) {
-  return computeAllAverages(configs, streams, isMetric, elevationGain).find(
-    (chip) => chip.id === id
-  );
+  const config = configs[id];
+  return laneReadout(config, config.getStream?.(streams) ?? [], null, isMetric, elevationGain);
 }
 
-describe('the idle chip formats as the scrub does', () => {
+describe('the idle lane readout formats as the scrub does', () => {
   it('agrees with a scrub of the same value in both unit systems', () => {
     const streams = streamsOf({ heartrate: [150, 150], altitude: [100, 100], temp: [12.4, 12.4] });
     for (const isMetric of [true, false]) {
@@ -198,8 +197,7 @@ describe('the idle chip formats as the scrub does', () => {
       ] as const) {
         const chip = idleChip(CHART_CONFIGS, streams, id, isMetric);
         const scrubbed = formatScrubValue(CHART_CONFIGS[id], value, isMetric);
-        expect(chip?.value).toBe(scrubbed);
-        expect(chip?.maxValueWidth).toBe(scrubbed);
+        expect(chip.value).toBe(scrubbed);
       }
     }
   });
@@ -209,8 +207,7 @@ describe('the idle chip formats as the scrub does', () => {
     const configs = { heartrate: blank } as unknown as Record<ChartTypeId, ChartConfig>;
     const chip = idleChip(configs, streamsOf({ heartrate: [150, 150] }), 'heartrate');
     expect(formatScrubValue(blank, 150, true)).toBe(ABSENT);
-    expect(chip?.value).toBe(ABSENT);
-    expect(chip?.maxValueWidth).toBe(ABSENT);
+    expect(chip.value).toBe(ABSENT);
   });
 
   it('keeps the + on elevation gain, converted for an imperial athlete', () => {
@@ -219,11 +216,10 @@ describe('the idle chip formats as the scrub does', () => {
     expect(idleChip(CHART_CONFIGS, streams, 'elevation', false, 25)?.value).toBe(
       `+${formatScrubValue(CHART_CONFIGS.elevation, 25, false)}`
     );
-    expect(idleChip(CHART_CONFIGS, streams, 'elevation', true, 25)?.maxValueWidth).toBe('+25');
   });
 });
 
-describe('the idle pace chip over a run with stops', () => {
+describe('the idle pace readout over a run with stops', () => {
   const stopped = streamsOf({ velocity_smooth: [3, 3, 0, 0] });
   const crawling = streamsOf({ velocity_smooth: [3, 3, 0.05, 0.05] });
 
@@ -244,10 +240,6 @@ describe('the idle pace chip over a run with stops', () => {
   it('is the pace of the mean speed, not the mean of the paces', () => {
     const streams = streamsOf({ velocity_smooth: [2, 4] });
     expect(idleChip(CHART_CONFIGS, streams, 'pace')?.value).toBe(formatPaceCompact(3, true));
-  });
-
-  it('sizes the chip for the slowest moving pace, not the crawl', () => {
-    expect(idleChip(CHART_CONFIGS, crawling, 'pace')?.maxValueWidth).toBe('5:33');
   });
 
   it('reads the moving grade adjusted pace', () => {
@@ -286,11 +278,9 @@ describe('the idle pace chip over a run with stops', () => {
   });
 });
 
-describe('the idle chips drop stops by the sport the activity was', () => {
+describe('the idle readouts drop stops by the sport the activity was', () => {
   const chip = (type: Parameters<typeof chartConfigsFor>[0], id: ChartTypeId, v: number[]) =>
-    computeAllAverages(chartConfigsFor(type), streamsOf({ velocity_smooth: v }), true, 0).find(
-      (m) => m.id === id
-    )?.value;
+    idleChip(chartConfigsFor(type), streamsOf({ velocity_smooth: v }), id).value;
 
   it('leaves a ride standstill drift of 1.5 km/h out of the speed chip', () => {
     expect(chip('Ride', 'speed', [8, 8, 0.42, 0.42])).toBe('28.8');

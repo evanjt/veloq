@@ -3,6 +3,12 @@
 // Tiles: OpenFreeMap (MIT license)
 // Cartography: Based on CartoDB Dark Matter by Stamen Design (CC0)
 // Colours: the dark base's ground, road and label tones
+//
+// A style of its own rather than a theme of the liberty layers. It is a
+// different cartography over the same tiles: 33 layers drawn from its own
+// upstream against liberty's 111, no sprite, and only the generic background,
+// water, waterway and building ids in common, so recolouring liberty would draw
+// a busier map than this one, not this one in other tones.
 
 import { MAP_TEXT_FONT_REGULAR } from '@/features/maps/lib/bundledGlyphs';
 import { basemapTones } from '@/features/maps/styles/basemapTones';

@@ -86,7 +86,7 @@ const mockSection: FrequentSection = {
 
 beforeEach(() => {
   const key = openHost('section', mockSection.id);
-  detailCardWriter(key).selectAttempt(null, POLYLINE);
+  detailCardWriter(key, 0).selectAttempt(null, POLYLINE);
 });
 
 afterEach(() => closeHost(`section:${mockSection.id}`));

@@ -21,7 +21,9 @@ import {
   base64ToBytes,
 } from './gatt';
 import { createCrankCadenceCalculator } from './cadence';
-import { SENSOR_NO_DATA_MS, sensorConnectionHealth } from './connectionHealth';
+import { sensorConnectionHealth, silentLinkTeardownMs } from './connectionHealth';
+import { recordSensorLink, type SensorLinkEvent } from './sensorLinkTrace';
+import { stopSimulatedSensors } from './simulatedSensors';
 import type { KnownSensor, SensorAvailability, SensorKind } from '../types';
 import type { BleManager, Device, Subscription } from 'react-native-ble-plx';
 
@@ -356,12 +358,20 @@ export function stopScan(): void {
 
 // ─── Connections ──────────────────────────────────────────────────────────────
 
+/** One characteristic monitor, counted so the trace can say what it carried. */
+interface MonitorLink {
+  characteristic: string;
+  registeredAt: number;
+  samples: number;
+}
+
 interface ActiveConnection {
+  sensor: KnownSensor;
   device: Device;
+  monitors: MonitorLink[];
   subscriptions: Subscription[];
   disconnectSub: Subscription | null;
   cancelled: boolean;
-  reconnectAttempt: number;
   /** `first` for the initial connect, `retry` once a reconnect drove it. */
   attempt: 'first' | 'retry';
   /** When the monitors were registered, null while they are being registered. */
@@ -373,6 +383,15 @@ interface ActiveConnection {
 
 const activeConnections = new Map<string, ActiveConnection>();
 
+/** Write one event about this sensor's link into the trace the debug screen reads. */
+function traceLink(
+  sensor: KnownSensor,
+  kind: SensorLinkEvent['kind'],
+  fields?: Pick<SensorLinkEvent, 'characteristic' | 'ms' | 'count' | 'detail'>
+): void {
+  recordSensorLink({ sensorId: sensor.id, sensorName: sensor.name, kind, ...fields });
+}
+
 /**
  * The pending reconnect per sensor, so a deliberate disconnect can cancel it.
  * It used to be a field on `ActiveConnection`, which is deleted before the
@@ -382,6 +401,15 @@ const activeConnections = new Map<string, ActiveConnection>();
 const reconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 /**
+ * How many times in a row each sensor's link was torn down for carrying
+ * nothing. It outlives the `ActiveConnection` a teardown deletes, so the next
+ * silence is given longer and the reconnect after it waits longer. A sample
+ * resets it, and so does a deliberate disconnect, which is also how a
+ * session ends.
+ */
+const silentCycles = new Map<string, number>();
+
+/**
  * Bumped by every teardown, so a connect still in flight can see that the
  * sensor it is connecting was disconnected while it awaited. Without it the
  * landing connect recreated the entry after the ride ended, and the next
@@ -389,11 +417,28 @@ const reconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
  */
 const connectGenerations = new Map<string, number>();
 
+/** A screen that keeps the paired sensors connected while it is open. */
+export type SensorHolder = 'entry' | 'session';
+
 /**
- * Set by `connectKnownSensors`, which the recording screen calls on mount,
- * and cleared by `disconnectAllSensors`, which ends that session.
+ * The screens holding the paired sensors: the record entry screen from the
+ * moment it opens, and the recording screen. Emptied by
+ * `disconnectAllSensors`, which ends the session.
  */
-let sessionHeld = false;
+const holders = new Set<SensorHolder>();
+
+/**
+ * How long the last hold may be let go before the sensors are disconnected.
+ * Start replaces the entry screen with the recording screen, and which of the
+ * two runs its effect first is up to the navigator, so the recording screen's
+ * hold has this long to land before anything is torn down.
+ */
+export const SENSOR_RELEASE_GRACE_MS = 2000;
+
+let releaseTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Sensors the athlete disconnected for this session, which no hold connects again. */
+const droppedForSession = new Set<string>();
 
 /** Sensors the Sensors screen connected to confirm a pairing. */
 const pairingConnections = new Set<string>();
@@ -404,7 +449,7 @@ const pairingConnections = new Set<string>();
  * and a pairing connection kept when its screen is left.
  */
 function sessionOwnsConnections(): boolean {
-  return sessionHeld || useRecordingStore.getState().status !== 'idle';
+  return holders.size > 0 || useRecordingStore.getState().status !== 'idle';
 }
 
 /**
@@ -417,6 +462,7 @@ function publishHealth(sensor: KnownSensor, active: ActiveConnection): void {
     attempt: active.attempt,
     subscribedAt: active.subscribedAt,
     lastSampleAt: active.lastSampleAt,
+    silentCycles: silentCycles.get(sensor.id) ?? 0,
     now: Date.now(),
   });
   const existing = useSensorStore.getState().connections[sensor.id];
@@ -433,8 +479,17 @@ function publishHealth(sensor: KnownSensor, active: ActiveConnection): void {
  * A notification arrived, whatever it carried. The link is what is being
  * timed here, so an unparseable frame counts: it still proves data flows.
  */
-function noteSample(sensor: KnownSensor, active: ActiveConnection): void {
-  active.lastSampleAt = Date.now();
+function noteSample(sensor: KnownSensor, active: ActiveConnection, link: MonitorLink): void {
+  const now = Date.now();
+  active.lastSampleAt = now;
+  silentCycles.delete(sensor.id);
+  link.samples++;
+  if (link.samples === 1) {
+    traceLink(sensor, 'firstSample', {
+      characteristic: link.characteristic,
+      ms: now - link.registeredAt,
+    });
+  }
   publishHealth(sensor, active);
 }
 
@@ -443,9 +498,44 @@ function noteSample(sensor: KnownSensor, active: ActiveConnection): void {
  * stream through the monitor callback. Dropping it left a silent strap
  * indistinguishable from a working one.
  */
-function logMonitorError(sensor: KnownSensor, characteristic: string, error: unknown): void {
+function logMonitorError(
+  sensor: KnownSensor,
+  label: string,
+  characteristic: string,
+  error: unknown
+): void {
   const message = (error as { message?: string })?.message ?? String(error);
-  log.warn(`Sensor monitor failed: ${sensor.name}`, `${characteristic}: ${message}`);
+  log.warn(`Sensor monitor failed: ${sensor.name}`, `${label}: ${message}`);
+  traceLink(sensor, 'monitorError', { characteristic, detail: message });
+}
+
+/**
+ * Register one characteristic monitor. An error is logged and traced, an empty
+ * frame is ignored, and every frame with a value is counted as a sample before
+ * `onValue` parses it.
+ */
+function monitorCharacteristic(
+  active: ActiveConnection,
+  sensor: KnownSensor,
+  service: string,
+  characteristic: string,
+  label: string,
+  onValue: (value: string) => void
+): void {
+  const link: MonitorLink = { characteristic, registeredAt: Date.now(), samples: 0 };
+  active.monitors.push(link);
+  traceLink(sensor, 'monitorRegistered', { characteristic });
+  active.subscriptions.push(
+    active.device.monitorCharacteristicForService(service, characteristic, (error, frame) => {
+      if (error) {
+        logMonitorError(sensor, label, characteristic, error);
+        return;
+      }
+      if (!frame?.value) return;
+      noteSample(sensor, active, link);
+      onValue(frame.value);
+    })
+  );
 }
 
 async function subscribeToSensor(active: ActiveConnection, sensor: KnownSensor): Promise<void> {
@@ -454,65 +544,54 @@ async function subscribeToSensor(active: ActiveConnection, sensor: KnownSensor):
   const store = useSensorStore.getState;
 
   if (kinds.includes('heartRate')) {
-    active.subscriptions.push(
-      device.monitorCharacteristicForService(
-        HEART_RATE_SERVICE,
-        HEART_RATE_MEASUREMENT,
-        (error, characteristic) => {
-          if (error) {
-            logMonitorError(sensor, 'heart rate', error);
-            return;
-          }
-          if (!characteristic?.value) return;
-          noteSample(sensor, active);
-          const hr = parseHeartRate(base64ToBytes(characteristic.value));
-          if (hr != null && hr > 0 && hr < 255) store().setLatest('heartRate', hr, sensor.id);
-        }
-      )
+    monitorCharacteristic(
+      active,
+      sensor,
+      HEART_RATE_SERVICE,
+      HEART_RATE_MEASUREMENT,
+      'heart rate',
+      (value) => {
+        const hr = parseHeartRate(base64ToBytes(value));
+        if (hr != null && hr > 0 && hr < 255) store().setLatest('heartRate', hr, sensor.id);
+      }
     );
   }
 
   if (kinds.includes('power')) {
     const cadenceFromCrank = createCrankCadenceCalculator();
-    active.subscriptions.push(
-      device.monitorCharacteristicForService(
-        CYCLING_POWER_SERVICE,
-        CYCLING_POWER_MEASUREMENT,
-        (error, characteristic) => {
-          if (error) {
-            logMonitorError(sensor, 'cycling power', error);
-            return;
-          }
-          if (!characteristic?.value) return;
-          noteSample(sensor, active);
-          const parsed = parseCyclingPower(base64ToBytes(characteristic.value));
-          if (!parsed) return;
-          if (parsed.power >= 0) store().setLatest('power', parsed.power, sensor.id);
-          if (parsed.crank) {
-            const rpm = cadenceFromCrank.update(parsed.crank, Date.now());
-            if (rpm != null) store().setLatest('cadence', rpm, sensor.id, 'derived');
-          }
+    monitorCharacteristic(
+      active,
+      sensor,
+      CYCLING_POWER_SERVICE,
+      CYCLING_POWER_MEASUREMENT,
+      'cycling power',
+      (value) => {
+        const parsed = parseCyclingPower(base64ToBytes(value));
+        if (!parsed) return;
+        if (parsed.power >= 0) store().setLatest('power', parsed.power, sensor.id);
+        if (parsed.crank) {
+          const rpm = cadenceFromCrank.update(parsed.crank, Date.now());
+          if (rpm != null) store().setLatest('cadence', rpm, sensor.id, 'derived');
         }
-      )
+      }
     );
   }
 
   if (kinds.includes('cadence')) {
     const cadenceFromCrank = createCrankCadenceCalculator();
-    active.subscriptions.push(
-      device.monitorCharacteristicForService(CSC_SERVICE, CSC_MEASUREMENT, (error, char) => {
-        if (error) {
-          logMonitorError(sensor, 'speed and cadence', error);
-          return;
-        }
-        if (!char?.value) return;
-        noteSample(sensor, active);
-        const parsed = parseCsc(base64ToBytes(char.value));
+    monitorCharacteristic(
+      active,
+      sensor,
+      CSC_SERVICE,
+      CSC_MEASUREMENT,
+      'speed and cadence',
+      (value) => {
+        const parsed = parseCsc(base64ToBytes(value));
         if (parsed?.crank) {
           const rpm = cadenceFromCrank.update(parsed.crank, Date.now());
           if (rpm != null) store().setLatest('cadence', rpm, sensor.id);
         }
-      })
+      }
     );
   }
 
@@ -535,8 +614,10 @@ async function connectAndSubscribe(sensor: KnownSensor, attempt: number): Promis
   const existing = activeConnections.get(sensor.id);
   if (existing && !existing.cancelled) return;
 
+  // A link reconnected after carrying nothing keeps saying so until a sample lands.
+  const pending = attempt === 0 ? 'connecting' : 'reconnecting';
   useSensorStore.getState().setConnection(sensor.id, {
-    status: attempt === 0 ? 'connecting' : 'reconnecting',
+    status: (silentCycles.get(sensor.id) ?? 0) > 0 ? 'noData' : pending,
     name: sensor.name,
     kinds: sensor.kinds,
   });
@@ -549,23 +630,29 @@ async function connectAndSubscribe(sensor: KnownSensor, attempt: number): Promis
   const superseded = () => (connectGenerations.get(sensor.id) ?? 0) !== generation;
 
   try {
+    const connectStartedAt = Date.now();
+    traceLink(sensor, 'connectStart');
     const device = await ble.connectToDevice(sensor.id, { timeout: 10_000 });
+    const connectedAt = Date.now();
+    traceLink(sensor, 'connected', { ms: connectedAt - connectStartedAt });
     if (superseded()) {
       abandonConnect(sensor.id);
       return;
     }
     await device.discoverAllServicesAndCharacteristics();
+    traceLink(sensor, 'discovered', { ms: Date.now() - connectedAt });
     if (superseded()) {
       abandonConnect(sensor.id);
       return;
     }
 
     const active: ActiveConnection = {
+      sensor,
       device,
+      monitors: [],
       subscriptions: [],
       disconnectSub: null,
       cancelled: false,
-      reconnectAttempt: 0,
       attempt: attempt === 0 ? 'first' : 'retry',
       subscribedAt: null,
       lastSampleAt: null,
@@ -575,9 +662,11 @@ async function connectAndSubscribe(sensor: KnownSensor, attempt: number): Promis
 
     active.disconnectSub = ble.onDeviceDisconnected(sensor.id, () => {
       log.warn(`Sensor disconnected: ${sensor.name}`);
+      traceLink(sensor, 'disconnected');
       cleanupConnection(sensor.id, { keepStoreEntry: true });
       const conn = useSensorStore.getState().connections[sensor.id];
-      if (conn) scheduleReconnect(sensor);
+      // A drop that follows silent cycles keeps the backoff they built up.
+      if (conn) scheduleReconnect(sensor, Math.max(1, silentCycles.get(sensor.id) ?? 0));
     });
 
     await subscribeToSensor(active, sensor);
@@ -599,21 +688,53 @@ async function connectAndSubscribe(sensor: KnownSensor, attempt: number): Promis
 
 /**
  * A link that has carried nothing for the watchdog interval is reported as
- * such and then torn down for a reconnect, because a fresh connect and CCCD
- * write is the recovery every BLE central falls back to.
+ * such at once, and torn down for a reconnect once it has been silent for
+ * `silentLinkTeardownMs` of the silent cycles before it, so each further
+ * silence is left subscribed longer and reconnected later.
+ *
+ * The teardown drops Veloq's client and removes its monitors, writing the
+ * CCCD off. When another client holds the same LE link the link itself stays
+ * up, so the reconnect is a fresh CCCD write on that link rather than a new
+ * connection.
  */
 function watchdogTick(sensor: KnownSensor): void {
   const active = activeConnections.get(sensor.id);
   if (!active || active.cancelled) return;
   publishHealth(sensor, active);
+  readSignal(sensor.id, active);
   if (useSensorStore.getState().connections[sensor.id]?.status !== 'noData') return;
 
-  log.warn(`Sensor sent nothing for ${SENSOR_NO_DATA_MS} ms, reconnecting: ${sensor.name}`);
+  const cycles = silentCycles.get(sensor.id) ?? 0;
+  const since = active.lastSampleAt ?? active.subscribedAt;
+  const silentFor = since === null ? 0 : Date.now() - since;
+  const teardownMs = silentLinkTeardownMs(cycles);
+  if (silentFor < teardownMs) return;
+
+  log.warn(`Sensor sent nothing for ${teardownMs} ms, reconnecting: ${sensor.name}`);
+  traceLink(sensor, 'watchdogFired', { ms: silentFor });
   cleanupConnection(sensor.id, { keepStoreEntry: true });
   void bleManager?.cancelDeviceConnection(sensor.id).catch(() => {
     // Already gone, which is the outcome wanted.
   });
-  scheduleReconnect(sensor);
+  silentCycles.set(sensor.id, cycles + 1);
+  scheduleReconnect(sensor, cycles + 1);
+}
+
+/**
+ * The received signal strength of an open link, for the row that shows it. A
+ * failed read leaves the last reading, since the watchdog is what judges the
+ * link.
+ */
+function readSignal(id: string, active: ActiveConnection): void {
+  void Promise.resolve()
+    .then(() => active.device.readRSSI())
+    .then((device) => {
+      if (active.cancelled || device.rssi == null) return;
+      useSensorStore.getState().setSignal(id, device.rssi);
+    })
+    .catch(() => {
+      // No reading this tick.
+    });
 }
 
 /** Drop the device a superseded connect opened, so it does not stay connected. */
@@ -645,6 +766,7 @@ function scheduleReconnect(sensor: KnownSensor, attempt = 1): void {
     return;
   }
   const delay = Math.min(RECONNECT_BASE_MS * 2 ** Math.min(attempt, 6), RECONNECT_MAX_MS);
+  traceLink(sensor, 'reconnectScheduled', { ms: delay });
   const timer = setTimeout(() => {
     reconnectTimers.delete(sensor.id);
     // Still wanted? (disconnectSensor removes the store entry)
@@ -665,6 +787,7 @@ const parkedSensors = new Map<string, KnownSensor>();
 
 function parkSensor(sensor: KnownSensor): void {
   log.log(`Waiting for Bluetooth before connecting: ${sensor.name}`);
+  traceLink(sensor, 'parked');
   const timer = reconnectTimers.get(sensor.id);
   if (timer) clearTimeout(timer);
   reconnectTimers.delete(sensor.id);
@@ -697,24 +820,86 @@ function cleanupConnection(id: string, options?: { keepStoreEntry?: boolean }): 
     for (const sub of active.subscriptions) sub.remove();
     active.disconnectSub?.remove();
     activeConnections.delete(id);
+    for (const link of active.monitors) {
+      traceLink(active.sensor, 'sampleCount', {
+        characteristic: link.characteristic,
+        count: link.samples,
+      });
+    }
+    traceLink(active.sensor, 'teardown');
   }
   if (!options?.keepStoreEntry) {
+    silentCycles.delete(id);
     useSensorStore.getState().setConnection(id, null);
     useSensorStore.getState().dropSources(id);
   }
 }
 
 /**
- * Connect every paired sensor and hold them for the recording session, which
- * the recording screen starts on mount. `disconnectAllSensors` ends it.
+ * Keep the paired sensors connected while the holder is open. Taking a hold
+ * cancels a pending release, which is how the recording screen takes the
+ * entry screen's connections over without a reconnect.
+ */
+export function holdSensors(holder: SensorHolder): void {
+  holders.add(holder);
+  if (releaseTimer) {
+    clearTimeout(releaseTimer);
+    releaseTimer = null;
+  }
+}
+
+/** Whether the holder still holds the sensors, for a connect that awaited a permission. */
+export function holdsSensors(holder: SensorHolder): boolean {
+  return holders.has(holder);
+}
+
+/**
+ * Let go of a hold. Once nothing holds the sensors and no ride is under way,
+ * they are disconnected, after `SENSOR_RELEASE_GRACE_MS` unless `immediate`,
+ * and the sensors disconnected for the session are forgotten with them.
+ */
+export function releaseSensors(holder: SensorHolder, options?: { immediate?: boolean }): void {
+  if (!holders.delete(holder) || holders.size > 0) return;
+  if (releaseTimer) clearTimeout(releaseTimer);
+  releaseTimer = null;
+  const release = () => {
+    releaseTimer = null;
+    if (holders.size > 0 || useRecordingStore.getState().status !== 'idle') return;
+    stopSimulatedSensors();
+    void disconnectAllSensors();
+  };
+  const nothingConnected =
+    activeConnections.size === 0 && Object.keys(useSensorStore.getState().connections).length === 0;
+  if (options?.immediate || nothingConnected) release();
+  else releaseTimer = setTimeout(release, SENSOR_RELEASE_GRACE_MS);
+}
+
+/**
+ * Connect every paired sensor the athlete has not disconnected for this
+ * session. With no hold taken it holds them for the recording session, and
+ * `disconnectAllSensors` ends it.
  */
 export async function connectKnownSensors(): Promise<void> {
-  sessionHeld = true;
+  if (holders.size === 0) holdSensors('session');
   pairingConnections.clear();
   const { knownSensors } = useSensorStore.getState();
   for (const sensor of knownSensors) {
+    if (droppedForSession.has(sensor.id)) continue;
     connectAndSubscribe(sensor, 0);
   }
+}
+
+/** Disconnect one paired sensor for the rest of the session, keeping its pairing. */
+export async function dropSensorForSession(id: string): Promise<void> {
+  droppedForSession.add(id);
+  await disconnectSensor(id);
+}
+
+/** Connect again a paired sensor the athlete disconnected for this session. */
+export async function connectSensorForSession(id: string): Promise<void> {
+  droppedForSession.delete(id);
+  const sensor = useSensorStore.getState().knownSensors.find((s) => s.id === id);
+  if (sensor) await connectAndSubscribe(sensor, 0);
 }
 
 /**
@@ -750,7 +935,12 @@ export async function disconnectSensor(id: string): Promise<void> {
 }
 
 export async function disconnectAllSensors(): Promise<void> {
-  sessionHeld = false;
+  holders.clear();
+  droppedForSession.clear();
+  if (releaseTimer) {
+    clearTimeout(releaseTimer);
+    releaseTimer = null;
+  }
   const ids = [...activeConnections.keys()];
   const storeIds = Object.keys(useSensorStore.getState().connections);
   for (const id of new Set([...ids, ...storeIds])) {

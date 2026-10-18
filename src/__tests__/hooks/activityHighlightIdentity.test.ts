@@ -9,7 +9,6 @@
 
 import { act, renderHook } from '@testing-library/react-native';
 
-import { FfiNewGroundBadge } from 'veloqrs';
 import { useActivitySectionHighlights } from '@/features/activity/hooks/useActivitySectionHighlights';
 
 // The real reader runs over this engine, so an announcement reaches the hook
@@ -207,26 +206,23 @@ describe('highlight identity across an engine announcement', () => {
     expect(result.current.routes.get('a1')?.prImprovementSeconds).toBe(20);
   });
 
-  it('maps the engine badge and keeps the entry while its tiles hold', async () => {
-    const ground = (newTiles: number, badge: FfiNewGroundBadge | undefined) => ({
+  it('maps the engine coverage and keeps the entry while its tiles hold', async () => {
+    const ground = (newTiles: number) => ({
       indicators: [],
       routeHighlights: [],
-      newGround: [{ activityId: 'a1', fraction: newTiles / 10, tiles: 10, newTiles, badge }],
+      newGround: [{ activityId: 'a1', fraction: newTiles / 10, tiles: 10, newTiles }],
     });
-    mockBundle.mockImplementation(() => ground(10, FfiNewGroundBadge.EntirelyNew));
+    mockBundle.mockImplementation(() => ground(10));
     const { result } = await renderHook(() => useActivitySectionHighlights(['a1']));
     const first = result.current.newGround.get('a1');
-    expect(first).toEqual({ fraction: 1, tiles: 10, newTiles: 10, badge: 'entirelyNew' });
+    expect(first).toEqual({ fraction: 1, tiles: 10, newTiles: 10 });
 
     await act(() => bump());
     expect(result.current.newGround.get('a1')).toBe(first);
 
-    mockBundle.mockImplementation(() => ground(6, FfiNewGroundBadge.MostlyNew));
+    mockBundle.mockImplementation(() => ground(6));
     await act(() => bump());
-    expect(result.current.newGround.get('a1')?.badge).toBe('mostlyNew');
-
-    mockBundle.mockImplementation(() => ground(4, undefined));
-    await act(() => bump());
-    expect(result.current.newGround.get('a1')?.badge).toBeNull();
+    expect(result.current.newGround.get('a1')).not.toBe(first);
+    expect(result.current.newGround.get('a1')).toEqual({ fraction: 0.6, tiles: 10, newTiles: 6 });
   });
 });

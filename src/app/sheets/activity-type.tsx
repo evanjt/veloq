@@ -28,7 +28,7 @@ import {
   sportMarkColour,
 } from '@/shared/activity/sportCategories';
 import type { ActivityType } from '@/types';
-import { SheetHeader, PressTarget } from '@/shared/ui';
+import { SheetHeader, PressTarget, sheetScrollProps } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { goBack } from '@/shared/app/navigation';
 
@@ -110,6 +110,7 @@ function ActivityTypeSheetContent() {
         keyExtractor={(item, index) => `${item}-${index}`}
         style={styles.list}
         stickySectionHeadersEnabled={false}
+        {...sheetScrollProps}
         initialNumToRender={rowCount}
         renderSectionHeader={({ section }) => (
           <Text

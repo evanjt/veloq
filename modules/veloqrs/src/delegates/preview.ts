@@ -18,6 +18,7 @@ import type {
 } from '../generated/veloqrs';
 import type { SectionDetectionProgress } from '../conversions';
 import type { DelegateHost } from './host';
+import { toRunProgress, type RunStatus } from './run';
 import { startResult } from './start';
 
 export interface PreviewCentre {
@@ -67,14 +68,6 @@ export interface PreviewParams {
   divergenceThreshold: number;
 }
 
-export interface PreviewResult {
-  pool: { activities: number; empty: number; unreadable: number };
-  elapsedMs: number;
-  config: PreviewParams;
-  counts: FfiCatalogueCounts;
-  sections: PreviewSection[];
-}
-
 export type PreviewPollStatus =
   | 'idle'
   | 'running'
@@ -82,6 +75,24 @@ export type PreviewPollStatus =
   | 'cancelled'
   | 'error'
   | 'pool_unusable';
+
+/** The run's status in the words the preview screen switches on. */
+const POLL_STATUS: Record<RunStatus, PreviewPollStatus> = {
+  idle: 'idle',
+  running: 'running',
+  complete: 'complete',
+  cancelled: 'cancelled',
+  failed: 'error',
+  refused: 'pool_unusable',
+};
+
+export interface PreviewResult {
+  pool: { activities: number; empty: number; unreadable: number };
+  elapsedMs: number;
+  config: PreviewParams;
+  counts: FfiCatalogueCounts;
+  sections: PreviewSection[];
+}
 
 /**
  * The surface the preview screen talks to. The real implementation is
@@ -218,25 +229,38 @@ export function startPreviewDetect(
   }
 }
 
+/**
+ * How the preview run stands. Read from the same record as the progress, so
+ * the two never disagree about the run they describe.
+ */
 export function pollPreviewDetect(host: DelegateHost): PreviewPollStatus {
   if (!host.ready) return 'idle';
   try {
-    return host.timed('pollPreviewDetect', () => previewObj().poll()) as PreviewPollStatus;
+    const run = host.timed('pollPreviewDetect', () => previewObj().progress());
+    return POLL_STATUS[toRunProgress(run).status];
   } catch (e) {
     console.error('[Engine] pollPreviewDetect threw:', e);
     return 'error';
   }
 }
 
+/** How far along the run is. Null when no run holds the slot. */
 export function getPreviewProgress(host: DelegateHost): SectionDetectionProgress | null {
   if (!host.ready) return null;
-  return host.timed('getPreviewProgress', () => previewObj().getProgress()) ?? null;
+  const run = toRunProgress(host.timed('getPreviewProgress', () => previewObj().progress()));
+  if (run.status === 'idle') return null;
+  return {
+    phase: run.phase,
+    completed: run.completed,
+    total: run.total,
+    percent: run.percent,
+  };
 }
 
 /** Take the one result payload. Null while running or after taken. */
 export function takePreviewResult(host: DelegateHost): PreviewResult | null {
   if (!host.ready) return null;
-  const result = host.timed('takePreviewResult', () => previewObj().takeResult());
+  const result = host.timed('takePreviewResult', () => previewObj().take());
   return result ? toPreviewResult(result) : null;
 }
 
@@ -246,9 +270,5 @@ export function takePreviewResult(host: DelegateHost): PreviewResult | null {
  */
 export function cancelPreviewDetect(host: DelegateHost): void {
   if (!host.ready) return;
-  try {
-    host.timed('cancelPreviewDetect', () => previewObj().cancel());
-  } catch (e) {
-    console.error('[Engine] cancelPreviewDetect threw:', e);
-  }
+  host.timed('cancelPreviewDetect', () => previewObj().cancel());
 }

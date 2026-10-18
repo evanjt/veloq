@@ -66,7 +66,7 @@ async function setup() {
 
   const client = new QueryClient();
   const tree = await render(<Root />);
-  const { selectAttempt, setDeltaLine, setShownDirection } = detailCardWriter(KEY);
+  const { selectAttempt, setDeltaLine, setShownDirection } = detailCardWriter(KEY, 0);
   const store = { set: selectAttempt };
   return { store, setDeltaLine, setShownDirection, rootRenders, tree };
 }

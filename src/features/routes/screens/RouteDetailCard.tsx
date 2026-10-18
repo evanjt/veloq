@@ -45,11 +45,12 @@ import type { SectionDeltaLine } from '../lib/deltaLayout';
 import { useGpxExport, useDebugStore } from '@/features/settings';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
-import { mapSheetHostKey } from '@/shared/app/mapSheetHost';
-import { useMapSheetHostHeader } from '@/shared/app/MapSheetHost';
+import { useMapSheetCardAddress, useMapSheetHostHeader } from '@/shared/app/MapSheetHost';
+import { MapSheetCardCloseSpace } from '@/shared/app/MapSheetCards';
 import { overMapHeaderOptions } from '@/shared/app/screenHeaders';
 import { Button, ErrorState, HeroNameRow, HeroStatsRow, useBottomClearance } from '@/shared/ui';
 import { FitText } from '@/shared/ui/FitText';
+import { sheetScrollProps } from '@/shared/ui/SheetScrollView';
 
 import { useFFITimer } from '@/shared/debug/useFFITimer';
 import { getActivityColor, getActivityIcon } from '@/shared/activity/activityUtils';
@@ -92,8 +93,8 @@ export function RouteDetailCard({ id, activityId: navActivityId }: RouteDetailCa
   const { isDark } = useTheme();
   const bottomClearance = useBottomClearance();
   const isMetric = useMetricSystem();
-  const hostKey = mapSheetHostKey('route', id);
-  const card = useMemo(() => detailCardWriter(hostKey), [hostKey]);
+  const { hostKey, index: cardIndex } = useMapSheetCardAddress('route', id);
+  const card = useMemo(() => detailCardWriter(hostKey, cardIndex), [hostKey, cardIndex]);
 
   // One engine call covering the route and its shown name, the representative
   // polyline, exclusions and signatures. Attempt times are a read of their own.
@@ -269,6 +270,7 @@ export function RouteDetailCard({ id, activityId: navActivityId }: RouteDetailCa
         contentContainerStyle={{ paddingBottom: spacing.xl + bottomClearance }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        {...sheetScrollProps}
       >
         {/* Peek: what the lowest stop shows. */}
         <View testID="route-card-peek" style={peekStyles.peek}>
@@ -276,6 +278,7 @@ export function RouteDetailCard({ id, activityId: navActivityId }: RouteDetailCa
             onSurface
             name={displayName}
             nameTestID="route-detail-name"
+            accessory={<MapSheetCardCloseSpace />}
             icon={{
               name: getActivityIcon(displayType),
               color: activityColor,

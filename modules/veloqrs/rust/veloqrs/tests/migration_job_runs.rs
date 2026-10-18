@@ -35,7 +35,7 @@ fn upgrade_from(version: u32) {
         &conn,
         &JobRun {
             job: BackgroundJob::Cutover,
-            finished_at: 1_791_000_000_000,
+            finished_at: veloqrs::WholeNumber(1_791_000_000_000),
             outcome: RunOutcome::Stopped,
             handled: 4,
             added: 0,
@@ -47,7 +47,7 @@ fn upgrade_from(version: u32) {
     let runs = job_runs(&conn).unwrap();
     assert_eq!(runs.len(), 1);
     assert_eq!(
-        (runs[0].job.as_str(), runs[0].outcome.as_str()),
+        (runs[0].job.token(), runs[0].outcome.token()),
         ("cutover", "stopped")
     );
 }

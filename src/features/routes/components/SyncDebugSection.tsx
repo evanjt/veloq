@@ -6,7 +6,7 @@ import { colors, darkColors, iconSize, layout, spacing, typography } from '@/the
 import { useTheme } from '@/shared/app';
 import { Button, Stepper, PressTarget } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
-import { useActivities } from '@/features/activity';
+import { readFeedCards } from '@/features/activity/light';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { getEngine } from '@/shared/native/engine';
@@ -93,11 +93,11 @@ export function SyncDebugSection() {
   const trackStage = useTrackStage();
   const lastSyncSuccessAt = useLastSyncSuccessAt();
 
-  // The stored bodies over the sync window, read only while this debug tab is open
-  const { data: apiActivities } = useActivities({
-    oldest: syncOldest,
-    newest: syncNewest,
-  });
+  // The feed cards over the sync window, read only while this debug tab is open
+  const apiActivities = useMemo(
+    () => readActivities(() => readFeedCards(syncOldest, syncNewest)) ?? [],
+    [readActivities, syncOldest, syncNewest]
+  );
 
   const engine = getEngine();
   const engineActivityIds = useMemo(
@@ -116,7 +116,7 @@ export function SyncDebugSection() {
 
   // Alignment computation
   const alignment = useMemo(() => {
-    const apiIds = new Set(apiActivities?.map((a) => a.id) ?? []);
+    const apiIds = new Set(apiActivities.map((a) => a.id));
     const engineIds = new Set(engineActivityIds);
     const aligned = [...apiIds].filter((id) => engineIds.has(id));
     const missingFromEngine = [...apiIds].filter((id) => !engineIds.has(id));
@@ -170,10 +170,10 @@ export function SyncDebugSection() {
 
   // Remove N activities handler
   const handleRemoveActivities = useCallback(() => {
-    if (!apiActivities || apiActivities.length === 0 || !engine) return;
+    if (apiActivities.length === 0 || !engine) return;
 
     const sorted = [...apiActivities].sort(
-      (a, b) => new Date(b.start_date_local).getTime() - new Date(a.start_date_local).getTime()
+      (a, b) => new Date(b.startDateLocal).getTime() - new Date(a.startDateLocal).getTime()
     );
     const toRemove = sorted.slice(0, removeCount).map((a) => a.id);
 
@@ -419,7 +419,7 @@ export function SyncDebugSection() {
             variant="destructive"
             opensConfirm
             onPress={handleRemoveActivities}
-            disabled={isRemoving || !apiActivities?.length}
+            disabled={isRemoving || apiActivities.length === 0}
             icon={{ chrome: 'delete' }}
             label={isRemoving ? 'Removing...' : `Remove ${removeCount} & Re-sync`}
           />

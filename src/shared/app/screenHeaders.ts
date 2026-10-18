@@ -171,6 +171,19 @@ export const SCREEN_SHEETS: Record<string, number[] | 'fitToContents'> = {
   'sheets/explainer': 'fitToContents',
 };
 
+/**
+ * Sheet routes whose root is their scroll view, drawn with `SheetScrollView`. The iOS form sheet
+ * sizes a scroll view only when it is the first view of the sheet's content: one inside a wrapping
+ * view gets the sheet's frame in that view's coordinates and is drawn out of sight, leaving the
+ * sheet blank. So on iOS the shared frame draws no view around these routes and hands its fill and
+ * padding to the scroll view instead.
+ */
+export const SCROLL_ROOT_SHEETS: ReadonlySet<string> = new Set([
+  'sheets/insight',
+  'sheets/chart-data',
+  'sheets/merge-confirm',
+]);
+
 /** The height the map sheet's lowest stop shows above the bottom inset: the title and key stats. */
 const MAP_SHEET_PEEK = 150;
 /** The map sheet's resting stop, as a fraction of the window. */
@@ -448,16 +461,21 @@ export function sheetHasDetents(name: string): boolean {
  * grabber. The Android sheet runs under the navigation bar whatever its detents, so every
  * one is padded by the bottom inset. On iOS a sheet sized to its content already ends above
  * the home indicator, and only a resizable one, which reaches the screen's bottom edge, is
- * padded.
+ * padded. `wraps` is false for a route in `SCROLL_ROOT_SHEETS` on iOS, where the frame draws no
+ * view of its own and its scroll view takes the fill and the padding.
  */
 export function sheetFrame(
   name: string,
   os: string,
   bottomInset: number
-): { handle: boolean; paddingBottom: number } {
+): { handle: boolean; paddingBottom: number; wraps: boolean } {
   const resizable = sheetHasDetents(name);
-  if (os === 'android') return { handle: resizable, paddingBottom: bottomInset };
-  return { handle: false, paddingBottom: resizable ? bottomInset : 0 };
+  if (os === 'android') return { handle: resizable, paddingBottom: bottomInset, wraps: true };
+  return {
+    handle: false,
+    paddingBottom: resizable ? bottomInset : 0,
+    wraps: !SCROLL_ROOT_SHEETS.has(name),
+  };
 }
 
 /**

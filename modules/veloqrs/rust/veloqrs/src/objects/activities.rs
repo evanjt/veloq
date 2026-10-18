@@ -199,7 +199,7 @@ impl ActivityManager {
     ///
     /// A caller after a single activity uses this rather than the window read
     /// below: the table is keyed by the id, so this is one row instead of a
-    /// page of them parsed in JavaScript to find it. `is_detail` says whether
+    /// page of them read to find it. `is_detail` says whether
     /// the row is still the list form the detail fetch replaces.
     fn get_activity_record(
         &self,
@@ -208,22 +208,6 @@ impl ActivityManager {
         with_reader(|conn| {
             crate::persistence::activities::pooled::activity_record(conn, &activity_id)
         })
-    }
-
-    /// Untyped activity bodies in a window, newest first, narrowed by a search
-    /// and a sport chip and then paged. The window readers outside the feed
-    /// still parse these; the feed reads `get_feed_cards`.
-    fn get_activity_bodies(
-        &self,
-        query: crate::FfiActivityBodiesQuery,
-    ) -> Result<crate::FfiActivityBodiesPage, VeloqError> {
-        with_reader(|conn| {
-            crate::persistence::activities::pooled::activity_body_page(conn, &query).map_err(
-                |err| VeloqError::Database {
-                    msg: format!("{}", err),
-                },
-            )
-        })?
     }
 
     /// The feed's read: one typed card per stored activity in a window,

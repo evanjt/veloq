@@ -17,7 +17,6 @@ import type {
   FfiActivityRecord,
   FfiActivityRouteHighlight,
   FfiActivityStreams,
-  FfiActivityBodiesPage,
   FfiActivityBodiesQuery,
   FfiFeedCard,
   FfiFeedCardsPage,
@@ -263,8 +262,7 @@ export function upsertActivityBodies(host: DelegateHost, rows: ActivityBodyInput
  * engine has not got it.
  *
  * `activity_bodies` is keyed by the id, so this is a primary-key lookup. A
- * caller after one activity uses this rather than `getActivityBodies`, which
- * hands back a whole window for JavaScript to parse.
+ * caller after one activity uses this rather than a window read.
  */
 export function getActivityRecord(
   host: DelegateHost,
@@ -275,25 +273,6 @@ export function getActivityRecord(
   return host.timed(
     'getActivityRecord',
     () => host.engine.activities().getActivityRecord(activityId) ?? null
-  );
-}
-
-/**
- * Untyped activity bodies over an inclusive timestamp window, newest first,
- * with the intervals.icu id a web link may name beside each. Undefined when
- * the engine is not ready.
- *
- * The window readers outside the feed still parse these. The feed reads the
- * typed cards below.
- */
-export function getActivityBodies(
-  host: DelegateHost,
-  oldestTs: number,
-  newestTs: number
-): FfiActivityBodiesPage | undefined {
-  if (!host.ready) return undefined;
-  return host.timed('getActivityBodies', () =>
-    host.engine.activities().getActivityBodies(windowQuery(oldestTs, newestTs))
   );
 }
 

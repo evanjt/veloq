@@ -8,7 +8,9 @@
 
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
+import { Platform } from 'react-native';
 import { routeCardInHost } from '../__shared__/routeCardInHost';
+import { sheetScrollHandsOff } from '../__shared__/sheetScrollPlacement';
 
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
@@ -33,6 +35,7 @@ jest.mock('expo-router', () => {
     ...jest.requireActual('expo-router'),
     useIsFocused: () => true,
     useLocalSearchParams: () => ({ id: 'r_9' }),
+    useNavigation: () => ({ getParent: () => undefined }),
     router: { back: jest.fn() },
     Stack,
   };
@@ -194,4 +197,18 @@ it('names the GPX export with the numbered label', async () => {
   expect(mockExportGpx).toHaveBeenCalledWith(
     expect.objectContaining({ name: 'Strecke 4', sport: 'Ride' })
   );
+});
+
+it('hands a drag in its sheet on Android to the card, before the sheet takes it', async () => {
+  const realOS = Platform.OS;
+  Platform.OS = 'android';
+  try {
+    const RouteSheet = routeCardInHost(undefined, { inSheet: true });
+    const screen = await render(<RouteSheet />);
+    const tree = screen.toJSON();
+    expect(Array.isArray(tree) ? null : tree?.props.testID).toBe('map-sheet');
+    expect(sheetScrollHandsOff(tree)).toBe(true);
+  } finally {
+    Platform.OS = realOS;
+  }
 });
