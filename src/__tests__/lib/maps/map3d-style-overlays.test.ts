@@ -6,6 +6,7 @@
  * start/end markers and the scrub marker, so a later route or scrub finds
  * its source.
  */
+import { mapPalette } from '@/theme';
 import { buildStyleOverlayScript, buildUpdateLayersScript } from '@/features/maps/lib/htmlBuilders';
 import type { UpdateLayersParams } from '@/features/maps/lib/htmlBuilders/map3DScripts';
 
@@ -15,10 +16,9 @@ type Overlays = {
 };
 
 const overlays = (coords: number[][], color = '#112233'): Overlays =>
-  new Function(`${buildStyleOverlayScript()}; return veloqOverlays(arguments[0], arguments[1]);`)(
-    coords,
-    color
-  ) as Overlays;
+  new Function(
+    `${buildStyleOverlayScript(mapPalette('light'))}; return veloqOverlays(arguments[0], arguments[1]);`
+  )(coords, color) as Overlays;
 
 const lines = (n: number): GeoJSON.FeatureCollection => ({
   type: 'FeatureCollection',
@@ -41,10 +41,11 @@ const lines = (n: number): GeoJSON.FeatureCollection => ({
  */
 const overlaysAfter = (...sends: UpdateLayersParams[]): Overlays => {
   const page: { _veloq3d?: unknown } = {};
-  for (const params of sends) new Function('window', buildUpdateLayersScript(params))(page);
+  for (const params of sends)
+    new Function('window', buildUpdateLayersScript(params, mapPalette('light')))(page);
   return new Function(
     'window',
-    `${buildStyleOverlayScript()}; return veloqOverlays(arguments[1], '#112233');`
+    `${buildStyleOverlayScript(mapPalette('light'))}; return veloqOverlays(arguments[1], '#112233');`
   )(page, [
     [7, 46],
     [7.1, 46.1],
@@ -98,7 +99,6 @@ describe('buildStyleOverlayScript', () => {
     const ids = layers.map((l) => l.id);
     expect(ids).toEqual(
       expect.arrayContaining([
-        'routes-layer-outline',
         'routes-layer',
         'sections-layer',
         'traces-layer',
@@ -118,9 +118,7 @@ describe('buildStyleOverlayScript', () => {
     const { sources, layers } = overlaysAfter({ routesGeoJSON: url });
 
     expect(sources['routes-source']).toEqual({ type: 'geojson', data: url });
-    expect(layers.map((l) => l.id)).toEqual(
-      expect.arrayContaining(['routes-layer-outline', 'routes-layer'])
-    );
+    expect(layers.map((l) => l.id)).toContain('routes-layer');
   });
 
   it('keeps a collection a later send left out and drops one sent empty', () => {

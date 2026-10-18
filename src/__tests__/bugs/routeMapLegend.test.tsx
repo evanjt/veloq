@@ -1,7 +1,7 @@
 /**
- * Scenario: the route detail map colours its line by time won and lost while
- * the chart shows the delta plot, and draws a picked attempt over it in its
- * own colour.
+ * Scenario: the route detail map bands its line by how far ahead or behind
+ * the shown attempt is while the chart shows the delta plot, and draws a
+ * picked attempt over it in its own colour.
  *
  * Expected behaviour: a key names each of those layers while it is drawn,
  * inline and full screen, and the route alone draws no key. The picked attempt
@@ -60,7 +60,7 @@ const ROUTE_GROUP = {
 };
 
 const DELTA_LINE = {
-  splits: [-2, 1, 3, -1],
+  percents: [-2, 1, 3, -1],
   splitStepM: 1000,
   sectionLengthM: 4200,
   direction: 'forward' as const,
@@ -96,13 +96,33 @@ describe('the route detail map key', () => {
     expect(screen.queryByTestId('route-map-legend')).toBeNull();
   });
 
-  it('names the time won and lost while the delta plot colours the line', async () => {
+  it('names every step the line is banded in, with its range, while the delta plot is shown', async () => {
     await renderRoute({ deltaLine: DELTA_LINE });
 
     expect(screen.getByTestId('route-map-legend')).toBeTruthy();
     expect(screen.getByTestId('route-map-legend-delta')).toBeTruthy();
-    expect(screen.getByText('Time won to time lost')).toBeTruthy();
+    expect(screen.getByText('Ahead or behind')).toBeTruthy();
+    for (const range of [
+      'More than 6% faster',
+      '3 to 6% faster',
+      '1 to 3% faster',
+      'Within 1%',
+      '1 to 3% slower',
+      '3 to 6% slower',
+      'More than 6% slower',
+      'Band edges blend over a short stretch',
+    ]) {
+      expect(screen.getByText(range)).toBeTruthy();
+    }
+    expect(screen.queryByTestId('route-map-legend-delta-no-data')).toBeNull();
     expect(screen.queryByText('This activity')).toBeNull();
+  });
+
+  it('names the stretches with no data when the attempt has some', async () => {
+    await renderRoute({ deltaLine: { ...DELTA_LINE, percents: [-2, NaN, 3, -1] } });
+
+    expect(screen.getByTestId('route-map-legend-delta-no-data')).toBeTruthy();
+    expect(screen.getByText('No data')).toBeTruthy();
   });
 
   it('names an attempt picked on the chart by its date while it is drawn', async () => {
@@ -146,7 +166,7 @@ describe('the route detail map key', () => {
     expect(screen.getByText('This activity')).toBeTruthy();
   });
 
-  it('names the picked attempt full screen, where the line carries no delta colouring', async () => {
+  it('names the picked attempt and the bands full screen, which draws the ramp too', async () => {
     await renderRoute({
       deltaLine: DELTA_LINE,
       highlightedActivityId: 'a2',
@@ -157,7 +177,7 @@ describe('the route detail map key', () => {
     await fireEvent.press(screen.getByTestId('route-map-container'));
 
     expect(screen.getAllByTestId('route-map-legend')).toHaveLength(2);
-    expect(screen.getAllByTestId('route-map-legend-delta')).toHaveLength(1);
+    expect(screen.getAllByTestId('route-map-legend-delta')).toHaveLength(2);
     expect(screen.getAllByText(formatFullDate(PICKED_DATE))).toHaveLength(2);
     expect(screen.queryByText('This activity')).toBeNull();
   });

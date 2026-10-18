@@ -2,8 +2,9 @@
  * Scenario: the sync banner and the unlock handle draw content on a filled
  * ground, and a map column control that is on fills the control on blue. An
  * ink chosen for another ground falls under the 4.5:1 text and the 3:1 icons
- * owe. The recording control bar's main button takes the record red in every
- * state and theme, and its Stop and Lap stay secondary.
+ * owe. The recording control bar's main button takes the record red for Start
+ * and Resume and the action blue for Pause, Review and the manual Save, and its
+ * Lap and Finish stay neutral side controls.
  *
  * Expected behaviour: every text and glyph on such a fill reaches 4.5:1
  * against it, drawn at full opacity.
@@ -18,7 +19,7 @@ import { SyncProgressBanner } from '@/features/maps/components/timeline/SyncProg
 import { ControlBar } from '@/features/recording/components/ControlBar';
 import { UnlockTrack } from '@/features/recording/components/UnlockTrack';
 import { MapControlStack } from '@/features/maps/components/regional/MapControlStack';
-import { brand, colors, darkColors, recording, themePalette } from '@/theme';
+import { colors, darkColors, recording, themePalette } from '@/theme';
 import { contrastRatio } from '../__shared__/contrast';
 
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
@@ -87,19 +88,15 @@ describe('the recording control bar', () => {
   };
 
   const primaries = [
-    ['idle', 'gps', 'control-start'],
-    ['paused', 'gps', 'control-resume'],
-    ['recording', 'gps', 'control-pause'],
-    ['stopped', 'gps', 'control-review'],
-    ['idle', 'manual', 'control-save'],
+    ['idle', 'gps', 'control-start', 'record'],
+    ['paused', 'gps', 'control-resume', 'record'],
+    ['recording', 'gps', 'control-pause', 'action'],
+    ['stopped', 'gps', 'control-review', 'action'],
+    ['idle', 'manual', 'control-save', 'action'],
   ] as const;
   const themes = [false, true] as const;
-  const notRecordFills = [
-    colors.successFill,
-    darkColors.successFill,
-    brand.blue600,
-    brand.blue550,
-  ].map((c) => c.toUpperCase());
+  // A status fill with a label, never a button.
+  const neverFills = [colors.successFill, darkColors.successFill].map((c) => c.toUpperCase());
 
   describe.each(themes)('with dark %s', (isDark) => {
     beforeEach(() => {
@@ -107,30 +104,56 @@ describe('the recording control bar', () => {
     });
 
     it.each(primaries)(
-      'fills the %s %s main button with the record red and a glyph it carries',
-      async (status, mode, testID) => {
+      'fills the %s %s main button with its role and a glyph it carries',
+      async (status, mode, testID, role) => {
         const { getByTestId } = await render(
           <ControlBar {...bar} mode={mode as never} status={status} />
         );
         const button = getByTestId(testID);
         const fill = flat(button.props.style).backgroundColor as string;
         const [glyph] = button.findAllByType(MaterialCommunityIcons);
+        const expected =
+          role === 'record'
+            ? isDark
+              ? recording.dark
+              : recording.light
+            : themePalette(isDark).actionPrimary;
 
-        expect(fill).toBe(isDark ? recording.dark : recording.light);
-        expect(notRecordFills).not.toContain(fill.toUpperCase());
+        expect(fill).toBe(expected);
+        expect(neverFills).not.toContain(fill.toUpperCase());
         expect(contrastRatio(glyph.props.color, fill)).toBeGreaterThanOrEqual(4.5);
       }
     );
 
-    it('keeps Stop in the red text tone and Lap in the primary text tone', async () => {
-      const { getByTestId } = await render(<ControlBar {...bar} status="recording" />);
-      const palette = isDark ? darkColors : colors;
-      const [stopGlyph] = getByTestId('control-stop').findAllByType(MaterialCommunityIcons);
-      const [lapGlyph] = getByTestId('control-lap').findAllByType(MaterialCommunityIcons);
+    it.each(['recording', 'paused'] as const)(
+      'draws Finish and Lap as neutral side controls on the raised ground with an edge (%s)',
+      async (status) => {
+        const { getByTestId, queryByTestId, getByText } = await render(
+          <ControlBar {...bar} status={status} />
+        );
+        const palette = themePalette(isDark);
+        const sides = ['control-stop', ...(status === 'recording' ? ['control-lap'] : [])];
+        if (status === 'paused') expect(queryByTestId('control-lap')).toBeNull();
 
-      expect(stopGlyph.props.color).toBe(palette.errorText);
-      expect(lapGlyph.props.color).toBe(palette.textPrimary);
-    });
+        for (const testID of sides) {
+          const button = getByTestId(testID);
+          const style = flat(button.props.style);
+          const [glyph] = button.findAllByType(MaterialCommunityIcons);
+
+          expect(style.backgroundColor).toBe(palette.surfaceRaised);
+          expect(style.borderColor).toBe(palette.controlBoundary);
+          expect(style.borderWidth).toBeGreaterThan(0);
+          expect(glyph.props.color).toBe(palette.textPrimary);
+          expect(contrastRatio(glyph.props.color, palette.surfaceRaised)).toBeGreaterThanOrEqual(
+            4.5
+          );
+        }
+        expect(getByTestId('control-stop').props.accessibilityLabel).toBe(
+          'recording.controls.finish'
+        );
+        expect(getByText('recording.controls.finish')).toBeTruthy();
+      }
+    );
   });
 });
 

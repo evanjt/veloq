@@ -353,17 +353,11 @@ describe('a mark that carries its own meaning clears AA for a graphical object',
  */
 const MARK_FAMILY = {
   markCyan: colors.markCyan,
-  markGreen: colors.markGreen,
-  markAmber: colors.markAmber,
-  markYellow: colors.markYellow,
-  markOrange: colors.markOrange,
 };
 
 /** The fill token each mark tone darkens, and which is why it exists. */
 const MARK_REPLACES = {
   markCyan: colors.chartCyan,
-  markGreen: activityTypeColors.Run,
-  markAmber: colors.chartAmber,
 };
 
 const ALL_SURFACES = { ...LIGHT_SURFACES, ...DARK_SURFACES };

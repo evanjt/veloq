@@ -101,7 +101,7 @@ fn seed_month() {
     );
 }
 
-fn strings() -> std::collections::BTreeMap<String, String> {
+fn strings() -> std::collections::HashMap<String, String> {
     [
         ("period.long.1m", "1 month"),
         (
@@ -129,7 +129,7 @@ fn strings() -> std::collections::BTreeMap<String, String> {
     .collect()
 }
 
-fn context() -> WidgetContext {
+fn context() -> FfiWidgetContext {
     let months = [
         "January",
         "February",
@@ -144,7 +144,7 @@ fn context() -> WidgetContext {
         "November",
         "December",
     ];
-    WidgetContext {
+    FfiWidgetContext {
         locale: "en-GB".to_string(),
         is_metric: true,
         strings: strings(),
@@ -152,7 +152,7 @@ fn context() -> WidgetContext {
             months: months.map(String::from).to_vec(),
             ..DateWords::default()
         },
-        ..WidgetContext::default()
+        ..FfiWidgetContext::default()
     }
 }
 

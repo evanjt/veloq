@@ -95,8 +95,12 @@ impl SettingsManager {
         Arc::new(Self { _private: () })
     }
 
-    fn get_athlete_profile(&self) -> Result<Option<String>, VeloqError> {
-        with_reader(crate::persistence::settings::athlete_profile_from)
+    /// The stored athlete profile, typed, or none when none is stored or its
+    /// body is not JSON.
+    fn get_athlete_profile(
+        &self,
+    ) -> Result<Option<crate::persistence::settings::AthleteProfile>, VeloqError> {
+        with_reader(crate::persistence::settings::athlete_profile)
     }
 
     fn set_athlete_profile(&self, json: String) -> Result<(), VeloqError> {
@@ -627,8 +631,12 @@ mod tests {
         settings.set_sport_settings("{\"ftp\":200}".into()).unwrap();
         settings.set_setting("kept".into(), "yes".into()).unwrap();
         assert_eq!(
-            settings.get_athlete_profile().unwrap().as_deref(),
-            Some("{\"id\":\"i1\"}")
+            settings
+                .get_athlete_profile()
+                .unwrap()
+                .and_then(|p| p.id)
+                .as_deref(),
+            Some("i1")
         );
         assert_eq!(stored_sport_settings().as_deref(), Some("{\"ftp\":200}"));
 

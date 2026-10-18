@@ -58,6 +58,7 @@ function activityLayers(hasUserLocation: boolean) {
 
 const sectionInput = {
   sectionGeoJSON: EMPTY,
+  deltaGapsGeoJSON: EMPTY,
   trimmedGeoJSON: EMPTY,
   shadowGeoJSON: EMPTY,
   extensionGeoJSON: EMPTY,

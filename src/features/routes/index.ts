@@ -165,3 +165,4 @@ export {
 } from './stores/RouteSettingsStore';
 export { toActivityType } from './types';
 export type { SectionDeltaLine } from './lib/deltaLayout';
+export type { ChartDirection } from './lib/scatterData';

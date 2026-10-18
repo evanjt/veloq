@@ -38,7 +38,7 @@ export const WorkoutStepBar = React.memo(function WorkoutStepBar({
             {
               width: `${(block.seconds / total) * 100}%`,
               backgroundColor:
-                !block.rest && block.zone != null ? zoneColour(block.zone, isDark, 'fill') : muted,
+                !block.rest && block.zone != null ? zoneColour(block.zone, isDark) : muted,
             },
             i === 0 && styles.first,
             i === last && styles.last,

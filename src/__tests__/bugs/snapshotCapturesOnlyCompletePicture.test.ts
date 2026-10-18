@@ -26,7 +26,6 @@ const request = (activityId = 'ride-dark'): SnapshotRequest => ({
   camera,
   cameraPinned: true,
   mapStyle: 'dark',
-  routeColor: '#ff0000',
 });
 
 const tileError = (sourceId: string, status: number) => ({

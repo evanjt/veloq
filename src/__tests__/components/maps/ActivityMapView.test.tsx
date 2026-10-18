@@ -14,7 +14,8 @@ import { ActivityMapView } from '@/features/maps/components/ActivityMapView';
 import type { LatLng } from '@/shared/geo/polyline';
 import { streamsFromArrays } from '@/features/activity/lib/streams';
 import { initialiseI18n } from '@/i18n';
-import { GRADE_BANDS, gradeStepTokenColour } from '@/features/maps/lib/gradientLineColor';
+import { DIVERGING_BANDS } from '@/features/maps/lib/divergingStep';
+import { gradeStepTokenColour } from '@/features/maps/lib/gradientLineColor';
 
 // The map page is hidden from screen readers, so a query reaching it includes hidden elements.
 const MAP_PAGE = { includeHiddenElements: true };
@@ -217,13 +218,21 @@ describe('ActivityMapView', () => {
       grade_smooth: [-12, -3, 4, 14],
       distance: [0, 100, 200, 300],
     });
-    const TICKS = ['-10%', '0%', '+10%'];
+    const TICKS = [
+      'Below -10%',
+      '-10 to -5%',
+      '-5 to -2%',
+      'Within 2%',
+      '+2 to +5%',
+      '+5 to +10%',
+      'Above +10%',
+    ];
 
     it('shows no gradient key while the line is in the sport colour', async () => {
       await renderActivityMap({ streams: GRADED });
 
       expect(screen.getByTestId('activity-map-gradient-toggle')).toBeTruthy();
-      expect(screen.queryByTestId('activity-map-gradient-key')).toBeNull();
+      expect(screen.queryByTestId('activity-map-key')).toBeNull();
     });
 
     it('labels the scale with its gradient ticks while the line is coloured by gradient', async () => {
@@ -231,17 +240,17 @@ describe('ActivityMapView', () => {
 
       await fireEvent.press(screen.getByTestId('activity-map-gradient-toggle'));
 
-      const key = screen.getByTestId('activity-map-gradient-key');
+      const key = screen.getByTestId('activity-map-key');
       for (const tick of TICKS) {
         expect(within(key).getByText(tick)).toBeTruthy();
       }
-      const steps = within(key).getAllByTestId('map-key-ramp-step');
+      const steps = within(key).getAllByTestId('map-key-swatch');
       expect(steps.map((step) => StyleSheet.flatten(step.props.style).backgroundColor)).toEqual(
-        GRADE_BANDS.map((band) => gradeStepTokenColour(band.step, 'light'))
+        DIVERGING_BANDS.grade.map((band) => gradeStepTokenColour(band.step, 'light'))
       );
 
       await fireEvent.press(screen.getByTestId('activity-map-gradient-toggle'));
-      expect(screen.queryByTestId('activity-map-gradient-key')).toBeNull();
+      expect(screen.queryByTestId('activity-map-key')).toBeNull();
     });
 
     it('keeps the key on the 3D map, which draws the gradient too', async () => {
@@ -253,7 +262,7 @@ describe('ActivityMapView', () => {
       await fireEvent.press(screen.getByTestId('activity-map-gradient-toggle'));
 
       expect(screen.getByTestId('webview', MAP_PAGE)).toBeTruthy();
-      expect(screen.getByTestId('activity-map-gradient-key')).toBeTruthy();
+      expect(screen.getByTestId('activity-map-key')).toBeTruthy();
     });
   });
 

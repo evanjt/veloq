@@ -19,7 +19,6 @@ import {
   themedStyles,
   typography,
   verdictColor,
-  themePalette,
 } from '@/theme';
 import type {
   MonthTotals,
@@ -28,6 +27,7 @@ import type {
 } from '@/features/stats/hooks/useEngineStats';
 import { ErrorState, ToggleButton, CardHeader, EmptyState } from '@/shared/ui';
 import { seasonChange, seasonMonthChange } from '@/features/stats/lib/periodWindows';
+import { seasonColours } from '@/features/stats/lib/seasonColours';
 import { useWindowCoverage } from '@/shared/native/useRangeCoverage';
 import {
   formatLocalDate,
@@ -128,7 +128,6 @@ function monthCentreX(width: number, monthIndex: number): number {
 export function SeasonComparison({ training, height = 200 }: SeasonComparisonProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const palette = themePalette(isDark);
   const styles = themedStyles(makeStyles, isDark);
   const isMetric = useMetricSystem();
   const [metric, setMetric] = useState<'hours' | 'distance' | 'tss'>('hours');
@@ -256,11 +255,9 @@ export function SeasonComparison({ training, height = 200 }: SeasonComparisonPro
   const yScale = useMemo(() => niceScale([0, maxValue], Y_INTERVALS), [maxValue]);
   const axisMax = yScale.domain[1];
 
-  // Color constants
-  const colorCurrent = palette.actionPrimary;
-  const colorPrevious = isDark
-    ? colorWithOpacity(darkColors.chartPreviousSeason, 0.8)
-    : colorWithOpacity(colors.chartPreviousSeason, opacity.pressed);
+  const paint = seasonColours(isDark);
+  const colorCurrent = paint.current;
+  const colorPrevious = paint.previous;
 
   // Calculate totals
   const totals = useMemo(() => {
@@ -328,9 +325,7 @@ export function SeasonComparison({ training, height = 200 }: SeasonComparisonPro
           ? isDark
             ? colorWithOpacity(ink.white, opacity.tint2)
             : colorWithOpacity(ink.black, opacity.tint1)
-          : isDark
-            ? colorWithOpacity(ink.white, opacity.tint1)
-            : colorWithOpacity(colorCurrent, opacity.tint1);
+          : paint.currentMonthBand;
         highlightPaint.setColor(Skia.Color(hlColor));
         canvas.drawRRect(
           Skia.RRectXY(
@@ -400,6 +395,7 @@ export function SeasonComparison({ training, height = 200 }: SeasonComparisonPro
     currentMonth,
     colorCurrent,
     colorPrevious,
+    paint.currentMonthBand,
     measuredWidth,
   ]);
 
@@ -581,9 +577,7 @@ export function SeasonComparison({ training, height = 200 }: SeasonComparisonPro
                     maxFontSizeMultiplier={DENSE_TEXT_SCALE}
                     style={[
                       styles.monthLabel,
-                      isDark && chartStyles.textDark,
                       m.isCurrentMonth && styles.currentMonthLabel,
-                      m.isCurrentMonth && isDark && { color: darkColors.actionLink },
                       m.isSelected && styles.selectedMonthLabel,
                     ]}
                   >
@@ -698,11 +692,11 @@ const makeStyles = (palette: Palette) =>
     },
     currentMonthLabel: {
       fontWeight: typography.label.fontWeight,
-      color: colors.actionLink,
+      color: palette.textPrimary,
     },
     selectedMonthLabel: {
       fontWeight: typography.label.fontWeight,
-      color: colors.textPrimary,
+      color: palette.textPrimary,
     },
     emptyState: {
       alignItems: 'center',

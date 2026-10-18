@@ -92,15 +92,15 @@ fn gym_session() -> (String, Vec<(String, FitExerciseSet)>) {
     (body, sets)
 }
 
-fn context() -> WidgetContext {
-    WidgetContext {
+fn context() -> FfiWidgetContext {
+    FfiWidgetContext {
         locale: "en".to_string(),
         is_metric: true,
         strings: [("demo.banner", "Sample Mode")]
             .into_iter()
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect(),
-        ..WidgetContext::default()
+        ..FfiWidgetContext::default()
     }
 }
 
@@ -127,7 +127,7 @@ fn a_sample_library_composes_a_marked_snapshot_with_numbers() {
 #[test]
 fn a_demo_context_marks_a_snapshot_of_the_stored_library() {
     let engine = crate::persistence::PersistentEngine::in_memory().expect("an engine");
-    let ctx = WidgetContext {
+    let ctx = FfiWidgetContext {
         demo: true,
         ..context()
     };
@@ -158,12 +158,11 @@ fn a_snapshot_of_a_stored_library_is_not_marked() {
 fn a_native_refresh_leaves_a_sample_file_standing() {
     let _guard = crate::test_globals::serial_global_state();
     let _tmp = crate::test_globals::init_global_engine("widget_sample.db");
-    let ctx = WidgetContext {
+    let ctx = FfiWidgetContext {
         sample: true,
         ..context()
     };
-    let json = serde_json::to_string(&ctx).expect("the context");
-    crate::persistence::with_persistent_engine(|engine| engine.set_widget_context(&json))
+    crate::persistence::with_persistent_engine(|engine| engine.set_widget_context(&ctx))
         .expect("the engine")
         .expect("the write");
 

@@ -25,6 +25,7 @@ import type {
   FfiSummaryComparison,
   FfiWellnessRow,
   FfiWellnessSummary,
+  FfiWidgetContext,
   FfiZoneDistribution,
 } from '../generated/veloqrs';
 import { RangeCoverage } from '../generated/veloqrs';
@@ -504,7 +505,7 @@ export interface SampleWidgetLibrary {
 
 /**
  * The home-screen widget snapshot as the JSON the widgets read, composed by the
- * engine from its rows and `contextJson`, the words and settings only the app
+ * engine from its rows and `ctx`, the words and settings only the app
  * knows. Undefined when the engine is not open; a failed read throws, which the
  * caller reads as "unknown" and keeps the last file.
  *
@@ -514,7 +515,7 @@ export interface SampleWidgetLibrary {
  */
 export function composeWidgetSnapshot(
   host: DelegateHost,
-  contextJson: string,
+  ctx: FfiWidgetContext,
   nowSeconds: number,
   nowWallSeconds: number,
   sample?: SampleWidgetLibrary
@@ -522,7 +523,7 @@ export function composeWidgetSnapshot(
   if (!host.ready) return undefined;
   return host.timed('composeWidgetSnapshot', () =>
     host.engine.fitness().composeWidgetSnapshot(
-      contextJson,
+      ctx,
       nowSeconds,
       nowWallSeconds,
       sample &&
@@ -542,12 +543,10 @@ export function composeWidgetSnapshot(
  * the app's words with no JavaScript running. Answers whether anything was
  * written; a refused write answers false, and the worker keeps the last context.
  */
-export function setWidgetContext(host: DelegateHost, contextJson: string): boolean {
+export function setWidgetContext(host: DelegateHost, ctx: FfiWidgetContext): boolean {
   if (!host.ready) return false;
   try {
-    return host.timed('setWidgetContext', () =>
-      host.engine.fitness().setWidgetContext(contextJson)
-    );
+    return host.timed('setWidgetContext', () => host.engine.fitness().setWidgetContext(ctx));
   } catch {
     return false;
   }

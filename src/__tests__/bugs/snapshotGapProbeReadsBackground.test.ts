@@ -46,7 +46,6 @@ const request = (mapStyle: MapStyleType, pitch = 60): SnapshotRequest => ({
   camera: { center: [9.745, 46.54], zoom: 12.5, bearing: 30, pitch },
   cameraPinned: true,
   mapStyle,
-  routeColor: '#ff0000',
 });
 
 function capture(

@@ -24,7 +24,6 @@ const request = (
   ],
   camera: { center: [8.71, 47.51], zoom: 12, pitch: 60, bearing: 0 },
   mapStyle,
-  routeColor: '#ff0000',
   flat: false,
   ...extra,
 });

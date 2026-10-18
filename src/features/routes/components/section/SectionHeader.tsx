@@ -24,6 +24,7 @@ import { PlaceNameButton } from '../PlaceNameButton';
 import { HighlightedSectionMap } from './HighlightedSectionMap';
 import type { MapHighlightStore } from '@/features/routes/lib/mapHighlight';
 import type { SectionDeltaLine } from '@/features/routes/lib/deltaLayout';
+import type { ChartDirection } from '@/features/routes/lib/scatterData';
 import { type MaterialIconName } from '@/shared/activity/activityUtils';
 import { heroStats } from '@/features/routes/lib/heroStats';
 import type { NameSaveOutcome } from '@/features/routes/lib/sectionRenameFailure';
@@ -71,6 +72,8 @@ export interface SectionHeaderProps {
   pageActivityId?: string | undefined;
   /** The attempt the chart's delta plot shows, which colours the section line. */
   deltaLine?: SectionDeltaLine | null | undefined;
+  /** The direction the chart is on, drawn as chevrons along the section line. */
+  shownDirection?: ChartDirection | null | undefined;
   allActivityTraces?: Record<string, RoutePoint[]> | undefined;
   /** Take the detector's lift flag off. Absent leaves the badge inert. */
   onUnflagLift?: (() => void) | undefined;
@@ -110,6 +113,7 @@ export function SectionHeader({
   highlight,
   pageActivityId,
   deltaLine,
+  shownDirection,
   allActivityTraces,
   onUnflagLift,
   onSaveName,
@@ -186,6 +190,7 @@ export function SectionHeader({
           enableFullscreen={!isTrimming}
           shadowTrack={shadowTrack}
           deltaLine={deltaLine}
+          shownDirection={shownDirection}
           allActivityTraces={allActivityTraces}
           trimRange={isTrimming ? { start: trimStart, end: trimEnd } : null}
           extensionTrack={isTrimming && isExpandMode ? expandContextPoints : null}

@@ -15,14 +15,16 @@ import type { MapStyleType } from '@/features/maps/components/mapStyles';
 import { motionDurationExpression, setStyleStatement } from './shared';
 import { resolveStyleExpression } from './styleResolution';
 import type { MapPadding } from './mapSurface';
+import { cameraMove, colourIndexExpression, mapPalette, type MapPalette } from '@/theme';
 import {
-  colors,
-  colorWithOpacity,
-  mapLayerColors,
-  sectionPalette,
-  sectionPaletteExpression,
-} from '@/theme/colors';
-import { cameraMove } from '@/theme';
+  ENDPOINT_3D_LAYER_IDS,
+  OVERLAY_3D_LINE_WIDTH,
+  ROUTE_3D_LINE_WIDTH,
+  endpoint3DLayers,
+  routeCasing3DPaint,
+  terrainHillshadePaint,
+  terrainSky,
+} from '@/features/maps/lib/terrain3DPaint';
 
 export interface UpdateLayersParams {
   /** The collection, or a URL on the page's origin that MapLibre fetches. */
@@ -62,27 +64,32 @@ export type LayerKey = (typeof LAYER_KEYS)[number];
 // `veloqLine(key)` for an entry and `veloqLineOverlay(line, data)`, which gives
 // the `{ source, layers }` that draw `data` with it.
 //
-// The matched route runs under the activity track, as on the flat map, with the
-// same widths so it reads when the two lines nearly coincide. Sections are the
+// The matched route runs under the activity track, as on the flat map: the
+// base's muted context line with no casing, wider than the track so a margin
+// of it shows when the two nearly coincide. Sections are the
 // consensus polylines RegionalMapView draws (ActivityMapView passes none), thin
 // and dashed so long sections do not dominate; their colour is per feature.
 // Traces are the activity portions cut along its own GPS trace, PR in gold and
 // the rest from the section palette, dashed so overlapping sections let the
 // colour underneath bleed through. The selected activity or lap draws over them.
-function lineOverlayTableScript(): string {
-  const sectionColorsJson = JSON.stringify(sectionPaletteExpression());
+function sectionColoursJson(palette: MapPalette): string {
+  return JSON.stringify(colourIndexExpression(palette.layer.sections, ['get', 'colorIndex']));
+}
+
+function lineOverlayTableScript(palette: MapPalette): string {
+  const sectionColorsJson = sectionColoursJson(palette);
   return `
     var VELOQ_LINES = [
       { key: 'routes', sourceId: 'routes-source', layerId: 'routes-layer',
-        color: ${jsLiteral(mapLayerColors.routeOverlay)}, width: 9, opacity: 0.95, casing: 12, below: 'route-outline' },
+        color: ${jsLiteral(palette.muted)}, width: ${OVERLAY_3D_LINE_WIDTH}, opacity: 1, casing: false, below: 'route-outline' },
       { key: 'sections', sourceId: 'sections-source', layerId: 'sections-layer',
-        color: ['case', ['==', ['get', 'isPR'], true], ${jsLiteral(mapLayerColors.personalRecord)}, ['get', 'color']],
+        color: ['case', ['==', ['get', 'isPR'], true], ${jsLiteral(palette.record)}, ['get', 'color']],
         width: 2.4, opacity: 0.95, dash: [2, 1.2] },
       { key: 'traces', sourceId: 'traces-source', layerId: 'traces-layer',
-        color: ['case', ['==', ['get', 'isPR'], true], ${jsLiteral(mapLayerColors.personalRecord)}, ${sectionColorsJson}],
+        color: ['case', ['==', ['get', 'isPR'], true], ${jsLiteral(palette.record)}, ${sectionColorsJson}],
         width: 4, opacity: 1, dash: [2, 1.2] },
       { key: 'highlightedTrace', sourceId: 'highlighted-trace-source', layerId: 'highlighted-trace-layer',
-        color: ${jsLiteral(colors.chartCyan)}, width: 4, opacity: 1 },
+        color: ${jsLiteral(palette.ink)}, width: 4, opacity: 1 },
     ];
     // A URL is a line to draw: MapLibre fetches it, and an empty answer draws nothing.
     function veloqHasLine(data) {
@@ -94,17 +101,17 @@ function lineOverlayTableScript(): string {
     function veloqLineOverlay(line, data) {
       var main = { 'line-color': line.color, 'line-width': line.width, 'line-opacity': line.opacity };
       if (line.dash) main['line-dasharray'] = line.dash;
-      return {
-        source: { type: 'geojson', data: data },
-        layers: [
-          { id: line.layerId + '-outline', type: 'line', source: line.sourceId,
-            layout: { 'line-join': 'round', 'line-cap': 'round' },
-            paint: { 'line-color': ${jsLiteral(mapLayerColors.casing)}, 'line-width': line.casing || line.width + 2, 'line-opacity': line.opacity * 0.6 } },
-          { id: line.layerId, type: 'line', source: line.sourceId,
-            layout: { 'line-join': 'round', 'line-cap': 'round' },
-            paint: main },
-        ],
-      };
+      var layers = [];
+      // A context line carries no casing; every other line sits on one at its own opacity.
+      if (line.casing !== false) {
+        layers.push({ id: line.layerId + '-outline', type: 'line', source: line.sourceId,
+          layout: { 'line-join': 'round', 'line-cap': 'round' },
+          paint: { 'line-color': ${jsLiteral(palette.casing)}, 'line-width': line.width + 2, 'line-opacity': line.opacity } });
+      }
+      layers.push({ id: line.layerId, type: 'line', source: line.sourceId,
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: main });
+      return { source: { type: 'geojson', data: data }, layers: layers };
     }
   `;
 }
@@ -116,7 +123,11 @@ function lineOverlayTableScript(): string {
 // as "unchanged, leave that layer alone". A key present but empty is `null`
 // and still hides its layer, so omitting is not the same as clearing: a
 // highlight change must not re-inject every section polyline.
-export function buildUpdateLayersScript(params: UpdateLayersParams): string {
+export function buildUpdateLayersScript(
+  params: UpdateLayersParams,
+  /** The colours of the base the page draws now, which a style swap changes. */
+  palette: MapPalette
+): string {
   const literal = (key: keyof UpdateLayersParams): string => {
     if (!(key in params)) return 'undefined';
     const value = params[key];
@@ -133,14 +144,14 @@ export function buildUpdateLayersScript(params: UpdateLayersParams): string {
   const trimJSON = literal('sectionTrimGeoJSON');
   const highlightedTraceJSON = literal('highlightedTraceGeoJSON');
   const highlightIdJSON = literal('highlightedSectionId');
-  const sectionColorsJson = JSON.stringify(sectionPaletteExpression());
+  const sectionColorsJson = sectionColoursJson(palette);
 
   return `
         (function() {
           var retryCount = 0;
           var maxRetries = 5;
 
-          ${lineOverlayTableScript()}
+          ${lineOverlayTableScript(palette)}
 
           // The line collections as last sent, kept on the page so a style swap
           // can build them into the style it applies. Recorded before the style
@@ -212,14 +223,10 @@ export function buildUpdateLayersScript(params: UpdateLayersParams): string {
 
               try {
                 if (sourceExists) {
-                  if (hasData) {
-                    window.map.getSource(line.sourceId).setData(data);
-                    window.map.setLayoutProperty(outlineId, 'visibility', 'visible');
-                    window.map.setLayoutProperty(line.layerId, 'visibility', 'visible');
-                  } else {
-                    window.map.setLayoutProperty(outlineId, 'visibility', 'none');
-                    window.map.setLayoutProperty(line.layerId, 'visibility', 'none');
-                  }
+                  if (hasData) window.map.getSource(line.sourceId).setData(data);
+                  [outlineId, line.layerId].forEach(function(id) {
+                    if (window.map.getLayer(id)) window.map.setLayoutProperty(id, 'visibility', hasData ? 'visible' : 'none');
+                  });
                 } else if (hasData) {
                   var spec = veloqLineOverlay(line, data);
                   window.map.addSource(line.sourceId, spec.source);
@@ -244,8 +251,8 @@ export function buildUpdateLayersScript(params: UpdateLayersParams): string {
               if (highlightedSectionId !== undefined && window.map.getLayer('traces-layer')) {
                 var tracesColor = highlightedSectionId
                   ? ['case',
-                      ['==', ['get', 'id'], highlightedSectionId], ${jsLiteral(mapLayerColors.highlight)},
-                      ['==', ['get', 'isPR'], true], ${jsLiteral(mapLayerColors.personalRecord)},
+                      ['==', ['get', 'id'], highlightedSectionId], ${jsLiteral(palette.layer.highlight)},
+                      ['==', ['get', 'isPR'], true], ${jsLiteral(palette.record)},
                       ${sectionColorsJson}]
                   : baseTracesColor;
                 var tracesOpacity = highlightedSectionId
@@ -283,14 +290,14 @@ export function buildUpdateLayersScript(params: UpdateLayersParams): string {
                   type: 'line',
                   source: 'section-boundaries-source',
                   layout: { 'line-cap': 'round' },
-                  paint: { 'line-color': ${jsLiteral(mapLayerColors.boundaryCasing)}, 'line-width': 6, 'line-opacity': 0.45 },
+                  paint: { 'line-color': ${jsLiteral(palette.layer.boundaryCasing)}, 'line-width': 6, 'line-opacity': 0.45 },
                 });
                 window.map.addLayer({
                   id: 'section-boundaries-line-3d',
                   type: 'line',
                   source: 'section-boundaries-source',
                   layout: { 'line-cap': 'round' },
-                  paint: { 'line-color': ${jsLiteral(mapLayerColors.casing)}, 'line-width': 3.5 },
+                  paint: { 'line-color': ${jsLiteral(palette.casing)}, 'line-width': 3.5 },
                 });
               }
             } catch (e) { console.warn('section-boundaries layer error:', e); }
@@ -312,29 +319,29 @@ export function buildUpdateLayersScript(params: UpdateLayersParams): string {
                 window.map.addSource('section-trim-source', { type: 'geojson', data: sectionTrimData });
                 window.map.addLayer({ id: 'section-trim-extension-casing-3d', type: 'line', source: 'section-trim-source', filter: lineKind('extension'),
                   layout: { 'line-join': 'round', 'line-cap': 'round' },
-                  paint: { 'line-color': ${jsLiteral(mapLayerColors.boundaryCasing)}, 'line-width': 6, 'line-opacity': 0.5 } });
+                  paint: { 'line-color': ${jsLiteral(palette.layer.boundaryCasing)}, 'line-width': 6, 'line-opacity': 0.5 } });
                 window.map.addLayer({ id: 'section-trim-extension-3d', type: 'line', source: 'section-trim-source', filter: lineKind('extension'),
                   layout: { 'line-join': 'round', 'line-cap': 'round' },
-                  paint: { 'line-color': ${jsLiteral(mapLayerColors.extension)}, 'line-width': 4 } });
+                  paint: { 'line-color': ${jsLiteral(palette.layer.extension)}, 'line-width': 4 } });
                 window.map.addLayer({ id: 'section-trim-casing-3d', type: 'line', source: 'section-trim-source', filter: lineKind('trimmed'),
                   layout: { 'line-join': 'round', 'line-cap': 'round' },
-                  paint: { 'line-color': ${jsLiteral(mapLayerColors.casing)}, 'line-width': 6 } });
+                  paint: { 'line-color': ${jsLiteral(palette.casing)}, 'line-width': 6 } });
                 window.map.addLayer({ id: 'section-trim-line-3d', type: 'line', source: 'section-trim-source', filter: lineKind('trimmed'),
                   layout: { 'line-join': 'round', 'line-cap': 'round' },
-                  paint: { 'line-color': (window.map.getLayer('route-line') && window.map.getPaintProperty('route-line', 'line-color')) || ${jsLiteral(colors.actionPrimary)}, 'line-width': 4 } });
+                  paint: { 'line-color': (window.map.getLayer('route-line') && window.map.getPaintProperty('route-line', 'line-color')) || ${jsLiteral(palette.route)}, 'line-width': 4 } });
                 window.map.addLayer({ id: 'section-trim-end-border-3d', type: 'circle', source: 'section-trim-source', filter: pointFilter,
-                  paint: { 'circle-radius': 7, 'circle-color': ${jsLiteral(mapLayerColors.casing)} } });
+                  paint: { 'circle-radius': 7, 'circle-color': ${jsLiteral(palette.casing)} } });
                 window.map.addLayer({ id: 'section-trim-end-3d', type: 'circle', source: 'section-trim-source', filter: pointFilter,
                   paint: { 'circle-radius': 5,
-                    'circle-color': ['case', ['==', ['get', 'kind'], 'start'], ${jsLiteral(colorWithOpacity(colors.successFill, 0.75))}, ${jsLiteral(colorWithOpacity(colors.dangerFill, 0.75))}] } });
+                    'circle-color': ['case', ['==', ['get', 'kind'], 'start'], ${jsLiteral(palette.start)}, ${jsLiteral(palette.ink)}] } });
               }
               if (window.map.getLayer('route-line')) {
                 window.map.setPaintProperty('route-line', 'line-opacity', trimOn ? 0.4 : 1);
               }
               if (window.map.getLayer('route-outline')) {
-                window.map.setPaintProperty('route-outline', 'line-opacity', trimOn ? 0.3 : 0.8);
+                window.map.setPaintProperty('route-outline', 'line-opacity', trimOn ? 0.3 : 1);
               }
-              ['start-end-border', 'start-end-fill'].forEach(function(id) {
+              ${JSON.stringify(ENDPOINT_3D_LAYER_IDS)}.forEach(function(id) {
                 if (window.map.getLayer(id)) window.map.setLayoutProperty(id, 'visibility', trimOn ? 'none' : 'visible');
               });
             } catch (e) { console.warn('section-trim layer error:', e); }
@@ -368,7 +375,7 @@ export function buildUpdateLayersScript(params: UpdateLayersParams): string {
                     type: 'circle',
                     source: 'section-markers-source',
                     filter: ['!=', ['get', 'isPR'], true],
-                    paint: { 'circle-radius': 14, 'circle-color': ${jsLiteral(mapLayerColors.casing)} },
+                    paint: { 'circle-radius': 14, 'circle-color': ${jsLiteral(palette.casing)} },
                   });
                   window.map.addLayer({
                     id: 'section-marker-circle-3d',
@@ -377,9 +384,9 @@ export function buildUpdateLayersScript(params: UpdateLayersParams): string {
                     filter: ['!=', ['get', 'isPR'], true],
                     paint: {
                       'circle-radius': 12,
-                      'circle-color': ${sectionColorsJson},
+                      'circle-color': ${jsLiteral(palette.route)},
                       'circle-stroke-width': 2,
-                      'circle-stroke-color': ${jsLiteral(mapLayerColors.casing)},
+                      'circle-stroke-color': ${jsLiteral(palette.casing)},
                     },
                   });
                   window.map.addLayer({
@@ -395,7 +402,7 @@ export function buildUpdateLayersScript(params: UpdateLayersParams): string {
                       'text-allow-overlap': true,
                       'text-ignore-placement': true,
                     },
-                    paint: { 'text-color': ${jsLiteral(mapLayerColors.casing)} },
+                    paint: { 'text-color': ${jsLiteral(palette.badgeInk)} },
                   });
                   // PR markers: gold trophy, offset above trace
                   if (window.map.hasImage('trophy-3d')) {
@@ -413,7 +420,7 @@ export function buildUpdateLayersScript(params: UpdateLayersParams): string {
                         'icon-anchor': 'center',
                       },
                       paint: {
-                        'icon-color': ${jsLiteral(mapLayerColors.personalRecord)},
+                        'icon-color': ${jsLiteral(palette.record)},
                       },
                     });
                   }
@@ -454,7 +461,7 @@ export function buildUpdateLayersScript(params: UpdateLayersParams): string {
               type: 'line',
               source: 'spider-lines-source',
               paint: {
-                'line-color': ${jsLiteral(mapLayerColors.casing)},
+                'line-color': ${jsLiteral(palette.casing)},
                 'line-width': 1.5,
                 'line-opacity': 0.6,
               },
@@ -491,7 +498,7 @@ export function buildUpdateLayersScript(params: UpdateLayersParams): string {
                       18, 10
                     ],
                     'circle-opacity': 0.9,
-                    'circle-stroke-color': ${jsLiteral(mapLayerColors.casing)},
+                    'circle-stroke-color': ${jsLiteral(palette.casing)},
                     'circle-stroke-width': 1.5,
                     'circle-stroke-opacity': 0.8,
                   },
@@ -562,9 +569,10 @@ export function buildSetRouteGradientScript(expression: object | null): string {
 // the style swap splices these into the style it builds. The returned script
 // defines `veloqOverlays(coords, routeColor)`, which gives
 // `{ sources, layers }` for the caller to merge into a style object.
-export function buildStyleOverlayScript(): string {
+export function buildStyleOverlayScript(palette: MapPalette): string {
+  const endpoints = JSON.stringify(endpoint3DLayers(palette));
   return `
-    ${lineOverlayTableScript()}
+    ${lineOverlayTableScript(palette)}
     function veloqOverlays(coords, routeColor) {
       var on = coords.length > 0;
       var vis = { visibility: on ? 'visible' : 'none' };
@@ -603,25 +611,21 @@ export function buildStyleOverlayScript(): string {
         layers: below.concat([
           { id: 'route-outline', type: 'line', source: 'route',
             layout: { 'line-join': 'round', 'line-cap': 'round', visibility: vis.visibility },
-            paint: { 'line-color': ${jsLiteral(mapLayerColors.casing)}, 'line-width': 5, 'line-opacity': 0.8 } },
+            paint: ${JSON.stringify(routeCasing3DPaint(palette))} },
           { id: 'route-line', type: 'line', source: 'route',
             layout: { 'line-join': 'round', 'line-cap': 'round', visibility: vis.visibility },
-            paint: Object.assign({ 'line-color': routeColor, 'line-width': 3 },
+            paint: Object.assign({ 'line-color': routeColor, 'line-width': ${ROUTE_3D_LINE_WIDTH} },
               (window._veloq3d && window._veloq3d.gradient) ? { 'line-gradient': window._veloq3d.gradient } : {}) },
-          { id: 'start-end-border', type: 'circle', source: 'start-end-markers',
-            layout: vis,
-            paint: { 'circle-radius': 7, 'circle-color': ${jsLiteral(mapLayerColors.casing)} } },
-          { id: 'start-end-fill', type: 'circle', source: 'start-end-markers',
-            layout: vis,
-            paint: { 'circle-radius': 5,
-              'circle-color': ['case', ['==', ['get', 'type'], 'start'], ${jsLiteral(colorWithOpacity(colors.successFill, 0.75))}, ${jsLiteral(colorWithOpacity(colors.dangerFill, 0.75))}] } },
+        ], ${endpoints}.map(function(layer) {
+          return Object.assign({}, layer, { layout: Object.assign({}, layer.layout, vis) });
+        }), [
           { id: 'highlight-border', type: 'circle', source: 'highlight-point',
             layout: { visibility: 'none' },
-            paint: { 'circle-radius': 7, 'circle-color': ${jsLiteral(mapLayerColors.casing)} } },
+            paint: { 'circle-radius': 7, 'circle-color': ${jsLiteral(palette.casing)} } },
           { id: 'highlight-fill', type: 'circle', source: 'highlight-point',
             layout: { visibility: 'none' },
-            paint: { 'circle-radius': 5, 'circle-color': ${jsLiteral(sectionPalette[0])} } },
-        ]).concat(above),
+            paint: { 'circle-radius': 5, 'circle-color': ${jsLiteral(palette.ink)} } },
+        ], above),
       };
     }
   `;
@@ -647,31 +651,22 @@ export function buildMap3DSetStyleScript({
   showHeatmap,
 }: Map3DStyleSwap): string {
   const isSatellite = mapStyle === 'satellite';
-  const isDark = mapStyle === 'dark' || mapStyle === 'satellite';
+  const palette = mapPalette(mapStyle);
 
   const { styleJSON: styleConfig } = resolveStyleExpression(mapStyle);
 
   // Serialize shared terrain config for injection
   const terrainSourceJSON = JSON.stringify(terrain3DSource());
-  const skyConfigJSON = JSON.stringify(
-    isSatellite
-      ? TERRAIN_3D_CONFIG.sky.satellite
-      : isDark
-        ? TERRAIN_3D_CONFIG.sky.dark
-        : TERRAIN_3D_CONFIG.sky.light
-  );
-  const hillshadePaintJSON = JSON.stringify(
-    isDark ? TERRAIN_3D_CONFIG.hillshadePaint.dark : TERRAIN_3D_CONFIG.hillshadePaint.light
-  );
+  const skyConfigJSON = JSON.stringify(terrainSky(palette));
+  const hillshadePaintJSON = JSON.stringify(terrainHillshadePaint(palette));
 
   return `
     (function() {
       if (!window.map) return;
 
-      ${buildStyleOverlayScript()}
+      ${buildStyleOverlayScript(palette)}
 
       var isSatellite = ${isSatellite};
-      var isDark = ${isDark};
       var coords = window._routeCoords || [];
       var routeColor = ${jsLiteral(routeColor)};
       var terrainSource = ${terrainSourceJSON};

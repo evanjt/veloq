@@ -216,7 +216,7 @@ export function buildRecordingNotificationPayload(
       ? { id: 'pause' as const, label: translate('recording.controls.pause', 'Pause') }
       : { id: 'resume' as const, label: translate('recording.controls.resume', 'Resume') },
     { id: 'lap', label: translate('recording.controls.lap', 'Lap') },
-    { id: 'stop', label: translate('recording.controls.stop', 'Stop') },
+    { id: 'stop', label: translate('recording.controls.finish', 'Finish') },
   ];
 
   const elapsedText = formatDuration(movingSeconds);

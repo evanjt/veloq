@@ -13,10 +13,13 @@ import { chartBoundsFor, xForValue, yForValue, type XY } from '@/shared/charts';
 import { FfiReferenceSource } from 'veloqrs';
 import type { FfiDirectionDeltas, FfiLapDelta, FfiSplitSummary } from 'veloqrs';
 
-/** What the section map needs to colour its line by the shown attempt's per-stretch delta. */
+/** What the section map needs to band its line by how far ahead or behind the shown attempt is. */
 export interface SectionDeltaLine {
-  /** Seconds won (negative) or lost per `splitStepM` metres, in the attempt's travel order. */
-  splits: ArrayLike<number>;
+  /**
+   * Percent slower (positive) or faster than the reference per `splitStepM`
+   * metres, in the attempt's travel order. NaN over a stretch with no data.
+   */
+  percents: ArrayLike<number>;
   splitStepM: number;
   sectionLengthM: number;
   direction: 'forward' | 'reverse';
@@ -115,6 +118,43 @@ function rebaseOptional(
   return reference === undefined
     ? Float32Array.from(values, () => NaN)
     : rebaseCurve(values, reference);
+}
+
+/**
+ * The reference's own seconds over each split, read from whichever of `laps`
+ * covers it: a lap's time there less its delta against the reference. Every
+ * lap is measured against the one reference, so any covering lap gives the
+ * same time, and a reference chosen on the chart (`deltasAgainst`) gives its
+ * own. NaN over a split no lap covers.
+ */
+export function referenceSplitSecs(laps: readonly FfiLapDelta[]): Float32Array {
+  const length = laps.reduce((most, lap) => Math.max(most, lap.splitDeltaSecs.length), 0);
+  const secs = new Float32Array(length).fill(NaN);
+  for (const lap of laps) {
+    const own = lap.splitSecs as ArrayLike<number> | undefined;
+    if (own === undefined) continue;
+    for (let i = 0; i < length; i += 1) {
+      if (Number.isFinite(secs[i])) continue;
+      const reference = Number(own[i]) - Number(lap.splitDeltaSecs[i]);
+      if (Number.isFinite(reference)) secs[i] = reference;
+    }
+  }
+  return secs;
+}
+
+/**
+ * Seconds behind the reference over each split as a percent of the
+ * reference's time there, negative ahead. NaN where either is missing or the
+ * reference took no time.
+ */
+export function splitPercents(
+  deltaSecs: ArrayLike<number>,
+  referenceSecs: ArrayLike<number>
+): Float32Array {
+  return Float32Array.from(deltaSecs, (delta, i) => {
+    const reference = Number(referenceSecs[i]);
+    return reference > 0 ? (Number(delta) / reference) * 100 : NaN;
+  });
 }
 
 /**

@@ -406,7 +406,7 @@ void uniffi_veloqrs_fn_free_fitnessmanager(
 /*handle*/ uint64_t uniffi_veloqrs_fn_constructor_fitnessmanager_new(
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_compose_widget_snapshot(
-    /*handle*/ uint64_t ptr, RustBuffer context_json, double now_seconds,
+    /*handle*/ uint64_t ptr, RustBuffer ctx, double now_seconds,
     double now_wall_seconds, RustBuffer sample, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_activity_intervals(
     /*handle*/ uint64_t ptr, RustBuffer activity_id,
@@ -456,8 +456,7 @@ void uniffi_veloqrs_fn_method_fitnessmanager_save_pace_snapshot(
     RustBuffer d_prime, RustBuffer r2, double date, double window_days,
     RustCallStatus *uniffi_out_err);
 int8_t uniffi_veloqrs_fn_method_fitnessmanager_set_widget_context(
-    /*handle*/ uint64_t ptr, RustBuffer context_json,
-    RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer ctx, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_fitnessmanager_upsert_wellness(
     /*handle*/ uint64_t ptr, RustBuffer rows, RustCallStatus *uniffi_out_err);
 /*handle*/ uint64_t uniffi_veloqrs_fn_clone_mapmanager(

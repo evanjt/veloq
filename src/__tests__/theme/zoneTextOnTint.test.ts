@@ -1,11 +1,12 @@
 /**
- * Scenario: the live heart rate number is drawn over its zone's tint.
- * Expected behaviour: every zone's text tone clears 4.5:1 on that tint in both
- * themes, which the zone fill itself does not.
+ * Scenario: the live heart rate number and its zone name are drawn over the
+ * zone's tint.
+ * Expected behaviour: primary text clears 4.5:1 on every zone tint over every
+ * surface of its theme, so no zone needs its own text tone.
  */
 
-import { colors, darkColors, zoneColors, colorWithOpacity, opacity } from '@/theme/colors';
-import { zoneColour } from '@/theme/zoneColour';
+import { colors, darkColors } from '@/theme/colors';
+import { zoneTint } from '@/theme/zoneColour';
 
 function rgb(value: string): [number, number, number] {
   const rgba = value.match(/^rgba\((\d+), (\d+), (\d+), ([\d.]+)\)$/);
@@ -33,22 +34,18 @@ function ratio(a: [number, number, number], b: [number, number, number]): number
   return (hi + 0.05) / (lo + 0.05);
 }
 
-const FILLS = Object.values(zoneColors);
+const ZONES = [1, 2, 3, 4, 5, 6, 7];
 
-describe('zone text tones', () => {
+describe('primary text on a zone tint', () => {
   it.each([
-    ['light', false, colors.surfacePage, opacity.tint3],
-    ['dark', true, darkColors.surfacePage, opacity.tint3],
-  ])('clears 4.5:1 on every zone tint in %s mode', (_name, isDark, ground, alpha) => {
-    FILLS.forEach((fill, i) => {
-      const tint = over(colorWithOpacity(fill, alpha as number), ground as string);
-      const tone = rgb(zoneColour(i + 1, isDark as boolean, 'text'));
-      expect(ratio(tone, tint)).toBeGreaterThanOrEqual(4.5);
-    });
-  });
-
-  it('clamps a zone outside the ramp to its ends', () => {
-    expect(zoneColour(0, false, 'text')).toBe(zoneColour(1, false, 'text'));
-    expect(zoneColour(9, true, 'text')).toBe(zoneColour(7, true, 'text'));
+    ['light', false, colors],
+    ['dark', true, darkColors],
+  ])('clears 4.5:1 on every zone tint in %s mode', (_name, isDark, palette) => {
+    for (const ground of [palette.surfacePage, palette.surface, palette.surfaceRaised]) {
+      for (const zone of ZONES) {
+        const tint = over(zoneTint(zone, isDark as boolean), ground);
+        expect(ratio(rgb(palette.textPrimary), tint)).toBeGreaterThanOrEqual(4.5);
+      }
+    }
   });
 });

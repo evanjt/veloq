@@ -50,8 +50,8 @@ fn data(
     }
 }
 
-fn context() -> WidgetContext {
-    WidgetContext {
+fn context() -> FfiWidgetContext {
+    FfiWidgetContext {
         locale: "en-AU".to_string(),
         is_metric: true,
         summary_card: Some(SummaryPrefs {
@@ -459,7 +459,7 @@ fn the_printed_form_change_is_in_percentage_points_under_the_percentage_setting(
         },
         sparklines(),
     );
-    let ctx = WidgetContext {
+    let ctx = FfiWidgetContext {
         form_as_percent: true,
         ..context()
     };
@@ -482,7 +482,7 @@ fn the_printed_form_change_is_absent_under_the_percentage_setting_when_the_basel
         },
         sparklines(),
     );
-    let ctx = WidgetContext {
+    let ctx = FfiWidgetContext {
         form_as_percent: true,
         ..context()
     };
@@ -619,7 +619,7 @@ mod card_parity {
             },
             ..Default::default()
         };
-        let ctx = WidgetContext {
+        let ctx = FfiWidgetContext {
             locale: "en-AU".to_string(),
             is_metric: true,
             ..Default::default()
@@ -745,7 +745,7 @@ mod pace_one_source {
             },
             ..Default::default()
         };
-        let ctx = WidgetContext {
+        let ctx = FfiWidgetContext {
             locale: "en-AU".to_string(),
             is_metric,
             summary_card: Some(SummaryPrefs {

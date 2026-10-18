@@ -21,7 +21,6 @@ const request = (flat: boolean, activityId = 'ride-1'): SnapshotRequest => ({
   ],
   camera: { center: [8.71, 47.51], zoom: 12, pitch: flat ? 0 : 60, bearing: 0 },
   mapStyle: 'light',
-  routeColor: '#ff0000',
   flat,
 });
 

@@ -2,9 +2,9 @@
  * Grade-based line colouring helpers for MapLibre `line-gradient`.
  *
  * Maps per-point grade (% slope) values to the base map's diverging steps along
- * a polyline: grey within 2 % of flat, then three steps of the base's cool side
- * on descents and three of its warm side on climbs. Each band is one colour, so
- * a colour always means one band.
+ * a polyline, banded by `divergingStep`: grey within 2 % of flat, then three
+ * steps of the base's cool side on descents and three of its warm side on
+ * climbs.
  *
  * Usage:
  *   const stops = buildGradientLineStops(streams.grade_smooth, streams.distance, mapStyle);
@@ -16,35 +16,14 @@
 
 import { mapPalette, type MapDivStep } from '@/theme';
 import type { MapStyleType } from '../components/mapStyles';
+import { divergingStep } from './divergingStep';
 
 /** A step of a base map's diverging ramp, from steep descent to steep climb. */
 export type GradeStep = MapDivStep;
 
-/**
- * The grade bands from steep descent to steep climb, each ending at `upTo`
- * percent on its climbing side. Flat ground is the band within 2 % either way.
- */
-export const GRADE_BANDS: readonly { step: GradeStep; upTo: number }[] = [
-  { step: 'cool-3', upTo: -10 },
-  { step: 'cool-2', upTo: -5 },
-  { step: 'cool-1', upTo: -2 },
-  { step: 'mid', upTo: 2 },
-  { step: 'warm-1', upTo: 5 },
-  { step: 'warm-2', upTo: 10 },
-  { step: 'warm-3', upTo: Infinity },
-];
-
-/** The gradients the map key labels on its ramp. */
-export const GRADIENT_KEY_TICKS: readonly number[] = [-10, 0, 10];
-
 /** The step a grade falls in. A grade with no value is drawn as flat. */
 export function gradeStep(percent: number): GradeStep {
-  if (!Number.isFinite(percent)) return 'mid';
-  for (const band of GRADE_BANDS) {
-    // A band holds its edge farther from flat, and flat ground both of its own.
-    if (band.upTo < 0 ? percent < band.upTo : percent <= band.upTo) return band.step;
-  }
-  return 'warm-3';
+  return divergingStep(percent, 'grade') ?? 'mid';
 }
 
 /** The base map's colour for one step of its diverging ramp. */

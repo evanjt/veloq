@@ -40,7 +40,7 @@ const NEUTRAL_TEXT = new Set(
 );
 
 /**
- * Every series, zone and mark tone in both themes, fill and text alike, less any that happens to
+ * Every series, zone and mark tone in both themes, less any that happens to
  * equal a neutral text token.
  */
 const SERIES_TONES = new Set(
@@ -50,12 +50,7 @@ const SERIES_TONES = new Set(
         .filter(([key]) => /^(chart|fitness|fatigue|form|zone|mark|sport)/.test(key))
         .map(([, value]) => value)
     ),
-    ...[1, 2, 3, 4, 5, 6, 7].flatMap((zone) =>
-      [false, true].flatMap((dark) => [
-        zoneColour(zone, dark, 'fill'),
-        zoneColour(zone, dark, 'text'),
-      ])
-    ),
+    ...[1, 2, 3, 4, 5, 6, 7].flatMap((zone) => [false, true].map((dark) => zoneColour(zone, dark))),
   ]
     .filter((value): value is string => typeof value === 'string')
     .map((value) => value.toUpperCase())

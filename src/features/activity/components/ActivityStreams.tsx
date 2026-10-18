@@ -494,9 +494,10 @@ function LaneMarks({ lane, frame, isDark, average, bands, scrubbed, colours }: L
     <>
       {/* Each interval's band behind the stream, its colour along its top edge */}
       {bands.map((band, i) => {
+        const colour = resolveBandColour(band.bandColour, isDark);
+        if (colour == null) return null;
         const x1 = xFor(band.startX);
         const width = Math.max(1, xFor(band.endX) - x1);
-        const colour = resolveBandColour(band.bandColour, isDark);
         return (
           <React.Fragment key={`band-${i}`}>
             <Rect
@@ -578,14 +579,15 @@ function LaneMarks({ lane, frame, isDark, average, bands, scrubbed, colours }: L
       {lane.id === 'power' || lane.id === 'heartrate'
         ? bands.map((band, i) => {
             const bandAverage = band.averages[lane.id as 'power' | 'heartrate'];
-            if (bandAverage == null) return null;
+            const colour = resolveBandColour(band.bandColour, isDark);
+            if (bandAverage == null || colour == null) return null;
             const y = yFor(bandAverage);
             return (
               <SkiaLine
                 key={`band-average-${i}`}
                 p1={vec(xFor(band.startX), y)}
                 p2={vec(xFor(band.endX), y)}
-                color={resolveBandColour(band.bandColour, isDark)}
+                color={colour}
                 strokeWidth={chartStroke.series}
               >
                 <DashPathEffect intervals={REFERENCE_DASH} />

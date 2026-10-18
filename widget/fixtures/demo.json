@@ -600,11 +600,13 @@
   },
   "launcherShortcuts": [
     {
+      "glyph": "ride",
       "label": "Ride",
       "type": "Ride",
       "url": "veloq://record?type=Ride"
     },
     {
+      "glyph": "run",
       "label": "Run",
       "type": "Run",
       "url": "veloq://record?type=Run"
@@ -655,11 +657,13 @@
   },
   "recordShortcuts": [
     {
+      "glyph": "ride",
       "label": "Ride",
       "type": "Ride",
       "url": "veloq://record?type=Ride"
     },
     {
+      "glyph": "run",
       "label": "Run",
       "type": "Run",
       "url": "veloq://record?type=Run"

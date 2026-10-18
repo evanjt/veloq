@@ -109,7 +109,6 @@ module.exports = {
       heavy: 'rgba(255, 255, 255, 0.15)',
     },
   },
-  zoneColors: {},
   colorWithOpacity: (color) => color,
   shadows: {},
   raised: () => ({}),

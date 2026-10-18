@@ -39,8 +39,8 @@ fn data(ride_date: i64) -> FfiWidgetSnapshotData {
     }
 }
 
-fn context() -> WidgetContext {
-    WidgetContext {
+fn context() -> FfiWidgetContext {
+    FfiWidgetContext {
         locale: "en-AU".to_string(),
         is_metric: true,
         ..Default::default()
@@ -151,18 +151,18 @@ fn a_ride_dated_after_now_has_no_impact() {
     );
 }
 
-fn english() -> WidgetContext {
+fn english() -> FfiWidgetContext {
     let months = [
         "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
     ];
     let part = |kind: &str, value: &str| DatePart {
-        kind: kind.to_string(),
+        r#type: kind.to_string(),
         value: value.to_string(),
     };
     let month_day = vec![part("month", ""), part("literal", " "), part("day", "")];
     let mut month_day_year = month_day.clone();
     month_day_year.extend([part("literal", ", "), part("year", "")]);
-    WidgetContext {
+    FfiWidgetContext {
         strings: [("time.today", "Today"), ("time.yesterday", "Yesterday")]
             .into_iter()
             .map(|(k, v)| (k.to_string(), v.to_string()))
@@ -194,7 +194,7 @@ fn english() -> WidgetContext {
     }
 }
 
-fn label(ctx: &WidgetContext, ride_date: i64, now_wall_seconds: i64) -> String {
+fn label(ctx: &FfiWidgetContext, ride_date: i64, now_wall_seconds: i64) -> String {
     compose(&data(ride_date), ctx, at_wall(now_wall_seconds))
         .latest
         .unwrap()

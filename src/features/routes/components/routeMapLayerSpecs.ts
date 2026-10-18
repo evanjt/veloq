@@ -2,7 +2,14 @@
  * Source and layer specs for the inline route map.
  */
 import type { MapPalette } from '@/theme';
-import { buildEndpointLayers, type MapLayerSpec, type MapSourceSpec } from '@/features/maps';
+import {
+  buildDeltaGapLayer,
+  buildEndpointLayers,
+  lineBandExpression,
+  type LineBand,
+  type MapLayerSpec,
+  type MapSourceSpec,
+} from '@/features/maps';
 
 /**
  * The inline map's sources: the overlays and the route itself. line-gradient
@@ -24,7 +31,7 @@ export function buildRouteLayers({
   routeContext,
   fadedFilter,
   includeRoute,
-  deltaLineStops = null,
+  deltaBands = null,
 }: {
   /** The colours of the base map drawn under the layers. */
   palette: MapPalette;
@@ -35,10 +42,11 @@ export function buildRouteLayers({
   /** Off in fullscreen, where the shell draws the route itself. */
   includeRoute: boolean;
   /**
-   * `line-progress` stops colouring the route line by time won or lost, while
-   * the chart shows the delta plot. Without them the line is the base's route colour.
+   * The bands of the route line by how far ahead or behind the shown attempt
+   * is, while the chart shows the delta plot. Without them the line is the
+   * base's route colour.
    */
-  deltaLineStops?: (string | number)[] | null;
+  deltaBands?: readonly LineBand[] | null;
 }): MapLayerSpec[] {
   const routeLayers: MapLayerSpec[] = includeRoute
     ? [
@@ -60,15 +68,8 @@ export function buildRouteLayers({
           source: 'route',
           layout: { 'line-cap': 'round', 'line-join': 'round' },
           paint: {
-            ...(deltaLineStops
-              ? {
-                  'line-gradient': [
-                    'interpolate',
-                    ['linear'],
-                    ['line-progress'],
-                    ...deltaLineStops,
-                  ],
-                }
+            ...(deltaBands
+              ? { 'line-gradient': lineBandExpression(deltaBands, palette) }
               : { 'line-color': routeContext ? palette.muted : palette.route }),
             'line-width': 4,
           },
@@ -89,6 +90,7 @@ export function buildRouteLayers({
       },
     },
     ...routeLayers,
+    buildDeltaGapLayer(palette, 4),
     {
       id: 'highlighted-casing',
       type: 'line',

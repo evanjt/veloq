@@ -44,9 +44,10 @@ const SEGMENT_KEYS = [
   'storageGround',
   'storagePreviews',
   'storageBackups',
+  'storageOther',
 ] as const;
 
-function fullPanel() {
+function fullPanel(athleteFilesSize = 4_000_000) {
   return render(
     <StorageStatsPanel
       isDark={false}
@@ -61,7 +62,7 @@ function fullPanel() {
       terrainCacheSize={2_000_000}
       heatmapCacheSize={3_000_000}
       basemapTiles={{ totalBytes: 5_000_000, vectorBytes: 3_000_000 }}
-      athleteFilesSize={4_000_000}
+      athleteFilesSize={athleteFilesSize}
       freeStorage={5_000_000}
     />
   );
@@ -71,16 +72,24 @@ describe('the storage legend', () => {
   it('names every segment through a key', async () => {
     const { getAllByTestId } = await fullPanel();
     const names = getAllByTestId('storage-legend-label').map((n) => String(n.props.children[0]));
-    expect(names).toHaveLength(SEGMENT_KEYS.length);
+    expect(names).toHaveLength(5);
     for (const name of names) {
       expect(name).toMatch(/^t\(settings\./);
     }
   });
 
-  it('draws a segment for every store that holds something', async () => {
-    const { getAllByTestId } = await fullPanel();
+  it('draws a segment for every store that holds something, largest first', async () => {
+    const { getAllByTestId } = await fullPanel(0);
     const names = getAllByTestId('storage-legend-label').map((n) => String(n.props.children[0]));
-    expect(names).toEqual(SEGMENT_KEYS.map((key) => `t(settings.${key})`));
+    expect(names).toEqual(
+      [
+        'storageHeatmap',
+        'storageVector',
+        'storageGround',
+        'storagePreviews',
+        'storageDatabase',
+      ].map((key) => `t(settings.${key})`)
+    );
   });
 
   // Every other locale is held to the reference one in translations.test.ts,

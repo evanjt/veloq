@@ -64,7 +64,8 @@ const sectionLayers = () =>
     trimLineWidth: 4,
     traceCasingWidth: 5,
     traceLineWidth: 4,
-    deltaLineStops: null,
+    deltaBands: null,
+    deltaGapsGeoJSON: empty,
   } as unknown as Parameters<typeof buildSectionLayers>[0]);
 
 describe.each([

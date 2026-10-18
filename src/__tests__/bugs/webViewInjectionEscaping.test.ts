@@ -38,17 +38,16 @@ describe('a value interpolated into injected JavaScript', () => {
     const hostile = 'x\'"); globalThis.__injected = 1; //\n</script>';
 
     const request = {
-      activityId: 'a1',
+      activityId: hostile,
       coordinates: [[7, 46]] as [number, number][],
       camera: { center: [7, 46] as [number, number], zoom: 10, bearing: 0, pitch: 0 },
       mapStyle: 'light' as const,
-      routeColor: hostile,
     };
 
-    it('reads the snapshot route colour back as the value it was given', () => {
+    it('reads the snapshot activity id back as the value it was given', () => {
       const script = buildRenderSnapshotScript(request, 0, 1);
       const literal = /window\._renderSnapshot\((.*)\);\n/.exec(script)![1];
-      expect(eval(`(${literal})`).routeColor).toBe(hostile);
+      expect(eval(`(${literal})`).activityId).toBe(hostile);
       expect((globalThis as Record<string, unknown>).__injected).toBeUndefined();
     });
 

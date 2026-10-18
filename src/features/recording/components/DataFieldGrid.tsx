@@ -19,19 +19,10 @@ import {
   formatSportSpeed,
   formatElevation,
 } from '@/shared/format/format';
-import {
-  colors,
-  colorWithOpacity,
-  darkColors,
-  opacity,
-  spacing,
-  stroke,
-  typography,
-  zoneColour,
-} from '@/theme';
+import { colors, darkColors, spacing, stroke, typography, zoneColour, zoneTint } from '@/theme';
 import type { ActivityType, DataFieldType } from '@/types';
 import { isSwimmingActivity } from '@/shared/activity/activityUtils';
-import { accessibleActions, PressTarget } from '@/shared/ui';
+import { accessibleActions, KeyDot, PressTarget } from '@/shared/ui';
 import { FitText } from '@/shared/ui/FitText';
 import { useTextScaleColumns } from '@/shared/ui/useLargeText';
 import type { SensorKind } from '@/features/sensors';
@@ -210,7 +201,7 @@ const DataFieldTile = React.memo(function DataFieldTile({
         {
           width,
           backgroundColor: zoned
-            ? colorWithOpacity(zoneColour(zone, isDark, 'fill'), opacity.tint3)
+            ? zoneTint(zone, isDark)
             : isDark
               ? darkColors.surfaceRaised
               : colors.surface,
@@ -220,7 +211,7 @@ const DataFieldTile = React.memo(function DataFieldTile({
     >
       <FitText
         maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-        style={[styles.value, { color: zoned ? zoneColour(zone, isDark, 'text') : textColor }]}
+        style={[styles.value, { color: textColor }]}
         minimumFontScale={VALUE_MIN_FONT_SCALE}
         accessibilityLabel={absentLabel(value, t)}
       >
@@ -234,12 +225,15 @@ const DataFieldTile = React.memo(function DataFieldTile({
           {label}
         </FitText>
         {zoned ? (
-          <FitText
-            maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-            style={[styles.label, styles.zone, { color: zoneColour(zone, isDark, 'text') }]}
-          >
-            {`Z${zone}`}
-          </FitText>
+          <View style={styles.zone}>
+            <KeyDot color={zoneColour(zone, isDark)} testID={`data-field-${field}-zone-dot`} />
+            <FitText
+              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+              style={[styles.label, styles.zoneName, { color: textColor }]}
+            >
+              {`Z${zone}`}
+            </FitText>
+          </View>
         ) : null}
       </View>
     </PressTarget>
@@ -315,7 +309,7 @@ const styles = StyleSheet.create({
   },
   labelRow: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
     maxWidth: '100%',
     marginTop: spacing.xxs,
   },
@@ -324,8 +318,14 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   zone: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 0,
+    gap: spacing.xxs,
+    marginLeft: spacing.xs,
+  },
+  zoneName: {
     flexShrink: 0,
     fontWeight: typography.captionBold.fontWeight,
-    marginLeft: spacing.xs,
   },
 });

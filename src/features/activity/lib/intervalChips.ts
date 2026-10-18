@@ -7,8 +7,8 @@ import { intervalTypeName } from './intervalTypeLabel';
 /** One chip in the key above the intervals table: a kind of interval, how many, and for how long. */
 export interface IntervalChip {
   label: string;
-  /** The fill of the interval's band behind the chart, so the chip keys it. */
-  color: string;
+  /** The fill of the interval's band behind the chart, so the chip keys it; null where it has none. */
+  color: string | null;
   count: number;
   totalTime: number;
 }

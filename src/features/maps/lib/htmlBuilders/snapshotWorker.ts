@@ -15,6 +15,7 @@ import { consoleBridgeScript, mapLibreHead, terrainVisibilityScript } from './sh
 import { dropRetiredTileCachesScript } from '@/features/maps/lib/tileCacheBudget';
 import { regionalSatelliteSourceIds } from '@/features/maps/components/mapStyles';
 import { snapshotRenderScript } from './terrainSnapshotScripts';
+import { endpointImagesScript } from '@/features/maps/lib/terrain3DPaint';
 
 /**
  * Snapshot viewport height in CSS pixels. Mirrors the value in
@@ -173,6 +174,7 @@ ${terrainVisibilityScript()}
         // the device's tile store, not from GPU memory held for the session.
         maxTileCacheSize: 0,
       });
+      ${endpointImagesScript('window.map')}
 
       window.map.on('load', function() {
         window._rn_log('Map loaded OK (worker ${workerId})');

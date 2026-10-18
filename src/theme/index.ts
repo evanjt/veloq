@@ -11,14 +11,10 @@ export {
   nativeColours,
   opacity,
   activityTypeColors,
-  zoneColors,
   zoneColorsDark,
   zoneColorsLight,
-  zoneTextColors,
-  zoneTextColorsDark,
   colorWithOpacity,
   mixColour,
-  rpeRamp,
   sequentialRamp,
   divergingRamp,
   directionPair,
@@ -49,7 +45,7 @@ export {
   routePaletteExpression,
 } from './colors';
 export { colourTokens, heatmapTileStops, type ColourToken } from './colourTokens.generated';
-export { zoneColour, type ZoneColourRole } from './zoneColour';
+export { zoneColour, zoneTint } from './zoneColour';
 export {
   themePalette,
   themedStyles,

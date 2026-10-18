@@ -3,8 +3,8 @@
 
 use super::super::*;
 
-fn context(decimal: &str, group: &str, minimum_grouping_digits: u32) -> WidgetContext {
-    WidgetContext {
+fn context(decimal: &str, group: &str, minimum_grouping_digits: u32) -> FfiWidgetContext {
+    FfiWidgetContext {
         locale: "de-DE".to_string(),
         is_metric: true,
         numbers: NumberWords {
@@ -40,7 +40,7 @@ fn grouping_waits_for_the_locale_minimum() {
 
 #[test]
 fn a_context_stored_before_the_separators_writes_a_point_and_no_grouping() {
-    let ctx = WidgetContext {
+    let ctx = FfiWidgetContext {
         is_metric: true,
         ..Default::default()
     };

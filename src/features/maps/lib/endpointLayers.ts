@@ -24,32 +24,51 @@ const ENDPOINT_BORDER_RADIUS = 8.5;
 // The icons are 64 px squares, so this draws the glyph at 9 px inside a 14 px dot.
 const ENDPOINT_ICON_SIZE = 0.14;
 
-const isStart = ['==', ['get', 'position'], 'start'];
+/** Where a page draws the endpoints, for a page whose names differ from the 2D surfaces'. */
+export interface EndpointLayerOptions {
+  /** The source holding the two points. */
+  source?: string;
+  /** The layer ids are this followed by `-border`, `-fill` and `-icon`. */
+  idPrefix?: string;
+  /** The feature property holding `start` or `end`. */
+  positionProperty?: string;
+  /** The 3D pages draw every 2D size at a fixed fraction. */
+  scale?: number;
+}
 
-export function buildEndpointLayers(palette: MapPalette): MapLayerSpec[] {
+export function buildEndpointLayers(
+  palette: MapPalette,
+  {
+    source = 'endpoints',
+    idPrefix = 'endpoint',
+    positionProperty = 'position',
+    scale = 1,
+  }: EndpointLayerOptions = {}
+): MapLayerSpec[] {
+  const isStart = ['==', ['get', positionProperty], 'start'];
   return [
     {
-      id: 'endpoint-border',
+      id: `${idPrefix}-border`,
       type: 'circle',
-      source: 'endpoints',
-      paint: { 'circle-radius': ENDPOINT_BORDER_RADIUS, 'circle-color': palette.casing },
+      source,
+      paint: { 'circle-radius': ENDPOINT_BORDER_RADIUS * scale, 'circle-color': palette.casing },
     },
     {
-      id: 'endpoint-fill',
+      id: `${idPrefix}-fill`,
       type: 'circle',
-      source: 'endpoints',
+      source,
       paint: {
-        'circle-radius': ENDPOINT_RADIUS,
+        'circle-radius': ENDPOINT_RADIUS * scale,
         'circle-color': ['case', isStart, palette.start, palette.ink],
       },
     },
     {
-      id: 'endpoint-icon',
+      id: `${idPrefix}-icon`,
       type: 'symbol',
-      source: 'endpoints',
+      source,
       layout: {
         'icon-image': ['case', isStart, SECTION_START_ICON_ID, SECTION_END_ICON_ID],
-        'icon-size': ENDPOINT_ICON_SIZE,
+        'icon-size': ENDPOINT_ICON_SIZE * scale,
         'icon-allow-overlap': true,
         'icon-ignore-placement': true,
         'icon-anchor': 'center',

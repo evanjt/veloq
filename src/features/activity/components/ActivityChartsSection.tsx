@@ -253,7 +253,8 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
   const openChartFullscreen = useCallback(() => setIsChartFullscreen(true), []);
   const closeChartFullscreen = useCallback(() => setIsChartFullscreen(false), []);
 
-  // The key above the intervals table, one chip per zone or role in its band's fill.
+  // The key above the intervals table, one chip per zone or role in its band's fill, a
+  // neutral chip with no dot for an interval that has no band.
   const intervalZoneSummary = useMemo(() => {
     if (!intervalsData || !activity) return [];
     const scale = measuresPower(sport) ? 'power' : 'hr';
@@ -394,10 +395,19 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                             key={i}
                             style={[
                               styles.zoneChip,
-                              { backgroundColor: colorWithOpacity(z.color, opacity.tint2) },
+                              {
+                                backgroundColor:
+                                  z.color != null
+                                    ? colorWithOpacity(z.color, opacity.tint2)
+                                    : isDark
+                                      ? darkColors.fillNeutral
+                                      : colors.fillNeutral,
+                              },
                             ]}
                           >
-                            <View style={[styles.zoneDot, { backgroundColor: z.color }]} />
+                            {z.color != null ? (
+                              <View style={[styles.zoneDot, { backgroundColor: z.color }]} />
+                            ) : null}
                             <Text style={[styles.zoneChipText, isDark && styles.zoneChipTextDark]}>
                               {z.label} {t('units.times', { value: z.count })}{' '}
                               {formatDurationHuman(z.totalTime)}

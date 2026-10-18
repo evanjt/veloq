@@ -104,7 +104,7 @@ export function ZoneHistogram({ title, bands, testID }: ZoneHistogramProps) {
                     {
                       width: `${Math.min(length, 100)}%`,
                       minWidth: filled ? MIN_BAR_WIDTH : 0,
-                      backgroundColor: zoneColour(band.zone, isDark, 'fill'),
+                      backgroundColor: zoneColour(band.zone, isDark),
                     },
                   ]}
                 />

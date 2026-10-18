@@ -20,58 +20,13 @@ import {
   verdictColor,
 } from '@/theme/colors';
 import { layout, spacing } from '@/theme/spacing';
+import type { WidgetPalette } from 'veloqrs';
 
-/** Flat, resolved colour set the native widget renders from. */
-export interface WidgetPalette {
-  background: string;
-  surface: string;
-  textPrimary: string;
-  textSecondary: string;
-  /** The action blue: values, accents, selected state. */
-  primary: string;
-  /** Ink on a filled primary control, such as a picker's Save button. */
-  textOnPrimary: string;
-  /** Gold: achievements / PR moments ONLY. */
-  gold: string;
-  /** Blue: CTL / data-viz series. */
-  blue: string;
-  /** Purple: ATL / fatigue series. */
-  fatigue: string;
-  /** Fitness (CTL) chart line, matching the feed summary-card sparkline. */
-  chartFitness: string;
-  /** Fatigue (ATL) chart line, matching the feed summary-card sparkline. */
-  chartFatigue: string;
-  /**
-   * Form zone fills keyed by the snapshot's `metrics.form.zone` enum: a band on the form chart
-   * and the key dot beside a form value, whose text stays `textPrimary`.
-   */
-  formHighRisk: string;
-  formOptimal: string;
-  formGreyZone: string;
-  formFresh: string;
-  formTransition: string;
-  /** An improving trend (green), drawn as the arrow beside a value and never as its text. */
-  trendUp: string;
-  /** A declining trend (the negative rung). */
-  trendDown: string;
-  /** A flat trend, or one with no judgement: the ladder's neutral grey. */
-  trendFlat: string;
-  /** Amber text: an age line past the point the numbers can still be called current. */
-  warning: string;
-  /** An insight's tone, the mark beside its row: one field per `InsightTone`. */
-  toneNegative: string;
-  toneCaution: string;
-  tonePositive: string;
-  toneNeutral: string;
-  toneRecord: string;
-  toneInfo: string;
-  toneOpportunity: string;
-  border: string;
-  /** The body diagram's fill for a part with no volume, under the ramp. */
-  bodyFill: string;
-  /** The body diagram's volume shades, lightest first: shade n is index n - 1. */
-  strengthRamp: readonly string[];
-}
+/**
+ * Flat, resolved colour set the native widget renders from. The engine's record
+ * declares it, so a colour renamed on either side fails the build.
+ */
+export type { WidgetPalette };
 
 export const widgetPalette: { light: WidgetPalette; dark: WidgetPalette } = {
   light: {
@@ -104,7 +59,7 @@ export const widgetPalette: { light: WidgetPalette; dark: WidgetPalette } = {
     toneOpportunity: insightToneColor('opportunity', false),
     border: colors.border,
     bodyFill: bodyDiagram.light.untrained,
-    strengthRamp: bodyDiagram.light.steps,
+    strengthRamp: [...bodyDiagram.light.steps],
   },
   dark: {
     background: darkColors.surfacePage,
@@ -136,7 +91,7 @@ export const widgetPalette: { light: WidgetPalette; dark: WidgetPalette } = {
     toneOpportunity: insightToneColor('opportunity', true),
     border: darkColors.border,
     bodyFill: bodyDiagram.dark.untrained,
-    strengthRamp: bodyDiagram.dark.steps,
+    strengthRamp: [...bodyDiagram.dark.steps],
   },
 };
 

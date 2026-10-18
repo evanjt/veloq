@@ -354,8 +354,8 @@ mod tests {
     use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
     use crate::persistence::with_persistent_engine;
     use crate::test_globals::{
-        clear_detection_handle, drain_detection, seeded_global_engine,
-        serial_global_state as serial,
+        clear_detection_handle, drain_detection, hold_detection_workers, race,
+        seeded_global_engine, serial_global_state as serial,
     };
 
     fn note_stored(n: u32) {
@@ -505,6 +505,35 @@ mod tests {
 
         drain_detection();
         assert!(!condition_pending(), "nothing left to flush");
+    }
+
+    /// Scenario: several ingest threads reach the conditioning cadence at the
+    /// same instant. Each worker opens its own connection and rewrites
+    /// `route_groups` wholesale while holding the full track pool resident.
+    ///
+    /// Expected behaviour: one start wins and one worker exists. The winner's
+    /// worker is held at its start, so a racer the scheduler kept back past a
+    /// whole run cannot find the slot free again and win a second, legitimate,
+    /// start.
+    #[test]
+    fn concurrent_conditioning_starts_spawn_exactly_one_worker() {
+        let _serial = serial();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        let before = super::super::detection_workers_started();
+
+        let hold = hold_detection_workers();
+        let won = race(try_start_conditioning);
+        drop(hold);
+
+        assert_eq!(won, 1, "exactly one start may win the race");
+        assert_eq!(
+            super::super::detection_workers_started() - before,
+            1,
+            "a losing start must not leave an orphan worker behind"
+        );
+
+        drain_detection();
     }
 
     #[test]

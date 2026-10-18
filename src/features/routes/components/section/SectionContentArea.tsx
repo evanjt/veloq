@@ -29,6 +29,7 @@ import type {
 } from 'veloqrs';
 import type { DirectionStats, PerformanceDataPoint, RoutePoint } from '@/types';
 import type { SectionDeltaLine } from '@/features/routes/lib/deltaLayout';
+import type { ChartDirection } from '@/features/routes/lib/scatterData';
 
 export interface SectionContentAreaProps {
   isDark: boolean;
@@ -60,6 +61,8 @@ export interface SectionContentAreaProps {
   curves?: FfiSectionLapCurves | undefined;
   /** Called with the attempt the delta plot emphasises while it is shown, else null. */
   onDeltaLineChange?: ((line: SectionDeltaLine | null) => void) | undefined;
+  /** Called with the direction the chart is on while both are drawn, else null. */
+  onShownDirectionChange?: ((direction: ChartDirection | null) => void) | undefined;
   forwardStats: DirectionStats | null;
   reverseStats: DirectionStats | null;
   bestForwardRecord: SectionPerformanceRecord | null;
@@ -112,6 +115,7 @@ export function SectionContentArea({
   recordProgression,
   curves,
   onDeltaLineChange,
+  onShownDirectionChange,
   forwardStats,
   reverseStats,
   bestForwardRecord,
@@ -184,6 +188,7 @@ export function SectionContentArea({
         recordProgression={recordProgression}
         curves={curves}
         onDeltaLineChange={onDeltaLineChange}
+        onShownDirectionChange={onShownDirectionChange}
         forwardStats={forwardStats}
         reverseStats={reverseStats}
         bestForwardRecord={bestForwardRecord}

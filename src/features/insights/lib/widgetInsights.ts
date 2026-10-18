@@ -1,19 +1,11 @@
-import type { InsightTone } from '@/theme';
-import type { Insight, InsightCategory } from '../types';
+import type { WidgetInsight } from 'veloqrs';
+import type { Insight } from '../types';
 
 /** Where a row opens when its insight names no target of its own: the Insights tab. */
 const INSIGHTS_TAB_URL = 'veloq://insights';
 
-/** One row of the insights widget, with the link it opens. */
-export interface WidgetInsight {
-  id: string;
-  category: InsightCategory;
-  title: string;
-  subtitle: string;
-  icon: string;
-  tone: InsightTone;
-  url: string;
-}
+/** One row of the insights widget, with the link it opens, as the engine's record declares it. */
+export type { WidgetInsight };
 
 /**
  * The Insights tab's own ranking as widget rows, in that order and of every kind.

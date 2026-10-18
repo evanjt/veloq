@@ -6,6 +6,7 @@
  * them. Leaving trim mode sends an empty collection, which restores the full
  * line.
  */
+import { mapPalette } from '@/theme';
 import { buildSectionTrimCollection } from '@/features/maps/lib/sectionTrimCollection';
 import { buildUpdateLayersScript, LAYER_KEYS } from '@/features/maps/lib/htmlBuilders';
 
@@ -94,15 +95,15 @@ describe('the 3D page patch for a trim', () => {
       extension: empty,
       endpoints,
     });
-    const script = buildUpdateLayersScript({ sectionTrimGeoJSON: trim });
+    const script = buildUpdateLayersScript({ sectionTrimGeoJSON: trim }, mapPalette('light'));
     expect(script).toContain('"kind":"trimmed"');
     expect(script).toContain('const tracesData = undefined;');
   });
 
   it('dims the full line while the trim is drawn and restores it after', () => {
-    const script = buildUpdateLayersScript({ sectionTrimGeoJSON: empty });
+    const script = buildUpdateLayersScript({ sectionTrimGeoJSON: empty }, mapPalette('light'));
     expect(script).toContain('const sectionTrimData = {"type":"FeatureCollection","features":[]};');
     expect(script).toContain("setPaintProperty('route-line', 'line-opacity'");
-    expect(script).toContain("'start-end-fill'");
+    expect(script).toContain('"start-end-fill"');
   });
 });

@@ -14,7 +14,7 @@ import { WebView } from 'react-native-webview';
 import { veloqWebViewNativeConfig, type WebViewHandle } from '@/features/maps/lib/veloqWebView';
 import { mapPageBaseUrl } from '@/features/maps/lib/tileTransport';
 
-import { colors, darkColors, mapPalette } from '@/theme';
+import { darkColors, mapPalette } from '@/theme';
 import { getBoundsFromPoints } from '@/shared/geo/polyline';
 import { useMap3DBridge } from '@/features/maps/hooks/useMap3DBridge';
 import { useRendererRecovery } from '@/features/maps/hooks/useRendererRecovery';
@@ -187,7 +187,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     {
       coordinates = EMPTY_COORDS,
       mapStyle,
-      routeColor = colors.actionPrimary,
+      routeColor: routeColorProp,
       routeGradient = null,
       initialPitch = 60,
       terrainExaggeration = 1.5,
@@ -286,7 +286,9 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     showHeatmapRef.current = showHeatmap;
     // Read by the page memo, the style injector and the route swap. The colour
     // changes on the same tap as the route, so keying the page on it rebuilt
-    // the page for every selection.
+    // the page for every selection. A caller that names no colour gets the
+    // subject colour of the base drawn.
+    const routeColor = routeColorProp ?? mapPalette(mapStyle).route;
     const routeColorRef = useRef(routeColor);
     routeColorRef.current = routeColor;
     // Read by the page memo and the route swap, so a cover that moves frames the next fit
@@ -394,7 +396,9 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       }
       if (!changed) return;
 
-      webViewRef.current.injectJavaScript(buildUpdateLayersScript(patch));
+      webViewRef.current.injectJavaScript(
+        buildUpdateLayersScript(patch, mapPalette(mapStyleRef.current))
+      );
     }, []);
 
     // Bring the page's route and colour to the current ones. Called when either

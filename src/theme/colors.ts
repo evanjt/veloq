@@ -87,15 +87,6 @@ export const nativeColours = {
   notificationAccent: appColours.notificationAccent,
 } as const;
 
-// Effort ramp for the RPE slider (easy to maximal, 1-10 mapped in pairs).
-export const rpeRamp = [
-  '#22C55E', // green, RPE 1-2
-  '#84CC16', // lime, RPE 3-4
-  '#EAB308', // yellow, RPE 5-6
-  '#F97316', // orange, RPE 7-8
-  '#EF4444', // red, RPE 9-10
-] as const;
-
 type Tokens = Readonly<Record<ColourToken, string>>;
 
 function sequentialSteps(t: Tokens) {
@@ -293,14 +284,6 @@ export const mapLayerColors = {
   sectionCreation: '#22C55E',
   /** Context track shown beyond a section while its bounds are being expanded. */
   extension: '#FF6B00',
-  /** Time won against the reference on the section line, the diverging scale's one end. */
-  deltaWon: '#2563eb',
-  /** Time lost against the reference, the scale's other end. */
-  deltaLost: '#f97316',
-  /** Level with the reference, the scale's middle. */
-  deltaNeutral: '#e5e7eb',
-  /** A stretch the attempt did not cover. */
-  deltaNoData: '#888888',
   /** The export privacy home and the radius trimmed around it. */
   homeRadius: brand.blue600,
   homeRadiusFill: 'rgba(47,102,153,0.18)',
@@ -315,7 +298,6 @@ export const colors = {
   ...roleColours.light,
 
   // Chart accent colors
-  chartBlue: brand.blue,
   chartPurple: '#A855F7',
   chartCyan: '#06B6D4',
   chartPink: '#EC4899',
@@ -348,15 +330,6 @@ export const colors = {
   // The grey rule a curve chart draws its threshold on: FTP, critical speed and
   // critical swim speed each mark one, and none of them is a theme colour.
   chartGuideLine: '#969696',
-  // The previous season's bars, drawn behind this season's. Cornflower rather
-  // than the chart blue, so the two seasons are told apart by hue and not only
-  // by opacity.
-  chartPreviousSeason: '#4682DC',
-
-  // Interval band backgrounds on the combined activity chart
-  chartBandWarmup: '#22C55E', // Green-500
-  chartBandCooldown: '#8B5CF6', // Violet-500
-  chartBandNeutral: '#808080', // Grey - recovery, rest and anything unclassified
 
   // Form zone chart, drawn over opaque zone fills so these stay solid
   chartFormLine: '#333333',
@@ -380,10 +353,6 @@ export const colors = {
   // 3:1 against all three surfaces of both themes, which is why they are one
   // set rather than a light and a dark pair.
   markCyan: '#0891B2',
-  markGreen: '#059669',
-  markAmber: '#BE5A0A',
-  markYellow: '#B87400',
-  markOrange: '#CC6A00',
 } as const;
 
 // =============================================================================
@@ -607,7 +576,6 @@ export const darkColors = {
   chartHrvText: '#F472B6',
   chartRhrText: '#F87171',
   chartGuideLine: '#969696',
-  chartPreviousSeason: '#6495ED', // Lighter cornflower, to carry on a dark ground
 
   // Form zone chart line for dark mode
   chartFormLine: '#FFFFFF',
@@ -721,65 +689,25 @@ export const activityTypeColors: Record<string, string> = {
 // TRAINING ZONE COLORS
 // =============================================================================
 
-export const zoneColors = {
-  zone1: '#009E80', // Teal - Recovery (intervals.icu)
-  zone2: '#009E00', // Green - Endurance (intervals.icu)
-  zone3: '#FFCB0E', // Yellow - Tempo (intervals.icu)
-  zone4: '#FF7F0E', // Orange - Threshold (intervals.icu)
-  zone5: '#DD0447', // Red-pink - VO2max (intervals.icu)
-  zone6: '#6633CC', // Purple - Anaerobic (intervals.icu)
-  zone7: '#1A1A1A', // Near-black - Neuromuscular (intervals.icu)
-} as const;
-
-/**
- * The zone ladder as a fill on a dark ground, held to 3:1 on every dark
- * surface. Zones 1 to 5 keep the intervals.icu fill. The anaerobic purple at
- * 2.17:1 on the dark card is lifted in the same hue, and the near-black zone 7
- * at 1.02:1 becomes a light grey.
- */
-export const zoneColorsDark = {
-  ...zoneColors,
-  zone6: '#8A5CE6',
-  zone7: '#B0B0B0',
-} as const;
+/** The seven zone steps of one theme's token set, zone 1 first. */
+function zoneSteps(t: Tokens) {
+  return {
+    zone1: t['zone-1'],
+    zone2: t['zone-2'],
+    zone3: t['zone-3'],
+    zone4: t['zone-4'],
+    zone5: t['zone-5'],
+    zone6: t['zone-6'],
+    zone7: t['zone-7'],
+  } as const;
+}
 
 /**
  * The zone ladder as a fill on a light ground, held to 3:1 on every light
- * surface. The tempo yellow at 1.37:1 and the threshold orange at 2.28:1 on the
- * alternate background are darkened in the same hue; the other zones already
- * clear it and keep the intervals.icu fill.
+ * surface. It is never set as text: a zone's name and value are primary text
+ * beside a zone dot or on a zone tint.
  */
-export const zoneColorsLight = {
-  ...zoneColors,
-  zone3: '#AB8809',
-  zone4: '#DB6D0C',
-} as const;
+export const zoneColorsLight = zoneSteps(colourTokens.light);
 
-/**
- * Each zone fill darkened to 4.5:1 for text on its own 18% tint over the light
- * screen ground. Zones 6 and 7 already clear it and keep their fill.
- */
-export const zoneTextColors = {
-  zone1: '#006F5A',
-  zone2: '#006F00',
-  zone3: '#806607',
-  zone4: '#994C08',
-  zone5: '#BA033B',
-  zone6: '#6633CC',
-  zone7: '#1A1A1A',
-} as const;
-
-/**
- * Each zone fill lifted to 4.5:1 for text on its 18% tint over the dark screen
- * ground, and on every dark surface: zone 7 takes the light grey of its dark
- * fill, which the mid grey at 4.02:1 on the dark card did not clear.
- */
-export const zoneTextColorsDark = {
-  zone1: '#26AD93',
-  zone2: '#26AD26',
-  zone3: '#FFCB0E',
-  zone4: '#FF7F0E',
-  zone5: '#E95C87',
-  zone6: '#9C7ADE',
-  zone7: '#B0B0B0',
-} as const;
+/** The zone ladder as a fill on a dark ground, held to 3:1 on every dark surface. */
+export const zoneColorsDark = zoneSteps(colourTokens.dark);

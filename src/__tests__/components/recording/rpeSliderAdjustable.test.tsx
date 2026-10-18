@@ -13,7 +13,8 @@ import type { ReactTestInstance } from 'react-test-renderer';
 import { StyleSheet } from 'react-native';
 
 import { RpeSlider } from '@/features/recording/components/RpeSlider';
-import { colors, rpeRamp } from '@/theme';
+import { colors, zoneColour } from '@/theme';
+import { rpeZone } from '@/features/recording/lib/rpeZone';
 
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
@@ -90,12 +91,12 @@ describe('RpeSlider', () => {
     expect(bottom.onValueChange).not.toHaveBeenCalled();
   });
 
-  it('draws the value text in an ink, never in a band hue', async () => {
+  it('draws the value text in an ink, never in its zone colour', async () => {
     for (const value of [1, 3, 5, 7, 10]) {
       await renderSlider(value);
       const text = screen.getByText(new RegExp(`^${value} - recording\\.rpeLabels`));
       const color = StyleSheet.flatten(text.props.style).color;
-      expect(rpeRamp).not.toContain(color);
+      expect(color).not.toBe(zoneColour(rpeZone(value), false));
       expect(color).toBe(colors.textPrimary);
       await screen.unmount();
     }

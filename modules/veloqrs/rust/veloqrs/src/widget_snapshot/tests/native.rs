@@ -1,8 +1,8 @@
 use super::super::*;
 use crate::test_globals::serial_global_state;
 
-fn context() -> WidgetContext {
-    WidgetContext {
+fn context() -> FfiWidgetContext {
+    FfiWidgetContext {
         locale: "fr".to_string(),
         is_metric: true,
         strings: [("metrics.form", "Forme"), ("time.today", "Aujourd'hui")]
@@ -10,9 +10,10 @@ fn context() -> WidgetContext {
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect(),
         record_shortcuts: vec![RecordShortcut {
-            kind: "Ride".to_string(),
+            r#type: "Ride".to_string(),
             label: "Vélo".to_string(),
             url: "veloq://recording/Ride?from=quickstart".to_string(),
+            glyph: "ride".to_string(),
         }],
         insights: vec![WidgetInsight {
             id: "pr-1".to_string(),
@@ -22,9 +23,8 @@ fn context() -> WidgetContext {
             icon: "trophy".to_string(),
             tone: "positive".to_string(),
             url: "veloq://section/s1".to_string(),
-            tone_label: String::new(),
         }],
-        ..WidgetContext::default()
+        ..FfiWidgetContext::default()
     }
 }
 
@@ -52,9 +52,8 @@ fn store_ride(id: &str, name: &str, date: i64) {
     .expect("the engine");
 }
 
-fn store_context(ctx: &WidgetContext) -> bool {
-    let json = serde_json::to_string(ctx).expect("the context");
-    crate::persistence::with_persistent_engine(|engine| engine.set_widget_context(&json))
+fn store_context(ctx: &FfiWidgetContext) -> bool {
+    crate::persistence::with_persistent_engine(|engine| engine.set_widget_context(ctx))
         .expect("the engine")
         .expect("the write")
 }

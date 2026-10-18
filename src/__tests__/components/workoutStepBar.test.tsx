@@ -40,10 +40,10 @@ describe('WorkoutStepBar', () => {
   it('fills a work block with its zone and mutes rest and an unzoned step', async () => {
     const styles = await drawn(BLOCKS);
     expect(styles.map((s) => s.backgroundColor)).toEqual([
-      zoneColour(5, false, 'fill'),
+      zoneColour(5, false),
       colourTokens.light['chart-muted'],
       colourTokens.light['chart-muted'],
-      zoneColour(2, false, 'fill'),
+      zoneColour(2, false),
     ]);
   });
 
@@ -63,7 +63,7 @@ describe('WorkoutStepBar', () => {
   it('takes the dark ladder in the dark theme', async () => {
     mockDark = true;
     const styles = await drawn(BLOCKS);
-    expect(styles[0].backgroundColor).toBe(zoneColour(5, true, 'fill'));
+    expect(styles[0].backgroundColor).toBe(zoneColour(5, true));
     expect(styles[1].backgroundColor).toBe(colourTokens.dark['chart-muted']);
   });
 

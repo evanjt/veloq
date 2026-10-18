@@ -6,13 +6,15 @@
 //! background transition and a settled sync, and the Android push worker writes
 //! it after a pushed ride lands, when no JavaScript is running. What only the
 //! app knows (the translated words, the date names, the palette, the summary
-//! card settings, the recent sports) it hands over as a [`WidgetContext`], which
-//! is stored so the worker composes from the same one.
+//! card settings, the recent sports) it hands over as a [`FfiWidgetContext`], a
+//! record, so a field renamed on either side fails the build. The engine stores
+//! it as a JSON row so the worker composes from the same one, and reads that row
+//! leniently, so a row written before a field existed still reads.
 //!
 //! Sparklines are ordered oldest first, which is also the order the native
 //! charts draw: the last element is today and the one before it yesterday.
 
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
@@ -74,24 +76,25 @@ const MAX_DURATION_SECONDS: f64 = 1e9;
 // ============================================================================
 
 /// Everything the snapshot needs that the engine does not hold, resolved by the
-/// app for the locale and settings it is running with.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+/// app for the locale and settings it is running with. The serde shape is the
+/// stored row's, and every part defaults so an older row still reads.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase", default)]
-pub struct WidgetContext {
+pub struct FfiWidgetContext {
     pub locale: String,
     pub is_metric: bool,
     /// Whether the athlete reads form as a share of fitness (`icu_form_as_percent`).
     pub form_as_percent: bool,
     /// Translations by i18next key. A key not here prints as itself.
-    pub strings: BTreeMap<String, String>,
+    pub strings: HashMap<String, String>,
     pub dates: DateWords,
     pub numbers: NumberWords,
     /// The in-app summary card settings; absent hides the widget summary block.
     pub summary_card: Option<SummaryPrefs>,
     /// The resolved light and dark palettes, carried through untouched.
-    pub theme: serde_json::Value,
+    pub theme: WidgetTheme,
     /// Sport tint by sport type, with `Other` as the fallback.
-    pub activity_tints: BTreeMap<String, String>,
+    pub activity_tints: HashMap<String, String>,
     /// Every recent sport, most recent first, already labelled and linked.
     pub record_shortcuts: Vec<RecordShortcut>,
     /// The head of `record_shortcuts`, capped at what a launcher shows.
@@ -110,7 +113,7 @@ pub struct WidgetContext {
 }
 
 /// One insight row of the widget: its copy, its icon and tone, and the link it opens.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, uniffi::Record)]
 #[serde(default)]
 pub struct WidgetInsight {
     pub id: String,
@@ -120,15 +123,86 @@ pub struct WidgetInsight {
     pub icon: String,
     pub tone: String,
     pub url: String,
-    /// The tone as a screen reader says it, since the row draws it as a colour
-    /// alone. Composed here, since the app hands over none.
+}
+
+/// An insight row as the snapshot carries it: the row the app handed over and
+/// the tone as a screen reader says it, since the row draws it as a colour
+/// alone. Composed here, since the app hands over none.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct SnapshotInsight {
+    #[serde(flatten)]
+    pub insight: WidgetInsight,
     #[serde(rename = "toneLabel")]
     pub tone_label: String,
 }
 
+/// The light and dark palettes the widgets draw in. A scheme left out is left
+/// out of the snapshot too, and the native draws its generated theme for it.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, uniffi::Record)]
+#[serde(default)]
+pub struct WidgetTheme {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub light: Option<WidgetPalette>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dark: Option<WidgetPalette>,
+}
+
+/// Flat, resolved colour set a native widget renders from, as hex strings.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase", default)]
+pub struct WidgetPalette {
+    pub background: String,
+    pub surface: String,
+    pub text_primary: String,
+    pub text_secondary: String,
+    /// The action blue: values, accents, selected state.
+    pub primary: String,
+    /// Ink on a filled primary control, such as a picker's Save button.
+    pub text_on_primary: String,
+    /// Gold: achievements and PR moments only.
+    pub gold: String,
+    /// Blue: CTL and data-viz series.
+    pub blue: String,
+    /// Purple: ATL and fatigue series.
+    pub fatigue: String,
+    /// Fitness (CTL) chart line, matching the feed summary card's sparkline.
+    pub chart_fitness: String,
+    /// Fatigue (ATL) chart line, matching the feed summary card's sparkline.
+    pub chart_fatigue: String,
+    /// Form zone fills keyed by the snapshot's `metrics.form.zone`: a band on
+    /// the form chart and the key dot beside a form value, whose text stays
+    /// `text_primary`.
+    pub form_high_risk: String,
+    pub form_optimal: String,
+    pub form_grey_zone: String,
+    pub form_fresh: String,
+    pub form_transition: String,
+    /// An improving trend, drawn as the arrow beside a value and never as its text.
+    pub trend_up: String,
+    /// A declining trend.
+    pub trend_down: String,
+    /// A flat trend, or one with no judgement.
+    pub trend_flat: String,
+    /// An age line past the point the numbers can still be called current.
+    pub warning: String,
+    /// An insight's tone, the mark beside its row: one field per tone.
+    pub tone_negative: String,
+    pub tone_caution: String,
+    pub tone_positive: String,
+    pub tone_neutral: String,
+    pub tone_record: String,
+    pub tone_info: String,
+    pub tone_opportunity: String,
+    pub border: String,
+    /// The body diagram's fill for a part with no volume, under the ramp.
+    pub body_fill: String,
+    /// The body diagram's volume shades, lightest first: shade n is index n - 1.
+    pub strength_ramp: Vec<String>,
+}
+
 /// The locale's own names for days and months, and the order a short date is
 /// written in, so a relative date label needs no locale data here.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase", default)]
 pub struct DateWords {
     /// Long weekday names, Sunday first.
@@ -145,7 +219,7 @@ pub struct DateWords {
 /// The locale's decimal and group separators, so a number reads as the app
 /// writes it. Empty in a context stored before they were handed over, which
 /// writes a point and no grouping.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase", default)]
 pub struct NumberWords {
     pub decimal: String,
@@ -156,7 +230,7 @@ pub struct NumberWords {
 }
 
 /// One date format: its parts in order, and the month names it writes.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase", default)]
 pub struct DatePattern {
     pub parts: Vec<DatePart>,
@@ -165,15 +239,14 @@ pub struct DatePattern {
 }
 
 /// A piece of a date format: `month`, `day` or `year`, or `literal` with its text.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, uniffi::Record)]
 #[serde(default)]
 pub struct DatePart {
-    #[serde(rename = "type")]
-    pub kind: String,
+    pub r#type: String,
     pub value: String,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase", default)]
 pub struct SummaryPrefs {
     pub enabled: bool,
@@ -182,14 +255,19 @@ pub struct SummaryPrefs {
     pub supporting_metrics: Vec<String>,
 }
 
-/// One recent sport: the id, the name a surface shows, and the link that starts it.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+/// One recent sport: the id, the name a surface shows, the deep link that starts
+/// it, and the glyph a launcher draws for it. The app composes the link, so no
+/// native holds a second copy of the rule.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, uniffi::Record)]
 #[serde(default)]
 pub struct RecordShortcut {
-    #[serde(rename = "type")]
-    pub kind: String,
+    pub r#type: String,
     pub label: String,
     pub url: String,
+    /// The sport's category key, `ride` to `other`, the same grouping the app's
+    /// sport chips draw. Each launcher maps the key to its own glyph, so no
+    /// native holds a sport-to-category map. Empty in a row stored before it.
+    pub glyph: String,
 }
 
 /// Now, twice: the true instant the snapshot is stamped with, and the same
@@ -252,10 +330,10 @@ pub struct WidgetSnapshot {
     /// widget's picker offers the card's list rather than one of its own.
     pub summary_heroes: Vec<&'static str>,
     pub display: Display,
-    pub theme: serde_json::Value,
+    pub theme: WidgetTheme,
     pub record_shortcuts: Vec<RecordShortcut>,
     pub launcher_shortcuts: Vec<RecordShortcut>,
-    pub insights: Vec<WidgetInsight>,
+    pub insights: Vec<SnapshotInsight>,
     /// The strength diagram over the two windows a widget can be placed on,
     /// present with no strength work too, so a native never words a window.
     pub strength: StrengthWidget,
@@ -629,7 +707,11 @@ pub struct MetricLabels {
 
 /// Raw engine data to the widget snapshot. No I/O and no clock: the time is
 /// handed in, so the same data and context always compose the same file.
-pub fn compose(data: &FfiWidgetSnapshotData, ctx: &WidgetContext, clock: Clock) -> WidgetSnapshot {
+pub fn compose(
+    data: &FfiWidgetSnapshotData,
+    ctx: &FfiWidgetContext,
+    clock: Clock,
+) -> WidgetSnapshot {
     let sp = data.sparklines.as_ref();
     let recent = |pick: fn(&crate::FfiWellnessSparklines) -> &Vec<i32>| {
         sp.map_or(&[][..], |s| tail(pick(s), SPARKLINE_DAYS))
@@ -758,9 +840,9 @@ pub fn compose(data: &FfiWidgetSnapshotData, ctx: &WidgetContext, clock: Clock) 
         insights: ctx
             .insights
             .iter()
-            .map(|insight| WidgetInsight {
+            .map(|insight| SnapshotInsight {
                 tone_label: tone_label(ctx, &insight.tone),
-                ..insight.clone()
+                insight: insight.clone(),
             })
             .collect(),
         strength: compose_strength(data, ctx, clock),
@@ -792,7 +874,7 @@ fn js_round(v: f64) -> f64 {
     if v - floor >= 0.5 { floor + 1.0 } else { floor }
 }
 
-fn translate<'a>(ctx: &'a WidgetContext, key: &'a str) -> &'a str {
+fn translate<'a>(ctx: &'a FfiWidgetContext, key: &'a str) -> &'a str {
     ctx.strings.get(key).map_or(key, String::as_str)
 }
 
@@ -1043,7 +1125,7 @@ const SUMMARY_METRIC_IDS: [&str; 10] = [
 /// enabled is the caller's to decide; this composes what it is given.
 pub fn summary_card(
     data: &FfiWidgetSnapshotData,
-    ctx: &WidgetContext,
+    ctx: &FfiWidgetContext,
     prefs: &SummaryPrefs,
 ) -> Option<SummaryCard> {
     let hero = summary_entry(data, ctx, &prefs.hero_metric, true)
@@ -1093,7 +1175,7 @@ fn hero_series(data: &FfiWidgetSnapshotData, id: &str) -> Vec<i32> {
 /// the app card does, but a hero always prints, as a dash where it has none.
 fn summary_entry(
     data: &FfiWidgetSnapshotData,
-    ctx: &WidgetContext,
+    ctx: &FfiWidgetContext,
     id: &str,
     hero: bool,
 ) -> Option<SummaryEntry> {
@@ -1238,7 +1320,7 @@ fn display_weight(kg: f64, is_metric: bool) -> (f64, &'static str) {
 }
 
 /// Weight as the app card prints it: one decimal at most, the unit with no space.
-fn weight_text(kg: f64, ctx: &WidgetContext) -> String {
+fn weight_text(kg: f64, ctx: &FfiWidgetContext) -> String {
     let (value, unit) = display_weight(kg, ctx.is_metric);
     let rounded = js_round(value * 10.0) / 10.0;
     format!("{}{unit}", number_text(&rounded.to_string(), ctx))
@@ -1246,7 +1328,7 @@ fn weight_text(kg: f64, ctx: &WidgetContext) -> String {
 
 /// A number already written with a point and no grouping, rewritten with the
 /// locale's decimal separator and grouped as the locale groups it.
-fn number_text(ascii: &str, ctx: &WidgetContext) -> String {
+fn number_text(ascii: &str, ctx: &FfiWidgetContext) -> String {
     let words = &ctx.numbers;
     let (sign, unsigned) = match ascii.strip_prefix('-') {
         Some(rest) => ("-", rest),
@@ -1299,7 +1381,7 @@ fn int_text(v: f64) -> String {
 // ---------------------------------------------------------------------------
 
 fn display(
-    ctx: &WidgetContext,
+    ctx: &FfiWidgetContext,
     impact: Option<&Impact>,
     zone: Option<&'static str>,
     chart_labels: ChartLabels,
@@ -1351,7 +1433,7 @@ fn impact_line(form_label: &str, impact: &Impact) -> String {
 // ---------------------------------------------------------------------------
 
 /// A headline metric with its spoken words, read under its own name.
-fn spoken_metric(ctx: &WidgetContext, label_key: &str, m: MetricValue) -> MetricValue {
+fn spoken_metric(ctx: &FfiWidgetContext, label_key: &str, m: MetricValue) -> MetricValue {
     let value = m.text.clone().unwrap_or_else(|| int_text(m.value));
     MetricValue {
         spoken: spoken_words(
@@ -1368,7 +1450,7 @@ fn spoken_metric(ctx: &WidgetContext, label_key: &str, m: MetricValue) -> Metric
 /// judgement says which way it went. With none of the words handed over, as
 /// from a context stored before them, the name and the reading alone.
 fn spoken_words(
-    ctx: &WidgetContext,
+    ctx: &FfiWidgetContext,
     label: &str,
     value: &str,
     (trend_dir, verdict): (&'static str, &'static str),
@@ -1404,7 +1486,7 @@ fn spoken_words(
 
 /// The tone an insight row draws as a coloured mark. An unknown tone is drawn
 /// neutral, so it is read as neutral too.
-fn tone_label(ctx: &WidgetContext, tone: &str) -> String {
+fn tone_label(ctx: &FfiWidgetContext, tone: &str) -> String {
     match tone {
         "negative" => phrase(ctx, "systemSurfaces.spoken.toneNegative"),
         "caution" => phrase(ctx, "systemSurfaces.spoken.toneCaution"),
@@ -1423,7 +1505,7 @@ const CHART_MIN_DAYS: usize = 2;
 /// One line per chart: each series from its first day to its last, and the
 /// days drawn. Form also names the zone it sits in today.
 fn chart_labels(
-    ctx: &WidgetContext,
+    ctx: &FfiWidgetContext,
     fitness: &[i32],
     fatigue: &[i32],
     hrv: &[i32],
@@ -1506,7 +1588,7 @@ fn chart_labels(
 /// The days each drawn chart spans. Fitness and HRV span their own series and
 /// form its history, which is the days the large chart draws.
 fn chart_spans(
-    ctx: &WidgetContext,
+    ctx: &FfiWidgetContext,
     fitness: &[i32],
     hrv: &[i32],
     form: Option<&FormHistory>,
@@ -1536,7 +1618,7 @@ fn zone_key(zone: &str) -> String {
 
 fn compose_strength(
     data: &FfiWidgetSnapshotData,
-    ctx: &WidgetContext,
+    ctx: &FfiWidgetContext,
     clock: Clock,
 ) -> StrengthWidget {
     let last30_label = translate(ctx, "period.long.1m").to_string();
@@ -1564,7 +1646,7 @@ fn strength_window(
     window: &crate::WidgetStrengthWindow,
     label: String,
     none_text: String,
-    ctx: &WidgetContext,
+    ctx: &FfiWidgetContext,
 ) -> StrengthWindow {
     let summary = &window.summary;
     let top: Vec<StrengthTopMuscle> = summary
@@ -1611,7 +1693,7 @@ fn strength_window(
 
 /// The most trained muscles and their sets, most first, which is what the
 /// shading shows.
-fn body_label(top: &[StrengthTopMuscle], ctx: &WidgetContext) -> Option<String> {
+fn body_label(top: &[StrengthTopMuscle], ctx: &FfiWidgetContext) -> Option<String> {
     if top.is_empty() {
         return None;
     }
@@ -1625,7 +1707,7 @@ fn body_label(top: &[StrengthTopMuscle], ctx: &WidgetContext) -> Option<String> 
 
 /// The month the clock falls in, by its long name, else by the short one an
 /// older stored context carries.
-fn month_label(clock: Clock, ctx: &WidgetContext) -> String {
+fn month_label(clock: Clock, ctx: &FfiWidgetContext) -> String {
     use chrono::Datelike;
     let Some(now) = chrono::DateTime::from_timestamp(clock.now_wall_seconds, 0) else {
         return String::new();
@@ -1666,7 +1748,7 @@ fn set_count(weighted_sets: f64) -> String {
 /// "7.5 sets", in the plural form the app's translator picks for the count.
 /// A form the language does not have falls back to `other`, and a context
 /// carrying neither prints the count alone.
-fn sets_text(weighted_sets: f64, ctx: &WidgetContext) -> String {
+fn sets_text(weighted_sets: f64, ctx: &FfiWidgetContext) -> String {
     let count = set_count(weighted_sets);
     let value = count.parse().unwrap_or(weighted_sets);
     counted(ctx, "strength.setsCount", value, &count).unwrap_or(count)
@@ -1675,7 +1757,7 @@ fn sets_text(weighted_sets: f64, ctx: &WidgetContext) -> String {
 /// The phrase under `key` in the plural form the app's translator picks for
 /// `count`, with `text` written in as the count. A form the language does not
 /// have falls back to `other`, and None when the context carries neither.
-fn counted(ctx: &WidgetContext, key: &str, count: f64, text: &str) -> Option<String> {
+fn counted(ctx: &FfiWidgetContext, key: &str, count: f64, text: &str) -> Option<String> {
     let form = plural_category(&ctx.locale, count);
     phrase(ctx, &format!("{key}_{form}"))
         .or_else(|| phrase(ctx, &format!("{key}_other")))
@@ -1684,7 +1766,7 @@ fn counted(ctx: &WidgetContext, key: &str, count: f64, text: &str) -> Option<Str
 
 /// Volume as the strength tab prints it, rounded to a whole number in the
 /// athlete's unit. None for bodyweight work, which moved no recorded weight.
-fn volume_text(kg: f64, ctx: &WidgetContext) -> Option<String> {
+fn volume_text(kg: f64, ctx: &FfiWidgetContext) -> Option<String> {
     let (value, unit) = display_weight(finite(kg), ctx.is_metric);
     let rounded = js_round(value);
     (rounded > 0.0).then(|| format!("{} {unit}", number_text(&(rounded as i64).to_string(), ctx)))
@@ -1743,7 +1825,7 @@ fn plural_category(locale: &str, count: f64) -> &'static str {
 
 fn compose_latest(
     data: &FfiWidgetSnapshotData,
-    ctx: &WidgetContext,
+    ctx: &FfiWidgetContext,
     clock: Clock,
 ) -> Option<Latest> {
     let a = data.latest.as_ref()?;
@@ -1798,7 +1880,7 @@ fn compose_latest(
     })
 }
 
-fn section_prs_text(count: u32, ctx: &WidgetContext) -> Option<String> {
+fn section_prs_text(count: u32, ctx: &FfiWidgetContext) -> Option<String> {
     if count == 0 {
         return None;
     }
@@ -1816,7 +1898,7 @@ fn positive(load: Option<f64>) -> Option<f64> {
 
 /// A word the app handed over, or nothing: a key that comes back as itself is
 /// not copy, and an older stored context lacks the newer keys.
-fn phrase(ctx: &WidgetContext, key: &str) -> Option<String> {
+fn phrase(ctx: &FfiWidgetContext, key: &str) -> Option<String> {
     ctx.strings
         .get(key)
         .filter(|text| !text.is_empty() && text.as_str() != key)
@@ -1826,7 +1908,7 @@ fn phrase(ctx: &WidgetContext, key: &str) -> Option<String> {
 /// A duration in the units the app passes, as its `formatDurationHuman` writes
 /// it: "45 s", "5 min 30 s", "1 h 30 min", seconds dropped once there are
 /// hours. A unit the context lacks is written with its SI symbol.
-fn duration_human(ctx: &WidgetContext, seconds: f64) -> String {
+fn duration_human(ctx: &FfiWidgetContext, seconds: f64) -> String {
     let total = if seconds.is_finite() && seconds > 0.0 {
         seconds.min(MAX_DURATION_SECONDS).round() as u64
     } else {
@@ -1862,7 +1944,7 @@ fn duration_human(ctx: &WidgetContext, seconds: f64) -> String {
 }
 
 /// A phrase with its `{{name}}` slots filled.
-fn fill(ctx: &WidgetContext, key: &str, slots: &[(&str, String)]) -> Option<String> {
+fn fill(ctx: &FfiWidgetContext, key: &str, slots: &[(&str, String)]) -> Option<String> {
     Some(with_slots(phrase(ctx, key)?, slots))
 }
 
@@ -1878,7 +1960,7 @@ fn with_slots(mut text: String, slots: &[(&str, String)]) -> String {
 fn headline(
     a: &crate::FfiActivityMetrics,
     comparison: &WidgetLatestComparison,
-    ctx: &WidgetContext,
+    ctx: &FfiWidgetContext,
 ) -> Option<Headline> {
     route_headline(a, comparison, ctx).or_else(|| load_headline(a, comparison, ctx))
 }
@@ -1886,7 +1968,7 @@ fn headline(
 fn route_headline(
     a: &crate::FfiActivityMetrics,
     comparison: &WidgetLatestComparison,
-    ctx: &WidgetContext,
+    ctx: &FfiWidgetContext,
 ) -> Option<Headline> {
     let standing = comparison.route.as_ref()?;
     let rank = standing.rank?;
@@ -1940,7 +2022,7 @@ fn route_headline(
 fn load_headline(
     a: &crate::FfiActivityMetrics,
     comparison: &WidgetLatestComparison,
-    ctx: &WidgetContext,
+    ctx: &FfiWidgetContext,
 ) -> Option<Headline> {
     let load = positive(a.training_load)?;
     let label = phrase(ctx, "systemSurfaces.latest.load")?;
@@ -2017,7 +2099,7 @@ fn load_against_typical(
 /// What a sport is read by: a ride by its climbing and power, a run or a swim
 /// by its pace, the rest by distance and time alone. A figure the activity has
 /// no reading for is left out, never printed as zero.
-fn sport_stats(a: &crate::FfiActivityMetrics, ctx: &WidgetContext) -> Vec<SportStat> {
+fn sport_stats(a: &crate::FfiActivityMetrics, ctx: &FfiWidgetContext) -> Vec<SportStat> {
     let distance = finite(a.distance);
     let moving = f64::from(a.moving_time);
     let stat = |id, key, value| SportStat {
@@ -2078,7 +2160,7 @@ fn sport_stats(a: &crate::FfiActivityMetrics, ctx: &WidgetContext) -> Vec<SportS
 }
 
 fn compose_impact(
-    ctx: &WidgetContext,
+    ctx: &FfiWidgetContext,
     clock: Clock,
     fitness: &[i32],
     fatigue: &[i32],
@@ -2149,7 +2231,7 @@ fn fixed1(v: f64) -> String {
 }
 
 /// "500 m" and "1.5 km", or "800 ft" and "0.9 mi".
-pub fn format_distance(meters: f64, ctx: &WidgetContext) -> String {
+pub fn format_distance(meters: f64, ctx: &FfiWidgetContext) -> String {
     let is_metric = ctx.is_metric;
     if !meters.is_finite() || meters < 0.0 {
         return if is_metric { "0 m" } else { "0 ft" }.to_string();
@@ -2225,7 +2307,7 @@ pub fn format_swim_pace(meters_per_second: f64, is_metric: bool) -> String {
 /// "Today", "Yesterday", a weekday within the week, then a short date, with
 /// the year once it is not this one. Calendar days on the wall clock, so a ride
 /// yesterday at 4 pm reads as yesterday at 8 am today.
-fn relative_date_label(wall_seconds: f64, clock: Clock, ctx: &WidgetContext) -> String {
+fn relative_date_label(wall_seconds: f64, clock: Clock, ctx: &FfiWidgetContext) -> String {
     if !wall_seconds.is_finite() || wall_seconds <= 0.0 {
         return String::new();
     }
@@ -2267,7 +2349,7 @@ fn write_date(pattern: &DatePattern, date: chrono::NaiveDate) -> Option<String> 
     }
     let mut out = String::new();
     for part in &pattern.parts {
-        match part.kind.as_str() {
+        match part.r#type.as_str() {
             "month" => out.push_str(pattern.months.get(date.month0() as usize)?),
             "day" => out.push_str(&date.day().to_string()),
             "year" => out.push_str(&date.year().to_string()),
@@ -2447,13 +2529,11 @@ pub fn data_from(conn: &rusqlite::Connection, clock: Clock) -> FfiWidgetSnapshot
 /// The `sex` field of the stored intervals.icu profile, or none when there is
 /// no profile or it carries none.
 fn athlete_sex(conn: &rusqlite::Connection) -> Option<String> {
-    let json = crate::persistence::settings::athlete_profile_from(conn)?;
-    let profile: serde_json::Value = serde_json::from_str(&json).ok()?;
-    profile.get("sex")?.as_str().map(str::to_string)
+    crate::persistence::settings::athlete_profile(conn)?.sex
 }
 
 /// The snapshot as the file holds it.
-pub fn snapshot_json(conn: &rusqlite::Connection, ctx: &WidgetContext, clock: Clock) -> String {
+pub fn snapshot_json(conn: &rusqlite::Connection, ctx: &FfiWidgetContext, clock: Clock) -> String {
     serialise(&compose(&data_from(conn, clock), ctx, clock))
 }
 
@@ -2463,7 +2543,7 @@ pub fn snapshot_json(conn: &rusqlite::Connection, ctx: &WidgetContext, clock: Cl
 /// age of the numbers and not the age of the redraw.
 pub fn snapshot_json_as_of_last_sync(
     conn: &rusqlite::Connection,
-    ctx: &WidgetContext,
+    ctx: &FfiWidgetContext,
     clock: Clock,
 ) -> String {
     let mut snapshot = compose(&data_from(conn, clock), ctx, clock);
@@ -2489,7 +2569,7 @@ pub struct SampleLibrary {
 /// neither read nor written and a later sign-in meets nothing left behind.
 pub fn sample_snapshot_json(
     library: &SampleLibrary,
-    ctx: &WidgetContext,
+    ctx: &FfiWidgetContext,
     clock: Clock,
 ) -> rusqlite::Result<String> {
     let mut scratch = crate::persistence::PersistentEngine::in_memory()?;
@@ -2505,7 +2585,7 @@ pub fn sample_snapshot_json(
     for (activity_id, sets) in &sessions {
         scratch.settle_exercise_sets(activity_id, sets)?;
     }
-    let ctx = WidgetContext {
+    let ctx = FfiWidgetContext {
         demo: true,
         ..ctx.clone()
     };
@@ -2533,16 +2613,24 @@ fn last_sync_seconds(conn: &rusqlite::Connection) -> Option<i64> {
         .map(|at| at.timestamp())
 }
 
+/// The context as the stored row holds it. Every map is written in key order,
+/// so the same context always writes the same row.
+pub fn context_row(ctx: &FfiWidgetContext) -> String {
+    serde_json::to_value(ctx)
+        .and_then(|row| serde_json::to_string(&row))
+        .unwrap_or_default()
+}
+
 /// The context the app last stored, or none before it has stored one. A row
 /// that no longer parses reads as none, so a caller leaves the file it has, and
 /// so does a context for a sample library, whose file is the app's to write.
-pub fn stored_context(conn: &rusqlite::Connection) -> Option<WidgetContext> {
+pub fn stored_context(conn: &rusqlite::Connection) -> Option<FfiWidgetContext> {
     let json = crate::persistence::settings::setting_from(
         conn,
         crate::persistence::settings::settings_keys::WIDGET_CONTEXT,
     )
     .ok()??;
-    serde_json::from_str::<WidgetContext>(&json)
+    serde_json::from_str::<FfiWidgetContext>(&json)
         .ok()
         .filter(|ctx| !ctx.sample)
 }

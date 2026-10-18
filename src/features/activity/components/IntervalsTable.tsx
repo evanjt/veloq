@@ -11,7 +11,7 @@ import {
   formatHeartRate,
   formatPower,
 } from '@/shared/format/format';
-import { intervalBandToken, resolveBandTextColour } from '@/features/stats';
+import { intervalBandToken } from '@/features/stats';
 import {
   spacing,
   typography,
@@ -43,9 +43,7 @@ export function IntervalsTable({ intervals, activityType, isMetric, isDark }: In
   const renderItem = ({ item, index }: { item: ActivityInterval; index: number }) => {
     const isRecovery = item.kind === IntervalKind.Recovery || item.kind === IntervalKind.Rest;
 
-    // The label is the text tone of the colour the interval's chip and band are drawn in.
     const token = intervalBandToken(item, hasPowerZones ? 'power' : 'hr');
-    const labelColour = resolveBandTextColour(token, isDark);
 
     const distance = item.distance != null ? formatDistance(item.distance, isMetric) : ABSENT;
     const duration = item.movingTime != null ? formatDuration(item.movingTime) : ABSENT;
@@ -74,10 +72,7 @@ export function IntervalsTable({ intervals, activityType, isMetric, isDark }: In
         ]}
       >
         <Text style={styles.indexText}>{index + 1}</Text>
-        <FitText
-          style={[styles.typeText, { color: labelColour }]}
-          accessibilityLabel={intervalTypeLabel(typeInput, 'long')}
-        >
+        <FitText style={styles.typeText} accessibilityLabel={intervalTypeLabel(typeInput, 'long')}>
           {typeLabel}
         </FitText>
         <View style={styles.statsRow}>
@@ -144,7 +139,7 @@ const makeStyles = (palette: Palette, isDark: boolean) =>
     },
     typeText: {
       ...typography.label,
-      color: palette.textSecondary,
+      color: palette.textPrimary,
       width: 40,
     },
     statsRow: {

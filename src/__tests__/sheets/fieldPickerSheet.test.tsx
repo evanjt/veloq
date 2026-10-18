@@ -92,7 +92,7 @@ describe('field picker sheet', () => {
     );
     await screen.unmount();
 
-    useAuthStore.setState({ athlete: { id: 'i1', name: 'Rider', icu_weight: 64 } as never });
+    useAuthStore.setState({ athlete: { id: 'i1', name: 'Rider', weightKg: 64 } });
     await open(null);
     expect(screen.getByTestId('field-option-calories')).toHaveTextContent(
       /recording\.caloriesMethod/

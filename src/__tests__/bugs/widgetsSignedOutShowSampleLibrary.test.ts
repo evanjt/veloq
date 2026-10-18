@@ -111,7 +111,7 @@ describe('signed out', () => {
   it('composes the sample in the app words', () => {
     updateWidgetSnapshot();
 
-    const context = JSON.parse(mockEngine.composeWidgetSnapshot.mock.calls[0][0]);
+    const context = mockEngine.composeWidgetSnapshot.mock.calls[0][0];
     expect(context.demo).toBe(true);
     expect(WIDGET_STRING_KEYS).toContain('demo.banner');
   });
@@ -135,7 +135,7 @@ describe('signed out', () => {
   it('stores a context marked as a sample, so a native refresh leaves the file standing', () => {
     updateWidgetSnapshot();
 
-    const stored = JSON.parse(mockEngine.setWidgetContext.mock.calls[0][0]);
+    const stored = mockEngine.setWidgetContext.mock.calls[0][0];
     expect(stored.sample).toBe(true);
   });
 
@@ -198,8 +198,8 @@ describe('signed in', () => {
 
     expect(mockEngine.composeWidgetSnapshot.mock.calls[0][3]).toBeUndefined();
     expect(mockWidget.writeSnapshot).toHaveBeenCalledWith(own);
-    expect(JSON.parse(mockEngine.composeWidgetSnapshot.mock.calls[0][0]).demo).toBe(false);
-    expect(JSON.parse(mockEngine.setWidgetContext.mock.calls[0][0]).sample).toBe(false);
+    expect(mockEngine.composeWidgetSnapshot.mock.calls[0][0].demo).toBe(false);
+    expect(mockEngine.setWidgetContext.mock.calls[0][0].sample).toBe(false);
   });
 
   it('deletes the file on a wipe, as before', () => {
@@ -218,7 +218,7 @@ describe('demo mode', () => {
 
     updateWidgetSnapshot();
 
-    expect(JSON.parse(mockEngine.composeWidgetSnapshot.mock.calls[0][0]).demo).toBe(true);
+    expect(mockEngine.composeWidgetSnapshot.mock.calls[0][0].demo).toBe(true);
   });
 });
 

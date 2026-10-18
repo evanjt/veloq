@@ -1,5 +1,4 @@
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { athleteWeightKg } from '@/features/recording/lib/athleteWeight';
 
 /** The age the heart-rate calories regression assumes, since the profile carries none. */
 export const CALORIES_ASSUMED_AGE = 35;
@@ -12,7 +11,7 @@ export const DEFAULT_WEIGHT_KG = 70;
  * with `assumed` saying which so the field picker can tell the athlete.
  */
 export function useCaloriesWeight(): { weightKg: number; assumed: boolean } {
-  const profileWeight = useAuthStore((s) => athleteWeightKg(s.athlete));
+  const profileWeight = useAuthStore((s) => s.athlete?.weightKg);
   return profileWeight === undefined
     ? { weightKg: DEFAULT_WEIGHT_KG, assumed: true }
     : { weightKg: profileWeight, assumed: false };

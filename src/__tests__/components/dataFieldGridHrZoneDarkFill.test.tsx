@@ -43,9 +43,9 @@ it('tints the heart rate tile from the dark zone fill', async () => {
     <DataFieldGrid fields={['heartrate']} metrics={METRICS} isMetric hrZone={{ zone: 7 }} />
   );
   expect(tileStyle(tree).backgroundColor).toBe(
-    colorWithOpacity(zoneColour(7, true, 'fill'), opacity.tint3)
+    colorWithOpacity(zoneColour(7, true), opacity.tint3)
   );
-  expect(zoneColour(7, true, 'fill')).not.toBe(zoneColour(7, false, 'fill'));
+  expect(zoneColour(7, true)).not.toBe(zoneColour(7, false));
 });
 
 it('takes the nearer end of the ladder for a zone past it', async () => {
@@ -53,13 +53,13 @@ it('takes the nearer end of the ladder for a zone past it', async () => {
     <DataFieldGrid fields={['heartrate']} metrics={METRICS} isMetric hrZone={{ zone: 9 }} />
   );
   expect(tileStyle(tree).backgroundColor).toBe(
-    colorWithOpacity(zoneColour(7, true, 'fill'), opacity.tint3)
+    colorWithOpacity(zoneColour(7, true), opacity.tint3)
   );
 });
 
 it('leaves the tile untinted when no zone is known', async () => {
   const tree = await render(<DataFieldGrid fields={['heartrate']} metrics={METRICS} isMetric />);
   expect(tileStyle(tree).backgroundColor).not.toBe(
-    colorWithOpacity(zoneColour(7, true, 'fill'), opacity.tint3)
+    colorWithOpacity(zoneColour(7, true), opacity.tint3)
   );
 });

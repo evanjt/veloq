@@ -35,7 +35,6 @@ const satelliteRequest: SnapshotRequest = {
   ],
   camera: { center: [6.15, 46.25], zoom: 12, bearing: 0, pitch: 60 },
   mapStyle: 'satellite',
-  routeColor: '#ff0000',
 };
 
 beforeEach(() => {

@@ -1753,8 +1753,6 @@ describe('the stores the wipe empties', () => {
     useUnitPreference.setState({ unitPreference: 'auto' });
     useUnitPreference.getState().setIntervalsPreferences({
       measurementPreference: 'meters',
-      fahrenheit: false,
-      windSpeed: 'KMH',
     });
     useFormPreference.getState().setFormAsPercent(true);
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -1774,8 +1772,6 @@ describe('the stores the wipe empties', () => {
     useUnitPreference.setState({ unitPreference: 'metric' });
     useUnitPreference.getState().setIntervalsPreferences({
       measurementPreference: 'feet',
-      fahrenheit: true,
-      windSpeed: 'MPH',
     });
 
     await wipeLibrary();

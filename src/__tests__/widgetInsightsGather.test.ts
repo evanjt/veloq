@@ -39,7 +39,7 @@ const t = (key: string) => `t:${key}`;
 const opts = { locale: 'en-AU', isMetric: true, translate: t, translateInsight: t };
 
 function composedInsightIds(): string[] {
-  const context = JSON.parse(mockEngine.composeWidgetSnapshot.mock.calls[0][0]);
+  const context = mockEngine.composeWidgetSnapshot.mock.calls[0][0];
   return context.insights.map((i: { id: string }) => i.id);
 }
 

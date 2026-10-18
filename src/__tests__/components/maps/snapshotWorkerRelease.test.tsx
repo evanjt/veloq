@@ -74,7 +74,6 @@ const request = (activityId: string): SnapshotRequest => ({
   ],
   camera: { center: [8.71, 47.51], zoom: 12, pitch: 0, bearing: 0 },
   mapStyle: 'light',
-  routeColor: '#ff0000',
   flat: true,
 });
 

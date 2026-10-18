@@ -29,7 +29,11 @@ import {
   BaseMapView,
   type BaseMap3DLayer,
   boundsOfLngLat,
-  buildDeltaLineStops,
+  cutLineByProgress,
+  DELTA_GAPS_SOURCE_ID,
+  deltaLineBands,
+  lineBandExpression,
+  noDataRanges,
   ENDPOINT_IMAGES,
   featureCollection,
   lineFeature,
@@ -155,28 +159,34 @@ export function RouteMapView({
 
   const routeLine = useMemo(() => featureCollection([lineFeature(routeCoords)]), [routeCoords]);
 
-  const deltaLineStops = useMemo(
+  const deltaBands = useMemo(
     () =>
       deltaLine
-        ? buildDeltaLineStops(
-            deltaLine.splits,
+        ? deltaLineBands(
+            deltaLine.percents,
             deltaLine.splitStepM,
             deltaLine.sectionLengthM,
-            deltaLine.direction,
-            palette
+            deltaLine.direction
           )
         : null,
-    [deltaLine, palette]
+    [deltaLine]
+  );
+  const deltaGapsGeoJSON = useMemo(
+    () => cutLineByProgress(routeCoords, noDataRanges(deltaBands)),
+    [routeCoords, deltaBands]
+  );
+  // The fullscreen map draws the route as its own line, in the same ramp.
+  const fullscreenGradient = useCallback(
+    (fullscreenPalette: MapPalette) =>
+      deltaBands ? lineBandExpression(deltaBands, fullscreenPalette) : null,
+    [deltaBands]
   );
 
-  // The inline map draws the route line itself; the fullscreen shell draws it
-  // and carries no delta colouring.
-  const showActivity = highlightedTrace.features.length > 0;
-  const inlineLegendLayers: DetailMapLegendLayers = {
-    showActivity,
-    showDelta: deltaLineStops !== null,
+  const legendLayers: DetailMapLegendLayers = {
+    showActivity: highlightedTrace.features.length > 0,
+    showDelta: deltaBands !== null,
+    showDeltaGaps: deltaGapsGeoJSON.features.length > 0,
   };
-  const fullscreenLegendLayers: DetailMapLegendLayers = { showActivity, showDelta: false };
   const pickedAttempt = {
     activityId: highlightedActivityId,
     date: highlightedActivityDate,
@@ -205,8 +215,9 @@ export function RouteMapView({
       'faded-traces': { kind: 'geojson', data: fadedTraces },
       'highlighted-trace': { kind: 'geojson', data: highlightedTrace },
       endpoints: { kind: 'geojson', data: endpoints },
+      [DELTA_GAPS_SOURCE_ID]: { kind: 'geojson', data: deltaGapsGeoJSON },
     }),
-    [fadedTraces, highlightedTrace, endpoints]
+    [fadedTraces, highlightedTrace, endpoints, deltaGapsGeoJSON]
   );
 
   const sources = useMemo(
@@ -225,12 +236,12 @@ export function RouteMapView({
         routeContext,
         fadedFilter,
         includeRoute: true,
-        deltaLineStops,
+        deltaBands,
       }),
-    [palette, routeContext, fadedFilter, deltaLineStops]
+    [palette, routeContext, fadedFilter, deltaBands]
   );
 
-  // The fullscreen shell draws the route itself and carries no delta colouring.
+  // The fullscreen shell draws the route itself, banded through its own gradient.
   const fullscreenLayers = useCallback(
     (fullscreenPalette: MapPalette) =>
       buildRouteLayers({
@@ -308,14 +319,14 @@ export function RouteMapView({
           </View>
         ) : null}
         {/* The layers drawn over the route's own line, named. */}
-        {hasLegendLayers(inlineLegendLayers) ? (
+        {hasLegendLayers(legendLayers) ? (
           <DetailMapLegend
             isDark={isDark}
             palette={palette}
             top={headerBottom + spacing.sm}
             testID="route-map-legend"
             pickedAttempt={pickedAttempt}
-            {...inlineLegendLayers}
+            {...legendLayers}
           />
         ) : null}
       </PressTarget>
@@ -330,6 +341,7 @@ export function RouteMapView({
         <BaseMapView
           routeCoordinates={routeCoords}
           routeContext={routeContext}
+          routeGradient={fullscreenGradient}
           bounds={bounds ?? undefined}
           initialStyle={chosenStyle}
           onClose={closeFullscreen}
@@ -338,14 +350,14 @@ export function RouteMapView({
           overlayImages={ENDPOINT_IMAGES}
           layer3D={fullscreenLayer3D}
         />
-        {hasLegendLayers(fullscreenLegendLayers) ? (
+        {hasLegendLayers(legendLayers) ? (
           <DetailMapLegend
             isDark={isDark}
             palette={palette}
             top={fullscreenInsets.top + spacing.sm}
             testID="route-map-legend"
             pickedAttempt={pickedAttempt}
-            {...fullscreenLegendLayers}
+            {...legendLayers}
           />
         ) : null}
       </FullWindowModal>

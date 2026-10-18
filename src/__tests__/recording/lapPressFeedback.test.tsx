@@ -1,11 +1,11 @@
 /**
  * Scenario: an athlete presses Lap with the phone on a mount in sunlight, or with gloves on. A
- * haptic alone cannot tell a lap that registered from a press that missed, and every press on the
- * bar fired the same strong impact, so Lap felt like Stop.
+ * haptic alone cannot tell a lap that registered from a press that missed.
  *
  * Expected behaviour: a lap press shows and announces "Lap n · m:ss" for a few seconds, above
- * any standing warning. Only ending the ride fires the strong impact. Lap, Pause, Resume and
- * Start tick, and Review, which only opens the next screen, fires nothing.
+ * any standing warning. Lap, Pause, Resume, Start and Finish tick, since a finished ride can be
+ * resumed from review, a manual save fires the success pattern, nothing fires the strong
+ * impact, and Review, which only opens the next screen, fires nothing.
  */
 
 import React from 'react';
@@ -154,26 +154,22 @@ describe('the bar haptics', () => {
     ['recording', 'control-pause'],
     ['paused', 'control-resume'],
     ['idle', 'control-start'],
+    ['recording', 'control-stop'],
+    ['paused', 'control-stop'],
   ] as const)('ticks for a change of state, %s %s', async (status, testID) => {
     await press(status, testID);
     expect(haptics.selection).toHaveBeenCalledTimes(1);
     expect(haptics.medium).not.toHaveBeenCalled();
+    expect(haptics.success).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ['recording', 'control-stop'],
-    ['paused', 'control-stop'],
-  ] as const)('fires the strong impact for Stop, %s', async (status, testID) => {
-    await press(status, testID);
-    expect(haptics.medium).toHaveBeenCalledTimes(1);
-    expect(haptics.selection).not.toHaveBeenCalled();
-  });
-
-  it('fires the strong impact for a manual save, which ends the entry', async () => {
+  it('fires the success pattern for a manual save, which commits the entry', async () => {
     jest.clearAllMocks();
     const view = await render(<ControlBar {...bar} mode="manual" status="idle" />);
     await fireEvent.press(view.getByTestId('control-save'));
-    expect(haptics.medium).toHaveBeenCalledTimes(1);
+    expect(haptics.success).toHaveBeenCalledTimes(1);
+    expect(haptics.medium).not.toHaveBeenCalled();
+    expect(haptics.selection).not.toHaveBeenCalled();
   });
 
   it('fires nothing for Review, which only opens the next screen', async () => {

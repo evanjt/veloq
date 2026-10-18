@@ -9,15 +9,16 @@ import * as haptics from '@/shared/ui/haptics';
 import { useTheme } from '@/shared/app';
 import {
   colors,
-  darkColors,
   iconSize,
   layout,
   spacing,
   recording,
+  stroke,
   themePalette,
   typography,
 } from '@/theme';
 import type { RecordingStatus, RecordingMode } from '@/types';
+import { mainButtonRole, type MainButtonRole } from '../lib/mainButtonRole';
 import { Icon } from '@/shared/ui/Icon';
 import { PressTarget } from '@/shared/ui/PressTarget';
 
@@ -46,24 +47,19 @@ function ControlBarInner({
   style,
 }: ControlBarProps) {
   const { t } = useTranslation();
-  const { isDark } = useTheme();
+  const role = mainButtonRole(status, mode);
 
-  // Ending the ride runs without a confirm, so it alone takes the strong
-  // impact. Lap, pause, resume and start are a change of state, and review
-  // only navigates, which takes none.
-  const endRide = useCallback((action: () => void) => {
-    haptics.medium();
-    action();
-  }, []);
+  // Start, pause, resume, lap and finish are a change of state, since a
+  // finished ride opens review and can still be resumed from there. A manual
+  // save commits the entry, and review only navigates, which takes none.
   const changeState = useCallback((action: () => void) => {
     haptics.selection();
     action();
   }, []);
-
-  const secondaryBg = isDark ? darkColors.surfaceRaised : colors.surface;
-  const secondaryText = isDark ? darkColors.textPrimary : colors.textPrimary;
-  // Stop is a word as well as a glyph, so it takes the red's text tone.
-  const stopColor = isDark ? darkColors.errorText : colors.errorText;
+  const save = useCallback((action: () => void) => {
+    haptics.success();
+    action();
+  }, []);
 
   // Manual mode: just a save button
   if (mode === 'manual') {
@@ -74,7 +70,8 @@ function ControlBarInner({
             testID="control-save"
             label={t('recording.controls.save')}
             icon="content-save"
-            onPress={() => endRide(onStop)}
+            role={role}
+            onPress={() => save(onStop)}
           />
         </Animated.View>
       </View>
@@ -91,6 +88,7 @@ function ControlBarInner({
             testID="control-start"
             label={t('recording.startActivity')}
             icon="play"
+            role={role}
             onPress={() => changeState(onStart)}
           />
         </Animated.View>
@@ -99,7 +97,7 @@ function ControlBarInner({
   }
 
   // Stopped: [REVIEW]. Back from review lands here, and a stopped ride takes no
-  // lap, pause or stop, so the only way on is back to the screen that saves it.
+  // lap, pause or finish, so the only way on is back to the screen that saves it.
   if (status === 'stopped') {
     return (
       <View style={[styles.bar, style]}>
@@ -108,6 +106,7 @@ function ControlBarInner({
             testID="control-review"
             label={t('recording.reviewActivity')}
             icon="clipboard-check-outline"
+            role={role}
             onPress={onReview}
           />
         </Animated.View>
@@ -115,7 +114,7 @@ function ControlBarInner({
     );
   }
 
-  // Paused: [RESUME] [STOP]
+  // Paused: [RESUME] [FINISH]
   if (status === 'paused') {
     return (
       <View style={[styles.bar, style]}>
@@ -124,32 +123,29 @@ function ControlBarInner({
             testID="control-resume"
             label={t('recording.controls.resume')}
             icon="play"
+            role={role}
             onPress={() => changeState(onResume)}
           />
 
-          <SecondaryButton
+          <SideButton
             testID="control-stop"
-            label={t('recording.controls.stop')}
+            label={t('recording.controls.finish')}
             icon="stop"
-            backgroundColor={secondaryBg}
-            textColor={stopColor}
-            onPress={() => endRide(onStop)}
+            onPress={() => changeState(onStop)}
           />
         </View>
       </View>
     );
   }
 
-  // Recording: [LAP] [PAUSE] [STOP]
+  // Recording: [LAP] [PAUSE] [FINISH]
   return (
     <View style={[styles.bar, style]}>
       <View style={styles.buttonGroup}>
-        <SecondaryButton
+        <SideButton
           testID="control-lap"
           label={t('recording.controls.lap')}
           icon="flag-variant"
-          backgroundColor={secondaryBg}
-          textColor={secondaryText}
           onPress={() => changeState(onLap)}
         />
 
@@ -157,38 +153,44 @@ function ControlBarInner({
           testID="control-pause"
           label={t('recording.controls.pause')}
           icon="pause"
+          role={role}
           onPress={() => changeState(onPause)}
         />
 
-        <SecondaryButton
+        <SideButton
           testID="control-stop"
-          label={t('recording.controls.stop')}
+          label={t('recording.controls.finish')}
           icon="stop"
-          backgroundColor={secondaryBg}
-          textColor={stopColor}
-          onPress={() => endRide(onStop)}
+          onPress={() => changeState(onStop)}
         />
       </View>
     </View>
   );
 }
 
-// The one main button in every state takes the record red, whatever it does,
-// so the screen's own action reads as the same control as the button that
-// opened it. White carries on both tones at the text bar.
+// The one main button: the record red when it begins recording, the action
+// blue when it acts on a ride already begun. White carries on both at the text
+// bar in both themes.
 function PrimaryButton({
   label,
   icon,
+  role,
   onPress,
   testID,
 }: {
   label: string;
   icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+  role: MainButtonRole;
   onPress: () => void;
   testID?: string;
 }) {
   const { isDark } = useTheme();
-  const fill = isDark ? recording.dark : recording.light;
+  const fill =
+    role === 'record'
+      ? isDark
+        ? recording.dark
+        : recording.light
+      : themePalette(isDark).actionPrimary;
   return (
     <View style={styles.buttonContainer}>
       <PressTarget
@@ -207,34 +209,40 @@ function PrimaryButton({
   );
 }
 
-// Secondary action button
-function SecondaryButton({
+// A side control, Lap or Finish: neutral, on the raised ground with the
+// control edge, so the main button stays the one fill on the bar.
+function SideButton({
   label,
   icon,
-  backgroundColor,
-  textColor,
   onPress,
   testID,
 }: {
   label: string;
   icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-  backgroundColor: string;
-  textColor: string;
   onPress: () => void;
   testID?: string;
 }) {
+  const { isDark } = useTheme();
+  const palette = themePalette(isDark);
   return (
     <View style={styles.buttonContainer}>
       <PressTarget
         testID={testID}
-        style={[styles.secondaryButton, { backgroundColor }]}
+        style={[
+          styles.sideButton,
+          {
+            backgroundColor: palette.surfaceRaised,
+            borderColor: palette.controlBoundary,
+            borderWidth: stroke.one,
+          },
+        ]}
         onPress={onPress}
         accessibilityLabel={label}
         accessibilityRole="button"
       >
-        <Icon name={icon} size={iconSize.lg} color={textColor} />
+        <Icon name={icon} size={iconSize.lg} color={palette.textPrimary} />
       </PressTarget>
-      <Text style={[styles.buttonLabel, { color: textColor }]}>{label}</Text>
+      <Text style={[styles.buttonLabel, { color: palette.textPrimary }]}>{label}</Text>
     </View>
   );
 }
@@ -265,7 +273,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  secondaryButton: {
+  sideButton: {
     width: layout.minTapTarget,
     height: layout.minTapTarget,
     borderRadius: layout.borderRadiusFull,

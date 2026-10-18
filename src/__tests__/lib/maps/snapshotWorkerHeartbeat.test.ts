@@ -77,7 +77,6 @@ function request(): SnapshotRequest {
     ],
     camera: { bearing: 0, pitch: 45, zoom: 12 },
     mapStyle: 'dark',
-    routeColor: '#ff0000',
   } as SnapshotRequest;
 }
 

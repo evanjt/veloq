@@ -1,8 +1,12 @@
 import type { MapPalette } from '@/theme';
 import type { MapLayerSpec } from '@/features/maps/lib/htmlBuilders';
+import { SUBJECT_CASING_WIDTH, SUBJECT_LINE_WIDTH } from '@/features/maps/lib/mapLineWidths';
 
 /** Layers a surface hands the fullscreen map, built for the base that map draws. */
 export type MapLayersForBase = (palette: MapPalette) => MapLayerSpec[];
+
+/** A `line-gradient` for the fullscreen route line, built for the base that map draws. */
+export type MapGradientForBase = (palette: MapPalette) => unknown[] | null;
 
 interface BaseMapLayerInput {
   /** The colours of the base map drawn under the layers. */
@@ -11,6 +15,8 @@ interface BaseMapLayerInput {
   routeColor?: string | undefined;
   /** The route is context under a selection, so it takes the palette's muted colour. */
   routeContext?: boolean | undefined;
+  /** The route line's ramp along its length, which takes the place of its colour. */
+  routeGradient?: unknown[] | null | undefined;
   /** Drawn first, so the route line sits over them. */
   underRouteLayers: MapLayerSpec[];
   /** Drawn over the route line. */
@@ -28,6 +34,7 @@ export function composeBaseMapLayers({
   palette,
   routeColor,
   routeContext = false,
+  routeGradient,
   underRouteLayers,
   overlayLayers,
   userLocationLayers,
@@ -41,7 +48,7 @@ export function composeBaseMapLayers({
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
         'line-color': palette.casing,
-        'line-width': 5,
+        'line-width': SUBJECT_CASING_WIDTH,
         'line-opacity': routeContext ? 0 : 1,
       },
     },
@@ -51,8 +58,10 @@ export function composeBaseMapLayers({
       source: 'route',
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
-        'line-color': routeColor ?? (routeContext ? palette.muted : palette.route),
-        'line-width': 4,
+        ...(routeGradient
+          ? { 'line-gradient': routeGradient }
+          : { 'line-color': routeColor ?? (routeContext ? palette.muted : palette.route) }),
+        'line-width': SUBJECT_LINE_WIDTH,
       },
     },
     ...overlayLayers,

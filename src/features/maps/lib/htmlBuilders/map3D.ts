@@ -32,7 +32,16 @@ import { jsLiteral, jsNumber, jsPadding } from '@/features/maps/lib/webViewLiter
 import { addSectionCreation3DLayersScript } from '@/features/maps/lib/sectionCreationPaint';
 import { heatmapRasterPaint } from '@/features/maps/lib/heatmapPaint';
 import { HEATMAP_SOURCE_MINZOOM, heatmapTileTemplate } from '@/features/maps/lib/heatmapTiles';
-import { colors, colorWithOpacity, mapLayerColors, mapPalette, sectionPalette } from '@/theme';
+import { mapPalette } from '@/theme';
+import {
+  ENDPOINT_3D_LAYER_IDS,
+  ROUTE_3D_LINE_WIDTH,
+  endpoint3DLayers,
+  endpointImagesScript,
+  routeCasing3DPaint,
+  terrainHillshadePaint,
+  terrainSky,
+} from '@/features/maps/lib/terrain3DPaint';
 
 /**
  * What the app says when it declines a tile request of its own.
@@ -126,20 +135,14 @@ export function buildMap3DHtml(config: Map3DHtmlConfig): string {
   const centerJSON = centerOverride ? JSON.stringify(centerOverride) : 'null';
 
   const isSatellite = initStyle === 'satellite';
-  const isDark = initStyle === 'dark' || initStyle === 'satellite';
+  // The page draws in the colours of the base it opens on; a later swap
+  // rebuilds every layer from the palette of the base it swaps to.
+  const palette = mapPalette(initStyle);
 
   // Serialize shared terrain config for injection into initial HTML.
   const initTerrainSourceJSON = JSON.stringify(terrain3DSource());
-  const initSkyConfigJSON = JSON.stringify(
-    isSatellite
-      ? TERRAIN_3D_CONFIG.sky.satellite
-      : isDark
-        ? TERRAIN_3D_CONFIG.sky.dark
-        : TERRAIN_3D_CONFIG.sky.light
-  );
-  const initHillshadePaintJSON = JSON.stringify(
-    isDark ? TERRAIN_3D_CONFIG.hillshadePaint.dark : TERRAIN_3D_CONFIG.hillshadePaint.light
-  );
+  const initSkyConfigJSON = JSON.stringify(terrainSky(palette));
+  const initHillshadePaintJSON = JSON.stringify(terrainHillshadePaint(palette));
 
   const { styleJSON: styleConfig } = resolveStyleExpression(initStyle);
 
@@ -273,6 +276,7 @@ ${terrainVisibilityScript()}
     window.map = new maplibregl.Map(buildMapOptions(styleJSON));
 
     var map = window.map;
+    ${endpointImagesScript('map')}
 
     // Surface map-level errors, but not the expected ones: a tile 404 from a
     // regional source, and a request the app itself declined. What is left is
@@ -418,11 +422,7 @@ ${terrainVisibilityScript()}
             'line-cap': 'round',
             visibility: hasRoute ? 'visible' : 'none',
           },
-          paint: {
-            'line-color': ${jsLiteral(mapLayerColors.casing)},
-            'line-width': 5,
-            'line-opacity': 0.8,
-          },
+          paint: ${JSON.stringify(routeCasing3DPaint(palette))},
         });
 
         // Route line
@@ -437,7 +437,7 @@ ${terrainVisibilityScript()}
           },
           paint: {
             'line-color': ${jsLiteral(routeColor)},
-            'line-width': 3,
+            'line-width': ${ROUTE_3D_LINE_WIDTH},
           },
         });
 
@@ -446,27 +446,10 @@ ${terrainVisibilityScript()}
           type: 'geojson',
           data: _startEndOf(coordinates),
         });
-        // White border ring
-        map.addLayer({
-          id: 'start-end-border',
-          type: 'circle',
-          source: 'start-end-markers',
-          layout: { visibility: hasRoute ? 'visible' : 'none' },
-          paint: {
-            'circle-radius': 7,
-            'circle-color': ${jsLiteral(mapLayerColors.casing)},
-          },
-        });
-        // Colored fill (green start, red end)
-        map.addLayer({
-          id: 'start-end-fill',
-          type: 'circle',
-          source: 'start-end-markers',
-          layout: { visibility: hasRoute ? 'visible' : 'none' },
-          paint: {
-            'circle-radius': 5,
-            'circle-color': ['case', ['==', ['get', 'type'], 'start'], ${jsLiteral(colorWithOpacity(colors.successFill, 0.75))}, ${jsLiteral(colorWithOpacity(colors.dangerFill, 0.75))}],
-          },
+        // Start disc with its triangle, finish square, as the flat map marks them.
+        ${JSON.stringify(endpoint3DLayers(palette))}.forEach(function(layer) {
+          layer.layout = Object.assign({}, layer.layout, { visibility: hasRoute ? 'visible' : 'none' });
+          map.addLayer(layer);
         });
       }
 
@@ -496,7 +479,7 @@ ${terrainVisibilityScript()}
             }] : [],
           });
           map.getSource('start-end-markers').setData(_startEndOf(next || []));
-          ['route-outline', 'route-line', 'start-end-border', 'start-end-fill'].forEach(function(id) {
+          ${JSON.stringify(['route-outline', 'route-line', ...ENDPOINT_3D_LAYER_IDS])}.forEach(function(id) {
             if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none');
           });
         } catch (e) {
@@ -513,14 +496,14 @@ ${terrainVisibilityScript()}
         id: 'highlight-border',
         type: 'circle',
         source: 'highlight-point',
-        paint: { 'circle-radius': 7, 'circle-color': ${jsLiteral(mapLayerColors.casing)} },
+        paint: { 'circle-radius': 7, 'circle-color': ${jsLiteral(palette.casing)} },
         layout: { visibility: 'none' },
       });
       map.addLayer({
         id: 'highlight-fill',
         type: 'circle',
         source: 'highlight-point',
-        paint: { 'circle-radius': 5, 'circle-color': ${jsLiteral(sectionPalette[0])} },
+        paint: { 'circle-radius': 5, 'circle-color': ${jsLiteral(palette.ink)} },
         layout: { visibility: 'none' },
       });
 

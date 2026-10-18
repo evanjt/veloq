@@ -31,7 +31,11 @@ import {
 } from '@/features/maps/lib/coordinates';
 import type { MapImageSpec, MapLayerSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
 import { type MapStyleType, getNextStyle, getStyleIcon } from './mapStyles';
-import { composeBaseMapLayers, type MapLayersForBase } from '@/features/maps/lib/baseMapLayers';
+import {
+  composeBaseMapLayers,
+  type MapGradientForBase,
+  type MapLayersForBase,
+} from '@/features/maps/lib/baseMapLayers';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
 import { cameraAfter3D, type Camera3DState } from '@/features/maps/lib/cameraAfter3D';
 import { useDrawnMapStyle } from '@/features/maps/hooks/useDrawnMapStyle';
@@ -72,6 +76,11 @@ export interface BaseMapViewProps {
   routeColor?: string | undefined;
   /** The route is context under a selection, drawn in the base's muted colour. */
   routeContext?: boolean | undefined;
+  /**
+   * The route line's ramp along its length, built for the base this map draws,
+   * as the inline map draws it. It takes the place of the route colour.
+   */
+  routeGradient?: MapGradientForBase | undefined;
   /** Bounds to fit camera to */
   bounds?: { ne: LngLat; sw: LngLat } | undefined;
   /** Camera padding in pixels */
@@ -122,6 +131,7 @@ export function BaseMapView({
   routeCoordinates,
   routeColor,
   routeContext = false,
+  routeGradient,
   bounds,
   padding = DEFAULT_FIT_PADDING,
   initialStyle,
@@ -277,7 +287,13 @@ export function BaseMapView({
 
   const sources = useMemo<Record<string, MapSourceSpec>>(
     () => ({
-      route: { kind: 'geojson', data: featureCollection([lineFeature(routeCoords)]) },
+      // line-gradient addresses the route by line-progress, which needs line
+      // metrics; the source stays the same whether a ramp is drawn or not.
+      route: {
+        kind: 'geojson',
+        data: featureCollection([lineFeature(routeCoords)]),
+        lineMetrics: true,
+      },
       ...overlaySources,
       [USER_LOCATION_SOURCE_ID]: { kind: 'geojson', data: userLocationCollection },
     }),
@@ -285,17 +301,30 @@ export function BaseMapView({
   );
 
   const palette = mapPalette(mapStyle);
+  const routeLineGradient = useMemo(
+    () => routeGradient?.(palette) ?? null,
+    [routeGradient, palette]
+  );
   const mapLayers = useMemo<MapLayerSpec[]>(
     () =>
       composeBaseMapLayers({
         palette,
         routeColor,
         routeContext,
+        routeGradient: routeLineGradient,
         underRouteLayers: underRouteLayers(palette),
         overlayLayers: overlayLayers(palette),
         userLocationLayers: buildUserLocationLayers(userLocation !== null, palette),
       }),
-    [palette, routeColor, routeContext, underRouteLayers, overlayLayers, userLocation]
+    [
+      palette,
+      routeColor,
+      routeContext,
+      routeLineGradient,
+      underRouteLayers,
+      overlayLayers,
+      userLocation,
+    ]
   );
 
   // Satellite mode reads its attribution from the viewport, so the sources named
@@ -431,6 +460,7 @@ export function BaseMapView({
               coordinates={routeCoords}
               mapStyle={mapStyle}
               routeColor={routeColor ?? (routeContext ? palette.muted : palette.route)}
+              routeGradient={routeLineGradient}
               onMapReady={handleMap3DReady}
               onMapFailed={() => setIs3DMode(false)}
               onTerrainUnavailable={onTerrainUnavailable}

@@ -6,5 +6,5 @@ import type { SkylineData } from './skylineDecoder';
  * so the basis does not change a step's colour.
  */
 export function skylineColours(decoded: SkylineData, isDark: boolean): string[] {
-  return decoded.intervals.map((interval) => zoneColour(interval.zone, isDark, 'fill'));
+  return decoded.intervals.map((interval) => zoneColour(interval.zone, isDark));
 }

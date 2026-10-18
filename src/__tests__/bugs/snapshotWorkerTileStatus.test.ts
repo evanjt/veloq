@@ -23,7 +23,6 @@ const request: SnapshotRequest = {
   ],
   camera: { center: [8.55, 47.45], zoom: 12, bearing: 0, pitch: 0 },
   mapStyle: 'dark',
-  routeColor: '#ff0000',
   flat: true,
 };
 

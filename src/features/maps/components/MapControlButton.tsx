@@ -22,7 +22,7 @@ import type { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { useTheme } from '@/shared/app';
 import { CompassArrow } from '@/shared/ui/CompassArrow';
-import { IconButton, useIconButtonInk } from '@/shared/ui/IconButton';
+import { IconButton } from '@/shared/ui/IconButton';
 import {
   colors,
   controlHeight,
@@ -94,16 +94,9 @@ function MapControlGlyph({
   return <IconButton.Glyph name={name} size={iconSize.md} />;
 }
 
-/** The compass needle: north in its own colour, south in the button's ink. */
+/** The compass needle, at the size every map button draws its glyph. */
 function MapControlCompass({ rotation }: { rotation: Animated.Value }) {
-  return (
-    <CompassArrow
-      size={iconSize.md}
-      rotation={rotation}
-      northColor={colors.compassNorth}
-      southColor={useIconButtonInk()}
-    />
-  );
+  return <CompassArrow size={iconSize.md} rotation={rotation} />;
 }
 
 MapControlButton.Glyph = MapControlGlyph;

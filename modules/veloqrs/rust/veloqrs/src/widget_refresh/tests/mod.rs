@@ -2,7 +2,7 @@ use super::*;
 use crate::objects::{test_base_url, test_credentials};
 use crate::persistence::attempts::{Claim, JobKey, now_ms};
 use crate::test_globals::serial_global_state;
-use crate::widget_snapshot::WidgetContext;
+use crate::widget_snapshot::FfiWidgetContext;
 use httpmock::prelude::*;
 use serde_json::json;
 
@@ -13,7 +13,7 @@ fn day(days_ago: i64) -> String {
 }
 
 fn store_context() {
-    let json = serde_json::to_string(&WidgetContext {
+    let ctx = FfiWidgetContext {
         locale: "en".to_string(),
         is_metric: true,
         strings: [(
@@ -21,10 +21,9 @@ fn store_context() {
             "As of last sync".to_string(),
         )]
         .into(),
-        ..WidgetContext::default()
-    })
-    .expect("the context");
-    crate::persistence::with_persistent_engine(|engine| engine.set_widget_context(&json))
+        ..FfiWidgetContext::default()
+    };
+    crate::persistence::with_persistent_engine(|engine| engine.set_widget_context(&ctx))
         .expect("the engine")
         .expect("the write");
 }
