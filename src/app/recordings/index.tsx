@@ -14,7 +14,7 @@ import {
 } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { Card } from '@/shared/ui/Card';
-import { Shimmer, SkeletonFrame } from '@/shared/ui/Shimmer';
+import { Shimmer, SkeletonGroup } from '@/shared/ui/Shimmer';
 import { IconButton } from '@/shared/ui/IconButton';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { navigateTo } from '@/shared/app/navigation';
@@ -54,7 +54,7 @@ function RecordingRowsSkeleton() {
       scrollEnabled={false}
       contentContainerStyle={styles.listContent}
     >
-      <SkeletonFrame>
+      <SkeletonGroup>
         {Array.from({ length: PLACEHOLDER_ROWS }, (_, row) => (
           <View key={row} testID="recording-row-skeleton" style={styles.entry}>
             <Card variant="flat" padding="sm" style={styles.entryCard}>
@@ -85,7 +85,7 @@ function RecordingRowsSkeleton() {
             </Card>
           </View>
         ))}
-      </SkeletonFrame>
+      </SkeletonGroup>
     </ScrollView>
   );
 }

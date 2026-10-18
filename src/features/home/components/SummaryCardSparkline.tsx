@@ -45,6 +45,8 @@ const INLINE_LABEL_WIDTH = denseExtent(typography.caption.fontSize, 3.6);
 
 const CHART_HEIGHT = 44;
 const FORM_BAR_HEIGHT = 4;
+/** The plot and the form bar under it: the row's height whatever the series. */
+export const FITNESS_SPARKLINE_HEIGHT = CHART_HEIGHT + FORM_BAR_HEIGHT;
 const RISE_DOT_RADIUS = spacing.xxs;
 
 export interface ScrubValues {
@@ -125,7 +127,7 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
 
   const labelWidth = showLabels ? INLINE_LABEL_WIDTH : 0;
   const chartWidth = width - labelWidth;
-  const totalHeight = CHART_HEIGHT + FORM_BAR_HEIGHT;
+  const totalHeight = FITNESS_SPARKLINE_HEIGHT;
 
   // Index maps over the full chart width so the crosshair lines up with the
   // form bar rects, which are laid out on the same N-1 interval spacing.

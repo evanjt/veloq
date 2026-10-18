@@ -6,7 +6,8 @@
  * reports and carries the answer back: Download records a yes, so later passes
  * start without asking, and Not now holds the pass until the retention window
  * next changes. It is a card in the feed rather than a modal, and it is absent
- * whenever the engine is not waiting for an answer.
+ * whenever the engine is not waiting for an answer or the session's one ask is
+ * another's.
  */
 
 import React from 'react';
@@ -18,6 +19,7 @@ import { useTheme } from '@/shared/app';
 import { Button } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 
+import { useSessionAsk } from '../hooks/useLaunchSurfaces';
 import { useStreamBackfill } from '../hooks/useStreamBackfill';
 import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import { Card } from '@/shared/ui/Card';
@@ -26,8 +28,9 @@ export function StreamConsentCard() {
   const { isDark } = useTheme();
   const { t } = useTranslation();
   const { awaitingConsent, estimateRequests, estimateMegabytes, start, stop } = useStreamBackfill();
+  const holdsAsk = useSessionAsk('seriesConsent', awaitingConsent);
 
-  if (!awaitingConsent) return null;
+  if (!awaitingConsent || !holdsAsk) return null;
 
   return (
     <View testID="stream-consent-card" accessibilityRole="alert">

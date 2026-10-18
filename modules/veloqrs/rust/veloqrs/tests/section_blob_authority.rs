@@ -162,7 +162,6 @@ fn detection_save_writes_blob_as_authority() {
             created_at: None,
             enrichment: Default::default(),
             rank: None,
-            consensus_state: None,
         };
         engine
             .apply_sections(vec![section])

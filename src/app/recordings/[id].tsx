@@ -13,7 +13,7 @@ import {
   useScrollEndInset,
 } from '@/shared/ui';
 import { Button } from '@/shared/ui/Button';
-import { Shimmer, SkeletonFrame } from '@/shared/ui/Shimmer';
+import { Shimmer, SkeletonGroup } from '@/shared/ui/Shimmer';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { colors, darkColors, layout, spacing, stroke, typography } from '@/theme';
 import { formatDateTime } from '@/shared/format/format';
@@ -106,7 +106,7 @@ function RecordingDetailScreenContent() {
   if (isLoading) {
     return (
       <ScreenSafeAreaView style={[styles.container, { backgroundColor: bg }]}>
-        <SkeletonFrame testID="recording-detail-skeleton" style={styles.statsFrame}>
+        <SkeletonGroup testID="recording-detail-skeleton" style={styles.statsFrame}>
           <Card variant="flat" padding="none">
             <View style={styles.statsBody}>
               {Array.from({ length: PLACEHOLDER_STAT_ROWS }, (_, row) => (
@@ -125,7 +125,7 @@ function RecordingDetailScreenContent() {
               ))}
             </View>
           </Card>
-        </SkeletonFrame>
+        </SkeletonGroup>
       </ScreenSafeAreaView>
     );
   }

@@ -13,6 +13,7 @@ import { act, fireEvent, render, renderHook } from '@testing-library/react-nativ
 import { StreamConsentCard } from '@/features/settings/components/StreamConsentCard';
 import { Card } from '@/shared/ui/Card';
 import { useStreamBackfill } from '@/features/settings/hooks/useStreamBackfill';
+import { openLaunchSession } from '../../__shared__/launchSession';
 
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysWithValues());
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
@@ -55,6 +56,7 @@ const mockConsentStreamBackfill = jest.fn();
 const mockStopStreamBackfill = jest.fn();
 
 beforeEach(() => {
+  openLaunchSession();
   jest.clearAllMocks();
 });
 

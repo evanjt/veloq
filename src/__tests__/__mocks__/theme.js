@@ -76,11 +76,6 @@ module.exports = {
     dark: { land: '#1F2933', water: '#20405C', road: '#3E4C59' },
     satellite: { land: '#2F5E3A', water: '#1B4A63', road: '#C9BFA5' },
   },
-  mapPreviewColors: {
-    routeHalo: '#FFFFFF',
-    light: { bg: '#e8f4e8', bgBottom: '#d4e8d4', grid: '#d0e8d0' },
-    dark: { bg: '#1a2a1a', bgBottom: '#0d1a0d', grid: '#2a3a2a' },
-  },
   sectionPalette: [
     '#00BCD4',
     '#AB47BC',

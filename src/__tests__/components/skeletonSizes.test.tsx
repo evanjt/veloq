@@ -14,13 +14,18 @@ import { spacing } from '@/theme';
 import {
   ROW_MARGIN_BOTTOM,
   ROW_MARGIN_HORIZONTAL,
-  ROW_PADDING,
   ROW_PREVIEW_HEIGHT,
   ROW_PREVIEW_WIDTH,
 } from '@/features/routes/lib/rowLayout';
 import { CARD_HEIGHT, CARD_MARGIN } from '@/features/activity/lib/cardLayout';
 
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
+// The default text size: past the dense cap the card stacks its name, map and stats.
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
+  ...jest.requireActual('react-native/Libraries/Utilities/useWindowDimensions'),
+  __esModule: true,
+  default: () => ({ width: 400, height: 800, scale: 3, fontScale: 1 }),
+}));
 
 describe('skeleton sizes', () => {
   it('the activity card skeleton has the card height and margins', async () => {
@@ -38,11 +43,14 @@ describe('skeleton sizes', () => {
 
   it('the row skeleton has the row padding, margins and preview size', async () => {
     await render(<RowSkeleton />);
-    const outer = StyleSheet.flatten(screen.getByTestId('row-skeleton').props.style);
-    expect(outer.padding).toBe(ROW_PADDING);
+    const outer = StyleSheet.flatten(
+      screen.getByTestId('row-skeleton', { includeHiddenElements: true }).props.style
+    );
     expect(outer.marginHorizontal).toBe(ROW_MARGIN_HORIZONTAL);
     expect(outer.marginBottom).toBe(ROW_MARGIN_BOTTOM);
-    const preview = StyleSheet.flatten(screen.getByTestId('row-skeleton-preview').props.style);
+    const preview = StyleSheet.flatten(
+      screen.getByTestId('row-skeleton-preview', { includeHiddenElements: true }).props.style
+    );
     expect(preview.width).toBe(ROW_PREVIEW_WIDTH);
     expect(preview.height).toBe(ROW_PREVIEW_HEIGHT);
   });

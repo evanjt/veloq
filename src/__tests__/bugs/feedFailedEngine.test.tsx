@@ -71,7 +71,6 @@ jest.mock('@/features/home', () => ({
   useSummaryCardData: () => ({ showSparkline: false, refetch: jest.fn() }),
   useStartupData: () => ({ data: undefined, refresh: jest.fn() }),
   SummaryCard: () => null,
-  NotificationOptInCard: () => null,
   SupportCard: () => null,
 }));
 jest.mock('@/features/recording', () => ({

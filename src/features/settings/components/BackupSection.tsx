@@ -718,13 +718,15 @@ export function BackupSection() {
         <SwitchRow
           icon="cloud-sync-outline"
           title={t('backup.autoBackup')}
+          description={t('backup.backupHolds')}
+          descriptionTestID="backup-holds"
           value={autoEnabled}
           onValueChange={handleToggleAutoBackup}
           accessory={
             <InfoButton
               testID="backup-info-auto"
               title={t('backup.autoBackup')}
-              message={info(t('backup.autoBackupDescription'), t('backup.recordContents'))}
+              message={t('backup.autoBackupDescription')}
             />
           }
           testID="backup-auto-switch"

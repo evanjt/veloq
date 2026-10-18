@@ -14,6 +14,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ReactTestInstance } from 'react-test-renderer';
 
 import { SupportCard } from '@/features/home/components/SupportCard';
+import { openLaunchSession } from '../__shared__/launchSession';
 
 jest.mock('react-native-iap', () => ({
   useIAP: () => ({
@@ -58,6 +59,10 @@ function fixedHeightsAbove(node: ReactTestInstance): number[] {
   }
   return heights;
 }
+
+beforeEach(() => {
+  openLaunchSession();
+});
 
 describe('the support card tip panel', () => {
   it('exposes no purchase or sponsor button while collapsed', async () => {

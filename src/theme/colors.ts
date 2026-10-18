@@ -237,27 +237,6 @@ export function routePaletteExpression(): unknown {
 }
 
 // =============================================================================
-// MAP PREVIEW COLORS
-// =============================================================================
-
-// Background gradient and grid for the static route/section map previews
-// (MiniTraceView, RouteRow, SectionRow SVGs) and the Skia feed preview halo.
-// Deliberately muted greens.
-export const mapPreviewColors = {
-  routeHalo: '#FFFFFF', // White outline under the colored route line (theme-independent)
-  light: {
-    bg: '#e8f4e8',
-    bgBottom: '#d4e8d4',
-    grid: '#d0e8d0',
-  },
-  dark: {
-    bg: '#1a2a1a',
-    bgBottom: '#0d1a0d',
-    grid: '#2a3a2a',
-  },
-} as const;
-
-// =============================================================================
 // MAP LAYER COLORS
 // =============================================================================
 

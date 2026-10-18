@@ -1,21 +1,39 @@
 /**
  * Scenario: a screen waits on data behind skeletons, in either theme.
- * Expected behaviour: the pulse runs between two colours that differ, so the
- * wait visibly moves, and the loading region says it is loading once rather
- * than again on every pulse.
+ * Expected behaviour: each block's own colour pulses between two colours that
+ * differ, so the wait visibly moves, it holds still with reduce motion on, and
+ * the loading region says it is loading once rather than again on every pulse.
  */
 
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { processColor } from 'react-native';
 import { act, render, screen } from '@testing-library/react-native';
-import type { ReactTestRendererJSON } from 'react-test-renderer';
 
+import { duration } from '@/theme';
 import { ChartSkeleton, Shimmer, shimmerColours } from '@/shared/ui/Shimmer';
 import { contrastRatio } from '../__shared__/contrast';
+import { advanceAnimationByTime, getAnimatedStyle } from '../__shared__/reanimatedJest';
 
 const mockTheme = { isDark: false };
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 jest.mock('@/shared/app', () => ({ useTheme: () => mockTheme }));
+let mockReduceMotion = false;
+jest.mock('@/shared/ui/reduceMotion', () => ({
+  ...jest.requireActual('@/shared/ui/reduceMotion'),
+  useReduceMotion: () => mockReduceMotion,
+  isReduceMotionOn: () => mockReduceMotion,
+}));
+
+/** The block's drawn colour, in one form whichever way the style carries it. */
+function drawnColour(): unknown {
+  const colour = getAnimatedStyle(screen.getByTestId('pulse-block')).backgroundColor;
+  return typeof colour === 'number' ? colour : processColor(colour as string);
+}
+
+beforeEach(() => {
+  mockReduceMotion = false;
+  mockTheme.isDark = false;
+});
 
 // A floor rather than the guide's own 1.34:1 and 1.30:1, so a later token merge
 // that folds the two colours into one fails here.
@@ -33,19 +51,40 @@ it.each([
 it.each([
   ['light', false],
   ['dark', true],
-])('an animated shimmer in %s draws a highlight unlike its base', async (_theme, isDark) => {
-  mockTheme.isDark = isDark;
-  await render(<Shimmer animated />);
+])(
+  'an animated block in %s pulses its own colour to the highlight and back',
+  async (_t, isDark) => {
+    jest.useFakeTimers();
+    try {
+      mockTheme.isDark = isDark;
+      await render(<Shimmer animated testID="pulse-block" />);
+      const { base, highlight } = shimmerColours(isDark);
 
-  const root = screen.toJSON() as ReactTestRendererJSON;
-  const highlight = root.children?.[0] as ReactTestRendererJSON | undefined;
-  expect(highlight).toBeDefined();
-  const baseColour = StyleSheet.flatten(root.props.style).backgroundColor;
-  const highlightColour = StyleSheet.flatten(highlight?.props.style).backgroundColor;
+      expect(drawnColour()).toBe(processColor(base));
+      await act(() => advanceAnimationByTime(duration.pulse));
+      expect(drawnColour()).toBe(processColor(highlight));
+      await act(() => advanceAnimationByTime(duration.pulse));
+      expect(drawnColour()).toBe(processColor(base));
+      expect(screen.toJSON()).not.toHaveProperty('children.0');
+    } finally {
+      jest.useRealTimers();
+    }
+  }
+);
 
-  expect(baseColour).toBe(shimmerColours(isDark).base);
-  expect(highlightColour).toBe(shimmerColours(isDark).highlight);
-  expect(highlightColour).not.toBe(baseColour);
+it('holds the base colour with reduce motion on', async () => {
+  jest.useFakeTimers();
+  try {
+    mockReduceMotion = true;
+    await render(<Shimmer animated testID="pulse-block" />);
+
+    await act(() => advanceAnimationByTime(duration.pulse / 2));
+    expect(drawnColour()).toBe(processColor(shimmerColours(false).base));
+    await act(() => advanceAnimationByTime(duration.pulse));
+    expect(drawnColour()).toBe(processColor(shimmerColours(false).base));
+  } finally {
+    jest.useRealTimers();
+  }
 });
 
 it('keeps the loading label still across pulses', async () => {

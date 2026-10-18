@@ -16,9 +16,7 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import { TopSafeAreaProvider } from '@/shared/app/TopSafeAreaContext';
 import { DemoBanner } from '@/shared/app/DemoBanner';
 import { OfflinePill } from '@/shared/ui/StatusPills';
-import { TrackFetchNotice } from '@/shared/ui/TrackFetchNotice';
 import { StartupErrorBanner } from '@/shared/ui/StartupErrorBanner';
-import { useTrackFetchNotice } from '@/features/routes/lib/trackFetchNotice';
 import { spacing } from '@/theme';
 
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysWithValues());
@@ -54,7 +52,6 @@ describe('top banner stack', () => {
   beforeEach(() => {
     mockOffline = true;
     useAuthStore.setState({ isAuthenticated: true, isDemoMode: true, hideDemoBanner: false });
-    useTrackFetchNotice.setState({ failedIds: [], failedCount: 0, dismissed: false });
   });
 
   it('pads the startup error with the offline pill floating beside it', async () => {
@@ -88,18 +85,5 @@ describe('top banner stack', () => {
 
     expect(getByTestId('offline-pill')).toBeTruthy();
     expect(paddingTop(getByTestId('demo-mode-banner'))).toBe(40);
-  });
-
-  it('pads the track notice when it is the only banner', async () => {
-    mockOffline = false;
-    useAuthStore.setState({ isDemoMode: false });
-    useTrackFetchNotice.setState({ failedIds: ['a', 'b', 'c'], failedCount: 3, dismissed: false });
-    const { getByTestId } = await render(
-      <TopSafeAreaProvider>
-        <TrackFetchNotice />
-      </TopSafeAreaProvider>
-    );
-
-    expect(paddingTop(getByTestId('track-fetch-notice'))).toBe(40);
   });
 });

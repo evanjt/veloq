@@ -65,7 +65,6 @@ fn detected(id: &str, members: usize) -> FrequentSection {
         version: 1,
         updated_at: None,
         created_at: None,
-        consensus_state: None,
         elevation_gain_m: None,
         avg_grade_percent: None,
         enrichment: Default::default(),

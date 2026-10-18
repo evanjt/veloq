@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react';
 import { fitnessTarget } from '@/shared/app/fitnessEntry';
+import { SETUP_SLIDES, type SetupSlide } from '../../lib/tourOffer';
 
 interface SlideContent {
   /** i18n key for slide title */
@@ -10,6 +11,8 @@ interface SlideContent {
   icon: string;
   /** The picture drawn below the text. Every slide has one, so none shows an empty field. */
   Component: ComponentType;
+  /** What the slide asks the athlete to set up, which a tour closed without an answer returns to. */
+  setup?: SetupSlide;
 }
 
 /**
@@ -73,6 +76,7 @@ const BACKUP: WhatsNewSlideDefinition = {
   icon: 'cloud-upload-outline',
   showMeRoute: '/backup-settings',
   showMeTip: 'whatsNew.v030.backupTip',
+  setup: 'backup',
   get Component() {
     return require('./BackupSlide').BackupSlide;
   },
@@ -210,6 +214,19 @@ const TUTORIAL_SLIDES: WhatsNewSlideDefinition[] = [
 /** The slides the first-run tour and the settings App Tour show. */
 export function getTutorialSlides(): WhatsNewSlideDefinition[] {
   return TUTORIAL_SLIDES;
+}
+
+/** The setup slides the first-run tour carries, in the order it shows them. */
+export function getTutorialSetupSlides(): SetupSlide[] {
+  return SETUP_SLIDES.filter((setup) => TUTORIAL_SLIDES.some((slide) => slide.setup === setup));
+}
+
+/** The first-run tour limited to the given setup slides, or the whole of it. */
+export function getTutorialSlidesFor(
+  only: readonly SetupSlide[] | null
+): WhatsNewSlideDefinition[] {
+  if (only === null) return TUTORIAL_SLIDES;
+  return TUTORIAL_SLIDES.filter((slide) => slide.setup !== undefined && only.includes(slide.setup));
 }
 
 /** Compare two semver strings (e.g. '0.2.1' < '0.2.2'). */

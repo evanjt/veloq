@@ -4093,7 +4093,8 @@ mod tests {
             {"table": "settings", "values": {"key": ACTIVITY_YEAR_COUNTS_KEY, "value": "{\"2015\":3}"}},
             {"table": "settings", "values": {"key": "veloq-terrain-override-cleanup-done", "value": "true"}},
             {"table": "settings", "values": {"key": "veloq-whats-new-seen", "value": "{}"}},
-            {"table": "settings", "values": {"key": "veloq-support-store", "value": "{}"}}
+            {"table": "settings", "values": {"key": "veloq-support-store", "value": "{}"}},
+            {"table": "settings", "values": {"key": "veloq-usage", "value": "{}"}}
         ]});
         let result = engine.restore_record_json(&record.to_string()).unwrap();
         assert_eq!(result.unplaced, 0);
@@ -4110,6 +4111,7 @@ mod tests {
             "veloq-terrain-override-cleanup-done",
             "veloq-whats-new-seen",
             "veloq-support-store",
+            "veloq-usage",
         ] {
             assert_eq!(setting(key), None, "{key} was placed from the file");
         }

@@ -138,6 +138,12 @@ pub const WIRE_BYTES_PER_MOVING_SECOND: u64 = 21;
 /// ask.
 pub const STREAM_CONSENT_KEY: &str = "__stream_backfill_consent";
 
+/// The settings row holding the athlete's stop: the retention window, in days
+/// with zero for keep everything, that the stop was given under. The automatic
+/// start stays quiet while the window still reads that. A row of its own, so a
+/// stop after a yes leaves the yes for the window that comes next.
+pub const STREAM_HOLD_KEY: &str = "__stream_backfill_held";
+
 /// What the stream pass would download, in the units the ask states: the
 /// listed series' samples at the per-series rate, and the activities that list
 /// none at the flat rate.
@@ -234,8 +240,10 @@ pub fn stream_backfill_progress() -> StreamBackfillSnapshot {
 /// Ask the pass in flight to stop. It ends at its next batch boundary, so the
 /// activities already stored stay stored and nothing is half written.
 ///
-/// Nothing is persisted: the queue is derived, so a stopped pass and a crashed
-/// one resume identically.
+/// The queue is derived, so a stopped pass and a crashed one resume
+/// identically. What is persisted is the stop itself, in [`STREAM_HOLD_KEY`],
+/// so the automatic start leaves the queue alone across launches until the
+/// window changes.
 ///
 /// Stopping a pass the engine is holding for the athlete's answer is the no:
 /// nothing is fetched, the phase reads stopped, and the automatic start stays
@@ -243,25 +251,46 @@ pub fn stream_backfill_progress() -> StreamBackfillSnapshot {
 pub fn stop_stream_backfill() {
     BACKFILL.cancelled.store(true, Ordering::SeqCst);
     if BACKFILL.running.load(Ordering::SeqCst) {
-        AUTOSTART_HELD.store(true, Ordering::SeqCst);
+        hold_autostart();
     } else if stream_backfill_progress().phase == STREAM_PHASE_AWAITING_CONSENT {
-        AUTOSTART_HELD.store(true, Ordering::SeqCst);
+        hold_autostart();
         set_phase(STREAM_PHASE_STOPPED);
     }
 }
 
-/// Set when the athlete stops a running pass, so the automatic start leaves the
-/// queue alone until the window changes.
-static AUTOSTART_HELD: AtomicBool = AtomicBool::new(false);
+/// The retention window as the hold records it: days, zero for keep
+/// everything.
+fn retention_window(conn: &rusqlite::Connection) -> String {
+    crate::persistence::streams::pooled::retention_days(conn)
+        .unwrap_or(0)
+        .to_string()
+}
 
-fn autostart_held() -> bool {
-    AUTOSTART_HELD.load(Ordering::SeqCst)
+/// Record the athlete's stop under the window it was given in.
+fn hold_autostart() {
+    let recorded = crate::objects::error::with_engine(|e| {
+        let window = retention_window(&e.db);
+        e.set_setting(STREAM_HOLD_KEY, &window)
+    });
+    if !matches!(recorded, Ok(Ok(()))) {
+        log::warn!(
+            "[StreamBackfill] the stop could not be recorded, so the next sync may ask again"
+        );
+    }
+}
+
+/// Whether a stop holds the automatic start: one was recorded and the window
+/// still reads what it was recorded under.
+fn autostart_held(conn: &rusqlite::Connection) -> rusqlite::Result<bool> {
+    let held = crate::persistence::settings::setting_from(conn, STREAM_HOLD_KEY)?;
+    Ok(held.is_some_and(|w| w == retention_window(conn)))
 }
 
 /// Lift the hold a stop left. Called when the retention window changes, which
-/// is what the stop was about.
+/// is what the stop was about, and on a yes. A window changed and changed
+/// back is still a change, which comparing the windows alone would miss.
 pub fn release_autostart_hold() {
-    AUTOSTART_HELD.store(false, Ordering::SeqCst);
+    let _ = crate::objects::error::with_engine(|e| e.delete_setting(STREAM_HOLD_KEY));
 }
 
 /// What the automatic start reads.
@@ -356,12 +385,23 @@ pub(crate) fn current_series_permission(
     let owed = crate::persistence::streams::pooled::backfill_remaining(conn, STREAM_ATTEMPT_LIMIT)?;
     let consented = crate::persistence::settings::setting_from(conn, STREAM_CONSENT_KEY)?
         .is_some_and(|v| v == "yes");
-    Ok(series_permission(owed as u64, autostart_held(), consented))
+    Ok(series_permission(
+        owed as u64,
+        autostart_held(conn)?,
+        consented,
+    ))
+}
+
+/// Drop everything the process holds in memory, as a relaunch does.
+#[cfg(test)]
+fn forget_process_state_for_test() {
+    BACKFILL.cancelled.store(false, Ordering::SeqCst);
+    set_phase(STREAM_PHASE_IDLE);
 }
 
 #[cfg(test)]
 pub(crate) fn hold_autostart_for_test() {
-    AUTOSTART_HELD.store(true, Ordering::SeqCst);
+    hold_autostart();
 }
 
 /// Start the pass when the library owes series and nothing else has a claim on
@@ -376,7 +416,15 @@ pub fn autostart_stream_backfill() -> Option<FfiStartOutcome> {
         let consented = crate::persistence::settings::setting_from(conn, STREAM_CONSENT_KEY)?
             .is_some_and(|v| v == "yes");
         let detection_enabled = crate::persistence::settings::detection_enabled_from(conn);
-        Ok::<_, rusqlite::Error>((owed, bytes, elevation_owed, consented, detection_enabled))
+        let held = autostart_held(conn)?;
+        Ok::<_, rusqlite::Error>((
+            owed,
+            bytes,
+            elevation_owed,
+            consented,
+            detection_enabled,
+            held,
+        ))
     })
     .ok()?
     .ok()?;
@@ -386,7 +434,7 @@ pub fn autostart_stream_backfill() -> Option<FfiStartOutcome> {
         cutover_pending: crate::persistence::cutover::cutover_pending(),
         cutover_running: crate::persistence::cutover::cutover_running(),
         detection_enabled: inputs.4,
-        stopped_by_athlete: autostart_held(),
+        stopped_by_athlete: inputs.5,
         consented: inputs.3,
     });
     if !BACKFILL.running.load(Ordering::SeqCst) {
@@ -1345,6 +1393,13 @@ mod tests {
         assert_eq!(estimate_bytes(u64::MAX, u64::MAX), u64::MAX);
     }
 
+    /// Whether the automatic start reads as held, from the stored rows.
+    fn held() -> bool {
+        crate::objects::error::with_reader(autostart_held)
+            .expect("reader")
+            .expect("hold")
+    }
+
     /// Scenario: the athlete answers the ask.
     ///
     /// Expected behaviour: a stop while the pass is held holds the automatic
@@ -1352,10 +1407,11 @@ mod tests {
     #[test]
     fn stopping_a_held_pass_is_the_no_and_holds_the_automatic_start() {
         let _serial = crate::test_globals::serial_global_state();
+        let _tmp = crate::test_globals::seeded_global_engine();
         release_autostart_hold();
         set_phase(STREAM_PHASE_AWAITING_CONSENT);
         stop_stream_backfill();
-        assert!(autostart_held());
+        assert!(held());
         assert_eq!(stream_backfill_progress().phase, STREAM_PHASE_STOPPED);
         release_autostart_hold();
         BACKFILL.cancelled.store(false, Ordering::SeqCst);
@@ -1402,6 +1458,52 @@ mod tests {
         assert_eq!(stream_backfill_progress().phase, STREAM_PHASE_IDLE);
     }
 
+    /// Scenario: the athlete answers Not now to the ask, the app is closed,
+    /// and the next launch's first sync settles under the same window. Then
+    /// the athlete changes the window.
+    ///
+    /// Expected behaviour: the no outlives the process, so the automatic start
+    /// stays quiet and does not ask again; a changed window asks again.
+    #[test]
+    fn not_now_survives_a_relaunch_until_the_window_changes() {
+        let _serial = crate::test_globals::serial_global_state();
+        let _tmp = crate::test_globals::seeded_global_engine();
+        crate::net::connectivity::reset();
+        release_autostart_hold();
+        crate::persistence::with_persistent_engine(|e| e.set_stream_retention_days(0))
+            .expect("engine")
+            .expect("keep every series");
+        let permission = || {
+            crate::objects::error::with_reader(current_series_permission)
+                .expect("reader")
+                .expect("permission")
+        };
+
+        set_phase(STREAM_PHASE_AWAITING_CONSENT);
+        stop_stream_backfill();
+        forget_process_state_for_test();
+
+        assert_eq!(permission(), SeriesPermission::Held);
+        assert_eq!(autostart_stream_backfill(), None);
+        assert_eq!(stream_backfill_progress().phase, STREAM_PHASE_IDLE);
+
+        crate::persistence::with_persistent_engine(|e| e.set_stream_retention_days(30))
+            .expect("engine")
+            .expect("narrow the window");
+        assert_ne!(permission(), SeriesPermission::Held);
+
+        crate::persistence::with_persistent_engine(|e| e.set_stream_retention_days(0))
+            .expect("engine")
+            .expect("widen the window");
+        release_autostart_hold();
+        assert_ne!(
+            permission(),
+            SeriesPermission::Held,
+            "a window changed and changed back is still a change"
+        );
+        set_phase(STREAM_PHASE_IDLE);
+    }
+
     /// Scenario: the athlete stops a running pass, then widens the window.
     ///
     /// Expected behaviour: the stop holds the automatic start until the window
@@ -1409,17 +1511,18 @@ mod tests {
     #[test]
     fn a_stop_holds_the_automatic_start_until_the_window_changes() {
         let _serial = crate::test_globals::serial_global_state();
+        let _tmp = crate::test_globals::seeded_global_engine();
         release_autostart_hold();
         stop_stream_backfill();
-        assert!(!autostart_held(), "no pass was running, so nothing is held");
+        assert!(!held(), "no pass was running, so nothing is held");
 
         BACKFILL.running.store(true, Ordering::SeqCst);
         stop_stream_backfill();
         BACKFILL.running.store(false, Ordering::SeqCst);
-        assert!(autostart_held());
+        assert!(held());
 
         release_autostart_hold();
-        assert!(!autostart_held());
+        assert!(!held());
         BACKFILL.cancelled.store(false, Ordering::SeqCst);
     }
 

@@ -18,6 +18,7 @@ import { offerRestorePrompt } from '@/features/settings/lib/restorePrompt';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import { initialiseI18n } from '@/i18n';
 import FeedScreen from '@/app/(tabs)/(feed)/index';
+import { openLaunchSession } from '../../__shared__/launchSession';
 
 const mockSettings = new Map<string, string>();
 let mockBackups: { id: string; timestamp: string; sizeBytes: number; appVersion: string }[] = [];
@@ -75,7 +76,6 @@ jest.mock('@/features/home', () => ({
   useSummaryCardData: () => ({ showSparkline: false, refetch: jest.fn() }),
   useStartupData: () => ({ data: undefined, refresh: jest.fn() }),
   SummaryCard: () => null,
-  NotificationOptInCard: () => null,
   SupportCard: () => null,
   FeedFirstSyncStandby: () => null,
   FeedEmptyLibrary: () => null,
@@ -130,6 +130,7 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
+  openLaunchSession(true);
   mockSettings.clear();
   mockBackups = [
     { id: 'b1', timestamp: '2026-06-08T06:30:00.000Z', sizeBytes: 2_400_000, appVersion: '0.4.0' },

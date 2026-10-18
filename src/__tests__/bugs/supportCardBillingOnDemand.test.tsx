@@ -14,6 +14,7 @@ import { render } from '@testing-library/react-native';
 
 import { SupportCard } from '@/features/home/components/SupportCard';
 import { Card } from '@/shared/ui/Card';
+import { openLaunchSession } from '../__shared__/launchSession';
 
 /** Every time the billing hook was mounted, which is the cost being moved. */
 const mockUseIAP = jest.fn();
@@ -55,6 +56,7 @@ jest.mock('expo-web-browser', () => ({
 }));
 
 beforeEach(() => {
+  openLaunchSession();
   mockUseIAP.mockClear();
   mockShouldShow = false;
 });

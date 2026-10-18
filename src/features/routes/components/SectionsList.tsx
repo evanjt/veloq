@@ -27,7 +27,7 @@ import {
 } from '@/features/routes/lib/routesScreenQuery';
 import { filterSummary } from '@/shared/format/filterSummary';
 import { Button, EmptyState, ErrorState, ExplanationCard } from '@/shared/ui';
-import { RowSkeleton } from '@/features/routes/components/RowSkeleton';
+import { ListSkeleton, RowSkeleton } from '@/features/routes/components/RowSkeleton';
 import { SectionRow } from './SectionRow';
 import { SectionSwipeAction, sectionSwipeAction, sectionSwipeKind } from './SectionSwipeAction';
 import { DataRangeFooter } from './DataRangeFooter';
@@ -357,9 +357,7 @@ export const SectionsList = memo(function SectionsList({
     if (!isReady) {
       return (
         <View style={styles.skeletonList}>
-          {[0, 1, 2, 3, 4].map((i) => (
-            <RowSkeleton key={i} />
-          ))}
+          <ListSkeleton rows={5} />
         </View>
       );
     }

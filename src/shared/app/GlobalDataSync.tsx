@@ -1,7 +1,8 @@
 /**
  * Global GPS data sync component (headless).
  * Runs in the background to automatically sync activity GPS data to the Rust engine.
- * Posts native OS notifications for sync progress instead of rendering an in-app banner.
+ * It draws nothing and posts no notifications: a running sync shows in the
+ * floating sync pill, or in the feed's own first-sync view while that is in front.
  */
 
 import { useEffect } from 'react';
@@ -22,7 +23,8 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import { useEngineSync } from '@/shared/native/useEngineSync';
 import { useSyncAuthExpiry } from '@/shared/native/useSyncAuthExpiry';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import { useSyncState } from '@/shared/native/useSyncStatus';
+import { useLastSyncSuccessAt, useSyncState } from '@/shared/native/useSyncStatus';
+import { noteLastSyncSuccess } from '@/features/settings/stores/WhatsNewStore';
 import { usePushedWritesOnForeground } from '@/shared/native/usePushedWritesOnForeground';
 import { usePickupDeadline } from '@/shared/app/usePickupDeadline';
 import { useReconnect } from '@/shared/app/useRetryTriggers';
@@ -69,6 +71,13 @@ export function GlobalDataSync() {
   useEffect(() => {
     syncStateChanged(isEngineSyncing);
   }, [isEngineSyncing, syncStateChanged]);
+
+  // A clean finish is half of what ends the launch asks' quiet period. The
+  // install keeps it once seen, so a wipe or a restore does not take it back.
+  const lastSyncSuccessAt = useLastSyncSuccessAt();
+  useEffect(() => {
+    noteLastSyncSuccess(lastSyncSuccessAt);
+  }, [lastSyncSuccessAt]);
 
   // A window the engine accepted but never reports the slot for ends in a
   // named state, or the banner stays up for the rest of the session.

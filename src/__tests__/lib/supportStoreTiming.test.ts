@@ -6,6 +6,7 @@
  */
 
 import { useSupportStore } from '@/shared/app/SupportStore';
+import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import { formatLocalDate } from '@/shared/format/format';
 
 const mockRows = new Map<string, string>();
@@ -30,13 +31,14 @@ function atDay(day: number, hour = 12): Date {
 async function launchOn(day: number, hour = 12): Promise<void> {
   jest.setSystemTime(atDay(day, hour));
   useSupportStore.setState({ isLoaded: false });
+  await useWhatsNewStore.getState().countUse();
   await useSupportStore.getState().initialise();
   // persist() writes without awaiting; let it settle before the next launch reads.
   await Promise.resolve();
 }
 
 function shows(): boolean {
-  return useSupportStore.getState().shouldShow();
+  return useSupportStore.getState().shouldShow(useWhatsNewStore.getState());
 }
 
 beforeEach(() => {
@@ -48,6 +50,13 @@ beforeEach(() => {
     isLegacyPurchaser: false,
     dismissCount: 0,
     isLoaded: false,
+  });
+  useWhatsNewStore.setState({
+    firstUseDate: null,
+    lastUseDate: null,
+    useDays: 0,
+    firstSyncSettled: false,
+    usageLoaded: false,
   });
 });
 
@@ -89,6 +98,7 @@ it('counts ten launches on one day as one use', async () => {
   await launchOn(20);
   expect(shows()).toBe(true);
   useSupportStore.setState({ isLoaded: false });
+  useWhatsNewStore.setState({ firstUseDate: null, lastUseDate: null, useDays: 0 });
   mockRows.clear();
   for (let i = 0; i < 10; i++) {
     await launchOn(0, 8 + i);
@@ -139,7 +149,7 @@ it('counts nothing new when initialised twice on the same day', async () => {
   }
   await launchOn(14);
   await launchOn(14);
-  const stored = JSON.parse(mockRows.get(STORAGE_KEY) ?? '{}');
+  const stored = JSON.parse(mockRows.get('veloq-usage') ?? '{}');
   expect(stored.useDays).toBe(5);
   expect(stored.firstUseDate).toBe(formatLocalDate(atDay(0)));
 });

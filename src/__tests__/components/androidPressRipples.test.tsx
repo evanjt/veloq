@@ -166,6 +166,7 @@ describe('a dismissing scrim on Android', () => {
   it('draws no ripple behind the tour', async () => {
     useWhatsNewStore.setState({ isLoaded: true, lastSeenVersion: null, tourState: null });
     useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });
+    useWhatsNewStore.getState().startTour('tutorial');
     const view = await withProviders(<WhatsNewModal />);
     const scrims = scrimsIn(view.UNSAFE_root);
 

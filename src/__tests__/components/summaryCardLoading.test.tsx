@@ -1,14 +1,14 @@
 /**
- * Scenario: the feed draws the summary card before the startup bundle has answered.
+ * Scenario: the feed draws the summary card's place before the startup bundle has answered.
  *
- * Expected behaviour: the hero value, hero label and each supporting value are
- * animated placeholders, and no '-' is drawn, so a wait cannot be read as missing data.
+ * Expected behaviour: the skeleton stands in for the whole card and draws no '-', so a wait
+ * cannot be read as missing data, and a card that has its values draws them and no skeleton.
  */
 
 import React from 'react';
 import { render } from '@testing-library/react-native';
 
-import { SummaryCard, type SummaryCardProps } from '@/features/home/components/SummaryCard';
+import { SummaryCard, SummaryCardSkeleton } from '@/features/home/components/SummaryCard';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/i18n', () => ({
@@ -21,32 +21,25 @@ const metrics = [
   { label: 'Week', value: '-', navigationTarget: '/b' },
 ];
 
-function card(props: Partial<SummaryCardProps>) {
-  return render(
-    <SummaryCard
-      heroValue="-"
-      heroLabel="Fitness"
-      showSparkline={false}
-      supportingMetrics={metrics}
-      {...props}
-    />
-  );
-}
-
 describe('SummaryCard loading', () => {
-  it('draws placeholders and no dash while loading', async () => {
-    const { queryByTestId, queryAllByText } = await card({ isLoading: true });
-    expect(queryByTestId('summary-card-hero-shimmer')).toBeTruthy();
-    expect(queryByTestId('summary-card-hero-label-shimmer')).toBeTruthy();
-    expect(queryByTestId('summary-card-metric-0-shimmer')).toBeTruthy();
-    expect(queryByTestId('summary-card-metric-1-shimmer')).toBeTruthy();
-    expect(queryAllByText('-')).toHaveLength(0);
+  it('draws the skeleton and no dash while loading', async () => {
+    const { queryByTestId, queryAllByText } = await render(
+      <SummaryCardSkeleton heroMetric="fitness" showSparkline supportingCount={2} />
+    );
+    expect(queryByTestId('summary-card-skeleton')).toBeTruthy();
+    expect(queryAllByText('-', { includeHiddenElements: true })).toHaveLength(0);
   });
 
   it('draws the settled values when not loading', async () => {
-    const { queryByTestId, queryAllByText } = await card({});
-    expect(queryByTestId('summary-card-hero-shimmer')).toBeNull();
-    expect(queryByTestId('summary-card-metric-0-shimmer')).toBeNull();
+    const { queryByTestId, queryAllByText } = await render(
+      <SummaryCard
+        heroValue="-"
+        heroLabel="Fitness"
+        showSparkline={false}
+        supportingMetrics={metrics}
+      />
+    );
+    expect(queryByTestId('summary-card-skeleton')).toBeNull();
     expect(queryAllByText('-').length).toBeGreaterThan(0);
   });
 });

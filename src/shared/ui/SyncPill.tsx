@@ -6,7 +6,9 @@
  * blue is the ring's turning arc in the on colour over the track. The ring
  * turns slowly, the label wraps while the counts stay whole, and each step
  * stays on screen for a minimum time and cross-fades into the next, so a burst
- * of quick steps reads as a few calm changes.
+ * of quick steps reads as a few calm changes. A screen that shows the sync's
+ * progress itself, the feed's first-sync view, puts it aside while it is in
+ * front, so one indicator counts the steps and not two.
  */
 
 import React, { useEffect, useState } from 'react';
@@ -26,6 +28,7 @@ import { useReduceMotion } from './reduceMotion';
 import { FloatingPill } from './FloatingPill';
 import { formatSyncProgressParts } from '@/shared/format/syncProgress';
 import { useSyncStatus } from '@/shared/native/useSyncStatus';
+import { useSyncPillYielded } from './syncPillYield';
 import { colors, darkColors, duration, easing, iconSize, stroke } from '@/theme';
 
 /** The least time one step's line stays on screen before the next replaces it. */
@@ -104,8 +107,9 @@ export function SyncPill() {
 
   const syncing = status?.state === SyncState.Syncing;
   const line = useHeldLine(syncing ? formatSyncProgressParts(status, t) : null);
+  const yielded = useSyncPillYielded();
 
-  if (!line) return null;
+  if (!line || yielded) return null;
 
   return (
     <FloatingPill

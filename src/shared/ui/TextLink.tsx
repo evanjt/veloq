@@ -29,11 +29,12 @@ import { colors, darkColors, iconSize, slopToMinTapTarget, spacing, typography }
 import { Icon } from './Icon';
 import { PressTarget } from './PressTarget';
 
-/** The two sizes a standalone link is drawn at. */
-export type TextLinkSize = 'bodySmall' | 'caption';
+/** The type roles a standalone link is drawn in. */
+export type TextLinkSize = 'bodySmall' | 'bodySmallBold' | 'caption';
 
 const LINK_SLOP: Record<TextLinkSize, ReturnType<typeof slopToMinTapTarget>> = {
   bodySmall: slopToMinTapTarget(typography.bodySmall.lineHeight),
+  bodySmallBold: slopToMinTapTarget(typography.bodySmallBold.lineHeight),
   caption: slopToMinTapTarget(typography.caption.lineHeight),
 };
 
@@ -120,6 +121,9 @@ const styles = StyleSheet.create({
   },
   bodySmall: {
     ...typography.bodySmall,
+  },
+  bodySmallBold: {
+    ...typography.bodySmallBold,
   },
   caption: {
     ...typography.caption,

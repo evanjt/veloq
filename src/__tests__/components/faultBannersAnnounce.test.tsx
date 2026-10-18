@@ -20,11 +20,9 @@ import { DemoBanner } from '@/shared/app/DemoBanner';
 import { EngineInitBanner } from '@/shared/app/EngineInitBanner';
 import { TopSafeAreaProvider, useBannerTopPadding } from '@/shared/app/TopSafeAreaContext';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
-import { useTrackFetchNotice } from '@/features/routes/lib/trackFetchNotice';
 import { requestSyncRefresh } from '@/shared/native/syncRefresh';
 import { StartupErrorBanner } from '@/shared/ui/StartupErrorBanner';
 import { SyncErrorBanner } from '@/shared/ui/SyncErrorBanner';
-import { TrackFetchNotice } from '@/shared/ui/TrackFetchNotice';
 import { SyncErrorReason } from '../__shared__/veloqrsStub';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -78,12 +76,6 @@ const BANNERS: [string, string, () => React.ReactElement, () => void][] = [
     () => failingSync(SyncErrorReason.Server),
   ],
   [
-    'track-fetch-notice',
-    'polite',
-    () => <TrackFetchNotice />,
-    () => useTrackFetchNotice.setState({ failedIds: ['a', 'b'], failedCount: 2, dismissed: false }),
-  ],
-  [
     'startup-error-banner',
     'assertive',
     () => <StartupErrorBanner areas={['maps']} onRetry={() => {}} onDismiss={() => {}} />,
@@ -113,7 +105,6 @@ beforeEach(() => {
   mockInsets.top = 0;
   mockHealth = { lastError: null, lastErrorReason: null, lastSuccessAt: null };
   useAuthStore.setState({ isAuthenticated: true, isDemoMode: false, hideDemoBanner: false });
-  useTrackFetchNotice.setState({ failedIds: [], failedCount: 0, dismissed: false });
   useEngineStatus.setState({ initFailed: false, initFailureReason: null });
 });
 
@@ -173,13 +164,13 @@ describe('a top banner pads the status bar by the reported inset', () => {
   it('gives the inset to the banner in the slot and none to the one beneath it', async () => {
     mockInsets.top = 40;
     failingSync(SyncErrorReason.Network);
-    useTrackFetchNotice.setState({ failedIds: ['a'], failedCount: 1, dismissed: false });
+    useEngineStatus.setState({ initFailed: true, initFailureReason: null });
     const wrapper = ({ children }: { children: React.ReactNode }) => (
       <TopSafeAreaProvider>{children}</TopSafeAreaProvider>
     );
 
     const slot = await renderHook(() => useBannerTopPadding('syncError'), { wrapper });
-    const beneath = await renderHook(() => useBannerTopPadding('trackFetch'), { wrapper });
+    const beneath = await renderHook(() => useBannerTopPadding('engineInit'), { wrapper });
 
     expect(slot.result.current).toBe(40);
     expect(beneath.result.current).toBe(0);

@@ -4,26 +4,36 @@ import { Text } from 'react-native-paper';
 import { runWhenIdle } from '@/shared/async/runWhenIdle';
 import { navigateTo } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
-import { KeyDot, Shimmer, TextSeparator, PressTarget } from '@/shared/ui';
+import {
+  KeyDot,
+  Shimmer,
+  SkeletonGroup,
+  SkeletonLine,
+  TextSeparator,
+  PressTarget,
+} from '@/shared/ui';
 import { colors, darkColors, layers, layout, spacing, typography } from '@/theme';
-import { SummaryCardSparkline, SPARKLINE_MIN_DAYS, type ScrubValues } from './SummaryCardSparkline';
-import { SummaryCardHRVSparkline } from './SummaryCardHRVSparkline';
+import {
+  FITNESS_SPARKLINE_HEIGHT,
+  SummaryCardSparkline,
+  SPARKLINE_MIN_DAYS,
+  type ScrubValues,
+} from './SummaryCardSparkline';
+import { drawsRhr, hrvSparklineHeight, SummaryCardHRVSparkline } from './SummaryCardHRVSparkline';
 import { Card } from '@/shared/ui/Card';
 import { useMeasuredWidth } from '@/shared/charts';
 import { useTranslation } from 'react-i18next';
 import { getFormZone, formatForm } from '@/features/fitness';
 import { summaryFormZoneColor, summarySeriesColor } from '@/features/home/lib/summaryMetricColour';
-import { debug } from '@/shared/debug/debug';
 import type { TrendGlyph } from '@/shared/format/trend';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import { formatSignedChange } from '../lib/fitnessChange';
 import { ABSENT, absentLabel } from '@/shared/format/absent';
 
-const log = debug.create('SummaryCard');
-
-const SHIMMER_HERO_WIDTH = 38;
-const SHIMMER_LABEL_WIDTH = 56;
-const SHIMMER_METRIC_WIDTH = 28;
+const SKELETON_HERO_WIDTH = 38;
+const SKELETON_LABEL_WIDTH = 56;
+const SKELETON_SUBLINE_WIDTH = 120;
+const SKELETON_METRIC_WIDTH = 64;
 
 /**
  * Supporting metric displayed in the bottom row of SummaryCard
@@ -91,9 +101,6 @@ export interface SummaryCardProps {
 
   // Supporting metrics (max 4)
   supportingMetrics: SupportingMetric[];
-
-  /** The values are still outstanding: placeholders stand in for them, never a dash. */
-  isLoading?: boolean | undefined;
 }
 
 /**
@@ -130,19 +137,10 @@ export const SummaryCard = React.memo(function SummaryCard({
   showSparkline,
   showSparklineLabels = false,
   supportingMetrics,
-  isLoading = false,
 }: SummaryCardProps) {
   const { t } = useTranslation();
   // The sparkline row fills the card, so its width is the card's inner width.
   const { width: sparklineWidth, onLayout: onSparklineLayout } = useMeasuredWidth();
-  if (__DEV__) {
-    const start = performance.now();
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    React.useEffect(() => {
-      const dur = performance.now() - start;
-      if (dur > 20) log.log(`  📊 SummaryCard render: ${dur.toFixed(0)}ms`);
-    });
-  }
   const { isDark } = useTheme();
   const [scrubValues, setScrubValues] = useState<ScrubValues | null>(null);
   const [sparklinesReady, setSparklinesReady] = useState(false);
@@ -154,14 +152,15 @@ export const SummaryCard = React.memo(function SummaryCard({
     setScrubValues(values);
   }, []);
 
-  // Determine which sparkline to show - deferred until after first frame
+  // Which sparkline the card holds. Its row and the hero's layout are settled
+  // from the first frame, and only the plot waits for the first idle moment,
+  // so drawing it moves nothing. The series a sparkline needs are carried on
+  // the flag rather than checked again at the call site, so the plot cannot be
+  // reached without them.
   const isHrvMode = heroMetric === 'hrv';
   const isFormMode = heroMetric === 'form';
-  // The series a sparkline needs are carried on the flag rather than checked
-  // again at the call site, so the plot cannot be reached without them.
-  const showAny = sparklinesReady && showSparkline;
   const fitnessSparkline =
-    showAny &&
+    showSparkline &&
     !isHrvMode &&
     fitnessData &&
     formData &&
@@ -170,7 +169,7 @@ export const SummaryCard = React.memo(function SummaryCard({
       ? { fitness: fitnessData, form: formData }
       : null;
   const hrvSparkline =
-    showAny && isHrvMode && hrvData && hrvData.length >= SPARKLINE_MIN_DAYS ? hrvData : null;
+    showSparkline && isHrvMode && hrvData && hrvData.length >= SPARKLINE_MIN_DAYS ? hrvData : null;
 
   const fitnessChange = formatSignedChange(fitnessDelta);
 
@@ -244,23 +243,14 @@ export const SummaryCard = React.memo(function SummaryCard({
               // Only the plain hero is one number and its arrow; a sparkline
               // hero reads several numbers, each its own text.
               accessibilityLabel={
-                isLoading || fitnessSparkline || hrvSparkline ? undefined : heroAccessibilityLabel
+                fitnessSparkline || hrvSparkline ? undefined : heroAccessibilityLabel
               }
               testID="summary-card-hero"
               style={styles.heroSection}
               onPress={onHeroPress}
               disabled={!onHeroPress}
             >
-              {isLoading ? (
-                <View style={styles.heroValueRow}>
-                  <View testID="summary-card-hero-shimmer">
-                    <Shimmer width={SHIMMER_HERO_WIDTH} height={28} />
-                  </View>
-                  <View testID="summary-card-hero-label-shimmer">
-                    <Shimmer width={SHIMMER_LABEL_WIDTH} height={16} />
-                  </View>
-                </View>
-              ) : fitnessSparkline ? (
+              {fitnessSparkline ? (
                 <View>
                   <View style={styles.heroValueRow}>
                     {isFormMode ? (
@@ -382,16 +372,20 @@ export const SummaryCard = React.memo(function SummaryCard({
               style={styles.sparklineRow}
               onLayout={onSparklineLayout}
             >
-              <SummaryCardSparkline
-                fitnessData={fitnessSparkline.fitness}
-                fatigueData={fatigueData}
-                riseDays={fitnessRiseDays}
-                formData={fitnessSparkline.form}
-                width={sparklineWidth}
-                showLabels={showSparklineLabels}
-                onScrub={showSparklineLabels ? undefined : handleScrub}
-                onTap={showSparklineLabels ? undefined : onHeroPress}
-              />
+              {sparklinesReady ? (
+                <SummaryCardSparkline
+                  fitnessData={fitnessSparkline.fitness}
+                  fatigueData={fatigueData}
+                  riseDays={fitnessRiseDays}
+                  formData={fitnessSparkline.form}
+                  width={sparklineWidth}
+                  showLabels={showSparklineLabels}
+                  onScrub={showSparklineLabels ? undefined : handleScrub}
+                  onTap={showSparklineLabels ? undefined : onHeroPress}
+                />
+              ) : (
+                <View style={{ height: FITNESS_SPARKLINE_HEIGHT }} />
+              )}
             </View>
           ) : null}
           {hrvSparkline ? (
@@ -400,15 +394,19 @@ export const SummaryCard = React.memo(function SummaryCard({
               style={styles.sparklineRow}
               onLayout={onSparklineLayout}
             >
-              <SummaryCardHRVSparkline
-                hrvData={hrvSparkline}
-                rhrData={rhrData}
-                hrvRead={hrvRead}
-                rhrRead={rhrRead}
-                width={sparklineWidth}
-                onScrub={showSparklineLabels ? undefined : handleScrub}
-                onTap={showSparklineLabels ? undefined : onHeroPress}
-              />
+              {sparklinesReady ? (
+                <SummaryCardHRVSparkline
+                  hrvData={hrvSparkline}
+                  rhrData={rhrData}
+                  hrvRead={hrvRead}
+                  rhrRead={rhrRead}
+                  width={sparklineWidth}
+                  onScrub={showSparklineLabels ? undefined : handleScrub}
+                  onTap={showSparklineLabels ? undefined : onHeroPress}
+                />
+              ) : (
+                <View style={{ height: hrvSparklineHeight(drawsRhr(hrvSparkline, rhrData)) }} />
+              )}
             </View>
           ) : null}
 
@@ -424,25 +422,19 @@ export const SummaryCard = React.memo(function SummaryCard({
                 <PressTarget
                   accessibilityRole="button"
                   testID={`summary-card-metric-${index}`}
-                  accessibilityLabel={isLoading ? metric.name : metric.accessibilityLabel}
+                  accessibilityLabel={metric.accessibilityLabel}
                   style={styles.supportingMetric}
                   onPress={() => navigateTo(metric.navigationTarget)}
                 >
                   <Text style={[styles.metricLabel, { color: labelInk }]}>{metric.label}</Text>
-                  {isLoading ? (
-                    <View testID={`summary-card-metric-${index}-shimmer`}>
-                      <Shimmer width={SHIMMER_METRIC_WIDTH} height={14} />
-                    </View>
-                  ) : (
-                    <Text
-                      style={[styles.metricValue, { color: valueInk }]}
-                      accessibilityLabel={absentLabel(String(metric.value), t)}
-                    >
-                      {metric.value}
-                      {metric.unit ? <Text style={styles.metricUnit}> {metric.unit}</Text> : null}
-                      {metric.trend ? <Text style={styles.metricTrend}>{metric.trend}</Text> : null}
-                    </Text>
-                  )}
+                  <Text
+                    style={[styles.metricValue, { color: valueInk }]}
+                    accessibilityLabel={absentLabel(String(metric.value), t)}
+                  >
+                    {metric.value}
+                    {metric.unit ? <Text style={styles.metricUnit}> {metric.unit}</Text> : null}
+                    {metric.trend ? <Text style={styles.metricTrend}>{metric.trend}</Text> : null}
+                  </Text>
                 </PressTarget>
               </React.Fragment>
             ))}
@@ -452,6 +444,75 @@ export const SummaryCard = React.memo(function SummaryCard({
     </View>
   );
 });
+
+export interface SummaryCardSkeletonProps {
+  heroMetric: string;
+  /** Whether the card will hold a sparkline, from the athlete's setting. */
+  showSparkline: boolean;
+  /** How many supporting metrics the card will show. */
+  supportingCount: number;
+}
+
+/**
+ * The summary card while the startup read is outstanding, in the card's own
+ * containers: the hero line, and under a fitness or form hero with a sparkline
+ * its second line, the sparkline's row and the supporting metrics, so the card
+ * that replaces it lands in the same box.
+ */
+export function SummaryCardSkeleton({
+  heroMetric,
+  showSparkline,
+  supportingCount,
+}: SummaryCardSkeletonProps) {
+  const { isDark } = useTheme();
+  const isHrvMode = heroMetric === 'hrv';
+  const sparklineHeight = !showSparkline
+    ? null
+    : isHrvMode
+      ? hrvSparklineHeight(true)
+      : FITNESS_SPARKLINE_HEIGHT;
+  const metricCount = Math.min(supportingCount, 4);
+  return (
+    <SkeletonGroup testID="summary-card-skeleton">
+      <Card variant="raised" padding="none">
+        <View style={styles.cardContent}>
+          <View style={styles.topRow}>
+            <View style={styles.heroSection}>
+              <View style={styles.heroValueRow}>
+                <SkeletonLine text={styles.heroValueFixed} width={SKELETON_HERO_WIDTH} />
+                <SkeletonLine text={styles.heroLabel} width={SKELETON_LABEL_WIDTH} />
+              </View>
+              {showSparkline && !isHrvMode ? (
+                <View style={styles.heroSubLine}>
+                  <SkeletonLine text={styles.heroSubText} width={SKELETON_SUBLINE_WIDTH} />
+                </View>
+              ) : null}
+            </View>
+          </View>
+          {sparklineHeight !== null ? (
+            <View style={styles.sparklineRow}>
+              <Shimmer height={sparklineHeight} />
+            </View>
+          ) : null}
+          <View style={styles.supportingRow}>
+            {Array.from({ length: metricCount }, (_, index) => (
+              <React.Fragment key={index}>
+                {index > 0 && (
+                  <TextSeparator
+                    style={[styles.metricDivider, isDark && styles.metricDividerDark]}
+                  />
+                )}
+                <View style={styles.supportingMetric}>
+                  <SkeletonLine text={styles.metricLabel} width={SKELETON_METRIC_WIDTH} />
+                </View>
+              </React.Fragment>
+            ))}
+          </View>
+        </View>
+      </Card>
+    </SkeletonGroup>
+  );
+}
 
 const styles = StyleSheet.create({
   cardContent: {

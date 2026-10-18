@@ -10,13 +10,12 @@ import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { RangeCoverage } from 'veloqrs';
 
-import { Card, CardHeader, ErrorState, IconButton, Shimmer } from '@/shared/ui';
+import { Card, CardHeader, ChartSkeleton, ErrorState, IconButton } from '@/shared/ui';
 import { WellnessTrendsChart, type TimeRange } from '@/features/wellness';
 import type { WellnessData } from '@/types';
 import { useSheetOpener } from '@/shared/app/sheetRequest';
 import type { SmoothingSheetInput } from '@/app/sheets/smoothing';
 import type { SmoothingWindow } from '@/shared/math/smoothing';
-import { layout } from '@/theme';
 
 const CHART_HEIGHT = 200;
 
@@ -83,7 +82,7 @@ export function WellnessTrendsCard({
           testID="wellness-trends-failed"
         />
       ) : !drawn || (isLoading && !wellness) ? (
-        <Shimmer width="100%" height={CHART_HEIGHT} borderRadius={layout.borderRadius} />
+        <ChartSkeleton height={CHART_HEIGHT} header={false} />
       ) : (
         <WellnessTrendsChart
           data={wellness}

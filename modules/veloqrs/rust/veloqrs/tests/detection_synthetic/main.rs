@@ -24,6 +24,9 @@ mod detection_pool_invariance;
 #[path = "../detection_settles.rs"]
 mod detection_settles;
 
+#[path = "../detection_parallel_routes.rs"]
+mod detection_parallel_routes;
+
 #[path = "../detection_determinism.rs"]
 mod detection_determinism;
 

@@ -16,7 +16,6 @@ function state(overrides: Partial<TopBannerState> = {}): TopBannerState {
     hideDemoBanner: false,
     lastError: null,
     syncPaused: false,
-    trackFetchNoticeShown: false,
     engineInitFailed: false,
     ...overrides,
   };
@@ -84,25 +83,19 @@ describe('pickTopBanner', () => {
 });
 
 describe('banners the pick used to leave out', () => {
-  it('claims the slot for the track notice alone, so screens drop their top edge', () => {
-    expect(pickTopBanner(state({ trackFetchNoticeShown: true }))).toBe('trackFetch');
-  });
-
   it('claims the slot for a failed engine open', () => {
     expect(pickTopBanner(state({ engineInitFailed: true }))).toBe('engineInit');
   });
 
-  it('lets the demo ribbon stand under the track notice', () => {
-    expect(pickTopBanner(state({ isDemoMode: true, trackFetchNoticeShown: true }))).toBe(
-      'trackFetch'
-    );
+  it('lets the demo ribbon stand under a failed engine open', () => {
+    expect(pickTopBanner(state({ isDemoMode: true, engineInitFailed: true }))).toBe('engineInit');
   });
 });
 
 describe('padsStatusBar', () => {
   it('pads only the banner the pick chose, so a stack carries one inset', () => {
-    const active = pickTopBanner(state({ isDemoMode: true, trackFetchNoticeShown: true }));
-    expect(padsStatusBar(active, 'trackFetch')).toBe(true);
+    const active = pickTopBanner(state({ isDemoMode: true, engineInitFailed: true }));
+    expect(padsStatusBar(active, 'engineInit')).toBe(true);
     expect(padsStatusBar(active, 'demo')).toBe(false);
   });
 

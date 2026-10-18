@@ -4227,7 +4227,6 @@ mod tests {
             version: 4,
             updated_at: Some("2024-06-01T00:00:00Z".to_string()),
             created_at: Some("2024-01-01T00:00:00Z".to_string()),
-            consensus_state: None,
         }
     }
 

@@ -79,7 +79,6 @@ fn auto_section(id: &str, seed: usize) -> FrequentSection {
         version: 1,
         updated_at: None,
         created_at: None,
-        consensus_state: None,
     }
 }
 

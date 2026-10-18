@@ -5,7 +5,6 @@
     "src/features/activity/components/ActivityCard.tsx": 16,
     "src/features/insights/components/InsightHistoryGraphic.tsx": 1,
     "src/features/maps/components/BaseMapView.tsx": 1,
-    "src/features/maps/components/MapEmptyState.tsx": 1,
     "src/features/maps/components/regional/MapControlStack.tsx": 1,
     "src/features/recording/components/StatusSlot.tsx": 1,
     "src/features/recording/components/TrimSlider.tsx": 2,
@@ -167,14 +166,11 @@
   },
   "shadow": {},
   "stroke-width": {
-    "src/app/named-corridors.tsx": 1,
-    "src/features/routes/components/SectionRow.tsx": 5,
     "src/features/settings/components/MapStylePreviewPicker.tsx": 4,
     "src/features/settings/components/whatsNew/HeatmapSlide.tsx": 5,
     "src/features/settings/components/whatsNew/RoutesSlide.tsx": 1,
     "src/features/settings/components/whatsNew/SectionPerformanceSlide.tsx": 4,
-    "src/shared/ui/ShaderWarmup.tsx": 1,
-    "src/shared/ui/TrackPreview.tsx": 5
+    "src/shared/ui/ShaderWarmup.tsx": 1
   },
   "theme-import": {
     "src/features/fitness/lib/fitness.ts": 1,

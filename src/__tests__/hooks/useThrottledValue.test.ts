@@ -1,6 +1,6 @@
 import { renderHook, act } from '@testing-library/react-native';
 
-import { useThrottledValue } from '@/features/maps/hooks/useThrottledValue';
+import { useThrottledValue } from '@/shared/ui/useThrottledValue';
 
 const INTERVAL = 16;
 

@@ -1,22 +1,23 @@
 /**
  * Scenario: the section record and stale-record sheets drew the section through
  * a map of their own, its line in gold or in the opportunity tone, while every
- * other section thumbnail is the one track preview in the one subject colour.
+ * other section thumbnail is the one track preview in the base map's route
+ * colour.
  *
  * Expected behaviour: both sheets draw the section as the track preview at the
- * sheet's width in the subject colour, and draw nothing from fewer than two
- * points.
+ * sheet's width in the base map's route colour, and draw nothing from fewer
+ * than two points.
  */
 
 import React from 'react';
 import { View } from 'react-native';
+import { Polyline } from 'react-native-svg';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import { initialiseI18n } from '@/i18n';
 import { SectionPRContent } from '@/features/insights/components/content/SectionPRContent';
 import { StalePRContent } from '@/features/insights/components/content/StalePRContent';
-import { TrackPreview } from '@/shared/ui/TrackPreview';
-import { themePalette } from '@/theme';
+import { TrackPreview, trackPreviewPalette } from '@/shared/ui/TrackPreview';
 import type { Insight } from '@/types';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
@@ -89,13 +90,15 @@ const SHEETS = [
 ] as const;
 
 describe.each(SHEETS)('the %s sheet', (_name, Sheet) => {
-  it('draws the section as the track preview at the sheet width in the subject colour', async () => {
+  it('draws the section as the track preview at the sheet width in the route colour', async () => {
     await render(<Sheet />);
     await layout();
     const drawn = previews();
     expect(drawn).toHaveLength(1);
     expect(drawn[0].props.width).toBe(SHEET_WIDTH);
-    expect(drawn[0].props.color).toBe(themePalette(false).actionPrimary);
+    expect(screen.UNSAFE_getAllByType(Polyline).map((line) => line.props.stroke)).toContain(
+      trackPreviewPalette(false).route
+    );
     expect(drawn[0].props.points).toHaveLength(LOOP.length);
   });
 

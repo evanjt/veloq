@@ -174,14 +174,6 @@ describe('a supporting metric label', () => {
 
     expect(tree.getByTestId('summary-card-metric-0').props.accessibilityLabel).toBe('eFTP');
   });
-
-  it('speaks only the name, not its glyph, while the values load', async () => {
-    showing('fitness', ['weekCount']);
-
-    const tree = await renderCard({ ...(await cardData(CARD)), isLoading: true });
-
-    expect(tree.getByTestId('summary-card-metric-0').props.accessibilityLabel).toBe('Activities');
-  });
 });
 
 describe('the hero label', () => {

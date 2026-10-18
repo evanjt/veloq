@@ -15,7 +15,7 @@ import { ABSENT, absentLabel } from '@/shared/format/absent';
 import { DENSE_TEXT_SCALE, denseExtent } from '@/shared/ui/DenseText';
 import { RowDivider } from '@/shared/ui/RowGroup';
 import type { ExerciseGroup } from 'veloqrs';
-import { Button, Card, InlineLink, Shimmer, SkeletonFrame } from '@/shared/ui';
+import { Button, Card, InlineLink, Shimmer, SkeletonGroup } from '@/shared/ui';
 import { navigateTo } from '@/shared/app/navigation';
 
 /** Set rows the placeholder draws, about one exercise's worth. */
@@ -64,7 +64,7 @@ export function ExerciseTable({
     return (
       <View style={styles.frame}>
         <Card variant="raised">
-          <SkeletonFrame testID="exercise-table-skeleton">
+          <SkeletonGroup testID="exercise-table-skeleton">
             <View style={styles.header}>
               <Shimmer
                 width="40%"
@@ -86,7 +86,7 @@ export function ExerciseTable({
                 />
               </View>
             ))}
-          </SkeletonFrame>
+          </SkeletonGroup>
         </Card>
       </View>
     );

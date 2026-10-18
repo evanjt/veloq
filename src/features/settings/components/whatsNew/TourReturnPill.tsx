@@ -2,6 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import Constants from 'expo-constants';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
+import { setUpInSettings } from '@/features/settings/lib/tourSetUp';
 import { FloatingPill } from '@/shared/ui/FloatingPill';
 
 /**
@@ -29,7 +30,7 @@ export function TourReturnPill() {
       accessibilityLabel={t('whatsNew.backToTour')}
       secondaryAction={{
         label: t('whatsNew.closeTour'),
-        onAction: () => dismissTour(currentVersion),
+        onAction: () => dismissTour(currentVersion, setUpInSettings()),
       }}
     />
   );

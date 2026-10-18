@@ -116,6 +116,7 @@ describe('Show Me on the tour map slide', () => {
     storedPreferences('dark');
     useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });
     useWhatsNewStore.setState({ isLoaded: true, lastSeenVersion: null, tourState: null });
+    useWhatsNewStore.getState().startTour('tutorial');
     await render(
       <MapPreferencesProvider>
         <Probe onValue={see} />

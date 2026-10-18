@@ -1,11 +1,9 @@
 import React, { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useTheme } from '@/shared/app';
 import { navigateTo } from '@/shared/app/navigation';
 import { PressTarget } from '@/shared/ui';
 import type { Insight, TFunc } from '../../types';
 import { dataLinkLabel } from '../../lib/dataLink';
-import { insightGraphicColour } from '../../lib/insightCategory';
 import { SheetTrackDrawing } from './SheetTrackDrawing';
 
 interface SectionChangedContentProps {
@@ -20,7 +18,6 @@ interface SectionChangedContentProps {
 export const SectionChangedContent = React.memo(function SectionChangedContent({
   insight,
 }: SectionChangedContentProps) {
-  const { isDark } = useTheme();
   const { t } = useTranslation();
 
   const history = insight.supportingData?.history;
@@ -40,11 +37,7 @@ export const SectionChangedContent = React.memo(function SectionChangedContent({
       accessibilityLabel={dataLinkLabel(insight, target, t as unknown as TFunc)}
       onPress={onPress}
     >
-      <SheetTrackDrawing
-        testID="section-changed-line"
-        points={line.points}
-        color={insightGraphicColour(insight.category, isDark)}
-      />
+      <SheetTrackDrawing testID="section-changed-line" points={line.points} />
     </PressTarget>
   );
 });

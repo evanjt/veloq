@@ -13,7 +13,6 @@ import {
   isPrivacyNoticeOwed,
   useNotificationPrompt,
   requestNotificationPermission,
-  useLaunchSurfaces,
 } from '@/features/settings';
 import { colors, darkColors, iconSize, motionPresets, spacing, typography } from '@/theme';
 import { Button, PermissionNotice, TextLink } from '@/shared/ui';
@@ -42,14 +41,12 @@ export function NotificationOptInCard({ libraryCount }: NotificationOptInCardPro
   // Set when the system will no longer show its dialog, so Enable alone would do nothing.
   const [blocked, setBlocked] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  // Waits out the tour and the restore offer, so a first launch asks one thing at a time.
-  const { notificationCard: mayShow } = useLaunchSurfaces(libraryCount);
-
   const shouldOptIn =
     sourceFor({ authMethod, isDemoMode })?.can.push === true &&
     !notificationsEnabled &&
     !dismissed &&
     isPromptLoaded;
+  const mayShow = libraryCount > 0;
 
   // The owed notice is the one thing the card must say, so it is never collapsed.
   const disclosed = owed || expanded;

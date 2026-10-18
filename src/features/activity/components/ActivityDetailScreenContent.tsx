@@ -53,7 +53,7 @@ import { PoolLengthsTable, showsPoolLengthsTab } from './PoolLengthsTable';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
 import { waitEnded } from '@/shared/native/engineBodies';
-import { SwipeableTabs, type SwipeableTab } from '@/shared/ui';
+import { ExpandableText, SwipeableTabs, type SwipeableTab } from '@/shared/ui';
 import {
   resolveTerrain3D,
   type CreationState,
@@ -65,7 +65,7 @@ import {
 import type { RouteGroup as NativeRouteGroup, Section as NativeSection } from 'veloqrs';
 import { useExerciseSets, ExerciseTable, MuscleGroupView } from '@/features/strength';
 import { useAthlete } from '@/shared/app/useAthlete';
-import { colors, darkColors, spacing, typography, stroke } from '@/theme';
+import { colors, darkColors, spacing, stroke } from '@/theme';
 import { noHeroHeaderOptions, overMapHeaderOptions } from '@/shared/app/screenHeaders';
 import { MapHeroStatusBar } from '@/shared/app/MapHeroStatusBar';
 import { LARGE_TEXT_PINNED_FRACTION, useLargeText } from '@/shared/ui/useLargeText';
@@ -517,9 +517,7 @@ export function ActivityDetailScreenContent({
       {/* Activity description */}
       {activity.description ? (
         <View style={[styles.descriptionContainer, isDark && styles.descriptionContainerDark]}>
-          <Text style={[styles.descriptionText, isDark && styles.descriptionTextDark]}>
-            {activity.description}
-          </Text>
+          <ExpandableText text={activity.description} testID="activity-description" />
         </View>
       ) : null}
     </>
@@ -739,12 +737,5 @@ const styles = StyleSheet.create({
   descriptionContainerDark: {
     backgroundColor: darkColors.surface,
     borderBottomColor: darkColors.border,
-  },
-  descriptionText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-  },
-  descriptionTextDark: {
-    color: darkColors.textSecondary,
   },
 });

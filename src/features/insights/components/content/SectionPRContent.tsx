@@ -13,16 +13,7 @@ import { SheetTrackDrawing } from './SheetTrackDrawing';
 import { SectionPerformanceTimeline } from './SectionPerformanceTimeline';
 import { RecentEffortsList } from './RecentEffortsList';
 import { formatDuration, formatShortDate } from '@/shared/format/format';
-import {
-  colors,
-  darkColors,
-  iconSize,
-  layout,
-  opacity,
-  spacing,
-  themePalette,
-  typography,
-} from '@/theme';
+import { colors, darkColors, iconSize, layout, opacity, spacing, typography } from '@/theme';
 import { prRecordOf } from '@/features/insights/lib/directionBests';
 import { insightGraphicColour } from '@/features/insights/lib/insightCategory';
 import type { Insight } from '@/types';
@@ -78,7 +69,7 @@ export const SectionPRContent = React.memo(function SectionPRContent({
         />
       ) : null}
 
-      <SheetTrackDrawing points={section?.polyline} color={themePalette(isDark).actionPrimary} />
+      <SheetTrackDrawing points={section?.polyline} />
 
       {/* What the record beat; the time itself is the sheet's figure */}
       {bestTimeFormatted ? (

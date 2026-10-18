@@ -45,6 +45,10 @@ const ENGINE_ONLY_KEYS = new Map([
     'veloq-primary-sport-default',
     'Derived from the library and taken again from the next fitness read, never in AsyncStorage',
   ],
+  [
+    'veloq-tour-offer',
+    'The tour offer record, first written after the migration, never in AsyncStorage',
+  ],
   ['__settings_migrated', 'Migration completion marker'],
   ['veloq-terrain-override-cleanup-done', 'Migration completion marker'],
 ]);

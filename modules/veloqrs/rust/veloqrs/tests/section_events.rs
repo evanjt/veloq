@@ -370,13 +370,33 @@ fn stretch_rides(
         .collect()
 }
 
-/// A sustained merge retires the junior into the senior and says which.
-///
-/// Scenario: two separate stretches of one road, then rides over all of it,
-/// so one candidate covers both existing sections. The whole road stays under
-/// the detector's section length cap, or it would be cut into two again.
+/// Rides over one stretch that stay in a narrow lane however many there are,
+/// so the count can grow without widening the band the rides cover.
+fn stretch_rides_in_lane(
+    prefix: &str,
+    from_m: f64,
+    to_m: f64,
+    count: usize,
+    day0: i64,
+) -> Vec<LifecycleActivity> {
+    (0..count)
+        .map(|i| {
+            let jitter = ((i % 7) as f64 - 3.0) * 1.5;
+            let mut pts = Vec::new();
+            let mut d = from_m;
+            while d <= to_m {
+                pts.push(pt(d, jitter));
+                d += STEP_M;
+            }
+            act(format!("{prefix}_{i:02}"), day0 + i as i64, pts)
+        })
+        .collect()
+}
+
+/// A road joined by later through rides keeps its original sections when
+/// enough earlier outings start or end at the join.
 #[test]
-fn a_merge_names_the_survivor() {
+fn a_join_where_outings_start_and_end_keeps_both_sections() {
     let (mut engine, _dir) = fresh_engine();
     let near = stretch_rides("near", 0.0, 350.0, 9, 0);
     let far = stretch_rides("far", 450.0, 800.0, 9, 10);
@@ -392,6 +412,47 @@ fn a_merge_names_the_survivor() {
     ingest_step(&mut engine, "join", &refs(&whole));
     for i in 0..3 {
         let filler = filler_act("settle", 60 + i);
+        ingest_step(&mut engine, "settle", &[&filler]);
+    }
+
+    let live: Vec<String> = engine.get_sections().iter().map(|s| s.id.clone()).collect();
+    assert_eq!(live.len(), 2, "the busy termini keep two stretches");
+    for id in before.sections.keys() {
+        assert!(live.contains(id), "the original section {id} remains live");
+        assert!(
+            engine
+                .section_history(id)
+                .iter()
+                .all(|event| event.kind != "merged"),
+            "a retained section has no merge event"
+        );
+    }
+}
+
+/// A sustained merge retires the junior into the senior and says which.
+///
+/// Scenario: two small stretches of one road, then many more rides over all of
+/// it, so one candidate covers both existing sections. Only a small share of
+/// the traffic ends at the gap, which is attrition and not a join the detector
+/// cuts at, so the stretches merge. The whole road stays under the detector's
+/// section length cap, or it would be cut into two again.
+#[test]
+fn a_merge_names_the_survivor() {
+    let (mut engine, _dir) = fresh_engine();
+    let near = stretch_rides("near", 0.0, 350.0, 9, 0);
+    let far = stretch_rides("far", 450.0, 800.0, 9, 10);
+    let mut pool = refs(&near);
+    pool.extend(refs(&far));
+    let before = ingest_step(&mut engine, "cold", &pool).snapshot;
+    assert!(
+        before.sections.len() >= 2,
+        "corpus fault: the two stretches must start as separate sections"
+    );
+
+    let whole = stretch_rides_in_lane("whole", 0.0, 800.0, 100, 30);
+    ingest_step(&mut engine, "join", &refs(&whole));
+    for i in 0..3 {
+        let filler = filler_act("settle", 300 + i);
         ingest_step(&mut engine, "settle", &[&filler]);
     }
 

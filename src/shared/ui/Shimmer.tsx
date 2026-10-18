@@ -1,46 +1,36 @@
 import React from 'react';
-import { View, StyleSheet, ViewStyle, DimensionValue, type StyleProp } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  useWindowDimensions,
+  type DimensionValue,
+  type StyleProp,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native';
 import { useTranslation } from 'react-i18next';
 import Animated, {
-  useSharedValue,
+  cancelAnimation,
+  interpolateColor,
   useAnimatedStyle,
+  useSharedValue,
   withRepeat,
-  withSequence,
   withTiming,
 } from 'react-native-reanimated';
-import { colors, darkColors, duration, layout, spacing } from '@/theme';
+import { colors, darkColors, duration, layout, spacing, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
-import { CARD_HEIGHT, CARD_MARGIN } from '@/features/activity/lib/cardLayout';
+import { CARD_HEIGHT, cardContainers } from '@/features/activity/lib/cardLayout';
 import { Card } from './Card';
+import { useLargeText } from './useLargeText';
+import { useReduceMotion } from './reduceMotion';
 
 interface ShimmerProps {
   width?: DimensionValue;
   height?: number;
   borderRadius?: number;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   animated?: boolean;
-}
-
-function ShimmerHighlight({ color, borderRadius }: { color: string; borderRadius: number }) {
-  const opacity = useSharedValue(0.3);
-
-  React.useEffect(() => {
-    opacity.value = withRepeat(
-      withSequence(
-        withTiming(0.7, { duration: duration.pulse }),
-        withTiming(0.3, { duration: duration.pulse })
-      ),
-      -1
-    );
-  }, [opacity]);
-
-  const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
-
-  return (
-    <Animated.View
-      style={[StyleSheet.absoluteFill, { backgroundColor: color, borderRadius }, animatedStyle]}
-    />
-  );
+  testID?: string;
 }
 
 export function shimmerColours(isDark: boolean): { base: string; highlight: string } {
@@ -48,30 +38,79 @@ export function shimmerColours(isDark: boolean): { base: string; highlight: stri
   return { base: palette.fillNeutral, highlight: palette.borderStrong };
 }
 
+/**
+ * One skeleton block. Its own colour pulses from the neutral fill to the strong
+ * border and back, one leg per pulse duration, and holds at the fill with
+ * reduce motion on.
+ */
 export function Shimmer({
   width = '100%',
   height = 20,
   borderRadius = layout.borderRadiusSm,
   style,
   animated = true,
+  testID,
 }: ShimmerProps) {
   const { isDark } = useTheme();
-  const { base: baseColor, highlight: highlightColor } = shimmerColours(isDark);
+  const { base, highlight } = shimmerColours(isDark);
+  const reduceMotion = useReduceMotion();
+  const pulsing = animated && !reduceMotion;
+  const progress = useSharedValue(0);
+
+  React.useEffect(() => {
+    if (pulsing) {
+      progress.value = withRepeat(withTiming(1, { duration: duration.pulse }), -1, true);
+    } else {
+      progress.value = 0;
+    }
+    return () => cancelAnimation(progress);
+  }, [pulsing, progress]);
+
+  const pulse = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(progress.value, [0, 1], [base, highlight]),
+  }));
 
   return (
-    <View
+    <Animated.View
+      testID={testID}
       style={[
         styles.container,
-        {
-          width,
-          height,
-          borderRadius,
-          backgroundColor: baseColor,
-        },
+        { width, height, borderRadius, backgroundColor: base },
         style,
+        pulse,
       ]}
-    >
-      {animated ? <ShimmerHighlight color={highlightColor} borderRadius={borderRadius} /> : null}
+    />
+  );
+}
+
+/** The height of a bar standing for a line of text, against the text's size. */
+const LINE_BAR_FRACTION = 0.75;
+
+interface SkeletonLineProps {
+  /** The text style of the line it stands for: its line height and font size. */
+  text: TextStyle;
+  width?: DimensionValue;
+  style?: StyleProp<ViewStyle>;
+  animated?: boolean;
+}
+
+/**
+ * A line of text still to come: a block as tall as the style's line height at
+ * the system text size, holding a bar about three quarters of its font size,
+ * so the line it becomes takes the same room.
+ */
+export function SkeletonLine({ text, width = '100%', style, animated = true }: SkeletonLineProps) {
+  const { fontScale } = useWindowDimensions();
+  const fontSize = text.fontSize ?? typography.body.fontSize;
+  const lineHeight = text.lineHeight ?? typography.body.lineHeight;
+  return (
+    <View style={[styles.line, { width, height: lineHeight * fontScale }, style]}>
+      <Shimmer
+        width="100%"
+        height={Math.round(fontSize * LINE_BAR_FRACTION * fontScale)}
+        borderRadius={layout.borderRadiusXs}
+        animated={animated}
+      />
     </View>
   );
 }
@@ -81,13 +120,16 @@ export function Shimmer({
  * grey blocks sit in a hidden wrapper, since hiding them on the root would
  * hide the root as well, so none of them is a focus stop of its own.
  */
-export function SkeletonFrame({
+export function SkeletonGroup({
   testID,
   style,
+  label,
   children,
 }: {
   testID?: string;
   style?: StyleProp<ViewStyle>;
+  /** What it says it is waiting for; loading when not given. */
+  label?: string;
   children: React.ReactNode;
 }) {
   const { t } = useTranslation();
@@ -97,7 +139,7 @@ export function SkeletonFrame({
       style={style}
       accessible
       accessibilityRole="progressbar"
-      accessibilityLabel={t('common.loading')}
+      accessibilityLabel={label ?? t('common.loading')}
       accessibilityState={{ busy: true }}
     >
       <View importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
@@ -107,40 +149,65 @@ export function SkeletonFrame({
   );
 }
 
-// Pre-built skeleton patterns
+/**
+ * The feed's activity card while it loads, on the card's own containers: the
+ * map card's fixed height, or past the dense cap the stacked card's name, map
+ * and stats.
+ */
 export function ActivityCardSkeleton() {
+  const largeText = useLargeText();
   return (
-    <SkeletonFrame testID="activity-card-skeleton" style={styles.activityCard}>
+    <SkeletonGroup testID="activity-card-skeleton" style={cardContainers.wrapper}>
       <Card variant="raised" padding="none">
-        <View testID="activity-card-skeleton-fill" style={{ height: CARD_HEIGHT }}>
-          <Shimmer width="100%" height={CARD_HEIGHT} borderRadius={0} />
-        </View>
+        {largeText ? (
+          <>
+            <View style={styles.flowHeader}>
+              <SkeletonLine text={typography.cardTitle} width="60%" />
+              <SkeletonLine text={typography.caption} width="40%" style={styles.flowSubtitle} />
+            </View>
+            <Shimmer width="100%" height={CARD_HEIGHT} borderRadius={0} />
+            <View style={styles.flowBottom}>
+              <SkeletonLine text={typography.bodyBold} width="70%" />
+              <SkeletonLine text={typography.captionBold} width="50%" />
+            </View>
+          </>
+        ) : (
+          <View testID="activity-card-skeleton-fill" style={cardContainers.map}>
+            <Shimmer width="100%" height={CARD_HEIGHT} borderRadius={0} />
+          </View>
+        )}
       </Card>
-    </SkeletonFrame>
+    </SkeletonGroup>
   );
 }
 
+/** A chart while it loads: its title line and value line, then the plot, or the plot alone. */
 export function ChartSkeleton({
   height = 200,
   animated = true,
+  header = true,
 }: {
   height?: number;
   animated?: boolean;
+  /** False when the chart's own card header is already drawn above it. */
+  header?: boolean;
 }) {
   return (
-    <SkeletonFrame>
-      <View style={styles.chartHeader}>
-        <Shimmer width={140} height={20} borderRadius={layout.borderRadiusXs} animated={animated} />
-        <Shimmer width={80} height={16} borderRadius={layout.borderRadiusXs} animated={animated} />
-      </View>
+    <SkeletonGroup>
+      {header ? (
+        <View style={styles.chartHeader}>
+          <SkeletonLine text={typography.cardTitle} width={140} animated={animated} />
+          <SkeletonLine text={typography.caption} width={80} animated={animated} />
+        </View>
+      ) : null}
       <Shimmer
         width="100%"
         height={height}
         borderRadius={layout.borderRadius}
-        style={{ marginTop: spacing.smPlus }}
+        style={header ? styles.chartPlot : undefined}
         animated={animated}
       />
-    </SkeletonFrame>
+    </SkeletonGroup>
   );
 }
 
@@ -148,13 +215,25 @@ const styles = StyleSheet.create({
   container: {
     overflow: 'hidden',
   },
-  activityCard: {
-    marginHorizontal: CARD_MARGIN,
-    marginBottom: CARD_MARGIN,
+  line: {
+    justifyContent: 'center',
+  },
+  flowHeader: {
+    padding: spacing.smPlus,
+  },
+  flowSubtitle: {
+    marginTop: spacing.xxs,
+  },
+  flowBottom: {
+    padding: spacing.smPlus,
+    gap: spacing.xxs,
   },
   chartHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  chartPlot: {
+    marginTop: spacing.smPlus,
   },
 });

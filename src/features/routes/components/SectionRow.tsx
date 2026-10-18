@@ -2,20 +2,17 @@
  * Section row: a section's polyline preview and its stats. It draws the polyline its page carries.
  */
 
-import React, { memo, useCallback, useMemo, useId } from 'react';
+import React, { memo, useCallback, useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text } from 'react-native-paper';
-import Svg, { Polyline, Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
 import {
   brand,
   colors,
   darkColors,
   iconSize,
-  ink,
   layout,
-  mapPreviewColors,
   opacity,
   spacing,
   typography,
@@ -23,18 +20,16 @@ import {
 } from '@/theme';
 import { SportIcons } from '@/shared/activity/SportIcons';
 import { Card } from '@/shared/ui/Card';
-import { TrackEndpointMarkers } from '@/shared/ui/TrackEndpointMarkers';
+import { TrackPreview, normaliseTrackPoints } from '@/shared/ui/TrackPreview';
 import { composeAccessibilityLabel } from '@/shared/ui/accessibilityLabel';
 import type { AccessibleAction } from '@/shared/ui/accessibleActions';
 import { formatDistance, formatElevation } from '@/shared/format/format';
-import { getBoundsFromPoints } from '@/shared/geo/polyline';
 import { sectionElevation } from '@/features/routes/lib/sectionElevation';
 import type { Section } from '@/types';
 import {
-  ROW_MARGIN_BOTTOM,
-  ROW_MARGIN_HORIZONTAL,
   ROW_PREVIEW_HEIGHT,
   ROW_PREVIEW_WIDTH,
+  rowContainers,
 } from '@/features/routes/lib/rowLayout';
 import { NameText } from '@/shared/ui/NameText';
 import { Icon } from '@/shared/ui/Icon';
@@ -53,7 +48,6 @@ interface SectionRowProps {
 
 const PREVIEW_WIDTH = ROW_PREVIEW_WIDTH;
 const PREVIEW_HEIGHT = ROW_PREVIEW_HEIGHT;
-const PREVIEW_PADDING = 4;
 
 export const SectionRow = memo(function SectionRow({
   section,
@@ -66,9 +60,6 @@ export const SectionRow = memo(function SectionRow({
   const { isDark } = useTheme();
   const palette = themePalette(isDark);
   const isMetric = useMetricSystem();
-  // Unique ID for SVG gradient to avoid collisions between multiple instances
-  const uniqueId = useId();
-  const gradientId = `sectionGradient-${uniqueId}`;
 
   const elevation = useMemo(() => sectionElevation(section), [section]);
 
@@ -82,73 +73,9 @@ export const SectionRow = memo(function SectionRow({
     onPress?.(section.id);
   }, [onPress, section.id]);
 
-  // Compute bounds from section polyline only (not activity traces)
-  // This ensures the thumbnail accurately represents the section geometry
-  const bounds = useMemo(() => {
-    if (!polyline?.length) return null;
-
-    // Use utility for bounds calculation
-    const mapBounds = getBoundsFromPoints(polyline);
-    if (!mapBounds) return null;
-
-    // Extract min/max from MapLibre bounds format
-    const [minLng, minLat] = mapBounds.sw;
-    const [maxLng, maxLat] = mapBounds.ne;
-
-    // Calculate range for SVG normalisation
-    const latRange = maxLat - minLat || 0.001;
-    const lngRange = maxLng - minLng || 0.001;
-    const range = Math.max(latRange, lngRange);
-
-    return { minLat, maxLat, minLng, maxLng, range };
-  }, [polyline]);
-
-  // Normalise point to SVG coordinates
-  const normalisePoint = useCallback(
-    (lat: number, lng: number): { x: number; y: number } => {
-      if (!bounds) return { x: 0, y: 0 };
-      return {
-        x:
-          PREVIEW_PADDING +
-          ((lng - bounds.minLng) / bounds.range) * (PREVIEW_WIDTH - 2 * PREVIEW_PADDING),
-        y:
-          PREVIEW_PADDING +
-          (1 - (lat - bounds.minLat) / bounds.range) * (PREVIEW_HEIGHT - 2 * PREVIEW_PADDING),
-      };
-    },
-    [bounds]
-  );
-
-  // Normalise section polyline
-  const sectionPolylineString = useMemo(() => {
-    if (!polyline?.length || !bounds) return '';
-    return polyline
-      .map((p) => {
-        const { x, y } = normalisePoint(p.lat, p.lng);
-        return `${x},${y}`;
-      })
-      .join(' ');
-  }, [polyline, bounds, normalisePoint]);
-
-  const hasSectionPolyline = sectionPolylineString.length > 0;
-
-  // The app's own colour: ground has no sport to colour it by.
-  const activityColor = palette.actionPrimary;
-
-  // Background colors for map-like appearance
-  const preview = isDark ? mapPreviewColors.dark : mapPreviewColors.light;
-  const bgColor = preview.bg;
-  const gridColor = preview.grid;
-
-  // Get start/end points for markers
-  const polylinePoints = useMemo(() => {
-    if (!polyline?.length || !bounds) return null;
-    const normalised = polyline.map((p) => normalisePoint(p.lat, p.lng));
-    return {
-      start: normalised[0],
-      end: normalised[normalised.length - 1],
-    };
-  }, [polyline, bounds, normalisePoint]);
+  // The section's own polyline only, not its activities' traces, so the
+  // thumbnail is the section's geometry.
+  const previewPoints = useMemo(() => normaliseTrackPoints(polyline ?? []), [polyline]);
 
   const distanceText = formatDistance(section.distanceMeters, isMetric);
   const elevationText = elevation ? formatElevation(elevation.metres, isMetric) : null;
@@ -179,84 +106,20 @@ export const SectionRow = memo(function SectionRow({
   );
 
   return (
-    <View style={styles.wrapper}>
+    <View style={rowContainers.wrapper}>
       <Card
         variant="flat"
         padding="sm"
-        style={{ flexDirection: 'row', alignItems: 'center' }}
+        style={rowContainers.card}
         testID={`section-row-${section.id}`}
         onPress={handlePress}
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
         actions={actions}
       >
-        {/* Section polyline preview with map-like backdrop */}
-        <View style={styles.previewBox} pointerEvents="none">
-          {hasSectionPolyline ? (
-            <Svg width={PREVIEW_WIDTH} height={PREVIEW_HEIGHT}>
-              <Defs>
-                <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                  <Stop offset="0" stopColor={bgColor} stopOpacity="1" />
-                  <Stop offset="1" stopColor={preview.bgBottom} stopOpacity="1" />
-                </LinearGradient>
-              </Defs>
-
-              {/* Map-like background */}
-              <Rect
-                x="0"
-                y="0"
-                width={PREVIEW_WIDTH}
-                height={PREVIEW_HEIGHT}
-                fill={`url(#${gradientId})`}
-                rx="4"
-              />
-
-              {/* Subtle grid lines for map effect */}
-              <Polyline
-                points={`${PREVIEW_WIDTH / 3},0 ${PREVIEW_WIDTH / 3},${PREVIEW_HEIGHT}`}
-                stroke={gridColor}
-                strokeWidth={0.5}
-                strokeOpacity={0.5}
-              />
-              <Polyline
-                points={`${(2 * PREVIEW_WIDTH) / 3},0 ${(2 * PREVIEW_WIDTH) / 3},${PREVIEW_HEIGHT}`}
-                stroke={gridColor}
-                strokeWidth={0.5}
-                strokeOpacity={0.5}
-              />
-              <Polyline
-                points={`0,${PREVIEW_HEIGHT / 2} ${PREVIEW_WIDTH},${PREVIEW_HEIGHT / 2}`}
-                stroke={gridColor}
-                strokeWidth={0.5}
-                strokeOpacity={0.5}
-              />
-
-              {/* Route shadow for depth */}
-              <Polyline
-                points={sectionPolylineString}
-                fill="none"
-                stroke={ink.black}
-                strokeWidth={3}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeOpacity={0.15}
-                transform="translate(0.5, 0.5)"
-              />
-
-              {/* Section polyline on top */}
-              <Polyline
-                points={sectionPolylineString}
-                fill="none"
-                stroke={activityColor}
-                strokeWidth={2.5}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-
-              {polylinePoints ? (
-                <TrackEndpointMarkers start={polylinePoints.start} end={polylinePoints.end} />
-              ) : null}
-            </Svg>
+        <View style={rowContainers.previewBox} pointerEvents="none">
+          {previewPoints.length > 1 ? (
+            <TrackPreview points={previewPoints} isDark={isDark} />
           ) : (
             <View style={[styles.previewPlaceholder, isDark && styles.previewPlaceholderDark]}>
               {/* The section's own mark: the sports that took it are drawn beside the name. */}
@@ -270,9 +133,9 @@ export const SectionRow = memo(function SectionRow({
         </View>
 
         {/* Section info */}
-        <View style={styles.infoContainer}>
-          <View style={styles.nameRow}>
-            <NameText style={[styles.sectionName, isDark && styles.textLight]}>
+        <View style={rowContainers.infoContainer}>
+          <View style={rowContainers.nameRow}>
+            <NameText style={[rowContainers.name, styles.sectionName, isDark && styles.textLight]}>
               {section.name}
             </NameText>
             {section.isUserDefined && section.sectionType === 'auto' ? (
@@ -326,8 +189,10 @@ export const SectionRow = memo(function SectionRow({
               />
             </View>
           </View>
-          <View style={styles.metaRow}>
-            <Text style={[styles.metaText, isDark && styles.textSecondary]}>{distanceText}</Text>
+          <View style={rowContainers.metaRow}>
+            <Text style={[rowContainers.metaText, styles.metaText, isDark && styles.textSecondary]}>
+              {distanceText}
+            </Text>
             {elevation ? (
               <View style={styles.gainChip}>
                 <Icon
@@ -335,7 +200,9 @@ export const SectionRow = memo(function SectionRow({
                   size={iconSize.xs}
                   color={isDark ? darkColors.textSecondary : colors.textSecondary}
                 />
-                <Text style={[styles.metaText, isDark && styles.textSecondary]}>
+                <Text
+                  style={[rowContainers.metaText, styles.metaText, isDark && styles.textSecondary]}
+                >
                   {elevationText}
                 </Text>
               </View>
@@ -378,16 +245,6 @@ export const SectionRow = memo(function SectionRow({
 });
 
 const styles = StyleSheet.create({
-  wrapper: {
-    marginHorizontal: ROW_MARGIN_HORIZONTAL,
-    marginBottom: ROW_MARGIN_BOTTOM,
-  },
-  previewBox: {
-    width: PREVIEW_WIDTH,
-    height: PREVIEW_HEIGHT,
-    borderRadius: layout.borderRadiusXs,
-    overflow: 'hidden',
-  },
   previewPlaceholder: {
     width: PREVIEW_WIDTH,
     height: PREVIEW_HEIGHT,
@@ -399,33 +256,15 @@ const styles = StyleSheet.create({
   previewPlaceholderDark: {
     backgroundColor: opacity.overlayDark.light,
   },
-  infoContainer: {
-    flex: 1,
-    marginLeft: spacing.sm,
-    marginRight: spacing.xs,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
   sportIconsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginLeft: spacing.xs,
   },
   sectionName: {
-    ...typography.bodyCompactBold,
-    flexShrink: 1,
     color: colors.textPrimary,
   },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: spacing.xxs,
-    gap: spacing.sm,
-  },
   metaText: {
-    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
   },
   countCell: {

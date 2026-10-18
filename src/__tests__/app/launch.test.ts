@@ -139,7 +139,17 @@ const MIGRATED_KEYS = [
   'veloq-notification-prompt-dismissed',
   'veloq-support-store',
   'veloq-track-fetch-dismissed',
+  'veloq-usage',
+  'veloq-tour-offer',
 ];
+
+/** Waits until the launch's resumed import has reloaded the stores, or gives up after a while. */
+async function resumedImportSettled(): Promise<void> {
+  for (let tick = 0; tick < 100; tick++) {
+    if (jest.mocked(initialiseDebugStore).mock.calls.length >= 2) return;
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+}
 
 function migratedLibrary(): void {
   for (const key of MIGRATED_KEYS) stored.set(key, '{}');
@@ -411,13 +421,17 @@ describe('initialiseApp', () => {
     (initialiseDebugStore as jest.Mock).mockRejectedValueOnce(new Error('debug store unreadable'));
     const failed = await initialiseApp();
     expect(failed).toEqual(['other']);
+    // The paused import the launch resumes reloads every store; let that land
+    // first, so what the retry runs is counted alone.
+    await resumedImportSettled();
     const unitReads = () =>
       calls.filter((c) => c.name === 'getSetting' && c.key === 'veloq-unit-preference').length;
     const unitsBefore = unitReads();
+    const debugBefore = jest.mocked(initialiseDebugStore).mock.calls.length;
 
     await expect(retryStartupAreas(['other'])).resolves.toBeNull();
 
-    expect(initialiseDebugStore).toHaveBeenCalledTimes(2);
+    expect(initialiseDebugStore).toHaveBeenCalledTimes(debugBefore + 1);
     expect(unitReads()).toBe(unitsBefore);
   });
 

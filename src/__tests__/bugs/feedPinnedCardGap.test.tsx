@@ -1,20 +1,19 @@
 /**
  * Scenario: the feed opens with its filter section scrolled exactly past, so the
- * first activity card sits at the top of the list, under the pinned summary card.
- * Expected behaviour: the space above the first card is the space between cards,
+ * cards above the activities sit at the top of the list.
+ * Expected behaviour: the space under the head cards is the space between cards,
  * with the filter section hidden or shown, and the space either side of a shown
  * filter section is the same. Settings is a tab, so the feed draws no way into
  * it, with the summary card on or off.
  *
- * Scenario: the system text size is past the dense cap, where the pinned cards
- * alone can fill the window and leave the list no height.
- * Expected behaviour: the cards scroll with the feed, above the filter section,
- * and the feed opens scrolled past both so the first activity is on screen. A
- * search typed into the header opens the list at the filter section, not at the
- * cards above it.
+ * Scenario: the feed shows the summary card and its notices at any text size.
+ * Expected behaviour: they are part of the list, below the filter section, and
+ * scroll away with the feed like an activity card. The feed opens scrolled past
+ * the filter section alone, so the summary card is the first thing on screen, and
+ * a search typed into the header opens the list at the filter section.
  *
- * Scenario: the feed shows a pinned card above the activity list.
- * Expected behaviour: every pinned card sits in the one container that insets the
+ * Scenario: the feed shows a card above its activities.
+ * Expected behaviour: every head card sits in the one container that insets the
  * column by the activity card's margin, so the cards and the list share one edge.
  */
 
@@ -89,10 +88,6 @@ jest.mock('@/features/home', () => ({
   useSummaryCardData: () => ({ showSparkline: false, refetch: jest.fn() }),
   useStartupData: () => ({ data: undefined, refresh: jest.fn() }),
   SummaryCard: () => null,
-  NotificationOptInCard: () => {
-    const { View: Pinned } = jest.requireActual('react-native');
-    return <Pinned testID="stand-in-notification-card" />;
-  },
   SupportCard: () => null,
 }));
 jest.mock('@/features/settings/components/StreamConsentCard', () => ({
@@ -134,84 +129,90 @@ async function renderFeed(fontScale = 1) {
       <FeedScreen />
     </QueryClientProvider>
   );
-  const pinned = StyleSheet.flatten(screen.getByTestId('home-pinned-cards').props.style);
+  const cards = StyleSheet.flatten(screen.getByTestId('home-head-cards').props.style);
   const search = StyleSheet.flatten(screen.getByTestId('home-filter-section').props.style);
   return {
-    pinnedBottom: pinned.paddingBottom ?? 0,
+    cardsBottom: cards.paddingBottom ?? 0,
     searchTop: search.paddingTop ?? 0,
     searchBottom: search.paddingBottom ?? 0,
   };
 }
 
-describe('feed gap under the pinned cards', () => {
+describe('feed gap under the head cards', () => {
   it('leaves the card spacing above the first card when the filter section is hidden', async () => {
-    const { pinnedBottom } = await renderFeed();
-    expect(pinnedBottom).toBe(CARD_MARGIN);
+    const { cardsBottom } = await renderFeed();
+    expect(cardsBottom).toBe(CARD_MARGIN);
   });
 
-  it('leaves the card spacing above and below a shown filter section', async () => {
-    const { pinnedBottom, searchTop, searchBottom } = await renderFeed();
-    expect(pinnedBottom + searchTop).toBe(CARD_MARGIN);
+  it('leaves the card spacing between a shown filter section and the head cards', async () => {
+    const { cardsBottom, searchTop, searchBottom } = await renderFeed();
+    expect(searchTop).toBe(0);
     expect(searchBottom).toBe(CARD_MARGIN);
+    expect(cardsBottom).toBe(CARD_MARGIN);
   });
 });
 
-describe('feed pinned card column', () => {
-  it('insets every pinned card by the activity card margin', async () => {
+describe('feed head card column', () => {
+  it('insets every head card by the activity card margin', async () => {
     await renderFeed();
-    const pinned = screen.getByTestId('home-pinned-cards');
-    expect(StyleSheet.flatten(pinned.props.style).paddingHorizontal).toBe(CARD_MARGIN);
-    for (const card of [
-      'stand-in-stream-consent-card',
-      'stand-in-notification-card',
-      'stand-in-pending-uploads-card',
-    ]) {
-      expect(within(pinned).getByTestId(card)).toBeTruthy();
+    const cards = screen.getByTestId('home-head-cards');
+    expect(StyleSheet.flatten(cards.props.style).paddingHorizontal).toBe(CARD_MARGIN);
+    for (const card of ['stand-in-stream-consent-card', 'stand-in-pending-uploads-card']) {
+      expect(within(cards).getByTestId(card)).toBeTruthy();
     }
   });
 });
 
-describe('feed pinned cards at large text', () => {
+/** The test ids in the rendered tree, in the order they are drawn. */
+function drawOrder(): string[] {
+  const ids: string[] = [];
+  const walk = (node: unknown) => {
+    if (!node || typeof node !== 'object') return;
+    if (Array.isArray(node)) {
+      node.forEach(walk);
+      return;
+    }
+    const { props, children } = node as { props?: { testID?: string }; children?: unknown };
+    if (props?.testID) ids.push(props.testID);
+    walk(children);
+  };
+  walk(screen.toJSON());
+  return ids;
+}
+
+describe.each([1, 2])('feed head cards at font scale %s', (fontScale) => {
   afterEach(() => jest.restoreAllMocks());
 
-  it('keeps the cards pinned above the list at the default size', async () => {
-    await renderFeed(1);
+  it('scrolls the cards with the list', async () => {
+    await renderFeed(fontScale);
     const list = screen.getByTestId('home-activity-list');
-    expect(within(list).queryByTestId('home-pinned-cards')).toBeNull();
+    expect(within(list).getByTestId('home-head-cards')).toBeTruthy();
   });
 
-  it('scrolls the cards with the list past the dense cap', async () => {
-    await renderFeed(2);
-    const list = screen.getByTestId('home-activity-list');
-    expect(within(list).getByTestId('home-pinned-cards')).toBeTruthy();
+  it('draws the cards below the filter section', async () => {
+    await renderFeed(fontScale);
+    const order = drawOrder();
+    expect(order.indexOf('home-filter-section')).toBeGreaterThanOrEqual(0);
+    expect(order.indexOf('home-filter-section')).toBeLessThan(order.indexOf('home-head-cards'));
   });
 
-  it('opens scrolled past the cards and the filter section together', async () => {
+  it('opens scrolled past the filter section alone', async () => {
     const scrollToOffset = jest.spyOn(FlatList.prototype, 'scrollToOffset');
-    await renderFeed(2);
-    await fireEvent(screen.getByTestId('home-filter-section'), 'layout', {
-      nativeEvent: { layout: { x: 0, y: 640, width: 430, height: 86 } },
-    });
-    expect(scrollToOffset).toHaveBeenLastCalledWith({ offset: 726, animated: false });
-  });
-
-  it('opens scrolled past the filter section alone while the cards are pinned', async () => {
-    const scrollToOffset = jest.spyOn(FlatList.prototype, 'scrollToOffset');
-    await renderFeed(1);
+    await renderFeed(fontScale);
     await fireEvent(screen.getByTestId('home-filter-section'), 'layout', {
       nativeEvent: { layout: { x: 0, y: 0, width: 430, height: 86 } },
     });
     expect(scrollToOffset).toHaveBeenLastCalledWith({ offset: 86, animated: false });
   });
 
-  it('opens a search typed into the header at the filter section below the cards', async () => {
+  it('opens a search typed into the header at the filter section', async () => {
     const scrollToOffset = jest.spyOn(FlatList.prototype, 'scrollToOffset');
-    await renderFeed(2);
+    await renderFeed(fontScale);
     await fireEvent(screen.getByTestId('home-filter-section'), 'layout', {
-      nativeEvent: { layout: { x: 0, y: 640, width: 430, height: 42 } },
+      nativeEvent: { layout: { x: 0, y: 0, width: 430, height: 42 } },
     });
     await fireEvent.changeText(screen.getByTestId('native-header-search'), 'ride');
-    expect(scrollToOffset).toHaveBeenLastCalledWith({ offset: 640, animated: false });
+    expect(scrollToOffset).toHaveBeenLastCalledWith({ offset: 0, animated: false });
   });
 });
 

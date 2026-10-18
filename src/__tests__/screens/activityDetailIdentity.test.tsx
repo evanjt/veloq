@@ -11,11 +11,12 @@
  * the activity carries a long description.
  * Expected behaviour: the map hero stays pinned, the text under it scrolls in
  * a block bounded so the hero and the block leave the tabs part of the window.
- * Below the cap the description stays pinned as it was.
+ * Below the cap the description stays pinned as it was. A long description
+ * is clamped to three lines and opens in full on a press.
  */
 
 import React from 'react';
-import { act, render, within } from '@testing-library/react-native';
+import { act, fireEvent, render, within } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 
 import type { Section } from '@/types';
@@ -26,6 +27,7 @@ import type {
   UseSectionMatchesResult,
 } from '@/features/routes/hooks/useSectionMatches';
 import ActivityDetailScreen from '@/app/activity/[id]';
+import { EXPANDABLE_TEXT_LINES } from '@/shared/ui/ExpandableText';
 import type { PreComputedOverlays } from '@/features/activity/hooks/useSectionOverlays';
 import type { SectionEncounter } from 'veloqrs';
 import { encodeTrack } from '../__shared__/trackBytes';
@@ -96,6 +98,7 @@ jest.mock('@/shared/ui', () => {
     ComponentErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     ErrorState: () => null,
     useHeroMapHeight: () => 300,
+    ExpandableText: jest.requireActual('@/shared/ui/ExpandableText').ExpandableText,
     SwipeableTabs: ({
       children,
       tabs,
@@ -354,7 +357,7 @@ describe('activity detail screen', () => {
     expect(mockScreenOptions.title).toBe('Morning Ride');
   });
 
-  it('wraps a long description in full, with no line limit', async () => {
+  it('clamps a long description to three lines and opens it in full on Show more', async () => {
     const description = Array.from(
       { length: 12 },
       (_, line) => `Line ${line + 1} of the harbour loop notes.`
@@ -363,9 +366,18 @@ describe('activity detail screen', () => {
 
     const view = await render(<ActivityDetailScreen />);
     await act(async () => {});
+    await fireEvent(
+      view.getByTestId('activity-description-measure', { includeHiddenElements: true }),
+      'textLayout',
+      { nativeEvent: { lines: description.split('\n').map((text) => ({ text })) } }
+    );
 
-    const text = view.getByText(description);
-    expect(text.props.numberOfLines).toBeUndefined();
+    expect(view.getByText(description).props.numberOfLines).toBe(EXPANDABLE_TEXT_LINES);
+    expect(view.getByText(description).props.accessibilityLabel).toBe(description);
+
+    await fireEvent.press(view.getByTestId('activity-description-toggle'));
+
+    expect(view.getByText(description).props.numberOfLines).toBeUndefined();
   });
 
   it('past the dense cap scrolls the text under the hero in a block that leaves the tabs room', async () => {

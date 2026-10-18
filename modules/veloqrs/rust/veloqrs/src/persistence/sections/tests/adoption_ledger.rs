@@ -49,7 +49,6 @@ fn section_on(reference: &str, points: usize) -> tracematch::FrequentSection {
         version: 1,
         updated_at: None,
         created_at: None,
-        consensus_state: None,
         elevation_gain_m: None,
         avg_grade_percent: None,
         enrichment: Default::default(),

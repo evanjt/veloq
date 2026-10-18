@@ -12,7 +12,7 @@ import { formatDateTime, formatFileSize } from '@/shared/format/format';
 import type { BackupEntry } from './autobackup/backends';
 
 export interface BackupEntryParts {
-  /** The date and time the backup was made. */
+  /** The date and time the backup was made, or that it was not recorded. */
   when: string;
   /** Size, version and activity count, the parts the entry knows, joined. */
   details: string;
@@ -25,7 +25,8 @@ export function backupEntryParts(entry: BackupEntry, t: TFunction): BackupEntryP
   if (entry.activityCount != null) {
     details.push(t('backup.entryActivities', { count: entry.activityCount }));
   }
-  return { when: formatDateTime(entry.timestamp), details: details.join(' · ') };
+  const when = entry.timestamp ? formatDateTime(entry.timestamp) : t('backup.entryDateNotRecorded');
+  return { when, details: details.join(' · ') };
 }
 
 export function backupEntryLabel(entry: BackupEntry, t: TFunction): string {

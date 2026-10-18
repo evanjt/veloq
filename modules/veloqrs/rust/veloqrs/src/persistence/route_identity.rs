@@ -3,8 +3,8 @@
 //! A route group's `group_id` was the Union-Find ROOT of its member set, which
 //! the full and incremental grouping paths pick differently, so the first
 //! incremental resync re-keys a group to its MIN member, orphaning anything keyed
-//! to the old id (the representative via `existing_reps`, the name via
-//! `route_names`). This layer mirrors the section registry: it owns a stable id
+//! to the old id (the name via `route_names`). The representative is found
+//! through the members, so it never depended on the id. This layer mirrors the section registry: it owns a stable id
 //! per route over time, carried forward by MEMBER overlap rather than
 //! re-derived from the churning root.
 //!

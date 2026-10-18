@@ -7,6 +7,7 @@ import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanim
 import { useTheme } from '@/shared/app';
 import { openExternal } from '@/shared/app/openExternal';
 import { useSupportStore } from '@/shared/app/SupportStore';
+import { useDaysOfUse, useSessionAsk } from '@/features/settings';
 import {
   GITHUB_ISSUES_URL,
   GITHUB_SPONSORS_URL,
@@ -42,12 +43,14 @@ export function SupportCard() {
   // Asked through the selector rather than pulled apart into the four fields
   // it reads: the store re-runs it on every change, which is what the four
   // subscriptions were for.
-  const shouldShow = useSupportStore((s) => s.isLoaded && s.shouldShow());
+  const { firstUseDate, useDays } = useDaysOfUse();
+  const shouldShow = useSupportStore((s) => s.isLoaded && s.shouldShow({ firstUseDate, useDays }));
+  const holdsAsk = useSessionAsk('support', shouldShow);
   const [visible, setVisible] = useState(false);
 
-  // The card appears as soon as the store says it should, decided while
+  // The card appears as soon as it holds the session's one ask, decided while
   // rendering so the home feed does not commit once without it and reflow.
-  if (!visible && shouldShow) {
+  if (!visible && shouldShow && holdsAsk) {
     setVisible(true);
   }
 

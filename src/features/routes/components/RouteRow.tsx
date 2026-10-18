@@ -29,10 +29,9 @@ import type { DiscoveredRouteInfo, RouteGroup } from '@/types';
 import { rowIsUnchanged } from '@/shared/ui/rowMemo';
 import { TrackPreview, normaliseTrackPoints } from '@/shared/ui/TrackPreview';
 import {
-  ROW_MARGIN_BOTTOM,
-  ROW_MARGIN_HORIZONTAL,
   ROW_PREVIEW_HEIGHT,
   ROW_PREVIEW_WIDTH,
+  rowContainers,
 } from '@/features/routes/lib/rowLayout';
 import { NameText } from '@/shared/ui/NameText';
 import { Icon } from '@/shared/ui/Icon';
@@ -66,10 +65,6 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
   // Display name comes from parent via route.name (which includes custom name from useRouteGroups)
   // This ensures reactivity when names change via the hook chain
   const displayName = route.name;
-
-  // Get activity color for the route type
-  // RouteGroup.type is ActivityType, DiscoveredRouteInfo.type is string
-  const activityColor = palette.actionPrimary;
 
   // Get preview points from the route's representative.
   const previewPoints = useMemo(() => {
@@ -108,11 +103,11 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
   };
 
   return (
-    <View style={styles.wrapper} testID={`route-row-${route.id}`}>
+    <View style={rowContainers.wrapper} testID={`route-row-${route.id}`}>
       <Card
         variant="flat"
         padding="sm"
-        style={{ flexDirection: 'row', alignItems: 'center' }}
+        style={rowContainers.card}
         onPress={handlePress}
         accessibilityRole="button"
         accessibilityLabel={composeAccessibilityLabel(
@@ -124,10 +119,9 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
         )}
         testID={`route-row-${route.id}-touch`}
       >
-        {/* Route preview with map-like backdrop */}
-        <View style={styles.previewBox}>
+        <View style={rowContainers.previewBox}>
           {previewPoints.length > 1 ? (
-            <TrackPreview points={previewPoints} color={activityColor} isDark={isDark} />
+            <TrackPreview points={previewPoints} isDark={isDark} />
           ) : (
             <View style={[styles.previewPlaceholder, isDark && styles.previewPlaceholderDark]}>
               <Icon
@@ -140,9 +134,9 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
         </View>
 
         {/* Route info */}
-        <View style={styles.infoContainer}>
-          <View style={styles.nameRow}>
-            <NameText style={[styles.routeName, isDark && styles.textLight]}>
+        <View style={rowContainers.infoContainer}>
+          <View style={rowContainers.nameRow}>
+            <NameText style={[rowContainers.name, styles.routeName, isDark && styles.textLight]}>
               {displayName}
             </NameText>
             {/* Show sport type icons for all activity types in this route */}
@@ -156,9 +150,13 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
               </View>
             ) : null}
           </View>
-          <View style={styles.metaRow}>
+          <View style={rowContainers.metaRow}>
             {distanceText ? (
-              <Text style={[styles.metaText, isDark && styles.textSecondary]}>{distanceText}</Text>
+              <Text
+                style={[rowContainers.metaText, styles.metaText, isDark && styles.textSecondary]}
+              >
+                {distanceText}
+              </Text>
             ) : null}
             {proximityText ? (
               <View style={styles.proximityTag}>
@@ -220,16 +218,6 @@ export const RouteRow = memo(RouteRowComponent, (prevProps, nextProps) =>
 );
 
 const styles = StyleSheet.create({
-  wrapper: {
-    marginHorizontal: ROW_MARGIN_HORIZONTAL,
-    marginBottom: ROW_MARGIN_BOTTOM,
-  },
-  previewBox: {
-    width: ROW_PREVIEW_WIDTH,
-    height: ROW_PREVIEW_HEIGHT,
-    borderRadius: layout.borderRadiusXs,
-    overflow: 'hidden',
-  },
   previewPlaceholder: {
     width: ROW_PREVIEW_WIDTH,
     height: ROW_PREVIEW_HEIGHT,
@@ -241,33 +229,15 @@ const styles = StyleSheet.create({
   previewPlaceholderDark: {
     backgroundColor: opacity.overlayDark.light,
   },
-  infoContainer: {
-    flex: 1,
-    marginLeft: spacing.sm,
-    marginRight: spacing.xs,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
   routeName: {
-    ...typography.bodyCompactBold,
     color: colors.textPrimary,
-    flexShrink: 1,
   },
   sportTypeIcons: {
     flexDirection: 'row',
     alignItems: 'center',
     marginLeft: spacing.xs,
   },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: spacing.xxs,
-    gap: spacing.sm,
-  },
   metaText: {
-    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
   },
   proximityTag: {

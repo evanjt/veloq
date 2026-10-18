@@ -22,6 +22,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
+  detectCorpora,
   hasTargets,
   mergeTestCommands,
   mergeTestTargets,
@@ -814,5 +815,73 @@ describe('the schema gates', () => {
         ...SCHEMA_SUITES,
       ]);
     }
+  });
+});
+
+describe('where the bitwise gates find their data', () => {
+  const GEOLIFE_SUBDIR = join('geolife', 'Geolife Trajectories 1.3', 'Data');
+  let tree: string;
+  let repo: string;
+  const shell = (vars: Record<string, string> = {}) => vars as NodeJS.ProcessEnv;
+
+  /** A tree shaped like the real one: a cargo config above the repository, a corpus beside it. */
+  function build(config: string, { withGeolife = true } = {}): void {
+    mkdirSync(join(tree, '.cargo'), { recursive: true });
+    writeFileSync(join(tree, '.cargo', 'config.toml'), config);
+    mkdirSync(join(tree, 'corpus'), { recursive: true });
+    if (withGeolife) mkdirSync(join(tree, 'corpus', GEOLIFE_SUBDIR), { recursive: true });
+    mkdirSync(repo, { recursive: true });
+  }
+
+  beforeEach(() => {
+    tree = mkdtempSync(join(tmpdir(), 'corpora-'));
+    repo = join(tree, 'veloq');
+  });
+
+  afterEach(() => rmSync(tree, { recursive: true, force: true }));
+
+  it('reads a relative inline-table entry against the config directory', () => {
+    build('[env]\nTRACEMATCH_CORPUS = { value = "corpus", relative = true }\n');
+
+    expect(detectCorpora(shell(), repo)).toEqual({
+      private: join(tree, 'corpus'),
+      geolife: join(tree, 'corpus', GEOLIFE_SUBDIR),
+    });
+  });
+
+  it('still reads a plain string entry', () => {
+    build(`[env]\nTRACEMATCH_CORPUS = "${join(tree, 'corpus')}"\n`);
+
+    expect(detectCorpora(shell(), repo).private).toBe(join(tree, 'corpus'));
+  });
+
+  it('lets the shell variables win over the config', () => {
+    build('[env]\nTRACEMATCH_CORPUS = { value = "corpus", relative = true }\n');
+    const other = join(tree, 'other');
+    mkdirSync(other);
+
+    expect(
+      detectCorpora(shell({ TRACEMATCH_CORPUS: other, LAB_GEOLIFE_DIR: other }), repo)
+    ).toEqual({
+      private: other,
+      geolife: other,
+    });
+  });
+
+  it('finds GeoLife only where the data is, and leaves the private corpus alone without it', () => {
+    build('[env]\nTRACEMATCH_CORPUS = { value = "corpus", relative = true }\n', {
+      withGeolife: false,
+    });
+
+    expect(detectCorpora(shell(), repo)).toEqual({
+      private: join(tree, 'corpus'),
+      geolife: undefined,
+    });
+  });
+
+  it('treats a directory that does not exist as absent', () => {
+    build('[env]\nTRACEMATCH_CORPUS = { value = "nowhere", relative = true }\n');
+
+    expect(detectCorpora(shell(), repo)).toEqual({ private: undefined, geolife: undefined });
   });
 });

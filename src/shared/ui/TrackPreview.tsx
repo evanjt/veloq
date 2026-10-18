@@ -1,6 +1,7 @@
 /**
- * A track as a thumbnail: the line over a map-like backdrop, with a start and
- * a finish marker of different shapes.
+ * A track as a thumbnail: the line on its casing over the base map's flat land,
+ * with a start and a finish marker of different shapes. Every list row, card
+ * and sheet that pictures a track draws it through this one component.
  *
  * Lifted out of the routes row so the insight cards draw a section the same
  * way. It takes points already normalised because the routes list holds them
@@ -9,10 +10,10 @@
  * both axes, so the points' own proportions are what is drawn.
  */
 
-import React, { memo, useId } from 'react';
-import Svg, { Polyline, Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
+import React, { memo } from 'react';
+import Svg, { Polyline, Rect } from 'react-native-svg';
 
-import { mapPreviewColors, ink } from '@/theme';
+import { layout, mapPalette, stroke, type VectorMapPalette } from '@/theme';
 import type { LatLngShort } from '@/shared/geo/distance';
 import { projectRouteToBox } from '@/shared/geo/routePreview';
 import { TrackEndpointMarkers } from '@/shared/ui/TrackEndpointMarkers';
@@ -76,92 +77,72 @@ export function fitTrackToBox(
 
 interface TrackPreviewProps {
   points: NormalisedPoint[];
-  color: string;
   isDark: boolean;
   width?: number;
   height?: number;
   testID?: string;
 }
 
+/** The line's width. Its casing shows one stroke either side of it. */
+const LINE_WIDTH = 2.5;
+const CASING_WIDTH = LINE_WIDTH + stroke.one * 2;
+const PADDING = 4;
+
+/**
+ * The base map a thumbnail stands for: the theme's own, so the ground, the
+ * line and its ends are the colours the detail map draws for that theme. The
+ * line is the one subject colour, never the sport's.
+ */
+export function trackPreviewPalette(isDark: boolean): VectorMapPalette {
+  return mapPalette(isDark ? 'dark' : 'light');
+}
+
 export const TrackPreview = memo(function TrackPreview({
   points,
-  color,
   isDark,
   width = 48,
   height = 36,
   testID,
 }: TrackPreviewProps) {
-  // Unique ID for SVG gradient to avoid collisions between multiple instances
-  const uniqueId = useId();
-  const gradientId = `trackGradient-${uniqueId}`;
-
   if (points.length < 2) return null;
 
-  const padding = 4;
-
-  const scaledPoints = fitTrackToBox(points, width, height, padding);
-
+  const scaledPoints = fitTrackToBox(points, width, height, PADDING);
   const pointsString = scaledPoints.map((p) => `${p.x},${p.y}`).join(' ');
-  const startPoint = scaledPoints[0];
-  const endPoint = scaledPoints[scaledPoints.length - 1];
-
-  const preview = isDark ? mapPreviewColors.dark : mapPreviewColors.light;
-  const bgColor = preview.bg;
-  const gridColor = preview.grid;
+  const palette = trackPreviewPalette(isDark);
 
   return (
     <Svg width={width} height={height} {...(testID !== undefined && { testID })}>
-      <Defs>
-        <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor={bgColor} stopOpacity="1" />
-          <Stop offset="1" stopColor={preview.bgBottom} stopOpacity="1" />
-        </LinearGradient>
-      </Defs>
-
-      <Rect x="0" y="0" width={width} height={height} fill={`url(#${gradientId})`} rx="4" />
-
-      {/* Grid lines, so the backdrop reads as a map rather than a panel */}
-      <Polyline
-        points={`${width / 3},0 ${width / 3},${height}`}
-        stroke={gridColor}
-        strokeWidth={0.5}
-        strokeOpacity={0.5}
+      <Rect
+        x="0"
+        y="0"
+        width={width}
+        height={height}
+        fill={palette.land}
+        rx={layout.borderRadiusXs}
       />
-      <Polyline
-        points={`${(2 * width) / 3},0 ${(2 * width) / 3},${height}`}
-        stroke={gridColor}
-        strokeWidth={0.5}
-        strokeOpacity={0.5}
-      />
-      <Polyline
-        points={`0,${height / 2} ${width},${height / 2}`}
-        stroke={gridColor}
-        strokeWidth={0.5}
-        strokeOpacity={0.5}
-      />
-
-      {/* Shadow under the line, for depth against the backdrop */}
       <Polyline
         points={pointsString}
         fill="none"
-        stroke={ink.black}
-        strokeWidth={3}
+        stroke={palette.casing}
+        strokeWidth={CASING_WIDTH}
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeOpacity={0.15}
-        transform="translate(0.5, 0.5)"
       />
-
       <Polyline
         points={pointsString}
         fill="none"
-        stroke={color}
-        strokeWidth={2.5}
+        stroke={palette.route}
+        strokeWidth={LINE_WIDTH}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-
-      <TrackEndpointMarkers start={startPoint} end={endPoint} />
+      <TrackEndpointMarkers
+        start={scaledPoints[0]}
+        end={scaledPoints[scaledPoints.length - 1]}
+        startColor={palette.start}
+        endColor={palette.ink}
+        edgeColor={palette.casing}
+      />
     </Svg>
   );
 });

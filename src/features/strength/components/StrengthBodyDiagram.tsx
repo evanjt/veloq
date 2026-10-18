@@ -5,7 +5,7 @@ import type { ExtendedBodyPart } from 'react-native-body-highlighter';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { Card, Shimmer, SkeletonFrame, PressTarget } from '@/shared/ui';
+import { Card, Shimmer, SkeletonGroup, PressTarget } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { ChartSurface, partsSummary, partsTable } from '@/shared/charts';
 import {
@@ -208,7 +208,7 @@ const NO_VOLUMES: readonly MuscleVolume[] = [];
 /** The body diagram card while the period's first read is pending, laid out as the card it becomes. */
 export function StrengthBodyDiagramSkeleton() {
   return (
-    <SkeletonFrame testID="strength-body-skeleton" style={styles.frame}>
+    <SkeletonGroup testID="strength-body-skeleton" style={styles.frame}>
       <Card variant="flat" padding="none">
         <View style={styles.body}>
           <View style={styles.bodyHeader}>
@@ -234,7 +234,7 @@ export function StrengthBodyDiagramSkeleton() {
           </View>
         </View>
       </Card>
-    </SkeletonFrame>
+    </SkeletonGroup>
   );
 }
 

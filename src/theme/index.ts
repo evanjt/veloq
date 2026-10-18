@@ -20,7 +20,6 @@ export {
   directionPair,
   sportFamilyColours,
   strengthTone,
-  mapPreviewColors,
   mapLayerColors,
   chartStreamColors,
   chartStreamColour,

@@ -51,6 +51,7 @@ export const PREFERENCE_KEYS = [
   'veloq-insight-push-history',
   'veloq-notification-preferences',
   'veloq-upload-permission',
+  'veloq-usage',
   ...REPAIR_KEYS,
 ] as const;
 

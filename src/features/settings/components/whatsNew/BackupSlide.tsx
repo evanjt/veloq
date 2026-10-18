@@ -5,6 +5,7 @@ import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { isAutoBackupEnabled, setAutoBackupEnabled } from '@/features/settings/lib/autobackup';
+import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import { colors, darkColors, iconSize, layout, spacing } from '@/theme';
 import { tourPanelColour } from './tourPanel';
 import { SwitchRow } from '@/shared/ui/SwitchRow';
@@ -16,10 +17,16 @@ export function BackupSlide() {
   // The switch the backup screen carries, on the same setting, so the first
   // backup runs on the scheduler's next trigger just as it would from there.
   const [autoEnabled, setAutoEnabled] = useState(() => isAutoBackupEnabled());
-  const handleToggle = useCallback((value: boolean) => {
-    setAutoBackupEnabled(value);
-    setAutoEnabled(value);
-  }, []);
+  const answerSetup = useWhatsNewStore((s) => s.answerSetup);
+  const handleToggle = useCallback(
+    (value: boolean) => {
+      setAutoBackupEnabled(value);
+      setAutoEnabled(value);
+      // Turned on answers the slide, so a tour closed after it does not return to it.
+      if (value) answerSetup('backup', 'on');
+    },
+    [answerSetup]
+  );
   const primaryColor = isDark ? darkColors.actionPrimary : colors.actionPrimary;
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
   const bgColor = tourPanelColour(isDark);

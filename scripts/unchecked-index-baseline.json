@@ -21,7 +21,7 @@
   "src/features/recording/lib": 22,
   "src/features/recording/lib/liveActivity": 2,
   "src/features/recording/stores": 2,
-  "src/features/routes/components": 8,
+  "src/features/routes/components": 6,
   "src/features/routes/components/section": 5,
   "src/features/routes/hooks": 2,
   "src/features/routes/lib": 9,

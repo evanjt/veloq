@@ -29,7 +29,7 @@ import {
   EmptyState,
   ErrorState,
   Shimmer,
-  SkeletonFrame,
+  SkeletonGroup,
   StatTile,
   ToggleButton,
   type StatTileDelta,
@@ -100,7 +100,7 @@ function statDelta(stat: SummaryStat, move: StatMove | null): StatTileDelta | un
 /** The four-cell stats grid while its totals load, each cell the size of the stat it becomes. */
 function StatsGridSkeleton() {
   return (
-    <SkeletonFrame testID="weekly-summary-skeleton">
+    <SkeletonGroup testID="weekly-summary-skeleton">
       <View style={styles.statsGrid}>
         {[0, 1, 2, 3].map((cell) => (
           <View key={cell} testID="weekly-summary-skeleton-cell" style={styles.statItem}>
@@ -118,7 +118,7 @@ function StatsGridSkeleton() {
           </View>
         ))}
       </View>
-    </SkeletonFrame>
+    </SkeletonGroup>
   );
 }
 
