@@ -73,7 +73,14 @@ describe('declared defaults', () => {
     useWhatsNewStore.setState({
       lastSeenVersion: '9.9.9',
       isLoaded: true,
-      tourState: { mode: 'tutorial', shownIndex: 3, resumeIndex: 4, exploring: true, tip: null },
+      tourState: {
+        mode: 'tutorial',
+        only: null,
+        shownIndex: 3,
+        resumeIndex: 4,
+        exploring: true,
+        tip: null,
+      },
     });
     const state = freshState('@/features/settings/stores/WhatsNewStore', 'useWhatsNewStore');
     expect(state.lastSeenVersion).toBeNull();

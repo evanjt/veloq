@@ -16,8 +16,8 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import { getEngine } from '@/shared/native/engine';
 import { SyncErrorBanner } from '@/shared/ui/SyncErrorBanner';
 import { FloatingPillStack } from '@/shared/ui/FloatingPillStack';
-import { TrackFetchNotice } from '@/shared/ui/TrackFetchNotice';
-import { useTrackFetchNotice } from '@/features/routes/lib/trackFetchNotice';
+import { EngineInitBanner } from '@/shared/app/EngineInitBanner';
+import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { spacing } from '@/theme';
 import { SyncErrorReason } from '../__shared__/veloqrsStub';
 
@@ -80,7 +80,7 @@ beforeEach(() => {
     lastSuccessAt: null,
   };
   useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });
-  useTrackFetchNotice.setState({ failedIds: [], failedCount: 0, dismissed: false });
+  useEngineStatus.setState({ initFailed: false, initFailureReason: null });
 });
 
 describe('a floating pill and the top banners', () => {
@@ -97,16 +97,16 @@ describe('a floating pill and the top banners', () => {
   });
 
   it('draws the sync pill below two stacked banners', async () => {
-    useTrackFetchNotice.setState({ failedIds: ['a', 'b'], failedCount: 2, dismissed: false });
+    useEngineStatus.setState({ initFailed: true, initFailureReason: null });
     await render(
       <>
         <SyncErrorBanner />
-        <TrackFetchNotice />
+        <EngineInitBanner />
         <FloatingPillStack />
       </>
     );
     await laidOut('sync-error-banner', 96);
-    await laidOut('track-fetch-notice', 80);
+    await laidOut('engine-init-banner', 80);
 
     expect(top('floating-pill-sync')).toBeGreaterThanOrEqual(96 + 80);
   });
@@ -135,15 +135,15 @@ describe('a floating pill and the top banners', () => {
   });
 
   it('draws the offline pill below a notice in the slot', async () => {
-    useTrackFetchNotice.setState({ failedIds: ['a'], failedCount: 1, dismissed: false });
+    useEngineStatus.setState({ initFailed: true, initFailureReason: null });
     mockOffline = true;
     await render(
       <>
-        <TrackFetchNotice />
+        <EngineInitBanner />
         <FloatingPillStack />
       </>
     );
-    await laidOut('track-fetch-notice', 80);
+    await laidOut('engine-init-banner', 80);
 
     expect(top('floating-pill-offline')).toBeGreaterThanOrEqual(80);
   });

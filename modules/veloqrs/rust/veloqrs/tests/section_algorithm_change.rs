@@ -334,7 +334,6 @@ fn handed_over(id: &str, line: Vec<GpsPoint>, rides: &[&str]) -> tracematch::Fre
         created_at: None,
         enrichment: Default::default(),
         rank: None,
-        consensus_state: None,
     }
 }
 

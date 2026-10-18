@@ -232,15 +232,13 @@ fn endpoint_direction(
     )
 }
 
-/// Match percentage below which a member is a partial match of its route, not
-/// an attempt in either direction. Grouping labels a member `Partial` at the
-/// same threshold.
-const PARTIAL_MATCH_PERCENTAGE: f64 = 70.0;
-
 /// The direction stored for a member: `Partial` under the partial threshold,
 /// otherwise the endpoint direction.
-fn direction_for_percentage(percentage: f64, endpoint_direction: Direction) -> Direction {
-    if percentage < PARTIAL_MATCH_PERCENTAGE {
+pub(super) fn direction_for_percentage(
+    percentage: f64,
+    endpoint_direction: Direction,
+) -> Direction {
+    if percentage < tracematch::PARTIAL_MATCH_PERCENTAGE {
         Direction::Partial
     } else {
         endpoint_direction

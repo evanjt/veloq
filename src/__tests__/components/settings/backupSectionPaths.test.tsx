@@ -1321,7 +1321,6 @@ describe("the device row on Android reads what Android's backup did", () => {
 describe('one layout', () => {
   const explanations = [
     'backup.autoBackupDescription',
-    'backup.recordContents',
     'backup.platformRestorePath',
     'backup.carrierDeviceDescription',
     'backup.manualRestorePath',
@@ -1340,8 +1339,17 @@ describe('one layout', () => {
     expect(screen.queryByTestId('backup-manual-restore-path')).toBeNull();
   });
 
+  it('says at the top of the section what a backup holds, under the automatic switch', async () => {
+    await render(<BackupSection />);
+
+    expect(screen.getByTestId('backup-holds')).toHaveTextContent(/^backup\.backupHolds$/);
+    expect(screen.getByTestId('backup-auto-switch').props.accessibilityHint).toBe(
+      'backup.backupHolds'
+    );
+  });
+
   it.each([
-    ['backup-info-auto', ['backup.autoBackupDescription', 'backup.recordContents']],
+    ['backup-info-auto', ['backup.autoBackupDescription']],
     ['backup-info-restore', ['backup.restoreInfo', 'backup.manualRestorePath']],
     ['backup-info-destinations', ['backup.carrierDeviceDescription', 'backup.platformRestorePath']],
     ['backup-info-export', ['backup.notEncryptedWarning']],

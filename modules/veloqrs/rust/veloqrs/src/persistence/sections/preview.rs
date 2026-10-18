@@ -999,7 +999,6 @@ mod tests {
             updated_at: None,
             enrichment: Default::default(),
             rank: None,
-            consensus_state: None,
         }
     }
 

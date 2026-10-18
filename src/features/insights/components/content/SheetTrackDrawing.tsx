@@ -8,7 +8,6 @@ const DRAWING_HEIGHT = 150;
 
 interface SheetTrackDrawingProps {
   points: LatLngShort[] | undefined;
-  color: string;
   testID?: string;
 }
 
@@ -19,7 +18,6 @@ interface SheetTrackDrawingProps {
  */
 export const SheetTrackDrawing = React.memo(function SheetTrackDrawing({
   points,
-  color,
   testID,
 }: SheetTrackDrawingProps) {
   const { isDark } = useTheme();
@@ -37,7 +35,6 @@ export const SheetTrackDrawing = React.memo(function SheetTrackDrawing({
         <TrackPreview
           {...(testID !== undefined && { testID })}
           points={normalised}
-          color={color}
           isDark={isDark}
           width={width}
           height={DRAWING_HEIGHT}

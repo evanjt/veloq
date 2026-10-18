@@ -37,7 +37,7 @@ export function RestoreOfferCard() {
   const { isDark } = useTheme();
   const [busy, setBusy] = useState(false);
   const running = useRef(false);
-  const { restoreCard } = useLaunchSurfaces();
+  const holdsAsk = useLaunchSurfaces().ask === 'restore';
   const found = useWhatsNewStore((s) => s.restoreOffer);
 
   const handleRestore = useCallback(async () => {
@@ -62,7 +62,7 @@ export function RestoreOfferCard() {
     }
   }, [found, t]);
 
-  if (!restoreCard || !found) return null;
+  if (!holdsAsk || !found) return null;
 
   return (
     <View testID="restore-offer-card">

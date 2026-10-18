@@ -1,4 +1,10 @@
-export { Shimmer, SkeletonFrame, ActivityCardSkeleton, ChartSkeleton } from './Shimmer';
+export {
+  Shimmer,
+  SkeletonGroup,
+  SkeletonLine,
+  ActivityCardSkeleton,
+  ChartSkeleton,
+} from './Shimmer';
 export { BottomTabBar } from './BottomTabBar';
 export { useBottomClearance, useScrollEndInset } from './tabBarClearance';
 export { BottomPillSlot, BottomPillStack } from './BottomPillStack';
@@ -141,6 +147,7 @@ export {
   type TextLinkProps,
   type TextLinkSize,
 } from './TextLink';
+export { ExpandableText, EXPANDABLE_TEXT_LINES, type ExpandableTextProps } from './ExpandableText';
 export {
   ExplanationCard,
   type Explanation,

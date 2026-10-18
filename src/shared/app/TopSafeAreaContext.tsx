@@ -8,7 +8,6 @@ import type { Edge, EdgeInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useSyncHealth } from '@/shared/native/useSyncHealth';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
-import { useTrackFetchNotice } from '@/features/routes/lib/trackFetchNotice';
 import { spacing } from '@/theme';
 import {
   pickTopBanner,
@@ -44,7 +43,6 @@ export function TopSafeAreaProvider({
   const { offlineBannerShown } = useNetwork();
   const { lastError, retryAtMs } = useSyncHealth();
   const syncPaused = (retryAtMs ?? null) !== null;
-  const trackFetchNoticeShown = useTrackFetchNotice((s) => s.failedCount > 0 && !s.dismissed);
   const engineInitFailed = useEngineStatus((s) => s.initFailed);
   const value = useMemo(() => {
     const activeBanner = pickTopBanner({
@@ -55,7 +53,6 @@ export function TopSafeAreaProvider({
       hideDemoBanner,
       lastError: lastError ?? null,
       syncPaused,
-      trackFetchNoticeShown,
       engineInitFailed,
     });
 
@@ -81,7 +78,6 @@ export function TopSafeAreaProvider({
     offlineBannerShown,
     lastError,
     syncPaused,
-    trackFetchNoticeShown,
     engineInitFailed,
     insets.top,
   ]);

@@ -66,7 +66,6 @@ export {
 export { useDrawnMapStyle } from './hooks/useDrawnMapStyle';
 export { useMapFullscreen } from './hooks/useMapFullscreen';
 export { useLocateUser } from './hooks/useLocateUser';
-export { useThrottledValue } from './hooks/useThrottledValue';
 export { useTerrainFallback } from './hooks/useTerrainFallback';
 export {
   calculateFlatCamera,

@@ -116,10 +116,19 @@ function withShowMe(slides: WhatsNewSlideDefinition[]) {
     .filter((entry): entry is { route: string; index: number } => entry.route !== undefined);
 }
 
-// No seen version opens the App Tour; a version before every release opens What's New on all of them.
+// No tour opens on launch: the feed's tour card starts the App Tour, and a version
+// before every release offers What's New on all of them, which its card's Open starts.
 const TOURS = [
-  { mode: 'tutorial', lastSeenVersion: null, shows: withShowMe(getTutorialSlides()) },
-  { mode: 'whatsNew', lastSeenVersion: '0.0.1', shows: withShowMe(getAllSlides()) },
+  {
+    mode: 'tutorial',
+    lastSeenVersion: null,
+    shows: withShowMe(getTutorialSlides()),
+  },
+  {
+    mode: 'whatsNew',
+    lastSeenVersion: '0.0.1',
+    shows: withShowMe(getAllSlides()),
+  },
 ] as const;
 
 describe.each(TOURS)('Show Me on each $mode slide', ({ mode, lastSeenVersion, shows }) => {
@@ -143,6 +152,9 @@ describe.each(TOURS)('Show Me on each $mode slide', ({ mode, lastSeenVersion, sh
       </MapPreferencesProvider>
     );
     await waitFor(() => expect(current?.isLoaded).toBe(true));
+    await act(async () => {
+      useWhatsNewStore.getState().startTour(mode);
+    });
     expect(useWhatsNewStore.getState().tourState?.mode).toBe(mode);
 
     for (let step = 0; step < index; step++) {

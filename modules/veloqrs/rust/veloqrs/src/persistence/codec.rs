@@ -353,7 +353,7 @@ impl TrackWalk {
     }
 }
 
-/// Types containing GpsPoint (like ConsensusAccumulator) can't use postcard
+/// Types containing GpsPoint (like FrequentSection) can't use postcard
 /// due to skip_serializing_if on GpsPoint.elevation. Use rmp-serde for these.
 /// Single-format both ways, so no frame is needed: there is no fallback that
 /// could misparse a foreign blob.
@@ -1230,7 +1230,6 @@ mod tests {
             created_at: None,
             enrichment: Default::default(),
             rank: None,
-            consensus_state: None,
         }
     }
 

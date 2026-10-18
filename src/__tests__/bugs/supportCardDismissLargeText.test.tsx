@@ -13,6 +13,7 @@ import { render, screen } from '@testing-library/react-native';
 import type { ReactTestInstance } from 'react-test-renderer';
 
 import { SupportCard } from '@/features/home/components/SupportCard';
+import { openLaunchSession } from '../__shared__/launchSession';
 
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
@@ -64,6 +65,10 @@ function sharedDirection(a: ReactTestInstance, b: ReactTestInstance): string | u
 function dismissButtons() {
   return [screen.getByText('support.remindLater'), screen.getByText('support.neverShow')] as const;
 }
+
+beforeEach(() => {
+  openLaunchSession();
+});
 
 describe('the support card dismiss row', () => {
   afterEach(() => {

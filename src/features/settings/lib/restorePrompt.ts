@@ -39,6 +39,11 @@ export interface FoundBackup {
   source: BackupSource;
   entry: BackupEntry;
   backend: BackupBackend | null;
+  /**
+   * The time it ranks by when the entry carries none of its own, its
+   * `timestamp` then empty. See `findNewestBackup`.
+   */
+  rankedAt?: number;
 }
 
 /**
@@ -50,6 +55,27 @@ export function restorePromptDue(activityCount: number, backupFound: boolean): b
   return backupFound && activityCount === 0 && !isPlatformRecordAnswered();
 }
 
+/**
+ * Before this, no record zip can have been written, so a file time earlier is
+ * the platform's restore putting the original seconds back as milliseconds.
+ */
+const EARLIEST_RECORD_MS = Date.UTC(2024, 0, 1);
+
+const DAY_MS = 86_400_000;
+
+/**
+ * The time a record zip with no time of its own ranks by: the start of the UTC
+ * day its file time names, less a millisecond, so a dated backup from that day
+ * ranks above it. A file time the restore scrambled is read back to its day,
+ * and one that cannot be read back ranks below every dated backup.
+ */
+export function undatedRecordRank(modifiedSeconds: number): number {
+  const asWritten = modifiedSeconds * 1000;
+  const fileMs = asWritten >= EARLIEST_RECORD_MS ? asWritten : asWritten * 1000;
+  if (!Number.isFinite(fileMs) || fileMs < EARLIEST_RECORD_MS) return -Infinity;
+  return Math.floor(fileMs / DAY_MS) * DAY_MS - 1;
+}
+
 /** The record zip left in the documents directory, when the engine would restore it. */
 async function deviceRecord(): Promise<FoundBackup | null> {
   const uri = platformRecordUri();
@@ -59,19 +85,12 @@ async function deviceRecord(): Promise<FoundBackup | null> {
   // One the engine refuses would only be refused again on Restore.
   const { writtenAt } = await checkRecordBackup(uri);
   const size = 'size' in info ? (info.size ?? 0) : 0;
-  // The platform's restore rewrites the file time, so the record's own time
-  // stands where it names one.
+  const entry = { id: uri, timestamp: writtenAt ?? '', sizeBytes: size, appVersion: '' };
+  if (writtenAt) return { source: 'device', backend: null, entry };
+  // The platform's restore rewrites the file time, so a record that names no
+  // time of its own is offered with no date.
   const modified = 'modificationTime' in info ? (info.modificationTime ?? 0) : 0;
-  return {
-    source: 'device',
-    backend: null,
-    entry: {
-      id: uri,
-      timestamp: writtenAt ?? new Date(modified * 1000).toISOString(),
-      sizeBytes: size,
-      appVersion: '',
-    },
-  };
+  return { source: 'device', backend: null, entry, rankedAt: undatedRecordRank(modified) };
 }
 
 async function newestListed(
@@ -93,7 +112,16 @@ async function newestListed(
  * directory, a configured WebDAV server, a signed-in
  * Google Drive or, on iPhone, Veloq's own iCloud Drive folder. A place that
  * cannot be read holds none.
+ *
+ * A record zip that names no time of its own ranks by the day its file time
+ * names, below any dated backup from that day and above one from an earlier
+ * day. When that file time cannot be read back it ranks below every dated
+ * backup, and is offered only when nothing dated is found.
  */
+function rankOf(found: FoundBackup): number {
+  return found.rankedAt ?? Date.parse(found.entry.timestamp);
+}
+
 export async function findNewestBackup(): Promise<FoundBackup | null> {
   const lookups: (() => Promise<FoundBackup | null>)[] = [
     deviceRecord,
@@ -112,10 +140,7 @@ export async function findNewestBackup(): Promise<FoundBackup | null> {
   let newest: FoundBackup | null = null;
   for (const lookup of lookups) {
     const found = await lookup().catch(() => null);
-    if (
-      found &&
-      (newest === null || Date.parse(found.entry.timestamp) > Date.parse(newest.entry.timestamp))
-    ) {
+    if (found && (newest === null || rankOf(found) > rankOf(newest))) {
       newest = found;
     }
   }

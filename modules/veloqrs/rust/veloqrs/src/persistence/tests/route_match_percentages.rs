@@ -316,3 +316,67 @@ fn test_measure_match_percentages_descends_a_tree_per_point_on_a_well_ridden_rou
         "{evaluations} distances measured, at most {bound} expected"
     );
 }
+
+#[test]
+fn test_recompute_groups_gives_a_partial_member_no_highlight_and_no_rank() {
+    let mut engine = PersistentEngine::in_memory().unwrap();
+    for (id, track) in [
+        ("a", corridor(false)),
+        ("b", corridor(false)),
+        ("c", offset_corridor(false, 49.0)),
+    ] {
+        engine
+            .add_activity(id.into(), track, "Ride".into())
+            .unwrap();
+    }
+    let ids: Vec<String> = ["a", "b", "c"].map(str::to_string).to_vec();
+
+    engine.recompute_groups();
+
+    let route_id = engine
+        .groups
+        .iter()
+        .find(|route| route.activity_ids.iter().any(|id| id == "c"))
+        .expect("the offset member is grouped with the corridor")
+        .group_id
+        .clone();
+    let percentage: f64 = engine
+        .db
+        .query_row(
+            "SELECT match_percentage FROM activity_matches WHERE route_id = ?1 AND activity_id = 'c'",
+            [&route_id],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert!((55.0..70.0).contains(&percentage), "{percentage}");
+    let direction: String = engine
+        .db
+        .query_row(
+            "SELECT direction FROM activity_matches WHERE route_id = ?1 AND activity_id = 'c'",
+            [&route_id],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(direction, "partial");
+
+    let highlights = engine.get_activity_route_highlights(&ids);
+    assert!(highlights.iter().all(|h| h.activity_id != "c"));
+    let result = engine.get_route_performances(&route_id, Some("c"), None);
+    assert_eq!(result.current_rank, None);
+}
+
+#[test]
+fn test_the_remeasure_and_grouping_label_a_partial_match_at_the_same_percentage() {
+    let threshold = tracematch::PARTIAL_MATCH_PERCENTAGE;
+    for (percentage, expected) in [
+        (threshold - 0.01, Direction::Partial),
+        (threshold, Direction::Same),
+        (threshold + 0.01, Direction::Same),
+    ] {
+        assert_eq!(
+            crate::persistence::routes::direction_for_percentage(percentage, Direction::Same),
+            expected,
+            "{percentage}"
+        );
+    }
+}

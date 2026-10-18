@@ -1,10 +1,10 @@
 /**
- * Scenario: the engine rebuilt the library on a launch that would also open the
- * tour, either the first load's tutorial or What's New after an update.
+ * Scenario: the engine rebuilt the library on a first load, or on a launch after
+ * an update with What's New to show.
  *
- * Expected behaviour: one modal per launch. A first load shows the tour and no
- * notice. After an update the notice goes first and What's New waits for the
- * next launch, where it opens.
+ * Expected behaviour: one modal per launch, and it is the notice. No tour opens
+ * on its own: the first-run tour and What's New are both offered by feed cards,
+ * so the tour stays unseen until the athlete answers one.
  */
 import React from 'react';
 import { Alert } from 'react-native';
@@ -76,29 +76,18 @@ beforeEach(() => {
 afterEach(() => alertSpy.mockRestore());
 
 describe('one modal per launch', () => {
-  it('shows the tour alone on a first load with a rebuilt library', async () => {
+  it('raises the notice and opens no tour on a first load with a rebuilt library', async () => {
     useWhatsNewStore.setState({ isLoaded: true, lastSeenVersion: null, tourState: null });
     mockTake.mockReturnValue(rebuilt);
     captureQuarantineReport();
     await launch();
 
-    expect(useWhatsNewStore.getState().tourState?.mode).toBe('tutorial');
-    expect(alertSpy).not.toHaveBeenCalled();
+    expect(alertSpy).toHaveBeenCalledTimes(1);
+    expect(useWhatsNewStore.getState().tourState).toBeNull();
+    expect(useWhatsNewStore.getState().lastSeenVersion).toBeNull();
   });
 
-  it('keeps the notice back when the library is rebuilt after the tour opened', async () => {
-    useWhatsNewStore.setState({ isLoaded: true, lastSeenVersion: null, tourState: null });
-    await launch();
-    expect(useWhatsNewStore.getState().tourState?.mode).toBe('tutorial');
-
-    mockTake.mockReturnValueOnce(rebuilt);
-    await act(async () => {
-      captureQuarantineReport();
-    });
-    expect(alertSpy).not.toHaveBeenCalled();
-  });
-
-  it('raises the notice after an update and opens What’s New on the next launch', async () => {
+  it('raises the notice after an update and opens What’s New on no launch', async () => {
     useWhatsNewStore.setState({ isLoaded: true, lastSeenVersion: '0.0.1', tourState: null });
     mockTake.mockReturnValue(rebuilt);
     captureQuarantineReport();
@@ -116,11 +105,12 @@ describe('one modal per launch', () => {
 
     useWhatsNewStore.setState({ launchModal: null, restoreOffer: null });
     await launch();
-    expect(useWhatsNewStore.getState().tourState?.mode).toBe('whatsNew');
+    expect(useWhatsNewStore.getState().tourState).toBeNull();
+    expect(useWhatsNewStore.getState().lastSeenVersion).toBe('0.0.1');
     expect(alertSpy).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps the first tour for the next launch when the notice took the slot before sign-in', async () => {
+  it('opens no tour on a first sign-in, before the notice is answered or after', async () => {
     useAuthStore.setState({ isAuthenticated: false, isDemoMode: false });
     useWhatsNewStore.setState({ isLoaded: true, lastSeenVersion: null, tourState: null });
     mockTake.mockReturnValue(rebuilt);
@@ -132,7 +122,6 @@ describe('one modal per launch', () => {
       useAuthStore.setState({ isAuthenticated: true });
     });
     expect(useWhatsNewStore.getState().tourState).toBeNull();
-    expect(useWhatsNewStore.getState().lastSeenVersion).toBeNull();
     await first.unmount();
 
     await act(async () => {
@@ -140,6 +129,7 @@ describe('one modal per launch', () => {
     });
     useWhatsNewStore.setState({ launchModal: null });
     await launch();
-    expect(useWhatsNewStore.getState().tourState?.mode).toBe('tutorial');
+    expect(useWhatsNewStore.getState().tourState).toBeNull();
+    expect(useWhatsNewStore.getState().lastSeenVersion).toBeNull();
   });
 });

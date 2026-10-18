@@ -331,7 +331,7 @@ impl IdentityReplaySnapshot {
 /// serialisation-breaking change to [`SectionIdentity`]; an old byte then reseeds
 /// gracefully instead of misparsing. Version 2 moved to rmp encoding: the
 /// payload carries [`FrequentSection`]s whose trailing skip-if-None fields
-/// (`GpsPoint.elevation`, `consensus_state`) desync postcard's positional
+/// (`GpsPoint.elevation`) desync postcard's positional
 /// stream, so a v1 postcard blob never decoded and always fell back to a
 /// reseed, dropping graves, tombstones, and debounce streaks on every
 /// restart. rmp's length-prefixed arrays recover a skipped trailing field
@@ -2633,7 +2633,6 @@ mod tests {
             created_at: None,
             enrichment: Default::default(),
             rank: None,
-            consensus_state: None,
         }
     }
 
@@ -2694,6 +2693,67 @@ mod tests {
 
         let row = engine.identity.rows.get("s_1").expect("the row");
         assert_eq!(row.section.elevation_gain_m, Some(12.0));
+        assert_eq!(row.section.version, 7);
+    }
+
+    fn entries_mut(value: &mut rmpv::Value) -> &mut Vec<(rmpv::Value, rmpv::Value)> {
+        match value {
+            rmpv::Value::Map(entries) => entries,
+            other => panic!("expected a map, found {other}"),
+        }
+    }
+
+    fn map_entry_mut<'a>(map: &'a mut rmpv::Value, key: &str) -> &'a mut rmpv::Value {
+        entries_mut(map)
+            .iter_mut()
+            .find(|(k, _)| k.as_str() == Some(key))
+            .map(|(_, v)| v)
+            .unwrap_or_else(|| panic!("no key {key}"))
+    }
+
+    /// Scenario: a registry blob written before the section type dropped its
+    /// incremental consensus field still carries that key on every section.
+    /// Expected behaviour: it restores. The blob is named, so the unknown key
+    /// is skipped and the registry keeps its graves and streaks rather than
+    /// reseeding.
+    #[test]
+    fn a_blob_carrying_a_dropped_section_field_reads_back() {
+        let dir = TempDir::new().expect("tempdir");
+        let mut engine = engine_holding(&dir, sample_registry_section());
+
+        let body = rmp_serde::to_vec_named(&engine.identity).expect("encode");
+        let mut doc = rmpv::decode::read_value(&mut body.as_slice()).expect("generic decode");
+        let extra = rmpv::Value::Map(vec![
+            ("reference".into(), rmpv::Value::Array(vec![])),
+            ("per_point".into(), rmpv::Value::Array(vec![])),
+            ("trace_count".into(), 3.into()),
+            (
+                "absorbed_activity_ids".into(),
+                rmpv::Value::Array(vec![rmpv::Value::Array(vec!["a1".into(), 0.into()])]),
+            ),
+        ]);
+        let rows = map_entry_mut(&mut doc, "rows");
+        let mut injected = 0;
+        for (_, row) in entries_mut(rows) {
+            entries_mut(map_entry_mut(row, "section"))
+                .push(("consensus_state".into(), extra.clone()));
+            injected += 1;
+        }
+        assert!(injected > 0, "the registry holds a row to inject into");
+        let mut old = Vec::new();
+        rmpv::encode::write_value(&mut old, &doc).expect("re-encode");
+        let tagged = codec::tag_blob(SECTION_IDENTITY_BLOB_VERSION, old);
+        engine
+            .db
+            .execute(
+                "INSERT OR REPLACE INTO identity_state (key, blob) VALUES (?, ?)",
+                rusqlite::params![SECTION_IDENTITY_KEY, tagged],
+            )
+            .expect("write blob");
+        engine.identity = SectionIdentity::default();
+
+        assert!(engine.section_identity_restore());
+        let row = engine.identity.rows.get("s_1").expect("the row");
         assert_eq!(row.section.version, 7);
     }
 

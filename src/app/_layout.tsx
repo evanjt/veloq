@@ -631,14 +631,17 @@ export default function RootLayout() {
                       />
                     ) : null}
                     <SyncErrorBanner />
-                    <TrackFetchNotice />
                     <EngineInitBanner />
                     <GlobalDataSync />
                     <DemoBanner />
                     <LibraryRebuiltNotice />
                     <WhatsNewModal />
                     <BottomPillStack
-                      pills={{ recording: <RecordingReturnPill />, tour: <TourReturnPill /> }}
+                      pills={{
+                        recording: <RecordingReturnPill />,
+                        tour: <TourReturnPill />,
+                        trackFetch: <TrackFetchNotice />,
+                      }}
                     />
                     <ShaderWarmup />
                     <BeneathTopSlot>

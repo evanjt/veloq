@@ -1,58 +1,54 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Shimmer } from '@/shared/ui';
-import { useTheme } from '@/shared/app';
-import { colors, darkColors, layout, spacing } from '@/theme';
+import { View } from 'react-native';
+import { Card, Shimmer, SkeletonGroup, SkeletonLine } from '@/shared/ui';
+import { layout } from '@/theme';
 import {
-  ROW_BORDER_RADIUS,
-  ROW_MARGIN_BOTTOM,
-  ROW_MARGIN_HORIZONTAL,
-  ROW_PADDING,
-  ROW_PREVIEW_GAP,
   ROW_PREVIEW_HEIGHT,
   ROW_PREVIEW_WIDTH,
+  rowContainers,
 } from '@/features/routes/lib/rowLayout';
 
-/** Placeholder for a routes or sections row, the same size as the row it becomes. */
-export function RowSkeleton() {
-  const { isDark } = useTheme();
+/** The blocks of one routes or sections row, in the row's own containers. */
+function RowBlocks() {
   return (
-    <View testID="row-skeleton" style={[styles.container, isDark && styles.containerDark]}>
-      <View testID="row-skeleton-preview" style={styles.preview}>
-        <Shimmer
-          width={ROW_PREVIEW_WIDTH}
-          height={ROW_PREVIEW_HEIGHT}
-          borderRadius={layout.borderRadiusXs}
-        />
-      </View>
-      <View style={styles.text}>
-        <Shimmer width="60%" height={14} borderRadius={layout.borderRadiusXs} />
-        <Shimmer width="40%" height={12} borderRadius={layout.borderRadiusXs} />
-      </View>
+    <View testID="row-skeleton" style={rowContainers.wrapper}>
+      <Card variant="flat" padding="sm" style={rowContainers.card}>
+        <View testID="row-skeleton-preview" style={rowContainers.previewBox}>
+          <Shimmer
+            width={ROW_PREVIEW_WIDTH}
+            height={ROW_PREVIEW_HEIGHT}
+            borderRadius={layout.borderRadiusXs}
+          />
+        </View>
+        <View style={rowContainers.infoContainer}>
+          <View style={rowContainers.nameRow}>
+            <SkeletonLine text={rowContainers.name} width="60%" />
+          </View>
+          <View style={rowContainers.metaRow}>
+            <SkeletonLine text={rowContainers.metaText} width="40%" />
+          </View>
+        </View>
+      </Card>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    marginHorizontal: ROW_MARGIN_HORIZONTAL,
-    marginBottom: ROW_MARGIN_BOTTOM,
-    borderRadius: ROW_BORDER_RADIUS,
-    padding: ROW_PADDING,
-  },
-  containerDark: {
-    backgroundColor: darkColors.surface,
-  },
-  preview: {
-    width: ROW_PREVIEW_WIDTH,
-    height: ROW_PREVIEW_HEIGHT,
-  },
-  text: {
-    flex: 1,
-    marginLeft: ROW_PREVIEW_GAP,
-    gap: spacing.xs,
-  },
-});
+/** One routes or sections row still to come, such as the next page's. */
+export function RowSkeleton() {
+  return (
+    <SkeletonGroup>
+      <RowBlocks />
+    </SkeletonGroup>
+  );
+}
+
+/** A routes or sections list still to come: its rows, read as one loading element. */
+export function ListSkeleton({ rows }: { rows: number }) {
+  return (
+    <SkeletonGroup>
+      {Array.from({ length: rows }, (_, i) => (
+        <RowBlocks key={i} />
+      ))}
+    </SkeletonGroup>
+  );
+}

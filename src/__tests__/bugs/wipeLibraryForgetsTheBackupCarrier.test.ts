@@ -1384,7 +1384,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
   {
     confirm: [],
     where:
-      'device preferences: units, language, theme, sport, dashboard, map, routes, heatmap, tiles, debug, support, what is new',
+      'device preferences: units, language, theme, sport, dashboard, map, routes, heatmap, tiles, debug, support, what is new and the tour offer, days of use',
     writers: [
       'src/shared/app/UnitPreferenceStore.ts',
       'src/shared/app/LanguageStore.ts',
@@ -1397,6 +1397,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
       'src/features/routes/stores/RouteSettingsStore.ts',
       'src/features/settings/stores/DebugStore.ts',
       'src/features/settings/stores/WhatsNewStore.ts',
+      'src/features/settings/lib/usageDays.ts',
       'src/shared/app/SupportStore.ts',
       'src/shared/storage/migrateSettingsToSqlite.ts',
       'src/shared/storage/settingsStorage.ts',

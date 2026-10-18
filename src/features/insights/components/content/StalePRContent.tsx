@@ -17,7 +17,7 @@ import { navigateTo } from '@/shared/app/navigation';
 import { formatDuration } from '@/shared/format/format';
 import { SheetTrackDrawing } from './SheetTrackDrawing';
 import { InsightHistoryChart } from '../InsightHistoryChart';
-import { colors, darkColors, iconSize, spacing, themePalette, typography } from '@/theme';
+import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import type { ActivityType, Insight, SupportingSection } from '@/types';
 import { SheetContext } from './SheetContext';
 import { composeAccessibilityLabel, ErrorState, Row } from '@/shared/ui';
@@ -96,16 +96,13 @@ function getContextCopy(
 
 /** Map preview for the first section */
 const TopSectionMap = React.memo(function TopSectionMap({ sectionId }: { sectionId: string }) {
-  const { isDark } = useTheme();
   const { section, error, retry } = useSectionDetail(sectionId);
   if (error !== undefined) {
     return (
       <ErrorState variant="inline" error={error} onRetry={retry} testID="section-read-failure" />
     );
   }
-  return (
-    <SheetTrackDrawing points={section?.polyline} color={themePalette(isDark).actionPrimary} />
-  );
+  return <SheetTrackDrawing points={section?.polyline} />;
 });
 
 /**

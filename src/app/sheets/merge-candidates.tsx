@@ -11,16 +11,7 @@ import { Row, SheetHeader } from '@/shared/ui';
 import { TrackPreview, normaliseTrackPoints } from '@/shared/ui/TrackPreview';
 import { formatDistance } from '@/shared/format/format';
 import { SportIcons } from '@/shared/activity/SportIcons';
-import {
-  colors,
-  darkColors,
-  iconSize,
-  layout,
-  spacing,
-  typography,
-  stroke,
-  themePalette,
-} from '@/theme';
+import { colors, darkColors, iconSize, layout, spacing, typography, stroke } from '@/theme';
 import {
   ROW_PREVIEW_HEIGHT,
   ROW_PREVIEW_WIDTH,
@@ -53,7 +44,6 @@ function CandidatePreview({ candidate, isDark }: { candidate: MergeCandidate; is
         <TrackPreview
           testID={`merge-candidate-preview-${candidate.sectionId}`}
           points={points}
-          color={themePalette(isDark).actionPrimary}
           isDark={isDark}
         />
       ) : null}

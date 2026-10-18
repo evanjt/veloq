@@ -15,6 +15,7 @@ import { RestoreOfferCard } from '@/features/settings/components/RestoreOfferCar
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import { formatDateTime } from '@/shared/format/format';
 import { i18n, initialiseI18n } from '@/i18n';
+import { openLaunchSession } from '../__shared__/launchSession';
 
 const mockSettings = new Map<string, string>();
 let mockFinishRestore: () => void = () => {};
@@ -56,6 +57,7 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
+  openLaunchSession(true);
   mockSettings.clear();
   useWhatsNewStore.setState({ launchModal: null, restoreOffer: driveBackup });
 });
@@ -71,6 +73,28 @@ describe('the restore offer card', () => {
     expect(screen.getByText(new RegExp(formatDateTime(driveBackup.entry.timestamp)))).toBeTruthy();
     expect(screen.getByText(/2\.4 MB/)).toBeTruthy();
     expect(screen.queryByText(/No backup was found/)).toBeNull();
+  });
+
+  it('names a device backup with no recorded time without a date', () => {
+    useWhatsNewStore.setState({
+      restoreOffer: {
+        source: 'device',
+        backend: null,
+        entry: {
+          id: 'file:///docs/record.zip',
+          timestamp: '',
+          sizeBytes: 1_200_000,
+          appVersion: '',
+        },
+        rankedAt: Date.UTC(2026, 9, 1) - 1,
+      },
+    });
+    render(<RestoreOfferCard />);
+    expect(screen.getByText(i18n.t('backup.restoreOfferFoundDevice'))).toBeTruthy();
+    const label = screen.getByTestId('restore-offer-entry');
+    expect(label).toHaveTextContent(new RegExp(i18n.t('backup.entryDateNotRecorded')));
+    expect(label).toHaveTextContent(/1\.2 MB/);
+    expect(label).not.toHaveTextContent(/19[0-9]{2}|20[0-9]{2}|Invalid/);
   });
 
   it('is not answered when it unmounts mid-restore', async () => {

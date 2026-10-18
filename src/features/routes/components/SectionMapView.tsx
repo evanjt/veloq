@@ -53,7 +53,6 @@ import {
   useMapFullscreen,
   useDrawnMapStyle,
   useTerrainFallback,
-  useThrottledValue,
   buildSectionTrimCollection,
   EMPTY_FEATURE_COLLECTION,
   cameraAfter3D,
@@ -67,6 +66,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ComponentErrorBoundary } from '@/shared/ui';
 import { PressTarget } from '@/shared/ui/PressTarget';
+import { useThrottledValue } from '@/shared/ui/useThrottledValue';
 import { Icon } from '@/shared/ui/Icon';
 import type { FrequentSection, RoutePoint, ActivityType } from '@/types';
 import { toActivityType } from '@/features/routes/types';

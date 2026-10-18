@@ -10,7 +10,8 @@
  * moves no screen's edge, so it takes no inset. It still outranks a failing
  * sync, because a device with no network has no sync to report on: the
  * sync-error banner gives way while the pill shows, and the slot with it. A
- * sync the engine has paused is a pill too, so it takes no slot either.
+ * sync the engine has paused is a pill too, so it takes no slot either, and so
+ * is the notice that some routes did not download, which floats over the map.
  */
 
 import { create } from 'zustand';
@@ -29,11 +30,10 @@ export interface TopBannerState {
   lastError: string | null;
   /** Whether the engine has paused the sync until a time it resumes at on its own. */
   syncPaused: boolean;
-  trackFetchNoticeShown: boolean;
   engineInitFailed: boolean;
 }
 
-export type TopBanner = 'startupError' | 'demo' | 'syncError' | 'trackFetch' | 'engineInit' | null;
+export type TopBanner = 'startupError' | 'demo' | 'syncError' | 'engineInit' | null;
 
 export type ShownBanner = Exclude<TopBanner, null>;
 
@@ -53,7 +53,6 @@ export function pickTopBanner(state: TopBannerState): TopBanner {
   ) {
     return 'syncError';
   }
-  if (state.trackFetchNoticeShown) return 'trackFetch';
   if (state.engineInitFailed) return 'engineInit';
   if (state.isDemoMode && !state.hideDemoBanner) return 'demo';
   return null;

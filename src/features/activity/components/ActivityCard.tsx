@@ -64,7 +64,7 @@ import { contextMenuHoldIsNative } from '@/shared/ui/ContextMenu';
 import { activityCardA11yLabel, routeChipSpeech } from '../lib/activityCardA11yLabel';
 import { freshLoginTimeline } from '@/shared/debug/freshLoginTimeline';
 
-import { CARD_HEIGHT, CARD_MARGIN } from '@/features/activity/lib/cardLayout';
+import { CARD_HEIGHT, cardContainers } from '@/features/activity/lib/cardLayout';
 import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
 import { navigateTo } from '@/shared/app/navigation';
 import { NameText } from '@/shared/ui/NameText';
@@ -413,7 +413,7 @@ export const ActivityCard = React.memo(
     // Compact card for activities without GPS data
     if (!hasGpsData) {
       return withMenu(
-        <View style={styles.cardWrapper}>
+        <View style={cardContainers.wrapper}>
           <PressTarget
             testID={`activity-card-${activity.id}`}
             onPress={handlePress}
@@ -776,7 +776,7 @@ export const ActivityCard = React.memo(
 
     if (largeText) {
       return withMenu(
-        <View style={styles.cardWrapper}>
+        <View style={cardContainers.wrapper}>
           <Card variant="raised" padding="none" testID={`activity-card-${activity.id}-container`}>
             <View style={styles.flowContainer}>
               {pressOverlay}
@@ -807,9 +807,9 @@ export const ActivityCard = React.memo(
     }
 
     return withMenu(
-      <View style={styles.cardWrapper}>
+      <View style={cardContainers.wrapper}>
         <Card variant="raised" padding="none" testID={`activity-card-${activity.id}-container`}>
-          <View style={styles.mapContainer}>
+          <View style={cardContainers.map}>
             {mapPreview}
             {pressOverlay}
 
@@ -894,14 +894,6 @@ const CHIP_SLOP = slopToMinTapTarget(PILL_HEIGHT);
 const ABOVE_PRESS_OVERLAY = layers.raised + 1;
 
 const styles = StyleSheet.create({
-  cardWrapper: {
-    marginHorizontal: CARD_MARGIN,
-    marginBottom: CARD_MARGIN,
-  },
-  mapContainer: {
-    position: 'relative',
-    height: CARD_HEIGHT,
-  },
   // Past the dense cap: name, map and stats stacked in the card's flow.
   flowContainer: {
     position: 'relative',

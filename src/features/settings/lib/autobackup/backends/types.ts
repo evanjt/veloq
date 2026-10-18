@@ -9,7 +9,7 @@
 export interface BackupEntry {
   /** Unique identifier for this backup (backend-specific) */
   id: string;
-  /** ISO 8601 timestamp of when the backup was created */
+  /** ISO 8601 timestamp of when the backup was created, empty when it was not recorded */
   timestamp: string;
   /** Backup file size in bytes */
   sizeBytes: number;

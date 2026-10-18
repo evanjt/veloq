@@ -10,11 +10,9 @@ interface SupportState {
   permanentlyDismissed: boolean;
   isLegacyPurchaser: boolean;
   dismissCount: number;
-  firstUseDate: string | null;
-  lastUseDate: string | null;
-  useDays: number;
   isLoaded: boolean;
-  shouldShow: () => boolean;
+  /** Whether the card is due, given the install's days of use. */
+  shouldShow: (usage: DaysOfUse) => boolean;
   getIntervalDays: () => number;
   remindLater: () => void;
   neverShowAgain: () => void;
@@ -40,24 +38,24 @@ export const FIRST_SHOW_USE_DAYS = 5;
 /** Days since the first use before a never-dismissed card first shows. */
 export const FIRST_SHOW_MIN_DAYS = 14;
 
+/** The install's days of use, counted with the launch asks' record. */
+export interface DaysOfUse {
+  firstUseDate: string | null;
+  useDays: number;
+}
+
 interface PersistedData {
   lastActionDate: string | null;
   permanentlyDismissed: boolean;
   isLegacyPurchaser: boolean;
   dismissCount?: number;
-  firstUseDate?: string | null;
-  lastUseDate?: string | null;
-  useDays?: number;
 }
 
 type PersistedFields =
   | 'lastActionDate'
   | 'permanentlyDismissed'
   | 'isLegacyPurchaser'
-  | 'dismissCount'
-  | 'firstUseDate'
-  | 'lastUseDate'
-  | 'useDays';
+  | 'dismissCount';
 
 function persist(state: Pick<SupportState, PersistedFields>): void {
   const data: PersistedData = {
@@ -65,9 +63,6 @@ function persist(state: Pick<SupportState, PersistedFields>): void {
     permanentlyDismissed: state.permanentlyDismissed,
     isLegacyPurchaser: state.isLegacyPurchaser,
     dismissCount: state.dismissCount,
-    firstUseDate: state.firstUseDate,
-    lastUseDate: state.lastUseDate,
-    useDays: state.useDays,
   };
   setSetting(STORAGE_KEY, JSON.stringify(data)).catch((e) => {
     if (__DEV__) console.warn('[SupportStore] persist failed:', e);
@@ -79,9 +74,6 @@ export const useSupportStore = create<SupportState>((set, get) => ({
   permanentlyDismissed: false,
   isLegacyPurchaser: false,
   dismissCount: 0,
-  firstUseDate: null,
-  lastUseDate: null,
-  useDays: 0,
   isLoaded: false,
 
   getIntervalDays: () => {
@@ -89,16 +81,16 @@ export const useSupportStore = create<SupportState>((set, get) => ({
     return intervalForCount(s.dismissCount);
   },
 
-  shouldShow: () => {
+  shouldShow: (usage) => {
     const s = get();
     if (!s.isLoaded) return false;
     if (s.permanentlyDismissed) return false;
     if (s.isLegacyPurchaser) return false;
     if (s.lastActionDate === null) return false;
     if (s.dismissCount === 0) {
-      if (s.firstUseDate === null) return false;
-      if (s.useDays < FIRST_SHOW_USE_DAYS) return false;
-      if (daysSince(s.firstUseDate) < FIRST_SHOW_MIN_DAYS) return false;
+      if (usage.firstUseDate === null) return false;
+      if (usage.useDays < FIRST_SHOW_USE_DAYS) return false;
+      if (daysSince(usage.firstUseDate) < FIRST_SHOW_MIN_DAYS) return false;
     }
     return daysSince(s.lastActionDate) >= intervalForCount(s.dismissCount);
   },
@@ -152,28 +144,16 @@ export const useSupportStore = create<SupportState>((set, get) => ({
     } catch {
       // Ignore parse errors
     }
-    // A row stored before the use count existed starts its count from today,
-    // so no installed athlete sees the card sooner than a new install would.
-    const firstUseDate = data?.firstUseDate ?? today;
-    const priorUseDays = data?.firstUseDate ? (data.useDays ?? 0) : 0;
-    const lastUseDate = data?.firstUseDate ? (data.lastUseDate ?? null) : null;
     const next = {
       lastActionDate: data?.lastActionDate ?? today,
       permanentlyDismissed: data?.permanentlyDismissed ?? false,
       isLegacyPurchaser: data?.isLegacyPurchaser ?? false,
       dismissCount: data?.dismissCount ?? 0,
-      firstUseDate,
-      lastUseDate: today,
-      useDays: lastUseDate === today ? priorUseDays : priorUseDays + 1,
     };
     set({ ...next, isLoaded: true });
-    const changed =
-      data === null ||
-      data.lastActionDate !== next.lastActionDate ||
-      data.firstUseDate !== next.firstUseDate ||
-      data.lastUseDate !== next.lastUseDate ||
-      data.useDays !== next.useDays;
-    if (changed) persist(next);
+    // Only a new row is written here. An older one still carries the day count the
+    // usage record is first read from, and an answer on the card rewrites it later.
+    if (data === null) persist(next);
   },
 }));
 

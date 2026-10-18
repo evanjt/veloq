@@ -10,17 +10,23 @@ import {
   EmptyState,
   ErrorState,
   ScreenSafeAreaView,
-  useLargeText,
   useScrollEndInset,
   Spinner,
 } from '@/shared/ui';
 import { logScreenRender, PERF_DEBUG } from '@/shared/debug/renderTimer';
-import { RestoreOfferCard, StreamConsentCard, useDashboardPreferences } from '@/features/settings';
+import {
+  RestoreOfferCard,
+  StreamConsentCard,
+  TourOfferCard,
+  WhatsNewCard,
+  useDashboardPreferences,
+} from '@/features/settings';
 import { navigateTo } from '@/shared/app/navigation';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { ScreenRefreshControl } from '@/shared/ui/ScreenRefreshControl';
 import { isReduceMotionOn } from '@/shared/ui/reduceMotion';
 import { useScrollToTopOnReselect } from '@/shared/ui/tabReselect';
+import { useSyncPillYield } from '@/shared/ui/syncPillYield';
 import { useSyncRefreshNotice } from '@/shared/native/useSyncRefreshNotice';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
@@ -41,7 +47,7 @@ import { useTheme, useStableBy } from '@/shared/app';
 import type { Activity } from '@/types';
 import {
   SummaryCard,
-  NotificationOptInCard,
+  SummaryCardSkeleton,
   SupportCard,
   FeedFirstSyncStandby,
   FeedEmptyLibrary,
@@ -152,16 +158,11 @@ function FeedScreenContent() {
     return () => clearTimeout(timeout);
   }, []);
 
-  // Past the dense cap the pinned cards can fill the window, so they move into
-  // the list header and scroll with the feed.
-  const largeText = useLargeText();
-
   // FlatList ref for scroll-to-reveal filters
   const listRef = useRef<FlatList>(null);
-  // How far the list opens scrolled: the filter section, and the cards above
-  // it while they sit in the list header.
+  // How far the list opens scrolled: past the filter section, which heads the list.
   const hiddenHeadHeight = useRef(ESTIMATED_FILTER_SECTION_HEIGHT);
-  // Where the filter section starts: below the cards while they sit in the list header.
+  // Where the filter section starts.
   const filterSectionTop = useRef(0);
   const searchOffsetCorrected = useRef(false);
   const wasFeedFocused = useRef(isFeedFocused);
@@ -313,6 +314,9 @@ function FeedScreenContent() {
     engine: engineState,
   });
   const standingBy = emptyState === 'standby';
+  // The first-sync view carries the sync's progress, so the floating pill steps
+  // aside while it is in front and comes back once the first cards land.
+  useSyncPillYield(standingBy && isFeedFocused);
   const { requestRefresh } = useSyncRefreshNotice();
 
   // Batch-fetch section highlights (PRs) for the whole loaded feed. Keying this
@@ -528,46 +532,30 @@ function FeedScreenContent() {
     [t, isDark, textPrimary, textSecondary]
   );
 
-  // List header: filter chips + section title
-  const renderListHeader = useCallback(
-    () => (
-      <>
-        {/* Filter chips - initially hidden by scrollToOffset */}
-        <View
-          testID="home-filter-section"
-          style={styles.filterSection}
-          onLayout={handleSearchSectionLayout}
-        >
-          <FeedFilterChips
-            selected={selectedTypeGroups}
-            onSelect={selectTypeGroup}
-            selectedRange={rangePreset}
-            onSelectRange={selectRange}
-          />
-        </View>
-
-        {/* The engine's count of what the filters leave, whichever filter is on */}
-        {filtered ? (
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
-              {t('feed.activitiesCount', { count: search.matchedCount })}
-            </Text>
-          </View>
-        ) : null}
-      </>
-    ),
-    [
-      isDark,
-      selectedTypeGroups,
-      filtered,
-      search.matchedCount,
-      t,
-      selectTypeGroup,
-      rangePreset,
-      selectRange,
-      handleSearchSectionLayout,
-    ]
+  // The filter chips head the list, scrolled past when it opens.
+  const filterSection = (
+    <View
+      testID="home-filter-section"
+      style={styles.filterSection}
+      onLayout={handleSearchSectionLayout}
+    >
+      <FeedFilterChips
+        selected={selectedTypeGroups}
+        onSelect={selectTypeGroup}
+        selectedRange={rangePreset}
+        onSelectRange={selectRange}
+      />
+    </View>
   );
+
+  // The engine's count of what the filters leave, whichever filter is on.
+  const matchCount = filtered ? (
+    <View style={styles.sectionHeader}>
+      <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
+        {t('feed.activitiesCount', { count: search.matchedCount })}
+      </Text>
+    </View>
+  ) : null;
 
   const renderFilteredEmpty = useCallback(
     () => (
@@ -696,16 +684,24 @@ function FeedScreenContent() {
   }
   /* eslint-enable react-hooks/refs */
 
-  // The cards above the feed, pinned at ordinary text sizes.
+  // The summary card and the notices that sit with it. They are the list's first
+  // cards, below the filter section, and scroll away with the feed at every text size.
   const headCards = (
     <>
-      <View testID="home-pinned-cards" style={styles.homeCards}>
+      <View testID="home-head-cards" style={styles.homeCards}>
         <StreamConsentCard />
         <RestoreOfferCard />
-        <NotificationOptInCard libraryCount={allActivities.length} />
+        <WhatsNewCard />
+        <TourOfferCard />
         <SupportCard />
         <PendingUploadsCard />
-        {summaryCard.enabled && !standingBy ? (
+        {summaryCard.enabled && !standingBy && summaryLoading ? (
+          <SummaryCardSkeleton
+            heroMetric={heroMetric}
+            showSparkline={showSparkline}
+            supportingCount={supportingMetrics.length}
+          />
+        ) : summaryCard.enabled && !standingBy ? (
           <SummaryCard
             heroMetric={heroMetric}
             heroValue={heroValue}
@@ -726,7 +722,6 @@ function FeedScreenContent() {
             rhrRead={rhrRead}
             showSparkline={showSparkline}
             supportingMetrics={supportingMetrics}
-            isLoading={summaryLoading}
           />
         ) : null}
       </View>
@@ -737,8 +732,6 @@ function FeedScreenContent() {
   return (
     <ScreenSafeAreaView style={shared.container} testID="home-screen">
       <Stack.Screen options={headerOptions} />
-      {!largeText && headCards}
-
       <FlatList
         ref={listRef}
         onViewableItemsChanged={onViewableItemsChanged}
@@ -753,14 +746,11 @@ function FeedScreenContent() {
         keyExtractor={(item) => item.id}
         extraData={isDark}
         ListHeaderComponent={
-          largeText ? (
-            <>
-              {headCards}
-              {renderListHeader()}
-            </>
-          ) : (
-            renderListHeader
-          )
+          <>
+            {filterSection}
+            {headCards}
+            {matchCount}
+          </>
         }
         ListEmptyComponent={renderListEmpty}
         ListFooterComponent={renderFooter}
@@ -800,11 +790,10 @@ function FeedScreenContent() {
 }
 
 const styles = StyleSheet.create({
-  // The list opens with its filter section scrolled exactly past, so the gap
-  // above the first activity card is this padding. Pinned, it sits outside the
-  // scroll; past the dense cap the cards scroll and it sits above the filters.
-  // The side inset is the activity card's margin, so the pinned cards and the
-  // list share one edge, and no pinned card adds a margin of its own.
+  // The list opens with its filter section scrolled exactly past and the head
+  // cards at the top, so the gap above the first activity card is this padding.
+  // The side inset is the activity card's margin, so the head cards and the
+  // list share one edge, and no head card adds a margin of its own.
   homeCards: {
     paddingHorizontal: CARD_MARGIN,
     paddingBottom: CARD_MARGIN,
@@ -817,9 +806,8 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
 
-  // Filter section (inside ListHeaderComponent, initially scrolled past)
-  // Shown, it keeps the card spacing on both sides: the pinned cards' padding
-  // above, its own below.
+  // Filter section (heads ListHeaderComponent, initially scrolled past).
+  // Shown, its padding is the card spacing between it and the head cards.
   filterSection: {
     paddingBottom: CARD_MARGIN,
   },

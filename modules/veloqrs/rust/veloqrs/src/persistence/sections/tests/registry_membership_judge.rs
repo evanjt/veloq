@@ -82,7 +82,6 @@ fn cut(engine: &PersistentEngine, members: &[&str]) -> FrequentSection {
         created_at: None,
         enrichment: Default::default(),
         rank: None,
-        consensus_state: None,
     }
 }
 

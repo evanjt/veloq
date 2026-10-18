@@ -34,9 +34,9 @@ import {
 } from '@/theme';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
-import { useLaunchSurfaces } from '@/features/settings/hooks/useLaunchSurfaces';
 import { useCutoverSummary, useGroupSummaries, useSectionSummaries } from '@/features/routes';
 import { cutoverHasChangesToShow } from '@/features/settings/lib/cutoverShowMe';
+import { setUpInSettings } from '@/features/settings/lib/tourSetUp';
 import {
   resolveShowMeRoute,
   SHOW_ME_MIN_VISITS,
@@ -55,7 +55,7 @@ import { tourResumeMotion } from '../../lib/tourResume';
 import {
   getAllSlides,
   getSlidesSince,
-  getTutorialSlides,
+  getTutorialSlidesFor,
   type WhatsNewSlideDefinition,
 } from './slides';
 import { WhatsNewSlide } from './WhatsNewSlide';
@@ -69,7 +69,6 @@ const TIMING_CONFIG = { duration: duration.standard, easing: easing.standard };
 const ENTER_FADE_MS = duration.slow;
 
 const ALL_SLIDES = getAllSlides();
-const TUTORIAL_SLIDES = getTutorialSlides();
 
 function withoutShowMe(slide: WhatsNewSlideDefinition): WhatsNewSlideDefinition {
   const {
@@ -128,48 +127,33 @@ export function WhatsNewModal() {
   const currentVersion = Constants.expoConfig?.version ?? '';
   const missedSlides = lastSeenVersion ? getSlidesSince(lastSeenVersion) : [];
 
-  // A first load opens the tutorial; any other launch opens What's New only when
-  // nothing else took the launch's one modal, and waits for the next launch if it did.
-  const { modal: launchModal } = useLaunchSurfaces();
-  const takeLaunchSlot = useWhatsNewStore((s) => s.takeLaunchSlot);
-  const hasAutoTriggered = useRef(false);
+  // The tour never opens on its own: a first load opens onto the feed, where a card offers it.
+  // A version with nothing new is seen at once; one with slides waits for its card.
+  const markedSeen = useRef(false);
   useEffect(() => {
-    if (!isLoaded || !isAuthenticated || isDemoMode || hasAutoTriggered.current || tourState)
-      return;
-    if (launchModal === 'tutorial') {
-      hasAutoTriggered.current = true;
-      takeLaunchSlot('tutorial');
-      startTour('tutorial');
-    } else if (launchModal === 'whatsNew') {
-      hasAutoTriggered.current = true;
-      takeLaunchSlot('whatsNew');
-      startTour('whatsNew');
-    } else if (
+    if (!isLoaded || !isAuthenticated || isDemoMode || markedSeen.current || tourState) return;
+    if (
       lastSeenVersion !== null &&
       lastSeenVersion !== currentVersion &&
       missedSlides.length === 0
     ) {
-      // A version with nothing new is seen at once; a tour that lost the slot is not.
-      hasAutoTriggered.current = true;
+      markedSeen.current = true;
       markSeen(currentVersion);
     }
   }, [
     isLoaded,
     isAuthenticated,
     isDemoMode,
-    launchModal,
     lastSeenVersion,
     currentVersion,
     missedSlides.length,
     tourState,
-    startTour,
-    takeLaunchSlot,
     markSeen,
   ]);
 
   const tourSlides =
     tourState?.mode === 'tutorial'
-      ? TUTORIAL_SLIDES
+      ? getTutorialSlidesFor(tourState.only)
       : missedSlides.length > 0
         ? missedSlides
         : ALL_SLIDES;
@@ -207,7 +191,7 @@ export function WhatsNewModal() {
   }, [contentWidth, translateX, activeIndex]);
 
   const dismiss = useCallback(() => {
-    dismissTour(currentVersion);
+    dismissTour(currentVersion, setUpInSettings());
   }, [currentVersion, dismissTour]);
 
   const goToSlide = useCallback((index: number) => placeSlide(index, true), [placeSlide]);

@@ -90,6 +90,7 @@ describe('the newest backup the restore offer names', () => {
 
   it('names the device backup when its record zip is the newest, with its size and time', async () => {
     mockRecord = { exists: true, size: 1_200_000, modificationTime: Date.UTC(2026, 6, 1) / 1000 };
+    mockRecordWrittenAt = '2026-07-01T00:00:00.000Z';
     const found = await findNewestBackup();
     expect(found?.source).toBe('device');
     expect(found?.backend).toBeNull();
@@ -109,12 +110,58 @@ describe('the newest backup the restore offer names', () => {
     expect(found?.entry.timestamp).toBe('2026-10-01T12:00:00.000Z');
   });
 
-  it('dates a record that names no time from its file', async () => {
+  it('names no date for a record that carries no time of its own', async () => {
     mockRecord = { exists: true, size: 1_200_000, modificationTime: Date.UTC(2026, 6, 1) / 1000 };
     mockRecordWrittenAt = null;
     const found = await findNewestBackup();
     expect(found?.source).toBe('device');
-    expect(found?.entry.timestamp).toBe('2026-07-01T00:00:00.000Z');
+    expect(found?.entry.timestamp).toBe('');
+    expect(found?.entry.sizeBytes).toBe(1_200_000);
+  });
+
+  describe('a record with no time of its own, whose file time the platform scrambled', () => {
+    // 1,790,856,000 s, 2026-10-01T12:00Z, read back as milliseconds.
+    const scrambled = { exists: true, size: 1_200_000, modificationTime: 1_790_856 };
+
+    beforeEach(() => {
+      mockRecord = scrambled;
+      mockRecordWrittenAt = null;
+      mockDrive = [];
+    });
+
+    it('names no 1970 date', async () => {
+      mockWebdav = [];
+      const found = await findNewestBackup();
+      expect(found?.source).toBe('device');
+      expect(found?.entry.timestamp).toBe('');
+    });
+
+    it('ranks above a dated backup from an earlier day', async () => {
+      mockWebdav = [entry('dav.zip', '2026-09-30T23:30:00.000Z')];
+      const found = await findNewestBackup();
+      expect(found?.source).toBe('device');
+    });
+
+    it('ranks below a dated backup from the same day, even one written earlier that day', async () => {
+      mockWebdav = [entry('dav.zip', '2026-10-01T00:00:00.000Z')];
+      const found = await findNewestBackup();
+      expect(found?.source).toBe('webdav');
+    });
+
+    it('ranks below any dated backup when its file time cannot be read back', async () => {
+      mockRecord = { exists: true, size: 1_200_000, modificationTime: 12 };
+      mockWebdav = [entry('dav.zip', '2025-01-01T00:00:00.000Z')];
+      const found = await findNewestBackup();
+      expect(found?.source).toBe('webdav');
+    });
+
+    it('is still offered when it is the only backup and its time cannot be read back', async () => {
+      mockRecord = { exists: true, size: 1_200_000 };
+      mockWebdav = [];
+      const found = await findNewestBackup();
+      expect(found?.source).toBe('device');
+      expect(found?.entry.timestamp).toBe('');
+    });
   });
 
   it('skips a record zip the engine would refuse to restore', async () => {

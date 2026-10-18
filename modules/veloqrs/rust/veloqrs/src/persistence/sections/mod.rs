@@ -776,13 +776,6 @@ impl PersistentEngine {
                     let representative_activity_id: Option<String> = row.get(6)?;
                     let polyline_blob: Option<Vec<u8>> = row.get(17)?;
                     let point_density_blob: Option<Vec<u8>> = row.get(18)?;
-                    // `consensus_state_blob` is neither selected nor decoded.
-                    // The detector only ever produces `None` for this field and
-                    // nothing reads it back, so loading it was a MessagePack
-                    // decode per section on every launch for a value that is
-                    // discarded. The column stays, holding whatever legacy rows
-                    // put there.
-                    let consensus_state = None;
 
                     // Both columns or neither: a half-range indexes nothing.
                     let rep_start: Option<u32> = row.get(21)?;
@@ -860,7 +853,6 @@ impl PersistentEngine {
                         created_at: row.get(15)?,
                         enrichment: interest::enrichment_from_row(row, 19, 23)?,
                         rank: interest::rank_from_row(row, 28)?,
-                        consensus_state,
                     })
                 })?
                 .filter_map(|r| match r {
@@ -1457,7 +1449,6 @@ impl PersistentEngine {
             created_at,
             enrichment,
             rank,
-            consensus_state: None,
         };
 
         // Find and update existing section, or append if new
@@ -2252,13 +2243,6 @@ impl PersistentEngine {
                     (None, None, None, None)
                 };
 
-            // Store the optional consensus accumulator as MessagePack. The
-            // load path does not read this blob.
-            let consensus_state_blob = section
-                .consensus_state
-                .as_ref()
-                .and_then(|acc| codec::serialize_gps_composite(acc).ok());
-
             // A range is only truth alongside the activity it indexes. Without
             // one the line is an average, which is a slice of nothing.
             let geometry_source = if section.representative_range.is_some()
@@ -2293,7 +2277,7 @@ impl PersistentEngine {
                 bounds_max_lat,
                 bounds_min_lng,
                 bounds_max_lng,
-                consensus_state_blob,
+                None::<Vec<u8>>, // consensus_state_blob: legacy column, nothing reads it
                 polyline_blob,
                 point_density_blob,
                 section.elevation_gain_m,
@@ -3318,7 +3302,6 @@ pub(crate) mod pooled {
                 sport_score: section.sport_rank_score.unwrap_or(score),
                 ..Default::default()
             }),
-            consensus_state: None,
         }
     }
 }

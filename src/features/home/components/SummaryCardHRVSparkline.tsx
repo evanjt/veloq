@@ -21,6 +21,16 @@ import { scrubDateLabel } from '../lib/scrubDateLabel';
 /** One row's plot height, which holds its range's high and low on two caption lines. */
 export const HRV_ROW_HEIGHT = 2 * typography.caption.lineHeight;
 const ROW_GAP = spacing.xs;
+
+/** The rows' height: the HRV row, and the resting heart rate row under it when drawn. */
+export function hrvSparklineHeight(withRhr: boolean): number {
+  return withRhr ? 2 * HRV_ROW_HEIGHT + ROW_GAP : HRV_ROW_HEIGHT;
+}
+
+/** Whether a resting heart rate series is drawn: one reading for every HRV day. */
+export function drawsRhr(hrvData: number[], rhrData: number[] | undefined): boolean {
+  return rhrData !== undefined && rhrData.length === hrvData.length;
+}
 /** The row label column holds one short word, "HRV" or "RHR", at the cap. */
 const LABEL_WIDTH = denseExtent(typography.caption.fontSize, 3.6);
 /** Where the rows' first and last days sit in from the plot's edges, the last day's dot. */
@@ -71,9 +81,9 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
   const onTapRef = useRef(onTap);
   onTapRef.current = onTap;
 
-  const rhrSeries = rhrData && rhrData.length === hrvData.length ? rhrData : null;
+  const rhrSeries = rhrData && drawsRhr(hrvData, rhrData) ? rhrData : null;
   const plotWidth = Math.max(0, width - LABEL_WIDTH - SPARKLINE_RANGE_WIDTH - 2 * spacing.xs);
-  const totalHeight = rhrSeries ? 2 * HRV_ROW_HEIGHT + ROW_GAP : HRV_ROW_HEIGHT;
+  const totalHeight = hrvSparklineHeight(rhrSeries !== null);
 
   const hrvPoints = useMemo(() => dailyPoints(hrvData), [hrvData]);
   const rhrPoints = useMemo(() => (rhrSeries ? dailyPoints(rhrSeries) : null), [rhrSeries]);

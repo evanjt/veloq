@@ -234,11 +234,9 @@ fn route_identity_survives_resync() {
 // ============================================================================
 
 /// A user-chosen route representative survives a resync. The incremental path
-/// threads `existing_reps` keyed by group_id, so this only holds because the id
-/// is stable across the regroup (curiosity 1). A red here means the lookup
-/// missed and the representative fell back to the fresh min-member medoid,
-/// discarding the user's pick. Membership-anchored, so it follows the route even
-/// if the id does churn.
+/// finds the stored representative through the members of the regrouped route,
+/// so it holds whatever the group id is. A red here means the pick was lost and
+/// the representative fell back to the fresh medoid.
 #[test]
 fn route_representative_survives_resync() {
     let corpus = route_corpus(COLD_N);
@@ -451,9 +449,11 @@ fn route_highlights_trend_is_running_average_safe() {
     let mut members: Vec<&String> = busiest.activity_ids.iter().collect();
     members.sort_by_key(|id| corpus_activity(&corpus, id).start_date_unix);
 
-    // Speeds slow -> fast (PR) -> medium, so the PR is not the earliest and the
-    // trend/PR split is observable across the attempts.
-    let times = [1000u32, 500, 600, 700, 800];
+    // The earliest attempt is the fastest, so it holds the PR while its trend
+    // reads an empty running average. A later PR is always faster than every
+    // attempt before it in its direction, so only the bucket split could show
+    // the decoupling there, and that split follows the route's membership.
+    let times = [400u32, 1000, 600, 700, 800];
     let metrics: Vec<ActivityMetrics> = members
         .iter()
         .enumerate()

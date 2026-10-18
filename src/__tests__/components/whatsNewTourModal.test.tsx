@@ -47,7 +47,12 @@ jest.mock('@/features/settings/components/whatsNew/slides', () => {
     { titleKey: 'tour.harbour', bodyKey: 'tour.harbourBody', icon: 'star' },
     { titleKey: 'tour.jetty', bodyKey: 'tour.jettyBody', icon: 'star', showMeRoute: '/' },
   ].map((slide) => ({ ...slide, Component: Empty }));
-  return { getAllSlides: () => slides, getTutorialSlides: () => slides, getSlidesSince: () => [] };
+  return {
+    getAllSlides: () => slides,
+    getTutorialSlides: () => slides,
+    getTutorialSlidesFor: () => slides,
+    getSlidesSince: () => [],
+  };
 });
 
 const visible = { includeHiddenElements: false } as const;
@@ -64,8 +69,8 @@ function tourTree() {
 function openTour() {
   useWhatsNewStore.setState({ isLoaded: true, lastSeenVersion: null, tourState: null });
   useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });
+  useWhatsNewStore.getState().startTour('tutorial');
   render(tourTree());
-  expect(useWhatsNewStore.getState().tourState?.mode).toBe('tutorial');
 }
 
 function buttonNames() {

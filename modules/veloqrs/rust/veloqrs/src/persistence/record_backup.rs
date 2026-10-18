@@ -482,8 +482,9 @@ const RECORD_INTERNAL_SETTINGS: &[&str] = &[
 /// token, which only the server that granted it can state. The last clean
 /// sync is a sync this library ran, and the oldest activity date and the
 /// per-year counts are the server's answer, which the next sync writes again.
-/// The terrain cleanup flag, the What's New record and the support prompt's
-/// state are this install's own bookkeeping.
+/// The terrain cleanup flag, the What's New record, the support prompt's state
+/// and the usage record (days of use, a clean sync seen) are this install's own
+/// bookkeeping.
 const DEVICE_SETTINGS: &[&str] = &[
     "veloq-upload-permission",
     super::settings_keys::SYNC_LAST_SUCCESS_AT,
@@ -492,6 +493,7 @@ const DEVICE_SETTINGS: &[&str] = &[
     "veloq-terrain-override-cleanup-done",
     "veloq-whats-new-seen",
     "veloq-support-store",
+    "veloq-usage",
 ];
 
 /// Whether a settings row under `key` belongs in a record backup. The writer
@@ -1359,6 +1361,7 @@ mod tests {
             "veloq-terrain-override-cleanup-done",
             "veloq-whats-new-seen",
             "veloq-support-store",
+            "veloq-usage",
         ];
         for key in local.iter().chain(&["veloq-resolved-unit-system"]) {
             db.execute(

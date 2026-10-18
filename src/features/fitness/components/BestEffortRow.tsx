@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTheme } from '@/shared/app';
 import { navigateTo } from '@/shared/app/navigation';
-import { composeAccessibilityLabel, Row, Shimmer, SkeletonFrame } from '@/shared/ui';
+import { composeAccessibilityLabel, Row, Shimmer, SkeletonGroup } from '@/shared/ui';
 import {
   colors,
   darkColors,
@@ -129,7 +129,7 @@ export const BEST_EFFORT_ROW_COUNT: Record<PrimarySport | 'climbing', number> = 
 export function BestEffortRowsSkeleton({ rows }: { rows: number }) {
   const { isDark } = useTheme();
   return (
-    <SkeletonFrame testID="best-effort-rows-skeleton">
+    <SkeletonGroup testID="best-effort-rows-skeleton">
       {Array.from({ length: rows }, (_, index) => {
         const isLast = index === rows - 1;
         return (
@@ -164,7 +164,7 @@ export function BestEffortRowsSkeleton({ rows }: { rows: number }) {
           </View>
         );
       })}
-    </SkeletonFrame>
+    </SkeletonGroup>
   );
 }
 

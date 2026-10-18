@@ -20,7 +20,7 @@ import { filterSummary } from '@/shared/format/filterSummary';
 import { EmptyState, ErrorState, ExplanationCard, SearchBar, SelectButton } from '@/shared/ui';
 import { ScreenRefreshControl } from '@/shared/ui/ScreenRefreshControl';
 import { useScrollToTopOnReselect } from '@/shared/ui/tabReselect';
-import { RowSkeleton } from '@/features/routes/components/RowSkeleton';
+import { ListSkeleton, RowSkeleton } from '@/features/routes/components/RowSkeleton';
 import { RouteRow } from './RouteRow';
 import { CatalogueEmptyState } from './CatalogueEmptyState';
 import { DataRangeFooter } from './DataRangeFooter';
@@ -155,9 +155,7 @@ export const RoutesList = memo(function RoutesList({
     if (isLoading) {
       return (
         <View style={styles.skeletonList}>
-          {[0, 1, 2, 3, 4].map((i) => (
-            <RowSkeleton key={i} />
-          ))}
+          <ListSkeleton rows={5} />
         </View>
       );
     }

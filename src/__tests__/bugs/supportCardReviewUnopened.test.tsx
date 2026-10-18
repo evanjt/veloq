@@ -12,6 +12,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 import * as WebBrowser from 'expo-web-browser';
 
 import { SupportCard } from '@/features/home/components/SupportCard';
+import { openLaunchSession } from '../__shared__/launchSession';
 
 const mockRecordAction = jest.fn();
 
@@ -50,6 +51,7 @@ const openBrowserAsync = WebBrowser.openBrowserAsync as jest.Mock;
 let openURL: jest.SpyInstance;
 
 beforeEach(() => {
+  openLaunchSession();
   mockRecordAction.mockReset();
   openBrowserAsync.mockReset();
   openURL = jest.spyOn(Linking, 'openURL');

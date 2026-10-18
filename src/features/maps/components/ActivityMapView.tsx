@@ -24,7 +24,7 @@ import { useMapCamera } from '@/features/maps/hooks/useMapCamera';
 import { useMapLayers } from '@/features/maps/hooks/useMapLayers';
 import { useStoredTrackUrl } from '@/features/maps/hooks/useStoredTrackUrl';
 import { useMapFullscreen } from '@/features/maps/hooks/useMapFullscreen';
-import { useThrottledValue } from '@/features/maps/hooks/useThrottledValue';
+import { useThrottledValue } from '@/shared/ui/useThrottledValue';
 import { useTerrainFallback } from '@/features/maps/hooks/useTerrainFallback';
 import { ComponentErrorBoundary } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';

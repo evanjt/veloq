@@ -1,3 +1,5 @@
+import { StyleSheet } from 'react-native';
+
 import { spacing } from '@/theme';
 
 /** Geometry of the feed's activity card, read by the card and by its skeleton. */
@@ -10,3 +12,15 @@ export const ZONE_STRIP_HEIGHT = spacing.md;
  * and the zone strip drawn over the map.
  */
 export const CARD_FOOTER_CLEARANCE = 68;
+
+/** The containers the card and its skeleton both stand in: the spacing outside it and the map box. */
+export const cardContainers = StyleSheet.create({
+  wrapper: {
+    marginHorizontal: CARD_MARGIN,
+    marginBottom: CARD_MARGIN,
+  },
+  map: {
+    position: 'relative',
+    height: CARD_HEIGHT,
+  },
+});

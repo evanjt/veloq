@@ -223,7 +223,6 @@ fn fixed_section(id: &str, latitude: f64, members: &[&str]) -> FrequentSection {
         created_at: Some("2023-01-02T03:04:05+00:00".into()),
         enrichment: Default::default(),
         rank: None,
-        consensus_state: None,
     }
 }
 

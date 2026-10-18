@@ -1,5 +1,5 @@
 /**
- * Scenario: the feed's notification card is the one place consent is asked.
+ * Scenario: the notification card is the one place consent is asked.
  * Turning on registers a push token and an athlete id on our server. A new
  * feed shows a title, one line and two buttons, with the disclosure one tap
  * away inside the card. An install already enabled without having accepted
@@ -19,7 +19,6 @@ import { Card } from '@/shared/ui/Card';
 import { useNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 import { useNotificationPrompt } from '@/features/settings/stores/NotificationPromptStore';
 import { requestNotificationPermission } from '@/features/settings/lib/notificationService';
-import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import enGB from '@/i18n/locales/en-GB.json';
 
 const mockTranslation = jest.fn((key: string) => key);
@@ -54,8 +53,6 @@ beforeEach(() => {
     isLoaded: true,
   });
   useNotificationPrompt.setState({ isLoaded: true, dismissed: false, showingSettingsHint: false });
-  useWhatsNewStore.setState({ tourState: null });
-  useWhatsNewStore.setState({ launchModal: null, restoreOffer: null });
 });
 
 describe('not enabled', () => {
@@ -224,35 +221,12 @@ it('shows nothing once consent is recorded and notifications are on', async () =
   expect(screen.queryByText('notifications.prompt.enable')).toBeNull();
 });
 
-describe('on a first launch', () => {
-  it('asks nothing while the tour is open, and asks once it closes', async () => {
-    useWhatsNewStore.getState().startTour('tutorial');
-    const screen = await render(<NotificationOptInCard libraryCount={1} />);
-    expect(screen.queryByText('notifications.prompt.enable')).toBeNull();
-
-    await act(async () => {
-      useWhatsNewStore.getState().endTour();
-    });
-    expect(screen.getByText('notifications.prompt.enable')).toBeTruthy();
-  });
-
+describe('an empty library', () => {
   it('asks nothing until the library holds an activity', async () => {
     const screen = await render(<NotificationOptInCard libraryCount={0} />);
     expect(screen.queryByText('notifications.prompt.enable')).toBeNull();
 
     await screen.rerender(<NotificationOptInCard libraryCount={1} />);
     expect(screen.getByText('notifications.prompt.enable')).toBeTruthy();
-  });
-
-  it('asks nothing while the restore offer is unanswered', async () => {
-    useWhatsNewStore.setState({
-      restoreOffer: {
-        source: 'webdav',
-        backend: null,
-        entry: { id: 'b1', timestamp: '2026-06-08T06:30:00.000Z', sizeBytes: 1, appVersion: '' },
-      },
-    });
-    const screen = await render(<NotificationOptInCard libraryCount={1} />);
-    expect(screen.queryByText('notifications.prompt.enable')).toBeNull();
   });
 });

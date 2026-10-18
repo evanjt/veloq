@@ -23,7 +23,9 @@ export { useNotificationPreferences } from './stores/NotificationPreferencesStor
 export type { NotificationPreferences } from './stores/NotificationPreferencesStore';
 export { LibraryRebuiltNotice } from './components/LibraryRebuiltNotice';
 export { RestoreOfferCard } from './components/RestoreOfferCard';
-export { useLaunchSurfaces } from './hooks/useLaunchSurfaces';
+export { WhatsNewCard } from './components/WhatsNewCard';
+export { TourOfferCard } from './components/TourOfferCard';
+export { useDaysOfUse, useLaunchSurfaces, useSessionAsk } from './hooks/useLaunchSurfaces';
 export { RestoreChooser } from './components/RestoreChooser';
 export { captureQuarantineReport } from './lib/quarantineReport';
 export { cleanUpRetiredBackupSettings } from './lib/autobackup/autoBackup';
@@ -45,7 +47,7 @@ export {
   useNotificationPrompt,
   initialiseNotificationPrompt,
 } from './stores/NotificationPromptStore';
-export { initialiseWhatsNewStore } from './stores/WhatsNewStore';
+export { initialiseWhatsNewStore, overrideDaysOfUse } from './stores/WhatsNewStore';
 export { onAppForeground, initWebdavConfig } from './lib/autobackup';
 export { refreshPushTokenRegistration, registerPushToken } from './lib/pushTokenRegistration';
 export {

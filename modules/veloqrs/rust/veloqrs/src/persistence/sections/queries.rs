@@ -1264,12 +1264,12 @@ pub(crate) mod pooled {
             ];
 
             let start_idx = ref_tree
-                .nearest_neighbor(&start_query)
-                .map(|p| p.idx as u32)
+                .nearest(&start_query)
+                .map(|(index, _)| index as u32)
                 .unwrap_or(0);
             let end_idx = ref_tree
-                .nearest_neighbor(&end_query)
-                .map(|p| p.idx as u32)
+                .nearest(&end_query)
+                .map(|(index, _)| index as u32)
                 .unwrap_or(track.len() as u32 - 1);
 
             let (s, e) = if start_idx <= end_idx {

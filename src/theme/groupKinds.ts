@@ -110,11 +110,6 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
     reason:
       'the route line colours, told apart from each other and from the white casing under them',
   },
-  mapPreviewColors: {
-    kind: 'series',
-    reason:
-      'a generated tile. The halo is a casing whose job is to separate the coloured line from whatever is under it, so it is measured against the line and not against the ground: white on the pale green preview bed is 1.13:1 and that is the casing working, not failing',
-  },
   mapLayerColors: {
     kind: 'series',
     reason:

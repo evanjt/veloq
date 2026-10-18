@@ -1,8 +1,8 @@
 /**
  * Scenario: an athlete taps Try Demo, then returns to the login screen and signs in for real.
  *
- * Expected behaviour: demo never opens the tour or marks it seen, so the first real
- * sign-in gets it.
+ * Expected behaviour: neither opens the tour or marks it seen, so the feed card can
+ * still offer it after the real sign-in.
  */
 import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
@@ -26,7 +26,7 @@ describe('WhatsNewModal auto-open', () => {
     useWhatsNewStore.setState({ isLoaded: true, lastSeenVersion: null, tourState: null });
   });
 
-  it('stays closed in demo mode and opens after a real sign-in', async () => {
+  it('stays closed in demo mode and after a real sign-in, and marks nothing seen', async () => {
     useAuthStore.setState({ isAuthenticated: true, isDemoMode: true });
     await render(
       <MapPreferencesProvider>
@@ -39,11 +39,13 @@ describe('WhatsNewModal auto-open', () => {
     await act(() => {
       useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });
     });
-    expect(useWhatsNewStore.getState().tourState?.mode).toBe('tutorial');
+    expect(useWhatsNewStore.getState().tourState).toBeNull();
+    expect(useWhatsNewStore.getState().lastSeenVersion).toBeNull();
   });
 
   it('keeps the tour navigation discoverable by role and text', async () => {
     useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });
+    useWhatsNewStore.getState().startTour('tutorial');
     await render(
       <MapPreferencesProvider>
         <WhatsNewModal />

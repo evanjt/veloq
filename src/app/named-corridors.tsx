@@ -9,7 +9,6 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { ChromeIcon } from '@/shared/ui/ChromeIcon';
-import Svg, { Polyline } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
 import {
   Card,
@@ -18,6 +17,8 @@ import {
   ScreenSafeAreaView,
   ScreenScrollView,
   PressTarget,
+  TrackPreview,
+  normaliseTrackPoints,
 } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
 import { EngineReadPlaceholder } from '@/shared/app/EngineUnavailableState';
@@ -27,7 +28,6 @@ import {
   useSectionDisplayNames,
   ledgerDate,
 } from '@/features/routes';
-import { projectRouteToBox } from '@/shared/geo/routePreview';
 import { formatFullDate } from '@/shared/format/format';
 import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
@@ -45,19 +45,11 @@ function FootprintPreview({
   isDark: boolean;
 }) {
   const points = useMemo(
-    () => projectRouteToBox(footprint, PREVIEW_WIDTH, PREVIEW_HEIGHT, 4),
+    () => normaliseTrackPoints(footprint.map((p) => ({ lat: p.latitude, lng: p.longitude }))),
     [footprint]
   );
-  if (points.length === 0) return null;
   return (
-    <Svg width={PREVIEW_WIDTH} height={PREVIEW_HEIGHT}>
-      <Polyline
-        points={points.map((p) => `${p.x},${p.y}`).join(' ')}
-        fill="none"
-        stroke={isDark ? darkColors.textSecondary : colors.actionPrimary}
-        strokeWidth={2}
-      />
-    </Svg>
+    <TrackPreview points={points} isDark={isDark} width={PREVIEW_WIDTH} height={PREVIEW_HEIGHT} />
   );
 }
 

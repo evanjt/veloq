@@ -105,18 +105,11 @@ describe('TopSafeAreaProvider with the notices outside the sync', () => {
     });
   });
 
-  it('reserves the top edge for the track notice alone', async () => {
+  it('leaves screens their top edge while the track notice floats over the map', async () => {
     useTrackFetchNotice.setState({ failedIds: ['a', 'b', 'c'], failedCount: 3, dismissed: false });
     const { result } = await renderHook(() => useTopSafeArea(), { wrapper });
 
-    expect(result.current.activeBanner).toBe('trackFetch');
-    expect(result.current.screenEdges).not.toContain('top');
-  });
-
-  it('gives the edge back once the track notice is dismissed', async () => {
-    useTrackFetchNotice.setState({ failedIds: ['a'], failedCount: 1, dismissed: true });
-    const { result } = await renderHook(() => useTopSafeArea(), { wrapper });
-
+    expect(result.current.activeBanner).toBeNull();
     expect(result.current.screenEdges).toContain('top');
   });
 

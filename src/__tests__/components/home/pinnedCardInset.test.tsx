@@ -17,6 +17,7 @@ import { useNotificationPrompt } from '@/features/settings/stores/NotificationPr
 import { getVisibleUnuploadedCount } from '@/features/recording/lib/storage/recordingLibrary';
 import { Card } from '@/shared/ui/Card';
 import { InlineNotice } from '@/shared/ui/InlineNotice';
+import { openLaunchSession } from '../../__shared__/launchSession';
 
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysWithValues());
 jest.mock('expo-router', () => ({
@@ -61,6 +62,10 @@ function sideMargins(): number[] {
     style.marginEnd,
   ].map((value) => value ?? 0);
 }
+
+beforeEach(() => {
+  openLaunchSession();
+});
 
 describe('pinned feed cards', () => {
   it('draws the pending uploads banner as an info notice named for a screen reader', async () => {

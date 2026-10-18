@@ -130,7 +130,6 @@ jest.mock('@/features/home', () => ({
   useSummaryCardData: () => ({ showSparkline: false, refetch: mockSummaryRefetch }),
   useStartupData: () => ({ data: mockStartupData, refresh: mockRefreshStartupData }),
   SummaryCard: () => null,
-  NotificationOptInCard: () => null,
   SupportCard: () => null,
   FeedFirstSyncStandby: () => {
     const { View } = require('react-native');
@@ -318,8 +317,7 @@ describe('feed search does not re-read the highlight bundle', () => {
     const scrollToOffset = jest.spyOn(FlatList.prototype, 'scrollToOffset');
     try {
       await renderFeed();
-      const list = screen.getByTestId('home-activity-list');
-      const searchSection = list.props.ListHeaderComponent().props.children[0];
+      const searchSection = screen.getByTestId('home-filter-section');
       await act(() =>
         searchSection.props.onLayout({
           nativeEvent: { layout: { x: 0, y: 0, width: 430, height: 78 } },
@@ -336,8 +334,7 @@ describe('feed search does not re-read the highlight bundle', () => {
     const scrollToOffset = jest.spyOn(FlatList.prototype, 'scrollToOffset');
     try {
       const feed = await renderFeed();
-      const list = screen.getByTestId('home-activity-list');
-      const searchSection = list.props.ListHeaderComponent().props.children[0];
+      const searchSection = screen.getByTestId('home-filter-section');
       await act(() =>
         searchSection.props.onLayout({
           nativeEvent: { layout: { x: 0, y: 0, width: 430, height: 94 } },
@@ -511,8 +508,7 @@ describe('a date range narrows the feed like a search or a sport chip', () => {
   ];
 
   async function revealedAt(height: number) {
-    const list = screen.getByTestId('home-activity-list');
-    const filterSection = list.props.ListHeaderComponent().props.children[0];
+    const filterSection = screen.getByTestId('home-filter-section');
     await act(() =>
       filterSection.props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width: 430, height } } })
     );

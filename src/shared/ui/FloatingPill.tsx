@@ -1,9 +1,11 @@
 /**
  * The floating pill. The status variant is passing status that floats over the
- * page and asks nothing of the athlete: it passes every touch through, and
- * anything the athlete has to act on is a banner instead. The action variant,
- * drawn when the pill has an `onPress`, is a quick return: one button with a
- * trailing chevron.
+ * page and asks nothing of the athlete: it passes every touch through. The
+ * action variant, drawn when the pill has an `onPress`, is a quick return: one
+ * button with a trailing chevron. The notice variant, drawn when the pill has
+ * an `action` or an `onDismiss`, is a notice over a map: a labelled button and
+ * a close at the trailing edge, and every touch beside them goes to the map.
+ * A notice the athlete acts on anywhere else is a banner.
  *
  * A lead, a title and an optional detail on the raised surface with the pill
  * shadow, and in dark a 1px card edge, since a shadow alone does not lift a
@@ -22,6 +24,7 @@ import {
 } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
 import {
@@ -35,6 +38,10 @@ import {
   spacing,
   typography,
 } from '@/theme';
+import { Button } from './Button';
+import { Icon } from './Icon';
+import { IconButton } from './IconButton';
+import type { NoticeAction } from './NoticeBanner';
 import { pressable, pressRipple } from './pressFeedback';
 import { useAnnounceOnAppear } from './useAnnounceOnAppear';
 
@@ -67,6 +74,10 @@ interface FloatingPillProps {
   secondaryAction?: { label: string; onAction: () => void };
   /** What the action pill's button is called, when the title alone does not say it. */
   accessibilityLabel?: string;
+  /** Makes the pill the notice variant, with this labelled button at its trailing edge. */
+  action?: NoticeAction | undefined;
+  /** Makes the pill the notice variant, with a close at its trailing edge. */
+  onDismiss?: () => void;
   testID: string;
 }
 
@@ -84,8 +95,11 @@ export function FloatingPill({
   onPress,
   secondaryAction,
   accessibilityLabel,
+  action,
+  onDismiss,
   testID,
 }: FloatingPillProps) {
+  const { t } = useTranslation();
   const { isDark } = useTheme();
   const palette = isDark ? darkColors : colors;
   useAnnounceOnAppear(announcement);
@@ -150,6 +164,39 @@ export function FloatingPill({
             color={palette.iconSecondary}
           />
         </Pressable>
+      </Animated.View>
+    );
+  }
+
+  if (action || onDismiss) {
+    return (
+      <Animated.View
+        {...motionPresets.pill}
+        style={surface}
+        pointerEvents="box-none"
+        accessibilityLiveRegion="polite"
+        testID={testID}
+      >
+        {content}
+        {action ? (
+          <Button
+            label={action.label}
+            onPress={action.onPress}
+            variant="ghost"
+            size="sm"
+            testID={action.testID}
+          />
+        ) : null}
+        {onDismiss ? (
+          <IconButton
+            accessibilityLabel={t('common.close', { defaultValue: 'Close' })}
+            onPress={onDismiss}
+            compact
+            testID={`${testID}-dismiss`}
+          >
+            <Icon name="close" size={iconSize.sm} color={palette.iconSecondary} />
+          </IconButton>
+        ) : null}
       </Animated.View>
     );
   }

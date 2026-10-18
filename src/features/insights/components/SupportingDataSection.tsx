@@ -19,7 +19,6 @@ import {
   typography,
   verdictColor,
   verdictFill,
-  themePalette,
 } from '@/theme';
 import { InsightHistoryChart } from './InsightHistoryChart';
 import { formatDuration } from '@/shared/format/format';
@@ -53,16 +52,10 @@ function SectionPreview({
   points?: LatLngShort[] | undefined;
 }) {
   const { isDark } = useTheme();
-  const palette = themePalette(isDark);
   const normalised = useMemo(() => normaliseTrackPoints(points ?? []), [points]);
   if (normalised.length < 2) return null;
   return (
-    <TrackPreview
-      testID={`section-preview-${sectionId}`}
-      points={normalised}
-      color={palette.actionPrimary}
-      isDark={isDark}
-    />
+    <TrackPreview testID={`section-preview-${sectionId}`} points={normalised} isDark={isDark} />
   );
 }
 

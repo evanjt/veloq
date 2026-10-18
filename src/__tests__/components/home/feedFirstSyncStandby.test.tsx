@@ -12,8 +12,8 @@ import { resolvedLocale } from '../../i18n/resolvedLocale';
 import React from 'react';
 import fs from 'fs';
 import path from 'path';
-import { AccessibilityInfo, Platform } from 'react-native';
-import { render, screen } from '@testing-library/react-native';
+import { AccessibilityInfo, Platform, StyleSheet } from 'react-native';
+import { act, render, screen } from '@testing-library/react-native';
 import { SyncStep } from 'veloqrs';
 
 import { FeedFirstSyncStandby } from '@/features/home/components/FeedFirstSyncStandby';
@@ -77,10 +77,10 @@ describe('the first-sync standby', () => {
     mockStatus = { state: 1, completed: 0, total: 8, step: SyncStep.Athlete };
     await render(<FeedFirstSyncStandby />);
 
-    const line = screen.getByTestId('feed-first-sync-step').props.children;
-    expect(line).toBe(
-      'settings.syncStepProgress:{"label":"settings.syncStep.athlete","completed":0,"total":8}'
+    expect(screen.getByTestId('feed-first-sync-step').props.children).toBe(
+      'settings.syncStep.athlete'
     );
+    expect(screen.getByTestId('feed-first-sync-counts').props.children).toBe('0/8');
   });
 
   it('follows the engine to the step that carries the activities', async () => {
@@ -88,8 +88,111 @@ describe('the first-sync standby', () => {
     await render(<FeedFirstSyncStandby />);
 
     expect(screen.getByTestId('feed-first-sync-step').props.children).toBe(
-      'settings.syncStepProgress:{"label":"settings.syncStep.activities","completed":4,"total":8}'
+      'settings.syncStep.activities'
     );
+    expect(screen.getByTestId('feed-first-sync-counts').props.children).toBe('4/8');
+  });
+
+  it('sets the counts on a quieter line below the step', async () => {
+    mockStatus = {
+      state: 1,
+      completed: 4,
+      total: 8,
+      step: SyncStep.Activities,
+      stepItemsDone: 120,
+      stepItemsTotal: 480,
+    };
+    await render(<FeedFirstSyncStandby />);
+
+    const step = StyleSheet.flatten(screen.getByTestId('feed-first-sync-step').props.style);
+    const counts = StyleSheet.flatten(screen.getByTestId('feed-first-sync-counts').props.style);
+    expect(screen.getByTestId('feed-first-sync-counts').props.children).toBe('4/8 · 120/480');
+    expect(counts.fontSize).toBeLessThan(step.fontSize);
+  });
+
+  it('draws no count line for a step with nothing to count', async () => {
+    mockStatus = { state: 1, completed: 0, total: 1, step: SyncStep.Activities };
+    await render(<FeedFirstSyncStandby />);
+
+    expect(screen.getByTestId('feed-first-sync-step')).toBeTruthy();
+    expect(screen.queryByTestId('feed-first-sync-counts')).toBeNull();
+  });
+
+  /** The defect: every stored item moved the count, so the view flickered
+   *  through the whole first sync. */
+  describe('the count line', () => {
+    beforeEach(() => {
+      jest.useFakeTimers({ now: 1_000_000 });
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    const itemsAt = (done: number) => ({
+      state: 1,
+      completed: 4,
+      total: 8,
+      step: SyncStep.Activities,
+      stepItemsDone: done,
+      stepItemsTotal: 480,
+    });
+    const counts = () => screen.getByTestId('feed-first-sync-counts').props.children;
+
+    it('changes no faster than once a second and settles on the latest count', async () => {
+      mockStatus = itemsAt(10);
+      const { rerender } = await render(<FeedFirstSyncStandby />);
+      expect(counts()).toBe('4/8 · 10/480');
+
+      for (const done of [11, 12, 13]) {
+        mockStatus = itemsAt(done);
+        await rerender(<FeedFirstSyncStandby />);
+        await act(() => {
+          jest.advanceTimersByTime(200);
+        });
+        expect(counts()).toBe('4/8 · 10/480');
+      }
+
+      await act(() => {
+        jest.advanceTimersByTime(400);
+      });
+      expect(counts()).toBe('4/8 · 13/480');
+
+      mockStatus = itemsAt(14);
+      await rerender(<FeedFirstSyncStandby />);
+      await act(() => {
+        jest.advanceTimersByTime(999);
+      });
+      expect(counts()).toBe('4/8 · 13/480');
+      await act(() => {
+        jest.advanceTimersByTime(1);
+      });
+      expect(counts()).toBe('4/8 · 14/480');
+    });
+
+    it('holds the progress value to the same pace', async () => {
+      mockStatus = itemsAt(10);
+      const { rerender } = await render(<FeedFirstSyncStandby />);
+      mockStatus = itemsAt(11);
+      await rerender(<FeedFirstSyncStandby />);
+
+      expect(screen.getByRole('progressbar').props.accessibilityValue.now).toBe(10);
+      await act(() => {
+        jest.advanceTimersByTime(1000);
+      });
+      expect(screen.getByRole('progressbar').props.accessibilityValue.now).toBe(11);
+    });
+
+    it('names a new step at once, without waiting on the count', async () => {
+      mockStatus = itemsAt(10);
+      const { rerender } = await render(<FeedFirstSyncStandby />);
+      mockStatus = { state: 1, completed: 5, total: 8, step: SyncStep.Curves };
+      await rerender(<FeedFirstSyncStandby />);
+
+      expect(screen.getByTestId('feed-first-sync-step').props.children).toBe(
+        'settings.syncStep.curves'
+      );
+    });
   });
 
   it('values its progress from the counts inside the step', async () => {

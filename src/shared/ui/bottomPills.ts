@@ -9,10 +9,17 @@ import { useEffect } from 'react';
 import { create } from 'zustand';
 
 /**
- * The pills the stack places, nearest the bottom first: the control in reach sits lowest, and a
- * notice that clears itself sits topmost, where its going moves nothing under it.
+ * The pills the stack places, nearest the bottom first: the controls in reach sit lowest, the
+ * notices over the map above them, and a notice that clears itself sits topmost, where its going
+ * moves nothing under it.
  */
-export const BOTTOM_PILL_ORDER = ['recording', 'tour', 'terrain'] as const;
+export const BOTTOM_PILL_ORDER = [
+  'recording',
+  'tour',
+  'mapEmpty',
+  'trackFetch',
+  'terrain',
+] as const;
 
 export type BottomPillKey = (typeof BOTTOM_PILL_ORDER)[number];
 

@@ -2,14 +2,15 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { FfiMapEmptyReason_Tags, type FfiMapEmptyReason } from 'veloqrs';
-import { EmptyState } from '@/shared/ui/EmptyState';
-import { useTheme } from '@/shared/app';
-import { colorWithOpacity, layout, spacing, themePalette } from '@/theme';
+import { BottomPillSlot } from '@/shared/ui/BottomPillStack';
+import { FloatingPill } from '@/shared/ui/FloatingPill';
+import { layers, spacing } from '@/theme';
 
 export const MAP_EMPTY_STATE_TEST_ID = 'map-empty-state';
 
 /**
- * Why the map draws no activity, over the map and above its filter sheet.
+ * Why the map draws no activity, as a pill in the bottom stack over the map,
+ * above its filter sheet, so the map stays draggable all around it.
  *
  * The engine names the cause. Each cause carries the action that changes it
  * where one exists: a wider period for an empty one, the filters cleared for
@@ -31,8 +32,12 @@ export function MapEmptyState({
   onClearFilters: () => void;
 }) {
   const { t } = useTranslation();
-  const { isDark } = useTheme();
-  const palette = themePalette(isDark);
+
+  const action = (label: string, onPress: () => void) => ({
+    label,
+    onPress,
+    testID: `${MAP_EMPTY_STATE_TEST_ID}-action`,
+  });
 
   const copy = (() => {
     if (reason.tag === FfiMapEmptyReason_Tags.NoActivities) {
@@ -41,14 +46,12 @@ export function MapEmptyState({
         title: t('mapScreen.emptyNoActivities'),
         ...(allTime
           ? {
-              description: t('mapScreen.emptyNoActivitiesAllTimeHint'),
-              actionLabel: t('mapScreen.expandRange'),
-              onAction: onExpandRange,
+              detail: t('mapScreen.emptyNoActivitiesAllTimeHint'),
+              action: action(t('mapScreen.expandRange'), onExpandRange),
             }
           : {
-              description: t('mapScreen.emptyNoActivitiesHint'),
-              actionLabel: t('mapScreen.emptyShowAllTime'),
-              onAction: onShowAllTime,
+              detail: t('mapScreen.emptyNoActivitiesHint'),
+              action: action(t('mapScreen.emptyShowAllTime'), onShowAllTime),
             }),
       };
     }
@@ -56,44 +59,40 @@ export function MapEmptyState({
       return {
         icon: 'filter-variant-remove' as const,
         title: t('mapScreen.emptyFiltered'),
-        description: t('mapScreen.emptyFilteredHint', { count: reason.inner.mapped }),
-        actionLabel: t('mapScreen.emptyClearFilters'),
-        onAction: onClearFilters,
+        detail: t('mapScreen.emptyFilteredHint', { count: reason.inner.mapped }),
+        action: action(t('mapScreen.emptyClearFilters'), onClearFilters),
       };
     }
     if (reason.tag === FfiMapEmptyReason_Tags.TracksPending) {
       return {
         icon: 'cloud-download-outline' as const,
         title: t('mapScreen.emptyTracksPending'),
-        description: t('mapScreen.emptyTracksPendingHint', { count: reason.inner.pending }),
+        detail: t('mapScreen.emptyTracksPendingHint', { count: reason.inner.pending }),
       };
     }
     return {
       icon: 'map-marker-off-outline' as const,
       title: t('mapScreen.emptyNoGps'),
-      description: t('mapScreen.emptyNoGpsHint'),
+      detail: t('mapScreen.emptyNoGpsHint'),
     };
   })();
 
   return (
-    <View style={styles.layer} pointerEvents="box-none">
-      <View style={[styles.card, { backgroundColor: colorWithOpacity(palette.surface, 0.94) }]}>
-        <EmptyState variant="compact" testID={MAP_EMPTY_STATE_TEST_ID} {...copy} />
+    <BottomPillSlot pill="mapEmpty" layer={layers.mapOverlay}>
+      <View style={styles.lane} pointerEvents="box-none">
+        <FloatingPill
+          {...copy}
+          announcement={`${copy.title}. ${copy.detail}`}
+          testID={MAP_EMPTY_STATE_TEST_ID}
+        />
       </View>
-    </View>
+    </BottomPillSlot>
   );
 }
 
 const styles = StyleSheet.create({
-  // The map stays draggable around the card.
-  layer: {
-    ...StyleSheet.absoluteFill,
-    justifyContent: 'center',
+  lane: {
+    marginHorizontal: spacing.md,
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-  },
-  card: {
-    borderRadius: layout.borderRadius,
-    paddingHorizontal: spacing.md,
   },
 });

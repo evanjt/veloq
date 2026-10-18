@@ -31,14 +31,13 @@ import {
 import { navigateTo } from '@/shared/app/navigation';
 import { formatShortDate } from '@/shared/format/format';
 import { ChartErrorBoundary, PressTarget } from '@/shared/ui';
-import { fitTrackToBox, normaliseTrackPoints } from '@/shared/ui/TrackPreview';
+import { fitTrackToBox, normaliseTrackPoints, trackPreviewPalette } from '@/shared/ui/TrackPreview';
 import {
   chartStyles,
   colors,
   colorWithOpacity,
   colourTokens,
   darkColors,
-  mapPreviewColors,
   opacity,
   spacing,
   typography,
@@ -290,7 +289,7 @@ function ChangesDrawing({
   );
 }
 
-/** The section's line on a map-coloured ground, its own proportions kept. */
+/** The section's line on the base map's flat land, its own proportions kept. */
 function LineDrawing({
   history,
   box,
@@ -307,10 +306,15 @@ function LineDrawing({
       linePath(fitTrackToBox(normaliseTrackPoints(history.points), box.width, box.height, INSET)),
     [history.points, box]
   );
-  const ground = isDark ? mapPreviewColors.dark : mapPreviewColors.light;
   return (
     <>
-      <Rect x={0} y={0} width={box.width} height={box.height} color={ground.bg} />
+      <Rect
+        x={0}
+        y={0}
+        width={box.width}
+        height={box.height}
+        color={trackPreviewPalette(isDark).land}
+      />
       <Path
         path={path}
         style="stroke"

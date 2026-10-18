@@ -1,6 +1,5 @@
 {
   "primary": {
-    "src/app/named-corridors.tsx": 1,
     "src/features/strength/components/ExerciseTable.tsx": 1,
     "src/shared/activity/sportCategories.ts": 1
   },

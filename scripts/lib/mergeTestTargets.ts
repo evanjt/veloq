@@ -712,17 +712,24 @@ export interface Corpora {
   private?: string | undefined;
 }
 
-/** `KEY = "value"` under `[env]` in the nearest cargo config above the repository, if any. */
-function cargoConfigEnv(key: string): string | undefined {
+/**
+ * A key under `[env]` in the nearest cargo config at or above `from`, if any.
+ * Cargo takes `KEY = "value"` and `KEY = { value = "...", relative = true }`,
+ * and a relative value is read against the directory holding `.cargo`.
+ */
+function cargoConfigEnv(key: string, from: string): string | undefined {
   const fs = require('node:fs');
   const path = require('node:path');
-  for (let dir = path.join(__dirname, '../..'); ; dir = path.dirname(dir)) {
+  for (let dir = from; ; dir = path.dirname(dir)) {
     const file = path.join(dir, '.cargo', 'config.toml');
     if (fs.existsSync(file)) {
-      const match = fs
-        .readFileSync(file, 'utf8')
-        .match(new RegExp(`^${key}\\s*=\\s*"([^"]+)"`, 'm'));
-      if (match) return match[1];
+      const text: string = fs.readFileSync(file, 'utf8');
+      const plain = text.match(new RegExp(`^${key}\\s*=\\s*"([^"]+)"`, 'm'));
+      if (plain) return plain[1];
+      const table = text.match(new RegExp(`^${key}\\s*=\\s*\\{([^}]*)\\}`, 'm'));
+      const value = table?.[1]?.match(/value\s*=\s*"([^"]+)"/)?.[1];
+      if (value)
+        return /relative\s*=\s*true/.test(table?.[1] ?? '') ? path.resolve(dir, value) : value;
     }
     if (path.dirname(dir) === dir) return undefined;
   }
@@ -731,16 +738,24 @@ function cargoConfigEnv(key: string): string | undefined {
 /**
  * Where the two golden comparisons find their data on this machine. The shell
  * variable wins, then the cargo config that sets it for local runs, and a
- * directory that does not exist counts as absent.
+ * directory that does not exist counts as absent. GeoLife is also looked for
+ * inside the private corpus root, where the lab script fetches it.
  */
-export function detectCorpora(env: NodeJS.ProcessEnv = process.env): Corpora {
+export function detectCorpora(
+  env: NodeJS.ProcessEnv = process.env,
+  from: string = require('node:path').join(__dirname, '../..')
+): Corpora {
   const fs = require('node:fs');
+  const path = require('node:path');
   const exists = (dir: string | undefined) =>
     dir && fs.existsSync(dir) && fs.statSync(dir).isDirectory() ? dir : undefined;
-  return {
-    geolife: exists(env.LAB_GEOLIFE_DIR),
-    private: exists(env.TRACEMATCH_CORPUS ?? cargoConfigEnv('TRACEMATCH_CORPUS')),
-  };
+  const priv = exists(env.TRACEMATCH_CORPUS ?? cargoConfigEnv('TRACEMATCH_CORPUS', from));
+  const geolife = exists(
+    env.LAB_GEOLIFE_DIR ??
+      cargoConfigEnv('LAB_GEOLIFE_DIR', from) ??
+      (priv && path.join(priv, 'geolife', 'Geolife Trajectories 1.3', 'Data'))
+  );
+  return { geolife, private: priv };
 }
 
 function bitwiseCommand(variable: string, dir: string | undefined, feature: string, test: string) {

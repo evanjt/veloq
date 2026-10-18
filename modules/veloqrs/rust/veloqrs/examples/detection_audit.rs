@@ -71,20 +71,14 @@ fn compute_containment(poly_a: &[GpsPoint], poly_b: &[GpsPoint], threshold: f64)
     }
 
     let tree_b = tracematch::sections::build_rtree(poly_b);
-    let threshold_deg = threshold / 111_000.0;
-    let threshold_deg_sq = threshold_deg * threshold_deg;
-
-    let mut contained = 0;
-    for point in poly_a {
-        let query = [point.latitude, point.longitude];
-        if let Some(nearest) = tree_b.nearest_neighbor(&query) {
-            let d0 = nearest.lat - query[0];
-            let d1 = nearest.lng - query[1];
-            if d0 * d0 + d1 * d1 <= threshold_deg_sq {
-                contained += 1;
-            }
-        }
-    }
+    let contained = poly_a
+        .iter()
+        .filter(|p| {
+            tree_b
+                .nearest(&[p.latitude, p.longitude])
+                .is_some_and(|(_, distance)| distance <= threshold)
+        })
+        .count();
 
     contained as f64 / poly_a.len() as f64
 }

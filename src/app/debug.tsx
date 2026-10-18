@@ -26,6 +26,7 @@ import { getFFIMetricsSummary, clearFFIMetrics } from '@/shared/debug/renderTime
 import { freshLoginTimeline } from '@/shared/debug/freshLoginTimeline';
 import { hermesStats } from '@/shared/debug/hermesStats';
 import { useSupportStore, daysSince, FIRST_SHOW_USE_DAYS } from '@/shared/app/SupportStore';
+import { overrideDaysOfUse, useDaysOfUse } from '@/features/settings';
 import { formatLocalDate } from '@/shared/format/format';
 import { readTaskRuns, clearTaskRuns, type TaskRunEntry } from '@/features/insights';
 import { SyncDebugSection } from '@/features/routes';
@@ -139,9 +140,15 @@ function SupportCardDebug({ isDark }: { isDark: boolean }) {
   const lastActionDate = useSupportStore((s) => s.lastActionDate);
   const permanentlyDismissed = useSupportStore((s) => s.permanentlyDismissed);
   const isLegacyPurchaser = useSupportStore((s) => s.isLegacyPurchaser);
-  const firstUseDate = useSupportStore((s) => s.firstUseDate);
-  const useDays = useSupportStore((s) => s.useDays);
-  const debugOverride = useSupportStore((s) => s._debugOverride);
+  const { firstUseDate, useDays } = useDaysOfUse();
+  const supportOverride = useSupportStore((s) => s._debugOverride);
+  const debugOverride = (
+    support: Parameters<typeof supportOverride>[0],
+    usage: Parameters<typeof overrideDaysOfUse>[0]
+  ) => {
+    supportOverride(support);
+    overrideDaysOfUse(usage);
+  };
 
   const daysUntilShow =
     lastActionDate != null ? Math.max(0, Math.ceil(30 - daysSince(lastActionDate))) : 0;
@@ -188,13 +195,14 @@ function SupportCardDebug({ isDark }: { isDark: boolean }) {
             testID={`debug-support-preset-${p.days}d`}
             label={p.label}
             onPress={() =>
-              debugOverride({
-                lastActionDate: daysAgoLocal(p.days),
-                firstUseDate: daysAgoLocal(p.days),
-                useDays: FIRST_SHOW_USE_DAYS,
-                permanentlyDismissed: false,
-                dismissCount: 0,
-              })
+              debugOverride(
+                {
+                  lastActionDate: daysAgoLocal(p.days),
+                  permanentlyDismissed: false,
+                  dismissCount: 0,
+                },
+                { firstUseDate: daysAgoLocal(p.days), useDays: FIRST_SHOW_USE_DAYS }
+              )
             }
             variant="ghost"
             size="sm"
@@ -206,12 +214,10 @@ function SupportCardDebug({ isDark }: { isDark: boolean }) {
         <Button
           label="Clear dismissed"
           onPress={() =>
-            debugOverride({
-              lastActionDate: daysAgoLocal(31),
-              firstUseDate: daysAgoLocal(31),
-              useDays: FIRST_SHOW_USE_DAYS,
-              permanentlyDismissed: false,
-            })
+            debugOverride(
+              { lastActionDate: daysAgoLocal(31), permanentlyDismissed: false },
+              { firstUseDate: daysAgoLocal(31), useDays: FIRST_SHOW_USE_DAYS }
+            )
           }
           variant="ghost"
           size="sm"
@@ -219,7 +225,7 @@ function SupportCardDebug({ isDark }: { isDark: boolean }) {
         <Button
           testID="debug-support-legacy-toggle"
           label={`${isLegacyPurchaser ? 'Unset' : 'Set'} legacy`}
-          onPress={() => debugOverride({ isLegacyPurchaser: !isLegacyPurchaser })}
+          onPress={() => supportOverride({ isLegacyPurchaser: !isLegacyPurchaser })}
           variant="ghost"
           size="sm"
         />

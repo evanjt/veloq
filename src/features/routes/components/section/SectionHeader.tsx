@@ -12,7 +12,7 @@ import {
   DetailHero,
   HeroStatsRow,
   Shimmer,
-  SkeletonFrame,
+  SkeletonGroup,
   useHeroHeaderBottom,
   useHeroMapHeight,
 } from '@/shared/ui';
@@ -197,9 +197,9 @@ export function SectionHeader({
           headerBottom={headerBottom}
         />
       ) : (
-        <SkeletonFrame testID="section-hero-skeleton" style={{ height: mapHeight }}>
+        <SkeletonGroup testID="section-hero-skeleton" style={{ height: mapHeight }}>
           <Shimmer width="100%" height={mapHeight} borderRadius={0} />
-        </SkeletonFrame>
+        </SkeletonGroup>
       )}
     </DetailHero>
   );

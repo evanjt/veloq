@@ -2340,7 +2340,6 @@ mod tests {
             created_at: Some("2026-01-28T00:00:00Z".to_string()),
             enrichment: Default::default(),
             rank: None,
-            consensus_state: None,
         }
     }
 
