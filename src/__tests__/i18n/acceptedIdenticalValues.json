@@ -402,7 +402,8 @@
     "charts.summary.single": "Placeholders and punctuation only, no translatable words.",
     "charts.summary.parts": "Placeholders and punctuation only, no translatable words.",
     "statsScreen.lthr": "Conventional training or recording abbreviation.",
-    "poolSwim.columns.swolf": "Conventional training or recording abbreviation."
+    "poolSwim.columns.swolf": "Conventional training or recording abbreviation.",
+    "common.experimental": "Spanish word or phrase with the same spelling."
   },
   "es-ES": {
     "activity.stats.maxLabel": "Abbreviation of the Spanish label with the same spelling.",
@@ -486,7 +487,8 @@
     "charts.summary.single": "Placeholders and punctuation only, no translatable words.",
     "charts.summary.parts": "Placeholders and punctuation only, no translatable words.",
     "statsScreen.lthr": "Conventional training or recording abbreviation.",
-    "poolSwim.columns.swolf": "Conventional training or recording abbreviation."
+    "poolSwim.columns.swolf": "Conventional training or recording abbreviation.",
+    "common.experimental": "Spanish word or phrase with the same spelling."
   },
   "es": {
     "activity.stats.trimp": "Conventional training or recording abbreviation.",
@@ -563,7 +565,8 @@
     "charts.summary.single": "Placeholders and punctuation only, no translatable words.",
     "charts.summary.parts": "Placeholders and punctuation only, no translatable words.",
     "statsScreen.lthr": "Conventional training or recording abbreviation.",
-    "poolSwim.columns.swolf": "Conventional training or recording abbreviation."
+    "poolSwim.columns.swolf": "Conventional training or recording abbreviation.",
+    "common.experimental": "Spanish word or phrase with the same spelling."
   },
   "fr": {
     "backup.entryAppVersion": "French word or phrase with the same spelling.",
@@ -1165,7 +1168,8 @@
     "charts.summary.title": "Placeholder and full stop only, no translatable words.",
     "charts.summary.single": "Placeholders and punctuation only, no translatable words.",
     "charts.summary.parts": "Placeholders and punctuation only, no translatable words.",
-    "poolSwim.columns.swolf": "Conventional training or recording abbreviation."
+    "poolSwim.columns.swolf": "Conventional training or recording abbreviation.",
+    "common.experimental": "Brazilian Portuguese word or phrase with the same spelling."
   },
   "pt": {
     "activity.stats.maxLabel": "Abbreviation of the Portuguese label with the same spelling.",
@@ -1256,7 +1260,8 @@
     "charts.summary.title": "Placeholder and full stop only, no translatable words.",
     "charts.summary.single": "Placeholders and punctuation only, no translatable words.",
     "charts.summary.parts": "Placeholders and punctuation only, no translatable words.",
-    "poolSwim.columns.swolf": "Conventional training or recording abbreviation."
+    "poolSwim.columns.swolf": "Conventional training or recording abbreviation.",
+    "common.experimental": "Portuguese word or phrase with the same spelling."
   },
   "zh-Hans": {
     "backgroundJobs.progressPercent": "Numeric percentage template.",

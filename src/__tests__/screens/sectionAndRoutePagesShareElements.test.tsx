@@ -24,6 +24,7 @@ import { getRouteCoordinates } from '@/shared/demo/routes/routes';
 import { Button, paint } from '@/shared/ui/Button';
 import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 import { useMapSheetStops } from '@/shared/app/mapSheetStop';
+import { useDebugStore } from '@/features/settings/light';
 
 const DEMO_ROUTE = 'route-valais-ride-2';
 
@@ -458,6 +459,10 @@ async function openPage(page: 'section' | 'route') {
 }
 
 describe('the section page and the route page over one demo route', () => {
+  // The efficiency card is experimental, drawn only with the developer switch on.
+  beforeEach(() => useDebugStore.setState({ enabled: true, unlocked: true }));
+  afterEach(() => useDebugStore.setState({ enabled: false, unlocked: false }));
+
   it('dates the first and last attempt the same on both pages', async () => {
     expect(attempts.length).toBeGreaterThan(2);
 

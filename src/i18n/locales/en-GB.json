@@ -484,6 +484,7 @@
     "wbal": "W'bal"
   },
   "common": {
+    "experimental": "Experimental",
     "back": "Back",
     "close": "Close",
     "cancel": "Cancel",
@@ -1200,8 +1201,6 @@
     "keyYearOrMore": "A year or more",
     "keyFewerPasses": "Fewer passes",
     "keyMorePasses": "More passes",
-    "keyEachSection": "Each section its own colour",
-    "keyEachRoute": "Each route its own colour",
     "chooseSection": "Choose a section",
     "colorByGradient": "Colour by gradient",
     "disable3D": "Disable 3D view",

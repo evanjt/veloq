@@ -484,6 +484,7 @@
     "wbal": "W'bal"
   },
   "common": {
+    "experimental": "Eksperimentel",
     "back": "Tilbage",
     "close": "Luk",
     "cancel": "Annuller",
@@ -1220,8 +1221,6 @@
     "keyYearOrMore": "Et år eller mere",
     "keyFewerPasses": "Færre passager",
     "keyMorePasses": "Flere passager",
-    "keyEachSection": "Hver sektion sin egen farve",
-    "keyEachRoute": "Hver rute sin egen farve",
     "colorByGradient": "Farv efter gradient",
     "periodThisYear": "I år",
     "sheetSize": "Størrelse på kort og detaljer",

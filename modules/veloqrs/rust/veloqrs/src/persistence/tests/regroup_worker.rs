@@ -433,11 +433,14 @@ fn test_swap_against_a_replaced_install_announces_nothing() {
     assert!(events.is_empty(), "announced {events:?}");
 }
 
-/// A lock take adopts a commit the pass made before its swap runs. That is the
-/// moment the catalogue changes, so it is the moment readers are told, and the
-/// swap that finds the generation current says nothing more.
+/// Scenario: a lock take adopts a commit the pass made before its swap runs,
+/// so readers are told of the new catalogue while the regroup is still owed,
+/// and the swap that finds the generation current then clears the flag.
+/// Expected behaviour: readers are told again once the flag has cleared, so a
+/// screen that read the owed flag on the first announcement is not left
+/// reading it after the regroup has settled.
 #[test]
-fn test_lock_take_adopting_the_commit_announces_before_the_swap_runs() {
+fn test_swap_clearing_the_flag_a_lock_take_announced_announces_again() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("regroup.db");
     grouped_library(&[("t", 44.0)]);
@@ -449,7 +452,7 @@ fn test_lock_take_adopting_the_commit_announces_before_the_swap_runs() {
     entered
         .recv_timeout(WAIT)
         .expect("the pass reached its swap");
-    with_persistent_engine(|_| ()).expect("engine");
+    let read_on_adopt = with_persistent_engine(|engine| engine.groups_are_dirty()).expect("engine");
     let before_swap = recorder.events();
     resume.send(()).unwrap();
     assert!(wait_for_regroup(WAIT));
@@ -457,13 +460,51 @@ fn test_lock_take_adopting_the_commit_announces_before_the_swap_runs() {
     set_observer(None);
 
     assert_eq!(before_swap, vec!["groups_changed"]);
-    assert_eq!(events, vec!["groups_changed"]);
+    assert!(
+        read_on_adopt,
+        "the adopting take reads the regroup still owed"
+    );
+    assert!(!with_persistent_engine(|engine| engine.groups_are_dirty()).expect("engine"));
+    assert_eq!(events, vec!["groups_changed", "groups_changed"]);
 }
 
-/// A detection run that regroups and commits on its own worker adopts the
-/// result through the lock, and that adoption is what readers hear of.
+/// Scenario: a pass commits, but a store lands before its swap, so the swap
+/// leaves the regroup owed and runs a second pass.
+/// Expected behaviour: the flag never cleared, so no swap announces a clear;
+/// readers hear only of the catalogues that were adopted.
 #[test]
-fn test_worker_detection_regroup_announces_the_adopted_groups_once() {
+fn test_swap_leaving_the_flag_owed_announces_no_clear() {
+    let _serial = serial_global_state();
+    let _dir = init_global_engine("regroup.db");
+    grouped_library(&[("t", 44.0)]);
+    let (entered, resume) = pause_next_regroup_swap();
+    assert!(schedule());
+    entered
+        .recv_timeout(WAIT)
+        .expect("the pass reached its swap");
+    with_persistent_engine(|engine| store(engine, "u", 48.0)).expect("engine");
+    let recorder = Recorder::new();
+    set_observer(Some(recorder.clone()));
+    let (entered_second, resume_second) = pause_next_regroup_swap();
+    resume.send(()).unwrap();
+    entered_second
+        .recv_timeout(WAIT)
+        .expect("the second pass reached its swap");
+    let between_passes = recorder.events();
+    resume_second.send(()).unwrap();
+    assert!(wait_for_regroup(WAIT));
+    set_observer(None);
+
+    assert!(between_passes.is_empty(), "announced {between_passes:?}");
+}
+
+/// Scenario: a detection run that regroups and commits on its own worker
+/// adopts the groups in the hold that saves its sections, with the regroup
+/// still owed, and clears the flag in the later hold that finalizes the run.
+/// Expected behaviour: readers hear of the adopted groups and again of the
+/// cleared flag, since a reader woken by the first can read between the holds.
+#[test]
+fn test_worker_detection_regroup_announces_the_groups_and_the_settled_flag() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("regroup.db");
     grouped_library(&[("t", 44.0)]);
@@ -480,11 +521,14 @@ fn test_worker_detection_regroup_announces_the_adopted_groups_once() {
     let events = recorder.events();
     set_observer(None);
 
-    let groups = with_persistent_engine(|engine| engine.groups.clone()).expect("engine");
+    let (groups, dirty) =
+        with_persistent_engine(|engine| (engine.groups.clone(), engine.groups_are_dirty()))
+            .expect("engine");
     assert!(holder(&groups, "t").is_some());
+    assert!(!dirty);
     assert_eq!(
         events.iter().filter(|e| *e == "groups_changed").count(),
-        1,
+        2,
         "announced {events:?}"
     );
 }

@@ -484,6 +484,7 @@
     "wbal": "W'bal"
   },
   "common": {
+    "experimental": "試験運用",
     "back": "戻る",
     "close": "閉じる",
     "cancel": "キャンセル",
@@ -1220,8 +1221,6 @@
     "keyYearOrMore": "1年以上前",
     "keyFewerPasses": "通過が少ない",
     "keyMorePasses": "通過が多い",
-    "keyEachSection": "セクションごとに異なる色",
-    "keyEachRoute": "ルートごとに異なる色",
     "colorByGradient": "勾配で色付け",
     "periodThisYear": "今年",
     "sheetSize": "地図と詳細のサイズ",

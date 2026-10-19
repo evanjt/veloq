@@ -109,6 +109,9 @@ export function generateEfficiencyTrendInsights(
       timestamp: now,
       isNew: false,
       confidence: confidenceFrom('efficiency_trend', trend.effortCount),
+      // Heart rate times pace has not been shown to follow heart rate at a
+      // matched pace, so the card is experimental until a method that does is.
+      experimental: true,
       meta: {
         sourceTimestamp: now,
         comparisonKind: 'self',

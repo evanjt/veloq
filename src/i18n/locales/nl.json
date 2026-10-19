@@ -484,6 +484,7 @@
     "wbal": "W'bal"
   },
   "common": {
+    "experimental": "Experimenteel",
     "back": "Terug",
     "close": "Sluiten",
     "cancel": "Annuleren",
@@ -1220,8 +1221,6 @@
     "keyYearOrMore": "Een jaar of ouder",
     "keyFewerPasses": "Minder passages",
     "keyMorePasses": "Meer passages",
-    "keyEachSection": "Elke sectie een eigen kleur",
-    "keyEachRoute": "Elke route een eigen kleur",
     "colorByGradient": "Kleur op stijging",
     "periodThisYear": "Dit jaar",
     "sheetSize": "Grootte van kaart en details",

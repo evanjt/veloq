@@ -9,6 +9,7 @@
  * `./components` or `./index`.
  */
 export { useMapPreferences } from './stores/MapPreferencesContext';
+export { useDebugStore } from './stores/DebugStore';
 export {
   useDashboardPreferences,
   type SummaryCardPreferences,

@@ -235,8 +235,6 @@ export function MapControlStack({
   const menuOpen = layersOpen && hasLayers;
   const recencyEnds = [t('maps.keyRecent'), t('maps.keyYearOrMore')] as const;
   const heatEnds = [t('maps.keyFewerPasses'), t('maps.keyMorePasses')] as const;
-  const sectionsKey = t('maps.keyEachSection');
-  const routesKey = t('maps.keyEachRoute');
   useBackDismiss(menuOpen, () => setLayersOpen(false));
 
   // Any other control, and fit-all, closes the menu on the way: the athlete has
@@ -371,12 +369,9 @@ export function MapControlStack({
                     swatch={linePalette.layer.sections.slice(0, LINE_KEY_COLOURS)}
                     dash={SECTION_LINE_DASH}
                     edge={linePalette.edge}
-                    label={sectionsKey}
-                    isDark={isDark}
                   />
                 ) : undefined
               }
-              keyHint={sectionsKey}
             />
           ) : null}
           {onToggleHeatmap ? (
@@ -415,12 +410,9 @@ export function MapControlStack({
                     testID="map-key-routes"
                     swatch={linePalette.layer.routes.slice(0, LINE_KEY_COLOURS)}
                     edge={linePalette.edge}
-                    label={routesKey}
-                    isDark={isDark}
                   />
                 ) : undefined
               }
-              keyHint={routesKey}
             />
           ) : null}
           {hasActivities ? (
