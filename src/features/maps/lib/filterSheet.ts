@@ -13,10 +13,57 @@ export function filterSheetExpandedAfterDrag(
   translationY: number,
   velocityY: number
 ): boolean {
+  'worklet';
   if (Math.abs(velocityY) >= FLING_VELOCITY) return velocityY < 0;
   if (translationY < -DRAG_THRESHOLD) return true;
   if (translationY > DRAG_THRESHOLD) return false;
   return expanded;
+}
+
+/**
+ * The sheet's height while a finger drags it from `startHeight`: it follows the
+ * finger and stops at the lowered and raised heights.
+ */
+export function filterSheetDragHeight(
+  startHeight: number,
+  translationY: number,
+  lowered: number,
+  raised: number
+): number {
+  'worklet';
+  return Math.min(raised, Math.max(lowered, startHeight - translationY));
+}
+
+/**
+ * The height the sheet settles on when the finger lifts, the stop
+ * `filterSheetExpandedAfterDrag` picks.
+ */
+export function filterSheetSettleHeight(
+  expanded: boolean,
+  translationY: number,
+  velocityY: number,
+  lowered: number,
+  raised: number
+): number {
+  'worklet';
+  return filterSheetExpandedAfterDrag(expanded, translationY, velocityY) ? raised : lowered;
+}
+
+/**
+ * The sheet's two stops. Lowered it shows `loweredHeight`, the handle and the rows
+ * under it; raised it adds the `raisedRows` under those, up to `maxHeight`, past
+ * which its filters scroll.
+ */
+export function filterSheetStops(
+  loweredHeight: number,
+  raisedRows: number,
+  maxHeight: number | undefined
+): { lowered: number; raised: number } {
+  const bound = maxHeight ?? Infinity;
+  return {
+    lowered: Math.min(loweredHeight, bound),
+    raised: Math.min(loweredHeight + raisedRows, bound),
+  };
 }
 
 /**

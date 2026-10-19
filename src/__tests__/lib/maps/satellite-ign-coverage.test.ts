@@ -146,11 +146,11 @@ describe('the IGN source is asked only for tiles over France', () => {
     expect(getCombinedSatelliteAttribution(45.07, 7.686, 14)).not.toContain('IGN');
     // Barcelona is PNOA's, and IGN was credited over it while the box reached
     // the Ebro.
-    expect(getCombinedSatelliteAttribution(41.385, 2.173, 14)).not.toContain('IGN France');
+    expect(getCombinedSatelliteAttribution(41.385, 2.173, 14)).not.toContain('IGN');
   });
 
   it('keeps one IGN entry, one template and one credit behind the boxes', () => {
-    expect(SATELLITE_SOURCES.ign.attribution).toBe('© IGN France');
+    expect(SATELLITE_SOURCES.ign.attribution).toBe('© IGN');
     expect(SATELLITE_SOURCES.ign.tiles).toHaveLength(1);
   });
 });

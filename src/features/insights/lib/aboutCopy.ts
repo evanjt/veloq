@@ -28,12 +28,7 @@ export function aboutInsightsBody(t: TFunction, tab: InsightsTab): string {
 
 /** The kinds the Insights card explains, each covering one or more categories. */
 export type InsightKind =
-  | 'sectionsAndRoutes'
-  | 'fitness'
-  | 'week'
-  | 'hrv'
-  | 'strength'
-  | 'sectionChanges';
+  'sectionsAndRoutes' | 'fitness' | 'week' | 'hrv' | 'strength' | 'sectionChanges';
 
 /** The kind each category is explained under, so no category goes unexplained. */
 export const INSIGHT_KIND: Record<InsightCategory, InsightKind> = {
@@ -84,7 +79,10 @@ const KIND_COPY: readonly { kind: InsightKind; label: ParseKeys; text: ParseKeys
   },
 ];
 
-/** The card at the foot of the Insights sub-tab. */
+/**
+ * The card at the foot of the Insights sub-tab. It leaves out how the cards are
+ * ordered, which the header's information button says on this sub-tab.
+ */
 export function insightsExplanation(t: TFunction): Explanation {
   const kinds: ExplanationRow[] = KIND_COPY.map(({ kind, label, text }) => ({
     key: `kind:${kind}`,
@@ -100,11 +98,6 @@ export function insightsExplanation(t: TFunction): Explanation {
         text: t('insights.explanation.found') as string,
       },
       ...kinds,
-      {
-        key: 'order',
-        label: t('insights.explanation.orderLabel') as string,
-        text: t('insights.aboutRanking') as string,
-      },
       {
         key: 'sources',
         label: t('insights.explanation.sourcesLabel') as string,

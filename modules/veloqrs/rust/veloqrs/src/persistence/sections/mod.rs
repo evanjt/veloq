@@ -15,6 +15,9 @@ pub(crate) mod detection;
 // gate can put the two encodes side by side.
 pub use detection::{EvidenceRow, encode_evidence_row};
 pub(crate) mod attempt_histogram;
+#[cfg(test)]
+#[path = "tests/catalogue_write_lock.rs"]
+mod catalogue_write_lock_tests;
 mod editing;
 pub(crate) mod geometry;
 pub(crate) mod history;
@@ -1914,7 +1917,14 @@ impl PersistentEngine {
         from_detect: bool,
     ) -> SqlResult<HashSet<String>> {
         let mut skipped = HashSet::new();
-        let tx = self.db.unchecked_transaction()?;
+        // Immediate, because a detect reads the outgoing catalogue before it
+        // writes: a deferred one whose read predates a regroup's commit on
+        // another connection cannot take the write lock afterwards and fails
+        // without waiting.
+        let tx = rusqlite::Transaction::new_unchecked(
+            &self.db,
+            rusqlite::TransactionBehavior::Immediate,
+        )?;
 
         // The detector that cut what is on disk no longer matches the live
         // one, so every shape it drew is about to be replaced by a different

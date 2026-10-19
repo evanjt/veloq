@@ -399,6 +399,217 @@ fn net_zero_activity_swap_during_cutover_leaves_detection_dirty() {
     assert!(with_persistent_engine(|e| e.stats().sections_dirty).unwrap());
 }
 
+fn stored_group_generation(path: &std::path::Path) -> u64 {
+    let db = rusqlite::Connection::open(path).expect("open");
+    match db.query_row(
+        "SELECT blob FROM identity_state WHERE key = 'route_groups_generation'",
+        [],
+        |row| row.get::<_, Vec<u8>>(0),
+    ) {
+        Ok(bytes) => u64::from_le_bytes(bytes.try_into().expect("an eight-byte generation")),
+        Err(rusqlite::Error::QueryReturnedNoRows) => 0,
+        Err(e) => panic!("generation read failed: {e}"),
+    }
+}
+
+/// Scenario: the grouping is owed when the cutover starts, and its own detect
+/// regroups and commits.
+///
+/// Expected behaviour: the run answers the regroup it made, so the routes read
+/// reports nothing owed once the cutover returns, without a relaunch.
+#[test]
+fn a_cutover_whose_detect_regrouped_leaves_no_regroup_owed() {
+    let _serial_state = super::serial_state();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    seed_older_build_engine(&path);
+    assert!(with_persistent_engine(|e| e.groups_are_dirty()).unwrap());
+    let generation_before = stored_group_generation(&path);
+
+    let outcome = veloqrs::persistence::cutover::run_cutover().expect("cutover");
+
+    assert!(matches!(outcome, CutoverOutcome::Completed(_)));
+    assert!(stored_group_generation(&path) > generation_before);
+    assert!(!with_persistent_engine(|e| e.groups_are_dirty()).unwrap());
+}
+
+/// Wait until the routes regroup is no longer owed, and say whether that
+/// happened within `limit`. Reads the flag only, since `get_groups` would
+/// regroup in the foreground and hide a regroup nobody scheduled.
+fn regroup_settles_within(limit: std::time::Duration) -> bool {
+    let deadline = std::time::Instant::now() + limit;
+    while std::time::Instant::now() < deadline {
+        if !with_persistent_engine(|e| e.groups_are_dirty()).unwrap() {
+            return true;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    false
+}
+
+/// Whether the regroup is owed with nothing scheduled to answer it: the flag
+/// is set and the slot is free. A run that scheduled one leaves the slot held
+/// or the flag cleared.
+fn regroup_owed_and_unscheduled() -> bool {
+    with_persistent_engine(|e| {
+        if !e.groups_are_dirty() {
+            return false;
+        }
+        e.schedule_regroup().is_some()
+    })
+    .unwrap()
+}
+
+fn grouped_activity_ids(path: &std::path::Path) -> String {
+    let db = rusqlite::Connection::open(path).expect("open");
+    let mut statement = db
+        .prepare("SELECT activity_ids FROM route_groups")
+        .expect("prepare");
+    statement
+        .query_map([], |row| row.get::<_, String>(0))
+        .expect("query")
+        .map(|ids| ids.expect("row"))
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+/// A library whose groups are current when the cutover starts, so only a store
+/// made during the run can leave the regroup owed.
+fn seed_with_current_groups(path: &std::path::Path) {
+    seed_older_build_engine(path);
+    with_persistent_engine(|e| {
+        e.get_groups();
+        assert!(!e.groups_are_dirty());
+    })
+    .unwrap();
+}
+
+/// Scenario: an activity is stored while the cutover's detect is in flight,
+/// after it captured the library it groups, and the run completes.
+///
+/// Expected behaviour: the run schedules the regroup it leaves owed, so the
+/// new activity joins a route without another sync or a relaunch.
+#[test]
+fn a_store_during_the_cutover_detect_is_regrouped_once_the_run_ends() {
+    let _serial_state = super::serial_state();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    seed_with_current_groups(&path);
+    let detecting_checks = AtomicUsize::new(0);
+
+    let outcome = veloqrs::persistence::cutover::run_cutover_with(&|phase| {
+        if phase == "detecting" && detecting_checks.fetch_add(1, Ordering::SeqCst) == 1 {
+            with_persistent_engine(|e| {
+                e.add_activity("ride_late".into(), line_track(0.00008), "Ride".into())
+                    .expect("arrival");
+            })
+            .expect("engine");
+        }
+        false
+    })
+    .expect("cutover");
+
+    assert!(matches!(outcome, CutoverOutcome::Completed(_)));
+    assert_eq!(detecting_checks.load(Ordering::SeqCst), 2);
+    assert!(
+        regroup_settles_within(std::time::Duration::from_secs(60)),
+        "the regroup is still owed and nothing is running it"
+    );
+    assert!(grouped_activity_ids(&path).contains("\"ride_late\""));
+}
+
+/// Scenario: the run is stopped in the detect, after a store it did not
+/// capture.
+///
+/// Expected behaviour: a stopped run leaves the regroup to nobody either, so
+/// it schedules it as a completed one does.
+#[test]
+fn a_cutover_stopped_in_its_detect_regroups_a_store_made_during_it() {
+    let _serial_state = super::serial_state();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    seed_with_current_groups(&path);
+    let detecting_checks = AtomicUsize::new(0);
+
+    let outcome = veloqrs::persistence::cutover::run_cutover_with(&|phase| {
+        if phase == "detecting" && detecting_checks.fetch_add(1, Ordering::SeqCst) == 1 {
+            with_persistent_engine(|e| {
+                e.add_activity("ride_late".into(), line_track(0.00008), "Ride".into())
+                    .expect("arrival");
+            })
+            .expect("engine");
+            return true;
+        }
+        false
+    })
+    .expect("cutover");
+
+    assert_eq!(outcome, CutoverOutcome::Cancelled);
+    assert!(
+        regroup_settles_within(std::time::Duration::from_secs(60)),
+        "the regroup is still owed and nothing is running it"
+    );
+    assert!(grouped_activity_ids(&path).contains("\"ride_late\""));
+}
+
+/// Scenario: Route Matching is switched off while the cutover's detect runs,
+/// and an activity is stored in the same window.
+///
+/// Expected behaviour: the run schedules no regroup, since the switch says the
+/// athlete wants no grouping work, and the regroup stays owed for when it
+/// comes back.
+#[test]
+fn a_cutover_schedules_no_regroup_once_route_matching_is_off() {
+    let _serial_state = super::serial_state();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    seed_with_current_groups(&path);
+    let detecting_checks = AtomicUsize::new(0);
+
+    veloqrs::persistence::cutover::run_cutover_with(&|phase| {
+        if phase == "detecting" && detecting_checks.fetch_add(1, Ordering::SeqCst) == 1 {
+            with_persistent_engine(|e| {
+                e.add_activity("ride_late".into(), line_track(0.00008), "Ride".into())
+                    .expect("arrival");
+                e.set_detection_enabled(false).expect("switch off");
+            })
+            .expect("engine");
+        }
+        false
+    })
+    .expect("cutover");
+
+    assert!(regroup_owed_and_unscheduled());
+}
+
+/// Scenario: a cutover call once the cutover is done, with a store waiting on
+/// its regroup.
+///
+/// Expected behaviour: a run that is not owed rebuilt nothing and schedules
+/// nothing, leaving the regroup to the store's own scheduler.
+#[test]
+fn a_cutover_that_is_not_owed_schedules_no_regroup() {
+    let _serial_state = super::serial_state();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    seed_with_current_groups(&path);
+    assert!(matches!(
+        veloqrs::persistence::cutover::run_cutover().expect("cutover"),
+        CutoverOutcome::Completed(_)
+    ));
+    assert!(regroup_settles_within(std::time::Duration::from_secs(60)));
+    with_persistent_engine(|e| {
+        e.add_activity("ride_late".into(), line_track(0.00008), "Ride".into())
+            .expect("arrival");
+    })
+    .unwrap();
+
+    let outcome = veloqrs::persistence::cutover::run_cutover().expect("not owed");
+
+    assert_eq!(outcome, CutoverOutcome::NotOwed);
+    assert!(regroup_owed_and_unscheduled());
+}
+
 /// A run that died after the switch retries against a catalogue that already
 /// says Unified. Re-archiving then would bury the snapshot the diff needs.
 #[test]

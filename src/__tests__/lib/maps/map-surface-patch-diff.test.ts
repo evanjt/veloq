@@ -322,6 +322,67 @@ describe('diffSpec', () => {
   });
 });
 
+describe('terrain in the surface patch', () => {
+  const traces = collection(2);
+  const tilted = { exaggeration: 1.5, pitch: 60 };
+
+  it('ships a terrain change alone, with no source or layer in it', () => {
+    const p = createSurfacePatcher();
+    const layers = layer('#fff');
+    p.next({ sources: { traces }, layers });
+
+    const { patch, sourceJson } = p.next({ sources: { traces }, layers, terrain: tilted });
+
+    expect(patch).toEqual({ terrain: tilted });
+    const script = buildApplyScript(patch!, sourceJson);
+    expect(script).toContain('"terrain":{"exaggeration":1.5,"pitch":60}');
+    expect(script).not.toContain('"sources"');
+    expect(script).not.toContain('"layers"');
+  });
+
+  it('turns terrain off as null, and absent is off', () => {
+    const p = createSurfacePatcher();
+    const layers = layer('#fff');
+    p.next({ sources: { traces }, layers, terrain: tilted });
+
+    const off = p.next({ sources: { traces }, layers, terrain: null });
+    expect(off.patch).toEqual({ terrain: null });
+    expect(buildApplyScript(off.patch!)).toContain('"terrain":null');
+
+    p.next({ sources: { traces }, layers, terrain: tilted });
+    expect(p.next({ sources: { traces }, layers }).patch).toEqual({ terrain: null });
+  });
+
+  it('sends nothing for a rebuilt terrain spec of the same values', () => {
+    const p = createSurfacePatcher();
+    const layers = layer('#fff');
+    p.next({ sources: { traces }, layers, terrain: tilted });
+
+    expect(p.next({ sources: { traces }, layers, terrain: { ...tilted } }).patch).toBeNull();
+  });
+
+  it('sends a new pitch or exaggeration', () => {
+    const p = createSurfacePatcher();
+    const layers = layer('#fff');
+    p.next({ sources: { traces }, layers, terrain: tilted });
+
+    expect(
+      p.next({ sources: { traces }, layers, terrain: { ...tilted, pitch: 45 } }).patch
+    ).toEqual({ terrain: { exaggeration: 1.5, pitch: 45 } });
+  });
+
+  it('leaves terrain out of a first patch that has none, and sends it again after a forget', () => {
+    const p = createSurfacePatcher();
+    const layers = layer('#fff');
+    expect(p.next({ sources: { traces }, layers }).patch).not.toHaveProperty('terrain');
+    p.next({ sources: { traces }, layers, terrain: tilted });
+
+    p.forget();
+
+    expect(p.next({ sources: { traces }, layers, terrain: tilted }).patch?.terrain).toEqual(tilted);
+  });
+});
+
 describe('buildApplyScript', () => {
   it('carries the appends the patcher decided on', () => {
     const script = buildApplyScript({ appends: { route: [[7.3, 46.2]] } });

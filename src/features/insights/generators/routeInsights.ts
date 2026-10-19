@@ -119,8 +119,15 @@ export function generateRouteInsights(
             row.recentEfforts,
             t('insights.data.recentEfforts'),
             `/route/${row.routeId}`,
-            { format: (seconds) => formatDuration(Math.round(seconds)) }
+            { kind: 'timeline', format: (seconds) => formatDuration(Math.round(seconds)) }
           ),
+          // The figure a card too short a history to draw states instead. It
+          // carries no change: the engine exports the trend's sign, not its size.
+          hero: {
+            label: t('insights.data.bestTime'),
+            value: formatDuration(row.bestTime),
+            context: 'good',
+          },
           routes,
         },
         methodology,

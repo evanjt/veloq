@@ -52,11 +52,14 @@ describe('tab root headers', () => {
     expect(fs.existsSync(path.join(TABS_DIR, 'map', '_layout.tsx'))).toBe(false);
   });
 
+  // A large title makes the iOS bar translucent and only a scroll view insets itself under it, so
+  // a row above the scroll view, such as the page strip of Fitness, Insights or the Feed's pinned
+  // cards, is drawn under the status bar and the bar.
   it('collapses a large title on iOS only where the scroll view is the first child', () => {
     const large = Object.keys(TAB_HEADERS ?? {})
       .filter((tab) => headerLargeTitle(tab, 'ios', TAB_HEADERS))
       .sort();
-    expect(large).toEqual(['fitness', 'settings']);
+    expect(large).toEqual(['settings']);
     for (const tab of Object.keys(TAB_HEADERS ?? {})) {
       expect(headerLargeTitle(tab, 'android', TAB_HEADERS)).toBe(false);
     }

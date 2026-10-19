@@ -100,7 +100,7 @@ describe('the detection preview basemap', () => {
     const tree = await renderMap();
 
     expect(tree.getByTestId('map-attribution-text').props.children).toBe(
-      '© OpenFreeMap © OpenMapTiles © OpenStreetMap'
+      '© OpenFreeMap · © OpenMapTiles · © OpenStreetMap'
     );
   });
 });

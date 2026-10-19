@@ -58,7 +58,7 @@ import {
 } from '@/features/maps/lib/mapSurfaceRegistry';
 import type { ReleasableSurface } from '@/features/maps/lib/mapSurfaceRegistry';
 import { pageOpensAt } from '@/features/maps/lib/settledCamera';
-import type { MapStyleType } from './mapStyles';
+import { TERRAIN_3D_CONFIG, type MapStyleType } from './mapStyles';
 import { jsLiteral } from '@/features/maps/lib/webViewLiterals';
 import { useReduceMotion } from '@/shared/ui/reduceMotion';
 import { MapWebViewHost } from './MapWebViewHost';
@@ -194,8 +194,8 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       mapStyle,
       routeColor: routeColorProp,
       routeGradient = null,
-      initialPitch = 60,
-      terrainExaggeration = 1.5,
+      initialPitch = TERRAIN_3D_CONFIG.defaultPitch,
+      terrainExaggeration = TERRAIN_3D_CONFIG.defaultExaggeration,
       initialCenter,
       initialZoom = 12,
       routesGeoJSON,

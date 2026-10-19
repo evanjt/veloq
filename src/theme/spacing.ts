@@ -71,4 +71,8 @@ export const layout = {
   // Material's 640 dp cap on a modal bottom sheet, so a sheet and the screen
   // under it share one width.
   maxContentWidth: 640,
+  // The map's layers menu: a row's padding, two glyphs and their gaps (96)
+  // plus a 160 label column, which holds the longest English row label and
+  // the key drawn under it.
+  mapLayersMenuWidth: 256,
 } as const;

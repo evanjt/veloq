@@ -12,6 +12,7 @@ import {
   getCombinedSatelliteAttribution,
   type MapStyleType,
 } from '@/features/maps/components/mapStyles';
+import { CREDIT_SEPARATOR } from '@/features/maps/lib/mapSourceCredits';
 import type { LngLatBounds } from '@/features/maps/lib/coordinates';
 
 export interface ComputeAttributionArgs {
@@ -40,15 +41,14 @@ export function computeAttribution({
   zoom,
   bounds,
 }: ComputeAttributionArgs): string {
-  if (style === 'satellite' && center) {
-    const satAttribution = getCombinedSatelliteAttribution(
-      center[1], // lat
-      center[0], // lng
-      zoom,
-      bounds ?? undefined
-    );
-    return is3D ? `${satAttribution} | ${TERRAIN_ATTRIBUTION}` : satAttribution;
-  }
-  const baseAttribution = MAP_ATTRIBUTIONS[style];
-  return is3D ? `${baseAttribution} | ${TERRAIN_ATTRIBUTION}` : baseAttribution;
+  const attribution =
+    style === 'satellite' && center
+      ? getCombinedSatelliteAttribution(
+          center[1], // lat
+          center[0], // lng
+          zoom,
+          bounds ?? undefined
+        )
+      : MAP_ATTRIBUTIONS[style];
+  return is3D ? `${attribution}${CREDIT_SEPARATOR}${TERRAIN_ATTRIBUTION}` : attribution;
 }

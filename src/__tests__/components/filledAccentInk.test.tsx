@@ -19,7 +19,7 @@ import { SyncProgressBanner } from '@/features/maps/components/timeline/SyncProg
 import { ControlBar } from '@/features/recording/components/ControlBar';
 import { UnlockTrack } from '@/features/recording/components/UnlockTrack';
 import { MapControlStack } from '@/features/maps/components/regional/MapControlStack';
-import { colors, darkColors, recording, themePalette } from '@/theme';
+import { colors, darkColors, recording, mapPalette, themePalette } from '@/theme';
 import { contrastRatio } from '../__shared__/contrast';
 
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
@@ -176,6 +176,7 @@ describe('the map control column', () => {
       const { getByTestId } = await render(
         <MapControlStack
           top={100}
+          linePalette={mapPalette(isDark ? 'dark' : 'light')}
           isDark={isDark}
           is3DMode
           can3D

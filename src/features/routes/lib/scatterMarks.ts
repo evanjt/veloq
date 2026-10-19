@@ -147,9 +147,7 @@ export function placeRecordStaircase(
 
 /** How this activity stands against the record, in words the chart writes beside it. */
 export type ScatterStanding =
-  | { kind: 'newRecord'; gain: number | null }
-  | { kind: 'offRecord'; gap: number }
-  | null;
+  { kind: 'newRecord'; gain: number | null } | { kind: 'offRecord'; gap: number } | null;
 
 /**
  * This activity's standing from the engine's gap and progression: a new record

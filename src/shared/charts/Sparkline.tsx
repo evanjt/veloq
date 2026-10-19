@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Canvas, Path, Skia } from '@shopify/react-native-skia';
+import { Path, Skia } from '@shopify/react-native-skia';
+import { Canvas } from '@/shared/ui/SkiaCanvas';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';

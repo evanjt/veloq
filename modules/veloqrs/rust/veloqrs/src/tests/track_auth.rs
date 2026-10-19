@@ -37,7 +37,7 @@ fn test_track_unauthorized_parks_only_when_profile_confirms() {
                 .expect("transport");
         crate::runtime::block_on(park_track_auth_failure(
             &unauthorized_result(),
-            &crate::net::IntervalsSession::new(transport, "1"),
+            &crate::net::intervals::IntervalsSession::new(transport, "1"),
         ));
         assert_eq!(SYNC_SERVICE.snapshot().state, expected);
     }

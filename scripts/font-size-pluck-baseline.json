@@ -10,7 +10,6 @@
   "src/features/insights/components/content/PeriodComparisonContent.tsx": 1,
   "src/features/insights/components/InsightDebugPanel.tsx": 1,
   "src/features/insights/components/InsightListCard.tsx": 2,
-  "src/features/maps/components/BaseMapView.tsx": 1,
   "src/features/maps/components/regional/MapPopup.tsx": 1,
   "src/features/maps/components/SectionCreationOverlay.tsx": 1,
   "src/features/recording/components/RecordingTitle.tsx": 1,

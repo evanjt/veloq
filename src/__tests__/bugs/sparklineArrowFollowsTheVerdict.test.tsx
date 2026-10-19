@@ -72,8 +72,7 @@ async function drawn(data: InsightSupportingData) {
   const line = all.find((n) => (n.type as unknown) === CurveChart);
   return {
     glyph: glyphs[0]?.props as
-      | { name: string; color: string; accessibilityLabel?: string }
-      | undefined,
+      { name: string; color: string; accessibilityLabel?: string } | undefined,
     glyphCount: glyphs.length,
     line: line?.props.color as string,
   };

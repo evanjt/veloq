@@ -24,7 +24,7 @@ tags:
 
 - extendedWaitUntil:
     visible:
-      id: "activity-detail-content"
+      id: "activity-detail-screen"
     timeout: 15000
 
 - tapOn:
@@ -51,6 +51,16 @@ tags:
         text: "No matched sections"
     commands:
       - takeScreenshot: "screenshots/sections-scrub-no-sections"
+
+# The sheet opens at its middle stop, where the third row sits under the
+# system gesture bar and a long-press there reaches the system rather than the
+# row. Drag the sheet up by its header so every pressed row is clear of it.
+- swipe:
+    start: 50%, 54%
+    end: 50%, 8%
+    duration: 600
+- waitForAnimationToEnd:
+    timeout: 2000
 
 # Long-press each rendered row. activateAfterLongPress fires the Pan gesture
 # at LONG_PRESS_DURATION (500ms), and the Rust-side haptic + row highlight

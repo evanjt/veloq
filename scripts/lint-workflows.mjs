@@ -32,7 +32,9 @@
 //              `cargo test` or `cargo build`
 //   builds     each platform's native build lives in one reusable workflow,
 //              build-android.yml or build-ios.yml, which only a workflow_call
-//              starts, so a pull request, main, a tag and E2E build one way
+//              starts, so a pull request, main, a tag and E2E build one way;
+//              the code scan alone may generate the Android project, to compile
+//              under CodeQL's tracer, and packages nothing
 //   calls      a call into a local reusable workflow names one that exists,
 //              passes only the inputs it declares and every one it requires
 //   rust       a compiled Rust library is saved to the cache directly after the
@@ -106,6 +108,8 @@ const SCHEDULE_ALLOWED = {
     'the daily sweep tests the default branch head and looks for drift in what the app talks to, which moves without a push',
   '.github/workflows/rust-advisories.yml':
     'the advisory database moves without a push, so an unchanged lockfile is scanned again against it',
+  '.github/workflows/codeql.yml':
+    'the query packs move without a push, so an unchanged sha is scanned again with newer queries',
 };
 
 /** Workflows that must keep an aggregator, since branch protection names it. */
@@ -136,6 +140,13 @@ const NATIVE_BUILDS = [
   [/\bpod\s+install\b/, 'pod install'],
   [/\bfastlane\s+\w+\s+build_\w+/, 'a fastlane build lane'],
 ];
+
+/** Native build commands a workflow outside the definitions may run, and why. */
+const NATIVE_BUILD_ALLOWED = {
+  '.github/workflows/codeql.yml': {
+    'expo prebuild': 'compiles the Kotlin and Java for CodeQL and packages nothing',
+  },
+};
 
 /** The bundle CocoaPods is installed from, so CI and every machine run one version. */
 const POD_GEMFILE = 'config/fastlane/Gemfile';
@@ -277,7 +288,6 @@ function neverCancelsMain(expression) {
   return e.includes(OFF_MAIN) && !e.includes('||');
 }
 
-/** The native build a run script performs, by name, or null when it performs none. */
 /** Whether an environment hands CMake ccache as a compiler launcher. */
 function launchesCcache(env) {
   return ['CMAKE_C_COMPILER_LAUNCHER', 'CMAKE_CXX_COMPILER_LAUNCHER'].some(
@@ -285,14 +295,15 @@ function launchesCcache(env) {
   );
 }
 
-function nativeBuild(run) {
+/** The native builds a run script performs, by name, each once. */
+function nativeBuilds(run) {
   const lines = text(run)
     .replace(/\\\r?\n/g, ' ')
     .split('\n');
-  for (const [pattern, name] of NATIVE_BUILDS) {
-    if (lines.some((line) => pattern.test(line))) return name;
-  }
-  return null;
+  const names = NATIVE_BUILDS.filter(([pattern]) => lines.some((line) => pattern.test(line))).map(
+    ([, name]) => name
+  );
+  return [...new Set(names)];
 }
 
 /**
@@ -300,7 +311,7 @@ function nativeBuild(run) {
  * build, an npm install, or a cache restored to a path inside the workspace.
  */
 function writesWorkspace(step) {
-  if (nativeBuild(step.run) !== null) return true;
+  if (nativeBuilds(step.run).length > 0) return true;
   if (/\bnpm\s+(ci|install)\b/.test(text(step.run))) return true;
   if (action(step) === './.github/actions/npm-ci') return true;
   if (action(step) === 'actions/cache/restore') {
@@ -313,7 +324,7 @@ function writesWorkspace(step) {
 }
 
 function checkKeys(file, id, steps) {
-  if (!steps.some((step) => nativeBuild(step.run) !== null)) return;
+  if (!steps.some((step) => nativeBuilds(step.run).length > 0)) return;
   const first = steps.findIndex(writesWorkspace);
   if (first === -1) return;
   steps.slice(first + 1).forEach((step, i) => {
@@ -415,8 +426,9 @@ function checkStep(file, where, step, isBenchWorkflow, isDefinition = false) {
   checkSpliced(file, where, 'script:', step.with?.script);
   const uses = action(step);
   const w = step.with ?? {};
-  const build = nativeBuild(step.run);
-  if (build !== null && !isDefinition) {
+  const allowed = NATIVE_BUILD_ALLOWED[file] ?? {};
+  for (const build of isDefinition ? [] : nativeBuilds(step.run)) {
+    if (build in allowed) continue;
     fail(
       file,
       where,
@@ -788,7 +800,7 @@ function checkVariant(file, id, job, workflowEnv) {
       'sets APP_VARIANT, which holds for this step alone, so a later step that reads the Expo configuration builds another identity. Set it once in the job env from inputs.variant.'
     );
   }
-  if (!steps.some((step) => nativeBuild(step.run) !== null)) return;
+  if (!steps.some((step) => nativeBuilds(step.run).length > 0)) return;
   const value = job.env?.APP_VARIANT ?? workflowEnv?.APP_VARIANT;
   if (VARIANT_FROM_CALLER.test(text(value).trim())) return;
   fail(

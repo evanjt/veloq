@@ -931,36 +931,35 @@
     "explanation": {
       "title": "Einblick verstaa",
       "foundLabel": "Methode",
-      "found": "Veloq vergliicht dini neuschte Aktivitäte und Wellness-Date mit dim eigete Verlauf, uf däm Telefon, und zeigt e Charte für jede Rekord, jedi Veränderig und jede Trend, wo s findet.",
+      "found": "Veloq vergliicht dini neuschte Aktivitäte und Wellness-Date mit dim eigete Verlauf, uf däm Telefon.",
       "kinds": {
         "sectionsAndRoutes": {
           "label": "Abschnitt und Route",
-          "text": "En neue Rekord, e Reihe vo schnällere oder langsamere Ziite oder e veränderti Herzfrequänz bim gliiche Tempo, uf emne Abschnitt oder enere Route, wo du widerholsch."
+          "text": "Rekord, schnälleri oder langsameri Ziite und Herzfrequänz bim gliiche Tempo."
         },
         "fitness": {
           "label": "eFTP und kritischi Gschwindigkeit",
-          "text": "E Änderig vo dinere eFTP oder kritische Gschwindigkeit und d Abschnittsrekord, wo du ufgstellt hesch, wo si tüüfer gsi isch."
+          "text": "E Änderig vo eim vo beidne und d Rekord, wo du ufgstellt hesch, wo de Wärt tüüfer gsi isch."
         },
         "week": {
           "label": "Die Wuche",
-          "text": "Trainingsziit und -belaschtig vo dere Wuche bis jetzt, vergliche mit em gliiche Zitpunkt letschti Wuche."
+          "text": "Die Wuche bis jetzt gäge di letschti, oder di letschti Wuche gäge de 4-Wuche-Durchschnitt."
         },
         "hrv": {
           "label": "Herzfrequänzvariabilität",
-          "text": "Dini HRV vo de letschte 7 Täg, di neuere Mässige gäge di ältere."
+          "text": "Dini letschte 7 Täg, di neuere Mässige gäge di ältere."
         },
         "strength": {
           "label": "Chraft",
-          "text": "D gwichtete Sätz vonere Muskelgruppe, stiigend oder nalaand, und s Gliichgwicht zwüsche gägenüberliegende Muskelgruppe."
+          "text": "Gwichteti Sätz pro Muskelgruppe und s Gliichgwicht vo gägenüberliegende Gruppe."
         },
         "sectionChanges": {
           "label": "Abschnittsänderige",
-          "text": "En Abschnitt, wo neu zuegschnitte, teilt, widerhergstellt oder uf e früecheri Version zruggsetzt worde isch."
+          "text": "En Abschnitt, neu zuegschnitte, teilt, widerhergstellt oder zruggsetzt."
         }
       },
-      "orderLabel": "Riihefolg",
       "sourcesLabel": "Quälle",
-      "sources": "Ziite, Distanze, Herzfrequänz und Leischtig chömed us dine Aktivitäte. eFTP, kritischi Gschwindigkeit und HRV sind d Wärt, wo intervals.icu für di füehrt. Mach e Charte uf und tipp uf «{{howCalculated}}» für Methode und Date.",
+      "sources": "Ziite, Herzfrequänz und Leischtig chömed us dine Aktivitäte, eFTP, kritischi Gschwindigkeit und HRV vo intervals.icu, und Methode und Date vo jeder Charte stönd under «{{howCalculated}}».",
       "strengthTitle": "Chraft verstaa"
     },
     "aboutRanking": "Die Karten sind danach sortiert, wie viel sie zu sagen haben: wie aktuell etwas ist, wie stark es von deinem Ueblichen abweicht, wie sehr es sich veraendert hat und wie oft du es machst.",
@@ -986,7 +985,6 @@
       "lowSignal": "Wenig Date",
       "noSignal": "Kei Date",
       "allOneSideTitle": "{{pair}}: gesamtes Volumen auf einer Seite",
-      "dominantTitle": "{{dominant}} trägt mehr Volumen in {{pair}}",
       "oneSidedBody": "{{dominant}} stellt das gesamte gewichtete Satzvolumen für {{pair}} der letzten 4 Wochen.",
       "ratioBody": "{{pair}} liegt im jüngsten 4-Wochen-Fenster bei durchschnittlich {{ratio}} gewichteten Sätzen.",
       "ratioLabel": "Verhältnis",
@@ -1196,9 +1194,16 @@
     "keyYearOrMore": "Ein Jahr oder älter",
     "keyFewerPasses": "Weniger Durchgänge",
     "keyMorePasses": "Mehr Durchgänge",
+    "keyEachSection": "Jeder Abschnitt in eigener Farbe",
+    "keyEachRoute": "Jede Route in eigener Farbe",
     "colorByGradient": "Nach Gfälli färbe",
     "periodThisYear": "Dieses Jahr",
     "sheetSize": "Grösse von Karte und Details",
+    "detailLoading": {
+      "activity": "Aktivität wird glade",
+      "route": "Route wird glade",
+      "section": "Abschnitt wird glade"
+    },
     "sheetStop": {
       "peek": "Vorschau",
       "half": "Halb",
@@ -1422,6 +1427,7 @@
     "writePermissionRequired": "Schriibberächtigung nötig",
     "savedLocally": "Aktivität auf diesem Gerät gespeichert. Du kannst sie jederzeit über Meine Aufzeichnungen hochladen.",
     "savedLocallyNoScope": "Fahrt uf däm Grät gspeicheret. Si wird ufeglade, sobald du de Upload erlaubsch.",
+    "savedLocallyNoUpload": "Fahrt uf däm Grät gspeicheret. Im Demo-Modus wird nüt ufeglade.",
     "settingsUpload": "Hochladen",
     "autoUpload": "Automatisch hochladen",
     "autoUploadDescription": "Aufzeichnungen beim Speichern automatisch zu intervals.icu hochladen. Wenn deaktiviert, bleiben sie auf diesem Gerät, bis du sie über Meine Aufzeichnungen hochlädst.",

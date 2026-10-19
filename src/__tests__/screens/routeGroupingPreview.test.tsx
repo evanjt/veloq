@@ -58,8 +58,7 @@ const mockNavigation = {
   },
 };
 let mockOnChange:
-  | ((next: { minMatchPercentage: number; endpointThreshold: number }) => void)
-  | null = null;
+  ((next: { minMatchPercentage: number; endpointThreshold: number }) => void) | null = null;
 
 jest.mock('@/shared/native/engine', () => {
   // Every method looks its mock up when called: importing the screen reaches

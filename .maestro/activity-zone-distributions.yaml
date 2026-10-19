@@ -19,7 +19,7 @@ tags:
 
 - extendedWaitUntil:
     visible:
-      id: "activity-detail-content"
+      id: "activity-detail-screen"
     timeout: 15000
 
 # Scroll down past charts to find zone distribution

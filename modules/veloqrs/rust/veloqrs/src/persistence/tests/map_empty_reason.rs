@@ -7,8 +7,8 @@
 //! own counts, and names none while the map draws anything.
 
 use super::pooled::map_empty_reason;
-use crate::FfiMapEmptyReason;
 use crate::persistence::PersistentEngine;
+use crate::{FfiMapEmptyReason, FfiMapUnmapped};
 use tracematch::GpsPoint;
 
 const WINDOW_START: i64 = 1_699_000_000;
@@ -54,19 +54,68 @@ fn track(engine: &mut PersistentEngine, id: &str) {
         .expect("track");
 }
 
+fn read(
+    engine: &PersistentEngine,
+    sport_types: Vec<String>,
+    name_needle: &str,
+) -> crate::FfiMapScreenData {
+    engine.map_screen_data(
+        WINDOW_START,
+        WINDOW_END,
+        sport_types,
+        crate::MapDistanceBand::All,
+        true,
+        false,
+        false,
+        name_needle.into(),
+    )
+}
+
 fn reason(engine: &PersistentEngine, sport_types: Vec<String>) -> Option<FfiMapEmptyReason> {
+    read(engine, sport_types, "").empty_reason
+}
+
+fn unmapped(without_gps: u32, downloading: u32) -> FfiMapUnmapped {
+    FfiMapUnmapped {
+        without_gps,
+        downloading,
+    }
+}
+
+fn refuse(engine: &PersistentEngine, id: &str, refusal: &str) {
     engine
-        .map_screen_data(
-            WINDOW_START,
-            WINDOW_END,
-            sport_types,
-            crate::MapDistanceBand::All,
-            true,
-            false,
-            false,
-            String::new(),
+        .db
+        .execute(
+            "UPDATE activity_census
+             SET track_refusal = ?2, track_refused_sync_date = icu_sync_date
+             WHERE intervals_id = ?1",
+            rusqlite::params![id, refusal],
         )
-        .empty_reason
+        .expect("refusal");
+}
+
+/// Two drawn rides, a strength session with no GPS upstream, a ride whose
+/// track is still owed and one whose track was refused as too short.
+fn mixed_window(engine: &mut PersistentEngine) {
+    let mut strength = ride("strength", 1_700_000_200);
+    strength.sport_type = "WeightTraining".into();
+    engine
+        .set_activity_metrics(vec![
+            ride("drawn-a", 1_700_000_000),
+            ride("drawn-b", 1_700_000_100),
+            strength,
+            ride("owed", 1_700_000_300),
+            ride("short", 1_700_000_400),
+            ride("outside", WINDOW_END + 86_400),
+        ])
+        .expect("metrics");
+    track(engine, "drawn-a");
+    track(engine, "drawn-b");
+    census(engine, "strength", false);
+    census(engine, "owed", true);
+    census(engine, "short", true);
+    census(engine, "outside", true);
+    refuse(engine, "short", "too_short");
 }
 
 fn with_engine(name: &str, body: impl FnOnce(&mut PersistentEngine)) {
@@ -188,4 +237,101 @@ fn the_reason_ranks_filters_over_the_download_and_the_download_over_no_gps() {
         map_empty_reason(5, 0, 0, 0),
         Some(FfiMapEmptyReason::NoGps { activities: 5 })
     );
+}
+
+#[test]
+fn the_window_counts_what_it_cannot_draw_beside_what_it_draws() {
+    with_engine("map_unmapped_mixed.db", |engine| {
+        mixed_window(engine);
+        let data = read(engine, vec![], "");
+        assert_eq!(data.activities.len(), 2);
+        assert_eq!(data.unmapped, unmapped(2, 1));
+        assert_eq!(data.empty_reason, None);
+    });
+}
+
+#[test]
+fn the_sport_filter_narrows_the_unmapped_counts_as_it_narrows_the_drawn_set() {
+    with_engine("map_unmapped_sport.db", |engine| {
+        mixed_window(engine);
+        let data = read(engine, vec!["Ride".into()], "");
+        assert_eq!(data.activities.len(), 2);
+        assert_eq!(data.unmapped, unmapped(1, 1));
+    });
+}
+
+#[test]
+fn a_name_that_matches_nothing_counts_nothing_unmapped() {
+    with_engine("map_unmapped_needle.db", |engine| {
+        mixed_window(engine);
+        let data = read(engine, vec![], "no such ride");
+        assert!(data.activities.is_empty());
+        assert_eq!(data.unmapped, unmapped(0, 0));
+        assert_eq!(
+            data.empty_reason,
+            Some(FfiMapEmptyReason::Filtered { mapped: 2 })
+        );
+    });
+}
+
+#[test]
+fn an_empty_window_counts_nothing_unmapped() {
+    with_engine("map_unmapped_empty.db", |engine| {
+        engine
+            .set_activity_metrics(vec![ride("before", WINDOW_START - 86_400)])
+            .expect("metrics");
+        census(engine, "before", true);
+        let data = read(engine, vec![], "");
+        assert_eq!(data.unmapped, unmapped(0, 0));
+        assert_eq!(data.empty_reason, Some(FfiMapEmptyReason::NoActivities));
+    });
+}
+
+#[test]
+fn a_window_still_downloading_counts_every_activity_as_downloading() {
+    with_engine("map_unmapped_downloading.db", |engine| {
+        engine
+            .set_activity_metrics(vec![
+                ride("first", 1_700_000_000),
+                ride("second", 1_700_000_100),
+                ride("third", 1_700_000_200),
+            ])
+            .expect("metrics");
+        for id in ["first", "second", "third"] {
+            census(engine, id, true);
+        }
+        let data = read(engine, vec![], "");
+        assert_eq!(data.unmapped, unmapped(0, 3));
+        assert_eq!(
+            data.empty_reason,
+            Some(FfiMapEmptyReason::TracksPending {
+                activities: 3,
+                pending: 3
+            })
+        );
+    });
+}
+
+#[test]
+fn a_track_given_up_on_counts_as_without_gps() {
+    with_engine("map_unmapped_failed.db", |engine| {
+        engine
+            .set_activity_metrics(vec![ride("flaky", 1_700_000_000)])
+            .expect("metrics");
+        census(engine, "flaky", true);
+        engine
+            .db
+            .execute(
+                "UPDATE activity_census
+                 SET track_fetch_failures = ?1, track_failed_sync_date = icu_sync_date",
+                [crate::persistence::activities::TRACK_FAILURE_LIMIT],
+            )
+            .expect("failures");
+        let data = read(engine, vec![], "");
+        assert_eq!(data.unmapped, unmapped(1, 0));
+        assert_eq!(
+            data.empty_reason,
+            Some(FfiMapEmptyReason::NoGps { activities: 1 })
+        );
+    });
 }

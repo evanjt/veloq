@@ -73,13 +73,13 @@
 //! code to clear it, so a forgotten pause can never strand the migration.
 
 use crate::governor::Lane;
-use crate::net::IntervalsSession;
 use crate::net::intervals::endpoints::{DEFAULT_STREAM_TYPES, TRACK_STREAM_TYPES};
 use crate::net::source::Source;
 use crate::net::transport::{NetError, Transport};
 use crate::net::types::{
     ParsedStreams, StreamDto, TrackClock, parse_streams, storable_series, track_clock, track_times,
 };
+use crate::net::{LiveSource, live_source};
 use crate::objects::FfiStartOutcome;
 use crate::objects::detection::{SlotWait, wait_on_slot};
 use crate::objects::observer::Announcement;
@@ -983,7 +983,7 @@ pub fn run_elevation_backfill(transport: &Transport, athlete_id: &str) -> Backfi
     run_in_slot(
         slot,
         engine_install(),
-        &IntervalsSession::new(transport.clone(), athlete_id),
+        &live_source(transport.clone(), athlete_id),
     )
 }
 
@@ -994,7 +994,7 @@ pub fn run_elevation_backfill(transport: &Transport, athlete_id: &str) -> Backfi
 /// A pass that ran its queue without being stopped then settles the series of
 /// the tracks fetched before the engine recorded it, after the suspension has
 /// dropped: that walk moves no point, so it holds nothing.
-fn run_in_slot(_slot: RunGuard, install: u64, session: &IntervalsSession) -> BackfillRun {
+fn run_in_slot(_slot: RunGuard, install: u64, session: &LiveSource) -> BackfillRun {
     let (run, stopped) = run_queue(install, session);
     if matches!(run, BackfillRun::Finished(_)) && !stopped {
         resolve_sources(install, session);
@@ -1047,7 +1047,7 @@ fn run_outcome(phase: &str, failed: u32) -> RunOutcome {
 
 /// The elevation queue, under the detection suspension. Returns how the pass
 /// ended and whether it was stopped before its queue was.
-fn run_queue(install: u64, session: &IntervalsSession) -> (BackfillRun, bool) {
+fn run_queue(install: u64, session: &LiveSource) -> (BackfillRun, bool) {
     let queue =
         match with_persistent_engine_for(install, |engine| engine.tracks_missing_elevation()) {
             Some(Ok(queue)) => queue,
@@ -1262,7 +1262,7 @@ fn is_connectivity(e: &NetError) -> bool {
 /// outcome, why the pass ended if it did, and what is still owed.
 fn re_ask(
     install: u64,
-    session: &IntervalsSession,
+    session: &LiveSource,
     first: Walk,
 ) -> (BackfillOutcome, Option<Stopped>, Vec<(String, String)>) {
     re_ask_with(
@@ -1352,7 +1352,7 @@ struct Walk {
 /// progress line past its own total.
 fn drain_queue(
     install: u64,
-    session: &IntervalsSession,
+    session: &LiveSource,
     queue: &[(String, String)],
     count_progress: bool,
 ) -> Walk {
@@ -1365,7 +1365,7 @@ fn drain_queue(
         install,
         queue,
         count_progress,
-        || crate::objects::sync::still_signed_in(session.athlete_id()),
+        || crate::objects::sync::still_signed_in(session.account()),
         |ids| wide_asks(install, ids),
         |ids, ask| crate::runtime::block_on(fetch_batch(session, ids, ask, &upstream)),
     )
@@ -2075,7 +2075,7 @@ pub struct SourceWalk {
 /// One elevation-only read per track, the cheap ask the backfill makes. A
 /// track handed back is owed elevation again, so the ladder that drains that
 /// queue is armed for it.
-fn resolve_sources(install: u64, session: &IntervalsSession) -> SourceWalk {
+fn resolve_sources(install: u64, session: &LiveSource) -> SourceWalk {
     let (queue, upstream) = match with_persistent_engine_for(install, |engine| {
         let queue = engine.tracks_owed_elevation_source()?;
         let upstream = engine.intervals_ids(&queue);
@@ -2095,7 +2095,7 @@ fn resolve_sources(install: u64, session: &IntervalsSession) -> SourceWalk {
     let walk = resolve_sources_with(
         install,
         &queue,
-        || crate::objects::sync::still_signed_in(session.athlete_id()),
+        || crate::objects::sync::still_signed_in(session.account()),
         |ids| crate::runtime::block_on(fetch_batch(session, ids, Ask::Elevation, &upstream)),
     );
     log::info!(
@@ -2386,6 +2386,22 @@ pub fn start_owed_work() -> FfiStartOutcome {
         FfiStartOutcome::NotOwed | FfiStartOutcome::NotConfigured
     ) {
         crate::persistence::cutover::start_cutover();
+    }
+    // The open's load finds the regroup owed for any activity stored after the
+    // last one, and only a sync tail would otherwise schedule it. A regroup
+    // reads only stored tracks, so it is gated on Route Matching and not on
+    // the credential. An owed or running cutover regroups in its own detect
+    // and schedules what it leaves owed, so it is left the flag. Taken under
+    // one hold and started after it, as the sync tail does.
+    if let Some(scheduled) = with_persistent_engine(|engine| {
+        (engine.detection_enabled()
+            && !crate::persistence::cutover::pooled::cutover_holds_detection(&engine.db))
+        .then(|| engine.schedule_regroup())
+        .flatten()
+    })
+    .flatten()
+    {
+        scheduled.start();
     }
     // Which series a fetched track carries matters to the climb ranking
     // whether or not Route Matching is on, so this is not gated on it.

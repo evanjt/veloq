@@ -28,10 +28,11 @@ export function buildUserLocationCollection(
   };
 }
 
-/** The halo and the dot, keyed on whether a fix is held. */
+/** The halo and the dot, keyed on whether a fix is held, their sizes times `scale`. */
 export function buildUserLocationLayers(
   hasUserLocation: boolean,
-  palette: MapPalette
+  palette: MapPalette,
+  scale = 1
 ): MapLayerSpec[] {
   return [
     {
@@ -39,7 +40,7 @@ export function buildUserLocationLayers(
       type: 'circle',
       source: USER_LOCATION_SOURCE_ID,
       paint: {
-        'circle-radius': 12,
+        'circle-radius': 12 * scale,
         'circle-color': palette.location,
         'circle-opacity': hasUserLocation ? 0.3 : 0,
       },
@@ -49,10 +50,10 @@ export function buildUserLocationLayers(
       type: 'circle',
       source: USER_LOCATION_SOURCE_ID,
       paint: {
-        'circle-radius': 6,
+        'circle-radius': 6 * scale,
         'circle-color': palette.location,
         'circle-opacity': hasUserLocation ? 1 : 0,
-        'circle-stroke-width': 2,
+        'circle-stroke-width': 2 * scale,
         'circle-stroke-color': palette.locationRing,
       },
     },

@@ -78,7 +78,7 @@ describe.each(THEMES)('map chrome in the $name theme', ({ isDark, palette }) => 
 
   it('draws the attribution on the raised surface at the pressed opacity in 10 px text', async () => {
     await render(<AttributionOverlay initialAttribution="© Lighthouse Survey" />);
-    expect(flat(screen.getByTestId('map-attribution-pill')).backgroundColor).toBe(
+    expect(flat(screen.getByTestId('map-attribution-bar')).backgroundColor).toBe(
       colorWithOpacity(palette.surfaceRaised, opacity.pressed)
     );
     const text = flat(screen.getByTestId('map-attribution-text'));

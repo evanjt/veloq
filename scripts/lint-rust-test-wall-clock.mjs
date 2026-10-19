@@ -131,7 +131,7 @@ function measuredNames(code) {
   const pushes = [
     ...code.matchAll(/(?<![.\w])(\w+)\s*\.\s*(?:push|extend|insert)\s*\(([^;]*)\)\s*;/g),
   ].map((m) => [m[1], m[2]]);
-  for (let grew = true; grew; ) {
+  for (let grew = true; grew;) {
     grew = false;
     for (const [name, rhs] of [...lets, ...pushes]) {
       if (!names.has(name) && isMeasured(rhs)) {

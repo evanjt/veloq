@@ -18,6 +18,8 @@ import { Shimmer, SkeletonGroup } from '@/shared/ui/Shimmer';
 import { IconButton } from '@/shared/ui/IconButton';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { navigateTo } from '@/shared/app/navigation';
+import { useAuthStore } from '@/shared/app/AuthStore';
+import { sourceFor } from '@/shared/app/source';
 import {
   colors,
   colorWithOpacity,
@@ -97,6 +99,12 @@ function RecordingsLibraryScreenContent() {
   const scrollEndInset = useScrollEndInset({ insetTaken: true });
   const isMetric = useMetricSystem();
   const { entries, isLoading, error, refresh, uploadNow, uploadingId } = useRecordingLibrary();
+  // A source with nowhere to send a ride offers no upload for it.
+  const sourceUploads = useAuthStore(
+    (s) =>
+      sourceFor({ authMethod: s.authMethod, isDemoMode: s.isDemoMode, athleteId: s.athleteId })?.can
+        .uploads !== false
+  );
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
@@ -108,7 +116,7 @@ function RecordingsLibraryScreenContent() {
       const status = meta[item.uploadStatus] ?? meta.localOnly;
       // The same rule the detail screen offers its upload on, so a row and the
       // recording it opens never disagree about whether a send is still owed.
-      const { canUpload, isUploading } = recordingActions(item, uploadingId);
+      const { canUpload, isUploading } = recordingActions(item, uploadingId, true, sourceUploads);
       const offerUpload = canUpload && !isUploading;
       const dateText = formatDateTime(new Date(item.startTime).toISOString());
       const distanceText =
@@ -192,6 +200,7 @@ function RecordingsLibraryScreenContent() {
       t,
       uploadNow,
       uploadingId,
+      sourceUploads,
     ]
   );
 

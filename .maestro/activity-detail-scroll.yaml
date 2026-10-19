@@ -22,7 +22,7 @@ tags:
       - tapOn: "Open"
 - extendedWaitUntil:
     visible:
-      id: "activity-detail-content"
+      id: "activity-detail-screen"
     timeout: 15000
 
 # Screenshot hero section (map + title)

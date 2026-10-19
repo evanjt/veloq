@@ -20,6 +20,12 @@
     <string>$(MARKETING_VERSION)</string>
     <key>CFBundleVersion</key>
     <string>$(CURRENT_PROJECT_VERSION)</string>
+    <key>UIAppFonts</key>
+    <array>
+      <string>Manrope-Regular.ttf</string>
+      <string>Manrope-SemiBold.ttf</string>
+      <string>Manrope-Bold.ttf</string>
+    </array>
     <key>NSExtension</key>
     <dict>
       <key>NSExtensionPointIdentifier</key>

@@ -1,7 +1,7 @@
 /**
- * Scenario: the terrain DEM reaches the 3D page and the preview worker through
- * the tile intercept, so the Rust store is the one tier that holds it. The
- * page kept a second DEM cache beside it: a `cached-terrain` protocol, a
+ * Scenario: the terrain DEM reaches the 3D page, the map surface page and the
+ * preview worker through the tile intercept, so the Rust store is the one tier
+ * that holds it. The page kept a second DEM cache beside it: a `cached-terrain` protocol, a
  * `veloq-terrain-dem-v1` Cache API bucket, a zoom prefetch into that bucket and
  * a share of the page budget, none of which Rust could see or evict from.
  *
@@ -13,7 +13,11 @@
 import { Platform } from 'react-native';
 
 import { TERRAIN_UPSTREAM_TEMPLATE } from '@/features/maps/components/mapStyles';
-import { buildMap3DHtml, buildSnapshotWorkerHtml } from '@/features/maps/lib/htmlBuilders';
+import {
+  buildMap3DHtml,
+  buildMapSurfaceHtml,
+  buildSnapshotWorkerHtml,
+} from '@/features/maps/lib/htmlBuilders';
 import { tileProtocolsScript } from '@/features/maps/lib/htmlBuilders/shared';
 import { buildRenderSnapshotScript } from '@/features/maps/lib/htmlBuilders/terrainSnapshotScripts';
 import type { SnapshotRequest } from '@/features/maps/lib/htmlBuilders/terrainSnapshotScripts';
@@ -95,17 +99,36 @@ describe('no page keeps a DEM cache of its own', () => {
   });
 });
 
+const STORE_DEM = {
+  android: 'http://127.0.0.1:41002/a1b2c3d4/terrain/{z}/{x}/{y}.png',
+  ios: '/veloq-tile/terrain/{z}/{x}/{y}.png',
+};
+
 describe('the DEM source', () => {
+  it.each(['android', 'ios'] as const)(
+    'reaches the map surface page through the store on %s',
+    (os) => {
+      onPlatform(os);
+      const html = buildMapSurfaceHtml({
+        style: 'light',
+        camera: { center: [7.448, 46.949], zoom: 12 },
+        interaction: { scroll: true, zoom: true, rotate: false, pitch: false },
+        devicePixelRatio: 2,
+        regionChangeThrottleMs: 100,
+        reduceMotion: false,
+      });
+      expect(html).toContain(STORE_DEM[os]);
+      expect(html).not.toContain('cached-terrain');
+      expect(html).not.toContain(TERRAIN_UPSTREAM_TEMPLATE);
+    }
+  );
+
   it.each(['android', 'ios'] as const)(
     'reaches the preview worker through the store on %s',
     (os) => {
       onPlatform(os);
       const script = buildRenderSnapshotScript(request, 0, 1);
-      expect(script).toContain(
-        os === 'android'
-          ? 'http://127.0.0.1:41002/a1b2c3d4/terrain/{z}/{x}/{y}.png'
-          : '/veloq-tile/terrain/{z}/{x}/{y}.png'
-      );
+      expect(script).toContain(STORE_DEM[os]);
       expect(script).not.toContain('cached-terrain');
       expect(script).not.toContain(TERRAIN_UPSTREAM_TEMPLATE);
     }

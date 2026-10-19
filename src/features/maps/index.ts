@@ -83,10 +83,14 @@ export {
 } from './lib/cameraAngle';
 export { cameraAfter3D, type Camera3DState } from './lib/cameraAfter3D';
 export { computeAttribution } from './lib/computeAttribution';
+export { mapDataLicenceEntries } from './lib/mapSourceCredits';
 export {
+  filterSheetDragHeight,
   filterSheetExpandedAfterDrag,
   filterSheetFootCover,
   filterSheetMaxHeight,
+  filterSheetSettleHeight,
+  filterSheetStops,
 } from './lib/filterSheet';
 export {
   USER_LOCATION_SOURCE_ID,
@@ -129,7 +133,9 @@ export {
   getPeriodStart,
   type MapPeriod,
   PERIOD_OPTIONS,
+  periodSelectLabelKey,
 } from './lib/mapPeriod';
+export { sportChipOrder } from './lib/sportChipOrder';
 export { offlineMapStyle } from './lib/offlineStyleFallback';
 export { readSnapshotQueueReport } from './lib/snapshotQueueTrace';
 export { submitSectionCreation } from './hooks/submitSectionCreation';

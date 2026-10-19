@@ -364,9 +364,7 @@ function isRedirectFor(url: string, state: string): boolean {
 
 /** How the browser half of a sign-in ended, read the same way by every caller. */
 export type OAuthFlowResult =
-  | { outcome: 'success'; url: string }
-  | { outcome: 'cancelled' }
-  | { outcome: 'failed' };
+  { outcome: 'success'; url: string } | { outcome: 'cancelled' } | { outcome: 'failed' };
 
 /**
  * Closing the sign-in tab is a cancel the athlete chose, not an error. iOS

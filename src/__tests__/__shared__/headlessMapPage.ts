@@ -10,7 +10,8 @@
  * loads it on, the renderer and its stylesheet are the files the app ships,
  * answered under `veloq-asset/` as the platform interceptors answer them, a
  * TileJSON names tiles under that answer, an image is a grey PNG, a protobuf
- * is empty and a JSON document is `{}`.
+ * is empty and a JSON document is `{}`. A page may name requests that fail
+ * instead, as a tile does on a device with no radio.
  *
  * Chromium is found from `CHROME_PATH`, then on `PATH`.
  */
@@ -230,6 +231,8 @@ export interface OpenPageOptions {
   tileJsonUrls: string[];
   /** Page script run after the renderer is defined and before the page's own. */
   afterRenderer?: string | undefined;
+  /** Requests answered with a network failure rather than a tile. */
+  failing?: ((url: string) => boolean) | undefined;
 }
 
 export interface MapPage {
@@ -289,6 +292,16 @@ export async function launchChromium(executable: string): Promise<Chromium> {
   protocol.on('Fetch.requestPaused', (params, sessionId) => {
     const page = pages.get(sessionId ?? '');
     if (!page) return;
+    if (page.served.failing?.((params.request as { url: string }).url)) {
+      protocol
+        .send(
+          'Fetch.failRequest',
+          { requestId: params.requestId, errorReason: 'Failed' },
+          sessionId
+        )
+        .catch(() => {});
+      return;
+    }
     let reply: { status: number; contentType: string; body: Buffer | string };
     try {
       reply = { status: 200, ...answer((params.request as { url: string }).url, page.served, png) };

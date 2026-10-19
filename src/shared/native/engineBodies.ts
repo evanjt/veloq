@@ -70,12 +70,7 @@ export const BODY_WAIT_MS = 15_000;
  * deadline.
  */
 export type EngineBodyStatus =
-  | 'idle'
-  | 'waiting'
-  | 'timedOut'
-  | 'refused'
-  | 'offline'
-  | 'notConfigured';
+  'idle' | 'waiting' | 'timedOut' | 'refused' | 'offline' | 'notConfigured';
 
 /** The statuses a start verdict ends the wait with. */
 type EngineBodyRefusal = 'refused' | 'offline' | 'notConfigured';

@@ -46,7 +46,7 @@ fn run_with_bulk(server: &MockServer, cancelled: bool) -> Result<(), NetError> {
     enqueue_download(BULK_RUN, 64, DownloadPriority::Bulk);
     let outcome = crate::runtime::block_on(ready_newest_activities(
         crate::persistence::engine_install(),
-        &crate::net::IntervalsSession::new(transport_to(server), "i1"),
+        &crate::net::intervals::IntervalsSession::new(transport_to(server), "i1"),
         &|| {
             assert!(
                 should_yield_to_interactive(BULK_RUN),
@@ -161,7 +161,7 @@ fn owing(id: &str) -> Option<crate::persistence::BodiesOwed> {
 fn ready_one(server: &MockServer, id: &str) -> Result<bool, NetError> {
     crate::runtime::block_on(ready_owed_activity(
         crate::persistence::engine_install(),
-        &crate::net::IntervalsSession::new(transport_to(server), "i1"),
+        &crate::net::intervals::IntervalsSession::new(transport_to(server), "i1"),
         id,
     ))
 }

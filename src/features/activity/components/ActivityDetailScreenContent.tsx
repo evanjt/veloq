@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 
 import { DetailCardStack, DetailMapHost } from '@/features/routes';
@@ -7,11 +7,9 @@ import { useTheme } from '@/shared/app';
 import { MapSheetHostMap, useMapSheetHost, useMapSheetHostHeader } from '@/shared/app/MapSheetHost';
 import { overMapHeaderOptions } from '@/shared/app/screenHeaders';
 import { logScreenRender } from '@/shared/debug/renderTimer';
-import { ScreenSafeAreaView } from '@/shared/ui';
-import { colors, darkColors } from '@/theme';
 import { useActivity, useActivityDetailStreams } from '../hooks';
 import { ActivityDetailCard } from './ActivityDetailCard';
-import { ActivityDetailSkeleton } from './ActivityDetailSkeleton';
+import { ActivityDetailLoading } from './ActivityDetailLoading';
 
 export interface ActivityDetailScreenContentProps {
   /** The route's opening transition has ended, read by the route that mounted before this */
@@ -46,7 +44,7 @@ export function ActivityDetailScreenContent({
     setMapless?.(mapless);
   }, [setMapless, mapless]);
 
-  // The skeleton stands where the map will be, under the floating header.
+  // The skeleton stands where the map will be, under the floating header and its back chip.
   const loadingHeader = useMemo(
     () => (loading ? overMapHeaderOptions({ title: undefined, isDark }) : null),
     [loading, isDark]
@@ -57,12 +55,9 @@ export function ActivityDetailScreenContent({
 
   if (loading) {
     return (
-      <ScreenSafeAreaView
-        testID="activity-detail-loading"
-        style={[styles.container, isDark && styles.containerDark]}
-      >
-        <ActivityDetailSkeleton activityId={id} />
-      </ScreenSafeAreaView>
+      <View testID="activity-detail-loading" style={styles.container}>
+        <ActivityDetailLoading activityId={id} />
+      </View>
     );
   }
 
@@ -82,9 +77,5 @@ export function ActivityDetailScreenContent({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.surfacePage,
-  },
-  containerDark: {
-    backgroundColor: darkColors.surfacePage,
   },
 });

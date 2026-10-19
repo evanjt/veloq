@@ -222,7 +222,7 @@ describe('PreviewMapView', () => {
     );
 
     expect(getByTestId('map-attribution-text').props.children).toBe(
-      '\u00a9 OpenFreeMap \u00a9 OpenMapTiles \u00a9 OpenStreetMap'
+      '\u00a9 OpenFreeMap \u00b7 \u00a9 OpenMapTiles \u00b7 \u00a9 OpenStreetMap'
     );
   });
 });

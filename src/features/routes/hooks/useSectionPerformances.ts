@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { engine, type SectionPerformanceResult } from 'veloqrs';
 import type { FrequentSection, DirectionStats } from '@/types';
-import { toDirectionStats, castDirection, fromUnixSeconds } from '@/shared/ffi/ffiConversions';
+import { toDirectionStats, castDirection, fromWallClockSeconds } from '@/shared/ffi/ffiConversions';
 import { awaitTimeStreams, willAnnounce } from '@/features/routes/lib/awaitTimeStreams';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { useReconnect } from '@/shared/app/useRetryTriggers';
@@ -124,7 +124,7 @@ export function toPerformanceRecord(
   return {
     activityId: r.activityId,
     activityName: r.activityName,
-    activityDate: fromUnixSeconds(r.activityDate) ?? new Date(),
+    activityDate: fromWallClockSeconds(r.activityDate) ?? new Date(),
     laps: (r.laps || []).map((l) => ({
       id: l.id,
       activityId: l.activityId,

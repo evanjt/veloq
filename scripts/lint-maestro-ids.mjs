@@ -167,8 +167,19 @@ export function resolvesInTree(id, { literals, patterns }) {
   return PLATFORM_IDS.has(id) || literals.has(id) || patterns.some((p) => p.pattern.test(id));
 }
 
+/**
+ * Whether a source file under `src` can render on a device. A test is read by
+ * Jest only, so an id its fixture strings mention is not one any screen draws,
+ * and taking it would keep a flow green that fails on the handset at that step.
+ */
+export function rendersOnDevice(rel) {
+  if (!/\.tsx?$/.test(rel) || rel.endsWith('.d.ts')) return false;
+  if (/(^|\/)__(tests|mocks)__\//.test(rel)) return false;
+  return !/\.(test|spec)\.tsx?$/.test(rel);
+}
+
 function main() {
-  const rendered = collectTestIds(walk(SRC, (n) => /\.tsx?$/.test(n) && !n.endsWith('.d.ts')));
+  const rendered = collectTestIds(tree.files(SRC, rendersOnDevice));
   const asserted = collectFlowIds(walk(FLOWS, (n) => /\.ya?ml$/.test(n)));
 
   const unresolved = [...asserted.keys()].filter((id) => !resolvesInTree(id, rendered)).sort();

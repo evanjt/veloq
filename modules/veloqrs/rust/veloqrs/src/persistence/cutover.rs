@@ -117,6 +117,12 @@ trait CutoverDetect {
         Option<super::CacheUpdate>,
     );
     fn request_cancel(&self);
+    /// What the run's regroup left owed and the groups epoch it captured at
+    /// spawn, once it has answered. `None` when it decided nothing about the
+    /// grouping, and the engine then keeps the flag it holds.
+    fn run_groups(&self) -> Option<(bool, u64)> {
+        None
+    }
 }
 
 impl CutoverDetect for super::SectionDetectionHandle {
@@ -132,6 +138,10 @@ impl CutoverDetect for super::SectionDetectionHandle {
 
     fn request_cancel(&self) {
         super::SectionDetectionHandle::request_cancel(self);
+    }
+
+    fn run_groups(&self) -> Option<(bool, u64)> {
+        super::SectionDetectionHandle::run_groups(self)
     }
 }
 
@@ -764,7 +774,13 @@ impl PersistentEngine {
     /// Each state is an `archived` history row and the milestone version it
     /// names, written in one transaction with the range they occupy.
     fn archive_current_catalogue(&self) -> rusqlite::Result<u32> {
-        let tx = self.db.unchecked_transaction()?;
+        // Immediate, because it reads before it writes: a deferred one whose
+        // read predates a regroup's commit on another connection cannot take
+        // the write lock afterwards and fails without waiting.
+        let tx = rusqlite::Transaction::new_unchecked(
+            &self.db,
+            rusqlite::TransactionBehavior::Immediate,
+        )?;
 
         // Write-once per token. A run that died after the switch and before
         // the promotion retries with the new catalogue already on disk, and
@@ -1356,7 +1372,8 @@ fn run_cutover_claimed_with(
         };
     }
 
-    // Clears the flag and announces the settle on every exit path, so a failure
+    // Clears the flag, schedules the routes regroup the run leaves owed and
+    // announces the settle on every exit path, so a failure
     // partway is heard as well as a completion. Declared first, so it drops
     // after the phase clock and the suspension and nothing holds the engine
     // lock by then: the observer blocks this thread until JavaScript returns.
@@ -1380,6 +1397,19 @@ fn run_cutover_claimed_with(
                 let summary = cutover_job_run(outcome, diff.as_deref());
                 let _ =
                     with_persistent_engine_for(self.install, |e| record_job_run(&e.db, &summary));
+                // A store made while the run held the regroup slot found it
+                // taken and scheduled nothing, so the run asks for the regroup
+                // it leaves owed. Taken under one hold and started after it,
+                // as the sync tail does; the worker announces its own groups.
+                if let Some(scheduled) = with_persistent_engine_for(self.install, |e| {
+                    e.detection_enabled()
+                        .then(|| e.schedule_regroup())
+                        .flatten()
+                })
+                .flatten()
+                {
+                    scheduled.start();
+                }
                 crate::objects::observer::notify(Announcement::CutoverSettled);
                 crate::net::stream_backfill::autostart_stream_backfill();
             }
@@ -1507,8 +1537,15 @@ fn run_cutover_claimed_with(
     // A cancel that arrives as the detect answers discards the result. That
     // is safe because nothing has been applied, so the next launch redoes it.
     stop_if_cancelled!(guard, PHASE_DETECTING, clock.finish(PHASE_IDLE));
+    let run_groups = handle.run_groups();
 
     with_persistent_engine_for(install, |e| {
+        // The detect answered the regroup it was spawned owing, which the
+        // adopt above cannot tell from a store made while it ran. The epoch
+        // it captured tells the two apart, as for a run that applies itself.
+        if let Some((regroup_owed, groups_epoch_at_spawn)) = run_groups {
+            e.adopt_run_groups(regroup_owed, groups_epoch_at_spawn);
+        }
         // Ranking reads every needed track, so it runs after this lock is
         // released, on a connection of its own.
         e.apply_sections_save_with_cache_row_ranked(sections, cache_update, None, false)

@@ -25,7 +25,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU32, AtomicU64, Ordering};
 use std::sync::mpsc;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex, OnceLock, RwLock};
 
 #[cfg(test)]
 use crate::GpsPoint;
@@ -483,6 +483,11 @@ pub struct SectionDetectionHandle {
     worker_applied: Option<Arc<AtomicBool>>,
     /// Raised by `request_cancel`, read by the worker between stages.
     cancel: Arc<AtomicBool>,
+    /// What the run's regroup left owed, beside the groups epoch it captured
+    /// at spawn. Written by the worker before it sends its result, and only
+    /// by a run that reached the regroup step, so a caller that applies the
+    /// result can settle the flag the way a self-applying run does.
+    run_groups: Arc<OnceLock<(bool, u64)>>,
 }
 
 /// What a poll that observes completion still has to do.
@@ -518,6 +523,14 @@ impl SectionDetectionHandle {
     /// does not shorten it.
     pub fn request_cancel(&self) {
         self.cancel.store(true, Ordering::SeqCst);
+    }
+
+    /// What the run's regroup left owed and the groups epoch it captured at
+    /// spawn, for a caller applying the result to settle the flag with
+    /// `adopt_run_groups`. `None` from a run that never reached the regroup
+    /// step, which decided nothing about the grouping.
+    pub(crate) fn run_groups(&self) -> Option<(bool, u64)> {
+        self.run_groups.get().copied()
     }
 
     /// Whether this run has been asked to stop.
@@ -926,6 +939,7 @@ impl SectionDetectionHandle {
             progress: SectionDetectionProgress::new(),
             worker_applied: Some(Arc::new(AtomicBool::new(false))),
             cancel: Arc::new(AtomicBool::new(false)),
+            run_groups: Default::default(),
         }
     }
 
@@ -961,6 +975,7 @@ impl SectionDetectionHandle {
             progress: SectionDetectionProgress::new(),
             worker_applied: None,
             cancel: Arc::new(AtomicBool::new(false)),
+            run_groups: Default::default(),
         };
         (handle, tx, cache_tx)
     }
@@ -1162,6 +1177,7 @@ mod worker_poll_tests {
             progress: SectionDetectionProgress::new(),
             worker_applied: None,
             cancel: Arc::new(AtomicBool::new(false)),
+            run_groups: Default::default(),
         };
 
         assert!(matches!(handle.poll_state(), WorkerPoll::Running));
@@ -1181,6 +1197,7 @@ mod worker_poll_tests {
             progress: SectionDetectionProgress::new(),
             worker_applied: None,
             cancel: Arc::new(AtomicBool::new(false)),
+            run_groups: Default::default(),
         };
 
         tx.send((Vec::new(), vec!["a1".to_string()])).unwrap();
@@ -4269,6 +4286,7 @@ mod tests {
             progress: SectionDetectionProgress::new(),
             worker_applied: None,
             cancel: Arc::new(AtomicBool::new(false)),
+            run_groups: Default::default(),
         }
     }
 

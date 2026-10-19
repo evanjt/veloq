@@ -33,11 +33,6 @@ tags:
       id: "activity-detail-screen"
     timeout: 10000
 
-- extendedWaitUntil:
-    visible:
-      id: "activity-detail-content"
-    timeout: 15000
-
 # Scroll past map header to charts area (SwipeableTabs gesture on iOS can
 # block visibility detection of elements below the map)
 - scroll

@@ -14,13 +14,7 @@
 import type { FfiQuarantineReport } from 'veloqrs';
 
 export type QuarantineNoticeKey =
-  | 'sections'
-  | 'history'
-  | 'geometry'
-  | 'pins'
-  | 'intents'
-  | 'recordings'
-  | 'routeNames';
+  'sections' | 'history' | 'geometry' | 'pins' | 'intents' | 'recordings' | 'routeNames';
 
 export interface QuarantineNoticePart {
   key: QuarantineNoticeKey;

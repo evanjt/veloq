@@ -18,6 +18,7 @@ import { trackedText } from './lib/indexedSources.mjs';
 import {
   widgetBody,
   widgetChart,
+  widgetFace,
   widgetLayout,
   widgetPalette,
   widgetRecord,
@@ -150,6 +151,15 @@ ${STEPS.map((k) => `      case .${k}: return TypeScale.${k}`).join('\n')}
 ${STEPS.map((k) => `      case .${k}: return .${widgetTextScale.styles[k]}`).join('\n')}
       }
     }
+  }
+
+  /// The face every widget line draws, by the PostScript name of the bundled file for each
+  /// weight. The extension's Info.plist lists the files; a name iOS cannot find draws the system
+  /// face.
+  enum Face {
+    static let regular = "${widgetFace.regular.postScript}"
+    static let semibold = "${widgetFace.semibold.postScript}"
+    static let bold = "${widgetFace.bold.postScript}"
   }
 
   /// The most a figure, a label or a caption grows over its step's default size, whatever text

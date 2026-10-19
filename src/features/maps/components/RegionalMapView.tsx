@@ -1,26 +1,27 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { View, StyleSheet, Animated } from 'react-native';
-import { usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useMapPreferences } from '@/features/settings/light';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { darkColors, ink, mapPalette, spacing } from '@/theme';
 import { getActivityCategory, sportMarkColour, type SportFamily } from '../lib/activityCategories';
-import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
-import { ComponentErrorBoundary } from '@/shared/ui';
 import { MapControlButton } from './MapControlButton';
-import { type MapStyleType, getStyleIcon, statusBarStyleForMap } from './mapStyles';
+import {
+  TERRAIN_3D_CONFIG,
+  type MapStyleType,
+  getStyleIcon,
+  statusBarStyleForMap,
+} from './mapStyles';
 import { MapSurface, type MapCameraState, type MapSurfaceRef } from './MapSurface';
 import { useMapStyleToggle } from '@/features/maps/hooks/useDrawnMapStyle';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
 import { heatmapKeyColours } from '@/features/maps/lib/heatmapPaint';
 import type { ActivityBoundsItem } from '@/types';
-import { useEngineRead } from '@/shared/native/useEngineSubscription';
-import { decodeCoords } from 'veloqrs';
 import { useSectionDetail } from '@/shared/native/useSectionDetail';
 import { useTheme } from '@/shared/app';
 import { useBackDismiss } from '@/shared/app/useBackDismiss';
+import { useScreenPathname } from '@/shared/app/screenUnderSheet';
 import type { MapSection } from '@/features/maps/hooks/useEngineMapActivities';
 import {
   useSectionAutoToggle,
@@ -32,7 +33,6 @@ import {
   type RouteLineLayerInput,
 } from '@/features/maps/lib/routeLineCollection';
 import { buildSpiderGeoJSON } from '@/features/maps/lib/buildSpiderGeoJSON';
-import { stackedOn } from '@/features/maps/lib/clusterZoom';
 import { isHeatmapEnabled } from '@/features/maps/stores/HeatmapPreferenceStore';
 import {
   clearHeatmapView,
@@ -66,7 +66,7 @@ import {
   type LngLatBounds,
 } from '../lib/coordinates';
 import { mapTopControlsBottom, popupBottom } from '../lib/filterSheet';
-import { surfaceIsLeaving, useInitialRegionalCamera } from '../hooks/useInitialRegionalCamera';
+import { useInitialRegionalCamera } from '../hooks/useInitialRegionalCamera';
 import { useStoredTrackUrl } from '../hooks/useStoredTrackUrl';
 import { useSectionChooser } from './regional/useSectionChooser';
 import { navigateTo } from '@/shared/app/navigation';
@@ -156,6 +156,9 @@ export function RegionalMapView({
     toggleHeatmap,
     toggle3D,
   } = useVisibilityToggles();
+  // 3D is available when we have any activities (terrain can be shown without a specific route)
+  const can3D = activities.length > 0;
+  const show3D = is3DMode && can3D;
   const popupFloor = popupBottom(bottomClearance, insets.bottom);
   // The map fills its tab, so the notice joins the screen's bottom pills above the sheet.
   const { onTerrainUnavailable, terrainNotice } = useTerrainFallback(
@@ -182,8 +185,9 @@ export function RegionalMapView({
   // Only load route signatures when the map tab is focused
   // This prevents 80+ getGpsTrack FFI calls when switching to other tabs.
   // The same signal tears the surface down: a tab that is merely frozen keeps
-  // its GL context and its tile textures, which is 122 MB nobody can see.
-  const pathname = usePathname();
+  // its GL context and its tile textures, which is 122 MB nobody can see. A sheet
+  // presented over the tab leaves the map on display, so it is not leaving.
+  const pathname = useScreenPathname();
   const isMapFocused = pathname === '/map' || pathname.endsWith('/map');
 
   const [cameraOnBlur, setCameraOnBlur] = useState<{
@@ -200,7 +204,6 @@ export function RegionalMapView({
   const { activityCenters, mapCenter, currentZoomRef, currentCenterRef, markUserInteracted } =
     useRegionalMapCamera({ activities, surfaceRef, cameraRestored });
 
-  const map3DRef = useRef<Map3DWebViewRef>(null);
   const clusterOverlayRef = useRef<ClusterCountOverlayRef>(null);
   const bearingAnim = useRef(new Animated.Value(0)).current;
 
@@ -268,14 +271,6 @@ export function RegionalMapView({
     []
   );
 
-  /** The 3D surface's camera, kept in the same place the 2D one's settles. */
-  const handle3DCameraState = useCallback(
-    (camera: { center: [number, number]; zoom: number }) => {
-      handleCameraSettled(camera.center, camera.zoom);
-    },
-    [handleCameraSettled]
-  );
-
   // Dynamic attribution based on visible satellite sources at current location.
   // Shared with ActivityMapView via `computeAttribution` so both maps stay in sync
   // when tile sources or satellite attribution rules change.
@@ -283,12 +278,12 @@ export function RegionalMapView({
     () =>
       computeAttribution({
         style: mapStyle,
-        is3D: is3DMode,
+        is3D: show3D,
         center: cameraForAttribution?.center ?? null,
         zoom: cameraForAttribution?.zoom ?? 0,
         bounds: cameraForAttribution?.bounds ?? null,
       }),
-    [mapStyle, cameraForAttribution, is3DMode]
+    [mapStyle, cameraForAttribution, show3D]
   );
 
   useEffect(() => {
@@ -314,7 +309,6 @@ export function RegionalMapView({
     handleZoomToActivity,
     handleFocusActivity,
     handleSurfacePress,
-    handleEmptyPress,
     handleRegionIsChanging,
     handleRegionDidChange: baseHandleRegionDidChange,
     handleGetLocation,
@@ -342,10 +336,8 @@ export function RegionalMapView({
     currentCenterRef,
     onCameraSettled: handleCameraSettled,
     surfaceRef,
-    map3DRef,
     bearingAnim,
     currentZoomLevel,
-    is3DMode,
     markUserInteracted,
     setSpider,
   });
@@ -443,12 +435,6 @@ export function RegionalMapView({
     setSelectedRouteId(null);
   }
 
-  // Handle 3D section click - receives section ID string, looks up section to select
-  const handle3DSectionClick = useCallback((sectionId: string) => {
-    setSelectedRouteId(null);
-    setSelectedSectionId(sectionId);
-  }, []);
-
   // Back closes whichever popup or list opened last, before it switches tab.
   useBackDismiss(!!selected, handleClosePopup);
   useBackDismiss(!!selectedSection, () => setSelectedSectionId(null));
@@ -469,74 +455,14 @@ export function RegionalMapView({
     return { spiderPointsGeoJSON: points, spiderLinesGeoJSON: lines };
   }, [spider, currentZoomRef]);
 
-  // The 3D page has one point layer, so the fanned-out starts join the markers
-  // there and a tap on one is a tap on a single point.
-  const pointMarkers3D = useMemo<GeoJSON.FeatureCollection>(() => {
-    if (!showActivities) return EMPTY_FEATURE_COLLECTION;
-    if (spiderPointsGeoJSON.features.length === 0) return markersGeoJSON;
-    return {
-      type: 'FeatureCollection',
-      features: [...markersGeoJSON.features, ...spiderPointsGeoJSON.features],
-    };
-  }, [showActivities, markersGeoJSON, spiderPointsGeoJSON]);
-
-  // Starts stacked on one spot fan out, as on the 2D surface; anything else
-  // opens the first point under the tap.
-  const handle3DActivityClick = useCallback(
-    (activityId: string, hits: GeoJSON.Feature[]) => {
-      const stacked = stackedOn(hits);
-      const first = stacked[0];
-      if (first && stacked.length > 1) {
-        setSpider({
-          center: (first.geometry as GeoJSON.Point).coordinates as [number, number],
-          leaves: stacked,
-        });
-        return;
-      }
-      setSpider(null);
-      const activity = activities.find((a) => a.id === activityId);
-      if (activity) handleMarkerTap(activity);
-    },
-    [activities, handleMarkerTap]
-  );
-
-  // 3D is available when we have any activities (terrain can be shown without a specific route)
-  const can3D = activities.length > 0;
-  // Show 3D view when enabled
-  const show3D = is3DMode && can3D;
-
-  // The 3D page takes the selected route as coordinates rather than a URL, so
-  // the stored track is decoded here, and only while 3D is showing. The URL
-  // moves when the track is replaced, which is what re-reads it.
-  // Filter NaN/Infinity to prevent invalid GeoJSON in Map3DWebView
-  const readTrack = useEngineRead([]);
-  const route3DCoords = useMemo((): [number, number][] => {
-    if (!show3D || !selected) return [];
-    if (selectedTrackUrl) {
-      const encoded = readTrack((engine) => engine.getGpsTrack(selected.activity.id));
-      const points = encoded ? decodeCoords(encoded) : [];
-      return points
-        .filter((p) => Number.isFinite(p.latitude) && Number.isFinite(p.longitude))
-        .map((p) => [p.longitude, p.latitude]);
-    }
-    if (!selected.mapData?.latlngs) return [];
-
-    return selected.mapData.latlngs
-      .filter((c): c is [number, number] => c !== null)
-      .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng))
-      .map(([lat, lng]) => [lng, lat] as [number, number]); // Convert to [lng, lat]
-  }, [show3D, selected, selectedTrackUrl, readTrack]);
-
-  // Entering 3D unmounts the 2D surface as surely as leaving the tab does, so
-  // both snapshot where it was. Without the 3D half, coming back opened on the
-  // camera saved at the last tab blur, and then saved that as the new one.
+  // Leaving the tab tears the surface down, so where it was is kept for the
+  // mount that brings it back. 3D tilts the same surface and leaves it mounted.
   useEffect(() => {
-    if (surfaceIsLeaving(isMapFocused, show3D)) setCameraOnBlur(settledCameraRef.current);
-  }, [isMapFocused, show3D]);
+    if (!isMapFocused) setCameraOnBlur(settledCameraRef.current);
+  }, [isMapFocused]);
 
   // Leaving the tab leaves no map on any ground, so the tile pass stops
-  // drawing this view first. 3D is not leaving: it shows the same ground and
-  // reports its own camera.
+  // drawing this view first. 3D is not leaving: it is the same map, tilted.
   useEffect(() => {
     if (!isMapFocused) clearHeatmapView();
   }, [isMapFocused]);
@@ -599,6 +525,7 @@ export function RegionalMapView({
         selectedSectionId: selectedSection?.id ?? null,
         selectedRouteId: selectedRoute?.routeId ?? null,
         routeColor,
+        terrain: show3D,
       }),
     [
       palette,
@@ -614,7 +541,22 @@ export function RegionalMapView({
       selectedSection,
       selectedRoute,
       routeColor,
+      show3D,
     ]
+  );
+
+  // 3D is this map tilted over the elevation model: the same sources, layers
+  // and taps, and pitch and rotate gestures while it is on. A page with no
+  // elevation tiles reports it and the map lies flat again.
+  const terrain = useMemo(
+    () =>
+      show3D
+        ? {
+            exaggeration: TERRAIN_3D_CONFIG.defaultExaggeration,
+            pitch: TERRAIN_3D_CONFIG.defaultPitch,
+          }
+        : null,
+    [show3D]
   );
 
   return (
@@ -622,39 +564,7 @@ export function RegionalMapView({
       {/* The map is drawn under the status bar, so its glyphs follow the map style rather than
           the app theme. The entry exists only while the tab is focused, so it leaves with it. */}
       {isMapFocused ? <StatusBar style={statusBarStyleForMap(mapStyle)} animated /> : null}
-      {!isMapFocused ? null : show3D ? (
-        <ComponentErrorBoundary part="map3d" debugName="3D Map" onError={() => setIs3DMode(false)}>
-          <Map3DWebView
-            ref={map3DRef}
-            coordinates={route3DCoords.length > 0 ? route3DCoords : undefined}
-            mapStyle={mapStyle}
-            routeColor={selected ? routeColor : undefined}
-            initialCenter={currentCenterRef.current ?? mapCenter ?? undefined}
-            initialZoom={currentZoomRef.current}
-            // Pass an empty FeatureCollection (not undefined) when toggled off
-            // so the WebView clears the previous data via setData; undefined
-            // leaves the layer's last value cached and visible.
-            routesGeoJSON={routesGeoJSON}
-            sectionsGeoJSON={showSections ? sectionsGeoJSON : EMPTY_FEATURE_COLLECTION}
-            // Global map in 3D mirrors the 2D paradigm: only points, never the
-            // full activity polylines. tracesGeoJSON is always empty here;
-            // activity locations come through pointMarkersGeoJSON below as
-            // colored circles per sport (no polylines).
-            tracesGeoJSON={EMPTY_FEATURE_COLLECTION}
-            pointMarkersGeoJSON={pointMarkers3D}
-            spiderLinesGeoJSON={spiderLinesGeoJSON}
-            showHeatmap={showHeatmap}
-            // The 3D camera is the camera: without this the 2D surface came
-            // back where 3D started rather than where the athlete left it.
-            onCameraStateChange={handle3DCameraState}
-            onSectionClick={handle3DSectionClick}
-            onMapClick={handleEmptyPress}
-            onActivityClick={handle3DActivityClick}
-            onTerrainUnavailable={onTerrainUnavailable}
-            accessibilityLabel={mapLabel}
-          />
-        </ComponentErrorBoundary>
-      ) : (
+      {isMapFocused ? (
         <MapSurface
           ref={surfaceRef}
           mapStyle={mapStyle}
@@ -664,23 +574,25 @@ export function RegionalMapView({
           sources={sources}
           layers={layers}
           interactiveLayers={REGIONAL_INTERACTIVE_LAYERS}
+          terrain={terrain}
           onMapReady={markUserInteracted}
           onPress={handleSurfacePress}
           onRegionIsChanging={handleRegionIsChanging}
           onRegionDidChange={handleRegionDidChange}
+          onTerrainUnavailable={onTerrainUnavailable}
           accessibilityLabel={mapLabel}
         />
-      )}
+      ) : null}
 
       {/* Accessibility and test handle for cluster counts. Invisible to users -
           the map draws the glyphs itself, inside a canvas nothing else can see. */}
-      {isMapFocused && !show3D ? (
+      {isMapFocused ? (
         <ClusterCountOverlay surfaceRef={surfaceRef} ref={clusterOverlayRef} />
       ) : null}
 
       {/* Same idea for the sections layer: something outside the canvas that
           says whether sections are currently drawn. */}
-      {!show3D && showSections && sectionsEnabled ? (
+      {showSections && sectionsEnabled ? (
         <View
           testID="regional-map-sections-overlay"
           accessibilityLabel={t('maps.showSections')}
@@ -725,6 +637,7 @@ export function RegionalMapView({
         onFitAll={handleFitAll}
         keyCategories={keyCategories}
         heatKeyColours={heatKeyColours}
+        linePalette={palette}
       />
       {/* The popups sit above whatever the host draws over the foot of the map. */}
       {selected ? (

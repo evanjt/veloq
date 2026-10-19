@@ -15,6 +15,7 @@ function tileHosts(): string[] {
   const hosts = new Set<string>();
   for (const rel of [
     'src/features/maps/components/mapStyles.ts',
+    'src/features/maps/lib/eoxTemplate.ts',
     'src/features/maps/styles/darkMatter.ts',
   ]) {
     for (const m of read(rel).matchAll(/https:\/\/([a-z0-9-]+(?:\.[a-z0-9-]+)+)\//g)) {

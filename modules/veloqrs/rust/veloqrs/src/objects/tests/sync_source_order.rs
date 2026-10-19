@@ -40,6 +40,7 @@ struct FakeSource<'a> {
     refuse: Option<&'static str>,
     rejected: bool,
     during_census: DuringCensus,
+    transport: Transport,
     calls: Mutex<Vec<Call>>,
 }
 
@@ -53,6 +54,7 @@ impl<'a> FakeSource<'a> {
             refuse: None,
             rejected: false,
             during_census: DuringCensus::Nothing,
+            transport: crate::net::recording_source::unreachable_transport(),
             calls: Mutex::new(Vec::new()),
         }
     }
@@ -90,6 +92,10 @@ impl<'a> FakeSource<'a> {
 impl Source for FakeSource<'_> {
     fn account(&self) -> &str {
         "i1"
+    }
+
+    fn transport(&self) -> &Transport {
+        &self.transport
     }
 
     async fn confirm_rejected(&self) -> bool {

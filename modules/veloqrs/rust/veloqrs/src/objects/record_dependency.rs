@@ -233,7 +233,7 @@ mod tests {
             Transport::with_governor(server.base_url(), AuthMethod::ApiKey("test"), governor)
                 .unwrap();
         let fetched = crate::runtime::block_on(fetch_one_record_activity(
-            &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+            &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
             "old-ride",
         ))
         .unwrap();
@@ -313,7 +313,7 @@ mod tests {
                 .unwrap();
         let first = crate::runtime::block_on(super::fetch_owed_record_activities(
             install,
-            &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+            &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
             &|| false,
             &|_, _| {},
         ));
@@ -338,7 +338,7 @@ mod tests {
         mock_found(&server, "flaky-ride", &points);
         let second = crate::runtime::block_on(super::fetch_owed_record_activities(
             install,
-            &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+            &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
             &|| false,
             &|_, _| {},
         ));
@@ -387,7 +387,7 @@ mod tests {
                 .unwrap();
         let outcome = crate::runtime::block_on(super::fetch_owed_record_activities(
             crate::persistence::engine_install(),
-            &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+            &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
             &|| false,
             &|_, _| {},
         ));
@@ -422,7 +422,7 @@ mod tests {
                 .unwrap();
         let outcome = crate::runtime::block_on(super::fetch_owed_record_activities(
             crate::persistence::engine_install(),
-            &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+            &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
             &|| false,
             &|_, _| {},
         ));
@@ -466,7 +466,7 @@ mod tests {
             Transport::with_governor(server.base_url(), AuthMethod::ApiKey("test"), governor)
                 .unwrap();
         let fetched = crate::runtime::block_on(fetch_one_record_activity(
-            &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+            &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
             "missing-ride",
         ))
         .unwrap();
@@ -566,7 +566,7 @@ mod uploaded_recording_tests {
     fn run_owed_step(server: &MockServer) {
         let outcome = crate::runtime::block_on(super::fetch_owed_record_activities(
             crate::persistence::engine_install(),
-            &crate::net::IntervalsSession::new(transport(server), "i1"),
+            &crate::net::intervals::IntervalsSession::new(transport(server), "i1"),
             &|| false,
             &|_, _| {},
         ));

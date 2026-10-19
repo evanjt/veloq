@@ -1,23 +1,12 @@
 import React, { useState, useCallback, useRef, useMemo, ReactNode, useEffect } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import { View, StyleSheet, Animated } from 'react-native';
 import { useTheme } from '@/shared/app';
 // Straight from the context, not the app barrel: a surface mounted with no
 // app shell still has to draw, and the barrel is what such a caller stubs.
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import {
-  colors,
-  colorWithOpacity,
-  darkColors,
-  duration,
-  ink,
-  layers,
-  layout,
-  mapPalette,
-  opacity,
-  spacing,
-  typography,
-} from '@/theme';
+import { darkColors, duration, layers, mapPalette, spacing } from '@/theme';
+import { AttributionOverlay, type AttributionOverlayRef } from './AttributionOverlay';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import { MapSurface, type MapPressEvent, type MapSurfaceRef } from './MapSurface';
 import { ComponentErrorBoundary } from '@/shared/ui';
@@ -336,6 +325,10 @@ export function BaseMapView({
       }),
     [mapStyle, currentCenter, currentZoom, currentBounds, is3DMode]
   );
+  const attributionRef = useRef<AttributionOverlayRef>(null);
+  useEffect(() => {
+    attributionRef.current?.setAttribution(attributionText);
+  }, [attributionText]);
 
   // Render controls (shared between 2D and 3D)
   const renderControls = () => (
@@ -405,18 +398,12 @@ export function BaseMapView({
         {extraControls}
       </View>
 
-      {/* Attribution */}
       {showAttribution ? (
-        <View style={[styles.attribution, { bottom: insets.bottom }]} pointerEvents="none">
-          <View style={[styles.attributionPill, isDark && styles.attributionPillDark]}>
-            <Text
-              testID="map-attribution-text"
-              style={[styles.attributionText, isDark && styles.attributionTextDark]}
-            >
-              {attributionText}
-            </Text>
-          </View>
-        </View>
+        <AttributionOverlay
+          ref={attributionRef}
+          initialAttribution={attributionText}
+          bottomInset={insets.bottom}
+        />
       ) : null}
     </>
   );
@@ -503,31 +490,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row', // Horizontal layout to reduce vertical occlusion
     gap: MAP_CONTROL_GAP,
     zIndex: layers.mapOverlay,
-  },
-  attribution: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    alignItems: 'flex-end',
-    paddingBottom: spacing.xs,
-    paddingRight: spacing.xsPlus,
-    zIndex: layers.mapOverlay,
-  },
-  attributionPill: {
-    backgroundColor: colorWithOpacity(ink.white, opacity.pressed),
-    paddingHorizontal: spacing.smPlus,
-    paddingVertical: spacing.xs,
-    borderRadius: layout.borderRadiusSm,
-  },
-  attributionPillDark: {
-    backgroundColor: colorWithOpacity(darkColors.surfaceRaised, 0.8),
-  },
-  attributionText: {
-    fontSize: typography.pillLabel.fontSize,
-    color: colors.textSecondary,
-  },
-  attributionTextDark: {
-    color: darkColors.textSecondary,
   },
 });
 

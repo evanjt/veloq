@@ -55,13 +55,13 @@
 //! a pass regardless.
 
 use crate::governor::Lane;
-use crate::net::IntervalsSession;
 use crate::net::intervals::endpoints::DEFAULT_STREAM_TYPES;
 use crate::net::source::Source;
 use crate::net::transport::{NetError, Transport};
 use crate::net::types::{
     StreamDto, TrackClock, parse_streams, storable_series, track_clock, trackless_series,
 };
+use crate::net::{LiveSource, live_source};
 use crate::objects::FfiStartOutcome;
 use crate::persistence::attempts::now_ms;
 use crate::persistence::job_runs::{BackgroundJob, JobRun, RunOutcome, record_job_run};
@@ -767,11 +767,11 @@ pub fn run_stream_backfill(transport: &Transport, athlete_id: &str) -> StreamBac
     run_in_slot(
         slot,
         engine_install(),
-        &IntervalsSession::new(transport.clone(), athlete_id),
+        &live_source(transport.clone(), athlete_id),
     )
 }
 
-fn run_in_slot(_slot: RunGuard, install: u64, session: &IntervalsSession) -> StreamBackfillRun {
+fn run_in_slot(_slot: RunGuard, install: u64, session: &LiveSource) -> StreamBackfillRun {
     let run = run_pass(install, session);
     record_run(install, &run);
     run
@@ -819,7 +819,7 @@ fn run_outcome(phase: &str, failed: u32) -> RunOutcome {
     }
 }
 
-fn run_pass(install: u64, session: &IntervalsSession) -> StreamBackfillRun {
+fn run_pass(install: u64, session: &LiveSource) -> StreamBackfillRun {
     let queue = match with_persistent_engine_for(install, |engine| {
         engine.activities_missing_streams(STREAM_ATTEMPT_LIMIT)
     }) {
@@ -1016,7 +1016,7 @@ fn drain_queue_with_auth(
 
 fn drain_queue(
     install: u64,
-    session: &IntervalsSession,
+    session: &LiveSource,
     queue: &[StreamGap],
 ) -> (StreamBackfillOutcome, Option<Stopped>) {
     let ids: Vec<String> = queue.iter().map(|g| g.activity_id.clone()).collect();
@@ -1043,7 +1043,7 @@ fn drain_queue(
         },
         stream_backfill_cancelled,
         crate::net::connectivity::is_offline,
-        || crate::objects::sync::still_signed_in(session.athlete_id()),
+        || crate::objects::sync::still_signed_in(session.account()),
         || engine_install() == install,
     )
 }
@@ -1762,7 +1762,7 @@ mod tests {
         let gov = std::sync::Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
         let transport =
             Transport::with_governor(server.base_url(), AuthMethod::ApiKey("k"), gov).unwrap();
-        let session = IntervalsSession::new(transport, "1");
+        let session = live_source(transport, "1");
 
         let fetched = crate::runtime::block_on(fetch_one(&session, "i3", Some(4)));
 

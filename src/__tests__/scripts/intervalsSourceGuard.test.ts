@@ -151,3 +151,46 @@ it('refuses to judge a tree with no endpoint module rather than passing it', () 
 
   expect(status).toBe(2);
 });
+
+it('fails the intervals.icu session named outside the intervals module and the live source owner', () => {
+  const root = fixture({
+    'objects/ledger.rs': [
+      'use crate::net::LiveSource;',
+      '',
+      'fn build_session(&self) -> Result<IntervalsSession, E> {',
+      '    Ok(live_source(transport, "a1"))',
+      '}',
+      'fn hold(s: &crate::net::intervals::IntervalsSession) {}',
+    ].join('\n'),
+  });
+
+  const { status, output } = runGuard(root);
+
+  expect(status).toBe(1);
+  expect(output).toContain(`${SRC}/objects/ledger.rs:3`);
+  expect(output).toContain(`${SRC}/objects/ledger.rs:6`);
+  expect(output).not.toContain(`${SRC}/objects/ledger.rs:1`);
+  expect(output).not.toContain(`${SRC}/objects/ledger.rs:4`);
+});
+
+it('passes the session named in test code, comments, the intervals module and the owner', () => {
+  const root = fixture({
+    'objects/ledger.rs': [
+      '/// Built over the `IntervalsSession` in production.',
+      'fn build_session(&self) -> Result<LiveSource, E> { todo!() }',
+      '',
+      '#[cfg(test)]',
+      'mod tests {',
+      '    fn build_session(&self) -> Result<IntervalsSession, E> { todo!() }',
+      '}',
+    ].join('\n'),
+    'objects/tests/ledger.rs': 'fn a(t: Transport) { let _ = IntervalsSession::new(t, "a1"); }',
+    'net/intervals/mod.rs': 'pub struct IntervalsSession;',
+    'net/live.rs': 'pub type LiveSource = super::intervals::IntervalsSession;',
+  });
+
+  const { status, output } = runGuard(root);
+
+  expect(output).toContain('every intervals.icu request goes through the session');
+  expect(status).toBe(0);
+});

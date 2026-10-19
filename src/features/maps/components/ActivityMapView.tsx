@@ -6,7 +6,6 @@
 import React, { useMemo, useState, useRef, useCallback, useEffect, memo } from 'react';
 import { View, StatusBar, Animated, Image, useWindowDimensions } from 'react-native';
 import { FullWindowModal } from '@/shared/ui/FullWindowModal';
-import { useIsFocused } from 'expo-router';
 
 import { LatLng } from '@/shared/geo/polyline';
 import { useMapStyleToggle } from '@/features/maps/hooks/useDrawnMapStyle';
@@ -18,6 +17,7 @@ import {
 } from '@/features/maps/lib/storage/terrainPreviewCache';
 import { duration, iconSize, mapPalette, themePalette, type MapPalette } from '@/theme';
 import { useTheme } from '@/shared/app';
+import { useMapHeldFocus } from '@/shared/app/MapSheetHost';
 import { useMapPreferences } from '@/features/settings/light';
 import { useSectionCreation } from '@/features/maps/hooks/useSectionCreation';
 import { useMapCamera } from '@/features/maps/hooks/useMapCamera';
@@ -130,9 +130,6 @@ interface ActivityMapViewProps {
   onStyleChange?: ((style: MapStyleType) => void) | undefined;
   /** Called when attribution text changes (due to style or viewport change) */
   onAttributionChange?: ((attribution: string) => void) | undefined;
-  /** Measured height the attribution pill claims, so a parent drawing in the
-   *  same corner can pad itself clear of however many rows it wraps to. */
-  onAttributionClearanceChange?: ((clearance: number) => void) | undefined;
   /** Buttons the control column draws, so a parent drawing text beside it reserves only their width. */
   onControlCountChange?: ((count: number) => void) | undefined;
   /** Enable section creation mode */
@@ -192,7 +189,6 @@ export const ActivityMapView = memo(function ActivityMapView({
   on3DModeChange,
   onStyleChange,
   onAttributionChange,
-  onAttributionClearanceChange,
   onControlCountChange,
   creationMode = false,
   creationState: externalCreationState,
@@ -228,8 +224,9 @@ export const ActivityMapView = memo(function ActivityMapView({
   const [is3DReady, setIs3DReady] = useState(false);
   const map3DRef = useRef<Map3DWebViewRef>(null);
   // A screen covered by another keeps its WebViews but releases their maps,
-  // which hold the GL context and every tile texture in it.
-  const screenFocused = useIsFocused();
+  // which hold the GL context and every tile texture in it. Inside a detail host the screen is
+  // the host's, so the map stays held under its own sheet.
+  const screenFocused = useMapHeldFocus();
   const map3DOpacity = useRef(new Animated.Value(0)).current;
 
   // Track the latest 3D camera state for capture on exit
@@ -973,7 +970,7 @@ export const ActivityMapView = memo(function ActivityMapView({
           <AttributionOverlay
             ref={attributionRef}
             initialAttribution={initialAttributionRef.current}
-            onClearanceChange={onAttributionClearanceChange}
+            bottomInset={coveredBottom}
           />
         ) : null}
       </View>

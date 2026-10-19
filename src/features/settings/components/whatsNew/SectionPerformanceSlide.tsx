@@ -9,7 +9,8 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { Canvas, Line, Path, Rect, vec } from '@shopify/react-native-skia';
+import { Line, Path, Rect, vec } from '@shopify/react-native-skia';
+import { Canvas } from '@/shared/ui/SkiaCanvas';
 import { useTheme } from '@/shared/app';
 import {
   ChartDot,

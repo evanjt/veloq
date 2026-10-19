@@ -59,7 +59,7 @@ import { groupSectionEncounters } from '../lib/groupSectionEncounters';
 import { activityHeroStats } from '../lib/activityHeroStats';
 import {
   activityCardWriter,
-  initialActivityTab,
+  mountedActivityTab,
   useCardFocusSection,
   type ActivityTab,
 } from '../lib/activityCardState';
@@ -121,8 +121,11 @@ export function ActivityDetailCard({
   const activityDate = activity?.startDateLocal?.split('T')[0];
   const { data: activityWellness } = useWellnessForDate(activityDate);
 
-  // The tab is the card's own, and the map reads it from the card's state.
-  const [activeTab, setActiveTab] = useState<ActivityTab>(() => initialActivityTab(tab));
+  // The tab is the card's own, and the map reads it from the card's state, which outlives a
+  // presentation of the sheet and so gives the tab back when a stop move mounts the card again.
+  const [activeTab, setActiveTab] = useState<ActivityTab>(() =>
+    mountedActivityTab(hostKey, cardIndex, tab)
+  );
   useEffect(() => {
     card.setActiveTab(activeTab);
   }, [card, activeTab]);

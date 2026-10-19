@@ -17,11 +17,17 @@ pub mod types;
 pub mod chart_streams;
 
 pub mod intervals;
-pub use intervals::{IntervalsSession, endpoints};
+pub use intervals::endpoints;
 
-/// What the sync asks the athlete's source, implemented by the session.
+/// The source the app runs, named once for every caller.
+pub mod live;
+pub use live::LiveSource;
+pub(crate) use live::{LIVE_BASE_URL, live_source};
+
+/// What the sync and an upload ask the athlete's source, implemented by the
+/// session.
 pub mod source;
-pub use source::Source;
+pub use source::{Source, SourceWrites};
 
 #[cfg(test)]
 #[path = "tests/recording_source.rs"]

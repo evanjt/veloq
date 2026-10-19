@@ -4,17 +4,14 @@
  *
  * Expected behaviour: the recording goes to the engine's one upload command by
  * id, as the athlete's own request, and the screen gets the engine's answer
- * back as it was given. Demo mode never reaches the engine: the ride is marked
- * uploaded under a local id. The sequence itself, every transition and every
+ * back as it was given. Demo mode has nowhere to send a ride, so nothing
+ * starts and nothing is written. The sequence itself, every transition and every
  * request, is asserted in Rust, where it runs.
  */
 
 import { UploadOutcome, recordings } from 'veloqrs';
 import { uploadRecordingNow } from '@/features/recording/lib/upload/intervalsUploads';
-import {
-  recordingInstall,
-  transitionRecording,
-} from '@/features/recording/lib/storage/recordingLibrary';
+import { transitionRecording } from '@/features/recording/lib/storage/recordingLibrary';
 
 jest.mock('veloqrs', () =>
   require('../../__shared__/veloqrsStub').withOverrides({
@@ -66,25 +63,21 @@ describe('uploadRecordingNow', () => {
     });
   });
 
-  it('marks the ride uploaded locally in demo mode without touching the engine', async () => {
+  it('answers that nothing started in demo mode, writing nothing and never touching the engine', async () => {
     mockAuthState.isDemoMode = true;
     mockAuthState.athleteId = 'demo';
 
     const result = await uploadRecordingNow('rec-1');
 
-    expect(result).toEqual({ outcome: UploadOutcome.Uploaded });
+    expect(result).toEqual({ outcome: UploadOutcome.NotStarted });
     expect(mockUploadRecording).not.toHaveBeenCalled();
-    expect(mockTransition).toHaveBeenCalledWith('rec-1', {
-      kind: 'uploaded',
-      install: recordingInstall(),
-      intervalsActivityId: expect.stringMatching(/^demo-\d+$/),
-    });
+    expect(mockTransition).not.toHaveBeenCalled();
   });
 
-  it('answers that nothing started when demo mode finds the ride already settled', async () => {
+  it('answers that nothing started for the demo athlete without the demo flag', async () => {
     mockAuthState.athleteId = 'demo';
-    mockTransition.mockResolvedValue({ applied: false, retryCount: 0, install: 4 });
 
     expect(await uploadRecordingNow('rec-1')).toEqual({ outcome: UploadOutcome.NotStarted });
+    expect(mockTransition).not.toHaveBeenCalled();
   });
 });

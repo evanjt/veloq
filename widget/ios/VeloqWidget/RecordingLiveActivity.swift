@@ -162,6 +162,7 @@ private struct RecordingClock: View {
   /// The frame's width at the step's default size, which grows with the clock.
   let maxWidth: CGFloat?
   @ScaledMetric private var scaled: CGFloat
+  @Environment(\.legibilityWeight) private var legibility
 
   init(
     state: VeloqRecordingAttributes.ContentState, isStale: Bool, step: WidgetTheme.TypeStep,
@@ -184,7 +185,7 @@ private struct RecordingClock: View {
         Text(timerInterval: state.timerStart...Date.distantFuture, countsDown: false)
       }
     }
-    .font(RecordingCardStyle.clockFont(size))
+    .font(RecordingCardStyle.clockFont(size, boldText: legibility == .bold))
     .frame(maxWidth: maxWidth.map { $0 * size / step.size }, alignment: .trailing)
     .foregroundStyle(WidgetTheme.Record.foreground)
     // Read as what it is and then the time, so the number is not a bare clock face.
@@ -311,7 +312,9 @@ enum RecordingCardStyle {
   /// every point the island offers and pushes it wider than its digits.
   static let compactClockWidth: CGFloat = 56
 
-  static func clockFont(_ size: CGFloat) -> Font {
-    .system(size: size, weight: .semibold).monospacedDigit()
+  /// The clock in the widget face, with figures of one width so the time does not shift as it
+  /// ticks.
+  static func clockFont(_ size: CGFloat, boldText: Bool = false) -> Font {
+    .widget(size, weight: .semibold, boldText: boldText).monospacedDigit()
   }
 }

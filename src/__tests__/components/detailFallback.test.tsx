@@ -88,6 +88,22 @@ describe('DetailFallback', () => {
     expect(screen.queryByText('common.retry')).toBeNull();
   });
 
+  it('stands a route or section card at Peek while the engine is still opening', async () => {
+    mockReady.open = false;
+    const screen = await render(
+      <DetailFallback
+        isDark={false}
+        status={{ kind: 'closed' }}
+        notFoundMessage="not-found"
+        onRetry={jest.fn()}
+        peek="section"
+      />
+    );
+    expect(screen.getByLabelText('maps.detailLoading.section')).toBeTruthy();
+    expect(screen.queryByTestId('detail-fallback-skeleton')).toBeNull();
+    expect(screen.queryByText('common.retry')).toBeNull();
+  });
+
   it('says why the engine failed to open, and Retry re-runs the open', async () => {
     mockReady.open = false;
     useEngineStatus.setState({ initFailed: true, initFailureReason: InitOutcome.Failed });

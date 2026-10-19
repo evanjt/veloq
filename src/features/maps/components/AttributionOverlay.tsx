@@ -16,28 +16,24 @@ import {
   colorWithOpacity,
   darkColors,
   layers,
-  layout,
   opacity,
   spacing,
   typography,
 } from '@/theme';
 import { DenseText } from '@/shared/ui/DenseText';
 
-const PILL_INSET = 4;
-/** Share of the map the pill may claim before it wraps instead of spreading. */
-const PILL_MAX_WIDTH = '62%';
-const PILL_PADDING_VERTICAL = 5;
-const PILL_LINE_HEIGHT = typography.micro.lineHeight;
+const BAR_PADDING_VERTICAL = spacing.xxs;
+const BAR_LINE_HEIGHT = typography.micro.lineHeight;
 
 /**
- * Vertical space a single-line pill claims above the map's bottom edge. Map
- * attribution is a licence condition, so anything drawn over the same corner
+ * Vertical space a one-line bar claims above the map's bottom edge. Map
+ * attribution is a licence condition, so anything drawn over the same edge
  * has to pad itself clear of this rather than cover it. It is only the value
- * to start from: the satellite credit runs to two rows at phone width, so a
- * caller that has to clear the pill takes the measured height from
+ * to start from: at a large font scale the credit grows a line, so a caller
+ * that has to clear the bar takes the measured height from
  * `onClearanceChange` instead of assuming a line count.
  */
-export const ATTRIBUTION_CLEARANCE = PILL_INSET + PILL_PADDING_VERTICAL * 2 + PILL_LINE_HEIGHT;
+export const ATTRIBUTION_CLEARANCE = BAR_PADDING_VERTICAL * 2 + BAR_LINE_HEIGHT;
 
 export interface AttributionOverlayRef {
   setAttribution: (text: string) => void;
@@ -45,16 +41,16 @@ export interface AttributionOverlayRef {
 
 export interface AttributionOverlayProps {
   initialAttribution: string;
-  /** Measured pill height plus its inset, reported whenever the wrap changes. */
+  /** Measured bar height, reported whenever the wrap changes. */
   onClearanceChange?: ((clearance: number) => void) | undefined;
-  /** Height over the map's foot that something else covers, which the pill sits above. */
+  /** Height over the map's foot that something else covers, which the bar sits on. */
   bottomInset?: number | undefined;
 }
 
 export const AttributionOverlay = memo(
   forwardRef<AttributionOverlayRef, AttributionOverlayProps>(
     ({ initialAttribution, onClearanceChange, bottomInset = 0 }, ref) => {
-      // The pill is chrome, so it follows the app theme rather than the base drawn under it.
+      // The bar is chrome, so it follows the app theme rather than the base drawn under it.
       const { isDark } = useTheme();
       const [attribution, setAttribution] = useState(initialAttribution);
       const reportedRef = useRef<number | null>(null);
@@ -65,7 +61,7 @@ export const AttributionOverlay = memo(
 
       const handleLayout = useCallback(
         (event: LayoutChangeEvent) => {
-          const clearance = event.nativeEvent.layout.height + PILL_INSET;
+          const clearance = event.nativeEvent.layout.height;
           if (reportedRef.current === clearance) return;
           reportedRef.current = clearance;
           onClearanceChange?.(clearance);
@@ -73,7 +69,7 @@ export const AttributionOverlay = memo(
         [onClearanceChange]
       );
 
-      // A caller that waits on the map for its credit draws no blank pill meanwhile.
+      // A caller that waits on the map for its credit draws no blank bar meanwhile.
       if (!attribution) return null;
 
       return (
@@ -83,9 +79,9 @@ export const AttributionOverlay = memo(
           pointerEvents="none"
         >
           <View
-            testID="map-attribution-pill"
+            testID="map-attribution-bar"
             style={[
-              attributionStyles.attributionPill,
+              attributionStyles.attributionBar,
               {
                 backgroundColor: colorWithOpacity(
                   (isDark ? darkColors : colors).surfaceRaised,
@@ -115,28 +111,23 @@ AttributionOverlay.displayName = 'AttributionOverlay';
 
 const attributionStyles = StyleSheet.create({
   attribution: {
+    // Spanning the map gives the credit the whole width, so the long satellite
+    // credit fits one line at phone width rather than wrapping in a corner. It
+    // is a licence condition, so past one line it wraps, never truncates.
     position: 'absolute',
-    bottom: 0,
+    left: 0,
     right: 0,
-    alignItems: 'flex-end',
-    // Without a ceiling the node grows to the parent's width, and the long
-    // satellite credit then wraps into a full-width band across the bottom of
-    // the map rather than sitting in its corner. The credit is a
-    // licence condition, so it is bounded and wrapped, never truncated.
-    maxWidth: PILL_MAX_WIDTH,
-    paddingBottom: PILL_INSET,
-    paddingRight: spacing.xsPlus,
+    bottom: 0,
     zIndex: layers.mapOverlay,
   },
-  attributionPill: {
-    alignSelf: 'flex-end',
-    paddingHorizontal: spacing.smPlus,
-    paddingVertical: PILL_PADDING_VERTICAL,
-    borderRadius: layout.borderRadiusSm,
+  attributionBar: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: BAR_PADDING_VERTICAL,
   },
   attributionText: {
     ...typography.micro,
     color: colors.textSecondary,
+    textAlign: 'right',
   },
   attributionTextDark: {
     color: darkColors.textSecondary,

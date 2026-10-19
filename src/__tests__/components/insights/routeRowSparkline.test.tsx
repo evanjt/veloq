@@ -2,14 +2,15 @@
  * Scenario: a route insight row draws the route's recent efforts as a small
  * trend beside its best time, and the trend glyph says whether it got faster.
  *
- * Expected behaviour: the line takes the series colour of what it measures,
+ * Expected behaviour: the line is the kit sparkline, fastest at the top as the
+ * section timelines draw times, in the series colour of what it measures
  * whatever the verdict, with no area under it, and the row prints and speaks
  * the range the line spans. The verdict colour stays on the glyph.
  */
 
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
-import { LinearGradient, Path } from '@shopify/react-native-skia';
+import { render, screen, within } from '@testing-library/react-native';
+import { Circle, LinearGradient, Path, Skia } from '@shopify/react-native-skia';
 
 import { changeLanguage, initialiseI18n } from '@/i18n';
 import { RouteInsightContent } from '@/features/insights/components/content/RouteInsightContent';
@@ -23,7 +24,12 @@ jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: mockDark }) }));
 jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
 
 beforeAll(() => initialiseI18n('en-GB'));
-beforeEach(() => changeLanguage('en-GB'));
+beforeEach(() => {
+  changeLanguage('en-GB');
+  jest
+    .spyOn(Skia.Path, 'MakeFromSVGString')
+    .mockReturnValue({} as ReturnType<typeof Skia.Path.MakeFromSVGString>);
+});
 
 function routeInsight(trend: number, efforts: number[]): Insight {
   return {
@@ -48,7 +54,7 @@ function routeInsight(trend: number, efforts: number[]): Insight {
           daysSinceLast: 2,
           attemptCount: 5,
           recentEfforts: efforts.map((value, i) => ({
-            date: `2026-03-0${i + 1}`,
+            date: 1_772_323_200 + i * 86_400,
             value,
           })),
           navigationTarget: '/route/orchard',
@@ -61,6 +67,7 @@ function routeInsight(trend: number, efforts: number[]): Insight {
 describe('a route insight row', () => {
   afterEach(() => {
     mockDark = false;
+    jest.restoreAllMocks();
   });
 
   it.each([
@@ -87,15 +94,42 @@ describe('a route insight row', () => {
     expect(screen.UNSAFE_getAllByType(Path).every((p) => p.props.style === 'stroke')).toBe(true);
   });
 
-  it('prints and speaks the range the line spans', () => {
+  // The latest effort carries the line's one dot, so its height says which way up the line is.
+  function latestEffortY(): number {
+    const dots = screen.UNSAFE_getAllByType(Circle);
+    return dots[dots.length - 1].props.cy;
+  }
+
+  it('draws a faster route rising, its latest and fastest effort at the top', () => {
     render(<RouteInsightContent insight={routeInsight(1, [1620, 1580, 1545, 1490])} />);
-    expect(screen.getByText('24:50-27:00')).toBeTruthy();
+    expect(latestEffortY()).toBeLessThan(28 / 2);
+  });
+
+  it('draws a slower route falling, its latest and slowest effort at the foot', () => {
+    render(<RouteInsightContent insight={routeInsight(-1, [1490, 1520, 1580])} />);
+    expect(latestEffortY()).toBeGreaterThan(28 / 2);
+  });
+
+  it('prints the fastest time at the top of the range and the slowest below', () => {
+    render(<RouteInsightContent insight={routeInsight(1, [1620, 1580, 1545, 1490])} />);
+    // The printed range is hidden from a screen reader, which hears it in the row's label.
+    const hidden = { includeHiddenElements: true };
+    const range = screen.getByTestId('route-insight-sparkline-orchard:Run-range', hidden);
+    expect(
+      within(range)
+        .getAllByText(/^\d+:\d\d$/, hidden)
+        .map((node) => node.props.children)
+    ).toEqual(['24:50', '27:00']);
+  });
+
+  it('speaks the range the line spans', () => {
+    render(<RouteInsightContent insight={routeInsight(1, [1620, 1580, 1545, 1490])} />);
     expect(screen.getByRole('button').props.accessibilityLabel).toContain('24:50-27:00');
   });
 
   it('draws no line and prints no range under three efforts', () => {
     render(<RouteInsightContent insight={routeInsight(1, [1580, 1490])} />);
     expect(screen.UNSAFE_queryAllByType(Path)).toHaveLength(0);
-    expect(screen.queryByText(/\d-\d/)).toBeNull();
+    expect(screen.UNSAFE_queryAllByType(Circle)).toHaveLength(0);
   });
 });

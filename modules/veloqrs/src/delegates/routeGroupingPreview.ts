@@ -31,9 +31,7 @@ export interface RouteGroupPreview {
  * engine, so it never reads as a refusal.
  */
 export type RouteGroupingOutcome =
-  | { state: 'grouped'; groups: RouteGroupPreview[] }
-  | { state: 'cancelled' }
-  | { state: 'refused' };
+  { state: 'grouped'; groups: RouteGroupPreview[] } | { state: 'cancelled' } | { state: 'refused' };
 
 /** The surface the strictness control talks to. */
 export interface RouteGroupingPreviewClient {

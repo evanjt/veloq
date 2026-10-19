@@ -54,8 +54,7 @@ const EXPORT_TIMEOUT_MS = 60_000;
  * screen can come back to it. A failed write throws.
  */
 export type ExportOutcome =
-  | ({ state: 'complete' } & ExportResult)
-  | { state: 'running'; started: StartedExport };
+  ({ state: 'complete' } & ExportResult) | { state: 'running'; started: StartedExport };
 
 /**
  * What an export skipped, by reason. They are kept apart because the athlete
@@ -70,9 +69,7 @@ export interface BulkExportSkips {
 
 /** What an export asked for now answers with. */
 export type BulkExportOutcome =
-  | BulkExportTally
-  | { state: 'still-running' }
-  | { state: 'nothing-pending' };
+  BulkExportTally | { state: 'still-running' } | { state: 'nothing-pending' };
 
 /** What a finished export wrote and skipped. */
 export type BulkExportTally = {

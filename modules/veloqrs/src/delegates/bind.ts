@@ -14,11 +14,9 @@ import type { DelegateHost } from './host';
 
 /** A module's host-taking functions, with the host argument removed. */
 export type Bound<M> = {
-  [K in keyof M as M[K] extends (host: DelegateHost, ...args: never[]) => unknown
-    ? K
-    : never]: M[K] extends (host: DelegateHost, ...args: infer A) => infer R
-    ? (...args: A) => R
-    : never;
+  [
+    K in keyof M as M[K] extends (host: DelegateHost, ...args: never[]) => unknown ? K : never
+  ]: M[K] extends (host: DelegateHost, ...args: infer A) => infer R ? (...args: A) => R : never;
 };
 
 export function bindDelegates<M extends object>(host: DelegateHost, delegates: M): Bound<M> {

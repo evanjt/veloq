@@ -3,10 +3,7 @@
  * is not open, or a read that threw. The screen shows the not-found text only for `missing`.
  */
 export type DetailReadStatus =
-  | { kind: 'ok' }
-  | { kind: 'missing' }
-  | { kind: 'closed' }
-  | { kind: 'failed'; error: unknown };
+  { kind: 'ok' } | { kind: 'missing' } | { kind: 'closed' } | { kind: 'failed'; error: unknown };
 
 export type DetailRead<T> = { status: DetailReadStatus; data: T | null };
 

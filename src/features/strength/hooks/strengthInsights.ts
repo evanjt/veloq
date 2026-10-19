@@ -5,8 +5,14 @@ import { muscleName as nameOf } from '../lib/muscleNames';
 import { buildStrengthBalancePairs } from '../lib/analysis';
 import { balanceStatusLabelKey, formatBalanceRatio, formatSetCount } from '../lib/formatting';
 import type { StrengthBalancePair, StrengthProgressionRecord, StrengthSummary } from '../types';
-import { INSIGHTS_CONFIG, confidenceFrom, historyScale } from '@/features/insights';
-import type { HistorySeries } from '@/features/insights';
+import {
+  HISTORY_MIN_POINTS,
+  INSIGHTS_CONFIG,
+  confidenceFrom,
+  historyScale,
+} from '@/features/insights';
+import type { HistorySeries, InsightHistory } from '@/features/insights';
+import { formatSignedPercentage } from '@/shared/format/number';
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string;
 
@@ -16,14 +22,26 @@ function weekMark(weekly: StrengthSummary[]) {
   return { date: weekly.at(-1)?.startTs ?? 0 };
 }
 
-/** Weekly bars with this week marked, the scale in the sets or sessions they count. */
-function weeklyBars(weekly: StrengthSummary[], series: HistorySeries[]) {
+/**
+ * Weekly bars with this week marked, the scale in the sets or sessions they
+ * count. Under the floor every card keeps there are no bars, and the card
+ * states its figure instead.
+ */
+function weeklyBars(
+  weekly: StrengthSummary[],
+  series: HistorySeries[]
+): { history?: InsightHistory; dataTarget: string } {
+  const weeks = Math.min(...series.map((s) => s.points.length));
+  if (weeks < HISTORY_MIN_POINTS) return { dataTarget: STRENGTH_TARGET };
   return {
-    kind: 'bars' as const,
-    target: STRENGTH_TARGET,
-    mark: weekMark(weekly),
-    scale: historyScale('bars', series, formatSetCount),
-    series,
+    history: {
+      kind: 'bars',
+      target: STRENGTH_TARGET,
+      mark: weekMark(weekly),
+      scale: historyScale('bars', series, formatSetCount),
+      series,
+    },
+    dataTarget: STRENGTH_TARGET,
   };
 }
 
@@ -34,10 +52,12 @@ function buildStrengthBalanceInsight(
   t: TFunc
 ): Insight {
   const dominant = pair.dominantLabel ?? pair.leftLabel;
+  // The pair's name already says which muscles are compared, and the ratio and
+  // set counts say which side carries more, so the title is the name alone.
   const title =
     pair.status === 'one-sided'
       ? t('insights.strengthBalance.allOneSideTitle', { pair: pair.label })
-      : t('insights.strengthBalance.dominantTitle', { dominant, pair: pair.label });
+      : pair.label;
   const body =
     pair.status === 'one-sided'
       ? t('insights.strengthBalance.oneSidedBody', { dominant, pair: pair.label })
@@ -66,7 +86,8 @@ function buildStrengthBalanceInsight(
       comparisonKind: 'self',
     },
     supportingData: {
-      history: weeklyBars(weekly, [
+      hero: { label: t('insights.strengthBalance.ratioLabel'), value: formatBalanceRatio(pair, t) },
+      ...weeklyBars(weekly, [
         {
           label: pair.leftLabel,
           points: weekly.map((week) => ({
@@ -145,6 +166,16 @@ function buildStrengthProgressionInsight(
     to: formatSetCount(progression.recentAverage),
   });
 
+  // A rise from zero has no percentage, so the change is the word for a new signal.
+  const change = {
+    label: t('insights.strengthProgression.changeLabel'),
+    value:
+      progression.changePct == null
+        ? t('strength.newSignal')
+        : formatSignedPercentage(progression.changePct),
+    context: 'neutral' as const,
+  };
+
   return {
     id: `strength_progression-${muscleSlug}`,
     category: 'strength_progression',
@@ -179,7 +210,13 @@ function buildStrengthProgressionInsight(
       signalDelta: progression.signalDelta ?? undefined,
     },
     supportingData: {
-      history: weeklyBars(weekly, [
+      hero: {
+        label: t('insights.strengthProgression.recent2Weeks'),
+        value: formatSetCount(progression.recentAverage),
+        unit: t('strength.sets'),
+      },
+      change,
+      ...weeklyBars(weekly, [
         {
           label: t('insights.strengthProgression.sparklineLabel'),
           points: progression.weeklyWeightedSets.map((value, index) => ({
@@ -227,14 +264,7 @@ function buildStrengthProgressionInsight(
           value: progression.baselineAverage,
           unit: t('strength.sets'),
         },
-        change: {
-          label: t('insights.strengthProgression.changeLabel'),
-          value:
-            progression.changePct == null
-              ? t('strength.newSignal')
-              : `${progression.changePct > 0 ? '+' : ''}${Math.round(progression.changePct)}%`,
-          context: 'neutral',
-        },
+        change,
       },
       formula: t('insights.strengthProgression.formula'),
       algorithmDescription: t('insights.strengthProgression.algorithm'),
@@ -286,7 +316,8 @@ function buildStrengthSnapshotInsight(
       comparisonKind: 'self',
     },
     supportingData: {
-      history: weeklyBars(weekly, [
+      hero: { label: t('insights.strengthSnapshot.sessionsLabel'), value: summary.activityCount },
+      ...weeklyBars(weekly, [
         {
           label: t('insights.strengthSnapshot.sessionsLabel'),
           points: weekly.map((week) => ({ date: week.startTs ?? 0, value: week.activityCount })),

@@ -1,14 +1,7 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
-import {
-  Canvas,
-  Circle,
-  Rect,
-  Line as SkiaLine,
-  Path,
-  Skia,
-  vec,
-} from '@shopify/react-native-skia';
+import { Circle, Rect, Line as SkiaLine, Path, Skia, vec } from '@shopify/react-native-skia';
+import { Canvas } from '@/shared/ui/SkiaCanvas';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';

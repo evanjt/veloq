@@ -159,9 +159,8 @@ export function WhatsNewModal() {
         : ALL_SLIDES;
   const slides = useMemo(
     () =>
-      tourSlides.map(
-        (slide): WhatsNewSlideDefinition =>
-          resolveShowMeRoute(slide, library) === undefined ? withoutShowMe(slide) : slide
+      tourSlides.map((slide): WhatsNewSlideDefinition =>
+        resolveShowMeRoute(slide, library) === undefined ? withoutShowMe(slide) : slide
       ),
     [tourSlides, library]
   );

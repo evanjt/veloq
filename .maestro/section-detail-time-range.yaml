@@ -68,10 +68,10 @@ tags:
           id: "section-time-range"
       - tapOn:
           id: "section-time-range"
+      # The menu's own testID never reaches the Android hierarchy, so a row is
+      # found by its label alone.
       - tapOn:
           text: "1 month"
-          childOf:
-            id: "context-menu"
       - waitForAnimationToEnd:
           timeout: 2000
       - takeScreenshot: "screenshots/section-detail-1M"
@@ -79,8 +79,6 @@ tags:
           id: "section-time-range"
       - tapOn:
           text: "3 months"
-          childOf:
-            id: "context-menu"
       - waitForAnimationToEnd:
           timeout: 2000
       - takeScreenshot: "screenshots/section-detail-3M"
@@ -88,8 +86,6 @@ tags:
           id: "section-time-range"
       - tapOn:
           text: "6 months"
-          childOf:
-            id: "context-menu"
       - waitForAnimationToEnd:
           timeout: 2000
       - takeScreenshot: "screenshots/section-detail-6M"
@@ -97,8 +93,6 @@ tags:
           id: "section-time-range"
       - tapOn:
           text: "1 year"
-          childOf:
-            id: "context-menu"
       - waitForAnimationToEnd:
           timeout: 2000
       - takeScreenshot: "screenshots/section-detail-1Y"
@@ -106,8 +100,6 @@ tags:
           id: "section-time-range"
       - tapOn:
           text: "All"
-          childOf:
-            id: "context-menu"
       - waitForAnimationToEnd:
           timeout: 2000
       - takeScreenshot: "screenshots/section-detail-all"

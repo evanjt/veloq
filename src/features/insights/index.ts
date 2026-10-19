@@ -21,7 +21,7 @@ export {
   consolidateInsights,
 } from './lib/computeInsightsData';
 export { INSIGHTS_CONFIG, confidenceFrom } from './lib/config';
-export { historyScale } from './lib/sparkline';
+export { HISTORY_MIN_POINTS, historyScale } from './lib/sparkline';
 
 export { stalePROpportunityToInsight } from './generators/stalePr';
 export { generateEfficiencyTrendInsights } from './generators/efficiencyTrend';
@@ -52,6 +52,7 @@ export type {
   SectionTrendData,
   SeriesPoint,
   HistorySeries,
+  InsightHistory,
   TFunc,
 } from './types';
 

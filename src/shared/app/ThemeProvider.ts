@@ -80,9 +80,7 @@ export function useResolvedColorScheme(): NonNullable<ColorSchemeName> {
  * high-contrast text on Android. Each is read on the one platform that has it.
  */
 type ChromeSettingEvent =
-  | 'reduceTransparencyChanged'
-  | 'darkerSystemColorsChanged'
-  | 'highTextContrastChanged';
+  'reduceTransparencyChanged' | 'darkerSystemColorsChanged' | 'highTextContrastChanged';
 
 interface ChromeSetting {
   read: () => Promise<boolean>;

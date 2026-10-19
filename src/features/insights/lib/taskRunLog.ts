@@ -10,14 +10,7 @@ const TASK_RUN_LOG_KEY = 'veloq-insight-task-runs';
 const MAX_ENTRIES = 20;
 
 export type TaskRunStage =
-  | 'fired'
-  | 'parsed'
-  | 'bailed'
-  | 'ingested'
-  | 'indexed'
-  | 'notified'
-  | 'readied'
-  | 'error';
+  'fired' | 'parsed' | 'bailed' | 'ingested' | 'indexed' | 'notified' | 'readied' | 'error';
 
 export interface TaskRunEntry {
   ts: number;

@@ -28,6 +28,7 @@ import {
 import { createSharedStyles } from '@/styles';
 import { useTheme } from '@/shared/app';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
+import { mapDataLicenceEntries } from '@/features/maps';
 
 interface LicenseEntry {
   name: string;
@@ -410,40 +411,7 @@ const LICENSE_DATA: LicenseSection[] = [
     title: 'Map data',
     titleKey: 'licenses.sectionMapData',
     description: 'Map tiles and geographic data providers.',
-    entries: [
-      {
-        name: 'OpenStreetMap',
-        license: 'ODbL',
-        repository: 'https://www.openstreetmap.org/copyright',
-        description: 'Map data © OpenStreetMap contributors.',
-      },
-      {
-        name: 'OpenFreeMap',
-        license: 'ODbL',
-        repository: 'https://openfreemap.org',
-        description: 'Free map tile hosting.',
-      },
-      {
-        name: 'OpenMapTiles',
-        license: 'ODbL',
-        repository: 'https://openmaptiles.org',
-        description: 'Vector tile schema.',
-      },
-      {
-        name: 'EOX Sentinel-2 Cloudless',
-        license: 'CC BY 4.0',
-        repository: 'https://s2maps.eu',
-        description:
-          'Sentinel-2 cloudless by EOX IT Services GmbH. Contains modified Copernicus Sentinel data 2017.',
-      },
-      {
-        name: 'Mapzen Terrain Tiles',
-        license: 'Public Domain',
-        repository: 'https://registry.opendata.aws/terrain-tiles/',
-        description:
-          '3D elevation data courtesy of U.S. Geological Survey and U.S. National Oceanic and Atmospheric Administration.',
-      },
-    ],
+    entries: mapDataLicenceEntries(),
   },
 ];
 
@@ -475,6 +443,10 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
   'CC-BY-NC-SA 4.0': `Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.`,
 
   'Public Domain': `This data is in the public domain and free to use without restriction.`,
+
+  'CC BY 4.0': `Creative Commons Attribution 4.0 International License. You are free to share and adapt the material for any purpose, as long as you give appropriate credit. See https://creativecommons.org/licenses/by/4.0/`,
+
+  'CC0 1.0': `Creative Commons CC0 1.0 Universal Public Domain Dedication. The data may be used for any purpose without restriction. See https://creativecommons.org/publicdomain/zero/1.0/`,
 };
 
 interface LicenseSectionCardProps {

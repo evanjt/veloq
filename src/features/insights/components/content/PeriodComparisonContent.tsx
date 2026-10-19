@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { Canvas, RoundedRect } from '@shopify/react-native-skia';
+import { RoundedRect } from '@shopify/react-native-skia';
+import { Canvas } from '@/shared/ui/SkiaCanvas';
 import { useTheme } from '@/shared/app';
 import {
   chartStyles,

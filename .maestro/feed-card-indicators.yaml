@@ -120,7 +120,7 @@ tags:
           id: "activity-card-demo-test-0-route-chip"
       - extendedWaitUntil:
           visible:
-            id: "activity-detail-content"
+            id: "activity-detail-screen"
           timeout: 20000
       - takeScreenshot: "screenshots/feed-indicators-route-tab"
 

@@ -13,6 +13,11 @@ import XCTest
 /// a personal record; the compact clock's frame holds the longest clock a ride reaches.
 @MainActor
 final class RecordingCardStyleTests: XCTestCase {
+  nonisolated override func setUp() {
+    super.setUp()
+    _ = BundledFace.registered
+  }
+
   private let schemes: [UIUserInterfaceStyle] = [.light, .dark]
 
   func testTheSecondaryLineClearsAAOnTheTintOverAWhiteWallpaper() {

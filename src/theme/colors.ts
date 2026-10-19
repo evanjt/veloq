@@ -174,31 +174,33 @@ export const strengthTone = {
 
 // 8-color rotation for distinguishing overlapping section overlays on the map.
 // Derived from a stable hash of the section ID so colors don't shuffle when
-// the section list re-orders.
+// the section list re-orders. Each clears 3:1 at the line's 0.95 opacity over
+// every base's edge, which the line sits on.
 export const sectionPalette = [
   '#00BCD4',
-  '#AB47BC',
+  '#C584D4',
   '#FF7043',
   '#66BB6A',
   '#42A5F5',
   '#FFCA28',
   '#26A69A',
-  '#EC407A',
+  '#F06292',
 ] as const;
 
 // A separate warm/purple family so routes stay visually distinct from sections
 // even when overlapping on the same map. Like sections, a route's colour is a
 // hash of its id, so a regroup that reorders the routes leaves each its colour.
-// The engine writes that hash on each route line as `palette`.
+// The engine writes that hash on each route line as `palette`. Each clears
+// 3:1 at the line's 0.8 opacity over every base's edge, which the line sits on.
 export const routePalette = [
-  '#7C4DFF',
-  '#AA00FF',
-  '#D500F9',
-  '#651FFF',
-  '#6200EA',
+  '#9E8CFF',
+  '#D17CFF',
+  '#F570E8',
+  '#C5A0FF',
+  '#E57CFF',
   '#B388FF',
   '#EA80FC',
-  '#CE93D8',
+  '#FF80E0',
 ] as const;
 
 function idHash(id: string): number {
@@ -385,7 +387,7 @@ export function chartStreamColour(stream: ChartStream, isDark: boolean): string 
 // (white) where it clears 4.5:1, dark where white does not.
 export const sectionPaletteInk: readonly ('light' | 'dark')[] = [
   'dark',
-  'light',
+  'dark',
   'dark',
   'dark',
   'dark',

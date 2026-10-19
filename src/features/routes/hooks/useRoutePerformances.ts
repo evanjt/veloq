@@ -17,7 +17,7 @@ import type {
   FfiAttemptHistograms,
   FfiSectionTrendCurves,
 } from 'veloqrs';
-import { toDirectionStats, fromUnixSeconds } from '@/shared/ffi/ffiConversions';
+import { toDirectionStats, fromWallClockSeconds } from '@/shared/ffi/ffiConversions';
 import { safeGetTime } from '@/shared/format/format';
 import type { DirectionBestRecord } from '../lib/performanceTypes';
 import { routes } from 'veloqrs';
@@ -159,7 +159,7 @@ export function useRoutePerformances(
     return {
       bestTime: ffi.movingTime,
       bestSpeed: ffi.speed,
-      activityDate: fromUnixSeconds(ffi.date) ?? new Date(),
+      activityDate: fromWallClockSeconds(ffi.date) ?? new Date(),
     };
   }
 
@@ -262,7 +262,7 @@ export function useRoutePerformances(
       if (!(p.speed > 0)) continue;
       points.push({
         activityId: p.activityId,
-        date: fromUnixSeconds(p.date) ?? new Date(),
+        date: fromWallClockSeconds(p.date) ?? new Date(),
         name: p.name,
         speed: p.speed,
         duration: p.movingTime,

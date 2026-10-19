@@ -401,6 +401,10 @@ mod route_name_mint_tests;
 mod worker_regroup_tests;
 
 #[cfg(test)]
+#[path = "tests/caller_applied_groups.rs"]
+mod caller_applied_groups_tests;
+
+#[cfg(test)]
 #[path = "tests/worker_match_rows.rs"]
 mod worker_match_rows_tests;
 
@@ -809,6 +813,7 @@ impl PersistentEngine {
             worker_applied: None,
             // No worker to ask, so the flag is here to satisfy the shape.
             cancel: Arc::new(AtomicBool::new(false)),
+            run_groups: Default::default(),
         }
     }
 
@@ -1010,6 +1015,7 @@ impl PersistentEngine {
                         progress,
                         worker_applied,
                         cancel: Arc::new(AtomicBool::new(false)),
+                        run_groups: Default::default(),
                     };
                 }
                 // The owned copy the caller receives is made on a thread of
@@ -1040,6 +1046,7 @@ impl PersistentEngine {
                 // The echo is one send and already under way; there is no
                 // stage boundary to stop it at.
                 cancel: Arc::new(AtomicBool::new(false)),
+                run_groups: Default::default(),
             };
         }
 
@@ -1157,6 +1164,8 @@ impl PersistentEngine {
 
         let cancel = Arc::new(AtomicBool::new(false));
         let cancel_worker = Arc::clone(&cancel);
+        let run_groups: Arc<std::sync::OnceLock<(bool, u64)>> = Arc::default();
+        let worker_run_groups = Arc::clone(&run_groups);
 
         let completion_slot = applied_flag.as_ref().map(|_| Arc::clone(&checkpoint_slot));
         // Taken here, under the engine lock that captured the flag, and held
@@ -1247,6 +1256,9 @@ impl PersistentEngine {
             } else {
                 (load_groups_from_db(&conn), false)
             };
+            // Before any result is sent, so a caller that applies the result
+            // reads what this regroup decided once it has received it.
+            let _ = worker_run_groups.set((regroup_owed, groups_epoch_at_spawn));
             log::info!(
                 "veloqrs: [SectionDetection] {} groups ready (recomputed={})",
                 groups.len(),
@@ -1583,6 +1595,7 @@ impl PersistentEngine {
             progress,
             worker_applied,
             cancel,
+            run_groups,
         }
     }
 
@@ -1859,12 +1872,21 @@ impl PersistentEngine {
     /// followed by the deferred finalize tail, under one engine lock. The
     /// cutover's detect and the harness ingest take it; a detection worker
     /// splits the two halves across separate engine locks instead.
+    ///
+    /// The run regrouped and committed on its own connection, and the apply
+    /// adopts that commit, as the worker's own apply does. The shared engine's
+    /// lock take follows it anyway, but an engine opened on its own has no lock
+    /// take to do it: left on the groups it held at spawn, its next run
+    /// regroups the whole pool from nothing and has its write refused as stale.
+    /// The grouping stays owed, since the result does not say whether a store
+    /// landed while the run went.
     pub fn apply_sections_with_cache(
         &mut self,
         sections: Vec<FrequentSection>,
         update: Option<CacheUpdate>,
     ) -> SqlResult<()> {
         self.apply_sections_save_with_cache(sections, update)?;
+        self.follow_committed_groups();
         self.apply_sections_finalize();
         Ok(())
     }
@@ -1907,6 +1929,7 @@ impl PersistentEngine {
     /// `apply_sections_finalize` on a background thread.
     pub fn apply_sections(&mut self, sections: Vec<FrequentSection>) -> SqlResult<()> {
         self.apply_sections_save(sections)?;
+        self.follow_committed_groups();
         self.apply_sections_finalize();
         Ok(())
     }

@@ -65,8 +65,7 @@ export interface PerformanceChartPanelProps extends Omit<
 > {
   /** Called with the attempt chosen on the plot, and with null when the choice is cleared. */
   onActivitySelect?:
-    | ((activityId: string | null, activityPoints?: RoutePoint[], date?: Date) => void)
-    | undefined;
+    ((activityId: string | null, activityPoints?: RoutePoint[], date?: Date) => void) | undefined;
   onExcludeActivity?: ((activityId: string) => void) | undefined;
   onIncludeActivity?: ((activityId: string) => void) | undefined;
   onSetAsReference?: ((activityId: string) => void) | undefined;
@@ -263,6 +262,7 @@ export function PerformanceChartPanel({
       {available.length > 1 && (
         <ToggleButtonRow
           layout="hug"
+          testID="chart-plot-row"
           style={styles.control}
           options={available.map((type) => ({
             value: type,

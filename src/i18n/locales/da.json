@@ -940,36 +940,35 @@
     "explanation": {
       "title": "Forstå indsigterne",
       "foundLabel": "Metode",
-      "found": "Veloq sammenligner dine seneste aktiviteter og din velvære med din egen historik, på denne telefon, og viser et kort for hver rekord, ændring eller tendens, den finder.",
+      "found": "Veloq sammenligner dine seneste aktiviteter og din velvære med din egen historik, på denne telefon.",
       "kinds": {
         "sectionsAndRoutes": {
           "label": "Sektioner og ruter",
-          "text": "En ny rekord, en række hurtigere eller langsommere tider eller en ændret puls ved samme tempo, på en sektion eller rute, du gentager."
+          "text": "Rekorder, hurtigere eller langsommere tider og puls ved samme tempo."
         },
         "fitness": {
           "label": "eFTP og kritisk fart",
-          "text": "En ændring i din eFTP eller kritiske fart og de sektionsrekorder, du satte, da den var lavere."
+          "text": "En ændring i en af dem og de rekorder, du satte, da den var lavere."
         },
         "week": {
           "label": "Denne uge",
-          "text": "Træningstid og -belastning i denne uge indtil nu sammenlignet med samme tidspunkt sidste uge."
+          "text": "Denne uge indtil nu mod sidste uge, eller sidste uge mod gennemsnittet for 4 uger."
         },
         "hrv": {
           "label": "Pulsvariabilitet",
-          "text": "Din HRV over de seneste 7 dage, de nyere målinger mod de ældre."
+          "text": "Dine seneste 7 dage, de nyere målinger mod de ældre."
         },
         "strength": {
           "label": "Styrke",
-          "text": "En muskelgruppes vægtede sæt, der stiger eller falder, og balancen mellem modsatte muskelgrupper."
+          "text": "Vægtede sæt pr. muskelgruppe og balancen mellem modsatte grupper."
         },
         "sectionChanges": {
           "label": "Sektionsændringer",
-          "text": "En sektion, der er skåret om, delt, gendannet eller sat tilbage til en tidligere version."
+          "text": "En sektion, der er skåret om, delt, gendannet eller sat tilbage."
         }
       },
-      "orderLabel": "Rækkefølge",
       "sourcesLabel": "Kilder",
-      "sources": "Tider, distancer, puls og watt kommer fra dine aktiviteter. eFTP, kritisk fart og HRV er de værdier, intervals.icu har for dig. Åbn et kort, og tryk på “{{howCalculated}}” for metode og data.",
+      "sources": "Tider, puls og watt kommer fra dine aktiviteter, og eFTP, kritisk fart og HRV fra intervals.icu, med hvert korts metode og data under “{{howCalculated}}”.",
       "strengthTitle": "Forstå styrke"
     },
     "aboutRanking": "Kortene sorteres efter, hvor meget hvert af dem har at sige: hvor nyt det er, hvor meget det skiller sig ud fra dit saedvanlige, hvor meget det har flyttet sig, og hvor ofte du goer det.",
@@ -995,7 +994,6 @@
       "lowSignal": "Svagt signal",
       "noSignal": "Intet signal",
       "allOneSideTitle": "{{pair}}: al volumen på én side",
-      "dominantTitle": "{{dominant}} bærer mere volumen i {{pair}}",
       "oneSidedBody": "{{dominant}} står for hele det vægtede sætvolumen for {{pair}} gennem de seneste 4 uger.",
       "ratioBody": "{{pair}} ligger i gennemsnit på {{ratio}} i vægtede sæt i det seneste 4-ugers vindue.",
       "ratioLabel": "Forhold",
@@ -1152,6 +1150,10 @@
     "loadingOlderActivities": "Indlæser ældre aktiviteter…",
     "activitySummary_one": "{{count}} aktivitet · {{mapped}} på kortet",
     "activitySummary_other": "{{count}} aktiviteter · {{mapped}} på kortet",
+    "unmappedWithoutGps_one": "{{count}} uden GPS",
+    "unmappedWithoutGps_other": "{{count}} uden GPS",
+    "unmappedDownloading_one": "{{count}} hentes",
+    "unmappedDownloading_other": "{{count}} hentes",
     "expandRange": "Udvid interval",
     "distanceAny": "Alle",
     "showFilters": "Vis alle filtre",
@@ -1218,9 +1220,16 @@
     "keyYearOrMore": "Et år eller mere",
     "keyFewerPasses": "Færre passager",
     "keyMorePasses": "Flere passager",
+    "keyEachSection": "Hver sektion sin egen farve",
+    "keyEachRoute": "Hver rute sin egen farve",
     "colorByGradient": "Farv efter gradient",
     "periodThisYear": "I år",
     "sheetSize": "Størrelse på kort og detaljer",
+    "detailLoading": {
+      "activity": "Indlæser aktivitet",
+      "route": "Indlæser rute",
+      "section": "Indlæser sektion"
+    },
     "sheetStop": {
       "peek": "Glimt",
       "half": "Halv",
@@ -1450,6 +1459,7 @@
     "writePermissionRequired": "Skrivetilladelse påkrævet",
     "savedLocally": "Aktivitet gemt på denne enhed. Du kan uploade den når som helst fra Mine optagelser.",
     "savedLocallyNoScope": "Turen er gemt på denne enhed. Den uploades, når du giver adgang.",
+    "savedLocallyNoUpload": "Turen er gemt på denne enhed. Demotilstand uploader ikke.",
     "settingsUpload": "Upload",
     "autoUpload": "Automatisk upload",
     "autoUploadDescription": "Upload optagelser til intervals.icu automatisk, når du gemmer dem. Slået fra bliver de på denne enhed, indtil du uploader fra Mine optagelser.",

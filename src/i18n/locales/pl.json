@@ -1008,36 +1008,35 @@
     "explanation": {
       "title": "Zrozumienie analiz",
       "foundLabel": "Metoda",
-      "found": "Veloq porównuje Twoje najnowsze aktywności i samopoczucie z Twoją własną historią, na tym telefonie, i pokazuje kartę dla każdego znalezionego rekordu, zmiany lub trendu.",
+      "found": "Veloq porównuje Twoje najnowsze aktywności i samopoczucie z Twoją własną historią, na tym telefonie.",
       "kinds": {
         "sectionsAndRoutes": {
           "label": "Odcinki i trasy",
-          "text": "Nowy rekord, seria szybszych lub wolniejszych czasów albo zmiana tętna przy tym samym tempie, na odcinku lub trasie, którą powtarzasz."
+          "text": "Rekordy, szybsze lub wolniejsze czasy i tętno przy tym samym tempie."
         },
         "fitness": {
           "label": "eFTP i prędkość krytyczna",
-          "text": "Zmiana Twojego eFTP lub prędkości krytycznej oraz rekordy odcinków ustanowione, gdy była niższa."
+          "text": "Zmiana jednej z tych wartości i rekordy ustanowione, gdy była niższa."
         },
         "week": {
           "label": "Ten tydzień",
-          "text": "Czas i obciążenie treningowe w tym tygodniu do tej pory w porównaniu z tym samym momentem zeszłego tygodnia."
+          "text": "Ten tydzień do tej pory wobec poprzedniego albo zeszły tydzień wobec średniej z 4 tygodni."
         },
         "hrv": {
           "label": "Zmienność rytmu serca",
-          "text": "Twoje HRV z ostatnich 7 dni, nowsze pomiary w porównaniu ze starszymi."
+          "text": "Twoje ostatnie 7 dni, nowsze pomiary wobec starszych."
         },
         "strength": {
           "label": "Siła",
-          "text": "Ważone serie grupy mięśni, rosnące lub malejące, oraz równowaga między przeciwstawnymi grupami mięśni."
+          "text": "Ważone serie na grupę mięśni i równowaga między przeciwstawnymi grupami."
         },
         "sectionChanges": {
           "label": "Zmiany odcinków",
-          "text": "Odcinek, który przycięto na nowo, podzielono, przywrócono lub cofnięto do wcześniejszej wersji."
+          "text": "Odcinek przycięty na nowo, podzielony, przywrócony lub cofnięty."
         }
       },
-      "orderLabel": "Kolejność",
       "sourcesLabel": "Źródła",
-      "sources": "Czasy, dystanse, tętno i moc pochodzą z Twoich aktywności. eFTP, prędkość krytyczna i HRV to wartości, które intervals.icu przechowuje dla Ciebie. Otwórz kartę i dotknij „{{howCalculated}}”, aby zobaczyć metodę i dane.",
+      "sources": "Czasy, tętno i moc pochodzą z Twoich aktywności, a eFTP, prędkość krytyczna i HRV z intervals.icu, zaś metoda i dane każdej karty są pod „{{howCalculated}}”.",
       "strengthTitle": "Zrozumienie siły"
     },
     "aboutRanking": "Karty sa uporzadkowane wedlug tego, ile maja do powiedzenia: jak swieze sa, jak bardzo odbiegaja od twojej normy, jak duza jest zmiana i jak czesto to robisz.",
@@ -1063,7 +1062,6 @@
       "lowSignal": "Słaby sygnał",
       "noSignal": "Brak sygnału",
       "allOneSideTitle": "{{pair}}: cała objętość po jednej stronie",
-      "dominantTitle": "{{dominant}} ma większą objętość w parze {{pair}}",
       "oneSidedBody": "{{dominant}} odpowiada za całą objętość ważonych serii dla pary {{pair}} z ostatnich 4 tygodni.",
       "ratioBody": "{{pair}} osiąga średnio {{ratio}} w ważonych seriach w najnowszym oknie 4 tygodni.",
       "ratioLabel": "Stosunek",
@@ -1226,6 +1224,14 @@
     "activitySummary_few": "{{count}} aktywności · {{mapped}} na mapie",
     "activitySummary_many": "{{count}} aktywności · {{mapped}} na mapie",
     "activitySummary_other": "{{count}} aktywności · {{mapped}} na mapie",
+    "unmappedWithoutGps_one": "{{count}} bez GPS",
+    "unmappedWithoutGps_few": "{{count}} bez GPS",
+    "unmappedWithoutGps_many": "{{count}} bez GPS",
+    "unmappedWithoutGps_other": "{{count}} bez GPS",
+    "unmappedDownloading_one": "{{count}} pobiera się",
+    "unmappedDownloading_few": "{{count}} pobierają się",
+    "unmappedDownloading_many": "{{count}} pobiera się",
+    "unmappedDownloading_other": "{{count}} pobiera się",
     "expandRange": "Rozszerz zakres",
     "distanceAny": "Dowolna",
     "showFilters": "Pokaż wszystkie filtry",
@@ -1298,9 +1304,16 @@
     "keyYearOrMore": "Rok lub dawniej",
     "keyFewerPasses": "Mniej przejazdów",
     "keyMorePasses": "Więcej przejazdów",
+    "keyEachSection": "Każda sekcja w innym kolorze",
+    "keyEachRoute": "Każda trasa w innym kolorze",
     "colorByGradient": "Kolor wg nachylenia",
     "periodThisYear": "W tym roku",
     "sheetSize": "Rozmiar mapy i szczegółów",
+    "detailLoading": {
+      "activity": "Wczytywanie aktywności",
+      "route": "Wczytywanie trasy",
+      "section": "Wczytywanie odcinka"
+    },
     "sheetStop": {
       "peek": "Podgląd",
       "half": "Połowa",
@@ -1530,6 +1543,7 @@
     "writePermissionRequired": "Wymagane uprawnienia do zapisu",
     "savedLocally": "Aktywność zapisana na tym urządzeniu. Możesz ją przesłać w dowolnym momencie z Moich nagrań.",
     "savedLocallyNoScope": "Aktywność zapisana na tym urządzeniu. Zostanie wysłana, gdy zezwolisz na wysyłanie.",
+    "savedLocallyNoUpload": "Aktywność zapisana na tym urządzeniu. Tryb demo niczego nie wysyła.",
     "settingsUpload": "Przesyłanie",
     "autoUpload": "Automatyczne przesyłanie",
     "autoUploadDescription": "Automatycznie przesyłaj nagrania do intervals.icu podczas zapisywania. Po wyłączeniu pozostają na tym urządzeniu, dopóki nie prześlesz ich z Moich nagrań.",

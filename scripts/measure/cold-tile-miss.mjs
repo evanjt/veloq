@@ -5,8 +5,11 @@
 // both connection pools to go idle, then times one cold burst per arm and one
 // warm burst per arm, every burst on tiles neither arm has asked for before.
 //
-// node scripts/measure/cold-tile-miss.mjs <devtools ws url> <source> <upstream template> <ext> <rounds> <idle s> [first round]
-const [ws, source, upstream, ext, roundsArg, idleArg, firstArg] = process.argv.slice(2);
+// node scripts/measure/cold-tile-miss.mjs <devtools ws url> <source> <upstream template> <ext> <rounds> <idle s> [first round] [cities]
+//
+// cities is "lat,lon;lat,lon;...", one a round. A second run on the same build
+// needs ground the first did not leave in the store, or its misses are hits.
+const [ws, source, upstream, ext, roundsArg, idleArg, firstArg, citiesArg] = process.argv.slice(2);
 const rounds = Number(roundsArg ?? 5);
 const idleMs = Number(idleArg ?? 120) * 1000;
 const first = Number(firstArg ?? 0);
@@ -31,6 +34,18 @@ const CITIES = {
     [59.91, 10.75],
   ],
 };
+
+const cities = citiesArg
+  ? citiesArg.split(';').map((pair) => pair.split(',').map(Number))
+  : CITIES[source];
+if (cities.some((c) => c.length !== 2 || c.some(Number.isNaN))) {
+  throw new Error(`cities must read "lat,lon;lat,lon", got ${citiesArg}`);
+}
+if (first + rounds > cities.length) {
+  throw new Error(
+    `${rounds} rounds from round ${first + 1} need ${first + rounds} cities, have ${cities.length}`
+  );
+}
 
 function tileOf(lat, lon) {
   const n = 2 ** Z;
@@ -125,7 +140,7 @@ process.stderr.write(
 );
 const results = [];
 for (let round = first; round < first + rounds; round++) {
-  const [lat, lon] = CITIES[source][round];
+  const [lat, lon] = cities[round];
   const [cx, cy] = tileOf(lat, lon);
   const blocks = [block(cx - W, cy - H), block(cx, cy - H), block(cx - W, cy), block(cx, cy)];
   // Alternate which arm goes first and which ground it gets.

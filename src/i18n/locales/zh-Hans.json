@@ -940,36 +940,35 @@
     "explanation": {
       "title": "了解洞察",
       "foundLabel": "方法",
-      "found": "Veloq 在这部手机上将您最新的活动和健康数据与您自己的历史记录进行比较，并为发现的每项纪录、变化或趋势显示一张卡片。",
+      "found": "Veloq 在这部手机上将您最新的活动和健康数据与您自己的历史记录进行比较。",
       "kinds": {
         "sectionsAndRoutes": {
           "label": "路段和路线",
-          "text": "在您反复经过的路段或路线上出现的新纪录、一连串更快或更慢的用时，或相同配速下心率的变化。"
+          "text": "纪录、更快或更慢的用时，以及相同配速下的心率。"
         },
         "fitness": {
           "label": "eFTP 和临界速度",
-          "text": "您的 eFTP 或临界速度的变化，以及在其较低时创下的路段纪录。"
+          "text": "其中任一项的变化，以及在其较低时创下的纪录。"
         },
         "week": {
           "label": "本周",
-          "text": "本周到目前为止的训练时间和负荷，与上周同一时间点相比。"
+          "text": "本周至今与上周相比，或上周与 4 周平均值相比。"
         },
         "hrv": {
           "label": "心率变异性",
-          "text": "您最近 7 天的 HRV，将较新的读数与较早的读数相比。"
+          "text": "最近 7 天，将较新的读数与较早的读数相比。"
         },
         "strength": {
           "label": "力量",
-          "text": "某个肌群的加权组数上升或回落，以及相对肌群之间的平衡。"
+          "text": "各肌群的加权组数，以及相对肌群之间的平衡。"
         },
         "sectionChanges": {
           "label": "路段变更",
-          "text": "被重新划定、拆分、恢复或退回到早期版本的路段。"
+          "text": "被重新划定、拆分、恢复或退回的路段。"
         }
       },
-      "orderLabel": "排序",
       "sourcesLabel": "数据来源",
-      "sources": "用时、距离、心率和功率来自您的活动。eFTP、临界速度和 HRV 是 intervals.icu 为您保存的数值。打开一张卡片并点按“{{howCalculated}}”，即可查看其方法和数据。",
+      "sources": "用时、心率和功率来自您的活动，eFTP、临界速度和 HRV 来自 intervals.icu，每张卡片的方法和数据见“{{howCalculated}}”。",
       "strengthTitle": "了解力量"
     },
     "aboutRanking": "卡片按各自能说明的分量排序：是否新近、与你的常态差多少、变化有多大、你做得有多频繁。",
@@ -995,7 +994,6 @@
       "lowSignal": "数据不足",
       "noSignal": "无数据",
       "allOneSideTitle": "{{pair}}：训练量全在一侧",
-      "dominantTitle": "{{pair}}中{{dominant}}的训练量更多",
       "oneSidedBody": "过去4周{{pair}}的全部加权组数都来自{{dominant}}。",
       "ratioBody": "最近4周内{{pair}}的加权组数平均比为{{ratio}}。",
       "ratioLabel": "比例",
@@ -1152,6 +1150,10 @@
     "loadingOlderActivities": "加载更早的活动…",
     "activitySummary_one": "{{count}} 项活动 · 地图上有 {{mapped}} 项",
     "activitySummary_other": "{{count}} 项活动 · 地图上有 {{mapped}} 项",
+    "unmappedWithoutGps_one": "{{count}} 项无 GPS",
+    "unmappedWithoutGps_other": "{{count}} 项无 GPS",
+    "unmappedDownloading_one": "{{count}} 项下载中",
+    "unmappedDownloading_other": "{{count}} 项下载中",
     "expandRange": "扩展范围",
     "distanceAny": "不限",
     "showFilters": "显示全部筛选",
@@ -1218,9 +1220,16 @@
     "keyYearOrMore": "一年或更早",
     "keyFewerPasses": "经过较少",
     "keyMorePasses": "经过较多",
+    "keyEachSection": "每个路段各有颜色",
+    "keyEachRoute": "每条路线各有颜色",
     "colorByGradient": "按坡度着色",
     "periodThisYear": "今年",
     "sheetSize": "地图和详情大小",
+    "detailLoading": {
+      "activity": "正在加载活动",
+      "route": "正在加载路线",
+      "section": "正在加载路段"
+    },
     "sheetStop": {
       "peek": "预览",
       "half": "一半",
@@ -1450,6 +1459,7 @@
     "writePermissionRequired": "需要写入权限",
     "savedLocally": "活动已保存到此设备。你可以随时在我的录制中上传。",
     "savedLocallyNoScope": "活动已保存在本机。授权上传后会自动上传。",
+    "savedLocallyNoUpload": "活动已保存在本机。演示模式不会上传。",
     "settingsUpload": "上传",
     "autoUpload": "自动上传",
     "autoUploadDescription": "保存时自动将录制上传到 intervals.icu。关闭后将保留在此设备上，直到你在我的录制中上传。",

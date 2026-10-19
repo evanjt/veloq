@@ -2085,15 +2085,13 @@ const SETS: SetContract[] = [
       ['FfiTargetMetric', stub.FfiTargetMetric],
       ['FfiAbsoluteUnits', stub.FfiAbsoluteUnits],
     ] as const
-  ).map(
-    ([name, value]): SetContract => ({
-      agree: `the binding stub carries ${name}, declared without discriminants, in the generated order`,
-      mode: 'equal',
-      a: () => enumMembers(value as unknown as Record<string, unknown>),
-      // An undeclared discriminant is the member's position.
-      b: () => generatedEnum(name).map((member, i) => member.replace('=unset', `=${i}`)),
-    })
-  ),
+  ).map(([name, value]): SetContract => ({
+    agree: `the binding stub carries ${name}, declared without discriminants, in the generated order`,
+    mode: 'equal',
+    a: () => enumMembers(value as unknown as Record<string, unknown>),
+    // An undeclared discriminant is the member's position.
+    b: () => generatedEnum(name).map((member, i) => member.replace('=unset', `=${i}`)),
+  })),
   ...(
     [
       ['FfiCallKind', stub.CallKind],
@@ -2109,29 +2107,25 @@ const SETS: SetContract[] = [
       ['FfiPoolSwimState', stub.PoolSwimState],
       ['FfiPoolUnit', stub.PoolUnit],
     ] as const
-  ).map(
-    ([name, value]): SetContract => ({
-      agree: `the binding stub carries ${name} as the generated binding declares it`,
-      mode: 'equal',
-      a: () => enumMembers(value as unknown as Record<string, unknown>),
-      b: () => generatedEnum(name),
-    })
-  ),
+  ).map(([name, value]): SetContract => ({
+    agree: `the binding stub carries ${name} as the generated binding declares it`,
+    mode: 'equal',
+    a: () => enumMembers(value as unknown as Record<string, unknown>),
+    b: () => generatedEnum(name),
+  })),
   ...(
     [
       ['FfiCatalogueEmptyReason_Tags', stub.FfiCatalogueEmptyReason_Tags],
       ['FfiDetectionHold_Tags', stub.FfiDetectionHold_Tags],
       ['FfiMapEmptyReason_Tags', stub.FfiMapEmptyReason_Tags],
     ] as const
-  ).map(
-    ([name, value]): SetContract => ({
-      agree: `the binding stub carries ${name} as the generated binding declares it`,
-      mode: 'equal',
-      atLeast: 4,
-      a: () => Object.entries(value).map(([key, member]) => `${key}=${member}`),
-      b: () => generatedStringEnum(name),
-    })
-  ),
+  ).map(([name, value]): SetContract => ({
+    agree: `the binding stub carries ${name} as the generated binding declares it`,
+    mode: 'equal',
+    atLeast: 4,
+    a: () => Object.entries(value).map(([key, member]) => `${key}=${member}`),
+    b: () => generatedStringEnum(name),
+  })),
   {
     agree: 'the binding stub exports only values the binding exports, plus its helpers',
     mode: 'within',

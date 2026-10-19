@@ -28,7 +28,7 @@ tags:
 
 - extendedWaitUntil:
     visible:
-      id: "activity-detail-content"
+      id: "activity-detail-screen"
     timeout: 15000
 
 - extendedWaitUntil:
@@ -62,7 +62,7 @@ tags:
 
 - extendedWaitUntil:
     visible:
-      id: "activity-detail-content"
+      id: "activity-detail-screen"
     timeout: 15000
 
 - takeScreenshot: "screenshots/feed-chip-deep-link-routes-tab"

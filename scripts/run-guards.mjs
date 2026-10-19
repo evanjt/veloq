@@ -407,7 +407,7 @@ const GUARDS = [
     kind: 'style',
     cmd: node('lint-intervals-source.mjs'),
     catches:
-      'an intervals.icu request that calls the endpoint module past the session, bypassing the source boundary a second data source is put behind',
+      'an intervals.icu request that calls the endpoint module past the session, or the intervals.icu session named past the live source owner, bypassing the source boundary a second data source is put behind',
   },
   {
     name: 'lint:point-shapes',
@@ -945,6 +945,13 @@ const GUARDS = [
     cmd: node('lint-dialog-owner.mjs'),
     catches:
       'a dialog raised with Alert.alert, which Android back and a scrim tap cannot dismiss, a failure notice titled with a bare generic error word, and a confirm button labelled Confirm rather than the action',
+  },
+  {
+    name: 'lint:canvas-owner',
+    kind: 'correctness',
+    cmd: node('lint-canvas-owner.mjs'),
+    catches:
+      'a Skia canvas sized from layout or data growing past the GPU texture limit, which aborts the Android render thread with Invalid GrBackendTexture and kills the app',
   },
   {
     name: 'lint:modal-owner',

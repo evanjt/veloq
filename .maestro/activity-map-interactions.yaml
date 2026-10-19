@@ -19,7 +19,7 @@ tags:
 
 - extendedWaitUntil:
     visible:
-      id: "activity-detail-content"
+      id: "activity-detail-screen"
     timeout: 30000
 
 # Verify map is rendered (terrain preview ready indicates map loaded)
@@ -52,6 +52,6 @@ tags:
 
 # Verify no crash after interactions
 - assertVisible:
-    id: "activity-detail-content"
+    id: "activity-detail-screen"
 
 - takeScreenshot: "screenshots/activity-map-interactions-complete"

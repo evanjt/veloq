@@ -2,16 +2,17 @@
  * Scenario: the detail screen opens on an activity whose body and stream
  * reads are still pending, and the feed card just tapped left a poster on disk.
  *
- * Expected behaviour: the first frame is the screen's own shape. The hero slot
- * paints the cached poster and the chart blocks sit under it. Without a poster
- * the hero is an empty block of the same height.
+ * Expected behaviour: the first frame is the map screen's own shape. The ground
+ * paints the cached poster under the sheet's Peek blocks. Without a poster the
+ * ground is the map's bare land, under the same Peek blocks.
  */
 
 import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import ActivityDetailScreen from '@/app/activity/[id]';
-import { ACTIVITY_MAP_POSTER_TEST_ID } from '@/features/maps';
+
+const POSTER = 'map-detail-skeleton-preview';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('expo-router', () => ({
@@ -32,16 +33,25 @@ jest.mock('@/shared/app', () => ({
 jest.mock('@/shared/app/useCacheDays', () => ({ useCacheDays: () => 90 }));
 jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: undefined }) }));
 jest.mock('@/shared/debug/renderTimer', () => ({ logScreenRender: () => () => {} }));
-jest.mock('@/shared/ui', () => {
-  const { View } = require('react-native');
+jest.mock('@/shared/ui/MapDetailSkeleton', () => {
   const React = require('react');
+  const actual = jest.requireActual('@/shared/ui/MapDetailSkeleton');
   return {
-    ScreenSafeAreaView: ({ children, ...props }: { children: React.ReactNode }) => {
+    ...actual,
+    MapDetailSkeleton: (props: object) => {
       React.useLayoutEffect(() => {
         mockFirstFrameCommitted = true;
       }, []);
-      return <View {...props}>{children}</View>;
+      return <actual.MapDetailSkeleton {...props} />;
     },
+  };
+});
+jest.mock('@/shared/ui', () => {
+  const { View } = require('react-native');
+  return {
+    ScreenSafeAreaView: ({ children, ...props }: { children: React.ReactNode }) => (
+      <View {...props}>{children}</View>
+    ),
     ChartSkeleton: () => <View testID="chart-skeleton" />,
     ComponentErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     ErrorState: () => null,
@@ -112,7 +122,6 @@ async function flushFrame() {
   });
 }
 jest.mock('@/features/maps', () => ({
-  ACTIVITY_MAP_POSTER_TEST_ID: 'activity-map-poster',
   calculateTerrainCamera: jest.fn(),
   deleteCameraOverride: jest.fn(),
   getCameraOverride: () => null,
@@ -149,24 +158,41 @@ afterEach(() => {
 });
 
 describe('activity detail first paint', () => {
-  it('paints the cached poster in a hero slot while the reads are pending', async () => {
+  it('paints the cached poster under the Peek blocks while the reads are pending', async () => {
     mockCached.add('act-1-light-false');
 
     await render(<ActivityDetailScreen />);
 
-    expect(screen.getByTestId(ACTIVITY_MAP_POSTER_TEST_ID).props.source).toEqual({
-      uri: 'file:///previews/act-1-light-false.jpg',
-    });
-    expect(screen.getByTestId(ACTIVITY_MAP_POSTER_TEST_ID).props.fadeDuration).toBe(0);
-    expect(screen.getByTestId('activity-detail-skeleton-hero')).toBeTruthy();
-    expect(screen.getAllByTestId('chart-skeleton').length).toBeGreaterThan(0);
+    const poster = screen.getByTestId(POSTER, { includeHiddenElements: true });
+    expect(poster.props.source).toEqual({ uri: 'file:///previews/act-1-light-false.jpg' });
+    expect(poster.props.fadeDuration).toBe(0);
+    expect(
+      screen.getByTestId('map-detail-skeleton-peek', { includeHiddenElements: true })
+    ).toBeTruthy();
+    expect(screen.getByLabelText('maps.detailLoading.activity')).toBeTruthy();
   });
 
-  it('keeps an empty hero of the same slot when no poster exists', async () => {
+  it('prefers the 3D poster the feed card drew over the flat one', async () => {
+    mockCached.add('act-1-light-true');
+    mockCached.add('act-1-light-false');
+
     await render(<ActivityDetailScreen />);
 
-    expect(screen.getByTestId('activity-detail-skeleton-hero')).toBeTruthy();
-    expect(screen.queryByTestId(ACTIVITY_MAP_POSTER_TEST_ID)).toBeNull();
+    expect(screen.getByTestId(POSTER, { includeHiddenElements: true }).props.source).toEqual({
+      uri: 'file:///previews/act-1-light-true.jpg',
+    });
+  });
+
+  it('stands on the bare land under the same Peek blocks when no poster exists', async () => {
+    await render(<ActivityDetailScreen />);
+
+    expect(
+      screen.getByTestId('map-detail-skeleton-ground', { includeHiddenElements: true })
+    ).toBeTruthy();
+    expect(
+      screen.getByTestId('map-detail-skeleton-peek', { includeHiddenElements: true })
+    ).toBeTruthy();
+    expect(screen.queryByTestId(POSTER, { includeHiddenElements: true })).toBeNull();
   });
 
   it('starts detail reads after the poster loads and a frame has passed', async () => {
@@ -174,7 +200,7 @@ describe('activity detail first paint', () => {
     await render(<ActivityDetailScreen />);
 
     expect(mockActivityReadCommits).toEqual([]);
-    await fireEvent(screen.getByTestId(ACTIVITY_MAP_POSTER_TEST_ID), 'load');
+    await fireEvent(screen.getByTestId(POSTER, { includeHiddenElements: true }), 'load');
     await flushFrame();
     expect(mockActivityReadCommits).toEqual([]);
     await flushFrame();
@@ -196,7 +222,7 @@ describe('activity detail first paint', () => {
   it('continues when a cached poster fails to load', async () => {
     mockCached.add('act-1-light-false');
     await render(<ActivityDetailScreen />);
-    await fireEvent(screen.getByTestId(ACTIVITY_MAP_POSTER_TEST_ID), 'error');
+    await fireEvent(screen.getByTestId(POSTER, { includeHiddenElements: true }), 'error');
     await flushFrame();
     await flushFrame();
 

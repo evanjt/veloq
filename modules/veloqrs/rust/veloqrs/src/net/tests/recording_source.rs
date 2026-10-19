@@ -1,15 +1,18 @@
-//! A source that answers every read from what a test set on it and records
-//! each call with its arguments and its dispatch, so a test can assert what a
-//! caller asked rather than what reached a mock server.
+//! A source that answers every read and write from what a test set on it and
+//! records each call with its arguments and its dispatch, so a test can assert
+//! what a caller asked rather than what reached a mock server. A clone shares
+//! the record, so a test keeps one while the caller takes the other.
 
 use crate::governor::Dispatch;
-use crate::net::endpoints::BulkActivityBodies;
-use crate::net::intervals::wire::{ActivityRecord, AthleteRecord, WellnessRecord};
-use crate::net::source::Source;
-use crate::net::transport::NetError;
+use crate::net::endpoints::{BulkActivityBodies, UploadDetails};
+use crate::net::intervals::wire::{
+    ActivityRecord, AthleteRecord, ListedActivity, ManualActivityBody, WellnessRecord,
+};
+use crate::net::source::{Source, SourceWrites};
+use crate::net::transport::{NetError, Transport};
 use crate::net::types::{ActivityHistorySummary, ParsedStreams, StreamDto};
 use chrono::{DateTime, Utc};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Asked {
@@ -27,6 +30,8 @@ pub(crate) fn asked(method: &'static str, args: &[&str], dispatch: impl Into<Dis
 }
 
 /// Every answer is the field of the same name. A body field holds JSON text.
+/// A file upload and a manual entry both answer `created`.
+#[derive(Clone)]
 pub(crate) struct RecordingSource {
     pub account: String,
     pub activity_body: String,
@@ -36,7 +41,10 @@ pub(crate) struct RecordingSource {
     pub altitude: Option<ParsedStreams>,
     pub time_stream: Vec<u32>,
     pub original_file: Vec<u8>,
-    calls: Mutex<Vec<Asked>>,
+    pub created: Option<String>,
+    pub listed: Vec<ListedActivity>,
+    transport: Transport,
+    calls: Arc<Mutex<Vec<Asked>>>,
 }
 
 impl RecordingSource {
@@ -50,7 +58,10 @@ impl RecordingSource {
             altitude: None,
             time_stream: Vec::new(),
             original_file: Vec::new(),
-            calls: Mutex::new(Vec::new()),
+            created: Some("a9".into()),
+            listed: Vec::new(),
+            transport: unreachable_transport(),
+            calls: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
@@ -66,9 +77,22 @@ impl RecordingSource {
     }
 }
 
+/// A transport no request is sent on: a fake answers every read itself.
+pub(crate) fn unreachable_transport() -> Transport {
+    Transport::new(
+        "http://127.0.0.1:9",
+        crate::governor::AuthMethod::ApiKey("unused"),
+    )
+    .expect("a transport for no server")
+}
+
 impl Source for RecordingSource {
     fn account(&self) -> &str {
         &self.account
+    }
+
+    fn transport(&self) -> &Transport {
+        &self.transport
     }
 
     async fn confirm_rejected(&self) -> bool {
@@ -244,5 +268,69 @@ impl Source for RecordingSource {
     ) -> Result<String, NetError> {
         self.note("pace_curves", &[sport, curves, &gap.to_string()], dispatch);
         Ok("{}".into())
+    }
+}
+
+impl SourceWrites for RecordingSource {
+    /// Records the file and each detail, an unset detail as empty.
+    async fn upload_activity(
+        &self,
+        file_path: &str,
+        filename: &str,
+        details: UploadDetails<'_>,
+        dispatch: Dispatch,
+    ) -> Result<Option<String>, NetError> {
+        let paired = details
+            .paired_event_id
+            .map(|id| id.to_string())
+            .unwrap_or_default();
+        self.note(
+            "upload_activity",
+            &[
+                file_path,
+                filename,
+                details.external_id.unwrap_or_default(),
+                details.name.unwrap_or_default(),
+                details.description.unwrap_or_default(),
+                &paired,
+            ],
+            dispatch,
+        );
+        Ok(self.created.clone())
+    }
+
+    /// Records the body as the JSON that would go on the wire.
+    async fn create_activity(
+        &self,
+        activity: &ManualActivityBody,
+        dispatch: Dispatch,
+    ) -> Result<Option<String>, NetError> {
+        let body = serde_json::to_string(activity).expect("a manual entry serialises");
+        self.note("create_activity", &[&body], dispatch);
+        Ok(self.created.clone())
+    }
+
+    async fn activities_between(
+        &self,
+        oldest: &str,
+        newest: &str,
+        dispatch: Dispatch,
+    ) -> Result<Vec<ListedActivity>, NetError> {
+        self.note("activities_between", &[oldest, newest], dispatch);
+        Ok(self.listed.clone())
+    }
+
+    async fn update_activity_rpe(
+        &self,
+        upstream: &str,
+        rpe: u32,
+        dispatch: Dispatch,
+    ) -> Result<(), NetError> {
+        self.note(
+            "update_activity_rpe",
+            &[upstream, &rpe.to_string()],
+            dispatch,
+        );
+        Ok(())
     }
 }

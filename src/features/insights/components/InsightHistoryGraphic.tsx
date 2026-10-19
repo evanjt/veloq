@@ -16,7 +16,8 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import { Text } from 'react-native-paper';
-import { Canvas, Circle, Path, Rect } from '@shopify/react-native-skia';
+import { Circle, Path, Rect } from '@shopify/react-native-skia';
+import { Canvas } from '@/shared/ui/SkiaCanvas';
 
 import {
   ChartBar,

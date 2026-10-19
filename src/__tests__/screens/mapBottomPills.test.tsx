@@ -17,6 +17,7 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import { BottomPillStack } from '@/shared/ui/BottomPillStack';
 import { useBottomPills } from '@/shared/ui/bottomPills';
 import { spacing } from '@/theme';
+import { advanceAnimationByTime, getAnimatedStyle } from '../__shared__/reanimatedJest';
 
 let mockFocused = true;
 
@@ -47,6 +48,8 @@ jest.mock('@/features/maps', () => ({
   getPeriodStart: () => new Date('2026-01-01'),
   MapNameSearch: () => null,
   PERIOD_OPTIONS: [{ id: 'all', labelKey: 'all' }],
+  periodSelectLabelKey: jest.requireActual('@/features/maps/lib/mapPeriod').periodSelectLabelKey,
+  sportChipOrder: jest.requireActual('@/features/maps/lib/sportChipOrder').sportChipOrder,
   // The regional map's terrain fallback, fired as the page reports no elevation tiles.
   RegionalMapView: () => {
     const { useEffect } = require('react');
@@ -61,6 +64,7 @@ jest.mock('@/features/maps', () => ({
     availableTypes: [],
     categoryCounts: [],
     totalCount: 0,
+    unmapped: { withoutGps: 0, downloading: 0 },
   }),
   useHeatmapPreference: (select: (s: unknown) => unknown) => select({ routesVisible: false }),
 }));
@@ -78,6 +82,7 @@ jest.mock('@/shared/debug/renderTimer', () => ({ logScreenRender: () => () => {}
 jest.mock('@/shared/ui', () => {
   const { Text } = require('react-native');
   return {
+    SelectButton: () => null,
     Button: ({ label }: { label: string }) => <Text>{label}</Text>,
     ComponentErrorBoundary: ({ children }: { children: React.ReactNode }) => children,
     ScreenErrorBoundary: ({ children }: { children: React.ReactNode }) => children,
@@ -85,6 +90,7 @@ jest.mock('@/shared/ui', () => {
     useBottomClearance: jest.requireActual('@/shared/ui/tabBarClearance').useBottomClearance,
     Shimmer: () => null,
     PressTarget: require('react-native').Pressable,
+    TextLink: jest.requireActual('@/shared/ui/TextLink').TextLink,
   };
 });
 
@@ -96,9 +102,15 @@ function bottomOf(view: Rendered, id: string) {
   return StyleSheet.flatten(view.getByTestId(id).props.style).bottom as number;
 }
 
+function sheetHeight(view: Rendered) {
+  return getAnimatedStyle(view.getByTestId('map-filter-sheet')).height as number;
+}
+
+// The raised rows are hidden from screen readers while the sheet is lowered, which the default
+// queries skip.
 async function layOut(view: Rendered, id: string, height: number) {
   await act(() =>
-    fireEvent(view.getByTestId(id), 'layout', {
+    fireEvent(view.getByTestId(id, { includeHiddenElements: true }), 'layout', {
       nativeEvent: { layout: { x: 0, y: 0, width: 400, height } },
     })
   );
@@ -121,48 +133,55 @@ describe('the map tab bottom pills', () => {
     useAuthStore.setState({ athleteId: 'i1', isAuthenticated: true });
     useRecordingStore.getState().startRecording('Ride', 'gps');
   });
+  afterEach(() => jest.useRealTimers());
 
   it('stacks the recording pill over the measured sheet and the terrain notice over the pill', async () => {
     const view = await render(mapTab());
-    await layOut(view, 'map-filter-sheet', SHEET);
+    await layOut(view, 'map-filter-lowered', SHEET);
     await layOut(view, 'bottom-pill-recording', 44);
     await layOut(view, 'bottom-pill-terrain', 40);
 
     const ride = bottomOf(view, 'bottom-pill-recording');
-    expect(ride).toBeGreaterThanOrEqual(SHEET + spacing.md);
+    expect(sheetHeight(view)).toBeGreaterThan(SHEET);
+    expect(ride).toBeGreaterThanOrEqual(sheetHeight(view) + spacing.md);
     expect(bottomOf(view, 'bottom-pill-terrain')).toBe(ride + 44 + spacing.xs);
   });
 
   it('sets the terrain notice above the sheet with no pill below it', async () => {
     useRecordingStore.getState().reset();
     const view = await render(mapTab());
-    await layOut(view, 'map-filter-sheet', SHEET);
+    await layOut(view, 'map-filter-lowered', SHEET);
     await layOut(view, 'bottom-pill-terrain', 40);
 
-    expect(bottomOf(view, 'bottom-pill-terrain')).toBeGreaterThanOrEqual(SHEET + spacing.md);
+    expect(bottomOf(view, 'bottom-pill-terrain')).toBeGreaterThanOrEqual(
+      sheetHeight(view) + spacing.md
+    );
   });
 
-  it('follows the sheet as it is raised', async () => {
+  it('follows the sheet as it is raised, once it settles', async () => {
+    jest.useFakeTimers();
     const view = await render(mapTab());
-    await layOut(view, 'map-filter-sheet', 140);
+    await layOut(view, 'map-filter-lowered', 140);
+    await layOut(view, 'map-filter-raised', 320);
     await layOut(view, 'bottom-pill-recording', 44);
     const lowered = bottomOf(view, 'bottom-pill-recording');
 
-    await layOut(view, 'map-filter-sheet', 460);
-    expect(bottomOf(view, 'bottom-pill-recording')).toBe(lowered + 460 - 140);
+    await fireEvent.press(view.getByTestId('map-filter-handle'));
+    await act(async () => advanceAnimationByTime(400));
+    expect(bottomOf(view, 'bottom-pill-recording')).toBe(lowered + 320);
   });
 
   it('reports no cover while the tab is not in front', async () => {
     mockFocused = false;
     const view = await render(mapTab());
-    await layOut(view, 'map-filter-sheet', SHEET);
+    await layOut(view, 'map-filter-lowered', SHEET);
 
     expect(useBottomPills.getState().covers).toEqual({});
   });
 
   it('drops its cover when the tab goes', async () => {
     const view = await render(<MapScreen />);
-    await layOut(view, 'map-filter-sheet', SHEET);
+    await layOut(view, 'map-filter-lowered', SHEET);
     expect(Object.keys(useBottomPills.getState().covers)).toHaveLength(1);
 
     await view.unmount();

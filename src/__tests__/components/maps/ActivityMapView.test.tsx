@@ -85,6 +85,18 @@ describe('ActivityMapView', () => {
     expect(screen.getByTestId('activity-map-style-toggle')).toBeTruthy();
   });
 
+  it("sits the credit above the sheet covering the map's foot", async () => {
+    await renderActivityMap({ coveredBottom: 240 });
+
+    expect(StyleSheet.flatten(screen.getByTestId('map-attribution').props.style).bottom).toBe(240);
+  });
+
+  it("keeps the credit on the map's foot when nothing covers it", async () => {
+    await renderActivityMap();
+
+    expect(StyleSheet.flatten(screen.getByTestId('map-attribution').props.style).bottom).toBe(0);
+  });
+
   it('hides the control stack when the caller turns it off', async () => {
     await renderActivityMap({ showStyleToggle: false });
 

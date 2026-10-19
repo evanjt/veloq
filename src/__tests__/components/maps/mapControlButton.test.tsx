@@ -17,7 +17,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { MapControlButton } from '@/features/maps/components/MapControlButton';
 import { ActivityMapControls } from '@/features/maps/components/ActivityMapControls';
 import { MapControlStack } from '@/features/maps/components/regional/MapControlStack';
-import { colors, controlHeight, darkColors, layout, raised, shadows } from '@/theme';
+import { colors, controlHeight, darkColors, layout, mapPalette, raised, shadows } from '@/theme';
 
 let mockIsDark = false;
 jest.mock('@/shared/app', () => ({
@@ -121,6 +121,7 @@ describe('the map control columns draw one button', () => {
       <SafeAreaProvider initialMetrics={METRICS}>
         <MapControlStack
           top={100}
+          linePalette={mapPalette('light')}
           isDark={false}
           is3DMode
           can3D

@@ -1,6 +1,6 @@
 /**
  * Inline JavaScript snippets shared between WebView HTML builders
- * (`buildMap3DHtml`, `buildSnapshotWorkerHtml`). Keeping them here as
+ * (`buildMapSurfaceHtml`, `buildMap3DHtml`, `buildSnapshotWorkerHtml`). Keeping them here as
  * string exports lets each builder compose its template from the same
  * primitives without runtime overhead or duplication.
  */
@@ -45,6 +45,57 @@ export function consoleBridgeScript(options: { workerId?: string } = {}): string
 export function tileProtocolsScript(): string {
   return `
 ${dropRetiredTileCachesScript()}
+  `;
+}
+
+/**
+ * Reports a page whose terrain has no elevation tiles.
+ *
+ * The renderer ships in the app but the DEM tiles do not, so an offline 3D
+ * open draws a flat map that looks like broken 3D. Reported once, after the
+ * page has settled, so the caller can drop terrain and say why.
+ *
+ * Deliveries and failures, not cache hits and misses: the DEM comes through
+ * the intercept, so the page has no handler of its own on that path and reads
+ * both off MapLibre's source events for the `terrain` source instead. A page
+ * with failures and no deliveries has no terrain at all.
+ *
+ * Defines `window._veloqTerrainReport` with `reset()`, `watch(map)`,
+ * `report()` and `reportOnceSettled(map)`, which reports a second after the
+ * map next goes idle, since a DEM tile that fails after the first frames still
+ * leaves a flat map.
+ */
+export function terrainReportScript(): string {
+  return `
+    window._veloqTerrainReport = (function() {
+      var delivered = 0, failed = 0, sent = false;
+      function report() {
+        if (sent || delivered > 0 || failed === 0) return;
+        sent = true;
+        window._rn_log('sending terrainUnavailable - ' + failed + ' DEM tiles failed');
+        if (window.ReactNativeWebView) {
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'terrainUnavailable',
+            reason: 'no terrain tiles: ' + failed + ' failed, none delivered'
+          }));
+        }
+      }
+      return {
+        reset: function() { delivered = 0; failed = 0; sent = false; },
+        watch: function(map) {
+          map.on('sourcedata', function(e) {
+            if (e.sourceId === 'terrain' && e.tile) delivered++;
+          });
+          map.on('error', function(e) {
+            if (e.sourceId === 'terrain' && e.tile) failed++;
+          });
+        },
+        report: report,
+        reportOnceSettled: function(map) {
+          map.once('idle', function() { setTimeout(report, 1000); });
+        },
+      };
+    })();
   `;
 }
 

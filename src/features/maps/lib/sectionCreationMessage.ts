@@ -7,9 +7,7 @@
  */
 
 export type SectionCreationMessageKey =
-  | 'routes.gpsTrackNotDownloaded'
-  | 'routes.invalidSectionRange'
-  | 'routes.sectionCreationFailed';
+  'routes.gpsTrackNotDownloaded' | 'routes.invalidSectionRange' | 'routes.sectionCreationFailed';
 
 export function sectionCreationMessageKey(error: unknown): SectionCreationMessageKey {
   const reason =

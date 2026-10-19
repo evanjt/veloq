@@ -145,6 +145,15 @@ enum WidgetTheme {
     }
   }
 
+  /// The face every widget line draws, by the PostScript name of the bundled file for each
+  /// weight. The extension's Info.plist lists the files; a name iOS cannot find draws the system
+  /// face.
+  enum Face {
+    static let regular = "Manrope-Regular"
+    static let semibold = "Manrope-SemiBold"
+    static let bold = "Manrope-Bold"
+  }
+
   /// The most a figure, a label or a caption grows over its step's default size, whatever text
   /// size the reader picks. A line of prose is not held to it.
   static let maxTextScale: CGFloat = 1.3

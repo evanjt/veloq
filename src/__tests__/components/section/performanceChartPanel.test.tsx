@@ -215,6 +215,14 @@ describe('PerformanceChartPanel', () => {
     expect([colors.controlOn, colors.fillNeutral]).toContain(style.backgroundColor);
   });
 
+  it("wraps the plot switch inside the panel, so a narrow phone at large text keeps every view's chip", async () => {
+    const tree = await render(panel());
+
+    const row = StyleSheet.flatten(tree.getByTestId('chart-plot-row').props.style);
+    expect(row.flexWrap).toBe('wrap');
+    expect(row.alignSelf).toBe('center');
+  });
+
   it("switches direction on a grey track carrying the engine's count per direction", async () => {
     const tree = await render(panel());
 

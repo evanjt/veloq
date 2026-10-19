@@ -76,13 +76,10 @@ describe('the Insights explanation', () => {
     expect(explanation.rows.at(-1)).toEqual({ key: 'disclaimer', text: 'insights.aboutBody' });
   });
 
-  it('says how the cards are ordered and where the numbers come from', () => {
+  it('says where the numbers come from, and leaves the ordering to the header', () => {
     const byKey = new Map(explanation.rows.map((row) => [row.key, row]));
-    expect(byKey.get('order')).toEqual({
-      key: 'order',
-      label: 'insights.explanation.orderLabel',
-      text: 'insights.aboutRanking',
-    });
+    expect(byKey.has('order')).toBe(false);
+    expect(explanation.rows.map((row) => row.text)).not.toContain('insights.aboutRanking');
     expect(byKey.get('sources')).toEqual({
       key: 'sources',
       label: 'insights.explanation.sourcesLabel',

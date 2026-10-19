@@ -27,13 +27,7 @@ import { mapToolTitle } from '@/features/maps/lib/mapToolTitle';
 import { MapToolBar, type MapToolHintTone } from './MapToolBar';
 
 export type CreationState =
-  | 'idle'
-  | 'selectingStart'
-  | 'selectingEnd'
-  | 'confirming'
-  | 'complete'
-  | 'creating'
-  | 'error';
+  'idle' | 'selectingStart' | 'selectingEnd' | 'confirming' | 'complete' | 'creating' | 'error';
 
 /** Error details for debugging */
 export interface SectionCreationError {

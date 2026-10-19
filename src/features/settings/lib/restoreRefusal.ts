@@ -10,11 +10,7 @@
 import { engineErrorTag } from '@/shared/native/engineError';
 
 export type RestoreRefusal =
-  | 'signInRequired'
-  | 'differentAccount'
-  | 'missing'
-  | 'unavailable'
-  | 'failed';
+  'signInRequired' | 'differentAccount' | 'missing' | 'unavailable' | 'failed';
 
 export type RestoreRefusalKey =
   | 'backup.signInRequired'

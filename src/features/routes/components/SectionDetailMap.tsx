@@ -10,13 +10,7 @@
  * Save or back ends the tool and presents the sheet again at the stop it had.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Platform,
-  StyleSheet,
-  View,
-  useWindowDimensions,
-  type LayoutChangeEvent,
-} from 'react-native';
+import { Platform, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SectionMapView } from './SectionMapView';
@@ -36,6 +30,7 @@ import { mapSheetHostKey } from '@/shared/app/mapSheetHost';
 import { useMapSheetHost, useMapSheetHostHeader } from '@/shared/app/MapSheetHost';
 import { useInMapSurfaceSlot, useMapSurfaceSlotLive } from '@/features/maps';
 import { mapSheetCoveredHeight, useMapSheetStop } from '@/shared/app/mapSheetStop';
+import { useSheetWindow } from '@/shared/app/TopSafeAreaContext';
 import { useAfterNavigationTransition } from '@/shared/async/useAfterNavigationTransition';
 import { Shimmer, SkeletonGroup } from '@/shared/ui';
 import { useHeroHeaderBottom } from '@/shared/ui/useHeroHeaderBottom';
@@ -131,7 +126,8 @@ export function SectionDetailMap({
 
   useMapSheetHostHeader(isTrimming ? TOOL_HEADER : null);
 
-  const { width, height } = useWindowDimensions();
+  const sheetWindow = useSheetWindow();
+  const { height } = sheetWindow;
   const insets = useSafeAreaInsets();
   const headerBottom = useHeroHeaderBottom();
   const [toolBarHeight, setToolBarHeight] = useState(0);
@@ -141,12 +137,7 @@ export function SectionDetailMap({
   );
   const coveredBottom = isTrimming
     ? toolBarHeight
-    : mapSheetCoveredHeight(
-        Platform.OS,
-        Platform.Version,
-        { width, height, topInset: insets.top, bottomInset: insets.bottom },
-        stop
-      );
+    : mapSheetCoveredHeight(Platform.OS, Platform.Version, sheetWindow, stop);
 
   const trimPointCount = trim.effectivePointCount || section?.polyline?.length || 0;
   const trimRange = useMemo(

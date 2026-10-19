@@ -13,7 +13,6 @@ import { sectionIdsAtTap } from '@/features/maps/lib/sectionIdsAtTap';
 import { saveMapCameraState } from '@/features/maps/lib/storage/mapCameraState';
 import type { ActivityBoundsItem } from '@/types';
 import type { SelectedActivity } from './ActivityPopup';
-import type { Map3DWebViewRef } from '../Map3DWebView';
 import type { MapCameraState, MapFeatureHit, MapPressEvent, MapSurfaceRef } from '../MapSurface';
 import {
   CLUSTER_SOURCE_ID,
@@ -54,11 +53,10 @@ interface UseMapHandlersOptions {
   currentZoomRef: React.MutableRefObject<number>;
   currentCenterRef: React.MutableRefObject<[number, number] | null>;
   onCameraSettled?: (center: [number, number], zoom: number, bounds?: LngLatBounds) => void;
+  /** The map, flat or tilted over terrain: 3D is the same surface. */
   surfaceRef: React.RefObject<MapSurfaceRef | null>;
-  map3DRef: React.RefObject<Map3DWebViewRef | null>;
   bearingAnim: Animated.Value;
   currentZoomLevel: React.MutableRefObject<number>;
-  is3DMode: boolean;
   markUserInteracted: () => void;
   setSpider: (state: SpiderState | null) => void;
 }
@@ -72,7 +70,7 @@ interface UseMapHandlersResult {
   handleFocusActivity: (activity: ActivityBoundsItem) => void;
   /** Single tap entry point. The page has already resolved which layer was hit. */
   handleSurfacePress: (event: MapPressEvent) => void;
-  /** A tap on bare terrain, shared by the 2D surface and the 3D page. */
+  /** A tap on bare ground, which closes every popup and any fan-out. */
   handleEmptyPress: () => void;
   handleRegionIsChanging: (state: MapCameraState) => void;
   handleRegionDidChange: (state: MapCameraState) => void;
@@ -108,20 +106,11 @@ export function useMapHandlers({
   currentCenterRef,
   onCameraSettled,
   surfaceRef,
-  map3DRef,
   bearingAnim,
   currentZoomLevel,
-  is3DMode,
   markUserInteracted,
   setSpider,
 }: UseMapHandlersOptions): UseMapHandlersResult {
-  // The 2D surface is unmounted while 3D shows, so a camera move has to go to
-  // whichever of the two is on screen.
-  const cameraTarget = useCallback(
-    () => (is3DMode ? map3DRef.current : surfaceRef.current),
-    [is3DMode, map3DRef, surfaceRef]
-  );
-
   // Ref to access current selected without adding it as callback dependency
   // This keeps callbacks stable for React.memo optimisation
   const selectedRef = useRef(selected);
@@ -179,7 +168,7 @@ export function useMapHandlers({
   const fitToActivity = useCallback(
     (activity: ActivityBoundsItem) => {
       const normalised = normaliseBounds(activity.bounds);
-      cameraTarget()?.fitBounds(
+      surfaceRef.current?.fitBounds(
         {
           sw: [normalised.minLng, normalised.minLat],
           ne: [normalised.maxLng, normalised.maxLat],
@@ -188,7 +177,7 @@ export function useMapHandlers({
         cameraMove.move
       );
     },
-    [cameraTarget]
+    [surfaceRef]
   );
 
   // Zoom to selected activity bounds - uses ref for stable callback
@@ -262,8 +251,7 @@ export function useMapHandlers({
         const clusterId = Number(feature.properties?.cluster_id);
         if (!Number.isFinite(clusterId)) return;
         const coords = (feature.geometry as GeoJSON.Point | null)?.coordinates as
-          | [number, number]
-          | undefined;
+          [number, number] | undefined;
         if (!coords) return;
 
         const pointCount = Number(feature.properties?.point_count ?? 0);
@@ -395,7 +383,7 @@ export function useMapHandlers({
 
   // One-time jump to user location (shows dot, no tracking)
   const { userLocation, locationLoading, locate } = useLocateUser();
-  const handleGetLocation = useCallback(() => locate(cameraTarget()), [locate, cameraTarget]);
+  const handleGetLocation = useCallback(() => locate(surfaceRef.current), [locate, surfaceRef]);
 
   // Toggle activities visibility - clear selection when hiding
   const toggleActivities = useCallback(() => {
@@ -430,14 +418,10 @@ export function useMapHandlers({
     });
   }, [setShowRoutes, setSelectedRouteId]);
 
-  // Reset bearing to north (and pitch in 3D mode)
+  // Reset bearing to north and pitch to straight down
   const resetOrientation = useCallback(() => {
-    if (is3DMode) {
-      map3DRef.current?.resetOrientation();
-    } else {
-      surfaceRef.current?.resetOrientation();
-    }
-  }, [is3DMode, map3DRef, surfaceRef]);
+    surfaceRef.current?.resetOrientation();
+  }, [surfaceRef]);
 
   // Fit all activities in view - recalculates bounds from all current activities
   const handleFitAll = useCallback(() => {
@@ -466,12 +450,12 @@ export function useMapHandlers({
     // Validate bounds
     if (!Number.isFinite(minLat) || !Number.isFinite(maxLat)) return;
 
-    cameraTarget()?.fitBounds(
+    surfaceRef.current?.fitBounds(
       { sw: [minLng, minLat], ne: [maxLng, maxLat] },
       REGIONAL_FIT_PADDING,
       cameraMove.move
     );
-  }, [activities, cameraTarget]);
+  }, [activities, surfaceRef]);
 
   return {
     handleMarkerTap,

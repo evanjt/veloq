@@ -26,7 +26,6 @@ import React, {
 import { BackHandler, Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Stack, useIsFocused, useLocalSearchParams, useNavigation } from 'expo-router';
 import { StackActions } from 'expo-router/react-navigation';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MapHeroStatusBar } from './MapHeroStatusBar';
 import {
@@ -39,6 +38,7 @@ import {
 } from './mapSheetHost';
 import { MAP_SHEET_HALF_STOP, useMapSheetStop } from './mapSheetStop';
 import { mapSheetPanelWidth, mapSheetScreenOptions, sheetSurface } from './screenHeaders';
+import { useSheetWindow } from './TopSafeAreaContext';
 import { useTheme } from './useTheme';
 import { BACK_SWIPE_EDGE_WIDTH } from '@/shared/ui/backSwipeEdge';
 import { MapSheetHandle } from '@/shared/ui/MapSheetHandle';
@@ -165,8 +165,7 @@ export function createMapSheetHostLayout(kind: MapSheetKind) {
     const focused = useIsFocused();
     const navigation = useNavigation();
     const { isDark } = useTheme();
-    const { width, height } = useWindowDimensions();
-    const { top, bottom } = useSafeAreaInsets();
+    const sheetWindow = useSheetWindow();
     const { onDetentChanged } = useMapSheetStop(key);
     const [mapless, setMapless] = useState(false);
 
@@ -178,12 +177,7 @@ export function createMapSheetHostLayout(kind: MapSheetKind) {
       () => ({ kind, id, key, focused, setHeaderOptions, setMapless }),
       [id, key, focused, setHeaderOptions]
     );
-    const sheetOptions = mapSheetScreenOptions(Platform.OS, Platform.Version, {
-      width,
-      height,
-      topInset: top,
-      bottomInset: bottom,
-    });
+    const sheetOptions = mapSheetScreenOptions(Platform.OS, Platform.Version, sheetWindow);
 
     return (
       <MapSheetHostContext.Provider value={host}>

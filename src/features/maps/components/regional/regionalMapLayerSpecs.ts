@@ -12,6 +12,14 @@ import type { MapGeoJSONData, MapLayerSpec, MapSourceSpec } from '@/features/map
 import { heatmapRasterPaint } from '@/features/maps/lib/heatmapPaint';
 import { HEATMAP_SOURCE_MINZOOM, heatmapTileTemplate } from '@/features/maps/lib/heatmapTiles';
 import { TRACE_ZOOM_THRESHOLD } from '@/features/maps/lib/mapBudgets';
+import {
+  MAP_3D_SCALE,
+  OVERLAY_EDGE_MARGIN,
+  SECTION_LINE_DASH,
+  ROUTE_LINE_WIDTHS,
+  SECTION_LINE_WIDTHS,
+  lineWidthRamp,
+} from '@/features/maps/lib/mapLineWidths';
 import { BUNDLED_TEXT_FONT } from '@/features/maps/lib/bundledGlyphs';
 import {
   USER_LOCATION_SOURCE_ID,
@@ -111,6 +119,11 @@ interface RegionalLayerInput {
   selectedRouteId?: string | null;
   /** Line colour for the selected activity's route. */
   routeColor: string;
+  /**
+   * The map is tilted over terrain. The layers are the same and every width and
+   * radius is drawn at `MAP_3D_SCALE`, nothing else changing.
+   */
+  terrain?: boolean;
 }
 
 export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
@@ -128,8 +141,11 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
     selectedSectionId,
     selectedRouteId,
     routeColor,
+    terrain = false,
   } = input;
   const { layer } = palette;
+  const scale = terrain ? MAP_3D_SCALE : 1;
+  const size = (px: number) => px * scale;
 
   const isSelectedActivity = ['==', ['get', 'id'], selectedActivityId ?? ''];
   const isSelectedSection = ['==', ['get', 'id'], selectedSectionId ?? ''];
@@ -159,17 +175,27 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
   // the heatmap draws from disk tiles. The activity points below are what a tap
   // needs, and the clustered source's points sit at each activity's start.
   layers.push(
-    // Route lines draw under the section lines. The selected route is raised
-    // on a casing, the way the selected section is.
+    // Route lines draw under the section lines. Every route and section line
+    // sits on the base's edge, wider than the line, so it separates from the
+    // ground, the imagery and the heat under it. The selected one is raised on
+    // the casing instead, and the edge under the rest dims with their line.
     {
       id: 'routes-outline',
       type: 'line',
       source: 'routes',
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
-        'line-color': palette.casing,
-        'line-width': selectedRouteId ? ['case', isSelectedRoute, 7, 0] : 0,
-        'line-opacity': selectedRouteId && showRoutes ? 0.8 : 0,
+        'line-color': selectedRouteId
+          ? ['case', isSelectedRoute, palette.casing, palette.edge]
+          : palette.edge,
+        'line-width': selectedRouteId
+          ? ['case', isSelectedRoute, size(7), size(2 + OVERLAY_EDGE_MARGIN)]
+          : lineWidthRamp(ROUTE_LINE_WIDTHS, OVERLAY_EDGE_MARGIN, scale),
+        'line-opacity': showRoutes
+          ? selectedRouteId
+            ? ['case', isSelectedRoute, 0.8, 0.5]
+            : 1
+          : 0,
       },
       visible: showRoutes,
     },
@@ -181,8 +207,8 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
       paint: {
         'line-color': colourIndexExpression(layer.routes, ['get', 'palette'], true),
         'line-width': selectedRouteId
-          ? ['case', isSelectedRoute, 5, 2]
-          : ['interpolate', ['linear'], ['zoom'], 6, 1.5, 12, 2.5, 18, 4],
+          ? ['case', isSelectedRoute, size(5), size(2)]
+          : lineWidthRamp(ROUTE_LINE_WIDTHS, 0, scale),
         'line-opacity': showRoutes
           ? selectedRouteId
             ? ['case', isSelectedRoute, 1, 0.5]
@@ -197,9 +223,17 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
       source: 'sections',
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
-        'line-color': palette.casing,
-        'line-width': selectedSectionId ? ['case', isSelectedSection, 6, 0] : 0,
-        'line-opacity': selectedSectionId && showSections ? 0.8 : 0,
+        'line-color': selectedSectionId
+          ? ['case', isSelectedSection, palette.casing, palette.edge]
+          : palette.edge,
+        'line-width': selectedSectionId
+          ? ['case', isSelectedSection, size(6), size(2 + OVERLAY_EDGE_MARGIN)]
+          : lineWidthRamp(SECTION_LINE_WIDTHS, OVERLAY_EDGE_MARGIN, scale),
+        'line-opacity': showSections
+          ? selectedSectionId
+            ? ['case', isSelectedSection, 0.8, 0.55]
+            : 1
+          : 0,
       },
     },
     {
@@ -210,9 +244,9 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
       paint: {
         'line-color': ['get', 'color'],
         'line-width': selectedSectionId
-          ? ['case', isSelectedSection, 4, 2]
-          : ['interpolate', ['linear'], ['zoom'], 6, 1.2, 10, 1.8, 14, 2.4, 18, 3.2],
-        'line-dasharray': [2, 1.2],
+          ? ['case', isSelectedSection, size(4), size(2)]
+          : lineWidthRamp(SECTION_LINE_WIDTHS, 0, scale),
+        'line-dasharray': [...SECTION_LINE_DASH],
         'line-opacity': showSections
           ? selectedSectionId
             ? ['case', isSelectedSection, 1, 0.55]
@@ -228,7 +262,7 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
       // A sport-coloured line on the Map tab is edged rather than cased.
       paint: {
         'line-color': palette.edge,
-        'line-width': 8,
+        'line-width': size(8),
         'line-opacity': hasRouteData ? 1 : 0,
       },
     },
@@ -239,7 +273,7 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
         'line-color': routeColor,
-        'line-width': 5,
+        'line-width': size(5),
         'line-opacity': hasRouteData ? 1 : 0,
       },
     },
@@ -250,7 +284,7 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
       filter: ['has', 'point_count'],
       paint: {
         'circle-color': palette.route,
-        'circle-radius': ['step', ['get', 'point_count'], 20, 10, 25, 50, 30],
+        'circle-radius': ['step', ['get', 'point_count'], size(20), 10, size(25), 50, size(30)],
         // Opaque, so the count's contrast holds over any basemap beneath it.
         'circle-opacity': showActivities ? 1 : 0,
       },
@@ -286,11 +320,11 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
           ['linear'],
           ['zoom'],
           0,
-          selectedActivityId ? ['case', isSelectedActivity, 12, 5] : 5,
+          selectedActivityId ? ['case', isSelectedActivity, size(12), size(5)] : size(5),
           TRACE_ZOOM_THRESHOLD - 1,
-          selectedActivityId ? ['case', isSelectedActivity, 12, 8] : 8,
+          selectedActivityId ? ['case', isSelectedActivity, size(12), size(8)] : size(8),
           TRACE_ZOOM_THRESHOLD,
-          selectedActivityId ? ['case', isSelectedActivity, 12, 5] : 5,
+          selectedActivityId ? ['case', isSelectedActivity, size(12), size(5)] : size(5),
         ],
         'circle-opacity': showActivities
           ? [
@@ -303,7 +337,9 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
               RECENCY_FADE.oldest,
             ]
           : 0,
-        'circle-stroke-width': selectedActivityId ? ['case', isSelectedActivity, 2.5, 1.5] : 1.5,
+        'circle-stroke-width': selectedActivityId
+          ? ['case', isSelectedActivity, size(2.5), size(1.5)]
+          : size(1.5),
         'circle-stroke-color': selectedActivityId
           ? ['case', isSelectedActivity, palette.ink, layer.pointRing]
           : layer.pointRing,
@@ -317,7 +353,7 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
       source: 'spider-legs',
       paint: {
         'line-color': layer.spiderLeg,
-        'line-width': 1.5,
+        'line-width': size(1.5),
         'line-opacity': spiderVisible ? 1 : 0,
       },
       visible: spiderVisible,
@@ -328,15 +364,15 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
       source: 'spider-markers',
       paint: {
         'circle-color': ['get', 'color'],
-        'circle-radius': 10,
+        'circle-radius': size(10),
         'circle-opacity': spiderVisible ? 1 : 0,
-        'circle-stroke-width': 2,
+        'circle-stroke-width': size(2),
         'circle-stroke-color': palette.casing,
         'circle-stroke-opacity': spiderVisible ? 1 : 0,
       },
       visible: spiderVisible,
     },
-    ...buildUserLocationLayers(hasUserLocation, palette)
+    ...buildUserLocationLayers(hasUserLocation, palette, scale)
   );
 
   return layers;

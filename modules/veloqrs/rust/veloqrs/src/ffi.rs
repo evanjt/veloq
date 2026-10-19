@@ -10,6 +10,7 @@ use log::info;
 use tracematch::GpsPoint;
 
 use crate::init_logging;
+use crate::net::Source;
 use crate::objects::observer::Announcement;
 
 use crate::objects::sync::TIME_STREAM_CONCURRENCY;
@@ -32,7 +33,7 @@ pub fn set_engine_log_level(level: EngineLogLevel) {
 
 async fn park_track_auth_failure(
     result: &crate::http::ActivityMapResult,
-    session: &crate::net::IntervalsSession,
+    session: &impl crate::net::Source,
 ) {
     if result.error.as_deref() == Some("unauthorized") {
         crate::objects::park_auth_expired(session).await;
@@ -490,7 +491,7 @@ pub(crate) fn start_fetch_and_store(
         );
         return run as f64;
     };
-    let athlete_id = session.athlete_id().to_string();
+    let athlete_id = session.account().to_string();
     start_fetch_and_store_run(
         run,
         activity_ids,
@@ -566,7 +567,7 @@ pub(crate) fn start_fetch_and_store_pass(
     let Some(Ok(session)) = crate::objects::current_session() else {
         return None;
     };
-    let athlete_id = session.athlete_id().to_string();
+    let athlete_id = session.account().to_string();
     Some(start_fetch_and_store_run_ending(
         next_fetch_run(),
         activity_ids,
@@ -1756,7 +1757,7 @@ pub(crate) fn fetch_and_index_activity_for(
     })?;
 
     let signed_in_as = crate::objects::current_session()
-        .and_then(|s| s.ok().map(|session| session.athlete_id().to_string()));
+        .and_then(|s| s.ok().map(|session| session.account().to_string()));
 
     // One id, and narrow: the extra series a wide fetch brings are for the
     // chart screens, and this call is paying a push's budget for a track and

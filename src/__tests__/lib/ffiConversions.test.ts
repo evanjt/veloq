@@ -1,5 +1,5 @@
 import {
-  fromUnixSeconds,
+  fromWallClockSeconds,
   castDirection,
   toDirectionStats,
   convertActivityPortions,
@@ -30,35 +30,37 @@ describe('ensureFinite', () => {
   });
 });
 
-describe('fromUnixSeconds', () => {
-  it('converts a valid timestamp to the correct Date', () => {
-    // 2026-01-15T00:00:00Z
-    const date = fromUnixSeconds(1768435200);
+describe('fromWallClockSeconds', () => {
+  it('reads the stamp as the wall clock it carries, in the device zone', () => {
+    // 2026-01-15 23:30, the athlete's wall clock stamped as UTC
+    const date = fromWallClockSeconds(Date.UTC(2026, 0, 15, 23, 30) / 1000);
     expect(date).not.toBeNull();
-    expect(date!.getUTCFullYear()).toBe(2026);
-    expect(date!.getUTCMonth()).toBe(0); // January
-    expect(date!.getUTCDate()).toBe(15);
+    expect(date!.getFullYear()).toBe(2026);
+    expect(date!.getMonth()).toBe(0); // January
+    expect(date!.getDate()).toBe(15);
+    expect(date!.getHours()).toBe(23);
+    expect(date!.getMinutes()).toBe(30);
   });
 
   it('returns null for null', () => {
-    expect(fromUnixSeconds(null)).toBeNull();
+    expect(fromWallClockSeconds(null)).toBeNull();
   });
 
   /** Every engine timestamp crosses as a number now, so a large one is a
    *  plain double and not a bigint. */
   it('handles a timestamp past the year 2038', () => {
-    const date = fromUnixSeconds(4_102_444_800);
+    const date = fromWallClockSeconds(4_102_444_800);
     expect(date).not.toBeNull();
-    expect(date!.getUTCFullYear()).toBe(2100);
+    expect(date!.getFullYear()).toBe(2100);
   });
 
   it('handles negative timestamp (before epoch)', () => {
-    const date = fromUnixSeconds(-86400);
+    const date = fromWallClockSeconds(-86400);
     expect(date).not.toBeNull();
     // Dec 31, 1969
-    expect(date!.getUTCFullYear()).toBe(1969);
-    expect(date!.getUTCMonth()).toBe(11);
-    expect(date!.getUTCDate()).toBe(31);
+    expect(date!.getFullYear()).toBe(1969);
+    expect(date!.getMonth()).toBe(11);
+    expect(date!.getDate()).toBe(31);
   });
 });
 
@@ -83,7 +85,7 @@ describe('toDirectionStats', () => {
     expect(result).not.toBeNull();
     expect(result!.avgTime).toBe(120.5);
     expect(result!.lastActivity).toBeInstanceOf(Date);
-    expect(result!.lastActivity!.getUTCFullYear()).toBe(2026);
+    expect(result!.lastActivity!.getFullYear()).toBe(2026);
     expect(result!.count).toBe(5);
     expect(result!.outsideBandCount).toBe(2);
   });

@@ -12,6 +12,8 @@
 import { generateInsights, type InsightInputData } from '@/features/insights/lib/generateInsights';
 import { generateRouteInsights } from '@/features/insights/generators/routeInsights';
 import { INSIGHTS_CONFIG } from '@/features/insights/lib/config';
+import { historyRange } from '@/features/insights/lib/sparkline';
+import { formatDuration } from '@/shared/format/format';
 import type { FfiRouteInsight } from 'veloqrs';
 
 const t = (key: string, params?: Record<string, string | number>) =>
@@ -53,6 +55,42 @@ const EMPTY_INPUT: InsightInputData = {
 };
 
 describe('generateRouteInsights', () => {
+  it('states the best time on a single record card too short a history to draw', () => {
+    const day = 86_400;
+    const start = NOW / 1000 - 30 * day;
+    const [card] = generateRouteInsights(
+      [
+        row({
+          isRecentRecord: true,
+          bestTime: 1505.4,
+          attemptCount: 3,
+          recentEfforts: [
+            { value: 1560, date: start, activityId: 'a1' },
+            { value: 1530, date: start + 10 * day, activityId: 'a2' },
+            { value: 1505.4, date: start + 20 * day, activityId: 'a3' },
+          ],
+        }),
+      ],
+      { records: 1, faster: 0, slower: 0 },
+      NOW,
+      t
+    );
+
+    expect(card.supportingData?.history).toBeUndefined();
+    expect(card.supportingData?.hero).toEqual({
+      label: 'insights.data.bestTime',
+      value: formatDuration(1505.4),
+      context: 'good',
+    });
+    expect(card.supportingData?.change).toBeUndefined();
+  });
+
+  it('states no figure on the group card', () => {
+    const [card] = generateRouteInsights(THREE_ROUTES, COUNTS, NOW, t);
+
+    expect(card.supportingData?.hero).toBeUndefined();
+  });
+
   it('gives no card for no rows', () => {
     expect(generateRouteInsights([], { records: 0, faster: 0, slower: 0 }, NOW, t)).toEqual([]);
     expect(generateRouteInsights(undefined, undefined, NOW, t)).toEqual([]);
@@ -73,6 +111,26 @@ describe('generateRouteInsights', () => {
     expect(card.title).toContain('Run');
     expect(card.title).toContain('insights.route.recordTitle');
     expect(card.navigationTarget).toBe('/route/r1');
+  });
+
+  it("draws a single route's times fastest at the top, as the section timelines do", () => {
+    const efforts = [3000, 2990, 2980, 2960, 2940, 2900].map((value, i) => ({
+      date: 1_772_323_200 + i * 86_400,
+      value,
+    }));
+    const [card] = generateRouteInsights(
+      [row({ trend: 1, recentEfforts: efforts })],
+      { records: 0, faster: 1, slower: 0 },
+      NOW,
+      t
+    );
+
+    const history = card.supportingData?.history;
+    expect(history?.kind).toBe('timeline');
+    if (history?.kind !== 'timeline') return;
+    const values = history.series[0].points.map((p) => p.value);
+    expect(historyRange(history.kind, values)).toEqual({ top: 2900, bottom: 3000 });
+    expect(history.scale).toEqual({ top: '48:20', bottom: '50:00' });
   });
 
   it('titles a single trend row faster or slower', () => {

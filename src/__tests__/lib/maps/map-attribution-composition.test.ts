@@ -5,6 +5,7 @@
  */
 
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
+import type { LngLatBounds } from '@/features/maps/lib/coordinates';
 
 describe('computeAttribution', () => {
   it('returns the light-style attribution without 3D', () => {
@@ -37,8 +38,7 @@ describe('computeAttribution', () => {
       zoom: 0,
     });
     expect(result).toContain('OpenFreeMap');
-    expect(result).toContain('Terrain');
-    expect(result).toContain('|');
+    expect(result).toBe('© OpenFreeMap · © OpenMapTiles · © OpenStreetMap · Mapzen');
   });
 
   it('returns the fallback satellite attribution when center is null', () => {
@@ -70,9 +70,21 @@ describe('computeAttribution', () => {
       center: [-30, 0],
       zoom: 5,
     });
-    expect(result).toContain('EOX');
-    expect(result).toContain('Terrain');
-    expect(result).toContain('|');
+    expect(result).toBe('Sentinel-2 cloudless by EOX · Mapzen');
+  });
+
+  it('names each source across the Geneva border in 3D by its short credit', () => {
+    // The west edge draws IGN France, the north-east swisstopo, and the
+    // south-east corner over the Aosta valley falls onto the global base.
+    const genevaBorder: LngLatBounds = { sw: [5.6, 45.6], ne: [7.6, 46.5] };
+    const result = computeAttribution({
+      style: 'satellite',
+      is3D: true,
+      center: [6.6, 46.05],
+      zoom: 11,
+      bounds: genevaBorder,
+    });
+    expect(result).toBe('© swisstopo · © IGN · Sentinel-2 cloudless by EOX · Mapzen');
   });
 
   it('includes regional source attribution when center is in a supported region', () => {

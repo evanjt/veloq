@@ -29,9 +29,10 @@ function tFor(bundle: Record<string, Json>) {
   return (key: string, vars: Record<string, string | number> = {}): string => {
     const value = key
       .split('.')
-      .reduce<
-        Json | string | undefined
-      >((n, p) => (typeof n === 'object' ? n[p] : undefined), bundle);
+      .reduce<Json | string | undefined>(
+        (n, p) => (typeof n === 'object' ? n[p] : undefined),
+        bundle
+      );
     if (typeof value !== 'string') throw new Error(`missing key ${key}`);
     return value.replace(/{{(\w+)}}/g, (_, n: string) => String(vars[n] ?? ''));
   };

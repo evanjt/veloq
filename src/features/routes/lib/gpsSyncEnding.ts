@@ -18,12 +18,7 @@ import type { SyncProgress } from '@/features/routes/hooks/useRouteSyncProgress'
 
 /** Why a run ended without storing what it was asked for. */
 export type GpsSyncEnding =
-  | 'no-result'
-  | 'no-engine'
-  | 'cancelled'
-  | 'superseded'
-  | 'owed'
-  | 'not-started';
+  'no-result' | 'no-engine' | 'cancelled' | 'superseded' | 'owed' | 'not-started';
 
 interface Ending {
   status: SyncProgress['status'];

@@ -10,7 +10,14 @@
 // a new one is covered the day it lands. Refused outside `net/intervals/`: a
 // request named through an `endpoints::` path, in a call or in an import, and
 // a glob import of the module. Its constants, types and parsers stay free to
-// use. Test code is exempt: a `#[cfg(test)]` item, a `tests` directory and a
+// use.
+//
+// The callers name the source the app runs as `LiveSource`, built by
+// `live_source`, both owned by `net/live.rs`, so a fork plugs its own source
+// in by editing that file and its own module. `IntervalsSession` named outside
+// `net/intervals/` and that owner is refused.
+//
+// Test code is exempt: a `#[cfg(test)]` item, a `tests` directory and a
 // `tests.rs` file. Comments are not read.
 
 import { join, dirname, relative, resolve } from 'node:path';
@@ -31,6 +38,7 @@ const CRATE = 'modules/veloqrs/rust/veloqrs';
 // Relative to the crate's `src/`.
 const OWNER = 'net/intervals/';
 const ENDPOINTS = `${OWNER}endpoints.rs`;
+const LIVE_OWNER = 'net/live.rs';
 
 const REQUEST_FN = /\bpub(?:\([^)]*\))?\s+async\s+fn\s+(\w+)/g;
 
@@ -66,6 +74,17 @@ export const strayRequests = (rel, source, requests) => {
   return [...found].sort((a, b) => a - b);
 };
 
+// The lines of `source`, a file at `rel` under the crate's `src/`, that name
+// the intervals.icu session from outside the intervals module and the live
+// source owner.
+export const straySessionNames = (rel, source) => {
+  if (rel.startsWith(OWNER) || rel === LIVE_OWNER || isTestFile(rel)) return [];
+  const code = withoutComments(blankTestItems(source));
+  const found = new Set();
+  for (const m of code.matchAll(/\bIntervalsSession\b/g)) found.add(lineAt(code, m.index));
+  return [...found].sort((a, b) => a - b);
+};
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const src = `${CRATE}/src/`;
   const sources = treeSources(ROOT, [relative(ROOT, join(ROOT, src))]);
@@ -76,20 +95,35 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   }
   const requests = requestNames(endpoints.toString('utf8'));
   const hits = [];
+  const named = [];
   for (const [rel, bytes] of sources) {
     if (!rel.endsWith('.rs') || !rel.startsWith(src)) continue;
-    for (const line of strayRequests(rel.slice(src.length), bytes.toString('utf8'), requests)) {
+    const text = bytes.toString('utf8');
+    for (const line of strayRequests(rel.slice(src.length), text, requests)) {
       hits.push(`${rel}:${line}`);
     }
+    for (const line of straySessionNames(rel.slice(src.length), text)) {
+      named.push(`${rel}:${line}`);
+    }
   }
-  if (hits.length === 0) {
+  if (hits.length === 0 && named.length === 0) {
     console.log('Intervals source guard: every intervals.icu request goes through the session.');
     process.exit(0);
   }
-  console.error('An intervals.icu request is made outside the session.');
-  console.error(
-    `Ask the IntervalsSession or a Source method in ${CRATE}/src/${OWNER}mod.rs instead:\n`
-  );
-  for (const hit of hits) console.error(`  ${hit}`);
+  if (hits.length > 0) {
+    console.error('An intervals.icu request is made outside the session.');
+    console.error(
+      `Ask the IntervalsSession or a Source method in ${CRATE}/src/${OWNER}mod.rs instead:\n`
+    );
+    for (const hit of hits) console.error(`  ${hit}`);
+  }
+  if (named.length > 0) {
+    if (hits.length > 0) console.error('');
+    console.error('The intervals.icu session is named outside the live source owner.');
+    console.error(
+      `Name LiveSource and build it with live_source from ${CRATE}/src/${LIVE_OWNER}, or take \`&impl Source\`:\n`
+    );
+    for (const hit of named) console.error(`  ${hit}`);
+  }
   process.exit(1);
 }

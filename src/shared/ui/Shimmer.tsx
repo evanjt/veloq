@@ -123,11 +123,14 @@ export function SkeletonLine({ text, width = '100%', style, animated = true }: S
 export function SkeletonGroup({
   testID,
   style,
+  contentStyle,
   label,
   children,
 }: {
   testID?: string;
   style?: StyleProp<ViewStyle>;
+  /** The hidden wrapper's style, for blocks laid out against the group's whole area. */
+  contentStyle?: StyleProp<ViewStyle>;
   /** What it says it is waiting for; loading when not given. */
   label?: string;
   children: React.ReactNode;
@@ -142,7 +145,11 @@ export function SkeletonGroup({
       accessibilityLabel={label ?? t('common.loading')}
       accessibilityState={{ busy: true }}
     >
-      <View importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
+      <View
+        style={contentStyle}
+        importantForAccessibility="no-hide-descendants"
+        accessibilityElementsHidden
+      >
         {children}
       </View>
     </View>

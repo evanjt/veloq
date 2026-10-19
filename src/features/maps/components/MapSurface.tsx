@@ -77,6 +77,7 @@ import type {
   MapLayerSpec,
   MapPadding,
   MapSourceSpec,
+  MapTerrainSpec,
 } from '@/features/maps/lib/htmlBuilders/mapSurface';
 import type { WebViewStyleOptions } from '@/features/maps/lib/htmlBuilders/styleResolution';
 import type { MapStyleType } from './mapStyles';
@@ -155,6 +156,11 @@ export interface MapSurfaceProps {
   images?: MapImageSpec[] | undefined;
   /** Layers hit-tested on tap, most specific first. */
   interactiveLayers?: string[] | undefined;
+  /**
+   * The map tilted over the elevation model, with pitch and rotate gestures
+   * on while it is. Absent or null, the map is flat.
+   */
+  terrain?: MapTerrainSpec | null | undefined;
   scrollEnabled?: boolean | undefined;
   zoomEnabled?: boolean | undefined;
   rotateEnabled?: boolean | undefined;
@@ -171,6 +177,8 @@ export interface MapSurfaceProps {
   onRegionIsChanging?: ((state: MapCameraState, isUserInteraction: boolean) => void) | undefined;
   onRegionDidChange?: ((state: MapCameraState, isUserInteraction: boolean) => void) | undefined;
   onBearingChange?: ((bearing: number) => void) | undefined;
+  /** Terrain is on and the page has no elevation tiles for it, with the reason. */
+  onTerrainUnavailable?: ((reason: string) => void) | undefined;
   /** What the map shows, for a screen reader. Omitted, the map is hidden from it. */
   accessibilityLabel?: string | undefined;
   testID?: string | undefined;
@@ -209,6 +217,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
     layers,
     images,
     interactiveLayers,
+    terrain,
     scrollEnabled = true,
     zoomEnabled = true,
     rotateEnabled = true,
@@ -220,6 +229,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
     onRegionIsChanging,
     onRegionDidChange,
     onBearingChange,
+    onTerrainUnavailable,
     accessibilityLabel,
     testID = MAP_SURFACE_TEST_ID,
   },
@@ -251,6 +261,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
     onRegionIsChanging,
     onRegionDidChange,
     onBearingChange,
+    onTerrainUnavailable,
   });
   callbacksRef.current = {
     onMapReady,
@@ -259,6 +270,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
     onRegionIsChanging,
     onRegionDidChange,
     onBearingChange,
+    onTerrainUnavailable,
   };
 
   // The page is rebuilt only for gesture settings and to bring a released map
@@ -315,11 +327,12 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
       layers,
       images,
       interactiveLayers,
+      terrain,
     });
     if (!patch) return;
 
     inject(buildApplyScript(patch, sourceJson));
-  }, [sources, layers, images, interactiveLayers, inject]);
+  }, [sources, layers, images, interactiveLayers, terrain, inject]);
 
   // The bridge handlers are built once, so they reach the current patch sender
   // through a ref rather than a dependency.
@@ -412,6 +425,9 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
       },
       bearingChange: (data) => {
         if (typeof data.bearing === 'number') callbacksRef.current.onBearingChange?.(data.bearing);
+      },
+      terrainUnavailable: (data) => {
+        callbacksRef.current.onTerrainUnavailable?.(String(data.reason ?? 'unknown'));
       },
       nativeMapReleased: () => {
         const surface = registeredSurfaceRef.current;

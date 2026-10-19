@@ -6,6 +6,7 @@
  */
 
 import { FfiOffScale } from 'veloqrs';
+import { wallClockSecondsToLocalDate } from '@/shared/time/startDate';
 import type { DirectionStats } from '@/types';
 
 /**
@@ -19,12 +20,12 @@ export function ensureFinite(value: number | null | undefined, fallback = 0): nu
 }
 
 /**
- * Convert Unix timestamp (seconds since epoch) to JavaScript Date.
- * Returns null if timestamp is null/undefined.
+ * An engine activity date, the athlete's wall clock stamped as UTC, as the local `Date` every
+ * formatter reads, so a day renders as the day it was ridden in any zone. Null when absent.
  */
-export function fromUnixSeconds(seconds: number | null | undefined): Date | null {
+export function fromWallClockSeconds(seconds: number | null | undefined): Date | null {
   if (seconds == null) return null;
-  return new Date(seconds * 1000);
+  return wallClockSecondsToLocalDate(seconds);
 }
 
 /**
@@ -46,7 +47,7 @@ export function toDirectionStats(
   if (!ffi) return null;
   return {
     avgTime: ffi.avgTime ?? null,
-    lastActivity: fromUnixSeconds(ffi.lastActivity),
+    lastActivity: fromWallClockSeconds(ffi.lastActivity),
     count: ffi.count,
     avgSpeed: ffi.avgSpeed ?? null,
     outsideBandCount: ffi.outsideBandCount ?? 0,

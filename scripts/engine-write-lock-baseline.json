@@ -1,7 +1,7 @@
 {
   "modules/veloqrs/rust/veloqrs/src/ffi.rs": 8,
   "modules/veloqrs/rust/veloqrs/src/http.rs": 1,
-  "modules/veloqrs/rust/veloqrs/src/net/elevation_backfill.rs": 13,
+  "modules/veloqrs/rust/veloqrs/src/net/elevation_backfill.rs": 14,
   "modules/veloqrs/rust/veloqrs/src/net/stream_backfill.rs": 7,
   "modules/veloqrs/rust/veloqrs/src/net/upload_recording.rs": 1,
   "modules/veloqrs/rust/veloqrs/src/objects/activities.rs": 10,
@@ -20,7 +20,7 @@
   "modules/veloqrs/rust/veloqrs/src/objects/tracks.rs": 2,
   "modules/veloqrs/rust/veloqrs/src/persistence/attempts.rs": 1,
   "modules/veloqrs/rust/veloqrs/src/persistence/climb_bests.rs": 1,
-  "modules/veloqrs/rust/veloqrs/src/persistence/cutover.rs": 10,
+  "modules/veloqrs/rust/veloqrs/src/persistence/cutover.rs": 11,
   "modules/veloqrs/rust/veloqrs/src/persistence/memory.rs": 1,
   "modules/veloqrs/rust/veloqrs/src/persistence/new_ground.rs": 2,
   "modules/veloqrs/rust/veloqrs/src/persistence/record_backup.rs": 1,

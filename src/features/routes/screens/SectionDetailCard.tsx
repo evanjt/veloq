@@ -319,6 +319,7 @@ function SectionDetailCardContent({ id, activityId: navActivityId }: SectionDeta
         status={detailStatus}
         onRetry={bumpSectionRefresh}
         notFoundMessage={t('sections.sectionNotFound')}
+        peek="section"
         retired={
           retirement
             ? {

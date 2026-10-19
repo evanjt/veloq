@@ -3,7 +3,8 @@
  * map; its rows also sit inside a menu that is already a card.
  *
  * - `MapKeySwatch`: one colour, or a run of colours, beside what it stands for,
- *   optionally with the glyph the map draws along that line.
+ *   optionally with the glyph the map draws along that line, dashed as the map
+ *   dashes it, or on the edge the map draws under it.
  * - `MapKeyRamp`: a continuous scale, with its two ends named or its values
  *   ticked where they fall along it.
  */
@@ -13,6 +14,7 @@ import { View, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { Text } from 'react-native-paper';
 
 import { Icon, type IconName } from '@/shared/ui/Icon';
+import { OVERLAY_EDGE_MARGIN } from '@/features/maps/lib/mapLineWidths';
 import { colors, darkColors, iconSize, raised, spacing, typography, layout } from '@/theme';
 
 /** A row's swatch, the 16 by 4 bar the guide draws for a line. */
@@ -54,6 +56,8 @@ export function MapKeySwatch({
   swatch,
   shape = 'line',
   glyph,
+  dash,
+  edge,
   label,
   isDark,
   testID,
@@ -64,6 +68,13 @@ export function MapKeySwatch({
   shape?: 'line' | 'dot';
   /** A symbol the map draws along the line, drawn over a single-colour line swatch. */
   glyph?: { name: IconName; color: string } | undefined;
+  /**
+   * A line drawn dashed, as `[dash, gap]` in multiples of its width, the form
+   * a map's dash array takes. Each colour is one dash.
+   */
+  dash?: readonly [number, number] | undefined;
+  /** The edge a map draws under the line, showing either side of it and through its gaps. */
+  edge?: string | undefined;
   label: string;
   isDark: boolean;
   testID?: string | undefined;
@@ -71,7 +82,43 @@ export function MapKeySwatch({
   const runs = typeof swatch === 'string' ? [swatch] : swatch;
   return (
     <View style={styles.row} testID={testID}>
-      {runs.length === 1 && glyph ? (
+      {dash || edge ? (
+        <View
+          testID="map-key-swatch"
+          style={[styles.edged, edge !== undefined && { backgroundColor: edge }]}
+        >
+          {dash ? (
+            runs.map((colour, i) => (
+              <React.Fragment key={i}>
+                {i > 0 ? (
+                  <View
+                    testID="map-key-dash-gap"
+                    style={{ width: dash[1] * SWATCH_HEIGHT, height: SWATCH_HEIGHT }}
+                  />
+                ) : null}
+                <View
+                  testID="map-key-dash"
+                  style={{
+                    width: dash[0] * SWATCH_HEIGHT,
+                    height: SWATCH_HEIGHT,
+                    backgroundColor: colour,
+                  }}
+                />
+              </React.Fragment>
+            ))
+          ) : (
+            <View style={[styles.line, styles.runs]}>
+              {runs.map((colour, i) => (
+                <View
+                  key={i}
+                  testID="map-key-run"
+                  style={[styles.step, { backgroundColor: colour }]}
+                />
+              ))}
+            </View>
+          )}
+        </View>
+      ) : runs.length === 1 && glyph ? (
         <View testID="map-key-swatch" style={styles.glyphSwatch}>
           <View style={[styles.line, { backgroundColor: runs[0] }]} />
           <Icon
@@ -90,7 +137,7 @@ export function MapKeySwatch({
       ) : (
         <View testID="map-key-swatch" style={[styles.line, styles.runs]}>
           {runs.map((colour, i) => (
-            <View key={i} style={[styles.step, { backgroundColor: colour }]} />
+            <View key={i} testID="map-key-run" style={[styles.step, { backgroundColor: colour }]} />
           ))}
         </View>
       )}
@@ -103,6 +150,7 @@ export function MapKeyRamp({
   ramp,
   ends,
   ticks,
+  stretch = false,
   isDark,
   testID,
 }: {
@@ -110,14 +158,26 @@ export function MapKeyRamp({
   ramp: readonly string[];
   /** What the two ends stand for. */
   ends?: readonly [string, string];
-  /** Values named where they fall along the scale, `at` from 0 to 1. */
-  ticks?: readonly { at: number; label: string }[];
   isDark: boolean;
   testID?: string | undefined;
-}) {
+} & (
+  | {
+      /** Values named where they fall along the scale, `at` from 0 to 1. */
+      ticks?: readonly { at: number; label: string }[];
+      stretch?: false;
+    }
+  | {
+      ticks?: undefined;
+      /**
+       * Fill the width of the column it sits in rather than the fixed ramp
+       * width. A ticked ramp keeps the fixed width, which places its ticks.
+       */
+      stretch: true;
+    }
+)) {
   const textStyle = [styles.text, isDark && styles.textDark];
   return (
-    <View style={styles.ramp} testID={testID}>
+    <View style={[styles.ramp, stretch && styles.rampStretch]} testID={testID}>
       <View style={styles.rampBar}>
         {ramp.map((colour, i) => (
           <View
@@ -176,6 +236,11 @@ const styles = StyleSheet.create({
     height: SWATCH_HEIGHT,
     borderRadius: layout.borderRadiusFull,
   },
+  edged: {
+    flexDirection: 'row',
+    padding: OVERLAY_EDGE_MARGIN / 2,
+    borderRadius: layout.borderRadiusFull,
+  },
   glyphSwatch: {
     width: SWATCH_WIDTH,
     height: iconSize.xs,
@@ -198,6 +263,10 @@ const styles = StyleSheet.create({
   ramp: {
     width: RAMP_WIDTH,
     gap: spacing.xxs,
+  },
+  rampStretch: {
+    width: undefined,
+    alignSelf: 'stretch',
   },
   rampBar: {
     height: 6,

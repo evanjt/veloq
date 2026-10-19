@@ -80,6 +80,24 @@ export function localWallClockToEpochSeconds(date: Date): number {
 }
 
 /**
+ * An engine date, the athlete's wall clock stamped as UTC, as a local `Date` showing that same
+ * wall clock. The inverse of `localWallClockToEpochSeconds`: read straight into a `Date`, the
+ * stamp lands on the device's zone instead, and a ride late in the evening or just past midnight
+ * reads as the neighbouring day.
+ */
+export function wallClockSecondsToLocalDate(seconds: number): Date {
+  const utc = new Date(seconds * 1000);
+  return new Date(
+    utc.getUTCFullYear(),
+    utc.getUTCMonth(),
+    utc.getUTCDate(),
+    utc.getUTCHours(),
+    utc.getUTCMinutes(),
+    utc.getUTCSeconds()
+  );
+}
+
+/**
  * A recorded start instant as the zoneless wall clock intervals.icu sends.
  * The components are read locally and the offset dropped.
  */

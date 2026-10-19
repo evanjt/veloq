@@ -32,6 +32,8 @@ pub mod runs;
 
 pub use runs::{FfiPushRun, PushRunOutcome};
 
+use crate::net::Source;
+
 /// Open the engine and set the credential for a caller that arrived without
 /// JavaScript, and say whether a fetch can now be attempted.
 ///
@@ -476,7 +478,7 @@ pub fn activity_push_json(
     // once a wipe has moved the install, whatever the session still names.
     let install = crate::persistence::engine_install();
     if let Some(session) = crate::objects::current_session()
-        && session?.athlete_id() != incoming_athlete_id
+        && session?.account() != incoming_athlete_id
     {
         runs::record_for(install, activity_id, PushRunOutcome::AthleteMismatch, None);
         return Ok(None);
@@ -688,7 +690,7 @@ fn activity_push_run(
 /// The bodies the stored detail still owes, and the index of its track.
 fn ready_pushed_activity(
     install: u64,
-    session: &crate::net::IntervalsSession,
+    session: &impl crate::net::Source,
     activity_id: &str,
     upstream: &str,
     stored: &StoredDetail,

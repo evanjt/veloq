@@ -4,7 +4,8 @@ import { GestureDetector } from 'react-native-gesture-handler';
 import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { Canvas, Picture, Skia } from '@shopify/react-native-skia';
+import { Picture, Skia } from '@shopify/react-native-skia';
+import { Canvas } from '@/shared/ui/SkiaCanvas';
 import { RangeCoverage } from 'veloqrs';
 import {
   chartStyles,

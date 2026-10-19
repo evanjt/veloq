@@ -5,6 +5,16 @@
 slow-timeout = { period = "60s", terminate-after = 4 }
 fail-fast = false
 
+# The year-long lifecycle scenarios fold hundreds of rides through the
+# detector, which spreads each fold over every core. Run four at a time on a
+# four-core runner and each gets one core: 168 to 201 s on the CI runner, and
+# past the timeout on a busier one. Holding four slots runs each with the cores
+# its folds are sized for, 23 to 39 s on four cores of the build host against
+# 73 to 107 s on one. Overrides on the default profile apply to every profile.
+[[profile.default.overrides]]
+filter = 'binary_id(veloqrs::app_synthetic) & test(/^lifecycle_scenarios::scenario_[fg]_/)'
+threads-required = 4
+
 [profile.ci]
 slow-timeout = { period = "60s", terminate-after = 4 }
 fail-fast = false

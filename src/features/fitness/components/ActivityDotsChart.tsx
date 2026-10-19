@@ -3,7 +3,8 @@ import { View, StyleSheet } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { Canvas, Group } from '@shopify/react-native-skia';
+import { Group } from '@shopify/react-native-skia';
+import { Canvas } from '@/shared/ui/SkiaCanvas';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { SharedValue, useSharedValue, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
 import {

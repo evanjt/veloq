@@ -3,7 +3,9 @@
  * opens another screen over it.
  * Expected behaviour: each of the covered screen's pages receives the release
  * script, nothing more reaches a released page, and when the screen is shown
- * again each page is rebuilt once, at the camera it had settled on.
+ * again each page is rebuilt once, at the camera it had settled on. Inside a detail host the map's
+ * own screen is covered by the host's sheet, which is not the map being covered: the map follows
+ * the host's focus there and is released only under a screen pushed over the host.
  */
 
 import React from 'react';
@@ -14,6 +16,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ActivityMapView } from '@/features/maps/components/ActivityMapView';
 import { SectionMapView } from '@/features/routes/components/SectionMapView';
 import { rebuildReleasedSurfaces } from '@/features/maps/lib/mapSurfaceRegistry';
+import { MapSheetHostContext, type MapSheetHostValue } from '@/shared/app/MapSheetHost';
 import type { LatLng } from '@/shared/geo/polyline';
 import type { FrequentSection, RoutePoint } from '@/types';
 
@@ -166,6 +169,17 @@ function activityMap(props: Partial<React.ComponentProps<typeof ActivityMapView>
       <ActivityMapView activityType="Ride" coordinates={COORDINATES} showStyleToggle {...props} />
     </SafeAreaProvider>
   );
+}
+
+function hosted(map: React.ReactElement, focused: boolean) {
+  const host: MapSheetHostValue = {
+    kind: 'activity',
+    id: 'orchard-ride',
+    key: 'activity:orchard-ride',
+    focused,
+    setHeaderOptions: () => {},
+  };
+  return <MapSheetHostContext.Provider value={host}>{map}</MapSheetHostContext.Provider>;
 }
 
 function section(): FrequentSection {
@@ -357,6 +371,39 @@ describe('a section map on a covered screen', () => {
     expect(page(PAGE_3D).html[page(PAGE_3D).html.length - 1]).toContain(
       String(SETTLED_3D.center[0])
     );
+    await view.unmount();
+  });
+});
+
+describe.each([
+  ['an activity map', () => activityMap()],
+  ['a section map', () => sectionMap()],
+])('%s in a detail host', (_name, map) => {
+  function released(): boolean {
+    return page(PAGE_2D).injected.some((script) => script.includes('map.remove()'));
+  }
+
+  it('stays held while only its own sheet covers its screen', async () => {
+    const view = await render(hosted(map(), true));
+    await post(PAGE_2D, { type: 'mapReady' });
+
+    await setFocused(false);
+
+    expect(released()).toBe(false);
+    expect(rebuilds(PAGE_2D)).toBe(0);
+    await view.unmount();
+  });
+
+  it('is released under a screen pushed over the host and rebuilt once when it is shown again', async () => {
+    const view = await render(hosted(map(), true));
+    await post(PAGE_2D, { type: 'mapReady' });
+    await setFocused(false);
+
+    await view.rerender(hosted(map(), false));
+    expect(released()).toBe(true);
+
+    await view.rerender(hosted(map(), true));
+    expect(rebuilds(PAGE_2D)).toBe(1);
     await view.unmount();
   });
 });

@@ -36,10 +36,10 @@ jest.mock('@/shared/async/useAfterNavigationTransition', () => ({
   useAfterNavigationTransition: () => {},
 }));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
-jest.mock('@/features/activity/components/ActivityDetailSkeleton', () => ({
-  ActivityDetailSkeleton: ({ onPosterSettled }: { onPosterSettled?: () => void }) => {
+jest.mock('@/features/activity/components/ActivityDetailLoading', () => ({
+  ActivityDetailLoading: ({ onPreviewSettled }: { onPreviewSettled?: () => void }) => {
     const React = require('react');
-    React.useEffect(() => onPosterSettled?.(), [onPosterSettled]);
+    React.useEffect(() => onPreviewSettled?.(), [onPreviewSettled]);
     return null;
   },
 }));

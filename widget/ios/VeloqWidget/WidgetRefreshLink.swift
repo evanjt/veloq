@@ -102,7 +102,8 @@ private struct RefreshLinkControl: View {
         }
         glyph
       }
-      .font(.system(size: WidgetTheme.TypeScale.caption, weight: .semibold))
+      // The glyph keeps the system face it sets for itself; the words draw the widget face.
+      .widgetFont(size: WidgetTheme.TypeScale.caption, weight: .semibold)
       .foregroundColor(palette.primary)
       .frame(
         minWidth: WidgetRefreshLink.target, minHeight: WidgetRefreshLink.target,

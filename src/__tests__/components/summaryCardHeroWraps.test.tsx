@@ -51,8 +51,7 @@ async function renderCard(props: Partial<SummaryCardProps>) {
 
 function flat(style: unknown) {
   return StyleSheet.flatten(typeof style === 'function' ? style({ pressed: false }) : style) as
-    | Record<string, unknown>
-    | undefined;
+    Record<string, unknown> | undefined;
 }
 
 type Node = { props: { style?: unknown }; parent: Node | null } | null | undefined;

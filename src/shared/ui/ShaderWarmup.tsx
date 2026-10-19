@@ -1,16 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import {
-  Canvas,
-  Circle,
-  Group,
-  Line,
-  Path,
-  Rect,
-  Shadow,
-  Skia,
-  vec,
-} from '@shopify/react-native-skia';
+import { Circle, Group, Line, Path, Rect, Shadow, Skia, vec } from '@shopify/react-native-skia';
+import { Canvas } from '@/shared/ui/SkiaCanvas';
 import { brand, shaderWarmup } from '@/theme';
 
 /**

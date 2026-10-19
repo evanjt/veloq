@@ -512,6 +512,25 @@ extension. `oauth-proxy` is the Cloudflare Worker behind `auth.veloq.fit` (OAuth
 intervals.icu webhook relay). `.maestro` has the end to end flows and `scripts` the build, guard
 and device helpers.
 
+### Adding a data source
+
+The engine asks its data source through two traits in
+`modules/veloqrs/rust/veloqrs/src/net/source.rs`: `Source` for every read a sync, a backfill or a
+fetch makes, and `SourceWrites` for what an upload sends. intervals.icu implements both in
+`net/intervals/`. To read from another service:
+
+* Implement `Source` and `SourceWrites` for a type in `net/<name>/`, building its requests on the
+  shared `Transport` (`net/transport.rs`) so they go through the same pacing and retry.
+* Point `LiveSource`, `LIVE_BASE_URL` and `live_source` in `net/live.rs` at the new type. Every
+  caller holds a `LiveSource`, so nothing else changes.
+* Answer in intervals.icu's shapes: the raw bodies the engine stores, sport type strings,
+  `start_date_local` and stream names. The engine parses and stores those forms, so map the new
+  service's answers into them as they arrive.
+
+Some things are intervals.icu's and sit outside the seam: OAuth sign-in and its client id
+(`src/features/auth/constants.ts`), the `oauth-proxy` worker with its push token store and
+webhook relay, and the web links in `src/shared/app/constants.ts`.
+
 ## Contributing
 
 Open an issue or a PR on [GitHub](https://github.com/evanjt/veloq). Before committing, run what

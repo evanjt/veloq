@@ -6,7 +6,7 @@ pub mod endpoints;
 pub mod wire;
 
 use crate::governor::{Dispatch, Lane};
-use crate::net::source::Source;
+use crate::net::source::{Source, SourceWrites};
 use crate::net::transport::{NetError, Transport};
 use crate::net::types::{ActivityHistorySummary, ParsedStreams, StreamDto};
 use chrono::{DateTime, Utc};
@@ -31,77 +31,18 @@ impl IntervalsSession {
         }
     }
 
-    pub fn transport(&self) -> &Transport {
-        &self.transport
-    }
-
-    pub fn athlete_id(&self) -> &str {
-        &self.athlete_id
-    }
-
     pub fn into_parts(self) -> (Transport, String) {
         (self.transport, self.athlete_id)
-    }
-
-    /// Upload a recorded file as a new activity, answering the id it was given.
-    pub async fn upload_activity(
-        &self,
-        file_path: &str,
-        filename: &str,
-        details: endpoints::UploadDetails<'_>,
-        dispatch: impl Into<Dispatch>,
-    ) -> Result<Option<String>, NetError> {
-        endpoints::upload_activity(
-            &self.transport,
-            &self.athlete_id,
-            file_path,
-            filename,
-            details,
-            dispatch,
-        )
-        .await
-    }
-
-    /// Create an activity with no file behind it, answering the id it was given.
-    pub async fn create_activity(
-        &self,
-        activity: &ManualActivityBody,
-        dispatch: impl Into<Dispatch>,
-    ) -> Result<Option<String>, NetError> {
-        endpoints::create_activity(&self.transport, &self.athlete_id, activity, dispatch).await
-    }
-
-    /// The activities between two local dates, as the upload's duplicate check
-    /// reads them.
-    pub async fn activities_between(
-        &self,
-        oldest: &str,
-        newest: &str,
-        dispatch: impl Into<Dispatch>,
-    ) -> Result<Vec<ListedActivity>, NetError> {
-        endpoints::list_activities_between(
-            &self.transport,
-            &self.athlete_id,
-            oldest,
-            newest,
-            dispatch,
-        )
-        .await
-    }
-
-    pub async fn update_activity_rpe(
-        &self,
-        upstream: &str,
-        rpe: u32,
-        dispatch: impl Into<Dispatch>,
-    ) -> Result<(), NetError> {
-        endpoints::update_activity_rpe(&self.transport, upstream, rpe, dispatch).await
     }
 }
 
 impl Source for IntervalsSession {
     fn account(&self) -> &str {
         &self.athlete_id
+    }
+
+    fn transport(&self) -> &Transport {
+        &self.transport
     }
 
     /// Asks the profile, an endpoint a live credential always answers.
@@ -376,6 +317,59 @@ pub(crate) fn metrics_from_body(
         .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
     record.id = id.to_string();
     Ok(activity_metrics_row(record, date))
+}
+
+impl SourceWrites for IntervalsSession {
+    async fn upload_activity(
+        &self,
+        file_path: &str,
+        filename: &str,
+        details: endpoints::UploadDetails<'_>,
+        dispatch: Dispatch,
+    ) -> Result<Option<String>, NetError> {
+        endpoints::upload_activity(
+            &self.transport,
+            &self.athlete_id,
+            file_path,
+            filename,
+            details,
+            dispatch,
+        )
+        .await
+    }
+
+    async fn create_activity(
+        &self,
+        activity: &ManualActivityBody,
+        dispatch: Dispatch,
+    ) -> Result<Option<String>, NetError> {
+        endpoints::create_activity(&self.transport, &self.athlete_id, activity, dispatch).await
+    }
+
+    async fn activities_between(
+        &self,
+        oldest: &str,
+        newest: &str,
+        dispatch: Dispatch,
+    ) -> Result<Vec<ListedActivity>, NetError> {
+        endpoints::list_activities_between(
+            &self.transport,
+            &self.athlete_id,
+            oldest,
+            newest,
+            dispatch,
+        )
+        .await
+    }
+
+    async fn update_activity_rpe(
+        &self,
+        upstream: &str,
+        rpe: u32,
+        dispatch: Dispatch,
+    ) -> Result<(), NetError> {
+        endpoints::update_activity_rpe(&self.transport, upstream, rpe, dispatch).await
+    }
 }
 
 #[cfg(test)]

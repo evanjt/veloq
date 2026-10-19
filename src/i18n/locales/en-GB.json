@@ -939,36 +939,35 @@
     "explanation": {
       "title": "Understanding insights",
       "foundLabel": "Method",
-      "found": "Veloq compares your latest activities and wellness with your own history, on this phone, and shows a card for each record, change or trend it finds.",
+      "found": "Veloq compares your latest activities and wellness with your own history, on this phone.",
       "kinds": {
         "sectionsAndRoutes": {
           "label": "Sections and routes",
-          "text": "A new record, a run of faster or slower times, or a change in heart rate at the same pace, on a section or route you repeat."
+          "text": "Records, faster or slower times, and heart rate at the same pace."
         },
         "fitness": {
           "label": "eFTP and critical speed",
-          "text": "A change in your eFTP or critical speed, and the section records you set when it was lower."
+          "text": "A change in either, and the records set while it was lower."
         },
         "week": {
           "label": "This week",
-          "text": "Training time and load so far this week against the same point last week."
+          "text": "This week so far against last, or last week against the 4-week average."
         },
         "hrv": {
           "label": "Heart rate variability",
-          "text": "Your HRV over the last 7 days, the newer readings against the older."
+          "text": "Your last 7 days, the newer readings against the older."
         },
         "strength": {
           "label": "Strength",
-          "text": "A muscle group's weighted sets rising or easing off, and the balance between opposing muscle groups."
+          "text": "Weighted sets per muscle group, and the balance between opposing groups."
         },
         "sectionChanges": {
           "label": "Section changes",
-          "text": "A section that was re-cut, split, restored or put back to an earlier version."
+          "text": "A section re-cut, split, restored or put back."
         }
       },
-      "orderLabel": "Order",
       "sourcesLabel": "Sources",
-      "sources": "Times, distances, heart rate and power come from your activities. eFTP, critical speed and HRV are the values intervals.icu holds for you. Open a card and tap “{{howCalculated}}” for its method and data.",
+      "sources": "Times, heart rate and power come from your activities, and eFTP, critical speed and HRV from intervals.icu, with each card's method and data under “{{howCalculated}}”.",
       "strengthTitle": "Understanding strength"
     },
     "aboutRanking": "Cards are ordered by how much each one has to say: how recent it is, how far it stands out from your usual, how much it has moved, and how often you do it.",
@@ -994,7 +993,6 @@
       "lowSignal": "Low signal",
       "noSignal": "No signal",
       "allOneSideTitle": "{{pair}}: all volume on one side",
-      "dominantTitle": "{{dominant}} carries more volume in {{pair}}",
       "oneSidedBody": "{{dominant}} represents all of the weighted set volume for {{pair}} across the past 4 weeks.",
       "ratioBody": "{{pair}} averages {{ratio}} in weighted sets in the most recent 4-week window.",
       "ratioLabel": "Ratio",
@@ -1152,6 +1150,10 @@
     "loadingOlderActivities": "Loading older activities…",
     "activitySummary_one": "{{count}} activity · {{mapped}} on the map",
     "activitySummary_other": "{{count}} activities · {{mapped}} on the map",
+    "unmappedWithoutGps_one": "{{count}} without GPS",
+    "unmappedWithoutGps_other": "{{count}} without GPS",
+    "unmappedDownloading_one": "{{count}} downloading",
+    "unmappedDownloading_other": "{{count}} downloading",
     "expandRange": "Expand range",
     "distanceAny": "Any",
     "showFilters": "Show all filters",
@@ -1198,6 +1200,8 @@
     "keyYearOrMore": "A year or more",
     "keyFewerPasses": "Fewer passes",
     "keyMorePasses": "More passes",
+    "keyEachSection": "Each section its own colour",
+    "keyEachRoute": "Each route its own colour",
     "chooseSection": "Choose a section",
     "colorByGradient": "Colour by gradient",
     "disable3D": "Disable 3D view",
@@ -1221,6 +1225,11 @@
     "zoomToActivity": "Zoom to activity",
     "periodThisYear": "This year",
     "sheetSize": "Map and details size",
+    "detailLoading": {
+      "activity": "Loading activity",
+      "route": "Loading route",
+      "section": "Loading section"
+    },
     "sheetStop": {
       "peek": "Peek",
       "half": "Half",
@@ -1450,6 +1459,7 @@
     "writePermissionRequired": "Write permission required",
     "savedLocally": "Activity saved on this device. Upload it any time from My recordings.",
     "savedLocallyNoScope": "Ride saved on this device. It uploads once you grant upload access.",
+    "savedLocallyNoUpload": "Ride saved on this device. Demo mode does not upload.",
     "settingsUpload": "Upload",
     "autoUpload": "Auto-upload",
     "autoUploadDescription": "Upload recordings to intervals.icu automatically when you save them. Off keeps them on this device until you upload from My recordings.",

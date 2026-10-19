@@ -7,10 +7,11 @@
  * time and the climb at Peek, then the tab strip and the first page. A scrub reaches the map and
  * not the card, the Routes tab takes the section lines off the map, a marker tap opens the
  * Sections tab on its section, and starting a section puts the sheet away for the tool. An
- * activity opened from a row in another subject's sheet arrives as a card in that sheet.
+ * activity opened from a row in another subject's sheet arrives as a card in that sheet. A stop
+ * move presents the sheet again, which mounts its card afresh, and the card keeps the tab it was on.
  */
 
-import React, { useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import { DetailCardStack } from '@/features/routes/screens/DetailCardStack';
@@ -26,7 +27,7 @@ import {
   type MapSheetKind,
   useMapSheetHosts,
 } from '@/shared/app/mapSheetHost';
-import { useMapSheetStops } from '@/shared/app/mapSheetStop';
+import { useMapSheetStop, useMapSheetStops } from '@/shared/app/mapSheetStop';
 import type { SectionOverlay } from '@/features/maps/components/ActivityMapView';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
@@ -186,6 +187,33 @@ function InHost({ kind, id }: { kind: MapSheetKind; id: string }) {
   );
 }
 
+/**
+ * A host whose sheet is presented again on every stop move, as the map screen's presenter pops the
+ * sheet screen and pushes it at the new stop, so the card stack mounts afresh each time.
+ */
+let mockTapHandle: (() => void) | null = null;
+function InRepresentingHost({ kind, id }: { kind: MapSheetKind; id: string }) {
+  const key = useMapSheetHostEntry(kind, id);
+  const host = useMemo<MapSheetHostValue>(
+    () => ({ kind, id, key, focused: true, setHeaderOptions: () => {} }),
+    [kind, id, key]
+  );
+  const [presented, setPresented] = useState(0);
+  const present = useCallback((stop: number | null) => {
+    if (stop !== null) setPresented((count) => count + 1);
+  }, []);
+  const { tapHandle } = useMapSheetStop(key, present);
+  useEffect(() => {
+    mockTapHandle = tapHandle;
+  }, [tapHandle]);
+  return (
+    <MapSheetHostContext.Provider value={host}>
+      <DetailCardStack key={presented} rootParams={{}} />
+      <DetailMapHost rootParams={{}} />
+    </MapSheetHostContext.Provider>
+  );
+}
+
 const ACTIVITY_HOST = mapSheetHostKey('activity', 'act-7');
 
 beforeEach(() => {
@@ -195,6 +223,7 @@ beforeEach(() => {
   mockOnPointSelect = null;
   mockSectionsProps = {};
   mockMapProps = {};
+  mockTapHandle = null;
 });
 
 describe("an activity's map sheet", () => {
@@ -263,5 +292,33 @@ describe("an activity's map sheet", () => {
 
     expect(screen.getByTestId('activity-card-peek')).toBeTruthy();
     expect(mockMapProps.highlightIndex).toBeNull();
+  });
+
+  it('keeps the tab on show when a handle tap presents the sheet again', async () => {
+    await render(<InRepresentingHost kind="activity" id="act-7" />);
+    await fireEvent.press(screen.getByTestId('tab-routes'));
+
+    await act(async () => mockTapHandle?.());
+    expect(useMapSheetStops.getState().sheets[ACTIVITY_HOST]?.stop).toBe(2);
+
+    expect(screen.getByTestId('tab-routes').props.accessibilityState).toEqual({ selected: true });
+    expect(screen.getByTestId('tab-charts').props.accessibilityState).toEqual({ selected: false });
+    expect(mockMapProps.sectionOverlays).toBeNull();
+  });
+
+  it('opens a card pushed afresh on the tab its link names, not on a tab another card kept', async () => {
+    await render(<InRepresentingHost kind="route" id="route-3" />);
+    const routeHost = mapSheetHostKey('route', 'route-3');
+    await act(async () =>
+      pushHostCard(routeHost, { kind: 'activity', id: 'act-7', params: { tab: 'sections' } })
+    );
+    expect(screen.getByTestId('tab-sections').props.accessibilityState).toEqual({
+      selected: true,
+    });
+
+    await fireEvent.press(screen.getByTestId('tab-charts'));
+    await act(async () => mockTapHandle?.());
+
+    expect(screen.getByTestId('tab-charts').props.accessibilityState).toEqual({ selected: true });
   });
 });

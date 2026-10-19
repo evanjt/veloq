@@ -77,6 +77,7 @@ jest.mock('@/features/maps/hooks/useEngineMapActivities', () => ({
     availableTypes: [],
     categoryCounts: [],
     totalCount: 0,
+    unmapped: { withoutGps: 0, downloading: 0 },
     routeCount: 0,
     routeLines: null,
     sectionCount: 0,

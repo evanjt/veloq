@@ -19,6 +19,7 @@ import { Platform } from 'react-native';
 
 import { MAPLIBRE_GL_VERSION } from '@/features/maps/assets/maplibreRenderer.generated';
 import {
+  buildApplyScript,
   buildMap3DHtml,
   buildMap3DSetStyleScript,
   buildMapSurfaceHtml,
@@ -27,7 +28,11 @@ import {
   buildSnapshotWorkerHtml,
   resolveStyleForWebView,
 } from '@/features/maps/lib/htmlBuilders';
-import type { Map3DHtmlConfig, SnapshotRequest } from '@/features/maps/lib/htmlBuilders';
+import type {
+  Map3DHtmlConfig,
+  MapSurfaceSpec,
+  SnapshotRequest,
+} from '@/features/maps/lib/htmlBuilders';
 import { buildMap3DBuildScript } from '@/features/maps/lib/htmlBuilders/map3D';
 import { buildReleaseMapScript } from '@/features/maps/lib/htmlBuilders/shared';
 import { terrain3DSource } from '@/features/maps/components/mapStyles';
@@ -242,6 +247,89 @@ const PAGES: PageUnderTest[] = [
   },
 ];
 
+/** A ride drawn on the surface page, which every terrain change must leave in place. */
+const RIDE_SPEC: MapSurfaceSpec = {
+  sources: {
+    ride: {
+      kind: 'geojson',
+      data: {
+        type: 'Feature',
+        properties: {},
+        geometry: { type: 'LineString', coordinates: ROUTE },
+      },
+    },
+  },
+  layers: [
+    {
+      id: 'ride-line',
+      type: 'line',
+      source: 'ride',
+      paint: { 'line-color': '#e4572e', 'line-width': 4 },
+    },
+  ],
+  interactiveLayers: ['ride-line'],
+};
+
+const TILTED = { exaggeration: 1.5, pitch: 60 };
+
+/** A surface page opened flat, as `MapSurface` opens it, pitch and rotate gestures off. */
+const flatSurfaceHtml = () =>
+  buildMapSurfaceHtml({
+    style: 'light',
+    camera: { center: [7.66, 45.976], zoom: 12 },
+    interaction: { scroll: true, zoom: true, rotate: false, pitch: false },
+    devicePixelRatio: 1,
+    reduceMotion: false,
+    regionChangeThrottleMs: 100,
+  });
+
+interface SurfaceTerrainState {
+  terrain: boolean;
+  hillshade: boolean;
+  hillshadeBelowRide: boolean;
+  ride: boolean;
+  rideSource: boolean;
+  pitch: number;
+  touchPitch: boolean;
+  dragRotate: boolean;
+}
+
+const SURFACE_STATE = `(function() {
+  var map = window.map;
+  var ids = map.getStyle().layers.map(function(layer) { return layer.id; });
+  return {
+    terrain: !!map.getTerrain(),
+    hillshade: !!map.getLayer('hillshading'),
+    hillshadeBelowRide: ids.indexOf('hillshading') >= 0 && ids.indexOf('hillshading') < ids.indexOf('ride-line'),
+    ride: !!map.getLayer('ride-line'),
+    rideSource: !!map.getSource('ride'),
+    pitch: map.getPitch(),
+    touchPitch: map.touchPitch.isEnabled(),
+    dragRotate: map.dragRotate.isEnabled(),
+  };
+})()`;
+
+/** Whether a request is for the DEM the surface page's terrain draws from. */
+function isDemRequest(url: string): boolean {
+  const template = terrain3DSource().tiles[0];
+  return url.startsWith(template.slice(0, template.indexOf('{z}')));
+}
+
+async function openSurface(browser: Chromium, failing?: (url: string) => boolean) {
+  const page = await browser.open({
+    html: flatSurfaceHtml(),
+    url: mapPageBaseUrl(),
+    tileJsonUrls: tileJsonUrls(),
+    failing,
+  });
+  await page.evaluate(HELPERS);
+  await page.evaluate('window.__waitForMap(30000)');
+  await page.evaluate(`window.__settle('first draw')`);
+  await page.evaluate(buildApplyScript(RIDE_SPEC));
+  await page.evaluate(`window.__settle('ride drawn')`);
+  return page;
+}
+
 /** Every failure one page raises: map errors, uncaught page errors and a drive that threw. */
 async function smoke(
   browser: Chromium,
@@ -296,6 +384,93 @@ describe('the map pages in a headless Chromium', () => {
       if (below(MAPLIBRE_GL_VERSION, ATTRIBUTION_SAFE_FROM)) {
         expect(attributionControls).toBe(0);
       }
+    },
+    PAGE_TIMEOUT_MS
+  );
+
+  it(
+    'the map surface takes terrain from its patch, keeps it across a swap and drops it',
+    async () => {
+      const page = await openSurface(browser);
+      const states: Record<string, SurfaceTerrainState> = {};
+      try {
+        await page.evaluate(buildApplyScript({ terrain: TILTED }));
+        await page.evaluate(`window.__settle('terrain on')`);
+        states.on = await page.evaluate<SurfaceTerrainState>(SURFACE_STATE);
+
+        await page.evaluate(`${buildSetStyleScript('dark')}; window.__frameNow()`);
+        await page.evaluate(`window.__settle('swap to dark')`);
+        states.dark = await page.evaluate<SurfaceTerrainState>(SURFACE_STATE);
+
+        await page.evaluate(`${buildSetStyleScript('satellite')}; window.__frameNow()`);
+        await page.evaluate(`window.__settle('swap to satellite')`);
+        states.satellite = await page.evaluate<SurfaceTerrainState>(SURFACE_STATE);
+
+        await page.evaluate(`${buildSetStyleScript('light')}; window.__frameNow()`);
+        await page.evaluate(`window.__settle('swap to light')`);
+        await page.evaluate(buildApplyScript({ terrain: null }));
+        await page.evaluate(`window.__settle('terrain off')`);
+        states.off = await page.evaluate<SurfaceTerrainState>(SURFACE_STATE);
+      } finally {
+        await page.close();
+      }
+
+      expect(states.on).toMatchObject({
+        terrain: true,
+        hillshade: true,
+        hillshadeBelowRide: true,
+        ride: true,
+        touchPitch: true,
+        dragRotate: true,
+      });
+      expect(states.on.pitch).toBeGreaterThan(0);
+      expect(states.dark).toMatchObject({
+        terrain: true,
+        hillshade: true,
+        hillshadeBelowRide: true,
+        ride: true,
+        rideSource: true,
+      });
+      expect(states.dark.pitch).toBeGreaterThan(0);
+      // Satellite imagery carries its own relief, so it takes no shading.
+      expect(states.satellite).toMatchObject({
+        terrain: true,
+        hillshade: false,
+        ride: true,
+        rideSource: true,
+      });
+      expect(states.off).toMatchObject({
+        terrain: false,
+        hillshade: false,
+        ride: true,
+        pitch: 0,
+        touchPitch: false,
+        dragRotate: false,
+      });
+      expect(page.errors()).toEqual([]);
+    },
+    PAGE_TIMEOUT_MS
+  );
+
+  it(
+    'the map surface reports a page with no elevation tiles',
+    async () => {
+      const page = await openSurface(browser, isDemRequest);
+      let report: Record<string, unknown>;
+      try {
+        await page.evaluate(buildApplyScript({ terrain: TILTED }));
+        report = await waitForPosted(
+          page,
+          (message) => message.type === 'terrainUnavailable',
+          'no elevation tiles'
+        );
+      } finally {
+        await page.close();
+      }
+
+      expect(String(report.reason)).toContain('none delivered');
+      // The failed DEM requests are the only errors the page raised.
+      expect(page.errors().filter((error) => !error.includes('[terrain]'))).toEqual([]);
     },
     PAGE_TIMEOUT_MS
   );

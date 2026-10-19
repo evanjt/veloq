@@ -86,9 +86,7 @@ export interface SectionCounts {
  */
 export function sectionCountsOf(
   page:
-    | { sectionCount: number; filteredSectionCount?: number; customCount: number }
-    | null
-    | undefined
+    { sectionCount: number; filteredSectionCount?: number; customCount: number } | null | undefined
 ): SectionCounts {
   const total = page?.sectionCount ?? 0;
   return { total, shown: page?.filteredSectionCount ?? total, custom: page?.customCount ?? 0 };

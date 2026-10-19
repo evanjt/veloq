@@ -52,10 +52,8 @@ async function mount() {
       currentZoomRef: { current: 14 },
       currentCenterRef: { current: [6.6, 46.5] },
       surfaceRef: { current: null },
-      map3DRef: { current: null },
       currentZoomLevel: { current: 14 },
       bearingAnim: { setValue: jest.fn() },
-      is3DMode: false,
     } as never);
   });
   return { rendered, setSelectedSectionId };

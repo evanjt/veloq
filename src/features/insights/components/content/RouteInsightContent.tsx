@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { navigateTo } from '@/shared/app/navigation';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
-import { formatDuration } from '@/shared/format/format';
+import { formatDuration, formatShortDate } from '@/shared/format/format';
+import { Sparkline, type SparklinePoint } from '@/shared/charts';
 import { brand, colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import type { Insight, SupportingRoute } from '@/types';
 import { SheetContext } from './SheetContext';
@@ -14,20 +15,31 @@ import { Icon } from '@/shared/ui/Icon';
 import type { TFunc } from '../../types';
 import { sectionWithSport } from '../../lib/cardSport';
 import { rowTrendColor, rowTrendIcon } from '../../lib/rowTrend';
-import { SparklineChart } from '../SupportingDataSection';
 import { NameText } from '@/shared/ui/NameText';
 
 const STRIP_WIDTH = 96;
 const STRIP_HEIGHT = 28;
 
+const formatEffort = (seconds: number) => formatDuration(Math.round(seconds));
+
 const RouteRow = React.memo(function RouteRow({ route }: { route: SupportingRoute }) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
-  const efforts = route.recentEfforts?.map((p) => p.value) ?? [];
+  const points = useMemo<SparklinePoint[]>(
+    () =>
+      (route.recentEfforts ?? []).map((p) => ({
+        label: formatShortDate(new Date(p.date * 1000)),
+        key: String(p.date),
+        value: p.value,
+        date: p.date,
+      })),
+    [route.recentEfforts]
+  );
+  const efforts = points.map((p) => p.value);
   const trendColor = rowTrendColor(route.trend, isDark);
   const label = sectionWithSport(route.routeName, route.sportType, t as unknown as TFunc);
   // The line draws the efforts in the series colour and spans their own range,
-  // so the row prints that range; the verdict stays on the glyph.
+  // so the row prints and speaks that range; the verdict stays on the glyph.
   const range =
     efforts.length >= 3
       ? `${formatDuration(Math.min(...efforts))}-${formatDuration(Math.max(...efforts))}`
@@ -67,15 +79,20 @@ const RouteRow = React.memo(function RouteRow({ route }: { route: SupportingRout
         </Text>
       </View>
       {range ? (
-        <View style={styles.strip}>
-          <SparklineChart
-            data={efforts}
-            color={isDark ? darkColors.chartSeries : colors.chartSeries}
-            width={STRIP_WIDTH}
-            height={STRIP_HEIGHT}
-          />
-          <Text style={[styles.range, isDark && styles.rangeDark]}>{range}</Text>
-        </View>
+        // A time is better lower, so the fastest effort sits at the top, as the
+        // section timelines draw times.
+        <Sparkline
+          testID={`route-insight-sparkline-${route.rowKey}`}
+          name={t('insights.data.recentEfforts')}
+          points={points}
+          format={formatEffort}
+          width={STRIP_WIDTH}
+          height={STRIP_HEIGHT}
+          color={isDark ? darkColors.chartSeries : colors.chartSeries}
+          summary={range}
+          showRange
+          invert
+        />
       ) : null}
       <View style={styles.rowEnd}>
         <Text style={[styles.bestTime, isDark && styles.bestTimeDark]}>
@@ -125,9 +142,6 @@ const styles = StyleSheet.create({
   nameDark: { color: darkColors.textPrimary },
   meta: { ...typography.caption, color: colors.textSecondary },
   metaDark: { color: darkColors.textSecondary },
-  strip: { alignItems: 'center' },
-  range: { ...typography.caption, color: colors.textSecondary },
-  rangeDark: { color: darkColors.textSecondary },
   rowEnd: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   bestTime: {
     ...typography.bodyCompactBold,

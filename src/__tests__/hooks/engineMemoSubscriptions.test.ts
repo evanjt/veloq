@@ -541,6 +541,7 @@ describe('useEngineMapActivities', () => {
       categoryCounts: [{ family: EngineSportFamily.Ride, count: 0 }],
       activities: [],
       emptyReason: { tag: 'Filtered', inner: { mapped: 3 } },
+      unmapped: { withoutGps: 2, downloading: 1 },
     } as never);
     const selectedTypes = new Set(['Ride']);
     const { result } = await renderHook(() =>
@@ -570,6 +571,7 @@ describe('useEngineMapActivities', () => {
     expect(result.current.categoryCounts).toEqual([{ category: 'Ride', count: 0 }]);
     expect(result.current.availableTypes).toEqual(['Ride', 'Run']);
     expect(result.current.emptyReason).toEqual({ tag: 'Filtered', inner: { mapped: 3 } });
+    expect(result.current.unmapped).toEqual({ withoutGps: 2, downloading: 1 });
   });
 
   it('reports a failed read and reads again on retry', async () => {

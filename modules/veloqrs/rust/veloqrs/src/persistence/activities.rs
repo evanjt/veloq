@@ -1091,39 +1091,6 @@ pub(crate) mod pooled {
         })
     }
 
-    /// The activities whose metrics date falls in a window, and of those
-    /// with no stored track, the ones the census says have a track upstream
-    /// that no refusal or run of failures has settled out: the GPS download
-    /// still owes them.
-    pub(crate) fn window_track_backlog(
-        conn: &Connection,
-        start_date: i64,
-        end_date: i64,
-    ) -> SqlResult<(u32, u32)> {
-        conn.query_row(
-            &format!(
-                "SELECT COUNT(*),
-                        COUNT(*) FILTER (WHERE
-                            NOT EXISTS (SELECT 1 FROM activities a WHERE a.id = m.activity_id)
-                            AND EXISTS (
-                                SELECT 1 FROM activity_census c
-                                WHERE (c.intervals_id = m.activity_id
-                                       OR c.intervals_id = (SELECT b.intervals_id
-                                                            FROM activity_bodies b
-                                                            WHERE b.activity_id = m.activity_id))
-                                  AND c.has_latlng = 1
-                                  AND NOT ({settled_out})
-                                  AND NOT {stored}))
-                 FROM activity_metrics m
-                 WHERE m.date >= ?1 AND m.date <= ?2",
-                settled_out = CENSUS_TRACK_SETTLED_OUT.as_str(),
-                stored = CENSUS_TRACK_STORED,
-            ),
-            params![start_date, end_date],
-            |row| Ok((row.get(0)?, row.get(1)?)),
-        )
-    }
-
     /// The census ids whose track was refused for good at the version the
     /// census still names.
     pub(crate) fn refused_track_ids(conn: &Connection, athlete_id: &str) -> Vec<String> {
@@ -1706,6 +1673,28 @@ const CENSUS_TRACK_STORED: &str = "EXISTS (
          WHERE g.activity_id = c.intervals_id
             OR g.activity_id = (SELECT a.id FROM activities a
                                 WHERE a.intervals_id = c.intervals_id))";
+
+/// An `activity_metrics` row, under the alias `m`, whose track the census says
+/// is upstream and that no refusal or run of failures has settled out: the GPS
+/// download still owes it. Holds only for a row with no stored track.
+// The census key leads with the athlete, so the lookup names every athlete
+// the census holds rather than scanning the table once per row.
+pub(crate) static METRICS_TRACK_OWED: LazyLock<String> = LazyLock::new(|| {
+    format!(
+        "EXISTS (
+             SELECT 1 FROM activity_census c
+             WHERE c.athlete_id IN (SELECT DISTINCT athlete_id FROM activity_census)
+               AND c.intervals_id IN (m.activity_id,
+                                      (SELECT b.intervals_id
+                                       FROM activity_bodies b
+                                       WHERE b.activity_id = m.activity_id))
+               AND c.has_latlng = 1
+               AND NOT ({settled_out})
+               AND NOT {stored})",
+        settled_out = CENSUS_TRACK_SETTLED_OUT.as_str(),
+        stored = CENSUS_TRACK_STORED,
+    )
+});
 
 /// Why a track can never be stored from what the server returned.
 ///

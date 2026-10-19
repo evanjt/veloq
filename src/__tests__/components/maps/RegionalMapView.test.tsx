@@ -18,11 +18,35 @@ import { stubHardwareBack } from '../../__shared__/hardwareBack';
 import { useBottomPills } from '@/shared/ui/bottomPills';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui/tabBarClearance';
 import { spacing } from '@/theme';
+import { useHeatmapPreference } from '@/features/maps/stores/HeatmapPreferenceStore';
+import type { SurfacePatch } from '@/features/maps/lib/mapSurfacePatch';
+import type { MapLayerSpec } from '@/features/maps/lib/htmlBuilders';
 
 // The map page is hidden from screen readers, so a query reaching it includes hidden elements.
 const MAP_PAGE = { includeHiddenElements: true };
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
+
+/** Every patch the map page was sent, in order. */
+const mockPatches: SurfacePatch[] = [];
+
+jest.mock('@/features/maps/lib/mapSurfacePatch', () => {
+  const actual = jest.requireActual('@/features/maps/lib/mapSurfacePatch');
+  return {
+    ...actual,
+    createSurfacePatcher: () => {
+      const patcher = actual.createSurfacePatcher();
+      return {
+        ...patcher,
+        next: (specs: unknown) => {
+          const result = patcher.next(specs);
+          if (result.patch) mockPatches.push(result.patch);
+          return result;
+        },
+      };
+    },
+  };
+});
 
 const mockClearHeatmapView = jest.fn();
 
@@ -274,32 +298,133 @@ describe('RegionalMapView', () => {
     expect(screen.getByTestId('activity-popup')).toBeTruthy();
   });
 
-  it('swaps in the terrain view when 3D is enabled', async () => {
+  /** Tells the map page's host what the page posted. */
+  async function postFromPage(message: Record<string, unknown>) {
+    await fireEvent(screen.getByTestId('maplibre-map', MAP_PAGE), 'message', {
+      nativeEvent: { data: JSON.stringify(message) },
+    });
+  }
+
+  function lastTerrain(): SurfacePatch['terrain'] {
+    const withTerrain = mockPatches.filter((patch) => patch.terrain !== undefined);
+    return withTerrain.at(-1)?.terrain;
+  }
+
+  function lastLayer(id: string): MapLayerSpec | undefined {
+    const withLayers = mockPatches.filter((patch) => patch.layers);
+    return withLayers.at(-1)?.layers?.find((layer) => layer.id === id);
+  }
+
+  function tapOn(layerId: string, id: string) {
+    const feature = { layerId, id: null, properties: { id }, geometry: null };
+    return postFromPage({
+      type: 'mapClick',
+      coordinate: [7.45, 46.95],
+      point: [100, 100],
+      feature,
+      features: [feature],
+    });
+  }
+
+  /**
+   * Scenario: the athlete presses 3D on the map tab, then presses it again.
+   *
+   * Expected behaviour: the one map page stays mounted and is told to tilt over
+   * terrain, then to lie flat again. No second page is mounted, and the page is
+   * sent no source again, which a new page would need.
+   */
+  it('tilts the one map page over terrain when 3D is enabled', async () => {
+    mockPatches.length = 0;
     await renderRegional();
-
-    expect(screen.queryByTestId('webview', MAP_PAGE)).toBeNull();
-
-    await fireEvent.press(screen.getByTestId('map-toggle-3d'));
-    expect(screen.getByTestId('webview', MAP_PAGE)).toBeTruthy();
+    await postFromPage({ type: 'mapReady' });
+    const sentBefore = mockPatches.length;
+    expect(lastTerrain()).toBeUndefined();
 
     await fireEvent.press(screen.getByTestId('map-toggle-3d'));
     expect(screen.queryByTestId('webview', MAP_PAGE)).toBeNull();
+    expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
+    expect(lastTerrain()).toEqual({ exaggeration: expect.any(Number), pitch: expect.any(Number) });
+    expect(lastTerrain()?.pitch).toBeGreaterThan(0);
+    expect(mockPatches.slice(sentBefore).some((patch) => patch.sources)).toBe(false);
+
+    await fireEvent.press(screen.getByTestId('map-toggle-3d'));
+    expect(screen.queryByTestId('webview', MAP_PAGE)).toBeNull();
+    expect(lastTerrain()).toBeNull();
   });
 
-  it('falls back to the 2D map and says why when the terrain page has no elevation tiles', async () => {
+  /**
+   * Scenario: in 3D the athlete taps a section line.
+   *
+   * Expected behaviour: as in 2D, the section's popup opens and the page is
+   * sent a section line widened for the chosen one, so its line is cased and
+   * the rest dim.
+   */
+  it('cases a section tapped in 3D, as in 2D', async () => {
+    mockPatches.length = 0;
     await renderRegional();
+    await postFromPage({ type: 'mapReady' });
+    await fireEvent.press(screen.getByTestId('map-toggle-3d'));
+
+    await tapOn('sections-line', 'sec-1');
+
+    expect(screen.getByTestId('section-popup')).toBeTruthy();
+    const width = lastLayer('sections-line')?.paint?.['line-width'] as unknown[];
+    expect(width[0]).toBe('case');
+    expect(JSON.stringify(width)).toContain('sec-1');
+  });
+
+  /**
+   * Scenario: in 3D, with the routes layer on, the athlete taps a route line.
+   *
+   * Expected behaviour: as in 2D, the route's popup opens and its line is cased.
+   */
+  it('opens the popup for a route tapped in 3D', async () => {
+    mockPatches.length = 0;
+    useHeatmapPreference.setState({ routesVisible: true });
+    try {
+      await renderRegional({
+        routeCount: 1,
+        routeLines: {
+          generation: 1,
+          routes: [
+            {
+              routeId: 'route-1',
+              name: 'Lakeside loop',
+              activityCount: 4,
+              distanceMeters: 21_000,
+              polyline: new ArrayBuffer(0),
+            },
+          ],
+        },
+      });
+      await postFromPage({ type: 'mapReady' });
+      await fireEvent.press(screen.getByTestId('map-toggle-3d'));
+
+      await tapOn('routes-line', 'route-1');
+
+      expect(screen.getByTestId('route-popup')).toBeTruthy();
+      const width = lastLayer('routes-line')?.paint?.['line-width'] as unknown[];
+      expect(width[0]).toBe('case');
+      expect(JSON.stringify(width)).toContain('route-1');
+    } finally {
+      useHeatmapPreference.setState({ routesVisible: false });
+    }
+  });
+
+  it('lays the same page flat and says why when it has no elevation tiles', async () => {
+    mockPatches.length = 0;
+    await renderRegional();
+    await postFromPage({ type: 'mapReady' });
 
     await fireEvent.press(screen.getByTestId('map-toggle-3d'));
     expect(screen.queryByTestId(TERRAIN_UNAVAILABLE_TEST_ID)).toBeNull();
+    expect(lastTerrain()).not.toBeNull();
 
-    await fireEvent(screen.getByTestId('webview', MAP_PAGE), 'message', {
-      nativeEvent: {
-        data: JSON.stringify({ type: 'terrainUnavailable', reason: 'no terrain tiles: 6 failed' }),
-      },
-    });
+    await postFromPage({ type: 'terrainUnavailable', reason: 'no terrain tiles: 6 failed' });
 
     expect(screen.queryByTestId('webview', MAP_PAGE)).toBeNull();
     expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
+    expect(lastTerrain()).toBeNull();
     expect(screen.getByTestId(TERRAIN_UNAVAILABLE_TEST_ID)).toBeTruthy();
   });
 
@@ -315,12 +440,9 @@ describe('RegionalMapView', () => {
     useBottomPills.setState({ heights: {}, covers: { mapSheet: 380 } });
     await renderRegional();
 
+    await postFromPage({ type: 'mapReady' });
     await fireEvent.press(screen.getByTestId('map-toggle-3d'));
-    await fireEvent(screen.getByTestId('webview', MAP_PAGE), 'message', {
-      nativeEvent: {
-        data: JSON.stringify({ type: 'terrainUnavailable', reason: 'no terrain tiles: 6 failed' }),
-      },
-    });
+    await postFromPage({ type: 'terrainUnavailable', reason: 'no terrain tiles: 6 failed' });
 
     const slot = screen.getByTestId('bottom-pill-terrain');
     expect(slot).toContainElement(screen.getByTestId(TERRAIN_UNAVAILABLE_TEST_ID));
@@ -358,6 +480,43 @@ describe('RegionalMapView', () => {
       </SafeAreaProvider>
     );
     expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
+  });
+
+  /**
+   * Scenario: a tap where two sections overlap pushes the section chooser, a
+   * sheet route, over the map tab, so the pathname is the sheet's.
+   *
+   * Expected behaviour: the map stays mounted under the sheet, keeps setting
+   * the status bar and keeps its heatmap view, and leaving the tab from under
+   * the sheet still tears it down.
+   */
+  it('keeps the surface mounted under a sheet opened over the tab', async () => {
+    mockClearHeatmapView.mockClear();
+    const view = await renderRegional();
+    const rerender = () =>
+      view.rerender(
+        <SafeAreaProvider initialMetrics={METRICS}>
+          <RegionalMapView activities={[activity('a1'), activity('a2')]} />
+        </SafeAreaProvider>
+      );
+
+    mockPathname = '/sheets/section-chooser';
+    mockStatusBarStyles.length = 0;
+    await rerender();
+    expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
+    expect(mockStatusBarStyles.at(-1)).toBe('dark');
+    expect(mockClearHeatmapView).not.toHaveBeenCalled();
+
+    mockPathname = '/map';
+    await rerender();
+    expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
+
+    mockPathname = '/activity/a1';
+    await rerender();
+    mockPathname = '/sheets/stat-detail';
+    await rerender();
+    expect(screen.queryByTestId('maplibre-map', MAP_PAGE)).toBeNull();
+    mockPathname = '/map';
   });
 
   /**
@@ -421,10 +580,10 @@ describe('RegionalMapView', () => {
     expect(mockClearHeatmapView).toHaveBeenCalledTimes(1);
   });
 
-  it('takes the terrain view down with the tab too', async () => {
+  it('takes the tilted map down with the tab too', async () => {
     const view = await renderRegional();
     await fireEvent.press(screen.getByTestId('map-toggle-3d'));
-    expect(screen.getByTestId('webview', MAP_PAGE)).toBeTruthy();
+    expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
 
     mockPathname = '/activity/a1';
     await view.rerender(
@@ -433,7 +592,7 @@ describe('RegionalMapView', () => {
       </SafeAreaProvider>
     );
 
-    expect(screen.queryByTestId('webview', MAP_PAGE)).toBeNull();
+    expect(screen.queryByTestId('maplibre-map', MAP_PAGE)).toBeNull();
   });
 
   it('reports attribution changes to the caller', async () => {

@@ -63,7 +63,7 @@ describe('maestro deep links', () => {
     const redirects = (link: string) =>
       routeFilesFor(link).some((file) => {
         const source = fs.readFileSync(file, 'utf-8');
-        return /\breplaceTo\(|<Redirect\b/.test(source) && /return null;/.test(source);
+        return /\b(?:replaceTo|returnTo)\(|<Redirect\b/.test(source) && /return null;/.test(source);
       });
 
     const viaRedirect = links.filter(({ link }) => redirects(link)).map(({ flow }) => flow);
