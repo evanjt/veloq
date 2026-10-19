@@ -484,6 +484,7 @@
     "wbal": "W'bal"
   },
   "common": {
+    "experimental": "Experimentell",
     "back": "Zurück",
     "close": "Schließen",
     "cancel": "Abbrechen",
@@ -1220,8 +1221,6 @@
     "keyYearOrMore": "Ein Jahr oder älter",
     "keyFewerPasses": "Weniger Durchgänge",
     "keyMorePasses": "Mehr Durchgänge",
-    "keyEachSection": "Jeder Abschnitt in eigener Farbe",
-    "keyEachRoute": "Jede Route in eigener Farbe",
     "colorByGradient": "Nach Gefälle färben",
     "periodThisYear": "Dieses Jahr",
     "sheetSize": "Größe von Karte und Details",

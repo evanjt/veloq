@@ -61,8 +61,6 @@
   },
   "maps": {
     "colorByGradient": "Color by gradient",
-    "keyEachRoute": "Each route its own color",
-    "keyEachSection": "Each section its own color",
     "tapSelectEnd": "Tap to select end",
     "tapSelectStart": "Tap to select start"
   },

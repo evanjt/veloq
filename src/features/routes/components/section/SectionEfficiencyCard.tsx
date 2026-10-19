@@ -9,7 +9,7 @@ import React, { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { Card, ChangeChip } from '@/shared/ui';
+import { Badge, Card, ChangeChip } from '@/shared/ui';
 import {
   lanesSummary,
   Sparkline,
@@ -98,6 +98,15 @@ export function SectionEfficiencyCard({ trend, isDark }: SectionEfficiencyCardPr
       testID="section-efficiency-card"
       accessibilityRole="summary"
       title={t('sections.aerobicEfficiency')}
+      titleAccessory={
+        <Badge
+          testID="section-efficiency-experimental"
+          tone="neutral"
+          size="sm"
+          text={t('common.experimental')}
+          isDark={isDark}
+        />
+      }
       style={{ gap: spacing.xs }}
     >
       <View style={styles.detailLine}>

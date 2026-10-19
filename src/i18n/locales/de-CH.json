@@ -483,6 +483,7 @@
     "wbal": "W-bal"
   },
   "common": {
+    "experimental": "Experimentell",
     "back": "Zrugg",
     "close": "Schliessen",
     "cancel": "Nä, la sy!",
@@ -1194,8 +1195,6 @@
     "keyYearOrMore": "Ein Jahr oder älter",
     "keyFewerPasses": "Weniger Durchgänge",
     "keyMorePasses": "Mehr Durchgänge",
-    "keyEachSection": "Jeder Abschnitt in eigener Farbe",
-    "keyEachRoute": "Jede Route in eigener Farbe",
     "colorByGradient": "Nach Gfälli färbe",
     "periodThisYear": "Dieses Jahr",
     "sheetSize": "Grösse von Karte und Details",

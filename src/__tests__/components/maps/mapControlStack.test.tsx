@@ -317,21 +317,24 @@ describe('MapControlStack', () => {
         await openKey({ showRoutes: true, linePalette: base, ...props });
       }
 
-      it('draws each key inside its own row, under the label, with its label as the hint', async () => {
+      it('draws each key inside its own row, under the label, as a swatch with no caption', async () => {
         await openLines(mapPalette('light'));
 
-        const sections = within(screen.getByTestId('map-toggle-sections'));
-        const routes = within(screen.getByTestId('map-toggle-routes'));
-        expect(sections.getByTestId('map-key-sections')).toBeTruthy();
-        expect(routes.getByTestId('map-key-routes')).toBeTruthy();
-        expect(sections.getByText('Each section its own colour')).toBeTruthy();
-        expect(routes.getByText('Each route its own colour')).toBeTruthy();
-        expect(screen.getByTestId('map-toggle-sections').props.accessibilityHint).toBe(
-          'Each section its own colour'
-        );
-        expect(screen.getByTestId('map-toggle-routes').props.accessibilityHint).toBe(
-          'Each route its own colour'
-        );
+        for (const [row, key] of [
+          ['map-toggle-sections', 'map-key-sections'],
+          ['map-toggle-routes', 'map-key-routes'],
+        ] as const) {
+          const keyNode = within(screen.getByTestId(row)).getByTestId(key);
+          expect(within(keyNode).getByTestId('map-key-swatch')).toBeTruthy();
+          expect(
+            within(keyNode)
+              .queryAllByText(/./)
+              .map((text) => text.props.children)
+          ).toEqual([]);
+          expect(screen.getByTestId(row).props.accessibilityHint).toBeUndefined();
+        }
+        expect(screen.queryByText('Each section its own colour')).toBeNull();
+        expect(screen.queryByText('Each route its own colour')).toBeNull();
       });
 
       it.each(['light', 'dark', 'satellite'] as const)(

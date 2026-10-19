@@ -16,6 +16,7 @@ import { Alert } from 'react-native';
 import { act, fireEvent, render, within } from '@testing-library/react-native';
 import { SelectButton } from '@/shared/ui';
 import { routeCardInHost } from '../__shared__/routeCardInHost';
+import { useDebugStore } from '@/features/settings/light';
 
 const RouteDetailScreen = routeCardInHost();
 jest.mock('veloqrs', () =>
@@ -208,6 +209,7 @@ beforeEach(() => {
   mockParams = { id: 'grp-heath' };
   mockCounted = true;
   mockBelowChart = {};
+  useDebugStore.setState({ enabled: false, unlocked: false });
 });
 
 describe('route page on a route ridden and run', () => {
@@ -300,6 +302,8 @@ describe('route page on a route ridden and run', () => {
   });
 
   it('draws the efficiency card from the read, for the sport on screen', async () => {
+    // The card is experimental, drawn only with the developer switch on.
+    useDebugStore.setState({ enabled: true, unlocked: true });
     const screen = await render(<RouteDetailScreen />);
 
     expect(screen.getByTestId('section-efficiency-card')).toBeTruthy();

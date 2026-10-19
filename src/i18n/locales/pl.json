@@ -508,6 +508,7 @@
     "wbal": "W'bal"
   },
   "common": {
+    "experimental": "Eksperymentalne",
     "back": "Wstecz",
     "close": "Zamknij",
     "cancel": "Anuluj",
@@ -1304,8 +1305,6 @@
     "keyYearOrMore": "Rok lub dawniej",
     "keyFewerPasses": "Mniej przejazdów",
     "keyMorePasses": "Więcej przejazdów",
-    "keyEachSection": "Każda sekcja w innym kolorze",
-    "keyEachRoute": "Każda trasa w innym kolorze",
     "colorByGradient": "Kolor wg nachylenia",
     "periodThisYear": "W tym roku",
     "sheetSize": "Rozmiar mapy i szczegółów",

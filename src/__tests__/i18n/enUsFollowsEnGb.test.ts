@@ -39,8 +39,6 @@ const SPELLING = [
   'licenses.sectionSpecialLicenses',
   'licenses.title',
   'maps.colorByGradient',
-  'maps.keyEachRoute',
-  'maps.keyEachSection',
   'phaseNames.analysing',
   'phaseNames.cancelled',
   'phaseNames.diffing',

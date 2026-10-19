@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { PERF_DEBUG } from '@/shared/debug/renderTimer';
 import { debug } from '@/shared/debug/debug';
 import { TAB_TITLE_KEYS } from '@/shared/app/screenHeaders';
+import { linkReturnsToItsTab } from '@/shared/app/tabHistory';
 
 const log = debug.create('TabsLayout');
 
@@ -25,6 +26,7 @@ export default function TabsLayout() {
 
   return (
     <Tabs
+      UNSTABLE_router={linkReturnsToItsTab}
       screenOptions={{
         // Each headered tab's own stack draws its header.
         headerShown: false,

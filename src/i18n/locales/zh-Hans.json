@@ -484,6 +484,7 @@
     "wbal": "W'bal"
   },
   "common": {
+    "experimental": "实验性",
     "back": "返回",
     "close": "关闭",
     "cancel": "取消",
@@ -1220,8 +1221,6 @@
     "keyYearOrMore": "一年或更早",
     "keyFewerPasses": "经过较少",
     "keyMorePasses": "经过较多",
-    "keyEachSection": "每个路段各有颜色",
-    "keyEachRoute": "每条路线各有颜色",
     "colorByGradient": "按坡度着色",
     "periodThisYear": "今年",
     "sheetSize": "地图和详情大小",

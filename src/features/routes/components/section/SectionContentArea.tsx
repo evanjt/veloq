@@ -12,6 +12,7 @@ import {
 import { SectionStatsCards } from './SectionStatsCards';
 import { SectionInfoCard } from './SectionInfoCard';
 import { SectionEfficiencyCard } from './SectionEfficiencyCard';
+import { useDebugStore } from '@/features/settings/light';
 import { SectionCorrelationCard } from './SectionCorrelationCard';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 import { attemptBasis } from '@/features/routes/lib/attemptBasis';
@@ -154,6 +155,7 @@ export function SectionContentArea({
   const { t } = useTranslation();
   // A route's chart plots moving time, so every figure beside it is a time.
   const basis = attemptBasis(effectiveSportType, subject === 'route');
+  const experimental = useDebugStore((s) => s.enabled);
 
   return (
     <View style={styles.contentSection}>
@@ -236,8 +238,9 @@ export function SectionContentArea({
         footer={infoFooter}
       />
 
-      {/* Aerobic efficiency across matched efforts, when the engine has it */}
-      <SectionEfficiencyCard trend={efficiencyTrend} isDark={isDark} />
+      {/* Aerobic efficiency across matched efforts, an experimental card the
+          developer switch shows */}
+      {experimental ? <SectionEfficiencyCard trend={efficiencyTrend} isDark={isDark} /> : null}
 
       <SectionCorrelationCard
         correlations={correlations}

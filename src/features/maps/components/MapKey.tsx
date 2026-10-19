@@ -3,8 +3,9 @@
  * map; its rows also sit inside a menu that is already a card.
  *
  * - `MapKeySwatch`: one colour, or a run of colours, beside what it stands for,
- *   optionally with the glyph the map draws along that line, dashed as the map
- *   dashes it, or on the edge the map draws under it.
+ *   or alone where the row it sits in already names the layer, optionally
+ *   with the glyph the map draws along that line, dashed as the map dashes
+ *   it, or on the edge the map draws under it.
  * - `MapKeyRamp`: a continuous scale, with its two ends named or its values
  *   ticked where they fall along it.
  */
@@ -75,8 +76,9 @@ export function MapKeySwatch({
   dash?: readonly [number, number] | undefined;
   /** The edge a map draws under the line, showing either side of it and through its gaps. */
   edge?: string | undefined;
-  label: string;
-  isDark: boolean;
+  /** What the swatch stands for; left out where the row it sits in already names it. */
+  label?: string | undefined;
+  isDark?: boolean;
   testID?: string | undefined;
 }) {
   const runs = typeof swatch === 'string' ? [swatch] : swatch;
@@ -141,7 +143,9 @@ export function MapKeySwatch({
           ))}
         </View>
       )}
-      <Text style={[styles.text, isDark && styles.textDark]}>{label}</Text>
+      {label !== undefined ? (
+        <Text style={[styles.text, isDark && styles.textDark]}>{label}</Text>
+      ) : null}
     </View>
   );
 }

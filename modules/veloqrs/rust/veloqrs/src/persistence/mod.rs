@@ -3076,6 +3076,12 @@ static ENGINE_INSTALL: AtomicU64 = AtomicU64::new(0);
 // snapshot when no other visit happened before its save.
 static ENGINE_ACCESS_EPOCH: AtomicU64 = AtomicU64::new(0);
 
+/// Which engine-lock visit is under way, so two calls can tell whether they
+/// ran inside the same hold.
+pub(crate) fn engine_access_epoch() -> u64 {
+    ENGINE_ACCESS_EPOCH.load(Ordering::Acquire)
+}
+
 /// The install a worker starting now belongs to. Zero before the first open,
 /// which no install ever equals, so a stamp taken before one is refused.
 pub fn engine_install() -> u64 {

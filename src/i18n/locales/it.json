@@ -491,6 +491,7 @@
     "wbal": "W'bal"
   },
   "common": {
+    "experimental": "Sperimentale",
     "back": "Indietro",
     "close": "Chiudi",
     "cancel": "Annulla",
@@ -1241,8 +1242,6 @@
     "keyYearOrMore": "Un anno o più",
     "keyFewerPasses": "Meno passaggi",
     "keyMorePasses": "Più passaggi",
-    "keyEachSection": "Ogni sezione ha il suo colore",
-    "keyEachRoute": "Ogni percorso ha il suo colore",
     "colorByGradient": "Colore per inclinazione",
     "periodThisYear": "Quest'anno",
     "sheetSize": "Dimensione di mappa e dettagli",

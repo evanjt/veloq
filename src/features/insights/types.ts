@@ -258,6 +258,11 @@ export interface Insight {
    */
   confidence?: number | null;
   meta?: InsightMeta;
+  /**
+   * The insight comes from a method still being proven. It is generated only
+   * with the developer switch on, and the card says so.
+   */
+  experimental?: boolean;
 }
 
 // --- Generator input shapes ---

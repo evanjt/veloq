@@ -4,9 +4,14 @@ use crate::{ActivityMatchInfo, Bounds, Direction, GpsPoint, RouteGroup, RouteSig
 use rusqlite::{Connection, OptionalExtension, Result as SqlResult, Row, params, types::Type};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use super::record_restore::HELD_NUMBER_PREFIX;
 use super::{GroupSummary, PersistentEngine, codec, get_route_word};
+
+/// The engine-lock visit in which the groups were last announced, so a flag
+/// cleared later in the same hold is not announced twice.
+static GROUPS_ANNOUNCED_IN_HOLD: AtomicU64 = AtomicU64::new(u64::MAX);
 
 /// `schema_info` key holding the digest of the match rule the stored groups
 /// were made under.
@@ -1349,6 +1354,7 @@ impl PersistentEngine {
         // Re-asserting a flag that was already set invalidates nothing new, so
         // the epoch stays where it was: a run reads a moved epoch as a store.
         self.groups_dirty = dirty;
+        GROUPS_ANNOUNCED_IN_HOLD.store(super::engine_access_epoch(), Ordering::Release);
         crate::objects::observer::notify(crate::objects::observer::Announcement::GroupsChanged);
     }
 
@@ -1377,6 +1383,17 @@ impl PersistentEngine {
             self.groups_dirty = true;
         } else {
             self.set_groups_dirty(owed);
+        }
+        // A lock take that followed the commit in an earlier hold announced the
+        // new groups with the regroup still owed, and a reader it woke may have
+        // read the flag between the two holds. Clearing it is a change that
+        // reader has not seen. An announcement in this hold is read after it.
+        if current
+            && was_owed
+            && !self.groups_dirty
+            && GROUPS_ANNOUNCED_IN_HOLD.load(Ordering::Acquire) != super::engine_access_epoch()
+        {
+            crate::objects::observer::notify(crate::objects::observer::Announcement::GroupsChanged);
         }
     }
 
