@@ -23,6 +23,7 @@ import { dedupeKey, exchangeKey, type RateRoute, rateKey, stateKey } from "./key
 import { authoriseDevice, type DeviceAuth, intervalsAthleteResolver } from "./deviceAuth";
 import { isValidVerifier, newOpaqueToken, verifierMatches } from "./pkce";
 import { buildPushMessages, pushDataFor } from "./pushMessages";
+import { webhookShapeLine } from "./webhookShape";
 
 interface Env {
   INTERVALS_CLIENT_ID: string;
@@ -30,6 +31,8 @@ interface Env {
   OAUTH_STATES: KVNamespace;
   DEVICE_TOKENS: KVNamespace;
   WEBHOOK_SECRET?: string;
+  /** Athlete whose deliveries are described in the log, unset between captures. */
+  WEBHOOK_SHAPE_ATHLETE?: string;
 }
 
 interface DeviceToken {
@@ -847,6 +850,9 @@ async function handleIntervalsWebhook(
       console.error("Invalid webhook secret");
       return jsonResponse({ error: "Unauthorized" }, 401);
     }
+
+    const shape = webhookShapeLine(payload, new Date().toISOString(), env.WEBHOOK_SHAPE_ATHLETE);
+    if (shape) console.log(shape);
 
     if (!payload.events || !Array.isArray(payload.events)) {
       return jsonResponse({ success: true }); // Nothing to process

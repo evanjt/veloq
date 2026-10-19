@@ -123,6 +123,23 @@ wrangler secret put INTERVALS_CLIENT_ID
 wrangler secret put INTERVALS_CLIENT_SECRET
 ```
 
+### Reading what a webhook delivery carries
+
+Name one athlete and the worker logs one line per delivery that holds one of
+their events: the receive time, the delivery's event count, its top-level key
+names, and for each of that athlete's events its type, timestamp, activity id
+and the names of the activity's keys. It logs no secret, no other athlete and
+no activity value but its id. There is no `[observability]` block, so the line
+is seen only in a live tail and never stored.
+
+```bash
+wrangler secret put WEBHOOK_SHAPE_ATHLETE   # the athlete id, e.g. i12345
+wrangler tail --search webhook-shape
+wrangler secret delete WEBHOOK_SHAPE_ATHLETE   # when the capture is done
+```
+
+Unset, the worker logs nothing about a delivery.
+
 ## Testing
 
 Test the health endpoint:
