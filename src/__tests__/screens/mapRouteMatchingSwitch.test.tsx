@@ -39,9 +39,14 @@ jest.mock('@/features/maps', () => ({
     ]),
   MapNameSearch: () => null,
   PERIOD_OPTIONS: [{ id: 'all', labelKey: 'all' }],
+  periodSelectLabelKey: jest.requireActual('@/features/maps/lib/mapPeriod').periodSelectLabelKey,
+  sportChipOrder: jest.requireActual('@/features/maps/lib/sportChipOrder').sportChipOrder,
   RegionalMapView: (props: unknown) => mockMapView(props),
   SyncProgressBanner: () => null,
-  useEngineMapActivities: (options: unknown) => mockUseMap(options),
+  useEngineMapActivities: (options: unknown) => ({
+    unmapped: { withoutGps: 0, downloading: 0 },
+    ...mockUseMap(options),
+  }),
   useHeatmapPreference: (select: (s: unknown) => unknown) => select({ routesVisible: false }),
 }));
 jest.mock('@/features/routes', () => ({
@@ -70,6 +75,7 @@ jest.mock('@/shared/debug/renderTimer', () => ({ logScreenRender: () => () => {}
 jest.mock('@/shared/ui', () => {
   const { Text } = require('react-native');
   return {
+    SelectButton: () => null,
     Button: ({ label }: { label: string }) => <Text>{label}</Text>,
     ComponentErrorBoundary: ({ children }: { children: React.ReactNode }) => children,
     ScreenErrorBoundary: ({ children }: { children: React.ReactNode }) => children,
@@ -78,6 +84,7 @@ jest.mock('@/shared/ui', () => {
     useScrollEndInset: () => 0,
     Shimmer: () => null,
     PressTarget: require('react-native').Pressable,
+    TextLink: jest.requireActual('@/shared/ui/TextLink').TextLink,
   };
 });
 

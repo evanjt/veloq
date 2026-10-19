@@ -1,11 +1,13 @@
 import { GROWING_LINE_REDRAW_MS } from '@/features/maps/lib/mapBudgets';
+import { cameraMove } from '@/theme';
 
 import type { MapSurfaceHtmlConfig } from './mapSurface';
+import { motionDurationExpression } from './shared';
 
 /**
  * How far either side of a tap the page looks for something to hit, in CSS
  * pixels. A finger covers about 30 px and the thinnest interactive thing on the
- * map is a 2.4 px dashed section line, so a point query missed most taps.
+ * map is a dashed section line at most 4 px wide, so a point query missed most taps.
  */
 export const SURFACE_HIT_TEST_RADIUS_PX = 12;
 
@@ -21,9 +23,10 @@ export function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
       sourceDefs: {},
       layers: [],
       layerSpecs: {},
-      images: {},
+      images: [],
       interactiveLayers: [],
       redraws: {},
+      terrain: null,
       ready: false,
     };
 
@@ -278,6 +281,92 @@ export function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
       });
     }
 
+    // The relief goes under the base's roads and buildings. A base with none
+    // of them still keeps it under the caller's own layers.
+    function _hillshadeBefore(map) {
+      var styleLayers = map.getStyle().layers;
+      var index = hillshadeInsertIndex(styleLayers, window._veloqHillshadeCandidates);
+      if (index < styleLayers.length) return styleLayers[index].id;
+      var own = window._veloq.layers.filter(function(id) { return !!map.getLayer(id); });
+      return own.length > 0 ? own[0] : undefined;
+    }
+
+    // Adds the DEM, the terrain, the sky and the relief for the base on show,
+    // each only if missing, so a replay after a swap and a new exaggeration
+    // take the same path.
+    function _addTerrain(spec) {
+      var map = window.map;
+      var look = window._veloqTerrainLook;
+      if (!map.getSource('terrain')) map.addSource('terrain', window._veloqTerrainSource);
+      map.setTerrain({ source: 'terrain', exaggeration: spec.exaggeration });
+      try {
+        map.setSky(look.sky);
+      } catch (e) {
+        window._rn_log('setSky unavailable: ' + e.message);
+      }
+      // Satellite imagery carries its own relief, so it has no paint.
+      if (look.hillshade && !map.getLayer('hillshading')) {
+        map.addLayer({
+          id: 'hillshading',
+          type: 'hillshade',
+          source: 'terrain',
+          layout: { visibility: 'visible' },
+          paint: look.hillshade,
+        }, _hillshadeBefore(map));
+      }
+    }
+
+    function _removeTerrain() {
+      var map = window.map;
+      if (map.getTerrain()) map.setTerrain(null);
+      try {
+        map.setSky(undefined);
+      } catch (e) {
+        window._rn_log('setSky unavailable: ' + e.message);
+      }
+      if (map.getLayer('hillshading')) map.removeLayer('hillshading');
+      if (map.getSource('terrain')) map.removeSource('terrain');
+    }
+
+    // Terrain takes tilt and turn, whatever the page opened with; flat, the
+    // page goes back to the gestures it was built with.
+    function _setTerrainGestures(on) {
+      var map = window.map;
+      if (on || ${config.interaction.pitch}) map.touchPitch.enable();
+      else map.touchPitch.disable();
+      if (on || ${config.interaction.rotate}) {
+        map.dragRotate.enable();
+        map.touchZoomRotate.enableRotation();
+      } else {
+        map.dragRotate.disable();
+        map.touchZoomRotate.disableRotation();
+      }
+    }
+
+    function _applyTerrain(spec) {
+      var map = window.map;
+      var previous = window._veloq.terrain;
+      window._veloq.terrain = spec;
+      try {
+        if (spec) {
+          if (!previous) window._veloqTerrainReport.reset();
+          _addTerrain(spec);
+          window._veloqTerrainReport.reportOnceSettled(map);
+        } else {
+          _removeTerrain();
+        }
+        _setTerrainGestures(!!spec);
+      } catch (e) {
+        window._rn_log('terrain: ' + e.message);
+      }
+      // Only a change of tilt moves the camera, so a new exaggeration leaves
+      // the pitch the athlete set alone.
+      var pitch = spec ? spec.pitch : 0;
+      if (!previous !== !spec || (spec && previous.pitch !== spec.pitch)) {
+        map.easeTo({ pitch: pitch, duration: ${motionDurationExpression(cameraMove.move)} });
+      }
+    }
+
     // Entry point React Native injects against. patch.sources carries only the
     // sources whose data changed. patch.layers is always the full list because
     // layer specs are small and their ordering has to be authoritative.
@@ -297,6 +386,8 @@ export function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
         if (patch.interactiveLayers) {
           window._veloq.interactiveLayers = patch.interactiveLayers;
         }
+        // After the layers, so the relief can go under the caller's own.
+        if (patch.terrain !== undefined) _applyTerrain(patch.terrain);
       });
     };
 
@@ -307,7 +398,8 @@ export function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
     }
     window._veloq.drain = _drainQueue;
 
-    // Replay the whole cached spec. Used after setStyle wipes the style.
+    // Replay the whole cached spec. Used after setStyle wipes the style, which
+    // takes the terrain, its sky and its relief with it.
     window._veloq.rehydrate = function() {
       var sources = window._veloq.sources;
       var layers = window._veloq.layers.map(function(id) {
@@ -321,6 +413,14 @@ export function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
         _applySources(sources);
         _applyLayers(layers);
         window._veloq.layers = previousLayers;
+        if (window._veloq.terrain) {
+          try {
+            _addTerrain(window._veloq.terrain);
+            window._veloqTerrainReport.reportOnceSettled(window.map);
+          } catch (e) {
+            window._rn_log('terrain: ' + e.message);
+          }
+        }
       });
     };
 
@@ -385,7 +485,7 @@ export function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
           return !!map.getLayer(id);
         });
         if (layers.length === 0) return [];
-        // A finger covers about 30 px and a section line is 2.4 px of dash at
+        // A finger covers about 30 px and a section line is 4 px of dash at
         // its widest, a third of it gap, so a point query missed most taps and
         // ran the empty-space branch. Lines sit last in the precedence
         // below, so widening the query cannot take a tap off a marker.

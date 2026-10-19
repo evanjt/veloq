@@ -72,8 +72,7 @@ export type MenuPopupAction = Omit<ContextMenuAction, 'icon' | 'systemIcon'> & {
 };
 
 export type MenuPopupEntry =
-  | MenuPopupAction
-  | { key: string; label: string; items: MenuPopupAction[] };
+  MenuPopupAction | { key: string; label: string; items: MenuPopupAction[] };
 
 export interface MenuPopupProps {
   /** Names the list, read first. */
@@ -184,14 +183,21 @@ function MenuRow({
     >
       {item.icon ? <Icon name={item.icon} size={iconSize.md} color={glyphColor} /> : null}
       <Text style={[styles.rowLabel, { color: labelColor }]}>{item.label}</Text>
-      {checkable ? (
-        <Icon
-          name="check"
-          size={iconSize.md}
-          color={item.checked ? brand.blue550 : 'transparent'}
-        />
-      ) : null}
+      {checkable ? <MenuCheck checked={!!item.checked} color={brand.blue550} /> : null}
     </PressTarget>
+  );
+}
+
+/**
+ * The check column of a menu row that can be chosen. An unchosen row draws no
+ * glyph, since a renderer that outlines text shows a transparent one, and the
+ * empty column keeps the labels of both kinds of row aligned.
+ */
+export function MenuCheck({ checked, color }: { checked: boolean; color: string }) {
+  return checked ? (
+    <Icon name="check" size={iconSize.md} color={color} />
+  ) : (
+    <View style={styles.checkColumn} />
   );
 }
 
@@ -376,5 +382,9 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     flexGrow: 1,
     ...typography.bodyMedium,
+  },
+  checkColumn: {
+    width: iconSize.md,
+    height: iconSize.md,
   },
 });

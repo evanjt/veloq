@@ -30,7 +30,6 @@ use super::start::{FfiStartOutcome, FfiStartResult};
 #[cfg(test)]
 use crate::governor;
 use crate::governor::{AuthMethod, Dispatch, Intent, Lane};
-use crate::net::IntervalsSession;
 use crate::net::intervals::activity_metrics_row;
 use crate::net::intervals::endpoints;
 use crate::net::intervals::wire::{ActivityRecord, ListedActivity, ManualActivityBody};
@@ -38,8 +37,9 @@ use crate::net::offline_prefetch::{
     ALL_TIME_CURVE_DAYS, CURVE_DAYS, CURVE_KEYS, CurveKey, curve_window, every_curve_window,
     split_curve_windows,
 };
-use crate::net::source::Source;
+use crate::net::source::{Source, SourceWrites};
 use crate::net::transport::{NetError, Transport};
+use crate::net::{LiveSource, live_source};
 use crate::persistence::PersistentEngine;
 use crate::persistence::attempts::{Claim, JobKey, Release, now_ms};
 use crate::persistence::bodies::CurveKind;
@@ -569,7 +569,7 @@ impl SyncService {
         SyncService {
             inner: Mutex::new(SyncInner::default()),
             creds: Mutex::new(None),
-            base_url: Mutex::new(crate::net::intervals::BASE_URL.to_string()),
+            base_url: Mutex::new(crate::net::LIVE_BASE_URL.to_string()),
             start_full: Box::new(start_full),
             start_window: Box::new(start_window),
         }
@@ -632,7 +632,7 @@ impl SyncService {
     }
 
     /// Build the session the held credentials and base URL name.
-    fn build_session(&self) -> Result<IntervalsSession, SyncFailure> {
+    fn build_session(&self) -> Result<LiveSource, SyncFailure> {
         let creds_guard = self.creds.lock().unwrap_or_else(|e| e.into_inner());
         let creds = creds_guard.as_ref().ok_or_else(|| {
             SyncFailure::new(FfiSyncErrorReason::NotConfigured, "no credentials set")
@@ -644,7 +644,7 @@ impl SyncService {
             .clone();
         let transport = Transport::new(base, creds.method.auth_method(&creds.secret))
             .map_err(|e| SyncFailure::new(FfiSyncErrorReason::NotConfigured, e))?;
-        Ok(IntervalsSession::new(transport, creds.athlete_id.clone()))
+        Ok(live_source(transport, creds.athlete_id.clone()))
     }
 
     /// Atomically claim the running slot and move to `Syncing`. Returns false if a
@@ -714,11 +714,11 @@ impl SyncService {
     /// verdict out of the FFI methods, which cannot be tested without the
     /// global service.
     #[cfg(test)]
-    fn try_start(&self) -> Result<IntervalsSession, FfiStartOutcome> {
+    fn try_start(&self) -> Result<LiveSource, FfiStartOutcome> {
         self.try_start_for(SyncRequest::Full { force: false })
     }
 
-    fn try_start_for(&self, request: SyncRequest) -> Result<IntervalsSession, FfiStartOutcome> {
+    fn try_start_for(&self, request: SyncRequest) -> Result<LiveSource, FfiStartOutcome> {
         self.claim_slot_for(request)?;
         match self.build_session() {
             Ok(session) => Ok(session),
@@ -1150,7 +1150,7 @@ pub(crate) fn foregrounded() {
 /// [`park_auth_expired`] and recurse.
 #[cfg(test)]
 async fn credential_is_rejected(transport: &Transport, athlete_id: &str) -> bool {
-    IntervalsSession::new(transport.clone(), athlete_id)
+    live_source(transport.clone(), athlete_id)
         .confirm_rejected()
         .await
 }
@@ -1632,7 +1632,7 @@ async fn time_streams_job(
 /// own schedule. And a start before the engine opens is early, not refused.
 pub(crate) fn spawn_once<F, Fut>(key: JobKey, job: F) -> FfiStartResult
 where
-    F: FnOnce(u64, IntervalsSession) -> Fut + Send + 'static,
+    F: FnOnce(u64, LiveSource) -> Fut + Send + 'static,
     Fut: std::future::Future<Output = Result<(), NetError>> + Send,
 {
     spawn_once_at(key, now_ms, job)
@@ -1647,7 +1647,7 @@ where
 /// the release, because the release genuinely happens later.
 fn spawn_once_at<F, Fut, C>(key: JobKey, clock: C, job: F) -> FfiStartResult
 where
-    F: FnOnce(u64, IntervalsSession) -> Fut + Send + 'static,
+    F: FnOnce(u64, LiveSource) -> Fut + Send + 'static,
     Fut: std::future::Future<Output = Result<(), NetError>> + Send,
     C: Fn() -> i64 + Send + 'static,
 {
@@ -1721,7 +1721,7 @@ where
         let confirm = session.clone();
         // The transport was built before the spawn, so it still carries a token
         // the athlete may have signed out of by the time the job is polled.
-        if !SYNC_SERVICE.still_signed_in(confirm.athlete_id()) {
+        if !SYNC_SERVICE.still_signed_in(confirm.account()) {
             log::info!("[Sync] dropping an on-demand fetch for an athlete who has signed out");
             // Nothing was asked for, so nothing failed. A backoff here would
             // hold the key against the athlete who signs in next.
@@ -1805,7 +1805,7 @@ impl Drop for TestBaseUrl {
         *SYNC_SERVICE
             .base_url
             .lock()
-            .unwrap_or_else(|e| e.into_inner()) = crate::net::intervals::BASE_URL.to_string();
+            .unwrap_or_else(|e| e.into_inner()) = crate::net::LIVE_BASE_URL.to_string();
     }
 }
 
@@ -1851,7 +1851,7 @@ pub(crate) fn give_credentials(
 }
 
 pub fn current_transport() -> Option<Result<Transport, String>> {
-    current_session().map(|r| r.map(|session| session.into_parts().0))
+    current_session().map(|r| r.map(|session| session.transport().clone()))
 }
 
 pub(crate) fn signed_in_athlete_id() -> Option<String> {
@@ -1866,7 +1866,7 @@ pub(crate) fn still_signed_in(athlete_id: &str) -> bool {
 /// The session for the held credential, for a caller that has to ask on the
 /// athlete's own resources. `None` before TypeScript has called
 /// `set_credentials`.
-pub fn current_session() -> Option<Result<IntervalsSession, String>> {
+pub fn current_session() -> Option<Result<LiveSource, String>> {
     let creds_present = SYNC_SERVICE
         .creds
         .lock()
@@ -1902,7 +1902,7 @@ pub(crate) async fn validate_credentials_detached(
         Err(e) => return FfiCallOutcome::internal(e),
     };
     // The athlete is what this asks, so the session names none yet.
-    let session = IntervalsSession::new(transport, String::new());
+    let session = live_source(transport, String::new());
     // A rejected candidate is not an expired session, so unlike a write this
     // deliberately leaves the service state alone.
     run_on_runtime(async move { credential_athlete(&session).await }).await
@@ -1986,21 +1986,32 @@ pub(crate) async fn send_activity_file(
     paired_event_id: Option<i64>,
 ) -> FfiCallOutcome {
     run_write_for(expected_athlete_id, move |session| async move {
-        session
-            .upload_activity(
-                &file_path,
-                &filename,
-                endpoints::UploadDetails {
-                    external_id: Some(&external_id),
-                    name: name.as_deref(),
-                    description: description.as_deref(),
-                    paired_event_id,
-                },
-                Lane::Interactive,
-            )
-            .await
+        upload_file_job(
+            &session,
+            &file_path,
+            &filename,
+            endpoints::UploadDetails {
+                external_id: Some(&external_id),
+                name: name.as_deref(),
+                description: description.as_deref(),
+                paired_event_id,
+            },
+        )
+        .await
     })
     .await
+}
+
+/// Send the file, the work behind [`send_activity_file`].
+async fn upload_file_job(
+    source: &impl SourceWrites,
+    file_path: &str,
+    filename: &str,
+    details: endpoints::UploadDetails<'_>,
+) -> Result<Option<String>, NetError> {
+    source
+        .upload_activity(file_path, filename, details, Lane::Interactive.into())
+        .await
 }
 
 /// Create an activity with no file behind it, for indoor entries. See
@@ -2010,9 +2021,19 @@ pub(crate) async fn send_manual_activity(
     activity: ManualActivityBody,
 ) -> FfiCallOutcome {
     run_write_for(expected_athlete_id, move |session| async move {
-        session.create_activity(&activity, Lane::Interactive).await
+        manual_activity_job(&session, &activity).await
     })
     .await
+}
+
+/// Create the entry, the work behind [`send_manual_activity`].
+async fn manual_activity_job(
+    source: &impl SourceWrites,
+    activity: &ManualActivityBody,
+) -> Result<Option<String>, NetError> {
+    source
+        .create_activity(activity, Lane::Interactive.into())
+        .await
 }
 
 /// Look on intervals.icu for the activity an earlier upload may have created,
@@ -2026,24 +2047,41 @@ pub(crate) async fn find_landed_activity(
     matches: impl FnOnce(&[ListedActivity]) -> Option<String> + Send + 'static,
 ) -> FfiCallOutcome {
     run_write_for(expected_athlete_id, move |session| async move {
-        let listed = session
-            .activities_between(&oldest, &newest, Lane::Interactive)
-            .await?;
-        Ok(matches(&listed))
+        landed_activity_job(&session, &oldest, &newest, matches).await
     })
     .await
+}
+
+/// List the window and pick from it, the work behind [`find_landed_activity`].
+async fn landed_activity_job(
+    source: &impl SourceWrites,
+    oldest: &str,
+    newest: &str,
+    matches: impl FnOnce(&[ListedActivity]) -> Option<String>,
+) -> Result<Option<String>, NetError> {
+    let listed = source
+        .activities_between(oldest, newest, Lane::Interactive.into())
+        .await?;
+    Ok(matches(&listed))
 }
 
 /// Set the effort the athlete gave an uploaded ride, as its `icu_rpe`. It names
 /// the activity the upload created, so a failure never sends the file again.
 pub(crate) async fn send_activity_rpe(intervals_id: String, rpe: u32) -> FfiCallOutcome {
-    run_write(move |session| async move {
-        session
-            .update_activity_rpe(&intervals_id, rpe, Lane::Interactive)
-            .await
-            .map(|()| Some(intervals_id))
-    })
-    .await
+    run_write(move |session| async move { activity_rpe_job(&session, intervals_id, rpe).await })
+        .await
+}
+
+/// Set the effort, the work behind [`send_activity_rpe`].
+async fn activity_rpe_job(
+    source: &impl SourceWrites,
+    intervals_id: String,
+    rpe: u32,
+) -> Result<Option<String>, NetError> {
+    source
+        .update_activity_rpe(&intervals_id, rpe, Lane::Interactive.into())
+        .await
+        .map(|()| Some(intervals_id))
 }
 
 /// Read the activity an upload created back off intervals.icu.
@@ -2073,7 +2111,7 @@ pub(crate) async fn read_back_activity(intervals_id: String) -> FfiCallOutcome {
 /// Run a write against the held credential.
 async fn run_write<F, Fut>(job: F) -> FfiCallOutcome
 where
-    F: FnOnce(IntervalsSession) -> Fut + Send + 'static,
+    F: FnOnce(LiveSource) -> Fut + Send + 'static,
     Fut: std::future::Future<Output = Result<Option<String>, NetError>> + Send + 'static,
 {
     run_write_for(None, job).await
@@ -2083,14 +2121,25 @@ where
 /// athlete other than `expected`.
 async fn run_write_for<F, Fut>(expected: Option<String>, job: F) -> FfiCallOutcome
 where
-    F: FnOnce(IntervalsSession) -> Fut + Send + 'static,
+    F: FnOnce(LiveSource) -> Fut + Send + 'static,
     Fut: std::future::Future<Output = Result<Option<String>, NetError>> + Send + 'static,
 {
     let session = match SYNC_SERVICE.build_session() {
         Ok(session) => session,
         Err(e) => return FfiCallOutcome::internal(e.message),
     };
-    if let Some(refusal) = athlete_mismatch(session.athlete_id(), expected.as_deref()) {
+    write_with(session, expected, job).await
+}
+
+/// Run a write against `session`, the credential already in hand, refusing
+/// when it belongs to an athlete other than `expected`.
+async fn write_with<S, F, Fut>(session: S, expected: Option<String>, job: F) -> FfiCallOutcome
+where
+    S: SourceWrites + Clone + 'static,
+    F: FnOnce(S) -> Fut + Send + 'static,
+    Fut: std::future::Future<Output = Result<Option<String>, NetError>> + Send + 'static,
+{
+    if let Some(refusal) = athlete_mismatch(session.account(), expected.as_deref()) {
         return refusal;
     }
     // Kept back for the confirmation, for the same reason as `spawn_once`.
@@ -2135,7 +2184,7 @@ pub(crate) async fn perform_sync(
     athlete_id: String,
     force: bool,
 ) {
-    let session = IntervalsSession::new(transport, athlete_id);
+    let session = live_source(transport, athlete_id);
     perform_sync_from(svc, install, &session, force).await;
 }
 
@@ -2348,7 +2397,7 @@ pub(crate) async fn perform_window_sync(
     oldest: &str,
     newest: &str,
 ) {
-    let session = IntervalsSession::new(transport, athlete_id);
+    let session = live_source(transport, athlete_id);
     perform_window_sync_from(svc, install, &session, oldest, newest).await;
 }
 
@@ -4695,7 +4744,7 @@ impl SyncManager {
         let install = crate::persistence::engine_install();
         crate::runtime::ASYNC_RUNTIME
             .spawn(async move {
-                if !SYNC_SERVICE.still_signed_in(session.athlete_id()) {
+                if !SYNC_SERVICE.still_signed_in(session.account()) {
                     return false;
                 }
                 match ready_owed_activity(install, &session, &activity_id).await {
@@ -6848,7 +6897,7 @@ mod tests {
 
         let curves = crate::runtime::block_on(sync_curves(
             crate::persistence::engine_install(),
-            &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+            &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
             &|| false,
         ));
         assert!(
@@ -6866,7 +6915,7 @@ mod tests {
 
         let intervals = crate::runtime::block_on(sync_interval_bodies(
             crate::persistence::engine_install(),
-            &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+            &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
             &|| false,
             &|_, _| {},
         ));
@@ -7617,7 +7666,7 @@ mod tests {
             let windows = owed_activity_windows("i1", true).await.windows;
             sync_activity_windows(
                 install,
-                &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+                &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
                 &windows,
                 LIBRARY_HISTORY,
                 &|| false,
@@ -7650,7 +7699,7 @@ mod tests {
 
         crate::runtime::block_on(sync_wellness(
             crate::persistence::engine_install(),
-            &crate::net::IntervalsSession::new(transport_to(server.base_url()), "i1"),
+            &crate::net::intervals::IntervalsSession::new(transport_to(server.base_url()), "i1"),
             chrono::Local::now().date_naive() - chrono::Duration::days(WELLNESS_REFRESH_DAYS),
             None,
         ))
@@ -7687,7 +7736,7 @@ mod tests {
 
         crate::runtime::block_on(sync_wellness(
             crate::persistence::engine_install(),
-            &crate::net::IntervalsSession::new(transport_to(server.base_url()), "i1"),
+            &crate::net::intervals::IntervalsSession::new(transport_to(server.base_url()), "i1"),
             chrono::Local::now().date_naive() - chrono::Duration::days(WELLNESS_REFRESH_DAYS),
             None,
         ))
@@ -7726,7 +7775,7 @@ mod tests {
 
         crate::runtime::block_on(sync_wellness(
             crate::persistence::engine_install(),
-            &crate::net::IntervalsSession::new(transport_to(server.base_url()), "i1"),
+            &crate::net::intervals::IntervalsSession::new(transport_to(server.base_url()), "i1"),
             wellness_oldest(&BTreeSet::new(), None, None, today),
             None,
         ))
@@ -7752,7 +7801,7 @@ mod tests {
 
         crate::runtime::block_on(sync_activity_window(
             crate::persistence::engine_install(),
-            &crate::net::IntervalsSession::new(transport_to(server.base_url()), "i1"),
+            &crate::net::intervals::IntervalsSession::new(transport_to(server.base_url()), "i1"),
             "2019-01-01",
             "2019-12-31",
             None,
@@ -7790,7 +7839,7 @@ mod tests {
 
         crate::runtime::block_on(sync_activity_window(
             crate::persistence::engine_install(),
-            &crate::net::IntervalsSession::new(transport_to(server.base_url()), "i1"),
+            &crate::net::intervals::IntervalsSession::new(transport_to(server.base_url()), "i1"),
             "2026-01-01",
             "2026-01-31",
             None,
@@ -7821,7 +7870,7 @@ mod tests {
 
         crate::runtime::block_on(sync_activity_window(
             crate::persistence::engine_install(),
-            &crate::net::IntervalsSession::new(transport_to(server.base_url()), "i1"),
+            &crate::net::intervals::IntervalsSession::new(transport_to(server.base_url()), "i1"),
             "2025-01-01",
             "2025-01-31",
             None,
@@ -7859,7 +7908,7 @@ mod tests {
 
         let outcome = crate::runtime::block_on(sync_activity_window(
             crate::persistence::engine_install(),
-            &crate::net::IntervalsSession::new(transport_to(server.base_url()), "i1"),
+            &crate::net::intervals::IntervalsSession::new(transport_to(server.base_url()), "i1"),
             "2025-01-01",
             "2025-01-31",
             None,
@@ -7917,7 +7966,7 @@ mod tests {
 
         crate::runtime::block_on(sync_activity_window(
             crate::persistence::engine_install(),
-            &crate::net::IntervalsSession::new(transport_to(server.base_url()), "i1"),
+            &crate::net::intervals::IntervalsSession::new(transport_to(server.base_url()), "i1"),
             "2025-01-01",
             "2025-01-31",
             None,
@@ -8009,7 +8058,7 @@ mod tests {
 
         crate::runtime::block_on(sync_activity_window(
             crate::persistence::engine_install(),
-            &crate::net::IntervalsSession::new(transport_to(server.base_url()), "i1"),
+            &crate::net::intervals::IntervalsSession::new(transport_to(server.base_url()), "i1"),
             "2025-01-01",
             "2025-01-31",
             None,
@@ -8070,7 +8119,7 @@ mod tests {
                 let windows = owed_activity_windows("i1", true).await.windows;
                 sync_activity_windows(
                     install,
-                    &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+                    &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
                     &windows,
                     LIBRARY_HISTORY,
                     &|| false,
@@ -8103,7 +8152,10 @@ mod tests {
             });
             crate::runtime::block_on(sync_activity_window(
                 crate::persistence::engine_install(),
-                &crate::net::IntervalsSession::new(transport_to(server.base_url()), "i1"),
+                &crate::net::intervals::IntervalsSession::new(
+                    transport_to(server.base_url()),
+                    "i1",
+                ),
                 date,
                 date,
                 None,
@@ -8363,7 +8415,7 @@ mod tests {
 
         let outcome = crate::runtime::block_on(sync_activity_window(
             crate::persistence::engine_install(),
-            &crate::net::IntervalsSession::new(transport_to(server.base_url()), "i1"),
+            &crate::net::intervals::IntervalsSession::new(transport_to(server.base_url()), "i1"),
             "2025-01-01",
             "2025-01-31",
             None,
@@ -8398,7 +8450,7 @@ mod tests {
 
         let outcome = crate::runtime::block_on(sync_activity_window(
             crate::persistence::engine_install(),
-            &crate::net::IntervalsSession::new(transport_to(server.base_url()), "i1"),
+            &crate::net::intervals::IntervalsSession::new(transport_to(server.base_url()), "i1"),
             "2025-01-01",
             "2025-01-31",
             None,
@@ -8458,7 +8510,7 @@ mod tests {
 
         crate::runtime::block_on(sync_activity_window(
             crate::persistence::engine_install(),
-            &crate::net::IntervalsSession::new(transport_to(server.base_url()), "i1"),
+            &crate::net::intervals::IntervalsSession::new(transport_to(server.base_url()), "i1"),
             "2025-01-01",
             "2025-01-31",
             None,
@@ -8922,7 +8974,7 @@ mod body_count_tests {
         *SYNC_SERVICE
             .base_url
             .lock()
-            .unwrap_or_else(|e| e.into_inner()) = crate::net::intervals::BASE_URL.to_string();
+            .unwrap_or_else(|e| e.into_inner()) = crate::net::LIVE_BASE_URL.to_string();
     }
 
     /// Wait for the spawned fetch to settle. The job runs on the shared
@@ -9623,7 +9675,7 @@ mod body_count_tests {
             let transport = transport_to(server.base_url());
             crate::runtime::block_on(sync_interval_bodies(
                 crate::persistence::engine_install(),
-                &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+                &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
                 &never_cancelled(),
                 &|_, _| {},
             ))
@@ -9660,7 +9712,7 @@ mod body_count_tests {
                 let transport = transport_to(server.base_url());
                 let outcome = crate::runtime::block_on(sync_interval_bodies(
                     crate::persistence::engine_install(),
-                    &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+                    &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
                     &never_cancelled(),
                     &|_, _| {},
                 ));
@@ -9676,7 +9728,7 @@ mod body_count_tests {
 
                 crate::runtime::block_on(sync_interval_bodies(
                     crate::persistence::engine_install(),
-                    &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+                    &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
                     &never_cancelled(),
                     &|_, _| {},
                 ))
@@ -9721,7 +9773,7 @@ mod body_count_tests {
             let transport = transport_to(server.base_url());
             let outcome = crate::runtime::block_on(sync_interval_bodies(
                 crate::persistence::engine_install(),
-                &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+                &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
                 &never_cancelled(),
                 &|_, _| {},
             ));
@@ -9761,7 +9813,7 @@ mod body_count_tests {
 
             let outcome = crate::runtime::block_on(sync_interval_bodies(
                 crate::persistence::engine_install(),
-                &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+                &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
                 &never_cancelled(),
                 &|_, _| {},
             ));
@@ -9796,7 +9848,7 @@ mod body_count_tests {
             let transport = transport_to(server.base_url());
             crate::runtime::block_on(sync_interval_bodies(
                 crate::persistence::engine_install(),
-                &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+                &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
                 &never_cancelled(),
                 &|_, _| {},
             ))
@@ -9857,7 +9909,10 @@ mod body_count_tests {
         fn run_step(server: &MockServer) -> Result<(), NetError> {
             crate::runtime::block_on(ready_newest_activities(
                 crate::persistence::engine_install(),
-                &crate::net::IntervalsSession::new(transport_to(server.base_url()), "i1"),
+                &crate::net::intervals::IntervalsSession::new(
+                    transport_to(server.base_url()),
+                    "i1",
+                ),
                 &|| false,
             ))
         }
@@ -10204,7 +10259,10 @@ mod body_count_tests {
         ) -> Result<(), NetError> {
             crate::runtime::block_on(sync_newest_activities(
                 crate::persistence::engine_install(),
-                &crate::net::IntervalsSession::new(transport_to(server.base_url()), "i1"),
+                &crate::net::intervals::IntervalsSession::new(
+                    transport_to(server.base_url()),
+                    "i1",
+                ),
                 windows,
                 &|| false,
             ))
@@ -10372,7 +10430,7 @@ mod body_count_tests {
             for _ in 0..2 {
                 crate::runtime::block_on(sync_curves(
                     crate::persistence::engine_install(),
-                    &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+                    &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
                     &never_cancelled(),
                 ))
                 .expect("the sweep");
@@ -10431,7 +10489,10 @@ mod body_count_tests {
 
             crate::runtime::block_on(sync_curves(
                 crate::persistence::engine_install(),
-                &crate::net::IntervalsSession::new(transport_to(server.base_url()), "i1"),
+                &crate::net::intervals::IntervalsSession::new(
+                    transport_to(server.base_url()),
+                    "i1",
+                ),
                 &never_cancelled(),
             ))
             .expect("variant sweep");
@@ -10649,7 +10710,7 @@ mod body_count_tests {
             let sync = || {
                 crate::runtime::block_on(sync_curves(
                     crate::persistence::engine_install(),
-                    &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+                    &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
                     &never_cancelled(),
                 ))
             };
@@ -10734,7 +10795,7 @@ mod body_count_tests {
             let transport = transport_to(server.base_url());
             crate::runtime::block_on(sync_curves(
                 crate::persistence::engine_install(),
-                &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+                &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
                 &never_cancelled(),
             ))
             .expect("the sweep");
@@ -10776,7 +10837,7 @@ mod body_count_tests {
             let transport = transport_to(server.base_url());
             crate::runtime::block_on(sync_curves(
                 crate::persistence::engine_install(),
-                &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+                &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
                 &never_cancelled(),
             ))
             .expect("the sweep");
@@ -10812,7 +10873,7 @@ mod body_count_tests {
             let transport = transport_to(server.base_url());
             crate::runtime::block_on(sync_curves(
                 crate::persistence::engine_install(),
-                &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+                &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
                 &never_cancelled(),
             ))
             .expect("the sweep");
@@ -10880,7 +10941,7 @@ mod body_count_tests {
             let sync = || {
                 crate::runtime::block_on(sync_curves(
                     crate::persistence::engine_install(),
-                    &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+                    &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
                     &never_cancelled(),
                 ))
                 .expect("the sweep");
@@ -10923,7 +10984,7 @@ mod body_count_tests {
             let sync = || {
                 crate::runtime::block_on(sync_curves(
                     crate::persistence::engine_install(),
-                    &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+                    &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
                     &never_cancelled(),
                 ))
                 .expect("the sweep");
@@ -10968,7 +11029,7 @@ mod body_count_tests {
             let sync = || {
                 crate::runtime::block_on(sync_curves(
                     crate::persistence::engine_install(),
-                    &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+                    &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
                     &never_cancelled(),
                 ))
                 .expect("the sweep");
@@ -11008,7 +11069,7 @@ mod body_count_tests {
             let sync = || {
                 crate::runtime::block_on(sync_curves(
                     crate::persistence::engine_install(),
-                    &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+                    &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
                     &never_cancelled(),
                 ))
                 .expect("the sweep");
@@ -11045,7 +11106,7 @@ mod body_count_tests {
             let sync = || {
                 crate::runtime::block_on(sync_curves(
                     crate::persistence::engine_install(),
-                    &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+                    &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
                     &never_cancelled(),
                 ))
                 .expect("the sweep");
@@ -11126,7 +11187,7 @@ mod body_count_tests {
             let sync = || {
                 crate::runtime::block_on(sync_curves(
                     crate::persistence::engine_install(),
-                    &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+                    &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
                     &never_cancelled(),
                 ))
                 .expect("the sweep");
@@ -11171,7 +11232,7 @@ mod body_count_tests {
             let sync = || {
                 crate::runtime::block_on(sync_curves(
                     crate::persistence::engine_install(),
-                    &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+                    &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
                     &never_cancelled(),
                 ))
                 .expect("the sweep");
@@ -11206,7 +11267,7 @@ mod body_count_tests {
             let sync = || {
                 crate::runtime::block_on(sync_curves(
                     crate::persistence::engine_install(),
-                    &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+                    &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
                     &never_cancelled(),
                 ))
                 .expect("the sweep");
@@ -11246,7 +11307,7 @@ mod body_count_tests {
             let sync = || {
                 crate::runtime::block_on(sync_curves(
                     crate::persistence::engine_install(),
-                    &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+                    &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
                     &never_cancelled(),
                 ))
                 .expect("the sweep");
@@ -11301,7 +11362,7 @@ mod body_count_tests {
             let sync = || {
                 crate::runtime::block_on(sync_curves(
                     crate::persistence::engine_install(),
-                    &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+                    &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
                     &never_cancelled(),
                 ))
                 .expect("the sweep");
@@ -11348,7 +11409,7 @@ mod body_count_tests {
             let transport = transport_to(server.base_url());
             crate::runtime::block_on(sync_curves(
                 crate::persistence::engine_install(),
-                &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+                &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
                 &never_cancelled(),
             ))
             .expect("the sweep");
@@ -11371,7 +11432,7 @@ mod body_count_tests {
             let transport = transport_to(server.base_url());
             crate::runtime::block_on(sync_curves(
                 crate::persistence::engine_install(),
-                &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+                &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
                 &|| true,
             ))
             .expect("the sweep");
@@ -11394,7 +11455,7 @@ mod body_count_tests {
             let transport = transport_to(server.base_url());
             let outcome = crate::runtime::block_on(sync_curves(
                 crate::persistence::engine_install(),
-                &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+                &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
                 &never_cancelled(),
             ));
 
@@ -11473,7 +11534,7 @@ mod body_count_tests {
             let sync = || {
                 crate::runtime::block_on(sync_curves(
                     crate::persistence::engine_install(),
-                    &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+                    &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
                     &never_cancelled(),
                 ))
             };
@@ -11532,7 +11593,7 @@ mod body_count_tests {
             let sync = || {
                 crate::runtime::block_on(sync_curves(
                     crate::persistence::engine_install(),
-                    &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+                    &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
                     &never_cancelled(),
                 ))
             };
@@ -11572,7 +11633,7 @@ mod body_count_tests {
             let transport = transport_to(server.base_url());
             crate::runtime::block_on(sync_curves(
                 crate::persistence::engine_install(),
-                &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+                &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
                 &never_cancelled(),
             ))
             .expect_err("an entry naming no window cannot be filed under one");
@@ -11601,7 +11662,7 @@ mod body_count_tests {
             let transport = transport_to(server.base_url());
             let outcome = crate::runtime::block_on(sync_curves(
                 crate::persistence::engine_install(),
-                &crate::net::IntervalsSession::new(transport.clone(), "i1"),
+                &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
                 &never_cancelled(),
             ));
 
@@ -11688,7 +11749,7 @@ mod write_auth_tests {
         *SYNC_SERVICE
             .base_url
             .lock()
-            .unwrap_or_else(|e| e.into_inner()) = crate::net::intervals::BASE_URL.to_string();
+            .unwrap_or_else(|e| e.into_inner()) = crate::net::LIVE_BASE_URL.to_string();
     }
 
     /// Run the call the way uniffi's foreign executor does: on a plain thread
@@ -12059,7 +12120,7 @@ mod metrics_repair_tests {
 
         let outcome = crate::runtime::block_on(sync_activity_window(
             crate::persistence::engine_install(),
-            &crate::net::IntervalsSession::new(transport_to(server.base_url()), "i1"),
+            &crate::net::intervals::IntervalsSession::new(transport_to(server.base_url()), "i1"),
             "2025-01-01",
             "2025-01-31",
             None,
@@ -12209,3 +12270,7 @@ mod record_dependency_auth;
 #[cfg(test)]
 #[path = "tests/curve_window_split.rs"]
 mod curve_window_split;
+
+#[cfg(test)]
+#[path = "tests/sync_writes_source.rs"]
+mod sync_writes_source_tests;

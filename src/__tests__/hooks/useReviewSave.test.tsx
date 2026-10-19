@@ -310,6 +310,71 @@ describe('useReviewSave', () => {
     );
   });
 
+  describe('under a source that cannot upload', () => {
+    beforeEach(() => {
+      useAuthStore.setState({
+        authMethod: 'demo',
+        isDemoMode: true,
+        athleteId: 'demo',
+        isAuthenticated: true,
+      });
+      useRecordingStore.setState({ athleteId: 'demo' });
+    });
+
+    it('keeps the ride on the device with auto-upload on, and never hands it to the upload', async () => {
+      const { result } = await renderHook(() => useReviewSave(makeArgs()));
+      await act(() => result.current.handleSave());
+
+      expect(mockSaveRecording).toHaveBeenCalledWith(
+        expect.objectContaining({ uploadStatus: 'localOnly' })
+      );
+      expect(mockUploadRecording).not.toHaveBeenCalled();
+      expect(showNotice).toHaveBeenCalledWith(
+        expect.objectContaining({ message: 'recording.savedLocallyNoUpload' })
+      );
+    });
+
+    it('keeps the ride on the device with auto-upload off', async () => {
+      useRecordingPreferences.setState({ autoUploadEnabled: false });
+
+      const { result } = await renderHook(() => useReviewSave(makeArgs()));
+      await act(() => result.current.handleSave());
+
+      expect(mockSaveRecording).toHaveBeenCalledWith(
+        expect.objectContaining({ uploadStatus: 'localOnly' })
+      );
+      expect(mockUploadRecording).not.toHaveBeenCalled();
+    });
+
+    it('keeps a manual entry on the device', async () => {
+      useRecordingStore.setState({ status: 'recording', mode: 'manual' });
+
+      const { result } = await renderHook(() => useReviewSave(makeArgs({ isManual: true })));
+      await act(() => result.current.handleSave());
+
+      expect(mockSaveRecording).toHaveBeenCalledWith(
+        expect.objectContaining({ uploadStatus: 'localOnly' })
+      );
+      expect(mockUploadRecording).not.toHaveBeenCalled();
+    });
+  });
+
+  it.each(['oauth', 'apiKey'] as const)(
+    'saves a %s ride pending and hands it to the upload',
+    async (authMethod) => {
+      useAuthStore.setState({ authMethod, isDemoMode: false });
+      mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
+
+      const { result } = await renderHook(() => useReviewSave(makeArgs()));
+      await act(() => result.current.handleSave());
+
+      expect(mockSaveRecording).toHaveBeenCalledWith(
+        expect.objectContaining({ uploadStatus: 'pending' })
+      );
+      expect(mockUploadRecording).toHaveBeenCalledWith('rec-1');
+    }
+  );
+
   it('reuses the saved entry on retry instead of duplicating it', async () => {
     mockUploadRecording
       .mockRejectedValueOnce(new Error('socket closed'))

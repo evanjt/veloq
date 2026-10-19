@@ -73,30 +73,33 @@ function makeProgression(
 }
 
 describe('generateStrengthInsights', () => {
-  it('carries dated weekly balance, sessions and progression into card history', () => {
-    const pair = (
-      leftWeightedSets: number,
-      rightWeightedSets: number
-    ): StrengthSummary['balance'][number] => ({
-      id: 'push_pull',
-      leftSlug: 'chest',
-      rightSlug: 'upper-back',
-      leftWeightedSets,
-      rightWeightedSets,
-      dominantSlug: 'chest',
-      ratio: 2,
-      status: 'imbalanced',
-    });
-    const monthly = makeSummary([{ slug: 'chest', weightedSets: 16 }], 8, [pair(16, 8)]);
-    const dates = [1000, 2000, 3000, 4000];
-    const weekly = dates.map((startTs, index) => ({
+  const pushPull = (
+    leftWeightedSets: number,
+    rightWeightedSets: number
+  ): StrengthSummary['balance'][number] => ({
+    id: 'push_pull',
+    leftSlug: 'chest',
+    rightSlug: 'upper-back',
+    leftWeightedSets,
+    rightWeightedSets,
+    dominantSlug: 'chest',
+    ratio: leftWeightedSets / rightWeightedSets,
+    status: 'imbalanced',
+  });
+
+  const datedWeeks = (dates: number[]) =>
+    dates.map((startTs, index) => ({
       ...makeSummary(
         [{ slug: 'chest', weightedSets: index + 2 }],
         index + 1,
-        index === 1 ? [] : [pair(index + 2, index + 1)]
+        index === 1 ? [] : [pushPull(index + 2, index + 1)]
       ),
       startTs,
     }));
+
+  it('draws no weekly history under the floor and states each figure instead', () => {
+    const monthly = makeSummary([{ slug: 'chest', weightedSets: 16 }], 8, [pushPull(3, 1.5)]);
+    const weekly = datedWeeks([1000, 2000, 3000, 4000]);
 
     const result = generateStrengthInsights(
       monthly,
@@ -105,14 +108,66 @@ describe('generateStrengthInsights', () => {
       5000,
       t
     );
+    const card = (id: string) => result.find((insight) => insight.id === id)!;
+
+    for (const id of [
+      'strength_balance-push_pull',
+      'strength_snapshot',
+      'strength_progression-chest',
+    ]) {
+      expect(card(id).supportingData?.history).toBeUndefined();
+      expect(card(id).supportingData?.dataTarget).toBe('/insights?tab=strength');
+    }
+
+    expect(card('strength_progression-chest').supportingData?.hero).toMatchObject({
+      value: '4.5',
+      unit: 'strength.sets',
+    });
+    expect(card('strength_progression-chest').supportingData?.change).toMatchObject({
+      value: '+80%',
+    });
+    expect(card('strength_balance-push_pull').supportingData?.hero).toMatchObject({
+      value: '2.0x',
+    });
+    expect(card('strength_balance-push_pull').supportingData?.change).toBeUndefined();
+    expect(card('strength_snapshot').supportingData?.hero).toMatchObject({ value: 8 });
+    expect(card('strength_snapshot').supportingData?.change).toBeUndefined();
+  });
+
+  it('states a rise from nothing as new rather than a percentage', () => {
+    const monthly = makeSummary([{ slug: 'chest', weightedSets: 16 }]);
+    const weekly = [0, 1, 2, 3].map(() => makeSummary([{ slug: 'chest', weightedSets: 4 }], 1));
+    const progression = generateStrengthInsights(
+      monthly,
+      weekly,
+      [makeProgression('chest', [0, 0, 4, 8])],
+      5000,
+      t
+    ).find((insight) => insight.id === 'strength_progression-chest');
+
+    expect(progression!.supportingData?.hero).toMatchObject({ value: '6' });
+    expect(progression!.supportingData?.change).toMatchObject({ value: 'strength.newSignal' });
+  });
+
+  it('draws the weekly bars once the weeks reach the floor', () => {
+    const dates = [1000, 2000, 3000, 4000, 5000, 6000];
+    const monthly = makeSummary([{ slug: 'chest', weightedSets: 16 }], 8, [pushPull(16, 8)]);
+
+    const result = generateStrengthInsights(
+      monthly,
+      datedWeeks(dates),
+      [makeProgression('chest', [2, 3, 4, 5, 6, 7])],
+      7000,
+      t
+    );
     const history = (id: string) =>
       result.find((insight) => insight.id === id)?.supportingData?.history;
 
     expect(history('strength_balance-push_pull')).toEqual({
       kind: 'bars',
       target: '/insights?tab=strength',
-      mark: { date: 4000 },
-      scale: { top: '5', bottom: '0' },
+      mark: { date: 6000 },
+      scale: { top: '7', bottom: '0' },
       series: [
         {
           label: 'Chest',
@@ -124,29 +179,13 @@ describe('generateStrengthInsights', () => {
         },
       ],
     });
-    expect(history('strength_snapshot')).toEqual({
+    expect(history('strength_snapshot')).toMatchObject({
       kind: 'bars',
-      target: '/insights?tab=strength',
-      mark: { date: 4000 },
-      scale: { top: '4', bottom: '0' },
-      series: [
-        {
-          label: 'insights.strengthSnapshot.sessionsLabel',
-          points: dates.map((date, index) => ({ date, value: index + 1 })),
-        },
-      ],
+      series: [{ points: dates.map((date, index) => ({ date, value: index + 1 })) }],
     });
-    expect(history('strength_progression-chest')).toEqual({
+    expect(history('strength_progression-chest')).toMatchObject({
       kind: 'bars',
-      target: '/insights?tab=strength',
-      mark: { date: 4000 },
-      scale: { top: '5', bottom: '0' },
-      series: [
-        {
-          label: 'insights.strengthProgression.sparklineLabel',
-          points: dates.map((date, index) => ({ date, value: index + 2 })),
-        },
-      ],
+      series: [{ points: dates.map((date, index) => ({ date, value: index + 2 })) }],
     });
   });
 
@@ -204,7 +243,7 @@ describe('generateStrengthInsights', () => {
     const result = generateStrengthInsights(monthly, weekly, [], Date.now(), t);
     const balance = result.find((insight) => insight.category === 'strength_balance');
     expect(balance!.navigationTarget).toBe('/insights?tab=strength');
-    expect(balance!.title).toContain('Quadriceps');
+    expect(balance!.title).toBe('Quads vs hamstrings');
   });
 
   it('emits a progression insight for a muscle with clear recent growth', () => {
@@ -228,10 +267,7 @@ describe('generateStrengthInsights', () => {
     );
     const progression = result.find((insight) => insight.id === 'strength_progression-hamstring');
     expect(progression!.title).toContain('Hamstrings');
-    expect(progression!.supportingData?.history).toMatchObject({
-      kind: 'bars',
-      series: [{ points: [2, 3, 6, 7].map((value) => ({ value })) }],
-    });
+    expect(progression!.supportingData?.hero).toMatchObject({ value: '6.5' });
   });
 
   it('does not emit strength insights when there is no meaningful signal', () => {
@@ -288,10 +324,7 @@ describe('generateStrengthInsights', () => {
     );
     const progression = result.find((insight) => insight.id === 'strength_progression-chest');
 
-    expect(progression!.supportingData?.history).toMatchObject({
-      kind: 'bars',
-      series: [{ points: [1, 2, 5, 6].map((value) => ({ value })) }],
-    });
+    expect(progression!.supportingData?.hero).toMatchObject({ value: '5.5' });
     expect(progression!.iconTone).toBe('neutral');
   });
 
@@ -483,6 +516,38 @@ describe('the strength titles', () => {
 
     expect(balance?.title).toMatch(/^insights\.strengthBalance\.allOneSideTitle:/);
   });
+
+  it.each(['watch', 'imbalanced'] as const)(
+    'titles a %s pair by its name alone, naming the dominant muscle once',
+    (status) => {
+      const monthly = makeSummary(
+        [
+          { slug: 'quadriceps', weightedSets: 12 },
+          { slug: 'hamstring', weightedSets: 4 },
+        ],
+        4,
+        [
+          {
+            id: 'quads_hamstrings',
+            leftSlug: 'quadriceps',
+            rightSlug: 'hamstring',
+            leftWeightedSets: 12,
+            rightWeightedSets: 4,
+            dominantSlug: 'quadriceps',
+            ratio: 3,
+            status,
+          },
+        ]
+      );
+
+      const balance = generateStrengthInsights(monthly, [monthly], [], Date.now(), t).find(
+        (insight) => insight.category === 'strength_balance'
+      );
+
+      expect(balance?.title).toBe(english.strength.balancePairs.quadsHamstrings);
+      expect(balance?.title).not.toContain(english.strength.muscles.quadriceps);
+    }
+  );
 
   it('states a rise in volume as volume up', () => {
     const monthly = makeSummary([{ slug: 'hamstring', weightedSets: 18 }]);

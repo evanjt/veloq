@@ -243,7 +243,7 @@ function localDay(rawDate) {
 
 // The walk: first parents from the tip, the second parent at an unwrapped merge.
 const steps = [];
-for (let sha = tip; commits.has(sha); ) {
+for (let sha = tip; commits.has(sha);) {
   steps.push(sha);
   const parents = commits.get(sha).parents;
   if (unwrap.has(sha)) {

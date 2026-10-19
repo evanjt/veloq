@@ -1,15 +1,8 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import {
-  Canvas,
-  RoundedRect,
-  Path,
-  Circle,
-  Line,
-  vec,
-  DashPathEffect,
-} from '@shopify/react-native-skia';
+import { RoundedRect, Path, Circle, Line, vec, DashPathEffect } from '@shopify/react-native-skia';
+import { Canvas } from '@/shared/ui/SkiaCanvas';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import {

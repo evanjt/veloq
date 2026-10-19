@@ -8,7 +8,7 @@
  */
 
 import React from 'react';
-import { render, fireEvent, screen, act, waitFor } from '@testing-library/react-native';
+import { render, fireEvent, screen, act, waitFor, within } from '@testing-library/react-native';
 import * as Location from 'expo-location';
 import { ActivityIndicator, Animated, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -179,6 +179,25 @@ describe('BaseMapView', () => {
       expect(groundOf('map-style-toggle')).not.toBe(darkColors.surfaceRaised);
       expect(attributionColour()).not.toBe(darkColors.textSecondary);
     });
+  });
+
+  it('draws the shared map credit once, held above the safe-area bottom inset', async () => {
+    await renderMap({ routeCoordinates: ROUTE, initialStyle: 'light' });
+
+    const credits = screen.getAllByTestId('map-attribution');
+    expect(credits).toHaveLength(1);
+    expect(within(credits[0]!).getByTestId('map-attribution-text')).toBeTruthy();
+    expect(StyleSheet.flatten(credits[0]!.props.style).bottom).toBe(METRICS.insets.bottom);
+  });
+
+  it('rewrites the credit when the drawn base changes', async () => {
+    await renderMap({ routeCoordinates: ROUTE, initialStyle: 'satellite' });
+    const creditText = () => screen.getByTestId('map-attribution-text').props.children;
+    const before = creditText();
+
+    await fireEvent.press(screen.getByTestId('map-style-toggle'));
+
+    expect(creditText()).not.toBe(before);
   });
 
   it('mounts a map with a route and bounds', async () => {

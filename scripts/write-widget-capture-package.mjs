@@ -5,8 +5,10 @@
 // prebuild writes, so the capture test runs from a package of its own instead:
 // the extension's sources as the plugin writes them for the app, the capture
 // test from `widget/ios/tests/`, and the snapshot fixtures the engine
-// composes. `scripts/widget-captures-ios.sh` runs it, and every other test
-// under `widget/ios/tests/` with it.
+// composes, with the widget face the extension's Info.plist lists, which the
+// tests register since a package has no Info.plist of its own.
+// `scripts/widget-captures-ios.sh` runs it, and every other test under
+// `widget/ios/tests/` with it.
 
 import { copyFileSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -29,7 +31,7 @@ let package = Package(
       name: "WidgetCaptureTests",
       dependencies: ["VeloqWidget"],
       path: "Tests/WidgetCaptureTests",
-      resources: [.copy("fixtures")]),
+      resources: [.copy("fixtures"), .copy("fonts")]),
   ]
 )
 `;
@@ -75,6 +77,10 @@ export function writeWidgetCapturePackage(out) {
   }
   for (const name of FIXTURES) {
     copyFileSync(join(root, 'widget', 'fixtures', name), join(tests, 'fixtures', name));
+  }
+  mkdirSync(join(tests, 'fonts'), { recursive: true });
+  for (const name of plugin.widgetFontFiles(root)) {
+    copyFileSync(join(root, 'assets', 'fonts', name), join(tests, 'fonts', name));
   }
   writeFileSync(join(out, 'Package.swift'), PACKAGE);
 }

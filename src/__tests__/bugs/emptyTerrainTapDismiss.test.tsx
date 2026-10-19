@@ -1,6 +1,6 @@
 /**
  * Scenario: an activity or section popup is open and the athlete taps bare
- * terrain, from the 2D surface or the 3D page.
+ * ground, flat or tilted over terrain.
  *
  * Expected behaviour: both popups close and any spider clears.
  */
@@ -34,10 +34,8 @@ async function mount() {
       currentZoomRef: { current: 14 },
       currentCenterRef: { current: [6.6, 46.5] },
       surfaceRef: { current: null },
-      map3DRef: { current: null },
       currentZoomLevel: { current: 14 },
       bearingAnim: { setValue: jest.fn() },
-      is3DMode: true,
     } as never)
   );
   return { rendered, setSelected, setSelectedSectionId, chooseSection, setSpider };

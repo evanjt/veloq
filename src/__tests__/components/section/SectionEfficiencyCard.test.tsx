@@ -7,6 +7,7 @@
 
 import React from 'react';
 import { render } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import { Canvas, Circle, Path } from '@shopify/react-native-skia';
 import { SectionEfficiencyCard } from '@/features/routes/components/section/SectionEfficiencyCard';
 import { SPARKLINE_RANGE_WIDTH } from '@/shared/charts';
@@ -116,7 +117,7 @@ it('draws the plot across the width the card gives it, not a fixed width', async
   await layoutViews(tree, contentWidth, 56);
 
   const canvas = tree.UNSAFE_getByType(Canvas);
-  expect(canvas.props.style).toEqual(
+  expect(StyleSheet.flatten(canvas.props.style)).toEqual(
     expect.objectContaining({ width: contentWidth - SPARKLINE_RANGE_WIDTH - spacing.xs })
   );
 });

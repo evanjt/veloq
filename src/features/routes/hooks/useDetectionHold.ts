@@ -17,11 +17,7 @@ const RECHECK_MS = 5000;
  * fortnight looked exactly like one that was busy.
  */
 export type DetectionHold =
-  | 'elevation-running'
-  | 'elevation-waiting'
-  | 'elevation-paused'
-  | 'cutover'
-  | null;
+  'elevation-running' | 'elevation-waiting' | 'elevation-paused' | 'cutover' | null;
 
 /** Whether a hold is one of the backfill's, rather than the cutover's. */
 export function isElevationHold(hold: DetectionHold): boolean {

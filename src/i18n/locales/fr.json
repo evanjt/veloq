@@ -959,36 +959,35 @@
     "explanation": {
       "title": "Comprendre les aperçus",
       "foundLabel": "Méthode",
-      "found": "Veloq compare vos dernières activités et votre bien-être avec votre propre historique, sur ce téléphone, et affiche une carte pour chaque record, changement ou tendance trouvé.",
+      "found": "Veloq compare vos dernières activités et votre bien-être avec votre propre historique, sur ce téléphone.",
       "kinds": {
         "sectionsAndRoutes": {
           "label": "Sections et parcours",
-          "text": "Un nouveau record, une série de temps plus rapides ou plus lents, ou un changement de fréquence cardiaque à allure égale, sur une section ou un parcours que vous répétez."
+          "text": "Records, temps plus rapides ou plus lents et fréquence cardiaque à allure égale."
         },
         "fitness": {
           "label": "eFTP et vitesse critique",
-          "text": "Un changement de votre eFTP ou de votre vitesse critique, et les records de section établis quand elle était plus basse."
+          "text": "Un changement de l'une ou l'autre, et les records établis quand elle était plus basse."
         },
         "week": {
           "label": "Cette semaine",
-          "text": "Le temps et la charge d'entraînement de cette semaine jusqu'ici, comparés au même moment de la semaine dernière."
+          "text": "Cette semaine jusqu'ici face à la précédente, ou la semaine dernière face à la moyenne sur 4 semaines."
         },
         "hrv": {
           "label": "Variabilité de la fréquence cardiaque",
-          "text": "Votre VFC sur les 7 derniers jours, les mesures récentes comparées aux plus anciennes."
+          "text": "Vos 7 derniers jours, les mesures récentes face aux plus anciennes."
         },
         "strength": {
           "label": "Force",
-          "text": "Les séries pondérées d'un groupe musculaire en hausse ou en baisse, et l'équilibre entre groupes musculaires opposés."
+          "text": "Séries pondérées par groupe musculaire et équilibre entre groupes opposés."
         },
         "sectionChanges": {
           "label": "Changements de section",
-          "text": "Une section redécoupée, scindée, restaurée ou ramenée à une version antérieure."
+          "text": "Une section redécoupée, scindée, restaurée ou ramenée en arrière."
         }
       },
-      "orderLabel": "Ordre",
       "sourcesLabel": "Provenance des données",
-      "sources": "Les temps, distances, fréquences cardiaques et puissances viennent de vos activités. L'eFTP, la vitesse critique et la VFC sont les valeurs qu'intervals.icu détient pour vous. Ouvrez une carte et touchez « {{howCalculated}} » pour sa méthode et ses données.",
+      "sources": "Les temps, fréquences cardiaques et puissances viennent de vos activités, l'eFTP, la vitesse critique et la VFC d'intervals.icu, et la méthode et les données de chaque carte sont sous « {{howCalculated}} ».",
       "strengthTitle": "Comprendre la force"
     },
     "aboutRanking": "Les cartes sont classees selon ce qu'elles ont a dire : leur fraicheur, leur ecart avec vos habitudes, l'ampleur du changement et la frequence a laquelle vous le faites.",
@@ -1014,7 +1013,6 @@
       "lowSignal": "Signal faible",
       "noSignal": "Pas de signal",
       "allOneSideTitle": "{{pair}} : tout le volume d’un seul côté",
-      "dominantTitle": "{{dominant}} concentre plus de volume dans {{pair}}",
       "oneSidedBody": "{{dominant}} représente tout le volume de séries pondérées de {{pair}} sur les 4 dernières semaines.",
       "ratioBody": "{{pair}} affiche une moyenne de {{ratio}} en séries pondérées sur la fenêtre récente de 4 semaines.",
       "ratioLabel": "Ratio",
@@ -1172,6 +1170,10 @@
     "loadingOlderActivities": "Chargement des activités plus anciennes…",
     "activitySummary_one": "{{count}} activité · {{mapped}} sur la carte",
     "activitySummary_other": "{{count}} activités · {{mapped}} sur la carte",
+    "unmappedWithoutGps_one": "{{count}} sans GPS",
+    "unmappedWithoutGps_other": "{{count}} sans GPS",
+    "unmappedDownloading_one": "{{count}} en téléchargement",
+    "unmappedDownloading_other": "{{count}} en téléchargement",
     "expandRange": "Étendre la plage",
     "distanceAny": "Toutes",
     "showFilters": "Afficher tous les filtres",
@@ -1239,9 +1241,16 @@
     "keyYearOrMore": "Un an ou plus",
     "keyFewerPasses": "Moins de passages",
     "keyMorePasses": "Plus de passages",
+    "keyEachSection": "Chaque section a sa couleur",
+    "keyEachRoute": "Chaque itinéraire a sa couleur",
     "colorByGradient": "Couleur par inclinaison",
     "periodThisYear": "Cette année",
     "sheetSize": "Taille de la carte et des détails",
+    "detailLoading": {
+      "activity": "Chargement de l’activité",
+      "route": "Chargement de l’itinéraire",
+      "section": "Chargement de la section"
+    },
     "sheetStop": {
       "peek": "Aperçu",
       "half": "Moitié",
@@ -1471,6 +1480,7 @@
     "writePermissionRequired": "Autorisation d'écriture requise",
     "savedLocally": "Activité enregistrée sur cet appareil. Vous pouvez la téléverser à tout moment depuis Mes enregistrements.",
     "savedLocallyNoScope": "Sortie enregistrée sur cet appareil. Elle sera envoyée dès que vous autoriserez l'envoi.",
+    "savedLocallyNoUpload": "Sortie enregistrée sur cet appareil. Le mode démo n'envoie rien.",
     "settingsUpload": "Téléversement",
     "autoUpload": "Téléversement automatique",
     "autoUploadDescription": "Téléverser automatiquement les enregistrements vers intervals.icu lors de la sauvegarde. Sinon, ils restent sur cet appareil jusqu'au téléversement depuis Mes enregistrements.",

@@ -18,7 +18,11 @@ export interface SourceCapabilities {
   push: boolean;
   /** The credential carries scopes, so writing needs a write scope it may lack. */
   scoped: boolean;
-  /** Recordings leave the device. */
+  /**
+   * Recordings leave the device. A source that cannot upload keeps every
+   * recording's FIT, since only an intervals.icu read-back deletes one, and
+   * offers no upload for it.
+   */
   uploads: boolean;
 }
 

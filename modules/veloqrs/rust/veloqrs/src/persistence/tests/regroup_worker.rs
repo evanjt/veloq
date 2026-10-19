@@ -651,3 +651,119 @@ fn test_settle_returns_at_once_when_nothing_will_regroup() {
     assert!(dirty);
     assert!(settle_regroup(install, Duration::ZERO));
 }
+
+/// `m` grouped and `stored` added after it, then the engine closed, so the
+/// file it reopens on holds signatures in no group.
+fn closed_with_stored_in_no_group(stored: &[(&str, f64)]) {
+    grouped_library(stored);
+    crate::persistence::clear_persistent_engine();
+}
+
+fn reopen(path: &std::path::Path) {
+    assert!(
+        crate::persistence::persistent_engine_ffi::persistent_engine_init(
+            path.to_string_lossy().into_owned()
+        )
+    );
+}
+
+/// Whether the open left a regroup in flight. The open takes the slot before
+/// it returns, so a free slot here is a regroup it never scheduled.
+fn open_scheduled_a_regroup() -> bool {
+    claim_regroup().is_none()
+}
+
+/// Scenario: a library is opened with an activity stored after its last
+/// regroup, and no sync follows.
+/// Expected behaviour: the open schedules the regroup it finds owed, so the
+/// activity joins a route and the flag clears without a sync.
+#[test]
+fn test_open_schedules_the_regroup_its_load_finds_owed() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("reopen.db");
+    let path = dir.path().join("reopen.db");
+    closed_with_stored_in_no_group(&[("t", 44.0)]);
+
+    reopen(&path);
+    assert!(open_scheduled_a_regroup());
+    assert!(wait_for_regroup(WAIT));
+
+    let (groups, dirty) =
+        with_persistent_engine(|engine| (engine.groups.clone(), engine.groups_are_dirty()))
+            .expect("engine");
+    assert!(holder(&groups, "t").is_some(), "t is in no route");
+    assert!(!dirty);
+    crate::persistence::clear_persistent_engine();
+}
+
+#[test]
+fn test_open_with_route_matching_off_schedules_no_regroup() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("reopen.db");
+    let path = dir.path().join("reopen.db");
+    grouped_library(&[("t", 44.0)]);
+    with_persistent_engine(|engine| engine.set_detection_enabled(false).unwrap()).expect("engine");
+    crate::persistence::clear_persistent_engine();
+
+    reopen(&path);
+    assert!(!open_scheduled_a_regroup());
+    assert!(with_persistent_engine(|engine| engine.groups_are_dirty()).expect("engine"));
+    crate::persistence::clear_persistent_engine();
+}
+
+/// Scenario: the library still owes the detector cutover when it opens.
+/// Expected behaviour: the open leaves the owed regroup to the cutover, whose
+/// own detect regroups, rather than starting one the cutover's would be
+/// refused over.
+#[test]
+fn test_open_with_the_cutover_owed_leaves_the_regroup_to_it() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("reopen.db");
+    let path = dir.path().join("reopen.db");
+    grouped_library(&[("t", 44.0)]);
+    with_persistent_engine(|engine| {
+        engine
+            .db
+            .execute(
+                "INSERT INTO sections
+                     (id, section_type, name, sport_type, polyline_json, polyline_blob,
+                      distance_meters, representative_activity_id, rep_start_index,
+                      rep_end_index, geometry_source, created_at, is_user_defined,
+                      bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
+                 VALUES ('s_old', 'auto', 'Old cut', 'Ride', NULL, ?1, 700.0,
+                         'm', 0, 7, 'exact', '2026-01-01T00:00:00Z', 0,
+                         40.0, 40.01, 7.3, 7.31)",
+                rusqlite::params![crate::persistence::codec::serialize_track_points(&coords(
+                    40.0
+                ))],
+            )
+            .expect("a catalogue another detector cut");
+        assert!(engine.cutover_is_owed());
+    })
+    .expect("engine");
+    crate::persistence::clear_persistent_engine();
+
+    reopen(&path);
+    assert!(!open_scheduled_a_regroup());
+    assert!(crate::persistence::cutover::cutover_held());
+    crate::persistence::clear_persistent_engine();
+}
+
+#[test]
+fn test_open_of_a_settled_library_schedules_no_regroup() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("reopen.db");
+    let path = dir.path().join("reopen.db");
+    with_persistent_engine(|engine| {
+        store(engine, "m", 40.0);
+        engine.get_groups();
+        assert!(!engine.groups_are_dirty());
+    })
+    .expect("engine");
+    crate::persistence::clear_persistent_engine();
+
+    reopen(&path);
+    assert!(!open_scheduled_a_regroup());
+    assert!(!with_persistent_engine(|engine| engine.groups_are_dirty()).expect("engine"));
+    crate::persistence::clear_persistent_engine();
+}

@@ -5,12 +5,7 @@
  */
 
 export type CorrelationStrength =
-  | 'none'
-  | 'veryWeak'
-  | 'weak'
-  | 'moderate'
-  | 'strong'
-  | 'veryStrong';
+  'none' | 'veryWeak' | 'weak' | 'moderate' | 'strong' | 'veryStrong';
 
 export interface CorrelationReading {
   strength: CorrelationStrength;

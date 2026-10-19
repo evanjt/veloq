@@ -13,7 +13,6 @@ import { Animated } from 'react-native';
 import { useMapCamera } from '@/features/maps/hooks/useMapCamera';
 import { useMapHandlers } from '@/features/maps/components/regional/useMapHandlers';
 import type { MapCameraState, MapSurfaceRef } from '@/features/maps/components/MapSurface';
-import type { Map3DWebViewRef } from '@/features/maps/components/Map3DWebView';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: () => null }));
@@ -93,9 +92,8 @@ describe('the inline activity map compass', () => {
 });
 
 describe('the regional map compass', () => {
-  async function mount(is3DMode: boolean) {
+  async function mount() {
     const surface = { resetOrientation: jest.fn() };
-    const map3D = { resetOrientation: jest.fn() };
     const bearingAnim = new Animated.Value(0);
     const rendered = await renderHook(() =>
       useMapHandlers({
@@ -116,22 +114,18 @@ describe('the regional map compass', () => {
         setLocationLoading: jest.fn(),
         currentZoomRef: { current: 8 },
         currentCenterRef: { current: [7, 46] },
-        surfaceRef: {
-          current: is3DMode ? null : surface,
-        } as unknown as React.RefObject<MapSurfaceRef | null>,
-        map3DRef: { current: map3D } as unknown as React.RefObject<Map3DWebViewRef | null>,
+        surfaceRef: { current: surface } as unknown as React.RefObject<MapSurfaceRef | null>,
         bearingAnim,
         currentZoomLevel: { current: 8 },
-        is3DMode,
         markUserInteracted: jest.fn(),
         setSpider: jest.fn(),
       } as never)
     );
-    return { rendered, surface, map3D, bearingAnim };
+    return { rendered, surface, bearingAnim };
   }
 
-  it('asks the 2D map to reset and leaves the compass to the bearing it reports', async () => {
-    const { rendered, surface, bearingAnim } = await mount(false);
+  it('asks the map to reset and leaves the compass to the bearing it reports', async () => {
+    const { rendered, surface, bearingAnim } = await mount();
     await act(() => rendered.result.current.handleRegionIsChanging(cameraState(-75)));
 
     await act(() => rendered.result.current.resetOrientation());
@@ -142,15 +136,5 @@ describe('the regional map compass', () => {
 
     await act(() => rendered.result.current.handleRegionIsChanging(cameraState(0)));
     expect(Math.abs(readValue(bearingAnim))).toBe(0);
-  });
-
-  it('asks the 3D map to reset and starts no timing when 3D is showing', async () => {
-    const { rendered, surface, map3D, bearingAnim } = await mount(true);
-
-    await act(() => rendered.result.current.resetOrientation());
-
-    expect(map3D.resetOrientation).toHaveBeenCalledTimes(1);
-    expect(surface.resetOrientation).not.toHaveBeenCalled();
-    expect(timingsOn(timing, bearingAnim)).toEqual([]);
   });
 });

@@ -3342,6 +3342,20 @@ pub struct FfiMapScreenData {
     /// Why the map draws no activity, from the date window's own counts.
     /// `None` while `activities` holds one.
     pub empty_reason: Option<FfiMapEmptyReason>,
+    /// The window's activities with no stored track that pass the same sport,
+    /// distance and name filters as `activities`, so the two together are
+    /// every activity in the period the filters keep.
+    pub unmapped: FfiMapUnmapped,
+}
+
+/// The activities a map read keeps but cannot draw, by why.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, uniffi::Record)]
+pub struct FfiMapUnmapped {
+    /// No track is owed: no GPS upstream, a track refused for good, or one the
+    /// download gave up on, as `FfiMapEmptyReason::NoGps` reads it.
+    pub without_gps: u32,
+    /// A track is upstream and the GPS download has still to fetch it.
+    pub downloading: u32,
 }
 
 /// Why the map draws no activity, so the tab names its cause rather than

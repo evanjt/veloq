@@ -22,9 +22,10 @@ interface MockInfo {
   size?: number;
 }
 const mockReadDirectory = jest.fn(async (_path: string): Promise<string[]> => []);
-const mockGetInfo = jest.fn(
-  async (_path: string): Promise<MockInfo> => ({ exists: false, isDirectory: false })
-);
+const mockGetInfo = jest.fn(async (_path: string): Promise<MockInfo> => ({
+  exists: false,
+  isDirectory: false,
+}));
 
 jest.mock('expo-file-system/legacy', () => ({
   ...jest.requireActual('expo-file-system/legacy'),

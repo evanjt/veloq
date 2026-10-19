@@ -69,12 +69,7 @@ export interface PreviewParams {
 }
 
 export type PreviewPollStatus =
-  | 'idle'
-  | 'running'
-  | 'complete'
-  | 'cancelled'
-  | 'error'
-  | 'pool_unusable';
+  'idle' | 'running' | 'complete' | 'cancelled' | 'error' | 'pool_unusable';
 
 /** The run's status in the words the preview screen switches on. */
 const POLL_STATUS: Record<RunStatus, PreviewPollStatus> = {

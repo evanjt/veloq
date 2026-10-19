@@ -1,6 +1,6 @@
 /**
  * Fallback screen for route/section detail: skeleton while the engine is
- * still opening, the engine's reason and its recovery once it has given up,
+ * still opening, the Peek blocks on a card whose Peek is what lands, the engine's reason and its recovery once it has given up,
  * the not-found text when the item is missing, and a failure message with
  * Retry when the read failed. There is no hero to lay a transparent header
  * over, so it takes the opaque header and the content starts directly beneath
@@ -13,6 +13,7 @@ import { Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 import { ChartSkeleton, EmptyState } from '@/shared/ui';
+import { MapDetailPeekSkeleton } from '@/shared/ui/MapDetailSkeleton';
 import { engineErrorKey } from '@/shared/native/engineError';
 import { useEngineReadState } from '@/shared/native/useEngineSubscription';
 import { EngineUnavailableState } from '@/shared/app/EngineUnavailableState';
@@ -31,6 +32,8 @@ interface DetailFallbackProps {
     | undefined;
   /** Re-runs the read after a failure. */
   onRetry: () => void;
+  /** The map screen whose card this is, which stands at Peek while the read is pending. */
+  peek?: 'route' | 'section';
 }
 
 export function DetailFallback({
@@ -39,6 +42,7 @@ export function DetailFallback({
   notFoundMessage,
   retired,
   onRetry,
+  peek,
 }: DetailFallbackProps) {
   const { t } = useTranslation();
   const headerOptions = useMemo(() => noHeroHeaderOptions({ isDark, os: Platform.OS }), [isDark]);
@@ -50,7 +54,9 @@ export function DetailFallback({
   return (
     <View style={[styles.container, isDark && styles.containerDark]}>
       <Stack.Screen options={headerOptions} />
-      {closedEngine === 'closed' ? (
+      {closedEngine === 'closed' && peek ? (
+        <MapDetailPeekSkeleton kind={peek} />
+      ) : closedEngine === 'closed' ? (
         <View testID="detail-fallback-skeleton" style={styles.skeletonWrap}>
           <ChartSkeleton height={280} />
           <ChartSkeleton height={200} />

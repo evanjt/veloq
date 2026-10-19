@@ -61,6 +61,12 @@ updates:
       # a version bump.
       - dependency-name: "@testing-library/react-native"
         update-types: ["version-update:semver-major"]
+      # eslint-config-expo carries eslint-plugin-react and eslint-plugin-import,
+      # whose latest releases peer eslint up to ^9, and eslint-plugin-react's
+      # React version detection calls the context.getFilename() that eslint 10
+      # removed, so every lint run crashes. Move it once both declare eslint 10.
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "npm"
     directory: "/oauth-proxy"

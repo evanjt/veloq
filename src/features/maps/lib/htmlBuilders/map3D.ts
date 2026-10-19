@@ -24,6 +24,7 @@ import { SURFACE_HIT_TEST_RADIUS_PX, type MapPadding } from './mapSurface';
 import {
   consoleBridgeScript,
   mapLibreHead,
+  terrainReportScript,
   terrainVisibilityScript,
   tileProtocolsScript,
 } from './shared';
@@ -233,32 +234,10 @@ ${consoleBridgeScript()}
       if (window.ReactNativeWebView) {
         window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'mapReady' }));
       }
-      reportTerrainState();
+      window._veloqTerrainReport.report();
     }
 
-    // The renderer ships in the app but the DEM tiles do not, so an offline 3D
-    // open draws a flat map that looks like broken 3D. Reported once, after
-    // the page has settled, so the caller can drop back to 2D and say why.
-    //
-    // Deliveries and failures, not cache hits and misses: the DEM comes
-    // through the intercept, so the page has no handler of its own on that
-    // path and reads both off MapLibre's source events instead. A page with
-    // failures and no deliveries has no terrain at all.
-    var terrainDelivered = 0, terrainFailed = 0;
-    var terrainReportSent = false;
-
-    function reportTerrainState() {
-      if (terrainReportSent) return;
-      if (terrainDelivered > 0 || terrainFailed === 0) return;
-      terrainReportSent = true;
-      window._rn_log('sending terrainUnavailable - ' + terrainFailed + ' DEM tiles failed');
-      if (window.ReactNativeWebView) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'terrainUnavailable',
-          reason: 'no terrain tiles: ' + terrainFailed + ' failed, none delivered'
-        }));
-      }
-    }
+${terrainReportScript()}
 
     function sendMapFailed(reason) {
       if (mapReadySent || mapFailedSent) return;
@@ -328,9 +307,7 @@ ${terrainVisibilityScript()}
     }
     mapReadySent = false;
     mapFailedSent = false;
-    terrainDelivered = 0;
-    terrainFailed = 0;
-    terrainReportSent = false;
+    window._veloqTerrainReport.reset();
     coordinates = cfg.coordinates || [];
     window._routeCoords = coordinates;
     bounds = cfg.bounds;
@@ -379,17 +356,14 @@ ${terrainVisibilityScript()}
     var map = built = _builtMap = window.map = new maplibregl.Map(buildMapOptions(cfg.style));
     ${endpointImagesScript('map')}
 
+    window._veloqTerrainReport.watch(map);
+
     // Surface map-level errors, but not the expected ones: a tile 404 from a
     // regional source, and a request the app itself declined. What is left is
     // logged with its source and its URL, because a message alone sends the
     // next reader looking for a cause that is not in it.
-    map.on('sourcedata', function(e) {
-      if (e.sourceId === 'terrain' && e.tile) terrainDelivered++;
-    });
-
     map.on('error', function(e) {
       var msg = e.error ? e.error.message || String(e.error) : e.message || '';
-      if (e.sourceId === 'terrain' && e.tile) terrainFailed++;
       if (msg.indexOf('HTTP 4') === 0) return;
       if (msg.indexOf(${jsLiteral(APP_ERROR_PREFIX)}) === 0) return;
       var where = '';
@@ -767,9 +741,7 @@ ${terrainVisibilityScript()}
 
       // A DEM tile that fails after the ready signal still leaves a flat
       // map, so the state is re-read once the page has stopped moving.
-      map.once('idle', function() {
-        setTimeout(reportTerrainState, 1000);
-      });
+      window._veloqTerrainReport.reportOnceSettled(map);
     });
 
     } catch(e) {

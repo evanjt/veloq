@@ -10,8 +10,7 @@
  * cancelling or back ends the tool and presents the sheet again at the stop it had.
  */
 import React, { useCallback, useMemo, useState } from 'react';
-import { Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Platform, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -29,6 +28,7 @@ import { useMapPreferences } from '@/features/settings';
 import { mapSheetHostKey, useHostCardCount } from '@/shared/app/mapSheetHost';
 import { useMapSheetHost } from '@/shared/app/MapSheetHost';
 import { mapSheetCoveredHeight, useMapSheetStop } from '@/shared/app/mapSheetStop';
+import { useSheetWindow } from '@/shared/app/TopSafeAreaContext';
 import { ComponentErrorBoundary, showNotice } from '@/shared/ui';
 import { toActivityType } from '@/types';
 import type { Section as NativeSection } from 'veloqrs';
@@ -66,17 +66,12 @@ export function ActivityDetailMap({ activityId: id }: ActivityDetailMapProps) {
   const highlightedSectionId = useCardHighlightedSection(hostKey);
   const { stop, toolActive: creationMode, leaveTool } = useMapSheetStop(hostKey);
 
-  const { width, height } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
+  const sheetWindow = useSheetWindow();
+  const { height } = sheetWindow;
   // The tool's bar sits over the map's foot while the sheet is away.
   const coveredBottom = creationMode
     ? 0
-    : mapSheetCoveredHeight(
-        Platform.OS,
-        Platform.Version,
-        { width, height, topInset: insets.top, bottomInset: insets.bottom },
-        stop
-      );
+    : mapSheetCoveredHeight(Platform.OS, Platform.Version, sheetWindow, stop);
 
   // The overlays the Sections and Routes tabs draw, from the same read the card's tabs list.
   const isRouteMatchingOn = useRouteSettings((s) => s.settings.enabled);

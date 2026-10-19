@@ -20,9 +20,7 @@ import type { NextcloudLogin } from '../lib/autobackup/nextcloudLogin';
 
 /** What committing the form left stored. `empty` is a form with no field filled in. */
 export type WebdavCommit =
-  | { kind: 'stored' }
-  | { kind: 'empty' }
-  | { kind: 'refused'; message: string };
+  { kind: 'stored' } | { kind: 'empty' } | { kind: 'refused'; message: string };
 
 export interface WebdavConfigFormHandle {
   /**

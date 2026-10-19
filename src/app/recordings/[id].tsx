@@ -28,6 +28,8 @@ import {
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import * as haptics from '@/shared/ui/haptics';
 import { goBack } from '@/shared/app/navigation';
+import { useAuthStore } from '@/shared/app/AuthStore';
+import { sourceFor } from '@/shared/app/source';
 import { confirmAction, inform } from '@/shared/ui/dialog';
 import { informShareFailed } from '@/shared/ui/shareFailure';
 
@@ -41,6 +43,12 @@ function RecordingDetailScreenContent() {
   const scrollEndInset = useScrollEndInset({ insetTaken: true });
   const { id } = useLocalSearchParams<{ id: string }>();
   const { uploadNow, remove, uploadingId } = useRecordingLibrary();
+  // A source with nowhere to send a ride offers no upload for it.
+  const sourceUploads = useAuthStore(
+    (s) =>
+      sourceFor({ authMethod: s.authMethod, isDemoMode: s.isDemoMode, athleteId: s.athleteId })?.can
+        .uploads !== false
+  );
   const mapHeight = useHeroMapHeight();
   const {
     entry,
@@ -156,7 +164,12 @@ function RecordingDetailScreenContent() {
     );
   }
 
-  const { isUploading, canUpload, canShare } = recordingActions(entry, uploadingId, fitAvailable);
+  const { isUploading, canUpload, canShare } = recordingActions(
+    entry,
+    uploadingId,
+    fitAvailable,
+    sourceUploads
+  );
 
   // The saved row keeps neither the elapsed time nor the average power.
   const stats: { label: string; value: string }[] = [

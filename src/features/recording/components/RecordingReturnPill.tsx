@@ -2,10 +2,10 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { usePathname } from 'expo-router';
 
 import { useTheme } from '@/shared/app';
 import { navigateTo } from '@/shared/app/navigation';
+import { useScreenPathname } from '@/shared/app/screenUnderSheet';
 import { colors, darkColors, iconSize, layout, recording, typography, themePalette } from '@/theme';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
@@ -29,7 +29,8 @@ export function RecordingReturnPill() {
   const savedToLibrary = useRecordingStore((s) => s.savedToLibrary);
   const authenticated = useAuthStore((s) => s.isAuthenticated);
   const athleteId = useAuthStore((s) => s.athleteId);
-  const pathname = usePathname();
+  // A sheet over the recording screen leaves the ride on display.
+  const pathname = useScreenPathname();
 
   const onRecordingScreens =
     pathname.startsWith('/recording') || pathname === '/record' || pathname.startsWith('/record/');

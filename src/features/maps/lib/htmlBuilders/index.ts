@@ -42,4 +42,5 @@ export type {
   MapSourceSpec,
   MapSurfaceHtmlConfig,
   MapSurfaceSpec,
+  MapTerrainSpec,
 } from './mapSurface';

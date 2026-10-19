@@ -10,6 +10,9 @@
  * Hit testing also lives in the page. `queryRenderedFeatures` runs against the
  * layers the caller declared interactive and only the resolved feature comes
  * out, so there is no platform-specific tap path on the React Native side.
+ *
+ * Terrain is part of the spec too, so a 3D view is this page tilted over the
+ * DEM rather than a second page drawing its own copy of every layer.
  */
 import {
   consoleBridgeScript,
@@ -17,15 +20,22 @@ import {
   motionDurationExpression,
   setReduceMotionStatement,
   setStyleStatement,
+  terrainReportScript,
   tileProtocolsScript,
 } from './shared';
 import { surfaceRuntimeScript } from './mapSurfaceScripts';
 import { resolveStyleExpression, type WebViewStyleOptions } from './styleResolution';
-import type { MapStyleType } from '@/features/maps/components/mapStyles';
+import {
+  HILLSHADE_INSERT_INDEX_SCRIPT,
+  TERRAIN_3D_CONFIG,
+  terrain3DSource,
+  type MapStyleType,
+} from '@/features/maps/components/mapStyles';
+import { terrainHillshadePaint, terrainSky } from '@/features/maps/lib/terrain3DPaint';
 import type { LngLat, LngLatBounds } from '@/features/maps/lib/coordinates';
 import { MAP_SURFACE_READY_TIMEOUT_MS } from '@/features/maps/lib/mapBudgets';
 import { jsNumber, jsPadding } from '@/features/maps/lib/webViewLiterals';
-import { cameraMove } from '@/theme';
+import { cameraMove, mapPalette } from '@/theme';
 
 export { SURFACE_HIT_TEST_RADIUS_PX } from './mapSurfaceScripts';
 
@@ -110,12 +120,24 @@ export interface MapImageSpec {
   sdf?: boolean;
 }
 
+/**
+ * The map draped over the elevation model. On, the page adds the DEM, the
+ * base's sky and relief shading, takes pitch and rotate gestures and eases to
+ * `pitch`; off, it takes each away and eases back to flat.
+ */
+export interface MapTerrainSpec {
+  exaggeration: number;
+  pitch: number;
+}
+
 export interface MapSurfaceSpec {
   sources: Record<string, MapSourceSpec>;
   layers: MapLayerSpec[];
   images?: MapImageSpec[];
   /** Layers hit-tested on tap, most specific first. */
   interactiveLayers?: string[];
+  /** Absent or null, the map is flat. */
+  terrain?: MapTerrainSpec | null;
 }
 
 export interface MapSurfaceHtmlConfig {
@@ -134,6 +156,17 @@ export interface MapSurfaceHtmlConfig {
   regionChangeThrottleMs: number;
   /** The system reduce-motion setting when the page is built. */
   reduceMotion: boolean;
+}
+
+/**
+ * The sky and relief shading terrain is drawn with on a base, as a page
+ * statement. The page reads it whenever it adds terrain, so a swap sets it
+ * before the new base loads.
+ */
+function setTerrainLookStatement(style: MapStyleType): string {
+  const palette = mapPalette(style);
+  const look = { sky: terrainSky(palette), hillshade: terrainHillshadePaint(palette) };
+  return `window._veloqTerrainLook = ${JSON.stringify(look)};`;
 }
 
 /** Build the page. Only style, camera and gesture settings force a rebuild. */
@@ -185,6 +218,13 @@ ${consoleBridgeScript()}
     setTimeout(function() { _sendMapFailed('ready timeout'); }, ${MAP_SURFACE_READY_TIMEOUT_MS});
 
 ${tileProtocolsScript()}
+
+${terrainReportScript()}
+
+    ${HILLSHADE_INSERT_INDEX_SCRIPT}
+    window._veloqTerrainSource = ${JSON.stringify(terrain3DSource())};
+    window._veloqHillshadeCandidates = ${JSON.stringify(TERRAIN_3D_CONFIG.hillshadeInsertBeforeCandidates)};
+    ${setTerrainLookStatement(config.style)}
 
     var _bounds = ${boundsJSON};
     var _center = ${centerJSON};
@@ -243,6 +283,8 @@ ${surfaceRuntimeScript(config)}
         window.map.touchZoomRotate.disableRotation();
       }
 
+      window._veloqTerrainReport.watch(window.map);
+
       window.map.on('error', function(e) {
         var message = e.error ? (e.error.message || String(e.error)) : (e.message || '');
         // Regional satellite sources 404 outside their coverage by design.
@@ -295,6 +337,8 @@ export function buildApplyScript(
     layers?: MapLayerSpec[];
     images?: MapImageSpec[];
     interactiveLayers?: string[];
+    /** Null turns terrain off. */
+    terrain?: MapTerrainSpec | null;
   },
   sourceJson: Record<string, string> = {}
 ): string {
@@ -313,7 +357,10 @@ export function buildApplyScript(
   return `window._veloq && window._veloq.apply({${fields.join(',')}}); true;`;
 }
 
-/** Swap the base style, then replay the cached sources and layers over it. */
+/**
+ * Swap the base style, then replay the cached sources, layers and terrain over
+ * it, the terrain in the new base's sky and relief.
+ */
 export function buildSetStyleScript(
   style: MapStyleType,
   options: WebViewStyleOptions = {}
@@ -323,6 +370,7 @@ export function buildSetStyleScript(
     (function() {
       if (!window.map) return;
       function apply(next) {
+        ${setTerrainLookStatement(style)}
         window.map.once('style.load', function() { window._veloq.rehydrate(); });
         ${setStyleStatement('window.map', 'next')}
       }

@@ -1,18 +1,29 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { fireEvent } from '@testing-library/react-native';
+import { act, fireEvent, within, type RenderResult } from '@testing-library/react-native';
+import { createGestureController } from 'react-native-gesture-handler/jest-utils';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
+import { PaperProvider } from 'react-native-paper';
 import MapScreen from '@/app/(tabs)/map';
 import { renderStaged } from '../__shared__/stagedRender';
+import { advanceAnimationByTime, getAnimatedStyle } from '../__shared__/reanimatedJest';
 import { TAB_BAR_HEIGHT } from '@/shared/ui/tabBarClearance';
+import { typography } from '@/theme';
+import { getPeriodStart } from '@/features/maps/lib/mapPeriod';
 import { type FfiMapEmptyReason, FfiMapEmptyReason_Tags, MapDistanceBand } from 'veloqrs';
 
+// The period's start is read against one clock, so a choice is compared to the instant it names.
+const mockPinnedNow = new Date('2026-03-15T09:30:00');
 const mockUseMap = jest.fn();
 const mockRefetchMapRead = jest.fn();
+const mockNavigateTo = jest.fn();
 const mockMapView = jest.fn((_props: unknown) => null);
+const mockLogScreenRender = jest.fn((_name: string) => () => {});
 const mockTranslate = jest.fn(
   (key: string, options?: { count?: number; mapped?: number; filters?: string }) => {
     if (key === 'mapScreen.activitySummary') return `${options?.count}:${options?.mapped}`;
+    if (key === 'mapScreen.unmappedWithoutGps') return `${options?.count} without GPS`;
+    if (key === 'mapScreen.unmappedDownloading') return `${options?.count} downloading`;
     if (key === 'mapScreen.searchFilteredBy') return `filtered by ${options?.filters}`;
     if (key.startsWith('sportFamilies.') || key.startsWith('maps.activityTypes.')) {
       const category = key.split('.').at(-1) ?? '';
@@ -32,13 +43,18 @@ jest.mock('expo-router', () => ({
   useIsFocused: () => true,
   useSegments: () => ['(tabs)', 'map'],
 }));
+jest.mock('@/shared/app/navigation', () => ({
+  navigateTo: (path: string) => mockNavigateTo(path),
+}));
 jest.mock('@/features/maps', () => ({
   ...jest.requireActual('@/features/maps/lib/filterSheet'),
+  ...jest.requireActual('@/features/maps/lib/mapPeriod'),
+  ...jest.requireActual('@/features/maps/lib/sportChipOrder'),
   ATTRIBUTION_CLEARANCE: 26,
   AttributionOverlay: () => null,
   FILTER_CHIP: { fill: 'teal', ink: 'black' },
-  DEFAULT_MAP_PERIOD: 'all',
-  getPeriodStart: (period: string) => new Date(period === 'all' ? '2000-01-01' : '2026-01-01'),
+  getPeriodStart: (period: 'all') =>
+    jest.requireActual('@/features/maps/lib/mapPeriod').getPeriodStart(period, mockPinnedNow),
   groupTypesByCategory: (types: string[]) =>
     new Map<string, string[]>([
       ['Ride', types.filter((type) => type === 'Ride')],
@@ -49,17 +65,16 @@ jest.mock('@/features/maps', () => ({
     const { TextInput } = require('react-native');
     return <TextInput testID="map-search-input" onChangeText={onChangeNeedle} />;
   },
-  PERIOD_OPTIONS: [
-    { id: 'all', labelKey: 'all' },
-    { id: '1m', labelKey: '1m' },
-  ],
   RegionalMapView: (props: unknown) => {
     const { View } = require('react-native');
     mockMapView(props);
     return <View testID="regional-map" />;
   },
   SyncProgressBanner: () => null,
-  useEngineMapActivities: (options: unknown) => mockUseMap(options),
+  useEngineMapActivities: (options: unknown) => ({
+    unmapped: { withoutGps: 0, downloading: 0 },
+    ...mockUseMap(options),
+  }),
   useHeatmapPreference: (select: (s: unknown) => unknown) => select({ routesVisible: false }),
 }));
 jest.mock('@/features/activity', () => ({
@@ -72,7 +87,9 @@ jest.mock('@/shared/app', () => ({
   useMetricSystem: () => true,
   useTheme: () => ({ isDark: false, colors: {} }),
 }));
-jest.mock('@/shared/debug/renderTimer', () => ({ logScreenRender: () => () => {} }));
+jest.mock('@/shared/debug/renderTimer', () => ({
+  logScreenRender: (name: string) => mockLogScreenRender(name),
+}));
 jest.mock('@/shared/ui', () => {
   const { Text } = require('react-native');
   return {
@@ -83,9 +100,183 @@ jest.mock('@/shared/ui', () => {
     ScreenErrorBoundary: ({ children }: { children: React.ReactNode }) => children,
     ErrorState: jest.requireActual('@/shared/ui/ErrorState').ErrorState,
     useBottomClearance: jest.requireActual('@/shared/ui/tabBarClearance').useBottomClearance,
+    SelectButton: jest.requireActual('@/shared/ui/SelectButton').SelectButton,
     Shimmer: () => null,
     PressTarget: require('react-native').Pressable,
+    TextLink: jest.requireActual('@/shared/ui/TextLink').TextLink,
   };
+});
+
+// The period list opens on the popup's portal.
+const mapScreen = () => (
+  <PaperProvider>
+    <MapScreen />
+  </PaperProvider>
+);
+
+// The raised rows are hidden from screen readers while the sheet is lowered, which the default
+// queries skip.
+const HIDDEN = { includeHiddenElements: true };
+
+/** Opens the period list and chooses the row with this label. */
+async function choosePeriod(view: RenderResult, label: string) {
+  await act(async () => {
+    await fireEvent.press(view.getByTestId('map-period-select'));
+  });
+  await view.findAllByRole('menuitem');
+  await act(async () => {
+    await fireEvent.press(view.getByLabelText(label));
+  });
+}
+
+/** The sport chips in the order the row draws them. */
+const sportChipOrder = (view: RenderResult) =>
+  view.UNSAFE_root.findAll(
+    (node) => typeof node.type === 'string' && /^map-sport-[A-Za-z]+$/.test(node.props.testID ?? '')
+  ).map((node) => (node.props.testID as string).slice('map-sport-'.length));
+
+async function layOut(view: RenderResult, testID: string, height: number) {
+  await act(async () => {
+    await fireEvent(view.getByTestId(testID, HIDDEN), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: 390, height } },
+    });
+  });
+}
+
+describe('map filter sheet drag', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseMap.mockReturnValue({
+      activities: [],
+      availableTypes: ['Ride', 'Run'],
+      categoryCounts: [
+        { category: 'Ride', count: 0 },
+        { category: 'Run', count: 0 },
+      ],
+      totalCount: 292,
+    });
+  });
+  afterEach(() => jest.useRealTimers());
+
+  async function renderMeasured() {
+    // The staged first visit waits on a real frame; the sheet's animations then run on fake time.
+    const view = await renderStaged(mapScreen());
+    jest.useFakeTimers();
+    await layOut(view, 'map-sheet-detail', 30);
+    await layOut(view, 'map-filter-lowered', 120);
+    await layOut(view, 'map-filter-raised', 200);
+    return view;
+  }
+
+  const sheetHeight = (view: RenderResult) =>
+    getAnimatedStyle(view.getByTestId('map-filter-sheet')).height as number;
+  const laneBottom = (view: RenderResult) =>
+    getAnimatedStyle(view.getByTestId('map-attribution-lane')).bottom as number;
+
+  it('carries the sheet and the credit lane with the finger before it lifts, with no render', async () => {
+    const view = await renderMeasured();
+    const lowered = sheetHeight(view);
+    expect(lowered).toBeGreaterThan(120);
+    expect(laneBottom(view)).toBe(lowered);
+
+    const renders = mockLogScreenRender.mock.calls.length;
+    const drag = createGestureController('map-filter-handle-drag');
+    act(() => {
+      drag.begin();
+      drag.activate({ translationY: -80 });
+      drag.update({ translationY: -80 });
+    });
+    expect(sheetHeight(view)).toBe(lowered + 80);
+    expect(laneBottom(view)).toBe(lowered + 80);
+    expect(mockLogScreenRender.mock.calls.length).toBe(renders);
+
+    await act(async () => {
+      drag.end({ translationY: -80, velocityY: -100 });
+    });
+    act(() => advanceAnimationByTime(400));
+    expect(sheetHeight(view)).toBe(lowered + 200);
+    expect(laneBottom(view)).toBe(lowered + 200);
+    expect(view.getByTestId('map-filter-handle').props.accessibilityState).toEqual({
+      expanded: true,
+    });
+    expect(view.getByText('5–10km')).toBeTruthy();
+  });
+
+  it('stops at the raised height on a drag past it and lowers on a flick back down', async () => {
+    const view = await renderMeasured();
+    const lowered = sheetHeight(view);
+    const drag = createGestureController('map-filter-handle-drag');
+    act(() => {
+      drag.begin();
+      drag.activate({ translationY: -500 });
+      drag.update({ translationY: -500 });
+    });
+    expect(sheetHeight(view)).toBe(lowered + 200);
+    await act(async () => {
+      drag.end({ translationY: -500, velocityY: 0 });
+    });
+    act(() => advanceAnimationByTime(400));
+
+    act(() => {
+      drag.begin();
+      drag.activate({ translationY: 20 });
+      drag.update({ translationY: 20 });
+    });
+    expect(sheetHeight(view)).toBe(lowered + 180);
+    await act(async () => {
+      drag.end({ translationY: 20, velocityY: 1200 });
+    });
+    act(() => advanceAnimationByTime(400));
+    expect(sheetHeight(view)).toBe(lowered);
+    expect(view.getByTestId('map-filter-handle').props.accessibilityState).toEqual({
+      expanded: false,
+    });
+    expect(view.queryByText('5–10km')).toBeNull();
+  });
+
+  it('returns to the lowered stop after a short slow drag', async () => {
+    const view = await renderMeasured();
+    const lowered = sheetHeight(view);
+    const drag = createGestureController('map-filter-handle-drag');
+    act(() => {
+      drag.begin();
+      drag.activate({ translationY: -16 });
+      drag.update({ translationY: -16 });
+    });
+    expect(sheetHeight(view)).toBe(lowered + 16);
+    await act(async () => {
+      drag.end({ translationY: -16, velocityY: -100 });
+    });
+    act(() => advanceAnimationByTime(400));
+    expect(sheetHeight(view)).toBe(lowered);
+  });
+
+  it('counts the foot line in the lowered stop and keeps it at the raised one', async () => {
+    const view = await renderStaged(mapScreen());
+    jest.useFakeTimers();
+    await layOut(view, 'map-filter-lowered', 120);
+    await layOut(view, 'map-filter-raised', 200);
+    const withoutLine = sheetHeight(view);
+    await layOut(view, 'map-sheet-detail', 30);
+    act(() => advanceAnimationByTime(400));
+    const lowered = sheetHeight(view);
+    expect(lowered).toBe(withoutLine + 30);
+
+    await fireEvent.press(view.getByTestId('map-filter-handle'));
+    act(() => advanceAnimationByTime(400));
+    expect(sheetHeight(view)).toBe(lowered + 200);
+  });
+
+  it('animates to the other stop on a tap of the handle', async () => {
+    const view = await renderMeasured();
+    const lowered = sheetHeight(view);
+    await fireEvent.press(view.getByTestId('map-filter-handle'));
+    act(() => advanceAnimationByTime(400));
+    expect(sheetHeight(view)).toBe(lowered + 200);
+    await fireEvent.press(view.getByTestId('map-filter-handle'));
+    act(() => advanceAnimationByTime(400));
+    expect(sheetHeight(view)).toBe(lowered);
+  });
 });
 
 describe('map library summary', () => {
@@ -102,27 +293,197 @@ describe('map library summary', () => {
     });
   });
 
-  it('opens on the period chips and the count line and shows the other filters once the handle is raised', async () => {
-    const view = await renderStaged(<MapScreen />);
-    expect(view.getByText('all')).toBeTruthy();
+  it('opens on the sport chips beside the period button and the count line, and shows the other filters once the handle is raised', async () => {
+    mockUseMap.mockReturnValue({
+      activities: [],
+      availableTypes: ['Ride', 'Run'],
+      categoryCounts: [
+        { category: 'Ride', count: 12 },
+        { category: 'Run', count: 30 },
+      ],
+      totalCount: 292,
+    });
+    const view = await renderStaged(mapScreen());
+    const controls = view.getByTestId('map-filter-controls');
+    expect(within(controls).getByTestId('map-period-select')).toHaveTextContent('period.long.all');
+    expect(within(controls).getByTestId('map-sport-Ride-count')).toHaveTextContent('12');
+    expect(within(controls).getByTestId('map-sport-Run-count')).toHaveTextContent('30');
+    expect(view.queryByText('period.short.all')).toBeNull();
+    expect(view.queryByText('period.short.1m')).toBeNull();
     expect(view.queryByText('5–10km')).toBeNull();
-    expect(view.queryByText('Run', { exact: false })).toBeNull();
     expect(view.getByText('292:0')).toBeTruthy();
 
     await fireEvent.press(view.getByTestId('map-filter-handle'));
     expect(view.getByText('5–10km')).toBeTruthy();
-    expect(view.getByText('Run', { exact: false })).toBeTruthy();
     expect(view.getByText('292:0')).toBeTruthy();
 
     await fireEvent.press(view.getByTestId('map-filter-handle'));
     expect(view.queryByText('5–10km')).toBeNull();
-    expect(view.getByText('all')).toBeTruthy();
+    expect(view.getByTestId('map-period-select')).toBeTruthy();
+  });
+
+  it('sets the count on a caption foot line, last in the sheet, with Expand range as a text link to the sync range', async () => {
+    const view = await renderStaged(mapScreen());
+    const sheet = view.getByTestId('map-filter-sheet');
+    const detail = within(sheet).getByTestId('map-sheet-detail');
+    const lastInSheet = sheet.children.filter((child) => typeof child !== 'string').at(-1);
+    expect(typeof lastInSheet !== 'string' && lastInSheet?.props.testID).toBe('map-sheet-detail');
+
+    const count = within(detail).getByText('292:0');
+    expect(StyleSheet.flatten(count.props.style).fontSize).toBe(typography.caption.fontSize);
+    const link = within(detail).getByRole('link', { name: 'mapScreen.expandRange' });
+    expect(view.getAllByText('mapScreen.expandRange')).toHaveLength(1);
+    const linkText = within(link).getByText('mapScreen.expandRange');
+    expect(StyleSheet.flatten(linkText.props.style).fontSize).toBe(typography.caption.fontSize);
+    await fireEvent.press(link);
+    expect(mockNavigateTo).toHaveBeenCalledWith('/sync-settings');
+
+    await fireEvent.press(view.getByTestId('map-filter-handle'));
+    const raisedDetail = view.getByTestId('map-sheet-detail');
+    expect(within(raisedDetail).getByText('292:0')).toBeTruthy();
+    expect(within(raisedDetail).getByRole('link', { name: 'mapScreen.expandRange' })).toBeTruthy();
+    expect(mockMapView).toHaveBeenLastCalledWith(expect.objectContaining({ mapLabel: '292:0' }));
+  });
+
+  it('names the activities without GPS in the window after the drawn count, and no download part', async () => {
+    mockUseMap.mockReturnValue({
+      activities: Array.from({ length: 195 }, (_, i) => ({ id: `ride-${i}`, type: 'Ride' })),
+      availableTypes: ['Ride', 'Run'],
+      categoryCounts: [
+        { category: 'Ride', count: 195 },
+        { category: 'Run', count: 0 },
+      ],
+      totalCount: 245,
+      unmapped: { withoutGps: 50, downloading: 0 },
+    });
+    const view = await renderStaged(mapScreen());
+    const detail = view.getByTestId('map-sheet-detail');
+    expect(within(detail).getByText('245:195 · 50 without GPS')).toBeTruthy();
+    expect(view.queryByText(/downloading/)).toBeNull();
+    expect(mockMapView).toHaveBeenLastCalledWith(
+      expect.objectContaining({ mapLabel: '245:195 · 50 without GPS' })
+    );
+  });
+
+  it('names the tracks still downloading after the drawn count, and no GPS part', async () => {
+    mockUseMap.mockReturnValue({
+      activities: [],
+      availableTypes: ['Ride', 'Run'],
+      categoryCounts: [
+        { category: 'Ride', count: 0 },
+        { category: 'Run', count: 0 },
+      ],
+      totalCount: 292,
+      unmapped: { withoutGps: 0, downloading: 12 },
+    });
+    const view = await renderStaged(mapScreen());
+    const detail = view.getByTestId('map-sheet-detail');
+    expect(within(detail).getByText('292:0 · 12 downloading')).toBeTruthy();
+    expect(view.queryByText(/without GPS/)).toBeNull();
+    expect(mockMapView).toHaveBeenLastCalledWith(
+      expect.objectContaining({ mapLabel: '292:0 · 12 downloading' })
+    );
+  });
+
+  it('names both causes, GPS first, and leaves the line as it was when both are zero', async () => {
+    mockUseMap.mockReturnValue({
+      activities: [],
+      availableTypes: ['Ride', 'Run'],
+      categoryCounts: [
+        { category: 'Ride', count: 0 },
+        { category: 'Run', count: 0 },
+      ],
+      totalCount: 292,
+      unmapped: { withoutGps: 3, downloading: 1 },
+    });
+    const view = await renderStaged(mapScreen());
+    expect(
+      within(view.getByTestId('map-sheet-detail')).getByText(
+        '292:0 · 3 without GPS · 1 downloading'
+      )
+    ).toBeTruthy();
+
+    mockUseMap.mockReturnValue({
+      activities: [],
+      availableTypes: ['Ride', 'Run'],
+      categoryCounts: [
+        { category: 'Ride', count: 0 },
+        { category: 'Run', count: 0 },
+      ],
+      totalCount: 292,
+      unmapped: { withoutGps: 0, downloading: 0 },
+    });
+    await view.rerender(mapScreen());
+    expect(within(view.getByTestId('map-sheet-detail')).getByText('292:0')).toBeTruthy();
+    expect(mockMapView).toHaveBeenLastCalledWith(expect.objectContaining({ mapLabel: '292:0' }));
+  });
+
+  it('chooses the period from a list on the lowered sheet', async () => {
+    const view = await renderStaged(mapScreen());
+    await act(async () => {
+      await fireEvent.press(view.getByTestId('map-period-select'));
+    });
+    const rows = await view.findAllByRole('menuitem');
+    expect(rows.map((row) => row.props.accessibilityLabel)).toEqual([
+      'period.long.all',
+      'maps.periodThisYear',
+      'period.long.6m',
+      'period.long.3m',
+      'period.long.1m',
+      'period.long.7d',
+    ]);
+    const checked = rows.filter((row) => row.props.accessibilityState?.checked);
+    expect(checked.map((row) => row.props.accessibilityLabel)).toEqual(['period.long.all']);
+
+    await act(async () => {
+      await fireEvent.press(view.getByLabelText('period.long.1m'));
+    });
+    expect(mockUseMap).toHaveBeenLastCalledWith(
+      expect.objectContaining({ startDate: getPeriodStart('1m', mockPinnedNow) })
+    );
+    expect(view.getByTestId('map-period-select')).toHaveTextContent('period.long.1m');
+    expect(view.getByTestId('map-period-select').props.accessibilityLabel).toBe(
+      'settings.dateRange: period.long.1m'
+    );
+  });
+
+  it('redraws the sport chips with a new read while lowered, a chosen one kept in front', async () => {
+    mockUseMap.mockReturnValue({
+      activities: [],
+      availableTypes: ['Ride', 'Run'],
+      categoryCounts: [
+        { category: 'Ride', count: 12 },
+        { category: 'Run', count: 30 },
+      ],
+      totalCount: 292,
+    });
+    const view = await renderStaged(mapScreen());
+    expect(sportChipOrder(view)).toEqual(['Run', 'Ride']);
+    await fireEvent.press(view.getByTestId('map-sport-Ride'));
+    expect(sportChipOrder(view)).toEqual(['Ride', 'Run']);
+
+    mockUseMap.mockReturnValue({
+      activities: [],
+      availableTypes: ['Ride', 'Run'],
+      categoryCounts: [
+        { category: 'Ride', count: 2 },
+        { category: 'Run', count: 5 },
+      ],
+      totalCount: 292,
+    });
+    await choosePeriod(view, 'period.long.1m');
+    expect(view.getByTestId('map-sport-Ride-count')).toHaveTextContent('2');
+    expect(view.getByTestId('map-sport-Run-count')).toHaveTextContent('5');
+    expect(sportChipOrder(view)).toEqual(['Ride', 'Run']);
+    expect(view.getByTestId('map-filter-handle').props.accessibilityState).toEqual({
+      expanded: false,
+    });
   });
 
   it('lifts the period chips clear of the tab bar and the navigation bar under it', async () => {
     const view = await renderStaged(
       <SafeAreaInsetsContext.Provider value={{ top: 0, left: 0, right: 0, bottom: 48 }}>
-        <MapScreen />
+        {mapScreen()}
       </SafeAreaInsetsContext.Provider>
     );
     let sheet = view.getByTestId('map-filter-handle').parent;
@@ -136,7 +497,7 @@ describe('map library summary', () => {
   });
 
   it('keeps a distance filter applied while the sheet is lowered', async () => {
-    const view = await renderStaged(<MapScreen />);
+    const view = await renderStaged(mapScreen());
     await fireEvent.press(view.getByTestId('map-filter-handle'));
     await fireEvent.press(view.getByText('5–10km'));
     await fireEvent.press(view.getByTestId('map-filter-handle'));
@@ -145,28 +506,36 @@ describe('map library summary', () => {
     );
   });
 
-  it('names the distance, sport and name filters on the lowered sheet and clears them there', async () => {
-    const view = await renderStaged(<MapScreen />);
+  it('names the distance and name filters the lowered sheet hides and clears only those there', async () => {
+    const runMembers = new Set(['Run', 'VirtualRun', 'TrailRun', 'Treadmill']);
+    const view = await renderStaged(mapScreen());
+    await fireEvent.press(view.getByTestId('map-sport-Run'));
     expect(view.queryByTestId('map-filter-summary')).toBeNull();
     expect(view.queryByText('mapScreen.emptyClearFilters')).toBeNull();
 
     await fireEvent.press(view.getByTestId('map-filter-handle'));
     await fireEvent.press(view.getByText('5–10km'));
-    await fireEvent.press(view.getByText('Run', { exact: false }));
+    await fireEvent.changeText(view.getByTestId('map-search-input'), 'harbour loop');
     expect(view.queryByTestId('map-filter-summary')).toBeNull();
     await fireEvent.press(view.getByTestId('map-filter-handle'));
 
-    expect(view.getByTestId('map-filter-summary').props.children).toBe('filtered by 5–10km, Run');
+    expect(view.getByTestId('map-filter-summary').props.children).toBe(
+      'filtered by 5–10km, harbour loop'
+    );
     await fireEvent.press(view.getByText('mapScreen.emptyClearFilters'));
     expect(mockUseMap).toHaveBeenLastCalledWith(
-      expect.objectContaining({ distanceBand: MapDistanceBand.All, selectedTypes: new Set() })
+      expect.objectContaining({
+        distanceBand: MapDistanceBand.All,
+        nameNeedle: '',
+        selectedTypes: runMembers,
+      })
     );
     expect(view.queryByTestId('map-filter-summary')).toBeNull();
     expect(view.queryByText('mapScreen.emptyClearFilters')).toBeNull();
   });
 
   it('names a typed name on the lowered sheet and clears it there', async () => {
-    const view = await renderStaged(<MapScreen />);
+    const view = await renderStaged(mapScreen());
     await fireEvent.press(view.getByTestId('map-filter-handle'));
     await fireEvent.changeText(view.getByTestId('map-search-input'), '  harbour loop ');
     await fireEvent.press(view.getByTestId('map-filter-handle'));
@@ -178,13 +547,13 @@ describe('map library summary', () => {
   });
 
   it('leaves the lowered sheet without a filter line when only the period is chosen', async () => {
-    const view = await renderStaged(<MapScreen />);
-    await fireEvent.press(view.getByText('1m'));
+    const view = await renderStaged(mapScreen());
+    await choosePeriod(view, 'period.long.1m');
     expect(view.queryByTestId('map-filter-summary')).toBeNull();
   });
 
   it('shows the full library while mapped activities arrive and narrows the mapped count', async () => {
-    const view = await renderStaged(<MapScreen />);
+    const view = await renderStaged(mapScreen());
     await fireEvent.press(view.getByTestId('map-filter-handle'));
     expect(view.getByText('292:0')).toBeTruthy();
 
@@ -200,7 +569,7 @@ describe('map library summary', () => {
       ],
       totalCount: 292,
     }));
-    await view.rerender(<MapScreen />);
+    await view.rerender(mapScreen());
     expect(view.getByText('292:2')).toBeTruthy();
 
     await fireEvent.press(view.getByText('Run', { exact: false }));
@@ -250,7 +619,7 @@ describe('map with its screen read failing', () => {
   });
 
   it('keeps the map and its filters and shows the failure with a Retry', async () => {
-    const view = await renderStaged(<MapScreen />);
+    const view = await renderStaged(mapScreen());
     expect(view.getByTestId('regional-map')).toBeTruthy();
     expect(view.getByTestId('map-filter-handle')).toBeTruthy();
     expect(view.getByTestId('map-activities-failed')).toBeTruthy();
@@ -261,10 +630,10 @@ describe('map with its screen read failing', () => {
   });
 
   it('drops the failure once the read answers', async () => {
-    const view = await renderStaged(<MapScreen />);
+    const view = await renderStaged(mapScreen());
     expect(view.getByTestId('map-activities-failed')).toBeTruthy();
     mockUseMap.mockReturnValue(answered);
-    await view.rerender(<MapScreen />);
+    await view.rerender(mapScreen());
     expect(view.queryByTestId('map-activities-failed')).toBeNull();
     expect(mockMapView).toHaveBeenLastCalledWith(
       expect.objectContaining({ activities: [{ id: 'ride-1', type: 'Ride' }] })
@@ -297,7 +666,7 @@ describe('map with no activity to draw', () => {
     mockUseMap.mockReturnValue(
       read(emptyBecause(FfiMapEmptyReason_Tags.NoGps, { activities: 12 }))
     );
-    const view = await renderStaged(<MapScreen />);
+    const view = await renderStaged(mapScreen());
     expect(view.getByTestId('regional-map')).toBeTruthy();
     expect(view.getByTestId('map-empty-state')).toBeTruthy();
     expect(view.getByText('mapScreen.emptyNoGps')).toBeTruthy();
@@ -309,22 +678,22 @@ describe('map with no activity to draw', () => {
     mockUseMap.mockReturnValue(
       read(emptyBecause(FfiMapEmptyReason_Tags.TracksPending, { activities: 12, pending: 7 }))
     );
-    const view = await renderStaged(<MapScreen />);
+    const view = await renderStaged(mapScreen());
     expect(view.getByText('mapScreen.emptyTracksPending')).toBeTruthy();
     expect(mockTranslate).toHaveBeenCalledWith('mapScreen.emptyTracksPendingHint', { count: 7 });
   });
 
   it('offers the whole library for an empty period, and the sync range once on it', async () => {
     mockUseMap.mockReturnValue(read(emptyBecause(FfiMapEmptyReason_Tags.NoActivities)));
-    const view = await renderStaged(<MapScreen />);
-    await fireEvent.press(view.getByText('1m'));
+    const view = await renderStaged(mapScreen());
+    await choosePeriod(view, 'period.long.1m');
     expect(mockUseMap).toHaveBeenLastCalledWith(
-      expect.objectContaining({ startDate: new Date('2026-01-01') })
+      expect.objectContaining({ startDate: getPeriodStart('1m', mockPinnedNow) })
     );
 
     await fireEvent.press(view.getByText('mapScreen.emptyShowAllTime'));
     expect(mockUseMap).toHaveBeenLastCalledWith(
-      expect.objectContaining({ startDate: new Date('2000-01-01') })
+      expect.objectContaining({ startDate: getPeriodStart('all', mockPinnedNow) })
     );
     expect(view.queryByText('mapScreen.emptyShowAllTime')).toBeNull();
     expect(view.getByText('mapScreen.emptyNoActivitiesAllTimeHint')).toBeTruthy();
@@ -332,7 +701,7 @@ describe('map with no activity to draw', () => {
 
   it('clears the filters that hide every track', async () => {
     mockUseMap.mockReturnValue(read(emptyBecause(FfiMapEmptyReason_Tags.Filtered, { mapped: 4 })));
-    const view = await renderStaged(<MapScreen />);
+    const view = await renderStaged(mapScreen());
     await fireEvent.press(view.getByTestId('map-filter-handle'));
     await fireEvent.press(view.getByText('5–10km'));
     await fireEvent.press(view.getByText('Run', { exact: false }));
@@ -355,7 +724,7 @@ describe('map with no activity to draw', () => {
       ...read(undefined),
       activities: [{ id: 'ride-1', type: 'Ride' }],
     });
-    const view = await renderStaged(<MapScreen />);
+    const view = await renderStaged(mapScreen());
     expect(view.queryByTestId('map-empty-state')).toBeNull();
   });
 });

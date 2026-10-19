@@ -88,10 +88,8 @@ async function mountHandlers(surfaceRef: MapSurfaceRef) {
       currentZoomRef: { current: 8 },
       currentCenterRef: { current: [7, 46] },
       surfaceRef: { current: surfaceRef } as React.RefObject<MapSurfaceRef | null>,
-      map3DRef: { current: null } as React.RefObject<null>,
       bearingAnim: { setValue: jest.fn() } as never,
       currentZoomLevel: { current: 8 },
-      is3DMode: false,
       markUserInteracted: jest.fn(),
       setSpider,
     } as never)

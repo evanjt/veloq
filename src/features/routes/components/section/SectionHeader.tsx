@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next';
 import { useMetricSystem, useTheme } from '@/shared/app';
 import { MapSheetCardCloseSpace } from '@/shared/app/MapSheetCards';
 import { Button, HeroStatsRow } from '@/shared/ui';
+import { heroPeekStyles } from '@/shared/ui/DetailHero';
 import { FitText } from '@/shared/ui/FitText';
 import { PressTarget } from '@/shared/ui/PressTarget';
 import { Icon } from '@/shared/ui/Icon';
@@ -96,7 +97,7 @@ export function SectionHeader({
   const dateLine = detailDateLine(peek, t);
 
   return (
-    <View testID="section-card-peek" style={styles.peek}>
+    <View testID="section-card-peek" style={heroPeekStyles.peek}>
       <SectionNameEditor
         onSurface
         name={sectionHeroName(section, customName)}
@@ -125,7 +126,7 @@ export function SectionHeader({
       {dateLine ? (
         <FitText
           testID="section-card-date-line"
-          style={[styles.dateLine, { color: palette.textSecondary }]}
+          style={[heroPeekStyles.dateLine, { color: palette.textSecondary }]}
         >
           {dateLine}
         </FitText>
@@ -167,12 +168,6 @@ const LIFT_BADGE_HEIGHT = typography.caption.lineHeight + 2 * spacing.xxs;
 const liftBadgeSlop = slopToMinTapTarget(LIFT_BADGE_HEIGHT);
 
 const styles = StyleSheet.create({
-  peek: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.xs,
-    paddingBottom: spacing.sm,
-    gap: spacing.xs,
-  },
   nameAccessory: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -192,8 +187,5 @@ const styles = StyleSheet.create({
   },
   liftBadgeText: {
     ...typography.captionBold,
-  },
-  dateLine: {
-    ...typography.bodyCompact,
   },
 });

@@ -940,36 +940,35 @@
     "explanation": {
       "title": "Inzichten begrijpen",
       "foundLabel": "Methode",
-      "found": "Veloq vergelijkt je nieuwste activiteiten en welzijn met je eigen geschiedenis, op deze telefoon, en toont een kaart voor elk record, elke verandering of trend die het vindt.",
+      "found": "Veloq vergelijkt je nieuwste activiteiten en welzijn met je eigen geschiedenis, op deze telefoon.",
       "kinds": {
         "sectionsAndRoutes": {
           "label": "Secties en routes",
-          "text": "Een nieuw record, een reeks snellere of tragere tijden, of een andere hartslag bij hetzelfde tempo, op een sectie of route die je herhaalt."
+          "text": "Records, snellere of tragere tijden en hartslag bij hetzelfde tempo."
         },
         "fitness": {
           "label": "eFTP en kritische snelheid",
-          "text": "Een verandering in je eFTP of kritische snelheid, en de sectierecords die je zette toen die lager was."
+          "text": "Een verandering in een van beide, en de records die je zette toen die lager was."
         },
         "week": {
           "label": "Deze week",
-          "text": "Trainingstijd en -belasting van deze week tot nu toe, vergeleken met hetzelfde punt vorige week."
+          "text": "Deze week tot nu toe tegenover vorige week, of vorige week tegenover het 4-wekengemiddelde."
         },
         "hrv": {
           "label": "Hartslagvariabiliteit",
-          "text": "Je HRV over de laatste 7 dagen, de nieuwere metingen tegenover de oudere."
+          "text": "Je laatste 7 dagen, de nieuwere metingen tegenover de oudere."
         },
         "strength": {
           "label": "Kracht",
-          "text": "De gewogen sets van een spiergroep die stijgen of afnemen, en de balans tussen tegenovergestelde spiergroepen."
+          "text": "Gewogen sets per spiergroep en de balans tussen tegenovergestelde groepen."
         },
         "sectionChanges": {
           "label": "Sectiewijzigingen",
-          "text": "Een sectie die opnieuw is afgebakend, gesplitst, hersteld of teruggezet naar een eerdere versie."
+          "text": "Een sectie die opnieuw is afgebakend, gesplitst, hersteld of teruggezet."
         }
       },
-      "orderLabel": "Volgorde",
       "sourcesLabel": "Bronnen",
-      "sources": "Tijden, afstanden, hartslag en vermogen komen uit je activiteiten. eFTP, kritische snelheid en HRV zijn de waarden die intervals.icu voor je bijhoudt. Open een kaart en tik op ‘{{howCalculated}}’ voor de methode en de gegevens.",
+      "sources": "Tijden, hartslag en vermogen komen uit je activiteiten, eFTP, kritische snelheid en HRV van intervals.icu, en de methode en gegevens van elke kaart staan onder ‘{{howCalculated}}’.",
       "strengthTitle": "Kracht begrijpen"
     },
     "aboutRanking": "Kaarten staan gesorteerd op hoeveel ze te zeggen hebben: hoe recent iets is, hoe sterk het afwijkt van je gewoonte, hoeveel het verschoven is en hoe vaak je het doet.",
@@ -995,7 +994,6 @@
       "lowSignal": "Weinig data",
       "noSignal": "Geen data",
       "allOneSideTitle": "{{pair}}: alle volume aan één kant",
-      "dominantTitle": "{{dominant}} draagt meer volume in {{pair}}",
       "oneSidedBody": "{{dominant}} vertegenwoordigt al het gewogen setvolume voor {{pair}} in de afgelopen 4 weken.",
       "ratioBody": "{{pair}} komt in het recentste 4-weekse venster gemiddeld uit op {{ratio}} in gewogen sets.",
       "ratioLabel": "Verhouding",
@@ -1152,6 +1150,10 @@
     "loadingOlderActivities": "Oudere activiteiten laden…",
     "activitySummary_one": "{{count}} activiteit · {{mapped}} op de kaart",
     "activitySummary_other": "{{count}} activiteiten · {{mapped}} op de kaart",
+    "unmappedWithoutGps_one": "{{count}} zonder gps",
+    "unmappedWithoutGps_other": "{{count}} zonder gps",
+    "unmappedDownloading_one": "{{count}} wordt gedownload",
+    "unmappedDownloading_other": "{{count}} worden gedownload",
     "expandRange": "Bereik uitbreiden",
     "distanceAny": "Alle",
     "showFilters": "Alle filters tonen",
@@ -1218,9 +1220,16 @@
     "keyYearOrMore": "Een jaar of ouder",
     "keyFewerPasses": "Minder passages",
     "keyMorePasses": "Meer passages",
+    "keyEachSection": "Elke sectie een eigen kleur",
+    "keyEachRoute": "Elke route een eigen kleur",
     "colorByGradient": "Kleur op stijging",
     "periodThisYear": "Dit jaar",
     "sheetSize": "Grootte van kaart en details",
+    "detailLoading": {
+      "activity": "Activiteit laden",
+      "route": "Route laden",
+      "section": "Sectie laden"
+    },
     "sheetStop": {
       "peek": "Glimp",
       "half": "Half",
@@ -1450,6 +1459,7 @@
     "writePermissionRequired": "Schrijfrechten vereist",
     "savedLocally": "Activiteit opgeslagen op dit apparaat. Je kunt deze altijd uploaden via Mijn opnamen.",
     "savedLocallyNoScope": "Rit opgeslagen op dit apparaat. Hij wordt geüpload zodra je uploaden toestaat.",
+    "savedLocallyNoUpload": "Rit opgeslagen op dit apparaat. In demomodus wordt niets geüpload.",
     "settingsUpload": "Uploaden",
     "autoUpload": "Automatisch uploaden",
     "autoUploadDescription": "Opnamen automatisch naar intervals.icu uploaden bij het opslaan. Uitgeschakeld blijven ze op dit apparaat totdat je ze uploadt via Mijn opnamen.",

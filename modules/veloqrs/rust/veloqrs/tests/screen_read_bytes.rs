@@ -306,6 +306,7 @@ fn map_screen(v: FfiMapScreenData) -> Lowered {
             v.sections.as_ref().and_then(|l| l.sections.as_ref()).map_or(0, Vec::len)
         },
         empty_reason,
+        unmapped,
     )
 }
 

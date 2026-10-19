@@ -41,10 +41,4 @@ export interface SensorConnection {
  * services off, where a scan finds nothing.
  */
 export type SensorAvailability =
-  | 'unknown'
-  | 'unsupported'
-  | 'poweredOff'
-  | 'unauthorised'
-  | 'blocked'
-  | 'needsLocation'
-  | 'ready';
+  'unknown' | 'unsupported' | 'poweredOff' | 'unauthorised' | 'blocked' | 'needsLocation' | 'ready';

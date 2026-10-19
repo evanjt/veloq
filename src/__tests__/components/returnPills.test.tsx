@@ -25,6 +25,7 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import { brand, colors, darkColors, layout, raised, recording } from '@/theme';
 
 let mockIsDark = false;
+let mockPathname = '/';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/app', () => ({
@@ -33,7 +34,7 @@ jest.mock('@/shared/app', () => ({
 }));
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
-  usePathname: () => '/',
+  usePathname: () => mockPathname,
 }));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
@@ -50,6 +51,7 @@ function coloursDrawn(view: Rendered): unknown[] {
 
 afterEach(() => {
   mockIsDark = false;
+  mockPathname = '/';
 });
 
 describe('the recording return pill', () => {
@@ -101,6 +103,28 @@ describe('the recording return pill', () => {
     expect(style.borderRadius).toBe(layout.borderRadiusFull);
     expect(style).toMatchObject(raised('pill', true));
     expect(style.borderColor).toBe(darkColors.cardEdge);
+  });
+  /**
+   * Scenario: the live screen pushes the field picker, a sheet route, so the
+   * pathname is the sheet's while the ride is still the screen under it.
+   *
+   * Expected behaviour: no pill offers a way back to the screen on display,
+   * and one shows once a sheet covers any other screen.
+   */
+  it('stays hidden under a sheet opened over the recording screen', async () => {
+    mockPathname = '/recording/Ride';
+    const view = await render(<RecordingReturnPill />);
+    expect(view.queryByTestId('recording-return-pill')).toBeNull();
+
+    mockPathname = '/sheets/field-picker';
+    await view.rerender(<RecordingReturnPill />);
+    expect(view.queryByTestId('recording-return-pill')).toBeNull();
+
+    mockPathname = '/map';
+    await view.rerender(<RecordingReturnPill />);
+    mockPathname = '/sheets/section-chooser';
+    await view.rerender(<RecordingReturnPill />);
+    expect(view.getByTestId('recording-return-pill')).toBeTruthy();
   });
 });
 

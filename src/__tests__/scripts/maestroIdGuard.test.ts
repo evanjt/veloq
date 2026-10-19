@@ -109,9 +109,33 @@ describe('resolving a flow id against the tree', () => {
   });
 
   it('takes an id handed down through a prop that is not called testID', () => {
-    const screen = '<Screen containerTestID="activity-detail-content" />';
+    const screen = '<Screen containerTestID="tide-chart-content" />';
 
-    expect(resolves(screen, 'activity-detail-content')).toBe(true);
+    expect(resolves(screen, 'tide-chart-content')).toBe(true);
+  });
+
+  it('does not take an id only a test file mentions, since a test renders nothing on a device', () => {
+    // A rename that leaves the old id inside a test's fixture string would
+    // otherwise keep every flow asserting it green while each one fails on
+    // the handset.
+    const root = treeWith(
+      '<View testID="ride-log-screen" />',
+      '- assertVisible:\n    id: "ride-log-content"\n'
+    );
+    fs.mkdirSync(path.join(root, 'src/__tests__'), { recursive: true });
+    fs.writeFileSync(
+      path.join(root, 'src/__tests__/rideLog.test.tsx'),
+      '<Screen containerTestID="ride-log-content" />'
+    );
+    fs.writeFileSync(
+      path.join(root, 'src/rideLog.spec.ts'),
+      "const props = { testID: 'ride-log-content' };"
+    );
+
+    const result = runGuard(root);
+
+    expect(result.code).not.toBe(0);
+    expect(result.out).toContain('ride-log-content');
   });
 
   it('takes a templated id carried in an options object', () => {

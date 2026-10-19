@@ -82,7 +82,7 @@ tags:
       - tapOn: "Open"
 - extendedWaitUntil:
     visible:
-      id: "activity-detail-content"
+      id: "activity-detail-screen"
     timeout: 15000
 - takeScreenshot: "screenshots/06-activity-detail-dark"
 

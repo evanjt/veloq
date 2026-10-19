@@ -168,11 +168,9 @@ jest.mock('@/features/settings/lib/backup', () => ({
 jest.mock('@/features/settings/components/ExportPrivacyRow', () => ({
   ExportPrivacyRow: () => null,
 }));
-const mockCommit = jest.fn(
-  async (): Promise<{ kind: string; message?: string }> => ({
-    kind: 'empty',
-  })
-);
+const mockCommit = jest.fn(async (): Promise<{ kind: string; message?: string }> => ({
+  kind: 'empty',
+}));
 jest.mock('@/features/settings/components/WebdavConfigForm', () => ({
   WebdavConfigForm: ({
     onRemoved,
@@ -338,8 +336,7 @@ afterEach(() => {
 
 it('holds the backup action as Cancel until its run finishes, starting no second run', async () => {
   let finishBackup:
-    | ((result: { wroteZip: boolean; carriers: Record<string, never> }) => void)
-    | undefined;
+    ((result: { wroteZip: boolean; carriers: Record<string, never> }) => void) | undefined;
   (performBackup as jest.Mock).mockImplementationOnce(
     () =>
       new Promise((resolve) => {

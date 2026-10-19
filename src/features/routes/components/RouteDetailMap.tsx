@@ -7,8 +7,7 @@
  * panel at regular width.
  */
 import React, { useMemo } from 'react';
-import { I18nManager, Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { I18nManager, Platform, StyleSheet, View } from 'react-native';
 
 import { ROUTE_MAP_FIT_PADDING, RouteMapView } from './RouteMapView';
 import { Icon } from '@/shared/ui/Icon';
@@ -21,6 +20,7 @@ import {
 } from '@/shared/app/mapSheetStop';
 import { useInMapSurfaceSlot, visibleMapInset } from '@/features/maps';
 import { useMapSheetHost } from '@/shared/app/MapSheetHost';
+import { useSheetWindow } from '@/shared/app/TopSafeAreaContext';
 import { getActivityColor } from '@/shared/activity/activityUtils';
 import { useRouteDetailData } from '../hooks/useRouteDetailData';
 import { useRouteMapSignatures } from '../hooks';
@@ -52,15 +52,10 @@ export function RouteDetailMap({ routeId, pageActivityId }: RouteDetailMapProps)
   const deltaLine = useCardDeltaLine(hostKey);
   const { stop } = useMapSheetStop(hostKey);
 
-  const { width, height } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
+  const sheetWindow = useSheetWindow();
+  const { width, height } = sheetWindow;
   const headerBottom = useHeroHeaderBottom();
-  const coveredBottom = mapSheetCoveredHeight(
-    Platform.OS,
-    Platform.Version,
-    { width, height, topInset: insets.top, bottomInset: insets.bottom },
-    stop
-  );
+  const coveredBottom = mapSheetCoveredHeight(Platform.OS, Platform.Version, sheetWindow, stop);
   const fitPadding = useMemo(() => {
     const sides = mapSheetCoveredSides({ width }, I18nManager.isRTL);
     return visibleMapInset({

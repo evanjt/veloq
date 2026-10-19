@@ -940,36 +940,35 @@
     "explanation": {
       "title": "Einblicke verstehen",
       "foundLabel": "Methode",
-      "found": "Veloq vergleicht deine neuesten Aktivitäten und Wellness-Daten mit deinem eigenen Verlauf, auf diesem Telefon, und zeigt eine Karte für jeden Rekord, jede Veränderung und jeden Trend, den es findet.",
+      "found": "Veloq vergleicht deine neuesten Aktivitäten und Wellness-Daten mit deinem eigenen Verlauf, auf diesem Telefon.",
       "kinds": {
         "sectionsAndRoutes": {
           "label": "Abschnitte und Routen",
-          "text": "Ein neuer Rekord, eine Reihe schnellerer oder langsamerer Zeiten oder eine veränderte Herzfrequenz bei gleichem Tempo, auf einem Abschnitt oder einer Route, die du wiederholst."
+          "text": "Rekorde, schnellere oder langsamere Zeiten und Herzfrequenz bei gleichem Tempo."
         },
         "fitness": {
           "label": "eFTP und kritische Geschwindigkeit",
-          "text": "Eine Änderung deiner eFTP oder kritischen Geschwindigkeit und die Abschnittsrekorde, die du aufgestellt hast, als sie niedriger war."
+          "text": "Eine Änderung eines der beiden und die Rekorde, die du aufgestellt hast, als der Wert niedriger war."
         },
         "week": {
           "label": "Diese Woche",
-          "text": "Trainingszeit und -belastung dieser Woche bis jetzt, verglichen mit demselben Zeitpunkt letzte Woche."
+          "text": "Diese Woche bis jetzt gegen die letzte, oder die letzte Woche gegen den 4-Wochen-Durchschnitt."
         },
         "hrv": {
           "label": "Herzfrequenzvariabilität",
-          "text": "Deine HRV der letzten 7 Tage, die neueren Messungen gegen die älteren."
+          "text": "Deine letzten 7 Tage, die neueren Messungen gegen die älteren."
         },
         "strength": {
           "label": "Kraft",
-          "text": "Die gewichteten Sätze einer Muskelgruppe, steigend oder nachlassend, und das Gleichgewicht zwischen gegenüberliegenden Muskelgruppen."
+          "text": "Gewichtete Sätze je Muskelgruppe und das Gleichgewicht gegenüberliegender Gruppen."
         },
         "sectionChanges": {
           "label": "Abschnittsänderungen",
-          "text": "Ein Abschnitt, der neu zugeschnitten, geteilt, wiederhergestellt oder auf eine frühere Version zurückgesetzt wurde."
+          "text": "Ein Abschnitt, neu zugeschnitten, geteilt, wiederhergestellt oder zurückgesetzt."
         }
       },
-      "orderLabel": "Reihenfolge",
       "sourcesLabel": "Quellen",
-      "sources": "Zeiten, Distanzen, Herzfrequenz und Leistung stammen aus deinen Aktivitäten. eFTP, kritische Geschwindigkeit und HRV sind die Werte, die intervals.icu für dich führt. Öffne eine Karte und tippe auf „{{howCalculated}}“ für Methode und Daten.",
+      "sources": "Zeiten, Herzfrequenz und Leistung stammen aus deinen Aktivitäten, eFTP, kritische Geschwindigkeit und HRV von intervals.icu, und Methode und Daten jeder Karte stehen unter „{{howCalculated}}“.",
       "strengthTitle": "Kraft verstehen"
     },
     "aboutRanking": "Die Karten sind danach sortiert, wie viel sie zu sagen haben: wie aktuell etwas ist, wie stark es von deinem Ueblichen abweicht, wie sehr es sich veraendert hat und wie oft du es machst.",
@@ -995,7 +994,6 @@
       "lowSignal": "Wenig Daten",
       "noSignal": "Keine Daten",
       "allOneSideTitle": "{{pair}}: gesamtes Volumen auf einer Seite",
-      "dominantTitle": "{{dominant}} trägt mehr Volumen in {{pair}}",
       "oneSidedBody": "{{dominant}} stellt das gesamte gewichtete Satzvolumen für {{pair}} der letzten 4 Wochen.",
       "ratioBody": "{{pair}} liegt im jüngsten 4-Wochen-Fenster bei durchschnittlich {{ratio}} gewichteten Sätzen.",
       "ratioLabel": "Verhältnis",
@@ -1152,6 +1150,10 @@
     "loadingOlderActivities": "Lade ältere Aktivitäten…",
     "activitySummary_one": "{{count}} Aktivität · {{mapped}} auf der Karte",
     "activitySummary_other": "{{count}} Aktivitäten · {{mapped}} auf der Karte",
+    "unmappedWithoutGps_one": "{{count}} ohne GPS",
+    "unmappedWithoutGps_other": "{{count}} ohne GPS",
+    "unmappedDownloading_one": "{{count}} wird geladen",
+    "unmappedDownloading_other": "{{count}} werden geladen",
     "expandRange": "Bereich erweitern",
     "distanceAny": "Alle",
     "showFilters": "Alle Filter anzeigen",
@@ -1218,9 +1220,16 @@
     "keyYearOrMore": "Ein Jahr oder älter",
     "keyFewerPasses": "Weniger Durchgänge",
     "keyMorePasses": "Mehr Durchgänge",
+    "keyEachSection": "Jeder Abschnitt in eigener Farbe",
+    "keyEachRoute": "Jede Route in eigener Farbe",
     "colorByGradient": "Nach Gefälle färben",
     "periodThisYear": "Dieses Jahr",
     "sheetSize": "Größe von Karte und Details",
+    "detailLoading": {
+      "activity": "Aktivität wird geladen",
+      "route": "Route wird geladen",
+      "section": "Abschnitt wird geladen"
+    },
     "sheetStop": {
       "peek": "Vorschau",
       "half": "Halb",
@@ -1450,6 +1459,7 @@
     "writePermissionRequired": "Schreibberechtigung erforderlich",
     "savedLocally": "Aktivität auf diesem Gerät gespeichert. Du kannst sie jederzeit über Meine Aufzeichnungen hochladen.",
     "savedLocallyNoScope": "Fahrt auf diesem Gerät gespeichert. Sie wird hochgeladen, sobald du den Upload erlaubst.",
+    "savedLocallyNoUpload": "Fahrt auf diesem Gerät gespeichert. Im Demo-Modus wird nichts hochgeladen.",
     "settingsUpload": "Hochladen",
     "autoUpload": "Automatisch hochladen",
     "autoUploadDescription": "Aufzeichnungen beim Speichern automatisch zu intervals.icu hochladen. Wenn deaktiviert, bleiben sie auf diesem Gerät, bis du sie über Meine Aufzeichnungen hochlädst.",

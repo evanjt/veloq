@@ -17,7 +17,12 @@
  * A source serialised here is handed on as `sourceJson`, so the script that
  * sends it reuses the string rather than stringifying the track again.
  */
-import type { MapImageSpec, MapLayerSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
+import type {
+  MapImageSpec,
+  MapLayerSpec,
+  MapSourceSpec,
+  MapTerrainSpec,
+} from '@/features/maps/lib/htmlBuilders';
 
 /** What was last sent for one key: the object it came from, and its bytes. */
 export type SentSpec<T> = {
@@ -64,9 +69,7 @@ export function growingLine(spec: MapSourceSpec): GeoJSON.Position[] | null {
 }
 
 export type GrowthPlan =
-  | { kind: 'append'; coordinates: GeoJSON.Position[] }
-  | { kind: 'whole' }
-  | { kind: 'unchanged' };
+  { kind: 'append'; coordinates: GeoJSON.Position[] } | { kind: 'whole' } | { kind: 'unchanged' };
 
 const samePoint = (a: GeoJSON.Position | undefined, b: GeoJSON.Position | undefined): boolean =>
   !!a && !!b && a.length === b.length && a.every((v, i) => v === b[i]);
@@ -101,6 +104,8 @@ export type SurfaceSpecs = {
   /** Absent and empty differ: the page is only told about images it has. */
   images?: MapImageSpec[] | undefined;
   interactiveLayers?: string[] | undefined;
+  /** Absent and null are both a flat map. */
+  terrain?: MapTerrainSpec | null | undefined;
 };
 
 export type SurfacePatch = {
@@ -109,6 +114,8 @@ export type SurfacePatch = {
   layers?: MapLayerSpec[];
   images?: MapImageSpec[];
   interactiveLayers?: string[];
+  /** Null turns terrain off. */
+  terrain?: MapTerrainSpec | null;
 };
 
 export type PatchResult = {
@@ -142,6 +149,13 @@ export function sameFields(a: MapSourceSpec, b: MapSourceSpec): boolean {
   return keys.every((key) => key in right && left[key] === right[key]);
 }
 
+/** Whether two terrain specs ask the page for the same thing, compared by value. */
+function sameTerrain(a: MapTerrainSpec | null, b: MapTerrainSpec | null): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return a.exaggeration === b.exaggeration && a.pitch === b.pitch;
+}
+
 /** Stands in for an absent list, so an absent one keeps its identity too. */
 const EMPTY: never[] = [];
 
@@ -156,12 +170,15 @@ export function createSurfacePatcher() {
   let sentSources: Record<string, SentSource> = {};
   let sentLayers: SentSpec<MapLayerSpec[]> | undefined;
   let sentImages: SentSpec<MapImageSpec[]> | undefined;
+  // A fresh page is flat, so nothing needs saying until terrain is asked for.
+  let sentTerrain: MapTerrainSpec | null = null;
 
   return {
     forget() {
       sentSources = {};
       sentLayers = undefined;
       sentImages = undefined;
+      sentTerrain = null;
     },
 
     next(specs: SurfaceSpecs): PatchResult {
@@ -220,7 +237,11 @@ export function createSurfacePatcher() {
 
       serialised += layers.serialised + images.serialised;
 
-      if (!hasSourceChange && !hasAppend && !layers.changed && !images.changed) {
+      const terrain = specs.terrain ?? null;
+      const terrainChanged = !sameTerrain(sentTerrain, terrain);
+      sentTerrain = terrain;
+
+      if (!hasSourceChange && !hasAppend && !layers.changed && !images.changed && !terrainChanged) {
         return { patch: null, serialised, sourceJson };
       }
 
@@ -233,6 +254,7 @@ export function createSurfacePatcher() {
           ...(hasAppend ? { appends } : {}),
           ...(layers.changed ? { layers: specs.layers } : {}),
           ...(specs.interactiveLayers ? { interactiveLayers: specs.interactiveLayers } : {}),
+          ...(terrainChanged ? { terrain } : {}),
         },
         serialised,
         sourceJson,

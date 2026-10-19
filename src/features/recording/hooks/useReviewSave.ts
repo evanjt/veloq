@@ -12,6 +12,7 @@ import { requestSyncRefresh } from '@/shared/native/syncRefresh';
 import { isDeviceLowOnSpace } from '@/shared/storage/freeSpace';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { sourceFor } from '@/shared/app/source';
 import { returnTo, navigateTo } from '@/shared/app/navigation';
 import { clearRecordingBackup } from '@/features/recording/lib/storage/recordingBackup';
 import {
@@ -263,7 +264,11 @@ export function useReviewSave({
       // auto-upload says, and the flag belongs to this ride alone: the store's
       // reset when the ride is settled clears it.
       const withoutScope = useUploadPermissionStore.getState().recordingWithoutScope;
-      const uploadable = autoUpload && !withoutScope;
+      // A source with nowhere to send a ride keeps it on the device, whatever
+      // auto-upload says.
+      const { authMethod, isDemoMode, athleteId } = useAuthStore.getState();
+      const staysOnDevice = sourceFor({ authMethod, isDemoMode, athleteId })?.can.uploads === false;
+      const uploadable = autoUpload && !withoutScope && !staysOnDevice;
 
       if (!savedEntryRef.current && isManual) {
         // A manual entry is a row like any other: saved first, posted second,
@@ -415,17 +420,21 @@ export function useReviewSave({
 
       if (!uploadable) {
         log.log(
-          withoutScope
-            ? 'Recorded without the upload scope - recording saved to library only'
-            : 'Auto-upload off - recording saved to library only'
+          staysOnDevice
+            ? 'Source cannot upload - recording saved to library only'
+            : withoutScope
+              ? 'Recorded without the upload scope - recording saved to library only'
+              : 'Auto-upload off - recording saved to library only'
         );
         finishAndGoHome(
-          withoutScope
-            ? t('recording.savedLocallyNoScope')
-            : t(
-                'recording.savedLocally',
-                'Activity saved on this device. Upload it any time from My recordings.'
-              ),
+          staysOnDevice
+            ? t('recording.savedLocallyNoUpload')
+            : withoutScope
+              ? t('recording.savedLocallyNoScope')
+              : t(
+                  'recording.savedLocally',
+                  'Activity saved on this device. Upload it any time from My recordings.'
+                ),
           stillCurrent
         );
         return;

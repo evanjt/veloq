@@ -115,6 +115,69 @@ describe('mapPalette', () => {
   });
 });
 
+function channels(hex: string): number[] {
+  return [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+}
+
+function luminance(hex: string): number {
+  const [r, g, b] = channels(hex)
+    .map((c) => c / 255)
+    .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/** `line` drawn at `alpha` over `ground`, against the ground: what the eye reads at its edge. */
+function contrastOver(line: string, alpha: number, ground: string): number {
+  const [l, g] = [channels(line), channels(ground)];
+  const mixed = `#${l
+    .map((c, i) =>
+      Math.round(c * alpha + g[i] * (1 - alpha))
+        .toString(16)
+        .padStart(2, '0')
+    )
+    .join('')}`;
+  const [hi, lo] = [luminance(mixed), luminance(ground)].sort((a, b) => b - a);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+describe('the Map tab overlay colours on the base edge', () => {
+  const lineOpacity = (palette: MapPalette, id: string): number => {
+    const layers = buildRegionalLayers({
+      palette,
+      showActivities: true,
+      showSections: true,
+      showRoutes: true,
+      showHeatmap: false,
+      heatmapEnabled: false,
+      hasSpider: false,
+      hasUserLocation: false,
+      hasRouteData: false,
+      selectedActivityId: null,
+      selectedSectionId: null,
+      selectedRouteId: null,
+      routeColor: SPORT,
+    });
+    return layers.find((l) => l.id === id)?.paint?.['line-opacity'] as number;
+  };
+
+  it.each(BASES)('clears 3:1 for every section and route colour on the %s edge', (base) => {
+    const palette = mapPalette(base);
+    const under: string[] = [];
+    for (const [colours, id] of [
+      [palette.layer.sections, 'sections-line'],
+      [palette.layer.routes, 'routes-line'],
+    ] as const) {
+      const alpha = lineOpacity(palette, id);
+      for (const colour of colours) {
+        const ratio = contrastOver(colour, alpha, palette.edge);
+        if (ratio < 3) under.push(`${id} ${colour} ${ratio.toFixed(2)}`);
+      }
+    }
+
+    expect(under).toEqual([]);
+  });
+});
+
 const builders: [string, (palette: MapPalette) => unknown][] = [
   [
     'the activity map',

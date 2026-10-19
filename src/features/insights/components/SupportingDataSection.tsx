@@ -1,8 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { Canvas, Path } from '@shopify/react-native-skia';
-import { chartStroke, LINE_CAP, LINE_JOIN } from '@/shared/charts';
 import { useTranslation } from 'react-i18next';
 import type { InsightCategory, TFunc } from '../types';
 import { sectionRowKey, sectionWithSport } from '../lib/cardSport';
@@ -31,8 +29,6 @@ import { verdictIcon, verdictRung } from '@/shared/format/trend';
 import type { LatLngShort } from '@/shared/geo/distance';
 import { NameText } from '@/shared/ui/NameText';
 
-const SPARKLINE_HEIGHT = 60;
-
 interface SupportingDataSectionProps {
   data: InsightSupportingData;
   /** The card's category, which names the colour its history is drawn in. */
@@ -57,31 +53,6 @@ function SectionPreview({
   return (
     <TrackPreview testID={`section-preview-${sectionId}`} points={normalised} isDark={isDark} />
   );
-}
-
-function buildSparklinePath(
-  data: number[],
-  width: number,
-  height: number,
-  padding: number
-): string {
-  if (data.length < 2) return '';
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const range = max - min || 1;
-  const drawH = height - padding * 2;
-  const stepX = width / (data.length - 1);
-
-  const points = data.map((v, i) => ({
-    x: i * stepX,
-    y: padding + drawH - ((v - min) / range) * drawH,
-  }));
-
-  let d = `M ${points[0].x} ${points[0].y}`;
-  for (let i = 1; i < points.length; i++) {
-    d += ` L ${points[i].x} ${points[i].y}`;
-  }
-  return d;
 }
 
 export const SupportingDataSection = React.memo(function SupportingDataSection({
@@ -225,42 +196,6 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
         </View>
       ) : null}
     </View>
-  );
-});
-
-/** Inline Skia sparkline, a bare line on the data's own range */
-export const SparklineChart = React.memo(function SparklineChart({
-  data,
-  color,
-  width = 280,
-  height = SPARKLINE_HEIGHT,
-}: {
-  data: number[];
-  color: string;
-  width?: number;
-  height?: number;
-}) {
-  const WIDTH = width;
-  const PADDING = 4;
-
-  const linePath = useMemo(
-    () => buildSparklinePath(data, WIDTH, height, PADDING),
-    [data, WIDTH, height]
-  );
-
-  if (!linePath) return null;
-
-  return (
-    <Canvas style={{ width: WIDTH, height }}>
-      <Path
-        path={linePath}
-        style="stroke"
-        strokeWidth={chartStroke.series}
-        strokeJoin={LINE_JOIN}
-        strokeCap={LINE_CAP}
-        color={color}
-      />
-    </Canvas>
   );
 });
 

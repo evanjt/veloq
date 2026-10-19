@@ -179,7 +179,7 @@ describe('the banner layout', () => {
     // that child by its content.
     const content = screen.getByTestId('ferry-banner-content');
     const chain = [];
-    for (let node = screen.getByText('Ferry runs on the winter timetable'); node !== content; ) {
+    for (let node = screen.getByText('Ferry runs on the winter timetable'); node !== content;) {
       if (typeof node.type === 'string') chain.push(node);
       if (!node.parent) throw new Error('the title is not inside the banner content');
       node = node.parent;

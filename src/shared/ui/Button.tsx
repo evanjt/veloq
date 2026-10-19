@@ -29,7 +29,6 @@
 import React from 'react';
 import {
   ActivityIndicator,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -80,10 +79,7 @@ type MaterialGlyph = keyof typeof MaterialCommunityIcons.glyphMap;
  *   such as Cancel. A button whose press is refused meanwhile is `loading`.
  */
 export type ButtonGlyph =
-  | MaterialGlyph
-  | { chrome: ChromeRole }
-  | { name: MaterialGlyph; ink: string }
-  | { spinner: true };
+  MaterialGlyph | { chrome: ChromeRole } | { name: MaterialGlyph; ink: string } | { spinner: true };
 
 export interface ButtonProps {
   label: string;
@@ -455,11 +451,14 @@ export interface ToggleButtonRowProps<T extends string> {
   onValueChange: (value: T) => void;
   /**
    * `fill` shares the width equally between the chips, for two or three short options that
-   * belong side by side. `hug` sizes each chip to its label and scrolls the row sideways when
-   * the chips are wider than it, so no chip is clipped and no label is cut.
+   * belong side by side. `hug` sizes each chip to its label and wraps the chips onto another
+   * line when they are wider than the row, so every option stays in view at large text and in
+   * long locales. A sideways scroll hid the last chip past the edge with nothing to say it was
+   * there. A chip wider than the whole row shrinks to it, and its label fits inside.
    */
   layout?: 'fill' | 'hug';
   style?: StyleProp<ViewStyle>;
+  testID?: string;
 }
 
 /**
@@ -472,6 +471,7 @@ export function ToggleButtonRow<T extends string>({
   onValueChange,
   layout: rowLayout = 'fill',
   style,
+  testID,
 }: ToggleButtonRowProps<T>) {
   const chips = options.map((option) => (
     <ToggleButton
@@ -484,23 +484,18 @@ export function ToggleButtonRow<T extends string>({
       onPress={() => {
         if (option.value !== value) onValueChange(option.value);
       }}
-      {...(rowLayout === 'fill' && { style: styles.toggleCell })}
+      style={rowLayout === 'fill' ? styles.toggleCell : styles.toggleHug}
     />
   ));
 
-  if (rowLayout === 'hug') {
-    return (
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={style}
-        contentContainerStyle={styles.toggleRow}
-      >
-        {chips}
-      </ScrollView>
-    );
-  }
-  return <View style={[styles.toggleRow, style]}>{chips}</View>;
+  return (
+    <View
+      testID={testID}
+      style={[styles.toggleRow, rowLayout === 'hug' && styles.toggleRowWrap, style]}
+    >
+      {chips}
+    </View>
+  );
 }
 
 const BUTTON_HEIGHT = {
@@ -526,8 +521,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
   },
+  // Wrapped lines keep the same 8 pt between them, centred under one another.
+  toggleRowWrap: {
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
   toggleCell: {
     flex: 1,
+  },
+  toggleHug: {
+    flexShrink: 1,
   },
   base: {
     alignItems: 'center',

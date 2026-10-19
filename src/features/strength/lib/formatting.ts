@@ -26,8 +26,7 @@ export function formatBestSet(
 }
 
 export type BalanceCopyKey =
-  | 'insights.strengthBalance.oneSided'
-  | 'insights.strengthBalance.noSignal';
+  'insights.strengthBalance.oneSided' | 'insights.strengthBalance.noSignal';
 type TFunc = (key: BalanceCopyKey) => string;
 
 /**

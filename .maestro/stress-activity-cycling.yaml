@@ -21,7 +21,7 @@ tags:
             - tapOn: "Open"
       - extendedWaitUntil:
           visible:
-            id: "activity-detail-content"
+            id: "activity-detail-screen"
           timeout: 5000
           optional: true
 
@@ -33,7 +33,7 @@ tags:
             - tapOn: "Open"
       - extendedWaitUntil:
           visible:
-            id: "activity-detail-content"
+            id: "activity-detail-screen"
           timeout: 5000
           optional: true
 
@@ -45,7 +45,7 @@ tags:
             - tapOn: "Open"
       - extendedWaitUntil:
           visible:
-            id: "activity-detail-content"
+            id: "activity-detail-screen"
           timeout: 5000
           optional: true
 
@@ -57,7 +57,7 @@ tags:
             - tapOn: "Open"
       - extendedWaitUntil:
           visible:
-            id: "activity-detail-content"
+            id: "activity-detail-screen"
           timeout: 5000
           optional: true
 
@@ -69,7 +69,7 @@ tags:
             - tapOn: "Open"
       - extendedWaitUntil:
           visible:
-            id: "activity-detail-content"
+            id: "activity-detail-screen"
           timeout: 5000
           optional: true
 

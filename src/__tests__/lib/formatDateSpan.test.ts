@@ -5,6 +5,7 @@
 
 import { initialiseI18n } from '@/i18n';
 import { formatDateSpan, formatFullDate } from '@/shared/format/format';
+import { wallClockSecondsToLocalDate } from '@/shared/time/startDate';
 
 beforeAll(async () => {
   await initialiseI18n('en-AU');
@@ -35,5 +36,27 @@ describe('a date span', () => {
 
   it('is empty with neither date', () => {
     expect(formatDateSpan(null, null)).toBe('');
+  });
+});
+
+describe('a date span of engine-dated attempts', () => {
+  /** 00:00 on 15 Jan 2024 and 23:30 on 28 May 2026, each the athlete's wall clock stamped as UTC. */
+  const FIRST_RIDE = Date.UTC(2024, 0, 15, 0, 0) / 1000;
+  const LAST_RIDE = Date.UTC(2026, 4, 28, 23, 30) / 1000;
+
+  it('names the days the attempts were ridden on, whatever zone the device is in', () => {
+    expect(
+      formatDateSpan(
+        wallClockSecondsToLocalDate(FIRST_RIDE),
+        wallClockSecondsToLocalDate(LAST_RIDE)
+      )
+    ).toBe('15 Jan 2024 – 28 May 2026');
+  });
+
+  it('keeps two rides on one day as one date', () => {
+    const morning = Date.UTC(2026, 4, 28, 0, 15) / 1000;
+    expect(
+      formatDateSpan(wallClockSecondsToLocalDate(morning), wallClockSecondsToLocalDate(LAST_RIDE))
+    ).toBe('28 May 2026');
   });
 });

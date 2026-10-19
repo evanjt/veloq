@@ -7,7 +7,7 @@
  * than reading as the `1Y` that means 365 days everywhere else.
  */
 
-import { periodOptions, periodStart, type Period } from '@/shared/app/period';
+import { PERIOD_LABEL_KEYS, periodOptions, periodStart, type Period } from '@/shared/app/period';
 
 export type MapPeriod = Extract<Period, 'all' | '6m' | '3m' | '1m' | '7d'> | 'year';
 
@@ -16,6 +16,11 @@ export const PERIOD_OPTIONS: { id: MapPeriod; labelKey: string }[] = [
   { id: 'year', labelKey: 'maps.periodThisYear' },
   ...periodOptions<Extract<MapPeriod, Period>>(['6m', '3m', '1m', '7d']),
 ];
+
+/** The label the period button and its list read, the span named in full. */
+export function periodSelectLabelKey(period: MapPeriod): string {
+  return period === 'year' ? 'maps.periodThisYear' : PERIOD_LABEL_KEYS.long[period];
+}
 
 /**
  * The map opens on the whole library, which is the one exception to

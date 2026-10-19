@@ -136,8 +136,7 @@ export { FfiStartOutcome as StartOutcome } from './generated/veloqrs';
 export type { FfiStartResult as StartResult } from './generated/veloqrs';
 export type { FfiGpsPassStart as GpsPassStart } from './generated/veloqrs';
 export type StartVerdict =
-  | import('./generated/veloqrs').FfiStartOutcome
-  | import('./generated/veloqrs').FfiStartResult;
+  import('./generated/veloqrs').FfiStartOutcome | import('./generated/veloqrs').FfiStartResult;
 export { isRetryableStart, hasStarted, startOutcome } from './delegates/start';
 
 // Why the engine did not open, for the banner to translate. See

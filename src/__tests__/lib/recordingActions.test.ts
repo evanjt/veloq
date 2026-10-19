@@ -56,4 +56,12 @@ describe('recordingActions', () => {
     expect(recordingActions(ENTRY, 'rec-1').canUpload).toBe(false);
     expect(recordingActions(ENTRY, null).canUpload).toBe(true);
   });
+
+  it('offers no upload under a source that cannot upload, and still shares the FIT', () => {
+    for (const uploadStatus of KEEPS_ITS_FIT) {
+      const actions = recordingActions({ ...ENTRY, uploadStatus }, null, true, false);
+      expect(actions.canUpload).toBe(false);
+      expect(actions.canShare).toBe(true);
+    }
+  });
 });

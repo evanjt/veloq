@@ -48,6 +48,7 @@ import { useMapSheetCardAddress, useMapSheetHostHeader } from '@/shared/app/MapS
 import { MapSheetCardCloseSpace } from '@/shared/app/MapSheetCards';
 import { overMapHeaderOptions } from '@/shared/app/screenHeaders';
 import { Button, ErrorState, HeroNameRow, HeroStatsRow, useBottomClearance } from '@/shared/ui';
+import { heroPeekStyles } from '@/shared/ui/DetailHero';
 import { FitText } from '@/shared/ui/FitText';
 import { sheetScrollProps } from '@/shared/ui/SheetScrollView';
 
@@ -60,7 +61,7 @@ import type {
   FfiSectionSportCount,
   FfiSectionTrendCurves,
 } from 'veloqrs';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, spacing } from '@/theme';
 
 const EMPTY_SPORT_COUNTS: FfiSectionSportCount[] = [];
 const EMPTY_EXCLUDED_POINTS: FfiSectionChartPoint[] = [];
@@ -236,6 +237,7 @@ export function RouteDetailCard({ id, activityId: navActivityId }: RouteDetailCa
         status={detailStatus}
         onRetry={refreshDetail}
         notFoundMessage={t('routeDetail.routeNotFound')}
+        peek="route"
       />
     );
   }
@@ -272,7 +274,7 @@ export function RouteDetailCard({ id, activityId: navActivityId }: RouteDetailCa
         {...sheetScrollProps}
       >
         {/* Peek: what the lowest stop shows. */}
-        <View testID="route-card-peek" style={peekStyles.peek}>
+        <View testID="route-card-peek" style={heroPeekStyles.peek}>
           <HeroNameRow
             onSurface
             name={displayName}
@@ -298,7 +300,11 @@ export function RouteDetailCard({ id, activityId: navActivityId }: RouteDetailCa
           {dateLine ? (
             <FitText
               testID="route-card-date-line"
-              style={[peekStyles.dateLine, isDark && peekStyles.dateLineDark]}
+              style={[
+                heroPeekStyles.dateLine,
+                peekStyles.dateLine,
+                isDark && peekStyles.dateLineDark,
+              ]}
             >
               {dateLine}
             </FitText>
@@ -408,14 +414,7 @@ export function RouteDetailCard({ id, activityId: navActivityId }: RouteDetailCa
 }
 
 const peekStyles = StyleSheet.create({
-  peek: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.xs,
-    paddingBottom: spacing.sm,
-    gap: spacing.xs,
-  },
   dateLine: {
-    ...typography.bodyCompact,
     color: colors.textSecondary,
   },
   dateLineDark: {

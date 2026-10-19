@@ -298,7 +298,7 @@ private struct ChartAxis: View {
       if labelled {
         Text(String(Int(value.rounded())))
           .measuredText("axis value")
-          .font(.system(size: plot.axisFontSize))
+          .widgetFont(size: plot.axisFontSize)
           .foregroundColor(palette.textSecondary)
           // Held half a line from the top, so the top label stays inside the chart.
           .position(x: (plot.left - 4) / 2, y: min(max(y, plot.axisFontSize * 0.6), plot.bottom))
@@ -932,7 +932,7 @@ private struct FormZoneChartView: View {
         ForEach(bounds.indices, id: \.self) { i in
           Text(String(Int(bounds[i].rounded())))
             .measuredText("zone bound")
-            .font(.system(size: axisFontSize))
+            .widgetFont(size: axisFontSize)
             .foregroundColor(palette.textSecondary)
             .position(
               x: (left - 4) / 2,

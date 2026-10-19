@@ -71,8 +71,7 @@ function confirmOf(tap: () => void): () => unknown {
   (Alert.alert as jest.Mock).mockClear();
   tap();
   const buttons = (Alert.alert as jest.Mock).mock.calls[0]?.[2] as
-    | { onPress?: () => unknown }[]
-    | undefined;
+    { onPress?: () => unknown }[] | undefined;
   (Alert.alert as jest.Mock).mockClear();
   return () => buttons?.[1]?.onPress?.();
 }

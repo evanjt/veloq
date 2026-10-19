@@ -21,6 +21,11 @@ import XCTest
 /// Runs on the iOS simulator: `ImageRenderer` lays the views out with the platform's own text.
 @MainActor
 final class WidgetCaptureTests: XCTestCase {
+  nonisolated override func setUp() {
+    super.setUp()
+    _ = BundledFace.registered
+  }
+
   private struct Widget {
     let name: String
     let families: [WidgetFamily]
@@ -122,14 +127,15 @@ final class WidgetCaptureTests: XCTestCase {
       if widget == "summary-fitness" { texts.append("metric caption") }
       // The fitness chart names its two lines and the days they span; the large form chart
       // names its zone and labels the bounds between zones.
-      if fixture == "demo" || fixture == "long-text" {
+      if fixture == "demo" || fixture == "demo-own" || fixture == "long-text" {
         texts += ["chart series", "chart span"]
         if family == .systemLarge { texts += ["form chart zone", "zone bound"] }
       }
       return texts
     }
-    // The sample library's form line has room under the comparison on the larger medium box.
-    if widget == "activity", family == .systemMedium, screen == "430", fixture == "demo" {
+    // An athlete's own form line has room under the comparison on the larger medium box. The
+    // sample library's demo line may take that room, so the line is held without it.
+    if widget == "activity", family == .systemMedium, screen == "430", fixture == "demo-own" {
       return ["form zone"]
     }
     return []
@@ -138,7 +144,7 @@ final class WidgetCaptureTests: XCTestCase {
   func testEveryWidgetDrawsEveryTextWholeAtEveryFamily() throws {
     let out = try capturesDirectory()
     var failures: [String] = []
-    for fixture in ["demo", "long-text", "empty", "no-wellness"] {
+    for fixture in ["demo", "demo-own", "long-text", "empty", "no-wellness"] {
       let snapshot = try self.snapshot(fixture)
       for widget in widgets {
         for family in widget.families {
@@ -420,11 +426,28 @@ final class WidgetCaptureTests: XCTestCase {
     return (try? JSONDecoder().decode(WidgetSnapshot.self, from: emptied)) ?? snapshot
   }
 
+  /// The fixtures on disk, and `demo-own`: the sample library as an athlete's own widget draws
+  /// it, with no demo line. It is built from `demo.json` so the two cannot drift apart.
   private func snapshot(_ fixture: String) throws -> WidgetSnapshot {
+    if fixture == "demo-own" { return try withoutTheDemoLine("demo") }
     let url = try XCTUnwrap(
       Bundle.module.url(forResource: fixture, withExtension: "json", subdirectory: "fixtures"),
       "no fixture \(fixture).json")
     return try JSONDecoder().decode(WidgetSnapshot.self, from: Data(contentsOf: url))
+  }
+
+  /// The fixture with `display.demoLabel` removed, which is how an athlete's own snapshot reads.
+  private func withoutTheDemoLine(_ fixture: String) throws -> WidgetSnapshot {
+    let url = try XCTUnwrap(
+      Bundle.module.url(forResource: fixture, withExtension: "json", subdirectory: "fixtures"),
+      "no fixture \(fixture).json")
+    var json = try XCTUnwrap(
+      JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+    var display = try XCTUnwrap(json["display"] as? [String: Any])
+    XCTAssertNotNil(display.removeValue(forKey: "demoLabel"), "\(fixture).json has no demo line")
+    json["display"] = display
+    return try JSONDecoder().decode(
+      WidgetSnapshot.self, from: JSONSerialization.data(withJSONObject: json))
   }
 
   private func capturesDirectory() throws -> URL {

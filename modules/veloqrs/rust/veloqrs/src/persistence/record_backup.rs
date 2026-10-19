@@ -431,6 +431,8 @@ fn carry_section_type(db: &Connection, row: &mut RecordRow) -> Result<(), String
 /// this library's sections, and a restored library rebuilds its own registry
 /// from what it places. A past catalogue state needs no table of its own, it is
 /// an `archived` row of `section_history` grounded on the version it names.
+/// No activity is carried, so an activity with no intervals.icu copy would not
+/// survive a restore.
 pub(crate) const RECORD_TABLES: &[(&str, &str)] = &[
     // Which settings travel is `is_record_setting`, applied to every row read.
     ("settings", "1 = 1"),

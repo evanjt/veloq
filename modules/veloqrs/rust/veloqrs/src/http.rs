@@ -13,10 +13,10 @@
 //! ground.
 
 use crate::governor::Lane;
-use crate::net::IntervalsSession;
 use crate::net::source::Source;
 use crate::net::transport::{NetError, Transport};
 use crate::net::types::{StreamDto, parse_streams};
+use crate::net::{LiveSource, live_source};
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -396,7 +396,7 @@ impl DispatchCounter {
 
 /// Batch fetcher for activity maps and FIT files.
 pub struct ActivityFetcher {
-    session: IntervalsSession,
+    session: LiveSource,
 }
 
 impl ActivityFetcher {
@@ -409,7 +409,7 @@ impl ActivityFetcher {
     }
 
     /// Build a fetcher over the signed-in athlete's session.
-    pub fn with_session(session: IntervalsSession) -> Self {
+    pub fn with_session(session: LiveSource) -> Self {
         Self { session }
     }
 
@@ -417,12 +417,12 @@ impl ActivityFetcher {
     /// at a mock server. Every request it makes names an activity, so the
     /// session it builds names no athlete.
     pub fn with_transport(transport: Transport) -> Self {
-        Self::with_session(IntervalsSession::new(transport, String::new()))
+        Self::with_session(live_source(transport, String::new()))
     }
 
     /// The session every request goes through, so callers can issue their own
     /// paced requests against the same client rather than building a second one.
-    pub fn session(&self) -> &IntervalsSession {
+    pub fn session(&self) -> &LiveSource {
         &self.session
     }
 

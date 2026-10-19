@@ -85,7 +85,7 @@ function load(path) {
     }
     return a;
   };
-  for (let changed = true; changed; ) {
+  for (let changed = true; changed;) {
     changed = false;
     for (let i = post.length - 2; i >= 0; i--) {
       const v = post[i];

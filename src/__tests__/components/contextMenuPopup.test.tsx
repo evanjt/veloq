@@ -11,10 +11,11 @@
 
 import React from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
-import { render, screen } from '@testing-library/react-native';
+import { render, screen, within } from '@testing-library/react-native';
 import { PaperProvider } from 'react-native-paper';
 
 import { ContextMenu, type ContextMenuEntry } from '@/shared/ui/ContextMenu';
+import { Icon } from '@/shared/ui/Icon';
 import { darkColors, layout, MIN_TAP_TARGET, shadows, stroke, typography } from '@/theme';
 
 let mockIsDark = false;
@@ -80,6 +81,18 @@ describe('the context menu popup', () => {
     for (const row of rows) {
       expect(flat(row).minHeight).toBeGreaterThanOrEqual(MIN_TAP_TARGET.android);
     }
+  });
+
+  it('draws the check glyph on the checked choice only', async () => {
+    await renderPopup();
+
+    const checks = (label: string) =>
+      within(screen.getByLabelText(label))
+        .UNSAFE_queryAllByType(Icon)
+        .filter((icon) => icon.props.name === 'check');
+    expect(checks('High water')).toHaveLength(1);
+    expect(checks('Low water')).toHaveLength(0);
+    expect(checks('Open the log')).toHaveLength(0);
   });
 
   it('sets the title, group label and row labels in the named text styles', async () => {

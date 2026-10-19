@@ -6,7 +6,12 @@
  * scrub renders the map and not the card. A marker tap on the map writes the section to show,
  * which the card reads from its own place in the stack and opens the Sections tab on.
  */
-import { patchHostCard, useHostCardField, useHostTopCardField } from '@/shared/app/mapSheetHost';
+import {
+  patchHostCard,
+  useHostCardField,
+  useHostTopCardField,
+  useMapSheetHosts,
+} from '@/shared/app/mapSheetHost';
 
 const ACTIVE_TAB = 'activeTab';
 const HIGHLIGHT_INDEX = 'highlightIndex';
@@ -27,6 +32,19 @@ export const ACTIVITY_TABS: readonly ActivityTab[] = [
 /** The tab a card opens on: the one its link names, else Charts. */
 export function initialActivityTab(tab: string | undefined): ActivityTab {
   return ACTIVITY_TABS.includes(tab as ActivityTab) ? (tab as ActivityTab) : 'charts';
+}
+
+/**
+ * The tab the card at `index` in its host's stack mounts on: the one it last wrote, since a stop
+ * move presents the sheet again and mounts the card afresh, else the one its link names.
+ */
+export function mountedActivityTab(
+  hostKey: string,
+  index: number,
+  tab: string | undefined
+): ActivityTab {
+  const kept = useMapSheetHosts.getState().hosts[hostKey]?.cards[index]?.state[ACTIVE_TAB];
+  return initialActivityTab(typeof kept === 'string' ? kept : tab);
 }
 
 export interface ActivityCardWriter {

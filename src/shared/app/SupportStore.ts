@@ -57,10 +57,7 @@ interface PersistedData {
 }
 
 type PersistedFields =
-  | 'lastActionDate'
-  | 'permanentlyDismissed'
-  | 'isLegacyPurchaser'
-  | 'dismissCount';
+  'lastActionDate' | 'permanentlyDismissed' | 'isLegacyPurchaser' | 'dismissCount';
 
 function persist(state: Pick<SupportState, PersistedFields>): void {
   const data: PersistedData = {

@@ -1,7 +1,10 @@
 import { controlHeight, spacing } from '@/theme';
 import {
+  filterSheetDragHeight,
   filterSheetExpandedAfterDrag,
   filterSheetMaxHeight,
+  filterSheetSettleHeight,
+  filterSheetStops,
   mapTopControlsBottom,
   popupBottom,
 } from '../filterSheet';
@@ -35,6 +38,60 @@ describe('filterSheetExpandedAfterDrag', () => {
   it('follows the fling when distance and velocity disagree', () => {
     expect(filterSheetExpandedAfterDrag(false, -40, 900)).toBe(false);
     expect(filterSheetExpandedAfterDrag(true, 40, -900)).toBe(true);
+  });
+});
+
+describe('filterSheetDragHeight', () => {
+  it('follows the finger between the two stops', () => {
+    expect(filterSheetDragHeight(200, -80, 200, 500)).toBe(280);
+    expect(filterSheetDragHeight(500, 120, 200, 500)).toBe(380);
+  });
+
+  it('stays at the start height until the finger moves', () => {
+    expect(filterSheetDragHeight(200, 0, 200, 500)).toBe(200);
+    expect(filterSheetDragHeight(500, 0, 200, 500)).toBe(500);
+  });
+
+  it('stops at the raised height on a drag up past it', () => {
+    expect(filterSheetDragHeight(200, -400, 200, 500)).toBe(500);
+  });
+
+  it('stops at the lowered height on a drag down past it', () => {
+    expect(filterSheetDragHeight(500, 400, 200, 500)).toBe(200);
+    expect(filterSheetDragHeight(200, 60, 200, 500)).toBe(200);
+  });
+});
+
+describe('filterSheetSettleHeight', () => {
+  it('rises on a slow drag up past the threshold', () => {
+    expect(filterSheetSettleHeight(false, -40, -100, 200, 500)).toBe(500);
+  });
+
+  it('lowers on a fast flick down from raised, however short', () => {
+    expect(filterSheetSettleHeight(true, 8, 900, 200, 500)).toBe(200);
+  });
+
+  it('returns to the stop it started on after a short slow drag', () => {
+    expect(filterSheetSettleHeight(false, -8, -100, 200, 500)).toBe(200);
+    expect(filterSheetSettleHeight(true, 8, 100, 200, 500)).toBe(500);
+  });
+});
+
+describe('filterSheetStops', () => {
+  it('raises by the height of the rows the lowered sheet hides', () => {
+    expect(filterSheetStops(200, 300, 700)).toEqual({ lowered: 200, raised: 500 });
+  });
+
+  it('stops the raised sheet under the top controls, past which its filters scroll', () => {
+    expect(filterSheetStops(200, 600, 700)).toEqual({ lowered: 200, raised: 700 });
+  });
+
+  it('bounds no stop before the screen is measured', () => {
+    expect(filterSheetStops(200, 600, undefined)).toEqual({ lowered: 200, raised: 800 });
+  });
+
+  it('never sets the lowered stop past the bound on a screen too short for it', () => {
+    expect(filterSheetStops(200, 300, 150)).toEqual({ lowered: 150, raised: 150 });
   });
 });
 

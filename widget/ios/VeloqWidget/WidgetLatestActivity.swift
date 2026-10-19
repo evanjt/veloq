@@ -247,7 +247,7 @@ struct LatestActivityView: View {
     let zone = form.afterZoneText.map { after in
       Text(verbatim: form.beforeZoneText.map { "\($0) → \(after)" } ?? after)
         .measuredText("form zone")
-        .font(.system(size: WidgetTheme.TypeScale.caption))
+        .widgetFont(size: WidgetTheme.TypeScale.caption)
         .foregroundColor(palette.textSecondary)
     }
     return ViewThatFits(in: .horizontal) {
@@ -267,11 +267,11 @@ struct LatestActivityView: View {
       Text(form.label).measuredText("form label").foregroundColor(palette.textSecondary)
       Group {
         zoneDot(form.beforeZone, palette)
-        Text(form.before).fontWeight(.semibold).measuredText("form before")
+        Text(form.before).widgetFont(.label, weight: .semibold).measuredText("form before")
           .foregroundColor(palette.textPrimary)
         Text(verbatim: "→").measuredText("form arrow").foregroundColor(palette.textSecondary)
         zoneDot(form.afterZone, palette)
-        Text(form.after).fontWeight(.semibold).measuredText("form after")
+        Text(form.after).widgetFont(.label, weight: .semibold).measuredText("form after")
           .foregroundColor(palette.textPrimary)
       }
       .fixedSize()

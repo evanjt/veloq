@@ -959,36 +959,35 @@
     "explanation": {
       "title": "Capire gli approfondimenti",
       "foundLabel": "Metodo",
-      "found": "Veloq confronta le tue ultime attività e il tuo benessere con la tua cronologia, su questo telefono, e mostra una scheda per ogni record, cambiamento o tendenza che trova.",
+      "found": "Veloq confronta le tue ultime attività e il tuo benessere con la tua cronologia, su questo telefono.",
       "kinds": {
         "sectionsAndRoutes": {
           "label": "Sezioni e percorsi",
-          "text": "Un nuovo record, una serie di tempi più veloci o più lenti, o un cambiamento della frequenza cardiaca a parità di passo, su una sezione o un percorso che ripeti."
+          "text": "Record, tempi più veloci o più lenti e frequenza cardiaca a parità di passo."
         },
         "fitness": {
           "label": "eFTP e velocità critica",
-          "text": "Un cambiamento del tuo eFTP o della tua velocità critica, e i record di sezione stabiliti quando era più bassa."
+          "text": "Un cambiamento di uno dei due e i record stabiliti quando era più basso."
         },
         "week": {
           "label": "Questa settimana",
-          "text": "Tempo e carico di allenamento di questa settimana finora, rispetto allo stesso punto della settimana scorsa."
+          "text": "Questa settimana finora rispetto alla precedente, o la settimana scorsa rispetto alla media di 4 settimane."
         },
         "hrv": {
           "label": "Variabilità della frequenza cardiaca",
-          "text": "La tua HRV degli ultimi 7 giorni, le misurazioni più recenti rispetto alle precedenti."
+          "text": "I tuoi ultimi 7 giorni, le misurazioni più recenti rispetto alle precedenti."
         },
         "strength": {
           "label": "Forza",
-          "text": "Le serie ponderate di un gruppo muscolare in aumento o in calo, e l'equilibrio tra gruppi muscolari opposti."
+          "text": "Serie ponderate per gruppo muscolare e l'equilibrio tra gruppi opposti."
         },
         "sectionChanges": {
           "label": "Modifiche alle sezioni",
-          "text": "Una sezione ritagliata, divisa, ripristinata o riportata a una versione precedente."
+          "text": "Una sezione ritagliata, divisa, ripristinata o riportata indietro."
         }
       },
-      "orderLabel": "Ordine",
       "sourcesLabel": "Fonti",
-      "sources": "Tempi, distanze, frequenza cardiaca e potenza vengono dalle tue attività. eFTP, velocità critica e HRV sono i valori che intervals.icu conserva per te. Apri una scheda e tocca «{{howCalculated}}» per il metodo e i dati.",
+      "sources": "Tempi, frequenza cardiaca e potenza vengono dalle tue attività, eFTP, velocità critica e HRV da intervals.icu, e il metodo e i dati di ogni scheda sono in «{{howCalculated}}».",
       "strengthTitle": "Capire la forza"
     },
     "aboutRanking": "Le schede sono ordinate in base a quanto hanno da dire: quanto sono recenti, quanto si discostano dalle tue abitudini, quanto e cambiato e quanto spesso lo fai.",
@@ -1014,7 +1013,6 @@
       "lowSignal": "Segnale debole",
       "noSignal": "Nessun segnale",
       "allOneSideTitle": "{{pair}}: tutto il volume su un lato",
-      "dominantTitle": "{{dominant}} concentra più volume in {{pair}}",
       "oneSidedBody": "{{dominant}} rappresenta tutto il volume di serie ponderate per {{pair}} nelle ultime 4 settimane.",
       "ratioBody": "{{pair}} registra una media di {{ratio}} in serie ponderate nella finestra più recente di 4 settimane.",
       "ratioLabel": "Rapporto",
@@ -1172,6 +1170,10 @@
     "loadingOlderActivities": "Caricamento attività precedenti…",
     "activitySummary_one": "{{count}} attività · {{mapped}} sulla mappa",
     "activitySummary_other": "{{count}} attività · {{mapped}} sulla mappa",
+    "unmappedWithoutGps_one": "{{count}} senza GPS",
+    "unmappedWithoutGps_other": "{{count}} senza GPS",
+    "unmappedDownloading_one": "{{count}} in download",
+    "unmappedDownloading_other": "{{count}} in download",
     "expandRange": "Estendi intervallo",
     "distanceAny": "Qualsiasi",
     "showFilters": "Mostra tutti i filtri",
@@ -1239,9 +1241,16 @@
     "keyYearOrMore": "Un anno o più",
     "keyFewerPasses": "Meno passaggi",
     "keyMorePasses": "Più passaggi",
+    "keyEachSection": "Ogni sezione ha il suo colore",
+    "keyEachRoute": "Ogni percorso ha il suo colore",
     "colorByGradient": "Colore per inclinazione",
     "periodThisYear": "Quest'anno",
     "sheetSize": "Dimensione di mappa e dettagli",
+    "detailLoading": {
+      "activity": "Caricamento attività",
+      "route": "Caricamento percorso",
+      "section": "Caricamento sezione"
+    },
     "sheetStop": {
       "peek": "Anteprima",
       "half": "Metà",
@@ -1471,6 +1480,7 @@
     "writePermissionRequired": "Autorizzazione di scrittura richiesta",
     "savedLocally": "Attività salvata su questo dispositivo. Puoi caricarla in qualsiasi momento da Le mie registrazioni.",
     "savedLocallyNoScope": "Uscita salvata su questo dispositivo. Verrà caricata quando autorizzi il caricamento.",
+    "savedLocallyNoUpload": "Uscita salvata su questo dispositivo. La modalità demo non carica nulla.",
     "settingsUpload": "Caricamento",
     "autoUpload": "Caricamento automatico",
     "autoUploadDescription": "Carica automaticamente le registrazioni su intervals.icu al salvataggio. Se disattivato, restano su questo dispositivo finché non le carichi da Le mie registrazioni.",

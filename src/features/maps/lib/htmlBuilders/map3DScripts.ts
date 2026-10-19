@@ -25,6 +25,13 @@ import {
   terrainHillshadePaint,
   terrainSky,
 } from '@/features/maps/lib/terrain3DPaint';
+import {
+  MAP_3D_SCALE,
+  OVERLAY_EDGE_MARGIN,
+  SECTION_LINE_WIDTHS,
+  lineWidthRamp,
+  SECTION_LINE_DASH,
+} from '@/features/maps/lib/mapLineWidths';
 
 export interface UpdateLayersParams {
   /** The collection, or a URL on the page's origin that MapLibre fetches. */
@@ -68,7 +75,8 @@ export type LayerKey = (typeof LAYER_KEYS)[number];
 // base's muted context line with no casing, wider than the track so a margin
 // of it shows when the two nearly coincide. Sections are the
 // consensus polylines RegionalMapView draws (ActivityMapView passes none), thin
-// and dashed so long sections do not dominate; their colour is per feature.
+// and dashed so long sections do not dominate; their colour is per feature, and
+// they sit on the base's edge at the flat map's widths scaled to 3D.
 // Traces are the activity portions cut along its own GPS trace, PR in gold and
 // the rest from the section palette, dashed so overlapping sections let the
 // colour underneath bleed through. The selected activity or lap draws over them.
@@ -84,10 +92,12 @@ function lineOverlayTableScript(palette: MapPalette): string {
         color: ${jsLiteral(palette.muted)}, width: ${OVERLAY_3D_LINE_WIDTH}, opacity: 1, casing: false, below: 'route-outline' },
       { key: 'sections', sourceId: 'sections-source', layerId: 'sections-layer',
         color: ['case', ['==', ['get', 'isPR'], true], ${jsLiteral(palette.record)}, ['get', 'color']],
-        width: 2.4, opacity: 0.95, dash: [2, 1.2] },
+        width: ${JSON.stringify(lineWidthRamp(SECTION_LINE_WIDTHS, 0, MAP_3D_SCALE))}, opacity: 0.95, dash: ${JSON.stringify(SECTION_LINE_DASH)},
+        casingColor: ${jsLiteral(palette.edge)},
+        casingWidth: ${JSON.stringify(lineWidthRamp(SECTION_LINE_WIDTHS, OVERLAY_EDGE_MARGIN, MAP_3D_SCALE))}, casingOpacity: 1 },
       { key: 'traces', sourceId: 'traces-source', layerId: 'traces-layer',
         color: ['case', ['==', ['get', 'isPR'], true], ${jsLiteral(palette.record)}, ${sectionColorsJson}],
-        width: 4, opacity: 1, dash: [2, 1.2] },
+        width: 4, opacity: 1, dash: ${JSON.stringify(SECTION_LINE_DASH)} },
       { key: 'highlightedTrace', sourceId: 'highlighted-trace-source', layerId: 'highlighted-trace-layer',
         color: ${jsLiteral(palette.ink)}, width: 4, opacity: 1 },
     ];
@@ -102,11 +112,16 @@ function lineOverlayTableScript(palette: MapPalette): string {
       var main = { 'line-color': line.color, 'line-width': line.width, 'line-opacity': line.opacity };
       if (line.dash) main['line-dasharray'] = line.dash;
       var layers = [];
-      // A context line carries no casing; every other line sits on one at its own opacity.
+      // A context line carries no casing; every other line sits on one, the
+      // base's casing two wider at its own opacity unless the line names its own.
       if (line.casing !== false) {
         layers.push({ id: line.layerId + '-outline', type: 'line', source: line.sourceId,
           layout: { 'line-join': 'round', 'line-cap': 'round' },
-          paint: { 'line-color': ${jsLiteral(palette.casing)}, 'line-width': line.width + 2, 'line-opacity': line.opacity } });
+          paint: {
+            'line-color': line.casingColor || ${jsLiteral(palette.casing)},
+            'line-width': line.casingWidth || line.width + 2,
+            'line-opacity': line.casingOpacity || line.opacity,
+          } });
       }
       layers.push({ id: line.layerId, type: 'line', source: line.sourceId,
         layout: { 'line-join': 'round', 'line-cap': 'round' },

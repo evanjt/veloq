@@ -20,7 +20,7 @@ tags:
 
 - extendedWaitUntil:
     visible:
-      id: "activity-detail-content"
+      id: "activity-detail-screen"
     timeout: 15000
 
 # Sections tab ensures section overlays are being drawn on the primary map.
@@ -68,7 +68,7 @@ tags:
 
 - extendedWaitUntil:
     visible:
-      id: "activity-detail-content"
+      id: "activity-detail-screen"
     timeout: 10000
 
 - takeScreenshot: "screenshots/fullscreen-pr-after-close"

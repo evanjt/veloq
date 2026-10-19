@@ -1,9 +1,9 @@
 /**
- * Scenario: once 3D is showing the 2D surface is unmounted, so fit all, locate
- * and the popup zoom called a null ref and the camera stayed put.
+ * Scenario: fit all, locate and the popup zoom move the camera. On the map tab
+ * 3D is the one surface tilted over terrain; a detail map's 3D is its own page.
  *
- * Expected behaviour: with 3D showing, each of them moves the 3D map, and the
- * 3D ref turns the move into a page script.
+ * Expected behaviour: on the map tab each of them moves the one surface, and a
+ * detail map's 3D ref turns the move into a page script.
  */
 
 import { renderHook, render, act } from '@testing-library/react-native';
@@ -49,11 +49,7 @@ jest.mock('expo-location', () => ({
   Accuracy: { Balanced: 3 },
 }));
 
-function surface2D() {
-  return { fitBounds: jest.fn(), setCamera: jest.fn(), resetOrientation: jest.fn() };
-}
-
-function surface3D() {
+function surface() {
   return { fitBounds: jest.fn(), setCamera: jest.fn(), resetOrientation: jest.fn() };
 }
 
@@ -74,9 +70,8 @@ const activities = [
   },
 ];
 
-async function mountHandlers(is3DMode: boolean, selected: unknown = null) {
-  const s2 = surface2D();
-  const s3 = surface3D();
+async function mountHandlers(selected: unknown = null) {
+  const map = surface();
   const rendered = await renderHook(() =>
     useMapHandlers({
       activities,
@@ -96,57 +91,50 @@ async function mountHandlers(is3DMode: boolean, selected: unknown = null) {
       setLocationLoading: jest.fn(),
       currentZoomRef: { current: 8 },
       currentCenterRef: { current: [7, 46] },
-      surfaceRef: { current: is3DMode ? null : s2 } as React.RefObject<MapSurfaceRef | null>,
-      map3DRef: { current: s3 } as React.RefObject<Map3DWebViewRef | null>,
+      surfaceRef: { current: map } as unknown as React.RefObject<MapSurfaceRef | null>,
       bearingAnim: { setValue: jest.fn() } as never,
       currentZoomLevel: { current: 8 },
-      is3DMode,
       markUserInteracted: jest.fn(),
       setSpider: jest.fn(),
     } as never)
   );
-  return { rendered, s2, s3 };
+  return { rendered, map };
 }
 
-describe('camera handlers while 3D is showing', () => {
-  it('fit all fits every activity on the 3D map', async () => {
-    const { rendered, s3 } = await mountHandlers(true);
+describe('camera handlers on the map tab', () => {
+  it('fit all fits every activity on the surface', async () => {
+    const { rendered, map } = await mountHandlers();
     await act(() => rendered.result.current.handleFitAll());
-    expect(s3.fitBounds).toHaveBeenCalledWith(
+    expect(map.fitBounds).toHaveBeenCalledWith(
       { sw: [7.0, 46.0], ne: [7.8, 46.9] },
       expect.anything(),
       500
     );
   });
 
-  it('fit all still drives the 2D surface in 2D', async () => {
-    const { rendered, s2, s3 } = await mountHandlers(false);
-    await act(() => rendered.result.current.handleFitAll());
-    expect(s2.fitBounds).toHaveBeenCalledWith(
-      { sw: [7.0, 46.0], ne: [7.8, 46.9] },
-      expect.anything(),
-      500
-    );
-    expect(s3.fitBounds).not.toHaveBeenCalled();
-  });
-
-  it('the popup zoom fits the selected activity on the 3D map', async () => {
-    const { rendered, s3 } = await mountHandlers(true, { activity: activities[1] });
+  it('the popup zoom fits the selected activity on the surface', async () => {
+    const { rendered, map } = await mountHandlers({ activity: activities[1] });
     await act(() => rendered.result.current.handleZoomToActivity());
-    expect(s3.fitBounds).toHaveBeenCalledWith(
+    expect(map.fitBounds).toHaveBeenCalledWith(
       { sw: [7.4, 46.5], ne: [7.8, 46.9] },
       expect.anything(),
       expect.any(Number)
     );
   });
 
-  it('locate centres the 3D map on the fix', async () => {
-    const { rendered, s3 } = await mountHandlers(true);
+  it('locate centres the surface on the fix', async () => {
+    const { rendered, map } = await mountHandlers();
     await act(async () => {
       await rendered.result.current.handleGetLocation();
     });
     expect(Location.getCurrentPositionAsync).toHaveBeenCalled();
-    expect(s3.setCamera).toHaveBeenCalledWith({ center: [7.5, 46.5], zoom: 13 }, 500);
+    expect(map.setCamera).toHaveBeenCalledWith({ center: [7.5, 46.5], zoom: 13 }, 500);
+  });
+
+  it('the compass reset goes to the surface', async () => {
+    const { rendered, map } = await mountHandlers();
+    await act(() => rendered.result.current.resetOrientation());
+    expect(map.resetOrientation).toHaveBeenCalledTimes(1);
   });
 });
 

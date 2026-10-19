@@ -1,9 +1,10 @@
 /**
- * Scenario: a map taking 30 % of the screen height carrying the satellite credit,
- * which names every regional source under the viewport and runs long.
- * Expected behaviour: the credit stays a pill in one corner. It is a licence
- * condition so it is never hidden or truncated, but it is not allowed to grow
- * into a full-width band across the bottom of the map.
+ * Scenario: a map carrying the satellite credit, which names every regional
+ * source under the viewport and runs long.
+ * Expected behaviour: the credit is a bar across the map's visible bottom edge,
+ * flush with it, so it takes one line at phone width rather than wrapping inside
+ * a narrow corner pill. It is a licence condition so it is never truncated: past
+ * one line the bar grows, and the measured height is what callers clear.
  */
 
 import React from 'react';
@@ -21,23 +22,31 @@ function flatStyle(node: { props: Record<string, unknown> }): Record<string, unk
   return Object.assign({}, ...parts.filter(Boolean));
 }
 
-describe('the map attribution overlay', () => {
-  it('anchors in one corner and never spans the map', async () => {
+describe('the map attribution bar', () => {
+  it('spans the map flush with its bottom edge', async () => {
     const tree = await render(<AttributionOverlay initialAttribution={LONG} />);
     const container = flatStyle(tree.getByTestId('map-attribution'));
 
     expect(container.position).toBe('absolute');
-    expect(container.bottom).toBe(0);
+    expect(container.left).toBe(0);
     expect(container.right).toBe(0);
-    expect(container.left).toBeUndefined();
-    expect(container.maxWidth).toBeDefined();
-    expect(container.maxWidth).not.toBe('100%');
+    expect(container.bottom).toBe(0);
+    expect(container.maxWidth).toBeUndefined();
+    expect(container.paddingBottom ?? 0).toBe(0);
+    expect(container.paddingVertical ?? 0).toBe(0);
+    expect(container.padding ?? 0).toBe(0);
   });
 
-  it('sizes the pill to its text rather than to the container', async () => {
+  it('draws a square bar with no corner radius', async () => {
     const tree = await render(<AttributionOverlay initialAttribution={LONG} />);
 
-    expect(flatStyle(tree.getByTestId('map-attribution-pill')).alignSelf).toBe('flex-end');
+    expect(flatStyle(tree.getByTestId('map-attribution-bar')).borderRadius).toBeUndefined();
+  });
+
+  it('sits on the edge of what covers the map foot', async () => {
+    const tree = await render(<AttributionOverlay initialAttribution={LONG} bottomInset={72} />);
+
+    expect(flatStyle(tree.getByTestId('map-attribution')).bottom).toBe(72);
   });
 
   it('still shows the whole credit, however long it is', async () => {
@@ -48,17 +57,17 @@ describe('the map attribution overlay', () => {
     expect(text.props.numberOfLines).toBeUndefined();
   });
 
-  it('still reports a clearance so content in the same corner can pad clear', async () => {
+  it('reports the measured bar height as the clearance, with nothing added', async () => {
     const onClearanceChange = jest.fn();
     const tree = await render(
       <AttributionOverlay initialAttribution={LONG} onClearanceChange={onClearanceChange} />
     );
 
-    tree.getByTestId('map-attribution-pill').props.onLayout({
-      nativeEvent: { layout: { height: 30, width: 100, x: 0, y: 0 } },
+    tree.getByTestId('map-attribution-bar').props.onLayout({
+      nativeEvent: { layout: { height: 16, width: 360, x: 0, y: 0 } },
     });
 
-    expect(onClearanceChange).toHaveBeenCalledWith(34);
+    expect(onClearanceChange).toHaveBeenCalledWith(16);
     expect(ATTRIBUTION_CLEARANCE).toBeGreaterThan(0);
   });
 });

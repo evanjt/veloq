@@ -36,6 +36,7 @@ import {
   OVERLAY_LINE_WIDTH,
   SUBJECT_CASING_WIDTH,
   SUBJECT_LINE_WIDTH,
+  SECTION_LINE_DASH,
 } from '@/features/maps/lib/mapLineWidths';
 import {
   USER_LOCATION_SOURCE_ID,
@@ -243,7 +244,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
         'line-width': highlighted ? ['case', isHighlightedSection, 5, 3] : 4,
         // Dashed over its casing, so a portion reads as the track with the
         // casing showing through and overlapping portions stay apart.
-        'line-dasharray': [2, 1.2],
+        'line-dasharray': [...SECTION_LINE_DASH],
         'line-opacity': hasSectionOverlays ? 1 : 0,
       },
     },

@@ -71,10 +71,10 @@ jest.mock('react-i18next', () => ({
   ...jest.requireActual('react-i18next'),
   useTranslation: () => ({ t: (key: string) => key }),
 }));
-jest.mock('@/features/activity/components/ActivityDetailSkeleton', () => ({
-  ActivityDetailSkeleton: ({ onPosterSettled }: { onPosterSettled?: () => void }) => {
+jest.mock('@/features/activity/components/ActivityDetailLoading', () => ({
+  ActivityDetailLoading: ({ onPreviewSettled }: { onPreviewSettled?: () => void }) => {
     const React = require('react');
-    React.useEffect(() => onPosterSettled?.(), [onPosterSettled]);
+    React.useEffect(() => onPreviewSettled?.(), [onPreviewSettled]);
     return null;
   },
 }));

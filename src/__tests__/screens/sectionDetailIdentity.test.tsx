@@ -110,8 +110,7 @@ let capturedSaveName: ((name: string) => void) | undefined;
 let capturedActivitySelect: ((activityId: string | null) => void) | undefined;
 let capturedEfficiencyTrend: unknown;
 let capturedContentArea:
-  | { streams?: unknown; bestForwardIsRecord?: boolean; bestReverseIsRecord?: boolean }
-  | undefined;
+  { streams?: unknown; bestForwardIsRecord?: boolean; bestReverseIsRecord?: boolean } | undefined;
 let mockSelectedSport: string | undefined;
 const mockUseSectionDetailPerformance = jest.fn(
   (..._args: unknown[]): { data: unknown; error: unknown } => ({

@@ -13,8 +13,9 @@ import { layers } from '@/theme';
  * leaves 3D and says why rather than leaving it looking like broken 3D.
  *
  * `leave3D` is the host's own way out of 3D mode, the same landing as a page
- * that failed outright. The returned handler goes to `Map3DWebView`'s
- * `onTerrainUnavailable`, and `terrainNotice` is rendered over the map. An
+ * that failed outright. The returned handler goes to the terrain map's
+ * `onTerrainUnavailable`, `Map3DWebView`'s or `MapSurface`'s, and
+ * `terrainNotice` is rendered over the map. An
  * embedded map keeps it at its own foot, beside what it explains. A map that
  * fills a tab puts it in the bottom pill stack, above whatever covers the foot
  * of the screen and the pills below it.

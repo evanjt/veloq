@@ -14039,10 +14039,7 @@ export const FfiMapEmptyReason = (() => {
  */
 export type FfiMapEmptyReason = InstanceType<
   (typeof FfiMapEmptyReason)[
-    | "NoActivities"
-    | "Filtered"
-    | "TracksPending"
-    | "NoGps"]
+    "NoActivities" | "Filtered" | "TracksPending" | "NoGps"]
 >;
 
 // FfiConverter for enum FfiMapEmptyReason
@@ -14133,6 +14130,61 @@ const FfiConverterTypeFfiMapEmptyReason = (() => {
 })();
 
 /**
+ * The activities a map read keeps but cannot draw, by why.
+ */
+export type FfiMapUnmapped = {
+  /**
+   * No track is owed: no GPS upstream, a track refused for good, or one the
+   * download gave up on, as `FfiMapEmptyReason::NoGps` reads it.
+   */
+  withoutGps: number;
+  /**
+   * A track is upstream and the GPS download has still to fetch it.
+   */
+  downloading: number;
+};
+
+/**
+ * Generated factory for {@link FfiMapUnmapped} record objects.
+ */
+export const FfiMapUnmapped = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiMapUnmapped, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiMapUnmapped>,
+  });
+})();
+
+const FfiConverterTypeFfiMapUnmapped = (() => {
+  type TypeName = FfiMapUnmapped;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        withoutGps: FfiConverterUInt32.readFromCursor(c),
+        downloading: FfiConverterUInt32.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterUInt32.writeIntoCursor(value.withoutGps, c);
+      FfiConverterUInt32.writeIntoCursor(value.downloading, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt32.allocationSize(value.withoutGps) +
+        FfiConverterUInt32.allocationSize(value.downloading)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Everything the map tab paints with in one call.
  */
 export type FfiMapScreenData = {
@@ -14175,6 +14227,12 @@ export type FfiMapScreenData = {
    * `None` while `activities` holds one.
    */
   emptyReason?: FfiMapEmptyReason;
+  /**
+   * The window's activities with no stored track that pass the same sport,
+   * distance and name filters as `activities`, so the two together are
+   * every activity in the period the filters keep.
+   */
+  unmapped: FfiMapUnmapped;
 };
 
 /**
@@ -14211,6 +14269,7 @@ const FfiConverterTypeFfiMapScreenData = (() => {
         sections: FfiConverterOptionalTypeFfiMapSectionLayer.readFromCursor(c),
         emptyReason:
           FfiConverterOptionalTypeFfiMapEmptyReason.readFromCursor(c),
+        unmapped: FfiConverterTypeFfiMapUnmapped.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -14238,6 +14297,7 @@ const FfiConverterTypeFfiMapScreenData = (() => {
         value.emptyReason,
         c,
       );
+      FfiConverterTypeFfiMapUnmapped.writeIntoCursor(value.unmapped, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -14259,7 +14319,8 @@ const FfiConverterTypeFfiMapScreenData = (() => {
         ) +
         FfiConverterOptionalTypeFfiMapEmptyReason.allocationSize(
           value.emptyReason,
-        )
+        ) +
+        FfiConverterTypeFfiMapUnmapped.allocationSize(value.unmapped)
       );
     }
   }
@@ -17312,10 +17373,7 @@ export const FfiDetectionHold = (() => {
  */
 export type FfiDetectionHold = InstanceType<
   (typeof FfiDetectionHold)[
-    | "ElevationPaused"
-    | "ElevationRunning"
-    | "ElevationWaiting"
-    | "Cutover"]
+    "ElevationPaused" | "ElevationRunning" | "ElevationWaiting" | "Cutover"]
 >;
 
 // FfiConverter for enum FfiDetectionHold
@@ -17568,11 +17626,7 @@ export const FfiCatalogueEmptyReason = (() => {
  */
 export type FfiCatalogueEmptyReason = InstanceType<
   (typeof FfiCatalogueEmptyReason)[
-    | "NoGpsActivities"
-    | "NotYetRun"
-    | "Running"
-    | "Held"
-    | "NoneFound"]
+    "NoGpsActivities" | "NotYetRun" | "Running" | "Held" | "NoneFound"]
 >;
 
 // FfiConverter for enum FfiCatalogueEmptyReason
@@ -25306,12 +25360,7 @@ export const FfiSectionBoundsEdit = (() => {
  */
 export type FfiSectionBoundsEdit = InstanceType<
   (typeof FfiSectionBoundsEdit)[
-    | "Trim"
-    | "Reset"
-    | "Expand"
-    | "SetReference"
-    | "ResetReference"
-    | "Revert"]
+    "Trim" | "Reset" | "Expand" | "SetReference" | "ResetReference" | "Revert"]
 >;
 
 // FfiConverter for enum FfiSectionBoundsEdit
@@ -41451,6 +41500,7 @@ export default Object.freeze({
     FfiConverterTypeFfiMapSection,
     FfiConverterTypeFfiMapSectionLayer,
     FfiConverterTypeFfiMapSignature,
+    FfiConverterTypeFfiMapUnmapped,
     FfiConverterTypeFfiMatchStrictness,
     FfiConverterTypeFfiMaxHrSource,
     FfiConverterTypeFfiMergeCandidate,

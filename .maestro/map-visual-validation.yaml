@@ -140,7 +140,7 @@ tags:
 
 - extendedWaitUntil:
     visible:
-      id: "activity-detail-content"
+      id: "activity-detail-screen"
     timeout: 15000
 
 - takeScreenshot: "screenshots/validation-activity-map-2d"
@@ -189,7 +189,7 @@ tags:
           id: "activity-map-3d-toggle"
       - extendedWaitUntil:
           visible:
-            id: "activity-detail-content"
+            id: "activity-detail-screen"
           timeout: 15000
       - takeScreenshot: "screenshots/validation-activity-map-3d"
       # Toggle back to 2D

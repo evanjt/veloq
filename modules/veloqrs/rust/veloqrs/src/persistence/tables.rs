@@ -15,7 +15,13 @@
 //! The classes are decidable rather than a matter of taste:
 //!
 //! - `Mirror` is a copy of something intervals.icu holds. A sync refills it,
-//!   no computation can.
+//!   no computation can. An activity imported from a file has no upstream
+//!   copy, so it is not a mirror row: no sync refills it, and the backup does
+//!   not carry it either, since the backup carries only what the athlete made
+//!   on top of the intervals.icu data, such as names, sections and pins. A
+//!   file import has to decide where such an activity's only copy lives
+//!   before it ships: uploaded to intervals.icu as a recording is, or carried
+//!   by the backup.
 //! - `Derived` is recomputable on device from mirror and record rows. Losing
 //!   it costs time, never information.
 //! - `Record` is athlete work that exists nowhere else. Losing it is data loss

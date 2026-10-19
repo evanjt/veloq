@@ -940,36 +940,35 @@
     "explanation": {
       "title": "インサイトを理解する",
       "foundLabel": "方法",
-      "found": "Veloq はこの端末上で、最新のアクティビティとウェルネスをあなた自身の履歴と比較し、見つかった記録・変化・傾向ごとにカードを表示します。",
+      "found": "Veloq はこの端末上で、最新のアクティビティとウェルネスをあなた自身の履歴と比較します。",
       "kinds": {
         "sectionsAndRoutes": {
           "label": "区間とルート",
-          "text": "繰り返し走る区間やルートでの新記録、速くなった・遅くなったタイムの続き、または同じペースでの心拍数の変化。"
+          "text": "記録、速くなった・遅くなったタイム、同じペースでの心拍数。"
         },
         "fitness": {
           "label": "eFTP とクリティカルスピード",
-          "text": "eFTP またはクリティカルスピードの変化と、それが低かった頃に出した区間記録。"
+          "text": "いずれかの変化と、それが低かった頃に出した記録。"
         },
         "week": {
           "label": "今週",
-          "text": "今週ここまでのトレーニング時間と負荷を、先週の同じ時点と比較したもの。"
+          "text": "今週ここまでを先週と、または先週を 4 週間平均と比較したもの。"
         },
         "hrv": {
           "label": "心拍変動",
-          "text": "直近 7 日間の HRV。新しい測定値を古い測定値と比較します。"
+          "text": "直近 7 日間。新しい測定値を古い測定値と比較します。"
         },
         "strength": {
           "label": "筋力",
-          "text": "筋肉群ごとの加重セット数の増減と、拮抗する筋肉群どうしのバランス。"
+          "text": "筋肉群ごとの加重セット数と、拮抗する筋肉群のバランス。"
         },
         "sectionChanges": {
           "label": "区間の変更",
-          "text": "範囲の切り直し、分割、復元、または以前のバージョンへの差し戻しが行われた区間。"
+          "text": "切り直し、分割、復元、または差し戻しが行われた区間。"
         }
       },
-      "orderLabel": "並び順",
       "sourcesLabel": "データ元",
-      "sources": "タイム、距離、心拍数、パワーはあなたのアクティビティから取得します。eFTP、クリティカルスピード、HRV は intervals.icu が保持している値です。カードを開いて「{{howCalculated}}」をタップすると、方法とデータを確認できます。",
+      "sources": "タイム、心拍数、パワーはアクティビティから、eFTP、クリティカルスピード、HRV は intervals.icu から取得し、各カードの方法とデータは「{{howCalculated}}」にあります。",
       "strengthTitle": "筋力を理解する"
     },
     "aboutRanking": "カードは伝えるべき内容の大きさで並びます。どれだけ新しいか、いつもとどれだけ違うか、どれだけ動いたか、どれだけ頻繁に取り組んでいるか。",
@@ -995,7 +994,6 @@
       "lowSignal": "データ少",
       "noSignal": "データなし",
       "allOneSideTitle": "{{pair}}：ボリュームが片側のみ",
-      "dominantTitle": "{{pair}}では{{dominant}}のボリュームが多めです",
       "oneSidedBody": "過去4週間の{{pair}}の加重セットはすべて{{dominant}}によるものです。",
       "ratioBody": "直近4週間で{{pair}}の加重セット比は平均{{ratio}}です。",
       "ratioLabel": "比率",
@@ -1152,6 +1150,10 @@
     "loadingOlderActivities": "過去のアクティビティを読み込み中…",
     "activitySummary_one": "{{count}} 件のアクティビティ · 地図上に {{mapped}} 件",
     "activitySummary_other": "{{count}} 件のアクティビティ · 地図上に {{mapped}} 件",
+    "unmappedWithoutGps_one": "GPS なし {{count}} 件",
+    "unmappedWithoutGps_other": "GPS なし {{count}} 件",
+    "unmappedDownloading_one": "ダウンロード中 {{count}} 件",
+    "unmappedDownloading_other": "ダウンロード中 {{count}} 件",
     "expandRange": "範囲を広げる",
     "distanceAny": "すべて",
     "showFilters": "すべてのフィルターを表示",
@@ -1218,9 +1220,16 @@
     "keyYearOrMore": "1年以上前",
     "keyFewerPasses": "通過が少ない",
     "keyMorePasses": "通過が多い",
+    "keyEachSection": "セクションごとに異なる色",
+    "keyEachRoute": "ルートごとに異なる色",
     "colorByGradient": "勾配で色付け",
     "periodThisYear": "今年",
     "sheetSize": "地図と詳細のサイズ",
+    "detailLoading": {
+      "activity": "アクティビティを読み込み中",
+      "route": "ルートを読み込み中",
+      "section": "区間を読み込み中"
+    },
     "sheetStop": {
       "peek": "プレビュー",
       "half": "半分",
@@ -1450,6 +1459,7 @@
     "writePermissionRequired": "書き込み権限が必要です",
     "savedLocally": "アクティビティをこの端末に保存しました。マイ記録からいつでもアップロードできます。",
     "savedLocallyNoScope": "アクティビティを端末に保存しました。アップロードを許可するとアップロードされます。",
+    "savedLocallyNoUpload": "アクティビティを端末に保存しました。デモモードではアップロードされません。",
     "settingsUpload": "アップロード",
     "autoUpload": "自動アップロード",
     "autoUploadDescription": "保存時に記録を intervals.icu へ自動でアップロードします。オフの場合、マイ記録からアップロードするまでこの端末に保存されます。",

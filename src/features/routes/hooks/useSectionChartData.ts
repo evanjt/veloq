@@ -9,7 +9,7 @@
 
 import { useMemo } from 'react';
 import {
-  fromUnixSeconds,
+  fromWallClockSeconds,
   castDirection,
   castOffScale,
   ensureFinite,
@@ -54,7 +54,7 @@ export function useSectionChartData({
       id: p.lapId,
       activityId: p.activityId,
       speed: ensureFinite(p.speed, 0),
-      date: fromUnixSeconds(p.activityDate) ?? new Date(),
+      date: fromWallClockSeconds(p.activityDate) ?? new Date(),
       activityName: p.activityName,
       direction: castDirection(p.direction),
       sectionTime: ensureFinite(p.sectionTime, 0),
@@ -91,8 +91,8 @@ export function useSectionChartData({
       v == null ? undefined : Number.isFinite(v) ? v : undefined;
     return {
       bestTimeValue: sanitizeStat(rustChart.bestTimeSecs),
-      firstActivityDate: fromUnixSeconds(rustChart.firstActivityDate),
-      lastActivityDate: fromUnixSeconds(rustChart.lastActivityDate),
+      firstActivityDate: fromWallClockSeconds(rustChart.firstActivityDate),
+      lastActivityDate: fromWallClockSeconds(rustChart.lastActivityDate),
     };
   }, [rustChart]);
 

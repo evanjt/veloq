@@ -162,6 +162,18 @@ export const widgetType = {
 } as const;
 
 /**
+ * The face every widget line draws on iOS: the app's Manrope, at the three weights it bundles
+ * from `assets/fonts/`. A widget extension cannot reach the app's fonts, so the iOS widget plugin
+ * copies these files into the extension and its Info.plist lists them; Swift asks for a file by
+ * its PostScript name, and a name iOS cannot find draws the system face.
+ */
+export const widgetFace = {
+  regular: { postScript: 'Manrope-Regular', file: 'Manrope-Regular.ttf' },
+  semibold: { postScript: 'Manrope-SemiBold', file: 'Manrope-SemiBold.ttf' },
+  bold: { postScript: 'Manrope-Bold', file: 'Manrope-Bold.ttf' },
+} as const;
+
+/**
  * How the widget type follows the reader's text size. Each step grows with the iOS text
  * style nearest its default size. A figure, a label or a caption is data-dense, so it follows
  * the setting up to `maxScale` times its step's default size and no further, on iOS and in the

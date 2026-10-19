@@ -846,6 +846,25 @@ jobs:
     );
     expect(status).toBe(0);
   });
+
+  it('allows the weekly code scan, whose query packs move without a push', () => {
+    const { status } = runGuard(
+      fixture({
+        ...CLEAN,
+        '.github/workflows/codeql.yml': `name: CodeQL
+on:
+  schedule:
+    - cron: '30 4 * * 1'
+jobs:
+  scan:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+`,
+      })
+    );
+    expect(status).toBe(0);
+  });
 });
 
 describe('runner images', () => {
@@ -1593,6 +1612,68 @@ jobs:
     );
     expect(output).toContain('.github/workflows/e2e.yml (job inline step Inline build)');
     expect(output).toContain(`${name} runs outside the shared build definitions`);
+  });
+
+  /**
+   * Scenario: the code scan generates the Android project to compile our
+   * Kotlin under the tracer, and packages nothing.
+   *
+   * Expected behaviour: the prebuild passes there and nowhere else, and an
+   * assemble, a bundle or the Rust builder in the scan is still refused, even
+   * in the step that runs the prebuild.
+   */
+  const SCAN = (run: string) => `name: CodeQL
+on:
+  pull_request:
+jobs:
+  scan:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Generate Android native project
+        run: ${JSON.stringify(run)}
+`;
+
+  it('passes the prebuild in the code scan', () => {
+    const { status, output } = runGuard(
+      fixture({
+        ...files(),
+        '.github/workflows/codeql.yml': SCAN(
+          'CI=1 npx expo prebuild --platform android --no-install'
+        ),
+      })
+    );
+    expect(output).toContain('each platform builds in one place');
+    expect(status).toBe(0);
+  });
+
+  it.each([
+    ['a Gradle assemble or bundle', 'cd android && ./gradlew assembleRelease --build-cache'],
+    [
+      'a Gradle assemble or bundle',
+      'npx expo prebuild --platform android\ncd android && ./gradlew bundleRelease --build-cache',
+    ],
+    ['the Rust builder', 'node modules/engine/scripts/build-rust.js android --abi arm64-v8a'],
+    ['pod install', 'npx expo prebuild --platform ios && cd ios && pod install'],
+  ])('refuses %s in the code scan', (name, run) => {
+    const output = refused({
+      ...files(),
+      '.github/workflows/codeql.yml': SCAN(run),
+    });
+    expect(output).toContain(
+      '.github/workflows/codeql.yml (job scan step Generate Android native project)'
+    );
+    expect(output).toContain(`${name} runs outside the shared build definitions`);
+  });
+
+  it('refuses the prebuild in any other workflow', () => {
+    const output = refused({
+      ...files(),
+      '.github/workflows/lint.yml': SCAN('CI=1 npx expo prebuild --platform android --no-install'),
+    });
+    expect(output).toContain(
+      '.github/workflows/lint.yml (job scan step Generate Android native project)'
+    );
+    expect(output).toContain('expo prebuild runs outside the shared build definitions');
   });
 
   it('refuses a definition that a push starts as well', () => {

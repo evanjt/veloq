@@ -10,7 +10,8 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { Canvas, Path, Rect } from '@shopify/react-native-skia';
+import { Path, Rect } from '@shopify/react-native-skia';
+import { Canvas } from '@/shared/ui/SkiaCanvas';
 import { GestureDetector } from 'react-native-gesture-handler';
 
 import { useMetricSystem } from '@/shared/app';

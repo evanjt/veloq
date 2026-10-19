@@ -65,6 +65,20 @@ export function MapSheetHandle({ sheetKey, drawn }: { sheetKey: string; drawn: b
   );
 }
 
+/**
+ * The handle as Android draws it, with nothing to press, for a sheet's shape standing in before
+ * the sheet itself is presented.
+ */
+export function MapSheetHandleBar() {
+  const { isDark } = useTheme();
+  const palette = isDark ? darkColors : colors;
+  return (
+    <View style={styles.handleArea}>
+      <View style={[styles.handle, { backgroundColor: palette.track }]} />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   handleArea: {
     alignItems: 'center',

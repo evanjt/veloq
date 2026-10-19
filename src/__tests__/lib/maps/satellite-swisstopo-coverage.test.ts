@@ -117,7 +117,7 @@ describe('the swisstopo source is asked only for tiles over Switzerland', () => 
   });
 
   it('credits whoever draws Chamonix, which is IGN and not swisstopo', () => {
-    expect(getCombinedSatelliteAttribution(45.923, 6.869, 14)).toBe('© IGN France');
+    expect(getCombinedSatelliteAttribution(45.923, 6.869, 14)).toBe('© IGN');
   });
 
   it('still credits swisstopo over Switzerland', () => {

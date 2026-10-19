@@ -2,6 +2,7 @@
 // double padding. This context tracks banner state and exposes the right edges.
 
 import React, { createContext, useContext, useMemo, ReactNode } from 'react';
+import { useWindowDimensions } from 'react-native';
 import { SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Edge, EdgeInsets } from 'react-native-safe-area-context';
 
@@ -19,6 +20,7 @@ import {
 } from './topBanner';
 
 import { useNetwork } from './NetworkContext';
+import type { SheetWindow } from './screenHeaders';
 
 interface TopSafeAreaContextValue {
   hasTopBanner: boolean;
@@ -180,6 +182,21 @@ export function BeneathTopSlot({ children }: { children: ReactNode }) {
 export function useWindowInsets(): EdgeInsets {
   const local = useSafeAreaInsets();
   return useContext(WindowInsetsContext) ?? local;
+}
+
+/**
+ * The window a map sheet is laid out against, with the device's insets. The system sizes the
+ * sheet against the window and the status bar whatever the top slot holds, so the stack's own
+ * insets, which drop the top beneath a banner, would give the sheet detents for a taller sheet
+ * than the system allows.
+ */
+export function useSheetWindow(): SheetWindow {
+  const { width, height } = useWindowDimensions();
+  const { top, bottom } = useWindowInsets();
+  return useMemo(
+    () => ({ width, height, topInset: top, bottomInset: bottom }),
+    [width, height, top, bottom]
+  );
 }
 
 /** Gives its subtree the device's insets, for a view that covers the whole window. */

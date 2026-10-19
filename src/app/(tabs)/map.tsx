@@ -1,26 +1,42 @@
 import { useTabFirstFrame } from '@/shared/debug/tabSwitchTiming';
 import React, { useState, useMemo, useEffect, useRef, useDeferredValue, useCallback } from 'react';
-import { View, ScrollView, StyleSheet, Text, type LayoutChangeEvent } from 'react-native';
+import {
+  View,
+  ScrollView,
+  StyleSheet,
+  Text,
+  type LayoutChangeEvent,
+  type ScrollViewInstance,
+} from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useIsFocused, useLocalSearchParams } from 'expo-router';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import {
   ATTRIBUTION_CLEARANCE,
   AttributionOverlay,
   type AttributionOverlayRef,
   FILTER_CHIP,
   DEFAULT_MAP_PERIOD,
-  filterSheetExpandedAfterDrag,
+  filterSheetDragHeight,
   filterSheetFootCover,
   filterSheetMaxHeight,
+  filterSheetSettleHeight,
+  filterSheetStops,
   getPeriodStart,
   MapEmptyState,
   MapNameSearch,
   type MapPeriod,
   PERIOD_OPTIONS,
+  periodSelectLabelKey,
   RegionalMapView,
+  sportChipOrder,
   SyncProgressBanner,
   useEngineMapActivities,
   useHeatmapPreference,
@@ -32,8 +48,11 @@ import {
   Shimmer,
   Button,
   PressTarget,
+  SelectButton,
+  TextLink,
 } from '@/shared/ui';
 import { useFootCover } from '@/shared/ui/bottomPills';
+import { useGestureCallback } from '@/shared/ui/useGestureCallback';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { useActivityBoundsCache } from '@/features/activity';
 import { useRouteSettings } from '@/features/routes';
@@ -45,6 +64,7 @@ import {
   controlHeight,
   darkColors,
   duration,
+  easing,
   ink,
   layers,
   layout,
@@ -83,7 +103,7 @@ const MAP_STAGE = 1;
 // A vertical drag this far claims the gesture; a horizontal one this far leaves
 // it to the chip rows, which scroll sideways.
 const SHEET_DRAG_ACTIVATION = 12;
-const SHEET_FADE_MS = duration.quick;
+const SHEET_SETTLE = { duration: duration.standard, easing: easing.standard };
 
 // Distance thresholds in meters (metric) and labels for both systems
 function getDistanceOptions(
@@ -156,19 +176,26 @@ function MapScreenContent() {
   const handleAttributionChange = useCallback((text: string) => {
     attributionRef.current?.setAttribution(text);
   }, []);
-  // The sheet grows with the filters it shows, so the credit sits on its measured edge,
-  // and the map's popups clear the sheet and the credit together.
-  const [sheetHeight, setSheetHeight] = useState(0);
-  const handleSheetLayout = useCallback((event: LayoutChangeEvent) => {
-    setSheetHeight(event.nativeEvent.layout.height);
-  }, []);
+  // The sheet's height moves on the UI thread with the finger and its settling, and the credit
+  // rides its edge every frame. The height it last settled on is React state, which the bottom
+  // pills and the map's popups read, so they move when the sheet settles.
+  const sheetHeight = useSharedValue(0);
+  const sheetTarget = useSharedValue(0);
+  const sheetDragStart = useSharedValue(0);
+  const sheetDragging = useSharedValue(false);
+  const [settledHeight, setSettledHeight] = useState(0);
+  const settleOnJS = useGestureCallback(setSettledHeight);
+  const [handleRowHeight, setHandleRowHeight] = useState(0);
+  const [loweredRows, setLoweredRows] = useState(0);
+  const [raisedRows, setRaisedRows] = useState(0);
+  const [detailHeight, setDetailHeight] = useState(0);
   const [attributionClearance, setAttributionClearance] = useState(ATTRIBUTION_CLEARANCE);
   // The bottom pills rise over the sheet and its credit while the tab is in front.
   const pillClearance = useBottomClearance({ insetTaken: false });
   const focused = useIsFocused();
   useFootCover(
     'mapSheet',
-    focused ? filterSheetFootCover(sheetHeight, attributionClearance, pillClearance) : null
+    focused ? filterSheetFootCover(settledHeight, attributionClearance, pillClearance) : null
   );
   // The raised sheet stops under the map's top controls and its filters scroll past that.
   const insetTop = useSafeAreaInsets().top;
@@ -177,17 +204,14 @@ function MapScreenContent() {
     setScreenHeight(event.nativeEvent.layout.height);
   }, []);
   const sheetMaxHeight = filterSheetMaxHeight(screenHeight, insetTop);
-  const [filtersViewport, setFiltersViewport] = useState(0);
-  const [filtersContent, setFiltersContent] = useState(0);
-  const filtersScroll = filtersViewport > 0 && filtersContent > filtersViewport;
 
   // Get sync state from engine cache
   const { isReady, cacheStats } = useActivityBoundsCache();
   const oldestSyncedDate = cacheStats.oldestDate;
   const newestSyncedDate = cacheStats.newestDate;
 
-  // Filter state
-  const [selectedCategories, setSelectedCategories] = useState<Set<SportFamily>>(new Set());
+  // Filter state. The chosen sports keep the order they were chosen in, which their chips lead with.
+  const [selectedCategories, setSelectedCategories] = useState<SportFamily[]>([]);
   const [period, setPeriod] = useState<MapPeriod>(DEFAULT_MAP_PERIOD);
   const [distanceFilter, setDistanceFilter] = useState<MapDistanceBand>(MapDistanceBand.All);
   const [nameNeedle, setNameNeedle] = useState('');
@@ -196,8 +220,51 @@ function MapScreenContent() {
   const searchedNeedle = useDeferredValue(nameNeedle);
   const [focusActivityId, setFocusActivityId] = useState<string | undefined>(undefined);
   const [resultsOpen, setResultsOpen] = useState(false);
-  // The filter sheet opens lowered, the period chips alone over the map.
+  // The filter sheet opens lowered, the sport chips and the period alone over the map.
   const [sheetExpanded, setSheetExpanded] = useState(false);
+  const expandOnJS = useGestureCallback(setSheetExpanded);
+
+  // Lowered the sheet shows the handle, the rows under it and the foot line, raised it adds the
+  // rows below the first ones. Nothing is placed before the lowered rows are measured.
+  const sheetPadding = bottomClearance + spacing.md;
+  const sheetMeasured = loweredRows > 0;
+  const { lowered: loweredHeight, raised: raisedHeight } = filterSheetStops(
+    handleRowHeight + loweredRows + detailHeight + sheetPadding,
+    raisedRows,
+    sheetMaxHeight
+  );
+  // At the raised stop under the top controls a vertical drag over the filters scrolls them, and
+  // only the handle moves the sheet.
+  const filtersScroll = sheetExpanded && raisedHeight < loweredHeight + raisedRows;
+  const filtersRef = useRef<ScrollViewInstance>(null);
+
+  // A tap on the handle, or rows changing height while no finger holds the sheet, takes it to
+  // its state's stop. A drag that has just settled is already on its way there.
+  const sheetStop = sheetExpanded ? raisedHeight : loweredHeight;
+  const sheetPlaced = useRef(false);
+  useEffect(() => {
+    if (!sheetMeasured || sheetDragging.value || sheetTarget.value === sheetStop) return;
+    sheetTarget.value = sheetStop;
+    if (!sheetPlaced.current) {
+      sheetPlaced.current = true;
+      sheetHeight.value = sheetStop;
+      setSettledHeight(sheetStop);
+      return;
+    }
+    sheetHeight.value = withTiming(sheetStop, SHEET_SETTLE, (finished) => {
+      if (finished) runOnJS(settleOnJS)(sheetStop);
+    });
+  }, [sheetMeasured, sheetStop, sheetHeight, sheetTarget, sheetDragging, settleOnJS]);
+
+  // A lowered sheet shows its first rows, so filters scrolled at the raised stop go back to the top.
+  useEffect(() => {
+    if (!sheetExpanded) filtersRef.current?.scrollTo({ y: 0, animated: true });
+  }, [sheetExpanded]);
+
+  const sheetStyle = useAnimatedStyle(() =>
+    sheetHeight.value > 0 ? { height: sheetHeight.value } : {}
+  );
+  const attributionLaneStyle = useAnimatedStyle(() => ({ bottom: sheetHeight.value }));
 
   // Memoize period start date to keep reference stable across renders
   const periodStart = useMemo(() => getPeriodStart(period), [period]);
@@ -207,15 +274,17 @@ function MapScreenContent() {
   const sectionsEnabled = useRouteSettings((s) => s.settings.enabled);
 
   const selectedTypes = useMemo(
-    () => new Set([...selectedCategories].flatMap((category) => SPORT_FAMILY_MEMBERS[category])),
+    () => new Set(selectedCategories.flatMap((category) => SPORT_FAMILY_MEMBERS[category])),
     [selectedCategories]
   );
+  const selectedCategorySet = useMemo(() => new Set(selectedCategories), [selectedCategories]);
 
   const {
     activities: displayActivities,
     availableTypes,
     categoryCounts,
     totalCount,
+    unmapped,
     routeCount,
     routeLines,
     sectionCount,
@@ -249,25 +318,41 @@ function MapScreenContent() {
     return `${formatMonthYear(oldestSyncedDate)} – ${formatMonthYear(newestSyncedDate)}`;
   }, [oldestSyncedDate, newestSyncedDate]);
 
-  // The line under the period chips, which also names the map for a screen reader.
-  const activitySummary =
+  // The line under the sport chips and the period, which also names the map for a screen reader.
+  // It names why the rest of the window is not drawn, each cause only when it holds an activity.
+  const activitySummary = [
     t('mapScreen.activitySummary', {
       count: totalCount,
       mapped: displayActivities.length,
       defaultValue: '{{count}} activities · {{mapped}} on the map',
-    }) + (dateRangeLabel ? ` · ${dateRangeLabel}` : '');
+    }),
+    unmapped.withoutGps > 0 &&
+      t('mapScreen.unmappedWithoutGps', {
+        count: unmapped.withoutGps,
+        defaultValue: '{{count}} without GPS',
+      }),
+    unmapped.downloading > 0 &&
+      t('mapScreen.unmappedDownloading', {
+        count: unmapped.downloading,
+        defaultValue: '{{count}} downloading',
+      }),
+    dateRangeLabel,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   // The engine counts chips before sport and distance filters, so they stay put.
   const categorySorted = useMemo(() => {
     const groups = groupTypesByCategory(availableTypes);
     const counts = new Map(categoryCounts.map(({ category, count }) => [category, count]));
-    return Array.from(groups.entries())
-      .map(([category]) => ({
+    return sportChipOrder(
+      Array.from(groups.keys()).map((category) => ({
         category,
         count: counts.get(category) ?? 0,
-      }))
-      .sort((a, b) => b.count - a.count);
-  }, [availableTypes, categoryCounts]);
+      })),
+      selectedCategories
+    );
+  }, [availableTypes, categoryCounts, selectedCategories]);
 
   // The sports the map draws: those in the window, narrowed to the chosen ones.
   const keyCategories = useMemo(
@@ -275,10 +360,10 @@ function MapScreenContent() {
       categorySorted
         .filter(
           ({ category, count }) =>
-            count > 0 && (selectedCategories.size === 0 || selectedCategories.has(category))
+            count > 0 && (selectedCategorySet.size === 0 || selectedCategorySet.has(category))
         )
         .map(({ category }) => category),
-    [categorySorted, selectedCategories]
+    [categorySorted, selectedCategorySet]
   );
 
   const changeNeedle = (text: string) => {
@@ -298,47 +383,83 @@ function MapScreenContent() {
   const periodFilterNames = PERIOD_OPTIONS.filter(
     ({ id }) => id === period && id !== DEFAULT_MAP_PERIOD
   ).map(({ labelKey }) => t(labelKey as never));
-  const chipFilterNames = [
-    ...getDistanceOptions(isMetric, '')
-      .filter(({ key }) => key === distanceFilter && key !== MapDistanceBand.All)
-      .map(({ label }) => label),
-    ...[...selectedCategories].map((category) => t(SPORT_FAMILY_LABELS[category])),
+  const distanceFilterNames = getDistanceOptions(isMetric, '')
+    .filter(({ key }) => key === distanceFilter && key !== MapDistanceBand.All)
+    .map(({ label }) => label);
+  const activeFilterNames = [
+    ...periodFilterNames,
+    ...distanceFilterNames,
+    ...selectedCategories.map((category) => t(SPORT_FAMILY_LABELS[category])),
   ];
-  const activeFilterNames = [...periodFilterNames, ...chipFilterNames];
-  // The lowered sheet hides every filter but the period chips, so it names the rest.
+  // The lowered sheet shows the sport chips and the period, so it names the distance and the
+  // typed name it hides.
   const typedNeedle = nameNeedle.trim();
-  const hiddenFilterNames = typedNeedle ? [...chipFilterNames, typedNeedle] : chipFilterNames;
+  const hiddenFilterNames = typedNeedle
+    ? [...distanceFilterNames, typedNeedle]
+    : distanceFilterNames;
 
-  const clearFilters = () => {
-    setSelectedCategories(new Set());
+  const clearHiddenFilters = () => {
     setDistanceFilter(MapDistanceBand.All);
     changeNeedle('');
+  };
+
+  const clearFilters = () => {
+    setSelectedCategories([]);
+    clearHiddenFilters();
   };
 
   const toggleCategory = (key: string) => {
     if (!isSportFamily(key)) return;
     const category = key;
-    setSelectedCategories((previous) => {
-      const next = new Set(previous);
-      if (next.has(category)) next.delete(category);
-      else next.add(category);
-      return next;
-    });
+    setSelectedCategories((previous) =>
+      previous.includes(category)
+        ? previous.filter((chosen) => chosen !== category)
+        : [...previous, category]
+    );
   };
 
-  const sheetDrag = () =>
+  // The drag runs on the UI thread: the sheet follows the finger between its stops and settles
+  // on the one the drag rule picks, and only then does React hear of it.
+  const sheetDrag = (testID: string) =>
     Gesture.Pan()
-      .runOnJS(true)
+      .withTestId(testID)
+      .enabled(sheetMeasured)
       .activeOffsetY([-SHEET_DRAG_ACTIVATION, SHEET_DRAG_ACTIVATION])
       .failOffsetX([-SHEET_DRAG_ACTIVATION, SHEET_DRAG_ACTIVATION])
-      .onEnd((event) => {
-        setSheetExpanded(
-          filterSheetExpandedAfterDrag(sheetExpanded, event.translationY, event.velocityY)
+      .onBegin(() => {
+        sheetDragStart.value = sheetHeight.value;
+      })
+      .onStart(() => {
+        sheetDragging.value = true;
+      })
+      .onUpdate((event) => {
+        sheetHeight.value = filterSheetDragHeight(
+          sheetDragStart.value,
+          event.translationY,
+          loweredHeight,
+          raisedHeight
         );
+      })
+      .onEnd((event) => {
+        const stop = filterSheetSettleHeight(
+          sheetExpanded,
+          event.translationY,
+          event.velocityY,
+          loweredHeight,
+          raisedHeight
+        );
+        sheetTarget.value = stop;
+        sheetHeight.value = withTiming(stop, SHEET_SETTLE, (finished) => {
+          if (finished) runOnJS(settleOnJS)(stop);
+        });
+        runOnJS(expandOnJS)(stop === raisedHeight && stop !== loweredHeight);
+      })
+      .onFinalize(() => {
+        sheetDragging.value = false;
       });
-  const handleDrag = sheetDrag();
+  const handleDrag = sheetDrag('map-filter-handle-drag');
   // Once the filters scroll, a vertical drag over them scrolls and only the handle moves the sheet.
-  const filtersDrag = sheetDrag().enabled(!filtersScroll);
+  const filtersDrag = sheetDrag('map-filter-drag').enabled(sheetMeasured && !filtersScroll);
 
   // A failed map read is named over the map and its sheet rather than taking
   // the tab away, so the period and filters stay to retry from.
@@ -390,7 +511,7 @@ function MapScreenContent() {
                 sectionsEnabled={sectionsEnabled}
                 selectSectionId={sectionsEnabled ? selectSectionId : undefined}
                 keyCategories={keyCategories}
-                bottomClearance={sheetHeight + attributionClearance}
+                bottomClearance={settledHeight + attributionClearance}
                 mapLabel={activitySummary}
               />
             </ComponentErrorBoundary>
@@ -398,9 +519,9 @@ function MapScreenContent() {
         }
       </StagedPage>
 
-      <View
+      <Animated.View
         testID="map-attribution-lane"
-        style={[styles.attributionLane, { bottom: sheetHeight }]}
+        style={[styles.attributionLane, attributionLaneStyle]}
         pointerEvents="box-none"
       >
         <AttributionOverlay
@@ -408,7 +529,7 @@ function MapScreenContent() {
           initialAttribution=""
           onClearanceChange={setAttributionClearance}
         />
-      </View>
+      </Animated.View>
 
       {emptyReason && !isMapReadError ? (
         <MapEmptyState
@@ -420,21 +541,22 @@ function MapScreenContent() {
         />
       ) : null}
 
-      {/* Filter sheet: lowered it shows the period chips, raised every filter */}
+      {/* Filter sheet: lowered it shows the sport chips and the period, raised every filter */}
       <Animated.View
-        layout={LinearTransition.duration(SHEET_FADE_MS)}
         testID="map-filter-sheet"
-        onLayout={handleSheetLayout}
         style={[
           styles.infoBar,
-          { paddingBottom: bottomClearance + spacing.md, maxHeight: sheetMaxHeight },
+          { paddingBottom: sheetPadding },
+          sheetMaxHeight !== undefined && { maxHeight: sheetMaxHeight },
           isDark && styles.infoBarDark,
+          sheetStyle,
         ]}
       >
         <GestureDetector gesture={handleDrag}>
           <PressTarget
             testID="map-filter-handle"
             onPress={() => setSheetExpanded((expanded) => !expanded)}
+            onLayout={(event) => setHandleRowHeight(event.nativeEvent.layout.height)}
             accessibilityRole="button"
             accessibilityLabel={
               sheetExpanded ? t('mapScreen.hideFilters') : t('mapScreen.showFilters')
@@ -449,99 +571,107 @@ function MapScreenContent() {
 
         <GestureDetector gesture={filtersDrag}>
           <ScrollView
+            ref={filtersRef}
             testID="map-filter-scroll"
             style={styles.filterScroll}
             scrollEnabled={filtersScroll}
             showsVerticalScrollIndicator={filtersScroll}
             bounces={false}
             keyboardShouldPersistTaps="handled"
-            onLayout={(event) => setFiltersViewport(event.nativeEvent.layout.height)}
-            onContentSizeChange={(_, height) => setFiltersContent(height)}
           >
-            {mapReadFailure}
+            {/* The rows the lowered sheet shows, directly under the handle */}
+            <View
+              testID="map-filter-lowered"
+              onLayout={(event) => setLoweredRows(event.nativeEvent.layout.height)}
+            >
+              {mapReadFailure}
 
-            {sheetExpanded ? (
-              <Animated.View
-                entering={FadeIn.duration(SHEET_FADE_MS)}
-                exiting={FadeOut.duration(SHEET_FADE_MS)}
-              >
-                <MapNameSearch
-                  needle={nameNeedle}
-                  onChangeNeedle={changeNeedle}
-                  results={results}
-                  total={displayActivities.length}
-                  filters={activeFilterNames}
-                  onChoose={chooseResult}
-                />
-              </Animated.View>
-            ) : null}
-
-            {/* Time period chips */}
-            <FilterChipRow
-              options={PERIOD_OPTIONS.map(({ id, labelKey }) => ({
-                key: id,
-                label: t(labelKey as never),
-              }))}
-              selected={period}
-              onSelect={setPeriod}
-            />
-
-            {sheetExpanded ? (
-              <Animated.View
-                entering={FadeIn.duration(SHEET_FADE_MS)}
-                exiting={FadeOut.duration(SHEET_FADE_MS)}
-              >
-                {/* Distance chips */}
-                <FilterChipRow
-                  options={getDistanceOptions(isMetric, t('mapScreen.distanceAny'))}
-                  selected={distanceFilter}
-                  onSelect={setDistanceFilter}
-                />
-
-                {/* Sport type filter chips */}
+              {/* Sport chips taking the free width, the period pinned at the row's end */}
+              <View testID="map-filter-controls" style={styles.filterControls}>
                 <SportChipRow
                   chips={categorySorted.map(({ category, count }) => ({
                     key: category,
                     label: SPORT_FAMILY_LABELS[category],
                     count,
+                    testID: `map-sport-${category}`,
                   }))}
-                  selected={selectedCategories}
+                  selected={selectedCategorySet}
                   onToggle={toggleCategory}
+                  style={styles.sportChips}
                 />
-              </Animated.View>
-            ) : null}
-
-            {!sheetExpanded && hiddenFilterNames.length > 0 ? (
-              <View style={styles.infoRow}>
-                <Text
-                  testID="map-filter-summary"
-                  style={[styles.infoText, styles.filterSummary, isDark && styles.infoTextDark]}
-                >
-                  {t('mapScreen.searchFilteredBy', { filters: hiddenFilterNames.join(', ') })}
-                </Text>
-                <Button
-                  label={t('mapScreen.emptyClearFilters')}
-                  variant="ghost"
-                  size="sm"
-                  onPress={clearFilters}
+                <SelectButton
+                  testID="map-period-select"
+                  style={styles.periodSelect}
+                  accessibilityLabel={t('settings.dateRange')}
+                  options={PERIOD_OPTIONS.map(({ id }) => ({
+                    value: id,
+                    label: t(periodSelectLabelKey(id) as never),
+                  }))}
+                  value={period}
+                  onChange={setPeriod}
                 />
               </View>
-            ) : null}
 
-            {/* Activity count and date range, in either position of the sheet */}
-            <View style={styles.infoRow}>
-              <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
-                {activitySummary}
-              </Text>
-              <Button
-                label={t('mapScreen.expandRange', 'Expand range')}
-                variant="ghost"
-                size="sm"
-                onPress={() => navigateTo('/sync-settings')}
+              {!sheetExpanded && hiddenFilterNames.length > 0 ? (
+                <View style={styles.infoRow}>
+                  <Text
+                    testID="map-filter-summary"
+                    style={[styles.infoText, styles.filterSummary, isDark && styles.infoTextDark]}
+                  >
+                    {t('mapScreen.searchFilteredBy', { filters: hiddenFilterNames.join(', ') })}
+                  </Text>
+                  <Button
+                    label={t('mapScreen.emptyClearFilters')}
+                    variant="ghost"
+                    size="sm"
+                    onPress={clearHiddenFilters}
+                  />
+                </View>
+              ) : null}
+            </View>
+
+            {/* The rows rising reveals. Lowered they sit under the sheet's edge, out of reach of
+                touch and of the screen reader. */}
+            <View
+              testID="map-filter-raised"
+              onLayout={(event) => setRaisedRows(event.nativeEvent.layout.height)}
+              pointerEvents={sheetExpanded ? 'auto' : 'none'}
+              accessibilityElementsHidden={!sheetExpanded}
+              importantForAccessibility={sheetExpanded ? 'auto' : 'no-hide-descendants'}
+            >
+              <MapNameSearch
+                needle={nameNeedle}
+                onChangeNeedle={changeNeedle}
+                results={results}
+                total={displayActivities.length}
+                filters={activeFilterNames}
+                onChoose={chooseResult}
+              />
+
+              {/* Distance chips */}
+              <FilterChipRow
+                options={getDistanceOptions(isMetric, t('mapScreen.distanceAny'))}
+                selected={distanceFilter}
+                onSelect={setDistanceFilter}
               />
             </View>
           </ScrollView>
         </GestureDetector>
+
+        {/* The foot line: the count and the synced span, then the details that join them, last
+            in the sheet at either stop with the rows rising above it */}
+        <View
+          testID="map-sheet-detail"
+          style={styles.sheetDetail}
+          onLayout={(event) => setDetailHeight(event.nativeEvent.layout.height)}
+        >
+          <Text style={[styles.detailText, isDark && styles.infoTextDark]}>{activitySummary}</Text>
+          <TextLink
+            label={t('mapScreen.expandRange', 'Expand range')}
+            size="caption"
+            onPress={() => navigateTo('/sync-settings')}
+          />
+        </View>
       </Animated.View>
     </View>
   );
@@ -603,6 +733,8 @@ const styles = StyleSheet.create({
     backgroundColor: colorWithOpacity(ink.white, 0.92),
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.md,
+    // The sheet clips to its height, so rising reveals the rows under those already showing.
+    overflow: 'hidden',
   },
   // The filters keep their own height until the sheet's bound squeezes them.
   filterScroll: {
@@ -632,6 +764,19 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingVertical: Math.max(spacing.xs, slopToMinTapTarget(controlHeight.chip).top),
   },
+  filterControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  // The scroller's own style holds it at its content's width, so the grow is stated in full.
+  sportChips: {
+    flexGrow: 1,
+    flexShrink: 1,
+  },
+  periodSelect: {
+    flexShrink: 0,
+  },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -648,6 +793,19 @@ const styles = StyleSheet.create({
   },
   filterSummary: {
     flexShrink: 1,
+  },
+  // The foot line wraps, so a long span or a later detail takes a second line rather than an
+  // ellipsis.
+  sheetDetail: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    columnGap: spacing.sm,
+    paddingTop: spacing.xs,
+  },
+  detailText: {
+    ...typography.caption,
+    color: colors.textSecondary,
   },
   attributionLane: {
     position: 'absolute',

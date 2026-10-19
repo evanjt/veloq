@@ -103,12 +103,12 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
   },
   sectionPalette: {
     kind: 'series',
-    reason: 'the map line colours, told apart from each other and from the white casing under them',
+    reason: "the map line colours, told apart from each other and from the base's edge under them",
   },
   routePalette: {
     kind: 'series',
     reason:
-      'the route line colours, told apart from each other and from the white casing under them',
+      "the route line colours, told apart from each other and from the base's edge under them",
   },
   mapLayerColors: {
     kind: 'series',

@@ -3579,7 +3579,14 @@ pub mod pooled {
         // same stamp and a layer the caller holds is not shipped again.
         let stamp = crate::persistence::read_cache::stamp(conn).map(|stamp| stamp as f64);
         let holds = |held: Option<f64>| stamp.is_some() && held == stamp;
-        let window = map_activities_filtered(conn, start_date, end_date);
+        // A window that cannot be read names no cause rather than a wrong one.
+        let (window, trackless, readable) = match map_window(conn, start_date, end_date) {
+            Ok(window) => (window.drawn, window.trackless, true),
+            Err(e) => {
+                log::warn!("[map] window: {e:?}");
+                (Vec::new(), Vec::new(), false)
+            }
+        };
         let mapped = window.len() as u32;
         let category_counts = crate::FfiSportFamily::ALL
             .into_iter()
@@ -3595,29 +3602,31 @@ pub mod pooled {
         // The chip counts above are of the window alone, so a search does not
         // empty the chips that would widen it again.
         let needle = name_needle.trim().to_lowercase();
+        let kept = |sport_type: &str, distance: f64, name: &str| {
+            (selected.is_empty() || selected.contains(sport_type))
+                && map_distance_matches(distance, distance_band, is_metric)
+                && (needle.is_empty() || name.to_lowercase().contains(&needle))
+        };
         let activities = window
             .into_iter()
-            .filter(|activity| {
-                (selected.is_empty() || selected.contains(&activity.sport_type))
-                    && map_distance_matches(activity.distance, distance_band, is_metric)
-                    && (needle.is_empty() || activity.name.to_lowercase().contains(&needle))
-            })
+            .filter(|activity| kept(&activity.sport_type, activity.distance, &activity.name))
             .collect::<Vec<_>>();
-        // The backlog is counted only for a map that draws nothing, which is
-        // the one case it explains. A count that cannot be read names no
-        // cause rather than a wrong one.
-        let empty_reason = if activities.is_empty() {
-            match crate::persistence::activities::pooled::window_track_backlog(
-                conn, start_date, end_date,
-            ) {
-                Ok((in_window, pending)) => {
-                    map_empty_reason(in_window.max(mapped), mapped, 0, pending)
+        let unmapped = trackless
+            .iter()
+            .filter(|row| kept(&row.sport_type, row.distance, &row.name))
+            .fold(crate::FfiMapUnmapped::default(), |mut counts, row| {
+                if row.owed {
+                    counts.downloading += 1;
+                } else {
+                    counts.without_gps += 1;
                 }
-                Err(e) => {
-                    log::warn!("[map] window backlog: {e:?}");
-                    None
-                }
-            }
+                counts
+            });
+        // The cause is read off the whole window, before the filters, since
+        // a filter is the first cause it names.
+        let empty_reason = if activities.is_empty() && readable {
+            let pending = trackless.iter().filter(|row| row.owed).count() as u32;
+            map_empty_reason(mapped + trackless.len() as u32, mapped, 0, pending)
         } else {
             None
         };
@@ -3702,6 +3711,7 @@ pub mod pooled {
                 }),
             }),
             empty_reason,
+            unmapped,
         }
     }
 
@@ -3764,38 +3774,80 @@ pub mod pooled {
             })
     }
 
+    /// An activity in the map's date window with no stored track, carrying
+    /// what the filters read and whether its download is still owed.
+    pub(crate) struct TracklessActivity {
+        pub sport_type: String,
+        pub distance: f64,
+        pub name: String,
+        pub owed: bool,
+    }
+
+    /// The activities in a date window, before the map's chip, distance and
+    /// name filters: those with a stored track, which the map draws, and
+    /// those without.
+    pub(crate) struct MapWindow {
+        pub drawn: Vec<crate::persistence::MapActivityComplete>,
+        pub trackless: Vec<TracklessActivity>,
+    }
+
     /// Activities inside a date window, before map chip and distance filters.
     pub fn map_activities_filtered(
         conn: &Connection,
         start_date: i64,
         end_date: i64,
     ) -> Vec<crate::persistence::MapActivityComplete> {
-        // The join is what the memory read did by looking an id up in both
-        // maps: an activity with no metrics row has no date to place it in the
-        // window, so it is not on the map. The signature is a left join, since
-        // one that has not been derived yet still draws, without its marker.
-        let mut stmt = match conn.prepare(
-            "SELECT a.id, m.name, m.sport_type, m.date, m.distance, m.moving_time,
-                    a.min_lat, a.max_lat, a.min_lng, a.max_lng,
-                    s.start_point_lat, s.start_point_lng
-             FROM activity_metrics m
-             JOIN activities a ON a.id = m.activity_id
-             LEFT JOIN signatures s ON s.activity_id = m.activity_id
-             WHERE m.date >= ?1 AND m.date <= ?2
-             ORDER BY m.date DESC, a.id",
-        ) {
-            Ok(stmt) => stmt,
-            Err(e) => {
+        map_window(conn, start_date, end_date)
+            .map(|window| window.drawn)
+            .unwrap_or_else(|e| {
                 log::warn!("[map] window: {e:?}");
-                return Vec::new();
-            }
-        };
+                Vec::new()
+            })
+    }
 
-        let rows = stmt.query_map(rusqlite::params![start_date, end_date], |row| {
-            let start_lat: Option<f64> = row.get(10)?;
-            let start_lng: Option<f64> = row.get(11)?;
+    /// Every activity with a metrics row in the window, split by whether it
+    /// has a stored track. An activity with no metrics row has no date to place
+    /// it in the window, so it is not counted. The signature is a left join,
+    /// since one that has not been derived yet still draws, without its
+    /// marker. The census is read only for a row with no track, and is the one
+    /// place a trackless row learns whether its download is owed.
+    pub(crate) fn map_window(
+        conn: &Connection,
+        start_date: i64,
+        end_date: i64,
+    ) -> rusqlite::Result<MapWindow> {
+        let mut stmt = conn.prepare(&format!(
+            "SELECT m.activity_id, m.name, m.sport_type, m.date, m.distance, m.moving_time,
+                    a.id IS NOT NULL,
+                    a.min_lat, a.max_lat, a.min_lng, a.max_lng,
+                    s.start_point_lat, s.start_point_lng,
+                    CASE WHEN a.id IS NULL THEN {owed} ELSE 0 END
+             FROM activity_metrics m
+             LEFT JOIN activities a ON a.id = m.activity_id
+             LEFT JOIN signatures s ON a.id IS NOT NULL AND s.activity_id = m.activity_id
+             WHERE m.date >= ?1 AND m.date <= ?2
+             ORDER BY m.date DESC, m.activity_id",
+            owed = crate::persistence::activities::METRICS_TRACK_OWED.as_str(),
+        ))?;
+        let mut window = MapWindow {
+            drawn: Vec::new(),
+            trackless: Vec::new(),
+        };
+        let mut rows = stmt.query(rusqlite::params![start_date, end_date])?;
+        while let Some(row) = rows.next()? {
             let sport_type: String = row.get(2)?;
-            Ok(crate::persistence::MapActivityComplete {
+            if !row.get::<_, bool>(6)? {
+                window.trackless.push(TracklessActivity {
+                    name: row.get(1)?,
+                    sport_type,
+                    distance: row.get(4)?,
+                    owed: row.get(13)?,
+                });
+                continue;
+            }
+            let start_lat: Option<f64> = row.get(11)?;
+            let start_lng: Option<f64> = row.get(12)?;
+            window.drawn.push(crate::persistence::MapActivityComplete {
                 activity_id: row.get(0)?,
                 name: row.get(1)?,
                 is_virtual: crate::sport::is_virtual(&sport_type),
@@ -3804,24 +3856,16 @@ pub mod pooled {
                 distance: row.get(4)?,
                 duration: row.get(5)?,
                 bounds: crate::Bounds {
-                    min_lat: row.get(6)?,
-                    max_lat: row.get(7)?,
-                    min_lng: row.get(8)?,
-                    max_lng: row.get(9)?,
+                    min_lat: row.get(7)?,
+                    max_lat: row.get(8)?,
+                    min_lng: row.get(9)?,
+                    max_lng: row.get(10)?,
                 },
                 start_lat: start_lat.filter(|_| start_lng.is_some()),
                 start_lng: start_lng.filter(|_| start_lat.is_some()),
-            })
-        });
-        let rows = match rows {
-            Ok(rows) => rows,
-            Err(e) => {
-                log::warn!("[map] window: {e:?}");
-                return Vec::new();
-            }
-        };
-
-        rows.flatten().collect()
+            });
+        }
+        Ok(window)
     }
 }
 

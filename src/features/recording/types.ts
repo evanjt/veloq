@@ -61,12 +61,7 @@ export interface ManualActivityData {
 }
 
 export type RecordingUploadStatus =
-  | 'localOnly'
-  | 'pending'
-  | 'uploading'
-  | 'uploaded'
-  | 'failed'
-  | 'permissionBlocked';
+  'localOnly' | 'pending' | 'uploading' | 'uploaded' | 'failed' | 'permissionBlocked';
 
 /** What a recording holds: a FIT this device wrote, or a body the athlete typed. */
 export type RecordingKind = 'fit' | 'manual';

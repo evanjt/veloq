@@ -2,12 +2,19 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import type { ActivityBoundsItem } from '@/types';
-import type { FfiMapEmptyReason, FfiRouteLineLayer, MapDistanceBand } from 'veloqrs';
+import type {
+  FfiMapEmptyReason,
+  FfiMapUnmapped,
+  FfiRouteLineLayer,
+  MapDistanceBand,
+} from 'veloqrs';
 import type { RouteLineLayerInput } from '@/features/maps/lib/routeLineCollection';
 import { createLayerHold } from '@/features/maps/lib/mapLayerHold';
 import { createSectionLineCache, type MapSection } from '@/features/maps/lib/sectionLineCollection';
 import { fromEngineSportFamily } from '@/shared/activity/engineSportFamily';
 import type { SportFamily } from '@/shared/activity/sportCategories';
+
+const NO_UNMAPPED: FfiMapUnmapped = { withoutGps: 0, downloading: 0 };
 
 export type { MapSection } from '@/features/maps/lib/sectionLineCollection';
 
@@ -57,6 +64,8 @@ interface UseEngineMapActivitiesReturn {
   sectionsGeoJSON: GeoJSON.FeatureCollection;
   /** Why the map draws no activity, as the engine names it; undefined while it draws one */
   emptyReason: FfiMapEmptyReason | undefined;
+  /** The period's activities the filters keep and the map cannot draw, by why */
+  unmapped: FfiMapUnmapped;
   /** The screen read threw, so nothing above describes the library */
   isError: boolean;
   /** What the screen read threw, when it did */
@@ -104,6 +113,7 @@ export function useEngineMapActivities({
     sectionCount,
     sectionOverlay,
     emptyReason,
+    unmapped,
     isError,
     error,
   } = useMemo(() => {
@@ -121,6 +131,7 @@ export function useEngineMapActivities({
       sectionCount: 0,
       sectionOverlay: sectionCache.overlay(undefined),
       emptyReason: undefined as FfiMapEmptyReason | undefined,
+      unmapped: NO_UNMAPPED,
     });
     if (!enabled) return empty();
 
@@ -184,6 +195,7 @@ export function useEngineMapActivities({
       sectionCount: sectionsEnabled ? data.sectionCount : 0,
       sectionOverlay: sectionCache.overlay(sectionsEnabled ? data.sections : undefined),
       emptyReason: data.emptyReason,
+      unmapped: data.unmapped,
     };
   }, [
     enabled,
@@ -213,6 +225,7 @@ export function useEngineMapActivities({
     sections: sectionOverlay.sections,
     sectionsGeoJSON: sectionOverlay.collection,
     emptyReason,
+    unmapped,
     isError,
     error,
     refetch,

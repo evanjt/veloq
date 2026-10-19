@@ -3,6 +3,12 @@
 
 import { mapPageBaseUrl, nativeTileUrls } from '@/features/maps/lib/tileTransport';
 import { TERRAIN_UPSTREAM_TEMPLATE } from '@/features/maps/lib/terrainTemplate';
+import { EOX_S2CLOUDLESS_TEMPLATE } from '@/features/maps/lib/eoxTemplate';
+import {
+  CREDIT_SEPARATOR,
+  MAP_SOURCE_CREDITS,
+  joinShortCredits,
+} from '@/features/maps/lib/mapSourceCredits';
 import { LIBERTY_STYLE } from '@/features/maps/styles/liberty';
 import { NATURAL_EARTH_ORIGIN } from '@/features/maps/styles/liberty/sources';
 import type { LngLatBounds } from '@/features/maps/lib/coordinates';
@@ -152,7 +158,7 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
     ],
     tileSize: SATELLITE_TILE_SIZE,
     maxzoom: 20,
-    attribution: '© swisstopo',
+    attribution: MAP_SOURCE_CREDITS.swisstopo.shortCredit,
     boxes: [
       [8.55, 45.83, 9.15, 46.12], // Mendrisiotto and Lugano, north of Como
       [7.5, 45.95, 8.25, 46.1], // Upper Valais and the Matterhorn, north of Aosta
@@ -202,7 +208,7 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
     ],
     tileSize: SATELLITE_TILE_SIZE,
     maxzoom: 20,
-    attribution: '© IGN France',
+    attribution: MAP_SOURCE_CREDITS.ign.shortCredit,
     boxes: [
       [8.5, 41.33, 9.6, 43.05], // Corsica
       [1.45, 42.33, 9.56, 42.6], // Cerdagne and Roussillon, east of the Segre
@@ -226,7 +232,7 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
     ],
     tileSize: SATELLITE_TILE_SIZE,
     maxzoom: 17,
-    attribution: 'USGS NAIP',
+    attribution: MAP_SOURCE_CREDITS.naip.shortCredit,
     bounds: [-124.733, 24.544, -66.95, 49.384], // Continental USA [west, south, east, north]
   },
   // Spain: PNOA via IGN Spain (CC BY 4.0 scne.es - commercial OK)
@@ -237,7 +243,7 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
     ],
     tileSize: SATELLITE_TILE_SIZE,
     maxzoom: 20,
-    attribution: 'CC BY 4.0 scne.es',
+    attribution: MAP_SOURCE_CREDITS.spain.shortCredit,
     bounds: [-9.4, 36.0, 4.4, 43.8],
   },
   // Austria: basemap.at Orthophoto (CC BY 4.0 OGD Austria - commercial OK)
@@ -246,7 +252,7 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
     tiles: ['https://maps.wien.gv.at/basemap/bmaporthofoto30cm/normal/google3857/{z}/{y}/{x}.jpeg'],
     tileSize: SATELLITE_TILE_SIZE,
     maxzoom: 20,
-    attribution: 'Datenquelle: basemap.at',
+    attribution: MAP_SOURCE_CREDITS.austria.shortCredit,
     bounds: [9.53, 46.37, 17.17, 49.02],
   },
   // Netherlands: PDOK Luchtfoto (CC BY 4.0 Kadaster - commercial OK)
@@ -256,7 +262,7 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
     ],
     tileSize: SATELLITE_TILE_SIZE,
     maxzoom: 21,
-    attribution: '© Kadaster / PDOK',
+    attribution: MAP_SOURCE_CREDITS.netherlands.shortCredit,
     bounds: [3.37, 50.75, 7.21, 53.55],
   },
   // Czech Republic: CUZK Orthophoto (CC BY 4.0 since July 2023 - commercial OK)
@@ -266,7 +272,7 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
     ],
     tileSize: SATELLITE_TILE_SIZE,
     maxzoom: 18,
-    attribution: '© ČÚZK',
+    attribution: MAP_SOURCE_CREDITS.czechia.shortCredit,
     bounds: [12.09, 48.55, 18.85, 51.06],
   },
   // Poland: GUGiK Orthophoto (free for all use, Art. 40a Geodetic Law 2020 - commercial OK)
@@ -276,7 +282,7 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
     ],
     tileSize: SATELLITE_TILE_SIZE,
     maxzoom: 19,
-    attribution: '© GUGiK',
+    attribution: MAP_SOURCE_CREDITS.poland.shortCredit,
     bounds: [14.12, 49.0, 24.15, 54.85],
   },
   // Luxembourg: ACT BD-L-ORTHO (CC0 Public Domain - commercial OK, no attribution required)
@@ -289,16 +295,16 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
     ],
     tileSize: SATELLITE_TILE_SIZE,
     maxzoom: 21,
-    attribution: '© ACT Luxembourg',
+    attribution: MAP_SOURCE_CREDITS.luxembourg.shortCredit,
     bounds: [5.73, 49.44, 6.53, 50.18],
   },
   // Global fallback: EOX Sentinel-2 2016/2017 (CC BY 4.0 - commercial OK)
   // Note: 2018+ versions are CC BY-NC-SA (not commercial)
   eox: {
-    tiles: ['https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/{z}/{y}/{x}.jpg'],
+    tiles: [EOX_S2CLOUDLESS_TEMPLATE],
     tileSize: SATELLITE_TILE_SIZE,
     maxzoom: 14,
-    attribution: 'Sentinel-2 cloudless - s2maps.eu by EOX, Copernicus Sentinel data 2017',
+    attribution: MAP_SOURCE_CREDITS.eox.shortCredit,
     // No bounds - global coverage
   },
 };
@@ -557,11 +563,13 @@ export function getStyleIcon(
   return 'weather-sunny';
 }
 
+const BASE_MAP_ATTRIBUTION = joinShortCredits(['openfreemap', 'openmaptiles', 'openstreetmap']);
+
 // Attribution text for each map source
 export const MAP_ATTRIBUTIONS: Record<MapStyleType, string> = {
-  light: '© OpenFreeMap © OpenMapTiles © OpenStreetMap',
-  dark: '© OpenFreeMap © OpenMapTiles © OpenStreetMap',
-  satellite: 'Sentinel-2 cloudless by EOX', // Default, updated dynamically
+  light: BASE_MAP_ATTRIBUTION,
+  dark: BASE_MAP_ATTRIBUTION,
+  satellite: MAP_SOURCE_CREDITS.eox.shortCredit, // Default, updated dynamically
 };
 
 /**
@@ -654,7 +662,7 @@ export function getCombinedSatelliteAttribution(
   return ordered
     .filter((id) => visible.has(id))
     .map((id) => SATELLITE_SOURCES[id].attribution)
-    .join(' | ');
+    .join(CREDIT_SEPARATOR);
 }
 
 /**
@@ -764,7 +772,7 @@ export function rewriteBundledAssets<T extends object>(style: T): T {
 }
 
 // 3D terrain attribution
-export const TERRAIN_ATTRIBUTION = 'Terrain: USGS, NOAA (Mapzen Terrain Tiles)';
+export const TERRAIN_ATTRIBUTION = MAP_SOURCE_CREDITS.terrain.shortCredit;
 
 /**
  * Shared 3D terrain configuration - single source of truth for both
@@ -783,6 +791,8 @@ export const TERRAIN_3D_CONFIG = {
     maxzoom: 15,
   },
   defaultExaggeration: 1.5,
+  /** The tilt a map eases to when terrain comes on, in degrees from straight down. */
+  defaultPitch: 60,
   /**
    * Insert hillshade before the first transportation/building layer found.
    * In Liberty, 'building' is after all roads (layer ~85) - using it would

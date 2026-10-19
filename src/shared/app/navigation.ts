@@ -29,7 +29,9 @@ export function replaceTo(
  * Ends a flow at `path`: pops back to it when it is in history, so nothing the flow pushed stays
  * beneath it, and replaces the current screen with it when it is not.
  */
-export function returnTo(path: string): void {
+export function returnTo(
+  path: string | { pathname: string; params?: Record<string, string | undefined> }
+): void {
   router.dismissTo(path as Href);
 }
 

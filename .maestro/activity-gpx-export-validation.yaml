@@ -29,7 +29,7 @@ tags:
 
 - extendedWaitUntil:
     visible:
-      id: "activity-detail-content"
+      id: "activity-detail-screen"
     timeout: 15000
 
 # The export button lives below the charts. Swipe up several times to surface

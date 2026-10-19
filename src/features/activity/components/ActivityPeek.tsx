@@ -7,7 +7,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { engine } from 'veloqrs';
 
-import { HeroNameRow, HeroStatsRow } from '@/shared/ui/DetailHero';
+import { HeroNameRow, HeroStatsRow, heroPeekStyles } from '@/shared/ui/DetailHero';
 import { PressTarget } from '@/shared/ui/PressTarget';
 import { FitText } from '@/shared/ui/FitText';
 import { CONFIRM_HOLD_MS } from '@/shared/ui/holdDurations';
@@ -17,7 +17,7 @@ import { MapSheetCardCloseSpace } from '@/shared/app/MapSheetCards';
 import { formatDateTime } from '@/shared/format/format';
 import { getActivityColor, getActivityIcon } from '@/shared/activity/activityUtils';
 import type { ActivityType } from '@/types';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors } from '@/theme';
 import type { activityHeroStats } from '../lib/activityHeroStats';
 
 export interface ActivityPeekProps {
@@ -48,7 +48,7 @@ export function ActivityPeek({
     />
   );
   return (
-    <View testID="activity-card-peek" style={styles.peek}>
+    <View testID="activity-card-peek" style={heroPeekStyles.peek}>
       {debugEnabled ? (
         <PressTarget
           accessibilityRole="button"
@@ -65,7 +65,7 @@ export function ActivityPeek({
       {startDateLocal ? (
         <FitText
           testID="activity-card-date-line"
-          style={[styles.dateLine, isDark && styles.dateLineDark]}
+          style={[heroPeekStyles.dateLine, styles.dateLine, isDark && styles.dateLineDark]}
         >
           {formatDateTime(startDateLocal)}
         </FitText>
@@ -110,14 +110,7 @@ function offerClones(activityId: string, name: string) {
 }
 
 const styles = StyleSheet.create({
-  peek: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.xs,
-    paddingBottom: spacing.sm,
-    gap: spacing.xs,
-  },
   dateLine: {
-    ...typography.bodyCompact,
     color: colors.textSecondary,
   },
   dateLineDark: {

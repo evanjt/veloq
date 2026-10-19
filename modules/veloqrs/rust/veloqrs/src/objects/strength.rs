@@ -11,6 +11,7 @@ use super::observer::Announcement;
 use super::sync;
 use crate::fit;
 use crate::http::ActivityFetcher;
+use crate::net::Source;
 use crate::net::transport::NetError;
 use crate::persistence::attempts::JobKey;
 use crate::persistence::strength::pooled;
@@ -432,7 +433,7 @@ impl StrengthManager {
         sync::spawn_once(
             JobKey::new("fit", &["batch"]),
             move |install, session| async move {
-                let athlete_id = session.athlete_id().to_string();
+                let athlete_id = session.account().to_string();
                 let fetcher = ActivityFetcher::with_session(session);
                 let total = owed.len();
                 let parsed = drain_fit_batch_with(

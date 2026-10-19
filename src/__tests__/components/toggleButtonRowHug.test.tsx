@@ -2,7 +2,8 @@
  * Scenario: a row of selector chips sized to their labels, as the section page's plot and
  * direction switches use, has more options or longer labels than the width holds.
  * Expected behaviour: each option is the shared chip carrying its selected state, a press reports
- * its value, and the row scrolls sideways rather than clipping a chip or cutting a label.
+ * its value, and the chips wrap onto another line rather than running past the row's edge, where
+ * a sideways scroll with no indicator cut the last chip off at large text on a narrow phone.
  */
 
 import React from 'react';
@@ -106,21 +107,48 @@ describe('ToggleButtonRow sized to its labels', () => {
     expect(StyleSheet.flatten(getByTestId('a').props.style).backgroundColor).toBe('#123456');
   });
 
-  it('scrolls sideways with every chip sized to its label, so none is clipped', async () => {
+  it('wraps every chip sized to its label onto another line, so none runs past the edge', async () => {
     const screen = await render(
-      <ToggleButtonRow layout="hug" options={LONG_OPTIONS} value="one" onValueChange={() => {}} />
+      <ToggleButtonRow
+        layout="hug"
+        testID="chip-row"
+        options={LONG_OPTIONS}
+        value="one"
+        onValueChange={() => {}}
+      />
     );
 
-    const scroller = screen.UNSAFE_getByType(ScrollView);
-    expect(scroller.props.horizontal).toBe(true);
-    const content = StyleSheet.flatten(scroller.props.contentContainerStyle);
-    expect(content.flexDirection).toBe('row');
-    expect(content.gap).toBe(spacing.sm);
+    expect(screen.UNSAFE_queryByType(ScrollView)).toBeNull();
+    const row = StyleSheet.flatten(screen.getByTestId('chip-row').props.style);
+    expect(row.flexDirection).toBe('row');
+    expect(row.flexWrap).toBe('wrap');
+    expect(row.columnGap ?? row.gap).toBe(spacing.sm);
+    expect(row.rowGap ?? row.gap).toBe(spacing.sm);
     for (const option of LONG_OPTIONS) {
-      expect(
-        StyleSheet.flatten(screen.getByTestId(option.testID).props.style).flex
-      ).toBeUndefined();
+      const chip = StyleSheet.flatten(screen.getByTestId(option.testID).props.style);
+      expect(chip.flex).toBeUndefined();
+      expect(chip.flexBasis).toBeUndefined();
+      // A chip longer than the whole row shrinks to it, where its label fits, rather than overflowing.
+      expect(chip.flexShrink).toBe(1);
     }
+  });
+
+  it('keeps a row narrower than its parent centred where the caller centres it', async () => {
+    const screen = await render(
+      <ToggleButtonRow
+        layout="hug"
+        testID="chip-row"
+        options={OPTIONS}
+        value="a"
+        onValueChange={() => {}}
+        style={{ alignSelf: 'center' }}
+      />
+    );
+
+    const row = StyleSheet.flatten(screen.getByTestId('chip-row').props.style);
+    expect(row.alignSelf).toBe('center');
+    // Wrapped lines sit under one another centred, as the single line does.
+    expect(row.justifyContent).toBe('center');
   });
 
   it('keeps the equal-width layout as the default, with no scroller', async () => {

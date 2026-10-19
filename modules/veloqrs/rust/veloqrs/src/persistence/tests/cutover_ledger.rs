@@ -552,3 +552,33 @@ fn salvaging_a_file_with_an_older_archive_keeps_its_archived_states() {
         canonical(&ride(7.0)[0..12])
     );
 }
+
+/// Scenario: a routes regroup on its own connection holds the write lock when
+/// the archive starts, and commits while the archive is under way.
+/// Expected behaviour: the archive waits its turn and archives, rather than
+/// failing on a snapshot the regroup's commit made stale.
+#[test]
+fn the_archive_waits_out_a_writer_that_commits_under_it() {
+    let dir = TempDir::new().expect("tempdir");
+    let engine = library(&dir, "archive.db");
+    let writer = rusqlite::Connection::open(dir.path().join("archive.db")).expect("writer");
+    writer
+        .execute_batch(
+            "BEGIN IMMEDIATE;
+             INSERT INTO settings (key, value) VALUES ('another_writer', '1');",
+        )
+        .expect("the other writer holds the lock");
+    let committer = std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        writer.execute_batch("COMMIT").expect("commit");
+    });
+
+    let archived = engine.archive_current_catalogue();
+    committer.join().unwrap();
+
+    assert_eq!(archived.expect("archive"), 1);
+    assert_eq!(
+        archived_state(&engine, "s_auto").0["name"],
+        "Name of s_auto"
+    );
+}

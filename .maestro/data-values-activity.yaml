@@ -24,7 +24,7 @@ tags:
       - tapOn: "Open"
 - extendedWaitUntil:
     visible:
-      id: "activity-detail-content"
+      id: "activity-detail-screen"
     timeout: 15000
 
 # Wait for full load (chart selector confirms streams loaded)

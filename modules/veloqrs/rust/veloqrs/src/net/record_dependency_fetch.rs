@@ -105,7 +105,7 @@ mod tests {
             ]));
         });
         let fetched = crate::runtime::block_on(fetch_one_record_activity(
-            &crate::net::IntervalsSession::new(transport(server.base_url()), "i1"),
+            &crate::net::intervals::IntervalsSession::new(transport(server.base_url()), "i1"),
             "old-ride",
         ))
         .unwrap();
@@ -129,7 +129,7 @@ mod tests {
             then.status(404);
         });
         let fetched = crate::runtime::block_on(fetch_one_record_activity(
-            &crate::net::IntervalsSession::new(transport(server.base_url()), "i1"),
+            &crate::net::intervals::IntervalsSession::new(transport(server.base_url()), "i1"),
             "old-ride",
         ))
         .unwrap();

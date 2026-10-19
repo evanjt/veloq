@@ -61,7 +61,7 @@ fn a_401_ends_the_record_dependency_fetch_and_parks_only_when_confirmed() {
 
         let outcome = crate::runtime::block_on(fetch_owed_record_activities(
             crate::persistence::engine_install(),
-            &crate::net::IntervalsSession::new(transport.clone(), athlete_id.clone()),
+            &crate::net::intervals::IntervalsSession::new(transport.clone(), athlete_id.clone()),
             &|| false,
             &|_, _| {},
         ));
@@ -143,7 +143,7 @@ fn a_sign_out_ends_the_record_dependency_fetch() {
     let walk = std::thread::spawn(move || {
         crate::runtime::block_on(fetch_owed_record_activities(
             crate::persistence::engine_install(),
-            &crate::net::IntervalsSession::new(transport.clone(), athlete_id.clone()),
+            &crate::net::intervals::IntervalsSession::new(transport.clone(), athlete_id.clone()),
             &|| false,
             &|_, _| {},
         ))

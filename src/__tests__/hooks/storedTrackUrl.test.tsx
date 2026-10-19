@@ -187,10 +187,8 @@ describe('a regional tap on an activity', () => {
         currentZoomRef: { current: 8 },
         currentCenterRef: { current: [7, 46] },
         surfaceRef: { current: surface } as React.RefObject<MapSurfaceRef | null>,
-        map3DRef: { current: null },
         bearingAnim: { setValue: jest.fn() } as never,
         currentZoomLevel: { current: 8 },
-        is3DMode: false,
         markUserInteracted: jest.fn(),
         setSpider: jest.fn(),
       });

@@ -76,11 +76,7 @@ export interface StrengthProgressionRecord {
 }
 
 export type StrengthBalanceStatus =
-  | 'balanced'
-  | 'watch'
-  | 'imbalanced'
-  | 'one-sided'
-  | 'insufficient';
+  'balanced' | 'watch' | 'imbalanced' | 'one-sided' | 'insufficient';
 
 export interface StrengthBalancePair {
   id: string;

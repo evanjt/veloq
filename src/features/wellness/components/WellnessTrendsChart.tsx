@@ -3,14 +3,8 @@ import { View, StyleSheet, LayoutChangeEvent } from 'react-native';
 import { Text } from 'react-native-paper';
 import { RangeCoverage } from 'veloqrs';
 import { useTranslation } from 'react-i18next';
-import {
-  Canvas,
-  DashPathEffect,
-  Line as SkiaLine,
-  Picture,
-  Skia,
-  vec,
-} from '@shopify/react-native-skia';
+import { DashPathEffect, Line as SkiaLine, Picture, Skia, vec } from '@shopify/react-native-skia';
+import { Canvas } from '@/shared/ui/SkiaCanvas';
 import { GestureDetector } from 'react-native-gesture-handler';
 
 import { useTheme } from '@/shared/app';
@@ -169,7 +163,9 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
   const isMetric = useMetricSystem();
   // The sparkline column as the first row lays it out, which places the one canvas over every row.
   const [sparklineColumn, setSparklineColumn] = useState({ left: 0, width: 0 });
-  const [rowHeight, setRowHeight] = useState(MIN_ROW_HEIGHT);
+  // Each row's label and value columns as they lay out at their natural height, keyed by
+  // metric and column.
+  const [contentHeights, setContentHeights] = useState<Record<string, number>>({});
   // The hint names the gesture until the reader has found it.
   const [explored, setExplored] = useState(false);
 
@@ -335,6 +331,19 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
   const sparklineWidth = sparklineColumn.width;
   const leftPadding = sparklineColumn.left;
   const chartWidth = sparklineWidth;
+
+  // Every row takes the tallest row's height, so the one canvas behind them keeps a sparkline
+  // per row however far the system text size grows the values column. It is read from the
+  // columns, which no row height feeds back into: a row measured over the height it was given,
+  // as the pixel grid can make it, would otherwise grow every row on each layout pass.
+  const rowHeight = useMemo(() => {
+    const keys = new Set(activeMetrics.map((metric) => metric.key));
+    let tallest = 0;
+    for (const [id, height] of Object.entries(contentHeights)) {
+      if (keys.has(id.slice(0, id.lastIndexOf(':')))) tallest = Math.max(tallest, height);
+    }
+    return Math.max(MIN_ROW_HEIGHT, Math.ceil(tallest + ROW_CHROME));
+  }, [activeMetrics, contentHeights]);
 
   const sparklineHeight = rowHeight;
 
@@ -518,11 +527,11 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
     );
   }, []);
 
-  // Every row takes the tallest row's height, so the one canvas behind them keeps a sparkline
-  // per row however far the system text size grows the values column.
-  const onRowLayout = useCallback((e: LayoutChangeEvent) => {
-    const measured = Math.ceil(e.nativeEvent.layout.height);
-    setRowHeight((current) => (measured > current ? measured : current));
+  const measureContent = useCallback((id: string, e: LayoutChangeEvent) => {
+    const { height } = e.nativeEvent.layout;
+    setContentHeights((current) =>
+      current[id] === height ? current : { ...current, [id]: height }
+    );
   }, []);
 
   const selectedDate = selectedDay?.id ?? null;
@@ -588,7 +597,6 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
               <View
                 key={metric.key}
                 testID={`wellness-row-${metric.key}`}
-                onLayout={onRowLayout}
                 style={[
                   styles.metricRow,
                   { minHeight: rowHeight },
@@ -596,7 +604,11 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
                 ]}
               >
                 {/* Left: the label, which names the row's line, and the row's own range */}
-                <View style={styles.metricInfo}>
+                <View
+                  style={styles.metricInfo}
+                  testID={`wellness-labels-${metric.key}`}
+                  onLayout={(e) => measureContent(`${metric.key}:info`, e)}
+                >
                   <Text
                     maxFontSizeMultiplier={DENSE_TEXT_SCALE}
                     style={[
@@ -625,7 +637,11 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
                 />
 
                 {/* Right: values */}
-                <View style={styles.metricValues}>
+                <View
+                  style={styles.metricValues}
+                  testID={`wellness-readings-${metric.key}`}
+                  onLayout={(e) => measureContent(`${metric.key}:values`, e)}
+                >
                   <FitText
                     maxFontSizeMultiplier={DENSE_TEXT_SCALE}
                     testID={`wellness-value-${metric.key}`}
@@ -720,6 +736,10 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
 
 /** A row's height at the default text size; a row grows past it when its values need more. */
 const MIN_ROW_HEIGHT = 50;
+/** A row's padding above and below its columns. */
+const ROW_PADDING = spacing.xs;
+/** What a row adds to its tallest column: its padding and the rule under it. */
+const ROW_CHROME = 2 * ROW_PADDING + stroke.hairline;
 /** The label column fits about nine characters of the label at the cap, and wraps past that. */
 const LABEL_COLUMN_WIDTH = denseExtent(typography.caption.fontSize, 5.4);
 /** The value column fits a five-figure reading such as "103.4" at the cap. */
@@ -759,7 +779,7 @@ const makeStyles = (palette: Palette) =>
     metricRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: spacing.xs,
+      paddingVertical: ROW_PADDING,
       borderBottomWidth: stroke.hairline,
       borderBottomColor: palette.border,
     },

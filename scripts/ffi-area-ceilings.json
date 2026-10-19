@@ -62,7 +62,6 @@
     "SyncManager.syncActivityDetail"
   ],
   "features/maps": [
-    "ActivityManager.getGpsTrack",
     "HeatmapManager.clearPriorityView",
     "HeatmapManager.clearTiles",
     "HeatmapManager.setPriorityView",

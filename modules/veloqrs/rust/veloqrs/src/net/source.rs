@@ -1,16 +1,23 @@
 //! The athlete's source of training data, as the engine asks it.
 //!
-//! One method per read the sync, the on-demand fetches, the backfills, the
-//! track fetch and the credential check make, each with the parameters and answer
+//! [`Source`] holds the reads: one method per request the sync, the on-demand
+//! fetches, the backfills, the track fetch and the credential check make.
+//! [`SourceWrites`] holds what an upload asks: sending a file, creating an
+//! entry with no file, listing a window to find what an earlier upload
+//! created, and setting an effort. Each method has the parameters and answer
 //! the intervals.icu endpoint has, so the bytes on the wire are the endpoint's
-//! own. The lane or dispatch a caller passes goes through unchanged. The live
-//! implementation is the intervals.icu session; a test drives the sync over a
-//! fake that records what it was asked.
+//! own, and a source that is not intervals.icu maps its answers into those
+//! shapes as they arrive. The lane or dispatch a caller passes goes through
+//! unchanged. The live implementation is the intervals.icu session, named in
+//! `net/live.rs`; a test drives the sync and the writes over a fake that
+//! records what it was asked.
 
 use crate::governor::Dispatch;
-use crate::net::endpoints::BulkActivityBodies;
-use crate::net::intervals::wire::{ActivityRecord, AthleteRecord, WellnessRecord};
-use crate::net::transport::NetError;
+use crate::net::endpoints::{BulkActivityBodies, UploadDetails};
+use crate::net::intervals::wire::{
+    ActivityRecord, AthleteRecord, ListedActivity, ManualActivityBody, WellnessRecord,
+};
+use crate::net::transport::{NetError, Transport};
 use crate::net::types::{ActivityHistorySummary, ParsedStreams, StreamDto};
 use chrono::{DateTime, Utc};
 use std::future::Future;
@@ -18,6 +25,9 @@ use std::future::Future;
 pub trait Source: Send + Sync {
     /// The athlete every request is asked on behalf of.
     fn account(&self) -> &str;
+
+    /// The transport the requests go out on, drawing on the process governor.
+    fn transport(&self) -> &Transport;
 
     /// Whether the source refuses the credential when asked again.
     ///
@@ -171,4 +181,40 @@ pub trait Source: Send + Sync {
         gap: bool,
         dispatch: Dispatch,
     ) -> impl Future<Output = Result<String, NetError>> + Send;
+}
+
+/// What an upload asks of the source, beside the reads.
+pub trait SourceWrites: Source {
+    /// Send a recorded file as a new activity, answering the id it was given.
+    fn upload_activity(
+        &self,
+        file_path: &str,
+        filename: &str,
+        details: UploadDetails<'_>,
+        dispatch: Dispatch,
+    ) -> impl Future<Output = Result<Option<String>, NetError>> + Send;
+
+    /// Create an activity with no file behind it, answering the id it was given.
+    fn create_activity(
+        &self,
+        activity: &ManualActivityBody,
+        dispatch: Dispatch,
+    ) -> impl Future<Output = Result<Option<String>, NetError>> + Send;
+
+    /// The activities between two local dates, as the upload's duplicate check
+    /// reads them.
+    fn activities_between(
+        &self,
+        oldest: &str,
+        newest: &str,
+        dispatch: Dispatch,
+    ) -> impl Future<Output = Result<Vec<ListedActivity>, NetError>> + Send;
+
+    /// Set the effort the athlete gave an activity.
+    fn update_activity_rpe(
+        &self,
+        upstream: &str,
+        rpe: u32,
+        dispatch: Dispatch,
+    ) -> impl Future<Output = Result<(), NetError>> + Send;
 }

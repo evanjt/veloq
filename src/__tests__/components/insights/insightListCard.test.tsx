@@ -22,6 +22,7 @@ import { InsightListCard } from '@/features/insights/components/InsightListCard'
 import { generateSectionPRInsights } from '@/features/insights/generators/sectionPR';
 import { generatePeriodComparisonInsights } from '@/features/insights/generators/periodComparison';
 import { generateSectionTrendInsights } from '@/features/insights/generators/sectionTrend';
+import { generateRouteInsights } from '@/features/insights/generators/routeInsights';
 import type {
   Insight,
   SectionPR,
@@ -29,8 +30,10 @@ import type {
   TFunc,
   WeeklyTotal,
 } from '@/features/insights/types';
+import { generateStrengthInsights } from '@/features/strength/hooks/strengthInsights';
+import type { StrengthSummary } from '@/features/strength/types';
 import { navigateTo } from '@/shared/app/navigation';
-import { formatShortDate } from '@/shared/format/format';
+import { formatDuration, formatShortDate } from '@/shared/format/format';
 import { insightGraphicColour } from '@/features/insights/lib/insightCategory';
 import { colors, colourTokens, darkColors, insightToneColor, verdictColor } from '@/theme';
 
@@ -145,6 +148,35 @@ function sectionTrendCard(): Insight {
     { faster: 1, slower: 1 }
   );
   if (!card) throw new Error('no section trend card');
+  return card;
+}
+
+function strengthBalanceCard(): Insight {
+  const balance: StrengthSummary['balance'] = [
+    {
+      id: 'push_pull',
+      leftSlug: 'chest',
+      rightSlug: 'upper-back',
+      leftWeightedSets: 3,
+      rightWeightedSets: 1.5,
+      dominantSlug: 'chest',
+      ratio: 2,
+      status: 'imbalanced',
+    },
+  ];
+  const week = (startTs: number): StrengthSummary => ({
+    muscleVolumes: [],
+    activityCount: 1,
+    totalSets: 4,
+    maxWeightedSets: 3,
+    balance,
+    startTs,
+  });
+  const weeks = [1, 2, 3, 4].map((index) => week(NOW / 1000 - index * WEEK));
+  const card = generateStrengthInsights(week(NOW / 1000), weeks, [], NOW, t).find(
+    (insight) => insight.category === 'strength_balance'
+  );
+  if (!card) throw new Error('no strength balance card');
   return card;
 }
 
@@ -329,6 +361,46 @@ describe('the insight list card', () => {
     const tree = await render(<InsightListCard insight={insight} onPress={jest.fn()} />);
 
     expect(tree.getByTestId('insight-figure').props.children).toBe('450');
+    expect(tree.queryByTestId('insight-change')).toBeNull();
+  });
+
+  it('states the best time of a route record ridden too few times to draw', async () => {
+    const [insight] = generateRouteInsights(
+      [
+        {
+          routeId: 'r1',
+          routeName: 'Harbour loop',
+          sportType: 'Ride',
+          isReverse: false,
+          isRecentRecord: true,
+          trend: 0,
+          bestTime: 1505,
+          daysSinceLast: 2,
+          attemptCount: 3,
+          recentEfforts: [
+            { value: 1560, date: PR_START, activityId: 'a1' },
+            { value: 1530, date: PR_START + 7 * DAY, activityId: 'a2' },
+            { value: 1505, date: PR_START + 14 * DAY, activityId: 'a3' },
+          ],
+        },
+      ],
+      { records: 1, faster: 0, slower: 0 },
+      NOW,
+      t
+    );
+    const tree = await render(<InsightListCard insight={insight} onPress={jest.fn()} />);
+
+    expect(tree.queryByTestId('insight-graphic')).toBeNull();
+    expect(tree.getByTestId('insight-figure').props.children).toBe(formatDuration(1505));
+    expect(tree.queryByTestId('insight-change')).toBeNull();
+  });
+
+  it('shows the balance ratio in place of bars drawn from four weeks', async () => {
+    const insight = strengthBalanceCard();
+    const tree = await render(<InsightListCard insight={insight} onPress={jest.fn()} />);
+
+    expect(tree.queryByTestId('insight-graphic')).toBeNull();
+    expect(tree.getByTestId('insight-figure').props.children).toBe('2.0x');
     expect(tree.queryByTestId('insight-change')).toBeNull();
   });
 

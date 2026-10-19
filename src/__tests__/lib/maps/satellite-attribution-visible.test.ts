@@ -49,8 +49,8 @@ describe('satellite attribution names only what is drawn', () => {
   });
 
   it('credits one source for a point with no viewport extent', () => {
-    expect(getCombinedSatelliteAttribution(46.23, 7.36, 14)).not.toContain('|');
-    expect(getCombinedSatelliteAttribution(48.8566, 2.3522, 14)).not.toContain('|');
+    expect(getCombinedSatelliteAttribution(46.23, 7.36, 14)).not.toContain('·');
+    expect(getCombinedSatelliteAttribution(48.8566, 2.3522, 14)).not.toContain('·');
   });
 });
 
@@ -82,7 +82,7 @@ describe('satellite attribution over a viewport', () => {
   });
 
   it('lists each source once, in stack order', () => {
-    const parts = getCombinedSatelliteAttribution(46.2, 6.3, 12, straddling).split(' | ');
+    const parts = getCombinedSatelliteAttribution(46.2, 6.3, 12, straddling).split(' · ');
 
     expect(new Set(parts).size).toBe(parts.length);
   });

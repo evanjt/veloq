@@ -6,7 +6,8 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { Canvas, DashPathEffect, Line as SkiaLine, vec } from '@shopify/react-native-skia';
+import { DashPathEffect, Line as SkiaLine, vec } from '@shopify/react-native-skia';
+import { Canvas } from '@/shared/ui/SkiaCanvas';
 
 import {
   chartBoundsFor,

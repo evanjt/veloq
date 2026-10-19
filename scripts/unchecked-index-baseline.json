@@ -10,7 +10,7 @@
   "src/features/fitness/components": 9,
   "src/features/fitness/hooks": 4,
   "src/features/home/components": 3,
-  "src/features/insights/components": 7,
+  "src/features/insights/components": 3,
   "src/features/insights/components/content": 2,
   "src/features/insights/generators": 13,
   "src/features/maps/components": 18,

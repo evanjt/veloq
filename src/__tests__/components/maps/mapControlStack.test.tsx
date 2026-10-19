@@ -10,9 +10,12 @@
 
 import React from 'react';
 import { Animated, StyleSheet } from 'react-native';
+import type { ReactTestInstance } from 'react-test-renderer';
 import { act, render, fireEvent, screen, within } from '@testing-library/react-native';
 import { MapControlStack } from '@/features/maps/components/regional/MapControlStack';
-import { controlHeight, layout } from '@/theme';
+import { Icon } from '@/shared/ui/Icon';
+import { controlHeight, layout, mapPalette, type MapPalette } from '@/theme';
+import { SECTION_LINE_DASH } from '@/features/maps/lib/mapLineWidths';
 import { sportMarkColour } from '@/shared/activity/sportCategories';
 import { initialiseI18n } from '@/i18n';
 import { stubHardwareBack } from '../../__shared__/hardwareBack';
@@ -56,6 +59,7 @@ async function renderStack(props: Partial<React.ComponentProps<typeof MapControl
       routeCount={2}
       activityCount={10}
       bearingAnim={new Animated.Value(0)}
+      linePalette={mapPalette('light')}
       {...handlers}
       {...props}
     />
@@ -120,6 +124,20 @@ describe('MapControlStack', () => {
     expect(handlers.onToggleHeatmap).toHaveBeenCalledTimes(1);
     // A toggle leaves the menu open, so several layers change in one visit.
     expect(screen.getByTestId('map-toggle-sections')).toBeTruthy();
+  });
+
+  it('draws the check glyph on a checked layer row only', async () => {
+    await renderStack({ showSections: true, showRoutes: false });
+
+    await fireEvent.press(screen.getByTestId('map-layers'));
+
+    const checks = (rowId: string) =>
+      within(screen.getByTestId(rowId))
+        .UNSAFE_queryAllByType(Icon)
+        .filter((icon) => icon.props.name === 'check')
+        .map((icon) => icon.props.color);
+    expect(checks('map-toggle-routes')).toHaveLength(0);
+    expect(checks('map-toggle-sections')).toHaveLength(1);
   });
 
   it('closes the menu on fit-all, on the layers control again, and on a tap outside it', async () => {
@@ -237,10 +255,134 @@ describe('MapControlStack', () => {
       expect(screen.queryByTestId('map-key-heat')).toBeNull();
     });
 
+    it("draws each shown layer's key inside its own row, the sports on one wrapping line", async () => {
+      await openKey({ showHeatmap: true });
+
+      const activities = within(screen.getByTestId('map-toggle-activities'));
+      expect(activities.getByTestId('map-key-recency')).toBeTruthy();
+      const sports = activities.getByTestId('map-key-categories');
+      expect(within(sports).getByTestId('map-key-category-Ride')).toBeTruthy();
+      expect(within(sports).getByTestId('map-key-category-Run')).toBeTruthy();
+      expect(StyleSheet.flatten(sports.props.style).flexWrap).toBe('wrap');
+      expect(
+        within(screen.getByTestId('map-toggle-heatmap')).getByTestId('map-key-heat')
+      ).toBeTruthy();
+    });
+
+    it('keeps the layer name as the row label and reads its key as the hint', async () => {
+      await openKey({ showHeatmap: true });
+
+      const activities = screen.getByTestId('map-toggle-activities');
+      expect(activities.props.accessibilityLabel).toBe('Activities');
+      expect(activities.props.accessibilityHint).toContain('Cycling');
+      expect(activities.props.accessibilityHint).toContain('A year or more');
+      const heat = screen.getByTestId('map-toggle-heatmap');
+      expect(heat.props.accessibilityHint).toContain('Fewer passes');
+      expect(heat.props.accessibilityHint).toContain('More passes');
+      expect(screen.getByTestId('map-toggle-routes').props.accessibilityHint).toBeUndefined();
+    });
+
+    it('takes a fixed width, and stretches each ramp to the label column', async () => {
+      await openKey({ showHeatmap: true });
+
+      expect(StyleSheet.flatten(screen.getByTestId('map-layers-menu').props.style).width).toBe(
+        layout.mapLayersMenuWidth
+      );
+      for (const id of ['map-key-recency', 'map-key-heat']) {
+        const style = StyleSheet.flatten(screen.getByTestId(id).props.style);
+        expect(style.width).toBeUndefined();
+        expect(style.alignSelf).toBe('stretch');
+      }
+    });
+
+    it('drops the heat ramp from its row when the heatmap is off', async () => {
+      await openKey({ showHeatmap: false });
+
+      expect(screen.getByTestId('map-toggle-heatmap')).toBeTruthy();
+      expect(screen.queryByTestId('map-key-heat')).toBeNull();
+      expect(screen.getByTestId('map-toggle-heatmap').props.accessibilityHint).toBeUndefined();
+    });
+
     it('draws no heat ramp when the map has no heatmap layer to show', async () => {
       await openKey({ showHeatmap: true, onToggleHeatmap: undefined });
 
       expect(screen.queryByTestId('map-key-heat')).toBeNull();
+    });
+
+    describe('for the section and route lines', () => {
+      const flat = (node: ReactTestInstance) =>
+        StyleSheet.flatten(node.props.style) as Record<string, unknown>;
+
+      async function openLines(base: MapPalette, props = {}) {
+        await openKey({ showRoutes: true, linePalette: base, ...props });
+      }
+
+      it('draws each key inside its own row, under the label, with its label as the hint', async () => {
+        await openLines(mapPalette('light'));
+
+        const sections = within(screen.getByTestId('map-toggle-sections'));
+        const routes = within(screen.getByTestId('map-toggle-routes'));
+        expect(sections.getByTestId('map-key-sections')).toBeTruthy();
+        expect(routes.getByTestId('map-key-routes')).toBeTruthy();
+        expect(sections.getByText('Each section its own colour')).toBeTruthy();
+        expect(routes.getByText('Each route its own colour')).toBeTruthy();
+        expect(screen.getByTestId('map-toggle-sections').props.accessibilityHint).toBe(
+          'Each section its own colour'
+        );
+        expect(screen.getByTestId('map-toggle-routes').props.accessibilityHint).toBe(
+          'Each route its own colour'
+        );
+      });
+
+      it.each(['light', 'dark', 'satellite'] as const)(
+        "draws sections as a dash of several section colours on the %s base's edge",
+        async (base) => {
+          const palette = mapPalette(base);
+          await openLines(palette);
+
+          const key = within(screen.getByTestId('map-key-sections'));
+          expect(flat(key.getByTestId('map-key-swatch')).backgroundColor).toBe(palette.edge);
+          const dashes = key.getAllByTestId('map-key-dash').map(flat);
+          const gaps = key.getAllByTestId('map-key-dash-gap').map(flat);
+          const colours = new Set(dashes.map((dash) => dash.backgroundColor));
+          expect(colours.size).toBeGreaterThanOrEqual(2);
+          for (const colour of colours) expect(palette.layer.sections).toContain(colour);
+          expect(gaps.length).toBeGreaterThanOrEqual(1);
+          const [on, off] = SECTION_LINE_DASH;
+          for (const dash of dashes) {
+            expect((dash.width as number) / (dash.height as number)).toBeCloseTo(on);
+          }
+          for (const gap of gaps) {
+            expect((gap.width as number) / (dashes[0]!.height as number)).toBeCloseTo(off);
+          }
+        }
+      );
+
+      it.each(['light', 'dark', 'satellite'] as const)(
+        "draws routes as a solid run of route colours on the %s base's edge",
+        async (base) => {
+          const palette = mapPalette(base);
+          await openLines(palette);
+
+          const key = within(screen.getByTestId('map-key-routes'));
+          expect(flat(key.getByTestId('map-key-swatch')).backgroundColor).toBe(palette.edge);
+          expect(key.queryAllByTestId('map-key-dash')).toHaveLength(0);
+          const runs = key.getAllByTestId('map-key-run').map((run) => flat(run).backgroundColor);
+          expect(new Set(runs).size).toBeGreaterThanOrEqual(2);
+          for (const colour of runs) expect(palette.layer.routes).toContain(colour);
+        }
+      );
+
+      it('hides each key while its layer is off', async () => {
+        await openLines(mapPalette('light'), { showSections: false, showRoutes: false });
+
+        expect(screen.getByTestId('map-toggle-sections')).toBeTruthy();
+        expect(screen.getByTestId('map-toggle-routes')).toBeTruthy();
+        expect(screen.queryByTestId('map-key-sections')).toBeNull();
+        expect(screen.queryByTestId('map-key-routes')).toBeNull();
+        expect(screen.getByTestId('map-toggle-sections').props.accessibilityHint).toBeUndefined();
+        expect(screen.getByTestId('map-toggle-routes').props.accessibilityHint).toBeUndefined();
+      });
     });
   });
 });

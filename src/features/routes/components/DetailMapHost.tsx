@@ -49,8 +49,7 @@ export function DetailMapHost({ rootParams }: { rootParams: DetailMapHostParams 
   const cameraOf = useCallback(
     () =>
       topCard(useMapSheetHosts.getState().hosts, key)?.state[MAP_CAMERA] as
-        | MapCameraSpec
-        | undefined,
+        MapCameraSpec | undefined,
     [key]
   );
   const onCameraSettled = useCallback(

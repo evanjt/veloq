@@ -199,12 +199,10 @@ export function useStrengthCardData(
     for (const row of rows) {
       if (row.activeSetCount === 0) continue;
       const data: StrengthCardData = {
-        muscles: row.muscles.map(
-          (g): ExtendedBodyPart => ({
-            slug: g.slug as NonNullable<ExtendedBodyPart['slug']>,
-            intensity: g.intensity,
-          })
-        ),
+        muscles: row.muscles.map((g): ExtendedBodyPart => ({
+          slug: g.slug as NonNullable<ExtendedBodyPart['slug']>,
+          intensity: g.intensity,
+        })),
         exerciseCount: row.exerciseCount,
         setCount: row.activeSetCount,
         totalWeight: row.totalVolumeKg,

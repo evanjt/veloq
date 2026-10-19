@@ -47,10 +47,7 @@ export function engineErrorTag(error: unknown): EngineErrorTag | undefined {
 
 /** The lines an engine failure can show. */
 export type EngineFailureKey =
-  | 'engine.failure.notOpen'
-  | 'engine.failure.busy'
-  | 'engine.failure.database'
-  | 'common.cancelled';
+  'engine.failure.notOpen' | 'engine.failure.busy' | 'engine.failure.database' | 'common.cancelled';
 
 /** The i18n key naming a failure, for the surfaces that show one. */
 const KEYS: Record<EngineErrorTag, EngineFailureKey> = {
@@ -99,8 +96,7 @@ export function engineErrorKey<Fallback extends string>(
  * throw as nothing there.
  */
 export type EngineReadResult<T> =
-  | { ok: true; value: T; error?: undefined }
-  | { ok: false; value?: undefined; error: unknown };
+  { ok: true; value: T; error?: undefined } | { ok: false; value?: undefined; error: unknown };
 
 export function attemptEngineRead<T>(read: () => T): EngineReadResult<T> {
   try {

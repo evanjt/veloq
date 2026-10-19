@@ -184,9 +184,7 @@ jest.mock('@/shared/native/engine', () => ({
 /** The line the map would colour, as the card left it in the host's entry. */
 const lastMapDeltaLine = () =>
   topCard(useMapSheetHosts.getState().hosts, 'route:grp-quarry')?.state.deltaLine as
-    | SectionDeltaLine
-    | null
-    | undefined;
+    SectionDeltaLine | null | undefined;
 
 beforeEach(() => {
   jest.clearAllMocks();

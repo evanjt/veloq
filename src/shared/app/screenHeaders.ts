@@ -100,12 +100,13 @@ export const SCREEN_HEADERS: Record<string, ScreenHeader | null> = {
  * The header of each tab root, by the name the tab group registers it under. A headered tab is a
  * stack of one screen, so the platform draws its title, its trailing items and its search field
  * the way it draws every other screen's. `null` is the map, which is full-bleed under its own
- * controls. The Feed and Insights keep a small title: the Feed's pinned cards and the Insights
- * page strip sit above their scroll views.
+ * controls. The Feed, Fitness and Insights keep a small title: the Feed's pinned cards and the
+ * Fitness and Insights page strips sit above their scroll views, and a large title's translucent
+ * bar would draw them under the status bar.
  */
 export const TAB_HEADERS: Record<string, ScreenHeader | null> = {
   '(feed)': { titleKey: 'navigation.feed' },
-  fitness: { titleKey: 'navigation.fitness', largeTitle: true },
+  fitness: { titleKey: 'navigation.fitness' },
   map: null,
   insights: { titleKey: 'insights.title' },
   settings: { titleKey: 'settings.title', largeTitle: true },

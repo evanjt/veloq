@@ -5,7 +5,8 @@
  *
  * Expected behaviour: the package compiles every widget source the app's extension compiles,
  * with the bundles the plugin generates and without the extension's entry
- * point or any file a package cannot build, beside every widget test and both fixtures.
+ * point or any file a package cannot build, beside every widget test, the fixtures and the font
+ * files the extension lists, so the captures draw the face the widgets draw.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -14,7 +15,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const projectRoot = join(__dirname, '../../..');
-const { widgetSwiftFiles } = require(join(projectRoot, 'src/plugins/with-ios-widget.js'));
+const { widgetFontFiles, widgetSwiftFiles } = require(
+  join(projectRoot, 'src/plugins/with-ios-widget.js')
+);
 
 let out: string;
 
@@ -50,7 +53,7 @@ it('carries every widget test and both fixtures beside the package manifest', ()
     name.endsWith('.swift')
   );
   expect(tracked).toContain('WidgetCaptureTests.swift');
-  expect(readdirSync(tests).sort()).toEqual([...tracked, 'fixtures'].sort());
+  expect(readdirSync(tests).sort()).toEqual([...tracked, 'fixtures', 'fonts'].sort());
   expect(readdirSync(join(tests, 'fixtures')).sort()).toEqual([
     'demo.json',
     'empty.json',
@@ -58,6 +61,17 @@ it('carries every widget test and both fixtures beside the package manifest', ()
     'no-wellness.json',
   ]);
   expect(readFileSync(join(out, 'Package.swift'), 'utf8')).toContain(
-    'resources: [.copy("fixtures")]'
+    'resources: [.copy("fixtures"), .copy("fonts")]'
   );
+});
+
+it('carries every font file the extension lists, as the app bundles it', () => {
+  const fonts = join(out, 'Tests', 'WidgetCaptureTests', 'fonts');
+  const listed = widgetFontFiles(projectRoot);
+  expect(listed.length).toBeGreaterThan(0);
+  expect(readdirSync(fonts).sort()).toEqual([...listed].sort());
+  for (const name of listed) {
+    const copied = readFileSync(join(fonts, name));
+    expect(copied.equals(readFileSync(join(projectRoot, 'assets', 'fonts', name)))).toBe(true);
+  }
 });

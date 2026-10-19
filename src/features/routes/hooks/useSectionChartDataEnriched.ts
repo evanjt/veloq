@@ -3,7 +3,7 @@ import {
   castDirection,
   castOffScale,
   ensureFinite,
-  fromUnixSeconds,
+  fromWallClockSeconds,
 } from '@/shared/ffi/ffiConversions';
 import type { FfiCalendarSummary, FfiSectionChartPoint } from 'veloqrs';
 import type { PerformanceDataPoint } from '@/types';
@@ -36,7 +36,7 @@ export function useSectionChartDataEnriched({
   const excludedChartData = useMemo((): (PerformanceDataPoint & { x: number })[] => {
     if (!showExcluded) return [];
     return excludedPoints.flatMap((p) => {
-      const date = fromUnixSeconds(p.activityDate);
+      const date = fromWallClockSeconds(p.activityDate);
       if (!date || !(p.speed > 0)) return [];
       return [
         {

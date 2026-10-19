@@ -34,6 +34,7 @@ import { useBackDismiss } from '@/shared/app/useBackDismiss';
 import { TextField, type TextFieldHandle } from './TextField';
 import { useHeroHeaderBottom } from './useHeroHeaderBottom';
 import { NameText } from './NameText';
+import { Shimmer, SkeletonLine } from './Shimmer';
 import { useTheme } from '@/shared/app/useTheme';
 
 type MaterialIconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
@@ -79,6 +80,26 @@ function surfaceText(palette: typeof colors | typeof darkColors) {
 const surfaceTextStyles = surfaceText(colors);
 const surfaceTextStylesDark = surfaceText(darkColors);
 
+/**
+ * The Peek block a map sheet shows at its lowest stop: the name row, the date line and the
+ * numbers, at these insets. The activity, route and section cards and the skeleton standing in
+ * for them all lay their Peek out on it, so nothing moves when the data lands.
+ */
+export const heroPeekStyles = StyleSheet.create({
+  peek: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.sm,
+    gap: spacing.xs,
+  },
+  dateLine: {
+    ...typography.bodyCompact,
+  },
+});
+
+/** The side of the sport chip before a hero's name. */
+const TYPE_ICON_SIZE = 28;
+
 /** How far below the header the top scrim takes to fade out. */
 const TOP_SCRIM_FADE = spacing.xl;
 
@@ -94,12 +115,6 @@ export interface DetailHeroProps {
   containerTestID?: string;
   /** Bottom info overlay content (HeroNameRow / HeroStatsRow or custom). */
   overlay?: React.ReactNode;
-  /**
-   * Extra bottom padding for the info overlay, so it clears a map attribution
-   * pill drawn in the same corner. Pass ATTRIBUTION_CLEARANCE when the hero's
-   * map shows attribution.
-   */
-  attributionClearance?: number;
   /** Right padding for the info overlay, so its text stays clear of controls drawn down the map's edge. */
   overlayInsetEnd?: number;
   /** The map (or placeholder) filling the hero. */
@@ -115,7 +130,6 @@ export function DetailHero({
   height,
   containerTestID,
   overlay,
-  attributionClearance = 0,
   overlayInsetEnd,
   children,
   tool,
@@ -156,11 +170,7 @@ export function DetailHero({
       {tool == null && overlay != null && (
         <View
           testID="detail-hero-overlay"
-          style={[
-            styles.infoOverlay,
-            { paddingBottom: spacing.md + attributionClearance },
-            overlayInsetEnd != null && { paddingRight: overlayInsetEnd },
-          ]}
+          style={[styles.infoOverlay, overlayInsetEnd != null && { paddingRight: overlayInsetEnd }]}
           pointerEvents="box-none"
         >
           {overlay}
@@ -366,6 +376,70 @@ export function HeroStatsRow({
   );
 }
 
+/** A name row still to come: a block where the sport chip goes and a bar the name's size. */
+export function HeroNameRowSkeleton({
+  testID,
+  animated = true,
+}: {
+  testID?: string;
+  animated?: boolean;
+}) {
+  return (
+    <View testID={testID} style={styles.nameRow}>
+      <Shimmer
+        width={TYPE_ICON_SIZE}
+        height={TYPE_ICON_SIZE}
+        borderRadius={layout.borderRadiusSm}
+        animated={animated}
+      />
+      <SkeletonLine text={typography.statsValue} width="60%" animated={animated} />
+    </View>
+  );
+}
+
+/** The date line still to come, the height of the line it becomes. */
+export function HeroDateLineSkeleton({
+  testID,
+  animated = true,
+}: {
+  testID?: string;
+  animated?: boolean;
+}) {
+  return (
+    <View testID={testID}>
+      <SkeletonLine text={heroPeekStyles.dateLine} width="45%" animated={animated} />
+    </View>
+  );
+}
+
+/** A stat strip still to come: one bar a number's size for each stat it will hold. */
+export function HeroStatsRowSkeleton({
+  count,
+  testIDPrefix,
+  animated = true,
+}: {
+  count: number;
+  testIDPrefix?: string;
+  animated?: boolean;
+}) {
+  return (
+    <View style={[styles.statsRow, styles.statsRowSkeleton]}>
+      {Array.from({ length: count }, (_, index) => (
+        <View key={index} testID={testIDPrefix ? `${testIDPrefix}${index}` : undefined}>
+          <SkeletonLine
+            text={typography.bodyCompactBold}
+            width={STAT_SKELETON_WIDTH}
+            animated={animated}
+          />
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/** About the width of one short number on the strip, "12.3 km" or "1:02". */
+const STAT_SKELETON_WIDTH = spacing.xxl + spacing.md;
+
 const EDIT_NAME_SLOP = slopToMinTapTarget(controlHeight.button, controlHeight.button);
 
 const styles = StyleSheet.create({
@@ -405,6 +479,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
     zIndex: layers.raised,
   },
   nameRow: {
@@ -413,8 +488,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   typeIcon: {
-    width: 28,
-    height: 28,
+    width: TYPE_ICON_SIZE,
+    height: TYPE_ICON_SIZE,
     borderRadius: layout.borderRadiusSm,
     justifyContent: 'center',
     alignItems: 'center',
@@ -457,5 +532,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: spacing.xsPlus,
     flexWrap: 'wrap',
+  },
+  statsRowSkeleton: {
+    gap: spacing.md,
   },
 });

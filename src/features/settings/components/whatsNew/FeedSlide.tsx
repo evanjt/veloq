@@ -5,7 +5,8 @@
 
 import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Canvas, Path } from '@shopify/react-native-skia';
+import { Path } from '@shopify/react-native-skia';
+import { Canvas } from '@/shared/ui/SkiaCanvas';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, layout, spacing, colorWithOpacity, ink } from '@/theme';
 import { tourPanelColour } from './tourPanel';

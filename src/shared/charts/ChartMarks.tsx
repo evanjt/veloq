@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 import { StyleSheet } from 'react-native';
 import {
-  Canvas,
   Circle,
   DashPathEffect,
   Group,
@@ -16,6 +15,7 @@ import {
   type SkCanvas,
   type SkPaint,
 } from '@shopify/react-native-skia';
+import { Canvas } from '@/shared/ui/SkiaCanvas';
 
 import {
   DOT_RADIUS,

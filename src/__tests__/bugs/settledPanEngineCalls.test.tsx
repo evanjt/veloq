@@ -60,10 +60,8 @@ async function settle(count: number, zooms: number[]) {
       currentZoomRef: { current: zooms[0] },
       currentCenterRef: { current: [6.6, 46.5] },
       surfaceRef: { current: null } as React.RefObject<MapSurfaceRef | null>,
-      map3DRef: { current: null } as React.RefObject<null>,
       bearingAnim: { setValue: jest.fn() } as never,
       currentZoomLevel: { current: zooms[0] },
-      is3DMode: false,
       markUserInteracted: jest.fn(),
       setSpider: jest.fn(),
     } as never)
