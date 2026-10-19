@@ -18,6 +18,8 @@ export interface InsightFields {
   iconTone: InsightTone;
   title: string;
   subtitle?: string;
+  /** The row's one sentence, required so no generator leaves its row empty. */
+  line: string;
   body?: string;
   navigationTarget?: string;
   timestamp: number;

@@ -459,7 +459,7 @@ async function openPage(page: 'section' | 'route') {
 }
 
 describe('the section page and the route page over one demo route', () => {
-  // The efficiency card is experimental, drawn only with the developer switch on.
+  // The efficiency and wellness cards are experimental, drawn only with the developer switch on.
   beforeEach(() => useDebugStore.setState({ enabled: true, unlocked: true }));
   afterEach(() => useDebugStore.setState({ enabled: false, unlocked: false }));
 

@@ -1320,6 +1320,7 @@ describe('consolidateInsights', () => {
       category,
       priority,
       title: id,
+      line: id,
       icon: 'star',
       iconTone: 'neutral',
       timestamp: options?.timestamp ?? 0,

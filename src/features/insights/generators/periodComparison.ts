@@ -15,6 +15,7 @@ import { ACTIVE_WINDOW_DAYS, INSIGHTS_CONFIG, confidenceFrom } from '../lib/conf
 import { formatDurationHuman, formatLoad } from '@/shared/format/format';
 import { fitnessTarget, rangeCovering } from '@/shared/app/fitnessEntry';
 import { sparkline } from '../lib/sparkline';
+import { printedValue } from '../lib/printedValue';
 import {
   trendIcon,
   trendOfMetric,
@@ -149,6 +150,16 @@ export function generatePeriodComparisonInsights(
     value: formatSignedPercent(ratio),
     context: 'neutral',
   };
+  const samePointLastWeek: DataPoint = {
+    label: t('insights.data.samePointLastWeek'),
+    value: displayValue(weekOverWeek.previous, useTss),
+    unit: useTss ? undefined : 'min',
+  };
+  const line = t(useTss ? 'insights.line.weekLoad' : 'insights.line.weekTime', {
+    change: printedValue(weekOverWeekChange),
+    current: printedValue(thisWeek),
+    previous: printedValue(samePointLastWeek),
+  });
   const comparisonSupportingData: InsightSupportingData = {
     // The weekly totals in the comparison's unit, including the compared week.
     ...sparkline(
@@ -165,11 +176,7 @@ export function generatePeriodComparisonInsights(
     hero: thisWeek,
     comparisonData: {
       current: thisWeek,
-      previous: {
-        label: t('insights.data.samePointLastWeek'),
-        value: displayValue(weekOverWeek.previous, useTss),
-        unit: useTss ? undefined : 'min',
-      },
+      previous: samePointLastWeek,
       change: weekOverWeekChange,
     },
     change: weekOverWeekChange,
@@ -201,6 +208,7 @@ export function generatePeriodComparisonInsights(
         iconTone,
         title: t(upKey, { percent }),
         subtitle: caption,
+        line,
         body,
         // A comparison is a picture of a fitness window, so it opens that
         // window. It used to open the Insights tab, which is where the sheet
@@ -223,6 +231,7 @@ export function generatePeriodComparisonInsights(
         iconTone,
         title: t(downKey, { percent }),
         subtitle: caption,
+        line,
         body,
         // A comparison is a picture of a fitness window, so it opens that
         // window. It used to open the Insights tab, which is where the sheet
@@ -267,6 +276,11 @@ function generateLastWeekVsAverageInsight(
     value: formatSignedPercent(ratio),
     context: 'neutral',
   };
+  const fourWeekAverage: DataPoint = {
+    label: t('insights.data.fourWeekAvgTss'),
+    value: displayValue(comparison.previous, useTss),
+    unit: useTss ? undefined : 'min',
+  };
 
   return [
     makeInsight({
@@ -279,6 +293,11 @@ function generateLastWeekVsAverageInsight(
       subtitle: t('insights.caption.lastWeekAgainstAverage', {
         current: captionValue(comparison.current, useTss),
         previous: captionValue(comparison.previous, useTss),
+      }),
+      line: t(useTss ? 'insights.line.lastWeekLoad' : 'insights.line.lastWeekTime', {
+        change: printedValue(chronicChange),
+        current: printedValue(lastWeek),
+        previous: printedValue(fourWeekAverage),
       }),
       navigationTarget: weeksTarget(chronicWeeks, WEEK_AGAINST_CHRONIC_DAYS),
       timestamp: now,
@@ -304,11 +323,7 @@ function generateLastWeekVsAverageInsight(
         hero: lastWeek,
         comparisonData: {
           current: lastWeek,
-          previous: {
-            label: t('insights.data.fourWeekAvgTss'),
-            value: displayValue(comparison.previous, useTss),
-            unit: useTss ? undefined : 'min',
-          },
+          previous: fourWeekAverage,
           change: chronicChange,
         },
         change: chronicChange,

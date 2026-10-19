@@ -67,7 +67,7 @@ describe('route pass counts', () => {
   it('the route insight sheet counts a route in activities', async () => {
     const insight = {
       id: 'r1',
-      category: 'route_trend',
+      category: 'route',
       priority: 1,
       title: 'Routes',
       icon: 'map-marker-path',

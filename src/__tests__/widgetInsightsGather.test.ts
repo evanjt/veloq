@@ -28,6 +28,7 @@ const insight = (id: string, category: InsightCategory): Insight => ({
   category,
   priority: 3,
   title: id,
+  line: id,
   icon: 'trending-up',
   iconTone: 'info',
   navigationTarget: `/route/${id}`,

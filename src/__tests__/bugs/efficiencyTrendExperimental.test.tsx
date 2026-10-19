@@ -3,24 +3,37 @@
  * read and whose sign can disagree with heart rate at a matched pace. It is an
  * experimental feature behind the developer switch.
  *
+ * The wellness and speed card joins it there: at a typical library's attempt
+ * counts it can only read "No clear link", a null its sample could not find.
+ *
  * Expected behaviour: with the switch off the trend appears nowhere, neither on
- * the Insights list, the home-screen widget nor the section and route pages.
- * With it on, the insight and the card are there, each labelled experimental.
+ * the Insights list, the home-screen widget nor the section and route pages,
+ * and the wellness and speed card is absent from both pages. With it on, the
+ * insight and both cards are there, each labelled experimental.
  * The list and the widget rank through one computation, the widget passing only
  * the payload, the translator and the units, so the computation reads the switch.
  */
 
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { render, within } from '@testing-library/react-native';
 import { EfficiencyDirection } from 'veloqrs';
-import type { EfficiencyTrend, InsightsData } from 'veloqrs';
+import type { EfficiencyTrend, FfiSectionCorrelation, InsightsData } from 'veloqrs';
 
 import { computeInsightsFromData } from '@/features/insights/lib/computeInsightsData';
 import { InsightListCard } from '@/features/insights/components/InsightListCard';
 import { SectionContentArea } from '@/features/routes/components/section/SectionContentArea';
 import { useDebugStore } from '@/features/settings/stores/DebugStore';
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides({
+    FfiCorrelation_Tags: {
+      TooFew: 'TooFew',
+      Undefined: 'Undefined',
+      Inconclusive: 'Inconclusive',
+      Mover: 'Mover',
+    },
+  })
+);
 
 jest.mock('react-native-iap', () => ({
   useIAP: () => ({}),
@@ -37,9 +50,6 @@ jest.mock('@/features/routes/components/section/SectionPerformanceSection', () =
 }));
 jest.mock('@/features/routes/components/section/SectionInfoCard', () => ({
   SectionInfoCard: () => null,
-}));
-jest.mock('@/features/routes/components/section/SectionCorrelationCard', () => ({
-  SectionCorrelationCard: () => null,
 }));
 
 const t = (key: string, params?: Record<string, string | number>) =>
@@ -82,6 +92,15 @@ function bundle(): InsightsData {
     hasStrengthData: false,
     sportTypes: [],
   } as unknown as InsightsData;
+}
+
+function inconclusiveRow(): FfiSectionCorrelation {
+  return {
+    direction: 'same',
+    variable: 'hrv',
+    result: { tag: 'Inconclusive', inner: { r: 0.12, n: 14, low: -0.4, high: 0.58 } },
+    familySize: 1,
+  } as unknown as FfiSectionCorrelation;
 }
 
 const efficiencyInsights = (insights: { category: string }[]) =>
@@ -133,7 +152,7 @@ describe('the efficiency trend on the Insights list and the widget', () => {
   });
 });
 
-describe('the efficiency card on the section and route pages', () => {
+describe('the experimental cards on the section and route pages', () => {
   const props = {
     isDark: false,
     mergeCandidates: [],
@@ -141,8 +160,8 @@ describe('the efficiency card on the section and route pages', () => {
     combinedChartData: [],
     trendCurves: {},
     calendarSummary: null,
-    correlations: [],
-    correlationFloor: 0,
+    correlations: [inconclusiveRow()],
+    correlationFloor: 10,
     efficiencyTrend: efficiencyTrend(),
   } as unknown as React.ComponentProps<typeof SectionContentArea>;
 
@@ -162,4 +181,23 @@ describe('the efficiency card on the section and route pages', () => {
     expect(screen.getByTestId('section-efficiency-card')).toBeTruthy();
     expect(screen.getByTestId('section-efficiency-experimental')).toBeTruthy();
   });
+
+  it.each(['section', 'route'] as const)(
+    'draws no wellness and speed card on the %s page without the switch',
+    async (subject) => {
+      useDebugStore.setState({ enabled: false, unlocked: false });
+      const screen = await render(<SectionContentArea {...props} subject={subject} />);
+      expect(screen.queryByTestId('section-correlation-card')).toBeNull();
+    }
+  );
+
+  it.each(['section', 'route'] as const)(
+    'draws the wellness and speed card on the %s page, labelled experimental, with the switch on',
+    async (subject) => {
+      useDebugStore.setState({ enabled: true, unlocked: true });
+      const screen = await render(<SectionContentArea {...props} subject={subject} />);
+      const card = screen.getByTestId('section-correlation-card');
+      expect(within(card).getByTestId('section-correlation-experimental')).toBeTruthy();
+    }
+  );
 });

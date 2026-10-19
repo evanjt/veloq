@@ -37,3 +37,23 @@ export function insightCategoryIcon(category: InsightCategory): IconName {
 export function insightGraphicColour(category: InsightCategory, isDark: boolean): string {
   return colourTokens[isDark ? 'dark' : 'light'][insightCategories[category].graphic];
 }
+
+/**
+ * The types whose row ends in a small trend, because its shape answers the
+ * card's question faster than its number: HRV, the fitness estimates, a
+ * section's record timeline, a single route and the weekly load. Every other
+ * type states its change in the sentence alone and keeps its history for the
+ * sheet. A type here still draws nothing when its history has no dated
+ * series, as a route group has none.
+ */
+const ROW_TREND: ReadonlySet<InsightCategory> = new Set([
+  'hrv_trend',
+  'fitness_milestone',
+  'section_pr',
+  'route',
+  'period_comparison',
+]);
+
+export function drawsRowTrend(category: InsightCategory): boolean {
+  return ROW_TREND.has(category);
+}

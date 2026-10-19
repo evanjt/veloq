@@ -150,6 +150,7 @@ describe('the insights the widget lists', () => {
     category,
     priority: 3,
     title: `title ${id}`,
+    line: `line ${id}`,
     subtitle: `subtitle ${id}`,
     icon: 'trending-up',
     iconTone: 'positive',

@@ -17,6 +17,7 @@ import {
 import { ChartErrorBoundary } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { InsightSeriesChart } from '../InsightSeriesChart';
+import { markedSpan } from '../InsightHistoryChart';
 import { insightGraphicColour } from '../../lib/insightCategory';
 import type { Insight } from '@/types';
 import { formatHrv } from '@/shared/format/format';
@@ -35,6 +36,7 @@ export const HrvTrendContent = React.memo(function HrvTrendContent({
 
   const history = insight.supportingData?.history;
   const series = history && 'series' in history ? history.series[0] : undefined;
+  const band = history && 'series' in history ? markedSpan(history.mark) : undefined;
   const avgPoint = insight.supportingData?.dataPoints?.find((dp) => dp.key === 'hrvAverage');
   const latestPoint = insight.supportingData?.dataPoints?.find((dp) => dp.key === 'hrvLatest');
 
@@ -67,6 +69,7 @@ export const HrvTrendContent = React.memo(function HrvTrendContent({
               title={series.label}
               color={insightGraphicColour(insight.category, isDark)}
               formatValue={formatHrv}
+              band={band}
             />
           </View>
         </ChartErrorBoundary>

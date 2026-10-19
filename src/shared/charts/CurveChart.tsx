@@ -3,6 +3,7 @@ import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import { Text } from 'react-native-paper';
 
 import { DENSE_TEXT_SCALE, DenseText } from '@/shared/ui/DenseText';
+import type { AccessibleAction } from '@/shared/ui/accessibleActions';
 import { DashPathEffect, Line as SkiaLine, vec } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 
@@ -14,7 +15,7 @@ import { chartLabelHalo, chartStyles, spacing, typography } from '@/theme';
 import { dataExtent, domainContains, placeLabels, yForValue, type Domain } from './cartesian';
 import { ChartCanvas } from './ChartCanvas';
 import { ChartCrosshair } from './ChartCrosshair';
-import { ChartBar, ChartDot, RecordRing, ReticleMark, ScrubDot } from './ChartMarks';
+import { ChartBand, ChartBar, ChartDot, RecordRing, ReticleMark, ScrubDot } from './ChartMarks';
 import {
   REFERENCE_DASH,
   barWidthFor,
@@ -114,6 +115,11 @@ export interface CurveChartProps<T extends ChartSample> {
   marker?: { index: number; kind: 'record' | 'this' } | null;
   /** One bar per sample from zero, for totals over a period, in place of the line. */
   bars?: boolean;
+  /**
+   * A span of x shaded behind the series the full height of the plot, in x
+   * units: the window a claim was read over.
+   */
+  band?: { from: number; to: number } | null;
   crosshairMode?: 'point' | 'finger';
   /** What a screen reader reads for a stepped sample. Defaults to its y value alone. */
   describePoint?: (point: T) => string;
@@ -121,6 +127,8 @@ export interface CurveChartProps<T extends ChartSample> {
   onInteractionChange?: (active: boolean) => void;
   /** The data is the previous range's, kept on screen while the new range is read. */
   held?: boolean;
+  /** What the chart offers a screen reader beside stepping its samples. */
+  actions?: readonly AccessibleAction[];
   testID?: string;
 }
 
@@ -156,11 +164,13 @@ export function CurveChart<T extends ChartSample>({
   pointColor,
   marker,
   bars = false,
+  band,
   crosshairMode = 'point',
   describePoint,
   onSelect,
   onInteractionChange,
   held = false,
+  actions,
   testID,
 }: CurveChartProps<T>) {
   const { t } = useTranslation();
@@ -204,6 +214,7 @@ export function CurveChart<T extends ChartSample>({
       onInteractionChange,
       crosshairMode,
       describePoint: describe,
+      actions,
     });
 
   const x = useCallback((d: T) => d.x, []);
@@ -285,6 +296,14 @@ export function CurveChart<T extends ChartSample>({
                 syncBounds(bounds);
                 syncXCoords(points.y, (p) => p.x);
                 const marked = marker ? points.y[marker.index] : undefined;
+                const shaded = band ? (
+                  <ChartBand
+                    from={Math.max(bounds.left, Math.min(bounds.right, xFor(band.from)))}
+                    to={Math.max(bounds.left, Math.min(bounds.right, xFor(band.to)))}
+                    top={bounds.top}
+                    bottom={bounds.bottom}
+                  />
+                ) : null;
                 if (bars) {
                   const zero = yFor(Math.min(Math.max(0, yDomain[0]), yDomain[1]));
                   const slot = barWidthFor(
@@ -296,6 +315,7 @@ export function CurveChart<T extends ChartSample>({
                   const drawn = [{ y: (d: T) => d.y, color }, ...others];
                   return (
                     <>
+                      {shaded}
                       {data.map((d, i) =>
                         drawn.map((each, s) => {
                           const value = each.y(d);
@@ -320,6 +340,7 @@ export function CurveChart<T extends ChartSample>({
                 }
                 return (
                   <>
+                    {shaded}
                     {area ? (
                       <CurveArea
                         points={points.y}

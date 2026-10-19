@@ -10,7 +10,7 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { FfiCorrelation_Tags } from 'veloqrs';
 import type { FfiSectionCorrelation } from 'veloqrs';
-import { Card, Switch } from '@/shared/ui';
+import { Badge, Card, Switch } from '@/shared/ui';
 import { correlationReading, type CorrelationStrength } from '../../lib/correlationReading';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { formatDecimal } from '@/shared/format';
@@ -170,6 +170,15 @@ export function SectionCorrelationCard({
       testID="section-correlation-card"
       accessibilityRole="summary"
       title={t('sections.correlationTitle')}
+      titleAccessory={
+        <Badge
+          testID="section-correlation-experimental"
+          tone="neutral"
+          size="sm"
+          text={t('common.experimental')}
+          isDark={isDark}
+        />
+      }
       style={{ gap: spacing.xs }}
     >
       <Text style={mutedStyle}>{t('sections.correlationMethod')}</Text>

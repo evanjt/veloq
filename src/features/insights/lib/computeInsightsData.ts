@@ -45,7 +45,7 @@ type TFunc = (key: string, params?: Record<string, string | number>) => string;
  * Visible changes the ledger recorded.
  *
  * The rows ride the insights bundle with the name the athlete is shown for
- * each section, and the encoded line is decoded for the card's graphic.
+ * each section, and the encoded line is decoded for the insight's history.
  */
 function namedSectionChanges(changes: readonly SectionChange[]): SectionChangeInput[] {
   return changes.map((c) => {

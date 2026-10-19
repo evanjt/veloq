@@ -35,6 +35,7 @@ export type { ChartCanvasProps, ChartFrame } from './ChartCanvas';
 
 export { CurveLine, CurveArea } from './CurvePaths';
 export {
+  ChartBand,
   ChartBar,
   ChartDot,
   ChartMarkKey,

@@ -476,6 +476,8 @@ describe('route page below the chart', () => {
   });
 
   it('shows the calendar with both years and the wellness card', async () => {
+    // The wellness card is experimental, drawn only with the developer switch on.
+    useDebugStore.setState({ enabled: true, unlocked: true });
     const screen = await render(<RouteDetailScreen />);
 
     expect(screen.getByTestId('section-calendar')).toBeTruthy();

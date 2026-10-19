@@ -1,6 +1,6 @@
 import type { Insight, TFunc } from '../types';
 
-/** What the card's graphic opens, when it pictures a screen rather than the sheet's rows. */
+/** The screen a history was read from, unless it pictures the sheet's own rows. */
 export function historyTarget(insight: Insight): string | undefined {
   const history = insight.supportingData?.history;
   return history && history.kind !== 'changes' ? history.target : undefined;

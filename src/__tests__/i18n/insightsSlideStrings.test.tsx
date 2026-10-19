@@ -30,18 +30,18 @@ describe('the insights tour slide', () => {
     expect(ids[1]).toBe('insight-card-fitness_milestone-ftp');
   });
 
-  it('titles each card with the generator copy, not a category label', async () => {
+  it('writes each row in the generator copy, not a category label', async () => {
     const { getByText, queryByText } = await render(<InsightsSlide />);
 
-    expect(getByText('insights.sectionPr')).toBeTruthy();
-    expect(getByText('insights.ftpIncrease')).toBeTruthy();
+    expect(getByText('insights.line.sectionPr')).toBeTruthy();
+    expect(getByText('insights.line.eftp')).toBeTruthy();
     expect(queryByText('whatsNew.v030.insightsSectionPrs')).toBeNull();
   });
 
-  it('draws each example card with the graphic of its history', async () => {
+  it('ends each example row with the trend of its history', async () => {
     const { getAllByTestId } = await render(<InsightsSlide />);
 
-    expect(getAllByTestId('insight-graphic')).toHaveLength(2);
+    expect(getAllByTestId('insight-row-trend')).toHaveLength(2);
   });
 
   it('says how an insight is made, through the translator', async () => {

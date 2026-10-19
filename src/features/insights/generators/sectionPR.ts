@@ -6,6 +6,7 @@ import { sectionWithSport } from '../lib/cardSport';
 import { markedActivity, sparkline } from '../lib/sparkline';
 import { sectionPairKey } from '../lib/sectionIdentity';
 import { TIME } from '@/shared/app/time';
+import { printedValue } from '../lib/printedValue';
 
 const formatEffortTime = (seconds: number) => formatDuration(Math.round(seconds));
 
@@ -39,6 +40,15 @@ export function generateSectionPRInsights(
           time: formatDuration(pr.bestTime),
           day: formatRelativeDate(formatLocalDate(new Date(now - pr.daysAgo * TIME.DAY))),
         }),
+        // The margin only where the engine found an earlier best to beat.
+        line:
+          pr.deltaSeconds != null && pr.deltaSeconds > 0
+            ? t('insights.line.sectionPrFaster', {
+                name: pr.sectionName,
+                time: printedValue(bestTime),
+                delta: formatDuration(pr.deltaSeconds),
+              })
+            : t('insights.line.sectionPr', { name: pr.sectionName, time: printedValue(bestTime) }),
         navigationTarget: `/section/${pr.sectionId}`,
         timestamp: now,
         confidence: confidenceFrom('section_pr', pr.traversalCount),

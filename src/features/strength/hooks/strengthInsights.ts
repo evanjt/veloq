@@ -9,7 +9,7 @@ import {
   HISTORY_MIN_POINTS,
   INSIGHTS_CONFIG,
   confidenceFrom,
-  historyScale,
+  printedValue,
 } from '@/features/insights';
 import type { HistorySeries, InsightHistory } from '@/features/insights';
 import { formatSignedPercentage } from '@/shared/format/number';
@@ -23,8 +23,7 @@ function weekMark(weekly: StrengthSummary[]) {
 }
 
 /**
- * Weekly bars with this week marked, the scale in the sets or sessions they
- * count. Under the floor every card keeps there are no bars, and the card
+ * Weekly bars with this week marked, in the sets or sessions they count. Under the floor every card keeps there are no bars, and the card
  * states its figure instead.
  */
 function weeklyBars(
@@ -38,7 +37,6 @@ function weeklyBars(
       kind: 'bars',
       target: STRENGTH_TARGET,
       mark: weekMark(weekly),
-      scale: historyScale('bars', series, formatSetCount),
       series,
     },
     dataTarget: STRENGTH_TARGET,
@@ -65,6 +63,22 @@ function buildStrengthBalanceInsight(
           pair: pair.label,
           ratio: formatBalanceRatio(pair, t),
         });
+  const ratio = {
+    label: t('insights.strengthBalance.ratioLabel'),
+    value: formatBalanceRatio(pair, t),
+  };
+  // The side carrying more leads, so the ratio reads as how many times the other.
+  const leftLeads = pair.dominantSlug !== pair.rightSlug;
+  const sides = {
+    dominant: leftLeads ? pair.leftLabel : pair.rightLabel,
+    other: leftLeads ? pair.rightLabel : pair.leftLabel,
+    dominantSets: formatSetCount(leftLeads ? pair.leftWeightedSets : pair.rightWeightedSets),
+    otherSets: formatSetCount(leftLeads ? pair.rightWeightedSets : pair.leftWeightedSets),
+  };
+  const line =
+    pair.status === 'one-sided'
+      ? t('insights.line.strengthOneSided', { ...sides, ratio: printedValue(ratio) })
+      : t('insights.line.strengthBalance', { ...sides, ratio: printedValue(ratio) });
 
   return {
     id: `strength_balance-${pair.id}`,
@@ -75,6 +89,7 @@ function buildStrengthBalanceInsight(
     confidence: confidenceFrom('strength_balance', pair.leftWeightedSets + pair.rightWeightedSets),
     title,
     subtitle: `${pair.leftLabel} ${formatSetCount(pair.leftWeightedSets)} · ${pair.rightLabel} ${formatSetCount(pair.rightWeightedSets)} · ${formatBalanceRatio(pair, t)}`,
+    line,
     body,
     icon: 'scale-balance',
     iconTone: pair.status === 'watch' ? 'caution' : 'negative',
@@ -86,7 +101,7 @@ function buildStrengthBalanceInsight(
       comparisonKind: 'self',
     },
     supportingData: {
-      hero: { label: t('insights.strengthBalance.ratioLabel'), value: formatBalanceRatio(pair, t) },
+      hero: ratio,
       ...weeklyBars(weekly, [
         {
           label: pair.leftLabel,
@@ -176,6 +191,18 @@ function buildStrengthProgressionInsight(
     context: 'neutral' as const,
   };
 
+  const recent = {
+    label: t('insights.strengthProgression.recent2Weeks'),
+    value: formatSetCount(progression.recentAverage),
+    unit: t('strength.sets'),
+  };
+  const lineValues = {
+    muscle: muscleName,
+    change: printedValue(change),
+    from: formatSetCount(progression.baselineAverage),
+    current: printedValue(recent),
+  };
+
   return {
     id: `strength_progression-${muscleSlug}`,
     category: 'strength_progression',
@@ -194,6 +221,11 @@ function buildStrengthProgressionInsight(
         : t('insights.strengthProgression.vsEarlier', {
             change: `${progression.changePct > 0 ? '+' : ''}${Math.round(progression.changePct)}`,
           }),
+    // A rise from zero has no percentage, so its sentence names the new signal.
+    line:
+      progression.changePct == null
+        ? t('insights.line.strengthNewSignal', lineValues)
+        : t('insights.line.strengthProgression', lineValues),
     body,
     icon: progression.trend === 'up' ? 'arm-flex-outline' : 'dumbbell',
     // Flat is not a warning. It used to share amber with a fall, so a steady
@@ -210,11 +242,7 @@ function buildStrengthProgressionInsight(
       signalDelta: progression.signalDelta ?? undefined,
     },
     supportingData: {
-      hero: {
-        label: t('insights.strengthProgression.recent2Weeks'),
-        value: formatSetCount(progression.recentAverage),
-        unit: t('strength.sets'),
-      },
+      hero: recent,
       change,
       ...weeklyBars(weekly, [
         {
@@ -302,6 +330,10 @@ function buildStrengthSnapshotInsight(
     confidence: confidenceFrom('strength_progression', summary.activityCount),
     title: t('insights.strengthSnapshot.title', { count: summary.activityCount }),
     subtitle,
+    line: t('insights.line.strengthSnapshot', {
+      count: summary.activityCount,
+      sets: summary.totalSets,
+    }),
     body: t('insights.strengthSnapshot.body', {
       sets: summary.totalSets,
       groups: summary.muscleVolumes.length,

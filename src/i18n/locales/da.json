@@ -1088,6 +1088,46 @@
       "warning": "Advarsel",
       "concern": "Bekymrende",
       "neutral": "Neutral"
+    },
+    "line": {
+      "hrvRising": "HRV stiger, seneste {{latest}} mod et snit på {{mean}}",
+      "hrvFalling": "HRV falder, seneste {{latest}} mod et snit på {{mean}}",
+      "hrvSteady": "HRV stabil, seneste {{latest}} mod et snit på {{mean}}",
+      "hrvLastTwo": "To seneste HRV-målinger under snit på {{mean}}, seneste {{latest}}",
+      "eftp": "Cykel-eFTP {{change}} til {{current}}, fra {{previous}}",
+      "runPace": "Kritisk fart {{change}} til {{current}}, fra {{previous}}",
+      "swimPace": "Svømme-CSS {{change}} til {{current}}, fra {{previous}}",
+      "weekLoad": "Træningsbelastning {{change}} denne uge, {{current}} mod {{previous}}",
+      "weekTime": "Træningstid {{change}} denne uge, {{current}} mod {{previous}}",
+      "lastWeekLoad": "Belastning sidste uge {{change}} mod 4-ugers snit, {{current}} mod {{previous}}",
+      "lastWeekTime": "Sidste uge {{change}} mod 4-ugers snit, {{current}} mod {{previous}}",
+      "sectionPr": "Ny bedste tid på {{name}}, {{time}}",
+      "sectionPrFaster": "Ny bedste tid på {{name}}, {{time}}, {{delta}} hurtigere",
+      "routeRecord": "Ny rekord på {{name}}, {{time}}",
+      "routeFaster": "Seneste tider hurtigere på {{name}}, bedste {{time}}",
+      "routeSlower": "Seneste tider langsommere på {{name}}, bedste {{time}}",
+      "routeFasterBy": "{{name}} {{change}} hurtigere på den seneste median, bedste {{time}}",
+      "routeSlowerBy": "{{name}} {{change}} langsommere på den seneste median, bedste {{time}}",
+      "routeGroup": "Ruter: {{counts}}",
+      "sectionTrend": "Sektioner: {{faster}}, {{slower}}",
+      "stalePrPower": "Cykel-eFTP {{change}} til {{current}} siden PR på {{name}}",
+      "stalePrRun": "Kritisk fart {{change}} til {{current}} siden PR på {{name}}",
+      "stalePrSwim": "Svømme-CSS {{change}} til {{current}} siden PR på {{name}}",
+      "stalePrGroup_one": "{{count}} PR sat med lavere kondition",
+      "stalePrGroup_other": "{{count}} PR'er sat med lavere kondition",
+      "efficiency": "Modelleret puls {{change}} ved snittempo på {{name}}",
+      "sectionChanged": {
+        "recut": "{{name}} skåret om",
+        "split": "{{name}} delt i flere strækninger",
+        "restored": "{{name}} kom tilbage",
+        "reverted": "{{name}} sat tilbage til en tidligere version"
+      },
+      "strengthBalance": "{{dominant}} {{ratio}} {{other}}, {{dominantSets}} mod {{otherSets}} sæt på 4 uger",
+      "strengthOneSided": "{{ratio}}: alle {{dominantSets}} sæt på 4 uger på {{dominant}}",
+      "strengthProgression": "{{muscle}} volumen {{change}}, {{from}} til {{current}} om ugen",
+      "strengthNewSignal": "{{change}} for {{muscle}}: {{current}} om ugen",
+      "strengthSnapshot_one": "{{count}} styrkesession på 4 uger, {{sets}} sæt",
+      "strengthSnapshot_other": "{{count}} styrkesessioner på 4 uger, {{sets}} sæt"
     }
   },
   "licenses": {
@@ -2907,7 +2947,8 @@
       "attempts": "Forsøg"
     },
     "activityPlot": "Aktivitetsdiagram",
-    "axisFasterAtTop": "{{unit}}, hurtigere øverst"
+    "axisFasterAtTop": "{{unit}}, hurtigere øverst",
+    "fasterIsUp": "Hurtigere øverst"
   },
   "sportFamilies": {
     "ride": "Cykling",

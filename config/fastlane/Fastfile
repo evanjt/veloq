@@ -1,23 +1,46 @@
+require "tmpdir"
+
 default_platform(:android)
+
+PROJECT_ROOT = File.expand_path("../..", __dir__)
+STORE_RELEASE = File.join(PROJECT_ROOT, "scripts", "store-release.ts")
+
+# A lane option passed on the command line arrives as a string.
+def flag(value)
+  value == true || value.to_s == "true"
+end
+
+# The node that runs the store scripts, with the notice node 24 prints for a
+# TypeScript file in a package that names no module type left out.
+def store_release(*args)
+  sh("node", "--disable-warning=MODULE_TYPELESS_PACKAGE_JSON", STORE_RELEASE, *args)
+end
 
 # ==============================
 # Android Lanes
 # ==============================
 
 platform :android do
-  desc "Deploy AAB to Google Play Store"
+  # metadata_path is the tree scripts/store-release.ts staged, which holds every
+  # locale's changelog and only the texts, images and screenshot sets that
+  # changed since the previous release; metadata, images and screenshots say
+  # which kinds it holds. Without a staged tree the lane sends no listing but
+  # the changelogs. The release goes to the track completed and is staged on
+  # production as a draft: the rollout is the rollout lane.
+  desc "Upload an AAB to a track, the staged listing changes with it, and a production draft"
   lane :deploy do |options|
     track = options[:track] || "internal"
     aab_path = options[:aab]
     mapping_path = options[:mapping]
+    version_code = options[:version_code]
 
     UI.user_error!("No AAB file specified. Use aab:<path>") unless aab_path
     UI.user_error!("AAB file not found: #{aab_path}") unless File.exist?(aab_path)
+    UI.user_error!("No version code specified. Use version_code:<n>") unless version_code
 
     # Auto-detect mapping file if not specified (R8 generates this during release builds)
     if mapping_path.nil?
-      project_root = File.expand_path("../..", __dir__)
-      default_mapping = File.join(project_root, "android/app/build/outputs/mapping/release/mapping.txt")
+      default_mapping = File.join(PROJECT_ROOT, "android/app/build/outputs/mapping/release/mapping.txt")
       mapping_path = default_mapping if File.exist?(default_mapping)
     end
 
@@ -28,11 +51,27 @@ platform :android do
       track: track,
       aab: aab_path,
       mapping: mapping_path,
-      metadata_path: File.expand_path("metadata/android", __dir__),
-      skip_upload_metadata: false,
-      skip_upload_images: true,
-      skip_upload_screenshots: true,
+      metadata_path: options[:metadata_path] || File.expand_path("metadata/android", __dir__),
+      skip_upload_metadata: !flag(options[:metadata]),
+      skip_upload_images: !flag(options[:images]),
+      skip_upload_screenshots: !flag(options[:screenshots]),
+      sync_image_upload: true,
       release_status: "completed"
+    )
+
+    next if track == "production"
+
+    supply(
+      track: track,
+      track_promote_to: "production",
+      track_promote_release_status: "draft",
+      version_code: version_code.to_i,
+      skip_upload_aab: true,
+      skip_upload_apk: true,
+      skip_upload_metadata: true,
+      skip_upload_changelogs: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
     )
   end
 
@@ -42,8 +81,8 @@ platform :android do
       track: "internal",
       track_promote_to: "beta",
       skip_upload_aab: true,
-      skip_upload_metadata: false,
-      metadata_path: File.expand_path("metadata/android", __dir__),
+      skip_upload_metadata: true,
+      skip_upload_changelogs: true,
       skip_upload_images: true,
       skip_upload_screenshots: true
     )
@@ -55,11 +94,26 @@ platform :android do
       track: "beta",
       track_promote_to: "production",
       skip_upload_aab: true,
-      skip_upload_metadata: false,
-      metadata_path: File.expand_path("metadata/android", __dir__),
+      skip_upload_metadata: true,
+      skip_upload_changelogs: true,
       skip_upload_images: true,
       skip_upload_screenshots: true,
       rollout: "0.1"
+    )
+  end
+
+  desc "Release the production draft a tag staged to a fraction of users (default 10%)"
+  lane :rollout do |options|
+    supply(
+      track: "production",
+      version_code: options[:version_code]&.to_i,
+      rollout: (options[:fraction] || "0.1").to_s,
+      skip_upload_aab: true,
+      skip_upload_apk: true,
+      skip_upload_metadata: true,
+      skip_upload_changelogs: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
     )
   end
 
@@ -73,13 +127,26 @@ platform :android do
       skip_upload_screenshots: true
     )
   end
+
+  desc "Print, per locale, whether the live Play listing texts match the repository"
+  lane :drift do
+    require "supply"
+    require "supply/setup"
+    live = File.join(Dir.tmpdir, "store-live", "android")
+    FileUtils.rm_rf(live)
+    Supply.config = FastlaneCore::Configuration.create(
+      Supply::Options.available_options,
+      { metadata_path: live, track: "production" }
+    )
+    Supply::Setup.new.perform_download
+    store_release("drift", "--platform", "android", "--live", live)
+  end
 end
 
 # ==============================
 # iOS Lanes (requires Apple Developer account)
 # ==============================
 
-PROJECT_ROOT = File.expand_path("../..", __dir__)
 XCODEPROJ = File.join(PROJECT_ROOT, "ios", "veloq.xcodeproj")
 XCWORKSPACE = File.join(PROJECT_ROOT, "ios", "veloq.xcworkspace")
 
@@ -200,8 +267,11 @@ platform :ios do
     )
   end
 
-  desc "Submit to App Store Review (phased release over 7 days)"
-  lane :release do
+  # The listing went up with the tag, so submission sends none of it again.
+  desc "Submit the version a tag prepared to App Store Review (phased release over 7 days)"
+  lane :release do |options|
+    UI.user_error!("No version specified. Use app_version:<x.y.z>") unless options[:app_version]
+
     api_key = app_store_connect_api_key(
       key_id: ENV["ASC_KEY_ID"],
       issuer_id: ENV["ASC_ISSUER_ID"],
@@ -211,17 +281,28 @@ platform :ios do
 
     deliver(
       api_key: api_key,
+      app_version: options[:app_version],
       submit_for_review: true,
       automatic_release: true,
       phased_release: true,
+      skip_binary_upload: true,
+      skip_metadata: true,
+      skip_screenshots: true,
       force: true,
-      run_precheck_before_submit: false,
-      metadata_path: File.expand_path("metadata/ios", __dir__)
+      run_precheck_before_submit: false
     )
   end
 
-  desc "Upload metadata only to App Store Connect (no binary, no review submission)"
+  # Creates the App Store version for app_version when none is editable, so the
+  # version is in Prepare for Submission after a tag. metadata_path and
+  # screenshots_path are the trees scripts/store-release.ts staged: every
+  # locale's release notes and only the texts and screenshot sets that changed.
+  # overwrite_screenshots replaces the live sets of the locales staged and
+  # leaves every other locale's alone, and screenshots says whether any is.
+  desc "Create the App Store version and upload the staged listing changes (no binary, no review submission)"
   lane :metadata do |options|
+    UI.user_error!("No version specified. Use app_version:<x.y.z>") unless options[:app_version]
+
     api_key = app_store_connect_api_key(
       key_id: ENV["ASC_KEY_ID"],
       issuer_id: ENV["ASC_ISSUER_ID"],
@@ -229,20 +310,42 @@ platform :ios do
       is_key_content_base64: true
     )
 
-    deliver_params = {
+    screenshots = flag(options[:screenshots])
+    deliver(
       api_key: api_key,
+      app_version: options[:app_version],
       submit_for_review: false,
       skip_binary_upload: true,
-      skip_screenshots: true,
+      skip_screenshots: !screenshots,
+      overwrite_screenshots: screenshots,
+      screenshots_path: options[:screenshots_path],
       force: true,
       run_precheck_before_submit: false,
-      metadata_path: File.expand_path("metadata/ios", __dir__)
-    }
+      metadata_path: options[:metadata_path] || File.expand_path("metadata/ios", __dir__)
+    )
+  end
 
-    if options[:app_version]
-      deliver_params[:app_version] = options[:app_version]
-    end
-
-    deliver(deliver_params)
+  desc "Print, per locale, whether the live App Store listing texts match the repository"
+  lane :drift do
+    require "deliver"
+    require "deliver/setup"
+    live = File.join(Dir.tmpdir, "store-live", "ios")
+    FileUtils.rm_rf(live)
+    api_key = app_store_connect_api_key(
+      key_id: ENV["ASC_KEY_ID"],
+      issuer_id: ENV["ASC_ISSUER_ID"],
+      key_content: ENV["ASC_API_KEY"],
+      is_key_content_base64: true
+    )
+    options = FastlaneCore::Configuration.create(
+      Deliver::Options.available_options,
+      { api_key: api_key, metadata_path: live, skip_screenshots: true }
+    )
+    Deliver::Runner.new(options)
+    app = Deliver.cache[:app]
+    version = app.get_live_app_store_version(platform: Spaceship::ConnectAPI::Platform::IOS) ||
+              app.get_latest_app_store_version(platform: Spaceship::ConnectAPI::Platform::IOS)
+    Deliver::Setup.new.generate_metadata_files(app, version, live, options)
+    store_release("drift", "--platform", "ios", "--live", live)
   end
 end

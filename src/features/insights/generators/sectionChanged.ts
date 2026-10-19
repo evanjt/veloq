@@ -25,7 +25,13 @@ export interface SectionChangeInput {
   points?: LatLngShort[] | undefined;
 }
 
-const KINDS = new Set(['recut', 'split', 'restored', 'reverted']);
+/** The kinds a card is written for, each with its row sentence. */
+const LINE_KEYS = new Map([
+  ['recut', 'insights.line.sectionChanged.recut'],
+  ['split', 'insights.line.sectionChanged.split'],
+  ['restored', 'insights.line.sectionChanged.restored'],
+  ['reverted', 'insights.line.sectionChanged.reverted'],
+]);
 
 export function generateSectionChangedInsights(
   changes: SectionChangeInput[],
@@ -40,7 +46,8 @@ export function generateSectionChangedInsights(
   const ordered = [...changes].sort((a, b) => b.at - a.at);
   for (const change of ordered) {
     if (insights.length >= cap) break;
-    if (!KINDS.has(change.kind) || seen.has(change.sectionId)) continue;
+    const lineKey = LINE_KEYS.get(change.kind);
+    if (!lineKey || seen.has(change.sectionId)) continue;
     seen.add(change.sectionId);
     insights.push({
       id: `section_changed-${change.sectionId}-${change.at}`,
@@ -50,6 +57,7 @@ export function generateSectionChangedInsights(
       iconTone: 'info',
       title: t('insights.sectionChanged.title', { name: change.sectionName }),
       subtitle: t(`insights.sectionChanged.${change.kind}`),
+      line: t(lineKey, { name: change.sectionName }),
       body: t('insights.sectionChanged.body'),
       navigationTarget: `/section/${change.sectionId}`,
       timestamp: now,

@@ -1088,6 +1088,46 @@
       "warning": "Let op",
       "concern": "Zorgwekkend",
       "neutral": "Neutraal"
+    },
+    "line": {
+      "hrvRising": "HRV stijgt, laatste {{latest}} tegen {{mean}} gemiddeld",
+      "hrvFalling": "HRV daalt, laatste {{latest}} tegen {{mean}} gemiddeld",
+      "hrvSteady": "HRV stabiel, laatste {{latest}} tegen {{mean}} gemiddeld",
+      "hrvLastTwo": "Laatste twee HRV-metingen onder {{mean}} gemiddeld, laatste {{latest}}",
+      "eftp": "Fiets-eFTP {{change}} naar {{current}}, van {{previous}}",
+      "runPace": "Kritische snelheid {{change}} naar {{current}}, van {{previous}}",
+      "swimPace": "Zwem-CSS {{change}} naar {{current}}, van {{previous}}",
+      "weekLoad": "Trainingsbelasting {{change}} deze week, {{current}} tegen {{previous}}",
+      "weekTime": "Trainingstijd {{change}} deze week, {{current}} tegen {{previous}}",
+      "lastWeekLoad": "Belasting vorige week {{change}} op 4-weken-gemiddelde, {{current}} tegen {{previous}}",
+      "lastWeekTime": "Vorige week {{change}} op 4-weken-gemiddelde, {{current}} tegen {{previous}}",
+      "sectionPr": "Nieuwe beste tijd op {{name}}, {{time}}",
+      "sectionPrFaster": "Nieuwe beste tijd op {{name}}, {{time}}, {{delta}} sneller",
+      "routeRecord": "Nieuw record op {{name}}, {{time}}",
+      "routeFaster": "Recente tijden sneller op {{name}}, beste {{time}}",
+      "routeSlower": "Recente tijden langzamer op {{name}}, beste {{time}}",
+      "routeFasterBy": "{{name}} {{change}} sneller op de recente mediaan, beste {{time}}",
+      "routeSlowerBy": "{{name}} {{change}} langzamer op de recente mediaan, beste {{time}}",
+      "routeGroup": "Routes: {{counts}}",
+      "sectionTrend": "Secties: {{faster}}, {{slower}}",
+      "stalePrPower": "Fiets-eFTP {{change}} naar {{current}} sinds PR op {{name}}",
+      "stalePrRun": "Kritische snelheid {{change}} naar {{current}} sinds PR op {{name}}",
+      "stalePrSwim": "Zwem-CSS {{change}} naar {{current}} sinds PR op {{name}}",
+      "stalePrGroup_one": "{{count}} PR gezet bij lagere fitheid",
+      "stalePrGroup_other": "{{count}} PR's gezet bij lagere fitheid",
+      "efficiency": "Gemodelleerde HS {{change}} bij gemiddeld tempo op {{name}}",
+      "sectionChanged": {
+        "recut": "{{name}} opnieuw gesneden",
+        "split": "{{name}} gesplitst in meerdere stukken",
+        "restored": "{{name}} is terug",
+        "reverted": "{{name}} teruggezet naar een eerdere versie"
+      },
+      "strengthBalance": "{{dominant}} {{ratio}} {{other}}, {{dominantSets}} tegen {{otherSets}} sets in 4 weken",
+      "strengthOneSided": "{{ratio}}: alle {{dominantSets}} sets in 4 weken op {{dominant}}",
+      "strengthProgression": "{{muscle}} volume {{change}}, {{from}} naar {{current}} per week",
+      "strengthNewSignal": "{{change}} bij {{muscle}}: {{current}} per week",
+      "strengthSnapshot_one": "{{count}} krachtsessie in 4 weken, {{sets}} sets",
+      "strengthSnapshot_other": "{{count}} krachtsessies in 4 weken, {{sets}} sets"
     }
   },
   "licenses": {
@@ -2907,7 +2947,8 @@
       "attempts": "Pogingen"
     },
     "activityPlot": "Activiteitsgrafiek",
-    "axisFasterAtTop": "{{unit}}, sneller bovenaan"
+    "axisFasterAtTop": "{{unit}}, sneller bovenaan",
+    "fasterIsUp": "Sneller bovenaan"
   },
   "sportFamilies": {
     "ride": "Fietsen",

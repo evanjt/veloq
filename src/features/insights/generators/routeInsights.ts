@@ -1,11 +1,12 @@
 import type { FfiRouteInsight } from 'veloqrs';
-import type { Insight, SupportingRoute, TFunc } from '../types';
+import type { DataPoint, Insight, SupportingRoute, TFunc } from '../types';
 import { makeInsight } from '../lib/insightBuilder';
 import { confidenceFrom } from '../lib/config';
 import { sectionWithSport } from '../lib/cardSport';
 import { sparkline } from '../lib/sparkline';
-import { formatDuration } from '@/shared/format/format';
+import { formatDuration, formatDurationDelta } from '@/shared/format/format';
 import { TIME } from '@/shared/app/time';
+import { printedValue } from '../lib/printedValue';
 
 const MAX_ROUTES_IN_BODY = 3;
 
@@ -42,6 +43,7 @@ function supportingRoutes(rows: readonly FfiRouteInsight[]): SupportingRoute[] {
         : undefined,
     isRecentRecord: row.isRecentRecord,
     trend: row.trend,
+    trendSeconds: row.trendSeconds,
     bestTime: row.bestTime,
     daysSinceLast: row.daysSinceLast,
     attemptCount: row.attemptCount,
@@ -99,6 +101,34 @@ export function generateRouteInsights(
       : row.trend > 0
         ? 'insights.route.fasterTitle'
         : 'insights.route.slowerTitle';
+    const bestTime: DataPoint = {
+      label: t('insights.data.bestTime'),
+      value: formatDuration(row.bestTime),
+      context: 'good',
+    };
+    // A record keeps its record sentence; a trend states the engine's change
+    // between the two median windows, negative faster.
+    const trendSeconds = row.isRecentRecord ? undefined : row.trendSeconds;
+    const change: DataPoint | undefined =
+      trendSeconds === undefined
+        ? undefined
+        : {
+            label: t('insights.data.change'),
+            value: `${trendSeconds < 0 ? '-' : '+'}${formatDurationDelta(Math.abs(trendSeconds))}`,
+            context: trendSeconds < 0 ? 'good' : 'concern',
+          };
+    const line = row.isRecentRecord
+      ? t('insights.line.routeRecord', { name: row.routeName, time: printedValue(bestTime) })
+      : trendSeconds !== undefined
+        ? t(row.trend > 0 ? 'insights.line.routeFasterBy' : 'insights.line.routeSlowerBy', {
+            name: row.routeName,
+            change: formatDurationDelta(Math.abs(trendSeconds)),
+            time: printedValue(bestTime),
+          })
+        : t(row.trend > 0 ? 'insights.line.routeFaster' : 'insights.line.routeSlower', {
+            name: row.routeName,
+            time: printedValue(bestTime),
+          });
     return [
       makeInsight({
         id: `route-${rowKeyOf(row)}`,
@@ -111,6 +141,7 @@ export function generateRouteInsights(
             : 'trending-down',
         iconTone: row.isRecentRecord ? 'record' : row.trend > 0 ? 'positive' : 'negative',
         title: t(titleKey, { name }),
+        line,
         navigationTarget: `/route/${row.routeId}`,
         timestamp: now,
         confidence: confidenceFrom('route', row.attemptCount),
@@ -121,13 +152,15 @@ export function generateRouteInsights(
             `/route/${row.routeId}`,
             { kind: 'timeline', format: (seconds) => formatDuration(Math.round(seconds)) }
           ),
-          // The figure a card too short a history to draw states instead. It
-          // carries no change: the engine exports the trend's sign, not its size.
-          hero: {
-            label: t('insights.data.bestTime'),
-            value: formatDuration(row.bestTime),
-            context: 'good',
-          },
+          // The figure and change a card too short a history to draw states instead.
+          hero: bestTime,
+          change,
+          trend:
+            trendSeconds === undefined
+              ? undefined
+              : trendSeconds < 0
+                ? { direction: 'down', verdict: 'improved' }
+                : { direction: 'up', verdict: 'declined' },
           routes,
         },
         methodology,
@@ -152,6 +185,7 @@ export function generateRouteInsights(
       ? ` ${t('insights.route.groupMore', { n: rows.length - MAX_ROUTES_IN_BODY })}`
       : '';
   const improving = summary.records + summary.faster >= summary.slower;
+  const counted = summaryTitle(summary, t);
 
   return [
     makeInsight({
@@ -160,7 +194,8 @@ export function generateRouteInsights(
       priority: hasRecord ? 2 : 3,
       icon: hasRecord ? 'trophy-outline' : improving ? 'trending-up' : 'trending-down',
       iconTone: hasRecord ? 'record' : improving ? 'positive' : 'negative',
-      title: summaryTitle(summary, t),
+      title: counted,
+      line: t('insights.line.routeGroup', { counts: counted }),
       body: named + more,
       navigationTarget: `/route/${row.routeId}`,
       timestamp: now,

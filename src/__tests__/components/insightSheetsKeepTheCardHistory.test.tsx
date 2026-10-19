@@ -6,15 +6,19 @@
  *
  * Expected behaviour: the sheet draws the card's own history at full size,
  * every sample of it, as bars when the card drew bars, and each section-trend
- * row prints the signed change its bar stands for.
+ * row prints the signed change its bar stands for. In a sheet, the chart offers
+ * a screen reader the screen its history was read from, as the row no longer
+ * does.
  */
 
 import React from 'react';
 import { View } from 'react-native';
 import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 
-import { CurveChart } from '@/shared/charts';
-import { initialiseI18n } from '@/i18n';
+import { ChartBand, CurveChart, CurveLine } from '@/shared/charts';
+import { i18n, initialiseI18n } from '@/i18n';
+import { navigateTo } from '@/shared/app/navigation';
+import { InsightDetailSheet } from '@/features/insights/components/InsightDetailSheet';
 import { InsightDetailContent } from '@/features/insights/components/content/InsightDetailContent';
 import { SupportingDataSection } from '@/features/insights/components/SupportingDataSection';
 import { generateSectionTrendInsights } from '@/features/insights/generators/sectionTrend';
@@ -261,5 +265,231 @@ describe('the section changed sheet', () => {
     );
 
     expect(screen.queryByTestId('section-changed-line')).toBeNull();
+  });
+});
+
+describe('the window a sheet compares', () => {
+  const hrv = dated([52, 55, 51, 58, 60, 57, 62]);
+
+  /** The shaded band's edges, against the drawn x of every sample. */
+  function band() {
+    const bands = screen.UNSAFE_queryAllByType(ChartBand);
+    const xs = (screen.UNSAFE_getAllByType(CurveLine).at(-1)?.props.points as { x: number }[]).map(
+      (p) => p.x
+    );
+    return {
+      count: bands.length,
+      left: Math.min(bands[0]?.props.from, bands[0]?.props.to),
+      right: Math.max(bands[0]?.props.from, bands[0]?.props.to),
+      xs,
+    };
+  }
+
+  it('shades the window the HRV verdict was read over', async () => {
+    await render(
+      <InsightDetailContent
+        insight={insight('hrv_trend', {
+          kind: 'sparkline',
+          target: '/fitness',
+          mark: { from: hrv[3].date, to: hrv[6].date },
+          series: [{ label: 'HRV', points: hrv }],
+        })}
+      />
+    );
+    await layout();
+
+    const { count, left, right, xs } = band();
+    expect(count).toBe(1);
+    expect(left).toBeCloseTo(xs[3]);
+    expect(right).toBeCloseTo(xs[6]);
+  });
+
+  it('shades the step between two eFTP estimates', async () => {
+    const ftp = dated([238, 240, 241, 244, 247, 250, 252], 14);
+    await render(
+      <InsightDetailContent
+        insight={insight(
+          'fitness_milestone',
+          {
+            kind: 'sparkline',
+            target: '/fitness',
+            mark: { from: ftp[4].date, to: ftp[6].date },
+            series: [{ label: 'eFTP', points: ftp }],
+          },
+          {
+            dataPoints: [
+              { label: 'Current', value: 252, unit: 'W' },
+              { label: 'Previous', value: 247, unit: 'W' },
+              { label: 'Change', value: '+5', unit: 'W' },
+            ],
+          }
+        )}
+      />
+    );
+    await layout();
+
+    const { count, left, right, xs } = band();
+    expect(count).toBe(1);
+    expect(left).toBeCloseTo(xs[4]);
+    expect(right).toBeCloseTo(xs[6]);
+  });
+
+  it('marks a dated sample with the reticle and shades nothing', async () => {
+    const weeks = dated([310, 280, 0, 350, 120], 7);
+    await render(
+      <InsightDetailContent
+        insight={insight(
+          'period_comparison',
+          {
+            kind: 'sparkline',
+            target: '/fitness',
+            mark: { date: weeks[3].date },
+            series: [{ label: 'Weekly load', points: weeks }],
+          },
+          {
+            comparisonData: {
+              current: { label: 'This week', value: 120 },
+              previous: { label: 'Last week', value: 350 },
+              change: { label: 'Change', value: '-66%' },
+            },
+          }
+        )}
+      />
+    );
+    await layout();
+
+    expect(band().count).toBe(0);
+    expect(screen.UNSAFE_getByType(CurveChart).props.marker?.index).toBe(3);
+  });
+});
+
+describe('which way a sheet chart reads', () => {
+  const efforts = dated([1520, 1505, 1498, 1490, 1502], 4);
+
+  it("opens a single route's sheet on the labelled chart, saying faster is up", async () => {
+    await render(
+      <InsightDetailContent
+        insight={insight(
+          'route',
+          {
+            kind: 'timeline',
+            target: '/route/orchard',
+            series: [{ label: 'Recent efforts', points: efforts }],
+          },
+          {
+            routes: [
+              {
+                rowKey: 'orchard:Run',
+                routeId: 'orchard',
+                routeName: 'Orchard loop',
+                sportType: 'Run',
+                isRecentRecord: false,
+                trend: 1,
+                bestTime: 1490,
+                daysSinceLast: 2,
+                attemptCount: 5,
+                recentEfforts: efforts,
+                navigationTarget: '/route/orchard',
+              },
+            ],
+          } as never
+        )}
+      />
+    );
+    await layout();
+
+    const chart = screen.getByTestId('insight-history-chart');
+    expect(within(chart).getByTestId('insight-series-caption').props.children).toBe('Faster is up');
+    expect(chartData().map((d) => d.value)).toEqual(efforts.map((p) => p.value));
+    expect(screen.getByTestId('route-insight-row-orchard:Run')).toBeTruthy();
+  });
+
+  it('prints no caption on a chart where up is more', async () => {
+    const weeks = dated([310, 280, 0, 350, 120], 7);
+    await render(
+      <InsightDetailContent
+        insight={insight(
+          'period_comparison',
+          {
+            kind: 'bars',
+            target: '/fitness',
+            series: [{ label: 'Weekly load', points: weeks }],
+          },
+          {
+            comparisonData: {
+              current: { label: 'This week', value: 120 },
+              previous: { label: 'Last week', value: 350 },
+              change: { label: 'Change', value: '-66%' },
+            },
+          }
+        )}
+      />
+    );
+    await layout();
+
+    expect(screen.getByTestId('insight-history-chart')).toBeTruthy();
+    expect(screen.queryByTestId('insight-series-caption')).toBeNull();
+  });
+});
+
+describe('the screen a sheet chart opens for a screen reader', () => {
+  const efforts = dated([310, 305, 300, 298, 302, 306], 9);
+  const stale = () =>
+    insight(
+      'stale_pr',
+      {
+        kind: 'timeline',
+        target: '/section/weir?activityId=w4',
+        series: [{ label: 'Recent efforts', points: efforts }],
+      },
+      { sections: [{ sectionId: 'weir', sectionName: 'Weir Path', sportType: 'Run' }] }
+    );
+
+  /** The chart's own screen-reader element, which steps its samples. */
+  function chartSurface() {
+    return within(screen.getByTestId('insight-history-chart')).UNSAFE_getByProps({
+      accessibilityRole: 'adjustable',
+    });
+  }
+
+  beforeEach(() => jest.mocked(navigateTo).mockClear());
+
+  it('offers the section the history was read from, closing the sheet first', async () => {
+    const onClose = jest.fn();
+    await render(<InsightDetailSheet insight={stale()} onClose={onClose} />);
+    await layout();
+
+    const surface = chartSurface();
+    const offered = (surface.props.accessibilityActions as { name: string; label?: string }[]).find(
+      (action) => action.name === 'openPictured'
+    );
+    expect(offered?.label).toBe(i18n.t('insights.graphic.openSection', { name: 'Weir Path' }));
+
+    await act(async () => {
+      surface.props.onAccessibilityAction({ nativeEvent: { actionName: 'openPictured' } });
+    });
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(navigateTo).toHaveBeenCalledWith('/section/weir?activityId=w4');
+  });
+
+  it('still steps the samples beside it', async () => {
+    await render(<InsightDetailSheet insight={stale()} onClose={jest.fn()} />);
+    await layout();
+
+    const names = (chartSurface().props.accessibilityActions as { name: string }[]).map(
+      (action) => action.name
+    );
+    expect(names).toEqual(['increment', 'decrement', 'pageForward', 'pageBack', 'openPictured']);
+  });
+
+  it('offers nothing to open outside a sheet', async () => {
+    await render(<InsightDetailContent insight={stale()} />);
+    await layout();
+
+    const names = (chartSurface().props.accessibilityActions as { name: string }[]).map(
+      (action) => action.name
+    );
+    expect(names).not.toContain('openPictured');
   });
 });

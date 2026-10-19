@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
@@ -17,6 +17,7 @@ import {
 } from '@/theme';
 import { InsightDetailContent } from './content/InsightDetailContent';
 import { MethodologySection } from './MethodologySection';
+import { InsightSheetContext } from './InsightSheetContext';
 import { viewInDetailTarget } from '../lib/dataLink';
 import type { Insight } from '@/types';
 import { SheetHeader, SheetScrollView, PressTarget } from '@/shared/ui';
@@ -43,6 +44,7 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
   }, [detailTarget, onClose]);
 
   const toneColor = insightToneColor(insight.iconTone, isDark);
+  const sheet = useMemo(() => ({ insight, onLeave: onClose }), [insight, onClose]);
 
   // Only content that links each of its rows to its own screen may hide the
   // button. A section PR sheet has no such link, so it keeps View in detail.
@@ -80,7 +82,9 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
 
       {/* Category-specific content (charts, sparklines, data) */}
       <View style={styles.contentSection}>
-        <InsightDetailContent insight={insight} />
+        <InsightSheetContext.Provider value={sheet}>
+          <InsightDetailContent insight={insight} />
+        </InsightSheetContext.Provider>
       </View>
 
       {/* The numbers, the method and the link to the data, folded */}

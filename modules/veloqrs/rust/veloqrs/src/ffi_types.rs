@@ -2138,6 +2138,9 @@ pub struct FfiRouteInsight {
     /// -1 slower, 0 stable or too few attempts, 1 faster, on the median
     /// window rule sections use.
     pub trend: i8,
+    /// The trend's size: the recent median moving time minus the previous
+    /// median, in seconds, negative faster. `None` where `trend` is 0.
+    pub trend_seconds: Option<f64>,
     /// The fastest counted attempt's moving time, in seconds.
     pub best_time: f64,
     /// Whole days from the newest counted attempt to the end of the current

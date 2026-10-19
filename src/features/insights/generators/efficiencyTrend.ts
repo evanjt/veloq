@@ -4,6 +4,7 @@ import type { DataPoint, Insight } from '../types';
 import { INSIGHTS_CONFIG, confidenceFrom, maxPerCategoryFor } from '../lib/config';
 import { sparkline } from '../lib/sparkline';
 import { formatSigned } from '@/shared/format';
+import { printedValue } from '../lib/printedValue';
 
 /**
  * The slope to three significant figures, which is what the regression over a
@@ -100,6 +101,10 @@ export function generateEfficiencyTrendInsights(
           efforts: trend.effortCount,
         }
       ),
+      line: t('insights.line.efficiency', {
+        change: printedValue(heartRateChange),
+        name: trend.sectionName,
+      }),
       body: t(declining ? 'insights.efficiencyTrend.changeBody' : 'insights.efficiencyTrend.body', {
         name: trend.sectionName,
         efforts: trend.effortCount,

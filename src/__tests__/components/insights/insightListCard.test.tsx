@@ -1,30 +1,37 @@
 /**
- * Scenario: an insight card draws its history as a graphic across the card,
- * and the graphic opens what it pictures while the rest of the card opens the
- * sheet.
+ * Scenario: the Insights list draws every insight as one row of one height: its
+ * sentence on one line, and a small trend at the row's end only for the types
+ * whose shape answers the card's question faster than its number. The full
+ * history, labelled, is in the sheet the row opens.
  *
- * Expected behaviour: pressing the graphic opens the history's target and not
- * the sheet, pressing the title opens the sheet and nothing else, the marked
- * point or week is the one drawn in the category colour, the scale and the
- * first and last dates are printed beside a series, and a card with no history
- * draws no graphic at all. The card names its category with a neutral icon and
- * draws no coloured edge, and the insight's own glyph keeps its verdict tone.
+ * Expected behaviour: every card holds one text, the sentence, capped to one
+ * line, and no title, caption, figure or full-width graphic. HRV, the fitness
+ * estimates, a section's record timeline, a single route and the weekly-load
+ * cards draw the trend; every other type draws none. The trend marks the point
+ * or week the claim is about in the category colour, draws a timeline of times
+ * faster up and a running week in outline, and has no press target of its own:
+ * the whole row opens the sheet.
  */
 
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { act, fireEvent, render, within } from '@testing-library/react-native';
+import { Text } from 'react-native-paper';
+import { fireEvent, render, within } from '@testing-library/react-native';
 import { Circle, RoundedRect } from '@shopify/react-native-skia';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { dotDisks } from '@/shared/charts/chartMarks';
+import type { StalePrOpportunity } from 'veloqrs';
 
 import { InsightListCard } from '@/features/insights/components/InsightListCard';
+import { generateHrvTrendInsight } from '@/features/insights/generators/hrvTrend';
 import { generateSectionPRInsights } from '@/features/insights/generators/sectionPR';
 import { generatePeriodComparisonInsights } from '@/features/insights/generators/periodComparison';
+import { generateSectionChangedInsights } from '@/features/insights/generators/sectionChanged';
 import { generateSectionTrendInsights } from '@/features/insights/generators/sectionTrend';
+import { generateStalePRInsights } from '@/features/insights/generators/stalePr';
 import { generateRouteInsights } from '@/features/insights/generators/routeInsights';
 import type {
   Insight,
+  InsightCategory,
   SectionPR,
   SectionTrendData,
   TFunc,
@@ -33,9 +40,12 @@ import type {
 import { generateStrengthInsights } from '@/features/strength/hooks/strengthInsights';
 import type { StrengthSummary } from '@/features/strength/types';
 import { navigateTo } from '@/shared/app/navigation';
-import { formatDuration, formatShortDate } from '@/shared/format/format';
-import { insightGraphicColour } from '@/features/insights/lib/insightCategory';
-import { colors, colourTokens, darkColors, insightToneColor, verdictColor } from '@/theme';
+import {
+  drawsRowTrend,
+  insightCategories,
+  insightGraphicColour,
+} from '@/features/insights/lib/insightCategory';
+import { colors, colourTokens, darkColors, insightToneColor } from '@/theme';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysWithValues());
@@ -180,6 +190,100 @@ function strengthBalanceCard(): Insight {
   return card;
 }
 
+function hrvCard(): Insight {
+  const start = NOW / 1000 - 12 * DAY;
+  const readings = [48, 50, 49, 51, 52, 50, 53, 54, 52, 55, 56, 57];
+  const [card] = generateHrvTrendInsight(
+    {
+      label: 'trendingUp',
+      avg: 52,
+      latest: 57,
+      dataPoints: readings.length,
+      windowSplit: start + 8 * DAY,
+      sparkline: readings.map((value, i) => ({ value, date: start + (i + 1) * DAY })),
+    },
+    NOW,
+    t
+  );
+  if (!card) throw new Error('no HRV card');
+  return card;
+}
+
+function stalePrCard(): Insight {
+  const [card] = generateStalePRInsights(
+    [
+      {
+        sectionId: 'quarry',
+        sectionName: 'Quarry',
+        bestTimeSecs: 240,
+        daysSinceLast: 60,
+        traversalCount: 6,
+        fitnessMetric: 'power',
+        currentValue: 260,
+        previousValue: 240,
+        gainPercent: 8,
+        unit: 'W',
+        sportType: 'Ride',
+        bestActivityId: 'q3',
+        recentEfforts: [250, 246, 240, 244, 248, 251].map((value, i) => ({
+          value,
+          date: PR_START + i * 7 * DAY,
+          activityId: `q${i + 1}`,
+        })),
+      } as StalePrOpportunity,
+    ],
+    t,
+    NOW
+  );
+  if (!card) throw new Error('no stale PR card');
+  return card;
+}
+
+function sectionChangedCard(): Insight {
+  const [card] = generateSectionChangedInsights(
+    [
+      {
+        sectionId: 'weir',
+        sectionName: 'Weir',
+        kind: 'recut',
+        at: NOW,
+        points: [
+          { lat: 46.5, lng: 6.6 },
+          { lat: 46.51, lng: 6.61 },
+          { lat: 46.52, lng: 6.6 },
+        ],
+      },
+    ],
+    NOW,
+    t
+  );
+  if (!card) throw new Error('no section changed card');
+  return card;
+}
+
+function routeGroupCard(): Insight {
+  const route = (routeId: string) => ({
+    routeId,
+    routeName: `Loop ${routeId}`,
+    sportType: 'Run',
+    isReverse: false,
+    isRecentRecord: false,
+    trend: 1,
+    bestTime: 1500,
+    daysSinceLast: 3,
+    attemptCount: 8,
+    recentEfforts: [],
+  });
+  const [card] = generateRouteInsights(
+    [route('east'), route('west')],
+    { records: 0, faster: 2, slower: 0 },
+    NOW,
+    t
+  );
+  if (!card) throw new Error('no route group card');
+  return card;
+}
+
 /** The icon the card draws under a test id, as the icon set receives it. */
 function glyph(tree: Awaited<ReturnType<typeof render>>, testID: string) {
   const found = tree
@@ -189,13 +293,11 @@ function glyph(tree: Awaited<ReturnType<typeof render>>, testID: string) {
   return found;
 }
 
-async function laidOut(tree: Awaited<ReturnType<typeof render>>) {
-  await act(async () => {
-    await fireEvent(tree.getByTestId('insight-graphic-plot'), 'layout', {
-      nativeEvent: { layout: { width: 320, height: 48 } },
-    });
-  });
-  return tree;
+/** The dots the trend draws in the category colour, the point the claim is about. */
+function markedDots(tree: Awaited<ReturnType<typeof render>>, colour: string) {
+  return within(tree.getByTestId('insight-row-trend'))
+    .UNSAFE_getAllByType(Circle)
+    .filter((circle) => circle.props.color === colour);
 }
 
 beforeEach(() => {
@@ -203,70 +305,135 @@ beforeEach(() => {
   mockIsDark = false;
 });
 
-describe('the insight list card', () => {
-  it('opens the section at its best effort from the graphic and not the sheet', async () => {
-    const insight = sectionPrCard();
-    const onPress = jest.fn();
-    const tree = await render(<InsightListCard insight={insight} onPress={onPress} />);
+describe('the insight row', () => {
+  it.each([
+    ['an HRV trend', hrvCard],
+    ['a strength balance', strengthBalanceCard],
+    ['a stale record', stalePrCard],
+    ['a section trend summary', sectionTrendCard],
+    ['a changed section', sectionChangedCard],
+    ['a section record', sectionPrCard],
+    ['a weekly load', periodCard],
+  ])('draws %s as its sentence alone on one line', async (_, make) => {
+    const insight = make();
+    const tree = await render(<InsightListCard insight={insight} onPress={jest.fn()} />);
 
-    await fireEvent.press(tree.getByRole('link'));
-
-    expect(navigateTo).toHaveBeenCalledWith('/section/s1?activityId=a3');
-    expect(onPress).not.toHaveBeenCalled();
+    const texts = tree.UNSAFE_getAllByType(Text);
+    expect(texts.map((text) => text.props.children)).toEqual([insight.line]);
+    expect(tree.getByText(insight.line).props.numberOfLines).toBe(1);
+    expect(tree.getByText(insight.line).props.ellipsizeMode).toBe('tail');
+    expect(tree.queryByTestId('insight-figure')).toBeNull();
+    expect(tree.queryByTestId('insight-change')).toBeNull();
+    expect(tree.queryByTestId('insight-graphic')).toBeNull();
+    if (insight.subtitle) expect(tree.queryByText(insight.subtitle)).toBeNull();
   });
 
-  it('opens the sheet from the title and pushes nothing', async () => {
-    const insight = sectionPrCard();
-    const onPress = jest.fn();
-    const tree = await render(<InsightListCard insight={insight} onPress={onPress} />);
+  it('is one height whatever the card holds', async () => {
+    const heights = await Promise.all(
+      [hrvCard, strengthBalanceCard, sectionChangedCard, periodCard].map(async (make) => {
+        const tree = await render(<InsightListCard insight={make()} onPress={jest.fn()} />);
+        return StyleSheet.flatten(tree.getByTestId('insight-row').props.style).height;
+      })
+    );
 
-    await fireEvent.press(tree.getByText(insight.title));
-
-    expect(onPress).toHaveBeenCalledWith(insight);
-    expect(navigateTo).not.toHaveBeenCalled();
+    expect(typeof heights[0]).toBe('number');
+    expect(new Set(heights).size).toBe(1);
   });
 
-  it('names where the graphic goes', async () => {
+  it.each([
+    ['an HRV trend', hrvCard, true],
+    ['a section record', sectionPrCard, true],
+    ['a weekly load', periodCard, true],
+    ['a strength balance', strengthBalanceCard, false],
+    ['a stale record', stalePrCard, false],
+    ['a section trend summary', sectionTrendCard, false],
+    ['a changed section', sectionChangedCard, false],
+    ['a route group', routeGroupCard, false],
+  ])('decides whether %s draws a trend at its end', async (_, make, draws) => {
+    const insight = make();
+    const tree = await render(<InsightListCard insight={insight} onPress={jest.fn()} />);
+
+    expect(tree.queryByTestId('insight-row-trend') != null).toBe(draws);
+  });
+
+  it('keeps the history the stale record and the changed sections carry for their sheets', () => {
+    expect(stalePrCard().supportingData?.history?.kind).toBe('timeline');
+    expect(sectionTrendCard().supportingData?.history?.kind).toBe('changes');
+    expect(sectionChangedCard().supportingData?.history?.kind).toBe('line');
+  });
+
+  it('draws a weekly load too short to picture with no trend and no figure', async () => {
+    const insight = periodCard(5);
+    const tree = await render(<InsightListCard insight={insight} onPress={jest.fn()} />);
+
+    expect(insight.supportingData?.history).toBeUndefined();
+    expect(tree.queryByTestId('insight-row-trend')).toBeNull();
+    expect(tree.queryByTestId('insight-figure')).toBeNull();
+    expect(tree.getByText(insight.line)).toBeTruthy();
+  });
+
+  it('draws the trend in a fixed strip that never stretches', async () => {
+    const tree = await render(<InsightListCard insight={hrvCard()} onPress={jest.fn()} />);
+
+    const strip = StyleSheet.flatten(tree.getByTestId('insight-row-trend').props.style);
+    expect(typeof strip.width).toBe('number');
+    expect(typeof strip.height).toBe('number');
+    expect(strip.flexGrow ?? 0).toBe(0);
+    expect(strip.flexShrink).toBe(0);
+  });
+
+  it('prints no scale, no dates and no value inside the trend', async () => {
+    for (const make of [sectionPrCard, periodCard, hrvCard]) {
+      const tree = await render(<InsightListCard insight={make()} onPress={jest.fn()} />);
+      expect(within(tree.getByTestId('insight-row-trend')).queryAllByText(/./)).toEqual([]);
+      expect(tree.queryByTestId('insight-graphic-scale')).toBeNull();
+      expect(tree.queryByTestId('insight-graphic-dates')).toBeNull();
+    }
+  });
+
+  it('marks the best effort on the section timeline in the category colour', async () => {
     const tree = await render(<InsightListCard insight={sectionPrCard()} onPress={jest.fn()} />);
 
-    expect(tree.getByRole('link').props.accessibilityLabel).toBe(
-      'insights.graphic.openSection:{"name":"Orchard Lane"}'
-    );
-  });
-
-  it('marks the best effort on the section timeline with the dot', async () => {
-    const tree = await laidOut(
-      await render(<InsightListCard insight={sectionPrCard()} onPress={jest.fn()} />)
-    );
-
-    const marks = tree
-      .UNSAFE_getAllByType(Circle)
-      .filter((circle) => circle.props.r === dotDisks().fill);
-
-    expect(marks).toHaveLength(1);
-    expect(marks[0].props.color).toBe(insightGraphicColour('section_pr', false));
+    expect(markedDots(tree, insightGraphicColour('section_pr', false))).toHaveLength(1);
   });
 
   it('marks the best effort in the dark step on the dark theme', async () => {
     mockIsDark = true;
-    const tree = await laidOut(
-      await render(<InsightListCard insight={sectionPrCard()} onPress={jest.fn()} />)
-    );
+    const tree = await render(<InsightListCard insight={sectionPrCard()} onPress={jest.fn()} />);
 
-    const marks = tree
+    expect(markedDots(tree, insightGraphicColour('section_pr', true))).toHaveLength(1);
+    expect(markedDots(tree, insightGraphicColour('section_pr', false))).toHaveLength(0);
+  });
+
+  it('draws the section timeline with the fastest effort at the top', async () => {
+    const tree = await render(<InsightListCard insight={sectionPrCard()} onPress={jest.fn()} />);
+
+    const [best] = markedDots(tree, insightGraphicColour('section_pr', false));
+    const ys = within(tree.getByTestId('insight-row-trend'))
       .UNSAFE_getAllByType(Circle)
-      .filter((circle) => circle.props.r === dotDisks().fill);
+      .map((circle) => circle.props.cy);
+    expect(ys.length).toBeGreaterThan(1);
+    expect(best!.props.cy).toBe(Math.min(...ys));
+    expect(best!.props.cy).toBeLessThan(Math.max(...ys));
+  });
 
-    expect(marks).toHaveLength(1);
-    expect(marks[0].props.color).toBe(insightGraphicColour('section_pr', true));
+  it('dots the latest HRV reading in the category colour', async () => {
+    const tree = await render(<InsightListCard insight={hrvCard()} onPress={jest.fn()} />);
+
+    const dots = markedDots(tree, insightGraphicColour('hrv_trend', false));
+    const xs = within(tree.getByTestId('insight-row-trend'))
+      .UNSAFE_getAllByType(Circle)
+      .map((circle) => circle.props.cx);
+    expect(dots).toHaveLength(1);
+    expect(dots[0]!.props.cx).toBe(Math.max(...xs));
   });
 
   it('draws the weekly bars with only the compared week marked', async () => {
-    const tree = await laidOut(
-      await render(<InsightListCard insight={periodCard()} onPress={jest.fn()} />)
-    );
+    const tree = await render(<InsightListCard insight={periodCard()} onPress={jest.fn()} />);
 
-    const bars = tree.UNSAFE_getAllByType(RoundedRect).map((bar) => bar.props.color);
+    const bars = within(tree.getByTestId('insight-row-trend'))
+      .UNSAFE_getAllByType(RoundedRect)
+      .map((bar) => bar.props.color);
 
     expect(bars).toHaveLength(6);
     expect(
@@ -276,160 +443,53 @@ describe('the insight list card', () => {
   });
 
   it('draws the running week as an outline beside the whole weeks', async () => {
-    const tree = await laidOut(
-      await render(<InsightListCard insight={periodCard()} onPress={jest.fn()} />)
-    );
+    const tree = await render(<InsightListCard insight={periodCard()} onPress={jest.fn()} />);
 
-    const styles = tree.UNSAFE_getAllByType(RoundedRect).map((bar) => bar.props.style ?? 'fill');
+    const styles = within(tree.getByTestId('insight-row-trend'))
+      .UNSAFE_getAllByType(RoundedRect)
+      .map((bar) => bar.props.style ?? 'fill');
 
     expect(styles).toEqual(['fill', 'fill', 'fill', 'fill', 'fill', 'stroke']);
   });
 
-  it('prints the fastest and slowest times beside the timeline and its first and last dates', async () => {
-    const tree = await render(<InsightListCard insight={sectionPrCard()} onPress={jest.fn()} />);
+  it('opens the sheet from the trend and pushes nothing, since the trend is no link', async () => {
+    const insight = sectionPrCard();
+    const onPress = jest.fn();
+    const tree = await render(<InsightListCard insight={insight} onPress={onPress} />);
 
-    const scale = tree.getByTestId('insight-graphic-scale');
-    const dates = tree.getByTestId('insight-graphic-dates');
-
-    expect(
-      within(scale)
-        .getAllByText(/./)
-        .map((label) => label.props.children)
-    ).toEqual(['4:41', '5:02']);
-    expect(
-      within(dates)
-        .getAllByText(/./)
-        .map((label) => label.props.children)
-    ).toEqual([
-      formatShortDate(new Date(PR_START * 1000)),
-      formatShortDate(new Date((PR_START + 35 * DAY) * 1000)),
-    ]);
-  });
-
-  it('prints the tallest week and the zero line beside the weekly bars', async () => {
-    const tree = await render(<InsightListCard insight={periodCard()} onPress={jest.fn()} />);
-
-    const scale = tree.getByTestId('insight-graphic-scale');
-
-    expect(
-      within(scale)
-        .getAllByText(/./)
-        .map((label) => label.props.children)
-    ).toEqual(['450', '0']);
-  });
-
-  it('prints no scale and no dates beside the section changes', async () => {
-    const tree = await render(<InsightListCard insight={sectionTrendCard()} onPress={jest.fn()} />);
-
-    expect(tree.getByTestId('insight-graphic')).toBeTruthy();
-    expect(tree.queryByTestId('insight-graphic-scale')).toBeNull();
-    expect(tree.queryByTestId('insight-graphic-dates')).toBeNull();
-  });
-
-  it('draws no graphic and no empty frame for a card with no history', async () => {
-    const insight = {
-      ...periodCard(),
-      supportingData: { trend: { direction: 'up', verdict: 'improved' } },
-    } as Insight;
-    const tree = await render(<InsightListCard insight={insight} onPress={jest.fn()} />);
-
-    expect(tree.queryByTestId('insight-graphic')).toBeNull();
     expect(tree.queryByRole('link')).toBeNull();
-    expect(tree.getByText(insight.title)).toBeTruthy();
+    await fireEvent.press(tree.getByTestId('insight-row-trend'));
+
+    expect(onPress).toHaveBeenCalledWith(insight);
+    expect(navigateTo).not.toHaveBeenCalled();
   });
 
-  it('shows the figure and its change in place of a graphic drawn from too few weeks', async () => {
-    const insight = periodCard(5);
-    const tree = await render(<InsightListCard insight={insight} onPress={jest.fn()} />);
-
-    expect(insight.supportingData?.history).toBeUndefined();
-    expect(tree.queryByTestId('insight-graphic')).toBeNull();
-    expect(tree.getByTestId('insight-figure').props.children).toBe('450');
-    const chip = tree.getByTestId('insight-change');
-    expect(within(chip).getByText('+32%')).toBeTruthy();
-    expect(StyleSheet.flatten(within(chip).getByText('+32%').props.style)).toMatchObject({
-      color: verdictColor('neutral', false),
-    });
-  });
-
-  it('shows the figure alone where the card states no change', async () => {
-    const card = periodCard(5);
-    const insight = {
-      ...card,
-      supportingData: { hero: { label: 'This week', value: 450 } },
-    } as Insight;
-    const tree = await render(<InsightListCard insight={insight} onPress={jest.fn()} />);
-
-    expect(tree.getByTestId('insight-figure').props.children).toBe('450');
-    expect(tree.queryByTestId('insight-change')).toBeNull();
-  });
-
-  it('states the best time of a route record ridden too few times to draw', async () => {
-    const [insight] = generateRouteInsights(
-      [
-        {
-          routeId: 'r1',
-          routeName: 'Harbour loop',
-          sportType: 'Ride',
-          isReverse: false,
-          isRecentRecord: true,
-          trend: 0,
-          bestTime: 1505,
-          daysSinceLast: 2,
-          attemptCount: 3,
-          recentEfforts: [
-            { value: 1560, date: PR_START, activityId: 'a1' },
-            { value: 1530, date: PR_START + 7 * DAY, activityId: 'a2' },
-            { value: 1505, date: PR_START + 14 * DAY, activityId: 'a3' },
-          ],
-        },
-      ],
-      { records: 1, faster: 0, slower: 0 },
-      NOW,
-      t
-    );
-    const tree = await render(<InsightListCard insight={insight} onPress={jest.fn()} />);
-
-    expect(tree.queryByTestId('insight-graphic')).toBeNull();
-    expect(tree.getByTestId('insight-figure').props.children).toBe(formatDuration(1505));
-    expect(tree.queryByTestId('insight-change')).toBeNull();
-  });
-
-  it('shows the balance ratio in place of bars drawn from four weeks', async () => {
-    const insight = strengthBalanceCard();
-    const tree = await render(<InsightListCard insight={insight} onPress={jest.fn()} />);
-
-    expect(tree.queryByTestId('insight-graphic')).toBeNull();
-    expect(tree.getByTestId('insight-figure').props.children).toBe('2.0x');
-    expect(tree.queryByTestId('insight-change')).toBeNull();
-  });
-
-  it("draws each section's change above the line when faster and below when slower", async () => {
-    const tree = await laidOut(
-      await render(<InsightListCard insight={sectionTrendCard()} onPress={jest.fn()} />)
-    );
-
-    const bars = tree.UNSAFE_getAllByType(RoundedRect).filter((bar) => bar.props.height > 0);
-    const faster = bars.find((bar) => bar.props.color === verdictColor('positive', false));
-    const slower = bars.find((bar) => bar.props.color === verdictColor('negative', false));
-
-    expect(bars).toHaveLength(2);
-    expect(faster).toBeDefined();
-    expect(slower).toBeDefined();
-    expect(faster!.props.y + faster!.props.height).toBeCloseTo(slower!.props.y);
-    expect(faster!.props.x).toBeLessThan(slower!.props.x);
-    expect(faster!.props.height).toBeGreaterThan(slower!.props.height);
-  });
-
-  it('opens the sheet from the section changes graphic and pushes nothing', async () => {
+  it('opens the sheet from the sentence and pushes nothing', async () => {
     const insight = sectionTrendCard();
     const onPress = jest.fn();
     const tree = await render(<InsightListCard insight={insight} onPress={onPress} />);
 
-    await fireEvent.press(tree.getByTestId('insight-graphic'));
+    await fireEvent.press(tree.getByText(insight.line));
 
     expect(onPress).toHaveBeenCalledWith(insight);
     expect(navigateTo).not.toHaveBeenCalled();
+  });
+
+  it('offers no screen-reader action to open the data, which the sheet chart carries', async () => {
+    const insight = sectionPrCard();
+    const tree = await render(<InsightListCard insight={insight} onPress={jest.fn()} />);
+
+    expect(tree.getByTestId(`insight-card-${insight.id}`).props.accessibilityActions).toBeFalsy();
+  });
+});
+
+describe('which types draw a trend on their row', () => {
+  it('names HRV, the fitness estimates, a section record, a route and the weekly load', () => {
+    const drawn = (Object.keys(insightCategories) as InsightCategory[]).filter(drawsRowTrend);
+
+    expect(drawn.sort()).toEqual(
+      ['fitness_milestone', 'hrv_trend', 'period_comparison', 'route', 'section_pr'].sort()
+    );
   });
 });
 
@@ -458,7 +518,7 @@ describe('the insight list card category', () => {
     expect(edges).toEqual([]);
   });
 
-  it("keeps the insight's own glyph in its verdict tone beside the title", async () => {
+  it("keeps the insight's own glyph in its verdict tone beside the sentence", async () => {
     const insight = periodCard();
     const tree = await render(<InsightListCard insight={insight} onPress={jest.fn()} />);
 
@@ -469,22 +529,25 @@ describe('the insight list card category', () => {
 });
 
 describe('the insight list card label', () => {
-  it('speaks the title, the new mark and the caption the card draws', () => {
-    const insight = { ...sectionPrCard(), isNew: true, subtitle: 'Nine laps of the orchard' };
+  it('speaks the sentence, then the new mark and the experimental mark', () => {
+    const insight = { ...sectionPrCard(), isNew: true, experimental: true };
     const tree = render(<InsightListCard insight={insight} onPress={jest.fn()} />);
 
     expect(tree.getByTestId(`insight-card-${insight.id}`).props.accessibilityLabel).toBe(
-      `${insight.title}, a11y.isNew, Nine laps of the orchard`
+      `${insight.line}, a11y.isNew, common.experimental`
     );
   });
 
-  it('speaks no new mark and no caption when the card draws neither', () => {
-    const insight: Insight = { ...sectionPrCard(), isNew: false };
-    delete insight.subtitle;
+  it('speaks the sentence alone, never the title or the caption', () => {
+    const insight: Insight = {
+      ...sectionPrCard(),
+      isNew: false,
+      subtitle: 'Nine laps of the orchard',
+    };
     const tree = render(<InsightListCard insight={insight} onPress={jest.fn()} />);
 
     expect(tree.getByTestId(`insight-card-${insight.id}`).props.accessibilityLabel).toBe(
-      insight.title
+      insight.line
     );
   });
 });

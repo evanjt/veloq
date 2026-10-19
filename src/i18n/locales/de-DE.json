@@ -1088,6 +1088,46 @@
       "warning": "Achtung",
       "concern": "Bedenklich",
       "neutral": "Neutral"
+    },
+    "line": {
+      "hrvRising": "HRV steigt, zuletzt {{latest}} bei {{mean}} Mittel",
+      "hrvFalling": "HRV sinkt, zuletzt {{latest}} bei {{mean}} Mittel",
+      "hrvSteady": "HRV stabil, zuletzt {{latest}} bei {{mean}} Mittel",
+      "hrvLastTwo": "Letzte zwei HRV-Werte unter {{mean}} Mittel, zuletzt {{latest}}",
+      "eftp": "Rad-eFTP {{change}} auf {{current}}, von {{previous}}",
+      "runPace": "Kritische Geschwindigkeit {{change}} auf {{current}}, von {{previous}}",
+      "swimPace": "Schwimm-CSS {{change}} auf {{current}}, von {{previous}}",
+      "weekLoad": "Trainingsbelastung {{change}} diese Woche, {{current}} zu {{previous}}",
+      "weekTime": "Trainingszeit {{change}} diese Woche, {{current}} zu {{previous}}",
+      "lastWeekLoad": "Belastung letzte Woche {{change}} zum 4-Wochen-Mittel, {{current}} zu {{previous}}",
+      "lastWeekTime": "Letzte Woche {{change}} zum 4-Wochen-Mittel, {{current}} zu {{previous}}",
+      "sectionPr": "Neue Bestzeit auf {{name}}, {{time}}",
+      "sectionPrFaster": "Neue Bestzeit auf {{name}}, {{time}}, {{delta}} schneller",
+      "routeRecord": "Neuer Rekord auf {{name}}, {{time}}",
+      "routeFaster": "Zuletzt schneller auf {{name}}, Bestzeit {{time}}",
+      "routeSlower": "Zuletzt langsamer auf {{name}}, Bestzeit {{time}}",
+      "routeFasterBy": "{{name}} {{change}} schneller im jüngsten Median, Bestzeit {{time}}",
+      "routeSlowerBy": "{{name}} {{change}} langsamer im jüngsten Median, Bestzeit {{time}}",
+      "routeGroup": "Strecken: {{counts}}",
+      "sectionTrend": "Abschnitte: {{faster}}, {{slower}}",
+      "stalePrPower": "Rad-eFTP {{change}} auf {{current}} seit PR auf {{name}}",
+      "stalePrRun": "Kritische Geschwindigkeit {{change}} auf {{current}} seit PR auf {{name}}",
+      "stalePrSwim": "Schwimm-CSS {{change}} auf {{current}} seit PR auf {{name}}",
+      "stalePrGroup_one": "{{count}} PR bei geringerer Fitness aufgestellt",
+      "stalePrGroup_other": "{{count}} PRs bei geringerer Fitness aufgestellt",
+      "efficiency": "Modellierte HF {{change}} bei mittlerem Tempo auf {{name}}",
+      "sectionChanged": {
+        "recut": "{{name}} neu geschnitten",
+        "split": "{{name}} in mehrere Abschnitte geteilt",
+        "restored": "{{name}} ist zurück",
+        "reverted": "{{name}} auf frühere Version zurückgesetzt"
+      },
+      "strengthBalance": "{{dominant}} {{ratio}} {{other}}, {{dominantSets}} zu {{otherSets}} Sätze in 4 Wochen",
+      "strengthOneSided": "{{ratio}}: alle {{dominantSets}} Sätze in 4 Wochen auf {{dominant}}",
+      "strengthProgression": "{{muscle}} Volumen {{change}}, {{from}} auf {{current}} pro Woche",
+      "strengthNewSignal": "{{change}} bei {{muscle}}: {{current}} pro Woche",
+      "strengthSnapshot_one": "{{count}} Krafteinheit in 4 Wochen, {{sets}} Sätze",
+      "strengthSnapshot_other": "{{count}} Krafteinheiten in 4 Wochen, {{sets}} Sätze"
     }
   },
   "licenses": {
@@ -2907,7 +2947,8 @@
       "attempts": "Versuche"
     },
     "activityPlot": "Aktivitätsdiagramm",
-    "axisFasterAtTop": "{{unit}}, schneller oben"
+    "axisFasterAtTop": "{{unit}}, schneller oben",
+    "fasterIsUp": "Schneller oben"
   },
   "sportFamilies": {
     "ride": "Radfahren",

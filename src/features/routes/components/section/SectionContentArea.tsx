@@ -238,15 +238,17 @@ export function SectionContentArea({
         footer={infoFooter}
       />
 
-      {/* Aerobic efficiency across matched efforts, an experimental card the
-          developer switch shows */}
+      {/* Aerobic efficiency across matched efforts and the wellness and speed
+          card are experimental cards the developer switch shows */}
       {experimental ? <SectionEfficiencyCard trend={efficiencyTrend} isDark={isDark} /> : null}
 
-      <SectionCorrelationCard
-        correlations={correlations}
-        floor={correlationFloor}
-        isDark={isDark}
-      />
+      {experimental ? (
+        <SectionCorrelationCard
+          correlations={correlations}
+          floor={correlationFloor}
+          isDark={isDark}
+        />
+      ) : null}
 
       {/* Calendar performance history */}
       {calendarSummary ? (

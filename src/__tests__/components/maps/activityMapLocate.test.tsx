@@ -9,12 +9,13 @@
 
 import React from 'react';
 import { View } from 'react-native';
-import { render, act, fireEvent, screen } from '@testing-library/react-native';
+import { act, fireEvent, screen } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { ActivityMapView } from '@/features/maps/components/ActivityMapView';
 import { LOCATE_EASE_MS, LOCATE_ZOOM } from '@/features/maps/hooks/useLocateUser';
 import type { LatLng } from '@/shared/geo/polyline';
+import { renderStaged } from '../../__shared__/stagedRender';
 
 interface Page {
   injected: string[];
@@ -129,7 +130,7 @@ beforeEach(() => {
 
 describe('locating the user on the inline activity map', () => {
   const mount = async () => {
-    await render(
+    await renderStaged(
       <SafeAreaProvider initialMetrics={METRICS}>
         <ActivityMapView activityType="Ride" coordinates={COORDINATES} showStyleToggle />
       </SafeAreaProvider>

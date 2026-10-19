@@ -212,6 +212,19 @@ function runPage(
 
 const typesOf = (posted: Posted[]) => posted.map((m) => m.type);
 
+/** A style whose vector tiles come from the loopback listener on two shards. */
+const LISTENER_STYLE = {
+  sources: {
+    streets: {
+      type: 'vector',
+      tiles: [
+        'http://127.0.0.1:41001/tok/streets/{z}/{x}/{y}.pbf',
+        'http://127.0.0.1:41002/tok/streets/{z}/{x}/{y}.pbf',
+      ],
+    },
+  },
+};
+
 describe('3D map ready signal', () => {
   beforeEach(() => {
     jest.useFakeTimers();
@@ -476,5 +489,18 @@ describe('3D page rebuilt in place for a new mount', () => {
     expect(
       buildMap3DHtml(buildConfig({ coordinates: otherRoute, initStyle: 'satellite', pitch: 10 }))
     ).toContain(meta);
+  });
+
+  it('asks the listener to warm its tile host when a pan starts', () => {
+    const page = runPage(buildMap3DHtml(buildConfig()));
+    const fetch = jest.fn(() => Promise.resolve({ ok: true }));
+    page.window.fetch = fetch;
+    (page.map as unknown as { getStyle: () => unknown }).getStyle = () => LISTENER_STYLE;
+
+    page.map!.fire('movestart');
+
+    expect(fetch.mock.calls).toEqual([
+      ['http://127.0.0.1:41001/tok/streets/warm', { cache: 'no-store' }],
+    ]);
   });
 });

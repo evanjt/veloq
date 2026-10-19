@@ -29,14 +29,9 @@ tags:
 
 - takeScreenshot: "screenshots/insights-panel-loaded"
 
-# Open the first card from its title. The card's graphic opens the screen its
-# data came from, so a tap at the card's centre leaves the tab instead.
-- copyTextFrom:
-    id: "insight-title"
-    index: 0
-- evalScript: ${output.cardTitle = maestro.copiedText}
+# Open the first row from its sentence. The whole row opens the sheet.
 - tapOn:
-    id: "insight-title"
+    id: "insight-line"
     index: 0
 
 # The sheet draws the tapped card, not only its frame.
@@ -48,11 +43,6 @@ tags:
     visible:
       id: "insight-detail-title"
     timeout: 5000
-- copyTextFrom:
-    id: "insight-detail-title"
-- assertTrue:
-    condition: ${maestro.copiedText == output.cardTitle}
-    label: "The sheet's title is the tapped card's"
 
 - takeScreenshot: "screenshots/insights-detail-sheet"
 

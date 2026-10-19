@@ -48,6 +48,9 @@
     },
     "strengthSnapshot": {
       "methodologyDescription": "Summarizes strength volume across the most recent 4 weeks: workout count, total sets, and number of tracked muscle groups."
+    },
+    "line": {
+      "efficiency": "Modeled HR {{change}} at average pace on {{name}}"
     }
   },
   "licenses": {

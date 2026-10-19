@@ -7,6 +7,7 @@
  *      every device and, on iOS and a legacy Android token, a visible push
  *      beside it
  *   3. Device token management: register/unregister push tokens
+ *   4. A scheduled check of the receipts for the pushes Expo accepted
  *
  * See README.md for deployment instructions.
  *
@@ -23,6 +24,18 @@ import { dedupeKey, exchangeKey, type RateRoute, rateKey, stateKey } from "./key
 import { authoriseDevice, type DeviceAuth, intervalsAthleteResolver } from "./deviceAuth";
 import { isValidVerifier, newOpaqueToken, verifierMatches } from "./pkce";
 import { buildPushMessages, pushDataFor } from "./pushMessages";
+import {
+  type ExpoOutcome,
+  isSentPush,
+  isUnregistered,
+  pushRefusal,
+  RECEIPT_BATCH,
+  RECEIPT_PREFIX,
+  RECEIPT_TTL_SECONDS,
+  receiptKey,
+  type SentPush,
+  withoutToken,
+} from "./pushReceipts";
 import { webhookShapeLine } from "./webhookShape";
 
 interface Env {
@@ -188,6 +201,11 @@ export default {
       console.error("Worker error:", error);
       return new Response("Internal Server Error", { status: 500 });
     }
+  },
+
+  /** The cron trigger in `wrangler.toml`: read the receipts of recent pushes. */
+  async scheduled(_controller: unknown, env: Env): Promise<void> {
+    await checkPushReceipts(env);
   },
 };
 
@@ -945,7 +963,12 @@ async function startEventPushes(
   const pushData = pushDataFor(event);
   const visible = visibleContentForEvent(event.type, event.activity?.id);
   const perDeviceResults = tokens.map((device) =>
-    sendExpoPush(device.token, pushData, visible, device.platform, isLegacy(device))
+    sendExpoPush(
+      env,
+      { athleteId, token: device.token, platform: device.platform, legacy: isLegacy(device) },
+      pushData,
+      visible
+    )
       .then((alive) => ({ token: device.token, alive }))
       .catch((err) => {
         console.error(`Push failed for ${device.platform}:`, err);
@@ -960,31 +983,35 @@ async function startEventPushes(
   return (async () => {
     const results = await Promise.all(perDeviceResults);
     const dead = results.filter((r) => !r.alive).map((r) => r.token);
-    if (dead.length === 0) return;
-    const latest = await env.DEVICE_TOKENS.get(key, "json") as DeviceToken[] | null;
-    const surviving = (latest ?? []).filter((t) => !dead.includes(t.token));
-    if (surviving.length === 0) {
-      await env.DEVICE_TOKENS.delete(key);
-    } else {
-      await env.DEVICE_TOKENS.put(key, JSON.stringify(surviving), {
-        expirationTtl: DEVICE_TOKEN_TTL_SECONDS,
-      });
-    }
-    for (const token of dead) {
-      await clearTokenOwner(env, athleteId, token);
-    }
-    console.log(
-      `Pruned ${dead.length} dead token(s) from ${key} (${surviving.length} remain)`
-    );
+    await pruneDeadTokens(env, athleteId, dead);
   })().catch((err) => {
-    console.error(`Dead-token prune failed for ${key}:`, err);
+    console.error("Dead-token prune failed:", err);
   });
+}
+
+/** Remove tokens Expo reported unregistered from one athlete's row. */
+async function pruneDeadTokens(env: Env, athleteId: string, dead: string[]): Promise<void> {
+  if (dead.length === 0) return;
+  const key = `athlete:${athleteId}`;
+  const latest = await env.DEVICE_TOKENS.get(key, "json") as DeviceToken[] | null;
+  const surviving = (latest ?? []).filter((t) => !dead.includes(t.token));
+  if (surviving.length === 0) {
+    await env.DEVICE_TOKENS.delete(key);
+  } else {
+    await env.DEVICE_TOKENS.put(key, JSON.stringify(surviving), {
+      expirationTtl: DEVICE_TOKEN_TTL_SECONDS,
+    });
+  }
+  for (const token of dead) {
+    await clearTokenOwner(env, athleteId, token);
+  }
+  console.log(`Pruned ${dead.length} dead token(s) (${surviving.length} remain)`);
 }
 
 /**
  * Send one or two pushes for an event via Expo Push Service. Expo handles FCM
- * (Android) and APNs (iOS) routing transparently. No Firebase project or APNs
- * key required. Expo Push is free.
+ * (Android) and APNs (iOS) routing transparently, with the platform
+ * credentials held on the Expo project.
  *
  * With `visible` on iOS or a legacy Android token, a tray push goes first and a
  * silent data push behind it. Without `visible`, or on a verified Android
@@ -993,17 +1020,17 @@ async function startEventPushes(
  * the device reads when the notification is tapped. The silent push carries
  * event_type and activity_id. No personal data is in either.
  *
- * Returns true if the token is still alive on Expo's side, false if Expo
- * reported DeviceNotRegistered (caller should remove the token from KV).
+ * A refused ticket is logged, and an accepted one is kept for the receipt
+ * check. Returns true if the token is still alive on Expo's side, false if
+ * Expo reported DeviceNotRegistered (caller should remove the token from KV).
  */
 async function sendExpoPush(
-  token: string,
+  env: Env,
+  device: SentPush,
   data: Record<string, unknown>,
-  visible: { title: string; body: string } | null,
-  platform?: string,
-  legacy = false
+  visible: { title: string; body: string } | null
 ): Promise<boolean> {
-  const messages = buildPushMessages(token, data, visible, platform, legacy);
+  const messages = buildPushMessages(device.token, data, visible, device.platform, device.legacy);
 
   let alive = true;
   for (const payload of messages) {
@@ -1018,27 +1045,117 @@ async function sendExpoPush(
 
     const body = await response.text();
     if (!response.ok) {
-      console.error(`Expo push failed (${response.status}): ${body}`);
+      console.error(
+        `Expo push failed (${response.status}) for ${device.platform}: ${withoutToken(body, device.token)}`
+      );
       continue; // transport error, don't prune on transient failures
     }
 
-    console.log(`Expo push ok: ${body}`);
+    let ticket: ExpoOutcome | undefined;
     try {
-      const parsed = JSON.parse(body) as {
-        data?: { status?: string; details?: { error?: string } };
-      };
-      if (
-        parsed.data?.status === "error" &&
-        parsed.data?.details?.error === "DeviceNotRegistered"
-      ) {
-        alive = false;
-      }
+      ticket = (JSON.parse(body) as { data?: ExpoOutcome }).data;
     } catch {
       // unparseable body, assume alive
     }
+    if (!ticket) {
+      console.error(`Expo push answered with no ticket for ${device.platform}`);
+      continue;
+    }
+
+    const refusal = pushRefusal("ticket", ticket, device);
+    if (refusal) console.error(refusal);
+    if (isUnregistered(ticket)) alive = false;
+    if (ticket.status === "ok" && ticket.id) await keepForReceipt(env, ticket.id, device);
   }
 
   return alive;
+}
+
+/**
+ * Keep an accepted push until its receipt is read. The token and athlete ride
+ * in the key's metadata, which a list returns, so a receipt naming an
+ * unregistered device can be pruned. A failed write loses one receipt only.
+ */
+async function keepForReceipt(env: Env, ticketId: string, device: SentPush): Promise<void> {
+  try {
+    await env.DEVICE_TOKENS.put(receiptKey(ticketId), "", {
+      expirationTtl: RECEIPT_TTL_SECONDS,
+      metadata: device,
+    });
+  } catch (err) {
+    console.error(`Could not keep a ${device.platform} push for its receipt:`, err);
+  }
+}
+
+/**
+ * Read the receipts of the pushes Expo accepted, log every refusal and prune a
+ * device Apple or Google reports gone. A receipt not ready yet stays for the
+ * next run, and so does every push in a request that failed: only a receipt
+ * read is let go.
+ */
+async function checkPushReceipts(env: Env): Promise<void> {
+  const waiting = new Map<string, SentPush>();
+  let cursor: string | undefined;
+  do {
+    const page = await env.DEVICE_TOKENS.list<unknown>({ prefix: RECEIPT_PREFIX, cursor });
+    for (const entry of page.keys) {
+      if (isSentPush(entry.metadata)) {
+        waiting.set(entry.name.slice(RECEIPT_PREFIX.length), entry.metadata);
+      } else {
+        await env.DEVICE_TOKENS.delete(entry.name);
+      }
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+
+  const pending = [...waiting.entries()];
+  const dead = new Map<string, string[]>();
+  for (let start = 0; start < pending.length; start += RECEIPT_BATCH) {
+    const batch = pending.slice(start, start + RECEIPT_BATCH);
+    const receipts = await fetchReceipts(batch.map(([id]) => id));
+    if (!receipts) continue;
+    for (const [id, sent] of batch) {
+      const receipt = receipts[id];
+      if (!receipt) continue;
+      const refusal = pushRefusal("receipt", receipt, sent);
+      if (refusal) console.error(refusal);
+      if (isUnregistered(receipt)) {
+        dead.set(sent.athleteId, [...(dead.get(sent.athleteId) ?? []), sent.token]);
+      }
+      await env.DEVICE_TOKENS.delete(receiptKey(id));
+    }
+  }
+
+  for (const [athleteId, tokens] of dead) {
+    try {
+      await pruneDeadTokens(env, athleteId, tokens);
+    } catch (err) {
+      console.error("Dead-token prune after a receipt failed:", err);
+    }
+  }
+}
+
+/** One receipt request, or null when it failed and the ids wait for the next run. */
+async function fetchReceipts(ids: string[]): Promise<Record<string, ExpoOutcome> | null> {
+  try {
+    const response = await fetch("https://exp.host/--/api/v2/push/getReceipts", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({ ids }),
+    });
+    if (!response.ok) {
+      console.error(`Expo receipt request failed (${response.status})`);
+      return null;
+    }
+    const parsed = (await response.json()) as { data?: Record<string, ExpoOutcome> };
+    return parsed.data ?? null;
+  } catch (err) {
+    console.error("Expo receipt request failed:", err);
+    return null;
+  }
 }
 
 /** Helper to create JSON responses */

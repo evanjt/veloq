@@ -587,6 +587,20 @@ pub fn template_for(source: &str) -> Option<String> {
         .cloned()
 }
 
+/// Open the connection to a source's tile host ahead of the burst a pan is
+/// about to send, through the client that burst goes on. The host is the one
+/// the resolved tile template names, or the TileJSON's while none is resolved,
+/// which is the same host for every source whose TileJSON names its own tiles.
+/// A source with no template, the heatmap among them, has no host to warm.
+pub async fn warm_source(source: String) {
+    let Some(template) = tile_template_for(&source).or_else(|| template_for(&source)) else {
+        return;
+    };
+    if let Some(fetcher) = INTERACTIVE.as_ref() {
+        fetcher.warm(&template).await;
+    }
+}
+
 /// A `{z}/{x}/{y}` template with one tile's coordinates in it.
 pub(crate) fn fill_template(template: &str, z: u8, x: u32, y: u32) -> String {
     template

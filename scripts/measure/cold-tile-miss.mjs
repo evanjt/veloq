@@ -5,14 +5,58 @@
 // both connection pools to go idle, then times one cold burst per arm and one
 // warm burst per arm, every burst on tiles neither arm has asked for before.
 //
-// node scripts/measure/cold-tile-miss.mjs <devtools ws url> <source> <upstream template> <ext> <rounds> <idle s> [first round] [cities]
+// [ANDROID_SERIAL=<serial>] node scripts/measure/cold-tile-miss.mjs <devtools ws url> <source> <upstream template> <ext> <rounds> <idle s> [first round] [cities] [pre-open ms]
 //
 // cities is "lat,lon;lat,lon;...", one a round. A second run on the same build
 // needs ground the first did not leave in the store, or its misses are hits.
-const [ws, source, upstream, ext, roundsArg, idleArg, firstArg, citiesArg] = process.argv.slice(2);
+//
+// pre-open ms stands in for a movestart signal that opens the tile host
+// connection before a pan's first miss: the cold store burst is preceded by
+// one miss on a tile outside every block, sent that long before the burst and
+// not waited on. The burst is still timed from its own start, since the lead
+// is time the gesture has already spent.
+//
+// pre-open "swipe:<lead ms>[:x1,y1,x2,y2,ms]" drives a real pan instead: the
+// cold store burst waits for the map's own movestart, raised by one `adb shell
+// input swipe`, then that lead, so the warm is the one the page's own
+// movestart handler sends. A lead of 0 starts the burst inside the movestart
+// handler, within the frame. The swipe is in device pixels and must start at
+// least 200 px from every edge, or Android reads it as a back gesture.
+import { execFile, spawnSync } from 'node:child_process';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const [ws, source, upstream, ext, roundsArg, idleArg, firstArg, citiesArg, preopenArg] =
+  process.argv.slice(2);
 const rounds = Number(roundsArg ?? 5);
 const idleMs = Number(idleArg ?? 120) * 1000;
-const first = Number(firstArg ?? 0);
+const first = Number(firstArg || 0);
+const swipeMode = preopenArg?.startsWith('swipe:') ?? false;
+const [swipeLeadArg, swipeArg] = swipeMode ? preopenArg.slice('swipe:'.length).split(':') : [];
+const preopenMs =
+  preopenArg === undefined || preopenArg === ''
+    ? null
+    : Number(swipeMode ? swipeLeadArg : preopenArg);
+const swipe = (swipeArg ?? '800,1200,300,1200,300').split(',');
+if (Number.isNaN(preopenMs) || (swipeMode && swipe.length !== 5)) {
+  throw new Error(`pre-open must read "<ms>" or "swipe:<ms>[:x1,y1,x2,y2,ms]", got ${preopenArg}`);
+}
+
+// A swipe drives the handset, so another session's measurement would read it.
+// Re-exec through the device lock unless it is already held.
+if (swipeMode && !process.env.VELOQ_DEVICE_LOCK_HELD) {
+  const lock = join(dirname(fileURLToPath(import.meta.url)), '..', 'with-device-lock.sh');
+  const relock = spawnSync(
+    lock,
+    [process.execPath, fileURLToPath(import.meta.url), ...process.argv.slice(2)],
+    { stdio: 'inherit' }
+  );
+  if (relock.error) {
+    console.error(`cold-tile-miss: could not run ${lock}: ${relock.error.message}`);
+    process.exit(1);
+  }
+  process.exit(relock.status ?? 1);
+}
 const Z = 14;
 const W = 6;
 const H = 4;
@@ -35,9 +79,10 @@ const CITIES = {
   ],
 };
 
-const cities = citiesArg
-  ? citiesArg.split(';').map((pair) => pair.split(',').map(Number))
-  : CITIES[source];
+const cities =
+  citiesArg && citiesArg !== '-'
+    ? citiesArg.split(';').map((pair) => pair.split(',').map(Number))
+    : CITIES[source];
 if (cities.some((c) => c.length !== 2 || c.some(Number.isNaN))) {
   throw new Error(`cities must read "lat,lon;lat,lon", got ${citiesArg}`);
 }
@@ -92,9 +137,22 @@ function evaluate(expression) {
 }
 
 // One burst, every request in flight at once as a pan issues them.
-function burstExpression(urls) {
+function burstExpression(urls, preopenUrl = null, afterMovestart = false) {
   return `(async () => {
     const urls = ${JSON.stringify(urls)};
+    const preopenUrl = ${JSON.stringify(preopenUrl)};
+    let leadMs = null;
+    if (${afterMovestart}) {
+      const moveStart = await Promise.race([
+        window.__movestart,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('the swipe raised no movestart')), 5000)),
+      ]);
+      if (${preopenMs ?? 0} > 0) await new Promise((r) => setTimeout(r, ${preopenMs ?? 0}));
+      leadMs = performance.now() - moveStart;
+    } else if (preopenUrl) {
+      fetch(preopenUrl, { cache: 'no-store' }).catch(() => {});
+      await new Promise((r) => setTimeout(r, ${preopenMs ?? 0}));
+    }
     const t0 = performance.now();
     const tiles = await Promise.all(urls.map(async (url) => {
       const s = performance.now();
@@ -108,7 +166,7 @@ function burstExpression(urls) {
       }
     }));
     performance.clearResourceTimings();
-    return { wall: performance.now() - t0, tiles };
+    return { wall: performance.now() - t0, leadMs, tiles };
   })()`;
 }
 
@@ -129,6 +187,8 @@ const urlsFor = {
 };
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const adb = (args) =>
+  new Promise((resolve, reject) => execFile('adb', args, (err) => (err ? reject(err) : resolve())));
 
 await opened;
 const styled = await evaluate(
@@ -154,12 +214,35 @@ for (let round = first; round < first + rounds; round++) {
   for (const pool of ['cold', 'warm']) {
     for (const arm of order) {
       const tiles = blocks[b++];
-      const burst = await evaluate(burstExpression(urlsFor[arm](tiles)));
-      results.push({ source, round: round + 1, pool, arm, coords: tiles, ...burst });
+      const preopen =
+        pool === 'cold' && arm === 'intercept' && preopenMs !== null && !swipeMode
+          ? urlsFor.intercept([[cx + 2 * W, cy + 2 * H]])[0]
+          : null;
+      const swiped = pool === 'cold' && arm === 'intercept' && swipeMode;
+      if (swiped) {
+        await evaluate(`(() => {
+          window.__movestart = new Promise((resolve) =>
+            window.map.once('movestart', () => resolve(performance.now())));
+          return true;
+        })()`);
+      }
+      const pending = evaluate(burstExpression(urlsFor[arm](tiles), preopen, swiped));
+      if (swiped) await adb(['shell', 'input', 'swipe', ...swipe]);
+      const burst = await pending;
+      results.push({
+        source,
+        round: round + 1,
+        pool,
+        arm,
+        preopenMs: preopen ? preopenMs : null,
+        swipe: swiped ? swipe.join(',') : null,
+        coords: tiles,
+        ...burst,
+      });
       const ms = burst.tiles.map((t) => t.ms).sort((p, q) => p - q);
       const ok = burst.tiles.filter((t) => t.status === 200).length;
       process.stderr.write(
-        `  ${pool} ${arm}: wall ${burst.wall.toFixed(0)} ms, p50 ${ms[11].toFixed(0)}, ok ${ok}/24, ${[...new Set(burst.tiles.map((t) => t.proto))].join(',')}\n`
+        `  ${pool} ${arm}${preopen ? ` (pre-open ${preopenMs} ms)` : ''}${swiped ? ` (swipe, burst ${burst.leadMs.toFixed(0)} ms after movestart)` : ''}: wall ${burst.wall.toFixed(0)} ms, p50 ${ms[11].toFixed(0)}, ok ${ok}/24, ${[...new Set(burst.tiles.map((t) => t.proto))].join(',')}\n`
       );
       await sleep(500);
     }

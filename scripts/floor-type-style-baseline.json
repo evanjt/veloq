@@ -2,7 +2,6 @@
   "src/app/licenses.tsx": 1,
   "src/features/fitness/components/BestEffortRow.tsx": 2,
   "src/features/home/components/SummaryCard.tsx": 3,
-  "src/features/insights/components/InsightHistoryGraphic.tsx": 2,
   "src/features/insights/components/InsightSeriesChart.tsx": 1,
   "src/features/maps/components/AttributionOverlay.tsx": 2,
   "src/features/maps/components/timeline/TimelineSlider.tsx": 2,

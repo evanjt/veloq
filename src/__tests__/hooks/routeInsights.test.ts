@@ -130,7 +130,8 @@ describe('generateRouteInsights', () => {
     if (history?.kind !== 'timeline') return;
     const values = history.series[0].points.map((p) => p.value);
     expect(historyRange(history.kind, values)).toEqual({ top: 2900, bottom: 3000 });
-    expect(history.scale).toEqual({ top: '48:20', bottom: '50:00' });
+    const format = history.series[0].format;
+    expect([2900, 3000].map((value) => format?.(value))).toEqual(['48:20', '50:00']);
   });
 
   it('titles a single trend row faster or slower', () => {
@@ -149,6 +150,54 @@ describe('generateRouteInsights', () => {
 
     expect(faster.title).toContain('insights.route.fasterTitle');
     expect(slower.title).toContain('insights.route.slowerTitle');
+  });
+
+  it("states a single trend row's change in seconds in its figure and its sentence", () => {
+    const [faster] = generateRouteInsights(
+      [row({ trend: 1, trendSeconds: -100, bestTime: 2920 })],
+      { records: 0, faster: 1, slower: 0 },
+      NOW,
+      t
+    );
+    const [slower] = generateRouteInsights(
+      [row({ trend: -1, trendSeconds: 42 })],
+      { records: 0, faster: 0, slower: 1 },
+      NOW,
+      t
+    );
+
+    expect(faster.supportingData?.change?.value).toBe('-1:40');
+    expect(faster.supportingData?.trend).toEqual({ direction: 'down', verdict: 'improved' });
+    expect(faster.line).toContain('insights.line.routeFasterBy');
+    expect(faster.line).toContain('"change":"1:40"');
+    expect(faster.line).toContain(`"time":"${formatDuration(2920)}"`);
+    expect(slower.supportingData?.change?.value).toBe('+42 s');
+    expect(slower.supportingData?.trend).toEqual({ direction: 'up', verdict: 'declined' });
+    expect(slower.line).toContain('insights.line.routeSlowerBy');
+    expect(slower.line).toContain('"change":"42 s"');
+  });
+
+  it('keeps the record sentence and states no change on a recent record', () => {
+    const [card] = generateRouteInsights(
+      [row({ isRecentRecord: true, trend: 1, trendSeconds: -100 })],
+      { records: 1, faster: 0, slower: 0 },
+      NOW,
+      t
+    );
+
+    expect(card.line).toContain('insights.line.routeRecord');
+    expect(card.supportingData?.change).toBeUndefined();
+  });
+
+  it('carries the change in seconds onto the route the card lists', () => {
+    const [card] = generateRouteInsights(
+      [row({ trend: 1, trendSeconds: -100 })],
+      { records: 0, faster: 1, slower: 0 },
+      NOW,
+      t
+    );
+
+    expect(card.supportingData?.routes?.[0]?.trendSeconds).toBe(-100);
   });
 
   it('carries three routes as one group card stating the engine counts', () => {

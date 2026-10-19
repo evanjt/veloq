@@ -9,12 +9,13 @@
 
 import React from 'react';
 import { View } from 'react-native';
-import { render, act } from '@testing-library/react-native';
+import { act } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ActivityMapView } from '@/features/maps/components/ActivityMapView';
 import { Map3DWebView } from '@/features/maps/components/Map3DWebView';
 import { TRACK_FIT_PADDING } from '@/features/maps/lib/activityCamera';
 import type { LatLng } from '@/shared/geo/polyline';
+import { renderStaged } from '../../__shared__/stagedRender';
 
 interface Page {
   html: string[];
@@ -151,7 +152,7 @@ describe.each(['sections', 'charts'])('scrubbing the 2D activity map on %s', (ta
     </SafeAreaProvider>
   );
 
-  const scrub = async (view: Awaited<ReturnType<typeof render>>) => {
+  const scrub = async (view: Awaited<ReturnType<typeof renderStaged>>) => {
     for (const index of TICKS) {
       await view.rerender(map(index));
       await act(() => {
@@ -167,7 +168,7 @@ describe.each(['sections', 'charts'])('scrubbing the 2D activity map on %s', (ta
   };
 
   it('builds the map fitted to the track below the header', async () => {
-    await render(map(null));
+    await renderStaged(map(null));
 
     expect(surface().html).toHaveLength(1);
     const literal = /_fitPadding = (\{[^}]*\})/.exec(surface().html[0])?.[1];
@@ -179,7 +180,7 @@ describe.each(['sections', 'charts'])('scrubbing the 2D activity map on %s', (ta
   });
 
   it('never fits the track a second time, on ready or on scrub', async () => {
-    const view = await render(map(0));
+    const view = await renderStaged(map(0));
     await ready(surface());
     await scrub(view);
 
@@ -188,7 +189,7 @@ describe.each(['sections', 'charts'])('scrubbing the 2D activity map on %s', (ta
   });
 
   it('keeps the page it was built with', async () => {
-    const view = await render(map(0));
+    const view = await renderStaged(map(0));
     await ready(surface());
     await scrub(view);
 
@@ -196,7 +197,7 @@ describe.each(['sections', 'charts'])('scrubbing the 2D activity map on %s', (ta
   });
 
   it('re-serialises only the highlight on each tick', async () => {
-    const view = await render(map(0));
+    const view = await renderStaged(map(0));
     await ready(surface());
     mockPatches.length = 0;
 
@@ -213,7 +214,7 @@ describe.each(['sections', 'charts'])('scrubbing the 2D activity map on %s', (ta
   });
 
   it('serialises once per tick across the whole scrub', async () => {
-    const view = await render(map(0));
+    const view = await renderStaged(map(0));
     await ready(surface());
     mockPatches.length = 0;
 
@@ -224,7 +225,7 @@ describe.each(['sections', 'charts'])('scrubbing the 2D activity map on %s', (ta
   });
 
   it('sends the layer list again only when the highlight appears or goes', async () => {
-    const view = await render(map(null));
+    const view = await renderStaged(map(null));
     await ready(surface());
     mockPatches.length = 0;
 
@@ -255,7 +256,7 @@ describe('the activity map in 3D', () => {
   );
 
   it('sends the highlight only when the highlight moves', async () => {
-    const view = await render(map(3, null));
+    const view = await renderStaged(map(3, null));
     const page = mockPages.get('webview');
     if (!page) throw new Error('the 3D page did not mount');
     await ready(page);
@@ -283,7 +284,7 @@ describe('scrubbing the 3D activity map', () => {
   );
 
   it('keeps the page and moves the highlight by injected script', async () => {
-    const view = await render(terrain(null));
+    const view = await renderStaged(terrain(null));
     const page = mockPages.get('webview');
     if (!page) throw new Error('the 3D page did not mount');
     await ready(page);
@@ -330,14 +331,14 @@ describe('the activity line on the 2D map', () => {
   };
 
   it('names the engine URL when the engine holds the track', async () => {
-    await render(map(true));
+    await renderStaged(map(true));
     await ready(surface());
 
     expect(routeData()).toEqual(expect.stringMatching(/veloq-geo\/track\/i9001\?v=0$/));
   });
 
   it('sends the line inline when the engine holds no track', async () => {
-    await render(map(false));
+    await renderStaged(map(false));
     await ready(surface());
 
     const data = routeData() as GeoJSON.Feature<GeoJSON.LineString>;
@@ -345,7 +346,7 @@ describe('the activity line on the 2D map', () => {
   });
 
   it('keeps the URL through a scrub, sending the highlight alone', async () => {
-    const view = await render(map(true, 0));
+    const view = await renderStaged(map(true, 0));
     await ready(surface());
     mockPatches.length = 0;
 

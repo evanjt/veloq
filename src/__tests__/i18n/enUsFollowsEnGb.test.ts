@@ -32,6 +32,7 @@ const SPELLING = [
   'insights.efficiencyTrend.changeBody',
   'insights.efficiencyTrend.changeSubtitle',
   'insights.efficiencyTrend.subtitle',
+  'insights.line.efficiency',
   'insights.noInsightsHint',
   'insights.strengthSnapshot.methodologyDescription',
   'licenses.footer',

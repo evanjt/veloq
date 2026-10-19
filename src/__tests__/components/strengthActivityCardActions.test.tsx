@@ -48,11 +48,6 @@ jest.mock('@/features/activity', () => {
     SkylineBar: () => null,
   };
 });
-jest.mock('react-native-body-highlighter', () => ({
-  ...jest.requireActual('react-native-body-highlighter'),
-  __esModule: true,
-  default: () => null,
-}));
 
 const lift = {
   id: 'a1',

@@ -7,6 +7,7 @@ import {
   Line as SkiaLine,
   PaintStyle,
   Path,
+  Rect,
   RoundedRect,
   Skia,
   StrokeCap,
@@ -18,6 +19,7 @@ import {
 import { Canvas } from '@/shared/ui/SkiaCanvas';
 
 import {
+  BAND_OPACITY,
   DOT_RADIUS,
   LINE_CAP,
   LINE_JOIN,
@@ -94,6 +96,32 @@ export function ChartBar({ x, from, to, width, color, opacity = 1, outline = fal
       color={color}
       opacity={opacity}
       {...(outline ? { style: 'stroke' as const, strokeWidth: chartStroke.ring } : {})}
+    />
+  );
+}
+
+interface BandProps {
+  /** Its two edges in pixels, in either order. */
+  from: number;
+  to: number;
+  top: number;
+  bottom: number;
+}
+
+/**
+ * A span of the x axis shaded the full height of the plot, behind the series,
+ * in the muted chart colour: the window a claim was read over.
+ */
+export function ChartBand({ from, to, top, bottom }: BandProps) {
+  const { muted } = useChartColors();
+  return (
+    <Rect
+      x={Math.min(from, to)}
+      y={top}
+      width={Math.abs(to - from)}
+      height={bottom - top}
+      color={muted}
+      opacity={BAND_OPACITY}
     />
   );
 }

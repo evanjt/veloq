@@ -108,6 +108,7 @@ it('keeps a well-founded decline ahead of lower-scoring cards from other categor
       icon: 'information-outline',
       iconTone: 'neutral',
       title: 'A neutral observation',
+      line: 'A neutral observation',
       timestamp: NOW,
       confidence: null,
     })

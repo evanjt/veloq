@@ -98,6 +98,16 @@ struct HostAnswer {
     /// Answered over HTTP/1.1, where one connection carries one request at a
     /// time and a burst needs a connection per request whatever goes first.
     http1: bool,
+    /// When it answered, on the clock the pool keeps its idle time by.
+    at: tokio::time::Instant,
+}
+
+/// Whether the connection a host last answered on is still in the pool: it
+/// answered inside [`POOL_IDLE_TIMEOUT`]. The pool counts idle time from when
+/// the body was read, which is after the answer, so this never says a
+/// connection is open once the pool has let it go.
+fn still_pooled(last: Option<HostAnswer>, now: tokio::time::Instant) -> bool {
+    last.is_some_and(|answer| now.saturating_duration_since(answer.at) < POOL_IDLE_TIMEOUT)
 }
 
 /// Whether a request to a host goes alone before the rest of its burst: one
@@ -126,6 +136,16 @@ fn host_key(url: &str) -> String {
         ),
         Err(_) => url.to_string(),
     }
+}
+
+/// The origin of a URL, `scheme://host:port/`, or `None` when it does not
+/// parse as one, as a template naming its host by placeholder does not.
+fn origin_of(url: &str) -> Option<String> {
+    let parsed = reqwest::Url::parse(url).ok()?;
+    let origin = parsed.origin();
+    origin
+        .is_tuple()
+        .then(|| format!("{}/", origin.ascii_serialization()))
 }
 
 impl TileFetcher {
@@ -231,6 +251,39 @@ impl TileFetcher {
         answered_body(response, cap).await
     }
 
+    /// Open a connection to the host a tile template names, ahead of the
+    /// burst a pan is about to send, so the burst finds the handshake done.
+    ///
+    /// Nothing is sent when the host answered inside the pool's idle window,
+    /// since its connection is still open. Otherwise one `HEAD` goes to the
+    /// template's origin, through the client the next burst would use, which
+    /// opens the connection without asking for a tile the pan may not need. On
+    /// a host never heard from it takes the leader's turn, so a burst arriving
+    /// during the handshake waits on it rather than opening connections of its
+    /// own. The answer's status is ignored; a send error forgets the host, as
+    /// it does for a tile.
+    pub async fn warm(&self, template: &str) {
+        let Some(origin) = origin_of(template) else {
+            return;
+        };
+        let host = host_key(&origin);
+        if still_pooled(self.answered(&host), tokio::time::Instant::now()) {
+            return;
+        }
+        if !self.leads(&host) {
+            let _ = self.send_as(reqwest::Method::HEAD, &host, &origin).await;
+            return;
+        }
+        let leader = self.leader(&host);
+        // A leader already on the wire is opening the connection this would.
+        let Ok(lead) = leader.turn.try_lock() else {
+            return;
+        };
+        *leader.sent.lock().unwrap_or_else(|e| e.into_inner()) = Some(Instant::now());
+        let _ = self.send_as(reqwest::Method::HEAD, &host, &origin).await;
+        drop(lead);
+    }
+
     /// Fetch one tile and store it as the host sent it. Returns the bytes
     /// stored.
     #[allow(clippy::too_many_arguments)]
@@ -257,17 +310,30 @@ impl TileFetcher {
     /// the leader's body has been read. A request that fails forgets the
     /// host's last answer, since the connection it went on may be closed.
     async fn send(&self, host: &str, url: &str) -> Result<reqwest::Response, TileFetchError> {
-        let known = self.answered(host);
-        let client = match known {
-            Some(HostAnswer { http1: false }) => &self.http2,
+        self.send_as(reqwest::Method::GET, host, url).await
+    }
+
+    async fn send_as(
+        &self,
+        method: reqwest::Method,
+        host: &str,
+        url: &str,
+    ) -> Result<reqwest::Response, TileFetchError> {
+        let client = match self.answered(host) {
+            Some(HostAnswer { http1: false, .. }) => &self.http2,
             _ => &self.client,
         };
-        let sent = client.get(url).header(ACCEPT_ENCODING, "gzip").send().await;
+        let sent = client
+            .request(method, url)
+            .header(ACCEPT_ENCODING, "gzip")
+            .send()
+            .await;
         let mut hosts = self.hosts.lock().unwrap_or_else(|e| e.into_inner());
         match sent {
             Ok(response) => {
                 let answer = HostAnswer {
                     http1: response.version() <= reqwest::Version::HTTP_11,
+                    at: tokio::time::Instant::now(),
                 };
                 hosts.insert(host.to_string(), answer);
                 Ok(response)
@@ -513,6 +579,8 @@ mod tests {
                     let mut reader = BufReader::new(stream);
                     loop {
                         let mut line = String::new();
+                        let mut head = true;
+                        let mut asked_head = false;
                         loop {
                             line.clear();
                             match reader.read_line(&mut line) {
@@ -520,10 +588,18 @@ mod tests {
                                 Ok(_) if line == "\r\n" => break,
                                 Ok(_) => {}
                             }
+                            if head {
+                                asked_head = line.starts_with("HEAD ");
+                                head = false;
+                            }
                         }
                         std::thread::sleep(hold);
                         let _ = first.set(counter.load(Ordering::SeqCst));
-                        let reply = "HTTP/1.1 200 OK\r\ncontent-length: 4\r\n\r\ntile";
+                        let reply = if asked_head {
+                            "HTTP/1.1 200 OK\r\ncontent-length: 4\r\n\r\n"
+                        } else {
+                            "HTTP/1.1 200 OK\r\ncontent-length: 4\r\n\r\ntile"
+                        };
                         if writer.write_all(reply.as_bytes()).is_err() {
                             return;
                         }
@@ -568,17 +644,22 @@ mod tests {
         assert!(accepted.load(std::sync::atomic::Ordering::SeqCst) >= 1);
     }
 
+    /// What [`http2_host`] counts.
+    struct Http2Host {
+        url: String,
+        /// Connections accepted.
+        accepted: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+        /// Requests arrived.
+        asked: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+        /// Requests arrived when the first answer was sent.
+        at_first_answer: std::sync::Arc<std::sync::OnceLock<usize>>,
+    }
+
     /// A loopback host speaking HTTP/2 without TLS, as a client that already
     /// knows the host speaks it reaches one. It holds every answer for
     /// `hold`, and counts the connections it accepts and the requests that
     /// had arrived when it sent its first answer.
-    async fn http2_host(
-        hold: Duration,
-    ) -> (
-        String,
-        std::sync::Arc<std::sync::atomic::AtomicUsize>,
-        std::sync::Arc<std::sync::OnceLock<usize>>,
-    ) {
+    async fn http2_host(hold: Duration) -> Http2Host {
         use std::sync::atomic::{AtomicUsize, Ordering};
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
             .await
@@ -586,6 +667,7 @@ mod tests {
         let addr = listener.local_addr().expect("addr");
         let accepted = std::sync::Arc::new(AtomicUsize::new(0));
         let asked = std::sync::Arc::new(AtomicUsize::new(0));
+        let asked_count = asked.clone();
         let at_first_answer = std::sync::Arc::new(std::sync::OnceLock::new());
         let (counter, first) = (accepted.clone(), at_first_answer.clone());
         tokio::spawn(async move {
@@ -596,14 +678,17 @@ mod tests {
                     let Ok(mut connection) = h2::server::handshake(socket).await else {
                         return;
                     };
-                    while let Some(Ok((_, mut respond))) = connection.accept().await {
+                    while let Some(Ok((request, mut respond))) = connection.accept().await {
                         asked.fetch_add(1, Ordering::SeqCst);
                         let (asked, first) = (asked.clone(), first.clone());
+                        let bodiless = request.method() == http::Method::HEAD;
                         tokio::spawn(async move {
                             tokio::time::sleep(hold).await;
                             let _ = first.set(asked.load(Ordering::SeqCst));
                             let response = http::Response::new(());
-                            if let Ok(mut body) = respond.send_response(response, false) {
+                            if let Ok(mut body) = respond.send_response(response, bodiless)
+                                && !bodiless
+                            {
                                 let _ = body.send_data(bytes::Bytes::from_static(b"tile"), true);
                             }
                         });
@@ -611,11 +696,12 @@ mod tests {
                 });
             }
         });
-        (
-            format!("http://{}/0/0/0.pbf", addr),
+        Http2Host {
+            url: format!("http://{}/0/0/0.pbf", addr),
             accepted,
+            asked: asked_count,
             at_first_answer,
-        )
+        }
     }
 
     /// A pan that resumes after a pause, on a host known to speak HTTP/2
@@ -631,13 +717,18 @@ mod tests {
             .build()
             .expect("runtime");
         runtime.block_on(async {
-            let (url, accepted, at_first_answer) = http2_host(Duration::from_millis(300)).await;
+            let Http2Host {
+                url,
+                accepted,
+                at_first_answer,
+                ..
+            } = http2_host(Duration::from_millis(300)).await;
             let fetcher = std::sync::Arc::new(TileFetcher::new(Duration::ZERO).expect("fetcher"));
             fetcher
                 .hosts
                 .lock()
                 .expect("hosts")
-                .insert(host_key(&url), HostAnswer { http1: false });
+                .insert(host_key(&url), answered_now(false));
             let burst: Vec<_> = (0..24)
                 .map(|_| {
                     let fetcher = fetcher.clone();
@@ -671,7 +762,7 @@ mod tests {
             .hosts
             .lock()
             .expect("hosts")
-            .insert(host.clone(), HostAnswer { http1: false });
+            .insert(host.clone(), answered_now(false));
         assert!(!fetcher.leads(&host));
 
         let refused = runtime.block_on(fetcher.fetch(&url));
@@ -686,8 +777,8 @@ mod tests {
     #[test]
     fn a_burst_is_led_only_for_a_host_never_heard_from() {
         assert!(leads_burst(None));
-        assert!(!leads_burst(Some(HostAnswer { http1: false })));
-        assert!(!leads_burst(Some(HostAnswer { http1: true })));
+        assert!(!leads_burst(Some(answered_now(false))));
+        assert!(!leads_burst(Some(answered_now(true))));
     }
 
     #[test]
@@ -719,12 +810,6 @@ mod tests {
             .expect("runtime");
         let (url, accepted) = counting_host();
         let connections = || accepted.load(std::sync::atomic::Ordering::SeqCst);
-        async fn idle(span: Duration) {
-            tokio::time::pause();
-            tokio::time::advance(span).await;
-            tokio::task::yield_now().await;
-            tokio::time::resume();
-        }
         runtime.block_on(async {
             let fetcher = TileFetcher::new(Duration::ZERO).expect("fetcher");
             assert_eq!(fetcher.fetch(&url).await.expect("first"), b"tile");
@@ -737,5 +822,155 @@ mod tests {
             assert_eq!(fetcher.fetch(&url).await.expect("past"), b"tile");
             assert_eq!(connections(), 2);
         });
+    }
+
+    /// An answer from a host, stamped now.
+    fn answered_now(http1: bool) -> HostAnswer {
+        HostAnswer {
+            http1,
+            at: tokio::time::Instant::now(),
+        }
+    }
+
+    /// Let `span` pass on the paused clock the pool keeps its idle time by.
+    async fn idle(span: Duration) {
+        tokio::time::pause();
+        tokio::time::advance(span).await;
+        tokio::task::yield_now().await;
+        tokio::time::resume();
+    }
+
+    /// A pan after a pause longer than the pool keeps a connection. The warm
+    /// sent on the gesture's start opens the connection, and the burst that
+    /// follows 20 ms later rides it rather than opening its own: no connection
+    /// is accepted after the warm's.
+    #[test]
+    fn a_warm_after_a_pan_pause_opens_the_connection_the_next_burst_rides() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime");
+        let connections = |accepted: &std::sync::atomic::AtomicUsize| {
+            accepted.load(std::sync::atomic::Ordering::SeqCst)
+        };
+        runtime.block_on(async {
+            let Http2Host { url, accepted, .. } = http2_host(Duration::from_millis(100)).await;
+            let fetcher = std::sync::Arc::new(TileFetcher::new(Duration::ZERO).expect("fetcher"));
+            fetcher
+                .hosts
+                .lock()
+                .expect("hosts")
+                .insert(host_key(&url), answered_now(false));
+            assert_eq!(fetcher.fetch(&url).await.expect("first"), b"tile");
+            assert_eq!(connections(&accepted), 1);
+
+            idle(POOL_IDLE_TIMEOUT + Duration::from_secs(5)).await;
+
+            let warm = {
+                let (fetcher, url) = (fetcher.clone(), url.clone());
+                tokio::spawn(async move { fetcher.warm(&url).await })
+            };
+            tokio::time::sleep(Duration::from_millis(20)).await;
+            let until = tokio::time::Instant::now() + Duration::from_secs(2);
+            while connections(&accepted) < 2 && tokio::time::Instant::now() < until {
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+            assert_eq!(connections(&accepted), 2, "the warm opened no connection");
+
+            let burst: Vec<_> = (0..24)
+                .map(|_| {
+                    let (fetcher, url) = (fetcher.clone(), url.clone());
+                    tokio::spawn(async move { fetcher.fetch(&url).await })
+                })
+                .collect();
+            for fetch in burst {
+                assert_eq!(fetch.await.expect("join").expect("tile"), b"tile");
+            }
+            warm.await.expect("warm");
+            assert_eq!(connections(&accepted), 2, "the burst opened a connection");
+        });
+    }
+
+    /// A warm on a host answered inside the pool's idle window costs nothing:
+    /// the connection is still open, so nothing goes on the wire.
+    #[test]
+    fn a_warm_inside_the_idle_window_sends_nothing() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime");
+        runtime.block_on(async {
+            let Http2Host { url, asked, .. } = http2_host(Duration::ZERO).await;
+            let fetcher = TileFetcher::new(Duration::ZERO).expect("fetcher");
+            fetcher
+                .hosts
+                .lock()
+                .expect("hosts")
+                .insert(host_key(&url), answered_now(false));
+            assert_eq!(fetcher.fetch(&url).await.expect("first"), b"tile");
+            let before = asked.load(std::sync::atomic::Ordering::SeqCst);
+
+            idle(POOL_IDLE_TIMEOUT - Duration::from_secs(5)).await;
+            fetcher.warm(&url).await;
+
+            assert_eq!(asked.load(std::sync::atomic::Ordering::SeqCst), before);
+        });
+    }
+
+    /// A warm on a host never heard from takes the leader's turn, so a burst
+    /// arriving while its handshake is under way waits on it: one connection
+    /// is open when the first answer goes back, not one per request.
+    #[test]
+    fn a_warm_on_a_host_never_heard_from_leads_the_burst_behind_it() {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(4)
+            .enable_all()
+            .build()
+            .expect("runtime");
+        let (url, _, at_first_answer) = holding_host(Duration::from_millis(300));
+        let fetcher = std::sync::Arc::new(TileFetcher::new(Duration::ZERO).expect("fetcher"));
+        runtime.block_on(async {
+            let warm = {
+                let (fetcher, url) = (fetcher.clone(), url.clone());
+                tokio::spawn(async move { fetcher.warm(&url).await })
+            };
+            tokio::time::sleep(Duration::from_millis(20)).await;
+            let burst: Vec<_> = (0..24)
+                .map(|_| {
+                    let (fetcher, url) = (fetcher.clone(), url.clone());
+                    tokio::spawn(async move { fetcher.fetch(&url).await })
+                })
+                .collect();
+            for fetch in burst {
+                assert_eq!(fetch.await.expect("join").expect("tile"), b"tile");
+            }
+            warm.await.expect("warm");
+        });
+        assert_eq!(at_first_answer.get().copied(), Some(1));
+    }
+
+    /// A warm that cannot reach its host forgets what the host last showed,
+    /// as a failed tile does, so the next burst goes as on a cold pool.
+    #[test]
+    fn a_warm_that_cannot_reach_its_host_leads_the_next_burst() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime");
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+        let url = format!("http://{}/0/0/0.pbf", listener.local_addr().expect("addr"));
+        drop(listener);
+        let fetcher = TileFetcher::new(Duration::ZERO).expect("fetcher");
+        let host = host_key(&url);
+        runtime.block_on(async {
+            fetcher
+                .hosts
+                .lock()
+                .expect("hosts")
+                .insert(host.clone(), answered_now(false));
+            idle(POOL_IDLE_TIMEOUT + Duration::from_secs(1)).await;
+            fetcher.warm(&url).await;
+        });
+        assert!(fetcher.leads(&host));
     }
 }

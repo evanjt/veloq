@@ -15,13 +15,14 @@
 
 import React from 'react';
 import { View } from 'react-native';
-import { render, act } from '@testing-library/react-native';
+import { act } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SectionMapView } from '@/features/routes/components/SectionMapView';
 import { RouteMapView } from '@/features/routes/components/RouteMapView';
 import { ActivityMapView } from '@/features/maps/components/ActivityMapView';
 import type { LatLng } from '@/shared/geo/polyline';
 import type { FrequentSection, RoutePoint } from '@/types';
+import { renderStaged } from '../__shared__/stagedRender';
 
 type Tick = { serialised: number; script: number; changed: string[] };
 
@@ -174,7 +175,7 @@ describe('activity detail map mount', () => {
   }));
 
   it('sends the track once', async () => {
-    await render(
+    await renderStaged(
       <SafeAreaProvider initialMetrics={METRICS}>
         <ActivityMapView activityType="Ride" coordinates={coordinates} activeTab="charts" />
       </SafeAreaProvider>
@@ -219,7 +220,7 @@ describe.each(TRAVERSALS)('scrub cost with %i traversals', (count) => {
         />
       </SafeAreaProvider>
     );
-    const view = await render(map(null));
+    const view = await renderStaged(map(null));
     await ready();
     mockTicks.length = 0;
     for (let i = 0; i < SCRUB_TICKS; i++) await view.rerender(map(ids[i % ids.length]));
@@ -248,7 +249,7 @@ describe.each(TRAVERSALS)('scrub cost with %i traversals', (count) => {
         />
       </SafeAreaProvider>
     );
-    const view = await render(map(null));
+    const view = await renderStaged(map(null));
     await ready();
     mockTicks.length = 0;
     for (let i = 0; i < SCRUB_TICKS; i++) await view.rerender(map(ids[i % ids.length]));

@@ -1088,6 +1088,46 @@
       "warning": "Caution",
       "concern": "Concern",
       "neutral": "Neutral"
+    },
+    "line": {
+      "hrvRising": "HRV rising, latest {{latest}} against a {{mean}} mean",
+      "hrvFalling": "HRV falling, latest {{latest}} against a {{mean}} mean",
+      "hrvSteady": "HRV steady, latest {{latest}} against a {{mean}} mean",
+      "hrvLastTwo": "Last two HRV readings under {{mean}} mean, latest {{latest}}",
+      "eftp": "Cycling eFTP {{change}} to {{current}}, from {{previous}}",
+      "runPace": "Critical speed {{change}} to {{current}}, from {{previous}}",
+      "swimPace": "Swim CSS {{change}} to {{current}}, from {{previous}}",
+      "weekLoad": "Training load {{change}} this week, {{current}} against {{previous}}",
+      "weekTime": "Training time {{change}} this week, {{current}} against {{previous}}",
+      "lastWeekLoad": "Load last week {{change}} on 4-week mean, {{current}} against {{previous}}",
+      "lastWeekTime": "Last week {{change}} on 4-week mean, {{current}} against {{previous}}",
+      "sectionPr": "New best on {{name}}, {{time}}",
+      "sectionPrFaster": "New best on {{name}}, {{time}}, {{delta}} faster",
+      "routeRecord": "New record on {{name}}, {{time}}",
+      "routeFaster": "Recent times faster on {{name}}, best {{time}}",
+      "routeSlower": "Recent times slower on {{name}}, best {{time}}",
+      "routeFasterBy": "{{name}} {{change}} faster on the recent median, best {{time}}",
+      "routeSlowerBy": "{{name}} {{change}} slower on the recent median, best {{time}}",
+      "routeGroup": "Routes: {{counts}}",
+      "sectionTrend": "Sections: {{faster}}, {{slower}}",
+      "stalePrPower": "Cycling eFTP {{change}} to {{current}} since PR on {{name}}",
+      "stalePrRun": "Critical speed {{change}} to {{current}} since PR on {{name}}",
+      "stalePrSwim": "Swim CSS {{change}} to {{current}} since PR on {{name}}",
+      "stalePrGroup_one": "{{count}} PR set at lower fitness",
+      "stalePrGroup_other": "{{count}} PRs set at lower fitness",
+      "efficiency": "Modelled HR {{change}} at average pace on {{name}}",
+      "sectionChanged": {
+        "recut": "{{name}} re-cut",
+        "split": "{{name}} split into more than one section",
+        "restored": "{{name}} came back",
+        "reverted": "{{name}} put back to an earlier version"
+      },
+      "strengthBalance": "{{dominant}} {{ratio}} {{other}}, {{dominantSets}} against {{otherSets}} sets in 4 weeks",
+      "strengthOneSided": "{{ratio}}: all {{dominantSets}} sets in 4 weeks on {{dominant}}",
+      "strengthProgression": "{{muscle}} volume {{change}}, {{from}} to {{current}} a week",
+      "strengthNewSignal": "{{change}} on {{muscle}}: {{current}} a week",
+      "strengthSnapshot_one": "{{count}} strength session in 4 weeks, {{sets}} sets",
+      "strengthSnapshot_other": "{{count}} strength sessions in 4 weeks, {{sets}} sets"
     }
   },
   "licenses": {
@@ -2907,7 +2947,8 @@
       "attempts": "Attempts"
     },
     "activityPlot": "Activity chart",
-    "axisFasterAtTop": "{{unit}}, faster at the top"
+    "axisFasterAtTop": "{{unit}}, faster at the top",
+    "fasterIsUp": "Faster is up"
   },
   "sportFamilies": {
     "ride": "Cycling",

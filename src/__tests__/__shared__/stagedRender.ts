@@ -1,10 +1,19 @@
 import type React from 'react';
 import { act, render } from '@testing-library/react-native';
 
+/** Whether the suite runs on Jest's fake timers, which hold an animation frame until advanced. */
+function onFakeTimers(): boolean {
+  return Object.prototype.hasOwnProperty.call(setTimeout, 'clock');
+}
+
 /** Lets `frames` animation frames pass, so a staged first visit mounts its later stages. */
 export async function passFrames(frames = 1): Promise<void> {
   for (let frame = 0; frame < frames; frame++) {
     await act(async () => {
+      if (onFakeTimers()) {
+        jest.advanceTimersByTime(16);
+        return;
+      }
       await new Promise((resolve) => requestAnimationFrame(resolve));
     });
   }

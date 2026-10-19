@@ -12035,6 +12035,11 @@ export type FfiRouteInsight = {
    */
   trend: number;
   /**
+   * The trend's size: the recent median moving time minus the previous
+   * median, in seconds, negative faster. `None` where `trend` is 0.
+   */
+  trendSeconds?: number;
+  /**
    * The fastest counted attempt's moving time, in seconds.
    */
   bestTime: number;
@@ -12083,6 +12088,7 @@ const FfiConverterTypeFfiRouteInsight = (() => {
         isReverse: FfiConverterBool.readFromCursor(c),
         isRecentRecord: FfiConverterBool.readFromCursor(c),
         trend: FfiConverterInt8.readFromCursor(c),
+        trendSeconds: FfiConverterOptionalFloat64.readFromCursor(c),
         bestTime: FfiConverterFloat64.readFromCursor(c),
         daysSinceLast: FfiConverterUInt32.readFromCursor(c),
         attemptCount: FfiConverterUInt32.readFromCursor(c),
@@ -12096,6 +12102,7 @@ const FfiConverterTypeFfiRouteInsight = (() => {
       FfiConverterBool.writeIntoCursor(value.isReverse, c);
       FfiConverterBool.writeIntoCursor(value.isRecentRecord, c);
       FfiConverterInt8.writeIntoCursor(value.trend, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.trendSeconds, c);
       FfiConverterFloat64.writeIntoCursor(value.bestTime, c);
       FfiConverterUInt32.writeIntoCursor(value.daysSinceLast, c);
       FfiConverterUInt32.writeIntoCursor(value.attemptCount, c);
@@ -12112,6 +12119,7 @@ const FfiConverterTypeFfiRouteInsight = (() => {
         FfiConverterBool.allocationSize(value.isReverse) +
         FfiConverterBool.allocationSize(value.isRecentRecord) +
         FfiConverterInt8.allocationSize(value.trend) +
+        FfiConverterOptionalFloat64.allocationSize(value.trendSeconds) +
         FfiConverterFloat64.allocationSize(value.bestTime) +
         FfiConverterUInt32.allocationSize(value.daysSinceLast) +
         FfiConverterUInt32.allocationSize(value.attemptCount) +

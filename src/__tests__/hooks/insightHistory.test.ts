@@ -5,11 +5,26 @@ import { generateSectionChangedInsights } from '@/features/insights/generators/s
 import { generateEfficiencyTrendInsights } from '@/features/insights/generators/efficiencyTrend';
 import { generateFitnessMilestoneInsights } from '@/features/insights/generators/fitnessMilestone';
 import { generateStalePRInsights } from '@/features/insights/generators/stalePr';
+import { historyRange } from '@/features/insights/lib/sparkline';
+import type { InsightHistory } from '@/features/insights/types';
 import type { EfficiencyTrend, StalePrOpportunity } from 'veloqrs';
 
 const t = (key: string) => key;
 const NOW = 1_700_000_000_000;
 const DAY = 86_400;
+
+/** The values at a history's top and bottom edge, printed in its series' own unit. */
+function printedEdges(history: InsightHistory | undefined) {
+  if (!history || !('series' in history)) throw new Error('no dated history');
+  const [first] = history.series;
+  const format = first?.format;
+  if (!format) throw new Error('the series carries no formatter');
+  const range = historyRange(
+    history.kind,
+    history.series.flatMap((s) => s.points.map((point) => point.value))
+  );
+  return { top: format(range.top), bottom: format(range.bottom) };
+}
 
 describe('insight card histories', () => {
   it('marks the best effort and opens its activity', () => {
@@ -53,9 +68,9 @@ describe('insight card histories', () => {
         },
       ],
       mark: { date: DAY * 2 },
-      scale: { top: '4:00', bottom: '4:20' },
       target: '/section/ridge?activityId=ride-2',
     });
+    expect(printedEdges(card.supportingData?.history)).toEqual({ top: '4:00', bottom: '4:20' });
   });
 
   it('does not mark a best effort outside the capped tail', () => {
@@ -320,7 +335,7 @@ describe('insight card histories', () => {
   });
 });
 
-describe('the scale a card graphic prints', () => {
+describe('the values a history prints at its edges, in its own unit', () => {
   const hrvCard = () =>
     generateHrvTrendInsight(
       {
@@ -371,14 +386,13 @@ describe('the scale a card graphic prints', () => {
       t,
       NOW
     );
-    expect(card.supportingData?.history).toMatchObject({
-      scale: { top: '4:00', bottom: '4:20' },
-    });
+    expect(printedEdges(card.supportingData?.history)).toEqual({ top: '4:00', bottom: '4:20' });
   });
 
   it('prints the highest reading at the top of the HRV sparkline, in milliseconds', () => {
-    expect(hrvCard().supportingData?.history).toMatchObject({
-      scale: { top: '55 ms', bottom: '50 ms' },
+    expect(printedEdges(hrvCard().supportingData?.history)).toEqual({
+      top: '55 ms',
+      bottom: '50 ms',
     });
   });
 
@@ -417,12 +431,11 @@ describe('the scale a card graphic prints', () => {
       NOW,
       t
     );
-    expect(ftp.supportingData?.history).toMatchObject({
-      scale: { top: '250 W', bottom: '230 W' },
-    });
+    expect(printedEdges(ftp.supportingData?.history)).toEqual({ top: '250 W', bottom: '230 W' });
     // 3.5 m/s is 4:46 a kilometre and 3 m/s is 5:33.
-    expect(pace.supportingData?.history).toMatchObject({
-      scale: { top: '4:46/km', bottom: '5:33/km' },
+    expect(printedEdges(pace.supportingData?.history)).toEqual({
+      top: '4:46/km',
+      bottom: '5:33/km',
     });
   });
 
@@ -451,9 +464,7 @@ describe('the scale a card graphic prints', () => {
       NOW,
       t
     );
-    expect(byLoad.supportingData?.history).toMatchObject({
-      scale: { top: '320', bottom: '0' },
-    });
+    expect(printedEdges(byLoad.supportingData?.history)).toEqual({ top: '320', bottom: '0' });
 
     const [byTime] = generatePeriodComparisonInsights(
       week(0, 9000),
@@ -465,9 +476,7 @@ describe('the scale a card graphic prints', () => {
       NOW,
       t
     );
-    expect(byTime.supportingData?.history).toMatchObject({
-      scale: { top: '2 h', bottom: '0 s' },
-    });
+    expect(printedEdges(byTime.supportingData?.history)).toEqual({ top: '2 h', bottom: '0 s' });
   });
 
   it('prints the efficiency scale in heart rate times pace', () => {
@@ -492,8 +501,9 @@ describe('the scale a card graphic prints', () => {
       NOW,
       t
     );
-    expect(card.supportingData?.history).toMatchObject({
-      scale: { top: '35900 units.bpmSecondsPerKm', bottom: '35700 units.bpmSecondsPerKm' },
+    expect(printedEdges(card.supportingData?.history)).toEqual({
+      top: '35900 units.bpmSecondsPerKm',
+      bottom: '35700 units.bpmSecondsPerKm',
     });
   });
 });

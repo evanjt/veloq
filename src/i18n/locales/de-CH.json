@@ -1079,6 +1079,46 @@
       "warning": "Achtung",
       "concern": "Bedenklich",
       "neutral": "Neutral"
+    },
+    "line": {
+      "hrvRising": "HRV stiigt, zletscht {{latest}} bi {{mean}} Schnitt",
+      "hrvFalling": "HRV sinkt, zletscht {{latest}} bi {{mean}} Schnitt",
+      "hrvSteady": "HRV stabil, zletscht {{latest}} bi {{mean}} Schnitt",
+      "hrvLastTwo": "Letschti zwei HRV-Wert under {{mean}} Schnitt, zletscht {{latest}}",
+      "eftp": "Rad-eFTP {{change}} uf {{current}}, vo {{previous}}",
+      "runPace": "Kritischi Gschwindigkeit {{change}} uf {{current}}, vo {{previous}}",
+      "swimPace": "Schwimm-CSS {{change}} uf {{current}}, vo {{previous}}",
+      "weekLoad": "Trainingsbelastig {{change}} die Wuche, {{current}} zu {{previous}}",
+      "weekTime": "Trainingsziit {{change}} die Wuche, {{current}} zu {{previous}}",
+      "lastWeekLoad": "Belastig letschti Wuche {{change}} zum 4-Wuche-Schnitt, {{current}} zu {{previous}}",
+      "lastWeekTime": "Letschti Wuche {{change}} zum 4-Wuche-Schnitt, {{current}} zu {{previous}}",
+      "sectionPr": "Neui Beschtziit uf {{name}}, {{time}}",
+      "sectionPrFaster": "Neui Beschtziit uf {{name}}, {{time}}, {{delta}} schneller",
+      "routeRecord": "Neue Rekord uf {{name}}, {{time}}",
+      "routeFaster": "Zletscht schneller uf {{name}}, Beschtziit {{time}}",
+      "routeSlower": "Zletscht langsamer uf {{name}}, Beschtziit {{time}}",
+      "routeFasterBy": "{{name}} {{change}} schneller im jüngschte Median, Beschtziit {{time}}",
+      "routeSlowerBy": "{{name}} {{change}} langsamer im jüngschte Median, Beschtziit {{time}}",
+      "routeGroup": "Strecke: {{counts}}",
+      "sectionTrend": "Abschnitt: {{faster}}, {{slower}}",
+      "stalePrPower": "Rad-eFTP {{change}} uf {{current}} sit PR uf {{name}}",
+      "stalePrRun": "Kritischi Gschwindigkeit {{change}} uf {{current}} sit PR uf {{name}}",
+      "stalePrSwim": "Schwimm-CSS {{change}} uf {{current}} sit PR uf {{name}}",
+      "stalePrGroup_one": "{{count}} PR bi tüüferer Fitness ufgstellt",
+      "stalePrGroup_other": "{{count}} PRs bi tüüferer Fitness ufgstellt",
+      "efficiency": "Modellierti HF {{change}} bim mittlere Tempo uf {{name}}",
+      "sectionChanged": {
+        "recut": "{{name}} neu gschnitte",
+        "split": "{{name}} i mehreri Abschnitt teilt",
+        "restored": "{{name}} isch zrugg",
+        "reverted": "{{name}} uf früecheri Version zruggsetzt"
+      },
+      "strengthBalance": "{{dominant}} {{ratio}} {{other}}, {{dominantSets}} zu {{otherSets}} Sätz in 4 Wuche",
+      "strengthOneSided": "{{ratio}}: alli {{dominantSets}} Sätz in 4 Wuche uf {{dominant}}",
+      "strengthProgression": "{{muscle}} Volume {{change}}, {{from}} uf {{current}} pro Wuche",
+      "strengthNewSignal": "{{change}} bi {{muscle}}: {{current}} pro Wuche",
+      "strengthSnapshot_one": "{{count}} Krafteinheit in 4 Wuche, {{sets}} Sätz",
+      "strengthSnapshot_other": "{{count}} Krafteinheite in 4 Wuche, {{sets}} Sätz"
     }
   },
   "licenses": {
@@ -2790,7 +2830,8 @@
       "attempts": "Versuche"
     },
     "activityPlot": "Aktivitätsdiagramm",
-    "axisFasterAtTop": "{{unit}}, schneller oben"
+    "axisFasterAtTop": "{{unit}}, schneller oben",
+    "fasterIsUp": "Schneller oben"
   },
   "sportFamilies": {
     "ride": "Velofahre",

@@ -1,15 +1,22 @@
 import React, { useCallback, useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
+import { navigateTo } from '@/shared/app/navigation';
 import { ChartErrorBoundary } from '@/shared/ui';
 import { colorWithOpacity, ink, layout, opacity, spacing } from '@/theme';
-import type { HistoryMark, InsightCategory, InsightHistory, SeriesPoint } from '../types';
+import type { HistoryMark, InsightCategory, InsightHistory, SeriesPoint, TFunc } from '../types';
 import { insightGraphicColour } from '../lib/insightCategory';
+import { dataLinkLabel } from '../lib/dataLink';
+import { useInsightSheet } from './InsightSheetContext';
 import { InsightSeriesChart, type InsightFurtherSeries } from './InsightSeriesChart';
 import { formatDecimal } from '@/shared/format/number';
 
 const CHART_HEIGHT = 180;
+
+/** The screen-reader action that opens the screen the history was read from. */
+const OPEN_PICTURED = 'openPictured';
 
 /** A series value as precise as its range needs, with the series' unit when it has one. */
 export function formatSeriesValue(
@@ -21,18 +28,17 @@ export function formatSeriesValue(
   return unit ? `${number} ${unit}` : number;
 }
 
-/**
- * The sample the card's mark points at: the marked date, or the newest sample
- * inside a marked span, which is the value the card's claim ends on.
- */
+/** The sample a dated mark points at, -1 for a span or no mark. */
 function markedIndex(points: SeriesPoint[], mark: HistoryMark | undefined): number {
-  if (!mark) return -1;
-  if ('date' in mark) return points.findIndex((point) => point.date === mark.date);
-  let index = -1;
-  points.forEach((point, i) => {
-    if (point.date >= mark.from && point.date <= mark.to) index = i;
-  });
-  return index;
+  if (!mark || !('date' in mark)) return -1;
+  return points.findIndex((point) => point.date === mark.date);
+}
+
+/** The window a span mark names, which the sheet shades; none for a dated mark. */
+export function markedSpan(
+  mark: HistoryMark | undefined
+): { from: number; to: number } | undefined {
+  return mark && 'from' in mark ? { from: mark.from, to: mark.to } : undefined;
 }
 
 interface InsightHistoryChartProps {
@@ -50,8 +56,11 @@ interface InsightHistoryChartProps {
 /**
  * The history the card drew, at full size in its sheet: every sample, on the
  * shared scrubbable chart, bars where the card drew bars and a timeline's
- * fastest effort at the top, every series with a key naming each. The card's
- * mark is the chart's marker. A history with no dated series, a section's
+ * fastest effort at the top, every series with a key naming each. A card
+ * marked on one sample draws the reticle there, and one marked over a window
+ * shades that window. In a sheet, a screen reader is offered the screen the
+ * history was read from as an action on the chart, which closes the sheet and
+ * opens it. A history with no dated series, a section's
  * line or the section trend's changes, is drawn by its kind's own sheet
  * content instead.
  */
@@ -61,6 +70,8 @@ export const InsightHistoryChart = React.memo(function InsightHistoryChart({
   accessory,
 }: InsightHistoryChartProps) {
   const { isDark } = useTheme();
+  const { t } = useTranslation();
+  const sheet = useInsightSheet();
   const color = insightGraphicColour(category, isDark);
   const allSeries = history && 'series' in history ? history.series : undefined;
   const series = allSeries?.[0];
@@ -79,6 +90,24 @@ export const InsightHistoryChart = React.memo(function InsightHistoryChart({
     const index = points ? markedIndex(points, mark) : -1;
     return index >= 0 ? { index, kind: 'this' as const } : null;
   }, [points, mark]);
+  const band = useMemo(() => markedSpan(mark), [mark]);
+  const target = history && 'series' in history ? history.target : undefined;
+  const actions = useMemo(
+    () =>
+      sheet && target
+        ? [
+            {
+              name: OPEN_PICTURED,
+              label: dataLinkLabel(sheet.insight, target, t as unknown as TFunc),
+              run: () => {
+                sheet.onLeave();
+                navigateTo(target);
+              },
+            },
+          ]
+        : undefined,
+    [sheet, target, t]
+  );
 
   // A further series is the first's colour at a lighter tone, as the card draws it.
   const others = useMemo<InsightFurtherSeries[]>(
@@ -111,8 +140,10 @@ export const InsightHistoryChart = React.memo(function InsightHistoryChart({
           invert={timeline}
           bars={kind === 'bars'}
           marker={marker}
+          band={band}
           accessory={accessory}
           {...(timeline ? { pointColor: dotColor } : {})}
+          {...(actions ? { actions } : {})}
         />
       </View>
     </ChartErrorBoundary>

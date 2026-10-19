@@ -1088,6 +1088,46 @@
       "warning": "注意",
       "concern": "懸念",
       "neutral": "中立"
+    },
+    "line": {
+      "hrvRising": "HRV上昇、最新 {{latest}}、平均 {{mean}}",
+      "hrvFalling": "HRV低下、最新 {{latest}}、平均 {{mean}}",
+      "hrvSteady": "HRV横ばい、最新 {{latest}}、平均 {{mean}}",
+      "hrvLastTwo": "直近2回のHRVが平均 {{mean}} を下回る、最新 {{latest}}",
+      "eftp": "サイクリングeFTP {{change}}、{{previous}} から {{current}}",
+      "runPace": "クリティカルスピード {{change}}、{{previous}} から {{current}}",
+      "swimPace": "スイムCSS {{change}}、{{previous}} から {{current}}",
+      "weekLoad": "今週のトレーニング負荷 {{change}}、{{current}}（前週 {{previous}}）",
+      "weekTime": "今週のトレーニング時間 {{change}}、{{current}}（前週 {{previous}}）",
+      "lastWeekLoad": "先週の負荷は4週間平均比 {{change}}、{{current}}（平均 {{previous}}）",
+      "lastWeekTime": "先週は4週間平均比 {{change}}、{{current}}（平均 {{previous}}）",
+      "sectionPr": "{{name}}で自己ベスト、{{time}}",
+      "sectionPrFaster": "{{name}}で自己ベスト、{{time}}、{{delta}} 短縮",
+      "routeRecord": "{{name}}で記録更新、{{time}}",
+      "routeFaster": "{{name}}で最近のタイムが速く、ベスト {{time}}",
+      "routeSlower": "{{name}}で最近のタイムが遅く、ベスト {{time}}",
+      "routeFasterBy": "{{name}}で直近の中央値が{{change}}速く、ベスト {{time}}",
+      "routeSlowerBy": "{{name}}で直近の中央値が{{change}}遅く、ベスト {{time}}",
+      "routeGroup": "ルート：{{counts}}",
+      "sectionTrend": "セクション：{{faster}}、{{slower}}",
+      "stalePrPower": "{{name}}のPR以降、サイクリングeFTP {{change}}、{{current}}",
+      "stalePrRun": "{{name}}のPR以降、クリティカルスピード {{change}}、{{current}}",
+      "stalePrSwim": "{{name}}のPR以降、スイムCSS {{change}}、{{current}}",
+      "stalePrGroup_one": "{{count}}件のPRが今より低いフィットネスで記録",
+      "stalePrGroup_other": "{{count}}件のPRが今より低いフィットネスで記録",
+      "efficiency": "{{name}}の平均ペースでのモデル心拍 {{change}}",
+      "sectionChanged": {
+        "recut": "{{name}}の範囲が再設定",
+        "split": "{{name}}が複数の区間に分割",
+        "restored": "{{name}}が復活",
+        "reverted": "{{name}}が以前のバージョンに戻る"
+      },
+      "strengthBalance": "{{dominant}}は{{other}}の{{ratio}}、4週間で{{dominantSets}}対{{otherSets}}セット",
+      "strengthOneSided": "{{ratio}}：4週間の{{dominantSets}}セットすべて{{dominant}}",
+      "strengthProgression": "{{muscle}}のボリューム {{change}}、週{{from}}から{{current}}",
+      "strengthNewSignal": "{{muscle}}に{{change}}：週{{current}}",
+      "strengthSnapshot_one": "4週間で{{count}}回の筋力セッション、{{sets}}セット",
+      "strengthSnapshot_other": "4週間で{{count}}回の筋力セッション、{{sets}}セット"
     }
   },
   "licenses": {
@@ -2907,7 +2947,8 @@
       "attempts": "試行"
     },
     "activityPlot": "アクティビティチャート",
-    "axisFasterAtTop": "{{unit}}、上ほど速い"
+    "axisFasterAtTop": "{{unit}}、上ほど速い",
+    "fasterIsUp": "上ほど速い"
   },
   "sportFamilies": {
     "ride": "サイクリング",

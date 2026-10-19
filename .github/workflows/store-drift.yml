@@ -1,0 +1,76 @@
+name: Store Drift
+
+# Prints, per store and locale, whether the live listing texts match
+# config/fastlane/metadata. A tag sends only the texts that changed since the
+# previous release, so a hand edit in a console survives until the repository
+# changes that field, and then it is overwritten. Run this before tagging to
+# see one.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  play:
+    name: Play listing
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: Setup fastlane
+        uses: ./.github/actions/setup-fastlane
+
+      - name: Setup Google Play credentials
+        env:
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -z "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" ]; then
+            echo "::error::GOOGLE_PLAY_SERVICE_ACCOUNT_JSON is not configured." >&2
+            exit 1
+          fi
+          umask 077
+          printf '%s' "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" > play_store_credentials.json
+
+      - name: Compare the live Play listing
+        working-directory: config/fastlane
+        env:
+          SUPPLY_JSON_KEY: ${{ github.workspace }}/play_store_credentials.json
+        run: bundle exec fastlane android drift
+
+      - name: Cleanup credentials
+        if: always()
+        run: rm -f play_store_credentials.json
+
+  app-store:
+    name: App Store listing
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: Setup fastlane
+        uses: ./.github/actions/setup-fastlane
+
+      - name: Compare the live App Store listing
+        working-directory: config/fastlane
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_API_KEY: ${{ secrets.ASC_API_KEY }}
+        run: bundle exec fastlane ios drift

@@ -7,7 +7,7 @@ import {
   type ScrollViewInstance,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import Body, { type ExtendedBodyPart } from 'react-native-body-highlighter';
+import type { ExtendedBodyPart } from 'react-native-body-highlighter';
 
 import { useTheme, useMetricSystem, useAthlete } from '@/shared/app';
 import type { ActivityType, FeedCard } from '@/types';
@@ -28,7 +28,6 @@ import {
   formatTemperature,
 } from '@/shared/format/format';
 import {
-  strengthTone,
   colors,
   colorWithOpacity,
   darkColors,
@@ -56,6 +55,7 @@ import { contextMenuHoldIsNative } from '@/shared/ui/ContextMenu';
 import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
 import { navigateTo } from '@/shared/app/navigation';
 import { NameText } from '@/shared/ui/NameText';
+import { StrengthCardBodies } from './StrengthCardBodies';
 
 /** Aggregated muscle/exercise data for a strength activity */
 export interface StrengthCardData {
@@ -277,19 +277,11 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
               accessibilityElementsHidden
             >
               <View style={styles.strengthBodies}>
-                <Body
-                  data={strengthData.muscles}
+                <StrengthCardBodies
+                  testID={`activity-card-${activity.id}-bodies`}
+                  muscles={strengthData.muscles}
                   gender={bodyGender}
-                  side="front"
                   scale={0.38}
-                  colors={[strengthTone.secondary, strengthTone.primary]}
-                />
-                <Body
-                  data={strengthData.muscles}
-                  gender={bodyGender}
-                  side="back"
-                  scale={0.38}
-                  colors={[strengthTone.secondary, strengthTone.primary]}
                 />
               </View>
               <View style={styles.strengthStats}>

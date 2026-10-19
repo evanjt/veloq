@@ -32,6 +32,7 @@ const makeInsight = (id: string, title: string): Insight => ({
   category: 'section_pr',
   priority: 1,
   title,
+  line: title,
   icon: 'trophy',
   iconTone: 'record',
   timestamp: Date.now(),

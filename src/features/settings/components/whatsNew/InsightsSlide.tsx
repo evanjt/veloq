@@ -1,7 +1,7 @@
 /**
  * Two example insights, a section record and an eFTP step, drawn by the list card the Insights tab
- * uses. The generators that build the real cards build these from fixed inputs, so the titles and
- * numbers read as they would on the tab, in the athlete's language.
+ * uses. The generators that build the real cards build these from fixed inputs, so the sentences
+ * and numbers read as they would on the tab, in the athlete's language.
  */
 
 import React, { useMemo } from 'react';

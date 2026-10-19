@@ -46,6 +46,7 @@ interface RunResult {
   posted: Posted[];
   map: FakeMap | null;
   errorListeners: ((event: { message: string }) => void)[];
+  window: Record<string, unknown>;
 }
 
 /**
@@ -96,6 +97,17 @@ function runPage(options: { withMapLibre?: boolean; mapFactory?: () => FakeMap }
       fitBounds: jest.fn(),
       easeTo: jest.fn(),
       setStyle: jest.fn(),
+      getStyle: () => ({
+        sources: {
+          streets: {
+            type: 'vector',
+            tiles: [
+              'http://127.0.0.1:41001/tok/streets/{z}/{x}/{y}.pbf',
+              'http://127.0.0.1:41002/tok/streets/{z}/{x}/{y}.pbf',
+            ],
+          },
+        },
+      }),
     } as unknown as FakeMap;
   };
 
@@ -157,7 +169,7 @@ function runPage(options: { withMapLibre?: boolean; mapFactory?: () => FakeMap }
     // it does in the WebView. The window error handler is what has to report it.
     errorListeners.forEach((fn) => fn({ message: 'maplibregl is not defined' }));
   }
-  return { posted, map, errorListeners };
+  return { posted, map, errorListeners, window: sandbox };
 }
 
 /** Console bridge traffic shares the channel, so only lifecycle posts count. */
@@ -238,5 +250,17 @@ describe('2D map surface load watchdog', () => {
     const failure = posted.find((m) => m.type === 'mapFailed');
     expect(typeof failure?.reason).toBe('string');
     expect((failure?.reason as string).length).toBeGreaterThan(0);
+  });
+
+  it('asks the listener to warm its tile host when a pan starts', () => {
+    const page = runPage();
+    const fetch = jest.fn(() => Promise.resolve({ ok: true }));
+    page.window.fetch = fetch;
+
+    page.map!.fire('movestart');
+
+    expect(fetch.mock.calls).toEqual([
+      ['http://127.0.0.1:41001/tok/streets/warm', { cache: 'no-store' }],
+    ]);
   });
 });

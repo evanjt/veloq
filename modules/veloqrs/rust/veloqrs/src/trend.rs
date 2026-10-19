@@ -53,15 +53,29 @@ pub fn classify_time(baseline: f64, current: f64, deadband: f64) -> Option<i8> {
 /// last, which is one day against one day, so a headwind on the first ride
 /// read as a season of progress while the card said "Recent median".
 pub fn median_window_trend(times: &[f64], deadband: f64) -> i8 {
-    if times.len() < 6 {
-        return 0;
-    }
+    median_window_medians(times)
+        .and_then(|(previous, recent)| classify_time(previous, recent, deadband))
+        .unwrap_or(0)
+}
+
+/// The two medians [`median_window_trend`] compares, previous then recent:
+/// the three efforts before the last three, and the last three. `None` under
+/// six times, where there are not two windows.
+pub fn median_window_medians(times: &[f64]) -> Option<(f64, f64)> {
     let n = times.len();
-    let mut recent: Vec<f64> = times[n - 3..].to_vec();
-    let mut previous: Vec<f64> = times[n - 6..n - 3].to_vec();
-    recent.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-    previous.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-    classify_time(previous[1], recent[1], deadband).unwrap_or(0)
+    if n < 6 {
+        return None;
+    }
+    Some((
+        median_of_three(&times[n - 6..n - 3]),
+        median_of_three(&times[n - 3..]),
+    ))
+}
+
+fn median_of_three(window: &[f64]) -> f64 {
+    let mut sorted = window.to_vec();
+    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    sorted[1]
 }
 
 /// A change estimated from a series, with what it takes to judge it: its
@@ -183,6 +197,21 @@ mod tests {
     use super::*;
 
     const TWO_PERCENT: f64 = 0.02;
+
+    #[test]
+    fn the_medians_are_the_three_before_and_the_last_three() {
+        let times = [3000.0, 3010.0, 3020.0, 2900.0, 2910.0, 2920.0];
+        assert_eq!(median_window_medians(&times), Some((3010.0, 2910.0)));
+        assert_eq!(median_window_trend(&times, TWO_PERCENT), 1);
+    }
+
+    #[test]
+    fn five_times_have_no_medians() {
+        assert_eq!(
+            median_window_medians(&[3000.0, 3010.0, 3020.0, 2900.0, 2910.0]),
+            None
+        );
+    }
 
     #[test]
     fn faster_than_the_deadband_is_improving() {

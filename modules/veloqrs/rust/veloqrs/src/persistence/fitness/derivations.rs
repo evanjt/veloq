@@ -2414,12 +2414,21 @@ pub(crate) mod highlights {
                     );
                 let days_since_last = crate::calendar_days_between(newest.date, window.now);
                 let times: Vec<f64> = counted.iter().map(|m| f64::from(m.moving_time)).collect();
+                let medians = crate::trend::median_window_medians(&times);
+                // The sign and the size read the same two medians.
                 let trend = crate::persistence::sections::ranking::eligible_trend(
-                    crate::trend::median_window_trend(&times, ROUTE_TREND_DEADBAND),
+                    medians
+                        .and_then(|(previous, recent)| {
+                            crate::trend::classify_time(previous, recent, ROUTE_TREND_DEADBAND)
+                        })
+                        .unwrap_or(0),
                     days_since_last,
                     window.active_window_days,
                 )
                 .unwrap_or(0);
+                let trend_seconds = medians
+                    .filter(|_| trend != 0)
+                    .map(|(previous, recent)| recent - previous);
                 if !is_recent_record && trend == 0 {
                     continue;
                 }
@@ -2431,6 +2440,7 @@ pub(crate) mod highlights {
                         is_reverse: !forward,
                         is_recent_record,
                         trend,
+                        trend_seconds,
                         best_time: f64::from(best.moving_time),
                         days_since_last,
                         attempt_count: counted.len() as u32,

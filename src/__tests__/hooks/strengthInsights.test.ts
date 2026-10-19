@@ -167,7 +167,6 @@ describe('generateStrengthInsights', () => {
       kind: 'bars',
       target: '/insights?tab=strength',
       mark: { date: 6000 },
-      scale: { top: '7', bottom: '0' },
       series: [
         {
           label: 'Chest',

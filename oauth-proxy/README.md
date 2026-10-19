@@ -129,8 +129,8 @@ Name one athlete and the worker logs one line per delivery that holds one of
 their events: the receive time, the delivery's event count, its top-level key
 names, and for each of that athlete's events its type, timestamp, activity id
 and the names of the activity's keys. It logs no secret, no other athlete and
-no activity value but its id. There is no `[observability]` block, so the line
-is seen only in a live tail and never stored.
+no activity value but its id. Workers Logs is on, so while a capture runs the
+line is also kept for Workers Logs' retention period, not only seen in a tail.
 
 ```bash
 wrangler secret put WEBHOOK_SHAPE_ATHLETE   # the athlete id, e.g. i12345
@@ -139,6 +139,27 @@ wrangler secret delete WEBHOOK_SHAPE_ATHLETE   # when the capture is done
 ```
 
 Unset, the worker logs nothing about a delivery.
+
+### Refused pushes
+
+Expo answers each send with a ticket and later with a receipt, once Apple or
+Google has answered. Every ticket or receipt that is an error is logged as an
+`expo_push_refused` object with its stage, Expo's error code and message, the
+platform and the legacy flag, never the token or the athlete. A missing or
+revoked FCM or APNs credential on the Expo project shows up there as
+`InvalidCredentials` on every push to that platform.
+
+An accepted push is kept in `DEVICE_TOKENS` under `receipt:<ticket id>` for
+three hours, and the cron trigger in `wrangler.toml` reads those receipts every
+fifteen minutes. A receipt that names an unregistered device prunes the token;
+a receipt request that fails leaves the pushes for the next run.
+
+```bash
+wrangler tail --search expo_push_refused
+```
+
+Workers Logs keeps the same lines, searchable in the dashboard under the
+worker's Logs tab.
 
 ## Testing
 

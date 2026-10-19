@@ -25,7 +25,7 @@ import {
 } from '@/features/stats/components/ActivityHeatmap';
 import { SummaryCardSparkline } from '@/features/home/components/SummaryCardSparkline';
 import { SummaryCardHRVSparkline } from '@/features/home/components/SummaryCardHRVSparkline';
-import { InsightHistoryGraphic } from '@/features/insights/components/InsightHistoryGraphic';
+import { InsightRowTrend } from '@/features/insights/components/InsightRowTrend';
 import { PeriodComparisonContent } from '@/features/insights/components/content/PeriodComparisonContent';
 import { AttemptHistogramChart } from '@/features/routes/components/section/AttemptHistogramChart';
 import { SectionDeltaChart } from '@/features/routes/components/section/SectionDeltaChart';
@@ -131,7 +131,7 @@ const SCATTER_DATA = Array.from({ length: 8 }, (_, i) => ({
   x: i / 7,
 })) as unknown as (PerformanceDataPoint & { x: number })[];
 
-const HISTORY: InsightHistory = {
+const HISTORY: Extract<InsightHistory, { series: unknown }> = {
   kind: 'sparkline',
   series: [
     {
@@ -139,7 +139,6 @@ const HISTORY: InsightHistory = {
       points: SERIES.map((value, i) => ({ value, date: 1_780_000_000 + i * DAY })),
     },
   ],
-  scale: { top: '46', bottom: '40' },
   target: '/fitness',
 };
 
@@ -207,21 +206,12 @@ describe('under a right-to-left layout', () => {
     expectPinned(tree, tree.UNSAFE_getAllByType(Text));
   });
 
-  it("keeps an insight card's dates and scale on the plot's own sides", async () => {
+  it("draws an insight row's trend oldest to newest from the left", async () => {
     const tree = await mounted(
-      <InsightHistoryGraphic
-        history={HISTORY}
-        color="#0D9488"
-        isDark={false}
-        accessibilityLabel="Load"
-        onOpenSheet={() => {}}
-      />
+      <InsightRowTrend history={HISTORY} color="#0D9488" isDark={false} />
     );
 
-    expectPinned(tree, [
-      tree.getByTestId('insight-graphic-dates'),
-      tree.getByTestId('insight-graphic-scale'),
-    ]);
+    expectPinned(tree, [tree.getByTestId('insight-row-trend')]);
   });
 
   it('keeps each period bar label over its own bar', async () => {

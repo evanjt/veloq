@@ -152,6 +152,7 @@ describe('consolidation by pair', () => {
     category: 'stale_pr',
     priority: 2,
     title: 'x',
+    line: 'x',
     icon: 'star',
     iconTone: 'neutral',
     timestamp: now,

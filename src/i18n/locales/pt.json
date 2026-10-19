@@ -1108,6 +1108,48 @@
       "warning": "Atenção",
       "concern": "Preocupante",
       "neutral": "Neutro"
+    },
+    "line": {
+      "hrvRising": "VFC a subir, última {{latest}} face a média de {{mean}}",
+      "hrvFalling": "VFC a descer, última {{latest}} face a média de {{mean}}",
+      "hrvSteady": "VFC estável, última {{latest}} face a média de {{mean}}",
+      "hrvLastTwo": "Duas últimas VFC abaixo da média de {{mean}}, última {{latest}}",
+      "eftp": "eFTP de ciclismo {{change}} para {{current}}, de {{previous}}",
+      "runPace": "Velocidade crítica {{change}} para {{current}}, de {{previous}}",
+      "swimPace": "CSS de natação {{change}} para {{current}}, de {{previous}}",
+      "weekLoad": "Carga de treino {{change}} esta semana, {{current}} face a {{previous}}",
+      "weekTime": "Tempo de treino {{change}} esta semana, {{current}} face a {{previous}}",
+      "lastWeekLoad": "Carga da semana passada {{change}} sobre a média de 4 semanas, {{current}} face a {{previous}}",
+      "lastWeekTime": "Semana passada {{change}} sobre a média de 4 semanas, {{current}} face a {{previous}}",
+      "sectionPr": "Novo melhor tempo em {{name}}, {{time}}",
+      "sectionPrFaster": "Novo melhor tempo em {{name}}, {{time}}, {{delta}} mais rápido",
+      "routeRecord": "Novo recorde em {{name}}, {{time}}",
+      "routeFaster": "Tempos recentes mais rápidos em {{name}}, melhor {{time}}",
+      "routeSlower": "Tempos recentes mais lentos em {{name}}, melhor {{time}}",
+      "routeFasterBy": "{{name}} {{change}} mais rápido na mediana recente, melhor {{time}}",
+      "routeSlowerBy": "{{name}} {{change}} mais lento na mediana recente, melhor {{time}}",
+      "routeGroup": "Rotas: {{counts}}",
+      "sectionTrend": "Secções: {{faster}}, {{slower}}",
+      "stalePrPower": "eFTP de ciclismo {{change}} para {{current}} desde o PR em {{name}}",
+      "stalePrRun": "Velocidade crítica {{change}} para {{current}} desde o PR em {{name}}",
+      "stalePrSwim": "CSS de natação {{change}} para {{current}} desde o PR em {{name}}",
+      "stalePrGroup_one": "{{count}} PR feito com menos forma",
+      "stalePrGroup_many": "{{count}} de PRs feitos com menos forma",
+      "stalePrGroup_other": "{{count}} PRs feitos com menos forma",
+      "efficiency": "FC modelada {{change}} ao ritmo médio em {{name}}",
+      "sectionChanged": {
+        "recut": "{{name}} recortado",
+        "split": "{{name}} dividido em vários troços",
+        "restored": "{{name}} regressou",
+        "reverted": "{{name}} reposto numa versão anterior"
+      },
+      "strengthBalance": "{{dominant}} {{ratio}} {{other}}, {{dominantSets}} face a {{otherSets}} séries em 4 semanas",
+      "strengthOneSided": "{{ratio}}: todas as {{dominantSets}} séries em 4 semanas em {{dominant}}",
+      "strengthProgression": "Volume de {{muscle}} {{change}}, de {{from}} para {{current}} por semana",
+      "strengthNewSignal": "{{change}} em {{muscle}}: {{current}} por semana",
+      "strengthSnapshot_one": "{{count}} sessão de força em 4 semanas, {{sets}} séries",
+      "strengthSnapshot_many": "{{count}} de sessões de força em 4 semanas, {{sets}} séries",
+      "strengthSnapshot_other": "{{count}} sessões de força em 4 semanas, {{sets}} séries"
     }
   },
   "licenses": {
@@ -2960,7 +3002,8 @@
       "attempts": "Tentativas"
     },
     "activityPlot": "Gráfico da atividade",
-    "axisFasterAtTop": "{{unit}}, mais rápido em cima"
+    "axisFasterAtTop": "{{unit}}, mais rápido em cima",
+    "fasterIsUp": "Mais rápido em cima"
   },
   "sportFamilies": {
     "ride": "Ciclismo",

@@ -10,7 +10,7 @@
 
 import React from 'react';
 import { View } from 'react-native';
-import { render, act, fireEvent } from '@testing-library/react-native';
+import { act, fireEvent } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ActivityMapView } from '@/features/maps/components/ActivityMapView';
@@ -19,6 +19,7 @@ import { rebuildReleasedSurfaces } from '@/features/maps/lib/mapSurfaceRegistry'
 import { MapSheetHostContext, type MapSheetHostValue } from '@/shared/app/MapSheetHost';
 import type { LatLng } from '@/shared/geo/polyline';
 import type { FrequentSection, RoutePoint } from '@/types';
+import { renderStaged } from '../../__shared__/stagedRender';
 
 interface Page {
   html: string[];
@@ -216,7 +217,7 @@ afterEach(() => {
 describe('an activity map on a covered screen', () => {
   it('releases the 3D page on blur and rebuilds it once, at its camera, on focus', async () => {
     jest.useFakeTimers();
-    const view = await render(activityMap({ initial3DCamera: OPENING_3D }));
+    const view = await renderStaged(activityMap({ initial3DCamera: OPENING_3D }));
     await post(PAGE_3D, { type: 'mapReady' });
     await post(PAGE_3D, { type: 'cameraState', camera: SETTLED_3D, gesture: true });
 
@@ -250,7 +251,7 @@ describe('an activity map on a covered screen', () => {
   });
 
   it('reloads the 3D page when its camera never moved', async () => {
-    const view = await render(activityMap({ initial3DCamera: OPENING_3D }));
+    const view = await renderStaged(activityMap({ initial3DCamera: OPENING_3D }));
     await post(PAGE_3D, { type: 'mapReady' });
 
     await setFocused(false);
@@ -262,7 +263,7 @@ describe('an activity map on a covered screen', () => {
   });
 
   it('releases the 2D page on blur and rebuilds it once, at its settled camera, on focus', async () => {
-    const view = await render(activityMap());
+    const view = await renderStaged(activityMap());
     await post(PAGE_2D, { type: 'mapReady' });
     await post(PAGE_2D, { type: 'regionDidChange', ...SETTLED_2D, isUserInteraction: true });
 
@@ -284,7 +285,7 @@ describe('an activity map on a covered screen', () => {
   });
 
   it('stays released through a foreground until its screen is shown again', async () => {
-    const view = await render(activityMap({ initial3DCamera: OPENING_3D }));
+    const view = await renderStaged(activityMap({ initial3DCamera: OPENING_3D }));
     await post(PAGE_3D, { type: 'mapReady' });
 
     await setFocused(false);
@@ -304,7 +305,7 @@ describe('an activity map on a covered screen', () => {
 
   it('releases a page that finished loading after its screen was covered', async () => {
     jest.useFakeTimers();
-    const view = await render(activityMap({ initial3DCamera: OPENING_3D }));
+    const view = await renderStaged(activityMap({ initial3DCamera: OPENING_3D }));
 
     await setFocused(false);
     page(PAGE_3D).injected.length = 0;
@@ -321,7 +322,7 @@ describe('an activity map on a covered screen', () => {
   });
 
   it('does nothing to a page on a screen that stays shown', async () => {
-    const view = await render(activityMap({ initial3DCamera: OPENING_3D }));
+    const view = await renderStaged(activityMap({ initial3DCamera: OPENING_3D }));
     await post(PAGE_3D, { type: 'mapReady' });
 
     await setFocused(true);
@@ -334,7 +335,7 @@ describe('an activity map on a covered screen', () => {
 
 describe('a section map on a covered screen', () => {
   it('releases the 2D page on blur and rebuilds it once, at its settled camera, on focus', async () => {
-    const view = await render(sectionMap());
+    const view = await renderStaged(sectionMap());
     await post(PAGE_2D, { type: 'mapReady' });
     await post(PAGE_2D, { type: 'regionDidChange', ...SETTLED_2D, isUserInteraction: true });
 
@@ -354,7 +355,7 @@ describe('a section map on a covered screen', () => {
   });
 
   it('releases the 3D page on blur and rebuilds it once, at its camera, on focus', async () => {
-    const view = await render(sectionMap());
+    const view = await renderStaged(sectionMap());
     await fireEvent.press(view.getByTestId('section-map-3d-toggle'));
     await post(PAGE_3D, { type: 'mapReady' });
     await post(PAGE_3D, { type: 'cameraState', camera: SETTLED_3D, gesture: true });
@@ -384,7 +385,7 @@ describe.each([
   }
 
   it('stays held while only its own sheet covers its screen', async () => {
-    const view = await render(hosted(map(), true));
+    const view = await renderStaged(hosted(map(), true));
     await post(PAGE_2D, { type: 'mapReady' });
 
     await setFocused(false);
@@ -395,7 +396,7 @@ describe.each([
   });
 
   it('is released under a screen pushed over the host and rebuilt once when it is shown again', async () => {
-    const view = await render(hosted(map(), true));
+    const view = await renderStaged(hosted(map(), true));
     await post(PAGE_2D, { type: 'mapReady' });
     await setFocused(false);
 

@@ -1088,6 +1088,46 @@
       "warning": "注意",
       "concern": "需关注",
       "neutral": "中性"
+    },
+    "line": {
+      "hrvRising": "HRV上升，最新 {{latest}}，平均 {{mean}}",
+      "hrvFalling": "HRV下降，最新 {{latest}}，平均 {{mean}}",
+      "hrvSteady": "HRV平稳，最新 {{latest}}，平均 {{mean}}",
+      "hrvLastTwo": "最近两次HRV低于平均 {{mean}}，最新 {{latest}}",
+      "eftp": "骑行eFTP {{change}}，由 {{previous}} 至 {{current}}",
+      "runPace": "临界速度 {{change}}，由 {{previous}} 至 {{current}}",
+      "swimPace": "游泳CSS {{change}}，由 {{previous}} 至 {{current}}",
+      "weekLoad": "本周训练负荷 {{change}}，{{current}}，上周同期 {{previous}}",
+      "weekTime": "本周训练时间 {{change}}，{{current}}，上周同期 {{previous}}",
+      "lastWeekLoad": "上周负荷较4周平均 {{change}}，{{current}}，平均 {{previous}}",
+      "lastWeekTime": "上周较4周平均 {{change}}，{{current}}，平均 {{previous}}",
+      "sectionPr": "{{name}}新最佳，{{time}}",
+      "sectionPrFaster": "{{name}}新最佳，{{time}}，快 {{delta}}",
+      "routeRecord": "{{name}}新纪录，{{time}}",
+      "routeFaster": "{{name}}近期用时更快，最佳 {{time}}",
+      "routeSlower": "{{name}}近期用时更慢，最佳 {{time}}",
+      "routeFasterBy": "{{name}}近期中位数快了 {{change}}，最佳 {{time}}",
+      "routeSlowerBy": "{{name}}近期中位数慢了 {{change}}，最佳 {{time}}",
+      "routeGroup": "路线：{{counts}}",
+      "sectionTrend": "路段：{{faster}}，{{slower}}",
+      "stalePrPower": "{{name}}的PR以来，骑行eFTP {{change}}，现为 {{current}}",
+      "stalePrRun": "{{name}}的PR以来，临界速度 {{change}}，现为 {{current}}",
+      "stalePrSwim": "{{name}}的PR以来，游泳CSS {{change}}，现为 {{current}}",
+      "stalePrGroup_one": "{{count}}个PR在较低体能时创下",
+      "stalePrGroup_other": "{{count}}个PR在较低体能时创下",
+      "efficiency": "{{name}}平均配速下模型心率 {{change}}",
+      "sectionChanged": {
+        "recut": "{{name}}范围被重新切分",
+        "split": "{{name}}被拆分为多个路段",
+        "restored": "{{name}}重新出现",
+        "reverted": "{{name}}已恢复到早期版本"
+      },
+      "strengthBalance": "{{dominant}}是{{other}}的{{ratio}}，4周 {{dominantSets}} 对 {{otherSets}} 组",
+      "strengthOneSided": "{{ratio}}：4周全部 {{dominantSets}} 组在{{dominant}}",
+      "strengthProgression": "{{muscle}}训练量 {{change}}，每周 {{from}} 至 {{current}}",
+      "strengthNewSignal": "{{muscle}}{{change}}：每周 {{current}}",
+      "strengthSnapshot_one": "4周{{count}}次力量训练，{{sets}}组",
+      "strengthSnapshot_other": "4周{{count}}次力量训练，{{sets}}组"
     }
   },
   "licenses": {
@@ -2907,7 +2947,8 @@
       "attempts": "尝试次数"
     },
     "activityPlot": "活动图表",
-    "axisFasterAtTop": "{{unit}}，越上越快"
+    "axisFasterAtTop": "{{unit}}，越上越快",
+    "fasterIsUp": "越上越快"
   },
   "sportFamilies": {
     "ride": "骑行",

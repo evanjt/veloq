@@ -20,6 +20,10 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+import { PLAY_CHANGELOG_MAX_CHARS, changelogCharCount } from './store-release';
+
+export { PLAY_CHANGELOG_MAX_CHARS, changelogCharCount };
+
 // ============================================================================
 // Configuration
 // ============================================================================
@@ -31,10 +35,6 @@ const APP_LOCALES_DIR = path.join(PROJECT_ROOT, 'src', 'i18n', 'locales');
 
 // Required files per platform
 const ANDROID_REQUIRED_FILES = ['title.txt', 'short_description.txt', 'full_description.txt'];
-
-// Google Play rejects a release note over 500 characters. The count is
-// characters, not bytes: ja-JP's note is 557 bytes and 187 characters.
-export const PLAY_CHANGELOG_MAX_CHARS = 500;
 
 const IOS_REQUIRED_FILES = [
   'name.txt',
@@ -76,17 +76,6 @@ const LOCALE_MAPPINGS: LocaleMapping[] = [
 // ============================================================================
 // Validation
 // ============================================================================
-
-/**
- * Characters in a changelog as Play counts them: code points, so a kanji
- * is one and an emoji is one, and the trailing newline the file ends with
- * counts. Fastlane uploads the file's bytes and we cannot see whether
- * Play trims them, so the gate spends that character rather than risk a
- * rejected submission.
- */
-export function changelogCharCount(text: string): number {
-  return [...text].length;
-}
 
 /**
  * A claim a store description or the privacy policy must not make, in the

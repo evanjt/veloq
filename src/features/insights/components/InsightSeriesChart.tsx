@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { CurveChart, type FurtherSeries } from '@/shared/charts';
 import { CardHeader } from '@/shared/ui/CardHeader';
+import type { AccessibleAction } from '@/shared/ui/accessibleActions';
 import { formatShortDate } from '@/shared/format/format';
 import { chartStyles, colors, darkColors, layout, spacing, typography } from '@/theme';
 import { seriesChartModel, type SeriesDatum, type SeriesSample } from '../lib/seriesChart';
@@ -37,7 +38,11 @@ interface InsightSeriesChartProps {
    * is what tells neighbouring values apart over this series' range.
    */
   formatValue: (value: number, decimals: number) => string;
-  /** Draw the lowest value at the top, for a time where lower is better. */
+  /**
+   * Draw the lowest value at the top, for a time where lower is better. A
+   * caption under the plot says so; an upright chart needs none, as its
+   * ticks already say up is more.
+   */
   invert?: boolean;
   /** A dot on every sample, for a series of discrete efforts. */
   pointColor?: string;
@@ -47,8 +52,12 @@ interface InsightSeriesChartProps {
   accessory?: React.ReactNode;
   /** One bar per sample from zero, for totals over a period. */
   bars?: boolean;
+  /** The window the claim was read over, shaded behind the series, in epoch seconds. */
+  band?: { from: number; to: number } | undefined;
   /** Fills under the line. Off for a bare line over a domain that excludes zero. */
   area?: boolean;
+  /** What the chart offers a screen reader beside stepping its samples. */
+  actions?: readonly AccessibleAction[];
 }
 
 const formatDate = (epochSeconds: number) => formatShortDate(new Date(epochSeconds * 1000));
@@ -72,7 +81,9 @@ export const InsightSeriesChart = React.memo(function InsightSeriesChart({
   marker,
   accessory,
   bars = false,
+  band,
   area = true,
+  actions,
 }: InsightSeriesChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -113,6 +124,9 @@ export const InsightSeriesChart = React.memo(function InsightSeriesChart({
     const at = model.data.findIndex((d) => d.index === marker.index);
     return at >= 0 ? { index: at, kind: marker.kind } : null;
   }, [marker, model]);
+
+  // An undated series is placed by its order, so a window of dates has nowhere to go.
+  const shaded = band && dated ? band : null;
 
   const shown = selected ?? model?.data.at(-1);
   if (!model || !shown) return null;
@@ -161,6 +175,7 @@ export const InsightSeriesChart = React.memo(function InsightSeriesChart({
           area={area}
           bars={bars}
           marker={markerAt}
+          band={shaded}
           {...(pointColor !== undefined && { pointColor })}
           referenceLine={null}
           describePoint={(d) => {
@@ -182,8 +197,17 @@ export const InsightSeriesChart = React.memo(function InsightSeriesChart({
           }}
           onSelect={setSelected}
           onInteractionChange={onInteractionChange}
+          {...(actions ? { actions } : {})}
         />
       </View>
+      {invert ? (
+        <Text
+          testID="insight-series-caption"
+          style={[chartStyles.chartLabel, isDark && chartStyles.chartLabelDark]}
+        >
+          {t('charts.fasterIsUp')}
+        </Text>
+      ) : null}
       {others.length > 0 ? (
         <View testID="insight-series-key" style={styles.key}>
           {[{ label: label ?? title, color }, ...others].map((entry) => (

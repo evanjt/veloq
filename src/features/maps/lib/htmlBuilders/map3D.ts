@@ -26,6 +26,7 @@ import {
   mapLibreHead,
   terrainReportScript,
   terrainVisibilityScript,
+  tileHostWarmScript,
   tileProtocolsScript,
 } from './shared';
 import { jsLiteral, jsNumber, jsPadding } from '@/features/maps/lib/webViewLiterals';
@@ -238,6 +239,7 @@ ${consoleBridgeScript()}
     }
 
 ${terrainReportScript()}
+${tileHostWarmScript()}
 
     function sendMapFailed(reason) {
       if (mapReadySent || mapFailedSent) return;
@@ -357,6 +359,7 @@ ${terrainVisibilityScript()}
     ${endpointImagesScript('map')}
 
     window._veloqTerrainReport.watch(map);
+    window._veloqTileWarm.watch(map);
 
     // Surface map-level errors, but not the expected ones: a tile 404 from a
     // regional source, and a request the app itself declined. What is left is

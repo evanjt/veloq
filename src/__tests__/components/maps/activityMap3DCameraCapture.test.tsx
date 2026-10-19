@@ -8,10 +8,11 @@
 
 import React from 'react';
 import { View } from 'react-native';
-import { render, act, fireEvent } from '@testing-library/react-native';
+import { act, fireEvent } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ActivityMapView } from '@/features/maps/components/ActivityMapView';
 import type { LatLng } from '@/shared/geo/polyline';
+import { renderStaged } from '../../__shared__/stagedRender';
 
 interface Page {
   html: string[];
@@ -112,7 +113,7 @@ const post = async (message: Record<string, unknown>) => {
 };
 
 const open3D = async (onCameraCapture: jest.Mock) => {
-  const view = await render(
+  const view = await renderStaged(
     <SafeAreaProvider initialMetrics={METRICS}>
       <ActivityMapView
         activityType="Ride"

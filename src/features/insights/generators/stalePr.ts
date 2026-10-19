@@ -14,6 +14,7 @@ import { markedActivity, sparkline } from '../lib/sparkline';
 import { sectionPairKey } from '../lib/sectionIdentity';
 import { TIME } from '@/shared/app/time';
 import { formatDecimal, formatSignedPercentage } from '@/shared/format';
+import { printedValue } from '../lib/printedValue';
 
 /**
  * Stale PR / Opportunity Detection
@@ -48,7 +49,7 @@ export interface StalePROpportunity {
   traversalCount: number;
   /** The sport the section was ranked under, which the group card names. */
   sportType?: string;
-  /** The last efforts on the section, oldest first, for the card's graphic. */
+  /** The last efforts on the section, oldest first, for the insight's history. */
   recentEfforts?: SeriesPoint[];
   bestActivityId?: string;
 }
@@ -147,7 +148,7 @@ export function stalePROpportunityToInsight(
   const unit = displayUnit(opportunity, isMetric);
   const displayedCurrent = isPower ? currentStr : `${currentStr}${unit}`;
   const displayedPrevious = isPower ? previousStr : `${previousStr}${unit}`;
-  const current = {
+  const current: DataPoint = {
     label: t('insights.stalePr.currentMetric', { metric: metricLabel }),
     value: isPower ? Math.round(opportunity.currentValue) : currentStr,
     unit,
@@ -175,6 +176,18 @@ export function stalePROpportunityToInsight(
       current: displayedCurrent,
       gainPercent: opportunity.gainPercent,
     }),
+    line: t(
+      isPower
+        ? 'insights.line.stalePrPower'
+        : isSwimPace
+          ? 'insights.line.stalePrSwim'
+          : 'insights.line.stalePrRun',
+      {
+        change: printedValue(gain),
+        current: printedValue(current),
+        name: opportunity.sectionName,
+      }
+    ),
     icon: 'lightning-bolt',
     iconTone: 'opportunity',
     body: t('insights.stalePr.body', {
@@ -295,6 +308,7 @@ export function generateStalePRInsights(
       icon: 'lightning-bolt',
       iconTone: 'opportunity',
       title: t('insights.stalePr.groupTitle', { count: filtered.length }),
+      line: t('insights.line.stalePrGroup', { count: filtered.length }),
       subtitle: subtitleParts.join(', '),
       body:
         filtered

@@ -21,6 +21,7 @@ import {
   setReduceMotionStatement,
   setStyleStatement,
   terrainReportScript,
+  tileHostWarmScript,
   tileProtocolsScript,
 } from './shared';
 import { surfaceRuntimeScript } from './mapSurfaceScripts';
@@ -220,6 +221,7 @@ ${consoleBridgeScript()}
 ${tileProtocolsScript()}
 
 ${terrainReportScript()}
+${tileHostWarmScript()}
 
     ${HILLSHADE_INSERT_INDEX_SCRIPT}
     window._veloqTerrainSource = ${JSON.stringify(terrain3DSource())};
@@ -284,6 +286,7 @@ ${surfaceRuntimeScript(config)}
       }
 
       window._veloqTerrainReport.watch(window.map);
+      window._veloqTileWarm.watch(window.map);
 
       window.map.on('error', function(e) {
         var message = e.error ? (e.error.message || String(e.error)) : (e.message || '');

@@ -14,6 +14,7 @@ import { View } from 'react-native';
 import { act, fireEvent, render, within } from '@testing-library/react-native';
 
 import { CurveChart } from '@/shared/charts';
+import { initialiseI18n } from '@/i18n';
 import { HrvTrendContent } from '@/features/insights/components/content/HrvTrendContent';
 import { SupportingDataSection } from '@/features/insights/components/SupportingDataSection';
 import { SectionPerformanceTimeline } from '@/features/insights/components/content/SectionPerformanceTimeline';
@@ -23,6 +24,8 @@ import { formatDuration, formatShortDate } from '@/shared/format/format';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
+
+beforeAll(() => initialiseI18n('en-GB'));
 
 const DAY = 86_400;
 const START = Date.UTC(2026, 5, 1) / 1000;
@@ -190,6 +193,7 @@ describe('the section effort timeline', () => {
     const [bottom, top] = chart.props.yDomain as [number, number];
     expect(top).toBeLessThan(290);
     expect(bottom).toBeGreaterThan(310);
+    expect(t.getByTestId('insight-series-caption').props.children).toBe('Faster is up');
   });
 
   it('marks the record and reads out an effort as a time and a date', async () => {

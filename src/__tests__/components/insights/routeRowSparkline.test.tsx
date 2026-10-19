@@ -34,7 +34,7 @@ beforeEach(() => {
 function routeInsight(trend: number, efforts: number[]): Insight {
   return {
     id: 'route-orchard',
-    category: 'route_trend',
+    category: 'route',
     priority: 1,
     title: 'Routes',
     icon: 'map-marker-path',

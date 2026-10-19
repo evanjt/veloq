@@ -2,7 +2,7 @@
  * Scenario: the strength activity card draws a front and a back body diagram
  * for the athlete it belongs to.
  *
- * Expected behaviour: both diagrams take their body type from the athlete's
+ * Expected behaviour: the diagrams take their body type from the athlete's
  * profile, and fall back to male only when the profile carries no sex.
  */
 
@@ -53,14 +53,10 @@ jest.mock('@/features/activity', () => ({
     .activitySecondaryStatLabels,
 }));
 
-jest.mock('react-native-body-highlighter', () => {
+jest.mock('@/features/strength/components/StrengthCardBodies', () => {
   const { Text } = require('react-native');
   return {
-    ...jest.requireActual('react-native-body-highlighter'),
-    __esModule: true,
-    default: ({ gender, side }: { gender: string; side: string }) => (
-      <Text testID={`body-${side}`}>{gender}</Text>
-    ),
+    StrengthCardBodies: ({ gender }: { gender: string }) => <Text testID="bodies">{gender}</Text>,
   };
 });
 
@@ -80,8 +76,7 @@ async function draw() {
     />
   );
   return {
-    front: screen.getByTestId('body-front').props.children,
-    back: screen.getByTestId('body-back').props.children,
+    bodies: screen.getByTestId('bodies').props.children,
     surface: view.UNSAFE_queryByType(Card)?.props.variant,
   };
 }
@@ -90,19 +85,19 @@ describe('the strength activity card body diagrams', () => {
   it('draws the female body for a female athlete', async () => {
     mockAthlete = { sex: 'F' };
 
-    expect(await draw()).toEqual({ front: 'female', back: 'female', surface: 'raised' });
+    expect(await draw()).toEqual({ bodies: 'female', surface: 'raised' });
   });
 
   it('draws the male body for a male athlete', async () => {
     mockAthlete = { sex: 'M' };
 
-    expect(await draw()).toEqual({ front: 'male', back: 'male', surface: 'raised' });
+    expect(await draw()).toEqual({ bodies: 'male', surface: 'raised' });
   });
 
   it('falls back to the male body when the profile has no sex', async () => {
     mockAthlete = null;
 
-    expect(await draw()).toEqual({ front: 'male', back: 'male', surface: 'raised' });
+    expect(await draw()).toEqual({ bodies: 'male', surface: 'raised' });
   });
 });
 

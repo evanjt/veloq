@@ -100,6 +100,59 @@ export function terrainReportScript(): string {
 }
 
 /**
+ * The least time between two warms of one source. A warm inside the tile
+ * client's idle window costs the request and nothing else.
+ */
+export const TILE_HOST_WARM_INTERVAL_MS = 5000;
+
+/**
+ * Asks the loopback listener to open the connection to each source's tile host
+ * when a pan starts.
+ *
+ * After a pause longer than the tile client keeps its connection, a pan's first
+ * misses wait on a new handshake. `movestart` comes a couple of hundred
+ * milliseconds before the first tile ask, so a warm sent then has the
+ * connection open when the misses arrive. One goes to
+ * `<shard origin>/<token>/<source>/warm` per source whose tiles the listener
+ * serves, at most once per `TILE_HOST_WARM_INTERVAL_MS`, and its answer is
+ * ignored. A page whose tiles name no listener, which is every iOS page, sends
+ * nothing.
+ *
+ * Defines `window._veloqTileWarm` with `watch(map)`.
+ */
+export function tileHostWarmScript(): string {
+  return `
+    window._veloqTileWarm = (function() {
+      var LISTENER_TILE = /^(http:\\/\\/127\\.0\\.0\\.1:\\d+)\\/([^\\/]+)\\/([^\\/]+)\\//;
+      var lastWarm = {};
+      function warm(map) {
+        var style;
+        try { style = map.getStyle(); } catch (e) { return; }
+        var sources = (style && style.sources) || {};
+        var now = Date.now();
+        Object.keys(sources).forEach(function(id) {
+          var tiles = sources[id] && sources[id].tiles;
+          var listener = tiles && tiles.length ? LISTENER_TILE.exec(tiles[0]) : null;
+          if (!listener) return;
+          var source = listener[3];
+          if (now - (lastWarm[source] || 0) < ${TILE_HOST_WARM_INTERVAL_MS}) return;
+          lastWarm[source] = now;
+          try {
+            fetch(listener[1] + '/' + listener[2] + '/' + source + '/warm', { cache: 'no-store' })
+              .catch(function() {});
+          } catch (e) {}
+        });
+      }
+      return {
+        watch: function(map) {
+          map.on('movestart', function() { warm(map); });
+        },
+      };
+    })();
+  `;
+}
+
+/**
  * Chooses the camera a 3D render is drawn from so the terrain does not cover
  * the route.
  *

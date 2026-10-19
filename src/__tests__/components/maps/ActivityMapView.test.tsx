@@ -8,7 +8,7 @@
 
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { render, fireEvent, screen, within } from '@testing-library/react-native';
+import { fireEvent, screen, within } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ActivityMapView } from '@/features/maps/components/ActivityMapView';
 import type { LatLng } from '@/shared/geo/polyline';
@@ -16,6 +16,7 @@ import { streamsFromArrays } from '@/features/activity/lib/streams';
 import { initialiseI18n } from '@/i18n';
 import { DIVERGING_BANDS } from '@/features/maps/lib/divergingStep';
 import { gradeStepTokenColour } from '@/features/maps/lib/gradientLineColor';
+import { renderStaged } from '../../__shared__/stagedRender';
 
 // The map page is hidden from screen readers, so a query reaching it includes hidden elements.
 const MAP_PAGE = { includeHiddenElements: true };
@@ -66,7 +67,7 @@ const COORDINATES: LatLng[] = [
 // real rather than through a hand-built coordinate array.
 
 function renderActivityMap(props: Partial<React.ComponentProps<typeof ActivityMapView>> = {}) {
-  return render(
+  return renderStaged(
     <SafeAreaProvider initialMetrics={METRICS}>
       <ActivityMapView activityType="Ride" coordinates={COORDINATES} showStyleToggle {...props} />
     </SafeAreaProvider>

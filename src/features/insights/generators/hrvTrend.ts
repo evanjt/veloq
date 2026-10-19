@@ -5,6 +5,7 @@ import type { InsightTone } from '@/theme';
 import { fitnessTarget, rangeCovering } from '@/shared/app/fitnessEntry';
 import { sparkline } from '../lib/sparkline';
 import { formatHrv } from '@/shared/format/format';
+import { printedValue } from '../lib/printedValue';
 
 interface TrendShape {
   label: string; // "trendingUp" | "stable" | "trendingDown"
@@ -60,6 +61,21 @@ export function generateHrvTrendInsight(
     unit: 'ms',
     context: 'neutral',
   };
+  const average: DataPoint = {
+    key: 'hrvAverage',
+    label: t('insights.data.sevenDayAvg'),
+    value: Math.round(trend.avg),
+    unit: 'ms',
+    context: 'neutral',
+  };
+  const lineKey =
+    trend.reason === 'lastTwoDays'
+      ? 'insights.line.hrvLastTwo'
+      : trendKey === 'trendingUp'
+        ? 'insights.line.hrvRising'
+        : trendKey === 'trendingDown'
+          ? 'insights.line.hrvFalling'
+          : 'insights.line.hrvSteady';
 
   return [
     makeInsight({
@@ -77,6 +93,7 @@ export function generateHrvTrendInsight(
         latest: Math.round(trend.latest),
         avg: Math.round(trend.avg),
       }),
+      line: t(lineKey, { latest: printedValue(latest), mean: printedValue(average) }),
       // Two rules end in `trendingDown` and they are different claims, so the
       // body says which one fired rather than reporting a falling average
       // over a window whose average did not fall.
@@ -106,13 +123,7 @@ export function generateHrvTrendInsight(
       supportingData: {
         hero: latest,
         dataPoints: [
-          {
-            key: 'hrvAverage',
-            label: t('insights.data.sevenDayAvg'),
-            value: Math.round(trend.avg),
-            unit: 'ms',
-            context: 'neutral',
-          },
+          average,
           latest,
           {
             label: t('insights.data.dataPoints'),

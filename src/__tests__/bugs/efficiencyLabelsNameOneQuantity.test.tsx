@@ -88,16 +88,17 @@ describe.each(SUPPORTED_LOCALES)('%s', (lng) => {
     expect(insight?.methodology?.formula).toContain(quantity());
   });
 
-  it('prints the series scale in the quantity unit', () => {
+  it('prints the series values in the quantity unit', () => {
     const [insight] = generateEfficiencyTrendInsights([improvingTrend()], 0, (key, params) =>
       mockT(key, params)
     );
     const unit = mockT('units.bpmSecondsPerKm');
+    const format = seriesHistory(insight).series[0]?.format;
 
-    expect(seriesHistory(insight).scale).toEqual({
-      top: `${150 * 300} ${unit}`,
-      bottom: `${150 * 280} ${unit}`,
-    });
+    expect([150 * 300, 150 * 280].map((value) => format?.(value))).toEqual([
+      `${150 * 300} ${unit}`,
+      `${150 * 280} ${unit}`,
+    ]);
   });
 
   it('names the same quantity in the section caption', async () => {

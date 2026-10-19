@@ -47,6 +47,7 @@ function makeInsight(overrides: Partial<Insight> = {}): Insight {
     category: 'section_trend',
     priority: 2,
     title: 'Test insight',
+    line: 'Test insight',
     icon: 'trending-up',
     iconTone: 'neutral',
     timestamp: NOW,

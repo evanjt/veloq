@@ -10,6 +10,7 @@ import { Sparkline, type SparklinePoint } from '@/shared/charts';
 import { brand, colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import type { Insight, SupportingRoute } from '@/types';
 import { SheetContext } from './SheetContext';
+import { InsightHistoryChart } from '../InsightHistoryChart';
 import { composeAccessibilityLabel, Row } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import type { TFunc } from '../../types';
@@ -110,7 +111,11 @@ interface RouteInsightContentProps {
   insight: Insight;
 }
 
-/** Every route the card carries, one row per route, sport and direction. */
+/**
+ * Every route the card carries, one row per route, sport and direction. A
+ * single route's card carries its recent efforts as a history, which opens the
+ * sheet on the same labelled chart as every other card's.
+ */
 export const RouteInsightContent = React.memo(function RouteInsightContent({
   insight,
 }: RouteInsightContentProps) {
@@ -120,6 +125,7 @@ export const RouteInsightContent = React.memo(function RouteInsightContent({
 
   return (
     <View style={styles.container}>
+      <InsightHistoryChart history={insight.supportingData?.history} category={insight.category} />
       <SheetContext meta={t('insights.route.sheetMeta')} />
       {routes.map((route) => (
         <RouteRow key={route.rowKey} route={route} />

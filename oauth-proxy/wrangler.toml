@@ -2,6 +2,16 @@ name = "veloq-oauth-proxy"
 main = "src/worker.ts"
 compatibility_date = "2024-01-01"
 
+# Workers Logs keeps what the worker logs, so a push Expo refused can be found
+# after the fact rather than only while someone runs `wrangler tail`.
+[observability]
+enabled = true
+
+# Reads the receipts of recent pushes, which is where Apple or Google refusing
+# one shows up. Expo has most receipts within fifteen minutes.
+[triggers]
+crons = ["*/15 * * * *"]
+
 # KV Namespaces
 # Create via Dashboard: Workers & Pages > KV > Create namespace
 # Then bind here or via Dashboard > Settings > Bindings

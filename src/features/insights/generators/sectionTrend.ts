@@ -83,6 +83,10 @@ export function generateSectionTrendInsights(
     Infinity
   );
   const history = sectionChanges(sections);
+  const counts = {
+    faster: t('insights.sectionTrendFaster', { count: faster }),
+    slower: t('insights.sectionTrendSlower', { count: slower }),
+  };
 
   return [
     makeInsight({
@@ -91,10 +95,8 @@ export function generateSectionTrendInsights(
       priority: 3,
       icon: faster >= slower ? 'trending-up' : 'trending-down',
       iconTone: faster >= slower ? 'positive' : 'negative',
-      title: t('insights.sectionTrendSummary', {
-        faster: t('insights.sectionTrendFaster', { count: faster }),
-        slower: t('insights.sectionTrendSlower', { count: slower }),
-      }),
+      title: t('insights.sectionTrendSummary', counts),
+      line: t('insights.line.sectionTrend', counts),
       timestamp: now,
       confidence: confidenceFrom('section_trend', best.traversalCount),
       meta: {

@@ -125,6 +125,50 @@ fn five_attempts_are_no_trend() {
 }
 
 #[test]
+fn a_trend_carries_its_change_in_seconds_recent_median_minus_previous() {
+    let attempts = series(&[3000, 3010, 3020, 2900, 2910, 2920], 1);
+
+    let rows = read(&attempts, &[], &window());
+
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].trend, 1);
+    assert_eq!(rows[0].trend_seconds, Some(-100.0));
+}
+
+#[test]
+fn a_slower_trend_carries_a_positive_change() {
+    let attempts = series(&[970, 970, 970, 1000, 1000, 1000], 1);
+
+    let rows = read(&attempts, &[], &window());
+
+    assert_eq!(rows[0].trend_seconds, Some(30.0));
+}
+
+#[test]
+fn a_record_on_five_attempts_carries_no_change() {
+    let attempts = series(&[3000, 3010, 3020, 2950, 2900], 1);
+
+    let rows = read(&attempts, &[], &window());
+
+    assert_eq!(rows.len(), 1);
+    assert!(rows[0].is_recent_record);
+    assert_eq!(rows[0].trend, 0);
+    assert_eq!(rows[0].trend_seconds, None);
+}
+
+#[test]
+fn a_record_inside_the_deadband_carries_no_change() {
+    let attempts = series(&[1000, 1000, 1000, 1000, 995, 990], 1);
+
+    let rows = read(&attempts, &[], &window());
+
+    assert_eq!(rows.len(), 1);
+    assert!(rows[0].is_recent_record);
+    assert_eq!(rows[0].trend, 0);
+    assert_eq!(rows[0].trend_seconds, None);
+}
+
+#[test]
 fn a_trend_is_withheld_when_the_newest_attempt_is_older_than_the_active_window() {
     let attempts = series(&[1000, 1000, 1000, 970, 970, 970], 29);
 

@@ -108,6 +108,8 @@ export interface SupportingRoute {
   isRecentRecord: boolean;
   /** -1 slower, 0 stable, 1 faster. */
   trend: number;
+  /** The recent median time minus the previous one, seconds, negative faster; absent with no trend. */
+  trendSeconds?: number | undefined;
   /** The fastest counted attempt's moving time, seconds. */
   bestTime: number;
   daysSinceLast: number;
@@ -147,19 +149,11 @@ export interface HistoryChange {
   value: number;
 }
 
-/** The values at the top and bottom edge of a card's drawing, printed in the series' unit. */
-export interface HistoryScale {
-  top: string;
-  bottom: string;
-}
-
 export type InsightHistory =
   | {
       kind: 'timeline' | 'sparkline' | 'bars';
       series: HistorySeries[];
       mark?: HistoryMark;
-      /** Absent for a series with no unit a reader would know. */
-      scale?: HistoryScale;
       target: string;
     }
   | {
@@ -170,8 +164,7 @@ export type InsightHistory =
   | {
       /**
        * One bar per row of the card's sheet, in the rows' order. It pictures
-       * the rows themselves, so the graphic opens the sheet rather than a
-       * screen and carries no target.
+       * the rows themselves, so it opens no screen and carries no target.
        */
       kind: 'changes';
       bars: HistoryChange[];
@@ -242,6 +235,11 @@ export interface Insight {
   priority: InsightPriority;
   title: string;
   subtitle?: string;
+  /**
+   * The one sentence the list row draws: what changed, then the figures that
+   * say by how much. `title` and `subtitle` stay for the sheet and the widget.
+   */
+  line: string;
   icon: string;
   iconTone: InsightTone;
   body?: string;
@@ -324,7 +322,7 @@ export interface FtpTrend {
   deltaWatts?: number | undefined;
   /** Days of estimate from the one compared against to the newest. */
   sampleCount?: number | undefined;
-  /** Those days, oldest first, for the card's graphic. */
+  /** Those days, oldest first, for the insight's history. */
   history?: SeriesPoint[] | undefined;
 }
 
@@ -339,7 +337,7 @@ export interface PaceTrend {
   deltaSeconds?: number;
   /** Snapshots the trend was read from. */
   sampleCount?: number;
-  /** Those snapshots, oldest first, for the card's graphic. */
+  /** Those snapshots, oldest first, for the insight's history. */
   history?: SeriesPoint[];
 }
 
@@ -358,7 +356,7 @@ export interface SectionPR {
   previousBestTime?: number | undefined;
   previousBestDate?: number | undefined;
   deltaSeconds?: number | undefined;
-  /** The last efforts on the section, oldest first, for the card's graphic. */
+  /** The last efforts on the section, oldest first, for the insight's history. */
   recentEfforts?: SeriesPoint[];
   bestActivityId?: string | undefined;
   /** The section's line, thinned by the engine for the sheet's thumbnail. */
@@ -377,7 +375,7 @@ export interface SectionTrendData {
   daysSinceLast?: number | undefined;
   latestIsPr?: boolean | undefined;
   ranking?: SectionRankingScores | undefined;
-  /** The last efforts on the section, oldest first, for the card's graphic. */
+  /** The last efforts on the section, oldest first, for the insight's history. */
   recentEfforts?: SeriesPoint[] | undefined;
 }
 

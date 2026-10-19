@@ -32,6 +32,7 @@ function insight(id: string, category: Insight['category']): Insight {
     category,
     priority: 2,
     title: id,
+    line: id,
     icon: 'star',
     iconTone: 'neutral',
     timestamp: 0,

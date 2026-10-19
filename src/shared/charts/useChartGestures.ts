@@ -44,6 +44,7 @@ import {
 } from 'react-native-reanimated';
 import { light as lightHaptic } from '@/shared/ui/haptics';
 import { useGestureCallback } from '@/shared/ui/useGestureCallback';
+import { accessibleActions, type AccessibleAction } from '@/shared/ui/accessibleActions';
 import { CHART_CONFIG } from './constants';
 import { useScrubPan } from './useScrubPan';
 
@@ -149,6 +150,12 @@ export interface ChartGestureOptions<T> {
    * then its values with their units.
    */
   describePoint?: ((point: T, index: number) => string) | undefined;
+
+  /**
+   * What else the chart offers a screen reader beside its steps, such as
+   * opening the screen the series came from.
+   */
+  actions?: readonly AccessibleAction[] | undefined;
 }
 
 export interface ChartGestureResult<T> {
@@ -212,6 +219,7 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
     tapMaxDuration = CHART_CONFIG.TAP_MAX_DURATION,
     crosshairMode = 'point',
     describePoint,
+    actions,
   } = options;
 
   const { t } = useTranslation();
@@ -434,7 +442,11 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
   );
 
   const accessibilityProps = useMemo<ChartAccessibilityProps>(() => {
-    if (!steppable) return {};
+    const extra = actions ?? [];
+    if (!steppable) {
+      if (extra.length === 0) return {};
+      return { accessible: true, accessibilityLabel, ...accessibleActions(extra) };
+    }
     const page = Math.max(1, Math.round(data.length * PAGE_FRACTION));
     const steps: Record<string, number> = {
       increment: 1,
@@ -452,13 +464,16 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
         { name: 'decrement' },
         { name: 'pageForward', label: pageLabels.forward },
         { name: 'pageBack', label: pageLabels.back },
+        ...extra.map(({ name, label }) => ({ name, label })),
       ],
       onAccessibilityAction: (event) => {
-        const delta = steps[event.nativeEvent.actionName];
+        const name = event.nativeEvent.actionName;
+        const delta = steps[name];
         if (delta !== undefined) stepBy(delta);
+        else extra.find((action) => action.name === name)?.run();
       },
     };
-  }, [steppable, data.length, accessibilityLabel, valueText, pageLabels, stepBy]);
+  }, [steppable, data.length, accessibilityLabel, valueText, pageLabels, stepBy, actions]);
 
   // Priority: the finger, then a sibling chart, then a step, then whatever the screen set.
   const crosshairStyle = useAnimatedStyle(() => {

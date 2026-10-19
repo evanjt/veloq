@@ -1,4 +1,4 @@
-import { stroke } from '@/theme';
+import { opacity, stroke } from '@/theme';
 
 import type { XY } from './svgPath';
 
@@ -18,6 +18,9 @@ export const chartStroke = {
 } as const;
 
 /** The dash of a reference rule, such as an average or a threshold. */
+/** How strongly a shaded window shows through behind the series. */
+export const BAND_OPACITY = opacity.tint3;
+
 export const REFERENCE_DASH = [6, 4];
 /** The dot pattern of a gridline. */
 export const GRID_DASH = [1, 3];

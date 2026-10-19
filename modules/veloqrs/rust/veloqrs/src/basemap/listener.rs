@@ -73,6 +73,11 @@ pub enum TileAnswer {
 /// workers because a hit reads the disk.
 pub type Answerer = Arc<dyn Fn(&str, u8, u32, u32) -> TileAnswer + Send + Sync>;
 
+/// The listener's side of the tile client: start opening the connection to a
+/// source's tile host. Called on a runtime worker, so it starts the work and
+/// returns rather than waiting on it.
+pub type Warmer = Arc<dyn Fn(String) + Send + Sync>;
+
 /// The ports and the token a page builds its tile URLs from.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ListenerAddress {
@@ -86,17 +91,23 @@ pub struct TileListener {
     ports: Vec<u16>,
     accepts: Vec<JoinHandle<()>>,
     answer: Answerer,
+    warm: Warmer,
 }
 
 impl TileListener {
     /// Bind [`SHARDS`] ports on loopback and start answering on each.
-    pub fn bind(token: String, answer: Answerer) -> std::io::Result<Self> {
-        Self::bind_on(token, answer, &[0; SHARDS])
+    pub fn bind(token: String, answer: Answerer, warm: Warmer) -> std::io::Result<Self> {
+        Self::bind_on(token, answer, warm, &[0; SHARDS])
     }
 
     /// Bind one listener per entry of `ports`, each on that port where it is
     /// free and on any port where it is not, or is zero.
-    fn bind_on(token: String, answer: Answerer, ports: &[u16]) -> std::io::Result<Self> {
+    fn bind_on(
+        token: String,
+        answer: Answerer,
+        warm: Warmer,
+        ports: &[u16],
+    ) -> std::io::Result<Self> {
         let _runtime = crate::runtime::ASYNC_RUNTIME.enter();
         // Built as it goes, so a port that will not bind drops this and stops
         // the loops already started on the others.
@@ -105,6 +116,7 @@ impl TileListener {
             ports: Vec::with_capacity(ports.len()),
             accepts: Vec::with_capacity(ports.len()),
             answer,
+            warm,
         };
         for &wanted in ports {
             let socket = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, wanted))
@@ -116,6 +128,7 @@ impl TileListener {
                 socket,
                 listener.token.clone(),
                 Arc::clone(&listener.answer),
+                Arc::clone(&listener.warm),
             )));
         }
         Ok(listener)
@@ -150,7 +163,12 @@ impl TileListener {
         while !self.accepts.iter().all(JoinHandle::is_finished) && Instant::now() < until {
             std::thread::sleep(Duration::from_millis(2));
         }
-        Self::bind_on(self.token.clone(), Arc::clone(&self.answer), &self.ports)
+        Self::bind_on(
+            self.token.clone(),
+            Arc::clone(&self.answer),
+            Arc::clone(&self.warm),
+            &self.ports,
+        )
     }
 }
 
@@ -172,7 +190,7 @@ pub fn address() -> Result<ListenerAddress, String> {
     let mut guard = LISTENER.lock().unwrap_or_else(|e| e.into_inner());
     let now = Instant::now();
     let listener = match guard.take() {
-        None => TileListener::bind(new_token()?, Arc::new(store_answer))
+        None => TileListener::bind(new_token()?, Arc::new(store_answer), Arc::new(store_warm))
             .map_err(|e| format!("could not bind the tile listener: {e}"))?,
         Some((listener, probed)) if now.duration_since(probed) < PROBE_INTERVAL => listener,
         Some((listener, _)) if listener.answers() => listener,
@@ -207,7 +225,17 @@ fn store_answer(source: &str, z: u8, x: u32, y: u32) -> TileAnswer {
     }
 }
 
-async fn accept_loop(socket: tokio::net::TcpListener, token: String, answer: Answerer) {
+/// The tile client's warm for a source, left running on the runtime.
+fn store_warm(source: String) {
+    crate::runtime::spawn(super::warm_source(source));
+}
+
+async fn accept_loop(
+    socket: tokio::net::TcpListener,
+    token: String,
+    answer: Answerer,
+    warm: Warmer,
+) {
     let token: Arc<str> = token.into();
     loop {
         match socket.accept().await {
@@ -217,6 +245,7 @@ async fn accept_loop(socket: tokio::net::TcpListener, token: String, answer: Ans
                     stream,
                     Arc::clone(&token),
                     Arc::clone(&answer),
+                    Arc::clone(&warm),
                 ));
             }
             Err(e) => {
@@ -231,7 +260,12 @@ async fn accept_loop(socket: tokio::net::TcpListener, token: String, answer: Ans
 
 /// Answer requests on one connection until the page closes it, asks for it to
 /// be closed, or leaves it idle.
-async fn serve_connection(mut stream: tokio::net::TcpStream, token: Arc<str>, answer: Answerer) {
+async fn serve_connection(
+    mut stream: tokio::net::TcpStream,
+    token: Arc<str>,
+    answer: Answerer,
+    warm: Warmer,
+) {
     let mut buffer = Vec::with_capacity(1024);
     let mut chunk = [0u8; 2048];
     loop {
@@ -251,7 +285,7 @@ async fn serve_connection(mut stream: tokio::net::TcpStream, token: Arc<str>, an
         let request = Request::parse(&head);
         let close = request.as_ref().is_none_or(|r| r.close);
         let response = match request {
-            Some(request) => respond(&request, &token, &answer).await,
+            Some(request) => respond(&request, &token, &answer, &warm).await,
             None => Response::empty(400),
         };
         if stream.write_all(&response.encode(close)).await.is_err() {
@@ -323,10 +357,19 @@ struct TilePath<'a> {
     extension: &'a str,
 }
 
-/// Split a request path into its tile, or `Err` with the status it is
+/// What a request path asks the listener for.
+#[derive(Debug, PartialEq, Eq)]
+enum PagePath<'a> {
+    Tile(TilePath<'a>),
+    /// `/<token>/<source>/warm`: open the connection to the source's tile
+    /// host, because a pan is starting.
+    Warm(&'a str),
+}
+
+/// Split a request path into a tile or a warm, or `Err` with the status it is
 /// answered with: 404 for a wrong or missing token, 400 for a path that is
-/// not a tile.
-fn tile_path<'a>(path: &'a str, token: &str) -> Result<TilePath<'a>, u16> {
+/// neither.
+fn tile_path<'a>(path: &'a str, token: &str) -> Result<PagePath<'a>, u16> {
     let path = path.split(['?', '#']).next().unwrap_or(path);
     let rest = path.strip_prefix('/').ok_or(NO_TILE)?;
     let (given, rest) = rest.split_once('/').ok_or(NO_TILE)?;
@@ -334,6 +377,13 @@ fn tile_path<'a>(path: &'a str, token: &str) -> Result<TilePath<'a>, u16> {
         return Err(NO_TILE);
     }
     let parts: Vec<&str> = rest.split('/').collect();
+    if let [source, "warm"] = parts.as_slice() {
+        return if source.is_empty() {
+            Err(400)
+        } else {
+            Ok(PagePath::Warm(source))
+        };
+    }
     let [source, z, x, file] = parts.as_slice() else {
         return Err(400);
     };
@@ -344,13 +394,13 @@ fn tile_path<'a>(path: &'a str, token: &str) -> Result<TilePath<'a>, u16> {
     if source.is_empty() {
         return Err(400);
     }
-    Ok(TilePath {
+    Ok(PagePath::Tile(TilePath {
         source,
         z,
         x,
         y,
         extension,
-    })
+    }))
 }
 
 /// Compare the token without stopping at the first byte that differs.
@@ -363,9 +413,9 @@ fn same_token(given: &str, token: &str) -> bool {
             == 0
 }
 
-async fn respond(request: &Request, token: &str, answer: &Answerer) -> Response {
-    let tile = match tile_path(&request.path, token) {
-        Ok(tile) => tile,
+async fn respond(request: &Request, token: &str, answer: &Answerer, warm: &Warmer) -> Response {
+    let asked = match tile_path(&request.path, token) {
+        Ok(asked) => asked,
         Err(status) => return Response::empty(status),
     };
     match request.method.as_str() {
@@ -375,6 +425,15 @@ async fn respond(request: &Request, token: &str, answer: &Answerer) -> Response 
         "OPTIONS" => return Response::empty(204),
         _ => return Response::empty(405),
     }
+    let tile = match asked {
+        PagePath::Tile(tile) => tile,
+        // Answered before the warm has done anything: the page ignores the
+        // answer, and the burst it is about to send is what waits on the warm.
+        PagePath::Warm(source) => {
+            warm(source.to_string());
+            return Response::empty(204);
+        }
+    };
 
     let mime = mime_for(tile.extension);
     let (source, z, x, y) = (tile.source.to_string(), tile.z, tile.x, tile.y);
@@ -551,6 +610,10 @@ mod tests {
         (status, response[end..].to_vec(), head)
     }
 
+    fn no_warm() -> Warmer {
+        Arc::new(|_| {})
+    }
+
     fn tile(source: &str, x: u32) -> String {
         format!("/{TOKEN}/{source}/14/{x}/5000.pbf")
     }
@@ -558,7 +621,8 @@ mod tests {
     #[test]
     fn a_pan_of_misses_reaches_the_host_together_over_the_shards() {
         let store = LatchedStore::new();
-        let listener = TileListener::bind(TOKEN.to_string(), store.answerer()).expect("bind");
+        let listener =
+            TileListener::bind(TOKEN.to_string(), store.answerer(), no_warm()).expect("bind");
         let ports = listener.address().ports;
         assert_eq!(ports.len(), SHARDS);
 
@@ -591,7 +655,8 @@ mod tests {
     #[test]
     fn a_request_without_the_token_is_refused_before_the_store_is_asked() {
         let store = LatchedStore::new();
-        let listener = TileListener::bind(TOKEN.to_string(), store.answerer()).expect("bind");
+        let listener =
+            TileListener::bind(TOKEN.to_string(), store.answerer(), no_warm()).expect("bind");
         let port = listener.address().ports[0];
 
         for path in [
@@ -610,7 +675,8 @@ mod tests {
     #[test]
     fn a_refusal_crosses_as_its_own_status_with_cors_for_the_page() {
         let store = LatchedStore::new();
-        let listener = TileListener::bind(TOKEN.to_string(), store.answerer()).expect("bind");
+        let listener =
+            TileListener::bind(TOKEN.to_string(), store.answerer(), no_warm()).expect("bind");
         let port = listener.address().ports[1];
 
         let (status, body, head) = get(port, &tile("limited", 1));
@@ -627,7 +693,8 @@ mod tests {
     #[test]
     fn one_connection_answers_one_request_after_another() {
         let store = LatchedStore::new();
-        let listener = TileListener::bind(TOKEN.to_string(), store.answerer()).expect("bind");
+        let listener =
+            TileListener::bind(TOKEN.to_string(), store.answerer(), no_warm()).expect("bind");
         let port = listener.address().ports[2];
 
         let mut stream = TcpStream::connect((Ipv4Addr::LOCALHOST, port)).unwrap();
@@ -661,7 +728,8 @@ mod tests {
     #[test]
     fn a_listener_that_stopped_answering_binds_again_on_its_ports() {
         let store = LatchedStore::new();
-        let listener = TileListener::bind(TOKEN.to_string(), store.answerer()).expect("bind");
+        let listener =
+            TileListener::bind(TOKEN.to_string(), store.answerer(), no_warm()).expect("bind");
         let before = listener.address();
         listener.accepts[0].abort();
         let until = Instant::now() + Duration::from_secs(5);
@@ -678,17 +746,65 @@ mod tests {
         assert_eq!((status, body.as_slice()), (200, HIT));
     }
 
+    /// A listener over `store`, recording each source a warm was started for.
+    fn bind_recording_warms(store: &Arc<LatchedStore>) -> (TileListener, Arc<Mutex<Vec<String>>>) {
+        let warmed = Arc::new(Mutex::new(Vec::new()));
+        let record = Arc::clone(&warmed);
+        let warm: Warmer = Arc::new(move |source| record.lock().unwrap().push(source));
+        let listener = TileListener::bind(TOKEN.to_string(), store.answerer(), warm).expect("bind");
+        (listener, warmed)
+    }
+
+    /// The page sends a warm on a gesture's start and does nothing with the
+    /// answer, so it is answered at once, with the CORS a tile carries, and
+    /// the store is not asked for anything.
+    #[test]
+    fn a_warm_is_answered_at_once_and_starts_one_warm_for_its_source() {
+        let store = LatchedStore::new();
+        let (listener, warmed) = bind_recording_warms(&store);
+        let port = listener.address().ports[3];
+
+        let (status, body, head) = get(port, &format!("/{TOKEN}/openmaptiles/warm"));
+        assert_eq!(status, 204);
+        assert!(body.is_empty());
+        assert!(head.contains(&format!("Access-Control-Allow-Origin: {PAGE_ORIGIN}\r\n")));
+        assert_eq!(*warmed.lock().unwrap(), vec!["openmaptiles".to_string()]);
+        assert_eq!(store.lookups.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn a_warm_without_the_token_is_refused_and_starts_nothing() {
+        let store = LatchedStore::new();
+        let (listener, warmed) = bind_recording_warms(&store);
+        let port = listener.address().ports[0];
+
+        for path in [
+            format!("/{}/openmaptiles/warm", "f".repeat(TOKEN.len())),
+            "/openmaptiles/warm".to_string(),
+        ] {
+            let (status, _, _) = get(port, &path);
+            assert_eq!(status, 404, "{path}");
+        }
+        let (status, _, _) = get(port, &format!("/{TOKEN}//warm"));
+        assert_eq!(status, 400);
+        assert!(warmed.lock().unwrap().is_empty());
+    }
+
     #[test]
     fn a_tile_path_reads_its_source_coordinates_and_extension() {
         assert_eq!(
             tile_path(&format!("/{TOKEN}/satellite-eox/9/268/180.jpg?v=2"), TOKEN),
-            Ok(TilePath {
+            Ok(PagePath::Tile(TilePath {
                 source: "satellite-eox",
                 z: 9,
                 x: 268,
                 y: 180,
                 extension: "jpg",
-            })
+            }))
+        );
+        assert_eq!(
+            tile_path(&format!("/{TOKEN}/satellite-eox/warm"), TOKEN),
+            Ok(PagePath::Warm("satellite-eox"))
         );
         assert_eq!(tile_path(&format!("/{TOKEN}/s/z/1/1.png"), TOKEN), Err(400));
         assert_eq!(

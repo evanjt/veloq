@@ -1,15 +1,9 @@
-import type {
-  HistoryMark,
-  HistoryScale,
-  HistorySeries,
-  InsightHistory,
-  SeriesPoint,
-} from '../types';
+import type { HistoryMark, HistorySeries, InsightHistory, SeriesPoint } from '../types';
 
 type SeriesKind = 'timeline' | 'sparkline' | 'bars';
 
 /**
- * The values at the top and bottom edge of a card's drawing. A timeline is
+ * The values at the top and bottom edge of a history's drawing. A timeline is
  * section times, where less is faster, so its fastest effort is at the top.
  * Bars stand on zero, so zero is inside the range whatever the weeks hold.
  */
@@ -20,32 +14,19 @@ export function historyRange(kind: SeriesKind, values: number[]): { top: number;
   return kind === 'timeline' ? { top: min, bottom: max } : { top: max, bottom: min };
 }
 
-/** The drawing's top and bottom values, printed with the series' own formatter. */
-export function historyScale(
-  kind: SeriesKind,
-  series: HistorySeries[],
-  format: (value: number) => string
-): HistoryScale {
-  const range = historyRange(
-    kind,
-    series.flatMap((s) => s.points.map((point) => point.value))
-  );
-  return { top: format(range.top), bottom: format(range.bottom) };
-}
-
 interface SparklineOptions {
   kind?: SeriesKind;
   mark?: HistoryMark | undefined;
-  /** Prints a value in the series' unit; without one the card prints no scale. */
+  /** Prints a value in the series' unit, for the sheet's ticks and readout. */
   format?: (value: number) => string;
   /** The series' unit symbol, for a card that prints its values one at a time. */
   unit?: string;
 }
 
 /**
- * The fewest dated points a card draws as a graphic. Fewer stretch across the
- * card into a shape the data does not have, so the card states its figure and
- * change instead.
+ * The fewest dated points an insight carries as a history. Fewer draw a shape
+ * the data does not have, so the row draws no trend and the sheet leads with
+ * the figure alone.
  */
 export const HISTORY_MIN_POINTS = 6;
 
@@ -65,7 +46,6 @@ export function sparkline(
       kind,
       series,
       ...(mark ? { mark } : {}),
-      ...(format ? { scale: historyScale(kind, series, format) } : {}),
       target,
     },
     dataTarget: target,

@@ -12,6 +12,7 @@ import { INSIGHTS_CONFIG, confidenceFrom } from '../lib/config';
 import type { InsightTone } from '@/theme';
 import { fitnessTarget } from '@/shared/app/fitnessEntry';
 import { sparkline } from '../lib/sparkline';
+import { printedValue } from '../lib/printedValue';
 
 const YEAR_2000_MS = 946_684_800_000;
 
@@ -68,6 +69,7 @@ function addPaceMilestoneInsight(
     sport: 'run' | 'swim';
     isMetric: boolean;
     formatValue: (speedMetersPerSecond: number) => string;
+    lineKey: string;
   }
 ): void {
   if (
@@ -115,6 +117,12 @@ function addPaceMilestoneInsight(
     value: `${declining ? '' : '+'}${gainPercent}%`,
     context: declining ? 'neutral' : 'good',
   };
+  const previous: DataPoint = {
+    label: t('insights.data.previousPace'),
+    value: options.formatValue(pace.previousPace),
+    unit: options.paceUnit,
+    date: daySeconds(pace.previousDate),
+  };
   insights.push(
     makeInsight({
       id: options.id,
@@ -128,6 +136,11 @@ function addPaceMilestoneInsight(
       subtitle: t('insights.caption.fromTo', {
         previous: `${options.formatValue(pace.previousPace)}${options.paceUnit}`,
         current: `${options.formatValue(pace.latestPace)}${options.paceUnit}`,
+      }),
+      line: t(options.lineKey, {
+        change: printedValue(paceChange),
+        current: printedValue(current),
+        previous: printedValue(previous),
       }),
       navigationTarget: fitnessTarget({ date: dayOf(pace.latestDate) }),
       timestamp: now,
@@ -154,16 +167,7 @@ function addPaceMilestoneInsight(
         },
         hero: current,
         change: paceChange,
-        dataPoints: [
-          current,
-          {
-            label: t('insights.data.previousPace'),
-            value: options.formatValue(pace.previousPace),
-            unit: options.paceUnit,
-            date: daySeconds(pace.previousDate),
-          },
-          paceChange,
-        ],
+        dataPoints: [current, previous, paceChange],
       },
       methodology: {
         name: t('insights.methodology.criticalSpeedName'),
@@ -213,6 +217,12 @@ export function generateFitnessMilestoneInsights(
         unit: 'W',
         context: declining ? 'neutral' : 'good',
       };
+      const previousFtp: DataPoint = {
+        label: t('insights.data.previousFtp'),
+        value: Math.round(ftp.previousFtp),
+        unit: 'W',
+        date: daySeconds(ftp.previousDate),
+      };
       insights.push(
         makeInsight({
           id: 'fitness_milestone-ftp',
@@ -227,6 +237,11 @@ export function generateFitnessMilestoneInsights(
           subtitle: t('insights.caption.fromTo', {
             previous: formatPower(ftp.previousFtp),
             current: formatPower(ftp.latestFtp),
+          }),
+          line: t('insights.line.eftp', {
+            change: printedValue(ftpChange),
+            current: printedValue(currentFtp),
+            previous: printedValue(previousFtp),
           }),
           navigationTarget: fitnessTarget({ date: dayOf(ftp.latestDate) }),
           timestamp: now,
@@ -251,16 +266,7 @@ export function generateFitnessMilestoneInsights(
             },
             hero: currentFtp,
             change: ftpChange,
-            dataPoints: [
-              currentFtp,
-              {
-                label: t('insights.data.previousFtp'),
-                value: Math.round(ftp.previousFtp),
-                unit: 'W',
-                date: daySeconds(ftp.previousDate),
-              },
-              ftpChange,
-            ],
+            dataPoints: [currentFtp, previousFtp, ftpChange],
           },
           methodology: {
             name: t('insights.methodology.ftpEstimationName'),
@@ -279,6 +285,7 @@ export function generateFitnessMilestoneInsights(
     sport: 'run',
     isMetric,
     formatValue: (speedMetersPerSecond) => formatPaceCompact(speedMetersPerSecond, isMetric),
+    lineKey: 'insights.line.runPace',
   });
 
   addPaceMilestoneInsight(insights, swimPaceTrend ?? null, now, t, {
@@ -289,6 +296,7 @@ export function generateFitnessMilestoneInsights(
     sport: 'swim',
     isMetric,
     formatValue: (speedMetersPerSecond) => formatSwimPace(speedMetersPerSecond, isMetric),
+    lineKey: 'insights.line.swimPace',
   });
 
   return insights;

@@ -1,9 +1,7 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { navigateTo } from '@/shared/app/navigation';
 import {
   colors,
   darkColors,
@@ -16,14 +14,11 @@ import {
 } from '@/theme';
 import { Card } from '@/shared/ui/Card';
 import { Badge } from '@/shared/ui/Badge';
-import { ChangeChip } from '@/shared/ui/ChangeChip';
-import { composeAccessibilityLabel } from '@/shared/ui/accessibilityLabel';
-import type { DataPoint, Insight } from '@/types';
-import { InsightHistoryGraphic } from './InsightHistoryGraphic';
-import { dataLinkLabel, historyTarget } from '../lib/dataLink';
-import { insightCategoryIcon, insightGraphicColour } from '../lib/insightCategory';
-import type { TFunc } from '../types';
 import { FitText } from '@/shared/ui/FitText';
+import { composeAccessibilityLabel } from '@/shared/ui/accessibilityLabel';
+import type { Insight } from '@/types';
+import { InsightRowTrend, rowTrendHistory } from './InsightRowTrend';
+import { drawsRowTrend, insightCategoryIcon, insightGraphicColour } from '../lib/insightCategory';
 import { Icon, type IconName } from '@/shared/ui/Icon';
 
 interface InsightListCardProps {
@@ -31,15 +26,15 @@ interface InsightListCardProps {
   onPress: (insight: Insight) => void;
 }
 
-/** A value as the card prints it, its unit after it. */
-function printed(point: DataPoint | undefined): string | null {
-  if (!point) return null;
-  return point.unit ? `${String(point.value)} ${point.unit}` : String(point.value);
-}
+/** Every row is this tall, whatever it holds: one line of the sentence and its padding. */
+const ROW_HEIGHT = spacing.xl + spacing.xs;
 
-/** The screen-reader action that opens what the graphic pictures. */
-const OPEN_PICTURED = 'openPictured';
-
+/**
+ * One insight in the list, as one row: the category icon, the sentence on one
+ * line, the experimental badge and the new dot, a small trend for the types
+ * whose shape answers the card, the insight's glyph and the chevron. The whole
+ * row opens the sheet, which holds the full history labelled.
+ */
 export const InsightListCard = React.memo(function InsightListCard({
   insight,
   onPress,
@@ -47,25 +42,11 @@ export const InsightListCard = React.memo(function InsightListCard({
   const { isDark } = useTheme();
   const palette = themePalette(isDark);
   const { t } = useTranslation();
-  const graphicColour = insightGraphicColour(insight.category, isDark);
-  const history = insight.supportingData?.history;
-  // A card with too short a history to draw states its figure and its change instead.
-  const figure = history ? null : printed(insight.supportingData?.hero);
-  const change = figure ? printed(insight.supportingData?.change) : null;
-  const target = historyTarget(insight);
-  const linkLabel = useMemo(
-    () => (history ? dataLinkLabel(insight, target, t as unknown as TFunc) : null),
-    [history, target, insight, t]
-  );
+  const trend = drawsRowTrend(insight.category)
+    ? rowTrendHistory(insight.supportingData?.history)
+    : null;
 
   const handlePress = useCallback(() => onPress(insight), [onPress, insight]);
-  const actions = useMemo(
-    () =>
-      target && linkLabel
-        ? [{ name: OPEN_PICTURED, label: linkLabel, run: () => navigateTo(target) }]
-        : undefined,
-    [target, linkLabel]
-  );
 
   return (
     <Card
@@ -74,135 +55,89 @@ export const InsightListCard = React.memo(function InsightListCard({
       onPress={handlePress}
       accessibilityRole="button"
       accessibilityLabel={composeAccessibilityLabel(
-        insight.title,
+        insight.line,
         insight.isNew && t('a11y.isNew'),
-        insight.experimental && t('common.experimental'),
-        figure,
-        change,
-        insight.subtitle
+        insight.experimental && t('common.experimental')
       )}
-      actions={actions}
       testID={`insight-card-${insight.id}`}
     >
-      <View style={styles.content}>
-        <View style={styles.header}>
-          <Icon
-            testID="insight-category-icon"
-            name={insightCategoryIcon(insight.category)}
-            size={iconSize.sm}
-            color={palette.iconSecondary}
-          />
-          <View style={styles.titleRow}>
-            <Text testID="insight-title" style={[styles.title, isDark && styles.titleDark]}>
-              {insight.title}
-            </Text>
-            {insight.experimental ? (
-              <Badge
-                testID="insight-experimental"
-                tone="neutral"
-                size="sm"
-                text={t('common.experimental')}
-                isDark={isDark}
-              />
-            ) : null}
-            {insight.isNew ? (
-              <View style={[styles.newDot, { backgroundColor: palette.actionPrimary }]} />
-            ) : null}
-          </View>
-          <Icon
-            testID="insight-trend-glyph"
-            name={insight.icon as IconName}
-            size={iconSize.sm}
-            color={insightToneColor(insight.iconTone, isDark)}
-          />
-          <Icon
-            name="chevron-right"
-            size={iconSize.sm}
-            color={isDark ? darkColors.textSecondary : colors.textSecondary}
-          />
+      <View testID="insight-row" style={styles.row}>
+        <Icon
+          testID="insight-category-icon"
+          name={insightCategoryIcon(insight.category)}
+          size={iconSize.sm}
+          color={palette.iconSecondary}
+        />
+        <View style={styles.lineRow}>
+          {/* The sentence carries figures, so it shrinks to fit its one line before it is cut. */}
+          <FitText
+            testID="insight-line"
+            ellipsizeMode="tail"
+            style={[styles.line, isDark && styles.lineDark]}
+          >
+            {insight.line}
+          </FitText>
+          {insight.experimental ? (
+            <Badge
+              testID="insight-experimental"
+              tone="neutral"
+              size="sm"
+              text={t('common.experimental')}
+              isDark={isDark}
+            />
+          ) : null}
+          {insight.isNew ? (
+            <View style={[styles.newDot, { backgroundColor: palette.actionPrimary }]} />
+          ) : null}
         </View>
-
-        {history && linkLabel ? (
-          <InsightHistoryGraphic
-            history={history}
-            color={graphicColour}
+        {trend ? (
+          <InsightRowTrend
+            history={trend}
+            color={insightGraphicColour(insight.category, isDark)}
             isDark={isDark}
-            accessibilityLabel={linkLabel}
-            onOpenSheet={handlePress}
           />
         ) : null}
-
-        {figure ? (
-          <View style={styles.figureRow}>
-            <FitText testID="insight-figure" style={[styles.figure, isDark && styles.titleDark]}>
-              {figure}
-            </FitText>
-            {change ? (
-              <ChangeChip
-                text={change}
-                trend={insight.supportingData?.trend}
-                isDark={isDark}
-                testID="insight-change"
-              />
-            ) : null}
-          </View>
-        ) : null}
-
-        {insight.subtitle ? (
-          <Text style={[styles.caption, isDark && styles.captionDark]}>{insight.subtitle}</Text>
-        ) : null}
+        <Icon
+          testID="insight-trend-glyph"
+          name={insight.icon as IconName}
+          size={iconSize.sm}
+          color={insightToneColor(insight.iconTone, isDark)}
+        />
+        <Icon
+          name="chevron-right"
+          size={iconSize.sm}
+          color={isDark ? darkColors.textSecondary : colors.textSecondary}
+        />
       </View>
     </Card>
   );
 });
 
 const styles = StyleSheet.create({
-  content: {
-    paddingVertical: spacing.xs,
-    paddingLeft: spacing.sm,
-    paddingRight: spacing.sm,
-    gap: spacing.xs,
-  },
-  header: {
+  row: {
+    height: ROW_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: spacing.sm,
     gap: spacing.xsPlus,
   },
-  titleRow: {
+  lineRow: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
   },
-  title: {
-    ...typography.bodyCompactBold,
+  line: {
+    ...typography.bodyCompact,
     color: colors.textPrimary,
     flexShrink: 1,
   },
-  titleDark: {
+  lineDark: {
     color: darkColors.textPrimary,
-  },
-  figureRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  figure: {
-    fontSize: typography.metricValue.fontSize,
-    fontWeight: typography.metricValue.fontWeight,
-    color: colors.textPrimary,
-    flexShrink: 1,
   },
   newDot: {
     width: 6,
     height: 6,
     borderRadius: layout.borderRadiusFull,
-  },
-  caption: {
-    fontSize: typography.label.fontSize,
-    color: colors.textSecondary,
-  },
-  captionDark: {
-    color: darkColors.textSecondary,
   },
 });

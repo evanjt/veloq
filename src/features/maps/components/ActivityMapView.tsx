@@ -40,7 +40,7 @@ import type { ActivityType, ActivityStreams, RoutePoint } from '@/types';
 import { BaseMapView, type BaseMap3DLayer } from './BaseMapView';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import { type MapCameraState, type MapPressEvent } from './MapSurface';
-import { SlottedMapSurface, useInMapSurfaceSlot } from './MapSurfaceSlot';
+import { SlottedMapSurface, useInMapSurfaceSlot, useMapSurfaceSlotLive } from './MapSurfaceSlot';
 import type { MapCameraSpec } from '@/features/maps/lib/htmlBuilders/mapSurface';
 import {
   SectionCreationOverlay,
@@ -546,6 +546,18 @@ export const ActivityMapView = memo(function ActivityMapView({
     inSlot || (!(is3DMode && is3DReady) && !isFullscreen && !posterCovers3DBoot);
   const touchThrough = inSlot ? 'box-none' : 'auto';
 
+  // The commit that mounts this view is the open's own frame, and creating a map page in it
+  // took 38 to 53 ms of a frame already over a tap's budget (HANDSET_A, release build). So the page,
+  // 2D or 3D, is created on the next frame, transparent until ready and under the poster where
+  // there is one. A slot whose surface is already up creates no page, so the view publishes at once.
+  const slotLive = useMapSurfaceSlotLive();
+  const [pageDue, setPageDue] = useState(slotLive);
+  useEffect(() => {
+    if (pageDue) return undefined;
+    const frame = requestAnimationFrame(() => setPageDue(true));
+    return () => cancelAnimationFrame(frame);
+  }, [pageDue]);
+
   const surfaceReady = is3DMode ? is3DReady : mapReady || mapFailed;
   const [camera2DOnHide, setCamera2DOnHide] = useState<MapCameraSpec | null>(null);
   useEffect(() => {
@@ -896,7 +908,7 @@ export const ActivityMapView = memo(function ActivityMapView({
         {/* 2D Map layer. Unmounted, not hidden, whenever another surface is the
             one being looked at: a hidden WebView keeps its GL context and its
             tile textures, which is the whole cost of having it. */}
-        {show2DSurface ? (
+        {show2DSurface && pageDue ? (
           <View style={styles.mapLayer} pointerEvents={touchThrough}>
             <View
               style={[styles.map, { opacity: mapReady || mapFailed ? 1 : 0 }]}
@@ -929,7 +941,7 @@ export const ActivityMapView = memo(function ActivityMapView({
 
         {/* 3D Map layer */}
         {/* Error boundary prevents a 3D crash from taking out the entire map */}
-        {is3DMode && hasRoute && !isFullscreen ? (
+        {is3DMode && hasRoute && !isFullscreen && pageDue ? (
           <ComponentErrorBoundary part="map3d" debugName="3D Map" onError={handleMap3DFailed}>
             <Animated.View
               style={[styles.mapLayer, styles.map3DLayer, { opacity: map3DOpacity }]}

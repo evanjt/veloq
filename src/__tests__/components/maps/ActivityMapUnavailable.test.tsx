@@ -9,7 +9,7 @@
  */
 
 import React from 'react';
-import { render, fireEvent, screen } from '@testing-library/react-native';
+import { fireEvent, screen } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import {
@@ -21,6 +21,7 @@ import {
   MAP_SURFACE_UNAVAILABLE_TEST_ID,
 } from '@/features/maps/components/MapSurface';
 import type { LatLng } from '@/shared/geo/polyline';
+import { renderStaged } from '../../__shared__/stagedRender';
 
 // The map page is hidden from screen readers, so a query reaching it includes hidden elements.
 const MAP_PAGE = { includeHiddenElements: true };
@@ -58,7 +59,7 @@ const COORDINATES: LatLng[] = [
 ];
 
 function renderActivityMap() {
-  return render(
+  return renderStaged(
     <SafeAreaProvider initialMetrics={METRICS}>
       <ActivityMapView activityType="Ride" coordinates={COORDINATES} />
     </SafeAreaProvider>

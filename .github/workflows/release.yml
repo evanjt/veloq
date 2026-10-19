@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - "[0-9]+.[0-9]+.[0-9]+"
+      - '[0-9]+.[0-9]+.[0-9]+'
 
 permissions:
   contents: read
@@ -103,8 +103,22 @@ jobs:
       aab_path: ${{ steps.prepare.outputs.aab_path }}
       ipa_path: ${{ steps.prepare.outputs.ipa_path }}
     steps:
+      # Every tag, so the store plan can read the previous release's listing.
       - name: Checkout (for changelog)
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      # Before anything is published: every store locale's release notes for
+      # this version, and what each store will be sent.
+      - name: Check the store listings
+        run: node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/store-release.ts plan --to "$GITHUB_SHA"
 
       - name: Get version from tag
         id: version
@@ -249,6 +263,20 @@ jobs:
 
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: Stage what changed since the previous release
+        id: stage
+        run: |
+          node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/store-release.ts plan \
+            --to "$GITHUB_SHA" --stage "$RUNNER_TEMP/store" --github-output "$GITHUB_OUTPUT"
 
       - name: Setup fastlane
         uses: ./.github/actions/setup-fastlane
@@ -271,6 +299,11 @@ jobs:
         env:
           SUPPLY_JSON_KEY: ${{ github.workspace }}/play_store_credentials.json
           AAB_PATH: ${{ github.workspace }}/release/veloq-${{ needs.release.outputs.version }}.aab
+          STAGED: ${{ runner.temp }}/store/metadata/android
+          SEND_METADATA: ${{ steps.stage.outputs.android_metadata }}
+          SEND_IMAGES: ${{ steps.stage.outputs.android_images }}
+          SEND_SCREENSHOTS: ${{ steps.stage.outputs.android_screenshots }}
+          VERSION_CODE: ${{ steps.stage.outputs.version_code }}
         run: |
           if [ ! -f "$AAB_PATH" ]; then
             echo "Error: AAB file not found at $AAB_PATH"
@@ -278,7 +311,9 @@ jobs:
             ls -la "${{ github.workspace }}/release/" || echo "Directory not found"
             exit 1
           fi
-          bundle exec fastlane android deploy track:internal aab:"$AAB_PATH"
+          bundle exec fastlane android deploy track:internal aab:"$AAB_PATH" \
+            version_code:"$VERSION_CODE" metadata_path:"$STAGED" \
+            metadata:"$SEND_METADATA" images:"$SEND_IMAGES" screenshots:"$SEND_SCREENSHOTS"
 
       - name: Cleanup credentials
         if: always()
@@ -288,10 +323,10 @@ jobs:
         run: |
           echo "## Play Store Deployment" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Track:** internal" >> $GITHUB_STEP_SUMMARY
+          echo "- **Track:** internal, and a production draft" >> $GITHUB_STEP_SUMMARY
           echo "- **Version:** ${{ needs.release.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "To promote to production, go to [Google Play Console](https://play.google.com/console)." >> $GITHUB_STEP_SUMMARY
+          echo "To release the draft, run \`fastlane android rollout fraction:0.1\`." >> $GITHUB_STEP_SUMMARY
 
   # ============================================
   # Deploy to TestFlight
@@ -316,6 +351,20 @@ jobs:
 
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: Stage what changed since the previous release
+        id: stage
+        run: |
+          node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/store-release.ts plan \
+            --to "$GITHUB_SHA" --stage "$RUNNER_TEMP/store" --github-output "$GITHUB_OUTPUT"
 
       - name: Setup fastlane
         uses: ./.github/actions/setup-fastlane
@@ -342,17 +391,21 @@ jobs:
           fi
           bundle exec fastlane ios beta ipa:"$IPA_PATH"
 
-      # continue-on-error is intentional: metadata upload needs an editable App
-      # Store Connect version to exist. The TestFlight binary upload above is the
-      # critical step; this one is safe to fail.
+      # The lane creates the App Store version when none is editable, so a
+      # failure here is a release that did not reach Prepare for Submission.
       - name: Upload App Store metadata
-        continue-on-error: true
         working-directory: config/fastlane
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_API_KEY: ${{ secrets.ASC_API_KEY }}
-        run: bundle exec fastlane ios metadata app_version:${{ needs.release.outputs.version }}
+          STAGED: ${{ runner.temp }}/store
+          SEND_SCREENSHOTS: ${{ steps.stage.outputs.ios_screenshots }}
+          APP_VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          bundle exec fastlane ios metadata app_version:"$APP_VERSION" \
+            metadata_path:"$STAGED/metadata/ios" screenshots_path:"$STAGED/screenshots" \
+            screenshots:"$SEND_SCREENSHOTS"
 
       - name: Summary
         run: |
@@ -361,4 +414,4 @@ jobs:
           echo "- **Version:** ${{ needs.release.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Track:** Internal TestFlight" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Build will be available in [App Store Connect](https://appstoreconnect.apple.com) shortly." >> $GITHUB_STEP_SUMMARY
+          echo "The App Store version is in Prepare for Submission. To submit it, run \`fastlane ios release app_version:${{ needs.release.outputs.version }}\`." >> $GITHUB_STEP_SUMMARY
