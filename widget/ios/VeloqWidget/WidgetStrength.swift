@@ -1,25 +1,25 @@
 import SwiftUI
 import WidgetKit
 
-// Strength widget: the strength tab's body, each muscle shaded by the sets it took over the
-// window. The front on Small, the front and back on Medium, and the most trained muscles beneath
+// Strength widget: the strength tab's body, each muscle shaded by the sets it took over the last
+// 30 days. The front on Small, the front and back on Medium, and the most trained muscles beneath
 // them on Large. Everything it draws comes from the shared snapshot, worded by the engine.
 
 struct StrengthEntry: TimelineEntry {
   let date: Date
   let snapshot: WidgetSnapshot?
-  var window: StrengthWindowChoice = .last30
 }
 
-/// The entry now, and a second one at the moment the snapshot turns stale, so the age line
-/// changes colour then and not at the next reload.
+/// The entry now, and one at each moment the age line's words change before the next reload,
+/// so it moves on from now to minutes to hours, and turns amber, without a reload.
 func strengthTimeline(_ entry: StrengthEntry) -> Timeline<StrengthEntry> {
   let refresh = nextRefreshDate()
-  var entries = [entry]
-  if let stale = SnapshotAge.staleDate(entry.snapshot), stale > entry.date, stale < refresh {
-    entries.append(StrengthEntry(date: stale, snapshot: entry.snapshot, window: entry.window))
-  }
-  return Timeline(entries: entries, policy: .after(refresh))
+  let changes = SnapshotAge.changes(entry.snapshot, after: entry.date, before: refresh)
+  return Timeline(
+    entries: [entry] + changes.map { change in
+      StrengthEntry(date: change, snapshot: entry.snapshot)
+    },
+    policy: .after(refresh))
 }
 
 struct StrengthProvider: TimelineProvider {
@@ -42,7 +42,8 @@ struct StrengthProvider: TimelineProvider {
   }
 }
 
-/// One of the most trained muscles: its shade, its name, and its sets and volume.
+/// One of the most trained muscles: its shade, its name, how often a week, its sets and its volume.
+/// The volume is dropped when the row has no room for it, then the sets.
 struct StrengthTopRow: View {
   let muscle: WidgetStrengthTopMuscle
   let color: Color
@@ -61,12 +62,31 @@ struct StrengthTopRow: View {
         .foregroundColor(palette.textPrimary)
         .lineLimit(1)
       Spacer(minLength: WidgetTheme.Layout.gap)
-      Text(muscle.setsText)
-        .measuredText("muscle sets")
-        .widgetFont(.label)
-        .foregroundColor(palette.textPrimary)
-        .lineLimit(1)
-      if let volume = muscle.volumeText {
+      ViewThatFits(in: .horizontal) {
+        figures(withSets: true, withVolume: true)
+        figures(withSets: true, withVolume: false)
+        figures(withSets: muscle.frequencyText == nil, withVolume: false)
+      }
+    }
+  }
+
+  private func figures(withSets: Bool, withVolume: Bool) -> some View {
+    HStack(spacing: WidgetTheme.Layout.gap) {
+      if let frequency = muscle.frequencyText {
+        Text(frequency)
+          .measuredText("muscle frequency")
+          .widgetFont(.label)
+          .foregroundColor(palette.textPrimary)
+          .lineLimit(1)
+      }
+      if withSets {
+        Text(muscle.setsText)
+          .measuredText("muscle sets")
+          .widgetFont(.label)
+          .foregroundColor(palette.textPrimary)
+          .lineLimit(1)
+      }
+      if withVolume, let volume = muscle.volumeText {
         Text(volume)
           .measuredText("muscle volume")
           .widgetFont(.label)
@@ -93,7 +113,7 @@ struct StrengthWidgetView: View {
 
   var body: some View {
     let palette = WidgetPalette.resolve(entry.snapshot, colorScheme)
-    let content = StrengthWidgetModel.content(entry.snapshot, size: size, choice: entry.window)
+    let content = StrengthWidgetModel.content(entry.snapshot, size: size)
     Group {
       if WidgetSnapshot.isEmpty(entry.snapshot) || content == nil {
         EmptyWidgetView(palette: palette)
@@ -182,9 +202,8 @@ struct StrengthWidgetView: View {
   }
 }
 
-// iOS 15/16 Strength widget: the last 30 days. iOS 17+ replaces this with the AppIntent-
-// configurable variant in WidgetStrengthIntent.swift (same kind, so placed widgets survive the
-// upgrade).
+// The Strength widget on every iOS version: the last 30 days, with nothing to edit. It keeps the
+// kind the iOS 17 placements had while they offered a period, so a placed widget keeps its place.
 struct VeloqStrengthWidget: Widget {
   let kind = "VeloqStrengthWidget"
 

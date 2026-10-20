@@ -1,0 +1,50 @@
+# Scroll the top card of a map sheet until the element with id TARGET is on
+# screen. DIRECTION is DOWN to move further into the card and UP to move back
+# toward its top.
+#
+# A detail screen is a map with its data in a sheet over it, opened at the
+# middle stop, where the sheet's top edge sits a little above the screen's
+# centre. `scrollUntilVisible` swipes from the centre, which is on the map or
+# on the sheet's edge, so it pans the map or drags the sheet and the card never
+# moves. Every swipe here starts and ends in the sheet's lower half, which is
+# inside it at the middle stop and the highest. The first drag up from the
+# middle stop raises the sheet, and the drags after it scroll the card. A drag
+# down scrolls the card until its top and then lowers the sheet, so the swipes
+# stop as soon as TARGET is on screen.
+
+appId: com.veloq.app.dev
+---
+- runFlow:
+    when:
+      true: ${DIRECTION == 'DOWN'}
+    commands:
+      - repeat:
+          while:
+            notVisible:
+              id: ${TARGET}
+          times: 60
+          commands:
+            - swipe:
+                start: 50%, 85%
+                end: 50%, 55%
+                duration: 400
+
+- runFlow:
+    when:
+      true: ${DIRECTION == 'UP'}
+    commands:
+      - repeat:
+          while:
+            notVisible:
+              id: ${TARGET}
+          times: 30
+          commands:
+            - swipe:
+                start: 50%, 55%
+                end: 50%, 85%
+                duration: 400
+
+- extendedWaitUntil:
+    visible:
+      id: ${TARGET}
+    timeout: 5000

@@ -26,6 +26,8 @@ import type { DelegateHost } from './host';
  * `awaiting_consent` is the engine holding a queue past the large-download
  * threshold until the athlete answers. `deferred` is the automatic start
  * waiting for the elevation backfill or the detector cutover to finish first.
+ * `waiting` is the request budget or intervals.icu holding the rest, and the
+ * progress carries when it resumes.
  */
 export const STREAM_PHASES = [
   'idle',
@@ -36,6 +38,7 @@ export const STREAM_PHASES = [
   'failed',
   'awaiting_consent',
   'deferred',
+  'waiting',
 ] as const;
 
 export type StreamBackfillPhase = (typeof STREAM_PHASES)[number];

@@ -39,13 +39,24 @@ object SnapshotAge {
       .withZone(zone)
       .format(Instant.ofEpochSecond(generatedAtSeconds))
 
-  /** How far back the fresh age line counts, in whole minutes under an hour and whole hours after. */
-  data class Span(val count: Long, val hours: Boolean)
+  /** The unit the fresh age line counts in. */
+  enum class AgeUnit { NOW, MINUTES, HOURS }
+
+  /**
+   * How far back the fresh age line counts: now under a minute, then whole minutes under an hour
+   * and whole hours after. It never counts seconds, and never says "0 minutes ago". The same rule
+   * is `SnapshotAge.span` on iOS.
+   */
+  data class Span(val count: Long, val unit: AgeUnit)
 
   /** The fresh age line's span. A snapshot from the future reads as just written. */
   fun span(generatedAtSeconds: Long, nowMillis: Long): Span {
     val minutes = maxOf(0L, nowMillis / 1000L - generatedAtSeconds) / 60L
-    return if (minutes < 60L) Span(minutes, hours = false) else Span(minutes / 60L, hours = true)
+    return when {
+      minutes < 1L -> Span(0L, AgeUnit.NOW)
+      minutes < 60L -> Span(minutes, AgeUnit.MINUTES)
+      else -> Span(minutes / 60L, AgeUnit.HOURS)
+    }
   }
 
   /**

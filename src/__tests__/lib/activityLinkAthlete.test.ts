@@ -157,6 +157,7 @@ describe('openableSystemPath', () => {
     'veloq://summary-card-settings',
     'veloq://notification-settings',
     'veloq://backup-settings',
+    'veloq://data-sources-settings',
     '/section/s1',
     'exp://192.0.2.1:8081/--/activity/demo-test-0',
   ];

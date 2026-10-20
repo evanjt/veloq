@@ -22,6 +22,7 @@ import { gitFreeEnv, runGit } from '../__shared__/gitFixture';
 const screens = require('../../../scripts/patch-screens-sheet-width');
 const screensHide = require('../../../scripts/patch-screens-sheet-hide');
 const nitro = require('../../../scripts/patch-nitro-jsi-install');
+const routeMatch = require('../../../scripts/patch-expo-router-route-match');
 
 const projectRoot = path.join(__dirname, '../../..');
 const script = path.join(projectRoot, 'scripts/check-native-tree.mjs');
@@ -268,6 +269,42 @@ describe('the native build tree check', () => {
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('JSI install patch');
     expect(result.stderr).toContain('node scripts/patch-nitro-jsi-install.js');
+  });
+
+  /** The installed router's patched file copied into `root`, patched or as it ships. */
+  function installRouter(root: string, patched: boolean): void {
+    const from = path.join(projectRoot, 'node_modules', 'expo-router');
+    const to = path.join(root, 'node_modules', 'expo-router');
+    fs.mkdirSync(path.dirname(path.join(to, routeMatch.FILE)), { recursive: true });
+    fs.copyFileSync(path.join(from, 'package.json'), path.join(to, 'package.json'));
+    const shipped = routeMatch.unpatchSource(
+      fs.readFileSync(path.join(from, routeMatch.FILE), 'utf8')
+    );
+    fs.writeFileSync(
+      path.join(to, routeMatch.FILE),
+      patched ? routeMatch.patchSource(shipped) : shipped
+    );
+  }
+
+  it('lets an installation carrying the router route match patch through', () => {
+    const { main } = pair();
+    installRouter(main, true);
+
+    const result = check(main);
+
+    expect(result.stderr).toBe('');
+    expect(result.status).toBe(0);
+  });
+
+  it('refuses an installation whose router route match patch never ran', () => {
+    const { main } = pair();
+    installRouter(main, false);
+
+    const result = check(main);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('route match patch');
+    expect(result.stderr).toContain('node scripts/patch-expo-router-route-match.js');
   });
 
   it('refuses an installation whose screens sheet width patch never ran before the build lock', () => {

@@ -24,14 +24,12 @@ tags:
 - takeScreenshot: "screenshots/tour-01-feed-top"
 
 # Sport filter chips sit in the header above the initial offset.
-- swipe:
-    start: 50%, 40%
-    end: 50%, 60%
-    duration: 800
-- extendedWaitUntil:
-    visible:
-      id: "home-filter-ride"
-    timeout: 5000
+- runFlow:
+    file: helpers/reveal.yaml
+    env:
+      ELEMENT: "home-filter-ride"
+      LIST: "home-activity-list"
+      DIRECTION: "UP"
 - assertVisible:
     id: "home-filter-run"
 
@@ -61,7 +59,7 @@ tags:
 # ACTIVITY DETAIL. Sections tab (encounters refactor)
 # ====================================================================
 - tapOn:
-    text: "Sections"
+    id: "tab-sections"
     optional: true
 - extendedWaitUntil:
     visible:
@@ -84,7 +82,7 @@ tags:
 # SECTION DETAIL (tap first section in list)
 # ====================================================================
 - tapOn:
-    text: "Sections"
+    id: "tab-sections"
     optional: true
 - tapOn:
     id: "section-inline-plot-0"
@@ -155,13 +153,13 @@ tags:
 
 # Switch to Routes sub-tab
 - tapOn:
-    text: "Routes"
+    id: "tab-routes"
     optional: true
 - takeScreenshot: "screenshots/tour-12-routes-list"
 
 # Switch to Sections sub-tab
 - tapOn:
-    text: "Sections"
+    id: "tab-sections"
     optional: true
 - takeScreenshot: "screenshots/tour-13-sections-list"
 
@@ -179,6 +177,7 @@ tags:
     file: helpers/reveal.yaml
     env:
       ELEMENT: "wellness-trends-chart"
+      LIST: "fitness-page-fitness"
 - takeScreenshot: "screenshots/tour-15-health"
 
 # ====================================================================

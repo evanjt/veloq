@@ -23,12 +23,14 @@ import kotlin.math.roundToInt
  * Builds the RemoteViews for a Summary widget instance from the snapshot. Picks a layout by the
  * host-reported cell size and binds pre-formatted strings; no computation, no i18n. What each
  * size draws is decided in [SummaryWidget], so this only places it: the hero, its line and chart,
- * the supporting row on Medium and Large, and form over its five zones on Large. Dynamic colours
+ * from Medium up the other readings of training load on the hero's line and the supporting row,
+ * and form over its five zones on Large. Dynamic colours
  * come from the generated `widget_*` resources and go on through [WidgetPalette], which carries
  * the light and the dark value of each. Form values are coloured by the snapshot's zone enum; the
  * widget never derives TSB boundaries.
  *
- * The card opens Fitness; the age row's refresh control queues native work.
+ * The card opens Fitness; the age row's refresh control queues native work, and from Medium up
+ * its record button starts the last sport recorded.
  */
 object WidgetRenderer {
   /** Where a tap on the Summary widget goes. */
@@ -46,28 +48,34 @@ object WidgetRenderer {
     if (snap == null || isEmpty(snap)) return renderEmptyPrompt(context, p)
     val card = SummaryWidget.card(snap, placement)
     return when (SummaryWidget.sizeFor(minWidthDp, minHeightDp)) {
-      SummarySize.LARGE -> renderLarge(context, p, snap, card, minWidthDp, widgetId)
-      SummarySize.MEDIUM -> renderMedium(context, p, snap, card, minWidthDp, widgetId)
+      SummarySize.LARGE -> renderLarge(context, p, snap, card, minWidthDp, minHeightDp, widgetId)
+      SummarySize.MEDIUM -> renderMedium(context, p, snap, card, minWidthDp, minHeightDp, widgetId)
       SummarySize.SMALL -> renderSmall(context, p, snap, card, minWidthDp, widgetId)
-      SummarySize.SHORT -> renderShort(context, p, snap, card, widgetId)
+      SummarySize.SHORT -> renderShort(context, p, snap, card, minWidthDp, widgetId)
     }
   }
 
   /**
-   * One row tall: the hero, its trend and its line, with no room left for the chart or the age.
-   * The refresh control keeps its place at the end of the hero's row.
+   * One row tall: the hero's name, value and trend and its line, with no room left for the chart
+   * or the age. The refresh control keeps its place at the end of the hero's line where
+   * [SummaryWidget.showsRefresh] leaves it room.
    */
   private fun renderShort(
     context: Context,
     p: WidgetPalette,
     snap: WidgetSnapshot,
     card: SummaryCard,
+    minWidthDp: Int,
     widgetId: Int,
   ): RemoteViews {
     val v = RemoteViews(context.packageName, R.layout.widget_short)
     bindHero(p, v, snap, card)
     bindFitnessTap(context, v, widgetId)
-    bindRefresh(context, v, snap)
+    if (SummaryWidget.showsRefresh(minWidthDp)) {
+      bindRefresh(context, v, snap)
+    } else {
+      v.setViewVisibility(R.id.widget_refresh, View.GONE)
+    }
     return v
   }
 
@@ -84,7 +92,6 @@ object WidgetRenderer {
     bindChart(context, p, v, snap, card, chartWidthDp(minWidthDp, 140), 40)
     bindFitnessTap(context, v, widgetId)
     bindUpdatedAt(p, v, R.id.small_updated, snap)
-    bindRefresh(context, v, snap)
     return v
   }
 
@@ -94,13 +101,17 @@ object WidgetRenderer {
     snap: WidgetSnapshot,
     card: SummaryCard,
     minWidthDp: Int,
+    minHeightDp: Int,
     widgetId: Int,
   ): RemoteViews {
     val v = RemoteViews(context.packageName, R.layout.widget_medium)
     bindHero(p, v, snap, card)
-    bindSupporting(p, v, snap, SummaryWidget.supporting(card, SummarySize.MEDIUM))
-    val chartW = ((chartWidthDp(minWidthDp, 300) - 8) / 2).coerceAtLeast(120)
-    bindChart(context, p, v, snap, card, chartW, 48, captioned = true)
+    val beside = SummaryWidget.trainingLoad(snap, card, SummarySize.MEDIUM)
+    bindTrainingLoad(p, v, snap, beside)
+    bindSupporting(p, v, snap, SummaryWidget.supporting(card, SummarySize.MEDIUM, beside))
+    val captioned = SummaryWidget.captionsChart(SummarySize.MEDIUM, minHeightDp)
+    bindChart(context, p, v, snap, card, chartWidthDp(minWidthDp, 300), 48, captioned = captioned)
+    bindRecord(context, v, snap, SummarySize.MEDIUM)
     bindFitnessTap(context, v, widgetId)
     bindUpdatedAt(p, v, R.id.med_updated, snap)
     bindRefresh(context, v, snap)
@@ -113,29 +124,33 @@ object WidgetRenderer {
     snap: WidgetSnapshot,
     card: SummaryCard,
     minWidthDp: Int,
+    minHeightDp: Int,
     widgetId: Int,
   ): RemoteViews {
     val v = RemoteViews(context.packageName, R.layout.widget_large)
     bindHero(p, v, snap, card)
-    bindSupporting(p, v, snap, SummaryWidget.supporting(card, SummarySize.LARGE))
-    val chartW = ((chartWidthDp(minWidthDp, 300) - 8) / 2).coerceAtLeast(120)
-    bindChart(context, p, v, snap, card, chartW, 52, captioned = true)
-    bindFormZones(context, p, v, snap, chartWidthDp(minWidthDp, 300), 96)
-
-    // One gate with the standalone Quick-Record widget: INCLUDE_RECORD_WIDGET in
-    // with-android-widget.js writes this bool and drops that receiver together.
-    // On since 2026-09-08, so the branch is the off switch rather than the state.
-    if (context.resources.getBoolean(R.bool.widget_record_enabled)) {
-      v.setViewVisibility(R.id.large_record, View.VISIBLE)
-      v.setOnClickPendingIntent(R.id.large_record, recordIntent(context, snap))
-      v.setContentDescription(R.id.large_record, snap.recordLabel)
-    } else {
-      v.setViewVisibility(R.id.large_record, View.GONE)
-    }
+    val beside = SummaryWidget.trainingLoad(snap, card, SummarySize.LARGE)
+    bindTrainingLoad(p, v, snap, beside)
+    bindSupporting(p, v, snap, SummaryWidget.supporting(card, SummarySize.LARGE, beside))
+    bindChart(context, p, v, snap, card, chartWidthDp(minWidthDp, 300), 52, captioned = true)
+    val stripDp = SummaryWidget.formStripDp(minHeightDp, context.resources.configuration.fontScale)
+    bindFormZones(context, p, v, snap, chartWidthDp(minWidthDp, 300), stripDp)
+    bindRecord(context, v, snap, SummarySize.LARGE)
     bindFitnessTap(context, v, widgetId)
     bindUpdatedAt(p, v, R.id.large_updated, snap)
     bindRefresh(context, v, snap)
     return v
+  }
+
+  /** The record button at the end of the age row, on the sizes [SummaryWidget] gives it. */
+  private fun bindRecord(context: Context, v: RemoteViews, snap: WidgetSnapshot, size: SummarySize) {
+    if (!SummaryWidget.carriesRecord(size)) {
+      v.setViewVisibility(R.id.sum_record, View.GONE)
+      return
+    }
+    v.setViewVisibility(R.id.sum_record, View.VISIBLE)
+    v.setOnClickPendingIntent(R.id.sum_record, recordIntent(context, snap))
+    v.setContentDescription(R.id.sum_record, snap.recordLabel)
   }
 
   private fun bindHero(p: WidgetPalette, v: RemoteViews, snap: WidgetSnapshot, card: SummaryCard) {
@@ -177,6 +192,39 @@ object WidgetRenderer {
       CellIds(R.id.sum_cell3, R.id.sum_div3, R.id.sum_cell3_label, R.id.sum_cell3_key,
         R.id.sum_cell3_value, R.id.sum_cell3_trend),
     )
+
+  private class LoadIds(val cell: Int, val label: Int, val key: Int, val value: Int)
+
+  private val LOAD_IDS =
+    arrayOf(
+      LoadIds(R.id.sum_load0, R.id.sum_load0_label, R.id.sum_load0_key, R.id.sum_load0_value),
+      LoadIds(R.id.sum_load1, R.id.sum_load1_label, R.id.sum_load1_key, R.id.sum_load1_value),
+    )
+
+  /**
+   * The training-load readings on the hero's line, each its label over its key dot and value, the
+   * dot in its measure's colour and Form's in its zone's; the rest are hidden.
+   */
+  private fun bindTrainingLoad(
+    p: WidgetPalette,
+    v: RemoteViews,
+    snap: WidgetSnapshot,
+    entries: List<SummaryEntry>,
+  ) {
+    for ((i, ids) in LOAD_IDS.withIndex()) {
+      val entry = entries.getOrNull(i)
+      if (entry == null) {
+        v.setViewVisibility(ids.cell, View.GONE)
+        continue
+      }
+      v.setViewVisibility(ids.cell, View.VISIBLE)
+      v.setTextViewText(ids.label, entry.label)
+      bindKeyDot(p, v, ids.key, SummaryWidget.keyTone(entry.colorKey, snap.form.zone))
+      v.setTextViewText(ids.value, entry.value)
+      p.textColor(v, ids.value, R.color.widget_text_primary)
+      v.setContentDescription(ids.cell, entry.spokenOrPlain())
+    }
+  }
 
   /** One cell per entry, a divider before every cell but the first, nothing for the rest. */
   private fun bindSupporting(
@@ -254,15 +302,26 @@ object WidgetRenderer {
     p.textColor(v, id, if (stale) R.color.widget_warning else R.color.widget_text_secondary)
   }
 
-  /** "5 min. ago" in the snapshot's language, which the platform's relative span cannot take. */
-  private fun relativeAge(span: SnapshotAge.Span, locale: Locale): String =
-    RelativeDateTimeFormatter.getInstance(
+  /** "now" or "5 min. ago" in the snapshot's language, which the platform's relative span cannot take. */
+  private fun relativeAge(span: SnapshotAge.Span, locale: Locale): String {
+    val formatter =
+      RelativeDateTimeFormatter.getInstance(
         ULocale.forLocale(locale), null, RelativeDateTimeFormatter.Style.SHORT,
         DisplayContext.CAPITALIZATION_NONE)
-      .format(
-        span.count.toDouble(), RelativeDateTimeFormatter.Direction.LAST,
-        if (span.hours) RelativeDateTimeFormatter.RelativeUnit.HOURS
-        else RelativeDateTimeFormatter.RelativeUnit.MINUTES)
+    return when (span.unit) {
+      SnapshotAge.AgeUnit.NOW ->
+        formatter.format(
+          RelativeDateTimeFormatter.Direction.PLAIN, RelativeDateTimeFormatter.AbsoluteUnit.NOW)
+      SnapshotAge.AgeUnit.MINUTES ->
+        formatter.format(
+          span.count.toDouble(), RelativeDateTimeFormatter.Direction.LAST,
+          RelativeDateTimeFormatter.RelativeUnit.MINUTES)
+      SnapshotAge.AgeUnit.HOURS ->
+        formatter.format(
+          span.count.toDouble(), RelativeDateTimeFormatter.Direction.LAST,
+          RelativeDateTimeFormatter.RelativeUnit.HOURS)
+    }
+  }
 
   /**
    * The age and the action share a row; the action keeps a full finger-sized target. While a
@@ -434,19 +493,8 @@ object WidgetRenderer {
   fun recordUrl(snap: WidgetSnapshot?): String =
     snap?.launcherShortcuts?.firstOrNull()?.url ?: RECORD_PICKER_URL
 
-  /** A configured instance keeps its own sport; an unconfigured one follows the last. */
-  fun recordUrl(snap: WidgetSnapshot?, configured: String?): String =
-    configured ?: recordUrl(snap)
-
   fun recordIntent(context: Context, snap: WidgetSnapshot?): PendingIntent =
     deepLink(context, recordUrl(snap), 0)
-
-  fun recordIntent(
-    context: Context,
-    snap: WidgetSnapshot?,
-    configured: String?,
-    requestCode: Int
-  ): PendingIntent = deepLink(context, recordUrl(snap, configured), requestCode)
 
   internal fun deepLink(context: Context, url: String, requestCode: Int): PendingIntent {
     val intent =
@@ -483,8 +531,9 @@ object WidgetRenderer {
     )
 
   /**
-   * The chart beside the hero, or nothing when the card hides it or the series is too short. A
-   * [captioned] layout names the chart's series and span under it; Small has no room for them.
+   * The hero's chart, or nothing when the card hides it or the series is too short. A
+   * [captioned] layout names the chart's series and span under it, where
+   * [SummaryWidget.captionsChart] finds room for them; Small has none.
    */
   private fun bindChart(
     context: Context,

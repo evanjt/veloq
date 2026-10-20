@@ -1,11 +1,11 @@
 /**
  * Scenario: an athlete places the Strength widget from the iOS widget gallery, on iOS 16 and on
- * iOS 17, and picks its period in Edit Widget.
+ * iOS 17.
  *
- * Expected behaviour: both generated bundles carry the widget at the one kind, so a widget placed
- * before the upgrade to iOS 17 keeps its place; the extension compiles every file the widget is
- * written in; and the gallery name, description and period picker read a translation in every
- * language the catalogue carries.
+ * Expected behaviour: both generated bundles carry the one static widget over the trailing 30
+ * days at the one kind, so a widget placed while it still had a period to edit keeps its place
+ * and has nothing left to edit; the extension compiles every file the widget is written in; and
+ * the gallery name and description read a translation in every language the catalogue carries.
  */
 
 import fs from 'fs';
@@ -29,60 +29,46 @@ function readWidget(file: string): string {
 }
 
 describe('the Strength widget in the iOS bundles', () => {
-  it('is in both bundles at the one kind, the static one below iOS 17', () => {
+  it('is the one static widget in both bundles, at the kind it was placed under', () => {
     const dest = fs.mkdtempSync(path.join(os.tmpdir(), 'strength-widget-ios-'));
     dirs.push(dest);
     iosPlugin.writeWidgetBundles(dest);
     const swift = fs.readFileSync(path.join(dest, 'WidgetBundles.swift'), 'utf8');
     const configurable = swift.indexOf('struct VeloqWidgetsConfigurable');
     expect(swift.slice(0, configurable)).toContain('VeloqStrengthWidget()');
-    expect(swift.slice(configurable)).toContain('VeloqConfigurableStrengthWidget()');
+    expect(swift.slice(configurable)).toContain('VeloqStrengthWidget()');
+    expect(swift).not.toContain('VeloqConfigurableStrengthWidget');
 
-    const kinds = [
-      ...['WidgetStrength.swift', 'WidgetStrengthIntent.swift']
-        .map(readWidget)
-        .join('\n')
-        .matchAll(/let kind = "(\w+)"/g),
-    ].map((m) => m[1]);
-    expect(kinds).toEqual(['VeloqStrengthWidget', 'VeloqStrengthWidget']);
+    const widget = readWidget('WidgetStrength.swift');
+    expect([...widget.matchAll(/let kind = "(\w+)"/g)].map((m) => m[1])).toEqual([
+      'VeloqStrengthWidget',
+    ]);
+    expect(widget).toContain('StaticConfiguration(kind: kind');
   });
 
-  it('compiles the Swift files the widget is written in', () => {
+  it('compiles the Swift files the widget is written in, and no period picker', () => {
     const compiled = iosPlugin.widgetSwiftFiles(projectRoot);
     for (const file of [
       'StrengthWidgetModel.swift',
       'BodyShape.swift',
       'BodyOutline.swift',
       'WidgetStrength.swift',
-      'WidgetStrengthIntent.swift',
     ]) {
       expect(compiled).toContain(file);
     }
+    expect(compiled).not.toContain('WidgetStrengthIntent.swift');
   });
 
-  it('names itself and its period picker in every language the catalogue carries', () => {
+  it('names itself in every language the catalogue carries', () => {
     const catalogue = strings.localizableCatalogue(strings.loadLocaleBundles());
     const languages: string[] = strings.appleLanguages();
     const gallery = /\.configurationDisplayName\("([^"]+)"\)\s*\.description\("([^"]+)"\)/g;
-    const shown = [
-      ...[...readWidget('WidgetStrength.swift').matchAll(gallery)].flatMap((m) => [m[1], m[2]]),
-      ...[
-        ...readWidget('WidgetStrengthIntent.swift').matchAll(
-          /(?:title:|IntentDescription\(|LocalizedStringResource =)\s*"([^"]+)"/g
-        ),
-      ].map((m) => m[1]),
-    ];
+    const shown = [...readWidget('WidgetStrength.swift').matchAll(gallery)].flatMap((m) => [
+      m[1],
+      m[2],
+    ]);
 
-    expect(shown).toEqual(
-      expect.arrayContaining([
-        'Strength',
-        'The muscles you trained, shaded by sets.',
-        'Period',
-        'Choose which days the widget shades.',
-        'Last 30 days',
-        'This Month',
-      ])
-    );
+    expect(shown).toEqual(['Strength', 'The muscles you trained, shaded by sets.']);
     for (const key of new Set(shown)) {
       const translated = Object.keys(catalogue.strings[key]?.localizations ?? {});
       expect([key, languages.filter((language) => !translated.includes(language))]).toEqual([

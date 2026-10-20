@@ -20,9 +20,6 @@ const projectRoot = path.join(__dirname, '../..');
 const PKG = 'com.example.widgets';
 const ANDROID_NS = 'http://schemas.android.com/apk/res/android';
 
-/** The Quick-Record button draws the same glyph and word with or without a snapshot. */
-const DRAWS_NO_SNAPSHOT = new Set(['widget_record_info.xml']);
-
 let res: string;
 let root: string;
 
@@ -131,12 +128,9 @@ describe('the widget previews in the Android picker', () => {
   it('draws the sample library in every widget that draws the snapshot', () => {
     const names = strings();
     const words = sampleWords();
-    const unfilled = infos()
-      .filter((info) => !DRAWS_NO_SNAPSHOT.has(info))
-      .filter(
-        (info) =>
-          shownTexts(previewOf(info), names).filter((t) => words.has(t.text ?? '')).length < 3
-      );
+    const unfilled = infos().filter(
+      (info) => shownTexts(previewOf(info), names).filter((t) => words.has(t.text ?? '')).length < 3
+    );
     expect(unfilled).toEqual([]);
   });
 

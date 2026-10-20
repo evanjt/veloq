@@ -150,7 +150,7 @@ it('reports a legacy record restore and the records still waiting', async () => 
   acceptLegacyPrompt();
   mockRestore.mockResolvedValue({
     unplacedCount: 2,
-    drops: { notRestored: 0, namesNotRestored: 0 },
+    drops: { notRestored: 0, namesNotRestored: 0, exportHomeLeftOut: false },
   });
   const { result } = await renderHook(() => useImportDatabaseBackup());
 
@@ -179,7 +179,7 @@ describe("the picker's copy of an imported backup", () => {
         acceptLegacyPrompt();
         mockRestore.mockResolvedValue({
           unplacedCount: 0,
-          drops: { notRestored: 0, namesNotRestored: 0 },
+          drops: { notRestored: 0, namesNotRestored: 0, exportHomeLeftOut: false },
         });
       },
     ],

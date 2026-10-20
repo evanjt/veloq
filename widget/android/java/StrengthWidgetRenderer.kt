@@ -46,7 +46,6 @@ object StrengthWidgetRenderer {
     snap: WidgetSnapshot?,
     minWidthDp: Int,
     minHeightDp: Int,
-    window: String?,
   ): RemoteViews {
     val p = WidgetPalette(context)
     val size = StrengthWidget.sizeFor(minWidthDp, minHeightDp)
@@ -54,7 +53,7 @@ object StrengthWidgetRenderer {
     val v =
       RemoteViews(
         context.packageName, if (narrow) R.layout.widget_strength_small else R.layout.widget_strength)
-    val content = StrengthWidget.content(snap, size, window)
+    val content = StrengthWidget.content(snap, size)
 
     if (content == null) {
       v.setOnClickPendingIntent(android.R.id.background, WidgetRenderer.deepLink(context, "veloq://", 30))
@@ -149,15 +148,14 @@ object StrengthWidgetRenderer {
     }
   }
 
-  /** One row per top muscle and nothing for the rest: the name, then the sets and the volume. */
+  /** One row per top muscle and nothing for the rest: the name, then its detail line. */
   private fun bindRows(v: RemoteViews, top: List<StrengthTopMuscle>) {
     for ((i, ids) in ROWS.withIndex()) {
       val muscle = top.getOrNull(i)
       v.setViewVisibility(ids.row, if (muscle == null) View.GONE else View.VISIBLE)
       if (muscle == null) continue
       v.setTextViewText(ids.name, muscle.name)
-      v.setTextViewText(
-        ids.detail, listOfNotNull(muscle.setsText.ifEmpty { null }, muscle.volumeText).joinToString(" · "))
+      v.setTextViewText(ids.detail, muscle.detail)
     }
   }
 }

@@ -18,14 +18,24 @@ PKG="com.veloq.app.dev"
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
-NEWEST=$(adb shell "run-as $PKG ls -1t cache/" 2>/dev/null | tr -d '\r' | grep -E '\.gpx$' | head -n1 || true)
-if [ -z "${NEWEST:-}" ]; then
-  echo "FAIL: no .gpx file in cache/ - did the export flow run?"
+# The app writes every file it hands to the share sheet into `cache/exports/`
+# (`EXPORTS_DIR` in src/shared/storage/cacheFiles.ts). `cache/` itself is where
+# a build from before that directory wrote its GPX.
+NEWEST=""
+for DIR in cache/exports/ cache/; do
+  NAME=$(adb shell "run-as $PKG ls -1t $DIR" 2>/dev/null | tr -d '\r' | grep -E '\.gpx$' | head -n1 || true)
+  if [ -n "${NAME:-}" ]; then
+    NEWEST="$DIR$NAME"
+    break
+  fi
+done
+if [ -z "$NEWEST" ]; then
+  echo "FAIL: no .gpx file in cache/exports/ or cache/ - did the export flow run?"
   exit 1
 fi
 echo "Found: $NEWEST"
 
-adb shell "run-as $PKG cat cache/$NEWEST" > "$WORK/export.gpx"
+adb shell "run-as $PKG cat $NEWEST" > "$WORK/export.gpx"
 SIZE=$(stat -c%s "$WORK/export.gpx")
 echo "Pulled $SIZE bytes"
 

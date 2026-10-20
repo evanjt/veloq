@@ -25,20 +25,14 @@ const path = require("path");
  * which is why the Kotlin uses a __PKG__ placeholder rather than a hardcoded package.
  */
 
-// Quick-Record stays compiled but out of the gallery until the record surface is
-// ready. The flag is shared with the iOS plugin so one edit moves both, and on
-// this side it drops the standalone receiver and writes the bool the Dashboard
-// widget's large layout reads, which carries a record button over the same deep
-// link.
-const { INCLUDE_RECORD_WIDGET } = require("./widgetFlags");
 const { writeAndroidStrings } = require("./nativeStrings");
 const { writeWidgetPreviews } = require("./widgetPreviews");
 
-// Summary (all sizes, hero chosen when placed), Latest Activity, Insights (kinds
-// chosen when placed), Strength (window chosen when placed), and the Quick-Record
-// button. Excluded receivers are actively removed so an incremental prebuild can't
-// keep a stale registration. A label names the widget in the gallery; one without
-// it would show the application name, so every receiver carries one.
+// Summary (all sizes, hero chosen when placed, the record button from Medium up),
+// Latest Activity, Insights (kinds chosen when placed) and Strength (the trailing
+// 30 days). Excluded receivers are actively removed so an incremental prebuild
+// can't keep a stale registration. A label names the widget in the gallery; one
+// without it would show the application name, so every receiver carries one.
 const RECEIVERS = [
   {
     name: ".widget.VeloqWidgetProvider",
@@ -65,11 +59,22 @@ const RECEIVERS = [
     include: true,
   },
   {
+    // Retired: the Summary widget carries the record button. A placed one shows
+    // the launcher's can't-load state, and nothing it stored is lost.
     name: ".widget.VeloqRecordWidgetProvider",
-    info: "@xml/widget_record_info",
-    label: "@string/widget_record_label",
-    include: INCLUDE_RECORD_WIDGET,
+    include: false,
   },
+];
+
+// Sources a retired widget left in the generated tree. Copying the tracked tree
+// in is additive, so without this an incremental prebuild keeps a provider info
+// that names a string no longer written, and the resource merge fails.
+const RETIRED_SOURCES = [
+  "res/xml/widget_record_info.xml",
+  "res/layout/widget_record.xml",
+  "res/layout/widget_record_configure.xml",
+  "res/drawable/widget_record_background.xml",
+  "res/values/widget_flags.xml",
 ];
 
 // Resources carry `__PKG__` too, not only the Kotlin: `android:configure` on a
@@ -87,21 +92,6 @@ function copyDir(src, dest, pkg) {
       fs.copyFileSync(from, to);
     }
   }
-}
-
-// The Kotlin cannot read the JS constant, so it reaches the natives as a resource.
-// Generated rather than tracked, so there is no second copy to drift.
-function writeFlags(resDir) {
-  const values = path.join(resDir, "values");
-  fs.mkdirSync(values, { recursive: true });
-  fs.writeFileSync(
-    path.join(values, "widget_flags.xml"),
-    `<?xml version="1.0" encoding="utf-8"?>
-<resources>
-  <bool name="widget_record_enabled">${INCLUDE_RECORD_WIDGET}</bool>
-</resources>
-`
-  );
 }
 
 // The face every widget label draws, as a font family the layouts name and the chart labels load.
@@ -150,8 +140,8 @@ function writeWidgetSources(projectRoot, androidRoot, pkg) {
   const widgetSrc = path.join(projectRoot, "widget", "android");
   const mainSrc = path.join(androidRoot, "app", "src", "main");
 
+      for (const file of RETIRED_SOURCES) fs.rmSync(path.join(mainSrc, file), { force: true });
       copyDir(path.join(widgetSrc, "res"), path.join(mainSrc, "res"), pkg);
-      writeFlags(path.join(mainSrc, "res"));
       writeWidgetFonts(projectRoot, path.join(mainSrc, "res"));
       writeWidgetPreviews(projectRoot, path.join(mainSrc, "res"));
       writeAndroidStrings(path.join(mainSrc, "res"));
@@ -227,15 +217,13 @@ function applyReceivers(app) {
     }
 }
 
-// The Quick Settings tile rides the same gate as the widget: one record surface
-// off means every record surface off. Removed rather than skipped, so an
-// incremental prebuild cannot keep a stale registration.
+// The Quick Settings tile. Replaced rather than kept, so an incremental prebuild
+// cannot keep a stale registration.
 const TILE_SERVICE = ".widget.RecordTileService";
 
-function applyServices(app, include = INCLUDE_RECORD_WIDGET) {
+function applyServices(app) {
   app.service = app.service || [];
   app.service = app.service.filter((s) => s.$?.["android:name"] !== TILE_SERVICE);
-  if (!include) return;
   app.service.push({
     $: {
       "android:name": TILE_SERVICE,
@@ -252,10 +240,9 @@ function applyServices(app, include = INCLUDE_RECORD_WIDGET) {
   });
 }
 
-// The pickers a placed widget opens. The Record one rides the same gate as the
-// widget it configures; the Summary, Insights and Strength ones belong to widgets
-// that are always in the gallery. Both are removed rather than skipped, so an incremental prebuild cannot
-// keep a stale registration pointing at a class that is no longer compiled.
+// The pickers a placed widget opens. Each is removed before it is added, and the
+// retired Record and Strength pickers are removed alone, so an incremental prebuild
+// cannot keep a stale registration pointing at a class that is no longer compiled.
 const SUMMARY_CONFIGURE_ACTIVITY = ".widget.SummaryWidgetConfigureActivity";
 const INSIGHTS_CONFIGURE_ACTIVITY = ".widget.InsightsWidgetConfigureActivity";
 const STRENGTH_CONFIGURE_ACTIVITY = ".widget.StrengthWidgetConfigureActivity";
@@ -284,12 +271,12 @@ function configureActivity(name) {
   };
 }
 
-function applyActivities(app, includeRecord = INCLUDE_RECORD_WIDGET) {
+function applyActivities(app) {
   const pickers = [
     { name: SUMMARY_CONFIGURE_ACTIVITY, include: true },
     { name: INSIGHTS_CONFIGURE_ACTIVITY, include: true },
-    { name: STRENGTH_CONFIGURE_ACTIVITY, include: true },
-    { name: RECORD_CONFIGURE_ACTIVITY, include: includeRecord },
+    { name: STRENGTH_CONFIGURE_ACTIVITY, include: false },
+    { name: RECORD_CONFIGURE_ACTIVITY, include: false },
   ];
   app.activity = (app.activity || []).filter(
     (a) => !pickers.some((p) => p.name === a.$?.["android:name"])
@@ -340,7 +327,6 @@ module.exports = function withAndroidWidget(config) {
   return config;
 };
 
-module.exports.INCLUDE_RECORD_WIDGET = INCLUDE_RECORD_WIDGET;
 module.exports.applyReceivers = applyReceivers;
 module.exports.applyActivities = applyActivities;
 module.exports.applyServices = applyServices;

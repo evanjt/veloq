@@ -8,7 +8,7 @@
  * the screen alone.
  */
 import React from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { render, act } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import MapScreen from '@/app/(tabs)/map';
@@ -180,6 +180,22 @@ describe('the map tab on its first visit', () => {
 
     await passFrames();
     expect(view.getByTestId('regional-map-ready', { includeHiddenElements: true })).toBeTruthy();
+    await view.unmount();
+  });
+
+  it('keeps the map ready marker in the native hierarchy with a size a flow can see', async () => {
+    const view = await render(screen());
+    await passFrames();
+    const marker = view.getByTestId('regional-map-ready', { includeHiddenElements: true });
+    // Android flattens an empty view away, and a flow never finds a view with no area.
+    expect(marker.props.collapsable).toBe(false);
+    expect(StyleSheet.flatten(marker.props.style)).toMatchObject({
+      position: 'absolute',
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+    });
     await view.unmount();
   });
 });

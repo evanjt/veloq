@@ -69,8 +69,14 @@ onFlowComplete:
                     visible:
                       id: "debug-section-support-card"
                   commands:
-                    - tapOn:
-                        id: "debug-section-support-card"
+                    # Opened only when closed, as in the body.
+                    - runFlow:
+                        when:
+                          notVisible:
+                            id: "debug-support-legacy-toggle"
+                        commands:
+                          - tapOn:
+                              id: "debug-section-support-card"
                     - scrollUntilVisible:
                         element:
                           id: "debug-support-preset-0d"
@@ -157,8 +163,10 @@ onFlowComplete:
 
 # ---- Find Support Card section in dev dashboard, expand, set 31d ago ----
 
-# The Support Card collapsible is collapsed by default, tap header to expand.
-# Use explicit edge swipes since the FFI metrics table can intercept centered swipes.
+# The Support Card collapsible is collapsed on a fresh dashboard, but one the
+# stack kept from earlier keeps it as it was left, so the header is tapped only
+# when the section is closed. Use explicit edge swipes since the FFI metrics
+# table can intercept centered swipes.
 - repeat:
     times: 10
     commands:
@@ -177,8 +185,15 @@ onFlowComplete:
 - assertVisible:
     id: "debug-section-support-card"
 
-- tapOn:
-    id: "debug-section-support-card"
+# Scrolled to the end of the page, an open section shows its last row of
+# controls, the legacy toggle among them.
+- runFlow:
+    when:
+      notVisible:
+        id: "debug-support-legacy-toggle"
+    commands:
+      - tapOn:
+          id: "debug-section-support-card"
 
 # The Support Card section ends the dashboard, so its controls sit near the
 # bottom of a page that cannot scroll them to the centre, and a centring scroll
@@ -228,6 +243,8 @@ onFlowComplete:
 
 # Navigate back to home feed; SupportCard should now appear since
 # first use and lastActionDate are 31 days ago with enough days of use, and dismissCount=0.
+# The preset also hands the card the session's one ask, which demo mode's quiet
+# period or another card would otherwise hold.
 - openLink: "veloq://"
 - runFlow:
     when:

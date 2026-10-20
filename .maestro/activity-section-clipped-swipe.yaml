@@ -18,7 +18,7 @@ tags:
       id: "activity-detail-screen"
     timeout: 15000
 - tapOn:
-    text: "Sections"
+    id: "tab-sections"
     optional: true
 - assertVisible:
     id: "activity-sections-list"
@@ -41,9 +41,14 @@ tags:
     id: "section-inline-plot-0"
 - assertNotVisible:
     id: "section-inline-plot-1"
-# The tab bar sits near 65 % down on a tall screen and a drag from it scrolls
-# nothing, so the drag starts lower, inside the list.
+# The list sits in the map sheet, and a drag down past the list's top lowers
+# the sheet and takes the cards below the fold, so the drags stop as soon as
+# the first card is back. Each starts low, inside the list rather than on the
+# tabs above it.
 - repeat:
+    while:
+      notVisible:
+        id: "section-inline-plot-0"
     times: 12
     commands:
       - swipe:

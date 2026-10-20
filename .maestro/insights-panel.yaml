@@ -48,10 +48,13 @@ tags:
       - assertVisible:
           id: "insights-card-list"
       - takeScreenshot: "screenshots/insights-cards-visible"
+      # A short, slow swipe: a long fast one flings a short card list off the top.
       - swipe:
-          start: 50%, 80%
-          end: 50%, 30%
-          duration: 400
+          start: 50%, 75%
+          end: 50%, 55%
+          duration: 1000
+      - waitForAnimationToEnd:
+          timeout: 3000
       - assertVisible:
           id: "insights-card-list"
       - takeScreenshot: "screenshots/insights-cards-scrolled"

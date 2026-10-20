@@ -117,7 +117,6 @@ export const WIDGET_STRING_KEYS = [
   'systemSurfaces.spoken.body',
   'period.long.1m',
   'strength.noWorkouts',
-  'strength.noWorkoutsThisMonth',
   'strength.notDownloaded',
   // Every plural form any locale gives the count, which the engine picks between.
   'strength.setsCount_one',

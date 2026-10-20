@@ -14,19 +14,18 @@ import os from 'os';
 import path from 'path';
 
 const iosPlugin = require('@/../src/plugins/with-ios-widget.js');
-const flags = require('@/../src/plugins/widgetFlags.js');
 
 const projectRoot = path.join(__dirname, '../..');
 
-function bundles(includeRecord = flags.INCLUDE_RECORD_WIDGET): string {
+function bundles(): string {
   const dest = fs.mkdtempSync(path.join(os.tmpdir(), 'ios-control-'));
-  iosPlugin.writeWidgetBundles(dest, includeRecord);
+  iosPlugin.writeWidgetBundles(dest);
   return fs.readFileSync(path.join(dest, iosPlugin.BUNDLES_FILE), 'utf8');
 }
 
 describe('the Record control is an iOS 18 ControlWidget in the existing extension', () => {
   it('is in both generated bundles, gated at 18 the way the Live Activity is at 16.2', () => {
-    const swift = bundles(true);
+    const swift = bundles();
     const occurrences = swift.match(/VeloqRecordControl\(\)/g) ?? [];
     expect(occurrences).toHaveLength(2);
     for (const half of swift.split('struct VeloqWidgetsConfigurable')) {
@@ -34,12 +33,6 @@ describe('the Record control is an iOS 18 ControlWidget in the existing extensio
       expect(at).toBeGreaterThan(-1);
       expect(half.lastIndexOf('if #available(iOS 18.0, *)', at)).toBeGreaterThan(-1);
     }
-  });
-
-  it('leaves with the widget when the flag goes off: one gate, not two', () => {
-    const swift = bundles(false);
-    expect(swift).not.toContain('VeloqRecordControl()');
-    expect(swift).not.toContain('VeloqRecordWidget()');
   });
 
   it('is compiled by the target, which reads the tracked directory', () => {

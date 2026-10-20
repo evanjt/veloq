@@ -21,10 +21,12 @@ tags:
     file: helpers/reveal.yaml
     env:
       ELEMENT: "weekly-summary"
+      LIST: "fitness-page-calendar"
 - runFlow:
     file: helpers/reveal.yaml
     env:
       ELEMENT: "weekly-summary-range-year"
+      LIST: "fitness-page-calendar"
 
 # Switch to year range where demo data is guaranteed to exist
 - tapOn:
@@ -38,6 +40,7 @@ tags:
     file: helpers/reveal.yaml
     env:
       ELEMENT: "weekly-summary"
+      LIST: "fitness-page-calendar"
 
 # Verify component rendered (stats or empty state, both are valid)
 # Longer timeout for the year range to compute from demo data

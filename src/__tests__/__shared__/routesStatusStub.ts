@@ -24,6 +24,8 @@ export interface StubbedStatusParts {
     stored?: number;
     failed?: number;
     percent?: number;
+    /** When a waiting pass resumes, epoch milliseconds. */
+    resumesAt?: number | null;
   } | null;
   streamRemaining?: number | null;
   streamRemainingBytes?: number | null;
@@ -33,6 +35,8 @@ export interface StubbedStatusParts {
     total?: number;
     failed?: number;
     percent?: number;
+    /** When a waiting pass resumes, epoch milliseconds. */
+    resumesAt?: number | null;
   } | null;
   /**
    * Null is the engine being unable to answer, never a finished backfill, and
@@ -51,6 +55,7 @@ export function routesStatus(parts: StubbedStatusParts = {}) {
     total: 0,
     failed: 0,
     percent: 0,
+    resumesAt: null,
     ...(parts.elevation ?? {}),
   };
   const stream = {
@@ -60,6 +65,7 @@ export function routesStatus(parts: StubbedStatusParts = {}) {
     stored: 0,
     failed: 0,
     percent: 0,
+    resumesAt: null,
     ...(parts.stream ?? {}),
   };
   return {

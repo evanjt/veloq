@@ -31,7 +31,9 @@ class WidgetSpokenWordsTest {
         emptyText?.let { put("emptyText", it) }
       }
 
-  private fun snapshot(): WidgetSnapshot =
+  private fun snapshot(
+    strength: JSONObject = window("Most trained: Glutes 7 sets")
+  ): WidgetSnapshot =
     WidgetSnapshot.parse(
       JSONObject()
         .put("emptyLibrary", false)
@@ -76,11 +78,7 @@ class WidgetSpokenWordsTest {
           JSONObject()
             .put("body", "male")
             .put("url", "veloq://strength")
-            .put(
-              "windows",
-              JSONObject()
-                .put("last30", window("Most trained: Glutes 7 sets"))
-                .put("month", window("Most trained: Glutes 2 sets", "No strength work")))))
+            .put("windows", JSONObject().put("last30", strength))))
 
   @Test
   fun the_verdict_a_colour_carries_is_read_as_words() {
@@ -107,10 +105,10 @@ class WidgetSpokenWordsTest {
 
   @Test
   fun the_body_says_what_it_shows_and_a_window_drawing_words_instead_says_nothing() {
-    val snap = snapshot()
     assertEquals(
       "Most trained: Glutes 7 sets",
-      StrengthWidget.content(snap, SummarySize.MEDIUM, StrengthWidget.LAST30)?.bodyLabel)
-    assertNull(StrengthWidget.content(snap, SummarySize.MEDIUM, StrengthWidget.MONTH)?.bodyLabel)
+      StrengthWidget.content(snapshot(), SummarySize.MEDIUM)?.bodyLabel)
+    val words = snapshot(window("Most trained: Glutes 2 sets", "No strength work"))
+    assertNull(StrengthWidget.content(words, SummarySize.MEDIUM)?.bodyLabel)
   }
 }

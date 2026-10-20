@@ -9,12 +9,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Scenario: the Strength widget draws the snapshot's strength block on the body, over the window
- * the placement chose, at whatever size the launcher gives it.
+ * Scenario: the Strength widget draws the snapshot's strength block on the body, over the last 30
+ * days, at whatever size the launcher gives it.
  *
  * Expected behaviour: the front body at the smallest sizes, front and back at medium, and both
- * with the window's top muscles at large in the snapshot's order. The month choice draws the month
- * and anything else the last 30 days. A window with no sessions draws its words and no body,
+ * with the window's top muscles at large in the snapshot's order. A snapshot written while the
+ * calendar month was still offered draws its last 30 days. A window with no sessions draws its words and no body,
  * since an unshaded body reads as zero load. No snapshot, an empty library or a snapshot written
  * before the block draw the prompt every widget draws before a first snapshot.
  */
@@ -22,12 +22,22 @@ class StrengthWidgetTest {
   private fun muscle(slug: String, shade: Int): JSONObject =
     JSONObject().put("slug", slug).put("shade", shade)
 
-  private fun top(slug: String, name: String, sets: String, volume: String?): JSONObject =
-    JSONObject()
-      .put("slug", slug)
-      .put("name", name)
-      .put("setsText", sets)
-      .put("volumeText", volume ?: JSONObject.NULL)
+  private fun top(
+    slug: String,
+    name: String,
+    sets: String,
+    volume: String?,
+    frequency: String? = null,
+  ): JSONObject {
+    val row =
+      JSONObject()
+        .put("slug", slug)
+        .put("name", name)
+        .put("setsText", sets)
+        .put("volumeText", volume ?: JSONObject.NULL)
+    if (frequency != null) row.put("frequencyText", frequency)
+    return row
+  }
 
   private fun window(
     label: String,
@@ -63,19 +73,8 @@ class StrengthWidgetTest {
       ),
     )
 
-  private val month =
-    window(
-      "October",
-      listOf(muscle("quadriceps", 5), muscle("hamstring", 2)),
-      listOf(
-        top("quadriceps", "Quadriceps", "5 sets", "3000 kg"),
-        top("hamstring", "Hamstrings", "2 sets", "800 kg"),
-      ),
-    )
-
   private fun snapshot(
     last30: JSONObject = this.last30,
-    month: JSONObject = this.month,
     body: String = "male",
     display: JSONObject = JSONObject(),
     emptyLibrary: Boolean = false,
@@ -88,14 +87,14 @@ class StrengthWidgetTest {
         JSONObject()
           .put("body", body)
           .put("url", "veloq://insights?tab=strength&period=1m")
-          .put("windows", JSONObject().put("last30", last30).put("month", month)),
+          .put("windows", JSONObject().put("last30", last30)),
       )
     }
     return WidgetSnapshot.parse(root)
   }
 
-  private fun content(size: SummarySize, choice: String? = null, snap: WidgetSnapshot? = snapshot()) =
-    StrengthWidget.content(snap, size, choice)
+  private fun content(size: SummarySize, snap: WidgetSnapshot? = snapshot()) =
+    StrengthWidget.content(snap, size)
 
   @Test
   fun small_draws_the_front_only() {
@@ -121,31 +120,53 @@ class StrengthWidgetTest {
   }
 
   @Test
+  fun a_large_row_reads_how_often_a_week_then_the_sets_then_the_volume() {
+    val rows =
+      listOf(
+        top("chest", "Chest", "14 sets", "4960 kg", frequency = "2.2×/wk"),
+        top("abs", "Abs", "6 sets", null, frequency = "0.7×/wk"),
+        top("calves", "Calves", "3 sets", "900 kg"),
+      )
+    val snap = snapshot(last30 = window("Last 30 days", listOf(muscle("chest", 5)), rows))
+    assertEquals(
+      listOf("2.2×/wk · 14 sets · 4960 kg", "0.7×/wk · 6 sets", "3 sets · 900 kg"),
+      content(SummarySize.LARGE, snap)!!.top.map { it.detail },
+    )
+  }
+
+  @Test
   fun large_never_lists_more_than_four_rows() {
     val five = (1..5).map { top("m$it", "Muscle $it", "$it sets", null) }
     val snap = snapshot(last30 = window("Last 30 days", listOf(muscle("m1", 5)), five))
     assertEquals(
       listOf("Muscle 1", "Muscle 2", "Muscle 3", "Muscle 4"),
-      content(SummarySize.LARGE, snap = snap)!!.top.map { it.name },
+      content(SummarySize.LARGE, snap)!!.top.map { it.name },
     )
   }
 
   @Test
-  fun the_month_choice_draws_the_month_window() {
-    val chosen = content(SummarySize.LARGE, StrengthWidget.MONTH)!!
-    assertEquals("October", chosen.label)
-    assertEquals(listOf("Quadriceps", "Hamstrings"), chosen.top.map { it.name })
-    assertEquals(5, chosen.shadeOf("quadriceps"))
-    assertEquals(0, chosen.shadeOf("gluteal"))
-  }
-
-  @Test
-  fun no_choice_or_an_unknown_one_draws_the_last_30_days() {
-    for (choice in listOf(null, StrengthWidget.LAST30, "week", "")) {
-      assertEquals("Last 30 days", content(SummarySize.MEDIUM, choice)!!.label)
-    }
-    assertEquals(StrengthWidget.LAST30, StrengthWidget.normalise("week"))
-    assertEquals(StrengthWidget.MONTH, StrengthWidget.normalise(StrengthWidget.MONTH))
+  fun a_snapshot_that_still_carries_the_calendar_month_draws_the_last_30_days() {
+    val month =
+      window(
+        "October",
+        listOf(muscle("quadriceps", 5)),
+        listOf(top("quadriceps", "Quadriceps", "5 sets", "3000 kg")),
+      )
+    val root =
+      JSONObject()
+        .put("emptyLibrary", false)
+        .put("display", JSONObject())
+        .put(
+          "strength",
+          JSONObject()
+            .put("body", "male")
+            .put("url", "veloq://insights?tab=strength&period=1m")
+            .put("windows", JSONObject().put("month", month).put("last30", last30)),
+        )
+    val drawn = content(SummarySize.LARGE, WidgetSnapshot.parse(root))!!
+    assertEquals("Last 30 days", drawn.label)
+    assertEquals(listOf("Glutes", "Triceps", "Chest", "Biceps"), drawn.top.map { it.name })
+    assertEquals(0, drawn.shadeOf("quadriceps"))
   }
 
   @Test
@@ -161,7 +182,7 @@ class StrengthWidgetTest {
   fun a_shade_outside_the_ramp_is_held_to_its_ends() {
     val shades = listOf(muscle("chest", 9), muscle("abs", 0), muscle("biceps", -2))
     val snap = snapshot(last30 = window("Last 30 days", shades, emptyList()))
-    val c = content(SummarySize.SMALL, snap = snap)!!
+    val c = content(SummarySize.SMALL, snap)!!
     assertEquals(StrengthWidget.SHADES, c.shadeOf("chest"))
     assertEquals(0, c.shadeOf("abs"))
     assertEquals(0, c.shadeOf("biceps"))
@@ -169,37 +190,38 @@ class StrengthWidgetTest {
 
   @Test
   fun a_window_with_empty_text_draws_the_text_and_no_body() {
+    val words = "No strength workouts in the last 1 month"
     val snap =
-      snapshot(
-        month = window("October", emptyList(), emptyList(), emptyText = "No strength workouts this month"))
+      snapshot(last30 = window("Last 30 days", emptyList(), emptyList(), emptyText = words))
     for (size in SummarySize.values()) {
-      val c = content(size, StrengthWidget.MONTH, snap)!!
-      assertEquals("No strength workouts this month", c.emptyText)
+      val c = content(size, snap)!!
+      assertEquals(words, c.emptyText)
       assertTrue("$size draws a body", c.sides.isEmpty())
       assertTrue(c.top.isEmpty())
+      assertNull(c.bodyLabel)
     }
-    assertNull(content(SummarySize.LARGE, StrengthWidget.LAST30, snap)!!.emptyText)
-    assertFalse(content(SummarySize.LARGE, StrengthWidget.LAST30, snap)!!.sides.isEmpty())
+    assertNull(content(SummarySize.LARGE)!!.emptyText)
+    assertFalse(content(SummarySize.LARGE)!!.sides.isEmpty())
   }
 
   @Test
   fun no_snapshot_an_empty_library_or_a_snapshot_before_the_block_draws_the_prompt() {
-    assertNull(content(SummarySize.MEDIUM, snap = null))
-    assertNull(content(SummarySize.MEDIUM, snap = snapshot(emptyLibrary = true)))
-    assertNull(content(SummarySize.MEDIUM, snap = snapshot(withStrength = false)))
+    assertNull(content(SummarySize.MEDIUM, null))
+    assertNull(content(SummarySize.MEDIUM, snapshot(emptyLibrary = true)))
+    assertNull(content(SummarySize.MEDIUM, snapshot(withStrength = false)))
   }
 
   @Test
   fun a_sample_snapshot_keeps_its_demo_label() {
     val sample = snapshot(display = JSONObject().put("demoLabel", "Demo Mode"))
-    assertEquals("Demo Mode", content(SummarySize.SMALL, snap = sample)!!.demoLabel)
+    assertEquals("Demo Mode", content(SummarySize.SMALL, sample)!!.demoLabel)
     assertNull(content(SummarySize.SMALL)!!.demoLabel)
   }
 
   @Test
   fun the_body_follows_the_athlete_and_the_tap_opens_the_block_link() {
     assertFalse(content(SummarySize.SMALL)!!.female)
-    assertTrue(content(SummarySize.SMALL, snap = snapshot(body = "female"))!!.female)
+    assertTrue(content(SummarySize.SMALL, snapshot(body = "female"))!!.female)
     assertEquals("veloq://insights?tab=strength&period=1m", content(SummarySize.SMALL)!!.url)
   }
 
@@ -213,7 +235,7 @@ class StrengthWidgetTest {
             listOf(JSONObject().put("shade", 3), muscle("chest", 3)),
             listOf(JSONObject().put("slug", "x"), top("chest", "Chest", "3 sets", null)),
           ))
-    val c = content(SummarySize.LARGE, snap = snap)!!
+    val c = content(SummarySize.LARGE, snap)!!
     assertEquals(listOf("Chest"), c.top.map { it.name })
     assertEquals(3, c.shadeOf("chest"))
   }

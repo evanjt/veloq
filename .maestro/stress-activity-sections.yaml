@@ -24,7 +24,7 @@ tags:
 
 # Look for sections tab if it exists
 - tapOn:
-    text: "Sections"
+    id: "tab-sections"
     optional: true
 
 - extendedWaitUntil:

@@ -8,144 +8,17 @@
   android:padding="@dimen/widget_padding"
   android:background="@drawable/widget_background">
 
-  <LinearLayout
+  <include layout="@layout/widget_summary_head" />
+
+  <!-- The chart runs the card's full width under the head, at the height it is drawn at. -->
+  <ImageView
+    android:id="@+id/sum_sparkline"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:orientation="horizontal">
+    android:layout_height="52dp"
+    android:layout_marginTop="4dp"
+    android:scaleType="fitXY" />
 
-    <LinearLayout
-      android:layout_width="0dp"
-      android:layout_height="wrap_content"
-      android:layout_weight="1"
-      android:orientation="vertical">
-
-      <TextView
-        android:fontFamily="@font/widget_manrope"
-        android:id="@+id/sum_label"
-        android:importantForAccessibility="no"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:maxLines="1"
-        android:ellipsize="end"
-        android:textSize="@dimen/widget_text_label"
-        android:textColor="@color/widget_text_secondary"
-        android:textAllCaps="true"
-        android:letterSpacing="0.05" />
-
-      <LinearLayout
-        android:id="@+id/sum_hero"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="bottom">
-
-        <!-- The measure's key dot: the value stays in primary text, so its colour is said here. -->
-        <ImageView
-          android:id="@+id/sum_key"
-          android:layout_width="6dp"
-          android:layout_height="6dp"
-          android:layout_gravity="center_vertical"
-          android:layout_marginEnd="4dp"
-          android:importantForAccessibility="no"
-          android:src="@drawable/widget_tone_dot"
-          android:visibility="gone" />
-
-        <TextView
-          android:fontFamily="@font/widget_manrope"
-          android:id="@+id/sum_value"
-          android:layout_width="wrap_content"
-          android:layout_height="wrap_content"
-          android:maxLines="1"
-          android:textSize="@dimen/widget_text_metric"
-          android:textStyle="bold"
-          android:textColor="@color/widget_text_primary" />
-
-        <TextView
-          android:fontFamily="@font/widget_manrope"
-          android:id="@+id/sum_trend"
-          android:layout_width="wrap_content"
-          android:layout_height="wrap_content"
-          android:layout_marginStart="6dp"
-          android:textSize="@dimen/widget_text_label"
-          android:textColor="@color/widget_text_secondary" />
-      </LinearLayout>
-
-      <TextView
-        android:fontFamily="@font/widget_manrope"
-        android:id="@+id/sum_line"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:maxLines="1"
-        android:ellipsize="end"
-        android:textSize="@dimen/widget_text_caption"
-        android:textStyle="bold"
-        android:textColor="@color/widget_text_primary" />
-    </LinearLayout>
-
-    <LinearLayout
-      android:layout_width="0dp"
-      android:layout_height="wrap_content"
-      android:layout_weight="1"
-      android:orientation="vertical">
-
-      <ImageView
-        android:id="@+id/sum_sparkline"
-        android:layout_width="match_parent"
-        android:layout_height="52dp"
-        android:scaleType="fitXY" />
-
-      <LinearLayout
-        android:id="@+id/sum_chart_caption"
-        android:importantForAccessibility="noHideDescendants"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:visibility="gone">
-
-        <!-- One series to a line, since two translated names side by side outgrow the column. -->
-        <LinearLayout
-          android:id="@+id/sum_series"
-          android:layout_width="match_parent"
-          android:layout_height="wrap_content"
-          android:orientation="vertical">
-
-          <TextView
-            android:fontFamily="@font/widget_manrope"
-            android:id="@+id/sum_series_fitness"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:drawableStart="@drawable/widget_legend_fitness"
-            android:drawablePadding="3dp"
-            android:maxLines="2"
-            android:ellipsize="end"
-            android:textSize="@dimen/widget_text_caption"
-            android:textColor="@color/widget_text_secondary" />
-
-          <TextView
-            android:fontFamily="@font/widget_manrope"
-            android:id="@+id/sum_series_fatigue"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:drawableStart="@drawable/widget_legend_fatigue"
-            android:drawablePadding="3dp"
-            android:maxLines="2"
-            android:ellipsize="end"
-            android:textSize="@dimen/widget_text_caption"
-            android:textColor="@color/widget_text_secondary" />
-        </LinearLayout>
-
-        <TextView
-          android:fontFamily="@font/widget_manrope"
-          android:id="@+id/sum_chart_span"
-          android:layout_width="match_parent"
-          android:layout_height="wrap_content"
-          android:maxLines="1"
-          android:ellipsize="end"
-          android:textSize="@dimen/widget_text_caption"
-          android:textColor="@color/widget_text_secondary" />
-      </LinearLayout>
-    </LinearLayout>
-  </LinearLayout>
+  <include layout="@layout/widget_summary_chart_caption" />
 
   <TextView
     android:fontFamily="@font/widget_manrope"
@@ -203,13 +76,15 @@
       android:textColor="@color/widget_text_secondary" />
   </LinearLayout>
 
+  <!-- Drawn at the height the placement leaves it; where the host lays it out at another, the
+       bitmap is scaled whole, so its axis labels keep their proportions. -->
   <ImageView
     android:id="@+id/sum_form_zones"
     android:layout_width="match_parent"
     android:layout_height="0dp"
     android:layout_weight="1"
     android:minHeight="48dp"
-    android:scaleType="fitXY" />
+    android:scaleType="fitCenter" />
 
   <LinearLayout
     android:layout_width="match_parent"
@@ -230,7 +105,7 @@
     <include layout="@layout/widget_refresh_control" />
 
     <ImageView
-      android:id="@+id/large_record"
+      android:id="@+id/sum_record"
       android:layout_width="48dp"
       android:layout_height="48dp"
       android:padding="14dp"

@@ -28,7 +28,7 @@ tags:
     timeout: 15000
 
 - tapOn:
-    text: "Sections"
+    id: "tab-sections"
     optional: true
 
 - extendedWaitUntil:

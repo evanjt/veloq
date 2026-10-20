@@ -3,8 +3,8 @@ import Foundation
 
 /// The sports the athlete records, read from the shared App Group container.
 ///
-/// Compiled into the app and the widget extension both: the Siri phrase and the
-/// configurable widget offer the same list, so the list has one reader. It is
+/// Compiled into the app and the widget extension both, so the Siri phrase and
+/// every surface that offers a sport read the list one way. It is
 /// the file every widget surface reads, decoded for the fields a sport choice
 /// needs rather than through the whole widget model, which the app target does
 /// not compile.

@@ -78,7 +78,7 @@ Sub-flows in `.maestro/helpers/` provide reusable setup and navigation. They hav
 | `helpers/navigate-to-routes.yaml` | Deep link to routes screen |
 | `helpers/navigate-to-settings.yaml` | Deep link to settings screen |
 | `helpers/open-detection-preview.yaml` | Settings to routes and sections to the detection preview |
-| `helpers/reveal.yaml` | Scroll until `ELEMENT` is on screen and clear of the tab bar, swiping from low on the screen rather than its centre |
+| `helpers/reveal.yaml` | Scroll `LIST` until a tap on the centre of `ELEMENT` lands on it, clear of the tab bar and the record button; `DIRECTION: UP` scrolls back towards the top |
 
 Usage in a flow:
 ```yaml

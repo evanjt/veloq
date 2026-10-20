@@ -15,7 +15,7 @@ import {
   useScrollEndInset,
 } from '@/shared/ui';
 import { logScreenRender, logMemory } from '@/shared/debug/renderTimer';
-import { Stack, router, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import {
   FitnessChartCard,
   PerformanceCurveSection,
@@ -49,6 +49,8 @@ import {
   type FitnessChart,
   type FitnessPlace,
 } from '@/shared/app/fitnessEntry';
+import { useFitnessPlace } from '@/shared/app/useFitnessPlace';
+import { useSetOwnParams } from '@/shared/app/useSetOwnParams';
 import { useRevealChart } from '@/shared/app/useRevealChart';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { useScrollToTopOnReselect } from '@/shared/ui/tabReselect';
@@ -126,22 +128,12 @@ function FitnessScreenContent() {
   }>();
   const entry = fitnessEntryFromParams(params);
   const entryChart = entry.chart ?? null;
-  const entryPlace = entry.place ?? null;
-  const [place, setPlace] = useState<FitnessPlace>(() => fitnessPlaceOf(entry));
-
-  // A link that names a page while the screen is mounted moves to it, taken
-  // while rendering so no frame shows the page it left. The param is cleared
-  // once applied, so a later link to the same page moves the screen again
-  // after the athlete has swiped elsewhere.
-  const [placeLink, setPlaceLink] = useState(entryPlace);
-  if (entryPlace !== placeLink) {
-    setPlaceLink(entryPlace);
-    if (entryPlace) setPlace(fitnessPlaceOf({ chart: entryChart, place: entryPlace }));
-  }
-  useEffect(() => {
-    if (entryPlace) router.setParams({ tab: undefined });
-  }, [entryPlace]);
-  const clearEntry = useCallback(() => router.setParams({ range: undefined, date: undefined }), []);
+  const [place, setPlace] = useFitnessPlace(entry);
+  const setParams = useSetOwnParams();
+  const clearEntry = useCallback(
+    () => setParams({ range: undefined, date: undefined }),
+    [setParams]
+  );
   const {
     timeRange,
     changeTimeRange,
@@ -353,6 +345,7 @@ function FitnessScreenContent() {
   ) => (
     <ScrollView
       {...screenListInsets}
+      testID={`fitness-page-${key}`}
       ref={reveals[key].scrollRef}
       onScrollBeginDrag={reveals[key].onScrollBeginDrag}
       style={styles.scrollView}

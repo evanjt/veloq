@@ -68,7 +68,9 @@ fn test_activity_reads_pooled_populated() {
         .expect("bodies");
 
     assert_eq!(
-        pooled::activity_body(&engine.db, "a1").as_deref(),
+        pooled::activity_body(&engine.db, "a1")
+            .expect("read")
+            .as_deref(),
         Some("{\"id\":\"a1\"}")
     );
     assert_eq!(
@@ -82,7 +84,7 @@ fn test_activity_reads_pooled_populated() {
 
     for id in ["a1", "missing"] {
         assert_eq!(
-            pooled::activity_body(&engine.db, id),
+            pooled::activity_body(&engine.db, id).expect("read"),
             engine.get_activity_body(id)
         );
         assert_eq!(
@@ -98,4 +100,50 @@ fn test_activity_reads_pooled_populated() {
                 .expect("engine bodies")
         );
     }
+}
+
+/// Scenario: a screen reads one stored body while another connection holds the
+/// database locked past the reader's wait.
+///
+/// Expected behaviour: the read fails as a read, so the caller can try again,
+/// and is never answered as "nothing stored", which a detail screen takes as
+/// a download to wait for that nobody started.
+#[test]
+fn a_body_read_that_fails_is_an_error_and_not_an_absent_body() {
+    let dir = tempfile::TempDir::new().expect("tempdir");
+    let path = dir.path().join("locked.db");
+    let writer = rusqlite::Connection::open(&path).expect("writer");
+    writer
+        .execute_batch(
+            "CREATE TABLE activity_bodies (activity_id TEXT PRIMARY KEY, date INTEGER, raw TEXT);
+             INSERT INTO activity_bodies VALUES ('a1', 100, '{\"name\":\"Hill loop\"}');",
+        )
+        .expect("one stored body");
+    let reader = rusqlite::Connection::open(&path).expect("reader");
+    reader
+        .busy_timeout(std::time::Duration::ZERO)
+        .expect("no wait");
+    assert_eq!(
+        pooled::activity_body(&reader, "a1").expect("an open database reads"),
+        Some("{\"name\":\"Hill loop\"}".to_string())
+    );
+
+    writer.execute_batch("BEGIN EXCLUSIVE").expect("lock");
+    assert!(
+        pooled::activity_body(&reader, "a1").is_err(),
+        "a locked read must fail, not answer that nothing is stored"
+    );
+    assert!(pooled::activity_record(&reader, "a1").is_err());
+    writer.execute_batch("COMMIT").expect("unlock");
+
+    assert_eq!(
+        pooled::activity_body(&reader, "missing").expect("an absent row is not a failure"),
+        None
+    );
+    assert_eq!(
+        pooled::activity_record(&reader, "a1")
+            .expect("reads again once the lock is gone")
+            .and_then(|record| record.name),
+        Some("Hill loop".to_string())
+    );
 }

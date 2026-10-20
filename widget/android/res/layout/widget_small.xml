@@ -11,26 +11,15 @@
   android:paddingBottom="@dimen/widget_gap"
   android:background="@drawable/widget_background">
 
-  <TextView
-    android:fontFamily="@font/widget_manrope"
-    android:id="@+id/sum_label"
-    android:importantForAccessibility="no"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:maxLines="1"
-    android:ellipsize="end"
-    android:textSize="@dimen/widget_text_label"
-    android:textColor="@color/widget_text_secondary"
-    android:textAllCaps="true"
-    android:letterSpacing="0.05" />
-
-  <!-- The row wraps its content, so the trend sits beside the value until a long value fills the
-       width; then the weight shrinks the value's box and the value shrinks to fit it. -->
+  <!-- The hero's name, its value and its trend on one line, so the number never stands alone. The
+       row wraps its content, so the three sit together until a long name or value fills the
+       width; then the weights shrink the name's box and the value's, and each shrinks to fit. -->
   <LinearLayout
     android:id="@+id/sum_hero"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
+    android:baselineAligned="false"
     android:gravity="bottom">
 
     <!-- The measure's key dot: the value stays in primary text, so its colour is said here. -->
@@ -43,6 +32,24 @@
       android:importantForAccessibility="no"
       android:src="@drawable/widget_tone_dot"
       android:visibility="gone" />
+
+    <TextView
+      android:fontFamily="@font/widget_manrope"
+      android:id="@+id/sum_label"
+      android:importantForAccessibility="no"
+      android:layout_width="wrap_content"
+      android:layout_height="@dimen/widget_hero_line"
+      android:layout_weight="1"
+      android:layout_marginEnd="6dp"
+      android:maxLines="2"
+      android:hyphenationFrequency="normal"
+      android:gravity="bottom"
+      android:autoSizeTextType="uniform"
+      android:autoSizeMinTextSize="@dimen/widget_text_floor"
+      android:autoSizeMaxTextSize="@dimen/widget_text_value"
+      android:autoSizeStepGranularity="1sp"
+      android:textSize="@dimen/widget_text_value"
+      android:textColor="@color/widget_text_secondary" />
 
     <TextView
       android:fontFamily="@font/widget_manrope"
@@ -94,21 +101,15 @@
     android:layout_marginTop="@dimen/widget_gap"
     android:scaleType="fitXY" />
 
-  <LinearLayout
-    android:id="@+id/small_age"
+  <!-- No refresh control: the line has no room for it beside the hero, and a tap on the widget
+       opens the app, which refreshes. -->
+  <TextView
+    android:fontFamily="@font/widget_manrope"
+    android:id="@+id/small_updated"
     android:layout_width="match_parent"
-    android:layout_height="48dp"
-    android:orientation="horizontal"
-    android:gravity="center_vertical">
-    <TextView
-      android:fontFamily="@font/widget_manrope"
-      android:id="@+id/small_updated"
-      android:layout_width="0dp"
-      android:layout_height="wrap_content"
-      android:layout_weight="1"
-      android:maxLines="2"
-      android:textSize="@dimen/widget_text_caption"
-      android:textColor="@color/widget_text_secondary" />
-    <include layout="@layout/widget_refresh_control" />
-  </LinearLayout>
+    android:layout_height="wrap_content"
+    android:layout_marginTop="@dimen/widget_gap"
+    android:maxLines="2"
+    android:textSize="@dimen/widget_text_caption"
+    android:textColor="@color/widget_text_secondary" />
 </LinearLayout>

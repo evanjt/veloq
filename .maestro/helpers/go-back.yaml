@@ -1,8 +1,11 @@
-# Leave the current screen through the platform's back.
+# Leave the current screen, or the card on top of a map sheet, through the
+# platform's back.
 #
-# Maestro's `back` presses the Android system back and does nothing on iOS,
-# so there the flow taps the native stack header's back button, which UIKit
-# identifies as `BackButton`.
+# Maestro's `back` presses the Android system back, which pops a card pushed
+# into a map sheet as well as a screen. It does nothing on iOS, so there the
+# flow taps the pushed card's close control when one is on screen, since a
+# card in a sheet has no stack header, and otherwise the native stack header's
+# back button, which UIKit identifies as `BackButton`.
 
 appId: com.veloq.app.dev
 ---
@@ -12,9 +15,22 @@ appId: com.veloq.app.dev
     commands:
       - back
 
+- evalScript: ${output.goBackClosedCard = false}
+
 - runFlow:
     when:
       platform: iOS
+      visible:
+        id: "map-sheet-card-close"
+    commands:
+      - tapOn:
+          id: "map-sheet-card-close"
+      - evalScript: ${output.goBackClosedCard = true}
+
+- runFlow:
+    when:
+      platform: iOS
+      true: ${!output.goBackClosedCard}
     commands:
       - tapOn:
           id: "BackButton"

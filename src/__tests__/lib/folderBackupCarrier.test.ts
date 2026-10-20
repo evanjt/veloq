@@ -31,12 +31,19 @@ import {
 
 const RECORD_URI = 'file:///docs/veloq-decisions.zip';
 const MOCK_ZIP_BYTES = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 7, 7, 7]);
+/** The record the engine writes for shared storage, which leaves the export privacy home out. */
+const MOCK_SHARED_ZIP_BYTES = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 5, 5]);
+/** Where a run has the engine write the record for shared storage. */
+const SHARED_RECORD_URI = 'file:///cache/exports/shared-storage-record.zip';
 const TREE_URI = 'content://com.example.documents/tree/primary%3ATraining';
 /** The name the run at the faked clock's instant writes. */
 const RUN_NAME = backupFileName('2026-03-14T06:30:00.000Z');
 const IOS_FOLDER_URI = 'file:///private/var/mobile/Library/Mobile%20Documents/Training/';
 
 const mockSettings = new Map<string, string>();
+const mockRecordScope = jest.requireActual<typeof import('../__shared__/veloqrsStub')>(
+  '../__shared__/veloqrsStub'
+).RecordScope;
 /** Every file on the device by uri, the record zip among them. */
 const mockFiles = new Map<string, Uint8Array>();
 /**
@@ -58,8 +65,11 @@ jest.mock('@/shared/native/engine', () => ({
     setSetting: (key: string, value: string) => mockSettings.set(key, value),
     deleteSetting: (key: string) => mockSettings.delete(key),
     engineInstall: () => 1,
-    runRecordBackup: async (path: string) => {
-      mockFiles.set(`file://${path}`, MOCK_ZIP_BYTES);
+    runRecordBackup: async (path: string, scope: number) => {
+      mockFiles.set(
+        `file://${path}`,
+        scope === mockRecordScope.SharedStorage ? MOCK_SHARED_ZIP_BYTES : MOCK_ZIP_BYTES
+      );
     },
   }),
 }));
@@ -277,15 +287,26 @@ describe('on Android, a storage-access folder', () => {
     expect(await folderBackend.isAvailable()).toBe(true);
   });
 
-  it('gets one timestamped zip holding the platform zip bytes from a run', async () => {
+  it('gets one timestamped zip holding the record for shared storage from a run', async () => {
     const result = await performBackup(true);
 
     expect(result.carriers.folder).toEqual({ status: 'written' });
     const names = [...mockFolder.files.keys()];
     expect(names).toHaveLength(1);
     expect(stampOf(names[0])).toBe(Date.parse('2026-03-14T06:30:00.000Z'));
-    expect(mockFolder.files.get(names[0])).toEqual(MOCK_ZIP_BYTES);
+    expect(mockFolder.files.get(names[0])).toEqual(MOCK_SHARED_ZIP_BYTES);
     expect([...mockFiles.keys()].filter((uri) => uri.startsWith('file:///cache/'))).toEqual([]);
+  });
+
+  it('gets the record without the export privacy home while WebDAV and the device copy keep it whole', async () => {
+    const result = await performBackup(true);
+
+    expect(result.carriers.webdav).toEqual({ status: 'written' });
+    expect(mockWebdavUpload).toHaveBeenCalledWith(RECORD_URI, expect.anything());
+    expect(mockWebdavHeld.get('veloq-dav.zip')).toEqual(MOCK_ZIP_BYTES);
+    expect(mockFiles.get(RECORD_URI)).toEqual(MOCK_ZIP_BYTES);
+    expect([...mockFolder.files.values()]).toEqual([MOCK_SHARED_ZIP_BYTES]);
+    expect(mockFiles.has(SHARED_RECORD_URI)).toBe(false);
   });
 
   it('reports a folder that kept only part of the zip as unverified and owes it the zip', async () => {
@@ -436,14 +457,14 @@ describe('on Android with no folder chosen, the shared Documents/Veloq', () => {
     expect(await folderBackend.isAvailable()).toBe(true);
   });
 
-  it('takes the archive from a run, read back the same as the zip', async () => {
+  it('takes the record for shared storage from a run, read back the same as that zip', async () => {
     const result = await performBackup(true);
 
     expect(result.carriers.folder).toEqual({ status: 'written' });
     expect([...mockShared.files.keys()]).toEqual([RUN_NAME]);
-    expect(mockShared.files.get(RUN_NAME)).toEqual(MOCK_ZIP_BYTES);
+    expect(mockShared.files.get(RUN_NAME)).toEqual(MOCK_SHARED_ZIP_BYTES);
     expect(mockNative.writeSharedDocument).toHaveBeenCalledWith(
-      '/docs/veloq-decisions.zip',
+      '/cache/exports/shared-storage-record.zip',
       RUN_NAME,
       'application/zip'
     );
@@ -543,16 +564,16 @@ describe('on iOS, a Files folder held by bookmark', () => {
     expect(getBackupFolderName()).toBe('Training');
   });
 
-  it('copies the zip in through the bookmark and keeps the one it refreshed', async () => {
+  it('copies the record for shared storage in through the bookmark and keeps the one it refreshed', async () => {
     const result = await performBackup(true);
 
     expect(result.carriers.folder).toEqual({ status: 'written' });
     expect(mockNative.writeToBookmarkedFolder).toHaveBeenCalledWith(
       'Ym9va21hcmstMQ==',
-      '/docs/veloq-decisions.zip',
+      '/cache/exports/shared-storage-record.zip',
       RUN_NAME
     );
-    expect(mockFolder.files.get(RUN_NAME)).toEqual(MOCK_ZIP_BYTES);
+    expect(mockFolder.files.get(RUN_NAME)).toEqual(MOCK_SHARED_ZIP_BYTES);
     expect(mockNative.readFromBookmarkedFolder).toHaveBeenCalledWith(
       'Ym9va21hcmstMg==',
       RUN_NAME,

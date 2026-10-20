@@ -10,11 +10,20 @@ data class StrengthTopMuscle(
   val setsText: String,
   /** Null for bodyweight work, which moved no recorded weight. */
   val volumeText: String?,
-)
+  /** How often a week the muscle was trained, as the engine words it; null on an older snapshot. */
+  val frequencyText: String? = null,
+) {
+  /**
+   * The row under the name: how often a week, then the sets, then the volume, so the volume is the
+   * part the line's ellipsis cuts when the row is short of room.
+   */
+  val detail: String
+    get() = listOfNotNull(frequencyText, setsText.ifEmpty { null }, volumeText).joinToString(" · ")
+}
 
 /** One window of the strength diagram as the engine shaded and ranked it. */
 data class StrengthWindow(
-  /** What the picker and the widget call the window. */
+  /** What the widget calls the window. */
   val label: String,
   val muscles: List<StrengthMuscleShade>,
   val top: List<StrengthTopMuscle>,
@@ -27,15 +36,14 @@ data class StrengthWindow(
   val bodyLabel: String? = null,
 )
 
-/** The snapshot's strength block: the athlete's body, where a tap goes and both windows. */
+/** The snapshot's strength block: the athlete's body, where a tap goes and the trailing 30 days. */
 data class StrengthBlock(
   val female: Boolean,
   val url: String,
-  val last30: StrengthWindow,
-  val month: StrengthWindow,
+  val window: StrengthWindow,
 )
 
-/** What a Strength widget draws at one size over one window. */
+/** What a Strength widget draws at one size. */
 data class StrengthContent(
   val label: String,
   val female: Boolean,
@@ -55,18 +63,11 @@ data class StrengthContent(
 
 /**
  * What the Strength widget draws, decided from the snapshot alone. It holds no Android type, so
- * the choices run on the JVM: which window a placement draws, which sides of the body a size has
- * room for, and whether the window's words replace the body.
- *
- * The snapshot carries both windows, so one snapshot serves every placement whatever it chose.
+ * the choices run on the JVM: which sides of the body a size has room for, and whether the
+ * window's words replace the body. Every placement draws the trailing 30 days, the window the
+ * strength tab opens on.
  */
 object StrengthWidget {
-  const val LAST30 = "last30"
-  const val MONTH = "month"
-
-  /** The windows a placement can choose, in the order the picker lists them. */
-  val WINDOWS = listOf(LAST30, MONTH)
-
   /** The steps of the palette's strength ramp. */
   const val SHADES = 5
 
@@ -75,17 +76,14 @@ object StrengthWidget {
   /** The size classes are the Summary widget's, so every widget is small, medium or large alike. */
   fun sizeFor(widthDp: Int, heightDp: Int): SummarySize = SummaryWidget.sizeFor(widthDp, heightDp)
 
-  /** A stored choice as it is drawn: anything but the month is the last 30 days. */
-  fun normalise(choice: String?): String = if (choice == MONTH) MONTH else LAST30
-
   /**
    * Null when the widget has nothing of the athlete's to draw: no snapshot yet, an empty library,
    * or a snapshot written before the strength block. Those draw the prompt every widget draws.
    */
-  fun content(snap: WidgetSnapshot?, size: SummarySize, choice: String?): StrengthContent? {
+  fun content(snap: WidgetSnapshot?, size: SummarySize): StrengthContent? {
     if (WidgetSnapshot.showsEmptyPrompt(snap)) return null
     val block = snap?.strength ?: return null
-    val window = if (normalise(choice) == MONTH) block.month else block.last30
+    val window = block.window
     // An unshaded body would read as no load at all, so the words take its place.
     val drawsBody = window.emptyText == null
     val sides =

@@ -2,12 +2,13 @@ import XCTest
 
 @testable import VeloqWidget
 
-/// Scenario: the Strength widget is placed at each size on either window, over a snapshot the
-/// engine composed, one whose window holds no sessions, and one written before the strength block.
+/// Scenario: the Strength widget is placed at each size over a snapshot the engine composed, one
+/// whose window holds no sessions, one written while the calendar month was still offered, and
+/// one written before the strength block.
 ///
 /// Expected behaviour: small draws the front, medium the front and back, large both and the
-/// window's top rows; the month choice draws the month; a window with words draws them and no
-/// body; a snapshot with no block draws nothing of its own.
+/// window's top rows; every placement draws the last 30 days; a window with words draws them and
+/// no body; a snapshot with no block draws nothing of its own.
 final class StrengthWidgetModelTests: XCTestCase {
   private func snapshot(_ fixture: String) throws -> WidgetSnapshot {
     let url = try XCTUnwrap(
@@ -38,20 +39,18 @@ final class StrengthWidgetModelTests: XCTestCase {
     ]
   }
 
-  private func block(last30: [String: Any], month: [String: Any], body: String = "male")
-    -> [String: Any]
-  {
+  private func block(last30: [String: Any], body: String = "male") -> [String: Any] {
     [
       "body": body, "url": "veloq://insights?tab=strength&period=1m",
-      "windows": ["last30": last30, "month": month],
+      "windows": ["last30": last30],
     ]
   }
 
   func testEachSizeDrawsItsSidesAndOnlyLargeListsTheTopMuscles() throws {
     let demo = try snapshot("demo")
-    let small = try XCTUnwrap(StrengthWidgetModel.content(demo, size: .small, choice: .last30))
-    let medium = try XCTUnwrap(StrengthWidgetModel.content(demo, size: .medium, choice: .last30))
-    let large = try XCTUnwrap(StrengthWidgetModel.content(demo, size: .large, choice: .last30))
+    let small = try XCTUnwrap(StrengthWidgetModel.content(demo, size: .small))
+    let medium = try XCTUnwrap(StrengthWidgetModel.content(demo, size: .medium))
+    let large = try XCTUnwrap(StrengthWidgetModel.content(demo, size: .large))
 
     XCTAssertEqual(small.sides, [.front])
     XCTAssertEqual(medium.sides, [.front, .back])
@@ -65,68 +64,75 @@ final class StrengthWidgetModelTests: XCTestCase {
     XCTAssertNil(large.emptyText)
   }
 
-  func testTheChoiceDrawsItsOwnWindow() throws {
-    let both = try snapshot(
-      strength: block(
-        last30: window("1 month", shades: [("chest", 5), ("biceps", 2)]),
-        month: window("March", shades: [("calves", 3)])))
+  func testASnapshotThatStillCarriesTheCalendarMonthDrawsTheLast30Days() throws {
+    let older = try snapshot(
+      strength: [
+        "body": "male", "url": "veloq://insights?tab=strength&period=1m",
+        "windows": [
+          "month": window("March", shades: [("calves", 3)]),
+          "last30": window("1 month", shades: [("chest", 5), ("biceps", 2)]),
+        ],
+      ])
 
-    let last30 = try XCTUnwrap(StrengthWidgetModel.content(both, size: .large, choice: .last30))
-    let month = try XCTUnwrap(StrengthWidgetModel.content(both, size: .large, choice: .month))
+    let drawn = try XCTUnwrap(StrengthWidgetModel.content(older, size: .large))
 
-    XCTAssertEqual(last30.label, "1 month")
-    XCTAssertEqual(last30.shades, ["chest": 5, "biceps": 2])
-    XCTAssertEqual(month.label, "March")
-    XCTAssertEqual(month.shades, ["calves": 3])
-    XCTAssertEqual(month.top.map(\.slug), ["calves"])
+    XCTAssertEqual(drawn.label, "1 month")
+    XCTAssertEqual(drawn.shades, ["chest": 5, "biceps": 2])
+    XCTAssertEqual(drawn.top.map(\.slug), ["chest", "biceps"])
+  }
+
+  func testLargeRowsCarryHowOftenAWeekAsTheEngineWordsItAndAnOlderSnapshotNone() throws {
+    let demo = try snapshot("demo")
+    let large = try XCTUnwrap(StrengthWidgetModel.content(demo, size: .large))
+    XCTAssertEqual(
+      large.top.map(\.frequencyText), demo.strength?.windows.last30.top.map(\.frequencyText))
+    for row in large.top {
+      XCTAssertEqual(row.frequencyText?.hasSuffix("×/wk"), true, row.slug)
+    }
+
+    let older = try snapshot(
+      strength: block(last30: window("1 month", shades: [("chest", 5)])))
+    let drawn = try XCTUnwrap(StrengthWidgetModel.content(older, size: .large))
+    XCTAssertEqual(drawn.top.map(\.slug), ["chest"])
+    XCTAssertNil(drawn.top.first?.frequencyText)
   }
 
   func testAWindowWithWordsDrawsThemAndNoBodyAtEverySize() throws {
     let empty = try snapshot(
       strength: block(
-        last30: window("1 month", shades: [("chest", 4)]),
-        month: window("March", shades: [], empty: "No strength workouts this month")))
+        last30: window(
+          "1 month", shades: [], empty: "No strength workouts in the last 1 month")))
 
     for size in [StrengthSize.small, .medium, .large] {
-      let content = try XCTUnwrap(StrengthWidgetModel.content(empty, size: size, choice: .month))
-      XCTAssertEqual(content.emptyText, "No strength workouts this month")
+      let content = try XCTUnwrap(StrengthWidgetModel.content(empty, size: size))
+      XCTAssertEqual(content.emptyText, "No strength workouts in the last 1 month")
       XCTAssertEqual(content.sides, [])
       XCTAssertEqual(content.top.count, 0)
-      XCTAssertEqual(content.label, "March")
+      XCTAssertEqual(content.label, "1 month")
     }
-    let other = try XCTUnwrap(StrengthWidgetModel.content(empty, size: .small, choice: .last30))
-    XCTAssertNil(other.emptyText)
-    XCTAssertEqual(other.sides, [.front])
   }
 
   func testEmptyWordsAreNotAnEmptyWindow() throws {
     let blank = try snapshot(
-      strength: block(
-        last30: window("1 month", shades: [("chest", 4)], empty: ""),
-        month: window("March", shades: [])))
+      strength: block(last30: window("1 month", shades: [("chest", 4)], empty: "")))
 
-    let content = try XCTUnwrap(StrengthWidgetModel.content(blank, size: .medium, choice: .last30))
+    let content = try XCTUnwrap(StrengthWidgetModel.content(blank, size: .medium))
     XCTAssertNil(content.emptyText)
     XCTAssertEqual(content.sides, [.front, .back])
   }
 
   func testTheBodyFollowsTheAthlete() throws {
     let female = try snapshot(
-      strength: block(
-        last30: window("1 month", shades: []), month: window("March", shades: []),
-        body: "female"))
-    XCTAssertEqual(
-      StrengthWidgetModel.content(female, size: .small, choice: .last30)?.female, true)
-    XCTAssertEqual(
-      StrengthWidgetModel.content(try snapshot("demo"), size: .small, choice: .last30)?.female,
-      false)
+      strength: block(last30: window("1 month", shades: []), body: "female"))
+    XCTAssertEqual(StrengthWidgetModel.content(female, size: .small)?.female, true)
+    XCTAssertEqual(StrengthWidgetModel.content(try snapshot("demo"), size: .small)?.female, false)
   }
 
   func testASnapshotWithoutTheBlockDrawsNothingOfItsOwn() throws {
     let older = try snapshot(strength: nil)
     XCTAssertNil(older.strength)
-    XCTAssertNil(StrengthWidgetModel.content(older, size: .medium, choice: .last30))
-    XCTAssertNil(StrengthWidgetModel.content(nil, size: .medium, choice: .last30))
+    XCTAssertNil(StrengthWidgetModel.content(older, size: .medium))
+    XCTAssertNil(StrengthWidgetModel.content(nil, size: .medium))
   }
 
   func testShadesTakeTheRampLightestFirstAndUntrainedTakesNone() {
@@ -143,7 +149,7 @@ final class StrengthWidgetModelTests: XCTestCase {
     let drawn = Set(
       [BodyOutline.Side.front, .back].flatMap { BodyOutline.parts(female: false, side: $0) }
         .map(\.slug))
-    for muscle in demo.windows.last30.muscles + demo.windows.month.muscles {
+    for muscle in demo.windows.last30.muscles {
       XCTAssert(drawn.contains(muscle.slug), "\(muscle.slug) is not drawn")
     }
   }

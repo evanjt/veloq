@@ -11,7 +11,5 @@
   android:resizeMode="horizontal|vertical"
   android:widgetCategory="home_screen"
   android:description="@string/widget_strength_description"
-  android:configure="__PKG__.widget.StrengthWidgetConfigureActivity"
-  android:widgetFeatures="reconfigurable|configuration_optional"
   android:initialLayout="@layout/widget_strength"
   android:previewLayout="@layout/widget_preview_strength" />

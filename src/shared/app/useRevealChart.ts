@@ -13,9 +13,10 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import type { LayoutChangeEvent, ScrollViewInstance } from 'react-native';
-import { router } from 'expo-router';
 
 import { isReduceMotionOn } from '@/shared/ui/reduceMotion';
+
+import { useSetOwnParams } from './useSetOwnParams';
 
 export function useRevealChart<Chart extends string, Anchor extends string>(
   chart: Chart | null,
@@ -28,6 +29,7 @@ export function useRevealChart<Chart extends string, Anchor extends string>(
   const revealing = useRef<Anchor | null>(null);
   // The height of the page's pinned header, zero on a page without one.
   const pinned = useRef(0);
+  const setParams = useSetOwnParams();
 
   const anchorOfRef = useRef(anchorOf);
   const prepareRef = useRef(prepare);
@@ -51,8 +53,8 @@ export function useRevealChart<Chart extends string, Anchor extends string>(
     const anchor = anchorOfRef.current(chart);
     revealing.current = anchor;
     scrollToAnchor(anchor);
-    router.setParams({ chart: undefined });
-  }, [chart, scrollToAnchor]);
+    setParams({ chart: undefined });
+  }, [chart, scrollToAnchor, setParams]);
 
   const onAnchorLayout = useCallback(
     (anchor: Anchor, event: LayoutChangeEvent) => {

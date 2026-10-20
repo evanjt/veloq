@@ -461,7 +461,7 @@ pub(super) fn demo() -> serde_json::Value {
         ],
         route_name: "Harbour Loop".to_string(),
         // The 1st falls in neither week the weekly totals compare, and 15 days
-        // back is inside the 30 days and outside the month.
+        // back is inside the 30 days.
         strength: vec![
             (
                 "sample-gym-1",

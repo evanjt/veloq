@@ -20,6 +20,7 @@ tags:
     file: helpers/reveal.yaml
     env:
       ELEMENT: "activity-card-demo-test-0"
+      LIST: "home-activity-list"
 
 - takeScreenshot: "screenshots/activity-card-stats-list-loaded"
 

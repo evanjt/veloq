@@ -1,8 +1,9 @@
 /** Record ZIP backup and conversion of earlier backup formats. */
 
 import { RestoreRefusedError, type RestoreRefusal } from './restoreRefusal';
-import type { RestoreDrops } from './restoreNotice';
+import type { RestoreReport } from './restoreNotice';
 import * as FileSystem from 'expo-file-system/legacy';
+import { RecordScope } from 'veloqrs';
 import { getEngine, getNativeModule, isEngineReady } from '@/shared/native/engine';
 import { exportFileUri, restoreCopyUri } from '@/shared/storage/cacheFiles';
 import { shareExistingFile, type ShareAnchor } from '@/features/settings/lib/shareFile';
@@ -58,14 +59,18 @@ let pendingExport: PendingRecordExport | null = null;
 
 export type RecordExportOutcome = 'complete' | 'still-running' | 'nothing-pending';
 
-/** Write the record zip, once the slot is free, and return the file it wrote. */
+/**
+ * Write the record zip, once the slot is free, and return the file it wrote.
+ * It is whole: the athlete hands it to a destination they choose in the share
+ * sheet.
+ */
 async function writeRecordArchive(
   engine: NonNullable<ReturnType<typeof getEngine>>
 ): Promise<string> {
   await sweepBackupFiles();
   const uri = await exportFileUri(backupFileName(new Date().toISOString()));
   const path = uri.startsWith('file://') ? uri.slice(7) : uri;
-  await engine.runRecordBackup(path);
+  await engine.runRecordBackup(path, RecordScope.Whole);
   return uri;
 }
 
@@ -174,7 +179,7 @@ export async function resumePendingRecordExport(
 
 let restoreCopySequence = 0;
 
-interface RecordRestoreOutcome extends RestoreDrops {
+interface RecordRestoreOutcome extends RestoreReport {
   placed: number;
   unplaced: number;
   missingActivityIds: string[];
@@ -385,7 +390,7 @@ export async function reinitialiseAllStores(): Promise<void> {
 }
 
 export type DatabaseRestoreResult =
-  | { success: true; unplacedCount: number; drops: RestoreDrops }
+  | { success: true; unplacedCount: number; drops: RestoreReport }
   | {
       success: false;
       /** Why nothing went in, for the caller to word in the athlete's locale. */
@@ -605,7 +610,7 @@ export function convertLegacyBackupToRecord(json: string): RecordPayload {
 }
 
 export type RestoreResult =
-  | { unplacedCount: number; drops: RestoreDrops }
+  | { unplacedCount: number; drops: RestoreReport }
   | {
       /** Why nothing went in, for the caller to word in the athlete's locale. */
       refusal: RestoreRefusal;

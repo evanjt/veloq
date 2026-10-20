@@ -19,7 +19,7 @@ tags:
     timeout: 10000
 
 - tapOn:
-    text: "Sections"
+    id: "tab-sections"
 
 # The engine cuts the demo catalogue after the seed lands, and the catalogue
 # is cut from scratch on every cold launch. That is ~69 s on a workstation
@@ -39,22 +39,13 @@ tags:
       id: "section-detail-screen"
     timeout: 10000
 
-# The ledger has its own screen, opened from the button below the year list.
-# The year list is long, and scrollUntilVisible either times out on it or
-# overshoots into the tab bar and leaves the screen. Walk down in fixed swipes
-# that stay clear of the bar.
-- repeat:
-    times: 30
-    commands:
-      - runFlow:
-          when:
-            notVisible:
-              id: "section-open-history"
-          commands:
-            - swipe:
-                start: 50%, 70%
-                end: 50%, 25%
-                duration: 250
+# The ledger opens as a card over the section's in the same sheet, from the
+# button below the year list.
+- runFlow:
+    file: helpers/sheet-scroll-to.yaml
+    env:
+      TARGET: "section-open-history"
+      DIRECTION: DOWN
 
 - tapOn:
     id: "section-open-history"
@@ -64,11 +55,11 @@ tags:
       id: "section-history-panel"
     timeout: 10000
 
-- scrollUntilVisible:
-    element:
-      id: "section-history-event-formed"
-    direction: DOWN
-    timeout: 30000
+- runFlow:
+    file: helpers/sheet-scroll-to.yaml
+    env:
+      TARGET: "section-history-event-formed"
+      DIRECTION: DOWN
 
 # A second stored version exists only after a re-cut or an edit, so the
 # overlay step runs when one is listed.

@@ -1350,37 +1350,31 @@ const CONTRACTS: Contract[] = [
     b: { file: `${RUST}/widget_snapshot.rs`, has: 'pub demo_label: Option<String>' },
   },
   {
-    agree: 'the dashboard widget gates its record button on the flag the plugin writes',
+    agree: 'the Summary renderer attaches the record link to the button its layouts declare once',
     a: {
       file: 'widget/android/java/WidgetRenderer.kt',
-      has: /getBoolean\(R\.bool\.widget_record_enabled\)[\s\S]*setOnClickPendingIntent\(R\.id\.large_record,/,
-    },
-    b: { file: 'src/plugins/with-android-widget.js', has: '<bool name="widget_record_enabled">' },
-  },
-  {
-    agree: 'the dashboard widget attaches the record link to the button the layout declares once',
-    a: {
-      file: 'widget/android/java/WidgetRenderer.kt',
-      has: 'setOnClickPendingIntent(R.id.large_record,',
+      has: 'setOnClickPendingIntent(R.id.sum_record,',
       lacks:
-        /setOnClickPendingIntent\(R\.id\.large_record,[\s\S]*setOnClickPendingIntent\(R\.id\.large_record,/,
+        /setOnClickPendingIntent\(R\.id\.sum_record,[\s\S]*setOnClickPendingIntent\(R\.id\.sum_record,/,
     },
     b: {
       file: 'widget/android/res/layout/widget_large.xml',
-      has: 'android:id="@+id/large_record"',
+      has: 'android:id="@+id/sum_record"',
     },
   },
-  ...['VISIBLE', 'GONE'].map((visibility) => ({
-    agree: `the dashboard widget sets ${visibility} on the record button the large layout declares`,
-    a: {
-      file: 'widget/android/java/WidgetRenderer.kt',
-      has: `setViewVisibility(R.id.large_record, View.${visibility})`,
-    },
-    b: {
-      file: 'widget/android/res/layout/widget_large.xml',
-      has: 'android:id="@+id/large_record"',
-    },
-  })),
+  ...['VISIBLE', 'GONE'].flatMap((visibility) =>
+    ['medium', 'large'].map((size) => ({
+      agree: `the Summary renderer sets ${visibility} on the record button the ${size} layout declares`,
+      a: {
+        file: 'widget/android/java/WidgetRenderer.kt',
+        has: `setViewVisibility(R.id.sum_record, View.${visibility})`,
+      },
+      b: {
+        file: `widget/android/res/layout/widget_${size}.xml`,
+        has: 'android:id="@+id/sum_record"',
+      },
+    }))
+  ),
   ...[0, 1, 2, 3].map((i) => ({
     agree: `the Summary renderer binds supporting cell ${i} that the shared row layout declares`,
     a: {
@@ -1390,6 +1384,17 @@ const CONTRACTS: Contract[] = [
     b: {
       file: 'widget/android/res/layout/widget_summary_cells.xml',
       has: `android:id="@+id/sum_cell${i}_value"`,
+    },
+  })),
+  ...[0, 1].map((i) => ({
+    agree: `the Summary renderer binds training load reading ${i} that the shared head layout declares`,
+    a: {
+      file: 'widget/android/java/WidgetRenderer.kt',
+      has: `R.id.sum_load${i}_value`,
+    },
+    b: {
+      file: 'widget/android/res/layout/widget_summary_head.xml',
+      has: `android:id="@+id/sum_load${i}_value"`,
     },
   })),
   ...['small', 'medium', 'large'].map((size) => ({
@@ -1416,15 +1421,6 @@ const CONTRACTS: Contract[] = [
     agree: 'the picker link opens a screen',
     a: { file: 'src/features/home/lib/widgetSnapshot.ts', has: `'${RECORD_PICKER_URL}'` },
     b: { file: 'src/app/record.tsx' },
-  },
-  {
-    agree:
-      'the configurable Record widget keeps the static one’s kind, so a placed widget survives',
-    a: {
-      file: 'widget/ios/VeloqWidget/WidgetRecordIntent.swift',
-      has: 'let kind = "VeloqRecordWidget"',
-    },
-    b: { file: 'widget/ios/VeloqWidget/VeloqWidget.swift', has: 'let kind = "VeloqRecordWidget"' },
   },
   // OpenURLIntent opens universal links only, and the record links are on the
   // app's own scheme: an intent that returned one brought Veloq forward and
@@ -1701,18 +1697,12 @@ function engineStrengthWindows(): string[] {
   return [...(block?.[1] ?? '').matchAll(/pub (\w+):/g)].map((m) => m[1]);
 }
 
-/** The strength windows the iOS widget reads, in its model and in its Edit Widget picker. */
-function iosStrengthWindows(): { model: string[]; picker: string[] } {
-  const cases = (file: string, type: string) => {
-    const block = new RegExp(`enum ${type}: String[^{]*\\{([^}]*)`).exec(
-      read(`widget/ios/VeloqWidget/${file}`)
-    );
-    return [...(block?.[1] ?? '').matchAll(/^\s*case (\w+)$/gm)].map((m) => m[1]);
-  };
-  return {
-    model: cases('StrengthWidgetModel.swift', 'StrengthWindowChoice'),
-    picker: cases('WidgetStrengthIntent.swift', 'StrengthPeriod'),
-  };
+/** The strength windows the iOS widget decodes, by their snapshot keys. */
+function iosStrengthWindows(): string[] {
+  const block = /struct WidgetStrengthWindows: Codable \{([^}]*)\}/.exec(
+    read('widget/ios/VeloqWidget/StrengthWidgetModel.swift')
+  );
+  return [...(block?.[1] ?? '').matchAll(/let (\w+):/g)].map((m) => m[1]);
 }
 
 /** Every string resource the widget and the channel poster read, but the app's own name. */
@@ -1988,16 +1978,9 @@ const SETS: SetContract[] = [
   {
     agree: 'the windows the iOS Strength widget reads are the windows the engine writes',
     mode: 'equal',
-    atLeast: 2,
-    a: () => iosStrengthWindows().model,
+    atLeast: 1,
+    a: iosStrengthWindows,
     b: engineStrengthWindows,
-  },
-  {
-    agree: 'the periods the iOS Strength widget offers in Edit Widget are the windows it reads',
-    mode: 'equal',
-    atLeast: 2,
-    a: () => iosStrengthWindows().picker,
-    b: () => iosStrengthWindows().model,
   },
   {
     agree: 'every category the app ranks has a name in the Android Insights picker',
@@ -2074,6 +2057,7 @@ const SETS: SetContract[] = [
       ['FfiSyncStep', stub.SyncStep],
       ['FfiTrackStep', stub.TrackStep],
       ['BulkExportFormat', stub.BulkExportFormat],
+      ['RecordScope', stub.RecordScope],
       ['FfiStartOutcome', stub.StartOutcome],
       ['FfiInitOutcome', stub.InitOutcome],
       ['FfiPoolSwimState', stub.PoolSwimState],

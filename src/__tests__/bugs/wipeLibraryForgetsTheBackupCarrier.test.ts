@@ -903,14 +903,21 @@ const DEVICE_WRITES: DeviceWrite[] = [
   },
   {
     confirm: [],
-    where: 'cache/exports/, every file the share sheet is handed',
+    where:
+      'cache/exports/, every file the share sheet is handed and the record a backup run writes for shared storage',
     writers: [
       'src/shared/storage/cacheFiles.ts',
       'src/features/settings/lib/shareFile.ts',
       'src/features/settings/lib/bulkExport.ts',
+      'src/features/settings/lib/autobackup/autoBackup.ts',
     ],
     holds: 'backups, activity exports, GPX, the crash log, a shared copy of a recording',
-    wiped: { files: ['file:///cache/exports/veloq-activities-2026-10-01.zip'] },
+    wiped: {
+      files: [
+        'file:///cache/exports/veloq-activities-2026-10-01.zip',
+        'file:///cache/exports/shared-storage-record.zip',
+      ],
+    },
   },
   {
     confirm: [],
@@ -1137,15 +1144,12 @@ const DEVICE_WRITES: DeviceWrite[] = [
   },
   {
     confirm: [],
-    where:
-      'the veloq_summary_widget, veloq_record_widget, veloq_insights_widget and veloq_strength_widget preference files',
+    where: 'the veloq_summary_widget and veloq_insights_widget preference files',
     writers: [
       'widget/android/java/SummaryWidgetChoice.kt',
-      'widget/android/java/RecordWidgetChoice.kt',
       'widget/android/java/InsightsWidgetChoice.kt',
-      'widget/android/java/StrengthWidgetChoice.kt',
     ],
-    holds: "each placed widget's hero metric, sport link, insight kinds or strength window",
+    holds: "each placed widget's hero metric or insight kinds",
     kept: 'the configuration of a placed widget, no athlete data, removed with the widget',
   },
 

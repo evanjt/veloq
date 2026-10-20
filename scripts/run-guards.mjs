@@ -434,7 +434,8 @@ const GUARDS = [
     name: 'lint:maestro-ids',
     kind: 'correctness',
     cmd: node('lint-maestro-ids.mjs'),
-    catches: 'a Maestro flow naming a testID no component renders',
+    catches:
+      'a Maestro flow naming a testID no component renders, or tapping a sheet close button Android does not draw',
   },
   {
     name: 'lint:device-drivers',

@@ -33,6 +33,9 @@ pub struct FfiRecordRestoreResult {
     /// Route names the latest restore gave up on to a merged route, every
     /// pass so far included.
     pub names_not_restored: u32,
+    /// The record left out the export privacy home, so it is unset and the
+    /// athlete has to set it again.
+    pub export_home_left_out: bool,
 }
 
 /// A record to check: a record zip on disk, or record JSON such as an older
@@ -189,17 +192,24 @@ impl Drop for InFlight {
     }
 }
 
-/// `cancel` is the record backup's stop latch. The clear snapshot takes none.
+/// `record` is the record backup's scope and stop latch. The clear snapshot
+/// takes neither.
 fn backup_handle(
     dest_path: &str,
-    cancel: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
+    record: Option<(
+        crate::persistence::record_backup::RecordScope,
+        std::sync::Arc<std::sync::atomic::AtomicBool>,
+    )>,
 ) -> Result<crate::persistence::BackupHandle, VeloqError> {
-    with_engine(|engine| match cancel {
+    with_engine(|engine| match record {
         // Read inside the engine take, so it names the library this
         // handle was cut from.
-        Some(cancel) => {
-            engine.record_backup_background(dest_path, crate::persistence::engine_install(), cancel)
-        }
+        Some((scope, cancel)) => engine.record_backup_background(
+            dest_path,
+            scope,
+            crate::persistence::engine_install(),
+            cancel,
+        ),
         None => engine.clear_snapshot_background(dest_path),
     })
 }
@@ -577,11 +587,15 @@ impl VeloqEngine {
     ///
     /// The backup screen's read names the run while it goes, for `cancel_run`.
     /// A stopped run answers `Cancelled` and leaves the destination as it was.
-    async fn run_record_backup(&self, dest_path: String) -> Result<(), VeloqError> {
+    async fn run_record_backup(
+        &self,
+        dest_path: String,
+        scope: crate::persistence::record_backup::RecordScope,
+    ) -> Result<(), VeloqError> {
         let slot = InFlight::claim(&BACKUP_IN_FLIGHT, "A backup is already running")?;
         let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
         let run = RunSlot::open(&RECORD_BACKUP_RUN, std::sync::Arc::clone(&cancel));
-        let handle = backup_handle(&dest_path, Some(cancel))?;
+        let handle = backup_handle(&dest_path, Some((scope, cancel)))?;
         crate::runtime::ASYNC_RUNTIME
             .spawn_blocking(move || {
                 let outcome = handle
@@ -824,6 +838,7 @@ async fn restore_record_payload(
         missing_activity_ids: result.missing_activity_ids,
         not_restored,
         names_not_restored,
+        export_home_left_out: result.export_home_left_out,
     })
 }
 
@@ -2016,8 +2031,11 @@ mod tests {
             .into_owned();
         let running = {
             let dest = dest.clone();
-            crate::runtime::ASYNC_RUNTIME
-                .spawn(async move { VeloqEngine.run_record_backup(dest).await })
+            crate::runtime::ASYNC_RUNTIME.spawn(async move {
+                VeloqEngine
+                    .run_record_backup(dest, crate::persistence::record_backup::RecordScope::Whole)
+                    .await
+            })
         };
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
         let run = loop {
@@ -2051,8 +2069,11 @@ mod tests {
         assert!(!std::path::Path::new(&dest).exists(), "a zip was left");
         assert_eq!(record_backup_run(), None, "the run was kept");
 
-        crate::runtime::block_on(engine.run_record_backup(dest.clone()))
-            .expect("the next backup runs whole");
+        crate::runtime::block_on(engine.run_record_backup(
+            dest.clone(),
+            crate::persistence::record_backup::RecordScope::Whole,
+        ))
+        .expect("the next backup runs whole");
         assert!(std::path::Path::new(&dest).exists());
     }
 

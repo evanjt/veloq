@@ -12,7 +12,7 @@ tags:
     file: helpers/navigate-to-routes.yaml
 
 - tapOn:
-    text: "Sections"
+    id: "tab-sections"
     optional: true
 
 - extendedWaitUntil:

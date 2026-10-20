@@ -857,100 +857,39 @@
         "owedCount": 0,
         "top": [
           {
+            "frequencyText": "0.2×/Woche",
             "name": "Bilspieren",
+            "sessionCount": 1,
             "setsText": "92.5 series",
             "slug": "gluteal",
             "volumeText": "123520 kg"
           },
           {
+            "frequencyText": "0.5×/Woche",
             "name": "Dolna część pleców",
+            "sessionCount": 2,
             "setsText": "87 series",
             "slug": "lower-back",
             "volumeText": "94360 kg"
           },
           {
+            "frequencyText": "0.2×/Woche",
             "name": "Czworogłowe uda",
+            "sessionCount": 1,
             "setsText": "41 series",
             "slug": "quadriceps",
             "volumeText": "82000 kg"
           },
           {
+            "frequencyText": "0.2×/Woche",
             "name": "Bicipiti femorali",
+            "sessionCount": 1,
             "setsText": "39 series",
             "slug": "hamstring",
             "volumeText": "58760 kg"
           }
         ],
         "totalSets": 170
-      },
-      "month": {
-        "activityCount": 1,
-        "bodyLabel": "Najczęściej trenowane: Bilspieren 92.5 series, Dolna część pleców 72 series, Czworogłowe uda 41 series, Bicipiti femorali 39 series",
-        "emptyText": null,
-        "label": "diciembre",
-        "maxWeightedSets": 92.5,
-        "muscles": [
-          {
-            "shade": 5,
-            "slug": "gluteal"
-          },
-          {
-            "shade": 4,
-            "slug": "lower-back"
-          },
-          {
-            "shade": 3,
-            "slug": "quadriceps"
-          },
-          {
-            "shade": 3,
-            "slug": "hamstring"
-          },
-          {
-            "shade": 2,
-            "slug": "abs"
-          },
-          {
-            "shade": 2,
-            "slug": "obliques"
-          },
-          {
-            "shade": 2,
-            "slug": "calves"
-          },
-          {
-            "shade": 1,
-            "slug": "adductors"
-          }
-        ],
-        "owedCount": 0,
-        "top": [
-          {
-            "name": "Bilspieren",
-            "setsText": "92.5 series",
-            "slug": "gluteal",
-            "volumeText": "123520 kg"
-          },
-          {
-            "name": "Dolna część pleców",
-            "setsText": "72 series",
-            "slug": "lower-back",
-            "volumeText": "81160 kg"
-          },
-          {
-            "name": "Czworogłowe uda",
-            "setsText": "41 series",
-            "slug": "quadriceps",
-            "volumeText": "82000 kg"
-          },
-          {
-            "name": "Bicipiti femorali",
-            "setsText": "39 series",
-            "slug": "hamstring",
-            "volumeText": "58760 kg"
-          }
-        ],
-        "totalSets": 140
       }
     }
   },

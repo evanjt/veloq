@@ -73,20 +73,31 @@ class SnapshotAgeTest {
   }
 
   @Test
-  fun the_age_counts_whole_minutes_under_an_hour() {
-    assertEquals(SnapshotAge.Span(0L, hours = false), SnapshotAge.span(written, written * 1000L + 59_000L))
-    assertEquals(SnapshotAge.Span(5L, hours = false), SnapshotAge.span(written, nowAfter(0, 5 * 60L)))
-    assertEquals(SnapshotAge.Span(59L, hours = false), SnapshotAge.span(written, nowAfter(0, 3599L)))
+  fun under_a_minute_the_age_reads_as_now_rather_than_zero_minutes() {
+    assertEquals(SnapshotAge.Span(0L, SnapshotAge.AgeUnit.NOW), SnapshotAge.span(written, written * 1000L))
+    assertEquals(
+      SnapshotAge.Span(0L, SnapshotAge.AgeUnit.NOW), SnapshotAge.span(written, written * 1000L + 59_999L))
+  }
+
+  @Test
+  fun the_age_counts_whole_minutes_from_a_minute_to_an_hour() {
+    assertEquals(SnapshotAge.Span(1L, SnapshotAge.AgeUnit.MINUTES), SnapshotAge.span(written, nowAfter(0, 60L)))
+    assertEquals(
+      SnapshotAge.Span(1L, SnapshotAge.AgeUnit.MINUTES), SnapshotAge.span(written, nowAfter(0, 119L)))
+    assertEquals(
+      SnapshotAge.Span(5L, SnapshotAge.AgeUnit.MINUTES), SnapshotAge.span(written, nowAfter(0, 5 * 60L)))
+    assertEquals(
+      SnapshotAge.Span(59L, SnapshotAge.AgeUnit.MINUTES), SnapshotAge.span(written, nowAfter(0, 3599L)))
   }
 
   @Test
   fun the_age_counts_whole_hours_from_an_hour() {
-    assertEquals(SnapshotAge.Span(1L, hours = true), SnapshotAge.span(written, nowAfter(1)))
-    assertEquals(SnapshotAge.Span(23L, hours = true), SnapshotAge.span(written, nowAfter(23, 3599L)))
+    assertEquals(SnapshotAge.Span(1L, SnapshotAge.AgeUnit.HOURS), SnapshotAge.span(written, nowAfter(1)))
+    assertEquals(SnapshotAge.Span(23L, SnapshotAge.AgeUnit.HOURS), SnapshotAge.span(written, nowAfter(23, 3599L)))
   }
 
   @Test
   fun a_snapshot_from_the_future_reads_as_just_written() {
-    assertEquals(SnapshotAge.Span(0L, hours = false), SnapshotAge.span(written, nowAfter(-3)))
+    assertEquals(SnapshotAge.Span(0L, SnapshotAge.AgeUnit.NOW), SnapshotAge.span(written, nowAfter(-3)))
   }
 }

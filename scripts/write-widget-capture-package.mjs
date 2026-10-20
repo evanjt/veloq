@@ -47,7 +47,7 @@ export function writeWidgetCapturePackage(out) {
   plugin.writeWidgetFiles(root, sources, 'App');
   rmSync(join(sources, 'App'), { recursive: true, force: true });
   const widget = join(sources, 'VeloqWidget');
-  plugin.writeWidgetBundles(widget, plugin.INCLUDE_RECORD_WIDGET);
+  plugin.writeWidgetBundles(widget);
   // A package compiles Swift alone: the plist, the entitlements, the bridging
   // header and the string catalogue belong to the app's target.
   for (const name of readdirSync(widget)) {

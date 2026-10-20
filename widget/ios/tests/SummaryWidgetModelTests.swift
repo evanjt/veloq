@@ -54,6 +54,42 @@ final class SummaryWidgetModelTests: XCTestCase {
     XCTAssertTrue(content.supporting.allSatisfy { $0.caption == nil })
   }
 
+  /// Scenario: the hero is one of fitness, fatigue and form, and the chart beside it draws two of
+  /// them without naming either value.
+  ///
+  /// Expected behaviour: at Large the other two readings stand on the hero's line with their own
+  /// labels and values, in the order fitness, fatigue, form, and the supporting row leaves them
+  /// out; Medium, whose hero shares its one row with the chart, Small and a hero outside training
+  /// load carry none.
+  func testATrainingLoadHeroCarriesTheOtherTwoOnItsLineAtLarge() throws {
+    let snapshot = try self.snapshot("demo")
+    do {
+      let content = SummaryWidgetModel.content(snapshot, placement: .followCard, size: .large)
+      XCTAssertEqual(content.hero.id, "form")
+      XCTAssertEqual(content.trainingLoad.map(\.entry.id), ["fitness", "fatigue"])
+      XCTAssertEqual(
+        content.trainingLoad.map(\.entry.label),
+        [snapshot.display.metricLabels.fitness, snapshot.display.metricLabels.fatigue])
+      XCTAssertEqual(content.trainingLoad.last?.entry.colorKey, "fatigue")
+      for shown in content.trainingLoad {
+        XCTAssertFalse(content.supporting.contains { $0.entry.id == shown.entry.id }, shown.entry.id)
+      }
+    }
+    let fitness = SummaryWidgetModel.content(
+      snapshot, placement: SummaryPlacement(hero: "fitness"), size: .large)
+    XCTAssertEqual(fitness.trainingLoad.map(\.entry.id), ["fatigue", "form"])
+    XCTAssertEqual(fitness.trainingLoad.last?.entry.colorKey, "formZone")
+    XCTAssertEqual(fitness.trainingLoad.last?.caption, snapshot.display.formZone)
+    XCTAssertNil(fitness.trainingLoad.first?.caption)
+    for size in [SummarySize.small, .medium] {
+      let content = SummaryWidgetModel.content(snapshot, placement: .followCard, size: size)
+      XCTAssertTrue(content.trainingLoad.isEmpty)
+    }
+    let hrv = SummaryWidgetModel.content(
+      snapshot, placement: SummaryPlacement(hero: "hrv"), size: .large)
+    XCTAssertTrue(hrv.trainingLoad.isEmpty)
+  }
+
   /// Scenario: the chart beside the hero draws two lines and the large size draws form over its
   /// zones, neither of which says on its own what it is or how many days it spans.
   ///
@@ -99,5 +135,22 @@ final class SummaryWidgetModelTests: XCTestCase {
       snapshot, placement: SummaryPlacement(sparkline: false), size: .medium)
     XCTAssertEqual(content.chart, .none)
     XCTAssertNil(content.chartCaption)
+  }
+
+  func testMediumAndLargeCarryTheRecordLinkForTheLastSportAndSmallNone() throws {
+    let snapshot = try self.snapshot("demo")
+    let ride = URL(string: "veloq://record?type=Ride")
+    for size in [SummarySize.medium, .large] {
+      let content = SummaryWidgetModel.content(snapshot, placement: .followCard, size: size)
+      XCTAssertEqual(content.record, ride, "\(size)")
+    }
+    let small = SummaryWidgetModel.content(snapshot, placement: .followCard, size: .small)
+    XCTAssertNil(small.record)
+  }
+
+  func testWithNoSportRecordedTheRecordLinkOpensThePicker() throws {
+    let snapshot = try self.snapshot("no-wellness")
+    let content = SummaryWidgetModel.content(snapshot, placement: .followCard, size: .medium)
+    XCTAssertEqual(content.record, RecordDeepLink.picker)
   }
 }

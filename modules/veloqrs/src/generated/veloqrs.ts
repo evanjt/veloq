@@ -1329,7 +1329,7 @@ const FfiConverterTypeDownloadProgressResult = (() => {
  */
 export type ElevationBackfillProgress = {
   /**
-   * idle, fetching, complete, partial, paused or failed.
+   * idle, fetching, complete, partial, paused, failed or waiting.
    */
   phase: string;
   /**
@@ -1348,6 +1348,11 @@ export type ElevationBackfillProgress = {
    * Whole percent of the queue handled. An empty queue reads 100.
    */
   percent: number;
+  /**
+   * When a waiting pass resumes, epoch milliseconds. `None` in every other
+   * phase.
+   */
+  resumesAt?: number;
 };
 
 /**
@@ -1379,6 +1384,7 @@ const FfiConverterTypeElevationBackfillProgress = (() => {
         total: FfiConverterUInt32.readFromCursor(c),
         failed: FfiConverterUInt32.readFromCursor(c),
         percent: FfiConverterUInt32.readFromCursor(c),
+        resumesAt: FfiConverterOptionalFloat64.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -1387,6 +1393,7 @@ const FfiConverterTypeElevationBackfillProgress = (() => {
       FfiConverterUInt32.writeIntoCursor(value.total, c);
       FfiConverterUInt32.writeIntoCursor(value.failed, c);
       FfiConverterUInt32.writeIntoCursor(value.percent, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.resumesAt, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -1394,7 +1401,8 @@ const FfiConverterTypeElevationBackfillProgress = (() => {
         FfiConverterUInt32.allocationSize(value.completed) +
         FfiConverterUInt32.allocationSize(value.total) +
         FfiConverterUInt32.allocationSize(value.failed) +
-        FfiConverterUInt32.allocationSize(value.percent)
+        FfiConverterUInt32.allocationSize(value.percent) +
+        FfiConverterOptionalFloat64.allocationSize(value.resumesAt)
       );
     }
   }
@@ -16269,6 +16277,11 @@ export type FfiRecordRestoreResult = {
    * pass so far included.
    */
   namesNotRestored: number;
+  /**
+   * The record left out the export privacy home, so it is unset and the
+   * athlete has to set it again.
+   */
+  exportHomeLeftOut: boolean;
 };
 
 /**
@@ -16300,6 +16313,7 @@ const FfiConverterTypeFfiRecordRestoreResult = (() => {
         missingActivityIds: FfiConverterSequenceString.readFromCursor(c),
         notRestored: FfiConverterUInt32.readFromCursor(c),
         namesNotRestored: FfiConverterUInt32.readFromCursor(c),
+        exportHomeLeftOut: FfiConverterBool.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -16308,6 +16322,7 @@ const FfiConverterTypeFfiRecordRestoreResult = (() => {
       FfiConverterSequenceString.writeIntoCursor(value.missingActivityIds, c);
       FfiConverterUInt32.writeIntoCursor(value.notRestored, c);
       FfiConverterUInt32.writeIntoCursor(value.namesNotRestored, c);
+      FfiConverterBool.writeIntoCursor(value.exportHomeLeftOut, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -16315,7 +16330,8 @@ const FfiConverterTypeFfiRecordRestoreResult = (() => {
         FfiConverterUInt32.allocationSize(value.unplaced) +
         FfiConverterSequenceString.allocationSize(value.missingActivityIds) +
         FfiConverterUInt32.allocationSize(value.notRestored) +
-        FfiConverterUInt32.allocationSize(value.namesNotRestored)
+        FfiConverterUInt32.allocationSize(value.namesNotRestored) +
+        FfiConverterBool.allocationSize(value.exportHomeLeftOut)
       );
     }
   }
@@ -18205,7 +18221,7 @@ const FfiConverterTypeFfiRoutesScreenQuery = (() => {
 export type StreamBackfillProgress = {
   /**
    * One of idle, fetching, complete, partial, stopped, failed,
-   * awaiting_consent, deferred.
+   * awaiting_consent, deferred, waiting.
    */
   phase: string;
   /**
@@ -18236,6 +18252,11 @@ export type StreamBackfillProgress = {
    * Bytes on the wire the held pass would download.
    */
   estimateBytes: number;
+  /**
+   * When a waiting pass resumes, epoch milliseconds. `None` in every other
+   * phase.
+   */
+  resumesAt?: number;
 };
 
 /**
@@ -18270,6 +18291,7 @@ const FfiConverterTypeStreamBackfillProgress = (() => {
         percent: FfiConverterUInt32.readFromCursor(c),
         estimateRequests: FfiConverterUInt32.readFromCursor(c),
         estimateBytes: FfiConverterFloat64.readFromCursor(c),
+        resumesAt: FfiConverterOptionalFloat64.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -18281,6 +18303,7 @@ const FfiConverterTypeStreamBackfillProgress = (() => {
       FfiConverterUInt32.writeIntoCursor(value.percent, c);
       FfiConverterUInt32.writeIntoCursor(value.estimateRequests, c);
       FfiConverterFloat64.writeIntoCursor(value.estimateBytes, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.resumesAt, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -18291,7 +18314,8 @@ const FfiConverterTypeStreamBackfillProgress = (() => {
         FfiConverterUInt32.allocationSize(value.failed) +
         FfiConverterUInt32.allocationSize(value.percent) +
         FfiConverterUInt32.allocationSize(value.estimateRequests) +
-        FfiConverterFloat64.allocationSize(value.estimateBytes)
+        FfiConverterFloat64.allocationSize(value.estimateBytes) +
+        FfiConverterOptionalFloat64.allocationSize(value.resumesAt)
       );
     }
   }
@@ -25566,6 +25590,54 @@ const FfiConverterTypeMapDistanceBand = (() => {
   return new FFIConverter();
 })();
 
+/**
+ * Where a record backup is going, which decides what it may hold.
+ *
+ * The wire carries the variant's position, so the order here is the contract:
+ * append, never reorder. The discriminants start at one so no member is
+ * falsy.
+ */
+export enum RecordScope {
+  /**
+   * Storage only this app reads: its own documents, the Google Drive app
+   * folder, the iCloud Drive app folder, the athlete's WebDAV server.
+   */
+  Whole = 1,
+  /**
+   * A folder on the device's shared storage, which other apps and a
+   * connected computer can read. It leaves out the export privacy home.
+   */
+  SharedStorage = 2,
+}
+
+const FfiConverterTypeRecordScope = (() => {
+  type TypeName = RecordScope;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return RecordScope.Whole;
+        case 2:
+          return RecordScope.SharedStorage;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value) {
+        case RecordScope.Whole:
+          return c.writeI32(1);
+        case RecordScope.SharedStorage:
+          return c.writeI32(2);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return 4;
+    }
+  }
+  return new FFIConverter();
+})();
+
 // Enum: UploadTransition
 export enum UploadTransition_Tags {
   Begin = "Begin",
@@ -26674,7 +26746,9 @@ export interface ActivityManagerLike {
    * A caller after a single activity uses this rather than the window read
    * below: the table is keyed by the id, so this is one row instead of a
    * page of them read to find it. `is_detail` says whether
-   * the row is still the list form the detail fetch replaces.
+   * the row is still the list form the detail fetch replaces. A read that
+   * fails is an error rather than `None`, so the screen reads again instead
+   * of waiting for a download of a body it already holds.
    */
   getActivityRecord(
     activityId: string,
@@ -26982,7 +27056,9 @@ export class ActivityManager
    * A caller after a single activity uses this rather than the window read
    * below: the table is keyed by the id, so this is one row instead of a
    * page of them read to find it. `is_detail` says whether
-   * the row is still the list form the detail fetch replaces.
+   * the row is still the list form the detail fetch replaces. A read that
+   * fails is an error rather than `None`, so the screen reads again instead
+   * of waiting for a download of a body it already holds.
    */
   getActivityRecord(
     activityId: string,
@@ -36729,6 +36805,7 @@ export interface VeloqEngineLike {
    */
   runRecordBackup(
     destPath: string,
+    scope: RecordScope,
     asyncOpts_?: { signal: AbortSignal },
   ) /*throws*/ : Promise<void>;
   sections(): SectionManagerLike;
@@ -37653,6 +37730,7 @@ export class VeloqEngine
    */
   async runRecordBackup(
     destPath: string,
+    scope: RecordScope,
     asyncOpts_?: { signal: AbortSignal },
   ): Promise<void> /*throws*/ {
     const __stack = uniffiIsDebug ? new Error().stack : undefined;
@@ -37663,6 +37741,10 @@ export class VeloqEngine
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_run_record_backup(
             uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
             FfiConverterString.lower(destPath, nativeModule().rustbuffer_alloc),
+            FfiConverterTypeRecordScope.lower(
+              scope,
+              nativeModule().rustbuffer_alloc,
+            ),
           );
         },
         /*pollFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_poll_void,
@@ -39197,7 +39279,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_activity_record() !==
-    50611
+    34488
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_activitymanager_get_activity_record",
@@ -41301,7 +41383,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_run_record_backup() !==
-    1070
+    21997
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_veloqengine_run_record_backup",
@@ -41665,6 +41747,7 @@ export default Object.freeze({
     FfiConverterTypeNumberWords,
     FfiConverterTypePersistentEngineStats,
     FfiConverterTypeRangeCoverage,
+    FfiConverterTypeRecordScope,
     FfiConverterTypeRecordShortcut,
     FfiConverterTypeRecordingManager,
     FfiConverterTypeRouteGroupingPreview,

@@ -1,6 +1,6 @@
-//! The strength block: the body the strength tab draws, over the trailing 30
-//! days and the calendar month, shaded, ranked and worded as the strength
-//! screen read does it, so a native picks a window and draws.
+//! The strength block: the body the strength tab draws over the trailing 30
+//! days, shaded, ranked and worded as the strength screen read does it, so a
+//! native draws it as it stands.
 
 use super::super::*;
 use crate::fit::FitExerciseSet;
@@ -10,8 +10,7 @@ use crate::test_globals::{init_global_engine, serial_global_state};
 
 const DAY: i64 = 86_400;
 
-/// 2024-12-20 10:00 on the wall clock: the 1st of the month is 19 days back,
-/// so the month and the trailing 30 days differ.
+/// 2024-12-20 10:00 on the wall clock.
 const NOW: i64 = 1_734_688_800;
 
 const CLOCK: Clock = Clock {
@@ -22,8 +21,8 @@ const CLOCK: Clock = Clock {
 /// Midnight starting the clock's day.
 const TODAY: i64 = NOW - NOW % DAY;
 
-/// 2024-12-01 00:00, the start of the clock's month.
-const FIRST_OF_MONTH: i64 = TODAY - 19 * DAY;
+/// Midnight 19 days back, inside the trailing 30 days.
+const SQUAT_DAY: i64 = TODAY - 19 * DAY;
 
 const BENCH_PRESS: u16 = 0;
 const CURL: u16 = 7;
@@ -83,16 +82,12 @@ fn set_profile(json: &str) {
     .expect("the engine");
 }
 
-/// Bench today, squats on the 1st, curls 29 days back, the edge of the
+/// Bench today, squats 19 days back, curls 29 days back, the edge of the
 /// trailing window, and shrugs 30 days back, just outside it. Nothing else
 /// works the trapezius.
-fn seed_month() {
+fn seed() {
     store_session("today", TODAY + 9 * 3_600, Some(sets(BENCH_PRESS, 4, 60.0)));
-    store_session(
-        "first",
-        FIRST_OF_MONTH + 8 * 3_600,
-        Some(sets(SQUAT, 5, 80.0)),
-    );
+    store_session("first", SQUAT_DAY + 8 * 3_600, Some(sets(SQUAT, 5, 80.0)));
     store_session("day29", TODAY - 29 * DAY, Some(sets(CURL, 3, 15.0)));
     store_session(
         "day30",
@@ -104,13 +99,10 @@ fn seed_month() {
 fn strings() -> std::collections::HashMap<String, String> {
     [
         ("period.long.1m", "1 month"),
+        ("fitnessScreen.perWeek", "/wk"),
         (
             "strength.noWorkouts",
             "No strength workouts in the last {{period}}",
-        ),
-        (
-            "strength.noWorkoutsThisMonth",
-            "No strength workouts this month",
         ),
         (
             "strength.notDownloaded",
@@ -130,28 +122,10 @@ fn strings() -> std::collections::HashMap<String, String> {
 }
 
 fn context() -> FfiWidgetContext {
-    let months = [
-        "January",
-        "February",
-        "March",
-        "April",
-        "May",
-        "June",
-        "July",
-        "August",
-        "September",
-        "October",
-        "November",
-        "December",
-    ];
     FfiWidgetContext {
         locale: "en-GB".to_string(),
         is_metric: true,
         strings: strings(),
-        dates: DateWords {
-            months: months.map(String::from).to_vec(),
-            ..DateWords::default()
-        },
         ..FfiWidgetContext::default()
     }
 }
@@ -208,86 +182,78 @@ fn slugs(window: &serde_json::Value) -> Vec<String> {
         .collect()
 }
 
-/// Scenario: strength work today, on the 1st, 29 days back and 30 days back,
-/// composed on the 20th.
+/// Scenario: strength work today, 19 days back, 29 days back and 30 days back.
 ///
-/// Expected behaviour: each window shades every muscle exactly as the strength
-/// screen does over the same bounds, the trailing window runs from midnight 29
-/// days back to the end of today, and the month from the 1st.
+/// Expected behaviour: the window shades every muscle exactly as the strength
+/// screen does over the same bounds, from midnight 29 days back to the end of
+/// today.
 #[test]
-fn each_window_shades_the_body_as_the_strength_screen_does_over_the_same_days() {
+fn the_window_shades_the_body_as_the_strength_screen_does_over_the_same_days() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("widget_strength_windows.db");
-    seed_month();
+    seed();
 
     let snapshot = compose_at(CLOCK);
-    let windows = &snapshot["strength"]["windows"];
-    let end_of_today = TODAY + DAY - 1;
+    let window = &snapshot["strength"]["windows"]["last30"];
+    let screen = screen(TODAY - 29 * DAY, TODAY + DAY - 1);
 
-    for (window, start) in [
-        (&windows["last30"], TODAY - 29 * DAY),
-        (&windows["month"], FIRST_OF_MONTH),
-    ] {
-        let screen = screen(start, end_of_today);
-        assert_eq!(shades(&window["muscles"]), screen_shades(&screen));
-        assert_eq!(
-            window["maxWeightedSets"].as_f64(),
-            Some(screen.summary.max_weighted_sets)
-        );
-        assert_eq!(
-            window["activityCount"].as_u64(),
-            Some(u64::from(screen.summary.activity_count))
-        );
-        assert_eq!(
-            window["totalSets"].as_u64(),
-            Some(u64::from(screen.summary.total_sets))
-        );
-        assert_eq!(window["owedCount"], 0);
-        assert_eq!(window["emptyText"], serde_json::Value::Null);
-    }
+    assert_eq!(shades(&window["muscles"]), screen_shades(&screen));
+    assert_eq!(
+        window["maxWeightedSets"].as_f64(),
+        Some(screen.summary.max_weighted_sets)
+    );
+    assert_eq!(
+        window["activityCount"].as_u64(),
+        Some(u64::from(screen.summary.activity_count))
+    );
+    assert_eq!(
+        window["totalSets"].as_u64(),
+        Some(u64::from(screen.summary.total_sets))
+    );
+    assert_eq!(window["owedCount"], 0);
+    assert_eq!(window["emptyText"], serde_json::Value::Null);
 
-    let last30 = slugs(&windows["last30"]);
-    assert!(last30.contains(&"biceps".to_string()), "day 29 is inside");
+    let drawn = slugs(window);
+    assert!(drawn.contains(&"biceps".to_string()), "day 29 is inside");
     assert!(
-        !last30.contains(&"trapezius".to_string()),
+        drawn.contains(&"quadriceps".to_string()),
+        "day 19 is inside"
+    );
+    assert!(
+        !drawn.contains(&"trapezius".to_string()),
         "day 30 is outside"
     );
-    assert_eq!(windows["last30"]["activityCount"], 3);
-
-    let month = slugs(&windows["month"]);
-    assert!(
-        !month.contains(&"biceps".to_string()),
-        "the 29th of last month is outside"
-    );
-    assert!(
-        month.contains(&"quadriceps".to_string()),
-        "the 1st is inside"
-    );
-    assert_eq!(windows["month"]["activityCount"], 2);
+    assert_eq!(window["activityCount"], 3);
 
     crate::persistence::clear_persistent_engine();
 }
 
-/// Scenario: the trailing window and the month the widget offers at placement.
+/// Scenario: the widget is placed, with nothing for the athlete to choose.
 ///
-/// Expected behaviour: each carries its label, the block names the body and
-/// the link that opens the strength tab on the same 30 days.
+/// Expected behaviour: the block carries the trailing 30 days and no other
+/// window, labelled as the strength tab names it, with the body and the link
+/// that opens the strength tab on the same 30 days.
 #[test]
-fn the_block_names_its_windows_body_and_link() {
+fn the_block_carries_the_trailing_month_alone() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("widget_strength_labels.db");
-    seed_month();
+    seed();
 
     let strength = &compose_at(CLOCK)["strength"];
 
+    let windows: Vec<&String> = strength["windows"]
+        .as_object()
+        .expect("the windows")
+        .keys()
+        .collect();
+    assert_eq!(windows, ["last30"]);
     assert_eq!(strength["windows"]["last30"]["label"], "1 month");
-    assert_eq!(strength["windows"]["month"]["label"], "December");
     assert_eq!(strength["body"], "male");
     assert_eq!(strength["url"], "veloq://insights?tab=strength&period=1m");
     crate::persistence::clear_persistent_engine();
 }
 
-/// Scenario: the month's work is squats on the 1st and bench today.
+/// Scenario: the 30 days hold squats, bench and curls.
 ///
 /// Expected behaviour: the top muscles come in the strength screen's
 /// weighted-set order, at most four, each named and worded with its sets and
@@ -296,11 +262,11 @@ fn the_block_names_its_windows_body_and_link() {
 fn the_top_muscles_are_ranked_and_worded_by_the_engine() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("widget_strength_top.db");
-    seed_month();
+    seed();
 
-    let month = &compose_at(CLOCK)["strength"]["windows"]["month"];
-    let screen = screen(FIRST_OF_MONTH, TODAY + DAY - 1);
-    let top = month["top"].as_array().expect("the top muscles");
+    let window = &compose_at(CLOCK)["strength"]["windows"]["last30"];
+    let screen = screen(TODAY - 29 * DAY, TODAY + DAY - 1);
+    let top = window["top"].as_array().expect("the top muscles");
 
     assert_eq!(top.len(), 4);
     let ranked: Vec<&str> = screen
@@ -326,7 +292,7 @@ fn the_top_muscles_are_ranked_and_worded_by_the_engine() {
     assert_eq!(quads["volumeText"], "3200 kg");
 
     // A squat works the lower back secondarily, at half a set each.
-    let lower_back = month["muscles"]
+    let lower_back = window["muscles"]
         .as_array()
         .expect("muscles")
         .iter()
@@ -335,7 +301,7 @@ fn the_top_muscles_are_ranked_and_worded_by_the_engine() {
     crate::persistence::clear_persistent_engine();
 }
 
-/// Scenario: the month's only work is on the 1st, and an imperial athlete reads it.
+/// Scenario: the 30 days hold squats alone, and an imperial athlete reads them.
 ///
 /// Expected behaviour: half sets keep their decimal, one set is singular, and
 /// volume is in pounds.
@@ -343,12 +309,8 @@ fn the_top_muscles_are_ranked_and_worded_by_the_engine() {
 fn sets_and_volume_are_worded_in_the_athletes_language_and_unit() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("widget_strength_words.db");
-    store_session(
-        "first",
-        FIRST_OF_MONTH + 8 * 3_600,
-        Some(sets(SQUAT, 1, 100.0)),
-    );
-    store_session("second", FIRST_OF_MONTH + DAY, Some(sets(SQUAT, 2, 100.0)));
+    store_session("first", SQUAT_DAY + 8 * 3_600, Some(sets(SQUAT, 1, 100.0)));
+    store_session("second", SQUAT_DAY + DAY, Some(sets(SQUAT, 2, 100.0)));
 
     let json = crate::persistence::read_pool::with_read_conn(|conn| {
         let mut ctx = context();
@@ -357,7 +319,7 @@ fn sets_and_volume_are_worded_in_the_athletes_language_and_unit() {
     })
     .expect("an open engine");
     let snapshot: serde_json::Value = serde_json::from_str(&json).expect("JSON");
-    let top = &snapshot["strength"]["windows"]["month"]["top"];
+    let top = &snapshot["strength"]["windows"]["last30"]["top"];
     let find = |slug: &str| {
         top.as_array()
             .expect("top")
@@ -375,37 +337,76 @@ fn sets_and_volume_are_worded_in_the_athletes_language_and_unit() {
     crate::persistence::clear_persistent_engine();
 }
 
-/// Scenario: on the 5th of January the last sets were before the new year.
+/// Scenario: bench press in three sessions over the 30 days, two sets in one of
+/// them, and squats in one, read in a language that writes a decimal comma.
 ///
-/// Expected behaviour: the month has no muscles and says so in its own words,
-/// while the trailing window still draws December's work.
+/// Expected behaviour: each top muscle carries the sessions that trained it
+/// and how often that is a week, sessions over the window's 30 days times
+/// seven to one decimal: 0,7 a week for the chest, 0,2 for the quadriceps.
+#[test]
+fn each_top_muscle_carries_how_often_a_week_it_was_trained() {
+    let _guard = serial_global_state();
+    let _tmp = init_global_engine("widget_strength_frequency.db");
+    store_session("today", TODAY + 9 * 3_600, Some(sets(BENCH_PRESS, 2, 60.0)));
+    store_session("week", TODAY - 7 * DAY, Some(sets(BENCH_PRESS, 1, 60.0)));
+    store_session("day29", TODAY - 29 * DAY, Some(sets(BENCH_PRESS, 1, 60.0)));
+    store_session("first", SQUAT_DAY + 8 * 3_600, Some(sets(SQUAT, 3, 80.0)));
+
+    let json = crate::persistence::read_pool::with_read_conn(|conn| {
+        let mut ctx = context();
+        ctx.numbers.decimal = ",".to_string();
+        snapshot_json(conn, &ctx, CLOCK)
+    })
+    .expect("an open engine");
+    let snapshot: serde_json::Value = serde_json::from_str(&json).expect("JSON");
+    let top = snapshot["strength"]["windows"]["last30"]["top"]
+        .as_array()
+        .expect("top")
+        .clone();
+    let find = |slug: &str| {
+        top.iter()
+            .find(|m| m["slug"] == slug)
+            .cloned()
+            .unwrap_or_else(|| panic!("no {slug}"))
+    };
+
+    assert_eq!(find("chest")["sessionCount"], 3);
+    assert_eq!(find("chest")["frequencyText"], "0,7×/wk");
+    assert_eq!(find("triceps")["frequencyText"], "0,7×/wk");
+    assert_eq!(find("quadriceps")["sessionCount"], 1);
+    assert_eq!(find("quadriceps")["frequencyText"], "0,2×/wk");
+    crate::persistence::clear_persistent_engine();
+}
+
+/// Scenario: 31 days after the clock's day, the last sets are 31 days old.
+///
+/// Expected behaviour: the window has no muscles and says so in the strength
+/// tab's words for the 30 days.
 #[test]
 fn an_empty_window_says_so_and_draws_no_muscles() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("widget_strength_empty.db");
-    seed_month();
-    // 2025-01-05, 16 days after the clock's day.
-    let later = NOW + 16 * DAY;
+    seed();
+    let later = NOW + 31 * DAY;
 
-    let windows = &compose_at(Clock {
+    let window = &compose_at(Clock {
         now_seconds: later,
         now_wall_seconds: later,
-    })["strength"]["windows"];
+    })["strength"]["windows"]["last30"];
 
-    assert_eq!(windows["month"]["muscles"], serde_json::json!([]));
-    assert_eq!(windows["month"]["top"], serde_json::json!([]));
-    assert_eq!(windows["month"]["label"], "January");
+    assert_eq!(window["muscles"], serde_json::json!([]));
+    assert_eq!(window["top"], serde_json::json!([]));
+    assert_eq!(window["label"], "1 month");
     assert_eq!(
-        windows["month"]["emptyText"],
-        "No strength workouts this month"
+        window["emptyText"],
+        "No strength workouts in the last 1 month"
     );
-    assert_eq!(windows["month"]["maxWeightedSets"], 0.0);
-    assert_eq!(windows["last30"]["emptyText"], serde_json::Value::Null);
-    assert!(!slugs(&windows["last30"]).is_empty());
+    assert_eq!(window["maxWeightedSets"], 0.0);
+    assert_eq!(window["bodyLabel"], serde_json::Value::Null);
     crate::persistence::clear_persistent_engine();
 }
 
-/// Scenario: the month's only strength session has not had its file downloaded.
+/// Scenario: the window's only strength session has not had its file downloaded.
 ///
 /// Expected behaviour: the window counts it as owed and says the workouts are
 /// not downloaded yet, rather than that there are none.
@@ -415,22 +416,20 @@ fn a_window_whose_sessions_are_owed_says_they_are_not_downloaded() {
     let _tmp = init_global_engine("widget_strength_owed.db");
     store_session("owed", TODAY + 9 * 3_600, None);
 
-    let windows = &compose_at(CLOCK)["strength"]["windows"];
+    let window = &compose_at(CLOCK)["strength"]["windows"]["last30"];
 
-    for window in [&windows["last30"], &windows["month"]] {
-        assert_eq!(window["owedCount"], 1);
-        assert_eq!(window["muscles"], serde_json::json!([]));
-        assert_eq!(window["emptyText"], "Strength workouts not downloaded yet");
-    }
+    assert_eq!(window["owedCount"], 1);
+    assert_eq!(window["muscles"], serde_json::json!([]));
+    assert_eq!(window["emptyText"], "Strength workouts not downloaded yet");
     crate::persistence::clear_persistent_engine();
 }
 
 /// Scenario: a library with no strength work at all.
 ///
-/// Expected behaviour: the block is still there, both windows empty and worded,
-/// so a native never words a window itself.
+/// Expected behaviour: the block is still there, the window empty and worded,
+/// so a native never words it itself.
 #[test]
-fn a_library_with_no_strength_work_still_carries_both_windows_worded() {
+fn a_library_with_no_strength_work_still_carries_the_window_worded() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("widget_strength_none.db");
 
@@ -441,12 +440,8 @@ fn a_library_with_no_strength_work_still_carries_both_windows_worded() {
         strength["windows"]["last30"]["emptyText"],
         "No strength workouts in the last 1 month"
     );
-    assert_eq!(
-        strength["windows"]["month"]["emptyText"],
-        "No strength workouts this month"
-    );
     assert_eq!(strength["windows"]["last30"]["activityCount"], 0);
-    assert_eq!(strength["windows"]["month"]["totalSets"], 0);
+    assert_eq!(strength["windows"]["last30"]["totalSets"], 0);
     crate::persistence::clear_persistent_engine();
 }
 
@@ -469,26 +464,6 @@ fn the_body_follows_the_profile_as_the_strength_tab_does() {
     set_profile(r#"{"id":"i1","name":"A"}"#);
     assert_eq!(compose_at(CLOCK)["strength"]["body"], "male");
     crate::persistence::clear_persistent_engine();
-}
-
-/// Scenario: an older stored context with no long month names, as a native
-/// refresh reads before the app has run the new build.
-///
-/// Expected behaviour: the month's label falls back to the short name the
-/// context does carry.
-#[test]
-fn the_month_label_falls_back_to_the_short_name() {
-    let mut ctx = context();
-    ctx.dates.months = Vec::new();
-    ctx.dates.month_day.months = [
-        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-    ]
-    .map(String::from)
-    .to_vec();
-
-    let snapshot = compose(&FfiWidgetSnapshotData::default(), &ctx, CLOCK);
-
-    assert_eq!(snapshot.strength.windows.month.label, "Dec");
 }
 
 /// The plural category i18next gives each count in the app's languages, read

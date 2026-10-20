@@ -30,8 +30,11 @@ export type BackgroundJobId = 'detection' | 'elevationBackfill' | 'cutover' | 's
  * `partial` and `paused` are the elevation backfill's own terminal states: a
  * pass that finished but left activities a later run retries, and one the
  * athlete stopped until the app is next opened. No other job can reach them.
+ * `waiting` is a backfill the request budget or intervals.icu holds, which the
+ * engine resumes on its own.
  */
-export type BackgroundJobState = 'idle' | 'running' | 'complete' | 'partial' | 'failed' | 'paused';
+export type BackgroundJobState =
+  'idle' | 'running' | 'complete' | 'partial' | 'failed' | 'paused' | 'waiting';
 
 export interface BackgroundJob {
   id: BackgroundJobId;
@@ -46,6 +49,8 @@ export interface BackgroundJob {
   remaining: number | null;
   /** The running job's phase token, null when it names no phases. */
   phase: string | null;
+  /** When a waiting job resumes, epoch milliseconds, null otherwise. */
+  resumesAt: number | null;
   /** The job's last finished run, null when it has never run on this install. */
   lastRun: BackgroundJobRun | null;
 }
@@ -54,7 +59,7 @@ export interface BackgroundJob {
 export interface BackgroundJobRun {
   /** When the run finished, epoch milliseconds. */
   finishedAt: number;
-  /** complete, partial, failed, paused or stopped. */
+  /** complete, partial, failed, paused, stopped or deferred. */
   outcome: string;
   handled: number;
   added: number;
@@ -171,11 +176,12 @@ function backfillState(phase: string): BackgroundJobState {
       return 'running';
     case 'complete':
       return 'complete';
-    // A refusal from intervals.icu leaves the rest owed, and the engine
-    // resumes it on its own.
     case 'partial':
-    case 'waiting':
       return 'partial';
+    // The request budget or a refusal holds the rest, and the engine resumes
+    // it on its own.
+    case 'waiting':
+      return 'waiting';
     case 'failed':
       return 'failed';
     case 'paused':
@@ -205,8 +211,9 @@ function streamState(phase: string): BackgroundJobState {
     case 'complete':
       return 'complete';
     case 'partial':
-    case 'waiting':
       return 'partial';
+    case 'waiting':
+      return 'waiting';
     case 'failed':
       return 'failed';
     default:
@@ -268,6 +275,7 @@ function jobsFromStatus(
       percent: detection.percent,
       remaining: detection.awaiting,
       phase: detection.phase,
+      resumesAt: null,
       lastRun: lastRun('detection'),
     },
     {
@@ -278,6 +286,7 @@ function jobsFromStatus(
       percent: null,
       remaining: status?.elevationRemaining ?? null,
       phase: null,
+      resumesAt: elevation?.resumesAt ?? null,
       lastRun: lastRun('elevationBackfill'),
     },
     {
@@ -288,6 +297,7 @@ function jobsFromStatus(
       percent: null,
       remaining: cutover?.running ? null : cutoverPending,
       phase: cutover?.running ? cutover.phase : null,
+      resumesAt: null,
       lastRun: lastRun('cutover'),
     },
     {
@@ -298,6 +308,7 @@ function jobsFromStatus(
       percent: null,
       remaining: status?.streamRemaining ?? null,
       phase: null,
+      resumesAt: stream?.resumesAt ?? null,
       lastRun: lastRun('streamBackfill'),
     },
   ];

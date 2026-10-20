@@ -1,33 +1,112 @@
-# Scroll the screen until ELEMENT is on it and clear of the tab bar. Every swipe
-# starts low on the screen, inside the scrolling content and above the tab bar.
-# scrollUntilVisible swipes from the screen centre instead, and on the feed the
-# fixed cards above the list can sit there, so its swipes move nothing. A row
-# counts as visible as soon as its top edge comes in under the tab bar, so once
-# a swipe has brought it in, one longer swipe lifts it to where a tap on its
-# centre lands on it rather than on the tab bar or the record button.
+# Scroll a tab screen until a tap on the centre of ELEMENT lands on it: below
+# the top of LIST, the scrolling view it sits in, and clear of the tab bar and
+# the record button, which float over the bottom of that list. With
+# DIRECTION: UP it scrolls back towards the top of the list instead, for a row
+# above where the list opens.
+#
+# Maestro's `above` and `below` compare top edges. So the element's top is first
+# brought above the record button, or above the tab bar where no record button
+# shows, and then the list is lifted once more by a quarter of the screen, which
+# carries a card's centre and a chip's whole height clear of both. A lift that
+# takes the element's top past the top of the list is swiped back, so a row
+# already near the top stays where it was.
+#
+# Every swipe is slow and short and is followed by a wait for the list to stop.
+# A fast swipe flings the list on after it ends, carrying the element past the
+# place it was just seen before the next assertion reads it. Every swipe runs
+# down the centre line of the screen, inside the list, above the tab bar and
+# left of the record button.
 appId: com.veloq.app.dev
 ---
-- evalScript: ${output.revealSwiped = false}
-- repeat:
-    while:
-      notVisible:
-        id: ${ELEMENT}
-    times: 15
-    commands:
-      - swipe:
-          start: 50%, 85%
-          end: 50%, 65%
-          duration: 400
-      - evalScript: ${output.revealSwiped = true}
-- assertVisible:
-    id: ${ELEMENT}
+- assertTrue: ${typeof LIST === 'string' && LIST.length > 0}
+- evalScript: ${output.revealUp = typeof DIRECTION !== 'undefined' && DIRECTION === 'UP'}
+
+# A card on a staged page mounts a few frames after its screen, and scrolling
+# for it before then carries it past the top once it appears.
+- extendedWaitUntil:
+    visible:
+      id: ${ELEMENT}
+    timeout: 3000
+    optional: true
+
 - runFlow:
     when:
-      true: ${output.revealSwiped}
+      true: ${output.revealUp}
     commands:
+      - repeat:
+          while:
+            notVisible:
+              id: ${ELEMENT}
+          times: 15
+          commands:
+            - swipe:
+                start: 50%, 40%
+                end: 50%, 55%
+                duration: 1000
+            - waitForAnimationToEnd:
+                timeout: 3000
+      # The loop stops as soon as the row's bottom edge shows.
       - swipe:
-          start: 50%, 85%
+          start: 50%, 40%
           end: 50%, 55%
-          duration: 400
+          duration: 1000
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - assertVisible:
+          id: ${ELEMENT}
+
+- runFlow:
+    when:
+      true: ${!output.revealUp}
+    commands:
+      - repeat:
+          while:
+            visible:
+              id: "record-fab"
+            notVisible:
+              id: ${ELEMENT}
+              above:
+                id: "record-fab"
+          times: 25
+          commands:
+            - swipe:
+                start: 50%, 75%
+                end: 50%, 60%
+                duration: 1000
+            - waitForAnimationToEnd:
+                timeout: 3000
+      - repeat:
+          while:
+            notVisible:
+              id: ${ELEMENT}
+              above:
+                id: "bottom-tab-bar"
+          times: 25
+          commands:
+            - swipe:
+                start: 50%, 75%
+                end: 50%, 60%
+                duration: 1000
+            - waitForAnimationToEnd:
+                timeout: 3000
+      - swipe:
+          start: 50%, 75%
+          end: 50%, 50%
+          duration: 1500
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - runFlow:
+          when:
+            notVisible:
+              id: ${ELEMENT}
+              below:
+                id: ${LIST}
+          commands:
+            - swipe:
+                start: 50%, 50%
+                end: 50%, 75%
+                duration: 1500
+            - waitForAnimationToEnd:
+                timeout: 3000
       - assertVisible:
           id: ${ELEMENT}

@@ -18,8 +18,10 @@
 // installation the screens sheet width patch never reached, because that app draws
 // every sheet across the full width of a tablet, and one the screens sheet hide patch
 // never reached, because that app lets a drag dismiss a sheet that is meant to stay
-// on screen, and one the nitro JSI install patch never reached, because that app
-// aborts at every iOS launch.
+// on screen, one the router route match patch never reached, because in that app a
+// second detail screen of one kind opens inside the first without its sheet, and one
+// the nitro JSI install patch never reached, because that app aborts at every iOS
+// launch.
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, lstatSync, readdirSync, realpathSync } from 'node:fs';
@@ -38,6 +40,10 @@ const { applyPatch: patchScreens } = createRequire(import.meta.url)(
 const PATCH_SCREENS_HIDE = 'node scripts/patch-screens-sheet-hide.js';
 const { applyPatch: patchScreensHide } = createRequire(import.meta.url)(
   './patch-screens-sheet-hide.js'
+);
+const PATCH_ROUTER = 'node scripts/patch-expo-router-route-match.js';
+const { applyPatch: patchRouter } = createRequire(import.meta.url)(
+  './patch-expo-router-route-match.js'
 );
 const PATCH_NITRO = 'node scripts/patch-nitro-jsi-install.js';
 const { applyPatch: patchNitro } = createRequire(import.meta.url)('./patch-nitro-jsi-install.js');
@@ -194,6 +200,17 @@ export function requireNativeTree(root) {
     console.error('A build here would let a drag dismiss a sheet that is meant to stay on screen.');
     console.error('Patch it, then build again:');
     console.error(`  ${PATCH_SCREENS_HIDE}`);
+    process.exit(1);
+  }
+  const router = patchProblem(root, 'expo-router', patchRouter);
+  if (router !== null) {
+    console.error('The installed expo-router does not carry the route match patch.');
+    console.error(`  ${router}`);
+    console.error(
+      'A build here would open a second detail screen of one kind inside the first, without its sheet.'
+    );
+    console.error('Patch it, then build again:');
+    console.error(`  ${PATCH_ROUTER}`);
     process.exit(1);
   }
   const nitro = patchProblem(root, 'react-native-nitro-modules', patchNitro);

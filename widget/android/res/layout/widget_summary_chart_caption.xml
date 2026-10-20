@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The legend under the Summary chart on one line: each series beside a stroke drawn as its line
+     is, and the days the chart spans at the end. The two series share what the span leaves, and a
+     translated name wraps inside its share rather than push the span off the line. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  android:id="@+id/sum_chart_caption"
+  android:importantForAccessibility="noHideDescendants"
+  android:layout_width="match_parent"
+  android:layout_height="wrap_content"
+  android:orientation="horizontal"
+  android:gravity="center_vertical"
+  android:visibility="gone">
+
+  <LinearLayout
+    android:id="@+id/sum_series"
+    android:layout_width="0dp"
+    android:layout_weight="1"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical">
+
+    <TextView
+      android:fontFamily="@font/widget_manrope"
+      android:id="@+id/sum_series_fitness"
+      android:layout_width="0dp"
+      android:layout_weight="1"
+      android:layout_height="wrap_content"
+      android:drawableStart="@drawable/widget_legend_fitness"
+      android:drawablePadding="3dp"
+      android:maxLines="2"
+      android:textSize="@dimen/widget_text_caption"
+      android:textColor="@color/widget_text_secondary" />
+
+    <TextView
+      android:fontFamily="@font/widget_manrope"
+      android:id="@+id/sum_series_fatigue"
+      android:layout_width="0dp"
+      android:layout_weight="1"
+      android:layout_height="wrap_content"
+      android:layout_marginStart="@dimen/widget_gap"
+      android:drawableStart="@drawable/widget_legend_fatigue"
+      android:drawablePadding="3dp"
+      android:maxLines="2"
+      android:textSize="@dimen/widget_text_caption"
+      android:textColor="@color/widget_text_secondary" />
+  </LinearLayout>
+
+  <TextView
+    android:fontFamily="@font/widget_manrope"
+    android:id="@+id/sum_chart_span"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_marginStart="@dimen/widget_gap"
+    android:maxLines="1"
+    android:textSize="@dimen/widget_text_caption"
+    android:textColor="@color/widget_text_secondary" />
+</LinearLayout>

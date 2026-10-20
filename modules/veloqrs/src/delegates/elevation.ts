@@ -19,6 +19,8 @@ import type { DelegateHost } from './host';
 /**
  * Live and terminal states the backfill reports. `paused` is the athlete's
  * own stop: it holds until they resume it or the app is next launched.
+ * `waiting` is the request budget or intervals.icu holding the rest, and the
+ * progress carries when it resumes.
  */
 export const ELEVATION_PHASES = [
   'idle',
@@ -27,6 +29,7 @@ export const ELEVATION_PHASES = [
   'partial',
   'failed',
   'paused',
+  'waiting',
 ] as const;
 
 export type ElevationBackfillPhase = (typeof ELEVATION_PHASES)[number];

@@ -2,9 +2,9 @@
  * Scenario: an athlete places the Strength widget from the Android widget gallery.
  *
  * Expected behaviour: the gallery names it in the athlete's language and describes it, the
- * launcher opens the window picker as the widget is placed and again on reconfigure, dismissing
- * the picker leaves a working widget, and every resource the manifest, the provider info and the
- * picker point at exists in the generated project in every locale.
+ * widget is placed straight onto the trailing 30 days with no picker and nothing to reconfigure,
+ * and every resource the manifest and the provider info point at exists in the generated project
+ * in every locale.
  */
 
 import fs from 'fs';
@@ -57,37 +57,34 @@ describe('the Strength widget in the Android gallery', () => {
     expect(JSON.stringify(strength)).toContain('@xml/widget_strength_info');
   });
 
-  it('registers its picker with the launcher, whatever the Record flag says', () => {
-    for (const include of [true, false]) {
-      const app: { activity: Entry[] } = { activity: [] };
-      androidPlugin.applyActivities(app, include);
-      const picker = app.activity.find(
-        (a) => a.$['android:name'] === '.widget.StrengthWidgetConfigureActivity'
-      );
-      expect(picker?.$['android:exported']).toBe('true');
-      expect(JSON.stringify(picker)).toContain('android.appwidget.action.APPWIDGET_CONFIGURE');
-    }
+  it('registers no picker, and drops one an earlier prebuild left in the manifest', () => {
+    const stale = '.widget.StrengthWidgetConfigureActivity';
+    const app: { activity: Entry[] } = { activity: [{ $: { 'android:name': stale } }] };
+    androidPlugin.applyActivities(app);
+    expect(app.activity.map((a) => a.$['android:name'])).not.toContain(stale);
   });
 
-  it('names a picker class generated into the package, and makes opening it optional', () => {
+  it('is placed with no configure step, and compiles no picker', () => {
     const main = generate();
     const info = attributes(
       fs.readFileSync(path.join(main, 'res', 'xml', 'widget_strength_info.xml'), 'utf8')
     );
-    expect(info['android:configure']).toBe(`${PKG}.widget.StrengthWidgetConfigureActivity`);
-    expect(info['android:widgetFeatures']).toBe('reconfigurable|configuration_optional');
+    expect(info['android:configure']).toBeUndefined();
+    expect(info['android:widgetFeatures']).toBeUndefined();
     expect(info['android:description']).toBe('@string/widget_strength_description');
     expect(info['android:initialLayout']).toBe('@layout/widget_strength');
+    const widgetJava = path.join(main, 'java', ...PKG.split('.'), 'widget');
+    for (const file of ['StrengthWidgetConfigureActivity.kt', 'StrengthWidgetChoice.kt']) {
+      expect([file, fs.existsSync(path.join(widgetJava, file))]).toEqual([file, false]);
+    }
     for (const file of [
-      'StrengthWidgetConfigureActivity.kt',
-      'StrengthWidgetChoice.kt',
       'StrengthWidgetModel.kt',
       'StrengthWidgetRenderer.kt',
       'VeloqStrengthWidgetProvider.kt',
       'BodyBitmap.kt',
       'BodyOutline.kt',
     ]) {
-      expect(fs.existsSync(path.join(main, 'java', ...PKG.split('.'), 'widget', file))).toBe(true);
+      expect(fs.existsSync(path.join(widgetJava, file))).toBe(true);
     }
   });
 
@@ -125,7 +122,6 @@ describe('the Strength widget in the Android gallery', () => {
     const wanted = [
       'widget_strength_label',
       'widget_strength_description',
-      'widget_strength_choose',
       'widget_open_app',
       'widget_to_see_training',
     ];

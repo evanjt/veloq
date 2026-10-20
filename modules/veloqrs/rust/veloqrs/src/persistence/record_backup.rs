@@ -61,6 +61,28 @@ pub(crate) struct RecordPayload {
     /// itself. A record written before this field reads as `None`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) written_at: Option<String>,
+    /// The settings the writer had and left out for where the file was going,
+    /// by key. A restore unsets each one rather than keep the value the
+    /// restoring library held. A record written before this field, or for a
+    /// destination that leaves nothing out, names none.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) left_out: Vec<String>,
+}
+
+/// Where a record backup is going, which decides what it may hold.
+///
+/// The wire carries the variant's position, so the order here is the contract:
+/// append, never reorder. The discriminants start at one so no member is
+/// falsy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[repr(u8)]
+pub enum RecordScope {
+    /// Storage only this app reads: its own documents, the Google Drive app
+    /// folder, the iCloud Drive app folder, the athlete's WebDAV server.
+    Whole = 1,
+    /// A folder on the device's shared storage, which other apps and a
+    /// connected computer can read. It leaves out the export privacy home.
+    SharedStorage = 2,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -478,6 +500,18 @@ const RECORD_INTERNAL_SETTINGS: &[&str] = &[
     "__auto_backup_enabled",
 ];
 
+/// The export privacy home, which a record for shared storage leaves out.
+/// The coordinates say where the athlete lives, and a shared folder is read
+/// by other apps and by a computer the phone is connected to. The radius says
+/// nothing on its own, so it travels.
+pub(crate) const EXPORT_HOME: &[&str] = &[
+    super::settings_keys::EXPORT_HOME_LAT,
+    super::settings_keys::EXPORT_HOME_LNG,
+];
+
+/// What a record for shared storage leaves out.
+const SHARED_STORAGE_LEFT_OUT: &[&str] = EXPORT_HOME;
+
 /// The settings without the `__` prefix that belong to this library or
 /// install rather than to the athlete, so neither a backup writes them nor a
 /// restore places them. The upload grant is the scope of this install's OAuth
@@ -589,8 +623,17 @@ fn upstream_ids(
     Ok(upstream)
 }
 
-/// Read only the athlete's decisions from one consistent SQLite snapshot.
+/// Read only the athlete's decisions from one consistent SQLite snapshot,
+/// whole.
 pub(crate) fn collect_record_payload(db: &Connection) -> Result<RecordPayload, String> {
+    collect_record_payload_for(db, RecordScope::Whole)
+}
+
+/// Read the athlete's decisions for a record going to `scope`.
+pub(crate) fn collect_record_payload_for(
+    db: &Connection,
+    scope: RecordScope,
+) -> Result<RecordPayload, String> {
     let mut athlete_id = if table_exists(db, "settings")? {
         setting(db, "__athlete_id")?
     } else {
@@ -637,6 +680,7 @@ pub(crate) fn collect_record_payload(db: &Connection) -> Result<RecordPayload, S
             }
         }
     }
+    let left_out = leave_out(&mut entries, scope);
     let upstream_ids = upstream_ids(db, &entries)?;
     Ok(RecordPayload {
         version: RECORD_VERSION,
@@ -644,7 +688,29 @@ pub(crate) fn collect_record_payload(db: &Connection) -> Result<RecordPayload, S
         entries,
         upstream_ids,
         written_at: Some(chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true)),
+        left_out,
     })
+}
+
+/// Take out of `entries` the settings `scope` may not hold, answering their
+/// keys when any was there. A library that never held them leaves nothing
+/// out, so a restore from its file has nothing to ask the athlete to set.
+fn leave_out(entries: &mut Vec<RecordRow>, scope: RecordScope) -> Vec<String> {
+    let keys: &[&str] = match scope {
+        RecordScope::Whole => return Vec::new(),
+        RecordScope::SharedStorage => SHARED_STORAGE_LEFT_OUT,
+    };
+    let before = entries.len();
+    entries.retain(|row| !names_setting(row, keys));
+    if entries.len() == before {
+        return Vec::new();
+    }
+    keys.iter().map(|key| (*key).to_string()).collect()
+}
+
+/// Whether `row` is a settings row under one of `keys`.
+pub(crate) fn names_setting(row: &RecordRow, keys: &[&str]) -> bool {
+    row.table == "settings" && string(&row.values, "key").is_some_and(|key| keys.contains(&key))
 }
 
 /// Write one deflated JSON entry beside `path`, ready to replace it.
@@ -749,6 +815,7 @@ fn write_record_from_database(
     install: u64,
     source_path: &str,
     dest_path: &str,
+    scope: RecordScope,
     cancel: &AtomicBool,
 ) -> Result<(), String> {
     stop_if_cancelled(cancel)?;
@@ -763,7 +830,7 @@ fn write_record_from_database(
             .map_err(|e| e.to_string())?;
         db.execute_batch("BEGIN DEFERRED")
             .map_err(|e| e.to_string())?;
-        let payload = collect_record_payload(&db)?;
+        let payload = collect_record_payload_for(&db, scope)?;
         db.execute_batch("COMMIT").map_err(|e| e.to_string())?;
         payload
     };
@@ -796,11 +863,14 @@ impl PersistentEngine {
     /// `install` is the library the backup was asked of, and the zip is only
     /// put in place while it is still the one open.
     ///
+    /// `scope` is where the zip is going, which decides what it leaves out.
+    ///
     /// `cancel` is the run's own latch. Set, the worker stops at its next stage
     /// and the destination is left as it was.
     pub fn record_backup_background(
         &self,
         dest_path: &str,
+        scope: RecordScope,
         install: u64,
         cancel: Arc<AtomicBool>,
     ) -> super::BackupHandle {
@@ -808,7 +878,8 @@ impl PersistentEngine {
         let dest_path = dest_path.to_string();
         let (tx, rx) = std::sync::mpsc::channel();
         crate::threads::spawn_named("veloq-record", move || {
-            let result = write_record_from_database(install, &source_path, &dest_path, &cancel);
+            let result =
+                write_record_from_database(install, &source_path, &dest_path, scope, &cancel);
             let _ = tx.send(result);
         });
         super::BackupHandle { receiver: rx }
@@ -872,6 +943,7 @@ mod tests {
             install,
             source.to_str().unwrap(),
             destination.to_str().unwrap(),
+            super::RecordScope::Whole,
             &std::sync::atomic::AtomicBool::new(false),
         );
 
@@ -896,6 +968,7 @@ mod tests {
             install,
             source.to_str().unwrap(),
             destination.to_str().unwrap(),
+            super::RecordScope::Whole,
             &std::sync::atomic::AtomicBool::new(false),
         )
         .unwrap();
@@ -905,6 +978,113 @@ mod tests {
             vec!["veloq-decisions.zip".to_string()]
         );
         read_record_zip(destination.to_str().unwrap()).unwrap();
+    }
+
+    fn settings_in(path: &std::path::Path) -> std::collections::BTreeMap<String, String> {
+        read_record_zip(path.to_str().unwrap())
+            .unwrap()
+            .entries
+            .into_iter()
+            .filter(|row| row.table == "settings")
+            .filter_map(|row| {
+                Some((
+                    super::string(&row.values, "key")?.to_string(),
+                    super::string(&row.values, "value")?.to_string(),
+                ))
+            })
+            .collect()
+    }
+
+    /// Scenario: the athlete has set a home for export privacy, and the record
+    /// is written once for storage only this app reads and once for a shared
+    /// folder other apps and a connected computer can read.
+    ///
+    /// Expected behaviour: the shared copy holds no home coordinates and names
+    /// them as left out, the other holds them, and both keep the radius.
+    #[test]
+    fn test_record_backup_for_shared_storage_leaves_the_export_home_out() {
+        use crate::persistence::settings_keys::{
+            EXPORT_HOME_LAT, EXPORT_HOME_LNG, EXPORT_PRIVACY_RADIUS_M,
+        };
+        let _guard = crate::test_globals::serial_global_state();
+        let library = crate::test_globals::init_global_engine("record-home.db");
+        let source = library.path().join("record-home.db");
+        Connection::open(&source)
+            .unwrap()
+            .execute(
+                "INSERT INTO settings (key, value) VALUES (?1, '46.2044'), (?2, '6.1432'), (?3, '250')",
+                [EXPORT_HOME_LAT, EXPORT_HOME_LNG, EXPORT_PRIVACY_RADIUS_M],
+            )
+            .unwrap();
+        let install = crate::persistence::engine_install();
+        let documents = tempfile::tempdir().unwrap();
+        let write = |name: &str, scope: super::RecordScope| {
+            let destination = documents.path().join(name);
+            super::write_record_from_database(
+                install,
+                source.to_str().unwrap(),
+                destination.to_str().unwrap(),
+                scope,
+                &std::sync::atomic::AtomicBool::new(false),
+            )
+            .unwrap();
+            destination
+        };
+
+        let whole = write("whole.zip", super::RecordScope::Whole);
+        let shared = write("shared.zip", super::RecordScope::SharedStorage);
+
+        let whole_settings = settings_in(&whole);
+        assert_eq!(
+            whole_settings.get(EXPORT_HOME_LAT).map(String::as_str),
+            Some("46.2044")
+        );
+        assert_eq!(
+            whole_settings.get(EXPORT_HOME_LNG).map(String::as_str),
+            Some("6.1432")
+        );
+        assert!(
+            read_record_zip(whole.to_str().unwrap())
+                .unwrap()
+                .left_out
+                .is_empty()
+        );
+
+        let shared_settings = settings_in(&shared);
+        assert!(!shared_settings.contains_key(EXPORT_HOME_LAT));
+        assert!(!shared_settings.contains_key(EXPORT_HOME_LNG));
+        assert_eq!(
+            shared_settings
+                .get(EXPORT_PRIVACY_RADIUS_M)
+                .map(String::as_str),
+            Some("250")
+        );
+        let raw = std::fs::read(&shared).unwrap();
+        let mut archive = zip::ZipArchive::new(std::io::Cursor::new(raw)).unwrap();
+        let mut json = String::new();
+        std::io::Read::read_to_string(&mut archive.by_name("record.json").unwrap(), &mut json)
+            .unwrap();
+        assert!(
+            !json.contains("46.2044") && !json.contains("6.1432"),
+            "the shared copy names no home coordinate anywhere"
+        );
+        assert_eq!(
+            read_record_zip(shared.to_str().unwrap()).unwrap().left_out,
+            vec![EXPORT_HOME_LAT.to_string(), EXPORT_HOME_LNG.to_string()]
+        );
+    }
+
+    /// Scenario: a library with no export privacy home is written for a
+    /// shared folder.
+    ///
+    /// Expected behaviour: nothing was left out, so the file names nothing as
+    /// left out and a restore from it asks the athlete to set nothing again.
+    #[test]
+    fn test_record_backup_for_shared_storage_without_a_home_leaves_nothing_out() {
+        let payload =
+            super::collect_record_payload_for(&fixture(), super::RecordScope::SharedStorage)
+                .unwrap();
+        assert!(payload.left_out.is_empty());
     }
 
     /// Scenario: the athlete stops a record backup while it waits to put its
@@ -938,7 +1118,13 @@ mod tests {
             let source = source.to_str().unwrap().to_string();
             let destination = destination.to_str().unwrap().to_string();
             std::thread::spawn(move || {
-                super::write_record_from_database(install, &source, &destination, &cancel)
+                super::write_record_from_database(
+                    install,
+                    &source,
+                    &destination,
+                    super::RecordScope::Whole,
+                    &cancel,
+                )
             })
         };
         cancel.store(true, std::sync::atomic::Ordering::SeqCst);

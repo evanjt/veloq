@@ -430,10 +430,51 @@ enum SnapshotAge {
     return snapshot.generatedAt > 0 ? snapshot.generatedAt : nil
   }
 
-  /// The moment a fresh snapshot turns stale, so the timeline can redraw the
-  /// line then and not at the next scheduled reload.
-  static func staleDate(_ snapshot: WidgetSnapshot?) -> Date? {
-    reference(snapshot).map { Date(timeIntervalSince1970: $0 + staleAfter + 1) }
+  /// How far back the fresh age line counts: now under a minute, then whole
+  /// minutes under an hour and whole hours after. It never counts seconds, and
+  /// never says "0 minutes ago". The same rule is `SnapshotAge.span` on Android.
+  enum Span: Equatable {
+    case now
+    case minutes(Int)
+    case hours(Int)
+  }
+
+  /// The fresh age line's span. A snapshot from the future reads as just written.
+  static func span(since seconds: Double, now: Date) -> Span {
+    let minutes = Int(max(0, now.timeIntervalSince1970 - seconds) / 60)
+    if minutes < 1 { return .now }
+    if minutes < 60 { return .minutes(minutes) }
+    return .hours(minutes / 60)
+  }
+
+  /// "now" or "5 min. ago" in the system's short relative phrasing, the
+  /// wording `RelativeDateTimeFormatter.Style.SHORT` gives on Android.
+  static func text(_ span: Span, locale: Locale) -> String {
+    let formatter = RelativeDateTimeFormatter()
+    formatter.locale = locale
+    formatter.unitsStyle = .short
+    switch span {
+    case .now:
+      formatter.dateTimeStyle = .named
+      return formatter.localizedString(from: DateComponents(second: 0))
+    case .minutes(let count):
+      return formatter.localizedString(from: DateComponents(minute: -count))
+    case .hours(let count):
+      return formatter.localizedString(from: DateComponents(hour: -count))
+    }
+  }
+
+  /// Every moment strictly between `start` and `end` at which the age line's
+  /// words change: each minute of the first hour, each hour after, and the
+  /// moment the snapshot turns stale. The timeline carries an entry at each,
+  /// so the line moves on between reloads without counting seconds.
+  static func changes(_ snapshot: WidgetSnapshot?, after start: Date, before end: Date) -> [Date] {
+    guard let seconds = reference(snapshot) else { return [] }
+    let minutes = (1..<60).map { seconds + Double($0) * 60 }
+    let hours = (1...Int(staleAfter / 3600)).map { seconds + Double($0) * 3600 }
+    return (minutes + hours + [seconds + staleAfter + 1])
+      .map { Date(timeIntervalSince1970: $0) }
+      .filter { $0 > start && $0 < end }
   }
 }
 
@@ -454,10 +495,11 @@ extension EnvironmentValues {
  * How old the numbers on the widget are.
  *
  * The widget is stale exactly for the athlete whose app has not run, and the
- * numbers give no clue how old they are. `.relative` is the system's own
- * phrasing and it ticks on its own, so the line stays honest between refreshes,
- * which a string formatted at save time would not. Past `SnapshotAge.staleAfter`
- * the line is amber and names the time.
+ * numbers give no clue how old they are. The line says now, then minutes ago,
+ * then hours ago, judged against the timeline entry being drawn, and the
+ * timeline carries an entry at each change (`SnapshotAge.changes`), so the line
+ * stays honest between refreshes without counting seconds. Past
+ * `SnapshotAge.staleAfter` the line is amber and names the time.
  *
  * A snapshot the app wrote shows when it was written. A snapshot a background
  * refresh redrew from stored rows, because its pull did not land, carries the
@@ -470,18 +512,22 @@ extension EnvironmentValues {
  */
 struct SnapshotAgeLine: View {
   @Environment(\.snapshotNow) private var snapshotNow
+  @Environment(\.locale) private var locale
   let snapshot: WidgetSnapshot?
   let palette: WidgetPalette
 
   private func when(_ seconds: Double) -> some View {
-    let date = Date(timeIntervalSince1970: seconds)
+    let now = snapshotNow ?? Date()
     return Group {
-      if SnapshotAge.isStale(since: seconds, now: snapshotNow ?? Date()) {
-        Text(date, format: .dateTime.month(.abbreviated).day().hour().minute())
-          .measuredText("age")
-          .foregroundColor(palette.warning)
+      if SnapshotAge.isStale(since: seconds, now: now) {
+        Text(
+          Date(timeIntervalSince1970: seconds),
+          format: .dateTime.month(.abbreviated).day().hour().minute()
+        )
+        .measuredText("age")
+        .foregroundColor(palette.warning)
       } else {
-        Text(date, style: .relative)
+        Text(verbatim: SnapshotAge.text(SnapshotAge.span(since: seconds, now: now), locale: locale))
           .measuredText("age")
       }
     }
@@ -581,24 +627,35 @@ struct SummaryWidgetView: View {
     }
   }
 
-  /// The medium and large card: the hero beside its chart, the supporting row, at Large the form
-  /// chart, and the age row. A medium box has no height for a second line under the age, so
-  /// there the refresh link stays beside it.
+  /// The medium and large card: the hero beside its chart, or at Large the hero with the rest of
+  /// training load on its line and the chart across the card under them, then the supporting row,
+  /// at Large the form chart, and the age row. A medium box has no height for a second line under
+  /// the age, so there the refresh link stays beside it.
   private func card(
     _ content: SummaryContent, _ snapshot: WidgetSnapshot, _ formZone: String?
   ) -> some View {
     VStack(alignment: .leading, spacing: 6) {
-      HStack(alignment: .top, spacing: WidgetTheme.Layout.gap) {
-        SummaryHero(
-          content: content, palette: palette, formZone: formZone,
-          valueStep: .metric)
-          .frame(maxWidth: .infinity, alignment: .leading)
-        SummaryChartView(
-          kind: content.chart, caption: content.chartCaption, snapshot: snapshot,
-          palette: palette
-        )
-        .frame(maxWidth: .infinity)
-        .frame(height: 48)
+      if size == .large {
+        HStack(alignment: .top, spacing: WidgetTheme.Layout.gap) {
+          SummaryHero(
+            content: content, palette: palette, formZone: formZone,
+            valueStep: .metric)
+          ForEach(content.trainingLoad, id: \.entry.id) { reading in
+            SummaryLoadReading(reading: reading, palette: palette, formZone: formZone)
+          }
+          Spacer(minLength: 0)
+        }
+        chart(content, snapshot)
+          .frame(height: 56)
+      } else {
+        HStack(alignment: .top, spacing: WidgetTheme.Layout.gap) {
+          SummaryHero(
+            content: content, palette: palette, formZone: formZone,
+            valueStep: .metric)
+            .frame(maxWidth: .infinity, alignment: .leading)
+          chart(content, snapshot)
+            .frame(height: 48)
+        }
       }
       Divider().background(palette.border)
       // With no form chart under it the row takes the height left, which costs no second gap
@@ -618,8 +675,52 @@ struct SummaryWidgetView: View {
         .spoken("form chart", snapshot.display.chartLabels?.form)
         .frame(maxHeight: .infinity)
       }
-      SnapshotAgeRow(snapshot: snapshot, palette: palette, hasRoom: true, oneLine: size == .medium)
+      HStack(spacing: 4) {
+        SnapshotAgeRow(
+          snapshot: snapshot, palette: palette, hasRoom: true, oneLine: size == .medium)
+        if let record = content.record {
+          Spacer(minLength: 0)
+          SummaryRecordButton(url: record, label: snapshot.display.recordLabel)
+        }
+      }
     }
+  }
+
+  /// The hero's chart with its legend, as wide as the card leaves it.
+  private func chart(_ content: SummaryContent, _ snapshot: WidgetSnapshot) -> some View {
+    SummaryChartView(
+      kind: content.chart, caption: content.chartCaption, snapshot: snapshot, palette: palette
+    )
+    .frame(maxWidth: .infinity)
+  }
+}
+
+/// The record button at the end of the age row: the record glyph in the recording tone, opening
+/// recording on the sport the link names.
+private struct SummaryRecordButton: View {
+  @Environment(\.colorScheme) private var colorScheme
+  let url: URL
+  let label: String?
+
+  /// The glyph, drawn over the caption's line and inside the 44 point target.
+  private let glyph: CGFloat = 16
+
+  var body: some View {
+    let tone = WidgetTheme.Record.accent(colorScheme)
+    Link(destination: url) {
+      ZStack {
+        Circle().stroke(tone, lineWidth: 2)
+        Circle().fill(tone).padding(4)
+      }
+      .frame(width: glyph, height: glyph)
+      .widgetAccentable()
+      .frame(minWidth: WidgetRefreshLink.target, minHeight: WidgetRefreshLink.target)
+      .contentShape(Rectangle())
+      .spoken("record button", label)
+    }
+    // The target stays 44 points tall while the row keeps the height of its caption, as the
+    // refresh control's does.
+    .padding(.vertical, -(WidgetRefreshLink.target - WidgetTheme.TypeScale.caption) / 2)
   }
 }
 
@@ -667,7 +768,47 @@ private struct SummaryHero: View {
   }
 }
 
-/// The chart beside the hero: nothing when the placement or the card hides it, or when the
+/// One reading of training load on the hero's line: its label over its key dot and value, as a
+/// supporting entry draws it, and Form's zone in words under it. A translated label wraps to a
+/// second line rather than be cut short.
+private struct SummaryLoadReading: View {
+  let reading: SummarySupporting
+  let palette: WidgetPalette
+  let formZone: String?
+
+  var body: some View {
+    let entry = reading.entry
+    VStack(alignment: .leading, spacing: 2) {
+      VStack(alignment: .leading, spacing: 2) {
+        Text(entry.label)
+          .measuredText("load label")
+          .widgetFont(.caption, shrinks: true)
+          .foregroundColor(palette.textSecondary)
+          .lineLimit(2)
+        HStack(spacing: 3) {
+          if let key = palette.keyColor(entry.colorKey, formZone: formZone) {
+            KeyDot(color: key)
+          }
+          Text(entry.value)
+            .measuredText("load value")
+            .widgetFont(.value, weight: .semibold, shrinks: true)
+            .foregroundColor(palette.textPrimary)
+            .lineLimit(1)
+        }
+      }
+      .spoken("metric", entry.spoken, otherwise: .combine)
+      if let caption = reading.caption, !caption.isEmpty {
+        Text(caption)
+          .measuredText("metric caption")
+          .widgetFont(.caption, weight: .semibold, shrinks: true)
+          .foregroundColor(palette.textPrimary)
+          .lineLimit(1)
+      }
+    }
+  }
+}
+
+/// The chart under the hero: nothing when the placement or the card hides it, or when the
 /// snapshot holds no series for it. A caption under it names its series and the days it spans,
 /// inside the same height.
 private struct SummaryChartView: View {

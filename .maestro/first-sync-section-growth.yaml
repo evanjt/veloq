@@ -87,7 +87,7 @@ tags:
       id: "routes-screen"
     timeout: 30000
 - tapOn:
-    text: "Sections"
+    id: "tab-sections"
 
 # Read the section count every few seconds while the sync strip is up. The
 # first reading is the baseline, taken with no filter so the label opens with

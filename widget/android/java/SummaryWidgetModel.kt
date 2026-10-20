@@ -1,5 +1,7 @@
 package __PKG__.widget
 
+import kotlin.math.roundToInt
+
 /** The sizes every widget draws at; a placement one row tall is SHORT whatever its width. */
 enum class SummarySize {
   SHORT,
@@ -8,7 +10,7 @@ enum class SummarySize {
   LARGE,
 }
 
-/** What the trend image beside the hero draws. */
+/** What the hero's trend image draws. */
 sealed class SummaryChart {
   object None : SummaryChart()
 
@@ -20,7 +22,7 @@ sealed class SummaryChart {
 }
 
 /**
- * The words drawn under the chart beside the hero: its series in the order its lines are drawn
+ * The words drawn under the hero's chart: its series in the order its lines are drawn
  * apart, solid then dashed, and the days it spans. A single series is named by the hero beside
  * it, so it lists none.
  */
@@ -56,13 +58,16 @@ data class SummaryPlacement(
   val supporting: List<String> = emptyList(),
 )
 
+/** A size's layout and, on Large, the height in dp its form strip is drawn at, else 0. */
+data class SummaryLayout(val size: SummarySize, val formStripDp: Int)
+
 /** One row of the picker: the id a placement stores and the name the snapshot gives it. */
 data class SummaryOption(val id: String, val label: String)
 
 /**
  * What the Summary widget draws, decided from the snapshot alone. It holds no Android type, so
  * the choices run on the JVM: which card a placement shows, which entries each size lists, which
- * chart sits beside the hero.
+ * chart the hero draws.
  *
  * The card is the in-app summary card the snapshot carries. A placement may choose a hero among
  * the card's own heroes, a sparkline setting and a supporting row among the metrics the snapshot
@@ -76,6 +81,9 @@ object SummaryWidget {
   private val HEADLINE_IDS = listOf("form", "fitness", "fatigue", "hrv", "rhr")
   private val FORM_ZONES = listOf("highRisk", "optimal", "greyZone", "fresh", "transition")
 
+  /** Training load, in the order the hero's line names it. */
+  private val TRAINING_LOAD_IDS = listOf("fitness", "fatigue", "form")
+
   /**
    * A launcher reports a row as 51dp tall and two as 117dp, so anything under this is one row. A
    * host that has not reported a size yet gives 0, which is not a row.
@@ -84,13 +92,92 @@ object SummaryWidget {
 
   fun isShort(heightDp: Int): Boolean = heightDp in 1 until SHORT_BELOW_DP
 
+  /** The width from which a placement two rows tall draws Medium rather than Small. */
+  const val WIDE_FROM_DP = 200
+
   fun sizeFor(widthDp: Int, heightDp: Int): SummarySize =
     when {
       isShort(heightDp) -> SummarySize.SHORT
-      heightDp >= 200 && widthDp >= 200 -> SummarySize.LARGE
-      widthDp >= 200 -> SummarySize.MEDIUM
+      heightDp >= 200 && widthDp >= WIDE_FROM_DP -> SummarySize.LARGE
+      widthDp >= WIDE_FROM_DP -> SummarySize.MEDIUM
       else -> SummarySize.SMALL
     }
+
+  /**
+   * The least height the Medium card draws its chart legend at. The card stacks the head, the
+   * chart, its legend, the supporting row and the age row, and only the chart gives way, so below
+   * this the chart has no room and a legend under it would name nothing. The parts, in dp: the
+   * card's top and bottom gap (16), the head's label, value and form line (59), the chart's top
+   * margin (4), the least chart that still reads as one (16), the legend's one line (14), the rule
+   * above the supporting row (5), that row's label and value (30) and the age row (48).
+   */
+  const val CAPTIONED_MEDIUM_MIN_DP = 16 + 59 + 4 + 16 + 14 + 5 + 30 + 48
+
+  /**
+   * Whether a size names its chart's series and span under it. Small and Short have no room for
+   * them; Medium has room only from [CAPTIONED_MEDIUM_MIN_DP] up, so a one-row placement a launcher
+   * reports as Medium keeps the card without a legend. A host that has not reported a height yet
+   * gives 0 and keeps the legend.
+   */
+  fun captionsChart(size: SummarySize, heightDp: Int): Boolean =
+    when (size) {
+      SummarySize.SHORT, SummarySize.SMALL -> false
+      SummarySize.MEDIUM -> heightDp == 0 || heightDp >= CAPTIONED_MEDIUM_MIN_DP
+      SummarySize.LARGE -> true
+    }
+
+  /**
+   * Whether a placement draws the refresh control. Under [WIDE_FROM_DP] the hero's name, value
+   * and arrow take the whole line, so the control gives way: a tap on the widget opens the app,
+   * which refreshes.
+   */
+  fun showsRefresh(widthDp: Int): Boolean = widthDp >= WIDE_FROM_DP
+
+  /** The form strip's height on a placement the host has not sized yet. */
+  const val FORM_STRIP_UNSIZED_DP = 96
+
+  /** The form strip's floor, the minimum height the Large layout holds it to. */
+  const val FORM_STRIP_MIN_DP = 48
+
+  /**
+   * What Large draws around the form strip at a fixed size, in dp: the padding at top and bottom,
+   * the chart under the head and its top margin, the divider and the two gaps around it, the gap
+   * over the strip's title and the 48dp refresh target in the age row.
+   */
+  private const val LARGE_FIXED_DP = 32f + 52f + 4f + 1f + 16f + 8f + 48f
+
+  /**
+   * What Large draws around the form strip in text, in sp: the head's label line, its value in a
+   * metric line and the form zone under it in a caption line, the chart's one-line legend, a
+   * supporting cell's label and the strip's title in caption lines, and a cell's value in a label
+   * line. The hero's column is the tallest part of the head, so it is the one counted.
+   */
+  private const val LARGE_TEXT_SP = 11f + 22f + 10f * 4 + 11f
+
+  /** A line of the widget face, its ascent and descent over its em. */
+  private const val LINE_HEIGHT = 1.366f
+
+  /**
+   * The height the form strip is left on a Large placement [heightDp] tall, at the reader's
+   * [fontScale]: the placement less everything above and below it. The strip is drawn into a
+   * bitmap, so this is the height it is drawn at; a bitmap drawn at any other height is scaled to
+   * the view, and its axis labels with it.
+   */
+  fun formStripDp(heightDp: Int, fontScale: Float): Int {
+    if (heightDp <= 0) return FORM_STRIP_UNSIZED_DP
+    val around = LARGE_FIXED_DP + LARGE_TEXT_SP * LINE_HEIGHT * fontScale
+    return (heightDp - around).roundToInt().coerceAtLeast(FORM_STRIP_MIN_DP)
+  }
+
+  /**
+   * The layout a size draws and, on Large, the form strip's height, so that two Large sizes whose
+   * strips differ are drawn once each rather than one bitmap stretched to both.
+   */
+  fun layoutFor(widthDp: Int, heightDp: Int, fontScale: Float): SummaryLayout {
+    val size = sizeFor(widthDp, heightDp)
+    val strip = if (size == SummarySize.LARGE) formStripDp(heightDp, fontScale) else 0
+    return SummaryLayout(size, strip)
+  }
 
   /** The heroes the picker offers, which are the card's own, named as the snapshot names them. */
   fun heroChoices(snap: WidgetSnapshot): List<SummaryOption> {
@@ -102,9 +189,39 @@ object SummaryWidget {
   fun supportingChoices(snap: WidgetSnapshot): List<SummaryOption> =
     snap.summaryMetrics.map { SummaryOption(it.id, it.label) }
 
-  /** The entries under the hero: none on Short and Small, up to four otherwise, in the card's order. */
-  fun supporting(card: SummaryCard, size: SummarySize): List<SummaryEntry> =
-    if (size == SummarySize.SHORT || size == SummarySize.SMALL) emptyList() else card.entries.take(SUPPORTING_MAX)
+  /**
+   * The entries under the hero: none on Short and Small, up to four otherwise, in the card's order.
+   * An entry already drawn [beside] the hero is left out, so no value is drawn twice.
+   */
+  fun supporting(
+    card: SummaryCard,
+    size: SummarySize,
+    beside: List<SummaryEntry> = emptyList(),
+  ): List<SummaryEntry> =
+    if (size == SummarySize.SHORT || size == SummarySize.SMALL) {
+      emptyList()
+    } else {
+      card.entries.filter { e -> beside.none { it.id == e.id } }.take(SUPPORTING_MAX)
+    }
+
+  /**
+   * The other two readings of training load, drawn on the hero's line from Medium up when the hero
+   * is one of them, in the order fitness, fatigue, form. The hero's chart plots fitness
+   * and fatigue and names neither value, so these say what it stands at today. Short and Small
+   * have no room beside the value, and a hero outside training load carries none.
+   */
+  fun trainingLoad(snap: WidgetSnapshot, card: SummaryCard, size: SummarySize): List<SummaryEntry> {
+    if (size == SummarySize.SHORT || size == SummarySize.SMALL) return emptyList()
+    if (card.hero.id !in TRAINING_LOAD_IDS) return emptyList()
+    return TRAINING_LOAD_IDS.filter { it != card.hero.id }.mapNotNull { entry(snap, card, it) }
+  }
+
+  /**
+   * The record button rides from Medium up. Small and Short have no room beside the labelled
+   * value, and on Small one tap is the whole widget.
+   */
+  fun carriesRecord(size: SummarySize): Boolean =
+    size == SummarySize.MEDIUM || size == SummarySize.LARGE
 
   /** The card a placement draws. A hero the card does not offer follows the card's own. */
   fun card(snap: WidgetSnapshot, placement: SummaryPlacement): SummaryCard {

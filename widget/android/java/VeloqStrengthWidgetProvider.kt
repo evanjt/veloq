@@ -8,10 +8,9 @@ import com.veloq.WidgetAgeRefreshWorker
 import com.veloq.WidgetDataRefreshWorker
 
 /**
- * Strength widget: the training load of one window drawn on the body, the front on a small
- * placement, front and back on a medium, and both with the most trained muscles on a large. Which
- * window it draws is chosen once, on the configure screen, and kept per widget id by
- * [StrengthWidgetChoice].
+ * Strength widget: the training load of the trailing 30 days drawn on the body, the front on a
+ * small placement, front and back on a medium, and both with the most trained muscles on a large.
+ * It is placed with nothing to choose.
  *
  * It keeps the age line true the way the Insights widget does: [WidgetAgeRefreshWorker] redraws
  * every placed widget, and is scheduled on every update as well as on first placement.
@@ -42,15 +41,6 @@ class VeloqStrengthWidgetProvider : AppWidgetProvider() {
     update(context, manager, WidgetSnapshot.read(context), id)
   }
 
-  override fun onDeleted(context: Context, appWidgetIds: IntArray) {
-    StrengthWidgetChoice.forget(context, appWidgetIds)
-  }
-
-  /** A launcher restoring widgets gives them new ids, and the choice has to follow. */
-  override fun onRestored(context: Context, oldWidgetIds: IntArray, newWidgetIds: IntArray) {
-    StrengthWidgetChoice.remap(context, oldWidgetIds, newWidgetIds)
-  }
-
   private fun update(
     context: Context,
     manager: AppWidgetManager,
@@ -58,11 +48,10 @@ class VeloqStrengthWidgetProvider : AppWidgetProvider() {
     id: Int,
   ) {
     val options = manager.getAppWidgetOptions(id)
-    val window = StrengthWidgetChoice.windowFor(context, id)
     manager.updateAppWidget(
       id,
       WidgetLayouts.build(options, { StrengthWidget.sizeFor(it.widthDp, it.heightDp) }) {
-        StrengthWidgetRenderer.render(context, snap, it.widthDp, it.heightDp, window)
+        StrengthWidgetRenderer.render(context, snap, it.widthDp, it.heightDp)
       })
   }
 }

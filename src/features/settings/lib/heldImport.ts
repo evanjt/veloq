@@ -24,7 +24,7 @@ import {
   restoreRecordBackup,
 } from './backup';
 import { inform } from '@/shared/ui/dialog';
-import { showRestoreNotice, type RestoreDrops } from './restoreNotice';
+import { showRestoreNotice, type RestoreReport } from './restoreNotice';
 import { RESTORE_REFUSAL_KEYS, RestoreRefusedError, restoreRefusal } from './restoreRefusal';
 
 const log = debug.create('HeldImport');
@@ -119,7 +119,7 @@ export async function holdImportWhileSignedOut(
  * What a held import's restore gave up on, or null when nothing is held. Rejects with the
  * restore's refusal.
  */
-async function restoreHeld(jsonUri: string, zipUri: string): Promise<RestoreDrops | null> {
+async function restoreHeld(jsonUri: string, zipUri: string): Promise<RestoreReport | null> {
   if (await exists(jsonUri)) {
     const json = await FileSystem.readAsStringAsync(jsonUri, {
       encoding: FileSystem.EncodingType.UTF8,
@@ -138,7 +138,7 @@ async function applyHeld(t: TFunction): Promise<boolean> {
   const zipUri = heldUri(HELD_RECORD_ZIP);
   if (!jsonUri || !zipUri) return false;
 
-  let drops: RestoreDrops | null;
+  let drops: RestoreReport | null;
   try {
     drops = await restoreHeld(jsonUri, zipUri);
   } catch (error) {

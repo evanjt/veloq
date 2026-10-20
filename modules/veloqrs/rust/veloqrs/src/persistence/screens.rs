@@ -575,7 +575,10 @@ fn max_hr_for(
 
 /// [`resolve_max_hr`] over the rows one connection holds.
 fn activity_max_hr(conn: &rusqlite::Connection, activity_id: &str) -> (f64, crate::FfiMaxHrSource) {
-    let body = crate::persistence::activities::pooled::activity_body(conn, activity_id);
+    // A failed read falls back to the defaults, as every other part of this read does.
+    let body = crate::persistence::activities::pooled::activity_body(conn, activity_id)
+        .ok()
+        .flatten();
     let sport_settings = crate::persistence::fitness::sport_settings_from(conn);
     resolve_max_hr(body.as_deref(), sport_settings.as_deref())
 }
@@ -664,7 +667,9 @@ fn activity_hr_zones_from(
     conn: &rusqlite::Connection,
     activity_id: &str,
 ) -> Vec<crate::FfiHrZoneBand> {
-    let body = crate::persistence::activities::pooled::activity_body(conn, activity_id);
+    let body = crate::persistence::activities::pooled::activity_body(conn, activity_id)
+        .ok()
+        .flatten();
     let sport_settings = crate::persistence::fitness::sport_settings_from(conn);
     let heartrate = conn
         .query_row(
@@ -2774,7 +2779,7 @@ pub mod pooled {
 
         let ids = [activity_id.to_string()];
         let (max_hr, max_hr_source) = super::activity_max_hr(conn, activity_id);
-        let body = activities::activity_body(conn, activity_id);
+        let body = activities::activity_body(conn, activity_id).ok().flatten();
         crate::FfiActivityDetailData {
             exercise_groups: crate::persistence::strength::pooled::exercise_sets(conn, activity_id)
                 .map(|sets| {

@@ -25,7 +25,7 @@ import React, {
 } from 'react';
 import { BackHandler, Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Stack, useIsFocused, useLocalSearchParams, useNavigation } from 'expo-router';
-import { StackActions } from 'expo-router/react-navigation';
+import { StackActions, useNavigationState } from 'expo-router/react-navigation';
 
 import { MapHeroStatusBar } from './MapHeroStatusBar';
 import {
@@ -214,7 +214,8 @@ export function useMapSheetPanelWidth(): number | null {
 
 /**
  * The host's map screen: the map filling the window, the sheet presented over it on mount with
- * the params the screen was opened with, and the presenter the stop store moves the sheet
+ * the params the screen was opened with, and again whenever a navigation inside the host shows the
+ * map screen without it outside a tool, and the presenter the stop store moves the sheet
  * through, which takes the sheet away while a tool runs on the map. On iOS a plain strip over the
  * map's leading edge keeps the stack's edge swipe, which the map's pan would otherwise take.
  *
@@ -243,25 +244,36 @@ export function MapSheetHostMap({
     sheetParams.current = params;
   });
 
+  // A push of the sheet dispatched and not yet in the stack this screen last rendered.
+  const sheetPending = useRef(false);
   const present = useCallback(
     (stop: number | null) => {
       // Without the merge a pop to the map screen clears the params it was opened with, which
       // the sheet is presented with again.
       navigation.dispatch(StackActions.popTo('index', undefined, { merge: true }));
+      sheetPending.current = stop !== null;
       if (stop === null) return;
       navigation.dispatch(StackActions.push(MAP_SHEET_SCREEN, { ...sheetParams.current, stop }));
     },
     [navigation]
   );
-  useMapSheetStop(hostKey, docked ? undefined : present);
+  const { toolActive } = useMapSheetStop(hostKey, docked ? undefined : present);
+  const sheetKey = useNavigationState(
+    (state) => state.routes.find((route) => route.name === MAP_SHEET_SCREEN)?.key ?? null
+  );
 
+  // The sheet cannot be dragged away, so the map screen without it on a phone is either a tool
+  // running or a navigation inside the host that showed the map screen again, such as a link to
+  // the subject already open, and that one presents the sheet again.
   useEffect(() => {
-    const routes = navigation.getState()?.routes ?? [];
-    const presented = routes.some((route) => route.name === MAP_SHEET_SCREEN);
-    if (docked && presented) navigation.dispatch(StackActions.popTo('index'));
-    else if (!docked && !presented)
+    if (sheetKey !== null) {
+      sheetPending.current = false;
+      if (docked) navigation.dispatch(StackActions.popTo('index'));
+    } else if (!docked && !toolActive && !sheetPending.current) {
+      sheetPending.current = true;
       navigation.dispatch(StackActions.push(MAP_SHEET_SCREEN, { ...sheetParams.current }));
-  }, [navigation, docked]);
+    }
+  }, [navigation, docked, sheetKey, toolActive]);
 
   return (
     <View testID="map-sheet-host-map" style={styles.fill}>

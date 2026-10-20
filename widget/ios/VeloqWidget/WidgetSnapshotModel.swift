@@ -283,8 +283,7 @@ struct WidgetSnapshot: Codable {
   /// The Insights tab's ranked list, in its order and of every kind; each placed Insights widget
   /// filters it for itself. Nil on a snapshot written before schema 11.
   let insights: [WidgetInsight]?
-  /// The strength diagram over the last 30 days and the calendar month. Nil on a snapshot
-  /// written before schema 15.
+  /// The strength diagram over the last 30 days. Nil on a snapshot written before schema 15.
   let strength: WidgetStrength?
 }
 

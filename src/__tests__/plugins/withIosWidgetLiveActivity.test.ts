@@ -12,6 +12,7 @@ import {
   LIVE_ACTIVITY_SHARED_FILES,
   applyWidgetBuildSettings,
   copySharedLiveActivitySources,
+  widgetSwiftFiles,
   writeWidgetBundles,
 } from '@/../src/plugins/with-ios-widget';
 
@@ -43,11 +44,25 @@ describe('shared Live Activity sources', () => {
 describe('widget bundles', () => {
   it('names the Live Activity in both bundles, or the card never registers', () => {
     const dir = tmp();
-    writeWidgetBundles(dir, false);
+    writeWidgetBundles(dir);
     const swift = fs.readFileSync(path.join(dir, 'WidgetBundles.swift'), 'utf8');
 
     expect(swift.match(/VeloqRecordingLiveActivity\(\)/g)).toHaveLength(2);
     expect(swift).toContain('if #available(iOS 16.2, *)');
+  });
+
+  it('compiles the generated bundles, which exist only under ios/', () => {
+    const projectRoot = path.join(__dirname, '../../..');
+    const compiled: string[] = widgetSwiftFiles(projectRoot);
+    // The tracked tree is where the list is read from and the generated file is
+    // not in it, so a list taken from disk alone leaves `VeloqWidgetLauncher`
+    // calling `main()` on two types the target never compiled.
+    const tracked = fs
+      .readdirSync(path.join(projectRoot, 'widget/ios/VeloqWidget'))
+      .filter((f) => f.endsWith('.swift'));
+    expect(tracked).not.toContain('WidgetBundles.swift');
+    expect(compiled.filter((f) => f === 'WidgetBundles.swift')).toHaveLength(1);
+    expect(compiled).toContain('VeloqWidget.swift');
   });
 });
 

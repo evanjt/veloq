@@ -4,6 +4,7 @@ import { fireEvent, render } from '@testing-library/react-native';
 import { BackgroundJobsActivityBar } from '@/features/settings/components/BackgroundJobsActivityBar';
 import type { BackgroundJob } from '@/features/settings/hooks/useBackgroundJobs';
 import { initialiseI18n, changeLanguage } from '@/i18n';
+import { formatClockOrDate } from '@/shared/format/format';
 
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 
@@ -21,6 +22,7 @@ function job(id: BackgroundJob['id'], over: Partial<BackgroundJob> = {}): Backgr
     percent: null,
     remaining: 0,
     phase: null,
+    resumesAt: null,
     lastRun: null,
     ...over,
   };
@@ -95,5 +97,68 @@ describe('BackgroundJobsActivityBar', () => {
 
     await fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
     expect(tree.getByTestId('background-job-cutover-detail').props.children).toBe('new_phase');
+  });
+
+  /**
+   * Scenario: the request budget holds the stream download with 1,200
+   * activities owed, and the engine says when it resumes. The pass that
+   * stopped recorded its run as deferred.
+   *
+   * Expected behaviour: the row counts what is owed and says when it resumes,
+   * and neither line reads as a finished run with some to retry.
+   */
+  it('shows what a waiting download owes and when it resumes', async () => {
+    const resumesAt = Date.now() + 15 * 60_000;
+    mockUseBackgroundJobs.mockReturnValue([
+      job('streamBackfill', {
+        state: 'waiting',
+        remaining: 1200,
+        resumesAt,
+        lastRun: {
+          finishedAt: Date.now() - 60_000,
+          outcome: 'deferred',
+          handled: 1240,
+          added: 0,
+          changed: 40,
+          retired: 0,
+          failed: 0,
+        },
+      }),
+    ]);
+    const tree = await render(<BackgroundJobsActivityBar />);
+
+    await fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
+    const detail = tree.getByTestId('background-job-streamBackfill-detail');
+    expect(detail).toHaveTextContent(`1200 activities · Resumes ${formatClockOrDate(resumesAt)}`);
+    expect(tree.queryByText(/some to retry/)).toBeNull();
+    expect(tree.getByTestId('background-job-streamBackfill-last-run')).toHaveTextContent(
+      /Waiting to resume/
+    );
+  });
+
+  it('says a waiting download is waiting when it has no count or time to show', async () => {
+    mockUseBackgroundJobs.mockReturnValue([
+      job('elevationBackfill', { state: 'waiting', remaining: null, resumesAt: null }),
+    ]);
+    const tree = await render(<BackgroundJobsActivityBar />);
+
+    await fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
+    expect(tree.getByTestId('background-job-elevationBackfill-detail').props.children).toBe(
+      'Waiting to resume'
+    );
+  });
+
+  it('says when a waiting download resumes in every locale', async () => {
+    await changeLanguage('de-DE');
+    const resumesAt = Date.now() + 15 * 60_000;
+    mockUseBackgroundJobs.mockReturnValue([
+      job('elevationBackfill', { state: 'waiting', remaining: 2500, resumesAt }),
+    ]);
+    const tree = await render(<BackgroundJobsActivityBar />);
+
+    await fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
+    const detail = tree.getByTestId('background-job-elevationBackfill-detail');
+    expect(detail).toHaveTextContent(new RegExp(formatClockOrDate(resumesAt)));
+    expect(detail).not.toHaveTextContent(/Resumes/);
   });
 });

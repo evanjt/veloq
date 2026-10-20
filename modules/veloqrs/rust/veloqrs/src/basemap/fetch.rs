@@ -660,6 +660,15 @@ mod tests {
     /// `hold`, and counts the connections it accepts and the requests that
     /// had arrived when it sent its first answer.
     async fn http2_host(hold: Duration) -> Http2Host {
+        http2_host_holding_until(usize::MAX, hold).await
+    }
+
+    /// [`http2_host`] holding every answer until `requests` requests have
+    /// arrived, or until `deadline` passes, whichever is first. A burst is
+    /// counted by what reaches the host before any answer frees a request to
+    /// follow it, not by what a loaded scheduler gets onto the wire inside a
+    /// fixed hold.
+    async fn http2_host_holding_until(requests: usize, deadline: Duration) -> Http2Host {
         use std::sync::atomic::{AtomicUsize, Ordering};
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
             .await
@@ -668,22 +677,30 @@ mod tests {
         let accepted = std::sync::Arc::new(AtomicUsize::new(0));
         let asked = std::sync::Arc::new(AtomicUsize::new(0));
         let asked_count = asked.clone();
+        let (arrived, _) = tokio::sync::watch::channel(0usize);
+        let arrived = std::sync::Arc::new(arrived);
         let at_first_answer = std::sync::Arc::new(std::sync::OnceLock::new());
         let (counter, first) = (accepted.clone(), at_first_answer.clone());
         tokio::spawn(async move {
             while let Ok((socket, _)) = listener.accept().await {
                 counter.fetch_add(1, Ordering::SeqCst);
-                let (asked, first) = (asked.clone(), first.clone());
+                let (asked, arrived, first) = (asked.clone(), arrived.clone(), first.clone());
                 tokio::spawn(async move {
                     let Ok(mut connection) = h2::server::handshake(socket).await else {
                         return;
                     };
                     while let Some(Ok((request, mut respond))) = connection.accept().await {
+                        let mut released = arrived.subscribe();
                         asked.fetch_add(1, Ordering::SeqCst);
+                        arrived.send_modify(|n| *n += 1);
                         let (asked, first) = (asked.clone(), first.clone());
                         let bodiless = request.method() == http::Method::HEAD;
                         tokio::spawn(async move {
-                            tokio::time::sleep(hold).await;
+                            let _ = tokio::time::timeout(
+                                deadline,
+                                released.wait_for(|n| *n >= requests),
+                            )
+                            .await;
                             let _ = first.set(asked.load(Ordering::SeqCst));
                             let response = http::Response::new(());
                             if let Ok(mut body) = respond.send_response(response, bodiless)
@@ -708,7 +725,10 @@ mod tests {
     /// whose connection the pool has let go. The whole burst shares the one
     /// connection its first request opens and goes out together, rather than
     /// paying a connection and a handshake per request, or waiting on one
-    /// request sent alone.
+    /// request sent alone. The host answers nothing until the whole burst has
+    /// reached it, so a loaded runner that is slow to schedule the requests
+    /// still counts all of them, and a burst that does not go out together
+    /// leaves the host waiting out its deadline with fewer.
     #[test]
     fn a_burst_to_an_http2_host_with_no_open_connection_shares_one_and_goes_out_together() {
         let runtime = tokio::runtime::Builder::new_multi_thread()
@@ -722,7 +742,7 @@ mod tests {
                 accepted,
                 at_first_answer,
                 ..
-            } = http2_host(Duration::from_millis(300)).await;
+            } = http2_host_holding_until(24, Duration::from_secs(10)).await;
             let fetcher = std::sync::Arc::new(TileFetcher::new(Duration::ZERO).expect("fetcher"));
             fetcher
                 .hosts
@@ -741,6 +761,10 @@ mod tests {
             }
             assert_eq!(accepted.load(std::sync::atomic::Ordering::SeqCst), 1);
             assert_eq!(at_first_answer.get().copied(), Some(24));
+            assert!(
+                fetcher.leaders.lock().expect("leaders").is_empty(),
+                "a request of the burst went alone first"
+            );
         });
     }
 

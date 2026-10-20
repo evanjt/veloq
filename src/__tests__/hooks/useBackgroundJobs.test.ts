@@ -39,12 +39,18 @@ interface EngineState {
   detection: string;
   lastOutcome: string;
   detectionProgress: { phase: string; completed: number; total: number; percent: number } | null;
-  backfill: { phase: string; completed: number; total: number; failed: number } | null;
+  backfill: {
+    phase: string;
+    completed: number;
+    total: number;
+    failed: number;
+    resumesAt?: number | null;
+  } | null;
   remaining: number | null;
   cutover: { phase: string; running: boolean } | null;
   cutoverPending: boolean;
   detectionAwaiting: number | null;
-  stream: { phase: string; completed: number; total: number } | null;
+  stream: { phase: string; completed: number; total: number; resumesAt?: number | null } | null;
   streamRemaining: number | null;
   dataThrows: string | null;
 }
@@ -475,5 +481,46 @@ describe('useBackgroundJobs', () => {
 
     expect(stream?.state).toBe('idle');
     expect(stream?.remaining).toBe(300);
+  });
+
+  /**
+   * Scenario: the request budget holds a backfill part way through, so the
+   * engine reports it waiting with the rest owed and the time it resumes.
+   *
+   * Expected behaviour: the row is waiting, not a finished run with some to
+   * retry, and it carries both the owed count and the resume time.
+   */
+  it('reads a stream pass held by the request budget as waiting with its count and resume time', async () => {
+    const resumesAt = Date.UTC(2026, 9, 20, 14, 30);
+    state.stream = { phase: 'waiting', completed: 40, total: 1240, resumesAt };
+    state.streamRemaining = 1200;
+
+    const { result } = await jobs();
+    const stream = result.current.find((job) => job.id === 'streamBackfill');
+
+    expect(stream?.state).toBe('waiting');
+    expect(stream?.remaining).toBe(1200);
+    expect(stream?.resumesAt).toBe(resumesAt);
+  });
+
+  it('reads an elevation backfill held by the request budget as waiting with its resume time', async () => {
+    const resumesAt = Date.UTC(2026, 9, 20, 14, 30);
+    state.backfill = { phase: 'waiting', completed: 500, total: 3000, failed: 0, resumesAt };
+    state.remaining = 2500;
+
+    const { result } = await jobs();
+    const elevation = result.current.find((job) => job.id === 'elevationBackfill');
+
+    expect(elevation?.state).toBe('waiting');
+    expect(elevation?.remaining).toBe(2500);
+    expect(elevation?.resumesAt).toBe(resumesAt);
+  });
+
+  it('carries no resume time for a job that is not waiting', async () => {
+    state.backfill = { phase: 'partial', completed: 8, total: 10, failed: 2, resumesAt: null };
+
+    const { result } = await jobs();
+
+    expect(result.current.every((job) => job.resumesAt === null)).toBe(true);
   });
 });

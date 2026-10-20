@@ -20,10 +20,17 @@
 // unresolved id the baseline never listed fails, and an id the tree has already
 // beaten fails with the line to delete, so ground a sweep takes is not given
 // back.
+//
+// Resolving is not enough for a sheet's close button. An Android sheet that
+// only shows something draws none, since system back dismisses it, so a flow
+// that taps `closeTestID` on every platform fails on Android at that step. A
+// command naming one has to sit under a `runFlow` gated to iOS, or be optional.
 
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadAll } from 'js-yaml';
+
 import { treeView } from './lib/indexedSources.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -178,9 +185,68 @@ export function rendersOnDevice(rel) {
   return !/\.(test|spec)\.tsx?$/.test(rel);
 }
 
+/** Every literal `closeTestID` a `SheetHeader` is given, which iOS alone draws. */
+export function collectIosOnlyIds(files) {
+  const ids = new Set();
+  for (const file of files) {
+    for (const element of tree.text(file).matchAll(/<SheetHeader\b([\s\S]*?)\/>/g)) {
+      for (const m of element[1].matchAll(/\bcloseTestID=(?:"([^"]+)"|\{\s*'([^']+)'\s*\})/g)) {
+        ids.add(m[1] ?? m[2]);
+      }
+    }
+  }
+  return ids;
+}
+
+/**
+ * Each id in `iosOnly` a flow names outside an iOS gate, as `{ id, file }`.
+ * A `when` block is a condition rather than a step, and an optional step is
+ * skipped where its element is missing, so neither counts.
+ */
+export function ungatedIosOnlyIds(files, iosOnly) {
+  const found = [];
+  const visit = (node, platform, file) => {
+    if (Array.isArray(node)) {
+      for (const item of node) visit(item, platform, file);
+      return;
+    }
+    if (node === null || typeof node !== 'object' || node.optional === true) return;
+    const gate = node.when?.platform;
+    const here = typeof gate === 'string' ? gate.toLowerCase() : platform;
+    for (const [key, value] of Object.entries(node)) {
+      if (key === 'when') continue;
+      if (key === 'id' && typeof value === 'string' && iosOnly.has(value) && here !== 'ios') {
+        found.push({ id: value, file });
+      } else {
+        visit(value, here, file);
+      }
+    }
+  };
+  for (const file of files) {
+    try {
+      visit(loadAll(tree.text(file)), null, file);
+    } catch {
+      // A flow that does not parse is `check-maestro-flows.mjs`'s to report.
+    }
+  }
+  return found;
+}
+
 function main() {
-  const rendered = collectTestIds(tree.files(SRC, rendersOnDevice));
-  const asserted = collectFlowIds(walk(FLOWS, (n) => /\.ya?ml$/.test(n)));
+  const sources = tree.files(SRC, rendersOnDevice);
+  const flowFiles = walk(FLOWS, (n) => /\.ya?ml$/.test(n));
+  const rendered = collectTestIds(sources);
+  const asserted = collectFlowIds(flowFiles);
+
+  const ungated = ungatedIosOnlyIds(flowFiles, collectIosOnlyIds(sources));
+  if (ungated.length > 0) {
+    console.error('A Maestro flow names a sheet close button Android does not draw:');
+    for (const { id, file } of ungated) console.error(`  ${id}\n    in ${relative(ROOT, file)}`);
+    console.error(
+      '\nTap it under a runFlow gated to `platform: iOS`, and press `back` on Android.'
+    );
+    process.exit(1);
+  }
 
   const unresolved = [...asserted.keys()].filter((id) => !resolvesInTree(id, rendered)).sort();
 

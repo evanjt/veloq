@@ -13,6 +13,7 @@ import {
   BulkExportFormat,
   CallKind,
   InitOutcome,
+  RecordScope,
   StartOutcome,
   SyncErrorReason,
   SyncState,
@@ -39,6 +40,7 @@ describe('the binding stub enums', () => {
     for (const value of Object.values(membersOf(TrackStep))) expect(value).toBeGreaterThan(0);
     for (const value of Object.values(membersOf(BulkExportFormat)))
       expect(value).toBeGreaterThan(0);
+    for (const value of Object.values(membersOf(RecordScope))) expect(value).toBeGreaterThan(0);
     for (const value of Object.values(membersOf(StartOutcome))) expect(value).toBeGreaterThan(0);
     for (const value of Object.values(membersOf(InitOutcome))) expect(value).toBeGreaterThan(0);
     for (const value of Object.values(membersOf(UploadOutcome))) expect(value).toBeGreaterThan(0);

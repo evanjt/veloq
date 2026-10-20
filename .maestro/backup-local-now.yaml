@@ -80,8 +80,18 @@ tags:
 - assertVisible:
     text: "Backups are not encrypted.*"
 - takeScreenshot: "screenshots/backup-not-encrypted-warning"
-- tapOn:
-    id: "explainer-sheet-close"
+# The close button is iOS's. An Android sheet draws none, system back closes it.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          id: "explainer-sheet-close"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
 - extendedWaitUntil:
     notVisible:
       id: "explainer-sheet"

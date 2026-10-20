@@ -1,6 +1,6 @@
 import { useTabFirstFrame } from '@/shared/debug/tabSwitchTiming';
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { Stack, useFocusEffect, router, useLocalSearchParams } from 'expo-router';
+import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { View, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import {
@@ -29,6 +29,7 @@ import {
   useRouteSettings,
 } from '@/features/routes';
 import { useTheme } from '@/shared/app';
+import { useSetOwnParams } from '@/shared/app/useSetOwnParams';
 import { useUserLocation } from '@/shared/app/useUserLocation';
 import { strengthPeriodOf, useStrengthTabState } from '@/features/strength';
 import type { StrengthPeriod } from '@/types';
@@ -98,6 +99,7 @@ function InsightsScreenContent() {
     insightId?: string;
     period?: string;
   }>();
+  const setParams = useSetOwnParams();
   const { insights, failed, retry, form, markAsSeen, hrvWithheldSince } = useInsights();
   const strengthTab = useStrengthTabState();
   const hasStrength = strengthTab !== 'hidden';
@@ -226,8 +228,8 @@ function InsightsScreenContent() {
   // Clear the insightId URL param after the panel reports it has opened the
   // matching insight, so back-nav doesn't reopen the sheet.
   const handleInsightOpened = useCallback(() => {
-    router.setParams({ insightId: undefined });
-  }, []);
+    setParams({ insightId: undefined });
+  }, [setParams]);
 
   useFocusEffect(
     useCallback(() => {
@@ -241,9 +243,9 @@ function InsightsScreenContent() {
     if (!tab) return;
     if (availableTabKeys.has(tab)) {
       setActiveTab(tab as TabType);
-      router.setParams({ tab: undefined });
+      setParams({ tab: undefined });
     }
-  }, [availableTabKeys, tab]);
+  }, [availableTabKeys, setParams, tab]);
 
   // A link's period goes to the strength tab as a new object each time the
   // param arrives, so a second link naming the same period still applies. It is
@@ -260,8 +262,8 @@ function InsightsScreenContent() {
   }
 
   useEffect(() => {
-    if (period !== undefined) router.setParams({ period: undefined });
-  }, [period]);
+    if (period !== undefined) setParams({ period: undefined });
+  }, [period, setParams]);
 
   // A tab that is no longer offered falls back to insights, which is always
   // offered, so this converges on the render it runs in rather than committing

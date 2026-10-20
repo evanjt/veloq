@@ -117,6 +117,9 @@ export const folderBackend: BackupBackend = {
   id: 'folder',
   name: 'Folder',
   isRemote: false,
+  // A picked folder and the shared `Documents/Veloq` are both read by other
+  // apps, so neither takes the export privacy home.
+  sharedStorage: true,
 
   // Held, not resolved: a folder that has gone out of reach is a failure the
   // athlete is shown, not a carrier that quietly stops being tried.

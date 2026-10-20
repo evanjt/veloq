@@ -34,9 +34,9 @@ function generate(): string {
 
 type Entry = { $: Record<string, string> };
 
-function pickers(include: boolean): Entry[] {
+function pickers(): Entry[] {
   const app: { activity: Entry[] } = { activity: [] };
-  plugin.applyActivities(app, include);
+  plugin.applyActivities(app);
   return app.activity;
 }
 
@@ -62,19 +62,16 @@ function defined(res: string, tag: string): Map<string, Set<string>> {
 const CONFIGURE_LAYOUTS = [
   'widget_configure_shell.xml',
   'widget_insights_configure.xml',
-  'widget_record_configure.xml',
   'widget_summary_configure.xml',
   'widget_summary_placement_configure.xml',
 ];
 
 describe('the Android widget pickers', () => {
-  it('run every picker under one shared theme, with the Record flag on or off', () => {
+  it('run every picker under one shared theme', () => {
     expect(plugin.CONFIGURE_THEME).toMatch(/^@style\/\S+$/);
-    for (const include of [true, false]) {
-      const themes = pickers(include).map((a) => a.$['android:theme']);
-      expect(themes.length).toBeGreaterThan(0);
-      expect(new Set(themes)).toEqual(new Set([plugin.CONFIGURE_THEME]));
-    }
+    const themes = pickers().map((a) => a.$['android:theme']);
+    expect(themes.length).toBeGreaterThan(0);
+    expect(new Set(themes)).toEqual(new Set([plugin.CONFIGURE_THEME]));
   });
 
   it('defines that theme as a Material 3 day-night theme carrying the brand primary', () => {

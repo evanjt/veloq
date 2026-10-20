@@ -382,7 +382,7 @@ void uniffi_veloqrs_fn_method_veloqengine_mark_for_recomputation(
 /*handle*/ uint64_t uniffi_veloqrs_fn_method_veloqengine_run_clear_derived(
     /*handle*/ uint64_t ptr);
 /*handle*/ uint64_t uniffi_veloqrs_fn_method_veloqengine_run_record_backup(
-    /*handle*/ uint64_t ptr, RustBuffer dest_path);
+    /*handle*/ uint64_t ptr, RustBuffer dest_path, RustBuffer scope);
 /*handle*/ uint64_t uniffi_veloqrs_fn_method_veloqengine_sections(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_veloqengine_set_name_translations(
@@ -6636,7 +6636,7 @@ NativeVeloqrs::NativeVeloqrs(
           jsi::PropNameID::forAscii(
               rt,
               "ubrn_uniffi_veloqrs_fn_method_veloqengine_run_record_backup"),
-          2,
+          3,
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
@@ -15778,7 +15778,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_run_record_backup(
   auto value = uniffi_veloqrs_fn_method_veloqengine_run_record_backup(
       uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
                                                         args[0]),
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]));
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]));
 
   return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
                                                          value);

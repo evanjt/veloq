@@ -438,7 +438,9 @@ struct BackfillState {
     total: AtomicU32,
     failed: AtomicU32,
     detects: AtomicU32,
-    phase: Mutex<&'static str>,
+    /// The phase, and when a waiting one resumes in epoch milliseconds, under
+    /// one lock so no reader sees a resume time beside another phase.
+    phase: Mutex<(&'static str, Option<i64>)>,
 }
 
 static BACKFILL: BackfillState = BackfillState {
@@ -447,11 +449,20 @@ static BACKFILL: BackfillState = BackfillState {
     total: AtomicU32::new(0),
     failed: AtomicU32::new(0),
     detects: AtomicU32::new(0),
-    phase: Mutex::new(BACKFILL_PHASE_IDLE),
+    phase: Mutex::new((BACKFILL_PHASE_IDLE, None)),
 };
 
 pub(crate) fn set_phase(phase: &'static str) {
-    *BACKFILL.phase.lock().unwrap_or_else(|e| e.into_inner()) = phase;
+    set_phase_resuming(phase, None);
+}
+
+/// Settle on [`BACKFILL_PHASE_WAITING`], resuming at `at`.
+fn set_waiting(at: chrono::DateTime<chrono::Utc>) {
+    set_phase_resuming(BACKFILL_PHASE_WAITING, Some(at.timestamp_millis()));
+}
+
+fn set_phase_resuming(phase: &'static str, resumes_at_ms: Option<i64>) {
+    *BACKFILL.phase.lock().unwrap_or_else(|e| e.into_inner()) = (phase, resumes_at_ms);
     // The guard above is a temporary of the statement it is in, so the
     // announcement is made with the phase lock already released.
     crate::objects::observer::notify(Announcement::BackfillPhase(phase.to_string()));
@@ -468,6 +479,10 @@ pub struct BackfillSnapshot {
     /// Activities whose fetch failed, so their state is unchanged and a later
     /// run retries them.
     pub failed: u32,
+    /// When a waiting pass resumes, in epoch milliseconds: the end of the
+    /// request budget's deferral or of intervals.icu's refusal. `None` in every
+    /// other phase.
+    pub resumes_at_ms: Option<i64>,
 }
 
 impl BackfillSnapshot {
@@ -482,11 +497,13 @@ impl BackfillSnapshot {
 
 /// The current backfill state, safe to read from any thread at any time.
 pub fn backfill_progress() -> BackfillSnapshot {
+    let (phase, resumes_at_ms) = *BACKFILL.phase.lock().unwrap_or_else(|e| e.into_inner());
     BackfillSnapshot {
-        phase: *BACKFILL.phase.lock().unwrap_or_else(|e| e.into_inner()),
+        phase,
         completed: BACKFILL.completed.load(Ordering::Relaxed),
         total: BACKFILL.total.load(Ordering::Relaxed),
         failed: BACKFILL.failed.load(Ordering::Relaxed),
+        resumes_at_ms,
     }
 }
 
@@ -1097,6 +1114,8 @@ fn run_queue(install: u64, session: &LiveSource) -> (BackfillRun, bool) {
     outcome.failed += owed.len() as u32;
     BACKFILL.failed.store(outcome.failed, Ordering::Relaxed);
 
+    // When a refused or deferred walk resumes, for the terminal phase below.
+    let mut resumes_at = None;
     match stopped {
         Some(Stopped::SignedOut | Stopped::Superseded) => {
             set_phase(BACKFILL_PHASE_PARTIAL);
@@ -1154,6 +1173,7 @@ fn run_queue(install: u64, session: &LiveSource) -> (BackfillRun, bool) {
                 queue.len()
             );
             crate::net::resume::resume_at(at);
+            resumes_at = Some(at);
         }
         None => {}
     }
@@ -1178,15 +1198,17 @@ fn run_queue(install: u64, session: &LiveSource) -> (BackfillRun, bool) {
     // The terminal phase lands before the guard releases, so there is no
     // window in which the phase still reads "fetching" while detection has
     // already resumed.
-    set_phase(if matches!(stopped, Some(Stopped::Paused)) {
-        BACKFILL_PHASE_PAUSED
-    } else if matches!(stopped, Some(Stopped::Refused { .. })) {
-        BACKFILL_PHASE_WAITING
-    } else if drained {
-        BACKFILL_PHASE_COMPLETE
+    if let Some(at) = resumes_at {
+        set_waiting(at);
     } else {
-        BACKFILL_PHASE_PARTIAL
-    });
+        set_phase(if matches!(stopped, Some(Stopped::Paused)) {
+            BACKFILL_PHASE_PAUSED
+        } else if drained {
+            BACKFILL_PHASE_COMPLETE
+        } else {
+            BACKFILL_PHASE_PARTIAL
+        });
+    }
 
     // The terminal cut fires on the pass that drains the queue, whatever the
     // queue turned out to hold. It used to also require the library to carry
@@ -2729,6 +2751,7 @@ mod tests {
             completed: 0,
             total: 0,
             failed: 0,
+            resumes_at_ms: None,
         };
         assert_eq!(snapshot.percent(), 100);
     }
@@ -2741,6 +2764,7 @@ mod tests {
                 completed,
                 total,
                 failed: 0,
+                resumes_at_ms: None,
             }
             .percent()
         };
@@ -3255,6 +3279,107 @@ mod tests {
                 (3, 0, 2, 1, 0)
             );
             assert!(run.finished_at > crate::WholeNumber(0));
+        }
+    }
+
+    /// Scenario: the install's own backfill allowance is one request, so the
+    /// pass asks for the first track and the budget defers the rest. Nothing
+    /// was refused upstream.
+    ///
+    /// Expected behaviour: the pass reports waiting, with the time it resumes
+    /// equal to the deferral's own, and any later phase clears that time.
+    mod waiting {
+        use super::*;
+        use crate::governor::{
+            Allowance, AuthMethod, Budget, Governor, NoopPolicy, SYNC_ALLOWANCE,
+        };
+        use crate::persistence::with_persistent_engine;
+        use httpmock::prelude::*;
+        use std::sync::Arc;
+        use tracematch::GpsPoint;
+
+        fn noon() -> chrono::DateTime<chrono::Utc> {
+            chrono::DateTime::parse_from_rfc3339("2026-10-20T12:00:00Z")
+                .expect("fixed time")
+                .with_timezone(&chrono::Utc)
+        }
+
+        fn budgeted() -> Arc<Governor> {
+            let one = Allowance {
+                per_fifteen_minutes: 1,
+                per_day: None,
+            };
+            Arc::new(
+                Governor::new(1000, Box::new(NoopPolicy))
+                    .with_clock(noon)
+                    .with_budget(
+                        Budget::with_allowances(one, SYNC_ALLOWANCE, 0),
+                        None,
+                        || 0.0,
+                    ),
+            )
+        }
+
+        fn engine_with(ids: &[&str]) -> TempDir {
+            let tmp = init_global_engine("elevation_waiting.db");
+            crate::objects::sync::set_credentials_from_native("api_key", "secret", "1")
+                .expect("test credential");
+            with_persistent_engine(|engine| {
+                for (n, id) in ids.iter().enumerate() {
+                    let seed = n as f64 * 0.05;
+                    let track = (0..8)
+                        .map(|i| GpsPoint::new(46.2 + seed + i as f64 * 0.001, 7.35 + seed))
+                        .collect();
+                    engine
+                        .add_activity(id.to_string(), track, "Ride".into())
+                        .expect("add activity");
+                }
+            })
+            .expect("engine");
+            tmp
+        }
+
+        #[test]
+        fn a_pass_the_allowance_defers_reports_when_it_resumes() {
+            let _serial = serial_global_state();
+            let _tmp = engine_with(&["i1", "i2", "i3"]);
+            let server = MockServer::start();
+            let rising: Vec<f64> = (0..8).map(|i| 400.0 + i as f64 * 3.0).collect();
+            for id in ["i1", "i2", "i3"] {
+                let path = format!("/activity/{id}/streams.json");
+                let altitude = rising.clone();
+                server.mock(|when, then| {
+                    when.method(GET).path(path);
+                    then.status(200)
+                        .json_body(serde_json::json!([{"type": "altitude", "data": altitude}]));
+                });
+            }
+            let governor = budgeted();
+            let transport = Transport::with_governor(
+                server.base_url(),
+                AuthMethod::ApiKey("secret"),
+                Arc::clone(&governor),
+            )
+            .unwrap();
+
+            run_elevation_backfill(&transport, "1");
+
+            let deferred_until = governor
+                .deferred_until(crate::governor::Intent::Backfill, noon())
+                .expect("the allowance is spent");
+            let progress = backfill_progress();
+            assert_eq!(progress.phase, BACKFILL_PHASE_WAITING);
+            assert_eq!(
+                progress.resumes_at_ms,
+                Some(deferred_until.timestamp_millis())
+            );
+
+            set_phase(BACKFILL_PHASE_FETCHING);
+            assert_eq!(
+                backfill_progress().resumes_at_ms,
+                None,
+                "a pass that started again is not waiting"
+            );
         }
     }
 

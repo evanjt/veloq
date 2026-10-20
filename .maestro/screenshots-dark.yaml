@@ -57,6 +57,7 @@ tags:
     file: helpers/reveal.yaml
     env:
       ELEMENT: "weekly-summary"
+      LIST: "fitness-page-calendar"
 - takeScreenshot: "screenshots/03-training-dark"
 
 # Screenshot 4: Regional Map

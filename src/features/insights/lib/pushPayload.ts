@@ -204,7 +204,7 @@ const ENTRY_ROUTES: readonly RegExp[] = [
   /^(record|recordings|routes)$/,
   /^oauth\/callback$/,
   /^(settings|about|display-settings|cache-settings|summary-card-settings)$/,
-  /^(notification-settings|backup-settings)$/,
+  /^(notification-settings|backup-settings|data-sources-settings)$/,
 ];
 
 /** The developer screens, which a link opens only for a developer. */

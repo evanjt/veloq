@@ -97,4 +97,17 @@ class WidgetSizesTest {
     val drawn = WidgetSizes.oneEach(none.all) { SummaryWidget.sizeFor(it.widthDp, it.heightDp) }
     assertEquals(listOf(WidgetSize(0, 0) to SummarySize.SMALL), drawn)
   }
+
+  @Test
+  fun twoLargeSizesWhoseFormStripsDifferAreDrawnOnceEach() {
+    val sizes = listOf(WidgetSize(250, 340), WidgetSize(250, 440), WidgetSize(420, 160), WidgetSize(420, 180))
+    val drawn = WidgetSizes.oneEach(sizes) { SummaryWidget.layoutFor(it.widthDp, it.heightDp, 1f) }
+    assertEquals(
+      listOf(WidgetSize(250, 340), WidgetSize(250, 440), WidgetSize(420, 160)),
+      drawn.map { it.first })
+    assertEquals(
+      listOf(SummarySize.LARGE, SummarySize.LARGE, SummarySize.MEDIUM), drawn.map { it.second.size })
+    assertEquals(
+      drawn[0].second.formStripDp + 100, drawn[1].second.formStripDp)
+  }
 }

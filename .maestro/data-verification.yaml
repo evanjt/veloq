@@ -35,6 +35,7 @@ tags:
     file: helpers/reveal.yaml
     env:
       ELEMENT: "weekly-summary"
+      LIST: "fitness-page-calendar"
 
 - takeScreenshot: "screenshots/data-verification-training"
 

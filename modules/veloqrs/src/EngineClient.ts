@@ -63,6 +63,7 @@ import type {
   FfiRecordCheck,
   FfiRecordRestoreResult,
   FfiUnplacedRecord,
+  RecordScope,
 } from './generated/veloqrs';
 import {
   FfiInitOutcome,
@@ -1082,10 +1083,14 @@ class EngineClient implements DelegateHost {
     await this.engine.writeClearSnapshot(destPath);
   }
 
-  /** Rejects with `Cancelled` when `cancelRun` stopped it, writing nothing. */
-  async runRecordBackup(destPath: string): Promise<void> {
+  /**
+   * `scope` is where the zip is going: shared storage gets a record without the
+   * export privacy home. Rejects with `Cancelled` when `cancelRun` stopped it,
+   * writing nothing.
+   */
+  async runRecordBackup(destPath: string, scope: RecordScope): Promise<void> {
     if (!this.ready) throw new Error('Engine not initialised');
-    await this.engine.runRecordBackup(destPath);
+    await this.engine.runRecordBackup(destPath, scope);
   }
 
   /**

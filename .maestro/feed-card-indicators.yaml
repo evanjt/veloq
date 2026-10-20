@@ -48,6 +48,7 @@ tags:
     file: helpers/reveal.yaml
     env:
       ELEMENT: "activity-card-demo-test-7"
+      LIST: "home-activity-list"
 - extendedWaitUntil:
     visible:
       id: "activity-card-demo-test-7-section-chip"
@@ -61,6 +62,7 @@ tags:
     file: helpers/reveal.yaml
     env:
       ELEMENT: "activity-card-demo-test-0"
+      LIST: "home-activity-list"
 
 # ====================================================================
 # US-F2: PR count parity, if demo-test-0 has a section chip, count PR
@@ -76,6 +78,7 @@ tags:
           file: helpers/reveal.yaml
           env:
             ELEMENT: "activity-card-demo-test-0-section-chip"
+            LIST: "home-activity-list"
       - takeScreenshot: "screenshots/feed-indicators-demo-0-chip"
 
       # Tap chip → Sections tab
@@ -115,6 +118,7 @@ tags:
           file: helpers/reveal.yaml
           env:
             ELEMENT: "activity-card-demo-test-0-route-chip"
+            LIST: "home-activity-list"
       - takeScreenshot: "screenshots/feed-indicators-demo-0-route-chip"
       - tapOn:
           id: "activity-card-demo-test-0-route-chip"

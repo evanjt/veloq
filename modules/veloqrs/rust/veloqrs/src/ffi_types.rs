@@ -3014,8 +3014,6 @@ pub struct FfiWidgetSnapshotData {
     /// Strength work over today and the 29 days before it, the strength
     /// screen's 30-day window
     pub strength_last30: WidgetStrengthWindow,
-    /// Strength work over the calendar month to the end of today
-    pub strength_month: WidgetStrengthWindow,
     /// The `sex` of the stored intervals.icu profile, which picks the body the
     /// strength diagram draws
     pub athlete_sex: Option<String>,
@@ -3027,6 +3025,8 @@ pub struct WidgetStrengthWindow {
     pub summary: FfiStrengthSummary,
     /// Strength activities in the window whose sets have not been downloaded
     pub owed_count: u32,
+    /// The sessions that worked each muscle, by slug
+    pub muscle_sessions: std::collections::HashMap<String, u32>,
 }
 
 /// What the latest activity is compared against, read from the values the

@@ -51,19 +51,11 @@ final class WidgetCaptureTests: XCTestCase {
     Widget(name: "strength", families: [.systemSmall, .systemMedium, .systemLarge]) {
       AnyView(StrengthWidgetView(entry: StrengthEntry(date: $2, snapshot: $0), family: $1))
     },
-    Widget(name: "strength-month", families: [.systemSmall, .systemMedium, .systemLarge]) {
-      AnyView(
-        StrengthWidgetView(
-          entry: StrengthEntry(date: $2, snapshot: $0, window: .month), family: $1))
-    },
     Widget(name: "strength-empty", families: [.systemSmall, .systemMedium, .systemLarge]) {
       AnyView(
         StrengthWidgetView(
-          entry: StrengthEntry(date: $2, snapshot: WidgetCaptureTests.emptyStrengthMonth($0), window: .month),
+          entry: StrengthEntry(date: $2, snapshot: WidgetCaptureTests.emptyStrength($0)),
           family: $1))
-    },
-    Widget(name: "record", families: [.systemSmall]) { snapshot, _, _ in
-      AnyView(RecordWidgetView(url: RecordDeepLink.url(for: snapshot)))
     },
   ]
 
@@ -120,10 +112,16 @@ final class WidgetCaptureTests: XCTestCase {
   private func expected(
     _ widget: String, _ family: WidgetFamily, _ screen: String, _ fixture: String
   ) -> [String] {
-    if fixture == "empty" { return widget == "record" ? [] : ["empty title"] }
+    if fixture == "empty" { return ["empty title"] }
     if widget.hasPrefix("summary"), family != .systemSmall {
       var texts: [String] = []
-      // A fitness hero moves form onto the row, which then names its zone.
+      // At Large a training load hero, the fixtures' form or the placed fitness, names the other
+      // two readings on its line; the no-wellness fixture leads with HRV, which carries none.
+      if family == .systemLarge, widget == "summary-fitness" || fixture != "no-wellness" {
+        texts += ["load label", "load value"]
+      }
+      // A fitness hero moves form onto the row, or at Large onto its line, which then names its
+      // zone.
       if widget == "summary-fitness" { texts.append("metric caption") }
       // The fitness chart names its two lines and the days they span; the large form chart
       // names its zone and labels the bounds between zones.
@@ -312,11 +310,6 @@ final class WidgetCaptureTests: XCTestCase {
         ("insights-configurable", insights.snapshot, all, {
           AnyView(InsightsWidgetView(entry: insights, family: $0))
         }))
-      let strength = StrengthConfigProvider.placeholderEntry()
-      placeholders.append(
-        ("strength-configurable", strength.snapshot, all, {
-          AnyView(StrengthWidgetView(entry: strength, family: $0))
-        }))
     }
 
     var failures: [String] = []
@@ -346,7 +339,7 @@ final class WidgetCaptureTests: XCTestCase {
   func testEveryMarkAWidgetDrawsSaysWhatItShows() throws {
     let snapshot = try self.snapshot("demo")
     var failures: [String] = []
-    for widget in widgets where widget.name != "record" && widget.name != "strength-empty" {
+    for widget in widgets where widget.name != "strength-empty" {
       for family in widget.families {
         let name = "\(widget.name)-\(familyName(family))"
         let marks = spokenMarks(
@@ -374,13 +367,13 @@ final class WidgetCaptureTests: XCTestCase {
 
   /// What each widget draws from the sample library that a screen reader cannot read off a text:
   /// the Last activity widget's small size leads with its comparison and leaves the name, the
-  /// record mark beside it and the route out. A Summary placed on another hero draws the same
-  /// marks as the default one.
+  /// record mark beside it and the route out. A Summary from Medium up carries the record button,
+  /// and one placed on another hero draws the same marks as the default one.
   private func expectedMarks(_ widget: String, _ family: WidgetFamily) -> Set<String> {
     switch (widget.hasPrefix("summary") ? "summary" : widget, family) {
     case ("summary", .systemSmall): return ["hero", "chart"]
-    case ("summary", .systemMedium): return ["hero", "chart", "metric"]
-    case ("summary", _): return ["hero", "chart", "metric", "form chart"]
+    case ("summary", .systemMedium): return ["hero", "chart", "metric", "record button"]
+    case ("summary", _): return ["hero", "chart", "metric", "form chart", "record button"]
     case ("activity", .systemSmall): return []
     case ("activity", _): return ["route", "record"]
     case ("insights", _): return ["tone"]
@@ -406,20 +399,20 @@ final class WidgetCaptureTests: XCTestCase {
 
   // MARK: - drawing
 
-  /// The snapshot with its calendar month emptied and worded as the longest words a locale gives
-  /// a window with no strength sessions.
-  nonisolated private static func emptyStrengthMonth(_ snapshot: WidgetSnapshot) -> WidgetSnapshot {
+  /// The snapshot with its 30 days emptied and worded as the longest words a locale gives the
+  /// window with no strength sessions.
+  nonisolated private static func emptyStrength(_ snapshot: WidgetSnapshot) -> WidgetSnapshot {
     guard
       let data = try? JSONEncoder().encode(snapshot),
       var json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
       var strength = json["strength"] as? [String: Any],
       var windows = strength["windows"] as? [String: Any],
-      var month = windows["month"] as? [String: Any]
+      var last30 = windows["last30"] as? [String: Any]
     else { return snapshot }
-    month["muscles"] = []
-    month["top"] = []
-    month["emptyText"] = "Aucune séance de musculation sur les dernières 6 mois"
-    windows["month"] = month
+    last30["muscles"] = []
+    last30["top"] = []
+    last30["emptyText"] = "Aucune séance de musculation sur les dernières 1 mois"
+    windows["last30"] = last30
     strength["windows"] = windows
     json["strength"] = strength
     guard let emptied = try? JSONSerialization.data(withJSONObject: json) else { return snapshot }
@@ -488,11 +481,7 @@ final class WidgetCaptureTests: XCTestCase {
     let ground =
       mode == .accented
       ? [Color.clear]
-      : name.hasPrefix("record-")
-        ? (scheme == .dark
-          ? [WidgetTheme.Record.Dark.gradientStart, WidgetTheme.Record.Dark.gradientEnd]
-          : [WidgetTheme.Record.Light.gradientStart, WidgetTheme.Record.Light.gradientEnd])
-        : [palette.surface, palette.background]
+      : [palette.surface, palette.background]
     let placed = widget
       .padding(contentMargin)
       .frame(width: size.width, height: size.height)

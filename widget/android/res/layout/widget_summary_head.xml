@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Summary widget's head from Medium up: the hero's name, value and trend, its line, and on
+     the same line the other two readings of training load when the hero is one of them. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  android:layout_width="match_parent"
+  android:layout_height="wrap_content"
+  android:orientation="horizontal">
+
+  <LinearLayout
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <TextView
+      android:fontFamily="@font/widget_manrope"
+      android:id="@+id/sum_label"
+      android:importantForAccessibility="no"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:maxLines="1"
+      android:ellipsize="end"
+      android:textSize="@dimen/widget_text_label"
+      android:textColor="@color/widget_text_secondary"
+      android:textAllCaps="true"
+      android:letterSpacing="0.05" />
+
+    <LinearLayout
+      android:id="@+id/sum_hero"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:orientation="horizontal"
+      android:gravity="bottom">
+
+      <!-- The measure's key dot: the value stays in primary text, so its colour is said here. -->
+      <ImageView
+        android:id="@+id/sum_key"
+        android:layout_width="6dp"
+        android:layout_height="6dp"
+        android:layout_gravity="center_vertical"
+        android:layout_marginEnd="4dp"
+        android:importantForAccessibility="no"
+        android:src="@drawable/widget_tone_dot"
+        android:visibility="gone" />
+
+      <TextView
+        android:fontFamily="@font/widget_manrope"
+        android:id="@+id/sum_value"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:maxLines="1"
+        android:textSize="@dimen/widget_text_metric"
+        android:textStyle="bold"
+        android:textColor="@color/widget_text_primary" />
+
+      <TextView
+        android:fontFamily="@font/widget_manrope"
+        android:id="@+id/sum_trend"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="6dp"
+        android:textSize="@dimen/widget_text_label"
+        android:textColor="@color/widget_text_secondary" />
+    </LinearLayout>
+
+    <TextView
+      android:fontFamily="@font/widget_manrope"
+      android:id="@+id/sum_line"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:maxLines="1"
+      android:ellipsize="end"
+      android:textSize="@dimen/widget_text_caption"
+      android:textStyle="bold"
+      android:textColor="@color/widget_text_primary" />
+  </LinearLayout>
+
+  <!-- Fitness, fatigue or form beside the hero: label over value, as a supporting cell draws it. A
+       translated label wraps to a second line rather than be cut short. -->
+  <LinearLayout
+    android:id="@+id/sum_load0"
+    android:layout_width="0dp"
+    android:layout_height="wrap_content"
+    android:layout_weight="1"
+    android:layout_marginStart="@dimen/widget_gap"
+    android:orientation="vertical"
+    android:visibility="gone">
+
+    <TextView
+      android:fontFamily="@font/widget_manrope"
+      android:id="@+id/sum_load0_label"
+      android:importantForAccessibility="no"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:maxLines="2"
+      android:ellipsize="end"
+      android:textSize="@dimen/widget_text_caption"
+      android:textColor="@color/widget_text_secondary" />
+
+    <LinearLayout
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:orientation="horizontal"
+      android:gravity="center_vertical">
+
+      <ImageView
+        android:id="@+id/sum_load0_key"
+        android:layout_width="6dp"
+        android:layout_height="6dp"
+        android:layout_gravity="center_vertical"
+        android:layout_marginEnd="4dp"
+        android:importantForAccessibility="no"
+        android:src="@drawable/widget_tone_dot"
+        android:visibility="gone" />
+
+      <TextView
+        android:fontFamily="@font/widget_manrope"
+        android:id="@+id/sum_load0_value"
+        android:importantForAccessibility="no"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:maxLines="1"
+        android:textSize="@dimen/widget_text_label"
+        android:textStyle="bold"
+        android:textColor="@color/widget_text_primary" />
+    </LinearLayout>
+  </LinearLayout>
+
+  <!-- The second reading beside the hero: label over value, as a supporting cell draws it. A
+       translated label wraps to a second line rather than be cut short. -->
+  <LinearLayout
+    android:id="@+id/sum_load1"
+    android:layout_width="0dp"
+    android:layout_height="wrap_content"
+    android:layout_weight="1"
+    android:layout_marginStart="@dimen/widget_gap"
+    android:orientation="vertical"
+    android:visibility="gone">
+
+    <TextView
+      android:fontFamily="@font/widget_manrope"
+      android:id="@+id/sum_load1_label"
+      android:importantForAccessibility="no"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:maxLines="2"
+      android:ellipsize="end"
+      android:textSize="@dimen/widget_text_caption"
+      android:textColor="@color/widget_text_secondary" />
+
+    <LinearLayout
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:orientation="horizontal"
+      android:gravity="center_vertical">
+
+      <ImageView
+        android:id="@+id/sum_load1_key"
+        android:layout_width="6dp"
+        android:layout_height="6dp"
+        android:layout_gravity="center_vertical"
+        android:layout_marginEnd="4dp"
+        android:importantForAccessibility="no"
+        android:src="@drawable/widget_tone_dot"
+        android:visibility="gone" />
+
+      <TextView
+        android:fontFamily="@font/widget_manrope"
+        android:id="@+id/sum_load1_value"
+        android:importantForAccessibility="no"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:maxLines="1"
+        android:textSize="@dimen/widget_text_label"
+        android:textStyle="bold"
+        android:textColor="@color/widget_text_primary" />
+    </LinearLayout>
+  </LinearLayout>
+</LinearLayout>

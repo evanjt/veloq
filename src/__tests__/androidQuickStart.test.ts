@@ -110,17 +110,14 @@ describe('the snapshot carries the recent sports as one pre-localised list', () 
 });
 
 describe('the Quick Settings tile is the same intent behind the shade', () => {
-  it('rides the one record gate, so the flag going off takes the tile with it', () => {
-    const app: { service?: { $: Record<string, string> }[] } = {
+  it('is registered once, replacing the registration an earlier prebuild left', () => {
+    const on: { service?: { $: Record<string, string> }[] } = {
       service: [{ $: { 'android:name': '.widget.RecordTileService' } }],
     };
-    plugin.applyServices(app, false);
-    expect((app.service ?? []).map((s) => s.$['android:name'])).not.toContain(
-      '.widget.RecordTileService'
-    );
-
-    const on: { service?: { $: Record<string, string> }[] } = {};
-    plugin.applyServices(on, true);
+    plugin.applyServices(on);
+    expect(
+      (on.service ?? []).filter((s) => s.$['android:name'] === '.widget.RecordTileService')
+    ).toHaveLength(1);
     const tile = (on.service ?? []).find(
       (s) => s.$['android:name'] === '.widget.RecordTileService'
     );

@@ -90,10 +90,12 @@ function britishForms(text: string): string[] {
   return (visibleText.match(BRITISH) ?? []).filter((w) => !ALLOWED.has(w.toLowerCase()));
 }
 
+/** The listing's text files; the icon and screenshot images beside them are not text. */
 function storeFiles(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
-    e.isDirectory() ? storeFiles(join(dir, e.name)) : [join(dir, e.name)]
-  );
+  return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    if (e.isDirectory()) return storeFiles(join(dir, e.name));
+    return e.name.endsWith('.txt') ? [join(dir, e.name)] : [];
+  });
 }
 
 describe('en-US register', () => {

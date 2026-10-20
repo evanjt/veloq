@@ -26,6 +26,13 @@ tags:
     id: "param-editor-input"
 - eraseText: 10
 - inputText: ${output.target}
+# On Android the keyboard covers the sheet's Save. iOS shows Save in the sheet's
+# header, above the keyboard.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
 - tapOn:
     id: "param-editor-save"
 
@@ -45,11 +52,26 @@ tags:
 - tapOn:
     id: "preview-keep-button"
 - assertVisible: "Apply these settings\\?"
-# The alert's accept carries the screen button's label, so take the one under
-# the alert's title.
-- tapOn:
-    text: "Keep"
-    below: "Apply these settings\\?"
+# The alert's accept carries the screen button's label. Maestro intersects a
+# selector's filters, so a relative filter narrows the matches but does not order
+# them, and the first in the tree wins. iOS keeps the screen's Keep in the tree
+# under the alert, ahead of it, so take the Keep that sits above the screen's.
+# On Android the tap under the alert's title reaches the dialog's Keep.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          text: "Keep"
+          above:
+            id: "preview-keep-button"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn:
+          text: "Keep"
+          below: "Apply these settings\\?"
 
 - extendedWaitUntil:
     visible:

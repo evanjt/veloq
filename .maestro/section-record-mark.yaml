@@ -20,7 +20,7 @@ tags:
     timeout: 10000
 
 - tapOn:
-    text: "Sections"
+    id: "tab-sections"
 
 # The catalogue is cut from scratch on every cold launch, so the wait is the
 # runner's budget and not the workstation's.

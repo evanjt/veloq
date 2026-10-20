@@ -15,16 +15,16 @@ func nextRefreshDate() -> Date {
     ?? Date().addingTimeInterval(14_400)
 }
 
-/// The entry now, and a second one at the moment the snapshot turns stale, so the age line
-/// changes colour then and not at the next reload.
+/// The entry now, and one at each moment the age line's words change before the next reload,
+/// so it moves on from now to minutes to hours, and turns amber, without a reload.
 func summaryTimeline(_ entry: VeloqEntry) -> Timeline<VeloqEntry> {
   let refresh = nextRefreshDate()
-  var entries = [entry]
-  if let stale = SnapshotAge.staleDate(entry.snapshot), stale > entry.date, stale < refresh {
-    entries.append(
-      VeloqEntry(date: stale, snapshot: entry.snapshot, placement: entry.placement))
-  }
-  return Timeline(entries: entries, policy: .after(refresh))
+  let changes = SnapshotAge.changes(entry.snapshot, after: entry.date, before: refresh)
+  return Timeline(
+    entries: [entry] + changes.map { change in
+      VeloqEntry(date: change, snapshot: entry.snapshot, placement: entry.placement)
+    },
+    policy: .after(refresh))
 }
 
 struct VeloqProvider: TimelineProvider {
@@ -92,87 +92,12 @@ struct VeloqWidget: Widget {
   }
 }
 
-// MARK: - Quick-Record widget
-
-// In both generated bundle bodies since INCLUDE_RECORD_WIDGET went true; the
-// plugin drops it from them again if the flag goes back off. The chrome renders
-// purely from the generated WidgetTheme.Record
-// values; the snapshot is read for one field, the last recorded sport, which
-// decides whether the tap starts a ride or opens the picker.
-struct RecordEntry: TimelineEntry {
-  let date: Date
-  let url: URL
-}
-
-struct RecordProvider: TimelineProvider {
-  func placeholder(in context: Context) -> RecordEntry {
-    RecordEntry(date: Date(), url: RecordDeepLink.picker)
-  }
-
-  func getSnapshot(in context: Context, completion: @escaping (RecordEntry) -> Void) {
-    completion(entry())
-  }
-
-  func getTimeline(in context: Context, completion: @escaping (Timeline<RecordEntry>) -> Void) {
-    completion(Timeline(entries: [entry()], policy: .never))
-  }
-
-  private func entry() -> RecordEntry {
-    RecordEntry(date: Date(), url: RecordDeepLink.url(for: WidgetSnapshotStore.load()))
-  }
-}
-
-struct RecordWidgetView: View {
-  @Environment(\.colorScheme) private var colorScheme
-  let url: URL
-
-  var body: some View {
-    VStack(spacing: WidgetTheme.Layout.gap) {
-      ZStack {
-        Circle()
-          .stroke(WidgetTheme.Record.foreground, lineWidth: 3)
-          .frame(width: 44, height: 44)
-        Circle()
-          .fill(WidgetTheme.Record.foreground)
-          .frame(width: 26, height: 26)
-      }
-      .unspoken()
-      Text("Record")
-        .measuredText("record")
-        .widgetFont(.value, weight: .semibold)
-        .foregroundColor(WidgetTheme.Record.foreground)
-    }
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .widgetURL(url)
-    .widgetBackground(
-      LinearGradient(
-        colors: colorScheme == .dark
-          ? [WidgetTheme.Record.Dark.gradientStart, WidgetTheme.Record.Dark.gradientEnd]
-          : [WidgetTheme.Record.Light.gradientStart, WidgetTheme.Record.Light.gradientEnd],
-        startPoint: .top, endPoint: .bottom))
-  }
-}
-
-struct VeloqRecordWidget: Widget {
-  let kind = "VeloqRecordWidget"
-
-  var body: some WidgetConfiguration {
-    StaticConfiguration(kind: kind, provider: RecordProvider()) { entry in
-      RecordWidgetView(url: entry.url)
-    }
-    .configurationDisplayName("Record")
-    .description("Start recording an activity.")
-    .supportedFamilies([.systemSmall])
-  }
-}
-
 // MARK: - bundles
 
 // WidgetBundle bodies can't branch on availability with different widget types,
 // so a plain @main type dispatches between the iOS 17 bundle (configurable
 // dashboard) and the iOS 15/16 bundle (static dashboard). Both bundles are
-// generated into WidgetBundles.swift at prebuild, because their membership is
-// the Quick-Record gate and a result builder cannot read a JavaScript flag.
+// generated into WidgetBundles.swift at prebuild.
 @main
 struct VeloqWidgetLauncher {
   static func main() {

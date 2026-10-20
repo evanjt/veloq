@@ -29,9 +29,9 @@ tags:
       id: "activity-detail-screen"
     timeout: 15000
 
-# Open the Sections tab (text label may also appear in charts/routes tabs)
+# Open the Sections tab
 - tapOn:
-    text: "Sections"
+    id: "tab-sections"
     optional: true
 
 - extendedWaitUntil:

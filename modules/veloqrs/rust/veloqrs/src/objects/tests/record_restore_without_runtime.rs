@@ -10,8 +10,11 @@ fn test_record_zip_restore_without_tokio_context() {
         .unwrap();
     let path = tmp.path().join("record.zip");
     with_persistent_engine(|engine| engine.set_setting("units", "miles").unwrap());
-    futures::executor::block_on(VeloqEngine.run_record_backup(path.to_string_lossy().into_owned()))
-        .expect("back up record ZIP");
+    futures::executor::block_on(VeloqEngine.run_record_backup(
+        path.to_string_lossy().into_owned(),
+        crate::persistence::record_backup::RecordScope::Whole,
+    ))
+    .expect("back up record ZIP");
     with_persistent_engine(|engine| engine.set_setting("units", "kilometres").unwrap());
 
     let restored = futures::executor::block_on(

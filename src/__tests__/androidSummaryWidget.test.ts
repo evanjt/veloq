@@ -3,9 +3,8 @@
  *
  * Expected behaviour: the gallery names it in the athlete's language and describes it, the
  * launcher opens the card's picker as the widget is placed and again on reconfigure, and the picker
- * is optional so dismissing it leaves a working widget. The picker's activity is registered
- * whatever the Record flag says, because it belongs to the Summary widget and not to Record, and
- * every resource the manifest and the provider info point at exists in the generated project.
+ * is optional so dismissing it leaves a working widget, and every resource the manifest and the
+ * provider info point at exists in the generated project.
  */
 
 import fs from 'fs';
@@ -40,9 +39,9 @@ function receivers(): Entry[] {
   return app.receiver;
 }
 
-function activities(include?: boolean): Entry[] {
+function activities(): Entry[] {
   const app: { activity: Entry[] } = { activity: [] };
-  plugin.applyActivities(app, include);
+  plugin.applyActivities(app);
   return app.activity;
 }
 
@@ -62,21 +61,13 @@ describe('the Summary widget in the Android gallery', () => {
     expect(summary?.$['android:label']).toBe('@string/widget_summary_label');
   });
 
-  it('registers its picker activity with the launcher, with the Record flag on or off', () => {
-    for (const include of [true, false]) {
-      const picker = activities(include).find(
-        (a) => a.$['android:name'] === '.widget.SummaryWidgetConfigureActivity'
-      );
-      expect(picker).toBeDefined();
-      expect(picker?.$['android:exported']).toBe('true');
-      expect(JSON.stringify(picker)).toContain('android.appwidget.action.APPWIDGET_CONFIGURE');
-    }
-  });
-
-  it('keeps the Record picker behind the Record flag', () => {
-    const names = (include: boolean) => activities(include).map((a) => a.$['android:name']);
-    expect(names(true)).toContain('.widget.RecordWidgetConfigureActivity');
-    expect(names(false)).not.toContain('.widget.RecordWidgetConfigureActivity');
+  it('registers its picker activity with the launcher', () => {
+    const picker = activities().find(
+      (a) => a.$['android:name'] === '.widget.SummaryWidgetConfigureActivity'
+    );
+    expect(picker).toBeDefined();
+    expect(picker?.$['android:exported']).toBe('true');
+    expect(JSON.stringify(picker)).toContain('android.appwidget.action.APPWIDGET_CONFIGURE');
   });
 
   it('names a picker class that is generated into the package, and makes opening it optional', () => {

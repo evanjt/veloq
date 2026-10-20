@@ -20,7 +20,6 @@ const path = require('path');
  * build time, the same way the existing iCloud capability is.
  */
 
-const { INCLUDE_RECORD_WIDGET } = require('./widgetFlags');
 const { unlinkEngine } = require('./xcodeEngineLink');
 const { ensureTargetDependencySections } = require('./xcodeTargetDependency');
 const {
@@ -85,10 +84,8 @@ function copySharedLiveActivitySources(srcDir, destDir) {
 
 /**
  * Write the widget bundles, whose membership is what puts a widget in the
- * gallery. Generated rather than tracked because Quick-Record's gate is a
- * JavaScript constant the Swift cannot read, and a `WidgetBundle` body is a
- * result builder that cannot branch on one. Android drops the receiver from the
- * manifest for the same reason; this is that mechanism on iOS.
+ * gallery. Generated at prebuild beside the sample, and compiled from `ios/`
+ * alone.
  */
 const BUNDLES_FILE = 'WidgetBundles.swift';
 
@@ -109,24 +106,13 @@ function widgetSwiftFiles(projectRoot) {
   return [...withBundles, ...SHARED_WIDGET_FILES];
 }
 
-function writeWidgetBundles(destDir, includeRecord = INCLUDE_RECORD_WIDGET) {
-  // The Control rides the same gate as the widget: one record surface off means
-  // every record surface off. It is iOS 18 and the bundle body is not, so it is
-  // gated inside the result builder, the way the Live Activity is gated at 16.2.
+function writeWidgetBundles(destDir) {
+  // The Control is iOS 18 and the bundle body is not, so it is gated inside the
+  // result builder, the way the Live Activity is gated at 16.2.
   const control = `
     if #available(iOS 18.0, *) {
       VeloqRecordControl()
     }`;
-  const record = includeRecord
-    ? `
-    VeloqRecordWidget()${control}`
-    : '';
-  // iOS 17 takes the configurable one, at the same kind, so a widget placed
-  // before the upgrade keeps its place and gains the sport picker.
-  const configurableRecord = includeRecord
-    ? `
-    VeloqConfigurableRecordWidget()${control}`
-    : '';
   const liveActivity = `
     if #available(iOS 16.2, *) {
       VeloqRecordingLiveActivity()
@@ -143,7 +129,7 @@ struct VeloqWidgets: WidgetBundle {
     VeloqWidget()
     VeloqLatestActivityWidget()
     VeloqInsightsWidget()
-    VeloqStrengthWidget()${record}${liveActivity}
+    VeloqStrengthWidget()${control}${liveActivity}
   }
 }
 
@@ -153,7 +139,7 @@ struct VeloqWidgetsConfigurable: WidgetBundle {
     VeloqConfigurableWidget()
     VeloqLatestActivityWidget()
     VeloqConfigurableInsightsWidget()
-    VeloqConfigurableStrengthWidget()${configurableRecord}${liveActivity}
+    VeloqStrengthWidget()${control}${liveActivity}
   }
 }
 `
@@ -667,7 +653,6 @@ module.exports = function withIosWidget(config) {
   return config;
 };
 
-module.exports.INCLUDE_RECORD_WIDGET = INCLUDE_RECORD_WIDGET;
 module.exports.applyWidgetBuildSettings = applyWidgetBuildSettings;
 module.exports.writeWidgetBundles = writeWidgetBundles;
 module.exports.writeWidgetFiles = writeWidgetFiles;

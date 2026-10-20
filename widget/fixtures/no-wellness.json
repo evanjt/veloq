@@ -545,17 +545,6 @@
         "owedCount": 0,
         "top": [],
         "totalSets": 0
-      },
-      "month": {
-        "activityCount": 0,
-        "bodyLabel": null,
-        "emptyText": "No gym sessions this month",
-        "label": "December",
-        "maxWeightedSets": 0.0,
-        "muscles": [],
-        "owedCount": 0,
-        "top": [],
-        "totalSets": 0
       }
     }
   },

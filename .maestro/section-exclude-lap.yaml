@@ -26,7 +26,7 @@ tags:
     timeout: 15000
 
 - tapOn:
-    text: "Sections"
+    id: "tab-sections"
     optional: true
 
 # The engine cuts the demo catalogue after the seed lands.
@@ -43,11 +43,11 @@ tags:
       id: "section-detail-screen"
     timeout: 10000
 
-- scrollUntilVisible:
-    element:
-      id: "section-open-laps"
-    direction: DOWN
-    timeout: 20000
+- runFlow:
+    file: helpers/sheet-scroll-to.yaml
+    env:
+      TARGET: "section-open-laps"
+      DIRECTION: DOWN
 
 - assertNotVisible:
     id: "section-partly-excluded"
@@ -60,14 +60,14 @@ tags:
       id: "section-lap-list"
     timeout: 15000
 
-# Every lapped activity on the section is listed oldest first, so the recent
-# lapped run sits below a hundred others.
-- scrollUntilVisible:
-    element:
-      id: "section-lap-exclude-demo-test-8-.*"
-    direction: DOWN
-    speed: 90
-    timeout: 180000
+# The laps open as a card over the section's in the same sheet. Every lapped
+# activity on the section is listed oldest first, so the recent lapped run sits
+# below a hundred others.
+- runFlow:
+    file: helpers/sheet-scroll-to.yaml
+    env:
+      TARGET: "section-lap-exclude-demo-test-8-.*"
+      DIRECTION: DOWN
 
 - tapOn:
     id: "section-lap-exclude-demo-test-8-.*"
@@ -88,17 +88,17 @@ tags:
       id: "section-detail-screen"
     timeout: 10000
 
-- scrollUntilVisible:
-    element:
-      id: "section-partly-excluded"
-    direction: UP
-    timeout: 20000
+- runFlow:
+    file: helpers/sheet-scroll-to.yaml
+    env:
+      TARGET: "section-partly-excluded"
+      DIRECTION: UP
 
-- scrollUntilVisible:
-    element:
-      id: "section-open-laps"
-    direction: DOWN
-    timeout: 20000
+- runFlow:
+    file: helpers/sheet-scroll-to.yaml
+    env:
+      TARGET: "section-open-laps"
+      DIRECTION: DOWN
 
 - tapOn:
     id: "section-open-laps"
@@ -108,12 +108,11 @@ tags:
       id: "section-lap-list"
     timeout: 15000
 
-- scrollUntilVisible:
-    element:
-      id: "section-lap-undo-demo-test-8-.*"
-    direction: DOWN
-    speed: 90
-    timeout: 180000
+- runFlow:
+    file: helpers/sheet-scroll-to.yaml
+    env:
+      TARGET: "section-lap-undo-demo-test-8-.*"
+      DIRECTION: DOWN
 
 - tapOn:
     id: "section-lap-undo-demo-test-8-.*"
@@ -133,11 +132,11 @@ tags:
     timeout: 10000
 
 # The kept state sits at the foot of the summary, above the links.
-- scrollUntilVisible:
-    element:
-      id: "section-summary"
-    direction: UP
-    timeout: 20000
+- runFlow:
+    file: helpers/sheet-scroll-to.yaml
+    env:
+      TARGET: "section-summary"
+      DIRECTION: UP
 
 - assertNotVisible:
     id: "section-partly-excluded"

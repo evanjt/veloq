@@ -200,14 +200,20 @@ impl ActivityManager {
     /// A caller after a single activity uses this rather than the window read
     /// below: the table is keyed by the id, so this is one row instead of a
     /// page of them read to find it. `is_detail` says whether
-    /// the row is still the list form the detail fetch replaces.
+    /// the row is still the list form the detail fetch replaces. A read that
+    /// fails is an error rather than `None`, so the screen reads again instead
+    /// of waiting for a download of a body it already holds.
     fn get_activity_record(
         &self,
         activity_id: String,
     ) -> Result<Option<crate::FfiActivityRecord>, VeloqError> {
         with_reader(|conn| {
-            crate::persistence::activities::pooled::activity_record(conn, &activity_id)
-        })
+            crate::persistence::activities::pooled::activity_record(conn, &activity_id).map_err(
+                |err| VeloqError::Database {
+                    msg: format!("{}", err),
+                },
+            )
+        })?
     }
 
     /// The feed's read: one typed card per stored activity in a window,
@@ -513,7 +519,11 @@ pub(crate) static PROVISIONAL_BUSY_RETRIES: std::sync::atomic::AtomicUsize =
     std::sync::atomic::AtomicUsize::new(0);
 
 /// What a recording's FIT holds: its track and its session totals.
+///
+/// The app names the file by its documents-directory URI, so the scheme is
+/// dropped before it is opened.
 fn fit_recording(path: &str) -> Result<crate::fit::FitRecording, VeloqError> {
+    let path = crate::net::transport::strip_file_scheme(path);
     let data = std::fs::read(path).map_err(|e| VeloqError::Database {
         msg: format!("the recording's FIT could not be read: {e}"),
     })?;
@@ -991,6 +1001,27 @@ mod tests {
                 .expect("a stored track");
             assert_eq!(points.len(), 30);
             assert!((points[0].latitude - 46.948).abs() < 1e-6);
+        }
+
+        /// Scenario: the app names the ride's FIT by its documents-directory
+        /// URI, `file://` scheme and all, as every recording path it holds is.
+        ///
+        /// Expected behaviour: the file is read and the row is written, so a
+        /// ride that never uploads still reaches the feed.
+        #[test]
+        fn a_save_from_a_fit_named_by_its_file_uri_stores_the_track() {
+            let _serial = serial_global_state();
+            let _dir = init_global_engine("provisional_fit_uri.db");
+            let uri = format!("file://{}", fit().expect("a FIT path"));
+
+            crate::runtime::block_on(ActivityManager::new().save_provisional(
+                ID.into(),
+                Some(uri),
+                body(),
+            ))
+            .expect("the save");
+
+            assert_eq!(rows(), (1, 1, 1));
         }
 
         /// Scenario: a ride paused inside its span is saved and never

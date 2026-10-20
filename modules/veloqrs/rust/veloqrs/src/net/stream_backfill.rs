@@ -172,7 +172,9 @@ struct BackfillState {
     failed: AtomicU32,
     estimate_requests: AtomicU32,
     estimate_bytes: AtomicU64,
-    phase: Mutex<&'static str>,
+    /// The phase, and when a waiting one resumes in epoch milliseconds, under
+    /// one lock so no reader sees a resume time beside another phase.
+    phase: Mutex<(&'static str, Option<i64>)>,
 }
 
 static BACKFILL: BackfillState = BackfillState {
@@ -184,11 +186,20 @@ static BACKFILL: BackfillState = BackfillState {
     failed: AtomicU32::new(0),
     estimate_requests: AtomicU32::new(0),
     estimate_bytes: AtomicU64::new(0),
-    phase: Mutex::new(STREAM_PHASE_IDLE),
+    phase: Mutex::new((STREAM_PHASE_IDLE, None)),
 };
 
 pub(crate) fn set_phase(phase: &'static str) {
-    *BACKFILL.phase.lock().unwrap_or_else(|e| e.into_inner()) = phase;
+    set_phase_resuming(phase, None);
+}
+
+/// Settle on [`STREAM_PHASE_WAITING`], resuming at `at`.
+fn set_waiting(at: chrono::DateTime<chrono::Utc>) {
+    set_phase_resuming(STREAM_PHASE_WAITING, Some(at.timestamp_millis()));
+}
+
+fn set_phase_resuming(phase: &'static str, resumes_at_ms: Option<i64>) {
+    *BACKFILL.phase.lock().unwrap_or_else(|e| e.into_inner()) = (phase, resumes_at_ms);
     // The guard above is a temporary of the statement it is in, so the
     // announcement is made with the phase lock already released.
     crate::objects::observer::notify(crate::objects::observer::Announcement::StreamBackfillPhase(
@@ -212,6 +223,10 @@ pub struct StreamBackfillSnapshot {
     pub estimate_requests: u32,
     /// Bytes on the wire the held pass would download.
     pub estimate_bytes: u64,
+    /// When a waiting pass resumes, in epoch milliseconds: the end of the
+    /// request budget's deferral or of intervals.icu's refusal. `None` in every
+    /// other phase.
+    pub resumes_at_ms: Option<i64>,
 }
 
 impl StreamBackfillSnapshot {
@@ -226,14 +241,16 @@ impl StreamBackfillSnapshot {
 
 /// The current state, safe to read from any thread at any time.
 pub fn stream_backfill_progress() -> StreamBackfillSnapshot {
+    let (phase, resumes_at_ms) = *BACKFILL.phase.lock().unwrap_or_else(|e| e.into_inner());
     StreamBackfillSnapshot {
-        phase: *BACKFILL.phase.lock().unwrap_or_else(|e| e.into_inner()),
+        phase,
         completed: BACKFILL.completed.load(Ordering::Relaxed),
         total: BACKFILL.total.load(Ordering::Relaxed),
         stored: BACKFILL.stored.load(Ordering::Relaxed),
         failed: BACKFILL.failed.load(Ordering::Relaxed),
         estimate_requests: BACKFILL.estimate_requests.load(Ordering::Relaxed),
         estimate_bytes: BACKFILL.estimate_bytes.load(Ordering::Relaxed),
+        resumes_at_ms,
     }
 }
 
@@ -877,9 +894,9 @@ fn run_pass(install: u64, session: &LiveSource) -> StreamBackfillRun {
         // Nothing more is sent until the refusal lifts, and the engine's own
         // wake-up starts the next pass then.
         Some(Stopped::Refused { until }) => {
-            set_phase(STREAM_PHASE_WAITING);
             let at =
                 until.unwrap_or_else(|| session.transport().cooldown_lifts_at(chrono::Utc::now()));
+            set_waiting(at);
             log::info!("[Streams] backfill stopped: refused until {at}");
             crate::net::resume::resume_at(at);
         }
@@ -1864,6 +1881,7 @@ mod tests {
             failed: 0,
             estimate_requests: 0,
             estimate_bytes: 0,
+            resumes_at_ms: None,
         };
         assert_eq!(snapshot.percent(), 100);
     }
@@ -1880,6 +1898,7 @@ mod tests {
             failed: 0,
             estimate_requests: 0,
             estimate_bytes: 0,
+            resumes_at_ms: None,
         };
         assert_eq!(snapshot(1, 3).percent(), 33);
         assert_eq!(snapshot(7, 5).percent(), 100);
@@ -2270,6 +2289,61 @@ mod tests {
             any.assert_calls(0);
             assert_eq!(stream_backfill_progress().phase, STREAM_PHASE_PARTIAL);
             assert_eq!(queue().len(), 2);
+        }
+
+        /// Scenario: the install's own backfill allowance is one request, so
+        /// the pass asks for the first activity and the budget defers the rest.
+        /// Nothing was refused upstream.
+        ///
+        /// Expected behaviour: the pass reports waiting, with the time it
+        /// resumes equal to the deferral's own.
+        #[test]
+        fn a_pass_the_allowance_defers_reports_when_it_resumes() {
+            use crate::governor::{Allowance, Budget, Intent, SYNC_ALLOWANCE};
+            fn noon() -> chrono::DateTime<chrono::Utc> {
+                chrono::DateTime::parse_from_rfc3339("2026-10-20T12:00:00Z")
+                    .expect("fixed time")
+                    .with_timezone(&chrono::Utc)
+            }
+            let _serial = serial_global_state();
+            connectivity::reset();
+            let _tmp = engine_with(&["i1", "i2", "i3"]);
+            let server = MockServer::start();
+            server.mock(|when, then| {
+                when.method(GET);
+                then.status(200).body("[]");
+            });
+            let one = Allowance {
+                per_fifteen_minutes: 1,
+                per_day: None,
+            };
+            let governor = Arc::new(
+                Governor::new(1000, Box::new(NoopPolicy))
+                    .with_clock(noon)
+                    .with_budget(
+                        Budget::with_allowances(one, SYNC_ALLOWANCE, 0),
+                        None,
+                        || 0.0,
+                    ),
+            );
+            let transport = Transport::with_governor(
+                server.base_url(),
+                AuthMethod::ApiKey("secret"),
+                Arc::clone(&governor),
+            )
+            .unwrap();
+
+            run_stream_backfill(&transport, "1");
+
+            let deferred_until = governor
+                .deferred_until(Intent::Backfill, noon())
+                .expect("the allowance is spent");
+            let progress = stream_backfill_progress();
+            assert_eq!(progress.phase, STREAM_PHASE_WAITING);
+            assert_eq!(
+                progress.resumes_at_ms,
+                Some(deferred_until.timestamp_millis())
+            );
         }
 
         /// Scenario: a pass holds the single-run slot when a second run and a

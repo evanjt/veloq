@@ -70,6 +70,8 @@ interface WhatsNewState extends Usage {
   takeLaunchSlot: (modal: LaunchModal) => void;
   setRestoreOffer: (offer: FoundBackup | null) => void;
   takeSessionAsk: (ask: LaunchAsk) => void;
+  /** Give the session's ask to `ask`, whoever holds it and whether or not the quiet period does. */
+  _debugSessionAsk: (ask: LaunchAsk) => void;
   setAskEligible: (ask: LaunchAsk, eligible: boolean) => void;
   /** Take the tour from the offer card less `held`, or the setup slides it left unanswered. */
   takeTourOffer: (only?: SetupSlide[], held?: SetupSlide[]) => void;
@@ -213,6 +215,8 @@ export const useWhatsNewStore = create<WhatsNewState>((set, get) => ({
     if (get().sessionAsk === null) set({ sessionAsk: ask });
   },
 
+  _debugSessionAsk: (ask) => set({ sessionAsk: ask }),
+
   setAskEligible: (ask, eligible) => {
     const listed = get().eligibleAsks.includes(ask);
     if (eligible === listed) return;
@@ -260,4 +264,13 @@ export function noteLastSyncSuccess(lastSuccessAt: string | null | undefined): v
 /** Set the days of use by hand, for the developer screen. */
 export function overrideDaysOfUse(partial: Partial<Usage>): void {
   useWhatsNewStore.getState()._debugUsage(partial);
+}
+
+/**
+ * Hand the session's one ask to a card by hand, for the developer screen. A
+ * card made due there shows at once, rather than waiting for a session after the
+ * quiet period in which no other card asked first.
+ */
+export function overrideSessionAsk(ask: LaunchAsk): void {
+  useWhatsNewStore.getState()._debugSessionAsk(ask);
 }

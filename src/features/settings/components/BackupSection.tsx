@@ -1033,6 +1033,11 @@ export function BackupSection() {
               />
             </View>
           ) : null}
+          <View style={styles.failure}>
+            <Text testID="backup-folder-description" style={detailStyle}>
+              {t('backup.carrierFolderDescription')}
+            </Text>
+          </View>
         </View>
         {driveSupported ? (
           <>

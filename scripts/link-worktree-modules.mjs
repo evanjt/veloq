@@ -102,14 +102,22 @@ console.log(
 applyInstallPatches();
 
 /**
- * The install-time patches the gates check: the expo-location altitude fix, and the nitro
- * JSI install selector, without which iOS aborts at launch. Each copies a linked package
+ * The install-time patches the gates check: the expo-location altitude fix, the router's
+ * route match, without which a second detail screen of one kind opens inside the first, and the
+ * nitro JSI install selector, without which iOS aborts at launch. Each copies a linked package
  * into this tree before writing, so the main checkout's copy is never written from here.
  */
 function applyInstallPatches() {
   execFileSync(process.execPath, [new URL('./patch-expo-location.js', import.meta.url).pathname], {
     cwd: root,
   });
+  if (lstatSafe(join(root, 'node_modules', 'expo-router'))) {
+    execFileSync(
+      process.execPath,
+      [new URL('./patch-expo-router-route-match.js', import.meta.url).pathname],
+      { cwd: root }
+    );
+  }
   if (lstatSafe(join(root, 'node_modules', 'react-native-nitro-modules'))) {
     execFileSync(
       process.execPath,

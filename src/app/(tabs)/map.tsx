@@ -498,8 +498,16 @@ function MapScreenContent() {
           stage < MAP_STAGE ? null : (
             <ComponentErrorBoundary part="map" debugName="Map">
               {/* map-screen also sits on the loading branch and before the map
-                  page mounts, so a flow that needs the map waits on this. */}
-              <View testID="regional-map-ready" />
+                  page mounts, so a flow that needs the map waits on this. It
+                  fills the page beneath the map and is never collapsed, since
+                  Android drops an empty view and a flow never sees one with
+                  no area. */}
+              <View
+                testID="regional-map-ready"
+                collapsable={false}
+                pointerEvents="none"
+                style={StyleSheet.absoluteFill}
+              />
               <RegionalMapView
                 activities={displayActivities}
                 routeCount={routeCount}

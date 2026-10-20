@@ -91,7 +91,7 @@ tags:
     timeout: 15000
 
 - tapOn:
-    text: "Sections"
+    id: "tab-sections"
     optional: true
 
 - extendedWaitUntil:
@@ -107,7 +107,7 @@ tags:
 - runFlow:
     file: helpers/navigate-to-routes.yaml
 - tapOn:
-    text: "Sections"
+    id: "tab-sections"
     optional: true
 - extendedWaitUntil:
     visible:

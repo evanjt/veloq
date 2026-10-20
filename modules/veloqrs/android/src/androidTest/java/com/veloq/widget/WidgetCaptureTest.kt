@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Rect
 import android.graphics.drawable.BitmapDrawable
 import android.os.SystemClock
 import android.util.Xml
@@ -23,7 +24,6 @@ import com.veloq.test.widget.StrengthWidgetRenderer
 import com.veloq.test.widget.SummaryPlacement
 import com.veloq.test.widget.SummarySize
 import com.veloq.test.widget.SummaryWidget
-import com.veloq.test.widget.VeloqRecordWidgetProvider
 import com.veloq.test.widget.WidgetRenderer
 import com.veloq.test.widget.WidgetSnapshot
 import java.io.File
@@ -45,8 +45,9 @@ import org.xmlpull.v1.XmlPullParser
  * have, with an empty library and with rides and no wellness reading.
  *
  * Expected behaviour: no line of text is ellipsised, clipped or pushed out of its parent. An empty
- * library draws the open-the-app prompt, a missing wellness reading draws a dash, and the Summary
- * chart names its series and span, and the large form chart its zone and span. Every
+ * library draws the open-the-app prompt, a missing wellness reading draws a dash, the Summary
+ * hero's line names the rest of training load from Medium up and its chart its series and span,
+ * and the large form chart its zone and span. Every
  * placement is saved as a PNG under the test package's external files, `widget-captures/`, so a
  * failure can be looked at rather than only read.
  *
@@ -75,10 +76,7 @@ class WidgetCaptureTest {
         InsightsWidgetRenderer.render(c, s, w, h, null, 1)
       },
       Widget("strength", R.xml.widget_strength_info) { c, s, w, h ->
-        StrengthWidgetRenderer.render(c, s, w, h, StrengthWidget.LAST30)
-      },
-      Widget("record", R.xml.widget_record_info) { c, s, _, _ ->
-        VeloqRecordWidgetProvider.render(c, s, null, 1)
+        StrengthWidgetRenderer.render(c, s, w, h)
       },
     )
 
@@ -94,7 +92,6 @@ class WidgetCaptureTest {
       for (widget in widgets) {
         val expected =
           when {
-            widget.name == "record" -> null
             fixture == "empty" -> prompt
             fixture == "no-wellness" && widget.name == "summary" -> "-"
             else -> null
@@ -116,8 +113,10 @@ class WidgetCaptureTest {
   }
 
   /**
-   * The words a Summary placement draws with its charts from the sample library: the two series
-   * and their span beside the hero from Medium up, and on Large the form chart's zone and span.
+   * The words a Summary placement draws with its charts from the sample library: from Medium up
+   * the training load on the hero's line, each reading's name and value, and the chart's two
+   * series and their span where [SummaryWidget.captionsChart] gives it a legend; on Large the
+   * form chart's zone and span.
    */
   private fun chartWords(
     widget: String,
@@ -129,9 +128,18 @@ class WidgetCaptureTest {
     val (w, h) = widthAndReportedHeight(cells)
     val size = SummaryWidget.sizeFor(w, h)
     if (size != SummarySize.MEDIUM && size != SummarySize.LARGE) return emptyList()
-    val words =
-      listOfNotNull(
-        snap.metricLabels["fitness"], snap.metricLabels["fatigue"], snap.chartSpans.fitness)
+    // The sample's hero is form, so its line carries all three readings of training load.
+    val load =
+      listOf("fitness", "fatigue", "form").mapNotNull { snap.metricLabels[it] } +
+        listOf(snap.fitness, snap.fatigue, snap.form).map { it.display() }
+    val legend =
+      if (SummaryWidget.captionsChart(size, h)) {
+        listOfNotNull(
+          snap.metricLabels["fitness"], snap.metricLabels["fatigue"], snap.chartSpans.fitness)
+      } else {
+        emptyList()
+      }
+    val words = load + legend
     if (size == SummarySize.MEDIUM) return words
     return words + listOfNotNull(snap.formZoneLabel, snap.chartSpans.form)
   }
@@ -322,7 +330,7 @@ class WidgetCaptureTest {
 
   /**
    * Scenario: the Summary widget is placed on a phone with the largest font scale, idle and while
-   * a refresh runs.
+   * a refresh runs, at each placement wide enough to carry the refresh control.
    *
    * Expected behaviour: the refresh control keeps its 48dp square target and draws nothing outside
    * it at any font scale, and a running refresh shows a progress indicator in place of the symbol.
@@ -335,7 +343,9 @@ class WidgetCaptureTest {
     try {
       for (busy in listOf(false, true)) {
         setBusy(busy)
-        for (cells in placements(widget.info)) {
+        val withControl =
+          placements(widget.info).filter { SummaryWidget.showsRefresh(widthAndReportedHeight(it).first) }
+        for (cells in withControl) {
           val name = "summary-${cells.cols}x${cells.rows}-${if (busy) "busy" else "idle"}"
           InstrumentationRegistry.getInstrumentation().runOnMainSync {
             val themed = fontScaled(themed(false), 2f)
@@ -366,6 +376,102 @@ class WidgetCaptureTest {
     }
     assertEquals(
       "Refresh control faults:\n" + failures.joinToString("\n"), emptyList<String>(), failures)
+  }
+
+  /**
+   * Scenario: the Summary widget is placed at every size its provider info allows, with the
+   * sample library and at the largest font scale.
+   *
+   * Expected behaviour: from Medium up it shows the record button, a 48dp square target that
+   * says what it does and opens recording; Small and Short show none.
+   */
+  @Test
+  fun summaryCarriesTheRecordButtonFromMediumUp() {
+    val widget = widgets.first { it.name == "summary" }
+    val failures = mutableListOf<String>()
+    for (fixture in listOf("demo", "long-text")) {
+      val snap = snapshot(fixture)
+      for (cells in placements(widget.info)) {
+        val name = "summary-${cells.cols}x${cells.rows}-$fixture"
+        InstrumentationRegistry.getInstrumentation().runOnMainSync {
+          val themed = fontScaled(themed(false), 2f)
+          val (w, h) = widthAndReportedHeight(cells)
+          val host = place(widget.render(themed, snap, w, h), themed, cells)
+          val button = host.findViewById<View>(R.id.sum_record)
+          val shown = button != null && shown(host).contains(button)
+          val size = SummaryWidget.sizeFor(w, h)
+          val wanted = size == SummarySize.MEDIUM || size == SummarySize.LARGE
+          if (shown != wanted) {
+            failures += "$name: $size ${if (wanted) "shows no" else "shows a"} record button"
+            return@runOnMainSync
+          }
+          if (!wanted) return@runOnMainSync
+          val target = (48 * themed.resources.displayMetrics.density).roundToInt()
+          if (button.width != target || button.height != target) {
+            failures += "$name: record button is ${button.width}x${button.height}px, " +
+              "not ${target}px square"
+          }
+          if (button.contentDescription.isNullOrEmpty()) {
+            failures += "$name: record button says nothing"
+          }
+          if (!button.hasOnClickListeners()) failures += "$name: record button opens nothing"
+        }
+      }
+    }
+    assertEquals(
+      "Record button faults:\n" + failures.joinToString("\n"), emptyList<String>(), failures)
+  }
+
+  /**
+   * Scenario: the Summary widget is placed two cells square, and one row tall at two and at four
+   * cells wide, with the sample library and with the longest words the locales have.
+   *
+   * Expected behaviour: the hero's name is drawn on the line its value is drawn on, so the number
+   * never stands alone, and the refresh control is drawn only where the row has room for it and
+   * the numbers are the athlete's own.
+   */
+  @Test
+  fun smallAndShortSummaryNameTheirHeroBesideItsValue() {
+    val widget = widgets.first { it.name == "summary" }
+    val failures = mutableListOf<String>()
+    for (fixture in listOf("demo", "long-text", "no-wellness")) {
+      val snap = snapshot(fixture)
+      val label = SummaryWidget.card(snap, SummaryPlacement()).hero.label
+      for (cells in listOf(Cells(2, 2), Cells(2, 1), Cells(3, 1), Cells(4, 1))) {
+        val name = "summary-${cells.cols}x${cells.rows}-$fixture"
+        InstrumentationRegistry.getInstrumentation().runOnMainSync {
+          val (w, h) = widthAndReportedHeight(cells)
+          val host = place(widget.render(themed(false), snap, w, h), themed(false), cells)
+          val drawn = host.findViewById<TextView>(R.id.sum_label)
+          val value = host.findViewById<TextView>(R.id.sum_value)
+          if (drawn == null || value == null || drawn !in shown(host) || drawn.text.toString() != label) {
+            failures += "$name: draws no \"$label\""
+            return@runOnMainSync
+          }
+          val a = bounds(drawn, host)
+          val b = bounds(value, host)
+          if (a.bottom <= b.top || b.bottom <= a.top) {
+            failures += "$name: \"$label\" is not on the value's line"
+          }
+          inspect(host, name, failures)
+          val control = host.findViewById<View>(R.id.widget_refresh)
+          val showsControl = control != null && control in shown(host)
+          val sample = snap.demoLabel != null || snap.emptyLibrary
+          if (showsControl != (SummaryWidget.showsRefresh(w) && !sample)) {
+            failures += "$name: refresh control shown is $showsControl"
+          }
+        }
+      }
+    }
+    assertEquals(
+      "Small and Short faults:\n" + failures.joinToString("\n"), emptyList<String>(), failures)
+  }
+
+  /** [view]'s box in [host]'s coordinates. */
+  private fun bounds(view: View, host: View): Rect {
+    val rect = Rect(0, 0, view.width, view.height)
+    (host as ViewGroup).offsetDescendantRectToMyCoords(view, rect)
+    return rect
   }
 
   /** Marks a native refresh as running, the way a tap on the control does, or clears it. */

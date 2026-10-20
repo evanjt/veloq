@@ -29,11 +29,6 @@ onFlowComplete:
 - tapOn:
     id: "settings-account-row"
 
-- extendedWaitUntil:
-    visible:
-      id: "settings-logout-button"
-    timeout: 10000
-
 # Scroll to find logout button (accept partial visibility)
 - scrollUntilVisible:
     element:

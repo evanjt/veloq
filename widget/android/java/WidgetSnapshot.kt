@@ -226,7 +226,7 @@ data class WidgetSnapshot(
    * before schema 11, with no account, or when the ranking could not run.
    */
   val insights: List<WidgetInsight> = emptyList(),
-  /** The strength diagram over both windows. Null on a snapshot written before the block. */
+  /** The strength diagram over the last 30 days. Null on a snapshot written before the block. */
   val strength: StrengthBlock? = null,
   /**
    * One entry for every metric the summary card can show, in its picker's order, so a placement
@@ -334,12 +334,10 @@ data class WidgetSnapshot(
     private fun parseStrength(root: JSONObject): StrengthBlock? {
       val s = root.optJSONObject("strength") ?: return null
       val windows = s.optJSONObject("windows") ?: return null
-      val last30 = parseStrengthWindow(windows.optJSONObject("last30")) ?: return null
-      val month = parseStrengthWindow(windows.optJSONObject("month")) ?: return null
+      val window = parseStrengthWindow(windows.optJSONObject("last30")) ?: return null
       val url = s.optString("url", "")
       if (url.isEmpty()) return null
-      return StrengthBlock(
-        female = s.optString("body", "") == "female", url = url, last30 = last30, month = month)
+      return StrengthBlock(female = s.optString("body", "") == "female", url = url, window = window)
     }
 
     private fun parseStrengthWindow(w: JSONObject?): StrengthWindow? {
@@ -364,6 +362,7 @@ data class WidgetSnapshot(
               name = name,
               setsText = t.optString("setsText", ""),
               volumeText = optText(t, "volumeText"),
+              frequencyText = optText(t, "frequencyText"),
             ))
         }
       }

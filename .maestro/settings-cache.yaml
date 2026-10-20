@@ -20,11 +20,6 @@ tags:
     commands:
       - tapOn: "Open"
 
-- extendedWaitUntil:
-    visible:
-      id: "settings-clear-cache"
-    timeout: 10000
-
 # Scroll down to find clear cache button
 - scrollUntilVisible:
     element:

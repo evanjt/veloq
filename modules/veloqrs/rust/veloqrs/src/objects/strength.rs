@@ -923,6 +923,24 @@ pub fn aggregate_strength_sets(sets: &[(String, fit::FitExerciseSet)]) -> FfiStr
     }
 }
 
+/// How many sessions worked each muscle, primarily or secondarily: a session
+/// counts once under a muscle however many of its sets reached it.
+pub fn muscle_session_counts(sets: &[(String, fit::FitExerciseSet)]) -> HashMap<String, u32> {
+    let mut sessions: HashMap<String, std::collections::HashSet<&str>> = HashMap::new();
+    for (activity_id, set) in sets {
+        for muscle in fit::exercise_muscle_groups(set.exercise_category) {
+            sessions
+                .entry(muscle.slug)
+                .or_default()
+                .insert(activity_id.as_str());
+        }
+    }
+    sessions
+        .into_iter()
+        .map(|(slug, ids)| (slug, ids.len() as u32))
+        .collect()
+}
+
 /// Every muscle's exercises over one window, in one pass over the sets.
 ///
 /// A set counts under each muscle its exercise reaches, primary or secondary,
@@ -1045,17 +1063,24 @@ pub(crate) fn strength_screen_from(
     })
 }
 
-/// One window of strength work for the widget: the strength screen's own read
-/// of the same days, so the body is shaded the same on both.
+/// One window of strength work for the widget: the strength screen's own
+/// aggregation of the same days, so the body is shaded the same on both, and
+/// the sessions that worked each muscle, read off the same sets.
 pub(crate) fn widget_strength_window(
     conn: &rusqlite::Connection,
     start_ts: i64,
     end_ts: i64,
 ) -> Result<crate::WidgetStrengthWindow, VeloqError> {
-    let screen = strength_screen_from(conn, start_ts, end_ts, Vec::new())?;
+    let database = |err: rusqlite::Error| VeloqError::Database {
+        msg: format!("{}", err),
+    };
+    let sets = pooled::exercise_sets_in_range(conn, start_ts, end_ts).map_err(database)?;
+    let owed_count =
+        pooled::unprocessed_strength_count_in_range(conn, start_ts, end_ts).map_err(database)?;
     Ok(crate::WidgetStrengthWindow {
-        summary: screen.summary,
-        owed_count: screen.owed_count,
+        summary: aggregate_strength_sets(&sets),
+        owed_count,
+        muscle_sessions: muscle_session_counts(&sets),
     })
 }
 

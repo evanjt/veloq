@@ -77,3 +77,37 @@ fn an_empty_window_has_no_volumes_and_a_maximum_of_zero() {
     assert!(summary.muscle_volumes.is_empty());
     assert_eq!(summary.max_weighted_sets, 0.0);
 }
+
+fn session_of(id: &str, category: u16, count: u32) -> Vec<(String, fit::FitExerciseSet)> {
+    sets_of(category, count)
+        .into_iter()
+        .map(|(_, set)| (id.to_string(), set))
+        .collect()
+}
+
+/// Scenario: three sessions of bench press, four sets in the first, and one of
+/// curls.
+///
+/// Expected behaviour: each muscle counts a session once however many of its
+/// sets worked it, and a muscle worked only secondarily counts its sessions
+/// too, so the chest and the deltoids read three and the biceps one.
+#[test]
+fn each_muscle_counts_the_sessions_that_worked_it_once_each() {
+    let mut sets = session_of("monday", 0, 4);
+    sets.extend(session_of("wednesday", 0, 1));
+    sets.extend(session_of("friday", 0, 2));
+    sets.extend(session_of("friday", 7, 3));
+
+    let sessions = muscle_session_counts(&sets);
+
+    assert_eq!(sessions.get("chest"), Some(&3));
+    assert_eq!(sessions.get("triceps"), Some(&3));
+    assert_eq!(sessions.get("deltoids"), Some(&3));
+    assert_eq!(sessions.get("biceps"), Some(&1));
+    assert_eq!(sessions.get("calves"), None);
+}
+
+#[test]
+fn no_sets_count_no_sessions() {
+    assert!(muscle_session_counts(&[]).is_empty());
+}

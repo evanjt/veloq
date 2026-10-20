@@ -57,7 +57,6 @@ const IOS_SECONDS: Record<string, number> = {
   'activity-chart-types': 100,
   'activity-detail-scroll': 102,
   'activity-gpx-export-validation': 137,
-  'activity-map-fullscreen-pr': 111,
   'activity-map-interactions': 133,
   'activity-map-long-press-highlight': 103,
   'activity-sections-scrub': 109,

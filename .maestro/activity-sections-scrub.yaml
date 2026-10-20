@@ -28,7 +28,7 @@ tags:
     timeout: 15000
 
 - tapOn:
-    text: "Sections"
+    id: "tab-sections"
     optional: true
 
 - extendedWaitUntil:
@@ -103,7 +103,7 @@ tags:
 # still rendered and hasn't corrupted values. A tap on the list itself lands on
 # a row and opens that section.
 - tapOn:
-    text: "Sections"
+    id: "tab-sections"
 - waitForAnimationToEnd:
     timeout: 1000
 

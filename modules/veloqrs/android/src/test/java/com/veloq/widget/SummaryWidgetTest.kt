@@ -3,6 +3,7 @@ package com.veloq.widget
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -130,6 +131,27 @@ class SummaryWidgetTest {
     assertEquals(SummarySize.SMALL, SummaryWidget.sizeFor(130, 117))
   }
 
+  /**
+   * Scenario: a placement under 200dp wide has room for the hero's name, its value and its
+   * arrow on one line, and not for the refresh control as well.
+   *
+   * Expected behaviour: the control gives way at Small and on a narrow Short, where a tap on the
+   * widget opens the app, and keeps its place wherever the row is wide enough for both.
+   */
+  @Test
+  fun the_refresh_control_gives_way_to_the_heros_name_under_200dp_wide() {
+    for (width in listOf(0, 110, 130, 199)) assertFalse(SummaryWidget.showsRefresh(width))
+    for (width in listOf(200, 250, 276)) assertTrue(SummaryWidget.showsRefresh(width))
+  }
+
+  @Test
+  fun the_record_button_rides_on_medium_and_large_and_not_beside_a_lone_value() {
+    assertEquals(false, SummaryWidget.carriesRecord(SummarySize.SHORT))
+    assertEquals(false, SummaryWidget.carriesRecord(SummarySize.SMALL))
+    assertEquals(true, SummaryWidget.carriesRecord(SummarySize.MEDIUM))
+    assertEquals(true, SummaryWidget.carriesRecord(SummarySize.LARGE))
+  }
+
   @Test
   fun short_shows_the_hero_and_no_supporting_entry() {
     val c = card("form", "fitness" to "Fitness", "fatigue" to "Fatigue")
@@ -147,6 +169,50 @@ class SummaryWidgetTest {
       )
     }
     assertEquals("FITNESS", drawn.hero.label)
+  }
+
+  /**
+   * Scenario: the hero is one of fitness, fatigue and form, the three readings of training load,
+   * and the chart beside it draws two of them with nothing in the hero's column naming their
+   * values.
+   *
+   * Expected behaviour: from Medium up the other two stand beside the hero, each with its own
+   * label and value from the snapshot, in the order fitness, fatigue, form; the supporting row
+   * then leaves them out rather than draw a value twice. Short and Small, and a hero that is not
+   * training load, carry none.
+   */
+  @Test
+  fun a_training_load_hero_carries_the_other_two_beside_it_from_medium_up() {
+    val snap = snapshot(card("form", "fitness" to "Fitness", "hrv" to "HRV", "fatigue" to "Fatigue"))
+    val drawn = SummaryWidget.card(snap, followCard)
+    for (size in listOf(SummarySize.MEDIUM, SummarySize.LARGE)) {
+      val beside = SummaryWidget.trainingLoad(snap, drawn, size)
+      assertEquals(listOf("fitness", "fatigue"), beside.map { it.id })
+      assertEquals(listOf("Fitness", "Fatigue"), beside.map { it.label })
+      assertEquals(listOf("HRV"), SummaryWidget.supporting(drawn, size, beside).map { it.label })
+    }
+    for (size in listOf(SummarySize.SHORT, SummarySize.SMALL)) {
+      assertTrue(SummaryWidget.trainingLoad(snap, drawn, size).isEmpty())
+    }
+  }
+
+  @Test
+  fun a_fitness_hero_carries_fatigue_and_form_with_forms_zone_key() {
+    val snap = snapshot(card("fitness", "hrv" to "HRV"))
+    val beside = SummaryWidget.trainingLoad(snap, SummaryWidget.card(snap, followCard), SummarySize.LARGE)
+    assertEquals(listOf("Fatigue", "Form"), beside.map { it.label })
+    assertEquals("formZone", beside.last().colorKey)
+    assertEquals("greyZone", SummaryWidget.keyTone(beside.last().colorKey, snap.form.zone))
+  }
+
+  @Test
+  fun a_hero_outside_training_load_carries_nothing_beside_it() {
+    val snap = snapshot(card("fitness", "hrv" to "HRV"))
+    val drawn = SummaryWidget.card(snap, hero("hrv"))
+    assertTrue(SummaryWidget.trainingLoad(snap, drawn, SummarySize.LARGE).isEmpty())
+    assertEquals(
+      SummaryWidget.supporting(drawn, SummarySize.LARGE),
+      SummaryWidget.supporting(drawn, SummarySize.LARGE, emptyList()))
   }
 
   @Test
@@ -486,11 +552,54 @@ class SummaryWidgetTest {
   }
 
   @Test
+  fun the_chart_legend_is_drawn_only_where_the_chart_beside_it_has_room() {
+    assertFalse(SummaryWidget.captionsChart(SummarySize.MEDIUM, 110))
+    assertFalse(SummaryWidget.captionsChart(SummarySize.MEDIUM, SummaryWidget.CAPTIONED_MEDIUM_MIN_DP - 1))
+    assertTrue(SummaryWidget.captionsChart(SummarySize.MEDIUM, SummaryWidget.CAPTIONED_MEDIUM_MIN_DP))
+    assertTrue(SummaryWidget.captionsChart(SummarySize.MEDIUM, 199))
+    assertTrue(SummaryWidget.captionsChart(SummarySize.LARGE, 200))
+    assertFalse(SummaryWidget.captionsChart(SummarySize.SMALL, 400))
+    assertFalse(SummaryWidget.captionsChart(SummarySize.SHORT, 51))
+  }
+
+  @Test
+  fun a_host_that_has_not_reported_a_height_keeps_the_medium_legend() {
+    assertEquals(SummarySize.MEDIUM, SummaryWidget.sizeFor(250, 0))
+    assertTrue(SummaryWidget.captionsChart(SummarySize.MEDIUM, 0))
+  }
+
+  @Test
   fun the_form_chart_names_itself_todays_zone_and_its_span() {
     val snap = snapshot(card("form"), withSpans())
     assertEquals(
       FormChartCaption(title = "Form", zone = "Grey zone", span = "42 days"),
       SummaryWidget.formCaption(snap),
     )
+  }
+
+  @Test
+  fun the_form_strip_is_drawn_at_the_height_a_large_placement_leaves_it() {
+    val short = SummaryWidget.formStripDp(heightDp = 340, fontScale = 1f)
+    val tall = SummaryWidget.formStripDp(heightDp = 420, fontScale = 1f)
+    assertEquals(80, tall - short)
+    assertTrue(short > SummaryWidget.FORM_STRIP_MIN_DP)
+  }
+
+  @Test
+  fun the_form_strip_keeps_its_floor_on_the_smallest_large_placement() {
+    assertEquals(SummaryWidget.FORM_STRIP_MIN_DP, SummaryWidget.formStripDp(heightDp = 200, fontScale = 1f))
+    assertEquals(SummaryWidget.FORM_STRIP_MIN_DP, SummaryWidget.formStripDp(heightDp = 200, fontScale = 2f))
+  }
+
+  @Test
+  fun larger_text_leaves_the_form_strip_less_height() {
+    assertTrue(
+      SummaryWidget.formStripDp(heightDp = 380, fontScale = 1.3f) <
+        SummaryWidget.formStripDp(heightDp = 380, fontScale = 1f))
+  }
+
+  @Test
+  fun an_unsized_placement_draws_the_form_strip_at_its_unsized_height() {
+    assertEquals(SummaryWidget.FORM_STRIP_UNSIZED_DP, SummaryWidget.formStripDp(heightDp = 0, fontScale = 1f))
   }
 }

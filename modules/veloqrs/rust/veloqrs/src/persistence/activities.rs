@@ -1147,21 +1147,25 @@ pub(crate) mod pooled {
 
     /// One activity's stored body typed as the detail screen reads it, or
     /// `None` when nothing is stored under `activity_id` or the body is not
-    /// a JSON object.
+    /// a JSON object. A read that fails is an error: answered as `None`, the
+    /// screen would wait for a download of a body that is already stored.
     pub(crate) fn activity_record(
         conn: &Connection,
         activity_id: &str,
-    ) -> Option<crate::FfiActivityRecord> {
-        super::activity_record(activity_id, &activity_body(conn, activity_id)?)
+    ) -> SqlResult<Option<crate::FfiActivityRecord>> {
+        Ok(activity_body(conn, activity_id)?
+            .and_then(|raw| super::activity_record(activity_id, &raw)))
     }
 
-    pub(crate) fn activity_body(conn: &Connection, activity_id: &str) -> Option<String> {
+    /// The stored body under `activity_id`, `None` when there is none and an
+    /// error when the read itself fails.
+    pub(crate) fn activity_body(conn: &Connection, activity_id: &str) -> SqlResult<Option<String>> {
         conn.query_row(
             "SELECT raw FROM activity_bodies WHERE activity_id = ?",
             params![activity_id],
             |row| row.get(0),
         )
-        .ok()
+        .optional()
     }
 
     pub(crate) fn activity_bodies(
@@ -4600,7 +4604,7 @@ impl PersistentEngine {
     /// after a single activity that scans that page and parses every body to
     /// find one id does the whole window's JSON work in JavaScript.
     pub fn get_activity_body(&self, activity_id: &str) -> Option<String> {
-        pooled::activity_body(&self.db, activity_id)
+        pooled::activity_body(&self.db, activity_id).ok().flatten()
     }
 
     /// Untyped activity bodies over an inclusive timestamp window, newest

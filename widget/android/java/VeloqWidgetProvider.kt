@@ -79,9 +79,10 @@ class VeloqWidgetProvider : AppWidgetProvider() {
   ) {
     val options = manager.getAppWidgetOptions(id)
     val placement = SummaryWidgetChoice.placementFor(context, id)
+    val fontScale = context.resources.configuration.fontScale
     manager.updateAppWidget(
       id,
-      WidgetLayouts.build(options, { SummaryWidget.sizeFor(it.widthDp, it.heightDp) }) {
+      WidgetLayouts.build(options, { SummaryWidget.layoutFor(it.widthDp, it.heightDp, fontScale) }) {
         WidgetRenderer.render(context, snap, it.widthDp, it.heightDp, placement, id)
       })
   }

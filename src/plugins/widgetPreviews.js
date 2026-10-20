@@ -97,7 +97,25 @@ function ageRow(b, sample, id) {
   b.gone.add('widget_refresh');
 }
 
-/** The Summary widget at four by two: the card's hero, its line, and up to four supporting cells. */
+/** Training load, in the order the hero's line names it. */
+const TRAINING_LOAD = ['fitness', 'fatigue', 'form'];
+
+/**
+ * The other two readings of training load beside a hero that is one of them, as the renderer's
+ * `trainingLoad` finds them: the snapshot's metric list first, then the card's own entries.
+ */
+function trainingLoad(sample, card) {
+  if (!TRAINING_LOAD.includes(card.hero.id)) return [];
+  const known = [...(sample.summaryMetrics ?? []), card.hero, ...card.entries];
+  return TRAINING_LOAD.filter((id) => id !== card.hero.id)
+    .map((id) => known.find((entry) => entry.id === id))
+    .filter(Boolean);
+}
+
+/**
+ * The Summary widget at four by two: the card's hero, its line, the training load beside it, and
+ * up to four supporting cells that leave out what the hero's line already shows.
+ */
 function summary(sample) {
   const b = binding();
   const card = sample.summaryCard;
@@ -114,8 +132,22 @@ function summary(sample) {
   b.gone.add('sum_sparkline');
   b.gone.add('sum_chart_caption');
   ageRow(b, sample, 'med_updated');
+  const beside = trainingLoad(sample, card);
+  for (let i = 0; i < 2; i++) {
+    const entry = beside[i];
+    if (!entry) {
+      b.gone.add(`sum_load${i}`);
+      continue;
+    }
+    b.set(`sum_load${i}`, 'visibility', 'visible');
+    b.line(`sum_load${i}_label`, entry.label);
+    keyDot(b, `sum_load${i}_key`, keyColor(entry.colorKey, zone));
+    b.line(`sum_load${i}_value`, entry.value);
+    b.set(`sum_load${i}_value`, 'textColor', '@color/widget_text_primary');
+  }
+  const entries = card.entries.filter((entry) => !beside.some((shown) => shown.id === entry.id));
   for (let i = 0; i < 4; i++) {
-    const entry = card.entries[i];
+    const entry = entries[i];
     if (!entry) {
       b.gone.add(`sum_cell${i}`);
       if (i > 0) b.gone.add(`sum_div${i}`);
@@ -199,7 +231,10 @@ function strength(sample) {
     }
     b.set(`str_row${i}`, 'visibility', 'visible');
     b.line(`str_name${i}`, muscle.name);
-    b.line(`str_detail${i}`, [muscle.setsText, muscle.volumeText].filter(Boolean).join(' · '));
+    b.line(
+      `str_detail${i}`,
+      [muscle.frequencyText, muscle.setsText, muscle.volumeText].filter(Boolean).join(' · ')
+    );
   }
   ageRow(b, sample, 'str_updated');
   return b;

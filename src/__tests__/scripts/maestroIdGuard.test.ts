@@ -191,3 +191,79 @@ describe('the guard over a tree', () => {
     expect(result.out).toMatch(/delete/i);
   });
 });
+
+describe('a sheet close button the guard knows only iOS draws', () => {
+  // An Android sheet that only shows something has no close control: system
+  // back dismisses it. A flow that taps the iOS control on both platforms
+  // fails on Android at that step and runs nothing after.
+  const sheet = '<SheetHeader title="Kiln" onClose={() => goBack()} closeTestID="kiln-close" />';
+
+  it('fails a flow that taps it on every platform, and names the flow and the id', () => {
+    const root = treeWith(sheet, '- tapOn:\n    id: "kiln-close"\n');
+
+    const result = runGuard(root);
+
+    expect(result.code).not.toBe(0);
+    expect(result.out).toContain('kiln-close');
+    expect(result.out).toContain('flow.yaml');
+  });
+
+  it('passes a flow that taps it only on iOS', () => {
+    const flow = [
+      '- runFlow:',
+      '    when:',
+      '      platform: iOS',
+      '    commands:',
+      '      - tapOn:',
+      '          id: "kiln-close"',
+      '- runFlow:',
+      '    when:',
+      '      platform: Android',
+      '    commands:',
+      '      - back',
+      '',
+    ].join('\n');
+
+    expect(runGuard(treeWith(sheet, flow)).code).toBe(0);
+  });
+
+  it('fails a flow that taps it under an Android gate', () => {
+    const flow = [
+      '- runFlow:',
+      '    when:',
+      '      platform: Android',
+      '    commands:',
+      '      - tapOn:',
+      '          id: "kiln-close"',
+      '',
+    ].join('\n');
+
+    expect(runGuard(treeWith(sheet, flow)).code).not.toBe(0);
+  });
+
+  it('passes an optional tap, which Android skips', () => {
+    const flow = '- tapOn:\n    id: "kiln-close"\n    optional: true\n';
+
+    expect(runGuard(treeWith(sheet, flow)).code).toBe(0);
+  });
+
+  it('passes a condition on it, which only reads as not visible on Android', () => {
+    const flow = [
+      '- runFlow:',
+      '    when:',
+      '      visible:',
+      '        id: "kiln-close"',
+      '    commands:',
+      '      - back',
+      '',
+    ].join('\n');
+
+    expect(runGuard(treeWith(sheet, flow)).code).toBe(0);
+  });
+
+  it('passes a close button outside a sheet header, which every platform draws', () => {
+    const popup = '<MapPopup title="Kiln" onClose={() => close()} closeTestID="kiln-close" />';
+
+    expect(runGuard(treeWith(popup, '- tapOn:\n    id: "kiln-close"\n')).code).toBe(0);
+  });
+});

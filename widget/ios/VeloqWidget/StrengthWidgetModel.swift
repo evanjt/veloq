@@ -1,14 +1,14 @@
 import Foundation
 
 // What the Strength widget draws, decided from the snapshot alone. It imports no UI framework, so
-// the choices are plain values: which window a placement shows, which sides of the body a size
-// draws, the shade each muscle takes and the rows the largest size lists.
+// the choices are plain values: which sides of the body a size draws, the shade each muscle takes
+// and the rows the largest size lists.
 //
-// The engine shades and words both windows; the widget picks one and draws it. A window with no
-// strength sessions carries the words to show in place of the body, so a blank body never reads
-// as a month of no load.
+// The engine shades and words the trailing 30 days, the window the strength tab opens on, and
+// every placement draws it. A window with no strength sessions carries the words to show in place
+// of the body, so a blank body never reads as a month of no load.
 
-/// The strength block: the body the strength tab draws and its two windows.
+/// The strength block: the body the strength tab draws and its window.
 struct WidgetStrength: Codable {
   /// `male` or `female`.
   let body: String
@@ -17,13 +17,14 @@ struct WidgetStrength: Codable {
   let windows: WidgetStrengthWindows
 }
 
+/// The window under its snapshot key. A snapshot written while the calendar month was still
+/// offered carries it beside this one, and decoding passes over it.
 struct WidgetStrengthWindows: Codable {
   let last30: WidgetStrengthWindow
-  let month: WidgetStrengthWindow
 }
 
 struct WidgetStrengthWindow: Codable {
-  /// What a header calls the window: the strength tab's name for 30 days, or the month's name.
+  /// What a header calls the window: the strength tab's name for 30 days.
   let label: String
   /// Every trained muscle and its shade, most trained first.
   let muscles: [WidgetStrengthMuscle]
@@ -48,12 +49,8 @@ struct WidgetStrengthTopMuscle: Codable {
   let setsText: String
   /// Absent for bodyweight work.
   let volumeText: String?
-}
-
-/// The window a placement shows. Unconfigured is the last 30 days, where the strength tab opens.
-enum StrengthWindowChoice: String {
-  case last30
-  case month
+  /// How often a week the muscle was trained, as the engine words it; absent on an older snapshot.
+  let frequencyText: String?
 }
 
 enum StrengthSize {
@@ -78,25 +75,14 @@ struct StrengthContent {
 }
 
 enum StrengthWidgetModel {
-  static func window(_ strength: WidgetStrength, _ choice: StrengthWindowChoice)
-    -> WidgetStrengthWindow
-  {
-    switch choice {
-    case .last30: return strength.windows.last30
-    case .month: return strength.windows.month
-    }
-  }
-
   static func sides(_ size: StrengthSize) -> [BodyOutline.Side] {
     size == .small ? [.front] : [.front, .back]
   }
 
   /// Nil for a snapshot written before the strength block, which draws as no snapshot does.
-  static func content(
-    _ snapshot: WidgetSnapshot?, size: StrengthSize, choice: StrengthWindowChoice
-  ) -> StrengthContent? {
+  static func content(_ snapshot: WidgetSnapshot?, size: StrengthSize) -> StrengthContent? {
     guard let strength = snapshot?.strength else { return nil }
-    let shown = window(strength, choice)
+    let shown = strength.windows.last30
     let empty = shown.emptyText.flatMap { $0.isEmpty ? nil : $0 }
     var shades: [String: Int] = [:]
     for muscle in shown.muscles where shades[muscle.slug] == nil {

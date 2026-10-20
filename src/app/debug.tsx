@@ -25,8 +25,13 @@ import {
 import { getFFIMetricsSummary, clearFFIMetrics } from '@/shared/debug/renderTimer';
 import { freshLoginTimeline } from '@/shared/debug/freshLoginTimeline';
 import { hermesStats } from '@/shared/debug/hermesStats';
-import { useSupportStore, daysSince, FIRST_SHOW_USE_DAYS } from '@/shared/app/SupportStore';
-import { overrideDaysOfUse, useDaysOfUse } from '@/features/settings';
+import {
+  useSupportStore,
+  daysSince,
+  FIRST_SHOW_USE_DAYS,
+  type DaysOfUse,
+} from '@/shared/app/SupportStore';
+import { overrideDaysOfUse, overrideSessionAsk, useDaysOfUse } from '@/features/settings';
 import { formatLocalDate } from '@/shared/format/format';
 import { readTaskRuns, clearTaskRuns, type TaskRunEntry } from '@/features/insights';
 import { SyncDebugSection } from '@/features/routes';
@@ -143,12 +148,12 @@ function SupportCardDebug({ isDark }: { isDark: boolean }) {
   const isLegacyPurchaser = useSupportStore((s) => s.isLegacyPurchaser);
   const { firstUseDate, useDays } = useDaysOfUse();
   const supportOverride = useSupportStore((s) => s._debugOverride);
-  const debugOverride = (
-    support: Parameters<typeof supportOverride>[0],
-    usage: Parameters<typeof overrideDaysOfUse>[0]
-  ) => {
+  const debugOverride = (support: Parameters<typeof supportOverride>[0], usage: DaysOfUse) => {
     supportOverride(support);
     overrideDaysOfUse(usage);
+    // A card made due takes the session's ask at once, which another card or the
+    // quiet period would otherwise keep from it until a later session.
+    if (useSupportStore.getState().shouldShow(usage)) overrideSessionAsk('support');
   };
 
   const daysUntilShow =

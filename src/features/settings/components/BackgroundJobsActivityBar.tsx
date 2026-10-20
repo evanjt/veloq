@@ -63,11 +63,14 @@ const OUTCOME_KEYS: Record<
   | 'backgroundJobs.statePartial'
   | 'backgroundJobs.stateFailed'
   | 'backgroundJobs.statePaused'
+  | 'backgroundJobs.stateWaiting'
   | 'backgroundJobs.lastRunStopped'
   | undefined
 > = {
   partial: 'backgroundJobs.statePartial',
-  deferred: 'backgroundJobs.statePartial',
+  // Held by the request budget or a refusal, with the rest owed and resumed by
+  // the engine, so it is not a run that ended with some to retry.
+  deferred: 'backgroundJobs.stateWaiting',
   failed: 'backgroundJobs.stateFailed',
   paused: 'backgroundJobs.statePaused',
   stopped: 'backgroundJobs.lastRunStopped',
@@ -99,6 +102,21 @@ function useDetail(job: BackgroundJob): string {
 
   if (job.state === 'idle' && job.remaining !== null && job.remaining > 0) {
     return t(WAITING_KEYS[job.id], { count: job.remaining });
+  }
+
+  // A held download says what it owes and when it resumes. The copy names no
+  // cause: the install's own request budget holds it far more often than
+  // intervals.icu refuses it, and in that case nothing refused anything.
+  if (job.state === 'waiting') {
+    const parts = [
+      job.remaining !== null && job.remaining > 0
+        ? t(WAITING_KEYS[job.id], { count: job.remaining })
+        : null,
+      job.resumesAt !== null
+        ? t('backgroundJobs.resumesAt', { time: formatClockOrDate(job.resumesAt) })
+        : null,
+    ].filter((part): part is string => part !== null);
+    return parts.length > 0 ? parts.join(' · ') : t('backgroundJobs.stateWaiting');
   }
 
   switch (job.state) {
@@ -186,10 +204,11 @@ export function BackgroundJobsActivityBar() {
   const { t } = useTranslation();
   const jobs = useBackgroundJobs();
   const [expanded, setExpanded] = useState(false);
-  const active = jobs.filter((job) => job.state === 'running' || (job.remaining ?? 0) > 0);
-  const listed = jobs.filter(
-    (job) => job.state === 'running' || (job.remaining ?? 0) > 0 || job.lastRun !== null
-  );
+  // A held download is owed work even when its count cannot be read.
+  const owes = (job: BackgroundJob) =>
+    job.state === 'running' || job.state === 'waiting' || (job.remaining ?? 0) > 0;
+  const active = jobs.filter(owes);
+  const listed = jobs.filter((job) => owes(job) || job.lastRun !== null);
 
   if (listed.length === 0) return null;
 

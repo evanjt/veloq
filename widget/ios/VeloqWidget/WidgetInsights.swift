@@ -12,15 +12,16 @@ struct InsightsEntry: TimelineEntry {
   var kinds: [String] = []
 }
 
-/// The entry now, and a second one at the moment the snapshot turns stale, so the age line
-/// changes colour then and not at the next reload.
+/// The entry now, and one at each moment the age line's words change before the next reload,
+/// so it moves on from now to minutes to hours, and turns amber, without a reload.
 func insightsTimeline(_ entry: InsightsEntry) -> Timeline<InsightsEntry> {
   let refresh = nextRefreshDate()
-  var entries = [entry]
-  if let stale = SnapshotAge.staleDate(entry.snapshot), stale > entry.date, stale < refresh {
-    entries.append(InsightsEntry(date: stale, snapshot: entry.snapshot, kinds: entry.kinds))
-  }
-  return Timeline(entries: entries, policy: .after(refresh))
+  let changes = SnapshotAge.changes(entry.snapshot, after: entry.date, before: refresh)
+  return Timeline(
+    entries: [entry] + changes.map { change in
+      InsightsEntry(date: change, snapshot: entry.snapshot, kinds: entry.kinds)
+    },
+    policy: .after(refresh))
 }
 
 struct InsightsProvider: TimelineProvider {

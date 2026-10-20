@@ -1743,6 +1743,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_method_veloqengine_run_record_backup(
     uniffiSelf: bigint,
     destPath: Uint8Array,
+    scope: Uint8Array,
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_sections(
     uniffiSelf: bigint,

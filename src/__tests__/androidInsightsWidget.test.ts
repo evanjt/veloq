@@ -53,30 +53,23 @@ function infoAttributes(xml: string): Record<string, string> {
 }
 
 describe('the Insights widget in the Android gallery', () => {
-  it('is registered with a label from the string resources, whatever the Record flag says', () => {
-    for (const record of [true, false]) {
-      const app: { receiver: Entry[] } = { receiver: [] };
-      androidPlugin.applyReceivers(app);
-      const insights = app.receiver.find(
-        (r) => r.$['android:name'] === '.widget.VeloqInsightsWidgetProvider'
-      );
-      expect([record, insights?.$['android:label']]).toEqual([
-        record,
-        '@string/widget_insights_label',
-      ]);
-    }
+  it('is registered with a label from the string resources', () => {
+    const app: { receiver: Entry[] } = { receiver: [] };
+    androidPlugin.applyReceivers(app);
+    const insights = app.receiver.find(
+      (r) => r.$['android:name'] === '.widget.VeloqInsightsWidgetProvider'
+    );
+    expect(insights?.$['android:label']).toBe('@string/widget_insights_label');
   });
 
-  it('registers its picker with the launcher, whatever the Record flag says', () => {
-    for (const include of [true, false]) {
-      const app: { activity: Entry[] } = { activity: [] };
-      androidPlugin.applyActivities(app, include);
-      const picker = app.activity.find(
-        (a) => a.$['android:name'] === '.widget.InsightsWidgetConfigureActivity'
-      );
-      expect(picker?.$['android:exported']).toBe('true');
-      expect(JSON.stringify(picker)).toContain('android.appwidget.action.APPWIDGET_CONFIGURE');
-    }
+  it('registers its picker with the launcher', () => {
+    const app: { activity: Entry[] } = { activity: [] };
+    androidPlugin.applyActivities(app);
+    const picker = app.activity.find(
+      (a) => a.$['android:name'] === '.widget.InsightsWidgetConfigureActivity'
+    );
+    expect(picker?.$['android:exported']).toBe('true');
+    expect(JSON.stringify(picker)).toContain('android.appwidget.action.APPWIDGET_CONFIGURE');
   });
 
   it('names a picker class that is generated into the package, and makes opening it optional', () => {

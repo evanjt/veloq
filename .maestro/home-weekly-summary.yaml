@@ -37,10 +37,12 @@ tags:
     file: helpers/reveal.yaml
     env:
       ELEMENT: "weekly-summary"
+      LIST: "fitness-page-calendar"
 - runFlow:
     file: helpers/reveal.yaml
     env:
       ELEMENT: "weekly-summary-range-year"
+      LIST: "fitness-page-calendar"
 
 - tapOn:
     id: "weekly-summary-range-year"

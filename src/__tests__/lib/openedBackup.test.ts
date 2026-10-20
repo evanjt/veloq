@@ -70,7 +70,7 @@ beforeEach(() => {
   imported.mockResolvedValue({
     success: true,
     unplacedCount: 0,
-    drops: { notRestored: 0, namesNotRestored: 0 },
+    drops: { notRestored: 0, namesNotRestored: 0, exportHomeLeftOut: false },
   });
 });
 

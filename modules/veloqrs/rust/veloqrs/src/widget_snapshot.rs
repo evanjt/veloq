@@ -334,8 +334,8 @@ pub struct WidgetSnapshot {
     pub record_shortcuts: Vec<RecordShortcut>,
     pub launcher_shortcuts: Vec<RecordShortcut>,
     pub insights: Vec<SnapshotInsight>,
-    /// The strength diagram over the two windows a widget can be placed on,
-    /// present with no strength work too, so a native never words a window.
+    /// The strength diagram over the trailing 30 days, present with no
+    /// strength work too, so a native never words a window.
     pub strength: StrengthWidget,
 }
 
@@ -639,12 +639,13 @@ pub struct StrengthWidget {
     pub windows: StrengthWindows,
 }
 
+/// The windows the strength diagram is drawn over: the trailing 30 days alone,
+/// kept under its own key so a native reads a snapshot written before or
+/// after the calendar month was dropped alike.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct StrengthWindows {
     /// Today and the 29 days before it.
     pub last30: StrengthWindow,
-    /// The calendar month to the end of today.
-    pub month: StrengthWindow,
 }
 
 /// One window of the strength diagram, shaded and ranked as the strength
@@ -652,8 +653,7 @@ pub struct StrengthWindows {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StrengthWindow {
-    /// What a picker calls the window: the strength tab's name for 30 days,
-    /// or the month's name.
+    /// What the widget calls the window: the strength tab's name for 30 days.
     pub label: String,
     pub activity_count: u32,
     pub total_sets: u32,
@@ -689,6 +689,10 @@ pub struct StrengthTopMuscle {
     pub sets_text: String,
     /// Weight times reps in the athlete's unit, absent for bodyweight work.
     pub volume_text: Option<String>,
+    /// The sessions in the window that worked this muscle.
+    pub session_count: u32,
+    /// How often a week the muscle was trained over the window: "2.2×/wk".
+    pub frequency_text: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -845,7 +849,7 @@ pub fn compose(
                 insight: insight.clone(),
             })
             .collect(),
-        strength: compose_strength(data, ctx, clock),
+        strength: compose_strength(data, ctx),
     }
 }
 
@@ -1619,11 +1623,7 @@ fn zone_key(zone: &str) -> String {
 // Strength
 // ---------------------------------------------------------------------------
 
-fn compose_strength(
-    data: &FfiWidgetSnapshotData,
-    ctx: &FfiWidgetContext,
-    clock: Clock,
-) -> StrengthWidget {
+fn compose_strength(data: &FfiWidgetSnapshotData, ctx: &FfiWidgetContext) -> StrengthWidget {
     let last30_label = translate(ctx, "period.long.1m").to_string();
     let last30_none = translate(ctx, "strength.noWorkouts").replace("{{period}}", &last30_label);
     StrengthWidget {
@@ -1635,12 +1635,6 @@ fn compose_strength(
         url: STRENGTH_URL,
         windows: StrengthWindows {
             last30: strength_window(&data.strength_last30, last30_label, last30_none, ctx),
-            month: strength_window(
-                &data.strength_month,
-                month_label(clock, ctx),
-                translate(ctx, "strength.noWorkoutsThisMonth").to_string(),
-                ctx,
-            ),
         },
     }
 }
@@ -1652,6 +1646,7 @@ fn strength_window(
     ctx: &FfiWidgetContext,
 ) -> StrengthWindow {
     let summary = &window.summary;
+    let sessions = |slug: &str| window.muscle_sessions.get(slug).copied().unwrap_or(0);
     let top: Vec<StrengthTopMuscle> = summary
         .muscle_volumes
         .iter()
@@ -1661,6 +1656,8 @@ fn strength_window(
             name: phrase(ctx, &muscle_name_key(&m.slug)).unwrap_or_else(|| m.slug.clone()),
             sets_text: sets_text(m.weighted_sets, ctx),
             volume_text: volume_text(m.volume_kg, ctx),
+            session_count: sessions(&m.slug),
+            frequency_text: frequency_text(sessions(&m.slug), ctx),
         })
         .collect();
     let empty_text = (summary.activity_count == 0).then(|| {
@@ -1708,21 +1705,6 @@ fn body_label(top: &[StrengthTopMuscle], ctx: &FfiWidgetContext) -> Option<Strin
     fill(ctx, "systemSurfaces.spoken.body", &[("muscles", muscles)])
 }
 
-/// The month the clock falls in, by its long name, else by the short one an
-/// older stored context carries.
-fn month_label(clock: Clock, ctx: &FfiWidgetContext) -> String {
-    use chrono::Datelike;
-    let Some(now) = chrono::DateTime::from_timestamp(clock.now_wall_seconds, 0) else {
-        return String::new();
-    };
-    let month = now.month0() as usize;
-    [&ctx.dates.months, &ctx.dates.month_day.months]
-        .iter()
-        .find_map(|names| names.get(month).filter(|name| !name.is_empty()))
-        .cloned()
-        .unwrap_or_else(|| now.format("%B").to_string())
-}
-
 /// The translation key of a muscle's name: `lower-back` is `strength.muscles.lowerBack`.
 fn muscle_name_key(slug: &str) -> String {
     let mut key = String::from("strength.muscles.");
@@ -1765,6 +1747,17 @@ fn counted(ctx: &FfiWidgetContext, key: &str, count: f64, text: &str) -> Option<
     phrase(ctx, &format!("{key}_{form}"))
         .or_else(|| phrase(ctx, &format!("{key}_other")))
         .map(|template| with_slots(template, &[("count", text.to_string())]))
+}
+
+/// Sessions a week over the strength window, to one decimal, with the
+/// suffix the fitness screen gives a weekly rate: "0.7×/wk".
+fn frequency_text(sessions: u32, ctx: &FfiWidgetContext) -> String {
+    let per_week = f64::from(sessions) / STRENGTH_WINDOW_DAYS as f64 * 7.0;
+    format!(
+        "{}×{}",
+        number_text(&fixed1(per_week), ctx),
+        translate(ctx, "fitnessScreen.perWeek")
+    )
 }
 
 /// Volume as the strength tab prints it, rounded to a whole number in the
@@ -2483,31 +2476,28 @@ pub fn summary_period_bounds(now_wall_seconds: i64) -> [(i64, i64, i64, i64); 5]
     ]
 }
 
-/// The two strength windows in the wall-clock seconds an activity's date is
+/// The strength window in the wall-clock seconds an activity's date is
 /// recorded in: today and the 29 days before it, as the strength screen
-/// bounds its 30 days, and the calendar month, each from midnight on its first
-/// day to the last second of today.
-pub fn strength_bounds(now_wall_seconds: i64) -> [(i64, i64); 2] {
-    use chrono::Datelike;
+/// bounds its 30 days, from midnight on the first day to the last second of
+/// today.
+pub fn strength_bounds(now_wall_seconds: i64) -> (i64, i64) {
     let today = now_wall_seconds.div_euclid(SECONDS_PER_DAY);
     let end = (today + 1) * SECONDS_PER_DAY - 1;
-    let last30 = (today - (STRENGTH_WINDOW_DAYS - 1)) * SECONDS_PER_DAY;
-    let day_of_month =
-        chrono::DateTime::from_timestamp(now_wall_seconds, 0).map_or(1, |now| i64::from(now.day()));
-    let month = (today - (day_of_month - 1)) * SECONDS_PER_DAY;
-    [(last30, end), (month, end)]
+    let start = (today - (STRENGTH_WINDOW_DAYS - 1)) * SECONDS_PER_DAY;
+    (start, end)
 }
 
 /// The engine's side of the snapshot, read off `conn` for the week `clock` falls in.
 pub fn data_from(conn: &rusqlite::Connection, clock: Clock) -> FfiWidgetSnapshotData {
     let (current_start, current_end, prev_start, prev_end) = week_bounds(clock.now_wall_seconds);
-    let [last30, month] = strength_bounds(clock.now_wall_seconds);
-    let strength = |(start, end): (i64, i64)| {
-        crate::objects::strength::widget_strength_window(conn, start, end).unwrap_or_default()
-    };
+    let (strength_start, strength_end) = strength_bounds(clock.now_wall_seconds);
     FfiWidgetSnapshotData {
-        strength_last30: strength(last30),
-        strength_month: strength(month),
+        strength_last30: crate::objects::strength::widget_strength_window(
+            conn,
+            strength_start,
+            strength_end,
+        )
+        .unwrap_or_default(),
         athlete_sex: athlete_sex(conn),
         ..crate::persistence::screens::pooled::widget_snapshot_data(
             conn,

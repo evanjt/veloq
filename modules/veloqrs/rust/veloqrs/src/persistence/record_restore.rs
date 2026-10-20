@@ -7,7 +7,8 @@ use tracematch::sections::{NamedCandidate, score_named_candidate, select_candida
 
 use super::origin::names_upstream_activity;
 use super::record_backup::{
-    RecordGround, RecordPayload, RecordRow, check_record_version, integer, string,
+    EXPORT_HOME, RecordGround, RecordPayload, RecordRow, check_record_version, integer,
+    names_setting, string,
 };
 use super::{PersistentEngine, codec, sections};
 
@@ -104,6 +105,9 @@ pub struct RestoreRecordResult {
     /// `NAMES_NOT_RESTORED_KEY`.
     pub names_not_restored: u32,
     pub missing_activity_ids: Vec<String>,
+    /// The record left out the export privacy home, so it is unset and the
+    /// athlete has to set it again.
+    pub export_home_left_out: bool,
 }
 
 fn paused_import_from_conn(conn: &Connection) -> Result<Option<RecordPayload>, String> {
@@ -245,15 +249,26 @@ impl PersistentEngine {
                     return Err("Record belongs to another athlete".to_string());
                 }
                 // The later file's rows come last, so its values are the ones
-                // that stand where both name the same thing.
-                let mut entries = readable_rows(paused.entries);
+                // that stand where both name the same thing. A setting it left
+                // out stands the same way, so the earlier row for it goes.
+                let later_left_out: Vec<&str> =
+                    payload.left_out.iter().map(String::as_str).collect();
+                let mut entries: Vec<RecordRow> = readable_rows(paused.entries)
+                    .into_iter()
+                    .filter(|row| !names_setting(row, &later_left_out))
+                    .collect();
                 entries.extend(payload.entries);
+                let mut left_out = paused.left_out;
+                left_out.extend(payload.left_out);
+                left_out.sort();
+                left_out.dedup();
                 RecordPayload {
                     version: payload.version,
                     athlete_id: payload.athlete_id.or(paused.athlete_id),
                     entries,
                     upstream_ids: BTreeMap::new(),
                     written_at: payload.written_at,
+                    left_out,
                 }
             }
             None => payload,
@@ -309,12 +324,20 @@ impl PersistentEngine {
             let mut entries = engine.pending_record_rows()?;
             entries.extend(payload.entries);
             let entries = distinct_rows(readable_rows(entries))?;
+            // Unset before the rows are placed, so a key the file both left
+            // out and carries, as a merged import can, ends as the file's.
+            let left_out = engine.unset_left_out(&payload.left_out)?;
+            let export_home_left_out = left_out
+                .iter()
+                .any(|key| EXPORT_HOME.contains(&key.as_str()))
+                && !entries.iter().any(|row| names_setting(row, EXPORT_HOME));
             if let Some(athlete_id) = payload.athlete_id.as_deref() {
                 engine
                     .set_setting(super::settings::settings_keys::ATHLETE_ID, athlete_id)
                     .map_err(|e| e.to_string())?;
             }
-            let result = engine.place_record_rows(entries, false)?;
+            let mut result = engine.place_record_rows(entries, false)?;
+            result.export_home_left_out = export_home_left_out;
             engine
                 .delete_setting(PAUSED_IMPORT_KEY)
                 .map_err(|e| e.to_string())?;
@@ -325,6 +348,24 @@ impl PersistentEngine {
         self.adopt_stored_detection_configs()
             .map_err(|e| e.to_string())?;
         Ok(result)
+    }
+
+    /// Unset each setting a record left out, so the value this library held
+    /// does not stand in for the one the file did not carry. Only a key a
+    /// backup carries is touched, so a file cannot clear this library's own
+    /// state. Answers the keys unset.
+    fn unset_left_out<'a>(&self, left_out: &'a [String]) -> Result<Vec<&'a String>, String> {
+        let keys: Vec<&String> = left_out
+            .iter()
+            .filter(|key| {
+                super::record_backup::is_record_setting(key)
+                    && key.as_str() != super::settings::settings_keys::ATHLETE_ID
+            })
+            .collect();
+        for key in &keys {
+            self.delete_setting(key).map_err(|e| e.to_string())?;
+        }
+        Ok(keys)
     }
 
     /// Drop the paused import, at the athlete's word. The library and the
@@ -3489,6 +3530,7 @@ mod tests {
         let payload = RecordPayload {
             version: RECORD_VERSION,
             written_at: None,
+            left_out: Vec::new(),
             athlete_id: None,
             entries: vec![RecordRow {
                 table: "route_names".to_string(),
@@ -4005,6 +4047,140 @@ mod tests {
                 .as_deref(),
             Some("1")
         );
+    }
+
+    fn engine_with_home(dir: &TempDir) -> PersistentEngine {
+        let engine = PersistentEngine::new(dir.path().join("home.db").to_str().unwrap()).unwrap();
+        for (key, value) in [
+            ("__export_home_lat", "-33.8688"),
+            ("__export_home_lng", "151.2093"),
+            ("__export_privacy_radius_m", "500"),
+        ] {
+            engine.set_setting(key, value).unwrap();
+        }
+        engine
+    }
+
+    /// Scenario: a phone with an export privacy home restores a record written
+    /// for a shared folder, which left the home out.
+    ///
+    /// Expected behaviour: the phone's old home does not stand in for the one
+    /// the file left out, so export privacy is unset, the radius is the file's,
+    /// and the result says the home has to be set again.
+    #[test]
+    fn test_restore_of_a_record_that_left_the_home_out_unsets_it_and_says_so() {
+        let dir = TempDir::new().unwrap();
+        let mut engine = engine_with_home(&dir);
+        let record = json!({"version": 1,
+        "left_out": ["__export_home_lat", "__export_home_lng"],
+        "entries": [
+            {"table": "settings", "values": {"key": "__export_privacy_radius_m", "value": "250"}}
+        ]});
+
+        let result = engine.restore_record_json(&record.to_string()).unwrap();
+
+        assert!(result.export_home_left_out);
+        assert_eq!(engine.get_setting("__export_home_lat").unwrap(), None);
+        assert_eq!(engine.get_setting("__export_home_lng").unwrap(), None);
+        assert_eq!(
+            engine
+                .get_setting("__export_privacy_radius_m")
+                .unwrap()
+                .as_deref(),
+            Some("250")
+        );
+    }
+
+    /// Scenario: the same phone restores a record that carries its home, and
+    /// one written before any home was set, which leaves nothing out.
+    ///
+    /// Expected behaviour: the carried home is placed, and neither restore
+    /// asks for the home to be set again.
+    #[test]
+    fn test_restore_of_a_record_that_left_nothing_out_asks_for_no_home() {
+        let dir = TempDir::new().unwrap();
+        let mut engine = engine_with_home(&dir);
+        let carried = json!({"version": 1, "entries": [
+            {"table": "settings", "values": {"key": "__export_home_lat", "value": "46.2044"}},
+            {"table": "settings", "values": {"key": "__export_home_lng", "value": "6.1432"}}
+        ]});
+        let result = engine.restore_record_json(&carried.to_string()).unwrap();
+        assert!(!result.export_home_left_out);
+        assert_eq!(
+            engine.get_setting("__export_home_lat").unwrap().as_deref(),
+            Some("46.2044")
+        );
+
+        let homeless = json!({"version": 1, "entries": [
+            {"table": "settings", "values": {"key": "units", "value": "metric"}}
+        ]});
+        let result = engine.restore_record_json(&homeless.to_string()).unwrap();
+        assert!(!result.export_home_left_out);
+        assert_eq!(
+            engine.get_setting("__export_home_lng").unwrap().as_deref(),
+            Some("6.1432")
+        );
+    }
+
+    /// Scenario: a crafted record names settings it left out that a backup
+    /// never carries, this install's write token among them.
+    ///
+    /// Expected behaviour: a left-out name unsets only a setting a backup
+    /// carries, so the file cannot clear this library's own state.
+    #[test]
+    fn test_restore_unsets_only_left_out_settings_a_backup_carries() {
+        let dir = TempDir::new().unwrap();
+        let mut engine = engine_with_home(&dir);
+        engine
+            .set_setting("__external_write_token", "t0ken")
+            .unwrap();
+        let record = json!({"version": 1,
+            "left_out": ["__external_write_token", "__athlete_id"],
+            "entries": []});
+
+        let result = engine.restore_record_json(&record.to_string()).unwrap();
+
+        assert!(!result.export_home_left_out);
+        assert_eq!(
+            engine
+                .get_setting("__external_write_token")
+                .unwrap()
+                .as_deref(),
+            Some("t0ken")
+        );
+        assert_eq!(
+            engine.get_setting("__export_home_lat").unwrap().as_deref(),
+            Some("-33.8688")
+        );
+    }
+
+    /// Scenario: an import paused holding a home is followed by a record that
+    /// left the home out.
+    ///
+    /// Expected behaviour: the later file stands, as it does for every setting
+    /// both name, so the paused home is not placed and the home is unset.
+    #[test]
+    fn test_restore_after_a_paused_home_lets_the_later_record_leave_it_out() {
+        let dir = TempDir::new().unwrap();
+        let mut engine = engine_with_home(&dir);
+        let paused = json!({"version": 1, "entries": [
+            {"table": "settings", "values": {"key": "__export_home_lat", "value": "46.2044"}},
+            {"table": "settings", "values": {"key": "__export_home_lng", "value": "6.1432"}}
+        ]});
+        engine
+            .set_setting(super::PAUSED_IMPORT_KEY, &paused.to_string())
+            .unwrap();
+        let record = json!({"version": 1,
+        "left_out": ["__export_home_lat", "__export_home_lng"],
+        "entries": [
+            {"table": "settings", "values": {"key": "units", "value": "metric"}}
+        ]});
+
+        let result = engine.restore_record_json(&record.to_string()).unwrap();
+
+        assert!(result.export_home_left_out);
+        assert_eq!(engine.get_setting("__export_home_lat").unwrap(), None);
+        assert_eq!(engine.get_setting("__export_home_lng").unwrap(), None);
     }
 
     /// Scenario: a record zip the writer never produced names internal

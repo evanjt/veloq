@@ -148,9 +148,15 @@ fn the_stored_record_is_read_by_its_key() {
         .upsert_activity_bodies_with_metrics(&[("local-1".into(), 1_740_900_000, DETAIL.into())])
         .expect("body");
 
-    let record = pooled::activity_record(&engine.db, "local-1").expect("stored record");
+    let record = pooled::activity_record(&engine.db, "local-1")
+        .expect("read")
+        .expect("stored record");
     assert_eq!(record.id, "local-1");
     assert!(record.is_detail);
     assert_eq!(record.trimp, Some(112.6));
-    assert!(pooled::activity_record(&engine.db, "absent").is_none());
+    assert!(
+        pooled::activity_record(&engine.db, "absent")
+            .expect("read")
+            .is_none()
+    );
 }

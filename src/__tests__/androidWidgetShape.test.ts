@@ -44,7 +44,7 @@ function dimens(file: string): Record<string, string> {
   return out;
 }
 
-const SURFACES = ['@drawable/widget_background', '@drawable/widget_record_background'];
+const SURFACES = ['@drawable/widget_background'];
 
 /** Every layout a provider info names, and every layout whose root draws a widget surface. */
 function launcherLayouts(res: string): string[] {
@@ -93,7 +93,6 @@ describe('the Android widget shape', () => {
         'widget_insights_short',
         'widget_strength',
         'widget_strength_small',
-        'widget_record',
         'widget_preview_summary',
       ])
     );

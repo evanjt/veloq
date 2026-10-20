@@ -859,108 +859,39 @@
         "owedCount": 0,
         "top": [
           {
+            "frequencyText": "0.2×/wk",
             "name": "Glutes",
+            "sessionCount": 1,
             "setsText": "7 sets",
             "slug": "gluteal",
             "volumeText": "4960 kg"
           },
           {
+            "frequencyText": "0.5×/wk",
             "name": "Triceps",
+            "sessionCount": 2,
             "setsText": "7 sets",
             "slug": "triceps",
             "volumeText": "2640 kg"
           },
           {
+            "frequencyText": "0.5×/wk",
             "name": "Deltoids",
+            "sessionCount": 2,
             "setsText": "5 sets",
             "slug": "deltoids",
             "volumeText": "1680 kg"
           },
           {
+            "frequencyText": "0.2×/wk",
             "name": "Hamstrings",
+            "sessionCount": 1,
             "setsText": "5 sets",
             "slug": "hamstring",
             "volumeText": "3680 kg"
           }
         ],
         "totalSets": 17
-      },
-      "month": {
-        "activityCount": 1,
-        "bodyLabel": "Most trained: Glutes 7 sets, Hamstrings 5 sets, Lower back 5 sets, Chest 4 sets",
-        "emptyText": null,
-        "label": "December",
-        "maxWeightedSets": 7.0,
-        "muscles": [
-          {
-            "shade": 5,
-            "slug": "gluteal"
-          },
-          {
-            "shade": 4,
-            "slug": "hamstring"
-          },
-          {
-            "shade": 4,
-            "slug": "lower-back"
-          },
-          {
-            "shade": 3,
-            "slug": "chest"
-          },
-          {
-            "shade": 3,
-            "slug": "quadriceps"
-          },
-          {
-            "shade": 3,
-            "slug": "triceps"
-          },
-          {
-            "shade": 2,
-            "slug": "calves"
-          },
-          {
-            "shade": 2,
-            "slug": "deltoids"
-          },
-          {
-            "shade": 2,
-            "slug": "forearm"
-          },
-          {
-            "shade": 2,
-            "slug": "trapezius"
-          }
-        ],
-        "owedCount": 0,
-        "top": [
-          {
-            "name": "Glutes",
-            "setsText": "7 sets",
-            "slug": "gluteal",
-            "volumeText": "4960 kg"
-          },
-          {
-            "name": "Hamstrings",
-            "setsText": "5 sets",
-            "slug": "hamstring",
-            "volumeText": "3680 kg"
-          },
-          {
-            "name": "Lower back",
-            "setsText": "5 sets",
-            "slug": "lower-back",
-            "volumeText": "3680 kg"
-          },
-          {
-            "name": "Chest",
-            "setsText": "4 sets",
-            "slug": "chest",
-            "volumeText": "1920 kg"
-          }
-        ],
-        "totalSets": 11
       }
     }
   },

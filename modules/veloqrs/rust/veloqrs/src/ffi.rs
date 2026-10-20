@@ -1342,7 +1342,7 @@ pub fn take_fetch_and_store_result(run: f64) -> Option<FetchAndStoreResult> {
 /// alone rather than duplicating a second detection progress surface.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct ElevationBackfillProgress {
-    /// idle, fetching, complete, partial, paused or failed.
+    /// idle, fetching, complete, partial, paused, failed or waiting.
     pub phase: String,
     /// Activities this run has finished with.
     pub completed: u32,
@@ -1352,6 +1352,9 @@ pub struct ElevationBackfillProgress {
     pub failed: u32,
     /// Whole percent of the queue handled. An empty queue reads 100.
     pub percent: u32,
+    /// When a waiting pass resumes, epoch milliseconds. `None` in every other
+    /// phase.
+    pub resumes_at: Option<f64>,
 }
 
 /// Tell the engine what TypeScript sees on the network, and whether the
@@ -1468,6 +1471,7 @@ pub fn get_elevation_backfill_progress() -> ElevationBackfillProgress {
         total: snapshot.total,
         failed: snapshot.failed,
         percent: snapshot.percent(),
+        resumes_at: snapshot.resumes_at_ms.map(|ms| ms as f64),
     }
 }
 
@@ -1510,6 +1514,7 @@ pub fn get_stream_backfill_progress() -> StreamBackfillProgress {
         percent: snapshot.percent(),
         estimate_requests: snapshot.estimate_requests,
         estimate_bytes: snapshot.estimate_bytes as f64,
+        resumes_at: snapshot.resumes_at_ms.map(|ms| ms as f64),
     }
 }
 
@@ -1517,7 +1522,7 @@ pub fn get_stream_backfill_progress() -> StreamBackfillProgress {
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct StreamBackfillProgress {
     /// One of idle, fetching, complete, partial, stopped, failed,
-    /// awaiting_consent, deferred.
+    /// awaiting_consent, deferred, waiting.
     pub phase: String,
     /// Activities this pass has finished with, however they ended.
     pub completed: u32,
@@ -1533,6 +1538,9 @@ pub struct StreamBackfillProgress {
     pub estimate_requests: u32,
     /// Bytes on the wire the held pass would download.
     pub estimate_bytes: f64,
+    /// When a waiting pass resumes, epoch milliseconds. `None` in every other
+    /// phase.
+    pub resumes_at: Option<f64>,
 }
 
 /// Whether the Corridor-to-Unified cutover is still owed. Not exported: a

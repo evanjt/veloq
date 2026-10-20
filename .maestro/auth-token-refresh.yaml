@@ -71,6 +71,7 @@ onFlowComplete:
     file: helpers/reveal.yaml
     env:
       ELEMENT: "activity-card-demo-test-0"
+      LIST: "home-activity-list"
 
 - assertNotVisible:
     text: "NaN"
@@ -83,11 +84,6 @@ onFlowComplete:
 
 - tapOn:
     id: "settings-account-row"
-
-- extendedWaitUntil:
-    visible:
-      id: "settings-logout-button"
-    timeout: 10000
 
 - scrollUntilVisible:
     element:
@@ -172,6 +168,7 @@ onFlowComplete:
     file: helpers/reveal.yaml
     env:
       ELEMENT: "activity-card-demo-test-0"
+      LIST: "home-activity-list"
 
 - assertNotVisible:
     text: "NaN"

@@ -50,7 +50,11 @@ export {
   useNotificationPrompt,
   initialiseNotificationPrompt,
 } from './stores/NotificationPromptStore';
-export { initialiseWhatsNewStore, overrideDaysOfUse } from './stores/WhatsNewStore';
+export {
+  initialiseWhatsNewStore,
+  overrideDaysOfUse,
+  overrideSessionAsk,
+} from './stores/WhatsNewStore';
 export { onAppForeground, initWebdavConfig } from './lib/autobackup';
 export { refreshPushTokenRegistration, registerPushToken } from './lib/pushTokenRegistration';
 export {

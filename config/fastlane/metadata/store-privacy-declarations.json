@@ -121,6 +121,12 @@
         "note": "A backup another app shares into this one is read and restored on the device. Nothing leaves it."
       },
       {
+        "what": "Folder backups",
+        "carriers": [],
+        "reason": "onDevice",
+        "note": "When the athlete picks a folder in the Files app, the backup is copied there and reaches no server of ours. A folder other apps can read gets a copy without the export privacy home location, which is set again after restoring from it."
+      },
+      {
         "what": "Donations",
         "carriers": ["plugin:react-native-iap"],
         "reason": "onDevice",
@@ -243,6 +249,12 @@
         "carriers": ["plugin:expo-sharing"],
         "reason": "onDevice",
         "note": "A backup another app shares into this one is read and restored on the device. Nothing leaves it."
+      },
+      {
+        "what": "Folder backups",
+        "carriers": [],
+        "reason": "onDevice",
+        "note": "On Android the backup is copied to Documents/Veloq on the device, or to a folder the athlete picks, and reaches no server of ours. Other apps can read those folders, so the copy leaves out the export privacy home location, which is set again after restoring from it."
       },
       {
         "what": "Donations",

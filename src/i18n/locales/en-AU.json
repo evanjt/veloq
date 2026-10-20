@@ -359,7 +359,6 @@
   },
   "strength": {
     "noWorkouts": "No gym sessions in the last {{period}}",
-    "noWorkoutsThisMonth": "No gym sessions this month",
     "exerciseActivitiesFailed": "Couldn't load the workouts for this exercise."
   },
   "support": {

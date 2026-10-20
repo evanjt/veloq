@@ -23,10 +23,10 @@ import {
   type RestoreCheck,
 } from './backup';
 import { RestoreRefusedError } from './restoreRefusal';
-import type { RestoreDrops } from './restoreNotice';
+import type { RestoreReport } from './restoreNotice';
 
 /** What a restore placed and what it gave up on. */
-export interface CheckedRestoreOutcome extends RestoreDrops {
+export interface CheckedRestoreOutcome extends RestoreReport {
   unplaced: number;
 }
 

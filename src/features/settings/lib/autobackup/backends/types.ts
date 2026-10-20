@@ -47,6 +47,13 @@ export interface BackupBackend {
    */
   isRemote: boolean;
 
+  /**
+   * Whether `upload` writes to storage other apps or a connected computer can
+   * read, such as a folder the athlete picks or Android's `Documents`. Such a
+   * carrier is handed the record that leaves out the export privacy home.
+   */
+  sharedStorage?: boolean;
+
   /** Check if this backend is available on the current device/platform. */
   isAvailable(): Promise<boolean>;
 

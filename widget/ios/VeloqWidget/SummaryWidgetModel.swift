@@ -2,7 +2,7 @@ import Foundation
 
 // What the Summary widget draws, decided from the snapshot alone. It imports no UI framework, so
 // the choices are plain values: which card a placement shows, which entries each size lists,
-// which chart sits beside the hero.
+// which chart the hero draws.
 //
 // The card is the in-app summary card the snapshot carries. A placement may choose a hero among
 // the card's own heroes, a sparkline setting and a supporting row among the metrics the snapshot
@@ -38,7 +38,7 @@ struct SummaryPlacement: Equatable {
   static let followCard = SummaryPlacement()
 }
 
-/// What the trend image beside the hero draws.
+/// What the hero's trend image draws.
 enum SummaryChartKind: Equatable {
   case none
   /// Fitness and fatigue over one shared domain.
@@ -63,7 +63,7 @@ struct FormZoneChart: Equatable {
   let max: Double
 }
 
-/// The words drawn under the chart beside the hero: its series in the order its lines are drawn
+/// The words drawn under the hero's chart: its series in the order its lines are drawn
 /// apart, solid then dashed, and the days it spans. A single series is named by the hero beside
 /// it, so it lists none.
 struct ChartCaption: Equatable {
@@ -79,7 +79,7 @@ struct FormChartCaption: Equatable {
   let span: String?
 }
 
-/// One entry of the supporting row, with the words drawn under its value.
+/// One entry of the supporting row or of the hero's line, with the words drawn under its value.
 struct SummarySupporting {
   let entry: WidgetSummaryEntry
   /// The form zone under the Form entry's value, which its colour alone would carry; nil on
@@ -92,7 +92,10 @@ struct SummaryContent {
   /// The line under the hero's value: the form zone where the hero is form, nil otherwise.
   let heroLine: String?
   let chart: SummaryChartKind
-  /// Empty on Small, up to four otherwise.
+  /// The other two readings of training load, on the hero's line at Large when the hero is one of
+  /// them, in the order fitness, fatigue, form, Form with its zone in words. Empty otherwise.
+  let trainingLoad: [SummarySupporting]
+  /// Empty on Small, up to four otherwise, leaving out what `trainingLoad` already shows.
   let supporting: [SummarySupporting]
   /// Nil with no chart, and on Small, which has no room for it.
   let chartCaption: ChartCaption?
@@ -100,6 +103,9 @@ struct SummaryContent {
   let formZones: FormZoneChart?
   /// Present with `formZones`.
   let formCaption: FormChartCaption?
+  /// Where the record button goes: the last sport recorded, else the picker. Nil on Small, whose
+  /// one tap is the whole widget and whose value has no room beside it.
+  let record: URL?
 }
 
 enum SummaryWidgetModel {
@@ -109,6 +115,9 @@ enum SummaryWidgetModel {
   static let headlineIds = ["form", "fitness", "fatigue", "hrv", "rhr"]
 
   private static let formZoneOrder = ["highRisk", "optimal", "greyZone", "fresh", "transition"]
+
+  /// Training load, in the order the hero's line names it.
+  private static let trainingLoadIds = ["fitness", "fatigue", "form"]
 
   static func content(
     _ snapshot: WidgetSnapshot, placement: SummaryPlacement, size: SummarySize
@@ -136,6 +145,16 @@ enum SummaryWidgetModel {
           .compactMap { entry(snapshot, card, $0) }.prefix(supportingMax))
     }
 
+    // The hero's chart plots fitness and fatigue and names neither value, so on Large a training
+    // load hero carries the other two readings on its line, and the row does not repeat them. A
+    // medium box is one row of 48 points beside a chart taking half its width, which leaves the
+    // hero no room for them.
+    let load =
+      size != .large || !trainingLoadIds.contains(hero.id)
+      ? []
+      : trainingLoadIds.filter { $0 != hero.id }.compactMap { entry(snapshot, card, $0) }
+    let row = supporting.filter { e in !load.contains { $0.id == e.id } }
+
     let shows = placement.sparkline ?? (card.sparkline != "none")
     let chart = shows ? chartKind(snapshot, hero) : .none
     let zones = size == .large ? formZones(snapshot) : nil
@@ -143,12 +162,20 @@ enum SummaryWidgetModel {
       hero: hero,
       heroLine: hero.id == "form" ? snapshot.display.formZone : nil,
       chart: chart,
-      supporting: supporting.map {
-        SummarySupporting(entry: $0, caption: $0.id == "form" ? snapshot.display.formZone : nil)
-      },
+      trainingLoad: load.map { supportingEntry(snapshot, $0) },
+      supporting: row.map { supportingEntry(snapshot, $0) },
       chartCaption: size == .small ? nil : chartCaption(snapshot, chart),
       formZones: zones,
-      formCaption: zones == nil ? nil : formCaption(snapshot))
+      formCaption: zones == nil ? nil : formCaption(snapshot),
+      record: size == .small ? nil : RecordDeepLink.url(for: snapshot))
+  }
+
+  /// An entry with the form zone under its value where it is Form, which its colour alone would
+  /// carry.
+  private static func supportingEntry(_ snapshot: WidgetSnapshot, _ entry: WidgetSummaryEntry)
+    -> SummarySupporting
+  {
+    SummarySupporting(entry: entry, caption: entry.id == "form" ? snapshot.display.formZone : nil)
   }
 
   /// The series a chart draws, named as the snapshot names them, and the days it spans.

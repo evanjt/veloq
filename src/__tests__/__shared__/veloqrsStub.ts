@@ -195,6 +195,12 @@ export enum BulkExportFormat {
   GeoJson = 2,
 }
 
+/** `RecordScope` as generated, held to the source by the same test. */
+export enum RecordScope {
+  Whole = 1,
+  SharedStorage = 2,
+}
+
 /** `DownloadPriority` as generated, held to the source by the same test. */
 export enum DownloadPriority {
   Interactive = 0,
@@ -603,6 +609,7 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     TrackStep,
     DownloadPriority,
     BulkExportFormat,
+    RecordScope,
     GroupSort,
     EngineSportFamily,
     IntervalKind,
