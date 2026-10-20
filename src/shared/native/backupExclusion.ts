@@ -19,8 +19,7 @@ function plainPath(path: string): string {
  *
  * iOS backs up all of Documents to iCloud unless a file says otherwise, and
  * the only way to say otherwise is the resource attribute this sets. Android
- * needs nothing: its backup rules are an allowlist, so an unnamed directory
- * is already outside them.
+ * needs nothing: its own backup is off for the app, so no directory is in it.
  *
  * Takes a plain path or a `file://` URI. The native side reads its argument as
  * a path, so a URI handed through would name a relative directory of that

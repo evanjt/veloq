@@ -43,6 +43,8 @@ jest.mock('@/features/settings/lib/autobackup', () => ({
   getBackupFolderName: () => null,
   pickBackupFolder: jest.fn(),
   forgetBackupFolder: jest.fn(),
+  isSharedBackupFolder: () => false,
+  stopBackupFolder: jest.fn(),
   folderBackend: { id: 'folder', name: 'Folder' },
   failureMessageKey: () => 'backup.backupFailedMessage',
   performBackup: () => mockPerformBackup(),

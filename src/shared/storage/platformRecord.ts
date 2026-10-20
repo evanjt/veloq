@@ -1,9 +1,10 @@
 /**
- * The record zip the platform's own device backup carries.
+ * The record zip every backup run writes on the device.
  *
- * Auto-backup writes it into the documents directory on every run, and the
- * Android backup rules name that one file, so a new phone set up from the
- * athlete's device backup finds it there before anything else has run.
+ * Auto-backup writes it into the documents directory on every run and sends
+ * that file to each destination. On iPhone the device backup carries it, so a
+ * new phone set up from that backup finds it there before anything else has
+ * run. Android's own backup is off for the app and carries nothing.
  */
 
 import * as FileSystem from 'expo-file-system/legacy';

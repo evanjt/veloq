@@ -34,6 +34,8 @@ export {
   pickBackupFolder,
   getBackupFolderName,
   forgetBackupFolder,
+  isSharedBackupFolder,
+  stopBackupFolder,
   googleDriveBackend,
   signInToGoogleDrive,
   forgetGoogleDrive,

@@ -6,7 +6,8 @@ name: CodeQL
 # Kotlin is extracted only from a compile CodeQL traces, so java-kotlin builds:
 # scripts/codeql-android-compile.sh compiles every library untraced first and
 # then reruns only our own projects' compile tasks under the tracer. Nothing is
-# packaged and no Rust is built. The weekly run scans an unchanged sha again
+# packaged and no Rust is built. What no analysis can scan is excluded in
+# .github/codeql/codeql-config.yml. The weekly run scans an unchanged sha again
 # with the query packs as they stand that week.
 on:
   push:
@@ -115,6 +116,7 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
+          config-file: ./.github/codeql/codeql-config.yml
 
       - name: Compile our Kotlin and Java traced
         if: matrix.build-mode == 'manual'

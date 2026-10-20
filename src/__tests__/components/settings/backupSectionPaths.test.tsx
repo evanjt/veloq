@@ -34,11 +34,12 @@ let mockGeneration = 0;
 let mockImporting = false;
 let mockWebdavUrl: string | null = null;
 let mockFolderName: string | null = null;
+let mockSharedFolder = false;
+const mockStopFolder = jest.fn();
 let mockFailures: Record<string, { kind: string; status: number | null; at: number }> = {};
 let mockAutoEnabled = true;
 let mockDestinationStamps: Record<string, number> = {};
 let mockLocalBackups: unknown[] = [];
-let mockAndroidBackup: Record<string, number | null> | null = null;
 const FOLDER_BACKUPS = [
   {
     id: 'veloq-2026-10-01T06-00-00-000Z.zip',
@@ -124,9 +125,6 @@ jest.mock('@/shared/native/useEngineSubscription', () => ({
         getBackupScreenData: () => mockScreen(),
       }),
   useEngineSubscription: () => mockGeneration,
-}));
-jest.mock('@/shared/native/androidAutoBackup', () => ({
-  getAndroidAutoBackupStatus: () => mockAndroidBackup,
 }));
 jest.mock('expo-file-system/legacy', () => ({
   ...jest.requireActual('expo-file-system/legacy'),
@@ -234,6 +232,12 @@ jest.mock('@/features/settings/lib/autobackup', () => ({
     mockForgetFolder();
     mockFolderName = null;
   },
+  isSharedBackupFolder: () => mockSharedFolder,
+  stopBackupFolder: () => {
+    mockStopFolder();
+    mockFolderName = null;
+    mockSharedFolder = false;
+  },
   folderBackend: {
     id: 'folder',
     name: 'Folder',
@@ -298,12 +302,13 @@ beforeEach(() => {
   mockImporting = false;
   mockWebdavUrl = null;
   mockFolderName = null;
+  mockSharedFolder = false;
+  mockStopFolder.mockClear();
   mockFailures = {};
   mockIsDark = false;
   mockAutoEnabled = true;
   mockDestinationStamps = {};
   mockLocalBackups = [];
-  mockAndroidBackup = null;
   mockFolderBackups = FOLDER_BACKUPS;
   mockSetAutoEnabled.mockClear();
   mockPickFolder.mockReset();
@@ -912,11 +917,11 @@ it.each(['veloq-2026-09-30.zip', 'older.veloqdb'])(
 );
 
 describe('carriers', () => {
-  it('shows the device backup, WebDAV and folder rows with no destination picker', async () => {
+  it('shows the WebDAV and folder rows with no destination picker and no device backup row', async () => {
     await render(<BackupSection />);
 
     expect(screen.queryByText('backup.selectBackend')).toBeNull();
-    expect(screen.getByTestId('backup-carrier-device')).toBeTruthy();
+    expect(screen.queryByTestId('backup-carrier-device')).toBeNull();
     expect(screen.getByTestId('backup-carrier-webdav')).toBeTruthy();
     expect(screen.getByTestId('backup-carrier-folder')).toBeTruthy();
   });
@@ -1107,9 +1112,6 @@ describe('carriers', () => {
     expect(screen.getByTestId('backup-carrier-folder')).toHaveTextContent(
       /backup\.backupFailedFolder/
     );
-    expect(screen.getByTestId('backup-carrier-device')).not.toHaveTextContent(
-      /backup\.backupFailed/
-    );
   });
 
   it('draws a carrier failure in the dark error tone in the dark theme', async () => {
@@ -1191,14 +1193,6 @@ describe('restoring with only the device backup', () => {
       /^backup\.noBackupsAtDestination/
     );
   });
-
-  it('says on the device backup row that it is restored when a new phone is set up', async () => {
-    await render(<BackupSection />);
-
-    expect(screen.getByTestId('backup-carrier-device')).toHaveTextContent(
-      /backup\.carrierDeviceRestore/
-    );
-  });
 });
 
 describe('each destination shows when it last received a backup', () => {
@@ -1238,16 +1232,8 @@ describe('each destination shows when it last received a backup', () => {
   });
 });
 
-describe("the device row on Android reads what Android's backup did", () => {
+describe('on Android, where the app carries nothing in the device backup', () => {
   const originalOS = Platform.OS;
-  const status = {
-    backedUpAt: null,
-    backedUpBytes: null,
-    quotaExceededAt: null,
-    quotaExceededBytes: null,
-    quotaBytes: null,
-    restoredAt: null,
-  };
 
   beforeEach(() => {
     Platform.OS = 'android';
@@ -1257,84 +1243,54 @@ describe("the device row on Android reads what Android's backup did", () => {
     Platform.OS = originalOS;
   });
 
-  it("dates the row by Android's backup, not by when Veloq wrote its zip", async () => {
+  it('shows no device backup row among the destinations', async () => {
     mockDestinationStamps = { device: Date.parse('2026-05-04T06:30:00Z') };
-    mockAndroidBackup = {
-      ...status,
-      backedUpAt: Date.parse('2026-05-01T02:00:00Z'),
-      backedUpBytes: 4_200_000,
-    };
     await render(<BackupSection />);
 
-    expect(screen.getByTestId('backup-carrier-last-device')).toHaveTextContent(
-      /^backup\.androidLastBackup:\{"date":".+","size":"4\.2 MB"\}$/
-    );
-    expect(screen.queryByText(/^backup\.lastBackup:/)).toBeNull();
+    expect(screen.queryByTestId('backup-carrier-device')).toBeNull();
+    expect(screen.queryByTestId('backup-carrier-last-device')).toBeNull();
+    expect(screen.queryByText(/backup\.carrierDevice/)).toBeNull();
+    expect(screen.getByTestId('backup-carrier-folder')).toBeTruthy();
+    expect(screen.getByTestId('backup-carrier-webdav')).toBeTruthy();
   });
 
-  it('says Android has not backed Veloq up when it never has, whatever Veloq wrote', async () => {
-    mockDestinationStamps = { device: Date.parse('2026-05-04T06:30:00Z') };
-    mockAndroidBackup = status;
+  it('says nothing is set up to restore from, without pointing at a device backup', async () => {
     await render(<BackupSection />);
 
-    expect(screen.getByTestId('backup-carrier-last-device')).toHaveTextContent(
-      'backup.androidBackupNever'
+    await act(async () => {
+      await fireEvent.press(screen.getByTestId('backup-list-button'));
+    });
+
+    expect(screen.getByTestId('backup-none-found')).toHaveTextContent(
+      /^backup\.noDestinationSetUp$/
     );
   });
 
-  it('shows a quota overrun as a failure with both sizes', async () => {
-    mockAndroidBackup = {
-      ...status,
-      backedUpAt: Date.parse('2026-05-01T02:00:00Z'),
-      backedUpBytes: 4_200_000,
-      quotaExceededAt: Date.parse('2026-05-02T02:00:00Z'),
-      quotaExceededBytes: 30_000_000,
-      quotaBytes: 25_000_000,
-    };
+  it('says automatic backup writes to the destinations, not to a device backup', async () => {
+    mockOpenExplainer.mockClear();
     await render(<BackupSection />);
 
-    expect(screen.getByTestId('backup-carrier-device-quota')).toHaveTextContent(
-      /^backup\.androidQuotaExceeded:\{"date":".+","size":"30\.0 MB","quota":"25\.0 MB"\}$/
+    await fireEvent.press(screen.getByTestId('backup-info-auto'));
+
+    expect(String(mockOpenExplainer.mock.calls[0]?.[0].body)).toBe(
+      'backup.autoBackupDescriptionAndroid'
     );
   });
 
-  it('draws the quota overrun in the dark error tone in the dark theme', async () => {
-    mockIsDark = true;
-    mockAndroidBackup = {
-      ...status,
-      quotaExceededAt: Date.parse('2026-05-02T02:00:00Z'),
-      quotaExceededBytes: 30_000_000,
-      quotaBytes: 25_000_000,
-    };
+  it('keeps the destinations explanation, without the device backup in it', async () => {
+    mockOpenExplainer.mockClear();
     await render(<BackupSection />);
 
-    const quota = screen.getByTestId('backup-carrier-device-quota');
-    expect(StyleSheet.flatten(quota.props.style).color).toBe(darkColors.errorText);
-  });
+    await fireEvent.press(screen.getByTestId('backup-info-destinations'));
 
-  it('says when Veloq was restored from an Android backup', async () => {
-    mockAndroidBackup = { ...status, restoredAt: Date.parse('2026-04-30T09:00:00Z') };
-    await render(<BackupSection />);
-
-    expect(screen.getByTestId('backup-carrier-device-restored')).toHaveTextContent(
-      /^backup\.androidRestored:\{"date":".+"\}$/
-    );
-  });
-
-  it('shows no failure or restore that did not happen', async () => {
-    mockAndroidBackup = { ...status, backedUpAt: 1_000, backedUpBytes: 4_096 };
-    await render(<BackupSection />);
-
-    expect(screen.queryByTestId('backup-carrier-device-quota')).toBeNull();
-    expect(screen.queryByTestId('backup-carrier-device-restored')).toBeNull();
+    const message = String(mockOpenExplainer.mock.calls[0]?.[0].body);
+    expect(message).toContain('backup.localRestorePath');
   });
 });
 
 describe('one layout', () => {
   const explanations = [
     'backup.autoBackupDescription',
-    'backup.platformRestorePath',
-    'backup.carrierDeviceDescription',
     'backup.manualRestorePath',
     'backup.notEncryptedWarning',
     'backup.localRestorePath',
@@ -1363,7 +1319,7 @@ describe('one layout', () => {
   it.each([
     ['backup-info-auto', ['backup.autoBackupDescription']],
     ['backup-info-restore', ['backup.restoreInfo', 'backup.manualRestorePath']],
-    ['backup-info-destinations', ['backup.carrierDeviceDescription', 'backup.platformRestorePath']],
+    ['backup-info-destinations', ['backup.localRestorePath']],
     ['backup-info-export', ['backup.notEncryptedWarning']],
   ])('keeps the explanation behind %s', async (testID, keys) => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
@@ -1622,8 +1578,6 @@ describe('the iCloud Drive destination', () => {
     expect(mockOpenExplainer).toHaveBeenCalledTimes(1);
     const message = String(mockOpenExplainer.mock.calls[0]?.[0].body);
     expect(message).toContain('backup.localRestorePath');
-    expect(message).not.toContain('backup.carrierDeviceDescription');
-    expect(message).not.toContain('backup.platformRestorePath');
   });
 
   it('names iCloud Drive among the destinations a Back Up Now run wrote', async () => {
@@ -1641,5 +1595,144 @@ describe('the iCloud Drive destination', () => {
     expect(screen.getByTestId('backup-success-message')).toHaveTextContent(
       /backup\.recordSavedIcloud/
     );
+  });
+});
+
+describe('on Android the device copy goes to Documents/Veloq', () => {
+  const originalOS = Platform.OS;
+
+  beforeEach(() => {
+    Platform.OS = 'android';
+    mockFolderName = 'Documents/Veloq';
+    mockSharedFolder = true;
+  });
+
+  afterEach(() => {
+    Platform.OS = originalOS;
+  });
+
+  it('names Documents/Veloq on the Folder row, with Change and Stop, before anything is picked', async () => {
+    await render(<BackupSection />);
+
+    const row = screen.getByTestId('backup-carrier-folder');
+    expect(row).toHaveTextContent(/Documents\/Veloq/);
+    expect(row).not.toHaveTextContent(/backup\.carrierFolderNone/);
+    expect(within(row).getByRole('button', { name: 'backup.carrierFolderChange' })).toBeTruthy();
+    expect(within(row).getByRole('button', { name: 'backup.carrierFolderStop' })).toBeTruthy();
+    expect(screen.queryByTestId('backup-folder-remove')).toBeNull();
+  });
+
+  it('turns the device copy off with Stop and offers Choose in its place', async () => {
+    await render(<BackupSection />);
+
+    await act(async () => {
+      await fireEvent.press(screen.getByTestId('backup-folder-stop'));
+    });
+
+    expect(mockStopFolder).toHaveBeenCalledTimes(1);
+    expect(mockForgetFolder).not.toHaveBeenCalled();
+    const row = screen.getByTestId('backup-carrier-folder');
+    expect(row).toHaveTextContent(/backup\.carrierFolderNone/);
+    expect(within(row).getByRole('button', { name: 'backup.carrierFolderChoose' })).toBeTruthy();
+    expect(screen.queryByTestId('backup-folder-stop')).toBeNull();
+  });
+
+  it('stops a picked folder too, rather than removing it back to the default', async () => {
+    mockFolderName = 'Records';
+    mockSharedFolder = false;
+    await render(<BackupSection />);
+
+    await act(async () => {
+      await fireEvent.press(screen.getByTestId('backup-folder-stop'));
+    });
+
+    expect(mockStopFolder).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('backup-carrier-folder')).toHaveTextContent(
+      /backup\.carrierFolderNone/
+    );
+  });
+
+  it('names the folder after Back Up Now rather than Veloq storage', async () => {
+    (performBackup as jest.Mock).mockResolvedValueOnce({
+      wroteZip: true,
+      carriers: { folder: { status: 'written' } },
+    });
+    await render(<BackupSection />);
+
+    await act(async () => {
+      await fireEvent.press(screen.getByTestId('backup-now-button'));
+    });
+
+    const saved = screen.getByTestId('backup-success-message');
+    expect(saved).toHaveTextContent(
+      'backup.recordSavedSharedFolder:{"destination":"Documents/Veloq"}'
+    );
+    expect(saved).not.toHaveTextContent(/backup\.recordSavedLocal/);
+    expect(saved).not.toHaveTextContent(/backup\.recordSavedFolder:/);
+  });
+
+  it('names a picked folder as a folder once it has taken the zip', async () => {
+    mockFolderName = 'Records';
+    mockSharedFolder = false;
+    (performBackup as jest.Mock).mockResolvedValueOnce({
+      wroteZip: true,
+      carriers: { folder: { status: 'written' } },
+    });
+    await render(<BackupSection />);
+
+    await act(async () => {
+      await fireEvent.press(screen.getByTestId('backup-now-button'));
+    });
+
+    const saved = screen.getByTestId('backup-success-message');
+    expect(saved).toHaveTextContent('backup.recordSavedFolder:{"destination":"Records"}');
+    expect(saved).not.toHaveTextContent(/backup\.recordSavedLocal/);
+  });
+
+  it('says the zip stayed in Veloq storage when no destination took it', async () => {
+    mockFolderName = null;
+    mockSharedFolder = false;
+    (performBackup as jest.Mock).mockResolvedValueOnce({
+      wroteZip: true,
+      carriers: { folder: { status: 'skipped', reason: 'unavailable' } },
+    });
+    await render(<BackupSection />);
+
+    await act(async () => {
+      await fireEvent.press(screen.getByTestId('backup-now-button'));
+    });
+
+    expect(screen.getByTestId('backup-success-message')).toHaveTextContent(
+      'backup.recordSavedLocal'
+    );
+  });
+
+  it("says an earlier install's backups are in Documents/Veloq and opens Import backup", async () => {
+    mockFolderBackups = [];
+    await render(<BackupSection />);
+
+    await act(async () => {
+      await fireEvent.press(screen.getByTestId('backup-list-button'));
+    });
+
+    expect(screen.getByTestId('backup-shared-folder-hint')).toHaveTextContent(
+      /backup\.sharedFolderRestoreHint/
+    );
+    await act(async () => {
+      await fireEvent.press(screen.getByTestId('backup-shared-folder-import'));
+    });
+    expect(mockImportBackup).toHaveBeenCalledTimes(1);
+  });
+
+  it('gives no shared folder hint for a picked folder', async () => {
+    mockFolderName = 'Records';
+    mockSharedFolder = false;
+    await render(<BackupSection />);
+
+    await act(async () => {
+      await fireEvent.press(screen.getByTestId('backup-list-button'));
+    });
+
+    expect(screen.queryByTestId('backup-shared-folder-hint')).toBeNull();
   });
 });

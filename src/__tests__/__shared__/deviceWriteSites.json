@@ -1,6 +1,5 @@
 {
   "modules/veloq-app-group/ios/VeloqAppGroupModule.swift": 1,
-  "modules/veloq-backup-exclusion/android/src/main/java/com/veloq/backupexclusion/AutoBackupLedger.kt": 1,
   "modules/veloq-backup-exclusion/ios/VeloqBackupExclusionModule.swift": 1,
   "modules/veloq-live-activity/ios/VeloqLiveActivityModule.swift": 1,
   "modules/veloq-recording-notification/android/src/main/java/com/veloq/recording/IndoorRecordingService.kt": 1,
@@ -91,7 +90,7 @@
   "src/shared/app/ThemeProvider.ts": 1,
   "src/shared/app/UnitPreferenceStore.ts": 2,
   "src/shared/debug/crashLog.ts": 4,
-  "src/shared/native/backupFolder.ts": 3,
+  "src/shared/native/backupFolder.ts": 4,
   "src/shared/native/engine.ts": 3,
   "src/shared/native/replaceFile.ts": 1,
   "src/shared/storage/cachedAthleteId.ts": 2,

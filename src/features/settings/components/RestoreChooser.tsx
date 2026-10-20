@@ -12,9 +12,8 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/shared/ui';
-import { Icon } from '@/shared/ui/Icon';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 
 import { useImportDatabaseBackup } from '../hooks/useBackup';
 import { webdavBackend, type BackupBackend, type BackupEntry } from '../lib/autobackup/backends';
@@ -268,21 +267,6 @@ export function RestoreChooser({ onRestored, onBusyChange }: RestoreChooserProps
           ))}
         </>
       )}
-      {!isIcloudSupported() && (
-        <View testID="restore-chooser-device-backup" style={styles.deviceRow}>
-          <Icon
-            name="cellphone"
-            size={iconSize.md}
-            color={isDark ? darkColors.textSecondary : colors.textSecondary}
-          />
-          <View style={styles.fill}>
-            <Text style={[styles.label, isDark && styles.textDark]}>
-              {t('backup.carrierDeviceAndroid')}
-            </Text>
-            <Text style={[styles.detail, secondary]}>{t('backup.carrierDeviceRestore')}</Text>
-          </View>
-        </View>
-      )}
     </View>
   );
 }
@@ -291,24 +275,9 @@ const styles = StyleSheet.create({
   chooser: {
     gap: spacing.md,
   },
-  deviceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  fill: {
-    flex: 1,
-  },
-  label: {
-    ...typography.body,
-    color: colors.textPrimary,
-  },
   detail: {
     ...typography.caption,
     color: colors.textSecondary,
-  },
-  textDark: {
-    color: darkColors.textPrimary,
   },
   textSecondaryDark: {
     color: darkColors.textSecondary,

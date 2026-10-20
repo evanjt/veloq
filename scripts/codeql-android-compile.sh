@@ -22,8 +22,7 @@ set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 
-# The Gradle projects whose sources are ours. The widget sources compile in
-# :app, where the prebuild copies them.
+# The Gradle projects whose sources are ours.
 PROJECTS=(
   :app
   :veloqrs
@@ -41,6 +40,19 @@ PROJECTS=(
 # The shipped variant's source set is the one analysed.
 TASKS=(compileReleaseKotlin compileReleaseJavaWithJavac)
 
+# Tracked directories :app compiles where they are, so the database holds the
+# files the repository holds rather than copies written elsewhere: the widget's
+# Kotlin, which the prebuild copies into :app with its package filled in, and
+# the sea-level altitude helper, which the postinstall patch copies into
+# expo-location, a library that is not traced since nothing else in it is ours.
+APP_SOURCES=(
+  widget/android/java
+  scripts/expo-location
+)
+
+# What the altitude helper imports, which expo-location declares and :app does not.
+APP_DEPENDENCIES=(androidx.core:core-location-altitude:1.0.0)
+
 [ -f "$root/android/settings.gradle" ] || {
   echo "android/ is not generated. Run: CI=1 npx expo prebuild --platform android --no-install" >&2
   exit 1
@@ -53,6 +65,18 @@ case "${1:-}" in
     ./gradlew --stop
     ;;
   trace)
+    # The widget's Kotlin carries a package placeholder, so it is filled in
+    # where it is tracked and the prebuild's copies are set aside, since :app
+    # would otherwise declare every class twice. Both are put back on exit.
+    pkg=$(sed -n "s/^ *namespace ['\"]\([^'\"]*\)['\"].*/\1/p" app/build.gradle)
+    widget="$root/widget/android/java"
+    copies="app/src/main/java/${pkg//.//}/widget"
+    aside=$(mktemp -d)
+    cp -a "$widget/." "$aside/widget"
+    mv "$copies" "$aside/copies"
+    trap 'cp -a "$aside/widget/." "$widget/" && mv "$aside/copies" "$copies" && rm -rf "$aside"' EXIT
+    sed -i "s/__PKG__/$pkg/g" "$widget"/*.kt
+
     # Each task takes its own --rerun. kotlinc runs inside the Gradle process,
     # which the tracer sees, rather than in a Kotlin daemon started apart. Each
     # in-process compile loads the compiler again, so they run one at a time
@@ -63,9 +87,22 @@ case "${1:-}" in
         args+=("$project:$task" --rerun)
       done
     done
+    sources=()
+    for dir in "${APP_SOURCES[@]}"; do sources+=("$root/$dir"); done
     ./gradlew "${args[@]}" --no-daemon --no-build-cache --max-workers=1 \
       -Pkotlin.compiler.execution.strategy=in-process \
-      '-Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=2g'
+      '-Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=2g' \
+      --init-script "$root/scripts/codeql-app-sources.gradle" \
+      "-Pveloq.codeqlAppSources=$(IFS=,; echo "${sources[*]}")" \
+      "-Pveloq.codeqlAppDependencies=$(IFS=,; echo "${APP_DEPENDENCIES[*]}")"
+
+    # A source directory Gradle did not pick up compiles nothing and fails
+    # nothing, so the widget's classes are looked for.
+    compiled="app/build/tmp/kotlin-classes/release/${pkg//.//}/widget"
+    compgen -G "$compiled/*.class" > /dev/null || {
+      echo "No widget classes in android/$compiled: :app did not compile widget/android/java" >&2
+      exit 1
+    }
     ;;
   *)
     sed -n '5,13p' "${BASH_SOURCE[0]}" >&2

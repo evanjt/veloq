@@ -55,6 +55,11 @@ export const MIRRORS: Record<string, string[]> = {
 // back to the primary language.
 export const EXTRA_IOS_LOCALES = ['en-CA'];
 
+// The Play locale whose screenshots each App Store-only locale shows.
+const IOS_MIRRORS: Record<string, string[]> = {
+  'en-US': ['en-CA'],
+};
+
 export function uniqueStoreLocales(platform: 'android' | 'ios'): string[] {
   const locales = new Set(LOCALE_MAPPINGS.map((m) => m[platform]));
   if (platform === 'ios') for (const l of EXTRA_IOS_LOCALES) locales.add(l);
@@ -63,4 +68,46 @@ export function uniqueStoreLocales(platform: 'android' | 'ios'): string[] {
 
 export function appleLocaleFor(playLocale: string): string {
   return APPLE_LOCALE[playLocale] ?? playLocale;
+}
+
+/**
+ * One screenshot capture: the Play locale its raw captures and composites are
+ * keyed by, the language the capture flow picks in the app, and every Play and
+ * App Store locale its composites install into.
+ */
+export interface CaptureLocale {
+  play: string;
+  app: string;
+  android: string[];
+  ios: string[];
+}
+
+/**
+ * Every capture a full screenshot run takes. A mirror is installed from the
+ * locale it mirrors rather than captured. The app language is the mapping row
+ * spelt as the store locale, else the one row behind it: es-ES is captured in
+ * es-ES rather than neutral es, de-DE in de-DE rather than de-CH.
+ */
+export function captureLocales(): CaptureLocale[] {
+  const mirrored = new Set(Object.values(MIRRORS).flat());
+  return uniqueStoreLocales('android')
+    .filter((play) => !mirrored.has(play))
+    .map((play) => {
+      const rows = LOCALE_MAPPINGS.filter((m) => m.android === play);
+      const row = rows.find((m) => m.app === play) ?? (rows.length === 1 ? rows[0] : undefined);
+      if (!row) throw new Error(`No single app language behind the store locale ${play}`);
+      const android = [play, ...(MIRRORS[play] ?? [])];
+      return {
+        play,
+        app: row.app,
+        android,
+        ios: [...android.map(appleLocaleFor), ...(IOS_MIRRORS[play] ?? [])],
+      };
+    });
+}
+
+// `npx tsx scripts/store-locales.ts capture` prints one `<play>=<app>` line per
+// capture, which the capture scripts read.
+if (/store-locales\.ts$/.test(process.argv[1] ?? '') && process.argv[2] === 'capture') {
+  for (const c of captureLocales()) console.log(`${c.play}=${c.app}`);
 }

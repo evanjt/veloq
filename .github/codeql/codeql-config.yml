@@ -1,0 +1,15 @@
+name: CodeQL
+
+# What no analysis can scan, named so the status page counts it as excluded
+# rather than missed. Every other Kotlin, Java and C file is compiled by
+# scripts/codeql-android-compile.sh or scanned without a build, and
+# scripts/check-codeql-coverage.mjs refuses one that is neither.
+paths-ignore:
+  # Unit and instrumented tests, which no build of the app contains.
+  - modules/*/android/src/test
+  - modules/*/android/src/androidTest
+  # Debug-variant sources, which only the development build contains.
+  - modules/*/android/src/debug
+  # iOS headers, included only by Swift and Objective-C, which no analysis
+  # here compiles.
+  - '**/ios/**/*.h'

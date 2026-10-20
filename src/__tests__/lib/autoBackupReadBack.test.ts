@@ -56,6 +56,7 @@ jest.mock('@/features/settings/lib/autobackup/webdavConfig', () => ({
 jest.mock('@/shared/native/backupFolder', () => ({
   ...jest.requireActual('@/shared/native/backupFolder'),
   heldBackupFolder: () => 'content://tree/primary%3ARegatta',
+  backupFolderTarget: () => 'content://tree/primary%3ARegatta',
 }));
 
 jest.mock('expo-file-system/legacy', () => ({

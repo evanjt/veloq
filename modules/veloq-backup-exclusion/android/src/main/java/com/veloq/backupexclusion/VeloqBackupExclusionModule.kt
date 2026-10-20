@@ -30,11 +30,11 @@ private const val REQUEST_AUTHORIZE_GOOGLE_DRIVE = 0x5644
 
 /**
  * The Android side of the backup module: the backup folder's grant release, the
- * platform's storage figure for the app, what Auto Backup last did as the
- * backup agent recorded it, Google's authorisation for Veloq's own app data
- * folder in the athlete's Drive, and a save of an exported file to wherever on
- * the device the athlete chooses. The device backup rules here are an
- * allowlist, so nothing is excluded.
+ * platform's storage figure for the app, Google's authorisation for Veloq's own
+ * app data folder in the athlete's Drive, a save of an exported file to wherever
+ * on the device the athlete chooses, and the shared Documents/Veloq folder a
+ * backup's device copy goes to. Android's own backup is off for the app, so
+ * nothing is excluded.
  */
 class VeloqBackupExclusionModule : Module() {
   private val context: Context
@@ -147,18 +147,34 @@ class VeloqBackupExclusionModule : Module() {
       GoogleAuthUtil.clearToken(context, token)
     }
 
-    // What Auto Backup last did, as VeloqBackupAgent heard it. Each value is null
-    // until the platform has called the agent for it.
-    Function("getAutoBackupStatus") {
-      val status = AutoBackupLedger.forContext(context).status()
-      mapOf(
-        "backedUpAt" to status.backedUpAt?.toDouble(),
-        "backedUpBytes" to status.backedUpBytes?.toDouble(),
-        "quotaExceededAt" to status.quotaExceededAt?.toDouble(),
-        "quotaExceededBytes" to status.quotaExceededBytes?.toDouble(),
-        "quotaBytes" to status.quotaBytes?.toDouble(),
-        "restoredAt" to status.restoredAt?.toDouble()
-      )
+    // The shared Documents/Veloq, the Android device copy of a backup when no
+    // folder is picked. Each call checks the platform, so a call below Android
+    // 10 is refused rather than reaching a media store column it lacks.
+    Function("sharedDocumentsSupported") {
+      SharedDocuments.isSupported()
+    }
+
+    AsyncFunction("writeSharedDocument") Coroutine { from: String, name: String, mimeType: String ->
+      requireSharedDocuments()
+      withContext(Dispatchers.IO) {
+        SharedDocuments.write(context.contentResolver, from, name, mimeType)
+      }
+    }
+
+    AsyncFunction("listSharedDocuments") Coroutine { ->
+      requireSharedDocuments()
+      withContext(Dispatchers.IO) {
+        SharedDocuments.list(context.contentResolver).map { (name, size) ->
+          mapOf("name" to name, "size" to size.toDouble())
+        }
+      }
+    }
+
+    AsyncFunction("readSharedDocument") Coroutine { name: String, to: String ->
+      requireSharedDocuments()
+      withContext(Dispatchers.IO) {
+        SharedDocuments.read(context.contentResolver, name, to)
+      }
     }
 
     // The folder picker took a persistable grant on the tree. Giving it back
@@ -175,6 +191,12 @@ class VeloqBackupExclusionModule : Module() {
         if (grant.isWritePermission) flags = flags or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
         resolver.releasePersistableUriPermission(grant.uri, flags)
       }
+    }
+  }
+
+  private fun requireSharedDocuments() {
+    if (!SharedDocuments.isSupported()) {
+      throw IOException("Documents/Veloq needs Android 10 or later")
     }
   }
 

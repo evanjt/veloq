@@ -1,6 +1,8 @@
 /**
  * A folder the athlete picks on their own storage: an iOS Files folder, which
- * may sit in a cloud drive, or an Android storage-access folder.
+ * may sit in a cloud drive, or an Android storage-access folder. On Android,
+ * until one is picked, the shared `Documents/Veloq`, written through the media
+ * store.
  *
  * Each run adds one `veloq-<timestamp>.zip` and nothing here deletes one: the
  * folder is the athlete's, so what it keeps is theirs to manage. Which folder
@@ -15,20 +17,26 @@ import { Platform } from 'react-native';
 
 import { safeGetTime } from '@/shared/format/format';
 import {
+  backupFolderTarget,
   forgetBackupFolder,
   heldBackupFolder,
   heldBackupFolderName,
   holdBackupFolder,
   isFolderUnavailableError,
+  isSharedBackupFolder,
   listBookmarkedFolder,
+  listSharedFolder,
   readFromBookmarkedFolder,
+  readFromSharedFolder,
+  stopBackupFolder,
   writeToBookmarkedFolder,
+  writeToSharedFolder,
 } from '@/shared/native/backupFolder';
 import { backupFileName, backupNameTimestamp } from './backupName';
 import { BackupTransferError } from './errors';
 import type { BackupBackend, BackupEntry } from './types';
 
-export { forgetBackupFolder };
+export { forgetBackupFolder, isSharedBackupFolder, stopBackupFolder };
 
 /** The codes each platform's picker rejects with when the athlete dismisses it. */
 const PICKER_DISMISSED = new Set(['ERR_PICKER_CANCELLED', 'ERR_FILE_PICKING_CANCELLED']);
@@ -100,7 +108,7 @@ export async function pickBackupFolder(): Promise<string | null> {
   return picked.name;
 }
 
-/** The held folder's display name, or null when none is held. */
+/** The display name of the folder a run writes to, or null when there is none. */
 export function getBackupFolderName(): string | null {
   return heldBackupFolderName();
 }
@@ -113,7 +121,7 @@ export const folderBackend: BackupBackend = {
   // Held, not resolved: a folder that has gone out of reach is a failure the
   // athlete is shown, not a carrier that quietly stops being tried.
   async isAvailable(): Promise<boolean> {
-    return heldBackupFolder() !== null;
+    return backupFolderTarget() !== null;
   },
 
   async listBackups(): Promise<BackupEntry[]> {
@@ -121,7 +129,9 @@ export const folderBackend: BackupBackend = {
     const files =
       Platform.OS === 'ios'
         ? await onIos(operation, listBookmarkedFolder)
-        : treeFiles(operation).map((file) => ({ name: file.name, size: file.size ?? 0 }));
+        : isSharedBackupFolder()
+          ? await listSharedFolder()
+          : treeFiles(operation).map((file) => ({ name: file.name, size: file.size ?? 0 }));
     const entries: BackupEntry[] = [];
     for (const { name, size } of files) {
       const timestamp = backupNameTimestamp(name);
@@ -138,6 +148,8 @@ export const folderBackend: BackupBackend = {
       await onIos(operation, () => writeToBookmarkedFolder(localPath, name));
       return name;
     }
+    if (isSharedBackupFolder())
+      return await writeToSharedFolder(localPath, name, 'application/zip');
     const dir = reachableTree(operation);
     // Read first, so a zip that cannot be read leaves no empty file behind.
     const bytes = await new File(localPath).bytes();
@@ -160,6 +172,10 @@ export const folderBackend: BackupBackend = {
     const operation = 'Restore backup';
     if (Platform.OS === 'ios') {
       await onIos(operation, () => readFromBookmarkedFolder(backupId, destPath));
+      return;
+    }
+    if (isSharedBackupFolder()) {
+      await readFromSharedFolder(backupId, destPath);
       return;
     }
     const source = treeFiles(operation).find((file) => file.name === backupId);

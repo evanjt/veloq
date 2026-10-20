@@ -40,6 +40,8 @@ interface LanguageListProps {
  * by a key below the last row so it never sits beside a language it does not describe, and a
  * selected dialect is the same filled chip as any other selection. On iOS the system's
  * own per-app language is on the app's page in the Settings app, so the list links to it.
+ * The control that selects exactly one language code is keyed `language-<code>`: the chip of a
+ * language with variants, the row of one without, so the store capture can pick any language.
  */
 export function LanguageList({ language, onSelect }: LanguageListProps) {
   const { t } = useTranslation();
@@ -97,6 +99,7 @@ export function LanguageList({ language, onSelect }: LanguageListProps) {
             style={[styles.languageRow, styles.languageRowBorder, isDark && styles.languageRowDark]}
           >
             <PressTarget
+              testID={lang.variants ? undefined : `language-${lang.value}`}
               onPress={() =>
                 onSelect(lang.defaultVariant ?? lang.variants?.[0]?.value ?? lang.value)
               }
@@ -119,6 +122,7 @@ export function LanguageList({ language, onSelect }: LanguageListProps) {
                   return (
                     <ToggleButton
                       key={variant.value}
+                      testID={`language-${variant.value}`}
                       label={variant.label}
                       selected={isVariantSelected}
                       outlined={variant.isDialect === true}

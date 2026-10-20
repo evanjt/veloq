@@ -49,9 +49,17 @@ function listing(): RepoFile[] {
     );
   }
   files.push(
+    {
+      path: 'config/fastlane/metadata/android/en-US/images/phoneScreenshots/01-kites.png',
+      id: 'a',
+    },
+    {
+      path: 'config/fastlane/metadata/android/en-US/images/phoneScreenshots/02-reels.png',
+      id: 'a',
+    },
+    { path: 'config/fastlane/screenshots/en-US/01-kites.png', id: 'a' },
+    { path: 'config/fastlane/screenshots/en-US/ipad-01-kites.png', id: 'a' },
     { path: 'docs/screenshots/01-kites.png', id: 'a' },
-    { path: 'docs/screenshots/02-reels.png', id: 'a' },
-    { path: 'docs/screenshots/ios/01-kites.png', id: 'a' },
     { path: 'config/fastlane/metadata/store-privacy-declarations.json', id: 'a' },
     { path: 'src/app/index.tsx', id: 'a' }
   );
@@ -81,35 +89,34 @@ const RELEASE_NOTES = [
 ];
 
 describe('storeTree', () => {
-  it('installs docs/screenshots into the Play default listing and the App Store set', () => {
+  it('installs each locale fastlane screenshot set into that locale store listing', () => {
     const tree = storeTree(listing());
-    expect(tree.refusals).toEqual([]);
     expect(tree.files.get('metadata/android/en-US/images/phoneScreenshots/01-kites.png')).toEqual({
-      source: 'docs/screenshots/01-kites.png',
+      source: 'config/fastlane/metadata/android/en-US/images/phoneScreenshots/01-kites.png',
       id: 'a',
     });
     expect(tree.files.get('screenshots/en-US/01-kites.png')?.source).toBe(
-      'docs/screenshots/ios/01-kites.png'
+      'config/fastlane/screenshots/en-US/01-kites.png'
+    );
+    expect(tree.files.get('screenshots/en-US/ipad-01-kites.png')?.source).toBe(
+      'config/fastlane/screenshots/en-US/ipad-01-kites.png'
     );
   });
 
-  it('leaves out what no store reads', () => {
-    const paths = [...storeTree(listing()).files.keys()];
+  it('leaves out what no store reads, the website screenshots included', () => {
+    const tree = storeTree(listing());
+    const paths = [...tree.files.keys()];
     expect(paths.filter((p) => !/^(metadata\/(android|ios)\/|screenshots\/)/.test(p))).toEqual([]);
     expect(paths.some((p) => p.includes('store-privacy-declarations'))).toBe(false);
+    expect([...tree.files.values()].some((f) => f.source.startsWith('docs/'))).toBe(false);
   });
 
-  it('refuses a screenshot committed where docs/screenshots installs one', () => {
+  it('reads no file nested below a screenshot set, such as a raw capture kept beside it', () => {
     const files = [
       ...listing(),
-      {
-        path: 'config/fastlane/metadata/android/en-US/images/phoneScreenshots/01-kites.png',
-        id: 'b',
-      },
+      { path: 'config/fastlane/screenshots/en-US/raw/01-kites.png', id: 'b' },
     ];
-    expect(storeTree(files).refusals).toEqual([
-      expect.stringContaining('metadata/android/en-US/images/phoneScreenshots/01-kites.png'),
-    ]);
+    expect([...storeTree(files).files.keys()]).not.toContain('screenshots/en-US/raw/01-kites.png');
   });
 });
 
@@ -160,7 +167,10 @@ describe('planStoreRelease', () => {
   });
 
   it('sends a set whose shot was removed, so the store drops it too', () => {
-    const current = listing().filter((f) => f.path !== 'docs/screenshots/02-reels.png');
+    const current = listing().filter(
+      (f) =>
+        f.path !== 'config/fastlane/metadata/android/en-US/images/phoneScreenshots/02-reels.png'
+    );
     const plan = planStoreRelease(storeTree(released()), storeTree(current), VERSION_CODE);
     expect(plan.stage).toEqual(
       [...RELEASE_NOTES, 'metadata/android/en-US/images/phoneScreenshots/01-kites.png'].sort()
@@ -169,15 +179,21 @@ describe('planStoreRelease', () => {
   });
 
   it('replaces the App Store set of a locale only when that set changed', () => {
-    const current = edit(listing(), 'docs/screenshots/ios/01-kites.png', { id: 'b' });
+    const current = edit(listing(), 'config/fastlane/screenshots/en-US/01-kites.png', { id: 'b' });
     const plan = planStoreRelease(storeTree(released()), storeTree(current), VERSION_CODE);
-    expect(plan.stage).toEqual([...RELEASE_NOTES, 'screenshots/en-US/01-kites.png'].sort());
+    expect(plan.stage).toEqual(
+      [
+        ...RELEASE_NOTES,
+        'screenshots/en-US/01-kites.png',
+        'screenshots/en-US/ipad-01-kites.png',
+      ].sort()
+    );
     expect(plan.ios).toEqual({ screenshots: true });
     expect(plan.android.screenshots).toBe(false);
   });
 
   it('names a set removed entirely, which no upload can clear', () => {
-    const current = listing().filter((f) => !f.path.startsWith('docs/screenshots/ios/'));
+    const current = listing().filter((f) => !f.path.startsWith('config/fastlane/screenshots/'));
     const plan = planStoreRelease(storeTree(released()), storeTree(current), VERSION_CODE);
     expect(plan.ios.screenshots).toBe(false);
     expect(plan.notices).toEqual([expect.stringContaining('screenshots/en-US/')]);
@@ -274,15 +290,25 @@ describe('planStoreRelease', () => {
     expect(plan.refusals).toEqual([]);
   });
 
-  it('carries the tree refusals into the plan', () => {
-    const files = [
-      ...listing(),
-      {
-        path: 'config/fastlane/metadata/android/en-US/images/phoneScreenshots/02-reels.png',
-        id: 'b',
-      },
-    ];
-    expect(planStoreRelease(null, storeTree(files), VERSION_CODE).refusals).toHaveLength(1);
+  it('sends every regenerated set against a release whose screenshots sat in docs/screenshots', () => {
+    const shipped = released()
+      .filter((f) => !f.path.includes('/phoneScreenshots/') && !f.path.includes('/screenshots/'))
+      .concat([
+        { path: 'docs/screenshots/01-kites.png', id: 'w' },
+        { path: 'docs/screenshots/ios/01-kites.png', id: 'w' },
+      ]);
+    const plan = planStoreRelease(storeTree(shipped), storeTree(listing()), VERSION_CODE);
+    expect(plan.refusals).toEqual([]);
+    expect(plan.notices).toEqual([]);
+    expect(plan.android.screenshots).toBe(true);
+    expect(plan.ios.screenshots).toBe(true);
+    expect(plan.stage).toEqual(
+      expect.arrayContaining([
+        'metadata/android/en-US/images/phoneScreenshots/01-kites.png',
+        'metadata/android/fr-FR/images/phoneScreenshots/01-kites.png',
+        'screenshots/en-US/01-kites.png',
+      ])
+    );
   });
 });
 

@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
-import { View, StyleSheet, type ViewInstance } from 'react-native';
+import { Platform, View, StyleSheet, type ViewInstance } from 'react-native';
 import { Text } from 'react-native-paper';
 import {
   Button,
@@ -41,6 +41,8 @@ import {
   pickBackupFolder,
   getBackupFolderName,
   forgetBackupFolder,
+  isSharedBackupFolder,
+  stopBackupFolder,
   getWebdavConfig,
   icloudBackend,
   icloudBackupState,
@@ -84,9 +86,7 @@ import {
   type WebdavConfigFormHandle,
 } from './WebdavConfigForm';
 import { describeBackupFailure } from '@/features/settings/lib/backupFailure';
-import { formatFileSize, getIntlLocale } from '@/shared/format/format';
-import { getAndroidAutoBackupStatus } from '@/shared/native/androidAutoBackup';
-import { androidAutoBackupLines } from '@/features/settings/lib/androidAutoBackupLines';
+import { getIntlLocale } from '@/shared/format/format';
 import { confirmAction, inform } from '@/shared/ui/dialog';
 import { restoreDropLines, showRestoreNotice } from '@/features/settings/lib/restoreNotice';
 
@@ -139,20 +139,31 @@ function describeBackupRun(
   result: 'success' | 'error' | null,
   error: string | null,
   run: BackupRunResult | null,
-  destinations: { webdav: string; folder: string; googleDrive: string }
+  destinations: { webdav: string; folder: string; googleDrive: string; sharedFolder: boolean }
 ): BackupRunStatus | null {
   if (result === 'error') {
     return { tone: 'error', spoken: [error], saved: null, carriers: [], error };
   }
   if (result !== 'success') return null;
   const carriers = run?.carriers;
+  const folderWritten = carriers?.folder?.status === 'written';
+  // On Android the folder is the device copy, so a zip it took is named there
+  // rather than as Veloq's own storage, which the platform deletes with the app.
+  const savedLocally = Platform.OS !== 'android' || !folderWritten;
   const saved = [
-    t('backup.recordSavedLocal'),
+    ...(savedLocally ? [t('backup.recordSavedLocal')] : []),
     ...(carriers?.webdav?.status === 'written'
       ? [t('backup.recordSavedWebdav', { destination: destinations.webdav })]
       : []),
-    ...(carriers?.folder?.status === 'written'
-      ? [t('backup.recordSavedFolder', { destination: destinations.folder })]
+    ...(folderWritten
+      ? [
+          t(
+            destinations.sharedFolder
+              ? 'backup.recordSavedSharedFolder'
+              : 'backup.recordSavedFolder',
+            { destination: destinations.folder }
+          ),
+        ]
       : []),
     ...(carriers?.googleDrive?.status === 'written'
       ? [t('backup.recordSavedGoogleDrive', { destination: destinations.googleDrive })]
@@ -213,57 +224,6 @@ function DestinationLastBackup({ at, testID }: { at: number | null; testID: stri
   );
 }
 
-/**
- * What Android's Auto Backup last did, as its backup agent recorded it. Veloq
- * writing its zip says nothing about whether Android took it, so on Android the
- * device row reads this rather than that stamp.
- */
-function AndroidAutoBackupState() {
-  const { t } = useTranslation();
-  const { isDark } = useTheme();
-  const [lines] = useState(() => androidAutoBackupLines(getAndroidAutoBackupStatus()));
-  const day = (at: number) => new Date(at).toLocaleDateString(getIntlLocale());
-  const detailStyle = [styles.detail, isDark && settingsStyles.textSecondary];
-  return (
-    <>
-      {lines.map((line) => {
-        switch (line.kind) {
-          case 'never':
-            return (
-              <Text key={line.kind} testID="backup-carrier-last-device" style={detailStyle}>
-                {t('backup.androidBackupNever')}
-              </Text>
-            );
-          case 'backedUp':
-            return (
-              <Text key={line.kind} testID="backup-carrier-last-device" style={detailStyle}>
-                {t('backup.androidLastBackup', {
-                  date: day(line.at),
-                  size: formatFileSize(line.bytes),
-                })}
-              </Text>
-            );
-          case 'quotaExceeded':
-            return (
-              <Text key={line.kind} testID="backup-carrier-device-quota" style={errorStyle(isDark)}>
-                {t('backup.androidQuotaExceeded', {
-                  date: day(line.at),
-                  size: formatFileSize(line.bytes),
-                  quota: formatFileSize(line.quotaBytes),
-                })}
-              </Text>
-            );
-        }
-        return (
-          <Text key={line.kind} testID="backup-carrier-device-restored" style={detailStyle}>
-            {t('backup.androidRestored', { date: day(line.at) })}
-          </Text>
-        );
-      })}
-    </>
-  );
-}
-
 export function BackupSection() {
   const { isDark } = useTheme();
   const { t } = useTranslation();
@@ -281,6 +241,7 @@ export function BackupSection() {
   const [listedSetUpDestination, setListedSetUpDestination] = useState(false);
   const [webdavSet, setWebdavSet] = useState(() => getWebdavConfig() !== null);
   const [folderName, setFolderName] = useState(() => getBackupFolderName());
+  const [sharedFolder, setSharedFolder] = useState(() => isSharedBackupFolder());
   const driveSupported = isGoogleDriveSupported();
   const [driveAccount, setDriveAccount] = useState(() =>
     driveSupported ? getGoogleDriveAccount() : null
@@ -612,6 +573,7 @@ export function BackupSection() {
       const picked = await pickBackupFolder();
       if (picked !== null) {
         setFolderName(picked);
+        setSharedFolder(false);
         setBackendBackups(null);
       }
     } catch (error) {
@@ -659,9 +621,13 @@ export function BackupSection() {
     setBackendBackups(null);
   }, []);
 
+  // On Android the folder row stops the device copy outright, since forgetting
+  // a picked folder would only hand the runs back to Documents/Veloq.
   const handleRemoveFolder = useCallback(() => {
-    forgetBackupFolder();
+    if (Platform.OS === 'android') stopBackupFolder();
+    else forgetBackupFolder();
     setFolderName(null);
+    setSharedFolder(false);
     setBackendBackups(null);
   }, []);
 
@@ -711,18 +677,13 @@ export function BackupSection() {
   const anyBusy = restoringEntry !== null;
 
   const info = (...parts: string[]) => parts.join('\n\n');
-  // On iPhone the cloud backup named is iCloud Drive, which Veloq writes and
-  // can list, so the phone's own backup gets no row and no explanation.
+  // Neither platform's own backup gets a row: Android's is off for the app, and on
+  // iPhone the cloud backup named is iCloud Drive, which Veloq writes and can list.
   const destinationsInfo = (
     <InfoButton
       testID="backup-info-destinations"
       title={t('backup.sectionDestinations')}
-      message={info(
-        ...(icloudSupported
-          ? []
-          : [t('backup.carrierDeviceDescription'), t('backup.platformRestorePath')]),
-        webdavSet ? t('backup.webdavRestorePath') : t('backup.localRestorePath')
-      )}
+      message={webdavSet ? t('backup.webdavRestorePath') : t('backup.localRestorePath')}
     />
   );
 
@@ -730,6 +691,7 @@ export function BackupSection() {
     webdav: getWebdavConfig()?.url ?? '',
     folder: folderName ?? '',
     googleDrive: driveAccount ?? '',
+    sharedFolder,
   });
 
   return (
@@ -747,7 +709,11 @@ export function BackupSection() {
             <InfoButton
               testID="backup-info-auto"
               title={t('backup.autoBackup')}
-              message={t('backup.autoBackupDescription')}
+              message={t(
+                Platform.OS === 'ios'
+                  ? 'backup.autoBackupDescription'
+                  : 'backup.autoBackupDescriptionAndroid'
+              )}
             />
           }
           testID="backup-auto-switch"
@@ -824,12 +790,14 @@ export function BackupSection() {
         </Row>
         {backendBackups?.every((group) => group.entries.length === 0) ? (
           <Row>
-            {/* The device backup cannot be read from here: the platform hands it
-                back only while a new phone is set up. */}
+            {/* The iPhone's device backup cannot be read from here: the platform
+                hands it back only while a new phone is set up. */}
             <Text testID="backup-none-found" style={detailStyle}>
               {listedSetUpDestination
                 ? t('backup.noBackupsAtDestination')
-                : t('backup.noBrowsableDestination')}
+                : Platform.OS === 'ios'
+                  ? t('backup.noBrowsableDestination')
+                  : t('backup.noDestinationSetUp')}
             </Text>
           </Row>
         ) : null}
@@ -853,6 +821,29 @@ export function BackupSection() {
             </View>
           )
         )}
+        {sharedFolder && backendBackups?.some((group) => group.backend.id === 'folder') ? (
+          <>
+            {divider}
+            {/* The media store lists only this install's own files, so the zips
+                an earlier install left there are reached through the picker. */}
+            <Row testID="backup-shared-folder-hint">
+              <Icon name="information-outline" size={iconSize.lg} color={iconColor} />
+              <View style={styles.fill}>
+                <Text style={detailStyle}>{t('backup.sharedFolderRestoreHint')}</Text>
+                <View style={styles.actions}>
+                  <Button
+                    testID="backup-shared-folder-import"
+                    label={t('backup.importBackup')}
+                    variant="secondary"
+                    size="sm"
+                    onPress={handleImportBackup}
+                    disabled={dbImporting}
+                  />
+                </View>
+              </View>
+            </Row>
+          </>
+        ) : null}
         {divider}
         <Row
           testID="backup-import-button"
@@ -966,17 +957,6 @@ export function BackupSection() {
 
       <ListSectionHeader>{t('backup.sectionDestinations')}</ListSectionHeader>
       <Card variant="flat" padding="none">
-        {icloudSupported ? null : (
-          <Row testID="backup-carrier-device">
-            <Icon name="cellphone" size={iconSize.lg} color={iconColor} />
-            <View style={styles.fill}>
-              <Text style={labelStyle}>{t('backup.carrierDeviceAndroid')}</Text>
-              <Text style={detailStyle}>{t('backup.carrierDeviceRestore')}</Text>
-              <AndroidAutoBackupState />
-            </View>
-            {destinationsInfo}
-          </Row>
-        )}
         {icloudSupported ? (
           <>
             <View testID="backup-carrier-icloud">
@@ -1010,7 +990,7 @@ export function BackupSection() {
             </View>
           </>
         ) : null}
-        {divider}
+        {icloudSupported ? divider : null}
         <View testID="backup-carrier-folder">
           <Row>
             <Icon name="folder-outline" size={iconSize.lg} color={iconColor} />
@@ -1026,8 +1006,12 @@ export function BackupSection() {
             </View>
             {folderName ? (
               <Button
-                testID="backup-folder-remove"
-                label={t('backup.carrierFolderRemove')}
+                testID={Platform.OS === 'android' ? 'backup-folder-stop' : 'backup-folder-remove'}
+                label={
+                  Platform.OS === 'android'
+                    ? t('backup.carrierFolderStop')
+                    : t('backup.carrierFolderRemove')
+                }
                 variant="ghost"
                 size="sm"
                 onPress={handleRemoveFolder}
@@ -1105,7 +1089,7 @@ export function BackupSection() {
         ) : null}
         {divider}
         <View testID="backup-carrier-webdav">
-          <Row>
+          <Row accessory={icloudSupported ? undefined : destinationsInfo}>
             <Icon name="server-network" size={iconSize.lg} color={iconColor} />
             <View style={styles.fill}>
               <Text style={labelStyle}>{t('backup.backendWebdav')}</Text>

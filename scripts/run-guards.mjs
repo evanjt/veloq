@@ -71,6 +71,13 @@ const GUARDS = [
       'a directory or iOS source outside the source hash or the native rules of the change classifier, so CI reuses or skips the native builds',
   },
   {
+    name: 'check:codeql-coverage',
+    kind: 'correctness',
+    cmd: node('check-codeql-coverage.mjs'),
+    catches:
+      'a Kotlin, Java or C file shipped in the app that the CodeQL compile never reaches and no paths-ignore names, so code scanning reads it as unscanned',
+  },
+  {
     name: 'check:module-version',
     kind: 'correctness',
     cmd: node('check-module-version.mjs'),

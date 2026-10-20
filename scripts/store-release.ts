@@ -2,9 +2,11 @@
 /**
  * What a release tag sends to Google Play and the App Store.
  *
- * The listings live in config/fastlane/metadata, and the screenshots in
- * docs/screenshots, which installs into Play's default listing, and
- * docs/screenshots/ios, which installs into the App Store set. Between the
+ * The listings live in config/fastlane/metadata, Play's screenshot sets in
+ * each locale's metadata/android/<locale>/images, and the App Store's in
+ * config/fastlane/screenshots/<locale>, all of them written by
+ * `npm run store:screenshots`. docs/screenshots is the website's and no store
+ * reads it. Between the
  * previous release tag and this one, only the texts, images and screenshot
  * sets that changed are staged, so a store is never re-sent a listing it
  * already holds. Every locale's release notes are staged on every release,
@@ -36,13 +38,7 @@ import * as path from 'node:path';
 // ============================================================================
 
 const METADATA_SOURCE = 'config/fastlane/metadata/';
-const SCREENSHOT_SOURCE = 'docs/screenshots/';
-const IOS_SCREENSHOT_SOURCE = 'docs/screenshots/ios/';
-
-/** Play shows its default listing's screenshots in every language that has none. */
-const PLAY_DEFAULT_LOCALE = 'en-US';
-/** The App Store set docs/screenshots/ios installs into. */
-const APP_STORE_SCREENSHOT_LOCALE = 'en-US';
+const APP_STORE_SCREENSHOT_SOURCE = 'config/fastlane/screenshots/';
 
 /** The App Store directories under metadata/ios that are not locales. */
 const IOS_NON_LOCALE_DIRS = new Set([
@@ -84,21 +80,15 @@ export interface StoreFile {
 export interface StoreTree {
   /** By store path: `metadata/android/...`, `metadata/ios/...` or `screenshots/<locale>/...`. */
   files: Map<string, StoreFile>;
-  refusals: string[];
 }
 
 /** The store path a repository file installs as, or null for one no store reads. */
 export function storePath(repoPath: string): string | null {
-  const flat = (rest: string) => !rest.includes('/') && /\.(png|jpe?g)$/i.test(rest);
-  if (repoPath.startsWith(IOS_SCREENSHOT_SOURCE)) {
-    const rest = repoPath.slice(IOS_SCREENSHOT_SOURCE.length);
-    return flat(rest) ? `screenshots/${APP_STORE_SCREENSHOT_LOCALE}/${rest}` : null;
-  }
-  if (repoPath.startsWith(SCREENSHOT_SOURCE)) {
-    const rest = repoPath.slice(SCREENSHOT_SOURCE.length);
-    return flat(rest)
-      ? `metadata/android/${PLAY_DEFAULT_LOCALE}/images/phoneScreenshots/${rest}`
-      : null;
+  if (repoPath.startsWith(APP_STORE_SCREENSHOT_SOURCE)) {
+    const rest = repoPath.slice(APP_STORE_SCREENSHOT_SOURCE.length);
+    const [locale, file, ...deeper] = rest.split('/');
+    const image = file !== undefined && /\.(png|jpe?g)$/i.test(file);
+    return locale && image && deeper.length === 0 ? `screenshots/${rest}` : null;
   }
   if (repoPath.startsWith(METADATA_SOURCE)) {
     const rest = repoPath.slice(METADATA_SOURCE.length);
@@ -107,23 +97,12 @@ export function storePath(repoPath: string): string | null {
   return null;
 }
 
-/** Every file a store reads, at its store path; two sources for one path is refused. */
+/** Every file a store reads, at its store path. */
 export function storeTree(files: RepoFile[]): StoreTree {
-  const tree: StoreTree = { files: new Map(), refusals: [] };
+  const tree: StoreTree = { files: new Map() };
   for (const file of files) {
     const at = storePath(file.path);
     if (at === null) continue;
-    const held = tree.files.get(at);
-    if (held) {
-      const [installed, committed] = held.source.startsWith(SCREENSHOT_SOURCE)
-        ? [held.source, file.path]
-        : [file.path, held.source];
-      tree.refusals.push(
-        `${committed} is a second copy of ${installed}, which installs as ${at}: ` +
-          `screenshots come from ${SCREENSHOT_SOURCE} only`
-      );
-      continue;
-    }
     const entry: StoreFile = { source: file.path, id: file.id };
     if (file.text !== undefined) entry.text = file.text;
     tree.files.set(at, entry);
@@ -282,7 +261,7 @@ export function planStoreRelease(
 ): StorePlan {
   const { notes, refusals } = releaseNotes(current, previous, versionCode);
   const plan: StorePlan = {
-    refusals: [...current.refusals, ...refusals],
+    refusals,
     notices: [],
     stage: [],
     android: { metadata: false, images: false, screenshots: false },
@@ -431,7 +410,7 @@ function filesAt(ref: string, versionCode: number): RepoFile[] {
     ref,
     '--',
     'config/fastlane/metadata',
-    'docs/screenshots',
+    'config/fastlane/screenshots',
   ]);
   return String(out)
     .split('\0')

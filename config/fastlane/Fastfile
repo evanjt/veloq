@@ -16,13 +16,9 @@ def store_release(*args)
   sh("node", "--disable-warning=MODULE_TYPELESS_PACKAGE_JSON", STORE_RELEASE, *args)
 end
 
-# The phone screenshots a locale's listing installs from: docs/screenshots
-# for the default listing, the locale's own fastlane set otherwise.
+# The phone screenshots a locale's listing installs from, the set
+# `npm run store:screenshots` writes into the locale's fastlane tree.
 def repo_phone_screenshots(lang)
-  if lang == "en-US"
-    shots = Dir[File.join(PROJECT_ROOT, "docs", "screenshots", "*.{png,jpg,jpeg}")].sort
-    return shots unless shots.empty?
-  end
   Dir[File.expand_path("metadata/android/#{lang}/images/phoneScreenshots/*.{png,jpg,jpeg}", __dir__)].sort
 end
 

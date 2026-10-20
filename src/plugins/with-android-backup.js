@@ -6,79 +6,64 @@ const fs = require("fs");
 const path = require("path");
 
 /**
- * Expo config plugin that configures Android Auto Backup to carry the latest
- * record zip and nothing else.
+ * Expo config plugin that turns Android's own backup off for the app.
  *
- * Two files, because the platform changed which one it reads.
- * `android:fullBackupContent` applies to Android 11 and lower;
- * `android:dataExtractionRules` applies from Android 12, and covers the
- * cloud backup and the device-to-device transfer separately. Both include the
- * latest versioned record zip alone.
+ * Android's backup is invisible to the app and restores at install, before
+ * the first launch, so whatever it carried would take effect before the
+ * athlete could accept it, and under any restore they chose themselves. The
+ * app's backups travel through the destinations the athlete sets up instead.
  *
- * No shared preferences file is carried. Settings live in the engine and travel
- * inside the zip, and every preferences file left is this install's state:
- * registered tasks, permission flags, push ids, widget choices keyed by the
- * launcher's widget ids, a pending interrupted-ride notice, SecureStore's
- * credentials and the backup agent's record of this phone. A restore lands at
- * install, before the first launch, so whatever it carries takes effect before
- * the athlete could accept it. The zip waits in `files/` until they do.
- *
- * Only listed paths are backed up; all others (routes.db, gps_tracks,
- * terrain_previews, etc.) are excluded implicitly. These files replace the
- * rules expo-secure-store's own plugin carries, because only one file can be
- * named by each attribute and this one is it.
+ * `android:allowBackup="false"` stops the cloud backup on every version and
+ * the device-to-device transfer up to Android 11. From Android 12 that
+ * transfer ignores the attribute and reads `android:dataExtractionRules`, so
+ * those rules exclude every domain. They replace the rules expo-secure-store's
+ * own plugin names, which carry shared preferences.
  */
 
-/**
- * The backup agent in the backup module, which records when Android last backed
- * the app up, its size, a quota overrun and a restore. Android tells the app
- * nothing of these otherwise.
- */
-const BACKUP_AGENT = "com.veloq.backupexclusion.VeloqBackupAgent";
+const DOMAINS = [
+  "root",
+  "file",
+  "database",
+  "sharedpref",
+  "external",
+  "device_root",
+  "device_file",
+  "device_database",
+  "device_sharedpref",
+];
 
-const BACKUP_RULES = `<?xml version="1.0" encoding="utf-8"?>
-<!-- Veloq Auto Backup rules for Android 11 and lower -->
-<full-backup-content>
-  <!-- The latest record zip, and nothing else -->
-  <include domain="file" path="veloq-decisions.zip" />
-</full-backup-content>
-`;
+const EXCLUDE_ALL = DOMAINS.map(
+  (domain) => `    <exclude domain="${domain}" path="." />`
+).join("\n");
 
 const DATA_EXTRACTION_RULES = `<?xml version="1.0" encoding="utf-8"?>
-<!-- Veloq Auto Backup rules for Android 12 and higher -->
+<!-- Veloq carries nothing in Android's backup or device transfer -->
 <data-extraction-rules>
   <cloud-backup>
-    <include domain="file" path="veloq-decisions.zip" />
+${EXCLUDE_ALL}
   </cloud-backup>
   <device-transfer>
-    <include domain="file" path="veloq-decisions.zip" />
+${EXCLUDE_ALL}
   </device-transfer>
 </data-extraction-rules>
 `;
 
 /**
- * Point both attributes at this app's rules. `dataExtractionRules` is
- * overwritten rather than left alone: expo-secure-store's plugin sets it to
- * its own file, which carries shared preferences and nothing else, so leaving
- * it would carry this install's preferences and omit the record zip from
- * Android 12 backups.
- *
- * Naming an agent alone would switch the app to key-value backup, which the
- * rules files do not govern; `fullBackupOnly` keeps the full backup they
- * describe and has the agent called for it.
+ * Turn backup off and point the Android 12 rules at this app's, removing the
+ * backup agent and the Android 11 rules a previous configuration named.
  */
 function configureManifest(mainApplication) {
-  mainApplication.$["android:fullBackupContent"] = "@xml/veloq_backup_rules";
+  mainApplication.$["android:allowBackup"] = "false";
   mainApplication.$["android:dataExtractionRules"] =
     "@xml/veloq_data_extraction_rules";
-  mainApplication.$["android:backupAgent"] = BACKUP_AGENT;
-  mainApplication.$["android:fullBackupOnly"] = "true";
+  delete mainApplication.$["android:fullBackupContent"];
+  delete mainApplication.$["android:backupAgent"];
+  delete mainApplication.$["android:fullBackupOnly"];
 }
 
-/** Write both rules files into an `res/xml` directory, creating it if needed. */
+/** Write the rules file into an `res/xml` directory, creating it if needed. */
 function writeRules(resDir) {
   fs.mkdirSync(resDir, { recursive: true });
-  fs.writeFileSync(path.join(resDir, "veloq_backup_rules.xml"), BACKUP_RULES);
   fs.writeFileSync(
     path.join(resDir, "veloq_data_extraction_rules.xml"),
     DATA_EXTRACTION_RULES
@@ -86,7 +71,6 @@ function writeRules(resDir) {
 }
 
 function withAndroidBackup(config) {
-  // Write the backup rules XML files during prebuild
   config = withAndroidManifest(config, async (mod) => {
     writeRules(
       path.join(
@@ -110,8 +94,6 @@ function withAndroidBackup(config) {
 }
 
 module.exports = withAndroidBackup;
-module.exports.BACKUP_AGENT = BACKUP_AGENT;
-module.exports.BACKUP_RULES = BACKUP_RULES;
 module.exports.DATA_EXTRACTION_RULES = DATA_EXTRACTION_RULES;
 module.exports.configureManifest = configureManifest;
 module.exports.writeRules = writeRules;

@@ -1,14 +1,17 @@
 /**
  * Legacy reader for the app's old backup directory.
  *
- * Nothing writes there any more. Backups an older build made stay listed for
- * restore, and go only with a wipe.
+ * Nothing writes there any more. On iOS the backups an older build made stay
+ * listed for restore, and go only with a wipe. On Android the newest moves to
+ * the shared `Documents/Veloq` and the directory goes, since Android deletes
+ * it with the app.
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
 import { backupEntryFromSidecar, type BackupBackend, type BackupEntry } from './types';
 import { safeGetTime } from '@/shared/format/format';
 import { excludeFromBackup } from '@/shared/native/backupExclusion';
+import { canWriteSharedFolder, writeToSharedFolder } from '@/shared/native/backupFolder';
 import { BACKUP_NAME_PREFIX } from './backupName';
 
 /** Resolve the backup directory at call time (not module load time). */
@@ -77,6 +80,24 @@ export function excludeLocalBackupsFromDeviceBackup(): void {
   if (excludeFromBackup(`${docDir}backups/`) === false) {
     console.warn('[backup] local backups are not excluded from the device backup');
   }
+}
+
+/**
+ * Move the old backup directory to the shared `Documents/Veloq` on Android:
+ * the newest backup is copied there and then the directory is deleted. A copy
+ * that fails throws and deletes nothing, so the next launch tries again. While
+ * the athlete has stopped the device copy the directory is left alone.
+ */
+export async function moveOlderBackupsToSharedFolder(): Promise<void> {
+  if (!canWriteSharedFolder()) return;
+  const dir = getBackupDir();
+  if (!(await FileSystem.getInfoAsync(dir)).exists) return;
+  const [newest] = await localBackend.listBackups();
+  if (newest) {
+    const mimeType = newest.id.endsWith('.zip') ? 'application/zip' : 'application/octet-stream';
+    await writeToSharedFolder(`${dir}${newest.id}`, newest.id, mimeType);
+  }
+  await FileSystem.deleteAsync(dir, { idempotent: true });
 }
 
 export const localBackend: BackupBackend = {

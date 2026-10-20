@@ -1,0 +1,20 @@
+// Gradle init script for the traced compile in scripts/codeql-android-compile.sh.
+// Adds the comma-separated directories in veloq.codeqlAppSources to :app's main
+// source set, and the comma-separated coordinates in veloq.codeqlAppDependencies
+// to its compile classpath, so tracked sources compile where they are tracked.
+// Nothing built with it is packaged.
+
+def property = { String name ->
+  def value = gradle.startParameter.projectProperties[name]
+  value ? value.split(',').findAll { it } : []
+}
+def sources = property('veloq.codeqlAppSources')
+def dependencies = property('veloq.codeqlAppDependencies')
+
+allprojects { project ->
+  if (project.path != ':app') return
+  project.plugins.withId('com.android.application') {
+    project.android.sourceSets.main.java.srcDirs(sources)
+    dependencies.each { project.dependencies.add('compileOnly', it) }
+  }
+}

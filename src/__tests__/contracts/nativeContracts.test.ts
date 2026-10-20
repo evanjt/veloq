@@ -909,6 +909,23 @@ const CONTRACTS: Contract[] = [
     },
     b: { file: 'src/shared/native/backupFolder.ts', has: '?.releaseFolderGrant(' },
   },
+  ...['writeSharedDocument', 'listSharedDocuments', 'readSharedDocument'].map((name) => ({
+    agree: `the Android backup module defines ${name}, which the shared folder bridge calls`,
+    a: {
+      file: 'modules/veloq-backup-exclusion/android/src/main/java/com/veloq/backupexclusion/VeloqBackupExclusionModule.kt',
+      has: `AsyncFunction("${name}")`,
+    },
+    b: { file: 'src/shared/native/backupFolder.ts', has: `await nativeModule().${name}(` },
+  })),
+  {
+    agree:
+      'the Android backup module defines sharedDocumentsSupported, which the folder default reads',
+    a: {
+      file: 'modules/veloq-backup-exclusion/android/src/main/java/com/veloq/backupexclusion/VeloqBackupExclusionModule.kt',
+      has: 'Function("sharedDocumentsSupported")',
+    },
+    b: { file: 'src/shared/native/backupFolder.ts', has: '?.sharedDocumentsSupported?.()' },
+  },
   {
     agree: 'the Android backup module defines getAppStorageStats, which the storage total calls',
     a: {
@@ -941,51 +958,6 @@ const CONTRACTS: Contract[] = [
     },
     b: { file: 'src/shared/native/googleDrive.ts', has: `'${code}'` },
   })),
-  {
-    agree: 'the Android backup module defines getAutoBackupStatus, which the device row reads',
-    a: {
-      file: 'modules/veloq-backup-exclusion/android/src/main/java/com/veloq/backupexclusion/VeloqBackupExclusionModule.kt',
-      has: 'Function("getAutoBackupStatus")',
-    },
-    b: { file: 'src/shared/native/androidAutoBackup.ts', has: 'mod.getAutoBackupStatus()' },
-  },
-  ...[
-    'backedUpAt',
-    'backedUpBytes',
-    'quotaExceededAt',
-    'quotaExceededBytes',
-    'quotaBytes',
-    'restoredAt',
-  ].map((field) => ({
-    agree: `the Auto Backup record crosses with ${field}, which the bridge reads`,
-    a: {
-      file: 'modules/veloq-backup-exclusion/android/src/main/java/com/veloq/backupexclusion/VeloqBackupExclusionModule.kt',
-      has: `"${field}" to status.${field}`,
-    },
-    b: { file: 'src/shared/native/androidAutoBackup.ts', has: `${field}: number | null;` },
-  })),
-  {
-    agree: 'the manifest names the backup agent class the backup module defines',
-    a: {
-      file: 'src/plugins/with-android-backup.js',
-      has: 'const BACKUP_AGENT = "com.veloq.backupexclusion.VeloqBackupAgent";',
-    },
-    b: {
-      file: 'modules/veloq-backup-exclusion/android/src/main/java/com/veloq/backupexclusion/VeloqBackupAgent.kt',
-      has: /^package com\.veloq\.backupexclusion\s[\s\S]*class VeloqBackupAgent : BackupAgent\(\)/m,
-    },
-  },
-  {
-    agree: 'the agent sizes the record zip the backup rules carry',
-    a: {
-      file: 'src/plugins/with-android-backup.js',
-      has: '<include domain="file" path="veloq-decisions.zip" />',
-    },
-    b: {
-      file: 'modules/veloq-backup-exclusion/android/src/main/java/com/veloq/backupexclusion/AutoBackupLedger.kt',
-      has: 'const val RECORD_ZIP = "veloq-decisions.zip"',
-    },
-  },
   {
     agree: 'the Android backup module is registered under the name the bridge asks for',
     a: {

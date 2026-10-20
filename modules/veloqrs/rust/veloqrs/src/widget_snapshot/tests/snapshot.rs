@@ -712,11 +712,11 @@ fn mirrors_the_in_app_summary_card_settings_as_a_ready_to_render_block() {
         SummaryEntry {
             id: "ftp".to_string(),
             label: "eFTP".to_string(),
-            value: "251".to_string(),
+            value: "251 W".to_string(),
             trend_dir: "up",
             verdict: "improved",
             colour_key: "default",
-            spoken: "eFTP 251".to_string(),
+            spoken: "eFTP 251 W".to_string(),
         }
     );
     assert_eq!(card.entries[2].value, "6 h 30 min");
@@ -1077,7 +1077,7 @@ fn composes_exactly_the_chosen_supporting_metrics_in_the_chosen_order() {
     assert_eq!(ids, ["rhr", "weekHours", "ftp", "weight"]);
     let weight = &card.entries[3];
     assert_eq!(weight.label, "Weight");
-    assert_eq!(weight.value, "72.4kg");
+    assert_eq!(weight.value, "72.4 kg");
     assert_eq!(weight.trend_dir, "down");
     assert_eq!(weight.verdict, "moved");
 }
@@ -1088,7 +1088,7 @@ fn prints_weight_in_pounds_for_an_imperial_athlete() {
     raw.summary_prefs = Some(prefs("fitness", &["weight"]));
     raw.weight_kg = Some(72.4);
     raw.is_metric = false;
-    assert_eq!(card_of(&raw).entries[0].value, "159.6lbs");
+    assert_eq!(card_of(&raw).entries[0].value, "159.6 lbs");
 }
 
 #[test]
@@ -1740,7 +1740,7 @@ fn carries_an_entry_for_every_metric_a_placement_may_pick_whatever_the_card_show
         ]
     );
     let weight = s.summary_metrics.iter().find(|e| e.id == "weight").unwrap();
-    assert_eq!(weight.value, "72.4kg");
+    assert_eq!(weight.value, "72.4 kg");
     let ftp = s.summary_metrics.iter().find(|e| e.id == "ftp").unwrap();
     assert_eq!(ftp.label, "eFTP");
 }
@@ -1783,4 +1783,51 @@ fn every_hero_the_card_offers_has_an_entry_a_placement_can_draw() {
     for hero in &s.summary_heroes {
         assert!(s.summary_metrics.iter().any(|e| &e.id == hero), "{hero}");
     }
+}
+
+/// Scenario: a week of 30 min 26 s, a 79.4 kg reading and an eFTP of 141 W
+/// printed on the widget as "30 min 26 s", "79.4kg" and a bare "141".
+///
+/// Expected behaviour: the week is written to whole minutes, weight with a
+/// space before its unit, and eFTP with the watt symbol the context carries.
+#[test]
+fn writes_the_week_to_whole_minutes_and_weight_and_eftp_with_their_units() {
+    let mut raw = make_raw();
+    raw.summary_prefs = Some(prefs("fitness", &["weekHours", "weight", "ftp"]));
+    raw.weight_kg = Some(79.4);
+    let summary = raw.summary.as_mut().unwrap();
+    summary.current_week.total_duration = 1_826.0;
+    summary.ftp_trend.latest_ftp = Some(141);
+    let values = |units: &[(&str, &str)]| -> Vec<String> {
+        let mut ctx = context(&raw);
+        for (key, text) in units {
+            ctx.strings.insert(key.to_string(), text.to_string());
+        }
+        let card = compose(&data_of(&raw), &ctx, CLOCK).summary_card.unwrap();
+        card.entries.into_iter().map(|e| e.value).collect()
+    };
+
+    assert_eq!(values(&[]), ["30 min", "79.4 kg", "141 W"]);
+    assert_eq!(
+        values(&[("units.minutesValue", "{{value}}分"), ("units.watts", "Wt")]),
+        ["30分", "79.4 kg", "141 Wt"]
+    );
+}
+
+#[test]
+fn drops_the_seconds_from_the_week_at_every_length() {
+    let mut raw = make_raw();
+    raw.summary_prefs = Some(prefs("fitness", &["weekHours"]));
+    let week = |seconds: f64| {
+        let mut raw = raw.clone();
+        raw.summary.as_mut().unwrap().current_week.total_duration = seconds;
+        card_of(&raw).entries[0].value.clone()
+    };
+    assert_eq!(week(45.0), "45 s");
+    assert_eq!(week(60.0), "1 min");
+    assert_eq!(week(119.0), "1 min");
+    assert_eq!(week(3_599.0), "59 min");
+    assert_eq!(week(3_600.0), "1 h");
+    assert_eq!(week(3_659.0), "1 h");
+    assert_eq!(week(3_940.0), "1 h 5 min");
 }

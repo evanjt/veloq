@@ -32,6 +32,7 @@ import { getEngine, getRouteDbPath, resolveRouteDbPath } from '@/shared/native/e
 import {
   captureQuarantineReport,
   excludeLocalBackupsFromDeviceBackup,
+  moveOlderBackupsToSharedFolder,
   cleanUpRetiredBackupSettings,
   resumeRecordImport,
   sweepIdleBackupFiles,
@@ -218,6 +219,9 @@ export async function initialiseApp(): Promise<StartupArea[] | null> {
   openTerrainPreviews();
   // Whether or not anyone is signed in: the backups outlive a sign-out.
   excludeLocalBackupsFromDeviceBackup();
+  void moveOlderBackupsToSharedFolder().catch((reason) => {
+    console.warn('[launch] older backups not moved to the shared folder:', errorMessage(reason));
+  });
   cleanUpRetiredBackupSettings();
   void sweepIdleBackupFiles().catch((reason) => {
     console.warn('[launch] backup cache sweep failed:', errorMessage(reason));

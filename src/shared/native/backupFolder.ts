@@ -13,6 +13,17 @@ const log = debug.create('BackupFolder');
  */
 const SETTING_FOLDER = '__backup_folder';
 const SETTING_FOLDER_NAME = '__backup_folder_name';
+/**
+ * Set to '1' while the athlete has stopped the device copy on Android; absent,
+ * a run with no folder picked writes to the shared `Documents/Veloq`.
+ */
+const SETTING_FOLDER_OFF = '__backup_folder_off';
+
+/**
+ * Where an Android run with no folder picked writes, through the media store:
+ * a public folder that shows in the Files app and outlives an uninstall.
+ */
+export const SHARED_BACKUP_FOLDER = 'Documents/Veloq';
 
 /** The code the native side throws when a bookmark no longer resolves to a folder it can open. */
 const FOLDER_UNAVAILABLE_CODE = 'ERR_FOLDER_UNAVAILABLE';
@@ -30,6 +41,10 @@ interface VeloqBackupFolderModule {
   ): Promise<BookmarkedResult & { files: { name: string; size: number }[] }>;
   readFromBookmarkedFolder(bookmark: string, name: string, to: string): Promise<BookmarkedResult>;
   releaseFolderGrant(uri: string): void;
+  sharedDocumentsSupported?(): boolean;
+  writeSharedDocument(from: string, name: string, mimeType: string): Promise<string>;
+  listSharedDocuments(): Promise<{ name: string; size: number }[]>;
+  readSharedDocument(name: string, to: string): Promise<void>;
   saveDocument(
     from: string,
     name: string,
@@ -58,9 +73,42 @@ export function heldBackupFolder(): string | null {
   return getEngine()?.getSetting(SETTING_FOLDER) || null;
 }
 
-/** The held folder's display name, or null when none is held. */
+/**
+ * Whether the device copy may go to the shared `Documents/Veloq`: on Android
+ * 10 and later, until the athlete stops it. Below Android 10 the media store
+ * takes no relative path without a storage permission, so there the folder is
+ * only ever one the athlete picks.
+ */
+export function canWriteSharedFolder(): boolean {
+  if (Platform.OS !== 'android') return false;
+  if (getEngine()?.getSetting(SETTING_FOLDER_OFF) === '1') return false;
+  try {
+    return (
+      requireOptionalNativeModule<VeloqBackupFolderModule>(
+        'VeloqBackupExclusion'
+      )?.sharedDocumentsSupported?.() === true
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** Whether a run writes to the shared `Documents/Veloq`, which it does while no folder is picked. */
+export function isSharedBackupFolder(): boolean {
+  return heldBackupFolder() === null && canWriteSharedFolder();
+}
+
+/**
+ * What a run writes to: the held folder's reference, the shared folder's path,
+ * or null when there is neither.
+ */
+export function backupFolderTarget(): string | null {
+  return heldBackupFolder() ?? (isSharedBackupFolder() ? SHARED_BACKUP_FOLDER : null);
+}
+
+/** The display name of the folder a run writes to, or null when there is none. */
 export function heldBackupFolderName(): string | null {
-  if (!heldBackupFolder()) return null;
+  if (!heldBackupFolder()) return isSharedBackupFolder() ? SHARED_BACKUP_FOLDER : null;
   return getEngine()?.getSetting(SETTING_FOLDER_NAME) || null;
 }
 
@@ -76,16 +124,55 @@ export function holdBackupFolder(uri: string, name: string): void {
   const engine = getEngine();
   engine?.setSetting(SETTING_FOLDER, reference);
   engine?.setSetting(SETTING_FOLDER_NAME, name);
+  engine?.deleteSetting(SETTING_FOLDER_OFF);
   if (previous && previous !== reference) releaseFolderGrant(previous);
 }
 
-/** Let go of the held folder: its reference, its name and, on Android, the grant. */
+/**
+ * Let go of the held folder: its reference, its name and, on Android, the
+ * grant. A stopped device copy is on again, so the next athlete starts from
+ * the shared folder.
+ */
 export function forgetBackupFolder(): void {
   const folder = heldBackupFolder();
   const engine = getEngine();
   engine?.deleteSetting(SETTING_FOLDER);
   engine?.deleteSetting(SETTING_FOLDER_NAME);
+  engine?.deleteSetting(SETTING_FOLDER_OFF);
   if (folder) releaseFolderGrant(folder);
+}
+
+/**
+ * Stop the device copy on Android: let go of a picked folder and write nothing
+ * to the shared one either. The zips already written stay, as they are the
+ * athlete's. Picking a folder turns the copy on again.
+ */
+export function stopBackupFolder(): void {
+  forgetBackupFolder();
+  getEngine()?.setSetting(SETTING_FOLDER_OFF, '1');
+}
+
+/** Copy a file into the shared `Documents/Veloq`, answering the name it was given. */
+export async function writeToSharedFolder(
+  from: string,
+  name: string,
+  mimeType: string
+): Promise<string> {
+  return await nativeModule().writeSharedDocument(plainPath(from), name, mimeType);
+}
+
+/**
+ * The files this install wrote to the shared `Documents/Veloq`, by name and
+ * size. The media store lists only an install's own files, so after a
+ * reinstall the earlier zips are there but not listed.
+ */
+export async function listSharedFolder(): Promise<{ name: string; size: number }[]> {
+  return await nativeModule().listSharedDocuments();
+}
+
+/** Copy the file `name` out of the shared `Documents/Veloq` to `to`. */
+export async function readFromSharedFolder(name: string, to: string): Promise<void> {
+  await nativeModule().readSharedDocument(name, plainPath(to));
 }
 
 /**

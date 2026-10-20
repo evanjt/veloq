@@ -5,7 +5,7 @@
  * An iOS Notification Service Extension is a separate process with no reach
  * into the app's Documents, so the file has to sit in the App Group container
  * both targets already declare. Android has no such container and stays where
- * it is, which is also what `with-android-backup.js` names by `domain="file"`.
+ * it is.
  *
  * The move is copy, verify, delete rather than a rename. A rename that dies
  * halfway leaves the set split across two directories with nothing saying

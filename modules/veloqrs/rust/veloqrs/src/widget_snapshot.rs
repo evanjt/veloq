@@ -1279,7 +1279,10 @@ fn summary_entry(
             let latest = summary.ftp_trend.latest_ftp.map(f64::from);
             entry(
                 translate(ctx, "metrics.eftp"),
-                latest.map_or(TEXT_NONE.to_string(), int_text),
+                latest.map_or(TEXT_NONE.to_string(), |watts| {
+                    let unit = phrase(ctx, "units.watts").unwrap_or_else(|| "W".to_string());
+                    format!("{} {unit}", number_text(&int_text(watts), ctx))
+                }),
                 from_glyph(summary.ftp_trend.glyph.as_deref(), true),
                 "default",
             )
@@ -1319,11 +1322,11 @@ fn display_weight(kg: f64, is_metric: bool) -> (f64, &'static str) {
     }
 }
 
-/// Weight as the app card prints it: one decimal at most, the unit with no space.
+/// Weight to one decimal at most, a space before the unit.
 fn weight_text(kg: f64, ctx: &FfiWidgetContext) -> String {
     let (value, unit) = display_weight(kg, ctx.is_metric);
     let rounded = js_round(value * 10.0) / 10.0;
-    format!("{}{unit}", number_text(&rounded.to_string(), ctx))
+    format!("{} {unit}", number_text(&rounded.to_string(), ctx))
 }
 
 /// A number already written with a point and no grouping, rewritten with the
@@ -1905,8 +1908,8 @@ fn phrase(ctx: &FfiWidgetContext, key: &str) -> Option<String> {
         .cloned()
 }
 
-/// A duration in the units the app passes, as its `formatDurationHuman` writes
-/// it: "45 s", "5 min 30 s", "1 h 30 min", seconds dropped once there are
+/// A week's time in the units the app passes: "45 s", "30 min", "1 h 30 min",
+/// seconds dropped once there is a whole minute, as they are once there are
 /// hours. A unit the context lacks is written with its SI symbol.
 fn duration_human(ctx: &FfiWidgetContext, seconds: f64) -> String {
     let total = if seconds.is_finite() && seconds > 0.0 {
@@ -1918,18 +1921,10 @@ fn duration_human(ctx: &FfiWidgetContext, seconds: f64) -> String {
         return fill(ctx, "units.secondsValue", &[("value", total.to_string())])
             .unwrap_or_else(|| format!("{total} s"));
     }
-    let (minutes, secs) = (total / 60, total % 60);
+    let minutes = total / 60;
     if minutes < 60 {
-        if secs == 0 {
-            return fill(ctx, "units.minutesValue", &[("value", minutes.to_string())])
-                .unwrap_or_else(|| format!("{minutes} min"));
-        }
-        let slots = [
-            ("minutes", minutes.to_string()),
-            ("seconds", secs.to_string()),
-        ];
-        return fill(ctx, "units.minutesSeconds", &slots)
-            .unwrap_or_else(|| format!("{minutes} min {secs} s"));
+        return fill(ctx, "units.minutesValue", &[("value", minutes.to_string())])
+            .unwrap_or_else(|| format!("{minutes} min"));
     }
     let (hours, minutes) = (minutes / 60, minutes % 60);
     if minutes == 0 {

@@ -7,7 +7,7 @@
  * dismiss answers it for good: leaving the feed mid-restore does not.
  */
 import React, { useCallback, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/shared/ui';
@@ -31,6 +31,16 @@ const FOUND_KEYS = {
   googleDrive: 'backup.restoreOfferFoundGoogleDrive',
   icloud: 'backup.restoreOfferFoundIcloud',
 } as const satisfies Record<BackupSource, string>;
+
+/**
+ * Where the card says the backup was found. Android's own backup is off for the
+ * app, so a record zip found there is the one Veloq last wrote on this phone.
+ */
+function foundKey(source: BackupSource) {
+  return source === 'device' && Platform.OS === 'android'
+    ? 'backup.restoreOfferFoundOnPhone'
+    : FOUND_KEYS[source];
+}
 
 export function RestoreOfferCard() {
   const { t } = useTranslation();
@@ -78,7 +88,7 @@ export function RestoreOfferCard() {
           </Text>
         </View>
         <Text style={[styles.description, isDark && styles.descriptionDark]}>
-          {t(FOUND_KEYS[found.source])}
+          {t(foundKey(found.source))}
         </Text>
         <Text testID="restore-offer-entry" style={[styles.entry, isDark && styles.titleDark]}>
           {backupEntryLabel(found.entry, t)}

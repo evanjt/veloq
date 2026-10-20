@@ -281,7 +281,7 @@ describe('which suites a merge runs', () => {
 
   it('keeps the per-language commands a native source already gets', () => {
     const kotlin = mergeTestTargets([
-      'modules/veloq-backup-exclusion/android/src/main/java/com/veloq/backupexclusion/AutoBackupLedger.kt',
+      'modules/veloq-backup-exclusion/android/src/main/java/com/veloq/backupexclusion/FolderGrant.kt',
     ]);
     const rust = mergeTestTargets([`${CRATE}/src/widget_snapshot.rs`]);
 

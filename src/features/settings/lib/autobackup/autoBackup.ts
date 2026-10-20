@@ -39,7 +39,7 @@ import {
 import { getWebdavConfig } from './webdavConfig';
 import { getGoogleDriveAccount } from './googleDriveAccount';
 import { zipFingerprint, type ZipFingerprint } from './zipFingerprint';
-import { heldBackupFolder } from '@/shared/native/backupFolder';
+import { backupFolderTarget } from '@/shared/native/backupFolder';
 import { readBackCopyUri } from '@/shared/storage/cacheFiles';
 import { TIME } from '@/shared/app/time';
 
@@ -191,7 +191,7 @@ function destinationTarget(id: string): string | null {
     case 'webdav':
       return getWebdavConfig()?.url ?? null;
     case 'folder':
-      return heldBackupFolder();
+      return backupFolderTarget();
     case 'googleDrive':
       return getGoogleDriveAccount();
     case 'icloud':

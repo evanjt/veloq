@@ -1282,10 +1282,18 @@ const DEVICE_WRITES: DeviceWrite[] = [
   },
   {
     confirm: ['backupSetup'],
-    where: 'the backup folder the athlete picked: its tree grant or bookmark, and its name',
+    where:
+      'the backup folder the athlete picked: its tree grant or bookmark, its name, and whether the Android device copy is stopped',
     writers: ['src/shared/native/backupFolder.ts'],
     holds: "where on the athlete's own storage their records are copied",
-    wiped: { engineSettings: ['__backup_folder', '__backup_folder_name'] },
+    wiped: { engineSettings: ['__backup_folder', '__backup_folder_name', '__backup_folder_off'] },
+  },
+  {
+    confirm: [],
+    where: 'Documents/Veloq in Android shared storage, the device copy of each backup',
+    writers: ['src/shared/native/backupFolder.ts'],
+    holds: 'record zips, one a run',
+    kept: "shared storage is the athlete's own, like a folder they pick, and outlives the app on purpose",
   },
   {
     confirm: [],
@@ -1415,16 +1423,6 @@ const DEVICE_WRITES: DeviceWrite[] = [
     ],
     holds: 'a file attribute',
     kept: 'no data',
-  },
-  {
-    confirm: [],
-    where: "the backup agent's record, the veloq_auto_backup preferences file on Android",
-    writers: [
-      'modules/veloq-backup-exclusion/android/src/main/java/com/veloq/backupexclusion/AutoBackupLedger.kt',
-    ],
-    holds:
-      'when Android last backed the app up and its size, the last quota overrun, the last restore',
-    kept: "what the phone's own backup did, times and byte counts, no athlete data",
   },
   {
     confirm: [],

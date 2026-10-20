@@ -1,121 +1,138 @@
 /**
- * Scenario: an Android 12 or later device backs the app up to the cloud, or
- * transfers it to a new phone.
+ * Scenario: an athlete reinstalls Veloq, sets up a new phone from their old one, or lets Android
+ * back the phone up to their Google account.
  *
- * Expected behaviour: the latest record zip travels with it and nothing else.
- * `fullBackupContent` has applied to Android 11 and lower since Android 12,
- * which reads `dataExtractionRules` instead, so both files name the record zip.
- * No shared preferences file is carried: each one is this install's state, and
- * a restore lands at install, before the athlete could accept it.
+ * Expected behaviour: Android carries nothing of the app either way. Its own backup is invisible
+ * to the app and restores at install, before the first launch, so whatever it brought back would
+ * take effect before the athlete could accept it. `allowBackup="false"` stops the cloud backup,
+ * and the device-to-device transfer on Android 12 and later, which ignores that attribute, is
+ * stopped by data extraction rules that exclude every domain. No backup agent is named.
  */
 
 import { mkdtempSync, readFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import path, { join } from 'node:path';
 
 const {
-  BACKUP_AGENT,
-  BACKUP_RULES,
   DATA_EXTRACTION_RULES,
   configureManifest,
   writeRules,
 } = require('../../plugins/with-android-backup');
 
-function mainApplication(): { $: Record<string, string> } {
-  return { $: { 'android:allowBackup': 'true' } };
+const projectRoot = path.join(__dirname, '../../..');
+
+/** Every domain the data extraction rules name, on both storage areas. */
+const DOMAINS = [
+  'root',
+  'file',
+  'database',
+  'sharedpref',
+  'external',
+  'device_root',
+  'device_file',
+  'device_database',
+  'device_sharedpref',
+];
+
+type Application = { $: Record<string, string> };
+
+/** The application element prebuild generates from the real config, read without writing a manifest. */
+async function generatedApplication(): Promise<Application> {
+  const expo = require.resolve('expo/package.json', { paths: [projectRoot] });
+  const { getPrebuildConfigAsync } = require(
+    require.resolve('@expo/prebuild-config', { paths: [expo] })
+  );
+  const { compileModsAsync } = require('expo/config-plugins');
+  const { exp } = await getPrebuildConfigAsync(projectRoot, { platforms: ['android'] });
+  const compiled = await compileModsAsync(exp, {
+    projectRoot,
+    introspect: true,
+    platforms: ['android'],
+    assertMissingModProviders: false,
+  });
+  return compiled._internal.modResults.android.manifest.manifest.application[0];
+}
+
+function blocks(): string[] {
+  return ['cloud-backup', 'device-transfer'].map(
+    (block) => DATA_EXTRACTION_RULES.split(`<${block}>`)[1]?.split(`</${block}>`)[0] ?? ''
+  );
 }
 
 describe('with-android-backup rules', () => {
-  const blocks = () =>
-    ['cloud-backup', 'device-transfer'].map(
-      (block) => DATA_EXTRACTION_RULES.split(`<${block}>`)[1]?.split(`</${block}>`)[0]
-    );
-
-  it('carries the record zip without the live library in the Android 11 rules', () => {
-    expect(BACKUP_RULES).toContain('<full-backup-content>');
-    expect(BACKUP_RULES).toContain('<include domain="file" path="veloq-decisions.zip" />');
-    expect(BACKUP_RULES).not.toContain('path="routes.db"');
-    expect(BACKUP_RULES).not.toContain('path="backups/"');
-  });
-
-  it('carries the record zip in both Android 12 blocks', () => {
+  it('excludes every domain from the cloud backup and the device transfer', () => {
     for (const body of blocks()) {
-      expect(body).toBeDefined();
-      expect(body).toContain('<include domain="file" path="veloq-decisions.zip" />');
-      expect(body).not.toContain('path="routes.db"');
-      expect(body).not.toContain('path="backups/"');
+      for (const domain of DOMAINS) {
+        expect(body).toContain(`<exclude domain="${domain}" path="." />`);
+      }
     }
   });
 
-  it("carries no shared preferences in any rules, so a restore brings no other install's state", () => {
-    expect(BACKUP_RULES).not.toContain('domain="sharedpref"');
-    for (const body of blocks()) expect(body).not.toContain('domain="sharedpref"');
-  });
-
-  it('includes the record zip alone in every rules set', () => {
-    for (const body of [BACKUP_RULES, ...blocks()]) {
-      expect(body.match(/<include /g)).toEqual(['<include ']);
-      expect(body).not.toContain('<exclude ');
+  it('includes nothing in either block', () => {
+    for (const body of blocks()) {
+      expect(body).not.toBe('');
+      expect(body).not.toContain('<include ');
     }
   });
 
   it('is well-formed data-extraction-rules', () => {
+    expect(DATA_EXTRACTION_RULES.startsWith('<?xml')).toBe(true);
     expect(DATA_EXTRACTION_RULES).toContain('<data-extraction-rules>');
     expect(DATA_EXTRACTION_RULES).toContain('</data-extraction-rules>');
-    expect(DATA_EXTRACTION_RULES.startsWith('<?xml')).toBe(true);
   });
 });
 
 describe('with-android-backup manifest', () => {
-  it('points both attributes at the app rules, not at expo-secure-store', () => {
-    const app = mainApplication();
+  it('turns backup off and names no agent, whatever a previous prebuild wrote', () => {
+    const app: Application = {
+      $: {
+        'android:allowBackup': 'true',
+        'android:backupAgent': 'com.example.LeftoverAgent',
+        'android:fullBackupOnly': 'true',
+        'android:fullBackupContent': '@xml/secure_store_backup_rules',
+        'android:dataExtractionRules': '@xml/secure_store_data_extraction_rules',
+      },
+    };
+
     configureManifest(app);
 
-    expect(app.$['android:fullBackupContent']).toBe('@xml/veloq_backup_rules');
+    expect(app.$).toEqual({
+      'android:allowBackup': 'false',
+      'android:dataExtractionRules': '@xml/veloq_data_extraction_rules',
+    });
+  });
+});
+
+describe('the generated Android manifest', () => {
+  let app: Application;
+  beforeAll(async () => {
+    app = await generatedApplication();
+  }, 60_000);
+
+  it('turns Auto Backup off for the app', () => {
+    expect(app.$['android:allowBackup']).toBe('false');
+  });
+
+  it('names no backup agent, so nothing records or answers a restore', () => {
+    expect(app.$['android:backupAgent']).toBeUndefined();
+    expect(app.$['android:fullBackupOnly']).toBeUndefined();
+  });
+
+  it("points the Android 12 rules at the app's own, not at expo-secure-store's", () => {
     expect(app.$['android:dataExtractionRules']).toBe('@xml/veloq_data_extraction_rules');
-  });
-
-  it('overwrites the expo-secure-store rules a previous prebuild wrote', () => {
-    const app = mainApplication();
-    app.$['android:dataExtractionRules'] = '@xml/secure_store_data_extraction_rules';
-
-    configureManifest(app);
-
-    expect(app.$['android:dataExtractionRules']).toBe('@xml/veloq_data_extraction_rules');
-  });
-
-  it('names the backup agent and keeps the full backup the rules describe', () => {
-    const app = mainApplication();
-    configureManifest(app);
-
-    expect(BACKUP_AGENT).toBe('com.veloq.backupexclusion.VeloqBackupAgent');
-    expect(app.$['android:backupAgent']).toBe(BACKUP_AGENT);
-    // Without it a named agent switches the app to key-value backup, which
-    // the rules files do not govern and which carries nothing.
-    expect(app.$['android:fullBackupOnly']).toBe('true');
-  });
-
-  it('leaves everything else on the application alone', () => {
-    const app = mainApplication();
-    configureManifest(app);
-
-    expect(app.$['android:allowBackup']).toBe('true');
   });
 });
 
 describe('with-android-backup prebuild output', () => {
-  it('writes both rules files into a res/xml that does not exist yet', () => {
+  it('writes the rules file into a res/xml that does not exist yet', () => {
     const root = mkdtempSync(join(tmpdir(), 'veloq-backup-'));
     const resDir = join(root, 'app', 'src', 'main', 'res', 'xml');
 
     writeRules(resDir);
 
-    expect(readdirSync(resDir).sort()).toEqual([
-      'veloq_backup_rules.xml',
-      'veloq_data_extraction_rules.xml',
-    ]);
-    expect(readFileSync(join(resDir, 'veloq_data_extraction_rules.xml'), 'utf8')).toContain(
-      'veloq-decisions.zip'
+    expect(readdirSync(resDir)).toEqual(['veloq_data_extraction_rules.xml']);
+    expect(readFileSync(join(resDir, 'veloq_data_extraction_rules.xml'), 'utf8')).toBe(
+      DATA_EXTRACTION_RULES
     );
   });
 
@@ -126,6 +143,8 @@ describe('with-android-backup prebuild output', () => {
     writeRules(resDir);
     writeRules(resDir);
 
-    expect(readFileSync(join(resDir, 'veloq_backup_rules.xml'), 'utf8')).toBe(BACKUP_RULES);
+    expect(readFileSync(join(resDir, 'veloq_data_extraction_rules.xml'), 'utf8')).toBe(
+      DATA_EXTRACTION_RULES
+    );
   });
 });

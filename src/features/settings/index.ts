@@ -29,7 +29,10 @@ export { useDaysOfUse, useLaunchSurfaces, useSessionAsk } from './hooks/useLaunc
 export { RestoreChooser } from './components/RestoreChooser';
 export { captureQuarantineReport } from './lib/quarantineReport';
 export { cleanUpRetiredBackupSettings } from './lib/autobackup/autoBackup';
-export { excludeLocalBackupsFromDeviceBackup } from './lib/autobackup/backends/localBackend';
+export {
+  excludeLocalBackupsFromDeviceBackup,
+  moveOlderBackupsToSharedFolder,
+} from './lib/autobackup/backends/localBackend';
 export { applyOpenedBackup, receiveOpenedBackup } from './lib/openedBackup';
 export { runLaunchRestores } from './lib/launchRestore';
 export { useLastBackupTimestamp, useAutoBackupEnabled } from './hooks/useLastBackupTimestamp';

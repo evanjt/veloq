@@ -44,6 +44,7 @@ jest.mock('@/features/settings/lib/autobackup/webdavConfig', () => ({
 jest.mock('@/shared/native/backupFolder', () => ({
   ...jest.requireActual('@/shared/native/backupFolder'),
   heldBackupFolder: () => mockFolderUri,
+  backupFolderTarget: () => mockFolderUri,
   forgetBackupFolder: () => {
     mockFolderUri = null;
   },

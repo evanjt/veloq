@@ -39,7 +39,6 @@
     "heldUntilSignIn": "This backup gets restored once you sign in.",
     "importError": "Couldn't import the backup.",
     "lastBackupNever": "No backup made yet",
-    "carrierDeviceDescription": "Your device backup looks after this. Nothing to set up here.",
     "carrierFolderNone": "No folder picked yet",
     "backupDifferentAccount": "This backup belongs to a different account. Sign in to that one to restore it.",
     "backupMissing": "The backup file's empty or missing.",

@@ -9,6 +9,7 @@
  */
 
 import React from 'react';
+import { Platform } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import { RestoreOfferCard } from '@/features/settings/components/RestoreOfferCard';
@@ -95,6 +96,30 @@ describe('the restore offer card', () => {
     expect(label).toHaveTextContent(new RegExp(i18n.t('backup.entryDateNotRecorded')));
     expect(label).toHaveTextContent(/1\.2 MB/);
     expect(label).not.toHaveTextContent(/19[0-9]{2}|20[0-9]{2}|Invalid/);
+  });
+
+  it("names the record zip on an Android phone as this phone's, not as its device backup", () => {
+    const os = Platform.OS;
+    Platform.OS = 'android';
+    try {
+      useWhatsNewStore.setState({
+        restoreOffer: {
+          source: 'device',
+          backend: null,
+          entry: {
+            id: 'file:///docs/record.zip',
+            timestamp: '2026-10-01T06:00:00.000Z',
+            sizeBytes: 1_200_000,
+            appVersion: '',
+          },
+        },
+      });
+      render(<RestoreOfferCard />);
+      expect(screen.getByText(i18n.t('backup.restoreOfferFoundOnPhone'))).toBeTruthy();
+      expect(screen.queryByText(i18n.t('backup.restoreOfferFoundDevice'))).toBeNull();
+    } finally {
+      Platform.OS = os;
+    }
   });
 
   it('is not answered when it unmounts mid-restore', async () => {

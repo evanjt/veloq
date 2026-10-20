@@ -6,9 +6,9 @@
  * Expected behaviour: the screen offers a file and a WebDAV server, with the
  * server's form inline since a fresh install holds no credentials. Listing the
  * server shows its backups, and choosing one holds it until the sign-in, with
- * nothing sent to the closed engine. On Android a line says the phone's own
- * backup comes back when a new phone is set up, and it is never offered as a
- * choice.
+ * nothing sent to the closed engine. Neither platform names the phone's own
+ * backup: Android's carries nothing of the app, and on iPhone the cloud backup
+ * named is iCloud Drive.
  */
 
 import React from 'react';
@@ -143,15 +143,14 @@ describe('restore from backup on the login screen', () => {
     expect(screen.getByTestId('restore-chooser-webdav')).toBeTruthy();
   });
 
-  it("says on Android the phone's own backup comes back with a new phone, and offers it as nothing", async () => {
+  it('names no device backup on Android, where the app carries nothing in it', async () => {
     const os = Platform.OS;
     Platform.OS = 'android';
     try {
       await openChooser();
 
-      expect(screen.getByTestId('restore-chooser-device-backup')).toBeTruthy();
-      expect(screen.getByText(i18n.t('backup.carrierDeviceRestore'))).toBeTruthy();
-      expect(screen.queryByText(i18n.t('backup.restoreFromDestination'))).toBeNull();
+      expect(screen.queryByTestId('restore-chooser-device-backup')).toBeNull();
+      expect(screen.getByTestId('restore-chooser-file')).toBeTruthy();
     } finally {
       Platform.OS = os;
     }

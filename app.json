@@ -39,6 +39,7 @@
       "package": "com.veloq.app",
       "playStoreUrl": "https://play.google.com/store/apps/details?id=com.veloq.app",
       "versionCode": 29,
+      "allowBackup": false,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./src/assets/adaptive-icon.png",

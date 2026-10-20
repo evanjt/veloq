@@ -830,7 +830,7 @@ if (require.main === module) {
 
     console.log('Fix these issues before releasing.');
     console.log('Edit the affected files under config/fastlane/metadata/.');
-    console.log('Regenerate store images: npm run store:render && npm run store:install');
+    console.log('Regenerate store screenshots: npm run store:screenshots');
     process.exit(1);
   }
 }

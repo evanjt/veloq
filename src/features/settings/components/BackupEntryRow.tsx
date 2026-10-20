@@ -2,17 +2,19 @@
  * One backup a restore can pick, as a row: when it was made, to the minute, and
  * beneath it the size, version and activity count it knows. Every restore list
  * draws its entries through this row, so an entry reads the same wherever it is
- * offered, and the entry being restored is busy on every screen.
+ * offered, and the entry being restored is busy on every screen. The restore
+ * glyph and the title in the action colour mark it as the thing to tap, apart
+ * from the plain account and status lines a list sets around it.
  */
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
-import { Row, Spinner } from '@/shared/ui';
+import { Icon, Row, Spinner } from '@/shared/ui';
 import { composeAccessibilityLabel } from '@/shared/ui/accessibilityLabel';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, typography } from '@/theme';
+import { colors, darkColors, iconSize, typography } from '@/theme';
 
 import type { BackupEntry } from '../lib/autobackup/backends';
 import { backupEntryParts } from '../lib/backupEntryLabel';
@@ -41,6 +43,7 @@ export function BackupEntryRow({
   const { isDark } = useTheme();
   const { when, details } = backupEntryParts(entry, t);
   const title = t('backup.restoreDatedBackup', { date: when });
+  const action = isDark ? darkColors.actionLink : colors.actionLink;
 
   return (
     <Row
@@ -52,8 +55,11 @@ export function BackupEntryRow({
       disabled={disabled}
       inset={inset}
     >
+      <Icon testID={`${testID}-icon`} name="backup-restore" size={iconSize.lg} color={action} />
       <View style={styles.fill}>
-        <Text style={[styles.title, isDark && styles.titleDark]}>{title}</Text>
+        <Text testID={`${testID}-title`} style={[styles.title, { color: action }]}>
+          {title}
+        </Text>
         {details ? (
           <Text style={[styles.detail, isDark && styles.detailDark]}>{details}</Text>
         ) : null}
@@ -69,10 +75,6 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.body,
-    color: colors.textPrimary,
-  },
-  titleDark: {
-    color: darkColors.textPrimary,
   },
   detail: {
     ...typography.caption,

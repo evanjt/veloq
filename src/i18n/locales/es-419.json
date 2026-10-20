@@ -42,8 +42,6 @@
     "title": "Respaldo y restauración",
     "autoBackupDescription": "Desactivada: Veloq no crea ninguna respaldo por sí mismo. Activada: el archivo de datos se escribe cada día tras la sincronización en la respaldo del dispositivo y en cada destino configurado abajo.",
     "lastBackup": "Último respaldo: {{date}}",
-    "carrierDeviceAndroid": "Respaldo de Google",
-    "carrierDeviceDescription": "La guarda la respaldo de seguridad del dispositivo. No hay nada que configurar aquí.",
     "noBrowsableDestination": "El respaldo del dispositivo solo vuelve cuando configuras un teléfono nuevo, así que no se puede restaurar desde aquí. Para restaurar en este teléfono, agrega WebDAV o una carpeta abajo, o importa un archivo de respaldo.",
     "carrierOlderOnDevice": "Respaldos anteriores en este dispositivo",
     "backupFailedMessage": "No se pudo completar el respaldo. Revisa el destino e inténtalo de nuevo.",
@@ -52,7 +50,10 @@
     "backupFailedFolder": "Veloq ya no puede acceder a la carpeta de respaldos. Elige la carpeta de nuevo.",
     "notEncryptedWarning": "Los respaldos no están cifrados. Cualquiera que abra el archivo puede leer tus ajustes, los nombres de tus rutas y secciones, dónde están esas secciones en el mapa y la ubicación de casa definida para la privacidad de la exportación.",
     "nextcloudQrHint": "Nextcloud → Configuración → Seguridad → Crear nueva contraseña de app → Escanear código QR",
-    "scanQrInstructions": "En Nextcloud, ve a Configuración → Seguridad → Crear nueva contraseña de app, luego escanea el código QR mostrado."
+    "scanQrInstructions": "En Nextcloud, ve a Configuración → Seguridad → Crear nueva contraseña de app, luego escanea el código QR mostrado.",
+    "autoBackupDescriptionAndroid": "Desactivada: Veloq no crea ningún respaldo por sí mismo. Activada: el archivo de datos se escribe cada día tras la sincronización en cada destino configurado abajo.",
+    "noDestinationSetUp": "No hay ningún destino configurado desde el que restaurar. Agrega uno abajo o importa un archivo de respaldo.",
+    "restoreOfferFoundOnPhone": "Se encontró un respaldo en este teléfono."
   },
   "bestEffortsScreen": {
     "allTimeSubtitle": "Records personales en todo tu historial almacenado.",

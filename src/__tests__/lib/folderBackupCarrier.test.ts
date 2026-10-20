@@ -24,7 +24,9 @@ import {
   folderBackend,
   forgetBackupFolder,
   getBackupFolderName,
+  isSharedBackupFolder,
   pickBackupFolder,
+  stopBackupFolder,
 } from '@/features/settings/lib/autobackup/backends/folderBackend';
 
 const RECORD_URI = 'file:///docs/veloq-decisions.zip';
@@ -42,6 +44,8 @@ const mockFiles = new Map<string, Uint8Array>();
  * whether it keeps only part of what is written to it.
  */
 const mockFolder = { files: new Map<string, Uint8Array>(), reachable: true, truncates: false };
+/** What Veloq wrote to the shared `Documents/Veloq` through the media store, by name. */
+const mockShared = { files: new Map<string, Uint8Array>(), refuses: false };
 const mockPick = jest.fn<Promise<{ uri: string; name: string }>, []>();
 const mockNative: Record<string, jest.Mock> = {};
 const mockWebdavUpload = jest.fn(async (_path: string, _entry: unknown) => {});
@@ -246,6 +250,8 @@ beforeEach(() => {
   mockFolder.files.clear();
   mockFolder.reachable = true;
   mockFolder.truncates = false;
+  mockShared.files.clear();
+  mockShared.refuses = false;
   mockWebdavUpload.mockClear();
   mockWebdavHeld.clear();
   mockPick.mockReset();
@@ -400,6 +406,129 @@ describe('on Android, a storage-access folder', () => {
   });
 });
 
+/** The native side's media store writes to `Documents/Veloq`, on Android 10 and later. */
+function installSharedDocumentsNative(supported = true): void {
+  mockNative.sharedDocumentsSupported = jest.fn(() => supported);
+  mockNative.writeSharedDocument = jest.fn(async (from: string, name: string, _mime: string) => {
+    if (mockShared.refuses) throw new Error('The media store refused the file');
+    mockShared.files.set(name, mockFiles.get(`file://${from}`)!);
+    return name;
+  });
+  mockNative.listSharedDocuments = jest.fn(async () =>
+    [...mockShared.files].map(([name, bytes]) => ({ name, size: bytes.length }))
+  );
+  mockNative.readSharedDocument = jest.fn(async (name: string, to: string) => {
+    const bytes = mockShared.files.get(name);
+    if (!bytes) throw new Error(`No ${name} in Documents/Veloq`);
+    mockFiles.set(`file://${to}`, bytes);
+  });
+}
+
+describe('on Android with no folder chosen, the shared Documents/Veloq', () => {
+  beforeEach(() => {
+    onPlatform('android');
+    installSharedDocumentsNative();
+  });
+
+  it('is the folder before anything is picked', async () => {
+    expect(getBackupFolderName()).toBe('Documents/Veloq');
+    expect(isSharedBackupFolder()).toBe(true);
+    expect(await folderBackend.isAvailable()).toBe(true);
+  });
+
+  it('takes the archive from a run, read back the same as the zip', async () => {
+    const result = await performBackup(true);
+
+    expect(result.carriers.folder).toEqual({ status: 'written' });
+    expect([...mockShared.files.keys()]).toEqual([RUN_NAME]);
+    expect(mockShared.files.get(RUN_NAME)).toEqual(MOCK_ZIP_BYTES);
+    expect(mockNative.writeSharedDocument).toHaveBeenCalledWith(
+      '/docs/veloq-decisions.zip',
+      RUN_NAME,
+      'application/zip'
+    );
+    expect([...mockFiles.keys()].filter((uri) => uri.startsWith('file:///cache/'))).toEqual([]);
+  });
+
+  it('owes the zip and shows the failure when the media store refuses it', async () => {
+    mockShared.refuses = true;
+
+    const result = await performBackup(true);
+
+    expect(result.carriers.folder).toMatchObject({ status: 'failed' });
+    expect(result.carriers.webdav).toEqual({ status: 'written' });
+    expect(JSON.parse(mockSettings.get('__backup_owed_carriers') ?? '[]')).toEqual(['folder']);
+  });
+
+  it('lists what it wrote there for restore and copies one out', async () => {
+    mockShared.files.set('veloq-2026-01-02T08-00-00-000Z.zip', MOCK_ZIP_BYTES);
+    mockShared.files.set('veloq-2026-02-03T09-15-00-250Z.zip', new Uint8Array(20));
+    mockShared.files.set('notes.txt', new Uint8Array(1));
+
+    const entries = await folderBackend.listBackups();
+    await folderBackend.download('veloq-2026-01-02T08-00-00-000Z.zip', 'file:///cache/restore.zip');
+
+    expect(entries.map((e) => e.id)).toEqual([
+      'veloq-2026-02-03T09-15-00-250Z.zip',
+      'veloq-2026-01-02T08-00-00-000Z.zip',
+    ]);
+    expect(mockFiles.get('file:///cache/restore.zip')).toEqual(MOCK_ZIP_BYTES);
+  });
+
+  it('gives way to a folder the athlete picks, which takes the next run alone', async () => {
+    mockPick.mockResolvedValue({ uri: TREE_URI, name: 'Training' });
+    await pickBackupFolder();
+
+    await performBackup(true);
+
+    expect(getBackupFolderName()).toBe('Training');
+    expect(isSharedBackupFolder()).toBe(false);
+    expect([...mockFolder.files.keys()]).toEqual([RUN_NAME]);
+    expect(mockShared.files.size).toBe(0);
+  });
+
+  it('writes nothing once stopped, and a picked folder turns the copy back on', async () => {
+    stopBackupFolder();
+
+    expect(getBackupFolderName()).toBeNull();
+    expect(isSharedBackupFolder()).toBe(false);
+    expect((await performBackup(true)).carriers.folder).toEqual({
+      status: 'skipped',
+      reason: 'unavailable',
+    });
+    expect(mockShared.files.size).toBe(0);
+
+    mockPick.mockResolvedValue({ uri: TREE_URI, name: 'Training' });
+    await pickBackupFolder();
+    expect(getBackupFolderName()).toBe('Training');
+  });
+
+  it('stops a picked folder too, releasing its grant, rather than falling back', async () => {
+    mockPick.mockResolvedValue({ uri: TREE_URI, name: 'Training' });
+    await pickBackupFolder();
+
+    stopBackupFolder();
+
+    expect(getBackupFolderName()).toBeNull();
+    expect(mockNative.releaseFolderGrant).toHaveBeenCalledWith(TREE_URI);
+  });
+
+  it('is on again for whoever signs in after the carriers are forgotten', async () => {
+    stopBackupFolder();
+
+    forgetBackupCarrier();
+
+    expect(getBackupFolderName()).toBe('Documents/Veloq');
+  });
+
+  it('is not offered below Android 10, where the media store has no relative path', async () => {
+    installSharedDocumentsNative(false);
+
+    expect(getBackupFolderName()).toBeNull();
+    expect(await folderBackend.isAvailable()).toBe(false);
+  });
+});
+
 describe('on iOS, a Files folder held by bookmark', () => {
   beforeEach(async () => {
     onPlatform('ios');
@@ -513,6 +642,14 @@ describe('on iOS, a Files folder held by bookmark', () => {
       })
     ).rejects.toMatchObject({ kind: 'folder_unavailable' });
     expect(mockSettings.get('__backup_folder')).toBe('Ym9va21hcmstMQ==');
+  });
+
+  it('has no shared folder to fall back on', () => {
+    installSharedDocumentsNative();
+    forgetBackupFolder();
+
+    expect(getBackupFolderName()).toBeNull();
+    expect(isSharedBackupFolder()).toBe(false);
   });
 
   it('forgets the bookmark with the carriers and releases no Android grant', async () => {

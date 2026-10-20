@@ -1,5 +1,5 @@
 //! Numbers the widget prints, written with the separators the app's locale
-//! hands over, so a widget reads "72,5kg" where the app does.
+//! hands over, so a widget reads "72,5 kg" where the app does.
 
 use super::super::*;
 
@@ -18,8 +18,8 @@ fn context(decimal: &str, group: &str, minimum_grouping_digits: u32) -> FfiWidge
 
 #[test]
 fn a_weight_takes_the_locale_decimal() {
-    assert_eq!(weight_text(72.5, &context(",", ".", 1)), "72,5kg");
-    assert_eq!(weight_text(72.0, &context(",", ".", 1)), "72kg");
+    assert_eq!(weight_text(72.5, &context(",", ".", 1)), "72,5 kg");
+    assert_eq!(weight_text(72.0, &context(",", ".", 1)), "72 kg");
 }
 
 #[test]
@@ -44,6 +44,6 @@ fn a_context_stored_before_the_separators_writes_a_point_and_no_grouping() {
         is_metric: true,
         ..Default::default()
     };
-    assert_eq!(weight_text(72.5, &ctx), "72.5kg");
+    assert_eq!(weight_text(72.5, &ctx), "72.5 kg");
     assert_eq!(format_distance(1_234_500.0, &ctx), "1234.5 km");
 }

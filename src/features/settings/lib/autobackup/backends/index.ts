@@ -7,6 +7,8 @@ export {
   pickBackupFolder,
   getBackupFolderName,
   forgetBackupFolder,
+  isSharedBackupFolder,
+  stopBackupFolder,
 } from './folderBackend';
 export {
   googleDriveBackend,
