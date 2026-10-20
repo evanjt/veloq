@@ -25,6 +25,8 @@ interface TourState {
   mode: 'whatsNew' | 'tutorial';
   /** The setup slides a tutorial is limited to, or null for the whole tour. */
   only: SetupSlide[] | null;
+  /** The setup slides the tour leaves out, as one taken in the quiet period does. */
+  held: SetupSlide[];
   /** The slide whose Show Me was used, or null before any was. */
   shownIndex: number | null;
   resumeIndex: number;
@@ -59,7 +61,7 @@ interface WhatsNewState extends Usage {
   _debugUsage: (partial: Partial<Usage>) => void;
   markSeen: (version: string) => Promise<void>;
 
-  startTour: (mode: 'whatsNew' | 'tutorial', only?: SetupSlide[]) => void;
+  startTour: (mode: 'whatsNew' | 'tutorial', only?: SetupSlide[], held?: SetupSlide[]) => void;
   showMe: (shownIndex: number, nextIndex: number, tip?: string) => void;
   resumeTour: () => void;
   endTour: () => void;
@@ -69,8 +71,8 @@ interface WhatsNewState extends Usage {
   setRestoreOffer: (offer: FoundBackup | null) => void;
   takeSessionAsk: (ask: LaunchAsk) => void;
   setAskEligible: (ask: LaunchAsk, eligible: boolean) => void;
-  /** Take the tour from the offer card, or the setup slides it left unanswered. */
-  takeTourOffer: (only?: SetupSlide[]) => void;
+  /** Take the tour from the offer card less `held`, or the setup slides it left unanswered. */
+  takeTourOffer: (only?: SetupSlide[], held?: SetupSlide[]) => void;
   /** Not now on the offer card. The second ends the offer and marks the tour seen. */
   declineTourOffer: (currentVersion: string) => Promise<void>;
   answerSetup: (slide: SetupSlide, answer: SetupAnswer) => void;
@@ -145,11 +147,12 @@ export const useWhatsNewStore = create<WhatsNewState>((set, get) => ({
     set({ lastSeenVersion: version });
   },
 
-  startTour: (mode, only) => {
+  startTour: (mode, only, held = []) => {
     set({
       tourState: {
         mode,
         only: only ?? null,
+        held,
         shownIndex: null,
         resumeIndex: 0,
         exploring: false,
@@ -220,13 +223,13 @@ export const useWhatsNewStore = create<WhatsNewState>((set, get) => ({
     }));
   },
 
-  takeTourOffer: (only) => {
+  takeTourOffer: (only, held) => {
     if (only) {
       const next = afterLeftoverAnswered(get().tourOffer);
       set({ tourOffer: next });
       persistTourOffer(next);
     }
-    get().startTour('tutorial', only);
+    get().startTour('tutorial', only, held);
   },
 
   declineTourOffer: async (currentVersion) => {

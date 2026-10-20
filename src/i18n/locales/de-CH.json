@@ -299,7 +299,6 @@
     "lastBackupNever": "No nie gsicheret",
     "backupNow": "Jetzt sichere",
     "backendWebdav": "WebDAV oder Nextcloud",
-    "carrierDeviceIos": "iCloud-Sicherung",
     "carrierDeviceAndroid": "Google-Sicherung",
     "carrierDeviceDescription": "Wird von der Gerätesicherung aufbewahrt. Hier ist nichts einzurichten.",
     "carrierDeviceRestore": "Kommt zurück, wenn du ein neues Telefon einrichtest",

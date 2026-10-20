@@ -1,25 +1,37 @@
-I tuoi dati di allenamento, visualizzati. Veloq riunisce registrazione, mappe, grafici, insights e monitoraggio del fitness in un'app veloce.
+Veloq legge il tuo account intervals.icu e lo mostra sul telefono: attività, mappe, grafici, fitness e forma. Cerca i percorsi e le sezioni che ripeti e confronta ogni passaggio con quelli precedenti. L'analisi avviene sul tuo dispositivo.
 
 Registrazione
-Registra le attivit con GPS, pausa automatica, split chilometrici e visualizzazione delle zone di frequenza cardiaca. Taglia la registrazione prima di salvarla. Carica come file FIT oppure metti in coda per dopo. Inserimento manuale per le attivit indoor.
+Registra uscite in bici, corse e altri sport con GPS, pausa automatica e parziali nelle tue unità. Collega sensori Bluetooth di frequenza cardiaca, potenza e cadenza, o segui un allenamento pianificato dal tuo calendario intervals.icu con gli obiettivi sullo schermo. Taglia inizio e fine prima di salvare, poi carica un file FIT o mettilo in coda finché non hai segnale. Le sessioni al chiuso si inseriscono a mano. Avvia una registrazione da un widget della schermata Home, dal Centro di Controllo o con Siri, e seguila sulla schermata di blocco.
 
-Insights
-Insights giornalieri dal tuo allenamento: PR e tendenze di sezione, traguardi di fitness, confronti settimanali, tendenze HRV e progressi nella forza. Ognuno mostra i suoi numeri e come sono stati calcolati.
+Approfondimenti
+Una lettura breve del tuo allenamento: record e tendenze sulle sezioni, traguardi di fitness, come va questa settimana rispetto alla scorsa, tendenze HRV e progressione della forza. Ogni approfondimento si apre con i suoi numeri e il modo in cui sono stati calcolati.
 
 Mappe
-Visualizza le tue attivit su mappe interattive con terreno 3D, mappe di calore dei percorsi e filtro temporale. Scegli tra stili chiaro, scuro e satellite. Scorri i grafici e osserva la tua posizione aggiornarsi sulla mappa in tempo reale.
+Mappe interattive con terreno 3D, heatmap dei percorsi e una cronologia filtrabile, in stile chiaro, scuro e satellite. Scorri lungo un grafico e la tua posizione si sposta sulla mappa.
 
-Tracciamento percorsi
-Rileva automaticamente percorsi e sezioni ripetute nella tua cronologia attivit. Confronta gli sforzi nel tempo per vedere i tuoi progressi su salite e tratti preferiti.
+Percorsi e sezioni
+Veloq cerca i percorsi e le sezioni che ripeti, senza nulla da configurare, e li ritaglia allo stesso modo su ogni dispositivo. La pagina di una sezione confronta ogni passaggio: la tendenza, la dispersione dei tuoi tempi e la traccia colorata dove hai guadagnato o perso tempo. Blocca, accorcia, allunga o rinomina una sezione, e ogni modifica conserva una cronologia che puoi annullare.
 
-Grafici e analisi
-Frequenza cardiaca, potenza, passo, altitudine e cadenza -- tutto sincronizzato con la mappa. Consulta distribuzioni delle zone, TSS, fattore di intensit e dettagli per giro.
+Grafici
+Frequenza cardiaca, potenza, ritmo, altitudine e cadenza su un'unica linea temporale con la mappa. Distribuzione per zone, carico di allenamento, intensità e dettaglio dei giri.
 
 Fitness
-Segui la tua forma con monitoraggio CTL/ATL/TSB e zone visive. Monitora HRV, frequenza cardiaca a riposo, sonno e benessere. Consulta curve di potenza e passo per sport.
+Fitness, affaticamento e forma in un solo grafico con le zone disegnate. HRV, frequenza cardiaca a riposo, sonno e benessere, e curve di potenza e di ritmo per ogni sport.
+
+Forza
+Le serie di forza delle tue attività su un diagramma del corpo: i gruppi muscolari allenati in ogni sessione, l'equilibrio tra gruppi opposti e la progressione di ogni esercizio.
+
+Widget
+Widget della schermata Home per il tuo fitness e la tua forma, l'ultima attività, gli approfondimenti più recenti e il tuo lavoro di forza, aggiornati in background.
+
+Notifiche
+Quando intervals.icu riceve una nuova attività, Veloq può inviarti una notifica con il nome del percorso e gli eventuali record personali, nella tua lingua. Le notifiche restano spente finché non le attivi.
+
+Backup
+Salva le tue impostazioni e le tue scelte sulle sezioni in un piccolo file, a mano o in automatico. Tienilo nel backup del dispositivo, o aggiungi un server WebDAV, una cartella o uno spazio cloud. Un ripristino scarica di nuovo le tue attività e applica le tue scelte dove corrispondono.
 
 Privacy
-I tuoi dati di allenamento restano sul tuo dispositivo. Nessuna analisi, nessun tracciamento. Le notifiche push opzionali memorizzano il tuo ID atleta intervals.icu e un token del dispositivo sul nostro server, eliminati automaticamente dopo 30 giorni. Open source con licenza Apache 2.0.
+I tuoi dati di allenamento restano sul tuo dispositivo. Niente analytics, niente tracciamento. Le notifiche push facoltative conservano il tuo ID atleta intervals.icu e un token del dispositivo sul nostro server, eliminati automaticamente dopo 30 giorni. Open source con licenza Apache 2.0.
 
 Accessibile: etichette per screen reader su ogni controllo, testo che segue la dimensione del testo di sistema e contrasto dei colori secondo i rapporti AA nei temi chiaro e scuro.
 

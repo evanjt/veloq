@@ -4,7 +4,8 @@
  * Expected behaviour: the credit is a bar across the map's visible bottom edge,
  * flush with it, so it takes one line at phone width rather than wrapping inside
  * a narrow corner pill. It is a licence condition so it is never truncated: past
- * one line the bar grows, and the measured height is what callers clear.
+ * one line the bar grows, and the measured height is what callers clear. On a
+ * sheet's rounded top edge it stands in from the corners, so they stay rounded.
  */
 
 import React from 'react';
@@ -47,6 +48,23 @@ describe('the map attribution bar', () => {
     const tree = await render(<AttributionOverlay initialAttribution={LONG} bottomInset={72} />);
 
     expect(flatStyle(tree.getByTestId('map-attribution')).bottom).toBe(72);
+  });
+
+  it('on a rounded edge stands clear of its corners, so the edge keeps its rounding', async () => {
+    const tree = await render(
+      <AttributionOverlay initialAttribution={LONG} bottomInset={72} edgeRadius={28} />
+    );
+    const container = flatStyle(tree.getByTestId('map-attribution'));
+    const bar = flatStyle(tree.getByTestId('map-attribution-bar'));
+
+    expect(container.left).toBe(28);
+    expect(container.right).toBe(28);
+    expect(container.bottom).toBe(72);
+    expect(bar.borderTopLeftRadius).toBeGreaterThan(0);
+    expect(bar.borderTopRightRadius).toBeGreaterThan(0);
+    expect(bar.borderBottomLeftRadius ?? 0).toBe(0);
+    expect(bar.borderBottomRightRadius ?? 0).toBe(0);
+    expect(tree.getByTestId('map-attribution-text').props.numberOfLines).toBeUndefined();
   });
 
   it('still shows the whole credit, however long it is', async () => {

@@ -1,1 +1,1 @@
-cycling,running,fitness,CTL,TSB,power,maps,GPS,routes,charts,training,recording,insights,triathlon
+cycling,watts,speed,elevation,gradient,recovery,sleep,wellness,effort,split,commute,mtb,gravel

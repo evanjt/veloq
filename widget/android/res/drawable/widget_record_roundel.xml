@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- White record roundel: ring with a filled centre on the teal record surface. -->
+<!-- White record roundel: ring with a filled centre on the red record surface. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
   <item>
     <shape android:shape="oval">

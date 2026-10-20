@@ -300,7 +300,6 @@
     "lastBackupNever": "Aldrig sikkerhedskopieret",
     "backupNow": "Sikkerhedskopiér nu",
     "backendWebdav": "WebDAV / Nextcloud",
-    "carrierDeviceIos": "iCloud-sikkerhedskopi",
     "carrierDeviceAndroid": "Google-sikkerhedskopi",
     "carrierDeviceDescription": "Gemmes af enhedens sikkerhedskopi. Her er intet at sætte op.",
     "carrierDeviceRestore": "Kommer tilbage, når du sætter en ny telefon op",

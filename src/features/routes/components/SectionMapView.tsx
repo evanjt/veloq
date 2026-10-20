@@ -145,6 +145,8 @@ interface SectionMapViewProps {
    * and a change refits the section.
    */
   coveredBottom?: number | undefined;
+  /** Corner radius of the rounded sheet top under `coveredBottom`, which the credit keeps clear of. */
+  coveredBottomRadius?: number | undefined;
   /** The attempt the chart's delta plot shows. While set, the section line is coloured by it. */
   deltaLine?: SectionDeltaLine | null | undefined;
   /**
@@ -175,6 +177,7 @@ export const SectionMapView = memo(function SectionMapView({
   extensionTrack = null,
   headerBottom = 0,
   coveredBottom = 0,
+  coveredBottomRadius = 0,
   deltaLine = null,
   shownDirection = null,
 }: SectionMapViewProps) {
@@ -603,6 +606,7 @@ export const SectionMapView = memo(function SectionMapView({
       ref={attributionRef}
       initialAttribution={initialAttribution}
       bottomInset={coveredBottom}
+      edgeRadius={coveredBottomRadius}
     />
   );
 

@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Expo asks for a development certificate when simulator entitlements need a
-// signature. Use ad hoc signing there; physical devices keep Expo's identity
-// and provisioning checks.
+// signature. Use ad hoc signing there, for a booted simulator and for the
+// build-only `--device generic` simulator build alike; physical devices keep
+// Expo's identity and provisioning checks.
 
 const fs = require('fs');
 const path = require('path');
@@ -19,7 +20,10 @@ const oldBuild = `if (props.device && (!props.isSimulator || (0, _simulatorCodeS
             args.push(\`DEVELOPMENT_TEAM=\${developmentTeamId}\`, '-allowProvisioningUpdates', '-allowProvisioningDeviceRegistration');
         }
     }`;
-const newBuild = `if (props.device && props.isSimulator && (0, _simulatorCodeSigning.simulatorBuildRequiresCodeSigning)(props.projectRoot)) {
+// The guard as it stood when it covered a booted simulator only, upgraded in place.
+const deviceOnlyBuild = `if (props.device && props.isSimulator && (0, _simulatorCodeSigning.simulatorBuildRequiresCodeSigning)(props.projectRoot)) {
+        ${MARKER}`;
+const newBuild = `if (props.isSimulator && (0, _simulatorCodeSigning.simulatorBuildRequiresCodeSigning)(props.projectRoot)) {
         ${MARKER}
         args.push('CODE_SIGN_IDENTITY=-', 'CODE_SIGNING_REQUIRED=NO', 'CODE_SIGNING_ALLOWED=YES', 'DEVELOPMENT_TEAM=');
     } else if (props.device && !props.isSimulator) {
@@ -61,14 +65,18 @@ function patch() {
   const resolverPath = path.join(dir, 'codeSigning/resolveCertificateSigningIdentity.js');
   const build = fs.readFileSync(buildPath, 'utf8');
   const resolver = fs.readFileSync(resolverPath, 'utf8');
-  if (!build.includes(oldBuild) && !build.includes(newBuild)) {
+  const upgraded = build.replace(
+    deviceOnlyBuild,
+    deviceOnlyBuild.replace('props.device && props.isSimulator', 'props.isSimulator')
+  );
+  if (!upgraded.includes(oldBuild) && !upgraded.includes(newBuild)) {
     throw new Error('[patch-expo-signing] Expo XcodeBuild.js changed; review signing patch');
   }
   if (resolver.includes(OLD_MARKER) && !resolver.includes(oldResolverPatch)) {
     throw new Error('[patch-expo-signing] Old identity patch changed; review before restoring');
   }
 
-  const nextBuild = build.includes(newBuild) ? build : build.replace(oldBuild, newBuild);
+  const nextBuild = upgraded.includes(newBuild) ? upgraded : upgraded.replace(oldBuild, newBuild);
   const nextResolver = resolver.replace(oldResolverPatch, stockResolver);
   if (nextBuild !== build) fs.writeFileSync(buildPath, nextBuild);
   if (nextResolver !== resolver) fs.writeFileSync(resolverPath, nextResolver);

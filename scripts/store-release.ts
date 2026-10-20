@@ -8,8 +8,9 @@
  * previous release tag and this one, only the texts, images and screenshot
  * sets that changed are staged, so a store is never re-sent a listing it
  * already holds. Every locale's release notes are staged on every release,
- * because each version carries its own, and a missing, empty or oversized note
- * refuses the release by name before anything is uploaded.
+ * because each version carries its own, and a missing, empty or oversized note,
+ * or an App Store note left as the previous release shipped it, refuses the
+ * release by name before anything is uploaded.
  *
  * supply and deliver both send only the files present under the path they are
  * given, so the staged tree is what decides what goes. A screenshot set is
@@ -221,11 +222,16 @@ function localesOf(tree: StoreTree, platform: Platform): string[] {
   return [...locales].sort();
 }
 
-/** The notes this version needs in every locale, and the refusal for each that falls short. */
-function releaseNotes(tree: StoreTree, versionCode: number) {
+/**
+ * The notes this version needs in every locale, and the refusal for each that
+ * falls short. An App Store note carries no version in its name, so one whose
+ * content is the previous release's was never rewritten and would ship that
+ * release's text again.
+ */
+function releaseNotes(tree: StoreTree, previous: StoreTree | null, versionCode: number) {
   const notes: string[] = [];
   const refusals: string[] = [];
-  const check = (at: string, cap: number | null) => {
+  const check = (at: string, cap: number | null, versioned: boolean) => {
     const file = tree.files.get(at);
     if (!file) {
       refusals.push(`${at} is missing`);
@@ -237,13 +243,21 @@ function releaseNotes(tree: StoreTree, versionCode: number) {
       refusals.push(`${at} is empty`);
     } else if (cap !== null && changelogCharCount(text) > cap) {
       refusals.push(`${at} is ${changelogCharCount(text)} characters, Play allows ${cap}`);
+    } else if (!versioned && previous?.files.get(at)?.id === file.id) {
+      refusals.push(
+        `${at} is unchanged since the previous release, so the App Store would show its notes again`
+      );
     }
   };
   for (const locale of localesOf(tree, 'android')) {
-    check(`metadata/android/${locale}/changelogs/${versionCode}.txt`, PLAY_CHANGELOG_MAX_CHARS);
+    check(
+      `metadata/android/${locale}/changelogs/${versionCode}.txt`,
+      PLAY_CHANGELOG_MAX_CHARS,
+      true
+    );
   }
   for (const locale of localesOf(tree, 'ios')) {
-    check(`metadata/ios/${locale}/release_notes.txt`, null);
+    check(`metadata/ios/${locale}/release_notes.txt`, null, false);
   }
   return { notes, refusals };
 }
@@ -266,7 +280,7 @@ export function planStoreRelease(
   current: StoreTree,
   versionCode: number
 ): StorePlan {
-  const { notes, refusals } = releaseNotes(current, versionCode);
+  const { notes, refusals } = releaseNotes(current, previous, versionCode);
   const plan: StorePlan = {
     refusals: [...current.refusals, ...refusals],
     notices: [],

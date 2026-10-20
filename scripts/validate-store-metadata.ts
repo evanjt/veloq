@@ -1,25 +1,33 @@
 #!/usr/bin/env npx tsx
 /**
- * Validates that all store metadata locales match app i18n locales.
+ * Validates store metadata against each store's field rules.
  *
  * Checks:
  * 1. All app locales have corresponding store locale directories
- * 2. All required metadata files exist for each locale
+ * 2. All required metadata files exist and are non-empty
  * 3. Changelog exists for current version code
  * 4. Android changelogs fit Google Play's 500-character cap
  * 5. No description makes a claim the app or the privacy policy contradicts
+ * 6. Field lengths sit inside each store's published limits
+ * 7. Apple keyword rules: no repeats of name, subtitle or category words
+ * 8. Global deliver files (copyright, categories, review notes, URLs)
+ * 9. Screenshot trees hold the exact store resolutions, no stray alpha
  *
  * Usage:
- *   npx tsx scripts/validate-store-metadata.ts [--version-code <code>]
+ *   npx tsx scripts/validate-store-metadata.ts [--version-code <code>] [--require-screenshots]
+ *
+ * Screenshot trees are validated whenever they exist. --require-screenshots
+ * additionally errors when they are absent, for release-time use.
  *
  * Exit codes:
- *   0 = All validations passed
+ *   0 = All validations passed (warnings allowed)
  *   1 = Validation errors found
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
 
+import { LOCALE_MAPPINGS, uniqueStoreLocales } from './store-locales';
 import { PLAY_CHANGELOG_MAX_CHARS, changelogCharCount } from './store-release';
 
 export { PLAY_CHANGELOG_MAX_CHARS, changelogCharCount };
@@ -31,6 +39,7 @@ export { PLAY_CHANGELOG_MAX_CHARS, changelogCharCount };
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 const FASTLANE_DIR = path.join(PROJECT_ROOT, 'config', 'fastlane');
 const METADATA_DIR = path.join(FASTLANE_DIR, 'metadata');
+const SCREENSHOTS_DIR = path.join(FASTLANE_DIR, 'screenshots');
 const APP_LOCALES_DIR = path.join(PROJECT_ROOT, 'src', 'i18n', 'locales');
 
 // Required files per platform
@@ -41,37 +50,61 @@ const IOS_REQUIRED_FILES = [
   'subtitle.txt',
   'description.txt',
   'keywords.txt',
+  'promotional_text.txt',
   'release_notes.txt',
 ];
 
-// Locale mapping from app locale files to store locale codes
-interface LocaleMapping {
-  app: string;
-  android: string;
-  ios: string;
-}
-
-const LOCALE_MAPPINGS: LocaleMapping[] = [
-  { app: 'en-US', android: 'en-US', ios: 'en-US' },
-  { app: 'en-AU', android: 'en-AU', ios: 'en-AU' },
-  { app: 'en-GB', android: 'en-GB', ios: 'en-GB' },
-  { app: 'de-DE', android: 'de-DE', ios: 'de-DE' },
-  // Swiss German variants: de-CH is NOT a valid store locale for either platform
-  // Use de-DE for both Android and iOS
-  { app: 'de-CH', android: 'de-DE', ios: 'de-DE' },
-  { app: 'es', android: 'es-ES', ios: 'es-ES' },
-  { app: 'es-ES', android: 'es-ES', ios: 'es-ES' },
-  { app: 'es-419', android: 'es-419', ios: 'es-MX' },
-  { app: 'fr', android: 'fr-FR', ios: 'fr-FR' },
-  { app: 'it', android: 'it-IT', ios: 'it' },
-  { app: 'nl', android: 'nl-NL', ios: 'nl-NL' },
-  { app: 'pt', android: 'pt-PT', ios: 'pt-PT' },
-  { app: 'pt-BR', android: 'pt-BR', ios: 'pt-BR' },
-  { app: 'pl', android: 'pl-PL', ios: 'pl' },
-  { app: 'da', android: 'da-DK', ios: 'da' },
-  { app: 'ja', android: 'ja-JP', ios: 'ja' },
-  { app: 'zh-Hans', android: 'zh-CN', ios: 'zh-Hans' },
+// Non-localised deliver files under metadata/ios/.
+const IOS_GLOBAL_FILES = [
+  'copyright.txt',
+  'primary_category.txt',
+  'secondary_category.txt',
+  path.join('review_information', 'notes.txt'),
 ];
+
+// Localised URL files deliver reads per locale.
+const IOS_URL_FILES = ['privacy_url.txt', 'support_url.txt', 'marketing_url.txt'];
+
+// Store field limits in characters. Apple documents the keyword field as 100
+// characters; the byte figure is repeated only by third parties, so bytes
+// over 100 warn rather than fail (it only bites on CJK and accented locales).
+const LIMITS: Record<'android' | 'ios', Record<string, number>> = {
+  android: {
+    'title.txt': 30,
+    'short_description.txt': 80,
+    'full_description.txt': 4000,
+  },
+  ios: {
+    'name.txt': 30,
+    'subtitle.txt': 30,
+    'keywords.txt': 100,
+    'description.txt': 4000,
+    'promotional_text.txt': 170,
+    'release_notes.txt': 4000,
+  },
+};
+
+const SINGLE_LINE_FILES = new Set([
+  'title.txt',
+  'short_description.txt',
+  'name.txt',
+  'subtitle.txt',
+  'keywords.txt',
+  'promotional_text.txt',
+]);
+
+// Category names count as indexed words on Apple, so keywords must not
+// repeat them either.
+const CATEGORY_WORDS: Record<string, string[]> = {
+  HEALTH_AND_FITNESS: ['health', 'fitness'],
+  SPORTS: ['sports', 'sport'],
+};
+
+// Exact store pixel sizes. Anything else in a tree is a mistake.
+const APPSTORE_PHONE = { width: 1320, height: 2868 };
+const APPSTORE_IPAD = { width: 2064, height: 2752 };
+const PLAY_PHONE = { width: 1080, height: 1920 };
+const PLAY_FEATURE = { width: 1024, height: 500 };
 
 // ============================================================================
 // Validation
@@ -233,6 +266,8 @@ export function unsupportedClaimsIn(text: string): string[] {
   ).map((c) => c.claim);
 }
 
+type Platform = 'android' | 'ios';
+
 interface ValidationError {
   type:
     | 'missing_locale'
@@ -240,14 +275,20 @@ interface ValidationError {
     | 'missing_changelog'
     | 'empty_file'
     | 'changelog_too_long'
-    | 'unsupported_claim';
-  platform: 'android' | 'ios';
+    | 'unsupported_claim'
+    | 'over_limit'
+    | 'missing_screenshots'
+    | 'screenshot_count'
+    | 'image_unreadable'
+    | 'image_size'
+    | 'image_alpha';
+  platform: Platform;
   locale: string;
   file?: string;
   message: string;
 }
 
-function claimErrors(platform: 'android' | 'ios', locale: string, file: string): ValidationError[] {
+function claimErrors(platform: Platform, locale: string, file: string): ValidationError[] {
   const filePath = path.join(METADATA_DIR, platform, locale, file);
   if (!fs.existsSync(filePath)) return [];
   return unsupportedClaimsIn(fs.readFileSync(filePath, 'utf-8')).map((claim) => ({
@@ -261,14 +302,277 @@ function claimErrors(platform: 'android' | 'ios', locale: string, file: string):
   }));
 }
 
+function codePoints(text: string): number {
+  return [...text.trim()].length;
+}
+
+function words(text: string): Set<string> {
+  return new Set(
+    text
+      .toLowerCase()
+      .split(/[^\p{L}\p{N}]+/u)
+      .filter((w) => w.length > 1)
+  );
+}
+
+function readIfExists(filePath: string): string | null {
+  return fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf-8') : null;
+}
+
+/** A text field's errors: missing, empty, or over the store's limit for it. */
+export function textFieldErrors(
+  platform: Platform,
+  locale: string,
+  file: string,
+  raw: string | null
+): ValidationError[] {
+  const label = `${platform}/${locale}/${file}`;
+  if (raw === null) {
+    return [{ type: 'missing_file', platform, locale, file, message: `Missing: ${label}` }];
+  }
+  if (raw.trim() === '') {
+    return [{ type: 'empty_file', platform, locale, file, message: `Empty: ${label}` }];
+  }
+  const limit = LIMITS[platform][file];
+  const count = codePoints(raw);
+  if (limit && count > limit) {
+    return [
+      {
+        type: 'over_limit',
+        platform,
+        locale,
+        file,
+        message: `Over limit: ${label} is ${count} characters, limit ${limit}`,
+      },
+    ];
+  }
+  return [];
+}
+
+function textFieldWarnings(platform: Platform, locale: string, file: string, raw: string | null) {
+  if (raw === null || !SINGLE_LINE_FILES.has(file) || raw === raw.trim()) return [];
+  return [`Trailing whitespace: ${platform}/${locale}/${file}`];
+}
+
+/**
+ * Keyword choices that waste the field. Apple indexes name, subtitle,
+ * keywords and category as one pool, so a word placed twice is a wasted word.
+ */
+export function keywordWarnings(
+  locale: string,
+  keywords: string,
+  name: string,
+  subtitle: string,
+  category: string
+): string[] {
+  const label = `ios/${locale}/keywords.txt`;
+  const warnings: string[] = [];
+  const bytes = Buffer.byteLength(keywords, 'utf8');
+  if (bytes > 100 && codePoints(keywords) <= 100) {
+    warnings.push(
+      `Keywords are ${bytes} bytes: ${label} may overflow if the limit is enforced in bytes`
+    );
+  }
+  if (/,\s/.test(keywords)) {
+    warnings.push(`Space after comma wastes characters: ${label}`);
+  }
+
+  const pool = words(`${name} ${subtitle}`);
+  for (const w of CATEGORY_WORDS[category] ?? []) pool.add(w);
+
+  const seen = new Set<string>();
+  for (const term of keywords.split(',')) {
+    for (const w of words(term)) {
+      if (pool.has(w)) {
+        warnings.push(`Keyword '${w}' repeats a name, subtitle or category word: ${label}`);
+      }
+      if (seen.has(w)) {
+        warnings.push(`Keyword '${w}' appears twice: ${label}`);
+      }
+      seen.add(w);
+    }
+  }
+  return warnings;
+}
+
+interface ImageInfo {
+  width: number;
+  height: number;
+  hasAlpha: boolean;
+}
+
+/** Width, height and alpha from a PNG or JPEG header, or null for neither. */
+export function readImageInfo(buf: Buffer): ImageInfo | null {
+  // PNG: IHDR width and height at bytes 16 to 23, colour type at 25.
+  if (buf.length > 26 && buf.readUInt32BE(0) === 0x89504e47) {
+    const colourType = buf[25];
+    return {
+      width: buf.readUInt32BE(16),
+      height: buf.readUInt32BE(20),
+      hasAlpha: colourType === 4 || colourType === 6,
+    };
+  }
+  // JPEG: walk the segments to the first frame header.
+  if (buf.length > 4 && buf[0] === 0xff && buf[1] === 0xd8) {
+    let off = 2;
+    while (off + 9 < buf.length) {
+      if (buf[off] !== 0xff) {
+        off++;
+        continue;
+      }
+      const marker = buf[off + 1] ?? 0;
+      const isSof =
+        marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc;
+      if (isSof) {
+        return {
+          height: buf.readUInt16BE(off + 5),
+          width: buf.readUInt16BE(off + 7),
+          hasAlpha: false,
+        };
+      }
+      off += 2 + buf.readUInt16BE(off + 2);
+    }
+  }
+  return null;
+}
+
+/** An image's errors against the exact size its store slot takes. */
+export function imageErrors(
+  platform: Platform,
+  locale: string,
+  label: string,
+  buf: Buffer,
+  expected: { width: number; height: number },
+  allowAlpha: boolean
+): ValidationError[] {
+  const info = readImageInfo(buf);
+  const at = { platform, locale, file: label };
+  if (!info) {
+    return [{ type: 'image_unreadable', ...at, message: `Unreadable image: ${label}` }];
+  }
+  const errors: ValidationError[] = [];
+  if (info.width !== expected.width || info.height !== expected.height) {
+    errors.push({
+      type: 'image_size',
+      ...at,
+      message:
+        `Wrong size: ${label} is ${info.width}x${info.height}, ` +
+        `expected ${expected.width}x${expected.height}`,
+    });
+  }
+  if (info.hasAlpha && !allowAlpha) {
+    errors.push({ type: 'image_alpha', ...at, message: `Alpha channel not allowed: ${label}` });
+  }
+  return errors;
+}
+
+function imageFiles(dir: string): string[] {
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .filter((f) => /\.(png|jpe?g)$/i.test(f))
+    .sort()
+    .map((f) => path.join(dir, f));
+}
+
+interface StoreDirs {
+  metadataDir: string;
+  screenshotsDir: string;
+}
+
+function checkImages(
+  platform: Platform,
+  locale: string,
+  root: string,
+  files: string[],
+  expected: { width: number; height: number }
+): ValidationError[] {
+  return files.flatMap((f) =>
+    imageErrors(platform, locale, path.relative(root, f), fs.readFileSync(f), expected, false)
+  );
+}
+
+/**
+ * A locale's screenshot and graphic errors. A tree that exists is always held
+ * to its store's counts and sizes; an absent one is an error only when
+ * screenshots are required.
+ */
+export function screenshotErrors(
+  platform: Platform,
+  locale: string,
+  dirs: StoreDirs,
+  requireScreenshots: boolean
+): ValidationError[] {
+  const errors: ValidationError[] = [];
+  const missing = (file: string, message: string) =>
+    errors.push({ type: 'missing_screenshots', platform, locale, file, message });
+
+  if (platform === 'ios') {
+    const dir = path.join(dirs.screenshotsDir, locale);
+    if (!fs.existsSync(dir)) {
+      if (requireScreenshots) missing(locale, `Missing screenshot tree: screenshots/${locale}`);
+      return errors;
+    }
+    const files = imageFiles(dir);
+    const ipad = files.filter((f) => path.basename(f).startsWith('ipad-'));
+    const phone = files.filter((f) => !path.basename(f).startsWith('ipad-'));
+    if (phone.length < 1 || phone.length > 10) {
+      errors.push({
+        type: 'screenshot_count',
+        platform,
+        locale,
+        message: `Expected 1-10 iPhone screenshots in screenshots/${locale}, found ${phone.length}`,
+      });
+    }
+    // supportsTablet is true, so the iPad class is required alongside the phone.
+    if (requireScreenshots && ipad.length < 1) {
+      missing(locale, `Missing iPad screenshots in screenshots/${locale}`);
+    }
+    errors.push(...checkImages(platform, locale, dirs.screenshotsDir, phone, APPSTORE_PHONE));
+    errors.push(...checkImages(platform, locale, dirs.screenshotsDir, ipad, APPSTORE_IPAD));
+    return errors;
+  }
+
+  const imagesDir = path.join(dirs.metadataDir, 'android', locale, 'images');
+  const phoneDir = path.join(imagesDir, 'phoneScreenshots');
+  const phone = imageFiles(phoneDir);
+  const feature = imageFiles(imagesDir).filter((f) =>
+    path.basename(f).startsWith('featureGraphic')
+  );
+
+  if (!fs.existsSync(phoneDir)) {
+    if (requireScreenshots) {
+      missing(
+        'images/phoneScreenshots',
+        `Missing phone screenshots: android/${locale}/images/phoneScreenshots`
+      );
+    }
+  } else if (phone.length < 2 || phone.length > 8) {
+    errors.push({
+      type: 'screenshot_count',
+      platform,
+      locale,
+      message: `Expected 2-8 phone screenshots for android/${locale}, found ${phone.length}`,
+    });
+  }
+  errors.push(...checkImages(platform, locale, dirs.metadataDir, phone, PLAY_PHONE));
+
+  if (feature.length === 0) {
+    if (requireScreenshots) {
+      missing(
+        'images/featureGraphic',
+        `Missing feature graphic: android/${locale}/images/featureGraphic`
+      );
+    }
+  } else {
+    errors.push(...checkImages(platform, locale, dirs.metadataDir, feature, PLAY_FEATURE));
+  }
+  return errors;
+}
+
 function getAppLocales(): string[] {
   const files = fs.readdirSync(APP_LOCALES_DIR);
   return files.filter((f) => f.endsWith('.json')).map((f) => f.replace('.json', ''));
-}
-
-function getUniqueStoreLocales(platform: 'android' | 'ios'): string[] {
-  const locales = LOCALE_MAPPINGS.map((m) => m[platform]);
-  return [...new Set(locales)];
 }
 
 function getVersionCodeFromAppJson(): number | null {
@@ -290,7 +594,7 @@ function getVersionCodeFromAppJson(): number | null {
 export function oversizedChangelogs(): ValidationError[] {
   const errors: ValidationError[] = [];
 
-  for (const locale of getUniqueStoreLocales('android')) {
+  for (const locale of uniqueStoreLocales('android')) {
     const changelogDir = path.join(METADATA_DIR, 'android', locale, 'changelogs');
     if (!fs.existsSync(changelogDir)) continue;
 
@@ -315,8 +619,42 @@ export function oversizedChangelogs(): ValidationError[] {
   return errors;
 }
 
-export function validateMetadata(versionCode?: number): ValidationError[] {
+/** Warnings that do not fail the run: trailing whitespace and wasted keywords. */
+export function metadataWarnings(): string[] {
+  const warnings: string[] = [];
+  for (const platform of ['android', 'ios'] as const) {
+    const required = platform === 'android' ? ANDROID_REQUIRED_FILES : IOS_REQUIRED_FILES;
+    for (const locale of uniqueStoreLocales(platform)) {
+      const localeDir = path.join(METADATA_DIR, platform, locale);
+      for (const file of required) {
+        warnings.push(
+          ...textFieldWarnings(platform, locale, file, readIfExists(path.join(localeDir, file)))
+        );
+      }
+      if (platform !== 'ios') continue;
+      const keywords = readIfExists(path.join(localeDir, 'keywords.txt'))?.trim();
+      if (!keywords) continue;
+      warnings.push(
+        ...keywordWarnings(
+          locale,
+          keywords,
+          readIfExists(path.join(localeDir, 'name.txt')) ?? '',
+          readIfExists(path.join(localeDir, 'subtitle.txt')) ?? '',
+          readIfExists(path.join(METADATA_DIR, 'ios', 'primary_category.txt'))?.trim() ?? ''
+        )
+      );
+    }
+  }
+  return warnings;
+}
+
+export function validateMetadata(
+  versionCode?: number,
+  options: { requireScreenshots?: boolean } = {}
+): ValidationError[] {
   const errors: ValidationError[] = [];
+  const dirs = { metadataDir: METADATA_DIR, screenshotsDir: SCREENSHOTS_DIR };
+  const requireScreenshots = options.requireScreenshots ?? false;
 
   // Get current version code if not specified
   if (!versionCode) {
@@ -336,8 +674,7 @@ export function validateMetadata(versionCode?: number): ValidationError[] {
   }
 
   // Validate Android metadata
-  const androidLocales = getUniqueStoreLocales('android');
-  for (const locale of androidLocales) {
+  for (const locale of uniqueStoreLocales('android')) {
     const localeDir = path.join(METADATA_DIR, 'android', locale);
 
     if (!fs.existsSync(localeDir)) {
@@ -350,26 +687,10 @@ export function validateMetadata(versionCode?: number): ValidationError[] {
       continue;
     }
 
-    // Check required files
     for (const file of ANDROID_REQUIRED_FILES) {
-      const filePath = path.join(localeDir, file);
-      if (!fs.existsSync(filePath)) {
-        errors.push({
-          type: 'missing_file',
-          platform: 'android',
-          locale,
-          file,
-          message: `Missing: android/${locale}/${file}`,
-        });
-      } else if (fs.readFileSync(filePath, 'utf-8').trim() === '') {
-        errors.push({
-          type: 'empty_file',
-          platform: 'android',
-          locale,
-          file,
-          message: `Empty: android/${locale}/${file}`,
-        });
-      }
+      errors.push(
+        ...textFieldErrors('android', locale, file, readIfExists(path.join(localeDir, file)))
+      );
     }
 
     errors.push(...claimErrors('android', locale, 'full_description.txt'));
@@ -410,11 +731,12 @@ export function validateMetadata(versionCode?: number): ValidationError[] {
         }
       }
     }
+
+    errors.push(...screenshotErrors('android', locale, dirs, requireScreenshots));
   }
 
   // Validate iOS metadata
-  const iosLocales = getUniqueStoreLocales('ios');
-  for (const locale of iosLocales) {
+  for (const locale of uniqueStoreLocales('ios')) {
     const localeDir = path.join(METADATA_DIR, 'ios', locale);
 
     if (!fs.existsSync(localeDir)) {
@@ -427,29 +749,26 @@ export function validateMetadata(versionCode?: number): ValidationError[] {
       continue;
     }
 
-    // Check required files
-    for (const file of IOS_REQUIRED_FILES) {
-      const filePath = path.join(localeDir, file);
-      if (!fs.existsSync(filePath)) {
-        errors.push({
-          type: 'missing_file',
-          platform: 'ios',
-          locale,
-          file,
-          message: `Missing: ios/${locale}/${file}`,
-        });
-      } else if (fs.readFileSync(filePath, 'utf-8').trim() === '') {
-        errors.push({
-          type: 'empty_file',
-          platform: 'ios',
-          locale,
-          file,
-          message: `Empty: ios/${locale}/${file}`,
-        });
-      }
+    for (const file of [...IOS_REQUIRED_FILES, ...IOS_URL_FILES]) {
+      errors.push(
+        ...textFieldErrors('ios', locale, file, readIfExists(path.join(localeDir, file)))
+      );
     }
 
     errors.push(...claimErrors('ios', locale, 'description.txt'));
+    errors.push(...screenshotErrors('ios', locale, dirs, requireScreenshots));
+  }
+
+  // Global deliver files
+  for (const file of IOS_GLOBAL_FILES) {
+    errors.push(
+      ...textFieldErrors(
+        'ios',
+        '(global)',
+        file,
+        readIfExists(path.join(METADATA_DIR, 'ios', file))
+      )
+    );
   }
 
   return errors;
@@ -468,6 +787,7 @@ if (require.main === module) {
   if (versionCodeIdx !== -1 && args[versionCodeIdx + 1]) {
     versionCode = parseInt(args[versionCodeIdx + 1], 10);
   }
+  const requireScreenshots = args.includes('--require-screenshots');
 
   console.log('Validating store metadata...\n');
 
@@ -479,49 +799,38 @@ if (require.main === module) {
   // The sweep covers the current version code too, so dedupe by message
   // rather than reporting that one file twice.
   const seen = new Set<string>();
-  const errors = [...validateMetadata(versionCode), ...oversizedChangelogs()].filter(
-    (e) => !seen.has(e.message) && seen.add(e.message)
-  );
+  const errors = [
+    ...validateMetadata(versionCode, { requireScreenshots }),
+    ...oversizedChangelogs(),
+  ].filter((e) => !seen.has(e.message) && seen.add(e.message));
+
+  const warnings = metadataWarnings();
+  if (warnings.length > 0) {
+    console.log('Warnings:');
+    for (const w of warnings) console.log(`  - ${w}`);
+    console.log('');
+  }
 
   if (errors.length === 0) {
     console.log('✓ All store metadata validations passed\n');
-
-    // Summary
-    const androidLocales = getUniqueStoreLocales('android');
-    const iosLocales = getUniqueStoreLocales('ios');
-    console.log(`Android: ${androidLocales.length} locales`);
-    console.log(`iOS: ${iosLocales.length} locales`);
-
+    console.log(`Android: ${uniqueStoreLocales('android').length} locales`);
+    console.log(`iOS: ${uniqueStoreLocales('ios').length} locales`);
     process.exit(0);
   } else {
     console.log(`✗ Found ${errors.length} validation error(s):\n`);
 
-    // Group by platform
-    const androidErrors = errors.filter((e) => e.platform === 'android');
-    const iosErrors = errors.filter((e) => e.platform === 'ios');
-
-    if (androidErrors.length > 0) {
-      console.log('Android:');
-      for (const err of androidErrors) {
-        console.log(`  - ${err.message}`);
+    for (const platform of ['android', 'ios'] as const) {
+      const platformErrors = errors.filter((e) => e.platform === platform);
+      if (platformErrors.length > 0) {
+        console.log(`${platform === 'android' ? 'Android' : 'iOS'}:`);
+        for (const err of platformErrors) console.log(`  - ${err.message}`);
+        console.log('');
       }
-      console.log('');
-    }
-
-    if (iosErrors.length > 0) {
-      console.log('iOS:');
-      for (const err of iosErrors) {
-        console.log(`  - ${err.message}`);
-      }
-      console.log('');
     }
 
     console.log('Fix these issues before releasing.');
-    console.log('Run: npx tsx scripts/store-metadata.ts sync-metadata');
-    console.log(
-      `Run: npx tsx scripts/store-metadata.ts changelog ${detectedVersionCode || '<version>'}`
-    );
-
+    console.log('Edit the affected files under config/fastlane/metadata/.');
+    console.log('Regenerate store images: npm run store:render && npm run store:install');
     process.exit(1);
   }
 }

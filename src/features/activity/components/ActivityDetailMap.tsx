@@ -27,7 +27,11 @@ import { useCustomSections, useRouteSettings, useSectionMatches } from '@/featur
 import { useMapPreferences } from '@/features/settings';
 import { mapSheetHostKey, useHostCardCount } from '@/shared/app/mapSheetHost';
 import { useMapSheetHost } from '@/shared/app/MapSheetHost';
-import { mapSheetCoveredHeight, useMapSheetStop } from '@/shared/app/mapSheetStop';
+import {
+  mapSheetCoveredCorner,
+  mapSheetCoveredHeight,
+  useMapSheetStop,
+} from '@/shared/app/mapSheetStop';
 import { useSheetWindow } from '@/shared/app/TopSafeAreaContext';
 import { ComponentErrorBoundary, showNotice } from '@/shared/ui';
 import { toActivityType } from '@/types';
@@ -200,6 +204,7 @@ export function ActivityDetailMap({ activityId: id }: ActivityDetailMapProps) {
             streams={streams}
             height={height}
             coveredBottom={coveredBottom}
+            coveredBottomRadius={mapSheetCoveredCorner(coveredBottom)}
             showStyleToggle={!creationMode}
             showAttribution
             highlightIndex={highlightIndex}

@@ -1,10 +1,11 @@
 /**
- * Scenario: a first sign-in no longer opens the tour. The feed card offers it
- * after the quiet period, the athlete may decline it, and a tour may close with
- * the backup slide unanswered.
+ * Scenario: a first sign-in no longer opens the tour. The feed card offers it,
+ * the athlete may decline it, and a tour may close with the backup slide
+ * unanswered.
  *
- * Expected behaviour: the card offers the tour in a session after the quiet
- * period. Not now hides it until a later session, and a second Not now ends the
+ * Expected behaviour: the card offers the tour from the first session. Inside
+ * the quiet period the tour leaves out the notification slide, which the card
+ * offers alone once the quiet period ends. Not now hides it until a later session, and a second Not now ends the
  * offer and marks the tour seen. A tour closed with the backup slide unanswered
  * brings the card back once, in a later session, opening the tour at that slide
  * only; after that nothing returns. A backup turned on in the tour owes nothing.
@@ -69,11 +70,46 @@ beforeEach(() => {
   });
 });
 
-it('offers nothing on a first sign-in inside the quiet period', async () => {
+it('offers the tour on a first sign-in inside the quiet period, without the notification slide', async () => {
+  useAuthStore.setState({ authMethod: 'oauth' });
   openLaunchSession(true);
   await render(<TourOfferCard />);
+  expect(screen.getByText('whatsNew.tourOfferTitle')).toBeTruthy();
+  await press('tour-offer-open');
+  expect(useWhatsNewStore.getState().tourState).toMatchObject({
+    mode: 'tutorial',
+    only: null,
+    held: ['notifications'],
+  });
+});
+
+it('owes the notification slide alone after a quiet-period tour, once the quiet period ends', async () => {
+  useAuthStore.setState({ authMethod: 'oauth' });
+  openLaunchSession(true);
+  await render(<TourOfferCard />);
+  await press('tour-offer-open');
+  await act(async () => {
+    useWhatsNewStore.getState().answerSetup('backup', 'on');
+  });
+  await closeTour();
+
+  await act(async () => {
+    openLaunchSession(true);
+  });
   expect(screen.queryByTestId('tour-offer-card')).toBeNull();
-  expect(useWhatsNewStore.getState().tourState).toBeNull();
+
+  await laterSession();
+  expect(screen.getByText('whatsNew.setupLeftoverTitleOne')).toBeTruthy();
+  await press('tour-offer-open');
+  expect(useWhatsNewStore.getState().tourState).toMatchObject({
+    mode: 'tutorial',
+    only: ['notifications'],
+    held: [],
+  });
+  await closeTour();
+
+  await laterSession();
+  expect(screen.queryByTestId('tour-offer-card')).toBeNull();
 });
 
 it('offers nothing in demo', async () => {
@@ -86,7 +122,11 @@ it('offers the tour after the quiet period and opens the whole tour on Take the 
   await render(<TourOfferCard />);
   expect(screen.getByText('whatsNew.tourOfferTitle')).toBeTruthy();
   await press('tour-offer-open');
-  expect(useWhatsNewStore.getState().tourState).toMatchObject({ mode: 'tutorial', only: null });
+  expect(useWhatsNewStore.getState().tourState).toMatchObject({
+    mode: 'tutorial',
+    only: null,
+    held: [],
+  });
   expect(screen.queryByTestId('tour-offer-card')).toBeNull();
 });
 

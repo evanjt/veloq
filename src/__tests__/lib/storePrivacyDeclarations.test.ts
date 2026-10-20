@@ -287,4 +287,14 @@ describe('the record in the tree', () => {
   it('accounts for app.json and agrees across the two stores', () => {
     expect(privacyDeclarationGaps(loadAppJson(), loadPrivacyRecord())).toEqual([]);
   });
+
+  it('declares the Android Drive backup on Play as going to the athlete only', () => {
+    const record = loadPrivacyRecord();
+    const drive = (entries: StorePrivacyRecord['play']['notCollected']) =>
+      entries.filter((entry) => entry.what === 'Google Drive backups');
+    expect(drive(record.play.notCollected)).toEqual([
+      expect.objectContaining({ reason: 'athletesOwnAccount' }),
+    ]);
+    expect(drive(record.appStore.notCollected)).toEqual([]);
+  });
 });

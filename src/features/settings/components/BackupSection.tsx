@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
-import { View, StyleSheet, Platform, type ViewInstance } from 'react-native';
+import { View, StyleSheet, type ViewInstance } from 'react-native';
 import { Text } from 'react-native-paper';
 import {
   Button,
@@ -335,15 +335,14 @@ export function BackupSection() {
     () => readBackupState(() => getLastBackupTimestamp()) ?? null,
     [readBackupState]
   );
-  const destinationStamps = useMemo<Record<BackupDestination, number | null>>(
+  const destinationStamps = useMemo<Record<Exclude<BackupDestination, 'device'>, number | null>>(
     () =>
       readBackupState(() => ({
-        device: getDestinationLastBackup('device'),
         webdav: webdavSet ? getDestinationLastBackup('webdav') : null,
         folder: folderName ? getDestinationLastBackup('folder') : null,
         googleDrive: driveAccount ? getDestinationLastBackup('googleDrive') : null,
         icloud: icloudOn ? getDestinationLastBackup('icloud') : null,
-      })) ?? { device: null, webdav: null, folder: null, googleDrive: null, icloud: null },
+      })) ?? { webdav: null, folder: null, googleDrive: null, icloud: null },
     // A carrier set up or removed changes which stamp applies.
     [readBackupState, webdavSet, folderName, driveAccount, icloudOn]
   );
@@ -712,6 +711,20 @@ export function BackupSection() {
   const anyBusy = restoringEntry !== null;
 
   const info = (...parts: string[]) => parts.join('\n\n');
+  // On iPhone the cloud backup named is iCloud Drive, which Veloq writes and
+  // can list, so the phone's own backup gets no row and no explanation.
+  const destinationsInfo = (
+    <InfoButton
+      testID="backup-info-destinations"
+      title={t('backup.sectionDestinations')}
+      message={info(
+        ...(icloudSupported
+          ? []
+          : [t('backup.carrierDeviceDescription'), t('backup.platformRestorePath')]),
+        webdavSet ? t('backup.webdavRestorePath') : t('backup.localRestorePath')
+      )}
+    />
+  );
 
   const runStatus = describeBackupRun(t, backupResult, backupError, runResult, {
     webdav: getWebdavConfig()?.url ?? '',
@@ -953,41 +966,26 @@ export function BackupSection() {
 
       <ListSectionHeader>{t('backup.sectionDestinations')}</ListSectionHeader>
       <Card variant="flat" padding="none">
-        <Row testID="backup-carrier-device">
-          <Icon name="cellphone" size={iconSize.lg} color={iconColor} />
-          <View style={styles.fill}>
-            <Text style={labelStyle}>
-              {t(Platform.OS === 'ios' ? 'backup.carrierDeviceIos' : 'backup.carrierDeviceAndroid')}
-            </Text>
-            <Text style={detailStyle}>{t('backup.carrierDeviceRestore')}</Text>
-            {Platform.OS === 'android' ? (
+        {icloudSupported ? null : (
+          <Row testID="backup-carrier-device">
+            <Icon name="cellphone" size={iconSize.lg} color={iconColor} />
+            <View style={styles.fill}>
+              <Text style={labelStyle}>{t('backup.carrierDeviceAndroid')}</Text>
+              <Text style={detailStyle}>{t('backup.carrierDeviceRestore')}</Text>
               <AndroidAutoBackupState />
-            ) : (
-              <DestinationLastBackup
-                at={destinationStamps.device}
-                testID="backup-carrier-last-device"
-              />
-            )}
-          </View>
-          <InfoButton
-            testID="backup-info-destinations"
-            title={t('backup.sectionDestinations')}
-            message={info(
-              t('backup.carrierDeviceDescription'),
-              t('backup.platformRestorePath'),
-              webdavSet ? t('backup.webdavRestorePath') : t('backup.localRestorePath')
-            )}
-          />
-        </Row>
+            </View>
+            {destinationsInfo}
+          </Row>
+        )}
         {icloudSupported ? (
           <>
-            {divider}
             <View testID="backup-carrier-icloud">
               <SwitchRow
                 icon="apple-icloud"
                 title={t('backup.carrierIcloud')}
                 description={t('backup.carrierIcloudDescription')}
                 value={icloudOn}
+                accessory={destinationsInfo}
                 onValueChange={handleToggleIcloud}
                 testID="backup-icloud-switch"
               />

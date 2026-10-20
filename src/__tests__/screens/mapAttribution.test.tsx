@@ -1,13 +1,14 @@
 /**
  * Scenario: the Map tab credits its basemap over the map, above the filter sheet.
- * Expected behaviour: one attribution bar, the shared overlay, sitting on
- * the sheet's measured top edge and themed by the app rather than the basemap. The
+ * Expected behaviour: one attribution bar, the shared overlay, carried inside the
+ * sheet on its top edge, clear of its rounded corners, and themed by the app
+ * rather than the basemap. The
  * map's popups clear the sheet and the credit as measured, and the sheet never
  * grows past the space under the map's top controls.
  */
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { act, fireEvent, type RenderResult } from '@testing-library/react-native';
+import { act, fireEvent, within, type RenderResult } from '@testing-library/react-native';
 import MapScreen from '@/app/(tabs)/map';
 import { renderStaged } from '../__shared__/stagedRender';
 import { advanceAnimationByTime, getAnimatedStyle } from '../__shared__/reanimatedJest';
@@ -106,8 +107,6 @@ async function layOut(view: RenderResult, testID: string, height: number) {
 
 const sheetHeight = (view: RenderResult) =>
   getAnimatedStyle(view.getByTestId('map-filter-sheet')).height as number;
-const laneBottom = (view: RenderResult) =>
-  getAnimatedStyle(view.getByTestId('map-attribution-lane')).bottom as number;
 
 describe('map tab attribution', () => {
   afterEach(() => {
@@ -123,19 +122,38 @@ describe('map tab attribution', () => {
     expect(view.getByTestId('map-attribution-text').props.children).toBe(MOCK_CREDIT);
   });
 
-  it('sits on the top edge of the sheet as measured, and follows it as it grows', async () => {
-    // The staged first visit waits on a real frame; the sheet's animations then run on fake time.
+  it('rides inside the sheet, on its top edge, so a drag moves both in one layout', async () => {
     const view = await renderStaged(<MapScreen />);
     jest.useFakeTimers();
     await layOut(view, 'map-filter-lowered', 140);
-    const lowered = sheetHeight(view);
-    expect(lowered).toBeGreaterThan(140);
-    expect(laneBottom(view)).toBe(lowered);
+    const sheet = view.getByTestId('map-filter-sheet');
+    const lane = within(sheet).getByTestId('map-attribution-lane');
+    expect(within(lane).getByTestId('map-attribution-bar')).toBeTruthy();
+    expect(StyleSheet.flatten(lane.props.style).bottom).toBe('100%');
+    // Nothing of the credit's own animates: it moves only because the sheet does.
+    expect(getAnimatedStyle(lane)).toEqual({});
 
+    const lowered = sheetHeight(view);
     await layOut(view, 'map-filter-lowered', 360);
     act(() => advanceAnimationByTime(400));
     expect(sheetHeight(view)).toBe(lowered + 220);
-    expect(laneBottom(view)).toBe(lowered + 220);
+    expect(within(view.getByTestId('map-filter-sheet')).getByTestId('map-attribution-lane')).toBe(
+      view.getByTestId('map-attribution-lane')
+    );
+  });
+
+  it("keeps the sheet's top corners rounded, the credit standing clear of them", async () => {
+    const view = await renderStaged(<MapScreen />);
+    const body = StyleSheet.flatten(view.getByTestId('map-filter-sheet-body').props.style);
+    const radius = body.borderTopLeftRadius as number;
+    expect(radius).toBeGreaterThan(0);
+    expect(body.borderTopRightRadius).toBe(radius);
+    expect(body.overflow).toBe('hidden');
+
+    const credit = StyleSheet.flatten(view.getByTestId('map-attribution').props.style);
+    expect(credit.left).toBeGreaterThanOrEqual(radius);
+    expect(credit.right).toBeGreaterThanOrEqual(radius);
+    expect(view.getByTestId('map-attribution-text').props.numberOfLines).toBeUndefined();
   });
 
   it('hands the map the raised sheet and its credit to clear, as measured', async () => {

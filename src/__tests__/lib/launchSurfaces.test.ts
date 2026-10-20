@@ -10,7 +10,7 @@
  * restore offer and from under a modal, and it takes no ask's slot. The restore
  * offer is never a modal. The quiet period lasts until a sync has settled clean
  * and the athlete has used the app on a second local day, and inside it only the
- * restore offer asks. After it a session asks at most one thing, the first
+ * restore offer asks, then the tour offer. After it a session asks at most one thing, the first
  * eligible in order, and an ask answered does not hand its slot to the next.
  */
 
@@ -164,6 +164,28 @@ describe('the one ask a session may raise', () => {
     expect(surfaces.ask).toBe('restore');
   });
 
+  it('offers the tour in the quiet period on a first day whose sync has settled', () => {
+    const surfaces = launchSurfaces({
+      ...quiet,
+      firstSyncSettled: true,
+      useDays: 1,
+      lastSeenVersion: null,
+      ...eligible('tourOffer'),
+    });
+    expect(surfaces.ask).toBe('tourOffer');
+  });
+
+  it('offers the tour in the quiet period after the restore offer, and holds the series and support asks', () => {
+    const asks = eligible('support', 'seriesConsent', 'tourOffer');
+    expect(launchSurfaces({ ...quiet, ...quietPeriod, restoreOffered: true, ...asks }).ask).toBe(
+      'restore'
+    );
+    expect(launchSurfaces({ ...quiet, ...quietPeriod, ...asks }).ask).toBe('tourOffer');
+    expect(
+      launchSurfaces({ ...quiet, ...quietPeriod, ...eligible('support', 'seriesConsent') }).ask
+    ).toBeNull();
+  });
+
   it('asks nothing before the days of use are counted', () => {
     const surfaces = launchSurfaces({
       ...quiet,
@@ -189,7 +211,7 @@ describe('the one ask a session may raise', () => {
       ...quiet,
       firstSyncSettled: false,
       useDays: 2,
-      ...eligible('seriesConsent', 'tourOffer', 'support'),
+      ...eligible('seriesConsent', 'support'),
     });
     expect(surfaces.ask).toBeNull();
     expect(
@@ -348,14 +370,15 @@ describe('the quiet period across launches', () => {
     jest.useRealTimers();
   });
 
-  it('asks only a restore offer on three launches in one local day, the sync settled after the first', async () => {
+  it('asks only a restore offer or the tour offer on three launches in one local day, the sync settled after the first', async () => {
     await launchAt(0, 9);
-    expect(verdict().ask).toBeNull();
+    expect(verdict().ask).toBe('tourOffer');
     useWhatsNewStore.getState().noteSyncSettledClean();
 
     for (const hour of [13, 21]) {
       await launchAt(0, hour);
-      expect(verdict().ask).toBeNull();
+      expect(verdict().ask).toBe('tourOffer');
+      expect(verdict(eligible('seriesConsent', 'support')).ask).toBeNull();
       expect(verdict({ restoreOffered: true }).ask).toBe('restore');
     }
   });
@@ -371,7 +394,8 @@ describe('the quiet period across launches', () => {
     await launchAt(0, 9);
     await launchAt(1, 8);
     expect(useWhatsNewStore.getState().useDays).toBe(2);
-    expect(verdict().ask).toBeNull();
+    expect(verdict().ask).toBe('tourOffer');
+    expect(verdict(eligible('seriesConsent', 'support')).ask).toBeNull();
   });
 
   it('keeps a settle noted before the row was read', async () => {

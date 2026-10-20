@@ -14,6 +14,7 @@ import { Icon } from '@/shared/ui/Icon';
 import { useHeroHeaderBottom } from '@/shared/ui/useHeroHeaderBottom';
 import { mapSheetHostKey } from '@/shared/app/mapSheetHost';
 import {
+  mapSheetCoveredCorner,
   mapSheetCoveredHeight,
   mapSheetCoveredSides,
   useMapSheetStop,
@@ -105,6 +106,7 @@ export function RouteDetailMap({ routeId, pageActivityId }: RouteDetailMapProps)
           deltaLine={deltaLine}
           fitPadding={fitPadding}
           coveredBottom={coveredBottom}
+          coveredBottomRadius={mapSheetCoveredCorner(coveredBottom)}
         />
       ) : (
         <View

@@ -10,7 +10,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { resolvedLocale } from '../../i18n/resolvedLocale';
-import { getAllSlides, getTutorialSlides } from '@/features/settings/components/whatsNew/slides';
+import {
+  getAllSlides,
+  getTutorialSlides,
+  getTutorialSlidesFor,
+} from '@/features/settings/components/whatsNew/slides';
 import { resolveShowMeRoute, type TourLibrary } from '@/features/settings/lib/tourShowMe';
 
 const LOCALES_DIR = path.join(__dirname, '../../../i18n/locales');
@@ -36,6 +40,15 @@ function lookup(bundle: unknown, key: string): unknown {
 
 describe('the first-run tour', () => {
   const tutorial = getTutorialSlides();
+
+  it('leaves out a held setup slide and keeps every other slide in order', () => {
+    const held = getTutorialSlidesFor(null, ['notifications']);
+    expect(held.map((slide) => slide.setup).filter(Boolean)).toEqual(['backup']);
+    expect(held).toEqual(tutorial.filter((slide) => slide.setup !== 'notifications'));
+    expect(getTutorialSlidesFor(['notifications', 'backup'], ['notifications'])).toEqual(
+      tutorial.filter((slide) => slide.setup === 'backup')
+    );
+  });
 
   it('is its own list rather than every release slide in ship order', () => {
     expect(tutorial.map((s) => s.titleKey)).not.toEqual(getAllSlides().map((s) => s.titleKey));

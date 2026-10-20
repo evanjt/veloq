@@ -6,12 +6,13 @@
  * Expected behaviour: the screen offers a file and a WebDAV server, with the
  * server's form inline since a fresh install holds no credentials. Listing the
  * server shows its backups, and choosing one holds it until the sign-in, with
- * nothing sent to the closed engine. A line says the phone's own backup comes
- * back when a new phone is set up, and it is never offered as a choice.
+ * nothing sent to the closed engine. On Android a line says the phone's own
+ * backup comes back when a new phone is set up, and it is never offered as a
+ * choice.
  */
 
 import React from 'react';
-import { Alert, ScrollView } from 'react-native';
+import { Alert, Platform, ScrollView } from 'react-native';
 import * as Notice from '@/shared/ui/Notice';
 import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -142,12 +143,18 @@ describe('restore from backup on the login screen', () => {
     expect(screen.getByTestId('restore-chooser-webdav')).toBeTruthy();
   });
 
-  it("says the phone's own backup comes back with a new phone, and offers it as nothing", async () => {
-    await openChooser();
+  it("says on Android the phone's own backup comes back with a new phone, and offers it as nothing", async () => {
+    const os = Platform.OS;
+    Platform.OS = 'android';
+    try {
+      await openChooser();
 
-    expect(screen.getByTestId('restore-chooser-device-backup')).toBeTruthy();
-    expect(screen.getByText(i18n.t('backup.carrierDeviceRestore'))).toBeTruthy();
-    expect(screen.queryByText(i18n.t('backup.restoreFromDestination'))).toBeNull();
+      expect(screen.getByTestId('restore-chooser-device-backup')).toBeTruthy();
+      expect(screen.getByText(i18n.t('backup.carrierDeviceRestore'))).toBeTruthy();
+      expect(screen.queryByText(i18n.t('backup.restoreFromDestination'))).toBeNull();
+    } finally {
+      Platform.OS = os;
+    }
   });
 
   it('keeps the API key form and the inline WebDAV form on the scroll view that clears the keyboard', async () => {

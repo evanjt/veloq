@@ -6,7 +6,8 @@
  * Expected behaviour: between the previous release tag and this one, only the
  * texts, images and screenshot sets that changed are staged for upload, every
  * locale's release notes always are, and a missing or oversized note refuses
- * the release by name before anything is sent.
+ * the release by name before anything is sent, as does an App Store note left
+ * as the previous release shipped it.
  */
 
 import {
@@ -57,6 +58,16 @@ function listing(): RepoFile[] {
   return files;
 }
 
+/**
+ * The listing at the previous release tag: every file as it is now, but the
+ * App Store notes are that version's own, since they carry no version.
+ */
+function released(): RepoFile[] {
+  return listing().map((f) =>
+    f.path.endsWith('/release_notes.txt') ? { ...f, id: 'p', text: 'Kite tracking.\n' } : f
+  );
+}
+
 function edit(files: RepoFile[], path: string, change: Partial<RepoFile>): RepoFile[] {
   expect(files.some((f) => f.path === path)).toBe(true);
   return files.map((f) => (f.path === path ? { ...f, ...change } : f));
@@ -104,7 +115,7 @@ describe('storeTree', () => {
 
 describe('planStoreRelease', () => {
   it('sends only the release notes when nothing else changed', () => {
-    const plan = planStoreRelease(storeTree(listing()), storeTree(listing()), VERSION_CODE);
+    const plan = planStoreRelease(storeTree(released()), storeTree(listing()), VERSION_CODE);
     expect(plan.refusals).toEqual([]);
     expect(plan.stage).toEqual(RELEASE_NOTES);
     expect(plan.android).toEqual({ metadata: false, images: false, screenshots: false });
@@ -115,7 +126,7 @@ describe('planStoreRelease', () => {
     const current = edit(listing(), 'config/fastlane/metadata/android/fr-FR/full_description.txt', {
       id: 'b',
     });
-    const plan = planStoreRelease(storeTree(listing()), storeTree(current), VERSION_CODE);
+    const plan = planStoreRelease(storeTree(released()), storeTree(current), VERSION_CODE);
     expect(plan.stage).toEqual(
       [...RELEASE_NOTES, 'metadata/android/fr-FR/full_description.txt'].sort()
     );
@@ -124,7 +135,7 @@ describe('planStoreRelease', () => {
 
   it('sends a changed App Store keyword set and nothing else of that locale', () => {
     const current = edit(listing(), 'config/fastlane/metadata/ios/en-US/keywords.txt', { id: 'b' });
-    const plan = planStoreRelease(storeTree(listing()), storeTree(current), VERSION_CODE);
+    const plan = planStoreRelease(storeTree(released()), storeTree(current), VERSION_CODE);
     expect(plan.stage).toEqual([...RELEASE_NOTES, 'metadata/ios/en-US/keywords.txt'].sort());
     expect(plan.android.metadata).toBe(false);
   });
@@ -137,7 +148,7 @@ describe('planStoreRelease', () => {
         id: 'a',
       },
     ];
-    const plan = planStoreRelease(storeTree(listing()), storeTree(current), VERSION_CODE);
+    const plan = planStoreRelease(storeTree(released()), storeTree(current), VERSION_CODE);
     expect(plan.stage).toEqual(
       [
         ...RELEASE_NOTES,
@@ -150,7 +161,7 @@ describe('planStoreRelease', () => {
 
   it('sends a set whose shot was removed, so the store drops it too', () => {
     const current = listing().filter((f) => f.path !== 'docs/screenshots/02-reels.png');
-    const plan = planStoreRelease(storeTree(listing()), storeTree(current), VERSION_CODE);
+    const plan = planStoreRelease(storeTree(released()), storeTree(current), VERSION_CODE);
     expect(plan.stage).toEqual(
       [...RELEASE_NOTES, 'metadata/android/en-US/images/phoneScreenshots/01-kites.png'].sort()
     );
@@ -159,7 +170,7 @@ describe('planStoreRelease', () => {
 
   it('replaces the App Store set of a locale only when that set changed', () => {
     const current = edit(listing(), 'docs/screenshots/ios/01-kites.png', { id: 'b' });
-    const plan = planStoreRelease(storeTree(listing()), storeTree(current), VERSION_CODE);
+    const plan = planStoreRelease(storeTree(released()), storeTree(current), VERSION_CODE);
     expect(plan.stage).toEqual([...RELEASE_NOTES, 'screenshots/en-US/01-kites.png'].sort());
     expect(plan.ios).toEqual({ screenshots: true });
     expect(plan.android.screenshots).toBe(false);
@@ -167,7 +178,7 @@ describe('planStoreRelease', () => {
 
   it('names a set removed entirely, which no upload can clear', () => {
     const current = listing().filter((f) => !f.path.startsWith('docs/screenshots/ios/'));
-    const plan = planStoreRelease(storeTree(listing()), storeTree(current), VERSION_CODE);
+    const plan = planStoreRelease(storeTree(released()), storeTree(current), VERSION_CODE);
     expect(plan.ios.screenshots).toBe(false);
     expect(plan.notices).toEqual([expect.stringContaining('screenshots/en-US/')]);
   });
@@ -176,7 +187,7 @@ describe('planStoreRelease', () => {
     const current = edit(listing(), 'config/fastlane/metadata/android/en-US/images/icon.png', {
       id: 'b',
     });
-    const plan = planStoreRelease(storeTree(listing()), storeTree(current), VERSION_CODE);
+    const plan = planStoreRelease(storeTree(released()), storeTree(current), VERSION_CODE);
     expect(plan.stage).toEqual([...RELEASE_NOTES, 'metadata/android/en-US/images/icon.png'].sort());
     expect(plan.android).toEqual({ metadata: false, images: true, screenshots: false });
   });
@@ -187,7 +198,7 @@ describe('planStoreRelease', () => {
       `config/fastlane/metadata/android/en-US/changelogs/${VERSION_CODE - 1}.txt`,
       { id: 'b' }
     );
-    const plan = planStoreRelease(storeTree(listing()), storeTree(current), VERSION_CODE);
+    const plan = planStoreRelease(storeTree(released()), storeTree(current), VERSION_CODE);
     expect(plan.stage).toEqual(RELEASE_NOTES);
   });
 
@@ -207,7 +218,7 @@ describe('planStoreRelease', () => {
     const current = listing().filter(
       (f) => f.path !== `config/fastlane/metadata/android/fr-FR/changelogs/${VERSION_CODE}.txt`
     );
-    const plan = planStoreRelease(storeTree(listing()), storeTree(current), VERSION_CODE);
+    const plan = planStoreRelease(storeTree(released()), storeTree(current), VERSION_CODE);
     expect(plan.refusals).toEqual([
       `metadata/android/fr-FR/changelogs/${VERSION_CODE}.txt is missing`,
     ]);
@@ -238,6 +249,29 @@ describe('planStoreRelease', () => {
     expect(planStoreRelease(null, storeTree(over), VERSION_CODE).refusals).toEqual([
       `metadata/android/fr-FR/changelogs/${VERSION_CODE}.txt is 501 characters, Play allows 500`,
     ]);
+  });
+
+  it('refuses App Store notes left as the previous release shipped them, naming the locale', () => {
+    const previous = edit(released(), 'config/fastlane/metadata/ios/fr-FR/release_notes.txt', {
+      id: 'a',
+      text: NOTE,
+    });
+    const plan = planStoreRelease(storeTree(previous), storeTree(listing()), VERSION_CODE);
+    expect(plan.refusals).toEqual([
+      'metadata/ios/fr-FR/release_notes.txt is unchanged since the previous release, ' +
+        'so the App Store would show its notes again',
+    ]);
+  });
+
+  it('passes App Store notes rewritten in every locale', () => {
+    const plan = planStoreRelease(storeTree(released()), storeTree(listing()), VERSION_CODE);
+    expect(plan.refusals).toEqual([]);
+  });
+
+  it('passes App Store notes for a locale the previous release did not have', () => {
+    const previous = released().filter((f) => !f.path.includes('/ios/fr-FR/'));
+    const plan = planStoreRelease(storeTree(previous), storeTree(listing()), VERSION_CODE);
+    expect(plan.refusals).toEqual([]);
   });
 
   it('carries the tree refusals into the plan', () => {

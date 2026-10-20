@@ -15,6 +15,11 @@
  * also refuses a logo SVG holding a text element, a mark or ground gradient
  * whose stops are not the brand colours in appColours.json, and a splash
  * image that is not 400 wide or has no alpha channel.
+ *
+ * The web favicon was drawn by hand and kept a lighter blue after the brand
+ * colour moved, and the Play store icon was rendered at 1024 where the store
+ * takes 512. The guard refuses an icon, favicon or store icon whose ground is
+ * not the brand colour, and a store icon that is not 512 square.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -78,13 +83,22 @@ function png(size: number, pixel: (x: number, y: number) => Rgba): Buffer {
 const SIZE = 1024;
 const inMark = (x: number, y: number) => x > 400 && x < 600 && y > 400 && y < 600;
 
-const tile = () => png(SIZE, () => [91, 155, 213, 255]);
+const GROUND: Rgba = [32, 64, 96, 255];
+const tile = (size = SIZE) => png(size, () => GROUND);
 const roundedTile = () =>
   png(SIZE, (x, y) => {
     const r = 192;
     const cx = Math.min(Math.max(x, r), SIZE - 1 - r);
     const cy = Math.min(Math.max(y, r), SIZE - 1 - r);
-    return (x - cx) ** 2 + (y - cy) ** 2 > r * r ? [0, 0, 0, 0] : [91, 155, 213, 255];
+    return (x - cx) ** 2 + (y - cy) ** 2 > r * r ? [0, 0, 0, 0] : GROUND;
+  });
+/** A 48 favicon on a rounded tile, the way the generator draws the website's icon. */
+const roundedFavicon = (colour: Rgba = GROUND) =>
+  png(48, (x, y) => {
+    const r = 9;
+    const cx = Math.min(Math.max(x, r), 47 - r);
+    const cy = Math.min(Math.max(y, r), 47 - r);
+    return (x - cx) ** 2 + (y - cy) ** 2 > r * r ? [0, 0, 0, 0] : colour;
   });
 const markOnClear = (colour: Rgba) => png(SIZE, (x, y) => (inMark(x, y) ? colour : [0, 0, 0, 0]));
 const markOnBlack = () =>
@@ -131,6 +145,8 @@ function completeImages(): Record<string, Buffer | string> {
     'art/foreground.png': markOnClear([255, 200, 0, 255]),
     'art/monochrome.png': markOnClear([255, 255, 255, 255]),
     'art/splash.png': splash(),
+    'art/favicon.png': roundedFavicon(),
+    'config/fastlane/metadata/android/en-US/images/icon.png': tile(512),
     'src/theme/appColours.json': JSON.stringify(BRAND),
     'src/assets/logos/icon.svg': logo(),
     'src/assets/logos/splash.svg': logo({ ground: null }),
@@ -145,6 +161,7 @@ function completeConfig() {
   return {
     expo: {
       icon: './art/icon.png',
+      web: { favicon: './art/favicon.png' },
       ios: {
         icon: {
           light: './art/icon.png',
@@ -214,9 +231,7 @@ it('refuses a rounded icon, a string ios.icon and a missing monochrome layer tog
 
 it('refuses a light icon with a single transparent pixel', () => {
   const images = completeImages();
-  images['art/icon.png'] = png(SIZE, (x, y) =>
-    x === 0 && y === 0 ? [91, 155, 213, 254] : [91, 155, 213, 255]
-  );
+  images['art/icon.png'] = png(SIZE, (x, y) => (x === 0 && y === 0 ? [32, 64, 96, 254] : GROUND));
 
   const { status, output } = runOn(completeConfig(), images);
 
@@ -404,4 +419,59 @@ it('refuses a config with no splash image', () => {
 
   expect(status).toBe(1);
   expect(output).toContain('expo-splash-screen');
+});
+
+it('refuses an icon whose ground is not the brand colour', () => {
+  const images = completeImages();
+  images['art/icon.png'] = png(SIZE, () => [91, 155, 213, 255]);
+
+  const { status, output } = runOn(completeConfig(), images);
+
+  expect(status).toBe(1);
+  expect(output).toContain('icon: art/icon.png has its ground at #5B9BD5');
+  expect(output).toContain(BRAND.appColour);
+});
+
+it('refuses a favicon drawn in a blue the brand has left', () => {
+  const images = completeImages();
+  images['art/favicon.png'] = roundedFavicon([75, 139, 199, 255]);
+
+  const { status, output } = runOn(completeConfig(), images);
+
+  expect(status).toBe(1);
+  expect(output).toContain('web.favicon: art/favicon.png has its ground at #4B8BC7');
+});
+
+it('refuses a favicon with no opaque pixel to read a ground from', () => {
+  const images = completeImages();
+  images['art/favicon.png'] = png(48, () => [0, 0, 0, 0]);
+
+  const { status, output } = runOn(completeConfig(), images);
+
+  expect(status).toBe(1);
+  expect(output).toContain('web.favicon: art/favicon.png has no opaque ground');
+});
+
+it('refuses a Play store icon at 1024, which the store does not take', () => {
+  const images = completeImages();
+  images['config/fastlane/metadata/android/en-US/images/icon.png'] = tile(1024);
+
+  const { status, output } = runOn(completeConfig(), images);
+
+  expect(status).toBe(1);
+  expect(output).toContain('images/icon.png is 1024x1024, not 512x512');
+});
+
+it('refuses a Play store icon in an old colour or missing', () => {
+  const stale = completeImages();
+  stale['config/fastlane/metadata/android/en-US/images/icon.png'] = png(512, () => [
+    91, 155, 213, 255,
+  ]);
+  expect(runOn(completeConfig(), stale).output).toContain('has its ground at #5B9BD5');
+
+  const missing = completeImages();
+  delete missing['config/fastlane/metadata/android/en-US/images/icon.png'];
+  const { status, output } = runOn(completeConfig(), missing);
+  expect(status).toBe(1);
+  expect(output).toContain('images/icon.png is not in the tree');
 });

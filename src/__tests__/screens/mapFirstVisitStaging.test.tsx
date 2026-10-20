@@ -3,7 +3,9 @@
  * Expected behaviour: the first commit carries the screen and its filter sheet
  * with no map page in it, and the map page mounts once on the following frame.
  * The screen stays mounted after that, so a return to the tab is not staged
- * again: the page is back in the commit that shows the tab, built once.
+ * again: the page is back in the commit that shows the tab, built once. The
+ * ready marker a capture flow waits on appears with the map page, never with
+ * the screen alone.
  */
 import React from 'react';
 import { View } from 'react-native';
@@ -168,6 +170,16 @@ describe('the map tab on its first visit', () => {
 
     await passFrames();
     expect(mockPageMounts).toBe(2);
+    await view.unmount();
+  });
+
+  it('shows the map ready marker only once the map page has mounted', async () => {
+    const view = await render(screen());
+    expect(view.getByTestId('map-screen')).toBeTruthy();
+    expect(view.queryByTestId('regional-map-ready', { includeHiddenElements: true })).toBeNull();
+
+    await passFrames();
+    expect(view.getByTestId('regional-map-ready', { includeHiddenElements: true })).toBeTruthy();
     await view.unmount();
   });
 });

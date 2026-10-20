@@ -303,7 +303,9 @@ OpenStreetMap attribution shown on every map surface.
 ## Bundled Typeface
 
 The app draws in Manrope, embedded at build from `assets/fonts/`, with the
-font's licence text beside the files in `assets/fonts/Manrope-OFL.txt`.
+font's licence text beside the files in `assets/fonts/Manrope-OFL.txt`. The
+store screenshot compositor (`scripts/store-templates.ts`) renders from the
+same files.
 
 | Asset | Source | License |
 |-------|--------|---------|

@@ -17,6 +17,11 @@
 //                                 since the launcher recolours it from its alpha
 //   the expo-splash-screen image  400 wide with an alpha channel, the mark alone
 //                                 on the splash ground native code paints
+//   icon, ios.icon.light, web.favicon and the Play store icon
+//                            a ground in appColour, read at the first opaque
+//                            pixel down the diagonal from the top-left corner,
+//                            where the generator's gradient starts
+//   the Play store icon      512 square, the size the store takes
 //   src/assets/logos/*.svg   no text element, since live text renders in whatever
 //                            font the machine substitutes, and every gradient the
 //                            mark or the ground, stopped at the brand colours
@@ -35,6 +40,11 @@ const IOS_SIZE = 1024;
 const SPLASH_WIDTH = 400;
 const LOGOS = 'src/assets/logos';
 const APP_COLOURS = 'src/theme/appColours.json';
+const PLAY_ICON = 'config/fastlane/metadata/android/en-US/images/icon.png';
+const PLAY_ICON_SIZE = 512;
+// How far a ground pixel may sit from appColour, per channel: a downscaled
+// render blends a few pixels of the gradient into the first opaque one.
+const GROUND_TOLERANCE = 8;
 
 const rootArg = process.argv.indexOf('--root');
 const root = resolve(rootArg === -1 ? '.' : process.argv[rootArg + 1]);
@@ -90,12 +100,64 @@ function requireOpaque(key, img) {
   }
 }
 
+function hex(r, g, b) {
+  return `#${[r, g, b].map((c) => c.toString(16).padStart(2, '0').toUpperCase()).join('')}`;
+}
+
+/** The first fully opaque pixel down the diagonal from the top-left corner, or null. */
+function groundPixel(img) {
+  for (let d = 0; d < Math.min(img.width, img.height); d += 1) {
+    const i = 4 * (d * img.width + d);
+    if (img.rgba[i + 3] === 255) return [img.rgba[i], img.rgba[i + 1], img.rgba[i + 2]];
+  }
+  return null;
+}
+
+const appColoursText = trackedText(root, APP_COLOURS);
+const appColours = appColoursText === undefined ? null : JSON.parse(appColoursText);
+if (!appColours)
+  problems.push(`${APP_COLOURS} is not in the tree, so the logos have no brand colours`);
+
+/** Refuses an image whose ground is not appColour. */
+function requireBrandGround(key, img) {
+  const want = appColours?.appColour;
+  if (typeof want !== 'string') return;
+  const ground = groundPixel(img);
+  if (!ground) {
+    problems.push(`${key}: ${img.file} has no opaque ground to carry ${want}`);
+    return;
+  }
+  const brand = [1, 3, 5].map((i) => parseInt(want.slice(i, i + 2), 16));
+  if (ground.some((c, i) => Math.abs(c - brand[i]) > GROUND_TOLERANCE)) {
+    problems.push(
+      `${key}: ${img.file} has its ground at ${hex(...ground)}, not ${want} ` +
+        `(appColour in ${APP_COLOURS}); rerun npm run gen:app-icons`
+    );
+  }
+}
+
 const config = JSON.parse(trackedText(root, 'app.json') ?? '{}').expo ?? {};
 
 const icon = image('icon', config.icon);
 if (icon) {
   requireSquare('icon', icon);
   requireOpaque('icon', icon);
+  requireBrandGround('icon', icon);
+}
+
+if (config.web?.favicon !== undefined) {
+  const favicon = image('web.favicon', config.web.favicon);
+  if (favicon) {
+    requireSquare('web.favicon', favicon);
+    requireBrandGround('web.favicon', favicon);
+  }
+}
+
+const playIcon = image('the Play store icon', PLAY_ICON);
+if (playIcon) {
+  requireSquare('the Play store icon', playIcon, PLAY_ICON_SIZE);
+  requireOpaque('the Play store icon', playIcon);
+  requireBrandGround('the Play store icon', playIcon);
 }
 
 const iosIcon = config.ios?.icon;
@@ -112,6 +174,7 @@ if (iosIcon === null || typeof iosIcon !== 'object') {
     requireSquare(key, img, IOS_SIZE);
     if (appearance === 'dark') continue;
     requireOpaque(key, img);
+    if (appearance === 'light') requireBrandGround(key, img);
     if (appearance === 'tinted') {
       const coloured = count(img, (r, g, b) => r !== g || g !== b);
       if (coloured > 0) {
@@ -185,11 +248,6 @@ const GRADIENTS = {
   mark: ['markGold', 'markGoldDeep'],
   ground: ['appColour', 'appColourDeep'],
 };
-
-const appColoursText = trackedText(root, APP_COLOURS);
-const appColours = appColoursText === undefined ? null : JSON.parse(appColoursText);
-if (!appColours)
-  problems.push(`${APP_COLOURS} is not in the tree, so the logos have no brand colours`);
 
 const logos = [...treeSources(root, [LOGOS]).entries()].filter(([file]) => file.endsWith('.svg'));
 if (logos.length === 0) problems.push(`${LOGOS} holds no logo source`);

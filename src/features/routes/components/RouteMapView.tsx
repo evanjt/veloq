@@ -89,6 +89,8 @@ interface RouteMapViewProps {
   fitPadding?: MapEdgeInset | undefined;
   /** Height over the map's foot that its sheet covers, which the credit sits above. */
   coveredBottom?: number | undefined;
+  /** Corner radius of the rounded sheet top under `coveredBottom`, which the credit keeps clear of. */
+  coveredBottomRadius?: number | undefined;
 }
 
 export const ROUTE_MAP_FIT_PADDING = 40;
@@ -108,6 +110,7 @@ export function RouteMapView({
   deltaLine = null,
   fitPadding,
   coveredBottom,
+  coveredBottomRadius,
 }: RouteMapViewProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -346,6 +349,7 @@ export function RouteMapView({
         ref={attributionRef}
         initialAttribution={initialAttribution}
         bottomInset={coveredBottom}
+        edgeRadius={coveredBottomRadius}
       />
       {showExpandIcon ? (
         <View style={styles.expandOverlay}>

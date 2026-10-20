@@ -422,13 +422,19 @@ export function mapSheetScreenOptions(
   };
 }
 
+/**
+ * The top corner radius of a sheet. Android is given it; iOS draws its own corners, which this
+ * stands for where something has to keep clear of them.
+ */
+export const SHEET_CORNER_RADIUS = layout.borderRadiusXxl;
+
 function sheetOptions(detents: number[] | 'fitToContents', os: string, osVersion: string | number) {
   return {
     presentation: 'formSheet' as const,
     sheetGrabberVisible: true,
     sheetAllowedDetents: detents,
     headerShown: false,
-    ...(os === 'android' && { sheetCornerRadius: layout.borderRadiusXxl }),
+    ...(os === 'android' && { sheetCornerRadius: SHEET_CORNER_RADIUS }),
     ...(sheetHasSystemMaterial(os, osVersion) && {
       contentStyle: { backgroundColor: 'transparent' },
     }),

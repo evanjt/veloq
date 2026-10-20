@@ -7,12 +7,13 @@
 // scripts/check-app-icons.mjs judges what this writes.
 //
 //   icon              full-bleed ground, opaque, square corners: iOS masks it,
-//                     and the Play listing takes it as its store icon
+//                     and the Play listing takes it at 512 as its store icon
 //   icon-dark         the mark on transparency, which iOS lays on its dark ground
 //   icon-tinted       a white mark on black, whose luminance iOS tints
 //   adaptive-icon     Android's foreground layer, the mark inside the safe zone
 //   monochrome-icon   Android's themed layer, the same mark in one flat colour
 //   logo              the mark on a rounded tile, the website's and README's icon
+//                     and the web build's favicon
 //   logo-transparent  the mark on transparency
 //   splash            "veloq" on transparency, which the native splash lays on
 //                     the app colour
@@ -92,7 +93,7 @@ const IMAGES = [
     size: ICON_SIZE,
     renders: [
       ...iconPng('icon'),
-      { file: 'config/fastlane/metadata/android/en-US/images/icon.png', width: 1024, height: 1024 },
+      { file: 'config/fastlane/metadata/android/en-US/images/icon.png', width: 512, height: 512 },
     ],
   },
   {
@@ -137,7 +138,10 @@ const IMAGES = [
     tile: { inset: 16, radius: 96 },
     mark: 'gradient',
     size: 200,
-    renders: [{ file: 'docs/icon.png', width: 1024, height: 1024 }],
+    renders: [
+      { file: 'docs/icon.png', width: 1024, height: 1024 },
+      { file: 'src/assets/favicon.png', width: 48, height: 48 },
+    ],
   },
   {
     name: 'logo-transparent',

@@ -29,7 +29,11 @@ import {
 import { mapSheetHostKey } from '@/shared/app/mapSheetHost';
 import { useMapSheetHost, useMapSheetHostHeader } from '@/shared/app/MapSheetHost';
 import { useInMapSurfaceSlot, useMapSurfaceSlotLive } from '@/features/maps';
-import { mapSheetCoveredHeight, useMapSheetStop } from '@/shared/app/mapSheetStop';
+import {
+  mapSheetCoveredCorner,
+  mapSheetCoveredHeight,
+  useMapSheetStop,
+} from '@/shared/app/mapSheetStop';
 import { useSheetWindow } from '@/shared/app/TopSafeAreaContext';
 import { useAfterNavigationTransition } from '@/shared/async/useAfterNavigationTransition';
 import { Shimmer, SkeletonGroup } from '@/shared/ui';
@@ -169,6 +173,7 @@ export function SectionDetailMap({
           extensionTrack={isTrimming && trim.isExpanded ? trim.expandContextPoints : null}
           headerBottom={headerBottom}
           coveredBottom={coveredBottom}
+          coveredBottomRadius={isTrimming ? 0 : mapSheetCoveredCorner(coveredBottom)}
         />
       ) : slotLive ? null : (
         <SkeletonGroup testID="section-map-skeleton" style={styles.fill}>

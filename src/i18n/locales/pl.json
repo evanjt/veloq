@@ -304,7 +304,6 @@
     "lastBackupNever": "Nigdy nie tworzono kopii",
     "backupNow": "Utwórz kopię teraz",
     "backendWebdav": "WebDAV / Nextcloud",
-    "carrierDeviceIos": "Kopia iCloud",
     "carrierDeviceAndroid": "Kopia Google",
     "carrierDeviceDescription": "Przechowuje ją kopia zapasowa urządzenia. Nie ma tu nic do ustawienia.",
     "carrierDeviceRestore": "Wraca podczas konfiguracji nowego telefonu",

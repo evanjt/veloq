@@ -170,14 +170,15 @@ describe('map filter sheet drag', () => {
 
   const sheetHeight = (view: RenderResult) =>
     getAnimatedStyle(view.getByTestId('map-filter-sheet')).height as number;
-  const laneBottom = (view: RenderResult) =>
-    getAnimatedStyle(view.getByTestId('map-attribution-lane')).bottom as number;
+  // The credit rides inside the sheet, so it moves with the sheet's own layout.
+  const creditInSheet = (view: RenderResult) =>
+    within(view.getByTestId('map-filter-sheet')).getByTestId('map-attribution-lane');
 
-  it('carries the sheet and the credit lane with the finger before it lifts, with no render', async () => {
+  it('carries the sheet and the credit on its edge with the finger before it lifts, with no render', async () => {
     const view = await renderMeasured();
     const lowered = sheetHeight(view);
     expect(lowered).toBeGreaterThan(120);
-    expect(laneBottom(view)).toBe(lowered);
+    expect(creditInSheet(view)).toBeTruthy();
 
     const renders = mockLogScreenRender.mock.calls.length;
     const drag = createGestureController('map-filter-handle-drag');
@@ -187,7 +188,7 @@ describe('map filter sheet drag', () => {
       drag.update({ translationY: -80 });
     });
     expect(sheetHeight(view)).toBe(lowered + 80);
-    expect(laneBottom(view)).toBe(lowered + 80);
+    expect(creditInSheet(view)).toBeTruthy();
     expect(mockLogScreenRender.mock.calls.length).toBe(renders);
 
     await act(async () => {
@@ -195,7 +196,7 @@ describe('map filter sheet drag', () => {
     });
     act(() => advanceAnimationByTime(400));
     expect(sheetHeight(view)).toBe(lowered + 200);
-    expect(laneBottom(view)).toBe(lowered + 200);
+    expect(creditInSheet(view)).toBeTruthy();
     expect(view.getByTestId('map-filter-handle').props.accessibilityState).toEqual({
       expanded: true,
     });
@@ -324,7 +325,7 @@ describe('map library summary', () => {
 
   it('sets the count on a caption foot line, last in the sheet, with Expand range as a text link to the sync range', async () => {
     const view = await renderStaged(mapScreen());
-    const sheet = view.getByTestId('map-filter-sheet');
+    const sheet = view.getByTestId('map-filter-sheet-body');
     const detail = within(sheet).getByTestId('map-sheet-detail');
     const lastInSheet = sheet.children.filter((child) => typeof child !== 'string').at(-1);
     expect(typeof lastInSheet !== 'string' && lastInSheet?.props.testID).toBe('map-sheet-detail');

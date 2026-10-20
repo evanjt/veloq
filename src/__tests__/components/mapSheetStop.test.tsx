@@ -16,6 +16,7 @@ import {
   MAP_SHEET_HALF_STOP,
   MAP_SHEET_PEEK_STOP,
   MAP_SHEET_FULL_STOP,
+  mapSheetCoveredCorner,
   mapSheetCoveredHeight,
   mapSheetCoveredSides,
   mapSheetStopReducer,
@@ -23,7 +24,7 @@ import {
   useMapSheetStop,
   useMapSheetStops,
 } from '@/shared/app/mapSheetStop';
-import { sheetStops } from '@/shared/app/screenHeaders';
+import { mapSheetScreenOptions, sheetStops } from '@/shared/app/screenHeaders';
 import { MapSheetHandle } from '@/shared/ui/MapSheetHandle';
 
 jest.mock('@/shared/app/useTheme', () => ({ useTheme: () => ({ isDark: false }) }));
@@ -133,6 +134,23 @@ describe.each([
     expect(mapSheetCoveredHeight(os, version, { ...window, height: 0 }, MAP_SHEET_HALF_STOP)).toBe(
       0
     );
+  });
+});
+
+describe('mapSheetCoveredCorner', () => {
+  const phone = { width: 390, height: 844, topInset: 24, bottomInset: 48 };
+
+  it("is the sheet's own corner radius wherever the sheet covers the map's foot", () => {
+    const covered = mapSheetCoveredHeight('android', 35, phone, MAP_SHEET_HALF_STOP);
+    expect(covered).toBeGreaterThan(0);
+    expect(mapSheetCoveredCorner(covered)).toBe(
+      mapSheetScreenOptions('android', 35, phone).sheetCornerRadius
+    );
+    expect(mapSheetCoveredCorner(covered)).toBeGreaterThan(0);
+  });
+
+  it('is none where nothing covers the foot', () => {
+    expect(mapSheetCoveredCorner(0)).toBe(0);
   });
 });
 

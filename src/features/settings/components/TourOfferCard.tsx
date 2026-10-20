@@ -1,8 +1,9 @@
 /**
  * The feed card that offers the tour, which never opens on its own.
  *
- * It offers the whole tour until the tour is taken or declined twice, and
- * afterwards, once, the setup slides a tour closed without answering. What it
+ * It offers the whole tour until the tour is taken or declined twice, less the
+ * notification slide inside the quiet period, and afterwards, once, the setup
+ * slides a tour closed without answering. What it
  * offers is `tourOffer`'s to say, and whether it shows is the session's one ask.
  */
 import React, { useCallback } from 'react';
@@ -20,7 +21,7 @@ import { sourceFor } from '@/shared/app/source';
 import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 
 import { getTutorialSetupSlides } from './whatsNew/slides';
-import { useSessionAsk } from '../hooks/useLaunchSurfaces';
+import { useQuietPeriod, useSessionAsk } from '../hooks/useLaunchSurfaces';
 import { setupSlidesAnswerable, tourOffer } from '../lib/tourOffer';
 import { useWhatsNewStore } from '../stores/WhatsNewStore';
 
@@ -36,6 +37,7 @@ export function TourOfferCard() {
   const settledThisSession = useWhatsNewStore((s) => s.tourOfferSettled);
   const takeTourOffer = useWhatsNewStore((s) => s.takeTourOffer);
   const declineTourOffer = useWhatsNewStore((s) => s.declineTourOffer);
+  const quiet = useQuietPeriod();
   const currentVersion = Constants.expoConfig?.version ?? '';
 
   const offer = isLoaded
@@ -48,12 +50,14 @@ export function TourOfferCard() {
         tourSetupSlides: setupSlidesAnswerable(getTutorialSetupSlides(), {
           push: sourceFor({ authMethod, isDemoMode })?.can.push === true,
         }),
+        quietPeriod: quiet !== false,
       })
     : null;
   const holdsAsk = useSessionAsk('tourOffer', offer !== null);
   const only = offer?.kind === 'leftover' ? offer.slides : undefined;
+  const held = offer?.kind === 'tour' ? offer.held : undefined;
 
-  const open = useCallback(() => takeTourOffer(only), [takeTourOffer, only]);
+  const open = useCallback(() => takeTourOffer(only, held), [takeTourOffer, only, held]);
   const dismiss = useCallback(
     () => declineTourOffer(currentVersion),
     [declineTourOffer, currentVersion]

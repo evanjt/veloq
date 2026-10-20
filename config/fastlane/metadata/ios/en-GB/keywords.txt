@@ -1,1 +1,1 @@
-cycling,running,fitness,CTL,TSB,power,maps,GPS,routes,charts,training,recording,insights,triathlon
+power,pace,cadence,heart rate,zone,ftp,hrv,gpx,climb,route,heatmap,lap,swim,bike,triathlon,strength

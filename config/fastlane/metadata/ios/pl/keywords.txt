@@ -1,1 +1,1 @@
-kolarstwo,bieganie,triathlon,fitness,CTL,TSB,moc,mapy,GPS,trasy,wykresy,trening,nagrywanie,analizy
+moc,tempo,kadencja,tętno,strefy,ftp,hrv,gpx,podjazd,trasa,okrążenia,pływanie,triathlon,siła

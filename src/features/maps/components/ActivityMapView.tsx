@@ -116,6 +116,8 @@ interface ActivityMapViewProps {
   height?: number | undefined;
   /** Height covered at the map's bottom, such as the hero's name and stats, which a fit keeps the track above. */
   coveredBottom?: number | undefined;
+  /** Corner radius of the rounded sheet top under `coveredBottom`, which the credit keeps clear of. */
+  coveredBottomRadius?: number | undefined;
   showStyleToggle?: boolean | undefined;
   /** Show map attribution (default: true) */
   showAttribution?: boolean | undefined;
@@ -181,6 +183,7 @@ export const ActivityMapView = memo(function ActivityMapView({
   hasStoredTrack,
   height = 300,
   coveredBottom = 0,
+  coveredBottomRadius = 0,
   showStyleToggle = false,
   showAttribution = true,
   initialStyle,
@@ -983,6 +986,7 @@ export const ActivityMapView = memo(function ActivityMapView({
             ref={attributionRef}
             initialAttribution={initialAttributionRef.current}
             bottomInset={coveredBottom}
+            edgeRadius={coveredBottomRadius}
           />
         ) : null}
       </View>

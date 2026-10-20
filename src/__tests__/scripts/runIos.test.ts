@@ -7,6 +7,8 @@
  * Expected behaviour: `run-ios.sh` takes the identity and the compile mode as
  * arguments and builds, records and finds the app of that identity, and the
  * app lookup an install uses picks the newest app of the identity asked for.
+ * A standalone build only builds: one that also launched would stream the
+ * simulator log and never exit, which holds the iOS gate at its build step.
  */
 import { spawnSync } from 'child_process';
 import fs from 'fs';
@@ -33,6 +35,14 @@ function checkout(dir: string) {
   }
 }
 
+// Like `expo run:ios`, which ends after the build only when no device is targeted
+// and otherwise launches the app and streams its log until it is interrupted.
+const expo = `#!/bin/sh
+echo "APP_VARIANT=\${APP_VARIANT:-} $(basename "$0") $*" >> "$TEST_LOG"
+case " $* " in *" --device generic "*) exit 0 ;; esac
+case "$*" in *--configuration*) exec sleep 60 ;; esac
+`;
+
 function run(args: string[], { failCheck = false } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ios-run-'));
   const bin = path.join(dir, 'bin');
@@ -45,10 +55,12 @@ function run(args: string[], { failCheck = false } = {}) {
     path.join(bin, 'node'),
     failCheck ? `${spy}[ "$1" = scripts/check-toolchain.mjs ] && exit 1\nexit 0\n` : spy
   );
-  executable(path.join(bin, 'npx'), spy);
+  executable(path.join(bin, 'npx'), expo);
   const result = spawnSync(path.join(dir, 'scripts/run-ios.sh'), args, {
     cwd: dir,
     encoding: 'utf8',
+    timeout: 15_000,
+    killSignal: 'SIGKILL',
     env: {
       ...gitFreeEnv(),
       PATH: `${bin}:${process.env.PATH}`,
@@ -74,14 +86,15 @@ describe('iOS identity and compile mode are separate arguments', () => {
     ]);
   });
 
-  it('builds Dev standalone as a Release build and records it', () => {
+  it('builds Dev standalone as a Release build without launching it, records it and exits', () => {
     const { result, calls } = run(['dev', 'standalone']);
+    expect(result.signal).toBeNull();
     expect(result.status).toBe(0);
     expect(calls).toEqual([
       'APP_VARIANT=dev node scripts/check-toolchain.mjs --platform ios',
       'APP_VARIANT=dev node scripts/prepare-native.mjs --platform ios',
       'APP_VARIANT=dev node scripts/build-record.js snapshot ios Release',
-      'APP_VARIANT=dev npx expo run:ios --configuration Release',
+      'APP_VARIANT=dev npx expo run:ios --configuration Release --device generic',
       'APP_VARIANT=dev node scripts/build-record.js write-ios Release',
     ]);
   });
@@ -90,11 +103,14 @@ describe('iOS identity and compile mode are separate arguments', () => {
     'builds production from %j as a Release build and records it',
     (args) => {
       const { result, calls } = run(args);
+      expect(result.signal).toBeNull();
       expect(result.status).toBe(0);
       expect(calls[0]).toBe(
         'APP_VARIANT=production node scripts/check-toolchain.mjs --platform ios'
       );
-      expect(calls.at(-2)).toBe('APP_VARIANT=production npx expo run:ios --configuration Release');
+      expect(calls.at(-2)).toBe(
+        'APP_VARIANT=production npx expo run:ios --configuration Release --device generic'
+      );
       expect(calls.at(-1)).toBe(
         'APP_VARIANT=production node scripts/build-record.js write-ios Release'
       );

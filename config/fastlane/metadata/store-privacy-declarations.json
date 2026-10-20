@@ -267,6 +267,12 @@
         "carriers": ["plugin:react-native-cloud-storage"],
         "reason": "athletesOwnAccount",
         "note": "On iPhone the backup goes to the Veloq folder in the athlete's own iCloud Drive. It reaches no server of ours, and only the athlete's devices can read it."
+      },
+      {
+        "what": "Google Drive backups",
+        "carriers": [],
+        "reason": "athletesOwnAccount",
+        "note": "On Android, at the athlete's request after a Google sign-in, the backup goes to a hidden app folder in the athlete's own Google Drive under the drive.appdata scope. It reaches no server of ours and holds no credentials, activities or streams."
       }
     ]
   }

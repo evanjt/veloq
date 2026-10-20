@@ -4,7 +4,8 @@
  *
  * Expected behaviour: iCloud Drive is offered with nothing to sign in to. Tapping it lists the
  * backups in Veloq's own iCloud folder, each one restorable. An iPhone signed out of iCloud is
- * told why nothing lists. On Android there is no iCloud choice.
+ * told why nothing lists. iCloud Drive is the one cloud backup named on iPhone: the phone's own
+ * backup gets no row. On Android there is no iCloud choice.
  */
 import React from 'react';
 import { Platform } from 'react-native';
@@ -109,6 +110,14 @@ describe('restoring from iCloud Drive', () => {
     await waitFor(() => expect(inform).toHaveBeenCalledTimes(1));
     expect(jest.mocked(inform).mock.calls[0][0].message).toMatch(/iCloud/);
     expect(screen.queryByTestId('restore-chooser-icloud-none')).toBeNull();
+  });
+
+  it('names no device backup beside iCloud Drive on iPhone', async () => {
+    onPlatform('ios');
+    await render(<RestoreChooser />);
+
+    expect(screen.getByTestId('restore-chooser-icloud')).toBeTruthy();
+    expect(screen.queryByTestId('restore-chooser-device-backup')).toBeNull();
   });
 
   it('offers no iCloud choice on Android', async () => {

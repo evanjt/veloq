@@ -300,7 +300,6 @@
     "lastBackupNever": "从未备份",
     "backupNow": "立即备份",
     "backendWebdav": "WebDAV / Nextcloud",
-    "carrierDeviceIos": "iCloud 备份",
     "carrierDeviceAndroid": "Google 备份",
     "carrierDeviceDescription": "由设备备份保存，无需在此设置。",
     "carrierDeviceRestore": "设置新手机时恢复",

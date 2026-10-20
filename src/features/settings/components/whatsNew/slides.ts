@@ -230,12 +230,15 @@ export function getTutorialSetupSlides(): SetupSlide[] {
   return SETUP_SLIDES.filter((setup) => TUTORIAL_SLIDES.some((slide) => slide.setup === setup));
 }
 
-/** The first-run tour limited to the given setup slides, or the whole of it. */
+/** The first-run tour limited to the given setup slides, or the whole of it, less the held ones. */
 export function getTutorialSlidesFor(
-  only: readonly SetupSlide[] | null
+  only: readonly SetupSlide[] | null,
+  held: readonly SetupSlide[] = []
 ): WhatsNewSlideDefinition[] {
-  if (only === null) return TUTORIAL_SLIDES;
-  return TUTORIAL_SLIDES.filter((slide) => slide.setup !== undefined && only.includes(slide.setup));
+  return TUTORIAL_SLIDES.filter((slide) => {
+    if (slide.setup !== undefined && held.includes(slide.setup)) return false;
+    return only === null || (slide.setup !== undefined && only.includes(slide.setup));
+  });
 }
 
 /** Compare two semver strings (e.g. '0.2.1' < '0.2.2'). */

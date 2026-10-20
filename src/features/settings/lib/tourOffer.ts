@@ -1,13 +1,15 @@
 /**
  * The feed card that offers the tour, which no longer opens on sign-in.
  *
- * The card offers the tour once the quiet period is over and the session's ask
- * is its own (`launchSurfaces`). Not now offers it once more in a later session,
+ * The card offers the tour when the session's ask is its own (`launchSurfaces`),
+ * which it may be from the first session. Inside the quiet period the tour holds
+ * back the notification slide, so nothing asks for notifications then. Not now offers it once more in a later session,
  * and a second Not now ends the offer. The tour is where notifications and
  * backup are set up, and each setup slide records Turn on, Never remind me
  * again, or nothing. A tour that closes with one left unanswered brings the
- * card back once, in a later session, opening the tour at those slides only.
- * After that nothing returns, and Settings holds both.
+ * card back once, in a later session after the quiet period, opening the tour
+ * at those slides only. A slide held back counts as unanswered, so it is offered
+ * then. After that nothing returns, and Settings holds both.
  */
 
 /** A tour slide that asks the athlete to set something up. */
@@ -17,6 +19,9 @@ export type SetupAnswer = 'on' | 'never';
 
 /** The setup slides in the order the tour shows them. */
 export const SETUP_SLIDES: readonly SetupSlide[] = ['notifications', 'backup'];
+
+/** The setup slides a tour taken in the quiet period leaves out. */
+export const QUIET_PERIOD_HELD_SLIDES: readonly SetupSlide[] = ['notifications'];
 
 /** The Not nows that end the offer. */
 export const TOUR_OFFER_DECLINES = 2;
@@ -45,9 +50,13 @@ export interface TourOfferFacts {
   settledThisSession: boolean;
   /** The setup slides the tour carries. */
   tourSetupSlides: readonly SetupSlide[];
+  /** The quiet period holds, or its days of use are not yet counted. */
+  quietPeriod: boolean;
 }
 
-export type TourOffer = { kind: 'tour' } | { kind: 'leftover'; slides: SetupSlide[] };
+/** The whole tour less the setup slides it holds back, or the slides a tour left unanswered. */
+export type TourOffer =
+  { kind: 'tour'; held: SetupSlide[] } | { kind: 'leftover'; slides: SetupSlide[] };
 
 export function offerEnded(record: TourOfferRecord): boolean {
   return record.declines >= TOUR_OFFER_DECLINES;
@@ -57,8 +66,14 @@ export function offerEnded(record: TourOfferRecord): boolean {
 export function tourOffer(facts: TourOfferFacts): TourOffer | null {
   if (!facts.tourEligible || facts.settledThisSession) return null;
   const { record } = facts;
-  if (facts.lastSeenVersion === null) return offerEnded(record) ? null : { kind: 'tour' };
-  if (record.leftover !== 'owed') return null;
+  if (facts.lastSeenVersion === null) {
+    if (offerEnded(record)) return null;
+    const held = facts.quietPeriod
+      ? QUIET_PERIOD_HELD_SLIDES.filter((slide) => facts.tourSetupSlides.includes(slide))
+      : [];
+    return { kind: 'tour', held };
+  }
+  if (record.leftover !== 'owed' || facts.quietPeriod) return null;
   const slides = SETUP_SLIDES.filter(
     (slide) => facts.tourSetupSlides.includes(slide) && record.answers[slide] === undefined
   );

@@ -8,16 +8,15 @@
       name="description"
       content="Veloq privacy policy. All data stays on your device."
     />
-    <meta name="theme-color" content="#5B8DB8" />
+    <meta name="theme-color" content="#2F6699" />
     <link rel="icon" type="image/png" href="../icon.png" />
 
     <style>
       :root {
-        /* Logo colors: blue background, gold text */
-        --primary: #5b8db8;
-        --primary-dark: #4a7a9e;
-        --accent: #f5a623;
-        --accent-dark: #d4900e;
+        /* The app's action blue (blue-600, pressed blue-700), as in the
+           style guide. Gold is kept for achievements. */
+        --primary: #2f6699;
+        --primary-dark: #255380;
         --bg: #fafafa;
         --bg-dark: #121212;
         --text: #1a1a1a;
@@ -37,6 +36,8 @@
           --text-muted: var(--text-muted-dark);
           --card: var(--card-dark);
           --border: var(--border-dark);
+          /* The app's dark-theme action step, blue-550. */
+          --primary: #3d74a8;
         }
       }
 
@@ -320,7 +321,7 @@
       <div class="container">
         <h1 data-i18n="title">Privacy Policy</h1>
         <p class="last-updated" data-i18n="lastUpdated">
-          Last updated: 18 October 2026
+          Last updated: 20 October 2026
         </p>
 
         <div class="highlight-box">
@@ -384,6 +385,17 @@
         </ul>
         <p data-i18n="backup.contents">Back Up Now writes a backup whatever the Automatic backup switch says. A backup holds your settings, including your intervals.icu athlete ID and, if you set one, your export home location, the names of your routes, the sections you named, cut or edited with their map lines, and your pins, excludes and section history. It holds no credentials, activities, GPS tracks or sensor streams. A backup is not encrypted.</p>
         <p data-i18n="backup.off">Turning Automatic backup off stops new backups. Copies already written stay where they are until you delete them there, and the last one stays in the device backup until you clear app data.</p>
+
+        <h2 data-i18n="googleData.title">Google User Data</h2>
+        <p data-i18n="googleData.intro">On Android, Veloq can keep backups in your own Google Drive. This is the only Google user data Veloq handles, and only after you sign in to Google on the backup screen.</p>
+        <ul>
+          <li data-i18n="googleData.scope"><strong>Access requested</strong>. One scope, <code>https://www.googleapis.com/auth/drive.appdata</code>, which gives Veloq a hidden app folder in your Drive and no access to any other file</li>
+          <li data-i18n="googleData.use"><strong>How it is used</strong>. Veloq writes its own backup files to that folder at your request, reads them back to check them, and reads one when you restore. It cannot see, open or list any other file in your Drive</li>
+          <li data-i18n="googleData.sharing"><strong>Who receives it</strong>. The backup files pass only between your device and Google. Nothing received from Google reaches the developer or any third party, and none of it is used for advertising or to train AI models</li>
+          <li data-i18n="googleData.storage"><strong>Storage</strong>. Google Play services holds the sign-in. Veloq stores no Google password or access token</li>
+          <li data-i18n="googleData.revoke"><strong>Revoking access</strong>. Tap Sign out on the backup screen, or remove Veloq at <a href="https://myaccount.google.com/permissions" target="_blank">https://myaccount.google.com/permissions</a>. Backups already written stay in your Drive until you delete them there</li>
+        </ul>
+        <p data-i18n="googleData.limitedUse">Veloq's use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
 
         <h2 data-i18n="permissions.title">Device Permissions</h2>
         <p data-i18n="permissions.intro">What each permission the app asks for is used for, and where the data goes:</p>
@@ -547,7 +559,7 @@
           "footer.releases": "Releases",
           "footer.contact": "Contact",
           title: "Privacy Policy",
-          lastUpdated: "Last updated: 18 October 2026",
+          lastUpdated: "Last updated: 20 October 2026",
           overview:
             "Veloq keeps your data on your device and the developer never receives it. The app fetches your fitness data directly from intervals.icu and stores it locally for offline access. A copy leaves the device only when you turn on Automatic backup, tap Back Up Now, or export a backup yourself.",
           "authMethods.title": "Authentication Methods",
@@ -584,6 +596,14 @@
           "backup.export": "<strong>Export</strong>. Hands a backup to the share sheet, where you choose where it goes",
           "backup.contents": "Back Up Now writes a backup whatever the Automatic backup switch says. A backup holds your settings, including your intervals.icu athlete ID and, if you set one, your export home location, the names of your routes, the sections you named, cut or edited with their map lines, and your pins, excludes and section history. It holds no credentials, activities, GPS tracks or sensor streams. A backup is not encrypted.",
           "backup.off": "Turning Automatic backup off stops new backups. Copies already written stay where they are until you delete them there, and the last one stays in the device backup until you clear app data.",
+          "googleData.title": "Google User Data",
+          "googleData.intro": "On Android, Veloq can keep backups in your own Google Drive. This is the only Google user data Veloq handles, and only after you sign in to Google on the backup screen.",
+          "googleData.scope": "<strong>Access requested</strong>. One scope, <code>https://www.googleapis.com/auth/drive.appdata</code>, which gives Veloq a hidden app folder in your Drive and no access to any other file",
+          "googleData.use": "<strong>How it is used</strong>. Veloq writes its own backup files to that folder at your request, reads them back to check them, and reads one when you restore. It cannot see, open or list any other file in your Drive",
+          "googleData.sharing": "<strong>Who receives it</strong>. The backup files pass only between your device and Google. Nothing received from Google reaches the developer or any third party, and none of it is used for advertising or to train AI models",
+          "googleData.storage": "<strong>Storage</strong>. Google Play services holds the sign-in. Veloq stores no Google password or access token",
+          "googleData.revoke": "<strong>Revoking access</strong>. Tap Sign out on the backup screen, or remove Veloq at <a href=\"https://myaccount.google.com/permissions\" target=\"_blank\">https://myaccount.google.com/permissions</a>. Backups already written stay in your Drive until you delete them there",
+          "googleData.limitedUse": "Veloq's use and transfer of information received from Google APIs adheres to the <a href=\"https://developers.google.com/terms/api-services-user-data-policy\" target=\"_blank\">Google API Services User Data Policy</a>, including the Limited Use requirements.",
           "permissions.title": "Device Permissions",
           "permissions.intro": "What each permission the app asks for is used for, and where the data goes:",
           "permissions.location": "<strong>Location</strong>. Records the GPS track of an activity you record, shows your position on the map, and sorts routes and sections by distance from you. While you record, Android runs a location foreground service with a notification and iOS keeps location on in the background, so the track continues with the screen off. Location is not read in the background when you are not recording. Positions stay on your device, except as described under Place names, and a recorded activity goes only to intervals.icu when it uploads",
@@ -655,7 +675,7 @@
           "footer.releases": "Versiones",
           "footer.contact": "Contacto",
           title: "Política de Privacidad",
-          lastUpdated: "Última actualización: 18 de octubre de 2026",
+          lastUpdated: "Última actualización: 20 de octubre de 2026",
           overview:
             "Veloq guarda tus datos en tu dispositivo y el desarrollador nunca los recibe. La app obtiene tus datos de entrenamiento directamente de intervals.icu y los almacena localmente para acceso sin conexión. Una copia sale del dispositivo solo cuando activas la copia de seguridad automática, tocas Respaldar ahora o exportas una copia tú mismo.",
           "authMethods.title": "Métodos de Autenticación",
@@ -692,6 +712,14 @@
           "backup.export": "<strong>Exportar</strong>. Entrega una copia al menú de compartir, donde eliges adónde va",
           "backup.contents": "Respaldar ahora escribe una copia sea cual sea el ajuste de copia automática. Una copia contiene tus ajustes, incluido tu ID de atleta de intervals.icu y, si lo defines, tu ubicación de inicio de exportación, los nombres de tus rutas, las secciones que nombraste, recortaste o editaste con sus líneas de mapa, y tus pines, exclusiones e historial de secciones. No contiene credenciales, actividades, tracks GPS ni flujos de sensores. Una copia no está cifrada.",
           "backup.off": "Desactivar la copia automática detiene las copias nuevas. Las copias ya escritas permanecen donde están hasta que las borres allí, y la última permanece en la copia del dispositivo hasta que borres los datos de la app.",
+          "googleData.title": "Datos de usuario de Google",
+          "googleData.intro": "En Android, Veloq puede guardar copias en tu propio Google Drive. Son los únicos datos de usuario de Google que Veloq maneja, y solo después de que inicies sesión en Google en la pantalla de copias.",
+          "googleData.scope": "<strong>Acceso solicitado</strong>. Un solo permiso, <code>https://www.googleapis.com/auth/drive.appdata</code>, que da a Veloq una carpeta oculta de la app en tu Drive y ningún acceso a otros archivos",
+          "googleData.use": "<strong>Cómo se usa</strong>. Veloq escribe sus propias copias en esa carpeta cuando lo pides, las vuelve a leer para comprobarlas y lee una cuando restauras. No puede ver, abrir ni listar ningún otro archivo de tu Drive",
+          "googleData.sharing": "<strong>Quién lo recibe</strong>. Las copias pasan solo entre tu dispositivo y Google. Nada de lo recibido de Google llega al desarrollador ni a terceros, y nada se usa para publicidad ni para entrenar modelos de IA",
+          "googleData.storage": "<strong>Almacenamiento</strong>. Los servicios de Google Play guardan la sesión. Veloq no guarda ninguna contraseña ni token de acceso de Google",
+          "googleData.revoke": "<strong>Revocar el acceso</strong>. Toca Cerrar sesión en la pantalla de copias, o quita Veloq en <a href=\"https://myaccount.google.com/permissions\" target=\"_blank\">https://myaccount.google.com/permissions</a>. Las copias ya escritas permanecen en tu Drive hasta que las borres allí",
+          "googleData.limitedUse": "El uso y la transferencia por parte de Veloq de la información recibida de las API de Google cumplen la <a href=\"https://developers.google.com/terms/api-services-user-data-policy\" target=\"_blank\">Política de datos de usuario de los servicios de API de Google</a> (Google API Services User Data Policy), incluidos los requisitos de uso limitado (Limited Use).",
           "permissions.title": "Permisos del Dispositivo",
           "permissions.intro": "Para qué se usa cada permiso que pide la app y adónde van los datos:",
           "permissions.location": "<strong>Ubicación</strong>. Registra el track GPS de una actividad que grabas, muestra tu posición en el mapa y ordena rutas y secciones por distancia a ti. Mientras grabas, Android ejecuta un servicio de ubicación en primer plano con una notificación e iOS mantiene la ubicación activa en segundo plano, para que el track continúe con la pantalla apagada. La ubicación no se lee en segundo plano cuando no estás grabando. Las posiciones se quedan en tu dispositivo, salvo lo descrito en Nombres de lugares, y una actividad grabada va solo a intervals.icu cuando se sube",
@@ -763,7 +791,7 @@
           "footer.releases": "Versions",
           "footer.contact": "Contact",
           title: "Politique de Confidentialité",
-          lastUpdated: "Dernière mise à jour : 18 octobre 2026",
+          lastUpdated: "Dernière mise à jour : 20 octobre 2026",
           overview:
             "Veloq garde vos données sur votre appareil et le développeur ne les reçoit jamais. L'app récupère vos données d'entraînement directement depuis intervals.icu et les stocke localement pour un accès hors ligne. Une copie ne quitte l'appareil que si vous activez la sauvegarde automatique, touchez Sauvegarder maintenant ou exportez vous-même une sauvegarde.",
           "authMethods.title": "Méthodes d'Authentification",
@@ -800,6 +828,14 @@
           "backup.export": "<strong>Export</strong>. Remet une sauvegarde à la feuille de partage, où vous choisissez sa destination",
           "backup.contents": "Sauvegarder maintenant écrit une sauvegarde quel que soit le réglage de sauvegarde automatique. Une sauvegarde contient vos réglages, dont votre ID d'athlète intervals.icu et, si vous en avez défini un, votre point de départ d'export, les noms de vos itinéraires, les sections que vous avez nommées, coupées ou modifiées avec leurs tracés, ainsi que vos épingles, exclusions et l'historique des sections. Elle ne contient ni identifiants, ni activités, ni traces GPS, ni flux de capteurs. Une sauvegarde n'est pas chiffrée.",
           "backup.off": "Désactiver la sauvegarde automatique arrête les nouvelles sauvegardes. Les copies déjà écrites restent où elles sont jusqu'à ce que vous les supprimiez là, et la dernière reste dans la sauvegarde de l'appareil jusqu'à l'effacement des données de l'app.",
+          "googleData.title": "Données utilisateur Google",
+          "googleData.intro": "Sur Android, Veloq peut conserver des sauvegardes dans votre propre Google Drive. Ce sont les seules données utilisateur Google que Veloq traite, et seulement après que vous vous êtes connecté à Google sur l'écran des sauvegardes.",
+          "googleData.scope": "<strong>Accès demandé</strong>. Une seule autorisation, <code>https://www.googleapis.com/auth/drive.appdata</code>, qui donne à Veloq un dossier d'application masqué dans votre Drive et aucun accès à un autre fichier",
+          "googleData.use": "<strong>Utilisation</strong>. Veloq écrit ses propres fichiers de sauvegarde dans ce dossier à votre demande, les relit pour les vérifier et en lit un lorsque vous restaurez. Il ne peut voir, ouvrir ni lister aucun autre fichier de votre Drive",
+          "googleData.sharing": "<strong>Destinataires</strong>. Les sauvegardes passent uniquement entre votre appareil et Google. Rien de ce qui est reçu de Google ne parvient au développeur ni à un tiers, et rien n'est utilisé pour la publicité ni pour entraîner des modèles d'IA",
+          "googleData.storage": "<strong>Stockage</strong>. Les services Google Play conservent la connexion. Veloq ne stocke aucun mot de passe ni jeton d'accès Google",
+          "googleData.revoke": "<strong>Révoquer l'accès</strong>. Touchez Se déconnecter sur l'écran des sauvegardes, ou retirez Veloq sur <a href=\"https://myaccount.google.com/permissions\" target=\"_blank\">https://myaccount.google.com/permissions</a>. Les sauvegardes déjà écrites restent dans votre Drive jusqu'à ce que vous les y supprimiez",
+          "googleData.limitedUse": "L'utilisation et le transfert par Veloq des informations reçues des API Google respectent les <a href=\"https://developers.google.com/terms/api-services-user-data-policy\" target=\"_blank\">règles relatives aux données utilisateur des services d'API Google</a> (Google API Services User Data Policy), y compris les exigences d'utilisation limitée (Limited Use).",
           "permissions.title": "Autorisations de l'Appareil",
           "permissions.intro": "À quoi sert chaque autorisation demandée par l'app et où vont les données :",
           "permissions.location": "<strong>Localisation</strong>. Enregistre la trace GPS d'une activité que vous enregistrez, affiche votre position sur la carte et trie les itinéraires et les sections selon leur distance. Pendant l'enregistrement, Android exécute un service de localisation au premier plan avec une notification et iOS garde la localisation active en arrière-plan, pour que la trace continue écran éteint. La localisation n'est pas lue en arrière-plan hors enregistrement. Les positions restent sur votre appareil, sauf comme décrit sous Noms de lieux, et une activité enregistrée ne va qu'à intervals.icu lors de son envoi",

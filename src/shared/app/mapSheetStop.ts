@@ -14,7 +14,12 @@
 import { useCallback, useEffect } from 'react';
 import { create } from 'zustand';
 
-import { mapSheetPanelWidth, sheetStops, type SheetWindow } from './screenHeaders';
+import {
+  SHEET_CORNER_RADIUS,
+  mapSheetPanelWidth,
+  sheetStops,
+  type SheetWindow,
+} from './screenHeaders';
 
 export const MAP_SHEET_PEEK_STOP = 0;
 export const MAP_SHEET_HALF_STOP = 1;
@@ -37,6 +42,14 @@ export function mapSheetCoveredHeight(
   const { visibleMap } = sheetStops(os, osVersion, window);
   const visible = visibleMap[Math.min(Math.max(stop, MAP_SHEET_PEEK_STOP), MAP_SHEET_HALF_STOP)];
   return visible === undefined ? 0 : window.height - visible;
+}
+
+/**
+ * The corner radius of the sheet's top edge over the map's foot, as `mapSheetCoveredHeight` gives
+ * that foot, which the credit sitting on the edge keeps clear of. Covering nothing it has none.
+ */
+export function mapSheetCoveredCorner(coveredHeight: number): number {
+  return coveredHeight > 0 ? SHEET_CORNER_RADIUS : 0;
 }
 
 /**

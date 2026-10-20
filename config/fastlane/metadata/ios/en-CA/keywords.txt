@@ -1,0 +1,1 @@
+power,pace,cadence,heart rate,zone,ftp,hrv,gpx,climb,route,heatmap,lap,swim,bike,triathlon,strength

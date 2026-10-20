@@ -5,7 +5,12 @@ import { useEngineStatus } from '@/features/routes';
 import { useAuthStore } from '@/shared/app/AuthStore';
 
 import { getSlidesSince } from '../components/whatsNew/slides';
-import { launchSurfaces, type LaunchAsk, type LaunchSurfaces } from '../lib/launchSurfaces';
+import {
+  launchSurfaces,
+  quietPeriod,
+  type LaunchAsk,
+  type LaunchSurfaces,
+} from '../lib/launchSurfaces';
 import { useWhatsNewStore } from '../stores/WhatsNewStore';
 
 /**
@@ -66,6 +71,14 @@ export function useSessionAsk(ask: LaunchAsk, eligible: boolean): boolean {
   }, [ask, eligible, setAskEligible]);
   useEffect(() => () => setAskEligible(ask, false), [ask, setAskEligible]);
   return useLaunchSurfaces().ask === ask;
+}
+
+/** Whether the quiet period holds, or null before the days of use are counted. */
+export function useQuietPeriod(): boolean | null {
+  const usageLoaded = useWhatsNewStore((s) => s.usageLoaded);
+  const useDays = useWhatsNewStore((s) => s.useDays);
+  const firstSyncSettled = useWhatsNewStore((s) => s.firstSyncSettled);
+  return quietPeriod({ firstSyncSettled, useDays: usageLoaded ? useDays : null });
 }
 
 /** The install's days of use, the record the quiet period is counted on. */

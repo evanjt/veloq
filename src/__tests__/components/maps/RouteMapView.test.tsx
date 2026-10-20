@@ -127,6 +127,14 @@ describe('RouteMapView', () => {
     expect(StyleSheet.flatten(screen.getByTestId('map-attribution').props.style).bottom).toBe(240);
   });
 
+  it('stands the credit clear of the rounded corners of the sheet under it', async () => {
+    await renderRoute({ interactive: true, coveredBottom: 240, coveredBottomRadius: 28 });
+
+    const credit = StyleSheet.flatten(screen.getByTestId('map-attribution').props.style);
+    expect(credit.left).toBe(28);
+    expect(credit.right).toBe(28);
+  });
+
   describe('degenerate input', () => {
     it('falls back to a placeholder when the signature is missing', async () => {
       await renderRoute({ routeGroup: routeGroup(null) });

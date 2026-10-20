@@ -16,6 +16,7 @@ import {
   colorWithOpacity,
   darkColors,
   layers,
+  layout,
   opacity,
   spacing,
   typography,
@@ -45,11 +46,16 @@ export interface AttributionOverlayProps {
   onClearanceChange?: ((clearance: number) => void) | undefined;
   /** Height over the map's foot that something else covers, which the bar sits on. */
   bottomInset?: number | undefined;
+  /**
+   * Corner radius of the rounded top edge the bar sits on, a sheet's. The bar stands in from
+   * each side by it, so the edge's corners stay rounded under the credit.
+   */
+  edgeRadius?: number | undefined;
 }
 
 export const AttributionOverlay = memo(
   forwardRef<AttributionOverlayRef, AttributionOverlayProps>(
-    ({ initialAttribution, onClearanceChange, bottomInset = 0 }, ref) => {
+    ({ initialAttribution, onClearanceChange, bottomInset = 0, edgeRadius = 0 }, ref) => {
       // The bar is chrome, so it follows the app theme rather than the base drawn under it.
       const { isDark } = useTheme();
       const [attribution, setAttribution] = useState(initialAttribution);
@@ -75,13 +81,18 @@ export const AttributionOverlay = memo(
       return (
         <View
           testID="map-attribution"
-          style={[attributionStyles.attribution, bottomInset > 0 && { bottom: bottomInset }]}
+          style={[
+            attributionStyles.attribution,
+            bottomInset > 0 && { bottom: bottomInset },
+            edgeRadius > 0 && { left: edgeRadius, right: edgeRadius },
+          ]}
           pointerEvents="none"
         >
           <View
             testID="map-attribution-bar"
             style={[
               attributionStyles.attributionBar,
+              edgeRadius > 0 && attributionStyles.attributionBarOnEdge,
               {
                 backgroundColor: colorWithOpacity(
                   (isDark ? darkColors : colors).surfaceRaised,
@@ -123,6 +134,11 @@ const attributionStyles = StyleSheet.create({
   attributionBar: {
     paddingHorizontal: spacing.sm,
     paddingVertical: BAR_PADDING_VERTICAL,
+  },
+  // Inset from a rounded edge the bar is a tab rising from it, rounded where it stands free.
+  attributionBarOnEdge: {
+    borderTopLeftRadius: layout.borderRadiusSm,
+    borderTopRightRadius: layout.borderRadiusSm,
   },
   attributionText: {
     ...typography.micro,

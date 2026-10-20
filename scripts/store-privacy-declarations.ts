@@ -28,9 +28,10 @@ export const APP_JSON_PATH = path.join(PROJECT_ROOT, 'app.json');
  * Why a capability reaches no store's definition of collection.
  * - `onDevice`: the data never leaves the device.
  * - `ephemeral`: held off the device only long enough to serve the request.
- * - `athletesOwnAccount`: sent only to the athlete's own intervals.icu account,
- *   which Apple does not count, since neither the developer nor a partner of
- *   the developer can read it.
+ * - `athletesOwnAccount`: sent only to an account of the athlete's own, their
+ *   intervals.icu account or their iCloud Drive or Google Drive, which neither
+ *   store counts, since neither the developer nor a partner of the developer
+ *   can read it.
  */
 export const NOT_COLLECTED_REASONS = ['onDevice', 'ephemeral', 'athletesOwnAccount'] as const;
 export type NotCollectedReason = (typeof NOT_COLLECTED_REASONS)[number];

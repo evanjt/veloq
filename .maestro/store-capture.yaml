@@ -1,0 +1,129 @@
+appId: com.veloq.app.dev
+name: Store capture
+tags:
+  - tier4
+# Raw captures for the store screenshot compositor. Run by path via
+# scripts/store-capture.sh, never by tag from CI cron. Output lands in
+# screenshots/store-capture/ (the script creates it and moves files into
+# artifacts/store/raw/<platform>/). Status bar cleanup happens outside
+# Maestro, in the wrapper script. Each capture is followed by a check for a
+# dev build's warning toast, so a shot carrying one fails the run before the
+# wrapper moves it.
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Force dark theme: the store set uses the night palette.
+- openLink: "veloq://display-settings"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible:
+      id: "theme-button-dark"
+    timeout: 10000
+- tapOn:
+    id: "theme-button-dark"
+
+# Hide the demo banner for clean captures. The switch is gated on demo mode
+# and persists in AuthStore, so one tap covers the whole run.
+- openLink: "veloq://data-sources-settings"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- scrollUntilVisible:
+    element:
+      id: "hide-demo-banner-switch"
+    direction: DOWN
+- tapOn:
+    id: "hide-demo-banner-switch"
+
+# 01 activity feed
+- openLink: "veloq://"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible:
+      id: "home-activity-list"
+    timeout: 15000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: "screenshots/store-capture/01-feed"
+- assertNotVisible: "Open debugger to view warnings"
+
+# 02 activity detail
+- openLink: "veloq://activity/demo-test-0"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible:
+      id: "activity-detail-screen"
+    timeout: 15000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: "screenshots/store-capture/02-activity"
+- assertNotVisible: "Open debugger to view warnings"
+
+# 03 fitness
+- runFlow:
+    file: helpers/navigate-to-fitness.yaml
+- extendedWaitUntil:
+    visible:
+      id: "fitness-ctl-value"
+    timeout: 15000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: "screenshots/store-capture/03-fitness"
+- assertNotVisible: "Open debugger to view warnings"
+
+# 04 regional map. map-screen also sits on the loading and error branches, and
+# MapLibre tile loading has no deterministic hook, so wait for the ready marker
+# then give tiles a settle window.
+- runFlow:
+    file: helpers/navigate-to-map.yaml
+- extendedWaitUntil:
+    visible:
+      id: "regional-map-ready"
+    timeout: 15000
+- waitForAnimationToEnd:
+    timeout: 8000
+- takeScreenshot: "screenshots/store-capture/04-map"
+- assertNotVisible: "Open debugger to view warnings"
+
+# 05 routes
+- runFlow:
+    file: helpers/navigate-to-routes.yaml
+- extendedWaitUntil:
+    visible:
+      id: "routes-list"
+    timeout: 15000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: "screenshots/store-capture/05-routes"
+- assertNotVisible: "Open debugger to view warnings"
+
+# 06 insights
+- openLink: "veloq://insights?tab=insights"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible:
+      id: "insights-panel"
+    timeout: 15000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: "screenshots/store-capture/06-insights"
+- assertNotVisible: "Open debugger to view warnings"

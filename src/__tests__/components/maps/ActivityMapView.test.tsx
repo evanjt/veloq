@@ -92,6 +92,15 @@ describe('ActivityMapView', () => {
     expect(StyleSheet.flatten(screen.getByTestId('map-attribution').props.style).bottom).toBe(240);
   });
 
+  it("stands the credit clear of the rounded corners of the sheet on the map's foot", async () => {
+    await renderActivityMap({ coveredBottom: 240, coveredBottomRadius: 28 });
+
+    const credit = StyleSheet.flatten(screen.getByTestId('map-attribution').props.style);
+    expect(credit.bottom).toBe(240);
+    expect(credit.left).toBe(28);
+    expect(credit.right).toBe(28);
+  });
+
   it("keeps the credit on the map's foot when nothing covers it", async () => {
     await renderActivityMap();
 

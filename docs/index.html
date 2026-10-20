@@ -8,7 +8,7 @@
       name="description"
       content="Open-source mobile client for viewing your intervals.icu data. Not affiliated with intervals.icu."
     />
-    <meta name="theme-color" content="#5B8DB8" />
+    <meta name="theme-color" content="#2F6699" />
     <link rel="icon" type="image/png" href="icon.png" />
 
     <meta property="og:title" content="Veloq - Mobile intervals.icu Client" />
@@ -21,15 +21,11 @@
 
     <style>
       :root {
-        /* Logo colors: blue background, gold text */
-        --primary: #5b8db8;
-        --primary-dark: #4a7a9e;
-        --primary-light: #7ba8cc;
-        --primary-glow: rgba(91, 141, 184, 0.3);
-        --accent: #f5a623;
-        --accent-dark: #d4900e;
-        --accent-light: #ffba42;
-        --accent-glow: rgba(245, 166, 35, 0.3);
+        /* The app's action blue (blue-600, pressed blue-700), as in the
+           style guide. Gold is kept for achievements, which this page has none of. */
+        --primary: #2f6699;
+        --primary-dark: #255380;
+        --primary-glow: rgba(47, 102, 153, 0.3);
         --bg: #fafafa;
         --bg-dark: #121212;
         --text: #1a1a1a;
@@ -49,6 +45,8 @@
           --text-muted: var(--text-muted-dark);
           --card: var(--card-dark);
           --border: var(--border-dark);
+          /* The app's dark-theme action step, blue-550. */
+          --primary: #3d74a8;
         }
       }
 
@@ -321,7 +319,7 @@
 
       .demo-hint {
         font-size: 0.95rem;
-        color: var(--accent);
+        color: var(--primary);
         margin: -16px auto 24px;
         font-weight: 500;
       }
@@ -361,15 +359,15 @@
       .btn-secondary {
         background: var(--card);
         color: var(--text);
-        border: 2px solid var(--accent);
+        border: 2px solid var(--primary);
       }
 
       .btn-secondary:hover {
-        background: var(--accent);
-        border-color: var(--accent);
+        background: var(--primary);
+        border-color: var(--primary);
         color: white;
         transform: translateY(-3px);
-        box-shadow: 0 8px 30px var(--accent-glow);
+        box-shadow: 0 8px 30px var(--primary-glow);
       }
 
       /* Media Showcase */
@@ -596,14 +594,6 @@
         justify-content: center;
         margin-bottom: 20px;
         font-size: 28px;
-      }
-
-      .feature-icon.gold {
-        background: linear-gradient(
-          135deg,
-          var(--accent-light),
-          var(--accent-dark)
-        );
       }
 
       .feature h3 {
@@ -850,14 +840,14 @@
             Your training,<br /><span>visualised</span>
           </h1>
           <p class="animate-fade-up delay-1" data-i18n="hero.subtitle">
-            Interactive 3D maps, automatic route tracking, and detailed fitness
-            analytics.
+            <!-- store-copy:hook -->Your fitness, form and repeated routes, read from your intervals.icu account and analysed on your phone.<!-- /store-copy:hook -->
           </p>
-          <p
-            class="demo-hint animate-fade-up delay-1"
-            data-i18n="hero.demoHint"
-          >
-            Requires an intervals.icu account. No account? Try the demo mode.
+          <p class="demo-hint animate-fade-up delay-1" data-i18n="hero.noAccount">
+            No account is needed to read this site, and Veloq has no account of its own. The app shows your intervals.icu training, or demo data with no account at all.
+          </p>
+          <p class="demo-hint animate-fade-up delay-1" data-i18n="hero.backup">
+            On Android, optional backups can go to a hidden folder in your own Google Drive that only Veloq can open.
+            <a href="https://veloq.fit/privacy">Privacy Policy</a>
           </p>
           <div class="store-badges animate-fade-up delay-2" id="download">
             <a
@@ -946,55 +936,63 @@
             Access your intervals.icu data on mobile with offline support.
           </p>
           <div class="feature-grid">
+            <!-- store-copy:features -->
+            <div class="feature">
+              <div class="feature-icon">&#9201;</div>
+              <h3 data-i18n="features.record.title">Record</h3>
+              <p data-i18n="features.record.desc">Record rides, runs and other sports with GPS, auto-pause and splits in your own units. Pair Bluetooth heart rate, power and cadence sensors, or follow a planned workout from your intervals.icu calendar with its targets on screen. Trim the ends before you save, then upload a FIT file or queue it until you have signal. Indoor sessions can be entered by hand. Start a recording from a home-screen widget, Control Centre or Siri, and follow it on the Lock Screen.</p>
+            </div>
+            <div class="feature">
+              <div class="feature-icon">&#128161;</div>
+              <h3 data-i18n="features.insights.title">Insights</h3>
+              <p data-i18n="features.insights.desc">A short read on your training: section records and trends, fitness milestones, how this week compares with last, HRV trends and strength progression. Each insight opens to show its numbers and how they were worked out.</p>
+            </div>
             <div class="feature">
               <div class="feature-icon">&#127758;</div>
               <h3 data-i18n="features.maps.title">Maps</h3>
-              <p data-i18n="features.maps.desc">
-                View your activities on interactive maps with 3D terrain, route
-                heatmaps, and timeline filtering. Scrub through charts and watch
-                your position update in real-time.
-              </p>
-            </div>
-            <div class="feature">
-              <div class="feature-icon gold">&#128200;</div>
-              <h3 data-i18n="features.analysis.title">Charts</h3>
-              <p data-i18n="features.analysis.desc">
-                View heart rate, power, pace, elevation, and cadence charts from
-                your intervals.icu data.
-              </p>
+              <p data-i18n="features.maps.desc">Interactive maps with 3D terrain, route heatmaps and a timeline you can filter, in light, dark and satellite styles. Drag along a chart and your position moves across the map.</p>
             </div>
             <div class="feature">
               <div class="feature-icon">&#128736;</div>
-              <h3 data-i18n="features.routes.title">Route tracking</h3>
-              <p data-i18n="features.routes.desc">
-                Automatically detect repeated routes and sections. Compare efforts
-                over time to see your progress on favourite climbs and stretches.
-              </p>
+              <h3 data-i18n="features.routes.title">Routes and sections</h3>
+              <p data-i18n="features.routes.desc">Veloq looks for the routes and sections you repeat, with nothing to set up, and cuts them the same way on every device. A section page compares every attempt: the trend, the spread of your times and the line coloured where time was won or lost. Pin, trim, extend or rename a section, and every change keeps a history you can revert.</p>
             </div>
             <div class="feature">
-              <div class="feature-icon gold">&#128170;</div>
+              <div class="feature-icon">&#128200;</div>
+              <h3 data-i18n="features.charts.title">Charts</h3>
+              <p data-i18n="features.charts.desc">Heart rate, power, pace, elevation and cadence on one timeline with the map. Zone distributions, training load, intensity and lap breakdowns.</p>
+            </div>
+            <div class="feature">
+              <div class="feature-icon">&#128170;</div>
               <h3 data-i18n="features.fitness.title">Fitness</h3>
-              <p data-i18n="features.fitness.desc">
-                View your CTL/ATL/TSB fitness data and form zones as calculated
-                by intervals.icu.
-              </p>
+              <p data-i18n="features.fitness.desc">Fitness, fatigue and form on one chart with the zones drawn in. HRV, resting heart rate, sleep and wellness, and power and pace curves for each sport.</p>
             </div>
             <div class="feature">
-              <div class="feature-icon">&#128247;</div>
-              <h3 data-i18n="features.offline.title">On-Device</h3>
-              <p data-i18n="features.offline.desc">
-                Route and section detection runs entirely on your device.
-              </p>
+              <div class="feature-icon">&#127947;</div>
+              <h3 data-i18n="features.strength.title">Strength</h3>
+              <p data-i18n="features.strength.desc">The strength sets in your activities, drawn on a body diagram: the muscle groups each session worked, the balance between opposing groups and the progression of each exercise.</p>
             </div>
             <div class="feature">
-              <div class="feature-icon gold">&#128274;</div>
+              <div class="feature-icon">&#128241;</div>
+              <h3 data-i18n="features.widgets.title">Widgets</h3>
+              <p data-i18n="features.widgets.desc">Home-screen widgets for your fitness and form, your last activity, your latest insights and your strength work, refreshed in the background.</p>
+            </div>
+            <div class="feature">
+              <div class="feature-icon">&#128276;</div>
+              <h3 data-i18n="features.notifications.title">Notifications</h3>
+              <p data-i18n="features.notifications.desc">When intervals.icu receives a new activity, Veloq can send a notification naming the route and any personal bests, in your language. Notifications stay off until you turn them on.</p>
+            </div>
+            <div class="feature">
+              <div class="feature-icon">&#128190;</div>
+              <h3 data-i18n="features.backups.title">Backups</h3>
+              <p data-i18n="features.backups.desc">Back up your settings and section decisions to a small file, by hand or automatically. Keep it in your device's own backup, or add a WebDAV server, a folder or a cloud drive. A restore fetches your activities again and applies your decisions where they match.</p>
+            </div>
+            <div class="feature">
+              <div class="feature-icon">&#128274;</div>
               <h3 data-i18n="features.privacy.title">Privacy</h3>
-              <p data-i18n="features.privacy.desc">
-                Your data stays on your device and the developer never receives
-                it. Push notifications and backups are off until you turn them
-                on. No analytics, no tracking. Open source.
-              </p>
+              <p data-i18n="features.privacy.desc">Your training data stays on your device. No analytics, no tracking. Optional push notifications store your intervals.icu athlete ID and a device token on our server, deleted automatically after 30 days. Open source under Apache 2.0.</p>
             </div>
+            <!-- /store-copy:features -->
           </div>
         </div>
       </section>
@@ -1003,7 +1001,7 @@
         <div class="container">
           <h2 data-i18n="getStarted.title">Getting Started</h2>
           <p class="subtitle" data-i18n="getStarted.subtitle">
-            Connect to your intervals.icu account in three simple steps.
+            No sign-up: install the app and open it.
           </p>
           <div class="steps">
             <div class="step">
@@ -1017,18 +1015,8 @@
             </div>
             <div class="step">
               <div class="step-number">2</div>
-              <h3 data-i18n="getStarted.step2.title">Sign in with intervals.icu</h3>
+              <h3 data-i18n="getStarted.step2.title">Start exploring</h3>
               <p data-i18n="getStarted.step2.desc">
-                Tap Sign in with intervals.icu and allow access. Or tap Use API key instead and paste
-                your API key from
-                <a href="https://intervals.icu/settings" target="_blank">intervals.icu Settings</a>
-                &rarr; Developer Settings.
-              </p>
-            </div>
-            <div class="step">
-              <div class="step-number">3</div>
-              <h3 data-i18n="getStarted.step3.title">Start exploring</h3>
-              <p data-i18n="getStarted.step3.desc">
                 Your activities, fitness and routes load onto your phone and are analysed there.
               </p>
             </div>
@@ -1210,8 +1198,9 @@
           "nav.download": "Download",
           "hero.title": "Your training,<br><span>visualised</span>",
           "hero.subtitle":
-            "Interactive 3D maps, automatic route tracking, and detailed fitness analytics.",
-          "hero.demoHint": "Requires an intervals.icu account. No account? Try the demo mode.",
+            "Your fitness, form and repeated routes, read from your intervals.icu account and analysed on your phone.",
+          "hero.noAccount": "No account is needed to read this site, and Veloq has no account of its own. The app shows your intervals.icu training, or demo data with no account at all.",
+          "hero.backup": "On Android, optional backups can go to a hidden folder in your own Google Drive that only Veloq can open. <a href=\"https://veloq.fit/privacy\">Privacy Policy</a>",
           "showcase.disclaimer":
             "* Screenshots show demo data for illustration purposes only.",
           "cta.openSource": "Open source: sideload via <a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>",
@@ -1219,31 +1208,34 @@
           "features.title": "View your data",
           "features.subtitle":
             "Access your intervals.icu data on mobile with offline support.",
+          "features.record.title": "Record",
+          "features.record.desc": "Record rides, runs and other sports with GPS, auto-pause and splits in your own units. Pair Bluetooth heart rate, power and cadence sensors, or follow a planned workout from your intervals.icu calendar with its targets on screen. Trim the ends before you save, then upload a FIT file or queue it until you have signal. Indoor sessions can be entered by hand. Start a recording from a home-screen widget, Control Centre or Siri, and follow it on the Lock Screen.",
+          "features.insights.title": "Insights",
+          "features.insights.desc": "A short read on your training: section records and trends, fitness milestones, how this week compares with last, HRV trends and strength progression. Each insight opens to show its numbers and how they were worked out.",
           "features.maps.title": "Maps",
-          "features.maps.desc":
-            "View your activities on interactive maps with 3D terrain, route heatmaps, and timeline filtering. Scrub through charts and watch your position update in real-time.",
-          "features.analysis.title": "Charts",
-          "features.analysis.desc":
-            "View heart rate, power, pace, elevation, and cadence charts from your intervals.icu data.",
-          "features.routes.title": "Route tracking",
-          "features.routes.desc":
-            "Automatically detect repeated routes and sections. Compare efforts over time to see your progress on favourite climbs and stretches.",
+          "features.maps.desc": "Interactive maps with 3D terrain, route heatmaps and a timeline you can filter, in light, dark and satellite styles. Drag along a chart and your position moves across the map.",
+          "features.routes.title": "Routes and sections",
+          "features.routes.desc": "Veloq looks for the routes and sections you repeat, with nothing to set up, and cuts them the same way on every device. A section page compares every attempt: the trend, the spread of your times and the line coloured where time was won or lost. Pin, trim, extend or rename a section, and every change keeps a history you can revert.",
+          "features.charts.title": "Charts",
+          "features.charts.desc": "Heart rate, power, pace, elevation and cadence on one timeline with the map. Zone distributions, training load, intensity and lap breakdowns.",
           "features.fitness.title": "Fitness",
-          "features.fitness.desc":
-            "View your CTL/ATL/TSB fitness data and form zones as calculated by intervals.icu.",
-          "features.offline.title": "On-Device",
-          "features.offline.desc": "Route and section detection runs entirely on your device.",
+          "features.fitness.desc": "Fitness, fatigue and form on one chart with the zones drawn in. HRV, resting heart rate, sleep and wellness, and power and pace curves for each sport.",
+          "features.strength.title": "Strength",
+          "features.strength.desc": "The strength sets in your activities, drawn on a body diagram: the muscle groups each session worked, the balance between opposing groups and the progression of each exercise.",
+          "features.widgets.title": "Widgets",
+          "features.widgets.desc": "Home-screen widgets for your fitness and form, your last activity, your latest insights and your strength work, refreshed in the background.",
+          "features.notifications.title": "Notifications",
+          "features.notifications.desc": "When intervals.icu receives a new activity, Veloq can send a notification naming the route and any personal bests, in your language. Notifications stay off until you turn them on.",
+          "features.backups.title": "Backups",
+          "features.backups.desc": "Back up your settings and section decisions to a small file, by hand or automatically. Keep it in your device's own backup, or add a WebDAV server, a folder or a cloud drive. A restore fetches your activities again and applies your decisions where they match.",
           "features.privacy.title": "Privacy",
-          "features.privacy.desc": "Your data stays on your device and the developer never receives it. Push notifications and backups are off until you turn them on. No analytics, no tracking. Open source.",
+          "features.privacy.desc": "Your training data stays on your device. No analytics, no tracking. Optional push notifications store your intervals.icu athlete ID and a device token on our server, deleted automatically after 30 days. Open source under Apache 2.0.",
           "getStarted.title": "Getting Started",
-          "getStarted.subtitle":
-            "Connect to your intervals.icu account in three simple steps.",
+          "getStarted.subtitle": "No sign-up: install the app and open it.",
           "getStarted.step1.title": "Install Veloq",
           "getStarted.step1.desc": "Get it on the <a href=\"https://apps.apple.com/us/app/veloq/id6757836732\" target=\"_blank\">App Store</a> or <a href=\"https://play.google.com/store/apps/details?id=com.veloq.app\" target=\"_blank\">Google Play</a>",
-          "getStarted.step2.title": "Sign in with intervals.icu",
-          "getStarted.step2.desc": "Tap Sign in with intervals.icu and allow access. Or tap Use API key instead and paste your API key from <a href=\"https://intervals.icu/settings\" target=\"_blank\">intervals.icu Settings</a> &rarr; Developer Settings.",
-          "getStarted.step3.title": "Start exploring",
-          "getStarted.step3.desc": "Your activities, fitness and routes load onto your phone and are analysed there.",
+          "getStarted.step2.title": "Start exploring",
+          "getStarted.step2.desc": "Your activities, fitness and routes load onto your phone and are analysed there.",
           "footer.releases": "Releases",
           "footer.privacy": "Privacy Policy",
           "footer.contact": "Contact",
@@ -1254,9 +1246,9 @@
           "hero.title":
             "Dein Training,<br><span>visualisiert</span>",
           "hero.subtitle":
-            "Interaktive 3D-Karten, automatische Streckenverfolgung und detaillierte Fitnessanalysen.",
-          "hero.demoHint":
-            "Erfordert ein intervals.icu-Konto. Kein Konto? Probiere den Demo-Modus.",
+            "Fitness, Form und wiederkehrende Routen, aus deinem intervals.icu Konto gelesen und auf dem Handy analysiert.",
+          "hero.noAccount": "Für diese Seite brauchst du kein Konto, und Veloq hat kein eigenes. Die App zeigt dein Training aus intervals.icu, oder ganz ohne Konto Demo-Daten.",
+          "hero.backup": "Auf Android können optionale Backups in einen versteckten Ordner in deinem eigenen Google Drive gehen, den nur Veloq öffnen kann. <a href=\"https://veloq.fit/privacy\">Datenschutz</a>",
           "showcase.disclaimer":
             "* Screenshots zeigen Demodaten nur zur Veranschaulichung.",
           "cta.openSource": "Open Source: Sideload via <a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>",
@@ -1264,31 +1256,34 @@
           "features.title": "Deine Daten anzeigen",
           "features.subtitle":
             "Greife mobil auf deine intervals.icu Daten zu, auch offline.",
+          "features.record.title": "Aufzeichnung",
+          "features.record.desc": "Zeichne Fahrten, Läufe und andere Sportarten mit GPS, Auto-Pause und Splits in deinen eigenen Einheiten auf. Verbinde Bluetooth-Sensoren für Herzfrequenz, Leistung und Trittfrequenz, oder folge einem geplanten Training aus deinem intervals.icu-Kalender mit den Zielen auf dem Bildschirm. Schneide Anfang und Ende vor dem Speichern zu und lade eine FIT-Datei hoch, oder stelle sie in die Warteschlange, bis du Empfang hast. Indoor-Einheiten lassen sich von Hand eintragen. Starte eine Aufzeichnung über ein Widget auf dem Home-Bildschirm, das Kontrollzentrum oder Siri, und verfolge sie auf dem Sperrbildschirm.",
+          "features.insights.title": "Einblicke",
+          "features.insights.desc": "Ein kurzer Blick auf dein Training: Abschnittsbestzeiten und Trends, Fitness-Meilensteine, wie diese Woche im Vergleich zur letzten liegt, HRV-Trends und Kraftfortschritt. Jeder Einblick öffnet sich mit seinen Zahlen und wie sie berechnet wurden.",
           "features.maps.title": "Karten",
-          "features.maps.desc":
-            "Zeige deine Aktivitäten auf interaktiven Karten mit 3D-Gelände, Routen-Heatmaps und Zeitfilter. Scrolle durch Diagramme und sieh deine Position in Echtzeit.",
-          "features.analysis.title": "Diagramme",
-          "features.analysis.desc":
-            "Herzfrequenz, Leistung, Tempo, Höhe und Kadenz aus deinen intervals.icu Daten.",
-          "features.routes.title": "Streckenverfolgung",
-          "features.routes.desc":
-            "Erkenne automatisch wiederholte Strecken und Abschnitte. Vergleiche Leistungen über Zeit und verfolge deinen Fortschritt.",
+          "features.maps.desc": "Interaktive Karten mit 3D-Gelände, Routen-Heatmaps und einer filterbaren Zeitleiste, in hellem, dunklem und Satellitenstil. Fahre an einem Diagramm entlang, und deine Position wandert über die Karte.",
+          "features.routes.title": "Routen und Abschnitte",
+          "features.routes.desc": "Veloq sucht nach den Routen und Abschnitten, die du wiederholst, ohne dass du etwas einrichten musst, und schneidet sie auf jedem Gerät gleich. Eine Abschnittsseite vergleicht jeden Versuch: den Trend, die Streuung deiner Zeiten und die Linie, eingefärbt danach, wo Zeit gewonnen oder verloren wurde. Hefte einen Abschnitt an, kürze, verlängere oder benenne ihn um, und jede Änderung behält einen Verlauf, den du zurücksetzen kannst.",
+          "features.charts.title": "Diagramme",
+          "features.charts.desc": "Herzfrequenz, Leistung, Pace, Höhe und Trittfrequenz auf einer Zeitachse mit der Karte. Zonenverteilungen, Trainingsbelastung, Intensität und Rundenübersichten.",
           "features.fitness.title": "Fitness",
-          "features.fitness.desc":
-            "CTL/ATL/TSB Fitnessdaten und Formzonen wie von intervals.icu berechnet.",
-          "features.offline.title": "Auf dem Gerät",
-          "features.offline.desc": "Routen- und Abschnittserkennung läuft vollständig auf deinem Gerät.",
+          "features.fitness.desc": "Fitness, Ermüdung und Form in einem Diagramm mit eingezeichneten Zonen. HRV, Ruhepuls, Schlaf und Wohlbefinden sowie Leistungs- und Pace-Kurven für jede Sportart.",
+          "features.strength.title": "Kraft",
+          "features.strength.desc": "Die Kraftsätze in deinen Aktivitäten auf einem Körperdiagramm: welche Muskelgruppen jede Einheit beansprucht hat, die Balance zwischen gegenüberliegenden Gruppen und die Entwicklung jeder Übung.",
+          "features.widgets.title": "Widgets",
+          "features.widgets.desc": "Widgets auf dem Startbildschirm für deine Fitness und Form, deine letzte Aktivität, deine neuesten Einblicke und dein Krafttraining, im Hintergrund aktualisiert.",
+          "features.notifications.title": "Benachrichtigungen",
+          "features.notifications.desc": "Wenn intervals.icu eine neue Aktivität erhält, kann Veloq eine Benachrichtigung senden, die die Route und etwaige Bestzeiten nennt, in deiner Sprache. Benachrichtigungen bleiben aus, bis du sie einschaltest.",
+          "features.backups.title": "Sicherungen",
+          "features.backups.desc": "Sichere deine Einstellungen und Abschnittsentscheidungen in einer kleinen Datei, von Hand oder automatisch. Bewahre sie in der eigenen Gerätesicherung auf, oder füge einen WebDAV-Server, einen Ordner oder einen Cloud-Speicher hinzu. Eine Wiederherstellung lädt deine Aktivitäten neu und wendet deine Entscheidungen an, wo sie passen.",
           "features.privacy.title": "Datenschutz",
-          "features.privacy.desc": "Deine Daten bleiben auf deinem Gerät, und der Entwickler erhält sie nie. Push-Benachrichtigungen und Backups sind aus, bis du sie einschaltest. Keine Analyse, kein Tracking. Open Source.",
+          "features.privacy.desc": "Deine Trainingsdaten bleiben auf deinem Gerät. Keine Analytics, kein Tracking. Optionale Push-Benachrichtigungen speichern deine intervals.icu-Athleten-ID und ein Geräte-Token auf unserem Server, die nach 30 Tagen automatisch gelöscht werden. Open Source unter Apache 2.0.",
           "getStarted.title": "Erste Schritte",
-          "getStarted.subtitle":
-            "Verbinde dein intervals.icu Konto in drei einfachen Schritten.",
+          "getStarted.subtitle": "Keine Registrierung: App installieren und öffnen.",
           "getStarted.step1.title": "Veloq installieren",
           "getStarted.step1.desc": "Im <a href=\"https://apps.apple.com/us/app/veloq/id6757836732\" target=\"_blank\">App Store</a> oder bei <a href=\"https://play.google.com/store/apps/details?id=com.veloq.app\" target=\"_blank\">Google Play</a> herunterladen",
-          "getStarted.step2.title": "Mit intervals.icu anmelden",
-          "getStarted.step2.desc": "Tippe auf „Mit intervals.icu anmelden“ und erlaube den Zugriff. Oder tippe auf „Stattdessen API-Schlüssel verwenden“ und füge deinen API-Schlüssel aus <a href=\"https://intervals.icu/settings\" target=\"_blank\">intervals.icu Einstellungen</a> &rarr; Entwickler ein.",
-          "getStarted.step3.title": "Loslegen",
-          "getStarted.step3.desc": "Deine Aktivitäten, Fitness und Strecken werden auf dein Handy geladen und dort ausgewertet.",
+          "getStarted.step2.title": "Loslegen",
+          "getStarted.step2.desc": "Deine Aktivitäten, Fitness und Strecken werden auf dein Handy geladen und dort ausgewertet.",
           "footer.releases": "Releases",
           "footer.privacy": "Datenschutz",
           "footer.contact": "Kontakt",
@@ -1298,8 +1293,9 @@
           "nav.download": "Downloaden",
           "hero.title": "Je training,<br><span>gevisualiseerd</span>",
           "hero.subtitle":
-            "Interactieve 3D-kaarten, automatische routetracking en gedetailleerde fitnessanalyses.",
-          "hero.demoHint": "Vereist een intervals.icu-account. Geen account? Probeer de demo-modus.",
+            "Je fitness, vorm en herhaalde routes, gelezen uit je intervals.icu account en geanalyseerd op je telefoon.",
+          "hero.noAccount": "Voor deze site is geen account nodig, en Veloq heeft geen eigen account. De app toont je training uit intervals.icu, of zonder account demodata.",
+          "hero.backup": "Op Android kunnen optionele back-ups naar een verborgen map in je eigen Google Drive gaan die alleen Veloq kan openen. <a href=\"https://veloq.fit/privacy\">Privacybeleid</a>",
           "showcase.disclaimer":
             "* Screenshots tonen demogegevens, alleen ter illustratie.",
           "cta.openSource": "Open source: sideload via <a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>",
@@ -1307,31 +1303,34 @@
           "features.title": "Bekijk je data",
           "features.subtitle":
             "Toegang tot je intervals.icu data op mobiel met offline ondersteuning.",
+          "features.record.title": "Opnemen",
+          "features.record.desc": "Neem ritten, loopjes en andere sporten op met gps, automatische pauze en splits in je eigen eenheden. Koppel Bluetooth-sensoren voor hartslag, vermogen en cadans, of volg een geplande training uit je intervals.icu-kalender met de doelen op het scherm. Knip begin en eind bij voor je opslaat, en upload een FIT-bestand of zet het in de wachtrij tot je bereik hebt. Indoortrainingen voer je met de hand in. Start een opname vanuit een widget op het beginscherm, het bedieningspaneel of Siri, en volg hem op het toegangsscherm.",
+          "features.insights.title": "Inzichten",
+          "features.insights.desc": "Een korte blik op je training: sectierecords en trends, mijlpalen in fitheid, hoe deze week zich verhoudt tot de vorige, HRV-trends en krachtprogressie. Elk inzicht opent met de cijfers en hoe ze berekend zijn.",
           "features.maps.title": "Kaarten",
-          "features.maps.desc":
-            "Bekijk je activiteiten op interactieve kaarten met 3D-terrein, route-heatmaps en tijdlijnfiltering. Scroll door grafieken en zie je positie in real-time.",
-          "features.analysis.title": "Grafieken",
-          "features.analysis.desc":
-            "Hartslag, vermogen, tempo, hoogte en cadans uit je intervals.icu data.",
-          "features.routes.title": "Routetracking",
-          "features.routes.desc":
-            "Detecteer automatisch herhaalde routes en secties. Vergelijk prestaties over tijd en volg je voortgang.",
-          "features.fitness.title": "Fitness",
-          "features.fitness.desc":
-            "CTL/ATL/TSB fitnessdata en vormzones zoals berekend door intervals.icu.",
-          "features.offline.title": "Op het apparaat",
-          "features.offline.desc": "Route- en sectiedetectie draait volledig op je apparaat.",
+          "features.maps.desc": "Interactieve kaarten met 3D-terrein, heatmaps van routes en een tijdlijn die je kunt filteren, in lichte, donkere en satellietstijl. Schuif langs een grafiek en je positie beweegt mee over de kaart.",
+          "features.routes.title": "Routes en secties",
+          "features.routes.desc": "Veloq zoekt de routes en secties die je herhaalt, zonder iets in te stellen, en snijdt ze op elk toestel op dezelfde manier. Een sectiepagina vergelijkt elke poging: de trend, de spreiding van je tijden en de lijn gekleurd naar waar tijd gewonnen of verloren werd. Zet een sectie vast, kort hem in, verleng hem of geef hem een andere naam, en elke wijziging houdt een geschiedenis bij die je kunt terugdraaien.",
+          "features.charts.title": "Grafieken",
+          "features.charts.desc": "Hartslag, vermogen, tempo, hoogte en cadans op één tijdlijn met de kaart. Zoneverdelingen, trainingsbelasting, intensiteit en rondeoverzichten.",
+          "features.fitness.title": "Fitheid",
+          "features.fitness.desc": "Fitheid, vermoeidheid en vorm in één grafiek met de zones erin getekend. HRV, rusthartslag, slaap en welzijn, en vermogens- en tempocurves per sport.",
+          "features.strength.title": "Kracht",
+          "features.strength.desc": "De krachtsets in je activiteiten op een lichaamsdiagram: de spiergroepen die elke sessie heeft gewerkt, de balans tussen tegenovergestelde groepen en de progressie per oefening.",
+          "features.widgets.title": "Widgets",
+          "features.widgets.desc": "Widgets op het startscherm voor je fitheid en vorm, je laatste activiteit, je nieuwste inzichten en je krachttraining, op de achtergrond bijgewerkt.",
+          "features.notifications.title": "Meldingen",
+          "features.notifications.desc": "Als intervals.icu een nieuwe activiteit ontvangt, kan Veloq een melding sturen met de naam van de route en eventuele persoonlijke records, in jouw taal. Meldingen staan uit tot je ze aanzet.",
+          "features.backups.title": "Back-ups",
+          "features.backups.desc": "Maak een back-up van je instellingen en sectiekeuzes in een klein bestand, met de hand of automatisch. Bewaar hem in de eigen back-up van je toestel, of voeg een WebDAV-server, een map of een cloudopslag toe. Bij herstellen worden je activiteiten opnieuw opgehaald en je keuzes toegepast waar ze overeenkomen.",
           "features.privacy.title": "Privacy",
-          "features.privacy.desc": "Je data blijft op je apparaat en de ontwikkelaar ontvangt die nooit. Pushmeldingen en back-ups staan uit tot je ze aanzet. Geen analytics, geen tracking. Open source.",
+          "features.privacy.desc": "Je trainingsgegevens blijven op je toestel. Geen analytics, geen tracking. Optionele pushmeldingen bewaren je intervals.icu-atleet-ID en een apparaattoken op onze server, die na 30 dagen automatisch worden verwijderd. Open source onder Apache 2.0.",
           "getStarted.title": "Aan de slag",
-          "getStarted.subtitle":
-            "Verbind je intervals.icu account in drie eenvoudige stappen.",
+          "getStarted.subtitle": "Geen registratie: installeer de app en open hem.",
           "getStarted.step1.title": "Veloq installeren",
           "getStarted.step1.desc": "Download in de <a href=\"https://apps.apple.com/us/app/veloq/id6757836732\" target=\"_blank\">App Store</a> of op <a href=\"https://play.google.com/store/apps/details?id=com.veloq.app\" target=\"_blank\">Google Play</a>",
-          "getStarted.step2.title": "Inloggen met intervals.icu",
-          "getStarted.step2.desc": "Tik op ‘Inloggen met intervals.icu’ en geef toegang. Of tik op ‘Gebruik API-sleutel’ en plak je API-sleutel uit <a href=\"https://intervals.icu/settings\" target=\"_blank\">intervals.icu Instellingen</a> &rarr; Ontwikkelaar.",
-          "getStarted.step3.title": "Begin met verkennen",
-          "getStarted.step3.desc": "Je activiteiten, fitness en routes worden naar je telefoon geladen en daar geanalyseerd.",
+          "getStarted.step2.title": "Begin met verkennen",
+          "getStarted.step2.desc": "Je activiteiten, fitness en routes worden naar je telefoon geladen en daar geanalyseerd.",
           "footer.releases": "Releases",
           "footer.privacy": "Privacybeleid",
           "footer.contact": "Contact",
@@ -1341,9 +1340,9 @@
           "nav.download": "Télécharger",
           "hero.title": "Votre entraînement,<br><span>visualisé</span>",
           "hero.subtitle":
-            "Cartes 3D interactives, suivi automatique des itinéraires et analyses fitness détaillées.",
-          "hero.demoHint":
-            "Nécessite un compte intervals.icu. Pas de compte ? Essayez le mode démo.",
+            "Votre forme, votre fitness et vos routes répétées, lus depuis votre compte intervals.icu et analysés sur votre téléphone.",
+          "hero.noAccount": "Aucun compte n'est nécessaire pour lire ce site, et Veloq n'a pas de compte à lui. L'application affiche votre entraînement intervals.icu, ou des données de démo sans aucun compte.",
+          "hero.backup": "Sur Android, les sauvegardes facultatives peuvent aller dans un dossier masqué de votre propre Google Drive que seul Veloq peut ouvrir. <a href=\"https://veloq.fit/privacy\">Confidentialité</a>",
           "showcase.disclaimer":
             "* Les captures d'écran montrent des données de démonstration à titre indicatif uniquement.",
           "cta.openSource": "Open source: sideload via <a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>",
@@ -1351,31 +1350,34 @@
           "features.title": "Voir vos données",
           "features.subtitle":
             "Accédez à vos données intervals.icu sur mobile avec support hors ligne.",
+          "features.record.title": "Enregistrement",
+          "features.record.desc": "Enregistrez vos sorties à vélo, vos courses et d'autres sports avec le GPS, la pause automatique et des splits dans vos unités. Associez des capteurs Bluetooth de fréquence cardiaque, de puissance et de cadence, ou suivez une séance planifiée de votre calendrier intervals.icu avec ses objectifs à l'écran. Coupez le début et la fin avant d'enregistrer, puis envoyez un fichier FIT ou mettez-le en attente jusqu'au retour du réseau. Les séances en intérieur se saisissent à la main. Lancez un enregistrement depuis un widget de l'écran d'accueil, le centre de contrôle ou Siri, et suivez-le sur l'écran verrouillé.",
+          "features.insights.title": "Aperçus",
+          "features.insights.desc": "Une lecture rapide de votre entraînement : records et tendances sur les sections, étapes de forme physique, cette semaine comparée à la précédente, tendances de VFC et progression en force. Chaque aperçu s'ouvre sur ses chiffres et la façon dont ils ont été calculés.",
           "features.maps.title": "Cartes",
-          "features.maps.desc":
-            "Visualisez vos activités sur des cartes interactives avec terrain 3D, heatmaps et filtrage temporel. Parcourez les graphiques et voyez votre position en temps réel.",
-          "features.analysis.title": "Graphiques",
-          "features.analysis.desc":
-            "Visualisez les graphiques de fréquence cardiaque, puissance, allure et cadence de vos données intervals.icu.",
-          "features.routes.title": "Suivi d'itinéraires",
-          "features.routes.desc":
-            "Détectez automatiquement les itinéraires et sections répétés. Comparez vos efforts au fil du temps et suivez votre progression.",
-          "features.fitness.title": "Forme",
-          "features.fitness.desc":
-            "Visualisez vos données de forme CTL/ATL/TSB et zones calculées par intervals.icu.",
-          "features.offline.title": "Sur l'appareil",
-          "features.offline.desc": "La détection des itinéraires et sections s'exécute entièrement sur votre appareil.",
+          "features.maps.desc": "Des cartes interactives avec relief 3D, cartes de chaleur des parcours et une chronologie filtrable, en style clair, sombre ou satellite. Glissez le long d'un graphique et votre position se déplace sur la carte.",
+          "features.routes.title": "Parcours et sections",
+          "features.routes.desc": "Veloq repère les parcours et les sections que vous répétez, sans rien à configurer, et les découpe de la même façon sur tous les appareils. La page d'une section compare chaque passage : la tendance, la dispersion de vos temps et le tracé coloré là où du temps a été gagné ou perdu. Épinglez, raccourcissez, prolongez ou renommez une section, et chaque modification garde un historique réversible.",
+          "features.charts.title": "Graphiques",
+          "features.charts.desc": "Fréquence cardiaque, puissance, allure, altitude et cadence sur une seule chronologie avec la carte. Répartition par zones, charge d'entraînement, intensité et détail par tour.",
+          "features.fitness.title": "Forme physique",
+          "features.fitness.desc": "Forme physique, fatigue et forme sur un seul graphique avec les zones tracées. VFC, fréquence cardiaque au repos, sommeil et bien-être, et courbes de puissance et d'allure pour chaque sport.",
+          "features.strength.title": "Force",
+          "features.strength.desc": "Les séries de force de vos activités sur un schéma du corps : les groupes musculaires sollicités par chaque séance, l'équilibre entre groupes opposés et la progression de chaque exercice.",
+          "features.widgets.title": "Widgets",
+          "features.widgets.desc": "Des widgets d'écran d'accueil pour votre forme physique et votre forme, votre dernière activité, vos aperçus les plus récents et votre travail de force, mis à jour en arrière-plan.",
+          "features.notifications.title": "Notifications",
+          "features.notifications.desc": "Quand intervals.icu reçoit une nouvelle activité, Veloq peut vous envoyer une notification qui nomme le parcours et vos records éventuels, dans votre langue. Les notifications restent désactivées tant que vous ne les activez pas.",
+          "features.backups.title": "Sauvegardes",
+          "features.backups.desc": "Sauvegardez vos réglages et vos choix de sections dans un petit fichier, à la main ou automatiquement. Gardez-le dans la sauvegarde de votre appareil, ou ajoutez un serveur WebDAV, un dossier ou un stockage en ligne. Une restauration télécharge à nouveau vos activités et applique vos choix là où ils correspondent.",
           "features.privacy.title": "Confidentialité",
-          "features.privacy.desc": "Vos données restent sur votre appareil et le développeur ne les reçoit jamais. Les notifications push et les sauvegardes restent désactivées tant que vous ne les activez pas. Pas d'analytique, pas de suivi. Open source.",
+          "features.privacy.desc": "Vos données d'entraînement restent sur votre appareil. Pas de mesure d'audience, pas de pistage. Les notifications push facultatives stockent votre identifiant d'athlète intervals.icu et un jeton d'appareil sur notre serveur, supprimés automatiquement après 30 jours. Open source sous licence Apache 2.0.",
           "getStarted.title": "Premiers pas",
-          "getStarted.subtitle":
-            "Connectez votre compte intervals.icu en trois étapes simples.",
+          "getStarted.subtitle": "Pas d'inscription : installez l'application et ouvrez-la.",
           "getStarted.step1.title": "Installer Veloq",
           "getStarted.step1.desc": "Disponible sur l'<a href=\"https://apps.apple.com/us/app/veloq/id6757836732\" target=\"_blank\">App Store</a> et <a href=\"https://play.google.com/store/apps/details?id=com.veloq.app\" target=\"_blank\">Google Play</a>",
-          "getStarted.step2.title": "Se connecter avec intervals.icu",
-          "getStarted.step2.desc": "Touchez « Se connecter avec intervals.icu » et autorisez l'accès. Ou touchez « Utiliser la Clé API » et collez votre clé API depuis <a href=\"https://intervals.icu/settings\" target=\"_blank\">Paramètres</a> &rarr; Développeur.",
-          "getStarted.step3.title": "Explorez",
-          "getStarted.step3.desc": "Vos activités, votre forme et vos itinéraires sont chargés sur votre téléphone et analysés sur place.",
+          "getStarted.step2.title": "Explorez",
+          "getStarted.step2.desc": "Vos activités, votre forme et vos itinéraires sont chargés sur votre téléphone et analysés sur place.",
           "footer.releases": "Versions",
           "footer.privacy": "Confidentialité",
           "footer.contact": "Contact",
@@ -1385,9 +1387,9 @@
           "nav.download": "Scarica",
           "hero.title": "Il tuo allenamento,<br><span>visualizzato</span>",
           "hero.subtitle":
-            "Mappe 3D interattive, tracciamento automatico dei percorsi e analisi fitness dettagliate.",
-          "hero.demoHint":
-            "Richiede un account intervals.icu. Nessun account? Prova la modalità demo.",
+            "Fitness, forma e percorsi ripetuti, letti dal tuo account intervals.icu e analizzati sul telefono.",
+          "hero.noAccount": "Per leggere questo sito non serve alcun account, e Veloq non ne ha uno proprio. L'app mostra il tuo allenamento da intervals.icu, oppure dati demo senza alcun account.",
+          "hero.backup": "Su Android, i backup facoltativi possono andare in una cartella nascosta del tuo Google Drive che solo Veloq può aprire. <a href=\"https://veloq.fit/privacy\">Privacy</a>",
           "showcase.disclaimer":
             "* Gli screenshot mostrano dati demo solo a scopo illustrativo.",
           "cta.openSource": "Open source: sideload via <a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>",
@@ -1395,31 +1397,34 @@
           "features.title": "Visualizza i tuoi dati",
           "features.subtitle":
             "Accedi ai tuoi dati intervals.icu su mobile con supporto offline.",
+          "features.record.title": "Registrazione",
+          "features.record.desc": "Registra uscite in bici, corse e altri sport con GPS, pausa automatica e parziali nelle tue unità. Collega sensori Bluetooth di frequenza cardiaca, potenza e cadenza, o segui un allenamento pianificato dal tuo calendario intervals.icu con gli obiettivi sullo schermo. Taglia inizio e fine prima di salvare, poi carica un file FIT o mettilo in coda finché non hai segnale. Le sessioni al chiuso si inseriscono a mano. Avvia una registrazione da un widget della schermata Home, dal Centro di Controllo o con Siri, e seguila sulla schermata di blocco.",
+          "features.insights.title": "Approfondimenti",
+          "features.insights.desc": "Una lettura breve del tuo allenamento: record e tendenze sulle sezioni, traguardi di fitness, come va questa settimana rispetto alla scorsa, tendenze HRV e progressione della forza. Ogni approfondimento si apre con i suoi numeri e il modo in cui sono stati calcolati.",
           "features.maps.title": "Mappe",
-          "features.maps.desc":
-            "Visualizza le tue attività su mappe interattive con terreno 3D, heatmap e filtro temporale. Scorri i grafici e vedi la tua posizione in tempo reale.",
-          "features.analysis.title": "Grafici",
-          "features.analysis.desc":
-            "Frequenza cardiaca, potenza, ritmo, dislivello e cadenza dai tuoi dati intervals.icu.",
-          "features.routes.title": "Tracciamento percorsi",
-          "features.routes.desc":
-            "Rileva automaticamente percorsi e sezioni ripetuti. Confronta gli sforzi nel tempo e monitora i tuoi progressi.",
+          "features.maps.desc": "Mappe interattive con terreno 3D, heatmap dei percorsi e una cronologia filtrabile, in stile chiaro, scuro e satellite. Scorri lungo un grafico e la tua posizione si sposta sulla mappa.",
+          "features.routes.title": "Percorsi e sezioni",
+          "features.routes.desc": "Veloq cerca i percorsi e le sezioni che ripeti, senza nulla da configurare, e li ritaglia allo stesso modo su ogni dispositivo. La pagina di una sezione confronta ogni passaggio: la tendenza, la dispersione dei tuoi tempi e la traccia colorata dove hai guadagnato o perso tempo. Blocca, accorcia, allunga o rinomina una sezione, e ogni modifica conserva una cronologia che puoi annullare.",
+          "features.charts.title": "Grafici",
+          "features.charts.desc": "Frequenza cardiaca, potenza, ritmo, altitudine e cadenza su un'unica linea temporale con la mappa. Distribuzione per zone, carico di allenamento, intensità e dettaglio dei giri.",
           "features.fitness.title": "Fitness",
-          "features.fitness.desc":
-            "Dati fitness CTL/ATL/TSB e zone di forma come calcolati da intervals.icu.",
-          "features.offline.title": "Sul dispositivo",
-          "features.offline.desc": "Il rilevamento di percorsi e sezioni avviene interamente sul tuo dispositivo.",
+          "features.fitness.desc": "Fitness, affaticamento e forma in un solo grafico con le zone disegnate. HRV, frequenza cardiaca a riposo, sonno e benessere, e curve di potenza e di ritmo per ogni sport.",
+          "features.strength.title": "Forza",
+          "features.strength.desc": "Le serie di forza delle tue attività su un diagramma del corpo: i gruppi muscolari allenati in ogni sessione, l'equilibrio tra gruppi opposti e la progressione di ogni esercizio.",
+          "features.widgets.title": "Widget",
+          "features.widgets.desc": "Widget della schermata Home per il tuo fitness e la tua forma, l'ultima attività, gli approfondimenti più recenti e il tuo lavoro di forza, aggiornati in background.",
+          "features.notifications.title": "Notifiche",
+          "features.notifications.desc": "Quando intervals.icu riceve una nuova attività, Veloq può inviarti una notifica con il nome del percorso e gli eventuali record personali, nella tua lingua. Le notifiche restano spente finché non le attivi.",
+          "features.backups.title": "Backup",
+          "features.backups.desc": "Salva le tue impostazioni e le tue scelte sulle sezioni in un piccolo file, a mano o in automatico. Tienilo nel backup del dispositivo, o aggiungi un server WebDAV, una cartella o uno spazio cloud. Un ripristino scarica di nuovo le tue attività e applica le tue scelte dove corrispondono.",
           "features.privacy.title": "Privacy",
-          "features.privacy.desc": "I tuoi dati restano sul tuo dispositivo e lo sviluppatore non li riceve mai. Notifiche push e backup sono disattivati finché non li attivi. Nessuna analisi, nessun tracciamento. Open source.",
+          "features.privacy.desc": "I tuoi dati di allenamento restano sul tuo dispositivo. Niente analytics, niente tracciamento. Le notifiche push facoltative conservano il tuo ID atleta intervals.icu e un token del dispositivo sul nostro server, eliminati automaticamente dopo 30 giorni. Open source con licenza Apache 2.0.",
           "getStarted.title": "Per iniziare",
-          "getStarted.subtitle":
-            "Collega il tuo account intervals.icu in tre semplici passaggi.",
+          "getStarted.subtitle": "Nessuna registrazione: installa l'app e aprila.",
           "getStarted.step1.title": "Installa Veloq",
           "getStarted.step1.desc": "Disponibile su <a href=\"https://apps.apple.com/us/app/veloq/id6757836732\" target=\"_blank\">App Store</a> e <a href=\"https://play.google.com/store/apps/details?id=com.veloq.app\" target=\"_blank\">Google Play</a>",
-          "getStarted.step2.title": "Accedi con intervals.icu",
-          "getStarted.step2.desc": "Tocca «Accedi con intervals.icu» e consenti l'accesso. Oppure tocca «Usa chiave API» e incolla la tua chiave API da <a href=\"https://intervals.icu/settings\" target=\"_blank\">Impostazioni intervals.icu</a> &rarr; Sviluppatore.",
-          "getStarted.step3.title": "Inizia a esplorare",
-          "getStarted.step3.desc": "Le tue attività, la forma fisica e i percorsi vengono caricati sul telefono e analizzati lì.",
+          "getStarted.step2.title": "Inizia a esplorare",
+          "getStarted.step2.desc": "Le tue attività, la forma fisica e i percorsi vengono caricati sul telefono e analizzati lì.",
           "footer.releases": "Versioni",
           "footer.privacy": "Privacy",
           "footer.contact": "Contatto",
@@ -1429,8 +1434,9 @@
           "nav.download": "Descargar",
           "hero.title": "Tu entrenamiento,<br><span>visualizado</span>",
           "hero.subtitle":
-            "Mapas 3D interactivos, seguimiento automático de rutas y análisis fitness detallados.",
-          "hero.demoHint": "Requiere una cuenta de intervals.icu. ¿Sin cuenta? Prueba el modo demo.",
+            "Tu fitness, tu forma y tus rutas repetidas, leídos de tu cuenta de intervals.icu y analizados en tu teléfono.",
+          "hero.noAccount": "No hace falta ninguna cuenta para leer este sitio, y Veloq no tiene cuenta propia. La app muestra tu entrenamiento de intervals.icu, o datos de demostración sin ninguna cuenta.",
+          "hero.backup": "En Android, las copias opcionales pueden ir a una carpeta oculta de tu propio Google Drive que solo Veloq puede abrir. <a href=\"https://veloq.fit/privacy\">Privacidad</a>",
           "showcase.disclaimer":
             "* Las capturas muestran datos de demostración solo con fines ilustrativos.",
           "cta.openSource": "Código abierto: sideload via <a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>",
@@ -1438,31 +1444,34 @@
           "features.title": "Ver tus datos",
           "features.subtitle":
             "Accede a tus datos de intervals.icu en móvil con soporte offline.",
+          "features.record.title": "Grabación",
+          "features.record.desc": "Graba salidas, carreras y otros deportes con GPS, pausa automática y parciales en tus propias unidades. Empareja sensores Bluetooth de frecuencia cardiaca, potencia y cadencia, o sigue un entrenamiento planificado de tu calendario de intervals.icu con sus objetivos en pantalla. Recorta el principio y el final antes de guardar, y sube un archivo FIT o déjalo en cola hasta tener cobertura. Las sesiones en interior se pueden introducir a mano. Empieza una grabación desde un widget de la pantalla de inicio, el centro de control o Siri, y síguela en la pantalla de bloqueo.",
+          "features.insights.title": "Perspectivas",
+          "features.insights.desc": "Un resumen breve de tu entrenamiento: récords y tendencias de secciones, hitos de forma física, cómo va esta semana frente a la anterior, tendencias de VFC y progresión de fuerza. Cada perspectiva se abre con sus números y cómo se calcularon.",
           "features.maps.title": "Mapas",
-          "features.maps.desc":
-            "Ve tus actividades en mapas interactivos con terreno 3D, mapas de calor y filtrado temporal. Navega por los gráficos y ve tu posición en tiempo real.",
-          "features.analysis.title": "Gráficos",
-          "features.analysis.desc":
-            "Ve gráficos de frecuencia cardíaca, potencia, ritmo, elevación y cadencia de tus datos de intervals.icu.",
-          "features.routes.title": "Seguimiento de rutas",
-          "features.routes.desc":
-            "Detecta automáticamente rutas y secciones repetidas. Compara esfuerzos a lo largo del tiempo y sigue tu progreso.",
-          "features.fitness.title": "Fitness",
-          "features.fitness.desc":
-            "Ve tus datos de fitness CTL/ATL/TSB y zonas de forma calculados por intervals.icu.",
-          "features.offline.title": "En el dispositivo",
-          "features.offline.desc": "La detección de rutas y secciones se ejecuta completamente en tu dispositivo.",
+          "features.maps.desc": "Mapas interactivos con terreno 3D, mapas de calor de rutas y una línea de tiempo que puedes filtrar, en estilos claro, oscuro y satélite. Desliza por un gráfico y tu posición se mueve por el mapa.",
+          "features.routes.title": "Rutas y secciones",
+          "features.routes.desc": "Veloq busca las rutas y secciones que repites, sin nada que configurar, y las corta igual en todos los dispositivos. La página de una sección compara cada intento: la tendencia, la dispersión de tus tiempos y la línea coloreada donde se ganó o se perdió tiempo. Fija, recorta, alarga o renombra una sección, y cada cambio guarda un historial que puedes revertir.",
+          "features.charts.title": "Gráficos",
+          "features.charts.desc": "Frecuencia cardiaca, potencia, ritmo, altitud y cadencia en una sola línea de tiempo con el mapa. Distribución por zonas, carga de entrenamiento, intensidad y desglose por vueltas.",
+          "features.fitness.title": "Forma física",
+          "features.fitness.desc": "Forma física, fatiga y forma en un solo gráfico con las zonas dibujadas. VFC, frecuencia cardiaca en reposo, sueño y bienestar, y curvas de potencia y de ritmo para cada deporte.",
+          "features.strength.title": "Fuerza",
+          "features.strength.desc": "Las series de fuerza de tus actividades sobre un diagrama corporal: los grupos musculares que trabajó cada sesión, el equilibrio entre grupos opuestos y la progresión de cada ejercicio.",
+          "features.widgets.title": "Widgets",
+          "features.widgets.desc": "Widgets de pantalla de inicio para tu forma física y tu forma, tu última actividad, tus perspectivas más recientes y tu trabajo de fuerza, actualizados en segundo plano.",
+          "features.notifications.title": "Notificaciones",
+          "features.notifications.desc": "Cuando intervals.icu recibe una actividad nueva, Veloq puede enviarte una notificación con el nombre de la ruta y tus mejores marcas, en tu idioma. Las notificaciones están desactivadas hasta que las actives.",
+          "features.backups.title": "Copias de seguridad",
+          "features.backups.desc": "Haz una copia de tus ajustes y tus decisiones sobre secciones en un archivo pequeño, a mano o automáticamente. Guárdala en la copia de seguridad de tu dispositivo, o añade un servidor WebDAV, una carpeta o un almacenamiento en la nube. Al restaurar se descargan de nuevo tus actividades y se aplican tus decisiones donde coinciden.",
           "features.privacy.title": "Privacidad",
-          "features.privacy.desc": "Tus datos permanecen en tu dispositivo y el desarrollador nunca los recibe. Las notificaciones push y las copias de seguridad están desactivadas hasta que las actives. Sin análisis, sin seguimiento. Código abierto.",
+          "features.privacy.desc": "Tus datos de entrenamiento se quedan en tu dispositivo. Sin analíticas, sin rastreo. Las notificaciones push opcionales guardan tu ID de atleta de intervals.icu y un token del dispositivo en nuestro servidor, que se borran automáticamente a los 30 días. Código abierto bajo Apache 2.0.",
           "getStarted.title": "Primeros pasos",
-          "getStarted.subtitle":
-            "Conecta tu cuenta de intervals.icu en tres simples pasos.",
+          "getStarted.subtitle": "Sin registro: instala la app y ábrela.",
           "getStarted.step1.title": "Instalar Veloq",
           "getStarted.step1.desc": "Disponible en <a href=\"https://apps.apple.com/us/app/veloq/id6757836732\" target=\"_blank\">App Store</a> y <a href=\"https://play.google.com/store/apps/details?id=com.veloq.app\" target=\"_blank\">Google Play</a>",
-          "getStarted.step2.title": "Iniciar sesión con intervals.icu",
-          "getStarted.step2.desc": "Toca «Iniciar sesión con intervals.icu» y permite el acceso. O toca «Usar Clave API» y pega tu clave API desde <a href=\"https://intervals.icu/settings\" target=\"_blank\">Configuración</a> &rarr; Desarrollador.",
-          "getStarted.step3.title": "Empieza a explorar",
-          "getStarted.step3.desc": "Tus actividades, tu forma física y tus rutas se cargan en tu teléfono y se analizan allí.",
+          "getStarted.step2.title": "Empieza a explorar",
+          "getStarted.step2.desc": "Tus actividades, tu forma física y tus rutas se cargan en tu teléfono y se analizan allí.",
           "footer.releases": "Versiones",
           "footer.privacy": "Privacidad",
           "footer.contact": "Contacto",
@@ -1473,8 +1482,9 @@
           "hero.title":
             "Seu treino,<br><span>visualizado</span>",
           "hero.subtitle":
-            "Mapas 3D interativos, rastreamento automático de rotas e análises fitness detalhadas.",
-          "hero.demoHint": "Requer uma conta intervals.icu. Sem conta? Experimente o modo demo.",
+            "Seu fitness, sua forma e suas rotas repetidas, lidos da sua conta intervals.icu e analisados no seu celular.",
+          "hero.noAccount": "Não é preciso conta para ler este site, e o Veloq não tem conta própria. O app mostra seu treino do intervals.icu, ou dados de demonstração sem conta nenhuma.",
+          "hero.backup": "No Android, backups opcionais podem ir para uma pasta oculta no seu próprio Google Drive que só o Veloq pode abrir. <a href=\"https://veloq.fit/privacy\">Privacidade</a>",
           "showcase.disclaimer":
             "* As capturas mostram dados de demonstração apenas para fins ilustrativos.",
           "cta.openSource": "Código aberto: sideload via <a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>",
@@ -1482,31 +1492,34 @@
           "features.title": "Veja seus dados",
           "features.subtitle":
             "Acesse seus dados do intervals.icu no celular com suporte offline.",
+          "features.record.title": "Gravação",
+          "features.record.desc": "Grave pedais, corridas e outros esportes com GPS, pausa automática e parciais nas suas unidades. Pareie sensores Bluetooth de frequência cardíaca, potência e cadência, ou siga um treino planejado do seu calendário do intervals.icu com as metas na tela. Corte o início e o fim antes de salvar e envie um arquivo FIT ou deixe na fila até ter sinal. Sessões em ambiente fechado podem ser lançadas à mão. Inicie uma gravação por um widget da tela de início, pela Central de Controle ou pela Siri, e acompanhe na tela bloqueada.",
+          "features.insights.title": "Insights",
+          "features.insights.desc": "Uma leitura curta do seu treino: recordes e tendências em trechos, marcos de condicionamento, como esta semana se compara à anterior, tendências de VFC e progressão de força. Cada insight abre com seus números e a forma como foram calculados.",
           "features.maps.title": "Mapas",
-          "features.maps.desc":
-            "Veja suas atividades em mapas interativos com terreno 3D, heatmaps e filtragem temporal. Navegue pelos gráficos e veja sua posição em tempo real.",
-          "features.analysis.title": "Gráficos",
-          "features.analysis.desc":
-            "Frequência cardíaca, potência, ritmo, elevação e cadência dos seus dados do intervals.icu.",
-          "features.routes.title": "Rastreamento de rotas",
-          "features.routes.desc":
-            "Detecte automaticamente rotas e seções repetidas. Compare esforços ao longo do tempo e acompanhe seu progresso.",
-          "features.fitness.title": "Fitness",
-          "features.fitness.desc":
-            "Dados de fitness CTL/ATL/TSB e zonas de forma calculados pelo intervals.icu.",
-          "features.offline.title": "No dispositivo",
-          "features.offline.desc": "A detecção de rotas e seções é executada inteiramente no seu dispositivo.",
+          "features.maps.desc": "Mapas interativos com relevo 3D, mapas de calor das rotas e uma linha do tempo que você pode filtrar, nos estilos claro, escuro e satélite. Arraste ao longo de um gráfico e sua posição se move pelo mapa.",
+          "features.routes.title": "Rotas e trechos",
+          "features.routes.desc": "O Veloq procura as rotas e trechos que você repete, sem nada para configurar, e os recorta do mesmo jeito em todos os dispositivos. A página de um trecho compara cada tentativa: a tendência, a dispersão dos seus tempos e a linha colorida onde o tempo foi ganho ou perdido. Fixe, encurte, estenda ou renomeie um trecho, e cada mudança guarda um histórico que você pode reverter.",
+          "features.charts.title": "Gráficos",
+          "features.charts.desc": "Frequência cardíaca, potência, ritmo, altitude e cadência em uma única linha do tempo com o mapa. Distribuição por zonas, carga de treino, intensidade e detalhes por volta.",
+          "features.fitness.title": "Condicionamento",
+          "features.fitness.desc": "Condicionamento, fadiga e forma em um só gráfico com as zonas desenhadas. VFC, frequência cardíaca em repouso, sono e bem-estar, e curvas de potência e de ritmo para cada esporte.",
+          "features.strength.title": "Força",
+          "features.strength.desc": "As séries de força das suas atividades em um diagrama do corpo: os grupos musculares trabalhados em cada sessão, o equilíbrio entre grupos opostos e a progressão de cada exercício.",
+          "features.widgets.title": "Widgets",
+          "features.widgets.desc": "Widgets da tela inicial para seu condicionamento e forma, sua última atividade, seus insights mais recentes e seu treino de força, atualizados em segundo plano.",
+          "features.notifications.title": "Notificações",
+          "features.notifications.desc": "Quando o intervals.icu recebe uma nova atividade, o Veloq pode enviar uma notificação com o nome da rota e seus recordes pessoais, no seu idioma. As notificações ficam desligadas até você ativá-las.",
+          "features.backups.title": "Backups",
+          "features.backups.desc": "Faça backup das suas configurações e decisões sobre trechos em um arquivo pequeno, à mão ou automaticamente. Guarde no backup do próprio dispositivo, ou adicione um servidor WebDAV, uma pasta ou um armazenamento em nuvem. A restauração baixa suas atividades de novo e aplica suas decisões onde elas coincidem.",
           "features.privacy.title": "Privacidade",
-          "features.privacy.desc": "Seus dados ficam no seu dispositivo e o desenvolvedor nunca os recebe. Notificações push e backups ficam desligados até você ativá-los. Sem análise, sem rastreamento. Código aberto.",
+          "features.privacy.desc": "Seus dados de treino ficam no seu dispositivo. Sem análises, sem rastreamento. As notificações push opcionais guardam seu ID de atleta do intervals.icu e um token do dispositivo no nosso servidor, apagados automaticamente após 30 dias. Código aberto sob Apache 2.0.",
           "getStarted.title": "Primeiros passos",
-          "getStarted.subtitle":
-            "Conecte sua conta intervals.icu em três passos simples.",
+          "getStarted.subtitle": "Sem cadastro: instale o app e abra.",
           "getStarted.step1.title": "Instalar Veloq",
           "getStarted.step1.desc": "Disponível na <a href=\"https://apps.apple.com/us/app/veloq/id6757836732\" target=\"_blank\">App Store</a> e no <a href=\"https://play.google.com/store/apps/details?id=com.veloq.app\" target=\"_blank\">Google Play</a>",
-          "getStarted.step2.title": "Entrar com intervals.icu",
-          "getStarted.step2.desc": "Toque em “Entrar com intervals.icu” e permita o acesso. Ou toque em “Usar chave API” e cole sua chave API de <a href=\"https://intervals.icu/settings\" target=\"_blank\">Configurações</a> &rarr; Desenvolvedor.",
-          "getStarted.step3.title": "Comece a explorar",
-          "getStarted.step3.desc": "Suas atividades, condicionamento e rotas são carregados no seu celular e analisados nele.",
+          "getStarted.step2.title": "Comece a explorar",
+          "getStarted.step2.desc": "Suas atividades, condicionamento e rotas são carregados no seu celular e analisados nele.",
           "footer.releases": "Versões",
           "footer.privacy": "Privacidade",
           "footer.contact": "Contato",
@@ -1517,8 +1530,9 @@
           "hero.title":
             "Twój trening,<br><span>zwizualizowany</span>",
           "hero.subtitle":
-            "Interaktywne mapy 3D, automatyczne śledzenie tras i szczegółowe analizy fitness.",
-          "hero.demoHint": "Wymaga konta intervals.icu. Nie masz konta? Wypróbuj tryb demo.",
+            "Twoja forma, kondycja i powtarzane trasy, odczytane z konta intervals.icu i analizowane na telefonie.",
+          "hero.noAccount": "Do czytania tej strony nie potrzeba konta, a Veloq nie ma własnych kont. Aplikacja pokazuje Twój trening z intervals.icu albo, bez żadnego konta, dane demo.",
+          "hero.backup": "Na Androidzie opcjonalne kopie zapasowe mogą trafiać do ukrytego folderu w Twoim Google Drive, który może otworzyć tylko Veloq. <a href=\"https://veloq.fit/privacy\">Prywatność</a>",
           "showcase.disclaimer":
             "* Zrzuty ekranu pokazują dane demo wyłącznie w celach ilustracyjnych.",
           "cta.openSource": "Open source: sideload via <a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>",
@@ -1526,31 +1540,34 @@
           "features.title": "Zobacz swoje dane",
           "features.subtitle":
             "Uzyskaj dostęp do danych intervals.icu na telefonie z obsługą offline.",
+          "features.record.title": "Nagrywanie",
+          "features.record.desc": "Nagrywaj jazdy, biegi i inne sporty z GPS, automatyczną pauzą i międzyczasami w Twoich jednostkach. Połącz czujniki Bluetooth tętna, mocy i kadencji albo realizuj zaplanowany trening z kalendarza intervals.icu z celami na ekranie. Przytnij początek i koniec przed zapisaniem, a potem wyślij plik FIT lub zostaw go w kolejce do czasu, aż będzie zasięg. Sesje w pomieszczeniu można wpisać ręcznie. Rozpocznij nagrywanie z widżetu na ekranie początkowym, centrum sterowania lub przez Siri i śledź je na ekranie blokady.",
+          "features.insights.title": "Analizy",
+          "features.insights.desc": "Krótkie podsumowanie Twojego treningu: rekordy i trendy na odcinkach, kamienie milowe kondycji, porównanie tego tygodnia z poprzednim, trendy HRV i postęp siłowy. Każda analiza otwiera się z liczbami i sposobem ich obliczenia.",
           "features.maps.title": "Mapy",
-          "features.maps.desc":
-            "Przeglądaj aktywności na interaktywnych mapach z terenem 3D, mapami ciepła i filtrowaniem czasowym. Przewijaj wykresy i śledź swoją pozycję w czasie rzeczywistym.",
-          "features.analysis.title": "Wykresy",
-          "features.analysis.desc":
-            "Tętno, moc, tempo, przewyższenie i kadencja z danych intervals.icu.",
-          "features.routes.title": "Śledzenie tras",
-          "features.routes.desc":
-            "Automatycznie wykrywaj powtarzane trasy i odcinki. Porównuj wysiłki w czasie i śledź swoje postępy.",
-          "features.fitness.title": "Forma",
-          "features.fitness.desc":
-            "Dane CTL/ATL/TSB i strefy formy obliczone przez intervals.icu.",
-          "features.offline.title": "Na urządzeniu",
-          "features.offline.desc": "Wykrywanie tras i odcinków odbywa się całkowicie na Twoim urządzeniu.",
+          "features.maps.desc": "Interaktywne mapy z terenem 3D, mapami cieplnymi tras i osią czasu, którą możesz filtrować, w stylu jasnym, ciemnym i satelitarnym. Przesuń palcem po wykresie, a Twoja pozycja przesuwa się po mapie.",
+          "features.routes.title": "Trasy i odcinki",
+          "features.routes.desc": "Veloq szuka tras i odcinków, które powtarzasz, bez żadnej konfiguracji, i wyznacza je tak samo na każdym urządzeniu. Strona odcinka porównuje każde podejście: trend, rozrzut Twoich czasów i linię pokolorowaną tam, gdzie czas został zyskany lub stracony. Przypnij, skróć, wydłuż lub zmień nazwę odcinka, a każda zmiana zachowuje historię, którą możesz cofnąć.",
+          "features.charts.title": "Wykresy",
+          "features.charts.desc": "Tętno, moc, tempo, wysokość i kadencja na jednej osi czasu z mapą. Rozkład stref, obciążenie treningowe, intensywność i zestawienie okrążeń.",
+          "features.fitness.title": "Kondycja",
+          "features.fitness.desc": "Kondycja, zmęczenie i forma na jednym wykresie z zaznaczonymi strefami. HRV, tętno spoczynkowe, sen i samopoczucie oraz krzywe mocy i tempa dla każdego sportu.",
+          "features.strength.title": "Siła",
+          "features.strength.desc": "Serie siłowe z Twoich aktywności na diagramie ciała: grupy mięśni pracujące w każdej sesji, równowaga między przeciwstawnymi grupami i postęp w każdym ćwiczeniu.",
+          "features.widgets.title": "Widżety",
+          "features.widgets.desc": "Widżety na ekranie głównym z Twoją kondycją i formą, ostatnią aktywnością, najnowszymi analizami i treningiem siłowym, odświeżane w tle.",
+          "features.notifications.title": "Powiadomienia",
+          "features.notifications.desc": "Gdy intervals.icu otrzyma nową aktywność, Veloq może wysłać powiadomienie z nazwą trasy i ewentualnymi rekordami życiowymi, w Twoim języku. Powiadomienia są wyłączone, dopóki ich nie włączysz.",
+          "features.backups.title": "Kopie zapasowe",
+          "features.backups.desc": "Zapisz kopię ustawień i decyzji dotyczących odcinków w małym pliku, ręcznie lub automatycznie. Trzymaj ją w kopii zapasowej urządzenia albo dodaj serwer WebDAV, katalog lub dysk w chmurze. Przywracanie pobiera aktywności ponownie i stosuje Twoje decyzje tam, gdzie pasują.",
           "features.privacy.title": "Prywatność",
-          "features.privacy.desc": "Twoje dane pozostają na urządzeniu, a twórca nigdy ich nie otrzymuje. Powiadomienia push i kopie zapasowe są wyłączone, dopóki ich nie włączysz. Bez analityki i śledzenia. Open source.",
+          "features.privacy.desc": "Twoje dane treningowe zostają na urządzeniu. Bez analityki, bez śledzenia. Opcjonalne powiadomienia push przechowują Twój identyfikator sportowca intervals.icu i token urządzenia na naszym serwerze, usuwane automatycznie po 30 dniach. Otwarte oprogramowanie na licencji Apache 2.0.",
           "getStarted.title": "Jak zacząć",
-          "getStarted.subtitle":
-            "Połącz swoje konto intervals.icu w trzech prostych krokach.",
+          "getStarted.subtitle": "Bez rejestracji: zainstaluj aplikację i ją otwórz.",
           "getStarted.step1.title": "Zainstaluj Veloq",
           "getStarted.step1.desc": "Pobierz z <a href=\"https://apps.apple.com/us/app/veloq/id6757836732\" target=\"_blank\">App Store</a> lub <a href=\"https://play.google.com/store/apps/details?id=com.veloq.app\" target=\"_blank\">Google Play</a>",
-          "getStarted.step2.title": "Zaloguj się przez intervals.icu",
-          "getStarted.step2.desc": "Stuknij „Zaloguj się przez intervals.icu” i zezwól na dostęp. Albo stuknij „Użyj klucza API” i wklej klucz API z <a href=\"https://intervals.icu/settings\" target=\"_blank\">Ustawienia</a> &rarr; Deweloper.",
-          "getStarted.step3.title": "Zacznij odkrywać",
-          "getStarted.step3.desc": "Twoje aktywności, forma i trasy trafiają na telefon i są tam analizowane.",
+          "getStarted.step2.title": "Zacznij odkrywać",
+          "getStarted.step2.desc": "Twoje aktywności, forma i trasy trafiają na telefon i są tam analizowane.",
           "footer.releases": "Wydania",
           "footer.privacy": "Prywatność",
           "footer.contact": "Kontakt",
@@ -1560,8 +1577,9 @@
           "nav.download": "Download",
           "hero.title": "Din træning,<br><span>visualiseret</span>",
           "hero.subtitle":
-            "Interaktive 3D-kort, automatisk rutesporing og detaljerede fitnessanalyser.",
-          "hero.demoHint": "Kræver en intervals.icu-konto. Ingen konto? Prøv demo-tilstanden.",
+            "Din fitness, form og gentagne ruter, læst fra din intervals.icu konto og analyseret på din telefon.",
+          "hero.noAccount": "Du behøver ingen konto for at læse denne side, og Veloq har ingen konto selv. Appen viser din træning fra intervals.icu, eller demodata helt uden konto.",
+          "hero.backup": "På Android kan valgfrie backups gemmes i en skjult mappe i dit eget Google Drive, som kun Veloq kan åbne. <a href=\"https://veloq.fit/privacy\">Privatlivspolitik</a>",
           "showcase.disclaimer":
             "* Screenshots viser demodata kun til illustrationsformål.",
           "cta.openSource": "Open source: sideload via <a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>",
@@ -1569,31 +1587,34 @@
           "features.title": "Se dine data",
           "features.subtitle":
             "Få adgang til dine intervals.icu data på mobil med offline-understøttelse.",
+          "features.record.title": "Optagelse",
+          "features.record.desc": "Optag ture, løb og andre sportsgrene med GPS, auto-pause og splits i dine egne enheder. Par Bluetooth-sensorer til puls, effekt og kadence, eller følg en planlagt træning fra din intervals.icu-kalender med målene på skærmen. Klip enderne af, før du gemmer, og upload en FIT-fil, eller sæt den i kø, til du har forbindelse. Indendørs træning kan indtastes manuelt. Start en optagelse fra en widget på hjemmeskærmen, Kontrolcenter eller Siri, og følg den på låseskærmen.",
+          "features.insights.title": "Indsigt",
+          "features.insights.desc": "Et kort overblik over din træning: sektionsrekorder og tendenser, milepæle for kondition, hvordan denne uge ligger i forhold til sidste, HRV-tendenser og fremskridt i styrke. Hver indsigt åbner og viser sine tal, og hvordan de er beregnet.",
           "features.maps.title": "Kort",
-          "features.maps.desc":
-            "Se dine aktiviteter på interaktive kort med 3D-terræn, heatmaps og tidsfiltrering. Scroll gennem grafer og se din position i realtid.",
-          "features.analysis.title": "Grafer",
-          "features.analysis.desc":
-            "Puls, kraft, tempo, højde og kadence fra dine intervals.icu data.",
-          "features.routes.title": "Rutesporing",
-          "features.routes.desc":
-            "Registrer automatisk gentagne ruter og sektioner. Sammenlign indsatser over tid og følg dine fremskridt.",
-          "features.fitness.title": "Fitness",
-          "features.fitness.desc":
-            "CTL/ATL/TSB fitnessdata og formzoner beregnet af intervals.icu.",
-          "features.offline.title": "På enheden",
-          "features.offline.desc": "Rute- og sektionsdetektion kører helt på din enhed.",
+          "features.maps.desc": "Interaktive kort med 3D-terræn, heatmaps over ruter og en tidslinje, du kan filtrere, i lyse, mørke og satellitstilarter. Træk langs en graf, og din position flytter sig hen over kortet.",
+          "features.routes.title": "Ruter og sektioner",
+          "features.routes.desc": "Veloq leder efter de ruter og sektioner, du gentager, uden noget at sætte op, og deler dem ens på alle enheder. En sektionsside sammenligner hvert forsøg: tendensen, spredningen i dine tider og linjen farvet efter, hvor tid blev vundet eller tabt. Fastgør, beskær, forlæng eller omdøb en sektion, og hver ændring gemmer en historik, du kan rulle tilbage.",
+          "features.charts.title": "Grafer",
+          "features.charts.desc": "Puls, effekt, tempo, højde og kadence på én tidslinje med kortet. Zonefordelinger, træningsbelastning, intensitet og omgangsoversigter.",
+          "features.fitness.title": "Kondition",
+          "features.fitness.desc": "Kondition, træthed og formstatus på én graf med zonerne tegnet ind. HRV, hvilepuls, søvn og velvære samt effekt- og tempokurver for hver sportsgren.",
+          "features.strength.title": "Styrke",
+          "features.strength.desc": "Styrkesættene i dine aktiviteter tegnet på et kropsdiagram: de muskelgrupper, hver session arbejdede, balancen mellem modstående grupper og udviklingen i hver øvelse.",
+          "features.widgets.title": "Widgets",
+          "features.widgets.desc": "Widgets på startskærmen til din kondition og formstatus, din seneste aktivitet, dine nyeste indsigter og din styrketræning, opdateret i baggrunden.",
+          "features.notifications.title": "Notifikationer",
+          "features.notifications.desc": "Når intervals.icu modtager en ny aktivitet, kan Veloq sende en notifikation, der nævner ruten og eventuelle personlige rekorder, på dit sprog. Notifikationer er slået fra, indtil du slår dem til.",
+          "features.backups.title": "Sikkerhedskopier",
+          "features.backups.desc": "Sikkerhedskopiér dine indstillinger og sektionsvalg til en lille fil, manuelt eller automatisk. Gem den i enhedens egen sikkerhedskopi, eller tilføj en WebDAV-server, en mappe eller et cloud-drev. En gendannelse henter dine aktiviteter igen og anvender dine valg, hvor de passer.",
           "features.privacy.title": "Privatliv",
-          "features.privacy.desc": "Dine data forbliver på din enhed, og udvikleren modtager dem aldrig. Pushnotifikationer og sikkerhedskopier er slået fra, indtil du slår dem til. Ingen analyse, ingen sporing. Open source.",
+          "features.privacy.desc": "Dine træningsdata bliver på din enhed. Ingen analyse, ingen sporing. Valgfrie push-notifikationer gemmer dit intervals.icu-atlet-id og et enhedstoken på vores server, som slettes automatisk efter 30 dage. Open source under Apache 2.0.",
           "getStarted.title": "Kom i gang",
-          "getStarted.subtitle":
-            "Forbind din intervals.icu konto i tre enkle trin.",
+          "getStarted.subtitle": "Ingen tilmelding: installér appen og åbn den.",
           "getStarted.step1.title": "Installer Veloq",
           "getStarted.step1.desc": "Hent den i <a href=\"https://apps.apple.com/us/app/veloq/id6757836732\" target=\"_blank\">App Store</a> eller på <a href=\"https://play.google.com/store/apps/details?id=com.veloq.app\" target=\"_blank\">Google Play</a>",
-          "getStarted.step2.title": "Log ind med intervals.icu",
-          "getStarted.step2.desc": "Tryk på »Log ind med intervals.icu« og giv adgang. Eller tryk på »Brug API-nøgle i stedet« og indsæt din API-nøgle fra <a href=\"https://intervals.icu/settings\" target=\"_blank\">Indstillinger</a> &rarr; Udvikler.",
-          "getStarted.step3.title": "Gå på opdagelse",
-          "getStarted.step3.desc": "Dine aktiviteter, din form og dine ruter hentes til din telefon og analyseres dér.",
+          "getStarted.step2.title": "Gå på opdagelse",
+          "getStarted.step2.desc": "Dine aktiviteter, din form og dine ruter hentes til din telefon og analyseres dér.",
           "footer.releases": "Udgivelser",
           "footer.privacy": "Privatlivspolitik",
           "footer.contact": "Kontakt",
@@ -1603,8 +1624,9 @@
           "nav.download": "ダウンロード",
           "hero.title": "あなたのトレーニングを<br><span>可視化</span>",
           "hero.subtitle":
-            "インタラクティブな3Dマップ、自動ルート追跡、詳細なフィットネス分析。",
-          "hero.demoHint": "intervals.icuアカウントが必要です。アカウントがない？デモモードをお試しください。",
+            "フィットネス、フォーム、繰り返しのルートを intervals.icu アカウントから読み込み、スマホ上で分析します。",
+          "hero.noAccount": "このサイトを読むのにアカウントは不要で、Veloq独自のアカウントもありません。アプリはintervals.icuのトレーニングを表示し、アカウントがなくてもデモデータを表示できます。",
+          "hero.backup": "Androidでは、任意のバックアップをご自身のGoogle Drive内の、Veloqだけが開ける非表示フォルダに保存できます。 <a href=\"https://veloq.fit/privacy\">プライバシーポリシー</a>",
           "showcase.disclaimer":
             "* スクリーンショットはデモデータを表示しています。",
           "cta.openSource": "オープンソース：<a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>からサイドロード",
@@ -1612,31 +1634,34 @@
           "features.title": "データを表示",
           "features.subtitle":
             "モバイルでintervals.icuデータにオフラインでアクセス。",
+          "features.record.title": "記録",
+          "features.record.desc": "ライド、ラン、その他のスポーツを GPS、オートポーズ、お使いの単位でのスプリットで記録します。心拍数、パワー、ケイデンスの Bluetooth センサーを接続したり、intervals.icu カレンダーの予定ワークアウトを目標を画面に表示しながら進めたりできます。保存前に最初と最後をトリミングし、FIT ファイルとしてアップロード、または電波が戻るまでキューに入れられます。屋内のセッションは手入力できます。ホーム画面のウィジェット、コントロールセンター、Siri から記録を開始し、ロック画面で進行を確認できます。",
+          "features.insights.title": "インサイト",
+          "features.insights.desc": "トレーニングの短いまとめ：区間の記録と傾向、フィットネスの節目、今週と先週の比較、HRV の傾向、筋力の推移。各インサイトを開くと、その数値と計算方法が表示されます。",
           "features.maps.title": "マップ",
-          "features.maps.desc":
-            "3D地形、ルートヒートマップ、タイムラインフィルタリング付きのインタラクティブマップでアクティビティを表示。チャートをスクロールしてリアルタイムで位置を確認。",
-          "features.analysis.title": "チャート",
-          "features.analysis.desc":
-            "intervals.icuデータから心拍数、パワー、ペース、標高、ケイデンスを表示。",
-          "features.routes.title": "ルート追跡",
-          "features.routes.desc":
-            "繰り返しのルートとセクションを自動検出。時間経過での努力を比較し、進捗を追跡。",
+          "features.maps.desc": "3D 地形、ルートのヒートマップ、絞り込めるタイムラインを備えたインタラクティブマップ。ライト、ダーク、衛星のスタイルを選べます。チャートをなぞると、マップ上の位置も動きます。",
+          "features.routes.title": "ルートと区間",
+          "features.routes.desc": "Veloq は設定なしで繰り返し走るルートと区間を探し、どのデバイスでも同じように切り出します。区間ページでは各回を比較できます：傾向、タイムのばらつき、そしてタイムを稼いだ所と失った所で色分けしたライン。区間の固定、短縮、延長、名前の変更ができ、変更はすべて元に戻せる履歴として残ります。",
+          "features.charts.title": "チャート",
+          "features.charts.desc": "心拍数、パワー、ペース、標高、ケイデンスをマップと同じタイムラインで表示。ゾーン分布、トレーニング負荷、強度、ラップごとの内訳。",
           "features.fitness.title": "フィットネス",
-          "features.fitness.desc":
-            "intervals.icuが計算したCTL/ATL/TSBフィットネスデータとフォームゾーン。",
-          "features.offline.title": "デバイス上で処理",
-          "features.offline.desc": "ルートとセクションの検出はすべてデバイス上で実行されます。",
+          "features.fitness.desc": "フィットネス、疲労、フォームをゾーン付きの一つのチャートで。HRV、安静時心拍数、睡眠、ウェルネス、スポーツごとのパワーカーブとペースカーブ。",
+          "features.strength.title": "筋力",
+          "features.strength.desc": "アクティビティ内の筋力トレーニングのセットをボディダイアグラムに表示：各セッションで使った筋肉群、拮抗する筋肉群のバランス、種目ごとの推移。",
+          "features.widgets.title": "ウィジェット",
+          "features.widgets.desc": "フィットネスとフォーム、最新のアクティビティ、最新のインサイト、筋力トレーニングを表示するホーム画面ウィジェット。バックグラウンドで更新されます。",
+          "features.notifications.title": "通知",
+          "features.notifications.desc": "intervals.icu が新しいアクティビティを受け取ると、Veloq はルート名と自己ベストをお使いの言語で通知できます。通知はオンにするまでオフのままです。",
+          "features.backups.title": "バックアップ",
+          "features.backups.desc": "設定と区間の判断を小さなファイルにバックアップできます。手動でも自動でも可能です。デバイス自体のバックアップに保存するか、WebDAV サーバー、フォルダ、クラウドドライブを追加できます。復元するとアクティビティを再取得し、一致する箇所に判断を適用します。",
           "features.privacy.title": "プライバシー",
-          "features.privacy.desc": "データはデバイスに保存され、開発者が受け取ることはありません。プッシュ通知とバックアップは、オンにするまでオフです。分析なし、追跡なし。オープンソース。",
+          "features.privacy.desc": "トレーニングデータはデバイスに残ります。分析ツールもトラッキングもありません。任意のプッシュ通知では、intervals.icu のアスリート ID とデバイストークンを当社サーバーに保存し、30 日後に自動で削除します。Apache 2.0 のオープンソースです。",
           "getStarted.title": "始め方",
-          "getStarted.subtitle":
-            "3つの簡単なステップでintervals.icuアカウントを接続。",
+          "getStarted.subtitle": "登録不要：アプリをインストールして開くだけ。",
           "getStarted.step1.title": "Veloqをインストール",
           "getStarted.step1.desc": "<a href=\"https://apps.apple.com/us/app/veloq/id6757836732\" target=\"_blank\">App Store</a>または<a href=\"https://play.google.com/store/apps/details?id=com.veloq.app\" target=\"_blank\">Google Play</a>から入手",
-          "getStarted.step2.title": "intervals.icuでサインイン",
-          "getStarted.step2.desc": "「intervals.icuでサインイン」をタップしてアクセスを許可します。または「APIキーを使用」をタップし、<a href=\"https://intervals.icu/settings\" target=\"_blank\">設定</a> → 開発者設定のAPIキーを貼り付けます。",
-          "getStarted.step3.title": "使ってみる",
-          "getStarted.step3.desc": "アクティビティ、フィットネス、ルートがスマートフォンに読み込まれ、端末上で分析されます。",
+          "getStarted.step2.title": "使ってみる",
+          "getStarted.step2.desc": "アクティビティ、フィットネス、ルートがスマートフォンに読み込まれ、端末上で分析されます。",
           "footer.releases": "リリース",
           "footer.privacy": "プライバシーポリシー",
           "footer.contact": "お問い合わせ",
@@ -1646,38 +1671,43 @@
           "nav.download": "下载",
           "hero.title": "您的训练，<br><span>可视化</span>",
           "hero.subtitle":
-            "交互式3D地图、自动路线追踪和详细健身分析。",
-          "hero.demoHint": "需要intervals.icu账户。没有账户？试试演示模式。",
+            "从您的 intervals.icu 账户读取体能、状态和重复路线，在手机上完成分析。",
+          "hero.noAccount": "阅读本网站无需账户，Veloq 也没有自己的账户。应用显示您在 intervals.icu 的训练数据，没有账户时也可查看演示数据。",
+          "hero.backup": "在 Android 上，可选备份可保存到您自己 Google Drive 中一个只有 Veloq 能打开的隐藏文件夹。 <a href=\"https://veloq.fit/privacy\">隐私政策</a>",
           "showcase.disclaimer": "* 截图仅显示演示数据，用于说明目的。",
           "cta.openSource": "开源：通过<a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>侧载",
 
           "features.title": "查看您的数据",
           "features.subtitle":
             "在手机上访问您的intervals.icu数据，支持离线使用。",
+          "features.record.title": "记录",
+          "features.record.desc": "使用 GPS、自动暂停和按您所用单位计算的分段记录骑行、跑步及其他运动。可连接蓝牙心率、功率和踏频传感器，或按照 intervals.icu 日历中的计划训练进行，目标显示在屏幕上。保存前可裁剪开头和结尾，然后上传 FIT 文件，或在有信号前先放入队列。室内训练可手动录入。可通过主屏幕小组件、控制中心或 Siri 开始记录，并在锁定屏幕上查看进度。",
+          "features.insights.title": "洞察",
+          "features.insights.desc": "对您训练的简短解读：路段纪录与趋势、体能里程碑、本周与上周的对比、HRV 趋势和力量进展。每条洞察都可打开，显示其数据和计算方式。",
           "features.maps.title": "地图",
-          "features.maps.desc":
-            "在带有3D地形、路线热力图和时间过滤的交互式地图上查看活动。滚动图表，实时查看您的位置。",
-          "features.analysis.title": "图表",
-          "features.analysis.desc":
-            "从intervals.icu数据查看心率、功率、配速、海拔和踏频图表。",
-          "features.routes.title": "路线追踪",
-          "features.routes.desc":
-            "自动检测重复的路线和路段。比较不同时间的努力，追踪您的进步。",
-          "features.fitness.title": "健身",
-          "features.fitness.desc":
-            "intervals.icu计算的CTL/ATL/TSB健身数据和状态区间。",
-          "features.offline.title": "设备端处理",
-          "features.offline.desc": "路线和路段检测完全在您的设备上运行。",
+          "features.maps.desc": "带有 3D 地形、路线热力图和可筛选时间线的交互式地图，提供浅色、深色和卫星样式。沿图表拖动，您的位置会在地图上同步移动。",
+          "features.routes.title": "路线与路段",
+          "features.routes.desc": "Veloq 无需任何设置即可寻找您反复经过的路线和路段，并在每台设备上以相同方式划分。路段页面对比每一次尝试：趋势、成绩分布，以及按赢得或失去时间的位置着色的线路。可以固定、裁剪、延长或重命名路段，每次更改都会保留可还原的历史记录。",
+          "features.charts.title": "图表",
+          "features.charts.desc": "心率、功率、配速、海拔和踏频与地图共用同一时间线。区间分布、训练负荷、强度和每圈明细。",
+          "features.fitness.title": "体能",
+          "features.fitness.desc": "体能、疲劳和状态显示在同一图表中，并标出区间。HRV、静息心率、睡眠和健康状况，以及各项运动的功率曲线和配速曲线。",
+          "features.strength.title": "力量",
+          "features.strength.desc": "将活动中的力量训练组数显示在身体图上：每次训练锻炼的肌肉群、相对肌群之间的平衡，以及每个动作的进展。",
+          "features.widgets.title": "小组件",
+          "features.widgets.desc": "主屏幕小组件可显示您的体能与状态、最近一次活动、最新洞察和力量训练，并在后台更新。",
+          "features.notifications.title": "通知",
+          "features.notifications.desc": "当 intervals.icu 收到新的活动时，Veloq 可以用您的语言发送通知，注明路线和个人最佳成绩。通知在您开启前保持关闭。",
+          "features.backups.title": "备份",
+          "features.backups.desc": "可手动或自动将您的设置和路段决定备份为一个小文件。保存在设备自带的备份中，或添加 WebDAV 服务器、文件夹或云盘。恢复时会重新获取您的活动，并在匹配之处应用您的决定。",
           "features.privacy.title": "隐私",
-          "features.privacy.desc": "您的数据保留在设备上，开发者从不接收。推送通知和备份在您开启之前保持关闭。无分析、无跟踪。开源。",
+          "features.privacy.desc": "您的训练数据保留在您的设备上。无分析，无跟踪。可选的推送通知会在我们的服务器上存储您的 intervals.icu 运动员 ID 和设备令牌，30 天后自动删除。基于 Apache 2.0 开源。",
           "getStarted.title": "开始使用",
-          "getStarted.subtitle": "三个简单步骤连接您的intervals.icu账户。",
+          "getStarted.subtitle": "无需注册：安装应用并打开即可。",
           "getStarted.step1.title": "安装Veloq",
           "getStarted.step1.desc": "在<a href=\"https://apps.apple.com/us/app/veloq/id6757836732\" target=\"_blank\">App Store</a>或<a href=\"https://play.google.com/store/apps/details?id=com.veloq.app\" target=\"_blank\">Google Play</a>下载",
-          "getStarted.step2.title": "使用 intervals.icu 登录",
-          "getStarted.step2.desc": "点按“使用 intervals.icu 登录”并允许访问。或者点按“使用API密钥”，粘贴<a href=\"https://intervals.icu/settings\" target=\"_blank\">设置</a> → 开发者设置中的 API 密钥。",
-          "getStarted.step3.title": "开始探索",
-          "getStarted.step3.desc": "您的活动、体能数据和路线会载入手机，并在手机上分析。",
+          "getStarted.step2.title": "开始探索",
+          "getStarted.step2.desc": "您的活动、体能数据和路线会载入手机，并在手机上分析。",
           "footer.releases": "版本发布",
           "footer.privacy": "隐私政策",
           "footer.contact": "联系我们",

@@ -300,7 +300,6 @@
     "lastBackupNever": "Nog nooit een back-up gemaakt",
     "backupNow": "Nu back-up maken",
     "backendWebdav": "WebDAV / Nextcloud",
-    "carrierDeviceIos": "iCloud-back-up",
     "carrierDeviceAndroid": "Google-back-up",
     "carrierDeviceDescription": "Wordt bewaard door de back-up van je apparaat. Hier valt niets in te stellen.",
     "carrierDeviceRestore": "Komt terug wanneer je een nieuwe telefoon instelt",

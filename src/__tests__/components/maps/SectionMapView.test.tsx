@@ -502,4 +502,13 @@ describe('SectionMapView', () => {
       );
     }
   );
+
+  it('stands the credit clear of the rounded corners of the sheet under it', async () => {
+    await renderSection({ coveredBottom: 240, coveredBottomRadius: 28 });
+
+    const credit = StyleSheet.flatten(screen.getByTestId('map-attribution').props.style);
+    expect(credit.bottom).toBe(240);
+    expect(credit.left).toBe(28);
+    expect(credit.right).toBe(28);
+  });
 });

@@ -5,7 +5,9 @@
  * Expected behaviour: the card offers the tour until it is taken or declined
  * twice, never twice in one session. A tour closed with a setup slide
  * unanswered brings the card back once, in a later session, for those slides
- * only, and after that nothing returns.
+ * only, and after that nothing returns. Inside the quiet period the card offers
+ * the tour without its notification slide, which is owed once the quiet period
+ * ends, and no leftover card shows until then.
  */
 
 import {
@@ -25,11 +27,12 @@ const unseen: TourOfferFacts = {
   record: NO_TOUR_OFFER,
   settledThisSession: false,
   tourSetupSlides: ['notifications', 'backup'],
+  quietPeriod: false,
 };
 
 describe('the tour offer', () => {
   it('offers the tour to a signed-in athlete who has never seen it', () => {
-    expect(tourOffer(unseen)).toEqual({ kind: 'tour' });
+    expect(tourOffer(unseen)).toEqual({ kind: 'tour', held: [] });
   });
 
   it('offers nothing where no tour may open, such as demo', () => {
@@ -44,7 +47,7 @@ describe('the tour offer', () => {
     const record = afterOfferDeclined(NO_TOUR_OFFER);
     expect(offerEnded(record)).toBe(false);
     expect(tourOffer({ ...unseen, record, settledThisSession: true })).toBeNull();
-    expect(tourOffer({ ...unseen, record })).toEqual({ kind: 'tour' });
+    expect(tourOffer({ ...unseen, record })).toEqual({ kind: 'tour', held: [] });
   });
 
   it('ends the offer at the second Not now', () => {
@@ -113,6 +116,31 @@ describe('the setup slides a tour left unanswered', () => {
     const answered = afterLeftoverAnswered(afterTourClosed(NO_TOUR_OFFER));
     expect(tourOffer({ ...seen, record: answered })).toBeNull();
     expect(tourOffer({ ...seen, record: afterTourClosed(answered) })).toBeNull();
+  });
+});
+
+describe('the tour offered in the quiet period', () => {
+  const quiet: TourOfferFacts = { ...unseen, quietPeriod: true };
+
+  it('offers the tour without the notification slide, keeping the backup slide', () => {
+    expect(tourOffer(quiet)).toEqual({ kind: 'tour', held: ['notifications'] });
+  });
+
+  it('holds nothing back where the tour carries no notification slide', () => {
+    expect(tourOffer({ ...quiet, tourSetupSlides: ['backup'] })).toEqual({
+      kind: 'tour',
+      held: [],
+    });
+  });
+
+  it('owes the notification slide alone once the quiet period ends, and not before', () => {
+    const record = afterTourClosed({ ...NO_TOUR_OFFER, answers: { backup: 'on' } });
+    const seen: TourOfferFacts = { ...quiet, lastSeenVersion: '0.4.0', record };
+    expect(tourOffer(seen)).toBeNull();
+    expect(tourOffer({ ...seen, quietPeriod: false })).toEqual({
+      kind: 'leftover',
+      slides: ['notifications'],
+    });
   });
 });
 

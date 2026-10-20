@@ -42,7 +42,6 @@
     "title": "Respaldo y restauración",
     "autoBackupDescription": "Desactivada: Veloq no crea ninguna respaldo por sí mismo. Activada: el archivo de datos se escribe cada día tras la sincronización en la respaldo del dispositivo y en cada destino configurado abajo.",
     "lastBackup": "Último respaldo: {{date}}",
-    "carrierDeviceIos": "Respaldo de iCloud",
     "carrierDeviceAndroid": "Respaldo de Google",
     "carrierDeviceDescription": "La guarda la respaldo de seguridad del dispositivo. No hay nada que configurar aquí.",
     "noBrowsableDestination": "El respaldo del dispositivo solo vuelve cuando configuras un teléfono nuevo, así que no se puede restaurar desde aquí. Para restaurar en este teléfono, agrega WebDAV o una carpeta abajo, o importa un archivo de respaldo.",

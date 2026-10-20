@@ -153,7 +153,7 @@ export function WhatsNewModal() {
 
   const tourSlides =
     tourState?.mode === 'tutorial'
-      ? getTutorialSlidesFor(tourState.only)
+      ? getTutorialSlidesFor(tourState.only, tourState.held)
       : missedSlides.length > 0
         ? missedSlides
         : ALL_SLIDES;

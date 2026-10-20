@@ -1,25 +1,37 @@
-Twoje dane treningowe, zwizualizowane. Veloq łączy nagrywanie, mapy, wykresy, analizy i śledzenie kondycji w jednej szybkiej aplikacji.
+Veloq odczytuje Twoje konto intervals.icu i pokazuje je na telefonie: aktywności, mapy, wykresy, kondycję i formę. Aplikacja szuka tras i odcinków, które powtarzasz, i zestawia każde podejście z poprzednimi. Analiza odbywa się na Twoim urządzeniu.
 
 Nagrywanie
-Śledź aktywności z GPS, automatyczną pauzą, podziałem na kilometry i wyświetlaniem stref tętna. Przytnij nagranie przed zapisem. Przesyłaj jako pliki FIT lub kolejkuj do wysłania później. Ręczne wprowadzanie dla aktywności halowych.
+Nagrywaj jazdy, biegi i inne sporty z GPS, automatyczną pauzą i międzyczasami w Twoich jednostkach. Połącz czujniki Bluetooth tętna, mocy i kadencji albo realizuj zaplanowany trening z kalendarza intervals.icu z celami na ekranie. Przytnij początek i koniec przed zapisaniem, a potem wyślij plik FIT lub zostaw go w kolejce do czasu, aż będzie zasięg. Sesje w pomieszczeniu można wpisać ręcznie. Rozpocznij nagrywanie z widżetu na ekranie początkowym, centrum sterowania lub przez Siri i śledź je na ekranie blokady.
 
-Spostrzeżenia
-Codzienne spostrzeżenia z Twojego treningu: rekordy i trendy na odcinkach, kamienie milowe kondycji, porównania tygodniowe, trendy HRV i postępy siłowe. Każde pokazuje swoje liczby i sposób ich obliczenia.
+Analizy
+Krótkie podsumowanie Twojego treningu: rekordy i trendy na odcinkach, kamienie milowe kondycji, porównanie tego tygodnia z poprzednim, trendy HRV i postęp siłowy. Każda analiza otwiera się z liczbami i sposobem ich obliczenia.
 
 Mapy
-Przeglądaj swoje aktywności na interaktywnych mapach z terenem 3D, mapami ciepła tras i filtrowaniem osi czasu. Wybieraj między jasnymi, ciemnymi i satelitarnymi stylami. Przewijaj wykresy i obserwuj aktualizację pozycji na mapie w czasie rzeczywistym.
+Interaktywne mapy z terenem 3D, mapami cieplnymi tras i osią czasu, którą możesz filtrować, w stylu jasnym, ciemnym i satelitarnym. Przesuń palcem po wykresie, a Twoja pozycja przesuwa się po mapie.
 
-Śledzenie tras
-Automatycznie wykrywaj powtarzające się trasy i odcinki w historii aktywności. Porównuj wysiłki w czasie, aby śledzić postępy na ulubionych podjazdach i trasach.
+Trasy i odcinki
+Veloq szuka tras i odcinków, które powtarzasz, bez żadnej konfiguracji, i wyznacza je tak samo na każdym urządzeniu. Strona odcinka porównuje każde podejście: trend, rozrzut Twoich czasów i linię pokolorowaną tam, gdzie czas został zyskany lub stracony. Przypnij, skróć, wydłuż lub zmień nazwę odcinka, a każda zmiana zachowuje historię, którą możesz cofnąć.
 
-Wykresy i analiza
-Tętno, moc, tempo, wysokość i kadencja, wszystko zsynchronizowane z mapą. Przeglądaj rozkłady stref, TSS, współczynnik intensywności i podsumowania okrążeń.
+Wykresy
+Tętno, moc, tempo, wysokość i kadencja na jednej osi czasu z mapą. Rozkład stref, obciążenie treningowe, intensywność i zestawienie okrążeń.
 
 Kondycja
-Śledź swoją formę dzięki śledzeniu CTL/ATL/TSB i wizualnym strefom. Monitoruj HRV, tętno spoczynkowe, sen i samopoczucie. Przeglądaj krzywe mocy i tempa według dyscypliny.
+Kondycja, zmęczenie i forma na jednym wykresie z zaznaczonymi strefami. HRV, tętno spoczynkowe, sen i samopoczucie oraz krzywe mocy i tempa dla każdego sportu.
+
+Siła
+Serie siłowe z Twoich aktywności na diagramie ciała: grupy mięśni pracujące w każdej sesji, równowaga między przeciwstawnymi grupami i postęp w każdym ćwiczeniu.
+
+Widżety
+Widżety na ekranie głównym z Twoją kondycją i formą, ostatnią aktywnością, najnowszymi analizami i treningiem siłowym, odświeżane w tle.
+
+Powiadomienia
+Gdy intervals.icu otrzyma nową aktywność, Veloq może wysłać powiadomienie z nazwą trasy i ewentualnymi rekordami życiowymi, w Twoim języku. Powiadomienia są wyłączone, dopóki ich nie włączysz.
+
+Kopie zapasowe
+Zapisz kopię ustawień i decyzji dotyczących odcinków w małym pliku, ręcznie lub automatycznie. Trzymaj ją w kopii zapasowej urządzenia albo dodaj serwer WebDAV, katalog lub dysk w chmurze. Przywracanie pobiera aktywności ponownie i stosuje Twoje decyzje tam, gdzie pasują.
 
 Prywatność
-Twoje dane treningowe pozostają na Twoim urządzeniu. Brak analityki, brak śledzenia. Opcjonalne powiadomienia push przechowują Twój identyfikator (ID) sportowca intervals.icu i token urządzenia na naszym serwerze, usuwane automatycznie po 30 dniach. Otwarte źródło na licencji Apache 2.0.
+Twoje dane treningowe zostają na urządzeniu. Bez analityki, bez śledzenia. Opcjonalne powiadomienia push przechowują Twój identyfikator sportowca intervals.icu i token urządzenia na naszym serwerze, usuwane automatycznie po 30 dniach. Otwarte oprogramowanie na licencji Apache 2.0.
 
 Dostępność: etykiety dla czytnika ekranu przy każdym elemencie sterującym, tekst dopasowany do systemowego rozmiaru tekstu oraz kontrast kolorów według proporcji AA w jasnym i ciemnym motywie.
 

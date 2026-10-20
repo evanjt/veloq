@@ -1,25 +1,37 @@
-Je trainingsdata, gevisualiseerd. Veloq combineert opnames, kaarten, grafieken, inzichten en fitnesstracking in één snelle app.
+Veloq leest je intervals.icu-account en toont het op je telefoon: activiteiten, kaarten, grafieken, fitheid en vorm. De app zoekt de routes en secties die je herhaalt en zet elke poging naast de vorige. De analyse draait op je toestel.
 
 Opnemen
-Registreer activiteiten met GPS, automatische pauze, km-splits en hartslagzonedisplay. Trim je opname voordat je opslaat. Upload als FIT-bestanden, of zet in de wachtrij voor later. Handmatige invoer voor indooractiviteiten.
+Neem ritten, loopjes en andere sporten op met gps, automatische pauze en splits in je eigen eenheden. Koppel Bluetooth-sensoren voor hartslag, vermogen en cadans, of volg een geplande training uit je intervals.icu-kalender met de doelen op het scherm. Knip begin en eind bij voor je opslaat, en upload een FIT-bestand of zet het in de wachtrij tot je bereik hebt. Indoortrainingen voer je met de hand in. Start een opname vanuit een widget op het beginscherm, het bedieningspaneel of Siri, en volg hem op het toegangsscherm.
 
 Inzichten
-Dagelijkse inzichten uit je eigen training: sectie-PR's en -trends, fitnessmijlpalen, weekvergelijkingen, HRV-trends en krachtprogressie. Elk inzicht toont zijn cijfers en hoe ze berekend zijn.
+Een korte blik op je training: sectierecords en trends, mijlpalen in fitheid, hoe deze week zich verhoudt tot de vorige, HRV-trends en krachtprogressie. Elk inzicht opent met de cijfers en hoe ze berekend zijn.
 
 Kaarten
-Bekijk je activiteiten op interactieve kaarten met 3D-terrein, route-heatmaps en tijdlijnfiltering. Kies uit lichte, donkere en satellietstijlen. Blader door grafieken en volg je positie in realtime op de kaart.
+Interactieve kaarten met 3D-terrein, heatmaps van routes en een tijdlijn die je kunt filteren, in lichte, donkere en satellietstijl. Schuif langs een grafiek en je positie beweegt mee over de kaart.
 
-Routeregistratie
-Detecteer automatisch herhaalde routes en secties in je activiteitengeschiedenis. Vergelijk prestaties in de tijd om je voortgang op favoriete beklimmingen en trajecten te zien.
+Routes en secties
+Veloq zoekt de routes en secties die je herhaalt, zonder iets in te stellen, en snijdt ze op elk toestel op dezelfde manier. Een sectiepagina vergelijkt elke poging: de trend, de spreiding van je tijden en de lijn gekleurd naar waar tijd gewonnen of verloren werd. Zet een sectie vast, kort hem in, verleng hem of geef hem een andere naam, en elke wijziging houdt een geschiedenis bij die je kunt terugdraaien.
 
-Grafieken en analyse
-Hartslag, vermogen, tempo, hoogte en cadans, alles gesynchroniseerd met de kaart. Bekijk zoneverdeling, TSS, intensiteitsfactor en ronde-overzichten.
+Grafieken
+Hartslag, vermogen, tempo, hoogte en cadans op één tijdlijn met de kaart. Zoneverdelingen, trainingsbelasting, intensiteit en rondeoverzichten.
 
-Fitness
-Volg je vorm met CTL/ATL/TSB-tracking en visuele zones. Monitor HRV, rusthartslag, slaap en welzijn. Bekijk vermogens- en tempocurves per sport.
+Fitheid
+Fitheid, vermoeidheid en vorm in één grafiek met de zones erin getekend. HRV, rusthartslag, slaap en welzijn, en vermogens- en tempocurves per sport.
+
+Kracht
+De krachtsets in je activiteiten op een lichaamsdiagram: de spiergroepen die elke sessie heeft gewerkt, de balans tussen tegenovergestelde groepen en de progressie per oefening.
+
+Widgets
+Widgets op het startscherm voor je fitheid en vorm, je laatste activiteit, je nieuwste inzichten en je krachttraining, op de achtergrond bijgewerkt.
+
+Meldingen
+Als intervals.icu een nieuwe activiteit ontvangt, kan Veloq een melding sturen met de naam van de route en eventuele persoonlijke records, in jouw taal. Meldingen staan uit tot je ze aanzet.
+
+Back-ups
+Maak een back-up van je instellingen en sectiekeuzes in een klein bestand, met de hand of automatisch. Bewaar hem in de eigen back-up van je toestel, of voeg een WebDAV-server, een map of een cloudopslag toe. Bij herstellen worden je activiteiten opnieuw opgehaald en je keuzes toegepast waar ze overeenkomen.
 
 Privacy
-Je trainingsgegevens blijven op je apparaat. Geen analyses, geen tracking. Optionele pushmeldingen slaan je intervals.icu-atleet-ID en een apparaattoken op onze server op, die na 30 dagen automatisch worden verwijderd. Open source onder Apache 2.0.
+Je trainingsgegevens blijven op je toestel. Geen analytics, geen tracking. Optionele pushmeldingen bewaren je intervals.icu-atleet-ID en een apparaattoken op onze server, die na 30 dagen automatisch worden verwijderd. Open source onder Apache 2.0.
 
 Toegankelijkheid: schermlezerlabels op elk bedieningselement, tekst die de tekstgrootte van je systeem volgt en kleurcontrast volgens de AA-verhoudingen in het lichte en donkere thema.
 

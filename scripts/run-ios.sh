@@ -6,7 +6,9 @@
 #   scripts/run-ios.sh production         Veloq, which is only ever standalone
 #
 # A Metro build keeps running with the bundler, so its record is written after
-# with `npm run ios:record`. A standalone build writes its record when it ends.
+# with `npm run ios:record`. A standalone build only builds, for a generic
+# simulator, and writes its record when it ends: launching it would stream the
+# simulator log until interrupted. Install it with `npm run install:ios`.
 set -eu
 
 cd "$(dirname "$0")/.."
@@ -32,5 +34,5 @@ node scripts/build-record.js snapshot ios "$configuration"
 if [ "$configuration" = Debug ]; then
   exec npx expo run:ios
 fi
-npx expo run:ios --configuration Release
+npx expo run:ios --configuration Release --device generic
 node scripts/build-record.js write-ios Release

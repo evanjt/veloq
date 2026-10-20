@@ -685,6 +685,23 @@ describe('scripts/ios-gate.sh', () => {
     expect(runGit(['rev-parse', 'refs/heads/gate/main'], f.remote).trim()).toBe(head(f));
   });
 
+  it('moves a gate tree whose submodule sits behind the pin before it reads the stamp', () => {
+    pinUnpublished(f, true);
+    expect(gate(f).status).toBe(0);
+    const library = path.join(f.remote, PIN_PATH);
+    fs.writeFileSync(path.join(library, 'lib.rs'), 'pub fn lib() -> u8 { 1 }\n');
+    runGit(['commit', '-q', '-am', 'library later'], library);
+    const pin = runGit(['rev-parse', 'HEAD'], library).trim();
+    runGit(['update-index', '--cacheinfo', `160000,${pin},${PIN_PATH}`], f.local);
+    runGit(['commit', '-q', '--no-verify', '-m', 'move the pin'], f.local);
+
+    const run = gate(f);
+
+    expect(run.out).toContain('ios-gate: passed');
+    expect(run.status).toBe(0);
+    expect(runGit(['rev-parse', 'HEAD'], path.join(`${f.remote}-gate`, PIN_PATH)).trim()).toBe(pin);
+  });
+
   it('refuses before pushing a submodule pin neither the Mac holds nor anywhere publishes', () => {
     const pin = pinUnpublished(f, false);
 

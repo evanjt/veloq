@@ -123,6 +123,7 @@ describe('Never remind me again', () => {
       record: afterTourClosed(useWhatsNewStore.getState().tourOffer),
       settledThisSession: false,
       tourSetupSlides: ['backup'],
+      quietPeriod: false,
     });
     expect(offer).toBeNull();
   });

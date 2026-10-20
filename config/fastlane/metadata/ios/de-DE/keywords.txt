@@ -1,1 +1,1 @@
-Radfahren,Laufen,Triathlon,Fitness,CTL,TSB,Leistung,Karten,GPS,Routen,Diagramme,Training,Insights
+leistung,watt,puls,herzfrequenz,zonen,ftp,hrv,gpx,anstieg,route,runde,schwimmen,triathlon,kraft

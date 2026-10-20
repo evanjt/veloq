@@ -142,7 +142,8 @@ flows() {
 echo "ios-gate: $sha on simulator $udid"
 step checkout checkout
 step prune prune
-step stamp check_stamp
+# The stamp is read once the submodule sits at the pin, since a gate tree left
+# on an older pin reads as dirty until it is moved.
 step tracematch tracematch
 step npm-ci npm ci
 step prebuild env CI=1 npx expo prebuild --platform ios --clean

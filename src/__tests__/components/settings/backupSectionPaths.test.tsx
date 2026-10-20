@@ -1206,13 +1206,12 @@ describe('each destination shows when it last received a backup', () => {
     mockWebdavUrl = 'https://dav.example.org/remote.php/dav/files/athlete';
     mockFolderName = 'Records';
     mockDestinationStamps = {
-      device: Date.parse('2026-05-04T06:30:00Z'),
       webdav: Date.parse('2026-05-03T06:30:00Z'),
       folder: Date.parse('2026-05-02T06:30:00Z'),
     };
     await render(<BackupSection />);
 
-    for (const id of ['device', 'webdav', 'folder']) {
+    for (const id of ['webdav', 'folder']) {
       expect(screen.getByTestId(`backup-carrier-last-${id}`)).toHaveTextContent(
         /^backup\.lastBackup:\{"date":".+"\}$/
       );
@@ -1224,7 +1223,7 @@ describe('each destination shows when it last received a backup', () => {
     mockFolderName = 'Records';
     await render(<BackupSection />);
 
-    for (const id of ['device', 'webdav', 'folder']) {
+    for (const id of ['webdav', 'folder']) {
       expect(screen.getByTestId(`backup-carrier-last-${id}`)).toHaveTextContent(
         'backup.lastBackupNever'
       );
@@ -1234,7 +1233,6 @@ describe('each destination shows when it last received a backup', () => {
   it('shows no date on a destination that is not set up', async () => {
     await render(<BackupSection />);
 
-    expect(screen.getByTestId('backup-carrier-last-device')).toBeTruthy();
     expect(screen.queryByTestId('backup-carrier-last-webdav')).toBeNull();
     expect(screen.queryByTestId('backup-carrier-last-folder')).toBeNull();
   });
@@ -1600,6 +1598,32 @@ describe('the iCloud Drive destination', () => {
       await fireEvent.press(screen.getByTestId('backup-list-button'));
     });
     expect(alert).toHaveBeenCalledTimes(times);
+  });
+
+  it("names iCloud Drive as the one cloud backup, with no row for the phone's own backup", async () => {
+    mockIcloudSupported = true;
+    await render(<BackupSection />);
+
+    expect(screen.queryByTestId('backup-carrier-device')).toBeNull();
+    expect(screen.queryByText(/^backup\.carrierDevice/)).toBeNull();
+    expect(screen.getByTestId('backup-carrier-icloud')).toBeTruthy();
+  });
+
+  it('keeps the destinations explanation on the iCloud Drive row, without the device backup', async () => {
+    mockIcloudSupported = true;
+    mockOpenExplainer.mockClear();
+    await render(<BackupSection />);
+
+    const info = within(screen.getByTestId('backup-carrier-icloud')).getByTestId(
+      'backup-info-destinations'
+    );
+    await fireEvent.press(info);
+
+    expect(mockOpenExplainer).toHaveBeenCalledTimes(1);
+    const message = String(mockOpenExplainer.mock.calls[0]?.[0].body);
+    expect(message).toContain('backup.localRestorePath');
+    expect(message).not.toContain('backup.carrierDeviceDescription');
+    expect(message).not.toContain('backup.platformRestorePath');
   });
 
   it('names iCloud Drive among the destinations a Back Up Now run wrote', async () => {

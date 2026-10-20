@@ -301,7 +301,6 @@
     "lastBackupNever": "Mai eseguito",
     "backupNow": "Esegui backup ora",
     "backendWebdav": "WebDAV / Nextcloud",
-    "carrierDeviceIos": "Backup iCloud",
     "carrierDeviceAndroid": "Backup Google",
     "carrierDeviceDescription": "Conservato dal backup del dispositivo. Qui non c'è nulla da configurare.",
     "carrierDeviceRestore": "Torna quando configuri un nuovo telefono",

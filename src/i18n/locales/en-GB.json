@@ -300,7 +300,6 @@
     "lastBackupNever": "Never backed up",
     "backupNow": "Back up now",
     "backendWebdav": "WebDAV / Nextcloud",
-    "carrierDeviceIos": "iCloud backup",
     "carrierDeviceAndroid": "Google backup",
     "carrierDeviceDescription": "Kept by your device backup. Nothing to set up here.",
     "carrierDeviceRestore": "Comes back when you set up a new phone",

@@ -300,7 +300,6 @@
     "lastBackupNever": "バックアップ未実施",
     "backupNow": "今すぐバックアップ",
     "backendWebdav": "WebDAV / Nextcloud",
-    "carrierDeviceIos": "iCloudバックアップ",
     "carrierDeviceAndroid": "Googleバックアップ",
     "carrierDeviceDescription": "端末のバックアップが保管します。ここで設定するものはありません。",
     "carrierDeviceRestore": "新しいスマートフォンの設定時に復元されます",

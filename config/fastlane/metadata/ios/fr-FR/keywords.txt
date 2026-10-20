@@ -1,1 +1,1 @@
-cyclisme,course,triathlon,fitness,CTL,TSB,puissance,cartes,GPS,itineraires,graphiques,entrainement
+puissance,allure,cadence,fréquence cardiaque,zones,ftp,hrv,gpx,col,itinéraire,natation,triathlon

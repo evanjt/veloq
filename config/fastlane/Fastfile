@@ -16,6 +16,16 @@ def store_release(*args)
   sh("node", "--disable-warning=MODULE_TYPELESS_PACKAGE_JSON", STORE_RELEASE, *args)
 end
 
+# The phone screenshots a locale's listing installs from: docs/screenshots
+# for the default listing, the locale's own fastlane set otherwise.
+def repo_phone_screenshots(lang)
+  if lang == "en-US"
+    shots = Dir[File.join(PROJECT_ROOT, "docs", "screenshots", "*.{png,jpg,jpeg}")].sort
+    return shots unless shots.empty?
+  end
+  Dir[File.expand_path("metadata/android/#{lang}/images/phoneScreenshots/*.{png,jpg,jpeg}", __dir__)].sort
+end
+
 # ==============================
 # Android Lanes
 # ==============================
@@ -140,6 +150,38 @@ platform :android do
     )
     Supply::Setup.new.perform_download
     store_release("drift", "--platform", "android", "--live", live)
+  end
+
+  desc "Print what Play holds: every track's releases and version codes, and per locale whether the live phone screenshots match the repository"
+  lane :play_state do
+    require "digest"
+    require "supply"
+    require "supply/client"
+    Supply.config = FastlaneCore::Configuration.create(
+      Supply::Options.available_options,
+      json_key: ENV.fetch("SUPPLY_JSON_KEY"),
+      package_name: "com.veloq.app"
+    )
+    client = Supply::Client.make_from_config
+    client.begin_edit(package_name: Supply.config[:package_name])
+    UI.message("Bundles in library: #{client.aab_version_codes.inspect}")
+    client.tracks.each do |track|
+      releases = track.releases.to_a
+      UI.message("#{track.track}: (no releases)") if releases.empty?
+      releases.each do |rel|
+        UI.message("#{track.track}: status=#{rel.status} codes=#{(rel.version_codes || []).join(',')} name=#{rel.name.inspect}")
+      end
+    end
+    # Play reports a sha256 of the bytes it stored, which matches the file sent.
+    Dir[File.expand_path("metadata/android/*/", __dir__)].sort.each do |dir|
+      lang = File.basename(dir)
+      live = client.fetch_images(image_type: "phoneScreenshots", language: lang).to_a
+      local_hashes = repo_phone_screenshots(lang).map { |f| Digest::SHA256.file(f).hexdigest }
+      matched = live.count { |img| local_hashes.include?(img.sha256) }
+      state = matched == local_hashes.size && live.size == local_hashes.size ? "in sync" : "differs"
+      UI.message("#{lang} phoneScreenshots: live=#{live.size} repo=#{local_hashes.size} matching=#{matched} #{state}")
+    end
+    client.abort_current_edit
   end
 end
 

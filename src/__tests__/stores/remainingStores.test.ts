@@ -76,6 +76,7 @@ describe('declared defaults', () => {
       tourState: {
         mode: 'tutorial',
         only: null,
+        held: [],
         shownIndex: 3,
         resumeIndex: 4,
         exploring: true,

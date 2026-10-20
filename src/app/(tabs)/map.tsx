@@ -264,7 +264,6 @@ function MapScreenContent() {
   const sheetStyle = useAnimatedStyle(() =>
     sheetHeight.value > 0 ? { height: sheetHeight.value } : {}
   );
-  const attributionLaneStyle = useAnimatedStyle(() => ({ bottom: sheetHeight.value }));
 
   // Memoize period start date to keep reference stable across renders
   const periodStart = useMemo(() => getPeriodStart(period), [period]);
@@ -498,6 +497,9 @@ function MapScreenContent() {
         {(stage) =>
           stage < MAP_STAGE ? null : (
             <ComponentErrorBoundary part="map" debugName="Map">
+              {/* map-screen also sits on the loading branch and before the map
+                  page mounts, so a flow that needs the map waits on this. */}
+              <View testID="regional-map-ready" />
               <RegionalMapView
                 activities={displayActivities}
                 routeCount={routeCount}
@@ -519,18 +521,6 @@ function MapScreenContent() {
         }
       </StagedPage>
 
-      <Animated.View
-        testID="map-attribution-lane"
-        style={[styles.attributionLane, attributionLaneStyle]}
-        pointerEvents="box-none"
-      >
-        <AttributionOverlay
-          ref={attributionRef}
-          initialAttribution=""
-          onClearanceChange={setAttributionClearance}
-        />
-      </Animated.View>
-
       {emptyReason && !isMapReadError ? (
         <MapEmptyState
           reason={emptyReason}
@@ -545,132 +535,149 @@ function MapScreenContent() {
       <Animated.View
         testID="map-filter-sheet"
         style={[
-          styles.infoBar,
-          { paddingBottom: sheetPadding },
+          styles.sheet,
           sheetMaxHeight !== undefined && { maxHeight: sheetMaxHeight },
-          isDark && styles.infoBarDark,
           sheetStyle,
         ]}
+        pointerEvents="box-none"
       >
-        <GestureDetector gesture={handleDrag}>
-          <PressTarget
-            testID="map-filter-handle"
-            onPress={() => setSheetExpanded((expanded) => !expanded)}
-            onLayout={(event) => setHandleRowHeight(event.nativeEvent.layout.height)}
-            accessibilityRole="button"
-            accessibilityLabel={
-              sheetExpanded ? t('mapScreen.hideFilters') : t('mapScreen.showFilters')
-            }
-            accessibilityState={{ expanded: sheetExpanded }}
-            hitSlop={HANDLE_SLOP}
-            style={styles.handleRow}
-          >
-            <View style={[styles.handle, isDark && styles.handleDark]} />
-          </PressTarget>
-        </GestureDetector>
+        {/* The credit is the sheet's own child on its top edge, so it moves in the sheet's layout
+            on every frame of a drag rather than chasing it from another view. */}
+        <View testID="map-attribution-lane" style={styles.attributionLane} pointerEvents="none">
+          <AttributionOverlay
+            ref={attributionRef}
+            initialAttribution=""
+            onClearanceChange={setAttributionClearance}
+            edgeRadius={SHEET_CORNER_RADIUS}
+          />
+        </View>
 
-        <GestureDetector gesture={filtersDrag}>
-          <ScrollView
-            ref={filtersRef}
-            testID="map-filter-scroll"
-            style={styles.filterScroll}
-            scrollEnabled={filtersScroll}
-            showsVerticalScrollIndicator={filtersScroll}
-            bounces={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            {/* The rows the lowered sheet shows, directly under the handle */}
-            <View
-              testID="map-filter-lowered"
-              onLayout={(event) => setLoweredRows(event.nativeEvent.layout.height)}
+        <View
+          testID="map-filter-sheet-body"
+          style={[styles.infoBar, { paddingBottom: sheetPadding }, isDark && styles.infoBarDark]}
+        >
+          <GestureDetector gesture={handleDrag}>
+            <PressTarget
+              testID="map-filter-handle"
+              onPress={() => setSheetExpanded((expanded) => !expanded)}
+              onLayout={(event) => setHandleRowHeight(event.nativeEvent.layout.height)}
+              accessibilityRole="button"
+              accessibilityLabel={
+                sheetExpanded ? t('mapScreen.hideFilters') : t('mapScreen.showFilters')
+              }
+              accessibilityState={{ expanded: sheetExpanded }}
+              hitSlop={HANDLE_SLOP}
+              style={styles.handleRow}
             >
-              {mapReadFailure}
+              <View style={[styles.handle, isDark && styles.handleDark]} />
+            </PressTarget>
+          </GestureDetector>
 
-              {/* Sport chips taking the free width, the period pinned at the row's end */}
-              <View testID="map-filter-controls" style={styles.filterControls}>
-                <SportChipRow
-                  chips={categorySorted.map(({ category, count }) => ({
-                    key: category,
-                    label: SPORT_FAMILY_LABELS[category],
-                    count,
-                    testID: `map-sport-${category}`,
-                  }))}
-                  selected={selectedCategorySet}
-                  onToggle={toggleCategory}
-                  style={styles.sportChips}
-                />
-                <SelectButton
-                  testID="map-period-select"
-                  style={styles.periodSelect}
-                  accessibilityLabel={t('settings.dateRange')}
-                  options={PERIOD_OPTIONS.map(({ id }) => ({
-                    value: id,
-                    label: t(periodSelectLabelKey(id) as never),
-                  }))}
-                  value={period}
-                  onChange={setPeriod}
-                />
-              </View>
+          <GestureDetector gesture={filtersDrag}>
+            <ScrollView
+              ref={filtersRef}
+              testID="map-filter-scroll"
+              style={styles.filterScroll}
+              scrollEnabled={filtersScroll}
+              showsVerticalScrollIndicator={filtersScroll}
+              bounces={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {/* The rows the lowered sheet shows, directly under the handle */}
+              <View
+                testID="map-filter-lowered"
+                onLayout={(event) => setLoweredRows(event.nativeEvent.layout.height)}
+              >
+                {mapReadFailure}
 
-              {!sheetExpanded && hiddenFilterNames.length > 0 ? (
-                <View style={styles.infoRow}>
-                  <Text
-                    testID="map-filter-summary"
-                    style={[styles.infoText, styles.filterSummary, isDark && styles.infoTextDark]}
-                  >
-                    {t('mapScreen.searchFilteredBy', { filters: hiddenFilterNames.join(', ') })}
-                  </Text>
-                  <Button
-                    label={t('mapScreen.emptyClearFilters')}
-                    variant="ghost"
-                    size="sm"
-                    onPress={clearHiddenFilters}
+                {/* Sport chips taking the free width, the period pinned at the row's end */}
+                <View testID="map-filter-controls" style={styles.filterControls}>
+                  <SportChipRow
+                    chips={categorySorted.map(({ category, count }) => ({
+                      key: category,
+                      label: SPORT_FAMILY_LABELS[category],
+                      count,
+                      testID: `map-sport-${category}`,
+                    }))}
+                    selected={selectedCategorySet}
+                    onToggle={toggleCategory}
+                    style={styles.sportChips}
+                  />
+                  <SelectButton
+                    testID="map-period-select"
+                    style={styles.periodSelect}
+                    accessibilityLabel={t('settings.dateRange')}
+                    options={PERIOD_OPTIONS.map(({ id }) => ({
+                      value: id,
+                      label: t(periodSelectLabelKey(id) as never),
+                    }))}
+                    value={period}
+                    onChange={setPeriod}
                   />
                 </View>
-              ) : null}
-            </View>
 
-            {/* The rows rising reveals. Lowered they sit under the sheet's edge, out of reach of
+                {!sheetExpanded && hiddenFilterNames.length > 0 ? (
+                  <View style={styles.infoRow}>
+                    <Text
+                      testID="map-filter-summary"
+                      style={[styles.infoText, styles.filterSummary, isDark && styles.infoTextDark]}
+                    >
+                      {t('mapScreen.searchFilteredBy', { filters: hiddenFilterNames.join(', ') })}
+                    </Text>
+                    <Button
+                      label={t('mapScreen.emptyClearFilters')}
+                      variant="ghost"
+                      size="sm"
+                      onPress={clearHiddenFilters}
+                    />
+                  </View>
+                ) : null}
+              </View>
+
+              {/* The rows rising reveals. Lowered they sit under the sheet's edge, out of reach of
                 touch and of the screen reader. */}
-            <View
-              testID="map-filter-raised"
-              onLayout={(event) => setRaisedRows(event.nativeEvent.layout.height)}
-              pointerEvents={sheetExpanded ? 'auto' : 'none'}
-              accessibilityElementsHidden={!sheetExpanded}
-              importantForAccessibility={sheetExpanded ? 'auto' : 'no-hide-descendants'}
-            >
-              <MapNameSearch
-                needle={nameNeedle}
-                onChangeNeedle={changeNeedle}
-                results={results}
-                total={displayActivities.length}
-                filters={activeFilterNames}
-                onChoose={chooseResult}
-              />
+              <View
+                testID="map-filter-raised"
+                onLayout={(event) => setRaisedRows(event.nativeEvent.layout.height)}
+                pointerEvents={sheetExpanded ? 'auto' : 'none'}
+                accessibilityElementsHidden={!sheetExpanded}
+                importantForAccessibility={sheetExpanded ? 'auto' : 'no-hide-descendants'}
+              >
+                <MapNameSearch
+                  needle={nameNeedle}
+                  onChangeNeedle={changeNeedle}
+                  results={results}
+                  total={displayActivities.length}
+                  filters={activeFilterNames}
+                  onChoose={chooseResult}
+                />
 
-              {/* Distance chips */}
-              <FilterChipRow
-                options={getDistanceOptions(isMetric, t('mapScreen.distanceAny'))}
-                selected={distanceFilter}
-                onSelect={setDistanceFilter}
-              />
-            </View>
-          </ScrollView>
-        </GestureDetector>
+                {/* Distance chips */}
+                <FilterChipRow
+                  options={getDistanceOptions(isMetric, t('mapScreen.distanceAny'))}
+                  selected={distanceFilter}
+                  onSelect={setDistanceFilter}
+                />
+              </View>
+            </ScrollView>
+          </GestureDetector>
 
-        {/* The foot line: the count and the synced span, then the details that join them, last
+          {/* The foot line: the count and the synced span, then the details that join them, last
             in the sheet at either stop with the rows rising above it */}
-        <View
-          testID="map-sheet-detail"
-          style={styles.sheetDetail}
-          onLayout={(event) => setDetailHeight(event.nativeEvent.layout.height)}
-        >
-          <Text style={[styles.detailText, isDark && styles.infoTextDark]}>{activitySummary}</Text>
-          <TextLink
-            label={t('mapScreen.expandRange', 'Expand range')}
-            size="caption"
-            onPress={() => navigateTo('/sync-settings')}
-          />
+          <View
+            testID="map-sheet-detail"
+            style={styles.sheetDetail}
+            onLayout={(event) => setDetailHeight(event.nativeEvent.layout.height)}
+          >
+            <Text style={[styles.detailText, isDark && styles.infoTextDark]}>
+              {activitySummary}
+            </Text>
+            <TextLink
+              label={t('mapScreen.expandRange', 'Expand range')}
+              size="caption"
+              onPress={() => navigateTo('/sync-settings')}
+            />
+          </View>
         </View>
       </Animated.View>
     </View>
@@ -687,9 +694,11 @@ const HANDLE_SLOP = {
   bottom: spacing.xs,
 };
 
-// The filter sheet covers the map, its credit lane and its empty state, which
-// stack at the base. The layer scale has no row for a sheet over a map.
+// The filter sheet and the credit on its edge cover the map and its empty state,
+// which stack at the base. The layer scale has no row for a sheet over a map.
 const FILTER_SHEET_LAYER = layers.raised;
+// The sheet's top corners, the ones a bottom sheet over the map takes elsewhere in the app.
+const SHEET_CORNER_RADIUS = layout.borderRadiusXxl;
 
 const styles = StyleSheet.create({
   container: {
@@ -724,13 +733,21 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
-  infoBar: {
+  // The sheet's frame takes the animated height and draws nothing, so the credit on its top
+  // edge stands outside the clip of the body below it.
+  sheet: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
     zIndex: FILTER_SHEET_LAYER,
+  },
+  infoBar: {
+    flexGrow: 1,
+    flexShrink: 1,
     backgroundColor: colorWithOpacity(ink.white, 0.92),
+    borderTopLeftRadius: SHEET_CORNER_RADIUS,
+    borderTopRightRadius: SHEET_CORNER_RADIUS,
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.md,
     // The sheet clips to its height, so rising reveals the rows under those already showing.
@@ -807,11 +824,12 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textSecondary,
   },
+  // A line of no height on the sheet's top edge; the credit sits on it.
   attributionLane: {
     position: 'absolute',
-    top: 0,
     left: 0,
     right: 0,
+    bottom: '100%',
   },
 });
 

@@ -2,7 +2,7 @@
  * What a launch and a session may raise, decided in one place.
  *
  * A launch interrupts the athlete with one modal at most. A first load opens
- * straight onto the feed: the tour is an ask there once the quiet period is over
+ * straight onto the feed: the tour is an ask there from the first session
  * (`tourOffer`). A library the engine had to rebuild is about the athlete's own
  * data, so it is a modal the athlete reads.
  *
@@ -15,7 +15,8 @@
  * which holds until a sync has finished clean on this install and the athlete
  * has used the app on a second local day, so a relaunch or a kill during the
  * first download does not end it. While it holds only the restore offer asks,
- * because that answer decides what the library is. After it, a session (one
+ * because that answer decides what the library is, and then the tour offer,
+ * whose tour leaves the notification ask for after it. After it, a session (one
  * process lifetime) raises one ask at most, the first eligible in `ASK_ORDER`:
  * the athlete's data first, then what the app does on its own, then what is
  * only helpful. Each surface decides its own eligibility; this only chooses
@@ -30,6 +31,9 @@ export type LaunchAsk = 'restore' | 'seriesConsent' | 'tourOffer' | 'support';
 
 /** The order a session after the quiet period picks its one ask in. */
 export const ASK_ORDER: readonly LaunchAsk[] = ['restore', 'seriesConsent', 'tourOffer', 'support'];
+
+/** The asks the quiet period lets through, in `ASK_ORDER`. */
+export const QUIET_PERIOD_ASKS: readonly LaunchAsk[] = ['restore', 'tourOffer'];
 
 /** Distinct local days of use the quiet period lasts into. */
 export const QUIET_PERIOD_USE_DAYS = 2;
@@ -112,7 +116,7 @@ function sessionAsk(facts: LaunchFacts, modal: LaunchModal | null): LaunchAsk | 
   if (facts.sessionAsk) return isEligible(facts, facts.sessionAsk) ? facts.sessionAsk : null;
   const quiet = quietPeriod(facts);
   if (quiet === null) return null;
-  const allowed = quiet ? ASK_ORDER.slice(0, 1) : ASK_ORDER;
+  const allowed = quiet ? ASK_ORDER.filter((ask) => QUIET_PERIOD_ASKS.includes(ask)) : ASK_ORDER;
   return allowed.find((ask) => isEligible(facts, ask)) ?? null;
 }
 
