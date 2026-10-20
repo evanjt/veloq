@@ -43,6 +43,7 @@ export function DateRangeSummary({
       {/* Sync message banner */}
       {syncMessage ? (
         <Animated.View
+          testID="routes-sync-banner"
           entering={FadeIn.duration(duration.exit)}
           exiting={FadeOut.duration(duration.quick)}
           style={[styles.syncBanner, isDark && styles.syncBannerDark]}

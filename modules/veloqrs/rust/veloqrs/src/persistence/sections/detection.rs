@@ -491,7 +491,7 @@ fn apply_on_worker(
     update: Option<CacheUpdate>,
     activity_ids: &[String],
     progress: &SectionDetectionProgress,
-    regroup_owed: bool,
+    regroup_owed: Option<bool>,
     groups_epoch_at_spawn: u64,
 ) -> bool {
     settle_on_worker(
@@ -518,18 +518,19 @@ fn settle_idle_on_worker(
         None,
         activity_ids,
         progress,
-        false,
+        Some(false),
         groups_epoch_at_spawn,
     )
 }
 
-/// The worker's settle, applying `batch` when there is one.
+/// The worker's settle, applying `batch` when there is one. `regroup_owed` is
+/// `None` when the run left the grouping to a regroup already in flight.
 fn settle_on_worker(
     install: u64,
     batch: Option<(Vec<FrequentSection>, Option<CacheUpdate>)>,
     activity_ids: &[String],
     progress: &SectionDetectionProgress,
-    regroup_owed: bool,
+    regroup_owed: Option<bool>,
     groups_epoch_at_spawn: u64,
 ) -> bool {
     // Off the lock: a 1,000-activity cache is about 13 MB to encode and every
@@ -618,8 +619,15 @@ fn settle_on_worker(
         e.apply_sections_finalize_with_progress(Some(progress));
         // Reload groups from DB in case this thread recomputed and saved them.
         // A regroup refused over a newer write, or a store made while the run
-        // was in flight, is still owed, so the flag survives the reload.
-        e.adopt_run_groups(regroup_owed, groups_epoch_at_spawn);
+        // was in flight, is still owed, so the flag survives the reload. A run
+        // that found another regroup in flight decided nothing about the
+        // grouping: that regroup settles the flag when it swaps, and setting
+        // it here, after that swap, would leave it owed with nothing to
+        // answer it.
+        match regroup_owed {
+            Some(owed) => e.adopt_run_groups(owed, groups_epoch_at_spawn),
+            None => e.follow_committed_groups(),
+        }
     });
     true
 }
@@ -1247,18 +1255,22 @@ impl PersistentEngine {
                     &moved_tracks,
                     apply_on,
                 );
-                (groups, save == GroupSave::Superseded)
+                (groups, Some(save == GroupSave::Superseded))
             } else if needs_group_recompute {
                 log::info!(
-                    "veloqrs: [SectionDetection] A regroup is already in flight, leaving the grouping owed"
+                    "veloqrs: [SectionDetection] A regroup is already in flight, leaving the grouping to it"
                 );
-                (load_groups_from_db(&conn), true)
+                (load_groups_from_db(&conn), None)
             } else {
-                (load_groups_from_db(&conn), false)
+                (load_groups_from_db(&conn), Some(false))
             };
             // Before any result is sent, so a caller that applies the result
-            // reads what this regroup decided once it has received it.
-            let _ = worker_run_groups.set((regroup_owed, groups_epoch_at_spawn));
+            // reads what this regroup decided once it has received it. A run
+            // that left the grouping to another regroup records nothing, and
+            // the caller keeps the flag that regroup settles.
+            if let Some(owed) = regroup_owed {
+                let _ = worker_run_groups.set((owed, groups_epoch_at_spawn));
+            }
             log::info!(
                 "veloqrs: [SectionDetection] {} groups ready (recomputed={})",
                 groups.len(),
@@ -2391,7 +2403,7 @@ mod tests {
                 None,
                 &["a1".to_string()],
                 &SectionDetectionProgress::new(),
-                false,
+                Some(false),
                 epoch_at_spawn,
             );
 
@@ -2423,7 +2435,7 @@ mod tests {
                 None,
                 &["a1".to_string(), "a2".to_string()],
                 &SectionDetectionProgress::new(),
-                false,
+                Some(false),
                 engine_groups_epoch(),
             ));
             assert_eq!(detection_row(), ("complete".to_string(), 2));
@@ -2446,7 +2458,7 @@ mod tests {
                 None,
                 &["a1".to_string()],
                 &SectionDetectionProgress::new(),
-                false,
+                Some(false),
                 engine_groups_epoch(),
             );
 
@@ -2466,12 +2478,51 @@ mod tests {
                 None,
                 &["a1".to_string()],
                 &SectionDetectionProgress::new(),
-                true,
+                Some(true),
                 engine_groups_epoch(),
             );
 
             assert!(applied);
             assert!(groups_dirty());
+        }
+
+        /// Scenario: a run spawns while another regroup holds the slot, and
+        /// that regroup swaps and clears the flag before the run applies.
+        /// Expected behaviour: the run decided nothing about the grouping, so
+        /// its apply keeps the flag the regroup left, clear or set.
+        #[test]
+        fn a_run_that_left_the_grouping_to_another_regroup_keeps_its_verdict() {
+            let _serial = serial_global_state();
+            let _dir = init_global_engine("detection_apply_left_to_holder.db");
+            store_activity("grouped-by-the-other-pass");
+            let epoch_at_spawn = engine_groups_epoch();
+            mark_groups_clean();
+
+            assert!(apply_on_worker(
+                engine_install(),
+                Vec::new(),
+                None,
+                &["a1".to_string()],
+                &SectionDetectionProgress::new(),
+                None,
+                epoch_at_spawn,
+            ));
+            assert!(
+                !groups_dirty(),
+                "the apply re-owed a regroup already answered"
+            );
+
+            store_activity("stored-after-the-pass");
+            assert!(apply_on_worker(
+                engine_install(),
+                Vec::new(),
+                None,
+                &["a1".to_string()],
+                &SectionDetectionProgress::new(),
+                None,
+                epoch_at_spawn,
+            ));
+            assert!(groups_dirty(), "the apply cleared a regroup still owed");
         }
 
         fn processed() -> Vec<String> {
@@ -2500,7 +2551,7 @@ mod tests {
                 None,
                 &["a1".to_string()],
                 &SectionDetectionProgress::new(),
-                false,
+                Some(false),
                 engine_groups_epoch(),
             );
 
@@ -2525,7 +2576,7 @@ mod tests {
                 None,
                 &["a1".to_string()],
                 &SectionDetectionProgress::new(),
-                false,
+                Some(false),
                 engine_groups_epoch(),
             );
 

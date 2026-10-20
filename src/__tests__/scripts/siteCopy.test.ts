@@ -16,8 +16,10 @@ import {
   SITE_HOOK_LOCALES,
   listingSections,
   syncSiteFeatures,
+  syncSiteGallery,
   syncSiteHook,
 } from '../../../scripts/site-copy';
+import { CAPTIONS, SHOT_STEMS, webShots } from '../../../scripts/store-screenshots';
 
 const PAGE = `<p data-i18n="hero.subtitle">
   <!-- store-copy:hook -->Old English line.<!-- /store-copy:hook -->
@@ -253,5 +255,73 @@ describe('docs/index.html', () => {
         shown: listed,
       });
     }
+  });
+});
+
+const GALLERY_PAGE = `<script>
+  const mediaItems = [
+    // store-copy:gallery
+    { type: "image", src: "screenshots/09-kite-loop.png", caption: "Kite Loops" },
+    // /store-copy:gallery
+  ];
+</script>`;
+
+/** The gallery the page's script would build, read back from its mediaItems array. */
+function galleryItems(html: string): { type: string; src: string; caption: string }[] {
+  const start = html.indexOf('const mediaItems = ') + 'const mediaItems = '.length;
+  const array = html.slice(start, html.indexOf('];', start) + 1);
+  return new Function(`return ${array}`)() as { type: string; src: string; caption: string }[];
+}
+
+describe('syncSiteGallery', () => {
+  const shots = [
+    { file: '01-launch.png', caption: 'Launch from "any" beach' },
+    { file: '02-wind.png', caption: 'Gusts and lulls' },
+  ];
+
+  it('lists exactly the given shots, in order, in place of what the page had', () => {
+    expect(galleryItems(syncSiteGallery(GALLERY_PAGE, shots))).toEqual([
+      { type: 'image', src: 'screenshots/01-launch.png', caption: 'Launch from "any" beach' },
+      { type: 'image', src: 'screenshots/02-wind.png', caption: 'Gusts and lulls' },
+    ]);
+  });
+
+  it('is unchanged by a second run', () => {
+    const once = syncSiteGallery(GALLERY_PAGE, shots);
+    expect(syncSiteGallery(once, shots)).toBe(once);
+  });
+
+  it('refuses a page without the markers', () => {
+    expect(() => syncSiteGallery('<script>const mediaItems = [];</script>', shots)).toThrow(
+      /store-copy:gallery/
+    );
+  });
+});
+
+describe('the website gallery', () => {
+  const root = path.resolve(__dirname, '../../..');
+  const html = fs.readFileSync(path.join(root, 'docs', 'index.html'), 'utf8');
+
+  it('shows one shot per store shot, each a file the web build writes from the capture', () => {
+    const shots = webShots();
+    expect(shots.map((s) => s.file)).toEqual(SHOT_STEMS.map((stem) => `${stem}.png`));
+    expect(galleryItems(html).map((item) => item.src)).toEqual(
+      shots.map((s) => `screenshots/${s.file}`)
+    );
+  });
+
+  it('carries no screenshot the web build does not write', () => {
+    const files = fs.readdirSync(path.join(root, 'docs', 'screenshots')).sort();
+    expect(files).toEqual(
+      webShots()
+        .map((s) => s.file)
+        .sort()
+    );
+  });
+
+  it('captions each shot with the store caption of the locale the site copy reads', () => {
+    expect(galleryItems(html).map((item) => item.caption)).toEqual(
+      CAPTIONS[SITE_HOOK_LOCALES.en].shots.map((shot) => shot.cap.replace(/\n/g, ' '))
+    );
   });
 });

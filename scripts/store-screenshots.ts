@@ -36,7 +36,7 @@ import * as path from 'node:path';
 
 import { storePalettes, type StorePalette } from '@/shared/theme/storeTheme';
 
-import { syncSiteCopy } from './site-copy';
+import { syncSiteCopy, syncSiteGallery, type SiteShot } from './site-copy';
 import { captureLocales, type CaptureLocale } from './store-locales';
 import { dims, featureHtml, markPositions, phoneHtml, type Caption } from './store-templates';
 import { readImageInfo } from './validate-store-metadata';
@@ -72,7 +72,14 @@ const RAW_SIZES: Partial<Record<Target, { width: number; height: number }>> = {
 // scripts/site-copy.ts reads the site's English text from.
 const WEB_LOCALE = 'en-AU';
 
-const SHOT_STEMS = ['01-feed', '02-activity', '03-fitness', '04-map', '05-routes', '06-insights'];
+export const SHOT_STEMS = [
+  '01-feed',
+  '02-activity',
+  '03-fitness',
+  '04-map',
+  '05-routes',
+  '06-insights',
+];
 const IPAD_SHOTS = 3;
 
 // Captions keyed by Play locale, pre-broken with \n (CSS white-space:
@@ -477,29 +484,37 @@ function buildLocale(locale: string, palette: StorePalette, targets: Target[]): 
 // Website
 // ---------------------------------------------------------------------------
 
-// docs/screenshots names that map onto store shots. 03-activity-3d, 04-charts
-// and 08-performance have no store equivalent and keep their existing files.
-const WEB_MAP: Record<string, string> = {
-  '01-feed': '01-feed',
-  '02-activity': '02-activity-map',
-  '03-fitness': '05-fitness',
-  '04-map': '06-regional-map',
-  '05-routes': '07-routes',
-};
+// The website shows every store shot from the same capture, under the shot's
+// own name and its one-line caption, so the page names no file the capture
+// does not write.
+export function webShots(): SiteShot[] {
+  const strings = CAPTIONS[WEB_LOCALE];
+  if (!strings) throw new Error(`No captions for locale ${WEB_LOCALE}`);
+  return SHOT_STEMS.map((stem, i) => {
+    const caption = strings.shots[i];
+    if (!caption) throw new Error(`${WEB_LOCALE} has no caption for shot ${i + 1}`);
+    return { file: `${stem}.png`, caption: caption.cap.replace(/\n/g, ' ') };
+  });
+}
 
 function buildWeb(): void {
   const raws = rawCaptures('web', rawRoot(), WEB_LOCALE, SHOT_STEMS.length);
+  const shots = webShots();
+  const dir = path.join(ROOT, 'docs', 'screenshots');
   console.log('web');
-  for (const raw of raws) {
-    const stem = path.basename(raw, '.png');
-    const dest = WEB_MAP[stem];
-    if (!dest) continue;
-    const out = path.join(ROOT, 'docs', 'screenshots', `${dest}.png`);
+  fs.rmSync(dir, { recursive: true, force: true });
+  fs.mkdirSync(dir, { recursive: true });
+  raws.forEach((raw, i) => {
+    const shot = shots[i];
+    if (!shot) return;
+    const out = path.join(dir, shot.file);
     execFileSync(MAGICK, [raw, '-resize', `${SIZES.web.width}x${SIZES.web.height}`, '-strip', out]);
-    console.log(`  docs/screenshots/${dest}.png`);
-  }
+    console.log(`  docs/screenshots/${shot.file}`);
+  });
+  const htmlPath = path.join(ROOT, 'docs', 'index.html');
+  fs.writeFileSync(htmlPath, syncSiteGallery(fs.readFileSync(htmlPath, 'utf8'), shots));
   syncSiteCopy(ROOT);
-  console.log('  docs/index.html hero synced');
+  console.log('  docs/index.html gallery and hero synced');
 }
 
 // ---------------------------------------------------------------------------

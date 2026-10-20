@@ -8,6 +8,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 const MARKER = /(<!-- store-copy:hook -->)([\s\S]*?)(<!-- \/store-copy:hook -->)/;
+const GALLERY_MARKER = /(\/\/ store-copy:gallery)([\s\S]*?)(\n([ \t]*)\/\/ \/store-copy:gallery)/;
 const GRID_MARKER =
   /(<!-- store-copy:features -->)([\s\S]*?)(\n[ \t]*<!-- \/store-copy:features -->)/;
 
@@ -166,6 +167,33 @@ export function syncSiteHook(html: string, hooks: Record<string, string>): strin
     out = out.slice(0, start) + entry + out.slice(end);
   }
   return out;
+}
+
+/** A website screenshot: its file under docs/screenshots and the caption shown under it. */
+export interface SiteShot {
+  file: string;
+  caption: string;
+}
+
+/** The page with its screenshot gallery replaced by `shots`, in order. */
+export function syncSiteGallery(html: string, shots: SiteShot[]): string {
+  if (!GALLERY_MARKER.test(html))
+    throw new Error('docs/index.html has no store-copy:gallery markers');
+  return html.replace(
+    GALLERY_MARKER,
+    (_m, open: string, _old: string, close: string, indent: string) => {
+      const items = shots.map(({ file, caption }) =>
+        [
+          `\n${indent}{`,
+          `\n${indent}  type: "image",`,
+          `\n${indent}  src: ${JSON.stringify(`screenshots/${file}`)},`,
+          `\n${indent}  caption: ${JSON.stringify(caption)},`,
+          `\n${indent}},`,
+        ].join('')
+      );
+      return `${open}${items.join('')}${close}`;
+    }
+  );
 }
 
 /**

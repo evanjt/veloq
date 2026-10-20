@@ -119,6 +119,12 @@ tags:
     visible:
       id: "routes-list"
     timeout: 15000
+# A listed library can still carry the regroup its load owed, and the shot
+# would carry its banner.
+- extendedWaitUntil:
+    notVisible:
+      id: "routes-sync-banner"
+    timeout: 60000
 - waitForAnimationToEnd:
     timeout: 3000
 - takeScreenshot: "screenshots/store-capture/05-routes"
@@ -135,6 +141,10 @@ tags:
     visible:
       id: "insights-panel"
     timeout: 15000
+- extendedWaitUntil:
+    notVisible:
+      id: "routes-sync-banner"
+    timeout: 60000
 - waitForAnimationToEnd:
     timeout: 3000
 - takeScreenshot: "screenshots/store-capture/06-insights"

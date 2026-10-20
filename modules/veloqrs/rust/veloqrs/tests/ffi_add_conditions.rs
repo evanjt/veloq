@@ -61,6 +61,73 @@ fn a_batch_added_through_the_ffi_conditions_itself() {
     }
 }
 
+/// Scenario: a fresh library is filled by one FFI batch, as demo entry fills
+/// it, and nothing else is stored or synced afterwards.
+/// Expected behaviour: once the run the batch started has landed its
+/// catalogue, the routes regroup it owed is answered within a few seconds, so
+/// no screen reads "Computing routes" over a library whose routes are listed.
+#[test]
+fn a_batch_added_through_the_ffi_leaves_no_regroup_owed() {
+    let _serial_state = super::serial_state();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("ffi_add_regroup.db");
+    assert!(persistent_engine_init(path.to_str().unwrap().to_string()));
+
+    let corpus = LifecycleCorpus::generate(&LifecycleConfig {
+        bucket_b_delta_count: 0,
+        bucket_d_delta_count: 3,
+        bucket_e_delta_count: 0,
+        parallel_street_count: 0,
+        ..LifecycleConfig::default()
+    });
+
+    let mut ids = Vec::new();
+    let mut coords = Vec::new();
+    let mut offsets = Vec::new();
+    let mut sports = Vec::new();
+    for activity in corpus.through_a() {
+        ids.push(activity.id.clone());
+        offsets.push((coords.len() / 2) as u32);
+        for p in &activity.gps_points {
+            coords.push(p.latitude);
+            coords.push(p.longitude);
+        }
+        sports.push(activity.sport_type.clone());
+    }
+
+    ActivityManager::new()
+        .add(ids, coords, offsets, sports)
+        .unwrap();
+
+    let deadline = Instant::now() + Duration::from_secs(120);
+    while with_persistent_engine(|engine| engine.get_sections().is_empty()).unwrap() {
+        assert!(
+            Instant::now() < deadline,
+            "the FFI add never produced a catalogue"
+        );
+        std::thread::sleep(Duration::from_millis(200));
+    }
+
+    let settle = Instant::now() + Duration::from_secs(20);
+    loop {
+        // The count is read only once the flag is clear: `get_groups` regroups
+        // in place over a set flag, which would answer the wait itself.
+        let groups = with_persistent_engine(|engine| {
+            (!engine.groups_are_dirty()).then(|| engine.get_groups().len())
+        })
+        .unwrap();
+        if let Some(groups) = groups {
+            assert!(groups > 0, "the regroup cleared the flag with no routes");
+            break;
+        }
+        assert!(
+            Instant::now() < settle,
+            "the routes regroup is still owed after the batch's run landed"
+        );
+        std::thread::sleep(Duration::from_millis(100));
+    }
+}
+
 #[test]
 fn a_ride_added_while_detection_is_held_still_gets_its_sections() {
     let _serial_state = super::serial_state();

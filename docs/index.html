@@ -1057,51 +1057,41 @@
     </footer>
 
     <script>
-      // Media configuration - add your screenshots and videos here
-      // Supported: images (.png, .jpg, .webp) and videos (.mp4, .webm)
-      // Screenshot numbering matches screenshots.yaml:
-      // 01-feed, 02-activity-map, 03-activity-3d, 04-charts, 05-fitness, 06-regional-map, 07-routes, 08-performance
+      // The gallery is written by npx tsx scripts/store-screenshots.ts --target web,
+      // one entry per store shot from the same capture.
       const mediaItems = [
+        // store-copy:gallery
         {
           type: "image",
           src: "screenshots/01-feed.png",
-          caption: "Activity Feed",
+          caption: "Your activity history",
         },
         {
           type: "image",
-          src: "screenshots/02-activity-map.png",
-          caption: "Activity Map",
+          src: "screenshots/02-activity.png",
+          caption: "Map and charts on one timeline",
         },
         {
           type: "image",
-          src: "screenshots/03-activity-3d.png",
-          caption: "3D Terrain View",
+          src: "screenshots/03-fitness.png",
+          caption: "Fitness, fatigue and form",
         },
         {
           type: "image",
-          src: "screenshots/04-charts.png",
-          caption: "Multi-Metric Charts",
+          src: "screenshots/04-map.png",
+          caption: "Where you've been riding",
         },
         {
           type: "image",
-          src: "screenshots/05-fitness.png",
-          caption: "Fitness Tracking",
+          src: "screenshots/05-routes.png",
+          caption: "Routes you ride again",
         },
         {
           type: "image",
-          src: "screenshots/06-regional-map.png",
-          caption: "Regional Map",
+          src: "screenshots/06-insights.png",
+          caption: "A daily read on your training",
         },
-        {
-          type: "image",
-          src: "screenshots/07-routes.png",
-          caption: "Route Detection",
-        },
-        {
-          type: "image",
-          src: "screenshots/08-performance.png",
-          caption: "Performance Curves",
-        },
+        // /store-copy:gallery
       ];
 
       let currentSlide = 0;
