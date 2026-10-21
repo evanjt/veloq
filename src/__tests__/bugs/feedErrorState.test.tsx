@@ -117,3 +117,9 @@ it('draws the shared empty state for a search that matches nothing', async () =>
     /^feed\.noActivitiesFor/
   );
 });
+
+it("stacks the search field under the title, clear of the app's own tab bar", async () => {
+  mockFeedRead.isError = false;
+  await renderFeed();
+  expect(screen.getByTestId('native-header-search').props.accessibilityHint).toBe('stacked');
+});

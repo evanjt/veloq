@@ -91,7 +91,6 @@ export function MapDetailSkeleton({
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const sheetWindow = useSheetWindow();
-  const { width } = sheetWindow;
   const headerBottom = useHeroHeaderBottom();
   const palette = isDark ? darkColors : colors;
   const land = colourTokens[isDark ? 'dark' : 'light']['map-land'];
@@ -100,7 +99,7 @@ export function MapDetailSkeleton({
     if (!previewUri) onPreviewSettled?.();
   }, [previewUri, onPreviewSettled]);
 
-  const panelWidth = mapSheetPanelWidth({ width });
+  const panelWidth = mapSheetPanelWidth(sheetWindow);
   const peekHeight = mapSheetCoveredHeight(
     Platform.OS,
     Platform.Version,

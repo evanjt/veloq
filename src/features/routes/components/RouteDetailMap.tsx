@@ -58,7 +58,7 @@ export function RouteDetailMap({ routeId, pageActivityId }: RouteDetailMapProps)
   const headerBottom = useHeroHeaderBottom();
   const coveredBottom = mapSheetCoveredHeight(Platform.OS, Platform.Version, sheetWindow, stop);
   const fitPadding = useMemo(() => {
-    const sides = mapSheetCoveredSides({ width }, I18nManager.isRTL);
+    const sides = mapSheetCoveredSides({ width, height }, I18nManager.isRTL);
     return visibleMapInset({
       width,
       height,

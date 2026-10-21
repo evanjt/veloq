@@ -58,7 +58,7 @@ export function mapSheetCoveredCorner(coveredHeight: number): number {
  * right in a right-to-left one, and a compact window has no panel and covers neither.
  */
 export function mapSheetCoveredSides(
-  window: Pick<SheetWindow, 'width'>,
+  window: Pick<SheetWindow, 'width' | 'height'>,
   isRTL: boolean
 ): { left: number; right: number } {
   const covered = mapSheetPanelWidth(window) ?? 0;

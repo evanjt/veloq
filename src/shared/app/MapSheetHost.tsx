@@ -208,8 +208,8 @@ export function createMapSheetHostLayout(kind: MapSheetKind) {
 
 /** The side panel's width on this window, or null where the data is a sheet. */
 export function useMapSheetPanelWidth(): number | null {
-  const { width } = useWindowDimensions();
-  return mapSheetPanelWidth({ width });
+  const { width, height } = useWindowDimensions();
+  return mapSheetPanelWidth({ width, height });
 }
 
 /**
@@ -268,7 +268,7 @@ export function MapSheetHostMap({
   useEffect(() => {
     if (sheetKey !== null) {
       sheetPending.current = false;
-      if (docked) navigation.dispatch(StackActions.popTo('index'));
+      if (docked) navigation.dispatch(StackActions.popTo('index', undefined, { merge: true }));
     } else if (!docked && !toolActive && !sheetPending.current) {
       sheetPending.current = true;
       navigation.dispatch(StackActions.push(MAP_SHEET_SCREEN, { ...sheetParams.current }));

@@ -36,6 +36,7 @@ jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: () => null }));
 
 const PHONE = { width: 390, height: 844 };
 const TABLET = { width: 1024, height: 1366 };
+const PHONE_ON_ITS_SIDE = { width: 956, height: 440 };
 const mockWindow = {
   size: PHONE,
   listeners: new Set<() => void>(),
@@ -60,10 +61,12 @@ jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
 }));
 
 const mounted = new Set<string>();
+const mountCount: Record<string, number> = {};
 
 function useMountedAs(name: string) {
   useEffect(() => {
     mounted.add(name);
+    mountCount[name] = (mountCount[name] ?? 0) + 1;
     return () => {
       mounted.delete(name);
     };
@@ -152,6 +155,7 @@ function presentedStop(): unknown {
 beforeEach(() => {
   mockWindow.size = PHONE;
   mounted.clear();
+  for (const name of Object.keys(mountCount)) delete mountCount[name];
   useMapSheetHosts.setState({ hosts: {} });
   useMapSheetStops.setState({ sheets: {}, presenters: {} });
 });
@@ -235,6 +239,20 @@ describe('a map sheet host', () => {
     expect(app.getByTestId('map-sheet-back-edge', { includeHiddenElements: true })).toBeTruthy();
   });
 
+  describe('on a phone turned on its side', () => {
+    it('keeps the sheet and mounts nothing again, since the window is wide but short', async () => {
+      await openOrchard();
+      expect(nestedRoutes()).toEqual(['index', 'sheet']);
+
+      await act(async () => mockWindow.resize(PHONE_ON_ITS_SIDE));
+
+      expect(nestedRoutes()).toEqual(['index', 'sheet']);
+      expect(app.queryByTestId('map-sheet-panel')).toBeNull();
+      expect(mountCount).toEqual({ map: 1, sheet: 1 });
+      expect(app.getByTestId('orchard-card')).toHaveTextContent('pear:quince');
+    });
+  });
+
   describe('on a tablet-width window', () => {
     beforeEach(() => {
       mockWindow.size = TABLET;
@@ -263,6 +281,17 @@ describe('a map sheet host', () => {
       await act(async () => mockWindow.resize(PHONE));
       expect(nestedRoutes()).toEqual(['index', 'sheet']);
       expect(app.queryByTestId('map-sheet-panel')).toBeNull();
+    });
+
+    it('keeps the params the screen was opened with as the window widens', async () => {
+      mockWindow.size = PHONE;
+      await openOrchard();
+      expect(app.getByTestId('orchard-card')).toHaveTextContent('pear:quince');
+
+      await act(async () => mockWindow.resize(TABLET));
+
+      expect(nestedRoutes()).toEqual(['index']);
+      expect(app.getByTestId('orchard-card')).toHaveTextContent('pear:quince');
     });
 
     it('leaves the host in one press of Android back', async () => {

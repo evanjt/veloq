@@ -336,7 +336,8 @@ describe('the map covered at tablet width', () => {
     expect(mapSheetCoveredSides(tablet, true)).toEqual({ left: 0, right: 400 });
   });
 
-  it('covers neither side on a phone', () => {
-    expect(mapSheetCoveredSides({ width: 430 }, false)).toEqual({ left: 0, right: 0 });
+  it('covers neither side on a phone, upright or on its side', () => {
+    expect(mapSheetCoveredSides({ width: 430, height: 932 }, false)).toEqual({ left: 0, right: 0 });
+    expect(mapSheetCoveredSides({ width: 956, height: 440 }, false)).toEqual({ left: 0, right: 0 });
   });
 });

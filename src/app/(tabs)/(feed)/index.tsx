@@ -514,6 +514,8 @@ function FeedScreenContent() {
     () => ({
       headerSearchBarOptions: {
         ref: searchBarRef,
+        // iOS 26 puts the default in the bottom toolbar, under the app's own tab bar.
+        placement: 'stacked' as const,
         placeholder: t('feed.searchPlaceholder'),
         autoCapitalize: 'none' as const,
         onChangeText: (event: { nativeEvent: { text: string } }) =>

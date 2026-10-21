@@ -25,6 +25,7 @@ interface StandInOptions {
 interface SearchOptions {
   ref?: React.RefObject<SearchBarCommands | null>;
   placeholder?: string;
+  placement?: string;
   onChangeText?: (event: { nativeEvent: { text: string } }) => void;
 }
 
@@ -46,6 +47,7 @@ function SearchField({ search }: { search: SearchOptions }) {
     <TextInput
       testID="native-header-search"
       placeholder={search.placeholder}
+      accessibilityHint={search.placement}
       value={text}
       onChangeText={(next) => {
         setText(next);

@@ -218,6 +218,12 @@ function mapSheetFractions(
  * sheet is a centred card with no detents, so the data docks beside the map instead.
  */
 const MAP_SHEET_PANEL_MIN_WINDOW = 600;
+/**
+ * The shortest window that takes it: Material's compact height class ends at 480 dp. A phone on
+ * its side is wide enough and 440 pt or less tall, so it keeps its sheet, and turning it does
+ * not mount the open screen again, which the full-screen chart's landscape lock would do.
+ */
+const MAP_SHEET_PANEL_MIN_HEIGHT = 480;
 /** The side panel's width bounds, and the share of the window it takes between them. */
 const MAP_SHEET_PANEL_MIN = 360;
 const MAP_SHEET_PANEL_MAX = 400;
@@ -225,10 +231,13 @@ const MAP_SHEET_PANEL_SHARE = 0.4;
 
 /**
  * The width of the side panel a map screen's data docks in at the window's leading edge, or null
- * on a compact window, where the data is the three-stop sheet.
+ * on a compact window, where the data is the three-stop sheet. A window is compact when it is
+ * narrow or short.
  */
-export function mapSheetPanelWidth(window: Pick<SheetWindow, 'width'>): number | null {
-  if (window.width < MAP_SHEET_PANEL_MIN_WINDOW) return null;
+export function mapSheetPanelWidth(window: Pick<SheetWindow, 'width' | 'height'>): number | null {
+  if (window.width < MAP_SHEET_PANEL_MIN_WINDOW || window.height < MAP_SHEET_PANEL_MIN_HEIGHT) {
+    return null;
+  }
   return Math.round(
     Math.min(
       Math.max(window.width * MAP_SHEET_PANEL_SHARE, MAP_SHEET_PANEL_MIN),
