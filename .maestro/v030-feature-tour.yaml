@@ -23,15 +23,31 @@ tags:
     timeout: 15000
 - takeScreenshot: "screenshots/tour-01-feed-top"
 
-# Sport filter chips sit in the header above the initial offset.
+# The filter chips head the list and the feed re-hides them once a pull-to-refresh
+# ends, which is at once in demo mode, so a pull cannot hold them for an assertion.
+# They stay on screen while a query is typed in the header's search field.
 - runFlow:
-    file: helpers/reveal.yaml
-    env:
-      ELEMENT: "home-filter-ride"
-      LIST: "home-activity-list"
-      DIRECTION: "UP"
+    when:
+      platform: Android
+    commands:
+      - tapOn: "Search"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      # The placeholder ends in an ellipsis character, not three full stops.
+      - tapOn: "Search activities…"
+- inputText: "Ride"
+- extendedWaitUntil:
+    visible:
+      id: "home-filter-ride"
+    timeout: 10000
 - assertVisible:
     id: "home-filter-run"
+- takeScreenshot: "screenshots/tour-01-feed-filters"
+- eraseText: 4
+- runFlow:
+    file: helpers/dismiss-keyboard.yaml
 
 # Scroll feed to see multiple cards
 - swipe:
@@ -100,13 +116,10 @@ tags:
     optional: true
 - takeScreenshot: "screenshots/tour-08-section-detail-all"
 
-# Back to activity via deep-link (Maestro's `back` is unreliable on iOS)
-- openLink: "veloq://activity/demo-test-0"
+# The section is a card over the activity's own sheet, so a link to the activity that
+# is already open leaves the card where it is. Pop the card instead.
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/go-back.yaml
 - extendedWaitUntil:
     visible:
       id: "activity-detail-screen"

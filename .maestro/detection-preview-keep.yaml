@@ -13,6 +13,11 @@ tags:
 
 # A whole number reads the same in either unit system. Pick one that differs
 # from the saved value, so a second run of this flow still moves it.
+- runFlow:
+    file: helpers/scroll-preview-param-row.yaml
+    env:
+      KEY: minActivities
+      NEXT: divergenceThreshold
 - tapOn:
     id: "param-edit-minActivities"
 - extendedWaitUntil:
@@ -42,6 +47,11 @@ tags:
     timeout: 300000
 - assertVisible:
     id: "preview-diff-strip"
+- runFlow:
+    file: helpers/scroll-preview-param-row.yaml
+    env:
+      KEY: minActivities
+      NEXT: divergenceThreshold
 - copyTextFrom:
     id: "param-edit-minActivities"
 - evalScript: ${output.keptCaption = maestro.copiedText}
@@ -99,6 +109,11 @@ tags:
     visible:
       id: "detection-preview-screen"
     timeout: 30000
+- runFlow:
+    file: helpers/scroll-preview-param-row.yaml
+    env:
+      KEY: minActivities
+      NEXT: divergenceThreshold
 - copyTextFrom:
     id: "param-edit-minActivities"
 - assertTrue:

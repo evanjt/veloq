@@ -19,13 +19,13 @@ tags:
 
 # The release notes row sits in the footer, below the fold. Demo mode never offers
 # the What's New card, so this row is the way in.
-- scrollUntilVisible:
-    element:
-      id: "settings-release-notes"
-    direction: DOWN
-    timeout: 30000
-    speed: 40
-    visibilityPercentage: 50
+# The helper lifts the row clear of the tab bar, which the row scrolls under at
+# the foot of the list, so the tap lands on it and not on a tab.
+- runFlow:
+    file: helpers/reveal.yaml
+    env:
+      ELEMENT: "settings-release-notes"
+      LIST: "settings-scrollview"
 
 - tapOn:
     id: "settings-release-notes"
