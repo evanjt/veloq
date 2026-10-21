@@ -4,8 +4,7 @@
  * Expected behaviour: three outcomes and no fourth. Waiting spins, a terminal
  * failure shows the same "nothing to draw" mark a card with no GPS gets, and
  * neither of them draws a route line. The Skia line was a second rendering
- * path kept alive for a case the failover ladder now makes rare, and it was
- * decided on 2026-09-07 that it goes.
+ * path for a case the failover ladder now makes rare, so it was removed.
  *
  * A slow render is waiting, not failing: the card stays on the spinner until
  * the pipeline says it gave up.

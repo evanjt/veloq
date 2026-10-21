@@ -9,8 +9,8 @@ import * as path from 'path';
 
 const REPO = path.resolve(__dirname, '../../..');
 
-const HANDSET_A = '192.0.2.18:5555';
-const HANDSET_B = '192.0.2.3:5555';
+const TEST_HANDSET = '203.0.113.11:5555';
+const OTHER_HANDSET = '203.0.113.12:5555';
 const EMULATOR = 'emulator-5554';
 
 type Run = { status: number | null; stdout: string; stderr: string; dir: string };
@@ -126,13 +126,13 @@ const lines = (dir: string, file: string): string[] => {
  */
 describe('upgrade-test.sh', () => {
   function upgrade(appId: string) {
-    const dir = fakes([HANDSET_B, HANDSET_A]);
+    const dir = fakes([OTHER_HANDSET, TEST_HANDSET]);
     const sdk = path.join(dir, 'sdk/platform-tools');
     fs.mkdirSync(sdk, { recursive: true });
     fs.copyFileSync(path.join(dir, 'bin/adb'), path.join(sdk, 'adb'));
     fs.chmodSync(path.join(sdk, 'adb'), 0o755);
     return run(dir, 'scripts/upgrade-test.sh', [], {
-      ANDROID_SERIAL: HANDSET_A,
+      ANDROID_SERIAL: TEST_HANDSET,
       ANDROID_HOME: path.join(dir, 'sdk'),
       APP_ID: appId,
       FROM_APK: path.join(dir, 'old.apk'),
@@ -157,8 +157,8 @@ describe('upgrade-test.sh', () => {
     const calls = lines(result.dir, 'maestro.log');
     expect(calls).toHaveLength(2);
     for (const call of calls) {
-      expect(call).toContain(`--device ${HANDSET_A}`);
-      expect(call).not.toContain(HANDSET_B);
+      expect(call).toContain(`--device ${TEST_HANDSET}`);
+      expect(call).not.toContain(OTHER_HANDSET);
     }
   });
 });
@@ -168,12 +168,12 @@ describe('upgrade-test.sh', () => {
  * the jank rig is run with `DEVICE` unset, or set to another phone.
  *
  * Expected behaviour: the rig drives the handset the lock was taken on. It used
- * to drive `DEVICE`, which defaulted to the test handset, so it installed, relaunched and
+ * to drive `DEVICE`, which defaulted to the TEST_HANDSET, so it installed, relaunched and
  * reset `gfxinfo` on a phone it held no lock for.
  */
 describe('measure-feed-jank.sh', () => {
   function jank(env: Record<string, string>) {
-    const dir = fakes([HANDSET_A, EMULATOR]);
+    const dir = fakes([TEST_HANDSET, EMULATOR]);
     const staging = path.join(dir, 'staging/assets');
     fs.mkdirSync(staging, { recursive: true });
     fs.copyFileSync(
@@ -223,12 +223,12 @@ describe('measure-feed-jank.sh', () => {
   });
 
   it('refuses when DEVICE and ANDROID_SERIAL name different handsets', () => {
-    const result = jank({ ANDROID_SERIAL: EMULATOR, DEVICE: HANDSET_A });
+    const result = jank({ ANDROID_SERIAL: EMULATOR, DEVICE: TEST_HANDSET });
 
     expect(result.status).not.toBe(0);
     expect(targets(result.dir)).toEqual([]);
     expect(result.stderr).toContain(EMULATOR);
-    expect(result.stderr).toContain(HANDSET_A);
+    expect(result.stderr).toContain(TEST_HANDSET);
   });
 });
 
@@ -246,10 +246,10 @@ describe('capture-hierarchy.sh', () => {
   const BROWSER_FOCUS = 'mCurrentFocus=Window{2 u0 com.android.chrome/org.chromium.Main}';
 
   function capture(installed: string, focus: string) {
-    const dir = fakes([HANDSET_B, HANDSET_A]);
+    const dir = fakes([OTHER_HANDSET, TEST_HANDSET]);
     fs.writeFileSync(path.join(dir, 'installed'), installed);
     fs.writeFileSync(path.join(dir, 'focus'), `${focus}\n`);
-    return run(dir, 'scripts/capture-hierarchy.sh', ['android'], { ANDROID_SERIAL: HANDSET_A });
+    return run(dir, 'scripts/capture-hierarchy.sh', ['android'], { ANDROID_SERIAL: TEST_HANDSET });
   }
 
   const written = (dir: string) => {
@@ -267,7 +267,7 @@ describe('capture-hierarchy.sh', () => {
     for (const start of starts) expect(start).toMatch(/ com\.veloq\.app\.dev$/);
     const dumps = lines(result.dir, 'maestro.log');
     expect(dumps.length).toBeGreaterThan(0);
-    for (const dump of dumps) expect(dump).toContain(`--device ${HANDSET_A}`);
+    for (const dump of dumps) expect(dump).toContain(`--device ${TEST_HANDSET}`);
   });
 
   it('writes nothing when another app has focus', () => {

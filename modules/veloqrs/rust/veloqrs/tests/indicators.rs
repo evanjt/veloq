@@ -711,7 +711,7 @@ fn passes_with_no_lap_time_on_any_activity_write_nothing() {
 // An empty pass over a populated junction is a failure, not a result
 // ============================================================================
 //
-// HANDSET_A, 2026-09-18: `indicator_version` 5, `activity_indicators` 0 rows,
+// Read off a test handset's library: `indicator_version` 5, `activity_indicators` 0 rows,
 // `sections` 50, `section_activities` 2478. No traversal had a time, so the
 // pass wrote nothing. It stamped anyway, and the stamp is what stopped the
 // next open trying again once the times arrived.

@@ -10,13 +10,13 @@ import { indexedSources, refuseEmptyListing } from './lib/indexedSources.mjs';
 // Three forms: a backticked id, an id opening a comment before a colon, and
 // an id opening a parenthesis before prose or a closing bracket.
 //
-// A bare id mid-sentence is left alone on purpose. HANDSET_A is the phone the
-// measurements were taken on, and the insights engine documents its own rules
-// as G1 to G4, R5 to R8 and D9 to D12, which collide with two audit keys by
-// coincidence. Matching those would push someone to rename a real vocabulary
-// to satisfy a lint, which is worse than the gap. The parenthesised form leaves
-// out the D, R and S keys for the same reason: a rule pair and the phone are
-// written that way too.
+// A bare id mid-sentence is left alone on purpose. A phone's model name reads
+// as a key and a number (an S7, say), and the insights engine documents its
+// own rules as G1 to G4, R5 to R8 and D9 to D12, which collide with two audit
+// keys by coincidence. Matching those would push someone to rename a real
+// vocabulary to satisfy a lint, which is worse than the gap. The parenthesised
+// form leaves out the D, R and S keys for the same reason: a rule pair and a
+// phone model are written that way too.
 const KEY = '(?:SB|B|F|X|U|D|C|R|S|Q|I)\\d+';
 const PAREN_KEY = '(?:SB|B|F|X|U|C|Q|I)\\d+';
 const AUDIT_ID = new RegExp('`' + KEY + '`');

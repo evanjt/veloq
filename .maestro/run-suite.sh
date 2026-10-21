@@ -21,8 +21,8 @@ MAESTRO="${MAESTRO_BIN:-$HOME/.maestro/bin/maestro}"
 
 # Which device every invocation runs on. Maestro picks one itself when it is
 # not told, and shards the suite across everything attached: an unpinned local
-# run on 2026-09-09 put two flows on a phone that was not the target, logged as
-# `[shard 1] Selected device 192.0.2.3:5555`. CI attaches one device, so the
+# run can put flows on a phone that is not the target, logged as
+# `[shard 1] Selected device <serial>`. CI attaches one device, so the
 # gate never sees this and the cost lands on whoever runs the suite by hand.
 # `--device` is a global flag, so it goes ahead of `test`.
 #

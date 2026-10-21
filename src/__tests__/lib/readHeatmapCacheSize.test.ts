@@ -1,7 +1,7 @@
 /**
  * Scenario: the heatmap cache size was read with a blocking native walk from
  * three settings mount effects. At 40,061 cached tiles that walk measured
- * 170 ms on the other handset, against the 100 ms a mount has for the whole screen.
+ * 170 ms on a second test handset, against the 100 ms a mount has for the whole screen.
  *
  * Expected behaviour: the walk runs on a Rust thread and this follows it, and
  * the engine's one take of the figure reaches every caller that asked while

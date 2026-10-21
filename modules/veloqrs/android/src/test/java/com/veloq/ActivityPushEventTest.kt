@@ -26,7 +26,7 @@ class ActivityPushEventTest {
   fun an_activity_event_wrapped_under_body_names_its_activity() {
     val data = mapOf(
       "body" to """{"event_type":"ACTIVITY_UPLOADED","athlete_id":"i1","activity_id":"i123"}""",
-      "experienceId" to "@evan/veloq"
+      "experienceId" to "@example/veloq"
     )
     assertEquals("i123", ActivityPushEvent.activityOf(data)?.activityId)
   }

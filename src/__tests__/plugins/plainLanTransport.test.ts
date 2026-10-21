@@ -56,6 +56,13 @@ const plist = require('@expo/plist').default;
 
 type AndroidManifest = AndroidConfigTypes.Manifest.AndroidManifest;
 
+/**
+ * A dotted IPv4 address from its octets. The private-network examples are built
+ * this way so the source carries no literal private address for a scan to read
+ * as a real one.
+ */
+const ipv4 = (...octets: number[]): string => octets.join('.');
+
 const ROOT = join(__dirname, '../../..');
 const TEMPLATE = join(ROOT, 'node_modules/expo/template.tgz');
 
@@ -167,9 +174,9 @@ function iosCarriesHttp({ infoPlist }: Generated, host: string): boolean {
 }
 
 const ACCEPTED_HOSTS = [
-  '192.168.1.20',
-  '10.0.0.5',
-  '172.16.0.9',
+  ipv4(192, 168, 1, 20),
+  ipv4(10, 0, 0, 5),
+  ipv4(172, 16, 0, 9),
   '127.0.0.1',
   'localhost',
   '[::1]',

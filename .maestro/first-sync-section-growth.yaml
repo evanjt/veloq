@@ -8,8 +8,8 @@
 # flow signs in to a real library of more than 100 GPS activities on a fresh
 # install, which is why it carries no tier tag and no suite picks it up.
 #
-# Run it on the test handset or an emulator through the wrapper, never on the owner's
-# own handset, passing the key on the command line so none is stored here:
+# Run it on a test handset or an emulator through the wrapper, never on a
+# phone someone uses day to day, passing the key on the command line so none is stored here:
 #
 #   scripts/with-maestro.sh test .maestro/first-sync-section-growth.yaml -e API_KEY=<key>
 #

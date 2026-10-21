@@ -91,7 +91,7 @@ if (process.argv.includes('--print-args')) {
   // A spawn that never starts answers a null status with the reason in
   // `error`, and `stdio: 'inherit'` prints nothing because there was no child
   // to inherit anything. Left unreported it is a bare exit 1 in front of a
-  // thirteen-minute wait for the Android lock, which is what SB23 cost twice.
+  // thirteen-minute wait for the Android lock.
   if (run.error) {
     console.error(`bundle-android: could not run npx: ${run.error.message}`);
     process.exit(1);

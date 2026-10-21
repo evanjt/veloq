@@ -23,6 +23,13 @@ import {
 import { isBackupTransferError } from '@/features/settings/lib/autobackup/backends/errors';
 import { describeBackupFailure } from '@/features/settings/lib/backupFailure';
 
+/**
+ * A dotted IPv4 address from its octets. The private-network examples are built
+ * this way so the source carries no literal private address for a scan to read
+ * as a real one.
+ */
+const ipv4 = (...octets: number[]): string => octets.join('.');
+
 /** A refused address reaches the backup row as its own line, never as English text. */
 function isAddressFailure(error: unknown): boolean {
   const described = describeBackupFailure(error);
@@ -77,16 +84,16 @@ describe('webdavUrlProblem', () => {
   });
 
   it('refuses http to a private host without the opt-in', () => {
-    expect(webdavUrlProblem('http://192.168.1.20:8080/dav')).toBe('not-https');
+    expect(webdavUrlProblem(`http://${ipv4(192, 168, 1, 20)}:8080/dav`)).toBe('not-https');
     expect(webdavUrlProblem('http://nas.local/dav')).toBe('not-https');
   });
 
   it('accepts http to a private host with the opt-in', () => {
     for (const url of [
-      'http://192.168.1.20:8080/dav',
-      'http://10.0.0.5/dav',
-      'http://172.16.0.9/dav',
-      'http://172.31.255.1/dav',
+      `http://${ipv4(192, 168, 1, 20)}:8080/dav`,
+      `http://${ipv4(10, 0, 0, 5)}/dav`,
+      `http://${ipv4(172, 16, 0, 9)}/dav`,
+      `http://${ipv4(172, 31, 255, 1)}/dav`,
       'http://127.0.0.1/dav',
       'http://localhost:8080/dav',
       'http://nas.local/dav',

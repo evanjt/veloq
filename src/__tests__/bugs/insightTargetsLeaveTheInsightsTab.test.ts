@@ -1,8 +1,8 @@
 /**
- * Scenario: "the view in detail buttons don't seem to link
- * anywhere." The three period-comparison cards targeted `/insights?tab=routes`,
- * and the sheet is opened from the Insights tab, so tapping the button closed
- * the sheet and landed on the tab the athlete was already on.
+ * Scenario: the view-in-detail buttons on the three period-comparison cards
+ * led nowhere. They targeted `/insights?tab=routes`, and the sheet is opened
+ * from the Insights tab, so tapping one closed the sheet and landed on the
+ * tab the athlete was already on.
  *
  * Expected behaviour: a card opens the thing it is a picture of. A period
  * comparison is a picture of a fitness window, so it opens that window, and no

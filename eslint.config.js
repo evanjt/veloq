@@ -282,7 +282,7 @@ module.exports = [
     // A wrong `!` is worth catching where it is a crash on a device with no
     // stack anyone sees. In a test it is a TypeError that fails loudly in CI
     // with the line number, so the rule buys nothing the runner does not
-    // already give. Q212, 2026-09-07: all 337 remaining sites were test files,
+    // already give. When this was set, all 337 remaining sites were test files,
     // and none has ever hidden a defect here.
     files: ['**/*.test.{js,jsx,ts,tsx}', 'src/__tests__/**'],
     rules: { '@typescript-eslint/no-non-null-assertion': 'off' },

@@ -13,7 +13,7 @@
 
 set -euo pipefail
 
-# One measurement at a time against one handset: `tracker start` locks the item
+# One measurement at a time against one handset: claiming a task locks the task
 # and not the phone, and a second session resetting or relaunching the app
 # mid-run lands in this run's numbers. Re-exec through the lock unless
 # it is already held, so running this by hand takes it too.

@@ -4,12 +4,11 @@
 #
 # Maestro enumerates every transport rather than the one it was asked for, so a
 # single entry stuck at `offline` makes it refuse the healthy handset by name:
-# with the other handset offline and the test handset connected, `maestro --device
-# 192.0.2.18:5555 test ...` answered "Device 192.0.2.18:5555 was
-# requested, but it is not connected", which reads as the test handset having dropped.
-# `--udid`, `-p android` and `ANDROID_SERIAL` all behaved the same way, and
-# `adb -s 192.0.2.18:5555 shell` worked throughout. Measured 2026-09-19 on
-# Maestro 2.1.0.
+# with one handset offline and another connected, `maestro --device <serial>
+# test ...` answers "Device <serial> was requested, but it is not connected",
+# which reads as the connected handset having dropped. `--udid`, `-p android`
+# and `ANDROID_SERIAL` all behave the same way, and `adb -s <serial> shell`
+# works throughout. Seen on Maestro 2.1.0.
 #
 # So the preflight says what the run actually met. Clearing it is `adb
 # disconnect <serial>`, which did not always take here: a transport that will

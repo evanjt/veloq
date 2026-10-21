@@ -22,7 +22,7 @@ use veloqrs::PersistentEngine;
 
 /// Wide enough that the catalogue has real section and junction rows to delete
 /// rather than a handful. `scale` multiplies both buckets, so the same corpus
-/// shape is measured at a small library and at one the size of a real one.
+/// shape is measured at a small library and at one kept for years.
 fn build_engine(scale: usize) -> (PersistentEngine, TempDir) {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("wipe.db");
@@ -69,7 +69,7 @@ fn report(label: &str, sections: usize, activities: usize, elapsed_ms: f64) {
 }
 
 #[test]
-#[ignore] // ~1 min per wipe; baseline for B482
+#[ignore] // ~1 min per wipe; the baseline a wipe change is measured against
 fn wipe_cost_baseline() {
     for scale in [1, 5] {
         println!("--- scale {scale} ---");

@@ -1,6 +1,6 @@
 //! Scenario: intervals.icu's fitness endpoint carries each activity's distance,
-//! and the import writes it onto the `activities` row with one UPDATE. On the
-//! HANDSET_A's library, 2026-09-18, `distance_meters` was NULL on all 316 rows while
+//! and the import writes it onto the `activities` row with one UPDATE. On a
+//! test handset's library, `distance_meters` was NULL on all 316 rows while
 //! `activity_metrics.distance` held the figure for the same ids: the metrics
 //! land before the activity rows do, the UPDATE matches nothing, and its result
 //! is discarded, so nothing says it happened. `duration_secs` was set on all

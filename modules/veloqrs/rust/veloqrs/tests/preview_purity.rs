@@ -411,6 +411,6 @@ fn the_check_names_a_write_the_athlete_would_see_and_excuses_the_previews_own() 
     assert_eq!(
         changed_tables(&after_saved, &table_rows(&path, PREVIEW_BOOKKEEPING)),
         Vec::<String>::new(),
-        "the preview's own bookkeeping is what Q236 allows, so it must not be named"
+        "the preview's own bookkeeping is allowed to change, so it must not be named"
     );
 }

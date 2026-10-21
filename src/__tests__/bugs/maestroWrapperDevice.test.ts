@@ -196,7 +196,7 @@ describe('the Maestro wrapper refuses a selector other than the locked serial', 
 /**
  * Scenario: two handsets are attached and the run is pinned to one of them, but
  * Maestro resolves `--device` the way it resolves `ANDROID_SERIAL`, by
- * enumerating every transport, and reports `Running on` the other handset.
+ * enumerating every transport, and reports `Running on` the other one.
  *
  * Expected behaviour: the wrapper reads the device Maestro says it is running
  * on, and when that is another attached handset it stops the run before the

@@ -1318,7 +1318,7 @@ fn detection_is_refused_while_a_cutover_is_owed() {
     assert!(veloqrs::ffi::is_cutover_pending());
 }
 
-/// The conditioning arm is the one SB12's failing case runs down: a sync adds
+/// The conditioning arm is the one a cutover left owed runs down: a sync adds
 /// activities, the backfill defers, and nothing else holds a detect back.
 #[test]
 fn conditioning_will_not_start_while_a_cutover_is_owed() {

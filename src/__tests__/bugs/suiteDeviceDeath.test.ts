@@ -281,10 +281,10 @@ describe('a device that dies inside the retry pass', () => {
  * itself and shards the flows across everything it can see.
  *
  * Expected behaviour: naming a device pins every invocation to it, the suite
- * pass and each retry alike. On 2026-09-09 an unpinned local run put
+ * pass and each retry alike. An unpinned local run can put flows such as
  * `section-history` and `settings-support-iap` on a phone that was not the
  * intended target, which the suite's own log records as
- * `[shard 1] Selected device 192.0.2.3:5555`. CI attaches one device so it
+ * `[shard 1] Selected device <serial>`. CI attaches one device so it
  * never saw this, and the gate is not where the cost lands.
  */
 describe('a suite told which device to use', () => {

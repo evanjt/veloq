@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // A worktree placed outside the main checkout's parent sees no `.cargo/config.toml`.
 //
-// Cargo resolves config from the working directory's **ancestors**, so the file
-// at `../.cargo/config.toml` reaches a checkout only
-// if that checkout sits under that directory. It carries `[build] jobs = 8`,
+// Cargo resolves config from the working directory's **ancestors**, so a
+// `.cargo/config.toml` in the directory that holds the main checkout reaches a
+// checkout only if that checkout sits under that directory. It carries `[build] jobs = 8`,
 // set after two builds at cargo's default of 32 jobs reached 15.5 GB, and
 // `[env] TRACEMATCH_CORPUS`, which the local bitwise gates read.
 //

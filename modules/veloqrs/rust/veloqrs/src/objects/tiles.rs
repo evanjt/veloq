@@ -175,7 +175,7 @@ impl HeatmapManager {
 ///
 /// The walk reads directory metadata and nothing else, so it takes no engine
 /// lock and no connection. What it does take is time: 40,061 tiles measured
-/// 170 ms on the other handset, against 100 ms for the whole mount that asks.
+/// 170 ms on a second test handset, against 100 ms for the whole mount that asks.
 #[derive(uniffi::Object)]
 pub struct CacheSizeRun {
     pub(crate) _private: (),
@@ -274,7 +274,7 @@ mod tests {
 
     /// Scenario: three settings mount effects each called a blocking walk,
     /// which walks the whole z/x/y tree synchronously. At 40,061 tiles that
-    /// was measured at 170 ms on the other handset, against a 100 ms mount budget.
+    /// was measured at 170 ms on a second test handset, against a 100 ms mount budget.
     ///
     /// Expected behaviour: the mount starts the walk and follows it, and the
     /// figure it takes is the same figure the blocking walk gives, once.

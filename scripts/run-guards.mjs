@@ -872,7 +872,7 @@ const GUARDS = [
     name: 'lint:audit-ids',
     kind: 'style',
     cmd: node('lint-audit-ids.mjs'),
-    catches: 'a tracker id in a comment, which rots',
+    catches: 'a task tracker id in a comment, which rots',
   },
   {
     name: 'lint:exhaustive-deps-disables',

@@ -29,7 +29,7 @@ import { detectionMsFromRing } from './lib/ffi-ring.mjs';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 
-// One measurement at a time against one handset. `tracker start` locks the item
+// One measurement at a time against one handset. Claiming a task locks the task
 // and not the device, so a second session clearing app data or relaunching
 // mid-run lands in this run's peak RSS. Re-exec through the lock
 // unless it is already held.

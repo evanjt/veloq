@@ -30,7 +30,7 @@ use veloqrs::{GpsPoint, PersistentEngine};
 /// collects and what `streams.latlng` carries into the add.
 const RIDE_POINTS: usize = 3 * 60 * 60;
 
-/// Library sizes to add the ride into. 480 is about the size of a real library.
+/// Library sizes to add the ride into. 480 is a few years of regular riding.
 const LIBRARY_SIZES: &[usize] = &[0, 120, 480, 1000];
 
 fn track(seed: usize, points: usize) -> Vec<GpsPoint> {

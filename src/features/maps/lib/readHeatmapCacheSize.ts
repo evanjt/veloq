@@ -2,7 +2,7 @@
  * Await a heatmap cache-size walk that runs on a Rust thread.
  *
  * The walk is linear in cached tiles and was measured at 170 ms for 40,061 of
- * them on the other handset, against the 100 ms a mount has for the whole screen.
+ * them on a second test handset, against the 100 ms a mount has for the whole screen.
  * Started synchronously it froze the settings screen for the duration, so
  * Rust walks on its own thread and this only follows the run.
  */

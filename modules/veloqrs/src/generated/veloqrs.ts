@@ -28422,7 +28422,7 @@ const FfiConverterTypeBasemapManager = new FfiConverterObject(
  *
  * The walk reads directory metadata and nothing else, so it takes no engine
  * lock and no connection. What it does take is time: 40,061 tiles measured
- * 170 ms on the other handset, against 100 ms for the whole mount that asks.
+ * 170 ms on a second test handset, against 100 ms for the whole mount that asks.
  */
 export interface CacheSizeRunLike {
   /**
@@ -28460,7 +28460,7 @@ export type CacheSizeRunInterface = CacheSizeRunLike;
  *
  * The walk reads directory metadata and nothing else, so it takes no engine
  * lock and no connection. What it does take is time: 40,061 tiles measured
- * 170 ms on the other handset, against 100 ms for the whole mount that asks.
+ * 170 ms on a second test handset, against 100 ms for the whole mount that asks.
  */
 export class CacheSizeRun
   extends UniffiAbstractObject
@@ -39479,7 +39479,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_get_cache_size() !==
-    7308
+    9277
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_basemapmanager_get_cache_size",
@@ -41439,7 +41439,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_take_external_writes() !==
-    31335
+    2619
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_veloqengine_take_external_writes",

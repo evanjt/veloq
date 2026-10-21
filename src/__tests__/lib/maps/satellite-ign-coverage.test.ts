@@ -102,7 +102,7 @@ const NOT_FRANCE: Point[] = [
 ];
 
 describe('the IGN source is asked only for tiles over France', () => {
-  it('leaves out the tile the test handset logged 247 dead fetches around', () => {
+  it('leaves out the tile a test handset logged 247 dead fetches around', () => {
     // 13/4277/2894, one of the tiles `[basemap] satellite-ign ... 404` named
     // while panning the Valais demo rides.
     const { lat, lng } = tileCorner(13, 4277, 2894);

@@ -1,11 +1,11 @@
 /**
  * Scenario: two agent sessions measure on the one handset at the same moment.
- * `tracker start` locks the item, not the hardware, and two items can need the
+ * Claiming a task locks the task, not the hardware, and two tasks can need the
  * same phone.
  *
- * Expected behaviour: the second waits. Two sessions measuring at once on
- * 2026-09-15 had one reset `gfxinfo` and read a frame histogram back that
- * carried the other's map load, and nothing in either run said so.
+ * Expected behaviour: the second waits. Two sessions measuring at once can have
+ * one reset `gfxinfo` and read a frame histogram back that carries the other's
+ * map load, and nothing in either run says so.
  */
 import { ChildProcess, spawn, spawnSync } from 'child_process';
 import fs from 'fs';
@@ -149,9 +149,9 @@ describe('the handset takes a lock of its own', () => {
    * the shell the wrapper started, which is how every hand-driven measurement
    * reaches a named device.
    *
-   * Expected behaviour: the wrapper refuses rather than guessing. Guessing took
-   * the other handset's lock for a session that drove the test handset on 2026-09-19, so two
-   * sessions could hold different locks and drive the one phone, which is the
+   * Expected behaviour: the wrapper refuses rather than guessing. Guessing takes
+   * one handset's lock for a session that drives the other, so two sessions
+   * can hold different locks and drive the one phone, which is the
    * collision the lock exists to stop.
    */
   it('refuses to guess a serial when several handsets are attached', () => {
@@ -425,14 +425,14 @@ describe('a hand-taken lock', () => {
 });
 
 /**
- * Scenario: the other handset drops off the network and its transport stays in
- * `adb devices` as `offline`, while the test handset is connected and healthy.
+ * Scenario: one handset drops off the network and its transport stays in
+ * `adb devices` as `offline`, while another is connected and healthy.
  *
  * Expected behaviour: the run refuses and names the offline entry. Maestro
  * enumerates every transport and answers "Device <the healthy one> was
  * requested, but it is not connected", which reads as the named handset having
- * dropped rather than an unrelated entry poisoning the enumeration. Measured
- * 2026-09-19 on Maestro 2.1.0: `--device`, `--udid`, `-p android` and
+ * dropped rather than an unrelated entry poisoning the enumeration. Seen on
+ * Maestro 2.1.0: `--device`, `--udid`, `-p android` and
  * `ANDROID_SERIAL` all behaved the same way.
  */
 describe('the Maestro wrapper', () => {
@@ -452,7 +452,7 @@ describe('the Maestro wrapper', () => {
         PATH: `${dir}:${process.env.PATH}`,
         VELOQ_DEVICE_LOCK: path.join(dir, 'lock'),
         VELOQ_DEVICE_LOCK_HELD: '',
-        ANDROID_SERIAL: '192.0.2.18:5555',
+        ANDROID_SERIAL: '203.0.113.11:5555',
         XDG_CONFIG_HOME: dir,
       },
       ran,
@@ -463,8 +463,8 @@ describe('the Maestro wrapper', () => {
     return stub;
   }
 
-  const HEALTHY = 'List of devices attached\n192.0.2.18:5555\tdevice';
-  const WITH_OFFLINE = `${HEALTHY}\n192.0.2.3:5555\toffline`;
+  const HEALTHY = 'List of devices attached\n203.0.113.11:5555\tdevice';
+  const WITH_OFFLINE = `${HEALTHY}\n203.0.113.12:5555\toffline`;
 
   it('refuses while a transport is offline, and names it', () => {
     const { env, ran } = stubbed(WITH_OFFLINE);
@@ -472,7 +472,7 @@ describe('the Maestro wrapper', () => {
     const run = spawnSync(wrapper, ['test', '.maestro/'], { encoding: 'utf8', env });
 
     expect(run.status).not.toBe(0);
-    expect(run.stderr).toContain('192.0.2.3:5555');
+    expect(run.stderr).toContain('203.0.113.12:5555');
     expect(fs.existsSync(ran)).toBe(false);
   });
 

@@ -851,7 +851,7 @@ impl BackupHandle {
 ///
 /// The walk is linear in cached tiles and reads nothing but the filesystem,
 /// so it takes no engine lock and no connection. What it does take is time:
-/// 40,061 tiles measured 170 ms on the other handset, and the mount that asks for
+/// 40,061 tiles measured 170 ms on a second test handset, and the mount that asks for
 /// it has 100 ms for the whole screen.
 pub struct CacheSizeHandle {
     receiver: mpsc::Receiver<u64>,

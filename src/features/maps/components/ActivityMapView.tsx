@@ -516,7 +516,7 @@ export const ActivityMapView = memo(function ActivityMapView({
   // The card that was just tapped was drawn from a JPEG of this activity, in
   // this style and this camera, and it is already on disk. The surface behind
   // it takes 1.4 s on ground it has seen and up to 4.3 s on ground it has not
-  // (HANDSET_A, debug Android build with production JavaScript), and it used to
+  // (test handset, debug Android build with production JavaScript), and it used to
   // spend all of that dark. The image
   // is the feed's aspect, so covering the hero may crop it, which is worth it
   // for the seconds it stands.
@@ -550,7 +550,7 @@ export const ActivityMapView = memo(function ActivityMapView({
   const touchThrough = inSlot ? 'box-none' : 'auto';
 
   // The commit that mounts this view is the open's own frame, and creating a map page in it
-  // took 38 to 53 ms of a frame already over a tap's budget (HANDSET_A, release build). So the page,
+  // took 38 to 53 ms of a frame already over a tap's budget (test handset, release build). So the page,
   // 2D or 3D, is created on the next frame, transparent until ready and under the poster where
   // there is one. A slot whose surface is already up creates no page, so the view publishes at once.
   const slotLive = useMapSurfaceSlotLive();

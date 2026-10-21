@@ -12,7 +12,7 @@
  * It reads three forms. A backticked id anywhere, which is the audit's prose
  * style, an id that opens a comment and is followed by a colon, which is how
  * three slipped in without backticks, and ids that fill a parenthesis on their
- * own. It deliberately reads no more than that: a bare id mid-sentence cannot be told from the test handset or from the
+ * own. It deliberately reads no more than that: a bare id mid-sentence cannot be told from a phone model such as an S7 or from the
  * insights engine's own rule labels, which share two of the audit's keys by
  * coincidence, and a guard that renames either of those is worse than the gap.
  */
@@ -140,7 +140,7 @@ it('says nothing about the phone the measurements came from', () => {
   const { status } = runGuard(
     fixture({
       'src/b.ts':
-        '// Measured on the test handset, which held every screen read for three seconds.\nexport const b = 2;\n',
+        '// Measured on the S7, which held every screen read for three seconds.\nexport const b = 2;\n',
     })
   );
 
@@ -230,7 +230,7 @@ it.each([
 
 it('reads a shell comment only in a file that comments with a hash', () => {
   const { status } = runGuard(
-    fixture({ 'scripts/c.sh': '#!/bin/sh\n# The test handset on the desk.\necho "`B12`"\n' })
+    fixture({ 'scripts/c.sh': '#!/bin/sh\n# The S7 on the desk.\necho "`B12`"\n' })
   );
 
   expect(status).toBe(0);
@@ -259,7 +259,7 @@ it.each([
 });
 
 it.each([
-  ['the phone', '// Measured on the handset (HANDSET_A).'],
+  ['the phone', '// Measured on the handset (S7).'],
   ['an insights rule pair', '// Diversity cap (D9, D10).'],
   ['an insights score label', '// The flow corridor score (R5).'],
   ['a word in brackets', '// The count (B for bytes) and the id (Bid).'],

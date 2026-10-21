@@ -1,16 +1,14 @@
 #!/usr/bin/env sh
 # Run one measurement at a time against one handset.
 #
-# `tracker start` locks the item, not the hardware, and two items can need the
-# same phone. Working two items side by side on 2026-09-15, one session was
-# opening an activity to time its map while the other reset `gfxinfo`, swiped
-# the strength diagram and read a frame histogram back: the histogram carried
-# the other item's map load. Both numbers looked plausible, neither run said
-# anything, and both were about to go into an item as measured fact. That is a
-# run that measures the fleet rather than the change, moved from the host to
-# the handset.
+# Claiming a task locks the task, not the hardware, and two tasks can need the
+# same phone. If one run opens an activity to time its map while another resets
+# `gfxinfo`, swipes a chart and reads a frame histogram back, the histogram
+# carries the first run's map load. Both numbers look plausible and neither run
+# says anything. That is a run that measures every other run rather than the
+# change, moved from the host to the handset.
 #
-# Keyed on the serial, so the test handset and an emulator do not queue behind each
+# Keyed on the serial, so a handset and an emulator do not queue behind each
 # other. It is not the Android build lock: a build holds that for a quarter of
 # an hour and a measurement must not wait on one, and a build touches no
 # device. An agent driving `adb` by hand takes it for a whole session with

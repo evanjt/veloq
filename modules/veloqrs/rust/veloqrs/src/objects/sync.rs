@@ -5825,7 +5825,7 @@ mod tests {
     /// Scenario: a first launch. The census owes one run of days, so the plan
     /// collapses to a single window covering the whole span, and the step that
     /// lifts the standby is a request for the entire library. Five minutes in,
-    /// the other handset was still on curves at 6 of 8 with no card on screen.
+    /// a test handset was still on curves at 6 of 8 with no card on screen.
     ///
     /// Expected behaviour: the newest few are asked for on their own first,
     /// with a count rather than a date boundary, so the feed has cards after
