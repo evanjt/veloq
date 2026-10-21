@@ -28,11 +28,12 @@
 ---
 
 <p align="center">
-  <img src="docs/screenshots/01-feed.png" width="19%" alt="Activity feed">
-  <img src="docs/screenshots/02-activity-map.png" width="19%" alt="Activity map">
-  <img src="docs/screenshots/04-charts.png" width="19%" alt="Charts">
-  <img src="docs/screenshots/05-fitness.png" width="19%" alt="Fitness">
-  <img src="docs/screenshots/07-routes.png" width="19%" alt="Routes">
+  <img src="docs/screenshots/01-feed.png" width="16%" alt="Activity feed">
+  <img src="docs/screenshots/02-activity.png" width="16%" alt="Activity detail">
+  <img src="docs/screenshots/03-fitness.png" width="16%" alt="Fitness">
+  <img src="docs/screenshots/04-map.png" width="16%" alt="Map">
+  <img src="docs/screenshots/05-routes.png" width="16%" alt="Routes">
+  <img src="docs/screenshots/06-insights.png" width="16%" alt="Insights">
 </p>
 
 Veloq reads your training from intervals.icu and keeps a copy in a database on your phone. Maps,
@@ -89,6 +90,8 @@ to sign in.
 * API key: paste a key from your intervals.icu settings. It is checked before it is stored. If
   you are offline it is held and checked when the network returns.
 * Demo: `Try Demo` loads sample data and needs no account. It lasts until you restart the app.
+
+A card on the feed offers a short tour, which is also where notifications and backup are set up.
 
 Credentials live in the platform keychain. If intervals.icu rejects your token, you are asked to
 sign in again (an API key is kept so you can re-enter it). Signing in as a different athlete than
@@ -204,7 +207,7 @@ and controls to rename it, set the reference activity, exclude an attempt and ex
 are moving time, and your standing reads like "Ranked 3 of 12, 40 s off your best".
 
 A section page has scatter, histogram and delta charts over 1 month to all time, a personal best
-for each direction, laps, an efficiency trend and the wellness correlations. Times there are
+for each direction, laps and the wellness correlations. Times there are
 elapsed time, and a best only counts as a record once every time stream is in. A correlation
 shows only when the link is unlikely to be chance, with at least 10 attempts to go on.
 
@@ -276,8 +279,9 @@ The cards are all rule based:
   shows past a 15 percent change.
 * HRV trend: at least 5 valid days in 7. A change counts only if it is clearly more than day to
   day noise and is over half a standard deviation and 2 percent of the earlier mean.
-* Efficiency trend: heart rate against pace on a repeated section, by regression over at least 3
-  efforts for an improvement and 5 for a decline.
+* Efficiency trend, experimental and shown only in `Debug mode`: heart rate against pace on a
+  repeated section, by regression over at least 3 efforts for an improvement and 5 for a decline.
+  The section page shows the same trend then.
 * Section changed, when detection re-cuts, splits or merges a section.
 * Strength progression and balance, below.
 
@@ -317,10 +321,10 @@ device. Demo mode never sends anything.
 
 ## Widgets and shortcuts
 
-There are five widgets on each platform: Summary (your summary card, with the metrics chosen when
+There are four widgets on each platform: Summary (your summary card, with the metrics chosen when
 you place it on Android), Latest activity (the most recent one, its route comparison, records and
-load), Insights (the top cards, with a choice of kinds), Strength (the body diagram for the last
-30 days or the month) and Record (starts recording for a chosen sport).
+load), Insights (the top cards, with a choice of kinds) and Strength (the body diagram for the
+trailing 30 days).
 
 Android also has a Quick Settings tile that starts a recording. iOS has a Control Centre control,
 Siri, Spotlight and Shortcuts actions, and a Live Activity and Dynamic Island while recording.
@@ -347,7 +351,9 @@ exclusions and section history. Activities are not in it, they sync again after 
 It can go to WebDAV (URL, user and password, `https` unless you opt in for a local network
 address, with a Nextcloud QR option), a folder you choose, Google Drive on Android (the hidden app
 data folder) or iCloud Drive on iPhone (a Veloq folder the Files app shows, on unless you turn it
-off). The phone's own device backup also carries the latest zip.
+off). On Android it goes to `Documents/Veloq` until you pick another folder, and that copy stays
+after the app is uninstalled. On iPhone the device backup also carries the latest zip. Android's
+device backup does not include Veloq.
 
 Automatic backup is off by default. When on, it runs at most once every 24 hours, after a sync or
 when the app goes to the background, and a copy a destination could not take is sent again when
@@ -374,9 +380,9 @@ Sensors, Routes and sections, Backup, Cache & Database, Notifications, Support, 
 About.
 
 Theme is system, light or dark. Units are auto (from your intervals.icu setting, or the region),
-metric or imperial. Languages are Danish, German (Germany and
-Switzerland), English (UK, US, Australia), Spanish (Spain and Latin America), French, Italian, Japanese, Dutch, Polish, Portuguese (Brazil and Portugal) and
-Simplified Chinese. Android also follows the system per app language.
+metric or imperial. Languages are Danish, German (Germany and Switzerland), English (UK, US,
+Australia), Spanish (Spain and Latin America), French, Italian, Japanese, Dutch, Polish,
+Portuguese (Brazil and Portugal) and Simplified Chinese. Android also follows the system per app language.
 
 Local data range sets how far back to sync. The default is 90 days and it only widens. Going back
 500 or more activities asks first. You can stop a running sync there. Storage shows what the
