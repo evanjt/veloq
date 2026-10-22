@@ -9,20 +9,39 @@
  *
  * The move is copy, verify, delete rather than a rename. A rename that dies
  * halfway leaves the set split across two directories with nothing saying
- * which half is authoritative, and the set is three files rather than one,
- * because the journal mode is WAL. Copying first means the old directory stays
- * whole and authoritative until a copy of the same size reads back, so a crash
- * before removing the old main file costs a retry rather than a library.
+ * which half is authoritative, and the set is several files rather than one:
+ * the main file, its write-ahead log and shared memory, and the rollback
+ * journal a build from before WAL left beside it. Copying first means the old
+ * directory stays whole and authoritative until a copy of the same size reads
+ * back, so a crash before removing the old main file costs a retry rather than
+ * a library.
  */
 
 import { debug } from '@/shared/debug/debug';
 import { excludeExistingFromBackup } from '@/shared/native/backupExclusion';
 
-/** The main file first: it is the one whose presence says where the data is. */
-export const ROUTE_DB_FILES = ['routes.db', 'routes.db-wal', 'routes.db-shm'] as const;
+/**
+ * The main file first: it is the one whose presence says where the data is.
+ * The journal is last. A build from before WAL used SQLite's default rollback
+ * journal, which sits beside the file only while a write is open, so a kill
+ * during a write leaves it hot and the main file cannot be read without it.
+ */
+export const ROUTE_DB_FILES = [
+  'routes.db',
+  'routes.db-wal',
+  'routes.db-shm',
+  'routes.db-journal',
+] as const;
 
 /**
- * The database at `dbPath` and its two sidecars, which is the set an
+ * The order the set is copied in: the reverse of the list, so the journal
+ * lands before the main file and no copy of the main file exists without the
+ * journal it may need.
+ */
+const COPY_ORDER = [...ROUTE_DB_FILES].reverse();
+
+/**
+ * The database at `dbPath` and its sidecars and journal, which is the set an
  * attribute on one file has to be put on: SQLite recreates a sidecar it
  * deleted, and the attribute belongs to the file and not to its name.
  */
@@ -172,8 +191,8 @@ export async function migrateRouteDb(
     );
   }
 
-  for (const [index, name] of ROUTE_DB_FILES.entries()) {
-    const bytes = sources[index];
+  for (const name of COPY_ORDER) {
+    const bytes = sources[ROUTE_DB_FILES.indexOf(name)];
     // Any database at the target has been moved aside with its pair, so a
     // sidecar still here that the source no longer has is debris from an
     // abandoned attempt. Left in place it would be read as this database's

@@ -148,15 +148,30 @@ describe('reading credentials across the access group change', () => {
     expect(keychain.io.write).not.toHaveBeenCalled();
   });
 
-  it('keeps the old item when the write under the new attributes fails', async () => {
+  it('keeps the old item and the athlete signed in when the write under the new attributes fails', async () => {
     const keychain = fakeKeychain({ legacy: { intervals_api_key: 'key' } });
     keychain.io.write.mockRejectedValueOnce(new Error('keychain busy'));
 
     const result = await readCredentialsWithMigration(keychain.io, ['intervals_api_key']);
 
+    expect(result.values).toEqual(['key']);
+    expect(result.migratedKeys).toEqual([]);
     expect(result.failedKeys).toEqual(['intervals_api_key']);
     expect(keychain.legacy).toEqual({ intervals_api_key: 'key' });
     expect(keychain.io.remove).not.toHaveBeenCalled();
+  });
+
+  it('retries the move on the next launch after a failed write', async () => {
+    const keychain = fakeKeychain({ legacy: { intervals_api_key: 'key' } });
+    keychain.io.write.mockRejectedValueOnce(new Error('keychain busy'));
+
+    await readCredentialsWithMigration(keychain.io, ['intervals_api_key']);
+    const second = await readCredentialsWithMigration(keychain.io, ['intervals_api_key']);
+
+    expect(second.values).toEqual(['key']);
+    expect(second.migratedKeys).toEqual(['intervals_api_key']);
+    expect(second.failedKeys).toEqual([]);
+    expect(keychain.shared).toEqual({ intervals_api_key: 'key' });
   });
 
   it('does not fall back to the old attributes when the shared read throws', async () => {

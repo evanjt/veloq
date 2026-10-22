@@ -2,9 +2,9 @@
  * Scenario: an athlete signs in for the first time. The tour opens while the first load is still
  * running, over a library with no activities, sections or routes yet.
  *
- * Expected behaviour: the tour is its own list, in the order the athlete meets things, opening on
- * what Veloq reads and that the first load is running, and carrying no release-only slide such as
- * the section preview. A slide whose Show Me would land on a screen with nothing in it offers no
+ * Expected behaviour: the tour is its own list, opening on the two setup slides the athlete acts
+ * on, the map style and the notifications, and carrying no first-load, feed or activity page and
+ * no release-only slide such as the section preview. A slide whose Show Me would land on a screen with nothing in it offers no
  * Show Me until that screen holds data.
  */
 import * as fs from 'fs';
@@ -54,18 +54,22 @@ describe('the first-run tour', () => {
     expect(tutorial.map((s) => s.titleKey)).not.toEqual(getAllSlides().map((s) => s.titleKey));
   });
 
-  it('follows the order the athlete meets things, opening on the first load', () => {
+  it('opens on the map styles and the notifications setup, and ends on backup', () => {
     expect(tutorial.map((s) => s.titleKey)).toEqual([
-      'whatsNew.tutorial.firstLoadTitle',
-      'whatsNew.tutorial.feedTitle',
-      'whatsNew.tutorial.activityTitle',
-      'whatsNew.tutorial.notificationsTitle',
       'whatsNew.v022.mapStylesTitle',
-      'whatsNew.v022.fitnessTitle',
+      'whatsNew.tutorial.notificationsTitle',
       'whatsNew.v040.sectionPageTitle',
       'whatsNew.v040.routesTitle',
       'whatsNew.v030.backupTitle',
     ]);
+    expect(tutorial[1].setup).toBe('notifications');
+  });
+
+  it('holds no page about the first load, the feed or an activity', () => {
+    const titles = tutorial.map((s) => s.titleKey);
+    expect(titles).not.toContain('whatsNew.tutorial.firstLoadTitle');
+    expect(titles).not.toContain('whatsNew.tutorial.feedTitle');
+    expect(titles).not.toContain('whatsNew.tutorial.activityTitle');
   });
 
   it('draws a picture under every slide, so none shows an empty field under its text', () => {
@@ -100,19 +104,14 @@ describe('Show Me over the library the first run sees', () => {
       .map((slide) => slide.titleKey);
     expect(offered).not.toContain('whatsNew.v040.sectionPageTitle');
     expect(offered).not.toContain('whatsNew.v040.routesTitle');
-    expect(offered).toContain('whatsNew.tutorial.feedTitle');
-    expect(offered).toContain('whatsNew.v022.fitnessTitle');
+    expect(offered).toContain('whatsNew.v022.mapStylesTitle');
   });
 
   it('offers every Show Me once the library holds data', () => {
     const routes = tutorial.map((slide) => resolveShowMeRoute(slide, FULL_LIBRARY));
     expect(routes).toEqual([
-      undefined,
       '/',
       undefined,
-      undefined,
-      '/',
-      '/fitness',
       '/section/col-du-test',
       '/route/harbour-loop',
       '/backup-settings',

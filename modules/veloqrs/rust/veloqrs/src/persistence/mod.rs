@@ -2365,6 +2365,12 @@ fn routes_screen_data(
     let activity_count = activities::pooled::activity_count(conn).unwrap_or(0);
     let (group_empty_reason, section_empty_reason) =
         catalogue_empty_reasons(conn, query.min_group_activity_count);
+    // The graveyard the retired screen lists, read once and shared by its two
+    // figures: the ledger's whole retired list, and of it the subset that the
+    // cutover or a record restore archived.
+    let retired = sections::history::pooled::retired_sections(conn);
+    let ledger_retired_count = retired.len() as u32;
+    let archived_retired_count = sections::history::pooled::archived_retired_count(conn, &retired);
     crate::FfiRoutesScreenData {
         activity_count,
         group_count: group_page.total_count,
@@ -2381,7 +2387,9 @@ fn routes_screen_data(
         unaccepted_auto_count: section_page.unaccepted_auto_count,
         accepted_auto_count: section_page.accepted_auto_count,
         custom_count: section_page.custom_count,
-        retired_count: section_page.retired_count,
+        removed_count: section_page.removed_count,
+        ledger_retired_count,
+        archived_retired_count,
         available_sport_types: read_cache::sport_types(conn, || {
             screens::pooled::available_sport_types(conn)
         }),
@@ -2593,7 +2601,7 @@ struct PooledSectionPage {
     unaccepted_auto_count: u32,
     accepted_auto_count: u32,
     custom_count: u32,
-    retired_count: u32,
+    removed_count: u32,
 }
 
 fn pooled_route_section_page(
@@ -2666,7 +2674,7 @@ fn paged_section_page(
         unaccepted_auto_count: counters.unaccepted_auto,
         accepted_auto_count: counters.accepted_auto,
         custom_count: counters.custom,
-        retired_count: counters.retired,
+        removed_count: counters.removed,
     })
 }
 
@@ -2698,11 +2706,11 @@ fn walked_section_page(
     }
     // The counters are the catalogue's, not the page's, so they are taken
     // before anything is hidden or paged. A sport narrows them, except the
-    // retired count, which is the whole catalogue's.
+    // removed count, which is the whole catalogue's.
     let counters = SectionCounters::of(raw_sections.iter().map(|s| (SectionKind::of(s), 1)));
-    let retired_count =
+    let removed_count =
         SectionCounters::of(sections::queries::pooled::section_kind_counts(conn).into_iter())
-            .retired;
+            .removed;
 
     raw_sections.retain(|s| !SectionKind::of(s).hidden_by(section_filters));
     if !section_needle.is_empty() {
@@ -2750,7 +2758,7 @@ fn walked_section_page(
         unaccepted_auto_count: counters.unaccepted_auto,
         accepted_auto_count: counters.accepted_auto,
         custom_count: counters.custom,
-        retired_count,
+        removed_count,
     }
 }
 
@@ -2760,7 +2768,7 @@ struct SectionCounters {
     unaccepted_auto: u32,
     accepted_auto: u32,
     custom: u32,
-    retired: u32,
+    removed: u32,
 }
 
 impl SectionCounters {
@@ -2770,7 +2778,7 @@ impl SectionCounters {
             unaccepted_auto: 0,
             accepted_auto: 0,
             custom: 0,
-            retired: 0,
+            removed: 0,
         };
         for (kind, n) in counts {
             if !kind.removed {
@@ -2786,7 +2794,7 @@ impl SectionCounters {
             if kind.custom {
                 counters.custom += n;
             } else if kind.removed {
-                counters.retired += n;
+                counters.removed += n;
             }
         }
         counters
@@ -3706,6 +3714,7 @@ pub mod persistent_engine_ffi {
             match opened {
                 Ok(engine) => engine,
                 Err(e) => {
+                    let e = pre_upgrade_copy::explain_shortfall(e, &db_path);
                     log::error!(
                         "veloqrs: [PersistentEngine] Failed to open database '{}': {:?}",
                         db_path,

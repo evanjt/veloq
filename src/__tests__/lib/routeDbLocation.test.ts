@@ -83,6 +83,36 @@ describe('migrateRouteDb', () => {
     });
   });
 
+  it('carries a rollback journal across and deletes it with the original', async () => {
+    const disk: FakeDisk = {
+      [`${DOCS}routes.db`]: 4096,
+      [`${DOCS}routes.db-journal`]: 256,
+    };
+    await expect(migrateRouteDb(DOCS, GROUP, fileSystem(disk))).resolves.toBe(GROUP);
+    expect(disk).toEqual({
+      [`${GROUP}routes.db`]: 4096,
+      [`${GROUP}routes.db-journal`]: 256,
+    });
+  });
+
+  it('copies the journal before the main file, so a copy of the main file never lacks its journal', async () => {
+    const disk: FakeDisk = {
+      [`${DOCS}routes.db`]: 4096,
+      [`${DOCS}routes.db-journal`]: 256,
+    };
+    const base = fileSystem(disk);
+    const copied: string[] = [];
+    const fs = {
+      ...base,
+      copy: async (from: string, to: string) => {
+        copied.push(to);
+        return base.copy(from, to);
+      },
+    };
+    await migrateRouteDb(DOCS, GROUP, fs);
+    expect(copied).toEqual([`${GROUP}routes.db-journal`, `${GROUP}routes.db`]);
+  });
+
   it('keeps the original when the copy fails, and reports the old directory', async () => {
     const disk: FakeDisk = {
       [`${DOCS}routes.db`]: 4096,
@@ -156,6 +186,7 @@ describe('migrateRouteDb', () => {
       [`${GROUP}routes.db`]: 9000,
       [`${GROUP}routes.db-wal`]: 700,
       [`${GROUP}routes.db-shm`]: 32,
+      [`${GROUP}routes.db-journal`]: 64,
     };
     await expect(migrateRouteDb(DOCS, GROUP, fileSystem(disk), STAMP)).resolves.toBe(GROUP);
     expect(disk).toEqual({
@@ -164,6 +195,7 @@ describe('migrateRouteDb', () => {
       [DISPLACED]: 9000,
       [`${DISPLACED}-wal`]: 700,
       [`${DISPLACED}-shm`]: 32,
+      [`${DISPLACED}-journal`]: 64,
     });
   });
 
@@ -236,23 +268,31 @@ describe('migrateRouteDb', () => {
     const disk: FakeDisk = {
       [`${DOCS}routes.db`]: 4096,
       [`${GROUP}routes.db-wal`]: 999,
+      [`${GROUP}routes.db-journal`]: 77,
     };
     await expect(migrateRouteDb(DOCS, GROUP, fileSystem(disk))).resolves.toBe(GROUP);
     expect(disk[`${GROUP}routes.db-wal`]).toBeUndefined();
+    expect(disk[`${GROUP}routes.db-journal`]).toBeUndefined();
   });
 
   it('names the main file first, so a reader knows which one is authoritative', () => {
     expect(ROUTE_DB_FILES[0]).toBe('routes.db');
-    expect(ROUTE_DB_FILES).toEqual(['routes.db', 'routes.db-wal', 'routes.db-shm']);
+    expect(ROUTE_DB_FILES).toEqual([
+      'routes.db',
+      'routes.db-wal',
+      'routes.db-shm',
+      'routes.db-journal',
+    ]);
   });
 });
 
 describe('routeDbFilePaths', () => {
-  it('names the database and both sidecars beside it', () => {
+  it('names the database and its sidecars and journal beside it', () => {
     expect(routeDbFilePaths(`${GROUP}routes.db`)).toEqual([
       `${GROUP}routes.db`,
       `${GROUP}routes.db-wal`,
       `${GROUP}routes.db-shm`,
+      `${GROUP}routes.db-journal`,
     ]);
   });
 });

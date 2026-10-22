@@ -50,7 +50,7 @@ import { overMapHeaderOptions } from '@/shared/app/screenHeaders';
 import { Button, ErrorState, HeroNameRow, HeroStatsRow, useBottomClearance } from '@/shared/ui';
 import { heroPeekStyles } from '@/shared/ui/DetailHero';
 import { FitText } from '@/shared/ui/FitText';
-import { sheetScrollProps } from '@/shared/ui/SheetScrollView';
+import { usePagerPageScrollProps } from '@/shared/ui/pagerPageScroll';
 
 import { useFFITimer } from '@/shared/debug/useFFITimer';
 import { getActivityColor, getActivityIcon } from '@/shared/activity/activityUtils';
@@ -92,6 +92,7 @@ export function RouteDetailCard({ id, activityId: navActivityId }: RouteDetailCa
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const bottomClearance = useBottomClearance();
+  const pageScroll = usePagerPageScrollProps();
   const isMetric = useMetricSystem();
   const { hostKey, index: cardIndex } = useMapSheetCardAddress('route', id);
   const card = useMemo(() => detailCardWriter(hostKey, cardIndex), [hostKey, cardIndex]);
@@ -271,7 +272,7 @@ export function RouteDetailCard({ id, activityId: navActivityId }: RouteDetailCa
         contentContainerStyle={{ paddingBottom: spacing.xl + bottomClearance }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        {...sheetScrollProps}
+        {...pageScroll}
       >
         {/* Peek: what the lowest stop shows. */}
         <View testID="route-card-peek" style={heroPeekStyles.peek}>

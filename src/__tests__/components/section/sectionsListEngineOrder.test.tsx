@@ -91,7 +91,7 @@ function renderList(over: Record<string, unknown> = {}) {
       unacceptedAutoCount={63}
       acceptedAutoCount={21}
       customSectionCount={18}
-      retiredSectionCount={7}
+      removedSectionCount={7}
       {...over}
     />
   );
@@ -177,7 +177,7 @@ describe('the filter chips count the catalogue, not the page', () => {
   it('keeps them when the page holds none of either', async () => {
     const { getByText, queryByText } = await renderList({
       customSectionCount: 4,
-      retiredSectionCount: 2,
+      removedSectionCount: 2,
     });
 
     expect(getByText('4 custom sections')).toBeTruthy();

@@ -2452,13 +2452,7 @@
       "routesTip": "向下滚动路线页面，查看该路线上每次尝试与其他尝试的对比。"
     },
     "tutorial": {
-      "firstLoadTitle": "你的训练，保存在这台手机上",
-      "firstLoadBody": "Veloq 从 intervals.icu 读取你的活动和健康数据，并保存在这台手机上。首次加载在后台进行，活动陆续到达时动态会逐渐填满。",
-      "feedTitle": "你的动态",
-      "feedBody": "每项活动都会以带地图的卡片出现在这里，最新的在最前。",
-      "feedTip": "下拉可在 intervals.icu 检查新活动，点按卡片即可打开。",
-      "activityTitle": "活动详情",
-      "activityBody": "打开活动即可查看其地图和图表、间歇，以及它所属的路线和路段。",
+      "firstLoadLine": "正在从 intervals.icu 进行首次加载。活动到达后,动态会逐步填充。",
       "notificationsTitle": "通知",
       "notificationsBody": "intervals.icu 收到新活动时，Veloq 可以告诉你它发现了什么：个人最佳、比平时更快的用时，或体能上的进步。以下是通知的示例。",
       "turnOn": "开启",
@@ -2674,6 +2668,7 @@
     "retiredEmpty": "没有退出的路段",
     "retiredInto": "并入{{name}}",
     "seeRetired": "已退出的路段",
+    "restoredTitle": "路段已恢复",
     "kind_formed": "形成",
     "kind_restored": "重新出现",
     "kind_split_one": "拆分为{{count}}个路段",

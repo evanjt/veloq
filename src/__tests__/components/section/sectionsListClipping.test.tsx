@@ -88,7 +88,7 @@ describe('SectionsList row clipping', () => {
           unacceptedAutoCount={0}
           acceptedAutoCount={1}
           customSectionCount={0}
-          retiredSectionCount={0}
+          removedSectionCount={0}
         />
       );
       expect(tree.UNSAFE_getByType(FlatList).props.removeClippedSubviews).toBe(true);
@@ -117,7 +117,7 @@ describe('SectionsList with nothing to list', () => {
         unacceptedAutoCount={0}
         acceptedAutoCount={totalSectionCount}
         customSectionCount={0}
-        retiredSectionCount={0}
+        removedSectionCount={0}
       />
     );
   }

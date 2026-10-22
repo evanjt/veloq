@@ -1440,10 +1440,22 @@ pub struct FfiRoutesScreenData {
     /// Custom sections over the whole catalogue. The chip beside it filters the
     /// catalogue, so a page-sized tally would be a lower bound nothing labels.
     pub custom_count: u32,
-    /// Auto sections the athlete retired, disabled or superseded, over the
+    /// Auto sections the athlete disabled or a custom one superseded, over the
     /// whole catalogue. Taken before `hide_disabled` runs, which is the filter
-    /// this figure is the count for and which hides them by default.
-    pub retired_count: u32,
+    /// this figure is the count for and which hides them by default. Distinct
+    /// from `ledger_retired_count`: a disabled row is still in the catalogue,
+    /// a ledger retirement has left it.
+    pub removed_count: u32,
+    /// Sections that left the catalogue through a fired retirement and still
+    /// hold a ledger, the graveyard the retired screen lists, a record
+    /// restore's pending states included. This is what the entry points to the
+    /// graveyard gate on, and it is not the `removed_count` of disabled rows.
+    pub ledger_retired_count: u32,
+    /// Of those, the ones that hold an `archived` row: the cutover's, or a
+    /// record restore's pending state. A later detect that dissolves a section
+    /// leaves no archived row, so a library with no cutover reads zero here,
+    /// which is what the "your matching changed" card gates on.
+    pub archived_retired_count: u32,
     /// The sports the athlete has activities in, which the sport chips offer.
     pub available_sport_types: Vec<String>,
     /// Why the routes catalogue holds no route with the minimum activity

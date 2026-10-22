@@ -2452,13 +2452,7 @@
       "routesTip": "Scroll down the route page to see every attempt over the course charted against the others."
     },
     "tutorial": {
-      "firstLoadTitle": "Your training, on this phone",
-      "firstLoadBody": "Veloq reads your activities and wellness from intervals.icu and keeps them on this phone. The first load runs in the background, and your feed fills in as activities arrive.",
-      "feedTitle": "Your feed",
-      "feedBody": "Every activity lands here as a card with its map, newest first.",
-      "feedTip": "Pull down to check intervals.icu for new activities, or tap a card to open it.",
-      "activityTitle": "Inside an activity",
-      "activityBody": "Open an activity for its map and charts, its intervals, and the routes and sections it belongs to.",
+      "firstLoadLine": "The first load from intervals.icu is running. Your feed fills in as activities arrive.",
       "notificationsTitle": "Notifications",
       "notificationsBody": "When intervals.icu receives a new activity, Veloq can tell you what it found: a personal best, a time faster than usual, or a step up in fitness. These are examples of what arrives.",
       "turnOn": "Turn on",
@@ -2674,6 +2668,7 @@
     "retiredEmpty": "No sections have retired",
     "retiredInto": "Into {{name}}",
     "seeRetired": "Retired sections",
+    "restoredTitle": "Section restored",
     "kind_formed": "Formed",
     "kind_restored": "Came back",
     "kind_split_one": "Split into {{count}} section",

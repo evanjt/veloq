@@ -457,7 +457,7 @@ function InsightsScreenContent() {
           unacceptedAutoCount={routesData?.unacceptedAutoCount ?? 0}
           acceptedAutoCount={routesData?.acceptedAutoCount ?? 0}
           customSectionCount={customSectionCount}
-          retiredSectionCount={routesData?.retiredCount ?? 0}
+          removedSectionCount={routesData?.removedCount ?? 0}
           loadError={routesLoadError}
           onRetry={retryRoutesRead}
           emptyReason={routesData?.sectionEmptyReason}
@@ -480,7 +480,7 @@ function InsightsScreenContent() {
       routesData?.availableSportTypes,
       routesData?.unacceptedAutoCount,
       routesData?.acceptedAutoCount,
-      routesData?.retiredCount,
+      routesData?.removedCount,
       routesData?.sectionEmptyReason,
       customSectionCount,
       handleSectionSortChange,

@@ -16544,6 +16544,13 @@ export type FfiRetiredSection = {
    * Its length when it left, else its newest stored line's.
    */
   distanceMeters?: number;
+  /**
+   * The version a restore rolls it back to: the newest `archived` state
+   * that names a sport, which is what recreating the row needs. `None`
+   * when no such state exists, and for a state a record restore still
+   * holds pending, whose ground is not present yet.
+   */
+  restorableVersion?: WholeNumber;
 };
 
 /**
@@ -16575,6 +16582,8 @@ const FfiConverterTypeFfiRetiredSection = (() => {
         versions: FfiConverterSequenceTypeWholeNumber.readFromCursor(c),
         name: FfiConverterOptionalString.readFromCursor(c),
         distanceMeters: FfiConverterOptionalFloat64.readFromCursor(c),
+        restorableVersion:
+          FfiConverterOptionalTypeWholeNumber.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -16585,6 +16594,10 @@ const FfiConverterTypeFfiRetiredSection = (() => {
       FfiConverterSequenceTypeWholeNumber.writeIntoCursor(value.versions, c);
       FfiConverterOptionalString.writeIntoCursor(value.name, c);
       FfiConverterOptionalFloat64.writeIntoCursor(value.distanceMeters, c);
+      FfiConverterOptionalTypeWholeNumber.writeIntoCursor(
+        value.restorableVersion,
+        c,
+      );
     }
     allocationSize(value: TypeName): number {
       return (
@@ -16594,7 +16607,10 @@ const FfiConverterTypeFfiRetiredSection = (() => {
         FfiConverterOptionalString.allocationSize(value.into) +
         FfiConverterSequenceTypeWholeNumber.allocationSize(value.versions) +
         FfiConverterOptionalString.allocationSize(value.name) +
-        FfiConverterOptionalFloat64.allocationSize(value.distanceMeters)
+        FfiConverterOptionalFloat64.allocationSize(value.distanceMeters) +
+        FfiConverterOptionalTypeWholeNumber.allocationSize(
+          value.restorableVersion,
+        )
       );
     }
   }
@@ -17805,11 +17821,27 @@ export type FfiRoutesScreenData = {
    */
   customCount: number;
   /**
-   * Auto sections the athlete retired, disabled or superseded, over the
+   * Auto sections the athlete disabled or a custom one superseded, over the
    * whole catalogue. Taken before `hide_disabled` runs, which is the filter
-   * this figure is the count for and which hides them by default.
+   * this figure is the count for and which hides them by default. Distinct
+   * from `ledger_retired_count`: a disabled row is still in the catalogue,
+   * a ledger retirement has left it.
    */
-  retiredCount: number;
+  removedCount: number;
+  /**
+   * Sections that left the catalogue through a fired retirement and still
+   * hold a ledger, the graveyard the retired screen lists, a record
+   * restore's pending states included. This is what the entry points to the
+   * graveyard gate on, and it is not the `removed_count` of disabled rows.
+   */
+  ledgerRetiredCount: number;
+  /**
+   * Of those, the ones that hold an `archived` row: the cutover's, or a
+   * record restore's pending state. A later detect that dissolves a section
+   * leaves no archived row, so a library with no cutover reads zero here,
+   * which is what the "your matching changed" card gates on.
+   */
+  archivedRetiredCount: number;
   /**
    * The sports the athlete has activities in, which the sport chips offer.
    */
@@ -17865,7 +17897,9 @@ const FfiConverterTypeFfiRoutesScreenData = (() => {
         unacceptedAutoCount: FfiConverterUInt32.readFromCursor(c),
         acceptedAutoCount: FfiConverterUInt32.readFromCursor(c),
         customCount: FfiConverterUInt32.readFromCursor(c),
-        retiredCount: FfiConverterUInt32.readFromCursor(c),
+        removedCount: FfiConverterUInt32.readFromCursor(c),
+        ledgerRetiredCount: FfiConverterUInt32.readFromCursor(c),
+        archivedRetiredCount: FfiConverterUInt32.readFromCursor(c),
         availableSportTypes: FfiConverterSequenceString.readFromCursor(c),
         groupEmptyReason:
           FfiConverterOptionalTypeFfiCatalogueEmptyReason.readFromCursor(c),
@@ -17895,7 +17929,9 @@ const FfiConverterTypeFfiRoutesScreenData = (() => {
       FfiConverterUInt32.writeIntoCursor(value.unacceptedAutoCount, c);
       FfiConverterUInt32.writeIntoCursor(value.acceptedAutoCount, c);
       FfiConverterUInt32.writeIntoCursor(value.customCount, c);
-      FfiConverterUInt32.writeIntoCursor(value.retiredCount, c);
+      FfiConverterUInt32.writeIntoCursor(value.removedCount, c);
+      FfiConverterUInt32.writeIntoCursor(value.ledgerRetiredCount, c);
+      FfiConverterUInt32.writeIntoCursor(value.archivedRetiredCount, c);
       FfiConverterSequenceString.writeIntoCursor(value.availableSportTypes, c);
       FfiConverterOptionalTypeFfiCatalogueEmptyReason.writeIntoCursor(
         value.groupEmptyReason,
@@ -17927,7 +17963,9 @@ const FfiConverterTypeFfiRoutesScreenData = (() => {
         FfiConverterUInt32.allocationSize(value.unacceptedAutoCount) +
         FfiConverterUInt32.allocationSize(value.acceptedAutoCount) +
         FfiConverterUInt32.allocationSize(value.customCount) +
-        FfiConverterUInt32.allocationSize(value.retiredCount) +
+        FfiConverterUInt32.allocationSize(value.removedCount) +
+        FfiConverterUInt32.allocationSize(value.ledgerRetiredCount) +
+        FfiConverterUInt32.allocationSize(value.archivedRetiredCount) +
         FfiConverterSequenceString.allocationSize(value.availableSportTypes) +
         FfiConverterOptionalTypeFfiCatalogueEmptyReason.allocationSize(
           value.groupEmptyReason,

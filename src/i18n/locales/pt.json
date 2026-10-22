@@ -2494,13 +2494,7 @@
       "routesTip": "Desliza a página da rota para ver cada tentativa no percurso comparada com as outras."
     },
     "tutorial": {
-      "firstLoadTitle": "O seu treino, neste telemóvel",
-      "firstLoadBody": "O Veloq lê as suas atividades e o seu bem-estar a partir do intervals.icu e guarda-os neste telemóvel. O primeiro carregamento decorre em segundo plano, e o feed vai sendo preenchido à medida que as atividades chegam.",
-      "feedTitle": "O seu feed",
-      "feedBody": "Cada atividade chega aqui como um cartão com o seu mapa, da mais recente para a mais antiga.",
-      "feedTip": "Puxe para baixo para procurar novas atividades no intervals.icu, ou toque num cartão para o abrir.",
-      "activityTitle": "Dentro de uma atividade",
-      "activityBody": "Abra uma atividade para ver o mapa e os gráficos, os intervalos e os percursos e troços a que pertence.",
+      "firstLoadLine": "O primeiro carregamento do intervals.icu está em curso. O feed enche-se à medida que as atividades chegam.",
       "notificationsTitle": "Notificações",
       "notificationsBody": "Quando o intervals.icu recebe uma nova atividade, o Veloq pode dizer-lhe o que encontrou: um recorde pessoal, um tempo mais rápido do que o habitual ou um avanço na forma. Estes são exemplos do que chega.",
       "turnOn": "Ativar",
@@ -2717,6 +2711,7 @@
     "retiredEmpty": "Nenhum troço foi retirado",
     "retiredInto": "Em {{name}}",
     "seeRetired": "Troços retirados",
+    "restoredTitle": "Troço restaurado",
     "kind_formed": "Formado",
     "kind_restored": "Regressou",
     "kind_split_one": "Dividido em {{count}} troço",

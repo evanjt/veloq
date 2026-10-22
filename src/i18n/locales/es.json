@@ -2517,13 +2517,7 @@
       "routesTip": "Desplázate por la página de la ruta para ver cada intento en el recorrido comparado con los demás."
     },
     "tutorial": {
-      "firstLoadTitle": "Tu entrenamiento, en este teléfono",
-      "firstLoadBody": "Veloq lee tus actividades y tu bienestar de intervals.icu y los guarda en este teléfono. La primera carga se hace en segundo plano, y tu inicio se va llenando a medida que llegan las actividades.",
-      "feedTitle": "Tu inicio",
-      "feedBody": "Cada actividad llega aquí como una tarjeta con su mapa, de la más reciente a la más antigua.",
-      "feedTip": "Desliza hacia abajo para buscar actividades nuevas en intervals.icu, o toca una tarjeta para abrirla.",
-      "activityTitle": "Dentro de una actividad",
-      "activityBody": "Abre una actividad para ver su mapa y gráficos, sus intervalos y las rutas y secciones a las que pertenece.",
+      "firstLoadLine": "La primera carga desde intervals.icu está en curso. Tu feed se llena a medida que llegan las actividades.",
       "notificationsTitle": "Notificaciones",
       "notificationsBody": "Cuando intervals.icu recibe una actividad nueva, Veloq puede contarte lo que encontró: una marca personal, un tiempo más rápido de lo habitual o un avance en tu forma. Estos son ejemplos de lo que llega.",
       "turnOn": "Activar",
@@ -2740,6 +2734,7 @@
     "retiredEmpty": "Ningún tramo se ha retirado",
     "retiredInto": "En {{name}}",
     "seeRetired": "Tramos retirados",
+    "restoredTitle": "Tramo restaurado",
     "kind_formed": "Formado",
     "kind_restored": "Ha vuelto",
     "kind_split_one": "Dividido en {{count}} tramo",

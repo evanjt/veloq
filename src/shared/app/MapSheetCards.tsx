@@ -37,6 +37,7 @@ import {
 import { navigateTo } from './navigation';
 import { useTheme } from './useTheme';
 import { Icon } from '@/shared/ui/Icon';
+import { SheetCardShownContext } from '@/shared/ui/pagerPageScroll';
 import { IconButton } from '@/shared/ui/IconButton';
 import { colors, controlHeight, darkColors, iconSize, layout, spacing } from '@/theme';
 
@@ -191,7 +192,9 @@ const CardSlot = memo(function CardSlot({
         importantForAccessibility={onTop ? 'auto' : 'no-hide-descendants'}
       >
         <MapSheetCardContext.Provider value={value}>
-          <Card id={id} params={params} />
+          <SheetCardShownContext.Provider value={onTop}>
+            <Card id={id} params={params} />
+          </SheetCardShownContext.Provider>
         </MapSheetCardContext.Provider>
         {index > 0 ? <MapSheetCardClose kind={kind} hostKey={hostKey} /> : null}
       </View>

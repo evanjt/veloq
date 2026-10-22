@@ -9,7 +9,8 @@ import React from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 
 import { useMapSheetCard } from '@/shared/app/MapSheetHost';
-import { sheetScrollProps, useBottomClearance } from '@/shared/ui';
+import { useBottomClearance } from '@/shared/ui';
+import { usePagerPageScrollProps } from '@/shared/ui/pagerPageScroll';
 import { controlHeight, layout, spacing } from '@/theme';
 
 /** What a card's scroll is handed: the card's body. */
@@ -20,6 +21,7 @@ export interface CardScrollProps {
 export function SheetCardScroll({ children }: CardScrollProps) {
   const pushed = (useMapSheetCard()?.index ?? 0) > 0;
   const bottomClearance = useBottomClearance();
+  const pageScroll = usePagerPageScrollProps();
   return (
     <ScrollView
       style={styles.fill}
@@ -30,7 +32,7 @@ export function SheetCardScroll({ children }: CardScrollProps) {
       ]}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
-      {...sheetScrollProps}
+      {...pageScroll}
     >
       {children}
     </ScrollView>

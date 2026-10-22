@@ -62,7 +62,7 @@ function renderList(emptyReason: FfiCatalogueEmptyReason | null, totalSectionCou
       unacceptedAutoCount={0}
       acceptedAutoCount={0}
       customSectionCount={0}
-      retiredSectionCount={totalSectionCount}
+      removedSectionCount={totalSectionCount}
       emptyReason={emptyReason}
     />
   );

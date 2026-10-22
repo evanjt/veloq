@@ -59,6 +59,7 @@ import {
   type WhatsNewSlideDefinition,
 } from './slides';
 import { WhatsNewSlide } from './WhatsNewSlide';
+import { TourSyncLine } from './TourSyncLine';
 import { Button, pageAccessibility } from '@/shared/ui';
 import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
 
@@ -385,6 +386,7 @@ export function WhatsNewModal() {
               setChromeHeight(event.nativeEvent.layout.height)
             }
           >
+            {tourState?.mode === 'tutorial' ? <TourSyncLine /> : null}
             {/* Mode toggle + dot indicators */}
             <View style={styles.indicators}>
               {canToggleMode ? (

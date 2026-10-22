@@ -2452,13 +2452,7 @@
       "routesTip": "Scrolle auf der Routenseite nach unten, um jeden Versuch auf der Strecke im Vergleich zu den anderen zu sehen."
     },
     "tutorial": {
-      "firstLoadTitle": "Dein Training auf diesem Handy",
-      "firstLoadBody": "Veloq liest deine Aktivitäten und dein Wohlbefinden aus intervals.icu und speichert sie auf diesem Handy. Der erste Download läuft im Hintergrund, und dein Feed füllt sich, sobald Aktivitäten ankommen.",
-      "feedTitle": "Dein Feed",
-      "feedBody": "Jede Aktivität erscheint hier als Eintrag mit ihrer Karte, die neueste zuerst.",
-      "feedTip": "Zieh nach unten, um intervals.icu nach neuen Aktivitäten zu fragen, oder tippe auf eine Aktivität, um sie zu öffnen.",
-      "activityTitle": "In einer Aktivität",
-      "activityBody": "Öffne eine Aktivität für ihre Karte und Diagramme, ihre Intervalle und die Routen und Abschnitte, zu denen sie gehört.",
+      "firstLoadLine": "Der erste Download von intervals.icu läuft. Dein Feed füllt sich, sobald Aktivitäten ankommen.",
       "notificationsTitle": "Benachrichtigungen",
       "notificationsBody": "Wenn intervals.icu eine neue Aktivität erhält, kann Veloq dir sagen, was es gefunden hat: eine persönliche Bestzeit, eine schnellere Zeit als sonst oder einen Schritt nach vorn in der Fitness. Das sind Beispiele für das, was ankommt.",
       "turnOn": "Einschalten",
@@ -2674,6 +2668,7 @@
     "retiredEmpty": "Keine Abschnitte ausgeschieden",
     "retiredInto": "In {{name}}",
     "seeRetired": "Ausgeschiedene Abschnitte",
+    "restoredTitle": "Abschnitt wiederhergestellt",
     "kind_formed": "Gebildet",
     "kind_restored": "Zurückgekehrt",
     "kind_split_one": "In {{count}} Abschnitt geteilt",

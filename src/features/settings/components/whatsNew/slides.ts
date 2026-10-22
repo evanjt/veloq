@@ -171,39 +171,13 @@ export const WHATS_NEW_SLIDES: Record<string, WhatsNewSlideDefinition[]> = {
 };
 
 /**
- * The first-run tour, in the order the athlete meets things: what Veloq reads and the first load
- * that is running while the tour is open, then the feed, an activity and the notifications one
- * posts, the map, fitness, sections and routes, and backup. A release slide that only explains a change, such as the section
- * preview, stays in What's New.
+ * The first-run tour: the two pages the athlete acts on first, the map style and the
+ * notifications, then sections and routes, and backup last. The first load is not a page: the
+ * tour's chrome carries it as a line while the sync runs. A release slide that only explains a
+ * change, such as the section preview, stays in What's New.
  */
 const TUTORIAL_SLIDES: WhatsNewSlideDefinition[] = [
-  {
-    titleKey: 'whatsNew.tutorial.firstLoadTitle',
-    bodyKey: 'whatsNew.tutorial.firstLoadBody',
-    icon: 'cloud-download-outline',
-    get Component() {
-      return require('./FirstLoadSlide').FirstLoadSlide;
-    },
-  },
-  {
-    titleKey: 'whatsNew.tutorial.feedTitle',
-    bodyKey: 'whatsNew.tutorial.feedBody',
-    icon: 'format-list-bulleted',
-    showMeRoute: '/',
-    showMeTip: 'whatsNew.tutorial.feedTip',
-    showMeWhen: 'hasActivities',
-    get Component() {
-      return require('./FeedSlide').FeedSlide;
-    },
-  },
-  {
-    titleKey: 'whatsNew.tutorial.activityTitle',
-    bodyKey: 'whatsNew.tutorial.activityBody',
-    icon: 'chart-line',
-    get Component() {
-      return require('./ActivitySlide').ActivitySlide;
-    },
-  },
+  MAP_STYLES,
   {
     titleKey: 'whatsNew.tutorial.notificationsTitle',
     bodyKey: 'whatsNew.tutorial.notificationsBody',
@@ -213,8 +187,6 @@ const TUTORIAL_SLIDES: WhatsNewSlideDefinition[] = [
       return require('./NotificationsSlide').NotificationsSlide;
     },
   },
-  MAP_STYLES,
-  FITNESS,
   SECTION_PAGE,
   ROUTES,
   BACKUP,

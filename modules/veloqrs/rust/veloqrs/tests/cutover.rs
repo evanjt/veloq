@@ -31,6 +31,16 @@ fn seed_older_build_engine(path: &std::path::Path) {
 
 /// `min_activities` of `None` leaves the config at the validated defaults.
 fn seed_older_build_engine_with(path: &std::path::Path, min_activities: Option<u32>) {
+    seed_older_build_engine_over(path, min_activities, &[0.0]);
+}
+
+/// One corridor per longitude shift, four rides on each. The first corridor's
+/// rides are `ride_0` to `ride_3`, the others' `ride_<shift index>_<n>`.
+fn seed_older_build_engine_over(
+    path: &std::path::Path,
+    min_activities: Option<u32>,
+    shifts: &[f64],
+) {
     assert!(persistent_engine_init(path.to_str().unwrap().to_string()));
     with_persistent_engine(|engine| {
         let mut cfg = engine.get_section_config();
@@ -40,20 +50,30 @@ fn seed_older_build_engine_with(path: &std::path::Path, min_activities: Option<u
         engine
             .set_section_config(cfg)
             .expect("set the section config");
-        for i in 0..4 {
-            let id = format!("ride_{i}");
-            engine
-                .add_activity(id.clone(), line_track(i as f64 * 0.00002), "Ride".into())
-                .expect("add activity");
-            engine
-                .update_activity_metadata(
-                    &id,
-                    Some(1_700_000_000 - i as i64 * 14 * 86_400),
-                    None,
-                    None,
-                    None,
-                )
-                .expect("metadata");
+        for (c, shift) in shifts.iter().enumerate() {
+            for i in 0..4 {
+                let id = if c == 0 {
+                    format!("ride_{i}")
+                } else {
+                    format!("ride_{c}_{i}")
+                };
+                engine
+                    .add_activity(
+                        id.clone(),
+                        line_track(shift + i as f64 * 0.00002),
+                        "Ride".into(),
+                    )
+                    .expect("add activity");
+                engine
+                    .update_activity_metadata(
+                        &id,
+                        Some(1_700_000_000 - i as i64 * 14 * 86_400),
+                        None,
+                        None,
+                        None,
+                    )
+                    .expect("metadata");
+            }
         }
     })
     .unwrap();
@@ -1946,4 +1966,123 @@ fn a_stopped_rebuild_records_stopped() {
         veloqrs::persistence::job_runs::RunOutcome::Stopped
     );
     assert_eq!((run.added, run.changed, run.retired), (0, 0, 0));
+}
+
+/// Metres east of a line drawn at longitude 7.0, near latitude 46.
+const METRES_PER_DEGREE_LNG: f64 = 77_300.0;
+
+/// An older build drew the same corridor differently, so a stored intent line
+/// is a perturbed copy of the corridor and never the detector's own line.
+fn old_line(offset_m: f64, from: usize, to: usize) -> Vec<GpsPoint> {
+    let mut line = line_track(offset_m / METRES_PER_DEGREE_LNG);
+    line.truncate(to);
+    line.drain(..from);
+    line
+}
+
+/// Scenario: the athlete deleted the only corridor in the older build, whose
+/// stored line sits apart from where the new detector draws it.
+/// Expected behaviour: the cutover re-detects without bringing the corridor
+/// back under a new id.
+fn deleted_corridor_stays_deleted_with_old_line(line: Vec<GpsPoint>) {
+    let _serial_state = super::serial_state();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    seed_older_build_engine_over(&path, Some(3), &[0.0, 0.2]);
+    let id = with_persistent_engine(|e| {
+        e.get_sections()
+            .iter()
+            .find(|s| s.activity_ids.iter().any(|a| a == "ride_0"))
+            .expect("the first corridor")
+            .id
+            .clone()
+    })
+    .unwrap();
+    with_persistent_engine(|e| e.delete_section(&id))
+        .unwrap()
+        .expect("delete");
+    let db = rusqlite::Connection::open(&path).expect("open");
+    let changed = db
+        .execute(
+            "UPDATE section_intents SET polyline_blob = ?, polyline_json = NULL
+             WHERE kind = 'deleted'",
+            [veloqrs::persistence::codec::serialize_track_points(&line)],
+        )
+        .expect("perturb the old line");
+    assert_eq!(changed, 1, "the delete wrote one intent");
+
+    let outcome = veloqrs::persistence::cutover::run_cutover().expect("cutover");
+    assert!(
+        matches!(outcome, CutoverOutcome::Completed(_)),
+        "{outcome:?}"
+    );
+
+    let live = with_persistent_engine(|e| {
+        e.get_sections()
+            .iter()
+            .map(|s| s.activity_ids.clone())
+            .collect::<Vec<_>>()
+    })
+    .unwrap();
+    assert!(
+        live.iter().any(|ids| ids.iter().any(|a| a == "ride_1_0")),
+        "the kept corridor is gone: {live:?}"
+    );
+    assert!(
+        !live.iter().any(|ids| ids.iter().any(|a| a == "ride_0")),
+        "the deleted corridor came back: {live:?}"
+    );
+    let intents: i64 = db
+        .query_row(
+            "SELECT COUNT(*) FROM section_intents WHERE kind = 'deleted'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("intent count");
+    assert_eq!(intents, 1, "the deleted intent was lost");
+}
+
+#[test]
+fn deleted_corridor_stays_deleted_when_the_old_line_is_offset_40_m() {
+    deleted_corridor_stays_deleted_with_old_line(old_line(40.0, 0, 200));
+}
+
+#[test]
+fn deleted_corridor_stays_deleted_when_the_old_line_is_shorter() {
+    deleted_corridor_stays_deleted_with_old_line(old_line(0.0, 40, 160));
+}
+
+#[test]
+fn deleted_corridor_stays_deleted_when_the_old_line_is_offset_and_shorter() {
+    deleted_corridor_stays_deleted_with_old_line(old_line(40.0, 50, 150));
+}
+
+/// Scenario: the athlete excluded one ride from the corridor in the older build.
+/// Expected behaviour: the live corridor after the cut still excludes that ride
+/// and no other.
+#[test]
+fn an_excluded_activity_stays_excluded_through_the_cutover() {
+    let _serial_state = super::serial_state();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    seed_older_build_engine(&path);
+    let id = with_persistent_engine(|e| e.get_sections()[0].id.clone()).unwrap();
+    with_persistent_engine(|e| e.exclude_activity_from_section(&id, "ride_1"))
+        .unwrap()
+        .expect("exclude");
+
+    assert!(matches!(
+        veloqrs::persistence::cutover::run_cutover().expect("cutover"),
+        CutoverOutcome::Completed(_)
+    ));
+
+    let excluded = with_persistent_engine(|e| {
+        let live = e.get_sections();
+        assert!(!live.is_empty(), "the cut produced no corridor");
+        live.iter()
+            .flat_map(|s| e.get_excluded_activity_ids(&s.id))
+            .collect::<Vec<_>>()
+    })
+    .unwrap();
+    assert_eq!(excluded, vec!["ride_1".to_string()]);
 }

@@ -2452,13 +2452,7 @@
       "routesTip": "ルートページを下にスクロールすると、コースでの各試行を他の試行と比べて見られます。"
     },
     "tutorial": {
-      "firstLoadTitle": "トレーニングをこの端末に",
-      "firstLoadBody": "Veloq は intervals.icu からアクティビティとウェルネスを読み込み、この端末に保存します。最初の読み込みはバックグラウンドで進み、アクティビティが届くにつれてフィードが埋まっていきます。",
-      "feedTitle": "フィード",
-      "feedBody": "アクティビティはそれぞれ地図付きのカードとして、新しい順にここに並びます。",
-      "feedTip": "下に引くと intervals.icu に新しいアクティビティがないか確認します。カードをタップすると開きます。",
-      "activityTitle": "アクティビティの中身",
-      "activityBody": "アクティビティを開くと、地図とチャート、インターバル、そして属するルートと区間を見られます。",
+      "firstLoadLine": "intervals.icu からの初回読み込みを実行中です。アクティビティが届くにつれて、フィードに表示されます。",
       "notificationsTitle": "通知",
       "notificationsBody": "intervals.icu に新しいアクティビティが届くと、Veloq が見つけたことをお知らせします。自己ベスト、いつもより速いタイム、フィットネスの向上などです。届く通知の例です。",
       "turnOn": "オンにする",
@@ -2674,6 +2668,7 @@
     "retiredEmpty": "消えた区間はありません",
     "retiredInto": "{{name}}へ",
     "seeRetired": "消えた区間",
+    "restoredTitle": "区間を復元しました",
     "kind_formed": "形成",
     "kind_restored": "復活",
     "kind_split_one": "{{count}}区間に分割",

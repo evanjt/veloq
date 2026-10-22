@@ -101,7 +101,7 @@ function Screen({
       unacceptedAutoCount={0}
       acceptedAutoCount={2}
       customSectionCount={0}
-      retiredSectionCount={0}
+      removedSectionCount={0}
     />
   );
 }
@@ -152,7 +152,7 @@ describe('a sections list its filters have emptied', () => {
         unacceptedAutoCount={0}
         acceptedAutoCount={0}
         customSectionCount={0}
-        retiredSectionCount={0}
+        removedSectionCount={0}
       />
     );
 

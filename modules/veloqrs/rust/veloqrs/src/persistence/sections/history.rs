@@ -184,6 +184,11 @@ pub struct RetiredSection {
     pub name: Option<String>,
     /// Its length when it left, else its newest stored line's.
     pub distance_meters: Option<f64>,
+    /// The version a restore rolls it back to: the newest `archived` state
+    /// that names a sport, which is what recreating the row needs. `None`
+    /// when no such state exists, and for a state a record restore still
+    /// holds pending, whose ground is not present yet.
+    pub restorable_version: Option<crate::WholeNumber>,
 }
 
 /// A change the ledger recorded on a live section, for the insights feed.
@@ -1754,6 +1759,33 @@ pub(crate) mod pooled {
         retired
     }
 
+    /// How many of the ledger's retired sections hold an `archived` row: the
+    /// cutover's, or a record restore's pending state. A plain dissolve writes
+    /// no archived row, so a library whose sections a detect dissolved, with no
+    /// cutover behind it, reads zero here. That is what the "your matching
+    /// changed" card gates on, and not the wider retired list.
+    pub(crate) fn archived_retired_count(conn: &Connection, retired: &[RetiredSection]) -> u32 {
+        if retired.is_empty() {
+            return 0;
+        }
+        let ids: Vec<String> = retired.iter().map(|r| r.section_id.clone()).collect();
+        let placeholders = ids.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+        let sql = format!(
+            "SELECT COUNT(DISTINCT section_id) FROM section_history
+             WHERE kind = ? AND section_id IN ({placeholders})"
+        );
+        let kind = super::KIND_ARCHIVED.to_string();
+        let mut params: Vec<&dyn rusqlite::ToSql> = Vec::with_capacity(ids.len() + 1);
+        params.push(&kind);
+        for id in &ids {
+            params.push(id);
+        }
+        conn.prepare(&sql)
+            .and_then(|mut stmt| stmt.query_row(params.as_slice(), |row| row.get::<_, i64>(0)))
+            .map(|n| n as u32)
+            .unwrap_or(0)
+    }
+
     /// How `section_id` left the catalogue and the live section that took its
     /// ground, or `None` when the ledger holds no departure for it.
     ///
@@ -1904,6 +1936,7 @@ pub(crate) mod pooled {
                     .get("distance_meters")
                     .and_then(|v| v.as_f64())
                     .or_else(|| retired_distance(conn, &section_id, &versions));
+                let restorable_version = restorable_version(conn, &section_id);
                 RetiredSection {
                     section_id,
                     kind,
@@ -1912,9 +1945,35 @@ pub(crate) mod pooled {
                     versions,
                     name,
                     distance_meters,
+                    restorable_version,
                 }
             })
             .collect()
+    }
+
+    /// The newest archived state of `section_id` that names a sport: the
+    /// same rule `recreate_retired_section` applies before it refuses.
+    fn restorable_version(conn: &Connection, section_id: &str) -> Option<crate::WholeNumber> {
+        let mut stmt = conn
+            .prepare(
+                "SELECT geometry_version, details FROM section_history
+                 WHERE section_id = ? AND kind = ? AND geometry_version IS NOT NULL
+                 ORDER BY id DESC",
+            )
+            .ok()?;
+        let rows = stmt
+            .query_map(params![section_id, super::KIND_ARCHIVED], |row| {
+                Ok((row.get::<_, i64>(0)?, row.get::<_, Option<String>>(1)?))
+            })
+            .ok()?;
+        rows.flatten()
+            .find(|(_, details)| {
+                details
+                    .as_deref()
+                    .and_then(|d| serde_json::from_str::<serde_json::Value>(d).ok())
+                    .is_some_and(|d| d.get("sport_type").and_then(|v| v.as_str()).is_some())
+            })
+            .map(|(version, _)| crate::WholeNumber(version))
     }
 
     /// Every live section born as a split sibling, newest birth row winning

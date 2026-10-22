@@ -75,5 +75,8 @@ mod schema_overstated_version;
 #[path = "../schema_version_divergence.rs"]
 mod schema_version_divergence;
 
+#[path = "../upgrade_scale.rs"]
+mod upgrade_scale;
+
 #[path = "../upgrade_timing.rs"]
 mod upgrade_timing;

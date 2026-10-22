@@ -9,6 +9,7 @@
  * view is exposed, the footer holds only the buttons that apply to that slide, and
  * the position is a value a screen reader can read and adjust.
  */
+import { SyncState } from 'veloqrs';
 import React from 'react';
 import { Modal } from 'react-native';
 import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
@@ -54,6 +55,14 @@ jest.mock('@/features/settings/components/whatsNew/slides', () => {
     getSlidesSince: () => [],
   };
 });
+
+let mockSyncState: number | null = null;
+let mockSyncStatus: Record<string, unknown> | null = null;
+jest.mock('@/shared/native/useSyncStatus', () => ({
+  ...jest.requireActual('@/shared/native/useSyncStatus'),
+  useSyncStatus: () => mockSyncStatus,
+  useSyncState: () => mockSyncState,
+}));
 
 const visible = { includeHiddenElements: false } as const;
 const TITLES = ['tour.lighthouse', 'tour.harbour', 'tour.jetty'];
@@ -245,5 +254,24 @@ describe('the tour when the window changes width', () => {
     act(() => advanceAnimationByTime(0));
 
     expect(rowOffset()).toEqual({ translateX: -(500 - spacing.xl * 2) });
+  });
+});
+
+describe('the first-load line on the tour', () => {
+  afterEach(() => {
+    mockSyncState = null;
+    mockSyncStatus = null;
+  });
+
+  it('shows while the first sync runs, and hides once it is done', () => {
+    mockSyncState = SyncState.Syncing;
+    mockSyncStatus = { state: SyncState.Syncing };
+    openTour();
+    expect(screen.getByTestId('tour-first-load-line')).toBeTruthy();
+
+    mockSyncState = SyncState.Idle;
+    mockSyncStatus = { state: SyncState.Idle };
+    screen.rerender(tourTree());
+    expect(screen.queryByTestId('tour-first-load-line')).toBeNull();
   });
 });

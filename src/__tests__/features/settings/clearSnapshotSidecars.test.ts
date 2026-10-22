@@ -58,6 +58,7 @@ describe('clear rollback', () => {
     const deleted = (FileSystem.deleteAsync as jest.Mock).mock.calls.map((c) => String(c[0]));
     expect(deleted).toContain(`file://${DB}-wal`);
     expect(deleted).toContain(`file://${DB}-shm`);
+    expect(deleted).toContain(`file://${DB}-journal`);
 
     const order = callOrder();
     expect(order.indexOf(`delete:file://${DB}-wal`)).toBeLessThan(order.length);

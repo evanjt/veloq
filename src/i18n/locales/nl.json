@@ -2452,13 +2452,7 @@
       "routesTip": "Scrol omlaag op de routepagina om elke poging op het parcours te zien, vergeleken met de andere."
     },
     "tutorial": {
-      "firstLoadTitle": "Je training, op deze telefoon",
-      "firstLoadBody": "Veloq leest je activiteiten en welzijn uit intervals.icu en bewaart ze op deze telefoon. Het eerste laden loopt op de achtergrond en je feed vult zich naarmate activiteiten binnenkomen.",
-      "feedTitle": "Je feed",
-      "feedBody": "Elke activiteit verschijnt hier met haar kaart, de nieuwste eerst.",
-      "feedTip": "Trek omlaag om intervals.icu op nieuwe activiteiten te controleren, of tik op een activiteit om die te openen.",
-      "activityTitle": "Binnen een activiteit",
-      "activityBody": "Open een activiteit voor haar kaart en grafieken, haar intervallen en de routes en secties waar ze bij hoort.",
+      "firstLoadLine": "De eerste download van intervals.icu loopt. Je feed vult zich zodra activiteiten binnenkomen.",
       "notificationsTitle": "Meldingen",
       "notificationsBody": "Als intervals.icu een nieuwe activiteit ontvangt, kan Veloq je vertellen wat het vond: een persoonlijk record, een snellere tijd dan normaal of een stap vooruit in fitheid. Dit zijn voorbeelden van wat er binnenkomt.",
       "turnOn": "Inschakelen",
@@ -2674,6 +2668,7 @@
     "retiredEmpty": "Geen vervallen stukken",
     "retiredInto": "In {{name}}",
     "seeRetired": "Vervallen stukken",
+    "restoredTitle": "Stuk hersteld",
     "kind_formed": "Gevormd",
     "kind_restored": "Teruggekeerd",
     "kind_split_one": "Gesplitst in {{count}} stuk",

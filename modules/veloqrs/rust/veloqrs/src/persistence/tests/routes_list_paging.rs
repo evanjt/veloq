@@ -111,7 +111,7 @@ fn section_view(page: &super::PooledSectionPage) -> SectionView {
             page.unaccepted_auto_count,
             page.accepted_auto_count,
             page.custom_count,
-            page.retired_count,
+            page.removed_count,
         ],
     )
 }

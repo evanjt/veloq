@@ -97,8 +97,8 @@ interface SectionsListProps {
   acceptedAutoCount: number;
   /** Custom sections over the catalogue rather than the page */
   customSectionCount: number;
-  /** Retired auto sections over the catalogue rather than the page */
-  retiredSectionCount: number;
+  /** Removed auto sections over the catalogue rather than the page */
+  removedSectionCount: number;
   /** The page read failed: shown with a retry, never as an empty library */
   loadError?: unknown;
   /** Reads the page again after a failure */
@@ -226,7 +226,7 @@ export const SectionsList = memo(function SectionsList({
   unacceptedAutoCount,
   acceptedAutoCount,
   customSectionCount,
-  retiredSectionCount,
+  removedSectionCount,
   loadError,
   onRetry,
   emptyReason = null,
@@ -547,7 +547,7 @@ export const SectionsList = memo(function SectionsList({
           customCount={customSectionCount}
           hiddenFilters={hiddenFilters}
           onFilterPress={handleFilterPress}
-          trueDisabledCount={retiredSectionCount}
+          trueDisabledCount={removedSectionCount}
           unacceptedAutoCount={unacceptedAutoCount}
           acceptedAutoCount={acceptedAutoCount}
         />

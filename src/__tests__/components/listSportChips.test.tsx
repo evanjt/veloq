@@ -86,7 +86,7 @@ async function sections(sportType: string | undefined) {
       unacceptedAutoCount={0}
       acceptedAutoCount={1}
       customSectionCount={0}
-      retiredSectionCount={0}
+      removedSectionCount={0}
       sportOptions={['Ride', 'Run']}
       sportType={sportType}
       onSportChange={onSportChange}
@@ -143,5 +143,45 @@ describe('the sections list sport filter', () => {
     const onSportChange = await sections('Ride');
     await fireEvent.press(chip('Ride'));
     expect(onSportChange).toHaveBeenCalledWith(undefined);
+  });
+});
+
+// The Removed chip is driven by the removed count the screen read carries,
+// which is a different figure from the ledger's retired count. It shows only
+// when there is a removed section to offer, and never off the ledger count,
+// which the list does not read.
+describe('the sections list removed chip', () => {
+  const removedChip = () => screen.queryByRole('button', { name: 'sections.removedCount' });
+
+  async function renderWithRemoved(removedCount: number) {
+    await render(
+      <SectionsList
+        batchSections={[section]}
+        totalSectionCount={1}
+        sortOption="name"
+        onSortChange={jest.fn()}
+        searchQuery=""
+        onSearchChange={jest.fn()}
+        hiddenFilters={{ custom: false, auto: false, disabled: false, unaccepted: false }}
+        onHiddenFiltersChange={jest.fn()}
+        unacceptedAutoCount={0}
+        acceptedAutoCount={0}
+        customSectionCount={0}
+        removedSectionCount={removedCount}
+        sportOptions={['Ride', 'Run']}
+        sportType={undefined}
+        onSportChange={jest.fn()}
+      />
+    );
+  }
+
+  it('offers the chip when the removed count is above zero', async () => {
+    await renderWithRemoved(3);
+    expect(removedChip()).toBeTruthy();
+  });
+
+  it('offers no chip when the removed count is zero', async () => {
+    await renderWithRemoved(0);
+    expect(removedChip()).toBeNull();
   });
 });

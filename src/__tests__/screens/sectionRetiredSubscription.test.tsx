@@ -8,7 +8,7 @@
 
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { act, render } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import SectionRetiredScreen from '@/app/section-retired';
 import { layout } from '@/theme/layout';
@@ -46,9 +46,25 @@ const mockGetRetiredSections = jest.fn<
     into?: string;
     name?: string;
     distanceMeters?: number;
+    restorableVersion?: number;
   }[],
   []
 >(() => []);
+
+const mockRunSectionBoundsEdit = jest.fn<Promise<unknown[]>, [unknown]>(async () => []);
+const mockChooseAction = jest.fn();
+const mockNavigateTo = jest.fn();
+
+jest.mock('@/shared/ui/dialog', () => ({
+  ...jest.requireActual('@/shared/ui/dialog'),
+  chooseAction: (args: unknown) => mockChooseAction(args),
+  inform: jest.fn(),
+}));
+
+jest.mock('@/shared/app/navigation', () => ({
+  ...jest.requireActual('@/shared/app/navigation'),
+  navigateTo: (to: string) => mockNavigateTo(to),
+}));
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => ({
@@ -59,6 +75,7 @@ jest.mock('@/shared/native/engine', () => ({
       return () => set.delete(cb);
     },
     getRetiredSections: () => mockGetRetiredSections(),
+    runSectionBoundsEdit: (edit: unknown) => mockRunSectionBoundsEdit(edit),
   }),
   isEngineReady: () => true,
 }));
@@ -148,5 +165,56 @@ describe('each retired card', () => {
 
     expect(screen.getByTestId('section-retired-sec-1')).toBeTruthy();
     expect(screen.queryByText(/km|\bm\b/)).toBeNull();
+  });
+});
+
+describe('restoring a retired section', () => {
+  it('offers Restore only on a card whose section has a version to restore from', () => {
+    mockGetRetiredSections.mockReturnValue([
+      { ...retirement('sec-1'), kind: 'dissolved', restorableVersion: 3 },
+      { ...retirement('sec-2'), kind: 'dissolved' },
+    ]);
+    const screen = render(<SectionRetiredScreen />);
+
+    expect(screen.getByTestId('section-retired-restore-sec-1')).toBeTruthy();
+    expect(screen.queryByTestId('section-retired-restore-sec-2')).toBeNull();
+  });
+
+  it('reverts to the reported version, drops the card and offers to open the section', async () => {
+    mockGetRetiredSections.mockReturnValue([
+      { ...retirement('sec-1'), kind: 'dissolved', name: 'Old Quarry', restorableVersion: 3 },
+    ]);
+    const screen = await render(<SectionRetiredScreen />);
+
+    mockGetRetiredSections.mockReturnValue([]);
+    await fireEvent.press(screen.getByTestId('section-retired-restore-sec-1'));
+
+    await waitFor(() =>
+      expect(mockRunSectionBoundsEdit).toHaveBeenCalledWith({
+        kind: 'revert',
+        sectionId: 'sec-1',
+        version: 3,
+      })
+    );
+    await emit('sections');
+    expect(screen.queryByTestId('section-retired-sec-1')).toBeNull();
+
+    await waitFor(() => expect(mockChooseAction).toHaveBeenCalled());
+    mockChooseAction.mock.calls[0][0].actions[0].onPress();
+    expect(mockNavigateTo).toHaveBeenCalledWith('/section/sec-1');
+  });
+
+  it('keeps the card and offers no Open when the restore fails', async () => {
+    mockRunSectionBoundsEdit.mockRejectedValueOnce(new Error('refused'));
+    mockGetRetiredSections.mockReturnValue([
+      { ...retirement('sec-1'), kind: 'dissolved', restorableVersion: 3 },
+    ]);
+    const screen = await render(<SectionRetiredScreen />);
+
+    await fireEvent.press(screen.getByTestId('section-retired-restore-sec-1'));
+
+    await waitFor(() => expect(mockRunSectionBoundsEdit).toHaveBeenCalled());
+    expect(mockChooseAction).not.toHaveBeenCalled();
+    expect(screen.getByTestId('section-retired-sec-1')).toBeTruthy();
   });
 });

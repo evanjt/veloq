@@ -21,5 +21,8 @@ mod detection_suspension;
 #[path = "../cutover.rs"]
 mod cutover;
 
+#[path = "../cutover_retired_from_v12.rs"]
+mod cutover_retired_from_v12;
+
 #[path = "../detection_last_run.rs"]
 mod detection_last_run;

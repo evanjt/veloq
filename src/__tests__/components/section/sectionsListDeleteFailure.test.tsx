@@ -72,7 +72,7 @@ async function deleteHarbourLoop() {
       unacceptedAutoCount={0}
       acceptedAutoCount={0}
       customSectionCount={1}
-      retiredSectionCount={0}
+      removedSectionCount={0}
     />
   );
   const row = screen.getByRole('button', { name: /Harbour loop/ });

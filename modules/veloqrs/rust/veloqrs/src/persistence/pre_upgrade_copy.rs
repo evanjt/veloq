@@ -102,6 +102,14 @@ fn write_copy(conn: &Connection, dest_path: &str) -> Result<(), String> {
 /// [`record`] stamps once the pass succeeds. `None` for a fresh install, an
 /// in-memory database, or a copy that failed.
 pub(super) fn take(conn: &Connection, old_version: i32) -> Option<String> {
+    take_on(conn, old_version, free_bytes)
+}
+
+fn take_on(
+    conn: &Connection,
+    old_version: i32,
+    free: impl Fn(&str) -> Option<u64>,
+) -> Option<String> {
     let db_path = db_path(conn)?;
     match holds_data(conn) {
         Ok(true) => {}
@@ -121,6 +129,17 @@ pub(super) fn take(conn: &Connection, old_version: i32) -> Option<String> {
             dest
         );
         return Some(dest);
+    }
+    // A copy the volume cannot hold is not started, so it never fills the
+    // volume partway through and leaves a partial file behind.
+    let needed = copy_space_needed(&db_path);
+    if let Some(available) = free(&db_path).filter(|available| *available < needed) {
+        log::warn!(
+            "veloqrs: [Schema] Pre-upgrade copy skipped: {} bytes free beside the library, {} needed. Upgrading without a copy",
+            available,
+            needed
+        );
+        return None;
     }
     let started = std::time::Instant::now();
     match write_copy(conn, &dest) {
@@ -187,4 +206,176 @@ fn release_recorded(conn: &Connection) -> SqlResult<()> {
     }
     conn.execute("DELETE FROM schema_info WHERE key = ?1", params![COPY_KEY])?;
     Ok(())
+}
+
+/// Bytes the copy needs on the volume: two library sizes with the sidecars.
+/// The copy takes one, and the second is headroom for the migration that
+/// follows it.
+fn copy_space_needed(db_path: &str) -> u64 {
+    let size =
+        |suffix: &str| std::fs::metadata(format!("{db_path}{suffix}")).map_or(0, |meta| meta.len());
+    2 * size("") + size("-wal") + size("-shm")
+}
+
+/// Free bytes on the volume holding `db_path`, `None` when it cannot be read.
+fn free_bytes(db_path: &str) -> Option<u64> {
+    #[cfg(unix)]
+    {
+        let path = std::ffi::CString::new(db_path).ok()?;
+        let mut stat = std::mem::MaybeUninit::<libc::statvfs>::uninit();
+        // SAFETY: `path` is NUL-terminated and `stat` is a valid out-pointer
+        // that `statvfs` fills in when it returns zero.
+        if unsafe { libc::statvfs(path.as_ptr(), stat.as_mut_ptr()) } != 0 {
+            return None;
+        }
+        // SAFETY: a zero return from `statvfs` means the struct is initialised.
+        let stat = unsafe { stat.assume_init() };
+        // The block count and its size have per-platform widths, so the product
+        // is taken wide and narrowed once.
+        let bytes = u128::from(stat.f_bavail) * u128::from(stat.f_frsize);
+        Some(u64::try_from(bytes).unwrap_or(u64::MAX))
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = db_path;
+        None
+    }
+}
+
+/// Names the bytes an upgrade needs when a write failed for want of space.
+///
+/// The code stays `DiskFull`, so the open still classifies the failure as
+/// storage and leaves the library where it is. Only the message changes.
+pub(super) fn explain_shortfall(e: rusqlite::Error, db_path: &str) -> rusqlite::Error {
+    explain_shortfall_on(e, db_path, free_bytes)
+}
+
+fn explain_shortfall_on(
+    e: rusqlite::Error,
+    db_path: &str,
+    free: impl Fn(&str) -> Option<u64>,
+) -> rusqlite::Error {
+    if !super::is_disk_full(&e) {
+        return e;
+    }
+    let rusqlite::Error::SqliteFailure(code, message) = e else {
+        return e;
+    };
+    let needed = copy_space_needed(db_path);
+    let available = match free(db_path) {
+        Some(bytes) => format!("{bytes} bytes are free"),
+        None => "the free space could not be read".to_string(),
+    };
+    let base = message.unwrap_or_else(|| "database or disk is full".to_string());
+    rusqlite::Error::SqliteFailure(
+        code,
+        Some(format!(
+            "{base}: the upgrade needs {needed} bytes free beside the library, {available}"
+        )),
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rusqlite::ffi;
+    use std::path::Path;
+    use tempfile::TempDir;
+
+    /// A library with enough rows that its size is not in doubt.
+    fn library_beside(dir: &TempDir) -> (String, Connection) {
+        let path = dir.path().join("routes.db").to_string_lossy().into_owned();
+        let conn = Connection::open(&path).unwrap();
+        conn.execute_batch(
+            "PRAGMA user_version = 12;
+             CREATE TABLE activities (id INTEGER PRIMARY KEY, body BLOB);
+             WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 200)
+             INSERT INTO activities (body) SELECT randomblob(4096) FROM n;",
+        )
+        .unwrap();
+        (path, conn)
+    }
+
+    fn disk_full() -> rusqlite::Error {
+        rusqlite::Error::SqliteFailure(ffi::Error::new(ffi::SQLITE_FULL), None)
+    }
+
+    #[test]
+    fn a_copy_that_does_not_fit_beside_the_library_is_skipped() {
+        let dir = TempDir::new().unwrap();
+        let (path, conn) = library_beside(&dir);
+        let needed = copy_space_needed(&path);
+
+        let taken = take_on(&conn, 12, |_| Some(needed - 1));
+
+        assert_eq!(taken, None);
+        assert!(!Path::new(&copy_path(&path, 12)).exists());
+    }
+
+    #[test]
+    fn a_copy_that_exactly_fits_is_taken() {
+        let dir = TempDir::new().unwrap();
+        let (path, conn) = library_beside(&dir);
+        let needed = copy_space_needed(&path);
+
+        let taken = take_on(&conn, 12, |_| Some(needed));
+
+        assert_eq!(taken, Some(copy_path(&path, 12)));
+        assert!(Path::new(&copy_path(&path, 12)).is_file());
+    }
+
+    #[test]
+    fn a_copy_is_taken_when_the_free_space_cannot_be_read() {
+        let dir = TempDir::new().unwrap();
+        let (path, conn) = library_beside(&dir);
+
+        let taken = take_on(&conn, 12, |_| None);
+
+        assert_eq!(taken, Some(copy_path(&path, 12)));
+    }
+
+    #[test]
+    fn the_space_a_copy_needs_is_two_library_sizes_and_the_sidecars() {
+        let dir = TempDir::new().unwrap();
+        let (path, _conn) = library_beside(&dir);
+        let main = std::fs::metadata(&path).unwrap().len();
+        std::fs::write(format!("{path}-wal"), vec![0u8; 1000]).unwrap();
+        std::fs::write(format!("{path}-shm"), vec![0u8; 300]).unwrap();
+
+        assert_eq!(copy_space_needed(&path), 2 * main + 1000 + 300);
+    }
+
+    #[test]
+    fn a_migration_out_of_space_names_the_bytes_it_needs() {
+        let dir = TempDir::new().unwrap();
+        let (path, _conn) = library_beside(&dir);
+        let needed = copy_space_needed(&path);
+
+        let explained = explain_shortfall_on(disk_full(), &path, |_| Some(1024));
+
+        assert_eq!(
+            explained.sqlite_error_code(),
+            Some(rusqlite::ErrorCode::DiskFull)
+        );
+        let rusqlite::Error::SqliteFailure(_, Some(message)) = explained else {
+            panic!("the explanation carries no message");
+        };
+        assert!(message.contains(&format!("{needed} bytes")), "{message}");
+        assert!(message.contains("1024 bytes"), "{message}");
+    }
+
+    #[test]
+    fn an_error_that_is_not_out_of_space_passes_through_unchanged() {
+        let dir = TempDir::new().unwrap();
+        let (path, _conn) = library_beside(&dir);
+        let corrupt = rusqlite::Error::SqliteFailure(ffi::Error::new(ffi::SQLITE_CORRUPT), None);
+
+        let explained = explain_shortfall_on(corrupt, &path, |_| Some(1024));
+
+        assert_eq!(
+            explained.sqlite_error_code(),
+            Some(rusqlite::ErrorCode::DatabaseCorrupt)
+        );
+        assert!(matches!(explained, rusqlite::Error::SqliteFailure(_, None)));
+    }
 }

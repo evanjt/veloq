@@ -2,12 +2,13 @@ import * as FileSystem from 'expo-file-system/legacy';
 
 import { recordCrashes } from '@/shared/debug/crashLog';
 import { excludeExistingFromBackup } from '@/shared/native/backupExclusion';
-import { DISPLACED_INFIX, panicLogPath } from '@/shared/storage/routeDbLocation';
+import { DISPLACED_INFIX, panicLogPath, ROUTE_DB_FILES } from '@/shared/storage/routeDbLocation';
 
 /**
- * A database is three files, not one. SQLite applies a `-wal` it finds beside a
+ * A database is several files, not one. SQLite applies a `-wal` it finds beside a
  * database on the next open, so a copy that names only the main file can leave
- * one belonging to the file it just replaced.
+ * one belonging to the file it just replaced. A rollback journal is applied the
+ * same way.
  *
  * Closing the engine first is not enough on its own: a clean close deletes the
  * pair, but only for the last connection, and the backup source
@@ -15,7 +16,9 @@ import { DISPLACED_INFIX, panicLogPath } from '@/shared/storage/routeDbLocation'
  * background thread. Quarantine already moves all three together
  * (`persistence/mod.rs`), and this is the same shape on the restore side.
  */
-export const DB_SIDECARS = ['-wal', '-shm'] as const;
+export const DB_SIDECARS = ROUTE_DB_FILES.slice(1).map((name) =>
+  name.slice(ROUTE_DB_FILES[0].length)
+);
 
 /** Remove whichever sidecars sit beside `path`, so none outlives its database. */
 export async function clearDatabaseSidecars(path: string): Promise<void> {

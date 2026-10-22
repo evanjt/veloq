@@ -1654,6 +1654,7 @@ pub(crate) fn pending_retired_sections(conn: &Connection) -> Vec<sections::Retir
                 versions: vec![crate::WholeNumber(state.version)],
                 name: None,
                 distance_meters: None,
+                restorable_version: None,
             }),
         }
     }
@@ -3311,6 +3312,7 @@ mod tests {
 
         let retired = restored.retired_sections();
         assert_eq!(retired.len(), 1);
+        assert_eq!(retired[0].restorable_version, None);
         let (section_id, version) = (retired[0].section_id.clone(), retired[0].versions[0]);
         assert_eq!(
             restored

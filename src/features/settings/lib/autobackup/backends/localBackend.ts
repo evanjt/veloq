@@ -2,16 +2,20 @@
  * Legacy reader for the app's old backup directory.
  *
  * Nothing writes there any more. On iOS the backups an older build made stay
- * listed for restore, and go only with a wipe. On Android the newest moves to
- * the shared `Documents/Veloq` and the directory goes, since Android deletes
- * it with the app.
+ * listed for restore, and go only with a wipe. On Android they move to the
+ * shared `Documents/Veloq` and the directory goes once they have, since Android
+ * deletes it with the app.
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
 import { backupEntryFromSidecar, type BackupBackend, type BackupEntry } from './types';
 import { safeGetTime } from '@/shared/format/format';
 import { excludeFromBackup } from '@/shared/native/backupExclusion';
-import { canWriteSharedFolder, writeToSharedFolder } from '@/shared/native/backupFolder';
+import {
+  canWriteSharedFolder,
+  listSharedFolder,
+  writeToSharedFolder,
+} from '@/shared/native/backupFolder';
 import { BACKUP_NAME_PREFIX } from './backupName';
 
 /** Resolve the backup directory at call time (not module load time). */
@@ -82,22 +86,54 @@ export function excludeLocalBackupsFromDeviceBackup(): void {
   }
 }
 
+/** A file the move accounts for: a backup, or the sidecar that describes one. */
+function isMovableBackupFile(name: string): boolean {
+  return name.endsWith('.zip') || name.endsWith('.veloqdb') || name.endsWith('.meta.json');
+}
+
+function sharedMimeType(name: string): string {
+  if (name.endsWith('.zip')) return 'application/zip';
+  if (name.endsWith('.veloqdb')) return 'application/octet-stream';
+  return 'application/json';
+}
+
 /**
- * Move the old backup directory to the shared `Documents/Veloq` on Android:
- * the newest backup is copied there and then the directory is deleted. A copy
- * that fails throws and deletes nothing, so the next launch tries again. While
- * the athlete has stopped the device copy the directory is left alone.
+ * Copy one file to the shared folder and check the copy by size against the
+ * folder's own listing, so a copy the media store wrote short fails here.
+ */
+async function copyChecked(source: string, name: string): Promise<void> {
+  const info = await FileSystem.getInfoAsync(source);
+  if (!info.exists) throw new Error(`Backup file not found: ${name}`);
+  const written = await writeToSharedFolder(source, name, sharedMimeType(name));
+  const listed = await listSharedFolder();
+  if (!listed.some((file) => file.name === written && file.size === info.size)) {
+    throw new Error(`The copy of ${name} does not match its source`);
+  }
+}
+
+/**
+ * Move the old backup directory to the shared `Documents/Veloq` on Android.
+ * Every backup and sidecar in it is copied there and checked by size, and its
+ * private file is deleted only once that copy has checked. A copy that fails
+ * throws, so the files not yet moved stay for the next launch. The directory
+ * goes only when nothing in it is left: a file that is neither a backup nor a
+ * sidecar is not accounted for, so it stays with the directory. While the
+ * athlete has stopped the device copy the directory is left alone.
  */
 export async function moveOlderBackupsToSharedFolder(): Promise<void> {
   if (!canWriteSharedFolder()) return;
   const dir = getBackupDir();
   if (!(await FileSystem.getInfoAsync(dir)).exists) return;
-  const [newest] = await localBackend.listBackups();
-  if (newest) {
-    const mimeType = newest.id.endsWith('.zip') ? 'application/zip' : 'application/octet-stream';
-    await writeToSharedFolder(`${dir}${newest.id}`, newest.id, mimeType);
+  let leftBehind = false;
+  for (const name of await FileSystem.readDirectoryAsync(dir)) {
+    if (!isMovableBackupFile(name)) {
+      leftBehind = true;
+      continue;
+    }
+    await copyChecked(`${dir}${name}`, name);
+    await FileSystem.deleteAsync(`${dir}${name}`, { idempotent: true });
   }
-  await FileSystem.deleteAsync(dir, { idempotent: true });
+  if (!leftBehind) await FileSystem.deleteAsync(dir, { idempotent: true });
 }
 
 export const localBackend: BackupBackend = {

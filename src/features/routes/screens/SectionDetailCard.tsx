@@ -58,7 +58,7 @@ import { useReadRetry } from '@/shared/native/useEngineSubscription';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
 import { Button, EmptyState, ErrorState, HeroStatsRow, useBottomClearance } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
-import { sheetScrollProps } from '@/shared/ui/SheetScrollView';
+import { usePagerPageScrollProps } from '@/shared/ui/pagerPageScroll';
 import { type MaterialIconName } from '@/shared/activity/activityUtils';
 import { colors, darkColors, iconSize, spacing, themePalette } from '@/theme';
 import type { RoutePoint } from '@/types';
@@ -97,6 +97,7 @@ function SectionDetailCardContent({ id, activityId: navActivityId }: SectionDeta
   const { isDark } = useTheme();
   const palette = themePalette(isDark);
   const bottomClearance = useBottomClearance();
+  const pageScroll = usePagerPageScrollProps();
   const { hostKey, index: cardIndex } = useMapSheetCardAddress('section', id);
   const card = useMemo(() => detailCardWriter(hostKey, cardIndex), [hostKey, cardIndex]);
   const { enterTool } = useMapSheetStop(hostKey);
@@ -365,7 +366,7 @@ function SectionDetailCardContent({ id, activityId: navActivityId }: SectionDeta
         contentContainerStyle={{ paddingBottom: spacing.xl + bottomClearance }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        {...sheetScrollProps}
+        {...pageScroll}
       >
         <SectionHeader
           section={section}

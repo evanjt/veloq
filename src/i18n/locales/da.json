@@ -2452,13 +2452,7 @@
       "routesTip": "Rul ned på rutesiden for at se hvert forsøg på strækningen sammenlignet med de andre."
     },
     "tutorial": {
-      "firstLoadTitle": "Din træning på denne telefon",
-      "firstLoadBody": "Veloq henter dine aktiviteter og dit velvære fra intervals.icu og gemmer dem på denne telefon. Den første indlæsning kører i baggrunden, og forsiden fyldes op, efterhånden som aktiviteterne kommer.",
-      "feedTitle": "Din forside",
-      "feedBody": "Hver aktivitet lander her med sit kort, nyeste først.",
-      "feedTip": "Træk ned for at tjekke intervals.icu for nye aktiviteter, eller tryk på en aktivitet for at åbne den.",
-      "activityTitle": "Inde i en aktivitet",
-      "activityBody": "Åbn en aktivitet for at se dens kort og grafer, dens intervaller og de ruter og sektioner, den hører til.",
+      "firstLoadLine": "Den første indlæsning fra intervals.icu kører. Forsiden fyldes op, efterhånden som aktiviteterne kommer.",
       "notificationsTitle": "Notifikationer",
       "notificationsBody": "Når intervals.icu modtager en ny aktivitet, kan Veloq fortælle dig, hvad den fandt: en personlig rekord, en tid hurtigere end normalt eller et skridt op i form. Her er eksempler på, hvad der kommer.",
       "turnOn": "Slå til",
@@ -2674,6 +2668,7 @@
     "retiredEmpty": "Ingen strækninger er udgået",
     "retiredInto": "Ind i {{name}}",
     "seeRetired": "Udgåede strækninger",
+    "restoredTitle": "Strækning gendannet",
     "kind_formed": "Dannet",
     "kind_restored": "Kom tilbage",
     "kind_split_one": "Delt i {{count}} strækning",

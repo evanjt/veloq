@@ -74,7 +74,7 @@ function renderList() {
       unacceptedAutoCount={0}
       acceptedAutoCount={1}
       customSectionCount={0}
-      retiredSectionCount={0}
+      removedSectionCount={0}
     />
   );
 }

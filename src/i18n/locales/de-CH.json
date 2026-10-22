@@ -2335,13 +2335,7 @@
       "routesTip": "Scrolle auf der Routenseite nach unten, um jeden Versuch auf der Strecke im Vergleich zu den anderen zu sehen."
     },
     "tutorial": {
-      "firstLoadTitle": "Dis Training uf däm Handy",
-      "firstLoadBody": "Veloq liest dini Aktivitäte und dis Wohlsii us intervals.icu und speicheret si uf däm Handy. De erscht Download lauft im Hintergrund, und «S Nöischte» füllt sich, sobald Aktivitäte aachömed.",
-      "feedTitle": "S Nöischte",
-      "feedBody": "Jedi Aktivität chunnt da als Iitrag mit ihrere Charte aa, di nöischt zersch.",
-      "feedTip": "Zieh nach unde, zum bi intervals.icu nach neue Aktivitäte z luege, oder tipp uf e Aktivität, zum si z öffne.",
-      "activityTitle": "I ere Aktivität",
-      "activityBody": "Öffne e Aktivität für ihri Charte und Diagramm, ihri Intervall und d Strecki und Abschnitt, wo si dezue ghört.",
+      "firstLoadLine": "Der erste Download von intervals.icu läuft. Dein Feed füllt sich, sobald Aktivitäten ankommen.",
       "notificationsTitle": "Benachrichtigunge",
       "notificationsBody": "Wänn intervals.icu e neui Aktivität überchunnt, cha dir Veloq säge, was es gfunde hät: e persönlichi Bestziit, e schnelleri Ziit als suscht oder en Schritt füre i de Fitness. Das sind Biispiel für das, was aachunnt.",
       "turnOn": "Iischalte",
@@ -2557,6 +2551,7 @@
     "retiredEmpty": "Keine Abschnitte ausgeschieden",
     "retiredInto": "In {{name}}",
     "seeRetired": "Ausgeschiedene Abschnitte",
+    "restoredTitle": "Abschnitt wiederhergestellt",
     "kind_formed": "Gebildet",
     "kind_restored": "Zurückgekehrt",
     "kind_split_one": "In {{count}} Abschnitt geteilt",

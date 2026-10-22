@@ -476,6 +476,33 @@ fn rolling_back_a_retired_section_recreates_it_on_the_archived_line() {
     assert!(engine.retired_sections().is_empty());
 }
 
+/// Scenario: the retired list offers a restore only where the engine can do one.
+/// Expected behaviour: a retired section with an archived state reports that
+/// state's version, one the detector dissolved afterwards with no archived
+/// state reports none, and neither fails a roll back by the reported version.
+#[test]
+fn a_retired_section_reports_the_version_it_can_be_restored_from() {
+    let dir = TempDir::new().expect("tempdir");
+    let mut engine = library(&dir, "restorable.db");
+    engine.archive_current_catalogue().expect("archive");
+    let (_, version) = archived_state(&engine, "s_auto");
+    insert_auto_section(&engine, "s_later", &ride(7.0)[0..12], ("a1", 0, 12));
+    retire(&engine, "s_auto");
+    retire(&engine, "s_later");
+
+    let retired = engine.retired_sections();
+    let restorable = |id: &str| {
+        retired
+            .iter()
+            .find(|r| r.section_id == id)
+            .expect("retired")
+            .restorable_version
+    };
+    assert_eq!(restorable("s_auto"), Some(crate::WholeNumber(version)));
+    assert_eq!(restorable("s_later"), None);
+    assert!(engine.revert_section_to_version("s_auto", version).is_ok());
+}
+
 /// Scenario: a roll back names a section with no row and no such version.
 /// Expected behaviour: it fails and creates nothing.
 #[test]
@@ -581,4 +608,165 @@ fn the_archive_waits_out_a_writer_that_commits_under_it() {
         archived_state(&engine, "s_auto").0["name"],
         "Name of s_auto"
     );
+}
+
+/// Archive `s_auto`, retire it, and return the version that draws its line.
+fn retired_archived(engine: &PersistentEngine) -> i64 {
+    engine.archive_current_catalogue().expect("archive");
+    let (_, version) = archived_state(engine, "s_auto");
+    retire(engine, "s_auto");
+    version
+}
+
+fn track_rows(engine: &PersistentEngine, activity_id: &str) -> i64 {
+    engine
+        .db
+        .query_row(
+            "SELECT COUNT(*) FROM gps_tracks WHERE activity_id = ?",
+            [activity_id],
+            |row| row.get(0),
+        )
+        .expect("count tracks")
+}
+
+/// Scenario: a retired section's archived version, then ten geometry writes
+/// on it and on another section, and a stream-retention pass that reaches past the
+/// reference ride's date.
+/// Expected behaviour: the version and the ride track it is read from both
+/// stay, and the line still draws.
+#[test]
+fn a_retired_sections_state_survives_later_writes_and_the_retention_pass() {
+    let dir = TempDir::new().expect("tempdir");
+    let mut engine = library(&dir, "retained.db");
+    engine
+        .update_activity_metadata("a1", Some(1_000_000), None, None, None)
+        .expect("an old ride");
+    insert_auto_section(&engine, "s_other", &ride(7.0)[4..30], ("a1", 4, 30));
+    engine
+        .record_section_geometry("s_auto", &ride(7.0)[0..8], false, Some(("a1", 0, 8)))
+        .expect("an earlier state, so the archived one is not the first");
+    let version = retired_archived(&engine);
+    assert!(version > 1);
+
+    for end in 14u32..24 {
+        engine
+            .record_section_geometry(
+                "s_other",
+                &ride(7.0)[2..end as usize],
+                false,
+                Some(("a1", 2, end)),
+            )
+            .expect("a later write on another section");
+        engine
+            .record_section_geometry(
+                "s_auto",
+                &ride(7.0)[1..end as usize],
+                false,
+                Some(("a1", 1, end)),
+            )
+            .expect("a later write on the retired section");
+    }
+    engine.set_stream_retention_days(30).expect("retention");
+    engine
+        .prune_streams_outside_retention()
+        .expect("the retention pass");
+
+    let (_, _, milestone, _) = version_row(&engine, "s_auto", version);
+    assert!(milestone);
+    assert_eq!(track_rows(&engine, "a1"), 1, "the reference track went");
+    assert_eq!(drawn(&engine, "s_auto", version), ride(7.0)[0..12].to_vec());
+}
+
+/// Scenario: the athlete clears derived data after the cutover retired a
+/// section.
+/// Expected behaviour: the reference ride survives the clear and the retired
+/// section can still be rolled back to its archived line.
+#[test]
+fn clearing_derived_data_leaves_a_retired_section_restorable() {
+    let dir = TempDir::new().expect("tempdir");
+    let mut engine = library(&dir, "cleared.db");
+    let version = retired_archived(&engine);
+
+    engine.clear_derived().expect("clear derived");
+
+    assert_eq!(track_rows(&engine, "a1"), 1, "the reference ride was swept");
+    assert_eq!(drawn(&engine, "s_auto", version), ride(7.0)[0..12].to_vec());
+    assert_eq!(engine.retired_sections().len(), 1);
+    engine
+        .revert_section_to_version("s_auto", version)
+        .expect("roll back");
+    assert_eq!(
+        crate::persistence::sections::geometry::stored_line(&engine.db, "s_auto").expect("line"),
+        canonical(&ride(7.0)[0..12])
+    );
+}
+
+/// Scenario: the census no longer names the reference ride of a retired
+/// section, so the sync removes it.
+/// Expected behaviour: the archived version keeps a drawable line of its own,
+/// and the section can still be restored from it.
+#[test]
+fn a_census_removal_of_a_retired_sections_reference_ride_leaves_it_restorable() {
+    let dir = TempDir::new().expect("tempdir");
+    let mut engine = library(&dir, "removed.db");
+    let version = retired_archived(&engine);
+    assert!(version_row(&engine, "s_auto", version).1.is_empty());
+
+    engine
+        .db
+        .execute(
+            "UPDATE activities SET intervals_id = 'i1' WHERE id = 'a1'",
+            [],
+        )
+        .expect("a synced ride");
+    let removed = engine.reconcile_against_census(&["i2".to_string()], "2100-01-01");
+    assert_eq!(removed, vec!["a1".to_string()]);
+
+    assert_eq!(track_rows(&engine, "a1"), 0);
+    assert!(!version_row(&engine, "s_auto", version).1.is_empty());
+    assert_eq!(drawn(&engine, "s_auto", version), ride(7.0)[0..12].to_vec());
+    engine
+        .revert_section_to_version("s_auto", version)
+        .expect("roll back");
+    assert_eq!(
+        crate::persistence::sections::geometry::stored_line(&engine.db, "s_auto").expect("line"),
+        canonical(&ride(7.0)[0..12])
+    );
+}
+
+/// Scenario: a record backup of a library with a retired section, restored
+/// onto a fresh install, and the ground arrives afterwards.
+/// Expected behaviour: the restored state is held until the ride syncs, then
+/// draws its line and rolls back.
+#[test]
+fn a_retired_state_restored_before_its_ground_arrives_becomes_restorable() {
+    let dir = TempDir::new().expect("tempdir");
+    let old = library(&dir, "old.db");
+    retired_archived(&old);
+    let payload = crate::persistence::record_backup::collect_record_payload(&old.db)
+        .expect("collect the record");
+    let json = serde_json::to_string(&payload).expect("serialise");
+
+    let mut new =
+        PersistentEngine::new(dir.path().join("new.db").to_str().unwrap()).expect("a new library");
+    new.restore_record_json(&json).expect("restore");
+    let pending: i64 = new
+        .db
+        .query_row(
+            "SELECT COUNT(*) FROM settings WHERE key = '__record_restore_pending'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("pending");
+    assert_eq!(pending, 1, "the record waits for its ground");
+
+    new.add_activity("a1".into(), ride(7.0), "Ride".into())
+        .expect("the ride syncs");
+    insert_auto_section(&new, "s_local", &ride(7.0)[0..12], ("a1", 0, 12));
+    new.restore_record_json(&json).expect("restore again");
+
+    let (_, version) = archived_state(&new, "s_local");
+    assert_eq!(drawn(&new, "s_local", version), ride(7.0)[0..12].to_vec());
+    new.revert_section_to_version("s_local", version)
+        .expect("roll back");
 }

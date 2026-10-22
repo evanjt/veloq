@@ -326,10 +326,16 @@ export function ContextMenu(props: ContextMenuProps) {
   const anchored = <MenuPopup {...popup} />;
   if (!contextMenuHoldIsNative()) return anchored;
 
+  // The system menu opens from the hold by itself, so the popup's anchor view
+  // is drawn only while a screen reader has the popup open. Every view around
+  // the source is a level an automation driver's bounded tree walk spends
+  // before it reaches the source's own ids.
+  const source = props.visible ? anchored : props.children;
+
   return (
     <Link href={props.href} asChild>
       <Link.Trigger>
-        <TriggerSource>{anchored}</TriggerSource>
+        <TriggerSource>{source}</TriggerSource>
       </Link.Trigger>
       <Link.Preview style={previewSize}>
         <View style={previewSize}>

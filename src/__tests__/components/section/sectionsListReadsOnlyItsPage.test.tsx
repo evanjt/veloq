@@ -93,7 +93,7 @@ function renderList(refresh: { onRefresh?: () => void; refreshing?: boolean } = 
         unacceptedAutoCount={0}
         acceptedAutoCount={0}
         customSectionCount={2}
-        retiredSectionCount={0}
+        removedSectionCount={0}
         {...refresh}
       />
     </QueryClientProvider>

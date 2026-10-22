@@ -44,7 +44,7 @@ beforeEach(() => {
 });
 
 describe('openLibrary', () => {
-  it('marks the database and both sidecars after the engine opened', () => {
+  it('marks the database, its sidecars and its journal after the engine opened', () => {
     const order: string[] = [];
     const engine = {
       initWithPath: jest.fn(() => {
@@ -60,8 +60,14 @@ describe('openLibrary', () => {
     expect(openLibrary(engine, DB)).toBe(true);
 
     expect(engine.initWithPath).toHaveBeenCalledWith(DB);
-    expect(mark.mock.calls.map(([path]) => path)).toEqual([DB, `${DB}-wal`, `${DB}-shm`, PANIC]);
-    expect(order).toEqual(['open', 'mark', 'mark', 'mark', 'mark']);
+    expect(mark.mock.calls.map(([path]) => path)).toEqual([
+      DB,
+      `${DB}-wal`,
+      `${DB}-shm`,
+      `${DB}-journal`,
+      PANIC,
+    ]);
+    expect(order).toEqual(['open', 'mark', 'mark', 'mark', 'mark', 'mark']);
   });
 
   it('leaves an empty panic log in place before marking it, so the hook keeps the marked file', () => {

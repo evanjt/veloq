@@ -88,13 +88,16 @@ export async function readCredentialsWithMigration(
     }
     if (legacy === null) continue;
 
+    // The legacy value is what the athlete signed in with, so it is used for
+    // this session whether or not the move lands. The move is retried on the
+    // next launch, which reads the legacy item again.
+    values[i] = legacy;
     try {
       await io.write(key, legacy, CREDENTIAL_KEYCHAIN_OPTIONS);
     } catch {
       failedKeys.push(key);
       continue;
     }
-    values[i] = legacy;
     migratedKeys.push(key);
   }
 

@@ -339,11 +339,15 @@ fn the_custom_and_retired_counters_cover_the_catalogue_not_the_page() {
         "custom moved with the page size"
     );
     assert_eq!(
-        page.retired_count,
+        page.removed_count,
         retired.len() as u32,
-        "retired moved with the page size"
+        "removed moved with the page size"
     );
-    assert_eq!(page.retired_count, whole.retired_count);
+    assert_eq!(page.removed_count, whole.removed_count);
+    // A disabled row is still in the catalogue, so it is not a ledger
+    // retirement: the graveyard count stays clear of the removed count.
+    assert_eq!(page.ledger_retired_count, 0);
+    assert_eq!(page.archived_retired_count, 0);
 
     // The chip's own filter is what its figure has to survive: hiding the
     // retired rows is the default, and the figure is what would come back.
@@ -355,8 +359,90 @@ fn the_custom_and_retired_counters_cover_the_catalogue_not_the_page() {
         ..query()
     });
 
-    assert_eq!(hidden.retired_count, retired.len() as u32);
+    assert_eq!(hidden.removed_count, retired.len() as u32);
     assert_eq!(hidden.custom_count, whole.custom_count);
+}
+
+/// The removed count, the ledger's retired count and the archived count are
+/// three different figures one screen read carries, so the entry points and
+/// the "your matching changed" card cannot gate on the wrong one.
+///
+/// Scenario: a disabled section (still in the catalogue) on one library, and
+/// a catalogue a detect dissolved with no cutover behind it on another.
+///
+/// Expected behaviour: the disabled row is the removed count and leaves the
+/// ledger empty; the dissolved ones fill the ledger with no removed row and,
+/// having no archived row, leave the archived count zero.
+#[test]
+fn the_removed_and_ledger_retired_counts_are_distinct() {
+    // A disabled section is a removed row: still in the catalogue, so it is
+    // not a ledger retirement and holds no archived row.
+    let dir = TempDir::new().expect("tempdir");
+    let mut engine = seeded(&dir);
+    let removed_id = engine
+        .get_section_summaries()
+        .iter()
+        .find(|s| s.section_type == "auto")
+        .expect("an auto section")
+        .id
+        .clone();
+    engine
+        .disable_section(&removed_id)
+        .expect("disable section");
+    engine.load().expect("load");
+
+    let data = engine.get_routes_screen_data(query());
+    assert_eq!(
+        data.removed_count, 1,
+        "the disabled row is the removed count"
+    );
+    assert_eq!(
+        data.ledger_retired_count, 0,
+        "a disabled row is still in the catalogue"
+    );
+    assert_eq!(
+        data.archived_retired_count, 0,
+        "no cutover wrote an archived row"
+    );
+
+    // A later detect dissolves the hand-drawn sections the detector itself
+    // would not draw, filling the ledger with nothing removed and, absent a
+    // cutover, nothing archived.
+    let dir = TempDir::new().expect("tempdir");
+    let mut engine = seeded(&dir);
+    for _ in 0..3 {
+        detect_and_save(&mut engine);
+    }
+    engine.load().expect("load");
+
+    let data = engine.get_routes_screen_data(query());
+    let ledger = engine.retired_sections().len() as u32;
+    assert!(
+        ledger > 0,
+        "the re-detect has to dissolve the hand-drawn sections"
+    );
+    assert_eq!(data.removed_count, 0, "a dissolve is not a removal");
+    assert_eq!(
+        data.ledger_retired_count, ledger,
+        "the screen read carries the same graveyard the retired screen lists"
+    );
+    assert_eq!(
+        data.archived_retired_count, 0,
+        "no cutover wrote an archived row"
+    );
+}
+
+/// One detect and its cache-aware apply, the way the app applies a finished
+/// detect. The synthetic tracks share no ground, so the detector's output
+/// carries none of the hand-drawn sections and each round dissolves more of
+/// them into the ledger.
+fn detect_and_save(engine: &mut PersistentEngine) {
+    let handle = engine.detect_sections_background();
+    let (main, cache_update) = handle.recv_with_cache();
+    let (sections, _) = main.unwrap_or_default();
+    engine
+        .apply_sections_save_with_cache(sections, cache_update)
+        .expect("apply the detect");
 }
 
 #[test]
@@ -399,7 +485,7 @@ fn retired_auto_sections_follow_the_removed_filter_and_sort_after_visible_rows()
             shown.unaccepted_auto_count,
             before.unaccepted_auto_count - 1
         );
-        assert_eq!(shown.retired_count, 1);
+        assert_eq!(shown.removed_count, 1);
         assert_eq!(shown.sections.last().map(|s| &s.id), Some(&retired));
         assert!(shown.sections.last().expect("last").disabled);
         assert!(!hidden.sections.iter().any(|s| s.id == retired));

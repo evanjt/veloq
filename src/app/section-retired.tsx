@@ -5,19 +5,61 @@
  */
 
 import React, { useMemo } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { Card, EmptyState, ScreenSafeAreaView, ScreenScrollView } from '@/shared/ui';
+import { Button, Card, EmptyState, ScreenSafeAreaView, ScreenScrollView } from '@/shared/ui';
+import { chooseAction } from '@/shared/ui/dialog';
 import { PressTarget } from '@/shared/ui/PressTarget';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useEngineRead, useEngineReadState } from '@/shared/native/useEngineSubscription';
 import { EngineReadPlaceholder } from '@/shared/app/EngineUnavailableState';
-import { getAllSectionDisplayNames, ledgerDate } from '@/features/routes';
+import { getAllSectionDisplayNames, ledgerDate, useSectionLedger } from '@/features/routes';
 import { formatDistance, formatFullDate } from '@/shared/format/format';
 import { colors, darkColors, layout, spacing, typography } from '@/theme';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { navigateTo } from '@/shared/app/navigation';
+
+/**
+ * Restore for one retired card. The engine names the version it can restore
+ * from; the card offers the action only when it did. Once restored the card
+ * leaves the list on the engine's `sections` event and a notice offers Open.
+ */
+function RestoreAction({
+  sectionId,
+  version,
+  name,
+}: {
+  sectionId: string;
+  version: number;
+  name: string;
+}) {
+  const { t } = useTranslation();
+  const { revert, isReverting } = useSectionLedger(sectionId);
+
+  const restore = async () => {
+    if (!(await revert(version))) return;
+    chooseAction({
+      title: t('sectionHistory.restoredTitle'),
+      message: name,
+      cancelLabel: t('common.close'),
+      actions: [
+        { label: t('sections.attemptOpen'), onPress: () => navigateTo(`/section/${sectionId}`) },
+      ],
+    });
+  };
+
+  return (
+    <Button
+      testID={`section-retired-restore-${sectionId}`}
+      label={t('common.restore')}
+      variant="secondary"
+      size="sm"
+      loading={isReverting}
+      onPress={restore}
+    />
+  );
+}
 
 function SectionRetiredScreenContent() {
   const { t } = useTranslation();
@@ -80,7 +122,8 @@ function SectionRetiredScreenContent() {
             );
             // A retirement merged into another section opens it from anywhere on
             // the card, named by the link, rather than from one line of small text.
-            return into ? (
+            const restorable = r.restorableVersion != null ? Number(r.restorableVersion) : null;
+            const card = into ? (
               <PressTarget
                 key={r.sectionId}
                 testID={`section-retired-${r.sectionId}`}
@@ -102,6 +145,13 @@ function SectionRetiredScreenContent() {
               >
                 {body}
               </Card>
+            );
+            if (restorable == null) return card;
+            return (
+              <View key={r.sectionId} style={{ gap: spacing.xs }}>
+                {card}
+                <RestoreAction sectionId={r.sectionId} version={restorable} name={r.name ?? kind} />
+              </View>
             );
           })
         )}

@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // Every vertical scroll view in a sheet's body turns on nested scrolling, through
 // `SheetScrollView` or by spreading `sheetScrollProps` from
-// `src/shared/ui/SheetScrollView.tsx`. Android's form sheet hands a drag to its
+// `src/shared/ui/SheetScrollView.tsx`, or `pageScroll` from
+// `usePagerPageScrollProps`, which also turns it off for a page or a sheet card
+// that is not on show. Android's form sheet hands a drag to its
 // content only through the first view, depth first, that scrolls nested. With
 // none it takes every drag it can follow, so a body scrolled down is never
 // scrolled back up: each drag down moves the sheet instead.
@@ -10,7 +12,7 @@
 // under `src/app/`, the map sheet routes. The guard reads each, and each
 // component one of them renders whose own file, found by the component's name
 // under `src/`, holds the body. A `ScrollView`, `FlatList` or `SectionList`
-// there passes when its opening tag spreads `sheetScrollProps` or scrolls
+// there passes when its opening tag spreads `sheetScrollProps` or `pageScroll` or scrolls
 // sideways with `horizontal`.
 
 import { dirname, join, relative, resolve } from 'node:path';
@@ -56,7 +58,7 @@ function openingTag(text, start) {
 }
 
 const SCROLLER = /<(?:Animated\.)?(ScrollView|FlatList|SectionList)[\s/>]/g;
-const HANDS_OFF = /\{\s*\.\.\.sheetScrollProps\s*\}/;
+const HANDS_OFF = /\{\s*\.\.\.(?:sheetScrollProps|pageScroll)\s*\}/;
 const SIDEWAYS = /\shorizontal(?:[\s/>]|=\{\s*true\s*\})/;
 
 /** The line of each bare vertical scroll view in a file's text. */

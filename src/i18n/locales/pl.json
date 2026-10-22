@@ -2684,13 +2684,7 @@
       "routesTip": "Przewiń stronę trasy, aby zobaczyć każdą próbę na trasie w porównaniu z pozostałymi."
     },
     "tutorial": {
-      "firstLoadTitle": "Twój trening na tym telefonie",
-      "firstLoadBody": "Veloq odczytuje Twoje aktywności i dane o zdrowiu z intervals.icu i przechowuje je na tym telefonie. Pierwsze pobieranie trwa w tle, a lista aktywności zapełnia się w miarę ich napływania.",
-      "feedTitle": "Twoje aktywności",
-      "feedBody": "Każda aktywność trafia tutaj jako karta z mapą, od najnowszej.",
-      "feedTip": "Przeciągnij w dół, aby sprawdzić nowe aktywności w intervals.icu, albo stuknij kartę, aby ją otworzyć.",
-      "activityTitle": "Wnętrze aktywności",
-      "activityBody": "Otwórz aktywność, aby zobaczyć jej mapę i wykresy, interwały oraz trasy i odcinki, do których należy.",
+      "firstLoadLine": "Trwa pierwsze pobieranie z intervals.icu. Aktywności pojawiają się w kanale w miarę ich napływania.",
       "notificationsTitle": "Powiadomienia",
       "notificationsBody": "Gdy intervals.icu otrzyma nową aktywność, Veloq może powiedzieć, co w niej znalazł: rekord osobisty, czas szybszy niż zwykle albo krok naprzód w formie. Oto przykłady tego, co przychodzi.",
       "turnOn": "Włącz",
@@ -2916,6 +2910,7 @@
     "retiredEmpty": "Brak wycofanych odcinków",
     "retiredInto": "Do {{name}}",
     "seeRetired": "Wycofane odcinki",
+    "restoredTitle": "Odcinek przywrócony",
     "kind_formed": "Utworzony",
     "kind_restored": "Powrócił",
     "kind_split_one": "Podzielony na {{count}} odcinek",
