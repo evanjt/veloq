@@ -49,6 +49,10 @@ const ENGINE_ONLY_KEYS = new Map([
     'veloq-tour-offer',
     'The tour offer record, first written after the migration, never in AsyncStorage',
   ],
+  [
+    'veloq-sections-changed-dismissed',
+    'The sections-changed card answer, first written after the migration, never in AsyncStorage',
+  ],
   ['__settings_migrated', 'Migration completion marker'],
   ['veloq-terrain-override-cleanup-done', 'Migration completion marker'],
 ]);

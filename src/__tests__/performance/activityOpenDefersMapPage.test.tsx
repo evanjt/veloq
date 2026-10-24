@@ -4,7 +4,7 @@
  * 100 ms a tap may hold.
  *
  * Expected behaviour: the commit that mounts the map view creates no map page, 2D or 3D, inside a
- * slot or outside one; the page is created on the next frame, under the poster where there is
+ * slot or outside one; the page is created two frames on, once the detail's own views have mounted, under the poster where there is
  * one. A view arriving on a slot whose surface is already up creates no page at all, so it draws
  * at once.
  */
@@ -93,8 +93,13 @@ function pages3D() {
 
 function nextFrame() {
   act(() => {
-    jest.advanceTimersByTime(16);
+    jest.advanceTimersToNextTimer();
   });
+}
+
+function settleFrames() {
+  nextFrame();
+  nextFrame();
 }
 
 beforeEach(() => {
@@ -106,15 +111,15 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-describe('the activity open creates its map page a frame after the mount', () => {
-  it('creates no 2D page in the mount commit under a cached poster, and one on the next frame', () => {
+describe('the activity open creates its map page two frames after the mount', () => {
+  it('creates no 2D page in the mount commit under a cached poster, and one two frames on', () => {
     mockCached.add('a1-light-false');
     render(withMetrics(hero()));
 
     expect(screen.getByTestId(ACTIVITY_MAP_POSTER_TEST_ID)).toBeTruthy();
     expect(pages2D()).toBe(0);
 
-    nextFrame();
+    settleFrames();
 
     expect(pages2D()).toBe(1);
     expect(screen.getByTestId(ACTIVITY_MAP_POSTER_TEST_ID)).toBeTruthy();
@@ -125,7 +130,7 @@ describe('the activity open creates its map page a frame after the mount', () =>
 
     expect(pages2D()).toBe(0);
 
-    nextFrame();
+    settleFrames();
 
     expect(pages2D()).toBe(1);
   });
@@ -136,18 +141,23 @@ describe('the activity open creates its map page a frame after the mount', () =>
 
     expect(pages2D()).toBe(0);
 
-    nextFrame();
+    settleFrames();
 
     expect(pages2D()).toBe(1);
   });
 
-  it('creates no 3D page in the mount commit, and one on the next frame', () => {
+  it('creates no 3D page in the mount commit, and one two frames on', () => {
     mockCached.add('a1-light-true');
     render(withMetrics(hero({ initial3DCamera: CAMERA_3D })));
 
     expect(screen.getByTestId(ACTIVITY_MAP_POSTER_TEST_ID)).toBeTruthy();
     expect(pages3D()).toBe(0);
     expect(pages2D()).toBe(0);
+
+    nextFrame();
+
+    // The detail's own views mount in this frame, so the page waits one more.
+    expect(pages3D()).toBe(0);
 
     nextFrame();
 
@@ -159,10 +169,10 @@ describe('the activity open creates its map page a frame after the mount', () =>
   it('creates nothing further on a later render of the same view', () => {
     mockCached.add('a1-light-false');
     const { rerender } = render(withMetrics(hero()));
-    nextFrame();
+    settleFrames();
 
     rerender(withMetrics(hero({ highlightIndex: 2 })));
-    nextFrame();
+    settleFrames();
 
     expect(pages2D()).toBe(1);
   });
@@ -171,7 +181,7 @@ describe('the activity open creates its map page a frame after the mount', () =>
     const { rerender } = render(withMetrics(hero()));
 
     rerender(withMetrics(null));
-    nextFrame();
+    settleFrames();
 
     expect(pages2D()).toBe(0);
   });
@@ -183,7 +193,7 @@ describe('the activity open creates its map page a frame after the mount', () =>
       </MapSurfaceSlot>
     );
     const { rerender } = render(withMetrics(slotted('a1')));
-    nextFrame();
+    settleFrames();
     expect(pages2D()).toBe(1);
 
     rerender(withMetrics(slotted('a2')));

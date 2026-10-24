@@ -3,7 +3,12 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { useRouteSettings, useSectionRescan, rescanRefusalKey } from '@/features/routes';
+import {
+  rescanRefusalKey,
+  useRetiredSectionCount,
+  useRouteSettings,
+  useSectionRescan,
+} from '@/features/routes';
 import {
   Button,
   Card,
@@ -30,6 +35,7 @@ function DetectionSettingsScreenContent() {
 
   const routeMatchingEnabled = useRouteSettings((s) => s.settings.enabled);
   const setRouteMatchingEnabled = useRouteSettings((s) => s.setEnabled);
+  const retiredCount = useRetiredSectionCount();
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const bg = isDark ? darkColors.surfacePage : colors.surfacePage;
   const danger = isDark ? darkColors.errorText : colors.errorText;
@@ -64,105 +70,119 @@ function DetectionSettingsScreenContent() {
       testID="detection-settings-screen"
       style={[styles.container, { backgroundColor: bg }]}
     >
-      <ScreenScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScreenScrollView showsVerticalScrollIndicator={false}>
         <BackgroundJobsActivityBar />
-        <View style={styles.toggleFrame}>
-          <Card variant="flat" padding="none">
-            <SwitchRow
-              icon="map-marker-path"
-              title={t('settings.routeMatching')}
-              value={routeMatchingEnabled}
-              onValueChange={setRouteMatchingEnabled}
-            />
-          </Card>
-        </View>
-
-        <View>
-          {!routeMatchingEnabled && (
-            <Text
-              testID="detection-matching-off"
-              style={[styles.matchingOff, { color: textSecondary }]}
-            >
-              {t('settings.routeMatchingOff')}
-            </Text>
-          )}
-
-          <View style={styles.previewFrame}>
+        <View style={styles.body}>
+          <View style={styles.toggleFrame}>
             <Card variant="flat" padding="none">
-              <RowGroup>
-                <SettingsNavRow
-                  testID="detection-preview-row"
-                  icon="map-search-outline"
-                  title={t('settings.previewSections')}
-                  onPress={() => navigateTo('/detection-preview')}
-                  disabled={!routeMatchingEnabled}
-                />
-                <SettingsNavRow
-                  testID="route-grouping-preview-row"
-                  icon="source-branch"
-                  title={t('settings.previewRouteGrouping')}
-                  onPress={() => navigateTo('/route-grouping-preview')}
-                  disabled={!routeMatchingEnabled}
-                />
-              </RowGroup>
+              <SwitchRow
+                icon="map-marker-path"
+                title={t('settings.routeMatching')}
+                value={routeMatchingEnabled}
+                onValueChange={setRouteMatchingEnabled}
+              />
             </Card>
           </View>
 
-          <Button
-            variant={isScanning ? 'secondary' : 'primary'}
-            style={styles.rescanBtn}
-            onPress={isScanning ? cancelScan : handleRescan}
-            icon={isScanning ? { spinner: true } : 'refresh'}
-            label={isScanning ? t('common.cancel') : t('settings.reanalyzeSections')}
-            disabled={!routeMatchingEnabled && !isScanning}
-            testID="detection-rescan-button"
-          />
+          <View>
+            {!routeMatchingEnabled && (
+              <Text
+                testID="detection-matching-off"
+                style={[styles.matchingOff, { color: textSecondary }]}
+              >
+                {t('settings.routeMatchingOff')}
+              </Text>
+            )}
 
-          {/* The result stays until the next rescan replaces it, never on a timer. */}
-          {rescanResult ? (
-            <StatusLine
-              testID="detection-rescan-result"
-              tone="success"
-              message={t('settings.sectionsBeforeAfter', {
-                before: rescanResult.before,
-                after: rescanResult.after,
-              })}
-              textStyle={[styles.rescanResult, { color: textSecondary }]}
+            <View style={styles.previewFrame}>
+              <Card variant="flat" padding="none">
+                <RowGroup>
+                  <SettingsNavRow
+                    testID="detection-preview-row"
+                    icon="map-search-outline"
+                    title={t('settings.previewSections')}
+                    onPress={() => navigateTo('/detection-preview')}
+                    disabled={!routeMatchingEnabled}
+                  />
+                  <SettingsNavRow
+                    testID="route-grouping-preview-row"
+                    icon="source-branch"
+                    title={t('settings.previewRouteGrouping')}
+                    onPress={() => navigateTo('/route-grouping-preview')}
+                    disabled={!routeMatchingEnabled}
+                  />
+                  <SettingsNavRow
+                    testID="retired-sections-row"
+                    icon="history"
+                    title={t('sectionHistory.seeRetired')}
+                    subtitle={
+                      retiredCount > 0
+                        ? t('sectionHistory.retiredCount', { count: retiredCount })
+                        : t('sectionHistory.retiredEmpty')
+                    }
+                    onPress={() => navigateTo('/section-retired')}
+                    disabled={retiredCount === 0}
+                  />
+                </RowGroup>
+              </Card>
+            </View>
+
+            <Button
+              variant={isScanning ? 'secondary' : 'primary'}
+              style={styles.rescanBtn}
+              onPress={isScanning ? cancelScan : handleRescan}
+              icon={isScanning ? { spinner: true } : 'refresh'}
+              label={isScanning ? t('common.cancel') : t('settings.reanalyzeSections')}
+              disabled={!routeMatchingEnabled && !isScanning}
+              testID="detection-rescan-button"
             />
-          ) : null}
 
-          {refusalKey !== null && (
-            <StatusLine
-              testID="detection-rescan-refused"
-              tone="info"
-              message={t(refusalKey)}
-              textStyle={[styles.rescanResult, { color: textSecondary }]}
-            />
-          )}
+            {/* The result stays until the next rescan replaces it, never on a timer. */}
+            {rescanResult ? (
+              <StatusLine
+                testID="detection-rescan-result"
+                tone="success"
+                message={t('settings.sectionsBeforeAfter', {
+                  before: rescanResult.before,
+                  after: rescanResult.after,
+                })}
+                textStyle={[styles.rescanResult, { color: textSecondary }]}
+              />
+            ) : null}
 
-          {rescanStillRunning ? (
-            <StatusLine
-              testID="detection-rescan-still-running"
-              tone="pending"
-              message={t('settings.stillRunning')}
-              textStyle={[styles.rescanResult, { color: textSecondary }]}
-            />
-          ) : null}
+            {refusalKey !== null && (
+              <StatusLine
+                testID="detection-rescan-refused"
+                tone="info"
+                message={t(refusalKey)}
+                textStyle={[styles.rescanResult, { color: textSecondary }]}
+              />
+            )}
 
-          {rescanFailed ? (
-            <StatusLine
-              tone="error"
-              message={t(
-                'settings.rescanFailed',
-                'The rescan could not finish. Some activity tracks could not be read.'
-              )}
-              textStyle={[styles.rescanResult, { color: danger }]}
-            />
-          ) : null}
+            {rescanStillRunning ? (
+              <StatusLine
+                testID="detection-rescan-still-running"
+                tone="pending"
+                message={t('settings.stillRunning')}
+                textStyle={[styles.rescanResult, { color: textSecondary }]}
+              />
+            ) : null}
 
-          <CutoverStatus />
+            {rescanFailed ? (
+              <StatusLine
+                tone="error"
+                message={t(
+                  'settings.rescanFailed',
+                  'The rescan could not finish. Some activity tracks could not be read.'
+                )}
+                textStyle={[styles.rescanResult, { color: danger }]}
+              />
+            ) : null}
+
+            <CutoverStatus />
+          </View>
+          <ElevationBackfillStatus />
         </View>
-        <ElevationBackfillStatus />
       </ScreenScrollView>
     </ScreenSafeAreaView>
   );
@@ -173,7 +193,8 @@ const styles = StyleSheet.create({
   toggleFrame: {
     marginBottom: spacing.lg,
   },
-  content: {
+  // The activity bar carries its own screen margin, so the padding sits on the body only.
+  body: {
     paddingHorizontal: spacing.md,
   },
   matchingOff: {

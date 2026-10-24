@@ -189,7 +189,7 @@ impl PersistentEngine {
             crate::persistence::sections::SOURCE_CONSENSUS
         };
 
-        let superseded = self.in_write_txn(|engine| {
+        self.in_write_txn(|engine| {
             engine.db.execute(
                 "INSERT INTO sections (
                     id, section_type, name, sport_type, polyline_json, polyline_blob, distance_meters,
@@ -224,19 +224,11 @@ impl PersistentEngine {
             .map_err(|e| format!("Failed to create section: {}", e))?;
 
             engine.match_activities_to_section(&id, &params.polyline, &params.sport_type)?;
-            let mut superseded = Vec::new();
             if section_type == SectionType::Custom {
-                for auto_id in engine.try_find_superseded_auto_sections(&id, 50.0, 0.8)? {
-                    engine.db.execute(
-                        "UPDATE sections SET superseded_by = ? WHERE id = ?",
-                        params![&id, auto_id],
-                    ).map_err(|e| format!("Failed to supersede section: {}", e))?;
-                    superseded.push(auto_id);
-                }
+                engine.supersede_covered_auto_sections(&id)?;
             }
-            Ok(superseded)
+            Ok(())
         })?;
-        self.refresh_superseded_ids();
 
         // Cache the new custom section in memory so the in-memory matcher
         // (index_new_activity) can add future activities to it, and so
@@ -246,7 +238,7 @@ impl PersistentEngine {
         // The new section earns its chips now, and an auto section it hides
         // stops showing them.
         self.refresh_section_badges(&[id.as_str()]);
-        self.refresh_section_badges(&superseded);
+        self.refresh_badges_of_superseded(&id);
 
         Ok(id)
     }

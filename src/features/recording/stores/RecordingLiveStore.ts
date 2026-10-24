@@ -27,6 +27,9 @@ interface RecordingLiveState {
    * ride, so a kill loses everything since it.
    */
   backupFailures: number;
+  /** The saved route the athlete chose for a sport; a null routeId is "no route". */
+  routeChoice: { activityType: string; routeId: string | null } | null;
+  setRouteChoice: (activityType: string, routeId: string | null) => void;
   setFix: (location: { latitude: number; longitude: number }, accuracy: number | null) => void;
   setAutoPaused: (autoPaused: boolean) => void;
   setBackgroundTrackingFailed: (failed: boolean) => void;
@@ -41,6 +44,9 @@ export const useRecordingLiveStore = create<RecordingLiveState>((set) => ({
   autoPaused: false,
   backgroundTrackingFailed: false,
   backupFailures: 0,
+  routeChoice: null,
+
+  setRouteChoice: (activityType, routeId) => set({ routeChoice: { activityType, routeId } }),
 
   setFix: (location, accuracy) => {
     set({ currentLocation: location, accuracy, lastFixAt: Date.now() });
@@ -61,5 +67,6 @@ export const useRecordingLiveStore = create<RecordingLiveState>((set) => ({
       autoPaused: false,
       backgroundTrackingFailed: false,
       backupFailures: 0,
+      routeChoice: null,
     }),
 }));

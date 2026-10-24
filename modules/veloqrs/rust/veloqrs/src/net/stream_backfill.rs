@@ -384,9 +384,14 @@ fn autostart_verdict(i: AutostartInputs) -> AutostartVerdict {
         // With Route Matching off neither the elevation backfill nor the
         // cutover runs, so waiting on what they owe is waiting for ever. A
         // cutover already running ends on its own and is still waited out.
+        // Elevation is waited on only past the threshold: at or under it the
+        // elevation pass asks its tracks for their series itself, and this
+        // pass leaves those to it, so both run at once.
         SeriesPermission::Granted
             if i.cutover_running
-                || (i.detection_enabled && (i.elevation_owed > 0 || i.cutover_pending)) =>
+                || (i.detection_enabled
+                    && ((i.elevation_owed > 0 && i.owed > STREAM_CONSENT_THRESHOLD as u64)
+                        || i.cutover_pending)) =>
         {
             AutostartVerdict::Deferred
         }
@@ -836,9 +841,33 @@ fn run_outcome(phase: &str, failed: u32) -> RunOutcome {
     }
 }
 
+/// The queue without the activities another pass asks for their series.
+fn without_covered<'a>(
+    queue: Vec<StreamGap>,
+    covered: impl IntoIterator<Item = &'a str>,
+) -> Vec<StreamGap> {
+    let covered: std::collections::HashSet<&str> = covered.into_iter().collect();
+    queue
+        .into_iter()
+        .filter(|g| !covered.contains(g.activity_id.as_str()))
+        .collect()
+}
+
 fn run_pass(install: u64, session: &LiveSource) -> StreamBackfillRun {
-    let queue = match with_persistent_engine_for(install, |engine| {
-        engine.activities_missing_streams(STREAM_ATTEMPT_LIMIT)
+    // The elevation pass asks a track it owes for its series in the same
+    // request, so this pass leaves those tracks to it. Whatever that ask does
+    // not settle is still owed afterwards and the next start takes it.
+    let covers_series = crate::net::elevation_backfill::elevation_pass_covers_series();
+    let queue = match with_persistent_engine_for(install, |engine| -> rusqlite::Result<_> {
+        let queue = engine.activities_missing_streams(STREAM_ATTEMPT_LIMIT)?;
+        if !covers_series {
+            return Ok(queue);
+        }
+        let covered = engine.tracks_missing_elevation().unwrap_or_default();
+        Ok(without_covered(
+            queue,
+            covered.iter().map(|(id, _)| id.as_str()),
+        ))
     }) {
         Some(Ok(queue)) => queue,
         Some(Err(e)) => {
@@ -1230,7 +1259,7 @@ mod tests {
                 elevation_owed: 1,
                 ..idle
             }),
-            AutostartVerdict::Deferred
+            AutostartVerdict::Start
         );
         assert_eq!(
             autostart_verdict(AutostartInputs {
@@ -1369,6 +1398,51 @@ mod tests {
         );
     }
 
+    /// Scenario: an upgraded library at or under the large-download threshold
+    /// owes elevation and series with Route Matching on.
+    ///
+    /// Expected behaviour: the series pass starts beside the elevation pass
+    /// rather than behind it. Past the threshold with a yes the deferral
+    /// stays, and a pending or running cutover is still waited out.
+    #[test]
+    fn at_or_under_the_threshold_the_series_pass_does_not_wait_for_elevation() {
+        let upgraded = AutostartInputs {
+            owed: STREAM_CONSENT_THRESHOLD as u64,
+            elevation_owed: 212,
+            cutover_pending: false,
+            cutover_running: false,
+            detection_enabled: true,
+            stopped_by_athlete: false,
+            consented: false,
+        };
+        assert_eq!(autostart_verdict(upgraded), AutostartVerdict::Start);
+        assert_eq!(
+            autostart_verdict(AutostartInputs {
+                cutover_pending: true,
+                ..upgraded
+            }),
+            AutostartVerdict::Deferred
+        );
+    }
+
+    /// Scenario: the elevation pass asks the tracks it owes for their series
+    /// in the same request.
+    ///
+    /// Expected behaviour: the series pass leaves those activities out of its
+    /// walk and keeps the rest in order.
+    #[test]
+    fn the_series_walk_leaves_out_what_the_elevation_pass_asks() {
+        let queue = gaps(4);
+        let covered = [queue[1].activity_id.clone(), queue[3].activity_id.clone()];
+        let kept = without_covered(queue.clone(), covered.iter().map(String::as_str));
+        let ids: Vec<_> = kept.iter().map(|g| g.activity_id.clone()).collect();
+        assert_eq!(
+            ids,
+            vec![queue[0].activity_id.clone(), queue[2].activity_id.clone()]
+        );
+        assert_eq!(without_covered(queue.clone(), []).len(), 4);
+    }
+
     /// Scenario: the stream pass and the elevation pass both read whether the
     /// owed series may be downloaded.
     ///
@@ -1440,9 +1514,9 @@ mod tests {
     /// Scenario: a sync settles on an upgraded library that owes series and
     /// elevation, first with Route Matching on and then with it off.
     ///
-    /// Expected behaviour: on, the automatic start says it is deferred rather
-    /// than reading idle with nothing to offer; off, it stops deferring to an
-    /// elevation queue that will not drain and asks for the pass.
+    /// Expected behaviour: on, a queue at or under the threshold starts beside
+    /// the elevation pass and never reads deferred; off, it asks for the pass
+    /// all the same.
     #[test]
     fn the_automatic_start_says_it_defers_and_stops_deferring_with_route_matching_off() {
         let _serial = crate::test_globals::serial_global_state();
@@ -1463,8 +1537,11 @@ mod tests {
         .expect("reader");
         assert!(owed > 0 && elevation_owed > 0);
 
-        assert_eq!(autostart_stream_backfill(), None);
-        assert_eq!(stream_backfill_progress().phase, STREAM_PHASE_DEFERRED);
+        assert!(
+            autostart_stream_backfill().is_some(),
+            "a small queue starts beside the elevation pass"
+        );
+        assert_ne!(stream_backfill_progress().phase, STREAM_PHASE_DEFERRED);
 
         crate::persistence::with_persistent_engine(|e| e.set_detection_enabled(false))
             .expect("engine")

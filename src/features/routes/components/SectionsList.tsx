@@ -101,6 +101,8 @@ interface SectionsListProps {
   customSectionCount: number;
   /** Removed auto sections over the catalogue rather than the page */
   removedSectionCount: number;
+  /** Sections the ledger retired, which gates the link to the retired screen */
+  retiredSectionCount?: number | undefined;
   /** The page read failed: shown with a retry, never as an empty library */
   loadError?: unknown;
   /** Reads the page again after a failure */
@@ -229,6 +231,7 @@ export const SectionsList = memo(function SectionsList({
   acceptedAutoCount,
   customSectionCount,
   removedSectionCount,
+  retiredSectionCount = 0,
   loadError,
   onRetry,
   emptyReason = null,
@@ -493,19 +496,28 @@ export const SectionsList = memo(function SectionsList({
     ]
   );
 
+  // Offered only once the ledger holds a retired section, and kept on an empty list since a
+  // cutover can leave the list empty while its sections sit in the retired screen.
+  const retiredLink =
+    retiredSectionCount > 0 ? (
+      <Button
+        testID="sections-retired-link"
+        variant="ghost"
+        style={styles.retiredLink}
+        onPress={() => navigateTo('/section-retired')}
+        icon="history"
+        label={t('sectionHistory.seeRetired')}
+      />
+    ) : null;
+
   const renderFooter = () => {
-    if (regularSections.length === 0) return null;
+    if (regularSections.length === 0) {
+      return retiredLink ? <View>{retiredLink}</View> : null;
+    }
     return (
       <View>
         {hasMore ? <RowSkeleton /> : null}
-        <Button
-          testID="sections-retired-link"
-          variant="ghost"
-          style={styles.retiredLink}
-          onPress={() => navigateTo('/section-retired')}
-          icon="history"
-          label={t('sectionHistory.seeRetired')}
-        />
+        {retiredLink}
         <Button
           testID="sections-named-corridors-link"
           variant="ghost"

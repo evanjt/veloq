@@ -524,6 +524,21 @@ enum KeepAthleteRows {
 /// intact. Deleted here rather than given foreign keys of their own: this runs
 /// inside the caller's transaction, and ten new keys on live tables is a
 /// migration on every install.
+/// Delete every row keyed by `id` when `id` has no row on `activities`, which
+/// is a copy that never held a track. Answers whether it deleted.
+fn drop_trackless_copy(db: &rusqlite::Connection, id: &str) -> SqlResult<bool> {
+    let tracked: bool = db.query_row(
+        "SELECT EXISTS(SELECT 1 FROM activities WHERE id = ?)",
+        [id],
+        |row| row.get(0),
+    )?;
+    if tracked {
+        return Ok(false);
+    }
+    delete_activity_keyed_rows(db, id, KeepAthleteRows::No)?;
+    Ok(true)
+}
+
 fn delete_activity_keyed_rows(
     db: &rusqlite::Connection,
     id: &str,
@@ -3947,6 +3962,60 @@ impl PersistentEngine {
     /// A failed read is an error and not an empty map. The two read the same
     /// to the caller, and taking a failure for "nothing claims this id" is
     /// what stores an uploaded ride a second time.
+    /// The stored key that claims each of `intervals_ids`, a tracked row ahead
+    /// of a trackless one. An id nothing claims is absent.
+    fn claimed_keys_of(
+        &self,
+        intervals_ids: &[String],
+    ) -> SqlResult<std::collections::HashMap<String, String>> {
+        let mut out = std::collections::HashMap::new();
+        let mut trackless = self
+            .db
+            .prepare_cached("SELECT activity_id FROM activity_bodies WHERE intervals_id = ?1")?;
+        let mut tracked = self
+            .db
+            .prepare_cached("SELECT id FROM activities WHERE intervals_id = ?1")?;
+        for id in intervals_ids {
+            let key = tracked
+                .query_row([id], |row| row.get::<_, String>(0))
+                .optional()?
+                .or(trackless
+                    .query_row([id], |row| row.get::<_, String>(0))
+                    .optional()?);
+            if let Some(key) = key {
+                out.insert(id.clone(), key);
+            }
+        }
+        Ok(out)
+    }
+
+    /// Remove the trackless copy keyed by the server's id `copy_id` when a
+    /// different row claims that id, and answer whether it went.
+    ///
+    /// A library synced before a page was stored on the claiming row holds the
+    /// pair, and a track stored under the copy's key would take the id the
+    /// claiming row holds. Nothing is removed when the copy has a track of its
+    /// own or when no other row claims the id.
+    pub fn settle_server_keyed_copy(&mut self, copy_id: &str) -> SqlResult<bool> {
+        let claims = self.claimed_keys_of(&[copy_id.to_string()])?;
+        if claims.get(copy_id).is_none_or(|claimed| claimed == copy_id) {
+            return Ok(false);
+        }
+        self.db.execute_batch("BEGIN IMMEDIATE")?;
+        let dropped = drop_trackless_copy(&self.db, copy_id)
+            .and_then(|dropped| self.db.execute_batch("COMMIT").map(|()| dropped));
+        match dropped {
+            Ok(true) => {
+                self.activity_metrics.remove(copy_id);
+            }
+            Ok(false) => {}
+            Err(_) => {
+                let _ = self.db.execute_batch("ROLLBACK");
+            }
+        }
+        dropped
+    }
+
     pub fn local_ids_for_intervals_ids(
         &self,
         intervals_ids: &[String],
@@ -4538,15 +4607,32 @@ impl PersistentEngine {
         athlete_id: &str,
         rows: &[(String, i64, String)],
         upstream_ids: &[String],
-        metrics: Vec<ActivityMetrics>,
+        mut metrics: Vec<ActivityMetrics>,
     ) -> SqlResult<()> {
         if rows.len() != upstream_ids.len() || rows.len() != metrics.len() {
             return Err(rusqlite::Error::InvalidParameterName(
                 "synced activity page lengths differ".into(),
             ));
         }
+        let mut rows = rows.to_vec();
         self.db.execute_batch("BEGIN IMMEDIATE")?;
+        let mut orphans: Vec<String> = Vec::new();
         let result = (|| {
+            // The keys were chosen before this write took the lock, and an
+            // upload can claim an id in between. The claim is read again under
+            // the lock, so a page never stores a second row beside the one
+            // that holds the id, and a copy an earlier page left beside it goes.
+            let claims = self.claimed_keys_of(upstream_ids)?;
+            for (index, upstream_id) in upstream_ids.iter().enumerate() {
+                let Some(claimed) = claims.get(upstream_id) else {
+                    continue;
+                };
+                rows[index].0 = claimed.clone();
+                metrics[index].activity_id = claimed.clone();
+                if claimed != upstream_id && drop_trackless_copy(&self.db, upstream_id)? {
+                    orphans.push(upstream_id.clone());
+                }
+            }
             let stored_detail = detail_body_present("activity_bodies.raw");
             let incoming_detail = detail_body_present("excluded.raw");
             let mut body = self.db.prepare(&format!(
@@ -4588,6 +4674,9 @@ impl PersistentEngine {
         if let Err(error) = result {
             let _ = self.db.execute_batch("ROLLBACK");
             return Err(error);
+        }
+        for orphan in &orphans {
+            self.activity_metrics.remove(orphan);
         }
         for metric in metrics {
             self.activity_metrics

@@ -564,14 +564,20 @@ export function heroScrolledPast(offsetY: number, heroHeight: number, headerBott
 /**
  * The stack header's own options: the theme surface behind it, the theme text for its controls,
  * and each platform's own title metrics. The Material 3 top app bar is flat at rest, so Android
- * draws no toolbar shadow; iOS keeps its bar's separator.
+ * draws no toolbar shadow; iOS keeps its bar's separator. Android's native header applies the
+ * status bar inset itself, whatever the JavaScript insets read, so while a banner in the top slot
+ * has already padded the status bar the header is told to leave it alone.
  */
-export function stackHeaderOptions(os: string, isDark: boolean) {
+export function stackHeaderOptions(os: string, isDark: boolean, topSlotFilled = false) {
   const chrome = mapHeroChrome({ scrolledPastHero: true, isDark });
   return {
     headerShadowVisible: os !== 'android',
     headerStyle: { backgroundColor: chrome.headerBackgroundColor },
     headerTintColor: chrome.tint,
+    ...(os === 'android' &&
+      topSlotFilled && {
+        unstable_nativeProps: { headerConfig: { disableTopInsetApplication: true } },
+      }),
   };
 }
 

@@ -10,7 +10,7 @@
  */
 
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import { configure, fireEvent, render, screen } from '@testing-library/react-native';
 import type { ReactTestInstance } from 'react-test-renderer';
 import { router } from 'expo-router';
@@ -113,6 +113,16 @@ function fixedHeightAncestors(node: ReactTestInstance): ReactTestInstance[] {
 function at(fontScale: number) {
   mockDimensions.mockReturnValue({ width: 390, height: 844, scale: 3, fontScale });
 }
+
+// The card's press target carries its id and label where the system menu is
+// not in front of it; on iOS a separate inert view carries the id.
+const platformOS = Platform.OS;
+beforeAll(() => {
+  Platform.OS = 'android';
+});
+afterAll(() => {
+  Platform.OS = platformOS;
+});
 
 describe('the feed card past the dense cap', () => {
   beforeEach(() => at(LARGEST));

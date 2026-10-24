@@ -187,7 +187,7 @@ describe('the feed card press', () => {
       try {
         await renderCard();
 
-        await fireEvent.press(screen.getByTestId('activity-card-a1'));
+        await fireEvent.press(screen.getByRole('button', { name: /Lausanne half marathon/ }));
 
         expect(router.push).toHaveBeenCalledWith('/activity/a1');
         expect(Haptics.impactAsync).not.toHaveBeenCalled();

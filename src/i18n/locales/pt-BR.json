@@ -735,7 +735,14 @@
     "streamConsentBody_many": "Faltam as séries de frequência cardíaca, potência e cadência em {{count}} de atividades. O download usa cerca de {{megabytes}} MB de dados.",
     "streamConsentBody_other": "Faltam as séries de frequência cardíaca, potência e cadência em {{count}} atividades. O download usa cerca de {{megabytes}} MB de dados.",
     "streamConsentDownload": "Baixar",
-    "streamConsentDecline": "Agora não"
+    "streamConsentDecline": "Agora não",
+    "sectionsChangedTitle": "Suas seções foram recortadas de novo",
+    "sectionsChangedBody": "Melhoramos a forma como o Veloq encontra seções. {{total}} das suas seções antigas foram retiradas. As que você salvou, renomeou ou fixou continuam. Se quiser alguma das outras de volta, ela está em Trechos retirados.",
+    "sectionsChangedBodyNone": "Melhoramos a forma como o Veloq encontra seções.",
+    "sectionsChangedSee": "Ver",
+    "sectionsChangedDismiss": "Agora não",
+    "notificationsTitle": "Você está perdendo as notificações personalizadas",
+    "notificationsBody": "O Veloq pode avisar você quando uma pedalada alcança um recorde pessoal ou um tempo mais rápido em um percurso, com o nome do percurso."
   },
   "filters": {
     "climbing": "Escalada",
@@ -2480,6 +2487,9 @@
       "recutRunningPhase": "Analisando seus trechos de novo: {{phase}}",
       "diffTotals": "{{current}} trechos viraram {{proposed}}.",
       "diffBreakdown": "{{new}} novos, {{changed}} alterados, {{gone}} aposentados.",
+      "diffNoneKept_one": "O novo detector passou por toda a sua biblioteca e não manteve nenhum dos seus {{count}} trecho. Ele foi retirado, não apagado: abra a lista de trechos retirados para trazer de volta os que quiser.",
+      "diffNoneKept_many": "O novo detector passou por toda a sua biblioteca e não manteve nenhum dos seus {{count}} trechos. Eles foram retirados, não apagados: abra a lista de trechos retirados para trazer de volta os que quiser.",
+      "diffNoneKept_other": "O novo detector passou por toda a sua biblioteca e não manteve nenhum dos seus {{count}} trechos. Eles foram retirados, não apagados: abra a lista de trechos retirados para trazer de volta os que quiser.",
       "diffUnchanged_one": "O {{count}} trecho saiu da nova análise sem mudanças.",
       "diffUnchanged_many": "Todos os {{count}} trechos saíram da nova análise sem mudanças.",
       "diffUnchanged_other": "Todos os {{count}} trechos saíram da nova análise sem mudanças.",
@@ -2760,7 +2770,10 @@
     "splitFrom": "Dividida de",
     "splitInto": "Dividida em",
     "unavailable": "Seção indisponível",
-    "revertVersion": "Restaurar Versão {{version}}"
+    "revertVersion": "Restaurar Versão {{version}}",
+    "retiredCount_one": "{{count}} trecho retirado",
+    "retiredCount_other": "{{count}} trechos retirados",
+    "retiredIntro": "Toque em Restaurar para manter uma seção exatamente como era. O detector vai deixá-la em paz."
   },
   "namedCorridors": {
     "title": "Nomes que você deu",

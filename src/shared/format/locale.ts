@@ -1,4 +1,5 @@
 import { getCurrentLanguage } from '@/i18n';
+import { ROOT_LOCALE } from '@/i18n/localeBundles';
 
 /**
  * Map app locale codes to valid Intl/BCP 47 locale codes for date and number formatting.
@@ -11,7 +12,8 @@ import { getCurrentLanguage } from '@/i18n';
  * ```
  */
 export function getIntlLocale(): string {
-  const locale = getCurrentLanguage();
+  // Before i18n is initialised the language is undefined, and Intl would read the host's locale.
+  const locale = getCurrentLanguage() || ROOT_LOCALE;
 
   // Map custom locale codes to valid Intl codes
   const localeMap: Record<string, string> = {

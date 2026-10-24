@@ -59,6 +59,8 @@ import {
   sessionReturnRoute,
 } from '@/features/recording';
 import { useSheetOpener } from '@/shared/app/sheetRequest';
+import { useNearbyRouteOverlay } from '@/shared/app/useNearbyRouteOverlay';
+import type { RouteOverlaySheetInput } from '@/app/sheets/route-overlay';
 import { getEngine } from '@/shared/native/engine';
 import { readPlannedWorkouts } from '@/features/home';
 import { replaceTo, navigateTo } from '@/shared/app/navigation';
@@ -118,6 +120,12 @@ function RecordScreenContent() {
 
   const gps = useEntryLocation(mode === 'gps' && sessionStatus === 'idle');
   useEntrySensors(gps.promptSettled);
+  const route = useNearbyRouteOverlay({
+    activityType: sport,
+    location: gps.location,
+    enabled: mode === 'gps',
+    idle: sessionStatus === 'idle',
+  });
 
   // A session is already in the store (cold navigation, notification tap, FAB
   // while recording, or a stopped ride not saved yet) - go straight back to it
@@ -177,6 +185,16 @@ function RecordScreenContent() {
     });
     if (result.kind === 'selected') setChosenSport(result.value);
   }, [openSheet, sport]);
+
+  const chooseRoute = route.choose;
+  const openRoutePicker = useCallback(async () => {
+    const result = await openSheet<RouteOverlaySheetInput, string | null>('sheets/route-overlay', {
+      activityType: sport,
+      selectedRouteId: route.overlayRouteId,
+      nearbyRouteIds: route.nearbyRouteIds,
+    });
+    if (result.kind === 'selected') chooseRoute(result.value);
+  }, [openSheet, sport, route.overlayRouteId, route.nearbyRouteIds, chooseRoute]);
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
@@ -252,6 +270,8 @@ function RecordScreenContent() {
               coordinates={NO_TRACK}
               currentLocation={gps.location}
               accuracy={gps.accuracy}
+              routeOverlay={route.overlayPoints}
+              onOpenRoutePicker={openRoutePicker}
               style={styles.map}
             />
             <View style={styles.gpsStatusWrap} pointerEvents="none">

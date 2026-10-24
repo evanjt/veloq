@@ -27,19 +27,23 @@
 
 ---
 
+<!-- store-copy:readme-strip -->
 <p align="center">
-  <img src="docs/screenshots/01-feed.png" width="16%" alt="Activity feed">
-  <img src="docs/screenshots/02-activity.png" width="16%" alt="Activity detail">
-  <img src="docs/screenshots/03-fitness.png" width="16%" alt="Fitness">
-  <img src="docs/screenshots/04-map.png" width="16%" alt="Map">
-  <img src="docs/screenshots/05-routes.png" width="16%" alt="Routes">
-  <img src="docs/screenshots/06-insights.png" width="16%" alt="Insights">
+  <img src="docs/screenshots/android/01-feed.png" width="16%" alt="Activity feed">
+  <img src="docs/screenshots/android/02-activity.png" width="16%" alt="Activity detail">
+  <img src="docs/screenshots/android/03-fitness.png" width="16%" alt="Fitness">
+  <img src="docs/screenshots/android/04-map.png" width="16%" alt="Map">
+  <img src="docs/screenshots/android/05-routes.png" width="16%" alt="Routes">
+  <img src="docs/screenshots/android/06-insights.png" width="16%" alt="Insights">
 </p>
+<!-- /store-copy:readme-strip -->
 
 Veloq reads your training from intervals.icu and keeps a copy in a database on your phone. Maps,
 charts, fitness, and the repeated routes and sections it finds are all worked out there, so the
-app opens without a connection and no Veloq server holds your training data. Where Veloq works
-something out itself, this README says how.
+app opens without a connection and no Veloq server holds your training data. The same data feeds
+the insight cards, which show the method behind each one, the home screen widgets, the optional
+push notifications for route and section personal bests, and the strength body diagram. Where
+Veloq works something out itself, this README says how.
 
 You need an intervals.icu account, or you can use the demo. It runs on iPhone and iPad (iOS 16.4
 and up) and on Android (7.0 and up).
@@ -341,6 +345,13 @@ achievement, fitness, wellness or settings change, the server sends a push with 
 (data only on Android, and a generic placeholder on iOS that the phone rewrites). The phone builds
 the final text itself: a route or section record, a faster than usual ride, a fitness milestone.
 Settings has switches for personal bests and fitness milestones.
+
+The route and section messages are worked out on the phone from your own routes and sections.
+Three examples, with invented place names:
+
+* New PR: "Route PR on Hill Repeat (12 s faster)"
+* New PR: "PR on Riverside Climb (1:05 faster)"
+* Faster than usual: "Faster than usual on Lakeside Loop (34 s off PR)"
 
 ## Backup and restore
 

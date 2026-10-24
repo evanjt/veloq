@@ -36,6 +36,7 @@ const engine = {
     unpin: () => {},
     getPinnedVersion: () => 1,
     getRetired: () => [],
+    getRetiredMap: () => ({ retired: [], current: [], pairs: [] }),
   }),
 };
 
@@ -57,6 +58,7 @@ const cases: [string, (h: never) => unknown][] = [
   ['unpin', (h) => history.unpinSection(h, 's')],
   ['getPinnedVersion', (h) => history.getPinnedSectionVersion(h, 's')],
   ['getRetired', (h) => history.getRetiredSections(h)],
+  ['getRetiredMap', (h) => history.getRetiredMapData(h)],
 ];
 
 const clientCases: [string, (c: EngineClient) => unknown][] = [

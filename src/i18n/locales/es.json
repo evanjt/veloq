@@ -735,7 +735,14 @@
     "streamConsentBody_many": "A {{count}} de actividades les faltan las series de frecuencia cardiaca, potencia y cadencia. La descarga usa unos {{megabytes}} MB de datos.",
     "streamConsentBody_other": "A {{count}} actividades les faltan las series de frecuencia cardiaca, potencia y cadencia. La descarga usa unos {{megabytes}} MB de datos.",
     "streamConsentDownload": "Descargar",
-    "streamConsentDecline": "Ahora no"
+    "streamConsentDecline": "Ahora no",
+    "sectionsChangedTitle": "Tus secciones se han vuelto a trazar",
+    "sectionsChangedBody": "Hemos mejorado cómo Veloq encuentra secciones. {{total}} de tus secciones antiguas se han retirado. Las que guardaste, renombraste o fijaste se conservan. Si quieres recuperar alguna de las demás, la encontrarás en Tramos retirados.",
+    "sectionsChangedBodyNone": "Hemos mejorado cómo Veloq encuentra secciones.",
+    "sectionsChangedSee": "Verlas",
+    "sectionsChangedDismiss": "Ahora no",
+    "notificationsTitle": "Te estás perdiendo las notificaciones personalizadas",
+    "notificationsBody": "Veloq puede avisarte cuando una salida logra un récord personal o un tiempo más rápido en una ruta, con el nombre de la ruta."
   },
   "filters": {
     "climbing": "Escalada",
@@ -2496,6 +2503,9 @@
       "recutRunningPhase": "Analizando de nuevo tus tramos: {{phase}}",
       "diffTotals": "{{current}} tramos pasaron a ser {{proposed}}.",
       "diffBreakdown": "{{new}} nuevos, {{changed}} modificados, {{gone}} retirados.",
+      "diffNoneKept_one": "El nuevo detector ha revisado toda tu biblioteca y no ha conservado ninguno de tus {{count}} tramo. Está retirado, no borrado: abre la lista de tramos retirados para recuperar los que quieras.",
+      "diffNoneKept_many": "El nuevo detector ha revisado toda tu biblioteca y no ha conservado ninguno de tus {{count}} tramos. Están retirados, no borrados: abre la lista de tramos retirados para recuperar los que quieras.",
+      "diffNoneKept_other": "El nuevo detector ha revisado toda tu biblioteca y no ha conservado ninguno de tus {{count}} tramos. Están retirados, no borrados: abre la lista de tramos retirados para recuperar los que quieras.",
       "diffUnchanged_one": "El {{count}} tramo salió del nuevo análisis sin cambios.",
       "diffUnchanged_many": "Los {{count}} tramos salieron del nuevo análisis sin cambios.",
       "diffUnchanged_other": "Los {{count}} tramos salieron del nuevo análisis sin cambios.",
@@ -2776,7 +2786,10 @@
     "splitFrom": "Dividido de",
     "splitInto": "Dividido en",
     "unavailable": "Tramo no disponible",
-    "revertVersion": "Restaurar Versión {{version}}"
+    "revertVersion": "Restaurar Versión {{version}}",
+    "retiredCount_one": "{{count}} tramo retirado",
+    "retiredCount_other": "{{count}} tramos retirados",
+    "retiredIntro": "Toca Restaurar para conservar una sección tal como era. El detector no la tocará."
   },
   "namedCorridors": {
     "title": "Nombres que pusiste",

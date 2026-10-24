@@ -735,7 +735,14 @@
     "streamConsentBody_many": "Il manque les séries de fréquence cardiaque, de puissance et de cadence pour {{count}} d'activités. Le téléchargement utilise environ {{megabytes}} Mo de données.",
     "streamConsentBody_other": "Il manque les séries de fréquence cardiaque, de puissance et de cadence pour {{count}} activités. Le téléchargement utilise environ {{megabytes}} Mo de données.",
     "streamConsentDownload": "Télécharger",
-    "streamConsentDecline": "Pas maintenant"
+    "streamConsentDecline": "Pas maintenant",
+    "sectionsChangedTitle": "Vos sections ont été redécoupées",
+    "sectionsChangedBody": "Nous avons amélioré la façon dont Veloq trouve les sections. {{total}} de vos anciennes sections ont été retirées. Celles que vous avez enregistrées, renommées ou épinglées sont conservées. Pour récupérer l'une des autres, rendez-vous dans Tronçons retirés.",
+    "sectionsChangedBodyNone": "Nous avons amélioré la façon dont Veloq trouve les sections.",
+    "sectionsChangedSee": "Les voir",
+    "sectionsChangedDismiss": "Pas maintenant",
+    "notificationsTitle": "Vous manquez les notifications personnalisées",
+    "notificationsBody": "Veloq peut vous prévenir quand une sortie bat un record personnel ou réalise un meilleur temps sur un parcours, avec le nom du parcours."
   },
   "filters": {
     "climbing": "Escalade",
@@ -2496,6 +2503,9 @@
       "recutRunningPhase": "Nouvelle analyse de tes tronçons : {{phase}}",
       "diffTotals": "{{current}} tronçons sont devenus {{proposed}}.",
       "diffBreakdown": "{{new}} nouveaux, {{changed}} modifiés, {{gone}} retirés.",
+      "diffNoneKept_one": "Le nouveau détecteur a parcouru toute ta bibliothèque et n'a gardé aucun de tes {{count}} tronçon. Il est retiré, pas supprimé : ouvre la liste des tronçons retirés pour récupérer ceux que tu veux.",
+      "diffNoneKept_many": "Le nouveau détecteur a parcouru toute ta bibliothèque et n'a gardé aucun de tes {{count}} tronçons. Ils sont retirés, pas supprimés : ouvre la liste des tronçons retirés pour récupérer ceux que tu veux.",
+      "diffNoneKept_other": "Le nouveau détecteur a parcouru toute ta bibliothèque et n'a gardé aucun de tes {{count}} tronçons. Ils sont retirés, pas supprimés : ouvre la liste des tronçons retirés pour récupérer ceux que tu veux.",
       "diffUnchanged_one": "Le {{count}} tronçon est ressorti inchangé de la nouvelle analyse.",
       "diffUnchanged_many": "Les {{count}} tronçons sont ressortis inchangés de la nouvelle analyse.",
       "diffUnchanged_other": "Les {{count}} tronçons sont ressortis inchangés de la nouvelle analyse.",
@@ -2776,7 +2786,10 @@
     "splitFrom": "Issu de la division de",
     "splitInto": "Divisé en",
     "unavailable": "Section indisponible",
-    "revertVersion": "Rétablir Version {{version}}"
+    "revertVersion": "Rétablir Version {{version}}",
+    "retiredCount_one": "{{count}} tronçon retiré",
+    "retiredCount_other": "{{count}} tronçons retirés",
+    "retiredIntro": "Touchez Restaurer pour garder une section exactement telle qu'elle était. Le détecteur n'y touchera plus."
   },
   "namedCorridors": {
     "title": "Les noms que tu as donnés",

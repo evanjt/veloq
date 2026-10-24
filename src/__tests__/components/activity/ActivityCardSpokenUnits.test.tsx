@@ -8,6 +8,7 @@
  */
 
 import React from 'react';
+import { Platform } from 'react-native';
 import { render, screen } from '@testing-library/react-native';
 
 import { ActivityCard } from '@/features/activity/components/ActivityCard';
@@ -42,6 +43,16 @@ jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: undefin
 jest.mock('@/features/activity/components/ActivityMapPreview', () => ({
   ActivityMapPreview: () => null,
 }));
+
+// The card's press target carries its id and label where the system menu is
+// not in front of it; on iOS a separate inert view carries the id.
+const platformOS = Platform.OS;
+beforeAll(() => {
+  Platform.OS = 'android';
+});
+afterAll(() => {
+  Platform.OS = platformOS;
+});
 
 beforeAll(async () => {
   await initialiseI18n('en-GB');

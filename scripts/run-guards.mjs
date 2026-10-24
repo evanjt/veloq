@@ -47,7 +47,7 @@ const GUARDS = [
     kind: 'correctness',
     cmd: node('check-background-task-entry.mjs'),
     catches:
-      'a background task defined only inside the route tree and absent from a headless runtime',
+      'a background task defined only inside the route tree, or reached by a named import that inline requires defer, so a headless runtime never defines it',
   },
   {
     name: 'check:bindings-fresh',

@@ -349,3 +349,46 @@ fn named_corridors_resolve_the_overlay_once_per_database_state() {
     sections.get_named_corridors().unwrap();
     assert_eq!(computes(), start + 2, "a commit drops the cached overlay");
 }
+
+/// Scenario: the old-versus-new map is read twice with nothing written, then
+/// once more after a section is renamed.
+///
+/// Expected behaviour: the record is built once for the two reads, so a
+/// selection change on the map re-reads nothing, and again after the commit;
+/// every read answers with the lines and the pair the first one built.
+#[test]
+fn the_retired_map_is_built_once_per_database_state() {
+    use crate::persistence::sections::retired_map::RETIRED_MAP_BUILDS;
+
+    let _guard = serial_global_state();
+    let (_tmp, sections, id) = seeded_catalogue();
+    let builds = || RETIRED_MAP_BUILDS.with(std::cell::Cell::get);
+    let start = builds();
+
+    let first = sections.get_retired_map().unwrap();
+    let second = sections.get_retired_map().unwrap();
+    assert_eq!(builds(), start + 1, "one database state, one build");
+    assert_eq!(format!("{first:?}"), format!("{second:?}"));
+    assert!(first.current.iter().any(|c| c.id == id));
+    assert!(
+        first
+            .pairs
+            .iter()
+            .all(|p| p.retired_id == "auto_gone" && p.current_id == "auto_1"),
+        "the merge names auto_1 as the survivor"
+    );
+
+    crate::with_persistent_engine(|e| e.set_section_name(&id, Some("Quarry climb")))
+        .unwrap()
+        .unwrap();
+    let renamed = sections.get_retired_map().unwrap();
+    assert_eq!(builds(), start + 2, "a commit builds the record again");
+    assert_eq!(
+        renamed
+            .current
+            .iter()
+            .find(|c| c.id == id)
+            .and_then(|c| c.name.as_deref()),
+        Some("Quarry climb")
+    );
+}

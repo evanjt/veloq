@@ -765,7 +765,7 @@ impl PersistentEngine {
     ///
     /// Each state is an `archived` history row and the milestone version it
     /// names, written in one transaction with the range they occupy.
-    fn archive_current_catalogue(&self) -> rusqlite::Result<u32> {
+    pub(super) fn archive_current_catalogue(&self) -> rusqlite::Result<u32> {
         // Immediate, because it reads before it writes: a deferred one whose
         // read predates a regroup's commit on another connection cannot take
         // the write lock afterwards and fails without waiting.

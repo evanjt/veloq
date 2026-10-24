@@ -17,6 +17,7 @@ import { act, fireEvent, render, within } from '@testing-library/react-native';
 import { SelectButton } from '@/shared/ui';
 import { routeCardInHost } from '../__shared__/routeCardInHost';
 import { useDebugStore } from '@/features/settings/light';
+import { initialiseI18n } from '@/i18n';
 
 const RouteDetailScreen = routeCardInHost();
 jest.mock('veloqrs', () =>
@@ -410,6 +411,10 @@ const yearBest = (id: string) => ({
 const OLDEST_ATTEMPT = 1_705_276_800;
 
 describe('route page below the chart', () => {
+  beforeAll(async () => {
+    await initialiseI18n('en-US');
+  });
+
   beforeEach(() => {
     mockSportCounts = [{ sportType: 'Ride', count: 3 }];
     mockBelowChart = {

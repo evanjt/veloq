@@ -2,7 +2,7 @@
 // double padding. This context tracks banner state and exposes the right edges.
 
 import React, { createContext, useContext, useMemo, ReactNode } from 'react';
-import { useWindowDimensions } from 'react-native';
+import { Platform, useWindowDimensions } from 'react-native';
 import { SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Edge, EdgeInsets } from 'react-native-safe-area-context';
 
@@ -20,7 +20,8 @@ import {
 } from './topBanner';
 
 import { useNetwork } from './NetworkContext';
-import type { SheetWindow } from './screenHeaders';
+import { stackHeaderOptions, type SheetWindow } from './screenHeaders';
+import { useTheme } from './useTheme';
 
 interface TopSafeAreaContextValue {
   hasTopBanner: boolean;
@@ -175,6 +176,19 @@ export function BeneathTopSlot({ children }: { children: ReactNode }) {
     <WindowInsetsContext.Provider value={device}>
       <SafeAreaInsetsContext.Provider value={beneath}>{children}</SafeAreaInsetsContext.Provider>
     </WindowInsetsContext.Provider>
+  );
+}
+
+/**
+ * The stack header options for the stack's place in the tree: beneath a filled top slot the
+ * native header does not pad the status bar a second time. Outside a provider the slot is empty.
+ */
+export function useStackHeaderOptions() {
+  const hasTopBanner = useContext(TopSafeAreaContext)?.hasTopBanner ?? false;
+  const { isDark } = useTheme();
+  return useMemo(
+    () => stackHeaderOptions(Platform.OS, isDark, hasTopBanner),
+    [isDark, hasTopBanner]
   );
 }
 

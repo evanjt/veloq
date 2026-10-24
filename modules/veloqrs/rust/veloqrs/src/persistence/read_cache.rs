@@ -66,6 +66,10 @@ struct ReadCache {
     /// re-encodes the whole catalogue, and the map asks again each time the
     /// layer is shown, so a slot holds it until something commits.
     map_sections: Mutex<Option<Arc<Vec<crate::FfiMapSection>>>>,
+    /// The old-versus-new sections map: retired and current lines and the pairs
+    /// between them. Building it decodes every retired and catalogue line and
+    /// compares the ones that meet, and a selection on the map asks again.
+    retired_map: Mutex<Option<Arc<crate::FfiRetiredMapData>>>,
 }
 
 /// How many signatures to keep. The feed draws a screenful and the athlete
@@ -196,6 +200,7 @@ static READ_CACHE: LazyLock<ReadCache> = LazyLock::new(|| ReadCache {
     named_overlay: Mutex::new(None),
     split_lineage: Mutex::new(None),
     map_sections: Mutex::new(None),
+    retired_map: Mutex::new(None),
 });
 
 /// The same poison recovery the pool and the engine take: the panic was in a
@@ -228,6 +233,7 @@ pub(crate) fn clear() {
     *lock(&READ_CACHE.named_overlay) = None;
     *lock(&READ_CACHE.split_lineage) = None;
     *lock(&READ_CACHE.map_sections) = None;
+    *lock(&READ_CACHE.retired_map) = None;
 }
 
 /// A clear on one thread, held before it empties anything, so a test can read
@@ -322,6 +328,14 @@ pub fn map_sections(
     fill: impl FnOnce() -> Vec<crate::FfiMapSection>,
 ) -> Arc<Vec<crate::FfiMapSection>> {
     cached(conn, &READ_CACHE.map_sections, || Arc::new(fill()))
+}
+
+/// The old-versus-new sections map, cached until the database moves.
+pub fn retired_map(
+    conn: &Connection,
+    fill: impl FnOnce() -> crate::FfiRetiredMapData,
+) -> Arc<crate::FfiRetiredMapData> {
+    cached(conn, &READ_CACHE.retired_map, || Arc::new(fill()))
 }
 
 /// The sports the map filter offers, cached until the database moves.

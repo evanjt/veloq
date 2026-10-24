@@ -16,12 +16,15 @@ import {
 import { logScreenRender, PERF_DEBUG } from '@/shared/debug/renderTimer';
 import {
   RestoreOfferCard,
+  SectionsChangedCard,
+  NotificationsCard,
   StreamConsentCard,
   TourOfferCard,
   WhatsNewCard,
   useDashboardPreferences,
 } from '@/features/settings';
 import { navigateTo } from '@/shared/app/navigation';
+import { releaseSplash } from '@/shared/app/splash';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { ScreenRefreshControl } from '@/shared/ui/ScreenRefreshControl';
 import { isReduceMotionOn } from '@/shared/ui/reduceMotion';
@@ -201,6 +204,11 @@ function FeedScreenContent() {
     return data.pages.flat();
   }, [data]);
   const allActivities = allActivitiesRaw;
+
+  // The splash fades out over the first read, with rows or empty.
+  useEffect(() => {
+    if (!isLoading) releaseSplash();
+  }, [isLoading]);
 
   // One deferred FFI call for what the feed paints: summary card and GPS tracks
   const t2 = PERF_DEBUG ? performance.now() : 0;
@@ -690,8 +698,10 @@ function FeedScreenContent() {
       <View testID="home-head-cards" style={styles.homeCards}>
         <StreamConsentCard />
         <RestoreOfferCard />
+        <SectionsChangedCard />
         <WhatsNewCard />
         <TourOfferCard />
+        <NotificationsCard />
         <SupportCard />
         <PendingUploadsCard />
         {summaryCard.enabled && !standingBy && summaryLoading ? (

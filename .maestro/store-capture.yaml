@@ -74,6 +74,8 @@ tags:
     optional: true
 - waitForAnimationToEnd:
     timeout: 3000
+- assertNotVisible:
+    id: "routes-sync-banner"
 - takeScreenshot: "screenshots/store-capture/01-feed"
 - assertNotVisible: "Open debugger to view warnings"
 
@@ -120,6 +122,8 @@ tags:
 # the terrain get a settle window after the ready marker.
 - waitForAnimationToEnd:
     timeout: 15000
+- assertNotVisible:
+    id: "routes-sync-banner"
 - takeScreenshot: "screenshots/store-capture/02-map"
 - assertNotVisible: "Open debugger to view warnings"
 
@@ -136,6 +140,8 @@ tags:
     timeout: 15000
 - waitForAnimationToEnd:
     timeout: 3000
+- assertNotVisible:
+    id: "routes-sync-banner"
 - takeScreenshot: "screenshots/store-capture/03-activity"
 - assertNotVisible: "Open debugger to view warnings"
 
@@ -187,6 +193,8 @@ tags:
     timeout: 15000
 - waitForAnimationToEnd:
     timeout: 3000
+- assertNotVisible:
+    id: "routes-sync-banner"
 - takeScreenshot: "screenshots/store-capture/04-section"
 - assertNotVisible: "Open debugger to view warnings"
 - openLink: "veloq:///settings"
@@ -215,6 +223,8 @@ tags:
     timeout: 60000
 - waitForAnimationToEnd:
     timeout: 3000
+- assertNotVisible:
+    id: "routes-sync-banner"
 - takeScreenshot: "screenshots/store-capture/05-insights"
 - assertNotVisible: "Open debugger to view warnings"
 
@@ -227,6 +237,8 @@ tags:
     timeout: 15000
 - waitForAnimationToEnd:
     timeout: 3000
+- assertNotVisible:
+    id: "routes-sync-banner"
 - takeScreenshot: "screenshots/store-capture/06-fitness"
 - assertNotVisible: "Open debugger to view warnings"
 
@@ -247,6 +259,8 @@ tags:
     point: "26%,45%"
 - waitForAnimationToEnd:
     timeout: 3000
+- assertNotVisible:
+    id: "routes-sync-banner"
 - takeScreenshot: "screenshots/store-capture/07-strength"
 - assertNotVisible: "Open debugger to view warnings"
 
@@ -278,6 +292,8 @@ tags:
     timeout: 10000
 - waitForAnimationToEnd:
     timeout: 3000
+- assertNotVisible:
+    id: "routes-sync-banner"
 - takeScreenshot: "screenshots/store-capture/08-recording"
 - assertNotVisible: "Open debugger to view warnings"
 - runFlow:

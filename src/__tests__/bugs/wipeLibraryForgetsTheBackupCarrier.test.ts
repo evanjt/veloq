@@ -1400,7 +1400,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
   {
     confirm: [],
     where:
-      'device preferences: units, language, theme, sport, dashboard, map, routes, heatmap, tiles, debug, support, what is new and the tour offer, days of use',
+      'device preferences: units, language, theme, sport, dashboard, map, routes, heatmap, tiles, debug, support, what is new, the tour offer and the sections-changed answer, days of use',
     writers: [
       'src/shared/app/UnitPreferenceStore.ts',
       'src/shared/app/LanguageStore.ts',

@@ -735,7 +735,14 @@
     "streamConsentBody_many": "A {{count}} di attività mancano le serie di frequenza cardiaca, potenza e cadenza. Il download usa circa {{megabytes}} MB di dati.",
     "streamConsentBody_other": "A {{count}} attività mancano le serie di frequenza cardiaca, potenza e cadenza. Il download usa circa {{megabytes}} MB di dati.",
     "streamConsentDownload": "Scarica",
-    "streamConsentDecline": "Non ora"
+    "streamConsentDecline": "Non ora",
+    "sectionsChangedTitle": "Le tue sezioni sono state ritagliate di nuovo",
+    "sectionsChangedBody": "Abbiamo migliorato il modo in cui Veloq trova le sezioni. {{total}} delle tue vecchie sezioni sono state ritirate. Quelle che hai salvato, rinominato o fissato restano. Se vuoi riavere alcune delle altre, le trovi in Tratti ritirati.",
+    "sectionsChangedBodyNone": "Abbiamo migliorato il modo in cui Veloq trova le sezioni.",
+    "sectionsChangedSee": "Vedile",
+    "sectionsChangedDismiss": "Non ora",
+    "notificationsTitle": "Ti stai perdendo le notifiche personalizzate",
+    "notificationsBody": "Veloq può avvisarti quando un’uscita stabilisce un record personale o un tempo più veloce su un percorso, con il nome del percorso."
   },
   "filters": {
     "climbing": "Arrampicata",
@@ -2496,6 +2503,8 @@
       "recutRunningPhase": "Nuova analisi dei tuoi tratti: {{phase}}",
       "diffTotals": "{{current}} tratti sono diventati {{proposed}}.",
       "diffBreakdown": "{{new}} nuovi, {{changed}} modificati, {{gone}} ritirati.",
+      "diffNoneKept_one": "Il nuovo rilevatore ha esaminato tutta la tua libreria e non ne ha conservato nessuno dei tuoi {{count}} tratto. È ritirato, non cancellato: apri l'elenco dei tratti ritirati per recuperare quelli che vuoi.",
+      "diffNoneKept_other": "Il nuovo rilevatore ha esaminato tutta la tua libreria e non ne ha conservato nessuno dei tuoi {{count}} tratti. Sono ritirati, non cancellati: apri l'elenco dei tratti ritirati per recuperare quelli che vuoi.",
       "diffUnchanged_one": "Il {{count}} tratto è uscito immutato dalla nuova analisi.",
       "diffUnchanged_many": "Tutti i {{count}} tratti sono usciti immutati dalla nuova analisi.",
       "diffUnchanged_other": "Tutti i {{count}} tratti sono usciti immutati dalla nuova analisi.",
@@ -2776,7 +2785,10 @@
     "splitFrom": "Separata da",
     "splitInto": "Divisa in",
     "unavailable": "Sezione non disponibile",
-    "revertVersion": "Ripristina Versione {{version}}"
+    "revertVersion": "Ripristina Versione {{version}}",
+    "retiredCount_one": "{{count}} tratto ritirato",
+    "retiredCount_other": "{{count}} tratti ritirati",
+    "retiredIntro": "Tocca Ripristina per mantenere una sezione esattamente com'era. Il rilevatore la lascerà stare."
   },
   "namedCorridors": {
     "title": "Nomi che hai dato",

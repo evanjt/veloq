@@ -142,6 +142,7 @@ const MIGRATED_KEYS = [
   'veloq-track-fetch-dismissed',
   'veloq-usage',
   'veloq-tour-offer',
+  'veloq-sections-changed-dismissed',
 ];
 
 /** Waits until the launch's resumed import has reloaded the stores, or gives up after a while. */

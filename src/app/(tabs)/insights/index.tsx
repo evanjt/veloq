@@ -458,6 +458,7 @@ function InsightsScreenContent() {
           acceptedAutoCount={routesData?.acceptedAutoCount ?? 0}
           customSectionCount={customSectionCount}
           removedSectionCount={routesData?.removedCount ?? 0}
+          retiredSectionCount={routesData?.ledgerRetiredCount ?? 0}
           loadError={routesLoadError}
           onRetry={retryRoutesRead}
           emptyReason={routesData?.sectionEmptyReason}
@@ -481,6 +482,7 @@ function InsightsScreenContent() {
       routesData?.unacceptedAutoCount,
       routesData?.acceptedAutoCount,
       routesData?.removedCount,
+      routesData?.ledgerRetiredCount,
       routesData?.sectionEmptyReason,
       customSectionCount,
       handleSectionSortChange,

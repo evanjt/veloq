@@ -772,7 +772,14 @@
     "streamConsentBody_many": "W {{count}} aktywnościach brakuje serii tętna, mocy i kadencji. Pobranie zużyje około {{megabytes}} MB danych.",
     "streamConsentBody_other": "W {{count}} aktywności brakuje serii tętna, mocy i kadencji. Pobranie zużyje około {{megabytes}} MB danych.",
     "streamConsentDownload": "Pobierz",
-    "streamConsentDecline": "Nie teraz"
+    "streamConsentDecline": "Nie teraz",
+    "sectionsChangedTitle": "Twoje odcinki zostały wyznaczone od nowa",
+    "sectionsChangedBody": "Ulepszyliśmy sposób, w jaki Veloq znajduje odcinki. {{total}} Twoich starych odcinków zostało wycofanych. Te, które zapisano, zmieniono im nazwę lub przypięto, zostają. Jeśli chcesz odzyskać któryś z pozostałych, znajdziesz je w Wycofane odcinki.",
+    "sectionsChangedBodyNone": "Ulepszyliśmy sposób, w jaki Veloq znajduje odcinki.",
+    "sectionsChangedSee": "Zobacz",
+    "sectionsChangedDismiss": "Nie teraz",
+    "notificationsTitle": "Omijają Cię spersonalizowane powiadomienia",
+    "notificationsBody": "Veloq może powiadomić Cię, gdy przejazd da rekord życiowy lub szybszy czas na trasie, wraz z nazwą trasy."
   },
   "filters": {
     "climbing": "Wspinaczka",
@@ -2662,6 +2669,10 @@
       "recutRunningPhase": "Ponowna analiza Twoich odcinków: {{phase}}",
       "diffTotals": "{{current}} odcinków stało się {{proposed}}.",
       "diffBreakdown": "{{new}} nowych, {{changed}} zmienionych, {{gone}} wycofanych.",
+      "diffNoneKept_one": "Nowy wykrywacz przejrzał całą twoją bibliotekę i nie zachował żadnego z twoich odcinków ({{count}}). Odcinek został wycofany, nie usunięty: otwórz listę wycofanych odcinków, aby przywrócić ten, który chcesz.",
+      "diffNoneKept_few": "Nowy wykrywacz przejrzał całą twoją bibliotekę i nie zachował żadnego z twoich odcinków ({{count}}). Odcinki zostały wycofane, nie usunięte: otwórz listę wycofanych odcinków, aby przywrócić te, które chcesz.",
+      "diffNoneKept_many": "Nowy wykrywacz przejrzał całą twoją bibliotekę i nie zachował żadnego z twoich odcinków ({{count}}). Odcinki zostały wycofane, nie usunięte: otwórz listę wycofanych odcinków, aby przywrócić te, które chcesz.",
+      "diffNoneKept_other": "Nowy wykrywacz przejrzał całą twoją bibliotekę i nie zachował żadnego z twoich odcinków ({{count}}). Odcinki zostały wycofane, nie usunięte: otwórz listę wycofanych odcinków, aby przywrócić te, które chcesz.",
       "diffUnchanged_one": "{{count}} odcinek przeszedł ponowną analizę bez zmian.",
       "diffUnchanged_few": "Wszystkie {{count}} odcinki przeszły ponowną analizę bez zmian.",
       "diffUnchanged_many": "Wszystkie {{count}} odcinków przeszło ponowną analizę bez zmian.",
@@ -2953,7 +2964,12 @@
     "splitFrom": "Wydzielony z",
     "splitInto": "Podzielony na",
     "unavailable": "Odcinek niedostępny",
-    "revertVersion": "Przywróć Wersja {{version}}"
+    "revertVersion": "Przywróć Wersja {{version}}",
+    "retiredCount_one": "{{count}} wycofany odcinek",
+    "retiredCount_few": "{{count}} wycofane odcinki",
+    "retiredCount_many": "{{count}} wycofanych odcinków",
+    "retiredCount_other": "{{count}} wycofanego odcinka",
+    "retiredIntro": "Dotknij Przywróć, aby zachować odcinek dokładnie takim, jaki był. Detektor go nie ruszy."
   },
   "namedCorridors": {
     "title": "Nadane nazwy",

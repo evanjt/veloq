@@ -33,10 +33,41 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
-import { syncSiteCopy, syncSiteGallery, type SiteShot } from './site-copy';
+import {
+  syncReadmeStrip,
+  syncSiteCopy,
+  syncSiteGallery,
+  type SitePlatform,
+  type SiteSets,
+} from './site-copy';
 import { captureLocales, type CaptureLocale } from './store-locales';
-import { CAPTURED_STEMS, SHOT_LAYOUTS, shotsFor, STORE_SHOTS } from './store-shots';
-import { dims, featureHtml, FEATURE_SIZE, phoneHtml, type Caption } from './store-templates';
+import { CAPTURED_STEMS, SHOT_LAYOUTS, shotsFor, type StoreTarget } from './store-shots';
+import {
+  PANEL_LOCALES,
+  PRIVACY_CAPTION,
+  PRIVACY_CLAIMS,
+  PRIVACY_CSS,
+  privacyListHtml,
+  SHOT_WIDGET_CSS,
+  WIDGET_CSS,
+  capturedScreenHtml,
+  shotWidgetFile,
+  WIDGETS_CAPTION,
+  widgetFiles,
+  widgetScreenHtml,
+  type WidgetPlatform,
+} from './store-panels';
+import {
+  deviceHtml,
+  dims,
+  featureHtml,
+  FEATURE_SIZE,
+  phoneHtml,
+  textPanelHtml,
+  type Caption,
+} from './store-templates';
+import { darkColors } from '@/theme/colors';
+
 import { storePalette, type StorePalette } from './store-theme';
 import { readImageInfo } from './validate-store-metadata';
 
@@ -71,108 +102,156 @@ const RAW_SIZES: Partial<Record<Target, { width: number; height: number }>> = {
 // scripts/site-copy.ts reads the site's English text from.
 const WEB_LOCALE = 'en-AU';
 
-// The website's strip, which has its own images under docs/screenshots and
-// follows the store captures only once those are retaken from the shot list.
-export const WEB_STEMS = [
-  '01-feed',
-  '02-activity',
-  '03-fitness',
-  '04-map',
-  '05-routes',
-  '06-insights',
-];
+// The store target each website set is cut from, and the directory it is
+// written under in docs/screenshots.
+export const WEB_PLATFORMS: Record<SitePlatform, StoreTarget> = {
+  android: 'play',
+  ios: 'appstore',
+  ipad: 'ipad',
+};
+
+// The dark set's stage, behind each capture.
+const WEB_DARK_STAGE = darkColors.surfacePage;
 
 const DEVICE_KIND = { play: 'android', appstore: 'iphone', ipad: 'ipad' } as const;
 
-// Captions keyed by Play locale, pre-broken with \n (CSS white-space:
-// pre-line). Subcaptions describe what is on screen: no absolutes, no speed
-// promises, no coaching. intervals.icu is named once, on the first shot.
-export const CAPTIONS: Record<string, { shots: Caption[]; headline?: string; tagline: string }> = {
+// Captions keyed by Play locale, one per captured shot in the order of
+// CAPTURED_STEMS. Text wraps in the template and each headline and subtitle
+// fits two lines at slot width. Subcaptions describe what is on screen: no
+// absolutes, no speed promises, no coaching. The kicker and the feature terms
+// are the app's own words in that locale (src/i18n/locales).
+export const CAPTIONS: Record<string, { shots: Caption[]; tagline: string }> = {
   'en-US': {
     shots: [
       {
         kicker: 'Feed',
-        cap: 'Your activity\nhistory',
-        sub: 'Synced from your intervals.icu account.',
-      },
-      {
-        kicker: 'Activity',
-        cap: 'Map and charts\non one timeline',
-        sub: 'Drag the chart and the marker moves with it.',
-      },
-      {
-        kicker: 'Fitness',
-        cap: 'Fitness, fatigue\nand form',
-        sub: 'Charted from your training load, day by day.',
+        cap: 'Your intervals.icu activities',
+        sub: 'A map and the key numbers for each one.',
       },
       {
         kicker: 'Map',
-        cap: "Where you've\nbeen riding",
-        sub: '3D terrain, with a heatmap over your rides.',
+        cap: 'All your activities on one map',
+        sub: 'A heatmap over 3D satellite terrain.',
       },
       {
-        kicker: 'Routes',
-        cap: 'Routes you\nride again',
-        sub: 'Spotted in your history, attempts side by side.',
+        kicker: 'Activity',
+        cap: 'Charts linked to the map',
+        sub: 'Move along the chart to see where it happened.',
+      },
+      {
+        kicker: 'Sections',
+        cap: 'See how you did, from the notification',
+        sub: 'Your time on each section you repeat, compared with your best.',
       },
       {
         kicker: 'Insights',
-        cap: 'A daily read on\nyour training',
-        sub: 'Section bests, milestones, week against week.',
+        cap: 'What changed in your training',
+        sub: 'Records and trends, with how each one is worked out.',
+      },
+      {
+        kicker: 'Fitness',
+        cap: 'Fitness, fatigue and form',
+        sub: 'Also on your home screen as a widget.',
+      },
+      {
+        kicker: 'Strength',
+        cap: 'Strength training by muscle group',
+        sub: 'Sets from your workouts on a body diagram.',
+      },
+      {
+        kicker: 'Recording',
+        cap: 'Record rides and runs',
+        sub: 'GPS, indoor or manual, with Bluetooth sensors, uploaded to intervals.icu.',
       },
     ],
-    headline: 'Every ride, on real terrain',
     tagline: 'Training analysis for rides and runs.',
   },
   'en-AU': {
     shots: [
       {
         kicker: 'Feed',
-        cap: 'Your activity\nhistory',
-        sub: 'Synced from your intervals.icu account.',
-      },
-      {
-        kicker: 'Activity',
-        cap: 'Map and charts\non one timeline',
-        sub: 'Drag the chart and the marker moves with it.',
-      },
-      {
-        kicker: 'Fitness',
-        cap: 'Fitness, fatigue\nand form',
-        sub: 'Charted from your training load, day by day.',
+        cap: 'Your intervals.icu activities',
+        sub: 'A map and the key numbers for each one.',
       },
       {
         kicker: 'Map',
-        cap: "Where you've\nbeen riding",
-        sub: '3D terrain, with a heatmap over your rides.',
+        cap: 'All your activities on one map',
+        sub: 'A heatmap over 3D satellite terrain.',
       },
       {
-        kicker: 'Routes',
-        cap: 'Routes you\nride again',
-        sub: 'Spotted in your history, attempts side by side.',
+        kicker: 'Activity',
+        cap: 'Charts linked to the map',
+        sub: 'Move along the chart to see where it happened.',
+      },
+      {
+        kicker: 'Sections',
+        cap: 'See how you did, from the notification',
+        sub: 'Your time on each section you repeat, compared with your best.',
       },
       {
         kicker: 'Insights',
-        cap: 'A daily read on\nyour training',
-        sub: 'Section bests, milestones, week against week.',
+        cap: 'What changed in your training',
+        sub: 'Records and trends, with how each one is worked out.',
+      },
+      {
+        kicker: 'Fitness',
+        cap: 'Fitness, fatigue and form',
+        sub: 'Also on your home screen as a widget.',
+      },
+      {
+        kicker: 'Strength',
+        cap: 'Strength training by muscle group',
+        sub: 'Sets from your workouts on a body diagram.',
+      },
+      {
+        kicker: 'Recording',
+        cap: 'Record rides and runs',
+        sub: 'GPS, indoor or manual, with Bluetooth sensors, uploaded to intervals.icu.',
       },
     ],
-    headline: 'Every ride, on real terrain',
     tagline: 'Training analysis for rides and runs.',
   },
   'it-IT': {
     shots: [
-      { cap: 'Il tuo storico\nattività', sub: 'Sincronizzato dal tuo account intervals.icu.' },
       {
-        cap: 'Mappa e grafici\nsu una timeline',
-        sub: 'Trascina il grafico e il cursore si muove con te.',
+        kicker: 'Notizie',
+        cap: 'Le tue attività di intervals.icu',
+        sub: 'Una mappa e i numeri chiave di ognuna.',
       },
-      { cap: 'Fitness, fatica\ne forma', sub: 'Tracciati dal tuo carico, giorno per giorno.' },
-      { cap: 'Dove sei\nandato in bici', sub: 'Terreno 3D, con una heatmap sulle tue uscite.' },
-      { cap: 'Percorsi che\nripeti', sub: 'Trovati nel tuo storico, tentativi affiancati.' },
       {
-        cap: 'Una lettura al giorno\ndel tuo allenamento',
-        sub: 'Record di sezione, traguardi, settimana su settimana.',
+        kicker: 'Mappa',
+        cap: 'Tutte le attività su una mappa',
+        sub: 'Una mappa di calore su terreno 3D satellitare.',
+      },
+      {
+        kicker: 'Attività',
+        cap: 'Grafici collegati alla mappa',
+        sub: 'Scorri il grafico per vedere dove è successo.',
+      },
+      {
+        kicker: 'Sezioni',
+        cap: "Scopri com'è andata, dalla notifica",
+        sub: 'Il tuo tempo su ogni sezione che ripeti, confrontato con il tuo migliore.',
+      },
+      {
+        kicker: 'Analisi',
+        cap: 'Cosa è cambiato nel tuo allenamento',
+        sub: 'Primati e tendenze, con il calcolo di ciascuno.',
+      },
+      {
+        kicker: 'Forma',
+        cap: 'Fitness, affaticamento e forma',
+        sub: 'Anche sulla schermata Home come widget.',
+      },
+      {
+        kicker: 'Forza',
+        cap: 'Allenamento di forza per gruppo muscolare',
+        sub: 'Serie dei tuoi allenamenti su uno schema del corpo.',
+      },
+      {
+        kicker: 'Registrazione',
+        cap: 'Registra uscite e corse',
+        sub: 'GPS, indoor o manuale, con sensori Bluetooth, caricato su intervals.icu.',
       },
     ],
     tagline: 'Analisi degli allenamenti per bici e corsa.',
@@ -180,22 +259,44 @@ export const CAPTIONS: Record<string, { shots: Caption[]; headline?: string; tag
   'fr-FR': {
     shots: [
       {
-        cap: "Votre historique\nd'activités",
-        sub: 'Synchronisé depuis votre compte intervals.icu.',
+        kicker: 'Fil',
+        cap: 'Vos activités intervals.icu',
+        sub: 'Une carte et les chiffres clés de chacune.',
       },
       {
-        cap: 'Carte et graphiques\nsur une chronologie',
-        sub: 'Faites glisser le graphique, le repère suit.',
-      },
-      { cap: 'Fitness, fatigue\net forme', sub: 'Tracés depuis votre charge, jour après jour.' },
-      { cap: 'Où vous avez\nroulé', sub: 'Terrain 3D, avec une heatmap de vos sorties.' },
-      {
-        cap: 'Les routes que\nvous répétez',
-        sub: "Repérées dans l'historique, tentatives côte à côte.",
+        kicker: 'Carte',
+        cap: 'Toutes vos activités sur une carte',
+        sub: 'Une carte thermique sur un terrain 3D satellite.',
       },
       {
-        cap: 'Une lecture par jour\nde votre entraînement',
-        sub: 'Records de section, jalons, semaine contre semaine.',
+        kicker: 'Activité',
+        cap: 'Des graphiques liés à la carte',
+        sub: "Parcourez le graphique pour voir où cela s'est passé.",
+      },
+      {
+        kicker: 'Sections',
+        cap: 'Voyez votre résultat depuis la notification',
+        sub: 'Votre temps sur chaque section répétée, comparé à votre meilleur.',
+      },
+      {
+        kicker: 'Aperçus',
+        cap: 'Ce qui a changé dans votre entraînement',
+        sub: 'Records et tendances, avec leur mode de calcul.',
+      },
+      {
+        kicker: 'Forme',
+        cap: 'Forme physique, fatigue et forme',
+        sub: "Aussi sur votre écran d'accueil, en widget.",
+      },
+      {
+        kicker: 'Force',
+        cap: 'Musculation par groupe musculaire',
+        sub: 'Séries de vos séances sur un schéma du corps.',
+      },
+      {
+        kicker: 'Enregistrement',
+        cap: 'Enregistrez vos sorties et courses',
+        sub: 'GPS, en salle ou manuel, avec capteurs Bluetooth, envoyé vers intervals.icu.',
       },
     ],
     tagline: "Analyse d'entraînement pour vélo et course.",
@@ -203,19 +304,44 @@ export const CAPTIONS: Record<string, { shots: Caption[]; headline?: string; tag
   'es-ES': {
     shots: [
       {
-        cap: 'Tu historial\nde actividades',
-        sub: 'Sincronizado desde tu cuenta de intervals.icu.',
+        kicker: 'Inicio',
+        cap: 'Tus actividades de intervals.icu',
+        sub: 'Un mapa y los datos clave de cada una.',
       },
       {
-        cap: 'Mapa y gráficas\nen una línea temporal',
-        sub: 'Arrastra la gráfica y el marcador se mueve contigo.',
+        kicker: 'Mapa',
+        cap: 'Todas tus actividades en un mapa',
+        sub: 'Un mapa de calor sobre terreno 3D por satélite.',
       },
-      { cap: 'Fitness, fatiga\ny forma', sub: 'Trazados desde tu carga, día a día.' },
-      { cap: 'Por dónde\nhas rodado', sub: 'Terreno 3D, con un heatmap de tus salidas.' },
-      { cap: 'Rutas que\nrepites', sub: 'Detectadas en tu historial, intentos lado a lado.' },
       {
-        cap: 'Una lectura diaria\nde tu entrenamiento',
-        sub: 'Récords de sección, hitos, semana contra semana.',
+        kicker: 'Actividad',
+        cap: 'Gráficos enlazados con el mapa',
+        sub: 'Recorre el gráfico para ver dónde ocurrió.',
+      },
+      {
+        kicker: 'Secciones',
+        cap: 'Mira cómo te fue, desde la notificación',
+        sub: 'Tu tiempo en cada sección que repites, comparado con tu mejor marca.',
+      },
+      {
+        kicker: 'Análisis',
+        cap: 'Qué cambió en tu entrenamiento',
+        sub: 'Récords y tendencias, con cómo se calcula cada uno.',
+      },
+      {
+        kicker: 'Forma física',
+        cap: 'Forma física, fatiga y forma',
+        sub: 'También en tu pantalla de inicio como widget.',
+      },
+      {
+        kicker: 'Fuerza',
+        cap: 'Fuerza por grupo muscular',
+        sub: 'Series de tus entrenamientos en un diagrama corporal.',
+      },
+      {
+        kicker: 'Grabación',
+        cap: 'Graba salidas en bici y carreras',
+        sub: 'GPS, interior o manual, con sensores Bluetooth, subido a intervals.icu.',
       },
     ],
     tagline: 'Análisis de entrenamiento para bici y carrera.',
@@ -223,76 +349,179 @@ export const CAPTIONS: Record<string, { shots: Caption[]; headline?: string; tag
   'es-419': {
     shots: [
       {
-        cap: 'Tu historial\nde actividades',
-        sub: 'Sincronizado desde tu cuenta de intervals.icu.',
+        kicker: 'Inicio',
+        cap: 'Tus actividades de intervals.icu',
+        sub: 'Un mapa y los datos clave de cada una.',
       },
       {
-        cap: 'Mapa y gráficas\nen una línea de tiempo',
-        sub: 'Arrastra la gráfica y el marcador se mueve con ella.',
+        kicker: 'Mapa',
+        cap: 'Todas tus actividades en un mapa',
+        sub: 'Un mapa de calor sobre terreno 3D por satélite.',
       },
       {
-        cap: 'Condición, fatiga\ny forma',
-        sub: 'Graficadas desde tu carga, día a día.',
+        kicker: 'Actividad',
+        cap: 'Gráficos enlazados con el mapa',
+        sub: 'Desliza el dedo por el gráfico para ver dónde ocurrió.',
       },
-      { cap: 'Por dónde\nhas pedaleado', sub: 'Terreno 3D, con un heatmap de tus salidas.' },
-      { cap: 'Rutas que\nrepites', sub: 'Detectadas en tu historial, intentos lado a lado.' },
       {
-        cap: 'Una lectura diaria\nde tu entrenamiento',
-        sub: 'Récords de tramo, hitos, semana contra semana.',
+        kicker: 'Secciones',
+        cap: 'Mira cómo te fue, desde la notificación',
+        sub: 'Tu tiempo en cada sección que repites, comparado con tu mejor marca.',
+      },
+      {
+        kicker: 'Análisis',
+        cap: 'Qué cambió en tu entrenamiento',
+        sub: 'Récords y tendencias, con cómo se calcula cada uno.',
+      },
+      {
+        kicker: 'Condición física',
+        cap: 'Condición física, fatiga y forma',
+        sub: 'También en tu pantalla de inicio como widget.',
+      },
+      {
+        kicker: 'Fuerza',
+        cap: 'Fuerza por grupo muscular',
+        sub: 'Series de tus entrenamientos en un diagrama corporal.',
+      },
+      {
+        kicker: 'Grabación',
+        cap: 'Graba salidas en bici y carreras',
+        sub: 'GPS, interior o manual, con sensores Bluetooth, subido a intervals.icu.',
       },
     ],
     tagline: 'Análisis de entrenamiento para bici y carrera.',
   },
   'de-DE': {
     shots: [
-      { cap: 'Deine\nAktivitäten', sub: 'Synchronisiert aus deinem intervals.icu-Konto.' },
       {
-        cap: 'Karte und Diagramme\nauf einer Zeitachse',
-        sub: 'Zieh am Diagramm, die Markierung folgt.',
-      },
-      { cap: 'Fitness, Ermüdung\nund Form', sub: 'Aus deiner Trainingslast, Tag für Tag.' },
-      { cap: 'Wo du\nunterwegs warst', sub: '3D-Gelände, mit einer Heatmap deiner Fahrten.' },
-      {
-        cap: 'Routen, die du\nwieder fährst',
-        sub: 'In deinem Verlauf erkannt, Versuche nebeneinander.',
+        kicker: 'Feed',
+        cap: 'Deine intervals.icu-Aktivitäten',
+        sub: 'Eine Karte und die wichtigsten Werte zu jeder.',
       },
       {
-        cap: 'Dein Training,\njeden Tag im Blick',
-        sub: 'Abschnittsbestzeiten, Meilensteine, Woche gegen Woche.',
+        kicker: 'Karte',
+        cap: 'Alle Aktivitäten auf einer Karte',
+        sub: 'Eine Heatmap über 3D-Satellitengelände.',
+      },
+      {
+        kicker: 'Aktivität',
+        cap: 'Diagramme mit der Karte verknüpft',
+        sub: 'Fahre am Diagramm entlang und sieh, wo es war.',
+      },
+      {
+        kicker: 'Abschnitte',
+        cap: 'Dein Ergebnis direkt per Benachrichtigung',
+        sub: 'Deine Zeit auf jedem Abschnitt, den du wiederholst, im Vergleich zu deiner Bestzeit.',
+      },
+      {
+        kicker: 'Einblicke',
+        cap: 'Was sich in deinem Training geändert hat',
+        sub: 'Rekorde und Trends, mit dem Rechenweg dazu.',
+      },
+      {
+        kicker: 'Fitness',
+        cap: 'Fitness, Ermüdung und Form',
+        sub: 'Auch als Widget auf deinem Startbildschirm.',
+      },
+      {
+        kicker: 'Kraft',
+        cap: 'Krafttraining nach Muskelgruppe',
+        sub: 'Sätze aus deinen Workouts an einer Körpergrafik.',
+      },
+      {
+        kicker: 'Aufnahme',
+        cap: 'Fahrten und Läufe aufzeichnen',
+        sub: 'GPS, indoor oder manuell, mit Bluetooth-Sensoren, hochgeladen zu intervals.icu.',
       },
     ],
     tagline: 'Trainingsanalyse für Rad und Lauf.',
   },
   'nl-NL': {
     shots: [
-      { cap: 'Je\nactiviteiten', sub: 'Gesynchroniseerd vanuit je intervals.icu-account.' },
       {
-        cap: 'Kaart en grafieken\nop één tijdlijn',
-        sub: 'Sleep over de grafiek en de markering volgt.',
+        kicker: 'Feed',
+        cap: 'Je intervals.icu-activiteiten',
+        sub: 'Een kaart en de belangrijkste cijfers van elk.',
       },
-      { cap: 'Fitheid, vermoeidheid\nen vorm', sub: 'Uit je trainingsbelasting, dag na dag.' },
-      { cap: 'Waar je\nhebt gefietst', sub: '3D-terrein, met een heatmap van je ritten.' },
-      { cap: 'Routes die je\nvaker rijdt', sub: 'Gevonden in je historie, pogingen naast elkaar.' },
       {
-        cap: 'Elke dag een blik\nop je training',
-        sub: 'Sectierecords, mijlpalen, week tegen week.',
+        kicker: 'Kaart',
+        cap: 'Al je activiteiten op één kaart',
+        sub: 'Een heatmap over 3D-satellietterrein.',
+      },
+      {
+        kicker: 'Activiteit',
+        cap: 'Grafieken gekoppeld aan de kaart',
+        sub: 'Ga langs de grafiek om te zien waar het was.',
+      },
+      {
+        kicker: 'Secties',
+        cap: 'Zie je resultaat in de melding',
+        sub: 'Je tijd op elke sectie die je herhaalt, vergeleken met je beste.',
+      },
+      {
+        kicker: 'Inzichten',
+        cap: 'Wat er in je training veranderde',
+        sub: 'Records en trends, met hoe elk is berekend.',
+      },
+      {
+        kicker: 'Fitheid',
+        cap: 'Fitheid, vermoeidheid en vorm',
+        sub: 'Ook op je beginscherm als widget.',
+      },
+      {
+        kicker: 'Kracht',
+        cap: 'Krachttraining per spiergroep',
+        sub: 'Sets uit je workouts op een lichaamsschema.',
+      },
+      {
+        kicker: 'Opname',
+        cap: 'Neem ritten en runs op',
+        sub: 'GPS, indoor of handmatig, met Bluetooth-sensoren, geüpload naar intervals.icu.',
       },
     ],
     tagline: 'Trainingsanalyse voor fietsen en hardlopen.',
   },
   'pt-PT': {
     shots: [
-      { cap: 'O teu histórico\nde atividades', sub: 'Sincronizado da tua conta intervals.icu.' },
       {
-        cap: 'Mapa e gráficos\nnuma linha temporal',
-        sub: 'Arrasta o gráfico e o marcador acompanha.',
+        kicker: 'Feed',
+        cap: 'As tuas atividades do intervals.icu',
+        sub: 'Um mapa e os números principais de cada uma.',
       },
-      { cap: 'Condição, fadiga\ne forma', sub: 'Traçadas a partir da tua carga, dia a dia.' },
-      { cap: 'Por onde\npedalaste', sub: 'Terreno 3D, com um heatmap das tuas saídas.' },
-      { cap: 'Percursos que\nrepetes', sub: 'Detetados no teu histórico, tentativas lado a lado.' },
       {
-        cap: 'Uma leitura diária\ndo teu treino',
-        sub: 'Recordes de troço, marcos, semana contra semana.',
+        kicker: 'Mapa',
+        cap: 'Todas as atividades num só mapa',
+        sub: 'Um mapa de calor sobre terreno 3D de satélite.',
+      },
+      {
+        kicker: 'Atividade',
+        cap: 'Gráficos ligados ao mapa',
+        sub: 'Percorre o gráfico para ver onde aconteceu.',
+      },
+      {
+        kicker: 'Troços',
+        cap: 'Vê como correu, logo na notificação',
+        sub: 'O teu tempo em cada troço que repetes, comparado com o teu melhor.',
+      },
+      {
+        kicker: 'Insights',
+        cap: 'O que mudou no teu treino',
+        sub: 'Recordes e tendências, com o cálculo de cada um.',
+      },
+      {
+        kicker: 'Forma',
+        cap: 'Condição, fadiga e forma',
+        sub: 'Também no ecrã inicial, como widget.',
+      },
+      {
+        kicker: 'Força',
+        cap: 'Treino de força por grupo muscular',
+        sub: 'Séries dos teus treinos num diagrama do corpo.',
+      },
+      {
+        kicker: 'Gravação',
+        cap: 'Grava pedaladas e corridas',
+        sub: 'GPS, interior ou manual, com sensores Bluetooth, enviado para o intervals.icu.',
       },
     ],
     tagline: 'Análise de treino para ciclismo e corrida.',
@@ -300,88 +529,201 @@ export const CAPTIONS: Record<string, { shots: Caption[]; headline?: string; tag
   'pt-BR': {
     shots: [
       {
-        cap: 'Seu histórico\nde atividades',
-        sub: 'Sincronizado da sua conta do intervals.icu.',
+        kicker: 'Feed',
+        cap: 'Suas atividades do intervals.icu',
+        sub: 'Um mapa e os números principais de cada uma.',
       },
       {
-        cap: 'Mapa e gráficos\nem uma linha do tempo',
-        sub: 'Arraste o gráfico e o marcador acompanha.',
+        kicker: 'Mapa',
+        cap: 'Todas as atividades em um só mapa',
+        sub: 'Um mapa de calor sobre terreno 3D de satélite.',
       },
       {
-        cap: 'Condicionamento,\nfadiga e forma',
-        sub: 'Traçados a partir da sua carga, dia a dia.',
-      },
-      { cap: 'Por onde\nvocê pedalou', sub: 'Terreno 3D, com um heatmap dos seus pedais.' },
-      {
-        cap: 'Rotas que\nvocê repete',
-        sub: 'Detectadas no seu histórico, tentativas lado a lado.',
+        kicker: 'Atividade',
+        cap: 'Gráficos ligados ao mapa',
+        sub: 'Percorra o gráfico para ver onde aconteceu.',
       },
       {
-        cap: 'Uma leitura diária\ndo seu treino',
-        sub: 'Recordes de trecho, marcos, semana contra semana.',
+        kicker: 'Trechos',
+        cap: 'Veja como foi, direto na notificação',
+        sub: 'Seu tempo em cada trecho que você repete, comparado ao seu melhor.',
+      },
+      {
+        kicker: 'Insights',
+        cap: 'O que mudou no seu treino',
+        sub: 'Recordes e tendências, com o cálculo de cada um.',
+      },
+      {
+        kicker: 'Forma',
+        cap: 'Condicionamento, fadiga e forma',
+        sub: 'Também na tela inicial, como widget.',
+      },
+      {
+        kicker: 'Força',
+        cap: 'Treino de força por grupo muscular',
+        sub: 'Séries dos seus treinos em um diagrama do corpo.',
+      },
+      {
+        kicker: 'Gravação',
+        cap: 'Grave pedaladas e corridas',
+        sub: 'GPS, indoor ou manual, com sensores Bluetooth, enviado ao intervals.icu.',
       },
     ],
     tagline: 'Análise de treino para ciclismo e corrida.',
   },
   'pl-PL': {
     shots: [
-      { cap: 'Historia\ntwoich aktywności', sub: 'Synchronizowana z twojego konta intervals.icu.' },
       {
-        cap: 'Mapa i wykresy\nna jednej osi czasu',
-        sub: 'Przeciągnij wykres, a znacznik podąży za nim.',
+        kicker: 'Główna',
+        cap: 'Twoje aktywności z intervals.icu',
+        sub: 'Mapa i najważniejsze liczby każdej z nich.',
       },
-      { cap: 'Kondycja, zmęczenie\ni forma', sub: 'Z twojego obciążenia, dzień po dniu.' },
-      { cap: 'Gdzie\njeździłeś', sub: 'Teren 3D z heatmapą twoich jazd.' },
-      { cap: 'Trasy, które\npowtarzasz', sub: 'Wykryte w historii, próby obok siebie.' },
       {
-        cap: 'Codzienny przegląd\ntwojego treningu',
-        sub: 'Rekordy odcinków, kamienie milowe, tydzień do tygodnia.',
+        kicker: 'Mapa',
+        cap: 'Wszystkie aktywności na jednej mapie',
+        sub: 'Mapa cieplna na satelitarnym terenie 3D.',
+      },
+      {
+        kicker: 'Aktywność',
+        cap: 'Wykresy powiązane z mapą',
+        sub: 'Przesuwaj się po wykresie, by zobaczyć, gdzie to było.',
+      },
+      {
+        kicker: 'Odcinki',
+        cap: 'Wynik od razu w powiadomieniu',
+        sub: 'Twój czas na każdym powtarzanym odcinku, w porównaniu z najlepszym.',
+      },
+      {
+        kicker: 'Analizy',
+        cap: 'Co zmieniło się w Twoim treningu',
+        sub: 'Rekordy i trendy, z opisem, jak je policzono.',
+      },
+      {
+        kicker: 'Kondycja',
+        cap: 'Kondycja, zmęczenie i forma',
+        sub: 'Także na ekranie głównym jako widżet.',
+      },
+      {
+        kicker: 'Siła',
+        cap: 'Trening siłowy według grup mięśni',
+        sub: 'Serie z treningów na schemacie ciała.',
+      },
+      {
+        kicker: 'Nagrywanie',
+        cap: 'Nagrywaj jazdy i biegi',
+        sub: 'GPS, w pomieszczeniu lub ręcznie, z czujnikami Bluetooth, wysyłane do intervals.icu.',
       },
     ],
     tagline: 'Analiza treningu dla roweru i biegania.',
   },
   'da-DK': {
     shots: [
-      { cap: 'Din\naktivitetshistorik', sub: 'Synkroniseret fra din intervals.icu-konto.' },
       {
-        cap: 'Kort og grafer\npå én tidslinje',
-        sub: 'Træk i grafen, og markøren følger med.',
+        kicker: 'Forside',
+        cap: 'Dine aktiviteter fra intervals.icu',
+        sub: 'Et kort og nøgletallene for hver enkelt.',
       },
       {
-        cap: 'Kondition, træthed\nog form',
-        sub: 'Tegnet ud fra din træningsbelastning, dag for dag.',
+        kicker: 'Kort',
+        cap: 'Alle dine aktiviteter på ét kort',
+        sub: 'Et heatmap over 3D-satellitterræn.',
       },
-      { cap: 'Hvor du\nhar cyklet', sub: '3D-terræn med et heatmap over dine ture.' },
-      { cap: 'Ruter, du\nkører igen', sub: 'Fundet i din historik, forsøg side om side.' },
       {
-        cap: 'Et dagligt blik\npå din træning',
-        sub: 'Sektionsrekorder, milepæle, uge mod uge.',
+        kicker: 'Aktivitet',
+        cap: 'Grafer knyttet til kortet',
+        sub: 'Bevæg dig langs grafen for at se, hvor det skete.',
+      },
+      {
+        kicker: 'Sektioner',
+        cap: 'Se resultatet i notifikationen',
+        sub: 'Din tid på hver sektion, du gentager, sammenlignet med din bedste.',
+      },
+      {
+        kicker: 'Indsigt',
+        cap: 'Hvad der ændrede sig i din træning',
+        sub: 'Rekorder og tendenser, med hvordan hver er regnet ud.',
+      },
+      {
+        kicker: 'Kondition',
+        cap: 'Kondition, træthed og formstatus',
+        sub: 'Også på din startskærm som widget.',
+      },
+      {
+        kicker: 'Styrke',
+        cap: 'Styrketræning efter muskelgruppe',
+        sub: 'Sæt fra dine træninger på et kropsdiagram.',
+      },
+      {
+        kicker: 'Optagelse',
+        cap: 'Optag ture og løb',
+        sub: 'GPS, indendørs eller manuelt, med Bluetooth-sensorer, uploadet til intervals.icu.',
       },
     ],
     tagline: 'Træningsanalyse til cykling og løb.',
   },
   'ja-JP': {
     shots: [
-      { cap: 'アクティビティの\n履歴', sub: 'intervals.icu アカウントから同期。' },
       {
-        cap: '地図とグラフを\nひとつのタイムラインで',
-        sub: 'グラフをなぞるとマーカーが動きます。',
+        kicker: 'フィード',
+        cap: 'intervals.icu のアクティビティ',
+        sub: '地図と主な数値を、一つずつ。',
       },
-      { cap: 'フィットネス、\n疲労、フォーム', sub: 'トレーニング負荷から日ごとにグラフ化。' },
-      { cap: '走ってきた\n場所', sub: '3D 地形に、ライドのヒートマップを重ねて。' },
-      { cap: 'くり返し走る\nルート', sub: '履歴から見つけ、挑戦を並べて比較。' },
-      { cap: '毎日の\nトレーニング分析', sub: '区間ベスト、マイルストーン、週ごとの比較。' },
+      {
+        kicker: 'マップ',
+        cap: 'すべてのアクティビティを一枚の地図に',
+        sub: '3D 衛星地形の上にヒートマップ。',
+      },
+      {
+        kicker: 'アクティビティ',
+        cap: 'グラフと地図が連動',
+        sub: 'グラフをなぞると、その場所が分かります。',
+      },
+      {
+        kicker: '区間',
+        cap: '通知からそのまま結果を確認',
+        sub: '繰り返す区間ごとのタイムを、自己ベストと比較。',
+      },
+      {
+        kicker: '分析',
+        cap: 'トレーニングの変化',
+        sub: '記録とトレンド、それぞれの算出方法つき。',
+      },
+      {
+        kicker: 'フィットネス',
+        cap: 'フィットネス、疲労、フォーム',
+        sub: 'ホーム画面のウィジェットでも確認できます。',
+      },
+      {
+        kicker: '筋力',
+        cap: '筋群別の筋力トレーニング',
+        sub: 'ワークアウトのセットを人体図に表示。',
+      },
+      {
+        kicker: '記録',
+        cap: 'ライドとランを記録',
+        sub: 'GPS、屋内、手動に対応。Bluetooth センサー対応で、intervals.icu にアップロード。',
+      },
     ],
     tagline: 'ライドとランのトレーニング分析。',
   },
   'zh-CN': {
     shots: [
-      { cap: '你的\n活动历史', sub: '从你的 intervals.icu 账户同步。' },
-      { cap: '地图与图表\n同一条时间轴', sub: '拖动图表，标记随之移动。' },
-      { cap: '体能、疲劳\n与状态', sub: '根据训练负荷逐日绘制。' },
-      { cap: '你骑过的\n地方', sub: '3D 地形，叠加骑行热力图。' },
-      { cap: '你反复骑的\n路线', sub: '从历史中识别，多次尝试并列对比。' },
-      { cap: '每日\n训练解读', sub: '路段最佳、里程碑、逐周对比。' },
+      { kicker: '动态', cap: '你的 intervals.icu 活动', sub: '每项活动都有地图和关键数据。' },
+      { kicker: '地图', cap: '所有活动，一张地图', sub: '3D 卫星地形上的热力图。' },
+      { kicker: '活动', cap: '图表与地图联动', sub: '沿图表移动，查看发生的位置。' },
+      {
+        kicker: '路段',
+        cap: '直接从通知查看表现',
+        sub: '你重复骑行的每个路段的用时，与最佳成绩对比。',
+      },
+      { kicker: '洞察', cap: '训练有什么变化', sub: '纪录与趋势，并说明各自的计算方式。' },
+      { kicker: '体能', cap: '体能、疲劳与状态', sub: '也可作为小组件显示在主屏幕上。' },
+      { kicker: '力量', cap: '按肌群划分的力量训练', sub: '训练中的组数显示在人体图上。' },
+      {
+        kicker: '录制',
+        cap: '录制骑行和跑步',
+        sub: 'GPS、室内或手动，支持蓝牙传感器，并上传到 intervals.icu。',
+      },
     ],
     tagline: '骑行与跑步的训练分析。',
   },
@@ -447,8 +789,7 @@ function rawPlatform(target: Target): string {
 }
 
 /** The raw captures a target is built from, in shot order. */
-function captureStems(target: Target): readonly string[] {
-  if (target === 'web') return WEB_STEMS;
+function captureStems(target: Exclude<Target, 'web'>): readonly string[] {
   if (target === 'feature') return CAPTURED_STEMS;
   return shotsFor(target)
     .filter((shot) => shot.source === 'captured')
@@ -461,7 +802,12 @@ function captureStems(target: Target): readonly string[] {
  * deliberate: a wrong-platform or wrong-language set must never ship silently
  * via fallback.
  */
-export function rawCaptures(target: Target, rawRoot: string, locale: string, count: number) {
+export function rawCaptures(
+  target: Exclude<Target, 'web'>,
+  rawRoot: string,
+  locale: string,
+  count: number
+) {
   const dir = path.join(rawRoot, rawPlatform(target), locale);
   const files = captureStems(target)
     .slice(0, count)
@@ -494,14 +840,65 @@ function rawRoot(): string {
   return process.env.VELOQ_RAW_DIR ?? path.join(ROOT, 'artifacts', 'store', 'raw');
 }
 
+/**
+ * The shots composition draws for a target: the widgets on a home screen from
+ * the widget captures, and the privacy panel. Their text is English only, so
+ * another locale's set stops short of them and says so.
+ */
+function composeShots(
+  locale: string,
+  target: 'play' | 'appstore' | 'ipad',
+  palette: StorePalette,
+  size: { width: number; height: number },
+  d: ReturnType<typeof dims>
+): void {
+  const shots = shotsFor(target);
+  const composed = shots.filter((shot) => shot.source === 'composed');
+  if (composed.length === 0) return;
+  if (!PANEL_LOCALES.includes(locale)) {
+    console.log(`  ${locale} has no text for ${composed.map((s) => s.stem).join(', ')}, skipped`);
+    return;
+  }
+  const platform: WidgetPlatform = target === 'appstore' || target === 'ipad' ? 'ios' : 'android';
+  for (const shot of composed) {
+    let html: string;
+    if (shot.stem.endsWith('-widgets')) {
+      const files = widgetFiles(rawRoot(), platform);
+      html = deviceHtml(
+        palette,
+        d,
+        WIDGETS_CAPTION,
+        widgetScreenHtml(files),
+        shot.layout,
+        WIDGET_CSS(palette.washBlue, palette.stageBottom)
+      );
+    } else if (shot.stem.endsWith('-privacy')) {
+      html = textPanelHtml(
+        palette,
+        d,
+        PRIVACY_CAPTION,
+        privacyListHtml(PRIVACY_CLAIMS),
+        PRIVACY_CSS(palette.line, palette.kickerAchievement, palette.cap)
+      );
+    } else {
+      throw new Error(`No composition for shot ${shot.stem}`);
+    }
+    const number = String(shots.indexOf(shot) + 1).padStart(2, '0');
+    const tmpPng = path.join(STORE, target, locale, `${number}.png`);
+    render(html, size.width, size.height, tmpPng);
+    toJpeg(tmpPng, tmpPng.replace(/\.png$/, '.jpg'), palette.stageTop);
+    fs.rmSync(tmpPng);
+  }
+}
+
 function buildLocale(locale: string, palette: StorePalette, targets: Target[]): void {
   const strings = CAPTIONS[locale];
   if (!strings) throw new Error(`No captions for locale ${locale}`);
   // Captions are positional, so a set written for another shot list would
   // label each shot with the wrong text.
-  if (strings.shots.length !== STORE_SHOTS.length) {
+  if (strings.shots.length !== CAPTURED_STEMS.length) {
     throw new Error(
-      `${locale} has ${strings.shots.length} captions for ${STORE_SHOTS.length} shots in the list`
+      `${locale} has ${strings.shots.length} captions for ${CAPTURED_STEMS.length} captured shots in the list`
     );
   }
 
@@ -513,22 +910,32 @@ function buildLocale(locale: string, palette: StorePalette, targets: Target[]): 
     console.log(`${locale} ${target}`);
     raws.forEach((raw, i) => {
       const stem = stems[i] ?? '';
-      const caption = strings.shots[STORE_SHOTS.findIndex((shot) => shot.stem === stem)];
+      const caption = strings.shots[CAPTURED_STEMS.indexOf(stem)];
       if (caption === undefined) throw new Error(`${locale} has no caption for shot ${stem}`);
-      const html = phoneHtml(palette, d, caption, raw, SHOT_LAYOUTS[stem] ?? 'whole');
+      const layout = SHOT_LAYOUTS[stem] ?? 'whole';
+      const widget = shotWidgetFile(rawRoot(), target === 'play' ? 'android' : 'ios', stem);
+      const html = widget
+        ? deviceHtml(
+            palette,
+            d,
+            caption,
+            capturedScreenHtml(raw, widget),
+            layout,
+            SHOT_WIDGET_CSS(layout)
+          )
+        : phoneHtml(palette, d, caption, raw, layout);
       const tmpPng = path.join(STORE, target, locale, `${String(i + 1).padStart(2, '0')}.png`);
       render(html, size.width, size.height, tmpPng);
       toJpeg(tmpPng, tmpPng.replace(/\.png$/, '.jpg'), palette.stageTop);
       fs.rmSync(tmpPng);
     });
+    composeShots(locale, target, palette, size, d);
   }
 
   if (targets.includes('feature')) {
     const [raw] = rawCaptures('feature', rawRoot(), locale, 1);
     if (!raw) throw new Error(`No raw capture for the ${locale} feature graphic`);
-    const html = strings.headline
-      ? featureHtml(palette, strings.headline, strings.tagline, raw)
-      : featureHtml(palette, strings.tagline, '', raw);
+    const html = featureHtml(palette, strings.tagline, '', raw);
     const tmpPng = path.join(STORE, 'feature', locale, 'featureGraphic.png');
     console.log(`${locale} feature`);
     render(html, FEATURE_SIZE.width, FEATURE_SIZE.height, tmpPng);
@@ -541,37 +948,87 @@ function buildLocale(locale: string, palette: StorePalette, targets: Target[]): 
 // Website
 // ---------------------------------------------------------------------------
 
-// The website shows every store shot from the same capture, under the shot's
-// own name and its one-line caption, so the page names no file the capture
-// does not write.
-export function webShots(): SiteShot[] {
-  const strings = CAPTIONS[WEB_LOCALE];
+// The pixel size each platform's raw captures come in, which sets the size its
+// web images are expected at; buildWeb replaces it with the size it wrote.
+const WEB_CAPTURE_SIZES: Record<SitePlatform, { width: number; height: number }> = {
+  android: { width: 1080, height: 2400 },
+  ios: SIZES.appstore,
+  ipad: SIZES.ipad,
+};
+
+/** A size scaled to fit the web box, as ImageMagick's -resize does. */
+function fitWeb(size: { width: number; height: number }) {
+  const scale = Math.min(SIZES.web.width / size.width, SIZES.web.height / size.height);
+  return { width: Math.round(size.width * scale), height: Math.round(size.height * scale) };
+}
+
+/**
+ * The website's shots per platform: each store target's captured shots, in the
+ * store's order, under the one-line caption of the locale the site copy reads,
+ * so the page names no file the capture does not write. A platform is sized
+ * from its own slot, scaled to the web width.
+ */
+export function webSets(strings = CAPTIONS[WEB_LOCALE]): SiteSets {
   if (!strings) throw new Error(`No captions for locale ${WEB_LOCALE}`);
-  return WEB_STEMS.map((stem, i) => {
-    const caption = strings.shots[i];
-    if (!caption) throw new Error(`${WEB_LOCALE} has no caption for shot ${i + 1}`);
-    return { file: `${stem}.png`, caption: caption.cap.replace(/\n/g, ' ') };
-  });
+  const sets = {} as SiteSets;
+  for (const platform of Object.keys(WEB_PLATFORMS) as SitePlatform[]) {
+    const target = WEB_PLATFORMS[platform];
+    const { width, height } = fitWeb(WEB_CAPTURE_SIZES[platform]);
+    sets[platform] = captureStems(target).map((stem) => {
+      const caption = strings.shots[CAPTURED_STEMS.indexOf(stem)];
+      if (!caption) throw new Error(`${WEB_LOCALE} has no caption for shot ${stem}`);
+      return {
+        file: `${platform}/${stem}.png`,
+        dark: `${platform}/dark/${stem}.png`,
+        caption: caption.cap.replace(/\n/g, ' '),
+        width,
+        height,
+      };
+    });
+  }
+  return sets;
 }
 
 function buildWeb(): void {
-  const raws = rawCaptures('web', rawRoot(), WEB_LOCALE, WEB_STEMS.length);
-  const shots = webShots();
+  const sets = webSets();
   const dir = path.join(ROOT, 'docs', 'screenshots');
+  const captures = Object.entries(WEB_PLATFORMS).map(([platform, target]) => ({
+    platform: platform as SitePlatform,
+    raws: rawCaptures(target, rawRoot(), WEB_LOCALE, captureStems(target).length),
+  }));
   console.log('web');
   fs.rmSync(dir, { recursive: true, force: true });
-  fs.mkdirSync(dir, { recursive: true });
-  raws.forEach((raw, i) => {
-    const shot = shots[i];
-    if (!shot) return;
-    const out = path.join(dir, shot.file);
-    execFileSync(MAGICK, [raw, '-resize', `${SIZES.web.width}x${SIZES.web.height}`, '-strip', out]);
-    console.log(`  docs/screenshots/${shot.file}`);
-  });
+  for (const { platform, raws } of captures) {
+    fs.mkdirSync(path.join(dir, platform, 'dark'), { recursive: true });
+    raws.forEach((raw, i) => {
+      const shot = sets[platform][i];
+      if (!shot) return;
+      const size = `${shot.width}x${shot.height}`;
+      execFileSync(MAGICK, [raw, '-resize', size, '-strip', path.join(dir, shot.file)]);
+      execFileSync(MAGICK, [
+        raw,
+        '-resize',
+        size,
+        '-background',
+        WEB_DARK_STAGE,
+        '-gravity',
+        'center',
+        '-extent',
+        size,
+        '-strip',
+        path.join(dir, shot.dark),
+      ]);
+      const written = readImageInfo(fs.readFileSync(path.join(dir, shot.file)));
+      if (written) Object.assign(shot, { width: written.width, height: written.height });
+      console.log(`  docs/screenshots/${shot.file}`);
+    });
+  }
   const htmlPath = path.join(ROOT, 'docs', 'index.html');
-  fs.writeFileSync(htmlPath, syncSiteGallery(fs.readFileSync(htmlPath, 'utf8'), shots));
+  fs.writeFileSync(htmlPath, syncSiteGallery(fs.readFileSync(htmlPath, 'utf8'), sets));
+  const readmePath = path.join(ROOT, 'README.md');
+  fs.writeFileSync(readmePath, syncReadmeStrip(fs.readFileSync(readmePath, 'utf8'), sets.android));
   syncSiteCopy(ROOT);
-  console.log('  docs/index.html gallery and hero synced');
+  console.log('  docs/index.html gallery and hero, README.md strip synced');
 }
 
 // ---------------------------------------------------------------------------

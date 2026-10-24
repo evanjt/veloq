@@ -65,3 +65,24 @@ describe('splash hold', () => {
     expect(mockHide).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('splash release gate', () => {
+  const base = { appReady: true, authLoading: false, signedIn: true, feedSettled: false };
+
+  it('holds a signed-in launch until the first feed read settles', () => {
+    const { shouldReleaseSplash } = load();
+    expect(shouldReleaseSplash(base)).toBe(false);
+    expect(shouldReleaseSplash({ ...base, feedSettled: true })).toBe(true);
+  });
+
+  it('releases a launch with no feed to wait for as soon as it is ready', () => {
+    const { shouldReleaseSplash } = load();
+    expect(shouldReleaseSplash({ ...base, signedIn: false })).toBe(true);
+  });
+
+  it('holds while the app is not ready or the session is still loading', () => {
+    const { shouldReleaseSplash } = load();
+    expect(shouldReleaseSplash({ ...base, appReady: false, feedSettled: true })).toBe(false);
+    expect(shouldReleaseSplash({ ...base, authLoading: true, signedIn: false })).toBe(false);
+  });
+});

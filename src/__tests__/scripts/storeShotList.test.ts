@@ -59,8 +59,8 @@ describe('the store shot list', () => {
   });
 
   it('keeps the privacy panel to the App Store', () => {
-    expect(shotsFor('play').map((s) => s.stem)).not.toContain('09-privacy');
-    expect(shotsFor('appstore').map((s) => s.stem)).toContain('09-privacy');
+    expect(shotsFor('play').map((s) => s.stem)).not.toContain('10-privacy');
+    expect(shotsFor('appstore').map((s) => s.stem)).toContain('10-privacy');
   });
 
   it('fits the number of phone screenshots each store accepts', () => {
@@ -103,6 +103,16 @@ describe('the capture flow', () => {
     expect(before.lastIndexOf('routes-sync-banner')).toBeGreaterThan(
       before.indexOf('insights-panel')
     );
+  });
+
+  it('refuses every shot while the routes sync banner is up', () => {
+    const steps = FLOW.split('\n- ').slice(1);
+    const shots = steps.flatMap((step, i) => (step.startsWith('takeScreenshot:') ? [i] : []));
+    expect(shots.length).toBeGreaterThan(0);
+    for (const i of shots) {
+      const guard = steps.slice(Math.max(0, i - 2), i).join('\n- ');
+      expect(guard).toMatch(/assertNotVisible:\s*\n\s+id: "routes-sync-banner"/);
+    }
   });
 
   it('keeps debug mode off while the activity shot is taken', () => {

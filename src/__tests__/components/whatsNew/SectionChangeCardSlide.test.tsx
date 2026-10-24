@@ -1,5 +1,6 @@
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
+import { router } from 'expo-router';
 import { SectionChangeCardSlide } from '@/features/settings/components/whatsNew/SectionChangeCardSlide';
 import { getEngine } from '@/shared/native/engine';
 
@@ -58,13 +59,14 @@ describe('SectionChangeCardSlide', () => {
       gone: 2,
     };
 
-    function engineWith(progress: unknown, diff: unknown) {
+    function engineWith(progress: unknown, diff: unknown, retired = 0) {
       (getEngine as jest.Mock).mockReturnValue({
         subscribe: () => () => {},
         getChangeCardSupport: () => ALL_BUT_DEVICE,
         getRoutesStatusData: () =>
           routesStatus({ cutover: progress as { phase: string; running: boolean } }),
         getCutoverDiff: () => diff,
+        getRoutesScreenData: () => ({ ledgerRetiredCount: retired }),
       });
     }
 
@@ -108,6 +110,50 @@ describe('SectionChangeCardSlide', () => {
       expect(line).toHaveTextContent(/"count":40/);
     });
 
+    it('says the detector kept none of the library and offers the retired list', async () => {
+      engineWith(
+        { phase: 'complete', running: false },
+        {
+          counts: { current: 60, proposed: 0, unchanged: 0, changed: 0, new: 0, gone: 60 },
+        },
+        60
+      );
+      const { getByTestId } = await render(<SectionChangeCardSlide />);
+      const line = getByTestId('change-card-counts');
+      expect(line).toHaveTextContent(/diffNoneKept/);
+      expect(line).toHaveTextContent(/"count":60/);
+      expect(line).not.toHaveTextContent(/diffTotals/);
+      expect(line).not.toHaveTextContent(/diffBreakdown/);
+      expect(getByTestId('change-card-retired-link')).toBeTruthy();
+    });
+
+    it('reports the totals when the re-cut kept some sections', async () => {
+      engineWith(
+        { phase: 'complete', running: false },
+        {
+          counts: { current: 60, proposed: 9, unchanged: 5, changed: 2, new: 2, gone: 55 },
+        }
+      );
+      const line = await (
+        await render(<SectionChangeCardSlide />)
+      ).getByTestId('change-card-counts');
+      expect(line).toHaveTextContent(/diffTotals/);
+      expect(line).toHaveTextContent(/diffBreakdown/);
+      expect(line).not.toHaveTextContent(/diffNoneKept/);
+    });
+
+    it('reads an empty library with nothing to re-cut as unchanged, not as kept none', async () => {
+      engineWith(
+        { phase: 'complete', running: false },
+        { counts: { current: 0, proposed: 0, unchanged: 0, changed: 0, new: 0, gone: 0 } }
+      );
+      const line = await (
+        await render(<SectionChangeCardSlide />)
+      ).getByTestId('change-card-counts');
+      expect(line).toHaveTextContent(/diffUnchanged/);
+      expect(line).not.toHaveTextContent(/diffNoneKept/);
+    });
+
     it('shows neither progress nor counts when there is no stored diff', async () => {
       engineWith({ phase: 'idle', running: false }, null);
       const { queryByTestId } = await render(<SectionChangeCardSlide />);
@@ -130,6 +176,20 @@ describe('SectionChangeCardSlide', () => {
       expect(getByTestId('change-card-failed')).toHaveTextContent(/recutFailed/);
       expect(queryByTestId('change-card-counts')).toBeNull();
       expect(queryByTestId('change-card-progress')).toBeNull();
+    });
+
+    it('offers no link to the retired sections while the library retired nothing', async () => {
+      engineWith({ phase: 'complete', running: false }, { counts: COUNTS }, 0);
+      const { queryByTestId } = await render(<SectionChangeCardSlide />);
+      expect(queryByTestId('change-card-retired-link')).toBeNull();
+    });
+
+    it('opens the retired sections from a link once some retired', async () => {
+      (router.push as jest.Mock).mockClear();
+      engineWith({ phase: 'complete', running: false }, { counts: COUNTS }, 2);
+      const { getByTestId } = await render(<SectionChangeCardSlide />);
+      await fireEvent.press(getByTestId('change-card-retired-link'));
+      expect(router.push).toHaveBeenCalledWith('/section-retired');
     });
 
     it('says the sections were replaced when the run failed after the apply', async () => {

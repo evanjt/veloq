@@ -16,6 +16,7 @@ const KEYS = [
   'sections.correlationAttempts',
   'bestEffortsScreen.windowSubtitle',
   'whatsNew.v040.diffUnchanged',
+  'whatsNew.v040.diffNoneKept',
 ] as const;
 
 async function translatorFor(locale: string) {

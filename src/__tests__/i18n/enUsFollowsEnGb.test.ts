@@ -25,6 +25,7 @@ const SPELLING = [
   'cache.syncedStillAnalysing_one',
   'cache.syncedStillAnalysing_other',
   'common.cancelled',
+  'feed.notificationsTitle',
   'fitness.stripGloss',
   'formZones.greyZone',
   'insights.data.hrChange',

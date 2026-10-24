@@ -13,7 +13,11 @@ export {
 export { useCustomSections } from './useCustomSections';
 export { useSections } from './useSections';
 export { useRouteDataSync } from './useRouteDataSync';
-export { useRoutesScreenData } from './useRoutesScreenData';
+export {
+  useArchivedRetiredCount,
+  useRetiredSectionCount,
+  useRoutesScreenData,
+} from './useRoutesScreenData';
 export { useSectionChartData } from './useSectionChartData';
 export { useSectionActions, type UseSectionActionsResult } from './useSectionActions';
 export { useSectionDataRefresh } from './useSectionDataRefresh';

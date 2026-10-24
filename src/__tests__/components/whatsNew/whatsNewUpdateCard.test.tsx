@@ -70,8 +70,15 @@ it('marks the running version seen on dismiss and is not offered again', async (
   expect(screen.queryByTestId('whats-new-update-card')).toBeNull();
 });
 
+it('shows on the first launch after an update, inside the quiet period', async () => {
+  openLaunchSession(true);
+  await render(<WhatsNewCard />);
+  expect(screen.getByTestId('whats-new-update-card')).toBeTruthy();
+});
+
 it('shows nothing in a first session', async () => {
   openLaunchSession(true);
+  useWhatsNewStore.setState({ lastSeenVersion: null });
   await render(<WhatsNewCard />);
   expect(screen.queryByTestId('whats-new-update-card')).toBeNull();
 });

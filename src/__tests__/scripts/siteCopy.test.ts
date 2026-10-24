@@ -16,10 +16,14 @@ import {
   SITE_HOOK_LOCALES,
   listingSections,
   syncSiteFeatures,
+  syncReadmeStrip,
   syncSiteGallery,
+  type SitePlatform,
+  type SiteSets,
   syncSiteHook,
 } from '../../../scripts/site-copy';
-import { CAPTIONS, WEB_STEMS, webShots } from '../../../scripts/store-screenshots';
+import { CAPTURED_STEMS, shotsFor } from '../../../scripts/store-shots';
+import { WEB_PLATFORMS, webSets } from '../../../scripts/store-screenshots';
 
 const PAGE = `<p data-i18n="hero.subtitle">
   <!-- store-copy:hook -->Old English line.<!-- /store-copy:hook -->
@@ -258,70 +262,179 @@ describe('docs/index.html', () => {
   });
 });
 
-const GALLERY_PAGE = `<script>
-  const mediaItems = [
-    // store-copy:gallery
-    { type: "image", src: "screenshots/09-kite-loop.png", caption: "Kite Loops" },
-    // /store-copy:gallery
-  ];
-</script>`;
+const GALLERY_PAGE = `<div>
+  <!-- store-copy:gallery -->
+  <ol class="shots" data-platform="android"></ol>
+  <!-- /store-copy:gallery -->
+</div>`;
 
-/** The gallery the page's script would build, read back from its mediaItems array. */
-function galleryItems(html: string): { type: string; src: string; caption: string }[] {
-  const start = html.indexOf('const mediaItems = ') + 'const mediaItems = '.length;
-  const array = html.slice(start, html.indexOf('];', start) + 1);
-  return new Function(`return ${array}`)() as { type: string; src: string; caption: string }[];
+const shot = (platform: string, stem: string, caption: string) => ({
+  file: `${platform}/${stem}.png`,
+  dark: `${platform}/dark/${stem}.png`,
+  caption,
+  width: 720,
+  height: 1584,
+});
+
+const SETS: SiteSets = {
+  android: [
+    shot('android', '01-launch', 'Launch from "any" beach'),
+    shot('android', '02-wind', 'Gusts'),
+  ],
+  ios: [shot('ios', '01-launch', 'Launch')],
+  ipad: [],
+};
+
+/** Each platform list in the gallery, with the image paths its markup names. */
+function galleryLists(html: string) {
+  return [...html.matchAll(/<ol class="shots" data-platform="(\w+)"([^>]*)>([\s\S]*?)<\/ol>/g)].map(
+    (m) => ({
+      platform: m[1],
+      hidden: /hidden/.test(m[2] ?? ''),
+      light: [...(m[3] ?? '').matchAll(/<img src="screenshots\/([^"]+)"/g)].map((x) => x[1]),
+      dark: [...(m[3] ?? '').matchAll(/srcset="screenshots\/([^"]+)"/g)].map((x) => x[1]),
+      sources: (m[3] ?? '').match(/<source media="\(prefers-color-scheme: dark\)"/g)?.length ?? 0,
+    })
+  );
 }
 
 describe('syncSiteGallery', () => {
-  const shots = [
-    { file: '01-launch.png', caption: 'Launch from "any" beach' },
-    { file: '02-wind.png', caption: 'Gusts and lulls' },
-  ];
-
-  it('lists exactly the given shots, in order, in place of what the page had', () => {
-    expect(galleryItems(syncSiteGallery(GALLERY_PAGE, shots))).toEqual([
-      { type: 'image', src: 'screenshots/01-launch.png', caption: 'Launch from "any" beach' },
-      { type: 'image', src: 'screenshots/02-wind.png', caption: 'Gusts and lulls' },
+  it('writes one list per platform with shots, the first shown and the rest hidden', () => {
+    const lists = galleryLists(syncSiteGallery(GALLERY_PAGE, SETS));
+    expect(lists.map((l) => [l.platform, l.hidden])).toEqual([
+      ['android', false],
+      ['ios', true],
     ]);
+    expect(lists[0]?.light).toEqual(['android/01-launch.png', 'android/02-wind.png']);
+    expect(lists[0]?.dark).toEqual(['android/dark/01-launch.png', 'android/dark/02-wind.png']);
+    expect(lists[0]?.sources).toBe(2);
+  });
+
+  it('gives each image its size and lazy loading, and escapes the caption', () => {
+    const html = syncSiteGallery(GALLERY_PAGE, SETS);
+    expect(html).toContain(
+      'width="720" height="1584" loading="lazy" alt="Launch from &quot;any&quot; beach"'
+    );
   });
 
   it('is unchanged by a second run', () => {
-    const once = syncSiteGallery(GALLERY_PAGE, shots);
-    expect(syncSiteGallery(once, shots)).toBe(once);
+    const once = syncSiteGallery(GALLERY_PAGE, SETS);
+    expect(syncSiteGallery(once, SETS)).toBe(once);
   });
 
   it('refuses a page without the markers', () => {
-    expect(() => syncSiteGallery('<script>const mediaItems = [];</script>', shots)).toThrow(
-      /store-copy:gallery/
-    );
+    expect(() => syncSiteGallery('<ol></ol>', SETS)).toThrow(/store-copy:gallery/);
+  });
+});
+
+describe('webSets', () => {
+  const caption = { kicker: 'K', cap: 'Line one\nline two', sub: 'S' };
+  const captions = {
+    shots: Array.from({ length: 9 }, () => caption),
+    tagline: 't',
+  };
+  const sets = webSets(captions);
+
+  it.each(Object.entries(WEB_PLATFORMS))(
+    'lists the captured shots of the %s slot in store order, light and dark',
+    (platform, target) => {
+      const stems = shotsFor(target)
+        .filter((s) => s.source === 'captured')
+        .map((s) => s.stem);
+      const set = sets[platform as SitePlatform];
+      expect(set.map((s) => s.file)).toEqual(stems.map((stem) => `${platform}/${stem}.png`));
+      expect(set.map((s) => s.dark)).toEqual(stems.map((stem) => `${platform}/dark/${stem}.png`));
+      expect(set[0]?.caption).toBe('Line one line two');
+    }
+  );
+
+  it('sizes each platform from its own capture to fit the web box', () => {
+    expect(sets.android[0]).toMatchObject({ width: 713, height: 1584 });
+    expect(sets.ios[0]).toMatchObject({ width: 720, height: 1564 });
+    expect(sets.ipad[0]).toMatchObject({ width: 720, height: 960 });
+  });
+
+  it('carries only shots the capture flow takes', () => {
+    for (const set of Object.values(sets)) {
+      for (const s of set) {
+        expect(CAPTURED_STEMS).toContain(s.file.replace(/^\w+\//, '').replace(/\.png$/, ''));
+      }
+    }
+  });
+});
+
+describe('syncReadmeStrip', () => {
+  const caption = { kicker: 'K', cap: 'Line one\nline two', sub: 'S' };
+  const sets = webSets({ shots: Array.from({ length: 9 }, () => caption), tagline: 't' });
+  const stems = (md: string) =>
+    [...md.matchAll(/docs\/screenshots\/([^"]+)"/g)].map((m) => m[1] ?? '');
+  const README = [
+    'intro',
+    '<!-- store-copy:readme-strip -->',
+    '<p align="center">',
+    '  <img src="docs/screenshots/android/01-old.png" width="16%" alt="Old" />',
+    '</p>',
+    '<!-- /store-copy:readme-strip -->',
+    'outro',
+  ].join('\n');
+
+  it('names the first six Android shots the capture writes, in order', () => {
+    const out = syncReadmeStrip(README, sets.android);
+    expect(stems(out)).toEqual(sets.android.slice(0, 6).map((s) => s.file));
+    expect(out.startsWith('intro\n')).toBe(true);
+    expect(out.endsWith('\noutro')).toBe(true);
+    expect(syncReadmeStrip(out, sets.android)).toBe(out);
+  });
+
+  it('refuses a README without the markers', () => {
+    expect(() => syncReadmeStrip('no strip', sets.android)).toThrow(/store-copy:readme-strip/);
+  });
+
+  it('is present in the README as committed', () => {
+    const readme = fs.readFileSync(path.resolve(__dirname, '../../../README.md'), 'utf8');
+    expect(() => syncReadmeStrip(readme, sets.android)).not.toThrow();
   });
 });
 
 describe('the website gallery', () => {
   const root = path.resolve(__dirname, '../../..');
   const html = fs.readFileSync(path.join(root, 'docs', 'index.html'), 'utf8');
+  const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
+  const exists = (rel: string) => fs.existsSync(path.join(root, 'docs', 'screenshots', rel));
 
-  it('shows one shot per store shot, each a file the web build writes from the capture', () => {
-    const shots = webShots();
-    expect(shots.map((s) => s.file)).toEqual(WEB_STEMS.map((stem) => `${stem}.png`));
-    expect(galleryItems(html).map((item) => item.src)).toEqual(
-      shots.map((s) => `screenshots/${s.file}`)
-    );
+  it('names a light and a dark image for every shot, and each exists', () => {
+    const lists = galleryLists(html);
+    expect(lists.length).toBeGreaterThan(0);
+    for (const list of lists) {
+      expect(list.dark.length).toBe(list.light.length);
+      for (const rel of [...list.light, ...list.dark]) {
+        expect(`${rel}: ${exists(rel ?? '')}`).toBe(`${rel}: true`);
+      }
+    }
   });
 
-  it('carries no screenshot the web build does not write', () => {
-    const files = fs.readdirSync(path.join(root, 'docs', 'screenshots')).sort();
-    expect(files).toEqual(
-      webShots()
-        .map((s) => s.file)
-        .sort()
-    );
+  it('keeps each image under its own platform directory', () => {
+    for (const list of galleryLists(html)) {
+      for (const rel of [...list.light, ...list.dark]) {
+        expect(rel?.startsWith(`${list.platform}/`)).toBe(true);
+      }
+    }
   });
 
-  it('captions each shot with the store caption of the locale the site copy reads', () => {
-    expect(galleryItems(html).map((item) => item.caption)).toEqual(
-      CAPTIONS[SITE_HOOK_LOCALES.en].shots.map((shot) => shot.cap.replace(/\n/g, ' '))
+  it('shows only images the README strip also finds on disk', () => {
+    const named = [...readme.matchAll(/docs\/screenshots\/([^"]+)"/g)].map((m) => m[1] ?? '');
+    expect(named.length).toBeGreaterThan(0);
+    for (const rel of named) expect(`${rel}: ${exists(rel)}`).toBe(`${rel}: true`);
+  });
+
+  it('carries no screenshot the page does not name', () => {
+    const named = new Set(galleryLists(html).flatMap((l) => [...l.light, ...l.dark]));
+    const onDisk = (dir: string): string[] =>
+      fs
+        .readdirSync(path.join(root, 'docs', 'screenshots', dir), { withFileTypes: true })
+        .flatMap((e) => (e.isDirectory() ? onDisk(`${dir}/${e.name}`) : [`${dir}/${e.name}`]));
+    expect(onDisk('android').sort()).toEqual(
+      [...named].filter((n) => n?.startsWith('android/')).sort()
     );
   });
 });

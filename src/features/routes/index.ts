@@ -72,6 +72,8 @@ export {
   useRoutePerformances,
   useRouteReference,
   useRouteRenaming,
+  useArchivedRetiredCount,
+  useRetiredSectionCount,
   useRoutesScreenData,
   useSectionActions,
   useSectionChartData,

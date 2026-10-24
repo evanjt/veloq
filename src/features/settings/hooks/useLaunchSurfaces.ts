@@ -27,6 +27,7 @@ export function useLaunchSurfaces(): LaunchSurfaces {
   const usageLoaded = useWhatsNewStore((s) => s.usageLoaded);
   const useDays = useWhatsNewStore((s) => s.useDays);
   const firstSyncSettled = useWhatsNewStore((s) => s.firstSyncSettled);
+  const launches = useWhatsNewStore((s) => s.launches);
   const sessionAsk = useWhatsNewStore((s) => s.sessionAsk);
   const eligibleAsks = useWhatsNewStore((s) => s.eligibleAsks);
   const takeSessionAsk = useWhatsNewStore((s) => s.takeSessionAsk);
@@ -48,6 +49,7 @@ export function useLaunchSurfaces(): LaunchSurfaces {
     tourOpen,
     firstSyncSettled,
     useDays: usageLoaded ? useDays : null,
+    launches: usageLoaded ? launches : null,
     sessionAsk,
     eligibleAsks,
   });

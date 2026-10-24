@@ -718,7 +718,14 @@
     "streamConsentBody_one": "{{count}}件のアクティビティで、心拍・パワー・ケイデンスのデータ系列が未取得です。ダウンロードには約 {{megabytes}} MB のデータ通信が必要です。",
     "streamConsentBody_other": "{{count}}件のアクティビティで、心拍・パワー・ケイデンスのデータ系列が未取得です。ダウンロードには約 {{megabytes}} MB のデータ通信が必要です。",
     "streamConsentDownload": "ダウンロード",
-    "streamConsentDecline": "今はしない"
+    "streamConsentDecline": "今はしない",
+    "sectionsChangedTitle": "セクションを再設定しました",
+    "sectionsChangedBody": "Veloqのセクションの見つけ方を改善しました。以前のセクションのうち{{total}}件は除外されました。保存、名前変更、ピン留めしたものは残ります。ほかのものを戻したい場合は、消えた区間から探せます。",
+    "sectionsChangedBodyNone": "Veloqのセクションの見つけ方を改善しました。",
+    "sectionsChangedSee": "見る",
+    "sectionsChangedDismiss": "今はしない",
+    "notificationsTitle": "パーソナライズ通知をお見逃しです",
+    "notificationsBody": "Veloqは、ライドで自己ベストやルートでの更新タイムが出たときに、ルート名つきでお知らせできます。"
   },
   "filters": {
     "climbing": "クライミング",
@@ -2432,6 +2439,8 @@
       "recutRunningPhase": "区間を再解析しています: {{phase}}",
       "diffTotals": "{{current}} 件の区間が {{proposed}} 件になりました。",
       "diffBreakdown": "新規 {{new}} 件、変更 {{changed}} 件、引退 {{gone}} 件。",
+      "diffNoneKept_one": "新しい検出器はライブラリ全体を再解析しましたが、{{count}} 件の区間は一つも残りませんでした。削除ではなく消えた区間として保存されているので、消えた区間の一覧から必要なものを戻せます。",
+      "diffNoneKept_other": "新しい検出器はライブラリ全体を再解析しましたが、{{count}} 件の区間は一つも残りませんでした。削除ではなく消えた区間として保存されているので、消えた区間の一覧から必要なものを戻せます。",
       "diffUnchanged_one": "{{count}} 件の区間はすべて再解析後も変わりませんでした。",
       "diffUnchanged_other": "{{count}} 件の区間はすべて再解析後も変わりませんでした。",
       "recutFailed": "再解析は完了しませんでした。区間はそのままで、次回の起動時にもう一度実行されます。",
@@ -2709,7 +2718,10 @@
     "splitFrom": "分割元",
     "splitInto": "分割先",
     "unavailable": "区間を表示できません",
-    "revertVersion": "戻す バージョン{{version}}"
+    "revertVersion": "戻す バージョン{{version}}",
+    "retiredCount_one": "{{count}}件の消えた区間",
+    "retiredCount_other": "{{count}}件の消えた区間",
+    "retiredIntro": "「復元」をタップすると、セクションをそのままの状態で残せます。検出はそのセクションに手を加えません。"
   },
   "namedCorridors": {
     "title": "つけた名前",

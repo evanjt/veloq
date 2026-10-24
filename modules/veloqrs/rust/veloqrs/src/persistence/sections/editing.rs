@@ -11,6 +11,12 @@ use rusqlite::{OptionalExtension, params};
 use tracematch::GpsPoint;
 use tracematch::matching::calculate_route_distance;
 
+/// What `prefer_section` reads of a section to decide which way it goes.
+struct PreferenceRow {
+    custom: bool,
+    superseded_by: Option<String>,
+}
+
 /// The reference triple a row stores for a line, with the provenance word that goes beside it.
 /// A line with no triple is a consensus line: the blob is the only copy of it.
 fn triple_columns(
@@ -551,8 +557,12 @@ impl PersistentEngine {
         section_id: &str,
         version: i64,
     ) -> Result<Vec<String>, String> {
+        let was_retired = !self.section_row_exists(section_id);
         let done = self.in_write_txn(|e| e.write_revert_section_to_version(section_id, version));
         self.resync_section_after_edit(section_id, done.is_err());
+        if done.is_ok() && was_retired {
+            self.refresh_badges_of_superseded(section_id);
+        }
         done
     }
 
@@ -568,14 +578,7 @@ impl PersistentEngine {
         if polyline.len() < 2 {
             return Err("Stored version is too short to revert to".to_string());
         }
-        let live: bool = self
-            .db
-            .query_row(
-                "SELECT EXISTS(SELECT 1 FROM sections WHERE id = ?)",
-                params![section_id],
-                |row| row.get(0),
-            )
-            .map_err(|e| format!("Failed to read the section: {e}"))?;
+        let live = self.section_row_exists(section_id);
         if !live {
             self.recreate_retired_section(section_id, version, &polyline, reference.as_ref())?;
         }
@@ -653,10 +656,347 @@ impl PersistentEngine {
         self.append_section_history(section_id, kind, Some(&details), Some(version))
             .map_err(|e| format!("Failed to record the revert: {}", e))?;
 
+        if !live {
+            self.supersede_covered_auto_sections(section_id)?;
+        }
+
         self.invalidate_section_cache(section_id);
         self.refresh_section_in_memory(section_id);
         self.invalidate_perf_cache();
         Ok(departed)
+    }
+
+    /// The one place a custom row replaces the auto rows it covers: each live
+    /// auto section lying over the custom line (within
+    /// [`SUPERSEDE_PROXIMITY_M`] for more than [`SUPERSEDE_OVERLAP`] of its
+    /// length) takes `superseded_by`, the `superseded` pair goes to the ledger
+    /// with the measured overlap, and the hidden-id set is refreshed. Runs
+    /// inside the caller's write transaction and returns the auto ids it hid;
+    /// their badges are rewritten after the commit by
+    /// [`Self::refresh_badges_of_superseded`], since a badge pass opens a
+    /// transaction of its own.
+    pub(super) fn supersede_covered_auto_sections(
+        &mut self,
+        custom_id: &str,
+    ) -> Result<Vec<String>, String> {
+        let covered = self.try_find_measured_superseded_auto_sections(
+            custom_id,
+            super::SUPERSEDE_PROXIMITY_M,
+            super::SUPERSEDE_OVERLAP,
+        )?;
+        let mut hidden = Vec::with_capacity(covered.len());
+        for (auto_id, overlap) in covered {
+            self.supersede_auto_section(custom_id, &auto_id, Some(overlap))?;
+            hidden.push(auto_id);
+        }
+        self.refresh_superseded_ids();
+        Ok(hidden)
+    }
+
+    /// Hide one auto section behind a custom one and put the `superseded`
+    /// pair in the ledger. The one writer of the pair for a custom row
+    /// replacing an auto one, whether the overlap was measured against the
+    /// threshold or the athlete chose it.
+    fn supersede_auto_section(
+        &mut self,
+        custom_id: &str,
+        auto_id: &str,
+        overlap: Option<f64>,
+    ) -> Result<(), String> {
+        self.db
+            .execute(
+                "UPDATE sections SET superseded_by = ? WHERE id = ?",
+                params![custom_id, auto_id],
+            )
+            .map_err(|e| format!("Failed to supersede section: {e}"))?;
+        self.record_section_superseded(auto_id, custom_id, overlap)
+            .map_err(|e| format!("Failed to record the supersession: {e}"))?;
+        Ok(())
+    }
+
+    /// The athlete's choice between two sections on one ground: `kept` stays
+    /// in the catalogue and `other` leaves it with a ledger row naming `kept`.
+    /// Nothing is deleted. A custom `kept` hides the auto `other` behind it, as
+    /// drawing a section does; an auto `kept` takes the custom `other` onto the
+    /// retired list, restorable from its archived state. The overlap threshold
+    /// does not apply, since the athlete has decided.
+    ///
+    /// Refused unless the two are a pair (one hides the other, or their lines
+    /// share ground) of one auto and one custom section. Asking again after it
+    /// has been done changes nothing.
+    pub fn prefer_section(&mut self, kept: &str, other: &str) -> Result<(), String> {
+        if kept == other {
+            return Err("A section cannot be preferred over itself".to_string());
+        }
+        let Some(kept_row) = self.preference_row(kept)? else {
+            return Err(format!("Section not found: {kept}"));
+        };
+        let Some(other_row) = self.preference_row(other)? else {
+            let retired_into_kept =
+                crate::persistence::sections::history::pooled::retirement_of(&self.db, other)
+                    .is_some_and(|r| r.into.as_deref() == Some(kept));
+            return if retired_into_kept {
+                Ok(())
+            } else {
+                Err(format!("Section not found: {other}"))
+            };
+        };
+        if kept_row.custom == other_row.custom {
+            return Err(format!(
+                "Sections {kept} and {other} are not one auto and one custom section"
+            ));
+        }
+        let linked = kept_row.superseded_by.as_deref() == Some(other)
+            || other_row.superseded_by.as_deref() == Some(kept);
+        if !linked {
+            let a = self.stored_section_polyline(kept)?;
+            let b = self.stored_section_polyline(other)?;
+            if !tracematch::sections::shares_ground(&a, &b) {
+                return Err(format!("Sections {kept} and {other} do not share ground"));
+            }
+        }
+
+        if kept_row.custom {
+            if other_row.superseded_by.as_deref() == Some(kept) {
+                return Ok(());
+            }
+            let overlap = self
+                .try_find_measured_superseded_auto_sections(
+                    kept,
+                    super::SUPERSEDE_PROXIMITY_M,
+                    -1.0,
+                )?
+                .into_iter()
+                .find(|(id, _)| id == other)
+                .map(|(_, fraction)| fraction);
+            self.in_write_txn(|engine| engine.supersede_auto_section(kept, other, overlap))?;
+            self.refresh_superseded_ids();
+            self.invalidate_section_cache(other);
+            self.invalidate_perf_cache();
+            self.refresh_section_badges(&[kept, other]);
+            return Ok(());
+        }
+
+        let freed = self.in_write_txn(|engine| {
+            if kept_row.superseded_by.as_deref() == Some(other) {
+                engine
+                    .db
+                    .execute(
+                        "UPDATE sections SET superseded_by = NULL WHERE id = ?",
+                        params![kept],
+                    )
+                    .map_err(|e| format!("Failed to show the section again: {e}"))?;
+            }
+            engine.retire_section_to_ledger(other, super::history::KIND_SUPERSEDED, Some(kept))
+        })?;
+        self.finish_retirement(other, &freed);
+        self.invalidate_section_cache(kept);
+        self.refresh_section_badges(&[kept]);
+        Ok(())
+    }
+
+    fn preference_row(&self, section_id: &str) -> Result<Option<PreferenceRow>, String> {
+        self.db
+            .query_row(
+                "SELECT is_user_defined, superseded_by FROM sections WHERE id = ?",
+                params![section_id],
+                |row| {
+                    Ok(PreferenceRow {
+                        custom: row.get::<_, i64>(0)? != 0,
+                        superseded_by: row.get(1)?,
+                    })
+                },
+            )
+            .optional()
+            .map_err(|e| format!("Failed to read section {section_id}: {e}"))
+    }
+
+    /// The one place a restorable section leaves the catalogue for the ledger:
+    /// its row, junction rows, forced matches and pin go, the sections it hid
+    /// show again, and its departure is recorded. Its archived states stay,
+    /// and a row that had none gets one first, so the retired list can always
+    /// roll it back. With `into` and the `superseded` kind the pair is written
+    /// on both ids, so the retired list shows the link.
+    ///
+    /// Runs inside the caller's write transaction and returns the ids it freed;
+    /// [`Self::finish_retirement`] settles the in-memory state after the
+    /// commit. Writes no suppression intent: the ground stays free for the
+    /// section it went to.
+    pub(super) fn retire_section_to_ledger(
+        &mut self,
+        section_id: &str,
+        kind: &str,
+        into: Option<&str>,
+    ) -> Result<Vec<String>, String> {
+        if crate::persistence::sections::history::pooled::restorable_version_of(
+            &self.db, section_id,
+        )
+        .is_none()
+        {
+            self.archive_live_section(section_id)?;
+        }
+        let mut snapshot = serde_json::Map::new();
+        crate::persistence::sections::history::pooled::retirement_snapshot_on(
+            &self.db,
+            section_id,
+            &mut snapshot,
+        );
+        let freed: Vec<String> = self
+            .db
+            .prepare("SELECT id FROM sections WHERE superseded_by = ?")
+            .and_then(|mut stmt| {
+                stmt.query_map(params![section_id], |row| row.get(0))?
+                    .collect::<rusqlite::Result<_>>()
+            })
+            .map_err(|e| format!("Failed to find superseded sections: {e}"))?;
+        for table in [
+            "section_activities",
+            "section_forced_matches",
+            "section_pins",
+        ] {
+            self.db
+                .execute(
+                    &format!("DELETE FROM {table} WHERE section_id = ?"),
+                    params![section_id],
+                )
+                .map_err(|e| format!("Failed to drop the section's {table}: {e}"))?;
+        }
+        self.db
+            .execute(
+                "UPDATE sections SET superseded_by = NULL WHERE superseded_by = ?",
+                params![section_id],
+            )
+            .map_err(|e| format!("Failed to show superseded sections again: {e}"))?;
+        let rows = self
+            .db
+            .execute("DELETE FROM sections WHERE id = ?", params![section_id])
+            .map_err(|e| format!("Failed to retire section: {e}"))?;
+        if rows == 0 {
+            return Err(format!("Section not found: {section_id}"));
+        }
+        match into {
+            Some(into) if kind == super::history::KIND_SUPERSEDED => {
+                super::history::append_superseded_pair_with_on(
+                    &self.db, section_id, into, None, snapshot,
+                )
+                .map(|_| ())
+            }
+            _ => {
+                if let Some(into) = into {
+                    snapshot.insert("into".into(), serde_json::json!(into));
+                }
+                let details = serde_json::Value::Object(snapshot).to_string();
+                super::history::append_history_on(
+                    &self.db,
+                    section_id,
+                    kind,
+                    Some(&details),
+                    None,
+                    None,
+                )
+                .map(|_| ())
+            }
+        }
+        .map_err(|e| format!("Failed to record the retirement: {e}"))?;
+        Ok(freed)
+    }
+
+    /// Keep a live section's current state as an `archived` ledger row, the
+    /// shape a restore reads, so a row retired without one can come back.
+    fn archive_live_section(&mut self, section_id: &str) -> Result<(), String> {
+        type Row = (
+            Option<String>,
+            String,
+            f64,
+            Option<u32>,
+            Option<String>,
+            Option<String>,
+            Option<u32>,
+            Option<u32>,
+        );
+        let (name, sport, distance, visits, created, rep_activity, rep_start, rep_end): Row = self
+            .db
+            .query_row(
+                "SELECT name, sport_type, distance_meters, visit_count, created_at,
+                        representative_activity_id, rep_start_index, rep_end_index
+                 FROM sections WHERE id = ?",
+                params![section_id],
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                        row.get(5)?,
+                        row.get(6)?,
+                        row.get(7)?,
+                    ))
+                },
+            )
+            .map_err(|e| format!("Failed to read section {section_id}: {e}"))?;
+        let line = self.stored_section_polyline(section_id)?;
+        let reference = super::geometry::reference(rep_activity.as_deref(), rep_start, rep_end);
+        let version =
+            super::history::record_archived_geometry_on(&self.db, section_id, &line, reference)
+                .map_err(|e| format!("Failed to keep the section's line: {e}"))?;
+        let details = serde_json::json!({
+            "name": name,
+            "sport_type": sport,
+            "distance_meters": distance,
+            "visit_count": visits,
+            "created_at": created,
+        })
+        .to_string();
+        super::history::append_history_on(
+            &self.db,
+            section_id,
+            super::KIND_ARCHIVED,
+            Some(&details),
+            version,
+            None,
+        )
+        .map_err(|e| format!("Failed to keep the section's state: {e}"))?;
+        Ok(())
+    }
+
+    /// The in-memory half of [`Self::retire_section_to_ledger`], after its
+    /// commit: caches, the hidden-id set, the identity registry and the chips
+    /// of the retired section and of the sections it had hidden.
+    pub(super) fn finish_retirement(&mut self, section_id: &str, freed: &[String]) {
+        self.invalidate_section_cache(section_id);
+        for id in freed {
+            self.invalidate_section_cache(id);
+        }
+        self.refresh_superseded_ids();
+        self.remove_section_from_memory(section_id);
+        self.section_identity_relinquish(section_id);
+        self.refresh_section_badges(&[section_id]);
+        self.refresh_section_badges(freed);
+    }
+
+    fn section_row_exists(&self, section_id: &str) -> bool {
+        self.db
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM sections WHERE id = ?)",
+                params![section_id],
+                |row| row.get(0),
+            )
+            .unwrap_or(false)
+    }
+
+    /// Rewrite the badges of every section `custom_id` hides, once the
+    /// supersession has committed.
+    pub(super) fn refresh_badges_of_superseded(&self, custom_id: &str) {
+        let hidden: Vec<String> = self
+            .db
+            .prepare("SELECT id FROM sections WHERE superseded_by = ?")
+            .and_then(|mut stmt| {
+                stmt.query_map(params![custom_id], |row| row.get(0))?
+                    .collect::<rusqlite::Result<_>>()
+            })
+            .unwrap_or_default();
+        self.refresh_section_badges(&hidden);
     }
 
     /// Give a section the cutover retired a row again, under its own id so the

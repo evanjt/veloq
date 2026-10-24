@@ -15,6 +15,7 @@ const PLACEHOLDERS: Record<string, string[]> = {
   diffTotals: ['{{current}}', '{{proposed}}'],
   diffBreakdown: ['{{new}}', '{{changed}}', '{{gone}}'],
   diffUnchanged_other: ['{{count}}'],
+  diffNoneKept_other: ['{{count}}'],
   settingsReset: ['{{changes}}'],
   settingsResetChange: ['{{label}}', '{{from}}', '{{to}}'],
 };

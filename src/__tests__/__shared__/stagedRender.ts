@@ -19,10 +19,10 @@ export async function passFrames(frames = 1): Promise<void> {
   }
 }
 
-/** Renders a screen that stages its first visit, and lets the stages after the first mount. */
+/** Renders a screen that stages its first visit, and lets the stages after the first mount. The map's page takes two frames. */
 export async function renderStaged(
   ui: React.ReactElement,
-  frames = 1
+  frames = 2
 ): Promise<Awaited<ReturnType<typeof render>>> {
   const view = await render(ui);
   await passFrames(frames);

@@ -74,6 +74,7 @@ import {
 } from './generated/veloqrs';
 import * as generated from './generated/veloqrs';
 
+import { validateId } from './conversions';
 import type { DelegateHost } from './delegates/host';
 import * as activityDelegates from './delegates/activities';
 import * as fitnessDelegates from './delegates/fitness';
@@ -1308,6 +1309,28 @@ class EngineClient implements DelegateHost {
    */
   runSectionBoundsEdit = (edit: SectionBoundsEdit): Promise<FfiDepartedRide[] | null> =>
     sectionDelegates.runSectionBoundsEdit(this, edit);
+
+  /**
+   * Keep one of two sections on the same ground and let the other leave the
+   * catalogue with a ledger row naming the kept one. Resolves false when the
+   * engine refuses the pair or the write fails.
+   */
+  async preferSection(keptId: string, otherId: string): Promise<boolean> {
+    if (!this.ready) return false;
+    validateId(keptId, 'section ID');
+    validateId(otherId, 'section ID');
+    try {
+      await this.timedAsync('preferSection', () =>
+        this.engine.sections().preferSection(keptId, otherId)
+      );
+      this.notifyAll('sections');
+      return true;
+    } catch (e) {
+      // empty-on-error: a write; false is its failure.
+      console.error('[Engine] preferSection failed:', keptId, otherId, e);
+      return false;
+    }
+  }
 
   getSectionExtensionTrack = (
     sectionId: string

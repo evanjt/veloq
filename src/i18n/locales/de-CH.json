@@ -709,7 +709,14 @@
     "streamConsentBody_one": "Bi {{count}} Aktivitäte fehled d Reihe für Herzfrequänz, Leischtig und Trittfrequänz. Dr Download bruucht öppe {{megabytes}} MB Date.",
     "streamConsentBody_other": "Bi {{count}} Aktivitäte fehled d Reihe für Herzfrequänz, Leischtig und Trittfrequänz. Dr Download bruucht öppe {{megabytes}} MB Date.",
     "streamConsentDownload": "Lade",
-    "streamConsentDecline": "Nöd jetzt"
+    "streamConsentDecline": "Nöd jetzt",
+    "sectionsChangedTitle": "Dini Abschnitt si neu gschnitte worde",
+    "sectionsChangedBody": "Mir hei verbesseret, wie Veloq Abschnitt findet. {{total}} vo dine alte Abschnitt si usgschide worde. Die, wo du gspeicheret, umbenennt oder aagheftet hesch, blibe erhalte. Wenn du settigi vo de andere zrüggwettsch, findsch si under Ausgeschiedene Abschnitte.",
+    "sectionsChangedBodyNone": "Mir hei verbesseret, wie Veloq Abschnitt findet.",
+    "sectionsChangedSee": "Aaluege",
+    "sectionsChangedDismiss": "Nöd jetzt",
+    "notificationsTitle": "Dir entgöh persönlechi Benachrichtigunge",
+    "notificationsBody": "Veloq cha dir säge, wenn e Fahrt e persönlechi Bestleistig oder e schnellere Zit uf ere Route bringt, mit em Name vo de Route."
   },
   "filters": {
     "climbing": "Chlättere",
@@ -2315,6 +2322,8 @@
       "recutRunningPhase": "Deine Abschnitte werden neu analysiert: {{phase}}",
       "diffTotals": "Aus {{current}} Abschnitten wurden {{proposed}}.",
       "diffBreakdown": "{{new}} neu, {{changed}} geändert, {{gone}} stillgelegt.",
+      "diffNoneKept_one": "Der neue Detektor ist durch deine ganze Bibliothek gelaufen und hat keinen deiner {{count}} Abschnitt behalten. Er ist ausgeschieden, nicht gelöscht: Öffne die Liste der ausgeschiedenen Abschnitte, um zurückzuholen, was du willst.",
+      "diffNoneKept_other": "Der neue Detektor ist durch deine ganze Bibliothek gelaufen und hat keinen deiner {{count}} Abschnitte behalten. Sie sind ausgeschieden, nicht gelöscht: Öffne die Liste der ausgeschiedenen Abschnitte, um zurückzuholen, was du willst.",
       "diffUnchanged_one": "Der {{count}} Abschnitt blieb bei der Neuanalyse unverändert.",
       "diffUnchanged_other": "Alle {{count}} Abschnitte blieben bei der Neuanalyse unverändert.",
       "recutFailed": "Die Neuanalyse wurde nicht fertig. Deine Abschnitte sind unverändert und sie läuft beim nächsten Start erneut.",
@@ -2592,7 +2601,10 @@
     "splitFrom": "Abgetrennt von",
     "splitInto": "Aufgeteilt in",
     "unavailable": "Abschnitt nicht verfügbar",
-    "revertVersion": "Zurücksetzen Version {{version}}"
+    "revertVersion": "Zurücksetzen Version {{version}}",
+    "retiredCount_one": "{{count}} ausgeschiedener Abschnitt",
+    "retiredCount_other": "{{count}} ausgeschiedene Abschnitte",
+    "retiredIntro": "Tippe uf Wiederherstelle, zum en Abschnitt genau so z bhalte, wie er gsi isch. D Erkennig lat en in Rueh."
   },
   "namedCorridors": {
     "title": "Von dir vergebene Namen",

@@ -281,3 +281,78 @@ fn a_stored_cooldown_holds_every_attempt_until_it_ends() {
         "an attempt went inside the cooldown: {attempted_at:?}"
     );
 }
+
+/// Scenario: a library of a few hundred tracks drains over many passes while
+/// every pass succeeds. The queue shrinks at every rung, so nothing is failing
+/// and the wait never leaves the bottom of the ladder.
+#[test]
+fn a_queue_that_keeps_shrinking_never_climbs_past_the_first_rung() {
+    let run = climb(6, |round| Some(300 - 40 * round as u64), false);
+    assert_eq!(run.slept, vec![RESUME_WAITS[0]; 6]);
+}
+
+/// Expected behaviour: only rungs that moved nothing climb, and a rung that
+/// moved something starts the climb again from the bottom.
+#[test]
+fn a_rung_that_moved_nothing_climbs_and_the_next_that_moves_something_resets() {
+    let run = climb(
+        5,
+        |round| {
+            Some(if round < 3 {
+                100
+            } else {
+                100 - 10 * round as u64
+            })
+        },
+        false,
+    );
+    assert_eq!(
+        run.slept,
+        vec![
+            RESUME_WAITS[0],
+            RESUME_WAITS[1],
+            RESUME_WAITS[2],
+            RESUME_WAITS[0],
+            RESUME_WAITS[0]
+        ]
+    );
+}
+
+/// Scenario: a library of a few hundred tracks drains over passes that each
+/// finish before the next rung. Each attempt shrinks the queue.
+///
+/// Expected behaviour: a rung that follows a pass which drained part of the
+/// queue waits nothing, and the climb is still at its first rung when a pass
+/// then moves nothing.
+#[test]
+fn a_pass_that_drained_part_of_the_queue_is_followed_at_once() {
+    let attempts = Cell::new(0usize);
+    let slept = RefCell::new(Vec::new());
+    let drains = 4usize;
+    resume_ladder(
+        |d| {
+            if slept.borrow().len() >= drains + 2 {
+                return false;
+            }
+            slept.borrow_mut().push(d);
+            true
+        },
+        || Some(300 - 40 * attempts.get().min(drains) as u64),
+        || false,
+        || false,
+        || false,
+        || attempts.set(attempts.get() + 1),
+    );
+    let slept = slept.into_inner();
+    assert_eq!(slept[0], RESUME_WAITS[0], "nothing has drained yet");
+    assert_eq!(
+        &slept[1..=drains],
+        &[Duration::ZERO; 4],
+        "each drained pass is followed at once"
+    );
+    assert_eq!(
+        slept[drains + 1],
+        RESUME_WAITS[0],
+        "a pass that moved nothing waits the first rung"
+    );
+}

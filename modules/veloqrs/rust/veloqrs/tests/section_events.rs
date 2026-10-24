@@ -862,3 +862,137 @@ fn a_named_section_survives_a_recut_of_its_ground() {
         "a pinned section is not split"
     );
 }
+
+/// Scenario: the athlete draws a custom section over ground an auto section
+/// already covers. Expected behaviour: the auto section is hidden behind the
+/// drawn one and the ledger holds the `superseded` pair on both ids.
+#[test]
+fn a_drawn_section_over_an_auto_section_writes_the_superseded_pair() {
+    let (mut engine, _dir) = fresh_engine();
+    let rides = corridor_rides("ca", 0.0, 9, 0);
+    let snap = ingest_step(&mut engine, "cold", &refs(&rides)).snapshot;
+    let (auto_id, _) = section_on(&snap, &corridor_ground(0.0)).expect("corpus fault: no section");
+
+    let ground = corridor_ground(0.0);
+    let drawn = engine
+        .create_section(veloqrs::sections::CreateSectionParams {
+            sport_type: "Ride".to_string(),
+            polyline: ground.clone(),
+            distance_meters: tracematch::matching::calculate_route_distance(&ground),
+            name: Some("Drawn".to_string()),
+            source_activity_id: Some("ca_00".to_string()),
+            start_index: Some(0),
+            end_index: Some(ground.len() as u32 - 1),
+        })
+        .expect("create section");
+
+    assert!(kinds(&engine, &auto_id).contains(&"superseded".to_string()));
+    assert_eq!(kinds(&engine, &drawn), vec!["superseded"]);
+    let details = details_of(
+        engine
+            .section_history(&drawn)
+            .iter()
+            .find(|e| e.kind == "superseded")
+            .expect("event"),
+    );
+    assert_eq!(details["supersedes"], auto_id.as_str());
+}
+
+/// A custom section drawn over the first half of the corridor an auto
+/// section covers whole: too short a share of the auto line to hide it, so
+/// both stay live until the athlete chooses.
+fn draw_over_half(engine: &mut veloqrs::PersistentEngine) -> String {
+    let ground = corridor_ground(0.0);
+    let half = ground[..ground.len() / 2].to_vec();
+    engine
+        .create_section(veloqrs::sections::CreateSectionParams {
+            sport_type: "Ride".to_string(),
+            polyline: half.clone(),
+            distance_meters: tracematch::matching::calculate_route_distance(&half),
+            name: Some("Drawn half".to_string()),
+            source_activity_id: Some("ca_00".to_string()),
+            start_index: Some(0),
+            end_index: Some(half.len() as u32 - 1),
+        })
+        .expect("create section")
+}
+
+fn visible_ids(engine: &veloqrs::PersistentEngine) -> Vec<String> {
+    engine
+        .get_section_summaries()
+        .into_iter()
+        .map(|s| s.id)
+        .collect()
+}
+
+/// Scenario: a drawn section and the auto section on its ground are both
+/// live, and the athlete prefers the drawn one.
+/// Expected behaviour: the auto section is hidden behind it, a detect over
+/// new rides keeps it hidden and the drawn one live, and a wipe of the
+/// detected catalogue followed by a re-detect shows only the drawn
+/// section on that ground.
+#[test]
+fn a_preferred_drawn_section_keeps_the_auto_section_hidden_through_detects_and_a_wipe() {
+    let (mut engine, _dir) = fresh_engine();
+    let rides = corridor_rides("ca", 0.0, 9, 0);
+    let snap = ingest_step(&mut engine, "cold", &refs(&rides)).snapshot;
+    let (auto_id, _) = section_on(&snap, &corridor_ground(0.0)).expect("corpus fault: no section");
+    let drawn = draw_over_half(&mut engine);
+    assert!(
+        visible_ids(&engine).contains(&auto_id),
+        "the half-length line must leave the auto section showing"
+    );
+
+    engine.prefer_section(&drawn, &auto_id).expect("prefer");
+
+    assert!(!visible_ids(&engine).contains(&auto_id));
+    assert!(visible_ids(&engine).contains(&drawn));
+    let more = corridor_rides("cb", 0.0, 4, 20);
+    ingest_step(&mut engine, "after prefer", &refs(&more));
+    assert!(!visible_ids(&engine).contains(&auto_id));
+    assert!(visible_ids(&engine).contains(&drawn));
+
+    engine.clear_derived().expect("wipe");
+    let again: Vec<_> = rides.iter().chain(more.iter()).collect();
+    ingest_step(&mut engine, "after wipe", &again);
+    assert_eq!(visible_ids(&engine), vec![drawn.clone()]);
+}
+
+/// Scenario: the same pair, and the athlete prefers the auto section.
+/// Expected behaviour: the drawn section is on the retired list linked to
+/// the auto one, a detect over new rides keeps the auto section live and
+/// the drawn one gone, and a wipe and re-detect does not bring it back.
+#[test]
+fn a_preferred_auto_section_keeps_the_drawn_one_retired_through_detects_and_a_wipe() {
+    let (mut engine, _dir) = fresh_engine();
+    let rides = corridor_rides("ca", 0.0, 9, 0);
+    let snap = ingest_step(&mut engine, "cold", &refs(&rides)).snapshot;
+    let (auto_id, _) = section_on(&snap, &corridor_ground(0.0)).expect("corpus fault: no section");
+    let drawn = draw_over_half(&mut engine);
+
+    engine.prefer_section(&auto_id, &drawn).expect("prefer");
+
+    let entry = engine
+        .retired_sections()
+        .into_iter()
+        .find(|r| r.section_id == drawn)
+        .expect("the drawn section is on the retired list");
+    assert_eq!(entry.kind, "superseded");
+    assert_eq!(entry.into.as_deref(), Some(auto_id.as_str()));
+    assert!(
+        entry.restorable_version.is_some(),
+        "a drawn section that leaves is kept as a state it can be restored from"
+    );
+    let more = corridor_rides("cb", 0.0, 4, 20);
+    ingest_step(&mut engine, "after prefer", &refs(&more));
+    assert!(visible_ids(&engine).contains(&auto_id));
+    assert!(!visible_ids(&engine).contains(&drawn));
+    assert!(engine.get_section_by_id(&drawn).is_none());
+
+    engine.clear_derived().expect("wipe");
+    let again: Vec<_> = rides.iter().chain(more.iter()).collect();
+    ingest_step(&mut engine, "after wipe", &again);
+    assert!(!visible_ids(&engine).contains(&drawn));
+    assert!(engine.get_section_by_id(&drawn).is_none());
+    assert_eq!(visible_ids(&engine).len(), 1, "one section on the corridor");
+}

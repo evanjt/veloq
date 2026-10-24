@@ -39,7 +39,11 @@ import {
   registerImageCacheReclaimer,
   registerQueryCacheReclaimer,
 } from '@/shared/app/memoryReclaimers';
-import { BeneathTopSlot, TopSafeAreaProvider } from '@/shared/app/TopSafeAreaContext';
+import {
+  BeneathTopSlot,
+  TopSafeAreaProvider,
+  useStackHeaderOptions,
+} from '@/shared/app/TopSafeAreaContext';
 import { QueryProvider, queryClient } from '@/shared/query/QueryProvider';
 import {
   SCREEN_HEADERS,
@@ -48,7 +52,6 @@ import {
   overMapHeaderOptions,
   screenAnimation,
   sheetScreenOptions,
-  stackHeaderOptions,
 } from '@/shared/app/screenHeaders';
 import {
   adoptOwnerlessRecordingBackup,
@@ -121,7 +124,12 @@ import {
 import { registerBackgroundNotificationTask } from '@/features/insights';
 import { debug } from '@/shared/debug/debug';
 import { initialiseApp, retryStartupAreas } from '@/shared/app/launch';
-import { releaseSplash } from '@/shared/app/splash';
+// Evaluated at launch for its side effect: it holds the native splash, and a
+// lazily required module would only run when the splash is released.
+// eslint-disable-next-line import/no-duplicates
+import '@/shared/app/splash';
+// eslint-disable-next-line import/no-duplicates
+import { FEED_HOLD_MS, releaseSplash, shouldReleaseSplash } from '@/shared/app/splash';
 import { openLibrary } from '@/shared/storage/routeDbLocation';
 import { StartupErrorBanner, type StartupArea } from '@/shared/ui/StartupErrorBanner';
 import { rootScreenLayout } from '@/shared/ui/rootScreenLayout';
@@ -548,6 +556,25 @@ function pushInteracting(interacting: boolean): void {
   connectivity.setInteracting(interacting);
 }
 
+function RootStack({ children }: { children: React.ReactNode }) {
+  const headerOptions = useStackHeaderOptions();
+  return (
+    <Stack
+      screenLayout={rootScreenLayout}
+      screenOptions={{
+        // The iOS edge swipe. Android's back key and gesture are not
+        // governed by this, and a screen that must hold back does it
+        // with useBackIntercept.
+        gestureEnabled: true,
+        gestureDirection: 'horizontal',
+        ...headerOptions,
+      }}
+    >
+      {children}
+    </Stack>
+  );
+}
+
 export default function RootLayout() {
   const [appReady, setAppReady] = useState(false);
   const [startupError, setStartupError] = useState<StartupArea[] | null>(null);
@@ -576,10 +603,20 @@ export default function RootLayout() {
     };
   }, []);
 
+  const authLoading = useAuthStore((s) => s.isLoading);
+  const signedIn = useAuthStore((s) => s.isAuthenticated || s.isDemoMode);
   useEffect(() => {
-    if (!appReady) return;
-    releaseSplash();
-  }, [appReady]);
+    const gate = { appReady, authLoading, signedIn, feedSettled: false };
+    if (shouldReleaseSplash(gate)) {
+      releaseSplash();
+      return undefined;
+    }
+    if (!appReady || authLoading) return undefined;
+    // The feed releases the splash itself once its first read settles. This
+    // bound keeps a read that never settles from holding the launch screen.
+    const timer = setTimeout(releaseSplash, FEED_HOLD_MS);
+    return () => clearTimeout(timer);
+  }, [appReady, authLoading, signedIn]);
 
   // Set up notification handlers once on mount
   useEffect(() => {
@@ -653,17 +690,7 @@ export default function RootLayout() {
                     <ShaderWarmup />
                     <BeneathTopSlot>
                       <NavigationThemeProvider>
-                        <Stack
-                          screenLayout={rootScreenLayout}
-                          screenOptions={{
-                            // The iOS edge swipe. Android's back key and gesture are not
-                            // governed by this, and a screen that must hold back does it
-                            // with useBackIntercept.
-                            gestureEnabled: true,
-                            gestureDirection: 'horizontal',
-                            ...stackHeaderOptions(Platform.OS, isDark),
-                          }}
-                        >
+                        <RootStack>
                           {Object.entries(SCREEN_HEADERS).map(([name, header]) => (
                             <Stack.Screen
                               key={name}
@@ -690,7 +717,7 @@ export default function RootLayout() {
                               }}
                             />
                           ))}
-                        </Stack>
+                        </RootStack>
                       </NavigationThemeProvider>
                     </BeneathTopSlot>
                     <BottomTabBar />

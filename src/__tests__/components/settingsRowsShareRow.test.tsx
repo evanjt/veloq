@@ -177,8 +177,8 @@ describe('chevrons on the settings screens', () => {
     expectOnlyRowChevrons(tree, 3 + tileSlots);
   });
 
-  it('draws the shared chevron on both preview rows of detection settings', async () => {
-    expectOnlyRowChevrons(await render(<DetectionSettingsScreen />), 2);
+  it('draws the shared chevron on the two preview rows and the retired sections row of detection settings', async () => {
+    expectOnlyRowChevrons(await render(<DetectionSettingsScreen />), 3);
   });
 });
 

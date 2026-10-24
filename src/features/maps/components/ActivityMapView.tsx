@@ -551,14 +551,22 @@ export const ActivityMapView = memo(function ActivityMapView({
 
   // The commit that mounts this view is the open's own frame, and creating a map page in it
   // took 38 to 53 ms of a frame already over a tap's budget (test handset, release build). So the page,
-  // 2D or 3D, is created on the next frame, transparent until ready and under the poster where
-  // there is one. A slot whose surface is already up creates no page, so the view publishes at once.
+  // 2D or 3D, is created two frames on, transparent until ready and under the poster where
+  // there is one. The detail's own views mount in the first of those frames (about 80 of them, with
+  // the page's WebView in the same frame it ran 106 to 120 ms), so the page takes the frame after.
+  // A slot whose surface is already up creates no page, so the view publishes at once.
   const slotLive = useMapSurfaceSlotLive();
   const [pageDue, setPageDue] = useState(slotLive);
   useEffect(() => {
     if (pageDue) return undefined;
-    const frame = requestAnimationFrame(() => setPageDue(true));
-    return () => cancelAnimationFrame(frame);
+    let second = 0;
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => setPageDue(true));
+    });
+    return () => {
+      cancelAnimationFrame(first);
+      cancelAnimationFrame(second);
+    };
   }, [pageDue]);
 
   const surfaceReady = is3DMode ? is3DReady : mapReady || mapFailed;

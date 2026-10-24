@@ -790,3 +790,256 @@ fn a_retired_state_restored_before_its_ground_arrives_becomes_restorable() {
     new.revert_section_to_version("s_local", version)
         .expect("roll back");
 }
+
+fn superseded_by(engine: &PersistentEngine, section_id: &str) -> Option<String> {
+    engine
+        .db
+        .query_row(
+            "SELECT superseded_by FROM sections WHERE id = ?",
+            [section_id],
+            |row| row.get(0),
+        )
+        .expect("the section")
+}
+
+fn superseded_events(engine: &PersistentEngine, section_id: &str) -> Vec<serde_json::Value> {
+    engine
+        .section_history(section_id)
+        .into_iter()
+        .filter(|event| event.kind == "superseded")
+        .map(|event| serde_json::from_str(&event.details.expect("details")).expect("json"))
+        .collect()
+}
+
+/// Scenario: the cutover retired a section, the detector cut a new auto
+/// section on the same ground, and the athlete restores the retired one.
+/// Expected behaviour: the restored section is live and the auto section it
+/// covers is hidden behind it, with the pair in the ledger on both ids, so a
+/// ride on that ground matches one section.
+#[test]
+fn a_restore_supersedes_the_auto_section_on_its_ground() {
+    let dir = TempDir::new().expect("tempdir");
+    let mut engine = library(&dir, "restore-supersedes.db");
+    engine.archive_current_catalogue().expect("archive");
+    let (_, version) = archived_state(&engine, "s_auto");
+    retire(&engine, "s_auto");
+    insert_auto_section(&engine, "s_recut", &ride(7.0)[0..12], ("a1", 0, 12));
+
+    engine
+        .revert_section_to_version("s_auto", version)
+        .expect("restore");
+
+    assert_eq!(superseded_by(&engine, "s_recut").as_deref(), Some("s_auto"));
+    assert_eq!(superseded_by(&engine, "s_auto"), None);
+    let hidden = superseded_events(&engine, "s_recut");
+    assert_eq!(hidden.len(), 1);
+    assert_eq!(hidden[0]["superseded_by"], "s_auto");
+    assert!(hidden[0]["overlap_fraction"].as_f64().unwrap() > 0.8);
+    let restored = superseded_events(&engine, "s_auto");
+    assert_eq!(restored.len(), 1);
+    assert_eq!(restored[0]["supersedes"], "s_recut");
+    let matches = crate::persistence::sections::queries::pooled::activity_section_matches(
+        &engine.db,
+        "a1",
+        &tracematch::SectionConfig::default(),
+    );
+    assert_eq!(
+        matches
+            .iter()
+            .map(|m| m.section_id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["s_auto"],
+        "the ride matches the restored section alone"
+    );
+}
+
+/// Scenario: a retired section is restored while the only auto section sits
+/// on another corridor. Expected behaviour: nothing is superseded and the
+/// ledger holds no `superseded` event.
+#[test]
+fn a_restore_leaves_an_auto_section_on_another_corridor_alone() {
+    let dir = TempDir::new().expect("tempdir");
+    let mut engine = library(&dir, "restore-other-corridor.db");
+    engine.archive_current_catalogue().expect("archive");
+    let (_, version) = archived_state(&engine, "s_auto");
+    retire(&engine, "s_auto");
+    insert_auto_section(&engine, "s_far", &ride(7.5)[0..12], ("a1", 0, 12));
+
+    engine
+        .revert_section_to_version("s_auto", version)
+        .expect("restore");
+
+    assert_eq!(superseded_by(&engine, "s_far"), None);
+    assert!(superseded_events(&engine, "s_far").is_empty());
+    assert!(superseded_events(&engine, "s_auto").is_empty());
+}
+
+/// The ground a restored section and the auto section cut after the
+/// retirement both lie on: the cutover's archived state restored, the detector's
+/// new auto section beside it, hidden behind the restored one.
+fn restored_beside_a_recut(dir: &TempDir, name: &str) -> (PersistentEngine, i64) {
+    let mut engine = library(dir, name);
+    engine.archive_current_catalogue().expect("archive");
+    let (_, version) = archived_state(&engine, "s_auto");
+    retire(&engine, "s_auto");
+    insert_auto_section(&engine, "s_recut", &ride(7.0)[0..12], ("a1", 0, 12));
+    engine
+        .revert_section_to_version("s_auto", version)
+        .expect("restore");
+    (engine, version)
+}
+
+fn is_live(engine: &PersistentEngine, section_id: &str) -> bool {
+    engine
+        .db
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM sections WHERE id = ?)",
+            [section_id],
+            |row| row.get(0),
+        )
+        .expect("the existence check")
+}
+
+fn retired_entry(
+    engine: &PersistentEngine,
+    section_id: &str,
+) -> Option<crate::persistence::sections::RetiredSection> {
+    engine
+        .retired_sections()
+        .into_iter()
+        .find(|entry| entry.section_id == section_id)
+}
+
+/// Scenario: the restored section and the auto section on its ground are both
+/// live in the athlete's eyes, and the athlete prefers the restored one.
+/// Expected behaviour: the restored section stays, the auto section is hidden
+/// behind it with the `superseded` pair on both ids, and asking again writes
+/// nothing more.
+#[test]
+fn preferring_the_restored_section_hides_the_auto_section_behind_it() {
+    let dir = TempDir::new().expect("tempdir");
+    let (mut engine, _) = restored_beside_a_recut(&dir, "prefer-custom.db");
+    engine
+        .db
+        .execute(
+            "UPDATE sections SET superseded_by = NULL WHERE id = 's_recut'",
+            [],
+        )
+        .expect("the auto section shows again");
+    engine
+        .db
+        .execute("DELETE FROM section_history WHERE kind = 'superseded'", [])
+        .expect("no supersession recorded yet");
+
+    engine.prefer_section("s_auto", "s_recut").expect("prefer");
+
+    assert!(is_live(&engine, "s_auto"));
+    assert_eq!(superseded_by(&engine, "s_recut").as_deref(), Some("s_auto"));
+    let hidden = superseded_events(&engine, "s_recut");
+    assert_eq!(hidden.len(), 1);
+    assert_eq!(hidden[0]["superseded_by"], "s_auto");
+    assert!(
+        hidden[0]["overlap_fraction"].as_f64().is_some(),
+        "the measured overlap is recorded"
+    );
+    assert_eq!(superseded_events(&engine, "s_auto").len(), 1);
+
+    engine
+        .prefer_section("s_auto", "s_recut")
+        .expect("prefer again");
+    assert_eq!(superseded_events(&engine, "s_recut").len(), 1);
+    assert_eq!(superseded_events(&engine, "s_auto").len(), 1);
+}
+
+/// Scenario: the athlete prefers the auto section over the restored one.
+/// Expected behaviour: the restored section leaves the catalogue for the
+/// retired list, linked to the auto section and still restorable, with its
+/// archived states and its junction rows' owner gone; the auto section shows
+/// and is no longer hidden. A second ask changes nothing.
+#[test]
+fn preferring_the_auto_section_retires_the_restored_one_into_it() {
+    let dir = TempDir::new().expect("tempdir");
+    let (mut engine, version) = restored_beside_a_recut(&dir, "prefer-auto.db");
+    assert_eq!(superseded_by(&engine, "s_recut").as_deref(), Some("s_auto"));
+
+    engine.prefer_section("s_recut", "s_auto").expect("prefer");
+
+    assert!(!is_live(&engine, "s_auto"), "the restored row leaves");
+    assert!(is_live(&engine, "s_recut"));
+    assert_eq!(superseded_by(&engine, "s_recut"), None);
+    let entry = retired_entry(&engine, "s_auto").expect("on the retired list");
+    assert_eq!(entry.kind, "superseded");
+    assert_eq!(entry.into.as_deref(), Some("s_recut"));
+    assert_eq!(
+        entry.restorable_version.map(|v| v.0),
+        Some(version),
+        "its archived state is still the way back"
+    );
+    let junctions: i64 = engine
+        .db
+        .query_row(
+            "SELECT COUNT(*) FROM section_activities WHERE section_id = 's_auto'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("count");
+    assert_eq!(junctions, 0);
+    let events = engine.section_history("s_auto").len();
+
+    engine
+        .prefer_section("s_recut", "s_auto")
+        .expect("prefer again");
+    assert_eq!(engine.section_history("s_auto").len(), events);
+    assert_eq!(engine.retired_sections().len(), 1);
+}
+
+/// Scenario: the athlete prefers the auto section, then restores the retired
+/// one from the list.
+/// Expected behaviour: the restore hides the auto section behind it again,
+/// so the two preferences can be swapped for good.
+#[test]
+fn a_section_retired_by_preferring_the_other_can_be_restored_and_preferred_again() {
+    let dir = TempDir::new().expect("tempdir");
+    let (mut engine, version) = restored_beside_a_recut(&dir, "prefer-round-trip.db");
+    engine
+        .prefer_section("s_recut", "s_auto")
+        .expect("prefer auto");
+
+    engine
+        .revert_section_to_version("s_auto", version)
+        .expect("restore");
+
+    assert!(is_live(&engine, "s_auto"));
+    assert_eq!(superseded_by(&engine, "s_recut").as_deref(), Some("s_auto"));
+    assert!(retired_entry(&engine, "s_auto").is_none());
+}
+
+/// Scenario: two sections on different corridors are offered as a pair.
+/// Expected behaviour: the write is refused and nothing changes.
+#[test]
+fn preferring_one_of_two_sections_on_different_corridors_is_refused() {
+    let dir = TempDir::new().expect("tempdir");
+    let (mut engine, _) = restored_beside_a_recut(&dir, "prefer-refused.db");
+    insert_auto_section(&engine, "s_far", &ride(7.5)[0..12], ("a1", 0, 12));
+    let history = engine.section_history("s_auto").len();
+
+    assert!(engine.prefer_section("s_auto", "s_far").is_err());
+    assert!(engine.prefer_section("s_far", "s_auto").is_err());
+
+    assert!(is_live(&engine, "s_auto"));
+    assert_eq!(superseded_by(&engine, "s_far"), None);
+    assert_eq!(engine.section_history("s_auto").len(), history);
+    assert!(engine.retired_sections().is_empty());
+}
+
+/// Scenario: a section is preferred over itself, or over one that is not there.
+/// Expected behaviour: both are refused.
+#[test]
+fn preferring_a_section_over_itself_or_an_absent_one_is_refused() {
+    let dir = TempDir::new().expect("tempdir");
+    let (mut engine, _) = restored_beside_a_recut(&dir, "prefer-absent.db");
+
+    assert!(engine.prefer_section("s_auto", "s_auto").is_err());
+    assert!(engine.prefer_section("s_auto", "s_gone").is_err());
+    assert!(is_live(&engine, "s_auto"));
+}

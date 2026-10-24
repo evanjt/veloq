@@ -13,19 +13,14 @@ import { Platform } from 'react-native';
 import { Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
-import { useTheme } from './useTheme';
-import {
-  TAB_HEADERS,
-  headerTitleOf,
-  largeTitleScreenOptions,
-  stackHeaderOptions,
-} from './screenHeaders';
+import { useStackHeaderOptions } from './TopSafeAreaContext';
+import { TAB_HEADERS, headerTitleOf, largeTitleScreenOptions } from './screenHeaders';
 
 export function TabStack({ tab }: { tab: string }) {
   const { t } = useTranslation();
-  const { isDark } = useTheme();
+  const headerOptions = useStackHeaderOptions();
   return (
-    <Stack screenOptions={stackHeaderOptions(Platform.OS, isDark)}>
+    <Stack screenOptions={headerOptions}>
       <Stack.Screen
         name="index"
         options={{

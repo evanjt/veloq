@@ -31,7 +31,10 @@ export const STORE_SHOTS: readonly StoreShot[] = [
   { stem: '06-fitness', layout: 'whole', source: 'captured', targets: PHONES },
   { stem: '07-strength', layout: 'detail', source: 'captured', targets: PHONES },
   { stem: '08-recording', layout: 'whole', source: 'captured', targets: PHONES },
-  { stem: '09-privacy', layout: 'whole', source: 'composed', targets: ['appstore'] },
+  // The fitness and strength shots carry their widget (SHOT_WIDGETS in store-panels.ts) on every
+  // store. Play's phone set is full at eight, so the composed shots are App Store only.
+  { stem: '09-widgets', layout: 'whole', source: 'composed', targets: ['appstore'] },
+  { stem: '10-privacy', layout: 'whole', source: 'composed', targets: ['appstore'] },
 ];
 
 /** The stems the capture flow takes, in the order it takes them. */

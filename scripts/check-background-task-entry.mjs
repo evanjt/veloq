@@ -35,11 +35,15 @@ function definesTask(path) {
   return found;
 }
 
+// Inline requires evaluate a module on first use, so an import that binds a name
+// is deferred until the name is read, which a headless launch never does. Only a
+// bare import, which binds nothing, stays in place at launch.
 function entryImports() {
   const imported = new Set();
   for (const statement of parse(entryPath).statements) {
     if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier))
       continue;
+    if (statement.importClause) continue;
     const specifier = statement.moduleSpecifier.text;
     if (!specifier.startsWith('.')) continue;
     const importedPath = resolve(dirname(entryPath), specifier);
@@ -57,6 +61,6 @@ const imported = entryImports();
 const missing = taskFiles.filter((path) => !imported.has(path));
 if (missing.length) {
   throw new Error(
-    `Background task modules missing from ${relative(root, entryPath)}: ${missing.map((path) => relative(root, path)).join(', ')}`
+    `Background task modules not imported for their side effect (a bare import) in ${relative(root, entryPath)}: ${missing.map((path) => relative(root, path)).join(', ')}`
   );
 }

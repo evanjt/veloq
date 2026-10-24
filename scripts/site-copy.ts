@@ -8,7 +8,10 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 const MARKER = /(<!-- store-copy:hook -->)([\s\S]*?)(<!-- \/store-copy:hook -->)/;
-const GALLERY_MARKER = /(\/\/ store-copy:gallery)([\s\S]*?)(\n([ \t]*)\/\/ \/store-copy:gallery)/;
+const GALLERY_MARKER =
+  /(<!-- store-copy:gallery -->)([\s\S]*?)(\n([ \t]*)<!-- \/store-copy:gallery -->)/;
+const README_STRIP_MARKER =
+  /(<!-- store-copy:readme-strip -->)([\s\S]*?)(\n<!-- \/store-copy:readme-strip -->)/;
 const GRID_MARKER =
   /(<!-- store-copy:features -->)([\s\S]*?)(\n[ \t]*<!-- \/store-copy:features -->)/;
 
@@ -168,30 +171,72 @@ export function syncSiteHook(html: string, hooks: Record<string, string>): strin
   return out;
 }
 
-/** A website screenshot: its file under docs/screenshots and the caption shown under it. */
+/** The screenshot sets the website offers, by the directory each is written under. */
+export type SitePlatform = 'android' | 'ios' | 'ipad';
+
+/** A website screenshot: its files under docs/screenshots, its size and the caption shown under it. */
 export interface SiteShot {
+  /** The light image, relative to docs/screenshots. */
   file: string;
+  /** The same shot on a dark stage, shown under prefers-color-scheme: dark. */
+  dark: string;
   caption: string;
+  width: number;
+  height: number;
 }
 
-/** The page with its screenshot gallery replaced by `shots`, in order. */
-export function syncSiteGallery(html: string, shots: SiteShot[]): string {
+/** The website's shots per platform, in the order the gallery shows them. */
+export type SiteSets = Record<SitePlatform, SiteShot[]>;
+
+/** The page with its screenshot gallery replaced by one list per platform, the first one with shots shown. */
+export function syncSiteGallery(html: string, sets: SiteSets): string {
   if (!GALLERY_MARKER.test(html))
     throw new Error('docs/index.html has no store-copy:gallery markers');
   return html.replace(
     GALLERY_MARKER,
     (_m, open: string, _old: string, close: string, indent: string) => {
-      const items = shots.map(({ file, caption }) =>
-        [
-          `\n${indent}{`,
-          `\n${indent}  type: "image",`,
-          `\n${indent}  src: ${JSON.stringify(`screenshots/${file}`)},`,
-          `\n${indent}  caption: ${JSON.stringify(caption)},`,
-          `\n${indent}},`,
-        ].join('')
+      const shown = (Object.keys(sets) as SitePlatform[]).filter(
+        (platform) => sets[platform].length > 0
       );
-      return `${open}${items.join('')}${close}`;
+      const lists = shown.map((platform) => {
+        const items = sets[platform].map(({ file, dark, caption, width, height }) =>
+          [
+            `\n${indent}  <li>`,
+            `\n${indent}    <figure>`,
+            `\n${indent}      <picture>`,
+            `\n${indent}        <source media="(prefers-color-scheme: dark)" srcset="screenshots/${dark}" />`,
+            `\n${indent}        <img src="screenshots/${file}" width="${width}" height="${height}" loading="lazy" alt="${escapeHtml(caption)}" />`,
+            `\n${indent}      </picture>`,
+            `\n${indent}      <figcaption>${escapeHtml(caption)}</figcaption>`,
+            `\n${indent}    </figure>`,
+            `\n${indent}  </li>`,
+          ].join('')
+        );
+        const hidden = platform === shown[0] ? '' : ' hidden';
+        return `\n${indent}<ol class="shots" data-platform="${platform}"${hidden}>${items.join('')}\n${indent}</ol>`;
+      });
+      return `${open}${lists.join('')}${close}`;
     }
+  );
+}
+
+/** How many of the Android shots the README strip shows, from the first. */
+export const README_STRIP_SHOTS = 6;
+
+/** The README with its screenshot strip replaced by the first Android shots, light images only. */
+export function syncReadmeStrip(readme: string, android: SiteShot[]): string {
+  if (!README_STRIP_MARKER.test(readme))
+    throw new Error('README.md has no store-copy:readme-strip markers');
+  const images = android
+    .slice(0, README_STRIP_SHOTS)
+    .map(
+      ({ file, caption }) =>
+        `  <img src="docs/screenshots/${file}" width="16%" alt="${escapeHtml(caption)}">`
+    );
+  return readme.replace(
+    README_STRIP_MARKER,
+    (_m, open: string, _old: string, close: string) =>
+      `${open}\n<p align="center">\n${images.join('\n')}\n</p>${close}`
   );
 }
 

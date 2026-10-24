@@ -26,7 +26,6 @@
     "latest_wellness_date": "wellness date read by tests",
     "library_uniformly_elevated": "elevation check read by tests",
     "record_section_algorithm_change": "history writer exercised by tests",
-    "record_section_superseded": "history writer exercised by tests",
     "route_identity_fingerprint": "fingerprint read by tests",
     "section_identity_fingerprint": "fingerprint read by tests",
     "wellness_summary": "wellness summary read by tests"

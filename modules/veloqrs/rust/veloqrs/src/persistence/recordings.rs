@@ -977,6 +977,171 @@ mod tests {
         assert_eq!(e.intervals_id("local-r1"), None);
     }
 
+    fn activity_ids(e: &PersistentEngine) -> Vec<String> {
+        let mut stmt =
+            e.db.prepare(
+                "SELECT id FROM activities UNION SELECT activity_id FROM activity_bodies ORDER BY 1",
+            )
+            .unwrap();
+        stmt.query_map([], |r| r.get(0))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect()
+    }
+
+    /// The page write the sync makes for one listed activity.
+    fn sync_lists(e: &mut PersistentEngine, server_id: &str) {
+        let local = e
+            .local_ids_for_intervals_ids(&[server_id.to_string()])
+            .unwrap();
+        let key = local.get(server_id).cloned().unwrap_or(server_id.into());
+        sync_lists_under(e, &key, server_id);
+    }
+
+    /// The page write with the key the sync chose before the write ran.
+    fn sync_lists_under(e: &mut PersistentEngine, key: &str, server_id: &str) {
+        let key = key.to_string();
+        let metrics = crate::net::intervals::metrics_from_body(
+            &format!(r#"{{"id":"{key}","start_date_local":"2026-01-02T08:00:00","type":"Walk"}}"#),
+            1_767_340_800,
+            &key,
+        )
+        .unwrap();
+        e.store_synced_activity_bodies(
+            "i1",
+            &[(
+                key.clone(),
+                1_767_340_800,
+                format!(
+                    r#"{{"id":"{key}","start_date_local":"2026-01-02T08:00:00","type":"Walk"}}"#
+                ),
+            )],
+            &[server_id.to_string()],
+            vec![metrics],
+        )
+        .unwrap();
+    }
+
+    fn track() -> Vec<crate::GpsPoint> {
+        (0..3)
+            .map(|i| crate::GpsPoint {
+                latitude: 46.0 + f64::from(i) * 0.001,
+                longitude: 7.0,
+                elevation: None,
+            })
+            .collect()
+    }
+
+    fn provisional_body(id: &str) -> crate::FfiActivityBody {
+        crate::FfiActivityBody {
+            activity_id: id.into(),
+            date: 1_767_340_800.0,
+            raw: format!(
+                r#"{{"id":"{id}","start_date_local":"2026-01-02T08:00:00","type":"Walk","distance":738.0,"moving_time":578}}"#
+            ),
+        }
+    }
+
+    /// Scenario: a walk is saved, its upload lands, and the sync lists the
+    /// server's copy and stores its track before the provisional row has
+    /// taken the server id.
+    /// Expected behaviour: when the id reaches the row, the library holds the
+    /// ride once, under the key the sync stored.
+    #[test]
+    fn a_ride_the_sync_stored_before_the_id_arrived_is_held_once() {
+        let (_dir, mut e) = engine();
+        let mut landed = entry("r1", 1_000, "uploaded");
+        landed.intervals_activity_id = Some("i42".into());
+        e.insert_recording(&landed).unwrap();
+        e.save_provisional_activity("local-r1", track(), &provisional_body("local-r1"))
+            .unwrap();
+        sync_lists(&mut e, "i42");
+        e.add_activity("i42".into(), track(), "Walk".into())
+            .unwrap();
+
+        e.set_recording_engine_activity("r1", "local-r1").unwrap();
+
+        assert_eq!(activity_ids(&e), vec!["i42".to_string()]);
+        assert!(e.get_recording("r1").unwrap().unwrap().engine_reconciled);
+    }
+
+    /// Scenario: the same walk, the id reaches the row first and the sync
+    /// lists the server's copy afterwards.
+    /// Expected behaviour: the listed ride lands on the provisional row.
+    #[test]
+    fn a_ride_the_sync_lists_after_the_id_arrived_is_held_once() {
+        let (_dir, mut e) = engine();
+        let mut landed = entry("r1", 1_000, "uploaded");
+        landed.intervals_activity_id = Some("i42".into());
+        e.insert_recording(&landed).unwrap();
+        e.save_provisional_activity("local-r1", track(), &provisional_body("local-r1"))
+            .unwrap();
+        e.set_recording_engine_activity("r1", "local-r1").unwrap();
+
+        sync_lists(&mut e, "i42");
+
+        assert_eq!(activity_ids(&e), vec!["local-r1".to_string()]);
+    }
+
+    /// Scenario: the walk has no track, and the sync lists the server's copy
+    /// before the id reaches the row.
+    /// Expected behaviour: the library holds the ride once.
+    #[test]
+    fn a_trackless_ride_the_sync_stored_first_is_held_once() {
+        let (_dir, mut e) = engine();
+        let mut landed = entry("r1", 1_000, "uploaded");
+        landed.intervals_activity_id = Some("i42".into());
+        e.insert_recording(&landed).unwrap();
+        e.save_provisional_activity("local-r1", Vec::new(), &provisional_body("local-r1"))
+            .unwrap();
+        sync_lists(&mut e, "i42");
+
+        e.set_recording_engine_activity("r1", "local-r1").unwrap();
+
+        assert_eq!(activity_ids(&e).len(), 1, "{:?}", activity_ids(&e));
+    }
+
+    /// Scenario: the sync reads which stored row claims the listed id, the
+    /// upload's id then reaches the provisional row, and only then does the
+    /// page write land, still keyed by the server's id.
+    /// Expected behaviour: the page is stored on the claiming row, the ride is
+    /// held once, and a later track under the server's id is not refused.
+    #[test]
+    fn a_page_keyed_before_the_claim_lands_on_the_claiming_row() {
+        let (_dir, mut e) = engine();
+        e.save_provisional_activity("local-r1", track(), &provisional_body("local-r1"))
+            .unwrap();
+        assert!(e.record_upload("local-r1", "i42").unwrap());
+
+        sync_lists_under(&mut e, "i42", "i42");
+
+        assert_eq!(activity_ids(&e), vec!["local-r1".to_string()]);
+        assert!(e.activity_metrics.contains_key("local-r1"));
+        assert!(!e.activity_metrics.contains_key("i42"));
+    }
+
+    /// Scenario: a library already holds the server-keyed copy beside the row
+    /// that claims the id, as that race left it.
+    /// Expected behaviour: the next page write removes the copy.
+    #[test]
+    fn a_server_keyed_copy_beside_the_claiming_row_is_removed_by_the_next_page() {
+        let (_dir, mut e) = engine();
+        e.save_provisional_activity("local-r1", track(), &provisional_body("local-r1"))
+            .unwrap();
+        assert!(e.record_upload("local-r1", "i42").unwrap());
+        // The state the race left: a body and metrics under the server's key.
+        e.db.execute(
+            "INSERT INTO activity_bodies (activity_id, date, raw, updated_at) VALUES ('i42', 1767340800, '{}', 0)",
+            [],
+        )
+        .unwrap();
+        assert_eq!(activity_ids(&e).len(), 2);
+
+        sync_lists_under(&mut e, "local-r1", "i42");
+
+        assert_eq!(activity_ids(&e), vec!["local-r1".to_string()]);
+    }
+
     fn stamped(id: &str, created_at: i64, athlete: Option<&str>) -> FfiRecordingEntry {
         let mut row = entry(id, created_at, "pending");
         row.athlete_id = athlete.map(str::to_string);

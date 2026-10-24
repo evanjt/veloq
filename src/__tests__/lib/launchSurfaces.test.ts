@@ -6,7 +6,7 @@
  * Expected behaviour: a launch raises one modal at most, and a first load raises
  * none: the tour is an ask on the feed after the quiet period. A rebuilt library
  * raises its notice. What's New after an update
- * is never a modal: it is a feed card, kept out of the quiet period, away from a
+ * is never a modal: it is a feed card, not held by the quiet period, away from a
  * restore offer and from under a modal, and it takes no ask's slot. The restore
  * offer is never a modal. The quiet period lasts until a sync has settled clean
  * and the athlete has used the app on a second local day, and inside it only the
@@ -42,6 +42,7 @@ const quiet: LaunchFacts = {
   tourOpen: false,
   firstSyncSettled: true,
   useDays: 2,
+  launches: 2,
   sessionAsk: null,
   eligibleAsks: [],
 };
@@ -303,9 +304,21 @@ describe('the What’s New card after an update', () => {
     expect(launchSurfaces({ ...updated, lastSeenVersion: null }).whatsNewCard).toBeNull();
   });
 
-  it('shows nothing in the quiet period, or before the days of use are counted', () => {
-    expect(launchSurfaces({ ...updated, ...quietPeriod }).whatsNewCard).toBeNull();
+  it('shows nothing before the days of use are counted', () => {
     expect(launchSurfaces({ ...updated, useDays: null }).whatsNewCard).toBeNull();
+  });
+
+  it('shows on the first launch after an update, whose usage record is new', () => {
+    expect(launchSurfaces({ ...updated, ...quietPeriod }).whatsNewCard).toEqual({
+      version: '0.4.1',
+      slideCount: 1,
+    });
+  });
+
+  it('shows nothing in the quiet period of a first load', () => {
+    expect(
+      launchSurfaces({ ...updated, ...quietPeriod, lastSeenVersion: null }).whatsNewCard
+    ).toBeNull();
   });
 
   it('shows nothing beside a restore offer', () => {
@@ -326,6 +339,55 @@ describe('the What’s New card after an update', () => {
     const surfaces = launchSurfaces({ ...updated, ...eligible('support') });
     expect(surfaces.whatsNewCard).not.toBeNull();
     expect(surfaces.ask).toBe('support');
+  });
+});
+
+describe('the notification card', () => {
+  const update: LaunchFacts = { ...quiet, currentVersion: '0.4.1', missedSlideCount: 1 };
+  const asked = (facts: Partial<LaunchFacts>) =>
+    launchSurfaces({ ...quiet, ...eligible('notifications'), ...facts }).ask;
+
+  it('is held back on the first launch of a fresh install and of an update', () => {
+    expect(asked({ launches: 1 })).toBeNull();
+    expect(asked({ ...update, launches: 1, ...eligible('notifications') })).toBeNull();
+  });
+
+  it('is held back until the launches are counted', () => {
+    expect(asked({ launches: null })).toBeNull();
+  });
+
+  it('asks on the second launch, inside the quiet period too', () => {
+    expect(asked({})).toBe('notifications');
+    expect(asked({ ...quietPeriod, launches: 2 })).toBe('notifications');
+  });
+
+  it('waits while the tour is still to be offered, which carries the notification ask', () => {
+    expect(asked({ lastSeenVersion: null })).toBeNull();
+  });
+
+  it('keeps away from a What’s New card still unanswered on the second launch', () => {
+    const surfaces = launchSurfaces({ ...update, ...eligible('notifications') });
+    expect(surfaces.whatsNewCard).not.toBeNull();
+    expect(surfaces.ask).toBeNull();
+  });
+
+  it('shows nothing under a modal or the tour', () => {
+    expect(asked({ taken: 'libraryRebuilt' })).toBeNull();
+    expect(asked({ tourOpen: true })).toBeNull();
+  });
+
+  it('yields to the sections notice, the series consent and the tour offer', () => {
+    expect(asked(eligible('notifications', 'sectionsChanged'))).toBe('sectionsChanged');
+    expect(asked(eligible('notifications', 'seriesConsent'))).toBe('seriesConsent');
+    expect(asked(eligible('notifications', 'tourOffer'))).toBe('tourOffer');
+  });
+
+  it('comes before the support card', () => {
+    expect(asked(eligible('support', 'notifications'))).toBe('notifications');
+  });
+
+  it('is withdrawn once the card reports nothing to ask', () => {
+    expect(asked({ ...eligible(), sessionAsk: 'notifications' })).toBeNull();
   });
 });
 
@@ -405,5 +467,37 @@ describe('the quiet period across launches', () => {
     await launchAt(1, 8);
     expect(useWhatsNewStore.getState().firstSyncSettled).toBe(true);
     expect(JSON.parse(mockRows.get('veloq-usage') ?? '{}').firstSyncSettled).toBe(true);
+  });
+});
+
+describe('the sections-changed ask', () => {
+  it('is picked ahead of the series consent and the tour offer', () => {
+    const asks = eligible('tourOffer', 'seriesConsent', 'sectionsChanged', 'support');
+    expect(launchSurfaces({ ...quiet, ...asks }).ask).toBe('sectionsChanged');
+  });
+
+  it('comes after the restore offer', () => {
+    const verdict = launchSurfaces({
+      ...quiet,
+      restoreOffered: true,
+      ...eligible('sectionsChanged'),
+    });
+    expect(verdict.ask).toBe('restore');
+  });
+
+  it('is allowed while the quiet period holds, ahead of the tour offer', () => {
+    const verdict = launchSurfaces({
+      ...quiet,
+      ...quietPeriod,
+      ...eligible('tourOffer', 'sectionsChanged'),
+    });
+    expect(verdict.ask).toBe('sectionsChanged');
+  });
+
+  it('is never picked when it is not eligible', () => {
+    expect(launchSurfaces({ ...quiet, ...eligible('seriesConsent') }).ask).toBe('seriesConsent');
+    expect(
+      launchSurfaces({ ...quiet, ...quietPeriod, ...eligible('seriesConsent') }).ask
+    ).toBeNull();
   });
 });

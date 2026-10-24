@@ -126,9 +126,15 @@ onFlowComplete:
     timeout: 10000
 
 # The saved ride is on the feed under the name it was given. The provisional
-# row is written at save time, so no sync is needed for it to appear.
-- extendedWaitUntil:
-    visible: "Test Ride 2025"
-    timeout: 10000
+# row is written at save time, so no sync is needed for it to appear. On iOS
+# the card is inside the system menu's link, which an automation driver does
+# not list, so only Android reads the name.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - extendedWaitUntil:
+          visible: "Test Ride 2025"
+          timeout: 10000
 
 - takeScreenshot: "screenshots/recording-review-complete"

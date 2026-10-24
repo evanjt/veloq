@@ -246,3 +246,102 @@ fn test_ready_owed_activity_returns_a_refused_credential() {
         Err(NetError::Unauthorized)
     ));
 }
+
+/// Scenario: a library synced before a saved walk was kept once holds the
+/// recording's row, which claims the server's id, and a trackless copy keyed
+/// by that id beside it. The first-use pass finds the copy owing its track.
+///
+/// Expected behaviour: the pass ends clean, the copy is gone, and the walk is
+/// held once, under the recording's key, with its track.
+#[test]
+fn test_first_use_pass_settles_a_server_keyed_copy_beside_its_claiming_row() {
+    let _guard = serial_global_state();
+    let _dir = crate::test_globals::init_global_engine("first-use-queue.db");
+    let walk = (0..3)
+        .map(|i| crate::GpsPoint {
+            latitude: 46.0 + f64::from(i) * 0.001,
+            longitude: 7.0,
+            elevation: None,
+        })
+        .collect::<Vec<_>>();
+    let body = |id: &str| crate::FfiActivityBody {
+        activity_id: id.into(),
+        date: 1_767_340_800.0,
+        raw: format!(
+            r#"{{"id":"{id}","icu_athlete_id":"i1","start_date_local":"2026-01-02T08:00:00","type":"Walk"}}"#
+        ),
+    };
+    with_persistent_engine(|engine| {
+        engine
+            .save_provisional_activity("local-w1", walk, &body("local-w1"))
+            .expect("save walk");
+        assert!(engine.record_upload("local-w1", "i42").expect("upload"));
+        engine
+            .db
+            .execute(
+                "INSERT INTO activity_bodies (activity_id, date, raw, updated_at)
+                 VALUES ('i42', 1767340800, ?1, 0)",
+                [body("i42").raw],
+            )
+            .expect("copy body");
+        engine
+            .set_activity_metrics(vec![ActivityMetrics {
+                activity_id: "i42".into(),
+                name: "Walk".into(),
+                date: 1_767_340_800,
+                distance: 700.0,
+                moving_time: 500,
+                elapsed_time: 500,
+                elevation_gain: 0.0,
+                avg_hr: None,
+                avg_power: None,
+                sport_type: "Walk".into(),
+                training_load: None,
+                ftp: None,
+                power_zone_times: None,
+                hr_zone_times: None,
+            }])
+            .expect("copy metrics");
+    })
+    .expect("engine");
+    // The claiming row itself still owes its bodies, asked under the server's id.
+    let server = MockServer::start();
+    server.mock(|when, then| {
+        when.method(GET).path("/activity/i42/streams.json");
+        then.status(200).json_body(json!([
+            {"type": "latlng", "data": [46.0, 46.001, 46.002], "data2": [7.0, 7.0, 7.0]}
+        ]));
+    });
+    server.mock(|when, then| {
+        when.method(GET).path("/activity/i42/intervals");
+        then.status(200).json_body(json!({"icu_intervals": []}));
+    });
+    server.mock(|when, then| {
+        when.method(GET).path("/athlete/i1/activities/i42");
+        then.status(200)
+            .json_body(json!([{"id": "i42", "icu_athlete_id": "i1",
+            "start_date_local": "2026-01-02T08:00:00", "type": "Walk", "icu_intervals": []}]));
+    });
+    server.mock(|when, then| {
+        when.method(GET).path("/activity/i42");
+        then.status(200)
+            .json_body(json!({"id": "i42", "icu_athlete_id": "i1",
+            "start_date_local": "2026-01-02T08:00:00", "type": "Walk"}));
+    });
+
+    let outcome = run_with_bulk(&server, false);
+
+    let held = with_persistent_engine(|engine| {
+        let mut stmt = engine
+            .db
+            .prepare("SELECT id FROM activities UNION SELECT activity_id FROM activity_bodies ORDER BY 1")
+            .unwrap();
+        stmt.query_map([], |r| r.get::<_, String>(0))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect::<Vec<_>>()
+    })
+    .expect("engine");
+    assert!(outcome.is_ok(), "{outcome:?}");
+    assert_eq!(held, vec!["local-w1".to_string()]);
+}

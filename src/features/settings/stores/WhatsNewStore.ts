@@ -20,6 +20,8 @@ import { countUseDay, persistUsage, readUsage, sameUsage, type Usage } from '../
 const WHATS_NEW_KEY = 'veloq-whats-new-seen';
 /** The tour offer's record. This install's bookkeeping, like the days of use, so no backup carries it. */
 const TOUR_OFFER_KEY = 'veloq-tour-offer';
+/** Set once the athlete has answered the sections-changed card. A device choice, so no backup carries it. */
+const SECTIONS_CHANGED_KEY = 'veloq-sections-changed-dismissed';
 
 interface TourState {
   mode: 'whatsNew' | 'tutorial';
@@ -54,6 +56,8 @@ interface WhatsNewState extends Usage {
   tourOffer: TourOfferRecord;
   /** The tour offer was answered or a tour closed in this session. Never persisted. */
   tourOfferSettled: boolean;
+  /** The athlete has dismissed the card that says the sections were re-cut. */
+  sectionsChangedDismissed: boolean;
 
   initialise: () => Promise<void>;
   countUse: () => Promise<void>;
@@ -77,6 +81,8 @@ interface WhatsNewState extends Usage {
   takeTourOffer: (only?: SetupSlide[], held?: SetupSlide[]) => void;
   /** Not now on the offer card. The second ends the offer and marks the tour seen. */
   declineTourOffer: (currentVersion: string) => Promise<void>;
+  /** Not now on the sections-changed card: it stays hidden after a relaunch too. */
+  dismissSectionsChanged: () => void;
   answerSetup: (slide: SetupSlide, answer: SetupAnswer) => void;
 }
 
@@ -97,20 +103,24 @@ export const useWhatsNewStore = create<WhatsNewState>((set, get) => ({
   firstUseDate: null,
   lastUseDate: null,
   useDays: 0,
+  launches: 0,
   firstSyncSettled: false,
   usageLoaded: false,
   tourOffer: NO_TOUR_OFFER,
   tourOfferSettled: false,
+  sectionsChangedDismissed: false,
 
   initialise: async () => {
     try {
-      const [stored, offer] = await Promise.all([
+      const [stored, offer, sectionsChanged] = await Promise.all([
         getSetting(WHATS_NEW_KEY),
         getSetting(TOUR_OFFER_KEY),
+        getSetting(SECTIONS_CHANGED_KEY),
       ]);
       set({
         ...(stored ? { lastSeenVersion: stored } : {}),
         tourOffer: parseTourOffer(offer),
+        sectionsChangedDismissed: sectionsChanged === 'true',
         isLoaded: true,
       });
     } catch {
@@ -121,9 +131,12 @@ export const useWhatsNewStore = create<WhatsNewState>((set, get) => ({
 
   // Counted once per launch; a second count on the same local day adds nothing.
   countUse: async () => {
+    const counted = get().usageLoaded;
     const { stored, prior } = await readUsage();
     const next: Usage = {
       ...countUseDay(prior, formatLocalDate(new Date())),
+      // Read again after a restore in the same process, the launch is not a new one.
+      launches: prior.launches + (counted ? 0 : 1),
       // A clean settle noted before the record was read is kept, not overwritten.
       firstSyncSettled: prior.firstSyncSettled || get().firstSyncSettled,
     };
@@ -243,6 +256,13 @@ export const useWhatsNewStore = create<WhatsNewState>((set, get) => ({
     set({ tourOffer: next, tourOfferSettled: true });
     persistTourOffer(next);
     if (!leftover && offerEnded(next)) await markSeen(currentVersion);
+  },
+
+  dismissSectionsChanged: () => {
+    set({ sectionsChangedDismissed: true });
+    setSetting(SECTIONS_CHANGED_KEY, 'true').catch((e) => {
+      if (__DEV__) console.warn('[sections changed] persist failed:', e);
+    });
   },
 
   answerSetup: (slide, answer) => {

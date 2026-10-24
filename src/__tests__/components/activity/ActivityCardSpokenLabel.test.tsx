@@ -9,6 +9,7 @@
  */
 
 import React from 'react';
+import { Platform } from 'react-native';
 import { render, screen } from '@testing-library/react-native';
 
 import { initialiseI18n } from '@/i18n';
@@ -84,6 +85,16 @@ const buttonNames = () =>
     .getAllByRole('button')
     .map((node) => String(node.props.accessibilityLabel ?? ''))
     .filter(Boolean);
+
+// The card's press target carries its id and label where the system menu is
+// not in front of it; on iOS a separate inert view carries the id.
+const platformOS = Platform.OS;
+beforeAll(() => {
+  Platform.OS = 'android';
+});
+afterAll(() => {
+  Platform.OS = platformOS;
+});
 
 beforeAll(async () => {
   await initialiseI18n();

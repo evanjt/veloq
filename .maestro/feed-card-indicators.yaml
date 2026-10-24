@@ -49,84 +49,91 @@ tags:
     env:
       ELEMENT: "activity-card-demo-test-7"
       LIST: "home-activity-list"
-- extendedWaitUntil:
-    visible:
-      id: "activity-card-demo-test-7-section-chip"
-    timeout: 300000
-- assertVisible:
-    id: "activity-card-demo-test-7-pr-pill"
-
-# Bring the stable fixture into view before testing its optional indicators.
-# Otherwise these branches silently skip when a date-generated card is visible.
-- runFlow:
-    file: helpers/reveal.yaml
-    env:
-      ELEMENT: "activity-card-demo-test-0"
-      LIST: "home-activity-list"
-
-# ====================================================================
-# US-F2: PR count parity, if demo-test-0 has a section chip, count PR
-# trophies after navigating in and compare.
-# ====================================================================
+# On iOS the card is inside the system menu's link, which an automation driver
+# does not list, so its id is the most the driver reads there and the chips and
+# pills inside it are checked on Android only.
 - runFlow:
     when:
-      visible:
-        id: "activity-card-demo-test-0-section-chip"
+      platform: Android
     commands:
-      # Visible can still mean behind the tab bar or floating record button.
+      - extendedWaitUntil:
+          visible:
+            id: "activity-card-demo-test-7-section-chip"
+          timeout: 300000
+      - assertVisible:
+          id: "activity-card-demo-test-7-pr-pill"
+
+      # Bring the stable fixture into view before testing its optional indicators.
+      # Otherwise these branches silently skip when a date-generated card is visible.
       - runFlow:
           file: helpers/reveal.yaml
           env:
-            ELEMENT: "activity-card-demo-test-0-section-chip"
+            ELEMENT: "activity-card-demo-test-0"
             LIST: "home-activity-list"
-      - takeScreenshot: "screenshots/feed-indicators-demo-0-chip"
 
-      # Tap chip → Sections tab
-      - tapOn:
-          id: "activity-card-demo-test-0-section-chip"
-      - extendedWaitUntil:
-          visible:
-            id: "activity-sections-list"
-          timeout: 20000
-
-      - takeScreenshot: "screenshots/feed-indicators-sections-tab"
-
-      # If the feed showed a PR pill with count N, there should be N trophies.
-      # demo-test-0 typically has 0 section PRs (visits=0 in current fixture),
-      # so we check the inverse: if no pr-pill on feed, no trophies in tab.
+      # ====================================================================
+      # US-F2: PR count parity, if demo-test-0 has a section chip, count PR
+      # trophies after navigating in and compare.
+      # ====================================================================
       - runFlow:
           when:
             visible:
-              id: "activity-card-demo-test-0-pr-pill"
+              id: "activity-card-demo-test-0-section-chip"
           commands:
-            # At least one trophy must be visible in the sections list
-            - assertVisible:
-                id: "section-inline-trophy-0"
+            # Visible can still mean behind the tab bar or floating record button.
+            - runFlow:
+                file: helpers/reveal.yaml
+                env:
+                  ELEMENT: "activity-card-demo-test-0-section-chip"
+                  LIST: "home-activity-list"
+            - takeScreenshot: "screenshots/feed-indicators-demo-0-chip"
 
-      - back
+            # Tap chip → Sections tab
+            - tapOn:
+                id: "activity-card-demo-test-0-section-chip"
+            - extendedWaitUntil:
+                visible:
+                  id: "activity-sections-list"
+                timeout: 20000
 
-# ====================================================================
-# Route chip: if demo-test-0 has one, tapping it lands on Routes tab.
-# ====================================================================
-- runFlow:
-    when:
-      visible:
-        id: "activity-card-demo-test-0-route-chip"
-    commands:
-      # Visible can still mean behind the tab bar or floating record button.
+            - takeScreenshot: "screenshots/feed-indicators-sections-tab"
+
+            # If the feed showed a PR pill with count N, there should be N trophies.
+            # demo-test-0 typically has 0 section PRs (visits=0 in current fixture),
+            # so we check the inverse: if no pr-pill on feed, no trophies in tab.
+            - runFlow:
+                when:
+                  visible:
+                    id: "activity-card-demo-test-0-pr-pill"
+                commands:
+                  # At least one trophy must be visible in the sections list
+                  - assertVisible:
+                      id: "section-inline-trophy-0"
+
+            - back
+
+      # ====================================================================
+      # Route chip: if demo-test-0 has one, tapping it lands on Routes tab.
+      # ====================================================================
       - runFlow:
-          file: helpers/reveal.yaml
-          env:
-            ELEMENT: "activity-card-demo-test-0-route-chip"
-            LIST: "home-activity-list"
-      - takeScreenshot: "screenshots/feed-indicators-demo-0-route-chip"
-      - tapOn:
-          id: "activity-card-demo-test-0-route-chip"
-      - extendedWaitUntil:
-          visible:
-            id: "activity-detail-screen"
-          timeout: 20000
-      - takeScreenshot: "screenshots/feed-indicators-route-tab"
+          when:
+            visible:
+              id: "activity-card-demo-test-0-route-chip"
+          commands:
+            # Visible can still mean behind the tab bar or floating record button.
+            - runFlow:
+                file: helpers/reveal.yaml
+                env:
+                  ELEMENT: "activity-card-demo-test-0-route-chip"
+                  LIST: "home-activity-list"
+            - takeScreenshot: "screenshots/feed-indicators-demo-0-route-chip"
+            - tapOn:
+                id: "activity-card-demo-test-0-route-chip"
+            - extendedWaitUntil:
+                visible:
+                  id: "activity-detail-screen"
+                timeout: 20000
+            - takeScreenshot: "screenshots/feed-indicators-route-tab"
 
 - assertNotVisible:
     text: "NaN"

@@ -1217,11 +1217,25 @@ pub(super) fn append_superseded_pair_on(
     new_id: &str,
     overlap_fraction: Option<f64>,
 ) -> rusqlite::Result<(i64, i64)> {
-    let old_details = serde_json::json!({
-        "superseded_by": new_id,
-        "overlap_fraction": overlap_fraction,
-    })
-    .to_string();
+    append_superseded_pair_with_on(conn, old_id, new_id, overlap_fraction, Default::default())
+}
+
+/// [`append_superseded_pair_on`] with `snapshot` merged into the retired id's
+/// event: what a section that is leaving the catalogue looked like, read
+/// before its row is deleted.
+pub(super) fn append_superseded_pair_with_on(
+    conn: &rusqlite::Connection,
+    old_id: &str,
+    new_id: &str,
+    overlap_fraction: Option<f64>,
+    mut snapshot: serde_json::Map<String, serde_json::Value>,
+) -> rusqlite::Result<(i64, i64)> {
+    snapshot.insert("superseded_by".into(), serde_json::json!(new_id));
+    snapshot.insert(
+        "overlap_fraction".into(),
+        serde_json::json!(overlap_fraction),
+    );
+    let old_details = serde_json::Value::Object(snapshot).to_string();
     let new_details = serde_json::json!({
         "supersedes": old_id,
         "overlap_fraction": overlap_fraction,
@@ -1936,7 +1950,7 @@ pub(crate) mod pooled {
                     .get("distance_meters")
                     .and_then(|v| v.as_f64())
                     .or_else(|| retired_distance(conn, &section_id, &versions));
-                let restorable_version = restorable_version(conn, &section_id);
+                let restorable_version = restorable_version_of(conn, &section_id);
                 RetiredSection {
                     section_id,
                     kind,
@@ -1953,7 +1967,10 @@ pub(crate) mod pooled {
 
     /// The newest archived state of `section_id` that names a sport: the
     /// same rule `recreate_retired_section` applies before it refuses.
-    fn restorable_version(conn: &Connection, section_id: &str) -> Option<crate::WholeNumber> {
+    pub(crate) fn restorable_version_of(
+        conn: &Connection,
+        section_id: &str,
+    ) -> Option<crate::WholeNumber> {
         let mut stmt = conn
             .prepare(
                 "SELECT geometry_version, details FROM section_history

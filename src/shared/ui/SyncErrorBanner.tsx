@@ -11,12 +11,17 @@
  * message. The message stays as the fallback for a reason a shipped build has
  * no string for, which is what an engine newer than the bundle produces.
  *
- * A failure that can pass on its own offers a retry, which asks the engine for
- * a sync and leaves the running of it to the engine. A refused login or a
- * missing one cannot pass that way, so it offers none.
+ * Every fault offers a next step. A login the engine cannot use offers to
+ * sign in again. A full device is the one reason the athlete can fix from
+ * here, so it carries an action to the screen where space is freed. Any other
+ * failure offers a retry, which asks the engine for a sync and leaves the
+ * running of it to the engine: a defect that clears after an update or on its
+ * own then clears without the athlete doing more.
  *
- * A full device is the one reason the athlete can fix from here, so it carries
- * an action to the screen where space is freed.
+ * The banner can be closed. Closing hides it for the failure it was closed on:
+ * the same reason with no sync completing since. A different reason, or a sync
+ * that completes and then fails again, shows it again, so closing never hides
+ * a new fault.
  *
  * A run that ended on a refusal from intervals.icu carries the time the
  * engine asks again. That is a pause the engine resumes on its own, not a
@@ -24,7 +29,7 @@
  * and this banner draws nothing.
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SyncErrorReason } from 'veloqrs';
 
@@ -37,12 +42,10 @@ import { formatDateTime } from '@/shared/format';
 import { SYNC_ERROR_REASON_KEY } from '@/shared/format/syncErrorReason';
 import { NoticeBanner, type NoticeAction } from './NoticeBanner';
 
-/** The reasons a later sync can get past without the athlete changing anything. */
-const RETRYABLE: ReadonlySet<SyncErrorReason> = new Set([
-  SyncErrorReason.Network,
-  SyncErrorReason.Server,
-  SyncErrorReason.RateLimited,
-  SyncErrorReason.Internal,
+/** The reasons only a new login can clear. */
+const NEEDS_LOGIN: ReadonlySet<SyncErrorReason> = new Set([
+  SyncErrorReason.Unauthorized,
+  SyncErrorReason.NotConfigured,
 ]);
 
 function retry() {
@@ -55,6 +58,7 @@ export function SyncErrorBanner() {
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
   const { offlineBannerShown } = useNetwork();
   const { lastError, lastErrorReason, lastSuccessAt, retryAtMs } = useSyncHealth();
+  const [closedOn, setClosedOn] = useState<string | null>(null);
 
   // The offline pill already owns the no-connection case, and a sync cannot
   // progress offline, so this one gives way when the pill shows and not before:
@@ -73,6 +77,11 @@ export function SyncErrorBanner() {
     return null;
   }
 
+  // What a close applies to: the reason, or the engine's message when it gave
+  // none, and the last clean sync, which moves when a sync completes.
+  const failure = `${lastErrorReason ?? lastError}|${lastSuccessAt}`;
+  if (closedOn === failure) return null;
+
   const actions: NoticeAction[] = [];
   if (lastErrorReason === SyncErrorReason.StorageFull) {
     actions.push({
@@ -81,7 +90,13 @@ export function SyncErrorBanner() {
       testID: 'sync-error-free-space',
     });
   }
-  if (lastErrorReason !== null && RETRYABLE.has(lastErrorReason)) {
+  if (lastErrorReason !== null && NEEDS_LOGIN.has(lastErrorReason)) {
+    actions.push({
+      label: t('feed.emptyLibrary.signInAgain'),
+      onPress: () => navigateTo('/login'),
+      testID: 'sync-error-sign-in',
+    });
+  } else if (lastErrorReason !== SyncErrorReason.StorageFull) {
     actions.push({ label: t('common.retry'), onPress: retry, testID: 'sync-error-banner-retry' });
   }
 
@@ -98,6 +113,7 @@ export function SyncErrorBanner() {
           : t('emptyState.syncError.neverSynced'),
       ]}
       actions={actions}
+      onDismiss={() => setClosedOn(failure)}
       testID="sync-error-banner"
     />
   );

@@ -1252,6 +1252,10 @@ interface NativeModuleInterface {
     uniffiSelf: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_retired_map(
+    uniffiSelf: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_sections(
     uniffiSelf: bigint,
     filter: Uint8Array,
@@ -1306,6 +1310,11 @@ interface NativeModuleInterface {
     secondaryId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_prefer_section(
+    uniffiSelf: bigint,
+    kept: Uint8Array,
+    other: Uint8Array,
+  ): bigint;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_rematch_activity_to_section(
     uniffiSelf: bigint,
     activityId: Uint8Array,
@@ -1985,6 +1994,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_pinned_version(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_reference_info(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_retired(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_retired_map(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_sections(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_summaries(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_workout_sections(): number;
@@ -1994,6 +2004,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_load_detail_performance(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_match_activity_to_sections(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_merge_preview(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_prefer_section(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_rematch_activity_to_section(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_remove_named_corridor(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_run_section_bounds_edit(): number;

@@ -457,6 +457,8 @@ export const CLIENT_UNREACHED_ALLOWED: Record<string, string> = {
   getAvailableSportTypes: 'no production caller; not yet deleted or wired',
   getWellnessLatestDate: 'no production caller; not yet deleted or wired',
   suggestExportHome: 'no production caller; not yet deleted or wired',
+  preferSection:
+    'no production caller yet; the retired sections list is where the athlete prefers one of a pair',
 };
 
 /**

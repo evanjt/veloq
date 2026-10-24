@@ -571,6 +571,13 @@ impl SectionManager {
         with_reader(history::retired_sections)
     }
 
+    /// The old-versus-new sections map in one read: the retired sections with
+    /// their lines, every catalogue row, and the pairs between them. Cached
+    /// under the read stamp, so a selection on the map reads nothing.
+    fn get_retired_map(&self) -> Result<crate::FfiRetiredMapData, VeloqError> {
+        with_reader(|conn| (*crate::persistence::screens::pooled::retired_map_data(conn)).clone())
+    }
+
     fn delete(&self, section_id: String) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.delete_section(&section_id)
@@ -610,6 +617,18 @@ impl SectionManager {
     ) -> Result<Vec<crate::FfiDepartedRide>, VeloqError> {
         let slot = InFlight::claim(&SECTION_EDIT_IN_FLIGHT, "A section edit is already running")?;
         bounds_edit_for(crate::persistence::engine_install(), edit, slot).await
+    }
+
+    /// Keep `kept` and let `other` leave the catalogue with a ledger row naming
+    /// `kept`: the other of an overlapping restored-and-auto pair is hidden
+    /// behind it or retired to the list, never deleted. Shares the one-edit
+    /// slot with the bounds edits, since both hold the write lock.
+    pub async fn prefer_section(&self, kept: String, other: String) -> Result<(), VeloqError> {
+        let slot = InFlight::claim(&SECTION_EDIT_IN_FLIGHT, "A section edit is already running")?;
+        section_edit_for(crate::persistence::engine_install(), slot, move |e| {
+            e.prefer_section(&kept, &other)
+        })
+        .await
     }
 
     fn disable(&self, section_id: String) -> Result<(), VeloqError> {

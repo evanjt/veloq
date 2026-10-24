@@ -134,6 +134,18 @@ export function phoneHtml(
   screen: string,
   layout: ShotLayout = 'whole'
 ): string {
+  return deviceHtml(p, d, caption, `<img class="screen" src="file://${screen}">`, layout);
+}
+
+/** A device whose screen is the given markup, under the caption. */
+export function deviceHtml(
+  p: StorePalette,
+  d: Dims,
+  caption: Caption,
+  screenHtml: string,
+  layout: ShotLayout = 'whole',
+  extraCss = ''
+): string {
   const f = deviceFrame(d.kind, d, layout);
   const cutout = f.cutout
     ? `<div class="cutout ${f.cutout.shape}" style="left:${f.bezel + f.cutout.left}px;top:${f.bezel + f.cutout.top}px;width:${f.cutout.width}px;height:${f.cutout.height}px"></div>`
@@ -147,6 +159,7 @@ ${makeCss(p)}
   --headh: ${d.headH}px; --devw: ${f.outerWidth}px; --devh: ${f.outerHeight}px; --devr: ${f.outerRadius}px;
   --scr: ${f.screenRadius}px; --bezel: ${f.bezel}px;
 }
+${extraCss}
 </style></head>
 <body>
   ${tracks}
@@ -157,8 +170,35 @@ ${makeCss(p)}
       <div class="sub">${caption.sub}</div>
     </div>
     <div class="stage">
-      <div class="device"><img class="screen" src="file://${screen}">${cutout}</div>
+      <div class="device">${screenHtml}${cutout}</div>
     </div>
+  </div>
+</body></html>
+`;
+}
+
+/** The caption over a body of markup, with no device. */
+export function textPanelHtml(
+  p: StorePalette,
+  d: Dims,
+  caption: Caption,
+  bodyHtml: string,
+  extraCss = ''
+): string {
+  const tracks = trackSvg(trackLayer(d.width, d.height), p.line, Math.max(2, d.width / 360));
+  return `<!doctype html>
+<html><head><meta charset="utf-8"><style>
+${makeCss(p)}
+:root { --pad: ${d.pad}px; --cap: ${d.cap}px; --sub: ${d.sub}px; --kicker: ${d.kicker}px; }
+${extraCss}
+</style></head>
+<body>
+  ${tracks}
+  <div class="canvas">
+    ${kickerHtml(caption)}
+    <div class="caption">${caption.cap}</div>
+    <div class="sub">${caption.sub}</div>
+    ${bodyHtml}
   </div>
 </body></html>
 `;

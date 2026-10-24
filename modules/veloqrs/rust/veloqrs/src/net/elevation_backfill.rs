@@ -247,16 +247,41 @@ pub fn resume_ladder_after_cooldown(
     mut attempt: impl FnMut(),
 ) {
     let mut attempts = 0usize;
+    let mut last_remaining = remaining();
     loop {
-        let wait = resume_wait(attempts).max(cooldown_left().unwrap_or_default());
+        // A pass that drained part of the queue since the last rung was
+        // healthy, so the next follows at once and the climb starts again from
+        // the bottom. Only a pass that moved nothing waits and climbs.
+        let drained = matches!(
+            (remaining(), last_remaining),
+            (Some(now), Some(before)) if now < before
+        );
+        let rung = if drained {
+            Duration::ZERO
+        } else {
+            resume_wait(attempts)
+        };
+        let wait = rung.max(cooldown_left().unwrap_or_default());
         if !sleep(wait) {
             return;
         }
-        attempts += 1;
+        attempts = if drained { 0 } else { attempts + 1 };
+        let left = remaining();
         // Zero is the one answer that ends the ladder for good. A queue that
         // cannot be read is not an empty one, so it climbs and asks again.
-        if remaining() == Some(0) {
+        if left == Some(0) {
             return;
+        }
+        // The ladder is for a connection that is failing. A queue that shrank
+        // since the last rung is being drained, so the climb starts again from
+        // the bottom and a slow healthy drain never reaches the long waits.
+        if let (Some(now), Some(before)) = (left, last_remaining)
+            && now < before
+        {
+            attempts = 0;
+        }
+        if left.is_some() {
+            last_remaining = left;
         }
         // A destroyed engine reads as an unreadable queue and so climbed for the
         // life of the process, waking twice an hour against a handle that was
@@ -320,14 +345,42 @@ fn engine_gone() -> bool {
         .is_none()
 }
 
+/// Whether the elevation pass in flight fetches the series of the tracks it
+/// owes: it holds the slot, Route Matching is on, nothing paused it, and the
+/// athlete's answers grant the download.
+pub(crate) fn elevation_pass_covers_series() -> bool {
+    use crate::net::stream_backfill::{SeriesPermission, current_series_permission};
+    BACKFILL.running.load(Ordering::SeqCst)
+        && !detection_switched_off()
+        && !elevation_backfill_paused()
+        && crate::objects::error::with_reader(current_series_permission)
+            .ok()
+            .and_then(Result::ok)
+            == Some(SeriesPermission::Granted)
+}
+
 /// Put a ladder behind the pass, unless one is already climbing.
-fn arm_resume_ladder() {
-    spawn_resume_ladder(|| {
+///
+/// `before` is the queue as it stood before the pass that was just started, so
+/// the first rung can tell that pass drained part of it. Every later read
+/// waits for the pass in flight to end first: a count taken mid-pass would
+/// read as no progress and put a healthy drain back on the wait.
+fn arm_resume_ladder(before: Option<u64>) {
+    spawn_resume_ladder(move || {
+        let mut before = before;
         resume_ladder_after_cooldown(
             resume_sleep,
-            || match with_persistent_engine(|engine| engine.elevation_backfill_remaining()) {
-                Some(Ok(n)) => Some(n),
-                _ => None,
+            move || {
+                if let Some(n) = before.take() {
+                    return Some(n);
+                }
+                while BACKFILL.running.load(Ordering::SeqCst) {
+                    std::thread::sleep(Duration::from_millis(250));
+                }
+                match with_persistent_engine(|engine| engine.elevation_backfill_remaining()) {
+                    Some(Ok(n)) => Some(n),
+                    _ => None,
+                }
             },
             crate::net::connectivity::is_offline,
             || elevation_backfill_paused() || detection_switched_off(),
@@ -2128,7 +2181,7 @@ fn resolve_sources(install: u64, session: &LiveSource) -> SourceWalk {
         if walk.stopped { ", stopped early" } else { "" }
     );
     if walk.handed_back > 0 {
-        arm_resume_ladder();
+        arm_resume_ladder(None);
     }
     walk
 }
@@ -2369,12 +2422,15 @@ fn start_final_detect(install: u64) -> bool {
 /// is the job finished, from a device that is merely offline. It is safe to
 /// fire at every launch.
 pub fn start_elevation_backfill() -> FfiStartOutcome {
+    let before = crate::objects::error::with_reader(pooled_elevation_backfill_remaining)
+        .ok()
+        .and_then(Result::ok);
     let outcome = start_pass();
     // A pass refused for want of a credential, or one that ends partial when
     // the connection goes away, needs the ladder. A switched-off library waits
     // for the setting write to arm a new one.
     if !detection_switched_off() {
-        arm_resume_ladder();
+        arm_resume_ladder(before);
     }
     outcome
 }

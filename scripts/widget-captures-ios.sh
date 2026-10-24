@@ -7,6 +7,8 @@
 # which CI uploads.
 #
 #   scripts/widget-captures-ios.sh [OUT]     # OUT defaults to widget-captures-ios/
+#
+# With STORE_RAW_DIR set, the PNGs the store widgets shot draws are also copied into that raw tree.
 set -eu
 
 cd "$(dirname "$0")/.."
@@ -43,4 +45,7 @@ status=0
     -destination "id=$udid" \
     -derivedDataPath "$work/DerivedData") || status=$?
 echo "widget-captures-ios: $(find "$out" -name '*.png' | wc -l | tr -d ' ') captures in $out"
+if [ "$status" -eq 0 ] && [ -n "${STORE_RAW_DIR:-}" ]; then
+  npx tsx scripts/copy-widget-captures.ts ios "$out" "$STORE_RAW_DIR"
+fi
 exit "$status"

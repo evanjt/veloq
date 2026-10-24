@@ -1950,3 +1950,182 @@ fn a_track_upstream_will_not_answer_for_is_retired_and_leaves_the_queue() {
     );
     drain_detection();
 }
+
+// ============================================================================
+// The upgrade drain
+// ============================================================================
+
+/// An upgraded library owing elevation and series for `count` activities
+/// dated inside the stream window, newest first.
+fn seeded_upgrade_library(count: usize) -> (TempDir, Vec<String>) {
+    let ids: Vec<String> = (0..count).map(|i| format!("u{i}")).collect();
+    let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
+    let (dir, _path) = seeded_engine(&refs);
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("clock")
+        .as_secs() as i64;
+    with_persistent_engine(|engine| {
+        for (i, id) in ids.iter().enumerate() {
+            engine
+                .update_activity_metadata(id, Some(now - i as i64 * 3_600), None, None, None)
+                .expect("date");
+        }
+    })
+    .expect("engine");
+    (dir, ids)
+}
+
+/// The answer to the whole series set: coordinates, altitude and power in
+/// one index space.
+fn whole_series(seed: f64) -> serde_json::Value {
+    let mut streams = elevated_streams(seed);
+    streams
+        .as_array_mut()
+        .expect("array")
+        .push(json!({"type": "watts", "data": vec![180; 8]}));
+    streams
+}
+
+fn series_owed() -> usize {
+    with_persistent_engine(|engine| engine.stream_backfill_remaining(3))
+        .expect("engine")
+        .expect("queue")
+}
+
+/// Scenario: an upgraded library of 212 activities owes elevation and series
+/// together, at or under the large-download threshold.
+///
+/// Expected behaviour: one pass drains both in one sitting, with one request
+/// per activity, so nothing is left owed for a second pass or a ladder rung.
+#[test]
+fn an_upgraded_library_under_the_threshold_drains_both_queues_in_one_pass() {
+    let _serial_state = super::serial_state();
+    let (_dir, ids) = seeded_upgrade_library(212);
+    assert_eq!(outstanding(), 212);
+    assert_eq!(series_owed(), 212);
+
+    let server = MockServer::start();
+    let mocks: Vec<_> = ids
+        .iter()
+        .enumerate()
+        .map(|(i, id)| {
+            server.mock(|when, then| {
+                when.path(format!("/activity/{id}/streams.json"));
+                then.status(200).json_body(whole_series(i as f64 * 0.02));
+            })
+        })
+        .collect();
+
+    let run = run_backfill(&fast_transport(server.base_url()));
+    let BackfillRun::Finished(outcome) = run else {
+        panic!("expected a finished pass, got {run:?}");
+    };
+
+    assert_eq!(
+        (outcome.queued, outcome.elevated, outcome.failed),
+        (212, 212, 0)
+    );
+    assert_eq!(outstanding(), 0);
+    assert_eq!(series_owed(), 0, "the series came with the elevation");
+    assert!(
+        mocks.iter().all(|m| m.calls() == 1),
+        "each activity is asked once"
+    );
+    drain_detection();
+}
+
+/// Scenario: the connection drops partway through the same library, and the
+/// ladder then retries it while the queue shrinks.
+///
+/// Expected behaviour: the first rung waits, because nothing has drained yet;
+/// every rung after a pass that drained follows at once; the ladder ends with
+/// the queue empty and no wait climbed past the bottom.
+#[test]
+fn a_drop_partway_through_the_upgrade_drain_is_followed_without_waiting() {
+    use std::cell::{Cell, RefCell};
+    use veloqrs::net::elevation_backfill::{RESUME_WAITS, resume_ladder};
+
+    let _serial_state = super::serial_state();
+    let (_dir, ids) = seeded_upgrade_library(212);
+
+    let server = MockServer::start();
+    let answered = 120;
+    for (i, id) in ids.iter().enumerate() {
+        server.mock(|when, then| {
+            when.path(format!("/activity/{id}/streams.json"));
+            if i < answered {
+                then.status(200).json_body(whole_series(i as f64 * 0.02));
+            } else {
+                then.status(500).body("gone");
+            }
+        });
+    }
+    let transport = fast_transport(server.base_url());
+    let BackfillRun::Finished(first) = run_backfill(&transport) else {
+        panic!("a dead connection ends the pass unfinished, not failed");
+    };
+    assert_eq!(first.elevated, answered as u32);
+    assert!(outstanding() > 0);
+
+    // Each later attempt reaches 50 activities further before the connection
+    // drops again, so the library drains over several passes that all progress.
+    let attempt_server = |reach: usize| {
+        let server = MockServer::start();
+        for (i, id) in ids.iter().enumerate() {
+            server.mock(|when, then| {
+                when.path(format!("/activity/{id}/streams.json"));
+                if i < reach {
+                    then.status(200).json_body(whole_series(i as f64 * 0.02));
+                } else {
+                    then.status(500).body("gone");
+                }
+            });
+        }
+        server
+    };
+
+    let slept = RefCell::new(Vec::new());
+    let attempts = Cell::new(0usize);
+    resume_ladder(
+        |wait| {
+            if slept.borrow().len() >= 20 {
+                return false;
+            }
+            slept.borrow_mut().push(wait);
+            true
+        },
+        || Some(outstanding()),
+        || false,
+        || false,
+        || false,
+        || {
+            attempts.set(attempts.get() + 1);
+            let server = attempt_server(answered + 50 * attempts.get());
+            run_backfill(&fast_transport(server.base_url()));
+        },
+    );
+
+    assert_eq!(outstanding(), 0, "the retries drained the queue");
+    assert_eq!(series_owed(), 0);
+    let slept = slept.into_inner();
+    assert_eq!(
+        slept[0], RESUME_WAITS[0],
+        "nothing had drained at the first rung"
+    );
+    assert!(
+        slept.iter().all(|w| *w <= RESUME_WAITS[0]),
+        "no wait climbed: {slept:?}"
+    );
+    assert_eq!(
+        attempts.get(),
+        2,
+        "two progressing passes finished what the drop left"
+    );
+    assert_eq!(
+        slept[1],
+        Duration::ZERO,
+        "a pass that drained is followed at once"
+    );
+    drain_detection();
+}

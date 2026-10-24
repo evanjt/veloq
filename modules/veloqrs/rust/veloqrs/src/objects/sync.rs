@@ -2933,6 +2933,17 @@ pub(crate) async fn ready_newest_activities(
     .ok_or(NetError::EngineClosed)?
     .map_err(|e| NetError::storage("first-use queue read failed", &e))?;
 
+    // A copy beside its claiming row is settled before anything is asked of
+    // the server for it.
+    let mut owed = owed;
+    let mut kept = Vec::with_capacity(owed.len());
+    for gap in owed.drain(..) {
+        if !settle_server_keyed_copy(install, &gap.activity_id).await? {
+            kept.push(gap);
+        }
+    }
+    let owed = kept;
+
     // Detail and interval bodies for all of them in one bulk request; the
     // streams have no bulk form and are asked for one activity at a time.
     let mut wanted: Vec<String> = Vec::new();
@@ -2980,6 +2991,18 @@ pub(crate) async fn ready_newest_activities(
     }
 }
 
+/// Remove `activity_id` when it is a trackless copy keyed by the server's id
+/// beside the row that claims that id, and answer whether it went.
+async fn settle_server_keyed_copy(install: u64, activity_id: &str) -> Result<bool, NetError> {
+    let id = activity_id.to_string();
+    crate::persistence::with_persistent_engine_blocking_for(install, move |engine| {
+        engine.settle_server_keyed_copy(&id)
+    })
+    .await
+    .ok_or(NetError::EngineClosed)?
+    .map_err(|e| NetError::storage("server-keyed copy settle failed", &e))
+}
+
 /// Fetch and store what one activity still lacks for a screen that opens with
 /// no network, as `gap` names it: the detail body, the detail streams (which
 /// carry the track) and the intervals.
@@ -2998,6 +3021,11 @@ pub(crate) async fn ready_activity(
 ) -> Result<(), NetError> {
     let dispatch = dispatch.into();
     let id = gap.activity_id.clone();
+    // A copy keyed by the server's id beside the row that claims it cannot
+    // take a track: the claiming row holds the id the track would carry.
+    if settle_server_keyed_copy(install, &id).await? {
+        return Ok(());
+    }
     let mut outcomes: Vec<Result<(), NetError>> = Vec::new();
     let absent = |kind: &'static str| is_known_absent(install, &id, kind);
     let mut kinds: Vec<&'static str> = Vec::new();

@@ -1,6 +1,8 @@
 import React from 'react';
-import { AccessibilityInfo, Alert, Platform, View } from 'react-native';
+import { AccessibilityInfo, Alert, Platform, StyleSheet, View } from 'react-native';
 import { act, fireEvent, render } from '@testing-library/react-native';
+import { router } from 'expo-router';
+import { routes } from 'veloqrs';
 import DetectionSettingsScreen from '@/app/detection-settings';
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 
@@ -29,6 +31,7 @@ jest.mock('@/shared/native/engine', () => ({
   getEngine: () => ({
     getSectionConfig: mockGetSectionConfig,
     setSectionConfig: mockSetSectionConfig,
+    subscribe: () => () => {},
   }),
   UNIFIED_CONFIG: {
     proximityThreshold: 50,
@@ -83,9 +86,29 @@ jest.mock('@/features/routes/hooks/useSectionRescan', () => ({
   },
 }));
 
+jest.mock('@/features/settings/hooks/useBackgroundJobs', () => ({
+  useBackgroundJobs: () => [
+    {
+      id: 'detection',
+      state: 'running',
+      completed: 1,
+      total: 2,
+      percent: 50,
+      remaining: 1,
+      phase: null,
+      resumesAt: null,
+      pacedDays: null,
+      lastRun: null,
+    },
+  ],
+}));
+
 // Hoisted past the mock factory as a declaration, so the factory can reach it.
 function mockActivityBar() {
-  return React.createElement(View, { testID: 'background-jobs-activity' });
+  const { BackgroundJobsActivityBar } = jest.requireActual(
+    '@/features/settings/components/BackgroundJobsActivityBar'
+  );
+  return React.createElement(BackgroundJobsActivityBar);
 }
 
 function mockElevationStatus() {
@@ -105,6 +128,30 @@ describe('detection settings screen', () => {
   beforeEach(() => {
     mockSetSectionConfig.mockClear();
     mockGetSectionConfig.mockClear();
+  });
+
+  it('insets the background jobs card by the same amount as the button below it', async () => {
+    const tree = await render(<DetectionSettingsScreen />);
+    // Horizontal margin and padding from the element's outer edge to the screen edge.
+    const inset = (testID: string, includeSelf: boolean) => {
+      let total = 0;
+      const start = tree.getByTestId(testID);
+      for (
+        let node = includeSelf ? start : (start.parent as typeof start);
+        node;
+        node = node.parent as typeof node
+      ) {
+        // A scroll view's content container is a prop of its own, not an ancestor view.
+        const content = StyleSheet.flatten(node.props?.contentContainerStyle) ?? {};
+        total += Number(content.paddingHorizontal ?? 0);
+        if (typeof node.type !== 'string') continue;
+        const style = StyleSheet.flatten(node.props?.style) ?? {};
+        total += Number(style.marginHorizontal ?? 0) + Number(style.paddingHorizontal ?? 0);
+      }
+      return total;
+    };
+    expect(inset('background-jobs-activity', true)).toBe(inset('detection-rescan-button', false));
+    expect(inset('background-jobs-activity', true)).toBeGreaterThan(0);
   });
 
   it('offers no sensitivity sliders', async () => {
@@ -132,6 +179,36 @@ describe('detection settings screen', () => {
     const tree = await render(<DetectionSettingsScreen />);
     expect(tree.getByTestId('detection-rescan-button')).toBeTruthy();
     expect(tree.getByTestId('detection-preview-row')).toBeTruthy();
+  });
+
+  describe('the retired sections row', () => {
+    const mockedRead = routes.getRoutesScreenData as unknown as jest.Mock;
+
+    beforeEach(() => {
+      mockedRead.mockReset();
+      (router.push as jest.Mock).mockClear();
+    });
+
+    it('stays in place but disabled, saying none retired, while the library retired nothing', async () => {
+      mockedRead.mockReturnValue({ ledgerRetiredCount: 0 });
+      const tree = await render(<DetectionSettingsScreen />);
+
+      const row = tree.getByTestId('retired-sections-row');
+      expect(row).toHaveTextContent(/sectionHistory\.retiredEmpty/);
+      expect(row).toBeDisabled();
+      await fireEvent.press(row);
+      expect(router.push).not.toHaveBeenCalledWith('/section-retired');
+    });
+
+    it('shows the count and opens the retired sections once some retired', async () => {
+      mockedRead.mockReturnValue({ ledgerRetiredCount: 2 });
+      const tree = await render(<DetectionSettingsScreen />);
+
+      const row = tree.getByTestId('retired-sections-row');
+      expect(row).toHaveTextContent(/sectionHistory\.retiredCount:\{"count":2\}/);
+      await fireEvent.press(row);
+      expect(router.push).toHaveBeenCalledWith('/section-retired');
+    });
   });
 
   it('shows the activity bar on the screen that starts detection', async () => {

@@ -7,6 +7,8 @@
 #
 #   ./gradlew :veloqrs:assembleDebugAndroidTest -PreactNativeArchitectures=<the device's ABI>
 #   scripts/widget-captures-android.sh [OUT]     # OUT defaults to widget-captures/
+#
+# With STORE_RAW_DIR set, the PNGs the store widgets shot draws are also copied into that raw tree.
 set -eu
 
 if [ -z "${VELOQ_DEVICE_LOCK_HELD:-}" ]; then
@@ -33,4 +35,7 @@ mkdir -p "$out"
 adb pull "/sdcard/Android/data/$pkg/files/widget-captures/." "$out" >/dev/null || true
 cat "$log"
 echo "widget-captures: $(find "$out" -name '*.png' | wc -l) captures in $out"
+if [ -n "${STORE_RAW_DIR:-}" ]; then
+  npx tsx scripts/copy-widget-captures.ts android "$out" "$STORE_RAW_DIR"
+fi
 grep -q '^OK (' "$log"

@@ -48,6 +48,20 @@ async function readPrefsFromStorage(): Promise<NotificationPreferences | null> {
 }
 
 /**
+ * Make sure i18next holds the athlete's saved language. Only the launch path
+ * initialises it, so a headless start finds an empty store, and a template
+ * resolved there is its own key. Idempotent: a process that already ran the
+ * launch path is left as it is.
+ */
+async function ensureI18nInitialised(): Promise<void> {
+  const { i18n, initialiseI18n } = require('@/i18n') as typeof import('@/i18n');
+  if (i18n.isInitialized) return;
+  const { initialiseLanguage } =
+    require('@/shared/app/LanguageStore') as typeof import('@/shared/app/LanguageStore');
+  await initialiseI18n(await initialiseLanguage());
+}
+
+/**
  * Attach a freshly ingested activity to existing sections and route groups so
  * its PRs are available when the engine is asked what the activity was worth.
  * Cheap (one activity vs existing sections, incremental regroup) so it fits
@@ -311,6 +325,7 @@ export async function handleBackgroundInsightTask({
       // The templates are pushed here too: the headless task runs in a process
       // that may never have been through `initialiseApp`, and this is the last
       // point that still has i18next to resolve one.
+      await ensureI18nInitialised();
       pushNotificationTemplates();
       // Lazily required like every other engine reach in this file, to keep
       // the headless module graph lean.

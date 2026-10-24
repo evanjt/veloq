@@ -7,10 +7,12 @@
  * On engine refresh events, resets to the first page.
  */
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { runWhenIdle } from '@/shared/async/runWhenIdle';
 import { useFocusEffect } from 'expo-router';
 import { getEngine } from '@/shared/native/engine';
+import { attemptEngineRead } from '@/shared/native/engineError';
+import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { useEngineSubscription } from './useEngine';
 import type {
   RoutesScreenData,
@@ -473,5 +475,67 @@ export function useRoutesScreenData(opts?: {
     loadMoreSections,
     hasMoreGroups: data?.hasMoreGroups ?? false,
     hasMoreSections: data?.hasMoreSections ?? false,
+  };
+}
+
+/**
+ * How many sections the ledger retired, for the entry points to the retired screen: the Sections
+ * list, detection settings and the change card. The count is this file's routes screen read, asked
+ * for no rows, and it is that read's own `ledgerRetiredCount`, so no entry point keeps a copy.
+ *
+ * The retired screen decodes every retired section with its versions, which is too heavy to call
+ * from a settings row to learn whether to draw a link. Zero while the engine is not open, and zero
+ * when the read cannot answer, so an entry point is then absent rather than offered.
+ */
+export function useRetiredSectionCount(): number {
+  return useRetiredCounts().ledger;
+}
+
+/**
+ * How many of the ledger's retired sections the cutover or a record restore archived, which is
+ * what the feed's sections-changed card gates on. A section a later detect dissolved is retired
+ * but archived nothing, so it is in the ledger count and not in this one. Read beside the ledger
+ * count from the same routes screen read.
+ */
+export function useArchivedRetiredCount(): number {
+  return useRetiredCounts().archived;
+}
+
+function useRetiredCounts(): RetiredCounts {
+  const readRoutes = useEngineRead(['sections', 'detectionApplied', 'cutoverSettled']);
+  return useMemo(() => readRoutes(() => retiredCounts()) ?? NO_RETIRED, [readRoutes]);
+}
+
+interface RetiredCounts {
+  ledger: number;
+  archived: number;
+}
+
+const NO_RETIRED: RetiredCounts = { ledger: 0, archived: 0 };
+
+function retiredCounts(): RetiredCounts {
+  const result = attemptEngineRead(() =>
+    routes.getRoutesScreenData({
+      groupLimit: 0,
+      groupOffset: 0,
+      sectionLimit: 0,
+      sectionOffset: 0,
+      minGroupActivityCount: 0,
+      groupSort: GroupSort.Activities,
+      groupSearch: '',
+      sectionSort: SectionSort.Visits,
+      sectionSearch: '',
+      sectionFilters: NO_FILTERS,
+      userLat: 0,
+      userLng: 0,
+    })
+  );
+  if (!result.ok) {
+    console.warn('[Routes] Could not read the retired section count:', result.error);
+    return NO_RETIRED;
+  }
+  return {
+    ledger: result.value?.ledgerRetiredCount ?? 0,
+    archived: result.value?.archivedRetiredCount ?? 0,
   };
 }

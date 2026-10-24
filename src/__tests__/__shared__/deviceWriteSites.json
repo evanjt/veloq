@@ -80,7 +80,7 @@
   "src/features/settings/stores/NotificationPreferencesStore.ts": 1,
   "src/features/settings/stores/NotificationPromptStore.ts": 1,
   "src/features/settings/stores/summaryCardPreferences.ts": 1,
-  "src/features/settings/stores/WhatsNewStore.ts": 2,
+  "src/features/settings/stores/WhatsNewStore.ts": 3,
   "src/shared/app/AuthStore.ts": 5,
   "src/shared/app/credentialKeychain.ts": 1,
   "src/shared/app/LanguageStore.ts": 5,

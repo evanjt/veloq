@@ -5,7 +5,7 @@
 #
 # Runs on the Mac with the booted simulator and the dev build installed. A
 # surface is a flow under `.maestro/soak/` (feed, activity-map, terrain,
-# regional-map, heatmap, section, routes, recording). Each runs CYCLES times
+# regional-map, heatmap, section, routes, recording, browse). Each runs CYCLES times
 # inside one Maestro run, and the script writes `<out-dir>/<surface>.json` with
 # the Maestro exit status, the app pid at the start and the end, the new `.ips`
 # crash logs, how many renderer deaths the app itself recorded, how many
@@ -13,7 +13,8 @@
 # when VELOQ_SOAK_KILL_AFTER names a second, and a memory sample every
 # VELOQ_SOAK_SAMPLE seconds (the app plus its WebKit helpers, `footprint`).
 #
-# The flows read `ACTIVITY` and `SECTION`, named in the environment, and enter
+# The flows read `ACTIVITY` and `SECTION`, named in the environment (the section
+# surface refuses to start without `SECTION` and `SECTION_ALT`), and enter
 # demo mode when the app is signed out. Take no flow of the pack's demo helper
 # against a signed-in library: this script's flows never sign out.
 set -u
@@ -22,6 +23,14 @@ if [ "$#" -lt 4 ]; then
   sed -n '3,4p' "$0" >&2
   exit 2
 fi
+
+# The section flow opens a section by id, and an id from another library is absent here.
+for surface in "${@:4}"; do
+  if [ "$surface" = section ] && { [ -z "${SECTION:-}" ] || [ -z "${SECTION_ALT:-}" ]; }; then
+    echo "ios-soak: the section surface needs SECTION and SECTION_ALT, two section ids the installed library holds" >&2
+    exit 2
+  fi
+done
 
 if [ "${VELOQ_SIM_LOCK_HELD:-}" != "$1" ]; then
   exec "$(dirname "$0")/with-simulator-lock.sh" "$1" "$0" "$@"
@@ -126,7 +135,7 @@ run_surface() {
 
   VELOQ_DEVICE_LOCK_HELD=1 ANDROID_SERIAL=$UDID MAESTRO_DRIVER_STARTUP_TIMEOUT=180000 \
     "$HERE/with-maestro.sh" test "$flow" \
-    -e CYCLES="$CYCLES" -e ACTIVITY="${ACTIVITY:-demo-test-0}" -e SECTION="${SECTION:-s_47075_-6084}" \
+    -e CYCLES="$CYCLES" -e ACTIVITY="${ACTIVITY:-demo-test-0}" -e SECTION="${SECTION:-}" -e SECTION_ALT="${SECTION_ALT:-}" \
     >"$dir/maestro.log" 2>&1
   local status=$?
 

@@ -15,6 +15,7 @@ import * as os from 'os';
 import * as path from 'path';
 
 import { captureLocales } from '../../../scripts/store-locales';
+import { CAPTURED_STEMS } from '../../../scripts/store-shots';
 import { CAPTIONS, installSets, rawCaptures } from '../../../scripts/store-screenshots';
 
 function tmp(): string {
@@ -129,7 +130,7 @@ describe('CAPTIONS', () => {
   it.each(captureLocales().map((c) => c.play))('captions every shot in %s', (play) => {
     const strings = CAPTIONS[play];
     expect(strings).toBeDefined();
-    expect(strings.shots).toHaveLength(6);
+    expect(strings.shots).toHaveLength(CAPTURED_STEMS.length);
     for (const shot of strings.shots) {
       expect(shot.cap.trim()).not.toBe('');
       expect(shot.sub.trim()).not.toBe('');

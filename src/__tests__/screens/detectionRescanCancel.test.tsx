@@ -41,6 +41,7 @@ jest.mock('@/shared/native/engine', () => ({
       divergenceThreshold: 0.2,
     }),
     setSectionConfig: jest.fn(),
+    subscribe: () => () => {},
   }),
   UNIFIED_CONFIG: {
     proximityThreshold: 50,

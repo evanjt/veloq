@@ -15,6 +15,15 @@ const { getDefaultConfig } = require('expo/metro-config');
 
 const config = getDefaultConfig(__dirname);
 
+// A module is evaluated when first used rather than all at once at launch, so
+// the first frame does not wait on screens and libraries the launch screen
+// never reads.
+const expoTransformOptions = config.transformer.getTransformOptions;
+config.transformer.getTransformOptions = async (...args) => {
+  const options = await expoTransformOptions(...args);
+  return { ...options, transform: { ...options.transform, inlineRequires: true } };
+};
+
 config.cacheVersion = `${config.cacheVersion ?? ''}:${realpathSync(__dirname)}`;
 
 module.exports = config;

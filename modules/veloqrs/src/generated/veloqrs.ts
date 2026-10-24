@@ -7218,6 +7218,82 @@ const FfiConverterTypeFfiClaimBasis = (() => {
 })();
 
 /**
+ * A catalogue row as the old-versus-new map draws it, hidden rows included.
+ * A row whose line will not decode has nothing to draw and is left out.
+ */
+export type FfiCurrentMapSection = {
+  id: string;
+  name?: string;
+  isUserDefined: boolean;
+  pinned: boolean;
+  /**
+   * Disabled, or hidden behind the section `superseded_by` names.
+   */
+  hidden: boolean;
+  supersededBy?: string;
+  /**
+   * Delta+varint encoded coordinates.
+   */
+  encodedPolyline: ArrayBuffer;
+};
+
+/**
+ * Generated factory for {@link FfiCurrentMapSection} record objects.
+ */
+export const FfiCurrentMapSection = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiCurrentMapSection,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiCurrentMapSection>,
+  });
+})();
+
+const FfiConverterTypeFfiCurrentMapSection = (() => {
+  type TypeName = FfiCurrentMapSection;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        id: FfiConverterString.readFromCursor(c),
+        name: FfiConverterOptionalString.readFromCursor(c),
+        isUserDefined: FfiConverterBool.readFromCursor(c),
+        pinned: FfiConverterBool.readFromCursor(c),
+        hidden: FfiConverterBool.readFromCursor(c),
+        supersededBy: FfiConverterOptionalString.readFromCursor(c),
+        encodedPolyline: FfiConverterArrayBuffer.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.id, c);
+      FfiConverterOptionalString.writeIntoCursor(value.name, c);
+      FfiConverterBool.writeIntoCursor(value.isUserDefined, c);
+      FfiConverterBool.writeIntoCursor(value.pinned, c);
+      FfiConverterBool.writeIntoCursor(value.hidden, c);
+      FfiConverterOptionalString.writeIntoCursor(value.supersededBy, c);
+      FfiConverterArrayBuffer.writeIntoCursor(value.encodedPolyline, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.id) +
+        FfiConverterOptionalString.allocationSize(value.name) +
+        FfiConverterBool.allocationSize(value.isUserDefined) +
+        FfiConverterBool.allocationSize(value.pinned) +
+        FfiConverterBool.allocationSize(value.hidden) +
+        FfiConverterOptionalString.allocationSize(value.supersededBy) +
+        FfiConverterArrayBuffer.allocationSize(value.encodedPolyline)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * An activity a curve point came from, as the body names it.
  */
 export type FfiCurveActivity = {
@@ -16886,6 +16962,230 @@ const FfiConverterTypeFfiRetiredSection = (() => {
         FfiConverterOptionalTypeWholeNumber.allocationSize(
           value.restorableVersion,
         )
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * A retired section as the old-versus-new map draws it: the ledger's record
+ * of it and its newest stored line that decodes.
+ */
+export type FfiRetiredMapSection = {
+  section: FfiRetiredSection;
+  /**
+   * Delta+varint encoded coordinates; `None` when no stored version decodes.
+   */
+  encodedPolyline?: ArrayBuffer;
+};
+
+/**
+ * Generated factory for {@link FfiRetiredMapSection} record objects.
+ */
+export const FfiRetiredMapSection = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiRetiredMapSection,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiRetiredMapSection>,
+  });
+})();
+
+const FfiConverterTypeFfiRetiredMapSection = (() => {
+  type TypeName = FfiRetiredMapSection;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        section: FfiConverterTypeFfiRetiredSection.readFromCursor(c),
+        encodedPolyline: FfiConverterOptionalBytes.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterTypeFfiRetiredSection.writeIntoCursor(value.section, c);
+      FfiConverterOptionalBytes.writeIntoCursor(value.encodedPolyline, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterTypeFfiRetiredSection.allocationSize(value.section) +
+        FfiConverterOptionalBytes.allocationSize(value.encodedPolyline)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Why a retired section and a catalogue row are shown together.
+ */
+export enum FfiRetiredPairLink {
+  /**
+   * The ledger's `into` chain from the retired section ends at the row.
+   */
+  Ledger,
+  /**
+   * The row is hidden behind the retired section's id.
+   */
+  Supersedes,
+  /**
+   * The two lines share ground.
+   */
+  Ground,
+}
+
+const FfiConverterTypeFfiRetiredPairLink = (() => {
+  type TypeName = FfiRetiredPairLink;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return FfiRetiredPairLink.Ledger;
+        case 2:
+          return FfiRetiredPairLink.Supersedes;
+        case 3:
+          return FfiRetiredPairLink.Ground;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value) {
+        case FfiRetiredPairLink.Ledger:
+          return c.writeI32(1);
+        case FfiRetiredPairLink.Supersedes:
+          return c.writeI32(2);
+        case FfiRetiredPairLink.Ground:
+          return c.writeI32(3);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return 4;
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * One retired section set against one catalogue row.
+ */
+export type FfiRetiredMapPair = {
+  retiredId: string;
+  currentId: string;
+  link: FfiRetiredPairLink;
+  /**
+   * The larger of the two coverage fractions, for a `Ground` pair only.
+   */
+  overlap?: number;
+};
+
+/**
+ * Generated factory for {@link FfiRetiredMapPair} record objects.
+ */
+export const FfiRetiredMapPair = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiRetiredMapPair, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiRetiredMapPair>,
+  });
+})();
+
+const FfiConverterTypeFfiRetiredMapPair = (() => {
+  type TypeName = FfiRetiredMapPair;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        retiredId: FfiConverterString.readFromCursor(c),
+        currentId: FfiConverterString.readFromCursor(c),
+        link: FfiConverterTypeFfiRetiredPairLink.readFromCursor(c),
+        overlap: FfiConverterOptionalFloat64.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.retiredId, c);
+      FfiConverterString.writeIntoCursor(value.currentId, c);
+      FfiConverterTypeFfiRetiredPairLink.writeIntoCursor(value.link, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.overlap, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.retiredId) +
+        FfiConverterString.allocationSize(value.currentId) +
+        FfiConverterTypeFfiRetiredPairLink.allocationSize(value.link) +
+        FfiConverterOptionalFloat64.allocationSize(value.overlap)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Everything the old-versus-new sections map draws, in one read.
+ */
+export type FfiRetiredMapData = {
+  retired: Array<FfiRetiredMapSection>;
+  current: Array<FfiCurrentMapSection>;
+  pairs: Array<FfiRetiredMapPair>;
+};
+
+/**
+ * Generated factory for {@link FfiRetiredMapData} record objects.
+ */
+export const FfiRetiredMapData = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiRetiredMapData, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiRetiredMapData>,
+  });
+})();
+
+const FfiConverterTypeFfiRetiredMapData = (() => {
+  type TypeName = FfiRetiredMapData;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        retired: FfiConverterSequenceTypeFfiRetiredMapSection.readFromCursor(c),
+        current: FfiConverterSequenceTypeFfiCurrentMapSection.readFromCursor(c),
+        pairs: FfiConverterSequenceTypeFfiRetiredMapPair.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterSequenceTypeFfiRetiredMapSection.writeIntoCursor(
+        value.retired,
+        c,
+      );
+      FfiConverterSequenceTypeFfiCurrentMapSection.writeIntoCursor(
+        value.current,
+        c,
+      );
+      FfiConverterSequenceTypeFfiRetiredMapPair.writeIntoCursor(value.pairs, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterSequenceTypeFfiRetiredMapSection.allocationSize(
+          value.retired,
+        ) +
+        FfiConverterSequenceTypeFfiCurrentMapSection.allocationSize(
+          value.current,
+        ) +
+        FfiConverterSequenceTypeFfiRetiredMapPair.allocationSize(value.pairs)
       );
     }
   }
@@ -33292,6 +33592,12 @@ export interface SectionManagerLike {
   getReferenceInfo(sectionId: string) /*throws*/ : FfiSectionReferenceInfo;
   getRetired() /*throws*/ : Array<FfiRetiredSection>;
   /**
+   * The old-versus-new sections map in one read: the retired sections with
+   * their lines, every catalogue row, and the pairs between them. Cached
+   * under the read stamp, so a selection on the map reads nothing.
+   */
+  getRetiredMap() /*throws*/ : FfiRetiredMapData;
+  /**
    * The sections a read wants, with the corridor-name overlay applied.
    *
    * One call rather than four: the filter narrows by sport, visit floor,
@@ -33364,6 +33670,17 @@ export interface SectionManagerLike {
     primaryId: string,
     secondaryId: string,
   ) /*throws*/ : Array<FfiMergeDropped>;
+  /**
+   * Keep `kept` and let `other` leave the catalogue with a ledger row naming
+   * `kept`: the other of an overlapping restored-and-auto pair is hidden
+   * behind it or retired to the list, never deleted. Shares the one-edit
+   * slot with the bounds edits, since both hold the write lock.
+   */
+  preferSection(
+    kept: string,
+    other: string,
+    asyncOpts_?: { signal: AbortSignal },
+  ) /*throws*/ : Promise<void>;
   /**
    * Force-match a single activity to a specific section with relaxed thresholds.
    * Returns true if a match was found and the section_activities row was inserted.
@@ -33990,6 +34307,31 @@ export class SectionManager
   }
 
   /**
+   * The old-versus-new sections map in one read: the retired sections with
+   * their lines, every catalogue row, and the pairs between them. Cached
+   * under the read stamp, so a selection on the map reads nothing.
+   */
+  getRetiredMap(): FfiRetiredMapData /*throws*/ {
+    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_retired_map(
+          uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+      return FfiConverterTypeFfiRetiredMapData.lift(__rb);
+    } finally {
+      nativeModule().rustbuffer_free(__rb);
+    }
+  }
+
+  /**
    * The sections a read wants, with the corridor-name overlay applied.
    *
    * One call rather than four: the filter narrows by sport, visit floor,
@@ -34290,6 +34632,48 @@ export class SectionManager
       return FfiConverterSequenceTypeFfiMergeDropped.lift(__rb);
     } finally {
       nativeModule().rustbuffer_free(__rb);
+    }
+  }
+
+  /**
+   * Keep `kept` and let `other` leave the catalogue with a ledger row naming
+   * `kept`: the other of an overlapping restored-and-auto pair is hidden
+   * behind it or retired to the list, never deleted. Shares the one-edit
+   * slot with the bounds edits, since both hold the write lock.
+   */
+  async preferSection(
+    kept: string,
+    other: string,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<void> /*throws*/ {
+    const __stack = uniffiIsDebug ? new Error().stack : undefined;
+    try {
+      return await uniffiRustCallAsync(
+        /*rustCaller:*/ uniffiCaller,
+        /*rustFutureFunc:*/ () => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_prefer_section(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(kept, nativeModule().rustbuffer_alloc),
+            FfiConverterString.lower(other, nativeModule().rustbuffer_alloc),
+          );
+        },
+        /*pollFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_poll_void,
+        /*cancelFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_cancel_void,
+        /*completeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_complete_void,
+        /*freeFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_free_void,
+        /*liftFunc:*/ (_v) => {},
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+        /*asyncOpts:*/ asyncOpts_,
+        /*errorHandler:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+      );
+    } catch (__error: any) {
+      if (uniffiIsDebug && __error instanceof Error) {
+        __error.stack = __stack;
+      }
+      throw __error;
     }
   }
 
@@ -38884,6 +39268,26 @@ const FfiConverterSequenceTypeWholeNumber = new FfiConverterArray(
   FfiConverterTypeWholeNumber,
 );
 
+// FfiConverter for ArrayBuffer | undefined
+const FfiConverterOptionalBytes = new FfiConverterOptional(
+  FfiConverterArrayBuffer,
+);
+
+// FfiConverter for Array<FfiRetiredMapSection>
+const FfiConverterSequenceTypeFfiRetiredMapSection = new FfiConverterArray(
+  FfiConverterTypeFfiRetiredMapSection,
+);
+
+// FfiConverter for Array<FfiCurrentMapSection>
+const FfiConverterSequenceTypeFfiCurrentMapSection = new FfiConverterArray(
+  FfiConverterTypeFfiCurrentMapSection,
+);
+
+// FfiConverter for Array<FfiRetiredMapPair>
+const FfiConverterSequenceTypeFfiRetiredMapPair = new FfiConverterArray(
+  FfiConverterTypeFfiRetiredMapPair,
+);
+
 // FfiConverter for FfiRouteGroup | undefined
 const FfiConverterOptionalTypeFfiRouteGroup = new FfiConverterOptional(
   FfiConverterTypeFfiRouteGroup,
@@ -39182,11 +39586,6 @@ const FfiConverterOptionalTypeFfiPreviewTrack = new FfiConverterOptional(
 // FfiConverter for Array<FfiCalendarEventBody>
 const FfiConverterSequenceTypeFfiCalendarEventBody = new FfiConverterArray(
   FfiConverterTypeFfiCalendarEventBody,
-);
-
-// FfiConverter for ArrayBuffer | undefined
-const FfiConverterOptionalBytes = new FfiConverterOptional(
-  FfiConverterArrayBuffer,
 );
 
 // FfiConverter for Array<SourceTileCounts>
@@ -40894,6 +41293,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_retired_map() !==
+    21304
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_get_retired_map",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_sections() !==
     24056
   ) {
@@ -40963,6 +41370,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_merge_preview",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_prefer_section() !==
+    48236
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_prefer_section",
     );
   }
   if (
@@ -41867,6 +42282,7 @@ export default Object.freeze({
     FfiConverterTypeFfiClimbBest,
     FfiConverterTypeFfiClimbBests,
     FfiConverterTypeFfiCorrelation,
+    FfiConverterTypeFfiCurrentMapSection,
     FfiConverterTypeFfiCurveActivity,
     FfiConverterTypeFfiCutoverDiff,
     FfiConverterTypeFfiCutoverSettingsReset,
@@ -41977,6 +42393,10 @@ export default Object.freeze({
     FfiConverterTypeFfiRecordingEntry,
     FfiConverterTypeFfiReferenceSource,
     FfiConverterTypeFfiRequestBudget,
+    FfiConverterTypeFfiRetiredMapData,
+    FfiConverterTypeFfiRetiredMapPair,
+    FfiConverterTypeFfiRetiredMapSection,
+    FfiConverterTypeFfiRetiredPairLink,
     FfiConverterTypeFfiRetiredSection,
     FfiConverterTypeFfiRouteDetailData,
     FfiConverterTypeFfiRouteGroup,

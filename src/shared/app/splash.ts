@@ -22,3 +22,24 @@ export function releaseSplash(): void {
   released = true;
   void SplashScreen.hideAsync().catch(() => {});
 }
+
+/** The longest a signed-in launch holds the splash for a feed read that never settles. */
+export const FEED_HOLD_MS = 1500;
+
+export interface SplashGate {
+  appReady: boolean;
+  authLoading: boolean;
+  signedIn: boolean;
+  /** The feed's first read has resolved, with rows or without. */
+  feedSettled: boolean;
+}
+
+/**
+ * The splash holds until the screen behind it has data: the signed-out and
+ * demo-less launch has no feed to wait for, a signed-in one waits for its
+ * first read so the fade reveals cards rather than an empty list.
+ */
+export function shouldReleaseSplash(gate: SplashGate): boolean {
+  if (!gate.appReady || gate.authLoading) return false;
+  return !gate.signedIn || gate.feedSettled;
+}

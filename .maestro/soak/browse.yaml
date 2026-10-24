@@ -1,0 +1,38 @@
+# Soak: a session of browsing. Open the top card, view its route,
+# go back, switch through the tabs without waiting, return to the feed, CYCLES
+# times. The feed is left unscrolled so each cycle opens the same card.
+appId: com.veloq.app.dev
+tags:
+  - soak
+---
+- runFlow: launch.yaml
+- repeat:
+    times: ${CYCLES}
+    commands:
+      - waitForAnimationToEnd:
+          timeout: 5000
+      - tapOn:
+          point: 50%, 40%
+      - extendedWaitUntil:
+          visible:
+            id: "activity-detail-screen"
+          timeout: 20000
+      - tapOn: "Route"
+      - waitForAnimationToEnd:
+          timeout: 4000
+      - runFlow: ../helpers/go-back.yaml
+      - extendedWaitUntil:
+          visible:
+            id: "home-screen"
+          timeout: 20000
+      - tapOn: "Map"
+      - tapOn: "Fitness"
+      - tapOn: "Insights"
+      - tapOn: "Map"
+      - tapOn: "Settings"
+      - tapOn: "Fitness"
+      - tapOn: "Map"
+      - tapOn: "Insights"
+      - tapOn: "Feed"
+      - waitForAnimationToEnd:
+          timeout: 4000

@@ -117,7 +117,7 @@ widget-captures/
 .ios-gate/
 *.png
 !docs/badges/google-play.png
-!docs/screenshots/*.png
+!docs/screenshots/**/*.png
 # The images the Expo config names, which a fresh clone needs to build.
 !src/assets/*.png
 !config/fastlane/metadata/android/*/images/*.png

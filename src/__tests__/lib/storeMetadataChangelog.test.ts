@@ -102,6 +102,12 @@ describe('unsupportedClaimsIn', () => {
     ).toEqual([]);
   });
 
+  it('refuses a feature promised behind a purchase', () => {
+    expect(unsupportedClaimsIn('Upgrade to Pro to unlock every section.')).toEqual(['paywall']);
+    expect(unsupportedClaimsIn('Premium maps and paid features.')).toEqual(['paywall']);
+    expect(unsupportedClaimsIn('Jetzt auf Premium upgraden.')).toEqual(['paywall']);
+  });
+
   it('finds no unsupported claim in any store description', () => {
     const claims = validateMetadata().filter((e) => e.type === 'unsupported_claim');
     expect(claims.map((e) => e.message)).toEqual([]);

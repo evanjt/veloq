@@ -49,12 +49,10 @@ import {
   useRecordingHandlers,
   recordingBackAction,
   styles,
-  nearbyRouteIds,
 } from '@/features/recording';
 import { useSheetOpener } from '@/shared/app/sheetRequest';
 import { useSensorSession, useSensorIssue } from '@/features/sensors';
-import { useRepresentativeRoute } from '@/features/routes';
-import { useRouteGroups } from '@/features/routes/light';
+import { useNearbyRouteOverlay } from '@/shared/app/useNearbyRouteOverlay';
 import { spacing, themePalette } from '@/theme';
 import type { ActivityTypeSheetInput } from '@/app/sheets/activity-type';
 import type { FieldPickerSheetInput } from '@/app/sheets/field-picker';
@@ -191,25 +189,17 @@ function RecordingContent({ activityType }: { activityType: ActivityType }) {
   const controlBarStyle = useMemo(() => ({ paddingBottom: bottomPadding }), [bottomPadding]);
   const currentActivityType = storeActivityType ?? activityType;
 
-  // Until the athlete chooses, and while nothing is recorded, the nearest saved route near
-  // the current fix is drawn; an explicit "no route" keeps the map clear.
-  const [chosenRouteId, setChosenRouteId] = useState<string | null | undefined>(undefined);
-  const { groups: routeGroups } = useRouteGroups({
-    type: currentActivityType,
-    minActivities: 2,
-    sortBy: 'count',
+  const {
+    overlayRouteId,
+    overlayPoints,
+    nearbyRouteIds: nearbyRoutes,
+    choose: chooseRoute,
+  } = useNearbyRouteOverlay({
+    activityType: currentActivityType,
+    location: currentLocation,
+    enabled: mode === 'gps',
+    idle: status === 'idle',
   });
-  const nearbyRoutes = useMemo(
-    () => (mode === 'gps' ? nearbyRouteIds(routeGroups, currentLocation) : []),
-    [mode, routeGroups, currentLocation]
-  );
-  const overlayRouteId =
-    chosenRouteId !== undefined
-      ? chosenRouteId
-      : status === 'idle'
-        ? (nearbyRoutes[0] ?? null)
-        : null;
-  const { points: overlayPoints } = useRepresentativeRoute(mode === 'gps' ? overlayRouteId : null);
   const effectiveFields = useMemo(
     () => fieldsForMode(dataFields, mode, currentActivityType),
     [dataFields, mode, currentActivityType]
@@ -241,8 +231,8 @@ function RecordingContent({ activityType }: { activityType: ActivityType }) {
       selectedRouteId: overlayRouteId,
       nearbyRouteIds: nearbyRoutes,
     });
-    if (result.kind === 'selected') setChosenRouteId(result.value);
-  }, [openSheet, currentActivityType, overlayRouteId, nearbyRoutes]);
+    if (result.kind === 'selected') chooseRoute(result.value);
+  }, [openSheet, currentActivityType, overlayRouteId, nearbyRoutes, chooseRoute]);
 
   // The manual and strength forms take the platform's header, titled with the
   // sport. Swipe-back is off on this route, so its back is the way off. The

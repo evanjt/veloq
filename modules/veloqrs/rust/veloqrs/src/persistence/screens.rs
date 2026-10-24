@@ -883,6 +883,12 @@ impl super::PersistentEngine {
         pooled::section_detail_data(self.cold_connection(), section_id)
     }
 
+    /// Everything the old-versus-new sections map draws: each retired section
+    /// with its line, every catalogue row, and the pairs between them.
+    pub fn retired_map_data(&self) -> crate::FfiRetiredMapData {
+        (*pooled::retired_map_data(self.cold_connection())).clone()
+    }
+
     /// The section detail reads that need lap times, so the caller runs this
     /// once the missing time streams have been fetched.
     ///
@@ -3361,6 +3367,15 @@ pub mod pooled {
         )
     }
 
+    /// The old-versus-new sections map, cached under the read stamp so a
+    /// selection change on the map reads nothing. It covers the whole
+    /// catalogue and every retired section.
+    pub fn retired_map_data(conn: &Connection) -> std::sync::Arc<crate::FfiRetiredMapData> {
+        crate::persistence::read_cache::retired_map(conn, || {
+            crate::persistence::sections::retired_map::retired_map_data(conn)
+        })
+    }
+
     /// Everything the section detail screen paints with.
     ///
     /// Every read here is committed rows. What the engine path answers from
@@ -3911,6 +3926,10 @@ mod sport_settings_fallback_tests;
 #[cfg(test)]
 #[path = "tests/map_empty_reason.rs"]
 mod map_empty_reason_tests;
+
+#[cfg(test)]
+#[path = "tests/retired_map.rs"]
+mod retired_map_tests;
 
 #[cfg(test)]
 mod tests {

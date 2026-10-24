@@ -33,6 +33,7 @@ pub(crate) mod numbers;
 pub(crate) mod preview;
 pub(crate) mod queries;
 pub(crate) mod ranking;
+pub(crate) mod retired_map;
 #[cfg(test)]
 #[path = "tests/save_backstop.rs"]
 mod save_backstop_tests;
@@ -2827,6 +2828,15 @@ pub(crate) fn compute_section_portions(
 /// How far past the proximity threshold a ride the athlete attached by hand
 /// may sit: they have asserted it passes the section, so the bar relaxes.
 pub(crate) const FORCED_PROXIMITY_FACTOR: f64 = 2.5;
+
+/// How near a custom section's line an auto section's must lie, in metres,
+/// to count as covered by it.
+pub(crate) const SUPERSEDE_PROXIMITY_M: f64 = 50.0;
+
+/// The fraction of an auto section's length that must lie within
+/// [`SUPERSEDE_PROXIMITY_M`] of a custom section for the custom one to
+/// replace it.
+pub(crate) const SUPERSEDE_OVERLAP: f64 = 0.8;
 
 /// Every traversal of a section line by a ride the athlete attached by hand,
 /// cut by the pass matcher with the relaxed bar as its lateral tolerance. The attach, every junction rebuild that re-cuts the

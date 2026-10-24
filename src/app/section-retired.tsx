@@ -89,71 +89,83 @@ function SectionRetiredScreenContent() {
         ) : retired.length === 0 ? (
           <EmptyState icon="archive-outline" title={t('sectionHistory.retiredEmpty')} />
         ) : (
-          retired.map((r) => {
-            const into = r.into
-              ? t('sectionHistory.retiredInto', { name: names[r.into] ?? r.into })
-              : null;
-            const kind = t(`sectionHistory.kind_${r.kind}` as never);
-            const distance =
-              r.distanceMeters != null && r.distanceMeters > 0
-                ? ` · ${formatDistance(r.distanceMeters, isMetric)}`
-                : '';
-            // The name leads so two retirements of one kind can be told apart;
-            // how it left drops to the meta line.
-            const body = (
-              <>
-                <Text numberOfLines={2} style={[styles.title, isDark && styles.textDark]}>
-                  {r.name ?? kind}
-                </Text>
-                {r.name ? (
-                  <Text style={[styles.meta, isDark && styles.textSecondaryDark]}>{kind}</Text>
-                ) : null}
-                <Text style={[styles.meta, isDark && styles.textSecondaryDark]}>
-                  {formatFullDate(ledgerDate(r.at))}
-                  {distance}
-                  {` · ${t('sectionHistory.versions')}: ${r.versions.length}`}
-                </Text>
-                {into ? (
-                  <Text style={[styles.link, isDark && { color: darkColors.actionLink }]}>
-                    {into}
+          <>
+            <Text
+              testID="section-retired-intro"
+              style={[styles.intro, isDark && styles.textSecondaryDark]}
+            >
+              {t('sectionHistory.retiredIntro')}
+            </Text>
+            {retired.map((r) => {
+              const into = r.into
+                ? t('sectionHistory.retiredInto', { name: names[r.into] ?? r.into })
+                : null;
+              const kind = t(`sectionHistory.kind_${r.kind}` as never);
+              const distance =
+                r.distanceMeters != null && r.distanceMeters > 0
+                  ? ` · ${formatDistance(r.distanceMeters, isMetric)}`
+                  : '';
+              // The name leads so two retirements of one kind can be told apart;
+              // how it left drops to the meta line.
+              const body = (
+                <>
+                  <Text numberOfLines={2} style={[styles.title, isDark && styles.textDark]}>
+                    {r.name ?? kind}
                   </Text>
-                ) : null}
-              </>
-            );
-            // A retirement merged into another section opens it from anywhere on
-            // the card, named by the link, rather than from one line of small text.
-            const restorable = r.restorableVersion != null ? Number(r.restorableVersion) : null;
-            const card = into ? (
-              <PressTarget
-                key={r.sectionId}
-                testID={`section-retired-${r.sectionId}`}
-                onPress={() => navigateTo(`/section/${r.into}`)}
-                accessibilityRole="link"
-                accessibilityLabel={into}
-                style={styles.target}
-              >
-                <Card variant="flat" style={{ gap: spacing.xs }}>
+                  {r.name ? (
+                    <Text style={[styles.meta, isDark && styles.textSecondaryDark]}>{kind}</Text>
+                  ) : null}
+                  <Text style={[styles.meta, isDark && styles.textSecondaryDark]}>
+                    {formatFullDate(ledgerDate(r.at))}
+                    {distance}
+                    {` · ${t('sectionHistory.versions')}: ${r.versions.length}`}
+                  </Text>
+                  {into ? (
+                    <Text style={[styles.link, isDark && { color: darkColors.actionLink }]}>
+                      {into}
+                    </Text>
+                  ) : null}
+                </>
+              );
+              // A retirement merged into another section opens it from anywhere on
+              // the card, named by the link, rather than from one line of small text.
+              const restorable = r.restorableVersion != null ? Number(r.restorableVersion) : null;
+              const card = into ? (
+                <PressTarget
+                  key={r.sectionId}
+                  testID={`section-retired-${r.sectionId}`}
+                  onPress={() => navigateTo(`/section/${r.into}`)}
+                  accessibilityRole="link"
+                  accessibilityLabel={into}
+                  style={styles.target}
+                >
+                  <Card variant="flat" style={{ gap: spacing.xs }}>
+                    {body}
+                  </Card>
+                </PressTarget>
+              ) : (
+                <Card
+                  key={r.sectionId}
+                  variant="flat"
+                  style={{ gap: spacing.xs }}
+                  testID={`section-retired-${r.sectionId}`}
+                >
                   {body}
                 </Card>
-              </PressTarget>
-            ) : (
-              <Card
-                key={r.sectionId}
-                variant="flat"
-                style={{ gap: spacing.xs }}
-                testID={`section-retired-${r.sectionId}`}
-              >
-                {body}
-              </Card>
-            );
-            if (restorable == null) return card;
-            return (
-              <View key={r.sectionId} style={{ gap: spacing.xs }}>
-                {card}
-                <RestoreAction sectionId={r.sectionId} version={restorable} name={r.name ?? kind} />
-              </View>
-            );
-          })
+              );
+              if (restorable == null) return card;
+              return (
+                <View key={r.sectionId} style={{ gap: spacing.xs }}>
+                  {card}
+                  <RestoreAction
+                    sectionId={r.sectionId}
+                    version={restorable}
+                    name={r.name ?? kind}
+                  />
+                </View>
+              );
+            })}
+          </>
         )}
       </ScreenScrollView>
     </ScreenSafeAreaView>
@@ -169,6 +181,7 @@ const styles = StyleSheet.create({
   },
   target: { minHeight: layout.minTapTarget },
   title: { ...typography.body, color: colors.textPrimary },
+  intro: { ...typography.bodySmall, color: colors.textSecondary },
   meta: { ...typography.caption, color: colors.textSecondary },
   link: { ...typography.bodySmall, color: colors.actionLink },
   textDark: { color: darkColors.textPrimary },

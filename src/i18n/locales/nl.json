@@ -718,7 +718,14 @@
     "streamConsentBody_one": "Bij {{count}} activiteit ontbreken de reeksen voor hartslag, vermogen en cadans. Het downloaden gebruikt ongeveer {{megabytes}} MB aan data.",
     "streamConsentBody_other": "Bij {{count}} activiteiten ontbreken de reeksen voor hartslag, vermogen en cadans. Het downloaden gebruikt ongeveer {{megabytes}} MB aan data.",
     "streamConsentDownload": "Downloaden",
-    "streamConsentDecline": "Niet nu"
+    "streamConsentDecline": "Niet nu",
+    "sectionsChangedTitle": "Je secties zijn opnieuw bepaald",
+    "sectionsChangedBody": "We hebben verbeterd hoe Veloq secties vindt. {{total}} van je oude secties zijn vervallen. Wat je hebt bewaard, hernoemd of vastgezet blijft behouden. Wil je een van de andere terug, dan vind je ze onder Vervallen stukken.",
+    "sectionsChangedBodyNone": "We hebben verbeterd hoe Veloq secties vindt.",
+    "sectionsChangedSee": "Bekijken",
+    "sectionsChangedDismiss": "Niet nu",
+    "notificationsTitle": "Je mist persoonlijke meldingen",
+    "notificationsBody": "Veloq kan je laten weten wanneer een rit een persoonlijk record of een snellere tijd op een route oplevert, met de naam van de route."
   },
   "filters": {
     "climbing": "Klimmen",
@@ -2432,6 +2439,8 @@
       "recutRunningPhase": "Je stukken worden opnieuw geanalyseerd: {{phase}}",
       "diffTotals": "{{current}} stukken werden er {{proposed}}.",
       "diffBreakdown": "{{new}} nieuw, {{changed}} gewijzigd, {{gone}} teruggetrokken.",
+      "diffNoneKept_one": "De nieuwe detector heeft je hele bibliotheek doorgerekend en geen van je {{count}} stuk behouden. Het is vervallen, niet verwijderd: open de lijst met vervallen stukken om terug te halen wat je wilt.",
+      "diffNoneKept_other": "De nieuwe detector heeft je hele bibliotheek doorgerekend en geen van je {{count}} stukken behouden. Ze zijn vervallen, niet verwijderd: open de lijst met vervallen stukken om terug te halen wat je wilt.",
       "diffUnchanged_one": "Het {{count}} stuk kwam ongewijzigd uit de nieuwe analyse.",
       "diffUnchanged_other": "Alle {{count}} stukken kwamen ongewijzigd uit de nieuwe analyse.",
       "recutFailed": "De nieuwe analyse is niet afgerond. Je secties zijn ongewijzigd en hij draait bij de volgende start opnieuw.",
@@ -2709,7 +2718,10 @@
     "splitFrom": "Afgesplitst van",
     "splitInto": "Opgesplitst in",
     "unavailable": "Sectie niet beschikbaar",
-    "revertVersion": "Terugzetten Versie {{version}}"
+    "revertVersion": "Terugzetten Versie {{version}}",
+    "retiredCount_one": "{{count}} vervallen stuk",
+    "retiredCount_other": "{{count}} vervallen stukken",
+    "retiredIntro": "Tik op Herstellen om een sectie precies te houden zoals hij was. De detector laat hem met rust."
   },
   "namedCorridors": {
     "title": "Namen die je gaf",

@@ -65,13 +65,13 @@ impl PersistentEngine {
         )
     }
 
-    pub(crate) fn try_find_superseded_auto_sections(
+    pub(crate) fn try_find_measured_superseded_auto_sections(
         &self,
         custom_section_id: &str,
         threshold_meters: f64,
         overlap_threshold: f64,
-    ) -> Result<Vec<String>, String> {
-        pooled::try_superseded_auto_sections(
+    ) -> Result<Vec<(String, f64)>, String> {
+        pooled::try_measured_superseded_auto_sections(
             &self.db,
             custom_section_id,
             threshold_meters,
@@ -1029,6 +1029,25 @@ pub(crate) mod pooled {
         threshold_meters: f64,
         overlap_threshold: f64,
     ) -> Result<Vec<String>, String> {
+        Ok(try_measured_superseded_auto_sections(
+            conn,
+            custom_section_id,
+            threshold_meters,
+            overlap_threshold,
+        )?
+        .into_iter()
+        .map(|(id, _)| id)
+        .collect())
+    }
+
+    /// [`try_superseded_auto_sections`], each id with the fraction of its line
+    /// that lay within the threshold, the figure the ledger records.
+    pub(crate) fn try_measured_superseded_auto_sections(
+        conn: &Connection,
+        custom_section_id: &str,
+        threshold_meters: f64,
+        overlap_threshold: f64,
+    ) -> Result<Vec<(String, f64)>, String> {
         let custom = geometry::stored_line(conn, custom_section_id)?;
         let custom: Vec<f64> = custom
             .iter()
@@ -1086,8 +1105,9 @@ pub(crate) mod pooled {
                 .iter()
                 .flat_map(|point| [point.latitude, point.longitude])
                 .collect();
-            if index.fraction_within(&auto, threshold_meters) > overlap_threshold {
-                superseded.push(id);
+            let fraction = index.fraction_within(&auto, threshold_meters);
+            if fraction > overlap_threshold {
+                superseded.push((id, fraction));
             }
         }
 

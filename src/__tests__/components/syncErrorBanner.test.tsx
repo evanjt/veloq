@@ -30,6 +30,11 @@ jest.mock('@/shared/app/useTheme', () => ({
   useTheme: () => ({ isDark: false }),
 }));
 
+const mockRequestSyncRefresh = jest.fn();
+jest.mock('@/shared/native/syncRefresh', () => ({
+  requestSyncRefresh: () => mockRequestSyncRefresh(),
+}));
+
 let mockOfflineBannerShown = false;
 jest.mock('@/shared/app/NetworkContext', () => ({
   useNetwork: () => ({ offlineBannerShown: mockOfflineBannerShown }),
@@ -52,6 +57,7 @@ jest.mock('@/shared/native/useSyncHealth', () => ({
 describe('SyncErrorBanner', () => {
   beforeEach(() => {
     mockOfflineBannerShown = false;
+    mockRequestSyncRefresh.mockClear();
     mockHealth = {
       lastError: null,
       lastErrorReason: null,
@@ -178,6 +184,148 @@ describe('SyncErrorBanner', () => {
       expect(queryByTestId('sync-error-free-space')).toBeNull();
     }
   );
+
+  describe('every fault has a next step', () => {
+    it.each([
+      SyncErrorReason.Network,
+      SyncErrorReason.Server,
+      SyncErrorReason.RateLimited,
+      SyncErrorReason.Internal,
+      SyncErrorReason.Storage,
+      SyncErrorReason.EngineClosed,
+      null,
+      99 as SyncErrorReason,
+    ])('offers Retry for reason %s, which asks the engine for a sync', async (reason) => {
+      mockHealth = { lastError: 'failed', lastErrorReason: reason, lastSuccessAt: null };
+      const { getByTestId, queryByTestId } = await render(<SyncErrorBanner />);
+
+      expect(queryByTestId('sync-error-sign-in')).toBeNull();
+      await fireEvent.press(getByTestId('sync-error-banner-retry'));
+
+      expect(mockRequestSyncRefresh).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([SyncErrorReason.Unauthorized, SyncErrorReason.NotConfigured])(
+      'offers Sign in again for reason %s, and goes to the login screen',
+      async (reason) => {
+        mockHealth = { lastError: 'refused', lastErrorReason: reason, lastSuccessAt: null };
+        const { getByTestId, queryByTestId } = await render(<SyncErrorBanner />);
+
+        expect(queryByTestId('sync-error-banner-retry')).toBeNull();
+        await fireEvent.press(getByTestId('sync-error-sign-in'));
+
+        expect(router.push).toHaveBeenCalledWith('/login');
+      }
+    );
+
+    it('keeps Free up space as the one action for a full device', async () => {
+      mockHealth = {
+        lastError: 'full',
+        lastErrorReason: SyncErrorReason.StorageFull,
+        lastSuccessAt: null,
+      };
+      const { getByTestId, queryByTestId } = await render(<SyncErrorBanner />);
+
+      expect(getByTestId('sync-error-free-space')).toBeTruthy();
+      expect(queryByTestId('sync-error-banner-retry')).toBeNull();
+      expect(queryByTestId('sync-error-sign-in')).toBeNull();
+    });
+  });
+
+  describe('closing the banner', () => {
+    it.each([
+      SyncErrorReason.Network,
+      SyncErrorReason.Storage,
+      SyncErrorReason.EngineClosed,
+      SyncErrorReason.Unauthorized,
+      SyncErrorReason.NotConfigured,
+      SyncErrorReason.StorageFull,
+      null,
+    ])('can be closed for reason %s', async (reason) => {
+      mockHealth = { lastError: 'failed', lastErrorReason: reason, lastSuccessAt: null };
+      const { getByTestId, queryByTestId } = await render(<SyncErrorBanner />);
+
+      await fireEvent.press(getByTestId('sync-error-banner-dismiss'));
+
+      expect(queryByTestId('sync-error-banner')).toBeNull();
+    });
+
+    it('stays closed while the same reason is reported again', async () => {
+      mockHealth = {
+        lastError: 'disk I/O error',
+        lastErrorReason: SyncErrorReason.Storage,
+        lastSuccessAt: null,
+      };
+      const { getByTestId, queryByTestId, rerender } = await render(<SyncErrorBanner />);
+      await fireEvent.press(getByTestId('sync-error-banner-dismiss'));
+
+      mockHealth = { ...mockHealth, lastError: 'disk I/O error (retry 2)' };
+      await rerender(<SyncErrorBanner />);
+
+      expect(queryByTestId('sync-error-banner')).toBeNull();
+    });
+
+    it('shows again when the reason changes', async () => {
+      mockHealth = {
+        lastError: 'disk I/O error',
+        lastErrorReason: SyncErrorReason.Storage,
+        lastSuccessAt: null,
+      };
+      const { getByTestId, queryByTestId, rerender } = await render(<SyncErrorBanner />);
+      await fireEvent.press(getByTestId('sync-error-banner-dismiss'));
+
+      mockHealth = {
+        lastError: 'refused',
+        lastErrorReason: SyncErrorReason.Unauthorized,
+        lastSuccessAt: null,
+      };
+      await rerender(<SyncErrorBanner />);
+
+      expect(queryByTestId('sync-error-banner')).toBeTruthy();
+    });
+
+    it('shows again when a sync succeeds and then fails with the same reason', async () => {
+      mockHealth = {
+        lastError: 'disk I/O error',
+        lastErrorReason: SyncErrorReason.Storage,
+        lastSuccessAt: null,
+      };
+      const { getByTestId, queryByTestId, rerender } = await render(<SyncErrorBanner />);
+      await fireEvent.press(getByTestId('sync-error-banner-dismiss'));
+
+      mockHealth = {
+        lastError: null,
+        lastErrorReason: null,
+        lastSuccessAt: '2026-08-01T10:00:00.000Z',
+      };
+      await rerender(<SyncErrorBanner />);
+      mockHealth = {
+        lastError: 'disk I/O error',
+        lastErrorReason: SyncErrorReason.Storage,
+        lastSuccessAt: '2026-08-01T10:00:00.000Z',
+      };
+      await rerender(<SyncErrorBanner />);
+
+      expect(queryByTestId('sync-error-banner')).toBeTruthy();
+    });
+
+    it('shows again when a later sync succeeds between two failures of one reason', async () => {
+      mockHealth = {
+        lastError: 'disk I/O error',
+        lastErrorReason: SyncErrorReason.Storage,
+        lastSuccessAt: '2026-08-01T10:00:00.000Z',
+      };
+      const { getByTestId, queryByTestId, rerender } = await render(<SyncErrorBanner />);
+      await fireEvent.press(getByTestId('sync-error-banner-dismiss'));
+
+      // The success and the next failure land inside one render, so the
+      // healthy reading is never drawn; the new success time still marks it.
+      mockHealth = { ...mockHealth, lastSuccessAt: '2026-08-02T10:00:00.000Z' };
+      await rerender(<SyncErrorBanner />);
+
+      expect(queryByTestId('sync-error-banner')).toBeTruthy();
+    });
+  });
 
   /// A refusal from intervals.icu is not a fault on the device, and the
   /// engine resumes on its own at the time it names.

@@ -23,6 +23,8 @@ export interface UseDays {
 }
 
 export interface Usage extends UseDays {
+  /** Launches of this install, counted once per process and across days. */
+  launches: number;
   /** A sync has finished clean on this install. */
   firstSyncSettled: boolean;
 }
@@ -69,7 +71,12 @@ function daysOf(row: Partial<UseDays> | null): UseDays {
 export async function readUsage(): Promise<{ stored: Partial<Usage> | null; prior: Usage }> {
   const stored = await readJson<Usage>(USAGE_KEY);
   const days = daysOf(stored ?? (await readJson<UseDays>(LEGACY_SUPPORT_KEY)));
-  return { stored, prior: { ...days, firstSyncSettled: stored?.firstSyncSettled === true } };
+  // A record from before launches were counted holds at least one launch per day of use.
+  const launches = stored?.launches ?? days.useDays;
+  return {
+    stored,
+    prior: { ...days, launches, firstSyncSettled: stored?.firstSyncSettled === true },
+  };
 }
 
 export function sameUsage(a: Partial<Usage> | null, b: Usage): boolean {
@@ -78,6 +85,7 @@ export function sameUsage(a: Partial<Usage> | null, b: Usage): boolean {
     a.firstUseDate === b.firstUseDate &&
     a.lastUseDate === b.lastUseDate &&
     a.useDays === b.useDays &&
+    a.launches === b.launches &&
     a.firstSyncSettled === b.firstSyncSettled
   );
 }
@@ -87,6 +95,7 @@ export function persistUsage(usage: Usage): void {
     firstUseDate: usage.firstUseDate,
     lastUseDate: usage.lastUseDate,
     useDays: usage.useDays,
+    launches: usage.launches,
     firstSyncSettled: usage.firstSyncSettled,
   };
   setSetting(USAGE_KEY, JSON.stringify(row)).catch((e) => {

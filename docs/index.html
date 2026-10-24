@@ -381,145 +381,98 @@
       }
 
       .showcase-container {
-        max-width: 400px;
+        max-width: 1100px;
         margin: 0 auto;
-        position: relative;
+        padding: 0 24px;
       }
 
-      .phone-frame {
-        background: #1a1a1a;
-        border-radius: 28px;
-        padding: 12px;
-        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.3);
-        animation: float 6s ease-in-out infinite;
-      }
-
-      .phone-screen {
-        background: #000;
-        border-radius: 16px;
-        overflow: hidden;
-        aspect-ratio: 712/1584;
-        position: relative;
-      }
-
-      .carousel {
-        position: absolute;
-        inset: 0;
-      }
-
-      .carousel-slide {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        opacity: 0;
-        transition: opacity 0.5s ease;
-      }
-
-      .carousel-slide.active {
-        opacity: 1;
-      }
-
-      .carousel-slide img,
-      .carousel-slide video {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-      }
-
-      .carousel-placeholder {
-        width: 100%;
-        height: 100%;
+      .platform-switch {
         display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-        color: #666;
-        text-align: center;
-        padding: 20px;
-      }
-
-      .carousel-placeholder .icon {
-        font-size: 48px;
-        margin-bottom: 16px;
-      }
-
-      .carousel-placeholder .title {
-        font-size: 18px;
-        font-weight: 600;
-        color: #999;
-        margin-bottom: 8px;
-      }
-
-      .carousel-placeholder .desc {
-        font-size: 14px;
-        color: #666;
-      }
-
-      .carousel-controls {
-        display: flex;
-        justify-content: center;
-        gap: 12px;
-        margin-top: 24px;
-      }
-
-      .carousel-dot {
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        background: var(--border);
-        border: none;
-        cursor: pointer;
-        transition: all 0.3s;
-      }
-
-      .carousel-dot.active {
-        background: var(--primary);
-        transform: scale(1.2);
-      }
-
-      .carousel-dot:hover {
-        background: var(--primary);
-      }
-
-      .carousel-nav {
-        position: absolute;
-        top: 50%;
-        transform: translateY(-50%);
-        width: 44px;
-        height: 44px;
-        border-radius: 50%;
+        width: fit-content;
+        margin: 0 auto 32px;
+        padding: 4px;
+        gap: 4px;
         background: var(--card);
         border: 1px solid var(--border);
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.3s;
-        z-index: 10;
+        border-radius: 999px;
       }
 
-      .carousel-nav:hover {
+      .platform-switch button {
+        min-height: 44px;
+        padding: 0 20px;
+        border: none;
+        border-radius: 999px;
+        background: transparent;
+        color: var(--text-muted);
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .platform-switch button[aria-selected="true"] {
         background: var(--primary);
         color: white;
-        border-color: var(--primary);
       }
 
-      .carousel-nav.prev {
-        left: -60px;
-      }
-      .carousel-nav.next {
-        right: -60px;
+      .shots {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 24px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
       }
 
-      .carousel-caption {
+      .shots[data-platform="ipad"] {
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      }
+
+      .shots[hidden] {
+        display: none;
+      }
+
+      .shots figure {
+        margin: 0;
+      }
+
+      .shots img {
+        display: block;
+        width: 100%;
+        height: auto;
+        border-radius: 16px;
+        background: var(--card);
+      }
+
+      .shots figcaption {
+        margin-top: 12px;
         text-align: center;
-        margin-top: 16px;
         color: var(--text-muted);
         font-size: 14px;
-        min-height: 20px;
+      }
+
+      @media (max-width: 639px) {
+        .showcase-container {
+          padding: 0;
+        }
+        .shots {
+          display: flex;
+          gap: 16px;
+          padding: 0 16px;
+          overflow-x: auto;
+          scroll-snap-type: x mandatory;
+          scroll-padding: 0 16px;
+          overscroll-behavior-x: contain;
+        }
+        .shots[hidden] {
+          display: none;
+        }
+        .shots li {
+          flex: 0 0 72%;
+          scroll-snap-align: start;
+        }
+        .shots[data-platform="ipad"] li {
+          flex-basis: 86%;
+        }
       }
 
       .screenshot-disclaimer {
@@ -721,19 +674,6 @@
         .hero h1 {
           font-size: 2.2rem;
         }
-        .showcase-container {
-          max-width: 300px;
-        }
-        .phone-frame {
-          border-radius: 22px;
-          padding: 8px;
-        }
-        .phone-screen {
-          border-radius: 14px;
-        }
-        .carousel-nav {
-          display: none;
-        }
         .features,
         .getting-started {
           padding: 60px 0;
@@ -842,41 +782,65 @@
 
       <section class="showcase animate-fade-up delay-3">
         <div class="showcase-container">
-          <button class="carousel-nav prev" onclick="prevSlide()">
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-          </button>
-          <button class="carousel-nav next" onclick="nextSlide()">
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
-          </button>
-
-          <div class="phone-frame">
-            <div class="phone-screen">
-              <div class="carousel" id="carousel">
-                <!-- Slides will be populated by JS - add your media files to screenshots/ -->
-              </div>
-            </div>
-          </div>
-
-          <div class="carousel-controls" id="carousel-dots"></div>
-          <p class="carousel-caption" id="carousel-caption"></p>
+          <div class="platform-switch" id="platform-switch" role="group" aria-label="Screenshots" hidden></div>
+          <!-- store-copy:gallery -->
+          <ol class="shots" data-platform="android">
+            <li>
+              <figure>
+                <picture>
+                  <source media="(prefers-color-scheme: dark)" srcset="screenshots/android/dark/01-feed.png" />
+                  <img src="screenshots/android/01-feed.png" width="712" height="1584" loading="lazy" alt="Your activity history" />
+                </picture>
+                <figcaption>Your activity history</figcaption>
+              </figure>
+            </li>
+            <li>
+              <figure>
+                <picture>
+                  <source media="(prefers-color-scheme: dark)" srcset="screenshots/android/dark/02-activity.png" />
+                  <img src="screenshots/android/02-activity.png" width="712" height="1584" loading="lazy" alt="Map and charts on one timeline" />
+                </picture>
+                <figcaption>Map and charts on one timeline</figcaption>
+              </figure>
+            </li>
+            <li>
+              <figure>
+                <picture>
+                  <source media="(prefers-color-scheme: dark)" srcset="screenshots/android/dark/03-fitness.png" />
+                  <img src="screenshots/android/03-fitness.png" width="712" height="1584" loading="lazy" alt="Fitness, fatigue and form" />
+                </picture>
+                <figcaption>Fitness, fatigue and form</figcaption>
+              </figure>
+            </li>
+            <li>
+              <figure>
+                <picture>
+                  <source media="(prefers-color-scheme: dark)" srcset="screenshots/android/dark/04-map.png" />
+                  <img src="screenshots/android/04-map.png" width="712" height="1584" loading="lazy" alt="Where you've been riding" />
+                </picture>
+                <figcaption>Where you've been riding</figcaption>
+              </figure>
+            </li>
+            <li>
+              <figure>
+                <picture>
+                  <source media="(prefers-color-scheme: dark)" srcset="screenshots/android/dark/05-routes.png" />
+                  <img src="screenshots/android/05-routes.png" width="712" height="1584" loading="lazy" alt="Routes you ride again" />
+                </picture>
+                <figcaption>Routes you ride again</figcaption>
+              </figure>
+            </li>
+            <li>
+              <figure>
+                <picture>
+                  <source media="(prefers-color-scheme: dark)" srcset="screenshots/android/dark/06-insights.png" />
+                  <img src="screenshots/android/06-insights.png" width="712" height="1584" loading="lazy" alt="A daily read on your training" />
+                </picture>
+                <figcaption>A daily read on your training</figcaption>
+              </figure>
+            </li>
+          </ol>
+          <!-- /store-copy:gallery -->
           <p class="screenshot-disclaimer" data-i18n="showcase.disclaimer">
             * Screenshots show demo data for illustration purposes only.
           </p>
@@ -1000,129 +964,45 @@
       </div>
     </footer>
 
+    <script src="platform.js"></script>
     <script>
-      // The gallery is written by npx tsx scripts/store-screenshots.ts --target web,
-      // one entry per store shot from the same capture.
-      const mediaItems = [
-        // store-copy:gallery
-        {
-          type: "image",
-          src: "screenshots/01-feed.png",
-          caption: "Your activity history",
-        },
-        {
-          type: "image",
-          src: "screenshots/02-activity.png",
-          caption: "Map and charts on one timeline",
-        },
-        {
-          type: "image",
-          src: "screenshots/03-fitness.png",
-          caption: "Fitness, fatigue and form",
-        },
-        {
-          type: "image",
-          src: "screenshots/04-map.png",
-          caption: "Where you've been riding",
-        },
-        {
-          type: "image",
-          src: "screenshots/05-routes.png",
-          caption: "Routes you ride again",
-        },
-        {
-          type: "image",
-          src: "screenshots/06-insights.png",
-          caption: "A daily read on your training",
-        },
-        // /store-copy:gallery
-      ];
+      // The gallery markup is written by npx tsx scripts/store-screenshots.ts --target web.
+      function initGallery() {
+        const lists = Array.from(document.querySelectorAll(".shots"));
+        const switcher = document.getElementById("platform-switch");
+        const labels = { android: "Android", ios: "iPhone", ipad: "iPad" };
+        const keys = lists.map((list) => list.dataset.platform);
+        let saved = null;
+        try {
+          saved = localStorage.getItem("veloq.platform");
+        } catch (e) {}
+        const picked = keys.includes(saved)
+          ? saved
+          : pickPlatform(navigator.userAgent, navigator.maxTouchPoints);
 
-      let currentSlide = 0;
-      let autoplayInterval;
+        function show(key, remember) {
+          lists.forEach((list) => {
+            list.hidden = list.dataset.platform !== key;
+          });
+          switcher.querySelectorAll("button").forEach((button) => {
+            button.setAttribute("aria-selected", String(button.dataset.platform === key));
+          });
+          if (!remember) return;
+          try {
+            localStorage.setItem("veloq.platform", key);
+          } catch (e) {}
+        }
 
-      function initCarousel() {
-        const carousel = document.getElementById("carousel");
-        const dotsContainer = document.getElementById("carousel-dots");
-
-        mediaItems.forEach((item, index) => {
-          // Create slide
-          const slide = document.createElement("div");
-          slide.className = "carousel-slide" + (index === 0 ? " active" : "");
-
-          if (item.type === "placeholder") {
-            slide.innerHTML = `
-            <div class="carousel-placeholder">
-              <div class="icon">${item.icon}</div>
-              <div class="title">${item.title}</div>
-              <div class="desc">${item.desc}</div>
-            </div>
-          `;
-          } else if (item.type === "image") {
-            slide.innerHTML = `<img src="${item.src}" alt="${item.caption || ""}" loading="lazy">`;
-          } else if (item.type === "video") {
-            slide.innerHTML = `<video src="${item.src}" muted loop playsinline></video>`;
-          }
-
-          carousel.appendChild(slide);
-
-          // Create dot
-          const dot = document.createElement("button");
-          dot.className = "carousel-dot" + (index === 0 ? " active" : "");
-          dot.onclick = () => goToSlide(index);
-          dotsContainer.appendChild(dot);
+        keys.forEach((key) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.dataset.platform = key;
+          button.textContent = labels[key] || key;
+          button.addEventListener("click", () => show(key, true));
+          switcher.appendChild(button);
         });
-
-        updateCaption();
-        startAutoplay();
-      }
-
-      function goToSlide(index) {
-        const slides = document.querySelectorAll(".carousel-slide");
-        const dots = document.querySelectorAll(".carousel-dot");
-
-        slides[currentSlide].classList.remove("active");
-        dots[currentSlide].classList.remove("active");
-
-        // Pause video on current slide
-        const currentVideo = slides[currentSlide].querySelector("video");
-        if (currentVideo) currentVideo.pause();
-
-        currentSlide = index;
-        if (currentSlide >= slides.length) currentSlide = 0;
-        if (currentSlide < 0) currentSlide = slides.length - 1;
-
-        slides[currentSlide].classList.add("active");
-        dots[currentSlide].classList.add("active");
-
-        // Play video on new slide
-        const newVideo = slides[currentSlide].querySelector("video");
-        if (newVideo) newVideo.play();
-
-        updateCaption();
-        resetAutoplay();
-      }
-
-      function nextSlide() {
-        goToSlide(currentSlide + 1);
-      }
-      function prevSlide() {
-        goToSlide(currentSlide - 1);
-      }
-
-      function updateCaption() {
-        const caption = document.getElementById("carousel-caption");
-        const item = mediaItems[currentSlide];
-        caption.textContent = item.caption || item.title || "";
-      }
-
-      function startAutoplay() {
-        autoplayInterval = setInterval(nextSlide, 4000);
-      }
-
-      function resetAutoplay() {
-        clearInterval(autoplayInterval);
-        startAutoplay();
+        switcher.hidden = false;
+        show(picked, false);
       }
 
       // Translations
@@ -1697,7 +1577,7 @@
 
       // Initialize
       document.addEventListener("DOMContentLoaded", () => {
-        initCarousel();
+        initGallery();
         applyTranslations(currentLang);
 
         document.getElementById("lang-btn").addEventListener("click", (e) => {
@@ -1715,26 +1595,6 @@
           document.getElementById("lang-dropdown").classList.remove("open");
         });
 
-        // Keyboard navigation for carousel
-        document.addEventListener("keydown", (e) => {
-          if (e.key === "ArrowLeft") prevSlide();
-          if (e.key === "ArrowRight") nextSlide();
-        });
-
-        // Touch swipe for carousel
-        let touchStartX = 0;
-        const carousel = document.getElementById("carousel");
-        carousel.addEventListener("touchstart", (e) => {
-          touchStartX = e.touches[0].clientX;
-        });
-        carousel.addEventListener("touchend", (e) => {
-          const touchEndX = e.changedTouches[0].clientX;
-          const diff = touchStartX - touchEndX;
-          if (Math.abs(diff) > 50) {
-            if (diff > 0) nextSlide();
-            else prevSlide();
-          }
-        });
       });
     </script>
   </body>

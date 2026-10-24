@@ -19,6 +19,14 @@ export const cardContainers = StyleSheet.create({
     marginHorizontal: CARD_MARGIN,
     marginBottom: CARD_MARGIN,
   },
+  /** Covers the card inside its margins; carries the card's id where the system menu hides the card. */
+  idMarker: {
+    position: 'absolute',
+    top: 0,
+    bottom: CARD_MARGIN,
+    left: CARD_MARGIN,
+    right: CARD_MARGIN,
+  },
   map: {
     position: 'relative',
     height: CARD_HEIGHT,

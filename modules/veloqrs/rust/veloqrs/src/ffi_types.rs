@@ -1289,6 +1289,64 @@ pub struct FfiMapSection {
     pub encoded_polyline: Vec<u8>,
 }
 
+/// A retired section as the old-versus-new map draws it: the ledger's record
+/// of it and its newest stored line that decodes.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiRetiredMapSection {
+    pub section: crate::persistence::sections::RetiredSection,
+    /// Delta+varint encoded coordinates; `None` when no stored version decodes.
+    pub encoded_polyline: Option<Vec<u8>>,
+}
+
+/// A catalogue row as the old-versus-new map draws it, hidden rows included.
+/// A row whose line will not decode has nothing to draw and is left out.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiCurrentMapSection {
+    pub id: String,
+    pub name: Option<String>,
+    pub is_user_defined: bool,
+    pub pinned: bool,
+    /// Disabled, or hidden behind the section `superseded_by` names.
+    pub hidden: bool,
+    pub superseded_by: Option<String>,
+    /// Delta+varint encoded coordinates.
+    pub encoded_polyline: Vec<u8>,
+}
+
+/// Why a retired section and a catalogue row are shown together.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
+pub enum FfiRetiredPairLink {
+    /// The ledger's `into` chain from the retired section ends at the row.
+    Ledger,
+    /// The row is hidden behind the retired section's id.
+    Supersedes,
+    /// The two lines share ground.
+    Ground,
+}
+
+/// One retired section set against one catalogue row.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiRetiredMapPair {
+    pub retired_id: String,
+    pub current_id: String,
+    pub link: FfiRetiredPairLink,
+    /// The larger of the two coverage fractions, for a `Ground` pair only.
+    pub overlap: Option<f64>,
+}
+
+/// Everything the old-versus-new sections map draws, in one read.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiRetiredMapData {
+    pub retired: Vec<FfiRetiredMapSection>,
+    pub current: Vec<FfiCurrentMapSection>,
+    pub pairs: Vec<FfiRetiredMapPair>,
+}
+
 /// Section summary with embedded polyline for the Routes screen.
 /// Carries each section's line so the screen needs no per-section read.
 #[derive(Debug, Clone, uniffi::Record)]

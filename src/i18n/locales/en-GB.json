@@ -718,7 +718,14 @@
     "streamConsentBody_one": "{{count}} activity is missing its heart rate, power and cadence series. Downloading it uses about {{megabytes}} MB of data.",
     "streamConsentBody_other": "{{count}} activities are missing their heart rate, power and cadence series. Downloading them uses about {{megabytes}} MB of data.",
     "streamConsentDownload": "Download",
-    "streamConsentDecline": "Not now"
+    "streamConsentDecline": "Not now",
+    "sectionsChangedTitle": "Your sections were re-cut",
+    "sectionsChangedBody": "We've improved how Veloq finds sections. {{total}} of your old sections have been retired. The ones you saved, renamed or pinned are kept. If you want any of the others back, find them in Retired sections.",
+    "sectionsChangedBodyNone": "We've improved how Veloq finds sections.",
+    "sectionsChangedSee": "See them",
+    "sectionsChangedDismiss": "Not now",
+    "notificationsTitle": "You’re missing out on personalised notifications",
+    "notificationsBody": "Veloq can tell you when a ride sets a personal best or a faster time on a route, with the route named."
   },
   "filters": {
     "climbing": "Climbing",
@@ -2432,6 +2439,8 @@
       "recutRunningPhase": "Re-analysing your sections: {{phase}}",
       "diffTotals": "{{current}} sections became {{proposed}}.",
       "diffBreakdown": "{{new}} new, {{changed}} changed, {{gone}} retired.",
+      "diffNoneKept_one": "The new detector has gone over your whole library and kept none of your {{count}} section. It is retired, not deleted: open the retired list to bring back any you want.",
+      "diffNoneKept_other": "The new detector has gone over your whole library and kept none of your {{count}} sections. They are retired, not deleted: open the retired list to bring back any you want.",
       "diffUnchanged_one": "The {{count}} section came through the re-analysis unchanged.",
       "diffUnchanged_other": "All {{count}} sections came through the re-analysis unchanged.",
       "recutFailed": "The re-analysis did not finish. Your sections are unchanged and it runs again next launch.",
@@ -2709,7 +2718,10 @@
     "splitFrom": "Split from",
     "splitInto": "Split into",
     "unavailable": "Section unavailable",
-    "revertVersion": "Revert version {{version}}"
+    "revertVersion": "Revert version {{version}}",
+    "retiredCount_one": "{{count}} retired section",
+    "retiredCount_other": "{{count}} retired sections",
+    "retiredIntro": "Tap Restore to keep a section exactly as it was. The detector will leave it alone."
   },
   "namedCorridors": {
     "title": "Names you gave",

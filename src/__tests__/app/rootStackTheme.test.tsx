@@ -56,7 +56,10 @@ jest.mock('expo-network', () => ({
   getNetworkStateAsync: jest.fn(() => new Promise(() => {})),
 }));
 jest.mock('@/shared/app/launch', () => ({ initialiseApp: jest.fn(async () => null) }));
-jest.mock('@/shared/app/splash', () => ({ releaseSplash: jest.fn() }));
+jest.mock('@/shared/app/splash', () => ({
+  ...jest.requireActual('@/shared/app/splash'),
+  releaseSplash: jest.fn(),
+}));
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => null,
   getRouteDbPath: () => null,

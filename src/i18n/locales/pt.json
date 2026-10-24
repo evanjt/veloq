@@ -735,7 +735,14 @@
     "streamConsentBody_many": "A {{count}} de atividades faltam as séries de frequência cardíaca, potência e cadência. A transferência usa cerca de {{megabytes}} MB de dados.",
     "streamConsentBody_other": "A {{count}} atividades faltam as séries de frequência cardíaca, potência e cadência. A transferência usa cerca de {{megabytes}} MB de dados.",
     "streamConsentDownload": "Transferir",
-    "streamConsentDecline": "Agora não"
+    "streamConsentDecline": "Agora não",
+    "sectionsChangedTitle": "As suas secções foram recortadas de novo",
+    "sectionsChangedBody": "Melhorámos a forma como o Veloq encontra secções. {{total}} das suas secções antigas foram retiradas. As que guardou, renomeou ou fixou mantêm-se. Se quiser recuperar alguma das outras, encontra-a em Troços retirados.",
+    "sectionsChangedBodyNone": "Melhorámos a forma como o Veloq encontra secções.",
+    "sectionsChangedSee": "Ver",
+    "sectionsChangedDismiss": "Agora não",
+    "notificationsTitle": "Está a perder as notificações personalizadas",
+    "notificationsBody": "O Veloq pode avisá-lo quando uma saída alcança um recorde pessoal ou um tempo mais rápido num percurso, com o nome do percurso."
   },
   "filters": {
     "climbing": "Escalada",
@@ -2473,6 +2480,9 @@
       "recutRunningPhase": "A analisar de novo os teus troços: {{phase}}",
       "diffTotals": "{{current}} troços passaram a {{proposed}}.",
       "diffBreakdown": "{{new}} novos, {{changed}} alterados, {{gone}} retirados.",
+      "diffNoneKept_one": "O novo detetor passou por toda a tua biblioteca e não manteve nenhum dos teus {{count}} troço. Ele foi retirado, não apagado: abre a lista de troços retirados para trazer de volta os que quiseres.",
+      "diffNoneKept_many": "O novo detetor passou por toda a tua biblioteca e não manteve nenhum dos teus {{count}} troços. Eles foram retirados, não apagados: abre a lista de troços retirados para trazer de volta os que quiseres.",
+      "diffNoneKept_other": "O novo detetor passou por toda a tua biblioteca e não manteve nenhum dos teus {{count}} troços. Eles foram retirados, não apagados: abre a lista de troços retirados para trazer de volta os que quiseres.",
       "diffUnchanged_one": "O {{count}} troço saiu da nova análise sem alterações.",
       "diffUnchanged_many": "Os {{count}} troços saíram da nova análise sem alterações.",
       "diffUnchanged_other": "Os {{count}} troços saíram da nova análise sem alterações.",
@@ -2753,7 +2763,10 @@
     "splitFrom": "Dividida de",
     "splitInto": "Dividida em",
     "unavailable": "Secção indisponível",
-    "revertVersion": "Repor Versão {{version}}"
+    "revertVersion": "Repor Versão {{version}}",
+    "retiredCount_one": "{{count}} troço retirado",
+    "retiredCount_other": "{{count}} troços retirados",
+    "retiredIntro": "Toque em Restaurar para manter uma secção exatamente como estava. O detetor deixa-a em paz."
   },
   "namedCorridors": {
     "title": "Nomes que deu",

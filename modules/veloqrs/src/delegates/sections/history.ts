@@ -11,6 +11,7 @@
 import { decodeCoords } from '../../coords';
 import type { LatLngShort } from '../../coords';
 import type {
+  FfiRetiredMapData,
   FfiRetiredSection,
   FfiSectionChange,
   FfiSectionHistoryEvent,
@@ -19,6 +20,7 @@ import type { DelegateHost } from '../host';
 
 export type SectionHistoryEvent = FfiSectionHistoryEvent;
 export type RetiredSection = FfiRetiredSection;
+export type RetiredMapData = FfiRetiredMapData;
 export type SectionChange = FfiSectionChange;
 
 export function getSectionHistory(host: DelegateHost, sectionId: string): SectionHistoryEvent[] {
@@ -62,4 +64,14 @@ export function getPinnedSectionVersion(host: DelegateHost, sectionId: string): 
 export function getRetiredSections(host: DelegateHost): RetiredSection[] {
   if (!host.ready) return [];
   return host.timed('getRetired', () => host.engine.sections().getRetired());
+}
+
+/**
+ * Everything the old-versus-new sections map draws, in one read: the retired
+ * sections with their lines, every catalogue row hidden ones included, and
+ * the pairs between them. Undefined while the engine is not ready.
+ */
+export function getRetiredMapData(host: DelegateHost): RetiredMapData | undefined {
+  if (!host.ready) return undefined;
+  return host.timed('getRetiredMap', () => host.engine.sections().getRetiredMap());
 }

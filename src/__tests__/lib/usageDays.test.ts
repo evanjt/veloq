@@ -33,6 +33,7 @@ beforeEach(() => {
     firstUseDate: null,
     lastUseDate: null,
     useDays: 0,
+    launches: 0,
     firstSyncSettled: false,
     usageLoaded: false,
   });
@@ -80,6 +81,34 @@ describe('the usage row across launches', () => {
       lastUseDate: '2026-05-12',
       useDays: 2,
     });
+  });
+
+  it('counts every launch, including those on one local day', async () => {
+    await launchAt(new Date(2026, 4, 11, 9, 0));
+    expect(useWhatsNewStore.getState().launches).toBe(1);
+    await launchAt(new Date(2026, 4, 11, 10, 0));
+    expect(useWhatsNewStore.getState().launches).toBe(2);
+    expect(JSON.parse(mockRows.get('veloq-usage') ?? '{}')).toMatchObject({ launches: 2 });
+  });
+
+  it('does not count a launch twice when the store is read again in one process', async () => {
+    await launchAt(new Date(2026, 4, 11, 9, 0));
+    await useWhatsNewStore.getState().countUse();
+    expect(useWhatsNewStore.getState().launches).toBe(1);
+  });
+
+  it('takes a record stored before launches were counted as one launch per day of use', async () => {
+    mockRows.set(
+      'veloq-usage',
+      JSON.stringify({
+        firstUseDate: '2026-05-01',
+        lastUseDate: '2026-05-10',
+        useDays: 4,
+        firstSyncSettled: true,
+      })
+    );
+    await launchAt(new Date(2026, 4, 11, 9, 0));
+    expect(useWhatsNewStore.getState().launches).toBe(5);
   });
 
   it('carries over a count kept on the support card’s row', async () => {

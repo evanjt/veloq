@@ -381,19 +381,36 @@ export const ActivityCard = React.memo(
       slower: sectionHighlights?.filter((h) => h.trend === -1 && !h.isPr).length ?? 0,
     };
 
+    const menuIsNative = contextMenuHoldIsNative();
     // The menu a hold opens wraps the card it belongs to, compact or full, and
     // offers map controls only on the card that draws a map.
-    const withMenu = (card: React.ReactElement, hasMap: boolean) => (
-      <ActivityCardContextMenu
-        visible={menuVisible}
-        onDismiss={() => setMenuVisible(false)}
-        activity={activity}
-        hasMap={hasMap}
-      >
-        {card}
-      </ActivityCardContextMenu>
-    );
-    const onHold = contextMenuHoldIsNative() ? undefined : handleLongPress;
+    const withMenu = (card: React.ReactElement, hasMap: boolean) => {
+      const menu = (
+        <ActivityCardContextMenu
+          visible={menuVisible}
+          onDismiss={() => setMenuVisible(false)}
+          activity={activity}
+          hasMap={hasMap}
+        >
+          {card}
+        </ActivityCardContextMenu>
+      );
+      if (!menuIsNative) return menu;
+      return (
+        <View>
+          {menu}
+          {/* An automation driver lists nothing drawn under the system menu's
+              link, so the card's id is carried by an inert view over its frame. */}
+          <View
+            testID={`activity-card-${activity.id}`}
+            style={cardContainers.idMarker}
+            pointerEvents="none"
+          />
+        </View>
+      );
+    };
+    const onHold = menuIsNative ? undefined : handleLongPress;
+    const pressTargetId = menuIsNative ? undefined : `activity-card-${activity.id}`;
 
     // The feed reads every strength card's summary in one engine call and hands
     // each card its own.
@@ -410,7 +427,7 @@ export const ActivityCard = React.memo(
       return withMenu(
         <View style={cardContainers.wrapper}>
           <PressTarget
-            testID={`activity-card-${activity.id}`}
+            testID={pressTargetId}
             onPress={handlePress}
             onLongPress={onHold}
             delayLongPress={PREVIEW_HOLD_MS}
@@ -720,7 +737,7 @@ export const ActivityCard = React.memo(
     // their own chips take the tap, and a press anywhere else lands here.
     const pressOverlay = (
       <PressTarget
-        testID={`activity-card-${activity.id}`}
+        testID={pressTargetId}
         onPress={handlePress}
         onLongPress={onHold}
         delayLongPress={PREVIEW_HOLD_MS}

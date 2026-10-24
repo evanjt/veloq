@@ -25,6 +25,8 @@ export { LibraryRebuiltNotice } from './components/LibraryRebuiltNotice';
 export { RestoreOfferCard } from './components/RestoreOfferCard';
 export { WhatsNewCard } from './components/WhatsNewCard';
 export { TourOfferCard } from './components/TourOfferCard';
+export { NotificationsCard } from './components/NotificationsCard';
+export { SectionsChangedCard } from './components/SectionsChangedCard';
 export { useDaysOfUse, useLaunchSurfaces, useSessionAsk } from './hooks/useLaunchSurfaces';
 export { RestoreChooser } from './components/RestoreChooser';
 export { captureQuarantineReport } from './lib/quarantineReport';
