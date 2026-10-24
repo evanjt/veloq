@@ -1261,6 +1261,8 @@
     "keyYearOrMore": "一年或更早",
     "keyFewerPasses": "经过较少",
     "keyMorePasses": "经过较多",
+    "keyRecencyAxis": "活动时间",
+    "keyHeatAxis": "经过次数",
     "colorByGradient": "按坡度着色",
     "periodThisYear": "今年",
     "sheetSize": "地图和详情大小",
@@ -2424,9 +2426,6 @@
       "backupBody": "将设置和选择保存为小型备份文件，并从设备分享。恢复时会重新获取活动，并在匹配的位置应用你的选择。"
     },
     "v040": {
-      "sectionsTitle": "随你的骑行而变的路段",
-      "sectionsBody": "路段具有确定性，会随你的骑行记录重新塑形；固定后即可保持稳定。",
-      "sectionsTip": "地图显示你当前的路段。移动滑块并点按“预览”，即可查看它会切出哪些路段；点按“保留”之前不会有任何改变。",
       "recutRunning": "正在重新分析你的路段",
       "recutRunningPhase": "正在重新分析你的路段：{{phase}}",
       "diffTotals": "{{current}} 个路段变为 {{proposed}} 个。",
@@ -2449,7 +2448,17 @@
       "routesTitle": "你反复完成的路线",
       "routesBody": "同一路线上的活动会归为一条路线，每次尝试都与其他尝试对比显示。",
       "sectionPageTip": "向下滚动路段页面，查看趋势、用时分布，以及按赢得或失去时间着色的线路。",
-      "routesTip": "向下滚动路线页面，查看该路线上每次尝试与其他尝试的对比。"
+      "routesTip": "向下滚动路线页面，查看该路线上每次尝试与其他尝试的对比。",
+      "recordingTitle": "在 Veloq 中记录活动",
+      "recordingBody": "可用 GPS、室内或手动方式记录，并添加蓝牙心率、功率和踏频传感器。活动会上传到 intervals.icu。快捷方式可在应用外开始记录。",
+      "recordingTip": "选择 GPS、室内或手动，然后点按开始。",
+      "lookTitle": "全新外观",
+      "lookBody": "重新设计的标签栏，全应用采用新字体。打开活动时，会立即显示其地图图片。",
+      "mapsWidgetsTitle": "3D 地图与小组件",
+      "mapsWidgetsBody": "起伏的活动会绘制在 3D 地形上。概览和力量小组件可把训练显示在主屏幕上。",
+      "mapsWidgetsTip": "在设置的“地图”中选择何时以 3D 绘制地图。",
+      "rebuiltTitle": "路段已重建",
+      "rebuiltBody": "路段在每台设备上结果一致，每次更改都会保存在可还原的历史中。"
     },
     "tutorial": {
       "firstLoadLine": "正在从 intervals.icu 进行首次加载。活动到达后,动态会逐步填充。",
@@ -2731,6 +2740,8 @@
     "statePaused": "已暂停，直到下次打开应用",
     "stateWaiting": "等待恢复",
     "resumesAt": "{{time}} 恢复",
+    "pacedOnCaps_one": "按 intervals.icu 的上限限速，约 {{count}} 天完成",
+    "pacedOnCaps_other": "按 intervals.icu 的上限限速，约 {{count}} 天完成",
     "lastFinished": "上次运行 {{time}}",
     "lastRunNoChange": "无变化",
     "lastRunStopped": "已停止",

@@ -41,6 +41,7 @@ const mockEngine = {
     mockEngineOpen = true;
     return true;
   }),
+  openWithPath: jest.fn(async (path: string): Promise<boolean> => mockEngine.initWithPath(path)),
   getSetting: jest.fn((key: string): string | undefined => {
     calls.push({ name: 'getSetting', key });
     return mockEngineOpen ? stored.get(key) : undefined;
@@ -183,6 +184,31 @@ describe('initialiseApp', () => {
     expect(mockEngine.initWithPath).toHaveBeenCalledTimes(1);
     expect(getItem).not.toHaveBeenCalled();
     expect(useAuthStore.getState().isAuthenticated).toBe(true);
+  });
+
+  it('reads no setting while an upgrading open is still running', async () => {
+    keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
+    migratedLibrary();
+    let finishOpen: (opened: boolean) => void = () => {};
+    mockEngine.openWithPath.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          finishOpen = (opened) => {
+            if (opened) mockEngine.initWithPath('/data/routes.db');
+            resolve(opened);
+          };
+        })
+    );
+
+    const launched = initialiseApp();
+    await new Promise((resolve) => setImmediate(resolve));
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(calls.some((c) => c.name === 'getSetting')).toBe(false);
+
+    finishOpen(true);
+    await expect(launched).resolves.toBeNull();
+    expect(calls.some((c) => c.name === 'getSetting')).toBe(true);
   });
 
   it('settles where the database lives before opening it', async () => {

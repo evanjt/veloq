@@ -186,6 +186,29 @@ describe('the strength card past the dense cap', () => {
   });
 });
 
+describe('the stats row at the foot of the card', () => {
+  const passesTouchesThrough = (node: ReactTestInstance) =>
+    ['none', 'box-none'].includes(node.props.pointerEvents ?? style(node).pointerEvents);
+
+  it.each([
+    ['below the dense cap', 1],
+    ['past the dense cap', LARGEST],
+  ])('lets a press fall through to the card %s', async (_name, fontScale) => {
+    at(fontScale);
+    await render(<ActivityCard activity={ride} />);
+    expect(passesTouchesThrough(screen.getByTestId('activity-card-bottom'))).toBe(true);
+  });
+
+  it.each([
+    ['below the dense cap', 1],
+    ['past the dense cap', LARGEST],
+  ])('lets a press fall through on the strength card %s', async (_name, fontScale) => {
+    at(fontScale);
+    await render(<StrengthActivityCard activity={lift} strengthData={strengthData} />);
+    expect(passesTouchesThrough(screen.getByTestId('activity-card-s1-bottom'))).toBe(true);
+  });
+});
+
 describe('the strength card below the dense cap', () => {
   beforeEach(() => at(1));
 

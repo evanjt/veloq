@@ -6,7 +6,6 @@
  * without failing and moved at least one section.
  */
 import { cutoverHasChangesToShow } from '@/features/settings/lib/cutoverShowMe';
-import { WHATS_NEW_SLIDES } from '@/features/settings/components/whatsNew/slides';
 
 const MOVED = { current: 40, proposed: 42, unchanged: 35, changed: 3, new: 4, gone: 2 };
 
@@ -40,15 +39,5 @@ describe('cutoverHasChangesToShow', () => {
     expect(cutoverHasChangesToShow({ phase: 'complete', isRunning: false, counts: onlyGone })).toBe(
       true
     );
-  });
-});
-
-describe('the 0.4.0 slide', () => {
-  it('offers Show Me whatever the re-analysis did, since the section preview always has content', () => {
-    const slide = WHATS_NEW_SLIDES['0.4.0'].find(
-      (s) => s.titleKey === 'whatsNew.v040.sectionsTitle'
-    );
-    expect(slide?.showMeRoute).toBe('/detection-preview');
-    expect(slide?.showMeWhen).toBeUndefined();
   });
 });

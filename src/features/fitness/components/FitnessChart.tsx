@@ -70,6 +70,10 @@ interface FitnessChartProps {
   coverage?: RangeCoverage | undefined;
   /** The data is the previous range's, kept on screen while the new range is read. */
   held?: boolean;
+  /** The left gutter's least width, so stacked plots share one left edge. */
+  axisMinWidth?: number | undefined;
+  /** Called with the left gutter's width after each layout. */
+  onAxisWidth?: ((width: number) => void) | undefined;
 }
 
 interface ChartDataPoint {
@@ -116,6 +120,8 @@ export const FitnessChart = React.memo(function FitnessChart({
   onInteractionChange,
   coverage,
   held = false,
+  axisMinWidth,
+  onAxisWidth,
 }: FitnessChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -430,6 +436,8 @@ export const FitnessChart = React.memo(function FitnessChart({
               domain={yDomain}
               padding={CHART_PADDING}
               testID="fitness-chart-y-axis"
+              minWidth={axisMinWidth}
+              onWidth={onAxisWidth}
             />
             <GestureDetector gesture={gesture}>
               <View

@@ -32,7 +32,7 @@ COMPLETE = f"""sa.direction != 'partial' AND (CASE
 def open_snapshot(path):
     """A private copy, since opening a WAL file writes its shared-memory sidecar."""
     work = tempfile.mkdtemp()
-    for name in ("routes.db", "routes.db-wal", "routes.db-shm"):
+    for name in ("routes.db", "routes.db-wal", "routes.db-shm", "routes.db-journal"):
         source = os.path.join(path, name)
         if os.path.exists(source):
             shutil.copy(source, os.path.join(work, name))

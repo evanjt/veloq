@@ -1,6 +1,7 @@
 package com.veloq
 
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.OutOfQuotaPolicy
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -44,5 +45,13 @@ class WidgetRefreshDecisionTest {
     assertNull(WidgetRefreshDecision.periodic(false, 2))
     assertNull(WidgetRefreshDecision.periodic(true, 0))
     assertNull(WidgetRefreshDecision.periodic(false, 0))
+  }
+
+  @Test
+  fun a_tap_runs_as_expedited_work_where_the_os_allows_it() {
+    val expedited = WidgetRefreshDecision.tapRequest(android.os.Build.VERSION_CODES.S).workSpec
+    assertTrue(expedited.expedited)
+    assertEquals(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST, expedited.outOfQuotaPolicy)
+    assertFalse(WidgetRefreshDecision.tapRequest(android.os.Build.VERSION_CODES.R).workSpec.expedited)
   }
 }

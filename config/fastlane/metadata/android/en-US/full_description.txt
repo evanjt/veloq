@@ -1,39 +1,37 @@
-Veloq reads your intervals.icu account and shows it on your phone: activities, maps, charts, fitness and form. It looks for the routes and sections you repeat and lines each attempt up against the ones before it. The analysis runs on your device.
+Veloq shows your intervals.icu training on your phone and looks for the routes and sections you repeat. The analysis runs on your device.
 
 <b>Record</b>
-Record rides, runs and other sports with GPS, auto-pause and splits in your own units. Pair Bluetooth heart rate, power and cadence sensors, or follow a planned workout from your intervals.icu calendar with its targets on screen. Trim the ends before you save, then upload a FIT file or queue it until you have signal. Indoor sessions can be entered by hand. Start a recording from a home-screen widget or a Quick Settings tile.
+Record rides, runs and other sports with GPS, Bluetooth sensors or a planned workout.
 
 <b>Insights</b>
-A short read on your training: section records and trends, fitness milestones, how this week compares with last, HRV trends and strength progression. Each insight opens to show its numbers and how they were worked out.
+Short reads on your training, each opening to its numbers and how they were worked out.
 
 <b>Maps</b>
-Interactive maps with 3D terrain, route heatmaps and a timeline you can filter, in light, dark and satellite styles. Drag along a chart and your position moves across the map.
+Interactive maps with 3D terrain, route heatmaps, and light, dark and satellite styles.
 
 <b>Routes and sections</b>
-Veloq looks for the routes and sections you repeat, with nothing to set up, and cuts them the same way on every device. A section page compares every attempt: the trend, the spread of your times and the line colored where time was won or lost. Pin, trim, extend or rename a section, and every change keeps a history you can revert.
+Compare every attempt on the routes and sections you repeat, then pin, trim or rename them.
 
 <b>Charts</b>
-Heart rate, power, pace, elevation and cadence on one timeline with the map. Zone distributions, training load, intensity and lap breakdowns.
+Heart rate, power, pace, elevation and cadence on one timeline with the map.
 
 <b>Fitness</b>
-Fitness, fatigue and form on one chart with the zones drawn in. HRV, resting heart rate, sleep and wellness, and power and pace curves for each sport.
+Fitness, fatigue and form with the zones drawn in, plus HRV, resting heart rate and sleep.
 
 <b>Strength</b>
-The strength sets in your activities, drawn on a body diagram: the muscle groups each session worked, the balance between opposing groups and the progression of each exercise.
+Your strength sets on a body diagram, by muscle group and exercise.
 
 <b>Widgets</b>
-Home-screen widgets for your fitness and form, your last activity, your latest insights and your strength work, refreshed in the background.
+Home-screen widgets for fitness and form, your last activity and your insights.
 
 <b>Notifications</b>
-When intervals.icu receives a new activity, Veloq can send a notification naming the route and any personal bests, in your language. Notifications stay off until you turn them on.
+A notification naming the route and any personal bests when a new activity arrives. Off until you turn it on.
 
 <b>Backups</b>
-Back up your settings and section decisions to a small file, by hand or automatically. Keep it in your device's own backup, or add a WebDAV server, a folder or a cloud drive. A restore fetches your activities again and applies your decisions where they match.
+Back up your settings and section decisions to a file, a folder, a cloud drive or a WebDAV server.
 
 <b>Privacy</b>
-Your training data stays on your device. No analytics, no tracking. Optional push notifications store your intervals.icu athlete ID and a device token on our server, deleted automatically after 30 days. Open source under Apache 2.0.
-
-Accessibility: screen reader labels on every control, text that follows your system text size, and color contrast to the AA ratios in light and dark themes.
+Your training data stays on your device, with no analytics and no tracking. Optional push notifications store your athlete ID and a device token on our server for 30 days. Open source under Apache 2.0.
 
 Supports cycling, running, swimming, and 20+ activity types. Try the built-in demo mode to explore without an account.
 

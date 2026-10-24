@@ -1,11 +1,14 @@
 /**
  * The bottom navigation tab bar: an opaque surface with a hairline on top, five
- * tabs of a 24 dp glyph over one label style. The selected tab fills its glyph,
- * and on Android sits it on an indicator pill.
+ * tabs of a 24 dp glyph over a label. The selected tab fills its glyph, sets its
+ * label heavy and raises a small cap in the bar's edge over it, the same on both
+ * platforms. The bar departs on purpose from the style guide's page, which draws
+ * an indicator behind the glyph on Android and one label weight: the platform
+ * default is what the bar is not meant to look like.
  */
 import { markTabPress } from '@/shared/debug/tabSwitchTiming';
 import React, { memo, useCallback, useRef } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { Icon, type IconName } from './Icon';
 import { DENSE_TEXT_SCALE } from './DenseText';
@@ -18,12 +21,11 @@ import { useTheme } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import {
   colors,
-  colorWithOpacity,
   darkColors,
+  faceWeight,
   iconSize,
   layers,
   layout,
-  opacity,
   spacing,
   stroke,
   typography,
@@ -58,13 +60,19 @@ const MENU_ITEMS = [
 // marks and hold 3:1. An unselected tab is an operable control, so it answers
 // to the bar as much as the selected one: `textSecondary` for its label and
 // `iconSecondary` for its glyph. The selected label is `textPrimary` and the
-// selected glyph `controlOn`, the blue every selected control takes. On the
-// Android indicator, a `controlOn` tint, the glyph keeps `controlOn` in light
-// and takes `textPrimary` in dark, where the blue on its own tint is under 3:1.
+// selected glyph `controlOn`, the blue every selected control takes. Selection
+// is never colour alone: the glyph fills, the label goes heavy and the cap
+// rises, so any one of them can fail and the tab still reads as selected.
 
 // The shrink floor of a label: every label fits its fifth of a 320 dp phone at
 // the text cap well above it.
 const LABEL_MIN_FONT_SCALE = 0.8;
+
+// The cap is the top of a disc in the bar's own surface, the glyph with a margin round
+// it. Only the part above the bar's edge shows, so the bar line breaks round the
+// selected tab and nowhere else, and the glyph rises with it.
+const CAP_RISE = spacing.xs;
+const CAP_DIAMETER = iconSize.lg + spacing.sm * 2;
 
 function BottomTabBarComponent() {
   // Performance: Track render count
@@ -82,9 +90,6 @@ function BottomTabBarComponent() {
   const { isDark } = useTheme();
   const { t } = useTranslation();
   const palette = isDark ? darkColors : colors;
-  const withIndicator = Platform.OS === 'android';
-  const activeIcon = withIndicator && isDark ? palette.textPrimary : palette.controlOn;
-  const indicatorColor = colorWithOpacity(palette.controlOn, opacity.tint3);
 
   const handlePress = useCallback(
     (route: TabRoute) => {
@@ -155,18 +160,26 @@ function BottomTabBarComponent() {
               accessibilityRole="tab"
               accessibilityState={{ selected: isActive }}
             >
-              <View
-                testID={withIndicator && isActive ? `bottom-tab-${item.key}-indicator` : undefined}
-                style={[
-                  withIndicator ? styles.indicator : styles.iconContainer,
-                  withIndicator && isActive && { backgroundColor: indicatorColor },
-                ]}
-              >
+              {isActive ? (
+                <View
+                  testID={`bottom-tab-${item.key}-cap`}
+                  pointerEvents="none"
+                  style={styles.capClip}
+                >
+                  <View
+                    style={[
+                      styles.cap,
+                      { backgroundColor: palette.surface, borderColor: palette.border },
+                    ]}
+                  />
+                </View>
+              ) : null}
+              <View style={[styles.iconContainer, isActive && styles.iconRaised]}>
                 <Icon
                   testID={`bottom-tab-${item.key}-glyph`}
                   name={isActive ? item.selectedIcon : item.icon}
                   size={iconSize.lg}
-                  color={isActive ? activeIcon : palette.iconSecondary}
+                  color={isActive ? palette.controlOn : palette.iconSecondary}
                 />
               </View>
               <FitText
@@ -174,6 +187,7 @@ function BottomTabBarComponent() {
                 minimumFontScale={LABEL_MIN_FONT_SCALE}
                 style={[
                   styles.label,
+                  isActive ? styles.labelSelected : styles.labelRest,
                   { color: isActive ? palette.textPrimary : palette.textSecondary },
                 ]}
               >
@@ -224,16 +238,35 @@ const styles = StyleSheet.create({
     height: iconSize.lg,
     width: iconSize.lg,
   },
-  // A full-radius pill behind the glyph, 16 either side of it and 2 above and below.
-  indicator: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: iconSize.lg + spacing.xxs * 2,
-    width: iconSize.lg + spacing.md * 2,
-    borderRadius: layout.borderRadiusFull,
+  iconRaised: {
+    transform: [{ translateY: -CAP_RISE }],
   },
+  // Shows the part of the disc above the bar's edge, and the hairline's own row, so the disc's
+  // fill covers the bar line under it.
+  capClip: {
+    position: 'absolute',
+    top: -CAP_RISE,
+    width: CAP_DIAMETER,
+    height: CAP_RISE + stroke.hairline,
+    overflow: 'hidden',
+  },
+  cap: {
+    width: CAP_DIAMETER,
+    height: CAP_DIAMETER,
+    borderRadius: layout.borderRadiusFull,
+    borderWidth: stroke.hairline,
+  },
+  // The badge style at two weights, light at rest and heavy selected, so the weight carries the
+  // selection beside the glyph's fill and the colour. With bold text on each draws one face
+  // heavier and the two still differ.
   label: {
     ...typography.badge,
     marginTop: spacing.xs,
+  },
+  labelRest: {
+    fontWeight: faceWeight('400'),
+  },
+  labelSelected: {
+    fontWeight: faceWeight('700'),
   },
 });

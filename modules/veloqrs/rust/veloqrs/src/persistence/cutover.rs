@@ -964,6 +964,8 @@ impl PersistentEngine {
             params![CUTOVER_PREVIOUS_CONFIG_KEY],
         )?;
         tx.commit()?;
+        // The copy the upgrade took was held for this switch, so it goes with it.
+        super::pre_upgrade_copy::release(&self.db);
         info!("veloqrs: [cutover] Token promoted to '{}'", CUTOVER_ID);
         Ok(())
     }
@@ -1545,6 +1547,16 @@ fn run_cutover_claimed_with(
         // it captured tells the two apart, as for a run that applies itself.
         if let Some((regroup_owed, groups_epoch_at_spawn)) = run_groups {
             e.adopt_run_groups(regroup_owed, groups_epoch_at_spawn);
+        }
+        // A detect that finds nothing for a library whose archive held
+        // sections is a failed run, not a catalogue of none: applying it would
+        // empty the Sections list and promote the token over it. Nothing is
+        // applied, so the old catalogue stays live and the token stays in
+        // flight for the retry.
+        if sections.is_empty() && archived > 0 {
+            return Err(format!(
+                "detect found no sections for a library that had {archived}"
+            ));
         }
         // Ranking reads every needed track, so it runs after this lock is
         // released, on a connection of its own.

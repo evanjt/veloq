@@ -125,18 +125,77 @@ export function buildSectionLayers(
   ];
 
   if (showExtensionAndSection) {
-    layers.push(
-      {
-        id: 'extension-line',
-        type: 'line',
-        source: 'extension',
-        layout: roundLine,
-        paint: {
-          'line-color': palette.muted,
-          'line-opacity': hasExtension ? 1 : 0,
-          'line-width': 2,
-        },
+    layers.push({
+      id: 'extension-line',
+      type: 'line',
+      source: 'extension',
+      layout: roundLine,
+      paint: {
+        'line-color': palette.muted,
+        'line-opacity': hasExtension ? 1 : 0,
+        'line-width': 2,
       },
+    });
+  }
+
+  // Activity lines go under the section's, so a shown attempt never hides the section.
+  layers.push(
+    {
+      id: 'all-traces-casing',
+      type: 'line',
+      source: 'all-traces',
+      filter: highlightedTraceFilter as unknown[] | undefined,
+      layout: roundLine,
+      paint: {
+        'line-color': palette.casing,
+        'line-width': traceCasingWidth,
+        'line-opacity': traceVisible ? 1 : 0,
+      },
+    },
+    {
+      id: 'all-traces-line',
+      type: 'line',
+      source: 'all-traces',
+      filter: highlightedTraceFilter as unknown[] | undefined,
+      layout: roundLine,
+      paint: {
+        'line-color': palette.ink,
+        'line-width': traceLineWidth,
+        'line-opacity': traceVisible ? 1 : 0,
+      },
+    },
+    {
+      id: 'highlighted-lap-casing',
+      type: 'line',
+      source: 'highlighted-lap',
+      layout: roundLine,
+      paint: { 'line-color': palette.casing, 'line-width': traceCasingWidth },
+    },
+    {
+      id: 'highlighted-lap-line',
+      type: 'line',
+      source: 'highlighted-lap',
+      layout: roundLine,
+      paint: { 'line-color': palette.ink, 'line-width': traceLineWidth },
+    },
+    {
+      id: 'highlighted-trace-casing',
+      type: 'line',
+      source: 'highlighted-trace',
+      layout: roundLine,
+      paint: { 'line-color': palette.casing, 'line-width': 5 },
+    },
+    {
+      id: 'highlighted-trace-line',
+      type: 'line',
+      source: 'highlighted-trace',
+      layout: roundLine,
+      paint: { 'line-color': palette.ink, 'line-width': 4 },
+    }
+  );
+
+  if (showExtensionAndSection) {
+    layers.push(
       {
         id: 'section-casing',
         type: 'line',
@@ -200,58 +259,6 @@ export function buildSectionLayers(
         'line-opacity': trimRange ? 1 : 0,
         'line-width': trimLineWidth,
       },
-    },
-    {
-      id: 'all-traces-casing',
-      type: 'line',
-      source: 'all-traces',
-      filter: highlightedTraceFilter as unknown[] | undefined,
-      layout: roundLine,
-      paint: {
-        'line-color': palette.casing,
-        'line-width': traceCasingWidth,
-        'line-opacity': traceVisible ? 1 : 0,
-      },
-    },
-    {
-      id: 'all-traces-line',
-      type: 'line',
-      source: 'all-traces',
-      filter: highlightedTraceFilter as unknown[] | undefined,
-      layout: roundLine,
-      paint: {
-        'line-color': palette.ink,
-        'line-width': traceLineWidth,
-        'line-opacity': traceVisible ? 1 : 0,
-      },
-    },
-    {
-      id: 'highlighted-lap-casing',
-      type: 'line',
-      source: 'highlighted-lap',
-      layout: roundLine,
-      paint: { 'line-color': palette.casing, 'line-width': traceCasingWidth },
-    },
-    {
-      id: 'highlighted-lap-line',
-      type: 'line',
-      source: 'highlighted-lap',
-      layout: roundLine,
-      paint: { 'line-color': palette.ink, 'line-width': traceLineWidth },
-    },
-    {
-      id: 'highlighted-trace-casing',
-      type: 'line',
-      source: 'highlighted-trace',
-      layout: roundLine,
-      paint: { 'line-color': palette.casing, 'line-width': 5 },
-    },
-    {
-      id: 'highlighted-trace-line',
-      type: 'line',
-      source: 'highlighted-trace',
-      layout: roundLine,
-      paint: { 'line-color': palette.ink, 'line-width': 4 },
     },
     ...buildEndpointLayers(palette)
   );

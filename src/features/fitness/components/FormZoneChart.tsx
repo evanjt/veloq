@@ -54,6 +54,10 @@ interface FormZoneChartProps {
   onInteractionChange?: (isInteracting: boolean) => void;
   /** The data is the previous range's, kept on screen while the new range is read. */
   held?: boolean;
+  /** The left gutter's least width, so stacked plots share one left edge. */
+  axisMinWidth?: number | undefined;
+  /** Called with the left gutter's width after each layout. */
+  onAxisWidth?: ((width: number) => void) | undefined;
 }
 
 /** The card's one date axis, a label row under this, its last lane. */
@@ -88,6 +92,8 @@ export const FormZoneChart = React.memo(function FormZoneChart({
   onDateSelect,
   onInteractionChange,
   held = false,
+  axisMinWidth,
+  onAxisWidth,
 }: FormZoneChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -243,6 +249,8 @@ export const FormZoneChart = React.memo(function FormZoneChart({
             domain={yDomain}
             padding={CHART_PADDING}
             testID="form-chart-y-axis"
+            minWidth={axisMinWidth}
+            onWidth={onAxisWidth}
           />
           <GestureDetector gesture={gesture}>
             <View

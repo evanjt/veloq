@@ -279,6 +279,25 @@ export function getElevationBackfillRemaining(): number /*throws*/ {
 }
 
 /**
+ * How far the off-thread open has got, and how it ended.
+ */
+export function getEngineOpenProgress(): FfiOpenProgress {
+  const __rb: Uint8Array = uniffiCaller.rustCall(
+    /*caller:*/ (callStatus) => {
+      return nativeModule().ubrn_uniffi_veloqrs_fn_func_get_engine_open_progress(
+        callStatus,
+      );
+    },
+    /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+  );
+  try {
+    return FfiConverterTypeFfiOpenProgress.lift(__rb);
+  } finally {
+    nativeModule().rustbuffer_free(__rb);
+  }
+}
+
+/**
  * Progress for one fetch run, by the id `start_fetch_and_store` returned.
  *
  * The global read answers for the queue head and reports active for
@@ -483,6 +502,30 @@ export function startElevationBackfill(): FfiStartOutcome {
   const __rb: Uint8Array = uniffiCaller.rustCall(
     /*caller:*/ (callStatus) => {
       return nativeModule().ubrn_uniffi_veloqrs_fn_func_start_elevation_backfill(
+        callStatus,
+      );
+    },
+    /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+  );
+  try {
+    return FfiConverterTypeFfiStartOutcome.lift(__rb);
+  } finally {
+    nativeModule().rustbuffer_free(__rb);
+  }
+}
+
+/**
+ * Open the library on a thread of its own and return at once, for a launch
+ * that has an upgrade to run. A file with none (absent, empty or already on
+ * this build's schema) answers `NotOwed` and starts nothing: the caller opens
+ * it with the one blocking call. [`get_engine_open_progress`] is polled for
+ * the terminal state; a second start while one runs answers `Busy`.
+ */
+export function startEngineOpen(dbPath: string): FfiStartOutcome {
+  const __rb: Uint8Array = uniffiCaller.rustCall(
+    /*caller:*/ (callStatus) => {
+      return nativeModule().ubrn_uniffi_veloqrs_fn_func_start_engine_open(
+        FfiConverterString.lower(dbPath, nativeModule().rustbuffer_alloc),
         callStatus,
       );
     },
@@ -5454,6 +5497,12 @@ export type FfiBackgroundJobsData = {
    * Whether a section rebuild is still owed.
    */
   cutoverOwed: boolean;
+  /**
+   * Whole days the stream backfill's daily allowance takes to draw what it
+   * owes, when that is more than one day. `None` when the queue fits in a
+   * day, is empty, or cannot be counted.
+   */
+  streamDaysToFinish?: number;
 };
 
 /**
@@ -5482,18 +5531,21 @@ const FfiConverterTypeFfiBackgroundJobsData = (() => {
         runs: FfiConverterSequenceTypeFfiJobRun.readFromCursor(c),
         detectionAwaiting: FfiConverterOptionalUInt32.readFromCursor(c),
         cutoverOwed: FfiConverterBool.readFromCursor(c),
+        streamDaysToFinish: FfiConverterOptionalUInt32.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
       FfiConverterSequenceTypeFfiJobRun.writeIntoCursor(value.runs, c);
       FfiConverterOptionalUInt32.writeIntoCursor(value.detectionAwaiting, c);
       FfiConverterBool.writeIntoCursor(value.cutoverOwed, c);
+      FfiConverterOptionalUInt32.writeIntoCursor(value.streamDaysToFinish, c);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterSequenceTypeFfiJobRun.allocationSize(value.runs) +
         FfiConverterOptionalUInt32.allocationSize(value.detectionAwaiting) +
-        FfiConverterBool.allocationSize(value.cutoverOwed)
+        FfiConverterBool.allocationSize(value.cutoverOwed) +
+        FfiConverterOptionalUInt32.allocationSize(value.streamDaysToFinish)
       );
     }
   }
@@ -14839,6 +14891,229 @@ const FfiConverterTypeFfiNamedCorridor = (() => {
         FfiConverterOptionalString.allocationSize(value.sectionId) +
         FfiConverterFloat64.allocationSize(value.coverage) +
         FfiConverterBool.allocationSize(value.primary)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Where the off-thread open stands.
+ *
+ * The wire carries the variant's position, so the order here is the contract:
+ * append, never reorder. The discriminants start at one so no member is falsy.
+ */
+export enum FfiOpenPhase {
+  /**
+   * No open has been started in this process.
+   */
+  Idle = 1,
+  /**
+   * The open thread holds the file.
+   */
+  Running = 2,
+  /**
+   * The open ended. `outcome` says how.
+   */
+  Finished = 3,
+}
+
+const FfiConverterTypeFfiOpenPhase = (() => {
+  type TypeName = FfiOpenPhase;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return FfiOpenPhase.Idle;
+        case 2:
+          return FfiOpenPhase.Running;
+        case 3:
+          return FfiOpenPhase.Finished;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value) {
+        case FfiOpenPhase.Idle:
+          return c.writeI32(1);
+        case FfiOpenPhase.Running:
+          return c.writeI32(2);
+        case FfiOpenPhase.Finished:
+          return c.writeI32(3);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return 4;
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * How the last engine init ended.
+ *
+ * The wire carries the variant's position, so the order here is the contract:
+ * append, never reorder. The discriminants start at one so no member is falsy.
+ */
+export enum FfiInitOutcome {
+  /**
+   * The engine is open. A database that was quarantined and replaced ends
+   * here too: the athlete lost a cache the next sync refills, and the
+   * engine works.
+   */
+  Opened = 1,
+  /**
+   * Another connection held the file. The same file opens on the retry, so
+   * nothing is wrong with it and nothing is asked of the athlete.
+   */
+  Busy = 2,
+  /**
+   * The database was written by a newer build than this one. It is healthy
+   * and it is deliberately left where it is, so the remedy is to update the
+   * app, never to clear anything.
+   */
+  ForwardSchema = 3,
+  /**
+   * Nothing could be written where the database belongs: the directory
+   * could not be created, or an unusable file could not be replaced. A full
+   * disk and a denied permission both land here.
+   */
+  StorageUnavailable = 4,
+  /**
+   * Init has not run yet in this process.
+   */
+  NotAttempted = 5,
+  /**
+   * The init call itself threw. Rust never answers with this: it is the
+   * outcome TypeScript records when the FFI boundary fails, so a caught
+   * error is still a reason and not another bare `false`.
+   */
+  Failed = 6,
+  /**
+   * The database's version records claim migrations whose tables it does
+   * not hold. No build can open it as it stands, and it is left where it
+   * is rather than replaced, so the library is still on the device.
+   */
+  VersionMismatch = 7,
+}
+
+const FfiConverterTypeFfiInitOutcome = (() => {
+  type TypeName = FfiInitOutcome;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return FfiInitOutcome.Opened;
+        case 2:
+          return FfiInitOutcome.Busy;
+        case 3:
+          return FfiInitOutcome.ForwardSchema;
+        case 4:
+          return FfiInitOutcome.StorageUnavailable;
+        case 5:
+          return FfiInitOutcome.NotAttempted;
+        case 6:
+          return FfiInitOutcome.Failed;
+        case 7:
+          return FfiInitOutcome.VersionMismatch;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value) {
+        case FfiInitOutcome.Opened:
+          return c.writeI32(1);
+        case FfiInitOutcome.Busy:
+          return c.writeI32(2);
+        case FfiInitOutcome.ForwardSchema:
+          return c.writeI32(3);
+        case FfiInitOutcome.StorageUnavailable:
+          return c.writeI32(4);
+        case FfiInitOutcome.NotAttempted:
+          return c.writeI32(5);
+        case FfiInitOutcome.Failed:
+          return c.writeI32(6);
+        case FfiInitOutcome.VersionMismatch:
+          return c.writeI32(7);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return 4;
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What a poll of the off-thread open reads.
+ */
+export type FfiOpenProgress = {
+  phase: FfiOpenPhase;
+  /**
+   * How the open ended. Present only once `phase` is `Finished`.
+   */
+  outcome?: FfiInitOutcome;
+  /**
+   * The schema version the file carried when the open started, or nothing
+   * for a file that did not exist yet.
+   */
+  fromSchema?: number;
+  /**
+   * The schema version this build opens to.
+   */
+  toSchema: number;
+  /**
+   * The schema version the file carries now. Present only for a `Finished`
+   * open that left an engine running.
+   */
+  schemaVersion?: number;
+};
+
+/**
+ * Generated factory for {@link FfiOpenProgress} record objects.
+ */
+export const FfiOpenProgress = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiOpenProgress, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiOpenProgress>,
+  });
+})();
+
+const FfiConverterTypeFfiOpenProgress = (() => {
+  type TypeName = FfiOpenProgress;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        phase: FfiConverterTypeFfiOpenPhase.readFromCursor(c),
+        outcome: FfiConverterOptionalTypeFfiInitOutcome.readFromCursor(c),
+        fromSchema: FfiConverterOptionalUInt32.readFromCursor(c),
+        toSchema: FfiConverterUInt32.readFromCursor(c),
+        schemaVersion: FfiConverterOptionalUInt32.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterTypeFfiOpenPhase.writeIntoCursor(value.phase, c);
+      FfiConverterOptionalTypeFfiInitOutcome.writeIntoCursor(value.outcome, c);
+      FfiConverterOptionalUInt32.writeIntoCursor(value.fromSchema, c);
+      FfiConverterUInt32.writeIntoCursor(value.toSchema, c);
+      FfiConverterOptionalUInt32.writeIntoCursor(value.schemaVersion, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterTypeFfiOpenPhase.allocationSize(value.phase) +
+        FfiConverterOptionalTypeFfiInitOutcome.allocationSize(value.outcome) +
+        FfiConverterOptionalUInt32.allocationSize(value.fromSchema) +
+        FfiConverterUInt32.allocationSize(value.toSchema) +
+        FfiConverterOptionalUInt32.allocationSize(value.schemaVersion)
       );
     }
   }
@@ -24902,102 +25177,6 @@ const FfiConverterTypeFfiGroupingOutcome = (() => {
         default:
           throw new UniffiInternalError.UnexpectedEnumCase();
       }
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
- * How the last engine init ended.
- *
- * The wire carries the variant's position, so the order here is the contract:
- * append, never reorder. The discriminants start at one so no member is falsy.
- */
-export enum FfiInitOutcome {
-  /**
-   * The engine is open. A database that was quarantined and replaced ends
-   * here too: the athlete lost a cache the next sync refills, and the
-   * engine works.
-   */
-  Opened = 1,
-  /**
-   * Another connection held the file. The same file opens on the retry, so
-   * nothing is wrong with it and nothing is asked of the athlete.
-   */
-  Busy = 2,
-  /**
-   * The database was written by a newer build than this one. It is healthy
-   * and it is deliberately left where it is, so the remedy is to update the
-   * app, never to clear anything.
-   */
-  ForwardSchema = 3,
-  /**
-   * Nothing could be written where the database belongs: the directory
-   * could not be created, or an unusable file could not be replaced. A full
-   * disk and a denied permission both land here.
-   */
-  StorageUnavailable = 4,
-  /**
-   * Init has not run yet in this process.
-   */
-  NotAttempted = 5,
-  /**
-   * The init call itself threw. Rust never answers with this: it is the
-   * outcome TypeScript records when the FFI boundary fails, so a caught
-   * error is still a reason and not another bare `false`.
-   */
-  Failed = 6,
-  /**
-   * The database's version records claim migrations whose tables it does
-   * not hold. No build can open it as it stands, and it is left where it
-   * is rather than replaced, so the library is still on the device.
-   */
-  VersionMismatch = 7,
-}
-
-const FfiConverterTypeFfiInitOutcome = (() => {
-  type TypeName = FfiInitOutcome;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      switch (c.readI32()) {
-        case 1:
-          return FfiInitOutcome.Opened;
-        case 2:
-          return FfiInitOutcome.Busy;
-        case 3:
-          return FfiInitOutcome.ForwardSchema;
-        case 4:
-          return FfiInitOutcome.StorageUnavailable;
-        case 5:
-          return FfiInitOutcome.NotAttempted;
-        case 6:
-          return FfiInitOutcome.Failed;
-        case 7:
-          return FfiInitOutcome.VersionMismatch;
-        default:
-          throw new UniffiInternalError.UnexpectedEnumCase();
-      }
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      switch (value) {
-        case FfiInitOutcome.Opened:
-          return c.writeI32(1);
-        case FfiInitOutcome.Busy:
-          return c.writeI32(2);
-        case FfiInitOutcome.ForwardSchema:
-          return c.writeI32(3);
-        case FfiInitOutcome.StorageUnavailable:
-          return c.writeI32(4);
-        case FfiInitOutcome.NotAttempted:
-          return c.writeI32(5);
-        case FfiInitOutcome.Failed:
-          return c.writeI32(6);
-        case FfiInitOutcome.VersionMismatch:
-          return c.writeI32(7);
-      }
-    }
-    allocationSize(value: TypeName): number {
-      return 4;
     }
   }
   return new FFIConverter();
@@ -38564,6 +38743,11 @@ const FfiConverterSequenceTypeFfiExerciseContribution = new FfiConverterArray(
   FfiConverterTypeFfiExerciseContribution,
 );
 
+// FfiConverter for FfiInitOutcome | undefined
+const FfiConverterOptionalTypeFfiInitOutcome = new FfiConverterOptional(
+  FfiConverterTypeFfiInitOutcome,
+);
+
 // FfiConverter for Map<string, FfiCurveActivity>
 const FfiConverterMapStringTypeFfiCurveActivity = new FfiConverterMap(
   FfiConverterString,
@@ -39143,6 +39327,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_engine_open_progress() !==
+    6316
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_get_engine_open_progress",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_fetch_run_progress() !==
     21495
   ) {
@@ -39218,6 +39410,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_start_elevation_backfill",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_start_engine_open() !==
+    46726
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_start_engine_open",
     );
   }
   if (
@@ -41641,6 +41841,8 @@ export default Object.freeze({
     FfiConverterTypeFfiMuscleVolume,
     FfiConverterTypeFfiNamedCorridor,
     FfiConverterTypeFfiOffScale,
+    FfiConverterTypeFfiOpenPhase,
+    FfiConverterTypeFfiOpenProgress,
     FfiConverterTypeFfiPaceCurve,
     FfiConverterTypeFfiPaceTrend,
     FfiConverterTypeFfiPerformanceSubject,

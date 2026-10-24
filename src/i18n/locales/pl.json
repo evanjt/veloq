@@ -1349,6 +1349,8 @@
     "keyYearOrMore": "Rok lub dawniej",
     "keyFewerPasses": "Mniej przejazdów",
     "keyMorePasses": "Więcej przejazdów",
+    "keyRecencyAxis": "Wiek aktywności",
+    "keyHeatAxis": "Przejazdy",
     "colorByGradient": "Kolor wg nachylenia",
     "periodThisYear": "W tym roku",
     "sheetSize": "Rozmiar mapy i szczegółów",
@@ -2654,9 +2656,6 @@
       "backupBody": "Zapisz ustawienia i swoje decyzje w małym pliku kopii zapasowej i udostępnij go z urządzenia. Przy przywracaniu aktywności są pobierane ponownie, a decyzje stosowane tam, gdzie pasują."
     },
     "v040": {
-      "sectionsTitle": "Odcinki, które podążają za twoimi przejazdami",
-      "sectionsBody": "Odcinki są deterministyczne i zmieniają kształt wraz z twoimi przejazdami; przypnij jeden, aby pozostał stabilny.",
-      "sectionsTip": "Mapa pokazuje twoje sekcje w obecnej postaci. Przesuń suwak i stuknij Podgląd, aby zobaczyć, które sekcje by wyciął; nic się nie zmieni, dopóki nie stukniesz Zachowaj.",
       "recutRunning": "Ponowna analiza Twoich odcinków",
       "recutRunningPhase": "Ponowna analiza Twoich odcinków: {{phase}}",
       "diffTotals": "{{current}} odcinków stało się {{proposed}}.",
@@ -2681,7 +2680,17 @@
       "routesTitle": "Trasy, które powtarzasz",
       "routesBody": "Aktywności na tym samym przebiegu są grupowane w trasę, a każda próba jest pokazana na tle pozostałych.",
       "sectionPageTip": "Przewiń stronę odcinka, aby zobaczyć trend, rozkład twoich czasów i linię pokolorowaną według miejsc, gdzie zyskałeś lub straciłeś czas.",
-      "routesTip": "Przewiń stronę trasy, aby zobaczyć każdą próbę na trasie w porównaniu z pozostałymi."
+      "routesTip": "Przewiń stronę trasy, aby zobaczyć każdą próbę na trasie w porównaniu z pozostałymi.",
+      "recordingTitle": "Nagrywaj aktywności w Veloq",
+      "recordingBody": "Nagrywaj z GPS, w pomieszczeniu lub ręcznie i dodaj czujniki Bluetooth tętna, mocy i kadencji. Aktywność jest przesyłana do intervals.icu. Skróty uruchamiają nagrywanie spoza aplikacji.",
+      "recordingTip": "Wybierz GPS, trening w pomieszczeniu lub ręczny i dotknij Start.",
+      "lookTitle": "Nowy wygląd",
+      "lookBody": "Przeprojektowany pasek kart i nowa czcionka w całej aplikacji. Po otwarciu aktywności od razu widać obraz jej mapy.",
+      "mapsWidgetsTitle": "Mapy 3D i widżety",
+      "mapsWidgetsBody": "Aktywności w terenie pagórkowatym są rysowane na terenie 3D. Widżety Podsumowanie i Siła pokazują Twój trening na ekranie głównym.",
+      "mapsWidgetsTip": "W Ustawieniach, w sekcji Mapy, wybierz, kiedy mapy są rysowane w 3D.",
+      "rebuiltTitle": "Odcinki zbudowane od nowa",
+      "rebuiltBody": "Odcinki wychodzą tak samo na każdym urządzeniu, a każda zmiana trafia do historii, którą możesz cofnąć."
     },
     "tutorial": {
       "firstLoadLine": "Trwa pierwsze pobieranie z intervals.icu. Aktywności pojawiają się w kanale w miarę ich napływania.",
@@ -2979,6 +2988,10 @@
     "statePaused": "Wstrzymane do następnego otwarcia aplikacji",
     "stateWaiting": "Czeka na wznowienie",
     "resumesAt": "Wznowienie: {{time}}",
+    "pacedOnCaps_one": "Tempo według limitów intervals.icu, około {{count}} dzień do końca",
+    "pacedOnCaps_few": "Tempo według limitów intervals.icu, około {{count}} dni do końca",
+    "pacedOnCaps_many": "Tempo według limitów intervals.icu, około {{count}} dni do końca",
+    "pacedOnCaps_other": "Tempo według limitów intervals.icu, około {{count}} dni do końca",
     "lastFinished": "Ostatnie uruchomienie {{time}}",
     "lastRunNoChange": "Bez zmian",
     "lastRunStopped": "Zatrzymane",

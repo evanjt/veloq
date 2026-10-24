@@ -162,10 +162,16 @@ pub fn background_jobs_data(
         crate::persistence::sections::pooled::activities_awaiting_detection(conn)
             .ok()
             .map(|owed| owed.try_into().unwrap_or(u32::MAX));
+    let stream_days_to_finish = crate::net::stream_backfill::queue_estimate(conn)
+        .ok()
+        .and_then(|(owed, _)| {
+            crate::governor::days_to_draw(owed, crate::governor::BACKFILL_ALLOWANCE)
+        });
     Ok(crate::FfiBackgroundJobsData {
         runs,
         detection_awaiting,
         cutover_owed: crate::persistence::cutover::pooled::cutover_is_owed(conn),
+        stream_days_to_finish,
     })
 }
 

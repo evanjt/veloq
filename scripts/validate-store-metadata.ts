@@ -27,6 +27,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+import { FEATURE_CARDS, listingSections } from './site-copy';
 import { LOCALE_MAPPINGS, uniqueStoreLocales } from './store-locales';
 import { PLAY_CHANGELOG_MAX_CHARS, changelogCharCount } from './store-release';
 
@@ -277,6 +278,7 @@ interface ValidationError {
     | 'changelog_too_long'
     | 'unsupported_claim'
     | 'over_limit'
+    | 'over_budget'
     | 'missing_screenshots'
     | 'screenshot_count'
     | 'image_unreadable'
@@ -286,6 +288,64 @@ interface ValidationError {
   locale: string;
   file?: string;
   message: string;
+}
+
+// A listing is one short line per feature, so adding a feature costs one line
+// and no rewrite. The ceilings sit well under the stores' 4,000 characters and
+// are set for English; a language scales them by how much longer or denser
+// than English it runs, keyed by the first part of the locale code.
+const DESCRIPTION_BUDGET = 1600;
+const FEATURE_LINE_BUDGET = 120;
+const PRIVACY_LINE_BUDGET = 220;
+const LENGTH_FACTOR: Record<string, number> = {
+  en: 1,
+  da: 1.25,
+  de: 1.4,
+  nl: 1.3,
+  fr: 1.45,
+  it: 1.35,
+  es: 1.35,
+  pt: 1.35,
+  pl: 1.3,
+  ja: 0.7,
+  zh: 0.55,
+};
+
+/**
+ * A description's errors against the shape budget: a ceiling on the whole
+ * text and on any one feature line. Play's bold tags are not counted.
+ */
+export function listingBudgetErrors(locale: string, raw: string): ValidationError[] {
+  const factor = LENGTH_FACTOR[locale.split('-')[0] ?? ''] ?? 1;
+  const text = raw.replace(/<\/?b>/g, '');
+  const errors: ValidationError[] = [];
+  const at = { platform: 'ios' as Platform, locale, file: 'description' };
+  const total = codePoints(text);
+  const ceiling = Math.round(DESCRIPTION_BUDGET * factor);
+  if (total > ceiling) {
+    errors.push({
+      type: 'over_budget',
+      ...at,
+      message: `Over budget: ${locale} description is ${total} characters, budget ${ceiling}`,
+    });
+  }
+  listingSections(text).forEach((section, i) => {
+    const isPrivacy = FEATURE_CARDS[i]?.key === 'privacy';
+    const lineCeiling = Math.round(
+      (isPrivacy ? PRIVACY_LINE_BUDGET : FEATURE_LINE_BUDGET) * factor
+    );
+    const length = codePoints(section.body);
+    if (length > lineCeiling) {
+      errors.push({
+        type: 'over_budget',
+        ...at,
+        message:
+          `Over budget: ${locale} feature section '${section.title}' is ${length} characters, ` +
+          `budget ${lineCeiling}`,
+      });
+    }
+  });
+  return errors;
 }
 
 function claimErrors(platform: Platform, locale: string, file: string): ValidationError[] {
@@ -299,6 +359,16 @@ function claimErrors(platform: Platform, locale: string, file: string): Validati
     message:
       `Unsupported claim in ${platform}/${locale}/${file}: ${claim} ` +
       `(${UNSUPPORTED_LISTING_CLAIMS.find((c) => c.claim === claim)?.reason})`,
+  }));
+}
+
+function budgetErrors(platform: Platform, locale: string, raw: string | null): ValidationError[] {
+  if (raw === null) return [];
+  return listingBudgetErrors(locale, raw).map((e) => ({
+    ...e,
+    platform,
+    file: platform === 'ios' ? 'description.txt' : 'full_description.txt',
+    message: e.message.replace('description', `${platform} description`),
   }));
 }
 
@@ -694,6 +764,9 @@ export function validateMetadata(
     }
 
     errors.push(...claimErrors('android', locale, 'full_description.txt'));
+    errors.push(
+      ...budgetErrors('android', locale, readIfExists(path.join(localeDir, 'full_description.txt')))
+    );
 
     // Check changelog for current version
     if (versionCode) {
@@ -756,6 +829,9 @@ export function validateMetadata(
     }
 
     errors.push(...claimErrors('ios', locale, 'description.txt'));
+    errors.push(
+      ...budgetErrors('ios', locale, readIfExists(path.join(localeDir, 'description.txt')))
+    );
     errors.push(...screenshotErrors('ios', locale, dirs, requireScreenshots));
   }
 

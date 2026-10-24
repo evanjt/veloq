@@ -106,6 +106,56 @@ const ROUTES: WhatsNewSlideDefinition = {
   },
 };
 
+const NOTIFICATIONS: WhatsNewSlideDefinition = {
+  titleKey: 'whatsNew.tutorial.notificationsTitle',
+  bodyKey: 'whatsNew.tutorial.notificationsBody',
+  icon: 'bell-ring-outline',
+  setup: 'notifications',
+  get Component() {
+    return require('./NotificationsSlide').NotificationsSlide;
+  },
+};
+
+const RECORDING: WhatsNewSlideDefinition = {
+  titleKey: 'whatsNew.v040.recordingTitle',
+  bodyKey: 'whatsNew.v040.recordingBody',
+  icon: 'record-circle-outline',
+  showMeRoute: '/record',
+  showMeTip: 'whatsNew.v040.recordingTip',
+  get Component() {
+    return require('./RecordingSlide').RecordingSlide;
+  },
+};
+
+const LOOK: WhatsNewSlideDefinition = {
+  titleKey: 'whatsNew.v040.lookTitle',
+  bodyKey: 'whatsNew.v040.lookBody',
+  icon: 'palette-outline',
+  get Component() {
+    return require('./LookSlide').LookSlide;
+  },
+};
+
+const MAPS_WIDGETS: WhatsNewSlideDefinition = {
+  titleKey: 'whatsNew.v040.mapsWidgetsTitle',
+  bodyKey: 'whatsNew.v040.mapsWidgetsBody',
+  icon: 'terrain',
+  showMeRoute: '/map-settings',
+  showMeTip: 'whatsNew.v040.mapsWidgetsTip',
+  get Component() {
+    return require('./MapsWidgetsSlide').MapsWidgetsSlide;
+  },
+};
+
+const SECTIONS_REBUILT: WhatsNewSlideDefinition = {
+  titleKey: 'whatsNew.v040.rebuiltTitle',
+  bodyKey: 'whatsNew.v040.rebuiltBody',
+  icon: 'history',
+  get Component() {
+    return require('./SectionsRebuiltSlide').SectionsRebuiltSlide;
+  },
+};
+
 /**
  * Version → slides registry. Modal only shows if the current version has entries.
  * Future releases just add a new key here.
@@ -153,40 +203,21 @@ export const WHATS_NEW_SLIDES: Record<string, WhatsNewSlideDefinition[]> = {
     },
     BACKUP,
   ],
-  '0.4.0': [
-    SECTION_PAGE,
-    ROUTES,
-    {
-      titleKey: 'whatsNew.v040.sectionsTitle',
-      bodyKey: 'whatsNew.v040.sectionsBody',
-      icon: 'history',
-      // The section preview, where the map shows the sections a setting change would cut.
-      showMeRoute: '/detection-preview',
-      showMeTip: 'whatsNew.v040.sectionsTip',
-      get Component() {
-        return require('./SectionChangeCardSlide').SectionChangeCardSlide;
-      },
-    },
-  ],
+  '0.4.0': [NOTIFICATIONS, RECORDING, LOOK, MAPS_WIDGETS, SECTIONS_REBUILT],
 };
 
 /**
  * The first-run tour: the two pages the athlete acts on first, the map style and the
  * notifications, then sections and routes, and backup last. The first load is not a page: the
  * tour's chrome carries it as a line while the sync runs. A release slide that only explains a
- * change, such as the section preview, stays in What's New.
+ * change, such as the new look, stays in What's New.
  */
 const TUTORIAL_SLIDES: WhatsNewSlideDefinition[] = [
   MAP_STYLES,
-  {
-    titleKey: 'whatsNew.tutorial.notificationsTitle',
-    bodyKey: 'whatsNew.tutorial.notificationsBody',
-    icon: 'bell-ring-outline',
-    setup: 'notifications',
-    get Component() {
-      return require('./NotificationsSlide').NotificationsSlide;
-    },
-  },
+  NOTIFICATIONS,
+  RECORDING,
+  MAPS_WIDGETS,
+  SECTIONS_REBUILT,
   SECTION_PAGE,
   ROUTES,
   BACKUP,

@@ -341,6 +341,7 @@ export function MapControlStack({
                     <MapKeyRamp
                       testID="map-key-recency"
                       ramp={recencyRamp(palette.textPrimary)}
+                      label={t('maps.keyRecencyAxis')}
                       ends={recencyEnds}
                       stretch
                       isDark={isDark}
@@ -366,6 +367,7 @@ export function MapControlStack({
                 showSections ? (
                   <MapKeySwatch
                     testID="map-key-sections"
+                    stretch
                     swatch={linePalette.layer.sections.slice(0, LINE_KEY_COLOURS)}
                     dash={SECTION_LINE_DASH}
                     edge={linePalette.edge}
@@ -387,6 +389,7 @@ export function MapControlStack({
                   <MapKeyRamp
                     testID="map-key-heat"
                     ramp={heatKeyColours}
+                    label={t('maps.keyHeatAxis')}
                     ends={heatEnds}
                     stretch
                     isDark={isDark}
@@ -408,6 +411,7 @@ export function MapControlStack({
                 showRoutes ? (
                   <MapKeySwatch
                     testID="map-key-routes"
+                    stretch
                     swatch={linePalette.layer.routes.slice(0, LINE_KEY_COLOURS)}
                     edge={linePalette.edge}
                   />

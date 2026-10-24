@@ -1284,6 +1284,8 @@
     "keyYearOrMore": "Un an ou plus",
     "keyFewerPasses": "Moins de passages",
     "keyMorePasses": "Plus de passages",
+    "keyRecencyAxis": "Ancienneté de l'activité",
+    "keyHeatAxis": "Passages",
     "colorByGradient": "Couleur par inclinaison",
     "periodThisYear": "Cette année",
     "sheetSize": "Taille de la carte et des détails",
@@ -2488,9 +2490,6 @@
       "backupBody": "Sauvegardez vos réglages et vos choix dans un petit fichier, puis partagez-le depuis votre appareil. Lors de la restauration, les activités sont téléchargées à nouveau et vos choix sont appliqués lorsqu’ils correspondent."
     },
     "v040": {
-      "sectionsTitle": "Des tronçons qui suivent tes sorties",
-      "sectionsBody": "Les tronçons sont déterministes et se remodèlent avec tes sorties ; épingle-en un pour le garder stable.",
-      "sectionsTip": "La carte montre vos sections telles qu'elles sont maintenant. Déplacez un curseur et touchez Aperçu pour voir quelles sections il découperait ; rien ne change tant que vous ne touchez pas Conserver.",
       "recutRunning": "Nouvelle analyse de tes tronçons",
       "recutRunningPhase": "Nouvelle analyse de tes tronçons : {{phase}}",
       "diffTotals": "{{current}} tronçons sont devenus {{proposed}}.",
@@ -2514,7 +2513,17 @@
       "routesTitle": "Les parcours que vous répétez",
       "routesBody": "Les activités sur le même tracé sont regroupées en un parcours, chaque passage étant comparé aux autres.",
       "sectionPageTip": "Faites défiler la page de la section pour voir la tendance, la répartition de vos temps et le tracé coloré selon où vous avez gagné ou perdu du temps.",
-      "routesTip": "Faites défiler la page de l'itinéraire pour voir chaque tentative sur le parcours comparée aux autres."
+      "routesTip": "Faites défiler la page de l'itinéraire pour voir chaque tentative sur le parcours comparée aux autres.",
+      "recordingTitle": "Enregistrez des activités dans Veloq",
+      "recordingBody": "Enregistrez avec le GPS, en salle ou à la main, et ajoutez des capteurs Bluetooth de fréquence cardiaque, de puissance et de cadence. L'activité est envoyée vers intervals.icu. Des raccourcis lancent un enregistrement depuis l'extérieur de l'app.",
+      "recordingTip": "Choisissez GPS, en salle ou manuel, puis touchez Démarrer.",
+      "lookTitle": "Un nouveau look",
+      "lookBody": "Une barre d'onglets repensée et une nouvelle typographie partout. En ouvrant une activité, l'image de sa carte s'affiche aussitôt.",
+      "mapsWidgetsTitle": "Cartes 3D et widgets",
+      "mapsWidgetsBody": "Les activités vallonnées se dessinent sur un relief en 3D. Les widgets Résumé et Force affichent votre entraînement sur l'écran d'accueil.",
+      "mapsWidgetsTip": "Choisissez quand les cartes s'affichent en 3D dans Réglages, sous Cartes.",
+      "rebuiltTitle": "Sections reconstruites",
+      "rebuiltBody": "Les sections sont identiques sur tous les appareils et chaque modification est conservée dans un historique que vous pouvez annuler."
     },
     "tutorial": {
       "firstLoadLine": "Le premier chargement depuis intervals.icu est en cours. Votre fil se remplit à mesure que les activités arrivent.",
@@ -2800,6 +2809,8 @@
     "statePaused": "En pause jusqu'à la prochaine ouverture de l'app",
     "stateWaiting": "En attente de reprise",
     "resumesAt": "Reprise : {{time}}",
+    "pacedOnCaps_one": "Rythme selon les limites d'intervals.icu, environ {{count}} jour pour terminer",
+    "pacedOnCaps_other": "Rythme selon les limites d'intervals.icu, environ {{count}} jours pour terminer",
     "lastFinished": "Dernière exécution {{time}}",
     "lastRunNoChange": "Aucun changement",
     "lastRunStopped": "Arrêtée",

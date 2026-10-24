@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme, useMetricSystem } from '@/shared/app';
-import { colors, darkColors, spacing, layout, strengthTone, typography, stroke } from '@/theme';
+import { colors, darkColors, spacing, layout, bodyDiagram, typography, stroke } from '@/theme';
 import type { MuscleVolume, ExerciseSummary } from '@/types';
 import { formatWeightRounded as formatWeight } from '@/shared/format/weight';
 import { Row } from '@/shared/ui';
@@ -24,6 +24,7 @@ export const StrengthExerciseList = React.memo(function StrengthExerciseList({
   exerciseSummary,
 }: StrengthExerciseListProps) {
   const { isDark } = useTheme();
+  const roles = bodyDiagram[isDark ? 'dark' : 'light'];
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
   const selectedMuscleName = muscleName(selectedVolume.slug, t);
@@ -47,7 +48,7 @@ export const StrengthExerciseList = React.memo(function StrengthExerciseList({
             })}
             testID={`exercise-history-${exercise.exerciseCategory}`}
           >
-            <View style={styles.dot} />
+            <View style={[styles.dot, { backgroundColor: roles.primary }]} />
             <View style={styles.content}>
               <NameText style={[styles.name, isDark && styles.nameDark]}>
                 {exercise.exerciseName}
@@ -79,7 +80,6 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: layout.borderRadiusFull,
-    backgroundColor: strengthTone.primary,
   },
   content: { flex: 1 },
   name: { ...typography.bodyMedium, color: colors.textPrimary },

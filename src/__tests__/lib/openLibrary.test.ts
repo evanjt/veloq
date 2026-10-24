@@ -7,7 +7,7 @@
  * database and both sidecars once the engine reports it opened.
  */
 import { excludeExistingFromBackup } from '@/shared/native/backupExclusion';
-import { openLibrary } from '@/shared/storage/routeDbLocation';
+import { openLibrary, openLibraryAsync } from '@/shared/storage/routeDbLocation';
 
 jest.mock('@/shared/native/backupExclusion', () => ({
   excludeExistingFromBackup: jest.fn(),
@@ -113,5 +113,42 @@ describe('openLibrary', () => {
 
     expect(warn).not.toHaveBeenCalled();
     warn.mockRestore();
+  });
+});
+
+describe('openLibraryAsync', () => {
+  it('marks the same files as openLibrary once the open has resolved', async () => {
+    const order: string[] = [];
+    const engine = {
+      openWithPath: jest.fn(async () => {
+        order.push('open');
+        return true;
+      }),
+    };
+    mark.mockImplementation(() => {
+      order.push('mark');
+      return true;
+    });
+
+    await expect(openLibraryAsync(engine, DB)).resolves.toBe(true);
+
+    expect(engine.openWithPath).toHaveBeenCalledWith(DB);
+    expect(mark.mock.calls.map(([path]) => path)).toEqual([
+      DB,
+      `${DB}-wal`,
+      `${DB}-shm`,
+      `${DB}-journal`,
+      PANIC,
+    ]);
+    expect(order[0]).toBe('open');
+  });
+
+  it('marks nothing when the open failed', async () => {
+    const engine = { openWithPath: jest.fn(async () => false) };
+
+    await expect(openLibraryAsync(engine, DB)).resolves.toBe(false);
+
+    expect(mark).not.toHaveBeenCalled();
+    expect(mockCreated).toEqual([]);
   });
 });

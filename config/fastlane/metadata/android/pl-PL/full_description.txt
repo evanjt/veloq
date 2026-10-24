@@ -1,39 +1,37 @@
-Veloq odczytuje Twoje konto intervals.icu i pokazuje je na telefonie: aktywności, mapy, wykresy, kondycję i formę. Aplikacja szuka tras i odcinków, które powtarzasz, i zestawia każde podejście z poprzednimi. Analiza odbywa się na Twoim urządzeniu.
+Veloq pokazuje Twój trening z intervals.icu na telefonie i szuka tras i odcinków, które powtarzasz. Analiza odbywa się na Twoim urządzeniu.
 
 <b>Nagrywanie</b>
-Nagrywaj jazdy, biegi i inne sporty z GPS, automatyczną pauzą i międzyczasami w Twoich jednostkach. Połącz czujniki Bluetooth tętna, mocy i kadencji albo realizuj zaplanowany trening z kalendarza intervals.icu z celami na ekranie. Przytnij początek i koniec przed zapisaniem, a potem wyślij plik FIT lub zostaw go w kolejce do czasu, aż będzie zasięg. Sesje w pomieszczeniu można wpisać ręcznie. Rozpocznij nagrywanie z widżetu na ekranie głównym lub z kafelka Szybkich ustawień.
+Nagrywaj przejazdy, biegi i inne sporty z GPS, czujnikami Bluetooth lub zaplanowanym treningiem.
 
 <b>Analizy</b>
-Krótkie podsumowanie Twojego treningu: rekordy i trendy na odcinkach, kamienie milowe kondycji, porównanie tego tygodnia z poprzednim, trendy HRV i postęp siłowy. Każda analiza otwiera się z liczbami i sposobem ich obliczenia.
+Krótkie odczyty Twojego treningu, każdy z liczbami i sposobem ich obliczenia.
 
 <b>Mapy</b>
-Interaktywne mapy z terenem 3D, mapami cieplnymi tras i osią czasu, którą możesz filtrować, w stylu jasnym, ciemnym i satelitarnym. Przesuń palcem po wykresie, a Twoja pozycja przesuwa się po mapie.
+Interaktywne mapy z terenem 3D, mapami cieplnymi tras oraz stylami jasnym, ciemnym i satelitarnym.
 
 <b>Trasy i odcinki</b>
-Veloq szuka tras i odcinków, które powtarzasz, bez żadnej konfiguracji, i wyznacza je tak samo na każdym urządzeniu. Strona odcinka porównuje każde podejście: trend, rozrzut Twoich czasów i linię pokolorowaną tam, gdzie czas został zyskany lub stracony. Przypnij, skróć, wydłuż lub zmień nazwę odcinka, a każda zmiana zachowuje historię, którą możesz cofnąć.
+Porównuj każde podejście na trasach i odcinkach, które powtarzasz, a potem przypinaj je, skracaj lub zmieniaj ich nazwy.
 
 <b>Wykresy</b>
-Tętno, moc, tempo, wysokość i kadencja na jednej osi czasu z mapą. Rozkład stref, obciążenie treningowe, intensywność i zestawienie okrążeń.
+Tętno, moc, tempo, wysokość i kadencja na jednej osi czasu razem z mapą.
 
 <b>Kondycja</b>
-Kondycja, zmęczenie i forma na jednym wykresie z zaznaczonymi strefami. HRV, tętno spoczynkowe, sen i samopoczucie oraz krzywe mocy i tempa dla każdego sportu.
+Kondycja, zmęczenie i forma z naniesionymi strefami, a do tego HRV, tętno spoczynkowe i sen.
 
 <b>Siła</b>
-Serie siłowe z Twoich aktywności na diagramie ciała: grupy mięśni pracujące w każdej sesji, równowaga między przeciwstawnymi grupami i postęp w każdym ćwiczeniu.
+Twoje serie siłowe na schemacie ciała, według grupy mięśni i ćwiczenia.
 
 <b>Widżety</b>
-Widżety na ekranie głównym z Twoją kondycją i formą, ostatnią aktywnością, najnowszymi analizami i treningiem siłowym, odświeżane w tle.
+Widżety ekranu głównego z kondycją i formą, ostatnią aktywnością i Twoimi analizami.
 
 <b>Powiadomienia</b>
-Gdy intervals.icu otrzyma nową aktywność, Veloq może wysłać powiadomienie z nazwą trasy i ewentualnymi rekordami życiowymi, w Twoim języku. Powiadomienia są wyłączone, dopóki ich nie włączysz.
+Powiadomienie z nazwą trasy i ewentualnymi rekordami osobistymi, gdy pojawi się nowa aktywność. Wyłączone, dopóki ich nie włączysz.
 
 <b>Kopie zapasowe</b>
-Zapisz kopię ustawień i decyzji dotyczących odcinków w małym pliku, ręcznie lub automatycznie. Trzymaj ją w kopii zapasowej urządzenia albo dodaj serwer WebDAV, katalog lub dysk w chmurze. Przywracanie pobiera aktywności ponownie i stosuje Twoje decyzje tam, gdzie pasują.
+Zapisz ustawienia i decyzje o odcinkach w pliku, folderze, chmurze lub na serwerze WebDAV.
 
 <b>Prywatność</b>
-Twoje dane treningowe zostają na urządzeniu. Bez analityki, bez śledzenia. Opcjonalne powiadomienia push przechowują Twój identyfikator sportowca intervals.icu i token urządzenia na naszym serwerze, usuwane automatycznie po 30 dniach. Otwarte oprogramowanie na licencji Apache 2.0.
-
-Dostępność: etykiety dla czytnika ekranu przy każdym elemencie sterującym, tekst dopasowany do systemowego rozmiaru tekstu oraz kontrast kolorów według proporcji AA w jasnym i ciemnym motywie.
+Dane treningowe zostają na Twoim urządzeniu, bez analityki i śledzenia. Opcjonalne powiadomienia push zapisują Twój identyfikator sportowca i token urządzenia na naszym serwerze na 30 dni. Open source na licencji Apache 2.0.
 
 Obsługuje kolarstwo, bieganie, pływanie i ponad 20 typów aktywności. Wypróbuj wbudowany tryb demo, aby poznać aplikację bez zakładania konta.
 

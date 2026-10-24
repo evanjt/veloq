@@ -13,7 +13,6 @@ import {
   bodyDiagram,
   colors,
   darkColors,
-  strengthTone,
   duration,
   layers,
   layout,
@@ -418,7 +417,13 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
               style={[styles.loupeContainer, loupeContainerStyle]}
               pointerEvents="none"
             >
-              <View style={[styles.loupeClip, isDark && styles.loupeClipDark]}>
+              <View
+                style={[
+                  styles.loupeClip,
+                  { borderColor: roles.primary },
+                  isDark && styles.loupeClipDark,
+                ]}
+              >
                 <Animated.View style={[styles.loupeBody, loupeFrontStyle]}>
                   <Body
                     data={data}
@@ -485,7 +490,6 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusFull,
     overflow: 'hidden',
     borderWidth: stroke.three,
-    borderColor: strengthTone.primary,
     backgroundColor: colors.surfaceRaised,
     justifyContent: 'center',
     alignItems: 'center',

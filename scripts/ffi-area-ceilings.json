@@ -246,8 +246,10 @@
     "VeloqEngine.setNameTranslations",
     "VeloqEngine.setObserver",
     "VeloqEngine.takeExternalWrites",
+    "getEngineOpenProgress",
     "getRoutesStatusData",
-    "setNetworkOnline"
+    "setNetworkOnline",
+    "startEngineOpen"
   ],
   "src": ["SettingsManager.setNotificationTemplates"]
 }

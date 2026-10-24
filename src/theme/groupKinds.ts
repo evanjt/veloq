@@ -96,11 +96,6 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
     reason:
       'one colour per sport family and two fixed sub-shades, drawn as a mark beside the sport name, never as its ground',
   },
-  strengthTone: {
-    kind: 'series',
-    reason:
-      'the strength data hue on the body diagram and its cards, primary and assisting muscles told apart with a legend',
-  },
   sectionPalette: {
     kind: 'series',
     reason: "the map line colours, told apart from each other and from the base's edge under them",

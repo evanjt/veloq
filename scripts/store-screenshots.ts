@@ -7,7 +7,6 @@
  * Usage:
  *   npx tsx scripts/store-screenshots.ts [options] [locale ...]
  *
- *   --palette night|day   default night
  *   --target <t>          all|play|appstore|ipad|feature|web  default all
  *   --install             mirror existing renders into the fastlane trees
  *   --site-copy           only rewrite the docs/index.html hero and feature grid from the listings
@@ -16,7 +15,7 @@
  *
  * A locale is a captured Play locale (scripts/store-locales.ts,
  * captureLocales), and no locale means every one. `npm run store:screenshots`
- * runs the captures, this with --palette day, and --install, in that order.
+ * runs the captures, this, and --install, in that order.
  *
  * Raw captures land in artifacts/store/raw/{android,ios,ipad}/<locale>/ named
  * 01-feed.png .. 06-insights.png (see .maestro/store-capture.yaml), and stay
@@ -34,11 +33,10 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
-import { storePalettes, type StorePalette } from '@/shared/theme/storeTheme';
-
 import { syncSiteCopy, syncSiteGallery, type SiteShot } from './site-copy';
 import { captureLocales, type CaptureLocale } from './store-locales';
-import { dims, featureHtml, markPositions, phoneHtml, type Caption } from './store-templates';
+import { dims, featureHtml, FEATURE_SIZE, phoneHtml, type Caption } from './store-templates';
+import { storePalette, type StorePalette } from './store-theme';
 import { readImageInfo } from './validate-store-metadata';
 
 const ROOT = path.resolve(__dirname, '..');
@@ -85,39 +83,77 @@ const IPAD_SHOTS = 3;
 // Captions keyed by Play locale, pre-broken with \n (CSS white-space:
 // pre-line). Subcaptions describe what is on screen: no absolutes, no speed
 // promises, no coaching. intervals.icu is named once, on the first shot.
-export const CAPTIONS: Record<string, { shots: Caption[]; tagline: string }> = {
+export const CAPTIONS: Record<string, { shots: Caption[]; headline?: string; tagline: string }> = {
   'en-US': {
     shots: [
-      { cap: 'Your activity\nhistory', sub: 'Synced from your intervals.icu account.' },
       {
+        kicker: 'Feed',
+        cap: 'Your activity\nhistory',
+        sub: 'Synced from your intervals.icu account.',
+      },
+      {
+        kicker: 'Activity',
         cap: 'Map and charts\non one timeline',
         sub: 'Drag the chart and the marker moves with it.',
       },
-      { cap: 'Fitness, fatigue\nand form', sub: 'Charted from your training load, day by day.' },
-      { cap: "Where you've\nbeen riding", sub: '3D terrain, with a heatmap over your rides.' },
-      { cap: 'Routes you\nride again', sub: 'Spotted in your history, attempts side by side.' },
       {
+        kicker: 'Fitness',
+        cap: 'Fitness, fatigue\nand form',
+        sub: 'Charted from your training load, day by day.',
+      },
+      {
+        kicker: 'Map',
+        cap: "Where you've\nbeen riding",
+        sub: '3D terrain, with a heatmap over your rides.',
+      },
+      {
+        kicker: 'Routes',
+        cap: 'Routes you\nride again',
+        sub: 'Spotted in your history, attempts side by side.',
+      },
+      {
+        kicker: 'Insights',
         cap: 'A daily read on\nyour training',
         sub: 'Section bests, milestones, week against week.',
       },
     ],
+    headline: 'Every ride, on real terrain',
     tagline: 'Training analysis for rides and runs.',
   },
   'en-AU': {
     shots: [
-      { cap: 'Your activity\nhistory', sub: 'Synced from your intervals.icu account.' },
       {
+        kicker: 'Feed',
+        cap: 'Your activity\nhistory',
+        sub: 'Synced from your intervals.icu account.',
+      },
+      {
+        kicker: 'Activity',
         cap: 'Map and charts\non one timeline',
         sub: 'Drag the chart and the marker moves with it.',
       },
-      { cap: 'Fitness, fatigue\nand form', sub: 'Charted from your training load, day by day.' },
-      { cap: "Where you've\nbeen riding", sub: '3D terrain, with a heatmap over your rides.' },
-      { cap: 'Routes you\nride again', sub: 'Spotted in your history, attempts side by side.' },
       {
+        kicker: 'Fitness',
+        cap: 'Fitness, fatigue\nand form',
+        sub: 'Charted from your training load, day by day.',
+      },
+      {
+        kicker: 'Map',
+        cap: "Where you've\nbeen riding",
+        sub: '3D terrain, with a heatmap over your rides.',
+      },
+      {
+        kicker: 'Routes',
+        cap: 'Routes you\nride again',
+        sub: 'Spotted in your history, attempts side by side.',
+      },
+      {
+        kicker: 'Insights',
         cap: 'A daily read on\nyour training',
         sub: 'Section bests, milestones, week against week.',
       },
     ],
+    headline: 'Every ride, on real terrain',
     tagline: 'Training analysis for rides and runs.',
   },
   'it-IT': {
@@ -451,19 +487,15 @@ function buildLocale(locale: string, palette: StorePalette, targets: Target[]): 
     const size = SIZES[target];
     const count = target === 'ipad' ? IPAD_SHOTS : SHOT_STEMS.length;
     const raws = rawCaptures(target, rawRoot(), locale, count);
-    const { offsets, width: markW } = markPositions(count);
-    const d = dims(size.width, target === 'ipad');
+    const d = dims(size.width, size.height, target === 'ipad');
     console.log(`${locale} ${target}`);
     raws.forEach((raw, i) => {
-      const offset = offsets[i];
       const caption = strings.shots[i];
-      if (offset === undefined || caption === undefined) {
-        throw new Error(`${locale} has no caption or mark position for shot ${i + 1}`);
-      }
-      const html = phoneHtml(palette, d, offset, markW, caption, raw);
+      if (caption === undefined) throw new Error(`${locale} has no caption for shot ${i + 1}`);
+      const html = phoneHtml(palette, d, caption, raw);
       const tmpPng = path.join(STORE, target, locale, `${String(i + 1).padStart(2, '0')}.png`);
       render(html, size.width, size.height, tmpPng);
-      toJpeg(tmpPng, tmpPng.replace(/\.png$/, '.jpg'), palette.bg);
+      toJpeg(tmpPng, tmpPng.replace(/\.png$/, '.jpg'), palette.stageTop);
       fs.rmSync(tmpPng);
     });
   }
@@ -471,11 +503,13 @@ function buildLocale(locale: string, palette: StorePalette, targets: Target[]): 
   if (targets.includes('feature')) {
     const [raw] = rawCaptures('feature', rawRoot(), locale, 1);
     if (!raw) throw new Error(`No raw capture for the ${locale} feature graphic`);
-    const html = featureHtml(palette, strings.tagline, raw);
+    const html = strings.headline
+      ? featureHtml(palette, strings.headline, strings.tagline, raw)
+      : featureHtml(palette, strings.tagline, '', raw);
     const tmpPng = path.join(STORE, 'feature', locale, 'featureGraphic.png');
     console.log(`${locale} feature`);
-    render(html, SIZES.feature.width, SIZES.feature.height, tmpPng);
-    toJpeg(tmpPng, tmpPng.replace(/\.png$/, '.jpg'), palette.bg);
+    render(html, FEATURE_SIZE.width, FEATURE_SIZE.height, tmpPng);
+    toJpeg(tmpPng, tmpPng.replace(/\.png$/, '.jpg'), palette.stageTop);
     fs.rmSync(tmpPng);
   }
 }
@@ -594,7 +628,6 @@ function main(args: string[]): void {
     return i !== -1 ? args[i + 1] : undefined;
   };
 
-  const paletteName = (flagValue('--palette') ?? 'night') as 'night' | 'day';
   const targetArg = flagValue('--target') ?? 'all';
   const outDir = flagValue('--out');
   const rawDir = flagValue('--raw-dir');
@@ -603,7 +636,6 @@ function main(args: string[]): void {
   const locales = args.filter(
     (a, i) =>
       !a.startsWith('--') &&
-      args[i - 1] !== '--palette' &&
       args[i - 1] !== '--target' &&
       args[i - 1] !== '--out' &&
       args[i - 1] !== '--raw-dir'
@@ -612,9 +644,6 @@ function main(args: string[]): void {
   if (process.env.VELOQ_STORE_DIR) STORE = process.env.VELOQ_STORE_DIR;
   if (outDir) STORE = path.resolve(outDir);
   if (rawDir) process.env.VELOQ_RAW_DIR = path.resolve(rawDir);
-
-  const palette = storePalettes[paletteName];
-  if (!palette) throw new Error(`Unknown palette ${paletteName}`);
 
   const targets: Target[] =
     targetArg === 'all' ? ['play', 'appstore', 'ipad', 'feature'] : [targetArg as Target];
@@ -637,7 +666,7 @@ function main(args: string[]): void {
     if (targets.includes('web')) buildWeb();
     const composited = targets.filter((t) => t !== 'web');
     if (composited.length > 0) {
-      for (const capture of captures) buildLocale(capture.play, palette, composited);
+      for (const capture of captures) buildLocale(capture.play, storePalette, composited);
     }
   }
 }

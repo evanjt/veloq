@@ -438,7 +438,7 @@ impl PersistentEngine {
 
         // Copy the file before anything changes it, and only then: a launch
         // with nothing to migrate pays nothing, and releases the copy the
-        // last upgrade took.
+        // last upgrade took once the detector cutover no longer owes it.
         let migration_pending =
             current_version < Self::SCHEMA_VERSION || applied_migrations < known_migrations;
         let pre_upgrade_copy = if migration_pending {

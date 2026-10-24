@@ -22,6 +22,7 @@ export {
 } from './lib/computeInsightsData';
 export { INSIGHTS_CONFIG, confidenceFrom } from './lib/config';
 export { HISTORY_MIN_POINTS } from './lib/sparkline';
+export { repostActivityNotification } from './lib/regenerateNotification';
 export { printedValue } from './lib/printedValue';
 
 export { stalePROpportunityToInsight } from './generators/stalePr';

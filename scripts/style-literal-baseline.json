@@ -173,7 +173,6 @@
     "src/shared/app/NavigationThemeProvider.tsx": 1,
     "src/shared/app/screenHeaders.ts": 1,
     "src/shared/format/trend.ts": 1,
-    "src/shared/theme/storeTheme.ts": 1,
     "src/shared/theme/widgetTheme.ts": 2
   },
   "z-index": {}

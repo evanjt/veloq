@@ -217,10 +217,12 @@ export async function handleBackgroundInsightTask({
     // 1. Read preferences through getSetting (Zustand may not be hydrated)
     const prefs = await readPrefsFromStorage();
     log.log(`Prefs: enabled=${prefs?.enabled}, hasData=${!!data}`);
-    if (!prefs?.enabled) {
-      log.log('Notifications disabled, skipping');
-      await appendTaskRun({ stage: 'bailed', detail: 'notifications disabled' });
-      return;
+    // The preferences gate the tray entry only. The ingest and the widget
+    // refresh below serve the athlete whether or not they want notifications.
+    const notificationsEnabled = prefs?.enabled === true;
+    if (!notificationsEnabled) {
+      log.log('Notifications disabled, ingesting without posting');
+      await appendTaskRun({ stage: 'parsed', detail: 'notifications disabled' });
     }
 
     // 2. Extract push payload. The delivered shape varies by platform, so the
@@ -300,7 +302,7 @@ export async function handleBackgroundInsightTask({
     if (isActivityEvent && activityId && Platform.OS === 'ios') {
       log.log('Activity push on iOS, tray left to the notification extension');
       await appendTaskRun({ stage: 'notified', activityId, detail: 'skipped (extension posts)' });
-    } else if (isActivityEvent && activityId) {
+    } else if (isActivityEvent && activityId && prefs && notificationsEnabled) {
       // An ingest that failed has no name, and an empty body is how that
       // reaches the tray decision below rather than as the notification's own
       // title repeated back to the athlete.

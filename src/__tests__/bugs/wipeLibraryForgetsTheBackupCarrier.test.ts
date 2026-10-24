@@ -801,7 +801,11 @@ const DEVICE_WRITES: DeviceWrite[] = [
     writers: [`${RUST}/persistence/pre_upgrade_copy.rs`],
     holds: 'a whole copy of the library',
     wiped: {
-      files: ['file:///docs/routes.db.pre-upgrade-12', 'file:///docs/routes.db.pre-upgrade-12-wal'],
+      files: [
+        'file:///docs/routes.db.pre-upgrade-12',
+        'file:///docs/routes.db.pre-upgrade-12-wal',
+        'file:///docs/routes.db.pre-upgrade-12.partial',
+      ],
     },
   },
   {

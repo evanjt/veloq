@@ -328,6 +328,33 @@ fn an_empty_file_is_a_fresh_install_and_not_a_corrupt_one() {
     );
 }
 
+/// Scenario: a main file from a rollback-mode build is corrupt and a hot
+/// journal sits beside it. Expected behaviour: the journal is quarantined with
+/// the file, so it is never replayed into the fresh database that takes its place.
+#[test]
+fn a_rollback_journal_is_quarantined_with_its_main_file() {
+    let _serial_state = crate::serial_state();
+    let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    let tmp = TempDir::new().unwrap();
+    let db_path = tmp.path().join("routes.db");
+    let db_str = db_path.to_string_lossy().into_owned();
+
+    fs::write(&db_path, b"this is not a sqlite database, not even close").unwrap();
+    fs::write(format!("{db_str}-journal"), b"hot journal bytes").unwrap();
+    assert!(persistent_engine_init(db_str.clone()));
+
+    assert!(
+        !Path::new(&format!("{db_str}-journal")).exists(),
+        "the journal must not sit beside the fresh database"
+    );
+    assert!(
+        quarantine_files(tmp.path())
+            .iter()
+            .any(|n| n.ends_with("-journal")),
+        "the journal is kept with the quarantined file"
+    );
+}
+
 #[test]
 fn an_empty_main_file_with_a_populated_log_is_quarantined() {
     let _serial_state = crate::serial_state();

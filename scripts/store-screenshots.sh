@@ -125,7 +125,7 @@ fi
 
 render() {
   # shellcheck disable=SC2086
-  npx --no-install tsx scripts/store-screenshots.ts --palette day --target "$1" $locales
+  npx --no-install tsx scripts/store-screenshots.ts --target "$1" $locales
 }
 case "$only" in
   all) render all ;;

@@ -3,7 +3,6 @@ package com.veloq
 import android.content.Context
 import android.util.Log
 import androidx.work.ExistingWorkPolicy
-import androidx.work.OneTimeWorkRequest
 import androidx.work.WorkManager
 import androidx.work.Worker
 import androidx.work.WorkerParameters
@@ -27,7 +26,7 @@ class NativeWidgetRefreshWorker(context: Context, params: WorkerParameters) : Wo
       try {
         WorkManager.getInstance(app).enqueueUniqueWork(
           UNIQUE_NAME, ExistingWorkPolicy.KEEP,
-          OneTimeWorkRequest.Builder(NativeWidgetRefreshWorker::class.java).build())
+          WidgetRefreshDecision.tapRequest())
         WidgetSnapshotFile.redraw(app)
       } catch (e: Exception) {
         NativeWidgetSnapshot.finish(app)

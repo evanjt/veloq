@@ -154,7 +154,7 @@ echo "  activities after second launch: $SECOND (read from $SECOND_DIR)"
 echo "== result"
 echo "  before=$BEFORE first=$FIRST second=$SECOND"
 if [[ $FIRST_DIR == "$(group 2>/dev/null)" && $BEFORE == "$FIRST" && $FIRST == "$SECOND" \
-  && ! -e "$(docs)/routes.db" && ! -e "$(docs)/routes.db-wal" && ! -e "$(docs)/routes.db-shm" ]]; then
+  && ! -e "$(docs)/routes.db" && ! -e "$(docs)/routes.db-wal" && ! -e "$(docs)/routes.db-shm" && ! -e "$(docs)/routes.db-journal" ]]; then
   echo "  PASS: the library moved into the App Group whole and stayed there"
 else
   echo "  FAIL"

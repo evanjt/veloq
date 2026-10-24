@@ -80,6 +80,19 @@ const OUTCOME_KEYS: Record<
 function useDetail(job: BackgroundJob): string {
   const { t } = useTranslation();
 
+  // What a row owes: its count, then for the stream download the days the
+  // engine paces it to. A day figure is never shown without the count it
+  // belongs to.
+  const owedParts = (): string[] => {
+    if (job.remaining === null || job.remaining <= 0) return [];
+    return [
+      t(WAITING_KEYS[job.id], { count: job.remaining }),
+      ...(job.pacedDays !== null
+        ? [t('backgroundJobs.pacedOnCaps', { count: job.pacedDays })]
+        : []),
+    ];
+  };
+
   if (job.state === 'running') {
     if (job.id === 'detection' && job.phase) {
       const phaseKey = getPhaseDisplayKey(job.phase);
@@ -101,7 +114,7 @@ function useDetail(job: BackgroundJob): string {
   }
 
   if (job.state === 'idle' && job.remaining !== null && job.remaining > 0) {
-    return t(WAITING_KEYS[job.id], { count: job.remaining });
+    return owedParts().join(' · ');
   }
 
   // A held download says what it owes and when it resumes. The copy names no
@@ -109,9 +122,7 @@ function useDetail(job: BackgroundJob): string {
   // intervals.icu refuses it, and in that case nothing refused anything.
   if (job.state === 'waiting') {
     const parts = [
-      job.remaining !== null && job.remaining > 0
-        ? t(WAITING_KEYS[job.id], { count: job.remaining })
-        : null,
+      ...owedParts(),
       job.resumesAt !== null
         ? t('backgroundJobs.resumesAt', { time: formatClockOrDate(job.resumesAt) })
         : null,

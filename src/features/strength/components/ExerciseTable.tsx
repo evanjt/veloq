@@ -6,7 +6,7 @@ import { Trans, useTranslation } from 'react-i18next';
 
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { formatDuration } from '@/shared/format/format';
-import { strengthTone, colors, darkColors, layout, spacing, stroke, typography } from '@/theme';
+import { bodyDiagram, colors, darkColors, layout, spacing, stroke, typography } from '@/theme';
 
 import { useExerciseSets } from '../hooks/useExerciseSets';
 import { formatBestSet } from '../lib/formatting';
@@ -277,7 +277,12 @@ export function ExerciseTable({
             </Text>
           </View>
           <View style={styles.infoRow}>
-            <View style={[styles.infoDot, { backgroundColor: strengthTone.secondary }]} />
+            <View
+              style={[
+                styles.infoDot,
+                { backgroundColor: bodyDiagram[isDark ? 'dark' : 'light'].secondary },
+              ]}
+            />
             <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
               <Trans
                 i18nKey={hasSex ? 'strength.bodyTypeFromProfile' : 'strength.bodyTypeDefault'}

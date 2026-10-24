@@ -2,11 +2,10 @@ import React, { useMemo } from 'react';
 import { Picture } from '@shopify/react-native-skia';
 import type { ExtendedBodyPart } from 'react-native-body-highlighter';
 
-import { colors, strengthTone } from '@/theme';
+import { bodyDiagram, colors } from '@/theme';
+import { useTheme } from '@/shared/app';
 import { Canvas } from '@/shared/ui/SkiaCanvas';
 import { BODY_BOX, bodyPairPicture, type BodyGender } from '../lib/bodyDiagramPicture';
-
-const INTENSITY_COLOURS = [strengthTone.secondary, strengthTone.primary];
 
 interface StrengthCardBodiesProps {
   testID?: string;
@@ -22,9 +21,11 @@ interface StrengthCardBodiesProps {
  * elsewhere keep the library's own component.
  */
 export function StrengthCardBodies({ testID, muscles, gender, scale }: StrengthCardBodiesProps) {
+  const { isDark } = useTheme();
+  const roles = bodyDiagram[isDark ? 'dark' : 'light'];
   const picture = useMemo(
-    () => bodyPairPicture(muscles, gender, scale, INTENSITY_COLOURS, colors.border),
-    [muscles, gender, scale]
+    () => bodyPairPicture(muscles, gender, scale, [roles.secondary, roles.primary], colors.border),
+    [muscles, gender, scale, roles]
   );
   const size = useMemo(
     () => ({ width: BODY_BOX.width * scale * 2, height: BODY_BOX.height * scale }),

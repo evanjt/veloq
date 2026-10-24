@@ -206,14 +206,16 @@ fn bulk_run(
 /// Scenario: a fresh install downloads the tracks of a library of a few
 /// hundred activities, and intervals.icu refuses nothing.
 ///
-/// Expected behaviour: every track lands on the shipped allowance, so no route
-/// is reported missing and nothing is left owed.
+/// Expected behaviour: with the install's one-time burst armed, as a backfill
+/// pass arms it, every track lands on the shipped allowance, so no route is
+/// reported missing and nothing is left owed.
 #[test]
 fn a_first_sync_of_three_hundred_tracks_lands_every_one_on_the_shipped_allowance() {
     let _serial = crate::test_globals::serial_global_state();
     let _tmp = crate::test_globals::init_global_engine("fetch_budget_first_sync.db");
     let server = FakeServer::answering(|_| ("200 OK", "", TIMED_TRACK));
     let governor = budgeted(Budget::new(0));
+    governor.arm_backfill_burst(governor.now());
 
     let result = bulk_run(&server, ids(300), &governor);
 

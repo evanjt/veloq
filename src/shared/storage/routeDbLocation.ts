@@ -96,13 +96,32 @@ export function openLibrary(
 ): boolean {
   const opened = engine.initWithPath(dbPath);
   if (!opened) return false;
+  markLibraryFiles(dbPath);
+  return true;
+}
+
+/**
+ * `openLibrary` for the launch, which has the splash up and can wait: a library
+ * with an upgrade to run opens on a Rust thread and the JavaScript thread stays
+ * free until it ends. Everything after the open is `openLibrary`'s.
+ */
+export async function openLibraryAsync(
+  engine: { openWithPath(path: string): Promise<boolean> },
+  dbPath: string
+): Promise<boolean> {
+  const opened = await engine.openWithPath(dbPath);
+  if (!opened) return false;
+  markLibraryFiles(dbPath);
+  return true;
+}
+
+function markLibraryFiles(dbPath: string): void {
   ensurePanicLog(dbPath);
   for (const file of [...routeDbFilePaths(dbPath), panicLogPath(dbPath)]) {
     if (excludeExistingFromBackup(file) === false) {
       console.warn(`[RouteDb] ${file} is not excluded from the device backup`);
     }
   }
-  return true;
 }
 
 /** The file operations the move needs, so the decision is testable off a device. */

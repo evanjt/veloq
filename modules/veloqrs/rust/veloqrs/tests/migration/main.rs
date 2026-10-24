@@ -75,6 +75,9 @@ mod schema_overstated_version;
 #[path = "../schema_version_divergence.rs"]
 mod schema_version_divergence;
 
+#[path = "../migration_open_off_thread.rs"]
+mod migration_open_off_thread;
+
 #[path = "../upgrade_scale.rs"]
 mod upgrade_scale;
 

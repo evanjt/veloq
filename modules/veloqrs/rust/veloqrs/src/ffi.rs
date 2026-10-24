@@ -1689,6 +1689,22 @@ pub fn get_cutover_progress() -> CutoverProgress {
     }
 }
 
+/// Open the library on a thread of its own and return at once, for a launch
+/// that has an upgrade to run. A file with none (absent, empty or already on
+/// this build's schema) answers `NotOwed` and starts nothing: the caller opens
+/// it with the one blocking call. [`get_engine_open_progress`] is polled for
+/// the terminal state; a second start while one runs answers `Busy`.
+#[uniffi::export]
+pub fn start_engine_open(db_path: String) -> crate::objects::FfiStartOutcome {
+    crate::persistence::open_run::start_open(db_path)
+}
+
+/// How far the off-thread open has got, and how it ended.
+#[uniffi::export]
+pub fn get_engine_open_progress() -> crate::persistence::open_run::FfiOpenProgress {
+    crate::persistence::open_run::open_progress()
+}
+
 /// Which claims the change card may make on this build.
 #[uniffi::export]
 pub fn get_change_card_support() -> crate::persistence::cutover::ChangeCardSupport {

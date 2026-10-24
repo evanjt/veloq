@@ -1261,6 +1261,8 @@
     "keyYearOrMore": "Et år eller mere",
     "keyFewerPasses": "Færre passager",
     "keyMorePasses": "Flere passager",
+    "keyRecencyAxis": "Aktivitetens alder",
+    "keyHeatAxis": "Passager",
     "colorByGradient": "Farv efter gradient",
     "periodThisYear": "I år",
     "sheetSize": "Størrelse på kort og detaljer",
@@ -2424,9 +2426,6 @@
       "backupBody": "Gem dine indstillinger og valg som en lille sikkerhedskopi, og del den fra din enhed. Når du gendanner den, hentes aktiviteterne igen, og dine valg anvendes, hvor de passer."
     },
     "v040": {
-      "sectionsTitle": "Strækninger, der følger dine ture",
-      "sectionsBody": "Strækninger er deterministiske og former sig om, efterhånden som dine ture samler sig; fastgør en for at holde den stabil.",
-      "sectionsTip": "Kortet viser dine sektioner, som de er nu. Flyt en skyder og tryk på Forhåndsvisning for at se, hvilke sektioner den ville skære; intet ændres, før du trykker på Behold.",
       "recutRunning": "Analyserer dine strækninger igen",
       "recutRunningPhase": "Analyserer dine strækninger igen: {{phase}}",
       "diffTotals": "{{current}} strækninger blev til {{proposed}}.",
@@ -2449,7 +2448,17 @@
       "routesTitle": "Ruter du gentager",
       "routesBody": "Aktiviteter på samme strækning samles i en rute, med hvert forsøg vist mod de andre.",
       "sectionPageTip": "Rul ned på afsnitssiden for tendensen, spredningen af dine tider og linjen farvet efter, hvor tid blev vundet eller tabt.",
-      "routesTip": "Rul ned på rutesiden for at se hvert forsøg på strækningen sammenlignet med de andre."
+      "routesTip": "Rul ned på rutesiden for at se hvert forsøg på strækningen sammenlignet med de andre.",
+      "recordingTitle": "Optag aktiviteter i Veloq",
+      "recordingBody": "Optag med GPS, indendørs eller manuelt, og tilføj Bluetooth-sensorer til puls, effekt og kadence. Aktiviteten uploades til intervals.icu. Genveje starter en optagelse uden for appen.",
+      "recordingTip": "Vælg GPS, indendørs eller manuel, og tryk på start.",
+      "lookTitle": "Nyt udseende",
+      "lookBody": "En ny fanelinje og ny skrifttype overalt. Når du åbner en aktivitet, vises kortbilledet med det samme.",
+      "mapsWidgetsTitle": "3D-kort og widgets",
+      "mapsWidgetsBody": "Bakkede aktiviteter tegnes på 3D-terræn. Widgetsene Oversigt og Styrke viser din træning på startskærmen.",
+      "mapsWidgetsTip": "Vælg under Kort i Indstillinger, hvornår kort tegnes i 3D.",
+      "rebuiltTitle": "Strækninger bygget om",
+      "rebuiltBody": "Strækninger bliver ens på alle enheder, og hver ændring gemmes i en historik, du kan fortryde."
     },
     "tutorial": {
       "firstLoadLine": "Den første indlæsning fra intervals.icu kører. Forsiden fyldes op, efterhånden som aktiviteterne kommer.",
@@ -2731,6 +2740,8 @@
     "statePaused": "På pause, indtil appen åbnes igen",
     "stateWaiting": "Venter på at fortsætte",
     "resumesAt": "Fortsætter {{time}}",
+    "pacedOnCaps_one": "Tempoet følger intervals.icu's grænser, ca. {{count}} dag til færdig",
+    "pacedOnCaps_other": "Tempoet følger intervals.icu's grænser, ca. {{count}} dage til færdig",
     "lastFinished": "Seneste kørsel {{time}}",
     "lastRunNoChange": "Ingen ændringer",
     "lastRunStopped": "Stoppet",

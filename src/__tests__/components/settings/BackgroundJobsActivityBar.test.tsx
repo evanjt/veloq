@@ -23,6 +23,7 @@ function job(id: BackgroundJob['id'], over: Partial<BackgroundJob> = {}): Backgr
     remaining: 0,
     phase: null,
     resumesAt: null,
+    pacedDays: null,
     lastRun: null,
     ...over,
   };
@@ -97,6 +98,38 @@ describe('BackgroundJobsActivityBar', () => {
 
     await fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
     expect(tree.getByTestId('background-job-cutover-detail').props.children).toBe('new_phase');
+  });
+
+  /**
+   * Scenario: the library owes more activities than the daily allowance draws in
+   * one day, so the download is paced on intervals.icu's caps and takes days.
+   *
+   * Expected behaviour: the resting row names the pacing beside its count and
+   * the days it takes, so the athlete is not left to read a slow count as a
+   * stuck app.
+   */
+  it('says a resting download is paced on intervals.icu caps, with the days it takes', async () => {
+    mockUseBackgroundJobs.mockReturnValue([
+      job('streamBackfill', { remaining: 1400, pacedDays: 3 }),
+    ]);
+    const tree = await render(<BackgroundJobsActivityBar />);
+
+    await fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
+    expect(tree.getByTestId('background-job-streamBackfill-detail').props.children).toBe(
+      "1400 activities · Paced on intervals.icu's caps, about 3 days to finish"
+    );
+  });
+
+  it('names no pacing for a queue the engine did not price in days', async () => {
+    mockUseBackgroundJobs.mockReturnValue([
+      job('streamBackfill', { remaining: 40, pacedDays: null }),
+    ]);
+    const tree = await render(<BackgroundJobsActivityBar />);
+
+    await fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
+    expect(tree.getByTestId('background-job-streamBackfill-detail').props.children).toBe(
+      '40 activities'
+    );
   });
 
   /**

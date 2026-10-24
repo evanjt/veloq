@@ -7,9 +7,10 @@
 //!
 //! Expected behaviour: an upgrade leaves `routes.db.pre-upgrade-<old>` beside
 //! the library, a complete database at the old version. A fresh install and a
-//! file already current write none. The next open on the new version removes
-//! it, a later upgrade replaces it, and a copy that cannot be written leaves
-//! the upgrade to run without one.
+//! file already current write none. The copy stays until the detector cutover
+//! that follows the upgrade is promoted, then the next open removes it, a later
+//! upgrade replaces it, and a copy that cannot be written leaves the upgrade to
+//! run without one.
 
 use super::migration_support;
 
@@ -101,7 +102,7 @@ fn a_fresh_install_writes_no_copy_on_either_launch() {
 }
 
 #[test]
-fn the_next_launch_on_the_new_version_removes_the_copy_and_writes_none() {
+fn a_launch_with_nothing_to_migrate_keeps_the_copy_while_the_cutover_is_owed() {
     let _serial_state = super::serial_state();
     let (_dir, path) = released_v12();
 
@@ -109,12 +110,12 @@ fn the_next_launch_on_the_new_version_removes_the_copy_and_writes_none() {
     assert_eq!(copies_beside(&path).len(), 1);
 
     open_engine(&path);
-    assert!(
-        copies_beside(&path).is_empty(),
-        "a launch with nothing to migrate keeps no copy"
-    );
     open_engine(&path);
-    assert!(copies_beside(&path).is_empty());
+    assert_eq!(
+        copies_beside(&path),
+        vec!["routes.db.pre-upgrade-12".to_string()],
+        "the detector cutover after the upgrade still owes its switch"
+    );
 }
 
 #[test]
@@ -141,6 +142,7 @@ fn a_retried_upgrade_keeps_the_copy_its_first_attempt_took() {
     let _serial_state = super::serial_state();
     let (_dir, path) = released_v12();
     let copy = copy_path(&path, 12);
+    std::fs::copy(&path, &copy).unwrap();
     let first_attempt = Connection::open(&copy).unwrap();
     first_attempt
         .execute_batch("CREATE TABLE first_attempt (marker INTEGER)")
@@ -150,16 +152,17 @@ fn a_retried_upgrade_keeps_the_copy_its_first_attempt_took() {
     open_engine(&path);
 
     let kept = Connection::open(&copy).unwrap();
-    assert_eq!(
-        tables_at(&kept),
-        vec!["first_attempt".to_string()],
+    assert!(
+        tables_at(&kept).contains(&"first_attempt".to_string()),
         "the retry kept the earlier copy"
     );
+    assert_eq!(count(&kept, "activities"), FIXTURE_ACTIVITIES);
     drop(kept);
+    set_cutover_token(&path, "unified-1");
     open_engine(&path);
     assert!(
         copies_beside(&path).is_empty(),
-        "and it is released once current"
+        "and it is released once the cutover is promoted"
     );
 }
 
@@ -234,4 +237,82 @@ fn a_fresh_library_beside_a_copy_leaves_the_copy_alone() {
         copies_beside(&path),
         vec!["routes.db.pre-upgrade-12".to_string()]
     );
+}
+
+#[test]
+fn a_truncated_copy_left_at_the_copy_path_is_replaced() {
+    let _serial_state = super::serial_state();
+    let (_dir, path) = released_v12();
+    let whole = std::fs::read(&path).unwrap();
+    std::fs::write(copy_path(&path, 12), &whole[..whole.len() / 2]).unwrap();
+
+    open_engine(&path);
+
+    let copy = Connection::open(copy_path(&path, 12)).expect("open copy");
+    assert_eq!(
+        user_version(&copy),
+        12,
+        "the replacement holds the old schema"
+    );
+    assert_eq!(count(&copy, "activities"), FIXTURE_ACTIVITIES);
+    assert_eq!(count(&copy, "sections"), FIXTURE_SECTIONS);
+}
+
+#[test]
+fn a_partial_copy_a_killed_upgrade_left_behind_is_deleted_by_the_next_upgrade() {
+    let _serial_state = super::serial_state();
+    let (_dir, path) = released_v12();
+    let partial = PathBuf::from(format!("{}.partial", copy_path(&path, 12).display()));
+    std::fs::write(&partial, b"cut off mid-copy").unwrap();
+
+    open_engine(&path);
+
+    assert!(!partial.exists(), "the temporary name is gone");
+    assert_eq!(
+        copies_beside(&path),
+        vec!["routes.db.pre-upgrade-12".to_string()]
+    );
+}
+
+/// Writes the detector cutover token the way a cutover at that stage leaves it.
+fn set_cutover_token(path: &Path, token: &str) {
+    let live = Connection::open(path).expect("open live");
+    live.execute(
+        "INSERT OR REPLACE INTO settings (key, value) VALUES ('__detector_cutover', ?1)",
+        [token],
+    )
+    .unwrap();
+}
+
+#[test]
+fn a_copy_is_kept_while_the_cutover_is_in_flight() {
+    let _serial_state = super::serial_state();
+    let (_dir, path) = released_v12();
+    open_engine(&path);
+    set_cutover_token(&path, "unified-1-inflight");
+
+    open_engine(&path);
+
+    assert_eq!(
+        copies_beside(&path),
+        vec!["routes.db.pre-upgrade-12".to_string()],
+        "a cutover that has not been promoted still has its old catalogue to fall back to"
+    );
+}
+
+#[test]
+fn a_settled_cutover_releases_the_copy_on_the_next_open() {
+    let _serial_state = super::serial_state();
+    for token in ["unified-1", "reverted"] {
+        let (_dir, path) = released_v12();
+        open_engine(&path);
+        set_cutover_token(&path, token);
+
+        open_engine(&path);
+
+        assert!(
+            copies_beside(&path).is_empty(),
+            "a cutover at '{token}' no longer owes the copy"
+        );
+    }
 }

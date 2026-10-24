@@ -1261,6 +1261,8 @@
     "keyYearOrMore": "Een jaar of ouder",
     "keyFewerPasses": "Minder passages",
     "keyMorePasses": "Meer passages",
+    "keyRecencyAxis": "Leeftijd activiteit",
+    "keyHeatAxis": "Keren gepasseerd",
     "colorByGradient": "Kleur op stijging",
     "periodThisYear": "Dit jaar",
     "sheetSize": "Grootte van kaart en details",
@@ -2424,9 +2426,6 @@
       "backupBody": "Bewaar je instellingen en keuzes in een klein back-upbestand en deel het vanaf je apparaat. Bij herstel worden activiteiten opnieuw opgehaald en worden je keuzes toegepast waar ze overeenkomen."
     },
     "v040": {
-      "sectionsTitle": "Stukken die je ritten volgen",
-      "sectionsBody": "Stukken zijn deterministisch en vormen zich opnieuw naarmate je ritten zich opstapelen; zet er een vast om hem stabiel te houden.",
-      "sectionsTip": "De kaart toont je secties zoals ze nu zijn. Verschuif een schuifregelaar en tik op Voorbeeld om te zien welke secties hij zou afsnijden; er verandert niets tot je op Behouden tikt.",
       "recutRunning": "Je stukken worden opnieuw geanalyseerd",
       "recutRunningPhase": "Je stukken worden opnieuw geanalyseerd: {{phase}}",
       "diffTotals": "{{current}} stukken werden er {{proposed}}.",
@@ -2449,7 +2448,17 @@
       "routesTitle": "Routes die je herhaalt",
       "routesBody": "Activiteiten over hetzelfde parcours worden gegroepeerd tot een route, met elke poging naast de andere.",
       "sectionPageTip": "Scrol omlaag op de sectiepagina voor de trend, de spreiding van je tijden en de lijn gekleurd naar waar je tijd won of verloor.",
-      "routesTip": "Scrol omlaag op de routepagina om elke poging op het parcours te zien, vergeleken met de andere."
+      "routesTip": "Scrol omlaag op de routepagina om elke poging op het parcours te zien, vergeleken met de andere.",
+      "recordingTitle": "Neem activiteiten op in Veloq",
+      "recordingBody": "Neem op met gps, binnen of met de hand, en voeg Bluetooth-sensoren voor hartslag, vermogen en cadans toe. De activiteit wordt geüpload naar intervals.icu. Snelkoppelingen starten een opname buiten de app.",
+      "recordingTip": "Kies gps, binnen of handmatig en tik op Start.",
+      "lookTitle": "Een nieuwe look",
+      "lookBody": "Een vernieuwde tabbalk en overal een nieuw lettertype. Als je een activiteit opent, verschijnt meteen het kaartbeeld.",
+      "mapsWidgetsTitle": "3D-kaarten en widgets",
+      "mapsWidgetsBody": "Heuvelachtige activiteiten worden op 3D-terrein getekend. De widgets Overzicht en Kracht tonen je training op het beginscherm.",
+      "mapsWidgetsTip": "Kies bij Instellingen onder Kaarten wanneer kaarten in 3D worden getekend.",
+      "rebuiltTitle": "Secties opnieuw opgebouwd",
+      "rebuiltBody": "Secties komen op elk apparaat hetzelfde uit en elke wijziging wordt bewaard in een geschiedenis die je kunt terugdraaien."
     },
     "tutorial": {
       "firstLoadLine": "De eerste download van intervals.icu loopt. Je feed vult zich zodra activiteiten binnenkomen.",
@@ -2731,6 +2740,8 @@
     "statePaused": "Gepauzeerd tot de app opnieuw wordt geopend",
     "stateWaiting": "Wacht om verder te gaan",
     "resumesAt": "Gaat verder: {{time}}",
+    "pacedOnCaps_one": "Tempo volgt de limieten van intervals.icu, nog ongeveer {{count}} dag",
+    "pacedOnCaps_other": "Tempo volgt de limieten van intervals.icu, nog ongeveer {{count}} dagen",
     "lastFinished": "Laatste run {{time}}",
     "lastRunNoChange": "Geen wijzigingen",
     "lastRunStopped": "Gestopt",

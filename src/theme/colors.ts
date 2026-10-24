@@ -160,14 +160,6 @@ export const sportFamilyColours = {
   dark: sportFamilySteps(colourTokens.dark),
 } as const;
 
-// Strength's own data hue: worked muscles on the body diagram and the cards
-// beside it. `primary` is a primary muscle and `secondary` an assisting one.
-export const strengthTone = {
-  primary: '#0D9488',
-  secondary: '#2DD4BF',
-  deep: '#0F766E',
-} as const;
-
 // =============================================================================
 // SECTION OVERLAY PALETTE
 // =============================================================================
@@ -504,6 +496,10 @@ function bodyDiagramRoles(t: Tokens) {
     untrained: t['fill-neutral'],
     untrainedStroke: t.track,
     steps: sequentialSteps(t),
+    // A primary muscle and an assisting one, wherever strength marks the two
+    // apart: the feed card's figures, a muscle's dot, the loupe's ring.
+    primary: t['data-seq-4'],
+    secondary: t['data-seq-2'],
     selectedStroke: t['text-primary'],
   } as const;
 }

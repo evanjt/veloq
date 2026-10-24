@@ -1261,6 +1261,8 @@
     "keyYearOrMore": "Ein Jahr oder älter",
     "keyFewerPasses": "Weniger Durchgänge",
     "keyMorePasses": "Mehr Durchgänge",
+    "keyRecencyAxis": "Alter der Aktivität",
+    "keyHeatAxis": "Durchfahrten",
     "colorByGradient": "Nach Gefälle färben",
     "periodThisYear": "Dieses Jahr",
     "sheetSize": "Größe von Karte und Details",
@@ -2424,9 +2426,6 @@
       "backupBody": "Sichere deine Einstellungen und Entscheidungen in einer kleinen Backup-Datei und teile sie über dein Gerät. Beim Wiederherstellen werden Aktivitäten erneut geladen und deine Entscheidungen, wo möglich, zugeordnet."
     },
     "v040": {
-      "sectionsTitle": "Abschnitte, die sich nach deinen Läufen richten",
-      "sectionsBody": "Abschnitte sind deterministisch und formen sich mit deinen Läufen neu; mit einer Fixierung bleibt einer stabil.",
-      "sectionsTip": "Die Karte zeigt deine Abschnitte, wie sie jetzt sind. Verschiebe einen Regler und tippe auf Vorschau, um zu sehen, welche Abschnitte er schneiden würde; nichts ändert sich, bis du auf Behalten tippst.",
       "recutRunning": "Deine Abschnitte werden neu analysiert",
       "recutRunningPhase": "Deine Abschnitte werden neu analysiert: {{phase}}",
       "diffTotals": "Aus {{current}} Abschnitten wurden {{proposed}}.",
@@ -2449,7 +2448,17 @@
       "routesTitle": "Routen, die du wiederholst",
       "routesBody": "Aktivitäten auf derselben Strecke werden zu einer Route zusammengefasst, jeder Versuch im Vergleich zu den anderen.",
       "sectionPageTip": "Scrolle auf der Abschnittsseite nach unten für den Trend, die Verteilung deiner Zeiten und die Linie, eingefärbt nach gewonnener oder verlorener Zeit.",
-      "routesTip": "Scrolle auf der Routenseite nach unten, um jeden Versuch auf der Strecke im Vergleich zu den anderen zu sehen."
+      "routesTip": "Scrolle auf der Routenseite nach unten, um jeden Versuch auf der Strecke im Vergleich zu den anderen zu sehen.",
+      "recordingTitle": "Aktivitäten in Veloq aufzeichnen",
+      "recordingBody": "Zeichne mit GPS, drinnen oder von Hand auf und füge Bluetooth-Sensoren für Herzfrequenz, Leistung und Trittfrequenz hinzu. Die Aktivität wird zu intervals.icu hochgeladen. Verknüpfungen starten eine Aufzeichnung außerhalb der App.",
+      "recordingTip": "Wähle GPS, Indoor oder manuell und tippe auf Start.",
+      "lookTitle": "Neues Aussehen",
+      "lookBody": "Eine neu gestaltete Tab-Leiste und eine neue Schrift überall. Beim Öffnen einer Aktivität erscheint sofort ihr Kartenbild.",
+      "mapsWidgetsTitle": "3D-Karten und Widgets",
+      "mapsWidgetsBody": "Hügelige Aktivitäten werden auf 3D-Gelände gezeichnet. Die Widgets Übersicht und Kraft zeigen dein Training auf dem Startbildschirm.",
+      "mapsWidgetsTip": "Wähle in den Einstellungen unter Karten, wann Karten in 3D gezeichnet werden.",
+      "rebuiltTitle": "Abschnitte neu aufgebaut",
+      "rebuiltBody": "Abschnitte sind auf jedem Gerät gleich, und jede Änderung wird in einem Verlauf festgehalten, den du rückgängig machen kannst."
     },
     "tutorial": {
       "firstLoadLine": "Der erste Download von intervals.icu läuft. Dein Feed füllt sich, sobald Aktivitäten ankommen.",
@@ -2731,6 +2740,8 @@
     "statePaused": "Pausiert, bis die App wieder geöffnet wird",
     "stateWaiting": "Wartet auf die Fortsetzung",
     "resumesAt": "Fortsetzung: {{time}}",
+    "pacedOnCaps_one": "Tempo nach den Limits von intervals.icu, etwa {{count}} Tag bis zum Abschluss",
+    "pacedOnCaps_other": "Tempo nach den Limits von intervals.icu, etwa {{count}} Tage bis zum Abschluss",
     "lastFinished": "Letzter Lauf {{time}}",
     "lastRunNoChange": "Keine Änderungen",
     "lastRunStopped": "Gestoppt",

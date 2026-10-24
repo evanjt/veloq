@@ -11,7 +11,6 @@ import { ChartSurface, partsSummary, partsTable } from '@/shared/charts';
 import {
   bodyDiagram,
   chartStyles,
-  strengthTone,
   colors,
   darkColors,
   iconSize,
@@ -114,9 +113,7 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
                   styles.subtitleDot,
                   {
                     backgroundColor:
-                      selectedVolume.primarySets > 0
-                        ? strengthTone.primary
-                        : strengthTone.secondary,
+                      selectedVolume.primarySets > 0 ? roles.primary : roles.secondary,
                   },
                 ]}
               />

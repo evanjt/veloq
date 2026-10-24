@@ -7,6 +7,8 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { engine } from 'veloqrs';
 
+import { repostActivityNotification } from '@/features/insights';
+import { Button } from '@/shared/ui/Button';
 import { HeroNameRow, HeroStatsRow, heroPeekStyles } from '@/shared/ui/DetailHero';
 import { PressTarget } from '@/shared/ui/PressTarget';
 import { FitText } from '@/shared/ui/FitText';
@@ -76,8 +78,27 @@ export function ActivityPeek({
         statTestIDs={['activity-detail-distance', 'activity-detail-duration']}
         stats={stats}
       />
+      {debugEnabled ? (
+        <Button
+          label={REGENERATE_LABEL}
+          variant="secondary"
+          size="sm"
+          testID="activity-regenerate-notification"
+          onPress={() => void repostNotification(activityId, name)}
+        />
+      ) : null}
     </View>
   );
+}
+
+const REGENERATE_LABEL = 'Regenerate notification';
+
+async function repostNotification(activityId: string, name: string) {
+  if (
+    !(await repostActivityNotification(activityId, name, engine.activityNotification.bind(engine)))
+  ) {
+    inform({ title: 'Nothing to post', message: 'The engine has no text for this activity.' });
+  }
 }
 
 function offerClones(activityId: string, name: string) {

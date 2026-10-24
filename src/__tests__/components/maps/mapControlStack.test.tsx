@@ -234,6 +234,18 @@ describe('MapControlStack', () => {
       expect(within(recency).getByText('A year or more')).toBeTruthy();
     });
 
+    it('names what the recency ramp measures above its bar', async () => {
+      await openKey();
+
+      expect(within(screen.getByTestId('map-key-recency')).getByText('Activity age')).toBeTruthy();
+    });
+
+    it('names what the heat ramp measures above its bar', async () => {
+      await openKey({ showHeatmap: true });
+
+      expect(within(screen.getByTestId('map-key-heat')).getByText('Passes')).toBeTruthy();
+    });
+
     it('draws the heat ramp from fewer to more passes while the heatmap shows', async () => {
       await openKey({ showHeatmap: true });
 

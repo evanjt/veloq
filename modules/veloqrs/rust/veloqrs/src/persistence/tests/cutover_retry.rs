@@ -454,3 +454,166 @@ fn test_a_cancel_during_the_detect_is_forwarded_to_the_worker() {
         "the wait kept polling after the cancel"
     );
 }
+
+/// A detect that answers at once with a fixed result.
+struct Answers(std::sync::Mutex<Option<super::super::DetectionOutput>>);
+
+impl super::CutoverDetect for Answers {
+    fn receive(
+        &self,
+        _limit: Duration,
+    ) -> (
+        super::super::WorkerPoll<super::super::DetectionOutput>,
+        Option<super::super::CacheUpdate>,
+    ) {
+        match self.0.lock().unwrap().take() {
+            Some(output) => (super::super::WorkerPoll::Ready(output), None),
+            None => (super::super::WorkerPoll::Died, None),
+        }
+    }
+
+    fn request_cancel(&self) {}
+}
+
+impl super::OrphanedDetect for Answers {
+    fn still_running(&self) -> bool {
+        false
+    }
+}
+
+fn answering(
+    output: super::super::DetectionOutput,
+) -> impl Fn(u64) -> Option<Box<dyn super::CutoverWorker>> {
+    let worker = std::sync::Mutex::new(Some(Answers(std::sync::Mutex::new(Some(output)))));
+    move |_install| {
+        worker
+            .lock()
+            .unwrap()
+            .take()
+            .map(|w| Box::new(w) as Box<dyn super::CutoverWorker>)
+    }
+}
+
+fn run_with(
+    start: &dyn Fn(u64) -> Option<Box<dyn super::CutoverWorker>>,
+) -> Result<super::CutoverOutcome, String> {
+    assert!(super::claim_run_slot());
+    super::run_cutover_claimed_with(
+        crate::persistence::engine_install(),
+        &|_: &str| false,
+        Duration::from_secs(5),
+        start,
+    )
+}
+
+fn live_section_ids() -> Vec<String> {
+    crate::persistence::with_persistent_engine(|e| {
+        let mut stmt =
+            e.db.prepare("SELECT id FROM sections ORDER BY id")
+                .expect("prepare");
+        stmt.query_map([], |row| row.get::<_, String>(0))
+            .expect("query")
+            .flatten()
+            .collect()
+    })
+    .unwrap()
+}
+
+fn found_section(line: &[tracematch::GpsPoint]) -> crate::FrequentSection {
+    crate::FrequentSection {
+        id: "found-1".to_string(),
+        name: None,
+        sport_type: "Ride".to_string(),
+        polyline: line.to_vec(),
+        representative_activity_id: "a1".to_string(),
+        representative_range: None,
+        activity_portions: vec![crate::SectionPortion {
+            activity_id: "a1".to_string(),
+            start_index: 0,
+            end_index: 7,
+            distance_meters: 1_000.0,
+            direction: tracematch::Direction::Same,
+        }],
+        activity_ids: vec!["a1".to_string()],
+        visit_count: 1,
+        distance_meters: 1_000.0,
+        activity_traces: std::collections::HashMap::new(),
+        confidence: 0.8,
+        observation_count: 1,
+        average_spread: 10.0,
+        point_density: vec![1; line.len()],
+        scale: Some(tracematch::sections::ScaleName::Medium),
+        is_user_defined: false,
+        stability: 0.0,
+        elevation_gain_m: None,
+        avg_grade_percent: None,
+        version: 1,
+        updated_at: None,
+        created_at: Some("2026-01-28T00:00:00Z".to_string()),
+        enrichment: Default::default(),
+        rank: None,
+    }
+}
+
+/// Scenario: the cold detect answers with no sections for a library whose
+/// catalogue held sixty.
+/// Expected behaviour: the run fails and promotes nothing, the sixty sections
+/// are still listed, and a later run whose detect finds sections completes.
+#[test]
+fn test_an_empty_detect_for_a_populated_library_is_a_failed_run() {
+    let _serial = crate::test_globals::serial_global_state();
+    crate::persistence::clear_persistent_engine();
+    let dir = tempfile::TempDir::new().expect("tempdir");
+    let path = dir.path().join("routes.db");
+    assert!(
+        crate::persistence::persistent_engine_ffi::persistent_engine_init(
+            path.to_str().unwrap().to_string()
+        )
+    );
+    let line: Vec<tracematch::GpsPoint> = (0..40)
+        .map(|i| tracematch::GpsPoint {
+            latitude: 46.0 + f64::from(i) * 0.000_1,
+            longitude: 7.0,
+            elevation: None,
+        })
+        .collect();
+    crate::persistence::with_persistent_engine(|e| {
+        e.add_activity("a1".into(), line.clone(), "Ride".into())
+            .expect("add_activity");
+        for n in 0..60 {
+            e.db.execute(
+                "INSERT INTO sections
+                     (id, section_type, name, sport_type, polyline_json, polyline_blob,
+                      distance_meters, representative_activity_id, rep_start_index,
+                      rep_end_index, geometry_source, created_at, is_user_defined,
+                      bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
+                 VALUES (?, 'auto', ?, 'Ride', NULL, ?, 1200.0,
+                         'a1', 0, 12, 'exact', '2026-01-01T00:00:00Z', 0,
+                         46.0, 46.1, 7.0, 7.1)",
+                rusqlite::params![
+                    format!("s_{n:02}"),
+                    format!("Named {n}"),
+                    crate::persistence::codec::serialize_track_points(&line[0..12]),
+                ],
+            )
+            .expect("insert the section");
+        }
+    })
+    .unwrap();
+    let before = live_section_ids();
+    assert_eq!(before.len(), 60);
+
+    let result = run_with(&answering((Vec::new(), vec!["a1".to_string()])));
+
+    assert!(result.is_err(), "an empty detect was taken as a result");
+    assert_eq!(live_section_ids(), before, "the catalogue was replaced");
+    assert!(
+        crate::persistence::with_persistent_engine(|e| e.cutover_is_owed()).unwrap(),
+        "the token was promoted past an empty detect"
+    );
+
+    let found = found_section(&line);
+    let result = run_with(&answering((vec![found], vec!["a1".to_string()])));
+    assert!(matches!(result, Ok(super::CutoverOutcome::Completed(_))));
+    assert!(!crate::persistence::with_persistent_engine(|e| e.cutover_is_owed()).unwrap());
+}

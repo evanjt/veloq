@@ -19,7 +19,6 @@ export {
   divergingRamp,
   directionPair,
   sportFamilyColours,
-  strengthTone,
   mapLayerColors,
   chartStreamColors,
   chartStreamColour,
@@ -64,7 +63,7 @@ export { iconSize, type IconSize } from './iconSize';
 export { stroke } from './stroke';
 export { floatingLayers, layers } from './layers';
 export { gapBetweenTargets, slopToMinTapTarget } from './tapTarget';
-export { typography } from './typography';
+export { faceWeight, typography } from './typography';
 export {
   FAMILY_BARS,
   FAMILY_EXEMPTIONS,

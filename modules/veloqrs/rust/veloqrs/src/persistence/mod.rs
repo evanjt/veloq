@@ -81,6 +81,7 @@ pub(crate) mod fitness;
 pub(crate) mod indicators;
 pub mod job_runs;
 pub mod memory;
+pub mod open_run;
 pub(crate) use memory::release_connection_memory;
 #[cfg(feature = "lock-trace")]
 pub mod lock_trace;
@@ -3934,8 +3935,9 @@ pub mod persistent_engine_ffi {
         }
     }
 
-    /// The main file and the sidecars SQLite keeps beside it.
-    const QUARANTINE_SUFFIXES: [&str; 3] = ["", "-wal", "-shm"];
+    /// The main file, the sidecars SQLite keeps beside it, and the rollback
+    /// journal a build from before WAL leaves beside it.
+    const QUARANTINE_SUFFIXES: [&str; 4] = ["", "-wal", "-shm", "-journal"];
 
     /// How many seconds past now a quarantine looks for a name no earlier
     /// generation holds before it gives up.

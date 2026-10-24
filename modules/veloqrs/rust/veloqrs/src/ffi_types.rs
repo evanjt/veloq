@@ -1057,6 +1057,10 @@ pub struct FfiBackgroundJobsData {
     pub detection_awaiting: Option<u32>,
     /// Whether a section rebuild is still owed.
     pub cutover_owed: bool,
+    /// Whole days the stream backfill's daily allowance takes to draw what it
+    /// owes, when that is more than one day. `None` when the queue fits in a
+    /// day, is empty, or cannot be counted.
+    pub stream_days_to_finish: Option<u32>,
 }
 
 /// A recent change on a live section, for the insights feed.

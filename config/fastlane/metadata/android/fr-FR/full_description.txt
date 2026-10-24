@@ -1,39 +1,37 @@
-Veloq lit votre compte intervals.icu et l'affiche sur votre téléphone : activités, cartes, graphiques, forme physique et forme. L'app repère les parcours et les sections que vous répétez et compare chaque passage aux précédents. L'analyse se fait sur votre appareil.
+Veloq affiche votre entraînement intervals.icu sur votre téléphone et repère les parcours et les sections que vous répétez. L'analyse se fait sur votre appareil.
 
 <b>Enregistrement</b>
-Enregistrez vos sorties à vélo, vos courses et d'autres sports avec le GPS, la pause automatique et des splits dans vos unités. Associez des capteurs Bluetooth de fréquence cardiaque, de puissance et de cadence, ou suivez une séance planifiée de votre calendrier intervals.icu avec ses objectifs à l'écran. Coupez le début et la fin avant d'enregistrer, puis envoyez un fichier FIT ou mettez-le en attente jusqu'au retour du réseau. Les séances en intérieur se saisissent à la main. Lancez un enregistrement depuis un widget de l'écran d'accueil ou une vignette des Réglages rapides.
+Enregistrez sorties à vélo, courses et autres sports avec le GPS, des capteurs Bluetooth ou une séance planifiée.
 
 <b>Aperçus</b>
-Une lecture rapide de votre entraînement : records et tendances sur les sections, étapes de forme physique, cette semaine comparée à la précédente, tendances de VFC et progression en force. Chaque aperçu s'ouvre sur ses chiffres et la façon dont ils ont été calculés.
+De courtes lectures de votre entraînement, chacune avec ses chiffres et la façon dont ils ont été calculés.
 
 <b>Cartes</b>
-Des cartes interactives avec relief 3D, cartes de chaleur des parcours et une chronologie filtrable, en style clair, sombre ou satellite. Glissez le long d'un graphique et votre position se déplace sur la carte.
+Cartes interactives avec relief 3D, cartes de chaleur des parcours et styles clair, sombre et satellite.
 
 <b>Parcours et sections</b>
-Veloq repère les parcours et les sections que vous répétez, sans rien à configurer, et les découpe de la même façon sur tous les appareils. La page d'une section compare chaque passage : la tendance, la dispersion de vos temps et le tracé coloré là où du temps a été gagné ou perdu. Épinglez, raccourcissez, prolongez ou renommez une section, et chaque modification garde un historique réversible.
+Comparez chaque passage sur les parcours et sections que vous répétez, puis épinglez, raccourcissez ou renommez-les.
 
 <b>Graphiques</b>
-Fréquence cardiaque, puissance, allure, altitude et cadence sur une seule chronologie avec la carte. Répartition par zones, charge d'entraînement, intensité et détail par tour.
+Fréquence cardiaque, puissance, allure, altitude et cadence sur une seule chronologie avec la carte.
 
 <b>Forme physique</b>
-Forme physique, fatigue et forme sur un seul graphique avec les zones tracées. VFC, fréquence cardiaque au repos, sommeil et bien-être, et courbes de puissance et d'allure pour chaque sport.
+Forme physique, fatigue et forme avec les zones tracées, plus VFC, fréquence cardiaque au repos et sommeil.
 
 <b>Force</b>
-Les séries de force de vos activités sur un schéma du corps : les groupes musculaires sollicités par chaque séance, l'équilibre entre groupes opposés et la progression de chaque exercice.
+Vos séries de force sur un schéma du corps, par groupe musculaire et par exercice.
 
 <b>Widgets</b>
-Des widgets d'écran d'accueil pour votre forme physique et votre forme, votre dernière activité, vos aperçus les plus récents et votre travail de force, mis à jour en arrière-plan.
+Des widgets d'écran d'accueil pour votre forme physique et votre forme, votre dernière activité et vos aperçus.
 
 <b>Notifications</b>
-Quand intervals.icu reçoit une nouvelle activité, Veloq peut vous envoyer une notification qui nomme le parcours et vos records éventuels, dans votre langue. Les notifications restent désactivées tant que vous ne les activez pas.
+Une notification avec le nom du parcours et vos records éventuels à l'arrivée d'une nouvelle activité. Désactivée tant que vous ne l'activez pas.
 
 <b>Sauvegardes</b>
-Sauvegardez vos réglages et vos choix de sections dans un petit fichier, à la main ou automatiquement. Gardez-le dans la sauvegarde de votre appareil, ou ajoutez un serveur WebDAV, un dossier ou un stockage en ligne. Une restauration télécharge à nouveau vos activités et applique vos choix là où ils correspondent.
+Sauvegardez vos réglages et vos choix de sections dans un fichier, un dossier, un stockage en ligne ou un serveur WebDAV.
 
 <b>Confidentialité</b>
 Vos données d'entraînement restent sur votre appareil. Pas de mesure d'audience, pas de pistage. Les notifications push facultatives stockent votre identifiant d'athlète intervals.icu et un jeton d'appareil sur notre serveur, supprimés automatiquement après 30 jours. Open source sous licence Apache 2.0.
-
-Accessibilité : libellés pour lecteur d'écran sur chaque commande, texte qui suit la taille de texte de votre système, et contraste des couleurs aux ratios AA dans les thèmes clair et sombre.
 
 Compatible avec le cyclisme, la course à pied, la natation et plus de 20 types d'activités. Essayez le mode démo intégré pour explorer sans compte.
 

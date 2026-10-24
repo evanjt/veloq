@@ -4,23 +4,30 @@
 //! migration that fails part way or writes wrong values must leave the old
 //! shape somewhere. The copy sits beside the library as
 //! `<db>.pre-upgrade-<old version>`, one generation at a time. It is written
-//! only when a migration is pending on a file that already holds data, and
-//! removed by the next open that has nothing to migrate. The app's wipe and
-//! its device-backup exclusion find it by that name (`PRE_UPGRADE_INFIX` in
-//! `databaseSidecars.ts`).
+//! only when a migration is pending on a file that already holds data. It is
+//! written under a `.partial` name and renamed into place once whole, so a
+//! kill mid-write leaves only the temporary name, which the next take deletes.
+//! It is removed once the detector cutover that follows the upgrade is
+//! promoted or reverted, since until then it is the only copy of the old
+//! catalogue. The app's wipe and its device-backup exclusion find it by that
+//! name (`PRE_UPGRADE_INFIX` in `databaseSidecars.ts`).
 //!
 //! The upgrade never waits on it: a copy that cannot be written is logged and
 //! the migration runs without one, since refusing to open the library is worse
 //! than opening it unprotected.
 
-use rusqlite::{Connection, OptionalExtension, Result as SqlResult, params};
+use rusqlite::{Connection, OpenFlags, OptionalExtension, Result as SqlResult, params};
 
 /// `schema_info` key naming the copy the last upgrade of this file wrote. A
 /// fresh file has none, so a library recreated beside an earlier copy never
 /// removes it.
 const COPY_KEY: &str = "pre_upgrade_copy";
 
-const SUFFIXES: [&str; 3] = ["", "-wal", "-shm"];
+const SUFFIXES: [&str; 4] = ["", "-wal", "-shm", "-journal"];
+
+/// Appended to a copy's name while it is being written. Not all digits, so
+/// [`earlier_copies`] never mistakes it for a generation.
+const PARTIAL_SUFFIX: &str = ".partial";
 
 fn copy_prefix(db_path: &str) -> String {
     format!("{db_path}.pre-upgrade-")
@@ -28,6 +35,10 @@ fn copy_prefix(db_path: &str) -> String {
 
 fn copy_path(db_path: &str, old_version: i32) -> String {
     format!("{}{old_version}", copy_prefix(db_path))
+}
+
+fn partial_path(copy: &str) -> String {
+    format!("{copy}{PARTIAL_SUFFIX}")
 }
 
 /// The file the connection is open on, `None` for an in-memory database.
@@ -105,12 +116,31 @@ pub(super) fn take(conn: &Connection, old_version: i32) -> Option<String> {
     take_on(conn, old_version, free_bytes)
 }
 
+/// Whether `path` opens as a whole database at `version`. A copy cut off by a
+/// kill fails here, as does one an earlier build left at another version.
+fn copy_holds_version(path: &str, version: i32) -> bool {
+    let Ok(conn) = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY) else {
+        return false;
+    };
+    let user_version: SqlResult<i32> = conn.query_row("PRAGMA user_version", [], |row| row.get(0));
+    if user_version.ok() != Some(version) {
+        return false;
+    }
+    conn.query_row("PRAGMA quick_check", [], |row| row.get::<_, String>(0))
+        .is_ok_and(|verdict| verdict == "ok")
+}
+
 fn take_on(
     conn: &Connection,
     old_version: i32,
     free: impl Fn(&str) -> Option<u64>,
 ) -> Option<String> {
     let db_path = db_path(conn)?;
+    let dest = copy_path(&db_path, old_version);
+    let partial = partial_path(&dest);
+    // Only a copy that was killed mid-write leaves this name behind, and it is
+    // never a whole copy, so it goes before anything else is decided.
+    remove_copy(&partial);
     match holds_data(conn) {
         Ok(true) => {}
         Ok(false) => return None,
@@ -119,16 +149,24 @@ fn take_on(
             return None;
         }
     }
-    let dest = copy_path(&db_path, old_version);
     // A copy at this version is from an earlier attempt at this same upgrade,
     // which died before stamping the new version. The file may be part
-    // migrated now, so the earlier copy is the one that holds the old shape.
+    // migrated now, so the earlier copy is the one that holds the old shape,
+    // provided it is whole. One that is not is replaced.
     if std::path::Path::new(&dest).is_file() {
-        log::info!(
-            "veloqrs: [Schema] Keeping '{}' from an earlier attempt at this upgrade",
-            dest
+        if copy_holds_version(&dest, old_version) {
+            log::info!(
+                "veloqrs: [Schema] Keeping '{}' from an earlier attempt at this upgrade",
+                dest
+            );
+            return Some(dest);
+        }
+        log::warn!(
+            "veloqrs: [Schema] Replacing '{}': it is not a whole copy at version {}",
+            dest,
+            old_version
         );
-        return Some(dest);
+        remove_copy(&dest);
     }
     // A copy the volume cannot hold is not started, so it never fills the
     // volume partway through and leaves a partial file behind.
@@ -142,7 +180,9 @@ fn take_on(
         return None;
     }
     let started = std::time::Instant::now();
-    match write_copy(conn, &dest) {
+    let written = write_copy(conn, &partial)
+        .and_then(|()| std::fs::rename(&partial, &dest).map_err(|e| e.to_string()));
+    match written {
         Ok(()) => {
             log::info!(
                 "veloqrs: [Schema] Copied the library to '{}' before migrating, {}ms",
@@ -161,8 +201,7 @@ fn take_on(
                 "veloqrs: [Schema] Could not copy the library before migrating, upgrading without a copy: {}",
                 e
             );
-            // A destination that opened and then failed holds a partial file.
-            remove_copy(&dest);
+            remove_copy(&partial);
             None
         }
     }
@@ -178,8 +217,9 @@ pub(super) fn record(conn: &Connection, copy: &str) -> SqlResult<()> {
 }
 
 /// On an open with nothing to migrate, remove the copy the last upgrade of
-/// this file wrote: the file has since opened on its new version. A copy left
-/// behind costs space and nothing else, so a failure here never fails the open.
+/// this file wrote, unless the detector cutover still owes its switch. A copy
+/// left behind costs space and nothing else, so a failure here never fails the
+/// open.
 pub(super) fn release(conn: &Connection) {
     if let Err(e) = release_recorded(conn) {
         log::warn!(
@@ -200,6 +240,11 @@ fn release_recorded(conn: &Connection) -> SqlResult<()> {
     let Some(copy) = copy else {
         return Ok(());
     };
+    // The detector cutover runs after this open, and until it is promoted or
+    // reverted the copy is the only one holding the old catalogue.
+    if crate::persistence::cutover::pooled::cutover_is_owed(conn) {
+        return Ok(());
+    }
     // Only a name this module writes beside this file, whatever the row says.
     if db_path(conn).is_some_and(|db| copy.starts_with(&copy_prefix(&db))) {
         remove_copy(&copy);

@@ -1,39 +1,37 @@
-Veloq læser din intervals.icu-konto og viser den på din telefon: aktiviteter, kort, grafer, kondition og formstatus. Appen leder efter de ruter og sektioner, du gentager, og stiller hvert forsøg op mod de tidligere. Analysen kører på din enhed.
+Veloq viser din træning fra intervals.icu på din telefon og leder efter de ruter og sektioner, du gentager. Analysen kører på din enhed.
 
 Optagelse
-Optag ture, løb og andre sportsgrene med GPS, auto-pause og splits i dine egne enheder. Par Bluetooth-sensorer til puls, effekt og kadence, eller følg en planlagt træning fra din intervals.icu-kalender med målene på skærmen. Klip enderne af, før du gemmer, og upload en FIT-fil, eller sæt den i kø, til du har forbindelse. Indendørs træning kan indtastes manuelt. Start en optagelse fra en widget på hjemmeskærmen, Kontrolcenter eller Siri, og følg den på låseskærmen.
+Optag cykelture, løb og andre sportsgrene med GPS, Bluetooth-sensorer eller en planlagt træning.
 
 Indsigt
-Et kort overblik over din træning: sektionsrekorder og tendenser, milepæle for kondition, hvordan denne uge ligger i forhold til sidste, HRV-tendenser og fremskridt i styrke. Hver indsigt åbner og viser sine tal, og hvordan de er beregnet.
+Korte aflæsninger af din træning, som hver åbner til sine tal og hvordan de er regnet ud.
 
 Kort
-Interaktive kort med 3D-terræn, heatmaps over ruter og en tidslinje, du kan filtrere, i lyse, mørke og satellitstilarter. Træk langs en graf, og din position flytter sig hen over kortet.
+Interaktive kort med 3D-terræn, varmekort over ruter samt lyse, mørke og satellitstile.
 
 Ruter og sektioner
-Veloq leder efter de ruter og sektioner, du gentager, uden noget at sætte op, og deler dem ens på alle enheder. En sektionsside sammenligner hvert forsøg: tendensen, spredningen i dine tider og linjen farvet efter, hvor tid blev vundet eller tabt. Fastgør, beskær, forlæng eller omdøb en sektion, og hver ændring gemmer en historik, du kan rulle tilbage.
+Sammenlign hvert forsøg på de ruter og sektioner, du gentager, og fastgør, trim eller omdøb dem.
 
 Grafer
-Puls, effekt, tempo, højde og kadence på én tidslinje med kortet. Zonefordelinger, træningsbelastning, intensitet og omgangsoversigter.
+Puls, effekt, tempo, højde og kadence på én tidslinje sammen med kortet.
 
 Kondition
-Kondition, træthed og formstatus på én graf med zonerne tegnet ind. HRV, hvilepuls, søvn og velvære samt effekt- og tempokurver for hver sportsgren.
+Kondition, træthed og form med zonerne tegnet ind, plus HRV, hvilepuls og søvn.
 
 Styrke
-Styrkesættene i dine aktiviteter tegnet på et kropsdiagram: de muskelgrupper, hver session arbejdede, balancen mellem modstående grupper og udviklingen i hver øvelse.
+Dine styrkesæt på et kropsdiagram, efter muskelgruppe og øvelse.
 
 Widgets
-Widgets på startskærmen til din kondition og formstatus, din seneste aktivitet, dine nyeste indsigter og din styrketræning, opdateret i baggrunden.
+Widgets til startskærmen med kondition og form, din seneste aktivitet og dine indsigter.
 
 Notifikationer
-Når intervals.icu modtager en ny aktivitet, kan Veloq sende en notifikation, der nævner ruten og eventuelle personlige rekorder, på dit sprog. Notifikationer er slået fra, indtil du slår dem til.
+En notifikation med rutens navn og eventuelle personlige rekorder, når en ny aktivitet kommer ind. Slået fra, til du slår den til.
 
 Sikkerhedskopier
-Sikkerhedskopiér dine indstillinger og sektionsvalg til en lille fil, manuelt eller automatisk. Gem den i enhedens egen sikkerhedskopi, eller tilføj en WebDAV-server, en mappe eller et cloud-drev. En gendannelse henter dine aktiviteter igen og anvender dine valg, hvor de passer.
+Sikkerhedskopier dine indstillinger og sektionsvalg til en fil, en mappe, et cloudlager eller en WebDAV-server.
 
 Privatliv
 Dine træningsdata bliver på din enhed. Ingen analyse, ingen sporing. Valgfrie push-notifikationer gemmer dit intervals.icu-atlet-id og et enhedstoken på vores server, som slettes automatisk efter 30 dage. Open source under Apache 2.0.
-
-Tilgængelighed: skærmlæserbeskrivelser på alle betjeningselementer, tekst der følger din systemtekststørrelse, og farvekontrast efter AA-forholdene i lyst og mørkt tema.
 
 Understøtter cykling, løb, svømning og over 20 aktivitetstyper. Prøv den indbyggede demotilstand for at udforske uden en konto.
 

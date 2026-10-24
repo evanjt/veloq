@@ -751,6 +751,7 @@ export const ActivityCard = React.memo(
               <View
                 testID="activity-card-bottom"
                 style={styles.flowBottom}
+                pointerEvents="box-none"
                 accessibilityElementsHidden
                 importantForAccessibility="no-hide-descendants"
               >
@@ -786,6 +787,7 @@ export const ActivityCard = React.memo(
             <View
               testID="activity-card-bottom"
               style={styles.bottomSection}
+              pointerEvents="box-none"
               accessibilityElementsHidden
               importantForAccessibility="no-hide-descendants"
             >

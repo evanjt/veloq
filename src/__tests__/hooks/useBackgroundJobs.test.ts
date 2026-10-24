@@ -52,6 +52,7 @@ interface EngineState {
   detectionAwaiting: number | null;
   stream: { phase: string; completed: number; total: number; resumesAt?: number | null } | null;
   streamRemaining: number | null;
+  streamDaysToFinish: number | null;
   dataThrows: string | null;
 }
 
@@ -68,6 +69,7 @@ function defaultState(): EngineState {
     detectionAwaiting: 0,
     stream: null,
     streamRemaining: null,
+    streamDaysToFinish: null,
     dataThrows: null,
   };
 }
@@ -101,6 +103,7 @@ function engine() {
         runs: [],
         detectionAwaiting: state.detectionAwaiting ?? undefined,
         cutoverOwed: state.cutoverPending,
+        streamDaysToFinish: state.streamDaysToFinish ?? undefined,
       };
     },
     getCutoverDiff: () => null,
@@ -449,6 +452,33 @@ describe('useBackgroundJobs', () => {
 
     expect(stream?.state).toBe('idle');
     expect(stream?.remaining).toBe(300);
+  });
+
+  /**
+   * Scenario: the library owes more streams than one day's allowance draws, and
+   * the engine's read says how many days that takes.
+   *
+   * Expected behaviour: the stream row carries the engine's day figure, and a
+   * row whose queue the engine did not price carries none.
+   */
+  it('carries the engine day estimate onto the stream row', async () => {
+    state.streamRemaining = 1400;
+    state.streamDaysToFinish = 3;
+
+    const { result } = await jobs();
+    const stream = result.current.find((job) => job.id === 'streamBackfill');
+    expect(stream?.pacedDays).toBe(3);
+
+    const detection = result.current.find((job) => job.id === 'detection');
+    expect(detection?.pacedDays).toBeNull();
+  });
+
+  it('carries no day estimate when the engine reports none', async () => {
+    state.streamRemaining = 40;
+    state.streamDaysToFinish = null;
+
+    const { result } = await jobs();
+    expect(result.current.find((job) => job.id === 'streamBackfill')?.pacedDays).toBeNull();
   });
 
   it('reads a running stream pass with its progress and no resting count', async () => {

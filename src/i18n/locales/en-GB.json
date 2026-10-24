@@ -1241,6 +1241,8 @@
     "keyYearOrMore": "A year or more",
     "keyFewerPasses": "Fewer passes",
     "keyMorePasses": "More passes",
+    "keyRecencyAxis": "Activity age",
+    "keyHeatAxis": "Passes",
     "chooseSection": "Choose a section",
     "colorByGradient": "Colour by gradient",
     "disable3D": "Disable 3D view",
@@ -2424,9 +2426,6 @@
       "backupBody": "Back up your settings and decisions in a small file, then share it from your device. Restoring fetches activities again and applies your decisions where they match."
     },
     "v040": {
-      "sectionsTitle": "Sections that follow your runs",
-      "sectionsBody": "Sections are deterministic and reshape as your runs add up; pin one to hold it stable.",
-      "sectionsTip": "The map shows your sections as they are now. Move a slider and tap Preview to see which sections it would cut; nothing changes until you tap Keep.",
       "recutRunning": "Re-analysing your sections",
       "recutRunningPhase": "Re-analysing your sections: {{phase}}",
       "diffTotals": "{{current}} sections became {{proposed}}.",
@@ -2449,7 +2448,17 @@
       "routesTitle": "Routes you repeat",
       "routesBody": "Activities over the same course are grouped into a route, with every attempt charted against the others.",
       "sectionPageTip": "Scroll down the section page for the trend, the spread of your times and the line coloured by where time was won or lost.",
-      "routesTip": "Scroll down the route page to see every attempt over the course charted against the others."
+      "routesTip": "Scroll down the route page to see every attempt over the course charted against the others.",
+      "recordingTitle": "Record activities in Veloq",
+      "recordingBody": "Record with GPS, indoors or by hand, and add Bluetooth heart rate, power and cadence sensors. The activity uploads to intervals.icu. Shortcuts start a recording from outside the app.",
+      "recordingTip": "Choose GPS, indoor or manual, then tap start.",
+      "lookTitle": "A new look",
+      "lookBody": "A redesigned tab bar and new type throughout. Opening an activity shows its map picture straight away.",
+      "mapsWidgetsTitle": "3D maps and widgets",
+      "mapsWidgetsBody": "Hilly activities draw on 3D terrain. The Summary and Strength widgets put your training on the home screen.",
+      "mapsWidgetsTip": "Choose when maps draw in 3D under Maps in Settings.",
+      "rebuiltTitle": "Sections rebuilt",
+      "rebuiltBody": "Sections come out the same on every device, and each change is kept in a history you can revert."
     },
     "tutorial": {
       "firstLoadLine": "The first load from intervals.icu is running. Your feed fills in as activities arrive.",
@@ -2731,6 +2740,8 @@
     "statePaused": "Paused until the app is next opened",
     "stateWaiting": "Waiting to resume",
     "resumesAt": "Resumes {{time}}",
+    "pacedOnCaps_one": "Paced on intervals.icu's caps, about {{count}} day to finish",
+    "pacedOnCaps_other": "Paced on intervals.icu's caps, about {{count}} days to finish",
     "lastFinished": "Last run {{time}}",
     "lastRunNoChange": "No change",
     "lastRunStopped": "Stopped",

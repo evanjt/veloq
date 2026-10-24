@@ -273,6 +273,7 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
             {/* Center: body diagrams + stats */}
             <View
               style={largeText ? styles.flowCenter : styles.strengthCenter}
+              pointerEvents="none"
               importantForAccessibility="no-hide-descendants"
               accessibilityElementsHidden
             >
@@ -319,6 +320,7 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
             <View
               testID={`activity-card-${activity.id}-bottom`}
               style={largeText ? undefined : styles.strengthBottom}
+              pointerEvents="none"
               accessibilityElementsHidden
               importantForAccessibility="no-hide-descendants"
             >

@@ -40,6 +40,8 @@ interface ActivityDotsChartProps {
   /** Recorded activity load per local day, from the engine. */
   dailyLoads?: DayLoad[];
   height?: number;
+  /** The width of the value-axis gutter the plots above and below it carry, which this strip leaves blank. */
+  gutterWidth?: number;
   selectedDate?: string | null;
   sharedSelectedIdx?: SharedValue<number>;
   onDateSelect?: (
@@ -63,6 +65,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
   activities = [],
   dailyLoads,
   height = 40,
+  gutterWidth = 0,
   selectedDate,
   sharedSelectedIdx,
   onDateSelect,
@@ -391,50 +394,53 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
       )}
 
       <ChartSurface summary={reading.summary} table={reading.table} testID="activity-dots-plot">
-        <GestureDetector gesture={gesture}>
-          <View
-            style={[styles.chartWrapper, { height }]}
-            testID="activity-dots-surface"
-            {...accessibilityProps}
-            onLayout={(e) => {
-              setChartWidth(e.nativeEvent.layout.width);
-            }}
-          >
-            {chartWidth > 0 && (
-              <Canvas style={styles.canvas}>
-                <Group>
-                  {marks.map((mark) => {
-                    const total = mark.height * height;
-                    // The first portion sits on the floor and each next one stacks above it.
-                    let bottom = height;
-                    const fills = markFills(mark, mutedColor, colorOf);
-                    // Stacked portions are parted by the bar gap of surface, not a divider.
-                    const drawn = total - (fills.length - 1) * BAR_GAP;
-                    return fills.map((fill, n) => {
-                      const y = bottom;
-                      const fillHeight = fill.fraction * drawn;
-                      bottom -= fillHeight + BAR_GAP;
-                      return (
-                        <ChartBar
-                          key={`${mark.dates[0]}-${n}`}
-                          x={mark.x + mark.width / 2}
-                          from={y}
-                          to={y - fillHeight}
-                          width={mark.width}
-                          color={fill.color}
-                          outline={fill.outline}
-                        />
-                      );
-                    });
-                  })}
-                </Group>
-              </Canvas>
-            )}
+        <View style={styles.plotRow}>
+          <View testID="activity-dots-gutter" style={{ width: gutterWidth }} />
+          <GestureDetector gesture={gesture}>
+            <View
+              style={[styles.chartWrapper, { height }]}
+              testID="activity-dots-surface"
+              {...accessibilityProps}
+              onLayout={(e) => {
+                setChartWidth(e.nativeEvent.layout.width);
+              }}
+            >
+              {chartWidth > 0 && (
+                <Canvas style={styles.canvas}>
+                  <Group>
+                    {marks.map((mark) => {
+                      const total = mark.height * height;
+                      // The first portion sits on the floor and each next one stacks above it.
+                      let bottom = height;
+                      const fills = markFills(mark, mutedColor, colorOf);
+                      // Stacked portions are parted by the bar gap of surface, not a divider.
+                      const drawn = total - (fills.length - 1) * BAR_GAP;
+                      return fills.map((fill, n) => {
+                        const y = bottom;
+                        const fillHeight = fill.fraction * drawn;
+                        bottom -= fillHeight + BAR_GAP;
+                        return (
+                          <ChartBar
+                            key={`${mark.dates[0]}-${n}`}
+                            x={mark.x + mark.width / 2}
+                            from={y}
+                            to={y - fillHeight}
+                            width={mark.width}
+                            color={fill.color}
+                            outline={fill.outline}
+                          />
+                        );
+                      });
+                    })}
+                  </Group>
+                </Canvas>
+              )}
 
-            {/* Crosshair */}
-            <ChartCrosshair style={crosshairStyle} topOffset={0} bottomOffset={0} />
-          </View>
-        </GestureDetector>
+              {/* Crosshair */}
+              <ChartCrosshair style={crosshairStyle} topOffset={0} bottomOffset={0} />
+            </View>
+          </GestureDetector>
+        </View>
       </ChartSurface>
 
       {key.groups.length > 0 || key.noLoad ? (
@@ -527,8 +533,12 @@ const styles = StyleSheet.create({
   noActivityLabelDark: {
     color: darkColors.textSecondary,
   },
+  plotRow: {
+    flexDirection: 'row',
+  },
   chartWrapper: {
     position: 'relative',
+    flex: 1,
   },
   canvas: {
     flex: 1,

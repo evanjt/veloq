@@ -13,7 +13,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { render } from '@testing-library/react-native';
 import { resolvedLocale } from '../../i18n/resolvedLocale';
-import { WHATS_NEW_SLIDES, getAllSlides } from '@/features/settings/components/whatsNew/slides';
+import { getAllSlides, getTutorialSlides } from '@/features/settings/components/whatsNew/slides';
 import {
   SECTIONS_LIST_ROUTE,
   ROUTES_LIST_ROUTE,
@@ -44,15 +44,16 @@ const SLIDE_KEYS = [
 ] as const;
 
 function slideOf(titleKey: string) {
-  const slide = WHATS_NEW_SLIDES['0.4.0'].find((s) => s.titleKey === titleKey);
-  if (!slide) throw new Error(`no 0.4.0 slide titled ${titleKey}`);
+  const slide = getTutorialSlides().find((s) => s.titleKey === titleKey);
+  if (!slide) throw new Error(`no tour slide titled ${titleKey}`);
   return slide;
 }
 
-describe('the 0.4.0 tour', () => {
-  it('opens with a sections slide and a routes slide, each offering Show Me', () => {
-    const titles = WHATS_NEW_SLIDES['0.4.0'].map((s) => s.titleKey);
-    expect(titles.slice(0, 2)).toEqual([
+describe('the tour', () => {
+  it('carries a sections slide followed by a routes slide, each offering Show Me', () => {
+    const titles = getTutorialSlides().map((s) => s.titleKey);
+    const at = titles.indexOf('whatsNew.v040.sectionPageTitle');
+    expect(titles.slice(at, at + 2)).toEqual([
       'whatsNew.v040.sectionPageTitle',
       'whatsNew.v040.routesTitle',
     ]);
@@ -98,10 +99,10 @@ describe('the sections and routes Show Me', () => {
   });
 
   it('leaves a slide with a fixed route on that route', () => {
-    const settings = WHATS_NEW_SLIDES['0.4.0'].find((s) => s.showMeRoute === '/detection-preview');
+    const settings = getTutorialSlides().find((s) => s.showMeRoute === '/record');
     expect(settings).toBeDefined();
     expect(resolveShowMeRoute(settings!, library({ sectionId: 's-busy', routeId: 'r-busy' }))).toBe(
-      '/detection-preview'
+      '/record'
     );
   });
 });

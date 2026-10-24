@@ -22,7 +22,7 @@
   "modules/veloqrs/rust/veloqrs/src/persistence/export.rs": 5,
   "modules/veloqrs/rust/veloqrs/src/persistence/file_lock.rs": 5,
   "modules/veloqrs/rust/veloqrs/src/persistence/mod.rs": 5,
-  "modules/veloqrs/rust/veloqrs/src/persistence/pre_upgrade_copy.rs": 2,
+  "modules/veloqrs/rust/veloqrs/src/persistence/pre_upgrade_copy.rs": 3,
   "modules/veloqrs/rust/veloqrs/src/persistence/record_backup.rs": 7,
   "modules/veloqrs/rust/veloqrs/src/persistence/regroup.rs": 1,
   "modules/veloqrs/rust/veloqrs/src/persistence/sections/detection.rs": 1,

@@ -1,9 +1,8 @@
 /**
- * Scenario: the 0.4.0 tour slide says sections are deterministic and reshape
- * with the athlete's runs, then offers Show Me.
+ * Scenario: the 0.4.0 sections slide is shared by the tour and What's New, and the tour can open
+ * over a library with no sections yet.
  *
- * Expected behaviour: it lands on the section preview, where the map shows the
- * sections a setting change would cut, with a tip saying what to do there.
+ * Expected behaviour: it offers no Show Me into the section preview, which the tour keeps out.
  */
 
 import { readdirSync } from 'fs';
@@ -26,12 +25,13 @@ function slideRoutes(version: string): (string | undefined)[] {
 }
 
 describe("the tour's Show Me targets", () => {
-  it('takes the 0.4.0 sections slide to the section preview, with a tip', () => {
+  it('offers the 0.4.0 sections slide no Show Me', () => {
     const slide = WHATS_NEW_SLIDES['0.4.0'].find(
-      (s) => s.titleKey === 'whatsNew.v040.sectionsTitle'
+      (s) => s.titleKey === 'whatsNew.v040.rebuiltTitle'
     );
-    expect(slide?.showMeRoute).toBe('/detection-preview');
-    expect(slide?.showMeTip).toBe('whatsNew.v040.sectionsTip');
+    expect(slide).toBeDefined();
+    expect(slide?.showMeRoute).toBeUndefined();
+    expect(slideRoutes('0.4.0')).not.toContain('/detection-preview');
   });
 
   it('translates every tip wherever its slide is translated', () => {

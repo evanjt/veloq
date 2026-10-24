@@ -1261,6 +1261,8 @@
     "keyYearOrMore": "1年以上前",
     "keyFewerPasses": "通過が少ない",
     "keyMorePasses": "通過が多い",
+    "keyRecencyAxis": "アクティビティの新しさ",
+    "keyHeatAxis": "通過回数",
     "colorByGradient": "勾配で色付け",
     "periodThisYear": "今年",
     "sheetSize": "地図と詳細のサイズ",
@@ -2424,9 +2426,6 @@
       "backupBody": "設定や選択内容を小さなバックアップファイルに保存し、端末から共有できます。復元時にはアクティビティを再取得し、一致する箇所に選択内容を適用します。"
     },
     "v040": {
-      "sectionsTitle": "あなたの走りに沿って変わる区間",
-      "sectionsBody": "区間は決定論的で、走行が増えるたびに形を整え直し、固定すると安定したまま保たれます。",
-      "sectionsTip": "地図には現在のセクションが表示されます。スライダーを動かしてプレビューをタップすると、どのセクションが切り出されるかを確認できます。適用をタップするまで何も変わりません。",
       "recutRunning": "区間を再解析しています",
       "recutRunningPhase": "区間を再解析しています: {{phase}}",
       "diffTotals": "{{current}} 件の区間が {{proposed}} 件になりました。",
@@ -2449,7 +2448,17 @@
       "routesTitle": "繰り返し走るルート",
       "routesBody": "同じコースのアクティビティはルートにまとめられ、各挑戦をほかの挑戦と比べて表示します。",
       "sectionPageTip": "区間ページを下にスクロールすると、傾向、タイムの分布、時間を稼いだ所と失った所で色分けされたラインが表示されます。",
-      "routesTip": "ルートページを下にスクロールすると、コースでの各試行を他の試行と比べて見られます。"
+      "routesTip": "ルートページを下にスクロールすると、コースでの各試行を他の試行と比べて見られます。",
+      "recordingTitle": "Veloqでアクティビティを記録",
+      "recordingBody": "GPS、屋内、または手入力で記録でき、Bluetoothの心拍、パワー、ケイデンスセンサーも追加できます。アクティビティはintervals.icuにアップロードされます。ショートカットからアプリの外でも記録を開始できます。",
+      "recordingTip": "GPS、屋内、手動のいずれかを選んで開始をタップします。",
+      "lookTitle": "新しいデザイン",
+      "lookBody": "タブバーを刷新し、書体も新しくなりました。アクティビティを開くと、すぐに地図の画像が表示されます。",
+      "mapsWidgetsTitle": "3Dマップとウィジェット",
+      "mapsWidgetsBody": "起伏のあるアクティビティは3D地形に描画されます。サマリーとストレングスのウィジェットで、ホーム画面にトレーニングを表示できます。",
+      "mapsWidgetsTip": "設定の「マップ」で、3Dで描画するタイミングを選べます。",
+      "rebuiltTitle": "セクションを再構築",
+      "rebuiltBody": "セクションはどの端末でも同じ結果になり、変更はすべて元に戻せる履歴に残ります"
     },
     "tutorial": {
       "firstLoadLine": "intervals.icu からの初回読み込みを実行中です。アクティビティが届くにつれて、フィードに表示されます。",
@@ -2731,6 +2740,8 @@
     "statePaused": "次回アプリを開くまで一時停止",
     "stateWaiting": "再開待ち",
     "resumesAt": "{{time}} に再開",
+    "pacedOnCaps_one": "intervals.icu の上限に合わせて進行、完了まで約{{count}}日",
+    "pacedOnCaps_other": "intervals.icu の上限に合わせて進行、完了まで約{{count}}日",
     "lastFinished": "前回の実行 {{time}}",
     "lastRunNoChange": "変更なし",
     "lastRunStopped": "停止",

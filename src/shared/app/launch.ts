@@ -27,7 +27,7 @@ import {
   TERRAIN_PREVIEW_DIR,
   discardLegacyTerrainPreviews,
 } from '@/shared/storage/terrainPreviewRoot';
-import { openLibrary, routeDbFilePaths } from '@/shared/storage/routeDbLocation';
+import { openLibraryAsync, routeDbFilePaths } from '@/shared/storage/routeDbLocation';
 import { getEngine, getRouteDbPath, resolveRouteDbPath } from '@/shared/native/engine';
 import {
   captureQuarantineReport,
@@ -52,14 +52,16 @@ function markLaunch(step: 'auth' | 'engine' | 'stores'): void {
  * Open the library before the stores read their settings, so every read is
  * one SQLite lookup instead of a round trip to AsyncStorage. A launch with no
  * credentials leaves the engine closed, as the login screen expects. Failure
- * is left to `AuthGate`, which retries and raises the banner.
+ * is left to `AuthGate`, which retries and raises the banner. A library with an
+ * upgrade to run is waited for here, off the JavaScript thread, so the stores
+ * below never read an engine that is still migrating.
  */
-function openEngine(): void {
+async function openEngine(): Promise<void> {
   if (!useAuthStore.getState().isAuthenticated) return;
   const engine = getEngine();
   const dbPath = getRouteDbPath();
   if (!engine || !dbPath) return;
-  if (openLibrary(engine, dbPath)) captureQuarantineReport();
+  if (await openLibraryAsync(engine, dbPath)) captureQuarantineReport();
 }
 
 /**
@@ -213,7 +215,7 @@ export async function initialiseApp(): Promise<StartupArea[] | null> {
   // Before the engine, never after: the move is only a consistent snapshot of
   // the database and its journal while no connection is open.
   await resolveRouteDbPath();
-  openEngine();
+  await openEngine();
   excludeDatabaseFromDeviceBackup();
   openBasemapStore();
   openTerrainPreviews();

@@ -16,6 +16,7 @@ import * as zlib from 'zlib';
 import {
   imageErrors,
   keywordWarnings,
+  listingBudgetErrors,
   readImageInfo,
   screenshotErrors,
   textFieldErrors,
@@ -208,6 +209,55 @@ describe('screenshotErrors', () => {
     ]);
     write('s/xx/ipad-01-feed.png', png(2064, 2752, 2));
     expect(screenshotErrors('ios', 'xx', dirs, true)).toEqual([]);
+  });
+});
+
+describe('listingBudgetErrors', () => {
+  const section = (title: string, body: string) => `${title}\n${body}`;
+  const listing = (bodies: string[]) =>
+    [
+      'Opening line.',
+      ...['Record', 'Insights', 'Maps', 'Routes', 'Charts', 'Fitness', 'Strength', 'Widgets'].map(
+        (t, i) => section(t, bodies[i] ?? 'Short line.')
+      ),
+      section('Notifications', 'Short line.'),
+      section('Backups', 'Short line.'),
+      section('Privacy', 'Short line.'),
+      'Closing line.',
+    ].join('\n\n');
+
+  it('passes a listing of short feature lines', () => {
+    expect(listingBudgetErrors('en-AU', listing([]))).toEqual([]);
+  });
+
+  it('refuses one feature section that has grown into a paragraph', () => {
+    const errors = listingBudgetErrors('en-AU', listing(['x'.repeat(121)]));
+    expect(errors.map((e) => e.type)).toEqual(['over_budget']);
+    expect(errors[0]?.message).toContain('Record');
+  });
+
+  it('accepts a feature line at the ceiling', () => {
+    expect(listingBudgetErrors('en-AU', listing(['x'.repeat(120)]))).toEqual([]);
+  });
+
+  it('refuses a description that has grown back toward the store limit', () => {
+    const long = Array.from({ length: 8 }, () => 'x'.repeat(120));
+    const text = `${listing(long)}\n\n${'y'.repeat(500)}`;
+    expect(listingBudgetErrors('en-AU', text).map((e) => e.message)).toEqual([
+      expect.stringContaining('description'),
+    ]);
+  });
+
+  it('gives a longer language a larger ceiling than English and a denser one a smaller', () => {
+    const line = 'x'.repeat(150);
+    expect(listingBudgetErrors('en-AU', listing([line])).length).toBe(1);
+    expect(listingBudgetErrors('de-DE', listing([line]))).toEqual([]);
+    expect(listingBudgetErrors('zh-Hans', listing(['x'.repeat(80)])).length).toBe(1);
+  });
+
+  it('reads a Play description whose section titles are bold', () => {
+    const bold = listing(['x'.repeat(121)]).replace(/^(Record)$/m, '<b>$1</b>');
+    expect(listingBudgetErrors('en-AU', bold).map((e) => e.type)).toEqual(['over_budget']);
   });
 });
 

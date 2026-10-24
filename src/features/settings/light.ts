@@ -17,4 +17,7 @@ export {
 export { presentActivityNotification } from './lib/notificationService';
 export { refreshPushTokenRegistration } from './lib/pushTokenRegistration';
 export { shareCopyAs, shareText, type ShareAnchor } from './lib/shareFile';
-export type { NotificationPreferences } from './stores/NotificationPreferencesStore';
+export {
+  getNotificationPreferences,
+  type NotificationPreferences,
+} from './stores/NotificationPreferencesStore';

@@ -51,6 +51,12 @@ export interface BackgroundJob {
   phase: string | null;
   /** When a waiting job resumes, epoch milliseconds, null otherwise. */
   resumesAt: number | null;
+  /**
+   * Whole days the stream download takes to draw what it owes at the daily
+   * allowance, null when the queue fits in a day or the engine did not price it.
+   * Only the stream download carries one.
+   */
+  pacedDays: number | null;
   /** The job's last finished run, null when it has never run on this install. */
   lastRun: BackgroundJobRun | null;
 }
@@ -133,6 +139,7 @@ interface BackgroundJobsData {
   runs: (BackgroundJobRun & { job: string })[];
   detectionAwaiting?: number;
   cutoverOwed: boolean;
+  streamDaysToFinish?: number;
 }
 
 /**
@@ -276,6 +283,7 @@ function jobsFromStatus(
       remaining: detection.awaiting,
       phase: detection.phase,
       resumesAt: null,
+      pacedDays: null,
       lastRun: lastRun('detection'),
     },
     {
@@ -287,6 +295,7 @@ function jobsFromStatus(
       remaining: status?.elevationRemaining ?? null,
       phase: null,
       resumesAt: elevation?.resumesAt ?? null,
+      pacedDays: null,
       lastRun: lastRun('elevationBackfill'),
     },
     {
@@ -298,6 +307,7 @@ function jobsFromStatus(
       remaining: cutover?.running ? null : cutoverPending,
       phase: cutover?.running ? cutover.phase : null,
       resumesAt: null,
+      pacedDays: null,
       lastRun: lastRun('cutover'),
     },
     {
@@ -309,6 +319,7 @@ function jobsFromStatus(
       remaining: status?.streamRemaining ?? null,
       phase: null,
       resumesAt: stream?.resumesAt ?? null,
+      pacedDays: data?.streamDaysToFinish ?? null,
       lastRun: lastRun('streamBackfill'),
     },
   ];

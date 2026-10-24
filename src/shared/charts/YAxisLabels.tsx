@@ -17,19 +17,34 @@ export interface YAxisLabelsProps {
   /** The plot's top and bottom padding inside the box this gutter shares a row with. */
   padding: { top?: number; bottom?: number };
   testID?: string;
+  /** A width the gutter holds at least, so plots stacked on one date axis share a left edge. */
+  minWidth?: number | undefined;
+  /** The gutter's width after each layout, for the stacked plots to agree on. */
+  onWidth?: ((width: number) => void) | undefined;
 }
 
 /**
  * The value axis in a gutter left of the plot. Each label is centred on its
  * value's pixel, and the gutter is as wide as its widest label.
  */
-export function YAxisLabels({ ticks, domain, padding, testID }: YAxisLabelsProps) {
+export function YAxisLabels({
+  ticks,
+  domain,
+  padding,
+  testID,
+  minWidth,
+  onWidth,
+}: YAxisLabelsProps) {
   const { isDark } = useTheme();
   const [height, setHeight] = useState(0);
-  const onLayout = useCallback((e: LayoutChangeEvent) => {
-    const next = e.nativeEvent.layout.height;
-    setHeight((prev) => (prev === next ? prev : next));
-  }, []);
+  const onLayout = useCallback(
+    (e: LayoutChangeEvent) => {
+      const { height: next, width } = e.nativeEvent.layout;
+      setHeight((prev) => (prev === next ? prev : next));
+      onWidth?.(width);
+    },
+    [onWidth]
+  );
 
   const labelStyle = [chartStyles.chartLabel, isDark && chartStyles.chartLabelDark];
   const tops =
@@ -43,7 +58,12 @@ export function YAxisLabels({ ticks, domain, padding, testID }: YAxisLabelsProps
       : null;
 
   return (
-    <View style={styles.gutter} onLayout={onLayout} pointerEvents="none" testID={testID}>
+    <View
+      style={[styles.gutter, minWidth ? { minWidth } : null]}
+      onLayout={onLayout}
+      pointerEvents="none"
+      testID={testID}
+    >
       {/* Sizes the gutter to the widest label without taking any height. */}
       <View style={styles.sizer} importantForAccessibility="no-hide-descendants">
         {ticks.map((tick, i) => (

@@ -166,6 +166,12 @@ interface PendingWrite {
  */
 const MAX_PENDING_WRITES = 256;
 
+/** How often the off-thread open is read while an upgrade runs. */
+const OPEN_POLL_MS = 50;
+
+/** How long an upgrading open is waited for before it is reported as failed. */
+const OPEN_DEADLINE_MS = 10 * 60 * 1_000;
+
 /** Where a call is made from, which sets its budget: a frame in a gesture, 100 ms on a tap or mount, 200 ms once at launch. */
 export type CallPlace = 'gesture' | 'tap' | 'mount' | 'launch';
 
@@ -381,6 +387,58 @@ class EngineClient implements DelegateHost {
       this.replayPendingWrites();
     }
     return result;
+  }
+
+  /**
+   * Open the library without holding the JavaScript thread through an upgrade.
+   *
+   * A library on the current schema opens in the one blocking call, as
+   * `initWithPath` does. One from an older release has a migration chain to run,
+   * which measured 1.6 s at 5,000 activities against the 200 ms a launch may
+   * block, so it opens on a Rust thread and this polls the thread to a terminal
+   * state. The handle is built only after that, when the engine is already open
+   * and `create` has nothing left to do.
+   *
+   * A start that cannot be made falls back to the blocking open: a slow launch
+   * is better than none. An upgrade that outlasts `OPEN_DEADLINE_MS` is reported
+   * as failed and is not retried here, because the blocking open would wait on
+   * the same file for the rest of the upgrade.
+   */
+  async openWithPath(dbPath: string): Promise<boolean> {
+    if (this.initialised && this.dbPath === dbPath) return true;
+    try {
+      const started = generated.startEngineOpen(dbPath);
+      if (started !== FfiStartOutcome.Started && started !== FfiStartOutcome.Busy) {
+        return this.initWithPath(dbPath);
+      }
+    } catch (e) {
+      console.warn('[EngineClient] Off-thread open could not start:', e);
+      return this.initWithPath(dbPath);
+    }
+    const deadline = Date.now() + OPEN_DEADLINE_MS;
+    for (;;) {
+      let progress: generated.FfiOpenProgress;
+      try {
+        progress = generated.getEngineOpenProgress();
+      } catch (e) {
+        console.warn('[EngineClient] Off-thread open could not be read:', e);
+        this.lastInitOutcome = FfiInitOutcome.Failed;
+        return false;
+      }
+      if (progress.phase === generated.FfiOpenPhase.Finished) {
+        if (progress.outcome !== FfiInitOutcome.Opened) {
+          this.lastInitOutcome = progress.outcome ?? FfiInitOutcome.Failed;
+          return false;
+        }
+        return this.initWithPath(dbPath);
+      }
+      if (Date.now() >= deadline) {
+        console.warn('[EngineClient] Off-thread open did not finish in time for', dbPath);
+        this.lastInitOutcome = FfiInitOutcome.Failed;
+        return false;
+      }
+      await new Promise<void>((resolve) => setTimeout(resolve, OPEN_POLL_MS));
+    }
   }
 
   /**

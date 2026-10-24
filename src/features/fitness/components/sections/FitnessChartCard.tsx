@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import type { SharedValue } from 'react-native-reanimated';
@@ -54,6 +54,12 @@ export const FitnessChartCard = React.memo(function FitnessChartCard({
 }: FitnessChartCardProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  // The plots stack on one date axis, so each leaves the widest value-axis gutter's width on its left.
+  const [gutterWidth, setGutterWidth] = useState(0);
+  const onAxisWidth = useCallback(
+    (width: number) => setGutterWidth((prev) => Math.max(prev, Math.ceil(width))),
+    []
+  );
 
   if (readError != null && onRetry) {
     return (
@@ -83,6 +89,8 @@ export const FitnessChartCard = React.memo(function FitnessChartCard({
           onDateSelect={onDateSelect}
           onInteractionChange={onInteractionChange}
           held={held}
+          axisMinWidth={gutterWidth}
+          onAxisWidth={onAxisWidth}
         />
 
         <View
@@ -95,6 +103,7 @@ export const FitnessChartCard = React.memo(function FitnessChartCard({
               activities={loadDots}
               dailyLoads={dailyLoads}
               height={32}
+              gutterWidth={gutterWidth}
               selectedDate={selectedDate}
               sharedSelectedIdx={sharedSelectedIdx}
               onDateSelect={onDateSelect}
@@ -116,6 +125,8 @@ export const FitnessChartCard = React.memo(function FitnessChartCard({
             onDateSelect={onDateSelect}
             onInteractionChange={onInteractionChange}
             held={held}
+            axisMinWidth={gutterWidth}
+            onAxisWidth={onAxisWidth}
           />
         </View>
       </Card>

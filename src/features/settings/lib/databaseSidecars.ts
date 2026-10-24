@@ -69,9 +69,9 @@ export async function setAsideCopies(dbPath: string): Promise<string[]> {
  *
  * Launch keeps the oldest quarantined one so the salvage can read what it
  * missed, and a later quarantine removes only the newer ones. Nothing removes
- * a displaced one, and an upgrade's copy waits for the next launch. Each is a
- * whole copy of a library that would otherwise outlive the athlete it belongs
- * to.
+ * a displaced one, and an upgrade's copy waits until its detector cutover is
+ * promoted or reverted. Each is a whole copy of a library that would otherwise
+ * outlive the athlete it belongs to.
  */
 export async function deleteSetAsideCopies(dbPath: string): Promise<void> {
   const copies = await setAsideCopies(dbPath);

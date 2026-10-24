@@ -332,6 +332,9 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_func_get_elevation_backfill_remaining(
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
+  ubrn_uniffi_veloqrs_fn_func_get_engine_open_progress(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_get_fetch_run_progress(
     run: number,
     uniffi_out_err: UniffiRustCallStatus,
@@ -365,6 +368,10 @@ interface NativeModuleInterface {
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_start_elevation_backfill(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_func_start_engine_open(
+    dbPath: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_start_gps_pass(
@@ -1789,6 +1796,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_func_get_change_card_support(): number;
   ubrn_uniffi_veloqrs_checksum_func_get_cutover_diff(): number;
   ubrn_uniffi_veloqrs_checksum_func_get_elevation_backfill_remaining(): number;
+  ubrn_uniffi_veloqrs_checksum_func_get_engine_open_progress(): number;
   ubrn_uniffi_veloqrs_checksum_func_get_fetch_run_progress(): number;
   ubrn_uniffi_veloqrs_checksum_func_get_routes_status_data(): number;
   ubrn_uniffi_veloqrs_checksum_func_is_cutover_held(): number;
@@ -1799,6 +1807,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_func_set_network_online(): number;
   ubrn_uniffi_veloqrs_checksum_func_start_detector_cutover(): number;
   ubrn_uniffi_veloqrs_checksum_func_start_elevation_backfill(): number;
+  ubrn_uniffi_veloqrs_checksum_func_start_engine_open(): number;
   ubrn_uniffi_veloqrs_checksum_func_start_gps_pass(): number;
   ubrn_uniffi_veloqrs_checksum_func_start_stream_backfill(): number;
   ubrn_uniffi_veloqrs_checksum_func_stop_stream_backfill(): number;

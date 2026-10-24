@@ -1284,6 +1284,8 @@
     "keyYearOrMore": "Um ano ou mais",
     "keyFewerPasses": "Menos passagens",
     "keyMorePasses": "Mais passagens",
+    "keyRecencyAxis": "Idade da atividade",
+    "keyHeatAxis": "Passagens",
     "colorByGradient": "Cor por inclinação",
     "periodThisYear": "Este ano",
     "sheetSize": "Tamanho do mapa e dos detalhes",
@@ -2465,9 +2467,6 @@
       "backupBody": "Guarde as suas definições e decisões num pequeno ficheiro de cópia de segurança e partilhe-o a partir do dispositivo. Ao restaurar, as atividades são transferidas novamente e as decisões são aplicadas onde houver correspondência."
     },
     "v040": {
-      "sectionsTitle": "Troços que acompanham os seus treinos",
-      "sectionsBody": "Os troços são determinísticos e remodelam-se com os seus treinos; fixe um para o manter estável.",
-      "sectionsTip": "O mapa mostra os seus troços tal como estão agora. Mova um cursor e toque em Pré-visualizar para ver que troços cortaria; nada muda até tocar em Manter.",
       "recutRunning": "A analisar de novo os teus troços",
       "recutRunningPhase": "A analisar de novo os teus troços: {{phase}}",
       "diffTotals": "{{current}} troços passaram a {{proposed}}.",
@@ -2491,7 +2490,17 @@
       "routesTitle": "Percursos que repete",
       "routesBody": "As atividades no mesmo trajeto são agrupadas num percurso, com cada tentativa comparada com as outras.",
       "sectionPageTip": "Desliza a página do troço para ver a tendência, a distribuição dos teus tempos e a linha colorida onde ganhaste ou perdeste tempo.",
-      "routesTip": "Desliza a página da rota para ver cada tentativa no percurso comparada com as outras."
+      "routesTip": "Desliza a página da rota para ver cada tentativa no percurso comparada com as outras.",
+      "recordingTitle": "Grave atividades no Veloq",
+      "recordingBody": "Grave com GPS, em ambiente interior ou à mão e adicione sensores Bluetooth de frequência cardíaca, potência e cadência. A atividade é enviada para o intervals.icu. Atalhos iniciam uma gravação fora da app.",
+      "recordingTip": "Escolha GPS, interior ou manual e toque em Iniciar.",
+      "lookTitle": "Um novo visual",
+      "lookBody": "Uma barra de separadores redesenhada e um novo tipo de letra em toda a app. Ao abrir uma atividade, a imagem do mapa aparece logo.",
+      "mapsWidgetsTitle": "Mapas 3D e widgets",
+      "mapsWidgetsBody": "As atividades com desnível são desenhadas em terreno 3D. Os widgets Resumo e Força mostram o seu treino no ecrã principal.",
+      "mapsWidgetsTip": "Escolha quando os mapas são desenhados em 3D em Definições, em Mapas.",
+      "rebuiltTitle": "Secções reconstruídas",
+      "rebuiltBody": "As secções saem iguais em todos os dispositivos e cada alteração fica guardada num histórico que pode reverter."
     },
     "tutorial": {
       "firstLoadLine": "O primeiro carregamento do intervals.icu está em curso. O feed enche-se à medida que as atividades chegam.",
@@ -2777,6 +2786,8 @@
     "statePaused": "Em pausa até a app ser aberta de novo",
     "stateWaiting": "A aguardar para retomar",
     "resumesAt": "Retoma: {{time}}",
+    "pacedOnCaps_one": "Ritmo pelos limites do intervals.icu, cerca de {{count}} dia para concluir",
+    "pacedOnCaps_other": "Ritmo pelos limites do intervals.icu, cerca de {{count}} dias para concluir",
     "lastFinished": "Última execução {{time}}",
     "lastRunNoChange": "Sem alterações",
     "lastRunStopped": "Interrompida",

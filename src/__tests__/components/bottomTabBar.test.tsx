@@ -14,7 +14,8 @@ import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 
 import { BottomTabBar } from '@/shared/ui/BottomTabBar';
-import { colorWithOpacity, colors, darkColors, opacity } from '@/theme';
+import { colors, darkColors } from '@/theme';
+import { faceWeight } from '@/theme/typography';
 
 // A tab's glyph is decoration, hidden from the screen reader, so a query reaches it only here.
 const HIDDEN = { includeHiddenElements: true };
@@ -169,6 +170,9 @@ describe('BottomTabBar', () => {
       { name: 'light', isDark: false, palette: colors },
       { name: 'dark', isDark: true, palette: darkColors },
     ] as const;
+    const CASES = (['ios', 'android'] as const).flatMap((os) =>
+      THEMES.map((theme) => ({ os, theme, name: theme.name }))
+    );
     const originalOS = Platform.OS;
 
     beforeEach(() => {
@@ -209,10 +213,10 @@ describe('BottomTabBar', () => {
       expect(`${selected}-outline`).toBe(unselected);
     });
 
-    it.each(THEMES)(
-      'draws the selected glyph in controlOn and the others in iconSecondary in $name',
-      async (theme) => {
-        Platform.OS = 'ios';
+    it.each(CASES)(
+      'draws the selected glyph in controlOn and the others in iconSecondary on $os in $name',
+      async ({ os, theme }) => {
+        Platform.OS = os;
         mockIsDark = theme.isDark;
 
         expect((await glyph('feed')).color).toBe(theme.palette.controlOn);
@@ -235,6 +239,21 @@ describe('BottomTabBar', () => {
       }
     );
 
+    it('sets the selected label in the heaviest face and the others in the lightest', async () => {
+      const { getByText } = await render(<BottomTabBar />);
+
+      expect(StyleSheet.flatten(getByText('navigation.feed').props.style).fontWeight).toBe(
+        faceWeight('700')
+      );
+      expect(StyleSheet.flatten(getByText('navigation.fitness').props.style).fontWeight).toBe(
+        faceWeight('400')
+      );
+    });
+
+    it('keeps the selected label heavier than the rest with bold text on', async () => {
+      expect(Number(faceWeight('700', true))).toBeGreaterThan(Number(faceWeight('400', true)));
+    });
+
     it('shrinks a long label to a 0.8 floor on one line rather than cutting it off', async () => {
       const { getByText } = await render(<BottomTabBar />);
       const label = getByText('navigation.fitness').props;
@@ -244,39 +263,37 @@ describe('BottomTabBar', () => {
       expect(label.minimumFontScale).toBe(0.8);
     });
 
-    it('draws no indicator on iOS', async () => {
-      Platform.OS = 'ios';
+    it.each(CASES)('draws no tinted indicator on $os in $name', async ({ os, theme }) => {
+      Platform.OS = os;
+      mockIsDark = theme.isDark;
       const { queryAllByTestId } = await render(<BottomTabBar />);
 
       expect(queryAllByTestId(/^bottom-tab-.*-indicator$/, HIDDEN)).toHaveLength(0);
     });
 
-    it.each(THEMES)(
-      'puts the Android indicator behind the selected tab only, in $name',
-      async (theme) => {
-        Platform.OS = 'android';
+    it.each(CASES)(
+      'raises one cap over the selected tab only, in the bar surface, on $os in $name',
+      async ({ os, theme }) => {
+        Platform.OS = os;
         mockIsDark = theme.isDark;
         mockPathname = '/insights';
-        const { getAllByTestId, UNSAFE_getByProps } = await render(<BottomTabBar />);
+        const { getAllByTestId } = await render(<BottomTabBar />);
 
-        const indicators = getAllByTestId(/^bottom-tab-.*-indicator$/, HIDDEN);
-        expect(indicators.map((node) => node.props.testID)).toEqual([
-          'bottom-tab-insights-indicator',
-        ]);
-        const style = StyleSheet.flatten(indicators[0].props.style);
-        expect(style.width).toBe(56);
-        expect(style.height).toBe(28);
-        expect(style.borderRadius).toBeGreaterThanOrEqual(14);
-        expect(style.backgroundColor).toBe(
-          colorWithOpacity(theme.palette.controlOn, opacity.tint3)
-        );
-        expect(UNSAFE_getByProps({ testID: 'bottom-tab-insights-glyph' }).props.color).toBe(
-          theme.isDark ? theme.palette.textPrimary : theme.palette.controlOn
-        );
-        expect(UNSAFE_getByProps({ testID: 'bottom-tab-feed-glyph' }).props.color).toBe(
-          theme.palette.iconSecondary
-        );
+        const caps = getAllByTestId(/^bottom-tab-.*-cap$/, HIDDEN);
+        expect(caps.map((node) => node.props.testID)).toEqual(['bottom-tab-insights-cap']);
+        const disc = StyleSheet.flatten(caps[0].props.children.props.style);
+        expect(disc.backgroundColor).toBe(theme.palette.surface);
+        expect(disc.borderColor).toBe(theme.palette.border);
+        expect(disc.borderRadius).toBeGreaterThanOrEqual(disc.width / 2);
       }
     );
+
+    it('moves the cap with the selection', async () => {
+      mockPathname = '/map';
+      const { queryByTestId } = await render(<BottomTabBar />);
+
+      expect(queryByTestId('bottom-tab-map-cap', HIDDEN)).toBeTruthy();
+      expect(queryByTestId('bottom-tab-feed-cap', HIDDEN)).toBeNull();
+    });
   });
 });

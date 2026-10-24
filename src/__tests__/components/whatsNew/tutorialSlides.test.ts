@@ -8,14 +8,19 @@
  * Show Me until that screen holds data.
  */
 import * as fs from 'fs';
+import React from 'react';
+import { render } from '@testing-library/react-native';
 import * as path from 'path';
 import { resolvedLocale } from '../../i18n/resolvedLocale';
 import {
+  WHATS_NEW_SLIDES,
   getAllSlides,
   getTutorialSlides,
   getTutorialSlidesFor,
 } from '@/features/settings/components/whatsNew/slides';
 import { resolveShowMeRoute, type TourLibrary } from '@/features/settings/lib/tourShowMe';
+
+jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 
 const LOCALES_DIR = path.join(__dirname, '../../../i18n/locales');
 const ENGLISH = /^en(-|$)/;
@@ -58,6 +63,9 @@ describe('the first-run tour', () => {
     expect(tutorial.map((s) => s.titleKey)).toEqual([
       'whatsNew.v022.mapStylesTitle',
       'whatsNew.tutorial.notificationsTitle',
+      'whatsNew.v040.recordingTitle',
+      'whatsNew.v040.mapsWidgetsTitle',
+      'whatsNew.v040.rebuiltTitle',
       'whatsNew.v040.sectionPageTitle',
       'whatsNew.v040.routesTitle',
       'whatsNew.v030.backupTitle',
@@ -81,9 +89,52 @@ describe('the first-run tour', () => {
   it('holds no slide that opens the section preview', () => {
     expect(tutorial.map((s) => s.showMeRoute)).not.toContain('/detection-preview');
   });
+});
 
-  it('still leaves the section preview in the 0.4.0 changes', () => {
-    expect(getAllSlides().map((s) => s.showMeRoute)).toContain('/detection-preview');
+describe("What's New 0.4.0", () => {
+  const release = WHATS_NEW_SLIDES['0.4.0'];
+  const LOOK = 'whatsNew.v040.lookTitle';
+
+  it('sells the release in five slides, opening on the notifications to turn on', () => {
+    expect(release.map((s) => s.titleKey)).toEqual([
+      'whatsNew.tutorial.notificationsTitle',
+      'whatsNew.v040.recordingTitle',
+      LOOK,
+      'whatsNew.v040.mapsWidgetsTitle',
+      'whatsNew.v040.rebuiltTitle',
+    ]);
+    expect(release[0].setup).toBe('notifications');
+  });
+
+  it('draws a picture under every slide', () => {
+    const bare = release.filter((s) => !Object.prototype.hasOwnProperty.call(s, 'Component'));
+    expect(bare.map((s) => s.titleKey)).toEqual([]);
+  });
+
+  it('shares every slide but the look with the tour', () => {
+    const inTour = new Set(getTutorialSlides().map((s) => s.titleKey));
+    const missing = release.filter((s) => s.titleKey !== LOOK && !inTour.has(s.titleKey));
+    expect(missing.map((s) => s.titleKey)).toEqual([]);
+    expect(inTour.has(LOOK)).toBe(false);
+  });
+
+  it('holds no slide that opens the section preview', () => {
+    expect(release.map((s) => s.showMeRoute)).not.toContain('/detection-preview');
+  });
+
+  it('renders a picture for each new slide', async () => {
+    const ids: Record<string, string> = {
+      'whatsNew.v040.recordingTitle': 'tour-recording-picture',
+      [LOOK]: 'tour-look-picture',
+      'whatsNew.v040.mapsWidgetsTitle': 'tour-maps-widgets-picture',
+      'whatsNew.v040.rebuiltTitle': 'tour-sections-rebuilt-picture',
+    };
+    for (const slide of release.filter((s) => ids[s.titleKey])) {
+      const { Component } = slide;
+      const { getByTestId, unmount } = await render(React.createElement(Component));
+      expect(getByTestId(ids[slide.titleKey])).toBeTruthy();
+      unmount();
+    }
   });
 });
 
@@ -94,7 +145,7 @@ describe('Show Me over the library the first run sees', () => {
     const offered = tutorial
       .filter((slide) => resolveShowMeRoute(slide, EMPTY_LIBRARY) !== undefined)
       .map((slide) => slide.showMeRoute);
-    expect(offered).toEqual(['/backup-settings']);
+    expect(offered).toEqual(['/record', '/map-settings', '/backup-settings']);
   });
 
   it('offers no Show Me into sections or routes while only activities have landed', () => {
@@ -111,6 +162,9 @@ describe('Show Me over the library the first run sees', () => {
     const routes = tutorial.map((slide) => resolveShowMeRoute(slide, FULL_LIBRARY));
     expect(routes).toEqual([
       '/',
+      undefined,
+      '/record',
+      '/map-settings',
       undefined,
       '/section/col-du-test',
       '/route/harbour-loop',
@@ -129,8 +183,10 @@ describe('Show Me over the library the first run sees', () => {
 });
 
 describe('the first-run tour copy', () => {
-  const keys = getTutorialSlides()
-    .filter((s) => s.titleKey.startsWith('whatsNew.tutorial.'))
+  const keys = [...getTutorialSlides(), ...WHATS_NEW_SLIDES['0.4.0']]
+    .filter(
+      (s) => s.titleKey.startsWith('whatsNew.tutorial.') || s.titleKey.startsWith('whatsNew.v040.')
+    )
     .flatMap((s) => [s.titleKey, s.bodyKey, ...(s.showMeTip ? [s.showMeTip] : [])]);
 
   it.each(fs.readdirSync(LOCALES_DIR).map((file) => file.replace('.json', '')))(

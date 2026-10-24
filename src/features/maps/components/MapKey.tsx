@@ -6,7 +6,7 @@
  *   or alone where the row it sits in already names the layer, optionally
  *   with the glyph the map draws along that line, dashed as the map dashes
  *   it, or on the edge the map draws under it.
- * - `MapKeyRamp`: a continuous scale, with its two ends named or its values
+ * - `MapKeyRamp`: a continuous scale, labelled with what it measures, with its two ends named or its values
  *   ticked where they fall along it.
  */
 
@@ -25,6 +25,13 @@ const SWATCH_HEIGHT = 4;
 const RAMP_WIDTH = 160;
 /** Room a tick's label is centred in. */
 const TICK_WIDTH = 40;
+
+/** The colours cycled until their dashes and gaps cover a menu's width; the swatch clips the rest. */
+function repeatToWidth(runs: readonly string[], dash: readonly [number, number]): string[] {
+  const period = (dash[0] + dash[1]) * SWATCH_HEIGHT;
+  const count = Math.ceil(layout.mapLayersMenuWidth / period) + 1;
+  return Array.from({ length: count }, (_, i) => runs[i % runs.length] ?? '');
+}
 
 export function MapKey({
   isDark,
@@ -60,6 +67,7 @@ export function MapKeySwatch({
   dash,
   edge,
   label,
+  stretch = false,
   isDark,
   testID,
 }: {
@@ -78,19 +86,30 @@ export function MapKeySwatch({
   edge?: string | undefined;
   /** What the swatch stands for; left out where the row it sits in already names it. */
   label?: string | undefined;
+  /**
+   * Fill the width of the column it sits in rather than the fixed swatch
+   * width, so a line key spans the menu as a ramp does. A dashed line repeats
+   * its pattern across the width, so a dash and its gap keep the map's ratio.
+   */
+  stretch?: boolean;
   isDark?: boolean;
   testID?: string | undefined;
 }) {
   const runs = typeof swatch === 'string' ? [swatch] : swatch;
   return (
-    <View style={styles.row} testID={testID}>
+    <View style={[styles.row, stretch && styles.rowStretch]} testID={testID}>
       {dash || edge ? (
         <View
           testID="map-key-swatch"
-          style={[styles.edged, edge !== undefined && { backgroundColor: edge }]}
+          style={[
+            styles.edged,
+            stretch && styles.fill,
+            stretch && styles.clipped,
+            edge !== undefined && { backgroundColor: edge },
+          ]}
         >
           {dash ? (
-            runs.map((colour, i) => (
+            (stretch ? repeatToWidth(runs, dash) : runs).map((colour, i) => (
               <React.Fragment key={i}>
                 {i > 0 ? (
                   <View
@@ -109,7 +128,9 @@ export function MapKeySwatch({
               </React.Fragment>
             ))
           ) : (
-            <View style={[styles.line, styles.runs]}>
+            <View
+              style={[styles.line, styles.runs, stretch && styles.fill, stretch && styles.fillLine]}
+            >
               {runs.map((colour, i) => (
                 <View
                   key={i}
@@ -134,10 +155,18 @@ export function MapKeySwatch({
       ) : runs.length === 1 ? (
         <View
           testID="map-key-swatch"
-          style={[shape === 'dot' ? styles.dot : styles.line, { backgroundColor: runs[0] }]}
+          style={[
+            shape === 'dot' ? styles.dot : styles.line,
+            stretch && shape !== 'dot' && styles.fill,
+            stretch && shape !== 'dot' && styles.fillLine,
+            { backgroundColor: runs[0] },
+          ]}
         />
       ) : (
-        <View testID="map-key-swatch" style={[styles.line, styles.runs]}>
+        <View
+          testID="map-key-swatch"
+          style={[styles.line, styles.runs, stretch && styles.fill, stretch && styles.fillLine]}
+        >
           {runs.map((colour, i) => (
             <View key={i} testID="map-key-run" style={[styles.step, { backgroundColor: colour }]} />
           ))}
@@ -152,6 +181,7 @@ export function MapKeySwatch({
 
 export function MapKeyRamp({
   ramp,
+  label,
   ends,
   ticks,
   stretch = false,
@@ -160,6 +190,8 @@ export function MapKeyRamp({
 }: {
   /** The scale's colours, evenly spaced from one end to the other. */
   ramp: readonly string[];
+  /** What the scale measures, set above the bar. */
+  label?: string;
   /** What the two ends stand for. */
   ends?: readonly [string, string];
   isDark: boolean;
@@ -182,6 +214,7 @@ export function MapKeyRamp({
   const textStyle = [styles.text, isDark && styles.textDark];
   return (
     <View style={[styles.ramp, stretch && styles.rampStretch]} testID={testID}>
+      {label !== undefined ? <Text style={textStyle}>{label}</Text> : null}
       <View style={styles.rampBar}>
         {ramp.map((colour, i) => (
           <View
@@ -234,6 +267,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xsPlus,
+  },
+  rowStretch: {
+    alignSelf: 'stretch',
+  },
+  fill: {
+    flex: 1,
+  },
+  clipped: {
+    overflow: 'hidden',
+  },
+  fillLine: {
+    width: undefined,
   },
   line: {
     width: SWATCH_WIDTH,

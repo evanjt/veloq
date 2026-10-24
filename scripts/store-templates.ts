@@ -2,7 +2,8 @@
 // so a template can be read without rendering anything.
 import * as path from 'node:path';
 
-import { storeLayout, type StorePalette } from '@/shared/theme/storeTheme';
+import { storeLayout, type StorePalette } from './store-theme';
+import { trackLayer, trackSvg } from './store-tracks';
 
 const ROOT = path.resolve(__dirname, '..');
 // The app's own bundled faces, so a composite reads in the app's type and
@@ -13,8 +14,12 @@ const FONTS = path.join(ROOT, 'assets', 'fonts');
 const LOGO = path.join(ROOT, 'src', 'assets', 'logos', 'logo.svg');
 
 export interface Caption {
+  /** The screen's name, above the headline. Absent where a locale has none yet. */
+  kicker?: string;
   cap: string;
   sub: string;
+  /** A shot about a record or a milestone: its kicker takes the gold role. */
+  achievement?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -22,93 +27,85 @@ export interface Caption {
 // ---------------------------------------------------------------------------
 
 export interface Dims {
+  width: number;
+  height: number;
   pad: number;
   cap: number;
   sub: number;
-  rule: number;
+  kicker: number;
   devW: number;
   devR: number;
   bezel: number;
-  glow: number;
   headH: number;
 }
 
-export function dims(width: number, tablet: boolean): Dims {
+export function dims(width: number, height: number, tablet: boolean): Dims {
   const pad = Math.floor(width * storeLayout.padRatio);
   const cap = Math.floor(width * storeLayout.capRatio);
   const sub = Math.floor(cap * storeLayout.subRatio);
+  const kicker = Math.floor(cap * storeLayout.kickerRatio);
   return {
+    width,
+    height,
     pad,
     cap,
     sub,
-    rule: Math.max(4, Math.floor(width / 270)),
+    kicker,
     devW: Math.floor(width * (tablet ? storeLayout.deviceRatioTablet : storeLayout.deviceRatio)),
     devR: Math.floor(width * storeLayout.radiusRatio),
     bezel: Math.max(8, Math.floor(width / 108)),
-    glow: Math.floor(width * storeLayout.glowRatio),
-    // Two caption lines at line-height 1.04, the subcaption's 0.34em top
-    // margin, then two subcaption lines at 1.2. Two of each is the worst case
-    // any locale needs; reserving it keeps the rule at one height across the
-    // whole set.
-    headH: Math.round(2 * cap * 1.04 + cap * 0.34 + 2 * sub * 1.2),
-  };
-}
-
-// Left offsets and width for the rule's travelling position mark, as CSS
-// percents. The mark is one shot's share of the bar with breathing room, and
-// the last one ends flush with the right edge.
-export function markPositions(count: number): { offsets: string[]; width: string } {
-  const width = 81 / count;
-  const step = (100 - width) / (count - 1);
-  return {
-    offsets: Array.from({ length: count }, (_, i) => `${(i * step).toPrecision(4)}%`),
-    width: `${width.toPrecision(4)}%`,
+    // The kicker line, two headline lines at line-height 1.06, the subtitle's
+    // top margin, then two subtitle lines at 1.32. Two of each is the worst
+    // case any locale needs; reserving it keeps the device at one height
+    // across the whole set.
+    headH: Math.round(kicker * 1.4 + 2 * cap * 1.06 + cap * 0.26 + 2 * sub * 1.32),
   };
 }
 
 export function makeCss(p: StorePalette): string {
   return `
   @font-face { font-family: 'Store'; src: url('file://${FONTS}/Manrope-Bold.ttf'); font-weight: 700; }
+  @font-face { font-family: 'StoreKicker'; src: url('file://${FONTS}/Manrope-SemiBold.ttf'); font-weight: 600; }
   @font-face { font-family: 'StoreText'; src: url('file://${FONTS}/Manrope-Regular.ttf'); font-weight: 400; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: 100%; height: 100%; overflow: hidden; }
   body {
-    background: radial-gradient(140% 100% at 50% 0%, ${p.bg} 55%, ${p.edge} 100%);
+    position: relative;
+    background:
+      radial-gradient(70% 45% at 85% 62%, ${p.washGold} 0%, ${p.washGoldClear} 70%),
+      radial-gradient(80% 55% at 10% 80%, ${p.washBlue} 0%, ${p.washBlueClear} 70%),
+      linear-gradient(180deg, ${p.stageTop} 0%, ${p.stageBottom} 100%);
     font-family: 'StoreText', sans-serif;
   }
-  .canvas { width: 100%; height: 100%; display: flex; flex-direction: column; padding: var(--pad); }
+  .tracks { position: absolute; left: 0; top: 0; }
+  .canvas { position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; padding: var(--pad); }
+  .kicker {
+    font-family: 'StoreKicker', sans-serif;
+    font-weight: 600;
+    font-size: var(--kicker);
+    letter-spacing: 0.06em;
+    margin-bottom: calc(var(--kicker) * 0.5);
+  }
+  .kicker { color: ${p.kicker}; }
+  .kicker.gold { color: ${p.kickerAchievement}; }
   .caption {
     font-family: 'Store', sans-serif;
     font-weight: 700;
     font-size: var(--cap);
-    line-height: 1.04;
-    letter-spacing: 0.045em;
-    text-transform: uppercase;
+    line-height: 1.06;
+    letter-spacing: -0.015em;
     color: ${p.cap};
     white-space: pre-line;
   }
   .sub {
-    margin-top: calc(var(--cap) * 0.34);
+    margin-top: calc(var(--cap) * 0.26);
     font-size: var(--sub);
-    line-height: 1.2;
+    line-height: 1.32;
     font-weight: 400;
     color: ${p.sub};
-    letter-spacing: 0.01em;
   }
   .head { height: var(--headh); }
-  .rule {
-    margin-top: calc(var(--cap) * 0.52);
-    height: var(--rule);
-    background: ${p.ruleBase};
-    position: relative;
-  }
-  .rule::before {
-    content: '';
-    position: absolute; left: var(--mark, 0%); top: 0; bottom: 0;
-    width: var(--markw, 27%);
-    background: ${p.mark};
-  }
-  .stage { flex: 1; position: relative; margin-top: calc(var(--cap) * 0.62); }
+  .stage { flex: 1; position: relative; }
   .device {
     position: absolute;
     left: 50%;
@@ -117,37 +114,36 @@ export function makeCss(p: StorePalette): string {
     width: var(--devw);
     border-radius: var(--devr);
     padding: var(--bezel);
-    background: linear-gradient(160deg, ${p.bezelStart}, ${p.bezelEnd} 40%);
+    background: ${p.bezel};
     box-shadow: ${p.shadow};
   }
   .screen { display: block; width: 100%; border-radius: calc(var(--devr) - var(--bezel)); }
 `;
 }
 
-export function phoneHtml(
-  p: StorePalette,
-  d: Dims,
-  mark: string,
-  markW: string,
-  caption: Caption,
-  screen: string
-): string {
+function kickerHtml(caption: Caption): string {
+  if (!caption.kicker) return '';
+  return `<div class="kicker${caption.achievement ? ' gold' : ''}">${caption.kicker}</div>`;
+}
+
+export function phoneHtml(p: StorePalette, d: Dims, caption: Caption, screen: string): string {
+  const tracks = trackSvg(trackLayer(d.width, d.height), p.line, Math.max(2, d.width / 360));
   return `<!doctype html>
 <html><head><meta charset="utf-8"><style>
 ${makeCss(p)}
 :root {
-  --pad: ${d.pad}px; --cap: ${d.cap}px; --sub: ${d.sub}px; --rule: ${d.rule}px;
-  --mark: ${mark}; --markw: ${markW}; --headh: ${d.headH}px;
-  --devw: ${d.devW}px; --devr: ${d.devR}px; --bezel: ${d.bezel}px; --glow: ${d.glow}px;
+  --pad: ${d.pad}px; --cap: ${d.cap}px; --sub: ${d.sub}px; --kicker: ${d.kicker}px;
+  --headh: ${d.headH}px; --devw: ${d.devW}px; --devr: ${d.devR}px; --bezel: ${d.bezel}px;
 }
 </style></head>
 <body>
+  ${tracks}
   <div class="canvas">
     <div class="head">
+      ${kickerHtml(caption)}
       <div class="caption">${caption.cap}</div>
       <div class="sub">${caption.sub}</div>
     </div>
-    <div class="rule"></div>
     <div class="stage">
       <div class="device"><img class="screen" src="file://${screen}"></div>
     </div>
@@ -156,31 +152,40 @@ ${makeCss(p)}
 `;
 }
 
-export function featureHtml(p: StorePalette, tagline: string, screen: string): string {
+export const FEATURE_SIZE = { width: 1024, height: 500 };
+
+export function featureHtml(
+  p: StorePalette,
+  headline: string,
+  tagline: string,
+  screen: string
+): string {
+  const tracks = trackSvg(trackLayer(FEATURE_SIZE.width, FEATURE_SIZE.height), p.line, 2);
   return `<!doctype html>
 <html><head><meta charset="utf-8"><style>
 ${makeCss(p)}
-:root { --pad: 0px; --cap: 86px; --sub: 30px; --rule: 5px; --glow: 70px; --markw: 27%; }
+:root { --pad: 0px; --cap: 52px; --sub: 25px; }
 .canvas { flex-direction: row; align-items: center; padding: 0 64px; gap: 56px; }
 .left { flex: 1; }
-.logo { display: block; width: 168px; height: 168px; margin-left: -5px; }
-.left .rule { margin: 26px 0 22px; }
-.tagline { font-size: 31px; color: ${p.sub}; }
+.logo { display: block; width: 132px; height: 132px; margin-left: -4px; }
+.left .caption { margin-top: 30px; }
+.left .sub { margin-top: 12px; }
 .right { height: 100%; position: relative; width: 300px; flex: none; }
 .phone {
   position: absolute;
-  width: 240px; left: 30px; top: 52px;
+  width: 250px; left: 20px; top: 46px;
   border-radius: 30px;
-  border: 8px solid ${p.bezelStart};
+  border: 7px solid ${p.bezel};
   box-shadow: ${p.shadow};
 }
 </style></head>
 <body>
+  ${tracks}
   <div class="canvas">
     <div class="left">
       <img class="logo" src="file://${LOGO}">
-      <div class="rule"></div>
-      <div class="tagline">${tagline}</div>
+      <div class="caption">${headline}</div>
+      <div class="sub">${tagline}</div>
     </div>
     <div class="right"><img class="phone" src="file://${screen}"></div>
   </div>

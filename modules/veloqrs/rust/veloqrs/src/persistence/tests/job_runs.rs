@@ -261,3 +261,66 @@ fn a_sign_out_takes_the_last_runs_with_the_library() {
         "the next athlete to sign in does not inherit the last runs of a library that is gone"
     );
 }
+
+/// Stores `count` activities that each owe a stream series: a track and the
+/// metrics the queue prices them by, dated inside the retention window.
+fn owe_streams(engine: &PersistentEngine, count: u32) {
+    engine.db.execute_batch("BEGIN").unwrap();
+    for i in 0..count {
+        let id = format!("owed-{i}");
+        engine
+            .db
+            .execute(
+                "INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng, start_date)
+                 VALUES (?, 'Ride', 0, 0, 0, 0, strftime('%s', 'now') - 86400)",
+                rusqlite::params![id],
+            )
+            .unwrap();
+        engine
+            .db
+            .execute(
+                "INSERT INTO gps_tracks (activity_id, track_data, point_count) VALUES (?, X'00', 10)",
+                rusqlite::params![id],
+            )
+            .unwrap();
+        engine
+            .db
+            .execute(
+                "INSERT INTO activity_metrics
+                     (activity_id, name, date, distance, moving_time, elapsed_time,
+                      elevation_gain, sport_type)
+                 VALUES (?, 'r', 0, 0, 600, 600, 0, 'Ride')",
+                rusqlite::params![id],
+            )
+            .unwrap();
+    }
+    engine.db.execute_batch("COMMIT").unwrap();
+}
+
+/// Scenario: the library owes more streams than one day's allowance draws, and the
+/// athlete opens the jobs screen while the download waits.
+///
+/// Expected behaviour: the read carries the whole days the allowance takes, which
+/// is two for one request past a day's cap, and nothing once the queue is empty.
+#[test]
+fn a_library_owing_more_than_a_day_reports_the_days_it_takes() {
+    use crate::governor::{BACKFILL_ALLOWANCE, days_to_draw};
+
+    let engine = PersistentEngine::in_memory().unwrap();
+    assert_eq!(read(&engine).stream_days_to_finish, None);
+
+    let per_day = BACKFILL_ALLOWANCE.per_day.expect("a daily allowance");
+    owe_streams(&engine, per_day + 1);
+    let data = read(&engine);
+    assert_eq!(
+        data.stream_days_to_finish,
+        days_to_draw(u64::from(per_day) + 1, BACKFILL_ALLOWANCE)
+    );
+    assert_eq!(data.stream_days_to_finish, Some(2));
+
+    engine
+        .db
+        .execute("DELETE FROM gps_tracks", [])
+        .expect("the queue empties");
+    assert_eq!(read(&engine).stream_days_to_finish, None);
+}

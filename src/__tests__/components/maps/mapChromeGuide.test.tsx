@@ -102,6 +102,38 @@ describe.each(THEMES)('map chrome in the $name theme', ({ isDark, palette }) => 
     expect(label.lineHeight).toBe(typography.caption.lineHeight);
   });
 
+  it('fills the column a stretched key swatch sits in, plain or dashed', async () => {
+    await render(
+      <>
+        <MapKeySwatch testID="plain" stretch swatch={['#111111', '#222222']} isDark={isDark} />
+        <MapKeySwatch
+          testID="dashed"
+          stretch
+          swatch={['#111111', '#222222']}
+          dash={[3, 2]}
+          edge="#ffffff"
+          isDark={isDark}
+        />
+      </>
+    );
+    for (const id of ['plain', 'dashed']) {
+      expect(flat(screen.getByTestId(id)).alignSelf).toBe('stretch');
+    }
+    const [plain, dashed] = screen.getAllByTestId('map-key-swatch').map(flat);
+    expect(plain.width).toBeUndefined();
+    expect(plain.flex).toBe(1);
+    expect(dashed.flex).toBe(1);
+    expect(dashed.overflow).toBe('hidden');
+    const dashes = screen.getAllByTestId('map-key-dash').map(flat);
+    const gaps = screen.getAllByTestId('map-key-dash-gap').map(flat);
+    expect(dashes.length * 3 * 4 + gaps.length * 2 * 4).toBeGreaterThanOrEqual(240);
+    expect(dashes.map((d) => d.backgroundColor).slice(0, 3)).toEqual([
+      '#111111',
+      '#222222',
+      '#111111',
+    ]);
+  });
+
   it('draws a popup on the raised surface', async () => {
     await render(
       <MapPopup

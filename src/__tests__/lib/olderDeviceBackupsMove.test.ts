@@ -26,6 +26,7 @@ const mockSettings = new Map<string, string>();
 const mockFiles = new Map<string, string>();
 const mockShared = new Map<string, { from: string; mimeType: string; size: number }>();
 const mockNative: Record<string, jest.Mock> = {};
+const mockFailDelete = new Set<string>();
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => ({
@@ -60,6 +61,7 @@ jest.mock('expo-file-system/legacy', () => ({
     return content;
   },
   deleteAsync: async (uri: string) => {
+    if (mockFailDelete.delete(uri)) throw new Error(`The delete of ${uri} failed`);
     if (!uri.endsWith('/')) {
       mockFiles.delete(uri);
       return;
@@ -76,6 +78,16 @@ function seedBackup(id: string, timestamp: string): void {
 const privateBackups = () => [...mockFiles.keys()].filter((uri) => uri.startsWith(BACKUPS));
 const sharedNames = () => [...mockShared.keys()];
 
+/** The media store keeps a second file of the same display name under a numbered name. */
+function storedName(name: string): string {
+  if (!mockShared.has(name)) return name;
+  const dot = name.lastIndexOf('.');
+  for (let n = 1; ; n++) {
+    const candidate = `${name.slice(0, dot)} (${n})${name.slice(dot)}`;
+    if (!mockShared.has(candidate)) return candidate;
+  }
+}
+
 const os = Platform.OS;
 function onPlatform(platform: 'ios' | 'android'): void {
   Object.defineProperty(Platform, 'OS', { value: platform, configurable: true });
@@ -88,8 +100,9 @@ beforeEach(() => {
   for (const key of Object.keys(mockNative)) delete mockNative[key];
   mockNative.sharedDocumentsSupported = jest.fn(() => true);
   mockNative.writeSharedDocument = jest.fn(async (from: string, name: string, mimeType: string) => {
-    mockShared.set(name, { from, mimeType, size: mockFiles.get(`file://${from}`)?.length ?? 0 });
-    return name;
+    const stored = storedName(name);
+    mockShared.set(stored, { from, mimeType, size: mockFiles.get(`file://${from}`)?.length ?? 0 });
+    return stored;
   });
   mockNative.listSharedDocuments = jest.fn(async () =>
     [...mockShared].map(([name, file]) => ({ name, size: file.size }))
@@ -167,6 +180,22 @@ it('deletes each private file once its copy checks, and keeps the rest when a la
   expect(sharedNames()).toEqual([ZIP_OLD, `${ZIP_OLD}.meta.json`]);
   expect(privateBackups()).toHaveLength(4);
   expect(mockFiles.has(`${BACKUPS}${ZIP_OLD}`)).toBe(false);
+});
+
+it('does not copy again a file the shared folder already holds when its private delete failed', async () => {
+  mockFailDelete.add(`${BACKUPS}${ZIP_OLD}`);
+
+  await expect(moveOlderBackupsToSharedFolder()).rejects.toThrow('delete');
+  expect(sharedNames()).toEqual([ZIP_OLD]);
+
+  await moveOlderBackupsToSharedFolder();
+
+  expect(sharedNames()).toHaveLength(6);
+  expect(sharedNames().filter((name) => name.startsWith('veloq-2026-01-02'))).toEqual([
+    ZIP_OLD,
+    `${ZIP_OLD}.meta.json`,
+  ]);
+  expect(privateBackups()).toEqual([]);
 });
 
 it('keeps a private file whose shared copy does not match its size', async () => {

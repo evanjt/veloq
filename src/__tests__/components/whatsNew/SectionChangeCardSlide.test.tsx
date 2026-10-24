@@ -2,7 +2,6 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 import { SectionChangeCardSlide } from '@/features/settings/components/whatsNew/SectionChangeCardSlide';
 import { getEngine } from '@/shared/native/engine';
-import { getSlidesSince } from '@/features/settings/components/whatsNew/slides';
 
 import { routesStatus } from '../../__shared__/routesStatusStub';
 import { resolvedLocale } from '../../i18n/resolvedLocale';
@@ -47,14 +46,6 @@ describe('SectionChangeCardSlide', () => {
     expect(
       await (await render(<SectionChangeCardSlide />)).queryByTestId('change-card-row-ledger')
     ).toBeNull();
-  });
-
-  it('is registered as the 0.4.0 slide', () => {
-    const since038 = getSlidesSince('0.3.8');
-    expect(since038.some((s) => s.titleKey === 'whatsNew.v040.sectionsTitle')).toBe(true);
-    expect(getSlidesSince('0.4.0').some((s) => s.titleKey === 'whatsNew.v040.sectionsTitle')).toBe(
-      false
-    );
   });
 
   describe('the cutover outcome', () => {
@@ -224,7 +215,7 @@ describe('v040 sections body', () => {
 
   it.each(fs.readdirSync(dir))('states a rule and not a result of the run, in %s', (file) => {
     const locale = resolvedLocale(file.replace('.json', ''));
-    const body: string = locale.whatsNew.v040.sectionsBody;
+    const body: string = locale.whatsNew.v040.rebuiltBody;
     // The first-person-plural "now cut by" form is a claim about the run that a
     // failed re-analysis falsifies; the body states the detector's property.
     expect(body.split(/[.。]/).filter((s) => s.trim()).length).toBe(1);

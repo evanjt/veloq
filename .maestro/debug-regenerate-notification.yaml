@@ -1,0 +1,42 @@
+appId: com.veloq.app.dev
+name: Debug regenerate notification
+tags:
+  - tier3
+# Debug mode reposts an activity's notification from the engine's own text, so the
+# tray shows what a real push would. Run through scripts/with-maestro.sh with
+# ACTIVITY_ID (a demo activity) and NOTIFICATION_TEXT (the engine's body for it).
+# Notifications must be allowed for the app on the device.
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- openLink: "veloq:///settings"
+- extendedWaitUntil:
+    visible:
+      id: "settings-version-text"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "settings-version-text"
+    direction: DOWN
+- repeat:
+    times: 5
+    commands:
+      - tapOn:
+          id: "settings-version-text"
+- tapOn:
+    id: "settings-debug-switch"
+
+- openLink: "veloq://activity/${ACTIVITY_ID}"
+- extendedWaitUntil:
+    visible:
+      id: "activity-regenerate-notification"
+    timeout: 15000
+- tapOn:
+    id: "activity-regenerate-notification"
+
+- openNotifications
+- extendedWaitUntil:
+    visible: ".*${NOTIFICATION_TEXT}.*"
+    timeout: 10000
+- assertVisible: ".*${NOTIFICATION_TEXT}.*"

@@ -1,39 +1,37 @@
-Veloq liest dein intervals.icu-Konto und zeigt es auf deinem Handy: Aktivitäten, Karten, Diagramme, Fitness und Form. Die App sucht nach Routen und Abschnitten, die du wiederholst, und stellt jeden Versuch den früheren gegenüber. Die Analyse läuft auf deinem Gerät.
+Veloq zeigt dein intervals.icu-Training auf dem Handy und sucht nach Routen und Abschnitten, die du wiederholst. Die Analyse läuft auf deinem Gerät.
 
 <b>Aufzeichnung</b>
-Zeichne Fahrten, Läufe und andere Sportarten mit GPS, Auto-Pause und Splits in deinen eigenen Einheiten auf. Verbinde Bluetooth-Sensoren für Herzfrequenz, Leistung und Trittfrequenz, oder folge einem geplanten Training aus deinem intervals.icu-Kalender mit den Zielen auf dem Bildschirm. Schneide Anfang und Ende vor dem Speichern zu und lade eine FIT-Datei hoch, oder stelle sie in die Warteschlange, bis du Empfang hast. Indoor-Einheiten lassen sich von Hand eintragen. Starte eine Aufzeichnung über ein Widget auf dem Startbildschirm oder eine Kachel in den Schnelleinstellungen.
+Zeichne Radfahrten, Läufe und andere Sportarten mit GPS, Bluetooth-Sensoren oder einem geplanten Training auf.
 
 <b>Einblicke</b>
-Ein kurzer Blick auf dein Training: Abschnittsbestzeiten und Trends, Fitness-Meilensteine, wie diese Woche im Vergleich zur letzten liegt, HRV-Trends und Kraftfortschritt. Jeder Einblick öffnet sich mit seinen Zahlen und wie sie berechnet wurden.
+Kurze Auswertungen deines Trainings, jede mit ihren Zahlen und dem Rechenweg dahinter.
 
 <b>Karten</b>
-Interaktive Karten mit 3D-Gelände, Routen-Heatmaps und einer filterbaren Zeitleiste, in hellem, dunklem und Satellitenstil. Fahre an einem Diagramm entlang, und deine Position wandert über die Karte.
+Interaktive Karten mit 3D-Gelände, Routen-Heatmaps sowie hellen, dunklen und Satellitenstilen.
 
 <b>Routen und Abschnitte</b>
-Veloq sucht nach den Routen und Abschnitten, die du wiederholst, ohne dass du etwas einrichten musst, und schneidet sie auf jedem Gerät gleich. Eine Abschnittsseite vergleicht jeden Versuch: den Trend, die Streuung deiner Zeiten und die Linie, eingefärbt danach, wo Zeit gewonnen oder verloren wurde. Hefte einen Abschnitt an, kürze, verlängere oder benenne ihn um, und jede Änderung behält einen Verlauf, den du zurücksetzen kannst.
+Vergleiche jeden Versuch auf den Routen und Abschnitten, die du wiederholst, und hefte sie an, kürze oder benenne sie um.
 
 <b>Diagramme</b>
-Herzfrequenz, Leistung, Pace, Höhe und Trittfrequenz auf einer Zeitachse mit der Karte. Zonenverteilungen, Trainingsbelastung, Intensität und Rundenübersichten.
+Herzfrequenz, Leistung, Tempo, Höhe und Trittfrequenz auf einer Zeitachse mit der Karte.
 
 <b>Fitness</b>
-Fitness, Ermüdung und Form in einem Diagramm mit eingezeichneten Zonen. HRV, Ruhepuls, Schlaf und Wohlbefinden sowie Leistungs- und Pace-Kurven für jede Sportart.
+Fitness, Ermüdung und Form mit eingezeichneten Zonen, dazu HRV, Ruheherzfrequenz und Schlaf.
 
 <b>Kraft</b>
-Die Kraftsätze in deinen Aktivitäten auf einem Körperdiagramm: welche Muskelgruppen jede Einheit beansprucht hat, die Balance zwischen gegenüberliegenden Gruppen und die Entwicklung jeder Übung.
+Deine Kraftsätze auf einem Körperdiagramm, nach Muskelgruppe und Übung.
 
 <b>Widgets</b>
-Widgets auf dem Startbildschirm für deine Fitness und Form, deine letzte Aktivität, deine neuesten Einblicke und dein Krafttraining, im Hintergrund aktualisiert.
+Widgets für den Home-Bildschirm mit Fitness und Form, deiner letzten Aktivität und deinen Einblicken.
 
 <b>Benachrichtigungen</b>
-Wenn intervals.icu eine neue Aktivität erhält, kann Veloq eine Benachrichtigung senden, die die Route und etwaige Bestzeiten nennt, in deiner Sprache. Benachrichtigungen bleiben aus, bis du sie einschaltest.
+Eine Benachrichtigung mit Routenname und etwaigen Bestleistungen, wenn eine neue Aktivität eintrifft. Aus, bis du sie einschaltest.
 
 <b>Sicherungen</b>
-Sichere deine Einstellungen und Abschnittsentscheidungen in einer kleinen Datei, von Hand oder automatisch. Bewahre sie in der eigenen Gerätesicherung auf, oder füge einen WebDAV-Server, einen Ordner oder einen Cloud-Speicher hinzu. Eine Wiederherstellung lädt deine Aktivitäten neu und wendet deine Entscheidungen an, wo sie passen.
+Sichere deine Einstellungen und Abschnittsentscheidungen in einer Datei, einem Ordner, einem Cloud-Laufwerk oder auf einem WebDAV-Server.
 
 <b>Datenschutz</b>
 Deine Trainingsdaten bleiben auf deinem Gerät. Keine Analytics, kein Tracking. Optionale Push-Benachrichtigungen speichern deine intervals.icu-Athleten-ID und ein Geräte-Token auf unserem Server, die nach 30 Tagen automatisch gelöscht werden. Open Source unter Apache 2.0.
-
-Barrierefreiheit: Screenreader-Beschriftungen für jedes Bedienelement, Text, der deiner Systemschriftgröße folgt, und Farbkontrast nach den AA-Verhältnissen im hellen und dunklen Design.
 
 Unterstützt Radfahren, Laufen, Schwimmen und 20+ Aktivitätstypen. Teste den integrierten Demomodus, um die App ohne Konto zu erkunden.
 

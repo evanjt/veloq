@@ -99,11 +99,16 @@ function sharedMimeType(name: string): string {
 
 /**
  * Copy one file to the shared folder and check the copy by size against the
- * folder's own listing, so a copy the media store wrote short fails here.
+ * folder's own listing, so a copy the media store wrote short fails here. A
+ * file the folder already holds at the same name and size is an earlier copy
+ * whose private delete failed, so it is not written again: the media store
+ * would keep the second one under a numbered name.
  */
 async function copyChecked(source: string, name: string): Promise<void> {
   const info = await FileSystem.getInfoAsync(source);
   if (!info.exists) throw new Error(`Backup file not found: ${name}`);
+  const held = await listSharedFolder();
+  if (held.some((file) => file.name === name && file.size === info.size)) return;
   const written = await writeToSharedFolder(source, name, sharedMimeType(name));
   const listed = await listSharedFolder();
   if (!listed.some((file) => file.name === written && file.size === info.size)) {

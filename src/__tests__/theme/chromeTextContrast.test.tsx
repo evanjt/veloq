@@ -24,9 +24,6 @@ import { colors, darkColors } from '@/theme';
 
 import { AA_TEXT, composite, contrastRatio, renderedTextColour } from '../__shared__/contrast';
 
-// A tab's glyph is decoration, hidden from the screen reader, so a query reaches it only here.
-const HIDDEN = { includeHiddenElements: true };
-
 jest.mock('expo-haptics', () => ({
   ...jest.requireActual('expo-haptics'),
   selectionAsync: jest.fn(() => Promise.resolve()),
@@ -82,8 +79,8 @@ afterEach(() => {
 });
 
 describe('the bottom tab bar', () => {
-  // The bar is opaque, so what lands behind a label or a glyph is its surface, or on Android the
-  // selected glyph's indicator tint composited over that surface.
+  // The bar is opaque, so what lands behind a label or a glyph is its surface, and the cap over
+  // the selected glyph is that same surface.
   const MARK = 3;
   const originalOS = Platform.OS;
 
@@ -113,10 +110,13 @@ describe('the bottom tab bar', () => {
     }
   );
 
-  it.each(THEMES)(
-    'glyphs clear 3:1 on its surface in the $name theme, selected and not',
-    async (theme) => {
-      Platform.OS = 'ios';
+  const PLATFORMS = ['ios', 'android'] as const;
+  const CASES = PLATFORMS.flatMap((os) => THEMES.map((theme) => ({ os, theme, name: theme.name })));
+
+  it.each(CASES)(
+    'glyphs clear 3:1 on its surface on $os in the $name theme, selected and not',
+    async ({ os, theme }) => {
+      Platform.OS = os;
       mockIsDark = theme.isDark;
       const { getByTestId, UNSAFE_getByProps } = await render(<BottomTabBar />);
       const ground = surfaceOf(getByTestId);
@@ -130,21 +130,6 @@ describe('the bottom tab bar', () => {
       });
 
       expect(failing).toStrictEqual([]);
-    }
-  );
-
-  it.each(THEMES)(
-    'the selected glyph clears 3:1 on its Android indicator in the $name theme',
-    async (theme) => {
-      Platform.OS = 'android';
-      mockIsDark = theme.isDark;
-      const { getByTestId, UNSAFE_getByProps } = await render(<BottomTabBar />);
-      const tint = StyleSheet.flatten(getByTestId('bottom-tab-feed-indicator', HIDDEN).props.style);
-      const ground = composite(tint.backgroundColor, surfaceOf(getByTestId));
-
-      expect(
-        contrastRatio(UNSAFE_getByProps({ testID: 'bottom-tab-feed-glyph' }).props.color, ground)
-      ).toBeGreaterThanOrEqual(MARK);
     }
   );
 });

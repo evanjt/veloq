@@ -156,6 +156,26 @@ fn promotion_keeps_the_archived_state_drawable() {
     assert_eq!(drawn(&engine, "s_auto", version), ride(7.0)[0..12].to_vec());
 }
 
+/// Scenario: an upgrade took a copy of the library for the cutover that
+/// follows it, and the cutover is promoted in the same session.
+/// Expected behaviour: the promotion removes the copy, so it does not wait for
+/// the next launch.
+#[test]
+fn promotion_releases_the_copy_the_upgrade_held_for_it() {
+    let dir = TempDir::new().expect("tempdir");
+    let engine = library(&dir, "promote_copy.db");
+    let copy = dir.path().join("promote_copy.db.pre-upgrade-12");
+    let copy = copy.to_string_lossy().into_owned();
+    std::fs::write(&copy, b"the library before the upgrade").expect("write copy");
+    crate::persistence::pre_upgrade_copy::record(&engine.db, &copy).expect("record");
+    engine.archive_current_catalogue().expect("archive");
+
+    let diff = engine.build_cutover_diff().expect("diff");
+    engine.finish_cutover(&diff).expect("promote");
+
+    assert!(!std::path::Path::new(&copy).exists());
+}
+
 /// Scenario: a run dies after the archive and the next launch retries, once
 /// and then again.
 /// Expected behaviour: each retry reuses the states the first run wrote, and

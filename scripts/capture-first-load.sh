@@ -35,7 +35,7 @@ while [ "$SECONDS" -lt "$end" ]; do
   date -u +%Y-%m-%dT%H:%M:%SZ > "$dir/time"
 
   # One tar keeps the main file and its write-ahead log as close together as a copy can.
-  adb exec-out run-as "$APP_ID" sh -c 'cd files && tar cf - routes.db routes.db-wal routes.db-shm 2>/dev/null' \
+  adb exec-out run-as "$APP_ID" sh -c 'cd files && tar cf - routes.db routes.db-wal routes.db-shm routes.db-journal 2>/dev/null' \
     | tar xf - -C "$dir" 2>/dev/null || true
 
   # A screenshot of another app is a breach, not a wasted frame: read the focus first.
