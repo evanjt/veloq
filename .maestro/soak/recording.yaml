@@ -1,0 +1,37 @@
+# Soak: a ride started, its live map shown, then stopped and discarded, CYCLES times.
+appId: com.veloq.app.dev
+tags:
+  - soak
+---
+- runFlow: launch.yaml
+- repeat:
+    times: ${CYCLES}
+    commands:
+      - runFlow: ../helpers/discard-recording.yaml
+      - tapOn:
+          id: "record-fab"
+      - runFlow:
+          when:
+            visible: "(?i)discard"
+          commands:
+            - tapOn: "(?i)discard"
+      - runFlow:
+          file: ../helpers/choose-sport.yaml
+          env:
+            SPORT: Ride
+      - runFlow:
+          file: ../helpers/start-from-entry.yaml
+          env:
+            SPORT: Ride
+            ARMED: "true"
+      - extendedWaitUntil:
+          visible:
+            id: "recording-timer"
+          timeout: 10000
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - assertNotVisible:
+          id: "map-unavailable"
+      - runFlow: ../helpers/unlock-recording.yaml
+      - runFlow: ../helpers/end-recording.yaml
+      - runFlow: ../helpers/discard-recording.yaml

@@ -593,6 +593,7 @@
       "busy": "Algo más estaba usando la base de datos. Vuelve a intentarlo en un momento.",
       "forwardSchema": "Estos datos los guardó una versión más reciente de Veloq. Actualiza la app para abrirlos.",
       "storageUnavailable": "No se pudo escribir la base de datos. Libera espacio y vuelve a intentarlo.",
+      "storageShortfall": "Actualizar tu biblioteca necesita {{needed}} libres en este dispositivo. Libera espacio y vuelve a intentarlo.",
       "failed": "No se pudo abrir tu biblioteca de actividades por un motivo que la app no puede nombrar. Sigue en tu dispositivo, intacta.",
       "versionMismatch": "No se pudieron abrir estos datos. Siguen en tu dispositivo: pide ayuda en el foro desde Ajustes."
     },
@@ -1833,6 +1834,7 @@
     "setAsReferenceConfirm": "¿Usar esta actividad como referencia?\n\nLa línea de la sección seguirá esta actividad y la vista Por delante o por detrás medirá el tiempo de ventaja o desventaja respecto a ella.\n\nLa sección se volverá a comparar con todas tus actividades, lo que puede añadir o quitar algunas.",
     "setReferenceError": "No se pudo establecer la referencia. La sección o actividad puede haber cambiado. Por favor, inténtalo de nuevo.",
     "editBounds": "Editar límites",
+    "showOnMap": "Ver en el mapa",
     "pointsCount_one": "{{count}} punto",
     "pointsCount_other": "{{count}} puntos",
     "resetBounds": "Restaurar original",
@@ -2645,6 +2647,7 @@
     "tipSmall": "Pequeña",
     "tipMedium": "Mediana",
     "tipLarge": "Grande",
+    "tipNote": "Una propina es una donación. No desbloquea nada: Veloq es gratis para todos.",
     "shareCrashLog": "Compartir registro de errores",
     "noCrashLog": "No se registraron fallos"
   },

@@ -10,6 +10,7 @@
     "VeloqEngine.dashboardData",
     "VeloqEngine.getStats",
     "VeloqEngine.initOutcome",
+    "VeloqEngine.initStorageShortfall",
     "VeloqEngine.launchData",
     "setInteracting"
   ],
@@ -146,6 +147,7 @@
     "VeloqEngine.getActivitiesNeedingTimeStreams",
     "VeloqEngine.getStats",
     "VeloqEngine.initOutcome",
+    "VeloqEngine.initStorageShortfall",
     "VeloqEngine.isInitialized",
     "VeloqEngine.markForRecomputation",
     "VeloqEngine.runClearAll",
@@ -239,6 +241,7 @@
     "VeloqEngine.destroy",
     "VeloqEngine.getStats",
     "VeloqEngine.initOutcome",
+    "VeloqEngine.initStorageShortfall",
     "VeloqEngine.isInitialized",
     "VeloqEngine.releaseMemory",
     "VeloqEngine.runClearAll",

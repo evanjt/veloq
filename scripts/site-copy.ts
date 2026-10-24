@@ -40,21 +40,21 @@ export interface ListingSection {
 }
 
 /**
- * The feature cards in the order the description's sections run in every
- * locale, each with the key its translations use and its icon.
+ * The feature rows in the order the description's sections run in every
+ * locale, each with the key its translations use.
  */
-export const FEATURE_CARDS: { key: string; icon: string }[] = [
-  { key: 'record', icon: '&#9201;' },
-  { key: 'insights', icon: '&#128161;' },
-  { key: 'maps', icon: '&#127758;' },
-  { key: 'routes', icon: '&#128736;' },
-  { key: 'charts', icon: '&#128200;' },
-  { key: 'fitness', icon: '&#128170;' },
-  { key: 'strength', icon: '&#127947;' },
-  { key: 'widgets', icon: '&#128241;' },
-  { key: 'notifications', icon: '&#128276;' },
-  { key: 'backups', icon: '&#128190;' },
-  { key: 'privacy', icon: '&#128274;' },
+export const FEATURE_CARDS: { key: string }[] = [
+  { key: 'record' },
+  { key: 'insights' },
+  { key: 'maps' },
+  { key: 'routes' },
+  { key: 'charts' },
+  { key: 'fitness' },
+  { key: 'strength' },
+  { key: 'widgets' },
+  { key: 'notifications' },
+  { key: 'backups' },
+  { key: 'privacy' },
 ];
 
 /**
@@ -117,10 +117,9 @@ export function syncSiteFeatures(html: string, sections: Record<string, ListingS
   }));
   const close = grid[3] ?? '';
   const indent = close.slice(1, close.indexOf('<'));
-  const cards = cardSections('en', sections.en).map(({ key, icon, title, body }) =>
+  const cards = cardSections('en', sections.en).map(({ key, title, body }) =>
     [
       `${indent}<div class="feature">`,
-      `${indent}  <div class="feature-icon">${icon}</div>`,
       `${indent}  <h3 data-i18n="features.${key}.title">${escapeHtml(title)}</h3>`,
       `${indent}  <p data-i18n="features.${key}.desc">${escapeHtml(body)}</p>`,
       `${indent}</div>`,

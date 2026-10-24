@@ -54,6 +54,7 @@ import { useMapSheetCardAddress, useMapSheetHostHeader } from '@/shared/app/MapS
 import { useOpenDetail } from '@/shared/app/MapSheetCards';
 import { useMapSheetStop } from '@/shared/app/mapSheetStop';
 import { overMapHeaderOptions } from '@/shared/app/screenHeaders';
+import { navigateTab } from '@/shared/app/navigation';
 import { useReadRetry } from '@/shared/native/useEngineSubscription';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
 import { Button, EmptyState, ErrorState, HeroStatsRow, useBottomClearance } from '@/shared/ui';
@@ -276,9 +277,13 @@ function SectionDetailCardContent({ id, activityId: navActivityId }: SectionDeta
   // The bounds are edited on the map, so a section with no line to edit offers nothing to start.
   const canEditBounds = !!section?.polyline?.length;
   const startTrim = canEditBounds ? enterTool : undefined;
+  const showOnMap = useCallback(
+    () => navigateTab({ pathname: '/map', params: { section: id } }),
+    [id]
+  );
 
   // The header floats over the map the sheet leaves, named after the section. Its overflow menu
-  // holds the section's actions, Edit bounds first.
+  // holds the section's actions, Show on map first, then Edit bounds.
   const sectionType = section?.sectionType;
   const headerOptions = useMemo(() => {
     const options = overMapHeaderOptions({ title: heroTitle, isDark });
@@ -294,6 +299,7 @@ function SectionDetailCardContent({ id, activityId: navActivityId }: SectionDeta
           onDelete={handleDeleteSection}
           onToggleDisable={handleToggleDisable}
           onRematch={handleRematchActivities}
+          onShowOnMap={showOnMap}
           onEditBounds={startTrim}
           tint={options.headerTintColor}
         />
@@ -309,6 +315,7 @@ function SectionDetailCardContent({ id, activityId: navActivityId }: SectionDeta
     handleDeleteSection,
     handleToggleDisable,
     handleRematchActivities,
+    showOnMap,
     startTrim,
   ]);
   useMapSheetHostHeader(headerOptions);

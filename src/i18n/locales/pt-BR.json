@@ -593,6 +593,7 @@
       "busy": "Outra coisa estava usando o banco de dados. Tente de novo em instantes.",
       "forwardSchema": "Estes dados foram salvos por uma versão mais nova do Veloq. Atualize o app para abri-los.",
       "storageUnavailable": "Não foi possível gravar o banco de dados. Libere espaço e tente de novo.",
+      "storageShortfall": "Atualizar sua biblioteca precisa de {{needed}} livres neste dispositivo. Libere espaço e tente de novo.",
       "failed": "Não foi possível abrir a sua biblioteca de atividades por um motivo que o app não consegue nomear. Ela continua intacta no seu dispositivo.",
       "versionMismatch": "Não foi possível abrir estes dados. Eles continuam no seu dispositivo: peça ajuda no fórum em Configurações."
     },
@@ -1828,6 +1829,7 @@
     "setAsReferenceConfirm": "Usar esta atividade como referência?\n\nA linha do trecho seguirá esta atividade, e a visualização À frente ou atrás medirá o tempo à frente ou atrás em relação a ela.\n\nO trecho será novamente comparado com todas as suas atividades, o que pode adicionar ou remover algumas.",
     "setReferenceError": "Falha ao definir referência. A seção ou atividade pode ter mudado. Por favor, tente novamente.",
     "editBounds": "Editar limites",
+    "showOnMap": "Mostrar no mapa",
     "pointsCount_one": "{{count}} ponto",
     "pointsCount_other": "{{count}} pontos",
     "resetBounds": "Restaurar original",
@@ -2629,6 +2631,7 @@
     "tipSmall": "Pequena",
     "tipMedium": "Média",
     "tipLarge": "Grande",
+    "tipNote": "Uma gorjeta é uma doação e não desbloqueia nada. O Veloq é gratuito para todos.",
     "shareCrashLog": "Compartilhar registro de falhas",
     "noCrashLog": "Nenhuma falha registrada"
   },

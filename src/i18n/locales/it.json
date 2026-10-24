@@ -593,6 +593,7 @@
       "busy": "Qualcos'altro stava usando il database. Riprova tra un momento.",
       "forwardSchema": "Questi dati sono stati salvati da una versione più recente di Veloq. Aggiorna l'app per aprirli.",
       "storageUnavailable": "Non è stato possibile scrivere il database. Libera spazio e riprova.",
+      "storageShortfall": "L'aggiornamento della tua libreria richiede {{needed}} liberi su questo dispositivo. Libera spazio e riprova.",
       "failed": "Impossibile aprire la tua libreria di attività per un motivo che l'app non sa indicare. È ancora sul dispositivo, intatta.",
       "versionMismatch": "Impossibile aprire questi dati. Sono ancora sul dispositivo: chiedi aiuto sul forum da Impostazioni."
     },
@@ -1833,6 +1834,7 @@
     "setAsReferenceConfirm": "Usare questa attività come riferimento?\n\nLa linea della sezione seguirà questa attività e la vista Avanti o indietro misurerà il vantaggio o il ritardo rispetto a essa.\n\nLa sezione verrà riconfrontata con tutte le tue attività, il che potrebbe aggiungerne o rimuoverne alcune.",
     "setReferenceError": "Impossibile impostare il riferimento. La sezione o l'attività potrebbe essere cambiata. Per favore riprova.",
     "editBounds": "Modifica limiti",
+    "showOnMap": "Mostra sulla mappa",
     "pointsCount_one": "{{count}} punto",
     "pointsCount_other": "{{count}} punti",
     "resetBounds": "Ripristina originale",
@@ -2645,6 +2647,7 @@
     "tipSmall": "Piccola",
     "tipMedium": "Media",
     "tipLarge": "Grande",
+    "tipNote": "Una mancia è una donazione e non sblocca nulla. Veloq è gratuita per tutti.",
     "shareCrashLog": "Condividi il log dei crash",
     "noCrashLog": "Nessun crash registrato"
   },

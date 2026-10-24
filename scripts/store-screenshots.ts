@@ -18,7 +18,7 @@
  * runs the captures, this, and --install, in that order.
  *
  * Raw captures land in artifacts/store/raw/{android,ios,ipad}/<locale>/ named
- * 01-feed.png .. 06-insights.png (see .maestro/store-capture.yaml), and stay
+ * <stem>.png for the stems in scripts/store-shots.ts (see .maestro/store-capture.yaml), and stay
  * out of git. Play composites use Android captures, App Store composites use
  * iOS captures, never crossed. Output goes to artifacts/store/, and --install
  * writes it into config/fastlane/, replacing whole per-locale sets because
@@ -35,6 +35,7 @@ import * as path from 'node:path';
 
 import { syncSiteCopy, syncSiteGallery, type SiteShot } from './site-copy';
 import { captureLocales, type CaptureLocale } from './store-locales';
+import { CAPTURED_STEMS, SHOT_LAYOUTS, shotsFor, STORE_SHOTS } from './store-shots';
 import { dims, featureHtml, FEATURE_SIZE, phoneHtml, type Caption } from './store-templates';
 import { storePalette, type StorePalette } from './store-theme';
 import { readImageInfo } from './validate-store-metadata';
@@ -70,7 +71,9 @@ const RAW_SIZES: Partial<Record<Target, { width: number; height: number }>> = {
 // scripts/site-copy.ts reads the site's English text from.
 const WEB_LOCALE = 'en-AU';
 
-export const SHOT_STEMS = [
+// The website's strip, which has its own images under docs/screenshots and
+// follows the store captures only once those are retaken from the shot list.
+export const WEB_STEMS = [
   '01-feed',
   '02-activity',
   '03-fitness',
@@ -78,7 +81,8 @@ export const SHOT_STEMS = [
   '05-routes',
   '06-insights',
 ];
-const IPAD_SHOTS = 3;
+
+const DEVICE_KIND = { play: 'android', appstore: 'iphone', ipad: 'ipad' } as const;
 
 // Captions keyed by Play locale, pre-broken with \n (CSS white-space:
 // pre-line). Subcaptions describe what is on screen: no absolutes, no speed
@@ -442,6 +446,15 @@ function rawPlatform(target: Target): string {
   return 'android'; // play, feature, web
 }
 
+/** The raw captures a target is built from, in shot order. */
+function captureStems(target: Target): readonly string[] {
+  if (target === 'web') return WEB_STEMS;
+  if (target === 'feature') return CAPTURED_STEMS;
+  return shotsFor(target)
+    .filter((shot) => shot.source === 'captured')
+    .map((shot) => shot.stem);
+}
+
 /**
  * A locale's raw captures for one target, in shot order. Play gets Android
  * captures, the App Store gets iOS captures. Throwing on a missing capture is
@@ -450,7 +463,9 @@ function rawPlatform(target: Target): string {
  */
 export function rawCaptures(target: Target, rawRoot: string, locale: string, count: number) {
   const dir = path.join(rawRoot, rawPlatform(target), locale);
-  const files = SHOT_STEMS.slice(0, count).map((stem) => path.join(dir, `${stem}.png`));
+  const files = captureStems(target)
+    .slice(0, count)
+    .map((stem) => path.join(dir, `${stem}.png`));
   const missing = files.filter((f) => !fs.existsSync(f));
   if (missing.length > 0) {
     throw new Error(
@@ -482,17 +497,25 @@ function rawRoot(): string {
 function buildLocale(locale: string, palette: StorePalette, targets: Target[]): void {
   const strings = CAPTIONS[locale];
   if (!strings) throw new Error(`No captions for locale ${locale}`);
+  // Captions are positional, so a set written for another shot list would
+  // label each shot with the wrong text.
+  if (strings.shots.length !== STORE_SHOTS.length) {
+    throw new Error(
+      `${locale} has ${strings.shots.length} captions for ${STORE_SHOTS.length} shots in the list`
+    );
+  }
 
   for (const target of targets.filter((t) => t === 'play' || t === 'appstore' || t === 'ipad')) {
     const size = SIZES[target];
-    const count = target === 'ipad' ? IPAD_SHOTS : SHOT_STEMS.length;
-    const raws = rawCaptures(target, rawRoot(), locale, count);
-    const d = dims(size.width, size.height, target === 'ipad');
+    const stems = captureStems(target);
+    const raws = rawCaptures(target, rawRoot(), locale, stems.length);
+    const d = dims(size.width, size.height, DEVICE_KIND[target]);
     console.log(`${locale} ${target}`);
     raws.forEach((raw, i) => {
-      const caption = strings.shots[i];
-      if (caption === undefined) throw new Error(`${locale} has no caption for shot ${i + 1}`);
-      const html = phoneHtml(palette, d, caption, raw);
+      const stem = stems[i] ?? '';
+      const caption = strings.shots[STORE_SHOTS.findIndex((shot) => shot.stem === stem)];
+      if (caption === undefined) throw new Error(`${locale} has no caption for shot ${stem}`);
+      const html = phoneHtml(palette, d, caption, raw, SHOT_LAYOUTS[stem] ?? 'whole');
       const tmpPng = path.join(STORE, target, locale, `${String(i + 1).padStart(2, '0')}.png`);
       render(html, size.width, size.height, tmpPng);
       toJpeg(tmpPng, tmpPng.replace(/\.png$/, '.jpg'), palette.stageTop);
@@ -524,7 +547,7 @@ function buildLocale(locale: string, palette: StorePalette, targets: Target[]): 
 export function webShots(): SiteShot[] {
   const strings = CAPTIONS[WEB_LOCALE];
   if (!strings) throw new Error(`No captions for locale ${WEB_LOCALE}`);
-  return SHOT_STEMS.map((stem, i) => {
+  return WEB_STEMS.map((stem, i) => {
     const caption = strings.shots[i];
     if (!caption) throw new Error(`${WEB_LOCALE} has no caption for shot ${i + 1}`);
     return { file: `${stem}.png`, caption: caption.cap.replace(/\n/g, ' ') };
@@ -532,7 +555,7 @@ export function webShots(): SiteShot[] {
 }
 
 function buildWeb(): void {
-  const raws = rawCaptures('web', rawRoot(), WEB_LOCALE, SHOT_STEMS.length);
+  const raws = rawCaptures('web', rawRoot(), WEB_LOCALE, WEB_STEMS.length);
   const shots = webShots();
   const dir = path.join(ROOT, 'docs', 'screenshots');
   console.log('web');

@@ -35,4 +35,4 @@ Seus dados de treino ficam no seu dispositivo. Sem análises, sem rastreamento. 
 
 Compatível com ciclismo, corrida, natação e mais de 20 tipos de atividade. Experimente o modo demo integrado para explorar sem criar uma conta.
 
-Requer uma conta intervals.icu para dados em tempo real. Não é afiliado ao intervals.icu.
+Requer uma conta intervals.icu para dados em tempo real. Requer iOS 16.4 ou posterior. Não é afiliado ao intervals.icu.

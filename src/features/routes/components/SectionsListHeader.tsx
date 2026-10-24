@@ -11,6 +11,9 @@ import { isElevationHold, type DetectionHold } from '@/features/routes/hooks/use
 import { rescanRefusalKey } from '@/features/routes/lib/rescanRefusal';
 import type { StartVerdict } from 'veloqrs';
 import type { ElevationBackfillState } from '@/features/routes/hooks/useElevationBackfill';
+import type { CUTOVER_FAILURE_KEYS } from '@/features/routes/lib/cutoverPhaseKeys';
+
+type CutoverFailure = (typeof CUTOVER_FAILURE_KEYS)[keyof typeof CUTOVER_FAILURE_KEYS];
 
 interface SectionsListHeaderProps {
   searchQuery: string;
@@ -22,6 +25,8 @@ interface SectionsListHeaderProps {
   isScanning: boolean;
   /** Why the engine is refusing to detect, or null when it is not. */
   detectionHold: DetectionHold;
+  /** The settled failure of the section rebuild, or null when it has not failed. */
+  cutoverFailure?: CutoverFailure | null | undefined;
   /** The elevation download this page reports for the length of the migration. */
   elevationBackfill?: ElevationBackfillState | undefined;
   /** How the engine answered the last rescan, when it refused it. */
@@ -39,6 +44,7 @@ export function SectionsListHeader({
   acceptAllResult,
   isScanning,
   detectionHold,
+  cutoverFailure = null,
   elevationBackfill,
   rescanRefusal = null,
   onAcceptAll,
@@ -162,6 +168,18 @@ export function SectionsListHeader({
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
           <Text style={[styles.pausedText, isDark && styles.pausedTextDark]}>{t(refusalKey)}</Text>
+        </View>
+      )}
+      {cutoverFailure !== null && (
+        <View style={styles.pausedRow} testID="cutover-failed">
+          <Icon
+            name="alert-circle-outline"
+            size={iconSize.xs}
+            color={isDark ? darkColors.errorText : colors.errorText}
+          />
+          <Text style={[styles.pausedText, isDark && styles.pausedTextDark]}>
+            {t(cutoverFailure.status)}
+          </Text>
         </View>
       )}
       {detectionHold !== null && (

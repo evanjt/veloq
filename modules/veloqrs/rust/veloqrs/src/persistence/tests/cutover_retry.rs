@@ -506,6 +506,10 @@ fn run_with(
     )
 }
 
+fn answering_nothing() -> impl Fn(u64) -> Option<Box<dyn super::CutoverWorker>> {
+    |_install| Some(Box::new(Answers(std::sync::Mutex::new(None))) as Box<dyn super::CutoverWorker>)
+}
+
 fn live_section_ids() -> Vec<String> {
     crate::persistence::with_persistent_engine(|e| {
         let mut stmt =
@@ -555,65 +559,285 @@ fn found_section(line: &[tracematch::GpsPoint]) -> crate::FrequentSection {
     }
 }
 
-/// Scenario: the cold detect answers with no sections for a library whose
-/// catalogue held sixty.
-/// Expected behaviour: the run fails and promotes nothing, the sixty sections
-/// are still listed, and a later run whose detect finds sections completes.
-#[test]
-fn test_an_empty_detect_for_a_populated_library_is_a_failed_run() {
-    let _serial = crate::test_globals::serial_global_state();
+/// Opens a fresh engine holding rides over `corridors` separate stretches of
+/// ground, detects and saves their sections as an older build would have, and
+/// strips the detector marker so the cutover is owed. Returns the live auto
+/// section ids and the first ride's track.
+fn seed_catalogue(
+    dir: &tempfile::TempDir,
+    corridors: usize,
+) -> (Vec<String>, Vec<tracematch::GpsPoint>) {
     crate::persistence::clear_persistent_engine();
-    let dir = tempfile::TempDir::new().expect("tempdir");
     let path = dir.path().join("routes.db");
     assert!(
         crate::persistence::persistent_engine_ffi::persistent_engine_init(
             path.to_str().unwrap().to_string()
         )
     );
-    let line: Vec<tracematch::GpsPoint> = (0..40)
-        .map(|i| tracematch::GpsPoint {
-            latitude: 46.0 + f64::from(i) * 0.000_1,
-            longitude: 7.0,
-            elevation: None,
-        })
-        .collect();
+    let ride = |corridor: usize, i: usize| -> Vec<tracematch::GpsPoint> {
+        (0..200)
+            .map(|p| tracematch::GpsPoint {
+                latitude: 46.0 + f64::from(p) * 0.0001,
+                longitude: 7.0 + corridor as f64 * 0.05 + i as f64 * 0.00002,
+                elevation: None,
+            })
+            .collect()
+    };
     crate::persistence::with_persistent_engine(|e| {
-        e.add_activity("a1".into(), line.clone(), "Ride".into())
-            .expect("add_activity");
-        for n in 0..60 {
-            e.db.execute(
-                "INSERT INTO sections
-                     (id, section_type, name, sport_type, polyline_json, polyline_blob,
-                      distance_meters, representative_activity_id, rep_start_index,
-                      rep_end_index, geometry_source, created_at, is_user_defined,
-                      bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
-                 VALUES (?, 'auto', ?, 'Ride', NULL, ?, 1200.0,
-                         'a1', 0, 12, 'exact', '2026-01-01T00:00:00Z', 0,
-                         46.0, 46.1, 7.0, 7.1)",
-                rusqlite::params![
-                    format!("s_{n:02}"),
-                    format!("Named {n}"),
-                    crate::persistence::codec::serialize_track_points(&line[0..12]),
-                ],
-            )
-            .expect("insert the section");
+        let mut cfg = e.get_section_config();
+        cfg.min_activities = 3;
+        e.set_section_config(cfg).expect("config");
+        for c in 0..corridors {
+            for i in 0..4 {
+                let id = format!("ride_{c}_{i}");
+                e.add_activity(id.clone(), ride(c, i), "Ride".into())
+                    .expect("add_activity");
+                e.update_activity_metadata(
+                    &id,
+                    Some(1_700_000_000 - i as i64 * 14 * 86_400),
+                    None,
+                    None,
+                    None,
+                )
+                .expect("metadata");
+            }
         }
+        let handle = e.detect_sections_background();
+        let (main, cache_update) = handle.recv_with_cache();
+        let (sections, processed) = main.expect("detect");
+        e.apply_sections_with_cache(sections, cache_update)
+            .expect("apply");
+        e.save_processed_activity_ids(&processed).expect("save");
+        e.db.execute(
+            "DELETE FROM schema_info WHERE key = 'catalogue_detection_method'",
+            [],
+        )
+        .expect("strip the detector marker");
     })
     .unwrap();
-    let before = live_section_ids();
-    assert_eq!(before.len(), 60);
+    (live_section_ids(), ride(0, 0))
+}
 
-    let result = run_with(&answering((Vec::new(), vec!["a1".to_string()])));
+fn cutover_job_outcome() -> Option<crate::persistence::job_runs::RunOutcome> {
+    crate::persistence::with_persistent_engine(|e| {
+        crate::persistence::job_runs::job_runs(&e.db)
+            .expect("job runs")
+            .into_iter()
+            .find(|run| run.job == crate::persistence::job_runs::BackgroundJob::Cutover)
+            .map(|run| run.outcome)
+    })
+    .unwrap()
+}
 
-    assert!(result.is_err(), "an empty detect was taken as a result");
+/// Scenario: the cold detect completes with no sections for a library whose
+/// catalogue held auto sections over four stretches of ground.
+/// Expected behaviour: the empty result is applied and the token promoted, no
+/// auto section is live, every one is on the retired list with a version to
+/// restore, the stored diff counts them all current and gone with none
+/// proposed, and the run is recorded as complete. The decision is that a
+/// completed run is taken at its word, so this pins the decision rather than a
+/// defect.
+#[test]
+fn test_an_empty_detect_that_completes_is_applied_and_promoted() {
+    let _serial = crate::test_globals::serial_global_state();
+    let dir = tempfile::TempDir::new().expect("tempdir");
+    let (before, _) = seed_catalogue(&dir, 4);
+    assert!(!before.is_empty(), "the seed produced no sections");
+
+    let result = run_with(&answering((Vec::new(), vec!["ride_0_0".to_string()])));
+
+    let Ok(super::CutoverOutcome::Completed(diff)) = result else {
+        panic!("an empty result that completed was not taken: {result:?}");
+    };
+    assert!(live_section_ids().is_empty(), "an auto section stayed live");
+    assert!(!crate::persistence::with_persistent_engine(|e| e.cutover_is_owed()).unwrap());
+    let retired = crate::persistence::with_persistent_engine(|e| e.retired_sections()).unwrap();
+    let mut retired_ids: Vec<String> = retired.iter().map(|r| r.section_id.clone()).collect();
+    retired_ids.sort();
+    assert_eq!(retired_ids, before);
+    assert!(retired.iter().all(|r| r.restorable_version.is_some()));
+    let counts = serde_json::from_str::<serde_json::Value>(&diff).unwrap()["counts"].clone();
+    assert_eq!(counts["current"], before.len());
+    assert_eq!(counts["proposed"], 0);
+    assert_eq!(counts["gone"], before.len());
+    assert_eq!(
+        cutover_job_outcome(),
+        Some(crate::persistence::job_runs::RunOutcome::Complete)
+    );
+}
+
+/// Scenario: the same empty re-cut over a catalogue holding a pinned section.
+/// Expected behaviour: the pinned section keeps its row and the others are
+/// retired.
+#[test]
+fn test_an_empty_detect_keeps_a_pinned_section() {
+    let _serial = crate::test_globals::serial_global_state();
+    let dir = tempfile::TempDir::new().expect("tempdir");
+    let (before, _) = seed_catalogue(&dir, 4);
+    let pinned = before[0].clone();
+    crate::persistence::with_persistent_engine(|e| {
+        e.db.execute(
+            "UPDATE sections SET is_user_defined = 1 WHERE id = ?",
+            [&pinned],
+        )
+        .expect("pin");
+    })
+    .unwrap();
+
+    let result = run_with(&answering((Vec::new(), vec!["ride_0_0".to_string()])));
+
+    assert!(matches!(result, Ok(super::CutoverOutcome::Completed(_))));
+    assert_eq!(live_section_ids(), vec![pinned]);
+}
+
+/// Scenario: the detect worker dies before it answers, for a library holding
+/// auto sections.
+/// Expected behaviour: the run fails and records it as failed, nothing is
+/// promoted, the sections are still live, and a later run whose detect
+/// completes is taken.
+#[test]
+fn test_a_detect_that_dies_leaves_the_catalogue_live_and_the_cutover_owed() {
+    let _serial = crate::test_globals::serial_global_state();
+    let dir = tempfile::TempDir::new().expect("tempdir");
+    let (before, line) = seed_catalogue(&dir, 4);
+    assert!(!before.is_empty(), "the seed produced no sections");
+
+    let result = run_with(&answering_nothing());
+
+    assert!(result.is_err(), "a dead worker was taken as a result");
     assert_eq!(live_section_ids(), before, "the catalogue was replaced");
     assert!(
         crate::persistence::with_persistent_engine(|e| e.cutover_is_owed()).unwrap(),
-        "the token was promoted past an empty detect"
+        "the token was promoted past a dead worker"
+    );
+    assert_eq!(
+        cutover_job_outcome(),
+        Some(crate::persistence::job_runs::RunOutcome::Failed)
     );
 
     let found = found_section(&line);
-    let result = run_with(&answering((vec![found], vec!["a1".to_string()])));
+    let result = run_with(&answering((vec![found], vec!["ride_0_0".to_string()])));
+    assert!(matches!(result, Ok(super::CutoverOutcome::Completed(_))));
+    assert!(!crate::persistence::with_persistent_engine(|e| e.cutover_is_owed()).unwrap());
+}
+
+fn detect_on_the_real_worker(_install: u64) -> Option<Box<dyn super::CutoverWorker>> {
+    crate::persistence::with_persistent_engine(|e| e.detect_sections_background_unchecked())
+        .map(|handle| Box::new(handle) as Box<dyn super::CutoverWorker>)
+}
+
+fn assert_failed_and_owed(before: &[String]) {
+    assert_eq!(live_section_ids(), before, "the catalogue was replaced");
+    assert!(
+        crate::persistence::with_persistent_engine(|e| e.cutover_is_owed()).unwrap(),
+        "the token was promoted past a failed run"
+    );
+    assert!(
+        crate::persistence::with_persistent_engine(|e| e.retired_sections())
+            .unwrap()
+            .is_empty(),
+        "a section was retired by a run that failed"
+    );
+    assert_eq!(
+        cutover_job_outcome(),
+        Some(crate::persistence::job_runs::RunOutcome::Failed)
+    );
+}
+
+/// Scenario: the real detect worker reads a track pool it cannot decode and
+/// ends without a result, for a library holding auto sections.
+/// Expected behaviour: the run fails with a reason, no section is retired or
+/// replaced, the token stays owed, the run is recorded as failed, and a later
+/// run over a readable pool is taken.
+#[test]
+fn test_a_detect_that_cannot_read_its_tracks_leaves_the_catalogue_live_and_owed() {
+    let _serial = crate::test_globals::serial_global_state();
+    let dir = tempfile::TempDir::new().expect("tempdir");
+    let (before, line) = seed_catalogue(&dir, 4);
+    assert!(!before.is_empty(), "the seed produced no sections");
+    let readable: Vec<(String, Vec<u8>)> = crate::persistence::with_persistent_engine(|e| {
+        let mut stmt =
+            e.db.prepare("SELECT activity_id, track_data FROM gps_tracks")
+                .expect("prepare");
+        let rows = stmt
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+            .expect("query")
+            .flatten()
+            .collect();
+        e.db.execute("UPDATE gps_tracks SET track_data = x'01'", [])
+            .expect("garble every track");
+        rows
+    })
+    .unwrap();
+
+    let result = run_with(&detect_on_the_real_worker);
+
+    let reason = result.expect_err("an unreadable pool was taken as a result");
+    assert!(!reason.is_empty());
+    assert_failed_and_owed(&before);
+
+    crate::persistence::with_persistent_engine(|e| {
+        for (id, blob) in &readable {
+            e.db.execute(
+                "UPDATE gps_tracks SET track_data = ?1 WHERE activity_id = ?2",
+                rusqlite::params![blob, id],
+            )
+            .expect("restore");
+        }
+        e.db.execute("DELETE FROM schema_info WHERE key LIKE '%abandoned%'", [])
+            .expect("clear the abandon record");
+    })
+    .unwrap();
+    let result = run_with(&answering((
+        vec![found_section(&line)],
+        vec!["ride_0_0".to_string()],
+    )));
+    assert!(matches!(result, Ok(super::CutoverOutcome::Completed(_))));
+    assert!(!crate::persistence::with_persistent_engine(|e| e.cutover_is_owed()).unwrap());
+}
+
+/// Scenario: the detect answers with sections, and the write of the new
+/// catalogue then fails.
+/// Expected behaviour: the write rolls back whole, so every old section is
+/// still live and none is retired, the token stays owed, and the run is
+/// recorded as failed with the apply as its reason.
+#[test]
+fn test_an_apply_that_fails_after_a_good_detect_leaves_the_catalogue_live_and_owed() {
+    let _serial = crate::test_globals::serial_global_state();
+    let dir = tempfile::TempDir::new().expect("tempdir");
+    let (before, line) = seed_catalogue(&dir, 4);
+    assert!(!before.is_empty(), "the seed produced no sections");
+    crate::persistence::with_persistent_engine(|e| {
+        e.db.execute_batch(
+            "CREATE TRIGGER refuse_the_ledger BEFORE INSERT ON section_history
+             WHEN NEW.kind <> 'archived'
+             BEGIN SELECT RAISE(ABORT, 'disk full'); END;",
+        )
+        .expect("trigger");
+    })
+    .unwrap();
+
+    let result = run_with(&answering((
+        vec![found_section(&line)],
+        vec!["ride_0_0".to_string()],
+    )));
+
+    let reason = result.expect_err("a failed write was taken as a result");
+    assert!(
+        reason.contains("apply"),
+        "the reason names no apply: {reason}"
+    );
+    assert_failed_and_owed(&before);
+
+    crate::persistence::with_persistent_engine(|e| {
+        e.db.execute_batch("DROP TRIGGER refuse_the_ledger;")
+            .expect("drop trigger");
+    })
+    .unwrap();
+    let result = run_with(&answering((
+        vec![found_section(&line)],
+        vec!["ride_0_0".to_string()],
+    )));
     assert!(matches!(result, Ok(super::CutoverOutcome::Completed(_))));
     assert!(!crate::persistence::with_persistent_engine(|e| e.cutover_is_owed()).unwrap());
 }

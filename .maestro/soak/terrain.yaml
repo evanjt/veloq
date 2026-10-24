@@ -1,0 +1,34 @@
+# Soak: the 3D terrain map. Open ACTIVITY, switch to 3D and back, CYCLES times.
+appId: com.veloq.app.dev
+tags:
+  - soak
+---
+- runFlow: launch.yaml
+- repeat:
+    times: ${CYCLES}
+    commands:
+      - runFlow:
+          file: open-link.yaml
+          env:
+            LINK: "veloq://activity/${ACTIVITY}"
+      - extendedWaitUntil:
+          visible:
+            id: "activity-map-3d-toggle"
+          timeout: 30000
+      - tapOn:
+          id: "activity-map-3d-toggle"
+      - waitForAnimationToEnd:
+          timeout: 4000
+      - swipe:
+          start: 70%, 25%
+          end: 30%, 25%
+          duration: 400
+      - assertNotVisible:
+          id: "map-unavailable"
+      - tapOn:
+          id: "activity-map-3d-toggle"
+      - runFlow: ../helpers/go-back.yaml
+      - extendedWaitUntil:
+          visible:
+            id: "home-screen"
+          timeout: 15000

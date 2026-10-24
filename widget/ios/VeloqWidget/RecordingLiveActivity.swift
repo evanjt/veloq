@@ -18,7 +18,6 @@ import WidgetKit
 /// who pockets the phone at the stop still sees the totals and that the ride was kept.
 /// That card has no control and its stale date is its dismissal, so it never reads
 /// as a stopped recording.
-@available(iOS 16.2, *)
 struct VeloqRecordingLiveActivity: Widget {
   var body: some WidgetConfiguration {
     ActivityConfiguration(for: VeloqRecordingAttributes.self) { context in
@@ -103,7 +102,6 @@ struct VeloqRecordingLiveActivity: Widget {
   }
 }
 
-@available(iOS 16.2, *)
 private struct RecordingLockScreenView: View {
   let attributes: VeloqRecordingAttributes
   let state: VeloqRecordingAttributes.ContentState
@@ -154,7 +152,6 @@ private struct RecordingLockScreenView: View {
 /// clock is pushed stops the moment the process suspends; a frozen string while
 /// paused, because a timer that keeps running through a pause is simply wrong, and
 /// once ended or stale, because no process is recording any more.
-@available(iOS 16.2, *)
 private struct RecordingClock: View {
   let state: VeloqRecordingAttributes.ContentState
   let isStale: Bool
@@ -214,7 +211,6 @@ private struct RecordingClock: View {
 /// The ride so far, letterboxed into its frame at the aspect the payload carries so a
 /// narrow or flat track is not stretched. Never a polyline of arbitrary size: the payload
 /// is capped at 4 KB and the JS side decimates to fit.
-@available(iOS 16.2, *)
 private struct RecordingTrace: View {
   let trace: VeloqRecordingAttributes.ContentState.Trace
   @Environment(\.colorScheme) private var colorScheme
@@ -230,7 +226,6 @@ private struct RecordingTrace: View {
   }
 }
 
-@available(iOS 16.2, *)
 private struct RecordingGlyph: View {
   let state: VeloqRecordingAttributes.ContentState
   let isStale: Bool
@@ -262,7 +257,6 @@ private struct RecordingGlyph: View {
 
 /// Pause and resume. iOS 16 has no interactive widget, so it gets the tap target that
 /// opens the app instead of a control that would do nothing.
-@available(iOS 16.2, *)
 private struct RecordingControl: View {
   let state: VeloqRecordingAttributes.ContentState
   @Environment(\.colorScheme) private var colorScheme

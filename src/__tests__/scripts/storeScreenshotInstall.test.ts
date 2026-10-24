@@ -139,7 +139,7 @@ describe('CAPTIONS', () => {
 });
 
 describe('rawCaptures', () => {
-  const STEMS = ['01-feed', '02-activity', '03-fitness'];
+  const STEMS = ['01-feed', '02-map', '03-activity'];
 
   function raws(root: string, platform: string, play: string, size: [number, number]): void {
     for (const stem of STEMS) {

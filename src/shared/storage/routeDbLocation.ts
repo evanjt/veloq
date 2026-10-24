@@ -132,6 +132,8 @@ export interface RouteDbFileSystem {
   /** Rename `from` to `to`, refusing when `to` already exists. */
   move(from: string, to: string): Promise<void>;
   remove(path: string): Promise<void>;
+  /** Free bytes on the volume both directories sit on, or null when unreadable. */
+  freeBytes(): Promise<number | null>;
 }
 
 /**
@@ -182,6 +184,15 @@ export async function migrateRouteDb(
 
   const sources = await Promise.all(ROUTE_DB_FILES.map((name) => fs.size(`${fromDir}${name}`)));
   if (sources[0] === null) return toDir;
+
+  // The copy is not started on a volume that cannot hold it, so it never fills
+  // the volume partway and the old location stays the one that opens.
+  const needed = sources.reduce<number>((sum, bytes) => sum + (bytes ?? 0), 0);
+  const free = await fs.freeBytes().catch(() => null);
+  if (free !== null && free < needed) {
+    debug.warn(`[RouteDb] ${free} bytes free, ${needed} needed to move the library. Not moving it`);
+    return fromDir;
+  }
 
   const displaced: string[] = [];
   const written: string[] = [];

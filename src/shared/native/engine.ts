@@ -97,6 +97,9 @@ const routeDbFileSystem: RouteDbFileSystem = {
   remove(path) {
     return FileSystem.deleteAsync(`file://${path}`, { idempotent: true });
   },
+  freeBytes() {
+    return FileSystem.getFreeDiskStorageAsync();
+  },
 };
 
 /**

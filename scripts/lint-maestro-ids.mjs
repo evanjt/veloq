@@ -67,6 +67,12 @@ export function collectTestIds(files) {
       literals.add(m[1] ?? m[2]);
     }
 
+    // A constant a component hands to its `testID` prop:
+    // `export const MAP_UNAVAILABLE_TEST_ID = 'map-unavailable'`.
+    for (const m of source.matchAll(/\b[A-Z][A-Z0-9_]*_TEST_ID\s*=\s*(?:'([^']+)'|"([^"]+)")/g)) {
+      literals.add(m[1] ?? m[2]);
+    }
+
     // A templated `testID: \`row-${option.id}\`` in an options object, which a
     // row component hands to each control it draws.
     for (const m of source.matchAll(/\b\w*[Tt]estID:\s*`([^`]+)`/g)) {

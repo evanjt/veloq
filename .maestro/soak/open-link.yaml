@@ -1,0 +1,9 @@
+# Follow a deep link and answer iOS's "Open in Veloq?" prompt when it shows.
+appId: com.veloq.app.dev
+---
+- openLink: ${LINK}
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"

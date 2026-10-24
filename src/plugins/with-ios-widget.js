@@ -628,8 +628,8 @@ function applyWidgetBuildSettings(settings, version, buildNumber) {
   settings.INFOPLIST_FILE = `"${TARGET}/Info.plist"`;
   settings.CODE_SIGN_ENTITLEMENTS = `"${TARGET}/${TARGET}.entitlements"`;
   settings.CODE_SIGN_STYLE = 'Automatic';
-  // ActivityKit is 16.1 and the app's own deployment target is already 16.4
-  // (expo-build-properties), so nothing could install against 15.1 anyway.
+  // The app's own deployment target is already 16.4 (expo-build-properties), so
+  // the extension cannot install below it.
   settings.IPHONEOS_DEPLOYMENT_TARGET = '"16.4"';
   settings.SWIFT_VERSION = '"5.9"';
   settings.TARGETED_DEVICE_FAMILY = '"1,2"';

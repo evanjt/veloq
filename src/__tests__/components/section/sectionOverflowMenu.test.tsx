@@ -1,8 +1,9 @@
 /**
  * Scenario: the section page held a row under the map for Edit bounds alone, with delete or
  * remove and rematch as bare icons beside it.
- * Expected behaviour: the header's overflow menu holds Edit bounds first when the section has a
- * line, then rematch, then delete or remove, the destructive row last and in the error text.
+ * Expected behaviour: the header's overflow menu holds Show on map first when there is a handler,
+ * then Edit bounds when the section has a line, then rematch, then delete or remove, the
+ * destructive row last and in the error text.
  */
 
 import React from 'react';
@@ -103,6 +104,26 @@ describe('SectionOverflowMenu', () => {
   it('lists no Edit bounds with no handler, as for a section with no line', async () => {
     await openMenu({ onEditBounds: undefined });
     expect(rows()).not.toContain('sections.editBounds');
+  });
+
+  it('lists Show on map first and opens the map from it', async () => {
+    const onShowOnMap = jest.fn();
+    await openMenu({ onShowOnMap, onEditBounds: jest.fn() });
+    expect(rows()).toEqual([
+      'sections.showOnMap',
+      'sections.editBounds',
+      'sections.rematchActivities',
+      'sections.removeSection',
+    ]);
+    expect(labelColour('sections.showOnMap')).toBe(colors.textPrimary);
+
+    await fireEvent.press(screen.getByRole('menuitem', { name: 'sections.showOnMap' }));
+    expect(onShowOnMap).toHaveBeenCalledTimes(1);
+  });
+
+  it('lists no Show on map with no handler', async () => {
+    await openMenu({ onShowOnMap: undefined });
+    expect(rows()).not.toContain('sections.showOnMap');
   });
 
   it('restores a removed section, which is not destructive', async () => {

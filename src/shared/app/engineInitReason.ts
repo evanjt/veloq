@@ -1,6 +1,7 @@
 import type { TFunction } from 'i18next';
-import { InitOutcome } from 'veloqrs';
+import { InitOutcome, type FfiStorageShortfall } from 'veloqrs';
 
+import { formatFileSize } from '@/shared/format/format';
 import { navigateTo } from '@/shared/app/navigation';
 import { offerCrashLog, openForum, openStorePage } from '@/shared/app/supportLinks';
 
@@ -32,6 +33,24 @@ export function engineInitReasonKey(reason: InitOutcome | null) {
     default:
       return 'engine.initFailed';
   }
+}
+
+/**
+ * The sentence for a reason. A full volume names the bytes the upgrade needs
+ * when the engine recorded them, and only for that reason: a shortfall left
+ * from an earlier attempt says nothing about a later one.
+ */
+export function engineInitReasonLine(
+  reason: InitOutcome | null,
+  shortfall: FfiStorageShortfall | null,
+  t: TFunction
+): string {
+  if (reason === InitOutcome.StorageUnavailable && shortfall) {
+    return t('engine.initReason.storageShortfall', {
+      needed: formatFileSize(shortfall.neededBytes),
+    });
+  }
+  return t(engineInitReasonKey(reason));
 }
 
 export interface EngineRecoveryAction {

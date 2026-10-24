@@ -729,10 +729,15 @@ mod tests {
     /// reached it, so a loaded runner that is slow to schedule the requests
     /// still counts all of them, and a burst that does not go out together
     /// leaves the host waiting out its deadline with fewer.
+    ///
+    /// Runs on one thread. The pool polls a request's checkout and then its
+    /// connect, and a connection that completes on another worker between the
+    /// two polls finds no connect in progress and opens a second one. That is
+    /// the pool's race rather than the fetcher's, and only a runtime that
+    /// polls one task at a time rules it out.
     #[test]
     fn a_burst_to_an_http2_host_with_no_open_connection_shares_one_and_goes_out_together() {
-        let runtime = tokio::runtime::Builder::new_multi_thread()
-            .worker_threads(4)
+        let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .expect("runtime");

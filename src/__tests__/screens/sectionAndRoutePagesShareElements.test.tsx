@@ -13,6 +13,7 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import { PaperProvider } from 'react-native-paper';
+import { router } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { EfficiencyDirection, FfiOffScale } from 'veloqrs';
 import type { FfiCalendarSummary, FfiSectionChartPoint, FfiSectionPerformanceData } from 'veloqrs';
@@ -64,7 +65,7 @@ jest.mock('expo-router', () => ({
   Stack: Object.assign(() => null, { Screen: () => null }),
   useLocalSearchParams: () => ({ id: mockPageId }),
   useFocusEffect: () => {},
-  router: { back: jest.fn(), push: jest.fn(), replace: jest.fn() },
+  router: { back: jest.fn(), push: jest.fn(), replace: jest.fn(), navigate: jest.fn() },
 }));
 jest.mock('react-native-safe-area-context', () => ({
   ...jest.requireActual('react-native-safe-area-context'),
@@ -584,16 +585,32 @@ describe("a section sheet's rows above the chart", () => {
     expect(page.queryByTestId('section-detail-climb')).toBeNull();
   });
 
-  it('lists Edit bounds first in the overflow menu, and choosing it enters the tool', async () => {
+  it('lists Edit bounds second in the overflow menu, and choosing it enters the tool', async () => {
     jest.useFakeTimers();
     await openSectionWithHeader();
 
     const rows = await menuRows();
-    expect(rows[0]).toBe('sections.editBounds');
+    expect(rows.slice(0, 2)).toEqual(['sections.showOnMap', 'sections.editBounds']);
 
     await fireEvent.press(screen.getByRole('menuitem', { name: 'sections.editBounds' }));
     const sheets = Object.values(useMapSheetStops.getState().sheets);
     expect(sheets.some((sheet) => sheet.toolReturn !== null)).toBe(true);
+  });
+
+  it('opens the map on the section from Show on map, first in the menu', async () => {
+    jest.useFakeTimers();
+    await openSectionWithHeader();
+    jest.mocked(router.navigate).mockClear();
+
+    const rows = await menuRows();
+    expect(rows[0]).toBe('sections.showOnMap');
+
+    await fireEvent.press(screen.getByRole('menuitem', { name: 'sections.showOnMap' }));
+    expect(router.navigate).toHaveBeenCalledTimes(1);
+    expect(router.navigate).toHaveBeenCalledWith({
+      pathname: '/map',
+      params: { section: SECTION_ID },
+    });
   });
 
   it('lists no Edit bounds for a section with no line', async () => {

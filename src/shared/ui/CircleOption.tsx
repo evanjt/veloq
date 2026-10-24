@@ -39,6 +39,8 @@ export function circleOptionSize(rowWidth: number, count: number, max: number): 
 export interface CircleOption<T extends string> {
   value: T;
   label: string;
+  /** The option's test id, written out so a test flow can be checked against it. */
+  testID?: string;
   /** What the circle shows, drawn to fill a `size` square. */
   render: (size: number) => React.ReactNode;
 }
@@ -49,9 +51,8 @@ export interface CircleOptionRowProps<T extends string> {
   onValueChange: (value: T) => void;
   /** The circle's full diameter, drawn when the row has the room. */
   maxSize: number;
-  /** The row's test id; each option takes `${testIDPrefix}-${value}`. */
+  /** The row's test id. */
   testID?: string;
-  testIDPrefix?: string;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -61,7 +62,6 @@ export function CircleOptionRow<T extends string>({
   onValueChange,
   maxSize,
   testID,
-  testIDPrefix,
   style,
 }: CircleOptionRowProps<T>) {
   const { isDark } = useTheme();
@@ -75,7 +75,7 @@ export function CircleOptionRow<T extends string>({
     <View testID={testID} style={[styles.row, style]} onLayout={onLayout}>
       {options.map((option) => {
         const selected = option.value === value;
-        const optionTestID = testIDPrefix && `${testIDPrefix}-${option.value}`;
+        const optionTestID = option.testID;
         return (
           <PressTarget
             key={option.value}

@@ -303,16 +303,14 @@ fn a_copy_is_kept_while_the_cutover_is_in_flight() {
 #[test]
 fn a_settled_cutover_releases_the_copy_on_the_next_open() {
     let _serial_state = super::serial_state();
-    for token in ["unified-1", "reverted"] {
-        let (_dir, path) = released_v12();
-        open_engine(&path);
-        set_cutover_token(&path, token);
+    let (_dir, path) = released_v12();
+    open_engine(&path);
+    set_cutover_token(&path, "unified-1");
 
-        open_engine(&path);
+    open_engine(&path);
 
-        assert!(
-            copies_beside(&path).is_empty(),
-            "a cutover at '{token}' no longer owes the copy"
-        );
-    }
+    assert!(
+        copies_beside(&path).is_empty(),
+        "a settled cutover no longer owes the copy"
+    );
 }

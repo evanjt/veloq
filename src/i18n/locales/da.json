@@ -586,6 +586,7 @@
       "busy": "Noget andet brugte databasen. Prøv igen om lidt.",
       "forwardSchema": "Disse data er gemt af en nyere version af Veloq. Opdatér appen for at åbne dem.",
       "storageUnavailable": "Databasen kunne ikke skrives. Frigør plads, og prøv igen.",
+      "storageShortfall": "Opdateringen af dit bibliotek kræver {{needed}} ledig plads på denne enhed. Frigør plads, og prøv igen.",
       "failed": "Dit aktivitetsbibliotek kunne ikke åbnes af en årsag, appen ikke kan navngive. Det ligger stadig uberørt på din enhed.",
       "versionMismatch": "Disse data kunne ikke åbnes. De ligger stadig på din enhed: spørg om hjælp i forummet under Indstillinger."
     },
@@ -1802,6 +1803,7 @@
     "setAsReferenceConfirm": "Brug denne aktivitet som reference?\n\nSektionens linje følger denne aktivitet, og visningen Foran eller bagud måler tid foran eller bagud i forhold til den.\n\nSektionen bliver matchet igen mod alle dine aktiviteter, hvilket kan tilføje eller fjerne nogle.",
     "setReferenceError": "Kunne ikke angive reference. Afsnittet eller aktiviteten kan have ændret sig. Prøv igen.",
     "editBounds": "Rediger grænser",
+    "showOnMap": "Vis på kort",
     "pointsCount_one": "{{count}} punkt",
     "pointsCount_other": "{{count}} punkter",
     "resetBounds": "Nulstil til original",
@@ -2580,6 +2582,7 @@
     "tipSmall": "Lille",
     "tipMedium": "Mellem",
     "tipLarge": "Stor",
+    "tipNote": "Et drikkepenge er en donation og låser ikke noget op. Veloq er gratis for alle.",
     "shareCrashLog": "Del nedbrudslog",
     "noCrashLog": "Ingen nedbrud registreret"
   },

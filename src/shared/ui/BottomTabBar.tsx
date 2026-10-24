@@ -1,10 +1,10 @@
 /**
  * The bottom navigation tab bar: an opaque surface with a hairline on top, five
- * tabs of a 24 dp glyph over a label. The selected tab fills its glyph, sets its
- * label heavy and raises a small cap in the bar's edge over it, the same on both
- * platforms. The bar departs on purpose from the style guide's page, which draws
- * an indicator behind the glyph on Android and one label weight: the platform
- * default is what the bar is not meant to look like.
+ * tabs of a 24 dp glyph over a label. The selected tab fills its glyph and sets its
+ * label heavy, the same on both platforms, and a press brightens the tab's glyph and
+ * label to the selected colours with no ripple or fade. The bar departs on purpose from
+ * the style guide's page, which draws an indicator behind the glyph on Android and one
+ * label weight: the platform default is what the bar is not meant to look like.
  */
 import { markTabPress } from '@/shared/debug/tabSwitchTiming';
 import React, { memo, useCallback, useRef } from 'react';
@@ -25,7 +25,6 @@ import {
   faceWeight,
   iconSize,
   layers,
-  layout,
   spacing,
   stroke,
   typography,
@@ -61,18 +60,14 @@ const MENU_ITEMS = [
 // to the bar as much as the selected one: `textSecondary` for its label and
 // `iconSecondary` for its glyph. The selected label is `textPrimary` and the
 // selected glyph `controlOn`, the blue every selected control takes. Selection
-// is never colour alone: the glyph fills, the label goes heavy and the cap
-// rises, so any one of them can fail and the tab still reads as selected.
+// is never colour alone: the glyph fills and the label goes heavy, so any one of
+// them can fail and the tab still reads as selected. A press takes the selected
+// colours and nothing else, so the outline glyph and the light label brighten and
+// the fill follows when the navigation lands.
 
 // The shrink floor of a label: every label fits its fifth of a 320 dp phone at
 // the text cap well above it.
 const LABEL_MIN_FONT_SCALE = 0.8;
-
-// The cap is the top of a disc in the bar's own surface, the glyph with a margin round
-// it. Only the part above the bar's edge shows, so the bar line breaks round the
-// selected tab and nowhere else, and the glyph rises with it.
-const CAP_RISE = spacing.xs;
-const CAP_DIAMETER = iconSize.lg + spacing.sm * 2;
 
 function BottomTabBarComponent() {
   // Performance: Track render count
@@ -155,44 +150,39 @@ function BottomTabBarComponent() {
             <PressTarget
               key={item.key}
               style={styles.tabItem}
+              ripple="none"
+              fade={false}
               onPress={() => handlePress(item.route)}
               accessibilityLabel={label}
               accessibilityRole="tab"
               accessibilityState={{ selected: isActive }}
             >
-              {isActive ? (
-                <View
-                  testID={`bottom-tab-${item.key}-cap`}
-                  pointerEvents="none"
-                  style={styles.capClip}
-                >
-                  <View
-                    style={[
-                      styles.cap,
-                      { backgroundColor: palette.surface, borderColor: palette.border },
-                    ]}
-                  />
-                </View>
-              ) : null}
-              <View style={[styles.iconContainer, isActive && styles.iconRaised]}>
-                <Icon
-                  testID={`bottom-tab-${item.key}-glyph`}
-                  name={isActive ? item.selectedIcon : item.icon}
-                  size={iconSize.lg}
-                  color={isActive ? palette.controlOn : palette.iconSecondary}
-                />
-              </View>
-              <FitText
-                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                minimumFontScale={LABEL_MIN_FONT_SCALE}
-                style={[
-                  styles.label,
-                  isActive ? styles.labelSelected : styles.labelRest,
-                  { color: isActive ? palette.textPrimary : palette.textSecondary },
-                ]}
-              >
-                {label}
-              </FitText>
+              {({ pressed }) => {
+                const lit = isActive || pressed;
+                return (
+                  <>
+                    <View style={styles.iconContainer}>
+                      <Icon
+                        testID={`bottom-tab-${item.key}-glyph`}
+                        name={isActive ? item.selectedIcon : item.icon}
+                        size={iconSize.lg}
+                        color={lit ? palette.controlOn : palette.iconSecondary}
+                      />
+                    </View>
+                    <FitText
+                      maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                      minimumFontScale={LABEL_MIN_FONT_SCALE}
+                      style={[
+                        styles.label,
+                        isActive ? styles.labelSelected : styles.labelRest,
+                        { color: lit ? palette.textPrimary : palette.textSecondary },
+                      ]}
+                    >
+                      {label}
+                    </FitText>
+                  </>
+                );
+              }}
             </PressTarget>
           );
         })}
@@ -237,24 +227,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     height: iconSize.lg,
     width: iconSize.lg,
-  },
-  iconRaised: {
-    transform: [{ translateY: -CAP_RISE }],
-  },
-  // Shows the part of the disc above the bar's edge, and the hairline's own row, so the disc's
-  // fill covers the bar line under it.
-  capClip: {
-    position: 'absolute',
-    top: -CAP_RISE,
-    width: CAP_DIAMETER,
-    height: CAP_RISE + stroke.hairline,
-    overflow: 'hidden',
-  },
-  cap: {
-    width: CAP_DIAMETER,
-    height: CAP_DIAMETER,
-    borderRadius: layout.borderRadiusFull,
-    borderWidth: stroke.hairline,
   },
   // The badge style at two weights, light at rest and heavy selected, so the weight carries the
   // selection beside the glyph's fill and the colour. With bold text on each draws one face

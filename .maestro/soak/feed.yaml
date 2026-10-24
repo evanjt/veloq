@@ -1,0 +1,21 @@
+# Soak: the feed's route previews, scrolled down and back CYCLES times.
+appId: com.veloq.app.dev
+tags:
+  - soak
+---
+- runFlow: launch.yaml
+- repeat:
+    times: ${CYCLES}
+    commands:
+      - scroll
+      - scroll
+      - swipe:
+          start: 50%, 30%
+          end: 50%, 80%
+          duration: 300
+      - swipe:
+          start: 50%, 30%
+          end: 50%, 80%
+          duration: 300
+      - assertVisible:
+          id: "home-screen"

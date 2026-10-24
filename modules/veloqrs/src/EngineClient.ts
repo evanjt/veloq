@@ -62,6 +62,7 @@ import type {
   FfiMergeOutcome,
   FfiRecordCheck,
   FfiRecordRestoreResult,
+  FfiStorageShortfall,
   FfiUnplacedRecord,
   RecordScope,
 } from './generated/veloqrs';
@@ -223,6 +224,13 @@ class EngineClient implements DelegateHost {
     return this.lastInitOutcome;
   }
 
+  private lastStorageShortfall: FfiStorageShortfall | null = null;
+
+  /** The bytes the last init needed, when it stopped for want of space. */
+  initStorageShortfall(): FfiStorageShortfall | null {
+    return this.lastStorageShortfall;
+  }
+
   /**
    * The quarantine this launch did, if there was one, and never twice.
    *
@@ -333,6 +341,10 @@ class EngineClient implements DelegateHost {
           // init leaves `this.engine` null, so this is the only moment the
           // outcome is reachable at all.
           this.lastInitOutcome = engine.initOutcome();
+          this.lastStorageShortfall =
+            this.lastInitOutcome === FfiInitOutcome.StorageUnavailable
+              ? (engine.initStorageShortfall() ?? null)
+              : null;
           if (!engine.isInitialized()) {
             console.warn('[EngineClient] Engine reported failed init for', dbPath);
             return false;
@@ -342,6 +354,7 @@ class EngineClient implements DelegateHost {
         } catch (e) {
           console.warn('[EngineClient] Engine init threw:', e);
           this.lastInitOutcome = FfiInitOutcome.Failed;
+          this.lastStorageShortfall = null;
           this.engine = null;
           return false;
         }

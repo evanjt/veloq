@@ -12,6 +12,7 @@
  * 7. Apple keyword rules: no repeats of name, subtitle or category words
  * 8. Global deliver files (copyright, categories, review notes, URLs)
  * 9. Screenshot trees hold the exact store resolutions, no stray alpha
+ * 10. Each listing states the OS floor the build ships with
  *
  * Usage:
  *   npx tsx scripts/validate-store-metadata.ts [--version-code <code>] [--require-screenshots]
@@ -104,6 +105,10 @@ const CATEGORY_WORDS: Record<string, string[]> = {
 // Exact store pixel sizes. Anything else in a tree is a mistake.
 const APPSTORE_PHONE = { width: 1320, height: 2868 };
 const APPSTORE_IPAD = { width: 2064, height: 2752 };
+
+/** How many phone screenshots each store takes in a locale. */
+export const PLAY_PHONE_SHOTS = { min: 2, max: 8 };
+export const APPSTORE_PHONE_SHOTS = { min: 1, max: 10 };
 const PLAY_PHONE = { width: 1080, height: 1920 };
 const PLAY_FEATURE = { width: 1024, height: 500 };
 
@@ -279,6 +284,7 @@ interface ValidationError {
     | 'unsupported_claim'
     | 'over_limit'
     | 'over_budget'
+    | 'floor_not_stated'
     | 'missing_screenshots'
     | 'screenshot_count'
     | 'image_unreadable'
@@ -370,6 +376,88 @@ function budgetErrors(platform: Platform, locale: string, raw: string | null): V
     file: platform === 'ios' ? 'description.txt' : 'full_description.txt',
     message: e.message.replace('description', `${platform} description`),
   }));
+}
+
+// The build's OS floor is read from the expo-build-properties plugin in app.json,
+// the one place the build takes the iOS deployment target and the Android
+// minimum API level from.
+interface BuildProperties {
+  android?: { minSdkVersion?: number };
+  ios?: { deploymentTarget?: string };
+}
+
+export interface StoreFloors {
+  ios: string;
+  android: string;
+}
+
+// The Android release each API level a floor can name shipped as.
+const ANDROID_RELEASE: Record<number, string> = {
+  21: '5.0',
+  22: '5.1',
+  23: '6.0',
+  24: '7.0',
+  25: '7.1',
+  26: '8.0',
+  27: '8.1',
+  28: '9',
+  29: '10',
+  30: '11',
+  31: '12',
+  32: '12L',
+  33: '13',
+  34: '14',
+  35: '15',
+  36: '16',
+};
+
+/** The iOS and Android floors an app.json builds with, as the listings name them. */
+export function storeFloors(appJson: {
+  expo?: { plugins?: (string | [string, BuildProperties?])[] };
+}): StoreFloors {
+  const entry = (appJson.expo?.plugins ?? []).find(
+    (p): p is [string, BuildProperties?] => Array.isArray(p) && p[0] === 'expo-build-properties'
+  );
+  const ios = entry?.[1]?.ios?.deploymentTarget;
+  if (!ios) throw new Error('app.json states no expo-build-properties ios.deploymentTarget');
+  const api = entry?.[1]?.android?.minSdkVersion;
+  const android = api === undefined ? undefined : ANDROID_RELEASE[api];
+  if (!android) {
+    throw new Error(`app.json has no Android release for minSdkVersion ${api ?? '(unset)'}`);
+  }
+  return { ios, android };
+}
+
+/**
+ * Each listing that does not state the build's floor. A listing that names an
+ * older OS than the build installs on is published with the release that moves
+ * the floor, so the text has to name the floor it ships with.
+ */
+export function listingFloorErrors(metadataDir: string, floors: StoreFloors): ValidationError[] {
+  const checks = [
+    { platform: 'ios' as const, file: 'description.txt', phrase: `iOS ${floors.ios}` },
+    {
+      platform: 'android' as const,
+      file: 'full_description.txt',
+      phrase: `Android ${floors.android}`,
+    },
+  ];
+  return checks.flatMap(({ platform, file, phrase }) =>
+    uniqueStoreLocales(platform).flatMap((locale) => {
+      // An absent file is the field check's error, not this one.
+      const raw = readIfExists(path.join(metadataDir, platform, locale, file));
+      if (raw === null || raw.includes(phrase)) return [];
+      return [
+        {
+          type: 'floor_not_stated' as const,
+          platform,
+          locale,
+          file,
+          message: `Floor not stated: ${platform}/${locale}/${file} does not say '${phrase}'`,
+        },
+      ];
+    })
+  );
 }
 
 function codePoints(text: string): number {
@@ -586,12 +674,12 @@ export function screenshotErrors(
     const files = imageFiles(dir);
     const ipad = files.filter((f) => path.basename(f).startsWith('ipad-'));
     const phone = files.filter((f) => !path.basename(f).startsWith('ipad-'));
-    if (phone.length < 1 || phone.length > 10) {
+    if (phone.length < APPSTORE_PHONE_SHOTS.min || phone.length > APPSTORE_PHONE_SHOTS.max) {
       errors.push({
         type: 'screenshot_count',
         platform,
         locale,
-        message: `Expected 1-10 iPhone screenshots in screenshots/${locale}, found ${phone.length}`,
+        message: `Expected ${APPSTORE_PHONE_SHOTS.min}-${APPSTORE_PHONE_SHOTS.max} iPhone screenshots in screenshots/${locale}, found ${phone.length}`,
       });
     }
     // supportsTablet is true, so the iPad class is required alongside the phone.
@@ -617,12 +705,12 @@ export function screenshotErrors(
         `Missing phone screenshots: android/${locale}/images/phoneScreenshots`
       );
     }
-  } else if (phone.length < 2 || phone.length > 8) {
+  } else if (phone.length < PLAY_PHONE_SHOTS.min || phone.length > PLAY_PHONE_SHOTS.max) {
     errors.push({
       type: 'screenshot_count',
       platform,
       locale,
-      message: `Expected 2-8 phone screenshots for android/${locale}, found ${phone.length}`,
+      message: `Expected ${PLAY_PHONE_SHOTS.min}-${PLAY_PHONE_SHOTS.max} phone screenshots for android/${locale}, found ${phone.length}`,
     });
   }
   errors.push(...checkImages(platform, locale, dirs.metadataDir, phone, PLAY_PHONE));
@@ -643,6 +731,10 @@ export function screenshotErrors(
 function getAppLocales(): string[] {
   const files = fs.readdirSync(APP_LOCALES_DIR);
   return files.filter((f) => f.endsWith('.json')).map((f) => f.replace('.json', ''));
+}
+
+function readAppJson() {
+  return JSON.parse(fs.readFileSync(path.join(PROJECT_ROOT, 'app.json'), 'utf-8'));
 }
 
 function getVersionCodeFromAppJson(): number | null {
@@ -846,6 +938,8 @@ export function validateMetadata(
       )
     );
   }
+
+  errors.push(...listingFloorErrors(METADATA_DIR, storeFloors(readAppJson())));
 
   return errors;
 }

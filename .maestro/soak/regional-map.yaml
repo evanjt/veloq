@@ -1,0 +1,37 @@
+# Soak: the regional map tab, panned and zoomed, then left, CYCLES times.
+appId: com.veloq.app.dev
+tags:
+  - soak
+---
+- runFlow: launch.yaml
+- repeat:
+    times: ${CYCLES}
+    commands:
+      - runFlow:
+          file: open-link.yaml
+          env:
+            LINK: "veloq://map"
+      - extendedWaitUntil:
+          visible:
+            id: "map-screen"
+          timeout: 30000
+      - swipe:
+          start: 70%, 40%
+          end: 30%, 40%
+          duration: 400
+      - doubleTapOn:
+          point: 50%, 40%
+      - swipe:
+          start: 30%, 50%
+          end: 70%, 50%
+          duration: 400
+      - assertNotVisible:
+          id: "map-unavailable"
+      - runFlow:
+          file: open-link.yaml
+          env:
+            LINK: "veloq://"
+      - extendedWaitUntil:
+          visible:
+            id: "home-screen"
+          timeout: 15000

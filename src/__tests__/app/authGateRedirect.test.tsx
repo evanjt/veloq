@@ -220,6 +220,7 @@ it('redirects without a stamp when the init gives up', async () => {
   mockEngineHolder.engine = engine({
     initWithPath: jest.fn(() => false),
     initOutcome: jest.fn(() => 6),
+    initStorageShortfall: jest.fn(() => null),
   });
   await render(<AuthGate>{null}</AuthGate>);
 

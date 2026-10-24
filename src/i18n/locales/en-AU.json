@@ -138,6 +138,7 @@
     "initReason": {
       "busy": "Something else was using the database. Another go should sort it.",
       "storageUnavailable": "The database couldn't be written. Free up some space, then try again.",
+      "storageShortfall": "Updating your library needs {{needed}} free on this device. Free up some space, then try again.",
       "failed": "Your activity library couldn't be opened, for a reason the app can't put a name to. It's still on your device, untouched."
     },
     "quarantine": {
@@ -364,7 +365,8 @@
   "support": {
     "feedbackDescription": "Your feedback helps shape the app, so fire away.",
     "thankYou": "Legend, thanks for the support!",
-    "noCrashLog": "No crashes, all sweet"
+    "noCrashLog": "No crashes, all sweet",
+    "tipNote": "A tip's a donation. It unlocks nothing: Veloq's free for everyone."
   },
   "sensors": {
     "nonePaired": "No sensors paired yet. Give it a scan below to add one.",

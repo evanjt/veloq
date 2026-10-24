@@ -35,4 +35,4 @@ Vos données d'entraînement restent sur votre appareil. Pas de mesure d'audienc
 
 Compatible avec le cyclisme, la course à pied, la natation et plus de 20 types d'activités. Essayez le mode démo intégré pour explorer sans compte.
 
-Nécessite un compte intervals.icu pour les données en direct. Non affilié à intervals.icu.
+Nécessite un compte intervals.icu pour les données en direct. Nécessite iOS 16.4 ou version ultérieure. Non affilié à intervals.icu.

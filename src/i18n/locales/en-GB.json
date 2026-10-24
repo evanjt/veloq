@@ -586,6 +586,7 @@
       "busy": "Something else was using the database. Trying again should sort it.",
       "forwardSchema": "This data was saved by a newer version of Veloq. Update the app to open it.",
       "storageUnavailable": "The database could not be written. Free up space, then try again.",
+      "storageShortfall": "Updating your library needs {{needed}} free on this device. Free up space, then try again.",
       "failed": "Your activity library could not be opened, for a reason the app cannot name. It is still on your device, untouched.",
       "versionMismatch": "This data could not be opened. It is still on your device: ask for help on the forum in Settings."
     },
@@ -1811,6 +1812,7 @@
     "setAsReferenceConfirm": "Use this activity as the reference?\n\nThe section's line will follow this activity, and the Ahead or behind view will measure time against it.\n\nThe section will be re-matched against all your activities, which may add or remove some.",
     "setReferenceError": "Failed to set reference. The section or activity may have changed. Please try again.",
     "editBounds": "Edit bounds",
+    "showOnMap": "Show on map",
     "pointsCount_one": "{{count}} point",
     "pointsCount_other": "{{count}} points",
     "resetBounds": "Reset to original",
@@ -2580,6 +2582,7 @@
     "tipSmall": "Small",
     "tipMedium": "Medium",
     "tipLarge": "Large",
+    "tipNote": "A tip is a donation. It unlocks nothing: Veloq is free for everyone.",
     "shareCrashLog": "Share crash log",
     "noCrashLog": "No crashes recorded"
   },

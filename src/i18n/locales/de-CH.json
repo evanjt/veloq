@@ -585,6 +585,7 @@
       "busy": "Öppis anders het d Datebank bruucht. Probier s glii nöd.",
       "forwardSchema": "Die Date sind vo n äre nöie Version vo Veloq gspeicheret. Aktualisier d App zum si öffne.",
       "storageUnavailable": "D Datebank het nöd chönne gschribe werde. Mach Platz frei und probier s nöd.",
+      "storageShortfall": "S Update vo dim Bibliothek brucht {{needed}} freie Platz uf em Gerät. Mach Platz frei und probier s nomal.",
       "failed": "Dini Aktivitätebibliothek hät us eme Grund, wo d App nöd cha benenne, nöd chöne göffnet werde. Si isch unveränderet uf dim Grät.",
       "versionMismatch": "Die Date händ nöd chöne göffnet werde. Si sind immer no uf dim Grät: Frog im Forum under Istellige nach Hilf."
     },
@@ -1745,6 +1746,7 @@
     "setAsReferenceConfirm": "Die Aktivität als Referänz bruuche?\n\nD Linie vom Abschnitt folgt dere Aktivität, und d Aasicht Vorsprung oder Rückstand misst d Ziit vorne oder hine dergäge.\n\nDe Abschnitt wird neu mit allne dine Aktivitäte abgliche, das chan es paar dezuetuä oder ussenäh.",
     "setReferenceError": "Referänz hät nöd chöne gsetzt wärde. De Abschnitt oder d Aktivität hät sich villicht gänderet. Probiers nomol!",
     "editBounds": "Grenze bearbeite",
+    "showOnMap": "Auf Karte zeigen",
     "pointsCount_one": "{{count}} Punkt",
     "pointsCount_other": "{{count}} Pünkt",
     "resetBounds": "Uf Original zruggsetze",
@@ -2463,6 +2465,7 @@
     "tipSmall": "Chli",
     "tipMedium": "Mittel",
     "tipLarge": "Gross",
+    "tipNote": "Ein Trinkgeld ist eine Spende und schaltet nichts frei. Veloq ist für alle gratis.",
     "shareCrashLog": "Absturzprotokoll teilen",
     "noCrashLog": "Keine Abstürze aufgezeichnet"
   },

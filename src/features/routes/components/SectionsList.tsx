@@ -11,7 +11,9 @@ import { View, StyleSheet, FlatList } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 import Swipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
+import { useCutoverSummary } from '@/features/routes/hooks/useCutoverSummary';
 import { useDetectionHold } from '@/features/routes/hooks/useDetectionHold';
+import { CUTOVER_FAILURE_KEYS } from '@/features/routes/lib/cutoverPhaseKeys';
 import { useElevationBackfill } from '@/features/routes/hooks/useElevationBackfill';
 import { useTheme } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
@@ -266,6 +268,11 @@ export const SectionsList = memo(function SectionsList({
   const { removeSection } = useSectionCommands();
   const { rescan, isScanning, refusal: rescanRefusal } = useSectionRescan();
   const detectionHold = useDetectionHold();
+  // A rebuild that failed leaves the old sections or the new ones in place and
+  // owes itself again, so the list says so rather than reading as settled.
+  const { phase: cutoverPhase } = useCutoverSummary();
+  const cutoverFailure =
+    CUTOVER_FAILURE_KEYS[cutoverPhase as keyof typeof CUTOVER_FAILURE_KEYS] ?? null;
   const elevationBackfill = useElevationBackfill();
 
   // Track open swipeable refs to close them when another opens
@@ -527,6 +534,7 @@ export const SectionsList = memo(function SectionsList({
           acceptAllResult={acceptAllResult}
           isScanning={isScanning}
           detectionHold={detectionHold}
+          cutoverFailure={cutoverFailure}
           rescanRefusal={rescanRefusal}
           elevationBackfill={elevationBackfill}
           onAcceptAll={handleAcceptAll}

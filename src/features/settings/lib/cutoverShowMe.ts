@@ -1,5 +1,4 @@
-import type { CutoverSummary } from '@/features/routes';
-import { CUTOVER_FAILURE_KEYS } from './cutoverPhaseKeys';
+import { CUTOVER_FAILURE_KEYS, type CutoverSummary } from '@/features/routes';
 
 /**
  * Whether the sections tab has something to show for the re-analysis: the run

@@ -22371,6 +22371,63 @@ const FfiConverterTypeFfiStartupData = (() => {
 })();
 
 /**
+ * What an upgrade that ran out of space needed, and what the volume had.
+ *
+ * Bytes cross the boundary as `f64`, exact to 2^53, so TypeScript never
+ * holds a `bigint`.
+ */
+export type FfiStorageShortfall = {
+  /**
+   * Free bytes the upgrade needs beside the library.
+   */
+  neededBytes: number;
+  /**
+   * Free bytes the volume had, `None` when the volume could not be read.
+   */
+  freeBytes?: number;
+};
+
+/**
+ * Generated factory for {@link FfiStorageShortfall} record objects.
+ */
+export const FfiStorageShortfall = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiStorageShortfall, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiStorageShortfall>,
+  });
+})();
+
+const FfiConverterTypeFfiStorageShortfall = (() => {
+  type TypeName = FfiStorageShortfall;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        neededBytes: FfiConverterFloat64.readFromCursor(c),
+        freeBytes: FfiConverterOptionalFloat64.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterFloat64.writeIntoCursor(value.neededBytes, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.freeBytes, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterFloat64.allocationSize(value.neededBytes) +
+        FfiConverterOptionalFloat64.allocationSize(value.freeBytes)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * A stored curve and when it was fetched.
  *
  * The two travel together because a curve drawn offline says nothing about
@@ -36923,6 +36980,12 @@ export interface VeloqEngineLike {
    * is what the athlete needs to decide what to do about it.
    */
   initOutcome(): FfiInitOutcome;
+  /**
+   * The bytes the last init needed, when it stopped for want of space.
+   *
+   * Read beside `init_outcome`: `None` for every other outcome.
+   */
+  initStorageShortfall(): FfiStorageShortfall | undefined;
   isInitialized(): boolean;
   /**
    * Everything launch does to the engine once the library's identity is
@@ -37494,6 +37557,28 @@ export class VeloqEngine
     );
     try {
       return FfiConverterTypeFfiInitOutcome.lift(__rb);
+    } finally {
+      nativeModule().rustbuffer_free(__rb);
+    }
+  }
+
+  /**
+   * The bytes the last init needed, when it stopped for want of space.
+   *
+   * Read beside `init_outcome`: `None` for every other outcome.
+   */
+  initStorageShortfall(): FfiStorageShortfall | undefined {
+    const __rb: Uint8Array = uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_init_storage_shortfall(
+          uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+      return FfiConverterOptionalTypeFfiStorageShortfall.lift(__rb);
     } finally {
       nativeModule().rustbuffer_free(__rb);
     }
@@ -39226,6 +39311,11 @@ const FfiConverterSequenceTypeSettingPair = new FfiConverterArray(
 // FfiConverter for Array<FfiUnplacedRecord>
 const FfiConverterSequenceTypeFfiUnplacedRecord = new FfiConverterArray(
   FfiConverterTypeFfiUnplacedRecord,
+);
+
+// FfiConverter for FfiStorageShortfall | undefined
+const FfiConverterOptionalTypeFfiStorageShortfall = new FfiConverterOptional(
+  FfiConverterTypeFfiStorageShortfall,
 );
 
 // FfiConverter for FfiCutoverDiff | undefined
@@ -41524,6 +41614,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_init_storage_shortfall() !==
+    12622
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_init_storage_shortfall",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_is_initialized() !==
     10249
   ) {
@@ -41942,6 +42040,7 @@ export default Object.freeze({
     FfiConverterTypeFfiStatTrend,
     FfiConverterTypeFfiStepBlock,
     FfiConverterTypeFfiStepTarget,
+    FfiConverterTypeFfiStorageShortfall,
     FfiConverterTypeFfiStoredCurve,
     FfiConverterTypeFfiStrengthBalancePair,
     FfiConverterTypeFfiStrengthCardSummary,

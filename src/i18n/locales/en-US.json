@@ -134,5 +134,8 @@
   },
   "common": {
     "cancelled": "Canceled"
+  },
+  "support": {
+    "tipNote": "Tips are donations. They unlock nothing: Veloq is free for everyone."
   }
 }

@@ -159,11 +159,10 @@ describe('the picture option ring', () => {
   it('rings the chosen option at the selected-ring width', async () => {
     await render(
       <CircleOptionRow
-        options={[{ value: 'moss', label: 'Moss', render: () => null }]}
+        options={[{ value: 'moss', label: 'Moss', testID: 'swatch-moss', render: () => null }]}
         value="moss"
         onValueChange={jest.fn()}
         maxSize={64}
-        testIDPrefix="swatch"
       />
     );
     const circle = screen.getByTestId('swatch-moss-circle');

@@ -35,4 +35,4 @@ Tus datos de entrenamiento se quedan en tu dispositivo. Sin analíticas, sin ras
 
 Compatible con ciclismo, carrera, natación y más de 20 tipos de actividad. Prueba el modo demo integrado para explorar sin cuenta.
 
-Requiere una cuenta de intervals.icu para datos en directo. No afiliado a intervals.icu.
+Requiere una cuenta de intervals.icu para datos en directo. Requiere Android 7.0 o posterior. No afiliado a intervals.icu.

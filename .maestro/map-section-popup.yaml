@@ -1,8 +1,7 @@
-# Regional map section popup. The sections are drawn into the map canvas, so
-# no step can tap one. The map tab takes the section to open as a parameter.
-#
-# A demo section id is its content id, the 100 m earth cell its heart sits in,
-# so it is the same on every device for the same fixture library.
+# Regional map section popup. The section is opened the way a user opens it: its
+# page's overflow menu, Show on map. No step names a section id, because the
+# detector assigns those and moves them with its config and the order activities
+# arrive.
 
 appId: com.veloq.app.dev
 tags:
@@ -32,12 +31,16 @@ tags:
       id: "section-row-.*"
     timeout: 300000
 
-- openLink: "veloq://map?section=s_47075_-6084"
-- runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+- tapOn:
+    id: "section-row-0"
+- extendedWaitUntil:
+    visible:
+      id: "section-detail-screen"
+    timeout: 10000
+- tapOn:
+    id: "section-overflow-menu"
+- tapOn:
+    text: "Show on map"
 
 - extendedWaitUntil:
     visible:

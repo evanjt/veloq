@@ -313,6 +313,13 @@ const GUARDS = [
       'a public function returning a hash container, whose seed makes detection order differ run to run',
   },
   {
+    name: 'lint:ios-availability',
+    kind: 'style',
+    cmd: node('lint-ios-availability.mjs'),
+    catches:
+      'an iOS availability check at or below the deployment target, whose fallback no installable build reaches',
+  },
+  {
     name: 'lint:pod-source-links',
     kind: 'correctness',
     cmd: node('lint-pod-source-links.mjs'),
@@ -1372,6 +1379,13 @@ const GUARDS = [
     kind: 'environment',
     cmd: node('lint-cargo-config-reach.mjs'),
     catches: 'a worktree outside the directory whose cargo config caps jobs and names the corpus',
+  },
+  {
+    name: 'check:no-install-gate',
+    kind: 'style',
+    cmd: node('check-no-install-gate.mjs'),
+    catches:
+      'a Play Integrity, Play Licensing, App Attest or install-source check entering the app or the proxy, which gates a feature on a store install and breaks it on the sideloaded and source builds',
   },
 ];
 

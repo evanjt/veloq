@@ -1,0 +1,31 @@
+# Soak: the section popup on the map and its detail, opened and closed CYCLES times.
+appId: com.veloq.app.dev
+tags:
+  - soak
+---
+- runFlow: launch.yaml
+- repeat:
+    times: ${CYCLES}
+    commands:
+      - runFlow:
+          file: open-link.yaml
+          env:
+            LINK: "veloq://map?section=${SECTION}"
+      - extendedWaitUntil:
+          visible:
+            id: "section-popup"
+          timeout: 60000
+      - tapOn:
+          id: "section-popup-view-details"
+      - waitForAnimationToEnd:
+          timeout: 4000
+      - assertNotVisible:
+          id: "map-unavailable"
+      - runFlow:
+          file: open-link.yaml
+          env:
+            LINK: "veloq://"
+      - extendedWaitUntil:
+          visible:
+            id: "home-screen"
+          timeout: 15000

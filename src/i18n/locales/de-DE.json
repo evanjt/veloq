@@ -586,6 +586,7 @@
       "busy": "Etwas anderes hat die Datenbank benutzt. Ein erneuter Versuch sollte helfen.",
       "forwardSchema": "Diese Daten wurden von einer neueren Version von Veloq gespeichert. Aktualisiere die App, um sie zu öffnen.",
       "storageUnavailable": "Die Datenbank konnte nicht geschrieben werden. Schaffe Speicherplatz und versuche es erneut.",
+      "storageShortfall": "Das Update deiner Bibliothek braucht {{needed}} freien Speicherplatz auf diesem Gerät. Schaffe Speicherplatz und versuche es erneut.",
       "failed": "Deine Aktivitätenbibliothek konnte aus einem Grund, den die App nicht benennen kann, nicht geöffnet werden. Sie ist unverändert auf deinem Gerät.",
       "versionMismatch": "Diese Daten konnten nicht geöffnet werden. Sie sind weiterhin auf deinem Gerät: Frag im Forum unter Einstellungen nach Hilfe."
     },
@@ -1802,6 +1803,7 @@
     "setAsReferenceConfirm": "Diese Aktivität als Referenz verwenden?\n\nDie Linie des Abschnitts folgt dieser Aktivität, und die Ansicht Vorsprung oder Rückstand misst den Vorsprung oder Rückstand daran.\n\nDer Abschnitt wird erneut mit all deinen Aktivitäten abgeglichen, wobei einige hinzukommen oder wegfallen können.",
     "setReferenceError": "Referenz konnte nicht gesetzt werden. Der Abschnitt oder die Aktivität hat sich möglicherweise geändert. Bitte versuche es erneut.",
     "editBounds": "Grenzen bearbeiten",
+    "showOnMap": "Auf Karte zeigen",
     "pointsCount_one": "{{count}} Punkt",
     "pointsCount_other": "{{count}} Punkte",
     "resetBounds": "Auf Original zurücksetzen",
@@ -2580,6 +2582,7 @@
     "tipSmall": "Klein",
     "tipMedium": "Mittel",
     "tipLarge": "Groß",
+    "tipNote": "Ein Trinkgeld ist eine Spende und schaltet nichts frei. Veloq ist für alle kostenlos.",
     "shareCrashLog": "Absturzprotokoll teilen",
     "noCrashLog": "Keine Abstürze aufgezeichnet"
   },

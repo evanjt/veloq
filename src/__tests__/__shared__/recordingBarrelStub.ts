@@ -73,6 +73,7 @@ const SOURCES: Record<string, string> = {
   resumeHeldRecordingForAthlete: 'lib/holdRecordingOnSignOut',
   holdRecordingOnSignOut: 'lib/holdRecordingOnSignOut',
   heldRideStart: 'lib/holdRecordingOnSignOut',
+  nearbyRouteIds: 'lib/nearbyRoutes',
 };
 
 export function withRecordingOverrides(

@@ -365,6 +365,13 @@ impl VeloqEngine {
         crate::objects::init::last_init_outcome()
     }
 
+    /// The bytes the last init needed, when it stopped for want of space.
+    ///
+    /// Read beside `init_outcome`: `None` for every other outcome.
+    fn init_storage_shortfall(&self) -> Option<crate::objects::init::FfiStorageShortfall> {
+        crate::objects::init::last_storage_shortfall()
+    }
+
     fn is_initialized(&self) -> bool {
         PERSISTENT_ENGINE
             .lock()

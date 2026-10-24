@@ -12,6 +12,7 @@ import { fireEvent, render } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 
 import { TipButtons } from '@/shared/ui/TipButtons';
+import { loadableLocales, loadLocale } from '@/i18n/localeBundles';
 import { colors, darkColors } from '@/theme';
 
 import { AA_TEXT, contrastRatio } from '../__shared__/contrast';
@@ -91,4 +92,21 @@ it('refuses a second purchase while one is running', async () => {
   }
   fireEvent.press(getByText('$1'));
   expect(onTip).not.toHaveBeenCalled();
+});
+
+it.each([
+  ['full', false],
+  ['small', true],
+])('states once, in the %s form, that a tip unlocks nothing', async (_form, small) => {
+  const { getAllByText } = await render(
+    <TipButtons products={PRODUCTS} isPurchasing={false} onTip={() => {}} small={small} />
+  );
+  expect(getAllByText('support.tipNote')).toHaveLength(1);
+});
+
+it('carries the donation note in every locale bundle, so none falls back to English', () => {
+  const missing = loadableLocales().filter(
+    (locale) => !(loadLocale(locale) as { support?: { tipNote?: string } }).support?.tipNote?.trim()
+  );
+  expect(missing).toEqual([]);
 });

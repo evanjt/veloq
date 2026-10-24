@@ -62,7 +62,4 @@ export const storeLayout = {
   capRatio: 0.078,
   subRatio: 0.44, // of cap
   kickerRatio: 0.36, // of cap
-  radiusRatio: 0.115,
-  deviceRatio: 0.86,
-  deviceRatioTablet: 0.6,
 };

@@ -35,12 +35,10 @@ public final class VeloqLiveActivityModule: Module {
     }
 
     Function("isSupported") { () -> Bool in
-      guard #available(iOS 16.2, *) else { return false }
       return ActivityAuthorizationInfo().areActivitiesEnabled
     }
 
     Function("start") { (attributesJson: String, stateJson: String) -> String? in
-      guard #available(iOS 16.2, *) else { return nil }
       guard
         let attributes = decode(VeloqRecordingAttributes.self, from: attributesJson),
         let state = decode(VeloqRecordingAttributes.ContentState.self, from: stateJson)
@@ -68,7 +66,6 @@ public final class VeloqLiveActivityModule: Module {
     // update, end and endAll hand off to a Task rather than blocking: every one of
     // them is called from the JS thread, and ActivityKit's own calls are async.
     Function("update") { (stateJson: String) in
-      guard #available(iOS 16.2, *) else { return }
       guard let state = decode(VeloqRecordingAttributes.ContentState.self, from: stateJson) else {
         return
       }
@@ -82,7 +79,6 @@ public final class VeloqLiveActivityModule: Module {
     // A final state leaves the card up on those figures until its stale date, then
     // the system dismisses it. Without one the card goes at once.
     Function("end") { (finalStateJson: String?) in
-      guard #available(iOS 16.2, *) else { return }
       guard
         let json = finalStateJson,
         let state = decode(VeloqRecordingAttributes.ContentState.self, from: json),
@@ -102,7 +98,6 @@ public final class VeloqLiveActivityModule: Module {
     }
 
     Function("endAll") {
-      guard #available(iOS 16.2, *) else { return }
       Task { await endAll() }
     }
   }
@@ -115,7 +110,6 @@ private func decode<T: Decodable>(_ type: T.Type, from json: String) -> T? {
 
 /// Dismiss immediately, ended or not: an orphan at launch is a card counting nothing,
 /// and a stopped ride's card is cleared once the ride is saved or discarded.
-@available(iOS 16.2, *)
 private func endAll() async {
   for activity in Activity<VeloqRecordingAttributes>.activities {
     await activity.end(nil, dismissalPolicy: .immediate)

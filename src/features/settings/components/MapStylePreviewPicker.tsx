@@ -46,6 +46,7 @@ function MapStylePreviewPickerComponent({ value, onValueChange }: MapStylePrevie
 
   const options: CircleOption<MapStyleType>[] = MAP_STYLES.map(({ style, labelKey }) => ({
     value: style,
+    testID: `map-style-${style}`,
     label: t(labelKey as never),
     render: (size) => <BernPreview style={style} size={size} />,
   }));
@@ -59,7 +60,6 @@ function MapStylePreviewPickerComponent({ value, onValueChange }: MapStylePrevie
         onValueChange={onValueChange}
         maxSize={CIRCLE_SIZE}
         testID="map-style-picker"
-        testIDPrefix="map-style"
       />
     </View>
   );

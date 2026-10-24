@@ -31,9 +31,10 @@ export interface PressTargetProps extends Omit<PressableProps, 'android_ripple' 
   style?: StyleProp<ViewStyle> | ((state: PressableStateCallbackType) => StyleProp<ViewStyle>);
   /**
    * Where the Android ripple draws: under the child, or over it for a child
-   * that paints an opaque ground of its own, such as a card.
+   * that paints an opaque ground of its own, such as a card. `none` draws no
+   * ripple, for a control that answers a press in its own content.
    */
-  ripple?: 'under' | 'over' | undefined;
+  ripple?: 'under' | 'over' | 'none' | undefined;
   /**
    * Whether the target fades on iOS while pressed. Off for a control that sets
    * its own opacity, such as `Button`, which also dims when disabled.
@@ -76,7 +77,13 @@ export function PressTarget({
       {...props}
       ref={ref}
       disabled={disabled}
-      android_ripple={disabled ? undefined : ripple === 'over' ? pressRippleOver : pressRipple}
+      android_ripple={
+        disabled || ripple === 'none'
+          ? undefined
+          : ripple === 'over'
+            ? pressRippleOver
+            : pressRipple
+      }
       onFocus={handleFocus}
       onBlur={handleBlur}
       style={(state) => {

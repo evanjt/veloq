@@ -50,6 +50,7 @@
       "busy": "Otra cosa estaba usando la base de datos. Vuelve a intentarlo en un momento.",
       "forwardSchema": "Estos datos se guardaron con una versión más nueva de Veloq. Actualiza la aplicación para abrirlos.",
       "storageUnavailable": "No se ha podido escribir la base de datos. Libera espacio e inténtalo de nuevo.",
+      "storageShortfall": "Actualizar tu biblioteca necesita {{needed}} libres en este dispositivo. Libera espacio e inténtalo de nuevo.",
       "failed": "No se ha podido abrir tu biblioteca de actividades por un motivo que la aplicación no sabe nombrar. Sigue en tu dispositivo, intacta.",
       "versionMismatch": "No se han podido abrir estos datos. Siguen en tu dispositivo: pide ayuda en el foro desde Ajustes."
     },
@@ -122,5 +123,8 @@
       "recutFailed": "El nuevo análisis no terminó. Tus tramos siguen igual y se ejecuta de nuevo al abrir la app.",
       "recutFailedAfterApply": "Tus tramos se han vuelto a analizar, pero el resumen de los cambios no se ha guardado. Se vuelve a escribir al abrir la app."
     }
+  },
+  "support": {
+    "tipNote": "Una propina es una donación. No desbloquea nada: Veloq es gratis para todo el mundo."
   }
 }

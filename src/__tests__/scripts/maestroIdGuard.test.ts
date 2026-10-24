@@ -52,6 +52,13 @@ describe('resolving a flow id against the tree', () => {
     expect(resolves('<View testID="routes-list" />', 'routes-list')).toBe(true);
   });
 
+  it('takes an id a component carries in an exported constant', () => {
+    const component =
+      "export const MAP_GONE_TEST_ID = 'map-gone';\n<View testID={MAP_GONE_TEST_ID} />";
+    expect(resolves(component, 'map-gone')).toBe(true);
+    expect(resolves(component, 'map-gone-too')).toBe(false);
+  });
+
   it("takes the id iOS gives a navigation bar's back control, which no component renders", () => {
     // Maestro's `back` does nothing on iOS, so a flow leaves a pushed screen by
     // tapping the platform's own control.

@@ -593,6 +593,7 @@
       "busy": "Autre chose utilisait la base de données. Réessayez dans un instant.",
       "forwardSchema": "Ces données ont été enregistrées par une version plus récente de Veloq. Mettez l'application à jour pour les ouvrir.",
       "storageUnavailable": "La base de données n'a pas pu être écrite. Libérez de l'espace, puis réessayez.",
+      "storageShortfall": "La mise à jour de votre bibliothèque nécessite {{needed}} d'espace libre sur cet appareil. Libérez de l'espace, puis réessayez.",
       "failed": "Votre bibliothèque d'activités n'a pas pu être ouverte, pour une raison que l'application ne sait pas nommer. Elle est toujours sur votre appareil, intacte.",
       "versionMismatch": "Ces données n'ont pas pu être ouvertes. Elles sont toujours sur votre appareil : demandez de l'aide sur le forum depuis les Paramètres."
     },
@@ -1833,6 +1834,7 @@
     "setAsReferenceConfirm": "Utiliser cette activité comme référence ?\n\nLe tracé de la section suivra cette activité, et la vue En avance ou en retard mesurera l'avance ou le retard par rapport à elle.\n\nLa section sera re-comparée avec toutes vos activités, ce qui peut en ajouter ou en retirer.",
     "setReferenceError": "Échec de la définition de la référence. La section ou l'activité a peut-être changé. Veuillez réessayer.",
     "editBounds": "Modifier les limites",
+    "showOnMap": "Voir sur la carte",
     "pointsCount_one": "{{count}} point",
     "pointsCount_other": "{{count}} points",
     "resetBounds": "Réinitialiser à l'original",
@@ -2645,6 +2647,7 @@
     "tipSmall": "Petit",
     "tipMedium": "Moyen",
     "tipLarge": "Grand",
+    "tipNote": "Un pourboire est un don et ne débloque rien. Veloq est gratuit pour tout le monde.",
     "shareCrashLog": "Partager le journal des plantages",
     "noCrashLog": "Aucun plantage enregistré"
   },

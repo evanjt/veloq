@@ -118,6 +118,7 @@ export {
 export { useSectionTrim } from './hooks/useSectionTrim';
 export { buildFinalRouteGroup, buildRouteGroupBase } from './lib/buildRouteGroup';
 export { getPhaseDisplayKey } from './lib/detectionProgress';
+export { CUTOVER_FAILURE_KEYS } from './lib/cutoverPhaseKeys';
 export {
   DETECTION_PARAM_RANGES,
   isPastClamp,

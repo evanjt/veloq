@@ -54,7 +54,8 @@ tags:
 - tapOn:
     id: "hide-demo-banner-switch"
 
-# 01 activity feed
+# 01 activity feed, at its top with the summary card in view. The feed keeps the
+# scroll position it was left at, so it is scrolled back before the shot.
 - openLink: "veloq://"
 - runFlow:
     when:
@@ -65,12 +66,64 @@ tags:
     visible:
       id: "home-activity-list"
     timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "summary-card-sparkline"
+    direction: UP
+    timeout: 20000
+    optional: true
 - waitForAnimationToEnd:
     timeout: 3000
 - takeScreenshot: "screenshots/store-capture/01-feed"
 - assertNotVisible: "Open debugger to view warnings"
 
-# 02 activity detail
+# 02 regional map: satellite style, 3D terrain and the heatmap, framed on a
+# demo ride in the Valais. The style and terrain are the athlete's own map
+# settings, the heatmap is the layer toggle in the map's layers menu, and the
+# camera is the deep link's activity, which the map fits.
+- openLink: "veloq:///settings"
+- scrollUntilVisible:
+    element:
+      id: "settings-nav-maps"
+    direction: DOWN
+- tapOn:
+    id: "settings-nav-maps"
+- extendedWaitUntil:
+    visible:
+      id: "map-style-satellite"
+    timeout: 10000
+- tapOn:
+    id: "map-style-satellite"
+- tapOn:
+    id: "terrain-3d-always"
+- openLink: "veloq://map?activity=demo-test-0"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible:
+      id: "regional-map-ready"
+    timeout: 30000
+- runFlow:
+    file: helpers/open-map-layers.yaml
+- runFlow:
+    when:
+      visible:
+        id: "map-toggle-heatmap"
+        checked: false
+    commands:
+      - tapOn:
+          id: "map-toggle-heatmap"
+# MapLibre tile loading has no deterministic hook, so the satellite imagery and
+# the terrain get a settle window after the ready marker.
+- waitForAnimationToEnd:
+    timeout: 15000
+- takeScreenshot: "screenshots/store-capture/02-map"
+- assertNotVisible: "Open debugger to view warnings"
+
+# 03 activity detail
 - openLink: "veloq://activity/demo-test-0"
 - runFlow:
     when:
@@ -83,54 +136,69 @@ tags:
     timeout: 15000
 - waitForAnimationToEnd:
     timeout: 3000
-- takeScreenshot: "screenshots/store-capture/02-activity"
+- takeScreenshot: "screenshots/store-capture/03-activity"
 - assertNotVisible: "Open debugger to view warnings"
 
-# 03 fitness
+# 04 section page, with the notification the engine writes for the ride up on
+# screen. Debug mode adds the repost button to the activity page, so it is
+# switched on only here and off again once the shot is taken.
+- openLink: "veloq:///settings"
+- scrollUntilVisible:
+    element:
+      id: "settings-version-text"
+    direction: DOWN
+- repeat:
+    times: 5
+    commands:
+      - tapOn:
+          id: "settings-version-text"
+- tapOn:
+    id: "settings-debug-switch"
+- openLink: "veloq://activity/demo-test-0"
 - runFlow:
-    file: helpers/navigate-to-fitness.yaml
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible:
-      id: "fitness-ctl-value"
+      id: "activity-regenerate-notification"
     timeout: 15000
-- waitForAnimationToEnd:
-    timeout: 3000
-- takeScreenshot: "screenshots/store-capture/03-fitness"
-- assertNotVisible: "Open debugger to view warnings"
-
-# 04 regional map. map-screen also sits on the loading and error branches, and
-# MapLibre tile loading has no deterministic hook, so wait for the ready marker
-# then give tiles a settle window.
-- runFlow:
-    file: helpers/navigate-to-map.yaml
-- extendedWaitUntil:
-    visible:
-      id: "regional-map-ready"
-    timeout: 15000
-- waitForAnimationToEnd:
-    timeout: 8000
-- takeScreenshot: "screenshots/store-capture/04-map"
-- assertNotVisible: "Open debugger to view warnings"
-
-# 05 routes
+- tapOn:
+    id: "activity-regenerate-notification"
 - runFlow:
     file: helpers/navigate-to-routes.yaml
+- tapOn:
+    id: "tab-sections"
+    optional: true
 - extendedWaitUntil:
     visible:
-      id: "routes-list"
+      id: "sections-list"
     timeout: 15000
-# A listed library can still carry the regroup its load owed, and the shot
-# would carry its banner.
 - extendedWaitUntil:
     notVisible:
       id: "routes-sync-banner"
     timeout: 60000
+- tapOn:
+    id: "section-row-0"
+- extendedWaitUntil:
+    visible:
+      id: "section-detail-screen"
+    timeout: 15000
 - waitForAnimationToEnd:
     timeout: 3000
-- takeScreenshot: "screenshots/store-capture/05-routes"
+- takeScreenshot: "screenshots/store-capture/04-section"
 - assertNotVisible: "Open debugger to view warnings"
+- openLink: "veloq:///settings"
+- scrollUntilVisible:
+    element:
+      id: "settings-debug-switch"
+    direction: DOWN
+- tapOn:
+    id: "settings-debug-switch"
 
-# 06 insights
+# 05 insights. A listed library can still carry the regroup its load owed, and
+# the shot would carry its "Computing routes" line.
 - openLink: "veloq://insights?tab=insights"
 - runFlow:
     when:
@@ -147,8 +215,81 @@ tags:
     timeout: 60000
 - waitForAnimationToEnd:
     timeout: 3000
-- takeScreenshot: "screenshots/store-capture/06-insights"
+- takeScreenshot: "screenshots/store-capture/05-insights"
 - assertNotVisible: "Open debugger to view warnings"
+
+# 06 fitness
+- runFlow:
+    file: helpers/navigate-to-fitness.yaml
+- extendedWaitUntil:
+    visible:
+      id: "fitness-ctl-value"
+    timeout: 15000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: "screenshots/store-capture/06-fitness"
+- assertNotVisible: "Open debugger to view warnings"
+
+# 07 strength, the body diagram with a muscle selected. The point is inside the
+# front body's abs, which the demo's sets reach (.maestro/strength-inline-panel.yaml).
+- openLink: "veloq://insights?tab=strength"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible:
+      id: "strength-body-diagram"
+    timeout: 30000
+- tapOn:
+    id: "strength-body-diagram"
+    point: "26%,45%"
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: "screenshots/store-capture/07-strength"
+- assertNotVisible: "Open debugger to view warnings"
+
+# 08 recording, a ride in progress. The session is taken to review and
+# discarded, so the app is left as the next run's setup expects it.
+- runFlow:
+    file: helpers/discard-recording.yaml
+- openLink: "veloq://"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- tapOn:
+    id: "record-fab"
+- runFlow:
+    when:
+      visible: "(?i)discard"
+    commands:
+      - tapOn: "(?i)discard"
+- runFlow:
+    file: helpers/start-from-entry.yaml
+    env:
+      SPORT: Ride
+      ARMED: "true"
+- extendedWaitUntil:
+    visible:
+      id: "recording-timer"
+    timeout: 10000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: "screenshots/store-capture/08-recording"
+- assertNotVisible: "Open debugger to view warnings"
+- runFlow:
+    file: helpers/unlock-recording.yaml
+- runFlow:
+    file: helpers/end-recording.yaml
+- runFlow:
+    file: helpers/confirm-review-discard.yaml
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 10000
 
 # Leave the app following the phone's language, so the next run's setup reads
 # the screens it expects.

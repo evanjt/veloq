@@ -81,8 +81,9 @@ Working on it:
 ## Install and sign in
 
 Get it from the [App Store](https://apps.apple.com/us/app/veloq/id6757836732) or
-[Google Play](https://play.google.com/store/apps/details?id=com.veloq.app). There are three ways
-to sign in.
+[Google Play](https://play.google.com/store/apps/details?id=com.veloq.app). Veloq is free on both
+stores and from GitHub Releases, and the three are the same app: nothing is gated on where it was
+installed or on a purchase. The tips in the app are donations. There are three ways to sign in.
 
 * OAuth: tap `Sign in with intervals.icu`, approve in the browser and you land back in the app.
   Veloq asks for read access to activities, wellness, the calendar and settings. The first time

@@ -9,7 +9,8 @@
 
 import React from 'react';
 import { Platform, StyleSheet } from 'react-native';
-import { fireEvent, render } from '@testing-library/react-native';
+import { fireEvent, render, waitFor, within } from '@testing-library/react-native';
+import type { ReactTestInstance } from 'react-test-renderer';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 
@@ -27,6 +28,24 @@ jest.mock('expo-haptics', () => ({
   performAndroidHapticsAsync: jest.fn(() => Promise.resolve()),
   ImpactFeedbackStyle: { Light: 'light' },
 }));
+
+// The ripple Android selects, so a tab is checked against the value it gets on that platform.
+jest.mock('@/shared/ui/pressFeedback', () => ({
+  ...jest.requireActual('@/shared/ui/pressFeedback'),
+  pressRipple: { borderless: false },
+}));
+
+// A touch as the responder system reports it, which is what drives a Pressable's pressed state.
+const touchHistory = {
+  touchBank: [],
+  numberActiveTouches: 0,
+  indexOfSingleActiveTouch: -1,
+  mostRecentTimeStamp: 0,
+};
+const grant = (node: ReactTestInstance) =>
+  fireEvent(node, 'responderGrant', { touchHistory, nativeEvent: {}, persist: () => {} });
+const endTouch = (node: ReactTestInstance) =>
+  fireEvent(node, 'responderTerminate', { touchHistory, nativeEvent: {}, persist: () => {} });
 
 let mockSegments: string[] = ['(tabs)'];
 let mockPathname = '/';
@@ -271,29 +290,83 @@ describe('BottomTabBar', () => {
       expect(queryAllByTestId(/^bottom-tab-.*-indicator$/, HIDDEN)).toHaveLength(0);
     });
 
-    it.each(CASES)(
-      'raises one cap over the selected tab only, in the bar surface, on $os in $name',
-      async ({ os, theme }) => {
-        Platform.OS = os;
-        mockIsDark = theme.isDark;
-        mockPathname = '/insights';
-        const { getAllByTestId } = await render(<BottomTabBar />);
+    it.each(CASES)('draws no cap and no lift on the selected tab on $os in $name', async (c) => {
+      Platform.OS = c.os;
+      mockIsDark = c.theme.isDark;
+      mockPathname = '/insights';
+      const { queryAllByTestId, getByLabelText } = await render(<BottomTabBar />);
 
-        const caps = getAllByTestId(/^bottom-tab-.*-cap$/, HIDDEN);
-        expect(caps.map((node) => node.props.testID)).toEqual(['bottom-tab-insights-cap']);
-        const disc = StyleSheet.flatten(caps[0].props.children.props.style);
-        expect(disc.backgroundColor).toBe(theme.palette.surface);
-        expect(disc.borderColor).toBe(theme.palette.border);
-        expect(disc.borderRadius).toBeGreaterThanOrEqual(disc.width / 2);
+      expect(queryAllByTestId(/^bottom-tab-.*-cap$/, HIDDEN)).toHaveLength(0);
+      const tab = getByLabelText('navigation.insights');
+      const glyph = within(tab).UNSAFE_getByProps({ testID: 'bottom-tab-insights-glyph' });
+      for (let at: ReactTestInstance | null = glyph; at && at !== tab; at = at.parent) {
+        expect(StyleSheet.flatten(at.props.style ?? {}).transform).toBeUndefined();
+      }
+    });
+
+    it.each(CASES)('draws no ripple and no fade on a tab on $os in $name', async (c) => {
+      Platform.OS = c.os;
+      mockIsDark = c.theme.isDark;
+      const { getByLabelText, UNSAFE_root } = await render(<BottomTabBar />);
+      const tab = getByLabelText('navigation.fitness');
+      const press = UNSAFE_root.find(
+        (node) =>
+          node.props.accessibilityLabel === 'navigation.fitness' && 'android_ripple' in node.props
+      );
+
+      await grant(tab);
+
+      expect(press.props.android_ripple).toBeUndefined();
+      expect(StyleSheet.flatten(getByLabelText('navigation.fitness').props.style).opacity).toBe(
+        undefined
+      );
+    });
+
+    it.each(CASES)(
+      'brightens the pressed tab to the selected colours and lets go when the touch ends on $os in $name',
+      async (c) => {
+        Platform.OS = c.os;
+        mockIsDark = c.theme.isDark;
+        const { getByLabelText, getByText } = await render(<BottomTabBar />);
+        const colourOf = () => ({
+          glyph: getByLabelText('navigation.fitness').findByProps({
+            testID: 'bottom-tab-fitness-glyph',
+          }).props.color,
+          label: StyleSheet.flatten(getByText('navigation.fitness').props.style).color,
+        });
+
+        expect(colourOf()).toEqual({
+          glyph: c.theme.palette.iconSecondary,
+          label: c.theme.palette.textSecondary,
+        });
+        await grant(getByLabelText('navigation.fitness'));
+        expect(colourOf()).toEqual({
+          glyph: c.theme.palette.controlOn,
+          label: c.theme.palette.textPrimary,
+        });
+        await endTouch(getByLabelText('navigation.fitness'));
+        // A press stays drawn for the pressability's minimum duration after the finger lifts.
+        await waitFor(() =>
+          expect(colourOf()).toEqual({
+            glyph: c.theme.palette.iconSecondary,
+            label: c.theme.palette.textSecondary,
+          })
+        );
       }
     );
 
-    it('moves the cap with the selection', async () => {
-      mockPathname = '/map';
-      const { queryByTestId } = await render(<BottomTabBar />);
+    it('keeps the outline glyph and the light label while pressed, until the tab is selected', async () => {
+      const { getByLabelText, getByText } = await render(<BottomTabBar />);
 
-      expect(queryByTestId('bottom-tab-map-cap', HIDDEN)).toBeTruthy();
-      expect(queryByTestId('bottom-tab-feed-cap', HIDDEN)).toBeNull();
+      await grant(getByLabelText('navigation.fitness'));
+
+      const glyph = getByLabelText('navigation.fitness').findByProps({
+        testID: 'bottom-tab-fitness-glyph',
+      }).props;
+      expect(glyph.name).toMatch(/-outline$/);
+      expect(StyleSheet.flatten(getByText('navigation.fitness').props.style).fontWeight).toBe(
+        faceWeight('400')
+      );
     });
   });
 });

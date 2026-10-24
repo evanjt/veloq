@@ -317,11 +317,15 @@
         margin: 0 auto 32px;
       }
 
-      .demo-hint {
+      .hero-about {
         font-size: 0.95rem;
-        color: var(--primary);
+        color: var(--text-muted);
+        max-width: 600px;
         margin: -16px auto 24px;
-        font-weight: 500;
+      }
+
+      .hero-about a {
+        color: var(--primary);
       }
 
       .cta-buttons {
@@ -384,7 +388,7 @@
 
       .phone-frame {
         background: #1a1a1a;
-        border-radius: 40px;
+        border-radius: 28px;
         padding: 12px;
         box-shadow: 0 30px 80px rgba(0, 0, 0, 0.3);
         animation: float 6s ease-in-out infinite;
@@ -392,28 +396,15 @@
 
       .phone-screen {
         background: #000;
-        border-radius: 32px;
+        border-radius: 16px;
         overflow: hidden;
-        aspect-ratio: 9/19.5;
+        aspect-ratio: 712/1584;
         position: relative;
-      }
-
-      .phone-notch {
-        position: absolute;
-        top: 0;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 120px;
-        height: 28px;
-        background: #1a1a1a;
-        border-radius: 0 0 20px 20px;
-        z-index: 10;
       }
 
       .carousel {
-        width: 100%;
-        height: 100%;
-        position: relative;
+        position: absolute;
+        inset: 0;
       }
 
       .carousel-slide {
@@ -562,49 +553,24 @@
 
       .feature-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-        gap: 40px;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0 48px;
       }
 
       .feature {
-        padding: 32px;
-        background: var(--bg);
-        border-radius: 20px;
-        transition:
-          transform 0.3s,
-          box-shadow 0.3s;
-      }
-
-      .feature:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-      }
-
-      .feature-icon {
-        width: 56px;
-        height: 56px;
-        background: linear-gradient(
-          135deg,
-          var(--primary),
-          var(--primary-dark)
-        );
-        border-radius: 16px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-bottom: 20px;
-        font-size: 28px;
+        padding: 16px 0;
+        border-bottom: 1px solid var(--border);
       }
 
       .feature h3 {
-        font-size: 1.25rem;
-        margin-bottom: 12px;
+        font-size: 1.05rem;
+        margin-bottom: 4px;
         font-weight: 700;
       }
       .feature p {
         color: var(--text-muted);
         font-size: 0.95rem;
-        line-height: 1.7;
+        line-height: 1.5;
       }
 
       /* Getting Started */
@@ -727,8 +693,6 @@
         height: 42px;
       }
 
-
-
       .alt-downloads {
         font-size: 0.9rem;
         color: var(--text-muted);
@@ -761,15 +725,11 @@
           max-width: 300px;
         }
         .phone-frame {
-          border-radius: 30px;
+          border-radius: 22px;
           padding: 8px;
         }
         .phone-screen {
-          border-radius: 24px;
-        }
-        .phone-notch {
-          width: 90px;
-          height: 22px;
+          border-radius: 14px;
         }
         .carousel-nav {
           display: none;
@@ -780,7 +740,6 @@
         }
         .feature-grid {
           grid-template-columns: 1fr;
-          gap: 24px;
         }
         .steps {
           flex-direction: column;
@@ -842,12 +801,8 @@
           <p class="animate-fade-up delay-1" data-i18n="hero.subtitle">
             <!-- store-copy:hook -->Your fitness, form and repeated routes, read from your intervals.icu account and analysed on your phone.<!-- /store-copy:hook -->
           </p>
-          <p class="demo-hint animate-fade-up delay-1" data-i18n="hero.noAccount">
-            No account is needed to read this site, and Veloq has no account of its own. The app shows your intervals.icu training, or demo data with no account at all.
-          </p>
-          <p class="demo-hint animate-fade-up delay-1" data-i18n="hero.backup">
-            On Android, optional backups can go to a hidden folder in your own Google Drive that only Veloq can open.
-            <a href="https://veloq.fit/privacy">Privacy Policy</a>
+          <p class="hero-about animate-fade-up delay-1" data-i18n="hero.about">
+            Veloq is an open-source app for iPhone and Android that shows your intervals.icu data. The code is on <a href="https://github.com/evanjt/veloq" target="_blank">GitHub</a>.
           </p>
           <div class="store-badges animate-fade-up delay-2" id="download">
             <a
@@ -914,7 +869,6 @@
 
           <div class="phone-frame">
             <div class="phone-screen">
-              <div class="phone-notch"></div>
               <div class="carousel" id="carousel">
                 <!-- Slides will be populated by JS - add your media files to screenshots/ -->
               </div>
@@ -931,64 +885,53 @@
 
       <section class="features" id="features">
         <div class="container">
-          <h2 data-i18n="features.title">View your data</h2>
+          <h2 data-i18n="features.title">What Veloq does</h2>
           <p class="subtitle" data-i18n="features.subtitle">
-            Access your intervals.icu data on mobile with offline support.
+            Your intervals.icu data, on your phone.
           </p>
           <div class="feature-grid">
             <!-- store-copy:features -->
             <div class="feature">
-              <div class="feature-icon">&#9201;</div>
               <h3 data-i18n="features.record.title">Record</h3>
               <p data-i18n="features.record.desc">Record rides, runs and other sports with GPS, Bluetooth sensors or a planned workout.</p>
             </div>
             <div class="feature">
-              <div class="feature-icon">&#128161;</div>
               <h3 data-i18n="features.insights.title">Insights</h3>
               <p data-i18n="features.insights.desc">Short reads on your training, each opening to its numbers and how they were worked out.</p>
             </div>
             <div class="feature">
-              <div class="feature-icon">&#127758;</div>
               <h3 data-i18n="features.maps.title">Maps</h3>
               <p data-i18n="features.maps.desc">Interactive maps with 3D terrain, route heatmaps, and light, dark and satellite styles.</p>
             </div>
             <div class="feature">
-              <div class="feature-icon">&#128736;</div>
               <h3 data-i18n="features.routes.title">Routes and sections</h3>
               <p data-i18n="features.routes.desc">Compare every attempt on the routes and sections you repeat, then pin, trim or rename them.</p>
             </div>
             <div class="feature">
-              <div class="feature-icon">&#128200;</div>
               <h3 data-i18n="features.charts.title">Charts</h3>
               <p data-i18n="features.charts.desc">Heart rate, power, pace, elevation and cadence on one timeline with the map.</p>
             </div>
             <div class="feature">
-              <div class="feature-icon">&#128170;</div>
               <h3 data-i18n="features.fitness.title">Fitness</h3>
               <p data-i18n="features.fitness.desc">Fitness, fatigue and form with the zones drawn in, plus HRV, resting heart rate and sleep.</p>
             </div>
             <div class="feature">
-              <div class="feature-icon">&#127947;</div>
               <h3 data-i18n="features.strength.title">Strength</h3>
               <p data-i18n="features.strength.desc">Your strength sets on a body diagram, by muscle group and exercise.</p>
             </div>
             <div class="feature">
-              <div class="feature-icon">&#128241;</div>
               <h3 data-i18n="features.widgets.title">Widgets</h3>
               <p data-i18n="features.widgets.desc">Home-screen widgets for fitness and form, your last activity and your insights.</p>
             </div>
             <div class="feature">
-              <div class="feature-icon">&#128276;</div>
               <h3 data-i18n="features.notifications.title">Notifications</h3>
               <p data-i18n="features.notifications.desc">A notification naming the route and any personal bests when a new activity arrives. Off until you turn it on.</p>
             </div>
             <div class="feature">
-              <div class="feature-icon">&#128190;</div>
               <h3 data-i18n="features.backups.title">Backups</h3>
               <p data-i18n="features.backups.desc">Back up your settings and section decisions to a file, a folder, a cloud drive or a WebDAV server.</p>
             </div>
             <div class="feature">
-              <div class="feature-icon">&#128274;</div>
               <h3 data-i18n="features.privacy.title">Privacy</h3>
               <p data-i18n="features.privacy.desc">Your training data stays on your device, with no analytics and no tracking. Optional push notifications store your athlete ID and a device token on our server for 30 days. Open source under Apache 2.0.</p>
             </div>
@@ -1001,7 +944,7 @@
         <div class="container">
           <h2 data-i18n="getStarted.title">Getting Started</h2>
           <p class="subtitle" data-i18n="getStarted.subtitle">
-            No sign-up: install the app and open it.
+            Install the app, then connect intervals.icu or try the demo. No account is needed to read your data here.
           </p>
           <div class="steps">
             <div class="step">
@@ -1015,12 +958,13 @@
             </div>
             <div class="step">
               <div class="step-number">2</div>
-              <h3 data-i18n="getStarted.step2.title">Start exploring</h3>
+              <h3 data-i18n="getStarted.step2.title">Connect or try the demo</h3>
               <p data-i18n="getStarted.step2.desc">
-                Your activities, fitness and routes load onto your phone and are analysed there.
+                Connect intervals.icu to load your activities, or open the demo to look around first.
               </p>
             </div>
           </div>
+          <p class="subtitle" data-i18n="getStarted.backup">Backing up to Google Drive uses a private app folder in your Google account; see the <a href="https://veloq.fit/privacy">privacy policy</a>.</p>
         </div>
       </section>
     </main>
@@ -1189,15 +1133,14 @@
           "hero.title": "Your training,<br><span>visualised</span>",
           "hero.subtitle":
             "Your fitness, form and repeated routes, read from your intervals.icu account and analysed on your phone.",
-          "hero.noAccount": "No account is needed to read this site, and Veloq has no account of its own. The app shows your intervals.icu training, or demo data with no account at all.",
-          "hero.backup": "On Android, optional backups can go to a hidden folder in your own Google Drive that only Veloq can open. <a href=\"https://veloq.fit/privacy\">Privacy Policy</a>",
+          "hero.about": "Veloq is an open-source app for iPhone and Android that shows your intervals.icu data. The code is on <a href=\"https://github.com/evanjt/veloq\" target=\"_blank\">GitHub</a>.",
           "showcase.disclaimer":
             "* Screenshots show demo data for illustration purposes only.",
           "cta.openSource": "Open source: sideload via <a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>",
 
-          "features.title": "View your data",
+          "features.title": "What Veloq does",
           "features.subtitle":
-            "Access your intervals.icu data on mobile with offline support.",
+            "Your intervals.icu data, on your phone.",
           "features.record.title": "Record",
           "features.record.desc": "Record rides, runs and other sports with GPS, Bluetooth sensors or a planned workout.",
           "features.insights.title": "Insights",
@@ -1221,11 +1164,12 @@
           "features.privacy.title": "Privacy",
           "features.privacy.desc": "Your training data stays on your device, with no analytics and no tracking. Optional push notifications store your athlete ID and a device token on our server for 30 days. Open source under Apache 2.0.",
           "getStarted.title": "Getting Started",
-          "getStarted.subtitle": "No sign-up: install the app and open it.",
+          "getStarted.subtitle": "Install the app, then connect intervals.icu or try the demo. No account is needed to read your data here.",
           "getStarted.step1.title": "Install Veloq",
           "getStarted.step1.desc": "Get it on the <a href=\"https://apps.apple.com/us/app/veloq/id6757836732\" target=\"_blank\">App Store</a> or <a href=\"https://play.google.com/store/apps/details?id=com.veloq.app\" target=\"_blank\">Google Play</a>",
-          "getStarted.step2.title": "Start exploring",
-          "getStarted.step2.desc": "Your activities, fitness and routes load onto your phone and are analysed there.",
+          "getStarted.step2.title": "Connect or try the demo",
+          "getStarted.step2.desc": "Connect intervals.icu to load your activities, or open the demo to look around first.",
+          "getStarted.backup": "Backing up to Google Drive uses a private app folder in your Google account; see the <a href=\"https://veloq.fit/privacy\">privacy policy</a>.",
           "footer.releases": "Releases",
           "footer.privacy": "Privacy Policy",
           "footer.contact": "Contact",
@@ -1237,15 +1181,14 @@
             "Dein Training,<br><span>visualisiert</span>",
           "hero.subtitle":
             "Fitness, Form und wiederkehrende Routen, aus deinem intervals.icu Konto gelesen und auf dem Handy analysiert.",
-          "hero.noAccount": "Für diese Seite brauchst du kein Konto, und Veloq hat kein eigenes. Die App zeigt dein Training aus intervals.icu, oder ganz ohne Konto Demo-Daten.",
-          "hero.backup": "Auf Android können optionale Backups in einen versteckten Ordner in deinem eigenen Google Drive gehen, den nur Veloq öffnen kann. <a href=\"https://veloq.fit/privacy\">Datenschutz</a>",
+          "hero.about": "Veloq ist eine Open-Source-App für iPhone und Android, die deine intervals.icu Daten zeigt. Den Code gibt es auf <a href=\"https://github.com/evanjt/veloq\" target=\"_blank\">GitHub</a>.",
           "showcase.disclaimer":
             "* Screenshots zeigen Demodaten nur zur Veranschaulichung.",
           "cta.openSource": "Open Source: Sideload via <a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>",
 
-          "features.title": "Deine Daten anzeigen",
+          "features.title": "Was Veloq kann",
           "features.subtitle":
-            "Greife mobil auf deine intervals.icu Daten zu, auch offline.",
+            "Deine intervals.icu Daten auf dem Handy.",
           "features.record.title": "Aufzeichnung",
           "features.record.desc": "Zeichne Radfahrten, Läufe und andere Sportarten mit GPS, Bluetooth-Sensoren oder einem geplanten Training auf.",
           "features.insights.title": "Einblicke",
@@ -1269,11 +1212,12 @@
           "features.privacy.title": "Datenschutz",
           "features.privacy.desc": "Deine Trainingsdaten bleiben auf deinem Gerät. Keine Analytics, kein Tracking. Optionale Push-Benachrichtigungen speichern deine intervals.icu-Athleten-ID und ein Geräte-Token auf unserem Server, die nach 30 Tagen automatisch gelöscht werden. Open Source unter Apache 2.0.",
           "getStarted.title": "Erste Schritte",
-          "getStarted.subtitle": "Keine Registrierung: App installieren und öffnen.",
+          "getStarted.subtitle": "App installieren, dann intervals.icu verbinden oder die Demo ausprobieren. Für die Ansicht deiner Daten ist hier kein Konto nötig.",
           "getStarted.step1.title": "Veloq installieren",
           "getStarted.step1.desc": "Im <a href=\"https://apps.apple.com/us/app/veloq/id6757836732\" target=\"_blank\">App Store</a> oder bei <a href=\"https://play.google.com/store/apps/details?id=com.veloq.app\" target=\"_blank\">Google Play</a> herunterladen",
-          "getStarted.step2.title": "Loslegen",
-          "getStarted.step2.desc": "Deine Aktivitäten, Fitness und Strecken werden auf dein Handy geladen und dort ausgewertet.",
+          "getStarted.step2.title": "Verbinden oder Demo testen",
+          "getStarted.step2.desc": "Verbinde intervals.icu, um deine Aktivitäten zu laden, oder sieh dich zuerst in der Demo um.",
+          "getStarted.backup": "Die Sicherung in Google Drive nutzt einen privaten App-Ordner in deinem Google-Konto; siehe die <a href=\"https://veloq.fit/privacy\">Datenschutzerklärung</a>.",
           "footer.releases": "Releases",
           "footer.privacy": "Datenschutz",
           "footer.contact": "Kontakt",
@@ -1284,15 +1228,14 @@
           "hero.title": "Je training,<br><span>gevisualiseerd</span>",
           "hero.subtitle":
             "Je fitness, vorm en herhaalde routes, gelezen uit je intervals.icu account en geanalyseerd op je telefoon.",
-          "hero.noAccount": "Voor deze site is geen account nodig, en Veloq heeft geen eigen account. De app toont je training uit intervals.icu, of zonder account demodata.",
-          "hero.backup": "Op Android kunnen optionele back-ups naar een verborgen map in je eigen Google Drive gaan die alleen Veloq kan openen. <a href=\"https://veloq.fit/privacy\">Privacybeleid</a>",
+          "hero.about": "Veloq is een open-source app voor iPhone en Android die je intervals.icu data toont. De code staat op <a href=\"https://github.com/evanjt/veloq\" target=\"_blank\">GitHub</a>.",
           "showcase.disclaimer":
             "* Screenshots tonen demogegevens, alleen ter illustratie.",
           "cta.openSource": "Open source: sideload via <a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>",
 
-          "features.title": "Bekijk je data",
+          "features.title": "Wat Veloq doet",
           "features.subtitle":
-            "Toegang tot je intervals.icu data op mobiel met offline ondersteuning.",
+            "Je intervals.icu data op je telefoon.",
           "features.record.title": "Opnemen",
           "features.record.desc": "Neem fietstochten, hardloopsessies en andere sporten op met GPS, Bluetooth-sensoren of een geplande training.",
           "features.insights.title": "Inzichten",
@@ -1316,11 +1259,12 @@
           "features.privacy.title": "Privacy",
           "features.privacy.desc": "Je trainingsgegevens blijven op je toestel. Geen analytics, geen tracking. Optionele pushmeldingen bewaren je intervals.icu-atleet-ID en een apparaattoken op onze server, die na 30 dagen automatisch worden verwijderd. Open source onder Apache 2.0.",
           "getStarted.title": "Aan de slag",
-          "getStarted.subtitle": "Geen registratie: installeer de app en open hem.",
+          "getStarted.subtitle": "Installeer de app en koppel intervals.icu of probeer de demo. Om je gegevens hier te bekijken is geen account nodig.",
           "getStarted.step1.title": "Veloq installeren",
           "getStarted.step1.desc": "Download in de <a href=\"https://apps.apple.com/us/app/veloq/id6757836732\" target=\"_blank\">App Store</a> of op <a href=\"https://play.google.com/store/apps/details?id=com.veloq.app\" target=\"_blank\">Google Play</a>",
-          "getStarted.step2.title": "Begin met verkennen",
-          "getStarted.step2.desc": "Je activiteiten, fitness en routes worden naar je telefoon geladen en daar geanalyseerd.",
+          "getStarted.step2.title": "Koppelen of de demo proberen",
+          "getStarted.step2.desc": "Koppel intervals.icu om je activiteiten te laden, of kijk eerst rond in de demo.",
+          "getStarted.backup": "Een back-up naar Google Drive gebruikt een privé-appmap in je Google-account; zie het <a href=\"https://veloq.fit/privacy\">privacybeleid</a>.",
           "footer.releases": "Releases",
           "footer.privacy": "Privacybeleid",
           "footer.contact": "Contact",
@@ -1331,15 +1275,14 @@
           "hero.title": "Votre entraînement,<br><span>visualisé</span>",
           "hero.subtitle":
             "Votre forme, votre fitness et vos routes répétées, lus depuis votre compte intervals.icu et analysés sur votre téléphone.",
-          "hero.noAccount": "Aucun compte n'est nécessaire pour lire ce site, et Veloq n'a pas de compte à lui. L'application affiche votre entraînement intervals.icu, ou des données de démo sans aucun compte.",
-          "hero.backup": "Sur Android, les sauvegardes facultatives peuvent aller dans un dossier masqué de votre propre Google Drive que seul Veloq peut ouvrir. <a href=\"https://veloq.fit/privacy\">Confidentialité</a>",
+          "hero.about": "Veloq est une application open source pour iPhone et Android qui affiche vos données intervals.icu. Le code est sur <a href=\"https://github.com/evanjt/veloq\" target=\"_blank\">GitHub</a>.",
           "showcase.disclaimer":
             "* Les captures d'écran montrent des données de démonstration à titre indicatif uniquement.",
           "cta.openSource": "Open source: sideload via <a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>",
 
-          "features.title": "Voir vos données",
+          "features.title": "Ce que fait Veloq",
           "features.subtitle":
-            "Accédez à vos données intervals.icu sur mobile avec support hors ligne.",
+            "Vos données intervals.icu sur votre téléphone.",
           "features.record.title": "Enregistrement",
           "features.record.desc": "Enregistrez sorties à vélo, courses et autres sports avec le GPS, des capteurs Bluetooth ou une séance planifiée.",
           "features.insights.title": "Aperçus",
@@ -1363,11 +1306,12 @@
           "features.privacy.title": "Confidentialité",
           "features.privacy.desc": "Vos données d'entraînement restent sur votre appareil. Pas de mesure d'audience, pas de pistage. Les notifications push facultatives stockent votre identifiant d'athlète intervals.icu et un jeton d'appareil sur notre serveur, supprimés automatiquement après 30 jours. Open source sous licence Apache 2.0.",
           "getStarted.title": "Premiers pas",
-          "getStarted.subtitle": "Pas d'inscription : installez l'application et ouvrez-la.",
+          "getStarted.subtitle": "Installez l'application, puis connectez intervals.icu ou essayez la démo. Aucun compte n'est nécessaire pour consulter vos données ici.",
           "getStarted.step1.title": "Installer Veloq",
           "getStarted.step1.desc": "Disponible sur l'<a href=\"https://apps.apple.com/us/app/veloq/id6757836732\" target=\"_blank\">App Store</a> et <a href=\"https://play.google.com/store/apps/details?id=com.veloq.app\" target=\"_blank\">Google Play</a>",
-          "getStarted.step2.title": "Explorez",
-          "getStarted.step2.desc": "Vos activités, votre forme et vos itinéraires sont chargés sur votre téléphone et analysés sur place.",
+          "getStarted.step2.title": "Se connecter ou essayer la démo",
+          "getStarted.step2.desc": "Connectez intervals.icu pour charger vos activités, ou ouvrez d'abord la démo.",
+          "getStarted.backup": "La sauvegarde sur Google Drive utilise un dossier d'application privé de votre compte Google ; voir la <a href=\"https://veloq.fit/privacy\">politique de confidentialité</a>.",
           "footer.releases": "Versions",
           "footer.privacy": "Confidentialité",
           "footer.contact": "Contact",
@@ -1378,15 +1322,14 @@
           "hero.title": "Il tuo allenamento,<br><span>visualizzato</span>",
           "hero.subtitle":
             "Fitness, forma e percorsi ripetuti, letti dal tuo account intervals.icu e analizzati sul telefono.",
-          "hero.noAccount": "Per leggere questo sito non serve alcun account, e Veloq non ne ha uno proprio. L'app mostra il tuo allenamento da intervals.icu, oppure dati demo senza alcun account.",
-          "hero.backup": "Su Android, i backup facoltativi possono andare in una cartella nascosta del tuo Google Drive che solo Veloq può aprire. <a href=\"https://veloq.fit/privacy\">Privacy</a>",
+          "hero.about": "Veloq è un'app open source per iPhone e Android che mostra i tuoi dati intervals.icu. Il codice è su <a href=\"https://github.com/evanjt/veloq\" target=\"_blank\">GitHub</a>.",
           "showcase.disclaimer":
             "* Gli screenshot mostrano dati demo solo a scopo illustrativo.",
           "cta.openSource": "Open source: sideload via <a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>",
 
-          "features.title": "Visualizza i tuoi dati",
+          "features.title": "Cosa fa Veloq",
           "features.subtitle":
-            "Accedi ai tuoi dati intervals.icu su mobile con supporto offline.",
+            "I tuoi dati intervals.icu sul telefono.",
           "features.record.title": "Registrazione",
           "features.record.desc": "Registra uscite in bici, corse e altri sport con GPS, sensori Bluetooth o un allenamento pianificato.",
           "features.insights.title": "Approfondimenti",
@@ -1410,11 +1353,12 @@
           "features.privacy.title": "Privacy",
           "features.privacy.desc": "I tuoi dati di allenamento restano sul tuo dispositivo. Niente analytics, niente tracciamento. Le notifiche push facoltative conservano il tuo ID atleta intervals.icu e un token del dispositivo sul nostro server, eliminati automaticamente dopo 30 giorni. Open source con licenza Apache 2.0.",
           "getStarted.title": "Per iniziare",
-          "getStarted.subtitle": "Nessuna registrazione: installa l'app e aprila.",
+          "getStarted.subtitle": "Installa l'app, poi collega intervals.icu o prova la demo. Non serve alcun account per consultare qui i tuoi dati.",
           "getStarted.step1.title": "Installa Veloq",
           "getStarted.step1.desc": "Disponibile su <a href=\"https://apps.apple.com/us/app/veloq/id6757836732\" target=\"_blank\">App Store</a> e <a href=\"https://play.google.com/store/apps/details?id=com.veloq.app\" target=\"_blank\">Google Play</a>",
-          "getStarted.step2.title": "Inizia a esplorare",
-          "getStarted.step2.desc": "Le tue attività, la forma fisica e i percorsi vengono caricati sul telefono e analizzati lì.",
+          "getStarted.step2.title": "Collega o prova la demo",
+          "getStarted.step2.desc": "Collega intervals.icu per caricare le tue attività, oppure guarda prima la demo.",
+          "getStarted.backup": "Il backup su Google Drive usa una cartella privata dell'app nel tuo account Google; vedi l'<a href=\"https://veloq.fit/privacy\">informativa sulla privacy</a>.",
           "footer.releases": "Versioni",
           "footer.privacy": "Privacy",
           "footer.contact": "Contatto",
@@ -1425,15 +1369,14 @@
           "hero.title": "Tu entrenamiento,<br><span>visualizado</span>",
           "hero.subtitle":
             "Tu fitness, tu forma y tus rutas repetidas, leídos de tu cuenta de intervals.icu y analizados en tu teléfono.",
-          "hero.noAccount": "No hace falta ninguna cuenta para leer este sitio, y Veloq no tiene cuenta propia. La app muestra tu entrenamiento de intervals.icu, o datos de demostración sin ninguna cuenta.",
-          "hero.backup": "En Android, las copias opcionales pueden ir a una carpeta oculta de tu propio Google Drive que solo Veloq puede abrir. <a href=\"https://veloq.fit/privacy\">Privacidad</a>",
+          "hero.about": "Veloq es una app de código abierto para iPhone y Android que muestra tus datos de intervals.icu. El código está en <a href=\"https://github.com/evanjt/veloq\" target=\"_blank\">GitHub</a>.",
           "showcase.disclaimer":
             "* Las capturas muestran datos de demostración solo con fines ilustrativos.",
           "cta.openSource": "Código abierto: sideload via <a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>",
 
-          "features.title": "Ver tus datos",
+          "features.title": "Qué hace Veloq",
           "features.subtitle":
-            "Accede a tus datos de intervals.icu en móvil con soporte offline.",
+            "Tus datos de intervals.icu en el móvil.",
           "features.record.title": "Grabación",
           "features.record.desc": "Graba salidas en bici, carreras y otros deportes con GPS, sensores Bluetooth o un entrenamiento planificado.",
           "features.insights.title": "Perspectivas",
@@ -1457,11 +1400,12 @@
           "features.privacy.title": "Privacidad",
           "features.privacy.desc": "Tus datos de entrenamiento se quedan en tu dispositivo. Sin analíticas, sin rastreo. Las notificaciones push opcionales guardan tu ID de atleta de intervals.icu y un token del dispositivo en nuestro servidor, que se borran automáticamente a los 30 días. Código abierto bajo Apache 2.0.",
           "getStarted.title": "Primeros pasos",
-          "getStarted.subtitle": "Sin registro: instala la app y ábrela.",
+          "getStarted.subtitle": "Instala la app y conecta intervals.icu o prueba la demo. No hace falta ninguna cuenta para consultar aquí tus datos.",
           "getStarted.step1.title": "Instalar Veloq",
           "getStarted.step1.desc": "Disponible en <a href=\"https://apps.apple.com/us/app/veloq/id6757836732\" target=\"_blank\">App Store</a> y <a href=\"https://play.google.com/store/apps/details?id=com.veloq.app\" target=\"_blank\">Google Play</a>",
-          "getStarted.step2.title": "Empieza a explorar",
-          "getStarted.step2.desc": "Tus actividades, tu forma física y tus rutas se cargan en tu teléfono y se analizan allí.",
+          "getStarted.step2.title": "Conectar o probar la demo",
+          "getStarted.step2.desc": "Conecta intervals.icu para cargar tus actividades, o abre antes la demo.",
+          "getStarted.backup": "La copia en Google Drive usa una carpeta privada de la app en tu cuenta de Google; consulta la <a href=\"https://veloq.fit/privacy\">política de privacidad</a>.",
           "footer.releases": "Versiones",
           "footer.privacy": "Privacidad",
           "footer.contact": "Contacto",
@@ -1473,15 +1417,14 @@
             "Seu treino,<br><span>visualizado</span>",
           "hero.subtitle":
             "Seu fitness, sua forma e suas rotas repetidas, lidos da sua conta intervals.icu e analisados no seu celular.",
-          "hero.noAccount": "Não é preciso conta para ler este site, e o Veloq não tem conta própria. O app mostra seu treino do intervals.icu, ou dados de demonstração sem conta nenhuma.",
-          "hero.backup": "No Android, backups opcionais podem ir para uma pasta oculta no seu próprio Google Drive que só o Veloq pode abrir. <a href=\"https://veloq.fit/privacy\">Privacidade</a>",
+          "hero.about": "O Veloq é um app de código aberto para iPhone e Android que mostra seus dados do intervals.icu. O código está no <a href=\"https://github.com/evanjt/veloq\" target=\"_blank\">GitHub</a>.",
           "showcase.disclaimer":
             "* As capturas mostram dados de demonstração apenas para fins ilustrativos.",
           "cta.openSource": "Código aberto: sideload via <a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>",
 
-          "features.title": "Veja seus dados",
+          "features.title": "O que o Veloq faz",
           "features.subtitle":
-            "Acesse seus dados do intervals.icu no celular com suporte offline.",
+            "Seus dados do intervals.icu no celular.",
           "features.record.title": "Gravação",
           "features.record.desc": "Grave pedaladas, corridas e outros esportes com GPS, sensores Bluetooth ou um treino planejado.",
           "features.insights.title": "Insights",
@@ -1505,11 +1448,12 @@
           "features.privacy.title": "Privacidade",
           "features.privacy.desc": "Seus dados de treino ficam no seu dispositivo. Sem análises, sem rastreamento. As notificações push opcionais guardam seu ID de atleta do intervals.icu e um token do dispositivo no nosso servidor, apagados automaticamente após 30 dias. Código aberto sob Apache 2.0.",
           "getStarted.title": "Primeiros passos",
-          "getStarted.subtitle": "Sem cadastro: instale o app e abra.",
+          "getStarted.subtitle": "Instale o app e conecte o intervals.icu ou teste a demo. Não é preciso conta para ver seus dados aqui.",
           "getStarted.step1.title": "Instalar Veloq",
           "getStarted.step1.desc": "Disponível na <a href=\"https://apps.apple.com/us/app/veloq/id6757836732\" target=\"_blank\">App Store</a> e no <a href=\"https://play.google.com/store/apps/details?id=com.veloq.app\" target=\"_blank\">Google Play</a>",
-          "getStarted.step2.title": "Comece a explorar",
-          "getStarted.step2.desc": "Suas atividades, condicionamento e rotas são carregados no seu celular e analisados nele.",
+          "getStarted.step2.title": "Conectar ou testar a demo",
+          "getStarted.step2.desc": "Conecte o intervals.icu para carregar suas atividades, ou abra antes a demo.",
+          "getStarted.backup": "O backup no Google Drive usa uma pasta privada do app na sua conta Google; veja a <a href=\"https://veloq.fit/privacy\">política de privacidade</a>.",
           "footer.releases": "Versões",
           "footer.privacy": "Privacidade",
           "footer.contact": "Contato",
@@ -1521,15 +1465,14 @@
             "Twój trening,<br><span>zwizualizowany</span>",
           "hero.subtitle":
             "Twoja forma, kondycja i powtarzane trasy, odczytane z konta intervals.icu i analizowane na telefonie.",
-          "hero.noAccount": "Do czytania tej strony nie potrzeba konta, a Veloq nie ma własnych kont. Aplikacja pokazuje Twój trening z intervals.icu albo, bez żadnego konta, dane demo.",
-          "hero.backup": "Na Androidzie opcjonalne kopie zapasowe mogą trafiać do ukrytego folderu w Twoim Google Drive, który może otworzyć tylko Veloq. <a href=\"https://veloq.fit/privacy\">Prywatność</a>",
+          "hero.about": "Veloq to aplikacja open source na iPhone'a i Androida, która pokazuje Twoje dane z intervals.icu. Kod jest na <a href=\"https://github.com/evanjt/veloq\" target=\"_blank\">GitHub</a>.",
           "showcase.disclaimer":
             "* Zrzuty ekranu pokazują dane demo wyłącznie w celach ilustracyjnych.",
           "cta.openSource": "Open source: sideload via <a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>",
 
-          "features.title": "Zobacz swoje dane",
+          "features.title": "Co robi Veloq",
           "features.subtitle":
-            "Uzyskaj dostęp do danych intervals.icu na telefonie z obsługą offline.",
+            "Twoje dane z intervals.icu w telefonie.",
           "features.record.title": "Nagrywanie",
           "features.record.desc": "Nagrywaj przejazdy, biegi i inne sporty z GPS, czujnikami Bluetooth lub zaplanowanym treningiem.",
           "features.insights.title": "Analizy",
@@ -1553,11 +1496,12 @@
           "features.privacy.title": "Prywatność",
           "features.privacy.desc": "Dane treningowe zostają na Twoim urządzeniu, bez analityki i śledzenia. Opcjonalne powiadomienia push zapisują Twój identyfikator sportowca i token urządzenia na naszym serwerze na 30 dni. Open source na licencji Apache 2.0.",
           "getStarted.title": "Jak zacząć",
-          "getStarted.subtitle": "Bez rejestracji: zainstaluj aplikację i ją otwórz.",
+          "getStarted.subtitle": "Zainstaluj aplikację, potem połącz intervals.icu albo wypróbuj demo. Aby przeglądać tu swoje dane, nie jest potrzebne konto.",
           "getStarted.step1.title": "Zainstaluj Veloq",
           "getStarted.step1.desc": "Pobierz z <a href=\"https://apps.apple.com/us/app/veloq/id6757836732\" target=\"_blank\">App Store</a> lub <a href=\"https://play.google.com/store/apps/details?id=com.veloq.app\" target=\"_blank\">Google Play</a>",
-          "getStarted.step2.title": "Zacznij odkrywać",
-          "getStarted.step2.desc": "Twoje aktywności, forma i trasy trafiają na telefon i są tam analizowane.",
+          "getStarted.step2.title": "Połącz konto lub wypróbuj demo",
+          "getStarted.step2.desc": "Połącz intervals.icu, aby wczytać swoje aktywności, albo najpierw otwórz demo.",
+          "getStarted.backup": "Kopia w Google Drive używa prywatnego folderu aplikacji na koncie Google; zobacz <a href=\"https://veloq.fit/privacy\">politykę prywatności</a>.",
           "footer.releases": "Wydania",
           "footer.privacy": "Prywatność",
           "footer.contact": "Kontakt",
@@ -1568,15 +1512,14 @@
           "hero.title": "Din træning,<br><span>visualiseret</span>",
           "hero.subtitle":
             "Din fitness, form og gentagne ruter, læst fra din intervals.icu konto og analyseret på din telefon.",
-          "hero.noAccount": "Du behøver ingen konto for at læse denne side, og Veloq har ingen konto selv. Appen viser din træning fra intervals.icu, eller demodata helt uden konto.",
-          "hero.backup": "På Android kan valgfrie backups gemmes i en skjult mappe i dit eget Google Drive, som kun Veloq kan åbne. <a href=\"https://veloq.fit/privacy\">Privatlivspolitik</a>",
+          "hero.about": "Veloq er en open source-app til iPhone og Android, der viser dine intervals.icu data. Koden ligger på <a href=\"https://github.com/evanjt/veloq\" target=\"_blank\">GitHub</a>.",
           "showcase.disclaimer":
             "* Screenshots viser demodata kun til illustrationsformål.",
           "cta.openSource": "Open source: sideload via <a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>",
 
-          "features.title": "Se dine data",
+          "features.title": "Hvad Veloq kan",
           "features.subtitle":
-            "Få adgang til dine intervals.icu data på mobil med offline-understøttelse.",
+            "Dine intervals.icu data på telefonen.",
           "features.record.title": "Optagelse",
           "features.record.desc": "Optag cykelture, løb og andre sportsgrene med GPS, Bluetooth-sensorer eller en planlagt træning.",
           "features.insights.title": "Indsigt",
@@ -1600,11 +1543,12 @@
           "features.privacy.title": "Privatliv",
           "features.privacy.desc": "Dine træningsdata bliver på din enhed. Ingen analyse, ingen sporing. Valgfrie push-notifikationer gemmer dit intervals.icu-atlet-id og et enhedstoken på vores server, som slettes automatisk efter 30 dage. Open source under Apache 2.0.",
           "getStarted.title": "Kom i gang",
-          "getStarted.subtitle": "Ingen tilmelding: installér appen og åbn den.",
+          "getStarted.subtitle": "Installer appen, og forbind så intervals.icu eller prøv demoen. Du behøver ingen konto for at se dine data her.",
           "getStarted.step1.title": "Installer Veloq",
           "getStarted.step1.desc": "Hent den i <a href=\"https://apps.apple.com/us/app/veloq/id6757836732\" target=\"_blank\">App Store</a> eller på <a href=\"https://play.google.com/store/apps/details?id=com.veloq.app\" target=\"_blank\">Google Play</a>",
-          "getStarted.step2.title": "Gå på opdagelse",
-          "getStarted.step2.desc": "Dine aktiviteter, din form og dine ruter hentes til din telefon og analyseres dér.",
+          "getStarted.step2.title": "Forbind eller prøv demoen",
+          "getStarted.step2.desc": "Forbind intervals.icu for at hente dine aktiviteter, eller se dig omkring i demoen først.",
+          "getStarted.backup": "Sikkerhedskopi til Google Drive bruger en privat appmappe på din Google-konto; se <a href=\"https://veloq.fit/privacy\">privatlivspolitikken</a>.",
           "footer.releases": "Udgivelser",
           "footer.privacy": "Privatlivspolitik",
           "footer.contact": "Kontakt",
@@ -1615,15 +1559,14 @@
           "hero.title": "あなたのトレーニングを<br><span>可視化</span>",
           "hero.subtitle":
             "フィットネス、フォーム、繰り返しのルートを intervals.icu アカウントから読み込み、スマホ上で分析します。",
-          "hero.noAccount": "このサイトを読むのにアカウントは不要で、Veloq独自のアカウントもありません。アプリはintervals.icuのトレーニングを表示し、アカウントがなくてもデモデータを表示できます。",
-          "hero.backup": "Androidでは、任意のバックアップをご自身のGoogle Drive内の、Veloqだけが開ける非表示フォルダに保存できます。 <a href=\"https://veloq.fit/privacy\">プライバシーポリシー</a>",
+          "hero.about": "Veloqは、intervals.icuのデータを表示するiPhone・Android向けのオープンソースアプリです。コードは<a href=\"https://github.com/evanjt/veloq\" target=\"_blank\">GitHub</a>にあります。",
           "showcase.disclaimer":
             "* スクリーンショットはデモデータを表示しています。",
           "cta.openSource": "オープンソース：<a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>からサイドロード",
 
-          "features.title": "データを表示",
+          "features.title": "Veloqでできること",
           "features.subtitle":
-            "モバイルでintervals.icuデータにオフラインでアクセス。",
+            "intervals.icuのデータをスマートフォンで。",
           "features.record.title": "記録",
           "features.record.desc": "GPS、Bluetooth センサー、予定されたワークアウトでライドやランなどを記録します。",
           "features.insights.title": "インサイト",
@@ -1647,11 +1590,12 @@
           "features.privacy.title": "プライバシー",
           "features.privacy.desc": "トレーニングデータはデバイス上に残り、分析や追跡はありません。任意のプッシュ通知では、アスリート ID とデバイストークンを30日間サーバーに保存します。Apache 2.0 のオープンソースです。",
           "getStarted.title": "始め方",
-          "getStarted.subtitle": "登録不要：アプリをインストールして開くだけ。",
+          "getStarted.subtitle": "アプリをインストールし、intervals.icuを連携するかデモを試します。ここでデータを見るのにアカウントは不要です。",
           "getStarted.step1.title": "Veloqをインストール",
           "getStarted.step1.desc": "<a href=\"https://apps.apple.com/us/app/veloq/id6757836732\" target=\"_blank\">App Store</a>または<a href=\"https://play.google.com/store/apps/details?id=com.veloq.app\" target=\"_blank\">Google Play</a>から入手",
-          "getStarted.step2.title": "使ってみる",
-          "getStarted.step2.desc": "アクティビティ、フィットネス、ルートがスマートフォンに読み込まれ、端末上で分析されます。",
+          "getStarted.step2.title": "連携するかデモを試す",
+          "getStarted.step2.desc": "intervals.icuを連携してアクティビティを読み込むか、先にデモを開いて確認できます。",
+          "getStarted.backup": "Google Drive へのバックアップは、お使いの Google アカウント内の非公開アプリフォルダを使います。<a href=\"https://veloq.fit/privacy\">プライバシーポリシー</a>をご覧ください。",
           "footer.releases": "リリース",
           "footer.privacy": "プライバシーポリシー",
           "footer.contact": "お問い合わせ",
@@ -1662,14 +1606,13 @@
           "hero.title": "您的训练，<br><span>可视化</span>",
           "hero.subtitle":
             "从您的 intervals.icu 账户读取体能、状态和重复路线，在手机上完成分析。",
-          "hero.noAccount": "阅读本网站无需账户，Veloq 也没有自己的账户。应用显示您在 intervals.icu 的训练数据，没有账户时也可查看演示数据。",
-          "hero.backup": "在 Android 上，可选备份可保存到您自己 Google Drive 中一个只有 Veloq 能打开的隐藏文件夹。 <a href=\"https://veloq.fit/privacy\">隐私政策</a>",
+          "hero.about": "Veloq 是一款适用于 iPhone 和 Android 的开源应用，显示您的 intervals.icu 数据。代码在 <a href=\"https://github.com/evanjt/veloq\" target=\"_blank\">GitHub</a> 上。",
           "showcase.disclaimer": "* 截图仅显示演示数据，用于说明目的。",
           "cta.openSource": "开源：通过<a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>侧载",
 
-          "features.title": "查看您的数据",
+          "features.title": "Veloq 能做什么",
           "features.subtitle":
-            "在手机上访问您的intervals.icu数据，支持离线使用。",
+            "在手机上查看您的 intervals.icu 数据。",
           "features.record.title": "记录",
           "features.record.desc": "用 GPS、蓝牙传感器或计划训练记录骑行、跑步和其他运动。",
           "features.insights.title": "洞察",
@@ -1693,11 +1636,12 @@
           "features.privacy.title": "隐私",
           "features.privacy.desc": "训练数据保留在您的设备上，没有分析和跟踪。可选的推送通知会在我们的服务器上保存运动员 ID 和设备令牌 30 天。基于 Apache 2.0 开源。",
           "getStarted.title": "开始使用",
-          "getStarted.subtitle": "无需注册：安装应用并打开即可。",
+          "getStarted.subtitle": "安装应用，然后连接 intervals.icu 或试用演示。在此查看数据无需账号。",
           "getStarted.step1.title": "安装Veloq",
           "getStarted.step1.desc": "在<a href=\"https://apps.apple.com/us/app/veloq/id6757836732\" target=\"_blank\">App Store</a>或<a href=\"https://play.google.com/store/apps/details?id=com.veloq.app\" target=\"_blank\">Google Play</a>下载",
-          "getStarted.step2.title": "开始探索",
-          "getStarted.step2.desc": "您的活动、体能数据和路线会载入手机，并在手机上分析。",
+          "getStarted.step2.title": "连接账户或试用演示",
+          "getStarted.step2.desc": "连接 intervals.icu 以加载您的活动，或先打开演示看看。",
+          "getStarted.backup": "备份到 Google Drive 会使用您 Google 账号中的私有应用文件夹；请参阅<a href=\"https://veloq.fit/privacy\">隐私政策</a>。",
           "footer.releases": "版本发布",
           "footer.privacy": "隐私政策",
           "footer.contact": "联系我们",

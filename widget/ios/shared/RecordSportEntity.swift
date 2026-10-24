@@ -71,7 +71,6 @@ enum AppShortcutSnapshot {
 /// would quietly start whatever was recorded last. The link carries both the
 /// identity and the destination, and the app composed it, so nothing here
 /// builds one.
-@available(iOS 16.0, *)
 struct RecordSportEntity: AppEntity {
   let id: String
   let label: String
@@ -87,7 +86,6 @@ struct RecordSportEntity: AppEntity {
   static var defaultQuery = RecordSportQuery()
 }
 
-@available(iOS 16.0, *)
 struct RecordSportQuery: EntityStringQuery {
   /// What the configure sheet and Siri's learned values list: the sports this
   /// athlete records, named in the athlete's own language by the snapshot.

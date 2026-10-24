@@ -49,10 +49,12 @@ import {
   useRecordingHandlers,
   recordingBackAction,
   styles,
+  nearbyRouteIds,
 } from '@/features/recording';
 import { useSheetOpener } from '@/shared/app/sheetRequest';
 import { useSensorSession, useSensorIssue } from '@/features/sensors';
 import { useRepresentativeRoute } from '@/features/routes';
+import { useRouteGroups } from '@/features/routes/light';
 import { spacing, themePalette } from '@/theme';
 import type { ActivityTypeSheetInput } from '@/app/sheets/activity-type';
 import type { FieldPickerSheetInput } from '@/app/sheets/field-picker';
@@ -175,9 +177,6 @@ function RecordingContent({ activityType }: { activityType: ActivityType }) {
   const sensorIssue = useSensorIssue();
 
   // Saved-route overlay on the live map (GPS mode only, session-scoped)
-  const [overlayRouteId, setOverlayRouteId] = useState<string | null>(null);
-  const { points: overlayPoints } = useRepresentativeRoute(mode === 'gps' ? overlayRouteId : null);
-
   // Stable handles and styles let memoised children hold when store updates
   // do not change the values they draw.
   const openReview = useCallback(() => navigateTo('/recording/review'), []);
@@ -191,6 +190,26 @@ function RecordingContent({ activityType }: { activityType: ActivityType }) {
   );
   const controlBarStyle = useMemo(() => ({ paddingBottom: bottomPadding }), [bottomPadding]);
   const currentActivityType = storeActivityType ?? activityType;
+
+  // Until the athlete chooses, and while nothing is recorded, the nearest saved route near
+  // the current fix is drawn; an explicit "no route" keeps the map clear.
+  const [chosenRouteId, setChosenRouteId] = useState<string | null | undefined>(undefined);
+  const { groups: routeGroups } = useRouteGroups({
+    type: currentActivityType,
+    minActivities: 2,
+    sortBy: 'count',
+  });
+  const nearbyRoutes = useMemo(
+    () => (mode === 'gps' ? nearbyRouteIds(routeGroups, currentLocation) : []),
+    [mode, routeGroups, currentLocation]
+  );
+  const overlayRouteId =
+    chosenRouteId !== undefined
+      ? chosenRouteId
+      : status === 'idle'
+        ? (nearbyRoutes[0] ?? null)
+        : null;
+  const { points: overlayPoints } = useRepresentativeRoute(mode === 'gps' ? overlayRouteId : null);
   const effectiveFields = useMemo(
     () => fieldsForMode(dataFields, mode, currentActivityType),
     [dataFields, mode, currentActivityType]
@@ -220,9 +239,10 @@ function RecordingContent({ activityType }: { activityType: ActivityType }) {
     const result = await openSheet<RouteOverlaySheetInput, string | null>('sheets/route-overlay', {
       activityType: currentActivityType,
       selectedRouteId: overlayRouteId,
+      nearbyRouteIds: nearbyRoutes,
     });
-    if (result.kind === 'selected') setOverlayRouteId(result.value);
-  }, [openSheet, currentActivityType, overlayRouteId]);
+    if (result.kind === 'selected') setChosenRouteId(result.value);
+  }, [openSheet, currentActivityType, overlayRouteId, nearbyRoutes]);
 
   // The manual and strength forms take the platform's header, titled with the
   // sport. Swipe-back is off on this route, so its back is the way off. The

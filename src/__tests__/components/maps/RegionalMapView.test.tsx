@@ -171,6 +171,40 @@ describe('RegionalMapView', () => {
     expect(screen.getByTestId('section-popup')).toBeTruthy();
   });
 
+  /**
+   * Scenario: the map tab stays mounted, so a second link names another section.
+   *
+   * Expected behaviour: the popup follows the new id.
+   */
+  it('opens the popup for a section a later link names', async () => {
+    const view = await renderRegional({ selectSectionId: 'sec-1' });
+    mockSectionDetail.mockClear();
+
+    await view.rerender(
+      <SafeAreaProvider initialMetrics={METRICS}>
+        <RegionalMapView activities={[activity('a1'), activity('a2')]} selectSectionId="sec-2" />
+      </SafeAreaProvider>
+    );
+
+    expect(mockSectionDetail).toHaveBeenLastCalledWith('sec-2');
+  });
+
+  /**
+   * Scenario: the athlete hid the sections overlay earlier, then follows a section link.
+   *
+   * Expected behaviour: the link turns the overlay on and the popup shows.
+   */
+  it('opens the popup for a linked section while the overlay preference is off', async () => {
+    useHeatmapPreference.setState({ sectionsVisible: false });
+    try {
+      await renderRegional({ selectSectionId: 'sec-1' });
+
+      expect(screen.getByTestId('section-popup')).toBeTruthy();
+    } finally {
+      useHeatmapPreference.setState({ sectionsVisible: true });
+    }
+  });
+
   it('opens no section popup without a section in the link', async () => {
     await renderRegional();
 

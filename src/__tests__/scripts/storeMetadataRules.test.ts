@@ -17,8 +17,10 @@ import {
   imageErrors,
   keywordWarnings,
   listingBudgetErrors,
+  listingFloorErrors,
   readImageInfo,
   screenshotErrors,
+  storeFloors,
   textFieldErrors,
   validateMetadata,
 } from '../../../scripts/validate-store-metadata';
@@ -258,6 +260,77 @@ describe('listingBudgetErrors', () => {
   it('reads a Play description whose section titles are bold', () => {
     const bold = listing(['x'.repeat(121)]).replace(/^(Record)$/m, '<b>$1</b>');
     expect(listingBudgetErrors('en-AU', bold).map((e) => e.type)).toEqual(['over_budget']);
+  });
+});
+
+describe('listingFloorErrors', () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'store-floor-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  function write(rel: string, text: string) {
+    fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
+    fs.writeFileSync(path.join(root, rel), text);
+  }
+
+  const floors = { ios: '16.4', android: '7.0' };
+
+  it('refuses an iOS description that leaves out the floor and passes one that names it', () => {
+    write('ios/en-AU/description.txt', 'Closing line.\n\nRequires iOS 16.4 or later.');
+    write('ios/de-DE/description.txt', 'Schlusszeile.\n\nNennt keine Version.');
+    expect(listingFloorErrors(root, floors).map((e) => [e.platform, e.locale, e.type])).toEqual([
+      ['ios', 'de-DE', 'floor_not_stated'],
+    ]);
+  });
+
+  it('holds each Play full description to the Android floor the same way', () => {
+    write('android/en-AU/full_description.txt', 'Requires Android 7.0 or later.');
+    write('android/de-DE/full_description.txt', 'Nennt keine Version.');
+    expect(listingFloorErrors(root, floors).map((e) => [e.platform, e.locale, e.type])).toEqual([
+      ['android', 'de-DE', 'floor_not_stated'],
+    ]);
+  });
+
+  it('is quiet about a locale with no description on disk, which the field check reports', () => {
+    expect(listingFloorErrors(root, floors)).toEqual([]);
+  });
+
+  it('reads both floors from the expo-build-properties plugin in app.json', () => {
+    expect(
+      storeFloors({
+        expo: {
+          plugins: [
+            'expo-notifications',
+            [
+              'expo-build-properties',
+              { android: { minSdkVersion: 24 }, ios: { deploymentTarget: '16.4' } },
+            ],
+          ],
+        },
+      })
+    ).toEqual({ ios: '16.4', android: '7.0' });
+  });
+
+  it('refuses an app.json that states no iOS deployment target or an unnamed Android level', () => {
+    expect(() => storeFloors({ expo: { plugins: [] } })).toThrow('deploymentTarget');
+    expect(() =>
+      storeFloors({
+        expo: {
+          plugins: [
+            [
+              'expo-build-properties',
+              { android: { minSdkVersion: 99 }, ios: { deploymentTarget: '16.4' } },
+            ],
+          ],
+        },
+      })
+    ).toThrow('99');
   });
 });
 

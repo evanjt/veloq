@@ -612,6 +612,7 @@
       "busy": "Baza danych była właśnie używana przez coś innego. Spróbuj ponownie za chwilę.",
       "forwardSchema": "Te dane zapisała nowsza wersja Veloq. Zaktualizuj aplikację, aby je otworzyć.",
       "storageUnavailable": "Nie udało się zapisać bazy danych. Zwolnij miejsce i spróbuj ponownie.",
+      "storageShortfall": "Aktualizacja biblioteki wymaga {{needed}} wolnego miejsca na tym urządzeniu. Zwolnij miejsce i spróbuj ponownie.",
       "failed": "Nie udało się otworzyć Twojej biblioteki aktywności z powodu, którego aplikacja nie potrafi nazwać. Nadal jest nienaruszona na urządzeniu.",
       "versionMismatch": "Nie udało się otworzyć tych danych. Nadal są na urządzeniu: poproś o pomoc na forum w Ustawieniach."
     },
@@ -1926,6 +1927,7 @@
     "setAsReferenceConfirm": "Użyć tej aktywności jako odniesienia?\n\nLinia odcinka będzie przebiegać według tej aktywności, a widok Przed czy za będzie mierzyć przewagę lub stratę czasu względem niej.\n\nOdcinek zostanie ponownie dopasowany do wszystkich Twoich aktywności, co może dodać lub usunąć niektóre z nich.",
     "setReferenceError": "Nie udało się ustawić odniesienia. Sekcja lub aktywność mogła się zmienić. Spróbuj ponownie.",
     "editBounds": "Edytuj granice",
+    "showOnMap": "Pokaż na mapie",
     "pointsCount_one": "{{count}} punkt",
     "pointsCount_few": "{{count}} punkty",
     "pointsCount_many": "{{count}} punktów",
@@ -2820,6 +2822,7 @@
     "tipSmall": "Mały",
     "tipMedium": "Średni",
     "tipLarge": "Duży",
+    "tipNote": "Napiwek to darowizna i niczego nie odblokowuje. Veloq jest za darmo dla wszystkich.",
     "shareCrashLog": "Udostępnij dziennik awarii",
     "noCrashLog": "Nie zarejestrowano awarii"
   },

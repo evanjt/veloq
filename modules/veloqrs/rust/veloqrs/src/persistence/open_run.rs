@@ -80,10 +80,35 @@ pub fn header_schema_version(db_path: &str) -> Option<u32> {
     Some(u32::from_be_bytes(word))
 }
 
+/// The schema version `db_path` carries, counting an upgrade committed to the
+/// log and not yet checkpointed.
+///
+/// The header is read first because it is free and is the whole answer for a
+/// file with no log. When the log holds frames the header can name a schema the
+/// file has already left, which would send a migrated library through the
+/// off-thread open again, so SQLite is asked instead. It opens the existing
+/// file without creating one, and any failure there falls back to the header.
+pub fn schema_version(db_path: &str) -> Option<u32> {
+    let header = header_schema_version(db_path)?;
+    let wal = format!("{db_path}-wal");
+    if std::fs::metadata(wal).map_or(true, |meta| meta.len() == 0) {
+        return Some(header);
+    }
+    let through_the_log = rusqlite::Connection::open_with_flags(
+        db_path,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .and_then(|conn| {
+        conn.busy_timeout(std::time::Duration::from_millis(250))?;
+        conn.query_row("PRAGMA user_version", [], |row| row.get::<_, u32>(0))
+    });
+    Some(through_the_log.unwrap_or(header))
+}
+
 /// Whether opening `db_path` has an upgrade to run. A file that is absent or
 /// empty is a fresh library and opens in the time a new one always does.
 pub fn upgrade_pending(db_path: &str) -> bool {
-    header_schema_version(db_path).is_some_and(|version| {
+    schema_version(db_path).is_some_and(|version| {
         version > 0 && version < super::schema::SUPPORTED_SCHEMA_VERSION as u32
     })
 }
@@ -104,10 +129,16 @@ fn open_to_outcome(db_path: String) -> FfiInitOutcome {
 /// Open the library on a thread of its own and answer at once, or answer
 /// `NotOwed` when the file has no upgrade to run.
 pub fn start_open(db_path: String) -> FfiStartOutcome {
+    // A running open answers before the file is read: once its migration has
+    // committed the file reads as current, and `NotOwed` would hide the open
+    // still repairing it.
+    if state().phase == FfiOpenPhase::Running {
+        return FfiStartOutcome::Busy;
+    }
     if !upgrade_pending(&db_path) {
         return FfiStartOutcome::NotOwed;
     }
-    let from_schema = header_schema_version(&db_path).filter(|version| *version > 0);
+    let from_schema = schema_version(&db_path).filter(|version| *version > 0);
     {
         let mut held = state();
         if held.phase == FfiOpenPhase::Running {
@@ -147,4 +178,59 @@ fn finish(outcome: FfiInitOutcome) {
     held.phase = FfiOpenPhase::Finished;
     held.outcome = Some(outcome);
     held.schema_version = schema_version;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rusqlite::Connection;
+
+    /// A file whose upgrade is committed but not yet checkpointed: the main
+    /// file's header still names the old schema while the log holds the new
+    /// one. The returned connection keeps the log alive.
+    fn upgraded_in_the_log(old: u32, new: u32) -> (tempfile::TempDir, String, Connection) {
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("routes.db");
+        let conn = Connection::open(&path).unwrap();
+        conn.execute_batch("CREATE TABLE t (id INTEGER)").unwrap();
+        conn.pragma_update(None, "user_version", old).unwrap();
+        conn.pragma_update(None, "journal_mode", "WAL").unwrap();
+        conn.pragma_update(None, "wal_autocheckpoint", 0).unwrap();
+        conn.pragma_update(None, "user_version", new).unwrap();
+        (dir, path.to_str().unwrap().to_string(), conn)
+    }
+
+    #[test]
+    fn a_schema_committed_only_to_the_log_owes_no_upgrade() {
+        let current = super::super::schema::SUPPORTED_SCHEMA_VERSION as u32;
+        let (_dir, db_path, _conn) = upgraded_in_the_log(current - 1, current);
+        assert_eq!(header_schema_version(&db_path), Some(current - 1));
+
+        assert_eq!(schema_version(&db_path), Some(current));
+        assert!(!upgrade_pending(&db_path));
+        assert_eq!(start_open(db_path), FfiStartOutcome::NotOwed);
+    }
+
+    #[test]
+    fn a_schema_behind_in_the_log_and_the_header_still_owes_an_upgrade() {
+        let current = super::super::schema::SUPPORTED_SCHEMA_VERSION as u32;
+        let (_dir, db_path, _conn) = upgraded_in_the_log(current - 2, current - 1);
+
+        assert_eq!(schema_version(&db_path), Some(current - 1));
+        assert!(upgrade_pending(&db_path));
+    }
+
+    #[test]
+    fn a_file_with_no_log_reads_its_header() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("routes.db");
+        {
+            let conn = Connection::open(&path).unwrap();
+            conn.pragma_update(None, "user_version", 12).unwrap();
+            conn.execute_batch("CREATE TABLE t (id INTEGER)").unwrap();
+        }
+        let db_path = path.to_str().unwrap();
+        assert_eq!(schema_version(db_path), Some(12));
+        assert_eq!(schema_version("/nonexistent/routes.db"), None);
+    }
 }

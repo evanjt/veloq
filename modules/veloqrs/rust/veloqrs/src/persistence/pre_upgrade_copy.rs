@@ -16,6 +16,7 @@
 //! the migration runs without one, since refusing to open the library is worse
 //! than opening it unprotected.
 
+use crate::objects::init::FfiStorageShortfall;
 use rusqlite::{Connection, OpenFlags, OptionalExtension, Result as SqlResult, params};
 
 /// `schema_info` key naming the copy the last upgrade of this file wrote. A
@@ -287,6 +288,26 @@ fn free_bytes(db_path: &str) -> Option<u64> {
     }
 }
 
+/// The bytes an upgrade needs and the volume has, when `e` is a write that
+/// failed for want of space.
+pub(super) fn shortfall(e: &rusqlite::Error, db_path: &str) -> Option<FfiStorageShortfall> {
+    shortfall_on(e, db_path, free_bytes)
+}
+
+fn shortfall_on(
+    e: &rusqlite::Error,
+    db_path: &str,
+    free: impl Fn(&str) -> Option<u64>,
+) -> Option<FfiStorageShortfall> {
+    if !super::is_disk_full(e) {
+        return None;
+    }
+    Some(FfiStorageShortfall {
+        needed_bytes: copy_space_needed(db_path) as f64,
+        free_bytes: free(db_path).map(|bytes| bytes as f64),
+    })
+}
+
 /// Names the bytes an upgrade needs when a write failed for want of space.
 ///
 /// The code stays `DiskFull`, so the open still classifies the failure as
@@ -300,14 +321,13 @@ fn explain_shortfall_on(
     db_path: &str,
     free: impl Fn(&str) -> Option<u64>,
 ) -> rusqlite::Error {
-    if !super::is_disk_full(&e) {
+    let Some(short) = shortfall_on(&e, db_path, free) else {
         return e;
-    }
+    };
     let rusqlite::Error::SqliteFailure(code, message) = e else {
         return e;
     };
-    let needed = copy_space_needed(db_path);
-    let available = match free(db_path) {
+    let available = match short.free_bytes {
         Some(bytes) => format!("{bytes} bytes are free"),
         None => "the free space could not be read".to_string(),
     };
@@ -315,7 +335,8 @@ fn explain_shortfall_on(
     rusqlite::Error::SqliteFailure(
         code,
         Some(format!(
-            "{base}: the upgrade needs {needed} bytes free beside the library, {available}"
+            "{base}: the upgrade needs {} bytes free beside the library, {available}",
+            short.needed_bytes
         )),
     )
 }
@@ -407,6 +428,29 @@ mod tests {
         };
         assert!(message.contains(&format!("{needed} bytes")), "{message}");
         assert!(message.contains("1024 bytes"), "{message}");
+    }
+
+    #[test]
+    fn a_full_volume_reports_the_bytes_needed_and_free() {
+        let dir = TempDir::new().unwrap();
+        let (path, _conn) = library_beside(&dir);
+        let needed = copy_space_needed(&path);
+
+        let short = shortfall_on(&disk_full(), &path, |_| Some(1024)).unwrap();
+
+        assert_eq!(short.needed_bytes, needed as f64);
+        assert_eq!(short.free_bytes, Some(1024.0));
+        let unreadable = shortfall_on(&disk_full(), &path, |_| None).unwrap();
+        assert_eq!(unreadable.free_bytes, None);
+    }
+
+    #[test]
+    fn an_error_that_is_not_out_of_space_has_no_shortfall() {
+        let dir = TempDir::new().unwrap();
+        let (path, _conn) = library_beside(&dir);
+        let busy = rusqlite::Error::SqliteFailure(ffi::Error::new(ffi::SQLITE_BUSY), None);
+
+        assert_eq!(shortfall_on(&busy, &path, |_| Some(1)), None);
     }
 
     #[test]

@@ -15,6 +15,8 @@ export interface SectionOverflowMenuProps {
   onDelete: () => void;
   onToggleDisable: () => void;
   onRematch?: (() => void) | undefined;
+  /** Opens the regional map on the section's popup. Absent when there is no map to open. */
+  onShowOnMap?: (() => void) | undefined;
   /** Enters the bounds tool on the map. Absent for a section with no line to edit. */
   onEditBounds?: (() => void) | undefined;
   /** The header's tint, so the trigger reads on the map and on the opaque header alike. */
@@ -22,9 +24,10 @@ export interface SectionOverflowMenuProps {
 }
 
 /**
- * The section page's actions, in the native header's overflow menu: Edit bounds
- * first, then rematch, then delete (custom) or remove and restore (detected).
- * The destructive row sits last, and delete asks for confirmation in its handler.
+ * The section page's actions, in the native header's overflow menu: Show on map
+ * first, then Edit bounds, then rematch, then delete (custom) or remove and restore
+ * (detected). The destructive row sits last, and delete asks for confirmation in its
+ * handler.
  */
 export function SectionOverflowMenu({
   sectionType,
@@ -34,6 +37,7 @@ export function SectionOverflowMenu({
   onDelete,
   onToggleDisable,
   onRematch,
+  onShowOnMap,
   onEditBounds,
   tint,
 }: SectionOverflowMenuProps) {
@@ -42,6 +46,14 @@ export function SectionOverflowMenu({
   const kind = sectionSwipeKind(sectionType, isSectionDisabled);
 
   const entries: MenuPopupAction[] = [];
+  if (onShowOnMap) {
+    entries.push({
+      key: 'show-on-map',
+      label: t('sections.showOnMap'),
+      icon: 'map-outline',
+      onPress: onShowOnMap,
+    });
+  }
   if (onEditBounds) {
     entries.push({
       key: 'edit-bounds',

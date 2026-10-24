@@ -63,7 +63,8 @@ export { iconSize, type IconSize } from './iconSize';
 export { stroke } from './stroke';
 export { floatingLayers, layers } from './layers';
 export { gapBetweenTargets, slopToMinTapTarget } from './tapTarget';
-export { faceWeight, typography } from './typography';
+export { typography } from './typography';
+export { faceWeight } from './typography';
 export {
   FAMILY_BARS,
   FAMILY_EXEMPTIONS,

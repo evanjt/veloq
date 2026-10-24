@@ -35,4 +35,4 @@ Dine træningsdata bliver på din enhed. Ingen analyse, ingen sporing. Valgfrie 
 
 Understøtter cykling, løb, svømning og over 20 aktivitetstyper. Prøv den indbyggede demotilstand for at udforske uden en konto.
 
-Kræver en intervals.icu-konto for livedata. Ikke tilknyttet intervals.icu.
+Kræver en intervals.icu-konto for livedata. Kræver iOS 16.4 eller nyere. Ikke tilknyttet intervals.icu.

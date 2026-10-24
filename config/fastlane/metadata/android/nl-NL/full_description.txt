@@ -35,4 +35,4 @@ Je trainingsgegevens blijven op je toestel. Geen analytics, geen tracking. Optio
 
 Ondersteunt fietsen, hardlopen, zwemmen en meer dan 20 activiteitstypen. Probeer de ingebouwde demomodus om te verkennen zonder account.
 
-Vereist een intervals.icu-account voor live gegevens. Niet gelieerd aan intervals.icu.
+Vereist een intervals.icu-account voor live gegevens. Vereist Android 7.0 of later. Niet gelieerd aan intervals.icu.

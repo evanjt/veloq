@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { FfiQuarantineReport, InitOutcome } from 'veloqrs';
+import type { FfiQuarantineReport, FfiStorageShortfall, InitOutcome } from 'veloqrs';
 
 interface EngineStatusState {
   /** Whether the Rust engine failed to initialise after all retries */
@@ -12,6 +12,9 @@ interface EngineStatusState {
    */
   initFailureReason: InitOutcome | null;
   setInitFailureReason: (v: InitOutcome | null) => void;
+  /** The bytes an upgrade needed when the reason is a full volume, else null. */
+  storageShortfall: FfiStorageShortfall | null;
+  setStorageShortfall: (v: FfiStorageShortfall | null) => void;
   /** Whether the user dismissed the engine init failure banner */
   /**
    * Bumped by the failure banner's retry button. The root layout's init
@@ -38,6 +41,8 @@ export const useEngineStatus = create<EngineStatusState>((set) => ({
   setInitFailed: (v: boolean) => set({ initFailed: v }),
   initFailureReason: null,
   setInitFailureReason: (v: InitOutcome | null) => set({ initFailureReason: v }),
+  storageShortfall: null,
+  setStorageShortfall: (v: FfiStorageShortfall | null) => set({ storageShortfall: v }),
   retryNonce: 0,
   requestRetry: () => set((s) => ({ retryNonce: s.retryNonce + 1 })),
   readyNonce: 0,

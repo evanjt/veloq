@@ -19,7 +19,7 @@ import {
   syncSiteGallery,
   syncSiteHook,
 } from '../../../scripts/site-copy';
-import { CAPTIONS, SHOT_STEMS, webShots } from '../../../scripts/store-screenshots';
+import { CAPTIONS, WEB_STEMS, webShots } from '../../../scripts/store-screenshots';
 
 const PAGE = `<p data-i18n="hero.subtitle">
   <!-- store-copy:hook -->Old English line.<!-- /store-copy:hook -->
@@ -304,7 +304,7 @@ describe('the website gallery', () => {
 
   it('shows one shot per store shot, each a file the web build writes from the capture', () => {
     const shots = webShots();
-    expect(shots.map((s) => s.file)).toEqual(SHOT_STEMS.map((stem) => `${stem}.png`));
+    expect(shots.map((s) => s.file)).toEqual(WEB_STEMS.map((stem) => `${stem}.png`));
     expect(galleryItems(html).map((item) => item.src)).toEqual(
       shots.map((s) => `screenshots/${s.file}`)
     );

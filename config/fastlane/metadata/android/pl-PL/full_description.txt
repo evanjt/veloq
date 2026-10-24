@@ -35,4 +35,4 @@ Dane treningowe zostają na Twoim urządzeniu, bez analityki i śledzenia. Opcjo
 
 Obsługuje kolarstwo, bieganie, pływanie i ponad 20 typów aktywności. Wypróbuj wbudowany tryb demo, aby poznać aplikację bez zakładania konta.
 
-Wymaga konta intervals.icu do danych na żywo. Nie jest powiązany z intervals.icu.
+Wymaga konta intervals.icu do danych na żywo. Wymaga systemu Android 7.0 lub nowszego. Nie jest powiązany z intervals.icu.

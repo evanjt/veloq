@@ -203,6 +203,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   // Data persists in SQLite - GPS tracks, routes, sections load instantly
   const setEngineInitFailed = useEngineStatus((s) => s.setInitFailed);
   const setEngineInitFailureReason = useEngineStatus((s) => s.setInitFailureReason);
+  const setEngineStorageShortfall = useEngineStatus((s) => s.setStorageShortfall);
   const engineRetryNonce = useEngineStatus((s) => s.retryNonce);
   const markEngineReady = useEngineStatus((s) => s.markEngineReady);
   useEffect(() => {
@@ -238,6 +239,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           if (!run.live) return;
           setEngineInitFailed(false);
           setEngineInitFailureReason(null);
+          setEngineStorageShortfall(null);
           // Effects mounted below this one ran while the handle was null.
           // The bump is what lets them try again, the launch sync first.
           markEngineReady();
@@ -387,6 +389,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
               console.warn(`[Engine] Persistent init failed for path: ${dbPath}`);
             }
             setEngineInitFailureReason(engine.initOutcome());
+            setEngineStorageShortfall(engine.initStorageShortfall());
             setEngineInitFailed(true);
             // Nothing will settle this library's identity now, so the athlete
             // is taken to the init banner rather than held here.
@@ -401,6 +404,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     initialiseRange,
     setEngineInitFailed,
     setEngineInitFailureReason,
+    setEngineStorageShortfall,
     engineRetryNonce,
     markEngineReady,
   ]);

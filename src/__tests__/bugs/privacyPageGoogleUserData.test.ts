@@ -128,22 +128,26 @@ describe('home page reads as public', () => {
     expect(Object.keys(siteTables).sort()).toEqual(Object.keys(SITE_APP_LOCALE).sort());
   });
 
-  it('the markup names the Drive backup beside the privacy link above the fold', () => {
-    const hero = site.slice(site.indexOf('<section class="hero">'), site.indexOf('id="download"'));
-    expect(hero).toContain('data-i18n="hero.noAccount"');
-    expect(hero).toContain('data-i18n="hero.backup"');
-    expect(markupText(site, 'hero.noAccount')).toMatch(/no account/i);
-    expect(markupText(site, 'hero.backup')).toContain('Google Drive');
-    expect(markupText(site, 'hero.backup')).toContain('href="https://veloq.fit/privacy"');
+  it('the markup names the Drive backup beside the privacy link under Getting Started', () => {
+    const steps = site.slice(
+      site.indexOf('<section class="getting-started">'),
+      site.indexOf('</main>')
+    );
+    expect(steps).toContain('data-i18n="getStarted.backup"');
+    expect(markupText(site, 'getStarted.backup')).toContain('Google Drive');
+    expect(markupText(site, 'getStarted.backup')).toContain('href="https://veloq.fit/privacy"');
+  });
+
+  it('the Getting Started text says no account is needed', () => {
+    expect(markupText(site, 'getStarted.subtitle')).toMatch(/no account/i);
   });
 
   it.each(Object.keys(SITE_APP_LOCALE))(
     'the %s table names the Drive backup with the privacy link and has no sign-in step',
     (lang) => {
       const t = siteTables[lang];
-      expect(t['hero.noAccount']).toBeTruthy();
-      expect(t['hero.backup']).toContain('Google Drive');
-      expect(t['hero.backup']).toContain('href="https://veloq.fit/privacy"');
+      expect(t['getStarted.backup']).toContain('Google Drive');
+      expect(t['getStarted.backup']).toContain('href="https://veloq.fit/privacy"');
       const loginButton = appLoginButton(SITE_APP_LOCALE[lang]);
       for (const [key, value] of Object.entries(t)) {
         if (key.startsWith('getStarted.')) expect(value).not.toContain(loginButton);

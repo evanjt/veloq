@@ -101,6 +101,7 @@ mod route_identity;
 pub(crate) mod route_lines;
 pub(crate) mod routes;
 mod schema;
+pub use record_backup::RecordScope;
 pub use schema::SUPPORTED_SCHEMA_VERSION;
 pub(crate) mod screens;
 pub mod sections;
@@ -3520,7 +3521,7 @@ pub(crate) fn transient_open_failure(e: &rusqlite::Error) -> Option<TransientOpe
 
 pub mod persistent_engine_ffi {
     use super::*;
-    use crate::objects::init::{FfiInitOutcome, record_init_outcome};
+    use crate::objects::init::{FfiInitOutcome, record_init_outcome, record_storage_shortfall};
     use log::info;
 
     /// Guards one-time installation of the Rust panic hook.
@@ -3715,6 +3716,7 @@ pub mod persistent_engine_ffi {
             match opened {
                 Ok(engine) => engine,
                 Err(e) => {
+                    let short = pre_upgrade_copy::shortfall(&e, &db_path);
                     let e = pre_upgrade_copy::explain_shortfall(e, &db_path);
                     log::error!(
                         "veloqrs: [PersistentEngine] Failed to open database '{}': {:?}",
@@ -3733,6 +3735,11 @@ pub mod persistent_engine_ffi {
                         // The next launch (or the banner retry) can succeed on the
                         // same file. Quarantining here would discard a healthy
                         // library over contention or a full disk.
+                        if let (TransientOpenFailure::StorageUnavailable, Some(short)) =
+                            (failure, short)
+                        {
+                            return record_storage_shortfall(short);
+                        }
                         return record_init_outcome(match failure {
                             TransientOpenFailure::Retry => FfiInitOutcome::Busy,
                             TransientOpenFailure::StorageUnavailable => {

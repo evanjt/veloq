@@ -29,7 +29,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use tracematch::sections::SectionConfig;
 
 /// The id of the current cutover. Absent in settings means never cut over.
-/// Equal means done. Anything else means a future or reverted cutover.
+/// Equal means done. Anything else means a future cutover.
 const CUTOVER_ID: &str = "unified-1";
 
 /// Settings key for the cutover token.
@@ -47,9 +47,6 @@ pub(super) const CUTOVER_PREVIOUS_CONFIG_KEY: &str = "__detector_cutover_previou
 /// place another library's archived rows under the same token, so the token
 /// alone does not say which rows are this library's.
 pub(super) const CUTOVER_ARCHIVE_KEY: &str = "__detector_cutover_archive";
-
-/// Sentinel written on revert, so the cutover does not re-fire.
-const CUTOVER_REVERTED: &str = "reverted";
 
 /// Written before the detect and promoted to `CUTOVER_ID` only once the diff
 /// is durable. A token found in this state means a previous run died partway:
@@ -535,23 +532,18 @@ pub enum CutoverState {
     InFlight,
     /// Token matches CUTOVER_ID: already done.
     Done,
-    /// Token is the reverted sentinel: user rolled back.
-    Reverted,
 }
 
 /// The cutover reads that need committed rows only, on a connection that holds
 /// no engine lock.
 pub(crate) mod pooled {
-    use super::{
-        CUTOVER_DIFF_KEY, CUTOVER_ID, CUTOVER_INFLIGHT, CUTOVER_KEY, CUTOVER_REVERTED, CutoverState,
-    };
+    use super::{CUTOVER_DIFF_KEY, CUTOVER_ID, CUTOVER_INFLIGHT, CUTOVER_KEY, CutoverState};
     use crate::persistence::settings::setting_from;
     use rusqlite::Connection;
 
     fn cutover_state(conn: &Connection) -> CutoverState {
         match setting_from(conn, CUTOVER_KEY) {
             Ok(Some(ref v)) if v == CUTOVER_ID => CutoverState::Done,
-            Ok(Some(ref v)) if v == CUTOVER_REVERTED => CutoverState::Reverted,
             Ok(Some(ref v)) if v == CUTOVER_INFLIGHT => CutoverState::InFlight,
             _ => CutoverState::Never,
         }
@@ -590,7 +582,7 @@ pub(crate) mod pooled {
                     != Some(crate::persistence::sections::DETECTOR_METHOD)
                     && has_archivable_catalogue(conn)
             }
-            CutoverState::Done | CutoverState::Reverted => false,
+            CutoverState::Done => false,
         }
     }
 
@@ -1438,7 +1430,7 @@ fn run_cutover_claimed_with(
     let mut clock = PhaseClock::new();
 
     // Check whether the cutover is actually owed.
-    // A library whose flip is done or reverted still owes its own sections an
+    // A library whose flip is done still owes its own sections an
     // anchor, so the worker places them on this same lock take.
     let (owed, detection_enabled) = with_persistent_engine_for(install, |e| {
         let owed = e.cutover_is_owed();
@@ -1547,16 +1539,6 @@ fn run_cutover_claimed_with(
         // it captured tells the two apart, as for a run that applies itself.
         if let Some((regroup_owed, groups_epoch_at_spawn)) = run_groups {
             e.adopt_run_groups(regroup_owed, groups_epoch_at_spawn);
-        }
-        // A detect that finds nothing for a library whose archive held
-        // sections is a failed run, not a catalogue of none: applying it would
-        // empty the Sections list and promote the token over it. Nothing is
-        // applied, so the old catalogue stays live and the token stays in
-        // flight for the retry.
-        if sections.is_empty() && archived > 0 {
-            return Err(format!(
-                "detect found no sections for a library that had {archived}"
-            ));
         }
         // Ranking reads every needed track, so it runs after this lock is
         // released, on a connection of its own.

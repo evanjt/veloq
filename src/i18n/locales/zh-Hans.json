@@ -586,6 +586,7 @@
       "busy": "数据库正被其他操作占用。稍后重试即可。",
       "forwardSchema": "这些数据由更新版本的 Veloq 保存。请升级应用后再打开。",
       "storageUnavailable": "无法写入数据库。请释放存储空间后重试。",
+      "storageShortfall": "更新资料库需要此设备上有 {{needed}} 可用空间。请释放存储空间后重试。",
       "failed": "因未知原因，无法打开你的活动库。数据仍完好地保存在你的设备上。",
       "versionMismatch": "无法打开这些数据。数据仍保存在你的设备上：请在设置中的论坛寻求帮助。"
     },
@@ -1802,6 +1803,7 @@
     "setAsReferenceConfirm": "将此活动用作参考？\n\n路段的线路将沿用此活动，领先或落后视图将以它为基准计算领先或落后的时间。\n\n该路段将与您的所有活动重新匹配，可能会添加或移除部分活动。",
     "setReferenceError": "设置参考失败。路段或活动可能已更改。请重试。",
     "editBounds": "编辑边界",
+    "showOnMap": "在地图上显示",
     "pointsCount_one": "{{count}}个点",
     "pointsCount_other": "{{count}}个点",
     "resetBounds": "恢复原始",
@@ -2580,6 +2582,7 @@
     "tipSmall": "小额",
     "tipMedium": "中额",
     "tipLarge": "大额",
+    "tipNote": "打赏是捐赠，不会解锁任何内容。Veloq 对所有人免费。",
     "shareCrashLog": "分享崩溃日志",
     "noCrashLog": "未记录崩溃"
   },

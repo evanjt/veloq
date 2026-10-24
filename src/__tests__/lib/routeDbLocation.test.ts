@@ -25,8 +25,9 @@ interface FakeDisk {
   [path: string]: number;
 }
 
-function fileSystem(disk: FakeDisk, failOn?: string) {
+function fileSystem(disk: FakeDisk, failOn?: string, free: number | null = null) {
   return {
+    freeBytes: async () => free,
     size: async (path: string) => disk[path] ?? null,
     copy: async (from: string, to: string) => {
       if (from === failOn) throw new Error('copy failed');
@@ -52,6 +53,45 @@ describe('routeDbDirectory', () => {
 
   it('falls back to documents when no App Group is available', () => {
     expect(routeDbDirectory(null, DOCS)).toBe(DOCS);
+  });
+});
+
+describe('migrateRouteDb free space', () => {
+  const library = () => ({
+    [`${DOCS}routes.db`]: 4096,
+    [`${DOCS}routes.db-wal`]: 512,
+  });
+
+  it('starts no copy when the volume cannot hold the set, and opens the old location', async () => {
+    const disk: FakeDisk = library();
+    const copy = jest.fn();
+    const fs = { ...fileSystem(disk, undefined, 4607), copy };
+    await expect(migrateRouteDb(DOCS, GROUP, fs)).resolves.toBe(DOCS);
+    expect(copy).not.toHaveBeenCalled();
+    expect(disk).toEqual(library());
+  });
+
+  it('does not move a library already at the target aside when the copy cannot fit', async () => {
+    const disk: FakeDisk = { ...library(), [`${GROUP}routes.db`]: 77 };
+    await expect(migrateRouteDb(DOCS, GROUP, fileSystem(disk, undefined, 10), STAMP)).resolves.toBe(
+      DOCS
+    );
+    expect(disk[`${GROUP}routes.db`]).toBe(77);
+    expect(disk[DISPLACED]).toBeUndefined();
+  });
+
+  it('copies when the volume holds exactly the set', async () => {
+    const disk: FakeDisk = library();
+    await expect(migrateRouteDb(DOCS, GROUP, fileSystem(disk, undefined, 4608))).resolves.toBe(
+      GROUP
+    );
+  });
+
+  it('copies when the free space cannot be read', async () => {
+    const disk: FakeDisk = library();
+    await expect(migrateRouteDb(DOCS, GROUP, fileSystem(disk, undefined, null))).resolves.toBe(
+      GROUP
+    );
   });
 });
 

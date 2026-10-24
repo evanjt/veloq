@@ -65,6 +65,7 @@ export {
 export { promptInterruptedRecording } from './lib/interruptedRecording';
 export { defaultEntrySport, entrySportChips, recordingEntryHref } from './lib/recordEntry';
 export { locationServicesOffMessage } from './lib/locationServicesCopy';
+export { nearbyRouteIds } from './lib/nearbyRoutes';
 export { ALL_DATA_FIELDS, MAX_DATA_FIELDS, fieldsForMode } from './lib/dataFields';
 export { CALORIES_ASSUMED_AGE, useCaloriesWeight } from './hooks/useCaloriesWeight';
 export { recordingActions } from './lib/recordingActions';

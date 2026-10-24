@@ -1,7 +1,7 @@
 appId: com.veloq.app.dev
 name: Debug regenerate notification
 tags:
-  - tier3
+  - tier4
 # Debug mode reposts an activity's notification from the engine's own text, so the
 # tray shows what a real push would. Run through scripts/with-maestro.sh with
 # ACTIVITY_ID (a demo activity) and NOTIFICATION_TEXT (the engine's body for it).
@@ -11,10 +11,6 @@ tags:
     file: helpers/setup-demo-mode.yaml
 
 - openLink: "veloq:///settings"
-- extendedWaitUntil:
-    visible:
-      id: "settings-version-text"
-    timeout: 10000
 - scrollUntilVisible:
     element:
       id: "settings-version-text"

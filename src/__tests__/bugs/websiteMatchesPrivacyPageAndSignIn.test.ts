@@ -71,11 +71,22 @@ describe('website privacy claims', () => {
       markupText('features.notifications.desc'),
       translations.en['features.notifications.desc'],
     ]) {
-      expect(text).toMatch(/off until you turn them on/i);
+      expect(text).toMatch(/off until you turn (it|them) on/i);
     }
   });
 
   it.each(languages)('the %s table carries the same keys as English', (lang) => {
     expect(Object.keys(translations[lang]).sort()).toEqual(Object.keys(translations.en).sort());
+  });
+
+  it.each(languages)('the %s table carries no account or backup caveat under the hero', (lang) => {
+    const keys = Object.keys(translations[lang]);
+    expect(keys).not.toContain('hero.noAccount');
+    expect(keys).not.toContain('hero.backup');
+  });
+
+  it('the hero markup has no caveat paragraphs and the frame has no notch bar', () => {
+    expect(site).not.toMatch(/data-i18n="hero\.(noAccount|backup)"/);
+    expect(site).not.toMatch(/phone-notch/);
   });
 });

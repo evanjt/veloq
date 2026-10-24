@@ -175,7 +175,9 @@
       [
         "expo-build-properties",
         {
-          "android": {},
+          "android": {
+            "minSdkVersion": 24
+          },
           "ios": {
             "deploymentTarget": "16.4",
             "ccacheEnabled": true

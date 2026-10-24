@@ -1,0 +1,41 @@
+# Soak: the regional map's heatmap layer, toggled on and off, CYCLES times.
+appId: com.veloq.app.dev
+tags:
+  - soak
+---
+- runFlow: launch.yaml
+- runFlow:
+    file: open-link.yaml
+    env:
+      LINK: "veloq://map"
+- extendedWaitUntil:
+    visible:
+      id: "map-screen"
+    timeout: 30000
+- runFlow: ../helpers/open-map-layers.yaml
+- repeat:
+    times: ${CYCLES}
+    commands:
+      - runFlow:
+          when:
+            notVisible:
+              id: "map-toggle-heatmap"
+          file: ../helpers/open-map-layers.yaml
+      - tapOn:
+          id: "map-toggle-heatmap"
+      - waitForAnimationToEnd:
+          timeout: 2000
+      - tapOn:
+          id: "map-fit-all"
+          optional: true
+      - waitForAnimationToEnd:
+          timeout: 2000
+      - runFlow:
+          when:
+            notVisible:
+              id: "map-toggle-heatmap"
+          file: ../helpers/open-map-layers.yaml
+      - tapOn:
+          id: "map-toggle-heatmap"
+      - assertNotVisible:
+          id: "map-unavailable"

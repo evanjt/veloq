@@ -10,6 +10,7 @@
 //! a start refuses because something else is happening, init refuses because of
 //! the file on disk, and nothing sensible reads both.
 
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicU8, Ordering};
 
 /// How the last engine init ended.
@@ -77,9 +78,45 @@ impl FfiInitOutcome {
 /// sync failure's reason is.
 static LAST: AtomicU8 = AtomicU8::new(FfiInitOutcome::NotAttempted as u8);
 
+/// What an upgrade that ran out of space needed, and what the volume had.
+///
+/// Bytes cross the boundary as `f64`, exact to 2^53, so TypeScript never
+/// holds a `bigint`.
+#[derive(Debug, Clone, Copy, PartialEq, uniffi::Record)]
+pub struct FfiStorageShortfall {
+    /// Free bytes the upgrade needs beside the library.
+    pub needed_bytes: f64,
+    /// Free bytes the volume had, `None` when the volume could not be read.
+    pub free_bytes: Option<f64>,
+}
+
+static SHORTFALL: Mutex<Option<FfiStorageShortfall>> = Mutex::new(None);
+
+fn set_shortfall(shortfall: Option<FfiStorageShortfall>) {
+    *SHORTFALL.lock().unwrap_or_else(|e| e.into_inner()) = shortfall;
+}
+
+/// Record an init that stopped for want of space, with the bytes it needed.
+pub(crate) fn record_storage_shortfall(shortfall: FfiStorageShortfall) -> bool {
+    let recorded = record_init_outcome(FfiInitOutcome::StorageUnavailable);
+    set_shortfall(Some(shortfall));
+    recorded
+}
+
+/// Any other outcome clears the shortfall, so a retry that fails for another
+/// reason never keeps the last attempt's bytes.
 pub(crate) fn record_init_outcome(outcome: FfiInitOutcome) -> bool {
+    set_shortfall(None);
     LAST.store(outcome as u8, Ordering::Release);
     outcome.opened()
+}
+
+/// The bytes the last init needed, when it stopped for want of space.
+pub fn last_storage_shortfall() -> Option<FfiStorageShortfall> {
+    if last_init_outcome() != FfiInitOutcome::StorageUnavailable {
+        return None;
+    }
+    *SHORTFALL.lock().unwrap_or_else(|e| e.into_inner())
 }
 
 /// How the last init in this process ended.
@@ -90,6 +127,33 @@ pub fn last_init_outcome() -> FfiInitOutcome {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The statics are process-wide, so the cases that write them share one test.
+    #[test]
+    fn a_storage_shortfall_lasts_until_the_next_outcome_is_recorded() {
+        assert!(!record_storage_shortfall(FfiStorageShortfall {
+            needed_bytes: 5000.0,
+            free_bytes: Some(120.0),
+        }));
+        assert_eq!(last_init_outcome(), FfiInitOutcome::StorageUnavailable);
+        assert_eq!(
+            last_storage_shortfall(),
+            Some(FfiStorageShortfall {
+                needed_bytes: 5000.0,
+                free_bytes: Some(120.0)
+            })
+        );
+
+        record_init_outcome(FfiInitOutcome::StorageUnavailable);
+        assert_eq!(last_storage_shortfall(), None);
+
+        record_storage_shortfall(FfiStorageShortfall {
+            needed_bytes: 1.0,
+            free_bytes: None,
+        });
+        record_init_outcome(FfiInitOutcome::Opened);
+        assert_eq!(last_storage_shortfall(), None);
+    }
 
     #[test]
     fn only_a_held_file_lifts_on_its_own() {

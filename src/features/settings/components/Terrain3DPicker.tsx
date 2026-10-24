@@ -32,6 +32,7 @@ export function Terrain3DPicker({ value, onValueChange }: Terrain3DPickerProps) 
 
   const options: CircleOption<Terrain3DMode>[] = MODES.map(({ mode, labelKey, icon }) => ({
     value: mode,
+    testID: `terrain-3d-${mode}`,
     label: t(labelKey as never) as string,
     render: () => (
       <Icon
@@ -49,7 +50,6 @@ export function Terrain3DPicker({ value, onValueChange }: Terrain3DPickerProps) 
       onValueChange={onValueChange}
       maxSize={CIRCLE_SIZE}
       testID="terrain-3d-picker"
-      testIDPrefix="terrain-3d"
     />
   );
 }

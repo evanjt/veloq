@@ -35,7 +35,7 @@ const imageSources = (html: string) =>
   [...html.matchAll(/<img[^>]*src="file:\/\/([^"]+)"/g)].map((m) => m[1]);
 
 const caption: Caption = { kicker: 'Feed', cap: 'Your activity\nhistory', sub: 'Synced.' };
-const phone = (c: Caption) => phoneHtml(storePalette, dims(1080, 1920, false), c, '/x.png');
+const phone = (c: Caption) => phoneHtml(storePalette, dims(1080, 1920, 'android'), c, '/x.png');
 
 const tokenHexes = new Set(
   [

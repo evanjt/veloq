@@ -2,6 +2,7 @@
 // so a template can be read without rendering anything.
 import * as path from 'node:path';
 
+import { deviceFrame, type DeviceKind, type ShotLayout } from './store-device';
 import { storeLayout, type StorePalette } from './store-theme';
 import { trackLayer, trackSvg } from './store-tracks';
 
@@ -33,13 +34,11 @@ export interface Dims {
   cap: number;
   sub: number;
   kicker: number;
-  devW: number;
-  devR: number;
-  bezel: number;
+  kind: DeviceKind;
   headH: number;
 }
 
-export function dims(width: number, height: number, tablet: boolean): Dims {
+export function dims(width: number, height: number, kind: DeviceKind): Dims {
   const pad = Math.floor(width * storeLayout.padRatio);
   const cap = Math.floor(width * storeLayout.capRatio);
   const sub = Math.floor(cap * storeLayout.subRatio);
@@ -51,9 +50,7 @@ export function dims(width: number, height: number, tablet: boolean): Dims {
     cap,
     sub,
     kicker,
-    devW: Math.floor(width * (tablet ? storeLayout.deviceRatioTablet : storeLayout.deviceRatio)),
-    devR: Math.floor(width * storeLayout.radiusRatio),
-    bezel: Math.max(8, Math.floor(width / 108)),
+    kind,
     // The kicker line, two headline lines at line-height 1.06, the subtitle's
     // top margin, then two subtitle lines at 1.32. Two of each is the worst
     // case any locale needs; reserving it keeps the device at one height
@@ -112,12 +109,16 @@ export function makeCss(p: StorePalette): string {
     transform: translateX(-50%);
     top: 0;
     width: var(--devw);
+    height: var(--devh);
     border-radius: var(--devr);
     padding: var(--bezel);
     background: ${p.bezel};
     box-shadow: ${p.shadow};
   }
-  .screen { display: block; width: 100%; border-radius: calc(var(--devr) - var(--bezel)); }
+  .screen { display: block; width: 100%; height: 100%; border-radius: var(--scr); }
+  .cutout { position: absolute; background: ${p.bezel}; }
+  .cutout.circle { border-radius: 50%; }
+  .cutout.pill { border-radius: 9999px; }
 `;
 }
 
@@ -126,14 +127,25 @@ function kickerHtml(caption: Caption): string {
   return `<div class="kicker${caption.achievement ? ' gold' : ''}">${caption.kicker}</div>`;
 }
 
-export function phoneHtml(p: StorePalette, d: Dims, caption: Caption, screen: string): string {
+export function phoneHtml(
+  p: StorePalette,
+  d: Dims,
+  caption: Caption,
+  screen: string,
+  layout: ShotLayout = 'whole'
+): string {
+  const f = deviceFrame(d.kind, d, layout);
+  const cutout = f.cutout
+    ? `<div class="cutout ${f.cutout.shape}" style="left:${f.bezel + f.cutout.left}px;top:${f.bezel + f.cutout.top}px;width:${f.cutout.width}px;height:${f.cutout.height}px"></div>`
+    : '';
   const tracks = trackSvg(trackLayer(d.width, d.height), p.line, Math.max(2, d.width / 360));
   return `<!doctype html>
 <html><head><meta charset="utf-8"><style>
 ${makeCss(p)}
 :root {
   --pad: ${d.pad}px; --cap: ${d.cap}px; --sub: ${d.sub}px; --kicker: ${d.kicker}px;
-  --headh: ${d.headH}px; --devw: ${d.devW}px; --devr: ${d.devR}px; --bezel: ${d.bezel}px;
+  --headh: ${d.headH}px; --devw: ${f.outerWidth}px; --devh: ${f.outerHeight}px; --devr: ${f.outerRadius}px;
+  --scr: ${f.screenRadius}px; --bezel: ${f.bezel}px;
 }
 </style></head>
 <body>
@@ -145,7 +157,7 @@ ${makeCss(p)}
       <div class="sub">${caption.sub}</div>
     </div>
     <div class="stage">
-      <div class="device"><img class="screen" src="file://${screen}"></div>
+      <div class="device"><img class="screen" src="file://${screen}">${cutout}</div>
     </div>
   </div>
 </body></html>

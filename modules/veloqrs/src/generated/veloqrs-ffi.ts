@@ -1695,6 +1695,10 @@ interface NativeModuleInterface {
     uniffiSelf: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_veloqengine_init_storage_shortfall(
+    uniffiSelf: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_is_initialized(
     uniffiSelf: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -2071,6 +2075,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_unplaced_backup_records(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_heatmap(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_init_outcome(): number;
+  ubrn_uniffi_veloqrs_checksum_method_veloqengine_init_storage_shortfall(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_is_initialized(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_launch_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_maps(): number;

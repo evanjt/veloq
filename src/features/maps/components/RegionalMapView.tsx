@@ -167,9 +167,7 @@ export function RegionalMapView({
   );
   // The overlay carries six fields per section. The popup wants the whole
   // record, so it is read for the one section that was tapped.
-  const [selectedSectionId, setSelectedSectionId] = useState<string | null>(
-    selectSectionId ?? null
-  );
+  const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
   const { section: selectedSection } = useSectionDetail(selectedSectionId);
   const chooseSection = useSectionChooser(sections, setSelectedSectionId);
   const [spider, setSpider] = useState<SpiderState | null>(null);
@@ -393,6 +391,16 @@ export function RegionalMapView({
       holdSections: !!selectSectionId,
       enabled: sectionsEnabled,
     });
+
+  // A link to a section opens its popup, with the overlay on so the popup is not
+  // cleared as hidden. Each id opens once, so closing the popup leaves it closed.
+  const openedSectionRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!selectSectionId || openedSectionRef.current === selectSectionId) return;
+    openedSectionRef.current = selectSectionId;
+    setShowSections(true);
+    setSelectedSectionId(selectSectionId);
+  }, [selectSectionId, setShowSections]);
 
   // A link to a section brings the camera to it once, when the record loads.
   const flownToSectionRef = useRef<string | null>(null);

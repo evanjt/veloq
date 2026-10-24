@@ -68,7 +68,11 @@ describe('EngineInitBanner', () => {
     jest.clearAllMocks();
     mockInsets.top = 0;
     mockIsDark = false;
-    useEngineStatus.setState({ initFailed: false, initFailureReason: null });
+    useEngineStatus.setState({
+      initFailed: false,
+      initFailureReason: null,
+      storageShortfall: null,
+    });
   });
 
   it('stays hidden while the engine is open', async () => {
@@ -86,6 +90,29 @@ describe('EngineInitBanner', () => {
     failedWith(reason);
     const { getByText } = await render(<EngineInitBanner />);
     expect(getByText(key)).toBeTruthy();
+  });
+
+  /** The engine names the bytes an upgrade needed; the banner states them rather than a generic line. */
+  it('names the bytes an upgrade short of space needs', async () => {
+    failedWith(InitOutcome.StorageUnavailable);
+    useEngineStatus.setState({
+      storageShortfall: { neededBytes: 52_400_000, freeBytes: 3_100_000 },
+    });
+    const { getByText } = await render(<EngineInitBanner />);
+    expect(getByText('engine.initReason.storageShortfall')).toBeTruthy();
+  });
+
+  it('keeps the generic storage line when the engine recorded no shortfall', async () => {
+    failedWith(InitOutcome.StorageUnavailable);
+    const { getByText } = await render(<EngineInitBanner />);
+    expect(getByText('engine.initReason.storageUnavailable')).toBeTruthy();
+  });
+
+  it('ignores a shortfall left from an earlier attempt when another reason now applies', async () => {
+    failedWith(InitOutcome.Busy);
+    useEngineStatus.setState({ storageShortfall: { neededBytes: 1 } });
+    const { getByText } = await render(<EngineInitBanner />);
+    expect(getByText('engine.initReason.busy')).toBeTruthy();
   });
 
   it('falls back to the general line when no reason was recorded', async () => {

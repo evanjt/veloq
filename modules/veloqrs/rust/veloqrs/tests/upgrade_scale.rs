@@ -218,12 +218,38 @@ fn peak_rss_kb() -> u64 {
         .unwrap_or(0)
 }
 
+/// The copy the upgrade takes of a schema-12 library. The detector cutover
+/// removes it when it is promoted, so it can only be read between the open and
+/// the cutover.
+fn pre_upgrade_copy_kb(db_path: &str) -> u64 {
+    size_kb(&format!("{db_path}.pre-upgrade-12"))
+}
+
 fn size_kb(path: &str) -> u64 {
     ["", "-wal"]
         .iter()
         .filter_map(|s| std::fs::metadata(format!("{path}{s}")).ok())
         .map(|m| m.len() / 1024)
         .sum()
+}
+
+#[test]
+fn the_open_leaves_a_copy_as_large_as_the_library_it_upgraded() {
+    let _serial_state = super::serial_state();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    let p = path.to_str().unwrap();
+    seed_v12_library(&path, 60);
+    let before_kb = size_kb(p);
+
+    drop(veloqrs::PersistentEngine::new(p).expect("open engine"));
+
+    let copy_kb = pre_upgrade_copy_kb(p);
+    assert!(before_kb > 0, "the seed wrote nothing");
+    assert!(
+        copy_kb >= before_kb,
+        "copy {copy_kb} KB is smaller than the {before_kb} KB library it protects"
+    );
 }
 
 /// Run each size in its own process, since the peak is a high-water mark.
@@ -249,6 +275,7 @@ fn report() {
         assert!(veloqrs::persistence::persistent_engine_ffi::persistent_engine_init(p.to_string()));
         let open_ms = t.elapsed().as_millis();
         let rss_open = peak_rss_kb();
+        let copy_kb = pre_upgrade_copy_kb(p);
         let owed = veloqrs::ffi::is_cutover_pending();
         // The cutover is held until every track has had its elevation fetched,
         // which is a network run, so it is not part of what is timed here.
@@ -278,7 +305,6 @@ fn report() {
         }
         let phase = veloqrs::ffi::get_cutover_progress().phase;
         let after_kb = size_kb(p);
-        let copy_kb = size_kb(&format!("{p}.pre-upgrade-12"));
         println!(
             "upgrade_scale n={n} seed_ms={seed_ms} open_ms={open_ms} db_before_kb={before_kb} \
              db_after_kb={after_kb} pre_upgrade_copy_kb={copy_kb} \

@@ -35,4 +35,4 @@ Veloq 在手机上显示您的 intervals.icu 训练，并寻找您反复经过�
 
 支持骑行、跑步、游泳及20多种活动类型。无需账户即可体验内置演示模式。
 
-实时数据需要intervals.icu账户。与intervals.icu无隶属关系。
+实时数据需要intervals.icu账户。需要iOS 16.4或更高版本。与intervals.icu无隶属关系。

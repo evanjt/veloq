@@ -22,8 +22,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { getEngine } from '@/shared/native/engine';
 import { readRoutesStatus } from '@/shared/native/routesStatusPoll';
-import { getPhaseDisplayKey, useCutoverSummary } from '@/features/routes';
-import { CUTOVER_FAILURE_KEYS } from '../lib/cutoverPhaseKeys';
+import { CUTOVER_FAILURE_KEYS, getPhaseDisplayKey, useCutoverSummary } from '@/features/routes';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { Button, Spinner } from '@/shared/ui';
 

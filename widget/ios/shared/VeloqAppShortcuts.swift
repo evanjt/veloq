@@ -15,7 +15,6 @@ import UIKit
 /// only interpolate an entity or enum parameter, and Siri asks for a required
 /// one when the phrase names none, so naming a sport is a second intent with a
 /// required parameter and the sport-less phrases keep starting the last sport.
-@available(iOS 16.0, *)
 struct StartRideIntent: AppIntent {
   static var title: LocalizedStringResource = "Start recording"
   static var description = IntentDescription("Opens Veloq ready to record the last sport.")
@@ -29,7 +28,6 @@ struct StartRideIntent: AppIntent {
 }
 
 /// Starts a named sport, which is what "start a swim" resolves to.
-@available(iOS 16.0, *)
 struct StartSportIntent: AppIntent {
   static var title: LocalizedStringResource = "Start a sport"
   static var description = IntentDescription("Opens Veloq ready to record the chosen sport.")
@@ -58,7 +56,6 @@ enum RecordLinkOpener {
   }
 }
 
-@available(iOS 16.0, *)
 struct VeloqAppShortcuts: AppShortcutsProvider {
   static var appShortcuts: [AppShortcut] {
     AppShortcut(
@@ -89,8 +86,6 @@ struct VeloqAppShortcuts: AppShortcutsProvider {
 @objc(VeloqAppShortcutRefresher)
 final class AppShortcutRefresher: NSObject {
   @objc static func refresh() {
-    if #available(iOS 16.0, *) {
-      VeloqAppShortcuts.updateAppShortcutParameters()
-    }
+    VeloqAppShortcuts.updateAppShortcutParameters()
   }
 }

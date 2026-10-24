@@ -5,10 +5,15 @@
 //! out of the catalogue is on the retired list with a version to roll back to
 //! and a name or length, restoring one makes it a live pinned user-defined
 //! section, and a section the athlete pinned or hid in 0.3.8 is not touched.
+//! A record backup taken after the cutover and restored onto a fresh install
+//! keeps every retired section and can restore each one.
 
 use rusqlite::Connection;
 use std::collections::BTreeSet;
+use std::io::Read;
 use std::path::Path;
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use tempfile::TempDir;
 use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
 use veloqrs::persistence::with_persistent_engine;
@@ -144,4 +149,108 @@ fn every_wiped_auto_section_of_a_released_library_is_retired_and_restorable() {
     assert!(dropped.is_empty(), "a detect dropped restored {dropped:?}");
     let still_retired = with_persistent_engine(|e| e.retired_sections()).unwrap();
     assert!(still_retired.is_empty(), "{still_retired:?}");
+}
+
+/// The record json a whole-scope backup of the open library writes.
+fn record_of_open_library(dir: &Path) -> String {
+    let zip_path = dir.join("record.zip");
+    let handle = with_persistent_engine(|e| {
+        e.record_backup_background(
+            zip_path.to_str().unwrap(),
+            veloqrs::persistence::RecordScope::Whole,
+            veloqrs::persistence::engine_install(),
+            Arc::new(AtomicBool::new(false)),
+        )
+    })
+    .unwrap();
+    handle
+        .recv_blocking()
+        .expect("the backup worker answered")
+        .expect("the backup was written");
+    let mut archive = zip::ZipArchive::new(std::fs::File::open(&zip_path).unwrap()).unwrap();
+    let mut json = String::new();
+    archive
+        .by_name("record.json")
+        .unwrap()
+        .read_to_string(&mut json)
+        .unwrap();
+    json
+}
+
+#[test]
+fn a_record_taken_after_the_cutover_restores_every_retired_section_on_a_fresh_install() {
+    let _serial_state = super::serial_state();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    seed(&path);
+    cut_over(&path);
+    let retired = with_persistent_engine(|e| e.retired_sections()).unwrap();
+    assert!(
+        !retired.is_empty(),
+        "the cutover retired nothing, so the checks below prove nothing"
+    );
+    let json = record_of_open_library(dir.path());
+    let rides: Vec<(String, Vec<tracematch::GpsPoint>)> = with_persistent_engine(|e| {
+        ids(
+            &Connection::open(&path).unwrap(),
+            "SELECT id FROM activities",
+        )
+        .into_iter()
+        .filter_map(|id| e.get_gps_track(&id).map(|track| (id, track)))
+        .collect()
+    })
+    .unwrap();
+    assert!(!rides.is_empty(), "the library holds no ride tracks");
+
+    let fresh = dir.path().join("fresh.db");
+    assert!(persistent_engine_init(fresh.to_str().unwrap().to_string()));
+    assert!(
+        with_persistent_engine(|e| e.retired_sections())
+            .unwrap()
+            .is_empty()
+    );
+    // The fresh install has synced its rides, which a pending state draws its
+    // line from.
+    for (id, track) in &rides {
+        with_persistent_engine(|e| e.add_activity(id.clone(), track.clone(), "Ride".into()))
+            .unwrap()
+            .expect("the ride syncs");
+    }
+    with_persistent_engine(|e| e.restore_record_json(&json))
+        .unwrap()
+        .expect("restore the record");
+
+    let restored = with_persistent_engine(|e| e.retired_sections()).unwrap();
+    let ids = |list: &[veloqrs::persistence::sections::RetiredSection]| -> BTreeSet<String> {
+        list.iter().map(|r| r.section_id.clone()).collect()
+    };
+    let missing: Vec<String> = ids(&retired).difference(&ids(&restored)).cloned().collect();
+    assert!(
+        missing.is_empty(),
+        "retired sections the restore dropped: {missing:?} ({} of {})",
+        missing.len(),
+        retired.len()
+    );
+    for r in &restored {
+        assert!(!r.versions.is_empty(), "{} has no version", r.section_id);
+    }
+
+    // Each one still rolls back to a live, pinned section.
+    for r in &restored {
+        let version = r.versions.last().unwrap().0;
+        with_persistent_engine(|e| e.revert_section_to_version(&r.section_id, version))
+            .unwrap()
+            .unwrap_or_else(|err| panic!("restore {}: {err}", r.section_id));
+    }
+    let db = Connection::open(&fresh).expect("open");
+    for r in &retired {
+        let live: i64 = db
+            .query_row(
+                "SELECT COUNT(*) FROM sections WHERE id = ?",
+                [&r.section_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(live, 1, "{} is not live after the rollback", r.section_id);
+    }
 }

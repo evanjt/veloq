@@ -35,4 +35,4 @@ Deine Trainingsdaten bleiben auf deinem Gerät. Keine Analytics, kein Tracking. 
 
 Unterstützt Radfahren, Laufen, Schwimmen und 20+ Aktivitätstypen. Teste den integrierten Demomodus, um die App ohne Konto zu erkunden.
 
-Erfordert ein intervals.icu-Konto für Live-Daten. Nicht mit intervals.icu verbunden.
+Erfordert ein intervals.icu-Konto für Live-Daten. Erfordert iOS 16.4 oder neuer. Nicht mit intervals.icu verbunden.

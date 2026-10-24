@@ -38,6 +38,8 @@ import { NameText } from '@/shared/ui/NameText';
 export interface RouteOverlaySheetInput {
   activityType: ActivityType;
   selectedRouteId: string | null;
+  /** Route group ids near the current fix, nearest first */
+  nearbyRouteIds?: string[];
 }
 
 const NO_OVERLAPS: Record<string, number> = {};
@@ -94,11 +96,17 @@ function RouteOverlaySheetContent() {
   const overlaps = result.bucket === distanceBucket ? result.scores : NO_OVERLAPS;
 
   const sortedGroups = useMemo(() => {
-    if (distanceBucket === 0 || Object.keys(overlaps).length === 0) return groups;
+    if (distanceBucket === 0 || Object.keys(overlaps).length === 0) {
+      const rank = new Map((input?.nearbyRouteIds ?? []).map((id, index) => [id, index]));
+      if (rank.size === 0) return groups;
+      return [...groups].sort(
+        (a, b) => (rank.get(a.id) ?? rank.size) - (rank.get(b.id) ?? rank.size)
+      );
+    }
     return [...groups].sort(
       (a, b) => (overlaps[b.id] ?? 0) - (overlaps[a.id] ?? 0) || b.activityCount - a.activityCount
     );
-  }, [groups, distanceBucket, overlaps]);
+  }, [groups, distanceBucket, overlaps, input?.nearbyRouteIds]);
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const accentText = isDark ? darkColors.actionLink : colors.actionLink;
