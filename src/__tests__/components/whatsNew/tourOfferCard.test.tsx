@@ -31,6 +31,8 @@ jest.mock('@/shared/storage', () => ({
   getSetting: jest.fn().mockResolvedValue(null),
   setSetting: jest.fn().mockResolvedValue(undefined),
 }));
+const mockAthlete: { data: { garminSyncsActivities?: boolean } } = { data: {} };
+jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => mockAthlete }));
 jest.mock('@/features/settings/lib/autobackup', () => ({
   isAutoBackupEnabled: () => false,
 }));
@@ -58,6 +60,7 @@ async function closeTour(): Promise<void> {
 
 beforeEach(() => {
   jest.mocked(setSetting).mockClear();
+  mockAthlete.data = {};
   openLaunchSession();
   useAuthStore.setState({ isAuthenticated: true, isDemoMode: false, authMethod: 'apiKey' });
   useWhatsNewStore.setState({
@@ -79,8 +82,34 @@ it('offers the tour on a first sign-in inside the quiet period, without the noti
   expect(useWhatsNewStore.getState().tourState).toMatchObject({
     mode: 'tutorial',
     only: null,
+    held: ['notifications', 'garmin'],
+  });
+});
+
+it('keeps the Garmin slide in the tour for an athlete whose intervals.icu uses Garmin', async () => {
+  mockAthlete.data = { garminSyncsActivities: true };
+  useAuthStore.setState({ authMethod: 'oauth' });
+  openLaunchSession(true);
+  await render(<TourOfferCard />);
+  await press('tour-offer-open');
+  expect(useWhatsNewStore.getState().tourState).toMatchObject({
+    only: null,
     held: ['notifications'],
   });
+});
+
+it('owes the Garmin slide after a tour that left it unanswered, to a Garmin athlete only', async () => {
+  mockAthlete.data = { garminSyncsActivities: true };
+  await render(<TourOfferCard />);
+  await press('tour-offer-open');
+  await act(async () => {
+    useWhatsNewStore.getState().answerSetup('notifications', 'never');
+    useWhatsNewStore.getState().answerSetup('backup', 'on');
+  });
+  await closeTour();
+  await laterSession();
+  await press('tour-offer-open');
+  expect(useWhatsNewStore.getState().tourState).toMatchObject({ only: ['garmin'], held: [] });
 });
 
 it('owes the notification slide alone after a quiet-period tour, once the quiet period ends', async () => {
@@ -119,6 +148,7 @@ it('offers nothing in demo', async () => {
 });
 
 it('offers the tour after the quiet period and opens the whole tour on Take the tour', async () => {
+  mockAthlete.data = { garminSyncsActivities: true };
   await render(<TourOfferCard />);
   expect(screen.getByText('whatsNew.tourOfferTitle')).toBeTruthy();
   await press('tour-offer-open');

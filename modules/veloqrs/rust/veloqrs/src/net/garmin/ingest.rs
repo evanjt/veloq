@@ -311,6 +311,16 @@ pub fn ingest_original(
         settle(e, &key, path.as_deref(), fit, prepared)
     })
     .ok_or(IngestError::EngineClosed)??;
+    if keep_for_upload
+        && matches!(ingested, Ingested::Stored { .. })
+        && let Some(athlete) = crate::objects::sync::signed_in_athlete()
+    {
+        crate::net::upload_recording::offer_garmin_originals(
+            install,
+            &athlete,
+            chrono::Utc::now().timestamp_millis(),
+        );
+    }
     if ingested == (Ingested::Stored { tracked: true }) {
         use crate::persistence::sections::conditioning;
         conditioning::note_stored_for(install, 1);

@@ -10,6 +10,8 @@ pub mod endpoints;
 
 pub mod ingest;
 
+pub mod pull;
+
 pub mod wire;
 
 use crate::governor::{self, AuthMethod, Dispatch, Governor, Lane};

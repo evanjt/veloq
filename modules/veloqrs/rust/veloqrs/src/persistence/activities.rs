@@ -1209,6 +1209,21 @@ pub(crate) mod pooled {
             .collect()
     }
 
+    /// The stored key that claims the intervals.icu id `intervals_id`, a
+    /// tracked row ahead of a trackless one. None when no row claims it, and
+    /// the caller then uses the id as the key.
+    pub(crate) fn claiming_key(conn: &Connection, intervals_id: &str) -> Option<String> {
+        conn.query_row(
+            "SELECT id FROM activities WHERE intervals_id = ?1
+             UNION ALL
+             SELECT activity_id FROM activity_bodies WHERE intervals_id = ?1
+             LIMIT 1",
+            params![intervals_id],
+            |row| row.get::<_, String>(0),
+        )
+        .ok()
+    }
+
     /// The `intervals_id` stored for an activity, on its `activities` row or,
     /// for a trackless one, on its body. None for one the server has never
     /// named.
@@ -2571,7 +2586,9 @@ impl PersistentEngine {
             super::settings_keys::EXPORT_HOME_LAT,
             super::settings_keys::EXPORT_HOME_LNG,
             super::settings_keys::EXPORT_PRIVACY_RADIUS_M,
+            super::settings_keys::GARMIN_CONNECTOR_ENABLED,
             super::settings_keys::SYNC_LAST_SUCCESS_AT,
+            super::settings_keys::HELD_BACK_IN_LAST_DOWNLOAD,
             super::settings_keys::FITNESS_MODEL_EVENTS,
             super::settings_keys::WIDGET_CONTEXT,
             crate::objects::sync::OLDEST_ACTIVITY_DATE_KEY,
@@ -4113,16 +4130,7 @@ impl PersistentEngine {
     /// The local key for one activity the server named, or None when no
     /// stored row claims it.
     pub fn activity_id_for_intervals_id(&self, intervals_id: &str) -> Option<String> {
-        self.db
-            .query_row(
-                "SELECT id FROM activities WHERE intervals_id = ?1
-                 UNION ALL
-                 SELECT activity_id FROM activity_bodies WHERE intervals_id = ?1
-                 LIMIT 1",
-                params![intervals_id],
-                |row| row.get::<_, String>(0),
-            )
-            .ok()
+        pooled::claiming_key(&self.db, intervals_id)
     }
 
     /// The local key for each activity the server named, keyed by the server's
@@ -4802,9 +4810,8 @@ impl PersistentEngine {
                 .zip(upstream_ids)
                 .filter(|(_, upstream_id)| !claims.contains_key(*upstream_id))
                 .map(
-                    |((_, date, raw), upstream_id)| super::garmin_link::IncomingActivity {
+                    |((_, _, raw), upstream_id)| super::garmin_link::IncomingActivity {
                         upstream_id,
-                        date: *date,
                         raw,
                     },
                 )
@@ -4853,17 +4860,21 @@ impl PersistentEngine {
                 "UPDATE activity_census SET fetched_sync_date = icu_sync_date
                  WHERE athlete_id = ?1 AND intervals_id = ?2",
             )?;
+            let mut newly_held_back = 0u32;
             for (((local_id, date, raw), upstream_id), keeps) in
                 rows.iter().zip(upstream_ids).zip(&keeps_original)
             {
                 if !keeps {
                     body.execute(params![local_id, date, raw, athlete_id, upstream_id])?;
-                    super::activity_held_back::sync_from_body(&self.db, local_id, raw)?;
+                    if super::activity_held_back::sync_from_body(&self.db, local_id, raw)? {
+                        newly_held_back += 1;
+                    }
                 }
                 invalidate.execute(params![athlete_id, upstream_id, local_id])?;
             }
             drop(body);
             drop(invalidate);
+            super::activity_held_back::add_to_last_download(&self.db, newly_held_back)?;
             let written: Vec<bool> = keeps_original.iter().map(|keeps| !keeps).collect();
             metrics = std::mem::take(&mut metrics)
                 .into_iter()

@@ -104,6 +104,7 @@ describe('Clear & Sync on the account mismatch prompt', () => {
     expect(trace).toEqual([
       'wipe started',
       'wipe finished',
+      'set __garmin_connector_enabled',
       'set veloq-notification-preferences',
       'set veloq-resolved-unit-system',
       'set __athlete_id',

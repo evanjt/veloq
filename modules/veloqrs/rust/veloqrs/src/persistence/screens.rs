@@ -191,6 +191,7 @@ pub fn background_jobs_data(
         detection_awaiting,
         cutover_owed: crate::persistence::cutover::pooled::cutover_is_owed(conn),
         stream_days_to_finish,
+        garmin_pull: crate::net::garmin::pull::screen_read(conn),
     })
 }
 
@@ -2873,6 +2874,7 @@ pub mod pooled {
                 .unwrap_or_default(),
             held_back: crate::persistence::activity_held_back::of(conn, activity_id)
                 .unwrap_or_default(),
+            provenance: crate::persistence::origin::provenance_of(activity_id),
         }
     }
 

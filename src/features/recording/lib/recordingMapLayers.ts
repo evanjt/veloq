@@ -1,5 +1,6 @@
 import type { MapPalette } from '@/theme';
 import type { MapLayerSpec } from '@/features/maps';
+import { NEARBY_ROUTE_HIT_LAYER } from './nearbyRouteLines';
 
 /**
  * The map's layers, bottom to top. The live track draws in the record role, the same as every
@@ -9,6 +10,21 @@ export function recordingMapLayers(palette: MapPalette, isDark: boolean): MapLay
   const { layer } = palette;
   const roundLine = { 'line-cap': 'round', 'line-join': 'round' };
   return [
+    {
+      id: 'nearby-routes-line',
+      type: 'line',
+      source: 'nearby-routes',
+      layout: roundLine,
+      paint: { 'line-color': layer.recordingNearby, 'line-width': 3 },
+    },
+    // A finger lands wider than a faint line, so the tap is taken by a transparent line.
+    {
+      id: NEARBY_ROUTE_HIT_LAYER,
+      type: 'line',
+      source: 'nearby-routes',
+      layout: roundLine,
+      paint: { 'line-color': layer.recordingNearby, 'line-opacity': 0, 'line-width': 24 },
+    },
     {
       id: 'route-overlay-line',
       type: 'line',

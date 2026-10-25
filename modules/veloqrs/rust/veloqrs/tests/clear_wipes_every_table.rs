@@ -272,7 +272,7 @@ fn clear_forgets_the_record_restore_state() {
 /// signs out and deletes their data, and athlete B signs in.
 ///
 /// Expected behaviour: A's home, privacy radius, history span, yearly counts,
-/// answered wellness window and last sync go with A's library. Left behind,
+/// answered wellness window, last sync and Garmin connection go with A's library. Left behind,
 /// B's export privacy row shows A's home, and B's next record zip carries A's
 /// coordinates under B's athlete id.
 #[test]
@@ -288,6 +288,7 @@ fn clear_forgets_the_athletes_home_and_sync_history() {
         "activity_year_counts",
         "__wellness_answered",
         "sync.last_success_at",
+        "__garmin_connector_enabled",
     ];
     for key in athlete_keys {
         engine.set_setting(key, "athlete-a").expect("seed");

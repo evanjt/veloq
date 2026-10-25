@@ -167,6 +167,7 @@ final class NotificationService: UNNotificationServiceExtension {
     guard prepared.ready else {
       return refuse(prepared.refusal ?? "prepare refused")
     }
+    VeloqPushEngine.holdGarminKey(VeloqCredentials.garminKey())
     guard let answer = VeloqPushEngine.sentence(activityId: push.activityId, athleteId: push.athleteId)
     else { return refuse("the engine did not answer") }
     // The engine's own refusal, notifications off or another athlete, which it

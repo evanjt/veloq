@@ -116,6 +116,16 @@ const NOTIFICATIONS: WhatsNewSlideDefinition = {
   },
 };
 
+const GARMIN: WhatsNewSlideDefinition = {
+  titleKey: 'whatsNew.tutorial.garminTitle',
+  bodyKey: 'whatsNew.tutorial.garminBody',
+  icon: 'watch-variant',
+  setup: 'garmin',
+  get Component() {
+    return require('./GarminSlide').GarminSlide;
+  },
+};
+
 const RECORDING: WhatsNewSlideDefinition = {
   titleKey: 'whatsNew.v040.recordingTitle',
   bodyKey: 'whatsNew.v040.recordingBody',
@@ -215,6 +225,7 @@ export const WHATS_NEW_SLIDES: Record<string, WhatsNewSlideDefinition[]> = {
 const TUTORIAL_SLIDES: WhatsNewSlideDefinition[] = [
   MAP_STYLES,
   NOTIFICATIONS,
+  GARMIN,
   RECORDING,
   MAPS_WIDGETS,
   SECTIONS_REBUILT,

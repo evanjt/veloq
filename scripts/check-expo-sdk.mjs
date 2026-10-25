@@ -74,8 +74,9 @@ function lineBelow(a, b) {
 // goes back to an older line than the SDK's.
 const FLOORS = {
   'react-native-screens': {
-    fixedIn: ['4.28.0'],
-    reason: 'earlier releases initialise native state without a lock and crash Fabric mounting',
+    fixedIn: ['4.29.0'],
+    reason:
+      'earlier releases initialise native state without a lock, crash Fabric mounting on teardown and throw on orphaned fragments',
   },
   'expo-task-manager': {
     fixedIn: ['56.0.24', '57.0.7'],

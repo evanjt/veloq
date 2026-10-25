@@ -16,7 +16,13 @@ import { useTranslation } from 'react-i18next';
 import { openExternal } from '@/shared/app/openExternal';
 import { spacing } from '@/theme';
 import type { WellnessData } from '@/types';
-import type { ActivityFitnessImpact, ActivityRecord, ActivitySummary, MaxHrSource } from 'veloqrs';
+import type {
+  ActivityFitnessImpact,
+  ActivityHeldBack,
+  ActivityRecord,
+  ActivitySummary,
+  MaxHrSource,
+} from 'veloqrs';
 import { useActivityStats } from './useActivityStats';
 import { StatCard } from './StatCard';
 import { Card } from '@/shared/ui/Card';
@@ -36,6 +42,8 @@ interface InsightfulStatsProps {
   newGround?: ActivityNewGround | undefined;
   /** The stored summary from the detail screen read. */
   summary?: ActivitySummary | undefined;
+  /** The hold on the ride, from the detail screen read. */
+  heldBack?: ActivityHeldBack | null | undefined;
   /** The intervals.icu id the detail read names. Without one there is no page to link to. */
   intervalsId?: string | null | undefined;
 }
@@ -48,6 +56,7 @@ export function InsightfulStats({
   fitnessImpact,
   newGround,
   summary,
+  heldBack,
   intervalsId,
 }: InsightfulStatsProps) {
   const { t } = useTranslation();
@@ -65,6 +74,7 @@ export function InsightfulStats({
     fitnessImpact,
     newGround,
     summary,
+    heldBack,
   });
 
   const handleStatPress = useCallback(

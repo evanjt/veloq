@@ -34,9 +34,13 @@
   },
   "activity": {
     "heldBack": {
-      "title": "Trattenuta da intervals.icu",
+      "title": "Non condivisa da intervals.icu",
       "detail": "intervals.icu possiede questa attività ma non la rende disponibile alle app, quindi i suoi dati qui sono vuoti.",
-      "detailGarmin": "Collegando Garmin nelle impostazioni viene compilata dall'originale."
+      "detailGarmin": "Collegando la tua chiave Garmin viene compilata dall'originale.",
+      "connectGarmin": "Collega Garmin"
+    },
+    "provenance": {
+      "garminOnPhone": "Completata dal tuo file Garmin"
     },
     "syncFailed": {
       "title": "Sincronizzazione non riuscita",
@@ -672,6 +676,8 @@
   "garmin": {
     "title": "Garmin",
     "rowSubtitle": "Chiave personale",
+    "keyNeeded": "Chiave da inserire di nuovo",
+    "keyNeededHint": "Incolla di nuovo la tua chiave Garmin per continuare a importare le attività Garmin.",
     "intro": "Incolla la tua chiave personale Garmin perché Veloq mostri le tue uscite Garmin.",
     "privacy": "La chiave resta su questo dispositivo e Veloq non la riceve mai. Collegarla è un tuo atto, secondo i termini di Garmin.",
     "getKey": "Ottieni una chiave da Garmin Connect",
@@ -694,7 +700,25 @@
     "uploadHint": "Le uscite raggiungono allora intervals.icu, un allenatore e le notifiche solo quando Veloq è in esecuzione. L'importazione Garmin di intervals.icu è la via più rapida.",
     "duplicateTitle": "intervals.icu importa già le tue attività Garmin",
     "duplicateDetail": "I caricamenti da Veloq comparirebbero due volte. In intervals.icu, disattiva Attività e lascia attivi Benessere e Allenamenti pianificati. Veloq non modifica queste impostazioni.",
-    "openConnections": "Apri le connessioni di intervals.icu"
+    "openConnections": "Apri le connessioni di intervals.icu",
+    "offerTitle_one": "{{count}} uscita Garmin è arrivata senza i suoi dati",
+    "offerTitle_many": "{{count}} di uscite Garmin sono arrivate senza i loro dati",
+    "offerTitle_other": "{{count}} uscite Garmin sono arrivate senza i loro dati",
+    "offerBody": "intervals.icu non condivide più le uscite Garmin con le app. Collega Garmin per portarle qui.",
+    "offerConnect": "Collega Garmin",
+    "pullTitle": "Uscite Garmin",
+    "pullStored_one": "{{count}} salvata",
+    "pullStored_many": "{{count}} di uscite salvate",
+    "pullStored_other": "{{count}} salvate",
+    "pullReached": "fino a {{month}}",
+    "pullRunning": "In corso",
+    "pullPaused": "In pausa fino alle {{time}}",
+    "pullIdle": "In attesa di partire",
+    "pullDone": "Aggiornato",
+    "pullStoppedKey": "Interrotto: chiave Garmin non accettata",
+    "pullStoppedUnreachable": "Interrotto: Garmin non è raggiungibile",
+    "pullStoppedStorage": "Interrotto: nessuno spazio per le uscite",
+    "pullNow": "Scarica ora"
   },
   "intervalTypes": {
     "work": {
@@ -1628,7 +1652,11 @@
       "empty": "Nessun percorso salvato per questo sport.",
       "activities_one": "{{count}} attività",
       "activities_many": "{{count}} di attività",
-      "activities_other": "{{count}} attività"
+      "activities_other": "{{count}} attività",
+      "following": "Stai seguendo {{name}}",
+      "pr": "Record {{time}}",
+      "nearby": "Nelle vicinanze",
+      "allRoutes": "Tutti i percorsi"
     },
     "returnToRecording": "Torna alla registrazione",
     "batteryOptNudge": "Le registrazioni lunghe funzionano meglio con l'ottimizzazione della batteria disattivata per Veloq.",
@@ -2585,6 +2613,9 @@
       "notificationsBody": "Quando intervals.icu riceve una nuova attività, Veloq può dirti cosa ha trovato: un record personale, un tempo più veloce del solito o un passo avanti nella forma. Ecco alcuni esempi di ciò che arriva.",
       "turnOn": "Attiva",
       "neverRemind": "Non ricordarmelo più",
+      "garminTitle": "Uscite Garmin",
+      "garminBody": "intervals.icu non condivide più le uscite Garmin con le app. Con una chiave Garmin, Veloq le prende da Garmin stesso.",
+      "garminWhy": "Le uscite arrivano complete, con i loro dati. La chiave resta su questo dispositivo.",
       "notificationsNeedSignIn": "Le notifiche richiedono l'accesso con intervals.icu.",
       "notificationsOn": "Le notifiche sono attive. Puoi cambiarle in Impostazioni.",
       "notificationsExampleSection": "Salita del Porto",

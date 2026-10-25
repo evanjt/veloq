@@ -135,3 +135,33 @@ fn test_record_screen_data_orders_library_sports_by_activity_count() {
         "most activities first, equal counts in name order"
     );
 }
+
+#[test]
+fn test_background_jobs_data_carries_the_garmin_pull_only_while_a_key_is_held() {
+    let _guard = serial_global_state();
+    let _tmp = init_global_engine("settings.db");
+    let settings = SettingsManager::new();
+    crate::objects::garmin_key::clear_garmin_key();
+
+    assert!(
+        settings
+            .background_jobs_data()
+            .unwrap()
+            .garmin_pull
+            .is_none()
+    );
+
+    crate::objects::garmin_key::hold_garmin_key("held-key");
+    settings
+        .set_setting("veloq-garmin-pulled".into(), "7".into())
+        .unwrap();
+    settings
+        .set_setting("veloq-garmin-backfill-cursor".into(), "2025-03-01".into())
+        .unwrap();
+    let pull = settings.background_jobs_data().unwrap().garmin_pull;
+    crate::objects::garmin_key::clear_garmin_key();
+
+    let pull = pull.expect("a held key shows the pull");
+    assert_eq!(pull.stored, 7);
+    assert_eq!(pull.reached_month.as_deref(), Some("2025-03"));
+}

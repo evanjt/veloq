@@ -23,7 +23,7 @@ pub const DEMO_KEY_PREFIX: &str = "demo-";
 pub const SOURCE_KEY_PREFIX: &str = "src-";
 
 /// The prefix a Garmin original's key carries after [`SOURCE_KEY_PREFIX`].
-const GARMIN_KEY_PREFIX: &str = "src-garmin-";
+pub(crate) const GARMIN_KEY_PREFIX: &str = "src-garmin-";
 
 /// The key of the activity read from Garmin's original of `garmin_id`. Every
 /// Garmin key is minted here, so the namespace stays one rule.
@@ -101,6 +101,27 @@ pub fn origin_of(key: &str) -> ActivityOrigin {
         ActivityOrigin::Source
     } else {
         ActivityOrigin::Intervals
+    }
+}
+
+/// Where an activity's data was filled from, as its screen says it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[uniffi(name = "FfiActivityProvenance")]
+pub enum ActivityProvenance {
+    /// The copy intervals.icu holds itself, with nothing filled in from a Garmin file.
+    Intervals,
+    /// A Garmin original stored on this phone, which fills the activity.
+    GarminOnPhone,
+}
+
+/// The provenance of the activity stored under `key`. Only a Garmin original
+/// reads as filled from a file; every other key reads as `Intervals`, which
+/// the screen marks with nothing.
+pub fn provenance_of(key: &str) -> ActivityProvenance {
+    if garmin_id_of_source_key(key).is_some() {
+        ActivityProvenance::GarminOnPhone
+    } else {
+        ActivityProvenance::Intervals
     }
 }
 
@@ -279,6 +300,21 @@ mod tests {
             );
         }
         assert_eq!(named(Some("GARMIN_CONNECT"), None), None);
+    }
+
+    /// Scenario: the activity screen asks where a ride's data was filled from.
+    ///
+    /// Expected behaviour: the row of a Garmin original reads as filled from
+    /// the Garmin file on this phone, and an activity under an intervals.icu
+    /// key reads as intervals.icu's own.
+    #[test]
+    fn a_garmin_original_reads_as_filled_from_the_phone_and_an_upstream_key_as_intervals() {
+        assert_eq!(
+            provenance_of(&garmin_source_key(18_342_901_776)),
+            ActivityProvenance::GarminOnPhone
+        );
+        assert_eq!(provenance_of("i123"), ActivityProvenance::Intervals);
+        assert_eq!(provenance_of("local-ab"), ActivityProvenance::Intervals);
     }
 
     #[test]

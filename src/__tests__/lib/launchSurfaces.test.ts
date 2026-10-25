@@ -391,6 +391,35 @@ describe('the notification card', () => {
   });
 });
 
+describe('the Garmin offer', () => {
+  const asked = (facts: Partial<LaunchFacts>) =>
+    launchSurfaces({ ...quiet, ...eligible('garmin'), ...facts }).ask;
+
+  it('asks when it is the only eligible ask', () => {
+    expect(asked({})).toBe('garmin');
+  });
+
+  it('never shows beside the tour offer or the notification card', () => {
+    expect(asked(eligible('garmin', 'tourOffer'))).toBe('tourOffer');
+    expect(asked(eligible('garmin', 'notifications'))).toBe('notifications');
+    expect(asked(eligible('support', 'garmin'))).toBe('garmin');
+  });
+
+  it('keeps the slot once taken, and gives it up when withdrawn', () => {
+    expect(asked({ ...eligible('garmin', 'tourOffer'), sessionAsk: 'garmin' })).toBe('garmin');
+    expect(asked({ ...eligible(), sessionAsk: 'garmin' })).toBeNull();
+  });
+
+  it('waits out the quiet period, which a download brings the athlete into', () => {
+    expect(asked({ ...quietPeriod })).toBeNull();
+  });
+
+  it('shows nothing under a modal or the tour', () => {
+    expect(asked({ taken: 'libraryRebuilt' })).toBeNull();
+    expect(asked({ tourOpen: true })).toBeNull();
+  });
+});
+
 describe('the quiet period across launches', () => {
   const FIRST_DAY = new Date(2026, 4, 11, 9, 0, 0);
 

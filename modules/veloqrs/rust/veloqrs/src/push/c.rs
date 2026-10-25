@@ -102,6 +102,24 @@ pub unsafe extern "C" fn veloq_push_prepare(
     })
 }
 
+/// Hold the Garmin key the extension read out of the shared keychain for the
+/// push it is about to run, null when the item was absent.
+///
+/// Kept in process memory by the crate and nowhere else. A key the process
+/// already holds is not replaced. Called after [`veloq_push_prepare`], and a
+/// push that never calls it simply has no Garmin step.
+///
+/// # Safety
+///
+/// `garmin_key` is a NUL-terminated string or null.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn veloq_push_hold_garmin_key(garmin_key: *const c_char) {
+    crate::ffi_refuse_on_panic("push hold garmin key", (), || {
+        // SAFETY: the caller's contract above.
+        super::hold_native_garmin_key(unsafe { read(garmin_key) });
+    })
+}
+
 /// One activity push, end to end: the gate, the detail body, the track and its
 /// index, then the title and body to post, as JSON.
 ///

@@ -68,6 +68,23 @@ export function clearGarminKey(host: DelegateHost): void {
   host.write('clearGarminKey', () => host.engine.sync().clearGarminKey());
 }
 
+/** Pull Garmin's rides now: a paused pass goes on at once and a stopped one
+ *  starts. False when the engine is not open or no pass is running after. It
+ *  refers to the athlete's tap, so it is not held and replayed at open. */
+export function pullGarminNow(host: DelegateHost): boolean {
+  if (!host.ready) return false;
+  return host.timed('pullGarminNow', () => host.engine.sync().pullGarminNow());
+}
+
+/** A webhook named this activity: the engine starts a Garmin pass when
+ *  intervals.icu says Garmin supplied it. */
+export function pullGarminForActivity(host: DelegateHost, activityId: string): boolean {
+  if (!host.ready) return false;
+  return host.timed('pullGarminForActivity', () =>
+    host.engine.sync().pullGarminForActivity(activityId)
+  );
+}
+
 /** Start a sync. Returns instantly, naming why when it refuses so a caller can
  *  tell a held slot from a missing credential. Progress surfaces through
  *  `getSyncStatus`. `force` fetches the athlete profile whatever its age;

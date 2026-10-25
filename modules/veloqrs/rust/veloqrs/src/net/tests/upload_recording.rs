@@ -30,6 +30,8 @@ struct Fake {
     looked: Mutex<Vec<String>>,
     rpe_answer: FfiCallKind,
     sent: Mutex<Vec<String>>,
+    /// The external id each file send carried.
+    external_ids: Mutex<Vec<String>>,
     /// The FIT path each file send was handed.
     sent_paths: Mutex<Vec<String>>,
     manual_bodies: Mutex<Vec<ManualActivityBody>>,
@@ -70,6 +72,7 @@ impl Fake {
             looked: Mutex::new(Vec::new()),
             rpe_answer: FfiCallKind::Ok,
             sent: Mutex::new(Vec::new()),
+            external_ids: Mutex::new(Vec::new()),
             sent_paths: Mutex::new(Vec::new()),
             manual_bodies: Mutex::new(Vec::new()),
             rpe: Mutex::new(Vec::new()),
@@ -142,8 +145,9 @@ impl Uplink for Fake {
 
     fn send_file(&self, ride: &FfiRecordingEntry) -> FfiCallOutcome {
         self.sent_paths.lock().unwrap().push(ride.fit_path.clone());
+        self.external_ids.lock().unwrap().push(external_id_of(ride));
         let created = ListedActivity {
-            external_id: Some(ride.id.clone()),
+            external_id: Some(external_id_of(ride)),
             activity_type: Some(ride.activity_type.clone()),
             ..ListedActivity::default()
         };
@@ -170,7 +174,7 @@ impl Uplink for Fake {
         if let Some(failed) = &self.find_answer {
             return failed.clone();
         }
-        let found = landed_match(&ride.id, manual, &self.server.lock().unwrap());
+        let found = landed_match(&external_id_of(ride), manual, &self.server.lock().unwrap());
         answer(FfiCallKind::Ok, found.as_deref(), None)
     }
 
@@ -1630,5 +1634,181 @@ fn a_confirmed_ride_stored_by_name_is_deleted_with_its_files() {
     assert!(
         !recordings.join("r1.manual.json").exists(),
         "the body is gone"
+    );
+}
+
+/// The Garmin id the stored originals in these tests carry.
+const GARMIN_ID: i64 = 18_342_901_776;
+
+fn garmin_key() -> String {
+    crate::persistence::origin::garmin_source_key(GARMIN_ID)
+}
+
+/// Store the original of `GARMIN_ID` with its FIT kept under the documents
+/// directory `dir`, as the pull does when the upload switch is on.
+fn store_garmin_original(dir: &TempDir) {
+    use crate::net::garmin::wire::ListedActivity as Listed;
+    set_files_root(&dir.path().to_string_lossy());
+    let listed: Listed = serde_json::from_value(serde_json::json!({
+        "activityId": GARMIN_ID,
+        "activityName": "Lake loop",
+        "startTimeLocal": "2026-03-14 09:00:00",
+        "startTimeGMT": "2026-03-14 07:00:00",
+        "activityType": {"typeKey": "cycling"},
+        "duration": 99.0,
+        "elapsedDuration": 99.0,
+        "distance": 1.0
+    }))
+    .unwrap();
+    let fit = crate::fit_synthetic::outdoor_ride().to_fit();
+    let path = source_fit_file(&garmin_key()).expect("a documents directory");
+    with_persistent_engine(|e| {
+        crate::net::garmin::ingest::ingest_into(e, Some(&path), &listed, &fit).expect("stored")
+    })
+    .unwrap();
+}
+
+fn garmin_upload_switch(on: bool) {
+    with_persistent_engine(|e| {
+        e.set_setting("veloq-garmin-upload", if on { "true" } else { "false" })
+            .unwrap()
+    })
+    .unwrap();
+}
+
+fn a_sync_has_completed() {
+    with_persistent_engine(|e| {
+        e.set_setting(
+            crate::persistence::settings::settings_keys::SYNC_LAST_SUCCESS_AT,
+            "2026-03-14T10:00:00Z",
+        )
+        .unwrap()
+    })
+    .unwrap();
+}
+
+fn garmin_fit_on_disk() -> bool {
+    source_fit_file(&garmin_key()).is_some_and(|p| p.is_file())
+}
+
+/// Scenario: a Garmin original no intervals.icu activity holds, the athlete's
+/// upload switch on, and a sync that has completed.
+/// Expected behaviour: one pass uploads it once with the Garmin id as its
+/// external id, the Garmin row takes the id the answer gave, and a second pass
+/// sends nothing.
+#[test]
+fn an_unmatched_original_with_the_switch_on_uploads_once_under_its_garmin_id() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("upload_garmin_once.db");
+    store_garmin_original(&dir);
+    garmin_upload_switch(true);
+    a_sync_has_completed();
+    let fake = Fake::answering(vec![landed("i77")]);
+
+    sweep(&fake, &now);
+    one_scheduled_pass(&fake);
+    one_scheduled_pass(&fake);
+
+    assert_eq!(fake.sent(), vec![garmin_key()]);
+    assert_eq!(
+        *fake.external_ids.lock().unwrap(),
+        vec![format!("garmin:{GARMIN_ID}")]
+    );
+    assert_eq!(
+        intervals_id_of_activity(&garmin_key()).as_deref(),
+        Some("i77")
+    );
+    assert_eq!(row(&garmin_key()).upload_status, "uploaded");
+}
+
+/// Scenario: the same original with the switch off, and with it on before any
+/// sync has completed.
+/// Expected behaviour: nothing is queued or sent, and the original stays.
+#[test]
+fn an_original_is_not_offered_with_the_switch_off_or_before_a_sync() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("upload_garmin_off.db");
+    store_garmin_original(&dir);
+    let fake = Fake::answering(vec![]);
+
+    a_sync_has_completed();
+    garmin_upload_switch(false);
+    sweep(&fake, &now);
+    one_scheduled_pass(&fake);
+    assert!(!exists(&garmin_key()), "switch off queues nothing");
+
+    let dir = init_global_engine("upload_garmin_no_sync.db");
+    store_garmin_original(&dir);
+    garmin_upload_switch(true);
+    sweep(&fake, &now);
+    one_scheduled_pass(&fake);
+    assert!(!exists(&garmin_key()), "no completed sync queues nothing");
+    assert!(fake.sent().is_empty());
+    assert!(garmin_fit_on_disk());
+}
+
+/// Scenario: intervals.icu refuses the write grant for a Garmin original.
+/// Expected behaviour: the ride parks as permission blocked and its FIT stays.
+#[test]
+fn a_refused_scope_parks_a_garmin_original_with_its_file() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("upload_garmin_403.db");
+    store_garmin_original(&dir);
+    garmin_upload_switch(true);
+    a_sync_has_completed();
+    let fake = Fake::answering(vec![http(403, "forbidden")]);
+
+    sweep(&fake, &now);
+    one_scheduled_pass(&fake);
+
+    assert_eq!(row(&garmin_key()).upload_status, "permissionBlocked");
+    assert!(garmin_fit_on_disk());
+    assert_eq!(intervals_id_of_activity(&garmin_key()), None);
+}
+
+/// Scenario: a Garmin original has uploaded, and intervals.icu answers the
+/// read-back first with nothing and then with the activity.
+/// Expected behaviour: the FIT stays until the read-back says present, then the
+/// queue row and the FIT go and the Garmin row keeps its activity.
+#[test]
+fn a_garmin_fit_is_deleted_only_after_the_read_back_says_present() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("upload_garmin_read_back.db");
+    store_garmin_original(&dir);
+    garmin_upload_switch(true);
+    a_sync_has_completed();
+    let fake = Fake::answering(vec![landed("i77")]);
+
+    sweep(&fake, &now);
+    one_scheduled_pass(&fake);
+    assert!(garmin_fit_on_disk(), "no read-back answered yet");
+    assert!(exists(&garmin_key()));
+
+    let fake = Fake::answering(vec![]).reads("i77", present());
+    sweep(&fake, &now);
+
+    assert!(!garmin_fit_on_disk());
+    assert!(!exists(&garmin_key()));
+    assert!(with_persistent_engine(|e| e.has_stored_activity(&garmin_key())).unwrap());
+    assert_eq!(
+        intervals_id_of_activity(&garmin_key()).as_deref(),
+        Some("i77")
+    );
+}
+
+/// Scenario: a Garmin original's upload row and a recording's.
+/// Expected behaviour: the Garmin one is sent under `garmin:<id>` with no name
+/// or description, and a recording is sent under its own id.
+#[test]
+fn only_a_garmin_original_is_sent_under_the_garmin_form() {
+    let dir = TempDir::new().unwrap();
+    let mut garmin = ride(&dir, &garmin_key(), 1_000);
+    garmin.kind = "garmin".to_string();
+    assert_eq!(external_id_of(&garmin), format!("garmin:{GARMIN_ID}"));
+    assert_eq!(external_id_of(&ride(&dir, "r1", 1_000)), "r1");
+    assert_eq!(upload_name_of(&garmin), None);
+    assert_eq!(
+        upload_name_of(&ride(&dir, "r1", 1_000)).as_deref(),
+        Some("Ride r1")
     );
 }

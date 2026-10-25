@@ -16,4 +16,9 @@ ignore = [
     # through geo 0.29 and i_overlay 1.9 in tracematch, which call it
     # internally, and the patched release needs a geo upgrade there.
     "RUSTSEC-2025-0165",
+    # basic-toml is unmaintained. askama_derive 0.14 takes it, under
+    # uniffi_bindgen 0.31, which only runs at build time to generate bindings
+    # and is not linked into the app. A maintained path needs the uniffi 0.32
+    # upgrade, which regenerates the bindings.
+    "RUSTSEC-2026-0374",
 ]

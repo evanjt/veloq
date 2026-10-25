@@ -108,6 +108,27 @@ impl RouteManager {
         })
     }
 
+    /// The saved routes of `sport`'s family near the fix, nearest first: each with its name,
+    /// length, best time and simplified line, for the record screen's map and list. The
+    /// route being followed comes back too, wherever it lies.
+    fn get_nearby_for_recording(
+        &self,
+        latitude: f64,
+        longitude: f64,
+        sport: String,
+        followed_route_id: Option<String>,
+    ) -> Result<Vec<crate::ffi_types::FfiNearbyRoute>, VeloqError> {
+        with_reader(|conn| {
+            crate::persistence::nearby_routes::pooled::recording_nearby_routes(
+                conn,
+                latitude,
+                longitude,
+                &sport,
+                followed_route_id.as_deref(),
+            )
+        })
+    }
+
     /// Measure the recorded line against the listed groups off the JS thread.
     pub async fn live_overlaps(
         &self,

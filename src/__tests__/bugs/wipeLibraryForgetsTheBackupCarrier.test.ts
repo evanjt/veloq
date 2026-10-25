@@ -225,7 +225,9 @@ const mockWidget = (
 
 /** The engine's own wipe, which keeps the settings table's carrier keys as Rust's `clear` does. */
 const mockEngine = {
-  clear: jest.fn(async () => undefined),
+  clear: jest.fn(async () => {
+    mockEngineSettings.delete('__garmin_connector_enabled');
+  }),
   getSetting: (key: string) => mockEngineSettings.get(key) ?? null,
   setSetting: (key: string, value: string) => mockEngineSettings.set(key, value),
   deleteSetting: (key: string) => mockEngineSettings.delete(key),
@@ -1110,10 +1112,17 @@ const DEVICE_WRITES: DeviceWrite[] = [
     confirm: [],
     where: 'the Garmin Personal key and the connector choices',
     writers: ['src/features/settings/lib/garminConnector.ts'],
-    holds: "the athlete's Garmin key, its expiry date, and the feed and upload switches",
+    holds:
+      "the athlete's Garmin key, its expiry date, the feed and upload switches, the held-back count the feed offer was declined at, and whether a key was connected",
     wiped: {
       keychain: ['garmin_personal_key'],
-      settings: ['veloq-garmin-key-expiry', 'veloq-garmin-feed', 'veloq-garmin-upload'],
+      settings: [
+        'veloq-garmin-key-expiry',
+        'veloq-garmin-feed',
+        'veloq-garmin-upload',
+        'veloq-garmin-offer-declined-at',
+      ],
+      engineSettings: ['__garmin_connector_enabled'],
     },
   },
 

@@ -34,9 +34,13 @@
   },
   "activity": {
     "heldBack": {
-      "title": "由 intervals.icu 保留",
+      "title": "intervals.icu 未共享",
       "detail": "intervals.icu 保存了此活动，但不向应用提供，因此这里的数据为空。",
-      "detailGarmin": "在设置中连接 Garmin 后，会用原始数据补全。"
+      "detailGarmin": "连接你的 Garmin 密钥后，会用原始数据补全。",
+      "connectGarmin": "连接 Garmin"
+    },
+    "provenance": {
+      "garminOnPhone": "由你的 Garmin 文件补全"
     },
     "syncFailed": {
       "title": "无法同步",
@@ -658,6 +662,8 @@
   "garmin": {
     "title": "Garmin",
     "rowSubtitle": "个人密钥",
+    "keyNeeded": "需要重新输入密钥",
+    "keyNeededHint": "重新粘贴你的 Garmin 密钥，以继续同步 Garmin 骑行记录。",
     "intro": "粘贴你的 Garmin 个人密钥,Veloq 即可显示你的 Garmin 骑行。",
     "privacy": "密钥保留在此设备上,Veloq 不会收到它。连接密钥是你依据 Garmin 条款自行进行的操作。",
     "getKey": "从 Garmin Connect 获取密钥",
@@ -680,7 +686,23 @@
     "uploadHint": "这样骑行只有在 Veloq 运行时才会到达 intervals.icu、教练和通知。intervals.icu 自带的 Garmin 导入更快。",
     "duplicateTitle": "intervals.icu 已在导入你的 Garmin 活动",
     "duplicateDetail": "从 Veloq 上传的内容会出现两次。请在 intervals.icu 中关闭“活动”,并保持“健康”和“计划训练”开启。Veloq 不会更改这些设置。",
-    "openConnections": "打开 intervals.icu 连接"
+    "openConnections": "打开 intervals.icu 连接",
+    "offerTitle_one": "{{count}} 条 Garmin 骑行到达时没有数据",
+    "offerTitle_other": "{{count}} 条 Garmin 骑行到达时没有数据",
+    "offerBody": "intervals.icu 不再向应用共享 Garmin 骑行。连接 Garmin 即可获取。",
+    "offerConnect": "连接 Garmin",
+    "pullTitle": "Garmin 骑行",
+    "pullStored_one": "已保存 {{count}} 条",
+    "pullStored_other": "已保存 {{count}} 条",
+    "pullReached": "已回溯到 {{month}}",
+    "pullRunning": "进行中",
+    "pullPaused": "暂停至 {{time}}",
+    "pullIdle": "等待开始",
+    "pullDone": "已是最新",
+    "pullStoppedKey": "已停止:Garmin 未接受密钥",
+    "pullStoppedUnreachable": "已停止:无法连接到 Garmin",
+    "pullStoppedStorage": "已停止:没有可保存骑行的位置",
+    "pullNow": "立即拉取"
   },
   "intervalTypes": {
     "work": {
@@ -1603,7 +1625,11 @@
       "none": "无路线",
       "empty": "此运动暂无已保存的路线。",
       "activities_one": "{{count}} 项活动",
-      "activities_other": "{{count}} 项活动"
+      "activities_other": "{{count}} 项活动",
+      "following": "正在跟随 {{name}}",
+      "pr": "最佳 {{time}}",
+      "nearby": "附近",
+      "allRoutes": "所有路线"
     },
     "returnToRecording": "返回记录",
     "batteryOptNudge": "关闭 Veloq 的电池优化后，长时间记录效果最佳。",
@@ -2520,6 +2546,9 @@
       "notificationsBody": "intervals.icu 收到新活动时，Veloq 可以告诉你它发现了什么：个人最佳、比平时更快的用时，或体能上的进步。以下是通知的示例。",
       "turnOn": "开启",
       "neverRemind": "不再提醒",
+      "garminTitle": "Garmin 骑行",
+      "garminBody": "intervals.icu 不再向应用共享 Garmin 骑行。使用 Garmin 密钥，Veloq 可直接从 Garmin 获取。",
+      "garminWhy": "骑行会连同数据一起完整到达。密钥只保存在此设备上。",
       "notificationsNeedSignIn": "通知需要通过 intervals.icu 登录。",
       "notificationsOn": "通知已开启。你可以在设置中更改。",
       "notificationsExampleSection": "海港山爬坡",

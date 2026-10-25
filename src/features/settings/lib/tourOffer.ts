@@ -13,12 +13,12 @@
  */
 
 /** A tour slide that asks the athlete to set something up. */
-export type SetupSlide = 'notifications' | 'backup';
+export type SetupSlide = 'notifications' | 'garmin' | 'backup';
 
 export type SetupAnswer = 'on' | 'never';
 
 /** The setup slides in the order the tour shows them. */
-export const SETUP_SLIDES: readonly SetupSlide[] = ['notifications', 'backup'];
+export const SETUP_SLIDES: readonly SetupSlide[] = ['notifications', 'garmin', 'backup'];
 
 /** The setup slides a tour taken in the quiet period leaves out. */
 export const QUIET_PERIOD_HELD_SLIDES: readonly SetupSlide[] = ['notifications'];
@@ -52,6 +52,8 @@ export interface TourOfferFacts {
   tourSetupSlides: readonly SetupSlide[];
   /** The quiet period holds, or its days of use are not yet counted. */
   quietPeriod: boolean;
+  /** Setup slides this athlete cannot answer and the tour leaves out, such as Garmin without a Garmin account. */
+  unavailableSlides?: readonly SetupSlide[];
 }
 
 /** The whole tour less the setup slides it holds back, or the slides a tour left unanswered. */
@@ -68,9 +70,10 @@ export function tourOffer(facts: TourOfferFacts): TourOffer | null {
   const { record } = facts;
   if (facts.lastSeenVersion === null) {
     if (offerEnded(record)) return null;
-    const held = facts.quietPeriod
+    const quietHeld = facts.quietPeriod
       ? QUIET_PERIOD_HELD_SLIDES.filter((slide) => facts.tourSetupSlides.includes(slide))
       : [];
+    const held = [...quietHeld, ...(facts.unavailableSlides ?? [])];
     return { kind: 'tour', held };
   }
   if (record.leftover !== 'owed' || facts.quietPeriod) return null;
@@ -82,13 +85,17 @@ export function tourOffer(facts: TourOfferFacts): TourOffer | null {
 
 /**
  * The setup slides an account can answer. The notification slide offers no
- * buttons where pushes cannot arrive, so it is never owed there.
+ * buttons where pushes cannot arrive, so it is never owed there, and the Garmin
+ * slide is owed only to an athlete whose intervals.icu uses Garmin.
  */
 export function setupSlidesAnswerable(
   slides: readonly SetupSlide[],
-  can: { push: boolean }
+  can: { push: boolean; garmin?: boolean }
 ): SetupSlide[] {
-  return slides.filter((slide) => slide !== 'notifications' || can.push);
+  return slides.filter(
+    (slide) =>
+      (slide !== 'notifications' || can.push) && (slide !== 'garmin' || can.garmin === true)
+  );
 }
 
 export function afterOfferDeclined(record: TourOfferRecord): TourOfferRecord {

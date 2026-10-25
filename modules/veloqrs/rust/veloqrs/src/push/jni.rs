@@ -1,6 +1,6 @@
 //! The Java entry points the push worker calls.
 //!
-//! Six symbols, and none installs a callback vtable: that is the whole
+//! Eight symbols, and none installs a callback vtable: that is the whole
 //! reason this is hand-written rather than a generated Kotlin binding. All
 //! block, which is what an expedited worker wants, since it is already off the
 //! main thread and has a budget measured in seconds.
@@ -47,6 +47,25 @@ pub extern "system" fn Java_com_veloq_PushBridge_nativePrepare<'local>(
                 u8::from(false)
             }
         }
+    })
+}
+
+/// `com.veloq.PushBridge.nativeHoldGarminKey`. Holds the Garmin key the worker
+/// read from the secure store for the push it is about to run, in process
+/// memory only. Null is no key, and a key the process already holds is kept.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_veloq_PushBridge_nativeHoldGarminKey<'local>(
+    mut env: JNIEnv<'local>,
+    _class: JClass<'local>,
+    garmin_key: JString<'local>,
+) {
+    crate::ffi_refuse_on_panic("push hold garmin key", (), || {
+        let key = if garmin_key.is_null() {
+            None
+        } else {
+            read(&mut env, &garmin_key)
+        };
+        super::hold_native_garmin_key(key.as_deref());
     })
 }
 

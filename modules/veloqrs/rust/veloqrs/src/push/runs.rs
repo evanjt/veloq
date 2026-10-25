@@ -165,6 +165,18 @@ pub fn settle_on(
     title: &str,
     body: &str,
 ) -> rusqlite::Result<bool> {
+    // One alert per Garmin ride, whichever route reached the phone first: a
+    // ride announced under another of its rows is not announced again.
+    if engine.ride_announced_elsewhere(activity_id)? {
+        engine.record_push_run(
+            activity_id,
+            PushRunOutcome::Unchanged.as_str(),
+            detail,
+            None,
+            KEPT,
+        )?;
+        return Ok(false);
+    }
     let previous = engine.last_posted_push(activity_id)?;
     let posts = posts_again(
         previous

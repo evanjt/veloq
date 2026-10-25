@@ -125,10 +125,13 @@ impl Uplink for Live {
             ride.athlete_id.clone(),
             ride.fit_path.clone(),
             file_upload_name(ride),
-            ride.id.clone(),
-            Some(ride.name.clone()),
-            ride.notes.clone(),
-            ride.paired_event_id.map(crate::ffi_types::int_from_wire),
+            crate::objects::sync::UploadFields {
+                external_id: external_id_of(ride),
+                name: upload_name_of(ride),
+                description: ride.notes.clone(),
+                paired_event_id: ride.paired_event_id.map(crate::ffi_types::int_from_wire),
+                device_name: device_name_of(ride),
+            },
         ))
     }
 
@@ -158,7 +161,7 @@ impl Uplink for Live {
         manual: Option<&ManualActivityBody>,
     ) -> FfiCallOutcome {
         let (oldest, newest) = search_window(ride, manual);
-        let (ride_id, manual) = (ride.id.clone(), manual.cloned());
+        let (ride_id, manual) = (external_id_of(ride), manual.cloned());
         crate::runtime::block_on(crate::objects::sync::find_landed_activity(
             ride.athlete_id.clone(),
             oldest,
@@ -170,6 +173,34 @@ impl Uplink for Live {
 
 fn file_upload_name(ride: &FfiRecordingEntry) -> String {
     format!("{}.fit", ride.id)
+}
+
+/// The `kind` of a row that queues a Garmin original for upload.
+pub(crate) const GARMIN_KIND: &str = "garmin";
+
+/// The external id the ride is uploaded under, which is how a look for it and
+/// intervals.icu's own import tell it apart. A Garmin original carries the
+/// Garmin id in the form the import links on; every other ride carries its id.
+fn external_id_of(ride: &FfiRecordingEntry) -> String {
+    match crate::persistence::origin::garmin_id_of_source_key(&ride.id) {
+        Some(garmin_id) if ride.kind == GARMIN_KIND => format!("garmin:{garmin_id}"),
+        _ => ride.id.clone(),
+    }
+}
+
+/// The name the upload carries, none for a Garmin original: its own name
+/// stays on the file.
+fn upload_name_of(ride: &FfiRecordingEntry) -> Option<String> {
+    (ride.kind != GARMIN_KIND).then(|| ride.name.clone())
+}
+
+/// The device the file was recorded on, for a Garmin original only.
+fn device_name_of(ride: &FfiRecordingEntry) -> Option<String> {
+    if ride.kind != GARMIN_KIND {
+        return None;
+    }
+    let bytes = std::fs::read(&ride.fit_path).ok()?;
+    crate::fit::parse_fit_activity(&bytes).ok()?.device
 }
 
 /// The activity among `listed` that an earlier attempt at the ride created.
@@ -814,6 +845,9 @@ fn read_back_verdict(answer: &FfiCallOutcome) -> ReadBack {
 pub(crate) fn sweep(uplink: &dyn Uplink, now_ms: &dyn Fn() -> i64) {
     let install = crate::persistence::engine_install();
     let mut changed = reconcile_landed(install);
+    if let Some(athlete) = uplink.signed_in() {
+        changed |= offer_garmin_originals(install, &athlete, now_ms());
+    }
     // Both requests go under the credential held, so only that athlete's rides
     // are asked about, and with nobody signed in there is nothing to ask with.
     if let Some(athlete) = uplink.signed_in() {
@@ -823,6 +857,55 @@ pub(crate) fn sweep(uplink: &dyn Uplink, now_ms: &dyn Fn() -> i64) {
     if changed {
         notify(Announcement::RecordingsChanged);
     }
+}
+
+/// Queue the Garmin originals the upload owes, under the athlete signed in,
+/// for those whose FIT is still on the phone. One without its file stays a
+/// complete local row and is not offered. True when a row was queued.
+pub(crate) fn offer_garmin_originals(install: u64, athlete: &str, now_ms: i64) -> bool {
+    let owed = under(install, |e| e.garmin_uploads_owed())
+        .and_then(Result::ok)
+        .unwrap_or_default();
+    let mut queued = false;
+    for offer in owed {
+        let Some(path) = source_fit_file(&offer.key).filter(|p| p.is_file()) else {
+            continue;
+        };
+        let record = &offer.record;
+        let seconds = record.elapsed_time.or(record.moving_time).unwrap_or(0);
+        let entry = FfiRecordingEntry {
+            id: offer.key.clone(),
+            kind: GARMIN_KIND.to_string(),
+            fit_path: format!("{RECORDINGS_DIR}/{}", {
+                path.file_name().unwrap_or_default().to_string_lossy()
+            }),
+            streams_path: None,
+            activity_type: record.activity_type.clone().unwrap_or_default(),
+            name: record.name.clone().unwrap_or_default(),
+            start_time: (offer.date * 1000) as f64,
+            duration_seconds: seconds as f64,
+            distance_meters: record.distance.unwrap_or(0.0),
+            elevation_gain: record.total_elevation_gain,
+            avg_heartrate: record.average_heartrate,
+            paired_event_id: None,
+            created_at: now_ms as f64,
+            upload_status: "pending".to_string(),
+            retry_count: 0,
+            last_attempt_at: None,
+            last_error: None,
+            intervals_activity_id: None,
+            engine_activity_id: Some(offer.key.clone()),
+            engine_reconciled: false,
+            athlete_id: Some(athlete.to_string()),
+            notes: None,
+            rpe: None,
+            rpe_sent: false,
+        };
+        queued |= under(install, |e| e.insert_recording(&entry))
+            .and_then(Result::ok)
+            .unwrap_or(false);
+    }
+    queued
 }
 
 fn rows(install: u64) -> Vec<FfiRecordingEntry> {

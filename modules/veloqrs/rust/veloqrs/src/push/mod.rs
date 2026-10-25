@@ -28,8 +28,14 @@
 mod jni;
 
 mod c;
+mod garmin;
+mod pulled;
+pub(crate) use pulled::{announce_pulled_ride, is_recent as is_recent_ride};
 pub mod runs;
 
+pub use garmin::hold_native_garmin_key;
+#[cfg(test)]
+use garmin::set_step_limit;
 pub use runs::{FfiPushRun, PushRunOutcome};
 
 use crate::net::Source;
@@ -623,12 +629,21 @@ fn activity_push_run(
 ) -> Result<Option<Result<Entry, Quiet>>, String> {
     let session =
         crate::objects::current_session().ok_or_else(|| "no credentials set".to_string())??;
+    // The push names the activity by intervals.icu's id. A row that claims that
+    // id, an uploaded recording or a Garmin original linked to it, is the one
+    // the ride lives on, so everything below reads and writes that row's key
+    // and a second body is never kept under the id.
+    let claimed = crate::persistence::read_pool::with_read_conn(|conn| {
+        crate::persistence::activities::pooled::claiming_key(conn, activity_id)
+    })
+    .flatten();
+    let library_key = claimed.as_deref().unwrap_or(activity_id);
     // The upstream id is a read, so it comes off the pool rather than the
     // engine lock, which a sync page may be holding.
     let stored = crate::persistence::read_pool::with_read_conn(|conn| {
         conn.query_row(
             "SELECT intervals_id FROM activities WHERE id = ?",
-            [activity_id],
+            [library_key],
             |row| row.get::<_, Option<String>>(0),
         )
         .ok()
@@ -636,7 +651,7 @@ fn activity_push_run(
     })
     .flatten();
     let upstream =
-        crate::persistence::origin::upstream_or_key(activity_id, stored.as_deref()).to_string();
+        crate::persistence::origin::upstream_or_key(library_key, stored.as_deref()).to_string();
     let body = crate::runtime::block_on(crate::net::source::Source::activity_body(
         &session,
         &upstream,
@@ -651,10 +666,28 @@ fn activity_push_run(
         format!("the detail of {activity_id}: {e}")
     })?;
 
+    if let Ok(record) = serde_json::from_str::<crate::net::intervals::wire::ActivityRecord>(&body) {
+        match garmin::complete(install, incoming_athlete_id, library_key, &body, &record) {
+            garmin::Step::NotApplicable => {}
+            garmin::Step::Dropped => return Ok(None),
+            garmin::Step::Failed(why) => {
+                log::warn!("[push] {activity_id} was not completed from Garmin: {why}");
+            }
+            garmin::Step::Completed { key } => {
+                return Ok(Some(announce_completed(
+                    install,
+                    &key,
+                    announce_prs,
+                    announce_milestones,
+                )?));
+            }
+        }
+    }
+
     let Some(stored) = store_pushed_detail(
         install,
         incoming_athlete_id,
-        activity_id,
+        library_key,
         &body,
         PUSH_READIES_ACTIVITY,
     )?
@@ -663,9 +696,9 @@ fn activity_push_run(
     };
     crate::objects::observer::notify(crate::objects::observer::Announcement::BodyStored {
         kind: "activity_detail".to_string(),
-        activity_id: activity_id.to_string(),
+        activity_id: library_key.to_string(),
     });
-    let readied = ready_pushed_activity(install, &session, activity_id, &upstream, &stored);
+    let readied = ready_pushed_activity(install, &session, library_key, &upstream, &stored);
     // The index only scheduled the regroup that puts the ride in a route, and
     // the route rungs read committed membership, so the feed and the ladder
     // both wait for it.
@@ -688,7 +721,7 @@ fn activity_push_run(
     if crate::sport::is_strength(&detail.sport_type) {
         let downloaded = crate::runtime::block_on(settle_strength_sets(
             install,
-            activity_id,
+            library_key,
             session.original_file(&upstream, crate::governor::Lane::Interactive.into()),
         ));
         if let Err(why) = downloaded {
@@ -702,13 +735,44 @@ fn activity_push_run(
     }
 
     Ok(Some(
-        activity_notification_entry(activity_id, &detail.name, announce_prs, announce_milestones)?
+        activity_notification_entry(library_key, &detail.name, announce_prs, announce_milestones)?
             .map_err(|outcome| Quiet {
                 outcome,
                 activity_name: Some(detail.name.clone()),
                 detail: None,
             }),
     ))
+}
+
+/// The sentence for a ride the library holds complete under `key` without
+/// intervals.icu's help: the feed hears of it as it would from a sync, and the
+/// ladder reads the stored original.
+///
+/// A strength session's sets are not settled here: they come from the file
+/// intervals.icu holds, which a stub has none of.
+fn announce_completed(
+    install: u64,
+    key: &str,
+    announce_prs: bool,
+    announce_milestones: bool,
+) -> Result<Result<Entry, Quiet>, String> {
+    crate::objects::observer::notify(crate::objects::observer::Announcement::BodyStored {
+        kind: "activity_detail".to_string(),
+        activity_id: key.to_string(),
+    });
+    if crate::persistence::engine_install() == install {
+        crate::objects::observer::notify(crate::objects::observer::Announcement::ActivitiesStored);
+    }
+    let name = garmin::stored_name(key).unwrap_or_default();
+    Ok(
+        activity_notification_entry(key, &name, announce_prs, announce_milestones)?.map_err(
+            |outcome| Quiet {
+                outcome,
+                activity_name: Some(name.clone()),
+                detail: None,
+            },
+        ),
+    )
 }
 
 /// Bring a strength session's exercise sets into the library before the ladder
@@ -926,6 +990,10 @@ fn json_string(value: &str) -> String {
 #[cfg(test)]
 #[path = "tests/pushed_activity.rs"]
 mod pushed_activity_tests;
+
+#[cfg(test)]
+#[path = "tests/garmin_original.rs"]
+mod garmin_original_tests;
 
 #[cfg(test)]
 mod tests {

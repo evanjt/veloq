@@ -218,6 +218,9 @@ pub struct FitActivity {
     pub sub_sport: Option<u8>,
     pub samples: Vec<FitSample>,
     pub totals: FitTotals,
+    /// The recording device, from the file's `file_id` message: its product
+    /// name, or its manufacturer when the product has none.
+    pub device: Option<String>,
 }
 
 /// Seconds from the Unix epoch to the FIT epoch, 1989-12-31T00:00:00Z.
@@ -253,6 +256,9 @@ pub fn parse_fit_activity(data: &[u8]) -> Result<FitActivity, FitParseError> {
                 session_read = true;
                 session_start = read_session(record, &mut activity);
             }
+            fitparser::profile::MesgNum::FileId if activity.device.is_none() => {
+                activity.device = device_of(record);
+            }
             fitparser::profile::MesgNum::Activity => {
                 for field in record.fields() {
                     if let fitparser::Value::Timestamp(at) = field.value() {
@@ -274,6 +280,25 @@ pub fn parse_fit_activity(data: &[u8]) -> Result<FitActivity, FitParseError> {
         activity.utc_offset_secs = utc_offset_of(utc.timestamp(), &local);
     }
     Ok(activity)
+}
+
+/// The device a `file_id` message names: the product name when it has one,
+/// else the manufacturer.
+fn device_of(record: &fitparser::FitDataRecord) -> Option<String> {
+    let text = |name: &str| {
+        record
+            .fields()
+            .iter()
+            .find_map(|field| match field.value() {
+                fitparser::Value::String(text)
+                    if field.name() == name && !text.trim().is_empty() =>
+                {
+                    Some(text.trim().to_string())
+                }
+                _ => None,
+            })
+    };
+    text("product_name").or_else(|| text("manufacturer"))
 }
 
 /// One record message as a sample, `None` for a record with no timestamp.

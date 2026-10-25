@@ -29,6 +29,7 @@ jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly()
 
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
+  useMetricSystem: () => true,
 }));
 
 const TRACK: [number, number][] = [
@@ -38,6 +39,13 @@ const TRACK: [number, number][] = [
 ];
 
 const HERE = { latitude: 46.948, longitude: 7.447 };
+const FOLLOWED = {
+  id: 'lake',
+  name: 'Lake loop',
+  distanceMeters: 12_400,
+  bestTimeSeconds: 2_482,
+  points: [{ lat: 46.948, lng: 7.447 }],
+};
 
 // A pan reaches React Native as a bridge message from the map surface, so the
 // test posts the same message the page would.
@@ -108,11 +116,35 @@ describe('RecordingMap', () => {
       screen.getByRole('button', { name: 'recording.routeOverlay.title', selected: false })
     ).toBeTruthy();
 
-    await rerender(<RecordingMap {...props} routeOverlay={[{ lat: 46.948, lng: 7.447 }]} />);
+    await rerender(<RecordingMap {...props} followedRoute={FOLLOWED} />);
 
     expect(
       screen.getByRole('button', { name: 'recording.routeOverlay.title', selected: true })
     ).toBeTruthy();
+  });
+
+  it('names the followed route on a chip and stops following in one press', async () => {
+    const onStopFollowing = jest.fn();
+    await render(
+      <RecordingMap
+        coordinates={TRACK}
+        currentLocation={HERE}
+        followedRoute={FOLLOWED}
+        onStopFollowing={onStopFollowing}
+      />
+    );
+
+    expect(screen.getByTestId('followed-route-title')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('followed-route-dismiss'));
+    expect(onStopFollowing).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows no chip while nothing is followed', async () => {
+    await render(
+      <RecordingMap coordinates={TRACK} currentLocation={HERE} nearbyRoutes={[FOLLOWED]} />
+    );
+
+    expect(screen.queryByTestId('followed-route')).toBeNull();
   });
 
   it('hides the controls in review mode', async () => {
@@ -154,13 +186,14 @@ describe('RecordingMap', () => {
         'a trim range wider than the track',
         { coordinates: TRACK, currentLocation: HERE, fitBounds: true, trimStart: 0, trimEnd: 99 },
       ],
-      ['an empty route overlay', { coordinates: TRACK, currentLocation: HERE, routeOverlay: [] }],
+      ['an empty nearby set', { coordinates: TRACK, currentLocation: HERE, nearbyRoutes: [] }],
       [
-        'a malformed route overlay',
+        'malformed route lines',
         {
           coordinates: TRACK,
           currentLocation: HERE,
-          routeOverlay: [{ lat: NaN, lng: 7.447 }],
+          nearbyRoutes: [{ ...FOLLOWED, points: [{ lat: NaN, lng: 7.447 }] }],
+          followedRoute: { ...FOLLOWED, points: [{ lat: NaN, lng: 7.447 }] },
         },
       ],
     ];

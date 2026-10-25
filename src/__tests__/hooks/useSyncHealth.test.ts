@@ -37,6 +37,7 @@ function status(
     total: 0,
     stepItemsDone: 0,
     stepItemsTotal: 0,
+    heldBackInLastDownload: 0,
     ...extra,
   };
 }

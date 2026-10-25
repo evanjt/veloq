@@ -14,7 +14,9 @@ import {
   GARMIN_KEY_STORAGE_KEY,
   connectGarminKey,
   disconnectGarmin,
+  garminConnectorState,
   garminDuplicateWarning,
+  readGarminConnectorState,
   restoreGarminKey,
 } from '../garminConnector';
 
@@ -84,14 +86,23 @@ describe('connecting a Garmin key', () => {
     );
   });
 
+  it('marks the connector enabled once the key is kept', async () => {
+    const { io } = keychain();
+    const setEnabled = jest.fn();
+    await connectGarminKey('abc', { io, engine: engine(GarminKeyStatus.Connected), setEnabled });
+    expect(setEnabled).toHaveBeenCalledWith(true);
+  });
+
   it.each([GarminKeyStatus.Rejected, GarminKeyStatus.Malformed, GarminKeyStatus.Unreachable])(
     'writes nothing when Garmin answers %s',
     async (status) => {
       const { io, held } = keychain();
       const e = engine(status);
-      expect(await connectGarminKey('abc', { io, engine: e })).toBe(status);
+      const setEnabled = jest.fn();
+      expect(await connectGarminKey('abc', { io, engine: e, setEnabled })).toBe(status);
       expect(io.write).not.toHaveBeenCalled();
       expect(held.size).toBe(0);
+      expect(setEnabled).not.toHaveBeenCalled();
     }
   );
 
@@ -109,14 +120,46 @@ describe('disconnecting', () => {
     const { io, held } = keychain({ [GARMIN_KEY_STORAGE_KEY]: 'abc' });
     const e = engine(GarminKeyStatus.Connected);
     const removeSetting = jest.fn();
-    await disconnectGarmin({ io, engine: e, removeSetting });
+    const setEnabled = jest.fn();
+    await disconnectGarmin({ io, engine: e, removeSetting, setEnabled });
     expect(held.has(GARMIN_KEY_STORAGE_KEY)).toBe(false);
     expect(e.clearGarminKey).toHaveBeenCalledTimes(1);
     expect(removeSetting.mock.calls.map(([k]) => k).sort()).toEqual([
       'veloq-garmin-feed',
       'veloq-garmin-key-expiry',
+      'veloq-garmin-offer-declined-at',
       'veloq-garmin-upload',
     ]);
+    expect(setEnabled).toHaveBeenCalledWith(false);
+  });
+});
+
+describe('the connector state', () => {
+  it('reads "Key needed" when the connector was enabled and no key is kept', () => {
+    expect(garminConnectorState({ enabled: true, keyKept: false })).toBe('keyNeeded');
+  });
+
+  it('reads "connected" whenever a key is kept', () => {
+    expect(garminConnectorState({ enabled: true, keyKept: true })).toBe('connected');
+    expect(garminConnectorState({ enabled: false, keyKept: true })).toBe('connected');
+  });
+
+  it('reads "off" when it was never enabled or was disconnected', () => {
+    expect(garminConnectorState({ enabled: false, keyKept: false })).toBe('off');
+  });
+
+  it('reads the flag and the keychain from the device, as a restored install finds them', async () => {
+    const { io } = keychain();
+    const readEnabled = jest.fn(async () => 'true');
+    expect(await readGarminConnectorState({ io, readEnabled })).toBe('keyNeeded');
+    expect(readEnabled).toHaveBeenCalledTimes(1);
+  });
+
+  it('reads "connected" after the key is pasted on the restored install', async () => {
+    const { io } = keychain({ [GARMIN_KEY_STORAGE_KEY]: 'abc' });
+    expect(await readGarminConnectorState({ io, readEnabled: async () => 'true' })).toBe(
+      'connected'
+    );
   });
 });
 
@@ -132,7 +175,7 @@ describe('disconnecting when one place fails', () => {
       'engine closed'
     );
     expect(held.has(GARMIN_KEY_STORAGE_KEY)).toBe(false);
-    expect(removeSetting).toHaveBeenCalledTimes(3);
+    expect(removeSetting).toHaveBeenCalledTimes(4);
   });
 });
 

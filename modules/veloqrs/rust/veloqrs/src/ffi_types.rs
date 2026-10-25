@@ -117,6 +117,21 @@ pub struct FfiMapSignature {
     pub center_lng: f64,
 }
 
+/// One saved route near the recording fix, with what the record screen shows for it.
+#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+pub struct FfiNearbyRoute {
+    pub group_id: String,
+    pub name: String,
+    /// The route's own length, the representative's distance in metres, 0 when unmeasured.
+    pub distance_meters: f64,
+    /// How far the route's bounding box lies from the fix, 0 when it contains it.
+    pub away_meters: f64,
+    /// The best counted time in the route's sport, `None` when no attempt has one.
+    pub best_time_seconds: Option<u32>,
+    /// The representative's simplified line, empty when it has no stored signature.
+    pub encoded_coords: Vec<u8>,
+}
+
 /// Distance range selected for the map in the current unit system.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
 pub enum MapDistanceBand {
@@ -1069,6 +1084,46 @@ pub struct FfiBackgroundJobsData {
     /// owes, when that is more than one day. `None` when the queue fits in a
     /// day, is empty, or cannot be counted.
     pub stream_days_to_finish: Option<u32>,
+    /// The Garmin pull, `None` while no Garmin key is held.
+    pub garmin_pull: Option<FfiGarminPull>,
+}
+
+/// Where the Garmin pull stands.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum FfiGarminPullPhase {
+    /// No pass has run in this process; the next sync starts one.
+    Idle,
+    Running,
+    /// Garmin asked for a pause; nothing is sent before `resume_at`.
+    Paused,
+    /// Every ride back to the oldest has been walked.
+    Done,
+    /// The pass ended on `halt`.
+    Stopped,
+}
+
+/// Why a Garmin pass stopped.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum FfiGarminHalt {
+    KeyRejected,
+    Unreachable,
+    Unstorable,
+}
+
+/// The Garmin pull's count, month and terminal state, for the settings screen.
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+pub struct FfiGarminPull {
+    pub phase: FfiGarminPullPhase,
+    /// Milliseconds since the epoch that a paused pass resumes at.
+    pub resume_at: Option<crate::WholeNumber>,
+    /// Set when `phase` is `Stopped`.
+    pub halt: Option<FfiGarminHalt>,
+    /// Originals this device has stored from Garmin.
+    pub stored: u32,
+    /// The earliest month the history pull has finished, as `YYYY-MM`.
+    pub reached_month: Option<String>,
+    /// Whether the history pull has passed the oldest ride.
+    pub backfill_done: bool,
 }
 
 /// A recent change on a live section, for the insights feed.
@@ -2500,6 +2555,8 @@ pub struct FfiActivityDetailData {
     /// Set when intervals.icu holds this activity but does not serve it to
     /// apps, which is why its figures are empty. None for a served activity.
     pub held_back: Option<crate::persistence::activity_held_back::ActivityHeldBack>,
+    /// Where the activity's data was filled from, so the screen can say so.
+    pub provenance: crate::persistence::origin::ActivityProvenance,
 }
 
 /// Where a pool swim's lengths stand, read from its FIT file. The

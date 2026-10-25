@@ -34,9 +34,13 @@
   },
   "activity": {
     "heldBack": {
-      "title": "Held by intervals.icu",
+      "title": "Not shared by intervals.icu",
       "detail": "intervals.icu holds this activity but does not make it available to apps, so its data is empty here.",
-      "detailGarmin": "Connecting Garmin in settings fills it from the original."
+      "detailGarmin": "Connecting your Garmin key fills it from the original.",
+      "connectGarmin": "Connect Garmin"
+    },
+    "provenance": {
+      "garminOnPhone": "Filled in from your Garmin file"
     },
     "syncFailed": {
       "title": "Couldn't sync",
@@ -658,6 +662,8 @@
   "garmin": {
     "title": "Garmin",
     "rowSubtitle": "Personal key",
+    "keyNeeded": "Key needed",
+    "keyNeededHint": "Paste your Garmin key again to keep bringing in Garmin rides.",
     "intro": "Paste your Garmin Personal key so Veloq can show your Garmin rides.",
     "privacy": "The key stays on this device and Veloq never receives it. Connecting it is your own act under Garmin's terms.",
     "getKey": "Get a key from Garmin Connect",
@@ -680,7 +686,23 @@
     "uploadHint": "Rides then reach intervals.icu, a coach and notifications only when Veloq runs. intervals.icu's own Garmin import is the faster route.",
     "duplicateTitle": "intervals.icu already imports your Garmin activities",
     "duplicateDetail": "Uploads from Veloq would appear twice. In intervals.icu, turn Activities off and keep Wellness and Planned workouts on. Veloq does not change those settings.",
-    "openConnections": "Open intervals.icu connections"
+    "openConnections": "Open intervals.icu connections",
+    "offerTitle_one": "{{count}} Garmin ride came without its data",
+    "offerTitle_other": "{{count}} Garmin rides came without their data",
+    "offerBody": "intervals.icu no longer shares Garmin rides with apps. Connect Garmin to bring them in.",
+    "offerConnect": "Connect Garmin",
+    "pullTitle": "Garmin rides",
+    "pullStored_one": "{{count}} stored",
+    "pullStored_other": "{{count}} stored",
+    "pullReached": "back to {{month}}",
+    "pullRunning": "Running",
+    "pullPaused": "Paused until {{time}}",
+    "pullIdle": "Waiting to start",
+    "pullDone": "Up to date",
+    "pullStoppedKey": "Stopped: Garmin key not accepted",
+    "pullStoppedUnreachable": "Stopped: Garmin could not be reached",
+    "pullStoppedStorage": "Stopped: no place to keep the rides",
+    "pullNow": "Pull now"
   },
   "intervalTypes": {
     "work": {
@@ -1603,7 +1625,11 @@
       "none": "No route",
       "empty": "No saved routes for this sport yet.",
       "activities_one": "{{count}} activity",
-      "activities_other": "{{count}} activities"
+      "activities_other": "{{count}} activities",
+      "following": "Following {{name}}",
+      "pr": "PR {{time}}",
+      "nearby": "Nearby",
+      "allRoutes": "All routes"
     },
     "returnToRecording": "Return to recording",
     "batteryOptNudge": "Long recordings work best with battery optimisation off for Veloq.",
@@ -2520,6 +2546,9 @@
       "notificationsBody": "When intervals.icu receives a new activity, Veloq can tell you what it found: a personal best, a time faster than usual, or a step up in fitness. These are examples of what arrives.",
       "turnOn": "Turn on",
       "neverRemind": "Never remind me again",
+      "garminTitle": "Garmin",
+      "garminBody": "intervals.icu no longer shares Garmin rides with apps. With a Garmin key, Veloq brings them in from Garmin itself.",
+      "garminWhy": "Rides come in complete, with their data. The key stays on this device.",
       "notificationsNeedSignIn": "Notifications need an intervals.icu sign-in.",
       "notificationsOn": "Notifications are on. You can change them in Settings.",
       "notificationsExampleSection": "Harbour climb",

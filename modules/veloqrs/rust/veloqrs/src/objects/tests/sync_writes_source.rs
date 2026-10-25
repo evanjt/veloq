@@ -74,6 +74,7 @@ fn an_upload_reaches_the_source_with_its_file_and_details() {
                 name: Some("Hill reps"),
                 description: None,
                 paired_event_id: Some(12),
+                ..Default::default()
             },
         )
         .await

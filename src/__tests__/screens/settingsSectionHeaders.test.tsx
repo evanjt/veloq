@@ -73,6 +73,7 @@ jest.mock('@/features/settings', () => ({
     '@/features/settings/stores/NotificationPreferencesStore'
   ).useNotificationPreferences,
   useLastBackupTimestamp: () => null,
+  useGarminConnectorState: () => null,
   useAutoBackupEnabled: () => true,
   SettingsNavRow: jest.requireActual('@/features/settings/components/SettingsNavRow')
     .SettingsNavRow,

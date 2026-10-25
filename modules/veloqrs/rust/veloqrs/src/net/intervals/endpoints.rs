@@ -614,6 +614,9 @@ pub struct UploadDetails<'a> {
     /// The documented description, which is where the review screen's notes go.
     pub description: Option<&'a str>,
     pub paired_event_id: Option<i64>,
+    /// The device the file was recorded on, when it names one. An upload with
+    /// none is recorded as sent by this app.
+    pub device_name: Option<&'a str>,
 }
 
 /// `POST /athlete/{id}/activities` with the file streamed from disk.
@@ -639,7 +642,14 @@ pub async fn upload_activity(
     if let Some(event) = details.paired_event_id.filter(|id| *id != 0) {
         fields.push(("paired_event_id", event.to_string()));
     }
-    fields.push(("device_name", DEVICE_NAME.to_string()));
+    fields.push((
+        "device_name",
+        details
+            .device_name
+            .filter(|d| !d.is_empty())
+            .unwrap_or(DEVICE_NAME)
+            .to_string(),
+    ));
     let query = details
         .external_id
         .map(|id| vec![("external_id", id)])
@@ -1441,6 +1451,7 @@ mod tests {
                 name: Some("Bern loop"),
                 description: None,
                 paired_event_id: Some(4321),
+                ..Default::default()
             },
             Lane::Interactive,
         ))
@@ -1474,6 +1485,7 @@ mod tests {
                 name: Some("Bern loop"),
                 description: Some("legs heavy"),
                 paired_event_id: None,
+                ..Default::default()
             },
             Lane::Interactive,
         ))
@@ -1544,6 +1556,7 @@ mod tests {
                 name: None,
                 description: None,
                 paired_event_id: None,
+                ..Default::default()
             },
             Lane::Interactive,
         ))
@@ -1572,6 +1585,7 @@ mod tests {
                 name: Some(""),
                 description: Some(""),
                 paired_event_id: Some(0),
+                ..Default::default()
             },
             Lane::Interactive,
         ))
@@ -1600,6 +1614,7 @@ mod tests {
                 name: None,
                 description: None,
                 paired_event_id: None,
+                ..Default::default()
             },
             Lane::Interactive,
         ))
@@ -1626,6 +1641,7 @@ mod tests {
                 name: None,
                 description: None,
                 paired_event_id: None,
+                ..Default::default()
             },
             Lane::Interactive,
         ))

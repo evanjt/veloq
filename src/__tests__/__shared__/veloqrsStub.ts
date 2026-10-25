@@ -180,6 +180,12 @@ export enum CadenceUnit {
   StrokesPerMinute = 2,
 }
 
+/** `FfiActivityProvenance` as generated, where an activity's data was filled from. */
+export enum ActivityProvenance {
+  Intervals = 0,
+  GarminOnPhone = 1,
+}
+
 /** `FfiSectionSort` as generated, held to the source by the same test. */
 export enum SectionSort {
   Nearby = 0,
@@ -258,6 +264,22 @@ export enum GarminKeyStatus {
   Rejected,
   Malformed,
   Unreachable,
+}
+
+/** `FfiGarminPullPhase` as generated, held to the source by the same test. */
+export enum FfiGarminPullPhase {
+  Idle,
+  Running,
+  Paused,
+  Done,
+  Stopped,
+}
+
+/** `FfiGarminHalt` as generated, held to the source by the same test. */
+export enum FfiGarminHalt {
+  KeyRejected,
+  Unreachable,
+  Unstorable,
 }
 
 /** `FfiPlannedCategory` as generated, held to the source by the same test. */
@@ -511,6 +533,7 @@ export const routes = {
   setRouteName: jest.fn(),
   getRepresentativeRoute: jest.fn(),
   liveRouteOverlaps: jest.fn(),
+  getNearbyRoutesForRecording: jest.fn(() => []),
   getRoutePerformances: jest.fn(),
   excludeActivityFromRoute: jest.fn(),
   includeActivityInRoute: jest.fn(),
@@ -647,11 +670,14 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     PoolSwimState,
     PoolUnit,
     CadenceUnit,
+    ActivityProvenance,
     BestEffortKind,
     StartOutcome,
     InitOutcome,
     RangeCoverage,
     GarminKeyStatus,
+    FfiGarminPullPhase,
+    FfiGarminHalt,
     RetiredPairLink,
     FfiReferenceSource,
     FfiPlannedCategory,

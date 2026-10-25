@@ -1,8 +1,9 @@
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import type { ActivityHeldBack } from 'veloqrs';
-import { InlineNotice } from '@/shared/ui/InlineNotice';
+import { EmptyState } from '@/shared/ui';
+import { navigateTo } from '@/shared/app/navigation';
 import { spacing } from '@/theme';
 
 interface Props {
@@ -11,24 +12,28 @@ interface Props {
 }
 
 /**
- * The activity screen's notice for an activity intervals.icu holds but does not
- * serve to apps. A Garmin import also says how to fill it.
+ * The opened ride's empty state for an activity intervals.icu holds but does not
+ * serve to apps. A Garmin import also offers the Garmin connector, which fills it
+ * from the original.
  */
 export function ActivityHeldBackNotice({ activityId, heldBack }: Props) {
   const { t } = useTranslation();
   const fromGarmin = heldBack.source?.toUpperCase().startsWith('GARMIN') ?? false;
   return (
-    <InlineNotice
-      tone="info"
-      icon="cloud-off-outline"
-      title={t('activity.heldBack.title')}
-      detail={[
-        t('activity.heldBack.detail'),
-        fromGarmin ? t('activity.heldBack.detailGarmin') : '',
-      ]}
-      style={styles.notice}
-      testID={`activity-${activityId}-held-back`}
-    />
+    <View style={styles.notice}>
+      <EmptyState
+        variant="compact"
+        icon="cloud-off-outline"
+        title={t('activity.heldBack.title')}
+        description={
+          fromGarmin ? t('activity.heldBack.detailGarmin') : t('activity.heldBack.detail')
+        }
+        actionLabel={fromGarmin ? t('activity.heldBack.connectGarmin') : undefined}
+        onAction={fromGarmin ? () => navigateTo('/garmin-connector') : undefined}
+        actionTestID={`activity-${activityId}-held-back-connect-garmin`}
+        testID={`activity-${activityId}-held-back`}
+      />
+    </View>
   );
 }
 

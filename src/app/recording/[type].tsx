@@ -190,15 +190,15 @@ function RecordingContent({ activityType }: { activityType: ActivityType }) {
   const currentActivityType = storeActivityType ?? activityType;
 
   const {
-    overlayRouteId,
-    overlayPoints,
-    nearbyRouteIds: nearbyRoutes,
+    nearby: nearbyRoutes,
+    followed: followedRoute,
+    followedRouteId,
     choose: chooseRoute,
+    stopFollowing,
   } = useNearbyRouteOverlay({
     activityType: currentActivityType,
     location: currentLocation,
     enabled: mode === 'gps',
-    idle: status === 'idle',
   });
   const effectiveFields = useMemo(
     () => fieldsForMode(dataFields, mode, currentActivityType),
@@ -228,11 +228,11 @@ function RecordingContent({ activityType }: { activityType: ActivityType }) {
   const openRoutePicker = useCallback(async () => {
     const result = await openSheet<RouteOverlaySheetInput, string | null>('sheets/route-overlay', {
       activityType: currentActivityType,
-      selectedRouteId: overlayRouteId,
-      nearbyRouteIds: nearbyRoutes,
+      selectedRouteId: followedRouteId,
+      nearby: nearbyRoutes,
     });
     if (result.kind === 'selected') chooseRoute(result.value);
-  }, [openSheet, currentActivityType, overlayRouteId, nearbyRoutes, chooseRoute]);
+  }, [openSheet, currentActivityType, followedRouteId, nearbyRoutes, chooseRoute]);
 
   // The manual and strength forms take the platform's header, titled with the
   // sport. Swipe-back is off on this route, so its back is the way off. The
@@ -379,7 +379,10 @@ function RecordingContent({ activityType }: { activityType: ActivityType }) {
               coordinates={coordinates}
               coordinateCount={latlngLength}
               currentLocation={currentLocation}
-              routeOverlay={overlayPoints}
+              nearbyRoutes={nearbyRoutes}
+              followedRoute={followedRoute}
+              onFollowRoute={chooseRoute}
+              onStopFollowing={stopFollowing}
               onOpenRoutePicker={openRoutePicker}
               style={styles.map}
             />

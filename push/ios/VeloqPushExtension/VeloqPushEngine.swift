@@ -31,6 +31,12 @@ enum VeloqPushEngine {
     return (ready, take(refusal))
   }
 
+  /// Hand the crate the Garmin key for the push about to run, nil when the
+  /// athlete has none. The crate keeps it in process memory and nowhere else.
+  static func holdGarminKey(_ key: String?) {
+    withOptional(key) { veloq_push_hold_garmin_key($0) }
+  }
+
   /// Keep a push that ended before the engine answered as a failed run, where
   /// the Developer Dashboard reads it. Best effort: nothing waits on it.
   static func recordRefusal(databasePath: String, activityId: String?, reason: String) {

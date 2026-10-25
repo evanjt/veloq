@@ -199,7 +199,7 @@ export type {
 
 // Delegate-shaped bundles returned by the façade
 export type { ActivityHighlightsBundle } from './delegates/activities';
-export type { RouteDetailData } from './delegates/routes';
+export type { RouteDetailData, NearbyRoute } from './delegates/routes';
 export { isRouteNameTakenError } from './delegates/routes';
 
 // Re-export types with shorter names for convenience
@@ -311,6 +311,8 @@ export type {
 export type { FfiActivitySyncFailure as ActivitySyncFailure } from './generated/veloqrs';
 /** An activity intervals.icu holds but does not serve to apps. */
 export type { FfiActivityHeldBack as ActivityHeldBack } from './generated/veloqrs';
+/** Where an activity's data was filled from, as its screen says it. */
+export { FfiActivityProvenance as ActivityProvenance } from './generated/veloqrs';
 // Pool swim types
 export type {
   FfiPoolSwim as PoolSwim,

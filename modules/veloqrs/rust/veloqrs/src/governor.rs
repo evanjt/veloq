@@ -26,6 +26,51 @@ const MAX_BACKOFF: Duration = Duration::from_secs(8);
 /// sends nothing until it lapses rather than holding a request open.
 const MAX_RETRY_AFTER: Duration = Duration::from_secs(120);
 
+/// The least time between two Garmin requests. Garmin publishes no limit, and
+/// a burst of about six back-to-back Personal API requests has been refused
+/// where twelve spaced two seconds apart all passed.
+pub const GARMIN_MIN_GAP: Duration = Duration::from_secs(2);
+
+/// How long a Garmin refusal that names no `Retry-After` holds the lane the
+/// first time. Each refusal in a row doubles it.
+const GARMIN_HOLD_START: Duration = Duration::from_secs(15 * 60);
+
+/// The longest the Garmin lane is held, whatever a `Retry-After` or the
+/// doubling asks for.
+pub(crate) const GARMIN_HOLD_MAX: Duration = Duration::from_secs(6 * 60 * 60);
+
+/// When a Garmin request after one dispatched at `last` may go, at `now`.
+pub(crate) fn garmin_slot(last: Option<Instant>, now: Instant, gap: Duration) -> Instant {
+    last.map_or(now, |last| now.max(last + gap))
+}
+
+/// How long the Garmin lane is held after its `refusals`-th refusal in a row
+/// (1-based): the `Retry-After` in full when Garmin sent one, otherwise
+/// fifteen minutes doubling.
+pub(crate) fn garmin_hold(refusals: u32, retry_after_secs: Option<u64>) -> Duration {
+    let wait = match retry_after_secs {
+        Some(secs) => Duration::from_secs(secs),
+        None => GARMIN_HOLD_START.saturating_mul(1u32 << refusals.saturating_sub(1).min(16)),
+    };
+    wait.min(GARMIN_HOLD_MAX)
+}
+
+/// What the Garmin lane has done since the process started.
+#[derive(Default)]
+struct GarminLane {
+    /// When the last request was scheduled to go.
+    last: Option<Instant>,
+    /// Nothing is sent in the lane before this.
+    hold_until: Option<DateTime<Utc>>,
+    /// Refusals since the last success.
+    refusals: u32,
+    /// Requests dispatched since the last refusal.
+    requests: u64,
+    /// Every slot handed out, for a test to read the spacing off.
+    #[cfg(test)]
+    slots: Vec<Instant>,
+}
+
 /// The one place a retry backoff, a pacing wait or a lane yield sleeps.
 ///
 /// Tests that hold the crate lock record the wait instead of spending it, so
@@ -958,6 +1003,10 @@ pub struct Governor {
     yields: std::sync::atomic::AtomicU64,
     budget: Option<std::sync::Mutex<Budget>>,
     store: Option<Arc<dyn BudgetStore>>,
+    /// The Garmin lane's own gap and hold. Garmin traffic draws on none of the
+    /// intervals.icu budget, and its refusals hold none of it.
+    garmin: std::sync::Mutex<GarminLane>,
+    garmin_gap: Duration,
     /// The source of every jitter draw. Zero unless a budget is installed, so
     /// a pacing-only governor waits exactly what it is asked to.
     jitter: fn() -> f64,
@@ -981,6 +1030,8 @@ impl Governor {
             yields: std::sync::atomic::AtomicU64::new(0),
             budget: None,
             store: None,
+            garmin: std::sync::Mutex::new(GarminLane::default()),
+            garmin_gap: GARMIN_MIN_GAP,
             jitter: no_jitter,
             clock: Utc::now,
         }
@@ -1010,6 +1061,83 @@ impl Governor {
         self.store = store;
         self.jitter = jitter;
         self
+    }
+
+    /// Space Garmin requests `gap` apart rather than [`GARMIN_MIN_GAP`].
+    pub fn with_garmin_gap(mut self, gap: Duration) -> Self {
+        self.garmin_gap = gap;
+        self
+    }
+
+    fn garmin_state<R>(&self, f: impl FnOnce(&mut GarminLane) -> R) -> R {
+        f(&mut self.garmin.lock().unwrap_or_else(|e| e.into_inner()))
+    }
+
+    /// Until when the Garmin lane is held at `now`, or `None`.
+    pub fn garmin_deferred_until(&self, now: DateTime<Utc>) -> Option<DateTime<Utc>> {
+        self.garmin_state(|lane| lane.hold_until.filter(|until| *until > now))
+    }
+
+    /// Record a Garmin 429 and hold the lane: for its `Retry-After` when it
+    /// sent one, otherwise fifteen minutes, doubling for each refusal in a
+    /// row. The request count since the previous refusal is logged, so real
+    /// runs measure the limit. Returns when the lane lifts.
+    pub fn note_garmin_refusal(
+        &self,
+        retry_after_secs: Option<u64>,
+        now: DateTime<Utc>,
+    ) -> DateTime<Utc> {
+        self.garmin_state(|lane| {
+            lane.refusals = lane.refusals.saturating_add(1);
+            let wait = garmin_hold(lane.refusals, retry_after_secs);
+            let until = now + TimeDelta::from_std(wait).unwrap_or(TimeDelta::hours(6));
+            let until = lane
+                .hold_until
+                .filter(|held| *held > until)
+                .unwrap_or(until);
+            lane.hold_until = Some(until);
+            log::warn!(
+                "veloqrs: [garmin] refused after {} requests since the last refusal \
+                 (retry-after {}), holding the lane {}s",
+                lane.requests,
+                retry_after_secs.map_or_else(|| "none".to_string(), |s| format!("{s}s")),
+                wait.as_secs()
+            );
+            lane.requests = 0;
+            until
+        })
+    }
+
+    /// A Garmin request was answered: the doubling starts over.
+    pub fn note_garmin_success(&self) {
+        self.garmin_state(|lane| lane.refusals = 0);
+    }
+
+    /// Garmin requests dispatched since the last refusal.
+    pub fn garmin_requests(&self) -> u64 {
+        self.garmin_state(|lane| lane.requests)
+    }
+
+    /// The instants Garmin requests were scheduled to go, in order.
+    #[cfg(test)]
+    pub(crate) fn garmin_slots(&self) -> Vec<Instant> {
+        self.garmin_state(|lane| lane.slots.clone())
+    }
+
+    /// Claim the next Garmin slot and wait for it.
+    async fn garmin_gap_wait(&self) {
+        let slot = self.garmin_state(|lane| {
+            let slot = garmin_slot(lane.last, Instant::now(), self.garmin_gap);
+            lane.last = Some(slot);
+            lane.requests += 1;
+            #[cfg(test)]
+            lane.slots.push(slot);
+            slot
+        });
+        let now = Instant::now();
+        if slot > now {
+            pause(slot - now).await;
+        }
     }
 
     /// A jitter draw in `[0, 1)`.
@@ -1119,7 +1247,14 @@ impl Governor {
     /// higher-priority request arriving meanwhile takes the slot ahead of it.
     pub async fn acquire(&self, dispatch: impl Into<Dispatch>) -> Admission {
         let Dispatch { lane, intent } = dispatch.into();
-        let admission = self.admit(intent, self.now());
+        let admission = if lane == Lane::Garmin {
+            match self.garmin_deferred_until(self.now()) {
+                Some(until) => Admission::Deferred { until },
+                None => Admission::Admitted,
+            }
+        } else {
+            self.admit(intent, self.now())
+        };
         if matches!(admission, Admission::Deferred { .. }) {
             return admission;
         }
@@ -1135,6 +1270,9 @@ impl Governor {
         let now = Instant::now();
         if scheduled > now {
             pause(scheduled - now).await;
+        }
+        if lane == Lane::Garmin {
+            self.garmin_gap_wait().await;
         }
         admission
     }
@@ -2188,6 +2326,80 @@ mod tests {
             budget.admit(Intent::Backfill, at("2026-03-05T00:00:00Z")),
             Admission::Admitted
         );
+    }
+
+    #[test]
+    fn two_garmin_slots_are_never_closer_than_the_gap() {
+        let t0 = Instant::now();
+        let gap = GARMIN_MIN_GAP;
+        assert_eq!(gap, Duration::from_secs(2));
+        assert_eq!(garmin_slot(None, t0, gap), t0);
+        let first = garmin_slot(None, t0, gap);
+        let second = garmin_slot(Some(first), t0, gap);
+        assert_eq!(second - first, gap);
+        let late = t0 + Duration::from_secs(10);
+        assert_eq!(garmin_slot(Some(second), late, gap), late);
+    }
+
+    #[test]
+    fn a_garmin_refusal_without_retry_after_holds_fifteen_minutes_then_doubles() {
+        let minutes = |m: u64| Duration::from_secs(m * 60);
+        assert_eq!(garmin_hold(1, None), minutes(15));
+        assert_eq!(garmin_hold(2, None), minutes(30));
+        assert_eq!(garmin_hold(3, None), minutes(60));
+        assert_eq!(garmin_hold(40, None), GARMIN_HOLD_MAX);
+        assert_eq!(garmin_hold(1, Some(7)), Duration::from_secs(7));
+        assert_eq!(garmin_hold(5, Some(7)), Duration::from_secs(7));
+        assert_eq!(garmin_hold(1, Some(u64::MAX)), GARMIN_HOLD_MAX);
+    }
+
+    #[test]
+    fn a_garmin_refusal_holds_only_the_garmin_lane() {
+        let gov = Governor::new(1000, Box::new(NoopPolicy)).with_garmin_gap(Duration::ZERO);
+        let now = at("2026-10-25T10:00:00Z");
+        let until = gov.note_garmin_refusal(None, now);
+        assert_eq!(until, now + chrono::Duration::minutes(15));
+        assert_eq!(gov.garmin_deferred_until(now), Some(until));
+        assert_eq!(gov.garmin_deferred_until(until), None);
+        assert_eq!(gov.cooldown_until(now), None);
+        assert_eq!(gov.admit(Intent::Backfill, now), Admission::Admitted);
+
+        let again = gov.note_garmin_refusal(None, until);
+        assert_eq!(again, until + chrono::Duration::minutes(30));
+        gov.note_garmin_success();
+        let after_success = gov.note_garmin_refusal(None, again);
+        assert_eq!(after_success, again + chrono::Duration::minutes(15));
+    }
+
+    #[test]
+    fn a_held_garmin_lane_sends_nothing_and_other_lanes_go() {
+        let _clock = crate::test_globals::real_clock();
+        crate::runtime::block_on(async {
+            let gov = Governor::new(1000, Box::new(NoopPolicy)).with_garmin_gap(Duration::ZERO);
+            let until = gov.note_garmin_refusal(Some(600), gov.now());
+            assert!(matches!(
+                gov.acquire(Lane::Garmin).await,
+                Admission::Deferred { until: u } if u == until
+            ));
+            assert_eq!(gov.acquire(Lane::Backfill).await, Admission::Admitted);
+        });
+    }
+
+    #[test]
+    fn garmin_acquires_wait_out_the_gap_and_count_requests() {
+        let _clock = crate::test_globals::real_clock();
+        crate::runtime::block_on(async {
+            let gap = Duration::from_millis(120);
+            let gov = Governor::new(1000, Box::new(NoopPolicy)).with_garmin_gap(gap);
+            let start = Instant::now();
+            for _ in 0..3 {
+                assert_eq!(gov.acquire(Lane::Garmin).await, Admission::Admitted);
+            }
+            assert!(start.elapsed() >= gap * 2, "{:?}", start.elapsed());
+            assert_eq!(gov.garmin_requests(), 3);
+            gov.note_garmin_refusal(None, gov.now());
+            assert_eq!(gov.garmin_requests(), 0, "counted since the last refusal");
+        });
     }
 
     #[test]

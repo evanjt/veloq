@@ -25,6 +25,7 @@ export { LibraryRebuiltNotice } from './components/LibraryRebuiltNotice';
 export { RestoreOfferCard } from './components/RestoreOfferCard';
 export { WhatsNewCard } from './components/WhatsNewCard';
 export { TourOfferCard } from './components/TourOfferCard';
+export { GarminOfferCard } from './components/GarminOfferCard';
 export { NotificationsCard } from './components/NotificationsCard';
 export { SectionsChangedCard } from './components/SectionsChangedCard';
 export { useDaysOfUse, useLaunchSurfaces, useSessionAsk } from './hooks/useLaunchSurfaces';
@@ -96,3 +97,4 @@ export {
 } from './lib/notificationService';
 export { GarminConnector } from './components/GarminConnector';
 export { restoreGarminKey } from './lib/garminConnector';
+export { useGarminConnectorState } from './hooks/useGarminConnectorState';

@@ -26,6 +26,7 @@ import { toActivityType, type WellnessData } from '@/types';
 import {
   MaxHrSource,
   type ActivityFitnessImpact,
+  type ActivityHeldBack,
   type ActivityRecord,
   type ActivitySummary,
 } from 'veloqrs';
@@ -75,6 +76,11 @@ interface UseActivityStatsOptions {
    * cadence. The cards it feeds are left out until the read lands.
    */
   summary?: ActivitySummary | undefined;
+  /**
+   * The hold on the ride, when intervals.icu holds it and does not serve it. Its
+   * load and intensity factor then read as not shared, never as a zero.
+   */
+  heldBack?: ActivityHeldBack | null | undefined;
 }
 
 interface UseActivityStatsResult {
@@ -90,6 +96,7 @@ export function useActivityStats({
   fitnessImpact,
   newGround,
   summary,
+  heldBack,
 }: UseActivityStatsOptions): UseActivityStatsResult {
   const { t } = useTranslation();
   // Subscribed, so the form card follows the setting when the athlete record
@@ -99,30 +106,35 @@ export function useActivityStats({
   // Build insightful stats (memoized to prevent rebuild on every render)
   const stats = useMemo(() => {
     const result: StatDetail[] = [];
+    const held = heldBack != null;
+    const notShared = t('activity.heldBack.title');
 
-    // Training Load with context
-    if (activity.trainingLoad && activity.trainingLoad > 0) {
-      const load = activity.trainingLoad;
+    // Training Load with context. A held ride has no load to show, so its card
+    // says it is not shared rather than printing a zero.
+    if (held || (activity.trainingLoad && activity.trainingLoad > 0)) {
+      const load = activity.trainingLoad ?? 0;
       // The intensity factor is stated, never graded: a band word or a colour
       // per band would be a judgement the data source does not make.
       const intensity = activity.intensity;
 
       result.push({
         title: t('metrics.trainingLoad'),
-        value: `${Math.round(load)}`,
+        value: held ? notShared : `${Math.round(load)}`,
         icon: 'lightning-bolt',
         context:
-          intensity == null
+          held || intensity == null
             ? undefined
             : t('activity.stats.intensityContext', { percent: Math.round(intensity) }),
         explanation: t(METRIC_EXPLANATION_KEYS['Training Load'] as never),
         details: [
-          intensity == null
-            ? null
-            : {
-                label: t('activity.stats.intensityFactor'),
-                value: `${Math.round(intensity)}%`,
-              },
+          held
+            ? { label: t('activity.stats.intensityFactor'), value: notShared }
+            : intensity == null
+              ? null
+              : {
+                  label: t('activity.stats.intensityFactor'),
+                  value: `${Math.round(intensity)}%`,
+                },
           activity.trimp
             ? {
                 label: t('activity.stats.trimp'),
@@ -509,6 +521,7 @@ export function useActivityStats({
     fitnessImpact,
     newGround,
     summary,
+    heldBack,
     t,
     isMetric,
     maxHR,

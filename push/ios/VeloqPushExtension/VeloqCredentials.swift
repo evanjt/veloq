@@ -18,6 +18,14 @@ struct VeloqCredentials {
   let apiKey: String?
   let athleteId: String
 
+  /// The Garmin Personal key the athlete pasted, when there is one. Kept
+  /// apart from the intervals.icu credential: a push has no use for it unless
+  /// intervals.icu will not serve the ride, and its absence is not a reason to
+  /// refuse the push.
+  static func garminKey() -> String? {
+    VeloqKeychain.string(for: "garmin_personal_key")
+  }
+
   /// Nil when there is no athlete or no secret, which reads the same as a
   /// keychain that would not answer: there is nothing to sync as.
   static func read() -> VeloqCredentials? {

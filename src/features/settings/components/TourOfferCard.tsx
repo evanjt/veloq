@@ -20,6 +20,7 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import { sourceFor } from '@/shared/app/source';
 import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 
+import { useUsesGarmin } from '../hooks/useGarminOffer';
 import { getTutorialSetupSlides } from './whatsNew/slides';
 import { useQuietPeriod, useSessionAsk } from '../hooks/useLaunchSurfaces';
 import { setupSlidesAnswerable, tourOffer } from '../lib/tourOffer';
@@ -38,6 +39,7 @@ export function TourOfferCard() {
   const takeTourOffer = useWhatsNewStore((s) => s.takeTourOffer);
   const declineTourOffer = useWhatsNewStore((s) => s.declineTourOffer);
   const quiet = useQuietPeriod();
+  const usesGarmin = useUsesGarmin();
   const currentVersion = Constants.expoConfig?.version ?? '';
 
   const offer = isLoaded
@@ -49,7 +51,9 @@ export function TourOfferCard() {
         settledThisSession,
         tourSetupSlides: setupSlidesAnswerable(getTutorialSetupSlides(), {
           push: sourceFor({ authMethod, isDemoMode })?.can.push === true,
+          garmin: usesGarmin,
         }),
+        unavailableSlides: usesGarmin ? [] : ['garmin'],
         quietPeriod: quiet !== false,
       })
     : null;

@@ -34,9 +34,13 @@
   },
   "activity": {
     "heldBack": {
-      "title": "Holdt tilbage af intervals.icu",
+      "title": "Ikke delt af intervals.icu",
       "detail": "intervals.icu har denne aktivitet, men gør den ikke tilgængelig for apps, så dens data er tomme her.",
-      "detailGarmin": "Hvis du forbinder Garmin i indstillinger, udfyldes den fra originalen."
+      "detailGarmin": "Når du forbinder din Garmin-nøgle, udfyldes den fra originalen.",
+      "connectGarmin": "Forbind Garmin"
+    },
+    "provenance": {
+      "garminOnPhone": "Udfyldt fra din Garmin-fil"
     },
     "syncFailed": {
       "title": "Kunne ikke synkronisere",
@@ -658,6 +662,8 @@
   "garmin": {
     "title": "Garmin",
     "rowSubtitle": "Personlig nøgle",
+    "keyNeeded": "Nøgle skal indtastes igen",
+    "keyNeededHint": "Indsæt din Garmin-nøgle igen for fortsat at hente Garmin-ture.",
     "intro": "Indsæt din personlige Garmin-nøgle, så Veloq kan vise dine Garmin-ture.",
     "privacy": "Nøglen bliver på denne enhed, og Veloq modtager den aldrig. At forbinde den er din egen handling under Garmins vilkår.",
     "getKey": "Hent en nøgle fra Garmin Connect",
@@ -680,7 +686,23 @@
     "uploadHint": "Ture når så kun intervals.icu, en træner og notifikationer, når Veloq kører. intervals.icus egen Garmin-import er den hurtigere vej.",
     "duplicateTitle": "intervals.icu importerer allerede dine Garmin-aktiviteter",
     "duplicateDetail": "Uploads fra Veloq ville vises to gange. Slå Aktiviteter fra i intervals.icu, og lad Wellness og Planlagte træninger være slået til. Veloq ændrer ikke disse indstillinger.",
-    "openConnections": "Åbn intervals.icus forbindelser"
+    "openConnections": "Åbn intervals.icus forbindelser",
+    "offerTitle_one": "{{count}} Garmin-tur kom uden sine data",
+    "offerTitle_other": "{{count}} Garmin-ture kom uden deres data",
+    "offerBody": "intervals.icu deler ikke længere Garmin-ture med apps. Forbind Garmin for at hente dem.",
+    "offerConnect": "Forbind Garmin",
+    "pullTitle": "Garmin-ture",
+    "pullStored_one": "{{count}} gemt",
+    "pullStored_other": "{{count}} gemt",
+    "pullReached": "tilbage til {{month}}",
+    "pullRunning": "Kører",
+    "pullPaused": "På pause til {{time}}",
+    "pullIdle": "Venter på at starte",
+    "pullDone": "Opdateret",
+    "pullStoppedKey": "Stoppet: Garmin-nøglen blev ikke accepteret",
+    "pullStoppedUnreachable": "Stoppet: Garmin kunne ikke nås",
+    "pullStoppedStorage": "Stoppet: intet sted at gemme turene",
+    "pullNow": "Hent nu"
   },
   "intervalTypes": {
     "work": {
@@ -1603,7 +1625,11 @@
       "none": "Ingen rute",
       "empty": "Ingen gemte ruter for denne sport endnu.",
       "activities_one": "{{count}} aktivitet",
-      "activities_other": "{{count}} aktiviteter"
+      "activities_other": "{{count}} aktiviteter",
+      "following": "Følger {{name}}",
+      "pr": "Rekord {{time}}",
+      "nearby": "I nærheden",
+      "allRoutes": "Alle ruter"
     },
     "returnToRecording": "Tilbage til optagelsen",
     "batteryOptNudge": "Lange optagelser fungerer bedst med batterioptimering slået fra for Veloq.",
@@ -2520,6 +2546,9 @@
       "notificationsBody": "Når intervals.icu modtager en ny aktivitet, kan Veloq fortælle dig, hvad den fandt: en personlig rekord, en tid hurtigere end normalt eller et skridt op i form. Her er eksempler på, hvad der kommer.",
       "turnOn": "Slå til",
       "neverRemind": "Mind mig aldrig om det igen",
+      "garminTitle": "Garmin-ture",
+      "garminBody": "intervals.icu deler ikke længere Garmin-ture med apps. Med en Garmin-nøgle henter Veloq dem fra Garmin selv.",
+      "garminWhy": "Turene kommer med alle deres data. Nøglen bliver på denne enhed.",
       "notificationsNeedSignIn": "Notifikationer kræver et log-ind med intervals.icu.",
       "notificationsOn": "Notifikationer er slået til. Du kan ændre dem i Indstillinger.",
       "notificationsExampleSection": "Havnebakken",

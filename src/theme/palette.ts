@@ -89,6 +89,8 @@ function layerColours(base: MapBase) {
     /** The live recording's line, read for the app theme the recording screen draws in. */
     recording,
     recordingOverlay: brand.blue,
+    /** Saved routes near the fix that are not followed: a faint neutral line. */
+    recordingNearby: colorWithOpacity(colors.iconMuted, opacity.disabled),
     recordingExcluded: colorWithOpacity(colors.iconMuted, opacity.disabled),
     position: colors.secondary,
     positionHalo: colors.surface,

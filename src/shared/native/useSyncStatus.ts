@@ -181,6 +181,15 @@ export function useLastSyncSuccessAt(): string | null {
   return useSyncExternalStore(subscribe, getLastSuccessAt, getLastSuccessAt);
 }
 
+function getHeldBackInLastDownload(): number {
+  return snapshot?.heldBackInLastDownload ?? 0;
+}
+
+/** How many rides the last download brought that intervals.icu holds back. */
+export function useHeldBackInLastDownload(): number {
+  return useSyncExternalStore(subscribe, getHeldBackInLastDownload, getHeldBackInLastDownload);
+}
+
 function getState(): SyncStatus['state'] | null {
   return snapshot?.state ?? null;
 }

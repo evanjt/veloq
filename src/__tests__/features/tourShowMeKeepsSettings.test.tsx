@@ -63,6 +63,10 @@ jest.mock('@/features/settings/lib/cutoverShowMe', () => ({
   cutoverHasChangesToShow: () => true,
 }));
 jest.mock('@/shared/native/useActivityCount', () => ({ useActivityCount: () => 3 }));
+jest.mock('@/shared/app/useAthlete', () => ({
+  ...jest.requireActual('@/shared/app/useAthlete'),
+  useAthlete: () => ({ data: undefined }),
+}));
 jest.mock('@/features/routes/hooks/useEngine', () => ({
   ...jest.requireActual('@/features/routes/hooks/useEngine'),
   useSectionSummaries: () => ({ summaries: [{ id: 'col-du-test' }] }),

@@ -32,6 +32,7 @@ import {
   settingsStyles,
   useMapPreferences,
   useDashboardPreferences,
+  useGarminConnectorState,
 } from '@/features/settings';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useLanguageStore, languageLabel } from '@/shared/app/LanguageStore';
@@ -217,6 +218,7 @@ function SettingsScreenContent() {
 
   // Subtitle: Notifications
   const notificationsEnabled = useNotificationPreferences((s) => s.enabled);
+  const garminState = useGarminConnectorState();
 
   // Subtitle: Backup. The spoke's main preference is the automatic backup
   // switch, so a date shows only while it is on. A manual run also writes the
@@ -318,6 +320,7 @@ function SettingsScreenContent() {
             <SpokeRow
               route="data-sources-settings"
               icon="link-variant"
+              subtitle={garminState === 'keyNeeded' ? t('garmin.keyNeeded') : undefined}
               testID="settings-nav-data-sources"
             />
           </RowGroup>

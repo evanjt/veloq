@@ -48,7 +48,7 @@ describe('the first-run tour', () => {
 
   it('leaves out a held setup slide and keeps every other slide in order', () => {
     const held = getTutorialSlidesFor(null, ['notifications']);
-    expect(held.map((slide) => slide.setup).filter(Boolean)).toEqual(['backup']);
+    expect(held.map((slide) => slide.setup).filter(Boolean)).toEqual(['garmin', 'backup']);
     expect(held).toEqual(tutorial.filter((slide) => slide.setup !== 'notifications'));
     expect(getTutorialSlidesFor(['notifications', 'backup'], ['notifications'])).toEqual(
       tutorial.filter((slide) => slide.setup === 'backup')
@@ -63,6 +63,7 @@ describe('the first-run tour', () => {
     expect(tutorial.map((s) => s.titleKey)).toEqual([
       'whatsNew.v022.mapStylesTitle',
       'whatsNew.tutorial.notificationsTitle',
+      'whatsNew.tutorial.garminTitle',
       'whatsNew.v040.recordingTitle',
       'whatsNew.v040.mapsWidgetsTitle',
       'whatsNew.v040.rebuiltTitle',
@@ -162,6 +163,7 @@ describe('Show Me over the library the first run sees', () => {
     const routes = tutorial.map((slide) => resolveShowMeRoute(slide, FULL_LIBRARY));
     expect(routes).toEqual([
       '/',
+      undefined,
       undefined,
       '/record',
       '/map-settings',

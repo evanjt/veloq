@@ -6,21 +6,20 @@ import { GarminKeyStatus } from 'veloqrs';
 
 import { useTheme } from '@/shared/app';
 import { INTERVALS_URLS } from '@/shared/app/constants';
-import { readCredentialsWithMigration, secureStoreIo } from '@/shared/app/credentialKeychain';
 import { useAthlete } from '@/shared/app/useAthlete';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { Button, InlineNotice, StatusLine, TextField } from '@/shared/ui';
 import { ExternalLinkRow } from '@/shared/ui/ExternalLinkRow';
 import { RowDivider } from '@/shared/ui/RowGroup';
 import { SwitchRow } from '@/shared/ui/SwitchRow';
-import { usePermissionUpgrade, useUploadPermissionStore } from '@/features/recording';
+import { usePermissionUpgrade, useWriteAccessMissing } from '@/features/recording';
 import {
   GARMIN_KEY_PAGE,
-  GARMIN_KEY_STORAGE_KEY,
   connectGarminKey,
   disconnectGarmin,
   garminDuplicateWarning,
   readGarminChoices,
+  readGarminConnectorState,
   saveGarminFeed,
   saveGarminKeyExpiry,
   saveGarminUpload,
@@ -51,9 +50,10 @@ export function GarminConnector() {
   const palette = isDark ? darkColors : colors;
   const { data: athlete } = useAthlete();
   const { upgradePermissions } = usePermissionUpgrade();
-  const hasWritePermission = useUploadPermissionStore((s) => s.hasWritePermission);
+  const writeAccessMissing = useWriteAccessMissing();
 
   const [connected, setConnected] = useState(false);
+  const [keyNeeded, setKeyNeeded] = useState(false);
   const [pasted, setPasted] = useState('');
   const [expiry, setExpiry] = useState('');
   const [checking, setChecking] = useState(false);
@@ -65,12 +65,11 @@ export function GarminConnector() {
   useEffect(() => {
     let live = true;
     void (async () => {
-      const { values } = await readCredentialsWithMigration(secureStoreIo, [
-        GARMIN_KEY_STORAGE_KEY,
-      ]);
+      const state = await readGarminConnectorState();
       const choices = await readGarminChoices();
       if (!live) return;
-      setConnected(Boolean(values[0]));
+      setConnected(state === 'connected');
+      setKeyNeeded(state === 'keyNeeded');
       setExpiry(choices.keyExpiry);
       setFeedOn(choices.feed);
       setUploadOn(choices.upload);
@@ -90,6 +89,7 @@ export function GarminConnector() {
       setStatus(result);
       if (result === GarminKeyStatus.Connected) {
         setConnected(true);
+        setKeyNeeded(false);
         setPasted('');
         await saveGarminKeyExpiry(expiry);
       }
@@ -101,6 +101,7 @@ export function GarminConnector() {
   const disconnect = useCallback(async () => {
     await disconnectGarmin();
     setConnected(false);
+    setKeyNeeded(false);
     setStatus(null);
     setExpiry('');
     setFeedOn(true);
@@ -114,14 +115,14 @@ export function GarminConnector() {
 
   const changeUpload = useCallback(
     async (value: boolean) => {
-      if (value && hasWritePermission !== true) {
+      if (value && writeAccessMissing) {
         const { granted } = await upgradePermissions();
         if (!granted) return;
       }
       setUploadOn(value);
       await saveGarminUpload(value);
     },
-    [hasWritePermission, upgradePermissions]
+    [writeAccessMissing, upgradePermissions]
   );
 
   const warn = garminDuplicateWarning({
@@ -155,6 +156,12 @@ export function GarminConnector() {
         </View>
       ) : (
         <View style={styles.content}>
+          {keyNeeded ? (
+            <StatusLine tone="info" message={t('garmin.keyNeeded')} testID="garmin-key-needed">
+              <Text style={{ color: palette.textPrimary }}>{t('garmin.keyNeeded')}</Text>
+              <Text style={[styles.text, secondary]}>{t('garmin.keyNeededHint')}</Text>
+            </StatusLine>
+          ) : null}
           <ExternalLinkRow
             url={GARMIN_KEY_PAGE}
             label={t('garmin.getKey')}

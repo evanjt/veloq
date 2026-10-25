@@ -235,6 +235,7 @@ fn activity_detail(v: FfiActivityDetailData) -> Lowered {
         pool_swim,
         sync_failure,
         held_back,
+        provenance,
     )
 }
 

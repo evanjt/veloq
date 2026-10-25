@@ -34,9 +34,13 @@
   },
   "activity": {
     "heldBack": {
-      "title": "Von intervals.icu zurückgehalten",
+      "title": "Von intervals.icu nicht geteilt",
       "detail": "intervals.icu besitzt diese Aktivität, stellt sie Apps aber nicht zur Verfügung, daher sind ihre Daten hier leer.",
-      "detailGarmin": "Wenn du Garmin in den Einstellungen verbindest, wird sie aus dem Original gefüllt."
+      "detailGarmin": "Wenn du deinen Garmin-Schlüssel verbindest, wird sie aus dem Original gefüllt.",
+      "connectGarmin": "Garmin verbinden"
+    },
+    "provenance": {
+      "garminOnPhone": "Aus deiner Garmin-Datei ergänzt"
     },
     "syncFailed": {
       "title": "Synchronisierung fehlgeschlagen",
@@ -657,6 +661,8 @@
   "garmin": {
     "title": "Garmin",
     "rowSubtitle": "Persönlicher Schlüssel",
+    "keyNeeded": "Schlüssel fehlt",
+    "keyNeededHint": "Füge deinen Garmin-Schlüssel erneut ein, damit weiterhin Garmin-Fahrten geladen werden.",
     "intro": "Füge deinen persönlichen Garmin-Schlüssel ein, damit Veloq deine Garmin-Fahrten anzeigen kann.",
     "privacy": "Der Schlüssel bleibt auf diesem Gerät und Veloq erhält ihn nie. Ihn zu verbinden ist deine eigene Handlung nach den Bedingungen von Garmin.",
     "getKey": "Schlüssel bei Garmin Connect holen",
@@ -679,7 +685,17 @@
     "uploadHint": "Fahrten erreichen intervals.icu, einen Coach und Benachrichtigungen dann nur, wenn Veloq läuft. Der eigene Garmin-Import von intervals.icu ist der schnellere Weg.",
     "duplicateTitle": "intervals.icu importiert deine Garmin-Aktivitäten bereits",
     "duplicateDetail": "Uploads aus Veloq würden doppelt erscheinen. Schalte in intervals.icu Aktivitäten aus und lass Wellness und Geplante Workouts an. Veloq ändert diese Einstellungen nicht.",
-    "openConnections": "intervals.icu-Verbindungen öffnen"
+    "openConnections": "intervals.icu-Verbindungen öffnen",
+    "pullTitle": "Garmin-Fahrten",
+    "pullReached": "bis {{month}} zurück",
+    "pullRunning": "Läuft",
+    "pullPaused": "Pausiert bis {{time}}",
+    "pullIdle": "Wartet auf den Start",
+    "pullDone": "Auf dem neuesten Stand",
+    "pullStoppedKey": "Angehalten: Garmin hat den Schlüssel nicht akzeptiert",
+    "pullStoppedUnreachable": "Angehalten: Garmin war nicht erreichbar",
+    "pullStoppedStorage": "Angehalten: kein Speicherort für die Fahrten",
+    "pullNow": "Jetzt abrufen"
   },
   "intervalTypes": {
     "work": {
@@ -1571,7 +1587,11 @@
       "none": "Keine Route",
       "empty": "Noch keine gespeicherten Routen für diese Sportart.",
       "activities_one": "{{count}} Aktivität",
-      "activities_other": "{{count}} Aktivitäten"
+      "activities_other": "{{count}} Aktivitäten",
+      "following": "Folgt {{name}}",
+      "pr": "Bestzeit {{time}}",
+      "nearby": "In der Nähe",
+      "allRoutes": "Alle Routen"
     },
     "returnToRecording": "Zurück zur Aufzeichnung",
     "batteryOptNudge": "Lange Aufzeichnungen funktionieren am besten, wenn die Akku-Optimierung für Veloq deaktiviert ist.",

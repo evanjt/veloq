@@ -88,6 +88,7 @@ pub mod open_run;
 pub(crate) use memory::release_connection_memory;
 #[cfg(feature = "lock-trace")]
 pub mod lock_trace;
+pub(crate) mod nearby_routes;
 pub mod new_ground;
 pub mod read_cache;
 pub mod read_pool;
@@ -1775,6 +1776,54 @@ impl PersistentEngine {
                 },
             )
             .optional()
+    }
+
+    /// Whether a kept run put an entry in the tray for another row of the same
+    /// Garmin ride as `activity_id`: the `src-garmin-` row of its original,
+    /// or an intervals.icu activity whose `external_id` names the same Garmin
+    /// id. The ride is announced once however many rows and routes it reached
+    /// the phone by.
+    pub fn ride_announced_elsewhere(&self, activity_id: &str) -> SqlResult<bool> {
+        use crate::persistence::origin::{
+            garmin_id_named, garmin_id_of_source_key, garmin_source_key,
+        };
+        use rusqlite::OptionalExtension;
+        let named = |id: &str| -> SqlResult<Option<i64>> {
+            let fields: Option<(Option<String>, Option<String>)> = self
+                .db
+                .query_row(
+                    "SELECT json_extract(raw, '$.source'),
+                            CAST(json_extract(raw, '$.external_id') AS TEXT)
+                     FROM activity_bodies WHERE activity_id = ?1 AND json_valid(raw)",
+                    [id],
+                    |row| Ok((row.get(0)?, row.get(1)?)),
+                )
+                .optional()?;
+            Ok(fields.and_then(|(source, external)| {
+                garmin_id_named(source.as_deref(), external.as_deref())
+            }))
+        };
+        let garmin_id = match garmin_id_of_source_key(activity_id) {
+            Some(id) => Some(id),
+            None => named(activity_id)?,
+        };
+        let Some(garmin_id) = garmin_id else {
+            return Ok(false);
+        };
+        let key = garmin_source_key(garmin_id);
+        let mut rows = self.db.prepare(
+            "SELECT DISTINCT activity_id FROM push_runs
+             WHERE posted_title IS NOT NULL AND activity_id <> ?1",
+        )?;
+        let announced = rows
+            .query_map([activity_id], |row| row.get::<_, String>(0))?
+            .collect::<SqlResult<Vec<_>>>()?;
+        for other in announced {
+            if other == key || named(&other)? == Some(garmin_id) {
+                return Ok(true);
+            }
+        }
+        Ok(false)
     }
 
     /// Take whatever another process wrote since this engine last looked, and
@@ -4230,6 +4279,10 @@ mod routes_list_paging;
 #[cfg(test)]
 #[path = "tests/route_row_preview.rs"]
 mod route_row_preview;
+
+#[cfg(test)]
+#[path = "tests/nearby_routes.rs"]
+mod nearby_routes_tests;
 
 #[cfg(test)]
 #[path = "tests/production_index_plans.rs"]

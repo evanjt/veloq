@@ -20,7 +20,9 @@ fn token_expiring_in(secs: i64) -> String {
 }
 
 fn client(server: &MockServer) -> GarminClient {
-    let gov = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
+    let gov = Arc::new(
+        Governor::new(1000, Box::new(NoopPolicy)).with_garmin_gap(std::time::Duration::ZERO),
+    );
     GarminClient::with_governor(server.base_url(), "pasted-key", gov)
 }
 
@@ -344,4 +346,71 @@ fn the_production_client_roots_at_garmin_over_https() {
     let c = GarminClient::new("pasted-key");
     assert!(c.base_url.starts_with("https://") && c.https_only);
     assert_eq!(c.base_url, endpoints::BASE_URL);
+}
+
+fn refused_download<'a>(
+    server: &'a MockServer,
+    retry_after: Option<&'a str>,
+) -> httpmock::Mock<'a> {
+    let token = token_expiring_in(day().num_seconds());
+    server.mock(|when, then| {
+        when.method(POST).path(TOKEN_PATH);
+        then.status(200).body(&token);
+    });
+    server.mock(|when, then| {
+        when.method(GET)
+            .path("/download-service/files/activity/4242");
+        let then = then.status(429);
+        if let Some(secs) = retry_after {
+            then.header("retry-after", secs);
+        }
+    })
+}
+
+/// Scenario: Garmin answers a download with a 429 that names no `Retry-After`.
+///
+/// Expected behaviour: the request ends deferred to fifteen minutes on, the
+/// retry loop sends nothing more, and the next request waits out the hold
+/// without reaching Garmin.
+#[test]
+fn a_429_without_retry_after_holds_the_lane_fifteen_minutes() {
+    let server = MockServer::start();
+    let download = refused_download(&server, None);
+    let c = client(&server);
+    let before = Utc::now();
+    let err = crate::runtime::block_on(c.download_original(4242, dispatch())).unwrap_err();
+    let GarminError::Net(NetError::Deferred { until }) = err else {
+        panic!("{err}");
+    };
+    let held = until - before;
+    assert!(
+        held >= Duration::minutes(15) && held < Duration::minutes(16),
+        "{held}"
+    );
+    download.assert_calls(1);
+
+    let err = crate::runtime::block_on(c.download_original(4242, dispatch())).unwrap_err();
+    assert!(
+        matches!(err, GarminError::Net(NetError::Deferred { until: u }) if u == until),
+        "{err}"
+    );
+    download.assert_calls(1);
+}
+
+#[test]
+fn a_429_with_retry_after_holds_the_lane_for_it_and_leaves_intervals_alone() {
+    let server = MockServer::start();
+    refused_download(&server, Some("7"));
+    let c = client(&server);
+    let before = Utc::now();
+    let err = crate::runtime::block_on(c.download_original(4242, dispatch())).unwrap_err();
+    let GarminError::Net(NetError::Deferred { until }) = err else {
+        panic!("{err}");
+    };
+    let held = until - before;
+    assert!(
+        held >= Duration::seconds(7) && held < Duration::seconds(9),
+        "{held}"
+    );
+    assert_eq!(c.governor().cooldown_until(Utc::now()), None);
 }

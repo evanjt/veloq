@@ -34,9 +34,13 @@
   },
   "activity": {
     "heldBack": {
-      "title": "Retenue par intervals.icu",
+      "title": "Non partagée par intervals.icu",
       "detail": "intervals.icu détient cette activité mais ne la met pas à disposition des applications, ses données sont donc vides ici.",
-      "detailGarmin": "Connecter Garmin dans les réglages la remplit à partir de l'original."
+      "detailGarmin": "Connecter votre clé Garmin la remplit à partir de l'original.",
+      "connectGarmin": "Connecter Garmin"
+    },
+    "provenance": {
+      "garminOnPhone": "Complétée à partir de votre fichier Garmin"
     },
     "syncFailed": {
       "title": "Synchronisation impossible",
@@ -672,6 +676,8 @@
   "garmin": {
     "title": "Garmin",
     "rowSubtitle": "Clé personnelle",
+    "keyNeeded": "Clé à saisir de nouveau",
+    "keyNeededHint": "Collez à nouveau votre clé Garmin pour continuer à importer vos sorties Garmin.",
     "intro": "Collez votre clé personnelle Garmin pour que Veloq affiche vos sorties Garmin.",
     "privacy": "La clé reste sur cet appareil et Veloq ne la reçoit jamais. La connecter est votre propre démarche, selon les conditions de Garmin.",
     "getKey": "Obtenir une clé sur Garmin Connect",
@@ -694,7 +700,25 @@
     "uploadHint": "Les sorties n'atteignent alors intervals.icu, un coach et les notifications que lorsque Veloq est en cours d'exécution. L'import Garmin propre à intervals.icu est la voie la plus rapide.",
     "duplicateTitle": "intervals.icu importe déjà vos activités Garmin",
     "duplicateDetail": "Les envois depuis Veloq apparaîtraient en double. Dans intervals.icu, désactivez Activités et gardez Bien-être et Séances planifiées. Veloq ne modifie pas ces réglages.",
-    "openConnections": "Ouvrir les connexions d'intervals.icu"
+    "openConnections": "Ouvrir les connexions d'intervals.icu",
+    "offerTitle_one": "{{count}} sortie Garmin est arrivée sans ses données",
+    "offerTitle_many": "{{count}} de sorties Garmin sont arrivées sans leurs données",
+    "offerTitle_other": "{{count}} sorties Garmin sont arrivées sans leurs données",
+    "offerBody": "intervals.icu ne partage plus les sorties Garmin avec les applications. Connectez Garmin pour les récupérer.",
+    "offerConnect": "Connecter Garmin",
+    "pullTitle": "Sorties Garmin",
+    "pullStored_one": "{{count}} enregistrée",
+    "pullStored_many": "{{count}} de sorties enregistrées",
+    "pullStored_other": "{{count}} enregistrées",
+    "pullReached": "remonté jusqu'à {{month}}",
+    "pullRunning": "En cours",
+    "pullPaused": "En pause jusqu'à {{time}}",
+    "pullIdle": "En attente de démarrage",
+    "pullDone": "À jour",
+    "pullStoppedKey": "Arrêté : clé Garmin refusée",
+    "pullStoppedUnreachable": "Arrêté : Garmin est injoignable",
+    "pullStoppedStorage": "Arrêté : aucun emplacement pour les sorties",
+    "pullNow": "Récupérer maintenant"
   },
   "intervalTypes": {
     "work": {
@@ -1628,7 +1652,11 @@
       "empty": "Aucun itinéraire enregistré pour ce sport pour le moment.",
       "activities_one": "{{count}} activité",
       "activities_many": "{{count}} d'activités",
-      "activities_other": "{{count}} activités"
+      "activities_other": "{{count}} activités",
+      "following": "Suivi : {{name}}",
+      "pr": "Record {{time}}",
+      "nearby": "À proximité",
+      "allRoutes": "Tous les itinéraires"
     },
     "returnToRecording": "Revenir à l'enregistrement",
     "batteryOptNudge": "Les longs enregistrements fonctionnent mieux avec l'optimisation de la batterie désactivée pour Veloq.",
@@ -2586,6 +2614,9 @@
       "notificationsBody": "Quand intervals.icu reçoit une nouvelle activité, Veloq peut vous dire ce qu'il y a trouvé : un record personnel, un temps plus rapide que d'habitude ou un progrès de forme. Voici des exemples de ce qui arrive.",
       "turnOn": "Activer",
       "neverRemind": "Ne plus me le rappeler",
+      "garminTitle": "Sorties Garmin",
+      "garminBody": "intervals.icu ne partage plus les sorties Garmin avec les applications. Avec une clé Garmin, Veloq les récupère auprès de Garmin lui-même.",
+      "garminWhy": "Les sorties arrivent complètes, avec leurs données. La clé reste sur cet appareil.",
       "notificationsNeedSignIn": "Les notifications nécessitent une connexion avec intervals.icu.",
       "notificationsOn": "Les notifications sont activées. Vous pouvez les modifier dans Paramètres.",
       "notificationsExampleSection": "Montée du Port",

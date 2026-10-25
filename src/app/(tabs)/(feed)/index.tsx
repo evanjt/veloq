@@ -17,6 +17,7 @@ import { logScreenRender, PERF_DEBUG } from '@/shared/debug/renderTimer';
 import {
   RestoreOfferCard,
   SectionsChangedCard,
+  GarminOfferCard,
   NotificationsCard,
   StreamConsentCard,
   TourOfferCard,
@@ -702,6 +703,7 @@ function FeedScreenContent() {
         <WhatsNewCard />
         <TourOfferCard />
         <NotificationsCard />
+        <GarminOfferCard />
         <SupportCard />
         <PendingUploadsCard />
         {summaryCard.enabled && !standingBy && summaryLoading ? (

@@ -19,6 +19,8 @@ import {
 import * as engineKey from '@/shared/native/garminKey';
 import { getSetting, removeSetting, setSetting } from '@/shared/storage';
 
+import { parseGarminOfferRecord } from './garminOffer';
+
 export { GARMIN_KEY_STORAGE_KEY };
 
 /** Where a Personal key is made, on Garmin Connect Web. */
@@ -29,7 +31,28 @@ export const GARMIN_SETTING_KEYS = {
   keyExpiry: 'veloq-garmin-key-expiry',
   feed: 'veloq-garmin-feed',
   upload: 'veloq-garmin-upload',
+  offerDeclinedAt: 'veloq-garmin-offer-declined-at',
 } as const;
+
+/**
+ * Whether a key was connected on this library: true while one is kept, false
+ * after Disconnect. It holds no key, so a record backup carries it, and a
+ * restore onto a device without the key reads "Key needed" rather than "off".
+ * The engine names the same key as `settings_keys::GARMIN_CONNECTOR_ENABLED`.
+ */
+export const GARMIN_CONNECTOR_ENABLED_KEY = '__garmin_connector_enabled';
+
+/** Where the connector stands: a key is kept, one was connected and is now missing, or none was. */
+export type GarminConnectorState = 'connected' | 'keyNeeded' | 'off';
+
+/** A kept key is connected whatever the flag says, and a flag with no key is a key the athlete must paste again. */
+export function garminConnectorState(input: {
+  enabled: boolean;
+  keyKept: boolean;
+}): GarminConnectorState {
+  if (input.keyKept) return 'connected';
+  return input.enabled ? 'keyNeeded' : 'off';
+}
 
 /** The choices kept on this device beside the key. */
 export interface GarminChoices {
@@ -56,12 +79,41 @@ export const saveGarminFeed = (on: boolean): Promise<void> =>
 export const saveGarminUpload = (on: boolean): Promise<void> =>
   setSetting(GARMIN_SETTING_KEYS.upload, String(on));
 
+const saveEnabled = (on: boolean): Promise<void> =>
+  setSetting(GARMIN_CONNECTOR_ENABLED_KEY, String(on));
+
+const listeners = new Set<() => void>();
+
+/** Tell every mounted reader that the connection changed in this process. */
+function changed(): void {
+  for (const listener of listeners) listener();
+}
+
+/** Called on each connect or disconnect, so a reader already on screen reads again. Returns the unsubscribe. */
+export function onGarminConnectorChange(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
 /** The part of the engine the connector calls. */
 export type GarminEngine = typeof engineKey;
 
 interface Deps {
   io?: CredentialKeychainIo;
   engine?: GarminEngine;
+  setEnabled?: (on: boolean) => void | Promise<void>;
+  readEnabled?: () => Promise<string | null>;
+}
+
+/** The connector's state from the device: the flag beside the key the keychain holds. */
+export async function readGarminConnectorState(deps: Deps = {}): Promise<GarminConnectorState> {
+  const [enabled, { values }] = await Promise.all([
+    (deps.readEnabled ?? (() => getSetting(GARMIN_CONNECTOR_ENABLED_KEY)))(),
+    readCredentialsWithMigration(deps.io ?? secureStoreIo, [GARMIN_KEY_STORAGE_KEY]),
+  ]);
+  return garminConnectorState({ enabled: enabled === 'true', keyKept: Boolean(values[0]) });
 }
 
 /**
@@ -78,6 +130,8 @@ export async function connectGarminKey(pasted: string, deps: Deps = {}): Promise
       key,
       CREDENTIAL_KEYCHAIN_OPTIONS
     );
+    await (deps.setEnabled ?? saveEnabled)(true);
+    changed();
   }
   return status;
 }
@@ -94,11 +148,29 @@ export async function disconnectGarmin(
   const results = await Promise.allSettled([
     deleteCredential(deps.io ?? secureStoreIo, GARMIN_KEY_STORAGE_KEY),
     Promise.resolve().then(() => (deps.engine ?? engineKey).clearGarminKey()),
+    Promise.resolve().then(() => (deps.setEnabled ?? saveEnabled)(false)),
     ...Object.values(GARMIN_SETTING_KEYS).map((key) => Promise.resolve().then(() => forget(key))),
   ]);
+  changed();
   const failed = results.find((result) => result.status === 'rejected');
   if (failed) throw failed.reason;
 }
+
+/** Whether a Garmin key is kept on this device. */
+export async function isGarminConnected(deps: Deps = {}): Promise<boolean> {
+  const { values } = await readCredentialsWithMigration(deps.io ?? secureStoreIo, [
+    GARMIN_KEY_STORAGE_KEY,
+  ]);
+  return Boolean(values[0]);
+}
+
+/** The held-back count the feed offer was last declined at, or null when never declined. */
+export async function readGarminOfferDeclinedAt(): Promise<number | null> {
+  return parseGarminOfferRecord(await getSetting(GARMIN_SETTING_KEYS.offerDeclinedAt));
+}
+
+export const saveGarminOfferDeclinedAt = (count: number): Promise<void> =>
+  setSetting(GARMIN_SETTING_KEYS.offerDeclinedAt, String(count));
 
 /** Give the engine the kept key at launch. Garmin is not asked until a pass needs a token. */
 export async function restoreGarminKey(deps: Deps = {}): Promise<void> {

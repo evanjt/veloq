@@ -20,6 +20,7 @@ import {
 } from '@/theme';
 
 import { StreamBackfillRow } from './StreamBackfillRow';
+import { GarminPullRow } from './GarminPullRow';
 import { StreamHistoryRow } from './StreamHistoryRow';
 import { Button, composeAccessibilityLabel, ProgressBar, StatTile, PressTarget } from '@/shared/ui';
 import { ABSENT } from '@/shared/format/absent';
@@ -278,6 +279,8 @@ export function StorageStatsPanel({
       <StreamHistoryRow isDark={isDark} />
 
       <StreamBackfillRow isDark={isDark} />
+
+      <GarminPullRow isDark={isDark} />
 
       {/* Everything the map draws from, which is previews, heatmap and tiles. */}
       <View style={[styles.infoRow, isDark && styles.infoRowDark]}>

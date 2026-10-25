@@ -31,6 +31,16 @@ public final class PushBridge {
   }
 
   /**
+   * Hand Rust the Garmin Personal key for the push about to run, or null when
+   * the athlete has none. It is kept in process memory only, and a key the
+   * app already holds is not replaced.
+   */
+  public static void holdGarminKey(String garminKey) {
+    load();
+    nativeHoldGarminKey(garminKey);
+  }
+
+  /**
    * Open the engine with no credential, so a failed run can still be recorded
    * and the plain entry can read the stored title. Nothing is replaced if the
    * app already has the engine open.
@@ -100,6 +110,8 @@ public final class PushBridge {
 
   private static native boolean nativePrepare(
       String dbPath, String authMethod, String secret, String athleteId);
+
+  private static native void nativeHoldGarminKey(String garminKey);
 
   private static native boolean nativeOpen(String dbPath);
 

@@ -29,7 +29,7 @@ pub(crate) struct GarminKeyHolder {
 }
 
 impl GarminKeyHolder {
-    #[cfg(test)]
+    /// The client for the held key, for a caller that talks to Garmin with it.
     pub(crate) fn client(&self) -> Option<Arc<GarminClient>> {
         self.client
             .lock()
@@ -39,6 +39,17 @@ impl GarminKeyHolder {
 
     pub(crate) fn hold(&self, client: GarminClient) {
         *self.client.lock().unwrap_or_else(|e| e.into_inner()) = Some(Arc::new(client));
+    }
+
+    /// Hold `client` unless one is held already, and say whether it was taken.
+    /// The one held keeps the token it has exchanged.
+    pub(crate) fn hold_if_absent(&self, client: impl FnOnce() -> GarminClient) -> bool {
+        let mut held = self.client.lock().unwrap_or_else(|e| e.into_inner());
+        if held.is_some() {
+            return false;
+        }
+        *held = Some(Arc::new(client()));
+        true
     }
 
     pub(crate) fn clear(&self) {
@@ -91,7 +102,18 @@ pub(crate) fn hold_garmin_key(key: &str) {
     }
 }
 
+/// Hold a key a native handler read from the keychain, unless the process
+/// already holds one: the app's own key is the fresher of the two and has
+/// the token it exchanged.
+pub(crate) fn hold_garmin_key_if_absent(key: &str) {
+    let key = key.trim();
+    if !key.is_empty() {
+        GARMIN_KEY.hold_if_absent(|| GarminClient::new(key));
+    }
+}
+
 pub(crate) fn clear_garmin_key() {
+    crate::net::garmin::pull::stop();
     GARMIN_KEY.clear();
 }
 

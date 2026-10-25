@@ -32,7 +32,12 @@ export {
 export { Map3DWebView, type Map3DWebViewRef } from './components/Map3DWebView';
 export { MapKey, MapKeyRamp, MapKeySwatch } from './components/MapKey';
 export { DivergingKeyScale } from './components/DivergingKeyScale';
-export { type MapCameraState, MapSurface, type MapSurfaceRef } from './components/MapSurface';
+export {
+  type MapCameraState,
+  type MapPressEvent,
+  MapSurface,
+  type MapSurfaceRef,
+} from './components/MapSurface';
 export {
   MapSurfaceSlot,
   SlottedMapSurface,

@@ -146,6 +146,10 @@ pub struct FfiSyncStatus {
     /// which is the metadata sync's alone, so a pass the engine starts by
     /// itself after the sync has settled is reported all the same.
     pub tracks: Option<super::track_stage::FfiTrackStage>,
+    /// How many activities the last download newly marked as held back by
+    /// intervals.icu, which it serves as empty stubs. Zero before any download
+    /// and after one that found none.
+    pub held_back_in_last_download: u32,
 }
 
 /// Why the last sync failed, as the kind the banner branches on.
@@ -1082,8 +1086,19 @@ impl SyncService {
             last_success_at: read_last_success_at(),
             retry_at_ms: inner.retry_at.map(|at| at.timestamp_millis() as f64),
             tracks,
+            held_back_in_last_download: read_held_back_in_last_download(),
         }
     }
+}
+
+/// The count a download keeps, from the read pool like the last success.
+fn read_held_back_in_last_download() -> u32 {
+    crate::objects::error::with_reader(|conn| {
+        crate::persistence::activity_held_back::new_in_last_download(conn).ok()
+    })
+    .ok()
+    .flatten()
+    .unwrap_or(0)
 }
 
 /// The row a clean finish writes, from the read pool so it never waits on a
@@ -1980,10 +1995,7 @@ pub(crate) async fn send_activity_file(
     expected_athlete_id: Option<String>,
     file_path: String,
     filename: String,
-    external_id: String,
-    name: Option<String>,
-    description: Option<String>,
-    paired_event_id: Option<i64>,
+    fields: UploadFields,
 ) -> FfiCallOutcome {
     run_write_for(expected_athlete_id, move |session| async move {
         upload_file_job(
@@ -1991,15 +2003,26 @@ pub(crate) async fn send_activity_file(
             &file_path,
             &filename,
             endpoints::UploadDetails {
-                external_id: Some(&external_id),
-                name: name.as_deref(),
-                description: description.as_deref(),
-                paired_event_id,
+                external_id: Some(&fields.external_id),
+                name: fields.name.as_deref(),
+                description: fields.description.as_deref(),
+                paired_event_id: fields.paired_event_id,
+                device_name: fields.device_name.as_deref(),
             },
         )
         .await
     })
     .await
+}
+
+/// What an uploaded file carries beside its bytes.
+#[derive(Debug, Default)]
+pub(crate) struct UploadFields {
+    pub external_id: String,
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub paired_event_id: Option<i64>,
+    pub device_name: Option<String>,
 }
 
 /// Send the file, the work behind [`send_activity_file`].
@@ -2207,6 +2230,11 @@ pub(crate) async fn perform_sync_from<S: Source>(
         return;
     }
     svc.begin_steps(SYNC_STEPS);
+    if let Some(Err(e)) = crate::persistence::with_persistent_engine_for(install, |engine| {
+        crate::persistence::activity_held_back::begin_download(&engine.db)
+    }) {
+        log::warn!("veloqrs: [Sync] could not reset the held-back count: {e}");
+    }
 
     let mut last_error: Option<SyncFailure> = None;
     let cancelled = || svc.is_cancelled();
@@ -2384,6 +2412,9 @@ pub(crate) async fn perform_sync_from<S: Source>(
     if success {
         crate::net::stream_backfill::autostart_stream_backfill();
     }
+    // Garmin is its own service: a sync that intervals.icu refused is no
+    // reason to leave Garmin's rides unpulled.
+    crate::net::garmin::pull::start(install);
 }
 
 /// [`perform_window_sync_from`] over the intervals.icu session a transport and
@@ -4668,6 +4699,21 @@ impl SyncManager {
     /// Disconnect Garmin: forget the key. Nothing already fetched is removed.
     fn clear_garmin_key(&self) {
         super::garmin_key::clear_garmin_key();
+    }
+
+    /// Pull Garmin's rides now: a paused pass goes on at once and a stopped
+    /// one starts. Returns whether a pass is running afterwards.
+    fn pull_garmin_now(&self) -> bool {
+        crate::net::garmin::pull::pull_now(crate::persistence::engine_install())
+    }
+
+    /// A webhook named this activity: start a Garmin pass when intervals.icu
+    /// says Garmin supplied it. Returns whether one started.
+    fn pull_garmin_for_activity(&self, activity_id: String) -> bool {
+        crate::net::garmin::pull::pull_for_webhook(
+            crate::persistence::engine_install(),
+            &activity_id,
+        )
     }
 
     /// Start a sync. Returns instantly, naming whether the job started and, if
@@ -11878,10 +11924,10 @@ mod write_auth_tests {
             Some("i2".into()),
             "/nowhere.fit".into(),
             "ride.fit".into(),
-            "ride".into(),
-            None,
-            None,
-            None,
+            UploadFields {
+                external_id: "ride".into(),
+                ..Default::default()
+            },
         ));
         let manual = futures::executor::block_on(send_manual_activity(
             Some("i2".into()),

@@ -455,6 +455,8 @@ export function ActivityDetailCard({
           hrZones={detail?.hrZones}
           powerZones={detail?.powerZones}
           intervalsId={detail?.intervalsId}
+          provenance={detail?.provenance}
+          heldBack={detail?.heldBack}
           transitionSettled={transitionSettled}
           onPointSelect={handlePointSelect}
           onInteractionChange={setChartInteracting}

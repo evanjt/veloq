@@ -161,3 +161,41 @@ describe('the setup slides an account can answer', () => {
     ).toEqual({ kind: 'leftover', slides: ['backup'] });
   });
 });
+
+describe('the Garmin setup slide', () => {
+  it('is answerable only for an athlete whose intervals.icu uses Garmin', () => {
+    const all = ['notifications', 'garmin', 'backup'] as const;
+    expect(setupSlidesAnswerable(all, { push: true, garmin: true })).toEqual([...all]);
+    expect(setupSlidesAnswerable(all, { push: true, garmin: false })).toEqual([
+      'notifications',
+      'backup',
+    ]);
+    expect(setupSlidesAnswerable(all, { push: true })).toEqual(['notifications', 'backup']);
+  });
+
+  it('is held out of the tour for an athlete who cannot answer it, and not owed afterwards', () => {
+    const slides = setupSlidesAnswerable(['notifications', 'garmin', 'backup'], {
+      push: true,
+      garmin: false,
+    });
+    expect(
+      tourOffer({ ...unseen, tourSetupSlides: slides, unavailableSlides: ['garmin'] })
+    ).toEqual({ kind: 'tour', held: ['garmin'] });
+    const closed = afterTourClosed(NO_TOUR_OFFER);
+    expect(
+      tourOffer({ ...unseen, lastSeenVersion: '0.4.0', record: closed, tourSetupSlides: slides })
+    ).toEqual({ kind: 'leftover', slides: ['notifications', 'backup'] });
+  });
+
+  it('is owed after a tour that left it unanswered', () => {
+    const closed = afterTourClosed(NO_TOUR_OFFER);
+    expect(
+      tourOffer({
+        ...unseen,
+        lastSeenVersion: '0.4.0',
+        record: closed,
+        tourSetupSlides: ['garmin'],
+      })
+    ).toEqual({ kind: 'leftover', slides: ['garmin'] });
+  });
+});

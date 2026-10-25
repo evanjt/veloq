@@ -17,6 +17,7 @@ import type {
   PoolSwim,
   ActivitySyncFailure,
   ActivityHeldBack,
+  ActivityProvenance,
   Section as NativeSection,
   SectionEncounter,
   SectionWithPolyline,
@@ -77,6 +78,8 @@ export interface ActivityDetailBundle {
   syncFailure: ActivitySyncFailure | null;
   /** Set when intervals.icu holds this activity but does not serve it to apps; null for a served one */
   heldBack: ActivityHeldBack | null;
+  /** Where the ride's data was filled from; null only before the read answers */
+  provenance: ActivityProvenance | null;
 }
 
 /** Route groups on the detail screen need at least this many attempts. */
@@ -150,6 +153,7 @@ function fetchActivityDetailData(activityId: string): DetailRead {
       poolSwim: result.poolSwim ?? null,
       syncFailure: result.syncFailure ?? null,
       heldBack: result.heldBack ?? null,
+      provenance: result.provenance ?? null,
     },
     error: undefined,
   };

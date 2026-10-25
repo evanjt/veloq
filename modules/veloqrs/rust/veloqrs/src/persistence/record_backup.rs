@@ -498,6 +498,7 @@ const RECORD_INTERNAL_SETTINGS: &[&str] = &[
     "__export_privacy_radius_m",
     "__stream_retention_days",
     "__auto_backup_enabled",
+    super::settings_keys::GARMIN_CONNECTOR_ENABLED,
 ];
 
 /// The export privacy home, which a record for shared storage leaves out.
@@ -524,6 +525,7 @@ const SHARED_STORAGE_LEFT_OUT: &[&str] = EXPORT_HOME;
 const DEVICE_SETTINGS: &[&str] = &[
     "veloq-upload-permission",
     super::settings_keys::SYNC_LAST_SUCCESS_AT,
+    super::settings_keys::HELD_BACK_IN_LAST_DOWNLOAD,
     crate::objects::sync::OLDEST_ACTIVITY_DATE_KEY,
     crate::objects::sync::ACTIVITY_YEAR_COUNTS_KEY,
     "veloq-terrain-override-cleanup-done",
@@ -540,7 +542,8 @@ const DEVICE_SETTINGS: &[&str] = &[
 /// and the restore both ask this, so a file the writer never produced cannot
 /// place a key the writer would have left out.
 pub(crate) fn is_record_setting(key: &str) -> bool {
-    if DEVICE_SETTINGS.contains(&key) {
+    // What the Garmin pull has fetched is the originals on this device.
+    if DEVICE_SETTINGS.contains(&key) || crate::net::garmin::pull::SETTING_KEYS.contains(&key) {
         return false;
     }
     !key.starts_with("__")
@@ -902,9 +905,49 @@ mod tests {
             "veloq-garmin-key-expiry",
             "veloq-garmin-feed",
             "veloq-garmin-upload",
-        ] {
+        ]
+        .into_iter()
+        .chain(crate::net::garmin::pull::SETTING_KEYS)
+        {
             assert!(!super::is_record_setting(key), "{key} travelled");
         }
+    }
+
+    /// Scenario: the athlete connected a Garmin key, then backs up and restores
+    /// onto a new phone, which holds no key.
+    /// Expected behaviour: the record carries the flag that says a key was
+    /// connected, so the connector can ask for it again, and no other Garmin
+    /// value travels with it.
+    #[test]
+    fn a_connected_garmin_connector_travels_as_a_flag_and_nothing_else() {
+        let from = crate::persistence::PersistentEngine::in_memory().unwrap();
+        from.set_setting("__garmin_connector_enabled", "true")
+            .unwrap();
+        from.set_setting("veloq-garmin-key-expiry", "2027-10-25")
+            .unwrap();
+        from.set_setting("veloq-garmin-feed", "true").unwrap();
+        from.set_setting("veloq-garmin-upload", "true").unwrap();
+
+        let payload = collect_record_payload(&from.db).unwrap();
+        let carried: Vec<String> = payload
+            .entries
+            .iter()
+            .filter(|row| row.table == "settings")
+            .filter_map(|row| row.values.get("key").and_then(serde_json::Value::as_str))
+            .filter(|key| key.contains("garmin"))
+            .map(str::to_string)
+            .collect();
+        assert_eq!(carried, vec!["__garmin_connector_enabled".to_string()]);
+
+        let mut to = crate::persistence::PersistentEngine::in_memory().unwrap();
+        to.restore_record_json(&serde_json::to_string(&payload).unwrap())
+            .unwrap();
+        assert_eq!(
+            to.get_setting("__garmin_connector_enabled")
+                .unwrap()
+                .as_deref(),
+            Some("true")
+        );
     }
 
     use super::{

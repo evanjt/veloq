@@ -13,12 +13,12 @@ import {
   growLngLat,
   lineFeature,
   type LngLat,
-  lngLatFromShort,
   type MapSourceSpec,
   type MapStyleType,
   MAP_CONTROL_GAP,
   MapControlButton,
   type MapCameraState,
+  type MapPressEvent,
   MapSurface,
   type MapSurfaceRef,
   useMapStyleToggle,
@@ -27,8 +27,15 @@ import {
   pointsBetweenSourceIndices,
 } from '@/features/maps';
 import { recordingMapLayers } from '../lib/recordingMapLayers';
-import { cameraMove, darkColors, mapPalette, spacing } from '@/theme';
-import type { LatLngShort } from '@/shared/geo/distance';
+import { cameraMove, darkColors, layout, mapPalette, spacing } from '@/theme';
+import {
+  NEARBY_ROUTE_HIT_LAYER,
+  followedRouteLine,
+  routeIdUnderPress,
+  unfollowedRouteLines,
+} from '../lib/nearbyRouteLines';
+import type { NearbyRouteView } from '../lib/nearbyRouteView';
+import { FollowedRouteChip } from './FollowedRouteChip';
 import { LOCATE_GLYPH } from '@/features/maps';
 
 /** Zoom held while the camera follows the current position. */
@@ -63,6 +70,9 @@ const REVIEW_FIT_PADDING = {
   left: 40,
 } as const;
 
+const NO_ROUTES: readonly NearbyRouteView[] = [];
+const INTERACTIVE_LAYERS = [NEARBY_ROUTE_HIT_LAYER];
+
 const NO_LINE = { points: [] as LngLat[], indices: [] as number[] };
 
 interface RecordingMapProps {
@@ -81,8 +91,12 @@ interface RecordingMapProps {
   fitBounds?: boolean | undefined; // When true, fit camera to route bounds instead of following position
   trimStart?: number | undefined; // Index for trim start (used with fitBounds)
   trimEnd?: number | undefined; // Index for trim end (used with fitBounds)
-  /** Saved route to follow, drawn under the live trace ([{lat, lng}] from the route engine) */
-  routeOverlay?: LatLngShort[] | null | undefined;
+  /** Saved routes near the fix, drawn faintly; a tap on one follows it. */
+  nearbyRoutes?: readonly NearbyRouteView[] | undefined;
+  /** The route being followed, drawn under the live trace and named on a chip. */
+  followedRoute?: NearbyRouteView | null | undefined;
+  onFollowRoute?: ((routeId: string) => void) | undefined;
+  onStopFollowing?: (() => void) | undefined;
   /** Opens the route picker; the layers button only renders when provided */
   onOpenRoutePicker?: (() => void) | undefined;
   /** Height over the map's foot that something else covers, which the credit sits above. */
@@ -98,7 +112,10 @@ function RecordingMapInner({
   fitBounds,
   trimStart,
   trimEnd,
-  routeOverlay,
+  nearbyRoutes,
+  followedRoute,
+  onFollowRoute,
+  onStopFollowing,
   onOpenRoutePicker,
   coveredBottom,
   style,
@@ -177,9 +194,21 @@ function RecordingMapInner({
     ]);
   }, [line, trim, count]);
 
+  // The sources stay mounted with empty collections when there is nothing to draw.
+  const nearbyLines = useMemo(
+    () => unfollowedRouteLines(nearbyRoutes ?? NO_ROUTES, followedRoute?.id ?? null),
+    [nearbyRoutes, followedRoute]
+  );
   const overlayRoute = useMemo(
-    () => featureCollection([lineFeature(routeOverlay ? lngLatFromShort(routeOverlay) : [])]),
-    [routeOverlay]
+    () => followedRouteLine(followedRoute ? [followedRoute] : NO_ROUTES, followedRoute?.id ?? null),
+    [followedRoute]
+  );
+  const handlePress = useCallback(
+    (event: MapPressEvent) => {
+      const routeId = routeIdUnderPress(event.feature);
+      if (routeId) onFollowRoute?.(routeId);
+    },
+    [onFollowRoute]
   );
 
   const position = useMemo(() => {
@@ -229,6 +258,7 @@ function RecordingMapInner({
 
   const sources = useMemo<Record<string, MapSourceSpec>>(
     () => ({
+      'nearby-routes': { kind: 'geojson', data: nearbyLines },
       'route-overlay': { kind: 'geojson', data: overlayRoute },
       'excluded-route': { kind: 'geojson', data: excludedRoute },
       // The live line only ever gains points at its end, so the surface ships
@@ -238,7 +268,7 @@ function RecordingMapInner({
       'current-accuracy': { kind: 'geojson', data: accuracyRing },
       'current-position': { kind: 'geojson', data: position },
     }),
-    [overlayRoute, excludedRoute, activeRoute, accuracyRing, position]
+    [nearbyLines, overlayRoute, excludedRoute, activeRoute, accuracyRing, position]
   );
 
   const layers = useMemo(
@@ -267,6 +297,8 @@ function RecordingMapInner({
         sources={sources}
         layers={layers}
         released={!screenFocused}
+        interactiveLayers={INTERACTIVE_LAYERS}
+        onPress={handlePress}
         onRegionDidChange={handleRegionDidChange}
       />
       <AttributionOverlay
@@ -275,13 +307,19 @@ function RecordingMapInner({
         bottomInset={coveredBottom}
       />
 
+      {followedRoute && onStopFollowing ? (
+        <View style={styles.followed} pointerEvents="box-none">
+          <FollowedRouteChip route={followedRoute} onStop={onStopFollowing} />
+        </View>
+      ) : null}
+
       {/* Map controls (live mode only) */}
       {!fitBounds && (
         <View style={styles.controls}>
           {onOpenRoutePicker ? (
             <MapControlButton
               testID="recording-map-route-overlay"
-              selected={!!routeOverlay}
+              selected={!!followedRoute}
               onPress={onOpenRoutePicker}
               accessibilityLabel={t('recording.routeOverlay.title')}
             >
@@ -316,6 +354,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: darkColors.surfacePage,
+  },
+  // Left of the map controls, which take the right edge.
+  followed: {
+    position: 'absolute',
+    left: spacing.sm,
+    right: layout.minTapTarget + spacing.md,
+    top: spacing.sm,
   },
   controls: {
     position: 'absolute',

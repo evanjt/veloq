@@ -14,6 +14,9 @@ use super::PersistentEngine;
 /// prefix distinguishes them from user-facing preferences set via
 /// `SettingsManager.set_setting`. TS code should treat these as opaque.
 pub mod settings_keys {
+    /// Whether a Garmin original no intervals.icu activity holds is uploaded
+    /// to intervals.icu (`"true"`). Off unless the athlete switched it on.
+    pub const GARMIN_UPLOAD: &str = "veloq-garmin-upload";
     /// Minimum match percentage threshold (f64 stored as decimal string).
     pub const MATCH_MIN_MATCH_PCT: &str = "__match_min_match_pct";
     /// Endpoint distance threshold in metres (f64 stored as decimal string).
@@ -82,6 +85,12 @@ pub mod settings_keys {
     pub const EXPORT_HOME_LNG: &str = "__export_home_lng";
     pub const EXPORT_PRIVACY_RADIUS_M: &str = "__export_privacy_radius_m";
 
+    /// Whether a Garmin Personal key was connected on this athlete's library,
+    /// set true when a key is kept and false when it is disconnected. It holds
+    /// no key, so it carries no secret: a record backup takes it, and a restore
+    /// onto a device without the key reads "Key needed" rather than "off".
+    pub const GARMIN_CONNECTOR_ENABLED: &str = "__garmin_connector_enabled";
+
     /// The athlete's fitness model events as intervals.icu answers them, the
     /// dated fitness and fatigue days among them. One small list read whole,
     /// so it is a key rather than a table. It belongs to the athlete, so a
@@ -91,6 +100,11 @@ pub mod settings_keys {
     /// When the last sync finished, written by the app's sync health. It
     /// belongs to the library that synced, so a clear takes it.
     pub const SYNC_LAST_SUCCESS_AT: &str = "sync.last_success_at";
+
+    /// How many activities the last download newly marked as held back by
+    /// intervals.icu, as a decimal string. It belongs to the library that
+    /// downloaded, so a clear takes it, and a backup does not carry it.
+    pub const HELD_BACK_IN_LAST_DOWNLOAD: &str = "sync.held_back_in_last_download";
 
     /// The notification templates for the locale JavaScript last resolved,
     /// with the locale tag beside them, as one JSON blob. A push handler

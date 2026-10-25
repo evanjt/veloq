@@ -13,13 +13,13 @@ import RecordingScreen from '@/app/recording/[type]';
 import { answerSheet } from '../__shared__/answerSheet';
 import { useSheetRequest } from '@/shared/app/sheetRequest';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { useRecordingLiveStore } from '@/features/recording/stores/RecordingLiveStore';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 
 const mockPush = jest.fn();
 let mockOpenRoutePicker: () => void = () => {};
 const mockParams: Record<string, string | undefined> = { type: 'Ride' };
-const mockOverlayReads: (string | null)[] = [];
 
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
@@ -41,12 +41,6 @@ jest.mock('@/shared/app/navigation', () => ({
 }));
 jest.mock('@/shared/ui/withScreenBoundary', () => ({
   withScreenBoundary: <P extends object>(Screen: React.ComponentType<P>) => Screen,
-}));
-jest.mock('@/features/routes', () => ({
-  useRepresentativeRoute: (routeId: string | null) => {
-    mockOverlayReads.push(routeId);
-    return { points: [] };
-  },
 }));
 jest.mock('@/features/recording', () =>
   require('../__shared__/recordingBarrelStub').withRecordingOverrides({
@@ -109,7 +103,7 @@ async function renderUnlocked() {
 
 beforeEach(() => {
   mockPush.mockClear();
-  mockOverlayReads.length = 0;
+  useRecordingLiveStore.getState().reset();
   useRecordingStore.getState().reset();
   useAuthStore.setState({ athleteId: 'athlete-a', isAuthenticated: true });
   useRecordingPreferences
@@ -143,7 +137,7 @@ describe('data field picker sheet', () => {
 });
 
 describe('route overlay picker sheet', () => {
-  const lastRead = () => mockOverlayReads.at(-1);
+  const lastRead = () => useRecordingLiveStore.getState().routeChoice?.routeId ?? null;
 
   it('opens with the sport and the current overlay, and applies the chosen route', async () => {
     await renderUnlocked();

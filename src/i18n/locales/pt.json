@@ -34,9 +34,13 @@
   },
   "activity": {
     "heldBack": {
-      "title": "Retida pelo intervals.icu",
+      "title": "Não partilhada pelo intervals.icu",
       "detail": "O intervals.icu guarda esta atividade, mas não a disponibiliza às apps, por isso os dados ficam vazios aqui.",
-      "detailGarmin": "Ligar o Garmin nas definições preenche-a a partir do original."
+      "detailGarmin": "Ligar a sua chave Garmin preenche-a a partir do original.",
+      "connectGarmin": "Ligar o Garmin"
+    },
+    "provenance": {
+      "garminOnPhone": "Preenchido a partir do seu arquivo Garmin"
     },
     "syncFailed": {
       "title": "Não foi possível sincronizar",
@@ -672,6 +676,8 @@
   "garmin": {
     "title": "Garmin",
     "rowSubtitle": "Chave pessoal",
+    "keyNeeded": "Chave necessária",
+    "keyNeededHint": "Cole de novo a sua chave do Garmin para continuar a trazer os seus treinos do Garmin.",
     "intro": "Cole a sua chave pessoal da Garmin para o Veloq mostrar os seus treinos Garmin.",
     "privacy": "A chave fica neste dispositivo e o Veloq nunca a recebe. Ligá-la é um ato seu, ao abrigo dos termos da Garmin.",
     "getKey": "Obter uma chave no Garmin Connect",
@@ -694,7 +700,25 @@
     "uploadHint": "Os treinos chegam então ao intervals.icu, a um treinador e às notificações apenas quando o Veloq está a correr. A importação Garmin do próprio intervals.icu é o caminho mais rápido.",
     "duplicateTitle": "O intervals.icu já importa as suas atividades Garmin",
     "duplicateDetail": "Os envios do Veloq apareceriam duas vezes. No intervals.icu, desative Atividades e mantenha Bem-estar e Treinos planeados. O Veloq não altera essas definições.",
-    "openConnections": "Abrir as ligações do intervals.icu"
+    "openConnections": "Abrir as ligações do intervals.icu",
+    "offerTitle_one": "{{count}} treino Garmin chegou sem os seus dados",
+    "offerTitle_many": "{{count}} de treinos Garmin chegaram sem os seus dados",
+    "offerTitle_other": "{{count}} treinos Garmin chegaram sem os seus dados",
+    "offerBody": "O intervals.icu já não partilha os treinos Garmin com aplicações. Ligue a Garmin para os obter.",
+    "offerConnect": "Ligar a Garmin",
+    "pullTitle": "Treinos da Garmin",
+    "pullStored_one": "{{count}} guardado",
+    "pullStored_many": "{{count}} de treinos guardados",
+    "pullStored_other": "{{count}} guardados",
+    "pullReached": "recuado até {{month}}",
+    "pullRunning": "Em curso",
+    "pullPaused": "Em pausa até às {{time}}",
+    "pullIdle": "A aguardar o início",
+    "pullDone": "Atualizado",
+    "pullStoppedKey": "Parado: a Garmin não aceitou a chave",
+    "pullStoppedUnreachable": "Parado: não foi possível contactar a Garmin",
+    "pullStoppedStorage": "Parado: sem local para guardar os treinos",
+    "pullNow": "Obter agora"
   },
   "intervalTypes": {
     "work": {
@@ -1628,7 +1652,11 @@
       "empty": "Ainda não há rotas guardadas para este desporto.",
       "activities_one": "{{count}} atividade",
       "activities_many": "{{count}} de atividades",
-      "activities_other": "{{count}} atividades"
+      "activities_other": "{{count}} atividades",
+      "following": "A seguir {{name}}",
+      "pr": "Recorde {{time}}",
+      "nearby": "Perto",
+      "allRoutes": "Todas as rotas"
     },
     "returnToRecording": "Voltar à gravação",
     "batteryOptNudge": "As gravações longas funcionam melhor com a otimização de bateria desativada para o Veloq.",
@@ -2563,6 +2591,9 @@
       "notificationsBody": "Quando o intervals.icu recebe uma nova atividade, o Veloq pode dizer-lhe o que encontrou: um recorde pessoal, um tempo mais rápido do que o habitual ou um avanço na forma. Estes são exemplos do que chega.",
       "turnOn": "Ativar",
       "neverRemind": "Não voltar a lembrar",
+      "garminTitle": "Treinos Garmin",
+      "garminBody": "O intervals.icu já não partilha os treinos Garmin com aplicações. Com uma chave Garmin, o Veloq obtém-nos da própria Garmin.",
+      "garminWhy": "Os treinos chegam completos, com os seus dados. A chave fica neste dispositivo.",
       "notificationsNeedSignIn": "As notificações precisam de uma sessão iniciada com o intervals.icu.",
       "notificationsOn": "As notificações estão ativadas. Pode alterá-las nas Definições.",
       "notificationsExampleSection": "Subida do Porto",

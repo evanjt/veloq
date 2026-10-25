@@ -4240,6 +4240,48 @@ const FfiConverterTypeFfiActivityHeldBack = (() => {
 })();
 
 /**
+ * Where an activity's data was filled from, as its screen says it.
+ */
+export enum FfiActivityProvenance {
+  /**
+   * The copy intervals.icu holds itself, with nothing filled in from a Garmin file.
+   */
+  Intervals,
+  /**
+   * A Garmin original stored on this phone, which fills the activity.
+   */
+  GarminOnPhone,
+}
+
+const FfiConverterTypeFfiActivityProvenance = (() => {
+  type TypeName = FfiActivityProvenance;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return FfiActivityProvenance.Intervals;
+        case 2:
+          return FfiActivityProvenance.GarminOnPhone;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value) {
+        case FfiActivityProvenance.Intervals:
+          return c.writeI32(1);
+        case FfiActivityProvenance.GarminOnPhone:
+          return c.writeI32(2);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return 4;
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * All data needed to paint the activity detail screen in one call.
  * Replaces a fan-out that grew one trace extraction per matched section.
  */
@@ -4360,6 +4402,10 @@ export type FfiActivityDetailData = {
    * apps, which is why its figures are empty. None for a served activity.
    */
   heldBack?: FfiActivityHeldBack;
+  /**
+   * Where the activity's data was filled from, so the screen can say so.
+   */
+  provenance: FfiActivityProvenance;
 };
 
 /**
@@ -4416,6 +4462,7 @@ const FfiConverterTypeFfiActivityDetailData = (() => {
         syncFailure:
           FfiConverterOptionalTypeFfiActivitySyncFailure.readFromCursor(c),
         heldBack: FfiConverterOptionalTypeFfiActivityHeldBack.readFromCursor(c),
+        provenance: FfiConverterTypeFfiActivityProvenance.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -4478,6 +4525,10 @@ const FfiConverterTypeFfiActivityDetailData = (() => {
         value.heldBack,
         c,
       );
+      FfiConverterTypeFfiActivityProvenance.writeIntoCursor(
+        value.provenance,
+        c,
+      );
     }
     allocationSize(value: TypeName): number {
       return (
@@ -4527,7 +4578,8 @@ const FfiConverterTypeFfiActivityDetailData = (() => {
         ) +
         FfiConverterOptionalTypeFfiActivityHeldBack.allocationSize(
           value.heldBack,
-        )
+        ) +
+        FfiConverterTypeFfiActivityProvenance.allocationSize(value.provenance)
       );
     }
   }
@@ -5652,6 +5704,189 @@ const FfiConverterTypeFfiJobRun = (() => {
 })();
 
 /**
+ * Where the Garmin pull stands.
+ */
+export enum FfiGarminPullPhase {
+  /**
+   * No pass has run in this process; the next sync starts one.
+   */
+  Idle,
+  Running,
+  /**
+   * Garmin asked for a pause; nothing is sent before `resume_at`.
+   */
+  Paused,
+  /**
+   * Every ride back to the oldest has been walked.
+   */
+  Done,
+  /**
+   * The pass ended on `halt`.
+   */
+  Stopped,
+}
+
+const FfiConverterTypeFfiGarminPullPhase = (() => {
+  type TypeName = FfiGarminPullPhase;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return FfiGarminPullPhase.Idle;
+        case 2:
+          return FfiGarminPullPhase.Running;
+        case 3:
+          return FfiGarminPullPhase.Paused;
+        case 4:
+          return FfiGarminPullPhase.Done;
+        case 5:
+          return FfiGarminPullPhase.Stopped;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value) {
+        case FfiGarminPullPhase.Idle:
+          return c.writeI32(1);
+        case FfiGarminPullPhase.Running:
+          return c.writeI32(2);
+        case FfiGarminPullPhase.Paused:
+          return c.writeI32(3);
+        case FfiGarminPullPhase.Done:
+          return c.writeI32(4);
+        case FfiGarminPullPhase.Stopped:
+          return c.writeI32(5);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return 4;
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Why a Garmin pass stopped.
+ */
+export enum FfiGarminHalt {
+  KeyRejected,
+  Unreachable,
+  Unstorable,
+}
+
+const FfiConverterTypeFfiGarminHalt = (() => {
+  type TypeName = FfiGarminHalt;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return FfiGarminHalt.KeyRejected;
+        case 2:
+          return FfiGarminHalt.Unreachable;
+        case 3:
+          return FfiGarminHalt.Unstorable;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value) {
+        case FfiGarminHalt.KeyRejected:
+          return c.writeI32(1);
+        case FfiGarminHalt.Unreachable:
+          return c.writeI32(2);
+        case FfiGarminHalt.Unstorable:
+          return c.writeI32(3);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return 4;
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * The Garmin pull's count, month and terminal state, for the settings screen.
+ */
+export type FfiGarminPull = {
+  phase: FfiGarminPullPhase;
+  /**
+   * Milliseconds since the epoch that a paused pass resumes at.
+   */
+  resumeAt?: WholeNumber;
+  /**
+   * Set when `phase` is `Stopped`.
+   */
+  halt?: FfiGarminHalt;
+  /**
+   * Originals this device has stored from Garmin.
+   */
+  stored: number;
+  /**
+   * The earliest month the history pull has finished, as `YYYY-MM`.
+   */
+  reachedMonth?: string;
+  /**
+   * Whether the history pull has passed the oldest ride.
+   */
+  backfillDone: boolean;
+};
+
+/**
+ * Generated factory for {@link FfiGarminPull} record objects.
+ */
+export const FfiGarminPull = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiGarminPull, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiGarminPull>,
+  });
+})();
+
+const FfiConverterTypeFfiGarminPull = (() => {
+  type TypeName = FfiGarminPull;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        phase: FfiConverterTypeFfiGarminPullPhase.readFromCursor(c),
+        resumeAt: FfiConverterOptionalTypeWholeNumber.readFromCursor(c),
+        halt: FfiConverterOptionalTypeFfiGarminHalt.readFromCursor(c),
+        stored: FfiConverterUInt32.readFromCursor(c),
+        reachedMonth: FfiConverterOptionalString.readFromCursor(c),
+        backfillDone: FfiConverterBool.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterTypeFfiGarminPullPhase.writeIntoCursor(value.phase, c);
+      FfiConverterOptionalTypeWholeNumber.writeIntoCursor(value.resumeAt, c);
+      FfiConverterOptionalTypeFfiGarminHalt.writeIntoCursor(value.halt, c);
+      FfiConverterUInt32.writeIntoCursor(value.stored, c);
+      FfiConverterOptionalString.writeIntoCursor(value.reachedMonth, c);
+      FfiConverterBool.writeIntoCursor(value.backfillDone, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterTypeFfiGarminPullPhase.allocationSize(value.phase) +
+        FfiConverterOptionalTypeWholeNumber.allocationSize(value.resumeAt) +
+        FfiConverterOptionalTypeFfiGarminHalt.allocationSize(value.halt) +
+        FfiConverterUInt32.allocationSize(value.stored) +
+        FfiConverterOptionalString.allocationSize(value.reachedMonth) +
+        FfiConverterBool.allocationSize(value.backfillDone)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * What the background jobs have done and still owe, read once each time a job
  * settles or activities land. The running progress is not here: it moves on
  * every item and stays on the routes status poll.
@@ -5676,6 +5911,10 @@ export type FfiBackgroundJobsData = {
    * day, is empty, or cannot be counted.
    */
   streamDaysToFinish?: number;
+  /**
+   * The Garmin pull, `None` while no Garmin key is held.
+   */
+  garminPull?: FfiGarminPull;
 };
 
 /**
@@ -5705,6 +5944,7 @@ const FfiConverterTypeFfiBackgroundJobsData = (() => {
         detectionAwaiting: FfiConverterOptionalUInt32.readFromCursor(c),
         cutoverOwed: FfiConverterBool.readFromCursor(c),
         streamDaysToFinish: FfiConverterOptionalUInt32.readFromCursor(c),
+        garminPull: FfiConverterOptionalTypeFfiGarminPull.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -5712,13 +5952,18 @@ const FfiConverterTypeFfiBackgroundJobsData = (() => {
       FfiConverterOptionalUInt32.writeIntoCursor(value.detectionAwaiting, c);
       FfiConverterBool.writeIntoCursor(value.cutoverOwed, c);
       FfiConverterOptionalUInt32.writeIntoCursor(value.streamDaysToFinish, c);
+      FfiConverterOptionalTypeFfiGarminPull.writeIntoCursor(
+        value.garminPull,
+        c,
+      );
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterSequenceTypeFfiJobRun.allocationSize(value.runs) +
         FfiConverterOptionalUInt32.allocationSize(value.detectionAwaiting) +
         FfiConverterBool.allocationSize(value.cutoverOwed) +
-        FfiConverterOptionalUInt32.allocationSize(value.streamDaysToFinish)
+        FfiConverterOptionalUInt32.allocationSize(value.streamDaysToFinish) +
+        FfiConverterOptionalTypeFfiGarminPull.allocationSize(value.garminPull)
       );
     }
   }
@@ -15161,6 +15406,82 @@ const FfiConverterTypeFfiNamedCorridor = (() => {
 })();
 
 /**
+ * One saved route near the recording fix, with what the record screen shows for it.
+ */
+export type FfiNearbyRoute = {
+  groupId: string;
+  name: string;
+  /**
+   * The route's own length, the representative's distance in metres, 0 when unmeasured.
+   */
+  distanceMeters: number;
+  /**
+   * How far the route's bounding box lies from the fix, 0 when it contains it.
+   */
+  awayMeters: number;
+  /**
+   * The best counted time in the route's sport, `None` when no attempt has one.
+   */
+  bestTimeSeconds?: number;
+  /**
+   * The representative's simplified line, empty when it has no stored signature.
+   */
+  encodedCoords: ArrayBuffer;
+};
+
+/**
+ * Generated factory for {@link FfiNearbyRoute} record objects.
+ */
+export const FfiNearbyRoute = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiNearbyRoute, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiNearbyRoute>,
+  });
+})();
+
+const FfiConverterTypeFfiNearbyRoute = (() => {
+  type TypeName = FfiNearbyRoute;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        groupId: FfiConverterString.readFromCursor(c),
+        name: FfiConverterString.readFromCursor(c),
+        distanceMeters: FfiConverterFloat64.readFromCursor(c),
+        awayMeters: FfiConverterFloat64.readFromCursor(c),
+        bestTimeSeconds: FfiConverterOptionalUInt32.readFromCursor(c),
+        encodedCoords: FfiConverterArrayBuffer.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.groupId, c);
+      FfiConverterString.writeIntoCursor(value.name, c);
+      FfiConverterFloat64.writeIntoCursor(value.distanceMeters, c);
+      FfiConverterFloat64.writeIntoCursor(value.awayMeters, c);
+      FfiConverterOptionalUInt32.writeIntoCursor(value.bestTimeSeconds, c);
+      FfiConverterArrayBuffer.writeIntoCursor(value.encodedCoords, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.groupId) +
+        FfiConverterString.allocationSize(value.name) +
+        FfiConverterFloat64.allocationSize(value.distanceMeters) +
+        FfiConverterFloat64.allocationSize(value.awayMeters) +
+        FfiConverterOptionalUInt32.allocationSize(value.bestTimeSeconds) +
+        FfiConverterArrayBuffer.allocationSize(value.encodedCoords)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Where the off-thread open stands.
  *
  * The wire carries the variant's position, so the order here is the contract:
@@ -23576,6 +23897,12 @@ export type FfiSyncStatus = {
    * itself after the sync has settled is reported all the same.
    */
   tracks?: FfiTrackStage;
+  /**
+   * How many activities the last download newly marked as held back by
+   * intervals.icu, which it serves as empty stubs. Zero before any download
+   * and after one that found none.
+   */
+  heldBackInLastDownload: number;
 };
 
 /**
@@ -23613,6 +23940,7 @@ const FfiConverterTypeFfiSyncStatus = (() => {
         lastSuccessAt: FfiConverterOptionalString.readFromCursor(c),
         retryAtMs: FfiConverterOptionalFloat64.readFromCursor(c),
         tracks: FfiConverterOptionalTypeFfiTrackStage.readFromCursor(c),
+        heldBackInLastDownload: FfiConverterUInt32.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -23631,6 +23959,7 @@ const FfiConverterTypeFfiSyncStatus = (() => {
       FfiConverterOptionalString.writeIntoCursor(value.lastSuccessAt, c);
       FfiConverterOptionalFloat64.writeIntoCursor(value.retryAtMs, c);
       FfiConverterOptionalTypeFfiTrackStage.writeIntoCursor(value.tracks, c);
+      FfiConverterUInt32.writeIntoCursor(value.heldBackInLastDownload, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -23647,7 +23976,8 @@ const FfiConverterTypeFfiSyncStatus = (() => {
         ) +
         FfiConverterOptionalString.allocationSize(value.lastSuccessAt) +
         FfiConverterOptionalFloat64.allocationSize(value.retryAtMs) +
-        FfiConverterOptionalTypeFfiTrackStage.allocationSize(value.tracks)
+        FfiConverterOptionalTypeFfiTrackStage.allocationSize(value.tracks) +
+        FfiConverterUInt32.allocationSize(value.heldBackInLastDownload)
       );
     }
   }
@@ -33265,6 +33595,17 @@ export interface RouteManagerLike {
     sportFilter: string | undefined,
     highlightActivityId: string | undefined,
   ) /*throws*/ : FfiSectionPerformanceData;
+  /**
+   * The saved routes of `sport`'s family near the fix, nearest first: each with its name,
+   * length, best time and simplified line, for the record screen's map and list. The
+   * route being followed comes back too, wherever it lies.
+   */
+  getNearbyForRecording(
+    latitude: number,
+    longitude: number,
+    sport: string,
+    followedRouteId: string | undefined,
+  ) /*throws*/ : Array<FfiNearbyRoute>;
   getPerformances(
     groupId: string,
     currentActivityId: string | undefined,
@@ -33439,6 +33780,43 @@ export class RouteManager
     );
     try {
       return FfiConverterTypeFfiSectionPerformanceData.lift(__rb);
+    } finally {
+      nativeModule().rustbuffer_free(__rb);
+    }
+  }
+
+  /**
+   * The saved routes of `sport`'s family near the fix, nearest first: each with its name,
+   * length, best time and simplified line, for the record screen's map and list. The
+   * route being followed comes back too, wherever it lies.
+   */
+  getNearbyForRecording(
+    latitude: number,
+    longitude: number,
+    sport: string,
+    followedRouteId: string | undefined,
+  ): Array<FfiNearbyRoute> /*throws*/ {
+    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_get_nearby_for_recording(
+          uniffiTypeRouteManagerObjectFactory.clonePointer(this),
+          FfiConverterFloat64.lower(latitude, nativeModule().rustbuffer_alloc),
+          FfiConverterFloat64.lower(longitude, nativeModule().rustbuffer_alloc),
+          FfiConverterString.lower(sport, nativeModule().rustbuffer_alloc),
+          FfiConverterOptionalString.lower(
+            followedRouteId,
+            nativeModule().rustbuffer_alloc,
+          ),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+      return FfiConverterSequenceTypeFfiNearbyRoute.lift(__rb);
     } finally {
       nativeModule().rustbuffer_free(__rb);
     }
@@ -36961,6 +37339,16 @@ export interface SyncManagerLike {
    */
   libraryCoverage(): LibraryCoverage;
   /**
+   * A webhook named this activity: start a Garmin pass when intervals.icu
+   * says Garmin supplied it. Returns whether one started.
+   */
+  pullGarminForActivity(activityId: string): boolean;
+  /**
+   * Pull Garmin's rides now: a paused pass goes on at once and a stopped
+   * one starts. Returns whether a pass is running afterwards.
+   */
+  pullGarminNow(): boolean;
+  /**
    * What a date range holds: nothing, a download still owed, or every
    * activity in it local and current.
    *
@@ -37275,6 +37663,46 @@ export class SyncManager
     } finally {
       nativeModule().rustbuffer_free(__rb);
     }
+  }
+
+  /**
+   * A webhook named this activity: start a Garmin pass when intervals.icu
+   * says Garmin supplied it. Returns whether one started.
+   */
+  pullGarminForActivity(activityId: string): boolean {
+    return FfiConverterBool.lift(
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_pull_garmin_for_activity(
+            uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(
+              activityId,
+              nativeModule().rustbuffer_alloc,
+            ),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+      ),
+    );
+  }
+
+  /**
+   * Pull Garmin's rides now: a paused pass goes on at once and a stopped
+   * one starts. Returns whether a pass is running afterwards.
+   */
+  pullGarminNow(): boolean {
+    return FfiConverterBool.lift(
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_pull_garmin_now(
+            uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+      ),
+    );
   }
 
   /**
@@ -39326,6 +39754,21 @@ const FfiConverterSequenceTypeFfiJobRun = new FfiConverterArray(
   FfiConverterTypeFfiJobRun,
 );
 
+// FfiConverter for WholeNumber | undefined
+const FfiConverterOptionalTypeWholeNumber = new FfiConverterOptional(
+  FfiConverterTypeWholeNumber,
+);
+
+// FfiConverter for FfiGarminHalt | undefined
+const FfiConverterOptionalTypeFfiGarminHalt = new FfiConverterOptional(
+  FfiConverterTypeFfiGarminHalt,
+);
+
+// FfiConverter for FfiGarminPull | undefined
+const FfiConverterOptionalTypeFfiGarminPull = new FfiConverterOptional(
+  FfiConverterTypeFfiGarminPull,
+);
+
 // FfiConverter for SuggestedHome | undefined
 const FfiConverterOptionalTypeSuggestedHome = new FfiConverterOptional(
   FfiConverterTypeSuggestedHome,
@@ -39417,11 +39860,6 @@ const FfiConverterOptionalTypeFfiFloat32Array = new FfiConverterOptional(
 // FfiConverter for FfiLapDelta | undefined
 const FfiConverterOptionalTypeFfiLapDelta = new FfiConverterOptional(
   FfiConverterTypeFfiLapDelta,
-);
-
-// FfiConverter for WholeNumber | undefined
-const FfiConverterOptionalTypeWholeNumber = new FfiConverterOptional(
-  FfiConverterTypeWholeNumber,
 );
 
 // FfiConverter for Array<FfiEfficiencyPoint>
@@ -40072,6 +40510,11 @@ const FfiConverterOptionalTypeFfiRecordingEntry = new FfiConverterOptional(
 // FfiConverter for Array<FfiRecordingEntry>
 const FfiConverterSequenceTypeFfiRecordingEntry = new FfiConverterArray(
   FfiConverterTypeFfiRecordingEntry,
+);
+
+// FfiConverter for Array<FfiNearbyRoute>
+const FfiConverterSequenceTypeFfiNearbyRoute = new FfiConverterArray(
+  FfiConverterTypeFfiNearbyRoute,
 );
 
 // FfiConverter for Array<LiveRouteOverlap>
@@ -41468,6 +41911,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_nearby_for_recording() !==
+    34827
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_routemanager_get_nearby_for_recording",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_performances() !==
     27410
   ) {
@@ -42268,6 +42719,22 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_pull_garmin_for_activity() !==
+    32220
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_syncmanager_pull_garmin_for_activity",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_pull_garmin_now() !==
+    4838
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_syncmanager_pull_garmin_now",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_range_coverage() !==
     21996
   ) {
@@ -42713,6 +43180,7 @@ export default Object.freeze({
     FfiConverterTypeFfiActivityNewGround,
     FfiConverterTypeFfiActivityNotification,
     FfiConverterTypeFfiActivityPattern,
+    FfiConverterTypeFfiActivityProvenance,
     FfiConverterTypeFfiActivityRecord,
     FfiConverterTypeFfiActivityRouteHighlight,
     FfiConverterTypeFfiActivityStreams,
@@ -42779,6 +43247,9 @@ export default Object.freeze({
     FfiConverterTypeFfiFloat32Array,
     FfiConverterTypeFfiFocusRange,
     FfiConverterTypeFfiFtpTrend,
+    FfiConverterTypeFfiGarminHalt,
+    FfiConverterTypeFfiGarminPull,
+    FfiConverterTypeFfiGarminPullPhase,
     FfiConverterTypeFfiGpsPassStart,
     FfiConverterTypeFfiGpsPoint,
     FfiConverterTypeFfiGroupSort,
@@ -42819,6 +43290,7 @@ export default Object.freeze({
     FfiConverterTypeFfiMuscleGroupDetail,
     FfiConverterTypeFfiMuscleVolume,
     FfiConverterTypeFfiNamedCorridor,
+    FfiConverterTypeFfiNearbyRoute,
     FfiConverterTypeFfiOffScale,
     FfiConverterTypeFfiOpenPhase,
     FfiConverterTypeFfiOpenProgress,

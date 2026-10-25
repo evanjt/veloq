@@ -20,6 +20,15 @@ data class PushCredential(val method: String, val secret: String, val athleteId:
     private const val API_KEY = "intervals_api_key"
     private const val ACCESS_TOKEN = "intervals_access_token"
     private const val ATHLETE_ID = "intervals_athlete_id"
+    private const val GARMIN_KEY = "garmin_personal_key"
+
+    /**
+     * The Garmin Personal key the athlete pasted, or null when none is stored.
+     * It goes to Rust for the push in hand and is never kept anywhere else.
+     */
+    @JvmStatic
+    fun garminKey(context: Context): String? =
+      SecureStoreReader.read(context, GARMIN_KEY)?.trim()?.takeIf { it.isNotEmpty() }
 
     /**
      * What the store holds: the credential, nothing because the athlete signed

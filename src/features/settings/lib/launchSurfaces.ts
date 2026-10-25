@@ -21,7 +21,8 @@
  * after it. After it, a session (one
  * process lifetime) raises one ask at most, the first eligible in `ASK_ORDER`:
  * the athlete's data first, then what the app does on its own, then what is
- * only helpful. Each surface decides its own eligibility; this only chooses
+ * only helpful. The Garmin offer sits with the second, after the tour and notification asks, and
+ * waits out the quiet period. Each surface decides its own eligibility; this only chooses
  * among the eligible. The ask that took the slot keeps it, and once it is
  * answered nothing else asks until the next session. No ask shows while a modal
  * or the tour is up.
@@ -30,7 +31,13 @@
 export type LaunchModal = 'libraryRebuilt';
 
 export type LaunchAsk =
-  'restore' | 'sectionsChanged' | 'seriesConsent' | 'tourOffer' | 'notifications' | 'support';
+  | 'restore'
+  | 'sectionsChanged'
+  | 'seriesConsent'
+  | 'tourOffer'
+  | 'notifications'
+  | 'garmin'
+  | 'support';
 
 /** The order a session after the quiet period picks its one ask in. */
 export const ASK_ORDER: readonly LaunchAsk[] = [
@@ -39,6 +46,7 @@ export const ASK_ORDER: readonly LaunchAsk[] = [
   'seriesConsent',
   'tourOffer',
   'notifications',
+  'garmin',
   'support',
 ];
 

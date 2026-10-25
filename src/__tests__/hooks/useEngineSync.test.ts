@@ -90,6 +90,7 @@ function settled(lastError?: string): SyncStatus {
     total: 0,
     stepItemsDone: 0,
     stepItemsTotal: 0,
+    heldBackInLastDownload: 0,
     ...(lastError !== undefined && { lastError }),
   };
 }
@@ -154,6 +155,7 @@ describe('useEngineSync', () => {
       total: 7,
       stepItemsDone: 0,
       stepItemsTotal: 0,
+      heldBackInLastDownload: 0,
     };
 
     await renderHook(() => useEngineSync());
@@ -195,6 +197,7 @@ describe('useEngineSync', () => {
       total: 7,
       stepItemsDone: 0,
       stepItemsTotal: 0,
+      heldBackInLastDownload: 0,
     };
 
     await renderHook(() => useEngineSync());
@@ -302,6 +305,7 @@ describe('useEngineSync', () => {
       total: 1,
       stepItemsDone: 0,
       stepItemsTotal: 0,
+      heldBackInLastDownload: 0,
     };
     await act(async () => await rerender(undefined));
     mockStatus = settled('connection reset');
@@ -327,6 +331,7 @@ describe('useEngineSync', () => {
       total: 1,
       stepItemsDone: 0,
       stepItemsTotal: 0,
+      heldBackInLastDownload: 0,
     };
     await act(async () => await rerender(undefined));
     mockStatus = settled('timed out');
@@ -349,6 +354,7 @@ describe('useEngineSync', () => {
       total: 1,
       stepItemsDone: 0,
       stepItemsTotal: 0,
+      heldBackInLastDownload: 0,
     };
     await act(async () => await rerender(undefined));
     mockStatus = settled();
@@ -390,6 +396,7 @@ describe('useEngineSync', () => {
         total: 1,
         stepItemsDone: 0,
         stepItemsTotal: 0,
+        heldBackInLastDownload: 0,
       };
       await act(async () => await rerender(undefined));
       mockStatus = settled(lastError);
@@ -411,6 +418,7 @@ describe('useEngineSync', () => {
       total: 1,
       stepItemsDone: 0,
       stepItemsTotal: 0,
+      heldBackInLastDownload: 0,
     };
     await act(async () => await rerender(undefined));
     mockStatus = {
@@ -420,6 +428,7 @@ describe('useEngineSync', () => {
       total: 0,
       stepItemsDone: 0,
       stepItemsTotal: 0,
+      heldBackInLastDownload: 0,
       lastError: '401',
     };
     await act(async () => await rerender(undefined));
@@ -443,6 +452,7 @@ describe('useEngineSync', () => {
       total: 1,
       stepItemsDone: 0,
       stepItemsTotal: 0,
+      heldBackInLastDownload: 0,
     };
     await act(() => rerender(undefined));
     expect(mockScheduleWidgetSnapshot).not.toHaveBeenCalled();
@@ -467,6 +477,7 @@ describe('useEngineSync', () => {
       total: 9,
       stepItemsDone: 0,
       stepItemsTotal: 0,
+      heldBackInLastDownload: 0,
     };
     await act(async () => await rerender(undefined));
     mockStatus = settled('connection reset');
@@ -498,6 +509,7 @@ describe('useEngineSync', () => {
       total: 1,
       stepItemsDone: 0,
       stepItemsTotal: 0,
+      heldBackInLastDownload: 0,
     };
     await act(async () => await rerender(undefined));
     mockStatus = settled();
@@ -561,6 +573,7 @@ describe('useEngineSync', () => {
       total: 1,
       stepItemsDone: 0,
       stepItemsTotal: 0,
+      heldBackInLastDownload: 0,
     };
     await act(async () => await rerender(undefined));
     mockStatus = settled();
@@ -604,6 +617,7 @@ describe('useEngineSync', () => {
       total: 1,
       stepItemsDone: 0,
       stepItemsTotal: 0,
+      heldBackInLastDownload: 0,
     };
     await act(async () => await rerender(undefined));
     mockStatus = settled('connection reset');

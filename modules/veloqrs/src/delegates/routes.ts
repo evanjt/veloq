@@ -7,6 +7,7 @@
  */
 
 import type {
+  FfiNearbyRoute,
   FfiRouteGroup,
   FfiRouteDetailData,
   FfiRoutePerformanceResult,
@@ -198,6 +199,25 @@ export function getRouteDetailData(
 ): RouteDetailData | undefined {
   if (!host.ready || !groupId) return undefined;
   return host.timed('getRouteDetailData', () => host.engine.routes().getDetailData(groupId));
+}
+
+/**
+ * The saved routes of the sport near a fix, nearest first, each with its name, length, best
+ * time and simplified line: the record screen's one read of its nearby routes.
+ */
+export type NearbyRoute = FfiNearbyRoute;
+
+export function getNearbyRoutesForRecording(
+  host: DelegateHost,
+  latitude: number,
+  longitude: number,
+  sport: string,
+  followedRouteId?: string
+): NearbyRoute[] {
+  if (!host.ready) return [];
+  return host.timed('getNearbyRoutesForRecording', () =>
+    host.engine.routes().getNearbyForRecording(latitude, longitude, sport, followedRouteId)
+  );
 }
 
 /**

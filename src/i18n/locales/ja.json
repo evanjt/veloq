@@ -34,9 +34,13 @@
   },
   "activity": {
     "heldBack": {
-      "title": "intervals.icu が保持しています",
+      "title": "intervals.icu では共有されていません",
       "detail": "intervals.icu はこのアクティビティを保持していますが、アプリには提供していないため、ここではデータが空です。",
-      "detailGarmin": "設定で Garmin を接続すると、元のデータで補われます。"
+      "detailGarmin": "Garmin のキーを接続すると、元のデータで補われます。",
+      "connectGarmin": "Garmin を接続"
+    },
+    "provenance": {
+      "garminOnPhone": "Garmin のファイルから補完"
     },
     "syncFailed": {
       "title": "同期できませんでした",
@@ -658,6 +662,8 @@
   "garmin": {
     "title": "Garmin",
     "rowSubtitle": "パーソナルキー",
+    "keyNeeded": "キーの再入力が必要",
+    "keyNeededHint": "Garminのキーをもう一度貼り付けると、Garminのライドの取り込みを続けられます。",
     "intro": "VeloqにGarminのライドを表示させるには、GarminのパーソナルAPIキーを貼り付けてください。",
     "privacy": "キーはこのデバイスに残り、Veloqには送られません。接続はGarminの規約に基づくあなた自身の操作です。",
     "getKey": "Garmin Connectでキーを取得",
@@ -680,7 +686,23 @@
     "uploadHint": "この場合、ライドがintervals.icu、コーチ、通知に届くのはVeloqが動作しているときだけです。intervals.icu自身のGarminインポートの方が早く届きます。",
     "duplicateTitle": "intervals.icuはすでにGarminのアクティビティを取り込んでいます",
     "duplicateDetail": "Veloqからのアップロードは二重に表示されます。intervals.icuで「アクティビティ」をオフにし、「ウェルネス」と「予定のワークアウト」はオンのままにしてください。Veloqはこれらの設定を変更しません。",
-    "openConnections": "intervals.icuの接続を開く"
+    "openConnections": "intervals.icuの接続を開く",
+    "offerTitle_one": "{{count}}件のGarminライドがデータなしで届きました",
+    "offerTitle_other": "{{count}}件のGarminライドがデータなしで届きました",
+    "offerBody": "intervals.icuはGarminのライドをアプリと共有しなくなりました。Garminを接続すると取り込めます。",
+    "offerConnect": "Garminを接続",
+    "pullTitle": "Garminのライド",
+    "pullStored_one": "{{count}}件を保存済み",
+    "pullStored_other": "{{count}}件を保存済み",
+    "pullReached": "{{month}}まで取得済み",
+    "pullRunning": "実行中",
+    "pullPaused": "{{time}}まで一時停止中",
+    "pullIdle": "開始待ち",
+    "pullDone": "最新です",
+    "pullStoppedKey": "停止:Garminがキーを受け付けませんでした",
+    "pullStoppedUnreachable": "停止:Garminに接続できませんでした",
+    "pullStoppedStorage": "停止:ライドを保存する場所がありません",
+    "pullNow": "今すぐ取得"
   },
   "intervalTypes": {
     "work": {
@@ -1603,7 +1625,11 @@
       "none": "ルートなし",
       "empty": "このスポーツの保存済みルートはまだありません。",
       "activities_one": "{{count}}件のアクティビティ",
-      "activities_other": "{{count}}件のアクティビティ"
+      "activities_other": "{{count}}件のアクティビティ",
+      "following": "{{name}}をたどっています",
+      "pr": "自己ベスト {{time}}",
+      "nearby": "近く",
+      "allRoutes": "すべてのルート"
     },
     "returnToRecording": "記録に戻る",
     "batteryOptNudge": "長時間の記録には、Veloqのバッテリー最適化をオフにすることをおすすめします。",
@@ -2520,6 +2546,9 @@
       "notificationsBody": "intervals.icu に新しいアクティビティが届くと、Veloq が見つけたことをお知らせします。自己ベスト、いつもより速いタイム、フィットネスの向上などです。届く通知の例です。",
       "turnOn": "オンにする",
       "neverRemind": "今後は表示しない",
+      "garminTitle": "Garminのライド",
+      "garminBody": "intervals.icuはGarminのライドをアプリと共有しなくなりました。Garminキーがあれば、VeloqがGarminから直接取り込みます。",
+      "garminWhy": "ライドはデータごとそのまま届きます。キーはこのデバイスにだけ保存されます。",
       "notificationsNeedSignIn": "通知には intervals.icu でのサインインが必要です。",
       "notificationsOn": "通知はオンです。設定で変更できます。",
       "notificationsExampleSection": "港の丘の上り",

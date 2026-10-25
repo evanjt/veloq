@@ -20,7 +20,7 @@ import type { EngineBodyStatus } from '@/shared/native/engineBodies';
 import { layout } from '@/theme/layout';
 import type { ActivityInterval } from '@/types';
 import { activityRecord } from '../__shared__/activityRecord';
-import { IntervalKind, type ActivityRecord } from 'veloqrs';
+import { IntervalKind, type ActivityHeldBack, type ActivityRecord } from 'veloqrs';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
@@ -122,6 +122,7 @@ function renderSection(props: {
   intervalsOutcome?: 'loaded' | 'empty' | 'pending';
   intervalsStatus?: EngineBodyStatus;
   onRetryIntervals?: () => void;
+  heldBack?: ActivityHeldBack | null;
 }) {
   return render(
     <ActivityChartsSection
@@ -132,6 +133,7 @@ function renderSection(props: {
       intervalsOutcome={props.intervalsOutcome}
       intervalsStatus={props.intervalsStatus}
       onRetryIntervals={props.onRetryIntervals}
+      heldBack={props.heldBack ?? null}
       activityWellness={null}
       coordinates={[]}
       isDark={false}
@@ -201,6 +203,17 @@ describe('the charts section with no intervals', () => {
     const { getByTestId, queryByTestId } = await renderSection({ intervalsOutcome: 'pending' });
 
     expect(getByTestId('intervals-not-downloaded')).toBeTruthy();
+    expect(queryByTestId('activity-interval-table')).toBeNull();
+  });
+
+  it('says the laps are not shared for a ride intervals.icu holds, with no download line', async () => {
+    const { getByTestId, queryByTestId } = await renderSection({
+      intervalsOutcome: 'pending',
+      heldBack: { source: 'GARMIN_CONNECT', externalId: '5550001' },
+    });
+
+    expect(getByTestId('intervals-held-back').props.children).toBe('activity.heldBack.title');
+    expect(queryByTestId('intervals-not-downloaded')).toBeNull();
     expect(queryByTestId('activity-interval-table')).toBeNull();
   });
 

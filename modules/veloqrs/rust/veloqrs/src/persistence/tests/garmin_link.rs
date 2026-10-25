@@ -3,15 +3,18 @@
 //!
 //! Expected behaviour: one row whichever arrives first. It keeps the original's
 //! track, takes intervals.icu's id, takes intervals.icu's body when it is
-//! served and keeps its own when it is a stub. More than one candidate links
-//! nothing, and a linked row is never offered to the upload.
+//! served and keeps its own when it is a stub. More than one candidate naming
+//! the id links nothing, and a linked row is never offered to the upload. A
+//! copy that does not name the id is never linked, whatever its start, sport
+//! and length.
 
 use super::*;
 use crate::fit_synthetic::outdoor_ride;
 use crate::net::garmin::ingest::ingest_into;
 use crate::net::garmin::wire::ListedActivity;
 use crate::persistence::activity_held_back;
-use crate::persistence::origin::garmin_source_key;
+use crate::persistence::origin::{ActivityProvenance, garmin_source_key};
+use crate::persistence::screens::pooled::activity_detail_data;
 use serde_json::json;
 use tempfile::TempDir;
 
@@ -213,6 +216,41 @@ fn a_stub_links_the_same_way_and_leaves_the_original_as_it_was() {
     }
 }
 
+/// Scenario: a Garmin original is linked to the intervals.icu activity that
+/// holds the same ride, and the athlete opens that activity.
+///
+/// Expected behaviour: the activity screen read says the ride is filled from
+/// the Garmin file on this phone, and an activity intervals.icu holds alone
+/// reads as intervals.icu's own.
+#[test]
+fn a_linked_original_reads_as_filled_from_the_phone_and_an_upstream_ride_as_intervals() {
+    for order in BOTH {
+        let at = format!("{order:?}");
+        let page = [(
+            "i500",
+            served("i500", json!("24686966034"), "2026-03-14T09:00:00", 30),
+        )];
+        let (_dir, engine, key) = library(order, &page);
+
+        assert_eq!(
+            activity_detail_data(&engine.db, &key, 1).provenance,
+            ActivityProvenance::GarminOnPhone,
+            "{at}"
+        );
+    }
+
+    let (_dir, mut engine) = engine();
+    let page = [(
+        "i900",
+        served("i900", json!(null), "2026-05-01T07:00:00", 30),
+    )];
+    sync_page(&mut engine, &page);
+    assert_eq!(
+        activity_detail_data(&engine.db, "i900", 1).provenance,
+        ActivityProvenance::Intervals
+    );
+}
+
 #[test]
 fn the_form_an_upload_writes_names_the_garmin_id_too() {
     for order in BOTH {
@@ -231,22 +269,12 @@ fn the_form_an_upload_writes_names_the_garmin_id_too() {
 }
 
 #[test]
-fn an_activity_that_starts_near_with_the_same_sport_and_length_is_the_ride() {
-    for order in BOTH {
-        let at = format!("{order:?}");
-        let page = [(
-            "i500",
-            served("i500", json!(null), "2026-03-14T09:01:30", 31),
-        )];
-        let (_dir, engine, key) = library(order, &page);
-        assert_one_row(&engine, &key, "i500", &at);
-        assert_eq!(body_of(&engine, &key)["distance"], 171.5, "{at}");
-    }
-}
-
-#[test]
-fn an_activity_too_far_in_start_or_length_or_of_another_ride_is_not_linked() {
+fn an_activity_without_the_garmin_id_is_not_linked_whatever_its_start_and_length() {
     let cases = [
+        (
+            "the same start, sport and length",
+            served("i500", json!(null), "2026-03-14T09:00:00", 30),
+        ),
         (
             "a start 3 minutes later",
             served("i500", json!(null), "2026-03-14T09:03:00", 30),
@@ -289,15 +317,15 @@ fn an_activity_too_far_in_start_or_length_or_of_another_ride_is_not_linked() {
 }
 
 #[test]
-fn two_candidates_link_nothing_and_leave_the_original_marked() {
+fn two_candidates_naming_the_garmin_id_link_nothing_and_leave_the_original_marked() {
     let page = [
         (
             "i500",
-            served("i500", json!(null), "2026-03-14T09:00:30", 30),
+            served("i500", json!("24686966034"), "2026-03-14T09:00:30", 30),
         ),
         (
             "i501",
-            served("i501", json!(null), "2026-03-14T09:01:00", 30),
+            served("i501", json!("24686966034"), "2026-03-14T09:01:00", 30),
         ),
     ];
     for order in BOTH {
@@ -317,30 +345,6 @@ fn two_candidates_link_nothing_and_leave_the_original_marked() {
             "{at}: an ambiguous original is not offered"
         );
     }
-}
-
-#[test]
-fn an_activity_two_originals_both_match_links_neither() {
-    let (dir, mut engine) = engine();
-    let first = store_original(&dir, &mut engine, GARMIN_ID);
-    let second = store_original(&dir, &mut engine, GARMIN_ID + 1);
-
-    sync_page(
-        &mut engine,
-        &[(
-            "i500",
-            served("i500", json!(null), "2026-03-14T09:00:00", 30),
-        )],
-    );
-
-    for key in [&first, &second] {
-        assert_eq!(engine.intervals_id(key), None, "{key}");
-        assert!(
-            unresolved_candidates(&engine.db, key).unwrap().is_some(),
-            "{key}"
-        );
-    }
-    assert!(originals_to_offer(&engine.db).unwrap().is_empty());
 }
 
 #[test]
@@ -372,82 +376,33 @@ fn a_linked_original_is_never_reconciled_away_when_its_activity_leaves_intervals
     }
 }
 
-fn shape(start: i64, sport: Option<&str>, elapsed: Option<i64>, moving: Option<i64>) -> Shape {
-    Shape {
-        start,
-        sport: sport.map(str::to_string),
-        elapsed,
-        moving,
-    }
-}
-
 #[test]
-fn the_start_window_and_the_duration_tolerance_are_inclusive_at_their_edges() {
-    let ride = shape(1_000, Some("Ride"), Some(100), None);
-    let near = |other: Shape| ride.is_near(&other);
-
-    assert!(near(shape(1_120, Some("Ride"), Some(100), None)));
-    assert!(near(shape(880, Some("Ride"), Some(100), None)));
-    assert!(!near(shape(1_121, Some("Ride"), Some(100), None)));
-    assert!(!near(shape(879, Some("Ride"), Some(100), None)));
-
-    assert!(
-        near(shape(1_000, Some("Ride"), Some(95), None)),
-        "5 % of the longer"
-    );
-    assert!(near(shape(1_000, Some("Ride"), Some(105), None)));
-    assert!(!near(shape(1_000, Some("Ride"), Some(94), None)));
-    assert!(!near(shape(1_000, Some("Ride"), Some(106), None)));
-
-    assert!(!near(shape(1_000, Some("Run"), Some(100), None)));
-    assert!(!near(shape(1_000, None, Some(100), None)));
-    assert!(
-        !near(shape(1_000, Some("Ride"), None, None)),
-        "a stub has no length"
-    );
-    assert!(!shape(1_000, None, Some(100), None).is_near(&shape(1_000, None, Some(100), None)));
-}
-
-#[test]
-fn moving_time_is_compared_only_when_one_side_has_no_elapsed_time() {
-    let ride = shape(0, Some("Ride"), Some(100), Some(60));
-    assert!(
-        ride.is_near(&shape(0, Some("Ride"), Some(102), Some(20))),
-        "elapsed decides"
-    );
-    assert!(ride.is_near(&shape(0, Some("Ride"), None, Some(61))));
-    assert!(!ride.is_near(&shape(0, Some("Ride"), None, Some(80))));
-}
-
-#[test]
-fn a_candidate_naming_the_id_beats_a_nearer_one_and_a_second_naming_it_is_ambiguous() {
-    let ride = shape(0, Some("Ride"), Some(100), None);
-    let candidate = |id: &str, names: Option<i64>, start: i64| Candidate {
+fn a_candidate_naming_the_id_is_the_match_and_a_second_naming_it_is_ambiguous() {
+    let candidate = |id: &str, names: Option<i64>| Candidate {
         upstream_id: id.to_string(),
         key: None,
-        shape: shape(start, Some("Ride"), Some(100), None),
         names,
     };
 
-    let by_id = [candidate("i1", None, 0), candidate("i2", Some(7), 5_000)];
-    assert_eq!(resolve(7, &ride, &by_id), Matched::One("i2".into()));
+    let by_id = [candidate("i1", None), candidate("i2", Some(7))];
+    assert_eq!(resolve(7, &by_id), Matched::One("i2".into()));
 
-    let twice = [candidate("i1", Some(7), 0), candidate("i2", Some(7), 9)];
+    let twice = [candidate("i1", Some(7)), candidate("i2", Some(7))];
     assert_eq!(
-        resolve(7, &ride, &twice),
+        resolve(7, &twice),
         Matched::Ambiguous(vec!["i1".into(), "i2".into()])
     );
 
-    let other = [candidate("i1", Some(8), 0)];
+    let other = [candidate("i1", Some(8))];
+    assert_eq!(resolve(7, &other), Matched::Nothing, "another ride's id");
+
+    let unnamed = [candidate("i1", None)];
     assert_eq!(
-        resolve(7, &ride, &other),
+        resolve(7, &unnamed),
         Matched::Nothing,
-        "another ride's id"
+        "the same start, sport and length without the id"
     );
 
-    let one_listed_twice = [candidate("i1", None, 0), candidate("i1", None, 0)];
-    assert_eq!(
-        resolve(7, &ride, &one_listed_twice),
-        Matched::One("i1".into())
-    );
+    let one_listed_twice = [candidate("i1", Some(7)), candidate("i1", Some(7))];
+    assert_eq!(resolve(7, &one_listed_twice), Matched::One("i1".into()));
 }

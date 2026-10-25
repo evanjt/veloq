@@ -15,6 +15,7 @@
 
 bool veloq_push_prepare(const char *db_path, const char *access_token, const char *api_key,
                         const char *athlete_id, char **refusal);
+void veloq_push_hold_garmin_key(const char *garmin_key);
 void veloq_push_record_refusal(const char *db_path, const char *activity_id, const char *reason);
 char *veloq_push_payload_reason(const char *top_level_keys, const char *body_keys);
 char *veloq_push_activity(const char *activity_id, const char *athlete_id);

@@ -129,7 +129,6 @@ function RecordScreenContent() {
     activityType: sport,
     location: gps.location,
     enabled: mode === 'gps',
-    idle: sessionStatus === 'idle',
   });
 
   // A session is already in the store (cold navigation, notification tap, FAB
@@ -195,11 +194,11 @@ function RecordScreenContent() {
   const openRoutePicker = useCallback(async () => {
     const result = await openSheet<RouteOverlaySheetInput, string | null>('sheets/route-overlay', {
       activityType: sport,
-      selectedRouteId: route.overlayRouteId,
-      nearbyRouteIds: route.nearbyRouteIds,
+      selectedRouteId: route.followedRouteId,
+      nearby: route.nearby,
     });
     if (result.kind === 'selected') chooseRoute(result.value);
-  }, [openSheet, sport, route.overlayRouteId, route.nearbyRouteIds, chooseRoute]);
+  }, [openSheet, sport, route.followedRouteId, route.nearby, chooseRoute]);
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
@@ -275,7 +274,10 @@ function RecordScreenContent() {
               coordinates={NO_TRACK}
               currentLocation={gps.location}
               accuracy={gps.accuracy}
-              routeOverlay={route.overlayPoints}
+              nearbyRoutes={route.nearby}
+              followedRoute={route.followed}
+              onFollowRoute={chooseRoute}
+              onStopFollowing={route.stopFollowing}
               onOpenRoutePicker={openRoutePicker}
               style={styles.map}
             />

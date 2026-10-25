@@ -34,9 +34,13 @@
   },
   "activity": {
     "heldBack": {
-      "title": "Zatrzymana przez intervals.icu",
+      "title": "Nieudostępniona przez intervals.icu",
       "detail": "intervals.icu przechowuje tę aktywność, ale nie udostępnia jej aplikacjom, więc jej dane są tu puste.",
-      "detailGarmin": "Połączenie Garmin w ustawieniach uzupełni ją z oryginału."
+      "detailGarmin": "Połączenie klucza Garmin uzupełni ją z oryginału.",
+      "connectGarmin": "Połącz Garmin"
+    },
+    "provenance": {
+      "garminOnPhone": "Uzupełnione z pliku Garmin"
     },
     "syncFailed": {
       "title": "Nie udało się zsynchronizować",
@@ -698,6 +702,8 @@
   "garmin": {
     "title": "Garmin",
     "rowSubtitle": "Klucz osobisty",
+    "keyNeeded": "Potrzebny klucz",
+    "keyNeededHint": "Wklej ponownie swój klucz Garmin, aby nadal pobierać przejazdy z Garmin.",
     "intro": "Wklej swój osobisty klucz Garmin, aby Veloq mógł pokazywać Twoje przejazdy z Garmin.",
     "privacy": "Klucz zostaje na tym urządzeniu, a Veloq nigdy go nie otrzymuje. Podłączenie go to Twój własny krok, zgodny z warunkami Garmin.",
     "getKey": "Pobierz klucz z Garmin Connect",
@@ -720,7 +726,27 @@
     "uploadHint": "Przejazdy trafiają wtedy do intervals.icu, trenera i powiadomień tylko wtedy, gdy Veloq działa. Własny import Garmin w intervals.icu to szybsza droga.",
     "duplicateTitle": "intervals.icu już importuje Twoje aktywności z Garmin",
     "duplicateDetail": "Wysyłki z Veloq pojawiłyby się podwójnie. W intervals.icu wyłącz Aktywności i zostaw włączone Samopoczucie oraz Zaplanowane treningi. Veloq nie zmienia tych ustawień.",
-    "openConnections": "Otwórz połączenia intervals.icu"
+    "openConnections": "Otwórz połączenia intervals.icu",
+    "offerTitle_one": "{{count}} przejazd z Garmina dotarł bez danych",
+    "offerTitle_few": "{{count}} przejazdy z Garmina dotarły bez danych",
+    "offerTitle_many": "{{count}} przejazdów z Garmina dotarło bez danych",
+    "offerTitle_other": "{{count}} przejazdu z Garmina dotarło bez danych",
+    "offerBody": "intervals.icu nie udostępnia już przejazdów z Garmina aplikacjom. Połącz Garmin, aby je pobrać.",
+    "offerConnect": "Połącz z Garminem",
+    "pullTitle": "Przejazdy z Garmin",
+    "pullStored_one": "Zapisano: {{count}}",
+    "pullStored_few": "Zapisano: {{count}}",
+    "pullStored_many": "Zapisano: {{count}}",
+    "pullStored_other": "Zapisano: {{count}}",
+    "pullReached": "wstecz do {{month}}",
+    "pullRunning": "W toku",
+    "pullPaused": "Wstrzymano do {{time}}",
+    "pullIdle": "Czeka na start",
+    "pullDone": "Aktualne",
+    "pullStoppedKey": "Zatrzymano: klucz Garmin nie został przyjęty",
+    "pullStoppedUnreachable": "Zatrzymano: nie udało się połączyć z Garmin",
+    "pullStoppedStorage": "Zatrzymano: brak miejsca na przejazdy",
+    "pullNow": "Pobierz teraz"
   },
   "intervalTypes": {
     "work": {
@@ -1695,7 +1721,11 @@
       "activities_one": "{{count}} aktywność",
       "activities_few": "{{count}} aktywności",
       "activities_many": "{{count}} aktywności",
-      "activities_other": "{{count}} aktywności"
+      "activities_other": "{{count}} aktywności",
+      "following": "Podążasz trasą {{name}}",
+      "pr": "Rekord {{time}}",
+      "nearby": "W pobliżu",
+      "allRoutes": "Wszystkie trasy"
     },
     "returnToRecording": "Wróć do nagrywania",
     "batteryOptNudge": "Długie nagrania działają najlepiej z wyłączoną optymalizacją baterii dla Veloq.",
@@ -2754,6 +2784,9 @@
       "notificationsBody": "Gdy intervals.icu otrzyma nową aktywność, Veloq może powiedzieć, co w niej znalazł: rekord osobisty, czas szybszy niż zwykle albo krok naprzód w formie. Oto przykłady tego, co przychodzi.",
       "turnOn": "Włącz",
       "neverRemind": "Nie przypominaj więcej",
+      "garminTitle": "Przejazdy z Garmina",
+      "garminBody": "intervals.icu nie udostępnia już przejazdów z Garmina aplikacjom. Z kluczem Garmin Veloq pobiera je od samego Garmina.",
+      "garminWhy": "Przejazdy docierają kompletne, z danymi. Klucz zostaje na tym urządzeniu.",
       "notificationsNeedSignIn": "Powiadomienia wymagają logowania przez intervals.icu.",
       "notificationsOn": "Powiadomienia są włączone. Możesz je zmienić w Ustawieniach.",
       "notificationsExampleSection": "Podjazd pod Portowe Wzgórze",

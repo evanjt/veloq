@@ -25,6 +25,10 @@ const ENGINE_ONLY_KEYS = new Map([
   ['veloq-garmin-key-expiry', 'Device-only Garmin connector choice, never carried by a backup'],
   ['veloq-garmin-feed', 'Device-only Garmin connector choice, never carried by a backup'],
   ['veloq-garmin-upload', 'Device-only Garmin connector choice, never carried by a backup'],
+  [
+    'veloq-garmin-offer-declined-at',
+    'Device-only Garmin connector choice, never carried by a backup',
+  ],
   ['__athlete_id', 'Engine library identity'],
   ['__detection_enabled', 'Engine-only detection preference'],
   ['__export_home_lat', 'Engine-only export privacy preference'],
@@ -35,6 +39,10 @@ const ENGINE_ONLY_KEYS = new Map([
   ['__last_auto_backup', 'Engine backup history'],
   ['__backup_backend', 'Engine-only backup preference'],
   ['__auto_backup_enabled', 'Engine-only backup preference'],
+  [
+    '__garmin_connector_enabled',
+    'Engine library state: a Garmin key was connected, carried by a record backup',
+  ],
   ['__last_backup_failure', 'Engine backup diagnostic'],
   ['__backup_owed_carriers', 'Engine backup state: the carriers still owed the last zip'],
   ['__last_backup_by_destination', 'Engine backup history, per destination'],

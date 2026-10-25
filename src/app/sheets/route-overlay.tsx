@@ -6,12 +6,12 @@ import { useTranslation } from 'react-i18next';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useSheetRequest } from '@/shared/app/sheetRequest';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
-import { formatDistance } from '@/shared/format/format';
+import { formatDistance, formatDuration } from '@/shared/format/format';
 import { ABSENT, absentLabel } from '@/shared/format/absent';
 // The light entry keeps the routes map components out of the recording module
 // graph.
 import { useRouteGroups } from '@/features/routes/light';
-import { useRecordingStore } from '@/features/recording';
+import { useRecordingStore, type NearbyRouteView } from '@/features/recording';
 import {
   colors,
   darkColors,
@@ -31,16 +31,21 @@ import { NameText } from '@/shared/ui/NameText';
 
 /**
  * The saved-route picker for the live recording map, a sheet route opened with `openSheet` and
- * answered with a route group id, or null for "no route". Lists route groups for the current
- * sport, ordered by their overlap with the track recorded so far.
+ * answered with a route group id, or null for "no route". Lists the routes near the fix first,
+ * then the route groups for the current sport, ordered by their overlap with the track recorded
+ * so far.
  */
 
 export interface RouteOverlaySheetInput {
   activityType: ActivityType;
   selectedRouteId: string | null;
-  /** Route group ids near the current fix, nearest first */
-  nearbyRouteIds?: string[];
+  /** The routes near the current fix, nearest first, listed above the rest */
+  nearby?: NearbyRouteView[];
 }
+
+type Row =
+  | { kind: 'header'; key: string; title: string }
+  | { kind: 'route'; id: string; name: string; meta: string[] };
 
 const NO_OVERLAPS: Record<string, number> = {};
 
@@ -95,18 +100,53 @@ function RouteOverlaySheetContent() {
 
   const overlaps = result.bucket === distanceBucket ? result.scores : NO_OVERLAPS;
 
-  const sortedGroups = useMemo(() => {
-    if (distanceBucket === 0 || Object.keys(overlaps).length === 0) {
-      const rank = new Map((input?.nearbyRouteIds ?? []).map((id, index) => [id, index]));
-      if (rank.size === 0) return groups;
-      return [...groups].sort(
-        (a, b) => (rank.get(a.id) ?? rank.size) - (rank.get(b.id) ?? rank.size)
-      );
-    }
-    return [...groups].sort(
-      (a, b) => (overlaps[b.id] ?? 0) - (overlaps[a.id] ?? 0) || b.activityCount - a.activityCount
-    );
-  }, [groups, distanceBucket, overlaps, input?.nearbyRouteIds]);
+  const nearby = input?.nearby;
+  const rows = useMemo<Row[]>(() => {
+    const nearbyRows: Row[] = (nearby ?? []).map((route) => ({
+      kind: 'route',
+      id: route.id,
+      name: route.name,
+      meta: [
+        ...(route.distanceMeters > 0 ? [formatDistance(route.distanceMeters, isMetric)] : []),
+        ...(route.bestTimeSeconds != null && route.bestTimeSeconds > 0
+          ? [t('recording.routeOverlay.pr', { time: formatDuration(route.bestTimeSeconds) })]
+          : []),
+      ],
+    }));
+    const nearbyIds = new Set((nearby ?? []).map((route) => route.id));
+    const others = groups.filter((group) => !nearbyIds.has(group.id));
+    const sorted =
+      distanceBucket === 0 || Object.keys(overlaps).length === 0
+        ? others
+        : [...others].sort(
+            (a, b) =>
+              (overlaps[b.id] ?? 0) - (overlaps[a.id] ?? 0) || b.activityCount - a.activityCount
+          );
+    const otherRows: Row[] = sorted.map((group) => ({
+      kind: 'route',
+      id: group.id,
+      name: group.name,
+      meta: [
+        ...(group.distance != null ? [formatDistance(group.distance, isMetric)] : []),
+        t('recording.routeOverlay.activities', { count: group.activityCount }),
+      ],
+    }));
+    if (nearbyRows.length === 0) return otherRows;
+    return [
+      { kind: 'header', key: 'nearby', title: t('recording.routeOverlay.nearby') },
+      ...nearbyRows,
+      ...(otherRows.length > 0
+        ? [
+            {
+              kind: 'header' as const,
+              key: 'all',
+              title: t('recording.routeOverlay.allRoutes'),
+            },
+            ...otherRows,
+          ]
+        : []),
+    ];
+  }, [groups, nearby, distanceBucket, overlaps, isMetric, t]);
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const accentText = isDark ? darkColors.actionLink : colors.actionLink;
@@ -154,7 +194,7 @@ function RouteOverlaySheetContent() {
             {t(engineErrorKey(groupsError, 'engine.failure.database'))}
           </Text>
         </View>
-      ) : groups.length === 0 ? (
+      ) : rows.length === 0 ? (
         <EmptyState
           variant="inline"
           title={t('recording.routeOverlay.empty', 'No saved routes for this sport yet.')}
@@ -162,18 +202,22 @@ function RouteOverlaySheetContent() {
       ) : (
         <FlatList
           testID="route-overlay-list"
-          data={sortedGroups}
-          keyExtractor={(g) => g.id}
+          data={rows}
+          keyExtractor={(row) => (row.kind === 'header' ? `header-${row.key}` : row.id)}
           style={styles.list}
           {...sheetScrollProps}
           renderItem={({ item }) => {
+            if (item.kind === 'header') {
+              return (
+                <Text style={[styles.sectionHeader, { color: textSecondary }]}>{item.title}</Text>
+              );
+            }
             const isSelected = item.id === selectedRouteId;
             // Only a measured overlap is a figure; before the first measurement, after a
             // failed one, or for a route the measurement left out, there is none to print.
             const overlap = overlaps[item.id];
             const meta = [
-              ...(item.distance != null ? [formatDistance(item.distance, isMetric)] : []),
-              t('recording.routeOverlay.activities', { count: item.activityCount }),
+              ...item.meta,
               overlap != null && Number.isFinite(overlap)
                 ? `${Math.round(overlap)}% ${t('sections.overlapLabel')}`
                 : ABSENT,
@@ -234,6 +278,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderBottomWidth: stroke.hairline,
     minHeight: layout.minTapTarget,
+  },
+  sectionHeader: {
+    ...typography.caption,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
   },
   rowBody: {
     flex: 1,

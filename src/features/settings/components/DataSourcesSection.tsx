@@ -11,6 +11,7 @@ import { RowDivider } from '@/shared/ui/RowGroup';
 import { navigateTo } from '@/shared/app/navigation';
 import { DataAttribution } from './DataAttribution';
 import { SettingsNavRow } from './SettingsNavRow';
+import { useGarminConnectorState } from '../hooks/useGarminConnectorState';
 
 export function DataSourcesSection() {
   const { isDark } = useTheme();
@@ -18,6 +19,7 @@ export function DataSourcesSection() {
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
   const hideDemoBanner = useAuthStore((s) => s.hideDemoBanner);
   const setHideDemoBanner = useAuthStore((s) => s.setHideDemoBanner);
+  const garminState = useGarminConnectorState();
 
   return (
     <>
@@ -43,7 +45,7 @@ export function DataSourcesSection() {
         <SettingsNavRow
           icon="watch"
           title={t('garmin.title')}
-          subtitle={t('garmin.rowSubtitle')}
+          subtitle={garminState === 'keyNeeded' ? t('garmin.keyNeeded') : t('garmin.rowSubtitle')}
           onPress={() => navigateTo('/garmin-connector')}
           testID="settings-nav-garmin"
         />

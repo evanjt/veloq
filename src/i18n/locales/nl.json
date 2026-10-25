@@ -34,9 +34,13 @@
   },
   "activity": {
     "heldBack": {
-      "title": "Achtergehouden door intervals.icu",
+      "title": "Niet gedeeld door intervals.icu",
       "detail": "intervals.icu heeft deze activiteit maar stelt hem niet beschikbaar aan apps, dus de gegevens zijn hier leeg.",
-      "detailGarmin": "Als je Garmin in de instellingen koppelt, wordt hij aangevuld vanuit het origineel."
+      "detailGarmin": "Als je je Garmin-sleutel koppelt, wordt hij aangevuld vanuit het origineel.",
+      "connectGarmin": "Garmin koppelen"
+    },
+    "provenance": {
+      "garminOnPhone": "Aangevuld uit je Garmin-bestand"
     },
     "syncFailed": {
       "title": "Synchroniseren mislukt",
@@ -658,6 +662,8 @@
   "garmin": {
     "title": "Garmin",
     "rowSubtitle": "Persoonlijke sleutel",
+    "keyNeeded": "Sleutel opnieuw nodig",
+    "keyNeededHint": "Plak je Garmin-sleutel opnieuw om Garmin-ritten te blijven ophalen.",
     "intro": "Plak je persoonlijke Garmin-sleutel zodat Veloq je Garmin-ritten kan tonen.",
     "privacy": "De sleutel blijft op dit apparaat en Veloq ontvangt hem nooit. Hem koppelen is je eigen handeling onder de voorwaarden van Garmin.",
     "getKey": "Sleutel ophalen bij Garmin Connect",
@@ -680,7 +686,23 @@
     "uploadHint": "Ritten bereiken intervals.icu, een coach en meldingen dan alleen wanneer Veloq draait. De eigen Garmin-import van intervals.icu is de snellere weg.",
     "duplicateTitle": "intervals.icu importeert je Garmin-activiteiten al",
     "duplicateDetail": "Uploads vanuit Veloq zouden dubbel verschijnen. Zet in intervals.icu Activiteiten uit en laat Welzijn en Geplande workouts aan. Veloq wijzigt die instellingen niet.",
-    "openConnections": "Verbindingen van intervals.icu openen"
+    "openConnections": "Verbindingen van intervals.icu openen",
+    "offerTitle_one": "{{count}} Garmin-rit kwam zonder gegevens binnen",
+    "offerTitle_other": "{{count}} Garmin-ritten kwamen zonder gegevens binnen",
+    "offerBody": "intervals.icu deelt Garmin-ritten niet meer met apps. Koppel Garmin om ze op te halen.",
+    "offerConnect": "Garmin koppelen",
+    "pullTitle": "Garmin-ritten",
+    "pullStored_one": "{{count}} opgeslagen",
+    "pullStored_other": "{{count}} opgeslagen",
+    "pullReached": "terug tot {{month}}",
+    "pullRunning": "Bezig",
+    "pullPaused": "Gepauzeerd tot {{time}}",
+    "pullIdle": "Wacht om te starten",
+    "pullDone": "Bijgewerkt",
+    "pullStoppedKey": "Gestopt: Garmin-sleutel niet geaccepteerd",
+    "pullStoppedUnreachable": "Gestopt: Garmin was niet bereikbaar",
+    "pullStoppedStorage": "Gestopt: geen plek om de ritten te bewaren",
+    "pullNow": "Nu ophalen"
   },
   "intervalTypes": {
     "work": {
@@ -1603,7 +1625,11 @@
       "none": "Geen route",
       "empty": "Nog geen opgeslagen routes voor deze sport.",
       "activities_one": "{{count}} activiteit",
-      "activities_other": "{{count}} activiteiten"
+      "activities_other": "{{count}} activiteiten",
+      "following": "Volgt {{name}}",
+      "pr": "Record {{time}}",
+      "nearby": "In de buurt",
+      "allRoutes": "Alle routes"
     },
     "returnToRecording": "Terug naar de opname",
     "batteryOptNudge": "Lange opnames werken het best met batterijoptimalisatie uitgeschakeld voor Veloq.",
@@ -2520,6 +2546,9 @@
       "notificationsBody": "Als intervals.icu een nieuwe activiteit ontvangt, kan Veloq je vertellen wat het vond: een persoonlijk record, een snellere tijd dan normaal of een stap vooruit in fitheid. Dit zijn voorbeelden van wat er binnenkomt.",
       "turnOn": "Inschakelen",
       "neverRemind": "Nooit meer herinneren",
+      "garminTitle": "Garmin-ritten",
+      "garminBody": "intervals.icu deelt Garmin-ritten niet meer met apps. Met een Garmin-sleutel haalt Veloq ze rechtstreeks bij Garmin op.",
+      "garminWhy": "De ritten komen volledig binnen, met hun gegevens. De sleutel blijft op dit apparaat.",
       "notificationsNeedSignIn": "Meldingen vereisen inloggen met intervals.icu.",
       "notificationsOn": "Meldingen staan aan. Je kunt ze wijzigen in Instellingen.",
       "notificationsExampleSection": "Havenheuvel-klim",

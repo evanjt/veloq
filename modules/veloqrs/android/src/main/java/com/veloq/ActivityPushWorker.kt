@@ -51,6 +51,7 @@ class ActivityPushWorker(context: Context, params: WorkerParameters) : Worker(co
     val unavailableReason = if (credential == null) "missing credential"
       else if (!ready) "engine or credential refused"
       else null
+    if (ready) PushBridge.holdGarminKey(PushCredential.garminKey(applicationContext))
     val json = if (ready) PushBridge.activityPush(activityId, athleteId) else null
     val decision = ActivityPushResponse.resolve(
       json,

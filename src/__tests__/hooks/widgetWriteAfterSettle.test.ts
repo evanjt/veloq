@@ -74,6 +74,7 @@ const syncing: SyncStatus = {
   total: 1,
   stepItemsDone: 0,
   stepItemsTotal: 0,
+  heldBackInLastDownload: 0,
 };
 
 const idle: SyncStatus = {
@@ -83,6 +84,7 @@ const idle: SyncStatus = {
   total: 0,
   stepItemsDone: 0,
   stepItemsTotal: 0,
+  heldBackInLastDownload: 0,
 };
 
 async function runSync(rerender: (props: undefined) => void): Promise<void> {

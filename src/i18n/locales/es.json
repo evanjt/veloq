@@ -34,9 +34,13 @@
   },
   "activity": {
     "heldBack": {
-      "title": "Retenida por intervals.icu",
+      "title": "No compartida por intervals.icu",
       "detail": "intervals.icu tiene esta actividad pero no la pone a disposición de las apps, así que sus datos están vacíos aquí.",
-      "detailGarmin": "Si conectas Garmin en los ajustes, se rellena desde el original."
+      "detailGarmin": "Conectar tu clave de Garmin la rellena desde el original.",
+      "connectGarmin": "Conectar Garmin"
+    },
+    "provenance": {
+      "garminOnPhone": "Completada con tu archivo de Garmin"
     },
     "syncFailed": {
       "title": "No se pudo sincronizar",
@@ -672,6 +676,8 @@
   "garmin": {
     "title": "Garmin",
     "rowSubtitle": "Clave personal",
+    "keyNeeded": "Falta la clave",
+    "keyNeededHint": "Pega de nuevo tu clave de Garmin para seguir importando tus salidas de Garmin.",
     "intro": "Pega tu clave personal de Garmin para que Veloq muestre tus salidas de Garmin.",
     "privacy": "La clave se queda en este dispositivo y Veloq nunca la recibe. Conectarla es un acto tuyo, bajo las condiciones de Garmin.",
     "getKey": "Obtener una clave en Garmin Connect",
@@ -694,7 +700,25 @@
     "uploadHint": "Las salidas llegan entonces a intervals.icu, a un entrenador y a las notificaciones solo cuando Veloq se ejecuta. La importación de Garmin de intervals.icu es la vía más rápida.",
     "duplicateTitle": "intervals.icu ya importa tus actividades de Garmin",
     "duplicateDetail": "Las subidas desde Veloq aparecerían dos veces. En intervals.icu, desactiva Actividades y deja activados Bienestar y Entrenamientos planificados. Veloq no cambia esos ajustes.",
-    "openConnections": "Abrir las conexiones de intervals.icu"
+    "openConnections": "Abrir las conexiones de intervals.icu",
+    "offerTitle_one": "{{count}} ruta de Garmin llegó sin sus datos",
+    "offerTitle_many": "{{count}} de rutas de Garmin llegaron sin sus datos",
+    "offerTitle_other": "{{count}} rutas de Garmin llegaron sin sus datos",
+    "offerBody": "intervals.icu ya no comparte las rutas de Garmin con las aplicaciones. Conecta Garmin para traerlas.",
+    "offerConnect": "Conectar Garmin",
+    "pullTitle": "Rutas de Garmin",
+    "pullStored_one": "{{count}} guardada",
+    "pullStored_many": "{{count}} de rutas guardadas",
+    "pullStored_other": "{{count}} guardadas",
+    "pullReached": "hasta {{month}}",
+    "pullRunning": "En curso",
+    "pullPaused": "En pausa hasta las {{time}}",
+    "pullIdle": "A la espera de empezar",
+    "pullDone": "Al día",
+    "pullStoppedKey": "Detenido: Garmin no aceptó la clave",
+    "pullStoppedUnreachable": "Detenido: no se pudo contactar con Garmin",
+    "pullStoppedStorage": "Detenido: no hay dónde guardar las rutas",
+    "pullNow": "Traer ahora"
   },
   "intervalTypes": {
     "work": {
@@ -1628,7 +1652,11 @@
       "empty": "Aún no hay rutas guardadas para este deporte.",
       "activities_one": "{{count}} actividad",
       "activities_many": "{{count}} de actividades",
-      "activities_other": "{{count}} actividades"
+      "activities_other": "{{count}} actividades",
+      "following": "Siguiendo {{name}}",
+      "pr": "Récord {{time}}",
+      "nearby": "Cerca",
+      "allRoutes": "Todas las rutas"
     },
     "returnToRecording": "Volver a la grabación",
     "batteryOptNudge": "Las grabaciones largas funcionan mejor con la optimización de batería desactivada para Veloq.",
@@ -2586,6 +2614,9 @@
       "notificationsBody": "Cuando intervals.icu recibe una actividad nueva, Veloq puede contarte lo que encontró: una marca personal, un tiempo más rápido de lo habitual o un avance en tu forma. Estos son ejemplos de lo que llega.",
       "turnOn": "Activar",
       "neverRemind": "No volver a recordar",
+      "garminTitle": "Rutas de Garmin",
+      "garminBody": "intervals.icu ya no comparte las rutas de Garmin con las aplicaciones. Con una clave de Garmin, Veloq las trae desde el propio Garmin.",
+      "garminWhy": "Las rutas llegan completas, con sus datos. La clave permanece en este dispositivo.",
       "notificationsNeedSignIn": "Las notificaciones necesitan un inicio de sesión con intervals.icu.",
       "notificationsOn": "Las notificaciones están activadas. Puedes cambiarlas en Ajustes.",
       "notificationsExampleSection": "Subida del Puerto",

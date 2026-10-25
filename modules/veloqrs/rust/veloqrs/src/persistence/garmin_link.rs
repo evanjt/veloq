@@ -8,10 +8,11 @@
 //! when the original is stored and the sync already holds the copy, and when
 //! the sync brings a copy for an original already stored.
 //!
-//! The Garmin id decides first. Without one, a copy that starts within
-//! [`START_WINDOW_SECS`] of the original, in the same sport and within
-//! [`DURATION_TOLERANCE`] of its duration, is the match. More than one
-//! candidate links nothing and records the row in `garmin_link_unresolved`.
+//! The Garmin id decides, and only the id. An intervals.icu activity that
+//! names the original's Garmin id is the ride. One that does not is never the
+//! ride, however close its start, sport and length are, so an original with no
+//! id match stays unlinked. More than one candidate naming the id links nothing
+//! and records the row in `garmin_link_unresolved`.
 //!
 //! A linked row keeps its Garmin track and streams and takes the intervals.icu
 //! id, so the upload never offers it. Where intervals.icu serves its copy the
@@ -26,59 +27,10 @@ use super::PersistentEngine;
 use super::origin::{garmin_id_named, garmin_id_of_source_key};
 use crate::net::intervals::wire::ActivityRecord;
 
-/// How far apart two starts may be and still be one ride, in seconds.
-pub const START_WINDOW_SECS: i64 = 120;
-
-/// How far apart two durations may be and still be one ride, as a share of the
-/// longer.
-pub const DURATION_TOLERANCE: f64 = 0.05;
-
 /// How far from the original's start a stored copy is searched for by Garmin
 /// id. The id alone decides, so this only bounds the read to the days around
 /// the ride.
 const ID_SEARCH_SECS: i64 = 24 * 60 * 60;
-
-/// What decides whether two activities are one ride when no id names it.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Shape {
-    /// The start on the athlete's wall clock, as the body's `date` column
-    /// stores it.
-    pub start: i64,
-    pub sport: Option<String>,
-    pub elapsed: Option<i64>,
-    pub moving: Option<i64>,
-}
-
-impl Shape {
-    pub fn of(date: i64, record: &ActivityRecord) -> Self {
-        Self {
-            start: date,
-            sport: record.activity_type.clone().filter(|t| !t.is_empty()),
-            elapsed: record.elapsed_time,
-            moving: record.moving_time,
-        }
-    }
-
-    /// Whether the two are one ride by start, sport and duration. A side with
-    /// no duration to compare is never near: a stub is matched by id.
-    pub fn is_near(&self, other: &Shape) -> bool {
-        if (self.start - other.start).abs() > START_WINDOW_SECS {
-            return false;
-        }
-        if self.sport.is_none() || self.sport != other.sport {
-            return false;
-        }
-        let (a, b) = match (self.elapsed, other.elapsed) {
-            (Some(a), Some(b)) => (a, b),
-            _ => match (self.moving, other.moving) {
-                (Some(a), Some(b)) => (a, b),
-                _ => return false,
-            },
-        };
-        let longer = a.max(b);
-        longer > 0 && ((a - b).abs() as f64) <= (longer as f64) * DURATION_TOLERANCE
-    }
-}
 
 /// An intervals.icu activity a Garmin original could be.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -88,17 +40,15 @@ pub struct Candidate {
     /// The key it is stored under, `None` while it is only in a page being
     /// stored.
     pub key: Option<String>,
-    pub shape: Shape,
     /// The Garmin id its `external_id` names, if it names one.
     pub names: Option<i64>,
 }
 
 impl Candidate {
-    pub fn of(upstream_id: &str, key: Option<&str>, date: i64, record: &ActivityRecord) -> Self {
+    pub fn of(upstream_id: &str, key: Option<&str>, record: &ActivityRecord) -> Self {
         Self {
             upstream_id: upstream_id.to_string(),
             key: key.map(str::to_string),
-            shape: Shape::of(date, record),
             names: garmin_id_named(record.source.as_deref(), record.external_id.as_deref()),
         }
     }
@@ -114,28 +64,20 @@ pub enum Matched {
     Ambiguous(Vec<String>),
 }
 
-/// The activity among `pool` that holds the Garmin ride `garmin_id` with
-/// `shape`. A candidate naming another Garmin id is another ride and is never
-/// a match by time.
-pub fn resolve(garmin_id: i64, shape: &Shape, pool: &[Candidate]) -> Matched {
+/// The activity among `pool` that holds the Garmin ride `garmin_id`: the ones
+/// that name that id, each once.
+pub fn resolve(garmin_id: i64, pool: &[Candidate]) -> Matched {
     let mut seen = HashSet::new();
-    let named: Vec<&Candidate> = pool
+    let named: Vec<&str> = pool
         .iter()
-        .filter(|c| c.names == Some(garmin_id) && seen.insert(c.upstream_id.as_str()))
+        .filter(|c| c.names == Some(garmin_id))
+        .map(|c| c.upstream_id.as_str())
+        .filter(|id| seen.insert(*id))
         .collect();
-    let matches = if named.is_empty() {
-        let mut seen = HashSet::new();
-        pool.iter()
-            .filter(|c| c.names.is_none() && shape.is_near(&c.shape))
-            .filter(|c| seen.insert(c.upstream_id.as_str()))
-            .collect()
-    } else {
-        named
-    };
-    match matches.as_slice() {
+    match named.as_slice() {
         [] => Matched::Nothing,
-        [one] => Matched::One(one.upstream_id.clone()),
-        many => Matched::Ambiguous(many.iter().map(|c| c.upstream_id.clone()).collect()),
+        [one] => Matched::One(one.to_string()),
+        many => Matched::Ambiguous(many.iter().map(|id| id.to_string()).collect()),
     }
 }
 
@@ -144,7 +86,9 @@ pub fn resolve(garmin_id: i64, shape: &Shape, pool: &[Candidate]) -> Matched {
 pub struct UnlinkedOriginal {
     pub key: String,
     pub garmin_id: i64,
-    pub shape: Shape,
+    /// The start on the athlete's wall clock, as the body's `date` column
+    /// stores it.
+    pub start: i64,
 }
 
 fn record_of(raw: &str) -> Option<ActivityRecord> {
@@ -172,18 +116,18 @@ pub fn unlinked_originals(conn: &Connection) -> SqlResult<Vec<UnlinkedOriginal>>
         let Some(garmin_id) = garmin_id_of_source_key(&key) else {
             continue;
         };
-        if let Some(shape) = shape_of_stored(conn, &key)? {
+        if let Some(start) = start_of_stored(conn, &key)? {
             out.push(UnlinkedOriginal {
                 key,
                 garmin_id,
-                shape,
+                start,
             });
         }
     }
     Ok(out)
 }
 
-fn shape_of_stored(conn: &Connection, key: &str) -> SqlResult<Option<Shape>> {
+fn start_of_stored(conn: &Connection, key: &str) -> SqlResult<Option<i64>> {
     let row: Option<(i64, String)> = conn
         .query_row(
             "SELECT date, raw FROM activity_bodies WHERE activity_id = ?1",
@@ -191,17 +135,18 @@ fn shape_of_stored(conn: &Connection, key: &str) -> SqlResult<Option<Shape>> {
             |row| Ok((row.get(0)?, row.get(1)?)),
         )
         .optional()?;
-    Ok(row.and_then(|(date, raw)| Some(Shape::of(date, &record_of(&raw)?))))
+    Ok(row.and_then(|(date, raw)| record_of(&raw).map(|_| date)))
 }
 
-/// The stored intervals.icu activities that could be the original `garmin_id`
-/// with `shape`: those that start near it, and those that name its id.
+/// The stored intervals.icu activities that start within a day of the original
+/// at `start`, each with the Garmin id it names. Only those naming the original's
+/// id can be its ride, and [`resolve`] picks them out.
 ///
 /// A key minted here is never one, since its ride is an upload or a file of
 /// ours and not intervals.icu's import of a Garmin ride.
-fn stored_pool(conn: &Connection, shape: &Shape) -> SqlResult<Vec<Candidate>> {
+fn stored_pool(conn: &Connection, start: i64) -> SqlResult<Vec<Candidate>> {
     let mut stmt = conn.prepare_cached(
-        "SELECT activity_id, date, raw FROM activity_bodies
+        "SELECT activity_id, raw FROM activity_bodies
          WHERE date BETWEEN ?1 AND ?2
            AND activity_id NOT LIKE 'local-%'
            AND activity_id NOT LIKE 'src-%'
@@ -209,21 +154,15 @@ fn stored_pool(conn: &Connection, shape: &Shape) -> SqlResult<Vec<Candidate>> {
     )?;
     let rows = stmt
         .query_map(
-            params![shape.start - ID_SEARCH_SECS, shape.start + ID_SEARCH_SECS],
-            |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, i64>(1)?,
-                    row.get::<_, String>(2)?,
-                ))
-            },
+            params![start - ID_SEARCH_SECS, start + ID_SEARCH_SECS],
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
         )?
         .collect::<SqlResult<Vec<_>>>()?;
     Ok(rows
         .into_iter()
-        .filter_map(|(key, date, raw)| {
+        .filter_map(|(key, raw)| {
             let record = record_of(&raw)?;
-            Some(Candidate::of(&key, Some(&key), date, &record))
+            Some(Candidate::of(&key, Some(&key), &record))
         })
         .collect())
 }
@@ -236,11 +175,11 @@ pub fn server_copy_of(
     let Some(garmin_id) = garmin_id_of_source_key(key) else {
         return Ok(None);
     };
-    let Some(shape) = shape_of_stored(conn, key)? else {
+    let Some(start) = start_of_stored(conn, key)? else {
         return Ok(None);
     };
-    let pool = stored_pool(conn, &shape)?;
-    Ok(Some((resolve(garmin_id, &shape, &pool), pool)))
+    let pool = stored_pool(conn, start)?;
+    Ok(Some((resolve(garmin_id, &pool), pool)))
 }
 
 /// Record that the original matched `candidates` activities and was linked to
@@ -280,6 +219,15 @@ pub fn originals_to_offer(conn: &Connection) -> SqlResult<Vec<String>> {
     Ok(out)
 }
 
+/// A Garmin original owed to the upload: its key, the local start in seconds
+/// its body stores and the body's record.
+#[derive(Debug, Clone)]
+pub struct UploadOffer {
+    pub key: String,
+    pub date: i64,
+    pub record: ActivityRecord,
+}
+
 /// Give the stored original `key` the intervals.icu id `intervals_id`, on its
 /// track row or, with none, its body, as an upload's answer does.
 fn name_original(conn: &Connection, key: &str, intervals_id: &str) -> SqlResult<()> {
@@ -312,7 +260,6 @@ pub fn stub_for_original(key: &str, raw: &str) -> bool {
 /// One page of intervals.icu activities as the sync is about to store it.
 pub struct IncomingActivity<'a> {
     pub upstream_id: &'a str,
-    pub date: i64,
     pub raw: &'a str,
 }
 
@@ -336,20 +283,13 @@ pub fn link_incoming(
     }
     let incoming: Vec<Candidate> = unclaimed
         .iter()
-        .filter_map(|a| {
-            Some(Candidate::of(
-                a.upstream_id,
-                None,
-                a.date,
-                &record_of(a.raw)?,
-            ))
-        })
+        .filter_map(|a| Some(Candidate::of(a.upstream_id, None, &record_of(a.raw)?)))
         .collect();
     let in_page: HashSet<&str> = incoming.iter().map(|c| c.upstream_id.as_str()).collect();
 
     let mut proposals: Vec<(&UnlinkedOriginal, String)> = Vec::new();
     for original in &originals {
-        let mut pool = stored_pool(conn, &original.shape)?;
+        let mut pool = stored_pool(conn, original.start)?;
         let stored: HashSet<String> = pool.iter().map(|c| c.upstream_id.clone()).collect();
         pool.extend(
             incoming
@@ -357,7 +297,7 @@ pub fn link_incoming(
                 .filter(|c| !stored.contains(&c.upstream_id))
                 .cloned(),
         );
-        match resolve(original.garmin_id, &original.shape, &pool) {
+        match resolve(original.garmin_id, &pool) {
             Matched::One(id) if in_page.contains(id.as_str()) && !stored.contains(&id) => {
                 proposals.push((original, id));
             }
@@ -400,6 +340,36 @@ pub enum Linked {
 }
 
 impl PersistentEngine {
+    /// The Garmin originals that join the upload schedule: those no
+    /// intervals.icu activity holds, when the athlete has switched the upload
+    /// on and a sync has completed, so a copy the first sync would have
+    /// brought is never raced. Originals already queued are left out.
+    pub fn garmin_uploads_owed(&self) -> SqlResult<Vec<UploadOffer>> {
+        use super::settings::{setting_from, settings_keys};
+        let on = setting_from(&self.db, settings_keys::GARMIN_UPLOAD)?.as_deref() == Some("true");
+        if !on || setting_from(&self.db, settings_keys::SYNC_LAST_SUCCESS_AT)?.is_none() {
+            return Ok(Vec::new());
+        }
+        let mut out = Vec::new();
+        for key in originals_to_offer(&self.db)? {
+            if self.get_recording(&key)?.is_some() {
+                continue;
+            }
+            let row: Option<(i64, String)> = self
+                .db
+                .query_row(
+                    "SELECT date, raw FROM activity_bodies WHERE activity_id = ?1",
+                    params![key],
+                    |row| Ok((row.get(0)?, row.get(1)?)),
+                )
+                .optional()?;
+            if let Some((date, record)) = row.and_then(|(d, raw)| Some((d, record_of(&raw)?))) {
+                out.push(UploadOffer { key, date, record });
+            }
+        }
+        Ok(out)
+    }
+
     /// Link the stored Garmin original `key` to the intervals.icu activity the
     /// sync already stored for it, if there is exactly one.
     pub fn link_garmin_original(&mut self, key: &str) -> SqlResult<Linked> {

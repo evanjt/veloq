@@ -3,6 +3,7 @@
   "modules/veloqrs/rust/veloqrs/src/http.rs": 1,
   "modules/veloqrs/rust/veloqrs/src/net/elevation_backfill.rs": 14,
   "modules/veloqrs/rust/veloqrs/src/net/garmin/ingest.rs": 2,
+  "modules/veloqrs/rust/veloqrs/src/net/garmin/pull.rs": 1,
   "modules/veloqrs/rust/veloqrs/src/net/stream_backfill.rs": 7,
   "modules/veloqrs/rust/veloqrs/src/net/upload_recording.rs": 1,
   "modules/veloqrs/rust/veloqrs/src/objects/activities.rs": 10,
@@ -16,7 +17,7 @@
   "modules/veloqrs/rust/veloqrs/src/objects/sections.rs": 16,
   "modules/veloqrs/rust/veloqrs/src/objects/settings.rs": 4,
   "modules/veloqrs/rust/veloqrs/src/objects/strength.rs": 3,
-  "modules/veloqrs/rust/veloqrs/src/objects/sync.rs": 9,
+  "modules/veloqrs/rust/veloqrs/src/objects/sync.rs": 10,
   "modules/veloqrs/rust/veloqrs/src/objects/tiles.rs": 2,
   "modules/veloqrs/rust/veloqrs/src/objects/tracks.rs": 2,
   "modules/veloqrs/rust/veloqrs/src/persistence/attempts.rs": 1,
@@ -30,6 +31,7 @@
   "modules/veloqrs/rust/veloqrs/src/persistence/sections/detection.rs": 8,
   "modules/veloqrs/rust/veloqrs/src/persistence/sections/preview.rs": 1,
   "modules/veloqrs/rust/veloqrs/src/persistence/tiles.rs": 2,
+  "modules/veloqrs/rust/veloqrs/src/push/garmin.rs": 1,
   "modules/veloqrs/rust/veloqrs/src/push/mod.rs": 1,
   "modules/veloqrs/rust/veloqrs/src/push/runs.rs": 1
 }

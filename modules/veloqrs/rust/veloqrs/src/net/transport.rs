@@ -418,7 +418,7 @@ impl Transport {
                     let budget = parse_budget(resp.headers());
 
                     if status.is_success() {
-                        self.note_success(&budget);
+                        self.note_success(lane, &budget);
                         return resp
                             .bytes()
                             .await
@@ -430,7 +430,7 @@ impl Transport {
                     }
                     if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
                         if let AfterRefusal::Cooldown { until } =
-                            self.note_refusal(resp, &budget, probe).await
+                            self.note_refusal(lane, resp, &budget, probe).await
                         {
                             return Err(NetError::Deferred { until });
                         }
@@ -575,7 +575,7 @@ impl Transport {
                 // budget left no time for at all does above.
                 return Err(NetError::RateLimited);
             }
-            match self.settle_write(send, attempt, probe).await {
+            match self.settle_write(lane, send, attempt, probe).await {
                 WriteStep::Done(result) => return result,
                 WriteStep::Backoff(wait) => {
                     if !self.retry_fits(lane, started, wait) {
@@ -632,7 +632,10 @@ impl Transport {
                 .query(query)
                 .timeout(timeout)
                 .multipart(form);
-            match self.settle_write(req.send().await, attempt, probe).await {
+            match self
+                .settle_write(lane, req.send().await, attempt, probe)
+                .await
+            {
                 WriteStep::Done(result) => return result,
                 WriteStep::Backoff(wait) => {
                     if !self.retry_fits(lane, started, wait) {
@@ -658,7 +661,12 @@ impl Transport {
 
     /// Hand a success to the governor, and resume at once whatever waited on
     /// a cooldown it ended.
-    fn note_success(&self, budget: &RateBudget) {
+    fn note_success(&self, lane: Lane, budget: &RateBudget) {
+        // Garmin's answers say nothing about intervals.icu's cooldown.
+        if lane == Lane::Garmin {
+            self.governor.note_garmin_success();
+            return;
+        }
         if self.governor.note_success(budget, self.governor.now()) {
             crate::net::resume::cooldown_cleared();
         }
@@ -671,6 +679,7 @@ impl Transport {
     /// probe.
     async fn note_refusal(
         &self,
+        lane: Lane,
         resp: reqwest::Response,
         budget: &RateBudget,
         probe: bool,
@@ -678,6 +687,14 @@ impl Transport {
         let status = resp.status().as_u16();
         let headers = resp.headers().clone();
         let body = resp.bytes().await.unwrap_or_default();
+        if lane == Lane::Garmin {
+            // Garmin's refusal holds Garmin's lane and nothing of
+            // intervals.icu's budget.
+            let until = self
+                .governor
+                .note_garmin_refusal(budget.retry_after_secs, self.governor.now());
+            return AfterRefusal::Cooldown { until };
+        }
         let via = headers.get("via").and_then(|v| v.to_str().ok());
         let after = self
             .governor
@@ -692,6 +709,7 @@ impl Transport {
     /// Classify a write response under the write retry policy.
     async fn settle_write(
         &self,
+        lane: Lane,
         send: Result<reqwest::Response, reqwest::Error>,
         attempt: u32,
         probe: bool,
@@ -704,7 +722,7 @@ impl Transport {
         let budget = parse_budget(resp.headers());
 
         if status.is_success() {
-            self.note_success(&budget);
+            self.note_success(lane, &budget);
             // The status says the server applied the write. A body that breaks
             // off after it loses only the answer's detail, and reporting a
             // transport failure would have the caller send the write again.
@@ -721,7 +739,8 @@ impl Transport {
             return WriteStep::Done(Err(NetError::Unauthorized));
         }
         if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
-            if let AfterRefusal::Cooldown { until } = self.note_refusal(resp, &budget, probe).await
+            if let AfterRefusal::Cooldown { until } =
+                self.note_refusal(lane, resp, &budget, probe).await
             {
                 return WriteStep::Done(Err(NetError::Deferred { until }));
             }

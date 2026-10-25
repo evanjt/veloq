@@ -123,16 +123,26 @@ describe('Expo SDK dependency guard', () => {
     expect(result.output).toContain('@react-native/jest-preset');
   });
 
-  it('requires the screens repair in both package files', () => {
-    const base = {
+  it('refuses the screens line that predates the 4.29 Fabric and fragment repairs', () => {
+    const result = runGuard({
       bundled: { 'react-native-screens': '4.25.2' },
       declared: { 'react-native-screens': '4.28.0' },
       locked: { 'react-native-screens': '4.28.0' },
+    });
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('react-native-screens');
+  });
+
+  it('requires the screens repair in both package files', () => {
+    const base = {
+      bundled: { 'react-native-screens': '4.25.2' },
+      declared: { 'react-native-screens': '4.29.0' },
+      locked: { 'react-native-screens': '4.29.0' },
     };
     expect(runGuard(base).status).toBe(0);
     expect(runGuard({ ...base, declared: { 'react-native-screens': '4.25.2' } }).status).toBe(1);
     expect(runGuard({ ...base, locked: { 'react-native-screens': '4.25.2' } }).status).toBe(1);
-    expect(runGuard({ ...base, locked: { 'react-native-screens': '4.29.0' } }).status).toBe(1);
+    expect(runGuard({ ...base, locked: { 'react-native-screens': '4.30.0' } }).status).toBe(1);
   });
 
   it('requires the null EGL surface repair to Skia in both package files', () => {
@@ -176,18 +186,18 @@ describe('Expo SDK dependency guard', () => {
     });
     expect(below.status).toBe(1);
     expect(below.output).toContain('react-native-screens');
-    expect(below.output).toContain('4.28.0');
+    expect(below.output).toContain('4.29.0');
 
     const repaired = {
       bundled,
-      declared: { 'react-native-screens': '4.28.0' },
-      locked: { 'react-native-screens': '4.28.0' },
+      declared: { 'react-native-screens': '4.29.0' },
+      locked: { 'react-native-screens': '4.29.0' },
     };
     expect(runGuard(repaired).status).toBe(0);
-    expect(runGuard({ ...repaired, declared: { 'react-native-screens': '^4.28.0' } }).status).toBe(
+    expect(runGuard({ ...repaired, declared: { 'react-native-screens': '^4.29.0' } }).status).toBe(
       1
     );
-    expect(runGuard({ ...repaired, locked: { 'react-native-screens': '4.29.0' } }).status).toBe(1);
+    expect(runGuard({ ...repaired, locked: { 'react-native-screens': '4.30.0' } }).status).toBe(1);
     expect(
       runGuard({
         bundled,
@@ -347,8 +357,8 @@ describe('Expo SDK dependency guard', () => {
   it('lets Expo skip only a package the guard holds above the SDK', () => {
     const fixture = {
       bundled: { 'react-native-screens': '~4.26.0', 'expo-example': '~57.0.2' },
-      declared: { 'react-native-screens': '4.28.0', 'expo-example': '~57.0.2' },
-      locked: { 'react-native-screens': '4.28.0', 'expo-example': '57.0.2' },
+      declared: { 'react-native-screens': '4.29.0', 'expo-example': '~57.0.2' },
+      locked: { 'react-native-screens': '4.29.0', 'expo-example': '57.0.2' },
     };
     expect(runGuard({ ...fixture, excluded: ['react-native-screens'] }).status).toBe(0);
 
@@ -358,7 +368,7 @@ describe('Expo SDK dependency guard', () => {
 
     const released = runGuard({
       ...fixture,
-      bundled: { ...fixture.bundled, 'react-native-screens': '~4.28.0' },
+      bundled: { ...fixture.bundled, 'react-native-screens': '~4.29.0' },
       excluded: ['react-native-screens'],
     });
     expect(released.status).toBe(1);

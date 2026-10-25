@@ -172,6 +172,15 @@ async function fetchAndIngestActivity(
       ingested: false,
     };
 
+    // A Garmin activity's original comes from Garmin, so the engine starts a
+    // pass at Garmin's pacing when the stored body names Garmin as its source.
+    try {
+      const { sync } = require('veloqrs');
+      sync.pullGarminForActivity(activityId);
+    } catch (e) {
+      log.warn('Starting the Garmin pass failed:', e);
+    }
+
     // The detail is stored, so the engine knows what else the activity lacks.
     // A push the platform handler already readied owes nothing and costs one
     // read; otherwise the streams carry the track, and the intervals come with

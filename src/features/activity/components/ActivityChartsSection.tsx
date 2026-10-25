@@ -23,6 +23,7 @@ import { ChartXAxisSwitch, type ChartXAxisMode } from './ChartXAxisSwitch';
 import { HRZonesChart } from './HRZonesChart';
 import { PowerZonesChart } from './PowerZonesChart';
 import { IntervalsTable } from './IntervalsTable';
+import { ActivityProvenanceLine } from './ActivityProvenance';
 import { InsightfulStats } from './stats';
 import {
   BodyNotDownloaded,
@@ -42,10 +43,12 @@ import { intervalChips } from '../lib/intervalChips';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
 import { measuresPower, isSwimmingActivity } from '@/shared/activity/activityUtils';
 import type {
+  ActivityHeldBack,
   HrZoneBand,
   PowerZoneBand,
   ActivityFitnessImpact,
   ActivityRecord,
+  ActivityProvenance,
   ActivitySummary,
   MaxHrSource,
 } from 'veloqrs';
@@ -133,6 +136,9 @@ interface ActivityChartsSectionProps {
   powerZones?: PowerZoneBand[] | undefined;
   /** The intervals.icu id a web link may name, from the detail screen read */
   intervalsId?: string | null | undefined;
+  provenance?: ActivityProvenance | null | undefined;
+  /** The hold on the ride, from the detail screen read: its laps are not shared */
+  heldBack?: ActivityHeldBack | null | undefined;
   /** The screen's opening transition has ended, so the content below the top chart may mount */
   transitionSettled: boolean;
   onPointSelect: (index: number | null) => void;
@@ -169,6 +175,8 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
   hrZones,
   powerZones,
   intervalsId,
+  provenance,
+  heldBack,
   transitionSettled,
   onPointSelect,
   onInteractionChange,
@@ -262,13 +270,15 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
   // the intervals are a persisted column and both zone cards are the engine's
   // bands, which come from the activity body when no stream was fetched.
   const hasIntervals = (intervalsData?.length ?? 0) > 0;
-  const intervalsOwed = !hasIntervals && intervalsOutcome === 'pending';
+  // A held ride's laps are not shared, so no download is owed for them.
+  const intervalsHeld = !hasIntervals && heldBack != null;
+  const intervalsOwed = !hasIntervals && !intervalsHeld && intervalsOutcome === 'pending';
   const hasHrZones = (hrZones?.length ?? 0) > 0;
   const hasPowerZones = (powerZones?.length ?? 0) > 0;
   const lanesShown = streams !== undefined && selectedCharts.length > 0;
   // Anything the card draws above the Intervals row, which a divider then separates it from.
   const chartAboveIntervals = !streamsDownloaded || availableCharts.length > 0 || lanesShown;
-  const chartCardShown = chartAboveIntervals || hasIntervals || intervalsOwed;
+  const chartCardShown = chartAboveIntervals || hasIntervals || intervalsOwed || intervalsHeld;
 
   return (
     <>
@@ -284,6 +294,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
         availableCharts.length > 0 ||
         hasIntervals ||
         intervalsOwed ||
+        intervalsHeld ||
         hasHrZones ||
         hasPowerZones ? (
           <View style={styles.chartSection}>
@@ -351,8 +362,19 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
 
                   {/* The Intervals row. Its own source is the stored lap list, which is
                       persisted whether or not the streams were ever fetched. */}
-                  {(intervalsOwed || hasIntervals) && chartAboveIntervals ? (
+                  {(intervalsOwed || intervalsHeld || hasIntervals) && chartAboveIntervals ? (
                     <RowDivider inset="none" />
+                  ) : null}
+
+                  {intervalsHeld ? (
+                    <View style={styles.intervalsPending}>
+                      <Text
+                        testID="intervals-held-back"
+                        style={[styles.intervalsMessage, isDark && styles.textSecondary]}
+                      >
+                        {t('activity.heldBack.title')}
+                      </Text>
+                    </View>
                   ) : null}
 
                   {intervalsOwed ? (
@@ -480,6 +502,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                 newGround={newGround}
                 summary={summary}
                 intervalsId={intervalsId}
+                heldBack={heldBack}
               />
             </ComponentErrorBoundary>
 
@@ -503,6 +526,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                 <DeviceAttribution deviceName={activity.deviceName} />
               </View>
             ) : null}
+            <ActivityProvenanceLine provenance={provenance} />
 
             {debugEnabled && activity
               ? (() => {
