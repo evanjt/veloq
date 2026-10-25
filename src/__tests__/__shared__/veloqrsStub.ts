@@ -46,6 +46,27 @@ export enum UploadOutcome {
   NotStarted = 9,
 }
 
+/** `FfiSwapState` as generated, held to the source by the same test. */
+export enum SwapState {
+  Hidden = 1,
+  Available = 2,
+  Undoable = 3,
+}
+
+/** `FfiSwapOutcome` as generated, held to the source by the same test. */
+export enum SwapOutcome {
+  Replaced = 1,
+  Unchanged = 2,
+  Refused = 3,
+  PermissionBlocked = 4,
+  AuthExpired = 5,
+  Failed = 6,
+  NotEligible = 7,
+  Mismatch = 8,
+  GarminUnavailable = 9,
+  Restored = 10,
+}
+
 /** `FfiSyncErrorReason` as generated, held to the source by the same test. */
 export enum SyncErrorReason {
   Unauthorized = 1,
@@ -280,6 +301,13 @@ export enum FfiGarminHalt {
   KeyRejected,
   Unreachable,
   Unstorable,
+}
+
+/** `GarminMatch` as generated, held to the source by the same test. */
+export enum GarminMatch {
+  Silent,
+  Matched,
+  WrongAccount,
 }
 
 /** `FfiPlannedCategory` as generated, held to the source by the same test. */
@@ -650,6 +678,8 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
   return {
     CallKind,
     UploadOutcome,
+    SwapState,
+    SwapOutcome,
     SyncState,
     SyncErrorReason,
     SyncStep,
@@ -678,6 +708,7 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     GarminKeyStatus,
     FfiGarminPullPhase,
     FfiGarminHalt,
+    GarminMatch,
     RetiredPairLink,
     FfiReferenceSource,
     FfiPlannedCategory,

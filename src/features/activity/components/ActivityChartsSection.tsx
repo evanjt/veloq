@@ -87,6 +87,7 @@ import {
 } from '@/theme';
 import { ABSENT } from '@/shared/format/absent';
 import { usePagerPageScrollProps } from '@/shared/ui/pagerPageScroll';
+import { ActivityGarminSwap } from './ActivityGarminSwap';
 
 /** The chart an activity opens on: power where the sport measures it, pace for a swim. */
 function defaultChartFor(type: ActivityType): ChartTypeId {
@@ -527,6 +528,8 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
               </View>
             ) : null}
             <ActivityProvenanceLine provenance={provenance} />
+
+            <ActivityGarminSwap activityId={activityId} />
 
             {debugEnabled && activity
               ? (() => {

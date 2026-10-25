@@ -13,7 +13,7 @@
 //! records what it was asked.
 
 use crate::governor::Dispatch;
-use crate::net::endpoints::{BulkActivityBodies, UploadDetails};
+use crate::net::endpoints::{BulkActivityBodies, Replacement, UploadDetails};
 use crate::net::intervals::wire::{
     ActivityRecord, AthleteRecord, ListedActivity, ManualActivityBody, WellnessRecord,
 };
@@ -209,6 +209,17 @@ pub trait SourceWrites: Source {
         newest: &str,
         dispatch: Dispatch,
     ) -> impl Future<Output = Result<Vec<ListedActivity>, NetError>> + Send;
+
+    /// Replace an activity's file in place, keeping the athlete's custom
+    /// fields and, when asked, the intervals they edited.
+    fn replace_activity_file(
+        &self,
+        upstream: &str,
+        file_path: &str,
+        filename: &str,
+        keep_intervals: bool,
+        dispatch: Dispatch,
+    ) -> impl Future<Output = Result<Replacement, NetError>> + Send;
 
     /// Set the effort the athlete gave an activity.
     fn update_activity_rpe(

@@ -293,7 +293,7 @@ pub(crate) fn activity_metrics_row(record: ActivityRecord, date: i64) -> crate::
         elevation_gain: record.total_elevation_gain.unwrap_or(0.0),
         avg_hr: record.average_heartrate.map(|v| v.round() as u16),
         avg_power: record.icu_average_watts.map(|v| v.round() as u16),
-        sport_type: record.activity_type.unwrap_or_else(|| "Ride".to_string()),
+        sport_type: crate::sport::sport_or_unknown(record.activity_type.as_deref()).to_string(),
         training_load: record.icu_training_load,
         ftp: record.icu_ftp.map(|v| v.round().max(0.0) as u16),
         power_zone_times: record
@@ -370,6 +370,25 @@ impl SourceWrites for IntervalsSession {
     ) -> Result<(), NetError> {
         endpoints::update_activity_rpe(&self.transport, upstream, rpe, dispatch).await
     }
+
+    async fn replace_activity_file(
+        &self,
+        upstream: &str,
+        file_path: &str,
+        filename: &str,
+        keep_intervals: bool,
+        dispatch: Dispatch,
+    ) -> Result<endpoints::Replacement, NetError> {
+        endpoints::replace_activity_file(
+            &self.transport,
+            upstream,
+            file_path,
+            filename,
+            keep_intervals,
+            dispatch,
+        )
+        .await
+    }
 }
 
 #[cfg(test)]
@@ -434,7 +453,22 @@ mod tests {
         assert_eq!(row.ftp, None);
         assert_eq!(row.power_zone_times, None);
         assert_eq!(row.hr_zone_times, None);
-        assert_eq!(row.sport_type, "Ride");
+        assert_eq!(row.sport_type, "Other");
+        assert!(!crate::sport::is_cycling(&row.sport_type));
+    }
+
+    #[test]
+    fn an_activity_with_an_empty_type_is_filed_as_other() {
+        let record: ActivityRecord = serde_json::from_value(json!({
+            "id": "a2",
+            "type": "",
+            "start_date_local": "2026-01-02T08:00:00",
+        }))
+        .expect("record");
+
+        let row = activity_metrics_row(record, 1_767_340_800);
+
+        assert_eq!(row.sport_type, "Other");
     }
 
     // A zone series in a shape we do not model is worth less than the

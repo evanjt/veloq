@@ -543,7 +543,10 @@ const DEVICE_SETTINGS: &[&str] = &[
 /// place a key the writer would have left out.
 pub(crate) fn is_record_setting(key: &str) -> bool {
     // What the Garmin pull has fetched is the originals on this device.
-    if DEVICE_SETTINGS.contains(&key) || crate::net::garmin::pull::SETTING_KEYS.contains(&key) {
+    if DEVICE_SETTINGS.contains(&key)
+        || crate::net::garmin::pull::SETTING_KEYS.contains(&key)
+        || crate::net::garmin_auto_swap::SETTING_KEYS.contains(&key)
+    {
         return false;
     }
     !key.starts_with("__")
@@ -908,6 +911,7 @@ mod tests {
         ]
         .into_iter()
         .chain(crate::net::garmin::pull::SETTING_KEYS)
+        .chain(crate::net::garmin_auto_swap::SETTING_KEYS)
         {
             assert!(!super::is_record_setting(key), "{key} travelled");
         }

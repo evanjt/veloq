@@ -20,10 +20,34 @@ function row(values) {
   return `| ${values.map(cell).join(' | ')} |`;
 }
 
+function isBundle(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+/** `override` laid over `base` key by key, down to the leaves. */
+function mergeBundles(base, override) {
+  const result = { ...base };
+  for (const [key, value] of Object.entries(override ?? {})) {
+    const previous = result[key];
+    result[key] = isBundle(value) && isBundle(previous) ? mergeBundles(previous, value) : value;
+  }
+  return result;
+}
+
 /**
- * The sheet for `locale`. `reference` is the en-US bundle, `current` the
- * locale's bundle now, `before` its bundle at `since` (empty when the locale
- * did not exist then), and `accepted` the locale's accepted keys with reasons.
+ * The bundle a reader gets for the first name in `chain`: each later name
+ * fills the keys the earlier ones lack, as the app's fallback chain does.
+ * `load` returns the bundle for a name.
+ */
+function resolvedBundle(chain, load) {
+  return chain.reduceRight((result, name) => mergeBundles(result, load(name)), {});
+}
+
+/**
+ * The sheet for `locale`. `reference` is the en-US bundle and `current` the
+ * locale's bundle now, both resolved through their fallback chains. `before` is
+ * its bundle at `since` (empty when the locale did not exist then), and
+ * `accepted` the locale's accepted keys with reasons.
  */
 function reviewSheet({ locale, since, reference, current, before, accepted }) {
   const en = leaves(reference);
@@ -80,4 +104,4 @@ function reviewSheet({ locale, since, reference, current, before, accepted }) {
   return `${lines.join('\n')}\n`;
 }
 
-module.exports = { leaves, reviewSheet };
+module.exports = { leaves, resolvedBundle, reviewSheet };

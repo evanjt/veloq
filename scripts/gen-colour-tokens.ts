@@ -17,12 +17,12 @@ import { trackedText } from './lib/indexedSources.mjs';
 import {
   checkColourRoles,
   renderAppColours,
-  renderRustHeatRamp,
+  renderRustHeatPalettes,
   renderTypeScript,
   resolveColourTokens,
   roleColours,
   staleOutputs,
-  type HeatStop,
+  type HeatPalette,
   type RoleMap,
   type TokenFile,
 } from './lib/colourTokens';
@@ -34,19 +34,14 @@ const OUT_TS = 'src/theme/colourTokens.generated.ts';
 const OUT_RUST = 'modules/veloqrs/rust/veloqrs/src/heatmap_ramp.rs';
 const OUT_APP = 'src/theme/appColours.json';
 
-// The heatmap is painted once in the engine and drawn over every map style, so
-// it takes one ramp: the dark map's heat steps, faint to pale. The light map's
-// raster paint inverts lightness, so the same ramp darkens with density there.
-// The alphas start high enough that the faintest stops composite at 3:1 over
-// every light map ground and the faintest to the densest at 3:1 over land,
-// which the engine's own tests measure.
-const HEAT_STOPS: HeatStop[] = [
-  { intensity: 0.04, token: 'map-dark-heat-1', alpha: 176 },
-  { intensity: 0.2, token: 'map-dark-heat-2', alpha: 194 },
-  { intensity: 0.45, token: 'map-dark-heat-3', alpha: 212 },
-  { intensity: 0.75, token: 'map-dark-heat-4', alpha: 230 },
-  { intensity: 1, token: 'map-dark-heat-5', alpha: 248 },
-];
+// The engine stores one heatmap tile set and serves it to each base map in that
+// base's own heat steps, swapping only the tile's palette. Satellite imagery is
+// any colour under a trail, so that base rings its heat in a dark halo.
+const HEAT_PALETTES: HeatPalette[] = (['light', 'dark', 'satellite'] as const).map((base) => ({
+  base,
+  steps: [1, 2, 3, 4, 5].map((step) => `map-${base}-heat-${step}`),
+  ...(base === 'satellite' && { halo: 'neutral-950' }),
+}));
 
 // Native code draws these before any JavaScript runs: the adaptive icon, the
 // splash and the notification accent, through app.config.js and the icon generator.
@@ -95,8 +90,8 @@ async function main() {
   try {
     const resolved = resolveColourTokens(file);
     outputs = {
-      [OUT_TS]: renderTypeScript(resolved, roleColours(resolved, map), HEAT_STOPS),
-      [OUT_RUST]: renderRustHeatRamp(resolved, HEAT_STOPS),
+      [OUT_TS]: renderTypeScript(resolved, roleColours(resolved, map)),
+      [OUT_RUST]: renderRustHeatPalettes(resolved, HEAT_PALETTES),
       [OUT_APP]: renderAppColours(resolved, APP_COLOURS),
     };
   } catch (error) {
@@ -122,7 +117,7 @@ async function main() {
   const { colors, darkColors } = await import('../src/theme/colors');
   const resolved = resolveColourTokens(file);
   const problems = checkColourRoles(file, resolved, map, { light: colors, dark: darkColors }, [
-    ...HEAT_STOPS.map((s) => s.token),
+    ...HEAT_PALETTES.flatMap((p) => [...p.steps, ...(p.halo ? [p.halo] : [])]),
     ...Object.values(APP_COLOURS),
     ...BRAND_TOKENS,
   ]);

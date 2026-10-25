@@ -22,7 +22,7 @@ use tracematch::{Bounds, GpsPoint};
 
 /// Tile format version - increment when tile size, zoom range, or rendering changes.
 /// Triggers automatic cache clear + regeneration on app upgrade.
-pub(crate) const TILE_FORMAT_VERSION: &str = "11";
+pub(crate) const TILE_FORMAT_VERSION: &str = "12";
 
 /// The bytes on disk the tiles drawn on request may hold. About 8,000 deep
 /// tiles of one 4 KiB block each, which is on the order of a hundred distinct

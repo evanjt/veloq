@@ -624,8 +624,17 @@ fn extension_of(url: &str) -> String {
     }
 }
 
-/// The source name the map page asks the heatmap's own tiles under.
-const HEATMAP_SOURCE: &str = "heatmap";
+/// The source names the map page asks the heatmap's own tiles under, one per
+/// base map: `heatmap-light`, `heatmap-dark` and `heatmap-satellite`.
+const HEATMAP_SOURCE_PREFIX: &str = "heatmap-";
+
+/// The base map a heatmap source name asks for, or `None` when the name is
+/// not a heatmap source.
+fn heatmap_base(source: &str) -> Option<crate::tiles::HeatmapBase> {
+    source
+        .strip_prefix(HEATMAP_SOURCE_PREFIX)
+        .and_then(crate::tiles::HeatmapBase::from_name)
+}
 
 /// What the page is told when there is no tile to be had: nothing lies there,
 /// or nothing ever will. The page skips it as out of coverage.
@@ -728,9 +737,11 @@ pub fn lookup_tile(source: &str, z: u8, x: u32, y: u32) -> TileLookup {
     // The heatmap is drawn here rather than fetched from a host, so it is not a
     // basemap source and has no template: a deep tile is drawn on the miss,
     // and any other miss means the pass has not reached that tile, which is a
-    // 404.
-    if source == HEATMAP_SOURCE {
-        return match crate::persistence::tiles::heatmap_tile_bytes(z, x, y) {
+    // 404. The one tile set is served in the asking base's palette.
+    if let Some(base) = heatmap_base(source) {
+        let tile = crate::persistence::tiles::heatmap_tile_bytes(z, x, y)
+            .and_then(|png| crate::tiles::tile_for_base(&png, base));
+        return match tile {
             Some(bytes) => TileLookup::Ready(bytes),
             None => TileLookup::Refused(NO_TILE),
         };

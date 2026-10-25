@@ -15,6 +15,7 @@ import {
 } from '@/features/maps/lib/heatmapGeneration';
 import { heatmapTileTemplate } from '@/features/maps/lib/heatmapTiles';
 import { buildRegionalSources } from '@/features/maps/components/regional/regionalMapLayerSpecs';
+import type { MapBase } from '@/theme';
 
 type MockListener = (payload?: unknown) => void;
 const mockListeners = new Map<string, Set<MockListener>>();
@@ -42,7 +43,7 @@ function announce() {
 
 const empty: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 
-const sources = (generation: number) =>
+const sources = (generation: number, heatmapBase: MapBase = 'light') =>
   buildRegionalSources({
     markersGeoJSON: empty,
     sectionsGeoJSON: empty,
@@ -52,16 +53,17 @@ const sources = (generation: number) =>
     spiderPointsGeoJSON: empty,
     spiderLinesGeoJSON: empty,
     heatmapEnabled: true,
+    heatmapBase,
     heatmapGeneration: generation,
   });
 
 it('leaves the template alone until a pass has finished', () => {
-  expect(heatmapTileTemplate(0)).not.toContain('?');
+  expect(heatmapTileTemplate('light', 0)).not.toContain('?');
 });
 
 it('versions the template once a pass has announced itself', () => {
-  expect(heatmapTileTemplate(3)).toContain('?v=3');
-  expect(heatmapTileTemplate(3).split('?')[0]).toBe(heatmapTileTemplate(0));
+  expect(heatmapTileTemplate('light', 3)).toContain('?v=3');
+  expect(heatmapTileTemplate('light', 3).split('?')[0]).toBe(heatmapTileTemplate('light', 0));
 });
 
 it('counts the announcements, which is what the source reads', () => {
@@ -91,6 +93,12 @@ it('puts the generation in the raster source the map declares', () => {
   const raster = sources(4)['heatmap-tiles'] as { tiles: string[] };
 
   expect(raster.tiles[0]).toContain('?v=4');
+});
+
+it('asks the raster source for the base map it is drawn over', () => {
+  const raster = sources(4, 'satellite')['heatmap-tiles'] as { tiles: string[] };
+
+  expect(raster.tiles[0]).toBe(heatmapTileTemplate('satellite', 4));
 });
 
 it('clears the engine priority view when the map leaves', () => {

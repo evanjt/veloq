@@ -1,9 +1,12 @@
 /**
  * Scenario: the heatmap raster paint was tuned for the 2D map only, and the 3D
- * page carried its own copy of different values.
+ * page carried its own copy of different values. Then the tiles came to be
+ * served in each base's own opaque steps, so a paint that shifts or fades
+ * them draws colours no base chose.
  *
  * Expected behaviour: for each map style, the built 3D page carries exactly
- * the paint the 2D layer spec emits.
+ * the paint the 2D layer spec emits, and that paint draws the tile's colours
+ * as they are.
  */
 
 import { buildMap3DHtml, type Map3DHtmlConfig } from '@/features/maps/lib/htmlBuilders';
@@ -50,7 +53,21 @@ describe('heatmap raster paint', () => {
       routeColor: '#FF6B35',
     } as unknown as Parameters<typeof buildRegionalLayers>[0]);
     const twoD = layers.find((l) => l.id === 'heatmap-layer')?.paint;
-    expect(twoD).toEqual(heatmapRasterPaint(style));
-    expect(html(style)).toContain(JSON.stringify(heatmapRasterPaint(style)));
+    expect(twoD).toEqual(heatmapRasterPaint());
+    expect(html(style)).toContain(JSON.stringify(heatmapRasterPaint()));
+  });
+
+  it('draws the tile colours unchanged and opaque', () => {
+    const paint = heatmapRasterPaint();
+    expect(paint['raster-opacity']).toBe(1);
+    for (const shift of [
+      'raster-hue-rotate',
+      'raster-brightness-min',
+      'raster-brightness-max',
+      'raster-saturation',
+      'raster-contrast',
+    ]) {
+      expect(paint).not.toHaveProperty(shift);
+    }
   });
 });

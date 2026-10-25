@@ -9,7 +9,11 @@
  * as new, and nothing unchanged is listed.
  */
 
-const { reviewSheet, leaves } = require('../../../scripts/lib/translation-review.js');
+const {
+  reviewSheet,
+  leaves,
+  resolvedBundle,
+} = require('../../../scripts/lib/translation-review.js');
 
 const reference = {
   garden: { trowel: 'Trowel', compost: 'Compost', hedge: 'Hedge', label: 'Plot | {{n}}' },
@@ -109,5 +113,33 @@ describe('reviewSheet', () => {
       current: { ...current, greenhouse: { ...current.greenhouse, vents: 'Aérations\nhautes' } },
     });
     expect(text).toContain('| greenhouse.vents | Vents | Aérations<br>hautes | Vents |');
+  });
+});
+
+describe('resolvedBundle', () => {
+  const bundles: Record<string, Record<string, unknown>> = {
+    'en-US': { garden: { hedge: 'Hedge' }, greenhouse: { title: 'Greenhouse' } },
+    'en-GB': {
+      garden: { hedge: 'Hedge', trowel: 'Trowel' },
+      greenhouse: { title: 'Glasshouse', vents: 'Vents' },
+    },
+  };
+  const load = (name: string) => bundles[name];
+
+  it('fills a key the first bundle lacks from the next one in the chain', () => {
+    expect(resolvedBundle(['en-US', 'en-GB'], load)).toEqual({
+      garden: { hedge: 'Hedge', trowel: 'Trowel' },
+      greenhouse: { title: 'Greenhouse', vents: 'Vents' },
+    });
+  });
+
+  it('reads a chain entry with no bundle as holding nothing', () => {
+    expect(resolvedBundle(['en-US', 'missing', 'en-GB'], load)).toEqual(
+      resolvedBundle(['en-US', 'en-GB'], load)
+    );
+  });
+
+  it('returns the first bundle unchanged when the chain has one entry', () => {
+    expect(resolvedBundle(['en-US'], load)).toEqual(bundles['en-US']);
   });
 });

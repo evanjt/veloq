@@ -725,7 +725,7 @@ export function buildMap3DSetStyleScript({
           if (!window.map.getSource('heatmap-tiles')) {
             window.map.addSource('heatmap-tiles', {
               type: 'raster',
-              tiles: [${jsLiteral(heatmapTileTemplate(heatmapGeneration))}],
+              tiles: [${jsLiteral(heatmapTileTemplate(mapStyle, heatmapGeneration))}],
               tileSize: 256,
               minzoom: ${HEATMAP_SOURCE_MINZOOM},
               maxzoom: 17
@@ -736,7 +736,7 @@ export function buildMap3DSetStyleScript({
               type: 'raster',
               source: 'heatmap-tiles',
               layout: { visibility: ${showHeatmap} ? 'visible' : 'none' },
-              paint: ${JSON.stringify(heatmapRasterPaint(mapStyle))}
+              paint: ${JSON.stringify(heatmapRasterPaint())}
             }, heatmapBeforeId);
           }
         });

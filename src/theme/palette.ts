@@ -80,8 +80,6 @@ function layerColours(base: MapBase) {
     merging: colors.warningFill,
     /** The ring around an activity point that is not selected. */
     pointRing: colorWithOpacity(ink.white, 0.8),
-    /** The selected activity's route while the heatmap is drawn under it. */
-    heatmapRoute: ink.white,
     /** The legs from a spread cluster to its points, drawn for the base under them. */
     spiderLeg: dark
       ? colorWithOpacity(ink.white, opacity.disabled)

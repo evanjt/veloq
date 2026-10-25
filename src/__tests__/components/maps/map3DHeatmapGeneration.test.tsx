@@ -4,7 +4,8 @@
  * missing tiles until the camera moves.
  *
  * Expected behaviour: the surface reloads the heatmap source with the versioned
- * template, and a style swap afterwards re-adds the source with the same one.
+ * template of the base on the page, and a style swap afterwards re-adds the
+ * source with the new base's template at the same version.
  */
 
 import React from 'react';
@@ -52,7 +53,7 @@ jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
 const EMPTY: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 
-function surface(mapStyle: 'light' | 'dark' = 'light') {
+function surface(mapStyle: 'light' | 'dark' | 'satellite' = 'light') {
   return (
     <Map3DWebView
       coordinates={[[7.4, 46.9]]}
@@ -84,7 +85,7 @@ describe('a finished tile pass in 3D', () => {
     await view.rerender(surface());
 
     const script = injected.find((s) => s.includes('setTiles'));
-    expect(script).toContain(JSON.stringify(heatmapTileTemplate(1)));
+    expect(script).toContain(JSON.stringify(heatmapTileTemplate('light', 1)));
     expect(html).toBe(before);
     await view.unmount();
   });
@@ -95,7 +96,7 @@ describe('a finished tile pass in 3D', () => {
     await ready();
 
     expect(injected.some((s) => s.includes('setTiles'))).toBe(false);
-    expect(html).toContain(JSON.stringify(heatmapTileTemplate(3)));
+    expect(html).toContain(JSON.stringify(heatmapTileTemplate('light', 3)));
     await view.unmount();
   });
 
@@ -109,7 +110,21 @@ describe('a finished tile pass in 3D', () => {
     await view.rerender(surface('dark'));
 
     const swap = injected.find((s) => s.includes("addSource('heatmap-tiles'"));
-    expect(swap).toContain(JSON.stringify(heatmapTileTemplate(2)));
+    expect(swap).toContain(JSON.stringify(heatmapTileTemplate('dark', 2)));
+    await view.unmount();
+  });
+
+  it('versions the template of the base on the page after a style swap', async () => {
+    const view = await render(surface('light'));
+    await ready();
+    await view.rerender(surface('satellite'));
+    injected.length = 0;
+
+    mockGeneration = 4;
+    await view.rerender(surface('satellite'));
+
+    const script = injected.find((s) => s.includes('setTiles'));
+    expect(script).toContain(JSON.stringify(heatmapTileTemplate('satellite', 4)));
     await view.unmount();
   });
 });

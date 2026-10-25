@@ -26,6 +26,7 @@ import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useLastSyncSuccessAt, useSyncState } from '@/shared/native/useSyncStatus';
 import { noteLastSyncSuccess } from '@/features/settings/stores/WhatsNewStore';
 import { usePushedWritesOnForeground } from '@/shared/native/usePushedWritesOnForeground';
+import { usePulledRideNotification } from '@/shared/native/usePulledRideNotification';
 import { usePickupDeadline } from '@/shared/app/usePickupDeadline';
 import { useReconnect } from '@/shared/app/useRetryTriggers';
 import { syncSettledForExpansion } from '@/shared/app/expansionLock';
@@ -93,6 +94,7 @@ export function GlobalDataSync() {
   // the app was away, which leaves the engine's in-memory tiers behind the file
   // with nothing to say so.
   usePushedWritesOnForeground();
+  usePulledRideNotification();
 
   // One-shot self-heal for upgrades across the corridor-detection regression.
   // Triggers a forced redetect when sync completes against an empty section

@@ -14,6 +14,7 @@ pub const PAGE_SIZE: usize = 99;
 
 const TOKEN_PATH: &str = "/personalapitoken-service/personal-api/personal-api-key/token";
 const LIST_PATH: &str = "/activitylist-service/activities/search/activities";
+const SETTINGS_PATH: &str = "/userprofile-service/userprofile/settings";
 
 fn download_path(activity_id: i64) -> String {
     format!("/download-service/files/activity/{activity_id}")
@@ -53,6 +54,16 @@ pub async fn fetch_activity_page(
         dispatch,
     )
     .await
+}
+
+/// The account's display settings, which name the account the key belongs to.
+/// The answer is read as JSON whatever its shape, since only one field of it
+/// is used.
+pub async fn fetch_user_settings(
+    t: &Transport,
+    dispatch: impl Into<Dispatch>,
+) -> Result<serde_json::Value, NetError> {
+    t.get_json(SETTINGS_PATH, &[], dispatch).await
 }
 
 /// The original FIT of an activity, out of the zip Garmin answers with.

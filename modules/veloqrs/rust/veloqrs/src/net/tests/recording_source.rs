@@ -299,6 +299,25 @@ impl SourceWrites for RecordingSource {
         Ok(self.created.clone())
     }
 
+    /// Records the activity, the file and whether intervals were kept.
+    async fn replace_activity_file(
+        &self,
+        upstream: &str,
+        file_path: &str,
+        filename: &str,
+        keep_intervals: bool,
+        dispatch: Dispatch,
+    ) -> Result<crate::net::endpoints::Replacement, NetError> {
+        self.note(
+            "replace_activity_file",
+            &[upstream, file_path, filename, &keep_intervals.to_string()],
+            dispatch,
+        );
+        Ok(crate::net::endpoints::Replacement::Replaced(
+            upstream.into(),
+        ))
+    }
+
     /// Records the body as the JSON that would go on the wire.
     async fn create_activity(
         &self,

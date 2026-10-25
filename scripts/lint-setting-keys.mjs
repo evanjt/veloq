@@ -24,6 +24,7 @@ const MIGRATION = 'src/shared/storage/migrateSettingsToSqlite.ts';
 const ENGINE_ONLY_KEYS = new Map([
   ['veloq-garmin-key-expiry', 'Device-only Garmin connector choice, never carried by a backup'],
   ['veloq-garmin-feed', 'Device-only Garmin connector choice, never carried by a backup'],
+  ['veloq-garmin-auto-swap', 'Device-only Garmin connector choice, never carried by a backup'],
   ['veloq-garmin-upload', 'Device-only Garmin connector choice, never carried by a backup'],
   [
     'veloq-garmin-offer-declined-at',

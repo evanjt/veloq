@@ -122,7 +122,7 @@ describe('RegionalMapView 3D selected line colour', () => {
     );
     await fireEvent.press(screen.getByTestId('map-toggle-3d'));
     expect(lastTerrain()).not.toBeNull();
-    expect(lastRouteColor()).toBe(mapPalette('light').layer.heatmapRoute);
+    expect(lastRouteColor()).toBe(mapPalette('light').ink);
 
     await fireEvent.press(screen.getByTestId('map-layers'));
     await fireEvent.press(screen.getByTestId('map-toggle-heatmap'));

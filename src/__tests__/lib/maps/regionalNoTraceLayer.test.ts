@@ -48,6 +48,7 @@ function sources() {
     spiderPointsGeoJSON: empty,
     spiderLinesGeoJSON: empty,
     heatmapEnabled: false,
+    heatmapBase: 'light',
   });
 }
 

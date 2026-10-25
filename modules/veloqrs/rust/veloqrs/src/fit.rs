@@ -95,6 +95,36 @@ fn decode(data: &[u8]) -> Result<Vec<fitparser::FitDataRecord>, FitParseError> {
     .map_err(|e| FitParseError::Decode(e.to_string()))
 }
 
+/// Every message type a FIT file holds, paired with each field name that
+/// message carries anywhere in the file. A field the device wrote as invalid
+/// is not decoded and so is not counted.
+pub fn message_fields(
+    data: &[u8],
+) -> Result<std::collections::BTreeSet<(String, String)>, FitParseError> {
+    let mut out = std::collections::BTreeSet::new();
+    for record in decode(data)? {
+        let kind = record.kind().to_string();
+        if record.fields().is_empty() {
+            out.insert((kind.clone(), String::new()));
+        }
+        for field in record.fields() {
+            out.insert((kind.clone(), field.name().to_string()));
+        }
+    }
+    Ok(out)
+}
+
+/// Whether `original` holds a message type or a field that `current` lacks.
+/// A file that is byte for byte the same holds nothing more, and a file that
+/// does not decode cannot be said to hold more.
+pub fn holds_more_than(original: &[u8], current: &[u8]) -> Result<bool, FitParseError> {
+    if original == current {
+        return Ok(false);
+    }
+    let (original, current) = (message_fields(original)?, message_fields(current)?);
+    Ok(original.difference(&current).next().is_some())
+}
+
 /// What a recording's FIT holds for its provisional row.
 #[derive(Debug, Clone, Default)]
 pub struct FitRecording {
@@ -910,6 +940,29 @@ pub(crate) fn pool_swim_fit() -> Vec<u8> {
 
 #[cfg(test)]
 pub(crate) mod tests {
+    /// Scenario: a device's own file holds fields that intervals.icu's copy of
+    /// the same ride dropped.
+    ///
+    /// Expected behaviour: the original holds more when it has a field the copy
+    /// lacks, the copy never holds more than the original it came from, and
+    /// identical bytes hold nothing more.
+    #[test]
+    fn a_file_holds_more_only_when_it_has_a_field_the_other_lacks() {
+        use crate::fit_synthetic::{indoor_ride, outdoor_ride};
+        let full = outdoor_ride().to_fit();
+        let thinner = indoor_ride().to_fit();
+        assert!(super::holds_more_than(&full, &thinner).unwrap());
+        assert!(!super::holds_more_than(&thinner, &full).unwrap());
+        assert!(!super::holds_more_than(&full, &full.clone()).unwrap());
+    }
+
+    #[test]
+    fn a_file_that_does_not_decode_is_an_error_not_a_difference() {
+        let full = crate::fit_synthetic::outdoor_ride().to_fit();
+        assert!(super::holds_more_than(&full, b"not a fit file").is_err());
+        assert!(!super::holds_more_than(b"", &full).unwrap());
+    }
+
     /// Scenario: a ride's provisional row is written from the FIT the device
     /// saved, at save time or by the replay at the next launch, so the track
     /// has to come back out of the file the app's own writer produced.

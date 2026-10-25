@@ -1769,7 +1769,7 @@ impl Plan {
         sports: &std::collections::HashMap<&str, &str>,
         outcome: &mut BackfillOutcome,
     ) -> bool {
-        let sport = |id: &str| sports.get(id).copied().unwrap_or("Ride").to_string();
+        let sport = |id: &str| crate::sport::sport_or_unknown(sports.get(id).copied()).to_string();
         match result {
             Fetched::Altitudes(altitudes, series) => {
                 self.splice.push((id, altitudes, series));
@@ -2032,7 +2032,8 @@ fn store_wide_answers(
                         let points = answer.points();
                         let state = crate::ffi::elevation_state_of(&points);
                         let source = elevation_source_of(&points, answer.series);
-                        let sport = sports.get(id.as_str()).copied().unwrap_or("Ride");
+                        let sport =
+                            crate::sport::sport_or_unknown(sports.get(id.as_str()).copied());
                         engine.drop_activity_streams(id)?;
                         mutated.extend(engine.add_activities_batch(vec![(
                             id.clone(),

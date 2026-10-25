@@ -4,8 +4,10 @@
  * `.maestro` before it runs the first flow, so the whole suite stops on both
  * platforms with no flow named.
  *
- * Expected behaviour: the guard names each flow file that does not parse and
- * passes when every one does.
+ * A command Maestro does not have stops the suite the same way.
+ *
+ * Expected behaviour: the guard names each flow file that does not parse or
+ * names an unknown command, and passes when every one is valid.
  */
 
 import { spawnSync } from 'node:child_process';
@@ -55,6 +57,50 @@ describe('the Maestro flow guard', () => {
     const result = runOver({ 'one.yaml': BAD, 'helpers/two.yaml': BAD, 'ok.yaml': GOOD });
     expect(result.status).toBe(1);
     expect(result.output).toContain('2 flow file(s) do not parse');
+  });
+
+  it('names a flow that uses a command Maestro does not have, nested or not', () => {
+    const top = ['appId: com.example.app', '---', '- launchApp', '- openNotifications', ''].join(
+      '\n'
+    );
+    const nested = [
+      'appId: com.example.app',
+      '---',
+      '- repeat:',
+      '    times: 2',
+      '    commands:',
+      '      - flingEverything',
+      '',
+    ].join('\n');
+    const result = runOver({ 'a.yaml': GOOD, 'top.yaml': top, 'nested.yaml': nested });
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('.maestro/top.yaml: Maestro has no command openNotifications');
+    expect(result.output).toContain('.maestro/nested.yaml: Maestro has no command flingEverything');
+    expect(result.output).not.toContain('.maestro/a.yaml');
+  });
+
+  it('names an Android-only command in a flow the iOS gate selects, unless an Android condition wraps it', () => {
+    const flow = (tag: string, body: string[]) =>
+      ['appId: com.example.app', 'tags:', `  - ${tag}`, '---', ...body, ''].join('\n');
+    const bare = flow('tier0', ['- toggleAirplaneMode']);
+    const guarded = flow('pack-nav', [
+      '- runFlow:',
+      '    when:',
+      '      platform: Android',
+      '    commands:',
+      '      - setAirplaneMode:',
+      '          enabled: true',
+    ]);
+    const androidRun = flow('tier2', ['- toggleAirplaneMode']);
+    const result = runOver({
+      'bare.yaml': bare,
+      'guarded.yaml': guarded,
+      'android.yaml': androidRun,
+    });
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('.maestro/bare.yaml: toggleAirplaneMode is Android-only');
+    expect(result.output).not.toContain('.maestro/guarded.yaml');
+    expect(result.output).not.toContain('.maestro/android.yaml');
   });
 
   it('fails when there is nothing to check', () => {

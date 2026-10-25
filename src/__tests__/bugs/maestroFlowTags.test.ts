@@ -34,6 +34,8 @@ const KNOWN_PACKS = new Set([
   'pack-data',
   'pack-stress',
   'pack-recording',
+  'pack-routes-long',
+  'pack-recording-long',
 ]);
 
 // Run by build.yml by file (not by tag); tagged prod-smoke so no tier gate or
@@ -80,7 +82,7 @@ function tierTags(content: string): string[] {
 }
 
 function packTags(content: string): string[] {
-  return [...header(content).matchAll(/^\s*-\s*(pack-[a-z]+)\s*(?:#.*)?$/gm)].map((m) => m[1]);
+  return [...header(content).matchAll(/^\s*-\s*(pack-[a-z-]+)\s*(?:#.*)?$/gm)].map((m) => m[1]);
 }
 
 describe('maestro flow tags', () => {

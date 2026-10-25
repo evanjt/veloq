@@ -70,6 +70,7 @@ function sources(routesGeoJSON: GeoJSON.FeatureCollection | string) {
     spiderPointsGeoJSON: EMPTY,
     spiderLinesGeoJSON: EMPTY,
     heatmapEnabled: false,
+    heatmapBase: 'light',
   });
 }
 

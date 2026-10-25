@@ -211,6 +211,7 @@ describe('a regional tap on an activity', () => {
         spiderPointsGeoJSON: EMPTY,
         spiderLinesGeoJSON: EMPTY,
         heatmapEnabled: false,
+        heatmapBase: 'light',
       });
       return { selected, handlers, sources, routeHasData };
     });

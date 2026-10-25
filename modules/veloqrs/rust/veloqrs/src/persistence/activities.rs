@@ -1068,8 +1068,8 @@ pub(crate) mod pooled {
     /// census says the activity has one upstream, its body is stored, the
     /// device holds no track for it and the engine has not given up on it.
     /// The sport is the body's own `type`, then the metrics row's, then
-    /// `Ride`. The start is the local wall-clock time read as UTC, as the
-    /// stored dates are.
+    /// [`crate::sport::UNKNOWN`]. The start is the local wall-clock time read
+    /// as UTC, as the stored dates are.
     pub(crate) fn gps_fetch_candidates(
         conn: &Connection,
         athlete_id: &str,
@@ -1084,7 +1084,7 @@ pub(crate) mod pooled {
                 "SELECT c.intervals_id,
                         COALESCE(NULLIF(json_extract(b.raw, '$.type'), ''),
                                  NULLIF(m.sport_type, ''),
-                                 'Ride'),
+                                 {unknown}),
                         CAST(strftime('%s', c.start_date_local) AS REAL)
                  FROM activity_census c
                  JOIN activity_bodies b
@@ -1102,6 +1102,7 @@ pub(crate) mod pooled {
                  ORDER BY c.start_date_local DESC, c.intervals_id",
                 settled_out = CENSUS_TRACK_SETTLED_OUT.as_str(),
                 stored = CENSUS_TRACK_STORED,
+                unknown = crate::sport::sql_list(&[crate::sport::UNKNOWN]),
             ))?;
             stmt.query_map(params![athlete_id, oldest, newest], |row| {
                 Ok(crate::ffi::ActivitySportMapping {

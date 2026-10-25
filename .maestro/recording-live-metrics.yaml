@@ -4,7 +4,7 @@
 appId: com.veloq.app.dev
 tags:
   - tier2
-  - pack-recording
+  - pack-recording-long
 onFlowComplete:
   # Only a demo session is this flow's to clean up. The hook runs after a
   # failure too, including the shared setup refusing a real account, and that

@@ -153,8 +153,8 @@ function buildArguments(config: Map3DHtmlConfig): string {
       highlightBorder: ${jsLiteral(palette.casing)},
       highlightFill: ${jsLiteral(palette.ink)},
       showHeatmap: ${showHeatmap === true},
-      heatmapTiles: ${jsLiteral(heatmapTileTemplate(heatmapGeneration))},
-      heatmapPaint: ${JSON.stringify(heatmapRasterPaint(mapStyle))},
+      heatmapTiles: ${jsLiteral(heatmapTileTemplate(mapStyle, heatmapGeneration))},
+      heatmapPaint: ${JSON.stringify(heatmapRasterPaint())},
       addSectionCreationLine: function(map) {
         ${addSectionCreation3DLayersScript('map', 'section-creation-line', false, mapPalette(mapStyle))}
       },

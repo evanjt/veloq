@@ -886,10 +886,10 @@ fn start_fetch_and_store_run_ending(
                         {
                             {
                                 // Get sport type
-                                let sport = sport_map
-                                    .get(&result.activity_id)
-                                    .cloned()
-                                    .unwrap_or_else(|| "Ride".to_string());
+                                let sport = crate::sport::sport_or_unknown(
+                                    sport_map.get(&result.activity_id).map(String::as_str),
+                                )
+                                .to_string();
 
                                 // Capture point count before moving coords
                                 let point_count = coords.len();

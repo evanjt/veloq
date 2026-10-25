@@ -15,6 +15,7 @@ import { GarminConnector } from '@/features/settings/components/GarminConnector'
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { GARMIN_KEY_STORAGE_KEY } from '@/shared/app/credentialKeychain';
 import * as engineKey from '@/shared/native/garminKey';
+import { GarminKeyStatus, GarminMatch } from 'veloqrs';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
@@ -50,6 +51,7 @@ jest.mock('@/shared/app/credentialKeychain', () => ({
 
 jest.mock('@/shared/native/garminKey', () => ({
   connectGarmin: jest.fn(),
+  garminAccount: jest.fn(async () => undefined),
   holdGarminKey: jest.fn(),
   clearGarminKey: jest.fn(),
 }));
@@ -181,5 +183,107 @@ describe('the Garmin connector upload switch', () => {
     fireEvent(screen.getByTestId('garmin-upload-switch'), 'valueChange', true);
     await waitFor(() => expect(mockSettings.get('veloq-garmin-upload')).toBe('true'));
     expect(mockUpgrade).not.toHaveBeenCalled();
+  });
+});
+
+describe('the Garmin connector automatic swap switch', () => {
+  beforeEach(() => {
+    mockKeychain.clear();
+    mockSettings.clear();
+    jest.clearAllMocks();
+    useAuthStore.setState({ authMethod: 'apiKey' });
+    useUploadPermissionStore.setState({ isLoaded: true, hasWritePermission: null });
+  });
+
+  it('is off and labelled Experimental until the athlete turns it on', async () => {
+    const screen = await connectedScreen(false);
+    expect(screen.getByTestId('garmin-auto-swap-experimental')).toBeTruthy();
+    expect(screen.getByTestId('garmin-auto-swap-switch').props.accessibilityState.checked).toBe(
+      false
+    );
+    expect(mockSettings.has('veloq-garmin-auto-swap')).toBe(false);
+  });
+
+  it('stores the moment it was turned on, and false when turned off', async () => {
+    const screen = await connectedScreen(false);
+    const before = Date.now();
+    fireEvent(screen.getByTestId('garmin-auto-swap-switch'), 'valueChange', true);
+    await waitFor(() => expect(mockSettings.has('veloq-garmin-auto-swap')).toBe(true));
+    const stored = Date.parse(mockSettings.get('veloq-garmin-auto-swap') ?? '');
+    expect(stored).toBeGreaterThanOrEqual(before);
+    fireEvent(screen.getByTestId('garmin-auto-swap-switch'), 'valueChange', false);
+    await waitFor(() => expect(mockSettings.get('veloq-garmin-auto-swap')).toBe('false'));
+  });
+
+  it('shows why the engine switched it off, and clears that reason when it is turned on again', async () => {
+    mockSettings.set('veloq-garmin-auto-swap', 'false');
+    mockSettings.set('veloq-garmin-auto-swap-stopped', 'intervals.icu holds a different file');
+    const screen = await connectedScreen(false);
+    expect(screen.getByTestId('garmin-auto-swap-stopped')).toBeTruthy();
+    fireEvent(screen.getByTestId('garmin-auto-swap-switch'), 'valueChange', true);
+    await waitFor(() => expect(screen.queryByTestId('garmin-auto-swap-stopped')).toBeNull());
+    expect(mockSettings.has('veloq-garmin-auto-swap-stopped')).toBe(false);
+  });
+
+  it('asks for write access first and stays off when it is refused', async () => {
+    useAuthStore.setState({ authMethod: 'oauth' });
+    mockUpgrade.mockResolvedValue({ granted: false, error: null });
+    const screen = await connectedScreen(false);
+    fireEvent(screen.getByTestId('garmin-auto-swap-switch'), 'valueChange', true);
+    await waitFor(() => expect(mockUpgrade).toHaveBeenCalledTimes(1));
+    expect(mockSettings.has('veloq-garmin-auto-swap')).toBe(false);
+  });
+
+  it('is forgotten with the rest of the connector on disconnect', async () => {
+    mockSettings.set('veloq-garmin-auto-swap', '2026-10-26T09:00:00.000Z');
+    mockSettings.set('veloq-garmin-auto-swap-stopped', 'why');
+    const screen = await connectedScreen(false);
+    fireEvent.press(screen.getByTestId('garmin-disconnect'));
+    await waitFor(() => expect(mockSettings.has('veloq-garmin-auto-swap')).toBe(false));
+    expect(mockSettings.has('veloq-garmin-auto-swap-stopped')).toBe(false);
+  });
+});
+
+describe('the Garmin connector account line after a paste', () => {
+  beforeEach(() => {
+    mockKeychain.clear();
+    mockSettings.clear();
+    jest.clearAllMocks();
+    (engineKey.connectGarmin as jest.Mock).mockResolvedValue(GarminKeyStatus.Connected);
+  });
+
+  async function pasteAndConnect(account: unknown) {
+    (engineKey.garminAccount as jest.Mock).mockResolvedValueOnce(account);
+    const screen = await render(<GarminConnector />);
+    fireEvent.changeText(screen.getByTestId('garmin-key-input'), 'invented-key');
+    fireEvent.press(screen.getByTestId('garmin-connect'));
+    await waitFor(() => expect(screen.getByTestId('garmin-disconnect')).toBeTruthy());
+    return screen;
+  }
+
+  it('shows the matched line when the rides match intervals.icu', async () => {
+    const screen = await pasteAndConnect({
+      displayName: 'Invented Athlete',
+      matched: GarminMatch.Matched,
+      matchedCount: 18,
+    });
+    expect(screen.getByText('garmin.statusMatched')).toBeTruthy();
+    expect(screen.queryByTestId('garmin-account-warning')).toBeNull();
+  });
+
+  it('warns that the rides are not in intervals.icu when the import is on and none of them are', async () => {
+    const screen = await pasteAndConnect({
+      displayName: 'Invented Athlete',
+      matched: GarminMatch.WrongAccount,
+      matchedCount: 0,
+    });
+    expect(screen.getByText('garmin.statusConnectedAs')).toBeTruthy();
+    expect(screen.getByTestId('garmin-account-warning')).toBeTruthy();
+  });
+
+  it('shows the account alone when the window has nothing to compare', async () => {
+    const screen = await pasteAndConnect({ matched: GarminMatch.Silent, matchedCount: 0 });
+    expect(screen.getByText('garmin.statusConnectedAs')).toBeTruthy();
+    expect(screen.queryByTestId('garmin-account-warning')).toBeNull();
   });
 });

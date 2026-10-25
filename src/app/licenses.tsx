@@ -297,6 +297,11 @@ const LICENSE_DATA: LicenseSection[] = [
         repository: 'https://github.com/image-rs/image-png',
       },
       {
+        name: 'crc32fast',
+        license: 'MIT OR Apache-2.0',
+        repository: 'https://github.com/srijs/rust-crc32fast',
+      },
+      {
         name: 'tempfile',
         license: 'MIT OR Apache-2.0',
         repository: 'https://github.com/Stebalien/tempfile',

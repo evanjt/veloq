@@ -156,6 +156,7 @@ function regionalSpecs() {
     spiderPointsGeoJSON: EMPTY,
     spiderLinesGeoJSON: EMPTY,
     heatmapEnabled: false,
+    heatmapBase: 'light',
   });
   const layers = buildRegionalLayers({
     palette: mapPalette('light'),

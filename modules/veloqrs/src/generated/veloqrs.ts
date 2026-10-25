@@ -23435,6 +23435,160 @@ const FfiConverterTypeFfiStrengthScreenData = (() => {
 })();
 
 /**
+ * How a swap or an undo ended.
+ */
+export enum FfiSwapOutcome {
+  /**
+   * intervals.icu's file is now Garmin's, read back byte for byte.
+   */
+  Replaced = 1,
+  /**
+   * intervals.icu already held that file, or Garmin's holds nothing more.
+   */
+  Unchanged = 2,
+  /**
+   * intervals.icu does not accept a replacement for this activity. Nothing
+   * changed.
+   */
+  Refused = 3,
+  /**
+   * The grant lacks write permission.
+   */
+  PermissionBlocked = 4,
+  /**
+   * The credential was refused.
+   */
+  AuthExpired = 5,
+  /**
+   * The call failed before or while sending. The earlier file is still the
+   * activity's unless the read-back says otherwise.
+   */
+  Failed = 6,
+  /**
+   * The activity is not Garmin's import, so no write is made to it.
+   */
+  NotEligible = 7,
+  /**
+   * The file was sent but the read-back differs. Undo restores the earlier
+   * file.
+   */
+  Mismatch = 8,
+  /**
+   * Garmin's original could not be fetched: no key, or Garmin refused.
+   */
+  GarminUnavailable = 9,
+  /**
+   * intervals.icu's earlier file is back, read back byte for byte.
+   */
+  Restored = 10,
+}
+
+const FfiConverterTypeFfiSwapOutcome = (() => {
+  type TypeName = FfiSwapOutcome;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return FfiSwapOutcome.Replaced;
+        case 2:
+          return FfiSwapOutcome.Unchanged;
+        case 3:
+          return FfiSwapOutcome.Refused;
+        case 4:
+          return FfiSwapOutcome.PermissionBlocked;
+        case 5:
+          return FfiSwapOutcome.AuthExpired;
+        case 6:
+          return FfiSwapOutcome.Failed;
+        case 7:
+          return FfiSwapOutcome.NotEligible;
+        case 8:
+          return FfiSwapOutcome.Mismatch;
+        case 9:
+          return FfiSwapOutcome.GarminUnavailable;
+        case 10:
+          return FfiSwapOutcome.Restored;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value) {
+        case FfiSwapOutcome.Replaced:
+          return c.writeI32(1);
+        case FfiSwapOutcome.Unchanged:
+          return c.writeI32(2);
+        case FfiSwapOutcome.Refused:
+          return c.writeI32(3);
+        case FfiSwapOutcome.PermissionBlocked:
+          return c.writeI32(4);
+        case FfiSwapOutcome.AuthExpired:
+          return c.writeI32(5);
+        case FfiSwapOutcome.Failed:
+          return c.writeI32(6);
+        case FfiSwapOutcome.NotEligible:
+          return c.writeI32(7);
+        case FfiSwapOutcome.Mismatch:
+          return c.writeI32(8);
+        case FfiSwapOutcome.GarminUnavailable:
+          return c.writeI32(9);
+        case FfiSwapOutcome.Restored:
+          return c.writeI32(10);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return 4;
+    }
+  }
+  return new FFIConverter();
+})();
+
+export type FfiSwapResult = {
+  outcome: FfiSwapOutcome;
+  detail?: string;
+};
+
+/**
+ * Generated factory for {@link FfiSwapResult} record objects.
+ */
+export const FfiSwapResult = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiSwapResult, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiSwapResult>,
+  });
+})();
+
+const FfiConverterTypeFfiSwapResult = (() => {
+  type TypeName = FfiSwapResult;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        outcome: FfiConverterTypeFfiSwapOutcome.readFromCursor(c),
+        detail: FfiConverterOptionalString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterTypeFfiSwapOutcome.writeIntoCursor(value.outcome, c);
+      FfiConverterOptionalString.writeIntoCursor(value.detail, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterTypeFfiSwapOutcome.allocationSize(value.outcome) +
+        FfiConverterOptionalString.allocationSize(value.detail)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * The lifecycle state TypeScript renders.
  *
  * Crosses as an enum: the word was stringified here and spelt again in a
@@ -25359,6 +25513,117 @@ const FfiConverterTypeFfiZoneDistribution = (() => {
 })();
 
 /**
+ * What the window's rides show about the account.
+ */
+export enum GarminMatch {
+  /**
+   * Nothing to say: no Garmin ride in the window, intervals.icu could not be
+   * read, or none of the rides are held there and its Garmin import is off.
+   */
+  Silent,
+  /**
+   * The rides intervals.icu holds are all there is to say. `matched_count`
+   * is how many of the window's Garmin rides it holds.
+   */
+  Matched,
+  /**
+   * Garmin rides in the window that intervals.icu does not hold, while its
+   * Garmin import is on: the key may belong to another account.
+   */
+  WrongAccount,
+}
+
+const FfiConverterTypeGarminMatch = (() => {
+  type TypeName = GarminMatch;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return GarminMatch.Silent;
+        case 2:
+          return GarminMatch.Matched;
+        case 3:
+          return GarminMatch.WrongAccount;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value) {
+        case GarminMatch.Silent:
+          return c.writeI32(1);
+        case GarminMatch.Matched:
+          return c.writeI32(2);
+        case GarminMatch.WrongAccount:
+          return c.writeI32(3);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return 4;
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * The account behind the key Garmin accepted.
+ */
+export type GarminAccount = {
+  /**
+   * The name Garmin gives the account, when its settings name one.
+   */
+  displayName?: string;
+  matched: GarminMatch;
+  /**
+   * How many of the window's Garmin rides intervals.icu holds.
+   */
+  matchedCount: number;
+};
+
+/**
+ * Generated factory for {@link GarminAccount} record objects.
+ */
+export const GarminAccount = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<GarminAccount, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<GarminAccount>,
+  });
+})();
+
+const FfiConverterTypeGarminAccount = (() => {
+  type TypeName = GarminAccount;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        displayName: FfiConverterOptionalString.readFromCursor(c),
+        matched: FfiConverterTypeGarminMatch.readFromCursor(c),
+        matchedCount: FfiConverterUInt32.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterOptionalString.writeIntoCursor(value.displayName, c);
+      FfiConverterTypeGarminMatch.writeIntoCursor(value.matched, c);
+      FfiConverterUInt32.writeIntoCursor(value.matchedCount, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterOptionalString.allocationSize(value.displayName) +
+        FfiConverterTypeGarminMatch.allocationSize(value.matched) +
+        FfiConverterUInt32.allocationSize(value.matchedCount)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * A GPX file ready to share: the name to save it under and its XML.
  */
 export type GpxFile = {
@@ -26671,6 +26936,57 @@ const FfiConverterTypeFfiSectionBoundsEdit = (() => {
         default:
           throw new UniffiInternalError.UnexpectedEnumCase();
       }
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Whether the athlete is offered the swap, or an undo, on an activity.
+ */
+export enum FfiSwapState {
+  /**
+   * Nothing is offered: no Garmin key, not Garmin's import, nothing more in
+   * Garmin's file, or the comparison could not be made.
+   */
+  Hidden = 1,
+  /**
+   * Garmin's original holds more than intervals.icu's copy.
+   */
+  Available = 2,
+  /**
+   * A swap was made and intervals.icu's earlier file is kept to restore.
+   */
+  Undoable = 3,
+}
+
+const FfiConverterTypeFfiSwapState = (() => {
+  type TypeName = FfiSwapState;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return FfiSwapState.Hidden;
+        case 2:
+          return FfiSwapState.Available;
+        case 3:
+          return FfiSwapState.Undoable;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value) {
+        case FfiSwapState.Hidden:
+          return c.writeI32(1);
+        case FfiSwapState.Available:
+          return c.writeI32(2);
+        case FfiSwapState.Undoable:
+          return c.writeI32(3);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return 4;
     }
   }
   return new FFIConverter();
@@ -37318,6 +37634,38 @@ export interface SyncManagerLike {
     asyncOpts_?: { signal: AbortSignal },
   ): Promise<GarminKeyStatus>;
   /**
+   * The account behind the key Garmin accepted: the name on it, and how the
+   * rides of the last thirty days line up with intervals.icu. `None` when
+   * no key is held.
+   */
+  garminAccount(asyncOpts_?: {
+    signal: AbortSignal;
+  }): Promise<GarminAccount | undefined>;
+  /**
+   * Replace intervals.icu's file for the activity with Garmin's original.
+   * The earlier file is kept for `garmin_swap_undo`.
+   */
+  garminSwapReplace(
+    activityId: string,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<FfiSwapResult>;
+  /**
+   * Whether the activity offers Garmin's own file, or an undo of an earlier
+   * swap. Compares Garmin's original with intervals.icu's file, so it runs
+   * off the calling thread.
+   */
+  garminSwapState(
+    activityId: string,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<FfiSwapState>;
+  /**
+   * Put the file intervals.icu held before the swap back.
+   */
+  garminSwapUndo(
+    activityId: string,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<FfiSwapResult>;
+  /**
    * Current status snapshot.
    */
   getSyncStatus(): FfiSyncStatus;
@@ -37585,6 +37933,222 @@ export class SyncManager
         /*liftFunc:*/ (__rb) => {
           try {
             return FfiConverterTypeGarminKeyStatus.lift(__rb);
+          } finally {
+            nativeModule().rustbuffer_free(__rb);
+          }
+        },
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+        /*asyncOpts:*/ asyncOpts_,
+      );
+    } catch (__error: any) {
+      if (uniffiIsDebug && __error instanceof Error) {
+        __error.stack = __stack;
+      }
+      throw __error;
+    }
+  }
+
+  /**
+   * The account behind the key Garmin accepted: the name on it, and how the
+   * rides of the last thirty days line up with intervals.icu. `None` when
+   * no key is held.
+   */
+  async garminAccount(asyncOpts_?: {
+    signal: AbortSignal;
+  }): Promise<GarminAccount | undefined> {
+    const __stack = uniffiIsDebug ? new Error().stack : undefined;
+    try {
+      return await uniffiRustCallAsync(
+        /*rustCaller:*/ uniffiCaller,
+        /*rustFutureFunc:*/ () => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_garmin_account(
+            uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+          );
+        },
+        /*pollFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_poll_rust_buffer,
+        /*cancelFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_cancel_rust_buffer,
+        /*completeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_complete_rust_buffer,
+        /*freeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_free_rust_buffer,
+        // Async returns always go through the JS-side converter: the
+        // FFI symbol returns the future handle (u64), and the user-level
+        // RustBuffer comes back via the shared `rust_future_complete_*`
+        // export. The bytes the runtime hands back must be deserialized
+        // here using the per-callable return-type converter.
+        // Borrowed view over foreign memory: the call site owns the free,
+        // as on the sync paths. Unconditional, a no-op where buffers are
+        // already JS-owned.
+        /*liftFunc:*/ (__rb) => {
+          try {
+            return FfiConverterOptionalTypeGarminAccount.lift(__rb);
+          } finally {
+            nativeModule().rustbuffer_free(__rb);
+          }
+        },
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+        /*asyncOpts:*/ asyncOpts_,
+      );
+    } catch (__error: any) {
+      if (uniffiIsDebug && __error instanceof Error) {
+        __error.stack = __stack;
+      }
+      throw __error;
+    }
+  }
+
+  /**
+   * Replace intervals.icu's file for the activity with Garmin's original.
+   * The earlier file is kept for `garmin_swap_undo`.
+   */
+  async garminSwapReplace(
+    activityId: string,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<FfiSwapResult> {
+    const __stack = uniffiIsDebug ? new Error().stack : undefined;
+    try {
+      return await uniffiRustCallAsync(
+        /*rustCaller:*/ uniffiCaller,
+        /*rustFutureFunc:*/ () => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_garmin_swap_replace(
+            uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(
+              activityId,
+              nativeModule().rustbuffer_alloc,
+            ),
+          );
+        },
+        /*pollFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_poll_rust_buffer,
+        /*cancelFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_cancel_rust_buffer,
+        /*completeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_complete_rust_buffer,
+        /*freeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_free_rust_buffer,
+        // Async returns always go through the JS-side converter: the
+        // FFI symbol returns the future handle (u64), and the user-level
+        // RustBuffer comes back via the shared `rust_future_complete_*`
+        // export. The bytes the runtime hands back must be deserialized
+        // here using the per-callable return-type converter.
+        // Borrowed view over foreign memory: the call site owns the free,
+        // as on the sync paths. Unconditional, a no-op where buffers are
+        // already JS-owned.
+        /*liftFunc:*/ (__rb) => {
+          try {
+            return FfiConverterTypeFfiSwapResult.lift(__rb);
+          } finally {
+            nativeModule().rustbuffer_free(__rb);
+          }
+        },
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+        /*asyncOpts:*/ asyncOpts_,
+      );
+    } catch (__error: any) {
+      if (uniffiIsDebug && __error instanceof Error) {
+        __error.stack = __stack;
+      }
+      throw __error;
+    }
+  }
+
+  /**
+   * Whether the activity offers Garmin's own file, or an undo of an earlier
+   * swap. Compares Garmin's original with intervals.icu's file, so it runs
+   * off the calling thread.
+   */
+  async garminSwapState(
+    activityId: string,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<FfiSwapState> {
+    const __stack = uniffiIsDebug ? new Error().stack : undefined;
+    try {
+      return await uniffiRustCallAsync(
+        /*rustCaller:*/ uniffiCaller,
+        /*rustFutureFunc:*/ () => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_garmin_swap_state(
+            uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(
+              activityId,
+              nativeModule().rustbuffer_alloc,
+            ),
+          );
+        },
+        /*pollFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_poll_rust_buffer,
+        /*cancelFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_cancel_rust_buffer,
+        /*completeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_complete_rust_buffer,
+        /*freeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_free_rust_buffer,
+        // Async returns always go through the JS-side converter: the
+        // FFI symbol returns the future handle (u64), and the user-level
+        // RustBuffer comes back via the shared `rust_future_complete_*`
+        // export. The bytes the runtime hands back must be deserialized
+        // here using the per-callable return-type converter.
+        // Borrowed view over foreign memory: the call site owns the free,
+        // as on the sync paths. Unconditional, a no-op where buffers are
+        // already JS-owned.
+        /*liftFunc:*/ (__rb) => {
+          try {
+            return FfiConverterTypeFfiSwapState.lift(__rb);
+          } finally {
+            nativeModule().rustbuffer_free(__rb);
+          }
+        },
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+        /*asyncOpts:*/ asyncOpts_,
+      );
+    } catch (__error: any) {
+      if (uniffiIsDebug && __error instanceof Error) {
+        __error.stack = __stack;
+      }
+      throw __error;
+    }
+  }
+
+  /**
+   * Put the file intervals.icu held before the swap back.
+   */
+  async garminSwapUndo(
+    activityId: string,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<FfiSwapResult> {
+    const __stack = uniffiIsDebug ? new Error().stack : undefined;
+    try {
+      return await uniffiRustCallAsync(
+        /*rustCaller:*/ uniffiCaller,
+        /*rustFutureFunc:*/ () => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_garmin_swap_undo(
+            uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(
+              activityId,
+              nativeModule().rustbuffer_alloc,
+            ),
+          );
+        },
+        /*pollFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_poll_rust_buffer,
+        /*cancelFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_cancel_rust_buffer,
+        /*completeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_complete_rust_buffer,
+        /*freeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_free_rust_buffer,
+        // Async returns always go through the JS-side converter: the
+        // FFI symbol returns the future handle (u64), and the user-level
+        // RustBuffer comes back via the shared `rust_future_complete_*`
+        // export. The bytes the runtime hands back must be deserialized
+        // here using the per-callable return-type converter.
+        // Borrowed view over foreign memory: the call site owns the free,
+        // as on the sync paths. Unconditional, a no-op where buffers are
+        // already JS-owned.
+        /*liftFunc:*/ (__rb) => {
+          try {
+            return FfiConverterTypeFfiSwapResult.lift(__rb);
           } finally {
             nativeModule().rustbuffer_free(__rb);
           }
@@ -40581,6 +41145,11 @@ const FfiConverterSequenceTypeSettingPair = new FfiConverterArray(
   FfiConverterTypeSettingPair,
 );
 
+// FfiConverter for GarminAccount | undefined
+const FfiConverterOptionalTypeGarminAccount = new FfiConverterOptional(
+  FfiConverterTypeGarminAccount,
+);
+
 // FfiConverter for Array<FfiUnplacedRecord>
 const FfiConverterSequenceTypeFfiUnplacedRecord = new FfiConverterArray(
   FfiConverterTypeFfiUnplacedRecord,
@@ -42695,6 +43264,38 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_garmin_account() !==
+    35500
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_syncmanager_garmin_account",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_garmin_swap_replace() !==
+    14564
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_syncmanager_garmin_swap_replace",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_garmin_swap_state() !==
+    40367
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_syncmanager_garmin_swap_state",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_garmin_swap_undo() !==
+    36692
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_syncmanager_garmin_swap_undo",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_get_sync_status() !==
     46855
   ) {
@@ -43409,6 +44010,9 @@ export default Object.freeze({
     FfiConverterTypeFfiSummaryCardData,
     FfiConverterTypeFfiSummaryComparison,
     FfiConverterTypeFfiSummaryComparisons,
+    FfiConverterTypeFfiSwapOutcome,
+    FfiConverterTypeFfiSwapResult,
+    FfiConverterTypeFfiSwapState,
     FfiConverterTypeFfiSyncErrorReason,
     FfiConverterTypeFfiSyncStatus,
     FfiConverterTypeFfiSyncStep,
@@ -43433,7 +44037,9 @@ export default Object.freeze({
     FfiConverterTypeFfiYearCount,
     FfiConverterTypeFfiZoneDistribution,
     FfiConverterTypeFitnessManager,
+    FfiConverterTypeGarminAccount,
     FfiConverterTypeGarminKeyStatus,
+    FfiConverterTypeGarminMatch,
     FfiConverterTypeGpxFile,
     FfiConverterTypeGroupSummary,
     FfiConverterTypeHeatmapManager,

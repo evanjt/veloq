@@ -4,7 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useMapPreferences } from '@/features/settings/light';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { darkColors, ink, mapPalette, spacing } from '@/theme';
+import { darkColors, mapPalette, spacing } from '@/theme';
 import { getActivityCategory, sportMarkColour, type SportFamily } from '../lib/activityCategories';
 import { MapControlButton } from './MapControlButton';
 import {
@@ -218,11 +218,8 @@ export function RegionalMapView({
 
   // Every control over the map follows the app theme; the layers read the base themselves.
   const { isDark } = useTheme();
-  // The heat ramp as the layer draws it, over the ground of the menu it is keyed in.
-  const heatKeyColours = useMemo(
-    () => heatmapKeyColours(mapStyle, isDark ? darkColors.surfaceRaised : ink.white),
-    [mapStyle, isDark]
-  );
+  // The heat steps as the layer draws them on this base.
+  const heatKeyColours = heatmapKeyColours(mapStyle);
 
   // Camera position for satellite attribution (updated by onCameraSettled callback, not on every gesture)
   const [cameraForAttribution, setCameraForAttribution] = useState<{
@@ -491,6 +488,7 @@ export function RegionalMapView({
         spiderPointsGeoJSON,
         spiderLinesGeoJSON,
         heatmapEnabled,
+        heatmapBase: mapStyle,
         heatmapGeneration,
       }),
     [
@@ -502,6 +500,7 @@ export function RegionalMapView({
       spiderPointsGeoJSON,
       spiderLinesGeoJSON,
       heatmapEnabled,
+      mapStyle,
       heatmapGeneration,
     ]
   );

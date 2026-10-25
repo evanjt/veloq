@@ -27,6 +27,7 @@ function clusterSource() {
     spiderPointsGeoJSON: empty,
     spiderLinesGeoJSON: empty,
     heatmapEnabled: false,
+    heatmapBase: 'light',
   })[CLUSTER_SOURCE_ID] as MapGeoJSONSourceSpec;
 }
 

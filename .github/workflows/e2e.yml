@@ -69,30 +69,45 @@ jobs:
       fail-fast: false
       matrix:
         shard:
+          - name: routes-long
+            packs: pack-routes-long
+            tiers: tier2
+          - name: routes
+            packs: pack-routes,pack-auth
+            tiers: tier2
+          - name: recording
+            packs: pack-recording,pack-training
+            tiers: tier2
+          - name: recording-long
+            packs: pack-recording-long,pack-data
+            tiers: tier2
           - name: map
             packs: pack-map
-            tiers: tier0,tier1,tier2,tier3
-          - name: routes
-            packs: pack-routes
-            tiers: tier2,tier3
+            tiers: tier2
+          - name: fitness
+            packs: pack-fitness,pack-home
+            tiers: tier2
+          - name: activity
+            packs: pack-activity
+            tiers: tier2
+          - name: nav
+            packs: pack-nav
+            tiers: tier2
           - name: settings
             packs: pack-settings
-            tiers: tier2,tier3
+            tiers: tier2
+          - name: stress
+            packs: pack-stress
+            tiers: tier3
+          - name: map-visual
+            packs: pack-map,pack-activity,pack-settings
+            tiers: tier3
+          - name: core
+            packs: pack-nav,pack-auth,pack-home
+            tiers: tier0,tier1
           - name: routes-settings-core
             packs: pack-routes,pack-settings
             tiers: tier0,tier1
-          - name: recording
-            packs: pack-recording
-            tiers: tier0,tier1,tier2,tier3
-          - name: activity-data
-            packs: pack-activity,pack-data
-            tiers: tier0,tier1,tier2,tier3
-          - name: nav-auth-home
-            packs: pack-nav,pack-auth,pack-home,pack-training
-            tiers: tier0,tier1,tier2,tier3
-          - name: fitness-stress
-            packs: pack-fitness,pack-stress
-            tiers: tier0,tier1,tier2,tier3
     steps:
       - uses: actions/checkout@v7
 
@@ -380,30 +395,45 @@ jobs:
       fail-fast: false
       matrix:
         shard:
+          - name: routes-long
+            packs: pack-routes-long
+            tiers: tier2
+          - name: routes
+            packs: pack-routes,pack-auth
+            tiers: tier2
+          - name: recording
+            packs: pack-recording,pack-training
+            tiers: tier2
+          - name: recording-long
+            packs: pack-recording-long,pack-data
+            tiers: tier2
           - name: map
             packs: pack-map
-            tiers: tier0,tier1,tier2,tier3
-          - name: routes
-            packs: pack-routes
-            tiers: tier2,tier3
+            tiers: tier2
+          - name: fitness
+            packs: pack-fitness,pack-home
+            tiers: tier2
+          - name: activity
+            packs: pack-activity
+            tiers: tier2
+          - name: nav
+            packs: pack-nav
+            tiers: tier2
           - name: settings
             packs: pack-settings
-            tiers: tier2,tier3
+            tiers: tier2
+          - name: stress
+            packs: pack-stress
+            tiers: tier3
+          - name: map-visual
+            packs: pack-map,pack-activity,pack-settings
+            tiers: tier3
+          - name: core
+            packs: pack-nav,pack-auth,pack-home
+            tiers: tier0,tier1
           - name: routes-settings-core
             packs: pack-routes,pack-settings
             tiers: tier0,tier1
-          - name: recording
-            packs: pack-recording
-            tiers: tier0,tier1,tier2,tier3
-          - name: activity-data
-            packs: pack-activity,pack-data
-            tiers: tier0,tier1,tier2,tier3
-          - name: nav-auth-home
-            packs: pack-nav,pack-auth,pack-home,pack-training
-            tiers: tier0,tier1,tier2,tier3
-          - name: fitness-stress
-            packs: pack-fitness,pack-stress
-            tiers: tier0,tier1,tier2,tier3
     steps:
       - uses: actions/checkout@v7
 

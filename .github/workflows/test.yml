@@ -148,13 +148,14 @@ jobs:
     needs: changes
     if: fromJSON(needs.changes.outputs.run).rust
     runs-on: ubuntu-24.04
-    # Whole job: compile, bench check, nextest and doctests. Measured on
-    # GitHub runners in late September 2026: 14m19s on a cold cache, 1m38s of
-    # it the bench check, and 7m26s on a warm cache with a 14s bench check.
-    # The cap leaves under six minutes over the cold figure. Those runs
-    # predate later suite changes, so remeasure when the workload grows; a run
-    # past the cap needs its logs read to tell a slow job from a stuck one.
-    timeout-minutes: 20
+    # Whole job: compile, nextest, doctests and bench check. Measured on a
+    # GitHub runner on 2026-10-25 with 5501 tests: 6m34s to compile, 13m06s
+    # in nextest (all passing), so 20m02s had elapsed when the old 20 minute
+    # cap cancelled the job, before the doctests and the bench check (1m38s on
+    # a cold cache) ran. The cap leaves about seven minutes over that run's
+    # estimated total. Remeasure when the workload grows; a run past the cap
+    # needs its logs read to tell a slow job from a stuck one.
+    timeout-minutes: 30
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7

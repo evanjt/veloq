@@ -40,6 +40,7 @@ describe('regional routes layer', () => {
       spiderPointsGeoJSON: empty,
       spiderLinesGeoJSON: empty,
       heatmapEnabled: false,
+      heatmapBase: 'light',
     });
     expect(sources.routes).toEqual({ kind: 'geojson', data: empty });
   });

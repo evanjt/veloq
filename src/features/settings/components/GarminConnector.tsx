@@ -2,13 +2,13 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { GarminKeyStatus } from 'veloqrs';
+import { GarminKeyStatus, type GarminAccount } from 'veloqrs';
 
 import { useTheme } from '@/shared/app';
 import { INTERVALS_URLS } from '@/shared/app/constants';
 import { useAthlete } from '@/shared/app/useAthlete';
 import { colors, darkColors, spacing, typography } from '@/theme';
-import { Button, InlineNotice, StatusLine, TextField } from '@/shared/ui';
+import { Badge, Button, InlineNotice, StatusLine, TextField } from '@/shared/ui';
 import { ExternalLinkRow } from '@/shared/ui/ExternalLinkRow';
 import { RowDivider } from '@/shared/ui/RowGroup';
 import { SwitchRow } from '@/shared/ui/SwitchRow';
@@ -17,12 +17,15 @@ import {
   GARMIN_KEY_PAGE,
   connectGarminKey,
   disconnectGarmin,
+  garminAccountReading,
   garminDuplicateWarning,
+  readGarminAccount,
   readGarminChoices,
   readGarminConnectorState,
   saveGarminFeed,
   saveGarminKeyExpiry,
   saveGarminUpload,
+  saveGarminAutoSwap,
 } from '../lib/garminConnector';
 import { settingsStyles } from './settingsStyles';
 
@@ -58,8 +61,11 @@ export function GarminConnector() {
   const [expiry, setExpiry] = useState('');
   const [checking, setChecking] = useState(false);
   const [status, setStatus] = useState<GarminKeyStatus | null>(null);
+  const [account, setAccount] = useState<GarminAccount | undefined>(undefined);
   const [feedOn, setFeedOn] = useState(true);
   const [uploadOn, setUploadOn] = useState(false);
+  const [autoSwapOn, setAutoSwapOn] = useState(false);
+  const [autoSwapStopped, setAutoSwapStopped] = useState('');
   const [showMore, setShowMore] = useState(false);
 
   useEffect(() => {
@@ -73,6 +79,8 @@ export function GarminConnector() {
       setExpiry(choices.keyExpiry);
       setFeedOn(choices.feed);
       setUploadOn(choices.upload);
+      setAutoSwapOn(choices.autoSwap);
+      setAutoSwapStopped(choices.autoSwapStopped);
     })();
     return () => {
       live = false;
@@ -88,6 +96,7 @@ export function GarminConnector() {
       const result = await connectGarminKey(pasted);
       setStatus(result);
       if (result === GarminKeyStatus.Connected) {
+        setAccount(await readGarminAccount());
         setConnected(true);
         setKeyNeeded(false);
         setPasted('');
@@ -103,9 +112,12 @@ export function GarminConnector() {
     setConnected(false);
     setKeyNeeded(false);
     setStatus(null);
+    setAccount(undefined);
     setExpiry('');
     setFeedOn(true);
     setUploadOn(false);
+    setAutoSwapOn(false);
+    setAutoSwapStopped('');
   }, []);
 
   const changeFeed = useCallback((value: boolean) => {
@@ -125,11 +137,32 @@ export function GarminConnector() {
     [writeAccessMissing, upgradePermissions]
   );
 
+  const changeAutoSwap = useCallback(
+    async (value: boolean) => {
+      if (value && writeAccessMissing) {
+        const { granted } = await upgradePermissions();
+        if (!granted) return;
+      }
+      setAutoSwapOn(value);
+      if (value) setAutoSwapStopped('');
+      await saveGarminAutoSwap(value);
+    },
+    [writeAccessMissing, upgradePermissions]
+  );
+
   const warn = garminDuplicateWarning({
     syncsActivities: athlete?.garminSyncsActivities,
     uploadOn,
   });
   const secondary = { color: palette.textSecondary };
+  const reading = account ? garminAccountReading(account) : undefined;
+  const accountName = reading?.name ?? t('garmin.accountFallback');
+  const connectedLine =
+    reading?.kind === 'matched'
+      ? t('garmin.statusMatched', { name: accountName, count: reading.count })
+      : reading
+        ? t('garmin.statusConnectedAs', { name: accountName })
+        : t('garmin.statusConnected');
 
   return (
     <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
@@ -140,9 +173,18 @@ export function GarminConnector() {
       <RowDivider />
       {connected ? (
         <View style={styles.content}>
-          <StatusLine tone="success" message={t('garmin.statusConnected')}>
-            <Text style={{ color: palette.textPrimary }}>{t('garmin.statusConnected')}</Text>
+          <StatusLine tone="success" message={connectedLine}>
+            <Text style={{ color: palette.textPrimary }}>{connectedLine}</Text>
           </StatusLine>
+          {reading?.kind === 'wrongAccount' ? (
+            <InlineNotice
+              tone="warning"
+              icon="alert-outline"
+              title={t('garmin.wrongAccountTitle')}
+              detail={t('garmin.wrongAccountDetail')}
+              testID="garmin-account-warning"
+            />
+          ) : null}
           {expiry !== '' ? (
             <Text style={[styles.text, secondary]}>{t('garmin.expires', { date: expiry })}</Text>
           ) : null}
@@ -231,6 +273,33 @@ export function GarminConnector() {
                 onValueChange={(value) => void changeUpload(value)}
                 testID="garmin-upload-switch"
               />
+              <SwitchRow
+                title={t('garmin.autoSwapTitle')}
+                description={t('garmin.autoSwapHint')}
+                value={autoSwapOn}
+                onValueChange={(value) => void changeAutoSwap(value)}
+                accessory={
+                  <Badge
+                    testID="garmin-auto-swap-experimental"
+                    tone="neutral"
+                    size="sm"
+                    text={t('common.experimental')}
+                    isDark={isDark}
+                  />
+                }
+                testID="garmin-auto-swap-switch"
+              />
+              {autoSwapStopped ? (
+                <View style={styles.content}>
+                  <InlineNotice
+                    tone="warning"
+                    icon="alert-outline"
+                    title={t('garmin.autoSwapStoppedTitle')}
+                    detail={autoSwapStopped}
+                    testID="garmin-auto-swap-stopped"
+                  />
+                </View>
+              ) : null}
               {warn ? (
                 <View style={styles.content}>
                   <InlineNotice

@@ -13,6 +13,7 @@ import { AppState, Platform } from 'react-native';
 
 import { LIBERTY_SOURCES } from '@/features/maps/styles/liberty/sources';
 import { TERRAIN_UPSTREAM_TEMPLATE } from './terrainTemplate';
+import type { MapBase } from '@/theme';
 
 /**
  * The scheme the iOS handler owns. Agreed with `VeloqTileScheme` in
@@ -120,14 +121,15 @@ export function registerTileListenerResume(): () => void {
 }
 
 /**
- * Where the page asks for a heatmap tile.
+ * Where the page asks for a heatmap tile drawn over `base`.
  *
  * The heatmap is drawn by Rust from local GPS rather than fetched, so there is
  * no upstream template to hand over: the interceptor reads the file the pass
- * wrote and answers a tile it has not drawn yet with a 404.
+ * wrote, in the base's own heat steps, and answers a tile it has not drawn yet
+ * with a 404.
  */
-export function nativeHeatmapTileUrl(): string {
-  return `${nativeTilePrefix()}/heatmap/{z}/{x}/{y}.png`;
+export function nativeHeatmapTileUrl(base: MapBase): string {
+  return `${nativeTilePrefix()}/heatmap-${base}/{z}/{x}/{y}.png`;
 }
 
 /** What the engine answers GeoJSON for at a `veloq-geo` URL. */

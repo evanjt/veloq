@@ -1,7 +1,10 @@
 //! Tier 0.2, pixel-parity fixture for heatmap tiles.
 //!
 //! Seeds a deterministic corpus, runs the full generation pipeline, decodes
-//! every tile PNG, and hashes the RGBA pixel buffers. The fixture stored at
+//! every tile PNG, and hashes its plane of pixel classes: no heat, the heat
+//! steps and the halo. The palette each base paints those classes in is held
+//! by the engine's own tests, so a colour change does not move this digest
+//! and a change to what is drawn where does. The fixture stored at
 //! `tests/fixtures/heatmap_parity_v1.txt` is the canonical digest. Tier 1
 //! changes must either match it exactly or the test fails with the new
 //! digest printed for review.
@@ -19,7 +22,6 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use image::GenericImageView;
 use sha2::{Digest, Sha256};
 use tempfile::TempDir;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
@@ -81,13 +83,16 @@ fn hash_tile_pixels(path: &Path) -> String {
 }
 
 fn hash_png_pixels(png: &[u8]) -> String {
-    let img = image::load_from_memory(png).expect("decode png");
-    let rgba = img.to_rgba8();
-    let (w, h) = img.dimensions();
+    let mut decoder = png::Decoder::new(std::io::Cursor::new(png));
+    decoder.set_transformations(png::Transformations::IDENTITY);
+    let mut reader = decoder.read_info().expect("decode png");
+    assert_eq!(reader.info().color_type, png::ColorType::Indexed);
+    let mut classes = vec![0u8; reader.output_buffer_size().expect("tile size")];
+    let frame = reader.next_frame(&mut classes).expect("decode png");
     let mut hasher = Sha256::new();
-    hasher.update(w.to_le_bytes());
-    hasher.update(h.to_le_bytes());
-    hasher.update(rgba.as_raw());
+    hasher.update(frame.width.to_le_bytes());
+    hasher.update(frame.height.to_le_bytes());
+    hasher.update(&classes[..frame.buffer_size()]);
     hex(&hasher.finalize())
 }
 

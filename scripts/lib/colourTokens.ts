@@ -53,11 +53,14 @@ export interface RoleMap {
   reserved: Record<string, string>;
 }
 
-/** One stop of the heatmap tile ramp: a token at an intensity and an alpha. */
-export interface HeatStop {
-  intensity: number;
-  token: string;
-  alpha: number;
+/**
+ * One base map's heatmap tile palette: the five heat steps from fewest passes
+ * to most, and the halo the engine draws round the heat, if the base paints one.
+ */
+export interface HeatPalette {
+  base: string;
+  steps: readonly string[];
+  halo?: string;
 }
 
 const ALIAS = /^\{([a-z0-9-]+)\}$/;
@@ -169,7 +172,7 @@ export function roleColours(resolved: ResolvedTokens, map: RoleMap): ResolvedTok
 /**
  * Everything wrong between the token file, the role map and the palettes as
  * `colors.ts` builds them. `readers` are the tokens a generated output reads
- * outside the palette, the heatmap ramp and the native app colours.
+ * outside the palette, the heatmap palettes and the native app colours.
  */
 export function checkColourRoles(
   file: TokenFile,
@@ -264,26 +267,33 @@ const RUN = 'Run: npm run gen:colour-tokens';
 
 function rgb(colour: string): [number, number, number] {
   if (!colour.startsWith('#') || colour.length !== 7) {
-    throw new Error(`the heatmap ramp needs an opaque hex colour, not ${colour}`);
+    throw new Error(`the heatmap palette needs an opaque hex colour, not ${colour}`);
   }
   return [1, 3, 5].map((at) => parseInt(colour.slice(at, at + 2), 16)) as [number, number, number];
 }
 
-/** The heatmap ramp's stops as RGBA bytes, faintest first. */
-export function heatStopBytes(
+/**
+ * A heatmap palette as RGBA bytes by the class a tile pixel holds: 0 no heat,
+ * 1 to 5 the steps, 6 the halo, transparent where the base paints none. A tile
+ * is drawn once for both themes, so a token that differs between them is refused.
+ */
+export function heatPaletteBytes(
   resolved: ResolvedTokens,
-  stops: readonly HeatStop[]
-): { intensity: number; rgba: [number, number, number, number] }[] {
-  let last = 0;
-  return stops.map((stop) => {
-    if (!(stop.intensity > last && stop.intensity <= 1)) {
-      throw new Error(`heatmap stop ${stop.token} at ${stop.intensity} is out of order`);
+  palette: HeatPalette
+): [number, number, number, number][] {
+  const opaque = (token: string): [number, number, number, number] => {
+    const [light, dark] = [resolved.light[token], resolved.dark[token]];
+    if (light === undefined) throw new Error(`heatmap token ${token} is not a token`);
+    if (light !== dark) {
+      throw new Error(`heatmap token ${token} is ${light} in light and ${dark} in dark`);
     }
-    last = stop.intensity;
-    const colour = resolved.dark[stop.token];
-    if (colour === undefined) throw new Error(`heatmap stop ${stop.token} is not a token`);
-    return { intensity: stop.intensity, rgba: [...rgb(colour), stop.alpha] };
-  });
+    return [...rgb(light), 255];
+  };
+  if (palette.steps.length !== 5) {
+    throw new Error(`the ${palette.base} heatmap has ${palette.steps.length} steps, not 5`);
+  }
+  const none: [number, number, number, number] = [0, 0, 0, 0];
+  return [none, ...palette.steps.map(opaque), palette.halo ? opaque(palette.halo) : none];
 }
 
 const quoteKey = (key: string) => (/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(key) ? key : `'${key}'`);
@@ -295,14 +305,7 @@ function tsRecord(record: Record<string, string>, indent: string): string {
 }
 
 /** `src/theme/colourTokens.generated.ts`. */
-export function renderTypeScript(
-  resolved: ResolvedTokens,
-  roles: ResolvedTokens,
-  stops: readonly HeatStop[]
-): string {
-  const heat = heatStopBytes(resolved, stops)
-    .map((s) => `  { intensity: ${s.intensity}, rgba: [${s.rgba.join(', ')}] },`)
-    .join('\n');
+export function renderTypeScript(resolved: ResolvedTokens, roles: ResolvedTokens): string {
   const themed = (record: ResolvedTokens) =>
     THEMES.map((theme) => `  ${theme}: {\n${tsRecord(record[theme], '    ')}\n  },`).join('\n');
   return `// ${GEN} ${RUN}
@@ -318,34 +321,26 @@ export type ColourToken = keyof typeof colourTokens.light;
 export const roleColours = {
 ${themed(roles)}
 } as const;
-
-/**
- * The colour stops the engine paints heatmap tiles with, as intensity and RGBA
- * bytes, faintest first. The transparent zero stop is left out.
- */
-export const heatmapTileStops = [
-${heat}
-] as const;
 `;
 }
 
-const rustFloat = (n: number) => (Number.isInteger(n) ? `${n}.0` : `${n}`);
-
 /** `modules/veloqrs/rust/veloqrs/src/heatmap_ramp.rs`. */
-export function renderRustHeatRamp(resolved: ResolvedTokens, stops: readonly HeatStop[]): string {
-  const rows = heatStopBytes(resolved, stops).map(
-    (s) => `    (${[s.intensity, ...s.rgba].map(rustFloat).join(', ')}),`
-  );
+export function renderRustHeatPalettes(
+  resolved: ResolvedTokens,
+  palettes: readonly HeatPalette[]
+): string {
+  const tables = palettes.map((palette) => {
+    const rows = heatPaletteBytes(resolved, palette).map((c) => `    [${c.join(', ')}],`);
+    const name = `HEATMAP_${palette.base.toUpperCase()}`;
+    return `pub(crate) const ${name}: [[u8; 4]; 7] = [\n${rows.join('\n')}\n];`;
+  });
   return `// ${GEN} ${RUN}
 
-/// The heatmap tile ramp as \`(intensity, r, g, b, a)\`, faintest first, from
-/// the transparent zero stop to the densest. Colours are the dark map's heat
-/// tokens: one tile set serves every map style, and the light map's raster
-/// paint inverts lightness so the same ramp darkens with density there.
-pub(crate) const HEATMAP_STOPS: &[(f32, f32, f32, f32, f32)] = &[
-    (0.0, 0.0, 0.0, 0.0, 0.0),
-${rows.join('\n')}
-];
+// The heatmap tile palette of each base map as RGBA, indexed by the class a
+// tile pixel holds: 0 no heat, 1 to 5 the heat steps from fewest passes to
+// most, 6 the halo round the heat, transparent on a base that paints none.
+
+${tables.join('\n\n')}
 `;
 }
 

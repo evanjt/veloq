@@ -586,15 +586,3 @@ export const roleColours = {
     formHighRisk: '#FFC1A5',
   },
 } as const;
-
-/**
- * The colour stops the engine paints heatmap tiles with, as intensity and RGBA
- * bytes, faintest first. The transparent zero stop is left out.
- */
-export const heatmapTileStops = [
-  { intensity: 0.04, rgba: [45, 123, 222, 176] },
-  { intensity: 0.2, rgba: [99, 151, 221, 194] },
-  { intensity: 0.45, rgba: [127, 180, 251, 212] },
-  { intensity: 0.75, rgba: [176, 209, 254, 230] },
-  { intensity: 1, rgba: [221, 235, 255, 248] },
-] as const;

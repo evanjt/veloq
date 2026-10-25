@@ -26,9 +26,7 @@ import {
   VELOQ_WEBVIEW_COMPONENT_NAME,
 } from '@/features/maps/lib/veloqWebView';
 import { SATELLITE_SOURCES } from '@/features/maps/components/mapStyles';
-import { buildRegionalLayers } from '@/features/maps/components/regional/regionalMapLayerSpecs';
 import { mapPalette } from '@/theme';
-import { HEATMAP_TILE_STOPS } from '@/features/maps/lib/heatmapPaint';
 import { LIBERTY_SOURCES } from '@/features/maps/styles/liberty/sources';
 import { widgetPalette } from '@/shared/theme/widgetTheme';
 import { SPORT_FAMILY_ORDER } from '@/shared/activity/sportCategories';
@@ -2181,46 +2179,26 @@ describe("the Summary widget offers the summary card's own choices, in its order
   });
 });
 
-describe('the light heatmap paint agrees with the contrast test that gates it', () => {
-  const tiles = read(`${RUST}/tiles.rs`);
-  const constant = (name: string) => {
-    const match = tiles.match(new RegExp(`const ${name}: f32 = (-?[0-9.]+);`));
-    expect(match).not.toBeNull();
-    return Number(match?.[1]);
-  };
-
-  it.each([
-    ['LIGHT_RASTER_OPACITY', 'raster-opacity'],
-    ['LIGHT_BRIGHTNESS_MIN', 'raster-brightness-min'],
-    ['LIGHT_BRIGHTNESS_MAX', 'raster-brightness-max'],
-    ['LIGHT_HUE_ROTATE_DEGREES', 'raster-hue-rotate'],
-  ])('%s is the %s of the regional heatmap layer', (name, property) => {
-    const layer = buildRegionalLayers({
-      palette: mapPalette('light'),
-      heatmapEnabled: true,
-      showHeatmap: true,
-      hasSpider: false,
-      showActivities: true,
-      selectedActivityId: null,
-      selectedSectionId: null,
-      routeColor: '#FF6B35',
-    } as unknown as Parameters<typeof buildRegionalLayers>[0]).find(
-      (l) => l.id === 'heatmap-layer'
+// The layers menu keys the heatmap with the steps the engine serves each base's tiles in.
+describe('the engine heatmap palettes are the map palette heat steps', () => {
+  const ramp = read(`${RUST}/heatmap_ramp.rs`);
+  const table = (base: string) => {
+    const body = ramp.match(
+      new RegExp(`const HEATMAP_${base.toUpperCase()}[^=]*= \\[([\\s\\S]*?)\\];`)
     );
-    expect(layer?.paint?.[property]).toBe(constant(name));
-  });
-});
+    expect(body).not.toBeNull();
+    return [...(body?.[1] ?? '').matchAll(/\[([^\]]*)\]/g)].map((m) => m[1].split(',').map(Number));
+  };
+  const hex = ([r, g, b]: number[]) =>
+    `#${[r, g, b].map((c) => c.toString(16).padStart(2, '0')).join('')}`.toUpperCase();
 
-// The layers menu keys the heatmap with the ramp the engine paints its tiles in.
-it('keys the heatmap in the colour stops the engine paints its tiles with', () => {
-  const lut = read(`${RUST}/heatmap_ramp.rs`).match(/const HEATMAP_STOPS[^=]*= &\[([\s\S]*?)\];/);
-  expect(lut).not.toBeNull();
-  const stops = [...(lut?.[1] ?? '').replace(/\/\/.*$/gm, '').matchAll(/\(([^)]*)\)/g)]
-    .map((match) => match[1].split(',').map(Number))
-    .filter(([intensity]) => intensity > 0)
-    .map(([intensity, r, g, b, a]) => ({ intensity, rgba: [r, g, b, a] }));
-  expect(stops.length).toBeGreaterThan(2);
-  expect(HEATMAP_TILE_STOPS).toEqual(stops);
+  it.each(['light', 'dark', 'satellite'] as const)('%s', (base) => {
+    const rows = table(base);
+    expect(rows).toHaveLength(7);
+    expect(rows[0][3]).toBe(0);
+    expect(rows.slice(1, 6).map(hex)).toEqual(mapPalette(base).heat.map((c) => c.toUpperCase()));
+    expect(rows.slice(1, 6).every((row) => row[3] === 255)).toBe(true);
+  });
 });
 
 describe('the widget palette agrees with the committed Android resources', () => {

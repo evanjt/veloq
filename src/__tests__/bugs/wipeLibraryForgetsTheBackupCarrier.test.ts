@@ -1051,6 +1051,14 @@ const DEVICE_WRITES: DeviceWrite[] = [
   },
   {
     confirm: ['recordings'],
+    where: 'Documents/garmin-swap/',
+    writers: [`${RUST}/net/garmin_swap.rs`],
+    holds:
+      "the file intervals.icu held for an activity before the athlete swapped Garmin's file in, named by the activity's id, which Undo posts back, and the file a swap or an undo is sending until the request ends",
+    kept: "a copy of an athlete's own activity file that exists only to restore it, kept beside the recordings by the same decision, and an activity id belongs to one athlete",
+  },
+  {
+    confirm: ['recordings'],
     where:
       'Documents/recording_backup.json and recording_backup_<athlete>.json, their .tmp siblings, and the AsyncStorage ownerless_recording_backup_settled marker and ownerless_recording_backup_pending_athlete key',
     writers: [
@@ -1113,13 +1121,16 @@ const DEVICE_WRITES: DeviceWrite[] = [
     where: 'the Garmin Personal key and the connector choices',
     writers: ['src/features/settings/lib/garminConnector.ts'],
     holds:
-      "the athlete's Garmin key, its expiry date, the feed and upload switches, the held-back count the feed offer was declined at, and whether a key was connected",
+      "the athlete's Garmin key, its expiry date, the feed, upload and automatic swap switches, why the swap switched itself off, the rides it has dealt with, the held-back count the feed offer was declined at, and whether a key was connected",
     wiped: {
       keychain: ['garmin_personal_key'],
       settings: [
         'veloq-garmin-key-expiry',
         'veloq-garmin-feed',
         'veloq-garmin-upload',
+        'veloq-garmin-auto-swap',
+        'veloq-garmin-auto-swap-stopped',
+        'veloq-garmin-auto-swap-handled',
         'veloq-garmin-offer-declined-at',
       ],
       engineSettings: ['__garmin_connector_enabled'],

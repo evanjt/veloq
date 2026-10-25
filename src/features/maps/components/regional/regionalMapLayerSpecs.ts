@@ -7,7 +7,7 @@
  * the selected id rather than a rebuilt FeatureCollection, so panning with a
  * selection active does not re-upload every point.
  */
-import { colourIndexExpression, type MapPalette } from '@/theme';
+import { colourIndexExpression, type MapBase, type MapPalette } from '@/theme';
 import type { MapGeoJSONData, MapLayerSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
 import { heatmapRasterPaint } from '@/features/maps/lib/heatmapPaint';
 import { HEATMAP_SOURCE_MINZOOM, heatmapTileTemplate } from '@/features/maps/lib/heatmapTiles';
@@ -66,6 +66,8 @@ interface RegionalSourceInput {
   spiderPointsGeoJSON: GeoJSON.FeatureCollection;
   spiderLinesGeoJSON: GeoJSON.FeatureCollection;
   heatmapEnabled: boolean;
+  /** The base map the heatmap is drawn over, whose heat steps its tiles are served in. */
+  heatmapBase: MapBase;
   /** How many tile passes have finished, which versions the source's URL. */
   heatmapGeneration?: number;
 }
@@ -93,7 +95,7 @@ export function buildRegionalSources(input: RegionalSourceInput): Record<string,
   if (input.heatmapEnabled) {
     sources['heatmap-tiles'] = {
       kind: 'raster',
-      tiles: [heatmapTileTemplate(input.heatmapGeneration ?? 0)],
+      tiles: [heatmapTileTemplate(input.heatmapBase, input.heatmapGeneration ?? 0)],
       tileSize: 256,
       minzoom: HEATMAP_SOURCE_MINZOOM,
       maxzoom: 17,
@@ -165,7 +167,7 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
       type: 'raster',
       source: 'heatmap-tiles',
       visible: showHeatmap,
-      paint: heatmapRasterPaint(palette.base),
+      paint: heatmapRasterPaint(),
     });
   }
 
@@ -259,9 +261,12 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
       type: 'line',
       source: 'selected-route',
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      // A sport-coloured line on the Map tab is edged rather than cased.
+      // A sport-coloured line on the Map tab is edged rather than cased. Over
+      // the heatmap the line is the base's ink, a highlighted line, and cased.
       paint: {
-        'line-color': palette.edge,
+        'line-color': heatmapDrawn({ enabled: heatmapEnabled, shown: showHeatmap })
+          ? palette.casing
+          : palette.edge,
         'line-width': size(8),
         'line-opacity': hasRouteData ? 1 : 0,
       },
@@ -379,16 +384,22 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
 }
 
 /**
- * The selected activity's line colour: its sport colour, or the palette's
- * heatmap route colour while the heatmap is drawn under it. That one is light
- * and outside the teal family, so it is read against the opaque casing rather
- * than the heat. Available in settings is not drawn: the athlete can hide it on
- * the map.
+ * Whether the heatmap is drawn on the map. Available in settings is not drawn:
+ * the athlete can hide it on the map.
+ */
+function heatmapDrawn(heatmap: { enabled: boolean; shown: boolean }): boolean {
+  return heatmap.enabled && heatmap.shown;
+}
+
+/**
+ * The selected activity's line colour: its sport colour, or the base map's ink
+ * while the heatmap is drawn under it, which is read against the opaque casing
+ * drawn for that ink rather than against the heat.
  */
 export function selectedRouteColor(
   sportColor: string,
   heatmap: { enabled: boolean; shown: boolean },
   palette: MapPalette
 ): string {
-  return heatmap.enabled && heatmap.shown ? palette.layer.heatmapRoute : sportColor;
+  return heatmapDrawn(heatmap) ? palette.ink : sportColor;
 }

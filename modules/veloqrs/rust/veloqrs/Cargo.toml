@@ -62,6 +62,7 @@ chrono = "0.4"
 lru = "0.18"
 rayon = "1.10"
 png = "0.18"
+crc32fast = "1.5"
 rstar = "0.12"
 zip = { version = "9", default-features = false, features = ["deflate"] }
 

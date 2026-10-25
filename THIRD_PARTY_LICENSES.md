@@ -401,6 +401,7 @@ This register lists every direct app and engine dependency. The in-app Third-par
 | lru | MIT | https://github.com/jeromefroe/lru-rs |
 | rayon | MIT OR Apache-2.0 | https://github.com/rayon-rs/rayon |
 | png | MIT OR Apache-2.0 | https://github.com/image-rs/image-png |
+| crc32fast | MIT OR Apache-2.0 | https://github.com/srijs/rust-crc32fast |
 | tempfile | MIT OR Apache-2.0 | https://github.com/Stebalien/tempfile |
 | rstar | MIT OR Apache-2.0 | https://github.com/georust/rstar |
 | zip | MIT | https://github.com/zip-rs/zip2 |

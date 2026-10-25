@@ -143,6 +143,16 @@ pub const FAMILIES: &[(&str, &[&str])] = &[
     ("Other", FAMILY_OTHER),
 ];
 
+/// The sport an activity is filed under when nothing names one. It is the
+/// Other family every sport no family lists already falls into, so an
+/// unreported sport never reaches cycling-only logic.
+pub const UNKNOWN: &str = "Other";
+
+/// The sport as reported, or [`UNKNOWN`] when it is absent or empty.
+pub fn sport_or_unknown(sport: Option<&str>) -> &str {
+    sport.filter(|s| !s.is_empty()).unwrap_or(UNKNOWN)
+}
+
 /// Sub-sports drawn in their family's second fixed shade: off-road riding,
 /// trail running, paddling and rowing, hiking, nordic and snowshoe, mobility.
 pub const SHADE_2: &[&str] = &[
@@ -562,6 +572,14 @@ mod tests {
         assert_eq!(family_of("Treadmill"), RUNNING.to_vec());
         assert_eq!(family_of("Hike"), WALKING.to_vec());
         assert_eq!(family_of("OpenWaterSwim"), SWIMMING.to_vec());
+    }
+
+    #[test]
+    fn a_missing_or_empty_sport_is_other_and_a_reported_one_is_kept() {
+        assert_eq!(sport_or_unknown(None), "Other");
+        assert_eq!(sport_or_unknown(Some("")), "Other");
+        assert_eq!(sport_or_unknown(Some("Run")), "Run");
+        assert!(!is_cycling(sport_or_unknown(None)));
     }
 
     #[test]

@@ -391,7 +391,7 @@ fn fit_on_disk(ride: &FfiRecordingEntry) -> bool {
 
 /// What a request's answer means for the ride.
 #[derive(Debug, PartialEq)]
-enum Verdict {
+pub(crate) enum Verdict {
     Landed(Option<String>),
     OtherAthlete,
     PermissionBlocked,
@@ -405,7 +405,7 @@ enum Verdict {
 /// answer says, and only a transport failure is a network failure: a refused,
 /// rate-limited or locally failed write is not, and holding one for the
 /// connection would wait on a change that cannot help it.
-fn classify(answer: &FfiCallOutcome) -> Verdict {
+pub(crate) fn classify(answer: &FfiCallOutcome) -> Verdict {
     let detail = || {
         answer
             .detail

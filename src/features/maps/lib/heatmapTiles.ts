@@ -8,6 +8,7 @@
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
+import type { MapBase } from '@/theme';
 import { readHeatmapCacheSize } from './readHeatmapCacheSize';
 import { nativeHeatmapTileUrl } from './tileTransport';
 import { heatmap } from 'veloqrs';
@@ -21,11 +22,12 @@ const HEATMAP_DIR = `${FileSystem.cacheDirectory}heatmap-tiles/`;
 export const HEATMAP_SOURCE_MINZOOM = 0;
 
 /**
- * What a surface should put in its raster source: the URL the platform
- * answers off the heatmap directory.
+ * What a surface drawing over `base` should put in its raster source: the URL
+ * the platform answers off the heatmap directory in that base's heat steps. A
+ * base change is a different URL, so the source asks for its tiles again.
  */
-export function heatmapTileTemplate(generation = 0): string {
-  const template = nativeHeatmapTileUrl();
+export function heatmapTileTemplate(base: MapBase, generation = 0): string {
+  const template = nativeHeatmapTileUrl(base);
   // A finished pass is a different picture under the same path, and MapLibre
   // will not ask a URL it has already resolved. The interceptor reads the path
   // and drops the query on both platforms, so the version only moves the URL.

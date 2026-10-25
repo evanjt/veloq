@@ -2075,6 +2075,28 @@ pub(crate) async fn find_landed_activity(
     .await
 }
 
+/// The activities intervals.icu holds between two local days, read with the
+/// held credential for the Garmin connector's match. `None` when no credential
+/// is held or the read fails. A refused credential is reported as any other
+/// read's is.
+pub(crate) async fn activities_for_garmin_match(
+    oldest: String,
+    newest: String,
+) -> Option<Vec<ListedActivity>> {
+    let session = SYNC_SERVICE.build_session().ok()?;
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    crate::runtime::spawn(async move {
+        let result = session
+            .activities_between(&oldest, &newest, Lane::Interactive.into())
+            .await;
+        if matches!(result, Err(NetError::Unauthorized)) {
+            park_auth_expired(&session).await;
+        }
+        let _ = tx.send(result.ok());
+    });
+    rx.await.ok().flatten()
+}
+
 /// List the window and pick from it, the work behind [`find_landed_activity`].
 async fn landed_activity_job(
     source: &impl SourceWrites,
@@ -2129,6 +2151,105 @@ pub(crate) async fn read_back_activity(intervals_id: String) -> FfiCallOutcome {
             .map(|_| Some(intervals_id))
     })
     .await
+}
+
+/// Read from intervals.icu with the held credential, keeping what the job
+/// fetched beside how the call ended. The value is `None` unless the outcome
+/// is `Ok`.
+async fn run_fetch<T, F, Fut>(job: F) -> (FfiCallOutcome, Option<T>)
+where
+    T: Send + 'static,
+    F: FnOnce(LiveSource) -> Fut + Send + 'static,
+    Fut: std::future::Future<Output = Result<T, NetError>> + Send + 'static,
+{
+    let slot = Arc::new(Mutex::new(None));
+    let kept = slot.clone();
+    let outcome = run_write(move |session| async move {
+        let value = job(session).await?;
+        *kept.lock().unwrap_or_else(|e| e.into_inner()) = Some(value);
+        Ok(None)
+    })
+    .await;
+    let value = slot.lock().unwrap_or_else(|e| e.into_inner()).take();
+    (outcome, value)
+}
+
+/// The activity as intervals.icu holds it now, as the JSON it sent.
+pub(crate) async fn fetch_activity_json(intervals_id: String) -> (FfiCallOutcome, Option<String>) {
+    run_fetch(move |session| async move {
+        session
+            .activity_body(&intervals_id, Dispatch::new(Lane::Backfill, Intent::User))
+            .await
+    })
+    .await
+}
+
+/// The file intervals.icu holds for the activity, byte for byte.
+pub(crate) async fn fetch_activity_file(intervals_id: String) -> (FfiCallOutcome, Option<Vec<u8>>) {
+    run_fetch(move |session| async move {
+        session
+            .original_file(&intervals_id, Dispatch::new(Lane::Backfill, Intent::User))
+            .await
+    })
+    .await
+}
+
+/// Replace the activity's file in place from `file_path`. `Ok` with an id says
+/// the file was replaced under that id, and `Ok` with none says intervals.icu
+/// held that file already.
+pub(crate) async fn replace_activity_file_in_place(
+    intervals_id: String,
+    file_path: String,
+    filename: String,
+    keep_intervals: bool,
+) -> FfiCallOutcome {
+    run_write(move |session| async move {
+        replace_file_job(
+            &session,
+            &intervals_id,
+            &file_path,
+            &filename,
+            keep_intervals,
+        )
+        .await
+    })
+    .await
+}
+
+/// Post the replacement, the work behind [`replace_activity_file_in_place`].
+async fn replace_file_job(
+    source: &impl SourceWrites,
+    intervals_id: &str,
+    file_path: &str,
+    filename: &str,
+    keep_intervals: bool,
+) -> Result<Option<String>, NetError> {
+    let answer = source
+        .replace_activity_file(
+            intervals_id,
+            file_path,
+            filename,
+            keep_intervals,
+            Lane::Interactive.into(),
+        )
+        .await?;
+    Ok(match answer {
+        endpoints::Replacement::Replaced(id) => Some(id),
+        endpoints::Replacement::Unchanged => None,
+    })
+}
+
+/// Run one swap step on a blocking thread: it makes several requests in a
+/// row and must not hold the JavaScript thread or the calling executor.
+async fn swap_off_thread<R: Send + 'static>(
+    activity_id: String,
+    step: fn(&dyn crate::net::garmin_swap::SwapLink, &str) -> R,
+) -> R {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    crate::threads::spawn_named("garmin-swap", move || {
+        let _ = tx.send(step(&crate::net::garmin_swap::Live, &activity_id));
+    });
+    rx.await.expect("the swap thread reports before it ends")
 }
 
 /// Run a write against the held credential.
@@ -2415,6 +2536,9 @@ pub(crate) async fn perform_sync_from<S: Source>(
     // Garmin is its own service: a sync that intervals.icu refused is no
     // reason to leave Garmin's rides unpulled.
     crate::net::garmin::pull::start(install);
+    if success {
+        crate::net::garmin_auto_swap::start(install);
+    }
 }
 
 /// [`perform_window_sync_from`] over the intervals.icu session a transport and
@@ -4691,6 +4815,13 @@ impl SyncManager {
         super::garmin_key::connect_garmin(key).await
     }
 
+    /// The account behind the key Garmin accepted: the name on it, and how the
+    /// rides of the last thirty days line up with intervals.icu. `None` when
+    /// no key is held.
+    async fn garmin_account(&self) -> Option<super::garmin_account::GarminAccount> {
+        super::garmin_account::garmin_account().await
+    }
+
     /// Hold the key the keychain gave back at launch, without asking Garmin.
     fn hold_garmin_key(&self, key: String) {
         super::garmin_key::hold_garmin_key(&key);
@@ -4714,6 +4845,33 @@ impl SyncManager {
             crate::persistence::engine_install(),
             &activity_id,
         )
+    }
+
+    /// Whether the activity offers Garmin's own file, or an undo of an earlier
+    /// swap. Compares Garmin's original with intervals.icu's file, so it runs
+    /// off the calling thread.
+    async fn garmin_swap_state(
+        &self,
+        activity_id: String,
+    ) -> crate::net::garmin_swap::FfiSwapState {
+        swap_off_thread(activity_id, crate::net::garmin_swap::state).await
+    }
+
+    /// Replace intervals.icu's file for the activity with Garmin's original.
+    /// The earlier file is kept for `garmin_swap_undo`.
+    async fn garmin_swap_replace(
+        &self,
+        activity_id: String,
+    ) -> crate::net::garmin_swap::FfiSwapResult {
+        swap_off_thread(activity_id, crate::net::garmin_swap::replace).await
+    }
+
+    /// Put the file intervals.icu held before the swap back.
+    async fn garmin_swap_undo(
+        &self,
+        activity_id: String,
+    ) -> crate::net::garmin_swap::FfiSwapResult {
+        swap_off_thread(activity_id, crate::net::garmin_swap::undo).await
     }
 
     /// Start a sync. Returns instantly, naming whether the job started and, if
@@ -11261,7 +11419,11 @@ mod body_count_tests {
             stored_so_far_ago(60);
             with_persistent_engine(|engine| {
                 engine
-                    .store_activity_detail_body("ride", 1_700_000_000, r#"{"id":"ride"}"#)
+                    .store_activity_detail_body(
+                        "ride",
+                        1_700_000_000,
+                        r#"{"id":"ride","type":"Ride"}"#,
+                    )
                     .expect("store detail");
             })
             .expect("engine");

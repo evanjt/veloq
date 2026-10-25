@@ -18,8 +18,12 @@
 
 import {
   FfiStartOutcome,
+  FfiSwapOutcome,
+  FfiSwapState,
   GarminKeyStatus,
+  type GarminAccount,
   type FfiStartResult,
+  type FfiSwapResult,
   RangeCoverage,
   type LibraryCoverage,
   type FfiSyncStatus,
@@ -58,6 +62,12 @@ export async function connectGarmin(host: DelegateHost, key: string): Promise<Ga
   return host.timedAsync('connectGarmin', () => host.engine.sync().connectGarmin(key));
 }
 
+/** The account behind the key held in the engine, read after a connect. Unreachable before the engine opens: no key is held then. */
+export async function garminAccount(host: DelegateHost): Promise<GarminAccount | undefined> {
+  if (!host.ready) return undefined;
+  return host.timedAsync('garminAccount', () => host.engine.sync().garminAccount());
+}
+
 /** Hand the engine the key the keychain gave back, unchecked. */
 export function holdGarminKey(host: DelegateHost, key: string): void {
   host.write('holdGarminKey', () => host.engine.sync().holdGarminKey(key));
@@ -83,6 +93,37 @@ export function pullGarminForActivity(host: DelegateHost, activityId: string): b
   return host.timed('pullGarminForActivity', () =>
     host.engine.sync().pullGarminForActivity(activityId)
   );
+}
+
+/** Whether the activity offers Garmin's own file, an undo of an earlier swap,
+ *  or nothing. The engine compares the two files, so it is nothing before the
+ *  engine opens. */
+export async function garminSwapState(
+  host: DelegateHost,
+  activityId: string
+): Promise<FfiSwapState> {
+  if (!host.ready) return FfiSwapState.Hidden;
+  return host.timedAsync('garminSwapState', () => host.engine.sync().garminSwapState(activityId));
+}
+
+/** Replace intervals.icu's file for the activity with Garmin's original. */
+export async function garminSwapReplace(
+  host: DelegateHost,
+  activityId: string
+): Promise<FfiSwapResult> {
+  if (!host.ready) return { outcome: FfiSwapOutcome.Failed };
+  return host.timedAsync('garminSwapReplace', () =>
+    host.engine.sync().garminSwapReplace(activityId)
+  );
+}
+
+/** Put the file intervals.icu held before the swap back. */
+export async function garminSwapUndo(
+  host: DelegateHost,
+  activityId: string
+): Promise<FfiSwapResult> {
+  if (!host.ready) return { outcome: FfiSwapOutcome.Failed };
+  return host.timedAsync('garminSwapUndo', () => host.engine.sync().garminSwapUndo(activityId));
 }
 
 /** Start a sync. Returns instantly, naming why when it refuses so a caller can

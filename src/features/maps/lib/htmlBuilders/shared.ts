@@ -62,13 +62,13 @@ ${dropRetiredTileCachesScript()}
  *
  * Defines `window._veloqTerrainReport` with `reset()`, `watch(map)`,
  * `report()` and `reportOnceSettled(map)`, which reports a second after the
- * map next goes idle, since a DEM tile that fails after the first frames still
- * leaves a flat map.
+ * map next goes idle, and a second after any DEM tile that fails once it has,
+ * since a failure can land after the idle and still leaves a flat map.
  */
 export function terrainReportScript(): string {
   return `
     window._veloqTerrainReport = (function() {
-      var delivered = 0, failed = 0, sent = false;
+      var delivered = 0, failed = 0, sent = false, settled = false;
       function report() {
         if (sent || delivered > 0 || failed === 0) return;
         sent = true;
@@ -81,18 +81,24 @@ export function terrainReportScript(): string {
         }
       }
       return {
-        reset: function() { delivered = 0; failed = 0; sent = false; },
+        reset: function() { delivered = 0; failed = 0; sent = false; settled = false; },
         watch: function(map) {
           map.on('sourcedata', function(e) {
             if (e.sourceId === 'terrain' && e.tile) delivered++;
           });
           map.on('error', function(e) {
-            if (e.sourceId === 'terrain' && e.tile) failed++;
+            if (e.sourceId === 'terrain' && e.tile) {
+              failed++;
+              if (settled) setTimeout(report, 1000);
+            }
           });
         },
         report: report,
         reportOnceSettled: function(map) {
-          map.once('idle', function() { setTimeout(report, 1000); });
+          map.once('idle', function() {
+            settled = true;
+            setTimeout(report, 1000);
+          });
         },
       };
     })();

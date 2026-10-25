@@ -42,7 +42,7 @@ export {
   sectionPaletteExpression,
   routePaletteExpression,
 } from './colors';
-export { colourTokens, heatmapTileStops, type ColourToken } from './colourTokens.generated';
+export { colourTokens, type ColourToken } from './colourTokens.generated';
 export { zoneColour, zoneTint } from './zoneColour';
 export {
   themePalette,

@@ -1,0 +1,217 @@
+//! Scenario: the athlete's switch is on and intervals.icu has imported new
+//! Garmin rides.
+//!
+//! Expected behaviour: only a ride imported after the switch was turned on and
+//! within 48 hours is swapped, each once, and the first refusal or mismatch
+//! turns the switch off with its reason.
+
+use super::*;
+use std::cell::RefCell;
+use std::collections::HashMap;
+
+const NOW: &str = "2026-10-26T12:00:00Z";
+
+fn at(text: &str) -> DateTime<Utc> {
+    DateTime::parse_from_rfc3339(text)
+        .unwrap()
+        .with_timezone(&Utc)
+}
+
+struct Store {
+    settings: RefCell<HashMap<String, String>>,
+    imports: Vec<Imported>,
+}
+
+impl Store {
+    fn new(switch: Option<&str>, imports: Vec<(&str, &str)>) -> Self {
+        let store = Self {
+            settings: RefCell::new(HashMap::new()),
+            imports: imports
+                .into_iter()
+                .map(|(id, created)| Imported {
+                    id: id.into(),
+                    created: created.into(),
+                })
+                .collect(),
+        };
+        if let Some(value) = switch {
+            store.set_setting(SWITCH, value);
+        }
+        store
+    }
+}
+
+impl AutoStore for Store {
+    fn setting(&self, key: &str) -> Option<String> {
+        self.settings.borrow().get(key).cloned()
+    }
+    fn set_setting(&self, key: &str, value: &str) {
+        self.settings.borrow_mut().insert(key.into(), value.into());
+    }
+    fn recent_imports(&self) -> Vec<Imported> {
+        self.imports.clone()
+    }
+}
+
+fn result(outcome: FfiSwapOutcome) -> FfiSwapResult {
+    FfiSwapResult {
+        outcome,
+        detail: Some("why".into()),
+    }
+}
+
+fn run_with(store: &Store, answers: &[(&str, FfiSwapOutcome)]) -> Vec<String> {
+    let sent = RefCell::new(Vec::new());
+    run(store, at(NOW), |id| {
+        sent.borrow_mut().push(id.to_string());
+        let outcome = answers
+            .iter()
+            .find(|(i, _)| *i == id)
+            .map_or(FfiSwapOutcome::Replaced, |(_, o)| *o);
+        result(outcome)
+    });
+    sent.into_inner()
+}
+
+#[test]
+fn a_switch_that_is_off_swaps_nothing() {
+    for value in [None, Some("false"), Some("true"), Some("")] {
+        let store = Store::new(value, vec![("i1", "2026-10-26T10:00:00Z")]);
+        assert!(run_with(&store, &[]).is_empty(), "{value:?}");
+    }
+}
+
+#[test]
+fn a_ride_imported_after_the_switch_and_within_two_days_is_swapped_once() {
+    let store = Store::new(
+        Some("2026-10-26T09:00:00Z"),
+        vec![("i1", "2026-10-26T10:00:00Z")],
+    );
+    assert_eq!(run_with(&store, &[]), ["i1"]);
+    assert!(
+        run_with(&store, &[]).is_empty(),
+        "a second pass swaps it again"
+    );
+}
+
+#[test]
+fn a_ride_imported_before_the_switch_is_left_alone() {
+    let store = Store::new(
+        Some("2026-10-26T09:00:00Z"),
+        vec![
+            ("i1", "2026-10-26T08:59:59Z"),
+            ("i2", "2026-10-26T09:00:00Z"),
+        ],
+    );
+    assert_eq!(run_with(&store, &[]), ["i2"]);
+}
+
+#[test]
+fn a_ride_imported_over_forty_eight_hours_ago_is_left_alone() {
+    let store = Store::new(
+        Some("2026-10-20T00:00:00Z"),
+        vec![
+            ("old", "2026-10-24T11:59:59Z"),
+            ("edge", "2026-10-24T12:00:00Z"),
+        ],
+    );
+    assert_eq!(run_with(&store, &[]), ["edge"]);
+}
+
+#[test]
+fn a_ride_with_no_readable_import_time_is_left_alone() {
+    let store = Store::new(
+        Some("2026-10-20T00:00:00Z"),
+        vec![("i1", "soon"), ("i2", "")],
+    );
+    assert!(run_with(&store, &[]).is_empty());
+}
+
+#[test]
+fn a_mismatch_turns_the_switch_off_and_stops_the_pass() {
+    let store = Store::new(
+        Some("2026-10-26T09:00:00Z"),
+        vec![
+            ("i1", "2026-10-26T10:00:00Z"),
+            ("i2", "2026-10-26T11:00:00Z"),
+        ],
+    );
+    let sent = run_with(&store, &[("i1", FfiSwapOutcome::Mismatch)]);
+    assert_eq!(sent, ["i1"]);
+    assert_eq!(store.setting(SWITCH).as_deref(), Some("false"));
+    assert_eq!(store.setting(STOPPED).as_deref(), Some("why"));
+    assert!(run_with(&store, &[]).is_empty());
+}
+
+#[test]
+fn a_refusal_turns_the_switch_off() {
+    for outcome in [
+        FfiSwapOutcome::Refused,
+        FfiSwapOutcome::PermissionBlocked,
+        FfiSwapOutcome::AuthExpired,
+    ] {
+        let store = Store::new(
+            Some("2026-10-26T09:00:00Z"),
+            vec![("i1", "2026-10-26T10:00:00Z")],
+        );
+        run_with(&store, &[("i1", outcome)]);
+        assert_eq!(
+            store.setting(SWITCH).as_deref(),
+            Some("false"),
+            "{outcome:?}"
+        );
+    }
+}
+
+#[test]
+fn a_ride_that_could_not_be_tried_is_tried_again_by_the_next_pass() {
+    for outcome in [FfiSwapOutcome::Failed, FfiSwapOutcome::GarminUnavailable] {
+        let store = Store::new(
+            Some("2026-10-26T09:00:00Z"),
+            vec![
+                ("i1", "2026-10-26T10:00:00Z"),
+                ("i2", "2026-10-26T11:00:00Z"),
+            ],
+        );
+        assert_eq!(run_with(&store, &[("i1", outcome)]), ["i1", "i2"]);
+        assert_eq!(
+            store.setting(SWITCH).as_deref(),
+            Some("2026-10-26T09:00:00Z")
+        );
+        assert_eq!(run_with(&store, &[]), ["i1"]);
+    }
+}
+
+#[test]
+fn a_ride_that_is_not_an_exact_import_or_holds_nothing_more_is_not_asked_again() {
+    for outcome in [FfiSwapOutcome::NotEligible, FfiSwapOutcome::Unchanged] {
+        let store = Store::new(
+            Some("2026-10-26T09:00:00Z"),
+            vec![("i1", "2026-10-26T10:00:00Z")],
+        );
+        assert_eq!(run_with(&store, &[("i1", outcome)]), ["i1"]);
+        assert!(run_with(&store, &[]).is_empty());
+    }
+}
+
+#[test]
+fn rides_that_left_the_window_are_forgotten() {
+    let mut store = Store::new(
+        Some("2026-10-20T00:00:00Z"),
+        vec![("i1", "2026-10-26T10:00:00Z")],
+    );
+    run_with(&store, &[]);
+    assert_eq!(store.setting(HANDLED).as_deref(), Some("i1"));
+    store.imports.clear();
+    run_with(&store, &[]);
+    assert_eq!(store.setting(HANDLED).as_deref(), Some(""));
+}
+
+#[test]
+fn the_switch_value_is_the_moment_it_was_turned_on_and_false_is_off() {
+    assert_eq!(
+        switched_on_since("2026-10-26T09:00:00Z"),
+        Some(at("2026-10-26T09:00:00Z"))
+    );
+    assert_eq!(switched_on_since("false"), None);
+}

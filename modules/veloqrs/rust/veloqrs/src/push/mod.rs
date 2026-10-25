@@ -386,7 +386,7 @@ pub fn record_activity_detail(
         .map_err(|e| e.to_string())?;
     Ok(ActivityDetail {
         name: record.name.unwrap_or_default(),
-        sport_type: record.activity_type.unwrap_or_else(|| "Ride".to_string()),
+        sport_type: crate::sport::sport_or_unknown(record.activity_type.as_deref()).to_string(),
         moved,
     })
 }

@@ -929,6 +929,7 @@ fn listed(id: &str, external_id: Option<&str>, start: &str, kind: &str) -> Liste
     ListedActivity {
         id: id.into(),
         external_id: external_id.map(str::to_string),
+        source: None,
         start_date_local: Some(start.into()),
         activity_type: Some(kind.into()),
     }

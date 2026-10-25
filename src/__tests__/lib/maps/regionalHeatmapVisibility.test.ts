@@ -6,9 +6,10 @@
  * paints them invisibly.
  *
  * Expected behaviour: the layer is hidden through `visible`, the way every
- * other layer in this builder is, and `raster-opacity` carries only the light
- * and dark tuning. The source stays declared either way: keeping it mounted and
- * flipping visibility is the house rule for MapLibre sources here.
+ * other layer in this builder is, and `raster-opacity` stays at one, since the
+ * tiles carry each base's opaque heat steps. The source stays declared either
+ * way: keeping it mounted and flipping visibility is the house rule for
+ * MapLibre sources here.
  */
 
 import {
@@ -45,24 +46,15 @@ describe('the regional map heatmap layer', () => {
     expect(layer?.paint?.['raster-opacity']).not.toBe(0);
   });
 
-  it('is shown, and carries the light tuning, when the heatmap is on', () => {
-    const layer = heatmapLayer({ showHeatmap: true, palette: mapPalette('light') });
+  it.each(['light', 'dark', 'satellite'] as const)(
+    'is shown at full opacity over the %s base when the heatmap is on',
+    (base) => {
+      const layer = heatmapLayer({ showHeatmap: true, palette: mapPalette(base) });
 
-    expect(layer?.visible).toBe(true);
-    expect(layer?.paint?.['raster-opacity']).toBe(1);
-    expect(layer?.paint?.['raster-brightness-min']).toBe(0.3);
-    expect(layer?.paint?.['raster-brightness-max']).toBe(0);
-    expect(layer?.paint?.['raster-hue-rotate']).toBe(180);
-  });
-
-  it('carries the dark tuning under a dark style', () => {
-    const layer = heatmapLayer({ showHeatmap: true, palette: mapPalette('dark') });
-
-    expect(layer?.visible).toBe(true);
-    expect(layer?.paint?.['raster-opacity']).toBe(0.72);
-    expect(layer?.paint?.['raster-hue-rotate']).toBeUndefined();
-    expect(layer?.paint?.['raster-brightness-min']).toBeUndefined();
-  });
+      expect(layer?.visible).toBe(true);
+      expect(layer?.paint?.['raster-opacity']).toBe(1);
+    }
+  );
 
   it('is hidden the way every other layer in this builder is', () => {
     const hidden = buildRegionalLayers({
@@ -104,6 +96,7 @@ describe('the regional map heatmap layer', () => {
       spiderPointsGeoJSON: empty,
       spiderLinesGeoJSON: empty,
       heatmapEnabled: true,
+      heatmapBase: 'light',
     });
 
     expect(sources['heatmap-tiles']).toBeDefined();

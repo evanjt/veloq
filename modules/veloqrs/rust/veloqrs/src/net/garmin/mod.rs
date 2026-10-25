@@ -6,6 +6,8 @@
 //! traffic is paced with the intervals.icu traffic and never beside it. The
 //! key and the token are never logged or printed.
 
+pub mod account;
+
 pub mod endpoints;
 
 pub mod ingest;
@@ -198,6 +200,21 @@ impl GarminClient {
     /// Whether Garmin accepts the key: exchanges it, whatever the cache holds.
     pub async fn check_key(&self, dispatch: impl Into<Dispatch>) -> Result<(), GarminError> {
         self.exchange(dispatch.into()).await.map(|_| ())
+    }
+
+    /// The name Garmin gives the account the key belongs to, `None` when its
+    /// settings name none.
+    pub async fn display_name(
+        &self,
+        dispatch: impl Into<Dispatch>,
+    ) -> Result<Option<String>, GarminError> {
+        let dispatch = dispatch.into();
+        let settings = self
+            .with_token(dispatch, |t| async move {
+                endpoints::fetch_user_settings(&t, dispatch).await
+            })
+            .await?;
+        Ok(account::display_name_in(&settings))
     }
 
     /// Every activity from `start_date` to `end_date` (local days, inclusive),

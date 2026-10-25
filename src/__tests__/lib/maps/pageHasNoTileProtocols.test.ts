@@ -77,6 +77,8 @@ describe('a style built with no store to hand the template to', () => {
   });
 
   it('asks for heatmap tiles under the tile prefix', () => {
-    expect(heatmapTileTemplate()).toMatch(/\/veloq-tile\/heatmap\/\{z\}\/\{x\}\/\{y\}\.png$/);
+    expect(heatmapTileTemplate('dark')).toMatch(
+      /\/veloq-tile\/heatmap-dark\/\{z\}\/\{x\}\/\{y\}\.png$/
+    );
   });
 });

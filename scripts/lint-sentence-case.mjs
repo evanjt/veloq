@@ -39,6 +39,7 @@ const PROPER_PHRASES = [
   'Live Activities',
   'Bluetooth LE',
   'Garmin Connect',
+  "Garmin's",
 ];
 const PROPER_WORDS = new Set([
   'Android',

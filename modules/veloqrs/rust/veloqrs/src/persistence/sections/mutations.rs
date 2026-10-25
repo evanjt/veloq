@@ -704,7 +704,7 @@ impl PersistentEngine {
                 params![section_id],
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )
-            .unwrap_or_else(|_| ("auto".to_string(), "Ride".to_string()));
+            .map_err(|e| format!("Failed to read section {}: {}", section_id, e))?;
         if section_type != "custom" {
             return self.rematch_section_activities(section_id, polyline);
         }
@@ -1678,6 +1678,15 @@ mod tests {
         let laps = lap_times(&engine, &custom);
         assert!(!laps.is_empty());
         assert!(laps.iter().all(|t| t.is_some_and(|t| t > 0.0)), "{laps:?}");
+    }
+
+    #[test]
+    fn rebuilding_the_junctions_of_a_missing_section_is_an_error() {
+        let mut engine = engine_over_sections(0);
+
+        let rebuilt = engine.rebuild_section_junctions("no_such_section", &track());
+
+        assert!(rebuilt.is_err(), "{rebuilt:?}");
     }
 
     #[test]

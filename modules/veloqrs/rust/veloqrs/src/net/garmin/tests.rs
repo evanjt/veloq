@@ -6,6 +6,7 @@ use std::io::Write;
 
 const TOKEN_PATH: &str = "/personalapitoken-service/personal-api/personal-api-key/token";
 const LIST_PATH: &str = "/activitylist-service/activities/search/activities";
+const SETTINGS_PATH: &str = "/userprofile-service/userprofile/settings";
 
 fn token_expiring_in(secs: i64) -> String {
     let b64 = |v: serde_json::Value| {
@@ -413,4 +414,25 @@ fn a_429_with_retry_after_holds_the_lane_for_it_and_leaves_intervals_alone() {
         "{held}"
     );
     assert_eq!(c.governor().cooldown_until(Utc::now()), None);
+}
+
+#[test]
+fn the_account_settings_are_read_with_the_token_and_name_the_account() {
+    let server = MockServer::start();
+    let token = token_expiring_in(day().num_seconds());
+    server.mock(|when, then| {
+        when.method(POST).path(TOKEN_PATH);
+        then.status(200).body(&token);
+    });
+    let settings = server.mock(|when, then| {
+        when.method(GET)
+            .path(SETTINGS_PATH)
+            .header("authorization", format!("Bearer {token}"));
+        then.status(200)
+            .json_body(json!({"displayName": "Invented Athlete", "unitSystem": "metric"}));
+    });
+    let c = client(&server);
+    let name = crate::runtime::block_on(c.display_name(dispatch())).unwrap();
+    assert_eq!(name.as_deref(), Some("Invented Athlete"));
+    settings.assert_calls(1);
 }

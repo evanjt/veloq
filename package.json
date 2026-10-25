@@ -59,7 +59,7 @@
     "maestro:pack:map": "./scripts/with-maestro.sh test .maestro/ --include-tags=pack-map --no-ansi",
     "maestro:pack:fitness": "./scripts/with-maestro.sh test .maestro/ --include-tags=pack-fitness --no-ansi",
     "maestro:pack:training": "./scripts/with-maestro.sh test .maestro/ --include-tags=pack-training --no-ansi",
-    "maestro:pack:routes": "./scripts/with-maestro.sh test .maestro/ --include-tags=pack-routes --no-ansi",
+    "maestro:pack:routes": "./scripts/with-maestro.sh test .maestro/ --include-tags=pack-routes,pack-routes-long --no-ansi",
     "maestro:pack:settings": "./scripts/with-maestro.sh test .maestro/ --include-tags=pack-settings --no-ansi",
     "maestro:pack:data": "./scripts/with-maestro.sh test .maestro/ --include-tags=pack-data --no-ansi",
     "maestro:pack:stress": "./scripts/with-maestro.sh test .maestro/ --include-tags=pack-stress --no-ansi",

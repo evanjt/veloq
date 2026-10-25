@@ -41,61 +41,53 @@ impl Default for HeatmapConfig {
 }
 
 // ============================================================================
-// Colour Gradient LUT
+// Heat Steps and Palettes
 // ============================================================================
 
-/// Pre-computed 256-entry colour lookup table mapping intensity to RGBA, from the
-/// generated ramp in `heatmap_ramp.rs`, which the colour token file owns.
-/// Alpha starts high enough that the light map, which darkens the colour channels
-/// in its paint, keeps the faintest stop at 3:1 over its land and roads. The light
-/// paint inverts lightness, so the ramp darkens as density rises there.
-fn build_colour_lut() -> [[u8; 4]; 256] {
-    let mut lut = [[0u8; 4]; 256];
-    let stops = crate::heatmap_ramp::HEATMAP_STOPS;
+/// The heat steps a tile pixel can hold, 1 for the fewest passes to this for
+/// the most. Class 0 is no heat.
+pub const HEAT_STEPS: u8 = 5;
 
-    for (i, entry) in lut.iter_mut().enumerate().skip(1) {
-        let t = i as f32 / 255.0;
+/// The class of a pixel with no heat that touches heat, which the satellite
+/// base paints as a halo and the other bases leave transparent.
+pub const HALO_CLASS: u8 = HEAT_STEPS + 1;
 
-        // Find surrounding stops
-        let mut lower = 0;
-        for s in 0..stops.len() - 1 {
-            if stops[s + 1].0 >= t {
-                lower = s;
-                break;
-            }
-        }
-        let upper = lower + 1;
-        let range = stops[upper].0 - stops[lower].0;
-        let local_t = if range > 0.0 {
-            (t - stops[lower].0) / range
-        } else {
-            0.0
-        };
+/// The upper edge of each heat step but the last, on normalised intensity. A
+/// value on an edge is in the step below it.
+const STEP_EDGES: [f32; HEAT_STEPS as usize - 1] = [0.15, 0.35, 0.6, 0.85];
 
-        let lerp = |a: f32, b: f32| -> u8 { (a + (b - a) * local_t).clamp(0.0, 255.0) as u8 };
-        *entry = [
-            lerp(stops[lower].1, stops[upper].1),
-            lerp(stops[lower].2, stops[upper].2),
-            lerp(stops[lower].3, stops[upper].3),
-            lerp(stops[lower].4, stops[upper].4),
-        ];
+/// The heat step a normalised intensity falls in: 0 for none, else 1 to
+/// [`HEAT_STEPS`].
+fn heat_step(normalised: f32) -> u8 {
+    if normalised <= 0.0 {
+        return 0;
     }
-    lut
+    1 + STEP_EDGES.iter().filter(|&&edge| normalised > edge).count() as u8
 }
 
-/// Cached colour LUT (built once)
-static COLOUR_LUT: std::sync::LazyLock<[[u8; 4]; 256]> = std::sync::LazyLock::new(build_colour_lut);
-
-/// Pre-computed `u16 intensity → u8 lut_idx` table for a given exposure.
-/// Replaces the per-pixel exp()/round/clamp in the colour mapping loop.
-fn build_intensity_idx_lut(exposure: f32) -> Box<[u8; 65536]> {
-    let mut v: Vec<u8> = vec![0u8; 65536];
-    // Index 0 stays 0 (skip write path in the hot loop).
-    for val in 1..65536u32 {
-        let normalised = (1.0 - (-(val as f32) / exposure).exp()).clamp(0.0, 1.0);
-        let idx = (normalised * 255.0).round().clamp(1.0, 255.0) as u8;
-        v[val as usize] = idx;
+/// How much accumulated ink a zoom takes to approach full heat. Deeper zooms
+/// lay fewer passes over a pixel, so they saturate sooner.
+fn exposure_for_zoom(zoom: u8) -> f32 {
+    match zoom {
+        0..=8 => 54.0,
+        9..=11 => 42.0,
+        12..=14 => 32.0,
+        15..=16 => 24.0,
+        _ => 18.0,
     }
+}
+
+/// A pixel's accumulated ink as heat from 0 to 1, through the zoom's exposure.
+fn normalised_intensity(value: u16, exposure: f32) -> f32 {
+    (1.0 - (-(value as f32) / exposure).exp()).clamp(0.0, 1.0)
+}
+
+/// Pre-computed `u16 intensity → heat step` table for a given exposure.
+/// Replaces the per-pixel exp() and banding in the colour mapping loop.
+fn build_step_lut(exposure: f32) -> Box<[u8; 65536]> {
+    let v: Vec<u8> = (0..=u16::MAX)
+        .map(|value| heat_step(normalised_intensity(value, exposure)))
+        .collect();
     let slice: Box<[u8]> = v.into_boxed_slice();
     // Length is fixed at 65536 by construction; assert before the unchecked cast
     // so a future change to the Vec size fails loudly instead of becoming UB.
@@ -109,28 +101,140 @@ fn build_intensity_idx_lut(exposure: f32) -> Box<[u8; 65536]> {
     unsafe { Box::from_raw(ptr) }
 }
 
-static IDX_LUT_Z0_8: std::sync::LazyLock<Box<[u8; 65536]>> =
-    std::sync::LazyLock::new(|| build_intensity_idx_lut(54.0));
-static IDX_LUT_Z9_11: std::sync::LazyLock<Box<[u8; 65536]>> =
-    std::sync::LazyLock::new(|| build_intensity_idx_lut(42.0));
-static IDX_LUT_Z12_14: std::sync::LazyLock<Box<[u8; 65536]>> =
-    std::sync::LazyLock::new(|| build_intensity_idx_lut(32.0));
-static IDX_LUT_Z15_16: std::sync::LazyLock<Box<[u8; 65536]>> =
-    std::sync::LazyLock::new(|| build_intensity_idx_lut(24.0));
-static IDX_LUT_Z17P: std::sync::LazyLock<Box<[u8; 65536]>> =
-    std::sync::LazyLock::new(|| build_intensity_idx_lut(18.0));
+// One table per exposure band, each built from a zoom inside the band.
+static STEP_LUT_Z0_8: std::sync::LazyLock<Box<[u8; 65536]>> =
+    std::sync::LazyLock::new(|| build_step_lut(exposure_for_zoom(8)));
+static STEP_LUT_Z9_11: std::sync::LazyLock<Box<[u8; 65536]>> =
+    std::sync::LazyLock::new(|| build_step_lut(exposure_for_zoom(11)));
+static STEP_LUT_Z12_14: std::sync::LazyLock<Box<[u8; 65536]>> =
+    std::sync::LazyLock::new(|| build_step_lut(exposure_for_zoom(14)));
+static STEP_LUT_Z15_16: std::sync::LazyLock<Box<[u8; 65536]>> =
+    std::sync::LazyLock::new(|| build_step_lut(exposure_for_zoom(16)));
+static STEP_LUT_Z17P: std::sync::LazyLock<Box<[u8; 65536]>> =
+    std::sync::LazyLock::new(|| build_step_lut(exposure_for_zoom(17)));
 
-/// Resolve the `u16 → u8 lut_idx` table for a given zoom level.
-/// The exposure per zoom band is the argument each table is built with in
-/// `build_intensity_idx_lut`; this selects the table for the band.
-fn intensity_idx_lut_for_zoom(zoom: u8) -> &'static [u8; 65536] {
+/// Resolve the `u16 → heat step` table for a given zoom level, whose bands
+/// are those of [`exposure_for_zoom`].
+fn step_lut_for_zoom(zoom: u8) -> &'static [u8; 65536] {
     match zoom {
-        0..=8 => &IDX_LUT_Z0_8,
-        9..=11 => &IDX_LUT_Z9_11,
-        12..=14 => &IDX_LUT_Z12_14,
-        15..=16 => &IDX_LUT_Z15_16,
-        _ => &IDX_LUT_Z17P,
+        0..=8 => &STEP_LUT_Z0_8,
+        9..=11 => &STEP_LUT_Z9_11,
+        12..=14 => &STEP_LUT_Z12_14,
+        15..=16 => &STEP_LUT_Z15_16,
+        _ => &STEP_LUT_Z17P,
     }
+}
+
+/// The base map a heatmap tile is served over, each painting the heat steps
+/// in its own colours from the palettes the colour token file generates.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum HeatmapBase {
+    Light,
+    Dark,
+    Satellite,
+}
+
+impl HeatmapBase {
+    pub const ALL: [Self; 3] = [Self::Light, Self::Dark, Self::Satellite];
+
+    /// The base's name as the map styles spell it.
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Light => "light",
+            Self::Dark => "dark",
+            Self::Satellite => "satellite",
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|base| base.name() == name)
+    }
+
+    /// RGBA by pixel class: no heat, the heat steps, then the halo.
+    fn palette(self) -> &'static [[u8; 4]; HALO_CLASS as usize + 1] {
+        match self {
+            Self::Light => &crate::heatmap_ramp::HEATMAP_LIGHT,
+            Self::Dark => &crate::heatmap_ramp::HEATMAP_DARK,
+            Self::Satellite => &crate::heatmap_ramp::HEATMAP_SATELLITE,
+        }
+    }
+
+    /// The palette as PNG chunk payloads: PLTE's RGB triples and tRNS's
+    /// alphas, one entry per class.
+    fn png_chunks(self) -> &'static (Vec<u8>, Vec<u8>) {
+        &PNG_PALETTES[self as usize]
+    }
+}
+
+/// Each base's [`HeatmapBase::png_chunks`], built once rather than per tile.
+static PNG_PALETTES: std::sync::LazyLock<[(Vec<u8>, Vec<u8>); 3]> =
+    std::sync::LazyLock::new(|| {
+        HeatmapBase::ALL.map(|base| {
+            let table = base.palette();
+            let rgb = table.iter().flat_map(|c| [c[0], c[1], c[2]]).collect();
+            let alpha = table.iter().map(|c| c[3]).collect();
+            (rgb, alpha)
+        })
+    });
+
+/// The palette a tile is written to disk in. The tile set is drawn once and
+/// served to every base through [`tile_for_base`], so any base would do.
+const STORED_BASE: HeatmapBase = HeatmapBase::Dark;
+
+/// Every pixel with no heat that touches heat on a side or a corner becomes
+/// [`HALO_CLASS`]. Only heat marks the halo, so it is one pixel wide.
+fn mark_halo(classes: &mut [u8], width: usize) {
+    let height = classes.len() / width;
+    for y in 0..height {
+        for x in 0..width {
+            if !(1..=HEAT_STEPS).contains(&classes[y * width + x]) {
+                continue;
+            }
+            for ny in y.saturating_sub(1)..=(y + 1).min(height - 1) {
+                for nx in x.saturating_sub(1)..=(x + 1).min(width - 1) {
+                    let at = ny * width + nx;
+                    if classes[at] == 0 {
+                        classes[at] = HALO_CLASS;
+                    }
+                }
+            }
+        }
+    }
+}
+
+const PNG_SIGNATURE: [u8; 8] = [137, 80, 78, 71, 13, 10, 26, 10];
+
+/// A stored tile as served over `base`: its PLTE and tRNS chunks replaced by
+/// that base's palette and every other byte as stored, so the compressed
+/// pixels are copied rather than encoded again. `None` for bytes that are not
+/// a whole PNG.
+pub fn tile_for_base(png: &[u8], base: HeatmapBase) -> Option<Vec<u8>> {
+    let mut rest = png.strip_prefix(&PNG_SIGNATURE)?;
+    let (rgb, alpha) = base.png_chunks();
+    let mut out = Vec::with_capacity(png.len());
+    out.extend_from_slice(&PNG_SIGNATURE);
+    while !rest.is_empty() {
+        let length = u32::from_be_bytes(rest.get(..4)?.try_into().ok()?) as usize;
+        let chunk = rest.get(..length.checked_add(12)?)?;
+        match &chunk[4..8] {
+            b"PLTE" => push_chunk(&mut out, b"PLTE", rgb),
+            b"tRNS" => push_chunk(&mut out, b"tRNS", alpha),
+            _ => out.extend_from_slice(chunk),
+        }
+        rest = &rest[chunk.len()..];
+    }
+    Some(out)
+}
+
+/// Append one PNG chunk: its length, type, payload and the CRC of the last two.
+fn push_chunk(out: &mut Vec<u8>, kind: &[u8; 4], payload: &[u8]) {
+    let mut crc = crc32fast::Hasher::new();
+    crc.update(kind);
+    crc.update(payload);
+    out.extend_from_slice(&(payload.len() as u32).to_be_bytes());
+    out.extend_from_slice(kind);
+    out.extend_from_slice(payload);
+    out.extend_from_slice(&crc.finalize().to_be_bytes());
 }
 
 // ============================================================================
@@ -162,8 +266,8 @@ fn line_intensity_for_zoom(zoom: u8) -> f32 {
     }
 }
 
-// Note: the exposure curve is baked into the tables `intensity_idx_lut_for_zoom`
-// selects, each built once with `build_intensity_idx_lut`.
+// Note: the exposure curve is baked into the tables `step_lut_for_zoom`
+// selects, each built once with `build_step_lut`.
 
 // ============================================================================
 // Web Mercator Math
@@ -1174,29 +1278,21 @@ pub fn draw_heatmap_tile_on(
         &canvas.ink
     };
 
-    // Each pixel becomes its index into the colour table, through the
-    // zoom's u16 intensity -> u8 index table. Index 0 is the transparent
-    // entry, which is also where an unpainted pixel's zero intensity lands.
-    let idx_lut = intensity_idx_lut_for_zoom(z);
-    let indices: Vec<u8> = buf.data.iter().map(|&v| idx_lut[v as usize]).collect();
+    // Each pixel becomes its heat step, through the zoom's u16 intensity ->
+    // step table. Step 0 is no heat, which is where an unpainted pixel's zero
+    // intensity lands, and the halo is marked round the steps after.
+    let step_lut = step_lut_for_zoom(z);
+    let mut classes: Vec<u8> = buf.data.iter().map(|&v| step_lut[v as usize]).collect();
+    mark_halo(&mut classes, TILE_SIZE as usize);
 
-    Some(encode_indexed_png(&indices))
+    Some(encode_indexed_png(&classes))
 }
 
-/// The colour table as PNG chunk payloads: PLTE's RGB triples and tRNS's
-/// alphas, one entry per index.
-static PNG_PALETTE: std::sync::LazyLock<(Vec<u8>, Vec<u8>)> = std::sync::LazyLock::new(|| {
-    let lut = &*COLOUR_LUT;
-    let rgb = lut.iter().flat_map(|c| [c[0], c[1], c[2]]).collect();
-    let alpha = lut.iter().map(|c| c[3]).collect();
-    (rgb, alpha)
-});
-
-/// Encode a tile of colour-table indices as an 8-bit indexed PNG. Every
-/// heatmap pixel is one of the table's 256 colours, so one byte a pixel
-/// carries it exactly, and a decoder expands it to the same RGBA.
+/// Encode a tile of pixel classes as an 8-bit indexed PNG in the
+/// [`STORED_BASE`] palette, one byte a pixel, so serving it to another base
+/// swaps the palette and leaves the pixels alone.
 fn encode_indexed_png(indices: &[u8]) -> Vec<u8> {
-    let (rgb, alpha) = &*PNG_PALETTE;
+    let (rgb, alpha) = STORED_BASE.png_chunks();
     let mut png_data = Vec::new();
     let mut encoder = png::Encoder::new(&mut png_data, TILE_SIZE, TILE_SIZE);
     encoder.set_color(png::ColorType::Indexed);
@@ -1782,14 +1878,15 @@ mod tests {
         } else {
             ink
         };
-        let idx_lut = intensity_idx_lut_for_zoom(z);
+        let step_lut = step_lut_for_zoom(z);
+        let mut classes: Vec<u8> = buf.data.iter().map(|&v| step_lut[v as usize]).collect();
+        mark_halo(&mut classes, TILE_SIZE as usize);
+        let palette = STORED_BASE.palette();
         let mut img: RgbaImage = ImageBuffer::new(TILE_SIZE, TILE_SIZE);
         for y_px in 0..TILE_SIZE {
             for x_px in 0..TILE_SIZE {
-                let val = buf.get(x_px, y_px);
-                if val > 0 {
-                    img.put_pixel(x_px, y_px, Rgba(COLOUR_LUT[idx_lut[val as usize] as usize]));
-                }
+                let class = classes[(y_px * TILE_SIZE + x_px) as usize];
+                img.put_pixel(x_px, y_px, Rgba(palette[class as usize]));
             }
         }
         let mut png = Vec::new();
@@ -1798,10 +1895,10 @@ mod tests {
         (img.into_raw(), png.len())
     }
 
-    /// Scenario: every heatmap pixel is one of the colour table's 256
-    /// entries, yet each was written out as four bytes of RGBA.
+    /// Scenario: every heatmap pixel is one of the palette's few classes, yet
+    /// each was written out as four bytes of RGBA.
     ///
-    /// Expected behaviour: the tile is an indexed PNG over the colour table,
+    /// Expected behaviour: the tile is an indexed PNG over the palette,
     /// decodes to exactly the colours the RGBA tile held, and takes at most a
     /// third of its bytes, at a blurred low zoom and a sharp street zoom.
     #[test]
@@ -2342,145 +2439,205 @@ mod tests {
         assert!(swept.len() >= 3, "segment sweep too small: {}", swept.len());
     }
 
+    /// Scenario: the heat steps are bands on normalised intensity, and each
+    /// zoom reaches that value through an exposure of its own.
+    ///
+    /// Expected behaviour: a band's upper edge belongs to it and anything past
+    /// the edge to the next step, at every zoom, and no heat is no step.
     #[test]
-    fn test_colour_lut() {
-        let lut = &*COLOUR_LUT;
-        // Index 0 is transparent
-        assert_eq!(lut[0], [0, 0, 0, 0]);
-        // Index 255 should be bright
-        assert!(lut[255][3] > 200);
-        // Monotonically increasing alpha
-        assert!(lut[128][3] > lut[1][3]);
+    fn heat_steps_band_normalised_intensity_the_same_at_every_zoom() {
+        assert_eq!(heat_step(0.0), 0);
+        assert_eq!(heat_step(0.001), 1);
+        assert_eq!(heat_step(0.15), 1);
+        assert_eq!(heat_step(0.16), 2);
+        assert_eq!(heat_step(0.35), 2);
+        assert_eq!(heat_step(0.36), 3);
+        assert_eq!(heat_step(0.6), 3);
+        assert_eq!(heat_step(0.61), 4);
+        assert_eq!(heat_step(0.85), 4);
+        assert_eq!(heat_step(0.86), 5);
+        assert_eq!(heat_step(1.0), 5);
+
+        for zoom in 0..=HeatmapConfig::DEFAULT.max_zoom + 1 {
+            let exposure = exposure_for_zoom(zoom);
+            let table = step_lut_for_zoom(zoom);
+            assert_eq!(table[0], 0, "z{zoom}: no ink drew a step");
+            for value in 1..=u16::MAX {
+                let normalised = normalised_intensity(value, exposure);
+                assert_eq!(
+                    table[value as usize],
+                    heat_step(normalised),
+                    "z{zoom}: intensity {value} at {normalised} is in the wrong step"
+                );
+            }
+            let first = (1..=u16::MAX).find(|&v| table[v as usize] == 2).unwrap();
+            assert!(normalised_intensity(first - 1, exposure) <= 0.15);
+            assert!(normalised_intensity(first, exposure) > 0.15);
+        }
     }
 
-    fn channel_luminance(c: f32) -> f32 {
-        let c = c / 255.0;
-        if c <= 0.03928 {
+    /// The class plane of a tile as stored, one byte a pixel, and its palette.
+    fn classes_of(png: &[u8]) -> (Vec<u8>, Vec<u8>, Vec<u8>) {
+        let mut decoder = png::Decoder::new(Cursor::new(png));
+        decoder.set_transformations(png::Transformations::IDENTITY);
+        let mut reader = decoder.read_info().unwrap();
+        let mut plane = vec![0u8; reader.output_buffer_size().unwrap()];
+        reader.next_frame(&mut plane).unwrap();
+        let info = reader.info();
+        let palette = info.palette.as_deref().unwrap().to_vec();
+        let alpha = info.trns.as_deref().unwrap().to_vec();
+        (plane, palette, alpha)
+    }
+
+    /// Every chunk of a PNG as `(type, payload)`, in order.
+    fn chunks_of(png: &[u8]) -> Vec<([u8; 4], Vec<u8>)> {
+        let mut rest = &png[8..];
+        let mut out = Vec::new();
+        while !rest.is_empty() {
+            let len = u32::from_be_bytes(rest[..4].try_into().unwrap()) as usize;
+            out.push((rest[4..8].try_into().unwrap(), rest[8..8 + len].to_vec()));
+            rest = &rest[12 + len..];
+        }
+        out
+    }
+
+    fn street_tile() -> Vec<u8> {
+        let (lat, lon, zoom) = (-41.29, 174.78, 16u8);
+        let rides = crossing_rides(lat, lon, 0.004);
+        let projected: Vec<ProjectedTrack> = rides.iter().map(|r| ProjectedTrack::new(r)).collect();
+        let tracks: Vec<&ProjectedTrack> = projected.iter().collect();
+        let tx = lon_to_tile_x(lon, zoom).floor() as u32;
+        let ty = lat_to_tile_y(lat, zoom).floor() as u32;
+        draw_heatmap_tile(zoom, tx, ty, &tracks).expect("tile drawn")
+    }
+
+    /// Scenario: one tile set on disk serves the light, dark and satellite
+    /// maps, each in its own heat steps.
+    ///
+    /// Expected behaviour: the tile served for a base carries that base's
+    /// palette and transparency, and every other chunk, the compressed pixels
+    /// above all, is the stored tile's byte for byte. Serving the base the
+    /// tile was stored in returns the stored bytes.
+    #[test]
+    fn a_tile_served_for_a_base_swaps_only_its_palette() {
+        let stored = street_tile();
+        let stored_chunks = chunks_of(&stored);
+        for base in HeatmapBase::ALL {
+            let served = tile_for_base(&stored, base).expect("a stored tile is a PNG");
+            let served_chunks = chunks_of(&served);
+            assert_eq!(served_chunks.len(), stored_chunks.len(), "{base:?}");
+            for ((kind, payload), (stored_kind, stored_payload)) in
+                served_chunks.iter().zip(&stored_chunks)
+            {
+                assert_eq!(kind, stored_kind, "{base:?}: chunks moved");
+                if kind != b"PLTE" && kind != b"tRNS" {
+                    assert!(payload == stored_payload, "{base:?}: {kind:?} changed");
+                }
+            }
+            let (plane, palette, alpha) = classes_of(&served);
+            let (stored_plane, _, _) = classes_of(&stored);
+            assert!(plane == stored_plane, "{base:?}: the class plane moved");
+            let table = base.palette();
+            let want_rgb: Vec<u8> = table.iter().flat_map(|c| [c[0], c[1], c[2]]).collect();
+            let want_alpha: Vec<u8> = table.iter().map(|c| c[3]).collect();
+            assert_eq!(palette, want_rgb, "{base:?}");
+            assert_eq!(alpha, want_alpha, "{base:?}");
+        }
+        assert!(tile_for_base(&stored, STORED_BASE).unwrap() == stored);
+        assert_ne!(
+            HeatmapBase::Satellite.palette(),
+            STORED_BASE.palette(),
+            "the swap is not exercised"
+        );
+    }
+
+    #[test]
+    fn bytes_that_are_not_a_png_are_not_served() {
+        assert!(tile_for_base(b"", HeatmapBase::Light).is_none());
+        assert!(tile_for_base(b"not a png at all", HeatmapBase::Dark).is_none());
+        let stored = street_tile();
+        let cut = &stored[..stored.len() - 5];
+        assert!(tile_for_base(cut, HeatmapBase::Satellite).is_none());
+    }
+
+    /// Scenario: satellite imagery under a trail is any colour, so the
+    /// satellite base outlines its heat with a one pixel halo.
+    ///
+    /// Expected behaviour: a pixel is halo exactly when it has no heat and
+    /// touches heat on a side or a corner, so every trail is ringed and no
+    /// halo stands apart from one.
+    #[test]
+    fn the_halo_rings_heat_by_one_pixel_and_nothing_else() {
+        let (plane, _, _) = classes_of(&street_tile());
+        let size = TILE_SIZE as i64;
+        let heat = |x: i64, y: i64| {
+            (0..size).contains(&x)
+                && (0..size).contains(&y)
+                && (1..=HEAT_STEPS).contains(&plane[(y * size + x) as usize])
+        };
+        let (mut halo, mut inked) = (0, 0);
+        for y in 0..size {
+            for x in 0..size {
+                let class = plane[(y * size + x) as usize];
+                assert!(class <= HALO_CLASS, "class {class} at {x},{y}");
+                let beside = (-1..=1)
+                    .flat_map(|dy| (-1..=1).map(move |dx| (dx, dy)))
+                    .any(|(dx, dy)| (dx, dy) != (0, 0) && heat(x + dx, y + dy));
+                match class {
+                    0 => assert!(!beside, "no halo at {x},{y}, beside heat"),
+                    HALO_CLASS => {
+                        assert!(beside, "halo at {x},{y}, away from heat");
+                        halo += 1;
+                    }
+                    _ => inked += 1,
+                }
+            }
+        }
+        assert!(inked > 5_000 && halo > 1_000, "{inked} inked, {halo} halo");
+    }
+
+    fn channel_luminance(c: u8) -> f32 {
+        let c = c as f32 / 255.0;
+        if c <= 0.04045 {
             c / 12.92
         } else {
             ((c + 0.055) / 1.055).powf(2.4)
         }
     }
 
-    fn luminance(rgb: [f32; 3]) -> f32 {
-        0.2126 * channel_luminance(rgb[0])
-            + 0.7152 * channel_luminance(rgb[1])
-            + 0.0722 * channel_luminance(rgb[2])
+    fn luminance(c: [u8; 4]) -> f32 {
+        0.2126 * channel_luminance(c[0])
+            + 0.7152 * channel_luminance(c[1])
+            + 0.0722 * channel_luminance(c[2])
     }
 
-    fn contrast_ratio(a: [f32; 3], b: [f32; 3]) -> f32 {
-        let (la, lb) = (luminance(a), luminance(b));
-        (la.max(lb) + 0.05) / (la.min(lb) + 0.05)
-    }
-
-    // The raster paint of the heatmap layer on the light map. These mirror the
-    // light paint in `heatmapRasterPaint`, and a contract test holds the two
-    // together.
-    const LIGHT_RASTER_OPACITY: f32 = 1.0;
-    const LIGHT_BRIGHTNESS_MIN: f32 = 0.3;
-    const LIGHT_BRIGHTNESS_MAX: f32 = 0.0;
-    const LIGHT_HUE_ROTATE_DEGREES: f32 = 180.0;
-
-    /// The light map grounds the layer is drawn over, as opaque sRGB.
-    fn light_grounds() -> [(&'static str, [f32; 3]); 9] {
-        [
-            ("land", [248.0, 244.0, 240.0]),
-            ("road white", [255.0, 255.0, 255.0]),
-            ("road yellow", [255.0, 238.0, 170.0]),
-            ("road orange", [255.0, 204.0, 136.0]),
-            ("park", [226.0, 236.0, 212.0]),
-            ("wood", [227.0, 239.0, 212.0]),
-            ("grass", [176.0, 213.0, 154.0]),
-            ("residential", [245.0, 236.0, 224.0]),
-            ("water", [158.0, 189.0, 255.0]),
-        ]
-    }
-
-    /// One LUT entry composited over a ground the way the GL JS raster shader
-    /// writes it: hue rotation, then `mix(brightness_min, brightness_max, rgb)`
-    /// scaled by alpha. Saturation and contrast are neutral in the light paint.
-    fn composite_on_light_map(entry: [u8; 4], ground: [f32; 3]) -> [f32; 3] {
-        let angle = LIGHT_HUE_ROTATE_DEGREES.to_radians();
-        let (sin, cos) = (angle.sin(), angle.cos());
-        let w = [
-            (2.0 * cos + 1.0) / 3.0,
-            (-(3.0_f32.sqrt()) * sin - cos + 1.0) / 3.0,
-            (3.0_f32.sqrt() * sin - cos + 1.0) / 3.0,
-        ];
-        let rgb = [
-            entry[0] as f32 / 255.0,
-            entry[1] as f32 / 255.0,
-            entry[2] as f32 / 255.0,
-        ];
-        let rotated = [
-            rgb[0] * w[0] + rgb[1] * w[1] + rgb[2] * w[2],
-            rgb[0] * w[2] + rgb[1] * w[0] + rgb[2] * w[1],
-            rgb[0] * w[1] + rgb[1] * w[2] + rgb[2] * w[0],
-        ];
-        let alpha = entry[3] as f32 / 255.0 * LIGHT_RASTER_OPACITY;
-        let mut over = [0.0_f32; 3];
-        for ch in 0..3 {
-            let painted = (LIGHT_BRIGHTNESS_MIN
-                + (LIGHT_BRIGHTNESS_MAX - LIGHT_BRIGHTNESS_MIN) * rotated[ch])
-                .clamp(0.0, 1.0);
-            over[ch] = painted * 255.0 * alpha + ground[ch] * (1.0 - alpha);
-        }
-        over
-    }
-
-    const NAMED_STOPS: [f32; 7] = [0.04, 0.14, 0.32, 0.58, 0.80, 0.94, 1.0];
-
-    fn lut_entry_at(stop: f32) -> [u8; 4] {
-        COLOUR_LUT[(stop * 255.0).round() as usize]
-    }
-
+    /// Scenario: the heat steps are opaque and keyed by base: the light map
+    /// runs light to dark, the dark and satellite maps dark to light, and
+    /// only satellite paints the halo.
+    ///
+    /// Expected behaviour: no heat is transparent, every step is opaque and
+    /// further along its base's direction than the one before, and the halo
+    /// is opaque on satellite and transparent on the other two.
     #[test]
-    fn faint_stops_hold_three_to_one_on_light_map_grounds() {
-        for stop in [0.04_f32, 0.14, 0.32] {
-            for (name, ground) in light_grounds() {
-                let over = composite_on_light_map(lut_entry_at(stop), ground);
-                let ratio = contrast_ratio(over, ground);
-                assert!(
-                    ratio >= 3.0,
-                    "stop {stop} over {name} is {ratio:.2}:1, below 3:1"
-                );
+    fn each_base_palette_runs_its_heat_steps_opaque_in_its_direction() {
+        for base in HeatmapBase::ALL {
+            let table = base.palette();
+            assert_eq!(table.len(), usize::from(HALO_CLASS) + 1);
+            assert_eq!(table[0][3], 0, "{base:?}: no heat is drawn");
+            let steps = &table[1..=usize::from(HEAT_STEPS)];
+            assert!(steps.iter().all(|c| c[3] == 255), "{base:?}: {steps:?}");
+            for pair in steps.windows(2) {
+                let (fewer, more) = (luminance(pair[0]), luminance(pair[1]));
+                match base {
+                    HeatmapBase::Light => assert!(more < fewer, "{base:?}: {steps:?}"),
+                    _ => assert!(more > fewer, "{base:?}: {steps:?}"),
+                }
             }
-        }
-    }
-
-    #[test]
-    fn light_map_ramp_darkens_as_density_rises() {
-        for (name, ground) in light_grounds() {
-            let lums: Vec<f32> = NAMED_STOPS
-                .iter()
-                .map(|&stop| luminance(composite_on_light_map(lut_entry_at(stop), ground)))
-                .collect();
-            for pair in lums.windows(2) {
-                assert!(
-                    pair[1] < pair[0],
-                    "over {name} a denser stop is not darker: {lums:?}"
-                );
+            let halo = table[usize::from(HALO_CLASS)][3];
+            match base {
+                HeatmapBase::Satellite => assert_eq!(halo, 255),
+                _ => assert_eq!(halo, 0, "{base:?} paints a halo"),
             }
-        }
-    }
-
-    #[test]
-    fn light_map_separates_faintest_from_densest_over_land() {
-        let land = light_grounds()[0].1;
-        let faintest = composite_on_light_map(lut_entry_at(0.04), land);
-        let densest = composite_on_light_map(COLOUR_LUT[255], land);
-        let ratio = contrast_ratio(faintest, densest);
-        assert!(
-            ratio >= 3.0,
-            "faintest to densest over land is {ratio:.2}:1, below 3:1"
-        );
-    }
-
-    #[test]
-    fn alpha_never_falls_as_intensity_rises() {
-        let lut = &*COLOUR_LUT;
-        for i in 2..256 {
-            assert!(lut[i][3] >= lut[i - 1][3], "alpha fell at index {i}");
         }
     }
 

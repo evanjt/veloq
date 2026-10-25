@@ -114,8 +114,8 @@ fn a_marked_stored_activity_without_a_track_is_a_candidate_newest_first() {
         .collect();
     assert_eq!(
         rows,
-        vec![("new", "Swim"), ("mid", "Ride"), ("old", "Run")],
-        "the body's own type wins, then the metrics row, then Ride"
+        vec![("new", "Swim"), ("mid", "Other"), ("old", "Run")],
+        "the body's own type wins, then the metrics row, then Other"
     );
     // 2026-03-16T06:30:00 read as UTC, the way the stored dates are.
     assert_eq!(candidates[0].start_date, Some(1_773_642_600.0));

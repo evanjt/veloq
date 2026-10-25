@@ -62,7 +62,7 @@ class SecureStoreReaderTest {
     val entry = encryptor.initializeKeyStoreEntry(keyStore, options)
 
     val item = runBlocking {
-      encryptor.createEncryptedItem(value, entry, false, " ", authenticationHelper())
+      encryptor.createEncryptedItem(value, entry, options, authenticationHelper())
     }
     item.put("scheme", AESEncryptor.NAME)
     item.put(SecureStoreModule.USES_KEYSTORE_SUFFIX_PROPERTY, true)

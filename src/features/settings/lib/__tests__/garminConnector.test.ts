@@ -4,7 +4,7 @@
  * memory, and in no store or setting.
  */
 
-import { GarminKeyStatus } from 'veloqrs';
+import { GarminKeyStatus, GarminMatch, type GarminAccount } from 'veloqrs';
 
 import {
   CREDENTIAL_KEYCHAIN_OPTIONS,
@@ -15,7 +15,9 @@ import {
   connectGarminKey,
   disconnectGarmin,
   garminConnectorState,
+  garminAccountReading,
   garminDuplicateWarning,
+  readGarminAccount,
   readGarminConnectorState,
   restoreGarminKey,
 } from '../garminConnector';
@@ -34,9 +36,10 @@ function keychain(initial: Record<string, string> = {}) {
   return { io, held };
 }
 
-function engine(status: GarminKeyStatus) {
+function engine(status: GarminKeyStatus, account?: GarminAccount) {
   return {
     connectGarmin: jest.fn(async () => status),
+    garminAccount: jest.fn(async () => account),
     holdGarminKey: jest.fn(),
     clearGarminKey: jest.fn(),
   };
@@ -125,6 +128,9 @@ describe('disconnecting', () => {
     expect(held.has(GARMIN_KEY_STORAGE_KEY)).toBe(false);
     expect(e.clearGarminKey).toHaveBeenCalledTimes(1);
     expect(removeSetting.mock.calls.map(([k]) => k).sort()).toEqual([
+      'veloq-garmin-auto-swap',
+      'veloq-garmin-auto-swap-handled',
+      'veloq-garmin-auto-swap-stopped',
       'veloq-garmin-feed',
       'veloq-garmin-key-expiry',
       'veloq-garmin-offer-declined-at',
@@ -175,7 +181,7 @@ describe('disconnecting when one place fails', () => {
       'engine closed'
     );
     expect(held.has(GARMIN_KEY_STORAGE_KEY)).toBe(false);
-    expect(removeSetting).toHaveBeenCalledTimes(4);
+    expect(removeSetting).toHaveBeenCalledTimes(7);
   });
 });
 
@@ -202,5 +208,51 @@ describe('the duplicate warning', () => {
     expect(garminDuplicateWarning({ syncsActivities: true, uploadOn: false })).toBe(false);
     expect(garminDuplicateWarning({ syncsActivities: false, uploadOn: true })).toBe(false);
     expect(garminDuplicateWarning({ syncsActivities: null, uploadOn: true })).toBe(false);
+  });
+});
+
+describe('reading the account after a key is connected', () => {
+  it('reads the match Rust judged, with the name Garmin gave', () => {
+    expect(
+      garminAccountReading({
+        displayName: 'Invented Athlete',
+        matched: GarminMatch.Matched,
+        matchedCount: 18,
+      })
+    ).toEqual({ kind: 'matched', name: 'Invented Athlete', count: 18 });
+    expect(
+      garminAccountReading({
+        displayName: 'Invented Athlete',
+        matched: GarminMatch.WrongAccount,
+        matchedCount: 0,
+      })
+    ).toEqual({ kind: 'wrongAccount', name: 'Invented Athlete' });
+  });
+
+  it('reads a silent match as the account alone, and an unnamed account as no name', () => {
+    expect(garminAccountReading({ matched: GarminMatch.Silent, matchedCount: 0 })).toEqual({
+      kind: 'connected',
+      name: undefined,
+    });
+  });
+
+  it('hands back the engine reading, and none when the engine has no account to give', async () => {
+    const account = {
+      displayName: 'Invented Athlete',
+      matched: GarminMatch.Matched,
+      matchedCount: 2,
+    };
+    expect(await readGarminAccount({ engine: engine(GarminKeyStatus.Connected, account) })).toEqual(
+      account
+    );
+    expect(
+      await readGarminAccount({ engine: engine(GarminKeyStatus.Connected, undefined) })
+    ).toBeUndefined();
+  });
+
+  it('reads as no account when the engine read fails, and the connection stands', async () => {
+    const e = engine(GarminKeyStatus.Connected);
+    e.garminAccount.mockRejectedValueOnce(new Error('engine closed'));
+    expect(await readGarminAccount({ engine: e })).toBeUndefined();
   });
 });

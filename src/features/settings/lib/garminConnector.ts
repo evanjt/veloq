@@ -6,7 +6,7 @@
  * setting or backup. The engine is the only caller of Garmin.
  */
 
-import { GarminKeyStatus } from 'veloqrs';
+import { GarminKeyStatus, GarminMatch, type GarminAccount } from 'veloqrs';
 
 import {
   CREDENTIAL_KEYCHAIN_OPTIONS,
@@ -31,6 +31,12 @@ export const GARMIN_SETTING_KEYS = {
   keyExpiry: 'veloq-garmin-key-expiry',
   feed: 'veloq-garmin-feed',
   upload: 'veloq-garmin-upload',
+  /** The moment the automatic swap was switched on, or `false`. The engine reads the same row. */
+  autoSwap: 'veloq-garmin-auto-swap',
+  /** Why the engine switched the automatic swap off. */
+  autoSwapStopped: 'veloq-garmin-auto-swap-stopped',
+  /** The rides the automatic swap has dealt with. The engine writes it. */
+  autoSwapHandled: 'veloq-garmin-auto-swap-handled',
   offerDeclinedAt: 'veloq-garmin-offer-declined-at',
 } as const;
 
@@ -59,15 +65,26 @@ export interface GarminChoices {
   keyExpiry: string;
   feed: boolean;
   upload: boolean;
+  autoSwap: boolean;
+  /** Why the engine switched the automatic swap off, or an empty string. */
+  autoSwapStopped: string;
 }
 
 export async function readGarminChoices(): Promise<GarminChoices> {
-  const [keyExpiry, feed, upload] = await Promise.all([
+  const [keyExpiry, feed, upload, autoSwap, autoSwapStopped] = await Promise.all([
     getSetting(GARMIN_SETTING_KEYS.keyExpiry),
     getSetting(GARMIN_SETTING_KEYS.feed),
     getSetting(GARMIN_SETTING_KEYS.upload),
+    getSetting(GARMIN_SETTING_KEYS.autoSwap),
+    getSetting(GARMIN_SETTING_KEYS.autoSwapStopped),
   ]);
-  return { keyExpiry: keyExpiry ?? '', feed: feed !== 'false', upload: upload === 'true' };
+  return {
+    keyExpiry: keyExpiry ?? '',
+    feed: feed !== 'false',
+    upload: upload === 'true',
+    autoSwap: autoSwap != null && !Number.isNaN(Date.parse(autoSwap)),
+    autoSwapStopped: autoSwapStopped ?? '',
+  };
 }
 
 export const saveGarminKeyExpiry = (date: string): Promise<void> =>
@@ -78,6 +95,20 @@ export const saveGarminFeed = (on: boolean): Promise<void> =>
 
 export const saveGarminUpload = (on: boolean): Promise<void> =>
   setSetting(GARMIN_SETTING_KEYS.upload, String(on));
+
+/**
+ * The switch is the moment it was turned on, which is how the engine knows to
+ * leave every ride imported before it alone. Turning it on clears the reason
+ * an earlier pass switched it off.
+ */
+export async function saveGarminAutoSwap(on: boolean): Promise<void> {
+  if (on) {
+    await removeSetting(GARMIN_SETTING_KEYS.autoSwapStopped);
+    await setSetting(GARMIN_SETTING_KEYS.autoSwap, new Date().toISOString());
+  } else {
+    await setSetting(GARMIN_SETTING_KEYS.autoSwap, 'false');
+  }
+}
 
 const saveEnabled = (on: boolean): Promise<void> =>
   setSetting(GARMIN_CONNECTOR_ENABLED_KEY, String(on));
@@ -134,6 +165,37 @@ export async function connectGarminKey(pasted: string, deps: Deps = {}): Promise
     changed();
   }
   return status;
+}
+
+/**
+ * The account behind the key just connected. It is a reading, not a condition
+ * of the connection: a failed read leaves the connection standing and reads as
+ * no account.
+ */
+export async function readGarminAccount(deps: Deps = {}): Promise<GarminAccount | undefined> {
+  try {
+    return (await (deps.engine ?? engineKey).garminAccount()) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** What the account reading says: the name on the account, and the one line the rides allow. */
+export type GarminAccountReading =
+  | { kind: 'matched'; name: string | undefined; count: number }
+  | { kind: 'wrongAccount'; name: string | undefined }
+  | { kind: 'connected'; name: string | undefined };
+
+export function garminAccountReading(account: GarminAccount): GarminAccountReading {
+  const name = account.displayName ?? undefined;
+  switch (account.matched) {
+    case GarminMatch.Matched:
+      return { kind: 'matched', name, count: account.matchedCount };
+    case GarminMatch.WrongAccount:
+      return { kind: 'wrongAccount', name };
+    default:
+      return { kind: 'connected', name };
+  }
 }
 
 /**

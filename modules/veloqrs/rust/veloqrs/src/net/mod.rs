@@ -59,3 +59,9 @@ pub mod upload_schedule;
 
 /// One recording's upload, from the begin to the effort.
 pub mod upload_recording;
+
+/// Swapping Garmin's file into an activity intervals.icu imported, and undoing it.
+pub mod garmin_swap;
+
+/// The athlete's switch that swaps Garmin's file into each new Garmin ride.
+pub(crate) mod garmin_auto_swap;

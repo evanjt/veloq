@@ -673,6 +673,58 @@ pub async fn upload_activity(
     Ok(created_activity_id(&body))
 }
 
+/// What intervals.icu answered a file replacement with.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Replacement {
+    /// The file was replaced and the activity reprocessed, under this id.
+    Replaced(String),
+    /// The file was the one already held: nothing changed.
+    Unchanged,
+}
+
+/// `POST /activity/{id}/file`, which replaces the activity's file in place and
+/// reprocesses it. The activity keeps its id, name, notes, gear and tags.
+///
+/// `keep_intervals` keeps intervals the athlete edited and
+/// `keep_custom_fields` keeps their custom field values; both are sent
+/// explicitly. A 200 whose `activity` is null says the file was unchanged.
+pub async fn replace_activity_file(
+    t: &Transport,
+    activity_id: &str,
+    file_path: &str,
+    filename: &str,
+    keep_intervals: bool,
+    dispatch: impl Into<Dispatch>,
+) -> Result<Replacement, NetError> {
+    let keep_intervals = keep_intervals.to_string();
+    let part = FilePart {
+        field: UPLOAD_FILE_FIELD,
+        path: file_path,
+        filename,
+    };
+    let body = t
+        .post_multipart(
+            &format!("/activity/{activity_id}/file"),
+            &part,
+            &[],
+            &[
+                ("keep_intervals", keep_intervals.as_str()),
+                ("keep_custom_fields", "true"),
+            ],
+            dispatch,
+            UPLOAD_TIMEOUT,
+        )
+        .await?;
+    let answer: serde_json::Value = serde_json::from_slice(&body).unwrap_or_default();
+    Ok(match answer.get("activity") {
+        None | Some(serde_json::Value::Null) => Replacement::Unchanged,
+        Some(activity) => Replacement::Replaced(
+            created_activity_id(activity.to_string().as_bytes())
+                .unwrap_or_else(|| activity_id.to_string()),
+        ),
+    })
+}
+
 /// `PUT /activity/{id}` setting the effort the athlete gave a ride, as
 /// `icu_rpe`, and nothing else. The upload has no field for it, so it goes up
 /// once the upload has returned the activity's id.
@@ -723,7 +775,7 @@ pub async fn list_activities_between(
         &[
             ("oldest", oldest),
             ("newest", newest),
-            ("fields", "id,external_id,start_date_local,type"),
+            ("fields", "id,external_id,source,start_date_local,type"),
         ],
         dispatch,
     )
@@ -1421,6 +1473,102 @@ mod tests {
         f.flush().unwrap();
         let path = f.path().to_string_lossy().into_owned();
         (f, path)
+    }
+
+    #[test]
+    fn a_replacement_sends_the_file_with_both_keep_flags_and_names_the_activity() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(POST)
+                .path("/activity/i77/file")
+                .query_param("keep_intervals", "true")
+                .query_param("keep_custom_fields", "true")
+                .body_includes("name=\"file\"");
+            then.status(200)
+                .json_body(json!({"activity": {"id": "i77"}}));
+        });
+        let (_file, path) = staged_fit();
+        let t = fast_transport(server.base_url());
+        let got = crate::runtime::block_on(replace_activity_file(
+            &t,
+            "i77",
+            &path,
+            "g.fit",
+            true,
+            Lane::Interactive,
+        ))
+        .unwrap();
+        mock.assert();
+        assert_eq!(got, Replacement::Replaced("i77".into()));
+    }
+
+    #[test]
+    fn a_replacement_without_edited_intervals_does_not_ask_to_keep_them() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(POST)
+                .path("/activity/i77/file")
+                .query_param("keep_intervals", "false")
+                .query_param("keep_custom_fields", "true");
+            then.status(200)
+                .json_body(json!({"activity": {"id": "i77"}}));
+        });
+        let (_file, path) = staged_fit();
+        let t = fast_transport(server.base_url());
+        crate::runtime::block_on(replace_activity_file(
+            &t,
+            "i77",
+            &path,
+            "g.fit",
+            false,
+            Lane::Interactive,
+        ))
+        .unwrap();
+        mock.assert();
+    }
+
+    #[test]
+    fn a_replacement_answered_with_a_null_activity_is_unchanged() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(POST).path("/activity/i77/file");
+            then.status(200).json_body(json!({"activity": null}));
+        });
+        let (_file, path) = staged_fit();
+        let t = fast_transport(server.base_url());
+        let got = crate::runtime::block_on(replace_activity_file(
+            &t,
+            "i77",
+            &path,
+            "g.fit",
+            false,
+            Lane::Interactive,
+        ))
+        .unwrap();
+        assert_eq!(got, Replacement::Unchanged);
+    }
+
+    #[test]
+    fn a_refused_replacement_is_an_http_error() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(POST).path("/activity/i77/file");
+            then.status(422).body("cannot replace");
+        });
+        let (_file, path) = staged_fit();
+        let t = fast_transport(server.base_url());
+        let got = crate::runtime::block_on(replace_activity_file(
+            &t,
+            "i77",
+            &path,
+            "g.fit",
+            false,
+            Lane::Interactive,
+        ));
+        assert!(
+            matches!(got, Err(NetError::Http { status: 422, .. })),
+            "{got:?}"
+        );
     }
 
     #[test]

@@ -110,18 +110,67 @@ fn heatmap_dir(dir: &TempDir) -> std::path::PathBuf {
     tiles
 }
 
+/// A tile as the pass draws it, from one ride across the middle of it.
+fn drawn_tile(z: u8, x: u32, y: u32) -> Vec<u8> {
+    use veloqrs::tiles::{tile_x_to_lon, tile_y_to_lat};
+    let lat = tile_y_to_lat(f64::from(y) + 0.5, z);
+    let ride: Vec<veloqrs::GpsPoint> = (0..=20)
+        .map(|i| {
+            let lon = tile_x_to_lon(f64::from(x) + 0.1 + 0.04 * f64::from(i), z);
+            veloqrs::GpsPoint::new(lat, lon)
+        })
+        .collect();
+    veloqrs::tiles::generate_heatmap_tile(z, x, y, &[ride]).expect("the ride draws heat")
+}
+
+/// Scenario: the page asks one heatmap tile for each base map.
+///
+/// Expected behaviour: each answer is the stored tile in that base's palette.
 #[test]
-fn a_drawn_heatmap_tile_crosses_the_boundary_whole() {
+fn a_drawn_heatmap_tile_crosses_the_boundary_in_the_asking_base_palette() {
+    let _serial_state = super::serial_state();
+    let _serial = serial();
+    let dir = TempDir::new().unwrap();
+    let tiles = heatmap_dir(&dir);
+    let stored = drawn_tile(12, 2048, 1361);
+    write_tile(&tiles, 12, 2048, 1361, &stored);
+
+    for base in veloqrs::tiles::HeatmapBase::ALL {
+        let source = format!("heatmap-{}", base.name());
+        assert_eq!(
+            ask(Some(&source), 12, 2048, 1361),
+            veloqrs::tiles::tile_for_base(&stored, base),
+            "{source}"
+        );
+    }
+}
+
+#[test]
+fn a_heatmap_source_naming_no_base_is_a_404() {
+    let _serial_state = super::serial_state();
+    let _serial = serial();
+    let dir = TempDir::new().unwrap();
+    let tiles = heatmap_dir(&dir);
+    write_tile(&tiles, 12, 2048, 1361, &drawn_tile(12, 2048, 1361));
+
+    for source in ["heatmap", "heatmap-", "heatmap-sepia"] {
+        assert_eq!(
+            answer(Some(source), 12, 2048, 1361),
+            (None, 404),
+            "{source}"
+        );
+    }
+}
+
+#[test]
+fn a_stored_heatmap_tile_that_is_not_a_png_is_a_404() {
     let _serial_state = super::serial_state();
     let _serial = serial();
     let dir = TempDir::new().unwrap();
     let tiles = heatmap_dir(&dir);
     write_tile(&tiles, 12, 2048, 1361, b"\x89PNG\r\n\x1a\n heatmap");
 
-    assert_eq!(
-        ask(Some("heatmap"), 12, 2048, 1361).as_deref(),
-        Some(&b"\x89PNG\r\n\x1a\n heatmap"[..])
-    );
+    assert_eq!(answer(Some("heatmap-light"), 12, 2048, 1361), (None, 404));
 }
 
 #[test]
@@ -131,7 +180,7 @@ fn a_tile_the_pass_has_not_drawn_yet_is_null() {
     let dir = TempDir::new().unwrap();
     heatmap_dir(&dir);
 
-    assert!(ask(Some("heatmap"), 12, 1, 1).is_none());
+    assert!(ask(Some("heatmap-dark"), 12, 1, 1).is_none());
 }
 
 #[test]
@@ -142,7 +191,7 @@ fn an_empty_marker_file_is_null_rather_than_an_empty_slice() {
     let tiles = heatmap_dir(&dir);
     write_tile(&tiles, 12, 5, 6, b"");
 
-    assert!(ask(Some("heatmap"), 12, 5, 6).is_none());
+    assert!(ask(Some("heatmap-dark"), 12, 5, 6).is_none());
 }
 
 #[test]
@@ -168,7 +217,7 @@ fn a_zoom_beyond_a_byte_is_null_before_anything_is_read() {
     let dir = TempDir::new().unwrap();
     heatmap_dir(&dir);
 
-    assert!(ask(Some("heatmap"), 256, 0, 0).is_none());
+    assert!(ask(Some("heatmap-dark"), 256, 0, 0).is_none());
 }
 
 #[test]
@@ -316,7 +365,7 @@ fn a_heatmap_tile_not_drawn_yet_is_a_404() {
     let dir = TempDir::new().unwrap();
     heatmap_dir(&dir);
 
-    assert_eq!(answer(Some("heatmap"), 12, 3, 3), (None, 404));
+    assert_eq!(answer(Some("heatmap-satellite"), 12, 3, 3), (None, 404));
 }
 
 #[test]

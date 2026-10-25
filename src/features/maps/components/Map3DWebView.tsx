@@ -768,14 +768,15 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     }, [showHeatmap]);
 
     // MapLibre does not ask again for a tile URL it has resolved, so a finished
-    // pass reaches the page as a new URL on the existing source.
+    // pass reaches the page as a new URL on the existing source, for the base
+    // the page is drawing.
     useEffect(() => {
       if (sentHeatmapGenerationRef.current === heatmapGeneration) return;
       if (!webViewRef.current || !mapReadyRef.current) return;
       sentHeatmapGenerationRef.current = heatmapGeneration;
       webViewRef.current.injectJavaScript(`
         if (window.map && window.map.getSource('heatmap-tiles')) {
-          window.map.getSource('heatmap-tiles').setTiles([${jsLiteral(heatmapTileTemplate(heatmapGeneration))}]);
+          window.map.getSource('heatmap-tiles').setTiles([${jsLiteral(heatmapTileTemplate(appliedStyleRef.current, heatmapGeneration))}]);
         }
         true;
       `);

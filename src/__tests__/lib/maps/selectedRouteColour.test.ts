@@ -4,7 +4,8 @@
  * switch read whether the heatmap was available, not whether it was on the map,
  * so an athlete who hid the heatmap on the map still got the fallback.
  *
- * Expected behaviour: the fallback only while the heatmap is actually drawn.
+ * Expected behaviour: the fallback only while the heatmap is actually drawn,
+ * and the fallback is the base map's own ink, which its casing is drawn for.
  */
 
 import {
@@ -15,7 +16,6 @@ import { mapPalette } from '@/theme';
 
 const SPORT = '#3B82F6';
 const palette = mapPalette('light');
-const HEATMAP_ROUTE_COLOR = palette.layer.heatmapRoute;
 
 describe('the selected line colour on the global map', () => {
   it('is the sport colour when the heatmap is hidden on the map', () => {
@@ -27,11 +27,13 @@ describe('the selected line colour on the global map', () => {
     expect(selectedRouteColor(SPORT, { enabled: false, shown: true }, palette)).toBe(SPORT);
   });
 
-  it('switches to the heatmap fallback while the heatmap is drawn', () => {
-    expect(selectedRouteColor(SPORT, { enabled: true, shown: true }, palette)).toBe(
-      HEATMAP_ROUTE_COLOR
-    );
-  });
+  it.each(['light', 'dark', 'satellite'] as const)(
+    'switches to the %s base map ink while the heatmap is drawn',
+    (base) => {
+      const drawn = mapPalette(base);
+      expect(selectedRouteColor(SPORT, { enabled: true, shown: true }, drawn)).toBe(drawn.ink);
+    }
+  );
 });
 
 function luminance(hex: string): number {
@@ -47,27 +49,34 @@ function contrast(a: string, b: string): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-describe('the selected line against its casing', () => {
-  const basemaps = [{ base: 'light' as const }, { base: 'dark' as const }];
+const selectedOutline = (base: 'light' | 'dark' | 'satellite', showHeatmap: boolean) =>
+  buildRegionalLayers({
+    palette: mapPalette(base),
+    showActivities: true,
+    showSections: false,
+    showRoutes: false,
+    showHeatmap,
+    heatmapEnabled: true,
+    hasSpider: false,
+    hasUserLocation: false,
+    hasRouteData: true,
+    selectedActivityId: 'a1',
+    selectedSectionId: null,
+    routeColor: SPORT,
+  }).find((l) => l.id === 'selected-route-outline')?.paint?.['line-color'] as string;
 
-  it.each(basemaps)('has an opaque casing and a 3:1 line on $base', ({ base }) => {
-    const layers = buildRegionalLayers({
-      palette: mapPalette(base),
-      showActivities: true,
-      showSections: false,
-      showRoutes: false,
-      showHeatmap: true,
-      heatmapEnabled: true,
-      hasSpider: false,
-      hasUserLocation: false,
-      hasRouteData: true,
-      selectedActivityId: 'a1',
-      selectedSectionId: null,
-      routeColor: HEATMAP_ROUTE_COLOR,
-    });
-    const casing = layers.find((l) => l.id === 'selected-route-outline');
-    const color = casing?.paint?.['line-color'] as string;
-    expect(color).toMatch(/^#[0-9A-Fa-f]{6}$/);
-    expect(contrast(HEATMAP_ROUTE_COLOR, color)).toBeGreaterThanOrEqual(3);
+describe('the selected line against its casing', () => {
+  it.each(['light', 'dark', 'satellite'] as const)(
+    'has an opaque casing and a 3:1 line over the heatmap on %s',
+    (base) => {
+      const line = selectedRouteColor(SPORT, { enabled: true, shown: true }, mapPalette(base));
+      const casing = selectedOutline(base, true);
+      expect(casing).toMatch(/^#[0-9A-Fa-f]{6}$/);
+      expect(contrast(line, casing)).toBeGreaterThanOrEqual(3);
+    }
+  );
+
+  it('edges a sport-coloured line when the heatmap is hidden', () => {
+    expect(selectedOutline('light', false)).toBe(mapPalette('light').edge);
   });
 });

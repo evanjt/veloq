@@ -151,10 +151,7 @@ pub(crate) fn store_record_dependency(
     };
     let date = start_date_to_timestamp(record.start_date_local.as_deref())
         .ok_or_else(|| format!("activity {} has no usable start date", record.id))?;
-    let sport = record
-        .activity_type
-        .clone()
-        .unwrap_or_else(|| "Ride".to_string());
+    let sport = crate::sport::sport_or_unknown(record.activity_type.as_deref()).to_string();
     let source = crate::persistence::elevation_source_of(&points, series);
     engine
         .add_activity(record.id.clone(), points, sport)

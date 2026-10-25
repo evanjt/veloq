@@ -3493,6 +3493,7 @@ dependencies = [
  "base64 0.23.1",
  "bytes",
  "chrono",
+ "crc32fast",
  "criterion",
  "env_logger",
  "fitparser",

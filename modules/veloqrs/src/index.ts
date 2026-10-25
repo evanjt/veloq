@@ -120,10 +120,13 @@ export type { SyncStatus, SyncAuthMethod } from './delegates/sync';
 export type {
   FfiCallOutcome as CallOutcome,
   FfiUploadResult as UploadResult,
+  FfiSwapResult as SwapResult,
 } from './generated/veloqrs';
 export {
   FfiCallKind as CallKind,
   FfiUploadOutcome as UploadOutcome,
+  FfiSwapState as SwapState,
+  FfiSwapOutcome as SwapOutcome,
   FfiSyncErrorReason as SyncErrorReason,
   FfiSyncStep as SyncStep,
   FfiTrackStep as TrackStep,

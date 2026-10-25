@@ -1,7 +1,7 @@
 /**
  * Scenario: the design system's token file is the one source of every colour,
  * and a generator writes it into the TypeScript palette, the native app colours
- * and the engine's heatmap ramp. A token with a gap, a palette key nobody
+ * and the engine's heatmap palettes. A token with a gap, a palette key nobody
  * mapped, or a committed table edited by hand would each draw a colour nobody
  * chose.
  *
@@ -12,7 +12,7 @@
 import {
   checkColourRoles,
   renderAppColours,
-  renderRustHeatRamp,
+  renderRustHeatPalettes,
   renderTypeScript,
   resolveColourTokens,
   roleColours,
@@ -35,10 +35,7 @@ const FILE = fixture([
   { name: 'later-1', value: { light: '#000', dark: '#fff' } },
 ]);
 
-const HEAT = [
-  { intensity: 0.04, token: 'heat-1', alpha: 176 },
-  { intensity: 1, token: 'heat-2', alpha: 248 },
-];
+const STEPS = ['heat-1', 'heat-1', 'heat-2', 'heat-2', 'heat-2'];
 
 const MAP: RoleMap = {
   keys: {
@@ -98,39 +95,53 @@ describe('resolving the token file', () => {
 describe('the generated outputs', () => {
   const resolved = resolveColourTokens(FILE);
 
-  it('writes the engine heatmap ramp from the tokens, transparent stop first', () => {
-    expect(renderRustHeatRamp(resolved, HEAT)).toContain(
+  it('writes each base heatmap palette by class: none, five opaque steps, then the halo', () => {
+    const rust = renderRustHeatPalettes(resolved, [
+      { base: 'night', steps: STEPS },
+      { base: 'aerial', steps: STEPS, halo: 'ink-900' },
+    ]);
+    expect(rust).toContain(
       [
-        'pub(crate) const HEATMAP_STOPS: &[(f32, f32, f32, f32, f32)] = &[',
-        '    (0.0, 0.0, 0.0, 0.0, 0.0),',
-        '    (0.04, 45.0, 123.0, 222.0, 176.0),',
-        '    (1.0, 221.0, 235.0, 255.0, 248.0),',
+        'pub(crate) const HEATMAP_NIGHT: [[u8; 4]; 7] = [',
+        '    [0, 0, 0, 0],',
+        '    [45, 123, 222, 255],',
+        '    [45, 123, 222, 255],',
+        '    [221, 235, 255, 255],',
+        '    [221, 235, 255, 255],',
+        '    [221, 235, 255, 255],',
+        '    [0, 0, 0, 0],',
         '];',
       ].join('\n')
     );
+    expect(rust).toContain('    [23, 27, 34, 255],\n];');
   });
 
-  it('refuses a heatmap stop out of order or on a translucent token', () => {
-    expect(() =>
-      renderRustHeatRamp(resolved, [
-        { intensity: 0.5, token: 'heat-1', alpha: 176 },
-        { intensity: 0.2, token: 'heat-2', alpha: 248 },
+  it('refuses a heatmap palette a tile cannot be drawn once for', () => {
+    const render = (palette: { base: string; steps: string[]; halo?: string }) => () =>
+      renderRustHeatPalettes(resolved, [palette]);
+    expect(render({ base: 'night', steps: ['heat-1'] })).toThrow('1 steps, not 5');
+    const veiled = resolveColourTokens(
+      fixture([
+        { name: 'veil', value: { light: 'rgba(0, 0, 0, 0.5)', dark: 'rgba(0, 0, 0, 0.5)' } },
       ])
-    ).toThrow('out of order');
+    );
     expect(() =>
-      renderRustHeatRamp(resolved, [{ intensity: 0.5, token: 'hover', alpha: 176 }])
+      renderRustHeatPalettes(veiled, [{ base: 'night', steps: Array(5).fill('veil') }])
     ).toThrow('opaque hex');
+    expect(render({ base: 'night', steps: [...STEPS.slice(1), 'text-body'] })).toThrow(
+      'text-body is #171B22 in light and #EFF1F4 in dark'
+    );
+    expect(render({ base: 'night', steps: STEPS, halo: 'gone' })).toThrow('gone is not a token');
   });
 
   it('writes the TypeScript tables the palette and the heatmap key read', () => {
-    const ts = renderTypeScript(resolved, roleColours(resolved, MAP), HEAT);
+    const ts = renderTypeScript(resolved, roleColours(resolved, MAP));
 
     expect(ts).toContain("    'text-body': '#171B22',");
     expect(ts).toContain("    'text-body': '#EFF1F4',");
     expect(ts).toContain("    textPrimary: '#171B22',");
     expect(ts).toContain("    textPrimary: '#EFF1F4',");
     expect(ts).not.toContain('tint:');
-    expect(ts).toContain('  { intensity: 0.04, rgba: [45, 123, 222, 176] },');
   });
 
   it('writes the native app colours from their tokens', () => {

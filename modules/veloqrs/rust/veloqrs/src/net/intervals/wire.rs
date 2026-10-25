@@ -306,13 +306,16 @@ pub struct ManualActivityBody {
     pub external_id: Option<String>,
 }
 
-/// One activity as the upload's duplicate check lists it: the four fields it
-/// matches a recording on and nothing else.
+/// One activity as the upload's duplicate check lists it: the fields it
+/// matches a recording on, and the source the Garmin connector reads a
+/// Garmin id from.
 #[derive(Debug, Clone, Default, Deserialize, PartialEq)]
 pub struct ListedActivity {
     pub id: String,
     #[serde(default)]
     pub external_id: Option<String>,
+    #[serde(default)]
+    pub source: Option<String>,
     #[serde(default)]
     pub start_date_local: Option<String>,
     #[serde(rename = "type", default)]

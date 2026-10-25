@@ -526,11 +526,45 @@ fn test_worker_detection_regroup_announces_the_groups_and_the_settled_flag() {
             .expect("engine");
     assert!(holder(&groups, "t").is_some());
     assert!(!dirty);
-    assert_eq!(
-        events.iter().filter(|e| *e == "groups_changed").count(),
-        2,
+    // Announcements pushed before the delivery thread takes its batch collapse
+    // into one, so the count of deliveries is one or two; the finalising
+    // announcement is pinned on its own below.
+    assert!(
+        events.iter().any(|e| e == "groups_changed"),
         "announced {events:?}"
     );
+}
+
+/// Scenario: one hold adopts the committed groups with the regroup still owed,
+/// and a later hold finalizes the run and clears the flag.
+/// Expected behaviour: the later hold announces again, and the first delivery
+/// has finished before it, so the two cannot collapse into one.
+#[test]
+fn test_finalizing_hold_announces_the_cleared_flag_after_the_adopting_hold() {
+    let _serial = serial_global_state();
+    let _dir = init_global_engine("regroup.db");
+    grouped_library(&[("t", 44.0)]);
+    let recorder = Recorder::new();
+    set_observer(Some(recorder.clone()));
+
+    let epoch = with_persistent_engine(|engine| {
+        engine.adopt_committed_groups();
+        engine.groups_dirty_epoch
+    })
+    .expect("engine");
+    crate::objects::observer::flush();
+    let after_adopting_hold = recorder.events();
+    with_persistent_engine(|engine| {
+        engine.adopt_run_groups(false, epoch);
+        assert!(!engine.groups_are_dirty());
+    })
+    .expect("engine");
+    crate::objects::observer::flush();
+    let events = recorder.events();
+    set_observer(None);
+
+    assert_eq!(after_adopting_hold, vec!["groups_changed"]);
+    assert_eq!(events, vec!["groups_changed", "groups_changed"]);
 }
 
 /// A pass whose save lost to a write that committed in the engine's own hold

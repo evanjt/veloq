@@ -149,3 +149,23 @@ fn an_effort_names_the_activity_and_answers_its_id() {
         )]
     );
 }
+
+#[test]
+fn a_file_replacement_reaches_the_source_with_the_intervals_flag() {
+    let source = RecordingSource::new();
+
+    let outcome = crate::runtime::block_on(write_with(source.clone(), None, move |s| async move {
+        replace_file_job(&s, "i88", "/swap/g.fit", "g.fit", true).await
+    }));
+
+    assert_eq!(outcome.kind, FfiCallKind::Ok, "{}", outcome.message);
+    assert_eq!(outcome.id.as_deref(), Some("i88"));
+    assert_eq!(
+        source.calls(),
+        vec![asked(
+            "replace_activity_file",
+            &["i88", "/swap/g.fit", "g.fit", "true"],
+            Lane::Interactive
+        )]
+    );
+}
