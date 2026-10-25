@@ -5,6 +5,7 @@ pub(crate) mod detection;
 mod engine;
 pub mod error;
 mod fitness;
+pub(crate) mod garmin_key;
 pub(crate) mod gps_pass;
 pub mod init;
 pub mod library;

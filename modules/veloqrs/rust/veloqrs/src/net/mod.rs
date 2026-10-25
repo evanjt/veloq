@@ -19,6 +19,9 @@ pub mod chart_streams;
 pub mod intervals;
 pub use intervals::endpoints;
 
+/// What Garmin's Personal API speaks, behind the same governor.
+pub mod garmin;
+
 /// The source the app runs, named once for every caller.
 pub mod live;
 pub use live::LiveSource;

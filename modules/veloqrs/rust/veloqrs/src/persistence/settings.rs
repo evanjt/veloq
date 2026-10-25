@@ -462,6 +462,13 @@ pub struct AthleteProfile {
     /// The athlete's weight in kilograms: `icu_weight`, which is where the body
     /// sends it, else `weight`. Absent unless positive.
     pub weight_kg: Option<f64>,
+    /// `icu_garmin_sync_activities`: intervals.icu imports the athlete's Garmin
+    /// activities itself.
+    pub garmin_syncs_activities: Option<bool>,
+    /// `icu_garmin_download_wellness`: intervals.icu pulls Garmin wellness.
+    pub garmin_downloads_wellness: Option<bool>,
+    /// `icu_garmin_upload_workouts`: intervals.icu sends planned workouts to Garmin.
+    pub garmin_uploads_workouts: Option<bool>,
 }
 
 #[derive(Deserialize, Default)]
@@ -483,6 +490,12 @@ struct AthleteBody {
     icu_weight: Option<f64>,
     #[serde(deserialize_with = "lenient")]
     weight: Option<f64>,
+    #[serde(deserialize_with = "lenient")]
+    icu_garmin_sync_activities: Option<bool>,
+    #[serde(deserialize_with = "lenient")]
+    icu_garmin_download_wellness: Option<bool>,
+    #[serde(deserialize_with = "lenient")]
+    icu_garmin_upload_workouts: Option<bool>,
 }
 
 fn lenient<'de, D, T>(d: D) -> Result<Option<T>, D::Error>
@@ -516,6 +529,9 @@ impl From<AthleteBody> for AthleteProfile {
             measurement_preference: body.measurement_preference,
             form_as_percent: body.icu_form_as_percent,
             weight_kg: positive(body.icu_weight).or(positive(body.weight)),
+            garmin_syncs_activities: body.icu_garmin_sync_activities,
+            garmin_downloads_wellness: body.icu_garmin_download_wellness,
+            garmin_uploads_workouts: body.icu_garmin_upload_workouts,
         }
     }
 }
@@ -774,8 +790,22 @@ mod tests {
                 measurement_preference: Some("feet".into()),
                 form_as_percent: Some(true),
                 weight_kg: Some(78.9),
+                ..AthleteProfile::default()
             }
         );
+    }
+
+    /// Expected behaviour: the three Garmin switches read as the athlete set
+    /// them, and an absent or mistyped one reads as unknown rather than off.
+    #[test]
+    fn the_garmin_switches_read_as_set_and_unknown_when_absent() {
+        let (_dir, engine) = engine_holding_profile(
+            r#"{"icu_garmin_sync_activities":true,"icu_garmin_download_wellness":false,"icu_garmin_upload_workouts":"yes"}"#,
+        );
+        let profile = athlete_profile(&engine.db).unwrap();
+        assert_eq!(profile.garmin_syncs_activities, Some(true));
+        assert_eq!(profile.garmin_downloads_wellness, Some(false));
+        assert_eq!(profile.garmin_uploads_workouts, None);
     }
 
     #[test]

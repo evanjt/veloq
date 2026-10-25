@@ -55,10 +55,6 @@ const PROBE_TIMEOUT: Duration = Duration::from_millis(250);
 /// the sockets do not die between two of those.
 const PROBE_INTERVAL: Duration = Duration::from_secs(2);
 
-/// How long a re-bind waits for the old sockets to close before taking new
-/// ports.
-const REBIND_WAIT: Duration = Duration::from_millis(200);
-
 /// What the listener answers one tile with.
 pub enum TileAnswer {
     /// The bytes are in hand.
@@ -89,6 +85,9 @@ pub struct ListenerAddress {
 pub struct TileListener {
     token: String,
     ports: Vec<u16>,
+    /// The bound sockets, kept for the listener's life so a port stays taken
+    /// while its accept loop is stopped.
+    sockets: Vec<std::net::TcpListener>,
     accepts: Vec<JoinHandle<()>>,
     answer: Answerer,
     warm: Warmer,
@@ -114,6 +113,7 @@ impl TileListener {
         let mut listener = Self {
             token,
             ports: Vec::with_capacity(ports.len()),
+            sockets: Vec::with_capacity(ports.len()),
             accepts: Vec::with_capacity(ports.len()),
             answer,
             warm,
@@ -123,15 +123,22 @@ impl TileListener {
                 .or_else(|_| std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)))?;
             socket.set_nonblocking(true)?;
             listener.ports.push(socket.local_addr()?.port());
-            let socket = tokio::net::TcpListener::from_std(socket)?;
-            listener.accepts.push(crate::runtime::spawn(accept_loop(
-                socket,
-                listener.token.clone(),
-                Arc::clone(&listener.answer),
-                Arc::clone(&listener.warm),
-            )));
+            listener.sockets.push(socket);
+            let accept = listener.start_accept(listener.sockets.len() - 1)?;
+            listener.accepts.push(accept);
         }
         Ok(listener)
+    }
+
+    /// Start an accept loop on a clone of the held socket at `index`.
+    fn start_accept(&self, index: usize) -> std::io::Result<JoinHandle<()>> {
+        let socket = tokio::net::TcpListener::from_std(self.sockets[index].try_clone()?)?;
+        Ok(crate::runtime::spawn(accept_loop(
+            socket,
+            self.token.clone(),
+            Arc::clone(&self.answer),
+            Arc::clone(&self.warm),
+        )))
     }
 
     pub fn address(&self) -> ListenerAddress {
@@ -150,25 +157,19 @@ impl TileListener {
             })
     }
 
-    /// Stop answering and bind again with the same token, on the same ports
-    /// where they are still free.
-    fn rebind(self) -> std::io::Result<Self> {
+    /// Stop the accept loops and start them again with the same token on the
+    /// same sockets, so the ports never leave this listener.
+    fn rebind(mut self) -> std::io::Result<Self> {
+        let _runtime = crate::runtime::ASYNC_RUNTIME.enter();
         for accept in &self.accepts {
             accept.abort();
         }
-        // An aborted loop drops its socket on the runtime, and the port is
-        // free only once it has. A port still taken after the wait falls back
-        // to a new one rather than holding the caller.
-        let until = Instant::now() + REBIND_WAIT;
-        while !self.accepts.iter().all(JoinHandle::is_finished) && Instant::now() < until {
-            std::thread::sleep(Duration::from_millis(2));
+        let mut accepts = Vec::with_capacity(self.sockets.len());
+        for index in 0..self.sockets.len() {
+            accepts.push(self.start_accept(index)?);
         }
-        Self::bind_on(
-            self.token.clone(),
-            Arc::clone(&self.answer),
-            Arc::clone(&self.warm),
-            &self.ports,
-        )
+        self.accepts = accepts;
+        Ok(self)
     }
 }
 
@@ -737,6 +738,13 @@ mod tests {
             std::thread::sleep(Duration::from_millis(5));
         }
         assert!(!listener.answers());
+
+        // Another listener asking for the freed port in the gap must not get it.
+        let taken = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, before.ports[0]));
+        assert!(
+            taken.is_err(),
+            "the port was free for another listener to take"
+        );
 
         let listener = listener.rebind().expect("rebind");
         assert!(listener.answers());

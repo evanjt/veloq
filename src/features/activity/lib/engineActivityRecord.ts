@@ -31,3 +31,15 @@ export function readFeedCards(oldest: string, newest: string): FeedCard[] {
     dayEndEpochSeconds(newest)
   ) as FeedCard[];
 }
+
+/**
+ * Ask the engine to ready one activity again: fetch and store the bodies it
+ * still lacks. Settles when the engine has finished, whether or not the
+ * activity is ready, because the engine owns the "couldn't sync" mark and
+ * clears it only when the activity next readies cleanly.
+ */
+export async function retryActivitySync(id: string): Promise<void> {
+  const engine = getEngine();
+  if (!engine?.readyActivityBodies || !id) return;
+  await engine.readyActivityBodies(id);
+}

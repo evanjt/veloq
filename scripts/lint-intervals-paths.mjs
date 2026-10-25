@@ -4,7 +4,8 @@
 // anywhere else is a request a second data source could not be put behind.
 //
 // Refused outside the owners: a string literal beginning `"/activity` or
-// `"/athlete`, and a call to one of the transport's request methods. Test code
+// `"/athlete` (or, outside the Garmin endpoint module, one of Garmin's service
+// roots), and a call to one of the transport's request methods. Test code
 // is exempt: a `#[cfg(test)]` item, a `tests` directory and a `tests.rs` file.
 // Comments are not read.
 
@@ -24,9 +25,12 @@ const CRATE = 'modules/veloqrs/rust/veloqrs';
 
 // The files that own the requests, relative to the crate's `src/`.
 const ENDPOINTS = 'net/intervals/endpoints.rs';
-const CALL_OWNERS = [ENDPOINTS, 'net/transport.rs'];
+const GARMIN_ENDPOINTS = 'net/garmin/endpoints.rs';
+const CALL_OWNERS = [ENDPOINTS, GARMIN_ENDPOINTS, 'net/transport.rs'];
 
 const PATH_LITERAL = /"\/(?:activity|athlete)\b/;
+const GARMIN_PATH_LITERAL =
+  /"\/(?:activitylist-service|download-service|personalapitoken-service)\b/;
 const REQUEST_CALL =
   /(?<!fn\s+)\b(?:get_bytes|get_json|post_json|put_json|post_multipart)\s*(?:::\s*<|\()/;
 
@@ -69,13 +73,18 @@ export const withoutComments = (source) => {
 export const strayRequests = (rel, source) => {
   if (isTestFile(rel)) return [];
   const checkPaths = rel !== ENDPOINTS;
+  const checkGarminPaths = rel !== GARMIN_ENDPOINTS;
   const checkCalls = !CALL_OWNERS.includes(rel);
-  if (!checkPaths && !checkCalls) return [];
+  if (!checkPaths && !checkGarminPaths && !checkCalls) return [];
   const found = [];
   withoutComments(blankTestItems(source))
     .split('\n')
     .forEach((text, i) => {
-      if ((checkPaths && PATH_LITERAL.test(text)) || (checkCalls && REQUEST_CALL.test(text))) {
+      if (
+        (checkPaths && PATH_LITERAL.test(text)) ||
+        (checkGarminPaths && GARMIN_PATH_LITERAL.test(text)) ||
+        (checkCalls && REQUEST_CALL.test(text))
+      ) {
         found.push(i + 1);
       }
     });

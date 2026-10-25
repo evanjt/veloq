@@ -1962,6 +1962,10 @@ pub(crate) mod pooled {
                     restorable_version,
                 }
             })
+            // A superseded pair writes its covering side a `supersedes` event
+            // that names no retirement, so a covering section removed later
+            // without a retirement of its own is not on the list.
+            .filter(|entry| entry.kind != super::KIND_SUPERSEDED || entry.into.is_some())
             .collect()
     }
 

@@ -19,7 +19,28 @@ import type { StrengthBalancePair } from '@/types';
 
 import { strayCardGrounds } from '../__shared__/cardGrounds';
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+const mockRetired = [
+  {
+    sectionId: 'sec-2',
+    kind: 'merged',
+    at: '2026-08-01 10:00:00',
+    versions: [],
+    into: 'sec-3',
+  },
+  { sectionId: 'sec-4', kind: 'dropped', at: '2026-08-02 10:00:00', versions: [] },
+];
+
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides({
+    sections: {
+      getRetiredMapData: () => ({
+        retired: mockRetired.map((section) => ({ section })),
+        current: [],
+        pairs: [],
+      }),
+    },
+  })
+);
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: () => null }));
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
@@ -67,16 +88,6 @@ jest.mock('@/features/routes/lib/sectionDisplayNames', () => ({
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => ({
     subscribe: () => () => undefined,
-    getRetiredSections: () => [
-      {
-        sectionId: 'sec-2',
-        kind: 'merged',
-        at: '2026-08-01 10:00:00',
-        versions: [],
-        into: 'sec-3',
-      },
-      { sectionId: 'sec-4', kind: 'dropped', at: '2026-08-02 10:00:00', versions: [] },
-    ],
   }),
   isEngineReady: () => true,
 }));

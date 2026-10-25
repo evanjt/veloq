@@ -8,7 +8,9 @@ import { colors, darkColors, spacing, typography } from '@/theme';
 import { settingsStyles } from './settingsStyles';
 import { SwitchRow } from '@/shared/ui/SwitchRow';
 import { RowDivider } from '@/shared/ui/RowGroup';
+import { navigateTo } from '@/shared/app/navigation';
 import { DataAttribution } from './DataAttribution';
+import { SettingsNavRow } from './SettingsNavRow';
 
 export function DataSourcesSection() {
   const { isDark } = useTheme();
@@ -38,6 +40,14 @@ export function DataSourcesSection() {
           </>
         ) : null}
 
+        <SettingsNavRow
+          icon="watch"
+          title={t('garmin.title')}
+          subtitle={t('garmin.rowSubtitle')}
+          onPress={() => navigateTo('/garmin-connector')}
+          testID="settings-nav-garmin"
+        />
+        <RowDivider />
         <DataAttribution />
       </View>
     </>

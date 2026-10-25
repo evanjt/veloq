@@ -2,7 +2,7 @@
   "modules/veloqrs/src": 3,
   "oauth-proxy/src": 5,
   "scripts": 1,
-  "scripts/lib": 45,
+  "scripts/lib": 44,
   "src/app": 4,
   "src/features/activity/components": 10,
   "src/features/activity/hooks": 7,

@@ -147,3 +147,20 @@ it('fails a path literal in the transport, which owns the calls and not the path
   expect(status).toBe(1);
   expect(output).toContain(`${SRC}/net/transport.rs:1`);
 });
+
+it('fails a Garmin service path built outside the Garmin endpoint module and passes it inside', () => {
+  const stray = fixture({
+    'objects/ledger.rs': 'const LIST: &str = "/activitylist-service/activities/search/activities";',
+  });
+  const strayRun = runGuard(stray);
+  expect(strayRun.status).toBe(1);
+  expect(strayRun.output).toContain(`${SRC}/objects/ledger.rs:1`);
+
+  const owned = fixture({
+    'net/garmin/endpoints.rs': [
+      'const LIST: &str = "/activitylist-service/activities/search/activities";',
+      'async fn page(t: &Transport) { t.get_json::<Vec<u8>>(LIST, &[], Lane::Garmin).await; }',
+    ].join('\n'),
+  });
+  expect(runGuard(owned).status).toBe(0);
+});

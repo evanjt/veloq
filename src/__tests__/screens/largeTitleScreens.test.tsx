@@ -40,7 +40,6 @@ jest.mock('@/features/routes/lib/sectionDisplayNames', () => ({
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => ({
     subscribe: () => () => undefined,
-    getRetiredSections: () => [],
   }),
   isEngineReady: () => true,
 }));

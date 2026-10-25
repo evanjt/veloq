@@ -859,7 +859,6 @@ class EngineClient implements DelegateHost {
   unpinSection = (sectionId: string) => sectionDelegates.unpinSection(this, sectionId);
   getPinnedSectionVersion = (sectionId: string) =>
     sectionDelegates.getPinnedSectionVersion(this, sectionId);
-  getRetiredSections = () => sectionDelegates.getRetiredSections(this);
 
   getSectionDetailData = (sectionId: string): FfiSectionDetailData | undefined =>
     sectionDelegates.getSectionDetailData(this, sectionId);

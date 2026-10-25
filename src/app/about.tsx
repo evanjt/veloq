@@ -23,6 +23,7 @@ import {
   REPOSITORY_URL,
   TRACEMATCH_URL,
   VELOQ_PRIVACY_URL,
+  VELOQ_TERMS_URL,
 } from '@/shared/app/supportLinks';
 import { buildCommit, formatVersionLine } from '@/shared/format/buildStamp';
 import appIcon from '@/assets/icon.png';
@@ -64,6 +65,14 @@ function AboutScreenContent() {
           <Text style={[styles.disclaimerText, shared.textSecondary]}>{t('about.disclaimer')}</Text>
         </View>
 
+        {/* Terms */}
+        <ListSectionHeader>{t('about.termsTitle')}</ListSectionHeader>
+        <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
+          <Text testID="about-terms" style={[styles.disclaimerText, shared.textSecondary]}>
+            {t('about.terms')}
+          </Text>
+        </View>
+
         {/* intervals.icu Links */}
         <ListSectionHeader>intervals.icu</ListSectionHeader>
         <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
@@ -98,6 +107,12 @@ function AboutScreenContent() {
               icon="shield-lock"
               label={t('about.veloqPrivacy')}
               url={VELOQ_PRIVACY_URL}
+            />
+            <ExternalLinkRow
+              testID="about-link-veloq-terms"
+              icon="gavel"
+              label={t('about.veloqTerms')}
+              url={VELOQ_TERMS_URL}
             />
             <ExternalLinkRow
               testID="about-link-license"

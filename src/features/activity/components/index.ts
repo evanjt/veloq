@@ -1,5 +1,7 @@
 export { ActivityCard } from './ActivityCard';
 export { FeedFilterChips } from './FeedFilterChips';
+export { ActivitySyncFailureChip, ActivitySyncFailureNotice } from './ActivitySyncFailure';
+export { ActivityHeldBackNotice } from './ActivityHeldBack';
 export { ActivityCardContextMenu } from './ActivityCardContextMenu';
 export { ActivityMapPreview } from './ActivityMapPreview';
 export { ChartTypeSelector } from './ChartTypeSelector';

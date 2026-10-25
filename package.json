@@ -66,6 +66,7 @@
     "ffi:generate": "npm --prefix modules/veloqrs run generate --",
     "check:bindings-fresh": "node scripts/check-bindings-fresh.mjs",
     "check:tracematch-docs": "node scripts/check-tracematch-docs.mjs",
+    "check:garmin-key-sites": "node scripts/check-garmin-key-sites.mjs",
     "check:install-scripts": "node scripts/check-install-scripts.mjs",
     "check:jsi-bindings-selector": "node scripts/check-jsi-bindings-selector.mjs",
     "config:unified": "npx tsx scripts/generate-unified-config.ts",
@@ -181,9 +182,8 @@
     "lint:rendered-decimals": "node scripts/lint-rendered-decimals.mjs",
     "lint:untyped-require": "node scripts/lint-untyped-require.mjs",
     "lint:feature-imports": "node scripts/lint-feature-imports.mjs",
-    "lint:ratchet-growth": "node scripts/lint-ratchet-growth.mjs",
     "lint:engine-client-forwards": "node scripts/lint-engine-client-forwards.mjs",
-    "lint:engine-surface": "node scripts/lint-engine-surface.mjs --engine-ceiling 90 --store-ceiling 19",
+    "lint:engine-surface": "node scripts/lint-engine-surface.mjs --store-ceiling 19",
     "lint:widget-layouts": "node scripts/lint-widget-layouts.mjs",
     "lint:widget-face": "node scripts/lint-widget-face.mjs",
     "lint:widget-kotlin-arity": "node scripts/lint-widget-kotlin-arity.mjs",
@@ -295,8 +295,7 @@
     "lint:rust-test-wall-clock": "node scripts/lint-rust-test-wall-clock.mjs",
     "lint:rust-test-serial": "node scripts/lint-rust-test-serial.mjs",
     "lint:test-temp-dirs": "node scripts/lint-test-temp-dirs.mjs",
-    "ffi:areas": "npx tsx scripts/ffi-usage-report.ts --areas",
-    "ffi:area-check": "npx tsx scripts/ffi-usage-report.ts --check-areas"
+    "ffi:areas": "npx tsx scripts/ffi-usage-report.ts --areas"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",

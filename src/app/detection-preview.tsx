@@ -7,6 +7,11 @@
  * same detect on demand, for the first look at an area and for a retry after a
  * refusal. Only Keep writes the config and re-analyses the library.
  *
+ * The old-versus-new layer sits on the same map: the sections a re-cut retired,
+ * dashed and muted, beside the catalogue that replaced them. A tap on a line
+ * names the sections the engine paired with it. The retired rows and the re-cut
+ * card open the screen with that layer on.
+ *
  * The column itself does not scroll. Tuning a slider you cannot see the map for
  * defeats the screen, so the map and the controls share one fixed column. That
  * is what the intro paragraph, the picker label and the standalone Preview
@@ -20,6 +25,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
+import { useLocalSearchParams } from 'expo-router';
 import { detection, hasStarted, previewClient } from 'veloqrs';
 import { useTheme } from '@/shared/app';
 import {
@@ -49,13 +55,22 @@ import {
   PreviewRunCost,
   PreviewParamPanel,
   PreviewSectionPopover,
+  RetiredPairCard,
+  buildRetiredLines,
+  busiestCentre,
+  describeRetiredSelection,
+  previewAreaBounds,
+  useRetiredMapData,
+  useSectionLedger,
+  preferSectionWithUndo,
+  removeSectionWithUndo,
 } from '@/features/routes';
 import { UNIFIED_CONFIG } from '@/shared/native/engine';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { attemptEngineRead } from '@/shared/native/engineError';
 import type { PreviewCentre, PreviewParams, PreviewSection } from 'veloqrs';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
-import { goBack } from '@/shared/app/navigation';
+import { goBack, navigateTo } from '@/shared/app/navigation';
 import { confirmAction, inform } from '@/shared/ui/dialog';
 import { FitText } from '@/shared/ui/FitText';
 
@@ -107,6 +122,16 @@ function DetectionPreviewScreenContent() {
     [readDetection]
   );
 
+  const { layer } = useLocalSearchParams<{ layer?: string }>();
+  const openedOnRetired = layer === 'retired';
+  // One read serves the retired lines, the catalogue rows around them and the
+  // pairs between, so a tap re-reads nothing. It covers the whole library; the
+  // map keeps what falls in the riding area it is on.
+  // A failed read draws no layer; the rest of the screen is unaffected.
+  const { data: retiredData } = useRetiredMapData();
+  const [showRetired, setShowRetired] = useState(openedOnRetired);
+  const [selectedRetiredId, setSelectedRetiredId] = useState<string | null>(null);
+
   const [centre, setCentre] = useState<PreviewCentre | null>(null);
   const [params, setParams] = useState<PreviewParams>(() => {
     const config = previewClient.getSectionConfig();
@@ -134,7 +159,66 @@ function DetectionPreviewScreenContent() {
   const border = isDark ? darkColors.border : colors.border;
   const danger = isDark ? darkColors.errorText : colors.errorText;
 
-  const selectedCentre = centre ?? centres[0] ?? null;
+  // Opened on the retired layer, the area is the one holding the most retired
+  // lines, so the first frame has something in it.
+  const retiredCentre = openedOnRetired && retiredData ? busiestCentre(centres, retiredData) : null;
+  const selectedCentre = centre ?? retiredCentre ?? centres[0] ?? null;
+  const retiredLines = useMemo(
+    () =>
+      retiredData
+        ? buildRetiredLines(retiredData, {
+            area: previewAreaBounds(selectedCentre),
+            selectedId: selectedRetiredId,
+          })
+        : null,
+    [retiredData, selectedCentre, selectedRetiredId]
+  );
+  const retiredSelection = useMemo(
+    () =>
+      retiredData && selectedRetiredId
+        ? describeRetiredSelection(retiredData, selectedRetiredId)
+        : null,
+    [retiredData, selectedRetiredId]
+  );
+  const { revert, isReverting } = useSectionLedger(selectedRetiredId ?? undefined);
+  const handleRestore = useCallback(
+    async (_sectionId: string, version: number) => {
+      if (await revert(version)) setSelectedRetiredId(null);
+    },
+    [revert]
+  );
+  const handlePrefer = useCallback(
+    (keptId: string, otherId: string) => {
+      const kept = retiredData ? describeRetiredSelection(retiredData, keptId) : null;
+      void preferSectionWithUndo(keptId, otherId, kept?.name ?? t('sectionHistory.pairUnnamed'), t);
+    },
+    [retiredData, t]
+  );
+  const handleRemove = useCallback((sectionId: string) => removeSectionWithUndo(sectionId, t), [t]);
+  const hasRetired = (retiredData?.retired.length ?? 0) > 0;
+  const retiredLayer = useMemo(
+    () =>
+      retiredLines && hasRetired
+        ? {
+            lines: retiredLines,
+            show: showRetired,
+            onToggle: () => setShowRetired((v) => !v),
+            onSelect: (id: string) => {
+              setSelected(null);
+              setSelectedRetiredId(id);
+            },
+          }
+        : null,
+    [retiredLines, hasRetired, showRetired]
+  );
+  // A line on the live catalogue is a section the retired read also holds, so
+  // its pairs come from the same read. With a run on screen the row's live id
+  // is the catalogue's.
+  const handleSelectSection = useCallback((section: PreviewSection | null) => {
+    setSelected(section);
+    setSelectedRetiredId(section ? (section.liveId ?? section.id) : null);
+  }, []);
+  const listedPairs = showRetired && retiredSelection && retiredSelection.pairs.length > 0;
   const { sections: currentSections, failed: currentFailed } = usePreviewCurrentSections(
     previewClient,
     selectedCentre
@@ -165,6 +249,7 @@ function DetectionPreviewScreenContent() {
       if (next.binKey !== selectedCentre?.binKey) {
         reset();
         setSelected(null);
+        setSelectedRetiredId(null);
       }
       setCentre(next);
     },
@@ -256,15 +341,32 @@ function DetectionPreviewScreenContent() {
           onToggleCurrent={() => setShowCurrent((v) => !v)}
           onToggleProposed={() => setShowProposed((v) => !v)}
           onToggleRemoved={() => setShowRemoved((v) => !v)}
-          onSelect={setSelected}
+          onSelect={handleSelectSection}
+          retiredLayer={retiredLayer}
         />
-        {selected ? (
+        {selected || (showRetired && retiredSelection) ? (
           <View style={styles.popover} pointerEvents="box-none">
-            <PreviewSectionPopover
-              section={selected}
-              newNumber={newNumber}
-              onClose={() => setSelected(null)}
-            />
+            {selected ? (
+              <PreviewSectionPopover
+                section={selected}
+                newNumber={newNumber}
+                onClose={() => handleSelectSection(null)}
+              />
+            ) : null}
+            {showRetired && retiredSelection && (!selected || listedPairs) ? (
+              <RetiredPairCard
+                selection={retiredSelection}
+                onSelect={(id) => {
+                  setSelected(null);
+                  setSelectedRetiredId(id);
+                }}
+                onClose={() => handleSelectSection(null)}
+                onRestore={handleRestore}
+                onPrefer={handlePrefer}
+                onRemove={handleRemove}
+                restoring={isReverting}
+              />
+            ) : null}
           </View>
         ) : null}
       </View>
@@ -289,6 +391,16 @@ function DetectionPreviewScreenContent() {
             onSelect={handleSelectCentre}
           />
         </View>
+
+        {retiredLayer && showRetired ? (
+          <Button
+            variant="ghost"
+            onPress={() => navigateTo('/section-retired')}
+            icon="format-list-bulleted"
+            label={t('sectionHistory.seeRetiredList')}
+            testID="preview-retired-list-link"
+          />
+        ) : null}
 
         <PreviewParamPanel params={params} onChange={setParams} onCommit={handleCommit} />
 
@@ -401,6 +513,7 @@ const styles = StyleSheet.create({
     left: spacing.md,
     right: spacing.md,
     bottom: spacing.md,
+    gap: spacing.sm,
   },
   panel: {
     flex: 1,

@@ -1858,18 +1858,32 @@ fn a_paused_pass_ends_paused_without_the_final_recut_and_releases_detection() {
     let detects_before = detect_runs_started();
 
     let server = MockServer::start();
-    for (i, id) in ids.iter().enumerate() {
-        server.mock(|when, then| {
-            when.path(format!("/activity/{}/streams.json", id));
-            then.status(200)
-                .delay(Duration::from_millis(150))
-                .json_body(elevated_streams(i as f64 * 0.02));
-        });
-    }
+    let mocks: Vec<_> = ids
+        .iter()
+        .enumerate()
+        .map(|(i, id)| {
+            server.mock(|when, then| {
+                when.path(format!("/activity/{}/streams.json", id));
+                then.status(200)
+                    .delay(Duration::from_millis(150))
+                    .json_body(elevated_streams(i as f64 * 0.02));
+            })
+        })
+        .collect();
 
     let base = server.base_url();
     let runner = std::thread::spawn(move || run_backfill(&fast_transport(base)));
     wait_for_fetching();
+    // The batch is in flight once a request has reached the server; pausing
+    // before that leaves nothing to land.
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while mocks.iter().all(|m| m.calls() == 0) {
+        assert!(
+            Instant::now() < deadline,
+            "no request ever reached the server"
+        );
+        std::thread::sleep(Duration::from_millis(2));
+    }
     pause_elevation_backfill();
     assert!(elevation_backfill_paused(), "the pause did not take");
 

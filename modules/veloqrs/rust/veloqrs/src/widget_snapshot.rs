@@ -1653,7 +1653,8 @@ fn strength_window(
         .take(STRENGTH_TOP_MAX)
         .map(|m| StrengthTopMuscle {
             slug: m.slug.clone(),
-            name: phrase(ctx, &muscle_name_key(&m.slug)).unwrap_or_else(|| m.slug.clone()),
+            name: phrase(ctx, &crate::notifications::muscle_name_key(&m.slug))
+                .unwrap_or_else(|| m.slug.clone()),
             sets_text: sets_text(m.weighted_sets, ctx),
             volume_text: volume_text(m.volume_kg, ctx),
             session_count: sessions(&m.slug),
@@ -1703,21 +1704,6 @@ fn body_label(top: &[StrengthTopMuscle], ctx: &FfiWidgetContext) -> Option<Strin
         .collect::<Vec<_>>()
         .join(", ");
     fill(ctx, "systemSurfaces.spoken.body", &[("muscles", muscles)])
-}
-
-/// The translation key of a muscle's name: `lower-back` is `strength.muscles.lowerBack`.
-fn muscle_name_key(slug: &str) -> String {
-    let mut key = String::from("strength.muscles.");
-    let mut upper = false;
-    for c in slug.chars() {
-        if c == '-' {
-            upper = true;
-            continue;
-        }
-        key.push(if upper { c.to_ascii_uppercase() } else { c });
-        upper = false;
-    }
-    key
 }
 
 /// Weighted sets as the strength tab prints them: whole counts bare, half

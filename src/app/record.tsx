@@ -53,6 +53,7 @@ import {
   RecordingMap,
   useCanRecord,
   useRecordingPreferences,
+  useLibrarySports,
   usePermissionUpgrade,
   useUploadPermissionStore,
   promptInterruptedRecording,
@@ -108,7 +109,11 @@ function RecordScreenContent() {
   const [chosenSport, setChosenSport] = useState<ActivityType | null>(null);
   const sport = chosenSport ?? defaultEntrySport(recentTypes);
   const mode = getRecordingMode(sport);
-  const chips = useMemo(() => entrySportChips(recentTypes, sport), [recentTypes, sport]);
+  const librarySports = useLibrarySports();
+  const chips = useMemo(
+    () => entrySportChips(recentTypes, sport, librarySports),
+    [recentTypes, sport, librarySports]
+  );
   const [gpsWarningDismissed, setGpsWarningDismissed] = useState(false);
 
   // Read at first render rather than in an effect. An engine that is not open

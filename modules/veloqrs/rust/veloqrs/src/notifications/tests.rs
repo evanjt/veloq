@@ -24,7 +24,22 @@ fn english() -> Templates {
         ftp_milestone: "Cycling eFTP: {{current}}W (+{{change}}W)".into(),
         pace_milestone: "Pace improved {{delta}}".into(),
         seconds_value: "{{value}} s".into(),
+        strength_muscles: Some("Worked {{muscles}}".into()),
+        muscle_names: english_muscle_names(),
     }
+}
+
+fn english_muscle_names() -> std::collections::BTreeMap<String, String> {
+    [
+        ("chest", "Chest"),
+        ("triceps", "Triceps"),
+        ("lower-back", "Lower back"),
+        ("quadriceps", "Quads"),
+        ("gluteal", "Glutes"),
+    ]
+    .into_iter()
+    .map(|(slug, name)| (slug.to_string(), name.to_string()))
+    .collect()
 }
 
 fn route(
@@ -720,9 +735,15 @@ fn stored_pairs() -> Vec<(String, String)> {
         ("insights.ftpIncrease", t.ftp_milestone),
         ("insights.paceImproved", t.pace_milestone),
         (SECONDS_VALUE_KEY, t.seconds_value),
+        (STRENGTH_MUSCLES_KEY, t.strength_muscles.unwrap()),
     ]
     .into_iter()
     .map(|(k, v)| (k.to_string(), v))
+    .chain(
+        t.muscle_names
+            .into_iter()
+            .map(|(slug, name)| (muscle_name_key(&slug), name)),
+    )
     .collect()
 }
 
@@ -873,6 +894,15 @@ fn every_locale() -> Vec<(String, Templates)> {
                 ftp_milestone: at(&["insights", "ftpIncrease"]),
                 pace_milestone: at(&["insights", "paceImproved"]),
                 seconds_value: at(&["units", "secondsValue"]),
+                strength_muscles: Some(body("strengthMuscles")),
+                muscle_names: MUSCLE_SLUGS
+                    .iter()
+                    .map(|slug| {
+                        let key = muscle_name_key(slug);
+                        let path: Vec<&str> = key.split('.').collect();
+                        (slug.to_string(), at(&path))
+                    })
+                    .collect(),
             },
         ));
     }
@@ -1001,6 +1031,13 @@ fn every_rung() -> Vec<(&'static str, Highlight, bool)> {
             "paceMilestone",
             Highlight::PaceMilestone {
                 delta: "154s/km".into(),
+            },
+            false,
+        ),
+        (
+            "strengthMuscles",
+            Highlight::StrengthMuscles {
+                muscles: MUSCLE_SLUGS.iter().map(|s| s.to_string()).collect(),
             },
             false,
         ),
@@ -1524,4 +1561,86 @@ mod fitness_milestone {
             })
         );
     }
+}
+
+/// Scenario: a strength session whose stored sets work chest and triceps.
+///
+/// Expected behaviour: the notification names both muscle groups, whichever
+/// PR and milestone categories the athlete has on, and a session with no
+/// stored sets says nothing.
+#[test]
+fn a_strength_session_names_the_muscles_its_sets_worked() {
+    let tmp = tempfile::TempDir::new().expect("tempdir");
+    let engine =
+        PersistentEngine::new(&tmp.path().join("routes.db").to_string_lossy()).expect("the engine");
+    engine
+        .set_notification_templates("en-AU", &stored_pairs())
+        .expect("the write");
+    for id in ["lift", "bare"] {
+        engine
+            .db
+            .execute(
+                "INSERT INTO activity_metrics (activity_id, name, date, distance, moving_time,
+                     elapsed_time, elevation_gain, sport_type)
+                 VALUES (?1, 'Push day', 1700000000, 0, 0, 0, 0, 'WeightTraining')",
+                [id],
+            )
+            .expect("the metrics");
+    }
+    let bench_press = 0;
+    engine
+        .store_exercise_sets(
+            "lift",
+            &[crate::fit::FitExerciseSet {
+                set_order: 0,
+                exercise_category: bench_press,
+                exercise_name: None,
+                set_type: 0,
+                repetitions: Some(8),
+                weight_kg: Some(60.0),
+                duration_secs: None,
+                start_time: None,
+            }],
+        )
+        .expect("the sets");
+
+    for (announce_prs, announce_milestones) in [(true, true), (false, false)] {
+        let built = build_notification_pooled(
+            &engine.db,
+            "lift",
+            "Push day",
+            announce_prs,
+            announce_milestones,
+        )
+        .expect("a bundle is stored");
+        assert_eq!(built.body, "Worked Chest, Triceps - Push day");
+        assert_eq!(built.sentence.as_deref(), Some("Worked Chest, Triceps"));
+    }
+    let bare = build_notification_pooled(&engine.db, "bare", "Push day", true, true)
+        .expect("a bundle is stored");
+    assert_eq!(bare.body, "");
+}
+
+/// Scenario: a bundle stored before the strength clause joined it.
+///
+/// Expected behaviour: it still reads, and a strength session has nothing to say
+/// rather than a dotted path on the lock screen.
+#[test]
+fn a_bundle_without_the_strength_clause_still_reads() {
+    let mut pairs = stored_pairs();
+    pairs.retain(|(key, _)| key != STRENGTH_MUSCLES_KEY);
+    let stored = crate::persistence::settings::NotificationTemplates {
+        locale: "en-AU".into(),
+        templates: pairs.into_iter().collect(),
+    };
+    let strings = templates_from_stored(&stored).expect("an older bundle reads");
+
+    let built = notification_for(
+        &Highlight::StrengthMuscles {
+            muscles: vec!["chest".into()],
+        },
+        "Push day",
+        &strings,
+    );
+    assert_eq!(built.body, "");
 }

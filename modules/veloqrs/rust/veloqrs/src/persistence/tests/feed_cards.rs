@@ -80,6 +80,7 @@ fn test_feed_cards_carry_every_card_field_from_the_stored_body() {
             skyline_chart_bytes: Some("AQID".into()),
             has_gps: true,
             has_altitude: false,
+            sync_failure: None,
         }
     );
 

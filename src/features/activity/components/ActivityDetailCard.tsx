@@ -55,6 +55,9 @@ import {
   useActivitySectionHighlights,
 } from '../hooks';
 import { useActivityDetailData } from '../hooks/useActivityDetailData';
+import { useRetryActivitySync } from '../hooks/useRetryActivitySync';
+import { ActivitySyncFailureNotice } from './ActivitySyncFailure';
+import { ActivityHeldBackNotice } from './ActivityHeldBack';
 import { groupSectionEncounters } from '../lib/groupSectionEncounters';
 import { activityHeroStats } from '../lib/activityHeroStats';
 import {
@@ -116,6 +119,7 @@ export function ActivityDetailCard({
   // One engine call covering route match, section matches, encounters,
   // highlights, overlays and engine counts.
   const { data: detail, error: detailError, refresh: refreshDetail } = useActivityDetailData(id);
+  const { retry: retrySync } = useRetryActivitySync(id, refreshDetail);
   const detailReadFailed = !detail && detailError !== undefined;
 
   const activityDate = activity?.startDateLocal?.split('T')[0];
@@ -374,6 +378,16 @@ export function ActivityDetailCard({
       {!inSheet && !isStrength && (
         <ActivitySummaryStrip activity={activity} isMetric={isMetric} isDark={isDark} />
       )}
+      {detail?.heldBack ? (
+        <ActivityHeldBackNotice activityId={id} heldBack={detail.heldBack} />
+      ) : null}
+      {detail?.syncFailure ? (
+        <ActivitySyncFailureNotice
+          activityId={id}
+          failure={detail.syncFailure}
+          onRetry={retrySync}
+        />
+      ) : null}
       {activity.description ? (
         <View
           style={[

@@ -333,6 +333,13 @@ pub(crate) fn recording_file(stored: &str) -> Option<PathBuf> {
     }
 }
 
+/// Where the original FIT of an activity read from a file sits, named by the
+/// activity's key and resolved as any recording's file is. `None` while the
+/// app has not said where its documents directory is.
+pub(crate) fn source_fit_file(key: &str) -> Option<PathBuf> {
+    recording_file(&format!("{RECORDINGS_DIR}/{key}.fit"))
+}
+
 /// The ride with each file it names resolved to where it sits now, `None`
 /// when one cannot be resolved yet. A manual entry's empty FIT path stays
 /// empty.

@@ -19,14 +19,15 @@ import { debug } from '@/shared/debug/debug';
 const log = debug.create('NotificationTemplates');
 
 /**
- * Every key a notification sentence is built from: the twelve clause
- * templates, the three titles, the two fitness milestone sentences and the
- * seconds unit a delta under a minute is written in.
+ * Every key a notification sentence is built from: the clause templates, the
+ * three titles, the two fitness milestone sentences, the seconds unit a delta
+ * under a minute is written in, and the name of each muscle group a strength
+ * session's clause lists.
  *
  * Named here rather than derived from the bundle, so a key that loses its
  * reader still fails `unusedKeys.test.ts` and a renamed one fails the parity
  * test beside it. They interpolate `{{name}}`, `{{delta}}`, `{{count}}`,
- * `{{current}}`, `{{change}}` and `{{value}}` and nothing else, and no locale carries a
+ * `{{current}}`, `{{change}}`, `{{value}}` and `{{muscles}}` and nothing else, and no locale carries a
  * plural variant of any of them.
  */
 export const NOTIFICATION_TEMPLATE_KEYS = [
@@ -42,12 +43,28 @@ export const NOTIFICATION_TEMPLATE_KEYS = [
   'notifications.activityBody.sectionPrManyOne',
   'notifications.activityBody.fasterOnRoute',
   'notifications.activityBody.fasterOnRouteDelta',
+  'notifications.activityBody.strengthMuscles',
   'notifications.activityPr.title',
   'notifications.activityFaster.title',
   'notifications.activityRecorded.title',
   'insights.ftpIncrease',
   'insights.paceImproved',
   'units.secondsValue',
+  'strength.muscles.abs',
+  'strength.muscles.adductors',
+  'strength.muscles.biceps',
+  'strength.muscles.calves',
+  'strength.muscles.chest',
+  'strength.muscles.deltoids',
+  'strength.muscles.forearm',
+  'strength.muscles.gluteal',
+  'strength.muscles.hamstring',
+  'strength.muscles.lowerBack',
+  'strength.muscles.obliques',
+  'strength.muscles.quadriceps',
+  'strength.muscles.trapezius',
+  'strength.muscles.triceps',
+  'strength.muscles.upperBack',
 ] as const;
 
 /**

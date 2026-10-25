@@ -15,6 +15,8 @@ import type {
   PowerZoneBand,
   MaxHrSource,
   PoolSwim,
+  ActivitySyncFailure,
+  ActivityHeldBack,
   Section as NativeSection,
   SectionEncounter,
   SectionWithPolyline,
@@ -71,6 +73,10 @@ export interface ActivityDetailBundle {
   intervalsId: string | null;
   /** A pool swim's lengths, rests, SWOLF and per-stroke totals; null for every sport but a pool swim */
   poolSwim: PoolSwim | null;
+  /** The fault the last sync met readying this activity; null when its last readying was clean */
+  syncFailure: ActivitySyncFailure | null;
+  /** Set when intervals.icu holds this activity but does not serve it to apps; null for a served one */
+  heldBack: ActivityHeldBack | null;
 }
 
 /** Route groups on the detail screen need at least this many attempts. */
@@ -142,6 +148,8 @@ function fetchActivityDetailData(activityId: string): DetailRead {
       ledgerChanges: result.ledgerChanges,
       intervalsId: result.intervalsId ?? null,
       poolSwim: result.poolSwim ?? null,
+      syncFailure: result.syncFailure ?? null,
+      heldBack: result.heldBack ?? null,
     },
     error: undefined,
   };

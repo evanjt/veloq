@@ -22,6 +22,9 @@ const MIGRATION = 'src/shared/storage/migrateSettingsToSqlite.ts';
 
 // Keys the engine owns and never held in AsyncStorage, so there is nothing to migrate.
 const ENGINE_ONLY_KEYS = new Map([
+  ['veloq-garmin-key-expiry', 'Device-only Garmin connector choice, never carried by a backup'],
+  ['veloq-garmin-feed', 'Device-only Garmin connector choice, never carried by a backup'],
+  ['veloq-garmin-upload', 'Device-only Garmin connector choice, never carried by a backup'],
   ['__athlete_id', 'Engine library identity'],
   ['__detection_enabled', 'Engine-only detection preference'],
   ['__export_home_lat', 'Engine-only export privacy preference'],

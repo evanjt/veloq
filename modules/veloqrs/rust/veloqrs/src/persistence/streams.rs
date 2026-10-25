@@ -214,6 +214,8 @@ pub(crate) const STREAM_GAP_FROM_WHERE: &str = "FROM activities a
                 AND ((a.id NOT LIKE 'local-%' AND a.id NOT LIKE 'src-%')
                      OR a.intervals_id IS NOT NULL)
                 AND COALESCE(b.attempts, 0) < ?1
+                AND NOT EXISTS (
+                        SELECT 1 FROM activity_held_back hb WHERE hb.activity_id = a.id)
                 AND (?2 IS NULL
                      OR (a.start_date IS NOT NULL
                          AND a.start_date >= strftime('%s', 'now') - ?2 * 86400))";

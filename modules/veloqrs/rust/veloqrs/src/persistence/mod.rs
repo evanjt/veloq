@@ -68,6 +68,8 @@ pub use activities::{
     SourceSettled, TRACK_FAILURE_LIMIT, TrackRefusalKind, elevation_source_of,
     mint_local_activity_id,
 };
+pub mod activity_held_back;
+pub mod activity_sync_failures;
 /// On-disk blob format. Public so diagnostics that open a database file
 /// directly decode it the same way the engine wrote it.
 pub mod codec;
@@ -76,6 +78,7 @@ pub(crate) mod deep_tiles;
 pub(crate) mod empty_reason;
 pub(crate) mod export;
 pub(crate) mod file_lock;
+pub mod garmin_link;
 pub use export::{ExportPrivacyPreview, GeoJsonFeature, SuggestedHome, write_geojson_feature};
 pub(crate) mod fitness;
 pub(crate) mod indicators;

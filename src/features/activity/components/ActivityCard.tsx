@@ -41,6 +41,8 @@ import { type TerrainSnapshotWebViewRef } from '@/features/maps';
 import { ActivityMapPreview } from './ActivityMapPreview';
 import type { PreviewTrack } from '@/features/home';
 import { ActivityCardContextMenu } from './ActivityCardContextMenu';
+import { ActivitySyncFailureChip } from './ActivitySyncFailure';
+import { useRetryActivitySync } from '../hooks/useRetryActivitySync';
 import { SkylineBar } from './SkylineBar';
 import { cardPrimaryStats } from '../lib/cardPrimaryStats';
 import { StrengthActivityCard, type StrengthCardData } from '@/features/strength';
@@ -227,6 +229,8 @@ export const ActivityCard = React.memo(
     );
 
     const handlePress = useCallback(() => openActivity(), [openActivity]);
+    const { retry: retrySync, retrying: retryingSync } = useRetryActivitySync(activity.id);
+    const syncFailed = !!activity.syncFailure;
 
     const handleLongPress = useCallback(() => {
       setMenuVisible(true);
@@ -261,9 +265,21 @@ export const ActivityCard = React.memo(
                 },
               ]
             : []),
+          ...(syncFailed
+            ? [
+                {
+                  name: 'retrySync',
+                  label: composeAccessibilityLabel(
+                    t('activity.syncFailed.title'),
+                    t('common.retry')
+                  ),
+                  run: retrySync,
+                },
+              ]
+            : []),
           { name: 'longpress', label: t('activity.moreActions'), run: handleLongPress },
         ]),
-      [showsRouteChip, showsSectionChip, openActivity, handleLongPress, t]
+      [showsRouteChip, showsSectionChip, syncFailed, openActivity, retrySync, handleLongPress, t]
     );
 
     const scrollRef = useRef<ScrollViewInstance>(null);
@@ -421,6 +437,13 @@ export const ActivityCard = React.memo(
     }
 
     const stats = cardPrimaryStats(activity, isMetric);
+    const syncFailureChip = syncFailed ? (
+      <ActivitySyncFailureChip
+        activityId={activity.id}
+        retrying={retryingSync}
+        onRetry={retrySync}
+      />
+    ) : null;
 
     // Compact card for activities without GPS data
     if (!hasGpsData) {
@@ -463,6 +486,7 @@ export const ActivityCard = React.memo(
                     <FitText style={[styles.compactDateSubtitle, { color: compactMutedColor }]}>
                       {formatRelativeDateTime(activity.startDateLocal)}
                     </FitText>
+                    {syncFailureChip}
                   </View>
                 </View>
 
@@ -595,6 +619,7 @@ export const ActivityCard = React.memo(
             >
               {formatRelativeDateTime(activity.startDateLocal)}
             </FitText>
+            {syncFailureChip}
           </View>
           {largeText ? null : routeChip}
         </View>

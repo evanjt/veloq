@@ -357,6 +357,8 @@ async function clearBasemapTiles(): Promise<void> {
  *   each store's memory emptied so its next write cannot put them back
  * - The last map position, heart rate zones set by hand and paired sensors,
  *   with the sensors disconnected and each store's memory emptied
+ * - The Garmin key, from the keychain and the engine, and the connector's
+ *   choices, so the next athlete does not read this one's rides
  * - The crash log and the engine's panic log, whose messages can name a ride,
  *   and the scopes the previous account granted
  * - The heatmap builds before 0.3.0 drew into Documents
@@ -410,6 +412,7 @@ export async function wipeLibrary(): Promise<void> {
   const { useNotificationPrompt } = require('@/features/settings/stores/NotificationPromptStore');
   const { useUploadPermissionStore } =
     require('@/features/recording') as typeof import('@/features/recording');
+  const { disconnectGarmin } = require('@/features/settings/lib/garminConnector');
 
   const platformRecord = platformRecordUri();
   // Where the database is now, and Documents, where every build before the App
@@ -458,6 +461,7 @@ export async function wipeLibrary(): Promise<void> {
     () => deleteCachedAthleteFiles(),
     () => clearWebdavConfig(),
     () => clearPendingApiKey(),
+    () => disconnectGarmin(),
     () => releasePushRegistration(),
   ]);
   const { useInsightsStore } = require('@/features/insights/store');

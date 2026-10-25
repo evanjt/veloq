@@ -47,6 +47,7 @@ import {
   type PreviewAreaCentre,
 } from '@/features/routes/lib/previewMapCamera';
 import type { PreviewResult, PreviewSection } from 'veloqrs';
+import type { RetiredLines } from '@/features/routes/lib/retiredLineCollection';
 import {
   buildPreviewLayers,
   buildPreviewSources,
@@ -72,6 +73,15 @@ function lineFeature(section: PreviewSection, coords: LngLat[]): GeoJSON.Feature
   };
 }
 
+/** The old-versus-new layer: what the re-cut retired, drawn beside what replaced it. */
+export interface RetiredLayerProps {
+  lines: RetiredLines;
+  show: boolean;
+  onToggle: () => void;
+  /** A retired line, or a hidden current one, was tapped. */
+  onSelect: (id: string) => void;
+}
+
 interface PreviewMapViewProps {
   result: PreviewResult | null;
   /** The live catalogue for the area, drawn until a run supersedes it. */
@@ -87,6 +97,7 @@ interface PreviewMapViewProps {
   onToggleProposed: () => void;
   onToggleRemoved: () => void;
   onSelect: (section: PreviewSection | null) => void;
+  retiredLayer?: RetiredLayerProps | null | undefined;
 }
 
 export function PreviewMapView({
@@ -101,6 +112,7 @@ export function PreviewMapView({
   onToggleProposed,
   onToggleRemoved,
   onSelect,
+  retiredLayer = null,
 }: PreviewMapViewProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -189,6 +201,8 @@ export function PreviewMapView({
     };
   }, [centre]);
 
+  const retiredShown = retiredLayer !== null && retiredLayer.show;
+
   const sources = useMemo(() => {
     const selectedSection = sections.find((s) => s.id === selectedId) ?? null;
     const selectedCoords = selectedSection ? (decoded.get(selectedSection.id) ?? []) : [];
@@ -207,6 +221,9 @@ export function PreviewMapView({
       gone: showRemoved
         ? { type: 'FeatureCollection', features: features.gone }
         : EMPTY_FEATURE_COLLECTION,
+      retired: retiredShown ? retiredLayer.lines.retired : EMPTY_FEATURE_COLLECTION,
+      retiredCurrent: retiredShown ? retiredLayer.lines.current : EMPTY_FEATURE_COLLECTION,
+      retiredSelection: retiredShown ? retiredLayer.lines.selection : EMPTY_FEATURE_COLLECTION,
       selected:
         selectedSection && selectedCoords.length >= 2
           ? {
@@ -224,11 +241,22 @@ export function PreviewMapView({
     showProposed,
     showRemoved,
     areaFeatures,
+    retiredShown,
+    retiredLayer,
   ]);
 
+  // The retired lines count towards the frame while they are drawn, so a re-cut
+  // that moved a line outside the live catalogue's extent is still in view.
+  const retiredGeometries = useMemo(() => {
+    if (!retiredShown) return [];
+    return retiredLayer.lines.retired.features.flatMap((f) =>
+      f.geometry.type === 'LineString' ? [f.geometry.coordinates as LngLat[]] : []
+    );
+  }, [retiredShown, retiredLayer]);
+
   const bounds = useMemo(
-    () => previewCameraBounds(centre, [...decoded.values()]),
-    [centre, decoded]
+    () => previewCameraBounds(centre, [...decoded.values(), ...retiredGeometries]),
+    [centre, decoded, retiredGeometries]
   );
 
   const initialCamera = useMemo(() => {
@@ -283,10 +311,16 @@ export function PreviewMapView({
   const handlePress = useCallback(
     (event: { feature: { properties: Record<string, unknown> } | null }) => {
       const id = event.feature?.properties?.id;
+      // Only the retired layers stamp a layer on their features; the preview's
+      // own lines carry an id and a status.
+      if (typeof id === 'string' && typeof event.feature?.properties?.layer === 'string') {
+        retiredLayer?.onSelect(id);
+        return;
+      }
       const section = sections.find((s) => s.id === id) ?? null;
       onSelect(section);
     },
-    [sections, onSelect]
+    [sections, onSelect, retiredLayer]
   );
 
   const chipBg = isDark ? darkColors.surface : colors.surface;
@@ -354,6 +388,19 @@ export function PreviewMapView({
           text={chipText}
           textOn={textPrimary}
         />
+        {retiredLayer ? (
+          <LegendChip
+            testID="preview-layer-retired"
+            label={t('settings.previewRetiredLayer')}
+            swatch={previewLayerSwatch('retired-line', palette)}
+            on={retiredLayer.show}
+            onPress={retiredLayer.onToggle}
+            background={chipBg}
+            border={chipBorder}
+            text={chipText}
+            textOn={textPrimary}
+          />
+        ) : null}
       </View>
     </View>
   );
@@ -427,6 +474,9 @@ const styles = StyleSheet.create({
     top: spacing.sm,
     right: spacing.sm,
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+    maxWidth: '75%',
     gap: spacing.xs,
   },
   legendChip: {

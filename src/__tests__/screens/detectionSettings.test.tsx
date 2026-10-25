@@ -197,7 +197,7 @@ describe('detection settings screen', () => {
       expect(row).toHaveTextContent(/sectionHistory\.retiredEmpty/);
       expect(row).toBeDisabled();
       await fireEvent.press(row);
-      expect(router.push).not.toHaveBeenCalledWith('/section-retired');
+      expect(router.push).not.toHaveBeenCalledWith('/detection-preview?layer=retired');
     });
 
     it('shows the count and opens the retired sections once some retired', async () => {
@@ -207,7 +207,7 @@ describe('detection settings screen', () => {
       const row = tree.getByTestId('retired-sections-row');
       expect(row).toHaveTextContent(/sectionHistory\.retiredCount:\{"count":2\}/);
       await fireEvent.press(row);
-      expect(router.push).toHaveBeenCalledWith('/section-retired');
+      expect(router.push).toHaveBeenCalledWith('/detection-preview?layer=retired');
     });
   });
 

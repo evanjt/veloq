@@ -33,7 +33,13 @@ const LOCALES = /^src\/i18n\/locales\/en(-[A-Za-z]+)?\.json$/;
 
 // Names written as their owners write them. A phrase is matched before its
 // words are read, so "Drive" passes inside "Google Drive" and nowhere else.
-const PROPER_PHRASES = ['Google Drive', 'iCloud Drive', 'Live Activities', 'Bluetooth LE'];
+const PROPER_PHRASES = [
+  'Google Drive',
+  'iCloud Drive',
+  'Live Activities',
+  'Bluetooth LE',
+  'Garmin Connect',
+];
 const PROPER_WORDS = new Set([
   'Android',
   'Apache',
@@ -41,6 +47,7 @@ const PROPER_WORDS = new Set([
   'Bluetooth',
   'Celsius',
   'Fahrenheit',
+  'Garmin',
   'GitHub',
   'Google',
   'Nextcloud',

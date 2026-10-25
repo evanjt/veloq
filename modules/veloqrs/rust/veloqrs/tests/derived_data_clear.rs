@@ -509,6 +509,19 @@ fn activity_keyed_seeds() -> Vec<(&'static str, &'static str)> {
             "INSERT INTO pool_swims (activity_id, pool_length_m) VALUES (?1, 25.0)",
         ),
         (
+            "activity_sync_failures",
+            "INSERT INTO activity_sync_failures (activity_id, message, failed_at)
+             VALUES (?1, 'did not decode', 0)",
+        ),
+        (
+            "activity_held_back",
+            "INSERT INTO activity_held_back (activity_id, source) VALUES (?1, 'GARMIN_CONNECT')",
+        ),
+        (
+            "garmin_link_unresolved",
+            "INSERT INTO garmin_link_unresolved (activity_id, candidates) VALUES (?1, 2)",
+        ),
+        (
             "eftp_changes",
             "INSERT INTO eftp_changes (activity_id, date, eftp, delta, activity_name)
              VALUES (?1, 0, 250.0, 0.0, 'n')",

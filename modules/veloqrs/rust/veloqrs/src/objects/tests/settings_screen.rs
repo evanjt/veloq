@@ -91,3 +91,47 @@ fn test_background_jobs_data_reads_a_recorded_run() {
         }]
     );
 }
+
+#[test]
+fn test_record_screen_data_orders_library_sports_by_activity_count() {
+    let _guard = serial_global_state();
+    let _tmp = init_global_engine("settings.db");
+    let settings = SettingsManager::new();
+
+    assert!(
+        settings
+            .record_screen_data()
+            .unwrap()
+            .library_sports
+            .is_empty()
+    );
+
+    crate::objects::error::with_engine(|engine| {
+        let sports = [
+            ("Swim", 2),
+            ("Run", 4),
+            ("Rowing", 2),
+            ("Ride", 1),
+        ];
+        for (sport, count) in sports {
+            for n in 0..count {
+                engine
+                    .db
+                    .execute(
+                        "INSERT INTO activity_metrics
+                         (activity_id, name, date, distance, moving_time, elapsed_time, elevation_gain, sport_type)
+                         VALUES (?1, 'x', ?2, 0, 0, 0, 0, ?3)",
+                        rusqlite::params![format!("{sport}-{n}"), 1000 + n, sport],
+                    )
+                    .unwrap();
+            }
+        }
+    })
+    .unwrap();
+
+    assert_eq!(
+        settings.record_screen_data().unwrap().library_sports,
+        vec!["Run", "Rowing", "Swim", "Ride"],
+        "most activities first, equal counts in name order"
+    );
+}

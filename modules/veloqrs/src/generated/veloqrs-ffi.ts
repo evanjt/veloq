@@ -1439,6 +1439,10 @@ interface NativeModuleInterface {
     bpm: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_settingsmanager_record_screen_data(
+    uniffiSelf: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_athlete_profile(
     uniffiSelf: bigint,
     json: Uint8Array,
@@ -1565,10 +1569,23 @@ interface NativeModuleInterface {
     uniffiSelf: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_method_syncmanager_clear_garmin_key(
+    uniffiSelf: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_syncmanager_connect_garmin(
+    uniffiSelf: bigint,
+    key: Uint8Array,
+  ): bigint;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_get_sync_status(
     uniffiSelf: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_syncmanager_hold_garmin_key(
+    uniffiSelf: bigint,
+    key: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_library_coverage(
     uniffiSelf: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -2030,6 +2047,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_athlete_profile(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_setting(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_hr_zone_for(): number;
+  ubrn_uniffi_veloqrs_checksum_method_settingsmanager_record_screen_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_athlete_profile(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_notification_templates(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_setting(): number;
@@ -2056,7 +2074,10 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_bodies_stored(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_cancel(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_clear_credentials(): number;
+  ubrn_uniffi_veloqrs_checksum_method_syncmanager_clear_garmin_key(): number;
+  ubrn_uniffi_veloqrs_checksum_method_syncmanager_connect_garmin(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_get_sync_status(): number;
+  ubrn_uniffi_veloqrs_checksum_method_syncmanager_hold_garmin_key(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_library_coverage(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_range_coverage(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_ready_activity_bodies(): number;

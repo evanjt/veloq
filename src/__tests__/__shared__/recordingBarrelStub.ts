@@ -39,6 +39,7 @@ const SOURCES: Record<string, string> = {
   useRecordingLiveStore: 'stores/RecordingLiveStore',
   useUploadPermissionStore: 'stores/UploadPermissionStore',
   initialiseUploadPermission: 'stores/UploadPermissionStore',
+  useLibrarySports: 'hooks/useLibrarySports',
   defaultEntrySport: 'lib/recordEntry',
   entrySportChips: 'lib/recordEntry',
   recordingEntryHref: 'lib/recordEntry',

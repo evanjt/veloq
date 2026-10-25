@@ -12,6 +12,7 @@ use rusqlite::{OptionalExtension, params};
 use std::collections::HashSet;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tracematch::matching::calculate_route_distance;
+use tracematch::sections::shares_ground;
 use tracematch::{GpsPoint, SectionPortion};
 
 /// The athlete's decisions on a section's junction rows, read before a
@@ -1457,10 +1458,56 @@ impl PersistentEngine {
         Ok(departed)
     }
 
+    /// The auto section whose line shares ground with `section_id`'s and that is
+    /// live once `section_id` is gone: an auto row it hides shows again with it.
+    fn auto_section_on_ground(&self, section_id: &str) -> Result<Option<String>, String> {
+        let line = self.stored_section_polyline(section_id)?;
+        let mut stmt = self
+            .db
+            .prepare(
+                "SELECT id FROM sections
+                 WHERE is_user_defined = 0 AND id <> ?
+                   AND (superseded_by IS NULL OR superseded_by = ?)
+                 ORDER BY id",
+            )
+            .map_err(|e| format!("Failed to find auto sections: {e}"))?;
+        let ids: Vec<String> = stmt
+            .query_map(params![section_id, section_id], |row| row.get(0))
+            .map_err(|e| format!("Failed to find auto sections: {e}"))?
+            .collect::<rusqlite::Result<_>>()
+            .map_err(|e| format!("Failed to read auto sections: {e}"))?;
+        drop(stmt);
+        for id in ids {
+            let other = self.stored_section_polyline(&id)?;
+            if shares_ground(&line, &other) {
+                return Ok(Some(id));
+            }
+        }
+        Ok(None)
+    }
+
     /// Delete a section.
     pub fn delete_section(&mut self, section_id: &str) -> Result<(), String> {
         let restored = self.in_write_txn(|engine| {
             engine.record_section_intent(section_id, "deleted");
+            // A section with an archived state is the athlete's to bring back,
+            // so it goes to the retired list rather than vanishing: into the
+            // auto section on its ground when one is live, else dissolved.
+            if crate::persistence::sections::history::pooled::restorable_version_of(
+                &engine.db, section_id,
+            )
+            .is_some()
+            {
+                let into = engine.auto_section_on_ground(section_id)?;
+                return match into {
+                    Some(auto) => engine.retire_section_to_ledger(
+                        section_id,
+                        super::history::KIND_SUPERSEDED,
+                        Some(&auto),
+                    ),
+                    None => engine.retire_section_to_ledger(section_id, "dissolved", None),
+                };
+            }
             let rows = engine
                 .db
                 .execute("DELETE FROM sections WHERE id = ?", params![section_id])
@@ -1683,6 +1730,7 @@ mod tests {
             assert!(engine.get_section_summaries().iter().any(|s| s.id == id));
             assert!(engine.get_visible_sections().iter().any(|s| s.id == id));
         }
+        assert!(engine.retired_sections().is_empty());
     }
 
     #[test]

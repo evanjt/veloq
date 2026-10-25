@@ -16,7 +16,17 @@ import { layout } from '@/theme/layout';
 // The binding registers a TurboModule at import time. A hook on this screen's
 // import path compares against one of its generated enums, so the stub is the
 // module here.
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides({
+    sections: {
+      getRetiredMapData: () => ({
+        retired: mockGetRetiredSections().map((section) => ({ section })),
+        current: [],
+        pairs: [],
+      }),
+    },
+  })
+);
 
 jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: () => null }));
 
@@ -74,7 +84,6 @@ jest.mock('@/shared/native/engine', () => ({
       mockListeners.set(event, set);
       return () => set.delete(cb);
     },
-    getRetiredSections: () => mockGetRetiredSections(),
     runSectionBoundsEdit: (edit: unknown) => mockRunSectionBoundsEdit(edit),
   }),
   isEngineReady: () => true,

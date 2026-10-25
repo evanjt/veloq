@@ -8,6 +8,7 @@ use rusqlite::{OptionalExtension, Result as SqlResult, params, types::Type};
 
 use super::codec;
 use super::codec::{TrackRead, TrackWalk};
+use super::streams::SeriesIndex;
 use super::{ActivityBoundsEntry, ActivityMetadata, PersistentEngine};
 use crate::net::intervals::metrics_from_body;
 use crate::net::types::ActivityCensusEntry;
@@ -180,6 +181,13 @@ pub enum SourceSettled {
     HandedBack,
     /// No fetched track of unknown series is stored under the id any more.
     Missing,
+}
+
+/// The series an activity read from a file is stored with, already in the
+/// index its track makes. See [`PersistentEngine::save_file_activity`].
+pub(crate) struct FileSeries<'a> {
+    pub streams: &'a [crate::net::types::StreamDto],
+    pub clock: &'a [u32],
 }
 
 /// The series a set of points was built from, as the writer that built them
@@ -436,6 +444,9 @@ fn spawn_tile_sweep(tiles_path: String, ground: Vec<SweepGround>, reason: &'stat
 /// removal has to clear them by hand. `overlap_cache` holds a pair, so it is
 /// cleared by its own statement.
 const ACTIVITY_KEYED_TABLES: &[&str] = &[
+    "activity_sync_failures",
+    "activity_held_back",
+    "garmin_link_unresolved",
     "activity_bodies",
     "activity_metrics",
     "activity_indicators",
@@ -667,6 +678,7 @@ pub(crate) fn feed_card(
         has_weather: body.has_weather.unwrap_or(false),
         average_weather_temp: body.average_weather_temp,
         skyline_chart_bytes: body.skyline_chart_bytes,
+        sync_failure: None,
         id: body.id,
     })
 }
@@ -1222,7 +1234,11 @@ pub(crate) mod pooled {
         let mut cards = Vec::new();
         let (matched_count, has_more) = page_bodies(conn, query, |raw, key, web_id| {
             match super::feed_card(&key, web_id, &raw) {
-                Some(card) => cards.push(card),
+                Some(mut card) => {
+                    card.sync_failure = crate::persistence::activity_sync_failures::of(conn, &key)
+                        .unwrap_or_default();
+                    cards.push(card);
+                }
                 None => log::warn!("veloqrs: [feed] stored body for {} skipped", key),
             }
         })?;
@@ -2069,7 +2085,7 @@ impl PersistentEngine {
         coords: Vec<GpsPoint>,
         body: &crate::FfiActivityBody,
     ) -> SqlResult<()> {
-        self.save_provisional_activity_inner(id, &coords, body, false)
+        self.save_provisional_activity_inner(id, &coords, body, false, None)
     }
 
     pub(crate) fn try_save_provisional_activity(
@@ -2078,15 +2094,66 @@ impl PersistentEngine {
         coords: &[GpsPoint],
         body: &crate::FfiActivityBody,
     ) -> SqlResult<()> {
-        self.save_provisional_activity_inner(id, coords, body, true)
+        self.save_provisional_activity_inner(id, coords, body, true, None)
     }
 
+    /// Store an activity read from a file: its row, its track and its series
+    /// in one transaction, so a failure leaves nothing of it behind. Storing a
+    /// key already stored changes nothing.
+    pub(crate) fn save_file_activity(
+        &mut self,
+        id: &str,
+        coords: &[GpsPoint],
+        body: &crate::FfiActivityBody,
+        series: &FileSeries<'_>,
+    ) -> SqlResult<()> {
+        self.save_provisional_activity_inner(id, coords, body, false, Some(series))
+    }
+
+    /// Whether a body and a metrics row are stored under `id`.
+    pub(crate) fn has_stored_activity(&self, id: &str) -> bool {
+        self.get_activity_body(id).is_some() && self.activity_metrics.contains_key(id)
+    }
+
+    /// The streams and clock an activity read from a file is stored with, in
+    /// the index its track makes: `clock` has one second per point of
+    /// `coords`, and `streams` carry one sample per point. With no track the
+    /// streams are in the file's own samples and carry their `time`.
+    fn write_file_series(
+        &self,
+        id: &str,
+        coords: &[GpsPoint],
+        series: &FileSeries<'_>,
+    ) -> SqlResult<()> {
+        let index = if coords.is_empty() {
+            SeriesIndex::Samples
+        } else {
+            SeriesIndex::Track
+        };
+        if !series.streams.is_empty() {
+            self.write_activity_streams(id, series.streams, index)?;
+        }
+        if !coords.is_empty() {
+            self.record_elevation_state(&[(
+                id.to_owned(),
+                crate::ffi::elevation_state_of(coords),
+            )])?;
+            if series.clock.len() == coords.len() {
+                self.store_time_stream(id, series.clock)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// The write behind every row saved before a sync can hand its own: a
+    /// recording at save time, and with `series` an activity read from a file.
     fn save_provisional_activity_inner(
         &mut self,
         id: &str,
         coords: &[GpsPoint],
         body: &crate::FfiActivityBody,
         nonblocking_begin: bool,
+        series: Option<&FileSeries<'_>>,
     ) -> SqlResult<()> {
         if body.activity_id != id {
             return Err(rusqlite::Error::InvalidParameterName(
@@ -2128,9 +2195,17 @@ impl PersistentEngine {
                     id.to_owned(),
                     elevation_source_of(coords, ElevationSeries::Recorded),
                 )])?;
+                if let Some(series) = series {
+                    self.write_file_series(id, coords, series)?;
+                }
                 super::climb_bests::refresh(&self.db, id)?;
                 written
             };
+            if coords.is_empty()
+                && let Some(series) = series
+            {
+                self.write_file_series(id, coords, series)?;
+            }
             self.db.execute(
                 "INSERT INTO activity_bodies (activity_id, date, raw, updated_at) VALUES (?1, ?2, ?3, strftime('%s', 'now'))
                  ON CONFLICT(activity_id) DO UPDATE SET date=excluded.date, raw=excluded.raw, updated_at=excluded.updated_at",
@@ -2159,6 +2234,12 @@ impl PersistentEngine {
             self.activity_metadata.insert(id, metadata);
         }
         self.activity_metrics.insert(id.to_owned(), metrics);
+        if let Some(series) = series
+            && !coords.is_empty()
+            && series.clock.len() == coords.len()
+        {
+            self.time_streams.put(id.to_owned(), series.clock.to_vec());
+        }
         self.rebuild_spatial_index();
         self.set_groups_dirty(true);
         if track_replaced {
@@ -2444,6 +2525,9 @@ impl PersistentEngine {
              DELETE FROM athlete_profile;
              DELETE FROM job_attempts;
              DELETE FROM job_runs;
+             DELETE FROM activity_sync_failures;
+             DELETE FROM activity_held_back;
+             DELETE FROM garmin_link_unresolved;
              DELETE FROM push_runs;
              DELETE FROM sport_settings;
              DELETE FROM section_rank_inputs;
@@ -3582,6 +3666,7 @@ impl PersistentEngine {
              WHERE a.intervals_id IS NOT NULL
                AND a.intervals_id NOT LIKE 'demo-%'
                AND a.id NOT LIKE 'demo-%'
+               AND substr(a.id, 1, length(?3)) != ?3
                AND (COALESCE(a.start_date, b.date, m.date) IS NULL
                     OR date(COALESCE(a.start_date, b.date, m.date), 'unixepoch') <= date(?1))
              UNION ALL
@@ -3594,6 +3679,7 @@ impl PersistentEngine {
                AND ((substr(k.id, 1, length(?2)) != ?2 AND substr(k.id, 1, length(?3)) != ?3)
                     OR b.intervals_id IS NOT NULL)
                AND k.id NOT LIKE 'demo-%'
+               AND substr(k.id, 1, length(?3)) != ?3
                AND (COALESCE(b.date, m.date) IS NULL
                     OR date(COALESCE(b.date, m.date), 'unixepoch') <= date(?1))",
         ) {
@@ -3891,6 +3977,94 @@ impl PersistentEngine {
             self.sweep_tiles_for(vec![bounds], "uploaded duplicate");
         }
         Ok(())
+    }
+
+    /// Settle a row minted here against the server's copy of it that the sync
+    /// stored first, keeping this row: it gains the server's id, the copy goes,
+    /// and `served` is the server's body when it serves one, which replaces this
+    /// row's body and metrics. `None` leaves the row's own figures as they are.
+    ///
+    /// [`Self::record_upload`] settles the same pair the other way round, and
+    /// keeps the copy. A row with a track of its own is the one to keep when the
+    /// copy has none to give. False means the row stays unlinked: a section is
+    /// cut from the copy and neither this row nor another member can carry it.
+    pub(super) fn absorb_server_copy(
+        &mut self,
+        kept: &str,
+        copy: &str,
+        intervals_id: &str,
+        served: Option<(i64, &str)>,
+    ) -> SqlResult<bool> {
+        self.db.execute_batch("BEGIN IMMEDIATE")?;
+        let result = (|| {
+            if !self.release_section_references(copy, Some(kept)) {
+                log::info!(
+                    "veloqrs: [link] {} duplicates {} but a section has nothing else to cut from, kept",
+                    kept,
+                    copy
+                );
+                self.db.execute_batch("COMMIT")?;
+                return Ok(None);
+            }
+            self.db.execute(
+                "UPDATE recordings SET engine_activity_id = ? WHERE engine_activity_id = ?",
+                params![kept, copy],
+            )?;
+            let memory = self.remove_activity_rows(copy)?;
+            let tracked: bool = self.db.query_row(
+                "SELECT EXISTS(SELECT 1 FROM activities WHERE id = ?)",
+                [kept],
+                |row| row.get(0),
+            )?;
+            if tracked {
+                self.db.execute(
+                    "UPDATE activities SET intervals_id = ? WHERE id = ? AND intervals_id IS NULL",
+                    params![intervals_id, kept],
+                )?;
+            } else {
+                self.db.execute(
+                    "UPDATE activity_bodies SET intervals_id = ?
+                     WHERE activity_id = ? AND intervals_id IS NULL",
+                    params![intervals_id, kept],
+                )?;
+            }
+            let metrics = match served {
+                Some((date, raw)) => {
+                    self.db.execute(
+                        "UPDATE activity_bodies SET date = ?, raw = ? WHERE activity_id = ?",
+                        params![date, raw, kept],
+                    )?;
+                    let metrics = metrics_from_body(raw, date, kept)?;
+                    self.write_activity_metrics(&[&metrics], true)?;
+                    Some(metrics)
+                }
+                None => None,
+            };
+            self.commit_activity_removal(memory)?;
+            Ok::<_, rusqlite::Error>(Some(metrics))
+        })();
+        let metrics = match result {
+            Ok(Some(metrics)) => metrics,
+            Ok(None) => return Ok(false),
+            Err(error) => {
+                let _ = self.db.execute_batch("ROLLBACK");
+                for section_id in self.sections_anchored_to(kept) {
+                    self.invalidate_section_cache(&section_id);
+                    self.refresh_section_in_memory(&section_id);
+                }
+                return Err(error);
+            }
+        };
+        let bounds = self.activity_metadata.get(copy).map(|m| m.bounds);
+        self.forget_activity_in_memory(copy);
+        if let Some(metrics) = metrics {
+            self.activity_metrics.insert(kept.to_owned(), metrics);
+        }
+        self.rebuild_spatial_index();
+        if let Some(bounds) = bounds {
+            self.sweep_tiles_for(vec![bounds], "linked duplicate");
+        }
+        Ok(true)
     }
 
     /// The intervals.icu id for a stored activity, or None for one the server
@@ -4622,7 +4796,21 @@ impl PersistentEngine {
             // upload can claim an id in between. The claim is read again under
             // the lock, so a page never stores a second row beside the one
             // that holds the id, and a copy an earlier page left beside it goes.
-            let claims = self.claimed_keys_of(upstream_ids)?;
+            let mut claims = self.claimed_keys_of(upstream_ids)?;
+            let unclaimed: Vec<super::garmin_link::IncomingActivity<'_>> = rows
+                .iter()
+                .zip(upstream_ids)
+                .filter(|(_, upstream_id)| !claims.contains_key(*upstream_id))
+                .map(
+                    |((_, date, raw), upstream_id)| super::garmin_link::IncomingActivity {
+                        upstream_id,
+                        date: *date,
+                        raw,
+                    },
+                )
+                .collect();
+            claims.extend(super::garmin_link::link_incoming(&self.db, &unclaimed)?);
+            drop(unclaimed);
             for (index, upstream_id) in upstream_ids.iter().enumerate() {
                 let Some(claimed) = claims.get(upstream_id) else {
                     continue;
@@ -4633,6 +4821,12 @@ impl PersistentEngine {
                     orphans.push(upstream_id.clone());
                 }
             }
+            // A stub says nothing about a ride whose row holds the original
+            // from Garmin, so that row keeps its body and its figures.
+            let keeps_original: Vec<bool> = rows
+                .iter()
+                .map(|(key, _, raw)| super::garmin_link::stub_for_original(key, raw))
+                .collect();
             let stored_detail = detail_body_present("activity_bodies.raw");
             let incoming_detail = detail_body_present("excluded.raw");
             let mut body = self.db.prepare(&format!(
@@ -4659,12 +4853,23 @@ impl PersistentEngine {
                 "UPDATE activity_census SET fetched_sync_date = icu_sync_date
                  WHERE athlete_id = ?1 AND intervals_id = ?2",
             )?;
-            for ((local_id, date, raw), upstream_id) in rows.iter().zip(upstream_ids) {
-                body.execute(params![local_id, date, raw, athlete_id, upstream_id])?;
+            for (((local_id, date, raw), upstream_id), keeps) in
+                rows.iter().zip(upstream_ids).zip(&keeps_original)
+            {
+                if !keeps {
+                    body.execute(params![local_id, date, raw, athlete_id, upstream_id])?;
+                    super::activity_held_back::sync_from_body(&self.db, local_id, raw)?;
+                }
                 invalidate.execute(params![athlete_id, upstream_id, local_id])?;
             }
             drop(body);
             drop(invalidate);
+            let written: Vec<bool> = keeps_original.iter().map(|keeps| !keeps).collect();
+            metrics = std::mem::take(&mut metrics)
+                .into_iter()
+                .zip(&written)
+                .filter_map(|(metric, write)| write.then_some(metric))
+                .collect();
             self.write_activity_metrics(&metrics.iter().collect::<Vec<_>>(), true)?;
             for upstream_id in upstream_ids {
                 mark.execute(params![athlete_id, upstream_id])?;

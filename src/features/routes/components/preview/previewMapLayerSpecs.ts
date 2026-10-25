@@ -9,13 +9,31 @@
 import type { MapPalette } from '@/theme';
 import { EMPTY_FEATURE_COLLECTION, type MapLayerSpec, type MapSourceSpec } from '@/features/maps';
 
-export const PREVIEW_INTERACTIVE_LAYERS = ['proposed-line', 'gone-line', 'current-line'];
+export const PREVIEW_INTERACTIVE_LAYERS = [
+  'proposed-line',
+  'gone-line',
+  'current-line',
+  'retired-line',
+  'retired-hidden-line',
+];
+
+/**
+ * How far a line steps back while another is selected. A line the selection is
+ * not about stays findable but stops competing with the pair being read.
+ */
+const DIMMED_OPACITY = 0.25;
 
 export interface PreviewLayerInput {
   current: GeoJSON.FeatureCollection;
   proposed: GeoJSON.FeatureCollection;
   gone: GeoJSON.FeatureCollection;
   selected: GeoJSON.FeatureCollection;
+  /** Sections the re-cut retired, drawn from the ledger's stored lines. */
+  retired: GeoJSON.FeatureCollection;
+  /** Every catalogue row the retired read returned; only the hidden ones draw. */
+  retiredCurrent: GeoJSON.FeatureCollection;
+  /** The tapped retired or current line and the lines paired with it. */
+  retiredSelection: GeoJSON.FeatureCollection;
   /** The selected area's box, so the athlete can see what a run covers. */
   area: GeoJSON.FeatureCollection;
 }
@@ -27,6 +45,9 @@ export function buildPreviewSources(input: PreviewLayerInput): Record<string, Ma
     'proposed-sections': { kind: 'geojson', data: input.proposed },
     'gone-sections': { kind: 'geojson', data: input.gone },
     'selected-section': { kind: 'geojson', data: input.selected },
+    'retired-sections': { kind: 'geojson', data: input.retired },
+    'retired-current-sections': { kind: 'geojson', data: input.retiredCurrent },
+    'retired-selection': { kind: 'geojson', data: input.retiredSelection },
   };
 }
 
@@ -87,6 +108,58 @@ export function buildPreviewLayers(palette: MapPalette): MapLayerSpec[] {
         'line-opacity': 0.6,
         'line-width': 3,
         'line-dasharray': [2, 2],
+      },
+    },
+    // A retired section has no catalogue row, so its line is a record of where it
+    // was: dashed and muted, behind everything the catalogue holds now. A current
+    // row hidden behind another section draws the same way, fainter, so the
+    // other half of a resolved pair is on the map too. Visible current rows are
+    // the current layer's and are not drawn twice.
+    {
+      id: 'retired-line',
+      type: 'line',
+      source: 'retired-sections',
+      layout: roundLine,
+      paint: {
+        'line-color': palette.muted,
+        'line-opacity': ['match', ['get', 'role'], 'other', DIMMED_OPACITY, 0.9],
+        'line-width': 3,
+        'line-dasharray': [1, 2],
+      },
+    },
+    {
+      id: 'retired-hidden-line',
+      type: 'line',
+      source: 'retired-current-sections',
+      filter: ['==', ['get', 'hidden'], true],
+      layout: roundLine,
+      paint: {
+        'line-color': layer.current,
+        'line-opacity': ['match', ['get', 'role'], 'other', DIMMED_OPACITY / 2, 0.5],
+        'line-width': 3,
+        'line-dasharray': [1, 2],
+      },
+    },
+    {
+      id: 'retired-selection-casing',
+      type: 'line',
+      source: 'retired-selection',
+      layout: roundLine,
+      paint: {
+        'line-color': layer.casing,
+        'line-opacity': 1,
+        'line-width': 8,
+      },
+    },
+    {
+      id: 'retired-selection-line',
+      type: 'line',
+      source: 'retired-selection',
+      layout: roundLine,
+      paint: {
+        'line-color': layer.merging,
+        'line-opacity': 1,
+        'line-width': 5,
       },
     },
     {

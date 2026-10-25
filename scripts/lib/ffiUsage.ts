@@ -349,6 +349,11 @@ export function reachOf(inSrc: number, inDelegates: number): Reach {
  * reader has to re-investigate every time.
  */
 export const OWNED_ELSEWHERE: Record<string, string> = {
+  // The retired list reads the old-versus-new map record now, so no TypeScript
+  // caller is left. The Rust export is deleted with a regeneration of the
+  // bindings, which a change to the screens does not carry.
+  'SectionManager.getRetired':
+    'superseded by getRetiredMap; awaiting deletion from Rust with the bindings regenerated',
   // UniFFI names a constructor `new` and the engine's accessor builds each
   // manager on the Rust side, so TypeScript holds the handle and never
   // constructs one. There is no call to find and nothing to wire up.
@@ -457,8 +462,6 @@ export const CLIENT_UNREACHED_ALLOWED: Record<string, string> = {
   getAvailableSportTypes: 'no production caller; not yet deleted or wired',
   getWellnessLatestDate: 'no production caller; not yet deleted or wired',
   suggestExportHome: 'no production caller; not yet deleted or wired',
-  preferSection:
-    'no production caller yet; the retired sections list is where the athlete prefers one of a pair',
 };
 
 /**
@@ -732,7 +735,7 @@ export function clientCallRows(
 /**
  * Which part of the app a caller file belongs to.
  *
- * The migration moves one screen at a time, so the unit a ceiling is kept per
+ * The migration moves one screen at a time, so the unit a reach is reported per
  * is the feature the screen lives in. `src/app` is the router's own files and
  * `src/shared` the cross-feature ones; both hold engine calls and both shrink
  * the same way. Anything outside `src/` is the engine layer and is not an
@@ -750,61 +753,3 @@ export function areaOf(file: string): string | null {
 
 /** One area's reach: the exports its files name, sorted. */
 export type AreaSurface = Record<string, string[]>;
-
-/**
- * Which areas reach further than they are allowed to, and by which export.
- *
- * What is refused is an export an area did not reach before, because that is
- * the ground a sweep took being given back. The other half of the ratchet, a
- * ceiling entry the area no longer reaches, is `surfaceUnderCeiling`.
- *
- * An area with no ceiling at all is refused too. A new feature that talks to
- * the engine directly has to say so, or the file it should appear in is the
- * one place nobody looks.
- */
-export function surfaceOverCeiling(
-  surface: AreaSurface,
-  ceilings: AreaSurface
-): { area: string; added: string[] }[] {
-  const over: { area: string; added: string[] }[] = [];
-  for (const area of Object.keys(surface).sort()) {
-    const allowed = ceilings[area];
-    if (allowed === undefined) {
-      over.push({ area, added: [...surface[area]].sort() });
-      continue;
-    }
-    const added = surface[area].filter((key) => !allowed.includes(key)).sort();
-    if (added.length > 0) over.push({ area, added });
-  }
-  return over;
-}
-
-/**
- * Which ceiling entries the tree has beaten: per area, the exports the ceiling
- * lists that the area no longer reaches, and whether the area reaches nothing.
- *
- * The ceiling has to follow the tree down or it stops being one. A migration
- * that takes an area's last call to an export and leaves the name listed has
- * made room for that call to come back unrefused, which is the ground the
- * migration took being handed back by the next commit. So an entry the tree no
- * longer needs is refused until it is removed, the way the engine surface and
- * rgba ratchets refuse a ceiling above their count.
- *
- * A key starting with `//` is the note beside the numbers, not an area.
- */
-export function surfaceUnderCeiling(
-  surface: AreaSurface,
-  ceilings: Record<string, unknown>
-): { area: string; stale: string[]; reachesNothing: boolean }[] {
-  const under: { area: string; stale: string[]; reachesNothing: boolean }[] = [];
-  for (const area of Object.keys(ceilings).sort()) {
-    if (area.startsWith('//')) continue;
-    const allowed = ceilings[area] as string[];
-    const reached = surface[area];
-    const stale = allowed.filter((key) => !reached?.includes(key)).sort();
-    if (reached === undefined || stale.length > 0) {
-      under.push({ area, stale, reachesNothing: reached === undefined });
-    }
-  }
-  return under;
-}

@@ -85,6 +85,10 @@ pub mod metrics;
 // FIT file parser for strength training exercise data
 pub mod fit;
 
+// Activity FIT files built to the profile, for tests
+#[cfg(test)]
+pub(crate) mod fit_synthetic;
+
 // Raster tile generation for activity heatmaps
 pub mod tiles;
 

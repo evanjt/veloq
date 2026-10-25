@@ -167,6 +167,276 @@ pub fn parse_fit_recording(data: &[u8]) -> Result<FitRecording, FitParseError> {
     Ok(recording)
 }
 
+/// One `record` message: the readings a device took at one second.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct FitSample {
+    /// Unix seconds.
+    pub timestamp: i64,
+    /// Latitude and longitude in degrees, `None` where the device had no fix.
+    pub position: Option<(f64, f64)>,
+    /// Metres.
+    pub altitude: Option<f64>,
+    pub heart_rate: Option<f64>,
+    pub cadence: Option<f64>,
+    /// Metres from the start.
+    pub distance: Option<f64>,
+    /// Metres per second.
+    pub speed: Option<f64>,
+    pub power: Option<f64>,
+}
+
+/// The first session message's totals. A figure the device did not write is
+/// `None`, never zero.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct FitTotals {
+    /// The timer's seconds, which pauses do not run.
+    pub moving_secs: Option<f64>,
+    /// The wall-clock span in seconds, pauses included.
+    pub elapsed_secs: Option<f64>,
+    pub distance: Option<f64>,
+    pub ascent: Option<f64>,
+    pub avg_speed: Option<f64>,
+    pub max_speed: Option<f64>,
+    pub avg_heart_rate: Option<f64>,
+    pub max_heart_rate: Option<f64>,
+    pub avg_cadence: Option<f64>,
+    pub avg_power: Option<f64>,
+    pub max_power: Option<f64>,
+    pub calories: Option<f64>,
+}
+
+/// Everything an activity file holds that a stored activity is made of.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct FitActivity {
+    /// The start in Unix seconds, UTC.
+    pub start_unix: i64,
+    /// Wall clock minus UTC in seconds, when the file says what the clock
+    /// read.
+    pub utc_offset_secs: Option<i64>,
+    /// The profile's Sport and SubSport numbers.
+    pub sport: Option<u8>,
+    pub sub_sport: Option<u8>,
+    pub samples: Vec<FitSample>,
+    pub totals: FitTotals,
+}
+
+/// Seconds from the Unix epoch to the FIT epoch, 1989-12-31T00:00:00Z.
+const FIT_EPOCH_UNIX: i64 = 631_065_600;
+
+/// No zone is further than this from UTC, so an offset past it is a file that
+/// does not mean what it says.
+const MAX_UTC_OFFSET_SECS: i64 = 18 * 3600;
+
+/// The activity a FIT file records, from one decode.
+///
+/// The totals are the first session message's, and a sensor the device had no
+/// reading from at a second leaves that sample's field unset. A file with no
+/// start time, on its session or on any record, is an error: an activity with
+/// no date has no place in a library.
+pub fn parse_fit_activity(data: &[u8]) -> Result<FitActivity, FitParseError> {
+    if data.is_empty() {
+        return Err(FitParseError::Empty);
+    }
+    let records = decode(data)?;
+    let mut activity = FitActivity::default();
+    let mut session_start = None;
+    let mut session_read = false;
+    let mut clock = (None, None);
+    for record in &records {
+        match record.kind() {
+            fitparser::profile::MesgNum::Record => {
+                if let Some(sample) = sample_of(record) {
+                    activity.samples.push(sample);
+                }
+            }
+            fitparser::profile::MesgNum::Session if !session_read => {
+                session_read = true;
+                session_start = read_session(record, &mut activity);
+            }
+            fitparser::profile::MesgNum::Activity => {
+                for field in record.fields() {
+                    if let fitparser::Value::Timestamp(at) = field.value() {
+                        match field.name() {
+                            "timestamp" => clock.0 = Some(*at),
+                            "local_timestamp" => clock.1 = Some(*at),
+                            _ => {}
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    activity.start_unix = session_start
+        .or_else(|| activity.samples.first().map(|s| s.timestamp))
+        .ok_or_else(|| FitParseError::Decode("the file holds no start time".to_string()))?;
+    if let (Some(utc), Some(local)) = clock {
+        activity.utc_offset_secs = utc_offset_of(utc.timestamp(), &local);
+    }
+    Ok(activity)
+}
+
+/// One record message as a sample, `None` for a record with no timestamp.
+fn sample_of(record: &fitparser::FitDataRecord) -> Option<FitSample> {
+    let mut sample = FitSample::default();
+    let mut timestamp = None;
+    let (mut lat, mut lng) = (None, None);
+    let (mut altitude, mut enhanced_altitude) = (None, None);
+    let (mut speed, mut enhanced_speed) = (None, None);
+    for field in record.fields() {
+        let value = field.value();
+        match field.name() {
+            "timestamp" => timestamp = timestamp_of(value),
+            "position_lat" => lat = semicircles_to_degrees(value),
+            "position_long" => lng = semicircles_to_degrees(value),
+            "altitude" => altitude = signed_number(value),
+            "enhanced_altitude" => enhanced_altitude = signed_number(value),
+            "heart_rate" => sample.heart_rate = finite_number(value),
+            "cadence" => sample.cadence = finite_number(value),
+            "distance" => sample.distance = finite_number(value),
+            "speed" => speed = finite_number(value),
+            "enhanced_speed" => enhanced_speed = finite_number(value),
+            "power" => sample.power = finite_number(value),
+            _ => {}
+        }
+    }
+    sample.timestamp = timestamp?;
+    sample.position = lat.zip(lng);
+    // The decoder widens a 16-bit reading into its enhanced field, so the
+    // enhanced one is the reading when both are present.
+    sample.altitude = enhanced_altitude.or(altitude);
+    sample.speed = enhanced_speed.or(speed);
+    Some(sample)
+}
+
+/// The session's sport and totals into `activity`, answering its start.
+fn read_session(record: &fitparser::FitDataRecord, activity: &mut FitActivity) -> Option<i64> {
+    let totals = &mut activity.totals;
+    let (mut max_speed, mut enhanced_max_speed) = (None, None);
+    let (mut avg_speed, mut enhanced_avg_speed) = (None, None);
+    let mut start = None;
+    for field in record.fields() {
+        let value = field.value();
+        match field.name() {
+            "start_time" => start = timestamp_of(value),
+            "sport" => activity.sport = enum_number(value),
+            "sub_sport" => activity.sub_sport = enum_number(value),
+            "total_timer_time" => totals.moving_secs = finite_number(value),
+            "total_elapsed_time" => totals.elapsed_secs = finite_number(value),
+            "total_distance" => totals.distance = finite_number(value),
+            "total_ascent" => totals.ascent = finite_number(value),
+            "avg_speed" => avg_speed = finite_number(value),
+            "enhanced_avg_speed" => enhanced_avg_speed = finite_number(value),
+            "max_speed" => max_speed = finite_number(value),
+            "enhanced_max_speed" => enhanced_max_speed = finite_number(value),
+            "avg_heart_rate" => totals.avg_heart_rate = finite_number(value),
+            "max_heart_rate" => totals.max_heart_rate = finite_number(value),
+            "avg_cadence" => totals.avg_cadence = finite_number(value),
+            "avg_power" => totals.avg_power = finite_number(value),
+            "max_power" => totals.max_power = finite_number(value),
+            "total_calories" => totals.calories = finite_number(value),
+            _ => {}
+        }
+    }
+    totals.avg_speed = enhanced_avg_speed.or(avg_speed);
+    totals.max_speed = enhanced_max_speed.or(max_speed);
+    start
+}
+
+fn timestamp_of(value: &fitparser::Value) -> Option<i64> {
+    match value {
+        fitparser::Value::Timestamp(at) => Some(at.timestamp()),
+        _ => None,
+    }
+}
+
+/// The wall clock's offset from UTC at the end of the file.
+///
+/// The decoder reads a local timestamp as seconds after the FIT epoch laid on
+/// the host's own clock, so the host's zone at that epoch is taken back out
+/// first. What remains is the file's own clock minus its UTC one, whichever
+/// zone this runs in.
+fn utc_offset_of(utc_unix: i64, local: &chrono::DateTime<chrono::Local>) -> Option<i64> {
+    use chrono::TimeZone;
+    let epoch = chrono::NaiveDate::from_ymd_opt(1989, 12, 31)?.and_hms_opt(0, 0, 0)?;
+    let epoch_on_host = chrono::Local
+        .from_local_datetime(&epoch)
+        .single()?
+        .timestamp();
+    let local_seconds = local.timestamp() - epoch_on_host;
+    let utc_seconds = utc_unix - FIT_EPOCH_UNIX;
+    Some(local_seconds - utc_seconds).filter(|offset| offset.abs() <= MAX_UTC_OFFSET_SECS)
+}
+
+/// A signed reading in its unit, unlike [`finite_number`] which refuses a
+/// negative one: an altitude below sea level is a reading.
+fn signed_number(value: &fitparser::Value) -> Option<f64> {
+    let number = match value {
+        fitparser::Value::Float64(v) => *v,
+        fitparser::Value::Float32(v) => f64::from(*v),
+        fitparser::Value::SInt8(v) => f64::from(*v),
+        fitparser::Value::SInt16(v) => f64::from(*v),
+        fitparser::Value::SInt32(v) => f64::from(*v),
+        fitparser::Value::SInt64(v) => *v as f64,
+        fitparser::Value::UInt8(v) => f64::from(*v),
+        fitparser::Value::UInt16(v) => f64::from(*v),
+        fitparser::Value::UInt32(v) => f64::from(*v),
+        _ => return None,
+    };
+    number.is_finite().then_some(number)
+}
+
+impl FitActivity {
+    /// The record series in intervals.icu's names and order, one value per
+    /// record, a second with no reading as a gap. A series nothing in the
+    /// file measured is left out rather than written as all gaps, so the
+    /// stored series are the ones the device had.
+    ///
+    /// This is the one place a FIT file becomes that canonical form. `time` is
+    /// seconds after the start, `latlng` carries latitude in `data` and
+    /// longitude in `data2`, and `velocity_smooth` is the recorded speed in
+    /// metres per second.
+    pub fn streams(&self) -> Vec<crate::net::types::StreamDto> {
+        use crate::net::types::StreamDto;
+        let series = |kind: &str, read: &dyn Fn(&FitSample) -> Option<f64>| {
+            let data: Vec<Option<f64>> = self.samples.iter().map(read).collect();
+            data.iter().any(Option::is_some).then(|| StreamDto {
+                kind: kind.to_string(),
+                data,
+                data2: None,
+            })
+        };
+        let mut out = Vec::new();
+        if self.samples.is_empty() {
+            return out;
+        }
+        out.push(StreamDto {
+            kind: "time".to_string(),
+            data: self
+                .samples
+                .iter()
+                .map(|s| Some((s.timestamp - self.start_unix) as f64))
+                .collect(),
+            data2: None,
+        });
+        let positions: Vec<Option<(f64, f64)>> = self.samples.iter().map(|s| s.position).collect();
+        if positions.iter().any(Option::is_some) {
+            out.push(StreamDto {
+                kind: "latlng".to_string(),
+                data: positions.iter().map(|p| p.map(|p| p.0)).collect(),
+                data2: Some(positions.iter().map(|p| p.map(|p| p.1)).collect()),
+            });
+        }
+        out.extend(series("heartrate", &|s| s.heart_rate));
+        out.extend(series("watts", &|s| s.power));
+        out.extend(series("cadence", &|s| s.cadence));
+        out.extend(series("altitude", &|s| s.altitude));
+        out.extend(series("distance", &|s| s.distance));
+        out.extend(series("velocity_smooth", &|s| s.speed));
+        out
+    }
+}
+
 /// What a pool swim's FIT holds of its lengths.
 #[derive(Debug, Clone, Default)]
 pub struct FitPoolSwim {
@@ -652,6 +922,180 @@ pub(crate) mod tests {
     fn an_unreadable_fit_is_an_error_not_an_empty_track() {
         assert!(super::parse_fit_track(&[]).is_err());
         assert!(super::parse_fit_track(b"not a fit file").is_err());
+    }
+
+    fn kinds(streams: &[crate::net::types::StreamDto]) -> Vec<&str> {
+        streams.iter().map(|s| s.kind.as_str()).collect()
+    }
+
+    fn stream<'a>(
+        streams: &'a [crate::net::types::StreamDto],
+        kind: &str,
+    ) -> &'a crate::net::types::StreamDto {
+        streams.iter().find(|s| s.kind == kind).expect(kind)
+    }
+
+    /// Scenario: a Garmin original is the only copy of a ride once the server
+    /// stops serving it, so everything a stored activity is made of has to come
+    /// out of the file.
+    ///
+    /// Expected behaviour: the start in UTC with the wall clock's offset, the
+    /// sport numbers, every sensor series in intervals.icu's names and order at
+    /// the length of `time`, and the session totals.
+    #[test]
+    fn an_outdoor_ride_reads_back_its_start_series_and_totals() {
+        let ride = super::super::fit_synthetic::outdoor_ride();
+        let activity = parse_fit_activity(&ride.to_fit()).expect("a readable FIT");
+
+        assert_eq!(activity.start_unix, ride.start_unix);
+        assert_eq!(activity.utc_offset_secs, Some(7_200));
+        assert_eq!(activity.sport, Some(2));
+        assert_eq!(activity.sub_sport, Some(0));
+
+        let streams = activity.streams();
+        assert_eq!(
+            kinds(&streams),
+            [
+                "time",
+                "latlng",
+                "heartrate",
+                "watts",
+                "cadence",
+                "altitude",
+                "distance",
+                "velocity_smooth"
+            ]
+        );
+        assert!(streams.iter().all(|s| s.data.len() == 30));
+        let time = stream(&streams, "time");
+        assert_eq!(time.data[0], Some(0.0));
+        assert_eq!(time.data[29], Some(29.0));
+        assert_eq!(stream(&streams, "heartrate").data[3], Some(123.0));
+        assert_eq!(stream(&streams, "watts").data[29], Some(229.0));
+        assert_eq!(stream(&streams, "cadence").data[4], Some(84.0));
+        let near = |got: Option<f64>, want: f64, tolerance: f64| {
+            assert!(
+                got.is_some_and(|v| (v - want).abs() <= tolerance),
+                "{got:?} is not {want}"
+            );
+        };
+        near(stream(&streams, "altitude").data[2], 501.0, 0.2);
+        near(stream(&streams, "distance").data[5], 30.0, 0.01);
+        near(stream(&streams, "velocity_smooth").data[7], 6.0, 0.001);
+        let latlng = stream(&streams, "latlng");
+        near(latlng.data[10], 46.501, 1e-6);
+        near(latlng.data2.as_ref().unwrap()[10], 7.2505, 1e-6);
+
+        let totals = &activity.totals;
+        assert_eq!(totals.moving_secs, Some(28.0));
+        assert_eq!(totals.elapsed_secs, Some(30.0));
+        assert_eq!(totals.distance, Some(174.0));
+        assert_eq!(totals.ascent, Some(15.0));
+        near(totals.avg_speed, 6.2, 0.001);
+        near(totals.max_speed, 6.5, 0.001);
+        assert_eq!(totals.avg_heart_rate, Some(135.0));
+        assert_eq!(totals.max_heart_rate, Some(149.0));
+        assert_eq!(totals.avg_cadence, Some(82.0));
+        assert_eq!(totals.avg_power, Some(214.0));
+        assert_eq!(totals.max_power, Some(229.0));
+        assert_eq!(totals.calories, Some(11.0));
+    }
+
+    /// Scenario: a trainer ride has no fix and no altitude, and the device
+    /// writes those fields as invalid values.
+    ///
+    /// Expected behaviour: no `latlng` and no `altitude` series, and an invalid
+    /// value is not read as a reading, while the sensors that did read stay.
+    #[test]
+    fn an_indoor_ride_has_no_position_or_altitude_series() {
+        let ride = super::super::fit_synthetic::indoor_ride();
+        let activity = parse_fit_activity(&ride.to_fit()).expect("a readable FIT");
+
+        assert_eq!(activity.sub_sport, Some(6));
+        assert_eq!(activity.totals.ascent, None);
+        let streams = activity.streams();
+        assert_eq!(
+            kinds(&streams),
+            [
+                "time",
+                "heartrate",
+                "watts",
+                "cadence",
+                "distance",
+                "velocity_smooth"
+            ]
+        );
+        assert!(streams.iter().all(|s| s.data.len() == 30));
+    }
+
+    /// Scenario: a ride loses its fix and its heart rate strap for a second.
+    ///
+    /// Expected behaviour: that second is a gap in those series and the series
+    /// keep their length, so the others stay aligned with `time`.
+    #[test]
+    fn a_second_with_no_reading_is_a_gap_and_keeps_the_series_aligned() {
+        let mut ride = super::super::fit_synthetic::outdoor_ride();
+        ride.samples[7].position = None;
+        ride.samples[7].heart_rate = None;
+        ride.samples[8].altitude = Some(-20.0);
+        let activity = parse_fit_activity(&ride.to_fit()).expect("a readable FIT");
+
+        let streams = activity.streams();
+        assert!(streams.iter().all(|s| s.data.len() == 30));
+        assert_eq!(stream(&streams, "heartrate").data[7], None);
+        assert_eq!(stream(&streams, "heartrate").data[8], Some(128.0));
+        let latlng = stream(&streams, "latlng");
+        assert_eq!(latlng.data[7], None);
+        assert_eq!(latlng.data2.as_ref().unwrap()[7], None);
+        assert!(latlng.data[6].is_some() && latlng.data[8].is_some());
+        assert!(
+            stream(&streams, "altitude").data[8].is_some_and(|v| (v + 20.0).abs() < 0.2),
+            "a reading below sea level is a reading"
+        );
+    }
+
+    /// The decoder lays a local timestamp on the host's own clock, so the
+    /// offset has to come out the same whichever zone the host is in.
+    #[test]
+    fn the_utc_offset_does_not_depend_on_the_hosts_zone() {
+        use chrono::TimeZone;
+        let epoch = chrono::NaiveDate::from_ymd_opt(1989, 12, 31)
+            .unwrap()
+            .and_hms_opt(0, 0, 0)
+            .unwrap();
+        let on_host = chrono::Local.from_local_datetime(&epoch).single().unwrap();
+        let utc_unix = 1_773_471_600;
+        for offset in [-9 * 3600, 0, 5 * 3600 + 1800, 14 * 3600] {
+            let local = on_host + chrono::Duration::seconds(utc_unix - FIT_EPOCH_UNIX + offset);
+            assert_eq!(utc_offset_of(utc_unix, &local), Some(offset));
+        }
+        let far = on_host + chrono::Duration::seconds(utc_unix - FIT_EPOCH_UNIX + 20 * 3600);
+        assert_eq!(utc_offset_of(utc_unix, &far), None);
+    }
+
+    #[test]
+    fn an_unreadable_activity_fit_is_an_error_not_an_empty_activity() {
+        assert!(matches!(parse_fit_activity(&[]), Err(FitParseError::Empty)));
+        let good = super::super::fit_synthetic::outdoor_ride().to_fit();
+        let mut flipped = good.clone();
+        let last = flipped.len() - 1;
+        flipped[last] ^= 0xFF;
+        for data in [
+            flipped,
+            good[..good.len() / 2].to_vec(),
+            b"not a fit file".to_vec(),
+        ] {
+            assert!(matches!(
+                parse_fit_activity(&data),
+                Err(FitParseError::Decode(_))
+            ));
+        }
+        for data in oversized_headers() {
+            assert!(matches!(
+                parse_fit_activity(&data),
+                Err(FitParseError::Decode(_))
+            ));
+        }
     }
 
     /// A header that claims 255 bytes in a 20-byte file, with a set and with a

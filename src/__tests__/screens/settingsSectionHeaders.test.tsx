@@ -211,7 +211,8 @@ describe('settings row dividers', () => {
       await hub.unmount();
 
       const about = await render(<AboutScreen />);
-      expect(dividerLooks(about)).toEqual(Array(2 + 4).fill(expected));
+      // Three intervals.icu rows and six Veloq rows: one divider between each pair.
+      expect(dividerLooks(about)).toEqual(Array(2 + 5).fill(expected));
       await about.unmount();
     }
   );

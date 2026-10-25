@@ -17,6 +17,7 @@ import type {
   GpxFile as FfiGpxFile,
   FfiBackupScreenData,
   FfiCacheScreenData,
+  FfiRecordScreenData,
   FfiBackgroundJobsData,
 } from '../generated/veloqrs';
 
@@ -76,6 +77,12 @@ export function suggestExportHome(host: DelegateHost): FfiSuggestedHome | null {
 export function getBackupScreenData(host: DelegateHost): FfiBackupScreenData | undefined {
   if (!host.ready) return undefined;
   return host.timed('getBackupScreenData', () => host.engine.settings().backupScreenData());
+}
+
+/** The sports the record screen offers as chips: the library's, most activities first. */
+export function getRecordScreenData(host: DelegateHost): FfiRecordScreenData | undefined {
+  if (!host.ready) return undefined;
+  return host.timed('getRecordScreenData', () => host.engine.settings().recordScreenData());
 }
 
 export function getCacheScreenData(host: DelegateHost): FfiCacheScreenData | undefined {

@@ -13,7 +13,17 @@ import { fireEvent, render } from '@testing-library/react-native';
 
 import SectionRetiredScreen from '@/app/section-retired';
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides({
+    sections: {
+      getRetiredMapData: () => ({
+        retired: mockGetRetiredSections().map((section) => ({ section })),
+        current: [],
+        pairs: [],
+      }),
+    },
+  })
+);
 jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: () => null }));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
@@ -38,7 +48,6 @@ const mockGetRetiredSections = jest.fn<unknown[], []>();
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => ({
     subscribe: () => () => {},
-    getRetiredSections: () => mockGetRetiredSections(),
   }),
   isEngineReady: () => true,
 }));

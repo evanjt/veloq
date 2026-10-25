@@ -17,7 +17,16 @@ import NamedCorridorsScreen from '@/app/named-corridors';
 import SectionRetiredScreen from '@/app/section-retired';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides({
+    sections: {
+      getRetiredMapData: () =>
+        mockEngine.open
+          ? { retired: mockEngine.retired.map((section) => ({ section })), current: [], pairs: [] }
+          : undefined,
+    },
+  })
+);
 jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: () => null }));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
@@ -48,7 +57,6 @@ jest.mock('@/shared/native/engine', () => {
     },
     subscribe: () => () => {},
     getNamedCorridors: () => (mockEngine.open ? mockEngine.corridors : []),
-    getRetiredSections: () => (mockEngine.open ? mockEngine.retired : []),
     removeNamedCorridor: () => false,
   };
   return {

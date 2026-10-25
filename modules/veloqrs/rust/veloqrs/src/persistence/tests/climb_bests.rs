@@ -495,7 +495,10 @@ fn an_upgrade_clears_rows_written_before_the_final_step_fix_and_owes_them_again(
             .db
             .execute_batch(
                 "ALTER TABLE push_runs DROP COLUMN posted_title;
-                 ALTER TABLE push_runs DROP COLUMN posted_body;",
+                 ALTER TABLE push_runs DROP COLUMN posted_body;
+                 DROP TABLE activity_sync_failures;
+                 DROP TABLE activity_held_back;
+                 DROP TABLE garmin_link_unresolved;",
             )
             .unwrap();
         engine

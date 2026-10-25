@@ -48,6 +48,23 @@ impl ParsedFit {
     }
 }
 
+/// Settle an activity's FIT file from the outcome of its download: a file is
+/// parsed and stored, and a failure is settled or left owed as
+/// [`settle_failed_download`] decides. The one step every fetch path ends in.
+pub(crate) async fn settle_fit_download(
+    install: u64,
+    activity_id: &str,
+    downloaded: Result<Vec<u8>, NetError>,
+) -> Result<(), NetError> {
+    match downloaded {
+        Ok(data) => {
+            store_parsed_fit(install, activity_id, &data).await;
+            Ok(())
+        }
+        Err(e) => settle_failed_download(install, activity_id, e).await,
+    }
+}
+
 /// Parse a downloaded FIT file for what the activity's sport reads, store it,
 /// and settle the activity. Both fetch paths share it so one download can only
 /// ever produce one verdict, written the same way.
@@ -380,15 +397,10 @@ impl StrengthManager {
                     return Ok(());
                 };
                 // A card the athlete has open is waiting on this one.
-                let data = match fetcher
+                let downloaded = fetcher
                     .download_fit_file(&upstream, crate::governor::Lane::Interactive)
-                    .await
-                {
-                    Ok(data) => data,
-                    Err(e) => return settle_failed_download(install, &activity_id, e).await,
-                };
-                store_parsed_fit(install, &activity_id, &data).await;
-                Ok(())
+                    .await;
+                settle_fit_download(install, &activity_id, downloaded).await
             },
         )
     }

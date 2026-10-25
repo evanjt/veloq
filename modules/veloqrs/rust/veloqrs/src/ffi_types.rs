@@ -1032,6 +1032,14 @@ pub struct FfiBackupScreenData {
     pub record_backup_run: Option<f64>,
 }
 
+/// What the record screen offers before a recording starts.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiRecordScreenData {
+    /// Sport types the library holds, the one with most activities first, ties
+    /// in name order. Empty for a library with no activity.
+    pub library_sports: Vec<String>,
+}
+
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiCacheScreenData {
     pub stream_retention_days: f64,
@@ -1995,6 +2003,9 @@ pub struct FfiFeedCard {
     /// Whether the activity recorded an `altitude` stream, which makes a zero
     /// climb a measurement rather than a missing one.
     pub has_altitude: bool,
+    /// The fault the last sync met readying this activity, which the card
+    /// marks with a retry. None when its last readying was clean.
+    pub sync_failure: Option<crate::persistence::activity_sync_failures::ActivitySyncFailure>,
 }
 
 /// One page of feed cards, newest first, with the count of everything the
@@ -2483,6 +2494,12 @@ pub struct FfiActivityDetailData {
     /// A pool swim's lengths, rests, SWOLF and per-stroke totals. None for
     /// every sport but `Swim`.
     pub pool_swim: Option<FfiPoolSwim>,
+    /// The fault the last sync met readying this activity, which the screen
+    /// marks with a retry. None when its last readying was clean.
+    pub sync_failure: Option<crate::persistence::activity_sync_failures::ActivitySyncFailure>,
+    /// Set when intervals.icu holds this activity but does not serve it to
+    /// apps, which is why its figures are empty. None for a served activity.
+    pub held_back: Option<crate::persistence::activity_held_back::ActivityHeldBack>,
 }
 
 /// Where a pool swim's lengths stand, read from its FIT file. The

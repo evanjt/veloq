@@ -119,7 +119,7 @@ export function SectionChangeCardSlide() {
           size="sm"
           icon="history"
           label={t('sectionHistory.seeRetired')}
-          onPress={() => navigateTo('/section-retired')}
+          onPress={() => navigateTo('/detection-preview?layer=retired')}
         />
       )}
       {changes !== '' && (

@@ -24,15 +24,18 @@ export function defaultEntrySport(recent: readonly ActivityType[]): ActivityType
 }
 
 /**
- * The chip row. The recent sports, most recent first, and the chosen sport
- * always among them, so a pick from More is shown as the one Start begins.
+ * The chip row. The recent sports, most recent first, then the sports the
+ * library holds most activities in, then the fixed defaults, without repeats.
+ * The chosen sport is always among them, so a pick from More is shown as the
+ * one Start begins.
  */
 export function entrySportChips(
   recent: readonly ActivityType[],
   chosen: ActivityType,
+  library: readonly ActivityType[] = [],
   count: number = ENTRY_CHIP_COUNT
 ): ActivityType[] {
-  const base = (recent.length > 0 ? recent : DEFAULT_ENTRY_SPORTS).slice(0, count);
+  const base = [...new Set([...recent, ...library, ...DEFAULT_ENTRY_SPORTS])].slice(0, count);
   if (base.includes(chosen)) return base;
   return [chosen, ...base.slice(0, count - 1)];
 }

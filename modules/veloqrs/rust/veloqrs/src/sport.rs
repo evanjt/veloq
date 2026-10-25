@@ -203,6 +203,12 @@ pub fn sport_shade(sport: &str) -> u8 {
     }
 }
 
+/// Whether the sport is a strength session, whose FIT file carries exercise
+/// sets and which has no track.
+pub fn is_strength(sport: &str) -> bool {
+    sport == "WeightTraining"
+}
+
 pub fn is_cycling(sport: &str) -> bool {
     CYCLING.contains(&sport)
 }
@@ -265,6 +271,99 @@ pub fn family_of(sport: &str) -> Vec<&str> {
     vec![sport]
 }
 
+/// The sport string for the Sport and SubSport numbers of a FIT session, in
+/// the names intervals.icu uses. A pairing no arm names falls to its sport's
+/// plain form, and a sport the profile names that no list here holds is
+/// `Other`.
+pub fn from_fit(sport: Option<u8>, sub_sport: Option<u8>) -> &'static str {
+    // SubSport numbers by name, per the FIT profile.
+    const MOUNTAIN: u8 = 8;
+    const CYCLOCROSS: u8 = 11;
+    const HAND_CYCLING: u8 = 12;
+    const TRACK_CYCLING: u8 = 13;
+    const E_BIKE_FITNESS: u8 = 28;
+    const E_BIKE_MOUNTAIN: u8 = 47;
+    const GRAVEL: u8 = 46;
+    const TRAIL: u8 = 3;
+    const OPEN_WATER: u8 = 18;
+    const VIRTUAL_ACTIVITY: u8 = 58;
+    const BACKCOUNTRY: u8 = 37;
+    const STRENGTH: u8 = 20;
+    const ELLIPTICAL: u8 = 15;
+    const STAIR_CLIMBING: u8 = 16;
+    const INDOOR_ROWING: u8 = 14;
+    const YOGA: u8 = 43;
+    const PILATES: u8 = 44;
+    const HIIT: u8 = 62;
+    let sub = sub_sport.unwrap_or(0);
+    match sport {
+        Some(1) => match sub {
+            TRAIL => "TrailRun",
+            VIRTUAL_ACTIVITY => "VirtualRun",
+            _ => "Run",
+        },
+        Some(2) => match sub {
+            MOUNTAIN => "MountainBikeRide",
+            CYCLOCROSS => "Cyclocross",
+            HAND_CYCLING => "Handcycle",
+            TRACK_CYCLING => "TrackRide",
+            GRAVEL => "GravelRide",
+            E_BIKE_FITNESS => "EBikeRide",
+            E_BIKE_MOUNTAIN => "EMountainBikeRide",
+            VIRTUAL_ACTIVITY => "VirtualRide",
+            _ => "Ride",
+        },
+        Some(21) => match sub {
+            E_BIKE_MOUNTAIN => "EMountainBikeRide",
+            _ => "EBikeRide",
+        },
+        Some(4) => match sub {
+            ELLIPTICAL => "Elliptical",
+            STAIR_CLIMBING => "StairStepper",
+            INDOOR_ROWING => "Rowing",
+            STRENGTH => "WeightTraining",
+            YOGA => "Yoga",
+            PILATES => "Pilates",
+            HIIT => "HighIntensityIntervalTraining",
+            _ => "Workout",
+        },
+        Some(10) => match sub {
+            STRENGTH => "WeightTraining",
+            YOGA => "Yoga",
+            PILATES => "Pilates",
+            HIIT => "HighIntensityIntervalTraining",
+            _ => "Workout",
+        },
+        Some(5) => match sub {
+            OPEN_WATER => "OpenWaterSwim",
+            _ => "Swim",
+        },
+        Some(11) => "Walk",
+        Some(17) => "Hike",
+        Some(35) => "Snowshoe",
+        Some(12) => "NordicSki",
+        Some(13) => match sub {
+            BACKCOUNTRY => "BackcountrySki",
+            _ => "AlpineSki",
+        },
+        Some(14) => "Snowboard",
+        Some(15) => "Rowing",
+        Some(19 | 41) => "Kayaking",
+        Some(37) => "StandUpPaddling",
+        Some(32) => "Sail",
+        Some(43) => "Windsurf",
+        Some(44) => "Kitesurf",
+        Some(38) => "Surfing",
+        Some(33) => "IceSkate",
+        Some(30) => "InlineSkate",
+        Some(8) => "Tennis",
+        Some(7) => "Soccer",
+        Some(25) => "Golf",
+        Some(31) => "RockClimbing",
+        _ => "Other",
+    }
+}
+
 /// Sports whose elevation is not the athlete's own climbing: assisted, or simulated.
 pub(crate) const UNPOWERED_ELEVATION_EXCLUDED: &[&str] = &[
     "EBikeRide",
@@ -295,6 +394,51 @@ pub fn sql_list(sports: &[&str]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Scenario: a Garmin original names its sport by profile numbers, and the
+    /// stored activity is typed by the string every screen keys on.
+    ///
+    /// Expected behaviour: each pairing lands on a sport the taxonomy lists, and
+    /// the ones the app reads by family land in the family they belong to.
+    #[test]
+    fn a_fit_sport_maps_to_a_listed_sport() {
+        let cases = [
+            (Some(2), Some(0), "Ride"),
+            (Some(2), None, "Ride"),
+            (Some(2), Some(6), "Ride"),
+            (Some(2), Some(8), "MountainBikeRide"),
+            (Some(2), Some(46), "GravelRide"),
+            (Some(2), Some(58), "VirtualRide"),
+            (Some(21), Some(0), "EBikeRide"),
+            (Some(1), Some(1), "Run"),
+            (Some(1), Some(3), "TrailRun"),
+            (Some(5), Some(17), "Swim"),
+            (Some(5), Some(18), "OpenWaterSwim"),
+            (Some(17), None, "Hike"),
+            (Some(10), Some(20), "WeightTraining"),
+            (Some(10), Some(0), "Workout"),
+            (Some(4), Some(15), "Elliptical"),
+            (Some(0), None, "Other"),
+            (None, None, "Other"),
+            (Some(200), None, "Other"),
+        ];
+        for (sport, sub, want) in cases {
+            assert_eq!(from_fit(sport, sub), want, "{sport:?} {sub:?}");
+        }
+        for sport in 0..=u8::MAX {
+            for sub in [
+                0, 3, 6, 8, 11, 14, 15, 16, 18, 20, 28, 37, 43, 44, 46, 47, 58, 62,
+            ] {
+                let mapped = from_fit(Some(sport), Some(sub));
+                assert!(
+                    mapped == "Other" || FAMILIES.iter().any(|(_, list)| list.contains(&mapped)),
+                    "{sport} {sub} mapped to {mapped}, which no family lists"
+                );
+            }
+        }
+        assert!(is_cycling(from_fit(Some(2), Some(13))));
+        assert!(is_virtual(from_fit(Some(2), Some(58))));
+    }
 
     #[test]
     fn climbing_bests_drop_assisted_and_virtual_sports() {

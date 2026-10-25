@@ -19,8 +19,9 @@ import type {
   GroupWithPolyline,
   SectionWithPolyline,
   SectionHiddenFilters,
+  RetiredMapData,
 } from 'veloqrs';
-import { GroupSort, SectionSort, routes } from 'veloqrs';
+import { GroupSort, SectionSort, routes, sections } from 'veloqrs';
 import type { LatLngShort } from '@/shared/geo/distance';
 import {
   mergeHasMore,
@@ -499,6 +500,28 @@ export function useRetiredSectionCount(): number {
  */
 export function useArchivedRetiredCount(): number {
   return useRetiredCounts().archived;
+}
+
+/** What `useRetiredMapData` answers: the record, or why there is none. */
+export interface RetiredMapRead {
+  /** Null while the engine is closed or when the read failed. */
+  data: RetiredMapData | null;
+  /** Set when the read threw, so a caller that must not show a failure as empty can raise it. */
+  failure: { error: unknown } | null;
+}
+
+/**
+ * Everything the old-versus-new sections map draws, in one read: the retired sections with their
+ * lines, every catalogue row and the pairs between them. The retired list reads the same record,
+ * so the list and the map cannot disagree about which sections left.
+ */
+export function useRetiredMapData(): RetiredMapRead {
+  const readRetired = useEngineRead(['sections', 'detectionApplied']);
+  return useMemo(() => {
+    const result = attemptEngineRead(() => readRetired(() => sections.getRetiredMapData()));
+    if (!result.ok) return { data: null, failure: { error: result.error } };
+    return { data: result.value ?? null, failure: null };
+  }, [readRetired]);
 }
 
 function useRetiredCounts(): RetiredCounts {

@@ -345,3 +345,154 @@ fn test_first_use_pass_settles_a_server_keyed_copy_beside_its_claiming_row() {
     assert!(outcome.is_ok(), "{outcome:?}");
     assert_eq!(held, vec!["local-w1".to_string()]);
 }
+
+fn sync_failure_of(
+    id: &str,
+) -> Option<crate::persistence::activity_sync_failures::ActivitySyncFailure> {
+    with_persistent_engine(|engine| {
+        crate::persistence::activity_sync_failures::of(&engine.db, id).expect("failure read")
+    })
+    .expect("engine")
+}
+
+fn feed_failure_of(
+    id: &str,
+) -> Option<crate::persistence::activity_sync_failures::ActivitySyncFailure> {
+    let query = crate::FfiActivityBodiesQuery {
+        oldest_ts: None,
+        newest_ts: None,
+        needle: String::new(),
+        sport_families: Vec::new(),
+        offset: 0,
+        limit: None,
+    };
+    let page = with_persistent_engine(|engine| {
+        crate::persistence::activities::pooled::feed_card_page(&engine.db, &query).expect("page")
+    })
+    .expect("engine");
+    page.cards
+        .into_iter()
+        .find(|card| card.id == id)
+        .unwrap_or_else(|| panic!("{id} has a card"))
+        .sync_failure
+}
+
+fn detail_failure_of(
+    id: &str,
+) -> Option<crate::persistence::activity_sync_failures::ActivitySyncFailure> {
+    with_persistent_engine(|engine| engine.activity_detail_data(id, 2).sync_failure)
+        .expect("engine")
+}
+
+/// Mocks every body for every activity but `r0`, whose streams body does not
+/// decode. Registered ahead of the general mocks, which the server consults
+/// in order.
+fn mock_bodies_with_an_undecodable_streams_body(server: &MockServer) {
+    server.mock(|when, then| {
+        when.method(GET).path("/activity/r0/streams.json");
+        then.status(200)
+            .json_body(json!({"not": "a list of streams"}));
+    });
+    mock_all_bodies(server);
+}
+
+/// Scenario: one of the newest activities has a streams body that does not
+/// decode, and the others are healthy.
+///
+/// Expected behaviour: the step completes, the healthy activities are ready,
+/// the broken one still owes its streams, and the fault is kept against that
+/// activity alone, where the feed card and the detail read both carry it.
+#[test]
+fn test_a_fault_one_activity_causes_does_not_fail_the_step() {
+    let _guard = serial_global_state();
+    let _dir = crate::test_globals::init_global_engine("first-use-queue.db");
+    library_of(3);
+    let server = MockServer::start();
+    mock_bodies_with_an_undecodable_streams_body(&server);
+
+    assert!(run_with_bulk(&server, false).is_ok());
+
+    assert!(owing("r1").is_none() && owing("r2").is_none());
+    assert!(owing("r0").is_some_and(|gap| gap.streams));
+    let failure = sync_failure_of("r0").expect("r0 is marked");
+    assert!(failure.message.contains("r0"), "{}", failure.message);
+    assert_eq!(sync_failure_of("r1"), None);
+    assert_eq!(sync_failure_of("r2"), None);
+    assert_eq!(feed_failure_of("r0"), Some(failure.clone()));
+    assert_eq!(feed_failure_of("r1"), None);
+    assert_eq!(detail_failure_of("r0"), Some(failure));
+    assert_eq!(detail_failure_of("r1"), None);
+}
+
+/// Scenario: the marked activity is retried and its body now decodes.
+///
+/// Expected behaviour: it owes nothing, and its mark is gone from the store,
+/// the feed card and the detail read.
+#[test]
+fn test_a_retry_that_succeeds_clears_the_mark() {
+    let _guard = serial_global_state();
+    let _dir = crate::test_globals::init_global_engine("first-use-queue.db");
+    library_of(2);
+    let broken = MockServer::start();
+    mock_bodies_with_an_undecodable_streams_body(&broken);
+    assert!(run_with_bulk(&broken, false).is_ok());
+    assert!(sync_failure_of("r0").is_some());
+
+    let healthy = MockServer::start();
+    mock_all_bodies(&healthy);
+    assert!(ready_one(&healthy, "r0").expect("retried"));
+
+    assert!(owing("r0").is_none());
+    assert_eq!(sync_failure_of("r0"), None);
+    assert_eq!(feed_failure_of("r0"), None);
+    assert_eq!(detail_failure_of("r0"), None);
+}
+
+/// Scenario: the marked activity is retried and fails the same way again.
+///
+/// Expected behaviour: the mark stays, as one row with the later time.
+#[test]
+fn test_a_retry_that_fails_again_keeps_one_mark() {
+    let _guard = serial_global_state();
+    let _dir = crate::test_globals::init_global_engine("first-use-queue.db");
+    library_of(1);
+    let server = MockServer::start();
+    mock_bodies_with_an_undecodable_streams_body(&server);
+    assert!(run_with_bulk(&server, false).is_ok());
+    let first = sync_failure_of("r0").expect("marked");
+
+    assert!(!ready_one(&server, "r0").expect("the retry ends"));
+
+    let again = sync_failure_of("r0").expect("still marked");
+    assert!(again.failed_at.0 >= first.failed_at.0);
+    let rows: i64 = with_persistent_engine(|engine| {
+        engine
+            .db
+            .query_row("SELECT COUNT(*) FROM activity_sync_failures", [], |r| {
+                r.get(0)
+            })
+            .expect("count")
+    })
+    .expect("engine");
+    assert_eq!(rows, 1);
+}
+
+/// Scenario: the server fails every request.
+///
+/// Expected behaviour: the fault is the network's and not an activity's, so
+/// the step fails as before and no activity is marked.
+#[test]
+fn test_a_server_fault_still_fails_the_step_and_marks_no_activity() {
+    let _guard = serial_global_state();
+    let _dir = crate::test_globals::init_global_engine("first-use-queue.db");
+    library_of(2);
+    let server = MockServer::start();
+    server.mock(|when, then| {
+        when.method(GET);
+        then.status(500);
+    });
+
+    assert!(run_with_bulk(&server, false).is_err());
+    assert_eq!(sync_failure_of("r0"), None);
+    assert_eq!(sync_failure_of("r1"), None);
+}

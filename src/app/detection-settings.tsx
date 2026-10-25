@@ -120,7 +120,7 @@ function DetectionSettingsScreenContent() {
                         ? t('sectionHistory.retiredCount', { count: retiredCount })
                         : t('sectionHistory.retiredEmpty')
                     }
-                    onPress={() => navigateTo('/section-retired')}
+                    onPress={() => navigateTo('/detection-preview?layer=retired')}
                     disabled={retiredCount === 0}
                   />
                 </RowGroup>

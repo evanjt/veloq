@@ -18,6 +18,7 @@
 
 import {
   FfiStartOutcome,
+  GarminKeyStatus,
   type FfiStartResult,
   RangeCoverage,
   type LibraryCoverage,
@@ -47,6 +48,24 @@ export function setSyncCredentials(
 /** Forget the credential (logout). */
 export function clearSyncCredentials(host: DelegateHost): void {
   host.write('clearSyncCredentials', () => host.engine.sync().clearCredentials());
+}
+
+/** Ask Garmin whether a pasted Personal key works, holding it in the engine
+ *  for this process only when it does. Unreachable before the engine opens:
+ *  nothing is known about the key then. */
+export async function connectGarmin(host: DelegateHost, key: string): Promise<GarminKeyStatus> {
+  if (!host.ready) return GarminKeyStatus.Unreachable;
+  return host.timedAsync('connectGarmin', () => host.engine.sync().connectGarmin(key));
+}
+
+/** Hand the engine the key the keychain gave back, unchecked. */
+export function holdGarminKey(host: DelegateHost, key: string): void {
+  host.write('holdGarminKey', () => host.engine.sync().holdGarminKey(key));
+}
+
+/** Forget the Garmin key in the engine. Nothing fetched with it is removed. */
+export function clearGarminKey(host: DelegateHost): void {
+  host.write('clearGarminKey', () => host.engine.sync().clearGarminKey());
 }
 
 /** Start a sync. Returns instantly, naming why when it refuses so a caller can

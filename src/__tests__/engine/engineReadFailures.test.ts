@@ -117,7 +117,6 @@ const READS: [string, (client: EngineClient) => unknown][] = [
   ['getSectionHistory', (c) => c.getSectionHistory('sec-1')],
   ['getSectionGeometryVersionPolyline', (c) => c.getSectionGeometryVersionPolyline('sec-1', 2)],
   ['getPinnedSectionVersion', (c) => c.getPinnedSectionVersion('sec-1')],
-  ['getRetiredSections', (c) => c.getRetiredSections()],
   ['acceptAllSections', (c) => c.acceptAllSections()],
   ['getSectionExtensionTrack', (c) => c.getSectionExtensionTrack('sec-1')],
   ['getAthleteProfile', (c) => c.getAthleteProfile()],

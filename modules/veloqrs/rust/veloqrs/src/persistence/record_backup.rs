@@ -530,6 +530,10 @@ const DEVICE_SETTINGS: &[&str] = &[
     "veloq-whats-new-seen",
     "veloq-support-store",
     "veloq-usage",
+    // The Garmin connector's choices belong to this device with its key.
+    "veloq-garmin-key-expiry",
+    "veloq-garmin-feed",
+    "veloq-garmin-upload",
 ];
 
 /// Whether a settings row under `key` belongs in a record backup. The writer
@@ -889,6 +893,19 @@ impl PersistentEngine {
 #[cfg(test)]
 mod tests {
     use rusqlite::Connection;
+
+    /// Expected behaviour: the Garmin connector's choices stay on the device
+    /// and no record backup carries or restores them.
+    #[test]
+    fn the_garmin_connector_settings_never_travel() {
+        for key in [
+            "veloq-garmin-key-expiry",
+            "veloq-garmin-feed",
+            "veloq-garmin-upload",
+        ] {
+            assert!(!super::is_record_setting(key), "{key} travelled");
+        }
+    }
 
     use super::{
         RECORD_JSON_LIMIT, RECORD_TEMP_PREFIX, collect_record_payload, conversion_directory,

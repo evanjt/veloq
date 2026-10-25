@@ -216,6 +216,21 @@ static TABLES: &[Table] = &[
         "lap and interval bodies from the server",
     ),
     t(
+        "activity_sync_failures",
+        Derived,
+        "the fault the last sync met readying an activity, which the next clean readying clears",
+    ),
+    t(
+        "activity_held_back",
+        Derived,
+        "the activities intervals.icu holds but answers as an empty stub, rebuilt by the next list page that carries one",
+    ),
+    t(
+        "garmin_link_unresolved",
+        Derived,
+        "the Garmin activities that matched more than one intervals.icu activity, rebuilt by the next link pass",
+    ),
+    t(
         "job_attempts",
         Derived,
         "what has been asked for and what it cost; losing it costs one attempt",

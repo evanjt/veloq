@@ -17,11 +17,54 @@ pub const LOCAL_KEY_PREFIX: &str = "local-";
 /// The prefix the seeded demo corpora give their activity keys.
 pub const DEMO_KEY_PREFIX: &str = "demo-";
 
-/// The prefix reserved for activities read from a file rather than handed
-/// down by intervals.icu. Nothing mints one yet; the rules below already keep
-/// such a key out of every census and every upstream ask, so the day an
-/// import writes one it is not removed on the next sync.
+/// The prefix for activities read from a file rather than handed down by
+/// intervals.icu. The rules below keep such a key out of every census and
+/// every upstream ask, so an import is not removed on the next sync.
 pub const SOURCE_KEY_PREFIX: &str = "src-";
+
+/// The prefix a Garmin original's key carries after [`SOURCE_KEY_PREFIX`].
+const GARMIN_KEY_PREFIX: &str = "src-garmin-";
+
+/// The key of the activity read from Garmin's original of `garmin_id`. Every
+/// Garmin key is minted here, so the namespace stays one rule.
+pub fn garmin_source_key(garmin_id: i64) -> String {
+    format!("{GARMIN_KEY_PREFIX}{garmin_id}")
+}
+
+/// The Garmin activity id a `src-garmin-` key was minted from.
+pub fn garmin_id_of_source_key(key: &str) -> Option<i64> {
+    key.strip_prefix(GARMIN_KEY_PREFIX)?
+        .parse::<i64>()
+        .ok()
+        .filter(|id| *id > 0)
+}
+
+/// The service name intervals.icu gives an activity it imported from Garmin.
+const GARMIN_IMPORT_SOURCE: &str = "GARMIN_CONNECT";
+
+/// The prefix an upload of a Garmin original writes before the Garmin id in
+/// `external_id`.
+const GARMIN_EXTERNAL_PREFIX: &str = "garmin:";
+
+/// The Garmin activity id an intervals.icu activity names, from its `source`
+/// and `external_id`.
+///
+/// intervals.icu's own Garmin import writes the bare id, and only a source that
+/// is Garmin (or one the list did not name) is read that way, since another
+/// service's ids are digits too. The form an upload of ours writes is
+/// prefixed and names Garmin whatever the source says.
+pub fn garmin_id_named(source: Option<&str>, external_id: Option<&str>) -> Option<i64> {
+    let external = external_id?.trim();
+    let digits = match external.strip_prefix(GARMIN_EXTERNAL_PREFIX) {
+        Some(prefixed) => prefixed,
+        None if source.is_none_or(|s| s == GARMIN_IMPORT_SOURCE) => external,
+        None => return None,
+    };
+    if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    digits.parse::<i64>().ok().filter(|id| *id > 0)
+}
 
 /// Which namespace an activity key belongs to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -181,6 +224,61 @@ mod tests {
             );
             assert_eq!(upstream_or_key(case.key, case.stored), case.or_key, "{at}");
         }
+    }
+
+    /// Scenario: a Garmin original is stored under a key built from Garmin's
+    /// activity id.
+    ///
+    /// Expected behaviour: the key is in the source namespace, so no upstream
+    /// queue or census names it.
+    #[test]
+    fn a_garmin_key_is_built_from_the_id_in_the_source_namespace() {
+        let key = garmin_source_key(18_342_901_776);
+        assert_eq!(key, "src-garmin-18342901776");
+        assert_eq!(origin_of(&key), ActivityOrigin::Source);
+        assert!(!names_upstream_activity(&key));
+        assert_eq!(ingest_intervals_id(&key), None);
+    }
+
+    #[test]
+    fn a_garmin_id_is_read_from_a_source_key_and_from_both_external_forms() {
+        assert_eq!(
+            garmin_id_of_source_key("src-garmin-18342901776"),
+            Some(18_342_901_776)
+        );
+        for key in [
+            "src-garmin-",
+            "src-garmin-x",
+            "src-garmin--4",
+            "src-file-9",
+            "i9",
+        ] {
+            assert_eq!(garmin_id_of_source_key(key), None, "{key}");
+        }
+
+        let named = |source, external| garmin_id_named(source, external);
+        assert_eq!(
+            named(Some("GARMIN_CONNECT"), Some("24686966034")),
+            Some(24_686_966_034)
+        );
+        assert_eq!(named(None, Some("24686966034")), Some(24_686_966_034));
+        assert_eq!(
+            named(Some("OAUTH_CLIENT"), Some("garmin:24686966034")),
+            Some(24_686_966_034)
+        );
+        assert_eq!(
+            named(Some("OTHER_SERVICE"), Some("24686966034")),
+            None,
+            "another service's id"
+        );
+        for external in ["", "garmin:", "garmin:x1", "12x", "-5", "0"] {
+            assert_eq!(
+                named(Some("GARMIN_CONNECT"), Some(external)),
+                None,
+                "{external:?}"
+            );
+        }
+        assert_eq!(named(Some("GARMIN_CONNECT"), None), None);
     }
 
     #[test]

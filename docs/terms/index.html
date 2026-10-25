@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="en" id="html-root">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Terms of Use and Sale - Veloq</title>
+    <meta name="description" content="Veloq terms of use and sale: provided as is, a best-effort sign-in and notification service, open source under Apache 2.0." />
+    <meta name="theme-color" content="#2F6699" />
+    <link rel="icon" type="image/png" href="../icon.png" />
+
+    <style>
+      :root {
+        /* The app's action blue (blue-600, pressed blue-700), as in the
+           style guide. Gold is kept for achievements. */
+        --primary: #2f6699;
+        --primary-dark: #255380;
+        --bg: #fafafa;
+        --bg-dark: #121212;
+        --text: #1a1a1a;
+        --text-muted: #666666;
+        --text-dark: #ffffff;
+        --text-muted-dark: #aaaaaa;
+        --card: #ffffff;
+        --card-dark: #1e1e1e;
+        --border: #e0e0e0;
+        --border-dark: #333333;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: var(--bg-dark);
+          --text: var(--text-dark);
+          --text-muted: var(--text-muted-dark);
+          --card: var(--card-dark);
+          --border: var(--border-dark);
+          /* The app's dark-theme action step, blue-550. */
+          --primary: #3d74a8;
+        }
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
+          sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+
+      header {
+        padding: 24px 0;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .header-inner {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        text-decoration: none;
+        color: var(--text);
+      }
+
+      .logo img {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+      }
+
+      .logo span {
+        font-size: 24px;
+        font-weight: 700;
+      }
+
+      .nav-links {
+        display: flex;
+        gap: 24px;
+        align-items: center;
+      }
+
+      .nav-links a {
+        color: var(--text-muted);
+        text-decoration: none;
+        font-weight: 500;
+        transition: color 0.2s;
+      }
+
+      .nav-links a:hover {
+        color: var(--primary);
+      }
+
+      .lang-selector {
+        position: relative;
+      }
+
+      .lang-btn {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 6px 12px;
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--text);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        transition: border-color 0.2s;
+      }
+
+      .lang-btn:hover {
+        border-color: var(--primary);
+      }
+
+      .lang-dropdown {
+        position: absolute;
+        top: 100%;
+        right: 0;
+        margin-top: 4px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        min-width: 140px;
+        display: none;
+        z-index: 100;
+      }
+
+      .lang-dropdown.open {
+        display: block;
+      }
+
+      .lang-option {
+        display: block;
+        width: 100%;
+        padding: 10px 16px;
+        border: none;
+        background: none;
+        text-align: left;
+        font-size: 14px;
+        color: var(--text);
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+
+      .lang-option:hover {
+        background: var(--bg);
+      }
+
+      .lang-option.active {
+        color: var(--primary);
+        font-weight: 600;
+      }
+
+      main {
+        padding: 48px 0 80px;
+      }
+
+      h1 {
+        font-size: 2.5rem;
+        font-weight: 800;
+        margin-bottom: 8px;
+        letter-spacing: -0.02em;
+      }
+
+      .last-updated {
+        color: var(--text-muted);
+        margin-bottom: 40px;
+      }
+
+      h2 {
+        font-size: 1.5rem;
+        margin-top: 40px;
+        margin-bottom: 16px;
+        color: var(--primary);
+      }
+
+      p {
+        margin-bottom: 16px;
+      }
+
+      ul {
+        margin-bottom: 16px;
+        padding-left: 24px;
+      }
+
+      li {
+        margin-bottom: 8px;
+      }
+
+      strong {
+        color: var(--text);
+      }
+
+      a {
+        color: var(--primary);
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      .highlight-box {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-left: 4px solid var(--primary);
+        padding: 20px 24px;
+        border-radius: 8px;
+        margin: 24px 0;
+      }
+
+      .highlight-box p {
+        margin: 0;
+        font-weight: 500;
+      }
+
+      footer {
+        padding: 40px 0;
+        border-top: 1px solid var(--border);
+        text-align: center;
+      }
+
+      .footer-links {
+        display: flex;
+        justify-content: center;
+        gap: 32px;
+        margin-bottom: 24px;
+        flex-wrap: wrap;
+      }
+
+      .footer-links a {
+        color: var(--text-muted);
+        text-decoration: none;
+        font-size: 0.95rem;
+      }
+
+      .footer-links a:hover {
+        color: var(--primary);
+      }
+
+      .copyright {
+        color: var(--text-muted);
+        font-size: 0.875rem;
+      }
+
+      @media (max-width: 640px) {
+        .nav-links a:not(.lang-selector) {
+          display: none;
+        }
+
+        h1 {
+          font-size: 2rem;
+        }
+
+        main {
+          padding: 32px 0 48px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="header-inner">
+        <a href="https://veloq.fit" class="logo">
+          <img src="../icon.png" alt="Veloq" />
+          <span>Veloq</span>
+        </a>
+        <nav class="nav-links">
+          <a href="https://veloq.fit" data-i18n="nav.home">Home</a>
+          <a href="https://github.com/evanjt/veloq" target="_blank">GitHub</a>
+          <div class="lang-selector">
+            <button class="lang-btn" id="lang-btn">
+              <span id="current-lang">EN</span>
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+            <div class="lang-dropdown" id="lang-dropdown">
+              <button class="lang-option" data-lang="en">English</button>
+              <button class="lang-option" data-lang="es">Español</button>
+              <button class="lang-option" data-lang="fr">Français</button>
+            </div>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <div class="container">
+        <h1 data-i18n="title">Terms of Use and Sale</h1>
+        <p class="last-updated" data-i18n="lastUpdated">
+          Last updated: 25 October 2026
+        </p>
+
+        <div class="highlight-box">
+          <p data-i18n="intro">
+            Veloq is provided as is. Optional tips fund its continued development. Its sign-in and notification service is provided on a best-effort basis, with no guarantee of availability. Veloq is open source, and anyone may run their own copy.
+          </p>
+        </div>
+
+        <h2 data-i18n="provided.title">Provided as Is</h2>
+        <p data-i18n="provided.content">
+          Veloq is provided as is, without warranty of any kind, express or implied, to the extent the law allows.
+        </p>
+
+        <h2 data-i18n="service.title">Sign-in and Notification Service</h2>
+        <p data-i18n="service.content">
+          Signing in to intervals.icu and receiving push notifications from Veloq use a service at auth.veloq.fit. That service is provided on a best-effort basis, with no guarantee of availability. Signing in with an intervals.icu API key does not use it.
+        </p>
+
+        <h2 data-i18n="purchases.title">Tips</h2>
+        <p data-i18n="purchases.content">
+          Tips are optional one-off purchases made through Apple or Google billing. They fund the continued development of Veloq. Veloq sells nothing else, and a tip unlocks nothing in the app.
+        </p>
+
+        <h2 data-i18n="openSource.title">Open Source</h2>
+        <p data-i18n="openSource.content">
+          Veloq is open source under the <a href="https://github.com/evanjt/veloq/blob/main/LICENSE" target="_blank">Apache 2.0 licence</a>, and its source is at <a href="https://github.com/evanjt/veloq" target="_blank">github.com/evanjt/veloq</a>. Anyone may use, modify and redistribute it under that licence. Anyone may also build and run their own sign-in and notification service from the code in that repository, in place of this one.
+        </p>
+
+        <h2 data-i18n="contact.title">Contact</h2>
+        <p data-i18n="contact.content">
+          <a href="https://github.com/evanjt/veloq/issues">GitHub Issues</a> or
+          <a href="mailto:developer@veloq.fit">developer@veloq.fit</a>
+        </p>
+      </div>
+    </main>
+
+
+    <footer>
+      <div class="container">
+        <div class="footer-links">
+          <a href="https://veloq.fit" data-i18n="nav.home">Home</a>
+          <a href="https://github.com/evanjt/veloq" target="_blank">GitHub</a>
+          <a
+            href="https://apps.apple.com/us/app/veloq/id6757836732"
+            target="_blank"
+            >App Store</a
+          >
+          <a
+            href="https://play.google.com/store/apps/details?id=com.veloq.app"
+            target="_blank"
+            >Google Play</a
+          >
+          <a
+            href="https://github.com/evanjt/veloq/releases"
+            target="_blank"
+            data-i18n="footer.releases"
+            >Releases</a
+          >
+          <a href="mailto:developer@veloq.fit" data-i18n="footer.contact"
+            >Contact</a
+          >
+        </div>
+        <p class="copyright">&copy; 2026 Evan Thomas. Apache License 2.0.</p>
+      </div>
+    </footer>
+
+    <script>
+      const translations = {
+        en: {
+          "nav.home": "Home",
+          "footer.releases": "Releases",
+          "footer.contact": "Contact",
+          title: "Terms of Use and Sale",
+          lastUpdated: "Last updated: 25 October 2026",
+          intro: "Veloq is provided as is. Optional tips fund its continued development. Its sign-in and notification service is provided on a best-effort basis, with no guarantee of availability. Veloq is open source, and anyone may run their own copy.",
+          "provided.title": "Provided as Is",
+          "provided.content": "Veloq is provided as is, without warranty of any kind, express or implied, to the extent the law allows.",
+          "service.title": "Sign-in and Notification Service",
+          "service.content": "Signing in to intervals.icu and receiving push notifications from Veloq use a service at auth.veloq.fit. That service is provided on a best-effort basis, with no guarantee of availability. Signing in with an intervals.icu API key does not use it.",
+          "purchases.title": "Tips",
+          "purchases.content": "Tips are optional one-off purchases made through Apple or Google billing. They fund the continued development of Veloq. Veloq sells nothing else, and a tip unlocks nothing in the app.",
+          "openSource.title": "Open Source",
+          "openSource.content": 'Veloq is open source under the <a href="https://github.com/evanjt/veloq/blob/main/LICENSE" target="_blank">Apache 2.0 licence</a>, and its source is at <a href="https://github.com/evanjt/veloq" target="_blank">github.com/evanjt/veloq</a>. Anyone may use, modify and redistribute it under that licence. Anyone may also build and run their own sign-in and notification service from the code in that repository, in place of this one.',
+          "contact.title": "Contact",
+          "contact.content": '<a href="https://github.com/evanjt/veloq/issues">GitHub Issues</a> or <a href="mailto:developer@veloq.fit">developer@veloq.fit</a>',
+        },
+        es: {
+          "nav.home": "Inicio",
+          "footer.releases": "Versiones",
+          "footer.contact": "Contacto",
+          title: "Condiciones de uso y venta",
+          lastUpdated: "Última actualización: 25 de octubre de 2026",
+          intro: "Veloq se ofrece tal cual. Las propinas opcionales financian su desarrollo continuo. Su servicio de inicio de sesión y notificaciones se ofrece según el mejor esfuerzo, sin garantía de disponibilidad. Veloq es de código abierto y cualquiera puede ejecutar su propia copia.",
+          "provided.title": "Se ofrece tal cual",
+          "provided.content": "Veloq se ofrece tal cual, sin garantía de ningún tipo, expresa ni implícita, en la medida que permita la ley.",
+          "service.title": "Servicio de inicio de sesión y notificaciones",
+          "service.content": "Iniciar sesión en intervals.icu y recibir notificaciones push de Veloq usa un servicio en auth.veloq.fit. Ese servicio se ofrece según el mejor esfuerzo, sin garantía de disponibilidad. Iniciar sesión con una clave de API de intervals.icu no lo usa.",
+          "purchases.title": "Propinas",
+          "purchases.content": "Las propinas son compras únicas y opcionales realizadas a través de la facturación de Apple o Google. Financian el desarrollo continuo de Veloq. Veloq no vende nada más, y una propina no desbloquea nada en la app.",
+          "openSource.title": "Código abierto",
+          "openSource.content": 'Veloq es de código abierto bajo la <a href="https://github.com/evanjt/veloq/blob/main/LICENSE" target="_blank">licencia Apache 2.0</a>, y su código está en <a href="https://github.com/evanjt/veloq" target="_blank">github.com/evanjt/veloq</a>. Cualquiera puede usarlo, modificarlo y redistribuirlo con esa licencia. Cualquiera también puede construir y ejecutar su propio servicio de inicio de sesión y notificaciones a partir del código de ese repositorio, en lugar de este.',
+          "contact.title": "Contacto",
+          "contact.content": '<a href="https://github.com/evanjt/veloq/issues">GitHub Issues</a> o <a href="mailto:developer@veloq.fit">developer@veloq.fit</a>',
+        },
+        fr: {
+          "nav.home": "Accueil",
+          "footer.releases": "Versions",
+          "footer.contact": "Contact",
+          title: "Conditions d'utilisation et de vente",
+          lastUpdated: "Dernière mise à jour : 25 octobre 2026",
+          intro: "Veloq est fourni en l'état. Les pourboires facultatifs financent son développement continu. Le service de connexion et de notifications est fourni au mieux, sans garantie de disponibilité. Veloq est un logiciel libre, et chacun peut faire fonctionner sa propre copie.",
+          "provided.title": "Fourni en l'état",
+          "provided.content": "Veloq est fourni en l'état, sans garantie d'aucune sorte, expresse ou implicite, dans la limite permise par la loi.",
+          "service.title": "Service de connexion et de notifications",
+          "service.content": "La connexion à intervals.icu et la réception des notifications push de Veloq reposent sur un service hébergé sur auth.veloq.fit. Ce service est fourni au mieux, sans garantie de disponibilité. La connexion avec une clé d'API intervals.icu n'y fait pas appel.",
+          "purchases.title": "Pourboires",
+          "purchases.content": "Les pourboires sont des achats uniques et facultatifs réalisés via la facturation d'Apple ou de Google. Ils financent le développement continu de Veloq. Veloq ne vend rien d'autre, et un pourboire ne débloque rien dans l'application.",
+          "openSource.title": "Logiciel libre",
+          "openSource.content": 'Veloq est un logiciel libre sous <a href="https://github.com/evanjt/veloq/blob/main/LICENSE" target="_blank">licence Apache 2.0</a>, et son code se trouve sur <a href="https://github.com/evanjt/veloq" target="_blank">github.com/evanjt/veloq</a>. Chacun peut l\'utiliser, le modifier et le redistribuer sous cette licence. Chacun peut aussi construire et faire fonctionner son propre service de connexion et de notifications à partir du code de ce dépôt, à la place de celui-ci.',
+          "contact.title": "Contact",
+          "contact.content": '<a href="https://github.com/evanjt/veloq/issues">GitHub Issues</a> ou <a href="mailto:developer@veloq.fit">developer@veloq.fit</a>',
+        },
+      };
+
+      const langNames = { en: "EN", es: "ES", fr: "FR" };
+
+      function getInitialLanguage() {
+        const stored = localStorage.getItem("veloq-lang");
+        if (stored && translations[stored]) return stored;
+        const browserLang = navigator.language.split("-")[0];
+        if (translations[browserLang]) return browserLang;
+        return "en";
+      }
+
+      let currentLang = getInitialLanguage();
+
+      function applyTranslations(lang) {
+        const t = translations[lang];
+        document.querySelectorAll("[data-i18n]").forEach((el) => {
+          const key = el.getAttribute("data-i18n");
+          if (t[key]) {
+            el.innerHTML = t[key];
+          }
+        });
+        document.getElementById("current-lang").textContent = langNames[lang];
+        document.getElementById("html-root").setAttribute("lang", lang);
+        document.querySelectorAll(".lang-option").forEach((btn) => {
+          btn.classList.toggle(
+            "active",
+            btn.getAttribute("data-lang") === lang,
+          );
+        });
+      }
+
+      function setLanguage(lang) {
+        currentLang = lang;
+        localStorage.setItem("veloq-lang", lang);
+        applyTranslations(lang);
+        document.getElementById("lang-dropdown").classList.remove("open");
+      }
+
+      document.addEventListener("DOMContentLoaded", () => {
+        applyTranslations(currentLang);
+
+        document.getElementById("lang-btn").addEventListener("click", (e) => {
+          e.stopPropagation();
+          document.getElementById("lang-dropdown").classList.toggle("open");
+        });
+
+        document.querySelectorAll(".lang-option").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            setLanguage(btn.getAttribute("data-lang"));
+          });
+        });
+
+        document.addEventListener("click", () => {
+          document.getElementById("lang-dropdown").classList.remove("open");
+        });
+      });
+    </script>
+  </body>
+</html>

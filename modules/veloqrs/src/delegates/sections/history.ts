@@ -61,11 +61,6 @@ export function getPinnedSectionVersion(host: DelegateHost, sectionId: string): 
   return v ?? null;
 }
 
-export function getRetiredSections(host: DelegateHost): RetiredSection[] {
-  if (!host.ready) return [];
-  return host.timed('getRetired', () => host.engine.sections().getRetired());
-}
-
 /**
  * Everything the old-versus-new sections map draws, in one read: the retired
  * sections with their lines, every catalogue row hidden ones included, and

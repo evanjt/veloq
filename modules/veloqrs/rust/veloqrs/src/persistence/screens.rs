@@ -44,6 +44,25 @@ pub fn backup_screen_data(
     })
 }
 
+/// The record screen's read: the library's sports, most activities first.
+pub fn record_screen_data(
+    conn: &rusqlite::Connection,
+) -> Result<crate::FfiRecordScreenData, crate::objects::error::VeloqError> {
+    let database = |error: rusqlite::Error| crate::objects::error::VeloqError::Database {
+        msg: error.to_string(),
+    };
+    let library_sports = conn
+        .prepare_cached(
+            "SELECT sport_type FROM activity_metrics
+             WHERE sport_type != ''
+             GROUP BY sport_type
+             ORDER BY COUNT(*) DESC, sport_type ASC",
+        )
+        .and_then(|mut stmt| stmt.query_map([], |row| row.get(0))?.collect())
+        .map_err(database)?;
+    Ok(crate::FfiRecordScreenData { library_sports })
+}
+
 /// The stream history readout on cache settings, read from one SQLite snapshot.
 pub fn cache_screen_data(
     conn: &rusqlite::Connection,
@@ -2849,6 +2868,10 @@ pub mod pooled {
                 activities::stored_intervals_id(conn, activity_id).as_deref(),
             ),
             pool_swim: crate::persistence::strength::pooled::pool_swim(conn, activity_id)
+                .unwrap_or_default(),
+            sync_failure: crate::persistence::activity_sync_failures::of(conn, activity_id)
+                .unwrap_or_default(),
+            held_back: crate::persistence::activity_held_back::of(conn, activity_id)
                 .unwrap_or_default(),
         }
     }

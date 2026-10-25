@@ -93,6 +93,11 @@ impl SettingsManager {
         with_reader(crate::persistence::screens::backup_screen_data)?
     }
 
+    /// The sports the record screen offers as chips, from the library.
+    fn record_screen_data(&self) -> Result<crate::FfiRecordScreenData, VeloqError> {
+        with_reader(crate::persistence::screens::record_screen_data)?
+    }
+
     /// The stream history readout shown when cache settings opens.
     fn cache_screen_data(&self) -> Result<crate::FfiCacheScreenData, VeloqError> {
         with_reader(crate::persistence::screens::cache_screen_data)?

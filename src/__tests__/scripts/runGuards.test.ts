@@ -113,6 +113,13 @@ describe('every guard', () => {
     expect(unaccounted(readdirSync(join(ROOT, 'scripts')), GUARDS, scripts, NOT_GATES)).toEqual([]);
   });
 
+  it('holds no per-area ceiling on engine exports, which would refuse a new feature', () => {
+    const commands = GUARDS.map((g) => g.cmd.join(' ')).join('\n');
+    expect(commands).not.toContain('--check-areas');
+    expect(commands).not.toContain('lint-ratchet-growth');
+    expect(existsSync(join(ROOT, 'scripts/ffi-area-ceilings.json'))).toBe(false);
+  });
+
   it('names a script NOT_GATES lists only while the script exists', () => {
     const present = new Set(readdirSync(join(ROOT, 'scripts')));
     expect(Object.keys(NOT_GATES).filter((f) => !present.has(f))).toEqual([]);

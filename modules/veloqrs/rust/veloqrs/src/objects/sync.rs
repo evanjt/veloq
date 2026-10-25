@@ -3090,18 +3090,65 @@ pub(crate) async fn ready_activity(
         });
     }
     let mut last_error: Option<NetError> = None;
+    let mut activity_fault: Option<String> = None;
     for (kind, outcome) in kinds.into_iter().zip(outcomes) {
         match outcome {
             Err(NetError::Unauthorized) => return Err(NetError::Unauthorized),
             Err(e) if is_permanently_unavailable(&e) => note_known_absent(install, &id, kind),
+            Err(e) if is_activity_fault(&e) => {
+                activity_fault.get_or_insert_with(|| format!("{kind}: {e}"));
+            }
             Err(e) => last_error = Some(e),
             Ok(()) => {}
         }
+    }
+    // The fault is kept against the activity and does not fail the caller's
+    // run. A failure of the run's own, the network or a refusal, says nothing
+    // about whether the activity readied, so it leaves the mark as it was.
+    match (&activity_fault, &last_error) {
+        (Some(message), _) => note_activity_fault(install, &id, message).await,
+        (None, None) => clear_activity_fault(install, &id).await,
+        (None, Some(_)) => {}
     }
     match last_error {
         Some(e) => Err(e),
         None => Ok(()),
     }
+}
+
+/// Whether a failure readying one activity belongs to that activity.
+///
+/// A body that will not decode, or a track or body the engine will not store,
+/// fails the same way on every attempt for that activity and for no other, so
+/// it is shown on the activity and the run goes on. The network, a refusal, a
+/// full disk and a closed engine speak for the whole run and stay its failure.
+fn is_activity_fault(error: &NetError) -> bool {
+    matches!(error, NetError::Storage(_) | NetError::Decode(_))
+}
+
+/// Keep `message` as the activity's failure, replacing the one before.
+async fn note_activity_fault(install: u64, activity_id: &str, message: &str) {
+    log::warn!("[Sync] {activity_id} could not be readied: {message}");
+    let id = activity_id.to_string();
+    let message = message.to_string();
+    crate::persistence::with_persistent_engine_blocking_for(install, move |engine| {
+        crate::persistence::activity_sync_failures::record(
+            &engine.db,
+            &id,
+            &message,
+            crate::persistence::attempts::now_ms(),
+        );
+    })
+    .await;
+}
+
+/// Drop the activity's failure: it readied cleanly.
+async fn clear_activity_fault(install: u64, activity_id: &str) {
+    let id = activity_id.to_string();
+    crate::persistence::with_persistent_engine_blocking_for(install, move |engine| {
+        crate::persistence::activity_sync_failures::clear(&engine.db, &id);
+    })
+    .await;
 }
 
 /// Bring one activity to a screen that opens with no network, fetching what
@@ -3128,6 +3175,7 @@ pub(crate) async fn ready_owed_activity(
         .map_err(|e| NetError::storage("owed bodies read failed", &e))
     };
     let Some(gap) = owed(activity_id.to_string()).await? else {
+        clear_activity_fault(install, activity_id).await;
         return Ok(true);
     };
     let Some(upstream) = upstream_id(install, activity_id).await else {
@@ -4598,9 +4646,28 @@ impl SyncManager {
         give_credentials(&method, secret, athlete_id)
     }
 
-    /// Forget the credential (logout).
+    /// Forget the credential (logout), and the Garmin key with it.
     fn clear_credentials(&self) {
         SYNC_SERVICE.clear_credentials();
+        super::garmin_key::clear_garmin_key();
+    }
+
+    /// Ask Garmin whether a pasted Personal key works, with one token
+    /// exchange, and hold it for this process only when it does. The key goes
+    /// to Garmin's token endpoint and nowhere else, and is never stored by
+    /// the engine: the app keeps it in the keychain.
+    async fn connect_garmin(&self, key: String) -> super::garmin_key::GarminKeyStatus {
+        super::garmin_key::connect_garmin(key).await
+    }
+
+    /// Hold the key the keychain gave back at launch, without asking Garmin.
+    fn hold_garmin_key(&self, key: String) {
+        super::garmin_key::hold_garmin_key(&key);
+    }
+
+    /// Disconnect Garmin: forget the key. Nothing already fetched is removed.
+    fn clear_garmin_key(&self) {
+        super::garmin_key::clear_garmin_key();
     }
 
     /// Start a sync. Returns instantly, naming whether the job started and, if

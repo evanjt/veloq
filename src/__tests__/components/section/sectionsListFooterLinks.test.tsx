@@ -104,7 +104,7 @@ describe('SectionsList footer links', () => {
     await fireEvent.press(link);
 
     expect(link).toBe(tree.getByTestId('sections-retired-link'));
-    expect(router.push).toHaveBeenCalledWith('/section-retired');
+    expect(router.push).toHaveBeenCalledWith('/detection-preview?layer=retired');
   });
 
   it('opens the named corridors from a named button', async () => {
@@ -131,7 +131,7 @@ describe('SectionsList footer links', () => {
     await fireEvent.press(link);
 
     expect(link).toBe(tree.getByTestId('sections-retired-link'));
-    expect(router.push).toHaveBeenCalledWith('/section-retired');
+    expect(router.push).toHaveBeenCalledWith('/detection-preview?layer=retired');
   });
 
   it('shows no retired link on an empty list when nothing retired', async () => {

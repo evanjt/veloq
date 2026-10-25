@@ -93,6 +93,9 @@ pub enum AuthMethod<'a> {
     Bearer(&'a str),
     /// Personal API key, sent as HTTP Basic `API_KEY:<key>`.
     ApiKey(&'a str),
+    /// A Garmin Personal key, sent as `ApiKey <key>` to exchange it for a
+    /// token.
+    GarminKey(&'a str),
 }
 
 /// Build the `Authorization` header value for the given method. Single source of
@@ -107,6 +110,7 @@ pub fn format_auth_header(method: AuthMethod<'_>) -> String {
                 base64::engine::general_purpose::STANDARD.encode(format!("API_KEY:{}", key));
             format!("Basic {}", encoded)
         }
+        AuthMethod::GarminKey(key) => format!("ApiKey {}", key),
     }
 }
 
@@ -283,7 +287,7 @@ impl From<Lane> for Dispatch {
     fn from(lane: Lane) -> Self {
         let intent = match lane {
             Lane::Interactive => Intent::User,
-            Lane::Backfill => Intent::Backfill,
+            Lane::Backfill | Lane::Garmin => Intent::Backfill,
         };
         Self { lane, intent }
     }
@@ -860,6 +864,10 @@ pub enum Lane {
     Interactive,
     /// Opportunistic history backfill - yields to interactive work.
     Backfill,
+    /// Requests to Garmin. Paced on the shared schedule and yielding to
+    /// interactive work like backfill, but a lane of its own so a Garmin pass
+    /// is told apart from an intervals.icu one.
+    Garmin,
 }
 
 /// Policy layered on top of the baseline pace. It decides both how long a lane
@@ -923,7 +931,7 @@ impl Policy for YieldBackfillPolicy {
     fn max_queue_ahead(&self, lane: Lane) -> Option<Duration> {
         match lane {
             Lane::Interactive => None,
-            Lane::Backfill => Some(BACKFILL_MAX_QUEUE_AHEAD),
+            Lane::Backfill | Lane::Garmin => Some(BACKFILL_MAX_QUEUE_AHEAD),
         }
     }
 }

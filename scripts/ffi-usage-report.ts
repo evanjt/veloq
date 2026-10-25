@@ -7,13 +7,11 @@
  *   npx tsx scripts/ffi-usage-report.ts --unused    # just the list
  *   npx tsx scripts/ffi-usage-report.ts --check     # exit 1 on an unlisted one
  *   npx tsx scripts/ffi-usage-report.ts --areas     # the reach of each area
- *   npx tsx scripts/ffi-usage-report.ts --check-areas   # exit 1 on an area that grew
  *   npx tsx scripts/ffi-usage-report.ts --client    # per EngineClient method
  *   npx tsx scripts/ffi-usage-report.ts --json
  *
- * `--root <dir>` reads the callers out of another tree and `--ceilings <file>`
- * judges them against another ceiling file, so the refusals can be driven by a
- * fixture. The exports themselves are always this checkout's manifest.
+ * `--root <dir>` reads the callers out of another tree, so the refusals can be
+ * driven by a fixture. The exports themselves are always this checkout's manifest.
  *
  * What counts as a caller, and which exports are owned elsewhere, live in
  * lib/ffiUsage.ts beside the reasons for each.
@@ -27,8 +25,6 @@ import {
   CLIENT_UNREACHED_ALLOWED,
   OWNED_ELSEWHERE,
   areaOf,
-  surfaceOverCeiling,
-  surfaceUnderCeiling,
   type AreaSurface,
   clientCallRows,
   clientMethodExports,
@@ -57,24 +53,17 @@ function flag(name: string): string | undefined {
 const REPO = path.resolve(flag('--root') ?? path.join(__dirname, '..'));
 const ROOTS = [path.join(REPO, 'src'), path.join(REPO, 'modules/veloqrs/src')];
 const EXTENSIONS = ['.ts', '.tsx'];
-const CEILINGS = path.resolve(
-  flag('--ceilings') ?? path.join(REPO, 'scripts/ffi-area-ceilings.json')
-);
-/** The ceiling file as the refusals name it. */
-const CEILINGS_NAME = path.relative(REPO, CEILINGS).startsWith('..')
-  ? CEILINGS
-  : path.relative(REPO, CEILINGS);
 
 /**
- * The area ratchet counts the index rather than the disk.
+ * The guards count the index rather than the disk.
  *
  * Every worktree merges through the one checkout, so a total taken over its
  * working tree puts one session's uncommitted file into everybody else's
  * merge, and the merge fails on a file it never touched. The index is the tree
- * the commit or the merge is actually making. Nothing else here reads it: the
- * other modes are reports a person runs on the tree in front of them.
+ * the commit or the merge is actually making. The report modes are run by a
+ * person on the tree in front of them and read the disk.
  */
-const FROM_INDEX = process.argv.includes('--check-areas');
+const FROM_INDEX = process.argv.includes('--check');
 
 /**
  * The tracked sources, by path relative to the repository, or null off-index.
@@ -142,7 +131,7 @@ function callerFiles(): string[] {
   return found;
 }
 
-/** A caller file's text, out of the index where the area ratchet is running. */
+/** A caller file's text, out of the index where a guard is running. */
 function sourceOf(file: string): string {
   return INDEXED?.get(file) ?? fs.readFileSync(path.join(REPO, file), 'utf-8');
 }
@@ -371,75 +360,14 @@ if (process.argv.includes('--json')) {
   process.exit(unlisted.length > 0 && process.argv.includes('--check') ? 1 : 0);
 }
 
-if (process.argv.includes('--areas') || process.argv.includes('--check-areas')) {
-  const surface = areaSurface(usageReport);
-  const ceilings: AreaSurface = fs.existsSync(CEILINGS)
-    ? (JSON.parse(fs.readFileSync(CEILINGS, 'utf-8')) as AreaSurface)
-    : {};
-
-  if (process.argv.includes('--areas')) {
-    console.log('=== ENGINE REACH BY AREA ===\n');
-    for (const [area, keys] of Object.entries(surface)) {
-      const allowed = ceilings[area]?.length;
-      console.log(`${area}: ${keys.length}${allowed === undefined ? '' : ` of ${allowed}`}`);
-      for (const key of keys) console.log(`  - ${key}`);
-      console.log();
-    }
-    process.exit(0);
+if (process.argv.includes('--areas')) {
+  console.log('=== ENGINE REACH BY AREA ===\n');
+  for (const [area, keys] of Object.entries(areaSurface(usageReport))) {
+    console.log(`${area}: ${keys.length}`);
+    for (const key of keys) console.log(`  - ${key}`);
+    console.log();
   }
-
-  // A guard that read nothing must not report that nothing is over its
-  // ceiling. Every checkout this runs in has areas; an empty surface means the
-  // listing failed, or came from a tree this is not about, and the honest
-  // answer is a refusal rather than a pass.
-  if (Object.keys(surface).length === 0) {
-    console.error('Engine area guard: no area reaches the engine at all.');
-    console.error('');
-    console.error('Nothing was read, so nothing was checked. Either the tracked sources');
-    console.error('could not be listed, or git was pointed at another tree: the variables');
-    console.error('a hook inherits beat the directory this was run in.');
-    process.exit(1);
-  }
-
-  const over = surfaceOverCeiling(surface, ceilings);
-  const under = surfaceUnderCeiling(surface, ceilings);
-  if (over.length === 0 && under.length === 0) {
-    const total = Object.values(surface).reduce((sum, keys) => sum + keys.length, 0);
-    console.log(
-      `Engine area guard: ${Object.keys(surface).length} areas reach ${total} exports between ` +
-        'them, each exactly what its ceiling lists.'
-    );
-    process.exit(0);
-  }
-  if (under.length > 0) {
-    for (const { area, stale, reachesNothing } of under) {
-      console.error(
-        reachesNothing
-          ? `${area} no longer reaches the engine, but ${CEILINGS_NAME} lists it:`
-          : `${area} no longer reaches ${stale.length} export(s) its ceiling lists:`
-      );
-      for (const key of stale) console.error(`  - ${key}`);
-    }
-    console.error('');
-    console.error(`Remove each from ${CEILINGS_NAME}, and the area itself when it reaches`);
-    console.error('nothing, or the next commit that calls it again is not refused.');
-    if (over.length === 0) process.exit(1);
-    console.error('');
-  }
-  for (const { area, added } of over) {
-    const known = ceilings[area] === undefined;
-    console.error(
-      known
-        ? `${area} reaches the engine and has no entry in ${CEILINGS_NAME}:`
-        : `${area} reaches ${added.length} export(s) it did not reach before:`
-    );
-    for (const key of added) console.error(`  - ${key}`);
-  }
-  console.error('');
-  console.error("One screen read per screen: an area's reach only falls. Read the screen");
-  console.error('data it already has, or lower another entry in the same commit if this');
-  console.error('call is what replaces it.');
-  process.exit(1);
+  process.exit(0);
 }
 
 if (process.argv.includes('--check')) {

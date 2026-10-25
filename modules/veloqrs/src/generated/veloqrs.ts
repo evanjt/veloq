@@ -906,6 +906,19 @@ export type AthleteProfile = {
    * sends it, else `weight`. Absent unless positive.
    */
   weightKg?: number;
+  /**
+   * `icu_garmin_sync_activities`: intervals.icu imports the athlete's Garmin
+   * activities itself.
+   */
+  garminSyncsActivities?: boolean;
+  /**
+   * `icu_garmin_download_wellness`: intervals.icu pulls Garmin wellness.
+   */
+  garminDownloadsWellness?: boolean;
+  /**
+   * `icu_garmin_upload_workouts`: intervals.icu sends planned workouts to Garmin.
+   */
+  garminUploadsWorkouts?: boolean;
 };
 
 /**
@@ -937,6 +950,9 @@ const FfiConverterTypeAthleteProfile = (() => {
         measurementPreference: FfiConverterOptionalString.readFromCursor(c),
         formAsPercent: FfiConverterOptionalBoolean.readFromCursor(c),
         weightKg: FfiConverterOptionalFloat64.readFromCursor(c),
+        garminSyncsActivities: FfiConverterOptionalBoolean.readFromCursor(c),
+        garminDownloadsWellness: FfiConverterOptionalBoolean.readFromCursor(c),
+        garminUploadsWorkouts: FfiConverterOptionalBoolean.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -950,6 +966,18 @@ const FfiConverterTypeAthleteProfile = (() => {
       );
       FfiConverterOptionalBoolean.writeIntoCursor(value.formAsPercent, c);
       FfiConverterOptionalFloat64.writeIntoCursor(value.weightKg, c);
+      FfiConverterOptionalBoolean.writeIntoCursor(
+        value.garminSyncsActivities,
+        c,
+      );
+      FfiConverterOptionalBoolean.writeIntoCursor(
+        value.garminDownloadsWellness,
+        c,
+      );
+      FfiConverterOptionalBoolean.writeIntoCursor(
+        value.garminUploadsWorkouts,
+        c,
+      );
     }
     allocationSize(value: TypeName): number {
       return (
@@ -959,7 +987,14 @@ const FfiConverterTypeAthleteProfile = (() => {
         FfiConverterOptionalString.allocationSize(value.sex) +
         FfiConverterOptionalString.allocationSize(value.measurementPreference) +
         FfiConverterOptionalBoolean.allocationSize(value.formAsPercent) +
-        FfiConverterOptionalFloat64.allocationSize(value.weightKg)
+        FfiConverterOptionalFloat64.allocationSize(value.weightKg) +
+        FfiConverterOptionalBoolean.allocationSize(
+          value.garminSyncsActivities,
+        ) +
+        FfiConverterOptionalBoolean.allocationSize(
+          value.garminDownloadsWellness,
+        ) +
+        FfiConverterOptionalBoolean.allocationSize(value.garminUploadsWorkouts)
       );
     }
   }
@@ -4094,6 +4129,117 @@ const FfiConverterTypeFfiPoolSwim = (() => {
 })();
 
 /**
+ * The fault a sync last met readying one activity.
+ */
+export type FfiActivitySyncFailure = {
+  /**
+   * What went wrong, as the engine words it.
+   */
+  message: string;
+  /**
+   * When the attempt failed, in epoch milliseconds, from
+   * [`super::attempts::now_ms`].
+   */
+  failedAt: WholeNumber;
+};
+
+/**
+ * Generated factory for {@link FfiActivitySyncFailure} record objects.
+ */
+export const FfiActivitySyncFailure = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiActivitySyncFailure,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiActivitySyncFailure>,
+  });
+})();
+
+const FfiConverterTypeFfiActivitySyncFailure = (() => {
+  type TypeName = FfiActivitySyncFailure;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        message: FfiConverterString.readFromCursor(c),
+        failedAt: FfiConverterTypeWholeNumber.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.message, c);
+      FfiConverterTypeWholeNumber.writeIntoCursor(value.failedAt, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.message) +
+        FfiConverterTypeWholeNumber.allocationSize(value.failedAt)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * An activity intervals.icu holds but does not serve, and where it got it.
+ */
+export type FfiActivityHeldBack = {
+  /**
+   * The service the activity was imported from, as intervals.icu names it.
+   */
+  source?: string;
+  /**
+   * The id the activity has at that service.
+   */
+  externalId?: string;
+};
+
+/**
+ * Generated factory for {@link FfiActivityHeldBack} record objects.
+ */
+export const FfiActivityHeldBack = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiActivityHeldBack, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiActivityHeldBack>,
+  });
+})();
+
+const FfiConverterTypeFfiActivityHeldBack = (() => {
+  type TypeName = FfiActivityHeldBack;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        source: FfiConverterOptionalString.readFromCursor(c),
+        externalId: FfiConverterOptionalString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterOptionalString.writeIntoCursor(value.source, c);
+      FfiConverterOptionalString.writeIntoCursor(value.externalId, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterOptionalString.allocationSize(value.source) +
+        FfiConverterOptionalString.allocationSize(value.externalId)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * All data needed to paint the activity detail screen in one call.
  * Replaces a fan-out that grew one trace extraction per matched section.
  */
@@ -4204,6 +4350,16 @@ export type FfiActivityDetailData = {
    * every sport but `Swim`.
    */
   poolSwim?: FfiPoolSwim;
+  /**
+   * The fault the last sync met readying this activity, which the screen
+   * marks with a retry. None when its last readying was clean.
+   */
+  syncFailure?: FfiActivitySyncFailure;
+  /**
+   * Set when intervals.icu holds this activity but does not serve it to
+   * apps, which is why its figures are empty. None for a served activity.
+   */
+  heldBack?: FfiActivityHeldBack;
 };
 
 /**
@@ -4257,6 +4413,9 @@ const FfiConverterTypeFfiActivityDetailData = (() => {
           FfiConverterSequenceTypeFfiActivityLedgerChange.readFromCursor(c),
         intervalsId: FfiConverterOptionalString.readFromCursor(c),
         poolSwim: FfiConverterOptionalTypeFfiPoolSwim.readFromCursor(c),
+        syncFailure:
+          FfiConverterOptionalTypeFfiActivitySyncFailure.readFromCursor(c),
+        heldBack: FfiConverterOptionalTypeFfiActivityHeldBack.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -4311,6 +4470,14 @@ const FfiConverterTypeFfiActivityDetailData = (() => {
       );
       FfiConverterOptionalString.writeIntoCursor(value.intervalsId, c);
       FfiConverterOptionalTypeFfiPoolSwim.writeIntoCursor(value.poolSwim, c);
+      FfiConverterOptionalTypeFfiActivitySyncFailure.writeIntoCursor(
+        value.syncFailure,
+        c,
+      );
+      FfiConverterOptionalTypeFfiActivityHeldBack.writeIntoCursor(
+        value.heldBack,
+        c,
+      );
     }
     allocationSize(value: TypeName): number {
       return (
@@ -4354,7 +4521,13 @@ const FfiConverterTypeFfiActivityDetailData = (() => {
           value.ledgerChanges,
         ) +
         FfiConverterOptionalString.allocationSize(value.intervalsId) +
-        FfiConverterOptionalTypeFfiPoolSwim.allocationSize(value.poolSwim)
+        FfiConverterOptionalTypeFfiPoolSwim.allocationSize(value.poolSwim) +
+        FfiConverterOptionalTypeFfiActivitySyncFailure.allocationSize(
+          value.syncFailure,
+        ) +
+        FfiConverterOptionalTypeFfiActivityHeldBack.allocationSize(
+          value.heldBack,
+        )
       );
     }
   }
@@ -9528,6 +9701,11 @@ export type FfiFeedCard = {
    * climb a measurement rather than a missing one.
    */
   hasAltitude: boolean;
+  /**
+   * The fault the last sync met readying this activity, which the card
+   * marks with a retry. None when its last readying was clean.
+   */
+  syncFailure?: FfiActivitySyncFailure;
 };
 
 /**
@@ -9569,6 +9747,8 @@ const FfiConverterTypeFfiFeedCard = (() => {
         skylineChartBytes: FfiConverterOptionalString.readFromCursor(c),
         hasGps: FfiConverterBool.readFromCursor(c),
         hasAltitude: FfiConverterBool.readFromCursor(c),
+        syncFailure:
+          FfiConverterOptionalTypeFfiActivitySyncFailure.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -9589,6 +9769,10 @@ const FfiConverterTypeFfiFeedCard = (() => {
       FfiConverterOptionalString.writeIntoCursor(value.skylineChartBytes, c);
       FfiConverterBool.writeIntoCursor(value.hasGps, c);
       FfiConverterBool.writeIntoCursor(value.hasAltitude, c);
+      FfiConverterOptionalTypeFfiActivitySyncFailure.writeIntoCursor(
+        value.syncFailure,
+        c,
+      );
     }
     allocationSize(value: TypeName): number {
       return (
@@ -9608,7 +9792,10 @@ const FfiConverterTypeFfiFeedCard = (() => {
         FfiConverterOptionalFloat64.allocationSize(value.averageWeatherTemp) +
         FfiConverterOptionalString.allocationSize(value.skylineChartBytes) +
         FfiConverterBool.allocationSize(value.hasGps) +
-        FfiConverterBool.allocationSize(value.hasAltitude)
+        FfiConverterBool.allocationSize(value.hasAltitude) +
+        FfiConverterOptionalTypeFfiActivitySyncFailure.allocationSize(
+          value.syncFailure,
+        )
       );
     }
   }
@@ -16684,6 +16871,52 @@ const FfiConverterTypeFfiRecordRestoreResult = (() => {
         FfiConverterUInt32.allocationSize(value.namesNotRestored) +
         FfiConverterBool.allocationSize(value.exportHomeLeftOut)
       );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What the record screen offers before a recording starts.
+ */
+export type FfiRecordScreenData = {
+  /**
+   * Sport types the library holds, the one with most activities first, ties
+   * in name order. Empty for a library with no activity.
+   */
+  librarySports: Array<string>;
+};
+
+/**
+ * Generated factory for {@link FfiRecordScreenData} record objects.
+ */
+export const FfiRecordScreenData = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiRecordScreenData, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiRecordScreenData>,
+  });
+})();
+
+const FfiConverterTypeFfiRecordScreenData = (() => {
+  type TypeName = FfiRecordScreenData;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        librarySports: FfiConverterSequenceString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterSequenceString.writeIntoCursor(value.librarySports, c);
+    }
+    allocationSize(value: TypeName): number {
+      return FfiConverterSequenceString.allocationSize(value.librarySports);
     }
   }
   return new FFIConverter();
@@ -26114,6 +26347,64 @@ const FfiConverterTypeFfiSectionBoundsEdit = (() => {
 })();
 
 /**
+ * What Garmin said about a key the athlete pasted.
+ */
+export enum GarminKeyStatus {
+  /**
+   * Garmin exchanged the key for a token.
+   */
+  Connected,
+  /**
+   * Garmin refused the key: deleted, expired or mistyped.
+   */
+  Rejected,
+  /**
+   * The text is not a key; Garmin answered 400, or nothing was pasted.
+   */
+  Malformed,
+  /**
+   * Garmin could not be reached, so nothing is known about the key.
+   */
+  Unreachable,
+}
+
+const FfiConverterTypeGarminKeyStatus = (() => {
+  type TypeName = GarminKeyStatus;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return GarminKeyStatus.Connected;
+        case 2:
+          return GarminKeyStatus.Rejected;
+        case 3:
+          return GarminKeyStatus.Malformed;
+        case 4:
+          return GarminKeyStatus.Unreachable;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value) {
+        case GarminKeyStatus.Connected:
+          return c.writeI32(1);
+        case GarminKeyStatus.Rejected:
+          return c.writeI32(2);
+        case GarminKeyStatus.Malformed:
+          return c.writeI32(3);
+        case GarminKeyStatus.Unreachable:
+          return c.writeI32(4);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return 4;
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Distance range selected for the map in the current unit system.
  */
 export enum MapDistanceBand {
@@ -35408,6 +35699,10 @@ export interface SettingsManagerLike {
    * positive number.
    */
   hrZoneFor(sportType: string, bpm: number) /*throws*/ : number | undefined;
+  /**
+   * The sports the record screen offers as chips, from the library.
+   */
+  recordScreenData() /*throws*/ : FfiRecordScreenData;
   setAthleteProfile(json: string) /*throws*/ : void;
   /**
    * Hand the engine the notification templates for the locale the app is
@@ -35743,6 +36038,29 @@ export class SettingsManager
     );
     try {
       return FfiConverterOptionalUInt32.lift(__rb);
+    } finally {
+      nativeModule().rustbuffer_free(__rb);
+    }
+  }
+
+  /**
+   * The sports the record screen offers as chips, from the library.
+   */
+  recordScreenData(): FfiRecordScreenData /*throws*/ {
+    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_record_screen_data(
+          uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+      return FfiConverterTypeFfiRecordScreenData.lift(__rb);
     } finally {
       nativeModule().rustbuffer_free(__rb);
     }
@@ -36604,13 +36922,31 @@ export interface SyncManagerLike {
    */
   cancel(): void;
   /**
-   * Forget the credential (logout).
+   * Forget the credential (logout), and the Garmin key with it.
    */
   clearCredentials(): void;
+  /**
+   * Disconnect Garmin: forget the key. Nothing already fetched is removed.
+   */
+  clearGarminKey(): void;
+  /**
+   * Ask Garmin whether a pasted Personal key works, with one token
+   * exchange, and hold it for this process only when it does. The key goes
+   * to Garmin's token endpoint and nowhere else, and is never stored by
+   * the engine: the app keeps it in the keychain.
+   */
+  connectGarmin(
+    key: string,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<GarminKeyStatus>;
   /**
    * Current status snapshot.
    */
   getSyncStatus(): FfiSyncStatus;
+  /**
+   * Hold the key the keychain gave back at launch, without asking Garmin.
+   */
+  holdGarminKey(key: string): void;
   /**
    * How much of the signed-in athlete's library is on the device: the
    * activity pages and the GPS tracks, each as stored against upstream.
@@ -36793,7 +37129,7 @@ export class SyncManager
   }
 
   /**
-   * Forget the credential (logout).
+   * Forget the credential (logout), and the Garmin key with it.
    */
   clearCredentials(): void {
     uniffiCaller.rustCall(
@@ -36805,6 +37141,75 @@ export class SyncManager
       },
       /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
     );
+  }
+
+  /**
+   * Disconnect Garmin: forget the key. Nothing already fetched is removed.
+   */
+  clearGarminKey(): void {
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_clear_garmin_key(
+          uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+  }
+
+  /**
+   * Ask Garmin whether a pasted Personal key works, with one token
+   * exchange, and hold it for this process only when it does. The key goes
+   * to Garmin's token endpoint and nowhere else, and is never stored by
+   * the engine: the app keeps it in the keychain.
+   */
+  async connectGarmin(
+    key: string,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<GarminKeyStatus> {
+    const __stack = uniffiIsDebug ? new Error().stack : undefined;
+    try {
+      return await uniffiRustCallAsync(
+        /*rustCaller:*/ uniffiCaller,
+        /*rustFutureFunc:*/ () => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_connect_garmin(
+            uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(key, nativeModule().rustbuffer_alloc),
+          );
+        },
+        /*pollFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_poll_rust_buffer,
+        /*cancelFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_cancel_rust_buffer,
+        /*completeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_complete_rust_buffer,
+        /*freeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_free_rust_buffer,
+        // Async returns always go through the JS-side converter: the
+        // FFI symbol returns the future handle (u64), and the user-level
+        // RustBuffer comes back via the shared `rust_future_complete_*`
+        // export. The bytes the runtime hands back must be deserialized
+        // here using the per-callable return-type converter.
+        // Borrowed view over foreign memory: the call site owns the free,
+        // as on the sync paths. Unconditional, a no-op where buffers are
+        // already JS-owned.
+        /*liftFunc:*/ (__rb) => {
+          try {
+            return FfiConverterTypeGarminKeyStatus.lift(__rb);
+          } finally {
+            nativeModule().rustbuffer_free(__rb);
+          }
+        },
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+        /*asyncOpts:*/ asyncOpts_,
+      );
+    } catch (__error: any) {
+      if (uniffiIsDebug && __error instanceof Error) {
+        __error.stack = __stack;
+      }
+      throw __error;
+    }
   }
 
   /**
@@ -36825,6 +37230,22 @@ export class SyncManager
     } finally {
       nativeModule().rustbuffer_free(__rb);
     }
+  }
+
+  /**
+   * Hold the key the keychain gave back at launch, without asking Garmin.
+   */
+  holdGarminKey(key: string): void {
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_hold_garmin_key(
+          uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(key, nativeModule().rustbuffer_alloc),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
   }
 
   /**
@@ -38873,6 +39294,16 @@ const FfiConverterSequenceTypeFfiPoolStrokeTotal = new FfiConverterArray(
 // FfiConverter for FfiPoolSwim | undefined
 const FfiConverterOptionalTypeFfiPoolSwim = new FfiConverterOptional(
   FfiConverterTypeFfiPoolSwim,
+);
+
+// FfiConverter for FfiActivitySyncFailure | undefined
+const FfiConverterOptionalTypeFfiActivitySyncFailure = new FfiConverterOptional(
+  FfiConverterTypeFfiActivitySyncFailure,
+);
+
+// FfiConverter for FfiActivityHeldBack | undefined
+const FfiConverterOptionalTypeFfiActivityHeldBack = new FfiConverterOptional(
+  FfiConverterTypeFfiActivityHeldBack,
 );
 
 // FfiConverter for Array<FfiActivityInterval>
@@ -41581,6 +42012,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_record_screen_data() !==
+    64853
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_settingsmanager_record_screen_data",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_athlete_profile() !==
     60840
   ) {
@@ -41782,10 +42221,26 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_clear_credentials() !==
-    55262
+    59159
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_clear_credentials",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_clear_garmin_key() !==
+    34922
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_syncmanager_clear_garmin_key",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_connect_garmin() !==
+    59347
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_syncmanager_connect_garmin",
     );
   }
   if (
@@ -41794,6 +42249,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_get_sync_status",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_hold_garmin_key() !==
+    13725
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_syncmanager_hold_garmin_key",
     );
   }
   if (
@@ -42239,6 +42702,7 @@ export default Object.freeze({
     FfiConverterTypeFfiActivityBody,
     FfiConverterTypeFfiActivityDetailData,
     FfiConverterTypeFfiActivityFitnessImpact,
+    FfiConverterTypeFfiActivityHeldBack,
     FfiConverterTypeFfiActivityHighlightsBundle,
     FfiConverterTypeFfiActivityIndicator,
     FfiConverterTypeFfiActivityInterval,
@@ -42253,6 +42717,7 @@ export default Object.freeze({
     FfiConverterTypeFfiActivityRouteHighlight,
     FfiConverterTypeFfiActivityStreams,
     FfiConverterTypeFfiActivitySummary,
+    FfiConverterTypeFfiActivitySyncFailure,
     FfiConverterTypeFfiAttemptHistogram,
     FfiConverterTypeFfiAttemptHistograms,
     FfiConverterTypeFfiBackgroundJobsData,
@@ -42388,6 +42853,7 @@ export default Object.freeze({
     FfiConverterTypeFfiRecordCheck,
     FfiConverterTypeFfiRecordProgressions,
     FfiConverterTypeFfiRecordRestoreResult,
+    FfiConverterTypeFfiRecordScreenData,
     FfiConverterTypeFfiRecordSource,
     FfiConverterTypeFfiRecordStep,
     FfiConverterTypeFfiRecordingEntry,
@@ -42495,6 +42961,7 @@ export default Object.freeze({
     FfiConverterTypeFfiYearCount,
     FfiConverterTypeFfiZoneDistribution,
     FfiConverterTypeFitnessManager,
+    FfiConverterTypeGarminKeyStatus,
     FfiConverterTypeGpxFile,
     FfiConverterTypeGroupSummary,
     FfiConverterTypeHeatmapManager,

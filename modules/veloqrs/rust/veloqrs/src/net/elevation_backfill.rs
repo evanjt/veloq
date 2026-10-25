@@ -649,7 +649,9 @@ macro_rules! upstream_named_sql {
                   OR a.intervals_id IS NOT NULL
                   OR EXISTS (SELECT 1 FROM activity_bodies b
                               WHERE b.activity_id = g.activity_id
-                                AND b.intervals_id IS NOT NULL))"
+                                AND b.intervals_id IS NOT NULL))
+                AND NOT EXISTS (SELECT 1 FROM activity_held_back hb
+                                 WHERE hb.activity_id = g.activity_id)"
     };
 }
 

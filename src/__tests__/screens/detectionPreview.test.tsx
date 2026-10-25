@@ -21,11 +21,12 @@ import type {
 // import path compares against one of its generated enums, so the stub is the
 // module here.
 jest.mock('veloqrs', () =>
-  require('../__shared__/veloqrsStub').withOverrides(
-    require('../__shared__/veloqrsStub').namespacesOver(() =>
+  require('../__shared__/veloqrsStub').withOverrides({
+    ...require('../__shared__/veloqrsStub').namespacesOver(() =>
       require('@/shared/native/engine').getEngine()
-    )
-  )
+    ),
+    sections: { getRetiredMapData: () => mockEnv.retiredMap() },
+  })
 );
 
 type Slot = React.ComponentType<never> | null;
@@ -42,6 +43,8 @@ const mockEnv = {
   centres: {} as unknown,
   detect: (): Record<string, unknown> => ({}),
   currentSections: null as unknown,
+  retiredMap: (): unknown => undefined,
+  params: {} as Record<string, string>,
   rescan: null as (() => unknown) | null,
   hold: null as (() => unknown) | null,
   cutover: null as (() => boolean) | null,
@@ -90,6 +93,7 @@ jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
   router: { canGoBack: () => true, back: jest.fn(), push: jest.fn() },
   useSegments: () => mockSegments,
+  useLocalSearchParams: () => mockEnv.params,
   useFocusEffect: (effect: () => void | (() => void)) => require('react').useEffect(effect, []),
 }));
 
@@ -166,6 +170,7 @@ jest.mock('@/features/routes/components', () => {
     PreviewMapView: slot('PreviewMapView'),
     PreviewParamPanel: slot('PreviewParamPanel'),
     PreviewSectionPopover: slot('PreviewSectionPopover'),
+    RetiredPairCard: slot('RetiredPairCard'),
   };
 });
 
@@ -177,12 +182,15 @@ const NO_CHILDREN: Record<string, Slot> = {
   PreviewMapView: null,
   PreviewParamPanel: null,
   PreviewSectionPopover: null,
+  RetiredPairCard: null,
 };
 
 /** The surroundings each describe starts from before it sets its own. */
 function resetEnv() {
   mockInsets.bottom = 0;
   mockEnv.currentSections = null;
+  mockEnv.retiredMap = () => undefined;
+  mockEnv.params = {};
   mockEnv.rescan = null;
   mockEnv.hold = null;
   mockEnv.cutover = null;
@@ -1597,5 +1605,188 @@ describe('the preview against a catalogue that has not caught up', () => {
     const { queryByTestId } = await render(<DetectionPreviewScreen />);
 
     expect(queryByTestId('preview-stale-catalogue')).toBeNull();
+  });
+});
+
+/**
+ * Scenario: the retired rows and the re-cut card open the preview with the retired layer on.
+ *
+ * Expected behaviour: the screen opens on the riding area holding the most retired lines, hands the
+ * map the layer drawn, and a tap on a retired line names the sections paired with it. Opened with
+ * no layer, the layer is offered and off, and an engine that cannot answer draws no layer.
+ */
+describe('the retired layer on the detection preview', () => {
+  const { encodeTrack } = require('../__shared__/trackBytes');
+  const { RetiredPairLink } = require('../__shared__/veloqrsStub');
+  const { RetiredPairCard } = jest.requireActual(
+    '@/features/routes/components/preview/RetiredPairCard'
+  );
+
+  const line = (lat: number, lng: number) =>
+    encodeTrack([
+      { latitude: lat, longitude: lng },
+      { latitude: lat + 0.005, longitude: lng + 0.005 },
+    ]);
+
+  // floor(47.5 / 0.045) = 1055 and floor(8.7 / 0.045) = 193; floor(46.95 / 0.045) = 1043 and
+  // floor(7.44 / 0.045) = 165.
+  const FIRST: PreviewCentre = {
+    binKey: '1055:193',
+    lat: 47.5,
+    lng: 8.7,
+    visitTotal: 40,
+    sectionCount: 2,
+    source: 'sections',
+  };
+  const BUSIEST: PreviewCentre = {
+    binKey: '1043:165',
+    lat: 46.95,
+    lng: 7.44,
+    visitTotal: 30,
+    sectionCount: 2,
+    source: 'sections',
+  };
+
+  const RETIRED_MAP = {
+    retired: [
+      {
+        section: { sectionId: 'old-1', kind: 'dissolved', name: 'Old Lake Loop' },
+        encodedPolyline: line(46.95, 7.44),
+      },
+      {
+        section: { sectionId: 'old-2', kind: 'dissolved', name: 'Old Hill' },
+        encodedPolyline: line(46.96, 7.45),
+      },
+      {
+        section: { sectionId: 'old-far', kind: 'dissolved', name: 'Old Far' },
+        encodedPolyline: line(47.5, 8.7),
+      },
+    ],
+    current: [
+      {
+        id: 'new-1',
+        name: 'Lake Loop',
+        isUserDefined: false,
+        pinned: false,
+        hidden: false,
+        encodedPolyline: line(46.95, 7.44),
+      },
+    ],
+    pairs: [{ retiredId: 'old-1', currentId: 'new-1', link: RetiredPairLink.Ground, overlap: 0.8 }],
+  };
+
+  interface CapturedMapProps {
+    centre?: PreviewCentre;
+    retiredLayer: null | {
+      show: boolean;
+      lines: { retired: GeoJSON.FeatureCollection; selection: GeoJSON.FeatureCollection };
+      onSelect: (id: string) => void;
+    };
+  }
+  let mapProps = {} as CapturedMapProps;
+  function layerOf() {
+    if (!mapProps.retiredLayer) throw new Error('the map was given no retired layer');
+    return mapProps.retiredLayer;
+  }
+  function CapturingMap(props: Record<string, unknown>) {
+    mapProps = props as unknown as CapturedMapProps;
+    return null;
+  }
+
+  beforeEach(() => {
+    resetEnv();
+    mapProps = {} as CapturedMapProps;
+    mockEnv.engine = () => ({
+      sectionDetectionAwaiting: () => 0,
+      subscribe: () => () => {},
+      getSectionConfig: () => ({
+        proximityThreshold: 50,
+        minSectionLength: 500,
+        maxSectionLength: 10000,
+        minActivities: 3,
+        divergenceThreshold: 0.2,
+      }),
+    });
+    mockEnv.centres = { centres: [FIRST, BUSIEST], labels: [null, null] };
+    mockEnv.currentSections = { sections: [], failed: false };
+    mockEnv.detect = () => ({
+      status: 'idle',
+      progress: null,
+      result: null,
+      refusal: null,
+      start: jest.fn(),
+      cancel: jest.fn(),
+      reset: jest.fn(),
+    });
+    mockEnv.components = {
+      ...NO_CHILDREN,
+      PreviewMapView: CapturingMap,
+      RetiredPairCard,
+    };
+    mockEnv.retiredMap = () => RETIRED_MAP;
+  });
+
+  it('opens on the area holding the most retired lines with the layer on', async () => {
+    mockEnv.params = { layer: 'retired' };
+    await render(<DetectionPreviewScreen />);
+
+    expect(mapProps.centre).toBe(BUSIEST);
+    expect(layerOf().show).toBe(true);
+    expect(layerOf().lines.retired.features.map((f: GeoJSON.Feature) => f.properties?.id)).toEqual([
+      'old-1',
+      'old-2',
+    ]);
+  });
+
+  it('offers the layer off when opened without it', async () => {
+    await render(<DetectionPreviewScreen />);
+
+    expect(mapProps.centre).toBe(FIRST);
+    expect(layerOf().show).toBe(false);
+  });
+
+  it('draws no layer when the library has no retired section or the engine cannot answer', async () => {
+    mockEnv.retiredMap = () => ({ retired: [], current: [], pairs: [] });
+    await render(<DetectionPreviewScreen />);
+    expect(mapProps.retiredLayer).toBeNull();
+
+    mockEnv.retiredMap = () => undefined;
+    await render(<DetectionPreviewScreen />);
+    expect(mapProps.retiredLayer).toBeNull();
+  });
+
+  it('names the section paired with a tapped retired line and follows the pair', async () => {
+    mockEnv.params = { layer: 'retired' };
+    const tree = await render(<DetectionPreviewScreen />);
+
+    await act(async () => layerOf().onSelect('old-1'));
+
+    expect(tree.getByTestId('retired-pair-card')).toBeTruthy();
+    expect(tree.getByTestId('retired-pair-new-1')).toBeTruthy();
+    expect(
+      layerOf().lines.selection.features.map((f: GeoJSON.Feature) => f.properties?.id)
+    ).toEqual(['old-1', 'new-1']);
+
+    await fireEvent.press(tree.getByTestId('retired-pair-new-1'));
+
+    expect(tree.getByTestId('retired-pair-old-1')).toBeTruthy();
+  });
+
+  it('says so when a tapped retired line shares its ground with nothing', async () => {
+    mockEnv.params = { layer: 'retired' };
+    const tree = await render(<DetectionPreviewScreen />);
+
+    await act(async () => layerOf().onSelect('old-2'));
+
+    expect(tree.getByTestId('retired-pair-none')).toBeTruthy();
+  });
+
+  it('keeps the list reachable from the layer', async () => {
+    mockEnv.params = { layer: 'retired' };
+    const tree = await render(<DetectionPreviewScreen />);
+
+    await fireEvent.press(tree.getByTestId('preview-retired-list-link'));
+
+    expect(router.push).toHaveBeenCalledWith('/section-retired');
   });
 });

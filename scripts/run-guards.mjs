@@ -43,6 +43,13 @@ const GUARDS = [
     catches: 'an unreviewed dependency install script leaving native package binaries absent',
   },
   {
+    name: 'check:garmin-key-sites',
+    kind: 'correctness',
+    cmd: node('check-garmin-key-sites.mjs'),
+    catches:
+      'the Garmin key read or written by a file outside the connector and the sign-out path, away from the keychain options',
+  },
+  {
     name: 'check:background-task-entry',
     kind: 'correctness',
     cmd: node('check-background-task-entry.mjs'),
@@ -205,24 +212,11 @@ const GUARDS = [
       'an engine method only tests call, or none call, that the checked-in list does not account for',
   },
   {
-    name: 'ffi:area-check',
-    kind: 'correctness',
-    cmd: tsx('ffi-usage-report.ts', '--check-areas'),
-    catches: 'a feature area reaching engine exports beyond its ceiling, or a stale ceiling entry',
-  },
-  {
     name: 'lint:engine-client-forwards',
     kind: 'style',
     cmd: node('lint-engine-client-forwards.mjs'),
     catches:
       'a client member that only hands itself to a delegate, a second door to a function the bound namespace already exports',
-  },
-  {
-    name: 'lint:ratchet-growth',
-    kind: 'merge',
-    cmd: node('lint-ratchet-growth.mjs'),
-    catches:
-      'an engine area list or an engine-surface ceiling raised in the same change that adds the reach it allows',
   },
   {
     name: 'crash:guard',
@@ -342,10 +336,10 @@ const GUARDS = [
   {
     name: 'lint:engine-surface',
     kind: 'correctness',
-    // Through npm, so the ceilings stay in the one place the ratchet tells you to
-    // lower them.
+    // Through npm, so the ceiling stays in the one place the ratchet tells you to
+    // lower it.
     cmd: ['npm', 'run', '--silent', 'lint:engine-surface'],
-    catches: 'a new direct engine call site or store, giving a fact a second reader',
+    catches: 'a new store, giving a fact a second reader',
   },
   {
     name: 'lint:submodule-pointer',

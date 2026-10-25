@@ -22,7 +22,7 @@ describe('the sport Start begins', () => {
 
 describe('the chip row', () => {
   it('holds the recent sports, most recent first, up to the count', () => {
-    expect(entrySportChips(['Run', 'Ride', 'Walk', 'Hike', 'Swim'], 'Run', 4)).toEqual([
+    expect(entrySportChips(['Run', 'Ride', 'Walk', 'Hike', 'Swim'], 'Run', [], 4)).toEqual([
       'Run',
       'Ride',
       'Walk',
@@ -34,13 +34,49 @@ describe('the chip row', () => {
     expect(entrySportChips([], 'Ride')).toEqual([...DEFAULT_ENTRY_SPORTS]);
   });
 
+  it('follows one recent sport with the library sports before the defaults', () => {
+    expect(entrySportChips(['Swim'], 'Swim', ['Run', 'Swim', 'Rowing'])).toEqual([
+      'Swim',
+      'Run',
+      'Rowing',
+      'Ride',
+    ]);
+  });
+
+  it('keeps the chosen sport and the count when the library fills the row', () => {
+    expect(entrySportChips(['Run'], 'Yoga', ['Swim', 'Rowing', 'Ride'])).toEqual([
+      'Yoga',
+      'Run',
+      'Swim',
+      'Rowing',
+    ]);
+  });
+
+  it('keeps the fixed defaults for a library with no activity', () => {
+    expect(entrySportChips(['Run'], 'Run', [])).toEqual(['Run', 'Ride', 'Walk', 'Hike']);
+  });
+
   it('leads with a sport picked from More, and keeps the count', () => {
-    expect(entrySportChips(['Run', 'Ride', 'Walk', 'Hike'], 'Rowing', 4)).toEqual([
+    expect(entrySportChips(['Run', 'Ride', 'Walk', 'Hike'], 'Rowing', [], 4)).toEqual([
       'Rowing',
       'Run',
       'Ride',
       'Walk',
     ]);
+  });
+
+  it('fills the row to the count with the defaults after one recent sport', () => {
+    expect(entrySportChips(['Walk'], 'Walk', [], 4)).toEqual(['Walk', 'Ride', 'Run', 'Hike']);
+  });
+
+  it('keeps a sport picked from More inside the count when the recents are short', () => {
+    expect(entrySportChips(['Walk'], 'Rowing', [], 4)).toEqual(['Rowing', 'Walk', 'Ride', 'Run']);
+  });
+
+  it('lists no sport twice when the recents overlap the defaults', () => {
+    const chips = entrySportChips(['Hike', 'Walk'], 'Ride', [], 4);
+    expect(chips).toEqual(['Hike', 'Walk', 'Ride', 'Run']);
+    expect(new Set(chips).size).toBe(chips.length);
   });
 });
 

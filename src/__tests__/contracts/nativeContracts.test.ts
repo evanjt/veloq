@@ -2039,6 +2039,7 @@ const SETS: SetContract[] = [
       ['FfiPlanLineKind', stub.FfiPlanLineKind],
       ['FfiTargetMetric', stub.FfiTargetMetric],
       ['FfiAbsoluteUnits', stub.FfiAbsoluteUnits],
+      ['FfiRetiredPairLink', stub.RetiredPairLink],
     ] as const
   ).map(([name, value]): SetContract => ({
     agree: `the binding stub carries ${name}, declared without discriminants, in the generated order`,

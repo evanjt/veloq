@@ -84,7 +84,7 @@ impl LaneTimeouts {
     fn budget(&self, lane: Lane) -> Option<Duration> {
         match lane {
             Lane::Interactive => Some(self.interactive_budget),
-            Lane::Backfill => None,
+            Lane::Backfill | Lane::Garmin => None,
         }
     }
 }
@@ -234,7 +234,50 @@ fn build_client(timeouts: LaneTimeouts) -> Result<Client, String> {
         .map_err(|e| format!("failed to build HTTP client: {}", e))
 }
 
+/// One client for Garmin, which follows no redirect and speaks HTTPS only.
+static GARMIN_CLIENT: std::sync::OnceLock<Result<Client, String>> = std::sync::OnceLock::new();
+
+fn build_credential_client(https_only: bool) -> Result<Client, String> {
+    Client::builder()
+        .gzip(true)
+        .pool_max_idle_per_host(4)
+        .pool_idle_timeout(Duration::from_secs(60))
+        .connect_timeout(LaneTimeouts::default().connect)
+        .timeout(LaneTimeouts::default().backfill)
+        // A credential goes to the host it was built for and nowhere else, so
+        // a redirect answer is an error rather than a second request.
+        .redirect(reqwest::redirect::Policy::none())
+        .https_only(https_only)
+        .build()
+        .map_err(|e| format!("failed to build HTTP client: {}", e))
+}
+
 impl Transport {
+    /// Build a transport for a credential that must reach one host only: no
+    /// redirect is followed, and with `https_only` no plain-HTTP request is
+    /// sent. `https_only` is false only for tests against a local mock.
+    pub(crate) fn credentialed(
+        base_url: impl Into<String>,
+        auth: AuthMethod<'_>,
+        governor: Arc<Governor>,
+        https_only: bool,
+    ) -> Result<Self, String> {
+        let client = if https_only {
+            GARMIN_CLIENT
+                .get_or_init(|| build_credential_client(true))
+                .clone()?
+        } else {
+            build_credential_client(false)?
+        };
+        Ok(Self {
+            client,
+            base_url: base_url.into(),
+            auth_header: governor::format_auth_header(auth),
+            governor,
+            timeouts: LaneTimeouts::default(),
+        })
+    }
+
     /// Build a transport on the shared process governor.
     pub fn new(base_url: impl Into<String>, auth: AuthMethod<'_>) -> Result<Self, String> {
         Self::with_governor(base_url, auth, governor::GOVERNOR.clone())
@@ -459,7 +502,18 @@ impl Transport {
         body: &serde_json::Value,
         dispatch: impl Into<Dispatch>,
     ) -> Result<Vec<u8>, NetError> {
-        self.write_json(reqwest::Method::POST, path, body, dispatch.into())
+        self.write_json(reqwest::Method::POST, path, Some(body), dispatch.into())
+            .await
+    }
+
+    /// POST with no body and return the raw response bytes, under the same
+    /// write retry policy as `post_json`.
+    pub async fn post_empty(
+        &self,
+        path: &str,
+        dispatch: impl Into<Dispatch>,
+    ) -> Result<Vec<u8>, NetError> {
+        self.write_json(reqwest::Method::POST, path, None, dispatch.into())
             .await
     }
 
@@ -471,7 +525,7 @@ impl Transport {
         body: &serde_json::Value,
         dispatch: impl Into<Dispatch>,
     ) -> Result<Vec<u8>, NetError> {
-        self.write_json(reqwest::Method::PUT, path, body, dispatch.into())
+        self.write_json(reqwest::Method::PUT, path, Some(body), dispatch.into())
             .await
     }
 
@@ -479,7 +533,7 @@ impl Transport {
         &self,
         method: reqwest::Method,
         path: &str,
-        body: &serde_json::Value,
+        body: Option<&serde_json::Value>,
         dispatch: Dispatch,
     ) -> Result<Vec<u8>, NetError> {
         let lane = dispatch.lane;
@@ -503,12 +557,14 @@ impl Transport {
                     NetError::RateLimited
                 });
             }
-            let req = self
+            let mut req = self
                 .client
                 .request(method.clone(), &url)
                 .header("Authorization", &self.auth_header)
-                .timeout(timeout)
-                .json(body);
+                .timeout(timeout);
+            if let Some(body) = body {
+                req = req.json(body);
+            }
             let send = req.send().await;
             if attempt > 0
                 && self.timeouts.cut_by_budget(lane, timeout)

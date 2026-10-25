@@ -1014,6 +1014,62 @@ fn a_section_retired_by_preferring_the_other_can_be_restored_and_preferred_again
     assert!(retired_entry(&engine, "s_auto").is_none());
 }
 
+/// Scenario: the athlete deletes a restored section while the auto section it
+/// replaced still lies on its ground.
+/// Expected behaviour: the section is on the retired list, linked to that auto
+/// section and restorable from its archived state, and restoring it hides the
+/// auto section behind it again.
+#[test]
+fn deleting_a_restored_section_leaves_it_restorable_into_the_auto_section_it_replaced() {
+    let dir = TempDir::new().expect("tempdir");
+    let (mut engine, version) = restored_beside_a_recut(&dir, "delete-restored.db");
+
+    engine.delete_section("s_auto").expect("delete");
+
+    let entry = retired_entry(&engine, "s_auto").expect("on the retired list");
+    assert_eq!(entry.kind, "superseded");
+    assert_eq!(entry.into.as_deref(), Some("s_recut"));
+    assert_eq!(entry.restorable_version.map(|v| v.0), Some(version));
+    assert!(is_live(&engine, "s_recut"));
+    assert_eq!(superseded_by(&engine, "s_recut"), None);
+
+    engine
+        .revert_section_to_version("s_auto", version)
+        .expect("restore");
+
+    assert!(is_live(&engine, "s_auto"));
+    assert_eq!(superseded_by(&engine, "s_recut").as_deref(), Some("s_auto"));
+    assert!(retired_entry(&engine, "s_auto").is_none());
+}
+
+/// Scenario: the athlete deletes a restored section when no auto section lies
+/// on its ground any more.
+/// Expected behaviour: the section is on the retired list as dissolved, with no
+/// link, and restorable from its archived state.
+#[test]
+fn deleting_a_restored_section_with_no_ground_left_dissolves_it_restorable() {
+    let dir = TempDir::new().expect("tempdir");
+    let mut engine = library(&dir, "delete-restored-alone.db");
+    engine.archive_current_catalogue().expect("archive");
+    let (_, version) = archived_state(&engine, "s_auto");
+    retire(&engine, "s_auto");
+    engine
+        .revert_section_to_version("s_auto", version)
+        .expect("restore");
+
+    engine.delete_section("s_auto").expect("delete");
+
+    let entry = retired_entry(&engine, "s_auto").expect("on the retired list");
+    assert_eq!(entry.kind, "dissolved");
+    assert!(entry.into.is_none());
+    assert_eq!(entry.restorable_version.map(|v| v.0), Some(version));
+
+    engine
+        .revert_section_to_version("s_auto", version)
+        .expect("restore again");
+    assert!(is_live(&engine, "s_auto"));
+}
+
 /// Scenario: two sections on different corridors are offered as a pair.
 /// Expected behaviour: the write is refused and nothing changes.
 #[test]

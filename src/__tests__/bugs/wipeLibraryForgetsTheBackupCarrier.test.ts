@@ -1041,9 +1041,11 @@ const DEVICE_WRITES: DeviceWrite[] = [
     writers: [
       'src/features/recording/lib/storage/recordingLibrary.ts',
       'src/features/recording/lib/storage/recordingFiles.ts',
+      `${RUST}/net/garmin/ingest.rs`,
     ],
-    holds: 'rides recorded on this device',
-    kept: "recordings stay through a wipe by decision, and the next sign-in holds every ride that is not that athlete's",
+    holds:
+      "rides recorded on this device, and the original FIT of each activity read through the athlete's own Garmin key, named by its src-garmin key",
+    kept: "recordings stay through a wipe by decision, and the next sign-in holds every ride that is not that athlete's; a Garmin original is kept in the same directory by the same decision",
   },
   {
     confirm: ['recordings'],
@@ -1102,6 +1104,17 @@ const DEVICE_WRITES: DeviceWrite[] = [
     writers: ['src/features/recording/stores/UploadPermissionStore.ts'],
     holds: 'the scopes the previous account granted',
     wiped: { settings: ['veloq-upload-permission'] },
+  },
+
+  {
+    confirm: [],
+    where: 'the Garmin Personal key and the connector choices',
+    writers: ['src/features/settings/lib/garminConnector.ts'],
+    holds: "the athlete's Garmin key, its expiry date, and the feed and upload switches",
+    wiped: {
+      keychain: ['garmin_personal_key'],
+      settings: ['veloq-garmin-key-expiry', 'veloq-garmin-feed', 'veloq-garmin-upload'],
+    },
   },
 
   // The image loader.

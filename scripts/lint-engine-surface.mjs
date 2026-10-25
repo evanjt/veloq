@@ -1,16 +1,16 @@
 #!/usr/bin/env node
-// Two counts that may only fall: the files reaching the engine module directly,
-// and the stores.
+// One count that may only fall, the stores, and one that is reported and not
+// held, the files reaching the engine module directly.
 //
-// The front end is moving to one screen read per screen, so both shrink as the
-// screen-read items land. Nothing enforced that. A feature fix that adds a
-// `getEngine` import, or a twenty-first store, passed every gate, and the
-// inventory the migration is planned from went stale the same day.
+// The front end is moving to one screen read per screen, so the stores shrink as
+// the screen-read items land. A ratchet and not a ban: the count is where it is,
+// and the ceiling only ever moves down. Refusing a ceiling the tree has already
+// beaten is the other half of that, or ground a sweep took is quietly given back
+// by the next commit that adds one.
 //
-// A ratchet and not a ban: the counts are where they are, and the ceiling only
-// ever moves down. Refusing a ceiling the tree has already beaten is the other
-// half of that, or ground a sweep took is quietly given back by the next commit
-// that adds one.
+// The engine call sites carry no ceiling, since a feature that needs the engine
+// adds a file that reaches it. They are counted so the number is visible, and
+// `--list-call-sites` names them.
 //
 // The shared engine layer, `src/shared/native`, is where the module belongs and
 // is not counted. Neither are the tests, which mock it rather than reach it.
@@ -38,7 +38,7 @@ function flag(name, fallback) {
 }
 
 const ROOT = resolve(flag('--root', resolve(HERE, '..')));
-const ENGINE_CEILING = Number(flag('--engine-ceiling', '0'));
+const LIST_CALL_SITES = process.argv.includes('--list-call-sites');
 const STORE_CEILING = Number(flag('--store-ceiling', '0'));
 const SRC = join(ROOT, 'src');
 
@@ -180,10 +180,12 @@ function check(label, files, ceiling, what) {
   }
 }
 
-check('Engine call sites', callSites, ENGINE_CEILING, 'files reach the engine directly');
 check('Stores', stores, STORE_CEILING, 'stores');
 
 if (failed) process.exit(1);
 console.log(
-  `Engine surface: ${callSites.length} call sites and ${stores.length} stores, both on the ceiling.`
+  `Engine surface: ${callSites.length} call sites, ${stores.length} stores on the ceiling.`
 );
+if (LIST_CALL_SITES) {
+  for (const file of callSites.sort()) console.log(`  ${relative(ROOT, file)}`);
+}

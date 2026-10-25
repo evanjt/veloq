@@ -15,6 +15,7 @@ export { useSections } from './useSections';
 export { useRouteDataSync } from './useRouteDataSync';
 export {
   useArchivedRetiredCount,
+  useRetiredMapData,
   useRetiredSectionCount,
   useRoutesScreenData,
 } from './useRoutesScreenData';

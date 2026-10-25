@@ -2,6 +2,7 @@
   "modules/veloqrs/rust/veloqrs/src/ffi.rs": 8,
   "modules/veloqrs/rust/veloqrs/src/http.rs": 1,
   "modules/veloqrs/rust/veloqrs/src/net/elevation_backfill.rs": 14,
+  "modules/veloqrs/rust/veloqrs/src/net/garmin/ingest.rs": 2,
   "modules/veloqrs/rust/veloqrs/src/net/stream_backfill.rs": 7,
   "modules/veloqrs/rust/veloqrs/src/net/upload_recording.rs": 1,
   "modules/veloqrs/rust/veloqrs/src/objects/activities.rs": 10,

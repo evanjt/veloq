@@ -42,7 +42,7 @@ export function SectionsChangedCard() {
 
   const open = useCallback(() => {
     dismiss();
-    navigateTo('/section-retired');
+    navigateTo('/detection-preview?layer=retired');
   }, [dismiss]);
 
   if (!eligible || !holdsAsk) return null;

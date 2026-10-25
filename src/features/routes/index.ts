@@ -20,6 +20,8 @@ export {
   PreviewParamPanel,
   PreviewRunCost,
   PreviewSectionPopover,
+  RetiredPairCard,
+  type RetiredLayerProps,
   RouteDetailDebugPanel,
   DetailMapHost,
   RouteDetailMap,
@@ -73,6 +75,7 @@ export {
   useRouteReference,
   useRouteRenaming,
   useArchivedRetiredCount,
+  useRetiredMapData,
   useRetiredSectionCount,
   useRoutesScreenData,
   useSectionActions,
@@ -142,10 +145,21 @@ export type {
 } from './lib/mergeSheets';
 export { type GroupingParams, groupingParamsOf, paintPreview } from './lib/groupingParams';
 export { previewNewNumber } from './lib/previewNewNumber';
+export { previewAreaBounds } from './lib/previewMapCamera';
+export {
+  buildRetiredLines,
+  busiestCentre,
+  describeRetiredSelection,
+  type RetiredLines,
+} from './lib/retiredLineCollection';
 export { previewRefusalKey } from './lib/previewRefusal';
 export { ROW_PREVIEW_HEIGHT, ROW_PREVIEW_WIDTH } from './lib/rowLayout';
 export { informSectionWriteRefused } from './lib/sectionWriteRefusal';
-export { removeSectionWithUndo, restoreSection } from './lib/sectionVisibility';
+export {
+  preferSectionWithUndo,
+  removeSectionWithUndo,
+  restoreSection,
+} from './lib/sectionVisibility';
 export { rescanRefusalKey } from './lib/rescanRefusal';
 export { routeHeadline } from './lib/routeHeadline';
 export { elevationStat, sectionGradeStats, scopeLabels } from './lib/heroStats';

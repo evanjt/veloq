@@ -33,6 +33,8 @@ export const INTERVALS_URLS = {
   settings: 'https://intervals.icu/settings',
   /** Developer Settings section for API key */
   developerSettings: 'https://intervals.icu/settings#developer',
+  /** Where the athlete turns intervals.icu's Garmin imports on and off. */
+  connections: 'https://intervals.icu/settings/connections',
   fitnessPage: 'https://intervals.icu/fitness',
   subscription: 'https://intervals.icu/settings/subscription',
   athletePage: (athleteId: string) => `https://intervals.icu/athlete/${athleteId}/activities`,

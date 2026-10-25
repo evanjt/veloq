@@ -21,6 +21,8 @@ export const GITHUB_ISSUES_URL = 'https://github.com/evanjt/veloq/issues/new';
 export const GITHUB_SPONSORS_URL = 'https://github.com/sponsors/evanjt';
 /** What leaves the device and why, linked from sign-in, notifications and About. */
 export const VELOQ_PRIVACY_URL = 'https://veloq.fit/privacy';
+/** Terms of use and sale for the sign-in and notification service, linked from About. */
+export const VELOQ_TERMS_URL = 'https://veloq.fit/terms';
 export const REPOSITORY_URL = 'https://github.com/evanjt/veloq';
 export const LICENCE_URL = 'https://github.com/evanjt/veloq/blob/main/LICENSE';
 export const TRACEMATCH_URL = 'https://github.com/evanjt/tracematch';

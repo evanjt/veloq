@@ -238,11 +238,26 @@ export enum StartOutcome {
   Offline = 8,
 }
 
+/** `FfiRetiredPairLink` as generated, held to the source by the same test. */
+export enum RetiredPairLink {
+  Ledger,
+  Supersedes,
+  Ground,
+}
+
 /** `RangeCoverage` as generated, held to the source by the same test. */
 export enum RangeCoverage {
   Empty = 1,
   NotFetched = 2,
   Loaded = 3,
+}
+
+/** `GarminKeyStatus` as generated, held to the source by the same test. */
+export enum GarminKeyStatus {
+  Connected,
+  Rejected,
+  Malformed,
+  Unreachable,
 }
 
 /** `FfiPlannedCategory` as generated, held to the source by the same test. */
@@ -412,6 +427,10 @@ export const streamBackfill = {
   stopStreamBackfill: jest.fn(),
 };
 
+export const settings = {
+  getRecordScreenData: jest.fn(() => undefined),
+};
+
 export const connectivity = {
   setNetworkOnline: jest.fn(),
   setInteracting: jest.fn(),
@@ -515,6 +534,11 @@ export const detection = {
   setMatchStrictness: jest.fn(),
   getMatchStrictness: jest.fn(),
   forceRedetectSections: jest.fn(),
+};
+
+/** The section delegates a screen test feeds its own answer through `withOverrides`. */
+export const sections = {
+  getRetiredMapData: jest.fn(),
 };
 
 export const preview = {
@@ -627,6 +651,8 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     StartOutcome,
     InitOutcome,
     RangeCoverage,
+    GarminKeyStatus,
+    RetiredPairLink,
     FfiReferenceSource,
     FfiPlannedCategory,
     FfiPlanTarget,
@@ -649,6 +675,7 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     engine,
     elevation,
     streamBackfill,
+    settings,
     connectivity,
     maps,
     launch,
@@ -659,6 +686,7 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     strength,
     routes,
     detection,
+    sections,
     preview,
     routeGroupingPreview,
     previewClient,

@@ -530,11 +530,12 @@ pub fn activity_push_json(
                 .as_ref()
                 .err()
                 .map_or(PushRunOutcome::Posted, |q| q.outcome);
+            let why = run.as_ref().err().and_then(|q| q.detail.clone());
             Ok(Some(settle(
                 install,
                 activity_id,
                 outcome,
-                None,
+                why.as_deref(),
                 entry_for_run(run),
             )))
         }
@@ -591,6 +592,8 @@ fn entry_for_run(run: Result<Entry, Quiet>) -> Entry {
 struct Quiet {
     outcome: PushRunOutcome,
     activity_name: Option<String>,
+    /// The sentence recorded beside a `failed` outcome.
+    detail: Option<String>,
 }
 
 impl From<PushRunOutcome> for Quiet {
@@ -598,6 +601,7 @@ impl From<PushRunOutcome> for Quiet {
         Quiet {
             outcome,
             activity_name: None,
+            detail: None,
         }
     }
 }
@@ -678,13 +682,55 @@ fn activity_push_run(
     readied?;
     let detail = stored.detail;
 
+    // A strength session is announced by the muscles its sets worked, and the
+    // sets come from the activity's FIT file, which nothing else has fetched
+    // yet when the push is the first the library hears of the session.
+    if crate::sport::is_strength(&detail.sport_type) {
+        let downloaded = crate::runtime::block_on(settle_strength_sets(
+            install,
+            activity_id,
+            session.original_file(&upstream, crate::governor::Lane::Interactive.into()),
+        ));
+        if let Err(why) = downloaded {
+            log::warn!("[push] {activity_id} has no sets for its sentence: {why}");
+            return Ok(Some(Err(Quiet {
+                outcome: PushRunOutcome::Failed,
+                activity_name: Some(detail.name),
+                detail: Some(why),
+            })));
+        }
+    }
+
     Ok(Some(
         activity_notification_entry(activity_id, &detail.name, announce_prs, announce_milestones)?
             .map_err(|outcome| Quiet {
                 outcome,
                 activity_name: Some(detail.name.clone()),
+                detail: None,
             }),
     ))
+}
+
+/// Bring a strength session's exercise sets into the library before the ladder
+/// reads them: nothing when the file has a settled verdict already, otherwise
+/// the download is awaited and settled as the strength tab settles it. A file
+/// upstream does not hold is a settled verdict, so it is not an error here;
+/// any other failure is, and leaves the session owed for the next fetch.
+async fn settle_strength_sets(
+    install: u64,
+    activity_id: &str,
+    download: impl std::future::Future<Output = Result<Vec<u8>, crate::net::transport::NetError>>,
+) -> Result<(), String> {
+    let settled = crate::persistence::read_pool::with_read_conn(|conn| {
+        crate::persistence::strength::pooled::is_fit_processed(conn, activity_id).unwrap_or(false)
+    })
+    .unwrap_or(false);
+    if settled {
+        return Ok(());
+    }
+    crate::objects::strength::settle_fit_download(install, activity_id, download.await)
+        .await
+        .map_err(|e| format!("the exercise sets of {activity_id}: {e}"))
 }
 
 /// The bodies the stored detail still owes, and the index of its track.
@@ -1037,6 +1083,7 @@ mod tests {
         let json = entry_for_run(Err(Quiet {
             outcome: PushRunOutcome::NothingWorthPosting,
             activity_name: Some("Morning Ride".to_string()),
+            detail: None,
         }))
         .json(false);
 
@@ -1057,6 +1104,7 @@ mod tests {
         let json = entry_for_run(Err(Quiet {
             outcome: PushRunOutcome::NoStringBundle,
             activity_name: Some("Morning Ride".to_string()),
+            detail: None,
         }))
         .json(false);
 
@@ -1169,6 +1217,136 @@ mod tests {
 
         assert!(json.contains("PR on Climb 1"), "{json}");
         assert!(json.contains("\"title\":\"New PR\""), "{json}");
+    }
+
+    /// The process-wide engine holding one strength session whose FIT file has
+    /// no verdict yet, with the string bundle pushed.
+    fn global_engine_with_a_strength_session() -> tempfile::TempDir {
+        let tmp = crate::test_globals::init_global_engine("push_strength.db");
+        crate::persistence::with_persistent_engine(|engine| {
+            engine
+                .set_notification_templates("en-AU", &bundle())
+                .expect("the write");
+            engine
+                .db
+                .execute(
+                    "INSERT INTO activity_metrics (activity_id, name, date, distance, moving_time,
+                         elapsed_time, elevation_gain, sport_type)
+                     VALUES ('lift', 'Push day', 1700000000, 0, 0, 0, 0, 'WeightTraining')",
+                    [],
+                )
+                .expect("the metrics");
+        })
+        .expect("the engine");
+        tmp
+    }
+
+    fn bench_press_set() -> crate::fit::FitExerciseSet {
+        crate::fit::FitExerciseSet {
+            set_order: 0,
+            exercise_category: 0,
+            exercise_name: None,
+            set_type: 0,
+            repetitions: Some(8),
+            weight_kg: Some(60.0),
+            duration_secs: None,
+            start_time: None,
+        }
+    }
+
+    fn fit_processed(activity_id: &str) -> bool {
+        crate::persistence::with_persistent_engine(|engine| {
+            engine.is_fit_processed(activity_id).expect("the read")
+        })
+        .expect("the engine")
+    }
+
+    /// Scenario: a strength session whose sets are stored, chest and triceps.
+    ///
+    /// Expected behaviour: the sentence names both, and the file is not
+    /// downloaded again.
+    #[test]
+    fn a_strength_session_with_stored_sets_is_announced_by_its_muscles() {
+        let _guard = serial_global_state();
+        let _tmp = global_engine_with_a_strength_session();
+        crate::persistence::with_persistent_engine(|engine| {
+            engine
+                .store_exercise_sets("lift", &[bench_press_set()])
+                .expect("the sets");
+            engine
+                .mark_fit_outcome("lift", crate::persistence::FitOutcome::Parsed)
+                .expect("the verdict");
+        })
+        .expect("the engine");
+
+        let settled = crate::runtime::block_on(settle_strength_sets(
+            crate::persistence::engine_install(),
+            "lift",
+            async { panic!("a settled file is not downloaded again") },
+        ));
+        let json = activity_notification_outcome("lift", "Push day", true, true)
+            .expect("the engine")
+            .expect("a notification");
+
+        assert_eq!(settled, Ok(()));
+        assert!(json.contains("Worked Chest, Triceps"), "{json}");
+    }
+
+    /// Scenario: the download of a strength session's file fails on the network.
+    ///
+    /// Expected behaviour: the failure is reported with its reason, the session
+    /// stays owed for the next fetch, and the ladder has nothing to say.
+    #[test]
+    fn a_failed_sets_download_is_reported_and_leaves_the_session_owed() {
+        use crate::net::transport::NetError;
+        let _guard = serial_global_state();
+        let _tmp = global_engine_with_a_strength_session();
+
+        let settled = crate::runtime::block_on(settle_strength_sets(
+            crate::persistence::engine_install(),
+            "lift",
+            async {
+                Err(NetError::Http {
+                    status: 503,
+                    body: String::new(),
+                })
+            },
+        ));
+
+        let why = settled.expect_err("a failed download is an error");
+        assert!(why.starts_with("the exercise sets of lift"), "{why}");
+        assert!(!fit_processed("lift"));
+        assert_eq!(
+            activity_notification_outcome("lift", "Push day", true, true)
+                .expect("the engine")
+                .ok(),
+            None
+        );
+    }
+
+    /// Scenario: upstream holds no file for the session.
+    ///
+    /// Expected behaviour: that is a settled verdict, not a failure, and the
+    /// run falls back to the plain entry.
+    #[test]
+    fn a_session_upstream_holds_no_file_for_is_settled_without_an_error() {
+        use crate::net::transport::NetError;
+        let _guard = serial_global_state();
+        let _tmp = global_engine_with_a_strength_session();
+
+        let settled = crate::runtime::block_on(settle_strength_sets(
+            crate::persistence::engine_install(),
+            "lift",
+            async {
+                Err(NetError::Http {
+                    status: 404,
+                    body: String::new(),
+                })
+            },
+        ));
+
+        assert_eq!(settled, Ok(()));
+        assert!(fit_processed("lift"));
     }
 
     /// Scenario: the tray holds only the placeholder and the phone is in
@@ -1386,6 +1564,12 @@ mod tests {
                 "Cycling eFTP: {{current}}W (+{{change}}W)",
             ),
             ("insights.paceImproved", "Pace improved {{delta}}"),
+            (
+                "notifications.activityBody.strengthMuscles",
+                "Worked {{muscles}}",
+            ),
+            ("strength.muscles.chest", "Chest"),
+            ("strength.muscles.triceps", "Triceps"),
         ]
         .into_iter()
         .map(|(k, v)| (k.to_string(), v.to_string()))

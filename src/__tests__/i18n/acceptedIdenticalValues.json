@@ -106,7 +106,8 @@
     "poolSwim.columns.distance": "Danish word or phrase with the same spelling.",
     "poolSwim.columns.swolf": "Conventional training or recording abbreviation.",
     "poolSwim.strokes.butterfly": "Danish sport name or established sport loanword.",
-    "activity.prBadge": "Conventional training or recording abbreviation."
+    "activity.prBadge": "Conventional training or recording abbreviation.",
+    "garmin.title": "Brand name with the same spelling."
   },
   "de-CH": {
     "activity.stats.maxLabel": "Abbreviation of the German label with the same spelling.",
@@ -202,7 +203,8 @@
     "charts.column.zone": "The same word in this language.",
     "poolSwim.columns.pace": "Established German loanword or technical term.",
     "poolSwim.columns.swolf": "Conventional training or recording abbreviation.",
-    "fitnessScreen.places.trends": "Established German loanword or technical term."
+    "fitnessScreen.places.trends": "Established German loanword or technical term.",
+    "garmin.title": "Brand name with the same spelling."
   },
   "de-DE": {
     "backup.entryAppVersion": "German word or phrase with the same spelling.",
@@ -324,7 +326,8 @@
     "poolSwim.columns.pace": "Established German loanword or technical term.",
     "poolSwim.columns.swolf": "Conventional training or recording abbreviation.",
     "fitnessScreen.places.fitness": "Established German loanword or technical term.",
-    "fitnessScreen.places.trends": "Established German loanword or technical term."
+    "fitnessScreen.places.trends": "Established German loanword or technical term.",
+    "garmin.title": "Brand name with the same spelling."
   },
   "es-419": {
     "activity.stats.maxLabel": "Abbreviation of the Spanish label with the same spelling.",
@@ -404,7 +407,8 @@
     "charts.summary.parts": "Placeholders and punctuation only, no translatable words.",
     "statsScreen.lthr": "Conventional training or recording abbreviation.",
     "poolSwim.columns.swolf": "Conventional training or recording abbreviation.",
-    "common.experimental": "Spanish word or phrase with the same spelling."
+    "common.experimental": "Spanish word or phrase with the same spelling.",
+    "garmin.title": "Brand name with the same spelling."
   },
   "es-ES": {
     "activity.stats.maxLabel": "Abbreviation of the Spanish label with the same spelling.",
@@ -489,7 +493,8 @@
     "charts.summary.parts": "Placeholders and punctuation only, no translatable words.",
     "statsScreen.lthr": "Conventional training or recording abbreviation.",
     "poolSwim.columns.swolf": "Conventional training or recording abbreviation.",
-    "common.experimental": "Spanish word or phrase with the same spelling."
+    "common.experimental": "Spanish word or phrase with the same spelling.",
+    "garmin.title": "Brand name with the same spelling."
   },
   "es": {
     "activity.stats.trimp": "Conventional training or recording abbreviation.",
@@ -567,7 +572,8 @@
     "charts.summary.parts": "Placeholders and punctuation only, no translatable words.",
     "statsScreen.lthr": "Conventional training or recording abbreviation.",
     "poolSwim.columns.swolf": "Conventional training or recording abbreviation.",
-    "common.experimental": "Spanish word or phrase with the same spelling."
+    "common.experimental": "Spanish word or phrase with the same spelling.",
+    "garmin.title": "Brand name with the same spelling."
   },
   "fr": {
     "backup.entryAppVersion": "French word or phrase with the same spelling.",
@@ -708,7 +714,8 @@
     "sections.deltaReferenceRecord": "French word or phrase with the same spelling.",
     "poolSwim.columns.distance": "French word or phrase with the same spelling.",
     "poolSwim.columns.swolf": "Conventional training or recording abbreviation.",
-    "fitnessScreen.places.performance": "French word or phrase with the same spelling."
+    "fitnessScreen.places.performance": "French word or phrase with the same spelling.",
+    "garmin.title": "Brand name with the same spelling."
   },
   "it": {
     "activity.stats.maxLabel": "Abbreviation of the Italian label with the same spelling.",
@@ -803,7 +810,8 @@
     "charts.summary.single": "Placeholders and punctuation only, no translatable words.",
     "charts.summary.parts": "Placeholders and punctuation only, no translatable words.",
     "sections.deltaReferenceRecord": "Established loanword in this locale.",
-    "poolSwim.columns.swolf": "Conventional training or recording abbreviation."
+    "poolSwim.columns.swolf": "Conventional training or recording abbreviation.",
+    "garmin.title": "Brand name with the same spelling."
   },
   "ja": {
     "activity.stats.trimp": "Conventional training or recording abbreviation.",
@@ -847,7 +855,8 @@
     "activity.gainStat": "An arrow mark before a formatted value, the same in every language.",
     "units.rpm": "Conventional measurement unit symbol.",
     "units.spm": "Conventional measurement unit symbol.",
-    "poolSwim.columns.swolf": "Conventional training or recording abbreviation."
+    "poolSwim.columns.swolf": "Conventional training or recording abbreviation.",
+    "garmin.title": "Brand name with the same spelling."
   },
   "nl": {
     "backup.carrierGoogleDrive": "Service and product names.",
@@ -996,7 +1005,8 @@
     "poolSwim.columns.swolf": "Conventional training or recording abbreviation.",
     "activity.prBadge": "Conventional training or recording abbreviation.",
     "fitnessScreen.places.fitness": "Established Dutch loanword or technical term.",
-    "fitnessScreen.places.trends": "Established Dutch loanword or technical term."
+    "fitnessScreen.places.trends": "Established Dutch loanword or technical term.",
+    "garmin.title": "Brand name with the same spelling."
   },
   "pl": {
     "activity.stats.trimp": "Conventional training or recording abbreviation.",
@@ -1079,7 +1089,8 @@
     "charts.summary.title": "Placeholder and full stop only, no translatable words.",
     "charts.summary.single": "Placeholders and punctuation only, no translatable words.",
     "charts.summary.parts": "Placeholders and punctuation only, no translatable words.",
-    "poolSwim.columns.swolf": "Conventional training or recording abbreviation."
+    "poolSwim.columns.swolf": "Conventional training or recording abbreviation.",
+    "garmin.title": "Brand name with the same spelling."
   },
   "pt-BR": {
     "activity.stats.maxLabel": "Abbreviation of the Brazilian Portuguese label with the same spelling.",
@@ -1171,7 +1182,8 @@
     "charts.summary.single": "Placeholders and punctuation only, no translatable words.",
     "charts.summary.parts": "Placeholders and punctuation only, no translatable words.",
     "poolSwim.columns.swolf": "Conventional training or recording abbreviation.",
-    "common.experimental": "Brazilian Portuguese word or phrase with the same spelling."
+    "common.experimental": "Brazilian Portuguese word or phrase with the same spelling.",
+    "garmin.title": "Brand name with the same spelling."
   },
   "pt": {
     "activity.stats.maxLabel": "Abbreviation of the Portuguese label with the same spelling.",
@@ -1263,7 +1275,8 @@
     "charts.summary.single": "Placeholders and punctuation only, no translatable words.",
     "charts.summary.parts": "Placeholders and punctuation only, no translatable words.",
     "poolSwim.columns.swolf": "Conventional training or recording abbreviation.",
-    "common.experimental": "Portuguese word or phrase with the same spelling."
+    "common.experimental": "Portuguese word or phrase with the same spelling.",
+    "garmin.title": "Brand name with the same spelling."
   },
   "zh-Hans": {
     "backgroundJobs.progressPercent": "Numeric percentage template.",
@@ -1296,6 +1309,7 @@
     "units.rpm": "Conventional measurement unit symbol.",
     "units.spm": "Conventional measurement unit symbol.",
     "statsScreen.lthr": "Conventional training or recording abbreviation.",
-    "poolSwim.columns.swolf": "Conventional training or recording abbreviation."
+    "poolSwim.columns.swolf": "Conventional training or recording abbreviation.",
+    "garmin.title": "Brand name with the same spelling."
   }
 }

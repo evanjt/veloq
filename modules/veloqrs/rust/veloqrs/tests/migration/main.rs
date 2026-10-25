@@ -57,6 +57,15 @@ mod migration_metrics_caches;
 #[path = "../migration_pool_swims.rs"]
 mod migration_pool_swims;
 
+#[path = "../migration_activity_sync_failures.rs"]
+mod migration_activity_sync_failures;
+
+#[path = "../migration_activity_held_back.rs"]
+mod migration_activity_held_back;
+
+#[path = "../migration_garmin_link_unresolved.rs"]
+mod migration_garmin_link_unresolved;
+
 #[path = "../migration_push_runs_posted_entry.rs"]
 mod migration_push_runs_posted_entry;
 

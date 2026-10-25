@@ -14,7 +14,12 @@ import { PressTarget } from '@/shared/ui/PressTarget';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useEngineRead, useEngineReadState } from '@/shared/native/useEngineSubscription';
 import { EngineReadPlaceholder } from '@/shared/app/EngineUnavailableState';
-import { getAllSectionDisplayNames, ledgerDate, useSectionLedger } from '@/features/routes';
+import {
+  getAllSectionDisplayNames,
+  ledgerDate,
+  useRetiredMapData,
+  useSectionLedger,
+} from '@/features/routes';
 import { formatDistance, formatFullDate } from '@/shared/format/format';
 import { colors, darkColors, layout, spacing, typography } from '@/theme';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
@@ -66,17 +71,20 @@ function SectionRetiredScreenContent() {
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
 
-  const readRetired = useEngineRead(['sections', 'detectionApplied']);
+  const { data: retiredMap, failure } = useRetiredMapData();
   const engineState = useEngineReadState();
 
-  const { retired, names } = useMemo(
-    () =>
-      readRetired((engine) => ({
-        retired: engine.getRetiredSections(),
-        names: getAllSectionDisplayNames(),
-      })) ?? { retired: [], names: {} as Record<string, string> },
-    [readRetired]
+  // The list is the accessible form of the retired map, so it reads what the
+  // map reads and the two cannot disagree about which sections left.
+  const retired = useMemo(() => retiredMap?.retired.map((r) => r.section) ?? [], [retiredMap]);
+  const readNames = useEngineRead(['sections', 'detectionApplied']);
+  const names = useMemo(
+    () => readNames(() => getAllSectionDisplayNames()) ?? ({} as Record<string, string>),
+    [readNames]
   );
+
+  // A failed read is not an empty ledger: it goes to the screen's fallback.
+  if (failure) throw failure.error;
 
   return (
     <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>

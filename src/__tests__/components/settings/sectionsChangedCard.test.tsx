@@ -76,7 +76,7 @@ describe('SectionsChangedCard', () => {
     mockArchived = 3;
     const tree = await render(<SectionsChangedCard />);
     await act(async () => fireEvent.press(tree.getByTestId('sections-changed-see')));
-    expect(navigateTo).toHaveBeenCalledWith('/section-retired');
+    expect(navigateTo).toHaveBeenCalledWith('/detection-preview?layer=retired');
   });
 
   it('stays hidden after Not now, on a remount and after a relaunch', async () => {

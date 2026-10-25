@@ -7,6 +7,7 @@ import { DEMO_ATHLETE_ID, sourceFor, type AuthMethod } from '@/shared/app/source
 import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
 import {
   CREDENTIAL_KEYCHAIN_OPTIONS,
+  GARMIN_KEY_STORAGE_KEY,
   deleteCredential,
   readCredentialsWithMigration,
   secureStoreIo,
@@ -294,6 +295,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }),
       // Clear OAuth token when using API key auth
       deleteCredential(secureStoreIo, ACCESS_TOKEN_STORAGE_KEY),
+      deleteCredential(secureStoreIo, GARMIN_KEY_STORAGE_KEY),
     ]);
 
     const { clearPendingApiKey } = require('@/features/auth/lib/pendingSignIn');

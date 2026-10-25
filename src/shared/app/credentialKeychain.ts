@@ -12,6 +12,9 @@ import { readCredentialKeys } from './credentialRead';
  */
 export const KEYCHAIN_ACCESS_GROUP = 'group.com.veloq.app';
 
+/** The keychain item holding the Garmin Personal key the athlete pasted. */
+export const GARMIN_KEY_STORAGE_KEY = 'garmin_personal_key';
+
 /**
  * How every credential is written from now on.
  *

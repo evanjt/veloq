@@ -60,7 +60,6 @@
     "getSectionGeometryVersionPolyline",
     "unpinSection",
     "getPinnedSectionVersion",
-    "getRetiredSections",
     "getSectionDetailData",
     "getSectionDetailPerformance",
     "loadSectionDetailPerformance",

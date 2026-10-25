@@ -189,7 +189,7 @@ describe('SectionChangeCardSlide', () => {
       engineWith({ phase: 'complete', running: false }, { counts: COUNTS }, 2);
       const { getByTestId } = await render(<SectionChangeCardSlide />);
       await fireEvent.press(getByTestId('change-card-retired-link'));
-      expect(router.push).toHaveBeenCalledWith('/section-retired');
+      expect(router.push).toHaveBeenCalledWith('/detection-preview?layer=retired');
     });
 
     it('says the sections were replaced when the run failed after the apply', async () => {

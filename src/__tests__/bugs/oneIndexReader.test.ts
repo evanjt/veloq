@@ -39,7 +39,7 @@ describe('the index reader', () => {
     expect(READS_THE_INDEX.test(readFileSync(HELPER, 'utf8'))).toBe(true);
   });
 
-  it('is what the area report reads through', () => {
+  it('is what the usage report reads through', () => {
     const report = readFileSync(join(SCRIPTS, 'ffi-usage-report.ts'), 'utf8');
 
     expect(report).toMatch(/from '\.\/lib\/indexedSources\.mjs'/);

@@ -233,6 +233,8 @@ fn activity_detail(v: FfiActivityDetailData) -> Lowered {
         ledger_changes => |v: &FfiActivityDetailData| v.ledger_changes.len(),
         intervals_id,
         pool_swim,
+        sync_failure,
+        held_back,
     )
 }
 

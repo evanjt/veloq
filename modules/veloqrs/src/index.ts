@@ -150,6 +150,13 @@ export type { ElevationBackfillPhase } from './delegates/elevation';
 export type { RoutesStatus } from './delegates/routesStatus';
 export type { StreamBackfillPhase } from './delegates/streamBackfill';
 export type { SectionBoundsEdit } from './delegates/sections';
+export { FfiRetiredPairLink as RetiredPairLink } from './generated/veloqrs';
+export type {
+  FfiRetiredMapData as RetiredMapData,
+  FfiRetiredMapPair as RetiredMapPair,
+  FfiRetiredMapSection as RetiredMapSection,
+  FfiCurrentMapSection as CurrentMapSection,
+} from './generated/veloqrs';
 
 // Detector cutover consumer types
 export type {
@@ -300,6 +307,10 @@ export type {
   FfiMuscleGroup as MuscleGroup,
   FfiActivityNotification as ActivityNotification,
 } from './generated/veloqrs';
+/** The fault the last sync met readying one activity. */
+export type { FfiActivitySyncFailure as ActivitySyncFailure } from './generated/veloqrs';
+/** An activity intervals.icu holds but does not serve to apps. */
+export type { FfiActivityHeldBack as ActivityHeldBack } from './generated/veloqrs';
 // Pool swim types
 export type {
   FfiPoolSwim as PoolSwim,

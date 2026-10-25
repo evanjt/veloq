@@ -94,3 +94,5 @@ export {
   requestNotificationPermission,
   presentActivityNotification,
 } from './lib/notificationService';
+export { GarminConnector } from './components/GarminConnector';
+export { restoreGarminKey } from './lib/garminConnector';

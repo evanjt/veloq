@@ -76,6 +76,16 @@ pub struct ActivityRecord {
     pub description: Option<String>,
     #[serde(default)]
     pub device_name: Option<String>,
+    /// Where intervals.icu got the activity (`GARMIN_CONNECT`, `STRAVA`, ...),
+    /// and the id it holds there.
+    #[serde(default, deserialize_with = "lenient")]
+    pub source: Option<String>,
+    #[serde(default, deserialize_with = "lenient")]
+    pub external_id: Option<String>,
+    /// The note an empty stub carries in place of the activity. intervals.icu
+    /// answers a stub for an activity it holds but may not serve to apps.
+    #[serde(default, rename = "_note", deserialize_with = "lenient")]
+    pub stub_note: Option<String>,
     /// When intervals.icu first held this activity, and when it last changed
     /// there. Asked for only by the census pull, so every other request leaves
     /// them empty.
@@ -150,6 +160,12 @@ impl ActivityRecord {
             .is_some_and(|id| !id.is_empty())
     }
 
+    /// Whether intervals.icu answered an empty stub for this activity: it
+    /// holds the activity and may not serve it. The stub's note is the mark.
+    pub fn is_held_back(&self) -> bool {
+        self.stub_note.is_some()
+    }
+
     /// The feels-like temperature, from whichever of its names is present.
     pub fn feels_like(&self) -> Option<f64> {
         self.apparent_temperature
@@ -191,7 +207,7 @@ where
 
 /// The base field list the activities request asks for. Every name is a field
 /// of the Activity schema.
-pub const ACTIVITY_FIELDS: &str = "id,name,type,start_date_local,moving_time,elapsed_time,distance,total_elevation_gain,average_speed,max_speed,average_heartrate,max_heartrate,icu_average_watts,icu_pm_p_max,average_cadence,calories,icu_training_load,icu_intensity,decoupling,has_weather,average_weather_temp,icu_ftp,stream_types,skyline_chart_bytes,description";
+pub const ACTIVITY_FIELDS: &str = "id,name,type,start_date_local,moving_time,elapsed_time,distance,total_elevation_gain,average_speed,max_speed,average_heartrate,max_heartrate,icu_average_watts,icu_pm_p_max,average_cadence,calories,icu_training_load,icu_intensity,decoupling,has_weather,average_weather_temp,icu_ftp,stream_types,skyline_chart_bytes,description,source,external_id,_note";
 
 /// The additional stats fields appended when `includeStats` is set.
 pub const ACTIVITY_STATS_EXTRA: &str = "icu_pm_ftp_watts,icu_zone_times,icu_hr_zone_times,\

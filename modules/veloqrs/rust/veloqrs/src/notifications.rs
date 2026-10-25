@@ -65,6 +65,13 @@ pub struct Templates {
     pub pace_milestone: String,
     /// `{{value}}` whole seconds in the locale's unit, for a delta under a minute.
     pub seconds_value: String,
+    /// `{{muscles}}`, the names of the muscle groups a strength session worked.
+    /// `None` for a bundle stored before the key joined it, which reads a
+    /// strength session as having nothing to say.
+    pub strength_muscles: Option<String>,
+    /// Each muscle slug and its name in the locale, as the strength screen
+    /// prints it. A slug the bundle does not name is left out of the clause.
+    pub muscle_names: std::collections::BTreeMap<String, String>,
 }
 
 /// The enriched notification for one activity, and the same finding whole.
@@ -148,6 +155,9 @@ pub enum Highlight {
     /// The athlete's critical pace improved on the day of this ride. `delta`
     /// is the saving with its unit, such as `12s/km`.
     PaceMilestone { delta: String },
+    /// The muscle groups a strength session worked, as slugs, most worked
+    /// first.
+    StrengthMuscles { muscles: Vec<String> },
     /// Nothing worth a push, so there is no notification.
     None,
 }
@@ -160,9 +170,10 @@ impl Highlight {
             | Highlight::SectionPrMany { .. }
             | Highlight::RoutePrUnnamed { .. } => Tier::Pr,
             Highlight::FasterOnRoute { .. } => Tier::Faster,
-            Highlight::FtpMilestone { .. } | Highlight::PaceMilestone { .. } | Highlight::None => {
-                Tier::Recorded
-            }
+            Highlight::FtpMilestone { .. }
+            | Highlight::PaceMilestone { .. }
+            | Highlight::StrengthMuscles { .. }
+            | Highlight::None => Tier::Recorded,
         }
     }
 }
@@ -285,6 +296,7 @@ fn render(
     highlight: &Highlight,
     strings: &Templates,
     fit: impl Fn(&dyn Fn(&str) -> String, &str) -> String,
+    limit: usize,
 ) -> Option<String> {
     match highlight {
         Highlight::RoutePr {
@@ -380,18 +392,43 @@ fn render(
         Highlight::PaceMilestone { delta } => {
             Some(interpolate(&strings.pace_milestone, &[("delta", delta)]))
         }
+        Highlight::StrengthMuscles { muscles } => {
+            let names: Vec<&str> = muscles
+                .iter()
+                .filter_map(|slug| strings.muscle_names.get(slug))
+                .map(String::as_str)
+                .collect();
+            if names.is_empty() {
+                return None;
+            }
+            let template = strings.strength_muscles.as_ref()?;
+            // The list gives up its last names until the clause fits, so the
+            // lock screen never cuts one in half.
+            let clause =
+                |kept: usize| interpolate(template, &[("muscles", &names[..kept].join(", "))]);
+            let kept = (1..=names.len())
+                .rev()
+                .find(|kept| units(&clause(*kept)) <= limit)
+                .unwrap_or(1);
+            Some(clause(kept))
+        }
         Highlight::None => None,
     }
 }
 
 /// The finding as a lock-screen clause, or `None` when there is nothing to say.
 pub fn highlight_detail(highlight: &Highlight, strings: &Templates) -> Option<String> {
-    render(highlight, strings, |r, name| fit_detail(r, name))
+    render(
+        highlight,
+        strings,
+        |r, name| fit_detail(r, name),
+        NOTIFICATION_BODY_MAX,
+    )
 }
 
 /// The same finding with nothing given up, for a screen.
 pub fn highlight_sentence(highlight: &Highlight, strings: &Templates) -> Option<String> {
-    render(highlight, strings, |r, name| whole(r, name))
+    render(highlight, strings, |r, name| whole(r, name), usize::MAX)
 }
 
 /// Build the notification for a resolved finding: title, capped body, and the
@@ -623,6 +660,31 @@ fn section_prs_from(
     prs
 }
 
+/// The muscle groups a strength session worked, from its stored exercise sets:
+/// the primary groups of its active sets, as the strength screen counts them.
+/// `None` for a session with no stored sets or none that works a primary group.
+pub fn strength_highlight_pooled(
+    conn: &rusqlite::Connection,
+    activity_id: &str,
+) -> Option<Highlight> {
+    let sets = crate::persistence::strength::pooled::exercise_sets(conn, activity_id).ok()?;
+    let muscles: Vec<String> = crate::fit::aggregate_muscle_groups(&sets)
+        .into_iter()
+        .filter(|m| m.intensity == 2)
+        .map(|m| m.slug)
+        .collect();
+    (!muscles.is_empty()).then_some(Highlight::StrengthMuscles { muscles })
+}
+
+fn sport_of_metrics(conn: &rusqlite::Connection, activity_id: &str) -> Option<String> {
+    conn.query_row(
+        "SELECT sport_type FROM activity_metrics WHERE activity_id = ?",
+        [activity_id],
+        |row| row.get(0),
+    )
+    .ok()
+}
+
 /// The notification highlight, read from committed SQLite rows.
 ///
 /// A push can arrive while a sync page commits. Every read uses committed rows
@@ -633,6 +695,12 @@ pub fn resolve_highlight_pooled(
     announce_prs: bool,
     announce_milestones: bool,
 ) -> Highlight {
+    // A strength session has no track, route or fitness step to announce. What
+    // it has is the muscles it worked, and that is announced whichever PR and
+    // milestone categories the athlete has on.
+    if sport_of_metrics(conn, activity_id).is_some_and(|sport| crate::sport::is_strength(&sport)) {
+        return strength_highlight_pooled(conn, activity_id).unwrap_or(Highlight::None);
+    }
     let milestone = announce_milestones
         .then(|| fitness_milestone_pooled(conn, activity_id))
         .flatten();
@@ -672,6 +740,44 @@ pub const RECORDED_TITLE_KEY: &str = "notifications.activityRecorded.title";
 /// The seconds unit a delta under a minute is written with.
 pub const SECONDS_VALUE_KEY: &str = "units.secondsValue";
 
+/// The key of the clause naming the muscle groups a strength session worked.
+pub const STRENGTH_MUSCLES_KEY: &str = "notifications.activityBody.strengthMuscles";
+
+/// Every muscle slug a strength set can credit, which is the set of names the
+/// bundle carries under `strength.muscles`.
+pub const MUSCLE_SLUGS: [&str; 15] = [
+    "abs",
+    "adductors",
+    "biceps",
+    "calves",
+    "chest",
+    "deltoids",
+    "forearm",
+    "gluteal",
+    "hamstring",
+    "lower-back",
+    "obliques",
+    "quadriceps",
+    "trapezius",
+    "triceps",
+    "upper-back",
+];
+
+/// The translation key of a muscle's name: `lower-back` is `strength.muscles.lowerBack`.
+pub fn muscle_name_key(slug: &str) -> String {
+    let mut key = String::from("strength.muscles.");
+    let mut upper = false;
+    for c in slug.chars() {
+        if c == '-' {
+            upper = true;
+            continue;
+        }
+        key.push(if upper { c.to_ascii_uppercase() } else { c });
+        upper = false;
+    }
+    key
+}
+
 /// What a bundle stored before the seconds unit joined it is read with: the SI
 /// symbol, rather than no notification until the app is next opened.
 const SECONDS_VALUE_FALLBACK: &str = "{{value}} s";
@@ -702,6 +808,11 @@ pub fn templates_from_stored(stored: &NotificationTemplates) -> Option<Templates
         ftp_milestone: at("insights.ftpIncrease")?,
         pace_milestone: at("insights.paceImproved")?,
         seconds_value: at(SECONDS_VALUE_KEY).unwrap_or_else(|| SECONDS_VALUE_FALLBACK.to_string()),
+        strength_muscles: at(STRENGTH_MUSCLES_KEY),
+        muscle_names: MUSCLE_SLUGS
+            .iter()
+            .filter_map(|slug| Some((slug.to_string(), at(&muscle_name_key(slug))?)))
+            .collect(),
     })
 }
 

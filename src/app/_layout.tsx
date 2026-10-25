@@ -97,6 +97,7 @@ import {
   setupNotificationReceivedHandler,
   setupNotificationResponseHandler,
   handleInitialNotificationResponse,
+  restoreGarminKey,
 } from '@/features/settings';
 import { getEngine, getRouteDbPath } from '@/shared/native/engine';
 import { engineErrorTag } from '@/shared/native/engineError';
@@ -293,6 +294,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           // AuthStore.initialise() usually runs before the engine exists, so
           // its credential push was a no-op. Repeat it now the engine is up.
           pushCredentialsToEngine();
+          // The Garmin key lives in the keychain; the engine holds it in memory.
+          restoreGarminKey().catch(() => {});
           // A launch that finds nobody signed in writes the sample the engine
           // could not compose while it was closed.
           refreshSampleWidgets();

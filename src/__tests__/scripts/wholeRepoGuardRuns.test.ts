@@ -45,7 +45,7 @@ describe('a guard run over the whole repository', () => {
 
   it('is refused through tsx', () => {
     expect(() =>
-      spawnSync('npx', ['tsx', join(ROOT, 'scripts/ffi-usage-report.ts'), '--check-areas'], {
+      spawnSync('npx', ['tsx', join(ROOT, 'scripts/ffi-usage-report.ts'), '--check'], {
         cwd: ROOT,
       })
     ).toThrow(REFUSAL);

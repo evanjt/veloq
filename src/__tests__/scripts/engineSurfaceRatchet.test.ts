@@ -1,12 +1,10 @@
 /**
- * Scenario: the front end is moving to one screen read per screen, so the count
- * of files reaching the engine directly, and the count of stores, should only
- * fall. Nothing enforced that, so a feature fix could add a call site and pass
- * every gate.
+ * Scenario: the count of stores may only fall, against a ceiling the npm script
+ * carries. The files reaching the engine directly are counted and listed but
+ * carry no ceiling, so a feature may add one.
  *
- * Expected behaviour: the guard counts both against ceilings the npm script
- * carries, refuses a rise and names the files, and refuses a ceiling left above
- * the tree so ground a sweep took is not given back.
+ * Expected behaviour: the guard refuses a store count over or under its ceiling,
+ * and lists the engine call sites it found without ever failing on how many.
  */
 import { execFileSync } from 'child_process';
 import * as fs from 'fs';
@@ -34,15 +32,14 @@ function treeWith(files: Tree) {
   return root;
 }
 
-function runGuard(root: string, engineCeiling: number, storeCeiling: number) {
+function runGuard(root: string, storeCeiling: number) {
   const args = [
     GUARD,
     '--root',
     root,
-    '--engine-ceiling',
-    String(engineCeiling),
     '--store-ceiling',
     String(storeCeiling),
+    '--list-call-sites',
   ];
   try {
     return { code: 0, out: execFileSync('node', args, { encoding: 'utf8', env: gitFreeEnv() }) };
@@ -50,6 +47,14 @@ function runGuard(root: string, engineCeiling: number, storeCeiling: number) {
     const err = e as { status?: number; stdout?: string; stderr?: string };
     return { code: err.status ?? 1, out: `${err.stdout ?? ''}${err.stderr ?? ''}` };
   }
+}
+
+/** The files the guard listed as reaching the engine. */
+function callSites(out: string): string[] {
+  return out
+    .split('\n')
+    .filter((line) => line.startsWith('  src/'))
+    .map((line) => line.trim());
 }
 
 const IMPORTS_ENGINE = "import { getEngine } from '@/shared/native/engine';\n";
@@ -82,43 +87,48 @@ const READS_BOUND_DELEGATE_OFF_NAMESPACE =
 const SETS_ENGINE_STATICS =
   "const { EngineClient } = require('veloqrs');\nEngineClient.setDebugEnabled(true);\n";
 
-describe('the engine call site ceiling', () => {
-  it('passes when the tree sits on the ceiling', () => {
-    const root = treeWith({ 'src/features/a/useA.ts': IMPORTS_ENGINE });
+describe('the engine call sites, which carry no ceiling', () => {
+  it('passes with more engine-reaching files than any earlier tree had, and lists them all', () => {
+    const files: Tree = {};
+    for (let i = 0; i < 120; i++) files[`src/features/f${i}/use${i}.ts`] = IMPORTS_ENGINE;
+    const root = treeWith(files);
 
-    expect(runGuard(root, 1, 0).code).toBe(0);
+    const { code, out } = runGuard(root, 0);
+    expect(code).toBe(0);
+    expect(callSites(out)).toHaveLength(120);
+    expect(out).toContain('120 call sites');
   });
 
-  it('refuses a call site over the ceiling and names the file', () => {
+  it('lists the one new file beside the existing one', () => {
     const root = treeWith({
       'src/features/a/useA.ts': IMPORTS_ENGINE,
       'src/features/b/useB.ts': IMPORTS_ENGINE,
     });
 
-    const { code, out } = runGuard(root, 1, 0);
-    expect(code).toBe(1);
-    expect(out).toContain('src/features/b/useB.ts');
+    const { code, out } = runGuard(root, 0);
+    expect(code).toBe(0);
+    expect(callSites(out)).toEqual(['src/features/a/useA.ts', 'src/features/b/useB.ts']);
   });
 
   it('counts a require as a call site, since it reaches the same module', () => {
     const root = treeWith({ 'src/features/a/RouteSettingsStore.ts': REQUIRES_ENGINE });
 
-    expect(runGuard(root, 0, 1).code).toBe(1);
+    expect(callSites(runGuard(root, 1).out)).toEqual(['src/features/a/RouteSettingsStore.ts']);
   });
 
   it('counts the engine binding imported from veloqrs, which reaches the same engine', () => {
     const root = treeWith({ 'src/features/a/tilePass.ts': IMPORTS_VELOQRS_ENGINE });
 
-    const { code, out } = runGuard(root, 0, 0);
-    expect(code).toBe(1);
+    const { code, out } = runGuard(root, 0);
+    expect(code).toBe(0);
     expect(out).toContain('src/features/a/tilePass.ts');
   });
 
   it('counts the engine binding inside a multi-line veloqrs import block', () => {
     const root = treeWith({ 'src/features/a/useFetcher.ts': IMPORTS_VELOQRS_ENGINE_BLOCK });
 
-    const { code, out } = runGuard(root, 0, 0);
-    expect(code).toBe(1);
+    const { code, out } = runGuard(root, 0);
+    expect(code).toBe(0);
     expect(out).toContain('src/features/a/useFetcher.ts');
   });
 
@@ -128,8 +138,8 @@ describe('the engine call site ceiling', () => {
       'src/features/a/pauseLink.ts': READS_BOUND_DELEGATE_OFF_NAMESPACE,
     });
 
-    const { code, out } = runGuard(root, 0, 0);
-    expect(code).toBe(1);
+    const { code, out } = runGuard(root, 0);
+    expect(code).toBe(0);
     expect(out).toContain('src/features/a/pauseButton.ts');
     expect(out).toContain('src/features/a/pauseLink.ts');
   });
@@ -137,7 +147,7 @@ describe('the engine call site ceiling', () => {
   it('does not count a veloqrs import that takes no engine binding', () => {
     const root = treeWith({ 'src/features/a/decode.ts': IMPORTS_VELOQRS_WITHOUT_ENGINE });
 
-    expect(runGuard(root, 0, 0).code).toBe(0);
+    expect(callSites(runGuard(root, 0).out)).toEqual([]);
   });
 
   it.each([
@@ -150,8 +160,8 @@ describe('the engine call site ceiling', () => {
   ])('counts %s, which reaches the same engine', (_form, body) => {
     const root = treeWith({ 'src/features/a/task.ts': body });
 
-    const { code, out } = runGuard(root, 0, 0);
-    expect(code).toBe(1);
+    const { code, out } = runGuard(root, 0);
+    expect(code).toBe(0);
     expect(out).toContain('src/features/a/task.ts');
   });
 
@@ -179,8 +189,8 @@ describe('the engine call site ceiling', () => {
   ])('counts %s', (_form, body) => {
     const root = treeWith({ 'src/features/a/task.ts': body });
 
-    const { code, out } = runGuard(root, 0, 0);
-    expect(code).toBe(1);
+    const { code, out } = runGuard(root, 0);
+    expect(code).toBe(0);
     expect(out).toContain('src/features/a/task.ts');
   });
 
@@ -189,7 +199,7 @@ describe('the engine call site ceiling', () => {
       'src/features/a/task.ts': "import { run } from './engine';\nexport const x = run;\n",
     });
 
-    expect(runGuard(root, 0, 0).code).toBe(0);
+    expect(callSites(runGuard(root, 0).out)).toEqual([]);
   });
 
   it.each([
@@ -199,7 +209,7 @@ describe('the engine call site ceiling', () => {
   ])('does not count %s', (_form, body) => {
     const root = treeWith({ 'src/features/a/task.ts': body });
 
-    expect(runGuard(root, 0, 0).code).toBe(0);
+    expect(callSites(runGuard(root, 0).out)).toEqual([]);
   });
 
   it('counts a file once when it reaches the engine both ways', () => {
@@ -207,28 +217,19 @@ describe('the engine call site ceiling', () => {
       'src/features/a/useBoth.ts': IMPORTS_ENGINE + IMPORTS_VELOQRS_ENGINE_BLOCK,
     });
 
-    expect(runGuard(root, 1, 0).code).toBe(0);
+    expect(callSites(runGuard(root, 0).out)).toEqual(['src/features/a/useBoth.ts']);
   });
 
   it('spares the shared engine layer, which is where the module belongs', () => {
     const root = treeWith({ 'src/shared/native/useEngineReady.ts': IMPORTS_ENGINE });
 
-    expect(runGuard(root, 0, 0).code).toBe(0);
+    expect(callSites(runGuard(root, 0).out)).toEqual([]);
   });
 
   it('spares the tests, which mock the module rather than reaching it', () => {
     const root = treeWith({ 'src/__tests__/hooks/a.test.ts': IMPORTS_ENGINE });
 
-    expect(runGuard(root, 0, 0).code).toBe(0);
-  });
-
-  it('refuses a ceiling the tree has already beaten, so the ground is kept', () => {
-    const root = treeWith({ 'src/features/a/useA.ts': IMPORTS_ENGINE });
-
-    const { code, out } = runGuard(root, 4, 0);
-    expect(code).toBe(1);
-    expect(out).toContain('4');
-    expect(out).toContain('1');
+    expect(callSites(runGuard(root, 0).out)).toEqual([]);
   });
 });
 
@@ -239,8 +240,8 @@ describe('the store ceiling', () => {
       'src/features/insights/lib/fingerprintStore.ts': 'export const b = 2;\n',
     });
 
-    expect(runGuard(root, 0, 2).code).toBe(0);
-    const { code, out } = runGuard(root, 0, 1);
+    expect(runGuard(root, 2).code).toBe(0);
+    const { code, out } = runGuard(root, 1);
     expect(code).toBe(1);
     expect(out).toContain('fingerprintStore.ts');
   });
@@ -248,7 +249,7 @@ describe('the store ceiling', () => {
   it('does not count a store under the tests', () => {
     const root = treeWith({ 'src/__tests__/providers/FakeStore.ts': 'export const a = 1;\n' });
 
-    expect(runGuard(root, 0, 0).code).toBe(0);
+    expect(runGuard(root, 0).code).toBe(0);
   });
 });
 
@@ -273,14 +274,14 @@ describe('a checkout, where the index is the tree being committed', () => {
     // it, which is what a whole-tree total does.
     write(root, 'src/features/b/useB.ts', IMPORTS_ENGINE);
 
-    expect(runGuard(root, 1, 0).code).toBe(0);
+    expect(callSites(runGuard(root, 0).out)).toEqual(['src/features/a/useA.ts']);
   });
 
   it('counts a store the index holds and not an untracked one beside it', () => {
     const { root } = checkoutWith({ 'src/shared/app/AuthStore.ts': 'export const a = 1;\n' });
     write(root, 'src/shared/app/DraftStore.ts', 'export const b = 2;\n');
 
-    expect(runGuard(root, 0, 1).code).toBe(0);
+    expect(runGuard(root, 1).code).toBe(0);
   });
 
   it('counts a staged multi-line veloqrs engine import', () => {
@@ -289,8 +290,8 @@ describe('a checkout, where the index is the tree being committed', () => {
       'src/features/b/useFetcher.ts': IMPORTS_VELOQRS_ENGINE_BLOCK,
     });
 
-    const { code, out } = runGuard(root, 1, 0);
-    expect(code).toBe(1);
+    const { code, out } = runGuard(root, 0);
+    expect(code).toBe(0);
     expect(out).toContain('src/features/b/useFetcher.ts');
   });
 
@@ -303,8 +304,8 @@ describe('a checkout, where the index is the tree being committed', () => {
       'src/features/b/task.ts': body,
     });
 
-    const { code, out } = runGuard(root, 1, 0);
-    expect(code).toBe(1);
+    const { code, out } = runGuard(root, 0);
+    expect(code).toBe(0);
     expect(out).toContain('src/features/b/task.ts');
   });
 
@@ -312,16 +313,16 @@ describe('a checkout, where the index is the tree being committed', () => {
     const { root } = checkoutWith({ 'src/features/b/tilePass.ts': IMPORTS_VELOQRS_ENGINE });
     write(root, 'src/features/b/tilePass.ts', IMPORTS_VELOQRS_WITHOUT_ENGINE);
 
-    expect(runGuard(root, 1, 0).code).toBe(0);
+    expect(callSites(runGuard(root, 0).out)).toEqual(['src/features/b/tilePass.ts']);
   });
 
-  it('still refuses a staged call site over the ceiling', () => {
+  it('lists a call site staged after the first', () => {
     const { root, git } = checkoutWith({ 'src/features/a/useA.ts': IMPORTS_ENGINE });
     write(root, 'src/features/b/useB.ts', IMPORTS_ENGINE);
     git('add', '-A');
 
-    const { code, out } = runGuard(root, 1, 0);
-    expect(code).toBe(1);
+    const { code, out } = runGuard(root, 0);
+    expect(code).toBe(0);
     expect(out).toContain('src/features/b/useB.ts');
   });
 });
@@ -345,7 +346,7 @@ describe('a run under the environment a hook inherits', () => {
   }
 
   function runGuardWithEnv(root: string, env: NodeJS.ProcessEnv) {
-    const args = [GUARD, '--root', root, '--engine-ceiling', '1', '--store-ceiling', '0'];
+    const args = [GUARD, '--root', root, '--store-ceiling', '0', '--list-call-sites'];
     try {
       // inherits-git-env: deliberate. `env` is a parameter here because one case
       // asks what the guard reports under a `GIT_DIR` pointing elsewhere.
@@ -368,7 +369,7 @@ describe('a run under the environment a hook inherits', () => {
       GIT_WORK_TREE: foreign,
     });
 
-    expect(out).not.toContain('Lower the ceiling to 0');
+    expect(callSites(out)).toEqual(['src/features/a/useA.ts']);
     expect(code).toBe(0);
   });
 
@@ -377,7 +378,7 @@ describe('a run under the environment a hook inherits', () => {
     runGit(['init', '-q'], root);
     runGit(['add', '-A'], root);
 
-    const { code, out } = runGuard(root, 0, 0);
+    const { code, out } = runGuard(root, 0);
 
     expect(code).toBe(1);
     expect(out).toContain('read nothing');
@@ -427,7 +428,7 @@ describe('an index entry whose blob cannot be read', () => {
   }
 
   function runGuardOnPath(root: string, pathPrefix: string) {
-    const args = [GUARD, '--root', root, '--engine-ceiling', '1', '--store-ceiling', '0'];
+    const args = [GUARD, '--root', root, '--store-ceiling', '0', '--list-call-sites'];
     try {
       const out = execFileSync('node', args, {
         encoding: 'utf8',
@@ -447,7 +448,7 @@ describe('an index entry whose blob cannot be read', () => {
     });
     dropBlob(root, 'src/features/a/useA.ts');
 
-    const { code, out } = runGuard(root, 1, 0);
+    const { code, out } = runGuard(root, 0);
 
     expect(code).not.toBe(0);
     expect(out).toContain('src/features/a/useA.ts');
@@ -461,7 +462,7 @@ describe('an index entry whose blob cannot be read', () => {
     });
     dropBlob(root, 'src/features/b/task.ts');
 
-    const { code, out } = runGuard(root, 1, 0);
+    const { code, out } = runGuard(root, 0);
 
     expect(code).not.toBe(0);
     expect(out).toContain('src/features/b/task.ts');
@@ -470,7 +471,7 @@ describe('an index entry whose blob cannot be read', () => {
   it('still reads a tree where nothing matches one of the patterns as no match', () => {
     const root = checkoutWith({ 'src/features/a/plain.ts': 'export const a = 1;\n' });
 
-    const { code, out } = runGuard(root, 0, 0);
+    const { code, out } = runGuard(root, 0);
 
     expect(out).not.toContain('could not read');
     expect(code).toBe(0);

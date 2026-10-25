@@ -504,7 +504,7 @@ export const SectionsList = memo(function SectionsList({
         testID="sections-retired-link"
         variant="ghost"
         style={styles.retiredLink}
-        onPress={() => navigateTo('/section-retired')}
+        onPress={() => navigateTo('/detection-preview?layer=retired')}
         icon="history"
         label={t('sectionHistory.seeRetired')}
       />
