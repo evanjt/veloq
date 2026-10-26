@@ -74,7 +74,7 @@ export {
   CutoverStatus,
   DataAttribution,
   DataCacheSection,
-  DataSourcesSection,
+  AccountConnectionsSection,
   DisplaySettings,
   ElevationBackfillStatus,
   FooterSection,
@@ -96,5 +96,5 @@ export {
   presentActivityNotification,
 } from './lib/notificationService';
 export { GarminConnector } from './components/GarminConnector';
-export { restoreGarminKey } from './lib/garminConnector';
+export { restoreGarminKey, type GarminConnectorState } from './lib/garminConnector';
 export { useGarminConnectorState } from './hooks/useGarminConnectorState';

@@ -26,6 +26,17 @@ use veloqrs::{FfiSection, FfiSectionPerformanceResult, PersistentEngine};
 /// Open the current engine, which runs every pending migration plus the
 /// post-migration Rust hooks, then load in-memory caches.
 fn open_current_engine(path: &Path) -> PersistentEngine {
+    // The pass-rule recount re-derives every stored lap from its time stream.
+    // These tests are about the migration's own hooks, so the rows are stamped
+    // as already counted under the current rule once the schema is in place.
+    drop(PersistentEngine::new(path.to_str().unwrap()).expect("migrate"));
+    Connection::open(path)
+        .expect("stamp open")
+        .execute(
+            "INSERT OR REPLACE INTO schema_info (key, value) VALUES ('pass_rule_version', '1000')",
+            [],
+        )
+        .expect("stamp the pass rule");
     let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("open engine");
     engine.load().expect("load engine state");
     engine
@@ -1305,6 +1316,11 @@ fn migration_017_is_rerunnable() {
     upgrade_in_place(&path);
 
     let conn = Connection::open(&path).expect("reopen");
+    // The script rebuilds `section_activities`, and the section-level count
+    // trigger reads it. The open creates that trigger after the migrations
+    // run, so a rerun never meets it in the field.
+    conn.execute_batch("DROP TRIGGER IF EXISTS section_activities_visit_count_section_au")
+        .expect("drop the post-migration trigger");
     let sql = migration_017_script();
     conn.execute_batch(sql).expect("second run must not error");
     conn.execute_batch(sql).expect("third run must not error");

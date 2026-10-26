@@ -250,8 +250,10 @@ fn a_cross_sport_corridor_is_one_section_headed_by_its_own_traffic() {
     let corpus = corpus();
     let smap = sport_map(&corpus);
 
+    // The cross-sport corridor carries runs alone in bucket A. Through
+    // bucket B both sports run it end to end.
     let (mut engine, _dir) = fresh_engine();
-    let cold = ingest_step(&mut engine, "cold", &corpus.through_a()).snapshot;
+    let cold = ingest_step(&mut engine, "cold", &corpus.through_b()).snapshot;
 
     let mixed: Vec<(&String, &SectionFingerprint, BTreeSet<String>)> = cold
         .sections

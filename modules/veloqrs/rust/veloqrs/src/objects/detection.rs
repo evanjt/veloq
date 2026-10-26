@@ -2298,7 +2298,8 @@ mod tests {
     }
 
     /// A section standing on the fixture's own activities, so a catalogue can
-    /// be seeded without a detector run finding one.
+    /// be seeded without a detector run finding one. Its line lies along the
+    /// first activity's track, end to end, so that ride is a traversal of it.
     pub fn seeded_section() -> crate::FrequentSection {
         let activity_ids = vec!["a0".to_string(), "a1".to_string()];
         crate::FrequentSection {
@@ -2306,7 +2307,7 @@ mod tests {
             name: None,
             sport_type: "Ride".to_string(),
             polyline: (0..50)
-                .map(|i| tracematch::GpsPoint::new(46.2 + f64::from(i) * 0.0002, 7.35))
+                .map(|i| tracematch::GpsPoint::new(46.2 + f64::from(i) * 0.00014, 7.35))
                 .collect(),
             representative_activity_id: "a0".to_string(),
             representative_range: None,

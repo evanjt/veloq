@@ -908,6 +908,9 @@ fn durable_rows_never_collide() {
         4,
         "all four durable rows must exist before the resyncs"
     );
+    // Coverage is measured once, here, so a resync that leaves the rows alone
+    // leaves the dump alone.
+    engine.backfill_section_coverage();
     let durable_junction0 = rows_for(&junction_dump(&db), &durable);
 
     for pass in 1..=2 {

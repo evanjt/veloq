@@ -14,6 +14,7 @@ import { RowDivider } from '@/shared/ui/RowGroup';
 import { SwitchRow } from '@/shared/ui/SwitchRow';
 import { usePermissionUpgrade, useWriteAccessMissing } from '@/features/recording';
 import {
+  GARMIN_FORUM_THREAD,
   GARMIN_KEY_PAGE,
   connectGarminKey,
   disconnectGarmin,
@@ -23,17 +24,10 @@ import {
   readGarminChoices,
   readGarminConnectorState,
   saveGarminFeed,
-  saveGarminKeyExpiry,
   saveGarminUpload,
   saveGarminAutoSwap,
 } from '../lib/garminConnector';
 import { settingsStyles } from './settingsStyles';
-
-const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
-
-function isDay(text: string): boolean {
-  return ISO_DAY.test(text) && !Number.isNaN(Date.parse(text));
-}
 
 const STATUS_KEY = {
   [GarminKeyStatus.Connected]: 'garmin.statusConnected',
@@ -58,7 +52,6 @@ export function GarminConnector() {
   const [connected, setConnected] = useState(false);
   const [keyNeeded, setKeyNeeded] = useState(false);
   const [pasted, setPasted] = useState('');
-  const [expiry, setExpiry] = useState('');
   const [checking, setChecking] = useState(false);
   const [status, setStatus] = useState<GarminKeyStatus | null>(null);
   const [account, setAccount] = useState<GarminAccount | undefined>(undefined);
@@ -76,7 +69,6 @@ export function GarminConnector() {
       if (!live) return;
       setConnected(state === 'connected');
       setKeyNeeded(state === 'keyNeeded');
-      setExpiry(choices.keyExpiry);
       setFeedOn(choices.feed);
       setUploadOn(choices.upload);
       setAutoSwapOn(choices.autoSwap);
@@ -87,10 +79,7 @@ export function GarminConnector() {
     };
   }, []);
 
-  const expiryProblem = expiry !== '' && !isDay(expiry) ? t('garmin.expiryInvalid') : undefined;
-
   const connect = useCallback(async () => {
-    if (expiryProblem) return;
     setChecking(true);
     try {
       const result = await connectGarminKey(pasted);
@@ -100,12 +89,11 @@ export function GarminConnector() {
         setConnected(true);
         setKeyNeeded(false);
         setPasted('');
-        await saveGarminKeyExpiry(expiry);
       }
     } finally {
       setChecking(false);
     }
-  }, [pasted, expiry, expiryProblem]);
+  }, [pasted]);
 
   const disconnect = useCallback(async () => {
     await disconnectGarmin();
@@ -113,7 +101,6 @@ export function GarminConnector() {
     setKeyNeeded(false);
     setStatus(null);
     setAccount(undefined);
-    setExpiry('');
     setFeedOn(true);
     setUploadOn(false);
     setAutoSwapOn(false);
@@ -169,6 +156,12 @@ export function GarminConnector() {
       <View style={styles.content}>
         <Text style={[styles.text, secondary]}>{t('garmin.intro')}</Text>
         <Text style={[styles.text, secondary]}>{t('garmin.privacy')}</Text>
+        <ExternalLinkRow
+          url={GARMIN_FORUM_THREAD}
+          label={t('garmin.readMore')}
+          icon="open-in-new"
+          testID="garmin-read-more"
+        />
       </View>
       <RowDivider />
       {connected ? (
@@ -184,9 +177,6 @@ export function GarminConnector() {
               detail={t('garmin.wrongAccountDetail')}
               testID="garmin-account-warning"
             />
-          ) : null}
-          {expiry !== '' ? (
-            <Text style={[styles.text, secondary]}>{t('garmin.expires', { date: expiry })}</Text>
           ) : null}
           <Text style={[styles.text, secondary]}>{t('garmin.disconnectHint')}</Text>
           <Button
@@ -220,16 +210,6 @@ export function GarminConnector() {
             autoCorrect={false}
             testID="garmin-key-input"
           />
-          <TextField
-            label={t('garmin.expiryLabel')}
-            value={expiry}
-            onChangeText={setExpiry}
-            placeholder="2027-10-25"
-            autoCapitalize="none"
-            autoCorrect={false}
-            error={expiryProblem}
-            testID="garmin-expiry-input"
-          />
           {status !== null && status !== GarminKeyStatus.Connected ? (
             <StatusLine tone="error" message={t(STATUS_KEY[status])}>
               <Text style={{ color: palette.textPrimary }}>{t(STATUS_KEY[status])}</Text>
@@ -239,7 +219,7 @@ export function GarminConnector() {
             label={t('garmin.connect')}
             onPress={() => void connect()}
             loading={checking}
-            disabled={pasted.trim() === '' || Boolean(expiryProblem)}
+            disabled={pasted.trim() === ''}
             testID="garmin-connect"
           />
         </View>

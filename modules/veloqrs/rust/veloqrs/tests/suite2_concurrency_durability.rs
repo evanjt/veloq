@@ -120,14 +120,46 @@ fn db_path(dir: &tempfile::TempDir) -> String {
 // ever in memory?
 // ============================================================================
 
+/// The catalogue signature once two reads in a row agree.
+///
+/// A section read answers a row it cannot decode with a default (no visits, a
+/// shorter line, fewer members) and logs it, so one read can come back short
+/// while the file is whole. Two agreeing reads are the catalogue the file
+/// holds. A catalogue that never settles inside the bound is returned as the
+/// last read, and the comparison against it then fails with that read.
+fn settled_signature(engine: &mut PersistentEngine) -> String {
+    const BOUND: std::time::Duration = std::time::Duration::from_secs(10);
+    const PAUSE: std::time::Duration = std::time::Duration::from_millis(50);
+    let deadline = std::time::Instant::now() + BOUND;
+    let mut previous = snapshot(engine).catalogue_signature();
+    loop {
+        let current = snapshot(engine).catalogue_signature();
+        if current == previous || std::time::Instant::now() >= deadline {
+            return current;
+        }
+        previous = current;
+        thread::sleep(PAUSE);
+    }
+}
+
+/// The signature rows that one side holds and the other does not.
+fn signature_diff(before: &str, after: &str) -> String {
+    let rows =
+        |s: &str| -> std::collections::BTreeSet<String> { s.lines().map(str::to_string).collect() };
+    let (before, after) = (rows(before), rows(after));
+    let lost: Vec<_> = before.difference(&after).collect();
+    let gained: Vec<_> = after.difference(&before).collect();
+    format!("only before the reopen: {lost:#?}\nonly after the reopen: {gained:#?}")
+}
+
 /// The db catalogue signature after a cold detect, and again after a fresh
 /// reopen, plus the in-memory count each engine carries. The counts let the gate
 /// prove `load` rehydrates the cache rather than coming up empty.
 fn restart_state() -> (String, String, usize, usize) {
     let corpus = corpus();
     let (mut e1, dir) = fresh_engine();
-    let cold = ingest_step(&mut e1, "cold", &corpus.through_a());
-    let sig_db_before = cold.snapshot.catalogue_signature();
+    ingest_step(&mut e1, "cold", &corpus.through_a());
+    let sig_db_before = settled_signature(&mut e1);
     let e1_inmem = in_memory_snapshot(&e1).count();
 
     // Close engine #1's connection (flush) before the "restart".
@@ -138,7 +170,7 @@ fn restart_state() -> (String, String, usize, usize) {
     let mut e2 = PersistentEngine::new(&db_path(&dir)).expect("reopen");
     e2.load().expect("load after reopen");
     let e2_inmem = in_memory_snapshot(&e2).count();
-    let sig_db_after = snapshot(&mut e2).catalogue_signature();
+    let sig_db_after = settled_signature(&mut e2);
 
     (sig_db_before, sig_db_after, e1_inmem, e2_inmem)
 }
@@ -159,8 +191,10 @@ fn restart_preserves_catalogue() {
         "cold detect produced no catalogue to persist"
     );
     assert_eq!(
-        before, after,
-        "catalogue changed across a fresh open, detection did not durably persist"
+        before,
+        after,
+        "catalogue changed across a fresh open, detection did not durably persist\n{}",
+        signature_diff(&before, &after)
     );
 }
 
@@ -470,4 +504,33 @@ fn crash_before_apply_recovers() {
         after > 0,
         "recover detect after a crash produced no sections (unrecoverable)"
     );
+}
+
+/// Scenario: a cold detect, then a reopen that loads the library.
+/// Expected behaviour: every section's stored `visit_count` already equals the
+/// complete traversals among its rows once the apply has finished, so the
+/// reopen's coverage measuring has nothing left to move.
+#[test]
+fn stored_visit_counts_are_settled_before_the_first_reopen() {
+    let _serial = serialise();
+    let corpus = corpus();
+    let (mut e1, dir) = fresh_engine();
+    ingest_step(&mut e1, "cold", &corpus.through_a());
+    let path = db_path(&dir);
+    let counts = || -> Vec<(String, i64)> {
+        let c = rusqlite::Connection::open(&path).unwrap();
+        let mut st = c
+            .prepare("SELECT id, visit_count FROM sections ORDER BY id")
+            .unwrap();
+        st.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect()
+    };
+    let applied = counts();
+    assert!(!applied.is_empty(), "cold detect produced no sections");
+    drop(e1);
+    let mut e2 = PersistentEngine::new(&path).expect("reopen");
+    e2.load().expect("load after reopen");
+    assert_eq!(counts(), applied, "a reopen moved a stored visit count");
 }

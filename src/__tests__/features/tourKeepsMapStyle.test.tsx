@@ -20,6 +20,8 @@ import {
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { getSetting, setSetting } from '@/shared/storage';
 
+jest.mock('@/features/settings/hooks/useGarminOffer', () => ({ useUsesGarmin: () => false }));
+
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 
 jest.mock('@/shared/storage', () => ({

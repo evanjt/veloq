@@ -533,7 +533,6 @@ const DEVICE_SETTINGS: &[&str] = &[
     "veloq-support-store",
     "veloq-usage",
     // The Garmin connector's choices belong to this device with its key.
-    "veloq-garmin-key-expiry",
     "veloq-garmin-feed",
     "veloq-garmin-upload",
 ];
@@ -904,14 +903,10 @@ mod tests {
     /// and no record backup carries or restores them.
     #[test]
     fn the_garmin_connector_settings_never_travel() {
-        for key in [
-            "veloq-garmin-key-expiry",
-            "veloq-garmin-feed",
-            "veloq-garmin-upload",
-        ]
-        .into_iter()
-        .chain(crate::net::garmin::pull::SETTING_KEYS)
-        .chain(crate::net::garmin_auto_swap::SETTING_KEYS)
+        for key in ["veloq-garmin-feed", "veloq-garmin-upload"]
+            .into_iter()
+            .chain(crate::net::garmin::pull::SETTING_KEYS)
+            .chain(crate::net::garmin_auto_swap::SETTING_KEYS)
         {
             assert!(!super::is_record_setting(key), "{key} travelled");
         }
@@ -926,8 +921,6 @@ mod tests {
     fn a_connected_garmin_connector_travels_as_a_flag_and_nothing_else() {
         let from = crate::persistence::PersistentEngine::in_memory().unwrap();
         from.set_setting("__garmin_connector_enabled", "true")
-            .unwrap();
-        from.set_setting("veloq-garmin-key-expiry", "2027-10-25")
             .unwrap();
         from.set_setting("veloq-garmin-feed", "true").unwrap();
         from.set_setting("veloq-garmin-upload", "true").unwrap();

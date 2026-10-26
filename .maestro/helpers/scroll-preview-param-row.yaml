@@ -4,8 +4,10 @@
 # rows under the card, so it reads as visible there. `below` and `above` compare
 # top edges, so a row counts as in view only once its caption starts below the
 # card's top and the caption under its slider starts above whatever is under
-# the card: the diff strip once there is a result, the run button before. A run
-# swaps that button for its progress, so any run in flight ends first. Each
+# the card: the diff strip once there is a result. Before one nothing sits under
+# the card, so the control panel's own bottom edge bounds it and a row counts
+# as in view once it is on screen. A run adds its progress under the card, so
+# any run in flight ends first. Each
 # scroll step is about one row: on a short screen with a result the card holds
 # two rows, and a swipe to the screen edge carries the middle row straight past
 # the top. The steps start at 54% and 62% of the screen height, which is inside
@@ -60,8 +62,6 @@ appId: com.veloq.app.dev
           while:
             notVisible:
               id: "param-edit-${NEXT}"
-              above:
-                id: "preview-run-button"
           times: 6
           commands:
             - swipe:
@@ -70,8 +70,6 @@ appId: com.veloq.app.dev
                 duration: 1000
       - assertVisible:
           id: "param-edit-${NEXT}"
-          above:
-            id: "preview-run-button"
 - runFlow:
     when:
       true: ${NEXT === 'presets'}
@@ -104,8 +102,6 @@ appId: com.veloq.app.dev
           while:
             notVisible:
               id: "preset-default"
-              above:
-                id: "preview-run-button"
           times: 6
           commands:
             - swipe:
@@ -114,8 +110,6 @@ appId: com.veloq.app.dev
                 duration: 1000
       - assertVisible:
           id: "preset-default"
-          above:
-            id: "preview-run-button"
 - assertVisible:
     id: "param-edit-${KEY}"
     below:

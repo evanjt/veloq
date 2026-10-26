@@ -1086,6 +1086,24 @@ pub struct FfiBackgroundJobsData {
     pub stream_days_to_finish: Option<u32>,
     /// The Garmin pull, `None` while no Garmin key is held.
     pub garmin_pull: Option<FfiGarminPull>,
+    /// When the elevation and stream downloads may next be asked again, in
+    /// epoch milliseconds, while a refusal's cooldown or the request budget
+    /// holds them. `None` when nothing holds them.
+    pub downloads_held_until_ms: Option<f64>,
+    /// Whether intervals.icu asked for that wait, rather than this install's
+    /// own request budget.
+    pub downloads_held_by_upstream: bool,
+}
+
+/// What Retry now did.
+#[derive(Debug, Clone, Copy, PartialEq, uniffi::Record)]
+pub struct FfiRetryNow {
+    /// Both downloads were restarted.
+    pub started: bool,
+    /// When the hold that refused the restart lifts, epoch milliseconds.
+    pub held_until_ms: Option<f64>,
+    /// Whether intervals.icu asked for that wait.
+    pub held_by_upstream: bool,
 }
 
 /// Where the Garmin pull stands.

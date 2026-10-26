@@ -38,7 +38,12 @@ function lineColour(layerId: string): string {
 }
 
 function renderMap(
-  over: { showCurrent?: boolean; showProposed?: boolean; showRemoved?: boolean } = {}
+  over: {
+    showCurrent?: boolean;
+    showProposed?: boolean;
+    showRemoved?: boolean;
+    retiredOnly?: boolean;
+  } = {}
 ) {
   return render(
     <PreviewMapView
@@ -53,6 +58,7 @@ function renderMap(
       onToggleProposed={jest.fn()}
       onToggleRemoved={jest.fn()}
       onSelect={jest.fn()}
+      retiredOnly={over.retiredOnly ?? false}
     />
   );
 }
@@ -111,5 +117,15 @@ describe('preview map legend chips', () => {
     expect(current.props.accessibilityRole).toBe('switch');
     expect(current.props.accessibilityState).toEqual({ checked: true });
     expect(proposed.props.accessibilityState).toEqual({ checked: false });
+  });
+});
+
+describe('preview map legend chips on the retired layer alone', () => {
+  it('leaves out the settings preview statuses, Removed and Proposed', async () => {
+    const tree = await renderMap({ retiredOnly: true });
+
+    expect(tree.queryByTestId('preview-layer-removed')).toBeNull();
+    expect(tree.queryByTestId('preview-layer-proposed')).toBeNull();
+    expect(tree.getByTestId('preview-layer-current')).toBeTruthy();
   });
 });

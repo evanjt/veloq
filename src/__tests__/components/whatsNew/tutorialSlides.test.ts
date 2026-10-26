@@ -25,12 +25,17 @@ jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 const LOCALES_DIR = path.join(__dirname, '../../../i18n/locales');
 const ENGLISH = /^en(-|$)/;
 
-const EMPTY_LIBRARY: TourLibrary = { hasActivities: false, cutoverChanged: false };
+const EMPTY_LIBRARY: TourLibrary = {
+  hasActivities: false,
+  cutoverChanged: false,
+  usesGarmin: false,
+};
 const FULL_LIBRARY: TourLibrary = {
   hasActivities: true,
   sectionId: 'col-du-test',
   routeId: 'harbour-loop',
   cutoverChanged: false,
+  usesGarmin: false,
 };
 
 function lookup(bundle: unknown, key: string): unknown {
@@ -96,9 +101,10 @@ describe("What's New 0.4.0", () => {
   const release = WHATS_NEW_SLIDES['0.4.0'];
   const LOOK = 'whatsNew.v040.lookTitle';
 
-  it('sells the release in five slides, opening on the notifications to turn on', () => {
+  it('sells the release in six slides, opening on the notifications to turn on', () => {
     expect(release.map((s) => s.titleKey)).toEqual([
       'whatsNew.tutorial.notificationsTitle',
+      'whatsNew.tutorial.garminTitle',
       'whatsNew.v040.recordingTitle',
       LOOK,
       'whatsNew.v040.mapsWidgetsTitle',
@@ -150,7 +156,7 @@ describe('Show Me over the library the first run sees', () => {
   });
 
   it('offers no Show Me into sections or routes while only activities have landed', () => {
-    const library: TourLibrary = { hasActivities: true, cutoverChanged: false };
+    const library: TourLibrary = { hasActivities: true, cutoverChanged: false, usesGarmin: false };
     const offered = tutorial
       .filter((slide) => resolveShowMeRoute(slide, library) !== undefined)
       .map((slide) => slide.titleKey);

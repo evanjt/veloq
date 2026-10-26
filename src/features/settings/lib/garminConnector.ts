@@ -26,9 +26,11 @@ export { GARMIN_KEY_STORAGE_KEY };
 /** Where a Personal key is made, on Garmin Connect Web. */
 export const GARMIN_KEY_PAGE = 'https://connect.garmin.com/app/settings/personalApiToken';
 
+/** The intervals.icu forum thread that follows what Garmin's terms mean for the data it shares. */
+export const GARMIN_FORUM_THREAD = 'https://forum.intervals.icu/t/api-access-to-intervals-icu/609';
+
 /** The choices that belong to this device with its key. The record backup leaves them out. */
 export const GARMIN_SETTING_KEYS = {
-  keyExpiry: 'veloq-garmin-key-expiry',
   feed: 'veloq-garmin-feed',
   upload: 'veloq-garmin-upload',
   /** The moment the automatic swap was switched on, or `false`. The engine reads the same row. */
@@ -62,7 +64,6 @@ export function garminConnectorState(input: {
 
 /** The choices kept on this device beside the key. */
 export interface GarminChoices {
-  keyExpiry: string;
   feed: boolean;
   upload: boolean;
   autoSwap: boolean;
@@ -71,24 +72,19 @@ export interface GarminChoices {
 }
 
 export async function readGarminChoices(): Promise<GarminChoices> {
-  const [keyExpiry, feed, upload, autoSwap, autoSwapStopped] = await Promise.all([
-    getSetting(GARMIN_SETTING_KEYS.keyExpiry),
+  const [feed, upload, autoSwap, autoSwapStopped] = await Promise.all([
     getSetting(GARMIN_SETTING_KEYS.feed),
     getSetting(GARMIN_SETTING_KEYS.upload),
     getSetting(GARMIN_SETTING_KEYS.autoSwap),
     getSetting(GARMIN_SETTING_KEYS.autoSwapStopped),
   ]);
   return {
-    keyExpiry: keyExpiry ?? '',
     feed: feed !== 'false',
     upload: upload === 'true',
     autoSwap: autoSwap != null && !Number.isNaN(Date.parse(autoSwap)),
     autoSwapStopped: autoSwapStopped ?? '',
   };
 }
-
-export const saveGarminKeyExpiry = (date: string): Promise<void> =>
-  setSetting(GARMIN_SETTING_KEYS.keyExpiry, date);
 
 export const saveGarminFeed = (on: boolean): Promise<void> =>
   setSetting(GARMIN_SETTING_KEYS.feed, String(on));

@@ -136,7 +136,7 @@ fn is_forced(engine: &PersistentEngine, section_id: &str, activity_id: &str) -> 
         .expect("the force-match record is readable")
 }
 
-/// The strict matcher keeps nothing past about 60 m off the line; the relaxed
+/// The strict matcher keeps nothing past 50 m off the line; the relaxed
 /// bar is 2.5 times the 200 m proximity threshold.
 const PAST_STRICT: f64 = 300.0;
 const PAST_RELAXED: f64 = 800.0;
@@ -236,15 +236,29 @@ fn a_ride_beyond_the_relaxed_bar_is_not_attached() {
 }
 
 #[test]
-fn a_forced_ride_the_trim_leaves_behind_is_named_and_dropped() {
+fn a_forced_ride_over_part_of_the_line_is_not_attached() {
+    let (mut engine, sid) = engine_with_section(true);
+    // Over the southern 60% of the line only.
+    add_ride(&mut engine, "short", leg(-40, 120, PAST_STRICT));
+
+    assert!(!engine.rematch_activity_to_section("short", &sid).unwrap());
+
+    assert!(rows(&engine, &sid, "short").is_empty());
+    assert!(!is_forced(&engine, &sid, "short"));
+}
+
+#[test]
+fn a_forced_ride_the_reset_of_the_bounds_leaves_behind_is_named_and_dropped() {
     for custom in [true, false] {
         let (mut engine, sid) = engine_with_section(custom);
-        // Over the southern 60% of the line only.
+        engine.trim_section(&sid, 0, 100).unwrap();
+        // Over the southern 60% of the line, which runs the trimmed line whole.
         add_ride(&mut engine, "short", leg(-40, 120, PAST_STRICT));
         assert!(engine.rematch_activity_to_section("short", &sid).unwrap());
 
-        // The northern 30 points start 555 m along from where the ride ends.
-        let departed = engine.trim_section(&sid, 170, 199).unwrap();
+        // The restored northern 80 points start 880 m along from where the
+        // ride ends.
+        let departed = engine.reset_section_bounds(&sid).unwrap();
 
         assert_eq!(departed, vec!["short".to_string()], "custom {custom}");
         assert!(rows(&engine, &sid, "short").is_empty());
@@ -330,7 +344,9 @@ fn a_merge_names_the_forced_ride_that_has_no_pass_over_the_kept_line() {
             end_index: Some(189),
         })
         .unwrap();
-    // Over the southern end only, a long way from the kept line.
+    // Over the donor's southern end, which the donor is trimmed to, a long
+    // way from the kept line.
+    engine.trim_section(&donor, 0, 100).unwrap();
     add_ride(&mut engine, "south", leg(-40, 110, PAST_STRICT));
     insert_metrics(&engine, "south", "South loop", 1_710_300_000);
     assert!(engine.rematch_activity_to_section("south", &donor).unwrap());

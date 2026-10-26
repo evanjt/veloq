@@ -8,6 +8,13 @@ import { formatClockOrDate } from '@/shared/format/format';
 
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 
+const mockRetryDownloadsNow = jest.fn();
+jest.mock('veloqrs', () =>
+  require('../../__shared__/veloqrsStub').withOverrides({
+    elevation: { retryDownloadsNow: () => mockRetryDownloadsNow() },
+  })
+);
+
 const mockUseBackgroundJobs = jest.fn();
 jest.mock('@/features/settings/hooks/useBackgroundJobs', () => ({
   useBackgroundJobs: () => mockUseBackgroundJobs(),
@@ -23,6 +30,7 @@ function job(id: BackgroundJob['id'], over: Partial<BackgroundJob> = {}): Backgr
     remaining: 0,
     phase: null,
     resumesAt: null,
+    held: null,
     pacedDays: null,
     lastRun: null,
     ...over,
@@ -193,5 +201,82 @@ describe('BackgroundJobsActivityBar', () => {
     const detail = tree.getByTestId('background-job-elevationBackfill-detail');
     expect(detail).toHaveTextContent(new RegExp(formatClockOrDate(resumesAt)));
     expect(detail).not.toHaveTextContent(/Resumes/);
+  });
+
+  describe('Retry now', () => {
+    beforeEach(() => mockRetryDownloadsNow.mockReset());
+
+    it('is offered on a waiting or partial download and calls the one engine command', async () => {
+      mockUseBackgroundJobs.mockReturnValue([
+        job('elevationBackfill', { state: 'waiting', remaining: 12 }),
+        job('streamBackfill', { state: 'partial', remaining: 3 }),
+      ]);
+      const tree = await render(<BackgroundJobsActivityBar />);
+      await fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
+
+      await fireEvent.press(tree.getByTestId('background-job-elevationBackfill-retry'));
+      expect(mockRetryDownloadsNow).toHaveBeenCalledTimes(1);
+      await fireEvent.press(tree.getByTestId('background-job-streamBackfill-retry'));
+      expect(mockRetryDownloadsNow).toHaveBeenCalledTimes(2);
+    });
+
+    it('is not offered on a running, finished or non-download row', async () => {
+      mockUseBackgroundJobs.mockReturnValue([
+        job('elevationBackfill', { state: 'running', remaining: 12 }),
+        job('streamBackfill', { state: 'complete', remaining: 3 }),
+        job('detection', { state: 'waiting', remaining: 4 }),
+        job('cutover', { state: 'idle', remaining: 1 }),
+      ]);
+      const tree = await render(<BackgroundJobsActivityBar />);
+      await fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
+
+      expect(tree.queryByTestId('background-job-elevationBackfill-retry')).toBeNull();
+      expect(tree.queryByTestId('background-job-streamBackfill-retry')).toBeNull();
+      expect(tree.queryByTestId('background-job-detection-retry')).toBeNull();
+      expect(tree.queryByTestId('background-job-cutover-retry')).toBeNull();
+    });
+
+    it('is disabled under a Retry-After, and says until when and whose ask it is', async () => {
+      const until = Date.now() + 20 * 60_000;
+      mockUseBackgroundJobs.mockReturnValue([
+        job('elevationBackfill', {
+          state: 'waiting',
+          remaining: 12,
+          resumesAt: until,
+          held: { until, byUpstream: true },
+        }),
+      ]);
+      const tree = await render(<BackgroundJobsActivityBar />);
+      await fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
+
+      const retry = tree.getByTestId('background-job-elevationBackfill-retry');
+      expect(retry).toBeDisabled();
+      await fireEvent.press(retry);
+      expect(mockRetryDownloadsNow).not.toHaveBeenCalled();
+      const detail = tree.getByTestId('background-job-elevationBackfill-detail');
+      expect(detail).toHaveTextContent(
+        `12 still to fetch · intervals.icu asked for a wait until ${formatClockOrDate(until)}`
+      );
+    });
+
+    it('names the request limit, not intervals.icu, when the install is the one holding back', async () => {
+      const until = Date.now() + 5 * 60_000;
+      mockUseBackgroundJobs.mockReturnValue([
+        job('streamBackfill', {
+          state: 'partial',
+          remaining: 12,
+          held: { until, byUpstream: false },
+        }),
+      ]);
+      const tree = await render(<BackgroundJobsActivityBar />);
+      await fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
+
+      expect(tree.getByTestId('background-job-streamBackfill-retry')).toBeDisabled();
+      const detail = tree.getByTestId('background-job-streamBackfill-detail');
+      expect(detail).toHaveTextContent(
+        `12 activities · Request limit reached, waiting until ${formatClockOrDate(until)}`
+      );
+      expect(detail).not.toHaveTextContent(/intervals\.icu asked/);
+    });
   });
 });

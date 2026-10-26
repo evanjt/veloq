@@ -1,10 +1,9 @@
 /**
  * Scenario: About drew a generic glyph on a tint where the app icon belongs,
- * and hand-built its own copy of the data attribution block that Data Sources
- * also built, so the two drifted apart.
+ * and hand-built its own copy of the data attribution block.
  *
- * Expected behaviour: About shows the app icon asset itself, and both screens
- * mount the one attribution component.
+ * Expected behaviour: About shows the app icon asset itself and mounts the one
+ * attribution component.
  */
 
 import React from 'react';
@@ -13,7 +12,6 @@ import { render } from '@testing-library/react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import AboutScreen from '@/app/about';
-import DataSourcesSettingsScreen from '@/app/data-sources-settings';
 import { DataAttribution } from '@/features/settings';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
@@ -40,11 +38,6 @@ describe('the About header', () => {
 describe('the data attribution block', () => {
   it('is the one component on About', async () => {
     const screen = await render(<AboutScreen />);
-    expect(screen.UNSAFE_queryAllByType(DataAttribution)).toHaveLength(1);
-  });
-
-  it('is the one component on Data Sources', async () => {
-    const screen = await render(<DataSourcesSettingsScreen />);
     expect(screen.UNSAFE_queryAllByType(DataAttribution)).toHaveLength(1);
   });
 });

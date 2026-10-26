@@ -54,6 +54,7 @@ const SPELLING = [
   'sensors.availability.poweredOffHintIos',
   'settings.customiseByActivity',
   'settings.previewKeepWarning',
+  'settings.previewLeaveMessage',
   'settings.previewPoolCost_one',
   'settings.previewPoolCost_other',
   'settings.previewRunning_one',

@@ -1001,6 +1001,8 @@ void uniffi_veloqrs_fn_func_pause_elevation_backfill(
     RustCallStatus *uniffi_out_err);
 int8_t uniffi_veloqrs_fn_func_resume_elevation_backfill(
     RustCallStatus *uniffi_out_err);
+RustBuffer
+uniffi_veloqrs_fn_func_retry_downloads_now(RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_func_set_engine_log_level(
     RustBuffer level, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_func_set_interacting(int8_t interacting,
@@ -1166,6 +1168,7 @@ uint16_t uniffi_veloqrs_checksum_func_get_routes_status_data();
 uint16_t uniffi_veloqrs_checksum_func_is_cutover_held();
 uint16_t uniffi_veloqrs_checksum_func_pause_elevation_backfill();
 uint16_t uniffi_veloqrs_checksum_func_resume_elevation_backfill();
+uint16_t uniffi_veloqrs_checksum_func_retry_downloads_now();
 uint16_t uniffi_veloqrs_checksum_func_set_engine_log_level();
 uint16_t uniffi_veloqrs_checksum_func_set_interacting();
 uint16_t uniffi_veloqrs_checksum_func_set_network_online();
@@ -9668,6 +9671,17 @@ NativeVeloqrs::NativeVeloqrs(
             return this->cpp_uniffi_veloqrs_fn_func_resume_elevation_backfill(
                 rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_func_retry_downloads_now"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_func_retry_downloads_now"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_func_retry_downloads_now(
+                rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_func_set_engine_log_level"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -10499,6 +10513,17 @@ NativeVeloqrs::NativeVeloqrs(
             return this
                 ->cpp_uniffi_veloqrs_checksum_func_resume_elevation_backfill(
                     rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_func_retry_downloads_now"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_checksum_func_retry_downloads_now"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_checksum_func_retry_downloads_now(
+                rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_checksum_func_set_engine_log_level"] =
       jsi::Function::createFromHostFunction(
@@ -20027,6 +20052,17 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_resume_elevation_backfill(
 
   return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
 }
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_retry_downloads_now(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_func_retry_downloads_now(&status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_set_engine_log_level(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -20837,6 +20873,13 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_resume_elevation_backfill(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_veloqrs_checksum_func_resume_elevation_backfill();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_retry_downloads_now(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_func_retry_downloads_now();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

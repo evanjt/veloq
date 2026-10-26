@@ -149,6 +149,7 @@ export { previewAreaBounds } from './lib/previewMapCamera';
 export {
   buildRetiredLines,
   busiestCentre,
+  centreHoldingRetired,
   describeRetiredSelection,
   type RetiredLines,
 } from './lib/retiredLineCollection';

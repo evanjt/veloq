@@ -52,6 +52,12 @@ export interface BackgroundJob {
   /** When a waiting job resumes, epoch milliseconds, null otherwise. */
   resumesAt: number | null;
   /**
+   * While intervals.icu's Retry-After or this install's request budget holds
+   * the downloads, when they may be asked again (epoch milliseconds) and who
+   * asked for the wait. Null when nothing holds them or the job is not a download.
+   */
+  held: { until: number; byUpstream: boolean } | null;
+  /**
    * Whole days the stream download takes to draw what it owes at the daily
    * allowance, null when the queue fits in a day or the engine did not price it.
    * Only the stream download carries one.
@@ -140,6 +146,8 @@ interface BackgroundJobsData {
   detectionAwaiting?: number;
   cutoverOwed: boolean;
   streamDaysToFinish?: number;
+  downloadsHeldUntilMs?: number;
+  downloadsHeldByUpstream?: boolean;
 }
 
 /**
@@ -270,6 +278,10 @@ function jobsFromStatus(
         }
       : null;
   };
+  const held =
+    data?.downloadsHeldUntilMs !== undefined
+      ? { until: data.downloadsHeldUntilMs, byUpstream: data.downloadsHeldByUpstream === true }
+      : null;
   const elevation = status?.elevation;
   const cutover = status?.cutover;
   const stream = status?.stream;
@@ -283,6 +295,7 @@ function jobsFromStatus(
       remaining: detection.awaiting,
       phase: detection.phase,
       resumesAt: null,
+      held: null,
       pacedDays: null,
       lastRun: lastRun('detection'),
     },
@@ -295,6 +308,7 @@ function jobsFromStatus(
       remaining: status?.elevationRemaining ?? null,
       phase: null,
       resumesAt: elevation?.resumesAt ?? null,
+      held,
       pacedDays: null,
       lastRun: lastRun('elevationBackfill'),
     },
@@ -307,6 +321,7 @@ function jobsFromStatus(
       remaining: cutover?.running ? null : cutoverPending,
       phase: cutover?.running ? cutover.phase : null,
       resumesAt: null,
+      held: null,
       pacedDays: null,
       lastRun: lastRun('cutover'),
     },
@@ -319,6 +334,7 @@ function jobsFromStatus(
       remaining: status?.streamRemaining ?? null,
       phase: null,
       resumesAt: stream?.resumesAt ?? null,
+      held,
       pacedDays: data?.streamDaysToFinish ?? null,
       lastRun: lastRun('streamBackfill'),
     },

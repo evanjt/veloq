@@ -78,6 +78,8 @@ export interface RetiredLayerProps {
   lines: RetiredLines;
   show: boolean;
   onToggle: () => void;
+  /** A retired section the camera frames on, in place of the whole area. */
+  frameId?: string | null;
   /** A retired line, or a hidden current one, was tapped. */
   onSelect: (id: string) => void;
 }
@@ -98,6 +100,8 @@ interface PreviewMapViewProps {
   onToggleRemoved: () => void;
   onSelect: (section: PreviewSection | null) => void;
   retiredLayer?: RetiredLayerProps | null | undefined;
+  /** The screen shows the old-versus-new layer alone, so the settings preview's statuses are left out. */
+  retiredOnly?: boolean;
 }
 
 export function PreviewMapView({
@@ -113,6 +117,7 @@ export function PreviewMapView({
   onToggleRemoved,
   onSelect,
   retiredLayer = null,
+  retiredOnly = false,
 }: PreviewMapViewProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -254,9 +259,22 @@ export function PreviewMapView({
     );
   }, [retiredShown, retiredLayer]);
 
+  const frameId = retiredLayer?.frameId ?? null;
+  const framedLine = useMemo(() => {
+    if (!frameId || !retiredLayer) return null;
+    const feature = retiredLayer.lines.retired.features.find((f) => f.properties?.id === frameId);
+    return feature?.geometry.type === 'LineString'
+      ? (feature.geometry.coordinates as LngLat[])
+      : null;
+  }, [frameId, retiredLayer]);
+
   const bounds = useMemo(
-    () => previewCameraBounds(centre, [...decoded.values(), ...retiredGeometries]),
-    [centre, decoded, retiredGeometries]
+    () =>
+      previewCameraBounds(
+        centre,
+        framedLine ? [framedLine] : [...decoded.values(), ...retiredGeometries]
+      ),
+    [centre, decoded, retiredGeometries, framedLine]
   );
 
   const initialCamera = useMemo(() => {
@@ -364,30 +382,34 @@ export function PreviewMapView({
           text={chipText}
           textOn={textPrimary}
         />
-        <LegendChip
-          testID="preview-layer-proposed"
-          label={t('settings.previewProposedLayer')}
-          swatch={previewLayerSwatch('proposed-line', palette)}
-          on={showProposed}
-          onPress={onToggleProposed}
-          background={chipBg}
-          border={chipBorder}
-          text={chipText}
-          textOn={textPrimary}
-        />
-        {/* The popover's own word for this status, rather than a second key
+        {retiredOnly ? null : (
+          <>
+            <LegendChip
+              testID="preview-layer-proposed"
+              label={t('settings.previewProposedLayer')}
+              swatch={previewLayerSwatch('proposed-line', palette)}
+              on={showProposed}
+              onPress={onToggleProposed}
+              background={chipBg}
+              border={chipBorder}
+              text={chipText}
+              textOn={textPrimary}
+            />
+            {/* The popover's own word for this status, rather than a second key
             carrying the same translation in seventeen locales. */}
-        <LegendChip
-          testID="preview-layer-removed"
-          label={t('settings.previewStatusGone')}
-          swatch={previewLayerSwatch('gone-line', palette)}
-          on={showRemoved}
-          onPress={onToggleRemoved}
-          background={chipBg}
-          border={chipBorder}
-          text={chipText}
-          textOn={textPrimary}
-        />
+            <LegendChip
+              testID="preview-layer-removed"
+              label={t('settings.previewStatusGone')}
+              swatch={previewLayerSwatch('gone-line', palette)}
+              on={showRemoved}
+              onPress={onToggleRemoved}
+              background={chipBg}
+              border={chipBorder}
+              text={chipText}
+              textOn={textPrimary}
+            />
+          </>
+        )}
         {retiredLayer ? (
           <LegendChip
             testID="preview-layer-retired"

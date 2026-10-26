@@ -3,9 +3,9 @@
  * applying them everywhere. The screen opens on the live catalogue for the
  * chosen area, so the map shows what the detector holds today. The five
  * sliders are local state, and releasing one runs a sandboxed detect against
- * that catalogue, superseding a run still going. The Preview button runs the
- * same detect on demand, for the first look at an area and for a retry after a
- * refusal. Only Keep writes the config and re-analyses the library.
+ * that catalogue, superseding a run still going, so there is no button to run
+ * it. Only Keep writes the config and re-analyses the library. Leaving with
+ * values that differ from the saved ones asks whether to save them first.
  *
  * The old-versus-new layer sits on the same map: the sections a re-cut retired,
  * dashed and muted, beside the catalogue that replaced them. A tap on a line
@@ -14,9 +14,9 @@
  *
  * The column itself does not scroll. Tuning a slider you cannot see the map for
  * defeats the screen, so the map and the controls share one fixed column. That
- * is what the intro paragraph, the picker label and the standalone Preview
- * button cost, and why they are gone: once a run has produced a result, Preview
- * joins Discard and Keep in the one decision row. The slider card is the one
+ * is what the intro paragraph and the picker label cost, and why they are
+ * gone: once a run has produced a result, Discard and Keep share one decision
+ * row. The slider card is the one
  * thing that scrolls, and only on a screen too short to give its five rows a
  * tap target each.
  */
@@ -57,7 +57,7 @@ import {
   PreviewSectionPopover,
   RetiredPairCard,
   buildRetiredLines,
-  busiestCentre,
+  centreHoldingRetired,
   describeRetiredSelection,
   previewAreaBounds,
   useRetiredMapData,
@@ -71,7 +71,8 @@ import { attemptEngineRead } from '@/shared/native/engineError';
 import type { PreviewCentre, PreviewParams, PreviewSection } from 'veloqrs';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { goBack, navigateTo } from '@/shared/app/navigation';
-import { confirmAction, inform } from '@/shared/ui/dialog';
+import { chooseAction, confirmAction, inform } from '@/shared/ui/dialog';
+import { useBackIntercept } from '@/shared/app/useBackIntercept';
 import { FitText } from '@/shared/ui/FitText';
 
 const PARAM_KEYS = [
@@ -81,6 +82,18 @@ const PARAM_KEYS = [
   'minActivities',
   'divergenceThreshold',
 ] as const satisfies readonly (keyof PreviewParams)[];
+
+function readSavedParams(): PreviewParams {
+  const config = previewClient.getSectionConfig();
+  if (!config) return UNIFIED_CONFIG;
+  return {
+    proximityThreshold: config.proximityThreshold,
+    minSectionLength: config.minSectionLength,
+    maxSectionLength: config.maxSectionLength,
+    minActivities: config.minActivities,
+    divergenceThreshold: config.divergenceThreshold,
+  };
+}
 
 function DetectionPreviewScreenContent() {
   const { t } = useTranslation();
@@ -93,7 +106,7 @@ function DetectionPreviewScreenContent() {
     error: centresReadError,
     retry: retryCentres,
   } = usePreviewCentres(previewClient);
-  const { status, progress, result, refusal, lapsed, start, request, cancel, reset } =
+  const { status, progress, result, refusal, lapsed, request, cancel, reset } =
     usePreviewDetect(previewClient);
   const phaseKey = progress ? getPhaseDisplayKey(progress.phase) : null;
   // The preview is a settings sandbox: it loads a subset, runs the detector to
@@ -122,7 +135,10 @@ function DetectionPreviewScreenContent() {
     [readDetection]
   );
 
-  const { layer } = useLocalSearchParams<{ layer?: string }>();
+  const { layer, retired: openedRetiredId } = useLocalSearchParams<{
+    layer?: string;
+    retired?: string;
+  }>();
   const openedOnRetired = layer === 'retired';
   // One read serves the retired lines, the catalogue rows around them and the
   // pairs between, so a tap re-reads nothing. It covers the whole library; the
@@ -130,20 +146,14 @@ function DetectionPreviewScreenContent() {
   // A failed read draws no layer; the rest of the screen is unaffected.
   const { data: retiredData } = useRetiredMapData();
   const [showRetired, setShowRetired] = useState(openedOnRetired);
-  const [selectedRetiredId, setSelectedRetiredId] = useState<string | null>(null);
+  const [selectedRetiredId, setSelectedRetiredId] = useState<string | null>(
+    openedOnRetired ? (openedRetiredId ?? null) : null
+  );
 
   const [centre, setCentre] = useState<PreviewCentre | null>(null);
-  const [params, setParams] = useState<PreviewParams>(() => {
-    const config = previewClient.getSectionConfig();
-    if (!config) return UNIFIED_CONFIG;
-    return {
-      proximityThreshold: config.proximityThreshold,
-      minSectionLength: config.minSectionLength,
-      maxSectionLength: config.maxSectionLength,
-      minActivities: config.minActivities,
-      divergenceThreshold: config.divergenceThreshold,
-    };
-  });
+  const [savedParams] = useState<PreviewParams>(readSavedParams);
+  const [params, setParams] = useState<PreviewParams>(savedParams);
+  const changed = PARAM_KEYS.some((k) => params[k] !== savedParams[k]);
   const [selected, setSelected] = useState<PreviewSection | null>(null);
   const newNumber = useMemo(
     () => previewNewNumber(result?.sections ?? [], selected),
@@ -161,7 +171,10 @@ function DetectionPreviewScreenContent() {
 
   // Opened on the retired layer, the area is the one holding the most retired
   // lines, so the first frame has something in it.
-  const retiredCentre = openedOnRetired && retiredData ? busiestCentre(centres, retiredData) : null;
+  const retiredCentre =
+    openedOnRetired && retiredData
+      ? centreHoldingRetired(centres, retiredData, openedRetiredId ?? '')
+      : null;
   const selectedCentre = centre ?? retiredCentre ?? centres[0] ?? null;
   const retiredLines = useMemo(
     () =>
@@ -202,6 +215,7 @@ function DetectionPreviewScreenContent() {
         ? {
             lines: retiredLines,
             show: showRetired,
+            frameId: openedOnRetired ? (openedRetiredId ?? null) : null,
             onToggle: () => setShowRetired((v) => !v),
             onSelect: (id: string) => {
               setSelected(null);
@@ -209,7 +223,7 @@ function DetectionPreviewScreenContent() {
             },
           }
         : null,
-    [retiredLines, hasRetired, showRetired]
+    [retiredLines, hasRetired, showRetired, openedOnRetired, openedRetiredId]
   );
   // A line on the live catalogue is a section the retired read also holds, so
   // its pairs come from the same read. With a run on screen the row's live id
@@ -230,7 +244,6 @@ function DetectionPreviewScreenContent() {
   const slidersMatchResult =
     previewedConfig !== null && PARAM_KEYS.every((k) => params[k] === previewedConfig[k]);
   const keepEnabled = slidersMatchResult && !migrating;
-  const previewIsNext = !!selectedCentre && !slidersMatchResult;
   // The engine reports a percentage for a bounded job, so draw it. Clamped
   // because a phase that finishes ahead of its own estimate can overshoot.
   const runPercent = Math.min(100, Math.max(0, Math.round(progress?.percent ?? 0)));
@@ -240,6 +253,7 @@ function DetectionPreviewScreenContent() {
       : phaseKey
         ? t(phaseKey)
         : (progress?.phase ?? t('settings.previewRun'));
+  const decided = useRef(false);
 
   // A held diff is about one area, so moving to another drops it. The run
   // itself keeps its result across a re-run of the same area, which is why
@@ -256,12 +270,6 @@ function DetectionPreviewScreenContent() {
     [selectedCentre, reset]
   );
 
-  const handlePreview = useCallback(() => {
-    if (!selectedCentre || running) return;
-    setSelected(null);
-    start(selectedCentre.lat, selectedCentre.lng, params);
-  }, [selectedCentre, running, start, params]);
-
   // A settled value regenerates on its own. The sliders stay live during a
   // run, so a release mid-run supersedes it rather than waiting on it.
   const handleCommit = useCallback(
@@ -273,6 +281,37 @@ function DetectionPreviewScreenContent() {
     [selectedCentre, request]
   );
 
+  // Writes the config and starts the library re-cut, then runs `onStarted`.
+  // The engine refuses a re-cut while a detect runs or the elevation backfill
+  // holds detection. The config is already written and the evidence cache
+  // already cleared by then, so closing would report a change that never ran.
+  // Stay, say why, and let the athlete try again.
+  const applyConfig = useCallback(
+    (next: PreviewParams, onStarted: () => void) => {
+      const config = previewClient.getSectionConfig();
+      if (!config || migrating) return;
+      previewClient.setSectionConfig({ ...config, ...next });
+      // Through the rescan hook, not the client: the re-cut is global and
+      // the athlete has to be able to see it run, and the hook is what
+      // starts the poll every progress indicator reads.
+      const outcome = forceRescan();
+      if (!hasStarted(outcome)) {
+        const reasonKey = rescanRefusalKey(outcome);
+        const saved = t('settings.previewKeepRefused');
+        inform({
+          title: t('settings.previewKeepRefusedTitle'),
+          message: reasonKey
+            ? t('common.sentencePair', { first: saved, second: t(reasonKey) })
+            : saved,
+        });
+        return;
+      }
+      decided.current = true;
+      onStarted();
+    },
+    [t, forceRescan, migrating]
+  );
+
   const handleKeep = useCallback(() => {
     confirmAction({
       title: t('settings.previewKeepTitle'),
@@ -280,38 +319,45 @@ function DetectionPreviewScreenContent() {
       confirmLabel: t('settings.previewKeep'),
       cancelLabel: t('common.cancel'),
       onConfirm: () => {
-        const config = previewClient.getSectionConfig();
-        if (!config || migrating || !previewedConfig) return;
-        previewClient.setSectionConfig({ ...config, ...previewedConfig });
-        // Through the rescan hook, not the client: the re-cut is global and
-        // the athlete has to be able to see it run, and the hook is what
-        // starts the poll every progress indicator reads.
-        //
-        // The engine refuses a re-cut while a detect runs or the elevation
-        // backfill holds detection. The config above is already written and
-        // the evidence cache already cleared, so closing here would report a
-        // change that never ran. Stay, say why, and let Keep be pressed again.
-        const outcome = forceRescan();
-        if (!hasStarted(outcome)) {
-          const reasonKey = rescanRefusalKey(outcome);
-          const saved = t('settings.previewKeepRefused');
-          inform({
-            title: t('settings.previewKeepRefusedTitle'),
-            message: reasonKey
-              ? t('common.sentencePair', { first: saved, second: t(reasonKey) })
-              : saved,
-          });
-          return;
-        }
-        goBack();
+        if (!previewedConfig) return;
+        applyConfig(previewedConfig, goBack);
       },
     });
-  }, [t, previewedConfig, forceRescan, migrating]);
+  }, [t, previewedConfig, applyConfig]);
 
   const handleDiscard = useCallback(() => {
     if (running) cancel();
+    decided.current = true;
     goBack();
   }, [running, cancel]);
+
+  // Back, the back gesture and Android back all arrive here while the values
+  // differ from the saved ones. Keep and Discard have already decided, so
+  // their own exit goes through unasked.
+  useBackIntercept(changed, (carryOut) => {
+    if (decided.current) {
+      carryOut();
+      return;
+    }
+    const save = {
+      label: t('common.save'),
+      onPress: () => applyConfig(params, carryOut),
+    };
+    const discard = {
+      label: t('common.discard'),
+      destructive: true,
+      onPress: () => {
+        decided.current = true;
+        carryOut();
+      },
+    };
+    chooseAction({
+      title: t('settings.previewLeaveTitle'),
+      message: t('settings.previewLeaveMessage'),
+      actions: migrating ? [discard] : [discard, save],
+      cancelLabel: t('common.keepEditing'),
+    });
+  });
 
   // Leaving by any route cancels a run in flight. The Discard button did this
   // and the header back button did not, and neither did the swipe-back, so a
@@ -343,6 +389,7 @@ function DetectionPreviewScreenContent() {
           onToggleRemoved={() => setShowRemoved((v) => !v)}
           onSelect={handleSelectSection}
           retiredLayer={retiredLayer}
+          retiredOnly={openedOnRetired}
         />
         {selected || (showRetired && retiredSelection) ? (
           <View style={styles.popover} pointerEvents="box-none">
@@ -402,101 +449,99 @@ function DetectionPreviewScreenContent() {
           />
         ) : null}
 
-        <PreviewParamPanel params={params} onChange={setParams} onCommit={handleCommit} />
-
-        {result ? <PreviewDiffStrip counts={result.counts} /> : null}
-
-        {result ? <PreviewRunCost pool={result.pool} elapsedMs={result.elapsedMs} /> : null}
-
-        {running ? (
-          <View>
-            <View style={[styles.runBtn, { backgroundColor: surface, borderColor: border }]}>
-              <Spinner label={runLabel} />
-              <FitText style={[styles.runText, { color: textSecondary }]}>{runLabel}</FitText>
-            </View>
-            <ProgressBar
-              done={runPercent}
-              total={100}
-              label={runLabel}
-              testID="preview-progress"
-              fillTestID="preview-progress-fill"
-            />
-            {lapsed ? (
-              <Text style={[styles.notice, { color: textSecondary }]} testID="preview-slow">
-                {t('settings.runSlow')}
-              </Text>
-            ) : null}
-          </View>
-        ) : (
-          // One row, so a result does not cost a second. Keep takes the accent
-          // once there is something to keep, and Preview steps back to
-          // secondary rather than competing with it.
-          <View style={styles.actionRow}>
-            {result ? (
-              <Button
-                variant="secondary"
-                style={styles.actionBtn}
-                onPress={handleDiscard}
-                label={t('settings.previewDiscard')}
-                testID="preview-discard-button"
-              />
-            ) : null}
-            <Button
-              variant={previewIsNext ? 'primary' : 'secondary'}
-              style={styles.actionBtn}
-              onPress={handlePreview}
-              disabled={!selectedCentre}
-              icon="magnify-scan"
-              label={t('settings.previewRun')}
-              testID="preview-run-button"
-            />
-            {result ? (
-              <Button
-                style={styles.actionBtn}
-                onPress={handleKeep}
-                disabled={!keepEnabled}
-                label={t('settings.previewKeep')}
-                testID="preview-keep-button"
-              />
-            ) : null}
-          </View>
-        )}
-
-        {currentFailed ? (
-          <Text style={[styles.notice, { color: danger }]} testID="preview-current-failed">
-            {t('settings.previewCurrentFailed')}
-          </Text>
-        ) : null}
-        {status === 'error' && (
-          <Text style={[styles.notice, { color: danger }]}>{t('settings.previewFailed')}</Text>
-        )}
-        {status === 'pool_unusable' && (
-          <Text style={[styles.notice, { color: danger }]} testID="preview-pool-unusable">
-            {t('settings.previewPoolUnusable')}
-          </Text>
-        )}
-        {refusalKey ? (
-          <Text style={[styles.notice, { color: textSecondary }]} testID="preview-refusal">
-            {t(refusalKey)}
-          </Text>
-        ) : null}
-        {migrating ? (
-          <Text style={[styles.notice, { color: textSecondary }]} testID="preview-migrating">
-            {t('settings.previewMigrating')}
-          </Text>
-        ) : null}
-        {migrating && result ? (
+        {openedOnRetired ? (
           <Text
             style={[styles.notice, { color: textSecondary }]}
-            testID="preview-keep-after-upgrade"
+            testID="preview-retired-explainer"
           >
-            {t('settings.previewKeepAfterUpgrade')}
+            {t('sectionHistory.retiredIntro')}
           </Text>
-        ) : null}
-        {awaitingDetection !== null && awaitingDetection > 0 && (
-          <Text style={[styles.notice, { color: textSecondary }]} testID="preview-stale-catalogue">
-            {t('settings.previewStaleCatalogue', { count: awaitingDetection })}
-          </Text>
+        ) : (
+          <>
+            <PreviewParamPanel params={params} onChange={setParams} onCommit={handleCommit} />
+
+            {result ? <PreviewDiffStrip counts={result.counts} /> : null}
+
+            {result ? <PreviewRunCost pool={result.pool} elapsedMs={result.elapsedMs} /> : null}
+
+            {running ? (
+              <View>
+                <View style={[styles.runBtn, { backgroundColor: surface, borderColor: border }]}>
+                  <Spinner label={runLabel} />
+                  <FitText style={[styles.runText, { color: textSecondary }]}>{runLabel}</FitText>
+                </View>
+                <ProgressBar
+                  done={runPercent}
+                  total={100}
+                  label={runLabel}
+                  testID="preview-progress"
+                  fillTestID="preview-progress-fill"
+                />
+                {lapsed ? (
+                  <Text style={[styles.notice, { color: textSecondary }]} testID="preview-slow">
+                    {t('settings.runSlow')}
+                  </Text>
+                ) : null}
+              </View>
+            ) : result ? (
+              <View style={styles.actionRow}>
+                <Button
+                  variant="secondary"
+                  style={styles.actionBtn}
+                  onPress={handleDiscard}
+                  label={t('settings.previewDiscard')}
+                  testID="preview-discard-button"
+                />
+                <Button
+                  style={styles.actionBtn}
+                  onPress={handleKeep}
+                  disabled={!keepEnabled}
+                  label={t('settings.previewKeep')}
+                  testID="preview-keep-button"
+                />
+              </View>
+            ) : null}
+
+            {currentFailed ? (
+              <Text style={[styles.notice, { color: danger }]} testID="preview-current-failed">
+                {t('settings.previewCurrentFailed')}
+              </Text>
+            ) : null}
+            {status === 'error' && (
+              <Text style={[styles.notice, { color: danger }]}>{t('settings.previewFailed')}</Text>
+            )}
+            {status === 'pool_unusable' && (
+              <Text style={[styles.notice, { color: danger }]} testID="preview-pool-unusable">
+                {t('settings.previewPoolUnusable')}
+              </Text>
+            )}
+            {refusalKey ? (
+              <Text style={[styles.notice, { color: textSecondary }]} testID="preview-refusal">
+                {t(refusalKey)}
+              </Text>
+            ) : null}
+            {migrating ? (
+              <Text style={[styles.notice, { color: textSecondary }]} testID="preview-migrating">
+                {t('settings.previewMigrating')}
+              </Text>
+            ) : null}
+            {migrating && result ? (
+              <Text
+                style={[styles.notice, { color: textSecondary }]}
+                testID="preview-keep-after-upgrade"
+              >
+                {t('settings.previewKeepAfterUpgrade')}
+              </Text>
+            ) : null}
+            {awaitingDetection !== null && awaitingDetection > 0 && (
+              <Text
+                style={[styles.notice, { color: textSecondary }]}
+                testID="preview-stale-catalogue"
+              >
+                {t('settings.previewStaleCatalogue', { count: awaitingDetection })}
+              </Text>
+            )}
+          </>
         )}
       </View>
     </ScreenSafeAreaView>

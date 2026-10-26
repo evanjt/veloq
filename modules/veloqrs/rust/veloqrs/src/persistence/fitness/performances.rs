@@ -939,6 +939,17 @@ impl PersistentEngine {
         let Ok(tx) = self.db.transaction() else {
             return 0;
         };
+        // The coverage updates would each recount their section's summary, so
+        // the triggers are suspended and the changed sections recounted once.
+        if tx
+            .execute(
+                "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, '1')",
+                params![crate::persistence::schema::SECTION_SUMMARY_BULK_KEY],
+            )
+            .is_err()
+        {
+            return 0;
+        }
         let mut measured = 0u32;
         let mut changed_sections = HashSet::new();
         let mut indicator_sections = HashSet::new();
@@ -977,7 +988,25 @@ impl PersistentEngine {
                 }
             }
         }
-        if tx.commit().is_err() {
+        // Coverage moves only the visit count: the other summaries count
+        // included rows whether or not they are measured.
+        let count = crate::persistence::schema::visit_count_sql("sections.id");
+        let recount = format!(
+            "UPDATE sections SET visit_count = ({count}) WHERE id = ? AND visit_count IS NOT ({count})"
+        );
+        for section_id in &changed_sections {
+            if tx.execute(&recount, params![section_id]).is_err() {
+                return 0;
+            }
+        }
+        if tx
+            .execute(
+                "DELETE FROM schema_info WHERE key = ?",
+                params![crate::persistence::schema::SECTION_SUMMARY_BULK_KEY],
+            )
+            .is_err()
+            || tx.commit().is_err()
+        {
             return 0;
         }
 

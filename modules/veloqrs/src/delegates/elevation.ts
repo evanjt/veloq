@@ -10,8 +10,10 @@ import {
   startElevationBackfill as ffiStartElevationBackfill,
   pauseElevationBackfill as ffiPauseElevationBackfill,
   resumeElevationBackfill as ffiResumeElevationBackfill,
+  retryDownloadsNow as ffiRetryDownloadsNow,
   getElevationBackfillRemaining as ffiGetElevationBackfillRemaining,
   type ElevationBackfillProgress,
+  type FfiRetryNow,
   FfiStartOutcome,
 } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
@@ -78,6 +80,17 @@ export function resumeElevationBackfill(host: DelegateHost): boolean {
     console.error('[Engine] resumeElevationBackfill threw:', e);
     return false;
   }
+}
+
+/**
+ * Ask the elevation and stream downloads again now, the way the engine's own
+ * wake-up does. A Retry-After, a cooldown or the request budget in force
+ * refuses it and the answer carries the time it lifts. Null when the engine is
+ * not open; an engine error reaches the caller.
+ */
+export function retryDownloadsNow(host: DelegateHost): FfiRetryNow | null {
+  if (!host.ready) return null;
+  return host.timed('retryDownloadsNow', () => ffiRetryDownloadsNow());
 }
 
 /**

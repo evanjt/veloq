@@ -52,6 +52,7 @@ describe('bindDelegates', () => {
 
     expect(elevation.startElevationBackfill()).toBe(FfiStartOutcome.NotReady);
     expect(elevation.resumeElevationBackfill()).toBe(false);
+    expect(elevation.retryDownloadsNow()).toBeNull();
     expect(elevation.getElevationBackfillRemaining()).toBeNull();
     expect(() => elevation.pauseElevationBackfill()).not.toThrow();
   });

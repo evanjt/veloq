@@ -136,44 +136,56 @@ describe('retired sections screen', () => {
   });
 });
 
-describe('a retirement merged into another section', () => {
-  it('takes the press on the whole card, named by the link, at the tap-target floor', () => {
-    mockGetRetiredSections.mockReturnValue([{ ...retirement('sec-1'), into: 'sec-2' }]);
-    const screen = render(<SectionRetiredScreen />);
-
-    const card = screen.getByTestId('section-retired-sec-1');
-    expect(card.props.accessibilityRole).toBe('link');
-    expect(screen.getByText(card.props.accessibilityLabel)).toBeTruthy();
-    const style = StyleSheet.flatten(
-      typeof card.props.style === 'function'
-        ? card.props.style({ pressed: false })
-        : card.props.style
-    ) as { minHeight?: number };
-    expect(style.minHeight).toBeGreaterThanOrEqual(layout.minTapTarget);
-  });
-});
-
-describe('each retired card', () => {
-  it('leads with the name the section last had, so two retirements can be told apart', () => {
+describe('each retired row', () => {
+  it('is one compact row: the name, the length and the section that replaced it', () => {
     mockGetRetiredSections.mockReturnValue([
       { ...retirement('sec-1'), kind: 'dissolved', name: 'Old Quarry', distanceMeters: 1500 },
       { ...retirement('sec-3'), into: 'sec-2', name: 'Lower Church Hill', distanceMeters: 820 },
     ]);
     const screen = render(<SectionRetiredScreen />);
 
-    const quarry = screen.getByText('Old Quarry');
-    expect(quarry.props.numberOfLines).toBe(2);
-    expect(screen.getByText('Lower Church Hill')).toBeTruthy();
+    // A name the athlete may have given wraps rather than being cut off.
+    expect(screen.getByText('Old Quarry').props.numberOfLines).toBe(2);
     expect(screen.getByText(/1\.5 km/)).toBeTruthy();
     expect(screen.getByText(/820 m/)).toBeTruthy();
+    expect(screen.getByText(/Church Hill/, { exact: false })).toBeTruthy();
+    expect(screen.queryByText(/Dissolved|Merged into another section/)).toBeNull();
   });
 
-  it('falls back to how it left when the ledger kept no name', () => {
+  it('shows no kind label for a row the ledger kept no name for', () => {
     mockGetRetiredSections.mockReturnValue([{ ...retirement('sec-1'), kind: 'dissolved' }]);
     const screen = render(<SectionRetiredScreen />);
 
     expect(screen.getByTestId('section-retired-sec-1')).toBeTruthy();
+    expect(screen.queryByText(/Dissolved/)).toBeNull();
     expect(screen.queryByText(/km|\bm\b/)).toBeNull();
+  });
+
+  it('shows the section on the map when pressed, at the tap-target floor', () => {
+    mockGetRetiredSections.mockReturnValue([{ ...retirement('sec-1'), into: 'sec-2' }]);
+    const screen = render(<SectionRetiredScreen />);
+
+    const row = screen.getByTestId('section-retired-sec-1');
+    const style = StyleSheet.flatten(
+      typeof row.props.style === 'function' ? row.props.style({ pressed: false }) : row.props.style
+    ) as { minHeight?: number };
+    expect(style.minHeight).toBeGreaterThanOrEqual(layout.minTapTarget);
+
+    fireEvent.press(row);
+
+    expect(mockNavigateTo).toHaveBeenCalledWith({
+      pathname: '/detection-preview',
+      params: { layer: 'retired', retired: 'sec-1' },
+    });
+  });
+
+  it('opens with the line that says what retired means', () => {
+    mockGetRetiredSections.mockReturnValue([retirement('sec-1')]);
+    const screen = render(<SectionRetiredScreen />);
+
+    expect(screen.getByTestId('section-retired-intro').props.children).toBe(
+      'sectionHistory.retiredIntro'
+    );
   });
 });
 

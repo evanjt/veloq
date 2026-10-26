@@ -96,17 +96,18 @@ fn bulk_marker_present(raw: &Connection) -> bool {
 /// Every section's three summary columns equal what its own junction rows say.
 fn assert_summaries_true(raw: &Connection, after: &str) {
     let mut stmt = raw
-        .prepare(
+        .prepare(&format!(
             "SELECT s.id, s.visit_count, s.activity_count, s.sport_types,
                     (SELECT COUNT(*) FROM section_activities sa
-                     WHERE sa.section_id = s.id AND sa.excluded = 0),
+                     WHERE sa.section_id = s.id AND sa.excluded = 0{}),
                     (SELECT COUNT(DISTINCT activity_id) FROM section_activities sa
                      WHERE sa.section_id = s.id AND sa.excluded = 0),
                     (SELECT GROUP_CONCAT(DISTINCT a.sport_type) FROM section_activities sa
                      JOIN activities a ON a.id = sa.activity_id
                      WHERE sa.section_id = s.id AND sa.excluded = 0)
              FROM sections s",
-        )
+            veloqrs::persistence::complete_traversal_clause("sa", "s")
+        ))
         .expect("prepare parity");
     type ParityRow = (String, i64, i64, Option<String>, i64, i64, Option<String>);
     let rows: Vec<ParityRow> = stmt
@@ -158,8 +159,10 @@ fn detection_apply_recounts_each_section_once() {
         "corpus too thin to tell a per-row recount from a per-section one: {rows} rows over {sections} sections"
     );
     let updates = probe_count(&raw);
+    // Once as the rows are written, and once more for a section whose
+    // coverage measuring moved its count. Never once per junction row.
     assert!(
-        updates <= sections,
+        updates <= sections * 2,
         "first apply recounted {updates} times for {sections} sections over {rows} junction rows"
     );
     assert_summaries_true(&raw, "after the first apply");
@@ -174,7 +177,7 @@ fn detection_apply_recounts_each_section_once() {
     let sections = auto_sections(&raw);
     let updates = probe_count(&raw);
     assert!(
-        updates <= sections,
+        updates <= sections * 2,
         "second apply recounted {updates} times for {sections} sections"
     );
     assert_summaries_true(&raw, "after the second apply");

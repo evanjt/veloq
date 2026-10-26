@@ -1412,6 +1412,27 @@ pub fn start_elevation_backfill() -> crate::objects::FfiStartOutcome {
     crate::net::elevation_backfill::start_elevation_backfill()
 }
 
+/// Ask the elevation and stream downloads again now, through the path the
+/// engine's own sleeper takes, so the governor still decides what is sent.
+/// Refused, with the time it lifts, while a Retry-After, a cooldown or the
+/// request budget holds them.
+#[uniffi::export]
+pub fn retry_downloads_now() -> crate::FfiRetryNow {
+    init_logging();
+    match crate::net::resume::retry_downloads_now() {
+        crate::net::resume::RetryNow::Started => crate::FfiRetryNow {
+            started: true,
+            held_until_ms: None,
+            held_by_upstream: false,
+        },
+        crate::net::resume::RetryNow::Held(hold) => crate::FfiRetryNow {
+            started: false,
+            held_until_ms: Some(hold.until.timestamp_millis() as f64),
+            held_by_upstream: hold.by_upstream,
+        },
+    }
+}
+
 /// Pause the elevation backfill for the rest of this process.
 ///
 /// The pass in flight ends at its next batch and reports `paused`, and no

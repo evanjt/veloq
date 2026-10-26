@@ -351,6 +351,9 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_func_resume_elevation_backfill(
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
+  ubrn_uniffi_veloqrs_fn_func_retry_downloads_now(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_set_engine_log_level(
     level: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
@@ -1864,6 +1867,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_func_is_cutover_held(): number;
   ubrn_uniffi_veloqrs_checksum_func_pause_elevation_backfill(): number;
   ubrn_uniffi_veloqrs_checksum_func_resume_elevation_backfill(): number;
+  ubrn_uniffi_veloqrs_checksum_func_retry_downloads_now(): number;
   ubrn_uniffi_veloqrs_checksum_func_set_engine_log_level(): number;
   ubrn_uniffi_veloqrs_checksum_func_set_interacting(): number;
   ubrn_uniffi_veloqrs_checksum_func_set_network_online(): number;

@@ -74,7 +74,6 @@ export const SCREEN_HEADERS: Record<string, ScreenHeader | null> = {
   'backup-settings': { titleKey: 'backup.title', largeTitle: true },
   'best-efforts': { titleKey: 'bestEffortsScreen.title' },
   'cache-settings': { titleKey: 'settings.storage', largeTitle: true },
-  'data-sources-settings': { titleKey: 'settings.dataSources', largeTitle: true },
   // No large title: on iOS 26 the dashboard scrolled under a title that never collapsed.
   debug: { title: 'Developer dashboard' },
   'detection-preview': { titleKey: 'settings.previewSections' },

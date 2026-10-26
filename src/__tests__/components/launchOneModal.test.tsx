@@ -21,6 +21,8 @@ import {
 import { useAuthStore } from '@/shared/app/AuthStore';
 
 const mockTake = jest.fn();
+jest.mock('@/features/settings/hooks/useGarminOffer', () => ({ useUsesGarmin: () => false }));
+
 jest.mock('@/shared/native/engine', () => {
   const actual = jest.requireActual('@/shared/native/engine');
   return {

@@ -186,12 +186,15 @@ pub fn background_jobs_data(
         .and_then(|(owed, _)| {
             crate::governor::days_to_draw(owed, crate::governor::BACKFILL_ALLOWANCE)
         });
+    let hold = crate::net::resume::downloads_hold();
     Ok(crate::FfiBackgroundJobsData {
         runs,
         detection_awaiting,
         cutover_owed: crate::persistence::cutover::pooled::cutover_is_owed(conn),
         stream_days_to_finish,
         garmin_pull: crate::net::garmin::pull::screen_read(conn),
+        downloads_held_until_ms: hold.map(|hold| hold.until.timestamp_millis() as f64),
+        downloads_held_by_upstream: hold.is_some_and(|hold| hold.by_upstream),
     })
 }
 
@@ -5826,6 +5829,103 @@ mod tests {
             None,
             crate::persistence::sections::lap_curves::pooled::CurveRead::Held,
         )
+    }
+
+    /// Scenario: one section ridden twice, run once and hiked once in full,
+    /// with a run that covers only a fragment and a hike that covers a third.
+    ///
+    /// Expected behaviour: the list row's count, the sum of the page's
+    /// per-sport counts and the page's sports all agree on the full passes.
+    #[test]
+    fn the_list_count_and_the_page_counts_agree_on_full_traversals() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().expect("tempdir");
+        let path = dir.path().join("list_and_page_counts.db");
+        let mut engine = section_detail_engine(
+            path.to_str().expect("utf-8"),
+            &[
+                ("ride1", "Ride", 10, &[(200.0, false), (210.0, false)]),
+                ("run1", "Run", 9, &[(400.0, false)]),
+                ("hike1", "Hike", 8, &[(900.0, false)]),
+            ],
+        );
+        for (id, direction, coverage, start) in
+            [("run1", "partial", 1.0, 200), ("hike1", "same", 0.3, 300)]
+        {
+            engine
+                .db
+                .execute(
+                    "INSERT INTO section_activities (section_id, activity_id, direction,
+                         start_index, end_index, distance_meters, lap_time, lap_pace,
+                         coverage, excluded)
+                     VALUES ('auto1', ?1, ?2, ?3, ?4, 250.0, 100.0, 2.5, ?5, 0)",
+                    rusqlite::params![id, direction, start, start + 20, coverage],
+                )
+                .expect("fragment");
+        }
+
+        let listed = crate::persistence::sections::queries::pooled::section_summaries_filtered(
+            &engine.db,
+            None,
+            true,
+            &std::collections::BTreeMap::new(),
+        )
+        .into_iter()
+        .find(|s| s.id == "auto1")
+        .expect("listed")
+        .visit_count;
+        let page = performance_detail(&mut engine, 0, None);
+
+        let mut sports: Vec<&str> = page
+            .sport_counts
+            .iter()
+            .map(|c| c.sport_type.as_str())
+            .collect();
+        sports.sort_unstable();
+        assert_eq!(sports, ["Hike", "Ride", "Run"]);
+        assert_eq!(page.sport_counts.iter().map(|c| c.count).sum::<u32>(), 4);
+        assert_eq!(listed, 4);
+    }
+
+    /// Scenario: a library written before the complete-traversal rule, whose
+    /// triggers count every junction row and whose stored count includes a
+    /// fragment.
+    ///
+    /// Expected behaviour: opening it replaces the triggers and recounts, so
+    /// the list row no longer counts the fragment.
+    #[test]
+    fn opening_a_library_with_fragment_counting_triggers_recounts_it() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().expect("tempdir");
+        let path = dir.path().join("fragment_triggers.db");
+        let path = path.to_str().expect("utf-8");
+        {
+            let engine = section_detail_engine(path, &[("ride1", "Ride", 10, &[(200.0, false)])]);
+            engine
+                .db
+                .execute_batch(
+                    "DROP TRIGGER section_activities_visit_count_ai;
+                     DROP TRIGGER section_activities_visit_count_section_au;
+                     INSERT INTO section_activities (section_id, activity_id, direction,
+                         start_index, end_index, distance_meters, lap_time, lap_pace,
+                         coverage, excluded)
+                     VALUES ('auto1', 'ride1', 'partial', 100, 120, 250.0, 100.0, 2.5, 1.0, 0);
+                     UPDATE sections SET visit_count = 2;",
+                )
+                .expect("legacy state");
+        }
+
+        let engine = crate::persistence::PersistentEngine::new(path).expect("reopen");
+
+        let count: u32 = engine
+            .db
+            .query_row(
+                "SELECT visit_count FROM sections WHERE id = 'auto1'",
+                [],
+                |r| r.get(0),
+            )
+            .expect("count");
+        assert_eq!(count, 1);
     }
 
     fn lap_ids(points: &[crate::FfiSectionChartPoint]) -> Vec<String> {

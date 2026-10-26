@@ -77,7 +77,6 @@ const ROUTES = [
   'account',
   'backup-settings',
   'cache-settings',
-  'data-sources-settings',
   'display-settings',
   'licenses',
   'map-settings',

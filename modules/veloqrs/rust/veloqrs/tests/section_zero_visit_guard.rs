@@ -53,14 +53,17 @@ fn engine_with_sections() -> (PersistentEngine, TempDir, std::path::PathBuf) {
 /// visit count.
 fn assert_no_visitless_rows(db: &Connection, after: &str) {
     let mut stmt = db
-        .prepare(
+        .prepare(&format!(
             "SELECT s.id, s.visit_count,
-                    (SELECT COUNT(*) FROM section_activities sa WHERE sa.section_id = s.id)
+                    (SELECT COUNT(*) FROM section_activities sa WHERE sa.section_id = s.id),
+                    (SELECT COUNT(*) FROM section_activities sa
+                     WHERE sa.section_id = s.id AND sa.excluded = 0{})
              FROM sections s WHERE s.section_type = 'auto'",
-        )
+            veloqrs::persistence::complete_traversal_clause("sa", "s")
+        ))
         .expect("prepare");
-    let rows: Vec<(String, i64, i64)> = stmt
-        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+    let rows: Vec<(String, i64, i64, i64)> = stmt
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
         .expect("query")
         .filter_map(|r| r.ok())
         .collect();
@@ -69,7 +72,7 @@ fn assert_no_visitless_rows(db: &Connection, after: &str) {
         "no auto sections persisted after {}",
         after
     );
-    for (id, visits, junction) in rows {
+    for (id, visits, junction, complete) in rows {
         assert!(
             junction > 0,
             "section {} persisted with 0 junction rows after {}",
@@ -77,8 +80,8 @@ fn assert_no_visitless_rows(db: &Connection, after: &str) {
             after
         );
         assert_eq!(
-            visits, junction,
-            "section {} visit_count disagrees with its junction rows after {}",
+            visits, complete,
+            "section {} visit_count disagrees with its complete junction rows after {}",
             id, after
         );
     }

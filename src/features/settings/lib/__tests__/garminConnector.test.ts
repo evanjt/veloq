@@ -132,7 +132,6 @@ describe('disconnecting', () => {
       'veloq-garmin-auto-swap-handled',
       'veloq-garmin-auto-swap-stopped',
       'veloq-garmin-feed',
-      'veloq-garmin-key-expiry',
       'veloq-garmin-offer-declined-at',
       'veloq-garmin-upload',
     ]);
@@ -181,7 +180,7 @@ describe('disconnecting when one place fails', () => {
       'engine closed'
     );
     expect(held.has(GARMIN_KEY_STORAGE_KEY)).toBe(false);
-    expect(removeSetting).toHaveBeenCalledTimes(7);
+    expect(removeSetting).toHaveBeenCalledTimes(6);
   });
 });
 

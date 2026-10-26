@@ -16,6 +16,8 @@ export interface TourLibrary {
   routeId?: string;
   /** Whether a finished section re-analysis left changes to preview. */
   cutoverChanged: boolean;
+  /** Whether the athlete's intervals.icu uses Garmin. */
+  usesGarmin: boolean;
 }
 
 /**
@@ -32,6 +34,7 @@ export function resolveShowMeRoute(
   if (slide.showMeRoute === undefined) return undefined;
   if (slide.showMeWhen === 'hasActivities' && !library.hasActivities) return undefined;
   if (slide.showMeWhen === 'cutoverChanged' && !library.cutoverChanged) return undefined;
+  if (slide.showMeWhen === 'usesGarmin' && !library.usesGarmin) return undefined;
   if (slide.showMeAction === 'openBusiestSection') {
     return library.sectionId ? `/section/${library.sectionId}` : undefined;
   }

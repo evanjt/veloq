@@ -75,6 +75,18 @@ fn the_ladder_climbs_and_then_rests() {
     }
 }
 
+/// Expected behaviour: an answered track never waits, so the ladder only covers
+/// an outage or pushback, and no rung of it exceeds five minutes.
+#[test]
+fn no_rung_of_the_ladder_waits_longer_than_five_minutes() {
+    let longest = RESUME_WAITS.iter().max().copied().expect("a ladder");
+    assert!(
+        longest <= std::time::Duration::from_secs(300),
+        "the longest wait is {longest:?}"
+    );
+    assert!(resume_wait(99) <= std::time::Duration::from_secs(300));
+}
+
 #[test]
 fn a_rung_is_never_shorter_than_the_one_before_it() {
     let run = climb(6, |_| Some(5), false);

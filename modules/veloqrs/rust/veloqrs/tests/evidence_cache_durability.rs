@@ -239,8 +239,22 @@ fn an_invalidation_takes_the_stored_row_with_it() {
 
 #[test]
 fn a_warm_add_lands_on_the_same_catalogue_as_a_cold_one() {
-    let pool = corpus();
-    let (head, tail) = pool.split_at(pool.len() - 3);
+    // The tail is two outings of the ride corridor, which join sections
+    // their ground already holds, and one off every corridor. An outing that
+    // redraws or mints a section is held to the stored catalogue by the
+    // identity debounce for its first arrivals, which a cold batch has no
+    // prior to hold, so such a tail would measure the debounce, not the cache.
+    const TAIL: [&str; 3] = [
+        "life_a_overlap_00003",
+        "life_a_overlap_00014",
+        "life_a_overlap_00022",
+    ];
+    let (tail, head): (Vec<LifecycleActivity>, Vec<LifecycleActivity>) = corpus()
+        .into_iter()
+        .partition(|a| TAIL.contains(&a.id.as_str()));
+    assert_eq!(tail.len(), TAIL.len(), "the corpus lost a tail outing");
+    let pool: Vec<LifecycleActivity> = head.iter().chain(&tail).cloned().collect();
+    let (head, tail) = (head.as_slice(), tail.as_slice());
 
     let warm_dir = TempDir::new().unwrap();
     let mut warm = open(&warm_dir);

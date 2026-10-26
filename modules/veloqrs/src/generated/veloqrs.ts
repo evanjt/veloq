@@ -399,6 +399,28 @@ export function resumeElevationBackfill(): boolean {
 }
 
 /**
+ * Ask the elevation and stream downloads again now, through the path the
+ * engine's own sleeper takes, so the governor still decides what is sent.
+ * Refused, with the time it lifts, while a Retry-After, a cooldown or the
+ * request budget holds them.
+ */
+export function retryDownloadsNow(): FfiRetryNow {
+  const __rb: Uint8Array = uniffiCaller.rustCall(
+    /*caller:*/ (callStatus) => {
+      return nativeModule().ubrn_uniffi_veloqrs_fn_func_retry_downloads_now(
+        callStatus,
+      );
+    },
+    /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+  );
+  try {
+    return FfiConverterTypeFfiRetryNow.lift(__rb);
+  } finally {
+    nativeModule().rustbuffer_free(__rb);
+  }
+}
+
+/**
  * Set the engine's process-wide log level after logger initialisation.
  */
 export function setEngineLogLevel(level: EngineLogLevel): void {
@@ -5625,7 +5647,7 @@ const FfiConverterTypeRunOutcome = FfiConverterString;
  */
 export type FfiJobRun = {
   /**
-   * detection, elevationBackfill, streamBackfill or cutover.
+   * detection, elevationBackfill, streamBackfill, cutover or passRecount.
    */
   job: BackgroundJob;
   /**
@@ -5915,6 +5937,17 @@ export type FfiBackgroundJobsData = {
    * The Garmin pull, `None` while no Garmin key is held.
    */
   garminPull?: FfiGarminPull;
+  /**
+   * When the elevation and stream downloads may next be asked again, in
+   * epoch milliseconds, while a refusal's cooldown or the request budget
+   * holds them. `None` when nothing holds them.
+   */
+  downloadsHeldUntilMs?: number;
+  /**
+   * Whether intervals.icu asked for that wait, rather than this install's
+   * own request budget.
+   */
+  downloadsHeldByUpstream: boolean;
 };
 
 /**
@@ -5945,6 +5978,8 @@ const FfiConverterTypeFfiBackgroundJobsData = (() => {
         cutoverOwed: FfiConverterBool.readFromCursor(c),
         streamDaysToFinish: FfiConverterOptionalUInt32.readFromCursor(c),
         garminPull: FfiConverterOptionalTypeFfiGarminPull.readFromCursor(c),
+        downloadsHeldUntilMs: FfiConverterOptionalFloat64.readFromCursor(c),
+        downloadsHeldByUpstream: FfiConverterBool.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -5956,6 +5991,11 @@ const FfiConverterTypeFfiBackgroundJobsData = (() => {
         value.garminPull,
         c,
       );
+      FfiConverterOptionalFloat64.writeIntoCursor(
+        value.downloadsHeldUntilMs,
+        c,
+      );
+      FfiConverterBool.writeIntoCursor(value.downloadsHeldByUpstream, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -5963,7 +6003,9 @@ const FfiConverterTypeFfiBackgroundJobsData = (() => {
         FfiConverterOptionalUInt32.allocationSize(value.detectionAwaiting) +
         FfiConverterBool.allocationSize(value.cutoverOwed) +
         FfiConverterOptionalUInt32.allocationSize(value.streamDaysToFinish) +
-        FfiConverterOptionalTypeFfiGarminPull.allocationSize(value.garminPull)
+        FfiConverterOptionalTypeFfiGarminPull.allocationSize(value.garminPull) +
+        FfiConverterOptionalFloat64.allocationSize(value.downloadsHeldUntilMs) +
+        FfiConverterBool.allocationSize(value.downloadsHeldByUpstream)
       );
     }
   }
@@ -17740,6 +17782,67 @@ const FfiConverterTypeFfiRetiredMapData = (() => {
           value.current,
         ) +
         FfiConverterSequenceTypeFfiRetiredMapPair.allocationSize(value.pairs)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What Retry now did.
+ */
+export type FfiRetryNow = {
+  /**
+   * Both downloads were restarted.
+   */
+  started: boolean;
+  /**
+   * When the hold that refused the restart lifts, epoch milliseconds.
+   */
+  heldUntilMs?: number;
+  /**
+   * Whether intervals.icu asked for that wait.
+   */
+  heldByUpstream: boolean;
+};
+
+/**
+ * Generated factory for {@link FfiRetryNow} record objects.
+ */
+export const FfiRetryNow = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiRetryNow, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiRetryNow>,
+  });
+})();
+
+const FfiConverterTypeFfiRetryNow = (() => {
+  type TypeName = FfiRetryNow;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        started: FfiConverterBool.readFromCursor(c),
+        heldUntilMs: FfiConverterOptionalFloat64.readFromCursor(c),
+        heldByUpstream: FfiConverterBool.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterBool.writeIntoCursor(value.started, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.heldUntilMs, c);
+      FfiConverterBool.writeIntoCursor(value.heldByUpstream, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterBool.allocationSize(value.started) +
+        FfiConverterOptionalFloat64.allocationSize(value.heldUntilMs) +
+        FfiConverterBool.allocationSize(value.heldByUpstream)
       );
     }
   }
@@ -41306,6 +41409,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_retry_downloads_now() !==
+    63050
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_retry_downloads_now",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_set_engine_log_level() !==
     27516
   ) {
@@ -43937,6 +44048,7 @@ export default Object.freeze({
     FfiConverterTypeFfiRetiredMapSection,
     FfiConverterTypeFfiRetiredPairLink,
     FfiConverterTypeFfiRetiredSection,
+    FfiConverterTypeFfiRetryNow,
     FfiConverterTypeFfiRouteDetailData,
     FfiConverterTypeFfiRouteGroup,
     FfiConverterTypeFfiRouteGroupPreview,

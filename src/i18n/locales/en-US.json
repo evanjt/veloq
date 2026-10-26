@@ -84,6 +84,7 @@
     "locationBackground": "Lets Veloq record an activity you start from Siri, Control Center or a widget without opening the app first."
   },
   "settings": {
+    "previewLeaveMessage": "You changed the preview settings. Saving applies them and re-analyzes your whole library.",
     "customiseByActivity": "Customize by activity type",
     "reanalyzeSections": "Reanalyze sections",
     "unitsMetricHint": "Distances in kilometers, elevation in meters, temperature in Celsius",

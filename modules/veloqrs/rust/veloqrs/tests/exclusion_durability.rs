@@ -280,31 +280,39 @@ fn a_per_lap_exclusion_survives_a_recut_that_changes_the_lap_count() {
     );
 }
 
-/// A member rides out along the ground and comes back over only the first
-/// part of it, and the user excludes the return lap. A trim that keeps only
-/// ground the outward lap alone covers rebuilds the member as one row, a
-/// whole lap away from the excluded one:
-/// the exclusion must not land on it, and the activity stays in the
-/// section's times.
+/// A member rides out along the ground and back over it, and the user
+/// excludes the return lap. The ride is then imported again without its
+/// return, which rebuilds the member as one row, a whole lap away from the
+/// excluded one: the exclusion must not land on it, and the activity stays
+/// in the section's times. A trim cannot reach this, since a pass over the
+/// whole line runs every stretch of it.
 #[test]
-fn a_lap_exclusion_does_not_move_onto_a_lone_traversal_far_from_it_after_a_trim() {
+fn a_lap_exclusion_does_not_move_onto_a_lone_traversal_far_from_it_after_a_recut() {
     let dir = TempDir::new().unwrap();
     let corpus = corpus();
     let ground = &corpus.bucket_c_single.gps_points;
-    let mut track = ground[..200].to_vec();
+    let outward = ground[..200].to_vec();
+    let mut track = outward.clone();
     let mut back = ground[..90].to_vec();
     back.reverse();
     track.extend(back);
     let (mut engine, sid, starts) = engine_with_member_track(&dir, &corpus, track);
     assert_eq!(
         starts,
-        vec![5, 192],
+        vec![31, 192],
         "the member must hold two laps to start"
     );
     engine.exclude_section_lap(&sid, "act_lapped", 192).unwrap();
     assert_eq!(lapped_exclusions(&engine, &sid).len(), 1);
 
-    engine.trim_section(&sid, 0, 5).unwrap();
+    engine
+        .add_activity(
+            "act_lapped".to_string(),
+            outward,
+            corpus.bucket_c_single.sport_type.clone(),
+        )
+        .unwrap();
+    engine.attach_new_activities(&["act_lapped".to_string()]);
 
     let rows: Vec<u32> = engine
         .get_section_by_id(&sid)
@@ -314,7 +322,7 @@ fn a_lap_exclusion_does_not_move_onto_a_lone_traversal_far_from_it_after_a_trim(
         .filter(|p| p.activity_id == "act_lapped")
         .map(|p| p.start_index)
         .collect();
-    assert_eq!(rows, vec![98], "the trim must leave one traversal");
+    assert_eq!(rows, vec![31], "the recut must leave one traversal");
     assert!(
         lapped_exclusions(&engine, &sid).is_empty(),
         "the exclusion moved onto a traversal far from the lap it named"
@@ -329,8 +337,6 @@ fn a_lap_exclusion_does_not_move_onto_a_lone_traversal_far_from_it_after_a_trim(
     );
 }
 
-/// Re-attaching an activity (sync re-index) rewrites its junction rows;
-/// the exclusion is a user decision and must ride across.
 #[test]
 fn an_exclusion_survives_a_reattach() {
     let dir = TempDir::new().unwrap();

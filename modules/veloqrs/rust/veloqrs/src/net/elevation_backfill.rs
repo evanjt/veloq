@@ -33,9 +33,10 @@
 //! the completed work already advanced.
 //!
 //! Three rules make the pass terminate. Upstream that answers with an altitude
-//! series it cannot fill records `UNAVAILABLE`, so it leaves the queue
-//! permanently. A network failure or an empty response leaves the row
-//! untouched, so it can be asked again. A 401 ends the pass outright rather
+//! series it cannot fill, or with nothing for the whole track, or with a 4xx,
+//! records `UNAVAILABLE` on the first ask, so it leaves the queue permanently.
+//! A network failure, a 5xx or a refusal leaves the row untouched, so it can be
+//! asked again. A 401 ends the pass outright rather
 //! than spending the whole library on rejected requests. An elevation ask that
 //! comes back with nothing at all cannot tell the first case from the second,
 //! since the request carried no coordinates, so that activity alone is asked
@@ -46,8 +47,7 @@
 //! left to the next run. A blink of a connection costs seconds rather than a
 //! whole launch. The rounds are skipped when the pass stopped because the
 //! connection is gone: the stop threshold has already decided nothing is
-//! coming back. An empty response is upstream replying, so it waits for the
-//! next run as it always did.
+//! coming back.
 //!
 //! The final re-cut runs only when a pass ends with the queue empty, so
 //! detection is never re-derived over a half-converted library. A pass that
@@ -121,17 +121,12 @@ const FETCH_CONCURRENCY: usize = 6;
 /// no partial outage can produce.
 pub const MAX_CONSECUTIVE_FAILURES: usize = BATCH;
 
-/// Asks that settle nothing before a track is retired out of the queue.
+/// Asks that settle nothing before a track leaves the series queue.
 ///
-/// An ask settles nothing when upstream answers about that one activity and
-/// the answer carries no altitude to store: a 4xx, a body that will not parse,
-/// or a whole-track ask that comes back empty. A connection that is gone is
-/// not one of these, it is counted separately and re-asked.
-///
-/// Three, because a pass runs about once per launch and the same answer three
-/// launches running is upstream's position rather than a bad afternoon. Left
-/// uncounted the row is re-offered by every pass for the life of the install,
-/// which holds section detection and vetoes the detector cutover with it.
+/// Only the series-provenance walk counts asks. The elevation pass settles an
+/// answered track on the first ask, so the queue that holds the detector
+/// cutover never waits on one: only intervals.icu pushing back or an outage
+/// keeps a row for another pass.
 pub const ELEVATION_ATTEMPT_LIMIT: u32 = 3;
 
 /// How often the final-detect driver polls the worker it started.
@@ -151,15 +146,15 @@ pub fn backfill_retry_delays() -> [Duration; BACKFILL_RETRY_ROUNDS] {
 
 /// How long a resume attempt waits after the one before it, longest last.
 ///
-/// The last entry is the resting rate: a library nothing can elevate is asked
-/// about twice an hour, not once a minute. This is the ladder between passes,
-/// where [`backfill_retry_delays`] is the one inside a single pass.
-pub const RESUME_WAITS: [Duration; 5] = [
+/// The last entry is the resting rate, five minutes: an answered track never
+/// waits, so the ladder only covers an outage or pushback, and a Retry-After
+/// longer than a rung is honoured by the cooldown check rather than by the
+/// ladder. This is the ladder between passes, where [`backfill_retry_delays`]
+/// is the one inside a single pass.
+pub const RESUME_WAITS: [Duration; 3] = [
     Duration::from_secs(60),
     Duration::from_secs(120),
     Duration::from_secs(300),
-    Duration::from_secs(900),
-    Duration::from_secs(1800),
 ];
 
 /// What the attempt after `attempts` earlier ones waits, capped at the last rung.
@@ -284,7 +279,7 @@ pub fn resume_ladder_after_cooldown(
             last_remaining = left;
         }
         // A destroyed engine reads as an unreadable queue and so climbed for the
-        // life of the process, waking twice an hour against a handle that was
+        // life of the process, waking every few minutes against a handle that was
         // gone. Asked separately because that is the only way to tell it from a
         // read that failed for a moment, and a moment must end nothing. A
         // restore re-arms the ladder itself and a clear empties the queue, so
@@ -610,9 +605,6 @@ pub struct BackfillOutcome {
     /// Tracks whose fetch failed. Their state is unchanged, so the next run
     /// retries them.
     pub failed: u32,
-    /// Tracks retired this pass: asked [`ELEVATION_ATTEMPT_LIMIT`] times,
-    /// never answered, and now out of the queue for good.
-    pub retired: u32,
     /// Detection runs this pass started. One when it elevated anything, zero
     /// otherwise.
     pub detects_started: u32,
@@ -756,7 +748,7 @@ impl PersistentEngine {
 /// the connection keeps refusing stops every pass in the same place and
 /// nothing behind it is ever asked. A pass that gave up therefore starts the
 /// next one past the block it gave up on. Process-local on purpose: the ladder
-/// asks again at most every half hour and a launch that re-reads from the
+/// asks again at most every five minutes and a launch that re-reads from the
 /// newest track costs one pass, where a stored offset costs a column and a
 /// migration.
 static NEXT_START: AtomicUsize = AtomicUsize::new(0);
@@ -1098,7 +1090,7 @@ fn record_run(install: u64, run: &BackfillRun) {
             handled: outcome.queued,
             added: 0,
             changed: outcome.elevated,
-            retired: outcome.unavailable + outcome.retired,
+            retired: outcome.unavailable,
             failed: outcome.failed,
         },
     };
@@ -1278,10 +1270,9 @@ fn run_queue(install: u64, session: &LiveSource) -> (BackfillRun, bool) {
         BACKFILL.detects.fetch_add(1, Ordering::Relaxed);
     }
     log::info!(
-        "[Elevation] backfill finished: {} elevated, {} unavailable, {} retired, {} failed, {} still to ask",
+        "[Elevation] backfill finished: {} elevated, {} unavailable, {} failed, {} still to ask",
         outcome.elevated,
         outcome.unavailable,
-        outcome.retired,
         outcome.failed,
         remaining.map_or_else(|| "an unreadable number of".to_string(), |n| n.to_string())
     );
@@ -1396,7 +1387,6 @@ fn re_ask_with(
         outcome.elevated += round.outcome.elevated;
         outcome.unavailable += round.outcome.unavailable;
         outcome.failed += round.outcome.failed;
-        outcome.retired += round.outcome.retired;
         // A round that stopped part way never asked the rest, and they were
         // refused once already, so they stay owed rather than disappearing.
         refused = round.refused;
@@ -1641,7 +1631,7 @@ fn drain_queue_asking(
             );
             let whole = fetch(&moved, Ask::Track);
             // The same credential rejection as the first ask: none of these
-            // tracks was answered about, so none is counted against its limit.
+            // tracks was answered about, so none is settled.
             if whole
                 .iter()
                 .any(|(_, f)| matches!(f, Fetched::Failed(NetError::Unauthorized)))
@@ -1656,8 +1646,6 @@ fn drain_queue_asking(
                 ) as u32;
                 let owed: std::collections::HashSet<&str> =
                     moved.iter().map(String::as_str).collect();
-                plan.attempted.retain(|id| !owed.contains(id.as_str()));
-                outcome.retired += retire_batch(install, &plan.attempted);
                 let mut unasked: Vec<(String, String)> = batch
                     .iter()
                     .filter(|(id, _)| owed.contains(id.as_str()))
@@ -1684,7 +1672,6 @@ fn drain_queue_asking(
             &plan.sources,
             &plan.clocks,
         ) as u32;
-        outcome.retired += retire_batch(install, &plan.attempted);
         if count_progress {
             BACKFILL.completed.fetch_add(
                 (batch.len() - plan.deferred.len()) as u32,
@@ -1747,9 +1734,6 @@ struct Plan {
     states: Vec<(String, u8)>,
     /// Asked, and the connection refused. Worth asking again.
     refused: Vec<(String, String)>,
-    /// Asked, and the answer settled nothing. Counted against the track, so a
-    /// track upstream never answers for eventually leaves the queue.
-    attempted: Vec<String>,
     /// Asked, and intervals.icu or the request budget refused. Owed, never
     /// counted, and the walk stops once the batch is stored.
     deferred: Vec<(String, String)>,
@@ -1802,11 +1786,12 @@ impl Plan {
                 true
             }
             Fetched::Empty => {
-                log::info!("[Elevation] {} answered empty, left for the next run", id);
-                outcome.failed += 1;
-                BACKFILL.failed.fetch_add(1, Ordering::Relaxed);
-                self.attempted.push(id);
-                // Upstream replied, so the connection is fine.
+                // The coordinates were asked for and none came back: upstream
+                // replied and has nothing for this activity, so it leaves the
+                // queue now rather than holding the cutover across passes.
+                log::info!("[Elevation] {} answered empty, recorded unavailable", id);
+                self.states.push((id, ELEVATION_STATE_UNAVAILABLE));
+                outcome.unavailable += 1;
                 true
             }
             // A refusal says nothing about the track or the connection. It
@@ -1827,9 +1812,9 @@ impl Plan {
                     self.refused.push((id, sport));
                     false
                 } else {
-                    log::info!("[Elevation] {} left for the next run: {}", id, e);
-                    outcome.failed += 1;
-                    self.attempted.push(id);
+                    log::info!("[Elevation] {} answered, recorded unavailable: {}", id, e);
+                    self.states.push((id, ELEVATION_STATE_UNAVAILABLE));
+                    outcome.unavailable += 1;
                     true
                 }
             }
@@ -2091,40 +2076,6 @@ fn store_wide_answers(
         unavailable,
         mutated,
         clocked,
-    }
-}
-
-/// Count this batch's unsettled asks against their tracks, and report how many
-/// that retired.
-///
-/// A retirement is not a failure and is not counted as one: the pass asked,
-/// upstream would not answer, and the row is now out of the queue rather than
-/// owed for ever. It still counts against `elevation_backfill_outstanding`,
-/// which answers the different question of whether the library reads
-/// uniformly.
-fn retire_batch(install: u64, attempted: &[String]) -> u32 {
-    if attempted.is_empty() {
-        return 0;
-    }
-    let retired = with_persistent_engine_for(install, |engine| {
-        engine.record_elevation_attempts(attempted, ELEVATION_ATTEMPT_LIMIT)
-    });
-    match retired {
-        Some(Ok(n)) => {
-            if n > 0 {
-                log::info!(
-                    "[Elevation] {} tracks retired after {} asks upstream would not answer",
-                    n,
-                    ELEVATION_ATTEMPT_LIMIT
-                );
-            }
-            n as u32
-        }
-        Some(Err(e)) => {
-            log::warn!("[Elevation] asks not counted: {}", e);
-            0
-        }
-        None => 0,
     }
 }
 
@@ -2608,19 +2559,6 @@ mod tests {
             1,
             "the batch reached the engine and answered for its one track"
         );
-    }
-
-    /// A retirement is a write too, and it counts asks against tracks that
-    /// belong to the library the pass started against.
-    #[test]
-    fn a_retirement_from_the_library_before_a_restore_writes_nothing() {
-        let _serial = serial_global_state();
-        let _first = init_global_engine("elevation_retire_first.db");
-        let started_against = engine_install();
-
-        let _second = init_global_engine("elevation_retire_second.db");
-
-        assert_eq!(retire_batch(started_against, &["a1".to_string()]), 0);
     }
 
     /// Scenario: the backfill's final re-cut is normally the only arm running,
@@ -3249,7 +3187,7 @@ mod tests {
     /// altitude upstream.
     ///
     /// Expected behaviour: the last run is recorded once, complete, with all
-    /// three handled, two changed and one retired, and a refused start
+    /// three handled, two changed and one unavailable, and a refused start
     /// records nothing.
     mod last_run {
         use super::*;
@@ -3338,6 +3276,84 @@ mod tests {
                 (3, 0, 2, 1, 0)
             );
             assert!(run.finished_at > crate::WholeNumber(0));
+        }
+    }
+
+    /// Scenario: intervals.icu answers 200 with no streams for some tracks and
+    /// 503 for another, in one pass.
+    ///
+    /// Expected behaviour: the answered tracks read `UNAVAILABLE` after that
+    /// one pass and the queue holds only the track the outage touched.
+    mod answered_empty {
+        use super::*;
+        use crate::governor::{AuthMethod, Governor, NoopPolicy};
+        use crate::persistence::{ELEVATION_STATE_UNKNOWN, with_persistent_engine};
+        use httpmock::prelude::*;
+        use std::sync::Arc;
+        use tracematch::GpsPoint;
+
+        #[test]
+        fn one_pass_drains_every_track_upstream_answered_for() {
+            let _serial = serial_global_state();
+            let _tmp = init_global_engine("elevation_answered_empty.db");
+            crate::objects::sync::set_credentials_from_native("api_key", "secret", "1")
+                .expect("test credential");
+            with_persistent_engine(|engine| {
+                for (n, id) in ["e1", "e2", "e3"].iter().enumerate() {
+                    let seed = n as f64 * 0.05;
+                    let track = (0..8)
+                        .map(|i| GpsPoint::new(46.2 + seed + i as f64 * 0.001, 7.35 + seed))
+                        .collect();
+                    engine
+                        .add_activity(id.to_string(), track, "Ride".into())
+                        .expect("add activity");
+                }
+            })
+            .expect("engine");
+            let server = MockServer::start();
+            for id in ["e1", "e2"] {
+                server.mock(|when, then| {
+                    when.method(GET)
+                        .path(format!("/activity/{id}/streams.json"));
+                    then.status(200).json_body(serde_json::json!([]));
+                });
+            }
+            server.mock(|when, then| {
+                when.method(GET).path("/activity/e3/streams.json");
+                then.status(503);
+            });
+            let gov = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
+            let transport =
+                Transport::with_governor(server.base_url(), AuthMethod::ApiKey("secret"), gov)
+                    .unwrap();
+
+            run_elevation_backfill(&transport, "1");
+
+            let states: Vec<(String, i64)> = with_persistent_engine(|e| {
+                let mut stmt =
+                    e.db.prepare("SELECT activity_id, elevation_state FROM gps_tracks ORDER BY 1")
+                        .unwrap();
+                stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+                    .unwrap()
+                    .map(Result::unwrap)
+                    .collect()
+            })
+            .expect("engine");
+            assert_eq!(
+                states,
+                vec![
+                    ("e1".to_string(), i64::from(ELEVATION_STATE_UNAVAILABLE)),
+                    ("e2".to_string(), i64::from(ELEVATION_STATE_UNAVAILABLE)),
+                    ("e3".to_string(), i64::from(ELEVATION_STATE_UNKNOWN)),
+                ]
+            );
+            let owed = with_persistent_engine(|e| e.elevation_backfill_remaining())
+                .expect("engine")
+                .expect("count");
+            assert_eq!(
+                owed, 1,
+                "only the outage-touched track still holds the queue"
+            );
         }
     }
 
@@ -3744,7 +3760,6 @@ mod tests {
 
             assert!(matches!(walk.stopped, Some(Stopped::Unauthorized)));
             assert_eq!(walk.unasked.len(), BATCH, "the batch is still owed");
-            assert_eq!(walk.outcome.retired, 0);
         }
 
         /// Scenario: a restore installs another library while a walk is part
@@ -4754,10 +4769,10 @@ mod tests {
         }
 
         #[test]
-        fn an_answer_about_the_activity_counts_against_it() {
+        fn an_answer_about_the_activity_settles_it_on_the_first_ask() {
             let _serial = serial_global_state();
 
-            let (plan, _) = sort_one(
+            let (plan, outcome) = sort_one(
                 Fetched::Failed(NetError::Http {
                     status: 404,
                     body: "no such activity".to_string(),
@@ -4766,24 +4781,42 @@ mod tests {
             );
 
             assert_eq!(
-                plan.attempted,
-                vec!["a1".to_string()],
-                "upstream answered about this activity, so the ask is worth counting"
+                plan.states,
+                vec![("a1".to_string(), ELEVATION_STATE_UNAVAILABLE)],
+                "upstream answered about this activity, so it leaves the queue now"
             );
+            assert_eq!(outcome.unavailable, 1);
             assert!(plan.refused.is_empty(), "a 404 is not worth asking again");
         }
 
         #[test]
-        fn a_whole_track_ask_that_comes_back_empty_counts_against_it() {
+        fn a_whole_track_ask_that_comes_back_empty_settles_it_on_the_first_ask() {
             let _serial = serial_global_state();
 
             let (plan, _) = sort_one(Fetched::Empty, Ask::Track);
 
             assert_eq!(
-                plan.attempted,
-                vec!["a1".to_string()],
+                plan.states,
+                vec![("a1".to_string(), ELEVATION_STATE_UNAVAILABLE)],
                 "the coordinates were asked for and none came back, which is the last ask there is"
             );
+        }
+
+        #[test]
+        fn pushback_and_outages_keep_the_row_for_a_retry() {
+            let _serial = serial_global_state();
+
+            for e in [
+                NetError::RateLimited,
+                NetError::Http {
+                    status: 503,
+                    body: String::new(),
+                },
+            ] {
+                let (plan, _) = sort_one(Fetched::Failed(e), Ask::Elevation);
+                assert!(plan.states.is_empty(), "the row stays UNKNOWN");
+                assert_eq!(plan.refused.len() + plan.deferred.len(), 1);
+            }
         }
 
         #[test]
@@ -4796,39 +4829,10 @@ mod tests {
             );
 
             assert!(
-                plan.attempted.is_empty(),
+                plan.states.is_empty(),
                 "a track must never be retired for the network being down"
             );
             assert_eq!(plan.refused.len(), 1, "it is worth asking again instead");
-        }
-
-        #[test]
-        fn an_answer_that_settles_the_track_counts_nothing() {
-            let _serial = serial_global_state();
-
-            for (result, ask, what) in [
-                (
-                    Fetched::NoAltitude,
-                    Ask::Elevation,
-                    "upstream has no altitude",
-                ),
-                (
-                    Fetched::Altitudes(vec![1.0], ElevationSeries::Corrected),
-                    Ask::Elevation,
-                    "a series to splice",
-                ),
-                (
-                    Fetched::Empty,
-                    Ask::Elevation,
-                    "an empty elevation ask goes to the whole track",
-                ),
-            ] {
-                let (plan, _) = sort_one(result, ask);
-                assert!(
-                    plan.attempted.is_empty(),
-                    "{what} settles the row, so there is nothing to count"
-                );
-            }
         }
     }
 

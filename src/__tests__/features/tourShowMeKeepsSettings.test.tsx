@@ -15,6 +15,7 @@ import { MapPreferencesSlide } from '@/features/settings/components/whatsNew/Map
 import { WhatsNewModal } from '@/features/settings/components/whatsNew/WhatsNewModal';
 import {
   getAllSlides,
+  getSlidesSince,
   getTutorialSlides,
   type WhatsNewSlideDefinition,
 } from '@/features/settings/components/whatsNew/slides';
@@ -27,6 +28,8 @@ import {
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { navigateTab } from '@/shared/app/navigation';
 import { getSetting, setSetting } from '@/shared/storage';
+
+let mockUsesGarmin = true;
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 
@@ -65,7 +68,7 @@ jest.mock('@/features/settings/lib/cutoverShowMe', () => ({
 jest.mock('@/shared/native/useActivityCount', () => ({ useActivityCount: () => 3 }));
 jest.mock('@/shared/app/useAthlete', () => ({
   ...jest.requireActual('@/shared/app/useAthlete'),
-  useAthlete: () => ({ data: undefined }),
+  useAthlete: () => ({ data: { garminSyncsActivities: mockUsesGarmin } }),
 }));
 jest.mock('@/features/routes/hooks/useEngine', () => ({
   ...jest.requireActual('@/features/routes/hooks/useEngine'),
@@ -77,6 +80,7 @@ const LIBRARY = {
   sectionId: 'col-du-test',
   routeId: 'harbour-loop',
   cutoverChanged: true,
+  usesGarmin: true,
 };
 
 const mockGetSetting = getSetting as jest.Mock;
@@ -114,9 +118,13 @@ beforeEach(() => {
   );
 });
 
+// The Garmin slide's Show Me records the slide's answer, so it has its own cases below.
 function withShowMe(slides: WhatsNewSlideDefinition[]) {
   return slides
-    .map((slide, index) => ({ route: resolveShowMeRoute(slide, LIBRARY), index }))
+    .map((slide, index) => ({
+      route: slide.setup === 'garmin' ? undefined : resolveShowMeRoute(slide, LIBRARY),
+      index,
+    }))
     .filter((entry): entry is { route: string; index: number } => entry.route !== undefined);
 }
 
@@ -218,4 +226,76 @@ describe('a choice tapped on the tour map slide', () => {
     expect(current!.preferences.defaultStyle).toBe('satellite');
     expect(savedPreferences()).toMatchObject({ defaultStyle: 'satellite', terrain3DMode: 'off' });
   });
+});
+
+describe("Garmin slide in the What's New update set", () => {
+  const garminSlides = (since: string) =>
+    getSlidesSince(since).filter((slide) => slide.setup === 'garmin');
+
+  async function openUpdate() {
+    useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });
+    useWhatsNewStore.setState({
+      isLoaded: true,
+      lastSeenVersion: '0.3.8',
+      tourState: null,
+      launchModal: null,
+    });
+    await render(
+      <MapPreferencesProvider>
+        <WhatsNewModal />
+      </MapPreferencesProvider>
+    );
+    await act(async () => {
+      useWhatsNewStore.getState().startTour('whatsNew');
+    });
+  }
+
+  afterEach(() => {
+    mockUsesGarmin = true;
+  });
+
+  it('is registered for upgraders from 0.3.8', () => {
+    expect(garminSlides('0.3.8')).toHaveLength(1);
+  });
+
+  it('is shown to a Garmin athlete and left out otherwise', async () => {
+    mockUsesGarmin = true;
+    await openUpdate();
+    await act(async () => {
+      await fireEvent.press(screen.getByText('whatsNew.nextButton'));
+    });
+    expect(screen.queryByText('whatsNew.tutorial.garminTitle')).not.toBeNull();
+    await screen.unmount();
+
+    mockUsesGarmin = false;
+    await openUpdate();
+    await act(async () => {
+      await fireEvent.press(screen.getByText('whatsNew.nextButton'));
+    });
+    expect(screen.queryByText('whatsNew.tutorial.garminTitle')).toBeNull();
+  });
+
+  it.each(['tutorial', 'whatsNew'] as const)(
+    'closes the %s modal, records the answer and opens the connector on Show Me',
+    async (mode) => {
+      await openUpdate();
+      await act(async () => {
+        useWhatsNewStore.getState().startTour(mode);
+      });
+      const slides = mode === 'tutorial' ? getTutorialSlides() : getSlidesSince('0.3.8');
+      const index = slides.findIndex((slide) => slide.setup === 'garmin');
+      for (let step = 0; step < index; step++) {
+        await act(async () => {
+          await fireEvent.press(screen.getByText('whatsNew.nextButton'));
+        });
+      }
+      await act(async () => {
+        await fireEvent.press(screen.getByText('whatsNew.showMeButton'));
+      });
+
+      expect(mockNavigateTab).toHaveBeenCalledWith('/garmin-connector');
+      expect(useWhatsNewStore.getState().tourState?.exploring).toBe(true);
+      expect(useWhatsNewStore.getState().tourOffer.answers.garmin).toBe('on');
+    }
+  );
 });

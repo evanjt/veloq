@@ -207,8 +207,8 @@ describe('settings row dividers', () => {
       const expected = { height: StyleSheet.hairlineWidth, colour, inset: 48 };
 
       const hub = await render(<SettingsScreen />);
-      // Three groups of three, five and three rows: one divider between each pair.
-      expect(dividerLooks(hub)).toEqual(Array(2 + 4 + 2).fill(expected));
+      // Three groups of three, four and three rows: one divider between each pair.
+      expect(dividerLooks(hub)).toEqual(Array(2 + 3 + 2).fill(expected));
       await hub.unmount();
 
       const about = await render(<AboutScreen />);

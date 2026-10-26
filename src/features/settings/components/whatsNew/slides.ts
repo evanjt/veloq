@@ -33,7 +33,7 @@ interface ShowMe {
    * Offer Show Me only once this holds, so it never lands on a screen with nothing in it. Omit to
    * offer it always.
    */
-  showMeWhen?: 'cutoverChanged' | 'hasActivities';
+  showMeWhen?: 'cutoverChanged' | 'hasActivities' | 'usesGarmin';
 }
 
 interface InfoOnly {
@@ -120,6 +120,9 @@ const GARMIN: WhatsNewSlideDefinition = {
   titleKey: 'whatsNew.tutorial.garminTitle',
   bodyKey: 'whatsNew.tutorial.garminBody',
   icon: 'watch-variant',
+  showMeRoute: '/garmin-connector',
+  showMeTip: 'whatsNew.tutorial.garminWhy',
+  showMeWhen: 'usesGarmin',
   setup: 'garmin',
   get Component() {
     return require('./GarminSlide').GarminSlide;
@@ -213,7 +216,7 @@ export const WHATS_NEW_SLIDES: Record<string, WhatsNewSlideDefinition[]> = {
     },
     BACKUP,
   ],
-  '0.4.0': [NOTIFICATIONS, RECORDING, LOOK, MAPS_WIDGETS, SECTIONS_REBUILT],
+  '0.4.0': [NOTIFICATIONS, GARMIN, RECORDING, LOOK, MAPS_WIDGETS, SECTIONS_REBUILT],
 };
 
 /**

@@ -33,8 +33,8 @@ use std::time::{Duration, Instant};
 /// was gone.
 ///
 /// So it is generous, and longer than the elevation backfill's resting rung of
-/// 1800 s (`net::elevation_backfill::RESUME_WAITS`), which is the slowest thing
-/// that reads it. At an hour an offline push suppresses two resting passes and
+/// 300 s (`net::elevation_backfill::RESUME_WAITS`), which is the slowest thing
+/// that reads it. At an hour an offline push suppresses twelve resting passes and
 /// then expires, and the transport carries it from there.
 pub const STALE_AFTER: Duration = Duration::from_secs(60 * 60);
 

@@ -8,19 +8,21 @@ import React, { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { Button, Card, EmptyState, ScreenSafeAreaView, ScreenScrollView } from '@/shared/ui';
+import {
+  Button,
+  EmptyState,
+  FitText,
+  NameText,
+  ScreenSafeAreaView,
+  ScreenScrollView,
+} from '@/shared/ui';
 import { chooseAction } from '@/shared/ui/dialog';
 import { PressTarget } from '@/shared/ui/PressTarget';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useEngineRead, useEngineReadState } from '@/shared/native/useEngineSubscription';
 import { EngineReadPlaceholder } from '@/shared/app/EngineUnavailableState';
-import {
-  getAllSectionDisplayNames,
-  ledgerDate,
-  useRetiredMapData,
-  useSectionLedger,
-} from '@/features/routes';
-import { formatDistance, formatFullDate } from '@/shared/format/format';
+import { getAllSectionDisplayNames, useRetiredMapData, useSectionLedger } from '@/features/routes';
+import { formatDistance } from '@/shared/format/format';
 import { colors, darkColors, layout, spacing, typography } from '@/theme';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { navigateTo } from '@/shared/app/navigation';
@@ -108,68 +110,49 @@ function SectionRetiredScreenContent() {
               const into = r.into
                 ? t('sectionHistory.retiredInto', { name: names[r.into] ?? r.into })
                 : null;
-              const kind = t(`sectionHistory.kind_${r.kind}` as never);
               const distance =
                 r.distanceMeters != null && r.distanceMeters > 0
-                  ? ` · ${formatDistance(r.distanceMeters, isMetric)}`
-                  : '';
-              // The name leads so two retirements of one kind can be told apart;
-              // how it left drops to the meta line.
-              const body = (
-                <>
-                  <Text numberOfLines={2} style={[styles.title, isDark && styles.textDark]}>
-                    {r.name ?? kind}
-                  </Text>
-                  {r.name ? (
-                    <Text style={[styles.meta, isDark && styles.textSecondaryDark]}>{kind}</Text>
-                  ) : null}
-                  <Text style={[styles.meta, isDark && styles.textSecondaryDark]}>
-                    {formatFullDate(ledgerDate(r.at))}
-                    {distance}
-                    {` · ${t('sectionHistory.versions')}: ${r.versions.length}`}
-                  </Text>
-                  {into ? (
-                    <Text style={[styles.link, isDark && { color: darkColors.actionLink }]}>
-                      {into}
-                    </Text>
-                  ) : null}
-                </>
-              );
-              // A retirement merged into another section opens it from anywhere on
-              // the card, named by the link, rather than from one line of small text.
+                  ? formatDistance(r.distanceMeters, isMetric)
+                  : null;
+              const title = r.name ?? t('sectionHistory.pairUnnamed');
+              const detail = [distance, into].filter(Boolean).join(' · ');
               const restorable = r.restorableVersion != null ? Number(r.restorableVersion) : null;
-              const card = into ? (
-                <PressTarget
-                  key={r.sectionId}
-                  testID={`section-retired-${r.sectionId}`}
-                  onPress={() => navigateTo(`/section/${r.into}`)}
-                  accessibilityRole="link"
-                  accessibilityLabel={into}
-                  style={styles.target}
-                >
-                  <Card variant="flat" style={{ gap: spacing.xs }}>
-                    {body}
-                  </Card>
-                </PressTarget>
-              ) : (
-                <Card
-                  key={r.sectionId}
-                  variant="flat"
-                  style={{ gap: spacing.xs }}
-                  testID={`section-retired-${r.sectionId}`}
-                >
-                  {body}
-                </Card>
-              );
-              if (restorable == null) return card;
+              // The row is one line and opens the old-versus-new map on its section, so
+              // the athlete sees where it was. Restore sits beside it when it has a version.
               return (
-                <View key={r.sectionId} style={{ gap: spacing.xs }}>
-                  {card}
-                  <RestoreAction
-                    sectionId={r.sectionId}
-                    version={restorable}
-                    name={r.name ?? kind}
-                  />
+                <View key={r.sectionId} style={styles.row}>
+                  <PressTarget
+                    testID={`section-retired-${r.sectionId}`}
+                    onPress={() =>
+                      navigateTo({
+                        pathname: '/detection-preview',
+                        params: { layer: 'retired', retired: r.sectionId },
+                      })
+                    }
+                    accessibilityRole="button"
+                    accessibilityLabel={[title, detail].filter(Boolean).join(', ')}
+                    style={styles.target}
+                  >
+                    <View style={styles.line}>
+                      <NameText style={[styles.title, styles.lineTitle, isDark && styles.textDark]}>
+                        {title}
+                      </NameText>
+                      {detail ? (
+                        <FitText
+                          style={[
+                            styles.meta,
+                            styles.lineDetail,
+                            isDark && styles.textSecondaryDark,
+                          ]}
+                        >
+                          {detail}
+                        </FitText>
+                      ) : null}
+                    </View>
+                  </PressTarget>
+                  {restorable != null ? (
+                    <RestoreAction sectionId={r.sectionId} version={restorable} name={title} />
+                  ) : null}
                 </View>
               );
             })}
@@ -187,11 +170,14 @@ const styles = StyleSheet.create({
     padding: layout.screenPadding,
     gap: spacing.sm,
   },
-  target: { minHeight: layout.minTapTarget },
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  line: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.sm },
+  lineTitle: { flexShrink: 1 },
+  lineDetail: { flexShrink: 2 },
+  target: { flex: 1, minHeight: layout.minTapTarget, justifyContent: 'center' },
   title: { ...typography.body, color: colors.textPrimary },
   intro: { ...typography.bodySmall, color: colors.textSecondary },
   meta: { ...typography.caption, color: colors.textSecondary },
-  link: { ...typography.bodySmall, color: colors.actionLink },
   textDark: { color: darkColors.textPrimary },
   textSecondaryDark: { color: darkColors.textSecondary },
 });

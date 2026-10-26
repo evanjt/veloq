@@ -4,7 +4,7 @@ import { ScreenSafeAreaView, ScreenScrollView } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
 import { useAthlete } from '@/shared/app/useAthlete';
 import { colors, darkColors, spacing } from '@/theme';
-import { ProfileAccountSection } from '@/features/settings';
+import { AccountConnectionsSection, ProfileAccountSection } from '@/features/settings';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 function AccountScreenContent() {
@@ -16,6 +16,7 @@ function AccountScreenContent() {
     <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
       <ScreenScrollView contentContainerStyle={{ paddingBottom: spacing.xl }}>
         <ProfileAccountSection athlete={athlete} />
+        <AccountConnectionsSection />
       </ScreenScrollView>
     </ScreenSafeAreaView>
   );

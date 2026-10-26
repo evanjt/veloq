@@ -9,6 +9,7 @@
 import {
   buildRetiredLines,
   busiestCentre,
+  centreHoldingRetired,
   describeRetiredSelection,
 } from '@/features/routes/lib/retiredLineCollection';
 import type { LngLat } from '@/features/maps/lib/coordinates';
@@ -215,5 +216,22 @@ describe('the area the retired layer opens on', () => {
   it('keeps the first area when no retired line falls in any of them', () => {
     expect(busiestCentre([there, here], { ...DATA, retired: [] }, decode)).toBe(there);
     expect(busiestCentre([], DATA, decode)).toBeNull();
+  });
+});
+
+describe('the area a named retired line is in', () => {
+  const north = { binKey: '1043:165', lat: 46.95, lng: 7.44 };
+  const far = { binKey: '1051:197', lat: 47.3, lng: 8.9 };
+  const data = {
+    ...DATA,
+    retired: [retired('a', buf(1)), retired('b', buf(1)), retired('c', buf(3))],
+  };
+
+  it('picks the area holding that line, not the busiest one', () => {
+    expect(centreHoldingRetired([north, far], data, 'c', decode)).toBe(far);
+  });
+
+  it('falls back to the busiest area for an id with no line', () => {
+    expect(centreHoldingRetired([north, far], data, 'missing', decode)).toBe(north);
   });
 });

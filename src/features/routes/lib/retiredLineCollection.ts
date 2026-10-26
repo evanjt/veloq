@@ -251,3 +251,23 @@ export function busiestCentre<C extends PreviewAreaCentre>(
   }
   return best;
 }
+
+/**
+ * The riding area holding one named retired line, so a row opened from the list lands where its
+ * section is. The busiest area when the id has no line or no area holds it.
+ */
+export function centreHoldingRetired<C extends PreviewAreaCentre>(
+  centres: readonly C[],
+  data: RetiredMapData,
+  id: string,
+  decode: (polyline: ArrayBuffer) => LngLat[] = decodeLngLat
+): C | null {
+  const entry = data.retired.find((r) => r.section.sectionId === id);
+  const points = entry?.encodedPolyline ? decode(entry.encodedPolyline) : [];
+  if (points.length >= 2) {
+    for (const centre of centres) {
+      if (touches(previewAreaBounds(centre), points)) return centre;
+    }
+  }
+  return busiestCentre(centres, data, decode);
+}

@@ -59,6 +59,7 @@ import {
   type WhatsNewSlideDefinition,
 } from './slides';
 import { WhatsNewSlide } from './WhatsNewSlide';
+import { useUsesGarmin } from '../../hooks/useGarminOffer';
 import { TourSyncLine } from './TourSyncLine';
 import { Button, pageAccessibility } from '@/shared/ui';
 import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
@@ -98,6 +99,7 @@ export function WhatsNewModal() {
   const markSeen = useWhatsNewStore((s) => s.markSeen);
   const startTour = useWhatsNewStore((s) => s.startTour);
   const showMe = useWhatsNewStore((s) => s.showMe);
+  const answerSetup = useWhatsNewStore((s) => s.answerSetup);
   const dismissTour = useWhatsNewStore((s) => s.dismissTour);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
@@ -115,18 +117,22 @@ export function WhatsNewModal() {
     enabled: tourOpen,
   }).summaries[0]?.groupId;
   const hasActivities = useActivityCount() > 0;
+  const usesGarmin = useUsesGarmin();
   const library = useMemo<TourLibrary>(
     () => ({
       hasActivities,
       sectionId: busiestSectionId,
       routeId: busiestRouteId,
       cutoverChanged,
+      usesGarmin,
     }),
-    [hasActivities, busiestSectionId, busiestRouteId, cutoverChanged]
+    [hasActivities, busiestSectionId, busiestRouteId, cutoverChanged, usesGarmin]
   );
 
   const currentVersion = Constants.expoConfig?.version ?? '';
-  const missedSlides = lastSeenVersion ? getSlidesSince(lastSeenVersion) : [];
+  // The Garmin slide is for an athlete whose intervals.icu uses Garmin, and is no news to anyone else.
+  const forAthlete = (slide: WhatsNewSlideDefinition) => slide.setup !== 'garmin' || usesGarmin;
+  const missedSlides = lastSeenVersion ? getSlidesSince(lastSeenVersion).filter(forAthlete) : [];
 
   // The tour never opens on its own: a first load opens onto the feed, where a card offers it.
   // A version with nothing new is seen at once; one with slides waits for its card.
@@ -157,7 +163,7 @@ export function WhatsNewModal() {
       ? getTutorialSlidesFor(tourState.only, tourState.held)
       : missedSlides.length > 0
         ? missedSlides
-        : ALL_SLIDES;
+        : ALL_SLIDES.filter(forAthlete);
   const slides = useMemo(
     () =>
       tourSlides.map((slide): WhatsNewSlideDefinition =>
@@ -257,9 +263,10 @@ export function WhatsNewModal() {
     if (!slide || route === undefined) return;
 
     const nextIndex = Math.min(current + 1, slideCount - 1);
+    if (slide.setup === 'garmin') answerSetup('garmin', 'on');
     showMe(current, nextIndex, slide.showMeTip);
     navigateTab(route);
-  }, [activeIndex, slides, slideCount, showMe, library]);
+  }, [activeIndex, slides, slideCount, showMe, answerSetup, library]);
 
   const handlePagerAction = useCallback(
     (event: AccessibilityActionEvent) => {

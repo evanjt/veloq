@@ -468,6 +468,7 @@ export const elevation = {
   startElevationBackfill: jest.fn(),
   pauseElevationBackfill: jest.fn(),
   resumeElevationBackfill: jest.fn(),
+  retryDownloadsNow: jest.fn(),
   getElevationBackfillRemaining: jest.fn(),
 };
 

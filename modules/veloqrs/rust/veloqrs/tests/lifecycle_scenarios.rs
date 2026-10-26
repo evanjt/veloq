@@ -285,15 +285,41 @@ fn assert_single_add_stability(
     }
 }
 
-fn assert_no_activity_removed(before: &SectionSnapshot, after: &SectionSnapshot) {
+/// A section whose line held keeps every member. Only whole runs of a line
+/// count, so a redrawn line may shed a ride that ran the old one end to end,
+/// and then only one the matcher finds no pass for over the new line.
+fn assert_no_activity_removed(
+    before: &SectionSnapshot,
+    after: &SectionSnapshot,
+    rides: &[&LifecycleActivity],
+) {
     for (id, prev) in &before.sections {
         if let Some(now) = after.sections.get(id) {
             let removed: BTreeSet<&String> =
                 prev.activity_ids.difference(&now.activity_ids).collect();
-            assert!(
-                removed.is_empty(),
-                "section {id} lost activities {removed:?}"
-            );
+            if now.polyline == prev.polyline {
+                assert!(
+                    removed.is_empty(),
+                    "section {id} lost activities {removed:?} with its line unchanged"
+                );
+                continue;
+            }
+            for gone in removed {
+                let ride = rides
+                    .iter()
+                    .find(|a| &a.id == gone)
+                    .unwrap_or_else(|| panic!("{gone} is not in the corpus"));
+                let passes = tracematch::track_portions(
+                    gone,
+                    &ride.gps_points,
+                    &now.polyline,
+                    &tracematch::SectionConfig::default(),
+                );
+                assert!(
+                    passes.is_empty(),
+                    "section {id} was redrawn and lost {gone}, which still runs the new line: {passes:?}"
+                );
+            }
         }
     }
 }
@@ -382,7 +408,12 @@ fn scenario_b_expand_to_1y_stable() {
         "B_strict_expand",
         &corpus.bucket_b_delta.iter().collect::<Vec<_>>(),
     );
-    assert_no_activity_removed(&step_a.snapshot, &step_b.snapshot);
+    let rides: Vec<&LifecycleActivity> = corpus
+        .through_a()
+        .into_iter()
+        .chain(corpus.bucket_b_delta.iter())
+        .collect();
+    assert_no_activity_removed(&step_a.snapshot, &step_b.snapshot, &rides);
     assert!(
         step_b.section_count >= step_a.section_count,
         "section count regressed across timerange expansion: {} -> {}",

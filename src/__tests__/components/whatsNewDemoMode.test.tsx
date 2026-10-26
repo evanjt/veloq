@@ -11,6 +11,8 @@ import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import { MapPreferencesProvider } from '@/features/settings/stores/MapPreferencesContext';
 import { useAuthStore } from '@/shared/app/AuthStore';
 
+jest.mock('@/features/settings/hooks/useGarminOffer', () => ({ useUsesGarmin: () => false }));
+
 jest.mock('@/shared/storage', () => ({
   getSetting: jest.fn().mockResolvedValue(null),
   setSetting: jest.fn().mockResolvedValue(undefined),

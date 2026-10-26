@@ -39,6 +39,40 @@ describe('useSectionAutoToggle', () => {
     expect(setShowSections).not.toHaveBeenCalled();
   });
 
+  /**
+   * Scenario: the map tab is already mounted and has settled at world zoom
+   * when a link arrives, so the hold starts after mount, with a settle timer
+   * already armed.
+   *
+   * Expected behaviour: the overlay stays shown, so the popup survives.
+   */
+  it('keeps sections shown when the hold begins after mount', async () => {
+    const setShowSections = jest.fn();
+    const { result, rerender } = await renderHook(
+      ({ hold }: { hold: boolean }) =>
+        useSectionAutoToggle({
+          showSections: true,
+          setShowSections,
+          baseHandleRegionDidChange: jest.fn(),
+          baseToggleSections: jest.fn(),
+          holdSections: hold,
+        }),
+      { initialProps: { hold: false } }
+    );
+
+    await act(() => {
+      result.current.handleRegionDidChange(camera(2));
+    });
+    await rerender({ hold: true });
+    await act(() => {
+      jest.advanceTimersByTime(500);
+      result.current.handleRegionDidChange(camera(9));
+      jest.advanceTimersByTime(500);
+    });
+
+    expect(setShowSections).not.toHaveBeenCalled();
+  });
+
   it('never shows sections on a zoom in while they are switched off', async () => {
     const { result, setShowSections } = await setup(false, false, false);
 

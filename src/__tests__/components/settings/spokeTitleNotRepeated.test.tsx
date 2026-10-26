@@ -11,7 +11,6 @@ import React from 'react';
 import { render, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-import { DataSourcesSection } from '@/features/settings/components/DataSourcesSection';
 import { DisplaySettings } from '@/features/settings/components/DisplaySettings';
 import { MapsSection } from '@/features/settings/components/MapsSection';
 import {
@@ -69,7 +68,6 @@ const SPOKES: [route: string, element: () => React.ReactElement][] = [
     ),
   ],
   ['summary-card-settings', () => <SummaryCardSection />],
-  ['data-sources-settings', () => <DataSourcesSection />],
   ['notification-settings', () => <NotificationSection />],
 ];
 

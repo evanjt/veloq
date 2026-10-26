@@ -22,6 +22,8 @@ import { flattenStyle } from '@/shared/ui/flattenStyle';
 import { layout, spacing } from '@/theme';
 
 const mockWindow = { width: 750, height: 1334, scale: 2, fontScale: 1 };
+jest.mock('@/features/settings/hooks/useGarminOffer', () => ({ useUsesGarmin: () => false }));
+
 jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
   ...jest.requireActual('react-native/Libraries/Utilities/useWindowDimensions'),
   __esModule: true,

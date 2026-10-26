@@ -79,6 +79,75 @@ pub fn resume_at(at: DateTime<Utc>) {
     }
 }
 
+/// Why the downloads cannot be restarted yet, and until when.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DownloadsHold {
+    pub until: DateTime<Utc>,
+    /// Whether intervals.icu asked for the wait (a refusal's cooldown) rather
+    /// than this install's own request budget.
+    pub by_upstream: bool,
+}
+
+/// What a Retry now did.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RetryNow {
+    /// Both downloads were restarted.
+    Started,
+    /// A hold is in force, so nothing was sent.
+    Held(DownloadsHold),
+}
+
+/// The hold at `now`, given the refusal cooldown and the backfill's own
+/// deferral. A cooldown is intervals.icu's ask, so it names itself first.
+fn hold_from(
+    now: DateTime<Utc>,
+    cooldown: Option<DateTime<Utc>>,
+    budget: Option<DateTime<Utc>>,
+) -> Option<DownloadsHold> {
+    if let Some(until) = cooldown.filter(|until| *until > now) {
+        return Some(DownloadsHold {
+            until,
+            by_upstream: true,
+        });
+    }
+    budget
+        .filter(|until| *until > now)
+        .map(|until| DownloadsHold {
+            until,
+            by_upstream: false,
+        })
+}
+
+/// The hold on the downloads right now, if any.
+pub fn downloads_hold() -> Option<DownloadsHold> {
+    use crate::governor::{GOVERNOR, Intent};
+    let now = Utc::now();
+    hold_from(
+        now,
+        GOVERNOR.cooldown_until(now),
+        GOVERNOR.deferred_until(Intent::Backfill, now),
+    )
+}
+
+fn retry_with(hold: Option<DownloadsHold>, restart: impl FnOnce()) -> RetryNow {
+    match hold {
+        Some(hold) => RetryNow::Held(hold),
+        None => {
+            restart();
+            RetryNow::Started
+        }
+    }
+}
+
+/// Restart the elevation and the stream download at once, the way the sleeper
+/// does, unless a hold is in force. The governor still decides what is sent.
+pub fn retry_downloads_now() -> RetryNow {
+    retry_with(downloads_hold(), || {
+        crate::net::elevation_backfill::start_owed_work();
+        crate::net::stream_backfill::autostart_stream_backfill();
+    })
+}
+
 /// A request answered inside a cooldown and ended it, so whatever was waiting
 /// for the cooldown can go now.
 pub fn cooldown_cleared() {
@@ -192,5 +261,56 @@ mod tests {
         due.schedule(at("2026-03-04T11:00:00Z"));
         assert!(due.bring_forward(now));
         assert!(due.take_due(now));
+    }
+
+    fn hold(until: &str, by_upstream: bool) -> DownloadsHold {
+        DownloadsHold {
+            until: at(until),
+            by_upstream,
+        }
+    }
+
+    /// Expected behaviour: with nothing holding the downloads, Retry now runs
+    /// the restart and reports it started.
+    #[test]
+    fn a_retry_with_no_hold_restarts_the_downloads() {
+        let mut restarted = 0;
+        let outcome = retry_with(None, || restarted += 1);
+        assert_eq!(restarted, 1);
+        assert_eq!(outcome, RetryNow::Started);
+    }
+
+    /// Expected behaviour: a Retry-After or cooldown in force refuses the
+    /// restart, sends nothing and reports when it lifts and who asked.
+    #[test]
+    fn a_retry_inside_a_hold_restarts_nothing_and_reports_the_time() {
+        let mut restarted = 0;
+        let held = hold("2026-03-04T10:30:00Z", true);
+        let outcome = retry_with(Some(held), || restarted += 1);
+        assert_eq!(restarted, 0);
+        assert_eq!(outcome, RetryNow::Held(held));
+    }
+
+    /// Expected behaviour: the refusal's own cooldown names intervals.icu as
+    /// the one that asked, and the install's request budget does not.
+    #[test]
+    fn the_cooldown_outranks_the_budget_in_naming_who_asked() {
+        let now = at("2026-03-04T10:00:00Z");
+        let cooldown = Some(at("2026-03-04T10:20:00Z"));
+        let budget = Some(at("2026-03-04T10:05:00Z"));
+        assert_eq!(
+            hold_from(now, cooldown, budget),
+            Some(hold("2026-03-04T10:20:00Z", true))
+        );
+        assert_eq!(
+            hold_from(now, None, budget),
+            Some(hold("2026-03-04T10:05:00Z", false))
+        );
+        assert_eq!(hold_from(now, None, None), None);
+        assert_eq!(
+            hold_from(now, None, Some(now)),
+            None,
+            "a hold that has lifted is none"
+        );
     }
 }

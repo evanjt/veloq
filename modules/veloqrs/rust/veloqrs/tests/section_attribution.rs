@@ -184,21 +184,19 @@ fn attribution_survives_a_restart() {
         ride(&mut engine, before_restart);
     }
     let mut engine = open(&dir);
-    let recuts: Vec<Vec<String>> = after_restart[..2]
+    let fired: Fired = after_restart[..2]
         .iter()
         .flat_map(|a| ride(&mut engine, a))
-        .filter(|(kind, _)| kind == "recut")
-        .map(|(_, around)| around)
         .collect();
 
     assert!(
-        !recuts.is_empty(),
-        "a re-cut fires on the second ride after the restart"
+        !fired.is_empty(),
+        "a change pending across the restart fires on the second ride after it"
     );
-    for around in &recuts {
+    for (kind, around) in &fired {
         assert!(
             around.contains(&before_restart.id),
-            "the arrival before the restart is still around the re-cut: {around:?}"
+            "the arrival before the restart is still around the {kind}: {around:?}"
         );
     }
 }

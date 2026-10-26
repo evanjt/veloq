@@ -19,14 +19,16 @@ pub enum BackgroundJob {
     ElevationBackfill,
     StreamBackfill,
     Cutover,
+    PassRecount,
 }
 
 impl BackgroundJob {
-    pub(crate) const ALL: [Self; 4] = [
+    pub(crate) const ALL: [Self; 5] = [
         Self::Detection,
         Self::ElevationBackfill,
         Self::StreamBackfill,
         Self::Cutover,
+        Self::PassRecount,
     ];
 
     /// The stored token, which is also the id the app names the job by.
@@ -36,6 +38,7 @@ impl BackgroundJob {
             Self::ElevationBackfill => "elevationBackfill",
             Self::StreamBackfill => "streamBackfill",
             Self::Cutover => "cutover",
+            Self::PassRecount => "passRecount",
         }
     }
 
@@ -114,7 +117,7 @@ uniffi::custom_type!(RunOutcome, String, {
 #[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
 #[uniffi(name = "FfiJobRun")]
 pub struct JobRun {
-    /// detection, elevationBackfill, streamBackfill or cutover.
+    /// detection, elevationBackfill, streamBackfill, cutover or passRecount.
     pub job: BackgroundJob,
     /// When the run finished, in epoch milliseconds, from
     /// [`super::attempts::now_ms`].

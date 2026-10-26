@@ -58,6 +58,9 @@ mod lifecycle_scenarios;
 #[path = "../named_corridors.rs"]
 mod named_corridors;
 
+#[path = "../pass_rule_recount.rs"]
+mod pass_rule_recount;
+
 #[path = "../playback_vs_batch.rs"]
 mod playback_vs_batch;
 

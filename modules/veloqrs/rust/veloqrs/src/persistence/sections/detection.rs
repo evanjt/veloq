@@ -1744,6 +1744,10 @@ impl PersistentEngine {
                 });
                 self.section_cache.clear();
                 self.invalidate_perf_cache();
+                // A traversal counts only once its coverage is known, so the
+                // rows just written are measured before the save returns. The
+                // counts the save leaves are the ones a reopen reads.
+                let _ = self.backfill_section_coverage();
                 if rank && let Err(e) = self.rank_catalogue() {
                     log::warn!("veloqrs: [detection] ranking skipped: {}", e);
                 }

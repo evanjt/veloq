@@ -13,10 +13,12 @@ import { StyleSheet, Text } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
 
 import SettingsScreen from '@/app/(tabs)/settings';
+import { useAuthStore } from '@/shared/app/AuthStore';
 import { SCREEN_HEADERS } from '@/shared/app/screenHeaders';
 import { spacing } from '@/theme';
 
 const mockNavigateTo = jest.fn();
+let mockGarminState: 'connected' | 'keyNeeded' | 'off' | null = null;
 jest.mock('@/shared/app/navigation', () => ({
   ...jest.requireActual('@/shared/app/navigation'),
   navigateTo: (...a: unknown[]) => mockNavigateTo(...a),
@@ -64,7 +66,7 @@ jest.mock('@/features/settings', () => ({
     '@/features/settings/stores/NotificationPreferencesStore'
   ).useNotificationPreferences,
   useLastBackupTimestamp: () => null,
-  useGarminConnectorState: () => null,
+  useGarminConnectorState: () => mockGarminState,
   useAutoBackupEnabled: () => true,
   SettingsNavRow: jest.requireActual('@/features/settings/components/SettingsNavRow')
     .SettingsNavRow,
@@ -104,6 +106,30 @@ function inRenderOrder(tree: unknown): string[] {
 }
 
 describe('Settings hub grouping', () => {
+  beforeEach(() => {
+    mockGarminState = null;
+  });
+
+  it('has no Data sources row; the connected accounts live with the account card', async () => {
+    const screen = await render(<SettingsScreen />);
+    expect(screen.queryByTestId('settings-nav-data-sources')).toBeNull();
+  });
+
+  it.each([
+    ['connected', 'settings.authOAuth, garmin.title'],
+    ['keyNeeded', 'settings.authOAuth, garmin.title: garmin.keyNeeded'],
+    ['off', 'settings.authOAuth'],
+  ] as const)(
+    'names the connected accounts on the account card when Garmin is %s',
+    async (state, expected) => {
+      mockGarminState = state;
+      useAuthStore.setState({ authMethod: 'oauth' });
+      const screen = await render(<SettingsScreen />);
+      const texts = screen.getByTestId('settings-account-row').findAllByType(Text);
+      expect(texts.map((n) => n.props.children)).toContain(expected);
+    }
+  );
+
   it('groups the rows by what the athlete is doing', async () => {
     const screen = await render(<SettingsScreen />);
 
@@ -117,7 +143,6 @@ describe('Settings hub grouping', () => {
       'settings-nav-recording',
       'settings-nav-sensors',
       'settings-nav-notifications',
-      'settings-nav-data-sources',
       'settings-group-keeps',
       'settings-nav-detection',
       'settings-nav-backup',
@@ -144,10 +169,7 @@ describe('Settings hub grouping', () => {
 
   it('gives every spoke a subtitle, so a new row cannot arrive bare', async () => {
     const screen = await render(<SettingsScreen />);
-    // Data sources is attribution and carries no preference of its own.
-    const spokes = inRenderOrder(screen.toJSON()).filter(
-      (id) => id.startsWith('settings-nav-') && id !== 'settings-nav-data-sources'
-    );
+    const spokes = inRenderOrder(screen.toJSON()).filter((id) => id.startsWith('settings-nav-'));
 
     const bare = spokes.filter((id) => {
       const row = screen.getByTestId(id);

@@ -1,7 +1,7 @@
 /**
- * The tour's Garmin slide: what the connector brings, and the one place the tour
- * opens it. It is answerable only for an athlete whose intervals.icu uses Garmin.
- * Connect Garmin opens the connector and records the slide as answered, and Never
+ * The Garmin slide of the tour and What's New: what the connector brings. It is
+ * answerable only for an athlete whose intervals.icu uses Garmin. The footer's Show Me
+ * opens the connector and records the slide as answered (`WhatsNewModal`), and Never
  * remind me again records the answer alone.
  */
 
@@ -11,7 +11,6 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { navigateTo } from '@/shared/app/navigation';
 import { Button } from '@/shared/ui';
 import { colors, darkColors, spacing, typography } from '@/theme';
 
@@ -25,10 +24,6 @@ export function GarminSlide() {
   const usesGarmin = useUsesGarmin();
   const answerSetup = useWhatsNewStore((s) => s.answerSetup);
 
-  const connect = useCallback(() => {
-    answerSetup('garmin', 'on');
-    navigateTo('/garmin-connector');
-  }, [answerSetup]);
   const never = useCallback(() => answerSetup('garmin', 'never'), [answerSetup]);
 
   return (
@@ -44,13 +39,6 @@ export function GarminSlide() {
             variant="ghost"
             size="sm"
             onPress={never}
-          />
-          <Button
-            testID="tour-garmin-connect"
-            label={t('garmin.offerConnect')}
-            variant="primary"
-            size="sm"
-            onPress={connect}
           />
         </View>
       ) : null}

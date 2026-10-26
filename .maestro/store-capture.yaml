@@ -41,7 +41,7 @@ tags:
 
 # Hide the demo banner for clean captures. The switch is gated on demo mode
 # and persists in AuthStore, so one tap covers the whole run.
-- openLink: "veloq://data-sources-settings"
+- openLink: "veloq://account"
 - runFlow:
     when:
       visible: "Open"

@@ -95,6 +95,38 @@ fn pooled_unified(engine: &mut PersistentEngine) {
         .expect("config accepted");
 }
 
+/// Further arrivals riding the ground of the engine's largest section: copies
+/// of one of its members, dated after the pool, one per re-cut confirmation.
+fn riders_of_the_largest_section(
+    engine: &PersistentEngine,
+    activities: &[LifecycleActivity],
+) -> Vec<LifecycleActivity> {
+    let sections = engine.get_sections();
+    let largest = sections
+        .iter()
+        .max_by_key(|s| s.activity_ids.len())
+        .expect("a section to ride");
+    let member = activities
+        .iter()
+        .find(|a| largest.activity_ids.contains(&a.id))
+        .expect("a member of the section is in the pool");
+    let last = activities
+        .iter()
+        .map(|a| a.start_date_unix)
+        .max()
+        .unwrap_or(0);
+    (1..=RECUT_ARRIVALS)
+        .map(|n| LifecycleActivity {
+            id: format!("{}_rider_{n}", member.id),
+            start_date_unix: last + 86_400 * n as i64,
+            ..member.clone()
+        })
+        .collect()
+}
+
+/// Arrivals a re-cut waits for before it shows.
+const RECUT_ARRIVALS: usize = 3;
+
 /// Scenario: one engine detects the pooled-sport pool cold; another grows it
 /// incrementally over the evidence cache; both then settle.
 /// Expected behaviour: the two engines hold the same section membership.
@@ -118,9 +150,21 @@ fn test_pooled_cold_and_warm_detections_agree() {
     detect(&mut warm);
     ingest(&mut warm, tail);
 
-    // The warm view lags the batch while held-over sections press through the
-    // k-step dissolve debounce; run well past k so both views sit at the fold's
-    // fixed point.
+    detect(&mut warm);
+    detect(&mut cold);
+
+    // A grown line sheds the rides that no longer run it end to end, and the
+    // warm engine holds that re-cut until `k` arrivals have been through it.
+    // Both engines receive those arrivals one sync at a time, so each sits at
+    // the fold's fixed point for the same pool.
+    let ridden = riders_of_the_largest_section(&cold, &activities);
+    for rider in &ridden {
+        ingest(&mut warm, std::slice::from_ref(rider));
+        ingest(&mut cold, std::slice::from_ref(rider));
+        detect(&mut warm);
+        detect(&mut cold);
+    }
+    // Idle detects advance nothing, so these only settle the cold view.
     for _ in 0..8 {
         detect(&mut warm);
         detect(&mut cold);

@@ -30,6 +30,7 @@ mod mutations;
 pub(crate) mod named;
 pub(crate) mod naming;
 pub(crate) mod numbers;
+pub(crate) mod pass_rule;
 pub(crate) mod preview;
 pub(crate) mod queries;
 pub(crate) mod ranking;
@@ -2578,6 +2579,22 @@ mod tests {
         }
     }
 
+    /// Scenario: a ride the athlete attached by hand runs 150 m beside the
+    /// section, once the whole way along and once for its first half.
+    /// Expected behaviour: the whole ride counts, since the relaxed bar widens
+    /// how far off a ride may be and not how much of the section it covers;
+    /// the half ride is no traversal.
+    #[test]
+    fn a_forced_ride_counts_only_when_it_runs_the_whole_section() {
+        let line = northbound(200, 11.0, 0.0, 0.0);
+        let whole = northbound(240, 11.0, 150.0, -20.0);
+        let half = northbound(120, 11.0, 150.0, -20.0);
+
+        assert_eq!(forced(&whole, &line).len(), 1);
+        let rows = forced(&half, &line);
+        assert!(rows.is_empty(), "{rows:?}");
+    }
+
     /// Scenario: a ride out and back along the section with a lead-in before
     /// and after, so a cut at the relaxed distance runs past both ends.
     /// Expected behaviour: two rows, each ending where the section ends.
@@ -2848,17 +2865,13 @@ pub(crate) fn forced_portions(
     section_polyline: &[tracematch::GpsPoint],
     config: &tracematch::SectionConfig,
 ) -> Vec<tracematch::SectionPortion> {
-    // The matcher counts a point one cell past the tolerance, so the tolerance
-    // is the relaxed bar less that cell. Whole cells are what it reaches, and a
-    // ride exactly at the bar would fall either side of a cell edge.
-    let lateral_m = config.proximity_threshold * FORCED_PROXIMITY_FACTOR
-        - tracematch::line_match_cell_m(config);
+    // The matcher counts a pass within the ground tolerance plus its lateral
+    // tolerance of the line, so the lateral tolerance is the relaxed bar less
+    // the ground tolerance. It trims each pass to the line's ends itself.
+    let lateral_m =
+        config.proximity_threshold * FORCED_PROXIMITY_FACTOR - tracematch::sections::GROUND_TOL_M;
     match tracematch::PreparedLine::with_lateral_tolerance(section_polyline, config, lateral_m) {
-        Some(line) => line
-            .portions(activity_id, track)
-            .into_iter()
-            .map(|portion| clip_to_line_ends(portion, track, section_polyline))
-            .collect(),
+        Some(line) => line.portions(activity_id, track),
         None => Vec::new(),
     }
 }
@@ -2895,47 +2908,6 @@ pub(crate) fn may_reach(track: &tracematch::Bounds, line: &[GpsPoint], reach_m: 
         && track.min_lat <= line.max_lat + d_lat
         && track.max_lng >= line.min_lng - d_lng
         && track.min_lng <= line.max_lng + d_lng
-}
-
-/// A pass cut with a lateral tolerance runs on past the line, one tolerance
-/// before its start and after its end. Trim it to the points nearest the
-/// line's two ends, so its distance and lap time describe the section. A pass
-/// whose two end points coincide, a loop, has no span between them and keeps
-/// the cut it came with.
-fn clip_to_line_ends(
-    mut portion: tracematch::SectionPortion,
-    track: &[tracematch::GpsPoint],
-    line: &[tracematch::GpsPoint],
-) -> tracematch::SectionPortion {
-    let (start, end) = (portion.start_index as usize, portion.end_index as usize);
-    let (Some(first), Some(last)) = (line.first(), line.last()) else {
-        return portion;
-    };
-    let Some(span) = track.get(start..end.min(track.len())) else {
-        return portion;
-    };
-    let nearest = |target: &tracematch::GpsPoint| {
-        span.iter()
-            .enumerate()
-            .min_by(|(_, a), (_, b)| {
-                let da = tracematch::geo_utils::haversine_distance(a, target);
-                let db = tracematch::geo_utils::haversine_distance(b, target);
-                da.total_cmp(&db)
-            })
-            .map(|(i, _)| i)
-    };
-    let (Some(a), Some(b)) = (nearest(first), nearest(last)) else {
-        return portion;
-    };
-    let (lo, hi) = (a.min(b), a.max(b));
-    if hi - lo < 1 {
-        return portion;
-    }
-    portion.start_index = (start + lo) as u32;
-    portion.end_index = (start + hi + 1) as u32;
-    portion.distance_meters =
-        tracematch::matching::calculate_route_distance(&track[start + lo..start + hi + 1]);
-    portion
 }
 
 /// Pair every summary with each sport that travels it, most travelled first.

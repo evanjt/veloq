@@ -19,7 +19,6 @@ import type { ReactTestInstance } from 'react-test-renderer';
 import { BottomTabBar } from '@/shared/ui/BottomTabBar';
 import { DeviceAttribution } from '@/shared/ui/GarminAttribution';
 import { SwipeableTabs, type SwipeableTab } from '@/shared/ui';
-import { DataSourcesSection } from '@/features/settings/components/DataSourcesSection';
 import { colors, darkColors } from '@/theme';
 
 import { AA_TEXT, composite, contrastRatio, renderedTextColour } from '../__shared__/contrast';
@@ -201,15 +200,5 @@ describe('the Garmin trademark line', () => {
     );
 
     expect(worst).toBeGreaterThanOrEqual(AA_TEXT);
-  });
-
-  it.each(THEMES)('clears 4.5:1 on the data sources card in the $name theme', async (theme) => {
-    mockIsDark = theme.isDark;
-    const { getByText } = await render(<DataSourcesSection />);
-    const card = theme.isDark ? darkColors.surfaceRaised : colors.surface;
-
-    const colour = renderedTextColour(getByText('attribution.garminTrademark').props.style, card);
-
-    expect(contrastRatio(colour, card)).toBeGreaterThanOrEqual(AA_TEXT);
   });
 });

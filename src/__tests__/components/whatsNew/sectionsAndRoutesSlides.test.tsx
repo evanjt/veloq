@@ -73,6 +73,7 @@ describe('the sections and routes Show Me', () => {
   const library = (places: { sectionId?: string; routeId?: string }): TourLibrary => ({
     hasActivities: true,
     cutoverChanged: false,
+    usesGarmin: false,
     ...places,
   });
 

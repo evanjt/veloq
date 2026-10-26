@@ -203,8 +203,8 @@ const ENTRY_ROUTES: readonly RegExp[] = [
   /^recording\/(?!review$)[^/]+$/,
   /^(record|recordings|routes)$/,
   /^oauth\/callback$/,
-  /^(settings|about|display-settings|cache-settings|summary-card-settings)$/,
-  /^(notification-settings|backup-settings|data-sources-settings)$/,
+  /^(settings|account|about|display-settings|cache-settings|summary-card-settings)$/,
+  /^(notification-settings|backup-settings)$/,
 ];
 
 /** The developer screens, which a link opens only for a developer. */

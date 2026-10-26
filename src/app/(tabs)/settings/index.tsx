@@ -33,6 +33,7 @@ import {
   useMapPreferences,
   useDashboardPreferences,
   useGarminConnectorState,
+  type GarminConnectorState,
 } from '@/features/settings';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useLanguageStore, languageLabel } from '@/shared/app/LanguageStore';
@@ -46,12 +47,25 @@ import { colors, darkColors, iconSize, layout, spacing, typography } from '@/the
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { NameText } from '@/shared/ui/NameText';
 
+/** The account card's subtitle: the sign-in, then Garmin when its key is kept or needed. */
+function connectedAccountsLabel(
+  signIn: string,
+  garmin: string,
+  keyNeeded: string,
+  state: GarminConnectorState | null
+): string {
+  if (state === 'connected') return `${signIn}, ${garmin}`;
+  if (state === 'keyNeeded') return `${signIn}, ${garmin}: ${keyNeeded}`;
+  return signIn;
+}
+
 interface AccountRowProps {
   athlete?: Athlete | undefined;
   authMethod: AuthMethod;
   profileImageError: boolean;
   onProfileImageError: () => void;
   isDark: boolean;
+  garminState: GarminConnectorState | null;
 }
 
 function AccountRow({
@@ -60,11 +74,18 @@ function AccountRow({
   profileImageError,
   onProfileImageError,
   isDark,
+  garminState,
 }: AccountRowProps) {
   const { t } = useTranslation();
   const profileUrl = athlete?.profileMedium;
 
-  const badgeLabel = t(SCHEME_LABEL_KEY[sourceFor({ authMethod })?.scheme ?? 'demo']);
+  // The sign-in beside the Garmin key's state, when a key was ever connected.
+  const badgeLabel = connectedAccountsLabel(
+    t(SCHEME_LABEL_KEY[sourceFor({ authMethod })?.scheme ?? 'demo']),
+    t('garmin.title'),
+    t('garmin.keyNeeded'),
+    garminState
+  );
 
   return (
     <View
@@ -254,6 +275,7 @@ function SettingsScreenContent() {
           profileImageError={profileImageError}
           onProfileImageError={() => setProfileImageError(true)}
           isDark={isDark}
+          garminState={garminState}
         />
 
         <RecordingPermissionSection />
@@ -286,8 +308,6 @@ function SettingsScreenContent() {
           </RowGroup>
         </View>
 
-        {/* Notifications report on the activities a sync brings in, and data
-              sources name where those activities come from. */}
         <ListSectionHeader testID="settings-group-collects">
           {t('settings.groupCollects', 'Data & recording')}
         </ListSectionHeader>
@@ -316,12 +336,6 @@ function SettingsScreenContent() {
               icon="bell-outline"
               subtitle={notificationsEnabled ? t('common.on') : t('common.off')}
               testID="settings-nav-notifications"
-            />
-            <SpokeRow
-              route="data-sources-settings"
-              icon="link-variant"
-              subtitle={garminState === 'keyNeeded' ? t('garmin.keyNeeded') : undefined}
-              testID="settings-nav-data-sources"
             />
           </RowGroup>
         </View>

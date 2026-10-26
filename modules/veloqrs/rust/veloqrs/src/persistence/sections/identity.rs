@@ -1569,15 +1569,29 @@ impl ReplaySource<'_> {
         // silently on adoption. Reporting the loss makes it a debounced re-cut
         // the ledger narrates instead.
         let rows = &identity.rows;
-        let loses_a_member = |pid: &str, j: usize| -> bool {
+        let members_shed = |pid: &str, j: usize| -> (usize, usize) {
             let Some(row) = rows.get(pid) else {
-                return false;
+                return (0, 0);
             };
             let cand = raw[j];
-            row.section
+            let shed = row
+                .section
                 .activity_ids
                 .iter()
-                .any(|aid| !cand.activity_ids.contains(aid) && judged(cand, aid))
+                .filter(|aid| !cand.activity_ids.contains(aid) && judged(cand, aid))
+                .count();
+            (shed, row.section.activity_ids.len())
+        };
+        let loses_a_member = |pid: &str, j: usize| -> bool { members_shed(pid, j).0 > 0 };
+        // The share of the held section's rides a longer cut leaves off, which
+        // decides whether that cut is the section re-drawn or ground of its own.
+        let shed_share = |pid: &str, j: usize| -> f64 {
+            let (shed, held) = members_shed(pid, j);
+            if held == 0 {
+                0.0
+            } else {
+                shed as f64 / held as f64
+            }
         };
         // What arrived this step. A change that fires now was around these
         // and around whatever arrived while it was pending.
@@ -1651,11 +1665,14 @@ impl ReplaySource<'_> {
         let (out, resolutions) = if arrivals.is_empty() {
             identity
                 .hysteresis
-                .rerun_assign_guarded(&candidates, &loses_a_member)
+                .rerun_assign_shedding(&candidates, &loses_a_member, &shed_share)
         } else {
-            identity
-                .hysteresis
-                .step_assign_credited(&candidates, &loses_a_member, &credit)
+            identity.hysteresis.step_assign_shedding(
+                &candidates,
+                &loses_a_member,
+                &shed_share,
+                &credit,
+            )
         };
         // The seen set after this step: what the pool still holds of the
         // seen set before it, and this step's arrivals.

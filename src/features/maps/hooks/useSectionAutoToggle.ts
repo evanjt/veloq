@@ -76,6 +76,14 @@ export function useSectionAutoToggle({
 
   useEffect(() => clearPendingAutoToggle, [clearPendingAutoToggle]);
 
+  // A link can arrive after the map mounted, when the camera has already
+  // settled and a hide may be armed, so the hold is taken whenever it begins.
+  useEffect(() => {
+    if (!holdSections) return;
+    userToggledSectionsRef.current = true;
+    clearPendingAutoToggle();
+  }, [holdSections, clearPendingAutoToggle]);
+
   const toggleSections = useCallback(() => {
     userToggledSectionsRef.current = true;
     clearPendingAutoToggle();

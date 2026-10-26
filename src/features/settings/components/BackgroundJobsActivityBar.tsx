@@ -5,7 +5,8 @@ import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { Card, CollapsibleSection, RowGroup, Spinner } from '@/shared/ui';
+import { elevation } from 'veloqrs';
+import { Button, Card, CollapsibleSection, RowGroup, Spinner } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { getPhaseDisplayKey } from '@/features/routes';
 import { formatClockOrDate } from '@/shared/format/format';
@@ -113,6 +114,17 @@ function useDetail(job: BackgroundJob): string {
     return t('backgroundJobs.stateRunning');
   }
 
+  // A hold names who asked and until when, ahead of the engine's own
+  // resume time: that time is a guess, this one is the wait in force.
+  if (job.held && (job.state === 'waiting' || job.state === 'partial')) {
+    return [
+      ...owedParts(),
+      t(job.held.byUpstream ? 'backgroundJobs.heldByUpstream' : 'backgroundJobs.heldByBudget', {
+        time: formatClockOrDate(job.held.until),
+      }),
+    ].join(' · ');
+  }
+
   if (job.state === 'idle' && job.remaining !== null && job.remaining > 0) {
     return owedParts().join(' · ');
   }
@@ -174,6 +186,14 @@ function useLastRunLine(job: BackgroundJob): string | null {
   return parts.join(' · ');
 }
 
+/** Whether a download has something to ask again: held back, or finished with some to retry. */
+function canRetry(job: BackgroundJob): boolean {
+  return (
+    (job.id === 'elevationBackfill' || job.id === 'streamBackfill') &&
+    (job.state === 'waiting' || job.state === 'partial')
+  );
+}
+
 function JobRow({ job }: { job: BackgroundJob }) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -206,6 +226,23 @@ function JobRow({ job }: { job: BackgroundJob }) {
       </View>
       {job.state === 'running' ? (
         <Spinner label={t(TITLE_KEYS[job.id])} testID={`background-job-${job.id}-spinner`} />
+      ) : null}
+      {canRetry(job) ? (
+        <Button
+          testID={`background-job-${job.id}-retry`}
+          label={t('backgroundJobs.retryNow')}
+          onPress={() => {
+            // The row reports the next pass itself, so a refused retry needs only a log line.
+            try {
+              elevation.retryDownloadsNow();
+            } catch (e) {
+              console.error('[Engine] retryDownloadsNow threw:', e);
+            }
+          }}
+          disabled={job.held !== null}
+          variant="ghost"
+          size="sm"
+        />
       ) : null}
     </View>
   );

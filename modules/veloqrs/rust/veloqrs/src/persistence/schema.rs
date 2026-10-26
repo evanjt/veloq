@@ -75,9 +75,7 @@ pub(crate) fn recount_section_summaries(conn: &Connection, predicate: &str) -> S
     conn.execute(
         &format!(
             "UPDATE sections SET
-                 visit_count = (
-                     SELECT COUNT(*) FROM section_activities sa
-                     WHERE sa.section_id = sections.id AND sa.excluded = 0),
+                 visit_count = ({}),
                  activity_count = (
                      SELECT COUNT(DISTINCT activity_id) FROM section_activities sa
                      WHERE sa.section_id = sections.id AND sa.excluded = 0),
@@ -85,7 +83,43 @@ pub(crate) fn recount_section_summaries(conn: &Connection, predicate: &str) -> S
                      SELECT GROUP_CONCAT(DISTINCT a.sport_type) FROM section_activities sa
                      JOIN activities a ON a.id = sa.activity_id
                      WHERE sa.section_id = sections.id AND sa.excluded = 0)
-             WHERE {predicate}"
+             WHERE {predicate}",
+            visit_count_sql("sections.id")
+        ),
+        [],
+    )
+}
+
+/// The traversals a section holds, as a scalar subquery over its junction
+/// rows: the included, complete ones. A partial overlap or a pass over a
+/// fragment is not a traversal, so the list row counts what the section page
+/// plots, and the two cannot disagree.
+pub(crate) fn visit_count_sql(section_id: &str) -> String {
+    format!(
+        "SELECT COUNT(*) FROM section_activities sa
+         JOIN sections s ON s.id = sa.section_id
+         WHERE sa.section_id = {section_id} AND sa.excluded = 0{}",
+        crate::persistence::records::complete_traversal_clause("sa", "s")
+    )
+}
+
+/// Whether the named trigger exists and its body carries `needle`.
+fn trigger_sql_contains(conn: &Connection, name: &str, needle: &str) -> bool {
+    conn.query_row(
+        "SELECT sql FROM sqlite_master WHERE type = 'trigger' AND name = ?",
+        params![name],
+        |row| row.get::<_, String>(0),
+    )
+    .map(|sql| sql.contains(needle))
+    .unwrap_or(false)
+}
+
+/// Recount `visit_count` alone for every section.
+fn recount_section_summaries_visits(conn: &Connection) -> SqlResult<usize> {
+    conn.execute(
+        &format!(
+            "UPDATE sections SET visit_count = ({})",
+            visit_count_sql("sections.id")
         ),
         [],
     )
@@ -1128,51 +1162,60 @@ impl PersistentEngine {
                 [],
             )?;
         }
-        if !has_column || !has_move_trigger {
-            conn.execute(
-                "UPDATE sections SET visit_count = (
-                    SELECT COUNT(*) FROM section_activities sa
-                    WHERE sa.section_id = sections.id AND sa.excluded = 0
-                )",
-                [],
+        // Triggers that predate the complete-traversal rule count every row,
+        // fragments included, so they are replaced and the counts redone.
+        let counts_fragments =
+            !trigger_sql_contains(conn, "section_activities_visit_count_ai", "'partial'")
+                || !trigger_sql_contains(
+                    conn,
+                    "section_activities_visit_count_section_au",
+                    "'partial'",
+                );
+        if counts_fragments {
+            conn.execute_batch(
+                "DROP TRIGGER IF EXISTS section_activities_visit_count_ai;
+                 DROP TRIGGER IF EXISTS section_activities_visit_count_ad;
+                 DROP TRIGGER IF EXISTS section_activities_visit_count_au;
+                 DROP TRIGGER IF EXISTS section_activities_visit_count_amove;",
             )?;
         }
-        if !trigger_has_guard(conn, "section_activities_visit_count_ai") {
-            conn.execute_batch("DROP TRIGGER IF EXISTS section_activities_visit_count_ai")?;
+        if !has_column || !has_move_trigger || counts_fragments {
+            recount_section_summaries_visits(conn)?;
         }
+        for name in [
+            "section_activities_visit_count_ai",
+            "section_activities_visit_count_au",
+        ] {
+            if !trigger_has_guard(conn, name) {
+                conn.execute_batch(&format!("DROP TRIGGER IF EXISTS {name}"))?;
+            }
+        }
+        let new_count = visit_count_sql("NEW.section_id");
+        let old_count = visit_count_sql("OLD.section_id");
         conn.execute_batch(&format!(
             "CREATE TRIGGER IF NOT EXISTS section_activities_visit_count_ai
              AFTER INSERT ON section_activities {SUMMARY_TRIGGER_GUARD} BEGIN
-                 UPDATE sections SET visit_count = (
-                     SELECT COUNT(*) FROM section_activities
-                     WHERE section_id = NEW.section_id AND excluded = 0
-                 ) WHERE id = NEW.section_id;
+                 UPDATE sections SET visit_count = ({new_count}) WHERE id = NEW.section_id;
              END;
              CREATE TRIGGER IF NOT EXISTS section_activities_visit_count_ad
              AFTER DELETE ON section_activities BEGIN
-                 UPDATE sections SET visit_count = (
-                     SELECT COUNT(*) FROM section_activities
-                     WHERE section_id = OLD.section_id AND excluded = 0
-                 ) WHERE id = OLD.section_id;
+                 UPDATE sections SET visit_count = ({old_count}) WHERE id = OLD.section_id;
              END;
              CREATE TRIGGER IF NOT EXISTS section_activities_visit_count_au
-             AFTER UPDATE OF excluded ON section_activities BEGIN
-                 UPDATE sections SET visit_count = (
-                     SELECT COUNT(*) FROM section_activities
-                     WHERE section_id = NEW.section_id AND excluded = 0
-                 ) WHERE id = NEW.section_id;
+             AFTER UPDATE OF excluded, direction, coverage, distance_meters ON section_activities
+             {SUMMARY_TRIGGER_GUARD} BEGIN
+                 UPDATE sections SET visit_count = ({new_count}) WHERE id = NEW.section_id;
              END;
              CREATE TRIGGER IF NOT EXISTS section_activities_visit_count_amove
              AFTER UPDATE OF section_id ON section_activities BEGIN
-                 UPDATE sections SET visit_count = (
-                     SELECT COUNT(*) FROM section_activities
-                     WHERE section_id = NEW.section_id AND excluded = 0
-                 ) WHERE id = NEW.section_id;
-                 UPDATE sections SET visit_count = (
-                     SELECT COUNT(*) FROM section_activities
-                     WHERE section_id = OLD.section_id AND excluded = 0
-                 ) WHERE id = OLD.section_id;
-             END;"
+                 UPDATE sections SET visit_count = ({new_count}) WHERE id = NEW.section_id;
+                 UPDATE sections SET visit_count = ({old_count}) WHERE id = OLD.section_id;
+             END;
+             CREATE TRIGGER IF NOT EXISTS section_activities_visit_count_section_au
+             AFTER UPDATE OF distance_meters ON sections BEGIN
+                 UPDATE sections SET visit_count = ({section_count}) WHERE id = NEW.id;
+             END;",
+            section_count = visit_count_sql("NEW.id"),
         ))?;
         Ok(())
     }

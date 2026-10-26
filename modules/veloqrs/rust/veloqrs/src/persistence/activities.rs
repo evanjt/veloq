@@ -2442,11 +2442,11 @@ impl PersistentEngine {
         // Recompute visit_count on the sections the removed activity was in.
         for sid in &affected_sections {
             let _ = self.db.execute(
-                "UPDATE sections SET visit_count = (
-                    SELECT COUNT(*) FROM section_activities
-                    WHERE section_id = ? AND excluded = 0
-                 ) WHERE id = ?",
-                params![sid, sid],
+                &format!(
+                    "UPDATE sections SET visit_count = ({}) WHERE id = ?",
+                    super::schema::visit_count_sql("sections.id")
+                ),
+                params![sid],
             );
         }
 

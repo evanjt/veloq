@@ -386,21 +386,32 @@ fn visit_count_is_recomputed_after_the_orphan_filter_not_before() {
 
     let mismatched: i64 = count(
         &after,
-        "SELECT COUNT(*) FROM sections s WHERE s.visit_count <> (
-             SELECT COUNT(*) FROM section_activities sa
-             WHERE sa.section_id = s.id AND sa.excluded = 0
-         )",
+        &format!(
+            "SELECT COUNT(*) FROM sections s WHERE s.visit_count <> (
+                 SELECT COUNT(*) FROM section_activities sa
+                 WHERE sa.section_id = s.id AND sa.excluded = 0{}
+             )",
+            veloqrs::persistence::complete_traversal_clause("sa", "s")
+        ),
     );
     assert_eq!(
         mismatched, 0,
-        "every section's visit_count must equal its live, non-excluded membership. \
+        "every section's visit_count must equal its live, non-excluded, complete membership. \
          A count taken before 017's rebuild leaves sections claiming traversals by \
          activities the user deleted"
     );
 
     let total: i64 = count(&after, "SELECT COALESCE(SUM(visit_count), 0) FROM sections");
+    let complete: i64 = count(
+        &after,
+        &format!(
+            "SELECT COUNT(*) FROM section_activities sa JOIN sections s ON s.id = sa.section_id
+             WHERE sa.excluded = 0{}",
+            veloqrs::persistence::complete_traversal_clause("sa", "s")
+        ),
+    );
     assert_eq!(
-        total, honest,
+        total, complete,
         "the denormalised counts must sum to the junction they denormalise"
     );
 }

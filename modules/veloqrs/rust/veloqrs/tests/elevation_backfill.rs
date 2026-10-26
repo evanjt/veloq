@@ -27,9 +27,9 @@ use veloqrs::governor::{AuthMethod, Governor, NoopPolicy};
 use veloqrs::net::Transport;
 use veloqrs::net::elevation_backfill::{
     BACKFILL_PHASE_COMPLETE, BACKFILL_PHASE_FETCHING, BACKFILL_PHASE_PARTIAL,
-    BACKFILL_PHASE_PAUSED, BACKFILL_PHASE_WAITING, BackfillRun, ELEVATION_ATTEMPT_LIMIT,
-    MAX_CONSECUTIVE_FAILURES, backfill_progress, detect_runs_started, elevation_backfill_paused,
-    pause_elevation_backfill, reset_elevation_backfill_pause, run_elevation_backfill,
+    BACKFILL_PHASE_PAUSED, BACKFILL_PHASE_WAITING, BackfillRun, MAX_CONSECUTIVE_FAILURES,
+    backfill_progress, detect_runs_started, elevation_backfill_paused, pause_elevation_backfill,
+    reset_elevation_backfill_pause, run_elevation_backfill,
 };
 use veloqrs::objects::{SYNC_SERVICE, SyncState};
 use veloqrs::persistence::persistent_engine_ffi::{
@@ -40,7 +40,6 @@ use veloqrs::persistence::{detection_suspended, with_persistent_engine};
 const UNKNOWN: u8 = 0;
 const FETCHED: u8 = 1;
 const UNAVAILABLE: u8 = 2;
-const UNREACHABLE: u8 = 3;
 
 /// A flat eight-point line, distinct per seed so the pool holds real ground.
 fn flat_track(seed: f64) -> Vec<GpsPoint> {
@@ -272,7 +271,7 @@ fn an_interrupted_pass_resumes_and_does_not_redo_completed_work() {
     });
     let mut broken_a3 = server.mock(|when, then| {
         when.path("/activity/a3/streams.json");
-        then.status(404);
+        then.status(503);
     });
 
     let first = run_backfill(&fast_transport(server.base_url()));
@@ -293,7 +292,6 @@ fn an_interrupted_pass_resumes_and_does_not_redo_completed_work() {
     );
     ok_a1.assert_calls(1);
     ok_a2.assert_calls(1);
-    broken_a3.assert_calls(1);
     drain_detection();
 
     broken_a3.delete();
@@ -515,7 +513,7 @@ fn a_single_network_failure_does_not_sink_the_pass() {
     });
     server.mock(|when, then| {
         when.path("/activity/a2/streams.json");
-        then.status(404);
+        then.status(503);
     });
     server.mock(|when, then| {
         when.path("/activity/a3/streams.json");
@@ -543,15 +541,16 @@ fn a_single_network_failure_does_not_sink_the_pass() {
     drain_detection();
 }
 
-/// A 200 with an empty body is a transient answer, not "upstream has no
-/// altitude": the row keeps its unknown state so the next pass asks again.
+/// A 200 with an empty body is upstream answering that it holds nothing for
+/// the activity, so the first ask settles it rather than leaving the row to be
+/// asked again on a later pass.
 #[test]
-fn an_empty_response_is_retried_rather_than_recorded_unavailable() {
+fn an_empty_response_is_recorded_unavailable_on_the_first_ask() {
     let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a1"]);
 
     let server = MockServer::start();
-    let mut empty = server.mock(|when, then| {
+    server.mock(|when, then| {
         when.path("/activity/a1/streams.json");
         then.status(200).json_body(json!([]));
     });
@@ -560,20 +559,10 @@ fn an_empty_response_is_retried_rather_than_recorded_unavailable() {
     let BackfillRun::Finished(outcome) = run else {
         panic!("expected a finished pass, got {:?}", run);
     };
-    assert_eq!(outcome.unavailable, 0);
-    assert_eq!(outcome.failed, 1);
-    assert_eq!(state_of("a1"), UNKNOWN);
-    assert_eq!(queue_ids(), vec!["a1"], "the track must stay in the queue");
-
-    empty.delete();
-    server.mock(|when, then| {
-        when.path("/activity/a1/streams.json");
-        then.status(200).json_body(elevated_streams(0.0));
-    });
-
-    let second = run_backfill(&fast_transport(server.base_url()));
-    assert!(matches!(second, BackfillRun::Finished(_)));
-    assert_eq!(state_of("a1"), FETCHED);
+    assert_eq!(outcome.unavailable, 1);
+    assert_eq!(outcome.failed, 0);
+    assert_eq!(state_of("a1"), UNAVAILABLE);
+    assert!(queue_ids().is_empty(), "the track must leave the queue");
     drain_detection();
 }
 
@@ -1125,7 +1114,7 @@ fn an_answer_about_one_activity_does_not_stop_the_pass() {
     };
 
     assert_eq!(
-        outcome.failed,
+        outcome.unavailable,
         ids.len() as u32,
         "a 404 answers for its own activity, so the pass walks the whole queue"
     );
@@ -1257,7 +1246,7 @@ fn an_answer_about_one_activity_is_asked_once_and_not_re_asked() {
         1,
         "a 404 is upstream answering, not the connection going away"
     );
-    assert_eq!(outcome.failed, 1);
+    assert_eq!(outcome.unavailable, 1);
 }
 
 #[test]
@@ -1713,7 +1702,8 @@ fn an_altitude_series_upstream_cannot_fill_leaves_the_track_alone() {
 
 /// An elevation ask that comes back with nothing cannot say whether upstream
 /// has no altitude or answered with nothing at all, and those end differently.
-/// The whole track settles it, and only for those activities.
+/// The whole track settles it, and only for those activities. Either answer
+/// leaves the queue on that one ask.
 #[test]
 fn an_answer_with_no_altitude_series_is_settled_by_the_whole_track() {
     let _serial_state = super::serial_state();
@@ -1734,7 +1724,7 @@ fn an_answer_with_no_altitude_series_is_settled_by_the_whole_track() {
             .query_param("types", "latlng,fixed_altitude,altitude,time");
         then.status(200).json_body(flat_streams(0.0));
     });
-    // Nothing at all: a transient answer, so the row waits for the next pass.
+    // Nothing at all: upstream has nothing for the activity, also settled.
     let gone = server.mock(|when, then| {
         when.path("/activity/gone/streams.json")
             .query_param("types", "latlng,fixed_altitude,altitude,time");
@@ -1748,10 +1738,10 @@ fn an_answer_with_no_altitude_series_is_settled_by_the_whole_track() {
 
     bare.assert();
     gone.assert();
-    assert_eq!(outcome.unavailable, 1);
+    assert_eq!(outcome.unavailable, 2);
     assert_eq!(state_of("bare"), UNAVAILABLE);
-    assert_eq!(state_of("gone"), UNKNOWN);
-    assert_eq!(queue_ids(), vec!["gone"]);
+    assert_eq!(state_of("gone"), UNAVAILABLE);
+    assert!(queue_ids().is_empty());
     drain_detection();
 }
 
@@ -1912,18 +1902,15 @@ fn a_paused_pass_ends_paused_without_the_final_recut_and_releases_detection() {
     drain_detection();
 }
 
-/// Scenario: upstream will not answer for one activity, and says so the same
-/// way every time. The row is left untouched by every pass, so the derived
-/// queue re-offers it for the life of the install,
-/// `getElevationBackfillRemaining()` never reaches zero, detection stays held
-/// and the detector cutover is vetoed at every launch. One activity is enough
-/// to do that to a whole library.
+/// Scenario: upstream answers about one activity that it has no stream for. A
+/// row left untouched would be re-offered by every pass, holding detection and
+/// the detector cutover for as long as the ladder between passes waits.
 ///
-/// Expected behaviour: the refusals are counted against the track, and the
-/// pass that reaches the limit retires it. The queue drains, and the track
-/// still counts as not elevated, because nothing was ever fetched for it.
+/// Expected behaviour: the first ask settles it. The queue drains in that one
+/// pass, the track reads `UNAVAILABLE`, and it still counts as not elevated,
+/// because nothing was ever fetched for it.
 #[test]
-fn a_track_upstream_will_not_answer_for_is_retired_and_leaves_the_queue() {
+fn a_track_upstream_answers_for_with_no_stream_leaves_the_queue_on_the_first_ask() {
     let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a1"]);
 
@@ -1933,34 +1920,21 @@ fn a_track_upstream_will_not_answer_for_is_retired_and_leaves_the_queue() {
         then.status(404).body("no such activity");
     });
 
-    for pass in 1..ELEVATION_ATTEMPT_LIMIT {
-        let run = run_backfill(&fast_transport(server.base_url()));
-        assert!(
-            matches!(run, BackfillRun::Finished(_)),
-            "an answer about one activity does not fail the pass, got {run:?}"
-        );
-        assert_eq!(
-            queue_ids(),
-            vec!["a1"],
-            "ask {pass} of {ELEVATION_ATTEMPT_LIMIT} is not the last word"
-        );
-    }
-
     let run = run_backfill(&fast_transport(server.base_url()));
     let BackfillRun::Finished(outcome) = run else {
         panic!("expected a finished pass, got {run:?}");
     };
 
-    assert_eq!(outcome.retired, 1, "the pass reaching the limit retires it");
+    assert_eq!(outcome.unavailable, 1);
     assert!(
         queue_ids().is_empty(),
-        "a track nothing can fetch must leave the queue, or it holds detection for ever"
+        "an answered track must leave the queue at once, or it holds detection"
     );
-    assert_eq!(state_of("a1"), UNREACHABLE);
+    assert_eq!(state_of("a1"), UNAVAILABLE);
     assert_eq!(
         outstanding(),
         1,
-        "retired is not elevated: the library still does not read uniformly"
+        "unavailable is not elevated: the library still does not read uniformly"
     );
     drain_detection();
 }

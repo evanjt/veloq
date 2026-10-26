@@ -131,7 +131,7 @@ fn an_upgrade_relaxes_the_column_and_keeps_every_row() {
             |r| r.get(0),
         )
         .unwrap();
-    assert_eq!(triggers, 4, "the visit_count triggers are recreated");
+    assert_eq!(triggers, 5, "the visit_count triggers are recreated");
     let visits: i64 = conn
         .query_row(
             "SELECT visit_count FROM sections WHERE id = 'legacy'",

@@ -31,6 +31,20 @@ jest.mock('veloqrs', () =>
 
 type Slot = React.ComponentType<never> | null;
 
+// The stub navigator has no stack to hold, so the hold the screen asks for is
+// recorded and the test plays the back press.
+const mockBackHold = {
+  active: false,
+  onBack: (_carryOut: () => void) => {},
+};
+
+jest.mock('@/shared/app/useBackIntercept', () => ({
+  useBackIntercept: (active: boolean, onBack: (carryOut: () => void) => void) => {
+    mockBackHold.active = active;
+    mockBackHold.onBack = onBack;
+  },
+}));
+
 /**
  * What each describe below sets before its cases run. The mocks read it at
  * render time, so every describe gets the screen's surroundings it was written
@@ -513,12 +527,11 @@ describe('detection preview screen', () => {
     expect(mockStart).not.toHaveBeenCalled();
   });
 
-  it('runs the proposal against that catalogue when Preview is pressed', async () => {
+  it('renders no Preview button, since a changed value re-runs on its own', async () => {
     const tree = await render(<DetectionPreviewScreen />);
 
-    await fireEvent.press(tree.getByTestId('preview-run-button'));
-
-    expect(mockStart).toHaveBeenCalledWith(CENTRE.lat, CENTRE.lng, expect.any(Object));
+    expect(tree.queryByTestId('preview-run-button')).toBeNull();
+    expect(tree.queryByRole('button', { name: 'settings.previewRun' })).toBeNull();
   });
 
   it('lets a finished proposal supersede the catalogue on the map', async () => {
@@ -885,14 +898,11 @@ describe('keeping a preview starts an observable re-cut', () => {
     expect(tree.getByTestId('preview-keep-button').props.accessibilityState?.disabled).toBeFalsy();
   });
 
-  it('exposes discard, run and keep as named buttons beside their test ids', async () => {
+  it('exposes discard and keep as named buttons beside their test ids', async () => {
     const tree = await render(<DetectionPreviewScreen />);
 
     expect(tree.getByRole('button', { name: 'settings.previewDiscard' })).toBe(
       tree.getByTestId('preview-discard-button')
-    );
-    expect(tree.getByRole('button', { name: 'settings.previewRun' })).toBe(
-      tree.getByTestId('preview-run-button')
     );
     expect(tree.getByRole('button', { name: 'settings.previewKeep' })).toBe(
       tree.getByTestId('preview-keep-button')
@@ -1052,11 +1062,11 @@ describe('preview screen layout', () => {
     }
   });
 
-  it('keeps Preview reachable once a result has arrived', async () => {
+  it('shows no Preview button once a result has arrived', async () => {
     mockResult.value = RESULT_WITH_COUNTS;
     const tree = await render(<DetectionPreviewScreen />);
 
-    expect(tree.getByTestId('preview-run-button')).toBeTruthy();
+    expect(tree.queryByTestId('preview-run-button')).toBeNull();
   });
 
   it('adds the diff strip and the decision row without displacing the map or the sliders', async () => {
@@ -1176,18 +1186,6 @@ describe('detection preview sensitivity controls', () => {
     expect(mockForceRedetect).not.toHaveBeenCalled();
   });
 
-  it('passes the staged values to a preview run without committing them', async () => {
-    const tree = await render(<DetectionPreviewScreen />);
-    await fireEvent(sliders(tree)[0], 'valueChange', 150);
-    await fireEvent(tree.getByTestId('preview-run-button'), 'press');
-    expect(mockStart).toHaveBeenCalledWith(
-      -37.8,
-      144.9,
-      expect.objectContaining({ proximityThreshold: 150, minSectionLength: 500 })
-    );
-    expect(mockSetSectionConfig).not.toHaveBeenCalled();
-  });
-
   it('commits the previewed values only when Keep is confirmed', async () => {
     confirmNextAlert();
     mockResult = {
@@ -1295,6 +1293,144 @@ describe('detection preview sensitivity controls', () => {
     await fireEvent(tree.getByTestId('preview-keep-button'), 'press');
     expect(mockForceRedetect).toHaveBeenCalledTimes(2);
     expect(router.back).toHaveBeenCalledTimes(1);
+  });
+
+  describe('leaving with changed values', () => {
+    function leave() {
+      const carryOut = jest.fn();
+      act(() => mockBackHold.onBack(carryOut));
+      return carryOut;
+    }
+    function alertButtons(alert: jest.SpyInstance) {
+      const buttons = alert.mock.calls[alert.mock.calls.length - 1][2] as {
+        text: string;
+        style?: string;
+        onPress?: () => void;
+      }[];
+      return (text: string) => buttons.find((b) => b.text === text)!;
+    }
+
+    beforeEach(() => {
+      mockBackHold.active = false;
+      mockForceRedetect.mockReturnValue(StartOutcome.Started);
+    });
+
+    it('does not hold back while the values match the saved ones', async () => {
+      await render(<DetectionPreviewScreen />);
+
+      expect(mockBackHold.active).toBe(false);
+    });
+
+    it('holds back once a value differs, and releases it when the value returns', async () => {
+      const tree = await render(<DetectionPreviewScreen />);
+
+      await fireEvent(sliders(tree)[0], 'valueChange', 150);
+      expect(mockBackHold.active).toBe(true);
+
+      await fireEvent(sliders(tree)[0], 'valueChange', 50);
+      expect(mockBackHold.active).toBe(false);
+    });
+
+    it('offers Save, Discard and Keep editing', async () => {
+      const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+      const tree = await render(<DetectionPreviewScreen />);
+      await fireEvent(sliders(tree)[0], 'valueChange', 150);
+
+      leave();
+
+      const button = alertButtons(alert);
+      expect(button('common.save')).toBeTruthy();
+      expect(button('common.discard')).toBeTruthy();
+      expect(button('common.keepEditing').style).toBe('cancel');
+    });
+
+    it('Save applies the changed values and then leaves', async () => {
+      const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+      const tree = await render(<DetectionPreviewScreen />);
+      await fireEvent(sliders(tree)[0], 'valueChange', 150);
+      const carryOut = leave();
+
+      alertButtons(alert)('common.save').onPress?.();
+
+      expect(mockSetSectionConfig).toHaveBeenCalledWith(
+        expect.objectContaining({ proximityThreshold: 150, minSectionLength: 500 })
+      );
+      expect(mockForceRedetect).toHaveBeenCalledTimes(1);
+      expect(carryOut).toHaveBeenCalledTimes(1);
+    });
+
+    it('Save stays when the engine refuses the re-cut', async () => {
+      mockForceRedetect.mockReturnValue(StartOutcome.Held);
+      const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+      const tree = await render(<DetectionPreviewScreen />);
+      await fireEvent(sliders(tree)[0], 'valueChange', 150);
+      const carryOut = leave();
+
+      alertButtons(alert)('common.save').onPress?.();
+
+      expect(carryOut).not.toHaveBeenCalled();
+    });
+
+    it('Discard leaves and writes nothing', async () => {
+      const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+      const tree = await render(<DetectionPreviewScreen />);
+      await fireEvent(sliders(tree)[0], 'valueChange', 150);
+      const carryOut = leave();
+
+      alertButtons(alert)('common.discard').onPress?.();
+
+      expect(carryOut).toHaveBeenCalledTimes(1);
+      expect(mockSetSectionConfig).not.toHaveBeenCalled();
+    });
+
+    it('Keep editing stays on the screen', async () => {
+      const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+      const tree = await render(<DetectionPreviewScreen />);
+      await fireEvent(sliders(tree)[0], 'valueChange', 150);
+      const carryOut = leave();
+
+      alertButtons(alert)('common.keepEditing').onPress?.();
+
+      expect(carryOut).not.toHaveBeenCalled();
+      expect(mockSetSectionConfig).not.toHaveBeenCalled();
+    });
+
+    it('offers no Save while the library is migrating', async () => {
+      mockEnv.cutover = () => true;
+      const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+      const tree = await render(<DetectionPreviewScreen />);
+      await fireEvent(sliders(tree)[0], 'valueChange', 150);
+
+      leave();
+
+      const buttons = alert.mock.calls[0][2] as { text: string }[];
+      expect(buttons.map((b) => b.text)).not.toContain('common.save');
+    });
+
+    it('does not ask again after the Discard button has already decided', async () => {
+      const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+      const tree = await render(<DetectionPreviewScreen />);
+      await fireEvent(sliders(tree)[0], 'valueChange', 150);
+      await fireEvent.press(tree.getByTestId('preview-discard-button'));
+
+      const carryOut = leave();
+
+      expect(alert).not.toHaveBeenCalled();
+      expect(carryOut).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not ask again after Keep has applied the values', async () => {
+      confirmNextAlert();
+      const tree = await render(<DetectionPreviewScreen />);
+      await fireEvent.press(tree.getByTestId('preview-keep-button'));
+      const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+      alert.mockClear();
+
+      const carryOut = leave();
+
+      expect(alert).not.toHaveBeenCalled();
+      expect(carryOut).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('offers no Keep until a run has produced a result', async () => {
@@ -1779,6 +1915,38 @@ describe('the retired layer on the detection preview', () => {
     await act(async () => layerOf().onSelect('old-2'));
 
     expect(tree.getByTestId('retired-pair-none')).toBeTruthy();
+  });
+
+  it('opened from the re-cut card shows the retired layer only, with what retired means', async () => {
+    mockEnv.params = { layer: 'retired' };
+    const tree = await render(<DetectionPreviewScreen />);
+
+    expect((mapProps as { retiredOnly?: boolean }).retiredOnly).toBe(true);
+    expect(tree.getByTestId('preview-retired-explainer').props.children).toBe(
+      'sectionHistory.retiredIntro'
+    );
+    expect(tree.queryByTestId('preview-run-button')).toBeNull();
+    expect(tree.queryByTestId('preview-keep-button')).toBeNull();
+    expect(tree.queryByTestId('preview-param-panel')).toBeNull();
+  });
+
+  it('keeps the settings preview whole when opened without the layer', async () => {
+    const tree = await render(<DetectionPreviewScreen />);
+
+    expect((mapProps as { retiredOnly?: boolean }).retiredOnly).toBeFalsy();
+    expect(tree.queryByTestId('preview-retired-explainer')).toBeNull();
+  });
+
+  it('opens on the named retired section: its area, selected, with its pair', async () => {
+    mockEnv.params = { layer: 'retired', retired: 'old-far' };
+    const tree = await render(<DetectionPreviewScreen />);
+
+    expect(mapProps.centre).toBe(FIRST);
+    expect((mapProps.retiredLayer as { frameId?: string }).frameId).toBe('old-far');
+    expect(
+      layerOf().lines.selection.features.map((f: GeoJSON.Feature) => f.properties?.id)
+    ).toEqual(['old-far']);
+    expect(tree.getByTestId('retired-pair-card')).toBeTruthy();
   });
 
   it('keeps the list reachable from the layer', async () => {

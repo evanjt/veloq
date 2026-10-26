@@ -1121,11 +1121,10 @@ const DEVICE_WRITES: DeviceWrite[] = [
     where: 'the Garmin Personal key and the connector choices',
     writers: ['src/features/settings/lib/garminConnector.ts'],
     holds:
-      "the athlete's Garmin key, its expiry date, the feed, upload and automatic swap switches, why the swap switched itself off, the rides it has dealt with, the held-back count the feed offer was declined at, and whether a key was connected",
+      "the athlete's Garmin key, the feed, upload and automatic swap switches, why the swap switched itself off, the rides it has dealt with, the held-back count the feed offer was declined at, and whether a key was connected",
     wiped: {
       keychain: ['garmin_personal_key'],
       settings: [
-        'veloq-garmin-key-expiry',
         'veloq-garmin-feed',
         'veloq-garmin-upload',
         'veloq-garmin-auto-swap',

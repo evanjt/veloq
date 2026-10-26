@@ -97,6 +97,8 @@ pub(crate) mod record_restore;
 pub mod recordings;
 pub(crate) mod records;
 pub use recordings::{FfiRecordingEntry, MAX_AUTO_RETRIES};
+#[doc(hidden)]
+pub use records::complete_traversal_clause;
 mod pre_upgrade_copy;
 #[doc(hidden)]
 pub mod regroup;
@@ -1399,6 +1401,7 @@ pub struct PersistentEngine {
     /// read the file speaks for whatever the file said, and a handler that
     /// wrote before the app launched has its rows in that read already.
     seen_external_write_token: u64,
+    pass_recount: Option<std::thread::JoinHandle<sections::pass_rule::PassRecountReport>>,
 }
 
 /// The pragmas a connection that writes has to set for itself.
@@ -1651,6 +1654,7 @@ impl PersistentEngine {
             perf_cache: LruCache::new(PERF_CACHE_ENTRIES),
             perf_computations: 0,
             seen_external_write_token: 0,
+            pass_recount: None,
         };
 
         // A ride is marked `uploading` before its request goes out, so a kill
@@ -1667,6 +1671,7 @@ impl PersistentEngine {
             // Before anything can read a badge, and once. The version is a build
             // constant, so the open is the only moment it can have moved.
             engine.recompute_indicators_if_stale();
+            engine.stamp_pass_rule_on_empty_library();
         }
 
         if let Err(e) = fitness::scrub_stored_profile_api_key(&engine.db) {
@@ -2026,6 +2031,13 @@ impl PersistentEngine {
         // refresh it themselves) start correct rather than empty. One EXISTS
         // probe when no names exist.
         self.ensure_named_overlay();
+
+        // Once per open, after the config and sections load, and not while the
+        // cutover still owes a re-cut: that re-cut replaces the auto rows, and
+        // the recount runs on the open after it.
+        if mode == EngineOpenMode::Foreground && loaded_whole && !self.cutover_is_owed() {
+            self.recount_passes_if_stale();
+        }
 
         // Indicators are not populated here: the version pass runs once in
         // `PersistentEngine::new`, and `get_activity_indicators` only reads.
