@@ -64,9 +64,9 @@ pub(crate) mod origin;
 pub use activities::{
     DerivedClear, ELEVATION_SOURCE_CORRECTED, ELEVATION_SOURCE_DEVICE, ELEVATION_SOURCE_RECORDED,
     ELEVATION_SOURCE_UNKNOWN, ELEVATION_STATE_FETCHED, ELEVATION_STATE_UNAVAILABLE,
-    ELEVATION_STATE_UNKNOWN, ELEVATION_STATE_UNREACHABLE, ElevationSeries, ElevationStateCounts,
-    SourceSettled, TRACK_FAILURE_LIMIT, TrackRefusalKind, elevation_source_of,
-    mint_local_activity_id,
+    ELEVATION_STATE_UNKNOWN, ELEVATION_STATE_UNREACHABLE, ELEVATION_STATE_WITHHELD,
+    ElevationSeries, ElevationStateCounts, SourceSettled, TRACK_FAILURE_LIMIT, TrackRefusalKind,
+    elevation_source_of, mint_local_activity_id,
 };
 pub mod activity_held_back;
 pub mod activity_sync_failures;

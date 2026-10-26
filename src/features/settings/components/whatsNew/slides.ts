@@ -169,6 +169,15 @@ const SECTIONS_REBUILT: WhatsNewSlideDefinition = {
   },
 };
 
+const CHANGES: WhatsNewSlideDefinition = {
+  titleKey: 'whatsNew.v040.changesTitle',
+  bodyKey: 'whatsNew.v040.changesBody',
+  icon: 'information-outline',
+  get Component() {
+    return require('./ChangesSlide').ChangesSlide;
+  },
+};
+
 /**
  * Version → slides registry. Modal only shows if the current version has entries.
  * Future releases just add a new key here.
@@ -216,7 +225,7 @@ export const WHATS_NEW_SLIDES: Record<string, WhatsNewSlideDefinition[]> = {
     },
     BACKUP,
   ],
-  '0.4.0': [NOTIFICATIONS, GARMIN, RECORDING, LOOK, MAPS_WIDGETS, SECTIONS_REBUILT],
+  '0.4.0': [NOTIFICATIONS, GARMIN, RECORDING, LOOK, MAPS_WIDGETS, SECTIONS_REBUILT, CHANGES],
 };
 
 /**

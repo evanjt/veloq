@@ -79,6 +79,7 @@ export const SCREEN_HEADERS: Record<string, ScreenHeader | null> = {
   'detection-preview': { titleKey: 'settings.previewSections' },
   'detection-settings': { titleKey: 'settings.routesAndSections', largeTitle: true },
   'display-settings': { titleKey: 'settings.display', largeTitle: true },
+  experimental: { titleKey: 'experimental.title', largeTitle: true },
   'garmin-connector': { titleKey: 'garmin.title', largeTitle: true },
   licenses: { titleKey: 'licenses.title', largeTitle: true },
   'map-settings': { titleKey: 'settings.maps', largeTitle: true },

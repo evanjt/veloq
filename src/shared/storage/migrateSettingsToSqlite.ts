@@ -40,6 +40,7 @@ export const PREFERENCE_KEYS = [
   'veloq-map-heatmap-visible',
   'veloq-map-activities-visible',
   'veloq-debug-mode',
+  'veloq-experimental',
   'dashboard_summary_card',
   '@terrain_camera_overrides',
   '@map_camera_state',

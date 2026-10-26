@@ -2344,7 +2344,10 @@
     "sectionsBeforeAfter": "Secciones antes del reanálisis: {{before}}. Después: {{after}}.",
     "debugMode": "Modo de depuración",
     "debugModeDescription": "Mostrar diagnósticos internos en las páginas de detalle",
-    "developerDashboardDescription": "Estadísticas del motor, rendimiento FFI, memoria"
+    "developerDashboardDescription": "Estadísticas del motor, rendimiento FFI, memoria",
+    "experimentalFeatures": "Funciones experimentales",
+    "experimentalFeaturesDescription": "Muestra funciones aún en desarrollo, cada una con su propio interruptor",
+    "experimentalDashboardDescription": "Activa o desactiva cada función experimental y ábrela"
   },
   "stats": {
     "activities": "Actividades",
@@ -2634,7 +2637,21 @@
       "mapsWidgetsBody": "Las actividades con desnivel se dibujan sobre terreno 3D. Los widgets Resumen y Fuerza muestran tu entrenamiento en la pantalla de inicio.",
       "mapsWidgetsTip": "Elige cuándo se dibujan los mapas en 3D en Ajustes, en Mapas.",
       "rebuiltTitle": "Secciones reconstruidas",
-      "rebuiltBody": "Las secciones salen iguales en todos los dispositivos y cada cambio se guarda en un historial que puedes revertir."
+      "rebuiltBody": "Las secciones salen iguales en todos los dispositivos y cada cambio se guarda en un historial que puedes revertir.",
+      "changesTitle": "Otros cambios",
+      "changesBody": "Cambios que llegan con la actualización, aunque no los hayas pedido.",
+      "changesSectionsLabel": "Las secciones pueden cambiar",
+      "changesSectionsCaption": "Al primer inicio, algunas secciones pueden volver a dibujarse. Una tarjeta muestra qué ha cambiado.",
+      "changesVisitsLabel": "Número de visitas y PR",
+      "changesVisitsCaption": "Un paso solo cuenta si cubre toda la sección. Algunas visitas y PR bajan.",
+      "changesBackupLabel": "Copia de la biblioteca",
+      "changesBackupCaption": "Google ya no restaura tu biblioteca en un teléfono nuevo. Haz una copia en Documents/Veloq.",
+      "changesDetectionLabel": "Rigor de detección",
+      "changesDetectionCaption": "Ya no es un ajuste. Tu biblioteca pasa a los valores predeterminados validados.",
+      "changesNotificationsLabel": "Notificaciones de análisis",
+      "changesNotificationsCaption": "En Android, el canal de análisis es nuevo. Un sonido o silencio configurado en el canal antiguo se ha perdido.",
+      "changesPortraitLabel": "Solo vertical",
+      "changesPortraitCaption": "La app solo se abre en vertical. En iOS, los enlaces de intervals.icu ya no abren Veloq."
     },
     "tutorial": {
       "firstLoadLine": "La primera carga desde intervals.icu está en curso. Tu feed se llena a medida que llegan las actividades.",
@@ -2944,6 +2961,7 @@
     "detectionWaiting_many": "{{count}} de actividades por revisar",
     "detectionWaiting_other": "{{count}} actividades por revisar",
     "cutoverWaiting": "Esperando para reconstruir tus secciones",
+    "passRecount": "Recuento de pasadas",
     "statePaused": "En pausa hasta que vuelvas a abrir la app",
     "stateWaiting": "Esperando para reanudar",
     "resumesAt": "Se reanuda: {{time}}",
@@ -3207,6 +3225,22 @@
       "im": "Estilos",
       "reverseIm": "Estilos inverso",
       "unknown": "Estilo desconocido"
+    }
+  },
+  "experimental": {
+    "title": "Funciones experimentales",
+    "open": "Abrir",
+    "efficiencyTrends": {
+      "title": "Tendencias de eficiencia",
+      "blurb": "La frecuencia cardiaca a un ritmo equivalente a lo largo de tus esfuerzos, como dato destacado y en la página del tramo. La cifra es difícil de leer y su signo puede contradecir a la frecuencia cardiaca."
+    },
+    "sectionCorrelations": {
+      "title": "Correlaciones del tramo",
+      "blurb": "Cómo se relacionan las lecturas de bienestar con tu velocidad en un tramo. Con un número habitual de intentos solo puede decir que no hay un vínculo claro."
+    },
+    "garminUpdate": {
+      "title": "Actualizar actividades desde Garmin",
+      "blurb": "Sustituye la copia de intervals.icu por el archivo propio de Garmin cuando este contiene más. Requiere una clave de Garmin. Sin terminar."
     }
   }
 }

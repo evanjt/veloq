@@ -1,5 +1,5 @@
 /**
- * Scenario: the Insights tab is open when the developer switch flips. The
+ * Scenario: the Insights tab is open when the experimental switch flips. The
  * experimental insights follow the switch, so the list has to be computed again.
  * Expected behaviour: the computation runs with the switch as it stands, which
  * it reads itself, and a flip recomputes the list with the new value.
@@ -51,7 +51,7 @@ async function settle() {
   await act(() => idle.flush());
 }
 
-describe('the insights computation and the developer switch', () => {
+describe('the insights computation and the experimental switch', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
@@ -60,10 +60,10 @@ describe('the insights computation and the developer switch', () => {
       insightsData: { sportTypes: [] },
     } as unknown as ReturnType<typeof fetchInsightsDataFromEngine>);
     idle = stubIdleScheduler('queued');
-    useDebugStore.setState({ enabled: false, unlocked: false });
+    useDebugStore.setState({ experimentalEnabled: false, experimentalUnlocked: false });
     switchAtCompute = [];
     mockCompute.mockImplementation(() => {
-      switchAtCompute.push(useDebugStore.getState().enabled);
+      switchAtCompute.push(useDebugStore.getState().experimentalEnabled);
       return { insights: [], failed: false };
     });
   });
@@ -71,7 +71,7 @@ describe('the insights computation and the developer switch', () => {
   afterEach(() => {
     idle.restore();
     jest.useRealTimers();
-    useDebugStore.setState({ enabled: false, unlocked: false });
+    useDebugStore.setState({ experimentalEnabled: false, experimentalUnlocked: false });
   });
 
   it('computes without the experimental insights while the switch is off', async () => {
@@ -83,7 +83,7 @@ describe('the insights computation and the developer switch', () => {
   });
 
   it('computes with them when the switch is on at the visit', async () => {
-    useDebugStore.setState({ enabled: true, unlocked: true });
+    useDebugStore.setState({ experimentalEnabled: true, experimentalUnlocked: true });
     await renderHook(() => useInsights());
     await act(() => idle.flush());
 
@@ -96,14 +96,14 @@ describe('the insights computation and the developer switch', () => {
     expect(lastExperimental()).toBe(false);
 
     await act(() => {
-      useDebugStore.setState({ enabled: true, unlocked: true });
+      useDebugStore.setState({ experimentalEnabled: true, experimentalUnlocked: true });
     });
     await settle();
     expect(mockCompute).toHaveBeenCalledTimes(2);
     expect(lastExperimental()).toBe(true);
 
     await act(() => {
-      useDebugStore.setState({ enabled: false, unlocked: false });
+      useDebugStore.setState({ experimentalEnabled: false, experimentalUnlocked: false });
     });
     await settle();
     expect(mockCompute).toHaveBeenCalledTimes(3);

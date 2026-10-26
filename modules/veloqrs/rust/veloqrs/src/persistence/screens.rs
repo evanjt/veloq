@@ -195,6 +195,9 @@ pub fn background_jobs_data(
         garmin_pull: crate::net::garmin::pull::screen_read(conn),
         downloads_held_until_ms: hold.map(|hold| hold.until.timestamp_millis() as f64),
         downloads_held_by_upstream: hold.is_some_and(|hold| hold.by_upstream),
+        pass_recount_running: conn
+            .path()
+            .is_some_and(crate::persistence::sections::pass_rule::pass_recount_running),
     })
 }
 

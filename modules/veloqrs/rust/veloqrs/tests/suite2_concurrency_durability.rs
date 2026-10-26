@@ -120,28 +120,6 @@ fn db_path(dir: &tempfile::TempDir) -> String {
 // ever in memory?
 // ============================================================================
 
-/// The catalogue signature once two reads in a row agree.
-///
-/// A section read answers a row it cannot decode with a default (no visits, a
-/// shorter line, fewer members) and logs it, so one read can come back short
-/// while the file is whole. Two agreeing reads are the catalogue the file
-/// holds. A catalogue that never settles inside the bound is returned as the
-/// last read, and the comparison against it then fails with that read.
-fn settled_signature(engine: &mut PersistentEngine) -> String {
-    const BOUND: std::time::Duration = std::time::Duration::from_secs(10);
-    const PAUSE: std::time::Duration = std::time::Duration::from_millis(50);
-    let deadline = std::time::Instant::now() + BOUND;
-    let mut previous = snapshot(engine).catalogue_signature();
-    loop {
-        let current = snapshot(engine).catalogue_signature();
-        if current == previous || std::time::Instant::now() >= deadline {
-            return current;
-        }
-        previous = current;
-        thread::sleep(PAUSE);
-    }
-}
-
 /// The signature rows that one side holds and the other does not.
 fn signature_diff(before: &str, after: &str) -> String {
     let rows =
@@ -159,7 +137,7 @@ fn restart_state() -> (String, String, usize, usize) {
     let corpus = corpus();
     let (mut e1, dir) = fresh_engine();
     ingest_step(&mut e1, "cold", &corpus.through_a());
-    let sig_db_before = settled_signature(&mut e1);
+    let sig_db_before = snapshot(&mut e1).catalogue_signature();
     let e1_inmem = in_memory_snapshot(&e1).count();
 
     // Close engine #1's connection (flush) before the "restart".
@@ -170,7 +148,7 @@ fn restart_state() -> (String, String, usize, usize) {
     let mut e2 = PersistentEngine::new(&db_path(&dir)).expect("reopen");
     e2.load().expect("load after reopen");
     let e2_inmem = in_memory_snapshot(&e2).count();
-    let sig_db_after = settled_signature(&mut e2);
+    let sig_db_after = snapshot(&mut e2).catalogue_signature();
 
     (sig_db_before, sig_db_after, e1_inmem, e2_inmem)
 }

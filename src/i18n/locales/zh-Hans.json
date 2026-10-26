@@ -2286,7 +2286,10 @@
     "sectionsBeforeAfter": "重新扫描前的路段：{{before}} 个。之后：{{after}} 个。",
     "debugMode": "调试模式",
     "debugModeDescription": "在详情页显示内部诊断信息",
-    "developerDashboardDescription": "引擎统计、FFI 性能、内存"
+    "developerDashboardDescription": "引擎统计、FFI 性能、内存",
+    "experimentalFeatures": "实验性功能",
+    "experimentalFeaturesDescription": "显示仍在开发中的功能，每项都有各自的开关",
+    "experimentalDashboardDescription": "逐项开启或关闭实验性功能并打开它"
   },
   "stats": {
     "activities": "活动",
@@ -2565,7 +2568,21 @@
       "mapsWidgetsBody": "起伏的活动会绘制在 3D 地形上。概览和力量小组件可把训练显示在主屏幕上。",
       "mapsWidgetsTip": "在设置的“地图”中选择何时以 3D 绘制地图。",
       "rebuiltTitle": "路段已重建",
-      "rebuiltBody": "路段在每台设备上结果一致，每次更改都会保存在可还原的历史中。"
+      "rebuiltBody": "路段在每台设备上结果一致，每次更改都会保存在可还原的历史中。",
+      "changesTitle": "其他变化",
+      "changesBody": "随更新而来的变化，即使你并未要求。",
+      "changesSectionsLabel": "路段可能变动",
+      "changesSectionsCaption": "首次启动时，部分路段可能会重新绘制。卡片会列出有哪些变动。",
+      "changesVisitsLabel": "访问次数与PR",
+      "changesVisitsCaption": "只有通过整个路段才计数。部分访问次数和PR会减少。",
+      "changesBackupLabel": "资料库备份",
+      "changesBackupCaption": "在新手机上，Google 不再恢复你的资料库。请备份到 Documents/Veloq。",
+      "changesDetectionLabel": "检测严格度",
+      "changesDetectionCaption": "不再是设置项。你的资料库会改用经过验证的默认值。",
+      "changesNotificationsLabel": "洞察通知",
+      "changesNotificationsCaption": "在 Android 上，洞察通知渠道是新的。旧渠道上设置的声音或静音已失效。",
+      "changesPortraitLabel": "仅竖屏",
+      "changesPortraitCaption": "应用仅以竖屏打开。在 iOS 上，intervals.icu 链接不再打开 Veloq。"
     },
     "tutorial": {
       "firstLoadLine": "正在从 intervals.icu 进行首次加载。活动到达后,动态会逐步填充。",
@@ -2871,6 +2888,7 @@
     "detectionWaiting_one": "{{count}} 项活动待检查",
     "detectionWaiting_other": "{{count}} 项活动待检查",
     "cutoverWaiting": "等待重建你的路段",
+    "passRecount": "通过次数重新统计",
     "statePaused": "已暂停，直到下次打开应用",
     "stateWaiting": "等待恢复",
     "resumesAt": "{{time}} 恢复",
@@ -3125,6 +3143,22 @@
       "im": "个人混合泳",
       "reverseIm": "反向个人混合泳",
       "unknown": "未知泳姿"
+    }
+  },
+  "experimental": {
+    "title": "实验性功能",
+    "open": "打开",
+    "efficiencyTrends": {
+      "title": "效率趋势",
+      "blurb": "在相同配速下跨多次骑行或跑步的心率，显示在洞察和路段页面。这个数值难以解读，其正负号可能与心率相矛盾。"
+    },
+    "sectionCorrelations": {
+      "title": "路段相关性",
+      "blurb": "健康指标与你在路段上速度的关系。在一般的尝试次数下，它只能说明没有明确的关联。"
+    },
+    "garminUpdate": {
+      "title": "从 Garmin 更新活动",
+      "blurb": "当 Garmin 自己的文件包含更多内容时，用它替换 intervals.icu 的副本。需要 Garmin 密钥。尚未完成。"
     }
   }
 }

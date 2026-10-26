@@ -2117,3 +2117,209 @@ fn a_drop_partway_through_the_upgrade_drain_is_followed_without_waiting() {
     );
     drain_detection();
 }
+
+// ============================================================================
+// Each answer read for what it means
+// ============================================================================
+
+const WITHHELD: u8 = 4;
+
+/// A census pull naming each activity at the given version, the write a sync
+/// makes. It names every activity the test holds, since a pull that omits one
+/// drops its row.
+fn sync_census(versions: &[(&str, &str)]) {
+    let entries: Vec<_> = versions
+        .iter()
+        .map(|(id, version)| veloqrs::net::types::ActivityCensusEntry {
+            id: (*id).to_string(),
+            icu_sync_date: Some((*version).to_string()),
+            has_latlng: true,
+            ..Default::default()
+        })
+        .collect();
+    with_persistent_engine(|engine| engine.record_activity_census(ATHLETE, &entries))
+        .expect("engine")
+        .expect("census write");
+}
+
+fn answer_with(server: &MockServer, id: &str, status: u16) {
+    server.mock(|when, then| {
+        when.path(format!("/activity/{id}/streams.json"));
+        then.status(status).body("answer");
+    });
+}
+
+/// Scenario: upstream answers 403 for a track, as a data block would.
+///
+/// Expected behaviour: the track is withheld, a state of its own and not a
+/// final "no elevation". It leaves the queue, so it holds neither detection
+/// nor the cutover, and a pass that ends on it drains.
+#[test]
+fn a_403_is_withheld_rather_than_settled_flat() {
+    let _serial_state = super::serial_state();
+    let (_dir, _path) = seeded_engine(&["a"]);
+    let server = MockServer::start();
+    let mock = server.mock(|when, then| {
+        when.path("/activity/a/streams.json");
+        then.status(403).body("forbidden");
+    });
+
+    let run = run_backfill(&fast_transport(server.base_url()));
+    let BackfillRun::Finished(_) = run else {
+        panic!("expected a finished pass, got {run:?}");
+    };
+
+    mock.assert_calls(1);
+    assert_eq!(state_of("a"), WITHHELD);
+    assert!(queue_ids().is_empty());
+    let remaining = with_persistent_engine(|e| e.elevation_backfill_remaining())
+        .expect("engine")
+        .expect("count");
+    assert_eq!(remaining, 0, "a withheld track holds nothing");
+    drain_detection();
+}
+
+/// Scenario: every other 4xx answers about the activity itself.
+///
+/// Expected behaviour: settled flat on the first ask and not asked again.
+#[test]
+fn a_404_or_another_4xx_settles_the_track() {
+    for status in [404, 410, 422] {
+        let _serial_state = super::serial_state();
+        let (_dir, _path) = seeded_engine(&["a"]);
+        let server = MockServer::start();
+        answer_with(&server, "a", status);
+
+        run_backfill(&fast_transport(server.base_url()));
+
+        assert_eq!(state_of("a"), UNAVAILABLE, "status {status}");
+        assert!(queue_ids().is_empty(), "status {status}");
+        drain_detection();
+    }
+}
+
+/// Scenario: a pushback answers for the connection, not the track.
+///
+/// Expected behaviour: the track stays owed.
+#[test]
+fn pushback_leaves_the_track_owed() {
+    let _serial_state = super::serial_state();
+    let (_dir, _path) = seeded_engine(&["a"]);
+    let server = MockServer::start();
+    server.mock(|when, then| {
+        when.path("/activity/a/streams.json");
+        // The application's own limiter answers through the proxy. That sets a
+        // cooldown and defers the request, where a bare 429 is retried inline
+        // for the whole of its Retry-After.
+        then.status(429)
+            .header("Retry-After", "120")
+            .header("via", "1.1 Caddy")
+            .body("{\"status\":429}");
+    });
+    let gov = Arc::new(Governor::new(1000, Box::new(NoopPolicy)).with_budget(
+        veloqrs::governor::Budget::new(0),
+        None,
+        || 0.0,
+    ));
+    let transport = Transport::with_governor(server.base_url(), AuthMethod::ApiKey("k"), gov)
+        .expect("transport");
+    run_backfill(&transport);
+    assert_eq!(state_of("a"), UNKNOWN);
+    assert_eq!(queue_ids(), vec!["a".to_string()]);
+}
+
+/// Scenario: an outage answers for the connection, not the track.
+///
+/// Expected behaviour: the track stays owed.
+#[test]
+fn outage_leaves_the_track_owed() {
+    let _serial_state = super::serial_state();
+    let (_dir, _path) = seeded_engine(&["a"]);
+    let server = MockServer::start();
+    answer_with(&server, "a", 503);
+    run_backfill(&fast_transport(server.base_url()));
+    assert_eq!(state_of("a"), UNKNOWN);
+    assert_eq!(queue_ids(), vec!["a".to_string()]);
+}
+
+/// Scenario: a track was settled, or withheld, at one version of its activity,
+/// and a sync then meets another.
+///
+/// Expected behaviour: only the track whose version moved is asked again. The
+/// one whose version stands stays settled.
+#[test]
+fn a_new_upstream_version_asks_a_settled_or_withheld_track_again() {
+    let _serial_state = super::serial_state();
+    let (_dir, _path) = seeded_engine(&["gone", "blocked", "steady"]);
+    sync_census(&[("gone", "v1"), ("blocked", "v1"), ("steady", "v1")]);
+    let server = MockServer::start();
+    answer_with(&server, "gone", 404);
+    answer_with(&server, "blocked", 403);
+    answer_with(&server, "steady", 404);
+    run_backfill(&fast_transport(server.base_url()));
+    assert_eq!(state_of("gone"), UNAVAILABLE);
+    assert_eq!(state_of("blocked"), WITHHELD);
+    sync_census(&[("gone", "v1"), ("blocked", "v1"), ("steady", "v1")]);
+    assert_eq!(state_of("gone"), UNAVAILABLE, "no version has moved");
+    assert_eq!(state_of("blocked"), WITHHELD, "no version has moved");
+
+    sync_census(&[("gone", "v2"), ("blocked", "v2"), ("steady", "v1")]);
+
+    assert_eq!(state_of("gone"), UNKNOWN);
+    assert_eq!(state_of("blocked"), UNKNOWN);
+    assert_eq!(state_of("steady"), UNAVAILABLE);
+    assert_eq!(queue_ids().len(), 2);
+    drain_detection();
+}
+
+/// Scenario: a track settled before versions were recorded, or never in the
+/// census, and a version appearing later.
+///
+/// Expected behaviour: nothing is re-asked on a guess.
+#[test]
+fn a_track_settled_with_no_recorded_version_is_not_re_asked() {
+    let _serial_state = super::serial_state();
+    let (_dir, _path) = seeded_engine(&["a"]);
+    let server = MockServer::start();
+    answer_with(&server, "a", 404);
+    run_backfill(&fast_transport(server.base_url()));
+    sync_census(&[("a", "v9")]);
+
+    assert_eq!(state_of("a"), UNAVAILABLE);
+    drain_detection();
+}
+
+/// Scenario: the athlete presses Retry now with one track withheld and one
+/// settled flat.
+///
+/// Expected behaviour: the withheld track is owed again before the downloads
+/// start, the settled one stays settled, and a hold sends nothing and
+/// releases nothing.
+#[test]
+fn retry_now_releases_the_withheld_and_only_those() {
+    let _serial_state = super::serial_state();
+    let (_dir, _path) = seeded_engine(&["blocked", "gone"]);
+    sync_census(&[("blocked", "v1"), ("gone", "v1")]);
+    let server = MockServer::start();
+    answer_with(&server, "blocked", 403);
+    answer_with(&server, "gone", 404);
+    run_backfill(&fast_transport(server.base_url()));
+    assert_eq!(state_of("blocked"), WITHHELD);
+
+    let held = veloqrs::net::resume::DownloadsHold {
+        until: chrono::Utc::now() + chrono::Duration::minutes(5),
+        by_upstream: true,
+    };
+    let mut started = false;
+    veloqrs::net::resume::retry_downloads_with(Some(held), || started = true);
+    assert!(!started);
+    assert_eq!(state_of("blocked"), WITHHELD, "a hold releases nothing");
+
+    let mut owed_at_start = Vec::new();
+    veloqrs::net::resume::retry_downloads_with(None, || owed_at_start = queue_ids());
+
+    assert_eq!(owed_at_start, vec!["blocked".to_string()]);
+    assert_eq!(state_of("blocked"), UNKNOWN);
+    assert_eq!(state_of("gone"), UNAVAILABLE);
+    drain_detection();
+}

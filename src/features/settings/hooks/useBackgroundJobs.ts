@@ -24,7 +24,8 @@ import { followRoutesStatus, readRoutesStatus } from '@/shared/native/routesStat
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import type { RoutesStatus } from 'veloqrs';
 
-export type BackgroundJobId = 'detection' | 'elevationBackfill' | 'cutover' | 'streamBackfill';
+export type BackgroundJobId =
+  'detection' | 'elevationBackfill' | 'cutover' | 'streamBackfill' | 'passRecount';
 
 /**
  * `partial` and `paused` are the elevation backfill's own terminal states: a
@@ -145,6 +146,7 @@ interface BackgroundJobsData {
   runs: (BackgroundJobRun & { job: string })[];
   detectionAwaiting?: number;
   cutoverOwed: boolean;
+  passRecountRunning?: boolean;
   streamDaysToFinish?: number;
   downloadsHeldUntilMs?: number;
   downloadsHeldByUpstream?: boolean;
@@ -337,6 +339,21 @@ function jobsFromStatus(
       held,
       pacedDays: data?.streamDaysToFinish ?? null,
       lastRun: lastRun('streamBackfill'),
+    },
+    {
+      // The recount runs once after an upgrade and owes nothing afterwards, so
+      // it has no resting count: it shows while it runs and as its last run.
+      id: 'passRecount',
+      state: data?.passRecountRunning ? 'running' : 'idle',
+      completed: 0,
+      total: 0,
+      percent: null,
+      remaining: null,
+      phase: null,
+      resumesAt: null,
+      held: null,
+      pacedDays: null,
+      lastRun: lastRun('passRecount'),
     },
   ];
 }

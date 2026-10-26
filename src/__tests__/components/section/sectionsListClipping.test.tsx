@@ -9,8 +9,9 @@ import type { SectionWithPolyline } from 'veloqrs';
 /**
  * Scenario: the sections list renders on Android, or with nothing to list.
  *
- * Expected behaviour: rows scrolled out of view are detached on both
- * platforms, as they are on the feed. An empty library and a filter that hides
+ * Expected behaviour: rows scrolled out of view are detached on iOS only. On
+ * Android the clipped list can rest off its top after scrolling back up, with
+ * the first row cut off under the header. An empty library and a filter that hides
  * every section each draw the shared EmptyState.
  */
 
@@ -71,7 +72,10 @@ describe('SectionsList row clipping', () => {
     await initialiseI18n('en-AU');
   });
 
-  it.each(['android', 'ios'] as const)('clips offscreen rows on %s', async (os) => {
+  it.each([
+    ['android', false],
+    ['ios', true],
+  ] as const)('clips offscreen rows on %s: %s', async (os, clips) => {
     const original = Platform.OS;
     Platform.OS = os;
     try {
@@ -91,7 +95,7 @@ describe('SectionsList row clipping', () => {
           removedSectionCount={0}
         />
       );
-      expect(tree.UNSAFE_getByType(FlatList).props.removeClippedSubviews).toBe(true);
+      expect(tree.UNSAFE_getByType(FlatList).props.removeClippedSubviews).toBe(clips);
     } finally {
       Platform.OS = original;
     }

@@ -1093,6 +1093,8 @@ pub struct FfiBackgroundJobsData {
     /// Whether intervals.icu asked for that wait, rather than this install's
     /// own request budget.
     pub downloads_held_by_upstream: bool,
+    /// Whether the one-time pass recount is running on its own thread now.
+    pub pass_recount_running: bool,
 }
 
 /// What Retry now did.

@@ -27,6 +27,7 @@ import {
   saveGarminUpload,
   saveGarminAutoSwap,
 } from '../lib/garminConnector';
+import { useExperimental } from '../lib/experimental';
 import { settingsStyles } from './settingsStyles';
 
 const STATUS_KEY = {
@@ -45,6 +46,7 @@ export function GarminConnector() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const palette = isDark ? darkColors : colors;
+  const garminUpdateOn = useExperimental('garminUpdate');
   const { data: athlete } = useAthlete();
   const { upgradePermissions } = usePermissionUpgrade();
   const writeAccessMissing = useWriteAccessMissing();
@@ -253,23 +255,25 @@ export function GarminConnector() {
                 onValueChange={(value) => void changeUpload(value)}
                 testID="garmin-upload-switch"
               />
-              <SwitchRow
-                title={t('garmin.autoSwapTitle')}
-                description={t('garmin.autoSwapHint')}
-                value={autoSwapOn}
-                onValueChange={(value) => void changeAutoSwap(value)}
-                accessory={
-                  <Badge
-                    testID="garmin-auto-swap-experimental"
-                    tone="neutral"
-                    size="sm"
-                    text={t('common.experimental')}
-                    isDark={isDark}
-                  />
-                }
-                testID="garmin-auto-swap-switch"
-              />
-              {autoSwapStopped ? (
+              {garminUpdateOn ? (
+                <SwitchRow
+                  title={t('garmin.autoSwapTitle')}
+                  description={t('garmin.autoSwapHint')}
+                  value={autoSwapOn}
+                  onValueChange={(value) => void changeAutoSwap(value)}
+                  accessory={
+                    <Badge
+                      testID="garmin-auto-swap-experimental"
+                      tone="neutral"
+                      size="sm"
+                      text={t('common.experimental')}
+                      isDark={isDark}
+                    />
+                  }
+                  testID="garmin-auto-swap-switch"
+                />
+              ) : null}
+              {garminUpdateOn && autoSwapStopped ? (
                 <View style={styles.content}>
                   <InlineNotice
                     tone="warning"

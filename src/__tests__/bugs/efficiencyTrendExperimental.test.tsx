@@ -1,7 +1,7 @@
 /**
  * Scenario: the efficiency trend is heart rate times pace, a figure nobody can
  * read and whose sign can disagree with heart rate at a matched pace. It is an
- * experimental feature behind the developer switch.
+ * experimental feature behind the experimental switch.
  *
  * The wellness and speed card joins it there: at a typical library's attempt
  * counts it can only read "No clear link", a null its sample could not find.
@@ -108,17 +108,17 @@ const efficiencyInsights = (insights: { category: string }[]) =>
 
 describe('the efficiency trend on the Insights list and the widget', () => {
   afterEach(() => {
-    useDebugStore.setState({ enabled: false, unlocked: false });
+    useDebugStore.setState({ experimentalEnabled: false, experimentalUnlocked: false });
   });
 
   it('yields no efficiency insight without the experimental switch', () => {
-    useDebugStore.setState({ enabled: false, unlocked: false });
+    useDebugStore.setState({ experimentalEnabled: false, experimentalUnlocked: false });
     const { insights } = computeInsightsFromData(bundle(), t, true);
     expect(efficiencyInsights(insights)).toEqual([]);
   });
 
   it('yields one, labelled experimental, with the switch on', () => {
-    useDebugStore.setState({ enabled: true, unlocked: true });
+    useDebugStore.setState({ experimentalEnabled: true, experimentalUnlocked: true });
     const { insights } = computeInsightsFromData(bundle(), t, true);
     const shown = efficiencyInsights(insights) as { experimental?: boolean }[];
     expect(shown).toHaveLength(1);
@@ -126,15 +126,15 @@ describe('the efficiency trend on the Insights list and the widget', () => {
   });
 
   it('follows a flip of the switch between two reads', () => {
-    useDebugStore.setState({ enabled: true, unlocked: true });
+    useDebugStore.setState({ experimentalEnabled: true, experimentalUnlocked: true });
     expect(efficiencyInsights(computeInsightsFromData(bundle(), t, true).insights)).toHaveLength(1);
 
-    useDebugStore.setState({ enabled: false, unlocked: false });
+    useDebugStore.setState({ experimentalEnabled: false, experimentalUnlocked: false });
     expect(efficiencyInsights(computeInsightsFromData(bundle(), t, true).insights)).toEqual([]);
   });
 
   it('draws the experimental label on the list card', async () => {
-    useDebugStore.setState({ enabled: true, unlocked: true });
+    useDebugStore.setState({ experimentalEnabled: true, experimentalUnlocked: true });
     const { insights } = computeInsightsFromData(bundle(), t, true);
     const insight = insights.find((i) => i.category === 'efficiency_trend');
     expect(insight).toBeDefined();
@@ -143,12 +143,79 @@ describe('the efficiency trend on the Insights list and the widget', () => {
   });
 
   it('draws no experimental label on a card that is not experimental', async () => {
-    useDebugStore.setState({ enabled: true, unlocked: true });
+    useDebugStore.setState({ experimentalEnabled: true, experimentalUnlocked: true });
     const { insights } = computeInsightsFromData(bundle(), t, true);
     const insight = insights.find((i) => i.category === 'efficiency_trend')!;
     const { experimental: _experimental, ...settled } = insight;
     const screen = await render(<InsightListCard insight={settled} onPress={() => {}} />);
     expect(screen.queryByTestId('insight-experimental')).toBeNull();
+  });
+});
+
+describe('debug mode is not the experimental switch', () => {
+  afterEach(() => {
+    useDebugStore.setState({ enabled: false, unlocked: false });
+    useDebugStore.setState({
+      experimentalEnabled: false,
+      experimentalUnlocked: false,
+      experimentalFeatures: {},
+    });
+  });
+
+  it('yields no efficiency insight with debug on and the experimental switch off', () => {
+    useDebugStore.setState({ enabled: true, unlocked: true });
+    const { insights } = computeInsightsFromData(bundle(), t, true);
+    expect(efficiencyInsights(insights)).toEqual([]);
+  });
+
+  it('yields no efficiency insight when its own entry is off under the master switch', () => {
+    useDebugStore.setState({
+      experimentalEnabled: true,
+      experimentalUnlocked: true,
+      experimentalFeatures: { efficiencyTrends: false },
+    });
+    const { insights } = computeInsightsFromData(bundle(), t, true);
+    expect(efficiencyInsights(insights)).toEqual([]);
+  });
+
+  it('draws neither section card with debug on and the experimental switch off', async () => {
+    useDebugStore.setState({ enabled: true, unlocked: true });
+    const props = {
+      isDark: false,
+      mergeCandidates: [],
+      isSectionDisabled: false,
+      combinedChartData: [],
+      trendCurves: {},
+      calendarSummary: null,
+      correlations: [inconclusiveRow()],
+      correlationFloor: 10,
+      efficiencyTrend: efficiencyTrend(),
+    } as unknown as React.ComponentProps<typeof SectionContentArea>;
+    const screen = await render(<SectionContentArea {...props} />);
+    expect(screen.queryByTestId('section-efficiency-card')).toBeNull();
+    expect(screen.queryByTestId('section-correlation-card')).toBeNull();
+  });
+
+  it('draws one card without the other when only its entry is on', async () => {
+    useDebugStore.setState({
+      experimentalEnabled: true,
+      experimentalUnlocked: true,
+      experimentalFeatures: { sectionCorrelations: false },
+    });
+    const props = {
+      isDark: false,
+      mergeCandidates: [],
+      isSectionDisabled: false,
+      combinedChartData: [],
+      trendCurves: {},
+      calendarSummary: null,
+      correlations: [inconclusiveRow()],
+      correlationFloor: 10,
+      efficiencyTrend: efficiencyTrend(),
+    } as unknown as React.ComponentProps<typeof SectionContentArea>;
+    const screen = await render(<SectionContentArea {...props} />);
+    expect(screen.getByTestId('section-efficiency-card')).toBeTruthy();
+    expect(screen.queryByTestId('section-correlation-card')).toBeNull();
   });
 });
 
@@ -166,17 +233,17 @@ describe('the experimental cards on the section and route pages', () => {
   } as unknown as React.ComponentProps<typeof SectionContentArea>;
 
   afterEach(() => {
-    useDebugStore.setState({ enabled: false, unlocked: false });
+    useDebugStore.setState({ experimentalEnabled: false, experimentalUnlocked: false });
   });
 
   it('draws no efficiency card without the switch', async () => {
-    useDebugStore.setState({ enabled: false });
+    useDebugStore.setState({ experimentalEnabled: false, experimentalUnlocked: false });
     const screen = await render(<SectionContentArea {...props} />);
     expect(screen.queryByTestId('section-efficiency-card')).toBeNull();
   });
 
   it('draws the card, labelled experimental, with the switch on', async () => {
-    useDebugStore.setState({ enabled: true, unlocked: true });
+    useDebugStore.setState({ experimentalEnabled: true, experimentalUnlocked: true });
     const screen = await render(<SectionContentArea {...props} />);
     expect(screen.getByTestId('section-efficiency-card')).toBeTruthy();
     expect(screen.getByTestId('section-efficiency-experimental')).toBeTruthy();
@@ -185,7 +252,7 @@ describe('the experimental cards on the section and route pages', () => {
   it.each(['section', 'route'] as const)(
     'draws no wellness and speed card on the %s page without the switch',
     async (subject) => {
-      useDebugStore.setState({ enabled: false, unlocked: false });
+      useDebugStore.setState({ experimentalEnabled: false, experimentalUnlocked: false });
       const screen = await render(<SectionContentArea {...props} subject={subject} />);
       expect(screen.queryByTestId('section-correlation-card')).toBeNull();
     }
@@ -194,7 +261,7 @@ describe('the experimental cards on the section and route pages', () => {
   it.each(['section', 'route'] as const)(
     'draws the wellness and speed card on the %s page, labelled experimental, with the switch on',
     async (subject) => {
-      useDebugStore.setState({ enabled: true, unlocked: true });
+      useDebugStore.setState({ experimentalEnabled: true, experimentalUnlocked: true });
       const screen = await render(<SectionContentArea {...props} subject={subject} />);
       const card = screen.getByTestId('section-correlation-card');
       expect(within(card).getByTestId('section-correlation-experimental')).toBeTruthy();

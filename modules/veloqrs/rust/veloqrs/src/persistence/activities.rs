@@ -141,6 +141,13 @@ pub const ELEVATION_STATE_UNAVAILABLE: u8 = 2;
 /// fact. This one is nobody ever getting an answer at all, so it makes no
 /// claim about the ground.
 pub const ELEVATION_STATE_UNREACHABLE: u8 = 3;
+/// Elevation provenance a stored track can be in: `elevation_state` 4.
+///
+/// Upstream refused the ask with a 403, which is what a data block looks like
+/// and says nothing about the ground. Out of the queue, so it never holds
+/// detection or the cutover, and asked again when the activity's version
+/// changes or the athlete asks.
+pub const ELEVATION_STATE_WITHHELD: u8 = 4;
 
 /// Which altitude series a stored track's points carry: `elevation_source` 0.
 /// Every row stored before the column existed, and every track whose points
@@ -239,13 +246,15 @@ pub struct ElevationStateCounts {
     pub unavailable: u64,
     /// Asked until the backfill gave up, and upstream never answered.
     pub unreachable: u64,
+    /// Upstream refused the ask with a 403.
+    pub withheld: u64,
 }
 
 impl ElevationStateCounts {
     /// Tracks in a state other than `fetched`, ie. the size of the remaining
     /// backfill plus the activities that can never be filled.
     pub fn not_fetched(&self) -> u64 {
-        self.unknown + self.unavailable + self.unreachable
+        self.unknown + self.unavailable + self.unreachable + self.withheld
     }
 }
 
@@ -1684,6 +1693,45 @@ pub(crate) mod pooled {
 // Both fragments refer to the activity_census alias `c`.
 const CENSUS_ROW_CHANGED: &str = "c.fetched_sync_date IS NOT c.icu_sync_date";
 
+/// The version of the activity upstream now names for a `gps_tracks` row
+/// under the alias `gps_tracks`, read from the census under either of the
+/// row's ids. NULL when the census holds no row for it.
+const CENSUS_VERSION_OF_TRACK: &str = "SELECT c.icu_sync_date FROM activity_census c \
+     WHERE c.intervals_id IN (gps_tracks.activity_id, \
+           (SELECT a.intervals_id FROM activities a WHERE a.id = gps_tracks.activity_id)) \
+     LIMIT 1";
+
+/// The write behind [`PersistentEngine::reopen_changed_elevation`], over any
+/// connection so a census write can run it inside its own transaction.
+fn reopen_changed_elevation_on(conn: &rusqlite::Connection) -> SqlResult<u64> {
+    let reopened = conn.execute(
+        &format!(
+            "UPDATE gps_tracks SET elevation_state = ?1, elevation_attempts = 0, \
+                    elevation_settled_version = NULL \
+             WHERE elevation_state IN (?2, ?3) \
+               AND elevation_settled_version IS NOT NULL \
+               AND ({CENSUS_VERSION_OF_TRACK}) IS NOT NULL \
+               AND ({CENSUS_VERSION_OF_TRACK}) IS NOT elevation_settled_version"
+        ),
+        params![
+            i64::from(ELEVATION_STATE_UNKNOWN),
+            i64::from(ELEVATION_STATE_UNAVAILABLE),
+            i64::from(ELEVATION_STATE_WITHHELD),
+        ],
+    )?;
+    Ok(reopened as u64)
+}
+
+/// Put back in both download queues every settled or withheld answer whose
+/// activity the census now names at another version. The one place a version
+/// moves is a census write, so each of those runs this in its own transaction
+/// and the next pass finds the activity owed.
+pub(super) fn reopen_changed_answers(conn: &rusqlite::Connection) -> SqlResult<()> {
+    reopen_changed_elevation_on(conn)?;
+    super::streams::reopen_changed_streams_on(conn)?;
+    Ok(())
+}
+
 pub(super) fn detail_body_present(raw: &str) -> String {
     format!("json_valid({raw}) AND COALESCE(json_extract({raw}, '$.icu_athlete_id'), '') != ''")
 }
@@ -3076,8 +3124,16 @@ impl PersistentEngine {
                 let placeholders = std::iter::repeat_n("?", chunk.len())
                     .collect::<Vec<_>>()
                     .join(",");
+                let version = if state == i64::from(ELEVATION_STATE_UNAVAILABLE)
+                    || state == i64::from(ELEVATION_STATE_WITHHELD)
+                {
+                    format!("({CENSUS_VERSION_OF_TRACK})")
+                } else {
+                    "NULL".to_string()
+                };
                 let sql = format!(
-                    "UPDATE gps_tracks SET elevation_state = ?, elevation_attempts = 0 \
+                    "UPDATE gps_tracks SET elevation_state = ?, elevation_attempts = 0, \
+                     elevation_settled_version = {version} \
                      WHERE activity_id IN ({})",
                     placeholders
                 );
@@ -3238,6 +3294,28 @@ impl PersistentEngine {
         Ok(retired)
     }
 
+    /// Ask again for every withheld track, on the athlete's request. A track
+    /// settled flat is an answer about the activity and stays settled.
+    fn release_withheld_elevation(&self) -> SqlResult<u64> {
+        let released = self.db.execute(
+            "UPDATE gps_tracks SET elevation_state = ?1, elevation_attempts = 0, \
+                    elevation_settled_version = NULL \
+             WHERE elevation_state = ?2",
+            params![
+                i64::from(ELEVATION_STATE_UNKNOWN),
+                i64::from(ELEVATION_STATE_WITHHELD),
+            ],
+        )?;
+        Ok(released as u64)
+    }
+
+    /// Ask again for every track and series upstream withheld, on the
+    /// athlete's request, and return how many went back to the queues. What
+    /// Retry now calls before it restarts the downloads.
+    pub fn release_withheld_downloads(&self) -> SqlResult<u64> {
+        Ok(self.release_withheld_elevation()? + self.release_withheld_streams()?)
+    }
+
     /// How many stored tracks sit in each elevation provenance state. Any value
     /// outside the known set counts as unknown, which is the honest reading of
     /// a state this build does not understand.
@@ -3255,6 +3333,7 @@ impl PersistentEngine {
                 ELEVATION_STATE_FETCHED => counts.fetched += n,
                 ELEVATION_STATE_UNAVAILABLE => counts.unavailable += n,
                 ELEVATION_STATE_UNREACHABLE => counts.unreachable += n,
+                ELEVATION_STATE_WITHHELD => counts.withheld += n,
                 _ => counts.unknown += n,
             }
         }
@@ -3374,6 +3453,7 @@ impl PersistentEngine {
                    AND intervals_id NOT IN (SELECT value FROM json_each(?2))",
                 params![athlete_id, ids],
             )?;
+            reopen_changed_answers(&tx)?;
             Ok(())
         })();
         written?;
@@ -4733,6 +4813,7 @@ impl PersistentEngine {
                     census.has_series
                 ],
             )?;
+            reopen_changed_answers(db)?;
             Ok(moved)
         })
     }

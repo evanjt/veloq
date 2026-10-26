@@ -2344,7 +2344,10 @@
     "sectionsBeforeAfter": "Sections avant la nouvelle analyse : {{before}}. Après : {{after}}.",
     "debugMode": "Mode débogage",
     "debugModeDescription": "Afficher les diagnostics internes dans les pages de détail",
-    "developerDashboardDescription": "Statistiques du moteur, performances FFI, mémoire"
+    "developerDashboardDescription": "Statistiques du moteur, performances FFI, mémoire",
+    "experimentalFeatures": "Fonctions expérimentales",
+    "experimentalFeaturesDescription": "Affiche des fonctions encore en cours de développement, chacune avec son propre interrupteur",
+    "experimentalDashboardDescription": "Active ou désactive chaque fonction expérimentale et ouvre-la"
   },
   "stats": {
     "activities": "Activités",
@@ -2634,7 +2637,21 @@
       "mapsWidgetsBody": "Les activités vallonnées se dessinent sur un relief en 3D. Les widgets Résumé et Force affichent votre entraînement sur l'écran d'accueil.",
       "mapsWidgetsTip": "Choisissez quand les cartes s'affichent en 3D dans Réglages, sous Cartes.",
       "rebuiltTitle": "Sections reconstruites",
-      "rebuiltBody": "Les sections sont identiques sur tous les appareils et chaque modification est conservée dans un historique que vous pouvez annuler."
+      "rebuiltBody": "Les sections sont identiques sur tous les appareils et chaque modification est conservée dans un historique que vous pouvez annuler.",
+      "changesTitle": "Autres changements",
+      "changesBody": "Des changements qui arrivent avec la mise à jour, même si tu ne les as pas demandés.",
+      "changesSectionsLabel": "Les sections peuvent bouger",
+      "changesSectionsCaption": "Une carte indique ce qui a bougé.",
+      "changesVisitsLabel": "Nombre de visites et records",
+      "changesVisitsCaption": "Un passage ne compte que s'il couvre toute la section. Certaines visites et certains records baissent.",
+      "changesBackupLabel": "Sauvegarde de la bibliothèque",
+      "changesBackupCaption": "Google ne restaure plus ta bibliothèque sur un nouveau téléphone. Sauvegarde dans Documents/Veloq.",
+      "changesDetectionLabel": "Rigueur de détection",
+      "changesDetectionCaption": "Ce n'est plus un réglage. Ta bibliothèque passe aux valeurs par défaut validées.",
+      "changesNotificationsLabel": "Notifications d'aperçus",
+      "changesNotificationsCaption": "Sur Android, le canal des aperçus est nouveau. Un son ou une mise en sourdine réglés sur l'ancien canal sont perdus.",
+      "changesPortraitLabel": "Portrait uniquement",
+      "changesPortraitCaption": "L'application ne s'ouvre qu'en portrait. Sur iOS, les liens intervals.icu n'ouvrent plus Veloq."
     },
     "tutorial": {
       "firstLoadLine": "Le premier chargement depuis intervals.icu est en cours. Votre fil se remplit à mesure que les activités arrivent.",
@@ -2944,6 +2961,7 @@
     "detectionWaiting_many": "{{count}} d'activités à examiner",
     "detectionWaiting_other": "{{count}} activités à examiner",
     "cutoverWaiting": "En attente de la reconstruction de tes sections",
+    "passRecount": "Recomptage des passages",
     "statePaused": "En pause jusqu'à la prochaine ouverture de l'app",
     "stateWaiting": "En attente de reprise",
     "resumesAt": "Reprise : {{time}}",
@@ -3207,6 +3225,22 @@
       "im": "4 nages",
       "reverseIm": "4 nages inversé",
       "unknown": "Nage inconnue"
+    }
+  },
+  "experimental": {
+    "title": "Fonctions expérimentales",
+    "open": "Ouvrir",
+    "efficiencyTrends": {
+      "title": "Tendances d'efficacité",
+      "blurb": "La fréquence cardiaque à allure égale sur tes efforts, comme analyse et sur la page du tronçon. Le chiffre est difficile à lire et son signe peut contredire la fréquence cardiaque."
+    },
+    "sectionCorrelations": {
+      "title": "Corrélations du tronçon",
+      "blurb": "Le lien entre les mesures de forme et ta vitesse sur un tronçon. Avec un nombre d'essais courant, elle ne peut dire qu'il n'y a pas de lien net."
+    },
+    "garminUpdate": {
+      "title": "Mettre à jour les activités depuis Garmin",
+      "blurb": "Remplace la copie d'intervals.icu par le fichier propre de Garmin quand il contient davantage. Demande une clé Garmin. Pas terminé."
     }
   }
 }

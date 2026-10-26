@@ -18,6 +18,17 @@ impl PersistentEngine {
         pooled::sections_by_type(&self.db, section_type, &self.named_overlay_cached_names())
     }
 
+    /// [`get_sections_by_type`] that fails when any row, line, count or member
+    /// set cannot be read, rather than answering a shorter catalogue.
+    #[doc(hidden)]
+    pub fn try_get_sections_by_type(
+        &self,
+        section_type: Option<SectionType>,
+    ) -> Result<Vec<Section>, String> {
+        pooled::try_sections_by_type(&self.db, section_type, &self.named_overlay_cached_names())
+            .map_err(|error| error.to_string())
+    }
+
     /// Get all visible sections that contain a specific activity.
     /// Uses section_activities junction table for O(1) lookup (was O(N)
     /// with full table scan). 25-50x speedup: 250-570ms → 10-20ms.
@@ -414,7 +425,7 @@ pub(crate) mod pooled {
         let rep_start: Option<u32> = row.get(33)?;
         let rep_end: Option<u32> = row.get(34)?;
 
-        let activity_ids = section_activity_ids(conn, &id);
+        let activity_ids = try_section_activity_ids(conn, &id)?;
         let point_density = decode_point_density(
             point_density_blob.as_deref(),
             point_density_json.as_deref(),
@@ -423,18 +434,37 @@ pub(crate) mod pooled {
             23,
         )?;
 
+        // An absent line or a vanished stream reads empty; a stored line that
+        // does not decode is an error, so no read answers a shorter section
+        // than the file holds.
+        let polyline = geometry::line(
+            conn,
+            polyline_blob.as_deref(),
+            polyline_json.as_deref(),
+            geometry::reference(representative_activity_id.as_deref(), rep_start, rep_end),
+        )
+        .or_else(|error| {
+            let stored = polyline_blob.is_some()
+                || polyline_json
+                    .as_deref()
+                    .is_some_and(|j| !j.trim().is_empty());
+            if !stored {
+                return Ok(Vec::new());
+            }
+            log::error!("veloqrs: sections line decode failed for id {id}: {error}");
+            Err(rusqlite::Error::FromSqlConversionFailure(
+                4,
+                rusqlite::types::Type::Blob,
+                error.into(),
+            ))
+        })?;
+
         Ok(Section {
             id,
             section_type: SectionType::parse(&section_type_str).unwrap_or(SectionType::Auto),
             name: row.get(2)?,
             sport_type: row.get(3)?,
-            polyline: geometry::line(
-                conn,
-                polyline_blob.as_deref(),
-                polyline_json.as_deref(),
-                geometry::reference(representative_activity_id.as_deref(), rep_start, rep_end),
-            )
-            .unwrap_or_default(),
+            polyline,
             distance_meters: row.get(5)?,
             representative_activity_id,
             activity_ids,
@@ -534,25 +564,74 @@ pub(crate) mod pooled {
     }
 
     /// Fill in what `section_from_row` left: the traversal count and the
-    /// routes, the latter in one query for the whole batch.
-    fn finish(conn: &Connection, sections: &mut [Section], names: &BTreeMap<String, String>) {
-        for section in sections.iter_mut() {
-            section.visit_count = section_visit_count(conn, &section.id);
-            apply_overlay(section, names);
-        }
+    /// routes, the latter in one query for the whole batch. A section whose
+    /// count can be neither read nor recounted is taken out and its failure
+    /// returned.
+    fn finish(
+        conn: &Connection,
+        sections: &mut Vec<Section>,
+        names: &BTreeMap<String, String>,
+    ) -> Vec<rusqlite::Error> {
+        let mut failures = Vec::new();
+        sections.retain_mut(|section| match visit_count_or_recount(conn, &section.id) {
+            Ok(count) => {
+                section.visit_count = count;
+                apply_overlay(section, names);
+                true
+            }
+            Err(error) => {
+                log::error!("section {} left out, count unreadable: {error}", section.id);
+                failures.push(error);
+                false
+            }
+        });
         let ids: Vec<String> = sections.iter().map(|s| s.id.clone()).collect();
         let mut routes = super::super::super::routes::pooled::route_ids_for_sections(conn, &ids);
         for section in sections.iter_mut() {
             section.route_ids = Some(routes.remove(&section.id).unwrap_or_default());
         }
+        failures
     }
 
-    /// Every visible section, optionally narrowed to one type.
+    /// Every visible section, optionally narrowed to one type. A section that
+    /// cannot be read whole is logged and left out, so one bad row never
+    /// empties a screen. Callers that must tell a short read from a whole one
+    /// use [`try_sections_by_type`].
     pub(crate) fn sections_by_type(
         conn: &Connection,
         section_type: Option<SectionType>,
         names: &BTreeMap<String, String>,
     ) -> Vec<Section> {
+        match read_sections(conn, section_type, names) {
+            Ok((sections, _failures)) => sections,
+            Err(error) => {
+                log::error!("sections list query failed: {error}");
+                Vec::new()
+            }
+        }
+    }
+
+    /// [`sections_by_type`] with any row that cannot be decoded, any failed
+    /// nested read and a failed query as an error, never a shorter list.
+    pub(crate) fn try_sections_by_type(
+        conn: &Connection,
+        section_type: Option<SectionType>,
+        names: &BTreeMap<String, String>,
+    ) -> rusqlite::Result<Vec<Section>> {
+        let (sections, mut failures) = read_sections(conn, section_type, names)?;
+        if failures.is_empty() {
+            Ok(sections)
+        } else {
+            Err(failures.swap_remove(0))
+        }
+    }
+
+    /// The readable sections and one error for each that was not.
+    fn read_sections(
+        conn: &Connection,
+        section_type: Option<SectionType>,
+        names: &BTreeMap<String, String>,
+    ) -> rusqlite::Result<(Vec<Section>, Vec<rusqlite::Error>)> {
         let query = match section_type {
             Some(st) => format!(
                 "SELECT {} FROM sections WHERE section_type = '{}' AND {}",
@@ -565,28 +644,20 @@ pub(crate) mod pooled {
                 SECTION_COLUMNS, VISIBLE_FILTER
             ),
         };
-        let mut stmt = match conn.prepare(&query) {
-            Ok(stmt) => stmt,
-            Err(error) => {
-                log::error!("sections list query failed: {error}");
-                return Vec::new();
-            }
-        };
+        let mut stmt = conn.prepare(&query)?;
         let mut sections = Vec::new();
-        let rows = stmt.query_map([], |row| section_from_row(conn, row));
-        match rows {
-            Ok(rows) => {
-                for row in rows {
-                    match row {
-                        Ok(section) => sections.push(section),
-                        Err(error) => log::error!("sections row decode failed: {error}"),
-                    }
+        let mut failures = Vec::new();
+        for row in stmt.query_map([], |row| section_from_row(conn, row))? {
+            match row {
+                Ok(section) => sections.push(section),
+                Err(error) => {
+                    log::error!("sections row decode failed: {error}");
+                    failures.push(error);
                 }
             }
-            Err(error) => log::error!("sections list query failed: {error}"),
         }
-        finish(conn, &mut sections, names);
-        sections
+        failures.extend(finish(conn, &mut sections, names));
+        Ok((sections, failures))
     }
 
     /// Every visible section a given activity traverses, most-traversed first
@@ -979,27 +1050,59 @@ pub(crate) mod pooled {
         sections
     }
 
-    /// The activities a section has been traversed in, excluded laps aside.
+    /// The activities a section has been traversed in, excluded laps aside. A
+    /// failed read is logged and answers none.
     pub(crate) fn section_activity_ids(conn: &Connection, section_id: &str) -> Vec<String> {
-        let Ok(mut stmt) = conn.prepare(
+        try_section_activity_ids(conn, section_id).unwrap_or_else(|error| {
+            log::error!("section activity ids read failed for {section_id}: {error}");
+            Vec::new()
+        })
+    }
+
+    /// [`section_activity_ids`] with a failed read as an error.
+    pub(crate) fn try_section_activity_ids(
+        conn: &Connection,
+        section_id: &str,
+    ) -> rusqlite::Result<Vec<String>> {
+        let mut stmt = conn.prepare(
             "SELECT DISTINCT activity_id FROM section_activities WHERE section_id = ?1 AND excluded = 0",
-        ) else {
-            return Vec::new();
-        };
-        stmt.query_map(params![section_id], |row| row.get(0))
-            .map(|rows| rows.filter_map(|r| r.ok()).collect())
-            .unwrap_or_default()
+        )?;
+        stmt.query_map(params![section_id], |row| row.get(0))?
+            .collect()
+    }
+
+    /// The stored count, or the one the section's members give when the column
+    /// does not read. The recount is the query that fills the column.
+    fn visit_count_or_recount(conn: &Connection, section_id: &str) -> rusqlite::Result<u32> {
+        try_section_visit_count(conn, section_id).or_else(|error| {
+            log::warn!("section {section_id} count unreadable, recounting: {error}");
+            conn.query_row(
+                &crate::persistence::schema::visit_count_sql("?1"),
+                params![section_id],
+                |row| row.get(0),
+            )
+        })
     }
 
     /// Traversals, not activities: the trigger-maintained column, never a
-    /// recount of its own.
+    /// recount of its own. A failed read is logged and answers zero.
     pub(crate) fn section_visit_count(conn: &Connection, section_id: &str) -> u32 {
+        try_section_visit_count(conn, section_id).unwrap_or_else(|error| {
+            log::error!("section visit count read failed for {section_id}: {error}");
+            0
+        })
+    }
+
+    /// [`section_visit_count`] with a failed read as an error.
+    pub(crate) fn try_section_visit_count(
+        conn: &Connection,
+        section_id: &str,
+    ) -> rusqlite::Result<u32> {
         conn.query_row(
             "SELECT visit_count FROM sections WHERE id = ?",
             params![section_id],
             |row| row.get(0),
         )
-        .unwrap_or(0)
     }
 
     /// Auto sections a custom section covers: the fraction of the auto line
@@ -1493,6 +1596,136 @@ mod tests {
         assert!(pooled::sections_for_activity(&engine.db, "missing", &names).is_empty());
         assert!(pooled::section(&engine.db, "missing", &names).is_none());
         assert!(engine.get_sections_for_activity("missing").is_empty());
+    }
+
+    /// Scenario: a stored line that cannot be decoded, with no stream to
+    /// rebuild it from.
+    ///
+    /// Expected behaviour: the checked list read names the failure instead of
+    /// answering a section with an empty line. A line that is merely absent
+    /// still reads, empty.
+    #[test]
+    fn a_line_that_cannot_decode_is_an_error_not_an_empty_line() {
+        let _serial = serial_global_state();
+        let tmp = TempDir::new().unwrap();
+        let engine = engine_with_a_section(&tmp);
+        let names = engine.named_overlay_cached_names();
+        assert_eq!(
+            pooled::try_sections_by_type(&engine.db, None, &names)
+                .unwrap()
+                .len(),
+            1
+        );
+
+        engine
+            .db
+            .execute(
+                "UPDATE sections SET polyline_json = 'not a line' WHERE id = 's0'",
+                [],
+            )
+            .unwrap();
+        assert!(pooled::try_sections_by_type(&engine.db, None, &names).is_err());
+
+        engine
+            .db
+            .execute(
+                "UPDATE sections SET polyline_json = NULL WHERE id = 's0'",
+                [],
+            )
+            .unwrap();
+        let sections = pooled::try_sections_by_type(&engine.db, None, &names).unwrap();
+        assert!(sections[0].polyline.is_empty());
+    }
+
+    /// Scenario: a section's stored line cannot be decoded and its source
+    /// stream is stored.
+    ///
+    /// Expected behaviour: it lists with the line rebuilt from the stream.
+    #[test]
+    fn a_corrupt_line_with_a_stored_stream_lists_rebuilt() {
+        let _serial = serial_global_state();
+        let tmp = TempDir::new().unwrap();
+        let engine = engine_with_a_section(&tmp);
+        let names = engine.named_overlay_cached_names();
+        engine
+            .db
+            .execute(
+                "UPDATE sections SET polyline_json = 'not a line',
+                    representative_activity_id = 'a1',
+                    rep_start_index = 1, rep_end_index = 5
+                 WHERE id = 's0'",
+                [],
+            )
+            .unwrap();
+        let sections = pooled::try_sections_by_type(&engine.db, None, &names).unwrap();
+        assert_eq!(sections.len(), 1);
+        assert_eq!(sections[0].polyline.len(), 4);
+    }
+
+    /// Scenario: a section's stored visit count cannot be read.
+    ///
+    /// Expected behaviour: it lists with the count recounted from its members.
+    #[test]
+    fn an_unreadable_visit_count_is_recounted_from_the_members() {
+        let _serial = serial_global_state();
+        let tmp = TempDir::new().unwrap();
+        let engine = engine_with_a_section(&tmp);
+        let names = engine.named_overlay_cached_names();
+        let expected: u32 = engine
+            .db
+            .query_row(
+                &crate::persistence::schema::visit_count_sql("'s0'"),
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        engine
+            .db
+            .execute(
+                "UPDATE sections SET visit_count = 'many' WHERE id = 's0'",
+                [],
+            )
+            .unwrap();
+        let sections = pooled::try_sections_by_type(&engine.db, None, &names).unwrap();
+        assert_eq!(sections.len(), 1);
+        assert_eq!(sections[0].visit_count, expected);
+    }
+
+    /// Scenario: one section row cannot be decoded among several.
+    ///
+    /// Expected behaviour: the screen read lists every other section and the
+    /// checked read still names the failure.
+    #[test]
+    fn one_corrupt_row_leaves_every_other_section_listed() {
+        let _serial = serial_global_state();
+        let tmp = TempDir::new().unwrap();
+        let engine = engine_with_a_section(&tmp);
+        let names = engine.named_overlay_cached_names();
+        engine
+            .db
+            .execute(
+                "INSERT INTO sections (id, section_type, name, sport_type, polyline_json,
+                    distance_meters, is_user_defined, version, created_at,
+                    bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
+                 VALUES ('s1', 'auto', 'Climb 2', 'Ride', NULL, 400.0, 0, 1,
+                    '2026-01-01T00:00:00Z', 46.2, 46.21, 7.3, 7.31)",
+                [],
+            )
+            .unwrap();
+        let before = pooled::sections_by_type(&engine.db, None, &names);
+        assert!(!before.is_empty());
+
+        engine
+            .db
+            .execute(
+                "UPDATE sections SET polyline_json = 'not a line' WHERE id = 's0'",
+                [],
+            )
+            .unwrap();
+        let after = pooled::sections_by_type(&engine.db, None, &names);
+        assert!(after.iter().all(|s| s.id != "s0"));
+        assert_eq!(after.len(), before.len() - 1);
+        assert!(pooled::try_sections_by_type(&engine.db, None, &names).is_err());
     }
 }
 

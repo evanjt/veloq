@@ -12,6 +12,7 @@ import {
 } from '@/features/recording';
 import { Badge, Button, StatusLine } from '@/shared/ui';
 import { confirmAction } from '@/shared/ui/dialog';
+import { useExperimental } from '@/features/settings/light';
 import { colors, darkColors, spacing, typography } from '@/theme';
 
 import { useGarminSwap } from '../hooks/useGarminSwap';
@@ -22,13 +23,19 @@ interface Props {
 
 /**
  * The foot of an activity intervals.icu imported from Garmin: an experimental
- * button that replaces intervals.icu's copy with Garmin's own file, and Undo
+ * feature, absent unless its experimental switch is on. A button
+ * that replaces intervals.icu's copy with Garmin's own file, and Undo
  * once it has. The engine decides whether to show either, so nothing renders
  * without a connected key and a Garmin file that holds more than the copy.
  * A sign-in without write access asks for it at the tap, before the
  * confirmation, and the swap goes ahead only once it is granted.
  */
 export function ActivityGarminSwap({ activityId }: Props) {
+  const garminOn = useExperimental('garminUpdate');
+  return garminOn ? <GarminSwapBody activityId={activityId} /> : null;
+}
+
+function GarminSwapBody({ activityId }: Props) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const { state, busy, notice, swap, undo } = useGarminSwap(activityId);

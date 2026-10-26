@@ -253,14 +253,16 @@ pub fn lends_ground(fp: &SectionFingerprint, track: &[GpsPoint]) -> bool {
 }
 
 /// Snapshot the USER-VISIBLE catalogue: the DB view the app actually renders
-/// (`get_sections_by_type(None)`), which excludes disabled/superseded and
+/// (`try_get_sections_by_type(None)`), which excludes disabled/superseded and
 /// includes custom sections. Deliberately NOT the in-memory `get_sections()`
 /// detection cache: `apply_sections_save` sets that cache to the fresh
 /// detection result and never reloads from DB, so the cache and the visible
 /// view can diverge. The suite measures what the user
 /// experiences, so it reads the visible view.
 pub fn snapshot(engine: &mut PersistentEngine) -> SectionSnapshot {
-    let sections = engine.get_sections_by_type(None);
+    let sections = engine
+        .try_get_sections_by_type(None)
+        .expect("the visible catalogue reads whole");
     SectionSnapshot {
         sections: sections
             .into_iter()

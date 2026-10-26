@@ -498,7 +498,10 @@ fn an_upgrade_clears_rows_written_before_the_final_step_fix_and_owes_them_again(
                  ALTER TABLE push_runs DROP COLUMN posted_body;
                  DROP TABLE activity_sync_failures;
                  DROP TABLE activity_held_back;
-                 DROP TABLE garmin_link_unresolved;",
+                 DROP TABLE garmin_link_unresolved;
+                 ALTER TABLE gps_tracks DROP COLUMN elevation_settled_version;
+                 ALTER TABLE activity_stream_backfill DROP COLUMN withheld;
+                 ALTER TABLE activity_stream_backfill DROP COLUMN settled_version;",
             )
             .unwrap();
         engine

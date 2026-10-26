@@ -2344,7 +2344,10 @@
     "sectionsBeforeAfter": "Troços antes da nova análise: {{before}}. Depois: {{after}}.",
     "debugMode": "Modo de depuração",
     "debugModeDescription": "Mostrar diagnósticos internos nas páginas de detalhe",
-    "developerDashboardDescription": "Estatísticas do motor, desempenho FFI, memória"
+    "developerDashboardDescription": "Estatísticas do motor, desempenho FFI, memória",
+    "experimentalFeatures": "Funcionalidades experimentais",
+    "experimentalFeaturesDescription": "Mostra funcionalidades ainda em desenvolvimento, cada uma com o seu próprio interruptor",
+    "experimentalDashboardDescription": "Ativa ou desativa cada funcionalidade experimental e abre-a"
   },
   "stats": {
     "activities": "Atividades",
@@ -2611,7 +2614,21 @@
       "mapsWidgetsBody": "As atividades com desnível são desenhadas em terreno 3D. Os widgets Resumo e Força mostram o seu treino no ecrã principal.",
       "mapsWidgetsTip": "Escolha quando os mapas são desenhados em 3D em Definições, em Mapas.",
       "rebuiltTitle": "Secções reconstruídas",
-      "rebuiltBody": "As secções saem iguais em todos os dispositivos e cada alteração fica guardada num histórico que pode reverter."
+      "rebuiltBody": "As secções saem iguais em todos os dispositivos e cada alteração fica guardada num histórico que pode reverter.",
+      "changesTitle": "Outras alterações",
+      "changesBody": "Alterações que chegam com a atualização, mesmo sem as teres pedido.",
+      "changesSectionsLabel": "As secções podem mudar",
+      "changesSectionsCaption": "Na primeira abertura, algumas secções podem ser redesenhadas. Um cartão mostra o que mudou.",
+      "changesVisitsLabel": "Número de visitas e PRs",
+      "changesVisitsCaption": "Uma passagem só conta se cobrir a secção inteira. Algumas visitas e PRs descem.",
+      "changesBackupLabel": "Cópia de segurança da biblioteca",
+      "changesBackupCaption": "A Google já não repõe a tua biblioteca num telemóvel novo. Faz a cópia em Documents/Veloq.",
+      "changesDetectionLabel": "Rigor da deteção",
+      "changesDetectionCaption": "Já não é uma definição. A tua biblioteca passa para os valores predefinidos validados.",
+      "changesNotificationsLabel": "Notificações de insights",
+      "changesNotificationsCaption": "No Android, o canal de insights é novo. Um som ou silenciamento definido no canal antigo perdeu-se.",
+      "changesPortraitLabel": "Só na vertical",
+      "changesPortraitCaption": "A app abre só na vertical. No iOS, os links do intervals.icu deixam de abrir o Veloq."
     },
     "tutorial": {
       "firstLoadLine": "O primeiro carregamento do intervals.icu está em curso. O feed enche-se à medida que as atividades chegam.",
@@ -2921,6 +2938,7 @@
     "detectionWaiting_many": "{{count}} de atividades por verificar",
     "detectionWaiting_other": "{{count}} atividades por verificar",
     "cutoverWaiting": "A aguardar para reconstruir as tuas secções",
+    "passRecount": "Recontagem de passagens",
     "statePaused": "Em pausa até a app ser aberta de novo",
     "stateWaiting": "A aguardar para retomar",
     "resumesAt": "Retoma: {{time}}",
@@ -3184,6 +3202,22 @@
       "im": "Estilos",
       "reverseIm": "Estilos invertido",
       "unknown": "Estilo desconhecido"
+    }
+  },
+  "experimental": {
+    "title": "Funcionalidades experimentais",
+    "open": "Abrir",
+    "efficiencyTrends": {
+      "title": "Tendências de eficiência",
+      "blurb": "A frequência cardíaca ao mesmo ritmo ao longo dos teus esforços, como destaque e na página do troço. O valor é difícil de ler e o seu sinal pode contradizer a frequência cardíaca."
+    },
+    "sectionCorrelations": {
+      "title": "Correlações do troço",
+      "blurb": "Como as leituras de bem-estar se relacionam com a tua velocidade num troço. Com um número habitual de tentativas só pode dizer que não há uma ligação clara."
+    },
+    "garminUpdate": {
+      "title": "Atualizar atividades a partir da Garmin",
+      "blurb": "Substitui a cópia do intervals.icu pelo ficheiro próprio da Garmin quando este tem mais. Requer uma chave Garmin. Por terminar."
     }
   }
 }

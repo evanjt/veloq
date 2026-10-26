@@ -136,8 +136,8 @@ function Screen({
 }
 
 const post = async (message: Record<string, unknown>) => {
-  const page = mockPages.get('webview');
-  if (!page) throw new Error('the 3D page did not mount');
+  await waitFor(() => expect(mockPages.has('webview')).toBe(true), { timeout: 10000 });
+  const page = mockPages.get('webview')!;
   await act(() => page.onMessage({ nativeEvent: { data: JSON.stringify(message) } }));
 };
 

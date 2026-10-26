@@ -762,6 +762,14 @@ impl PersistentEngine {
                         log::warn!("[Streams] counting the ask for {} failed: {}", id, e);
                     }
                 }
+                // A 403 is what a block on the data looks like. It waits for a
+                // new version or for the athlete, and never retires.
+                Fetched::Failed(NetError::Http { status: 403, .. }) => {
+                    log::info!("[Streams] {} withheld by upstream (403)", id);
+                    if let Err(e) = self.withhold_stream_backfill(id) {
+                        log::warn!("[Streams] withholding {} failed: {}", id, e);
+                    }
+                }
                 Fetched::Failed(e) => {
                     if says_something_about_the_activity(e)
                         && let Err(e) = self.record_stream_backfill_attempt(id)
@@ -1773,14 +1781,15 @@ mod tests {
             .unwrap()
     }
 
-    /// Scenario: upstream answers 403 or 404 for one activity on every pass.
+    /// Scenario: upstream answers 404 or another 4xx for one activity on every
+    /// pass.
     ///
     /// Expected behaviour: each answer counts against the activity, so after
     /// `STREAM_ATTEMPT_LIMIT` passes it leaves the queue and the backfill can
     /// report finished.
     #[test]
     fn an_answer_about_one_activity_retires_it_after_the_attempt_limit() {
-        for status in [403, 404, 410] {
+        for status in [404, 410, 422] {
             let (_dir, mut engine) = engine_holding("a1");
             for _ in 0..STREAM_ATTEMPT_LIMIT {
                 assert_eq!(still_owed(&engine), 1, "status {status}");
@@ -1794,6 +1803,84 @@ mod tests {
             }
             assert_eq!(still_owed(&engine), 0, "status {status}");
         }
+    }
+
+    fn refused(status: u16) -> Vec<(String, Fetched)> {
+        vec![(
+            "a1".to_string(),
+            Fetched::Failed(NetError::Http {
+                status,
+                body: String::new(),
+            }),
+        )]
+    }
+
+    fn set_census_version(engine: &mut PersistentEngine, version: &str) {
+        let entry = crate::net::types::ActivityCensusEntry {
+            id: "a1".to_string(),
+            icu_sync_date: Some(version.to_string()),
+            has_latlng: true,
+            ..Default::default()
+        };
+        engine.record_activity_census("i1", &[entry]).unwrap();
+    }
+
+    /// Scenario: upstream answers 403 for one activity's series.
+    ///
+    /// Expected behaviour: it is withheld, not counted as an attempt. It
+    /// leaves the queue on the first answer, however many passes follow, and
+    /// does not count as retired.
+    #[test]
+    fn a_403_withholds_the_series_without_counting_an_attempt() {
+        let (_dir, mut engine) = engine_holding("a1");
+        engine.apply_stream_batch(&refused(403));
+        assert_eq!(still_owed(&engine), 0);
+        let attempts: i64 = engine
+            .db
+            .query_row(
+                "SELECT COALESCE(SUM(attempts), 0) FROM activity_stream_backfill",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(attempts, 0);
+    }
+
+    /// Scenario: a series was withheld or retired at one version of the
+    /// activity, and a sync then meets another.
+    ///
+    /// Expected behaviour: it is owed again. With the version unmoved, or
+    /// never recorded, it stays out. The athlete asking again frees the
+    /// withheld ones alone.
+    #[test]
+    fn a_new_upstream_version_asks_a_withheld_or_retired_series_again() {
+        for status in [403, 404] {
+            let (_dir, mut engine) = engine_holding("a1");
+            set_census_version(&mut engine, "v1");
+            for _ in 0..STREAM_ATTEMPT_LIMIT {
+                engine.apply_stream_batch(&refused(status));
+            }
+            assert_eq!(still_owed(&engine), 0, "status {status}");
+            set_census_version(&mut engine, "v1");
+            assert_eq!(still_owed(&engine), 0, "status {status}");
+
+            set_census_version(&mut engine, "v2");
+            assert_eq!(still_owed(&engine), 1, "status {status}");
+        }
+    }
+
+    #[test]
+    fn asking_again_frees_the_withheld_series_and_not_the_retired() {
+        let (_dir, mut engine) = engine_holding("a1");
+        engine.apply_stream_batch(&refused(403));
+        assert_eq!(engine.release_withheld_downloads().unwrap(), 1);
+        assert_eq!(still_owed(&engine), 1);
+
+        for _ in 0..STREAM_ATTEMPT_LIMIT {
+            engine.apply_stream_batch(&refused(404));
+        }
+        assert_eq!(engine.release_withheld_downloads().unwrap(), 0);
+        assert_eq!(still_owed(&engine), 0);
     }
 
     /// Scenario: the connection drops, the rate limit bites, upstream errors

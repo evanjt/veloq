@@ -5948,6 +5948,10 @@ export type FfiBackgroundJobsData = {
    * own request budget.
    */
   downloadsHeldByUpstream: boolean;
+  /**
+   * Whether the one-time pass recount is running on its own thread now.
+   */
+  passRecountRunning: boolean;
 };
 
 /**
@@ -5980,6 +5984,7 @@ const FfiConverterTypeFfiBackgroundJobsData = (() => {
         garminPull: FfiConverterOptionalTypeFfiGarminPull.readFromCursor(c),
         downloadsHeldUntilMs: FfiConverterOptionalFloat64.readFromCursor(c),
         downloadsHeldByUpstream: FfiConverterBool.readFromCursor(c),
+        passRecountRunning: FfiConverterBool.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -5996,6 +6001,7 @@ const FfiConverterTypeFfiBackgroundJobsData = (() => {
         c,
       );
       FfiConverterBool.writeIntoCursor(value.downloadsHeldByUpstream, c);
+      FfiConverterBool.writeIntoCursor(value.passRecountRunning, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -6005,7 +6011,8 @@ const FfiConverterTypeFfiBackgroundJobsData = (() => {
         FfiConverterOptionalUInt32.allocationSize(value.streamDaysToFinish) +
         FfiConverterOptionalTypeFfiGarminPull.allocationSize(value.garminPull) +
         FfiConverterOptionalFloat64.allocationSize(value.downloadsHeldUntilMs) +
-        FfiConverterBool.allocationSize(value.downloadsHeldByUpstream)
+        FfiConverterBool.allocationSize(value.downloadsHeldByUpstream) +
+        FfiConverterBool.allocationSize(value.passRecountRunning)
       );
     }
   }

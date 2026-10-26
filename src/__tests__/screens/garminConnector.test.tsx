@@ -16,6 +16,7 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import { GARMIN_KEY_STORAGE_KEY } from '@/shared/app/credentialKeychain';
 import * as engineKey from '@/shared/native/garminKey';
 import { GarminKeyStatus, GarminMatch } from 'veloqrs';
+import { useDebugStore } from '@/features/settings/stores/DebugStore';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
@@ -193,6 +194,32 @@ describe('the Garmin connector automatic swap switch', () => {
     jest.clearAllMocks();
     useAuthStore.setState({ authMethod: 'apiKey' });
     useUploadPermissionStore.setState({ isLoaded: true, hasWritePermission: null });
+    useDebugStore.setState({
+      experimentalEnabled: true,
+      experimentalUnlocked: true,
+      experimentalFeatures: {},
+    });
+  });
+
+  afterEach(() => {
+    useDebugStore.setState({
+      experimentalEnabled: false,
+      experimentalUnlocked: false,
+      experimentalFeatures: {},
+    });
+  });
+
+  it('is absent while the experimental switch is off', async () => {
+    useDebugStore.setState({ experimentalEnabled: false });
+    const screen = await connectedScreen(false);
+    expect(screen.queryByTestId('garmin-auto-swap-switch')).toBeNull();
+    expect(screen.getByTestId('garmin-upload-switch')).toBeTruthy();
+  });
+
+  it('is absent when the Garmin entry is off under the experimental switch', async () => {
+    useDebugStore.setState({ experimentalFeatures: { garminUpdate: false } });
+    const screen = await connectedScreen(false);
+    expect(screen.queryByTestId('garmin-auto-swap-switch')).toBeNull();
   });
 
   it('is off and labelled Experimental until the athlete turns it on', async () => {

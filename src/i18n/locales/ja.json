@@ -2286,7 +2286,10 @@
     "sectionsBeforeAfter": "再スキャン前のセクション: {{before}}件。再スキャン後: {{after}}件。",
     "debugMode": "デバッグモード",
     "debugModeDescription": "詳細ページに内部診断情報を表示",
-    "developerDashboardDescription": "エンジン統計、FFIパフォーマンス、メモリ"
+    "developerDashboardDescription": "エンジン統計、FFIパフォーマンス、メモリ",
+    "experimentalFeatures": "試験的な機能",
+    "experimentalFeaturesDescription": "開発中の機能を表示します。それぞれに専用のスイッチがあります",
+    "experimentalDashboardDescription": "試験的な機能をそれぞれオンまたはオフにして開きます"
   },
   "stats": {
     "activities": "アクティビティ",
@@ -2565,7 +2568,21 @@
       "mapsWidgetsBody": "起伏のあるアクティビティは3D地形に描画されます。サマリーとストレングスのウィジェットで、ホーム画面にトレーニングを表示できます。",
       "mapsWidgetsTip": "設定の「マップ」で、3Dで描画するタイミングを選べます。",
       "rebuiltTitle": "セクションを再構築",
-      "rebuiltBody": "セクションはどの端末でも同じ結果になり、変更はすべて元に戻せる履歴に残ります"
+      "rebuiltBody": "セクションはどの端末でも同じ結果になり、変更はすべて元に戻せる履歴に残ります",
+      "changesTitle": "その他の変更",
+      "changesBody": "アップデートに含まれる、頼んでいない変更です。",
+      "changesSectionsLabel": "セクションが動くことがあります",
+      "changesSectionsCaption": "初回起動時に一部のセクションが描き直されることがあります。変わったものはカードに一覧されます。",
+      "changesVisitsLabel": "訪問回数とPR",
+      "changesVisitsCaption": "区間を端から端まで通過した場合のみ数えます。そのため訪問回数やPRが減る場合があります。",
+      "changesBackupLabel": "ライブラリのバックアップ",
+      "changesBackupCaption": "新しい端末では、Googleからライブラリは復元されなくなりました。Documents/Veloqにバックアップしてください。",
+      "changesDetectionLabel": "検出の厳密さ",
+      "changesDetectionCaption": "もう設定項目ではありません。ライブラリは検証済みの既定値に移ります。",
+      "changesNotificationsLabel": "インサイトの通知",
+      "changesNotificationsCaption": "Androidでは、インサイトの通知チャンネルが新しくなりました。古いチャンネルで設定した音やミュートは失われています。",
+      "changesPortraitLabel": "縦向きのみ",
+      "changesPortraitCaption": "アプリは縦向きでのみ開きます。iOSでは intervals.icu のリンクからVeloqが開かなくなりました。"
     },
     "tutorial": {
       "firstLoadLine": "intervals.icu からの初回読み込みを実行中です。アクティビティが届くにつれて、フィードに表示されます。",
@@ -2871,6 +2888,7 @@
     "detectionWaiting_one": "{{count}}件のアクティビティを確認予定",
     "detectionWaiting_other": "{{count}}件のアクティビティを確認予定",
     "cutoverWaiting": "セクションの再構築を待機中",
+    "passRecount": "通過回数の再集計",
     "statePaused": "次回アプリを開くまで一時停止",
     "stateWaiting": "再開待ち",
     "resumesAt": "{{time}} に再開",
@@ -3125,6 +3143,22 @@
       "im": "個人メドレー",
       "reverseIm": "逆個人メドレー",
       "unknown": "不明な泳法"
+    }
+  },
+  "experimental": {
+    "title": "試験的な機能",
+    "open": "開く",
+    "efficiencyTrends": {
+      "title": "効率の傾向",
+      "blurb": "同じペースでの心拍数の推移を、インサイトとセクションのページに表示します。数値は読み取りにくく、符号が心拍数と食い違うことがあります。"
+    },
+    "sectionCorrelations": {
+      "title": "セクションの相関",
+      "blurb": "コンディションの値とセクションでの速さの関係を表示します。一般的な試行回数では、明確な関係はないとしか示せません。"
+    },
+    "garminUpdate": {
+      "title": "Garminからアクティビティを更新",
+      "blurb": "Garminのファイルのほうが多くの情報を含む場合に、intervals.icuのコピーをGarmin自身のファイルに置き換えます。Garminのキーが必要です。未完成です。"
     }
   }
 }

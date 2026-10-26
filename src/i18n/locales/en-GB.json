@@ -2286,7 +2286,10 @@
     "sectionsBeforeAfter": "Sections before the rescan: {{before}}. After: {{after}}.",
     "debugMode": "Debug mode",
     "debugModeDescription": "Show internal diagnostics in detail pages",
-    "developerDashboardDescription": "Engine stats, FFI performance, memory"
+    "developerDashboardDescription": "Engine stats, FFI performance, memory",
+    "experimentalFeatures": "Experimental features",
+    "experimentalFeaturesDescription": "Show features still being built, each with its own switch",
+    "experimentalDashboardDescription": "Turn each experimental feature on or off and open it"
   },
   "stats": {
     "activities": "Activities",
@@ -2565,7 +2568,21 @@
       "mapsWidgetsBody": "Hilly activities draw on 3D terrain. The Summary and Strength widgets put your training on the home screen.",
       "mapsWidgetsTip": "Choose when maps draw in 3D under Maps in Settings.",
       "rebuiltTitle": "Sections rebuilt",
-      "rebuiltBody": "Sections come out the same on every device, and each change is kept in a history you can revert."
+      "rebuiltBody": "Sections come out the same on every device, and each change is kept in a history you can revert.",
+      "changesTitle": "Other changes",
+      "changesBody": "Changes that come with the update, though you did not ask for them.",
+      "changesSectionsLabel": "Sections may move",
+      "changesSectionsCaption": "On first launch some sections may be re-drawn. A card lists what moved.",
+      "changesVisitsLabel": "Visit counts and PRs",
+      "changesVisitsCaption": "A pass counts only when it covers the whole section. Some visits and PRs fall.",
+      "changesBackupLabel": "Library backup",
+      "changesBackupCaption": "Google no longer restores your library on a new phone. Back up to Documents/Veloq.",
+      "changesDetectionLabel": "Detection strictness",
+      "changesDetectionCaption": "No longer a setting. Your library moves to the validated defaults.",
+      "changesNotificationsLabel": "Insights notifications",
+      "changesNotificationsCaption": "On Android the insights channel is new. A mute or sound set on the old channel is gone.",
+      "changesPortraitLabel": "Portrait only",
+      "changesPortraitCaption": "The app opens in portrait only. On iOS, intervals.icu links no longer open Veloq."
     },
     "tutorial": {
       "firstLoadLine": "The first load from intervals.icu is running. Your feed fills in as activities arrive.",
@@ -2871,6 +2888,7 @@
     "detectionWaiting_one": "{{count}} activity to check",
     "detectionWaiting_other": "{{count}} activities to check",
     "cutoverWaiting": "Waiting to rebuild your sections",
+    "passRecount": "Pass recount",
     "statePaused": "Paused until the app is next opened",
     "stateWaiting": "Waiting to resume",
     "resumesAt": "Resumes {{time}}",
@@ -3125,6 +3143,22 @@
       "im": "IM",
       "reverseIm": "Reverse IM",
       "unknown": "Unknown stroke"
+    }
+  },
+  "experimental": {
+    "title": "Experimental features",
+    "open": "Open",
+    "efficiencyTrends": {
+      "title": "Efficiency trends",
+      "blurb": "Heart rate at a matched pace across your efforts, as an insight and on the section page. The figure is hard to read and its sign can disagree with heart rate."
+    },
+    "sectionCorrelations": {
+      "title": "Section correlations",
+      "blurb": "How wellness readings relate to your speed on a section. At typical attempt counts it can only say there is no clear link."
+    },
+    "garminUpdate": {
+      "title": "Update activities from Garmin",
+      "blurb": "Replaces intervals.icu's copy of an activity with Garmin's own file when that holds more. Needs a Garmin key. Not finished."
     }
   }
 }

@@ -100,8 +100,9 @@ describe('the first-run tour', () => {
 describe("What's New 0.4.0", () => {
   const release = WHATS_NEW_SLIDES['0.4.0'];
   const LOOK = 'whatsNew.v040.lookTitle';
+  const CHANGES = 'whatsNew.v040.changesTitle';
 
-  it('sells the release in six slides, opening on the notifications to turn on', () => {
+  it('sells the release in six slides, opening on the notifications, then names the other changes', () => {
     expect(release.map((s) => s.titleKey)).toEqual([
       'whatsNew.tutorial.notificationsTitle',
       'whatsNew.tutorial.garminTitle',
@@ -109,6 +110,7 @@ describe("What's New 0.4.0", () => {
       LOOK,
       'whatsNew.v040.mapsWidgetsTitle',
       'whatsNew.v040.rebuiltTitle',
+      CHANGES,
     ]);
     expect(release[0].setup).toBe('notifications');
   });
@@ -118,11 +120,14 @@ describe("What's New 0.4.0", () => {
     expect(bare.map((s) => s.titleKey)).toEqual([]);
   });
 
-  it('shares every slide but the look with the tour', () => {
+  it('shares every slide but the look and the changes with the tour', () => {
     const inTour = new Set(getTutorialSlides().map((s) => s.titleKey));
-    const missing = release.filter((s) => s.titleKey !== LOOK && !inTour.has(s.titleKey));
+    const releaseOnly = [LOOK, CHANGES];
+    const missing = release.filter(
+      (s) => !releaseOnly.includes(s.titleKey) && !inTour.has(s.titleKey)
+    );
     expect(missing.map((s) => s.titleKey)).toEqual([]);
-    expect(inTour.has(LOOK)).toBe(false);
+    for (const titleKey of releaseOnly) expect(inTour.has(titleKey)).toBe(false);
   });
 
   it('holds no slide that opens the section preview', () => {
@@ -135,6 +140,7 @@ describe("What's New 0.4.0", () => {
       [LOOK]: 'tour-look-picture',
       'whatsNew.v040.mapsWidgetsTitle': 'tour-maps-widgets-picture',
       'whatsNew.v040.rebuiltTitle': 'tour-sections-rebuilt-picture',
+      [CHANGES]: 'tour-changes-picture',
     };
     for (const slide of release.filter((s) => ids[s.titleKey])) {
       const { Component } = slide;

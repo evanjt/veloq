@@ -16,6 +16,7 @@ import { ActivityGarminSwap } from '@/features/activity/components/ActivityGarmi
 import * as engine from '@/shared/native/garminSwap';
 import { confirmAction } from '@/shared/ui/dialog';
 import * as recording from '@/features/recording';
+import { useDebugStore } from '@/features/settings/stores/DebugStore';
 
 configure({ defaultIncludeHiddenElements: true });
 
@@ -55,12 +56,29 @@ const upgrade = jest.fn();
 
 beforeEach(() => {
   jest.resetAllMocks();
+  useDebugStore.setState({
+    experimentalEnabled: true,
+    experimentalUnlocked: true,
+    experimentalFeatures: {},
+  });
   writeMissing.mockReturnValue(false);
   upgrade.mockResolvedValue({ granted: true, error: null });
   upgradeHook.mockReturnValue({ upgradePermissions: upgrade, isUpgrading: false, error: null });
 });
 
 describe('ActivityGarminSwap', () => {
+  it.each([
+    ['the experimental switch is off', { experimentalEnabled: false }],
+    ['the Garmin entry is off', { experimentalFeatures: { garminUpdate: false } }],
+  ])('renders nothing and asks the engine nothing when %s', async (_name, change) => {
+    useDebugStore.setState(change);
+    state.mockResolvedValue(SwapState.Available);
+    render(<ActivityGarminSwap activityId="i1" />);
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(screen.queryByTestId('activity-i1-garmin-swap')).toBeNull();
+    expect(state).not.toHaveBeenCalled();
+  });
+
   it('renders nothing while the engine offers nothing', async () => {
     state.mockResolvedValue(SwapState.Hidden);
     render(<ActivityGarminSwap activityId="i1" />);

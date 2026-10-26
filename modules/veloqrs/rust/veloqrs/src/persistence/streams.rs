@@ -214,11 +214,38 @@ pub(crate) const STREAM_GAP_FROM_WHERE: &str = "FROM activities a
                 AND ((a.id NOT LIKE 'local-%' AND a.id NOT LIKE 'src-%')
                      OR a.intervals_id IS NOT NULL)
                 AND COALESCE(b.attempts, 0) < ?1
+                AND COALESCE(b.withheld, 0) = 0
                 AND NOT EXISTS (
                         SELECT 1 FROM activity_held_back hb WHERE hb.activity_id = a.id)
                 AND (?2 IS NULL
                      OR (a.start_date IS NOT NULL
                          AND a.start_date >= strftime('%s', 'now') - ?2 * 86400))";
+
+/// The version of the activity bound to `?1` that the census names now, under
+/// either of its ids. NULL when the census holds no row for it.
+const STREAM_CENSUS_VERSION: &str = "SELECT c.icu_sync_date FROM activity_census c \
+     WHERE c.intervals_id IN (?1, (SELECT a.intervals_id FROM activities a WHERE a.id = ?1)) \
+     LIMIT 1";
+
+/// The write behind [`PersistentEngine::reopen_changed_streams`], over any
+/// connection so a census write can run it inside its own transaction.
+pub(super) fn reopen_changed_streams_on(conn: &Connection) -> SqlResult<u64> {
+    const NOW: &str = "(SELECT c.icu_sync_date FROM activity_census c
+          WHERE c.intervals_id IN (activity_stream_backfill.activity_id,
+                (SELECT a.intervals_id FROM activities a
+                  WHERE a.id = activity_stream_backfill.activity_id))
+          LIMIT 1)";
+    let reopened = conn.execute(
+        &format!(
+            "DELETE FROM activity_stream_backfill
+              WHERE settled_version IS NOT NULL
+                AND {NOW} IS NOT NULL
+                AND {NOW} IS NOT settled_version"
+        ),
+        [],
+    )?;
+    Ok(reopened as u64)
+}
 
 /// The queue read, in the order the athlete watches it fill.
 pub(crate) fn stream_gap_queue_sql() -> String {
@@ -522,14 +549,47 @@ impl PersistentEngine {
     /// what take it out of the queue, and they say more than a count could.
     pub fn record_stream_backfill_attempt(&self, activity_id: &str) -> SqlResult<()> {
         self.db.execute(
-            "INSERT INTO activity_stream_backfill (activity_id, attempts, updated_at)
-             VALUES (?, 1, strftime('%s', 'now'))
-             ON CONFLICT(activity_id) DO UPDATE SET
-                attempts = attempts + 1,
-                updated_at = excluded.updated_at",
+            &format!(
+                "INSERT INTO activity_stream_backfill
+                    (activity_id, attempts, updated_at, settled_version)
+                 VALUES (?1, 1, strftime('%s', 'now'), ({STREAM_CENSUS_VERSION}))
+                 ON CONFLICT(activity_id) DO UPDATE SET
+                    attempts = attempts + 1,
+                    settled_version = excluded.settled_version,
+                    updated_at = excluded.updated_at"
+            ),
             params![activity_id],
         )?;
         Ok(())
+    }
+
+    /// Record that upstream refused the series with a 403, which says nothing
+    /// about the activity. It is not an attempt and never retires the
+    /// activity: it leaves the queue until the activity's version changes or
+    /// the athlete asks again.
+    pub fn withhold_stream_backfill(&self, activity_id: &str) -> SqlResult<()> {
+        self.db.execute(
+            &format!(
+                "INSERT INTO activity_stream_backfill
+                    (activity_id, attempts, updated_at, withheld, settled_version)
+                 VALUES (?1, 0, strftime('%s', 'now'), 1, ({STREAM_CENSUS_VERSION}))
+                 ON CONFLICT(activity_id) DO UPDATE SET
+                    withheld = 1,
+                    settled_version = excluded.settled_version,
+                    updated_at = excluded.updated_at"
+            ),
+            params![activity_id],
+        )?;
+        Ok(())
+    }
+
+    /// Ask again for every withheld series, on the athlete's request.
+    pub(super) fn release_withheld_streams(&self) -> SqlResult<u64> {
+        let released = self.db.execute(
+            "DELETE FROM activity_stream_backfill WHERE withheld = 1",
+            [],
+        )?;
+        Ok(released as u64)
     }
 
     /// Record that an answer to the full series ask carried nothing this store
@@ -538,11 +598,15 @@ impl PersistentEngine {
     /// the queue rather than costing another request.
     pub fn settle_stream_backfill(&self, activity_id: &str, attempt_limit: u32) -> SqlResult<()> {
         self.db.execute(
-            "INSERT INTO activity_stream_backfill (activity_id, attempts, updated_at)
-             VALUES (?1, ?2, strftime('%s', 'now'))
-             ON CONFLICT(activity_id) DO UPDATE SET
-                attempts = MAX(attempts, excluded.attempts),
-                updated_at = excluded.updated_at",
+            &format!(
+                "INSERT INTO activity_stream_backfill
+                    (activity_id, attempts, updated_at, settled_version)
+                 VALUES (?1, ?2, strftime('%s', 'now'), ({STREAM_CENSUS_VERSION}))
+                 ON CONFLICT(activity_id) DO UPDATE SET
+                    attempts = MAX(attempts, excluded.attempts),
+                    settled_version = excluded.settled_version,
+                    updated_at = excluded.updated_at"
+            ),
             params![activity_id, attempt_limit],
         )?;
         Ok(())

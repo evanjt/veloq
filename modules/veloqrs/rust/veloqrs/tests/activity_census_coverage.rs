@@ -209,3 +209,57 @@ fn a_census_records_which_activities_have_a_track_upstream() {
         .expect("census");
     assert_eq!(flag(&engine, "a2"), Some(true));
 }
+
+/// Scenario: a track was settled at one version of its activity, and a census
+/// pull names another.
+///
+/// Expected behaviour: the pull that moves the version puts the track back in
+/// the queue, and a pull that leaves the version alone does not.
+#[test]
+fn a_census_pull_that_moves_a_version_asks_a_settled_track_again() {
+    let dir = TempDir::new().expect("tempdir");
+    let mut engine = engine(&dir);
+    engine
+        .add_activity(
+            "a1".to_string(),
+            (0..4)
+                .map(|i| tracematch::GpsPoint::new(46.2 + f64::from(i) * 0.001, 7.35))
+                .collect(),
+            "Ride".into(),
+        )
+        .expect("track");
+    engine
+        .record_activity_census(
+            "i1",
+            &[entry("a1", "2026-01-02T00:00:00Z", "2026-01-02T00:10:00Z")],
+        )
+        .expect("census");
+    engine
+        .record_elevation_state(&[(
+            "a1".to_string(),
+            veloqrs::persistence::ELEVATION_STATE_UNAVAILABLE,
+        )])
+        .expect("settled");
+
+    engine
+        .record_activity_census(
+            "i1",
+            &[entry("a1", "2026-01-02T00:00:00Z", "2026-01-02T00:10:00Z")],
+        )
+        .expect("same version");
+    assert_eq!(
+        engine.elevation_state_of_track("a1"),
+        Some(veloqrs::persistence::ELEVATION_STATE_UNAVAILABLE)
+    );
+
+    engine
+        .record_activity_census(
+            "i1",
+            &[entry("a1", "2026-01-02T00:00:00Z", "2026-03-04T09:00:00Z")],
+        )
+        .expect("edited upstream");
+    assert_eq!(
+        engine.elevation_state_of_track("a1"),
+        Some(veloqrs::persistence::ELEVATION_STATE_UNKNOWN)
+    );
+}

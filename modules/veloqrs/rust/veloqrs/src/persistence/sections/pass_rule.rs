@@ -16,6 +16,47 @@ pub(crate) const PASS_RULE_VERSION: i32 = 1;
 
 const STAMP_KEY: &str = "pass_rule_version";
 
+/// The libraries whose recount is running now, by file path.
+///
+/// The background jobs read holds a connection and no engine, so the running
+/// flag cannot live on the engine. It is process-global like the other jobs'
+/// phases, keyed by path so one library's recount is never another's.
+static RECOUNTING: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+
+/// Marks a library's recount as running until it is dropped, so a panic in the
+/// recount cannot leave the row spinning.
+pub(crate) struct RecountRunning(String);
+
+impl RecountRunning {
+    pub(crate) fn begin(path: &str) -> Self {
+        RECOUNTING
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .push(path.to_string());
+        Self(path.to_string())
+    }
+}
+
+impl Drop for RecountRunning {
+    fn drop(&mut self) {
+        let mut running = RECOUNTING
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if let Some(at) = running.iter().position(|path| *path == self.0) {
+            running.swap_remove(at);
+        }
+    }
+}
+
+/// Whether the library at `path` has a recount running.
+pub(crate) fn pass_recount_running(path: &str) -> bool {
+    RECOUNTING
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .iter()
+        .any(|running| running == path)
+}
+
 /// What one recount did, for the run's last-run row and for tests.
 #[derive(Debug, Clone)]
 pub struct PassRecountReport {
@@ -49,9 +90,12 @@ impl PersistentEngine {
         }
         let db_path = self.db_path.clone();
         let install = crate::persistence::engine_install();
+        // Taken before the thread starts, so a read right after the open
+        // already sees it running.
+        let running = RecountRunning::begin(&db_path);
         self.pass_recount = Some(crate::threads::spawn_background(
             "veloq-recount",
-            move || run_pass_recount(&db_path, install),
+            move || run_pass_recount(&db_path, install, running),
         ));
     }
 
@@ -156,7 +200,7 @@ impl PersistentEngine {
     }
 }
 
-fn run_pass_recount(db_path: &str, install: u64) -> PassRecountReport {
+fn run_pass_recount(db_path: &str, install: u64, running: RecountRunning) -> PassRecountReport {
     let thread = std::thread::current().id();
     let opened = PersistentEngine::new_for_push(db_path).and_then(|mut engine| {
         engine.load_for_push()?;
@@ -185,8 +229,11 @@ fn run_pass_recount(db_path: &str, install: u64) -> PassRecountReport {
         crate::persistence::with_persistent_engine_for(install, |e| {
             e.adopt_recounted_sections();
         });
-        crate::objects::observer::notify(crate::objects::observer::Announcement::DetectionApplied);
     }
+    // Settled before the announcement, so the read it prompts sees the job
+    // finished. Announced even for an empty library, which still wrote a run.
+    drop(running);
+    crate::objects::observer::notify(crate::objects::observer::Announcement::DetectionApplied);
     report
 }
 

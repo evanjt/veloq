@@ -33,10 +33,13 @@
 //! the completed work already advanced.
 //!
 //! Three rules make the pass terminate. Upstream that answers with an altitude
-//! series it cannot fill, or with nothing for the whole track, or with a 4xx,
-//! records `UNAVAILABLE` on the first ask, so it leaves the queue permanently.
-//! A network failure, a 5xx or a refusal leaves the row untouched, so it can be
-//! asked again. A 401 ends the pass outright rather
+//! series it cannot fill, or with nothing for the whole track, or with a 4xx
+//! other than 401 and 403, records `UNAVAILABLE` on the first ask, so it leaves
+//! the queue. A 403 records `WITHHELD`, which also leaves the queue but makes
+//! no claim about the ground. Both are stamped with the activity's version in
+//! the census and asked again when a sync moves it, and a withheld track also
+//! when the athlete asks. A network failure, a 5xx or a refusal leaves the row
+//! untouched, so it can be asked again. A 401 ends the pass outright rather
 //! than spending the whole library on rejected requests. An elevation ask that
 //! comes back with nothing at all cannot tell the first case from the second,
 //! since the request carried no coordinates, so that activity alone is asked
@@ -89,8 +92,9 @@ use crate::persistence::job_runs::{BackgroundJob, JobRun, RunOutcome, record_job
 use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
 use crate::persistence::settings::detection_switched_off;
 use crate::persistence::{
-    ELEVATION_STATE_UNAVAILABLE, ElevationSeries, PersistentEngine, elevation_source_of,
-    engine_install, suspend_detection, with_persistent_engine, with_persistent_engine_for,
+    ELEVATION_STATE_UNAVAILABLE, ELEVATION_STATE_WITHHELD, ElevationSeries, PersistentEngine,
+    elevation_source_of, engine_install, suspend_detection, with_persistent_engine,
+    with_persistent_engine_for,
 };
 use rusqlite::{Result as SqlResult, params};
 use std::sync::Mutex;
@@ -602,6 +606,9 @@ pub struct BackfillOutcome {
     /// Tracks whose upstream carries no usable altitude, now recorded
     /// `UNAVAILABLE` and gone from the queue for good.
     pub unavailable: u32,
+    /// Tracks upstream refused with a 403, now recorded `WITHHELD`. Out of the
+    /// queue, and asked again when the activity changes or the athlete asks.
+    pub withheld: u32,
     /// Tracks whose fetch failed. Their state is unchanged, so the next run
     /// retries them.
     pub failed: u32,
@@ -1802,6 +1809,14 @@ impl Plan {
                 }
                 let sport = sport(&id);
                 self.deferred.push((id, sport));
+                true
+            }
+            // A 403 is what a block on the data looks like, and says nothing
+            // about the ground, so it is not a final "no elevation".
+            Fetched::Failed(NetError::Http { status: 403, .. }) => {
+                log::info!("[Elevation] {} withheld by upstream (403)", id);
+                self.states.push((id, ELEVATION_STATE_WITHHELD));
+                outcome.withheld += 1;
                 true
             }
             Fetched::Failed(e) => {

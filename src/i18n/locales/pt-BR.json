@@ -2328,7 +2328,10 @@
     "sectionsBeforeAfter": "Trechos antes da nova análise: {{before}}. Depois: {{after}}.",
     "debugMode": "Modo de depuração",
     "debugModeDescription": "Mostrar diagnósticos internos nas páginas de detalhes",
-    "developerDashboardDescription": "Estatísticas do motor, desempenho FFI, memória"
+    "developerDashboardDescription": "Estatísticas do motor, desempenho FFI, memória",
+    "experimentalFeatures": "Recursos experimentais",
+    "experimentalFeaturesDescription": "Mostra recursos ainda em desenvolvimento, cada um com seu próprio interruptor",
+    "experimentalDashboardDescription": "Ative ou desative cada recurso experimental e abra-o"
   },
   "stats": {
     "activities": "Atividades",
@@ -2618,7 +2621,21 @@
       "mapsWidgetsBody": "As atividades com subidas são desenhadas em terreno 3D. Os widgets Resumo e Força mostram seu treino na tela inicial.",
       "mapsWidgetsTip": "Escolha quando os mapas são desenhados em 3D em Ajustes, em Mapas.",
       "rebuiltTitle": "Seções reconstruídas",
-      "rebuiltBody": "As seções saem iguais em todos os dispositivos e cada alteração fica guardada em um histórico que você pode reverter."
+      "rebuiltBody": "As seções saem iguais em todos os dispositivos e cada alteração fica guardada em um histórico que você pode reverter.",
+      "changesTitle": "Outras mudanças",
+      "changesBody": "Mudanças que chegam com a atualização, mesmo sem você ter pedido.",
+      "changesSectionsLabel": "Seções podem mudar",
+      "changesSectionsCaption": "Na primeira abertura, algumas seções podem ser redesenhadas. Um cartão mostra o que mudou.",
+      "changesVisitsLabel": "Número de visitas e PRs",
+      "changesVisitsCaption": "Uma passagem só conta se cobrir a seção inteira. Algumas visitas e PRs caem.",
+      "changesBackupLabel": "Backup da biblioteca",
+      "changesBackupCaption": "O Google não restaura mais sua biblioteca em um celular novo. Faça o backup em Documents/Veloq.",
+      "changesDetectionLabel": "Rigor da detecção",
+      "changesDetectionCaption": "Não é mais uma configuração. Sua biblioteca passa para os padrões validados.",
+      "changesNotificationsLabel": "Notificações de insights",
+      "changesNotificationsCaption": "No Android, o canal de insights é novo. Um som ou silêncio definido no canal antigo foi perdido.",
+      "changesPortraitLabel": "Somente retrato",
+      "changesPortraitCaption": "O app abre somente em retrato. No iOS, links do intervals.icu não abrem mais o Veloq."
     },
     "tutorial": {
       "firstLoadLine": "O primeiro carregamento do intervals.icu está em andamento. O feed é preenchido conforme as atividades chegam.",
@@ -2928,6 +2945,7 @@
     "detectionWaiting_many": "{{count}} de atividades para verificar",
     "detectionWaiting_other": "{{count}} atividades para verificar",
     "cutoverWaiting": "Aguardando para reconstruir suas seções",
+    "passRecount": "Recontagem de passagens",
     "statePaused": "Pausado até o app ser aberto de novo",
     "stateWaiting": "Aguardando para retomar",
     "resumesAt": "Retoma: {{time}}",
@@ -3191,6 +3209,22 @@
       "im": "Medley",
       "reverseIm": "Medley invertido",
       "unknown": "Estilo desconhecido"
+    }
+  },
+  "experimental": {
+    "title": "Recursos experimentais",
+    "open": "Abrir",
+    "efficiencyTrends": {
+      "title": "Tendências de eficiência",
+      "blurb": "A frequência cardíaca no mesmo ritmo ao longo dos seus esforços, como destaque e na página do trecho. O valor é difícil de ler e o sinal pode contradizer a frequência cardíaca."
+    },
+    "sectionCorrelations": {
+      "title": "Correlações do trecho",
+      "blurb": "Como as leituras de bem-estar se relacionam com a sua velocidade em um trecho. Com um número típico de tentativas, só pode dizer que não há uma ligação clara."
+    },
+    "garminUpdate": {
+      "title": "Atualizar atividades a partir da Garmin",
+      "blurb": "Substitui a cópia do intervals.icu pelo arquivo próprio da Garmin quando ele tem mais. Exige uma chave Garmin. Incompleto."
     }
   }
 }

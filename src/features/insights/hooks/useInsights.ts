@@ -7,7 +7,7 @@ import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
 import { useStableBy } from '@/shared/app/useStableBy';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { useWellness } from '@/features/wellness';
-import { useDebugStore } from '@/features/settings/light';
+import { useExperimental } from '@/features/settings/light';
 
 import { useInsightsStore, computeInsightFingerprint, diffInsights } from '../store';
 import { computeInsightsFromData, fetchInsightsDataFromEngine } from '../lib/computeInsightsData';
@@ -102,9 +102,9 @@ export function useInsights(): {
   // on `wellnessKey`.
   const stableWellness = useStableBy(wellnessData, wellnessKey(wellnessData));
   const isMetric = useMetricSystem();
-  // The computation reads the developer switch for the experimental insights
+  // The computation reads the experimental switch for the efficiency trend
   // itself; the subscription is only so a flip recomputes the list.
-  const experimental = useDebugStore((s) => s.enabled);
+  const experimental = useExperimental('efficiencyTrends');
 
   // Deferred insights computation - starts empty, populates after interactions
   const [insights, setInsights] = useState<Insight[]>([]);

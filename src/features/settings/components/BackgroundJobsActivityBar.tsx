@@ -24,6 +24,7 @@ const ICONS: Record<BackgroundJobId, React.ComponentProps<typeof MaterialCommuni
     elevationBackfill: 'terrain',
     cutover: 'autorenew',
     streamBackfill: 'chart-line',
+    passRecount: 'counter',
   };
 
 const TITLE_KEYS = {
@@ -31,6 +32,7 @@ const TITLE_KEYS = {
   elevationBackfill: 'backgroundJobs.elevationBackfill',
   cutover: 'backgroundJobs.cutover',
   streamBackfill: 'settings.streamBackfill',
+  passRecount: 'backgroundJobs.passRecount',
 } as const satisfies Record<BackgroundJobId, string>;
 
 /**
@@ -48,7 +50,7 @@ const WAITING_KEYS = {
   elevationBackfill: 'backgroundJobs.remaining',
   cutover: 'backgroundJobs.cutoverWaiting',
   streamBackfill: 'settings.streamBackfillOwed',
-} as const satisfies Record<BackgroundJobId, string>;
+} as const satisfies Record<Exclude<BackgroundJobId, 'passRecount'>, string>;
 
 /** What a run's items are called, per job. */
 const HANDLED_KEYS = {
@@ -56,6 +58,7 @@ const HANDLED_KEYS = {
   elevationBackfill: 'backgroundJobs.lastRunActivities',
   cutover: 'backgroundJobs.lastRunSections',
   streamBackfill: 'backgroundJobs.lastRunActivities',
+  passRecount: 'backgroundJobs.lastRunSections',
 } as const satisfies Record<BackgroundJobId, string>;
 
 /** How a run that did not complete ended. A complete run says nothing more. */
@@ -85,7 +88,8 @@ function useDetail(job: BackgroundJob): string {
   // engine paces it to. A day figure is never shown without the count it
   // belongs to.
   const owedParts = (): string[] => {
-    if (job.remaining === null || job.remaining <= 0) return [];
+    // The recount is one-off and owes no count to rest on.
+    if (job.id === 'passRecount' || job.remaining === null || job.remaining <= 0) return [];
     return [
       t(WAITING_KEYS[job.id], { count: job.remaining }),
       ...(job.pacedDays !== null

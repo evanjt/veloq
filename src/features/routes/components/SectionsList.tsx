@@ -7,7 +7,7 @@
  */
 
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, StyleSheet, FlatList } from 'react-native';
+import { View, StyleSheet, FlatList, Platform } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 import Swipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
@@ -588,7 +588,8 @@ export const SectionsList = memo(function SectionsList({
         keyboardShouldPersistTaps="handled"
         onEndReached={hasMore ? onLoadMore : undefined}
         onEndReachedThreshold={0.5}
-        removeClippedSubviews
+        // Android clipping can leave this list resting off its top, with no way back
+        removeClippedSubviews={Platform.OS === 'ios'}
         maxToRenderPerBatch={10}
         windowSize={5}
         initialNumToRender={8}

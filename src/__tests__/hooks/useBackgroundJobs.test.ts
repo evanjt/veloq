@@ -53,6 +53,8 @@ interface EngineState {
   stream: { phase: string; completed: number; total: number; resumesAt?: number | null } | null;
   streamRemaining: number | null;
   streamDaysToFinish: number | null;
+  passRecountRunning: boolean;
+  runs: Record<string, unknown>[];
   dataThrows: string | null;
 }
 
@@ -70,6 +72,8 @@ function defaultState(): EngineState {
     stream: null,
     streamRemaining: null,
     streamDaysToFinish: null,
+    passRecountRunning: false,
+    runs: [],
     dataThrows: null,
   };
 }
@@ -100,7 +104,8 @@ function engine() {
     getBackgroundJobsData: () => {
       if (state.dataThrows) throw new Error(state.dataThrows);
       return {
-        runs: [],
+        runs: state.runs,
+        passRecountRunning: state.passRecountRunning,
         detectionAwaiting: state.detectionAwaiting ?? undefined,
         cutoverOwed: state.cutoverPending,
         streamDaysToFinish: state.streamDaysToFinish ?? undefined,
@@ -151,6 +156,7 @@ describe('useBackgroundJobs', () => {
       'elevationBackfill',
       'cutover',
       'streamBackfill',
+      'passRecount',
     ]);
     expect(result.current.every((job) => job.state === 'idle')).toBe(true);
   });
@@ -170,7 +176,7 @@ describe('useBackgroundJobs', () => {
     });
 
     const { result } = await jobs();
-    expect(result.current).toHaveLength(4);
+    expect(result.current).toHaveLength(5);
     expect(reads).toBe(1);
     await advance(1500);
     expect(reads).toBe(4);
@@ -181,7 +187,7 @@ describe('useBackgroundJobs', () => {
 
     const { result } = await jobs();
 
-    expect(result.current).toHaveLength(4);
+    expect(result.current).toHaveLength(5);
     expect(result.current.every((job) => job.state === 'idle')).toBe(true);
     expect(result.current.every((job) => job.remaining === null)).toBe(true);
   });
@@ -316,6 +322,37 @@ describe('useBackgroundJobs', () => {
     expect(result.current.find((job) => job.id === 'elevationBackfill')?.state).toBe('paused');
   });
 
+  it('lists a running pass recount as a running row', async () => {
+    state.passRecountRunning = true;
+
+    const { result } = await jobs();
+
+    const recount = result.current.find((job) => job.id === 'passRecount');
+    expect(recount?.state).toBe('running');
+    expect(recount?.lastRun).toBeNull();
+  });
+
+  it('shows a settled pass recount as idle with its last run', async () => {
+    state.runs = [
+      {
+        job: 'passRecount',
+        finishedAt: 1_791_000_000_000,
+        outcome: 'complete',
+        handled: 42,
+        added: 0,
+        changed: 42,
+        retired: 0,
+        failed: 0,
+      },
+    ];
+
+    const { result } = await jobs();
+
+    const recount = result.current.find((job) => job.id === 'passRecount');
+    expect(recount?.state).toBe('idle');
+    expect(recount?.lastRun?.handled).toBe(42);
+  });
+
   it('reads a cutover mid-run as running whatever phase it holds', async () => {
     state.cutover = { phase: 'archiving', running: true };
 
@@ -355,7 +392,7 @@ describe('useBackgroundJobs', () => {
 
     const { result } = await jobs();
 
-    expect(result.current).toHaveLength(4);
+    expect(result.current).toHaveLength(5);
     expect(result.current.find((job) => job.id === 'detection')?.state).toBe('idle');
   });
 
@@ -407,7 +444,7 @@ describe('useBackgroundJobs', () => {
 
     const { result } = await jobs();
 
-    expect(result.current).toHaveLength(4);
+    expect(result.current).toHaveLength(5);
     expect(result.current.find((job) => job.id === 'cutover')?.remaining).toBeNull();
     expect(result.current.find((job) => job.id === 'detection')?.remaining).toBeNull();
   });

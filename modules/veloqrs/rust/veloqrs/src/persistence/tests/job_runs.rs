@@ -324,3 +324,26 @@ fn a_library_owing_more_than_a_day_reports_the_days_it_takes() {
         .expect("the queue empties");
     assert_eq!(read(&engine).stream_days_to_finish, None);
 }
+
+#[test]
+fn the_screen_read_says_a_pass_recount_is_running_only_while_its_guard_is_held() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("recount.db");
+    let path = path.to_str().unwrap();
+    let engine = PersistentEngine::new(path).unwrap();
+    assert!(!read(&engine).pass_recount_running);
+
+    let running = crate::persistence::sections::pass_rule::RecountRunning::begin(path);
+    assert!(read(&engine).pass_recount_running);
+
+    let other = tempfile::tempdir().unwrap();
+    let other_path = other.path().join("other.db");
+    let other_engine = PersistentEngine::new(other_path.to_str().unwrap()).unwrap();
+    assert!(
+        !read(&other_engine).pass_recount_running,
+        "another library's recount is not this one's"
+    );
+
+    drop(running);
+    assert!(!read(&engine).pass_recount_running);
+}

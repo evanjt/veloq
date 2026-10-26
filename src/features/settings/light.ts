@@ -10,6 +10,7 @@
  */
 export { useMapPreferences } from './stores/MapPreferencesContext';
 export { useDebugStore } from './stores/DebugStore';
+export { useExperimental, experimentalOn } from './lib/experimental';
 export {
   useDashboardPreferences,
   type SummaryCardPreferences,

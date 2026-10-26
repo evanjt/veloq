@@ -2482,7 +2482,10 @@
     "sectionsBeforeAfter": "Odcinki przed ponownym skanowaniem: {{before}}. Po: {{after}}.",
     "debugMode": "Tryb debugowania",
     "debugModeDescription": "Pokazuj wewnętrzną diagnostykę na stronach szczegółów",
-    "developerDashboardDescription": "Statystyki silnika, wydajność FFI, pamięć"
+    "developerDashboardDescription": "Statystyki silnika, wydajność FFI, pamięć",
+    "experimentalFeatures": "Funkcje eksperymentalne",
+    "experimentalFeaturesDescription": "Pokazuje funkcje, które są jeszcze w trakcie tworzenia, każda z własnym przełącznikiem",
+    "experimentalDashboardDescription": "Włącz lub wyłącz każdą funkcję eksperymentalną i otwórz ją"
   },
   "stats": {
     "activities": "Aktywności",
@@ -2805,7 +2808,21 @@
       "mapsWidgetsBody": "Aktywności w terenie pagórkowatym są rysowane na terenie 3D. Widżety Podsumowanie i Siła pokazują Twój trening na ekranie głównym.",
       "mapsWidgetsTip": "W Ustawieniach, w sekcji Mapy, wybierz, kiedy mapy są rysowane w 3D.",
       "rebuiltTitle": "Odcinki zbudowane od nowa",
-      "rebuiltBody": "Odcinki wychodzą tak samo na każdym urządzeniu, a każda zmiana trafia do historii, którą możesz cofnąć."
+      "rebuiltBody": "Odcinki wychodzą tak samo na każdym urządzeniu, a każda zmiana trafia do historii, którą możesz cofnąć.",
+      "changesTitle": "Inne zmiany",
+      "changesBody": "Zmiany, które przychodzą z aktualizacją, choć o nie nie prosiłeś.",
+      "changesSectionsLabel": "Odcinki mogą się przesunąć",
+      "changesSectionsCaption": "Przy pierwszym uruchomieniu niektóre odcinki mogą zostać narysowane od nowa. Karta pokazuje, co się przesunęło.",
+      "changesVisitsLabel": "Liczba wizyt i rekordów",
+      "changesVisitsCaption": "Przejazd liczy się tylko wtedy, gdy obejmuje cały odcinek. Część wizyt i rekordów spada.",
+      "changesBackupLabel": "Kopia biblioteki",
+      "changesBackupCaption": "Google nie przywraca już biblioteki na nowym telefonie. Zrób kopię w Documents/Veloq.",
+      "changesDetectionLabel": "Rygor wykrywania",
+      "changesDetectionCaption": "Nie jest już ustawieniem. Twoja biblioteka przechodzi na sprawdzone wartości domyślne.",
+      "changesNotificationsLabel": "Powiadomienia analiz",
+      "changesNotificationsCaption": "Na Androidzie kanał analiz jest nowy. Dźwięk lub wyciszenie ustawione na starym kanale zniknęły.",
+      "changesPortraitLabel": "Tylko pionowo",
+      "changesPortraitCaption": "Aplikacja otwiera się tylko pionowo. Na iOS linki intervals.icu nie otwierają już Veloq."
     },
     "tutorial": {
       "firstLoadLine": "Trwa pierwsze pobieranie z intervals.icu. Aktywności pojawiają się w kanale w miarę ich napływania.",
@@ -3129,6 +3146,7 @@
     "detectionWaiting_many": "{{count}} aktywności do sprawdzenia",
     "detectionWaiting_other": "{{count}} aktywności do sprawdzenia",
     "cutoverWaiting": "Czeka na przebudowanie twoich odcinków",
+    "passRecount": "Ponowne zliczanie przejazdów",
     "statePaused": "Wstrzymane do następnego otwarcia aplikacji",
     "stateWaiting": "Czeka na wznowienie",
     "resumesAt": "Wznowienie: {{time}}",
@@ -3403,6 +3421,22 @@
       "im": "Zmienny",
       "reverseIm": "Zmienny odwrotny",
       "unknown": "Nieznany styl"
+    }
+  },
+  "experimental": {
+    "title": "Funkcje eksperymentalne",
+    "open": "Otwórz",
+    "efficiencyTrends": {
+      "title": "Trendy wydajności",
+      "blurb": "Tętno przy tym samym tempie w kolejnych wysiłkach, jako wgląd i na stronie odcinka. Wartość trudno odczytać, a jej znak może przeczyć tętnu."
+    },
+    "sectionCorrelations": {
+      "title": "Korelacje odcinka",
+      "blurb": "Jak odczyty samopoczucia wiążą się z twoją prędkością na odcinku. Przy typowej liczbie przejazdów może tylko stwierdzić, że nie ma wyraźnego związku."
+    },
+    "garminUpdate": {
+      "title": "Aktualizuj aktywności z Garmin",
+      "blurb": "Zastępuje kopię z intervals.icu własnym plikiem Garmin, gdy ten zawiera więcej. Wymaga klucza Garmin. Niedokończone."
     }
   }
 }

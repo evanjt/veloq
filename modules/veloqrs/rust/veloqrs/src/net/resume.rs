@@ -142,9 +142,23 @@ fn retry_with(hold: Option<DownloadsHold>, restart: impl FnOnce()) -> RetryNow {
 /// Restart the elevation and the stream download at once, the way the sleeper
 /// does, unless a hold is in force. The governor still decides what is sent.
 pub fn retry_downloads_now() -> RetryNow {
-    retry_with(downloads_hold(), || {
+    retry_downloads_with(downloads_hold(), || {
         crate::net::elevation_backfill::start_owed_work();
         crate::net::stream_backfill::autostart_stream_backfill();
+    })
+}
+
+/// Retry now with the hold and the start supplied. A refused track or series
+/// upstream withheld is asked again here, since asking is what the athlete
+/// pressed, and only then are the downloads started so they find it owed.
+pub fn retry_downloads_with(hold: Option<DownloadsHold>, start: impl FnOnce()) -> RetryNow {
+    retry_with(hold, || {
+        match crate::persistence::with_persistent_engine(|e| e.release_withheld_downloads()) {
+            Some(Err(e)) => log::warn!("[Resume] releasing withheld downloads failed: {e}"),
+            Some(Ok(n)) if n > 0 => log::info!("[Resume] {n} withheld downloads asked again"),
+            _ => {}
+        }
+        start();
     })
 }
 

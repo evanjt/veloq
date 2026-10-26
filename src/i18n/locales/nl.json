@@ -2286,7 +2286,10 @@
     "sectionsBeforeAfter": "Secties vóór de herscan: {{before}}. Daarna: {{after}}.",
     "debugMode": "Debugmodus",
     "debugModeDescription": "Interne diagnostiek tonen op detailpagina's",
-    "developerDashboardDescription": "Engine-statistieken, FFI-prestaties, geheugen"
+    "developerDashboardDescription": "Engine-statistieken, FFI-prestaties, geheugen",
+    "experimentalFeatures": "Experimentele functies",
+    "experimentalFeaturesDescription": "Toon functies die nog in ontwikkeling zijn, elk met een eigen schakelaar",
+    "experimentalDashboardDescription": "Zet elke experimentele functie aan of uit en open haar"
   },
   "stats": {
     "activities": "Activiteiten",
@@ -2565,7 +2568,21 @@
       "mapsWidgetsBody": "Heuvelachtige activiteiten worden op 3D-terrein getekend. De widgets Overzicht en Kracht tonen je training op het beginscherm.",
       "mapsWidgetsTip": "Kies bij Instellingen onder Kaarten wanneer kaarten in 3D worden getekend.",
       "rebuiltTitle": "Secties opnieuw opgebouwd",
-      "rebuiltBody": "Secties komen op elk apparaat hetzelfde uit en elke wijziging wordt bewaard in een geschiedenis die je kunt terugdraaien."
+      "rebuiltBody": "Secties komen op elk apparaat hetzelfde uit en elke wijziging wordt bewaard in een geschiedenis die je kunt terugdraaien.",
+      "changesTitle": "Andere wijzigingen",
+      "changesBody": "Wijzigingen die bij de update horen, ook al heb je er niet om gevraagd.",
+      "changesSectionsLabel": "Secties kunnen verschuiven",
+      "changesSectionsCaption": "Bij de eerste start kunnen sommige secties opnieuw worden getekend. Een kaart toont wat is verschoven.",
+      "changesVisitsLabel": "Aantal bezoeken en PR's",
+      "changesVisitsCaption": "Een passage telt alleen als die de hele sectie bestrijkt. Sommige bezoeken en PR's dalen.",
+      "changesBackupLabel": "Back-up van je bibliotheek",
+      "changesBackupCaption": "Google herstelt je bibliotheek niet meer op een nieuwe telefoon. Maak een back-up in Documents/Veloq.",
+      "changesDetectionLabel": "Detectiestrengheid",
+      "changesDetectionCaption": "Geen instelling meer. Je bibliotheek gaat naar de gevalideerde standaardwaarden.",
+      "changesNotificationsLabel": "Inzichtmeldingen",
+      "changesNotificationsCaption": "Op Android is het kanaal voor inzichten nieuw. Een geluid of dempen dat je op het oude kanaal instelde, is weg.",
+      "changesPortraitLabel": "Alleen staand",
+      "changesPortraitCaption": "De app opent alleen staand. Op iOS openen intervals.icu-links Veloq niet meer."
     },
     "tutorial": {
       "firstLoadLine": "De eerste download van intervals.icu loopt. Je feed vult zich zodra activiteiten binnenkomen.",
@@ -2871,6 +2888,7 @@
     "detectionWaiting_one": "{{count}} activiteit te controleren",
     "detectionWaiting_other": "{{count}} activiteiten te controleren",
     "cutoverWaiting": "Wacht op het opnieuw opbouwen van je secties",
+    "passRecount": "Doorkomsten opnieuw tellen",
     "statePaused": "Gepauzeerd tot de app opnieuw wordt geopend",
     "stateWaiting": "Wacht om verder te gaan",
     "resumesAt": "Gaat verder: {{time}}",
@@ -3125,6 +3143,22 @@
       "im": "Wisselslag",
       "reverseIm": "Omgekeerde wisselslag",
       "unknown": "Onbekende zwemslag"
+    }
+  },
+  "experimental": {
+    "title": "Experimentele functies",
+    "open": "Openen",
+    "efficiencyTrends": {
+      "title": "Efficiëntietrends",
+      "blurb": "Hartslag bij hetzelfde tempo over je ritten, als inzicht en op de sectiepagina. Het getal is moeilijk te lezen en het teken kan de hartslag tegenspreken."
+    },
+    "sectionCorrelations": {
+      "title": "Sectiecorrelaties",
+      "blurb": "Hoe welzijnsmetingen samenhangen met je snelheid op een sectie. Bij gebruikelijke aantallen pogingen kan ze alleen zeggen dat er geen duidelijk verband is."
+    },
+    "garminUpdate": {
+      "title": "Activiteiten bijwerken vanuit Garmin",
+      "blurb": "Vervangt de kopie van intervals.icu door Garmins eigen bestand als dat meer bevat. Vereist een Garmin-sleutel. Nog niet af."
     }
   }
 }

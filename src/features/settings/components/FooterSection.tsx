@@ -19,22 +19,26 @@ export function FooterSection() {
   const debugUnlocked = useDebugStore((s) => s.unlocked);
   const debugEnabled = useDebugStore((s) => s.enabled);
   const setDebugEnabled = useDebugStore((s) => s.setEnabled);
+  const experimentalUnlocked = useDebugStore((s) => s.experimentalUnlocked);
+  const experimentalEnabled = useDebugStore((s) => s.experimentalEnabled);
+  const setExperimentalEnabled = useDebugStore((s) => s.setExperimentalEnabled);
   const debugTapCount = useRef(0);
   const debugTapTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const handleVersionTap = useCallback(() => {
-    if (debugUnlocked) return;
+    if (debugUnlocked && experimentalUnlocked) return;
     debugTapCount.current += 1;
     clearTimeout(debugTapTimer.current);
     if (debugTapCount.current >= 5) {
       debugTapCount.current = 0;
       useDebugStore.getState().unlock();
+      useDebugStore.getState().unlockExperimental();
     } else {
       debugTapTimer.current = setTimeout(() => {
         debugTapCount.current = 0;
       }, 2000);
     }
-  }, [debugUnlocked]);
+  }, [debugUnlocked, experimentalUnlocked]);
 
   const versionLine = formatVersionLine(Constants.expoConfig?.version ?? '0.0.1', buildCommit());
 
@@ -97,6 +101,32 @@ export function FooterSection() {
         </Text>
       </PressTarget>
 
+      {experimentalUnlocked || experimentalEnabled ? (
+        <SwitchRow
+          title={t('settings.experimentalFeatures')}
+          description={t('settings.experimentalFeaturesDescription')}
+          value={experimentalEnabled}
+          onValueChange={setExperimentalEnabled}
+          testID="settings-experimental-switch"
+        />
+      ) : null}
+      {experimentalEnabled ? (
+        <Row
+          testID="settings-experimental-dashboard-link"
+          behaviour="navigate"
+          accessibilityLabel={t('settings.experimentalFeatures')}
+          onPress={() => navigateTo('/experimental')}
+        >
+          <View style={styles.toggleInfo}>
+            <Text style={[styles.toggleLabel, isDark && settingsStyles.textLight]}>
+              {t('settings.experimentalFeatures')}
+            </Text>
+            <Text style={[styles.toggleDescription, isDark && styles.toggleDescriptionDark]}>
+              {t('settings.experimentalDashboardDescription')}
+            </Text>
+          </View>
+        </Row>
+      ) : null}
       {debugUnlocked || debugEnabled ? (
         <SwitchRow
           title={t('settings.debugMode')}

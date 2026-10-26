@@ -2344,7 +2344,10 @@
     "sectionsBeforeAfter": "Sezioni prima della nuova analisi: {{before}}. Dopo: {{after}}.",
     "debugMode": "Modalità debug",
     "debugModeDescription": "Mostra la diagnostica interna nelle pagine di dettaglio",
-    "developerDashboardDescription": "Statistiche del motore, prestazioni FFI, memoria"
+    "developerDashboardDescription": "Statistiche del motore, prestazioni FFI, memoria",
+    "experimentalFeatures": "Funzioni sperimentali",
+    "experimentalFeaturesDescription": "Mostra funzioni ancora in sviluppo, ognuna con il proprio interruttore",
+    "experimentalDashboardDescription": "Attiva o disattiva ogni funzione sperimentale e aprila"
   },
   "stats": {
     "activities": "Attività",
@@ -2633,7 +2636,21 @@
       "mapsWidgetsBody": "Le attività collinari vengono disegnate su un terreno 3D. I widget Riepilogo e Forza mostrano il tuo allenamento nella schermata Home.",
       "mapsWidgetsTip": "Scegli quando le mappe si disegnano in 3D in Impostazioni, sotto Mappe.",
       "rebuiltTitle": "Sezioni ricostruite",
-      "rebuiltBody": "Le sezioni risultano uguali su ogni dispositivo e ogni modifica è conservata in una cronologia che puoi annullare."
+      "rebuiltBody": "Le sezioni risultano uguali su ogni dispositivo e ogni modifica è conservata in una cronologia che puoi annullare.",
+      "changesTitle": "Altre modifiche",
+      "changesBody": "Modifiche che arrivano con l'aggiornamento, anche se non le hai chieste.",
+      "changesSectionsLabel": "Le sezioni possono cambiare",
+      "changesSectionsCaption": "Al primo avvio alcune sezioni possono essere ridisegnate. Una scheda mostra cosa è cambiato.",
+      "changesVisitsLabel": "Numero di visite e PR",
+      "changesVisitsCaption": "Un passaggio conta solo se copre tutta la sezione. Alcune visite e alcuni PR calano.",
+      "changesBackupLabel": "Backup della libreria",
+      "changesBackupCaption": "Google non ripristina più la tua libreria su un telefono nuovo. Fai il backup in Documents/Veloq.",
+      "changesDetectionLabel": "Rigore del rilevamento",
+      "changesDetectionCaption": "Non è più un'impostazione. La tua libreria passa ai valori predefiniti convalidati.",
+      "changesNotificationsLabel": "Notifiche degli approfondimenti",
+      "changesNotificationsCaption": "Su Android il canale degli approfondimenti è nuovo. Audio o silenziamento impostati sul vecchio canale sono persi.",
+      "changesPortraitLabel": "Solo verticale",
+      "changesPortraitCaption": "L'app si apre solo in verticale. Su iOS i link di intervals.icu non aprono più Veloq."
     },
     "tutorial": {
       "firstLoadLine": "Il primo caricamento da intervals.icu è in corso. Il feed si riempie man mano che arrivano le attività.",
@@ -2943,6 +2960,7 @@
     "detectionWaiting_many": "{{count}} di attività da controllare",
     "detectionWaiting_other": "{{count}} attività da controllare",
     "cutoverWaiting": "In attesa di ricostruire le tue sezioni",
+    "passRecount": "Riconteggio dei passaggi",
     "statePaused": "In pausa fino alla prossima apertura dell'app",
     "stateWaiting": "In attesa di riprendere",
     "resumesAt": "Riprende: {{time}}",
@@ -3206,6 +3224,22 @@
       "im": "Misti",
       "reverseIm": "Misti inverso",
       "unknown": "Stile sconosciuto"
+    }
+  },
+  "experimental": {
+    "title": "Funzioni sperimentali",
+    "open": "Apri",
+    "efficiencyTrends": {
+      "title": "Tendenze di efficienza",
+      "blurb": "La frequenza cardiaca a pari ritmo nelle tue uscite, come approfondimento e nella pagina del tratto. Il valore è difficile da leggere e il suo segno può contraddire la frequenza cardiaca."
+    },
+    "sectionCorrelations": {
+      "title": "Correlazioni del tratto",
+      "blurb": "Come le misure di benessere si legano alla tua velocità su un tratto. Con un numero di tentativi tipico può solo dire che non c'è un legame chiaro."
+    },
+    "garminUpdate": {
+      "title": "Aggiorna le attività da Garmin",
+      "blurb": "Sostituisce la copia di intervals.icu con il file proprio di Garmin quando ne contiene di più. Richiede una chiave Garmin. Non completa."
     }
   }
 }

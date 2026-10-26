@@ -2286,7 +2286,10 @@
     "sectionsBeforeAfter": "Abschnitte vor dem Suchlauf: {{before}}. Danach: {{after}}.",
     "debugMode": "Debug-Modus",
     "debugModeDescription": "Interne Diagnosedaten auf Detailseiten anzeigen",
-    "developerDashboardDescription": "Engine-Statistik, FFI-Leistung, Speicher"
+    "developerDashboardDescription": "Engine-Statistik, FFI-Leistung, Speicher",
+    "experimentalFeatures": "Experimentelle Funktionen",
+    "experimentalFeaturesDescription": "Funktionen zeigen, die noch in Arbeit sind, jede mit eigenem Schalter",
+    "experimentalDashboardDescription": "Jede experimentelle Funktion ein- oder ausschalten und öffnen"
   },
   "stats": {
     "activities": "Aktivitäten",
@@ -2565,7 +2568,21 @@
       "mapsWidgetsBody": "Hügelige Aktivitäten werden auf 3D-Gelände gezeichnet. Die Widgets Übersicht und Kraft zeigen dein Training auf dem Startbildschirm.",
       "mapsWidgetsTip": "Wähle in den Einstellungen unter Karten, wann Karten in 3D gezeichnet werden.",
       "rebuiltTitle": "Abschnitte neu aufgebaut",
-      "rebuiltBody": "Abschnitte sind auf jedem Gerät gleich, und jede Änderung wird in einem Verlauf festgehalten, den du rückgängig machen kannst."
+      "rebuiltBody": "Abschnitte sind auf jedem Gerät gleich, und jede Änderung wird in einem Verlauf festgehalten, den du rückgängig machen kannst.",
+      "changesTitle": "Weitere Änderungen",
+      "changesBody": "Änderungen, die mit dem Update kommen, auch wenn du nicht danach gefragt hast.",
+      "changesSectionsLabel": "Abschnitte können sich verschieben",
+      "changesSectionsCaption": "Beim ersten Start können einige Abschnitte neu gezeichnet werden. Eine Karte zeigt, was sich verändert hat.",
+      "changesVisitsLabel": "Besuchszahlen und PRs",
+      "changesVisitsCaption": "Eine Durchfahrt zählt nur, wenn sie den ganzen Abschnitt abdeckt. Manche Besuche und PRs sinken.",
+      "changesBackupLabel": "Sicherung der Bibliothek",
+      "changesBackupCaption": "Google stellt deine Bibliothek auf einem neuen Telefon nicht mehr wieder her. Sichere nach Documents/Veloq.",
+      "changesDetectionLabel": "Erkennungsstrenge",
+      "changesDetectionCaption": "Keine Einstellung mehr. Deine Bibliothek wechselt zu den geprüften Standardwerten.",
+      "changesNotificationsLabel": "Benachrichtigungen zu Einblicken",
+      "changesNotificationsCaption": "Unter Android gibt es für Einblicke jetzt einen neuen Kanal. Ein Ton oder eine Stummschaltung auf dem alten Kanal ist weg.",
+      "changesPortraitLabel": "Nur Hochformat",
+      "changesPortraitCaption": "Die App öffnet sich nur im Hochformat. Auf iOS öffnen intervals.icu-Links Veloq nicht mehr."
     },
     "tutorial": {
       "firstLoadLine": "Der erste Download von intervals.icu läuft. Dein Feed füllt sich, sobald Aktivitäten ankommen.",
@@ -2871,6 +2888,7 @@
     "detectionWaiting_one": "{{count}} Aktivität zu prüfen",
     "detectionWaiting_other": "{{count}} Aktivitäten zu prüfen",
     "cutoverWaiting": "Wartet auf den Neuaufbau deiner Abschnitte",
+    "passRecount": "Durchfahrten neu zählen",
     "statePaused": "Pausiert, bis die App wieder geöffnet wird",
     "stateWaiting": "Wartet auf die Fortsetzung",
     "resumesAt": "Fortsetzung: {{time}}",
@@ -3125,6 +3143,22 @@
       "im": "Lagen",
       "reverseIm": "Lagen rückwärts",
       "unknown": "Unbekannte Schwimmart"
+    }
+  },
+  "experimental": {
+    "title": "Experimentelle Funktionen",
+    "open": "Öffnen",
+    "efficiencyTrends": {
+      "title": "Effizienztrends",
+      "blurb": "Herzfrequenz bei gleichem Tempo über deine Einheiten, als Insight und auf der Abschnittsseite. Der Wert ist schwer lesbar, und sein Vorzeichen kann der Herzfrequenz widersprechen."
+    },
+    "sectionCorrelations": {
+      "title": "Abschnittskorrelationen",
+      "blurb": "Wie Wellness-Werte mit deinem Tempo auf einem Abschnitt zusammenhängen. Bei üblichen Versuchszahlen kann sie nur sagen, dass kein klarer Zusammenhang besteht."
+    },
+    "garminUpdate": {
+      "title": "Aktivitäten von Garmin aktualisieren",
+      "blurb": "Ersetzt die Kopie von intervals.icu durch Garmins eigene Datei, wenn diese mehr enthält. Braucht einen Garmin-Schlüssel. Nicht fertig."
     }
   }
 }

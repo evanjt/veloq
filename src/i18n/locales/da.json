@@ -2286,7 +2286,10 @@
     "sectionsBeforeAfter": "Sektioner før genscanningen: {{before}}. Efter: {{after}}.",
     "debugMode": "Fejlfindingstilstand",
     "debugModeDescription": "Vis interne diagnosticeringsdata på detaljesider",
-    "developerDashboardDescription": "Motorstatistik, FFI-ydeevne, hukommelse"
+    "developerDashboardDescription": "Motorstatistik, FFI-ydeevne, hukommelse",
+    "experimentalFeatures": "Eksperimentelle funktioner",
+    "experimentalFeaturesDescription": "Vis funktioner, der stadig er under udvikling, hver med sin egen kontakt",
+    "experimentalDashboardDescription": "Slå hver eksperimentel funktion til eller fra og åbn den"
   },
   "stats": {
     "activities": "Aktiviteter",
@@ -2565,7 +2568,21 @@
       "mapsWidgetsBody": "Bakkede aktiviteter tegnes på 3D-terræn. Widgetsene Oversigt og Styrke viser din træning på startskærmen.",
       "mapsWidgetsTip": "Vælg under Kort i Indstillinger, hvornår kort tegnes i 3D.",
       "rebuiltTitle": "Strækninger bygget om",
-      "rebuiltBody": "Strækninger bliver ens på alle enheder, og hver ændring gemmes i en historik, du kan fortryde."
+      "rebuiltBody": "Strækninger bliver ens på alle enheder, og hver ændring gemmes i en historik, du kan fortryde.",
+      "changesTitle": "Andre ændringer",
+      "changesBody": "Ændringer, der følger med opdateringen, selvom du ikke bad om dem.",
+      "changesSectionsLabel": "Strækninger kan flytte sig",
+      "changesSectionsCaption": "Ved første start kan nogle strækninger blive tegnet om. Et kort viser, hvad der er flyttet.",
+      "changesVisitsLabel": "Besøgstal og PR'er",
+      "changesVisitsCaption": "En gennemkørsel tæller kun, hvis den dækker hele strækningen. Nogle besøg og PR'er falder.",
+      "changesBackupLabel": "Sikkerhedskopi af biblioteket",
+      "changesBackupCaption": "Google gendanner ikke længere dit bibliotek på en ny telefon. Lav en backup til Documents/Veloq.",
+      "changesDetectionLabel": "Detektionsstrenghed",
+      "changesDetectionCaption": "Er ikke længere en indstilling. Dit bibliotek flyttes til de validerede standardværdier.",
+      "changesNotificationsLabel": "Indsigt-notifikationer",
+      "changesNotificationsCaption": "På Android er kanalen for insights ny. En dæmpning eller lyd, du valgte på den gamle kanal, er væk.",
+      "changesPortraitLabel": "Kun stående",
+      "changesPortraitCaption": "Appen åbner kun i stående format. På iOS åbner intervals.icu-links ikke længere Veloq."
     },
     "tutorial": {
       "firstLoadLine": "Den første indlæsning fra intervals.icu kører. Forsiden fyldes op, efterhånden som aktiviteterne kommer.",
@@ -2871,6 +2888,7 @@
     "detectionWaiting_one": "{{count}} aktivitet at tjekke",
     "detectionWaiting_other": "{{count}} aktiviteter at tjekke",
     "cutoverWaiting": "Venter på at genopbygge dine sektioner",
+    "passRecount": "Genberegning af passager",
     "statePaused": "På pause, indtil appen åbnes igen",
     "stateWaiting": "Venter på at fortsætte",
     "resumesAt": "Fortsætter {{time}}",
@@ -3125,6 +3143,22 @@
       "im": "Medley",
       "reverseIm": "Omvendt medley",
       "unknown": "Ukendt svømmeart"
+    }
+  },
+  "experimental": {
+    "title": "Eksperimentelle funktioner",
+    "open": "Åbn",
+    "efficiencyTrends": {
+      "title": "Effektivitetstendenser",
+      "blurb": "Puls ved samme tempo på tværs af dine ture, som indsigt og på strækningssiden. Tallet er svært at læse, og dets fortegn kan modsige pulsen."
+    },
+    "sectionCorrelations": {
+      "title": "Strækningskorrelationer",
+      "blurb": "Hvordan velværemålinger hænger sammen med din fart på en strækning. Ved typiske antal forsøg kan den kun sige, at der ikke er nogen klar sammenhæng."
+    },
+    "garminUpdate": {
+      "title": "Opdater aktiviteter fra Garmin",
+      "blurb": "Erstatter intervals.icu's kopi af en aktivitet med Garmins egen fil, når den indeholder mere. Kræver en Garmin-nøgle. Ikke færdig."
     }
   }
 }

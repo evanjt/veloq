@@ -1,7 +1,7 @@
 import { ledgerDate, isRouteMatchingEnabled } from '@/features/routes';
 import type { SectionChangeInput } from '../generators/sectionChanged';
 import { normaliseStrengthProgression, normaliseStrengthSummary } from '@/features/strength';
-import { useDebugStore } from '@/features/settings/light';
+import { experimentalOn } from '@/features/settings/light';
 import { getEngine } from '@/shared/native/engine';
 
 import { LoadMetric, decodeCoords } from 'veloqrs';
@@ -272,10 +272,11 @@ export function computeInsightsFromData(
       : [];
 
     // Aerobic efficiency trends arrive already filtered and capped by Rust.
-    // They are experimental, so they reach the list only with the developer
-    // switch on. It is read here so every caller, the widget included, takes
-    // the same gate; a headless refresh that never loaded the setting reads off.
-    const experimental = useDebugStore.getState().enabled;
+    // They are experimental, so they reach the list only with the
+    // experimental switch and the trend's own entry on. It is read here so
+    // every caller, the widget included, takes the same gate; a headless
+    // refresh that never loaded the setting reads off.
+    const experimental = experimentalOn('efficiencyTrends');
     const efficiencyTrends = experimental && sectionsReady ? (ffiData.efficiencyTrends ?? []) : [];
 
     // Recent PRs (skip if sections aren't loaded)
