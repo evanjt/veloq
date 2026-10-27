@@ -3255,6 +3255,7 @@
   "experimental": {
     "title": "Funzioni sperimentali",
     "open": "Apri",
+    "noExample": "Nella tua libreria non c'è ancora nulla che lo mostri.",
     "efficiencyTrends": {
       "title": "Tendenze di efficienza",
       "blurb": "La frequenza cardiaca a pari ritmo nelle tue uscite, come approfondimento e nella pagina del tratto. Il valore è difficile da leggere e il suo segno può contraddire la frequenza cardiaca."

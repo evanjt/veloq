@@ -654,3 +654,55 @@ fn an_import_of_any_sport_is_swapped_and_a_manual_activity_is_not() {
     );
     assert!(manual.sent.borrow().is_empty());
 }
+
+/// Scenario: the app's own link keeps what a check found and reads a stored body.
+/// Expected behaviour: a remembered value reads back, an empty value forgets
+/// it, and the stored body of an activity is served as it was stored.
+#[test]
+fn the_live_link_remembers_a_check_and_serves_a_stored_body() {
+    let _serial = crate::test_globals::serial_global_state();
+    let _dir = crate::test_globals::init_global_engine("swap_live_link.db");
+    let link = Live;
+
+    assert_eq!(link.remembered("i77"), None);
+    link.remember("i77", "checked");
+    assert_eq!(link.remembered("i77").as_deref(), Some("checked"));
+    link.remember("i77", "");
+    assert_eq!(link.remembered("i77").as_deref().unwrap_or(""), "");
+
+    assert_eq!(link.stored_json("i77"), None);
+    let body = serde_json::json!({
+        "id": "i77",
+        "name": "Morning ride",
+        "type": "Ride",
+        "start_date_local": "2026-03-01T07:00:00",
+    })
+    .to_string();
+    let stored = crate::persistence::with_persistent_engine(|engine| {
+        crate::push::record_activity_detail(engine, "i77", &body)
+    });
+    assert!(matches!(stored, Some(Ok(_))), "{stored:?}");
+    let served = link.stored_json("i77").expect("the body is stored");
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&served).unwrap()["name"],
+        "Morning ride"
+    );
+}
+
+/// Scenario: Garmin's original is kept for an activity intervals.icu already holds.
+/// Expected behaviour: a stub that is not an activity is refused, and keeping
+/// the same original twice stores it once and succeeds both times.
+#[test]
+fn the_live_link_keeps_an_original_once() {
+    let _serial = crate::test_globals::serial_global_state();
+    let _dir = crate::test_globals::init_global_engine("swap_keep_original.db");
+    let link = Live;
+    let stub = stub_json(GARMIN_ID.to_string());
+
+    assert!(link.keep_original(GARMIN_ID, &full(), "not json").is_err());
+    assert_eq!(link.keep_original(GARMIN_ID, &full(), &stub), Ok(()));
+    assert_eq!(link.keep_original(GARMIN_ID, &full(), &stub), Ok(()));
+    let key = crate::persistence::origin::garmin_source_key(GARMIN_ID);
+    let stored = crate::persistence::with_persistent_engine(|e| e.has_stored_activity(&key));
+    assert_eq!(stored, Some(true));
+}

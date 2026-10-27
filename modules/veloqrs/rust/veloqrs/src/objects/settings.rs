@@ -103,6 +103,11 @@ impl SettingsManager {
         with_reader(crate::persistence::screens::cache_screen_data)?
     }
 
+    /// The sections where the experimental features have something to show.
+    fn experimental_examples(&self) -> Result<crate::FfiExperimentalExamples, VeloqError> {
+        with_reader(crate::persistence::screens::experimental_examples)
+    }
+
     /// Each background job's last run and what the jobs still owe, read when a
     /// job settles or activities land rather than on the progress poll.
     fn background_jobs_data(&self) -> Result<crate::FfiBackgroundJobsData, VeloqError> {

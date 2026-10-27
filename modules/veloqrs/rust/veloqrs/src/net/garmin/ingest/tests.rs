@@ -428,3 +428,53 @@ fn neither_the_key_nor_the_token_reaches_a_file_or_a_failure_text() {
         "{text}"
     );
 }
+
+/// Scenario: a file that states no offset from UTC, with a list entry whose
+/// two start times are two hours apart.
+///
+/// Expected behaviour: the body is dated on the wall clock the list entry
+/// implies, and a list entry missing either time gives no offset.
+#[test]
+fn the_list_entry_dates_a_file_that_states_no_offset() {
+    let mut ride = outdoor_ride();
+    ride.utc_offset_secs = 0;
+    let entry = listed(GARMIN_ID);
+    let fit = ride.to_fit();
+    let activity = parse_fit_activity(&fit).unwrap();
+
+    let prepared = prepare(&entry, &fit).unwrap();
+
+    let body: serde_json::Value = serde_json::from_str(&prepared.body.raw).unwrap();
+    let local = chrono::DateTime::from_timestamp(
+        activity.start_unix + activity.utc_offset_secs.unwrap_or(7_200),
+        0,
+    )
+    .unwrap()
+    .naive_utc()
+    .format("%Y-%m-%dT%H:%M:%S")
+    .to_string();
+    assert_eq!(body["start_date_local"], local);
+
+    assert_eq!(listed_offset(&entry), Some(7_200));
+    let mut no_gmt = entry.clone();
+    no_gmt.start_time_gmt = None;
+    assert_eq!(listed_offset(&no_gmt), None);
+    let mut garbled = entry;
+    garbled.start_time_local = Some("yesterday".to_string());
+    assert_eq!(listed_offset(&garbled), None);
+}
+
+/// Expected behaviour: every refusal reads as a sentence that names its cause.
+#[test]
+fn each_refusal_to_store_an_original_says_why() {
+    let reasons = [
+        IngestError::NoFilesRoot.to_string(),
+        IngestError::File(std::io::Error::other("disk full")).to_string(),
+        IngestError::Storage("locked".to_string()).to_string(),
+        IngestError::EngineClosed.to_string(),
+    ];
+    assert!(reasons[0].contains("documents directory"));
+    assert!(reasons[1].contains("disk full"));
+    assert!(reasons[2].contains("locked"));
+    assert_eq!(reasons[3], "the engine closed");
+}

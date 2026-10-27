@@ -491,6 +491,7 @@ export const streamBackfill = {
 
 export const settings = {
   getRecordScreenData: jest.fn(() => undefined),
+  getExperimentalExamples: jest.fn(() => undefined),
 };
 
 export const connectivity = {

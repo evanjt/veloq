@@ -1428,6 +1428,10 @@ interface NativeModuleInterface {
     uniffiSelf: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
+  ubrn_uniffi_veloqrs_fn_method_settingsmanager_experimental_examples(
+    uniffiSelf: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_settingsmanager_export_privacy_preview(
     uniffiSelf: bigint,
     homeLat: number,
@@ -2084,6 +2088,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_cache_screen_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_delete_setting(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_engine_install(): number;
+  ubrn_uniffi_veloqrs_checksum_method_settingsmanager_experimental_examples(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_export_privacy_preview(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_athlete_profile(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_setting(): number;

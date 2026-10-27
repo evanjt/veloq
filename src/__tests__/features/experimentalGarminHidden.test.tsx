@@ -97,7 +97,7 @@ function setGarmin(on: boolean) {
   useDebugStore.setState({
     experimentalEnabled: on,
     experimentalUnlocked: on,
-    experimentalFeatures: {},
+    experimentalFeatures: { garminUpdate: on },
   });
 }
 
@@ -141,8 +141,12 @@ describe('the Garmin slide', () => {
 
   it('is no setup slide the tour offer can owe while the switch is off', () => {
     const off = { experimentalEnabled: false, experimentalFeatures: {} };
-    const on = { experimentalEnabled: true, experimentalFeatures: {} };
+    const unchosen = { experimentalEnabled: true, experimentalFeatures: {} };
+    const on = { experimentalEnabled: true, experimentalFeatures: { garminUpdate: true } };
     expect(getTutorialSetupSlides((slide) => surfaceShown(off, slide))).not.toContain('garmin');
+    expect(getTutorialSetupSlides((slide) => surfaceShown(unchosen, slide))).not.toContain(
+      'garmin'
+    );
     expect(getTutorialSetupSlides((slide) => surfaceShown(on, slide))).toContain('garmin');
   });
 
@@ -166,6 +170,30 @@ describe('the Garmin slide', () => {
     });
     await openTour('tutorial', null);
     expect(screen.queryByText(GARMIN_SLIDE_TITLE, ALL)).toBeNull();
+  });
+});
+
+describe('the master switch alone', () => {
+  beforeEach(() => {
+    useDebugStore.setState({
+      experimentalEnabled: true,
+      experimentalUnlocked: true,
+      experimentalFeatures: {},
+    });
+  });
+
+  it('shows no Garmin slide in the tour', async () => {
+    await openTour('tutorial', null);
+    expect(screen.queryByText(GARMIN_SLIDE_TITLE, ALL)).toBeNull();
+  });
+
+  it('shows no account row, offer card or connector', async () => {
+    await render(<AccountScreen />);
+    expect(screen.queryByTestId('settings-nav-garmin', ALL)).toBeNull();
+    await render(<GarminOfferCard />);
+    expect(screen.queryByTestId('garmin-offer-card', ALL)).toBeNull();
+    await render(<GarminConnectorScreen />);
+    expect(screen.queryByTestId('garmin-connector-body', ALL)).toBeNull();
   });
 });
 

@@ -800,6 +800,30 @@ function checkSmokeAnr(file, id, steps) {
   );
 }
 
+const HIDES_DIALOGS = /settings put global hide_error_dialogs 1/;
+const RESTARTS_LAUNCHER = /am force-stop com\.google\.android\.apps\.nexuslauncher/;
+
+/**
+ * The setting stops new error dialogs only. The launcher often stalls while
+ * the emulator boots, before any script line runs, and that dialog stays over
+ * the app for the whole suite. Stopping the launcher after the setting clears
+ * it and the system starts the launcher again.
+ */
+function checkEmulatorDialogs(file, id, steps) {
+  for (const [i, step] of steps.entries()) {
+    const script = text(step.with?.script);
+    const hidden = script.search(HIDES_DIALOGS);
+    if (hidden < 0) continue;
+    const restart = script.search(RESTARTS_LAUNCHER);
+    if (restart > hidden) continue;
+    fail(
+      file,
+      `job ${id} step ${step.name ?? step.uses ?? i + 1}`,
+      'hides error dialogs without running adb shell am force-stop com.google.android.apps.nexuslauncher after it, so a launcher ANR dialog raised during boot stays over the app and every flow fails on a missing screen.'
+    );
+  }
+}
+
 const VARIANT_FROM_CALLER = /^\$\{\{\s*inputs\.variant\s*\}\}$/;
 const SETS_VARIANT = /(^|[\s;&|(])APP_VARIANT=/m;
 
@@ -1323,6 +1347,7 @@ for (const [file, { doc, isAction }] of parsed) {
     checkArtifactIdentity(file, id, job.steps ?? []);
     checkVariant(file, id, job, doc.env);
     checkSmokeAnr(file, id, job.steps ?? []);
+    checkEmulatorDialogs(file, id, job.steps ?? []);
     checkCall(file, id, job, workflows);
     checkRunner(file, id, job);
     checkShards(file, id, job);

@@ -162,6 +162,7 @@ jobs:
           script: |
             # A launcher ANR dialog over the app fails every flow behind it as a missing screen
             adb shell settings put global hide_error_dialogs 1
+            adb shell am force-stop com.google.android.apps.nexuslauncher
             adb install "$(find /tmp/android-artifact -name '*.apk' | head -1)"
             adb logcat -c
             # Stream logcat for the whole suite. A single `-d` dump at the end
@@ -346,6 +347,7 @@ jobs:
           script: |
             # A launcher ANR dialog over the app fails every flow behind it as a missing screen
             adb shell settings put global hide_error_dialogs 1
+            adb shell am force-stop com.google.android.apps.nexuslauncher
             adb install "$(find /tmp/android-artifact -name '*.apk' | head -1)"
             scripts/capture-screen-compare-android.sh || echo "SCREEN_CAPTURE_FAILED=true" >> "$GITHUB_ENV"
 

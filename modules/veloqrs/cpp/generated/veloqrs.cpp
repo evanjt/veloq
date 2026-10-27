@@ -792,6 +792,8 @@ void uniffi_veloqrs_fn_method_settingsmanager_delete_setting(
     /*handle*/ uint64_t ptr, RustBuffer key, RustCallStatus *uniffi_out_err);
 double uniffi_veloqrs_fn_method_settingsmanager_engine_install(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_settingsmanager_experimental_examples(
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_settingsmanager_export_privacy_preview(
     /*handle*/ uint64_t ptr, double home_lat, double home_lng, double radius_m,
     RustCallStatus *uniffi_out_err);
@@ -1420,6 +1422,7 @@ uint16_t uniffi_veloqrs_checksum_method_settingsmanager_build_gpx_file();
 uint16_t uniffi_veloqrs_checksum_method_settingsmanager_cache_screen_data();
 uint16_t uniffi_veloqrs_checksum_method_settingsmanager_delete_setting();
 uint16_t uniffi_veloqrs_checksum_method_settingsmanager_engine_install();
+uint16_t uniffi_veloqrs_checksum_method_settingsmanager_experimental_examples();
 uint16_t
 uniffi_veloqrs_checksum_method_settingsmanager_export_privacy_preview();
 uint16_t uniffi_veloqrs_checksum_method_settingsmanager_get_athlete_profile();
@@ -8618,6 +8621,19 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_method_settingsmanager_engine_install(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_method_settingsmanager_experimental_examples"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_uniffi_veloqrs_fn_method_"
+                                    "settingsmanager_experimental_examples"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_settingsmanager_experimental_examples(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_method_settingsmanager_export_privacy_"
         "preview"] = jsi::Function::createFromHostFunction(
       rt,
@@ -13266,6 +13282,18 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_checksum_method_settingsmanager_engine_install(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_checksum_method_settingsmanager_experimental_"
+        "examples"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                    "settingsmanager_experimental_examples"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_method_settingsmanager_experimental_examples(
+                rt, thisVal, args, count);
+      });
   props["ubrn_uniffi_veloqrs_checksum_method_settingsmanager_export_privacy_"
         "preview"] = jsi::Function::createFromHostFunction(
       rt,
@@ -18780,6 +18808,21 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_settingsmanager_engine_install(
   return uniffi_jsi::Bridging<double>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_fn_method_settingsmanager_experimental_examples(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_settingsmanager_experimental_examples(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
     cpp_uniffi_veloqrs_fn_method_settingsmanager_export_privacy_preview(
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
         size_t count) {
@@ -22795,6 +22838,15 @@ jsi::Value NativeVeloqrs::
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
         size_t count) {
   auto value = uniffi_veloqrs_checksum_method_settingsmanager_engine_install();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_settingsmanager_experimental_examples(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_method_settingsmanager_experimental_examples();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

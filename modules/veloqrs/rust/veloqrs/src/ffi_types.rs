@@ -1062,6 +1062,15 @@ pub struct FfiCacheScreenData {
     pub activity_year_counts: Vec<FfiYearCount>,
 }
 
+/// The sections where each experimental feature has something to show.
+#[derive(Debug, Clone, Default, PartialEq, Eq, uniffi::Record)]
+pub struct FfiExperimentalExamples {
+    /// A section whose page carries an efficiency trend, if any does.
+    pub efficiency_trend_section_id: Option<String>,
+    /// A section whose page carries a wellness correlation, if any does.
+    pub section_correlation_section_id: Option<String>,
+}
+
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiYearCount {
     pub year: u32,

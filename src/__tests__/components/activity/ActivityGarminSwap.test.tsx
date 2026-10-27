@@ -62,7 +62,7 @@ beforeEach(() => {
   useDebugStore.setState({
     experimentalEnabled: true,
     experimentalUnlocked: true,
-    experimentalFeatures: {},
+    experimentalFeatures: { garminUpdate: true },
   });
   writeMissing.mockReturnValue(false);
   upgrade.mockResolvedValue({ granted: true, error: null });
@@ -73,6 +73,7 @@ describe('ActivityGarminSwap', () => {
   it.each([
     ['the experimental switch is off', { experimentalEnabled: false }],
     ['the Garmin entry is off', { experimentalFeatures: { garminUpdate: false } }],
+    ['the Garmin entry was never chosen', { experimentalFeatures: {} }],
   ])('renders nothing and asks the engine nothing when %s', async (_name, change) => {
     useDebugStore.setState(change);
     state.mockResolvedValue(SwapState.Available);

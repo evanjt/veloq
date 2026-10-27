@@ -26,12 +26,24 @@ beforeEach(() => {
 });
 
 describe('the experimental switches in the debug store', () => {
-  it('is off with nothing stored, and a feature needs the master switch', () => {
+  it('is off with nothing stored, and a feature needs the master switch and its own choice', () => {
     expect(
       isExperimentalOn({ experimentalEnabled: false, experimentalFeatures: {} }, 'garminUpdate')
     ).toBe(false);
     expect(
       isExperimentalOn({ experimentalEnabled: true, experimentalFeatures: {} }, 'garminUpdate')
+    ).toBe(false);
+    expect(
+      isExperimentalOn(
+        { experimentalEnabled: false, experimentalFeatures: { garminUpdate: true } },
+        'garminUpdate'
+      )
+    ).toBe(false);
+    expect(
+      isExperimentalOn(
+        { experimentalEnabled: true, experimentalFeatures: { garminUpdate: true } },
+        'garminUpdate'
+      )
     ).toBe(true);
     expect(
       isExperimentalOn(

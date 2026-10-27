@@ -3256,6 +3256,7 @@
   "experimental": {
     "title": "Fonctions expérimentales",
     "open": "Ouvrir",
+    "noExample": "Rien dans ta bibliothèque ne l'illustre encore.",
     "efficiencyTrends": {
       "title": "Tendances d'efficacité",
       "blurb": "La fréquence cardiaque à allure égale sur tes efforts, comme analyse et sur la page du tronçon. Le chiffre est difficile à lire et son signe peut contredire la fréquence cardiaque."

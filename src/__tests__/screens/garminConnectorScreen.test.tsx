@@ -45,7 +45,7 @@ describe('the Garmin connector screen', () => {
     fireEvent.press(await screen.findByTestId('garmin-read-more'));
     expect(openExternal).toHaveBeenCalledWith(GARMIN_FORUM_THREAD);
     expect(GARMIN_FORUM_THREAD).toBe(
-      'https://forum.intervals.icu/t/api-access-to-intervals-icu/609'
+      'https://forum.intervals.icu/t/api-access-to-intervals-icu/609/75'
     );
   });
 

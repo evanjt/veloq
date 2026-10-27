@@ -112,7 +112,10 @@ function Probe({ onValue }: { onValue: (value: Preferences) => void }) {
 
 beforeEach(() => {
   // Garmin is experimental: every registered slide shows only with its switch on.
-  useDebugStore.setState({ experimentalEnabled: true, experimentalFeatures: {} });
+  useDebugStore.setState({
+    experimentalEnabled: true,
+    experimentalFeatures: { garminUpdate: true },
+  });
   current = null;
   mockSetSetting.mockClear();
   mockNavigateTab.mockClear();

@@ -3167,6 +3167,7 @@
   "experimental": {
     "title": "Experimentelle Funktionen",
     "open": "Öffnen",
+    "noExample": "In deiner Bibliothek zeigt noch nichts dies.",
     "efficiencyTrends": {
       "title": "Effizienztrends",
       "blurb": "Herzfrequenz bei gleichem Tempo über deine Einheiten, als Insight und auf der Abschnittsseite. Der Wert ist schwer lesbar, und sein Vorzeichen kann der Herzfrequenz widersprechen."

@@ -34,6 +34,13 @@ onFlowComplete:
 - runFlow:
     file: helpers/discard-recording.yaml
 
+# The ride's first fix is the anchor every later one is measured against, and
+# a fix that implies an impossible speed from it is dropped. A fresh device
+# reports a position on another continent, so it starts where the route does.
+- setLocation:
+    latitude: 51.4769
+    longitude: -0.0005
+
 # Start a recording
 - tapOn:
     id: "record-fab"
@@ -61,14 +68,16 @@ onFlowComplete:
 # The review draws its map and trim only for a ride with a track, which needs
 # more than two fixes. A simulator reports none until it is given a route, and
 # an emulator under load can report too few in a short ride, so both are driven
-# along a short one.
+# along a short one. Maestro paces the route by speed, and a fast one passes in
+# under two seconds, which the one-second location watcher reports as a single
+# fix.
 - travel:
     points:
       - 51.4769,-0.0005
       - 51.4775,-0.0015
       - 51.4781,-0.0025
       - 51.4787,-0.0035
-    speed: 10
+    speed: 1
 
 # Unlock the screen (the lock auto-engages on recording start)
 - runFlow:

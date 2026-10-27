@@ -3167,6 +3167,7 @@
   "experimental": {
     "title": "Eksperimentelle funktioner",
     "open": "Åbn",
+    "noExample": "Intet i dit bibliotek viser det endnu.",
     "efficiencyTrends": {
       "title": "Effektivitetstendenser",
       "blurb": "Puls ved samme tempo på tværs af dine ture, som indsigt og på strækningssiden. Tallet er svært at læse, og dets fortegn kan modsige pulsen."

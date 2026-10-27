@@ -3256,6 +3256,7 @@
   "experimental": {
     "title": "Funciones experimentales",
     "open": "Abrir",
+    "noExample": "Nada en tu biblioteca lo muestra todavía.",
     "efficiencyTrends": {
       "title": "Tendencias de eficiencia",
       "blurb": "La frecuencia cardiaca a un ritmo equivalente a lo largo de tus esfuerzos, como dato destacado y en la página del tramo. La cifra es difícil de leer y su signo puede contradecir a la frecuencia cardiaca."

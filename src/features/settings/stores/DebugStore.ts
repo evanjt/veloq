@@ -18,7 +18,7 @@ interface DebugState {
   experimentalUnlocked: boolean;
   /** The experimental master switch: no experimental surface shows while it is off */
   experimentalEnabled: boolean;
-  /** Per-feature choices. A feature never switched is on under the master. */
+  /** Per-feature choices. A feature never switched is off, whatever the master says. */
   experimentalFeatures: ExperimentalChoices;
 
   initialise: () => Promise<void>;

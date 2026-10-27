@@ -102,7 +102,10 @@ it('keeps the Garmin slide in the tour for an athlete whose intervals.icu uses G
 
 it('owes the Garmin slide after a tour that left it unanswered, to a Garmin athlete only', async () => {
   mockAthlete.data = { garminSyncsActivities: true };
-  useDebugStore.setState({ experimentalEnabled: true, experimentalFeatures: {} });
+  useDebugStore.setState({
+    experimentalEnabled: true,
+    experimentalFeatures: { garminUpdate: true },
+  });
   await render(<TourOfferCard />);
   await press('tour-offer-open');
   await act(async () => {

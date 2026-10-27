@@ -15,12 +15,12 @@ export interface ExperimentalSurface {
   experimental?: ExperimentalFeatureKey;
 }
 
-/** A surface shows only with the master switch and its own entry both on. */
+/** A surface shows only with the master switch on and its own entry explicitly chosen on. */
 export function isExperimentalOn(
   state: ExperimentalSwitches,
   key: ExperimentalFeatureKey
 ): boolean {
-  return state.experimentalEnabled && state.experimentalFeatures[key] !== false;
+  return state.experimentalEnabled && state.experimentalFeatures[key] === true;
 }
 
 /** A surface that names no experimental feature always shows; one that does, only while it is on. */

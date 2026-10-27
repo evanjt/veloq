@@ -8,12 +8,14 @@
 
 import React from 'react';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { FooterSection } from '@/features/settings/components/FooterSection';
 import { ExperimentalFeatures } from '@/features/settings/components/ExperimentalFeatures';
 import { EXPERIMENTAL_FEATURES } from '@/features/settings/lib/experimentalFeatures';
 import { useDebugStore } from '@/features/settings/stores/DebugStore';
 import { navigateTo } from '@/shared/app/navigation';
+import { settings } from 'veloqrs';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 jest.mock('react-i18next', () => ({
@@ -26,8 +28,25 @@ jest.mock('@/shared/storage', () => ({
   setSetting: jest.fn(async () => {}),
 }));
 
+function withEngine(examples: {
+  efficiencyTrendSectionId?: string;
+  sectionCorrelationSectionId?: string;
+}) {
+  (settings.getExperimentalExamples as jest.Mock).mockReturnValue(examples);
+}
+
+function renderPage() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <ExperimentalFeatures />
+    </QueryClientProvider>
+  );
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
+  withEngine({});
   useDebugStore.setState({ unlocked: false, enabled: false });
   useDebugStore.setState({
     experimentalUnlocked: false,
@@ -80,30 +99,56 @@ describe('the experimental switch in the settings footer', () => {
 });
 
 describe('the experimental page', () => {
-  it('lists every feature with its blurb, its switch and a link to it', async () => {
+  it('lists every feature with its blurb and its switch', async () => {
     useDebugStore.setState({ experimentalUnlocked: true, experimentalEnabled: true });
-    const screen = await render(<ExperimentalFeatures />);
+    const screen = await renderPage();
 
     for (const feature of EXPERIMENTAL_FEATURES) {
       expect(screen.getByText(`t(${feature.titleKey})`)).toBeTruthy();
       expect(screen.getByText(`t(${feature.blurbKey})`)).toBeTruthy();
       expect(screen.getByTestId(`experimental-switch-${feature.key}`)).toBeTruthy();
-      await fireEvent.press(screen.getByTestId(`experimental-link-${feature.key}`));
-      expect(navigateTo).toHaveBeenLastCalledWith(feature.route);
     }
   });
 
-  it('turns one feature off without touching the others', async () => {
+  it('links each feature to the section the engine names, and the Garmin page', async () => {
+    withEngine({ efficiencyTrendSectionId: 'sec-eff', sectionCorrelationSectionId: 'sec-corr' });
     useDebugStore.setState({ experimentalUnlocked: true, experimentalEnabled: true });
-    const screen = await render(<ExperimentalFeatures />);
+    const screen = await renderPage();
+
+    await fireEvent.press(await screen.findByTestId('experimental-link-efficiencyTrends'));
+    expect(navigateTo).toHaveBeenLastCalledWith('/section/sec-eff');
+    await fireEvent.press(screen.getByTestId('experimental-link-sectionCorrelations'));
+    expect(navigateTo).toHaveBeenLastCalledWith('/section/sec-corr');
+    await fireEvent.press(screen.getByTestId('experimental-link-garminUpdate'));
+    expect(navigateTo).toHaveBeenLastCalledWith('/garmin-connector');
+  });
+
+  it('says so, with no link, for a feature the library has no example of', async () => {
+    withEngine({ sectionCorrelationSectionId: 'sec-corr' });
+    useDebugStore.setState({ experimentalUnlocked: true, experimentalEnabled: true });
+    const screen = await renderPage();
+
+    expect(await screen.findByTestId('experimental-no-example-efficiencyTrends')).toBeTruthy();
+    expect(screen.queryByTestId('experimental-link-efficiencyTrends')).toBeNull();
+    expect(screen.getByTestId('experimental-link-sectionCorrelations')).toBeTruthy();
+  });
+
+  it('shows every switch off until tapped, and turns one on without touching the others', async () => {
+    useDebugStore.setState({ experimentalUnlocked: true, experimentalEnabled: true });
+    const screen = await renderPage();
+    for (const feature of EXPERIMENTAL_FEATURES) {
+      expect(
+        screen.getByTestId(`experimental-switch-${feature.key}`).props.accessibilityState.checked
+      ).toBe(false);
+    }
 
     await fireEvent.press(screen.getByTestId('experimental-switch-garminUpdate'));
 
     await waitFor(() =>
-      expect(useDebugStore.getState().experimentalFeatures).toEqual({ garminUpdate: false })
+      expect(useDebugStore.getState().experimentalFeatures).toEqual({ garminUpdate: true })
     );
     expect(
       screen.getByTestId('experimental-switch-efficiencyTrends').props.accessibilityState.checked
-    ).toBe(true);
+    ).toBe(false);
   });
 });

@@ -197,7 +197,7 @@ describe('the Garmin connector automatic swap switch', () => {
     useDebugStore.setState({
       experimentalEnabled: true,
       experimentalUnlocked: true,
-      experimentalFeatures: {},
+      experimentalFeatures: { garminUpdate: true },
     });
   });
 

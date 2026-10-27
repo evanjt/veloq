@@ -254,3 +254,30 @@ fn a_stub_with_no_created_time_is_swapped_by_its_start_within_the_window() {
 
     assert_eq!(run_with(&store, &[]), ["stub"]);
 }
+
+/// Scenario: the pass reads and writes the library open at an install.
+/// Expected behaviour: a setting written reads back, and an empty library
+/// has no imports to swap.
+#[test]
+fn the_install_store_keeps_settings_and_lists_no_imports_from_an_empty_library() {
+    let _serial = crate::test_globals::serial_global_state();
+    let _dir = crate::test_globals::init_global_engine("auto_swap_store.db");
+    let store = InstallStore(crate::persistence::engine_install());
+
+    assert_eq!(store.setting("garmin_auto_probe"), None);
+    store.set_setting("garmin_auto_probe", "on");
+    assert_eq!(store.setting("garmin_auto_probe").as_deref(), Some("on"));
+    assert!(store.recent_imports().is_empty());
+}
+
+/// Expected behaviour: a pass whose switch is off starts nothing and leaves
+/// the pass free to start later.
+#[test]
+fn a_pass_with_the_switch_off_does_not_start() {
+    let _serial = crate::test_globals::serial_global_state();
+    let _dir = crate::test_globals::init_global_engine("auto_swap_off.db");
+
+    start(crate::persistence::engine_install());
+
+    assert!(!ACTIVE.load(Ordering::SeqCst));
+}

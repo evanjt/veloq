@@ -26,8 +26,9 @@ export { GARMIN_KEY_STORAGE_KEY };
 /** Where a Personal key is made, on Garmin Connect Web. */
 export const GARMIN_KEY_PAGE = 'https://connect.garmin.com/app/settings/personalApiToken';
 
-/** The intervals.icu forum thread that follows what Garmin's terms mean for the data it shares. */
-export const GARMIN_FORUM_THREAD = 'https://forum.intervals.icu/t/api-access-to-intervals-icu/609';
+/** The post in the intervals.icu forum thread that says what Garmin's terms mean for the data it shares. */
+export const GARMIN_FORUM_THREAD =
+  'https://forum.intervals.icu/t/api-access-to-intervals-icu/609/75';
 
 /** The choices that belong to this device with its key. The record backup leaves them out. */
 export const GARMIN_SETTING_KEYS = {

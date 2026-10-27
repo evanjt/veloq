@@ -3167,6 +3167,7 @@
   "experimental": {
     "title": "Experimentele functies",
     "open": "Openen",
+    "noExample": "Niets in je bibliotheek laat dit al zien.",
     "efficiencyTrends": {
       "title": "Efficiëntietrends",
       "blurb": "Hartslag bij hetzelfde tempo over je ritten, als inzicht en op de sectiepagina. Het getal is moeilijk te lezen en het teken kan de hartslag tegenspreken."

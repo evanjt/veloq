@@ -3167,6 +3167,7 @@
   "experimental": {
     "title": "Experimental features",
     "open": "Open",
+    "noExample": "Nothing in your library shows this yet.",
     "efficiencyTrends": {
       "title": "Efficiency trends",
       "blurb": "Heart rate at a matched pace across your efforts, as an insight and on the section page. The figure is hard to read and its sign can disagree with heart rate."

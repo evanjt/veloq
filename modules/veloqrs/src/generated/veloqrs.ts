@@ -9922,6 +9922,73 @@ const FfiConverterTypeFfiExerciseSummary = (() => {
 })();
 
 /**
+ * The sections where each experimental feature has something to show.
+ */
+export type FfiExperimentalExamples = {
+  /**
+   * A section whose page carries an efficiency trend, if any does.
+   */
+  efficiencyTrendSectionId?: string;
+  /**
+   * A section whose page carries a wellness correlation, if any does.
+   */
+  sectionCorrelationSectionId?: string;
+};
+
+/**
+ * Generated factory for {@link FfiExperimentalExamples} record objects.
+ */
+export const FfiExperimentalExamples = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiExperimentalExamples,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiExperimentalExamples>,
+  });
+})();
+
+const FfiConverterTypeFfiExperimentalExamples = (() => {
+  type TypeName = FfiExperimentalExamples;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        efficiencyTrendSectionId: FfiConverterOptionalString.readFromCursor(c),
+        sectionCorrelationSectionId:
+          FfiConverterOptionalString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterOptionalString.writeIntoCursor(
+        value.efficiencyTrendSectionId,
+        c,
+      );
+      FfiConverterOptionalString.writeIntoCursor(
+        value.sectionCorrelationSectionId,
+        c,
+      );
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterOptionalString.allocationSize(
+          value.efficiencyTrendSectionId,
+        ) +
+        FfiConverterOptionalString.allocationSize(
+          value.sectionCorrelationSectionId,
+        )
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * What a feed card says about a stub, an activity intervals.icu holds but
  * does not serve. The one judge for the card, beside [`state`] for the page.
  */
@@ -36638,6 +36705,10 @@ export interface SettingsManagerLike {
    */
   engineInstall(): number;
   /**
+   * The sections where the experimental features have something to show.
+   */
+  experimentalExamples() /*throws*/ : FfiExperimentalExamples;
+  /**
    * What a trim at this home and radius would do to the stored library.
    *
    * The radius row shows a count rather than a number of metres, because
@@ -36897,6 +36968,29 @@ export class SettingsManager
         /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
       ),
     );
+  }
+
+  /**
+   * The sections where the experimental features have something to show.
+   */
+  experimentalExamples(): FfiExperimentalExamples /*throws*/ {
+    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_experimental_examples(
+          uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+      return FfiConverterTypeFfiExperimentalExamples.lift(__rb);
+    } finally {
+      nativeModule().rustbuffer_free(__rb);
+    }
   }
 
   /**
@@ -43343,6 +43437,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_experimental_examples() !==
+    64159
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_settingsmanager_experimental_examples",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_export_privacy_preview() !==
     3926
   ) {
@@ -44192,6 +44294,7 @@ export default Object.freeze({
     FfiConverterTypeFfiExerciseSession,
     FfiConverterTypeFfiExerciseSet,
     FfiConverterTypeFfiExerciseSummary,
+    FfiConverterTypeFfiExperimentalExamples,
     FfiConverterTypeFfiFeedCard,
     FfiConverterTypeFfiFeedCardsPage,
     FfiConverterTypeFfiFitnessScreenData,

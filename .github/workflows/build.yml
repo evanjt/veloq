@@ -188,6 +188,7 @@ jobs:
           script: |
             # A launcher ANR dialog over the app fails the flow as a missing screen
             adb shell settings put global hide_error_dialogs 1
+            adb shell am force-stop com.google.android.apps.nexuslauncher
             adb logcat -c
             adb install "$(find /tmp/apk -name '*.apk' | head -1)"
             adb shell pm list packages | grep veloq

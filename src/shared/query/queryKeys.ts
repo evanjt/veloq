@@ -91,6 +91,8 @@ export const queryKeys = {
     athlete: ['athlete'] as const,
   },
 
+  experimentalExamples: ['experimentalExamples'] as const,
+
   calendar: {
     oldestDate: ['oldestActivityDate'] as const,
     yearCounts: ['activityYearCounts'] as const,

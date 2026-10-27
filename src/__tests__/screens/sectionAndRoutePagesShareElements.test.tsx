@@ -468,7 +468,15 @@ async function openPage(page: 'section' | 'route') {
 describe('the section page and the route page over one demo route', () => {
   // The efficiency and wellness cards are experimental, drawn only with the developer switch on.
   beforeEach(() =>
-    useDebugStore.setState({ experimentalEnabled: true, experimentalUnlocked: true })
+    useDebugStore.setState({
+      experimentalEnabled: true,
+      experimentalUnlocked: true,
+      experimentalFeatures: {
+        efficiencyTrends: true,
+        sectionCorrelations: true,
+        garminUpdate: true,
+      },
+    })
   );
   afterEach(() =>
     useDebugStore.setState({ experimentalEnabled: false, experimentalUnlocked: false })

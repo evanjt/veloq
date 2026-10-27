@@ -1608,6 +1608,36 @@ mod tests {
         set_phase(STREAM_PHASE_IDLE);
     }
 
+    /// Scenario: the athlete says yes to the ask while the elevation pass
+    /// still has tracks owed.
+    ///
+    /// Expected behaviour: the yes is recorded for later automatic starts, the
+    /// ask is cleared, and no second pass starts beside the elevation one.
+    #[test]
+    fn a_yes_given_while_elevation_is_owed_is_recorded_and_starts_nothing() {
+        let _serial = crate::test_globals::serial_global_state();
+        let _tmp = crate::test_globals::seeded_global_engine();
+        release_autostart_hold();
+        set_phase(STREAM_PHASE_AWAITING_CONSENT);
+        let elevation_owed = crate::objects::error::with_reader(
+            crate::net::elevation_backfill::pooled_elevation_backfill_remaining,
+        )
+        .expect("reader")
+        .expect("elevation queue");
+        assert!(elevation_owed > 0);
+
+        assert_eq!(consent_stream_backfill(), FfiStartOutcome::Held);
+
+        let consent = crate::objects::error::with_reader(|conn| {
+            crate::persistence::settings::setting_from(conn, STREAM_CONSENT_KEY)
+        })
+        .expect("reader")
+        .expect("setting");
+        assert_eq!(consent.as_deref(), Some("yes"));
+        assert_eq!(stream_backfill_progress().phase, STREAM_PHASE_IDLE);
+        assert!(!BACKFILL.running.load(Ordering::SeqCst));
+    }
+
     /// Scenario: the athlete stops a running pass, then widens the window.
     ///
     /// Expected behaviour: the stop holds the automatic start until the window

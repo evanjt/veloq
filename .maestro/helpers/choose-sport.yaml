@@ -16,17 +16,18 @@ appId: com.veloq.app.dev
           id: "record-sport-more"
       # The chip sits at the clipped end of the row, and on iOS a tap that lands
       # while the map is still drawing can be lost, so the sheet is confirmed
-      # and the tap made once more if it did not open.
+      # and the tap made once more if it did not open. The title is the sheet's
+      # marker because Android draws no Cancel in a sheet that has no confirm.
       - runFlow:
           when:
             notVisible:
-              id: "activity-type-cancel"
+              id: "activity-type-sheet-title"
           commands:
             - tapOn:
                 id: "record-sport-more"
       - extendedWaitUntil:
           visible:
-            id: "activity-type-cancel"
+            id: "activity-type-sheet-title"
           timeout: 10000
       # The list holds about sixty rows, and on iOS each swipe and the read
       # after it take about four seconds, so a sport near the end needs most

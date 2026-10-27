@@ -23,7 +23,10 @@ jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
 describe('ActivityHeldBackNotice', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    useDebugStore.setState({ experimentalEnabled: true, experimentalFeatures: {} });
+    useDebugStore.setState({
+      experimentalEnabled: true,
+      experimentalFeatures: { garminUpdate: true },
+    });
   });
 
   it("names no Garmin and offers no connector while Garmin's experimental switch is off", () => {

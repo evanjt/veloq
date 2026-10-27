@@ -83,7 +83,15 @@ describe('the insights computation and the experimental switch', () => {
   });
 
   it('computes with them when the switch is on at the visit', async () => {
-    useDebugStore.setState({ experimentalEnabled: true, experimentalUnlocked: true });
+    useDebugStore.setState({
+      experimentalEnabled: true,
+      experimentalUnlocked: true,
+      experimentalFeatures: {
+        efficiencyTrends: true,
+        sectionCorrelations: true,
+        garminUpdate: true,
+      },
+    });
     await renderHook(() => useInsights());
     await act(() => idle.flush());
 
@@ -96,7 +104,15 @@ describe('the insights computation and the experimental switch', () => {
     expect(lastExperimental()).toBe(false);
 
     await act(() => {
-      useDebugStore.setState({ experimentalEnabled: true, experimentalUnlocked: true });
+      useDebugStore.setState({
+        experimentalEnabled: true,
+        experimentalUnlocked: true,
+        experimentalFeatures: {
+          efficiencyTrends: true,
+          sectionCorrelations: true,
+          garminUpdate: true,
+        },
+      });
     });
     await settle();
     expect(mockCompute).toHaveBeenCalledTimes(2);

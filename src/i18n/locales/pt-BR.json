@@ -3240,6 +3240,7 @@
   "experimental": {
     "title": "Recursos experimentais",
     "open": "Abrir",
+    "noExample": "Nada na sua biblioteca mostra isso ainda.",
     "efficiencyTrends": {
       "title": "Tendências de eficiência",
       "blurb": "A frequência cardíaca no mesmo ritmo ao longo dos seus esforços, como destaque e na página do trecho. O valor é difícil de ler e o sinal pode contradizer a frequência cardíaca."

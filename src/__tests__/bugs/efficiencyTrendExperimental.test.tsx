@@ -118,7 +118,15 @@ describe('the efficiency trend on the Insights list and the widget', () => {
   });
 
   it('yields one, labelled experimental, with the switch on', () => {
-    useDebugStore.setState({ experimentalEnabled: true, experimentalUnlocked: true });
+    useDebugStore.setState({
+      experimentalEnabled: true,
+      experimentalUnlocked: true,
+      experimentalFeatures: {
+        efficiencyTrends: true,
+        sectionCorrelations: true,
+        garminUpdate: true,
+      },
+    });
     const { insights } = computeInsightsFromData(bundle(), t, true);
     const shown = efficiencyInsights(insights) as { experimental?: boolean }[];
     expect(shown).toHaveLength(1);
@@ -126,7 +134,15 @@ describe('the efficiency trend on the Insights list and the widget', () => {
   });
 
   it('follows a flip of the switch between two reads', () => {
-    useDebugStore.setState({ experimentalEnabled: true, experimentalUnlocked: true });
+    useDebugStore.setState({
+      experimentalEnabled: true,
+      experimentalUnlocked: true,
+      experimentalFeatures: {
+        efficiencyTrends: true,
+        sectionCorrelations: true,
+        garminUpdate: true,
+      },
+    });
     expect(efficiencyInsights(computeInsightsFromData(bundle(), t, true).insights)).toHaveLength(1);
 
     useDebugStore.setState({ experimentalEnabled: false, experimentalUnlocked: false });
@@ -134,7 +150,15 @@ describe('the efficiency trend on the Insights list and the widget', () => {
   });
 
   it('draws the experimental label on the list card', async () => {
-    useDebugStore.setState({ experimentalEnabled: true, experimentalUnlocked: true });
+    useDebugStore.setState({
+      experimentalEnabled: true,
+      experimentalUnlocked: true,
+      experimentalFeatures: {
+        efficiencyTrends: true,
+        sectionCorrelations: true,
+        garminUpdate: true,
+      },
+    });
     const { insights } = computeInsightsFromData(bundle(), t, true);
     const insight = insights.find((i) => i.category === 'efficiency_trend');
     expect(insight).toBeDefined();
@@ -143,7 +167,15 @@ describe('the efficiency trend on the Insights list and the widget', () => {
   });
 
   it('draws no experimental label on a card that is not experimental', async () => {
-    useDebugStore.setState({ experimentalEnabled: true, experimentalUnlocked: true });
+    useDebugStore.setState({
+      experimentalEnabled: true,
+      experimentalUnlocked: true,
+      experimentalFeatures: {
+        efficiencyTrends: true,
+        sectionCorrelations: true,
+        garminUpdate: true,
+      },
+    });
     const { insights } = computeInsightsFromData(bundle(), t, true);
     const insight = insights.find((i) => i.category === 'efficiency_trend')!;
     const { experimental: _experimental, ...settled } = insight;
@@ -172,7 +204,11 @@ describe('debug mode is not the experimental switch', () => {
     useDebugStore.setState({
       experimentalEnabled: true,
       experimentalUnlocked: true,
-      experimentalFeatures: { efficiencyTrends: false },
+      experimentalFeatures: {
+        efficiencyTrends: false,
+        sectionCorrelations: true,
+        garminUpdate: true,
+      },
     });
     const { insights } = computeInsightsFromData(bundle(), t, true);
     expect(efficiencyInsights(insights)).toEqual([]);
@@ -200,7 +236,11 @@ describe('debug mode is not the experimental switch', () => {
     useDebugStore.setState({
       experimentalEnabled: true,
       experimentalUnlocked: true,
-      experimentalFeatures: { sectionCorrelations: false },
+      experimentalFeatures: {
+        efficiencyTrends: true,
+        sectionCorrelations: false,
+        garminUpdate: true,
+      },
     });
     const props = {
       isDark: false,
@@ -243,7 +283,15 @@ describe('the experimental cards on the section and route pages', () => {
   });
 
   it('draws the card, labelled experimental, with the switch on', async () => {
-    useDebugStore.setState({ experimentalEnabled: true, experimentalUnlocked: true });
+    useDebugStore.setState({
+      experimentalEnabled: true,
+      experimentalUnlocked: true,
+      experimentalFeatures: {
+        efficiencyTrends: true,
+        sectionCorrelations: true,
+        garminUpdate: true,
+      },
+    });
     const screen = await render(<SectionContentArea {...props} />);
     expect(screen.getByTestId('section-efficiency-card')).toBeTruthy();
     expect(screen.getByTestId('section-efficiency-experimental')).toBeTruthy();
@@ -261,7 +309,15 @@ describe('the experimental cards on the section and route pages', () => {
   it.each(['section', 'route'] as const)(
     'draws the wellness and speed card on the %s page, labelled experimental, with the switch on',
     async (subject) => {
-      useDebugStore.setState({ experimentalEnabled: true, experimentalUnlocked: true });
+      useDebugStore.setState({
+        experimentalEnabled: true,
+        experimentalUnlocked: true,
+        experimentalFeatures: {
+          efficiencyTrends: true,
+          sectionCorrelations: true,
+          garminUpdate: true,
+        },
+      });
       const screen = await render(<SectionContentArea {...props} subject={subject} />);
       const card = screen.getByTestId('section-correlation-card');
       expect(within(card).getByTestId('section-correlation-experimental')).toBeTruthy();

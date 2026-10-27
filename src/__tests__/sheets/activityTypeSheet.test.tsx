@@ -8,6 +8,7 @@
  * the sheet always dismissible by swipe.
  */
 import React from 'react';
+import { Platform } from 'react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import ActivityTypeSheet from '@/app/sheets/activity-type';
@@ -76,6 +77,20 @@ function rowIds(): string[] {
 }
 
 describe('activity type sheet', () => {
+  it.each(['ios', 'android'] as const)(
+    'names its title on %s so a flow can wait on it',
+    async (os) => {
+      const original = Platform.OS;
+      Platform.OS = os;
+      try {
+        await open({ selectedType: 'Ride', mode: 'review' });
+        expect(screen.getByTestId('activity-type-sheet-title')).toBeTruthy();
+      } finally {
+        Platform.OS = original;
+      }
+    }
+  );
+
   it('resolves the caller with the tapped type and dismisses', async () => {
     const { result } = await open({ selectedType: 'Ride', mode: 'review' });
     await fireEvent.press(screen.getByTestId('activity-type-option-Run'));

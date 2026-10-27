@@ -811,6 +811,9 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_fn_method_settingsmanager_engine_install(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
+  jsi::Value cpp_uniffi_veloqrs_fn_method_settingsmanager_experimental_examples(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
   jsi::Value
   cpp_uniffi_veloqrs_fn_method_settingsmanager_export_privacy_preview(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -2129,6 +2132,10 @@ protected:
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_settingsmanager_engine_install(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value
+  cpp_uniffi_veloqrs_checksum_method_settingsmanager_experimental_examples(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value

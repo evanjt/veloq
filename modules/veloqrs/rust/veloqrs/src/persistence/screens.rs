@@ -82,6 +82,50 @@ pub fn cache_screen_data(
     })
 }
 
+/// Most sections the examples read looks at, busiest first. Each is a full
+/// performance read, so the scan stays inside a tap's budget.
+const EXAMPLE_SCAN_LIMIT: usize = 20;
+
+/// The first busy section where each experimental feature shows something:
+/// an efficiency trend, and a wellness correlation. The page links to these
+/// and says so when a feature has none.
+pub fn experimental_examples(conn: &rusqlite::Connection) -> crate::FfiExperimentalExamples {
+    let candidates: Vec<String> = conn
+        .prepare(&format!(
+            "SELECT id FROM sections WHERE {} ORDER BY visit_count DESC, id LIMIT ?1",
+            crate::persistence::PersistentEngine::VISIBLE_FILTER
+        ))
+        .and_then(|mut stmt| {
+            stmt.query_map([EXAMPLE_SCAN_LIMIT as i64], |row| row.get(0))?
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let mut examples = crate::FfiExperimentalExamples::default();
+    for section_id in candidates {
+        let detail = pooled::section_detail_performance(
+            conn,
+            &section_id,
+            0,
+            None,
+            None,
+            crate::persistence::sections::lap_curves::pooled::CurveRead::Held,
+        );
+        if examples.efficiency_trend_section_id.is_none() && detail.efficiency_trend.is_some() {
+            examples.efficiency_trend_section_id = Some(section_id.clone());
+        }
+        if examples.section_correlation_section_id.is_none() && !detail.correlations.is_empty() {
+            examples.section_correlation_section_id = Some(section_id);
+        }
+        if examples.efficiency_trend_section_id.is_some()
+            && examples.section_correlation_section_id.is_some()
+        {
+            break;
+        }
+    }
+    examples
+}
+
 fn activity_year_counts(
     conn: &rusqlite::Connection,
 ) -> Result<Vec<crate::FfiYearCount>, crate::objects::error::VeloqError> {
@@ -6016,6 +6060,101 @@ mod tests {
         assert_eq!(
             detail.correlation_floor as usize,
             crate::persistence::sections::correlations::MIN_PAIRS
+        );
+    }
+
+    fn wellness_row_with_hrv(date: String, hrv: f64) -> crate::persistence::wellness::WellnessRow {
+        crate::persistence::wellness::WellnessRow {
+            date,
+            ctl: None,
+            atl: None,
+            ramp_rate: None,
+            hrv: Some(hrv),
+            resting_hr: None,
+            weight: None,
+            sleep_secs: None,
+            sleep_score: None,
+            soreness: None,
+            fatigue: None,
+            stress: None,
+            mood: None,
+            motivation: None,
+            raw: None,
+        }
+    }
+
+    /// Scenario: a busier section with a single ride and no heart rate, and a
+    /// quieter section ridden twelve times with heart rate and wellness rows.
+    ///
+    /// Expected behaviour: both examples name the quieter section, because the
+    /// busier one shows neither feature. A library of two bare rides names none.
+    #[test]
+    fn the_experimental_examples_name_sections_where_each_feature_shows() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().expect("tempdir");
+        let path = dir.path().join("experimental_examples.db");
+        let times: Vec<f64> = (0..12).map(|i| 240.0 - 4.0 * i as f64).collect();
+        let laps: Vec<[(f64, bool); 1]> = times.iter().map(|t| [(*t, false)]).collect();
+        let ids: Vec<String> = (0..12).map(|i| format!("ride{i}")).collect();
+        let efforts: Vec<Effort> = (0..12)
+            .map(|i| (ids[i].as_str(), "Ride", 20 - i as i64, &laps[i][..]))
+            .collect();
+        let mut engine = section_detail_engine(path.to_str().expect("utf-8"), &efforts);
+        engine
+            .db
+            .execute(
+                "UPDATE section_activities SET avg_hr = 150.0 + CAST(substr(activity_id, 5) AS INTEGER)",
+                [],
+            )
+            .expect("heart rate");
+        let polyline = serde_json::to_string(&track(30)).expect("polyline");
+        engine
+            .db
+            .execute(
+                "INSERT INTO sections (id, section_type, name, sport_type, polyline_json,
+                                       distance_meters, disabled, version, source_activity_id,
+                                       visit_count)
+                 VALUES ('busy', 'auto', 'Busy Bare', 'Ride', ?1, 800.0, 0, 1, NULL, 99)",
+                rusqlite::params![polyline],
+            )
+            .expect("busy section");
+        let now = chrono::Utc::now().timestamp();
+        let rows: Vec<_> = (0..12)
+            .map(|i| {
+                wellness_row_with_hrv(
+                    crate::persistence::sections::correlations::local_day(
+                        now - (20 - i as i64) * 86_400,
+                    )
+                    .expect("day"),
+                    50.0 + 2.0 * i as f64 + (i % 3) as f64 * 0.4,
+                )
+            })
+            .collect();
+        engine.upsert_wellness(&rows).expect("wellness");
+
+        crate::persistence::read_cache::clear();
+        let examples = experimental_examples(&engine.db);
+        assert_eq!(
+            examples.efficiency_trend_section_id.as_deref(),
+            Some("auto1")
+        );
+        assert_eq!(
+            examples.section_correlation_section_id.as_deref(),
+            Some("auto1")
+        );
+
+        let bare_path = dir.path().join("experimental_examples_bare.db");
+        let bare = section_detail_engine(
+            bare_path.to_str().expect("utf-8"),
+            &[
+                ("ride_a", "Ride", 3, &[(200.0, false)]),
+                ("ride_b", "Ride", 4, &[(205.0, false)]),
+            ],
+        );
+        crate::persistence::read_cache::clear();
+        assert_eq!(
+            experimental_examples(&bare.db),
+            crate::FfiExperimentalExamples::default()
         );
     }
 

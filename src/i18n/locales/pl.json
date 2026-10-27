@@ -3459,6 +3459,7 @@
   "experimental": {
     "title": "Funkcje eksperymentalne",
     "open": "Otwórz",
+    "noExample": "Nic w Twojej bibliotece jeszcze tego nie pokazuje.",
     "efficiencyTrends": {
       "title": "Trendy wydajności",
       "blurb": "Tętno przy tym samym tempie w kolejnych wysiłkach, jako wgląd i na stronie odcinka. Wartość trudno odczytać, a jej znak może przeczyć tętnu."

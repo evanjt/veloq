@@ -601,3 +601,78 @@ fn a_webhook_activity_is_garmin_by_the_source_its_body_names() {
     assert!(!body_is_from_garmin(r#"{"id":"i3"}"#));
     assert!(!body_is_from_garmin("not json"));
 }
+
+/// Scenario: a pass runs against the library open at an install.
+/// Expected behaviour: a setting written reads back, a stored original counts
+/// as complete, and ingesting the same original twice stores it once.
+#[test]
+fn the_install_store_keeps_settings_and_stores_an_original_once() {
+    let _serial = crate::test_globals::serial_global_state();
+    let _dir = crate::test_globals::init_global_engine("pull_install_store.db");
+    let store = InstallStore(crate::persistence::engine_install());
+    let listed = ListedActivity {
+        activity_id: 9_001,
+        start_time_local: None,
+        start_time_gmt: Some("2020-01-01 05:00:00".to_string()),
+        activity_name: Some("Old ride".to_string()),
+        activity_type: None,
+        duration: None,
+        elapsed_duration: None,
+        distance: None,
+        manual_activity: None,
+    };
+    let fit = crate::fit_synthetic::outdoor_ride().to_fit();
+
+    assert_eq!(store.setting("garmin_pull_probe"), None);
+    store.set_setting("garmin_pull_probe", "2026-03-01");
+    assert_eq!(
+        store.setting("garmin_pull_probe").as_deref(),
+        Some("2026-03-01")
+    );
+
+    assert!(store.completed(&[9_001]).is_empty());
+    assert!(matches!(
+        store.ingest(&listed, &fit),
+        Ok(Ingested::Stored { .. })
+    ));
+    assert_eq!(store.completed(&[9_001, 9_002]), HashSet::from([9_001]));
+    assert!(matches!(
+        store.ingest(&listed, &fit),
+        Ok(Ingested::AlreadyStored)
+    ));
+}
+
+/// Scenario: the athlete asks for a pull with no Garmin key held, while a
+/// pass is paused, and when a webhook names an activity.
+///
+/// Expected behaviour: nothing starts without a key, a paused pass is told to
+/// go on at once, a stop is remembered for the next ride, and a webhook for an
+/// activity the library does not hold as Garmin's starts nothing.
+#[test]
+fn a_pull_asks_for_nothing_without_a_key_and_wakes_a_paused_pass() {
+    let _serial = crate::test_globals::serial_global_state();
+    let _dir = crate::test_globals::init_global_engine("pull_requests.db");
+    let install = crate::persistence::engine_install();
+    crate::objects::garmin_key::GARMIN_KEY.clear();
+    set_state(PullState::Idle);
+
+    assert!(!start(install));
+    assert!(!pull_now(install));
+    assert!(!pull_for_webhook(install, "i404"));
+    assert_eq!(state(), PullState::Idle);
+
+    RESUME_NOW.store(false, Ordering::SeqCst);
+    set_state(PullState::Paused {
+        until: Utc::now() + Duration::minutes(5),
+    });
+    assert!(pull_now(install));
+    assert!(RESUME_NOW.load(Ordering::SeqCst));
+
+    CANCEL.store(false, Ordering::SeqCst);
+    stop();
+    assert!(CANCEL.load(Ordering::SeqCst));
+
+    CANCEL.store(false, Ordering::SeqCst);
+    RESUME_NOW.store(false, Ordering::SeqCst);
+    set_state(PullState::Idle);
+}

@@ -46,7 +46,10 @@ const draw = (verdict: StubVerdict) =>
 
 beforeEach(() => {
   jest.clearAllMocks();
-  useDebugStore.setState({ experimentalEnabled: true, experimentalFeatures: {} });
+  useDebugStore.setState({
+    experimentalEnabled: true,
+    experimentalFeatures: { garminUpdate: true },
+  });
 });
 
 it('offers the update for a Garmin stub, asks first, and reads no state to draw it', async () => {

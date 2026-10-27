@@ -26,7 +26,10 @@ configure({ defaultIncludeHiddenElements: true });
 describe('ActivityProvenanceLine', () => {
   beforeEach(() => {
     mockNavigateTo.mockClear();
-    useDebugStore.setState({ experimentalEnabled: true, experimentalFeatures: {} });
+    useDebugStore.setState({
+      experimentalEnabled: true,
+      experimentalFeatures: { garminUpdate: true },
+    });
   });
 
   it("shows nothing for a Garmin-filled ride while Garmin's experimental switch is off", () => {

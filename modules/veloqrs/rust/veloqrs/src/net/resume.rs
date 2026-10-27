@@ -308,6 +308,28 @@ mod tests {
         assert_eq!(outcome, RetryNow::Held(held));
     }
 
+    /// Expected behaviour: Retry now on the downloads starts them once when
+    /// nothing holds them, with or without a library open, and starts nothing
+    /// inside a hold.
+    #[test]
+    fn retrying_the_downloads_starts_them_once_unless_held() {
+        let _serial = crate::test_globals::serial_global_state();
+        let _dir = crate::test_globals::init_global_engine("resume_retry.db");
+        let mut started = 0;
+        assert_eq!(
+            retry_downloads_with(None, || started += 1),
+            RetryNow::Started
+        );
+        assert_eq!(started, 1);
+
+        let held = hold("2026-03-04T10:30:00Z", false);
+        assert_eq!(
+            retry_downloads_with(Some(held), || started += 1),
+            RetryNow::Held(held)
+        );
+        assert_eq!(started, 1);
+    }
+
     /// Expected behaviour: the refusal's own cooldown names intervals.icu as
     /// the one that asked, and the install's request budget does not.
     #[test]

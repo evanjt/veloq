@@ -1055,6 +1055,49 @@ describe('the smoke job and a frozen app', () => {
   });
 });
 
+describe('an emulator that hides error dialogs', () => {
+  const smoke = (script: string) =>
+    `      - name: Emulator smoke\n        uses: example-org/emulator-runner@${PIN}\n        with:\n          script: |\n${script}\n`;
+  const HIDE = '            adb shell settings put global hide_error_dialogs 1';
+  const STOP = '            adb shell am force-stop com.google.android.apps.nexuslauncher';
+
+  it('refuses a script that hides dialogs but leaves an ANR dialog already on screen', () => {
+    const output = refused(
+      withEdit(
+        '.github/workflows/build.yml',
+        '      - run: maestro test smoke.yaml\n',
+        smoke(`${HIDE}\n            maestro test smoke.yaml`)
+      )
+    );
+    expect(output).toContain('.github/workflows/build.yml (job e2e-smoke step Emulator smoke)');
+    expect(output).toContain('force-stop');
+  });
+
+  it('refuses the launcher restart placed before the setting', () => {
+    const output = refused(
+      withEdit(
+        '.github/workflows/build.yml',
+        '      - run: maestro test smoke.yaml\n',
+        smoke(`${STOP}\n${HIDE}\n            maestro test smoke.yaml`)
+      )
+    );
+    expect(output).toContain('force-stop');
+  });
+
+  it('accepts the setting followed by a launcher restart', () => {
+    const { status } = runGuard(
+      fixture(
+        withEdit(
+          '.github/workflows/build.yml',
+          '      - run: maestro test smoke.yaml\n',
+          smoke(`${HIDE}\n${STOP}\n            maestro test smoke.yaml`)
+        )
+      )
+    );
+    expect(status).toBe(0);
+  });
+});
+
 describe('cancelled pushes to main', () => {
   it('refuses a workflow that cancels main for a newer push', () => {
     const output = refused(

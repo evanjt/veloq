@@ -102,6 +102,7 @@ function ActivityTypeSheetContent() {
       <SheetHeader
         title={t(titleKey, titleFallback)}
         onCancel={() => goBack()}
+        testID="activity-type-sheet"
         cancelTestID="activity-type-cancel"
         style={!isRecording && [styles.headerBordered, isDark && styles.headerBorderedDark]}
       />

@@ -394,7 +394,111 @@ impl SourceWrites for IntervalsSession {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::governor::{AuthMethod, Governor, NoopPolicy};
+    use httpmock::prelude::*;
     use serde_json::json;
+    use std::sync::Arc;
+
+    fn session(server: &MockServer) -> IntervalsSession {
+        let gov = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
+        let transport =
+            Transport::with_governor(server.base_url(), AuthMethod::ApiKey("k"), gov).unwrap();
+        IntervalsSession::new(transport, "i1")
+    }
+
+    /// Scenario: a recorded ride is sent, an effort is set, a manual entry is
+    /// created, a window is listed and a file is replaced.
+    ///
+    /// Expected behaviour: each write goes to its own path for the athlete and
+    /// the id intervals.icu answers with comes back.
+    #[test]
+    fn the_session_sends_each_write_to_its_own_endpoint() {
+        let server = MockServer::start();
+        let upload = server.mock(|when, then| {
+            when.method(POST).path("/athlete/i1/activities");
+            then.status(200).json_body(json!({"id": "i900"}));
+        });
+        let create = server.mock(|when, then| {
+            when.method(POST).path("/athlete/i1/activities/manual");
+            then.status(200).json_body(json!([{"id": "i901"}]));
+        });
+        let rpe = server.mock(|when, then| {
+            when.method(PUT).path("/activity/i900");
+            then.status(200).json_body(json!({}));
+        });
+        let list = server.mock(|when, then| {
+            when.method(GET)
+                .path("/athlete/i1/activities")
+                .query_param("oldest", "2026-03-01");
+            then.status(200)
+                .json_body(json!([{"id": "i900", "type": "Ride"}]));
+        });
+        let replace = server.mock(|when, then| {
+            when.method(POST).path("/activity/i900/file");
+            then.status(200)
+                .json_body(json!({"activity": {"id": "i900"}}));
+        });
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("ride.fit");
+        std::fs::write(&file, crate::fit_synthetic::outdoor_ride().to_fit()).unwrap();
+        let path = file.to_string_lossy().into_owned();
+        let session = session(&server);
+        let manual = ManualActivityBody {
+            activity_type: "Ride".to_string(),
+            name: "Commute".to_string(),
+            start_date_local: "2026-03-01T07:00:00".to_string(),
+            elapsed_time: 1800,
+            moving_time: None,
+            distance: None,
+            total_elevation_gain: None,
+            average_heartrate: None,
+            description: None,
+            trainer: false,
+            commute: true,
+            external_id: None,
+        };
+
+        crate::runtime::block_on(async {
+            let details = crate::net::intervals::endpoints::UploadDetails {
+                external_id: Some("rec-1"),
+                name: Some("Ride"),
+                description: None,
+                paired_event_id: None,
+                device_name: None,
+            };
+            let sent = session
+                .upload_activity(&path, "ride.fit", details, Lane::Interactive.into())
+                .await;
+            assert_eq!(sent.unwrap().as_deref(), Some("i900"));
+            let made = session
+                .create_activity(&manual, Lane::Interactive.into())
+                .await;
+            assert_eq!(made.unwrap().as_deref(), Some("i901"));
+            session
+                .update_activity_rpe("i900", 7, Lane::Interactive.into())
+                .await
+                .unwrap();
+            let listed = session
+                .activities_between("2026-03-01", "2026-03-02", Lane::Interactive.into())
+                .await
+                .unwrap();
+            assert_eq!(listed.len(), 1);
+            let replaced = session
+                .replace_activity_file("i900", &path, "ride.fit", true, Lane::Interactive.into())
+                .await
+                .unwrap();
+            assert_eq!(
+                replaced,
+                crate::net::intervals::endpoints::Replacement::Replaced("i900".to_string())
+            );
+        });
+
+        upload.assert();
+        create.assert();
+        rpe.assert();
+        list.assert();
+        replace.assert();
+    }
 
     #[test]
     fn the_metrics_row_carries_the_stats_the_page_fetched() {

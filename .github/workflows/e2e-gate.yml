@@ -137,6 +137,7 @@ jobs:
           script: |
             # A launcher ANR dialog over the app fails every flow behind it as a missing screen
             adb shell settings put global hide_error_dialogs 1
+            adb shell am force-stop com.google.android.apps.nexuslauncher
             adb install "$(find /tmp/apk -name '*.apk' | head -1)"
             .maestro/run-suite.sh gate-report.xml /tmp/maestro-debug --include-tags=tier0,tier1 --exclude-tags=flaky || echo "MAESTRO_FAILED=true" >> "$GITHUB_ENV"
             "$HOME/.maestro/bin/maestro" test .maestro/ --include-tags=flaky --debug-output /tmp/maestro-debug-flaky --format junit --output flaky-report.xml --no-ansi || true
@@ -254,6 +255,7 @@ jobs:
           script: |
             # A launcher ANR dialog over the app fails every flow behind it as a missing screen
             adb shell settings put global hide_error_dialogs 1
+            adb shell am force-stop com.google.android.apps.nexuslauncher
             adb install "$(find /tmp/apk -name '*.apk' | head -1)"
             .maestro/run-suite.sh map-report.xml /tmp/maestro-debug-map --include-tags=pack-map --exclude-tags=flaky || echo "MAESTRO_FAILED=true" >> "$GITHUB_ENV"
 

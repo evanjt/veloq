@@ -43,7 +43,10 @@ describe('GarminPullRow', () => {
   beforeEach(async () => {
     await changeLanguage('en-AU');
     mockPullNow.mockClear();
-    useDebugStore.setState({ experimentalEnabled: true, experimentalFeatures: {} });
+    useDebugStore.setState({
+      experimentalEnabled: true,
+      experimentalFeatures: { garminUpdate: true },
+    });
   });
 
   it("stays away while Garmin's experimental switch is off", () => {

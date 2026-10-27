@@ -17,6 +17,7 @@ import type {
   GpxFile as FfiGpxFile,
   FfiBackupScreenData,
   FfiCacheScreenData,
+  FfiExperimentalExamples,
   FfiRecordScreenData,
   FfiBackgroundJobsData,
 } from '../generated/veloqrs';
@@ -88,6 +89,12 @@ export function getRecordScreenData(host: DelegateHost): FfiRecordScreenData | u
 export function getCacheScreenData(host: DelegateHost): FfiCacheScreenData | undefined {
   if (!host.ready) return undefined;
   return host.timed('getCacheScreenData', () => host.engine.settings().cacheScreenData());
+}
+
+/** The sections where the experimental features have something to show. */
+export function getExperimentalExamples(host: DelegateHost): FfiExperimentalExamples | undefined {
+  if (!host.ready) return undefined;
+  return host.timed('getExperimentalExamples', () => host.engine.settings().experimentalExamples());
 }
 
 /**

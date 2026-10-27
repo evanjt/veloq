@@ -39,7 +39,10 @@ describe('the account screen', () => {
   beforeEach(() => {
     mockNavigateTo.mockClear();
     useAuthStore.setState({ isDemoMode: false });
-    useDebugStore.setState({ experimentalEnabled: true, experimentalFeatures: {} });
+    useDebugStore.setState({
+      experimentalEnabled: true,
+      experimentalFeatures: { garminUpdate: true },
+    });
   });
 
   it('opens the Garmin connector from its Garmin row, showing that a key is needed', async () => {
