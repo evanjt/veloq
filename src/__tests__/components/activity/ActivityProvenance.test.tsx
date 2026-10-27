@@ -11,6 +11,7 @@ import { configure, fireEvent, render, screen } from '@testing-library/react-nat
 import { ActivityProvenance } from 'veloqrs';
 
 import { ActivityProvenanceLine } from '@/features/activity/components/ActivityProvenance';
+import { useDebugStore } from '@/features/settings/stores/DebugStore';
 
 const mockNavigateTo = jest.fn();
 
@@ -23,7 +24,17 @@ jest.mock('@/shared/app/navigation', () => ({
 configure({ defaultIncludeHiddenElements: true });
 
 describe('ActivityProvenanceLine', () => {
-  beforeEach(() => mockNavigateTo.mockClear());
+  beforeEach(() => {
+    mockNavigateTo.mockClear();
+    useDebugStore.setState({ experimentalEnabled: true, experimentalFeatures: {} });
+  });
+
+  it("shows nothing for a Garmin-filled ride while Garmin's experimental switch is off", () => {
+    useDebugStore.setState({ experimentalEnabled: false });
+    render(<ActivityProvenanceLine provenance={ActivityProvenance.GarminOnPhone} />);
+
+    expect(screen.queryByTestId('activity-provenance')).toBeNull();
+  });
 
   it('says a Garmin file filled the ride, labelled with the same words, and opens the connector', () => {
     render(<ActivityProvenanceLine provenance={ActivityProvenance.GarminOnPhone} />);

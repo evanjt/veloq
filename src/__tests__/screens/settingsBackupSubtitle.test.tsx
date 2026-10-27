@@ -66,6 +66,7 @@ jest.mock('@/features/settings', () => ({
   // The hook reads on focus; here the read itself is what the subtitle is
   // being tested against, so it stands in as the read.
   useGarminConnectorState: () => null,
+  useExperimental: () => false,
   useLastBackupTimestamp: () =>
     jest.requireMock('@/features/settings/lib/autobackup').getLastBackupTimestamp(),
   useAutoBackupEnabled: () =>

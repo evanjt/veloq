@@ -145,6 +145,17 @@ impl std::fmt::Display for NetError {
 /// text and still have to tell a deferral from a failure.
 pub const DEFERRED_ERROR_PREFIX: &str = "deferred by the request budget";
 
+/// When a deferral carried as its text lifts, read back from what `Display`
+/// wrote. `None` for any other text, or a deferral whose instant does not read.
+pub fn deferred_until(text: &str) -> Option<chrono::DateTime<chrono::Utc>> {
+    let instant = text
+        .strip_prefix(DEFERRED_ERROR_PREFIX)?
+        .strip_prefix(" until ")?;
+    chrono::DateTime::parse_from_rfc3339(instant)
+        .ok()
+        .map(|at| at.with_timezone(&chrono::Utc))
+}
+
 impl std::error::Error for NetError {}
 
 impl NetError {

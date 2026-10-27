@@ -9,6 +9,8 @@
 
 use std::sync::{Arc, LazyLock, Mutex};
 
+use chrono::{DateTime, Utc};
+
 use super::start::FfiStartOutcome;
 use crate::ffi::ActivitySportMapping;
 
@@ -73,6 +75,10 @@ struct PassState {
     owed: Option<PassRange>,
     /// A pass the connection cost, started on the online edge.
     owed_to_reconnect: Option<PassRange>,
+    /// A pass the request budget held back, started when the hold lifts.
+    owed_to_budget: Option<PassRange>,
+    /// When that hold lifts.
+    held_until: Option<DateTime<Utc>>,
 }
 
 impl PassState {
@@ -95,13 +101,27 @@ fn owe_into(slot: &mut Option<PassRange>, range: PassRange) {
     });
 }
 
+/// How a pass ended, which decides what starts it again.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum PassEnd {
+    /// Every track it was given landed, was refused for good or failed for good.
+    Settled,
+    /// A track failed because the connection did.
+    NetworkLost,
+    /// The request budget, or a refusal's cooldown, sent nothing for some of
+    /// its tracks before this instant.
+    HeldUntil(DateTime<Utc>),
+}
+
 type StartPass = Box<dyn Fn(&PassRange) -> PassStart + Send + Sync>;
 type ReadOffline = Box<dyn Fn() -> bool + Send + Sync>;
+type WakeAt = Box<dyn Fn(DateTime<Utc>) + Send + Sync>;
 
 pub(crate) struct GpsPassService {
     inner: Mutex<PassState>,
     start: StartPass,
     offline: ReadOffline,
+    wake_at: WakeAt,
 }
 
 impl GpsPassService {
@@ -115,11 +135,22 @@ impl GpsPassService {
             inner: Mutex::new(PassState::default()),
             start: Box::new(start),
             offline: Box::new(offline),
+            wake_at: Box::new(|_| {}),
+        }
+    }
+
+    /// `wake_at` asks for [`GpsPassService::budget_lifted`] at the instant a
+    /// held pass may go again.
+    pub(crate) fn with_wake(self, wake_at: impl Fn(DateTime<Utc>) + Send + Sync + 'static) -> Self {
+        Self {
+            wake_at: Box::new(wake_at),
+            ..self
         }
     }
 
     /// Start a pass over `range`, or keep it owed. `Busy` means one is
-    /// downloading and this one starts when it ends; `Offline` means it starts
+    /// downloading and this one starts when it ends; `Held` means the budget
+    /// holds one back and this one starts with it; `Offline` means it starts
     /// when the connection returns.
     pub(crate) fn request(&self, range: PassRange) -> PassStart {
         let taken = {
@@ -127,6 +158,12 @@ impl GpsPassService {
             if inner.running.is_some() {
                 owe_into(&mut inner.owed, range);
                 return PassStart::refused(FfiStartOutcome::Busy);
+            }
+            // A pass started now would only be deferred again, so the ask
+            // waits with the held one and the lift starts both.
+            if inner.owed_to_budget.is_some() {
+                owe_into(&mut inner.owed_to_budget, range);
+                return PassStart::refused(FfiStartOutcome::Held);
             }
             if (self.offline)() {
                 owe_into(&mut inner.owed_to_reconnect, range);
@@ -174,18 +211,50 @@ impl GpsPassService {
         inner.running.as_ref().and_then(|r| r.run)
     }
 
-    /// The running pass ended. `network_lost` says a track failed because the
-    /// connection did, so the pass is owed again on the online edge.
-    pub(crate) fn finish(&self, network_lost: bool) {
+    /// The running pass ended. One the connection cost is owed again on the
+    /// online edge, and one the budget held back when the hold lifts, which
+    /// asks for a wake then.
+    pub(crate) fn finish(&self, end: PassEnd) {
+        let wake = {
+            let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+            let ended = inner.running.take();
+            match (ended, end) {
+                (Some(ended), PassEnd::NetworkLost) => {
+                    owe_into(&mut inner.owed_to_reconnect, ended.range);
+                    None
+                }
+                (Some(ended), PassEnd::HeldUntil(until)) => {
+                    owe_into(&mut inner.owed_to_budget, ended.range);
+                    inner.held_until = Some(until);
+                    Some(until)
+                }
+                _ => None,
+            }
+        };
+        if let Some(until) = wake {
+            (self.wake_at)(until);
+        }
+        self.start_owed();
+    }
+
+    /// The hold on a held pass has lifted: it joins the owed pass and starts
+    /// when the slot is free. One that comes too early is held again by the
+    /// budget, which asks for the next wake.
+    pub(crate) fn budget_lifted(&self) {
         {
             let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
-            if let Some(ended) = inner.running.take()
-                && network_lost
-            {
-                owe_into(&mut inner.owed_to_reconnect, ended.range);
+            inner.held_until = None;
+            if let Some(range) = inner.owed_to_budget.take() {
+                owe_into(&mut inner.owed, range);
             }
         }
         self.start_owed();
+    }
+
+    /// When the pass the budget is holding may go again, or `None` when none is held.
+    pub(crate) fn held_until(&self) -> Option<DateTime<Utc>> {
+        let inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        inner.owed_to_budget.as_ref().and(inner.held_until)
     }
 
     /// The connection came back: the pass it cost joins the owed one.
@@ -199,7 +268,8 @@ impl GpsPassService {
         self.start_owed();
     }
 
-    /// Start the owed pass if the slot is free. Offline it waits for the edge.
+    /// Start the owed pass if the slot is free. Offline it waits for the edge,
+    /// and behind a budget hold it waits for the lift.
     fn start_owed(&self) {
         let (range, taken) = {
             let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
@@ -209,6 +279,10 @@ impl GpsPassService {
             let Some(range) = inner.owed.take() else {
                 return;
             };
+            if inner.owed_to_budget.is_some() {
+                owe_into(&mut inner.owed_to_budget, range);
+                return;
+            }
             if (self.offline)() {
                 owe_into(&mut inner.owed_to_reconnect, range);
                 return;
@@ -267,9 +341,7 @@ fn start_download(range: &PassRange) -> PassStart {
     let candidates = head_first(candidates, &range.head, |c| c.activity_id.as_str());
     let ids: Vec<String> = candidates.iter().map(|c| c.activity_id.clone()).collect();
     let total = ids.len() as u32;
-    let run = crate::ffi::start_fetch_and_store_pass(ids, candidates, |network_lost| {
-        GPS_PASSES.finish(network_lost)
-    });
+    let run = crate::ffi::start_fetch_and_store_pass(ids, candidates, |end| GPS_PASSES.finish(end));
     match run {
         Some(run) => PassStart {
             outcome: FfiStartOutcome::Started,
@@ -281,10 +353,10 @@ fn start_download(range: &PassRange) -> PassStart {
 }
 
 static GPS_PASSES: LazyLock<Arc<GpsPassService>> = LazyLock::new(|| {
-    Arc::new(GpsPassService::new(
-        start_download,
-        crate::net::connectivity::is_offline,
-    ))
+    Arc::new(
+        GpsPassService::new(start_download, crate::net::connectivity::is_offline)
+            .with_wake(crate::net::resume::resume_at),
+    )
 });
 
 /// Ask for a pass over the range. See [`GpsPassService::request`].
@@ -303,6 +375,17 @@ pub(crate) fn running_download() -> Option<(u32, u32)> {
 /// The connection came back. Pushed from `objects::sync::reconnected`.
 pub(crate) fn reconnected() {
     GPS_PASSES.reconnected();
+}
+
+/// A budget hold or a refusal's cooldown has lifted. Pushed from the engine's
+/// wake-up in `net::resume`.
+pub(crate) fn budget_lifted() {
+    GPS_PASSES.budget_lifted();
+}
+
+/// When the pass the budget is holding may go again, or `None` when none is held.
+pub(crate) fn held_until() -> Option<DateTime<Utc>> {
+    GPS_PASSES.held_until()
 }
 
 #[cfg(test)]

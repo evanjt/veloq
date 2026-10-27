@@ -33,6 +33,7 @@ import {
   useMapPreferences,
   useDashboardPreferences,
   useGarminConnectorState,
+  useExperimental,
   type GarminConnectorState,
 } from '@/features/settings';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
@@ -239,6 +240,8 @@ function SettingsScreenContent() {
 
   // Subtitle: Notifications
   const notificationsEnabled = useNotificationPreferences((s) => s.enabled);
+  // Garmin is experimental, so the account card names it only while its switch is on.
+  const garminShown = useExperimental('garminUpdate');
   const garminState = useGarminConnectorState();
 
   // Subtitle: Backup. The spoke's main preference is the automatic backup
@@ -275,7 +278,7 @@ function SettingsScreenContent() {
           profileImageError={profileImageError}
           onProfileImageError={() => setProfileImageError(true)}
           isDark={isDark}
-          garminState={garminState}
+          garminState={garminShown ? garminState : null}
         />
 
         <RecordingPermissionSection />

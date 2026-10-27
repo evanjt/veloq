@@ -65,7 +65,13 @@ jest.mock('expo-router', () => ({
   Stack: Object.assign(() => null, { Screen: () => null }),
   useLocalSearchParams: () => ({ id: mockPageId }),
   useFocusEffect: () => {},
-  router: { back: jest.fn(), push: jest.fn(), replace: jest.fn(), navigate: jest.fn() },
+  router: {
+    back: jest.fn(),
+    push: jest.fn(),
+    replace: jest.fn(),
+    navigate: jest.fn(),
+    dismissTo: jest.fn(),
+  },
 }));
 jest.mock('react-native-safe-area-context', () => ({
   ...jest.requireActual('react-native-safe-area-context'),
@@ -604,14 +610,15 @@ describe("a section sheet's rows above the chart", () => {
   it('opens the map on the section from Show on map, first in the menu', async () => {
     jest.useFakeTimers();
     await openSectionWithHeader();
-    jest.mocked(router.navigate).mockClear();
+    jest.mocked(router.dismissTo).mockClear();
 
     const rows = await menuRows();
     expect(rows[0]).toBe('sections.showOnMap');
 
+    // The section page is a sheet over the map: it has to be popped, or it stays covering the popup.
     await fireEvent.press(screen.getByRole('menuitem', { name: 'sections.showOnMap' }));
-    expect(router.navigate).toHaveBeenCalledTimes(1);
-    expect(router.navigate).toHaveBeenCalledWith({
+    expect(router.dismissTo).toHaveBeenCalledTimes(1);
+    expect(router.dismissTo).toHaveBeenCalledWith({
       pathname: '/map',
       params: { section: SECTION_ID },
     });

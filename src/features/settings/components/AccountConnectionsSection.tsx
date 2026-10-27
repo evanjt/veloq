@@ -11,10 +11,11 @@ import { RowDivider } from '@/shared/ui/RowGroup';
 import { navigateTo } from '@/shared/app/navigation';
 import { SettingsNavRow } from './SettingsNavRow';
 import { useGarminConnectorState } from '../hooks/useGarminConnectorState';
+import { useExperimental } from '../lib/experimental';
 
 /**
- * The accounts beside the intervals.icu sign-in: the Garmin connector, and in
- * a demo the switch that hides the demo banner.
+ * The accounts beside the intervals.icu sign-in: the Garmin connector while its
+ * experimental switch is on, and in a demo the switch that hides the demo banner.
  */
 export function AccountConnectionsSection() {
   const { isDark } = useTheme();
@@ -23,6 +24,9 @@ export function AccountConnectionsSection() {
   const hideDemoBanner = useAuthStore((s) => s.hideDemoBanner);
   const setHideDemoBanner = useAuthStore((s) => s.setHideDemoBanner);
   const garminState = useGarminConnectorState();
+  const garminShown = useExperimental('garminUpdate');
+
+  if (!isDemoMode && !garminShown) return null;
 
   return (
     <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
@@ -40,17 +44,19 @@ export function AccountConnectionsSection() {
               {t('attribution.demoData')}
             </Text>
           </View>
-          <RowDivider />
+          {garminShown ? <RowDivider /> : null}
         </>
       ) : null}
 
-      <SettingsNavRow
-        icon="watch"
-        title={t('garmin.title')}
-        subtitle={garminState === 'keyNeeded' ? t('garmin.keyNeeded') : t('garmin.rowSubtitle')}
-        onPress={() => navigateTo('/garmin-connector')}
-        testID="settings-nav-garmin"
-      />
+      {garminShown ? (
+        <SettingsNavRow
+          icon="watch"
+          title={t('garmin.title')}
+          subtitle={garminState === 'keyNeeded' ? t('garmin.keyNeeded') : t('garmin.rowSubtitle')}
+          onPress={() => navigateTo('/garmin-connector')}
+          testID="settings-nav-garmin"
+        />
+      ) : null}
     </View>
   );
 }

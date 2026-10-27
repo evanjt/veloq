@@ -5,7 +5,8 @@
 //! ask again once the refusal lifts, without waiting for the athlete to open
 //! the app. One sleeper does that for every job: it wakes at the earliest time
 //! any of them was told to come back, or at once when a probe ends the
-//! cooldown early, and restarts the sync, both backfills and the upload queue.
+//! cooldown early, and restarts the sync, the GPS track pass, both backfills
+//! and the upload queue.
 //! Each of them asks the governor before it sends anything, so a restart that
 //! comes too early is deferred again rather than sent.
 
@@ -143,6 +144,7 @@ fn retry_with(hold: Option<DownloadsHold>, restart: impl FnOnce()) -> RetryNow {
 /// does, unless a hold is in force. The governor still decides what is sent.
 pub fn retry_downloads_now() -> RetryNow {
     retry_downloads_with(downloads_hold(), || {
+        crate::objects::gps_pass::budget_lifted();
         crate::net::elevation_backfill::start_owed_work();
         crate::net::stream_backfill::autostart_stream_backfill();
     })
@@ -224,6 +226,7 @@ fn resume_owed_work() {
     log::info!("[Resume] a refusal has lifted, resuming the owed work");
     let sync = crate::objects::sync::start_resumed_sync();
     log::info!("[Resume] sync: {sync:?}");
+    crate::objects::gps_pass::budget_lifted();
     crate::net::elevation_backfill::start_owed_work();
     crate::net::stream_backfill::autostart_stream_backfill();
     crate::net::upload_schedule::start_or_wake();

@@ -27,6 +27,7 @@ fn a_download_is_reported_whatever_else_runs_beside_it() {
         download: Some((3, 12)),
         detection: Some(detection("analyzing", 40)),
         heatmap: Some((5, 10)),
+        held: None,
     });
     assert_eq!(
         stage,
@@ -35,6 +36,8 @@ fn a_download_is_reported_whatever_else_runs_beside_it() {
             completed: 3,
             total: 12,
             percent: 25,
+            resumes_at_ms: None,
+            held_by_upstream: false,
         })
     );
 }
@@ -45,6 +48,7 @@ fn detection_is_reported_once_the_download_ends_with_its_own_weighted_percent() 
         download: None,
         detection: Some(detection("analyzing", 62)),
         heatmap: Some((5, 10)),
+        held: None,
     });
     assert_eq!(
         stage,
@@ -53,6 +57,8 @@ fn detection_is_reported_once_the_download_ends_with_its_own_weighted_percent() 
             completed: 4,
             total: 9,
             percent: 62,
+            resumes_at_ms: None,
+            held_by_upstream: false,
         })
     );
 }
@@ -64,6 +70,7 @@ fn a_detection_run_left_in_an_ending_phase_is_not_analysing() {
             download: None,
             detection: Some(detection(phase, 100)),
             heatmap: None,
+            held: None,
         });
         assert_eq!(stage, None, "a run in {phase} is waiting to settle");
     }
@@ -75,6 +82,7 @@ fn the_heatmap_is_reported_when_nothing_before_it_runs() {
         download: None,
         detection: None,
         heatmap: Some((30, 40)),
+        held: None,
     });
     assert_eq!(
         stage,
@@ -83,6 +91,8 @@ fn the_heatmap_is_reported_when_nothing_before_it_runs() {
             completed: 30,
             total: 40,
             percent: 75,
+            resumes_at_ms: None,
+            held_by_upstream: false,
         })
     );
 }
@@ -116,4 +126,60 @@ fn a_count_past_its_total_is_held_at_the_total() {
     })
     .unwrap();
     assert_eq!((stage.completed, stage.percent), (12, 100));
+}
+
+fn held(until_ms: i64, by_upstream: bool) -> Option<HeldDownload> {
+    Some(HeldDownload {
+        until_ms,
+        by_upstream,
+    })
+}
+
+/// Scenario: the budget held the GPS pass of a widened range back after its
+/// first hundred tracks, and the detection the stored batch started is near
+/// its end.
+///
+/// Expected behaviour: the stage is the held download with the time it starts
+/// again, not detection's percent, which read as the widened range being
+/// almost done while most of its tracks were still owed.
+#[test]
+fn a_held_download_is_reported_ahead_of_the_detection_beside_it() {
+    let stage = stage_of(&TrackWork {
+        download: None,
+        detection: Some(detection("analyzing", 98)),
+        heatmap: Some((5, 10)),
+        held: held(1_793_078_100_000, false),
+    });
+    assert_eq!(
+        stage,
+        Some(FfiTrackStage {
+            step: FfiTrackStep::Held,
+            completed: 0,
+            total: 0,
+            percent: 0,
+            resumes_at_ms: Some(1_793_078_100_000.0),
+            held_by_upstream: false,
+        })
+    );
+}
+
+/// Expected behaviour: a held pass the engine has started again is a
+/// download, and a cooldown intervals.icu asked for says so.
+#[test]
+fn a_running_download_outranks_the_hold_and_a_refusal_names_itself() {
+    let running = stage_of(&TrackWork {
+        download: Some((3, 12)),
+        held: held(1_793_078_100_000, true),
+        ..TrackWork::default()
+    })
+    .unwrap();
+    assert_eq!(running.step, FfiTrackStep::Downloading);
+
+    let refused = stage_of(&TrackWork {
+        held: held(1_793_078_100_000, true),
+        ..TrackWork::default()
+    })
+    .unwrap();
+    assert_eq!(refused.step, FfiTrackStep::Held);
+    assert!(refused.held_by_upstream);
 }

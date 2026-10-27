@@ -17,6 +17,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { TourOfferCard } from '@/features/settings/components/TourOfferCard';
 import { NO_TOUR_OFFER } from '@/features/settings/lib/tourOffer';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
+import { useDebugStore } from '@/features/settings/stores/DebugStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { setSetting } from '@/shared/storage';
 import { openLaunchSession } from '../../__shared__/launchSession';
@@ -61,6 +62,7 @@ async function closeTour(): Promise<void> {
 beforeEach(() => {
   jest.mocked(setSetting).mockClear();
   mockAthlete.data = {};
+  useDebugStore.setState({ experimentalEnabled: false, experimentalFeatures: {} });
   openLaunchSession();
   useAuthStore.setState({ isAuthenticated: true, isDemoMode: false, authMethod: 'apiKey' });
   useWhatsNewStore.setState({
@@ -100,6 +102,7 @@ it('keeps the Garmin slide in the tour for an athlete whose intervals.icu uses G
 
 it('owes the Garmin slide after a tour that left it unanswered, to a Garmin athlete only', async () => {
   mockAthlete.data = { garminSyncsActivities: true };
+  useDebugStore.setState({ experimentalEnabled: true, experimentalFeatures: {} });
   await render(<TourOfferCard />);
   await press('tour-offer-open');
   await act(async () => {
@@ -110,6 +113,19 @@ it('owes the Garmin slide after a tour that left it unanswered, to a Garmin athl
   await laterSession();
   await press('tour-offer-open');
   expect(useWhatsNewStore.getState().tourState).toMatchObject({ only: ['garmin'], held: [] });
+});
+
+it('owes no Garmin slide while the Garmin experimental switch is off', async () => {
+  mockAthlete.data = { garminSyncsActivities: true };
+  await render(<TourOfferCard />);
+  await press('tour-offer-open');
+  await act(async () => {
+    useWhatsNewStore.getState().answerSetup('notifications', 'never');
+    useWhatsNewStore.getState().answerSetup('backup', 'on');
+  });
+  await closeTour();
+  await laterSession();
+  expect(screen.queryByTestId('tour-offer-card')).toBeNull();
 });
 
 it('owes the notification slide alone after a quiet-period tour, once the quiet period ends', async () => {

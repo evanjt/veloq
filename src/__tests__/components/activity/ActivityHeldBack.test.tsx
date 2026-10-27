@@ -12,6 +12,7 @@ import { configure, fireEvent, render, screen } from '@testing-library/react-nat
 
 import { ActivityHeldBackNotice } from '@/features/activity/components/ActivityHeldBack';
 import { navigateTo } from '@/shared/app/navigation';
+import { useDebugStore } from '@/features/settings/stores/DebugStore';
 
 configure({ defaultIncludeHiddenElements: true });
 
@@ -22,6 +23,21 @@ jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
 describe('ActivityHeldBackNotice', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    useDebugStore.setState({ experimentalEnabled: true, experimentalFeatures: {} });
+  });
+
+  it("names no Garmin and offers no connector while Garmin's experimental switch is off", () => {
+    useDebugStore.setState({ experimentalEnabled: false });
+    render(
+      <ActivityHeldBackNotice
+        activityId="h1"
+        heldBack={{ source: 'GARMIN_CONNECT', externalId: '5550001' }}
+      />
+    );
+    expect(screen.getByTestId('activity-h1-held-back-description').props.children).toBe(
+      'activity.heldBack.detail'
+    );
+    expect(screen.queryByTestId('activity-h1-held-back-connect-garmin')).toBeNull();
   });
 
   it('shows the empty state with Connect Garmin for a Garmin import', () => {

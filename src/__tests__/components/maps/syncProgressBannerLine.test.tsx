@@ -103,7 +103,13 @@ it('prints one ellipsis while older activities load', () => {
 });
 
 it('shows a GPS pass the engine is running after the sync itself has settled', () => {
-  engineReporting({ step: TrackStep.Downloading, completed: 3, total: 12, percent: 25 });
+  engineReporting({
+    step: TrackStep.Downloading,
+    completed: 3,
+    total: 12,
+    percent: 25,
+    heldByUpstream: false,
+  });
 
   const screen = renderBanner();
 
@@ -114,7 +120,13 @@ it('shows a GPS pass the engine is running after the sync itself has settled', (
 });
 
 it('names detection with its own percent and no count', () => {
-  engineReporting({ step: TrackStep.Analysing, completed: 40, total: 90, percent: 62 });
+  engineReporting({
+    step: TrackStep.Analysing,
+    completed: 40,
+    total: 90,
+    percent: 62,
+    heldByUpstream: false,
+  });
 
   const screen = renderBanner();
 
@@ -123,7 +135,13 @@ it('names detection with its own percent and no count', () => {
 });
 
 it('prints one figure during the heatmap pass', () => {
-  engineReporting({ step: TrackStep.DrawingHeatmap, completed: 40, total: 100, percent: 40 });
+  engineReporting({
+    step: TrackStep.DrawingHeatmap,
+    completed: 40,
+    total: 100,
+    percent: 40,
+    heldByUpstream: false,
+  });
 
   const line = bannerLine();
 

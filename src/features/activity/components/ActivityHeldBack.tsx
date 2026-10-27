@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { ActivityHeldBack } from 'veloqrs';
 import { EmptyState } from '@/shared/ui';
 import { navigateTo } from '@/shared/app/navigation';
+import { useExperimental } from '@/features/settings/light';
 import { spacing } from '@/theme';
 
 interface Props {
@@ -14,11 +15,12 @@ interface Props {
 /**
  * The opened ride's empty state for an activity intervals.icu holds but does not
  * serve to apps. A Garmin import also offers the Garmin connector, which fills it
- * from the original.
+ * from the original, while Garmin's experimental switch is on.
  */
 export function ActivityHeldBackNotice({ activityId, heldBack }: Props) {
   const { t } = useTranslation();
-  const fromGarmin = heldBack.source?.toUpperCase().startsWith('GARMIN') ?? false;
+  const garminOn = useExperimental('garminUpdate');
+  const fromGarmin = garminOn && (heldBack.source?.toUpperCase().startsWith('GARMIN') ?? false);
   return (
     <View style={styles.notice}>
       <EmptyState

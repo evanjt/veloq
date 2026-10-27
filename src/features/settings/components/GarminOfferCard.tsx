@@ -2,7 +2,8 @@
  * The feed card that offers the Garmin connector after a download brought rides
  * intervals.icu holds back. What it offers is `garminOffer`'s to say, and whether
  * it shows is the session's one ask. Not now holds it until a later download
- * brings more such rides.
+ * brings more such rides. Garmin is experimental, so the card is absent unless
+ * its switch is on.
  */
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -16,8 +17,17 @@ import { Card } from '@/shared/ui/Card';
 import { colors, darkColors, spacing, typography } from '@/theme';
 
 import { useGarminOffer } from '../hooks/useGarminOffer';
+import { ExperimentalOnly } from './ExperimentalOnly';
 
 export function GarminOfferCard() {
+  return (
+    <ExperimentalOnly feature="garminUpdate">
+      <GarminOfferCardBody />
+    </ExperimentalOnly>
+  );
+}
+
+function GarminOfferCardBody() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const { offer, holdsAsk, decline } = useGarminOffer();

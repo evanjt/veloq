@@ -21,6 +21,7 @@ import { sourceFor } from '@/shared/app/source';
 import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 
 import { useUsesGarmin } from '../hooks/useGarminOffer';
+import { useSurfaceShown } from '../lib/experimental';
 import { getTutorialSetupSlides } from './whatsNew/slides';
 import { useQuietPeriod, useSessionAsk } from '../hooks/useLaunchSurfaces';
 import { setupSlidesAnswerable, tourOffer } from '../lib/tourOffer';
@@ -40,6 +41,7 @@ export function TourOfferCard() {
   const declineTourOffer = useWhatsNewStore((s) => s.declineTourOffer);
   const quiet = useQuietPeriod();
   const usesGarmin = useUsesGarmin();
+  const shown = useSurfaceShown();
   const currentVersion = Constants.expoConfig?.version ?? '';
 
   const offer = isLoaded
@@ -49,7 +51,7 @@ export function TourOfferCard() {
         lastSeenVersion,
         record,
         settledThisSession,
-        tourSetupSlides: setupSlidesAnswerable(getTutorialSetupSlides(), {
+        tourSetupSlides: setupSlidesAnswerable(getTutorialSetupSlides(shown), {
           push: sourceFor({ authMethod, isDemoMode })?.can.push === true,
           garmin: usesGarmin,
         }),

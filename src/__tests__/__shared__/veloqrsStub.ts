@@ -110,6 +110,7 @@ export enum TrackStep {
   Downloading = 1,
   Analysing = 2,
   DrawingHeatmap = 3,
+  Held = 4,
 }
 
 /** `FfiGroupSort` as generated, held to the source by the same test. */

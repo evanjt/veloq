@@ -21,6 +21,7 @@ import {
 } from '@/features/settings/components/whatsNew/slides';
 import { resolveShowMeRoute } from '@/features/settings/lib/tourShowMe';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
+import { useDebugStore } from '@/features/settings/stores/DebugStore';
 import {
   MapPreferencesProvider,
   useMapPreferences,
@@ -110,6 +111,8 @@ function Probe({ onValue }: { onValue: (value: Preferences) => void }) {
 }
 
 beforeEach(() => {
+  // Garmin is experimental: every registered slide shows only with its switch on.
+  useDebugStore.setState({ experimentalEnabled: true, experimentalFeatures: {} });
   current = null;
   mockSetSetting.mockClear();
   mockNavigateTab.mockClear();
@@ -256,6 +259,15 @@ describe("Garmin slide in the What's New update set", () => {
 
   it('is registered for upgraders from 0.3.8', () => {
     expect(garminSlides('0.3.8')).toHaveLength(1);
+  });
+
+  it('is left out while the Garmin experimental switch is off', async () => {
+    useDebugStore.setState({ experimentalEnabled: false });
+    await openUpdate();
+    await act(async () => {
+      await fireEvent.press(screen.getByText('whatsNew.nextButton'));
+    });
+    expect(screen.queryByText('whatsNew.tutorial.garminTitle')).toBeNull();
   });
 
   it('is shown to a Garmin athlete and left out otherwise', async () => {

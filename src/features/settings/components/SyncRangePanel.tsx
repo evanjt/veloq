@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { TimelineSlider, formatTrackStage } from '@/features/maps';
+import { TimelineSlider } from '@/features/maps';
 import { useActivityBoundsCache } from '@/features/activity';
 import { useTheme } from '@/shared/app';
 import { useOldestActivityDate } from '@/shared/app/useOldestActivityDate';
@@ -11,7 +11,9 @@ import { DEFAULT_ACTIVITY_DAYS } from '@/shared/native/activityWindow.generated'
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { isExtendedFetchRunning } from '@/shared/app/extendedFetch';
 import { useTrackStage } from '@/shared/native/useSyncStatus';
+import { useLibraryCoverage } from '@/shared/native/useLibraryCoverage';
 import { activitiesInRange, LARGE_HISTORY_THRESHOLD } from '../lib/historyGate';
+import { rangeProgress } from '../lib/rangeProgress';
 import { settingsStyles } from './settingsStyles';
 import {
   colors,
@@ -37,11 +39,13 @@ export function SyncRangePanel() {
 
   const syncOldest = useSyncDateRange((s) => s.oldest);
   const isFetchingExtended = useSyncDateRange((s) => isExtendedFetchRunning(s.extendedFetch));
-  // The track work as the engine reports it, whoever started it.
+  // The track work as the engine reports it, whoever started it, against the
+  // tracks the window still owes.
   const trackStage = useTrackStage();
-  const trackLine = useMemo(
-    () => (trackStage ? formatTrackStage(trackStage, t) : null),
-    [trackStage, t]
+  const coverage = useLibraryCoverage();
+  const progress = useMemo(
+    () => rangeProgress(trackStage, coverage, isFetchingExtended, t),
+    [trackStage, coverage, isFetchingExtended, t]
   );
   const isExpansionLocked = useSyncDateRange((s) => s.isExpansionLocked);
 
@@ -132,8 +136,8 @@ export function SyncRangePanel() {
           />
         </View>
 
-        {/* GPS sync progress */}
-        {isSyncing ? (
+        {/* The range's tracks, owed or downloading */}
+        {progress ? (
           <View
             style={[
               styles.progressRow,
@@ -145,14 +149,14 @@ export function SyncRangePanel() {
             ]}
           >
             <ProgressBar
-              done={trackLine?.percent ?? 0}
-              total={100}
-              label={trackLine?.text ?? t('cache.fetchingActivities')}
+              done={progress.done}
+              total={progress.total}
+              label={progress.label}
               fillTestID="settings-sync-range-progress-fill"
             />
             <Text style={[styles.progressText, isDark && styles.progressTextDark]}>
-              {trackLine?.text ?? t('cache.fetchingActivities')}
-              {trackLine?.countText ? ` (${trackLine.countText})` : null}
+              {progress.label}
+              {progress.detail ? ` (${progress.detail})` : null}
             </Text>
           </View>
         ) : null}

@@ -168,6 +168,9 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - run: maestro test smoke.yaml
+      - name: Fail on a freeze of our own app
+        if: \${{ always() }}
+        run: '! grep -qF "ANR in com.veloq" smoke-logcat.txt'
   build-required:
     needs: [changes, build-android, bundle-check, e2e-smoke]
     if: always()
@@ -1025,6 +1028,30 @@ describe('caller text spliced into a shell', () => {
       )
     );
     expect(status).toBe(0);
+  });
+});
+
+describe('the smoke job and a frozen app', () => {
+  const CHECK = `      - name: Fail on a freeze of our own app
+        if: \${{ always() }}
+        run: '! grep -qF "ANR in com.veloq" smoke-logcat.txt'
+`;
+
+  it('refuses a smoke job with no step that fails on an ANR in our app', () => {
+    const output = refused(withEdit('.github/workflows/build.yml', CHECK, ''));
+    expect(output).toContain('.github/workflows/build.yml (job e2e-smoke)');
+    expect(output).toContain('ANR in com');
+  });
+
+  it('refuses an ANR check that only runs when the flow passed', () => {
+    const output = refused(
+      withEdit(
+        '.github/workflows/build.yml',
+        "        if: ${{ always() }}\n        run: '! grep",
+        "        run: '! grep"
+      )
+    );
+    expect(output).toContain('.github/workflows/build.yml (job e2e-smoke)');
   });
 });
 

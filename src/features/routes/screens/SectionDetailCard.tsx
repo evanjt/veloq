@@ -54,7 +54,7 @@ import { useMapSheetCardAddress, useMapSheetHostHeader } from '@/shared/app/MapS
 import { useOpenDetail } from '@/shared/app/MapSheetCards';
 import { useMapSheetStop } from '@/shared/app/mapSheetStop';
 import { overMapHeaderOptions } from '@/shared/app/screenHeaders';
-import { navigateTab } from '@/shared/app/navigation';
+import { returnTo } from '@/shared/app/navigation';
 import { useReadRetry } from '@/shared/native/useEngineSubscription';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
 import { Button, EmptyState, ErrorState, HeroStatsRow, useBottomClearance } from '@/shared/ui';
@@ -277,8 +277,10 @@ function SectionDetailCardContent({ id, activityId: navActivityId }: SectionDeta
   // The bounds are edited on the map, so a section with no line to edit offers nothing to start.
   const canEditBounds = !!section?.polyline?.length;
   const startTrim = canEditBounds ? enterTool : undefined;
+  // The page is a sheet over the map, so it is popped: a plain tab navigation leaves it up on iOS,
+  // covering the popup the link opens.
   const showOnMap = useCallback(
-    () => navigateTab({ pathname: '/map', params: { section: id } }),
+    () => returnTo({ pathname: '/map', params: { section: id } }),
     [id]
   );
 

@@ -73,6 +73,39 @@ pub(crate) fn held_back(error: &str) -> bool {
     error.starts_with(crate::net::transport::DEFERRED_ERROR_PREFIX)
 }
 
+/// How long a hold whose lift does not read is taken to last: the shortest
+/// cooldown, after which a pass that comes too early is deferred again.
+const UNREAD_HOLD: chrono::TimeDelta = chrono::TimeDelta::minutes(1);
+
+/// How a run ended, from the failures of its last pass.
+///
+/// A lost connection comes first, because the online edge restarts the pass
+/// and the budget is asked again then. A hold ends the run at the latest lift
+/// it was told, so the pass starts once when the window has room rather than
+/// once for every slot that frees.
+pub(crate) fn run_end(failed: &[(String, String)]) -> crate::objects::gps_pass::PassEnd {
+    use crate::objects::gps_pass::PassEnd;
+    if failed
+        .iter()
+        .any(|(_, error)| network_absent(error) && !held_back(error))
+    {
+        return PassEnd::NetworkLost;
+    }
+    let held: Vec<&str> = failed
+        .iter()
+        .map(|(_, error)| error.as_str())
+        .filter(|error| held_back(error))
+        .collect();
+    if held.is_empty() {
+        return PassEnd::Settled;
+    }
+    let read = held
+        .iter()
+        .filter_map(|error| crate::net::transport::deferred_until(error))
+        .max();
+    PassEnd::HeldUntil(read.unwrap_or_else(|| chrono::Utc::now() + UNREAD_HOLD))
+}
+
 /// The ids a run still asks the server about: those not already refused for
 /// good or given up on. Such an id is dropped, neither fetched nor reported, because the
 /// server would answer with the same stream.
@@ -209,6 +242,68 @@ mod tests {
         assert_eq!(settled_failures(&failed), vec!["b"]);
         assert!(matches!(failure_release(&deferred), Release::Deferred));
         assert!(network_absent(&deferred));
+    }
+
+    fn failure(id: &str, error: impl Into<String>) -> (String, String) {
+        (id.to_string(), error.into())
+    }
+
+    fn held_until(at: &str) -> String {
+        NetError::Deferred {
+            until: at.parse().expect("instant"),
+        }
+        .to_string()
+    }
+
+    /// Scenario: the budget holds tracks back part way through a pass, each
+    /// told a lift time as the window frees.
+    ///
+    /// Expected behaviour: the run ends held until the latest of them, so the
+    /// pass restarts once rather than once per freed slot.
+    #[test]
+    fn a_run_the_budget_held_back_ends_held_until_its_latest_lift() {
+        let failed = vec![
+            failure("a", held_until("2026-10-27T05:15:00Z")),
+            failure("b", "HTTP 500"),
+            failure("c", held_until("2026-10-27T05:16:00Z")),
+        ];
+        assert_eq!(
+            run_end(&failed),
+            crate::objects::gps_pass::PassEnd::HeldUntil(
+                "2026-10-27T05:16:00Z".parse().expect("instant")
+            )
+        );
+    }
+
+    /// Expected behaviour: a lost connection waits for the online edge, which
+    /// comes sooner than any budget hold, and a run with nothing owed settles.
+    #[test]
+    fn a_lost_connection_outranks_a_hold_and_nothing_owed_settles() {
+        use crate::objects::gps_pass::PassEnd;
+        let lost = vec![
+            failure("a", held_until("2026-10-27T05:15:00Z")),
+            failure("b", "transport error: timed out"),
+        ];
+        assert_eq!(run_end(&lost), PassEnd::NetworkLost);
+        assert_eq!(run_end(&[failure("a", "HTTP 500")]), PassEnd::Settled);
+        assert_eq!(run_end(&[]), PassEnd::Settled);
+    }
+
+    /// Expected behaviour: a deferral whose instant does not read still holds
+    /// the pass, rather than settling it and leaving its tracks for nobody.
+    #[test]
+    fn a_deferral_without_a_readable_lift_still_holds_the_run() {
+        let failed = vec![failure(
+            "a",
+            format!(
+                "{} until never",
+                crate::net::transport::DEFERRED_ERROR_PREFIX
+            ),
+        )];
+        assert!(matches!(
+            run_end(&failed),
+            crate::objects::gps_pass::PassEnd::HeldUntil(_)
+        ));
     }
 
     #[test]

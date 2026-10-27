@@ -6,6 +6,7 @@
  */
 
 import { formatTrackStage } from '@/features/maps/lib/syncProgressFormat';
+import { formatClockOrDate } from '@/shared/format/format';
 import { tilePassProgress } from '@/features/routes/lib/tilePass';
 import { i18n, initialiseI18n } from '@/i18n';
 import { TrackStep, type TrackStage } from 'veloqrs';
@@ -18,7 +19,11 @@ const t = ((key: string, opts?: Record<string, unknown>) =>
   opts ? `${key}:${JSON.stringify(opts)}` : key) as unknown as TFunction;
 
 function stage(step: TrackStep, completed: number, total: number, percent: number): TrackStage {
-  return { step, completed, total, percent };
+  return { step, completed, total, percent, heldByUpstream: false };
+}
+
+function held(resumesAtMs: number, heldByUpstream: boolean): TrackStage {
+  return { step: TrackStep.Held, completed: 0, total: 0, percent: 0, resumesAtMs, heldByUpstream };
 }
 
 describe('formatTrackStage', () => {
@@ -52,6 +57,24 @@ describe('formatTrackStage', () => {
     const result = formatTrackStage(stage(TrackStep.Analysing, 0, 0, 0), t);
     expect(result.indeterminate).toBe(true);
     expect(result.text).toBe('cache.analyzingRoutes');
+  });
+
+  it('shows a download the budget holds back as the wait and when it ends, with no figure', () => {
+    const resumesAt = new Date('2026-10-27T05:15:00Z').getTime();
+    const result = formatTrackStage(held(resumesAt, false), t);
+    expect(result.text).toBe(
+      `backgroundJobs.heldByBudget:${JSON.stringify({ time: formatClockOrDate(resumesAt) })}`
+    );
+    expect(result.percent).toBe(0);
+    expect(result.countText).toBeNull();
+    expect(result.indeterminate).toBe(false);
+  });
+
+  it('names a wait intervals.icu asked for as its own', () => {
+    const resumesAt = new Date('2026-10-27T05:15:00Z').getTime();
+    expect(formatTrackStage(held(resumesAt, true), t).text).toContain(
+      'backgroundJobs.heldByUpstream'
+    );
   });
 
   it('shows the heatmap pass with no count', () => {

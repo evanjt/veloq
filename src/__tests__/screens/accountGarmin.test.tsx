@@ -2,9 +2,9 @@
  * Scenario: the Garmin connector sat in a Data sources row apart from the
  * athlete's account.
  *
- * Expected behaviour: the account screen holds a Garmin row under the
- * intervals.icu sign-in that opens the connector, and a demo account finds the
- * demo banner switch there.
+ * Expected behaviour: while Garmin's experimental switch is on, the account
+ * screen holds a Garmin row under the intervals.icu sign-in that opens the
+ * connector, and a demo account finds the demo banner switch there.
  */
 
 import React from 'react';
@@ -12,6 +12,7 @@ import { fireEvent, render } from '@testing-library/react-native';
 
 import AccountScreen from '@/app/account';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { useDebugStore } from '@/features/settings/stores/DebugStore';
 
 const mockNavigateTo = jest.fn();
 jest.mock('@/shared/app/navigation', () => ({
@@ -38,6 +39,7 @@ describe('the account screen', () => {
   beforeEach(() => {
     mockNavigateTo.mockClear();
     useAuthStore.setState({ isDemoMode: false });
+    useDebugStore.setState({ experimentalEnabled: true, experimentalFeatures: {} });
   });
 
   it('opens the Garmin connector from its Garmin row, showing that a key is needed', async () => {

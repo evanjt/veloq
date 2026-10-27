@@ -29,12 +29,12 @@
 
 <!-- store-copy:readme-strip -->
 <p align="center">
-  <img src="docs/screenshots/android/01-feed.png" width="16%" alt="Activity feed">
-  <img src="docs/screenshots/android/02-activity.png" width="16%" alt="Activity detail">
-  <img src="docs/screenshots/android/03-fitness.png" width="16%" alt="Fitness">
-  <img src="docs/screenshots/android/04-map.png" width="16%" alt="Map">
-  <img src="docs/screenshots/android/05-routes.png" width="16%" alt="Routes">
-  <img src="docs/screenshots/android/06-insights.png" width="16%" alt="Insights">
+  <img src="docs/screenshots/android/01-feed.png" width="16%" alt="Your intervals.icu activities">
+  <img src="docs/screenshots/android/02-map.png" width="16%" alt="All your activities on one map">
+  <img src="docs/screenshots/android/03-activity.png" width="16%" alt="Charts linked to the map">
+  <img src="docs/screenshots/android/04-section.png" width="16%" alt="See how you did, from the notification">
+  <img src="docs/screenshots/android/05-insights.png" width="16%" alt="What changed in your training">
+  <img src="docs/screenshots/android/06-fitness.png" width="16%" alt="Fitness, fatigue and form">
 </p>
 <!-- /store-copy:readme-strip -->
 

@@ -11,6 +11,7 @@ import { render, fireEvent } from '@testing-library/react-native';
 import { FfiGarminHalt, FfiGarminPullPhase, type FfiGarminPull } from 'veloqrs';
 import { initialiseI18n, changeLanguage } from '@/i18n';
 import { GarminPullRow } from '@/features/settings/components/GarminPullRow';
+import { useDebugStore } from '@/features/settings/stores/DebugStore';
 
 const mockPullNow = jest.fn();
 const mockUseGarminPull = jest.fn();
@@ -42,6 +43,14 @@ describe('GarminPullRow', () => {
   beforeEach(async () => {
     await changeLanguage('en-AU');
     mockPullNow.mockClear();
+    useDebugStore.setState({ experimentalEnabled: true, experimentalFeatures: {} });
+  });
+
+  it("stays away while Garmin's experimental switch is off", () => {
+    useDebugStore.setState({ experimentalEnabled: false });
+    const tree = pull({ phase: FfiGarminPullPhase.Running });
+
+    expect(tree.queryByTestId('settings-garmin-pull')).toBeNull();
   });
 
   it('stays away while no Garmin key is held', () => {

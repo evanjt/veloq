@@ -5,6 +5,7 @@ import { useEngineStatus } from '@/features/routes';
 import { useAuthStore } from '@/shared/app/AuthStore';
 
 import { getSlidesSince } from '../components/whatsNew/slides';
+import { useSurfaceShown } from '../lib/experimental';
 import {
   launchSurfaces,
   quietPeriod,
@@ -34,6 +35,7 @@ export function useLaunchSurfaces(): LaunchSurfaces {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
   const libraryRebuilt = useEngineStatus((s) => s.quarantineReport !== null);
+  const shown = useSurfaceShown();
   const currentVersion = Constants.expoConfig?.version ?? '';
 
   const surfaces = launchSurfaces({
@@ -43,7 +45,7 @@ export function useLaunchSurfaces(): LaunchSurfaces {
     tourEligible: isAuthenticated && !isDemoMode,
     lastSeenVersion,
     currentVersion,
-    missedSlideCount: lastSeenVersion ? getSlidesSince(lastSeenVersion).length : 0,
+    missedSlideCount: lastSeenVersion ? getSlidesSince(lastSeenVersion).filter(shown).length : 0,
     libraryRebuilt,
     restoreOffered,
     tourOpen,

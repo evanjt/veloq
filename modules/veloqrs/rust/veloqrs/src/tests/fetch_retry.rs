@@ -7,7 +7,10 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::time::{Duration, Instant};
 
-use super::{start_fetch_and_store_with_fetcher, take_fetch_and_store_result};
+use super::{
+    start_fetch_and_store_ending_with_fetcher, start_fetch_and_store_with_fetcher,
+    take_fetch_and_store_result,
+};
 use crate::ffi::FetchAndStoreResult;
 use crate::governor::{Allowance, AuthMethod, Budget, Governor, NoopPolicy, SYNC_ALLOWANCE};
 use crate::http::{ActivityFetcher, DownloadPriority};
@@ -273,4 +276,38 @@ fn a_track_intervals_icu_refuses_sets_the_cooldown_and_is_owed() {
     assert!(governor.cooldown_until(chrono::Utc::now()).is_some());
     assert_eq!(result.failed_ids, Vec::<String>::new());
     assert_eq!(result.owed_ids, ids(1));
+}
+
+/// Scenario: the install's own allowance is spent part way through the pass
+/// a widened range started, with hundreds of tracks still owed.
+///
+/// Expected behaviour: the run ends held by the budget, naming when it lifts,
+/// which is what lets the engine start the pass again by itself then.
+#[test]
+fn a_run_the_allowance_holds_back_ends_held_until_the_window_frees() {
+    let _serial = crate::test_globals::serial_global_state();
+    let _tmp = crate::test_globals::init_global_engine("fetch_budget_held_end.db");
+    let server = FakeServer::answering(|_| ("200 OK", "", TIMED_TRACK));
+    let one = Allowance {
+        per_fifteen_minutes: 1,
+        per_day: None,
+    };
+    let governor = budgeted(Budget::with_allowances(one, SYNC_ALLOWANCE, 0));
+    let (tx, rx) = std::sync::mpsc::channel();
+    let started = chrono::Utc::now();
+
+    let result = settle(start_fetch_and_store_ending_with_fetcher(
+        ids(3),
+        server.fetcher_on(Arc::clone(&governor)),
+        move |end| tx.send(end).expect("send"),
+    ));
+    let end = rx
+        .recv_timeout(Duration::from_secs(5))
+        .expect("the run ended");
+
+    assert_eq!(result.owed_ids.len(), 2);
+    let crate::objects::gps_pass::PassEnd::HeldUntil(until) = end else {
+        panic!("the run ended {end:?}, not held by the budget");
+    };
+    assert!(until > started, "the hold lifts after the run: {until}");
 }

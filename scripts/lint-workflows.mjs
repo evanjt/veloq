@@ -780,6 +780,26 @@ function checkArtifactIdentity(file, id, steps) {
   }
 }
 
+const SMOKE_ANR_CHECK = /grep\b[^\n]*ANR in com\.veloq/;
+
+/**
+ * The smoke job hides system error dialogs so a launcher freeze cannot cover
+ * the app, which would also hide a freeze of our own. A step that runs whatever
+ * the flow did must fail the job when the captured logcat holds one.
+ */
+function checkSmokeAnr(file, id, steps) {
+  if (file !== '.github/workflows/build.yml' || id !== 'e2e-smoke') return;
+  const ok = steps.some(
+    (step) => SMOKE_ANR_CHECK.test(text(step.run)) && /always\(\)/.test(text(step.if))
+  );
+  if (ok) return;
+  fail(
+    file,
+    `job ${id}`,
+    'has no step with if: always() that greps the logcat for "ANR in com.veloq", so hiding system dialogs lets a freeze of our own app pass.'
+  );
+}
+
 const VARIANT_FROM_CALLER = /^\$\{\{\s*inputs\.variant\s*\}\}$/;
 const SETS_VARIANT = /(^|[\s;&|(])APP_VARIANT=/m;
 
@@ -1302,6 +1322,7 @@ for (const [file, { doc, isAction }] of parsed) {
     checkRustSaves(file, id, job.steps ?? []);
     checkArtifactIdentity(file, id, job.steps ?? []);
     checkVariant(file, id, job, doc.env);
+    checkSmokeAnr(file, id, job.steps ?? []);
     checkCall(file, id, job, workflows);
     checkRunner(file, id, job);
     checkShards(file, id, job);

@@ -519,12 +519,31 @@ pub(crate) fn start_fetch_and_store_with_fetcher(
     ) as f64
 }
 
+/// [`start_fetch_and_store_with_fetcher`] with the end hook a pass gives it.
+#[cfg(test)]
+pub(crate) fn start_fetch_and_store_ending_with_fetcher(
+    activity_ids: Vec<String>,
+    fetcher: crate::http::ActivityFetcher,
+    on_end: impl FnOnce(PassEnd) + Send + 'static,
+) -> f64 {
+    start_fetch_and_store_run_ending(
+        next_fetch_run(),
+        activity_ids,
+        vec![],
+        crate::http::DownloadPriority::Bulk,
+        fetcher,
+        None,
+        Some(Box::new(on_end)),
+    ) as f64
+}
+
 /// What `start_gps_pass` answered.
 #[derive(Debug, Clone, Copy, PartialEq, uniffi::Record)]
 pub struct FfiGpsPassStart {
     /// `Started`, or why not: `Busy` keeps the pass owed until the running one
-    /// ends, `Offline` keeps it owed until the connection returns, `NotOwed`
-    /// has no track to fetch.
+    /// ends, `Held` keeps it owed until the request budget's hold lifts,
+    /// `Offline` keeps it owed until the connection returns, `NotOwed` has no
+    /// track to fetch.
     pub outcome: crate::objects::start::FfiStartOutcome,
     /// The fetch run to follow with `get_fetch_run_progress` and
     /// `take_fetch_and_store_result`, 0 when nothing started.
@@ -537,10 +556,10 @@ pub struct FfiGpsPassStart {
 ///
 /// The engine reads the tracks the census still owes over the range and
 /// downloads them in one bulk run, `head` first in its order. One pass runs at
-/// a time: a pass asked for while one runs, or one the connection cost, is kept
-/// owed and started by the engine itself, when the running pass ends or on the
-/// online edge. The caller follows the run it is handed and asks again for
-/// nothing.
+/// a time: a pass asked for while one runs, one the connection cost, or one the
+/// request budget held back, is kept owed and started by the engine itself,
+/// when the running pass ends, on the online edge, or when the hold lifts. The
+/// caller follows the run it is handed and asks again for nothing.
 #[uniffi::export]
 pub fn start_gps_pass(oldest: String, newest: String, head: Vec<String>) -> FfiGpsPassStart {
     init_logging();
@@ -556,13 +575,12 @@ pub fn start_gps_pass(oldest: String, newest: String, head: Vec<String>) -> FfiG
     }
 }
 
-/// Start one bulk run for the GPS pass, calling `on_end` with whether the
-/// connection cost it a track once the run has ended, however it ends. `None`
-/// with no credential held.
+/// Start one bulk run for the GPS pass, calling `on_end` with how it ended
+/// once the run has ended, however it ends. `None` with no credential held.
 pub(crate) fn start_fetch_and_store_pass(
     activity_ids: Vec<String>,
     sport_types: Vec<ActivitySportMapping>,
-    on_end: impl FnOnce(bool) + Send + 'static,
+    on_end: impl FnOnce(PassEnd) + Send + 'static,
 ) -> Option<u64> {
     let Some(Ok(session)) = crate::objects::current_session() else {
         return None;
@@ -579,17 +597,21 @@ pub(crate) fn start_fetch_and_store_pass(
     ))
 }
 
+use crate::objects::gps_pass::PassEnd;
+
+type OnRunEnd = Box<dyn FnOnce(PassEnd) + Send>;
+
 /// Calls the run's end hook when the fetch thread leaves, a panic included, so
 /// a pass that unwinds still frees the pass slot.
 struct RunEnd {
-    network_lost: bool,
-    on_end: Option<Box<dyn FnOnce(bool) + Send>>,
+    end: PassEnd,
+    on_end: Option<OnRunEnd>,
 }
 
 impl Drop for RunEnd {
     fn drop(&mut self) {
         if let Some(on_end) = self.on_end.take() {
-            on_end(self.network_lost);
+            on_end(self.end);
         }
     }
 }
@@ -625,7 +647,7 @@ fn start_fetch_and_store_run_ending(
     priority: crate::http::DownloadPriority,
     fetcher: crate::http::ActivityFetcher,
     signed_in_as: Option<String>,
-    on_end: Option<Box<dyn FnOnce(bool) + Send>>,
+    on_end: Option<OnRunEnd>,
 ) -> u64 {
     use crate::elapsed_ms;
     use std::collections::HashMap;
@@ -701,7 +723,7 @@ fn start_fetch_and_store_run_ending(
         // Declared before the slot so it drops after it: a pass the hook
         // starts joins a queue this run has already left.
         let mut ended = RunEnd {
-            network_lost: false,
+            end: PassEnd::Settled,
             on_end,
         };
         // The run leaves the queue on the way out of this thread however it
@@ -995,13 +1017,8 @@ fn start_fetch_and_store_run_ending(
                     crate::persistence::attempts::now_ms(),
                 );
             }
-            // The last pass says whether the connection is what the run ended
-            // on. A track the budget held back is not: the budget frees on its
-            // own clock, not on the online edge.
-            ended.network_lost = pass_failed.iter().any(|(_, error)| {
-                crate::objects::tracks::network_absent(error)
-                    && !crate::objects::tracks::held_back(error)
-            });
+            // The last pass says what the run ended on.
+            ended.end = crate::objects::tracks::run_end(&pass_failed);
             // A track the budget held back is owed, not failed: it is neither
             // re-offered in this run nor reported as missing.
             offered = Vec::new();

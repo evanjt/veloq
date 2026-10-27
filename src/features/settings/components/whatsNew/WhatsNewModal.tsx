@@ -60,6 +60,7 @@ import {
 } from './slides';
 import { WhatsNewSlide } from './WhatsNewSlide';
 import { useUsesGarmin } from '../../hooks/useGarminOffer';
+import { useSurfaceShown } from '../../lib/experimental';
 import { TourSyncLine } from './TourSyncLine';
 import { Button, pageAccessibility } from '@/shared/ui';
 import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
@@ -118,6 +119,7 @@ export function WhatsNewModal() {
   }).summaries[0]?.groupId;
   const hasActivities = useActivityCount() > 0;
   const usesGarmin = useUsesGarmin();
+  const shown = useSurfaceShown();
   const library = useMemo<TourLibrary>(
     () => ({
       hasActivities,
@@ -130,8 +132,10 @@ export function WhatsNewModal() {
   );
 
   const currentVersion = Constants.expoConfig?.version ?? '';
-  // The Garmin slide is for an athlete whose intervals.icu uses Garmin, and is no news to anyone else.
-  const forAthlete = (slide: WhatsNewSlideDefinition) => slide.setup !== 'garmin' || usesGarmin;
+  // A slide of an experimental feature shows only while it is on. The Garmin slide is for an
+  // athlete whose intervals.icu uses Garmin, and is no news to anyone else.
+  const forAthlete = (slide: WhatsNewSlideDefinition) =>
+    shown(slide) && (slide.setup !== 'garmin' || usesGarmin);
   const missedSlides = lastSeenVersion ? getSlidesSince(lastSeenVersion).filter(forAthlete) : [];
 
   // The tour never opens on its own: a first load opens onto the feed, where a card offers it.
@@ -160,7 +164,7 @@ export function WhatsNewModal() {
 
   const tourSlides =
     tourState?.mode === 'tutorial'
-      ? getTutorialSlidesFor(tourState.only, tourState.held)
+      ? getTutorialSlidesFor(tourState.only, tourState.held).filter(shown)
       : missedSlides.length > 0
         ? missedSlides
         : ALL_SLIDES.filter(forAthlete);

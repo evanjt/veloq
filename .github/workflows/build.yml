@@ -186,9 +186,16 @@ jobs:
           disable-animations: true
           # Each line runs as its own `sh -c`, so every line must stand alone.
           script: |
+            # A launcher ANR dialog over the app fails the flow as a missing screen
+            adb shell settings put global hide_error_dialogs 1
+            adb logcat -c
             adb install "$(find /tmp/apk -name '*.apk' | head -1)"
             adb shell pm list packages | grep veloq
-            "$HOME/.maestro/bin/maestro" test .maestro/smoke-build.yaml --no-ansi --format junit --output smoke-report.xml
+            "$HOME/.maestro/bin/maestro" test .maestro/smoke-build.yaml --no-ansi --format junit --output smoke-report.xml; code=$?; adb logcat -d -v time > smoke-logcat.txt; exit $code
+
+      - name: Fail on a freeze of our own app
+        if: always()
+        run: '! grep -F "ANR in com.veloq" smoke-logcat.txt'
 
       - name: Upload screenshots
         if: always()
@@ -207,7 +214,9 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: e2e-smoke-report
-          path: smoke-report.xml
+          path: |
+            smoke-report.xml
+            smoke-logcat.txt
           retention-days: 7
 
   # The one job branch protection requires from this workflow.

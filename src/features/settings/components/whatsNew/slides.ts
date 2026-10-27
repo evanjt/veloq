@@ -1,8 +1,10 @@
 import type { ComponentType } from 'react';
 import { fitnessTarget } from '@/shared/app/fitnessEntry';
 import { SETUP_SLIDES, type SetupSlide } from '../../lib/tourOffer';
+import type { ExperimentalSurface } from '../../lib/experimental';
 
-interface SlideContent {
+/** A slide of an experimental feature names it in `experimental`, and shows only while it is on. */
+interface SlideContent extends ExperimentalSurface {
   /** i18n key for slide title */
   titleKey: string;
   /** i18n key for slide body text */
@@ -124,6 +126,7 @@ const GARMIN: WhatsNewSlideDefinition = {
   showMeTip: 'whatsNew.tutorial.garminWhy',
   showMeWhen: 'usesGarmin',
   setup: 'garmin',
+  experimental: 'garminUpdate',
   get Component() {
     return require('./GarminSlide').GarminSlide;
   },
@@ -251,9 +254,13 @@ export function getTutorialSlides(): WhatsNewSlideDefinition[] {
   return TUTORIAL_SLIDES;
 }
 
-/** The setup slides the first-run tour carries, in the order it shows them. */
-export function getTutorialSetupSlides(): SetupSlide[] {
-  return SETUP_SLIDES.filter((setup) => TUTORIAL_SLIDES.some((slide) => slide.setup === setup));
+/** The setup slides the first-run tour carries and `shown` lets it show, in the order it shows them. */
+export function getTutorialSetupSlides(
+  shown: (slide: ExperimentalSurface) => boolean
+): SetupSlide[] {
+  return SETUP_SLIDES.filter((setup) =>
+    TUTORIAL_SLIDES.some((slide) => slide.setup === setup && shown(slide))
+  );
 }
 
 /** The first-run tour limited to the given setup slides, or the whole of it, less the held ones. */

@@ -41,6 +41,7 @@ const analysing: TrackStage = {
   completed: 3,
   total: 8,
   percent: 40,
+  heldByUpstream: false,
 };
 
 let tracks: TrackStage | undefined;

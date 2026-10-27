@@ -43,6 +43,7 @@ export { resumeRecordImport } from './lib/backup';
 export { sweepIdleBackupFiles } from './lib/backupCache';
 export { settingsStyles } from './components/settingsStyles';
 export { ExperimentalFeatures } from './components/ExperimentalFeatures';
+export { ExperimentalOnly } from './components/ExperimentalOnly';
 export { StreamConsentCard } from './components/StreamConsentCard';
 export { useDebugStore, initialiseDebugStore } from './stores/DebugStore';
 export { useExperimental, experimentalOn } from './lib/experimental';

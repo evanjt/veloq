@@ -19,6 +19,7 @@ import { spacing } from '@/theme';
 
 const mockNavigateTo = jest.fn();
 let mockGarminState: 'connected' | 'keyNeeded' | 'off' | null = null;
+let mockGarminExperimental = true;
 jest.mock('@/shared/app/navigation', () => ({
   ...jest.requireActual('@/shared/app/navigation'),
   navigateTo: (...a: unknown[]) => mockNavigateTo(...a),
@@ -67,6 +68,7 @@ jest.mock('@/features/settings', () => ({
   ).useNotificationPreferences,
   useLastBackupTimestamp: () => null,
   useGarminConnectorState: () => mockGarminState,
+  useExperimental: () => mockGarminExperimental,
   useAutoBackupEnabled: () => true,
   SettingsNavRow: jest.requireActual('@/features/settings/components/SettingsNavRow')
     .SettingsNavRow,
@@ -108,6 +110,7 @@ function inRenderOrder(tree: unknown): string[] {
 describe('Settings hub grouping', () => {
   beforeEach(() => {
     mockGarminState = null;
+    mockGarminExperimental = true;
   });
 
   it('has no Data sources row; the connected accounts live with the account card', async () => {
@@ -129,6 +132,16 @@ describe('Settings hub grouping', () => {
       expect(texts.map((n) => n.props.children)).toContain(expected);
     }
   );
+
+  it('names only the sign-in while the Garmin experimental switch is off', async () => {
+    mockGarminState = 'connected';
+    mockGarminExperimental = false;
+    useAuthStore.setState({ authMethod: 'oauth' });
+    const screen = await render(<SettingsScreen />);
+    const texts = screen.getByTestId('settings-account-row').findAllByType(Text);
+    expect(texts.map((n) => n.props.children)).toContain('settings.authOAuth');
+    expect(texts.map((n) => n.props.children)).not.toContain('settings.authOAuth, garmin.title');
+  });
 
   it('groups the rows by what the athlete is doing', async () => {
     const screen = await render(<SettingsScreen />);

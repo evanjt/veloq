@@ -70,7 +70,7 @@ fn a_pass_that_failed_on_the_network_starts_again_when_the_connection_returns() 
         h.service.request(asked.clone()).outcome,
         FfiStartOutcome::Started
     );
-    h.service.finish(true);
+    h.service.finish(PassEnd::NetworkLost);
     assert_eq!(
         h.started().len(),
         1,
@@ -86,7 +86,7 @@ fn a_pass_that_failed_on_the_network_starts_again_when_the_connection_returns() 
 fn a_pass_that_ended_cleanly_is_not_started_on_the_online_edge() {
     let h = harness(FfiStartOutcome::Started);
     h.service.request(range("2024-01-01", "2024-03-31"));
-    h.service.finish(false);
+    h.service.finish(PassEnd::Settled);
 
     h.service.reconnected();
 
@@ -104,7 +104,7 @@ fn a_pass_asked_while_one_runs_starts_once_when_it_ends() {
     assert_eq!(again.outcome, FfiStartOutcome::Busy);
     assert_eq!(h.started().len(), 1, "nothing starts while the pass runs");
 
-    h.service.finish(false);
+    h.service.finish(PassEnd::Settled);
 
     // Two asks are one owed pass, over the span both of them covered.
     assert_eq!(
@@ -115,7 +115,7 @@ fn a_pass_asked_while_one_runs_starts_once_when_it_ends() {
         ]
     );
 
-    h.service.finish(false);
+    h.service.finish(PassEnd::Settled);
     assert_eq!(h.started().len(), 2, "the owed pass is paid once");
 }
 
@@ -123,7 +123,7 @@ fn a_pass_asked_while_one_runs_starts_once_when_it_ends() {
 fn a_reconnect_during_a_running_pass_waits_for_it_to_end() {
     let h = harness(FfiStartOutcome::Started);
     h.service.request(range("2024-01-01", "2024-03-31"));
-    h.service.finish(true);
+    h.service.finish(PassEnd::NetworkLost);
     h.service.request(range("2024-02-01", "2024-03-31"));
 
     h.service.reconnected();
@@ -133,7 +133,7 @@ fn a_reconnect_during_a_running_pass_waits_for_it_to_end() {
         "the slot is held, so the edge only owes it"
     );
 
-    h.service.finish(false);
+    h.service.finish(PassEnd::Settled);
     assert_eq!(h.started().len(), 3);
 }
 
@@ -159,7 +159,7 @@ fn an_owed_pass_that_comes_due_offline_waits_for_the_connection() {
     h.service.request(range("2024-01-01", "2024-03-31"));
     h.offline.store(true, Ordering::SeqCst);
 
-    h.service.finish(false);
+    h.service.finish(PassEnd::Settled);
     assert_eq!(h.started().len(), 1);
 
     h.offline.store(false, Ordering::SeqCst);
@@ -191,7 +191,7 @@ fn the_running_pass_names_its_run_until_it_ends() {
     h.service.request(range("2024-01-01", "2024-03-31"));
     assert_eq!(h.service.running_run(), Some(1));
 
-    h.service.finish(false);
+    h.service.finish(PassEnd::Settled);
     assert_eq!(h.service.running_run(), None);
 }
 
@@ -201,7 +201,7 @@ fn a_pass_the_engine_starts_itself_names_its_own_run() {
     h.service.request(range("2024-01-01", "2024-03-31"));
     h.service.request(range("2024-01-01", "2024-03-31"));
 
-    h.service.finish(false);
+    h.service.finish(PassEnd::Settled);
 
     assert_eq!(
         h.service.running_run(),
@@ -234,7 +234,7 @@ fn a_pass_that_ends_before_its_start_returns_does_not_name_its_run() {
                 && let Some(service) = reaches_service.get().and_then(Weak::upgrade)
             {
                 service.request(range("2023-01-01", "2023-12-31"));
-                service.finish(false);
+                service.finish(PassEnd::Settled);
             }
             PassStart {
                 outcome: FfiStartOutcome::Started,
@@ -250,7 +250,7 @@ fn a_pass_that_ends_before_its_start_returns_does_not_name_its_run() {
 
     assert_eq!(service.running_run(), Some(2));
 
-    service.finish(false);
+    service.finish(PassEnd::Settled);
     assert_eq!(service.running_run(), None);
 }
 
@@ -262,4 +262,122 @@ fn the_head_ids_come_first_in_their_own_order() {
         |id: &String| id.as_str(),
     );
     assert_eq!(ordered, vec!["c", "a", "b", "d"]);
+}
+
+/// The instants a test service was asked to wake at, in order.
+type Wakes = Arc<Mutex<Vec<chrono::DateTime<chrono::Utc>>>>;
+
+/// [`harness`] with its wake requests recorded.
+fn waking_harness() -> (Harness, Wakes) {
+    let wakes: Wakes = Arc::new(Mutex::new(Vec::new()));
+    let record = Arc::clone(&wakes);
+    let mut h = harness(FfiStartOutcome::Started);
+    h.service = h
+        .service
+        .with_wake(move |at| record.lock().unwrap().push(at));
+    (h, wakes)
+}
+
+fn instant(s: &str) -> chrono::DateTime<chrono::Utc> {
+    s.parse().expect("instant")
+}
+
+/// Scenario: an athlete widens the range to two years back, and the request
+/// budget holds the tracks back after the first hundred.
+///
+/// Expected behaviour: the pass is owed to the budget, the engine asks to be
+/// woken when the hold lifts, and the same range starts again then, with no
+/// second ask from a screen.
+#[test]
+fn a_pass_the_budget_held_back_starts_again_when_the_hold_lifts() {
+    let (h, wakes) = waking_harness();
+    let asked = range("2024-10-27", "2026-10-27");
+    let lifts = instant("2026-10-27T05:15:00Z");
+
+    h.service.request(asked.clone());
+    h.service.finish(PassEnd::HeldUntil(lifts));
+
+    assert_eq!(*wakes.lock().unwrap(), vec![lifts]);
+    assert_eq!(h.started().len(), 1, "nothing starts before the hold lifts");
+    assert_eq!(h.service.held_until(), Some(lifts));
+
+    h.service.reconnected();
+    assert_eq!(h.started().len(), 1, "the online edge is not the budget's");
+
+    h.service.budget_lifted();
+
+    assert_eq!(h.started(), vec![asked.clone(), asked]);
+    assert_eq!(h.service.held_until(), None);
+}
+
+#[test]
+fn a_budget_lift_with_nothing_held_starts_nothing() {
+    let (h, _) = waking_harness();
+    h.service.request(range("2024-01-01", "2024-03-31"));
+    h.service.finish(PassEnd::Settled);
+
+    h.service.budget_lifted();
+
+    assert_eq!(h.started().len(), 1);
+}
+
+/// Scenario: the athlete widens the range again while the first pass is
+/// downloading, and the budget then holds that pass back.
+///
+/// Expected behaviour: the pass owed behind it waits for the lift rather than
+/// starting into the hold, and the lift starts one pass over both spans.
+#[test]
+fn a_pass_owed_behind_one_the_budget_holds_waits_for_the_lift() {
+    let (h, _) = waking_harness();
+    h.service.request(range("2024-10-27", "2026-10-27"));
+    let behind = h.service.request(range("2023-01-01", "2026-10-27"));
+    assert_eq!(behind.outcome, FfiStartOutcome::Busy);
+
+    h.service
+        .finish(PassEnd::HeldUntil(instant("2026-10-27T05:15:00Z")));
+    assert_eq!(h.started().len(), 1, "nothing starts into the hold");
+
+    h.service.budget_lifted();
+    assert_eq!(h.started().len(), 2);
+    assert_eq!(h.started().last(), Some(&range("2023-01-01", "2026-10-27")));
+}
+
+/// Scenario: the budget holds two passes back in a row, the second until later.
+///
+/// Expected behaviour: the hold reported is the later one, which is the wait in
+/// force, and each asks for its own wake.
+#[test]
+fn a_second_hold_moves_the_wait_to_its_own_lift() {
+    let (h, wakes) = waking_harness();
+    let first = instant("2026-10-27T05:15:00Z");
+    let second = instant("2026-10-27T05:30:00Z");
+    h.service.request(range("2024-10-27", "2026-10-27"));
+    h.service.finish(PassEnd::HeldUntil(first));
+    h.service.budget_lifted();
+    h.service.finish(PassEnd::HeldUntil(second));
+
+    assert_eq!(*wakes.lock().unwrap(), vec![first, second]);
+    assert_eq!(h.service.held_until(), Some(second));
+}
+
+/// Scenario: a pass is held by the budget, and a stored page announces itself
+/// before the hold lifts, which asks for a pass again.
+///
+/// Expected behaviour: the ask is held with the pass, starting nothing that
+/// would only be deferred, and the lift starts one pass over both spans.
+#[test]
+fn a_pass_asked_while_one_is_held_is_held_with_it() {
+    let (h, _) = waking_harness();
+    h.service.request(range("2024-10-27", "2026-10-27"));
+    h.service
+        .finish(PassEnd::HeldUntil(instant("2026-10-27T05:15:00Z")));
+
+    let asked = h.service.request(range("2023-01-01", "2026-10-27"));
+
+    assert_eq!(asked.outcome, FfiStartOutcome::Held);
+    assert_eq!(h.started().len(), 1);
+
+    h.service.budget_lifted();
+    assert_eq!(h.started().last(), Some(&range("2023-01-01", "2026-10-27")));
+    assert_eq!(h.started().len(), 2);
 }

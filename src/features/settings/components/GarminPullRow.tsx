@@ -2,7 +2,8 @@
  * The Garmin pull's progress, beside the stream download row: how many rides
  * are stored, the month the history has reached, and whether the pass is
  * running, paused until a time, done or stopped. A paused or stopped pass
- * offers Pull now. The row stays away until a Garmin key is held.
+ * offers Pull now. The row stays away until a Garmin key is held, and while
+ * Garmin's experimental switch is off.
  */
 
 import React from 'react';
@@ -15,12 +16,21 @@ import { colors, darkColors, spacing, typography } from '@/theme';
 import { formatPullMonth, garminPullLine, offersPullNow } from '../lib/garminPullLine';
 import { useGarminPull } from '../hooks/useGarminPull';
 import { Button, Row } from '@/shared/ui';
+import { ExperimentalOnly } from './ExperimentalOnly';
 
 interface GarminPullRowProps {
   isDark: boolean;
 }
 
 export function GarminPullRow({ isDark }: GarminPullRowProps) {
+  return (
+    <ExperimentalOnly feature="garminUpdate">
+      <GarminPullRowBody isDark={isDark} />
+    </ExperimentalOnly>
+  );
+}
+
+function GarminPullRowBody({ isDark }: GarminPullRowProps) {
   const { t, i18n } = useTranslation();
   const { pull, pullNow } = useGarminPull();
   if (!pull) return null;

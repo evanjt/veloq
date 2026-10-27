@@ -84,7 +84,7 @@ describe('a GPS download run that stores nothing', () => {
 });
 
 describe('a GPS pass the engine did not start', () => {
-  it.each([StartOutcome.Busy, StartOutcome.Offline])(
+  it.each([StartOutcome.Busy, StartOutcome.Held, StartOutcome.Offline])(
     'is owed to the engine on outcome %s',
     (outcome) => {
       expect(passRefusalEnding(outcome)).toBe('owed');

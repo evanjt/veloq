@@ -565,10 +565,10 @@ export function startEngineOpen(dbPath: string): FfiStartOutcome {
  *
  * The engine reads the tracks the census still owes over the range and
  * downloads them in one bulk run, `head` first in its order. One pass runs at
- * a time: a pass asked for while one runs, or one the connection cost, is kept
- * owed and started by the engine itself, when the running pass ends or on the
- * online edge. The caller follows the run it is handed and asks again for
- * nothing.
+ * a time: a pass asked for while one runs, one the connection cost, or one the
+ * request budget held back, is kept owed and started by the engine itself,
+ * when the running pass ends, on the online edge, or when the hold lifts. The
+ * caller follows the run it is handed and asks again for nothing.
  */
 export function startGpsPass(
   oldest: string,
@@ -11714,8 +11714,9 @@ const FfiConverterTypeFfiStartOutcome = (() => {
 export type FfiGpsPassStart = {
   /**
    * `Started`, or why not: `Busy` keeps the pass owed until the running one
-   * ends, `Offline` keeps it owed until the connection returns, `NotOwed`
-   * has no track to fetch.
+   * ends, `Held` keeps it owed until the request budget's hold lifts,
+   * `Offline` keeps it owed until the connection returns, `NotOwed` has no
+   * track to fetch.
    */
   outcome: FfiStartOutcome;
   /**
@@ -24126,6 +24127,11 @@ export enum FfiTrackStep {
    * The heatmap tile pass is drawing them.
    */
   DrawingHeatmap = 3,
+  /**
+   * The GPS pass owes tracks the request budget, or a cooldown intervals.icu
+   * asked for, held back. The engine starts it again at `resumes_at_ms`.
+   */
+  Held = 4,
 }
 
 const FfiConverterTypeFfiTrackStep = (() => {
@@ -24139,6 +24145,8 @@ const FfiConverterTypeFfiTrackStep = (() => {
           return FfiTrackStep.Analysing;
         case 3:
           return FfiTrackStep.DrawingHeatmap;
+        case 4:
+          return FfiTrackStep.Held;
         default:
           throw new UniffiInternalError.UnexpectedEnumCase();
       }
@@ -24151,6 +24159,8 @@ const FfiConverterTypeFfiTrackStep = (() => {
           return c.writeI32(2);
         case FfiTrackStep.DrawingHeatmap:
           return c.writeI32(3);
+        case FfiTrackStep.Held:
+          return c.writeI32(4);
       }
     }
     allocationSize(value: TypeName): number {
@@ -24179,6 +24189,17 @@ export type FfiTrackStage = {
    * this is not always `completed` of `total`.
    */
   percent: number;
+  /**
+   * When a held download starts again, as epoch milliseconds. `None` for
+   * every other step. The counts beside it are zero: the window's own
+   * coverage says how many tracks are still owed.
+   */
+  resumesAtMs?: number;
+  /**
+   * Whether intervals.icu asked for the wait, rather than this install's
+   * own request budget. False for every other step.
+   */
+  heldByUpstream: boolean;
 };
 
 /**
@@ -24207,6 +24228,8 @@ const FfiConverterTypeFfiTrackStage = (() => {
         completed: FfiConverterUInt32.readFromCursor(c),
         total: FfiConverterUInt32.readFromCursor(c),
         percent: FfiConverterUInt32.readFromCursor(c),
+        resumesAtMs: FfiConverterOptionalFloat64.readFromCursor(c),
+        heldByUpstream: FfiConverterBool.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -24214,13 +24237,17 @@ const FfiConverterTypeFfiTrackStage = (() => {
       FfiConverterUInt32.writeIntoCursor(value.completed, c);
       FfiConverterUInt32.writeIntoCursor(value.total, c);
       FfiConverterUInt32.writeIntoCursor(value.percent, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.resumesAtMs, c);
+      FfiConverterBool.writeIntoCursor(value.heldByUpstream, c);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterTypeFfiTrackStep.allocationSize(value.step) +
         FfiConverterUInt32.allocationSize(value.completed) +
         FfiConverterUInt32.allocationSize(value.total) +
-        FfiConverterUInt32.allocationSize(value.percent)
+        FfiConverterUInt32.allocationSize(value.percent) +
+        FfiConverterOptionalFloat64.allocationSize(value.resumesAtMs) +
+        FfiConverterBool.allocationSize(value.heldByUpstream)
       );
     }
   }
@@ -41669,7 +41696,7 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_start_gps_pass() !== 390
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_start_gps_pass() !== 17206
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_start_gps_pass",

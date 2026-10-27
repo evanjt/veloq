@@ -35,12 +35,19 @@ const ENDINGS: Record<GpsSyncEnding, Ending> = {
 };
 
 /**
- * The ending for a pass the engine did not start. One running, or the network
- * gone, leaves it owed in the engine, which starts it without being asked
- * again. Every other refusal has nothing for this run to do.
+ * The ending for a pass the engine did not start. One running, a request
+ * budget hold, or the network gone, leaves it owed in the engine, which starts
+ * it without being asked again. Every other refusal has nothing for this run
+ * to do.
  */
+const OWED_REFUSALS: ReadonlySet<StartOutcome> = new Set([
+  StartOutcome.Busy,
+  StartOutcome.Held,
+  StartOutcome.Offline,
+]);
+
 export function passRefusalEnding(outcome: StartOutcome): GpsSyncEnding {
-  return outcome === StartOutcome.Busy || outcome === StartOutcome.Offline ? 'owed' : 'not-started';
+  return OWED_REFUSALS.has(outcome) ? 'owed' : 'not-started';
 }
 
 export interface GpsSyncEndingContext {
