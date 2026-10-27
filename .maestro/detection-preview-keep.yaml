@@ -95,7 +95,7 @@ tags:
 # The re-analysis is adopted by the settings screen and runs to its end there.
 - extendedWaitUntil:
     visible:
-      text: "Reanalyse sections"
+      text: "Reanaly[sz]e sections"
     timeout: 300000
 - assertNotVisible:
     id: "detection-rescan-refused"

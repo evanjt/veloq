@@ -10,12 +10,11 @@ tags:
     file: helpers/setup-demo-mode.yaml
 
 # Navigate to routes/insights tab
-- openLink: "veloq://insights"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://insights"
+      TARGET: "routes-screen"
 - extendedWaitUntil:
     visible:
       id: "routes-screen"

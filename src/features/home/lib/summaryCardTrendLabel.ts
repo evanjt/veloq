@@ -2,6 +2,7 @@ import type { TFunction } from 'i18next';
 
 import { formatEpochDayUtc } from '@/shared/format/format';
 import { glyphMove, type TrendGlyph, type TrendMetric } from '@/shared/format/trend';
+import { composeAccessibilityLabel } from '@/shared/ui/accessibilityLabel';
 
 /**
  * What a summary card arrow was judged against, as the engine read it: an
@@ -45,17 +46,19 @@ export function summaryMetricLabel(
   { name, value, metric, trend, baseline }: SummaryMetricLabelInput
 ): string {
   const plain = `${name} ${value}`;
-  if (!trend || !baseline) return plain;
+  if (!trend || !baseline) return composeAccessibilityLabel(plain);
   const values = {
     metric: name,
     value,
     move: moveWord(t, metric, trend),
     previous: baseline.previous,
   };
-  return baseline.kind === 'day'
-    ? t('summaryCardChange.trend.comparedOn', {
-        ...values,
-        date: formatEpochDayUtc(baseline.date),
-      })
-    : t('summaryCardChange.trend.comparedLastWeek', values);
+  return composeAccessibilityLabel(
+    baseline.kind === 'day'
+      ? t('summaryCardChange.trend.comparedOn', {
+          ...values,
+          date: formatEpochDayUtc(baseline.date),
+        })
+      : t('summaryCardChange.trend.comparedLastWeek', values)
+  );
 }

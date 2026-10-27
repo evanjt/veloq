@@ -1,10 +1,10 @@
 # Section change card
-# Tests: the release notes reach the sections slide, and on a library that has
-# never run the detector cutover the slide's card reports no run.
+# Tests: the release notes reach their last slide, and on a library that has
+# never run the detector cutover no sections-changed card is offered.
 #
 # The card reads only the cutover, which runs once on an upgrade and never on a
-# fresh library such as demo mode's, so here it draws nothing at all. Its
-# counts, progress and failure rows are covered in Jest.
+# fresh library such as demo mode's. Its counts, progress and failure rows are
+# covered in Jest.
 
 appId: com.veloq.app.dev
 tags:
@@ -30,8 +30,7 @@ tags:
 - tapOn:
     id: "settings-release-notes"
 
-# The sections slide is the last of the release slides, where Next becomes Done.
-# The card itself has no height when it reports nothing, so the walk stops on Done.
+# Next becomes Done on the last release slide, so the walk stops there.
 - repeat:
     times: 20
     commands:
@@ -48,15 +47,10 @@ tags:
       id: "whats-new-done"
     timeout: 10000
 
-- assertVisible: "Sections that follow your runs"
+- assertVisible:
+    id: "tour-changes-picture"
 - assertNotVisible:
-    id: "change-card-progress"
-- assertNotVisible:
-    id: "change-card-failed"
-- assertNotVisible:
-    id: "change-card-counts"
-- assertNotVisible:
-    id: "change-card-settings-reset"
+    id: "sections-changed-card"
 
 - takeScreenshot: "screenshots/section-change-card"
 

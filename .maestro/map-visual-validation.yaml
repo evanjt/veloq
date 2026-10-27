@@ -19,12 +19,11 @@ tags:
 # PHASE 1: Ensure section detection has run (prerequisite for all section tests)
 # ============================================================================
 
-- openLink: "veloq://insights?tab=sections"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://insights?tab=sections"
+      TARGET: "routes-screen"
 - extendedWaitUntil:
     visible:
       id: "routes-screen"
@@ -131,12 +130,11 @@ tags:
 # PHASE 3: Activity Detail Map, section overlays, 3D, gradient
 # ============================================================================
 
-- openLink: "veloq://activity/demo-test-0"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://activity/demo-test-0"
+      TARGET: "activity-detail-screen"
 
 - extendedWaitUntil:
     visible:
@@ -223,12 +221,11 @@ tags:
 # ============================================================================
 
 # Navigate to section detail via sections list
-- openLink: "veloq://insights?tab=sections"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://insights?tab=sections"
+      TARGET: "routes-screen"
 - extendedWaitUntil:
     visible:
       id: "routes-screen"
@@ -324,12 +321,11 @@ tags:
 # ============================================================================
 
 # Navigate to routes list
-- openLink: "veloq://insights?tab=routes"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://insights?tab=routes"
+      TARGET: "routes-screen"
 - extendedWaitUntil:
     visible:
       id: "routes-screen"

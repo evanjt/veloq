@@ -160,6 +160,8 @@ jobs:
           # state (vars, `export PATH`) survives between lines and `\` line
           # continuations break. Every line must stand alone.
           script: |
+            # A launcher ANR dialog over the app fails every flow behind it as a missing screen
+            adb shell settings put global hide_error_dialogs 1
             adb install "$(find /tmp/android-artifact -name '*.apk' | head -1)"
             adb logcat -c
             # Stream logcat for the whole suite. A single `-d` dump at the end
@@ -342,6 +344,8 @@ jobs:
           disable-animations: true
           # One `sh -c` per line, so the verdict goes through the environment.
           script: |
+            # A launcher ANR dialog over the app fails every flow behind it as a missing screen
+            adb shell settings put global hide_error_dialogs 1
             adb install "$(find /tmp/android-artifact -name '*.apk' | head -1)"
             scripts/capture-screen-compare-android.sh || echo "SCREEN_CAPTURE_FAILED=true" >> "$GITHUB_ENV"
 

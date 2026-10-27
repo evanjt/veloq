@@ -1,12 +1,11 @@
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { clearRecordingBackup } from '@/features/recording/lib/storage/recordingBackup';
 import { returnTo } from '@/shared/app/navigation';
-import * as haptics from '@/shared/ui/haptics';
 
 /**
- * The accept of the review screen's discard confirmation: one medium impact,
- * then the ride leaves the store, its backup is deleted and the app goes home,
- * popping the live screen beneath the review with it.
+ * The accept of the review screen's discard confirmation: the ride leaves the
+ * store, its backup is deleted and the app goes home, popping the live screen
+ * beneath the review with it. The confirm has already felt the accept.
  *
  * `startTime` is the ride the athlete confirmed. An accept that lands after
  * that ride has gone, or another has taken its place, does nothing. Returns
@@ -16,7 +15,6 @@ export function discardReviewedRecording(startTime: number | null): boolean {
   const state = useRecordingStore.getState();
   if (state.status === 'idle' || state.startTime !== startTime) return false;
 
-  haptics.medium();
   state.reset();
   void clearRecordingBackup();
   returnTo('/');

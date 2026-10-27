@@ -57,12 +57,11 @@ tags:
 - takeScreenshot: "screenshots/largest-text-02-feed-scrolled"
 
 # An activity detail: the header stats, the chart axes and the lap table.
-- openLink: "veloq://activity/demo-test-0"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://activity/demo-test-0"
+      TARGET: "activity-detail-screen"
 - extendedWaitUntil:
     visible:
       id: "activity-detail-screen"
@@ -93,12 +92,11 @@ tags:
 # The sections tab of the same activity: the rows the bar's tap-target line is
 # about, and the one surface whose density is deliberate. The activity route
 # reads only its id, so the tab is reached by its strip.
-- openLink: "veloq://activity/demo-test-0"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://activity/demo-test-0"
+      TARGET: "activity-detail-screen"
 - extendedWaitUntil:
     visible:
       id: "tab-sections"
@@ -114,12 +112,11 @@ tags:
 - takeScreenshot: "screenshots/largest-text-05-sections"
 
 # The Insights tab, whose section list is the longest text in the app.
-- openLink: "veloq://insights"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://insights"
+      TARGET: "routes-screen"
 - waitForAnimationToEnd:
     timeout: 3000
 - takeScreenshot: "screenshots/largest-text-06-insights"
@@ -133,12 +130,11 @@ tags:
 - takeScreenshot: "screenshots/largest-text-07-insights-scrolled"
 
 # Settings, where every row is a label beside a value or a switch.
-- openLink: "veloq:///settings"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq:///settings"
+      TARGET: "settings-screen"
 - extendedWaitUntil:
     visible:
       id: "settings-scrollview"

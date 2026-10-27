@@ -11,9 +11,7 @@
 //! undone the same way, and after it the file is read back and compared with
 //! what was sent.
 
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::{LazyLock, Mutex};
 
 use crate::net::upload_recording::{Verdict, classify};
 use crate::objects::observer::{Announcement, notify};
@@ -29,13 +27,33 @@ const SWAP_DIR: &str = "garmin-swap";
 #[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
 #[repr(u8)]
 pub enum FfiSwapState {
-    /// Nothing is offered: no Garmin key, not Garmin's import, nothing more in
-    /// Garmin's file, or the comparison could not be made.
+    /// Nothing is offered: no Garmin key, or not Garmin's import.
     Hidden = 1,
-    /// Garmin's original holds more than intervals.icu's copy.
+    /// Garmin's original holds more than intervals.icu's copy, or the activity
+    /// is a stub Garmin's original can fill.
     Available = 2,
     /// A swap was made and intervals.icu's earlier file is kept to restore.
     Undoable = 3,
+    /// A Garmin import that has not been compared yet. Opening it downloads
+    /// nothing, the athlete asks for the check.
+    Checkable = 4,
+    /// The check found nothing more in Garmin's file.
+    Unchanged = 5,
+}
+
+/// What a feed card says about a stub, an activity intervals.icu holds but
+/// does not serve. The one judge for the card, beside [`state`] for the page.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[repr(u8)]
+pub enum FfiStubVerdict {
+    /// intervals.icu serves the activity.
+    NotStub = 1,
+    /// A stub of Garmin's import, and a key is connected to fill it.
+    GarminUpdatable = 2,
+    /// A stub of Garmin's import and no key is connected.
+    NoKey = 3,
+    /// A stub that is not Garmin's import, so there is nothing to offer.
+    OtherSource = 4,
 }
 
 /// How a swap or an undo ended.
@@ -110,6 +128,18 @@ pub(crate) trait SwapLink {
     /// Where the files kept for undo sit, `None` while the app has not said
     /// where its documents directory is.
     fn swap_dir(&self) -> Option<PathBuf>;
+    /// Store Garmin's original on the phone as the activity's own, linked to
+    /// the intervals.icu activity `stub` describes. Nothing is stored twice.
+    fn keep_original(&self, garmin_id: i64, original: &[u8], stub: &str) -> Result<(), String>;
+    /// Read the activity from intervals.icu again and store what it serves, so
+    /// a body it now serves replaces the stub.
+    fn reread(&self, id: &str);
+    /// The activity as the phone stores it, as JSON. Reads no network.
+    fn stored_json(&self, id: &str) -> Option<String>;
+    /// What a check of the activity found, as [`remember`] wrote it.
+    fn remembered(&self, id: &str) -> Option<String>;
+    /// Keep what a check found. An empty value forgets it.
+    fn remember(&self, id: &str, value: &str);
 }
 
 /// The link the app runs.
@@ -169,12 +199,84 @@ impl SwapLink for Live {
     fn swap_dir(&self) -> Option<PathBuf> {
         crate::net::upload_recording::recording_file(SWAP_DIR)
     }
+
+    fn keep_original(&self, garmin_id: i64, original: &[u8], stub: &str) -> Result<(), String> {
+        use crate::net::garmin::ingest::{Ingested, ingest_original};
+        let record: crate::net::intervals::wire::ActivityRecord =
+            serde_json::from_str(stub).map_err(|e| e.to_string())?;
+        let listed = crate::push::garmin::listed_from(garmin_id, &record);
+        let install = crate::persistence::engine_install();
+        // The activity is on intervals.icu already, so the upload never offers it.
+        let ingested =
+            ingest_original(install, &listed, original, false).map_err(|e| e.to_string())?;
+        if matches!(ingested, Ingested::AlreadyStored) {
+            let key = crate::persistence::origin::garmin_source_key(garmin_id);
+            crate::persistence::with_persistent_engine_for(install, |e| {
+                e.link_garmin_original(&key)
+            })
+            .ok_or_else(|| "the engine closed".to_string())?
+            .map_err(|e| e.to_string())?;
+        }
+        Ok(())
+    }
+
+    fn reread(&self, id: &str) {
+        let Ok(body) = self.activity_json(id) else {
+            return;
+        };
+        let install = crate::persistence::engine_install();
+        let stored = crate::persistence::with_persistent_engine_for(install, |engine| {
+            crate::push::record_activity_detail(engine, id, &body)
+        });
+        if !matches!(stored, Some(Ok(_))) {
+            log::warn!("veloqrs: [garmin] the activity did not store after the update");
+        }
+    }
+
+    fn stored_json(&self, id: &str) -> Option<String> {
+        crate::objects::error::with_reader(|conn| {
+            conn.query_row(
+                "SELECT raw FROM activity_bodies WHERE activity_id = ?1",
+                [id],
+                |row| row.get::<_, String>(0),
+            )
+            .ok()
+        })
+        .ok()
+        .flatten()
+    }
+
+    fn remembered(&self, id: &str) -> Option<String> {
+        crate::objects::error::with_reader(|conn| {
+            crate::persistence::settings::setting_from(conn, &check_key(id))
+                .ok()
+                .flatten()
+        })
+        .ok()
+        .flatten()
+    }
+
+    fn remember(&self, id: &str, value: &str) {
+        let key = check_key(id);
+        let install = crate::persistence::engine_install();
+        let written =
+            crate::persistence::with_persistent_engine_for(install, |e| e.set_setting(&key, value));
+        if !matches!(written, Some(Ok(()))) {
+            log::warn!("veloqrs: [garmin] a check result did not store");
+        }
+    }
+}
+
+fn check_key(id: &str) -> String {
+    format!("garmin_check.{id}")
 }
 
 /// What an activity's JSON says about whether Garmin's file can be swapped in.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Import {
     garmin_id: i64,
+    /// Whether intervals.icu answered an empty stub for the activity.
+    held_back: bool,
     /// Whether the athlete has edited the activity's intervals, so a
     /// replacement has to keep them.
     intervals_edited: bool,
@@ -186,18 +288,45 @@ struct Import {
 /// The Garmin import an activity is: its source is Garmin's import and its
 /// `external_id` is the Garmin id, digits only. Any other activity, including
 /// a Garmin original this app uploaded itself, is not one.
-fn import_of(activity_json: &str) -> Option<Import> {
-    let value: serde_json::Value = serde_json::from_str(activity_json).ok()?;
-    if value.get("source")?.as_str()? != GARMIN_IMPORT_SOURCE {
+fn garmin_id_of(source: Option<&str>, external_id: Option<&str>) -> Option<i64> {
+    if source? != GARMIN_IMPORT_SOURCE {
         return None;
     }
-    let external = value.get("external_id")?.as_str()?;
+    let external = external_id?;
     if external.is_empty() || !external.bytes().all(|b| b.is_ascii_digit()) {
         return None;
     }
-    let garmin_id = external.parse::<i64>().ok().filter(|id| *id > 0)?;
+    external.parse::<i64>().ok().filter(|id| *id > 0)
+}
+
+/// What a stored activity body makes of the card: a stub, and whether Garmin's
+/// file can fill it.
+pub(crate) fn stub_verdict(
+    body: &crate::net::intervals::wire::ActivityRecord,
+    key_held: bool,
+) -> FfiStubVerdict {
+    if !body.is_held_back() {
+        return FfiStubVerdict::NotStub;
+    }
+    match garmin_id_of(body.source.as_deref(), body.external_id.as_deref()) {
+        None => FfiStubVerdict::OtherSource,
+        Some(_) if key_held => FfiStubVerdict::GarminUpdatable,
+        Some(_) => FfiStubVerdict::NoKey,
+    }
+}
+
+fn import_of(activity_json: &str) -> Option<Import> {
+    let value: serde_json::Value = serde_json::from_str(activity_json).ok()?;
+    let garmin_id = garmin_id_of(
+        value.get("source")?.as_str(),
+        value.get("external_id")?.as_str(),
+    )?;
+    let held_back =
+        serde_json::from_value::<crate::net::intervals::wire::ActivityRecord>(value.clone())
+            .is_ok_and(|record| record.is_held_back());
     Some(Import {
         garmin_id,
+        held_back,
         intervals_edited: value
             .get("icu_intervals_edited")
             .and_then(|v| v.as_bool())
@@ -210,22 +339,32 @@ fn import_of(activity_json: &str) -> Option<Import> {
     })
 }
 
-/// What a comparison found, kept against the analysed time it was made at, so
-/// an activity is compared once until intervals.icu analyses it again.
-static COMPARED: LazyLock<Mutex<HashMap<String, (String, bool)>>> = LazyLock::new(Default::default);
+/// Forget what a check of the activity found.
+fn forget_comparison(link: &dyn SwapLink, id: &str) {
+    link.remember(id, "");
+}
 
-fn forget_comparison(id: &str) {
-    COMPARED
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .remove(id);
+/// What a check found, kept against the analysed time it was made at, so an
+/// activity is checked once until intervals.icu analyses it again.
+fn remembered_check(link: &dyn SwapLink, id: &str, import: &Import) -> Option<bool> {
+    let value = link.remembered(id)?;
+    let (analysed, more) = value.rsplit_once('|')?;
+    if analysed != import.analysed {
+        return None;
+    }
+    match more {
+        "1" => Some(true),
+        "0" => Some(false),
+        _ => None,
+    }
 }
 
 fn previous_file(link: &dyn SwapLink, id: &str) -> Option<PathBuf> {
     Some(link.swap_dir()?.join(format!("{id}.previous.fit")))
 }
 
-/// What is offered on the activity `id`.
+/// What is offered on the activity `id`. Reads only what the phone holds:
+/// comparing the two files is the athlete's tap, see [`check`].
 pub(crate) fn state(link: &dyn SwapLink, id: &str) -> FfiSwapState {
     if previous_file(link, id).is_some_and(|p| p.is_file()) {
         return FfiSwapState::Undoable;
@@ -233,35 +372,51 @@ pub(crate) fn state(link: &dyn SwapLink, id: &str) -> FfiSwapState {
     if !link.has_garmin_key() {
         return FfiSwapState::Hidden;
     }
-    let Ok(json) = link.activity_json(id) else {
+    let Some(json) = link.stored_json(id) else {
         return FfiSwapState::Hidden;
     };
     let Some(import) = import_of(&json) else {
         return FfiSwapState::Hidden;
     };
-    let cached = COMPARED
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .get(id)
-        .filter(|(analysed, _)| *analysed == import.analysed)
-        .map(|(_, more)| *more);
-    let more = match cached {
-        Some(more) => more,
-        None => {
-            let Some(more) = compare(link, id, &import) else {
-                return FfiSwapState::Hidden;
-            };
-            COMPARED
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .insert(id.to_string(), (import.analysed.clone(), more));
-            more
-        }
+    // A stub has no file to compare, and Garmin's original is what the athlete
+    // asks to have in its place.
+    if import.held_back {
+        return FfiSwapState::Available;
+    }
+    match remembered_check(link, id, &import) {
+        Some(true) => FfiSwapState::Available,
+        Some(false) => FfiSwapState::Unchanged,
+        None => FfiSwapState::Checkable,
+    }
+}
+
+/// Compare Garmin's original with intervals.icu's file, on the athlete's tap,
+/// and keep the answer against the analysed time. A comparison that cannot be
+/// made leaves the check on offer. Nothing is written to intervals.icu.
+pub(crate) fn check(link: &dyn SwapLink, id: &str) -> FfiSwapState {
+    if !link.has_garmin_key() {
+        return FfiSwapState::Hidden;
+    }
+    let Ok(json) = link.activity_json(id) else {
+        return state(link, id);
     };
+    let Some(import) = import_of(&json) else {
+        return FfiSwapState::Hidden;
+    };
+    if import.held_back {
+        return FfiSwapState::Available;
+    }
+    let Some(more) = compare(link, id, &import) else {
+        return FfiSwapState::Checkable;
+    };
+    link.remember(
+        id,
+        &format!("{}|{}", import.analysed, if more { 1 } else { 0 }),
+    );
     if more {
         FfiSwapState::Available
     } else {
-        FfiSwapState::Hidden
+        FfiSwapState::Unchanged
     }
 }
 
@@ -304,6 +459,19 @@ fn post_and_verify(
     keep_intervals: bool,
     landed: FfiSwapOutcome,
 ) -> FfiSwapResult {
+    post(link, id, bytes, keep_intervals, landed, true)
+}
+
+/// [`post_and_verify`], with the read-back optional: intervals.icu does not
+/// serve the file of a stub, so there is nothing to read back.
+fn post(
+    link: &dyn SwapLink,
+    id: &str,
+    bytes: &[u8],
+    keep_intervals: bool,
+    landed: FfiSwapOutcome,
+    read_back: bool,
+) -> FfiSwapResult {
     let Some(dir) = link.swap_dir() else {
         return failed("the documents directory is not known yet");
     };
@@ -317,9 +485,10 @@ fn post_and_verify(
     let answer = link.replace(id, &outgoing, &format!("{id}.fit"), keep_intervals);
     let _ = std::fs::remove_file(&outgoing);
     match classify(&answer) {
+        Verdict::Landed(Some(_)) if !read_back => FfiSwapResult::bare(landed),
         Verdict::Landed(Some(_)) => confirm(link, id, bytes, FfiSwapResult::bare(landed)),
         // The request may have reached intervals.icu before it failed.
-        verdict @ (Verdict::Network(_) | Verdict::Retriable(_)) => {
+        verdict @ (Verdict::Network(_) | Verdict::Retriable(_)) if read_back => {
             reconcile(link, id, bytes, landed, outcome_of(verdict))
         }
         // The same refusal a recording upload reads, so the store parks every
@@ -362,19 +531,67 @@ fn confirm(link: &dyn SwapLink, id: &str, sent: &[u8], ok: FfiSwapResult) -> Ffi
     }
 }
 
-/// Swap Garmin's original into the activity `id`.
+/// Swap Garmin's original into the activity `id`. A stub intervals.icu will
+/// not serve takes Garmin's file with nothing to compare or restore. The
+/// automatic pass takes this same path for each new import.
 pub(crate) fn replace(link: &dyn SwapLink, id: &str) -> FfiSwapResult {
+    swap(link, id)
+}
+
+/// Replace a stub's file with Garmin's original and keep the original on the
+/// phone. The activity may be served again afterwards or stay a stub, and the
+/// post stands either way.
+fn replace_stub(link: &dyn SwapLink, id: &str, json: &str, import: &Import) -> FfiSwapResult {
+    let original = match link.garmin_original(import.garmin_id) {
+        Ok(original) => original,
+        Err(reason) => return FfiSwapResult::with(FfiSwapOutcome::GarminUnavailable, reason),
+    };
+    if let Err(e) = crate::fit::parse_fit_activity(&original) {
+        return failed(format!("Garmin's file could not be read: {e}"));
+    }
+    let result = post(
+        link,
+        id,
+        &original,
+        import.intervals_edited,
+        FfiSwapOutcome::Replaced,
+        false,
+    );
+    if result.outcome != FfiSwapOutcome::Replaced {
+        return result;
+    }
+    forget_comparison(link, id);
+    link.reread(id);
+    match link.keep_original(import.garmin_id, &original, json) {
+        Ok(()) => result,
+        Err(e) => FfiSwapResult::with(
+            FfiSwapOutcome::Replaced,
+            format!("the original was not kept on the phone: {e}"),
+        ),
+    }
+}
+
+fn swap(link: &dyn SwapLink, id: &str) -> FfiSwapResult {
     let Ok(json) = link.activity_json(id) else {
         return failed("the activity could not be read from intervals.icu");
     };
     let Some(import) = import_of(&json) else {
         return FfiSwapResult::bare(FfiSwapOutcome::NotEligible);
     };
+    // A stub whose file intervals.icu serves anyway is a served activity.
+    let served = if import.held_back {
+        match link.activity_file(id) {
+            Ok(file) if !file.is_empty() => Some(file),
+            _ => return replace_stub(link, id, &json, &import),
+        }
+    } else {
+        None
+    };
     let original = match link.garmin_original(import.garmin_id) {
         Ok(original) => original,
         Err(reason) => return FfiSwapResult::with(FfiSwapOutcome::GarminUnavailable, reason),
     };
-    let current = match link.activity_file(id) {
+    let current = match served.map_or_else(|| link.activity_file(id), Ok) {
         Ok(current) => current,
         Err(e) => {
             return failed(format!(
@@ -410,7 +627,7 @@ pub(crate) fn replace(link: &dyn SwapLink, id: &str) -> FfiSwapResult {
         import.intervals_edited,
         FfiSwapOutcome::Replaced,
     );
-    forget_comparison(id);
+    forget_comparison(link, id);
     // Only a swap that changed the file leaves an earlier one to restore.
     let changed = matches!(
         result.outcome,
@@ -437,7 +654,7 @@ pub(crate) fn undo(link: &dyn SwapLink, id: &str) -> FfiSwapResult {
         .and_then(|v| v.get("icu_intervals_edited").and_then(|e| e.as_bool()))
         .unwrap_or(false);
     let result = post_and_verify(link, id, &earlier, edited, FfiSwapOutcome::Restored);
-    forget_comparison(id);
+    forget_comparison(link, id);
     if result.outcome == FfiSwapOutcome::Restored {
         let _ = std::fs::remove_file(&kept);
     }

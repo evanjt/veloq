@@ -285,21 +285,28 @@ const SETS: SiteSets = {
   ipad: [],
 };
 
-/** Each platform list in the gallery, with the image paths its markup names. */
+/** Each platform carousel in the gallery, with the image paths its markup names. */
 function galleryLists(html: string) {
-  return [...html.matchAll(/<ol class="shots" data-platform="(\w+)"([^>]*)>([\s\S]*?)<\/ol>/g)].map(
-    (m) => ({
-      platform: m[1],
-      hidden: /hidden/.test(m[2] ?? ''),
-      light: [...(m[3] ?? '').matchAll(/<img src="screenshots\/([^"]+)"/g)].map((x) => x[1]),
-      dark: [...(m[3] ?? '').matchAll(/srcset="screenshots\/([^"]+)"/g)].map((x) => x[1]),
-      sources: (m[3] ?? '').match(/<source media="\(prefers-color-scheme: dark\)"/g)?.length ?? 0,
-    })
-  );
+  return [
+    ...html.matchAll(
+      /<div class="carousel" data-platform="(\w+)"([^>]*)>([\s\S]*?<\/ol>[\s\S]*?)<\/div>\s*<\/div>/g
+    ),
+  ].map((m) => ({
+    platform: m[1],
+    hidden: /\bhidden\b/.test(m[2] ?? ''),
+    light: [...(m[3] ?? '').matchAll(/<img src="screenshots\/([^"]+)"/g)].map((x) => x[1]),
+    dark: [...(m[3] ?? '').matchAll(/srcset="screenshots\/([^"]+)"/g)].map((x) => x[1]),
+    sources: (m[3] ?? '').match(/<source media="\(prefers-color-scheme: dark\)"/g)?.length ?? 0,
+    slides: (m[3] ?? '').match(/<li class="slide/g)?.length ?? 0,
+    dots: (m[3] ?? '').match(/class="carousel-dot/g)?.length ?? 0,
+    prev: /class="carousel-nav prev" aria-label="[^"]+"/.test(m[3] ?? ''),
+    next: /class="carousel-nav next" aria-label="[^"]+"/.test(m[3] ?? ''),
+    frame: /class="phone-frame"/.test(m[3] ?? ''),
+  }));
 }
 
 describe('syncSiteGallery', () => {
-  it('writes one list per platform with shots, the first shown and the rest hidden', () => {
+  it('writes one carousel per platform with shots, the first shown and the rest hidden', () => {
     const lists = galleryLists(syncSiteGallery(GALLERY_PAGE, SETS));
     expect(lists.map((l) => [l.platform, l.hidden])).toEqual([
       ['android', false],
@@ -308,6 +315,22 @@ describe('syncSiteGallery', () => {
     expect(lists[0]?.light).toEqual(['android/01-launch.png', 'android/02-wind.png']);
     expect(lists[0]?.dark).toEqual(['android/dark/01-launch.png', 'android/dark/02-wind.png']);
     expect(lists[0]?.sources).toBe(2);
+  });
+
+  it('gives each carousel one slide and one dot per shot, with labelled controls in a phone frame', () => {
+    const [android, ios] = galleryLists(syncSiteGallery(GALLERY_PAGE, SETS));
+    expect(android).toMatchObject({ slides: 2, dots: 2, prev: true, next: true, frame: true });
+    expect(ios).toMatchObject({ slides: 1, dots: 1, prev: true, next: true, frame: true });
+  });
+
+  it('starts on the first slide and captions it', () => {
+    const html = syncSiteGallery(GALLERY_PAGE, SETS);
+    expect(html).toContain(
+      '<li class="slide active" data-caption="Launch from &quot;any&quot; beach">'
+    );
+    expect(html).toContain(
+      '<p class="carousel-caption" aria-live="polite">Launch from &quot;any&quot; beach</p>'
+    );
   });
 
   it('gives each image its size and lazy loading, and escapes the caption', () => {

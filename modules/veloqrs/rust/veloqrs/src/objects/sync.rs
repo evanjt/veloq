@@ -4847,14 +4847,24 @@ impl SyncManager {
         )
     }
 
-    /// Whether the activity offers Garmin's own file, or an undo of an earlier
-    /// swap. Compares Garmin's original with intervals.icu's file, so it runs
-    /// off the calling thread.
+    /// What the activity offers from Garmin: a check, Garmin's own file, or an
+    /// undo of an earlier swap. Reads only what the phone holds and makes no
+    /// request.
     async fn garmin_swap_state(
         &self,
         activity_id: String,
     ) -> crate::net::garmin_swap::FfiSwapState {
         swap_off_thread(activity_id, crate::net::garmin_swap::state).await
+    }
+
+    /// Compare Garmin's original with intervals.icu's file and remember the
+    /// answer against the activity. Downloads both, so it runs off the calling
+    /// thread, and writes nothing to intervals.icu.
+    async fn garmin_swap_check(
+        &self,
+        activity_id: String,
+    ) -> crate::net::garmin_swap::FfiSwapState {
+        swap_off_thread(activity_id, crate::net::garmin_swap::check).await
     }
 
     /// Replace intervals.icu's file for the activity with Garmin's original.

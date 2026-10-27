@@ -59,12 +59,11 @@ tags:
 # ====================================================================
 # ACTIVITY DETAIL. Charts tab (default)
 # ====================================================================
-- openLink: "veloq://activity/demo-test-0"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://activity/demo-test-0"
+      TARGET: "activity-detail-screen"
 - extendedWaitUntil:
     visible:
       id: "activity-detail-screen"
@@ -171,9 +170,8 @@ tags:
 - takeScreenshot: "screenshots/tour-12-routes-list"
 
 # Switch to Sections sub-tab
-- tapOn:
-    id: "tab-sections"
-    optional: true
+- runFlow:
+    file: helpers/navigate-to-sections.yaml
 - takeScreenshot: "screenshots/tour-13-sections-list"
 
 # ====================================================================
@@ -201,12 +199,11 @@ tags:
 - takeScreenshot: "screenshots/tour-16-settings-top"
 
 # Storage panel is on the cache-settings sub-screen
-- openLink: "veloq://cache-settings"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://cache-settings"
+      TARGET: "cache-settings-screen"
 - extendedWaitUntil:
     visible:
       id: "settings-storage-stats"
@@ -218,12 +215,11 @@ tags:
     optional: true
 
 # Back to main settings via deep-link (Maestro's `back` is unreliable on iOS)
-- openLink: "veloq://settings"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://settings"
+      TARGET: "settings-screen"
 - repeat:
     times: 10
     commands:

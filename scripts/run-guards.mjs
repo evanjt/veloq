@@ -432,6 +432,20 @@ const GUARDS = [
       'a key written through setSetting that the settings migration does not copy, so an upgrade silently drops that preference',
   },
   {
+    name: 'lint:maestro-open-link',
+    kind: 'style',
+    cmd: node('lint-maestro-open-link.mjs'),
+    catches:
+      'a Maestro flow following a deep link with a one-shot tap on the iOS open-in-app sheet, which a late sheet outlives so the flow asserts its screen behind the sheet',
+  },
+  {
+    name: 'lint:maestro-strip-tap',
+    kind: 'style',
+    cmd: node('lint-maestro-strip-tap.mjs'),
+    catches:
+      'a Maestro flow tapping the insights Sections tab while the screen is still resizing, so the tap lands on the search field and the section list never appears',
+  },
+  {
     name: 'lint:maestro-ids',
     kind: 'correctness',
     cmd: node('lint-maestro-ids.mjs'),
@@ -1354,6 +1368,13 @@ const GUARDS = [
     cmd: node('lint-module-link.mjs'),
     catches:
       "node_modules/veloqrs pointing at a third tree, so a build anywhere ships that tree's engine",
+  },
+  {
+    name: 'lint:node-modules-link',
+    kind: 'environment',
+    cmd: node('lint-node-modules-link.mjs'),
+    catches:
+      "a job tree's node_modules linked to another job tree's install, which lacks packages the Jest config names and fails the suite at config validation",
   },
   {
     name: 'lint:worktree-config',

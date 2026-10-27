@@ -33,8 +33,14 @@ release() {
 }
 
 trap release EXIT
-xcrun simctl status_bar "$udid" override --time 12:00 --dataNetwork wifi --wifiMode active \
-  --wifiBars 3 --cellularMode notSupported --batteryState charged --batteryLevel 100
+# One call per field: a simulator runtime that rejects a single value fails the
+# whole combined call with EINVAL, and the capture then never starts.
+for field in "--time 12:00" "--dataNetwork wifi" "--wifiMode active" "--wifiBars 3" \
+  "--cellularMode notSupported" "--batteryState charged" "--batteryLevel 100"; do
+  # shellcheck disable=SC2086
+  xcrun simctl status_bar "$udid" override $field ||
+    echo "status bar override $field was refused, capturing without it" >&2
+done
 
 rm -rf screenshots/compare
 maestro --device "$udid" test .maestro/screen-compare.yaml

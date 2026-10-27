@@ -58,6 +58,20 @@ describe('the activity notification names its own channel', () => {
     expect(lastCall().trigger).toEqual({ channelId: 'veloq-activity' });
   });
 
+  it('delays the post by the seconds asked, still on the activity channel', async () => {
+    await onPlatform('android', () =>
+      presentActivityNotification('a1', 'Ride', 'Done', undefined, 20)
+    );
+    expect(lastCall().trigger).toEqual({
+      type: 'timeInterval',
+      seconds: 20,
+      channelId: 'veloq-activity',
+    });
+
+    await onPlatform('ios', () => presentActivityNotification('a1', 'Ride', 'Done', undefined, 20));
+    expect(lastCall().trigger).toEqual({ type: 'timeInterval', seconds: 20 });
+  });
+
   it('leaves the trigger null on iOS', async () => {
     await onPlatform('ios', () => presentActivityNotification('a1', 'Ride', 'Done'));
 

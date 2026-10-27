@@ -26,7 +26,6 @@ import {
   useVisibleRecording,
 } from '@/features/recording';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
-import * as haptics from '@/shared/ui/haptics';
 import { goBack } from '@/shared/app/navigation';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { sourceFor } from '@/shared/app/source';
@@ -96,7 +95,6 @@ function RecordingDetailScreenContent() {
       cancelLabel: t('common.cancel', 'Cancel'),
       destructive: true,
       onConfirm: async () => {
-        haptics.medium();
         try {
           await remove(entry.id);
         } catch {

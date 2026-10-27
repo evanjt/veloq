@@ -16,12 +16,11 @@ tags:
 # section as the cut goes on, and the list order is not fixed while it runs.
 # The link opens the sections tab itself: a tap on the tab can land while the
 # routes link is still being applied, which puts the routes tab back.
-- openLink: "veloq://insights?tab=sections"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://insights?tab=sections"
+      TARGET: "routes-screen"
 - extendedWaitUntil:
     visible:
       id: "routes-screen"
@@ -60,5 +59,8 @@ tags:
 
 - tapOn:
     id: "section-popup-close"
-- assertNotVisible:
-    id: "section-popup"
+# The popup leaves with an animation, slower under the simulator.
+- extendedWaitUntil:
+    notVisible:
+      id: "section-popup"
+    timeout: 10000

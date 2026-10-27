@@ -81,6 +81,7 @@ fn test_feed_cards_carry_every_card_field_from_the_stored_body() {
             has_gps: true,
             has_altitude: false,
             sync_failure: None,
+            stub: crate::net::garmin_swap::FfiStubVerdict::NotStub,
         }
     );
 
@@ -199,4 +200,60 @@ fn test_feed_card_search_pages_like_the_body_read_and_skips_a_corrupt_row() {
     let ids: Vec<&str> = window.cards.iter().map(|c| c.id.as_str()).collect();
     assert_eq!(ids, ["i601", "i602", "i603", "i604"]);
     assert_eq!(window.matched_count, 5);
+}
+
+/// Scenario: intervals.icu holds three activities it does not serve in full
+/// and one it does. One stub names a Garmin id, one names a non-numeric id,
+/// one carries another source.
+///
+/// Expected behaviour: with a key held the Garmin-id stub is updatable, and
+/// without one it points at the connector. A stub from another source or with
+/// an id that is not Garmin's is never offered an update, whatever the key. A
+/// served activity is not a stub.
+#[test]
+fn test_feed_card_carries_one_stub_verdict_from_the_body_and_the_key() {
+    use crate::net::garmin_swap::FfiStubVerdict::*;
+    let mut engine = PersistentEngine::in_memory().expect("engine");
+    store(
+        &mut engine,
+        &[
+            (
+                "i601",
+                NOW,
+                r#"{"id":"i601","_note":"stub","source":"GARMIN_CONNECT","external_id":"123456"}"#,
+            ),
+            (
+                "i602",
+                NOW - DAY,
+                r#"{"id":"i602","_note":"stub","source":"GARMIN_CONNECT","external_id":"abc"}"#,
+            ),
+            (
+                "i603",
+                NOW - 2 * DAY,
+                r#"{"id":"i603","_note":"stub","source":"STRAVA","external_id":"123456"}"#,
+            ),
+            (
+                "i604",
+                NOW - 3 * DAY,
+                r#"{"id":"i604","source":"GARMIN_CONNECT","external_id":"123456"}"#,
+            ),
+        ],
+    );
+
+    let verdicts = |key_held: bool| -> Vec<_> {
+        pooled::feed_card_page_with_key(&engine.db, &query("", 0, None), key_held)
+            .expect("page")
+            .cards
+            .iter()
+            .map(|c| c.stub)
+            .collect()
+    };
+    assert_eq!(
+        verdicts(true),
+        vec![GarminUpdatable, OtherSource, OtherSource, NotStub]
+    );
+    assert_eq!(
+        verdicts(false),
+        vec![NoKey, OtherSource, OtherSource, NotStub]
+    );
 }

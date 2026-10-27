@@ -19,12 +19,11 @@ tags:
 
 # Section chip path, deep-linked to verify the routing contract directly.
 # Visual-chip tap is a separate test; here we prove the query param is honored.
-- openLink: "veloq://activity/demo-test-0?tab=sections"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://activity/demo-test-0?tab=sections"
+      TARGET: "activity-detail-screen"
 
 - extendedWaitUntil:
     visible:
@@ -40,12 +39,11 @@ tags:
 - takeScreenshot: "screenshots/feed-chip-deep-link-sections-tab"
 
 # Navigate back via deep-link (Maestro's `back` command is unreliable on iOS)
-- openLink: "veloq://"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://"
+      TARGET: "home-screen"
 
 - extendedWaitUntil:
     visible:
@@ -53,12 +51,11 @@ tags:
     timeout: 10000
 
 # Route chip path
-- openLink: "veloq://activity/demo-test-0?tab=routes"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://activity/demo-test-0?tab=routes"
+      TARGET: "activity-detail-screen"
 
 - extendedWaitUntil:
     visible:

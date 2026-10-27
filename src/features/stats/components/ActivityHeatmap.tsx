@@ -444,6 +444,7 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
           <ScrollView
             ref={scrollRef}
             testID="activity-heatmap-scroll"
+            focusable={false}
             horizontal
             showsHorizontalScrollIndicator={false}
             onLayout={onViewportLayout}

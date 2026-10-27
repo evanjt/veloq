@@ -13,7 +13,8 @@ export interface RegenerateNotificationDeps {
     sectionPr: boolean,
     fitnessMilestone: boolean
   ) => { title: string; body: string } | null | undefined;
-  post: (activityId: string, title: string, body: string) => Promise<void>;
+  post: (activityId: string, title: string, body: string, delaySeconds?: number) => Promise<void>;
+  delaySeconds?: number | undefined;
   categories: { sectionPr: boolean; fitnessMilestone: boolean };
 }
 
@@ -30,24 +31,34 @@ export async function regenerateNotification(
     deps.categories.fitnessMilestone
   );
   if (!built || !built.body) return null;
-  await deps.post(activityId, built.title, built.body);
+  await deps.post(activityId, built.title, built.body, deps.delaySeconds);
   return built;
 }
 
 /**
  * Debug action: build the activity's notification in the engine and post it through the
  * platform poster, with the athlete's category switches. Returns false when there is no text.
+ * A delay holds the post back so the athlete can leave the page first, which a screenshot of
+ * another screen needs because a banner leaves the screen after a few seconds.
  */
 export async function repostActivityNotification(
   activityId: string,
   name: string,
-  build: RegenerateNotificationDeps['build']
+  build: RegenerateNotificationDeps['build'],
+  delaySeconds?: number
 ): Promise<boolean> {
   pushNotificationTemplates();
   const posted = await regenerateNotification(activityId, name, {
     build,
-    post: (id, title, body) =>
-      presentActivityNotification(id, title, body, { route: `/activity/${id}`, activityId: id }),
+    post: (id, title, body, delay) =>
+      presentActivityNotification(
+        id,
+        title,
+        body,
+        { route: `/activity/${id}`, activityId: id },
+        delay
+      ),
+    delaySeconds,
     categories: getNotificationPreferences().categories,
   });
   return posted !== null;

@@ -152,7 +152,7 @@ pub(super) fn complete(
 
 /// The list entry the ingest reads its fallbacks from, made from what the stub
 /// says. The original's own figures win over every one of these.
-fn listed_from(garmin_id: i64, record: &ActivityRecord) -> ListedActivity {
+pub(crate) fn listed_from(garmin_id: i64, record: &ActivityRecord) -> ListedActivity {
     ListedActivity {
         activity_id: garmin_id,
         start_time_local: None,

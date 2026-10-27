@@ -4,12 +4,11 @@
 # taken mid-transition differs from its golden for no reason in the build.
 appId: com.veloq.app.dev
 ---
-- openLink: "veloq://display-settings"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: open-link.yaml
+    env:
+      LINK: "veloq://display-settings"
+      TARGET: "display-settings-screen"
 - extendedWaitUntil:
     visible:
       id: "settings-theme-toggle"
@@ -30,12 +29,11 @@ appId: com.veloq.app.dev
     timeout: 3000
 - takeScreenshot: "screenshots/compare/${THEME}/display-settings"
 
-- openLink: "veloq://"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: open-link.yaml
+    env:
+      LINK: "veloq://"
+      TARGET: "home-screen"
 - extendedWaitUntil:
     visible:
       id: "home-activity-list"
@@ -70,12 +68,11 @@ appId: com.veloq.app.dev
     timeout: 3000
 - takeScreenshot: "screenshots/compare/${THEME}/routes"
 
-- openLink: "veloq://activity/demo-test-0"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: open-link.yaml
+    env:
+      LINK: "veloq://activity/demo-test-0"
+      TARGET: "activity-detail-screen"
 - extendedWaitUntil:
     visible:
       id: "activity-detail-screen"

@@ -34,6 +34,13 @@ const RETIRED_CHANNEL_ID = 'veloq-insights';
  */
 const immediatelyOn = (channelId: string) => (Platform.OS === 'android' ? { channelId } : null);
 
+/** A post held back by `seconds`, still on its channel on Android. */
+const afterSeconds = (channelId: string, seconds: number) => ({
+  type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL as const,
+  seconds,
+  ...(Platform.OS === 'android' ? { channelId } : {}),
+});
+
 /** Set up notification handlers and channels. Call once at app startup. */
 export function initialiseNotifications(): void {
   // Configure how notifications appear when app is in foreground
@@ -123,7 +130,8 @@ export async function presentActivityNotification(
   activityId: string,
   title: string,
   body: string,
-  data?: InsightNotificationData
+  data?: InsightNotificationData,
+  delaySeconds?: number
 ): Promise<void> {
   await Notifications.scheduleNotificationAsync({
     identifier: `activity-${activityId}`,
@@ -133,7 +141,7 @@ export async function presentActivityNotification(
       data: forSignedInAthlete(data),
       priority: 'default',
     },
-    trigger: immediatelyOn(CHANNEL_ID),
+    trigger: delaySeconds ? afterSeconds(CHANNEL_ID, delaySeconds) : immediatelyOn(CHANNEL_ID),
   });
 }
 

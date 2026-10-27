@@ -126,6 +126,7 @@ export {
   FfiCallKind as CallKind,
   FfiUploadOutcome as UploadOutcome,
   FfiSwapState as SwapState,
+  FfiStubVerdict as StubVerdict,
   FfiSwapOutcome as SwapOutcome,
   FfiSyncErrorReason as SyncErrorReason,
   FfiSyncStep as SyncStep,

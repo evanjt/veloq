@@ -10,7 +10,10 @@ function CacheSettingsScreenContent() {
   const { isDark } = useTheme();
 
   return (
-    <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+    <ScreenSafeAreaView
+      testID="cache-settings-screen"
+      style={[styles.container, isDark && styles.containerDark]}
+    >
       <ScreenScrollView
         contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: spacing.xl }}
       >

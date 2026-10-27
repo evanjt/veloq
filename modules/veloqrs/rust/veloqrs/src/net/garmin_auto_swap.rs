@@ -15,7 +15,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 static ACTIVE: AtomicBool = AtomicBool::new(false);
 
-use crate::net::garmin_swap::{FfiSwapOutcome, FfiSwapResult};
+use crate::net::garmin_swap::{FfiSwapOutcome, FfiSwapResult, SwapLink};
 
 /// The moment the athlete turned the switch on, or `"false"` when it is off.
 pub(crate) const SWITCH: &str = "veloq-garmin-auto-swap";
@@ -35,8 +35,8 @@ const WINDOW_HOURS: i64 = 48;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Imported {
     pub id: String,
-    /// When intervals.icu created it, as it wrote it.
-    pub created: String,
+    /// When intervals.icu created it, or its start when it wrote no `created`.
+    pub when: String,
 }
 
 /// What a pass reads and writes on the device.
@@ -99,7 +99,7 @@ pub(crate) fn run(
     let in_window: Vec<String> = store
         .recent_imports()
         .into_iter()
-        .filter(|i| created_at(&i.created).is_some_and(|t| t >= earliest && t <= now))
+        .filter(|i| created_at(&i.when).is_some_and(|t| t >= earliest && t <= now))
         .map(|i| i.id)
         .collect();
     let mut handled: HashSet<String> = store
@@ -157,32 +157,41 @@ impl AutoStore for InstallStore {
     }
 
     fn recent_imports(&self) -> Vec<Imported> {
-        crate::objects::error::with_reader(|conn| {
-            let mut stmt = conn.prepare(
-                "SELECT c.intervals_id, c.created, b.raw
-                 FROM activity_census c
-                 JOIN activity_bodies b ON b.activity_id = c.intervals_id
-                 WHERE c.created IS NOT NULL
-                 ORDER BY c.created DESC LIMIT 200",
-            )?;
-            let rows = stmt.query_map([], |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, String>(1)?,
-                    row.get::<_, String>(2)?,
-                ))
-            })?;
-            Ok::<_, rusqlite::Error>(
-                rows.filter_map(Result::ok)
-                    .filter(|(_, _, raw)| crate::net::garmin::pull::body_is_from_garmin(raw))
-                    .map(|(id, created, _)| Imported { id, created })
-                    .collect(),
-            )
-        })
-        .ok()
-        .and_then(Result::ok)
-        .unwrap_or_default()
+        crate::objects::error::with_reader(recent_imports_in)
+            .ok()
+            .and_then(Result::ok)
+            .unwrap_or_default()
     }
+}
+
+/// The Garmin imports in `conn`, newest first. A ride with no `created` time
+/// is dated by its start instead, so a stub that carries none is still caught.
+pub(crate) fn recent_imports_in(conn: &rusqlite::Connection) -> rusqlite::Result<Vec<Imported>> {
+    let mut stmt = conn.prepare(
+        "SELECT c.intervals_id, COALESCE(c.created, c.start_date_local), b.raw
+         FROM activity_census c
+         JOIN activity_bodies b ON b.activity_id = c.intervals_id
+         WHERE COALESCE(c.created, c.start_date_local) IS NOT NULL
+         ORDER BY COALESCE(c.created, c.start_date_local) DESC LIMIT 200",
+    )?;
+    let rows = stmt.query_map([], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, String>(2)?,
+        ))
+    })?;
+    Ok(rows
+        .filter_map(Result::ok)
+        .filter(|(_, _, raw)| crate::net::garmin::pull::body_is_from_garmin(raw))
+        .map(|(id, when, _)| Imported { id, when })
+        .collect())
+}
+
+/// The swap one import takes in a pass: the same one the athlete asks for on a
+/// ride, so a stub is replaced and a served ride is compared and kept.
+pub(crate) fn swap_import(link: &dyn SwapLink, id: &str) -> FfiSwapResult {
+    crate::net::garmin_swap::replace(link, id)
 }
 
 /// Run a pass for the library open at `install` on a thread of its own, unless
@@ -203,7 +212,7 @@ pub(crate) fn start(install: u64) {
     }
     crate::threads::spawn_named("garmin-autoswap", move || {
         run(&store, Utc::now(), |id| {
-            crate::net::garmin_swap::replace(&crate::net::garmin_swap::Live, id)
+            swap_import(&crate::net::garmin_swap::Live, id)
         });
         ACTIVE.store(false, Ordering::SeqCst);
     });

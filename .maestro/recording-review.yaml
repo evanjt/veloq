@@ -15,7 +15,11 @@ onFlowComplete:
         visible:
           id: "demo-mode-banner"
       commands:
-        - openLink: "veloq://"
+        - runFlow:
+            file: helpers/open-link.yaml
+            env:
+              LINK: "veloq://"
+              TARGET: "home-screen"
         - runFlow:
             when:
               visible: "(?i)discard"
@@ -54,20 +58,17 @@ onFlowComplete:
       id: "recording-timer"
     timeout: 10000
 
-# The review draws its map and trim only for a ride with a track. An Android
-# emulator reports fixes of its own, and an iOS simulator reports none until it
-# is given a route, so there the ride is driven along a short one.
-- runFlow:
-    when:
-      platform: iOS
-    commands:
-      - travel:
-          points:
-            - 51.4769,-0.0005
-            - 51.4775,-0.0015
-            - 51.4781,-0.0025
-            - 51.4787,-0.0035
-          speed: 10
+# The review draws its map and trim only for a ride with a track, which needs
+# more than two fixes. A simulator reports none until it is given a route, and
+# an emulator under load can report too few in a short ride, so both are driven
+# along a short one.
+- travel:
+    points:
+      - 51.4769,-0.0005
+      - 51.4775,-0.0015
+      - 51.4781,-0.0025
+      - 51.4787,-0.0035
+    speed: 10
 
 # Unlock the screen (the lock auto-engages on recording start)
 - runFlow:

@@ -101,7 +101,7 @@ describe('a supporting metric label', () => {
     const tree = await renderCard(await cardData(CARD));
 
     expect(tree.getByTestId('summary-card-metric-0').props.accessibilityLabel).toBe(
-      'Heart rate variability 52, improved. Compared with 48 on 8 Oct.'
+      'Heart rate variability 52, improved. Compared with 48 on 8 Oct'
     );
   });
 
@@ -109,7 +109,7 @@ describe('a supporting metric label', () => {
     showing('fitness', ['rhr']);
 
     expect((await cardData(CARD)).supportingMetrics[0].accessibilityLabel).toBe(
-      'Resting heart rate 47, improved. Compared with 50 on 8 Oct.'
+      'Resting heart rate 47, improved. Compared with 50 on 8 Oct'
     );
   });
 
@@ -117,7 +117,7 @@ describe('a supporting metric label', () => {
     showing('fitness', ['weight']);
 
     expect((await cardData(CARD)).supportingMetrics[0].accessibilityLabel).toBe(
-      'Weight 71.2kg, falling. Compared with 72kg on 2 Oct.'
+      'Weight 71.2kg, falling. Compared with 72kg on 2 Oct'
     );
   });
 
@@ -127,10 +127,10 @@ describe('a supporting metric label', () => {
     const [hours, count] = (await cardData(CARD)).supportingMetrics;
 
     expect(hours.accessibilityLabel).toBe(
-      'Week 2 hours, improved. Compared with 1 hour at this point last week.'
+      'Week 2 hours, improved. Compared with 1 hour at this point last week'
     );
     expect(count.accessibilityLabel).toBe(
-      'Activities 4, improved. Compared with 2 at this point last week.'
+      'Activities 4, improved. Compared with 2 at this point last week'
     );
   });
 
@@ -138,7 +138,7 @@ describe('a supporting metric label', () => {
     showing('fitness', ['ftp']);
 
     expect((await cardData(CARD)).supportingMetrics[0].accessibilityLabel).toBe(
-      'eFTP 250, improved. Compared with 240 on 8 Sept.'
+      'eFTP 250, improved. Compared with 240 on 8 Sept'
     );
   });
 
@@ -182,7 +182,7 @@ describe('the hero label', () => {
 
     const tree = await renderCard(await cardData(CARD));
 
-    expect(tree.getByLabelText('Form +10, falling. Compared with +14 on 8 Oct.')).toBeTruthy();
+    expect(tree.getByLabelText('Form +10, falling. Compared with +14 on 8 Oct')).toBeTruthy();
   });
 });
 

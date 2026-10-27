@@ -87,15 +87,31 @@ export function ActivityPeek({
           onPress={() => void repostNotification(activityId, name)}
         />
       ) : null}
+      {debugEnabled ? (
+        <Button
+          label={REGENERATE_DELAYED_LABEL}
+          variant="secondary"
+          size="sm"
+          testID="activity-regenerate-notification-delayed"
+          onPress={() => void repostNotification(activityId, name, DEBUG_REPOST_DELAY_SECONDS)}
+        />
+      ) : null}
     </View>
   );
 }
 
 const REGENERATE_LABEL = 'Regenerate notification';
+const REGENERATE_DELAYED_LABEL = 'Regenerate in 20 s';
+const DEBUG_REPOST_DELAY_SECONDS = 20;
 
-async function repostNotification(activityId: string, name: string) {
+async function repostNotification(activityId: string, name: string, delaySeconds?: number) {
   if (
-    !(await repostActivityNotification(activityId, name, engine.activityNotification.bind(engine)))
+    !(await repostActivityNotification(
+      activityId,
+      name,
+      engine.activityNotification.bind(engine),
+      delaySeconds
+    ))
   ) {
     inform({ title: 'Nothing to post', message: 'The engine has no text for this activity.' });
   }

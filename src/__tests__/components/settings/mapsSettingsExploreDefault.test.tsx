@@ -157,3 +157,22 @@ describe('the Explore Map style override', () => {
     expect(view.getByTestId('explore-style')).toHaveTextContent('light');
   });
 });
+
+describe('the 3D terrain badge', () => {
+  it('names the saved mode in its test id and moves to the next mode on each press', async () => {
+    seed({ terrain3DMode: 'smart' });
+    const view = render(screen());
+    await waitFor(() => expect(view.getByTestId('terrain-3d-smart')).toBeTruthy());
+
+    await act(async () => {
+      await fireEvent.press(view.getByTestId('terrain-3d-smart'));
+    });
+    await waitFor(() => expect(view.getByTestId('terrain-3d-always')).toBeTruthy());
+    expect(saved().terrain3DMode).toBe('always');
+
+    await act(async () => {
+      await fireEvent.press(view.getByTestId('terrain-3d-always'));
+    });
+    await waitFor(() => expect(view.getByTestId('terrain-3d-off')).toBeTruthy());
+  });
+});

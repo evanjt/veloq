@@ -161,3 +161,22 @@ describe('map WebViews take no keyboard focus', () => {
     expect(blocked.every(Boolean)).toBe(true);
   });
 });
+
+describe('map WebViews are not focusable natively', () => {
+  it('marks the 2D map, the 3D map and every terrain worker unfocusable', async () => {
+    await render(<MapSurface {...SURFACE_PROPS} />);
+    expect(screen.UNSAFE_getAllByType(WebView).map((w) => w.props.focusable)).toEqual([false]);
+    await screen.unmount();
+
+    await render(
+      <Map3DWebView coordinates={[[7.4, 46.9]]} mapStyle="light" routesGeoJSON={EMPTY} />
+    );
+    expect(screen.UNSAFE_getAllByType(WebView).map((w) => w.props.focusable)).toEqual([false]);
+    await screen.unmount();
+
+    await render(<TerrainSnapshotWebView />);
+    const focusable = screen.UNSAFE_getAllByType(WebView).map((w) => w.props.focusable);
+    expect(focusable.length).toBeGreaterThan(0);
+    expect(focusable.every((f) => f === false)).toBe(true);
+  });
+});

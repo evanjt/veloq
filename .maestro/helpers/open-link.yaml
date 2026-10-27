@@ -1,0 +1,25 @@
+# Follow a deep link and clear iOS's "Open in <app>?" sheet whenever it shows.
+# The sheet can arrive seconds after the link is followed, so a single tap taken
+# right away may find nothing. The sheet is tapped once straight away, then
+# again on each pass until TARGET, the id the link's screen carries, is on
+# screen. A simulator that never raises the sheet costs the passes it skips.
+# Env: LINK, TARGET.
+appId: com.veloq.app.dev
+---
+- openLink: ${LINK}
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- repeat:
+    while:
+      notVisible:
+        id: "${TARGET}"
+    times: 10
+    commands:
+      - runFlow:
+          when:
+            visible: "Open"
+          commands:
+            - tapOn: "Open"

@@ -13,7 +13,10 @@ function AccountScreenContent() {
   const athlete = athleteRow ?? undefined;
 
   return (
-    <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+    <ScreenSafeAreaView
+      testID="account-screen"
+      style={[styles.container, isDark && styles.containerDark]}
+    >
       <ScreenScrollView contentContainerStyle={{ paddingBottom: spacing.xl }}>
         <ProfileAccountSection athlete={athlete} />
         <AccountConnectionsSection />

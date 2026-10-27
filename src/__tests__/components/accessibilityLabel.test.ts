@@ -32,4 +32,18 @@ describe('composeAccessibilityLabel', () => {
     expect(composeAccessibilityLabel()).toBe('');
     expect(composeAccessibilityLabel(null, false)).toBe('');
   });
+
+  it('drops the full stop that ends the label, so the role follows after one pause', () => {
+    expect(composeAccessibilityLabel('Compared with 23 on Oct 25.')).toBe(
+      'Compared with 23 on Oct 25'
+    );
+    expect(composeAccessibilityLabel('Power', '245 W.')).toBe('Power, 245 W');
+  });
+
+  it('keeps full stops inside the label and drops only the last one', () => {
+    expect(composeAccessibilityLabel('Fitness 23, steady. Compared with 23 on Oct 25.')).toBe(
+      'Fitness 23, steady. Compared with 23 on Oct 25'
+    );
+    expect(composeAccessibilityLabel('Oct 25..')).toBe('Oct 25.');
+  });
 });

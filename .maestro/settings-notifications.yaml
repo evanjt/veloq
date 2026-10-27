@@ -10,12 +10,11 @@ tags:
     file: helpers/setup-demo-mode.yaml
 
 # Navigate directly to notification settings page
-- openLink: "veloq://notification-settings"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://notification-settings"
+      TARGET: "notification-settings-screen"
 
 - extendedWaitUntil:
     visible:

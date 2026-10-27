@@ -16,12 +16,11 @@ tags:
     timeout: 15000
 
 # Open activity detail via deep link
-- openLink: "veloq://activity/demo-test-0"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://activity/demo-test-0"
+      TARGET: "activity-detail-screen"
 
 - extendedWaitUntil:
     visible:

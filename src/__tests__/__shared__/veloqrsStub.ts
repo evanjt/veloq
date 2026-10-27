@@ -51,6 +51,16 @@ export enum SwapState {
   Hidden = 1,
   Available = 2,
   Undoable = 3,
+  Checkable = 4,
+  Unchanged = 5,
+}
+
+/** `FfiStubVerdict` as generated, held to the source by the same test. */
+export enum StubVerdict {
+  NotStub = 1,
+  GarminUpdatable = 2,
+  NoKey = 3,
+  OtherSource = 4,
 }
 
 /** `FfiSwapOutcome` as generated, held to the source by the same test. */
@@ -680,6 +690,7 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     CallKind,
     UploadOutcome,
     SwapState,
+    StubVerdict,
     SwapOutcome,
     SyncState,
     SyncErrorReason,

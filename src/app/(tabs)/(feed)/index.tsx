@@ -745,6 +745,7 @@ function FeedScreenContent() {
       <Stack.Screen options={headerOptions} />
       <FlatList
         ref={listRef}
+        focusable={false}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={VIEWABILITY_CONFIG}
         onScrollBeginDrag={scrollHold.onScrollBeginDrag}

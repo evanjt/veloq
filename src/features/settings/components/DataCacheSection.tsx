@@ -24,7 +24,6 @@ import {
 import { engineErrorKey } from '@/shared/native/engineError';
 import { ErrorState } from '@/shared/ui/ErrorState';
 import { RowDivider } from '@/shared/ui/RowGroup';
-import * as haptics from '@/shared/ui/haptics';
 import { offlineConfirmMessage } from '../lib/offlineConfirmCopy';
 import { settingsStyles } from './settingsStyles';
 import { CacheManagementPanel } from './CacheManagementPanel';
@@ -164,7 +163,6 @@ export function DataCacheSection() {
       cancelLabel: t('common.cancel'),
       destructive: true,
       onConfirm: async () => {
-        haptics.medium();
         try {
           // 1. Cancel any in-flight queries
           await queryClient.cancelQueries();

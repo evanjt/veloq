@@ -87,4 +87,10 @@ describe('mapLibreHead', () => {
       expect(html.split(rendererUrl).length - 1).toBe(1);
     }
   });
+
+  it('takes the page out of the tab order, including canvases the renderer adds later', () => {
+    const head = mapLibreHead();
+    expect(head).toContain('tabindex');
+    expect(head).toContain('MutationObserver');
+  });
 });

@@ -161,9 +161,20 @@ export function templateToPattern(template) {
 export function collectFlowIds(files) {
   const byId = new Map();
   for (const file of files) {
-    for (const m of tree.text(file).matchAll(/^\s*id:\s*"([^"]+)"/gm)) {
-      if (!byId.has(m[1])) byId.set(m[1], new Set());
-      byId.get(m[1]).add(file);
+    const text = tree.text(file);
+    // The open-link helper asserts the id its caller passes, so the caller's
+    // literal is the id to resolve and the helper's `${TARGET}` has none.
+    const ids = [
+      ...[...text.matchAll(/^\s*id:\s*"([^"]+)"/gm)]
+        .map((m) => m[1])
+        .filter((id) => !/^\$\{\w+\}$/.test(id)),
+      ...[...text.matchAll(/open-link\.yaml\s+env:\s+LINK:.*\s+TARGET:\s*"([^"]+)"/g)].map(
+        (m) => m[1]
+      ),
+    ];
+    for (const id of ids) {
+      if (!byId.has(id)) byId.set(id, new Set());
+      byId.get(id).add(file);
     }
   }
   return byId;
@@ -254,7 +265,10 @@ function main() {
     process.exit(1);
   }
 
-  const unresolved = [...asserted.keys()].filter((id) => !resolvesInTree(id, rendered)).sort();
+  // The OS draws its own dialogs, so an id in the platform's namespace is not ours to render.
+  const unresolved = [...asserted.keys()]
+    .filter((id) => !id.startsWith('android:id/') && !resolvesInTree(id, rendered))
+    .sort();
 
   const baseline = existsSync(BASELINE_FILE)
     ? JSON.parse(readFileSync(BASELINE_FILE, 'utf8'))

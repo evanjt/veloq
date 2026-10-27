@@ -182,7 +182,7 @@ describe('a chart can be read without seeing it', () => {
       />
     );
     expect(plot().props.accessibilityLabel).toBe(
-      'Kiln output, 5 s to 1200 s: 900 W at 5 s, 270 W at 1200 s, peak 900 W.'
+      'Kiln output, 5 s to 1200 s: 900 W at 5 s, 270 W at 1200 s, peak 900 W'
     );
     const rows = await openThroughAction();
     expect(rows).toHaveLength(CURVE.length);
@@ -209,7 +209,7 @@ describe('a chart can be read without seeing it', () => {
     );
     await layOut();
     expect(plot().props.accessibilityLabel).toBe(
-      'Activity chart. Power, 0.00 km to 9.00 km: latest 290 W, range 200 W to 290 W, average 245 W.'
+      'Activity chart. Power, 0.00 km to 9.00 km: latest 290 W, range 200 W to 290 W, average 245 W'
     );
     const rows = await openThroughAction();
     expect(rows).toHaveLength(10);
@@ -238,7 +238,7 @@ describe('a chart can be read without seeing it', () => {
       <ActivityDotsChart data={STRIP_DAYS} activities={STRIP_ACTIVITIES.map(dayActivityRow)} />
     );
     expect(plot().props.accessibilityLabel).toBe(
-      'Days trained, May 1 to May 5: active on 2 of 5 days. Longest break 2 days.'
+      'Days trained, May 1 to May 5: active on 2 of 5 days. Longest break 2 days'
     );
     const rows = await openThroughButton();
     expect(rows).toHaveLength(2);
@@ -260,7 +260,7 @@ describe('a chart can be read without seeing it', () => {
       />
     );
     expect(screen.getByTestId('strength-body-plot').props.accessibilityLabel).toMatch(
-      /^Muscle group volume: Abs 9 sets, Chest 4 sets\.$/
+      /^Muscle group volume: Abs 9 sets, Chest 4 sets$/
     );
     expect(screen.getByRole('adjustable')).toBeTruthy();
     const rows = await openThroughButton();

@@ -1388,6 +1388,7 @@ export const TerrainSnapshotWebView = forwardRef<
                 }}
                 style={StyleSheet.absoluteFill}
                 scrollEnabled={false}
+                focusable={false}
                 bounces={false}
                 javaScriptEnabled={true}
                 domStorageEnabled={true}

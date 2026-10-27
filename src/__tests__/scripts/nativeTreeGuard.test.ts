@@ -9,7 +9,8 @@
  * that gives the tree an installation of its own, and lets a self-contained
  * tree through. It also refuses an installation whose screens sheet width patch
  * never ran, since that build draws every sheet across the full width of a tablet,
- * and one whose nitro JSI install patch never ran, since that build aborts at every
+ * one whose sheet scroll patch never ran, since a card pushed into a sheet then
+ * cannot scroll on Android, and one whose nitro JSI install patch never ran, since that build aborts at every
  * iOS launch.
  */
 import { spawnSync } from 'node:child_process';
@@ -21,6 +22,7 @@ import { gitFreeEnv, runGit } from '../__shared__/gitFixture';
 
 const screens = require('../../../scripts/patch-screens-sheet-width');
 const screensHide = require('../../../scripts/patch-screens-sheet-hide');
+const screensScroll = require('../../../scripts/patch-screens-sheet-scroll');
 const nitro = require('../../../scripts/patch-nitro-jsi-install');
 const routeMatch = require('../../../scripts/patch-expo-router-route-match');
 
@@ -191,9 +193,15 @@ describe('the native build tree check', () => {
 
   /**
    * The installed screens package's patched files copied into `root`, each patched or as it
-   * ships: the sheet width patch per `patched`, the sheet hide patch per `hidePatched`.
+   * ships: the sheet width patch per `patched`, the sheet hide patch per `hidePatched`, the
+   * sheet scroll patch per `scrollPatched`.
    */
-  function installScreens(root: string, patched: boolean, hidePatched: boolean = patched): void {
+  function installScreens(
+    root: string,
+    patched: boolean,
+    hidePatched: boolean = patched,
+    scrollPatched: boolean = patched
+  ): void {
     const from = path.join(projectRoot, 'node_modules', 'react-native-screens');
     const to = path.join(root, 'node_modules', 'react-native-screens');
     fs.mkdirSync(path.dirname(path.join(to, 'package.json')), { recursive: true });
@@ -206,6 +214,12 @@ describe('the native build tree check', () => {
       const shipped = patch.unpatchSource(fs.readFileSync(path.join(from, patch.FILE), 'utf8'));
       fs.writeFileSync(path.join(to, patch.FILE), on ? patch.patchSource(shipped) : shipped);
     }
+    fs.mkdirSync(path.dirname(path.join(to, screensScroll.FILE)), { recursive: true });
+    const layout = screensScroll.unpatchSource(
+      fs.readFileSync(path.join(from, screensScroll.FILE), 'utf8')
+    );
+    fs.writeFileSync(path.join(to, screensScroll.FILE), layout);
+    if (scrollPatched) screensScroll.applyPatch(root);
   }
 
   it('lets an installation carrying the screens sheet width patch through', () => {
@@ -238,6 +252,17 @@ describe('the native build tree check', () => {
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('sheet hide patch');
     expect(result.stderr).toContain('node scripts/patch-screens-sheet-hide.js');
+  });
+
+  it('refuses an installation whose screens sheet scroll patch never ran', () => {
+    const { main } = pair();
+    installScreens(main, true, true, false);
+
+    const result = check(main);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('sheet scroll patch');
+    expect(result.stderr).toContain('node scripts/patch-screens-sheet-scroll.js');
   });
 
   /** The installed nitro TurboModule copied into `root`, patched or as it ships. */

@@ -14,12 +14,11 @@ tags:
 - runFlow:
     file: helpers/setup-demo-mode.yaml
 
-- openLink: "veloq://backup-settings"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://backup-settings"
+      TARGET: "backup-settings-screen"
 
 - extendedWaitUntil:
     visible:

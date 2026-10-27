@@ -24,12 +24,11 @@ tags:
 # regularSections.length > 0 (empty list renders as `sections-list-empty`).
 # This ensures the engine has actually detected sections before we check
 # the regional map, rather than passing vacuously on an empty FlatList.
-- openLink: "veloq://insights?tab=sections"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://insights?tab=sections"
+      TARGET: "routes-screen"
 - extendedWaitUntil:
     visible:
       id: "routes-screen"

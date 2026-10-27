@@ -386,10 +386,24 @@
         padding: 0 24px;
       }
 
-      .platform-switch {
+      .platform-switch[hidden],
+      .theme-switch[hidden] {
+        display: none;
+      }
+
+      .switches {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 12px 16px;
+        margin-bottom: 32px;
+      }
+
+      .platform-switch,
+      .theme-switch {
         display: flex;
         width: fit-content;
-        margin: 0 auto 32px;
+        margin: 0;
         padding: 4px;
         gap: 4px;
         background: var(--card);
@@ -397,7 +411,8 @@
         border-radius: 999px;
       }
 
-      .platform-switch button {
+      .platform-switch button,
+      .theme-switch button {
         min-height: 44px;
         padding: 0 20px;
         border: none;
@@ -409,69 +424,140 @@
         cursor: pointer;
       }
 
-      .platform-switch button[aria-selected="true"] {
+      .platform-switch button[aria-selected="true"],
+      .theme-switch button[aria-pressed="true"] {
         background: var(--primary);
         color: white;
       }
 
-      .shots {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-        gap: 24px;
-        margin: 0;
-        padding: 0;
-        list-style: none;
+      .carousel {
+        max-width: 340px;
+        margin: 0 auto;
       }
 
-      .shots[data-platform="ipad"] {
-        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      .carousel[data-platform="ipad"] {
+        max-width: 640px;
       }
 
-      .shots[hidden] {
+      .carousel[hidden] {
         display: none;
       }
 
-      .shots figure {
-        margin: 0;
+      .phone-frame {
+        padding: 12px;
+        background: #1a1a1a;
+        border-radius: 40px;
+        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.3);
       }
 
-      .shots img {
+      .carousel[data-platform="ipad"] .phone-frame {
+        border-radius: 28px;
+      }
+
+      .shots {
+        display: grid;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        overflow: hidden;
+        border-radius: 30px;
+        background: #000;
+      }
+
+      .carousel[data-platform="ipad"] .shots {
+        border-radius: 18px;
+      }
+
+      .slide {
+        grid-area: 1 / 1;
+        opacity: 0;
+        transition: opacity 0.5s ease;
+      }
+
+      .slide.active {
+        opacity: 1;
+      }
+
+      .slide img {
         display: block;
         width: 100%;
         height: auto;
-        border-radius: 16px;
-        background: var(--card);
       }
 
-      .shots figcaption {
-        margin-top: 12px;
+      .carousel-caption {
+        min-height: 1.5em;
+        margin: 16px 0 0;
         text-align: center;
         color: var(--text-muted);
         font-size: 14px;
       }
 
-      @media (max-width: 639px) {
-        .showcase-container {
-          padding: 0;
-        }
-        .shots {
-          display: flex;
-          gap: 16px;
-          padding: 0 16px;
-          overflow-x: auto;
-          scroll-snap-type: x mandatory;
-          scroll-padding: 0 16px;
-          overscroll-behavior-x: contain;
-        }
-        .shots[hidden] {
-          display: none;
-        }
-        .shots li {
-          flex: 0 0 72%;
-          scroll-snap-align: start;
-        }
-        .shots[data-platform="ipad"] li {
-          flex-basis: 86%;
+      .carousel-controls {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        margin-top: 8px;
+      }
+
+      .carousel-dot {
+        position: relative;
+        width: 28px;
+        height: 28px;
+        padding: 0;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+      }
+
+      .carousel-dot::before {
+        content: "";
+        position: absolute;
+        top: 9px;
+        left: 9px;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--border);
+        transition: background 0.3s, transform 0.3s;
+      }
+
+      .carousel-dot.active::before,
+      .carousel-dot:hover::before {
+        background: var(--primary);
+      }
+
+      .carousel-dot.active::before {
+        transform: scale(1.2);
+      }
+
+      .carousel-nav {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: var(--card);
+        border: 1px solid var(--border);
+        color: var(--text);
+        font-size: 24px;
+        line-height: 1;
+        cursor: pointer;
+      }
+
+      .carousel-nav:hover {
+        background: var(--primary);
+        color: white;
+        border-color: var(--primary);
+      }
+
+      .carousel button:focus-visible,
+      .theme-switch button:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .slide {
+          transition: none;
         }
       }
 
@@ -782,64 +868,64 @@
 
       <section class="showcase animate-fade-up delay-3">
         <div class="showcase-container">
-          <div class="platform-switch" id="platform-switch" role="group" aria-label="Screenshots" hidden></div>
+          <div class="switches">
+            <div class="platform-switch" id="platform-switch" role="group" aria-label="Screenshots" hidden></div>
+            <div class="theme-switch" id="theme-switch" role="group" aria-label="Screenshot theme" hidden></div>
+          </div>
           <!-- store-copy:gallery -->
-          <ol class="shots" data-platform="android">
-            <li>
-              <figure>
-                <picture>
-                  <source media="(prefers-color-scheme: dark)" srcset="screenshots/android/dark/01-feed.png" />
-                  <img src="screenshots/android/01-feed.png" width="712" height="1584" loading="lazy" alt="Your activity history" />
-                </picture>
-                <figcaption>Your activity history</figcaption>
-              </figure>
-            </li>
-            <li>
-              <figure>
-                <picture>
-                  <source media="(prefers-color-scheme: dark)" srcset="screenshots/android/dark/02-activity.png" />
-                  <img src="screenshots/android/02-activity.png" width="712" height="1584" loading="lazy" alt="Map and charts on one timeline" />
-                </picture>
-                <figcaption>Map and charts on one timeline</figcaption>
-              </figure>
-            </li>
-            <li>
-              <figure>
-                <picture>
-                  <source media="(prefers-color-scheme: dark)" srcset="screenshots/android/dark/03-fitness.png" />
-                  <img src="screenshots/android/03-fitness.png" width="712" height="1584" loading="lazy" alt="Fitness, fatigue and form" />
-                </picture>
-                <figcaption>Fitness, fatigue and form</figcaption>
-              </figure>
-            </li>
-            <li>
-              <figure>
-                <picture>
-                  <source media="(prefers-color-scheme: dark)" srcset="screenshots/android/dark/04-map.png" />
-                  <img src="screenshots/android/04-map.png" width="712" height="1584" loading="lazy" alt="Where you've been riding" />
-                </picture>
-                <figcaption>Where you've been riding</figcaption>
-              </figure>
-            </li>
-            <li>
-              <figure>
-                <picture>
-                  <source media="(prefers-color-scheme: dark)" srcset="screenshots/android/dark/05-routes.png" />
-                  <img src="screenshots/android/05-routes.png" width="712" height="1584" loading="lazy" alt="Routes you ride again" />
-                </picture>
-                <figcaption>Routes you ride again</figcaption>
-              </figure>
-            </li>
-            <li>
-              <figure>
-                <picture>
-                  <source media="(prefers-color-scheme: dark)" srcset="screenshots/android/dark/06-insights.png" />
-                  <img src="screenshots/android/06-insights.png" width="712" height="1584" loading="lazy" alt="A daily read on your training" />
-                </picture>
-                <figcaption>A daily read on your training</figcaption>
-              </figure>
-            </li>
-          </ol>
+          <div class="carousel" data-platform="android" role="group" aria-roledescription="carousel" aria-label="Screenshots">
+            <div class="phone-frame">
+              <ol class="shots">
+                <li class="slide active" data-caption="Your activity history">
+                  <picture>
+                    <source media="(prefers-color-scheme: dark)" srcset="screenshots/android/dark/01-feed.png" />
+                    <img src="screenshots/android/01-feed.png" width="712" height="1584" loading="lazy" alt="Your activity history" />
+                  </picture>
+                </li>
+                <li class="slide" data-caption="Map and charts on one timeline">
+                  <picture>
+                    <source media="(prefers-color-scheme: dark)" srcset="screenshots/android/dark/02-activity.png" />
+                    <img src="screenshots/android/02-activity.png" width="712" height="1584" loading="lazy" alt="Map and charts on one timeline" />
+                  </picture>
+                </li>
+                <li class="slide" data-caption="Fitness, fatigue and form">
+                  <picture>
+                    <source media="(prefers-color-scheme: dark)" srcset="screenshots/android/dark/03-fitness.png" />
+                    <img src="screenshots/android/03-fitness.png" width="712" height="1584" loading="lazy" alt="Fitness, fatigue and form" />
+                  </picture>
+                </li>
+                <li class="slide" data-caption="Where you've been riding">
+                  <picture>
+                    <source media="(prefers-color-scheme: dark)" srcset="screenshots/android/dark/04-map.png" />
+                    <img src="screenshots/android/04-map.png" width="712" height="1584" loading="lazy" alt="Where you've been riding" />
+                  </picture>
+                </li>
+                <li class="slide" data-caption="Routes you ride again">
+                  <picture>
+                    <source media="(prefers-color-scheme: dark)" srcset="screenshots/android/dark/05-routes.png" />
+                    <img src="screenshots/android/05-routes.png" width="712" height="1584" loading="lazy" alt="Routes you ride again" />
+                  </picture>
+                </li>
+                <li class="slide" data-caption="A daily read on your training">
+                  <picture>
+                    <source media="(prefers-color-scheme: dark)" srcset="screenshots/android/dark/06-insights.png" />
+                    <img src="screenshots/android/06-insights.png" width="712" height="1584" loading="lazy" alt="A daily read on your training" />
+                  </picture>
+                </li>
+              </ol>
+            </div>
+            <p class="carousel-caption" aria-live="polite">Your activity history</p>
+            <div class="carousel-controls">
+              <button type="button" class="carousel-nav prev" aria-label="Previous screenshot">&#8249;</button>
+              <button type="button" class="carousel-dot active" aria-label="Show screenshot 1 of 6: Your activity history" aria-current="true"></button>
+              <button type="button" class="carousel-dot" aria-label="Show screenshot 2 of 6: Map and charts on one timeline" aria-current="false"></button>
+              <button type="button" class="carousel-dot" aria-label="Show screenshot 3 of 6: Fitness, fatigue and form" aria-current="false"></button>
+              <button type="button" class="carousel-dot" aria-label="Show screenshot 4 of 6: Where you've been riding" aria-current="false"></button>
+              <button type="button" class="carousel-dot" aria-label="Show screenshot 5 of 6: Routes you ride again" aria-current="false"></button>
+              <button type="button" class="carousel-dot" aria-label="Show screenshot 6 of 6: A daily read on your training" aria-current="false"></button>
+              <button type="button" class="carousel-nav next" aria-label="Next screenshot">&#8250;</button>
+            </div>
+          </div>
           <!-- /store-copy:gallery -->
           <p class="screenshot-disclaimer" data-i18n="showcase.disclaimer">
             * Screenshots show demo data for illustration purposes only.
@@ -971,25 +1057,80 @@
     <script>
       // The gallery markup is written by npx tsx scripts/store-screenshots.ts --target web.
       function initGallery() {
-        const lists = Array.from(document.querySelectorAll(".shots"));
+        const carousels = Array.from(document.querySelectorAll(".carousel"));
         const switcher = document.getElementById("platform-switch");
+        const themer = document.getElementById("theme-switch");
         const labels = { android: "Android", ios: "iPhone", ipad: "iPad" };
-        const keys = lists.map((list) => list.dataset.platform);
+        const keys = carousels.map((c) => c.dataset.platform);
+        const dark = window.matchMedia("(prefers-color-scheme: dark)");
+        const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+        const INTERVAL = 4000;
         let saved = null;
         try {
           saved = localStorage.getItem("veloq.platform");
         } catch (e) {}
-        const picked = keys.includes(saved)
+        let current = keys.includes(saved)
           ? saved
           : pickPlatform(navigator.userAgent, navigator.maxTouchPoints);
+        let theme = dark.matches ? "dark" : "light";
+        let timer = null;
+        let paused = false;
+
+        function active() {
+          return carousels.find((c) => c.dataset.platform === current);
+        }
+
+        function go(carousel, index) {
+          const slides = carousel.querySelectorAll(".slide");
+          const dots = carousel.querySelectorAll(".carousel-dot");
+          const next = (index + slides.length) % slides.length;
+          slides.forEach((slide, i) => slide.classList.toggle("active", i === next));
+          dots.forEach((dot, i) => {
+            dot.classList.toggle("active", i === next);
+            dot.setAttribute("aria-current", String(i === next));
+          });
+          carousel.querySelector(".carousel-caption").textContent = slides[next].dataset.caption;
+          carousel.dataset.index = String(next);
+        }
+
+        function step(carousel, by) {
+          go(carousel, Number(carousel.dataset.index || 0) + by);
+        }
+
+        function stop() {
+          clearInterval(timer);
+          timer = null;
+        }
+
+        function play() {
+          stop();
+          if (reduced.matches || paused || document.hidden) return;
+          timer = setInterval(() => step(active(), 1), INTERVAL);
+        }
+
+        function hold(value) {
+          paused = value;
+          play();
+        }
+
+        function applyTheme() {
+          document.querySelectorAll(".slide source").forEach((source) => {
+            source.media = theme === "dark" ? "all" : "not all";
+          });
+          themer.querySelectorAll("button").forEach((button) => {
+            button.setAttribute("aria-pressed", String(button.dataset.theme === theme));
+          });
+        }
 
         function show(key, remember) {
-          lists.forEach((list) => {
-            list.hidden = list.dataset.platform !== key;
+          current = key;
+          carousels.forEach((c) => {
+            c.hidden = c.dataset.platform !== key;
           });
           switcher.querySelectorAll("button").forEach((button) => {
             button.setAttribute("aria-selected", String(button.dataset.platform === key));
           });
+          play();
           if (!remember) return;
           try {
             localStorage.setItem("veloq.platform", key);
@@ -1004,8 +1145,40 @@
           button.addEventListener("click", () => show(key, true));
           switcher.appendChild(button);
         });
+        [["light", "Light"], ["dark", "Dark"]].forEach(([value, label]) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.dataset.theme = value;
+          button.textContent = label;
+          button.addEventListener("click", () => {
+            theme = value;
+            applyTheme();
+          });
+          themer.appendChild(button);
+        });
+
+        carousels.forEach((carousel) => {
+          go(carousel, 0);
+          carousel.querySelector(".prev").addEventListener("click", () => step(carousel, -1));
+          carousel.querySelector(".next").addEventListener("click", () => step(carousel, 1));
+          carousel.querySelectorAll(".carousel-dot").forEach((dot, i) => {
+            dot.addEventListener("click", () => go(carousel, i));
+          });
+          carousel.addEventListener("mouseenter", () => hold(true));
+          carousel.addEventListener("mouseleave", () => hold(false));
+          carousel.addEventListener("focusin", () => hold(true));
+          carousel.addEventListener("focusout", () => hold(false));
+          carousel.addEventListener("keydown", (e) => {
+            if (e.key === "ArrowLeft") step(carousel, -1);
+            if (e.key === "ArrowRight") step(carousel, 1);
+          });
+        });
+        document.addEventListener("visibilitychange", play);
+        reduced.addEventListener("change", play);
         switcher.hidden = false;
-        show(picked, false);
+        themer.hidden = false;
+        applyTheme();
+        show(current, false);
       }
 
       // Translations

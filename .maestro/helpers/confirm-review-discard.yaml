@@ -9,31 +9,40 @@ appId: com.veloq.app.dev
     env:
       TARGET: review-discard-button
 
-- tapOn:
-    id: "review-discard-button"
+# The alert's title is in the app's language, so iOS reads the label off the
+# screen's own button, which the alert's accept repeats, and taps the copy of it
+# that sits above that button on a phone, and on a tablet the second one.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - copyTextFrom:
+          id: "review-discard-button"
+      - tapOn:
+          id: "review-discard-button"
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - tapOn:
+          text: "${maestro.copiedText}"
+          above:
+            id: "review-discard-button"
+          optional: true
+      - tapOn:
+          text: "${maestro.copiedText}"
+          index: 1
+          optional: true
 
-- extendedWaitUntil:
-    visible: "Discard this recording\\?"
-    timeout: 5000
-
-# The screen's own button carries the same label. On Android the one under the
-# alert's title is the alert's. On iOS the title anchors on the alert's whole
-# frame and the screen's button comes first in the hierarchy, so a tap below
-# the title lands behind the alert. There the alert's accept is the one above
-# the screen's button, which sits at the foot of the review once scrolled to.
+# The alert's words follow the app's language, so on Android its accept is
+# reached by the dialog's own positive button, which every language shares.
 - runFlow:
     when:
       platform: Android
     commands:
       - tapOn:
-          text: "Discard"
-          below: "Discard this recording\\?"
-
-- runFlow:
-    when:
-      platform: iOS
-    commands:
+          id: "review-discard-button"
+      - extendedWaitUntil:
+          visible:
+            id: "android:id/button1"
+          timeout: 5000
       - tapOn:
-          text: "Discard"
-          above:
-            id: "review-discard-button"
+          id: "android:id/button1"

@@ -13,12 +13,11 @@ tags:
 
 # The lapped run crosses every section on its loop once per lap, so its first
 # section has laps to list whichever one the engine ranks first.
-- openLink: "veloq://activity/demo-test-8?tab=sections"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://activity/demo-test-8?tab=sections"
+      TARGET: "activity-detail-screen"
 
 - extendedWaitUntil:
     visible:

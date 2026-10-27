@@ -11,9 +11,24 @@
 
 import { Alert, type AlertButton, type AlertOptions } from 'react-native';
 
+import * as haptics from './haptics';
+
 function dismissal(required: boolean | undefined, onDismiss?: () => void): AlertOptions {
   if (required) return { cancelable: false };
   return { cancelable: true, onDismiss };
+}
+
+/**
+ * The accept of a destructive action is felt here, ahead of its handler, so a
+ * caller never has to remember the impact and cannot forget it. The handler's
+ * result is returned so an awaited async confirm finishes before the caller moves on.
+ */
+function accept<Result>(destructive: boolean | undefined, onPress: () => Result): () => Result {
+  if (!destructive) return onPress;
+  return () => {
+    haptics.medium();
+    return onPress();
+  };
 }
 
 export interface ConfirmActionArgs {
@@ -40,7 +55,7 @@ export function confirmAction(args: ConfirmActionArgs): void {
       {
         text: args.confirmLabel,
         style: args.destructive ? 'destructive' : 'default',
-        onPress: args.onConfirm,
+        onPress: accept(args.destructive, args.onConfirm),
       },
     ],
     dismissal(args.required, args.onCancel)
@@ -70,7 +85,7 @@ export function chooseAction(args: ChooseActionArgs): void {
   const buttons: AlertButton[] = args.actions.map((action) => ({
     text: action.label,
     style: action.destructive ? 'destructive' : 'default',
-    onPress: action.onPress,
+    onPress: accept(action.destructive, action.onPress),
   }));
   if (args.cancelLabel !== undefined) {
     buttons.splice(buttons.length - 1, 0, {

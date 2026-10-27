@@ -14,9 +14,9 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 
-import { captureLocales } from '../../../scripts/store-locales';
+import { captureLocales, WEB_LOCALE } from '../../../scripts/store-locales';
 import { CAPTURED_STEMS } from '../../../scripts/store-shots';
-import { CAPTIONS, installSets, rawCaptures } from '../../../scripts/store-screenshots';
+import { CAPTIONS, installSets, rawCaptures, webRaws } from '../../../scripts/store-screenshots';
 
 function tmp(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'store-install-'));
@@ -180,5 +180,33 @@ describe('rawCaptures', () => {
     const root = tmp();
     raws(root, 'ipad', 'en-US', [1640, 2360]);
     expect(() => rawCaptures('ipad', root, 'en-US', 3)).toThrow(/2064x2752/);
+  });
+});
+
+describe('webRaws', () => {
+  const size: [number, number] = [1080, 2400];
+
+  function capture(root: string, dark: boolean): void {
+    for (const stem of CAPTURED_STEMS) {
+      const dir = path.join(root, 'android', WEB_LOCALE, dark ? 'dark' : '');
+      write(path.join(dir, `${stem}.png`), png(...size));
+    }
+  }
+
+  it('takes the dark set from the dark captures, not the light ones', () => {
+    const root = tmp();
+    capture(root, false);
+    capture(root, true);
+    const { raws, darkRaws } = webRaws('play', root);
+    expect(darkRaws).toHaveLength(raws.length);
+    for (const file of darkRaws) {
+      expect(path.dirname(file)).toBe(path.join(root, 'android', WEB_LOCALE, 'dark'));
+    }
+  });
+
+  it('refuses a missing dark capture rather than drawing the light one on a dark stage', () => {
+    const root = tmp();
+    capture(root, false);
+    expect(() => webRaws('play', root)).toThrow(/dark captures/);
   });
 });

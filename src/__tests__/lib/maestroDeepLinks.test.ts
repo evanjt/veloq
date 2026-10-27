@@ -5,8 +5,9 @@
  * an unresolved route, it just leaves the app where it was, and the assertion
  * that follows then fails somewhere unrelated.
  *
- * Expected behaviour: every `openLink` in `.maestro` resolves to a file under
- * `src/app`, by the same rules expo-router uses.
+ * Expected behaviour: every link a flow opens resolves to a file under
+ * `src/app`, by the same rules expo-router uses. Flows open links through
+ * `helpers/open-link.yaml`, so the link is the `LINK` env a flow passes it.
  */
 
 import * as fs from 'fs';
@@ -31,8 +32,8 @@ function openedLinks(): { flow: string; link: string }[] {
     return fs
       .readFileSync(file, 'utf-8')
       .split('\n')
-      .filter((line) => /^\s*-?\s*openLink:/.test(line))
-      .map((line) => line.replace(/^\s*-?\s*openLink:\s*/, '').trim())
+      .filter((line) => /^\s*(?:-\s*)?(?:openLink|LINK):/.test(line))
+      .map((line) => line.replace(/^\s*(?:-\s*)?(?:openLink|LINK):\s*/, '').trim())
       .map((raw) => raw.replace(/^["']|["']$/g, ''))
       .filter((link) => link.startsWith('veloq://'))
       .map((link) => ({ flow, link }));

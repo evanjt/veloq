@@ -117,7 +117,7 @@ describe('the zone skyline', () => {
     await render(<SkylineBar skylineBytes={skyline([600, 300, 600], [2, 4, 2])} isDark={false} />);
 
     const bar = screen.getByRole('image', { name: /^Time in power zones/ });
-    expect(bar.props.accessibilityLabel).toMatch(/^Time in power zones: Z2 .+, Z4 .+\.$/);
+    expect(bar.props.accessibilityLabel).toMatch(/^Time in power zones: Z2 .+, Z4 .+$/);
     expect(screen.queryByRole('button', { name: 'Show data' })).toBeNull();
     expect(bar.props.accessibilityActions).toEqual([{ name: 'showData', label: 'Show data' }]);
 
@@ -157,7 +157,7 @@ describe('the zone skyline', () => {
     );
 
     expect(
-      getByLabelText('Time in power zones: Z2 Endurance 20 min, Z4 Threshold 10 min.')
+      getByLabelText('Time in power zones: Z2 Endurance 20 min, Z4 Threshold 10 min')
     ).toBeTruthy();
   });
 
@@ -167,7 +167,7 @@ describe('the zone skyline', () => {
     );
 
     expect(
-      getByLabelText('Time in HR zones: Z1 Recovery 30 min, Z5 Super-threshold 1 min 30 s.')
+      getByLabelText('Time in HR zones: Z1 Recovery 30 min, Z5 Super-threshold 1 min 30 s')
     ).toBeTruthy();
   });
 

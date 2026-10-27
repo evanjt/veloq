@@ -585,6 +585,7 @@ function MapScreenContent() {
             <ScrollView
               ref={filtersRef}
               testID="map-filter-scroll"
+              focusable={false}
               style={styles.filterScroll}
               scrollEnabled={filtersScroll}
               showsVerticalScrollIndicator={filtersScroll}

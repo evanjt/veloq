@@ -11,6 +11,9 @@
  *
  * The cards of a map sheet are the same case: each stays mounted under the one on show, ahead of
  * it in the tree, so only the card on show scrolls nested.
+ *
+ * The sheet looks for that view again as each touch starts, since a page or card change lays out
+ * the content and never the sheet (`scripts/patch-screens-sheet-scroll.js`).
  */
 import { createContext, useContext } from 'react';
 

@@ -5,9 +5,10 @@ tags:
 ---
 - runFlow: launch.yaml
 - runFlow:
-    file: open-link.yaml
+    file: ../helpers/open-link.yaml
     env:
       LINK: "veloq://map"
+      TARGET: "map-screen"
 - extendedWaitUntil:
     visible:
       id: "map-screen"

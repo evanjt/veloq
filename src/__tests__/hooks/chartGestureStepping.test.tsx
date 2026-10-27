@@ -8,7 +8,7 @@
  * no scrub left open behind it.
  */
 
-import type { AccessibilityActionEvent } from 'react-native';
+import { AccessibilityInfo, Platform, type AccessibilityActionEvent } from 'react-native';
 import { act, renderHook } from '@testing-library/react-native';
 import * as Haptics from 'expo-haptics';
 
@@ -192,6 +192,55 @@ describe('stepping a chart from a screen reader or keyboard', () => {
     await act_(result, 'increment', 3);
 
     expect(shared.value).toBe(2);
+  });
+
+  it('carries the position as a range on Android and only the reading on iOS', async () => {
+    const originalOS = Platform.OS;
+    try {
+      Platform.OS = 'android';
+      const android = await renderChart({ data: days(8) });
+      expect(android.result.current.accessibilityProps.accessibilityValue).toBeUndefined();
+      await act_(android.result, 'increment', 3);
+      expect(android.result.current.accessibilityProps.accessibilityValue).toEqual({
+        min: 0,
+        max: 7,
+        now: 2,
+        text: 'day 3',
+      });
+
+      Platform.OS = 'ios';
+      const ios = await renderChart({ data: days(8) });
+      await act_(ios.result, 'increment', 3);
+      expect(ios.result.current.accessibilityProps.accessibilityValue).toEqual({ text: 'day 3' });
+    } finally {
+      Platform.OS = originalOS;
+    }
+  });
+
+  it('speaks the stepped reading on Android, where the delegate sends no event for a value with text', async () => {
+    const originalOS = Platform.OS;
+    const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
+    try {
+      Platform.OS = 'android';
+      const android = await renderChart({ data: days(8) });
+      await act_(android.result, 'increment', 2);
+      await act_(android.result, 'decrement');
+      expect(announce.mock.calls.map(([text]) => text)).toEqual(['day 1', 'day 2', 'day 1']);
+
+      announce.mockClear();
+      await act_(android.result, 'decrement', 3);
+      // Already at the first sample, so the clamp changes nothing to speak.
+      expect(announce).not.toHaveBeenCalled();
+
+      Platform.OS = 'ios';
+      const ios = await renderChart({ data: days(8) });
+      announce.mockClear();
+      await act_(ios.result, 'increment');
+      expect(announce).not.toHaveBeenCalled();
+    } finally {
+      Platform.OS = originalOS;
+      announce.mockRestore();
+    }
   });
 
   it('declares nothing for an empty chart or one whose scrub is off', async () => {

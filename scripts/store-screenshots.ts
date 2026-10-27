@@ -40,7 +40,7 @@ import {
   type SitePlatform,
   type SiteSets,
 } from './site-copy';
-import { captureLocales, type CaptureLocale } from './store-locales';
+import { captureLocales, WEB_LOCALE, type CaptureLocale } from './store-locales';
 import { CAPTURED_STEMS, SHOT_LAYOUTS, shotsFor, type StoreTarget } from './store-shots';
 import {
   PANEL_LOCALES,
@@ -66,7 +66,6 @@ import {
   textPanelHtml,
   type Caption,
 } from './store-templates';
-import { darkColors } from '@/theme/colors';
 
 import { storePalette, type StorePalette } from './store-theme';
 import { readImageInfo } from './validate-store-metadata';
@@ -98,10 +97,6 @@ const RAW_SIZES: Partial<Record<Target, { width: number; height: number }>> = {
   ipad: SIZES.ipad,
 };
 
-// The captured locale the website's screenshots come from, the one
-// scripts/site-copy.ts reads the site's English text from.
-const WEB_LOCALE = 'en-AU';
-
 // The store target each website set is cut from, and the directory it is
 // written under in docs/screenshots.
 export const WEB_PLATFORMS: Record<SitePlatform, StoreTarget> = {
@@ -109,9 +104,6 @@ export const WEB_PLATFORMS: Record<SitePlatform, StoreTarget> = {
   ios: 'appstore',
   ipad: 'ipad',
 };
-
-// The dark set's stage, behind each capture.
-const WEB_DARK_STAGE = darkColors.surfacePage;
 
 const DEVICE_KIND = { play: 'android', appstore: 'iphone', ipad: 'ipad' } as const;
 
@@ -806,16 +798,18 @@ export function rawCaptures(
   target: Exclude<Target, 'web'>,
   rawRoot: string,
   locale: string,
-  count: number
+  count: number,
+  theme: 'light' | 'dark' = 'light'
 ) {
-  const dir = path.join(rawRoot, rawPlatform(target), locale);
+  const base = path.join(rawRoot, rawPlatform(target), locale);
+  const dir = theme === 'dark' ? path.join(base, 'dark') : base;
   const files = captureStems(target)
     .slice(0, count)
     .map((stem) => path.join(dir, `${stem}.png`));
   const missing = files.filter((f) => !fs.existsSync(f));
   if (missing.length > 0) {
     throw new Error(
-      `Missing raw captures for ${target} ${locale} in ${dir}:\n  ${missing
+      `Missing raw ${theme} captures for ${target} ${locale} in ${dir}:\n  ${missing
         .map((f) => path.basename(f))
         .join('\n  ')}\nRun the capture first (npm run store:screenshots).`
     );
@@ -989,35 +983,36 @@ export function webSets(strings = CAPTIONS[WEB_LOCALE]): SiteSets {
   return sets;
 }
 
+/**
+ * The website's raw captures for one target, light and dark. The dark set is
+ * captured in the app's dark theme, so a missing one is refused rather than
+ * drawn from the light shots.
+ */
+export function webRaws(target: Exclude<Target, 'web'>, root: string) {
+  const count = captureStems(target).length;
+  return {
+    raws: rawCaptures(target, root, WEB_LOCALE, count),
+    darkRaws: rawCaptures(target, root, WEB_LOCALE, count, 'dark'),
+  };
+}
+
 function buildWeb(): void {
   const sets = webSets();
   const dir = path.join(ROOT, 'docs', 'screenshots');
   const captures = Object.entries(WEB_PLATFORMS).map(([platform, target]) => ({
     platform: platform as SitePlatform,
-    raws: rawCaptures(target, rawRoot(), WEB_LOCALE, captureStems(target).length),
+    ...webRaws(target, rawRoot()),
   }));
   console.log('web');
   fs.rmSync(dir, { recursive: true, force: true });
-  for (const { platform, raws } of captures) {
+  for (const { platform, raws, darkRaws } of captures) {
     fs.mkdirSync(path.join(dir, platform, 'dark'), { recursive: true });
     raws.forEach((raw, i) => {
       const shot = sets[platform][i];
       if (!shot) return;
       const size = `${shot.width}x${shot.height}`;
       execFileSync(MAGICK, [raw, '-resize', size, '-strip', path.join(dir, shot.file)]);
-      execFileSync(MAGICK, [
-        raw,
-        '-resize',
-        size,
-        '-background',
-        WEB_DARK_STAGE,
-        '-gravity',
-        'center',
-        '-extent',
-        size,
-        '-strip',
-        path.join(dir, shot.dark),
-      ]);
+      execFileSync(MAGICK, [darkRaws[i], '-resize', size, '-strip', path.join(dir, shot.dark)]);
       const written = readImageInfo(fs.readFileSync(path.join(dir, shot.file)));
       if (written) Object.assign(shot, { width: written.width, height: written.height });
       console.log(`  docs/screenshots/${shot.file}`);

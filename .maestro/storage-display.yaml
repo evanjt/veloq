@@ -10,12 +10,11 @@ tags:
 - runFlow:
     file: helpers/setup-demo-mode.yaml
 
-- openLink: "veloq://cache-settings"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://cache-settings"
+      TARGET: "cache-settings-screen"
 
 - extendedWaitUntil:
     visible:

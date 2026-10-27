@@ -9,11 +9,7 @@ tags:
     file: helpers/setup-demo-mode.yaml
 
 - runFlow:
-    file: helpers/navigate-to-routes.yaml
-
-- tapOn:
-    id: "tab-sections"
-    optional: true
+    file: helpers/navigate-to-sections.yaml
 
 - extendedWaitUntil:
     visible:

@@ -23,7 +23,7 @@ import { composeAccessibilityLabel } from './accessibilityLabel';
 import { DisclosureChevron } from './DisclosureChevron';
 import { FitText } from './FitText';
 import * as haptics from './haptics';
-import { PressTarget } from './PressTarget';
+import { HeadingControl } from './HeadingControl';
 
 interface CollapsibleSectionProps {
   /** Section title */
@@ -109,10 +109,8 @@ export function CollapsibleSection({
 
   return (
     <View style={[styles.container, style]}>
-      {/* A container's header role is not read on the control inside it, so it goes here. */}
-      <PressTarget
+      <HeadingControl
         testID={testID}
-        accessibilityRole="header"
         accessibilityLabel={composeAccessibilityLabel(title, value)}
         accessibilityState={{ expanded }}
         onPress={handlePress}
@@ -166,7 +164,7 @@ export function CollapsibleSection({
           size={iconSize.lg}
           color={isDark ? darkColors.textSecondary : colors.textSecondary}
         />
-      </PressTarget>
+      </HeadingControl>
 
       <Animated.View style={contentStyle}>
         <View onLayout={onContentLayout} style={styles.content}>

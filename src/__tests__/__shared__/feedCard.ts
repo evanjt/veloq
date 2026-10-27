@@ -1,3 +1,4 @@
+import { StubVerdict } from 'veloqrs';
 import type { FeedCard } from '@/types';
 
 /**
@@ -11,6 +12,7 @@ export function feedCard(overrides: Partial<FeedCard> & Pick<FeedCard, 'id'>): F
     hasWeather: false,
     hasGps: false,
     hasAltitude: false,
+    stub: StubVerdict.NotStub,
     ...overrides,
   };
 }

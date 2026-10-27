@@ -8,9 +8,10 @@ tags:
     times: ${CYCLES}
     commands:
       - runFlow:
-          file: open-link.yaml
+          file: ../helpers/open-link.yaml
           env:
             LINK: "veloq://activity/${ACTIVITY}"
+            TARGET: "activity-detail-screen"
       - extendedWaitUntil:
           visible:
             id: "activity-map-3d-toggle"

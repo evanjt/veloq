@@ -89,6 +89,9 @@ export function terrainReportScript(): string {
           map.on('error', function(e) {
             if (e.sourceId === 'terrain' && e.tile) {
               failed++;
+              // A failure can land after the last render, and idle only fires
+              // from a render, so without one the report never goes out.
+              if (typeof map.triggerRepaint === 'function') map.triggerRepaint();
               if (settled) setTimeout(report, 1000);
             }
           });
@@ -267,6 +270,25 @@ export const PAGE_REVISION_META = 'veloq-page-revision';
  * This is the one place it happens, so all three page builders stay identical.
  * A page a held WebView can take over names its `revision`.
  */
+/**
+ * Takes the page out of the keyboard tab order. The renderer gives its canvas
+ * a tab stop, and a stop inside the page raises the on-screen keyboard and
+ * makes a screen reader announce it. The page answers no key, so nothing in it
+ * is a control. Elements added later are caught as they arrive.
+ */
+const PAGE_FOCUS_LOCK_SCRIPT = `(function () {
+    var lock = function (root) {
+      var stops = root.querySelectorAll('[tabindex],canvas,a,button,input');
+      for (var i = 0; i < stops.length; i++) stops[i].setAttribute('tabindex', '-1');
+    };
+    document.addEventListener('DOMContentLoaded', function () {
+      document.body.setAttribute('tabindex', '-1');
+      lock(document);
+      new MutationObserver(function () { lock(document); })
+        .observe(document.body, { childList: true, subtree: true });
+    });
+  })();`;
+
 export function mapLibreHead(
   options: { title?: string; mapHeight?: string; revision?: string } = {}
 ): string {
@@ -289,6 +311,7 @@ export function mapLibreHead(
     body { margin: 0; padding: 0; overflow: hidden; }
     #map { width: 100vw; height: ${height}; }
   </style>
+  <script id="maplibre-gl-focus-lock">${PAGE_FOCUS_LOCK_SCRIPT}</script>
 </head>`;
 }
 

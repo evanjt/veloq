@@ -8,6 +8,10 @@
  * display string the element already renders, from the formatter it draws
  * with. An absent or blank part is skipped, so a missing value is never spoken
  * as an empty pause, and a part equal to one already spoken is skipped too.
+ *
+ * The label ends without a full stop: a screen reader adds the element's role
+ * after the label, and a stop before it is spoken as a second pause. A stop
+ * inside the label stays, since it ends a sentence the label holds.
  */
 export type AccessibilityLabelPart = string | number | null | undefined | false;
 
@@ -19,5 +23,5 @@ export function composeAccessibilityLabel(...parts: AccessibilityLabelPart[]): s
     if (text === '' || spoken.includes(text)) continue;
     spoken.push(text);
   }
-  return spoken.join(', ');
+  return spoken.join(', ').replace(/\.$/, '');
 }

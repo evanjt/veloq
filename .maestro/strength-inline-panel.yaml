@@ -15,12 +15,11 @@ tags:
 
 # The Strength tab lives inside the Insights screen; ?tab=strength selects
 # it on mount (handled by the screen's useLocalSearchParams).
-- openLink: "veloq://insights?tab=strength"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://insights?tab=strength"
+      TARGET: "routes-screen"
 
 # hasStrength must resolve true before the Strength tab appears. In demo
 # mode that requires exercise_sets to be seeded via bulkInsertExerciseSets

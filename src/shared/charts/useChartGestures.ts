@@ -20,11 +20,13 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type {
-  AccessibilityActionEvent,
-  AccessibilityActionInfo,
-  AccessibilityValue,
-  ViewStyle,
+import {
+  AccessibilityInfo,
+  Platform,
+  type AccessibilityActionEvent,
+  type AccessibilityActionInfo,
+  type AccessibilityValue,
+  type ViewStyle,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import {
@@ -243,12 +245,14 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
   const onInteractionChangeRef = useRef(onInteractionChange);
   const resolveTapIndexRef = useRef(resolveTapIndex);
   const onTapRef = useRef(onTap);
+  const describePointRef = useRef(describePoint);
   useEffect(() => {
     onSelectRef.current = onSelect;
     onInteractionChangeRef.current = onInteractionChange;
     resolveTapIndexRef.current = resolveTapIndex;
     onTapRef.current = onTap;
-  }, [onSelect, onInteractionChange, resolveTapIndex, onTap]);
+    describePointRef.current = describePoint;
+  }, [onSelect, onInteractionChange, resolveTapIndex, onTap, describePoint]);
 
   const dataRef = useRef(data);
   dataRef.current = data;
@@ -346,9 +350,11 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
     if (haptics) lightHaptic();
   }, [haptics]);
   const horizontalPan = useScrubPan(touchX, activationHaptic);
+  const activationHapticOnJS = useGestureCallback(activationHaptic);
 
   // Drag activation: the scrub takes the touch as soon as the finger moves past
   // the slop, which lets a stationary touch stay a tap on the surface behind.
+  // `onStart` is that activation, so the haptic fires once per drag, not per move.
   const dragPan = useMemo(
     () =>
       Gesture.Pan()
@@ -357,6 +363,7 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
         .onStart((e) => {
           'worklet';
           touchX.value = e.x;
+          runOnJS(activationHapticOnJS)();
         })
         .onUpdate((e) => {
           'worklet';
@@ -366,7 +373,7 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
           'worklet';
           touchX.value = -1;
         }),
-    [dragSlop, touchX]
+    [dragSlop, touchX, activationHapticOnJS]
   );
 
   const panGesture = scrubActivation === 'drag' ? dragPan : horizontalPan;
@@ -428,6 +435,14 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
       steppedIdx.value = next;
       if (sharedSelectedIdx) sharedSelectedIdx.value = next;
       applySelection(next, 'step');
+      // React Native sends TalkBack its value-changed event only for an adjustable
+      // whose value has no text, and ours always has, so the step speaks it here.
+      const stepped = dataRef.current[next];
+      const reading =
+        Platform.OS === 'android' && stepped !== undefined
+          ? describePointRef.current?.(stepped, next)
+          : undefined;
+      if (reading) AccessibilityInfo.announceForAccessibility(reading);
     },
     [applySelection, sharedSelectedIdx, externalIdx, steppedIdx]
   );
@@ -454,11 +469,14 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
       pageForward: page,
       pageBack: -page,
     };
+    // Android maps min, now and max onto the node's range info, which is the
+    // position a screen reader can speak; iOS takes the reading alone.
+    const range = Platform.OS === 'android' ? { min: 0, max: data.length - 1, now: heldIndex } : {};
     return {
       accessible: true,
       accessibilityRole: 'adjustable',
       accessibilityLabel,
-      ...(valueText !== undefined ? { accessibilityValue: { text: valueText } } : {}),
+      ...(valueText !== undefined ? { accessibilityValue: { ...range, text: valueText } } : {}),
       accessibilityActions: [
         { name: 'increment' },
         { name: 'decrement' },
@@ -473,7 +491,16 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
         else extra.find((action) => action.name === name)?.run();
       },
     };
-  }, [steppable, data.length, accessibilityLabel, valueText, pageLabels, stepBy, actions]);
+  }, [
+    steppable,
+    data.length,
+    accessibilityLabel,
+    valueText,
+    heldIndex,
+    pageLabels,
+    stepBy,
+    actions,
+  ]);
 
   // Priority: the finger, then a sibling chart, then a step, then whatever the screen set.
   const crosshairStyle = useAnimatedStyle(() => {

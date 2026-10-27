@@ -14,6 +14,20 @@ appId: com.veloq.app.dev
     commands:
       - tapOn:
           id: "record-sport-more"
+      # The chip sits at the clipped end of the row, and on iOS a tap that lands
+      # while the map is still drawing can be lost, so the sheet is confirmed
+      # and the tap made once more if it did not open.
+      - runFlow:
+          when:
+            notVisible:
+              id: "activity-type-cancel"
+          commands:
+            - tapOn:
+                id: "record-sport-more"
+      - extendedWaitUntil:
+          visible:
+            id: "activity-type-cancel"
+          timeout: 10000
       # The list holds about sixty rows, and on iOS each swipe and the read
       # after it take about four seconds, so a sport near the end needs most
       # of a minute to reach.

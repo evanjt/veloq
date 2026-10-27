@@ -423,6 +423,7 @@ export function SwipeableTabs({
             <ScrollView
               ref={scrollRef}
               testID="tab-strip-scroll"
+              focusable={false}
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.tabScrollContent}

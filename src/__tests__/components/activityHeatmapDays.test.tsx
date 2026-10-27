@@ -336,7 +336,7 @@ describe('ActivityHeatmap read without seeing it', () => {
     const plot = view.getByTestId('activity-heatmap-plot');
     expect(plot.props.accessibilityRole).toBe('image');
     expect(plot.props.accessibilityLabel).toMatch(
-      /^Activity calendar, .+ to Jun 17, 2026: active on 2 of \d+ days\. Peak 1 h 5 min on Jun 16, 2026\.$/
+      /^Activity calendar, .+ to Jun 17, 2026: active on 2 of \d+ days\. Peak 1 h 5 min on Jun 16, 2026$/
     );
 
     await act(async () => {

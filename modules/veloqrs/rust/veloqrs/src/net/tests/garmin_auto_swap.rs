@@ -9,6 +9,32 @@ use super::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
 
+const GARMIN_BODY: &str = r#"{"id":"x","source":"GARMIN_CONNECT","external_id":"18342901776"}"#;
+const MANUAL_BODY: &str = r#"{"id":"y","source":"UPLOAD","external_id":"18342901777"}"#;
+
+/// A census of activities: an id, its `created` time, its start and its body.
+fn census(rows: &[(&str, Option<&str>, Option<&str>, &str)]) -> rusqlite::Connection {
+    let conn = rusqlite::Connection::open_in_memory().unwrap();
+    conn.execute_batch(
+        "CREATE TABLE activity_census (intervals_id TEXT NOT NULL, start_date_local TEXT, created TEXT);
+         CREATE TABLE activity_bodies (activity_id TEXT PRIMARY KEY, raw TEXT NOT NULL);",
+    )
+    .unwrap();
+    for (id, created, start, raw) in rows {
+        conn.execute(
+            "INSERT INTO activity_census (intervals_id, start_date_local, created) VALUES (?1, ?2, ?3)",
+            rusqlite::params![id, start, created],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO activity_bodies (activity_id, raw) VALUES (?1, ?2)",
+            rusqlite::params![id, raw],
+        )
+        .unwrap();
+    }
+    conn
+}
+
 const NOW: &str = "2026-10-26T12:00:00Z";
 
 fn at(text: &str) -> DateTime<Utc> {
@@ -28,9 +54,9 @@ impl Store {
             settings: RefCell::new(HashMap::new()),
             imports: imports
                 .into_iter()
-                .map(|(id, created)| Imported {
+                .map(|(id, when)| Imported {
                     id: id.into(),
-                    created: created.into(),
+                    when: when.into(),
                 })
                 .collect(),
         };
@@ -214,4 +240,17 @@ fn the_switch_value_is_the_moment_it_was_turned_on_and_false_is_off() {
         Some(at("2026-10-26T09:00:00Z"))
     );
     assert_eq!(switched_on_since("false"), None);
+}
+
+#[test]
+fn a_stub_with_no_created_time_is_swapped_by_its_start_within_the_window() {
+    let conn = census(&[
+        ("stub", None, Some("2026-10-26T10:00:00"), GARMIN_BODY),
+        ("old", None, Some("2026-10-24T11:00:00"), GARMIN_BODY),
+        ("manual", None, Some("2026-10-26T10:30:00"), MANUAL_BODY),
+    ]);
+    let mut store = Store::new(Some("2026-10-20T00:00:00Z"), vec![]);
+    store.imports = recent_imports_in(&conn).unwrap();
+
+    assert_eq!(run_with(&store, &[]), ["stub"]);
 }

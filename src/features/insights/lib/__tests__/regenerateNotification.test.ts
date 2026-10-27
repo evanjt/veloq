@@ -12,7 +12,7 @@ describe('regenerateNotification', () => {
     const posted = await regenerateNotification('a1', 'Morning Ride', { build, post, categories });
 
     expect(build).toHaveBeenCalledWith('a1', 'Morning Ride', true, false);
-    expect(post).toHaveBeenCalledWith('a1', 'Morning Ride', 'New best on Hill: 4:10');
+    expect(post).toHaveBeenCalledWith('a1', 'Morning Ride', 'New best on Hill: 4:10', undefined);
     expect(posted).toEqual({ title: 'Morning Ride', body: 'New best on Hill: 4:10' });
   });
 

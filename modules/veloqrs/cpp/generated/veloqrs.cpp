@@ -884,6 +884,8 @@ void uniffi_veloqrs_fn_method_syncmanager_clear_garmin_key(
     /*handle*/ uint64_t ptr, RustBuffer key);
 /*handle*/ uint64_t uniffi_veloqrs_fn_method_syncmanager_garmin_account(
     /*handle*/ uint64_t ptr);
+/*handle*/ uint64_t uniffi_veloqrs_fn_method_syncmanager_garmin_swap_check(
+    /*handle*/ uint64_t ptr, RustBuffer activity_id);
 /*handle*/ uint64_t uniffi_veloqrs_fn_method_syncmanager_garmin_swap_replace(
     /*handle*/ uint64_t ptr, RustBuffer activity_id);
 /*handle*/ uint64_t uniffi_veloqrs_fn_method_syncmanager_garmin_swap_state(
@@ -1459,6 +1461,7 @@ uint16_t uniffi_veloqrs_checksum_method_syncmanager_clear_credentials();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_clear_garmin_key();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_connect_garmin();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_garmin_account();
+uint16_t uniffi_veloqrs_checksum_method_syncmanager_garmin_swap_check();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_garmin_swap_replace();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_garmin_swap_state();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_garmin_swap_undo();
@@ -9074,6 +9077,19 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_method_syncmanager_garmin_account(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_method_syncmanager_garmin_swap_check"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_fn_method_syncmanager_garmin_swap_check"),
+          2,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_syncmanager_garmin_swap_check(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_method_syncmanager_garmin_swap_replace"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -13641,6 +13657,18 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_veloqrs_checksum_method_syncmanager_garmin_account(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_syncmanager_garmin_swap_check"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                        "syncmanager_garmin_swap_check"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_syncmanager_garmin_swap_check(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_checksum_method_syncmanager_garmin_swap_replace"] =
@@ -19343,6 +19371,18 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_syncmanager_garmin_account(
                                                          value);
 }
 jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_syncmanager_garmin_swap_check(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_fn_method_syncmanager_garmin_swap_check(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]));
+
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
+}
+jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_syncmanager_garmin_swap_replace(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -23031,6 +23071,14 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_syncmanager_garmin_account(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_veloqrs_checksum_method_syncmanager_garmin_account();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_syncmanager_garmin_swap_check(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_syncmanager_garmin_swap_check();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

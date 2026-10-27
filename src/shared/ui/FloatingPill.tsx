@@ -38,6 +38,7 @@ import {
   spacing,
   typography,
 } from '@/theme';
+import { composeAccessibilityLabel } from './accessibilityLabel';
 import { Button } from './Button';
 import { Icon } from './Icon';
 import { IconButton } from './IconButton';
@@ -104,14 +105,14 @@ export function FloatingPill({
   const palette = isDark ? darkColors : colors;
   useAnnounceOnAppear(announcement);
   const surface = [styles.pill, raised('pill', isDark), { backgroundColor: palette.surfaceRaised }];
+  // A live region with no name speaks its children, glyphs included, so it is named by its words.
+  const spoken = composeAccessibilityLabel(title, detail);
 
   const content = (
     <>
       <View style={styles.lead}>
         {lead ??
-          (icon ? (
-            <MaterialCommunityIcons name={icon} size={iconSize.sm} color={palette.iconSecondary} />
-          ) : null)}
+          (icon ? <Icon name={icon} size={iconSize.sm} color={palette.iconSecondary} /> : null)}
       </View>
       <View style={styles.words}>
         <Animated.Text
@@ -158,11 +159,7 @@ export function FloatingPill({
           testID={testID}
         >
           {content}
-          <MaterialCommunityIcons
-            name="chevron-right"
-            size={iconSize.sm}
-            color={palette.iconSecondary}
-          />
+          <Icon name="chevron-right" size={iconSize.sm} color={palette.iconSecondary} />
         </Pressable>
       </Animated.View>
     );
@@ -175,6 +172,7 @@ export function FloatingPill({
         style={surface}
         pointerEvents="box-none"
         accessibilityLiveRegion="polite"
+        accessibilityLabel={spoken}
         testID={testID}
       >
         {content}
@@ -207,6 +205,7 @@ export function FloatingPill({
       style={surface}
       pointerEvents="none"
       accessibilityLiveRegion="polite"
+      accessibilityLabel={spoken}
       testID={testID}
     >
       {content}

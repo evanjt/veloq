@@ -9922,6 +9922,65 @@ const FfiConverterTypeFfiExerciseSummary = (() => {
 })();
 
 /**
+ * What a feed card says about a stub, an activity intervals.icu holds but
+ * does not serve. The one judge for the card, beside [`state`] for the page.
+ */
+export enum FfiStubVerdict {
+  /**
+   * intervals.icu serves the activity.
+   */
+  NotStub = 1,
+  /**
+   * A stub of Garmin's import, and a key is connected to fill it.
+   */
+  GarminUpdatable = 2,
+  /**
+   * A stub of Garmin's import and no key is connected.
+   */
+  NoKey = 3,
+  /**
+   * A stub that is not Garmin's import, so there is nothing to offer.
+   */
+  OtherSource = 4,
+}
+
+const FfiConverterTypeFfiStubVerdict = (() => {
+  type TypeName = FfiStubVerdict;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return FfiStubVerdict.NotStub;
+        case 2:
+          return FfiStubVerdict.GarminUpdatable;
+        case 3:
+          return FfiStubVerdict.NoKey;
+        case 4:
+          return FfiStubVerdict.OtherSource;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value) {
+        case FfiStubVerdict.NotStub:
+          return c.writeI32(1);
+        case FfiStubVerdict.GarminUpdatable:
+          return c.writeI32(2);
+        case FfiStubVerdict.NoKey:
+          return c.writeI32(3);
+        case FfiStubVerdict.OtherSource:
+          return c.writeI32(4);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return 4;
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * What one feed card draws, typed from the stored body.
  *
  * Built from the body rather than `activity_metrics`, which files a body
@@ -10000,6 +10059,11 @@ export type FfiFeedCard = {
    * marks with a retry. None when its last readying was clean.
    */
   syncFailure?: FfiActivitySyncFailure;
+  /**
+   * Whether the activity is a stub intervals.icu does not serve, and what
+   * the card offers for it.
+   */
+  stub: FfiStubVerdict;
 };
 
 /**
@@ -10043,6 +10107,7 @@ const FfiConverterTypeFfiFeedCard = (() => {
         hasAltitude: FfiConverterBool.readFromCursor(c),
         syncFailure:
           FfiConverterOptionalTypeFfiActivitySyncFailure.readFromCursor(c),
+        stub: FfiConverterTypeFfiStubVerdict.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -10067,6 +10132,7 @@ const FfiConverterTypeFfiFeedCard = (() => {
         value.syncFailure,
         c,
       );
+      FfiConverterTypeFfiStubVerdict.writeIntoCursor(value.stub, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -10089,7 +10155,8 @@ const FfiConverterTypeFfiFeedCard = (() => {
         FfiConverterBool.allocationSize(value.hasAltitude) +
         FfiConverterOptionalTypeFfiActivitySyncFailure.allocationSize(
           value.syncFailure,
-        )
+        ) +
+        FfiConverterTypeFfiStubVerdict.allocationSize(value.stub)
       );
     }
   }
@@ -27056,18 +27123,27 @@ const FfiConverterTypeFfiSectionBoundsEdit = (() => {
  */
 export enum FfiSwapState {
   /**
-   * Nothing is offered: no Garmin key, not Garmin's import, nothing more in
-   * Garmin's file, or the comparison could not be made.
+   * Nothing is offered: no Garmin key, or not Garmin's import.
    */
   Hidden = 1,
   /**
-   * Garmin's original holds more than intervals.icu's copy.
+   * Garmin's original holds more than intervals.icu's copy, or the activity
+   * is a stub Garmin's original can fill.
    */
   Available = 2,
   /**
    * A swap was made and intervals.icu's earlier file is kept to restore.
    */
   Undoable = 3,
+  /**
+   * A Garmin import that has not been compared yet. Opening it downloads
+   * nothing, the athlete asks for the check.
+   */
+  Checkable = 4,
+  /**
+   * The check found nothing more in Garmin's file.
+   */
+  Unchanged = 5,
 }
 
 const FfiConverterTypeFfiSwapState = (() => {
@@ -27081,6 +27157,10 @@ const FfiConverterTypeFfiSwapState = (() => {
           return FfiSwapState.Available;
         case 3:
           return FfiSwapState.Undoable;
+        case 4:
+          return FfiSwapState.Checkable;
+        case 5:
+          return FfiSwapState.Unchanged;
         default:
           throw new UniffiInternalError.UnexpectedEnumCase();
       }
@@ -27093,6 +27173,10 @@ const FfiConverterTypeFfiSwapState = (() => {
           return c.writeI32(2);
         case FfiSwapState.Undoable:
           return c.writeI32(3);
+        case FfiSwapState.Checkable:
+          return c.writeI32(4);
+        case FfiSwapState.Unchanged:
+          return c.writeI32(5);
       }
     }
     allocationSize(value: TypeName): number {
@@ -37752,6 +37836,15 @@ export interface SyncManagerLike {
     signal: AbortSignal;
   }): Promise<GarminAccount | undefined>;
   /**
+   * Compare Garmin's original with intervals.icu's file and remember the
+   * answer against the activity. Downloads both, so it runs off the calling
+   * thread, and writes nothing to intervals.icu.
+   */
+  garminSwapCheck(
+    activityId: string,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<FfiSwapState>;
+  /**
    * Replace intervals.icu's file for the activity with Garmin's original.
    * The earlier file is kept for `garmin_swap_undo`.
    */
@@ -37760,9 +37853,9 @@ export interface SyncManagerLike {
     asyncOpts_?: { signal: AbortSignal },
   ): Promise<FfiSwapResult>;
   /**
-   * Whether the activity offers Garmin's own file, or an undo of an earlier
-   * swap. Compares Garmin's original with intervals.icu's file, so it runs
-   * off the calling thread.
+   * What the activity offers from Garmin: a check, Garmin's own file, or an
+   * undo of an earlier swap. Reads only what the phone holds and makes no
+   * request.
    */
   garminSwapState(
     activityId: string,
@@ -38110,6 +38203,62 @@ export class SyncManager
   }
 
   /**
+   * Compare Garmin's original with intervals.icu's file and remember the
+   * answer against the activity. Downloads both, so it runs off the calling
+   * thread, and writes nothing to intervals.icu.
+   */
+  async garminSwapCheck(
+    activityId: string,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<FfiSwapState> {
+    const __stack = uniffiIsDebug ? new Error().stack : undefined;
+    try {
+      return await uniffiRustCallAsync(
+        /*rustCaller:*/ uniffiCaller,
+        /*rustFutureFunc:*/ () => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_garmin_swap_check(
+            uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(
+              activityId,
+              nativeModule().rustbuffer_alloc,
+            ),
+          );
+        },
+        /*pollFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_poll_rust_buffer,
+        /*cancelFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_cancel_rust_buffer,
+        /*completeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_complete_rust_buffer,
+        /*freeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_free_rust_buffer,
+        // Async returns always go through the JS-side converter: the
+        // FFI symbol returns the future handle (u64), and the user-level
+        // RustBuffer comes back via the shared `rust_future_complete_*`
+        // export. The bytes the runtime hands back must be deserialized
+        // here using the per-callable return-type converter.
+        // Borrowed view over foreign memory: the call site owns the free,
+        // as on the sync paths. Unconditional, a no-op where buffers are
+        // already JS-owned.
+        /*liftFunc:*/ (__rb) => {
+          try {
+            return FfiConverterTypeFfiSwapState.lift(__rb);
+          } finally {
+            nativeModule().rustbuffer_free(__rb);
+          }
+        },
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+        /*asyncOpts:*/ asyncOpts_,
+      );
+    } catch (__error: any) {
+      if (uniffiIsDebug && __error instanceof Error) {
+        __error.stack = __stack;
+      }
+      throw __error;
+    }
+  }
+
+  /**
    * Replace intervals.icu's file for the activity with Garmin's original.
    * The earlier file is kept for `garmin_swap_undo`.
    */
@@ -38165,9 +38314,9 @@ export class SyncManager
   }
 
   /**
-   * Whether the activity offers Garmin's own file, or an undo of an earlier
-   * swap. Compares Garmin's original with intervals.icu's file, so it runs
-   * off the calling thread.
+   * What the activity offers from Garmin: a check, Garmin's own file, or an
+   * undo of an earlier swap. Reads only what the phone holds and makes no
+   * request.
    */
   async garminSwapState(
     activityId: string,
@@ -43390,6 +43539,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_garmin_swap_check() !==
+    43771
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_syncmanager_garmin_swap_check",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_garmin_swap_replace() !==
     14564
   ) {
@@ -43399,7 +43556,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_garmin_swap_state() !==
-    40367
+    25377
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_garmin_swap_state",
@@ -44126,6 +44283,7 @@ export default Object.freeze({
     FfiConverterTypeFfiStrengthProgression,
     FfiConverterTypeFfiStrengthScreenData,
     FfiConverterTypeFfiStrengthSummary,
+    FfiConverterTypeFfiStubVerdict,
     FfiConverterTypeFfiSummaryCardData,
     FfiConverterTypeFfiSummaryComparison,
     FfiConverterTypeFfiSummaryComparisons,

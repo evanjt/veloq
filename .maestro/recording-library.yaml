@@ -14,7 +14,11 @@ onFlowComplete:
         visible:
           id: "demo-mode-banner"
       commands:
-        - openLink: "veloq://"
+        - runFlow:
+            file: helpers/open-link.yaml
+            env:
+              LINK: "veloq://"
+              TARGET: "home-screen"
         - runFlow:
             when:
               visible: "(?i)discard"

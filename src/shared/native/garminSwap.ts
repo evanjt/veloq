@@ -5,8 +5,11 @@
 
 import { sync } from 'veloqrs';
 
-/** Whether the activity offers Garmin's own file, an undo of an earlier swap, or nothing. */
+/** What the activity offers from Garmin. Makes no request. */
 export const garminSwapState = (activityId: string) => sync.garminSwapState(activityId);
+
+/** Compare Garmin's file with intervals.icu's and remember the answer. */
+export const garminSwapCheck = (activityId: string) => sync.garminSwapCheck(activityId);
 
 /** Replace intervals.icu's file for the activity with Garmin's original. */
 export const garminSwapReplace = (activityId: string) => sync.garminSwapReplace(activityId);

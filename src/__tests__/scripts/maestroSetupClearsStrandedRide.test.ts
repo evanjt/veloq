@@ -48,6 +48,10 @@ interface App {
   scrolled: boolean;
   alert: boolean;
   discarded: number;
+  /** The app's language, which names the discard label and the alert's title. */
+  language: 'en' | 'de';
+  /** What the last copyTextFrom read. */
+  copied: string;
 }
 
 type Selector =
@@ -55,6 +59,7 @@ type Selector =
   | {
       id?: string;
       text?: string;
+      index?: number;
       below?: string;
       above?: Selector;
       optional?: boolean;
@@ -74,6 +79,7 @@ function ids(app: App): string[] {
         'review-activity-name',
         'review-save-button',
         ...((app.tall && !app.mapHero) || app.scrolled ? ['review-discard-button'] : []),
+        ...(app.alert && app.platform === 'Android' ? ['android:id/button1'] : []),
         ...banner,
       ];
     default:
@@ -88,8 +94,10 @@ function idsOnScreen(app: App): string[] {
 
 function texts(app: App): string[] {
   const found: string[] = [];
-  if (ids(app).includes('review-discard-button')) found.push('Discard');
-  if (app.alert) found.push('Discard this recording?', 'Discard');
+  const discard = app.language === 'de' ? 'Verwerfen' : 'Discard';
+  const title = app.language === 'de' ? 'Diese Aufnahme verwerfen?' : 'Discard this recording?';
+  if (ids(app).includes('review-discard-button')) found.push(discard);
+  if (app.alert) found.push(title, discard);
   return found;
 }
 
@@ -100,7 +108,10 @@ function matchesText(pattern: string, text: string): boolean {
 function visible(app: App, selector: Selector): boolean {
   if (typeof selector === 'string') return texts(app).some((t) => matchesText(selector, t));
   if (selector.id) return ids(app).includes(selector.id);
-  if (selector.text) return texts(app).some((t) => matchesText(selector.text as string, t));
+  if (selector.text) {
+    const pattern = selector.text.replace('${maestro.copiedText}', app.copied);
+    return texts(app).filter((t) => matchesText(pattern, t)).length > (selector.index ?? 0);
+  }
   throw new Error(`unmodelled selector ${JSON.stringify(selector)}`);
 }
 
@@ -123,7 +134,16 @@ function tap(app: App, selector: Selector) {
     app.screen = 'home';
   } else if (typeof selector === 'object' && selector.id === 'review-discard-button') {
     app.alert = true;
-  } else if (app.alert && typeof selector === 'object' && selector.text === 'Discard') {
+  } else if (app.alert && typeof selector === 'object' && selector.id === 'android:id/button1') {
+    app.alert = false;
+    app.strandedRide = false;
+    app.discarded += 1;
+    app.screen = 'home';
+  } else if (
+    app.alert &&
+    typeof selector === 'object' &&
+    selector.text?.replace('${maestro.copiedText}', app.copied) === discardLabel(app)
+  ) {
     if (!acceptResolvesToAlert(app, selector)) return;
     app.alert = false;
     app.strandedRide = false;
@@ -138,7 +158,16 @@ function tap(app: App, selector: Selector) {
  * Whether a tap on the label Discard, with the alert up, resolves to the alert's
  * accept rather than to the screen's own button behind it.
  */
-function acceptResolvesToAlert(app: App, selector: { below?: string; above?: Selector }): boolean {
+function discardLabel(app: App): string {
+  return app.language === 'de' ? 'Verwerfen' : 'Discard';
+}
+
+function acceptResolvesToAlert(
+  app: App,
+  selector: { below?: string; above?: Selector; index?: number }
+): boolean {
+  // Past the screen's own button in the hierarchy, the second match is the alert's.
+  if (selector.index === 1) return true;
   // The alert sits over the screen's button, so only the alert's accept is above it.
   if (typeof selector.above === 'object' && selector.above.id === 'review-discard-button') {
     return true;
@@ -197,6 +226,12 @@ function run(app: App, file: string, commands: Command[] = readFlow(file)) {
       }
       case 'tapOn':
         tap(app, args as Selector);
+        break;
+      case 'copyTextFrom':
+        app.copied =
+          (args as { id: string }).id === 'review-discard-button' ? discardLabel(app) : '';
+        break;
+      case 'waitForAnimationToEnd':
         break;
       case 'extendedWaitUntil': {
         const wait = args as { visible?: Selector; notVisible?: Selector; optional?: boolean };
@@ -267,6 +302,8 @@ function makeApp(overrides: Partial<App>): App {
     scrolled: false,
     alert: false,
     discarded: 0,
+    language: 'en',
+    copied: '',
     ...overrides,
   };
 }
@@ -360,6 +397,16 @@ describe('the shared demo setup on iOS', () => {
     const app = makeApp({ platform: 'iOS', strandedRide: true, tall: false });
     run(app, SETUP);
     expect(app.screen).toBe('home');
+    expect(app.discarded).toBe(1);
+  });
+});
+
+describe('the review discard helper on iOS in another language', () => {
+  it('discards in a language the helper holds no text for', () => {
+    const app = makeApp({ platform: 'iOS', strandedRide: true, language: 'de' });
+    launch(app);
+    run(app, join(HELPERS, 'confirm-review-discard.yaml'));
+    expect(app.alert).toBe(false);
     expect(app.discarded).toBe(1);
   });
 });

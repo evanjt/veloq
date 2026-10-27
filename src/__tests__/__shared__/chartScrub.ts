@@ -69,6 +69,15 @@ export function scrubPan(built: PanGesture[]): PanGesture {
   return found;
 }
 
+/** The drag pan: the one without manual activation, which activates once a move passes its slop. */
+export function dragPan(built: PanGesture[]): PanGesture {
+  const found = [...built]
+    .reverse()
+    .find((g) => handlersOf(g).onTouchesDown === undefined && handlersOf(g).onStart !== undefined);
+  if (!found) throw new Error('no drag pan was built');
+  return found;
+}
+
 /** Feed `touchesDown` and the touch moves to the scrub pan, returning the manager it decided with. */
 export async function touchAndMove(pan: PanGesture, down: TouchEvent, moves: TouchEvent[]) {
   const h = handlersOf(pan);

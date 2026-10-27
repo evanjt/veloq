@@ -15,7 +15,7 @@ import { useChartGestures } from '@/shared/charts/useChartGestures';
 import { SCRUB_SLOP } from '@/shared/charts/scrubPanDecision';
 import { BACK_SWIPE_EDGE_WIDTH } from '@/shared/ui/backSwipeEdge';
 import { pagerPanDecision } from '@/shared/ui/pagerPanDecision';
-import { capturePans, scrubPan, touchAndMove, touchAt } from '../__shared__/chartScrub';
+import { capturePans, dragPan, scrubPan, touchAndMove, touchAt } from '../__shared__/chartScrub';
 
 jest.mock('expo-haptics', () => ({
   ...jest.requireActual('expo-haptics'),
@@ -44,6 +44,19 @@ function start(pan: ReturnType<typeof scrubPan>, x: number) {
       x,
     });
   });
+}
+
+async function renderDragChart(haptics?: boolean) {
+  const built = capturePans();
+  await renderHook(() =>
+    useChartGestures({
+      data: DAYS,
+      accessibilityLabel: 'Kiln heat',
+      scrubActivation: 'drag',
+      haptics,
+    })
+  );
+  return dragPan(built);
 }
 
 beforeEach(() => jest.clearAllMocks());
@@ -125,5 +138,43 @@ describe('chart scrub activation', () => {
     const pager = { index: 1, tabCount: 3, startX: 200, screenWidth: 400, isRTL: false };
     expect(pagerPanDecision({ ...pager, translationX: SCRUB_SLOP + 1 })).toBe('wait');
     expect(pagerPanDecision({ ...pager, translationX: -(SCRUB_SLOP + 1) })).toBe('wait');
+  });
+});
+
+describe('drag-activated chart scrub haptic', () => {
+  it('fires one light impact when a drag scrub activates', async () => {
+    const pan = await renderDragChart();
+
+    await start(pan, 30);
+    expect(Haptics.impactAsync).toHaveBeenCalledTimes(1);
+    expect(Haptics.impactAsync).toHaveBeenCalledWith(Haptics.ImpactFeedbackStyle.Light);
+  });
+
+  it('fires no further impact for later moves in the same drag', async () => {
+    const pan = await renderDragChart();
+
+    await start(pan, 30);
+    await act(async () => {
+      const { handlers } = pan as unknown as { handlers: { onUpdate: (e: { x: number }) => void } };
+      handlers.onUpdate({ x: 40 });
+      handlers.onUpdate({ x: 50 });
+    });
+    expect(Haptics.impactAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it('fires no impact for a press that never travels past the slop', async () => {
+    const pan = await renderDragChart();
+
+    await act(async () => {
+      (pan as unknown as { handlers: { onFinalize: () => void } }).handlers.onFinalize();
+    });
+    expect(Haptics.impactAsync).not.toHaveBeenCalled();
+  });
+
+  it('fires no impact when haptics are off', async () => {
+    const pan = await renderDragChart(false);
+
+    await start(pan, 30);
+    expect(Haptics.impactAsync).not.toHaveBeenCalled();
   });
 });

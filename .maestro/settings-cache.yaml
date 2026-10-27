@@ -13,12 +13,11 @@ tags:
     file: helpers/navigate-to-settings.yaml
 
 # Navigate to cache settings sub-screen
-- openLink: "veloq://cache-settings"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://cache-settings"
+      TARGET: "cache-settings-screen"
 
 # Scroll down to find clear cache button
 - scrollUntilVisible:

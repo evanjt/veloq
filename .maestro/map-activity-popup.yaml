@@ -9,12 +9,11 @@ tags:
 - runFlow:
     file: helpers/setup-demo-mode.yaml
 
-- openLink: "veloq://map?activity=demo-test-0"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://map?activity=demo-test-0"
+      TARGET: "map-screen"
 
 - extendedWaitUntil:
     visible:
@@ -32,12 +31,11 @@ tags:
     id: "activity-popup"
 
 # Reopening needs a fresh selection, so the link is followed again.
-- openLink: "veloq://map?activity=demo-test-1"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://map?activity=demo-test-1"
+      TARGET: "map-screen"
 - extendedWaitUntil:
     visible:
       id: "activity-popup"

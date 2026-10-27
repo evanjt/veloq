@@ -9,7 +9,10 @@
  */
 import { Alert, Platform, type AlertButton, type AlertOptions } from 'react-native';
 
+import * as haptics from '@/shared/ui/haptics';
 import { chooseAction, confirmAction, inform } from '@/shared/ui/dialog';
+
+jest.mock('@/shared/ui/haptics', () => ({ medium: jest.fn() }));
 
 type AlertCall = [string, string | undefined, AlertButton[] | undefined, AlertOptions | undefined];
 
@@ -21,6 +24,7 @@ const originalOs = Platform.OS;
 
 beforeEach(() => {
   Platform.OS = 'android';
+  jest.mocked(haptics.medium).mockClear();
   jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 });
 
@@ -170,5 +174,107 @@ describe('inform', () => {
     buttons?.[0].onPress?.();
     options?.onDismiss?.();
     expect(onDismiss).toHaveBeenCalledTimes(2);
+  });
+});
+
+/**
+ * Scenario: a destructive action is accepted from a confirm or a choice. The
+ * sections, the cache, the sign-outs and the discards all reach the athlete
+ * through this module, so the medium impact that marks the act has to come
+ * from here and not from each caller.
+ *
+ * Expected behaviour: an accepted destructive action fires one medium impact
+ * before its handler runs. Cancel, a dismissal and a non-destructive action
+ * fire none.
+ */
+describe('destructive accepts', () => {
+  it('fires one medium impact before the confirm runs', () => {
+    const onConfirm = jest.fn();
+    confirmAction({
+      title: 'Delete section?',
+      confirmLabel: 'Delete',
+      cancelLabel: 'Keep',
+      destructive: true,
+      onConfirm,
+    });
+
+    lastCall()[2]?.at(-1)?.onPress?.();
+    expect(haptics.medium).toHaveBeenCalledTimes(1);
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(jest.mocked(haptics.medium).mock.invocationCallOrder[0]).toBeLessThan(
+      onConfirm.mock.invocationCallOrder[0]
+    );
+  });
+
+  it('returns the handler result, so an awaited async confirm finishes first', async () => {
+    let finished = false;
+    const onConfirm = jest.fn(
+      () =>
+        new Promise<void>((resolve) =>
+          setTimeout(() => {
+            finished = true;
+            resolve();
+          }, 5)
+        )
+    );
+    confirmAction({
+      title: 'Clear cache?',
+      confirmLabel: 'Clear',
+      cancelLabel: 'Keep',
+      destructive: true,
+      onConfirm,
+    });
+
+    await lastCall()[2]?.at(-1)?.onPress?.();
+    expect(finished).toBe(true);
+  });
+
+  it('fires nothing when the destructive confirm is cancelled or dismissed', () => {
+    const onCancel = jest.fn();
+    confirmAction({
+      title: 'Delete section?',
+      confirmLabel: 'Delete',
+      cancelLabel: 'Keep',
+      destructive: true,
+      onConfirm: jest.fn(),
+      onCancel,
+    });
+
+    lastCall()[2]?.[0]?.onPress?.();
+    lastCall()[3]?.onDismiss?.();
+    expect(onCancel).toHaveBeenCalledTimes(2);
+    expect(haptics.medium).not.toHaveBeenCalled();
+  });
+
+  it('fires nothing for a confirm that is not destructive', () => {
+    const onConfirm = jest.fn();
+    confirmAction({ title: 'Rename?', confirmLabel: 'Rename', cancelLabel: 'Keep', onConfirm });
+
+    lastCall()[2]?.at(-1)?.onPress?.();
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(haptics.medium).not.toHaveBeenCalled();
+  });
+
+  it('fires one medium impact when a destructive choice is taken, and none for the others', () => {
+    const onDelete = jest.fn();
+    const onSettings = jest.fn();
+    chooseAction({
+      title: 'No GPS',
+      cancelLabel: 'Carry on',
+      actions: [
+        { label: 'Stop', destructive: true, onPress: onDelete },
+        { label: 'Settings', onPress: onSettings },
+      ],
+    });
+
+    lastCall()[2]?.[2]?.onPress?.();
+    expect(haptics.medium).not.toHaveBeenCalled();
+
+    lastCall()[2]?.[0]?.onPress?.();
+    expect(onDelete).toHaveBeenCalledTimes(1);
+    expect(haptics.medium).toHaveBeenCalledTimes(1);
+    expect(jest.mocked(haptics.medium).mock.invocationCallOrder[0]).toBeLessThan(
+      onDelete.mock.invocationCallOrder[0]
+    );
   });
 });

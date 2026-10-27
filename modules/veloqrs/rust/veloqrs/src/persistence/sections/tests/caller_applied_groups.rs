@@ -9,7 +9,12 @@ fn coords(base: f64) -> Vec<GpsPoint> {
 
 /// A detect the caller blocks on and applies itself, the way a blocking
 /// caller with an engine of its own does.
+///
+/// A store schedules a regroup on a thread of its own, and a run that starts
+/// while it is in flight leaves the grouping to it. That worker swaps into the
+/// shared slot and not into this engine, so the run starts once it has ended.
 fn detect_and_apply(engine: &mut PersistentEngine) {
+    crate::test_globals::wait_for_regroup_workers();
     let (main, update) = engine.detect_sections_background().recv_with_cache();
     let (sections, processed) = main.expect("the detect ran");
     engine

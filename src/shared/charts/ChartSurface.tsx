@@ -3,6 +3,7 @@ import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useSheetOpener } from '@/shared/app/sheetRequest';
+import { composeAccessibilityLabel } from '@/shared/ui/accessibilityLabel';
 import { accessibleActions } from '@/shared/ui/accessibleActions';
 import { heldRenderProps } from '@/shared/ui/HeldRender';
 import { TextLink } from '@/shared/ui/TextLink';
@@ -66,7 +67,7 @@ export function ChartSurface({
         testID={testID}
         accessible
         accessibilityRole="image"
-        accessibilityLabel={summary}
+        accessibilityLabel={composeAccessibilityLabel(summary)}
         accessibilityState={heldProps.accessibilityState}
         {...accessibleActions(
           showData ? [{ name: 'showData', label: t('charts.showData'), run: showData }] : undefined

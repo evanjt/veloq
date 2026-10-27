@@ -663,6 +663,7 @@ pub(crate) fn feed_card(
     key: &str,
     intervals_web_id: Option<String>,
     raw: &str,
+    key_held: bool,
 ) -> Option<crate::FfiFeedCard> {
     let body = stored_record(key, raw)?;
     let has_stream = |kind: &str| {
@@ -670,6 +671,7 @@ pub(crate) fn feed_card(
             .as_ref()
             .is_some_and(|types| types.iter().any(|t| t == kind))
     };
+    let stub = crate::net::garmin_swap::stub_verdict(&body, key_held);
     Some(crate::FfiFeedCard {
         has_gps: has_stream("latlng"),
         has_altitude: has_stream("altitude"),
@@ -688,6 +690,7 @@ pub(crate) fn feed_card(
         average_weather_temp: body.average_weather_temp,
         skyline_chart_bytes: body.skyline_chart_bytes,
         sync_failure: None,
+        stub,
         id: body.id,
     })
 }
@@ -1256,9 +1259,20 @@ pub(crate) mod pooled {
         conn: &Connection,
         query: &crate::FfiActivityBodiesQuery,
     ) -> rusqlite::Result<crate::FfiFeedCardsPage> {
+        let key_held = crate::objects::garmin_key::GARMIN_KEY.client().is_some();
+        feed_card_page_with_key(conn, query, key_held)
+    }
+
+    /// [`feed_card_page`] with the Garmin key's presence given, which a stub's
+    /// card reads to choose between an update and a pointer to the connector.
+    pub(crate) fn feed_card_page_with_key(
+        conn: &Connection,
+        query: &crate::FfiActivityBodiesQuery,
+        key_held: bool,
+    ) -> rusqlite::Result<crate::FfiFeedCardsPage> {
         let mut cards = Vec::new();
         let (matched_count, has_more) = page_bodies(conn, query, |raw, key, web_id| {
-            match super::feed_card(&key, web_id, &raw) {
+            match super::feed_card(&key, web_id, &raw, key_held) {
                 Some(mut card) => {
                     card.sync_failure = crate::persistence::activity_sync_failures::of(conn, &key)
                         .unwrap_or_default();

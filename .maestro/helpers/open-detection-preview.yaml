@@ -4,13 +4,12 @@ appId: com.veloq.app.dev
 ---
 - runFlow:
     file: navigate-to-settings.yaml
-- scrollUntilVisible:
-    element:
-      id: "settings-nav-detection"
-    direction: DOWN
-    timeout: 30000
-    speed: 40
-    visibilityPercentage: 100
+# `scrollUntilVisible` counts a row under the tab bar as visible and stops without
+# moving, and the tap then lands on a tab. One swipe lifts the row clear of it.
+- swipe:
+    start: 50%, 75%
+    end: 50%, 30%
+    duration: 800
 - tapOn:
     id: "settings-nav-detection"
 - extendedWaitUntil:

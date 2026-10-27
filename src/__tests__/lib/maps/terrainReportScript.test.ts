@@ -5,6 +5,10 @@ type Handler = (event: Record<string, unknown>) => void;
 function fakeMap() {
   const handlers: Record<string, Handler[]> = {};
   return {
+    repaints: 0,
+    triggerRepaint() {
+      this.repaints++;
+    },
     on(name: string, fn: Handler) {
       (handlers[name] ||= []).push(fn);
     },
@@ -79,5 +83,18 @@ describe('terrainReportScript', () => {
     map.emit('idle');
     jest.advanceTimersByTime(5000);
     expect(posted).toEqual([]);
+  });
+
+  it('asks the map to repaint when a DEM tile fails, so a late failure still reaches idle', () => {
+    const { report } = loadReport();
+    const map = fakeMap();
+    report.watch(map);
+    report.reportOnceSettled(map);
+
+    map.emit('error', { sourceId: 'terrain', tile: {} });
+    expect(map.repaints).toBe(1);
+
+    map.emit('error', { sourceId: 'other', tile: {} });
+    expect(map.repaints).toBe(1);
   });
 });

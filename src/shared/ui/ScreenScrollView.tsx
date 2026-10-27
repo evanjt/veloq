@@ -155,6 +155,7 @@ export const ScreenScrollView = forwardRef<ScrollViewInstance, ScrollViewProps>(
       <KeyboardClearance>
         <ScrollView
           ref={ref}
+          focusable={false}
           {...screenListInsets}
           {...props}
           contentContainerStyle={withEndPadding(column, endInset)}

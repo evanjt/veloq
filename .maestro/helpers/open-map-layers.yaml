@@ -13,3 +13,17 @@ appId: com.veloq.app.dev
     commands:
       - tapOn:
           id: "map-layers"
+      # A tap lost while the map draws leaves the menu shut and the next step
+      # looking for a toggle that is not there, so the menu is waited for and
+      # the tap made again if it did not open.
+      - runFlow:
+          when:
+            notVisible:
+              id: "map-layers-menu"
+          commands:
+            - tapOn:
+                id: "map-layers"
+- extendedWaitUntil:
+    visible:
+      id: "map-layers-menu"
+    timeout: 10000

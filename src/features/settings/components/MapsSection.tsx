@@ -128,6 +128,7 @@ export function MapsSection() {
           accessibilityRole="button"
           accessibilityLabel={`${t('settings.terrain3D')}: ${terrain3DLabel}`}
           style={styles.terrain3DBadge}
+          testID={`terrain-3d-${mapPreferences.terrain3DMode}`}
           hitSlop={pillSlop}
           onPress={cycleTerrain3DMode}
         >

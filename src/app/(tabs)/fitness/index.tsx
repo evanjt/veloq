@@ -345,6 +345,7 @@ function FitnessScreenContent() {
   ) => (
     <ScrollView
       {...screenListInsets}
+      focusable={false}
       testID={`fitness-page-${key}`}
       ref={reveals[key].scrollRef}
       onScrollBeginDrag={reveals[key].onScrollBeginDrag}

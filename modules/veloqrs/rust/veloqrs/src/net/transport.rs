@@ -1771,30 +1771,33 @@ mod tests {
         assert_eq!(mock.calls(), 1);
     }
 
-    /// A budget of 1010 ms on a governor that paces one dispatch a second, so
-    /// a retry whose backoff fits is claimed with about 10 ms left to run in.
+    /// A budget of 1500 ms on a governor that paces one dispatch a second, so
+    /// a retry whose backoff fits is claimed with about 500 ms left to run in.
+    /// The margins are wide on both sides, so a loaded machine that stretches
+    /// the first answer or the pause still lands in the same case.
     fn nearly_spent_transport(base: String) -> Transport {
         let gov = Arc::new(Governor::new(1, Box::new(NoopPolicy)));
         let timeouts = LaneTimeouts {
             connect: Duration::from_millis(200),
-            interactive: Duration::from_millis(1010),
-            backfill: Duration::from_millis(1010),
-            interactive_budget: Duration::from_millis(1010),
+            interactive: Duration::from_millis(1500),
+            backfill: Duration::from_millis(1500),
+            interactive_budget: Duration::from_millis(1500),
         };
         Transport::with_timeouts(base, AuthMethod::ApiKey("k"), gov, timeouts).unwrap()
     }
 
     #[test]
     fn a_retry_left_a_sliver_of_budget_keeps_the_503() {
-        // The 503 lands at 200 ms and its 400 ms backoff fits, but the
-        // governor's next slot is at 1000 ms. The retry goes out with 10 ms,
-        // times out, and must not trade the 503 for that timeout.
+        // The 503 lands at 600 ms and its 400 ms backoff fits, but the
+        // governor's next slot is at 1000 ms. The retry goes out with 500 ms,
+        // times out before the 600 ms answer, and must not trade the 503 for
+        // that timeout.
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
             when.method(GET).path("/y");
             then.status(503)
                 .body("maintenance")
-                .delay(Duration::from_millis(200));
+                .delay(Duration::from_millis(600));
         });
         let t = nearly_spent_transport(server.base_url());
         let res = crate::runtime::block_on(t.get_bytes("/y", &[], Lane::Interactive));
@@ -1816,7 +1819,7 @@ mod tests {
             when.method(POST).path("/athlete/i1/activities");
             then.status(429)
                 .header("retry-after", "0")
-                .delay(Duration::from_millis(200));
+                .delay(Duration::from_millis(600));
         });
         let t = nearly_spent_transport(server.base_url());
         let res = crate::runtime::block_on(t.post_json(
@@ -1838,7 +1841,7 @@ mod tests {
             when.method(POST).path("/athlete/i1/activities");
             then.status(200)
                 .body("{}")
-                .delay(Duration::from_millis(1500));
+                .delay(Duration::from_millis(2500));
         });
         let t = nearly_spent_transport(server.base_url());
         let res = crate::runtime::block_on(t.post_json(

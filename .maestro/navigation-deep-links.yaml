@@ -10,12 +10,11 @@ tags:
     file: helpers/setup-demo-mode.yaml
 
 # Test fitness deep link
-- openLink: "veloq://fitness"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://fitness"
+      TARGET: "fitness-screen"
 - extendedWaitUntil:
     visible:
       id: "fitness-screen"
@@ -23,12 +22,11 @@ tags:
 - takeScreenshot: "screenshots/navigation-deep-links-fitness"
 
 # A link naming a chart opens fitness on the page and the card that draw it
-- openLink: "veloq://fitness?chart=week"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://fitness?chart=week"
+      TARGET: "fitness-screen"
 - extendedWaitUntil:
     visible:
       id: "weekly-summary"
@@ -38,12 +36,11 @@ tags:
 - takeScreenshot: "screenshots/navigation-deep-links-fitness-week"
 
 # Test map deep link
-- openLink: "veloq://map"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://map"
+      TARGET: "map-screen"
 - extendedWaitUntil:
     visible:
       id: "map-screen"
@@ -51,12 +48,11 @@ tags:
 - takeScreenshot: "screenshots/navigation-deep-links-map"
 
 # Test insights deep link
-- openLink: "veloq://insights"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://insights"
+      TARGET: "routes-screen"
 - extendedWaitUntil:
     visible:
       id: "routes-screen"
@@ -65,12 +61,11 @@ tags:
 
 # The pre-rename path still lands on the tab, notifications scheduled before
 # the rename carry it.
-- openLink: "veloq://routes"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://routes"
+      TARGET: "routes-screen"
 - extendedWaitUntil:
     visible:
       id: "routes-screen"
@@ -78,12 +73,11 @@ tags:
 - takeScreenshot: "screenshots/navigation-deep-links-routes-legacy"
 
 # Test settings deep link
-- openLink: "veloq://settings"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://settings"
+      TARGET: "settings-screen"
 - extendedWaitUntil:
     visible:
       id: "settings-screen"
@@ -91,12 +85,11 @@ tags:
 - takeScreenshot: "screenshots/navigation-deep-links-settings"
 
 # Test activity deep link
-- openLink: "veloq://activity/demo-test-0"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://activity/demo-test-0"
+      TARGET: "activity-detail-screen"
 - extendedWaitUntil:
     visible:
       id: "activity-detail-screen"
@@ -104,12 +97,11 @@ tags:
 - takeScreenshot: "screenshots/navigation-deep-links-activity"
 
 # Test nonexistent activity deep link (verify no crash)
-- openLink: "veloq://activity/nonexistent-id"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://activity/nonexistent-id"
+      TARGET: "home-screen"
 - extendedWaitUntil:
     visible:
       id: "home-screen"
@@ -117,12 +109,11 @@ tags:
     optional: true
 
 # Verify app is still responsive by navigating home
-- openLink: "veloq://"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://"
+      TARGET: "home-screen"
 - extendedWaitUntil:
     visible:
       id: "home-screen"

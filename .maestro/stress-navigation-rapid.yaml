@@ -18,17 +18,29 @@ tags:
 - repeat:
     times: 5
     commands:
-      - openLink: "veloq://fitness"
+      - runFlow:
+          file: helpers/open-link.yaml
+          env:
+            LINK: "veloq://fitness"
+            TARGET: "fitness-screen"
       - extendedWaitUntil:
           visible:
             id: "fitness-screen"
           timeout: 15000
-      - openLink: "veloq://map"
+      - runFlow:
+          file: helpers/open-link.yaml
+          env:
+            LINK: "veloq://map"
+            TARGET: "map-screen"
       - extendedWaitUntil:
           visible:
             id: "map-screen"
           timeout: 15000
-      - openLink: "veloq://"
+      - runFlow:
+          file: helpers/open-link.yaml
+          env:
+            LINK: "veloq://"
+            TARGET: "home-screen"
       - extendedWaitUntil:
           visible:
             id: "home-screen"
@@ -38,22 +50,38 @@ tags:
 - repeat:
     times: 3
     commands:
-      - openLink: "veloq://settings"
+      - runFlow:
+          file: helpers/open-link.yaml
+          env:
+            LINK: "veloq://settings"
+            TARGET: "settings-screen"
       - extendedWaitUntil:
           visible:
             id: "settings-screen"
           timeout: 15000
-      - openLink: "veloq://about"
+      - runFlow:
+          file: helpers/open-link.yaml
+          env:
+            LINK: "veloq://about"
+            TARGET: "about-screen"
       - extendedWaitUntil:
           visible:
             id: "about-screen"
           timeout: 15000
-      - openLink: "veloq://insights"
+      - runFlow:
+          file: helpers/open-link.yaml
+          env:
+            LINK: "veloq://insights"
+            TARGET: "routes-screen"
       - extendedWaitUntil:
           visible:
             id: "routes-screen"
           timeout: 15000
-      - openLink: "veloq://"
+      - runFlow:
+          file: helpers/open-link.yaml
+          env:
+            LINK: "veloq://"
+            TARGET: "home-screen"
       - extendedWaitUntil:
           visible:
             id: "home-screen"
@@ -63,22 +91,38 @@ tags:
 - repeat:
     times: 5
     commands:
-      - openLink: "veloq://activity/demo-test-0"
+      - runFlow:
+          file: helpers/open-link.yaml
+          env:
+            LINK: "veloq://activity/demo-test-0"
+            TARGET: "activity-detail-screen"
       - extendedWaitUntil:
           visible:
             id: "activity-detail-screen"
           timeout: 15000
-      - openLink: "veloq://activity/demo-test-1"
+      - runFlow:
+          file: helpers/open-link.yaml
+          env:
+            LINK: "veloq://activity/demo-test-1"
+            TARGET: "activity-detail-screen"
       - extendedWaitUntil:
           visible:
             id: "activity-detail-screen"
           timeout: 15000
-      - openLink: "veloq://activity/demo-test-2"
+      - runFlow:
+          file: helpers/open-link.yaml
+          env:
+            LINK: "veloq://activity/demo-test-2"
+            TARGET: "activity-detail-screen"
       - extendedWaitUntil:
           visible:
             id: "activity-detail-screen"
           timeout: 15000
-      - openLink: "veloq://"
+      - runFlow:
+          file: helpers/open-link.yaml
+          env:
+            LINK: "veloq://"
+            TARGET: "home-screen"
       - extendedWaitUntil:
           visible:
             id: "home-screen"

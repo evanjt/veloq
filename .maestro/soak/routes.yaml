@@ -8,9 +8,10 @@ tags:
     times: ${CYCLES}
     commands:
       - runFlow:
-          file: open-link.yaml
+          file: ../helpers/open-link.yaml
           env:
             LINK: "veloq://insights?tab=routes"
+            TARGET: "routes-screen"
       - extendedWaitUntil:
           visible:
             id: "routes-list"
@@ -23,9 +24,10 @@ tags:
       - assertNotVisible:
           id: "map-unavailable"
       - runFlow:
-          file: open-link.yaml
+          file: ../helpers/open-link.yaml
           env:
             LINK: "veloq://"
+            TARGET: "home-screen"
       - extendedWaitUntil:
           visible:
             id: "home-screen"

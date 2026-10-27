@@ -16,12 +16,11 @@ tags:
 # ====================================================================
 # Flip theme to dark via Display Settings
 # ====================================================================
-- openLink: "veloq://display-settings"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://display-settings"
+      TARGET: "display-settings-screen"
 
 - extendedWaitUntil:
     visible:
@@ -36,12 +35,11 @@ tags:
       notVisible:
         id: "theme-button-dark"
     commands:
-      - openLink: "veloq://display-settings"
       - runFlow:
-          when:
-            visible: "Open"
-          commands:
-            - tapOn: "Open"
+          file: helpers/open-link.yaml
+          env:
+            LINK: "veloq://display-settings"
+            TARGET: "display-settings-screen"
 
 - extendedWaitUntil:
     visible:
@@ -60,12 +58,11 @@ tags:
 # ====================================================================
 # Feed in dark mode
 # ====================================================================
-- openLink: "veloq://"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://"
+      TARGET: "home-screen"
 
 - extendedWaitUntil:
     visible:
@@ -78,12 +75,11 @@ tags:
 # ====================================================================
 # Activity detail Sections tab, where most v0.3.0 dark-mode fixes apply
 # ====================================================================
-- openLink: "veloq://activity/demo-test-0?tab=sections"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://activity/demo-test-0?tab=sections"
+      TARGET: "activity-detail-screen"
 
 - extendedWaitUntil:
     visible:
@@ -105,10 +101,7 @@ tags:
 # ====================================================================
 - back
 - runFlow:
-    file: helpers/navigate-to-routes.yaml
-- tapOn:
-    id: "tab-sections"
-    optional: true
+    file: helpers/navigate-to-sections.yaml
 - extendedWaitUntil:
     visible:
       id: "section-row-.*"
@@ -141,12 +134,11 @@ tags:
 # ====================================================================
 # Restore to light so the next run starts clean.
 # ====================================================================
-- openLink: "veloq://display-settings"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://display-settings"
+      TARGET: "display-settings-screen"
 - extendedWaitUntil:
     visible:
       id: "theme-button-light"

@@ -918,6 +918,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
               source={{ html, baseUrl: mapPageBaseUrl() }}
               style={styles.webview}
               scrollEnabled={false}
+              focusable={false}
               bounces={false}
               overScrollMode="never"
               nestedScrollEnabled={true}

@@ -74,6 +74,7 @@ export function ChartTypeSelector({
       <GestureDetector gesture={scroller}>
         <ScrollView
           testID="chart-type-selector"
+          focusable={false}
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={[styles.row, centred && styles.rowCentred]}

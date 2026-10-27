@@ -42,6 +42,7 @@ import { ActivityMapPreview } from './ActivityMapPreview';
 import type { PreviewTrack } from '@/features/home';
 import { ActivityCardContextMenu } from './ActivityCardContextMenu';
 import { ActivitySyncFailureChip } from './ActivitySyncFailure';
+import { ActivityStubAction } from './ActivityStubAction';
 import { useRetryActivitySync } from '../hooks/useRetryActivitySync';
 import { SkylineBar } from './SkylineBar';
 import { cardPrimaryStats } from '../lib/cardPrimaryStats';
@@ -536,6 +537,7 @@ export const ActivityCard = React.memo(
               </View>
             </Card>
           </PressTarget>
+          <ActivityStubAction activityId={activity.id} verdict={activity.stub} />
         </View>,
         false
       );

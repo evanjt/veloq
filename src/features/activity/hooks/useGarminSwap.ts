@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { SwapOutcome, SwapState } from 'veloqrs';
 
-import { garminSwapReplace, garminSwapState, garminSwapUndo } from '@/shared/native/garminSwap';
+import {
+  garminSwapCheck,
+  garminSwapReplace,
+  garminSwapState,
+  garminSwapUndo,
+} from '@/shared/native/garminSwap';
 import { requestSyncRefresh } from '@/shared/native/syncRefresh';
 import { queryClient } from '@/shared/query/QueryProvider';
 import { queryKeys } from '@/shared/query/queryKeys';
@@ -15,13 +20,15 @@ import {
 /**
  * What the activity offers from Garmin, and the two moves the athlete can make.
  *
- * The engine compares Garmin's original with intervals.icu's file and says
- * whether to offer the swap, so this holds only its answer. A swap and an undo
- * are never started twice, and when one changed intervals.icu's file the
- * activity is read again.
+ * Opening the activity downloads nothing: the engine answers from what the
+ * phone holds, and compares Garmin's original with intervals.icu's file only
+ * when the athlete asks to check. This holds only its answer. A check, a swap
+ * and an undo are never started twice, and when one changed intervals.icu's file the
+ * activity is read again. A caller that already knows the state passes it and
+ * the hook does not ask for it.
  */
-export function useGarminSwap(activityId: string) {
-  const [state, setState] = useState<SwapState>(SwapState.Hidden);
+export function useGarminSwap(activityId: string, knownState?: SwapState) {
+  const [state, setState] = useState<SwapState>(knownState ?? SwapState.Hidden);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<GarminSwapNotice | null>(null);
   const running = useRef(false);
@@ -35,14 +42,17 @@ export function useGarminSwap(activityId: string) {
   }, [activityId]);
 
   useEffect(() => {
+    // A feed card already holds the engine's verdict, so it asks nothing of intervals.icu.
     let live = true;
-    refresh().then((next) => {
-      if (live) setState(next);
-    });
+    if (knownState === undefined) {
+      refresh().then((next) => {
+        if (live) setState(next);
+      });
+    }
     return () => {
       live = false;
     };
-  }, [refresh]);
+  }, [refresh, knownState]);
 
   const run = useCallback(
     async (action: GarminSwapAction) => {
@@ -71,6 +81,21 @@ export function useGarminSwap(activityId: string) {
     [activityId, refresh]
   );
 
+  const check = useCallback(async () => {
+    if (running.current) return;
+    running.current = true;
+    setBusy(true);
+    setNotice(null);
+    try {
+      setState(await garminSwapCheck(activityId));
+    } catch {
+      setNotice(garminSwapNotice(SwapOutcome.Failed, 'swap'));
+    } finally {
+      running.current = false;
+      setBusy(false);
+    }
+  }, [activityId]);
+
   const swap = useCallback(() => {
     void run('swap');
   }, [run]);
@@ -78,5 +103,5 @@ export function useGarminSwap(activityId: string) {
     void run('undo');
   }, [run]);
 
-  return { state, busy, notice, swap, undo };
+  return { state, busy, notice, check, swap, undo };
 }

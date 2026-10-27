@@ -10,7 +10,10 @@ function BackupSettingsScreenContent() {
   const { isDark } = useTheme();
 
   return (
-    <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+    <ScreenSafeAreaView
+      testID="backup-settings-screen"
+      style={[styles.container, isDark && styles.containerDark]}
+    >
       <ScreenScrollView contentContainerStyle={{ paddingBottom: spacing.xl }}>
         <BackupSection />
       </ScreenScrollView>

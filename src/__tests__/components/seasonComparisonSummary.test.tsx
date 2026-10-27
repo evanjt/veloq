@@ -300,7 +300,7 @@ describe('SeasonComparison read without seeing it', () => {
     expect(plot.props.accessibilityRole).toBe('image');
     expect(plot.props.accessibilityLabel).toBe(
       'Year comparison, Hours. 2025, Jan to Dec: latest 6 h, range 0 h to 6 h, average 0.7 h. ' +
-        '2026, Jan to Jun: latest 3 h, range 0 h to 4 h, average 1.2 h.'
+        '2026, Jan to Jun: latest 3 h, range 0 h to 4 h, average 1.2 h'
     );
 
     await fireEvent.press(screen.getByTestId('season-chart-plot-show-data'));

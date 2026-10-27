@@ -66,12 +66,11 @@ tags:
     text: "undefined"
 
 # Navigate to Routes tab (deep link with tab=routes to skip insights default)
-- openLink: "veloq://insights?tab=routes"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://insights?tab=routes"
+      TARGET: "routes-screen"
 - extendedWaitUntil:
     visible:
       id: "routes-screen"
@@ -90,12 +89,11 @@ tags:
     text: "undefined"
 
 # Navigate to activity detail and verify stats display
-- openLink: "veloq://activity/demo-test-0"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://activity/demo-test-0"
+      TARGET: "activity-detail-screen"
 - extendedWaitUntil:
     visible:
       id: "activity-detail-screen"

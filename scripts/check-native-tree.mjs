@@ -41,6 +41,10 @@ const PATCH_SCREENS_HIDE = 'node scripts/patch-screens-sheet-hide.js';
 const { applyPatch: patchScreensHide } = createRequire(import.meta.url)(
   './patch-screens-sheet-hide.js'
 );
+const PATCH_SCREENS_SCROLL = 'node scripts/patch-screens-sheet-scroll.js';
+const { applyPatch: patchScreensScroll } = createRequire(import.meta.url)(
+  './patch-screens-sheet-scroll.js'
+);
 const PATCH_ROUTER = 'node scripts/patch-expo-router-route-match.js';
 const { applyPatch: patchRouter } = createRequire(import.meta.url)(
   './patch-expo-router-route-match.js'
@@ -200,6 +204,17 @@ export function requireNativeTree(root) {
     console.error('A build here would let a drag dismiss a sheet that is meant to stay on screen.');
     console.error('Patch it, then build again:');
     console.error(`  ${PATCH_SCREENS_HIDE}`);
+    process.exit(1);
+  }
+  const scroll = patchProblem(root, 'react-native-screens', patchScreensScroll);
+  if (scroll !== null) {
+    console.error('The installed react-native-screens does not carry the sheet scroll patch.');
+    console.error(`  ${scroll}`);
+    console.error(
+      'A build here would leave a card pushed into a sheet unable to scroll on Android.'
+    );
+    console.error('Patch it, then build again:');
+    console.error(`  ${PATCH_SCREENS_SCROLL}`);
     process.exit(1);
   }
   const router = patchProblem(root, 'expo-router', patchRouter);

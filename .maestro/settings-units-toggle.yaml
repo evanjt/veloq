@@ -10,12 +10,11 @@ tags:
     file: helpers/setup-demo-mode.yaml
 
 # Navigate directly to display settings page
-- openLink: "veloq://display-settings"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://display-settings"
+      TARGET: "display-settings-screen"
 
 # Find and tap the unit toggle
 - scrollUntilVisible:
@@ -33,12 +32,11 @@ tags:
 - takeScreenshot: "screenshots/settings-units-toggled"
 
 # Navigate to home to verify units applied
-- openLink: "veloq://"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://"
+      TARGET: "home-screen"
 - extendedWaitUntil:
     visible:
       id: "home-screen"
@@ -47,12 +45,11 @@ tags:
 - takeScreenshot: "screenshots/settings-units-applied"
 
 # Return to display settings and toggle back
-- openLink: "veloq://display-settings"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://display-settings"
+      TARGET: "display-settings-screen"
 
 - scrollUntilVisible:
     element:

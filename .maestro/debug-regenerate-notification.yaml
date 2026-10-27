@@ -10,7 +10,11 @@ tags:
 - runFlow:
     file: helpers/setup-demo-mode.yaml
 
-- openLink: "veloq:///settings"
+- runFlow:
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq:///settings"
+      TARGET: "settings-screen"
 - scrollUntilVisible:
     element:
       id: "settings-version-text"
@@ -23,7 +27,11 @@ tags:
 - tapOn:
     id: "settings-debug-switch"
 
-- openLink: "veloq://activity/${ACTIVITY_ID}"
+- runFlow:
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://activity/${ACTIVITY_ID}"
+      TARGET: "activity-detail-screen"
 - extendedWaitUntil:
     visible:
       id: "activity-regenerate-notification"

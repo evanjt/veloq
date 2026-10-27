@@ -153,6 +153,7 @@ export const StrengthTab = React.memo(function StrengthTab({
     <ScrollView
       ref={scrollRef}
       testID="strength-tab"
+      focusable={false}
       style={styles.container}
       contentContainerStyle={[styles.scrollContent, { paddingBottom: scrollEndInset + 16 }]}
       showsVerticalScrollIndicator={false}

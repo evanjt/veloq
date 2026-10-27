@@ -13,8 +13,9 @@
 # where `npm run store:render` reads them. The iOS run is
 # scripts/store-capture-ios.sh, and `npm run store:screenshots` runs both.
 #
-# The device's dark mode is set off for the run and put back as it was when the
-# run ends, however it ends.
+# The website's locale is captured a second time in the dark theme, into a
+# dark/ folder beside its light shots. The device's dark mode is set off for
+# the run and put back as it was when the run ends, however it ends.
 #
 # Demo mode is entered by the flow, which refuses an app signed into a real
 # account, so run this on a device or simulator holding no session. A dev
@@ -50,6 +51,7 @@ cd "$here/.."
 out=screenshots/store-capture
 dest=${VELOQ_STORE_RAW:-artifacts/store/raw}/android
 maestro_run=${VELOQ_STORE_MAESTRO:-$here/with-maestro.sh}
+web_locale=$(npx --no-install tsx scripts/store-locales.ts web 2>/dev/null || echo en-AU)
 
 if [ "$#" -eq 0 ]; then
   set -- $(npx --no-install tsx scripts/store-locales.ts capture 2>/dev/null)
@@ -94,9 +96,17 @@ for pair in "$@"; do
   echo "store capture: android $play, app language $app"
   rm -rf "$out"
   mkdir -p "$out"
-  "$maestro_run" test -e "STORE_LANGUAGE=$app" .maestro/store-capture.yaml
+  "$maestro_run" test -e "STORE_LANGUAGE=$app" -e STORE_THEME=light .maestro/store-capture.yaml
   rm -rf "${dest:?}/$play"
   mkdir -p "$dest/$play"
   mv "$out"/*.png "$dest/$play"/
+  if [ "$play" = "$web_locale" ]; then
+    echo "store capture: android $play, dark theme"
+    rm -rf "$out"
+    mkdir -p "$out"
+    "$maestro_run" test -e "STORE_LANGUAGE=$app" -e STORE_THEME=dark .maestro/store-capture.yaml
+    mkdir -p "$dest/$play/dark"
+    mv "$out"/*.png "$dest/$play/dark"/
+  fi
 done
 ls "$dest"

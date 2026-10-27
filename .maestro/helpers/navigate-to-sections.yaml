@@ -1,0 +1,13 @@
+# Navigate to the insights sections tab via deep link. A tap on the tab can land
+# while the header is still resizing, so the link opens it instead.
+appId: com.veloq.app.dev
+---
+- runFlow:
+    file: open-link.yaml
+    env:
+      LINK: "veloq://insights?tab=sections"
+      TARGET: "routes-screen"
+- extendedWaitUntil:
+    visible:
+      id: "routes-screen"
+    timeout: 10000

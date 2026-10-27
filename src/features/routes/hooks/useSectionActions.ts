@@ -241,7 +241,6 @@ export function useSectionActions({
       cancelLabel: t('common.cancel'),
       destructive: true,
       onConfirm: async () => {
-        haptics.medium();
         try {
           await removeSection(id);
           goBack();

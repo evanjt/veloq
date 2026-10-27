@@ -92,6 +92,7 @@ export const InsightsPanel = React.memo(function InsightsPanel({
     <View style={styles.container} testID="insights-panel">
       <ScrollView
         ref={scrollRef}
+        focusable={false}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: layout.screenPadding + scrollEndInset }}
         refreshControl={

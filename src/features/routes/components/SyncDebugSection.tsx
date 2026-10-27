@@ -13,7 +13,6 @@ import { getEngine } from '@/shared/native/engine';
 import { useLastSyncSuccessAt, useTrackStage } from '@/shared/native/useSyncStatus';
 import { attemptEngineRead, engineErrorKey, engineErrorTag } from '@/shared/native/engineError';
 import { i18n } from '@/i18n';
-import * as haptics from '@/shared/ui/haptics';
 import { deleteGpsTracks } from '@/shared/storage/gpsStorage';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { TrackStep, type PersistentEngineStats, detection } from 'veloqrs';
@@ -184,7 +183,6 @@ export function SyncDebugSection() {
       cancelLabel: 'Cancel',
       destructive: true,
       onConfirm: async () => {
-        haptics.medium();
         setIsRemoving(true);
         let removed = 0;
         const removedIds: string[] = [];
@@ -235,7 +233,6 @@ export function SyncDebugSection() {
       cancelLabel: 'Cancel',
       destructive: true,
       onConfirm: () => {
-        haptics.medium();
         void engine.clear().then(
           () => {
             queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });

@@ -11,23 +11,35 @@ tags:
 # wrapper moves it. The wrapper runs the flow once per store language, passing
 # the app's code for it as STORE_LANGUAGE (scripts/store-locales.ts), which
 # every run has to pass.
+# The theme is STORE_THEME, light or dark, which every run passes too: the
+# store sets are light, and the website locale is captured again in dark.
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml
 
 # The store set is captured in the light theme and framed on the day palette.
-- openLink: "veloq://display-settings"
+# The website's dark set is the same shots in the dark theme.
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://display-settings"
+      TARGET: "display-settings-screen"
 - extendedWaitUntil:
     visible:
       id: "theme-button-light"
     timeout: 10000
-- tapOn:
-    id: "theme-button-light"
+- runFlow:
+    when:
+      true: ${STORE_THEME == 'light'}
+    commands:
+      - tapOn:
+          id: "theme-button-light"
+- runFlow:
+    when:
+      true: ${STORE_THEME == 'dark'}
+    commands:
+      - tapOn:
+          id: "theme-button-dark"
 
 # The language this run captures, picked by its code.
 - scrollUntilVisible:
@@ -41,12 +53,11 @@ tags:
 
 # Hide the demo banner for clean captures. The switch is gated on demo mode
 # and persists in AuthStore, so one tap covers the whole run.
-- openLink: "veloq://account"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://account"
+      TARGET: "account-screen"
 - scrollUntilVisible:
     element:
       id: "hide-demo-banner-switch"
@@ -56,12 +67,11 @@ tags:
 
 # 01 activity feed, at its top with the summary card in view. The feed keeps the
 # scroll position it was left at, so it is scrolled back before the shot.
-- openLink: "veloq://"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://"
+      TARGET: "home-screen"
 - extendedWaitUntil:
     visible:
       id: "home-activity-list"
@@ -83,7 +93,11 @@ tags:
 # demo ride in the Valais. The style and terrain are the athlete's own map
 # settings, the heatmap is the layer toggle in the map's layers menu, and the
 # camera is the deep link's activity, which the map fits.
-- openLink: "veloq:///settings"
+- runFlow:
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq:///settings"
+      TARGET: "settings-screen"
 - scrollUntilVisible:
     element:
       id: "settings-nav-maps"
@@ -96,14 +110,27 @@ tags:
     timeout: 10000
 - tapOn:
     id: "map-style-satellite"
-- tapOn:
-    id: "terrain-3d-always"
-- openLink: "veloq://map?activity=demo-test-0"
 - runFlow:
     when:
-      visible: "Open"
+      visible:
+        id: "terrain-3d-off"
     commands:
-      - tapOn: "Open"
+      - tapOn:
+          id: "terrain-3d-off"
+- runFlow:
+    when:
+      visible:
+        id: "terrain-3d-smart"
+    commands:
+      - tapOn:
+          id: "terrain-3d-smart"
+- assertVisible:
+    id: "terrain-3d-always"
+- runFlow:
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://map?activity=demo-test-0"
+      TARGET: "map-screen"
 - extendedWaitUntil:
     visible:
       id: "regional-map-ready"
@@ -128,12 +155,11 @@ tags:
 - assertNotVisible: "Open debugger to view warnings"
 
 # 03 activity detail
-- openLink: "veloq://activity/demo-test-0"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://activity/demo-test-0"
+      TARGET: "activity-detail-screen"
 - extendedWaitUntil:
     visible:
       id: "activity-detail-screen"
@@ -148,35 +174,69 @@ tags:
 # 04 section page, with the notification the engine writes for the ride up on
 # screen. Debug mode adds the repost button to the activity page, so it is
 # switched on only here and off again once the shot is taken.
-- openLink: "veloq:///settings"
+- runFlow:
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq:///settings"
+      TARGET: "settings-screen"
 - scrollUntilVisible:
     element:
       id: "settings-version-text"
     direction: DOWN
-- repeat:
-    times: 5
-    commands:
-      - tapOn:
-          id: "settings-version-text"
+- scroll
 - tapOn:
-    id: "settings-debug-switch"
-- openLink: "veloq://activity/demo-test-0"
+    id: "settings-version-text"
+    repeat: 5
+    delay: 100
+# The switch sits below the fold once revealed, and a run that died after turning
+# it on leaves it on, so it is only tapped when it is off. A scroll stops with
+# the row ten percent in view, behind the tab bar, so the page is taken to its
+# end before the tap.
+- scrollUntilVisible:
+    element:
+      id: "settings-debug-switch"
+    direction: DOWN
+- swipe:
+    start: 50%, 75%
+    end: 50%, 25%
+    duration: 300
 - runFlow:
     when:
-      visible: "Open"
+      visible:
+        id: "settings-debug-switch"
+        checked: false
     commands:
-      - tapOn: "Open"
-- extendedWaitUntil:
-    visible:
-      id: "activity-regenerate-notification"
-    timeout: 15000
-- tapOn:
-    id: "activity-regenerate-notification"
+      - tapOn:
+          id: "settings-debug-switch"
+- waitForAnimationToEnd:
+    timeout: 2000
 - runFlow:
     file: helpers/navigate-to-routes.yaml
+- extendedWaitUntil:
+    notVisible:
+      id: "routes-sync-banner"
+    timeout: 120000
+- runFlow:
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://activity/demo-test-3"
+      TARGET: "activity-detail-screen"
+- extendedWaitUntil:
+    visible:
+      id: "activity-regenerate-notification-delayed"
+    timeout: 15000
+# The post is held back 20 seconds. A banner leaves the screen after a few, so
+# a post made here would be gone by the time the section page is up.
 - tapOn:
-    id: "tab-sections"
-    optional: true
+    id: "activity-regenerate-notification-delayed"
+# A ride that is no personal best gets no sentence, and the repost says so in a dialog.
+- runFlow:
+    when:
+      visible: "Nothing to post"
+    commands:
+      - tapOn: "OK"
+- runFlow:
+    file: helpers/navigate-to-sections.yaml
 - extendedWaitUntil:
     visible:
       id: "sections-list"
@@ -197,22 +257,35 @@ tags:
     id: "routes-sync-banner"
 - takeScreenshot: "screenshots/store-capture/04-section"
 - assertNotVisible: "Open debugger to view warnings"
-- openLink: "veloq:///settings"
+- runFlow:
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq:///settings"
+      TARGET: "settings-screen"
 - scrollUntilVisible:
     element:
       id: "settings-debug-switch"
     direction: DOWN
-- tapOn:
-    id: "settings-debug-switch"
+- swipe:
+    start: 50%, 75%
+    end: 50%, 25%
+    duration: 300
+- runFlow:
+    when:
+      visible:
+        id: "settings-debug-switch"
+        checked: true
+    commands:
+      - tapOn:
+          id: "settings-debug-switch"
 
 # 05 insights. A listed library can still carry the regroup its load owed, and
 # the shot would carry its "Computing routes" line.
-- openLink: "veloq://insights?tab=insights"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://insights?tab=insights"
+      TARGET: "routes-screen"
 - extendedWaitUntil:
     visible:
       id: "insights-panel"
@@ -244,12 +317,11 @@ tags:
 
 # 07 strength, the body diagram with a muscle selected. The point is inside the
 # front body's abs, which the demo's sets reach (.maestro/strength-inline-panel.yaml).
-- openLink: "veloq://insights?tab=strength"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://insights?tab=strength"
+      TARGET: "routes-screen"
 - extendedWaitUntil:
     visible:
       id: "strength-body-diagram"
@@ -268,12 +340,11 @@ tags:
 # discarded, so the app is left as the next run's setup expects it.
 - runFlow:
     file: helpers/discard-recording.yaml
-- openLink: "veloq://"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://"
+      TARGET: "home-screen"
 - tapOn:
     id: "record-fab"
 - runFlow:
@@ -309,12 +380,11 @@ tags:
 
 # Leave the app following the phone's language, so the next run's setup reads
 # the screens it expects.
-- openLink: "veloq://display-settings"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://display-settings"
+      TARGET: "display-settings-screen"
 - scrollUntilVisible:
     element:
       id: "language-system"

@@ -106,8 +106,16 @@ export function captureLocales(): CaptureLocale[] {
     });
 }
 
+// The captured locale the website's screenshots come from, the one
+// scripts/site-copy.ts reads the site's English text from. The capture scripts
+// take it again in the dark theme.
+export const WEB_LOCALE = 'en-AU';
+
 // `npx tsx scripts/store-locales.ts capture` prints one `<play>=<app>` line per
 // capture, which the capture scripts read.
 if (/store-locales\.ts$/.test(process.argv[1] ?? '') && process.argv[2] === 'capture') {
   for (const c of captureLocales()) console.log(`${c.play}=${c.app}`);
+}
+if (/store-locales\.ts$/.test(process.argv[1] ?? '') && process.argv[2] === 'web') {
+  console.log(WEB_LOCALE);
 }

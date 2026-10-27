@@ -4,7 +4,7 @@
  * nothing, the flow stays on the screen before, and the step after it fails on
  * an id that screen never draws.
  *
- * Expected behaviour: every `openLink` in a flow names a route the app opens.
+ * Expected behaviour: every `LINK` a flow passes to the open-link helper names a route the app opens.
  * The flows drive the development build, which opens the developer screens too.
  */
 import fs from 'fs';
@@ -25,7 +25,7 @@ function flowFiles(dir: string): string[] {
 const links = [
   ...new Set(
     flowFiles(path.join(ROOT, '.maestro')).flatMap((file) =>
-      [...fs.readFileSync(file, 'utf8').matchAll(/openLink:\s*"?(veloq:\/\/[^"\s]*)/g)].map(
+      [...fs.readFileSync(file, 'utf8').matchAll(/\bLINK:\s*"?(veloq:\/\/[^"\s]*)/g)].map(
         (match) => match[1]
       )
     )

@@ -45,6 +45,7 @@ export function SportChipRow(props: SportChipRowProps) {
   return (
     <ScrollView
       horizontal
+      focusable={false}
       showsHorizontalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
       style={[styles.scroller, style]}

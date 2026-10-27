@@ -106,14 +106,14 @@ describe('the summary card trend for a screen reader', () => {
     await renderFromHook('fitness', ['rhr']);
 
     const label = metricLabel(0);
-    expect(label).toBe('Resting heart rate 52, declined. Compared with 49 on 8 Oct.');
+    expect(label).toBe('Resting heart rate 52, declined. Compared with 49 on 8 Oct');
   });
 
   it('says the week hours and the week before in words, and a flat week as steady', async () => {
     await renderFromHook('fitness', ['weekHours', 'weekCount']);
 
     expect(metricLabel(0)).toBe(
-      'Week 4 hours 6 minutes, steady. Compared with 4 hours at this point last week.'
+      'Week 4 hours 6 minutes, steady. Compared with 4 hours at this point last week'
     );
     expect(metricLabel(1)).not.toContain('#');
   });
@@ -122,7 +122,7 @@ describe('the summary card trend for a screen reader', () => {
     await renderFromHook('fitness', [], { onHeroPress: () => {} });
 
     const hero = screen.getByLabelText(/^Fitness/);
-    expect(hero.props.accessibilityLabel).toBe('Fitness 42, improved. Compared with 40 on 8 Oct.');
+    expect(hero.props.accessibilityLabel).toBe('Fitness 42, improved. Compared with 40 on 8 Oct');
   });
 
   it('names the HRV hero by its spoken name', async () => {
@@ -130,7 +130,7 @@ describe('the summary card trend for a screen reader', () => {
 
     const hero = screen.getByLabelText(/^Heart rate variability/);
     expect(hero.props.accessibilityLabel).toBe(
-      'Heart rate variability 61, declined. Compared with 66 on 8 Oct.'
+      'Heart rate variability 61, declined. Compared with 66 on 8 Oct'
     );
   });
 });

@@ -188,7 +188,7 @@ export interface SiteShot {
 /** The website's shots per platform, in the order the gallery shows them. */
 export type SiteSets = Record<SitePlatform, SiteShot[]>;
 
-/** The page with its screenshot gallery replaced by one list per platform, the first one with shots shown. */
+/** The page with its screenshot gallery replaced by one carousel per platform, the first one with shots shown. */
 export function syncSiteGallery(html: string, sets: SiteSets): string {
   if (!GALLERY_MARKER.test(html))
     throw new Error('docs/index.html has no store-copy:gallery markers');
@@ -199,21 +199,35 @@ export function syncSiteGallery(html: string, sets: SiteSets): string {
         (platform) => sets[platform].length > 0
       );
       const lists = shown.map((platform) => {
-        const items = sets[platform].map(({ file, dark, caption, width, height }) =>
+        const shots = sets[platform];
+        const slides = shots.map(({ file, dark, caption, width, height }, i) =>
           [
-            `\n${indent}  <li>`,
-            `\n${indent}    <figure>`,
-            `\n${indent}      <picture>`,
-            `\n${indent}        <source media="(prefers-color-scheme: dark)" srcset="screenshots/${dark}" />`,
-            `\n${indent}        <img src="screenshots/${file}" width="${width}" height="${height}" loading="lazy" alt="${escapeHtml(caption)}" />`,
-            `\n${indent}      </picture>`,
-            `\n${indent}      <figcaption>${escapeHtml(caption)}</figcaption>`,
-            `\n${indent}    </figure>`,
-            `\n${indent}  </li>`,
+            `\n${indent}      <li class="slide${i === 0 ? ' active' : ''}" data-caption="${escapeHtml(caption)}">`,
+            `\n${indent}        <picture>`,
+            `\n${indent}          <source media="(prefers-color-scheme: dark)" srcset="screenshots/${dark}" />`,
+            `\n${indent}          <img src="screenshots/${file}" width="${width}" height="${height}" loading="lazy" alt="${escapeHtml(caption)}" />`,
+            `\n${indent}        </picture>`,
+            `\n${indent}      </li>`,
           ].join('')
         );
+        const dots = shots.map(
+          ({ caption }, i) =>
+            `\n${indent}    <button type="button" class="carousel-dot${i === 0 ? ' active' : ''}" aria-label="Show screenshot ${i + 1} of ${shots.length}: ${escapeHtml(caption)}" aria-current="${i === 0}"></button>`
+        );
         const hidden = platform === shown[0] ? '' : ' hidden';
-        return `\n${indent}<ol class="shots" data-platform="${platform}"${hidden}>${items.join('')}\n${indent}</ol>`;
+        return [
+          `\n${indent}<div class="carousel" data-platform="${platform}" role="group" aria-roledescription="carousel" aria-label="Screenshots"${hidden}>`,
+          `\n${indent}  <div class="phone-frame">`,
+          `\n${indent}    <ol class="shots">${slides.join('')}`,
+          `\n${indent}    </ol>`,
+          `\n${indent}  </div>`,
+          `\n${indent}  <p class="carousel-caption" aria-live="polite">${escapeHtml(shots[0]?.caption ?? '')}</p>`,
+          `\n${indent}  <div class="carousel-controls">`,
+          `\n${indent}    <button type="button" class="carousel-nav prev" aria-label="Previous screenshot">&#8249;</button>${dots.join('')}`,
+          `\n${indent}    <button type="button" class="carousel-nav next" aria-label="Next screenshot">&#8250;</button>`,
+          `\n${indent}  </div>`,
+          `\n${indent}</div>`,
+        ].join('');
       });
       return `${open}${lists.join('')}${close}`;
     }

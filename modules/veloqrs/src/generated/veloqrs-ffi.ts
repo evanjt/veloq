@@ -1591,6 +1591,10 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_method_syncmanager_garmin_account(
     uniffiSelf: bigint,
   ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_syncmanager_garmin_swap_check(
+    uniffiSelf: bigint,
+    activityId: Uint8Array,
+  ): bigint;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_garmin_swap_replace(
     uniffiSelf: bigint,
     activityId: Uint8Array,
@@ -2114,6 +2118,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_clear_garmin_key(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_connect_garmin(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_garmin_account(): number;
+  ubrn_uniffi_veloqrs_checksum_method_syncmanager_garmin_swap_check(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_garmin_swap_replace(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_garmin_swap_state(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_garmin_swap_undo(): number;

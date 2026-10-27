@@ -598,6 +598,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
               source={{ html, baseUrl: mapPageBaseUrl() }}
               style={styles.webview}
               scrollEnabled={false}
+              focusable={false}
               bounces={false}
               overScrollMode="never"
               nestedScrollEnabled

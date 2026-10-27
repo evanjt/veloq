@@ -95,8 +95,8 @@ export function pullGarminForActivity(host: DelegateHost, activityId: string): b
   );
 }
 
-/** Whether the activity offers Garmin's own file, an undo of an earlier swap,
- *  or nothing. The engine compares the two files, so it is nothing before the
+/** What the activity offers from Garmin: a check, Garmin's own file, an undo of
+ *  an earlier swap, or nothing. It makes no request, and is nothing before the
  *  engine opens. */
 export async function garminSwapState(
   host: DelegateHost,
@@ -104,6 +104,16 @@ export async function garminSwapState(
 ): Promise<FfiSwapState> {
   if (!host.ready) return FfiSwapState.Hidden;
   return host.timedAsync('garminSwapState', () => host.engine.sync().garminSwapState(activityId));
+}
+
+/** Compare Garmin's original with intervals.icu's file, on the athlete's tap,
+ *  and answer what the activity offers now. The engine remembers the answer. */
+export async function garminSwapCheck(
+  host: DelegateHost,
+  activityId: string
+): Promise<FfiSwapState> {
+  if (!host.ready) return FfiSwapState.Hidden;
+  return host.timedAsync('garminSwapCheck', () => host.engine.sync().garminSwapCheck(activityId));
 }
 
 /** Replace intervals.icu's file for the activity with Garmin's original. */

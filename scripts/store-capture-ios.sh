@@ -11,8 +11,10 @@
 # locale's captures land in artifacts/store/raw/ios/<play>/, or
 # artifacts/store/raw/ipad/<play>/ when the simulator is an iPad
 # (VELOQ_STORE_RAW overrides the root), where `npm run store:render` reads
-# them. The App Store takes 1320x2868 iPhone and 2064x2752 iPad shots, so the
-# simulators are a 6.9-inch iPhone and a 13-inch iPad.
+# them. The website's locale is captured again in the dark theme into a dark/
+# folder beside its light shots. The App Store takes 1320x2868 iPhone and
+# 2064x2752 iPad shots, so the simulators are a 6.9-inch iPhone and a 13-inch
+# iPad.
 
 set -eu
 
@@ -48,6 +50,7 @@ if xcrun simctl list devices | grep "$udid" | grep -qi ipad; then
   dest=$raw/ipad
 fi
 maestro_run=${VELOQ_STORE_MAESTRO:-maestro}
+web_locale=$(npx --no-install tsx scripts/store-locales.ts web 2>/dev/null || echo en-AU)
 
 if [ "$#" -eq 0 ]; then
   set -- $(npx --no-install tsx scripts/store-locales.ts capture 2>/dev/null)
@@ -82,9 +85,17 @@ for pair in "$@"; do
   echo "store capture: $udid $play, app language $app"
   rm -rf "$out"
   mkdir -p "$out"
-  "$maestro_run" --device "$udid" test -e "STORE_LANGUAGE=$app" .maestro/store-capture.yaml
+  "$maestro_run" --device "$udid" test -e "STORE_LANGUAGE=$app" -e STORE_THEME=light .maestro/store-capture.yaml
   rm -rf "${dest:?}/$play"
   mkdir -p "$dest/$play"
   mv "$out"/*.png "$dest/$play"/
+  if [ "$play" = "$web_locale" ]; then
+    echo "store capture: $udid $play, dark theme"
+    rm -rf "$out"
+    mkdir -p "$out"
+    "$maestro_run" --device "$udid" test -e "STORE_LANGUAGE=$app" -e STORE_THEME=dark .maestro/store-capture.yaml
+    mkdir -p "$dest/$play/dark"
+    mv "$out"/*.png "$dest/$play/dark"/
+  fi
 done
 ls "$dest"

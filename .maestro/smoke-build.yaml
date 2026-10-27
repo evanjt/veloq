@@ -107,12 +107,11 @@ tags:
 - takeScreenshot: "screenshots/smoke-build-map-interacted"
 
 # Return to home and confirm navigation still works
-- openLink: "veloq://"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://"
+      TARGET: "home-screen"
 
 - extendedWaitUntil:
     visible:

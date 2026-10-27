@@ -38,12 +38,11 @@ onFlowComplete:
         visible:
           id: "demo-mode-banner"
       commands:
-        - openLink: "veloq://debug"
         - runFlow:
-            when:
-              visible: "Open"
-            commands:
-              - tapOn: "Open"
+            file: helpers/open-link.yaml
+            env:
+              LINK: "veloq://debug"
+              TARGET: "debug-screen"
         - runFlow:
             when:
               visible:
@@ -95,12 +94,11 @@ onFlowComplete:
 
 # ---- Surface 1: Support card on the settings screen ----
 
-- openLink: "veloq://settings"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://settings"
+      TARGET: "settings-screen"
 
 - extendedWaitUntil:
     visible:
@@ -148,12 +146,11 @@ onFlowComplete:
 # A development build opens the dashboard by its link, with no five-tap unlock
 # and no tap on a footer control that ends the settings page. Debug mode stays
 # as it was found, so there is nothing of it to put back afterwards.
-- openLink: "veloq://debug"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://debug"
+      TARGET: "debug-screen"
 
 # The debug dashboard mounts engine/FFI stats, which is slow under software GPU.
 - extendedWaitUntil:
@@ -245,12 +242,11 @@ onFlowComplete:
 # first use and lastActionDate are 31 days ago with enough days of use, and dismissCount=0.
 # The preset also hands the card the session's one ask, which demo mode's quiet
 # period or another card would otherwise hold.
-- openLink: "veloq://"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://"
+      TARGET: "home-screen"
 
 - extendedWaitUntil:
     visible:

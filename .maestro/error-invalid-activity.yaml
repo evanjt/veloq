@@ -10,12 +10,11 @@ tags:
     file: helpers/setup-demo-mode.yaml
 
 # Open a nonexistent activity via deep link
-- openLink: "veloq://activity/this-does-not-exist"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://activity/this-does-not-exist"
+      TARGET: "home-screen"
 
 # Wait briefly for the app to handle the invalid ID
 - extendedWaitUntil:
@@ -27,24 +26,22 @@ tags:
 - takeScreenshot: "screenshots/error-invalid-activity-after-deep-link"
 
 # Verify app is still responsive by navigating to a real screen
-- openLink: "veloq://"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://"
+      TARGET: "home-screen"
 - extendedWaitUntil:
     visible:
       id: "home-screen"
     timeout: 10000
 
 # Navigate to another screen to confirm full responsiveness
-- openLink: "veloq://fitness"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://fitness"
+      TARGET: "fitness-screen"
 - extendedWaitUntil:
     visible:
       id: "fitness-screen"

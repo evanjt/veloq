@@ -15,12 +15,11 @@ tags:
 
 # navigate-to-routes helper forces ?tab=routes; use a direct deep link so we
 # land on the Insights sub-tab explicitly.
-- openLink: "veloq://insights?tab=insights"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://insights?tab=insights"
+      TARGET: "routes-screen"
 
 - extendedWaitUntil:
     visible:

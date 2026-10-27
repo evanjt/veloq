@@ -10,12 +10,11 @@ tags:
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml
-- openLink: "veloq://detection-preview"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://detection-preview"
+      TARGET: "detection-preview-screen"
 - extendedWaitUntil:
     visible:
       id: "detection-preview-screen"

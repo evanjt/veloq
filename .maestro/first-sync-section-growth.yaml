@@ -76,18 +76,15 @@ tags:
     commands:
       - tapOn: "Close"
 
-- openLink: "veloq://insights?tab=routes"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://insights?tab=sections"
+      TARGET: "routes-screen"
 - extendedWaitUntil:
     visible:
       id: "routes-screen"
     timeout: 30000
-- tapOn:
-    id: "tab-sections"
 
 # Read the section count every few seconds while the sync strip is up. The
 # first reading is the baseline, taken with no filter so the label opens with

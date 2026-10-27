@@ -1,12 +1,11 @@
 # Navigate to map tab via deep link
 appId: com.veloq.app.dev
 ---
-- openLink: "veloq://map"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: open-link.yaml
+    env:
+      LINK: "veloq://map"
+      TARGET: "map-screen"
 - extendedWaitUntil:
     visible:
       id: "map-screen"

@@ -11,15 +11,7 @@ tags:
     file: helpers/setup-demo-mode.yaml
 
 - runFlow:
-    file: helpers/navigate-to-routes.yaml
-
-- extendedWaitUntil:
-    visible:
-      id: "routes-screen"
-    timeout: 10000
-
-- tapOn:
-    id: "tab-sections"
+    file: helpers/navigate-to-sections.yaml
 
 # The engine cuts the demo catalogue after the seed lands, and the catalogue
 # is cut from scratch on every cold launch. That is ~69 s on a workstation

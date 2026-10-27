@@ -182,6 +182,19 @@ describe('Sign out and delete data confirm', () => {
     jest.mocked(exportRecordBackup).mockResolvedValue('complete');
   });
 
+  it('fires one medium impact when the wipe is accepted', async () => {
+    const { alert } = await openConfirm();
+    try {
+      expect(haptics.medium).not.toHaveBeenCalled();
+      await act(async () => {
+        alert.mock.calls[0][2]?.find((b) => b.style === 'destructive')?.onPress?.();
+      });
+      expect(haptics.medium).toHaveBeenCalledTimes(1);
+    } finally {
+      alert.mockRestore();
+    }
+  });
+
   it('lists what comes back and what is deleted for good', async () => {
     const { alert } = await openConfirm();
     try {

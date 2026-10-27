@@ -30,6 +30,7 @@ import {
 import { Icon } from './Icon';
 import { BACK_SWIPE_EDGE_WIDTH } from './backSwipeEdge';
 import { PressTarget } from './PressTarget';
+import { HeadingControl } from './HeadingControl';
 import { useBackDismiss } from '@/shared/app/useBackDismiss';
 import { TextField, type TextFieldHandle } from './TextField';
 import { useHeroHeaderBottom } from './useHeroHeaderBottom';
@@ -288,9 +289,8 @@ export function HeroNameRow({
       ) : editable ? (
         // A heading that renames when activated: one role per element, and the name is what the
         // headings rotor needs to land on, so the rename is its hint rather than its role.
-        <PressTarget
+        <HeadingControl
           testID={`${editable.testIDPrefix}-rename-button`}
-          accessibilityRole="header"
           accessibilityLabel={name}
           accessibilityHint={t('common.rename')}
           onPress={editable.onStartEdit}
@@ -300,7 +300,7 @@ export function HeroNameRow({
             {name}
           </NameText>
           <Icon name="pencil" size={iconSize.sm} color={pencil} style={styles.editIcon} />
-        </PressTarget>
+        </HeadingControl>
       ) : (
         <NameText
           testID={nameTestID}

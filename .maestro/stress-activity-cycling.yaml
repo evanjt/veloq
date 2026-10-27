@@ -13,60 +13,55 @@ tags:
 - repeat:
     times: 3
     commands:
-      - openLink: "veloq://activity/demo-test-0"
       - runFlow:
-          when:
-            visible: "Open"
-          commands:
-            - tapOn: "Open"
+          file: helpers/open-link.yaml
+          env:
+            LINK: "veloq://activity/demo-test-0"
+            TARGET: "activity-detail-screen"
       - extendedWaitUntil:
           visible:
             id: "activity-detail-screen"
           timeout: 5000
           optional: true
 
-      - openLink: "veloq://activity/demo-test-1"
       - runFlow:
-          when:
-            visible: "Open"
-          commands:
-            - tapOn: "Open"
+          file: helpers/open-link.yaml
+          env:
+            LINK: "veloq://activity/demo-test-1"
+            TARGET: "activity-detail-screen"
       - extendedWaitUntil:
           visible:
             id: "activity-detail-screen"
           timeout: 5000
           optional: true
 
-      - openLink: "veloq://activity/demo-test-2"
       - runFlow:
-          when:
-            visible: "Open"
-          commands:
-            - tapOn: "Open"
+          file: helpers/open-link.yaml
+          env:
+            LINK: "veloq://activity/demo-test-2"
+            TARGET: "activity-detail-screen"
       - extendedWaitUntil:
           visible:
             id: "activity-detail-screen"
           timeout: 5000
           optional: true
 
-      - openLink: "veloq://activity/demo-test-3"
       - runFlow:
-          when:
-            visible: "Open"
-          commands:
-            - tapOn: "Open"
+          file: helpers/open-link.yaml
+          env:
+            LINK: "veloq://activity/demo-test-3"
+            TARGET: "activity-detail-screen"
       - extendedWaitUntil:
           visible:
             id: "activity-detail-screen"
           timeout: 5000
           optional: true
 
-      - openLink: "veloq://activity/demo-test-4"
       - runFlow:
-          when:
-            visible: "Open"
-          commands:
-            - tapOn: "Open"
+          file: helpers/open-link.yaml
+          env:
+            LINK: "veloq://activity/demo-test-4"
+            TARGET: "activity-detail-screen"
       - extendedWaitUntil:
           visible:
             id: "activity-detail-screen"
@@ -77,32 +72,28 @@ tags:
 - repeat:
     times: 5
     commands:
-      - openLink: "veloq://activity/demo-test-0"
       - runFlow:
-          when:
-            visible: "Open"
-          commands:
-            - tapOn: "Open"
-      - openLink: "veloq://activity/demo-test-1"
+          file: helpers/open-link.yaml
+          env:
+            LINK: "veloq://activity/demo-test-0"
+            TARGET: "activity-detail-screen"
       - runFlow:
-          when:
-            visible: "Open"
-          commands:
-            - tapOn: "Open"
-      - openLink: "veloq://activity/demo-test-2"
+          file: helpers/open-link.yaml
+          env:
+            LINK: "veloq://activity/demo-test-1"
+            TARGET: "activity-detail-screen"
       - runFlow:
-          when:
-            visible: "Open"
-          commands:
-            - tapOn: "Open"
+          file: helpers/open-link.yaml
+          env:
+            LINK: "veloq://activity/demo-test-2"
+            TARGET: "activity-detail-screen"
 
 # Return to home and verify app is still responsive
-- openLink: "veloq://"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://"
+      TARGET: "home-screen"
 
 - extendedWaitUntil:
     visible:

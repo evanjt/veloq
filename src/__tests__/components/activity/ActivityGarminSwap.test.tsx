@@ -17,6 +17,7 @@ import * as engine from '@/shared/native/garminSwap';
 import { confirmAction } from '@/shared/ui/dialog';
 import * as recording from '@/features/recording';
 import { useDebugStore } from '@/features/settings/stores/DebugStore';
+import enGB from '@/i18n/locales/en-GB.json';
 
 configure({ defaultIncludeHiddenElements: true });
 
@@ -26,6 +27,7 @@ jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 jest.mock('@/shared/native/syncRefresh', () => ({ requestSyncRefresh: jest.fn() }));
 jest.mock('@/shared/native/garminSwap', () => ({
   garminSwapState: jest.fn(),
+  garminSwapCheck: jest.fn(),
   garminSwapReplace: jest.fn(),
   garminSwapUndo: jest.fn(),
 }));
@@ -46,6 +48,7 @@ jest.mock('@/features/recording', () => {
 });
 
 const state = engine.garminSwapState as jest.Mock;
+const check = engine.garminSwapCheck as jest.Mock;
 const replace = engine.garminSwapReplace as jest.Mock;
 const undo = engine.garminSwapUndo as jest.Mock;
 const confirm = confirmAction as jest.Mock;
@@ -111,6 +114,52 @@ describe('ActivityGarminSwap', () => {
     expect(await screen.findByText('activity.garminSwap.replaced')).toBeTruthy();
     expect(await screen.findByTestId('activity-i1-garmin-swap-undo')).toBeTruthy();
     expect(screen.queryByTestId('activity-i1-garmin-swap-button')).toBeNull();
+  });
+
+  it('offers Check Garmin for an unchecked import and the swap only once the check finds more', async () => {
+    state.mockResolvedValue(SwapState.Checkable);
+    check.mockResolvedValue(SwapState.Available);
+    render(<ActivityGarminSwap activityId="i1" />);
+
+    const button = await screen.findByTestId('activity-i1-garmin-check-button');
+    expect(screen.queryByTestId('activity-i1-garmin-swap-button')).toBeNull();
+    expect(check).not.toHaveBeenCalled();
+
+    fireEvent.press(button);
+    expect(await screen.findByTestId('activity-i1-garmin-swap-button')).toBeTruthy();
+    expect(check).toHaveBeenCalledWith('i1');
+    expect(screen.queryByTestId('activity-i1-garmin-check-button')).toBeNull();
+  });
+
+  it('says Garmin holds nothing more when the check finds the files alike', async () => {
+    state.mockResolvedValue(SwapState.Checkable);
+    check.mockResolvedValue(SwapState.Unchanged);
+    render(<ActivityGarminSwap activityId="i1" />);
+
+    fireEvent.press(await screen.findByTestId('activity-i1-garmin-check-button'));
+
+    expect(await screen.findByTestId('activity-i1-garmin-nothing-more')).toBeTruthy();
+    expect(screen.queryByTestId('activity-i1-garmin-swap-button')).toBeNull();
+  });
+
+  it('keeps Check Garmin and says so when the check call fails', async () => {
+    state.mockResolvedValue(SwapState.Checkable);
+    check.mockRejectedValue(new Error('closed'));
+    render(<ActivityGarminSwap activityId="i1" />);
+
+    fireEvent.press(await screen.findByTestId('activity-i1-garmin-check-button'));
+
+    expect(await screen.findByText('activity.garminSwap.failed')).toBeTruthy();
+    expect(screen.getByTestId('activity-i1-garmin-check-button')).toBeTruthy();
+  });
+
+  it('tells the athlete the confirmation marks the intervals as edited', async () => {
+    state.mockResolvedValue(SwapState.Available);
+    render(<ActivityGarminSwap activityId="i1" />);
+    fireEvent.press(await screen.findByTestId('activity-i1-garmin-swap-button'));
+
+    expect(confirm.mock.calls[0][0].message).toBe('activity.garminSwap.confirmMessage');
+    expect(enGB.activity.garminSwap.confirmMessage).toContain('edited by you');
   });
 
   it('says a refusal changed nothing and keeps the offer', async () => {

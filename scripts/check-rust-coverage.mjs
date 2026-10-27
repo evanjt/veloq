@@ -55,7 +55,7 @@ function main() {
   if (!existsSync(REPORT)) {
     console.error(`check-rust-coverage: no report at ${REPORT}`);
     console.error(
-      '  cargo llvm-cov -p veloqrs --features synthetic --json --output-path coverage.json'
+      '  cd modules/veloqrs/rust && RUSTC_WORKSPACE_WRAPPER=$PWD/../scripts/coverage-rustc.sh cargo llvm-cov nextest -p veloqrs --features synthetic --json --output-path coverage.json'
     );
     process.exit(1);
   }

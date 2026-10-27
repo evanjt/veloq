@@ -26,7 +26,10 @@ function DisplaySettingsScreenContent() {
   const intervalsPreferences = useUnitPreference((s) => s.intervalsPreferences);
 
   return (
-    <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+    <ScreenSafeAreaView
+      testID="display-settings-screen"
+      style={[styles.container, isDark && styles.containerDark]}
+    >
       <ScreenScrollView
         contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: spacing.xl }}
       >

@@ -28,7 +28,7 @@
 mod jni;
 
 mod c;
-mod garmin;
+pub(crate) mod garmin;
 mod pulled;
 pub(crate) use pulled::{announce_pulled_ride, is_recent as is_recent_ride};
 pub mod runs;

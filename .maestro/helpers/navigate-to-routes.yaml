@@ -1,12 +1,11 @@
 # Navigate to routes tab via deep link
 appId: com.veloq.app.dev
 ---
-- openLink: "veloq://insights?tab=routes"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: open-link.yaml
+    env:
+      LINK: "veloq://insights?tab=routes"
+      TARGET: "routes-screen"
 - extendedWaitUntil:
     visible:
       id: "routes-screen"

@@ -15,7 +15,6 @@ import { useTranslation } from 'react-i18next';
 import { settingsStyles } from './settingsStyles';
 import { Row } from '@/shared/ui/Row';
 import { ExternalLinkRow } from '@/shared/ui/ExternalLinkRow';
-import * as haptics from '@/shared/ui/haptics';
 import { offlineConfirmMessage } from '../lib/offlineConfirmCopy';
 import { useExportRecordBackup } from '../hooks/useBackup';
 import { chooseAction, confirmAction, inform } from '@/shared/ui/dialog';
@@ -77,7 +76,6 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
         cancelLabel: t('common.cancel'),
         destructive: true,
         onConfirm: () => {
-          haptics.medium();
           finishLogout(false);
         },
       });
@@ -94,7 +92,6 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
       cancelLabel: t('common.cancel'),
       destructive: true,
       onConfirm: () => {
-        haptics.medium();
         finishLogout(false);
       },
     });
@@ -128,7 +125,6 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
           }),
           destructive: true,
           onPress: () => {
-            haptics.medium();
             finishLogout(true);
           },
         },

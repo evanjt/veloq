@@ -2081,6 +2081,9 @@ pub struct FfiFeedCard {
     /// The fault the last sync met readying this activity, which the card
     /// marks with a retry. None when its last readying was clean.
     pub sync_failure: Option<crate::persistence::activity_sync_failures::ActivitySyncFailure>,
+    /// Whether the activity is a stub intervals.icu does not serve, and what
+    /// the card offers for it.
+    pub stub: crate::net::garmin_swap::FfiStubVerdict,
 }
 
 /// One page of feed cards, newest first, with the count of everything the

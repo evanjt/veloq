@@ -5,16 +5,12 @@ import { useTranslation } from 'react-i18next';
 import { SwapState } from 'veloqrs';
 
 import { useTheme } from '@/shared/app';
-import {
-  GrantAccessButton,
-  usePermissionUpgrade,
-  useWriteAccessMissing,
-} from '@/features/recording';
+import { GrantAccessButton } from '@/features/recording';
 import { Badge, Button, StatusLine } from '@/shared/ui';
-import { confirmAction } from '@/shared/ui/dialog';
 import { useExperimental } from '@/features/settings/light';
 import { colors, darkColors, spacing, typography } from '@/theme';
 
+import { useAskGarminSwap } from '../hooks/useAskGarminSwap';
 import { useGarminSwap } from '../hooks/useGarminSwap';
 
 interface Props {
@@ -38,34 +34,41 @@ export function ActivityGarminSwap({ activityId }: Props) {
 function GarminSwapBody({ activityId }: Props) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const { state, busy, notice, swap, undo } = useGarminSwap(activityId);
-  const writeAccessMissing = useWriteAccessMissing();
-  const { upgradePermissions, isUpgrading, error: upgradeError } = usePermissionUpgrade();
+  const { state, busy, notice, check, swap, undo } = useGarminSwap(activityId);
+  const { askToSwap, isUpgrading, upgradePermissions, upgradeError } = useAskGarminSwap(swap);
   const palette = isDark ? darkColors : colors;
 
   if (state === SwapState.Hidden && !notice) return null;
-
-  const confirmSwap = () =>
-    confirmAction({
-      title: t('activity.garminSwap.confirmTitle'),
-      message: t('activity.garminSwap.confirmMessage'),
-      confirmLabel: t('activity.garminSwap.button'),
-      cancelLabel: t('common.cancel'),
-      onConfirm: swap,
-    });
-
-  const askToSwap = async () => {
-    if (writeAccessMissing) {
-      const { granted } = await upgradePermissions();
-      if (!granted) return;
-    }
-    confirmSwap();
-  };
 
   const statusStyle = [typography.caption, { color: palette.textSecondary }];
 
   return (
     <View style={styles.container} testID={`activity-${activityId}-garmin-swap`}>
+      {state === SwapState.Checkable ? (
+        <>
+          <View style={styles.titleRow}>
+            <Button
+              testID={`activity-${activityId}-garmin-check-button`}
+              variant="secondary"
+              label={t('activity.garminSwap.check')}
+              onPress={check}
+              loading={busy}
+            />
+            <Badge tone="neutral" size="sm" isDark={isDark} text={t('activity.garminSwap.badge')} />
+          </View>
+          <Text style={[styles.detail, { color: palette.textSecondary }]}>
+            {t('activity.garminSwap.checkDetail')}
+          </Text>
+        </>
+      ) : null}
+      {state === SwapState.Unchanged ? (
+        <Text
+          testID={`activity-${activityId}-garmin-nothing-more`}
+          style={[styles.detail, { color: palette.textSecondary }]}
+        >
+          {t('activity.garminSwap.nothingMore')}
+        </Text>
+      ) : null}
       {state === SwapState.Available ? (
         <>
           <View style={styles.titleRow}>

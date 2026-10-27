@@ -10,12 +10,11 @@ tags:
     file: helpers/setup-demo-mode.yaml
 
 # Navigate directly to display settings page
-- openLink: "veloq://display-settings"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://display-settings"
+      TARGET: "display-settings-screen"
 
 - extendedWaitUntil:
     visible:

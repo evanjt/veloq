@@ -109,12 +109,11 @@ tags:
 # `veloq://` (root) lands on the feed reliably on iOS; on Android it can
 # hang when bouncing through the deep-link handler, wait extra long there
 # and tolerate the failure rather than blocking the whole flow.
-- openLink: "veloq://"
 - runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://"
+      TARGET: "home-screen"
 - extendedWaitUntil:
     visible:
       id: "home-screen"
