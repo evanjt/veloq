@@ -154,6 +154,13 @@ interface SectionMapViewProps {
    * section line. Null where the section is ridden one way only.
    */
   shownDirection?: LineDirection | null | undefined;
+  /**
+   * What a tap on a preview map does in place of fullscreen, such as opening
+   * the section's screen. Ignored when the map is interactive.
+   */
+  onPress?: (() => void) | undefined;
+  /** Says what `onPress` does, for a screen reader. */
+  pressLabel?: string | undefined;
 }
 
 // Stable identities, so the closed-modal memos below return the same empty set
@@ -180,6 +187,8 @@ export const SectionMapView = memo(function SectionMapView({
   coveredBottomRadius = 0,
   deltaLine = null,
   shownDirection = null,
+  onPress,
+  pressLabel,
 }: SectionMapViewProps) {
   const { t } = useTranslation();
   const { isFullscreen, openFullscreen, closeFullscreen } = useMapFullscreen({
@@ -613,7 +622,8 @@ export const SectionMapView = memo(function SectionMapView({
   // Whether to show the interactive control stack (not during trim mode)
   const showControls = interactive;
   const touchThrough = inSlot ? 'box-none' : 'auto';
-  const showExpandOverlay = enableFullscreen && !interactive;
+  const showExpandOverlay = enableFullscreen && !interactive && !onPress;
+  const pressable = onPress != null || enableFullscreen;
 
   return (
     <>
@@ -755,14 +765,16 @@ export const SectionMapView = memo(function SectionMapView({
           ) : null}
         </View>
       ) : (
-        // Non-interactive map - tap anywhere to fullscreen
+        // A preview: a tap opens fullscreen, or what the caller passed instead
         <PressTarget
           style={[styles.container, { height }]}
           accessibilityRole="button"
-          accessibilityLabel={t('maps.openFullscreen')}
-          accessibilityState={{ disabled: !enableFullscreen }}
-          onPress={openFullscreen}
-          disabled={!enableFullscreen}
+          accessibilityLabel={
+            onPress ? (pressLabel ?? t('maps.openFullscreen')) : t('maps.openFullscreen')
+          }
+          accessibilityState={{ disabled: !pressable }}
+          onPress={onPress ?? openFullscreen}
+          disabled={!pressable}
         >
           {mapContent}
           {attributionOverlay}

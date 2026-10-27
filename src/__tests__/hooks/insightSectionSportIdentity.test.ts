@@ -80,6 +80,8 @@ function stale(sportType: string, id = SECTION): StalePrOpportunity {
     unit: sportType === 'Ride' ? 'W' : '/km',
     sportType,
     recentEfforts: [],
+    prDate: 1_700_000_000,
+    fitnessHistory: [],
   };
 }
 

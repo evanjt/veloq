@@ -1,12 +1,12 @@
 /**
- * Scenario: the section record and stale-record sheets drew the section through
- * a map of their own, its line in gold or in the opportunity tone, while every
- * other section thumbnail is the one track preview in the base map's route
- * colour.
+ * Scenario: the section record sheet drew the section through a map of its
+ * own, its line in gold, while every other section thumbnail is the one track
+ * preview in the base map's route colour.
  *
- * Expected behaviour: both sheets draw the section as the track preview at the
- * sheet's width in the base map's route colour, and draw nothing from fewer
- * than two points.
+ * Expected behaviour: the sheet draws the section as the track preview at the
+ * sheet's width in the base map's route colour, and draws nothing from fewer
+ * than two points. The stale-record sheet draws its section on a basemap
+ * instead, held by its own test.
  */
 
 import React from 'react';
@@ -16,7 +16,6 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import { initialiseI18n } from '@/i18n';
 import { SectionPRContent } from '@/features/insights/components/content/SectionPRContent';
-import { StalePRContent } from '@/features/insights/components/content/StalePRContent';
 import { TrackPreview, trackPreviewPalette } from '@/shared/ui/TrackPreview';
 import type { Insight } from '@/types';
 
@@ -86,7 +85,6 @@ function sheet(category: Insight['category']): Insight {
 
 const SHEETS = [
   ['section record', () => <SectionPRContent insight={sheet('section_pr')} />],
-  ['stale record', () => <StalePRContent insight={sheet('stale_pr')} />],
 ] as const;
 
 describe.each(SHEETS)('the %s sheet', (_name, Sheet) => {

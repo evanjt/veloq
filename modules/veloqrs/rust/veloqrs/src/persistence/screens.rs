@@ -3241,6 +3241,20 @@ pub mod pooled {
                 crate::persistence::fitness::derivations::pooled::fitness_on(conn, sport, at)
             },
         );
+        let stale_pr_opportunities = crate::persistence::fitness::stale_pr::with_record_detail(
+            stale_pr_opportunities,
+            |o| {
+                ranking::record_effort(
+                    conn,
+                    &o.section_id,
+                    o.best_activity_id.as_deref()?,
+                    o.best_time_secs,
+                )
+            },
+            |sport, since| {
+                crate::persistence::fitness::derivations::pooled::fitness_since(conn, sport, since)
+            },
+        );
 
         let covered: std::collections::HashSet<(&str, &str)> = recent_prs
             .iter()

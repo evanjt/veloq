@@ -221,6 +221,8 @@ function buildFfiData(): InsightsData {
         unit: 'W',
         sportType: 'Ride',
         recentEfforts: [],
+        prDate: 1_700_000_000,
+        fitnessHistory: [],
       },
     ],
   };

@@ -13491,15 +13491,43 @@ export type FfiStalePrOpportunity = {
    */
   sportType: string;
   /**
-   * The last efforts on the section, oldest first. The card's claim is that
-   * a fitness gain makes the section worth revisiting, and the efforts are
-   * what that claim is drawn against.
+   * The last efforts on the section, oldest first, with the record's own
+   * effort in front when it is older than all of them. The card's claim is
+   * that a fitness gain makes the section worth revisiting, and the efforts
+   * are what that claim is drawn against.
    */
   recentEfforts: Array<FfiSeriesPoint>;
   /**
    * The activity the record being offered for a retry was set in.
    */
   bestActivityId?: string;
+  /**
+   * When the record was set, epoch seconds. `previous_value` is the
+   * fitness on this day.
+   */
+  prDate: number;
+  /**
+   * The record effort's mean power in watts, for a cycling section whose
+   * record carried a power stream. Absent otherwise, never a zero.
+   */
+  prPower?: number;
+  /**
+   * The record effort's mean speed in m/s, for a running or swimming
+   * section. Absent for cycling.
+   */
+  prSpeed?: number;
+  /**
+   * The record effort as a percent of the fitness held that day: power
+   * over eFTP for cycling, speed over critical speed for running and
+   * swimming. Absent when the effort is.
+   */
+  prSharePercent?: number;
+  /**
+   * The fitness `previous_value` and `current_value` are read from, oldest
+   * first, from the first of `recent_efforts` to the newest value, with a
+   * point at `pr_date` carrying `previous_value`.
+   */
+  fitnessHistory: Array<FfiSeriesPoint>;
 };
 
 /**
@@ -13538,6 +13566,12 @@ const FfiConverterTypeFfiStalePrOpportunity = (() => {
         sportType: FfiConverterString.readFromCursor(c),
         recentEfforts: FfiConverterSequenceTypeFfiSeriesPoint.readFromCursor(c),
         bestActivityId: FfiConverterOptionalString.readFromCursor(c),
+        prDate: FfiConverterFloat64.readFromCursor(c),
+        prPower: FfiConverterOptionalFloat64.readFromCursor(c),
+        prSpeed: FfiConverterOptionalFloat64.readFromCursor(c),
+        prSharePercent: FfiConverterOptionalFloat64.readFromCursor(c),
+        fitnessHistory:
+          FfiConverterSequenceTypeFfiSeriesPoint.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -13557,6 +13591,14 @@ const FfiConverterTypeFfiStalePrOpportunity = (() => {
         c,
       );
       FfiConverterOptionalString.writeIntoCursor(value.bestActivityId, c);
+      FfiConverterFloat64.writeIntoCursor(value.prDate, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.prPower, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.prSpeed, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.prSharePercent, c);
+      FfiConverterSequenceTypeFfiSeriesPoint.writeIntoCursor(
+        value.fitnessHistory,
+        c,
+      );
     }
     allocationSize(value: TypeName): number {
       return (
@@ -13574,7 +13616,14 @@ const FfiConverterTypeFfiStalePrOpportunity = (() => {
         FfiConverterSequenceTypeFfiSeriesPoint.allocationSize(
           value.recentEfforts,
         ) +
-        FfiConverterOptionalString.allocationSize(value.bestActivityId)
+        FfiConverterOptionalString.allocationSize(value.bestActivityId) +
+        FfiConverterFloat64.allocationSize(value.prDate) +
+        FfiConverterOptionalFloat64.allocationSize(value.prPower) +
+        FfiConverterOptionalFloat64.allocationSize(value.prSpeed) +
+        FfiConverterOptionalFloat64.allocationSize(value.prSharePercent) +
+        FfiConverterSequenceTypeFfiSeriesPoint.allocationSize(
+          value.fitnessHistory,
+        )
       );
     }
   }

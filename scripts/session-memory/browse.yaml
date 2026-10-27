@@ -46,7 +46,6 @@ appId: ${APP_ID}
 - tapOn: 'Fitness'
 - tapOn: 'Insights'
 - tapOn: 'Map'
-- tapOn: 'Health'
 - tapOn: 'Fitness'
 - tapOn: 'Map'
 - tapOn: 'Insights'

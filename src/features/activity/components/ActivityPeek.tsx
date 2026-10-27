@@ -8,6 +8,7 @@ import { StyleSheet, View } from 'react-native';
 import { engine } from 'veloqrs';
 
 import { repostActivityNotification } from '@/features/insights';
+import { requestNotificationPermissionOutcome } from '@/shared/app/permissions/notifications';
 import { Button } from '@/shared/ui/Button';
 import { HeroNameRow, HeroStatsRow, heroPeekStyles } from '@/shared/ui/DetailHero';
 import { PressTarget } from '@/shared/ui/PressTarget';
@@ -101,10 +102,12 @@ export function ActivityPeek({
 }
 
 const REGENERATE_LABEL = 'Regenerate notification';
-const REGENERATE_DELAYED_LABEL = 'Regenerate in 20 s';
-const DEBUG_REPOST_DELAY_SECONDS = 20;
+const REGENERATE_DELAYED_LABEL = 'Regenerate in 40 s';
+const DEBUG_REPOST_DELAY_SECONDS = 40;
 
 async function repostNotification(activityId: string, name: string, delaySeconds?: number) {
+  // iOS drops a post made before the athlete has answered the permission dialog.
+  await requestNotificationPermissionOutcome().catch(() => undefined);
   if (
     !(await repostActivityNotification(
       activityId,

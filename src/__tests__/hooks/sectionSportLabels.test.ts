@@ -56,6 +56,8 @@ const stale = (sectionId: string, sportType: string): StalePrOpportunity => ({
   unit: 'W',
   sportType,
   recentEfforts: [],
+  prDate: 1_700_000_000,
+  fitnessHistory: [],
 });
 
 describe('a section PR card', () => {

@@ -1,170 +1,258 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import type { TFunc } from '../../types';
-import { sectionRowKey, sectionWithSport } from '../../lib/cardSport';
-import type { TFunction } from 'i18next';
+import { sectionRowKey } from '../../lib/cardSport';
+import { insightGraphicColour } from '../../lib/insightCategory';
 import { useTheme } from '@/shared/app';
-import {
-  getActivityIcon,
-  isCyclingActivity,
-  isPaceSport,
-  isSwimmingActivity,
-} from '@/shared/activity/activityUtils';
 import { useSectionDetail } from '@/shared/native/useSectionDetail';
 import { navigateTo } from '@/shared/app/navigation';
-import { formatDuration } from '@/shared/format/format';
-import { SheetTrackDrawing } from './SheetTrackDrawing';
-import { InsightHistoryChart } from '../InsightHistoryChart';
-import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
-import type { ActivityType, Insight, SupportingSection } from '@/types';
-import { SheetContext } from './SheetContext';
-import { composeAccessibilityLabel, ErrorState, Row } from '@/shared/ui';
-import { Icon } from '@/shared/ui/Icon';
+import { SectionMapView } from '@/features/routes';
+import { InsightSeriesChart } from '../InsightSeriesChart';
+import { formatSeriesValue } from '../InsightHistoryChart';
+import { useInsightSheet } from '../InsightSheetContext';
+import {
+  colorWithOpacity,
+  colors,
+  darkColors,
+  ink,
+  layout,
+  opacity,
+  spacing,
+  typography,
+} from '@/theme';
+import type { HistorySeries, Insight, StalePrSheetSection } from '@/types';
+import { ChartErrorBoundary, composeAccessibilityLabel, ErrorState, Row } from '@/shared/ui';
+import { ToggleButton } from '@/shared/ui/Button';
+import { Card } from '@/shared/ui/Card';
 import { NameText } from '@/shared/ui/NameText';
+import { SheetContext } from './SheetContext';
 
 interface StalePRContentProps {
   insight: Insight;
 }
 
-/** The one sport every section shares, as the engine names it, or null. */
-function getSingleSportType(sections: SupportingSection[]): string | null {
-  const uniqueSports = Array.from(
-    new Set(
-      sections
-        .map((section) => section.sportType)
-        .filter(
-          (sportType): sportType is string => typeof sportType === 'string' && sportType.length > 0
-        )
-    )
-  );
+const MAP_HEIGHT = 180;
 
-  return uniqueSports.length === 1 ? uniqueSports[0] : null;
-}
+/** The screen-reader action that opens the section the efforts were read from. */
+const OPEN_PICTURED = 'openPictured';
 
 /**
- * The heading names what the card compared, read from the units the generator
- * set rather than from its translated labels: watts are eFTP, a pace per
- * hundred metres is CSS, a pace per kilometre is critical speed. A group card
- * carries no rows, and the engine compares a ride's eFTP and a run's or a
- * swim's critical speed, so there the sport its sections share says which.
+ * The selected section on a real basemap, still, one WebView whichever
+ * section is selected. A tap opens the section on the record's activity.
  */
-function getContextCopy(
-  sections: SupportingSection[],
-  dataPoints: { unit?: string | undefined }[],
-  t: TFunction
-): {
-  heading: string;
-  body: string;
-  meta: string;
-} {
-  const units = new Set(
-    dataPoints
-      .map((dataPoint) => dataPoint.unit)
-      .filter((unit): unit is string => typeof unit === 'string' && unit.length > 0)
-  );
-  const sportType = getSingleSportType(sections);
-  const sport = sportType ? t(`activityTypes.${sportType}`, { defaultValue: sportType }) : null;
-  const isGrouped = sections.length > 1;
-  // The engine's own sport name, which is what the sport predicates take.
-  const activity = units.size === 0 ? (sportType as ActivityType | null) : null;
-
-  const heading =
-    units.has('W') || (activity != null && isCyclingActivity(activity))
-      ? t('insights.stalePr.sheetHeadingPower')
-      : units.has('/100m') || (activity != null && isSwimmingActivity(activity))
-        ? t('insights.stalePr.sheetHeadingSwim')
-        : units.has('/km') || (activity != null && isPaceSport(activity))
-          ? t('insights.stalePr.sheetHeadingRun')
-          : t('insights.stalePr.sheetHeadingFitness');
-
-  const body = isGrouped
-    ? sport
-      ? t('insights.stalePr.sheetBodyManySport', { sport })
-      : t('insights.stalePr.sheetBodyMany')
-    : sport
-      ? t('insights.stalePr.sheetBodyOneSport', { sport })
-      : t('insights.stalePr.sheetBodyOne');
-
-  return {
-    heading,
-    body,
-    meta: isGrouped ? t('insights.stalePr.sheetMetaMany') : t('insights.stalePr.sheetMetaOne'),
-  };
-}
-
-/** Map preview for the first section */
-const TopSectionMap = React.memo(function TopSectionMap({ sectionId }: { sectionId: string }) {
-  const { section, error, retry } = useSectionDetail(sectionId);
+const SelectedSectionMap = React.memo(function SelectedSectionMap({
+  entry,
+  onOpen,
+}: {
+  entry: StalePrSheetSection;
+  onOpen: (target: string) => void;
+}) {
+  const { t } = useTranslation();
+  const { section, error, retry } = useSectionDetail(entry.sectionId);
+  const open = useCallback(() => onOpen(entry.sectionTarget), [onOpen, entry.sectionTarget]);
   if (error !== undefined) {
     return (
       <ErrorState variant="inline" error={error} onRetry={retry} testID="section-read-failure" />
     );
   }
-  return <SheetTrackDrawing points={section?.polyline} />;
+  if (!section) return null;
+  return (
+    <View testID="stale-pr-map" style={styles.map}>
+      <SectionMapView
+        section={section}
+        sportType={entry.sportType}
+        height={MAP_HEIGHT}
+        interactive={false}
+        onPress={open}
+        pressLabel={t('insights.graphic.openTheSection')}
+      />
+    </View>
+  );
+});
+
+/** The index of the point on the record's day, -1 when the series has none. */
+function recordIndex(series: HistorySeries, prDate: number): number {
+  return series.points.findIndex((point) => point.date === prDate);
+}
+
+/**
+ * The selected section's fitness above its efforts, over one time axis that
+ * runs to now. The record's day is marked on both, and the time since the
+ * last visit is shaded.
+ */
+const StalePrChart = React.memo(function StalePrChart({
+  entry,
+  insight,
+  onOpen,
+}: {
+  entry: StalePrSheetSection;
+  insight: Insight;
+  /** Opens a screen from the sheet; absent outside one, so nothing is offered. */
+  onOpen?: ((target: string) => void) | undefined;
+}) {
+  const { isDark } = useTheme();
+  const { t } = useTranslation();
+  // A screen reader is offered the section the efforts were read from, as the
+  // card's own history chart offers it.
+  const actions = useMemo(
+    () =>
+      onOpen
+        ? [
+            {
+              name: OPEN_PICTURED,
+              label: t('insights.graphic.openSection', { name: entry.sectionName }),
+              run: () => onOpen(entry.sectionTarget),
+            },
+          ]
+        : undefined,
+    [onOpen, entry.sectionName, entry.sectionTarget, t]
+  );
+  const color = insightGraphicColour(insight.category, isDark);
+  const dotColor = isDark
+    ? colorWithOpacity(ink.white, opacity.dim)
+    : colorWithOpacity(ink.black, opacity.tint3);
+  const fitnessAt = recordIndex(entry.fitness, entry.prDate);
+  const effortAt = recordIndex(entry.efforts, entry.prDate);
+  const format = (series: HistorySeries) => (value: number, decimals: number) =>
+    series.format ? series.format(value) : formatSeriesValue(value, decimals, series.unit);
+
+  return (
+    <ChartErrorBoundary height={MAP_HEIGHT * 2}>
+      <Card
+        variant="flat"
+        padding="sm"
+        testID="insight-history-chart"
+        title={entry.name}
+        style={styles.chartStack}
+      >
+        {entry.fitness.points.length >= 2 ? (
+          <View testID="stale-pr-fitness-chart">
+            <InsightSeriesChart
+              samples={entry.fitness.points}
+              title={entry.fitness.label}
+              color={color}
+              formatValue={format(entry.fitness)}
+              area={false}
+              marker={fitnessAt >= 0 ? { index: fitnessAt, kind: 'this' } : null}
+              band={entry.gap}
+              xRange={entry.range}
+            />
+          </View>
+        ) : null}
+        {entry.efforts.points.length >= 2 ? (
+          <View testID="stale-pr-efforts-chart">
+            <InsightSeriesChart
+              samples={entry.efforts.points}
+              title={entry.efforts.label}
+              color={color}
+              formatValue={format(entry.efforts)}
+              invert
+              pointColor={dotColor}
+              marker={effortAt >= 0 ? { index: effortAt, kind: 'record' } : null}
+              band={entry.gap}
+              xRange={entry.range}
+              {...(actions ? { actions } : {})}
+            />
+          </View>
+        ) : null}
+        {entry.gap ? (
+          <Text style={[styles.caption, isDark && styles.captionDark]}>{entry.gapLabel}</Text>
+        ) : null}
+      </Card>
+    </ChartErrorBoundary>
+  );
 });
 
 /**
- * Detail content for stale PR / opportunity insights.
- * Shows section map + the card's efforts + context copy + tappable section list.
- * Its numbers sit under the sheet's "How was this calculated?".
+ * Detail content for the stale-PR card: one section at a time. A group card
+ * offers a chip per section, most visited first, and the chip drives the
+ * map, the numbers, the chart and the links below it. Every figure is the
+ * selected section's own. The rules sit under the sheet's "How was this
+ * calculated?".
  */
 export const StalePRContent = React.memo(function StalePRContent({ insight }: StalePRContentProps) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
-  const dataPoints = insight.supportingData?.dataPoints ?? [];
-  const sections = insight.supportingData?.sections ?? [];
-  const topSectionId = sections[0]?.sectionId ?? null;
-  const contextCopy = getContextCopy(sections, dataPoints, t);
+  const sheet = useInsightSheet();
+  const entries = useMemo(
+    () => insight.supportingData?.stalePrSections ?? [],
+    [insight.supportingData?.stalePrSections]
+  );
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const selected = entries.find((entry) => sectionRowKey(entry) === selectedKey) ?? entries[0];
 
-  const handleSectionPress = useCallback((id: string) => {
-    navigateTo(`/section/${id}`);
-  }, []);
+  const open = useCallback(
+    (target: string) => {
+      sheet?.onLeave();
+      navigateTo(target);
+    },
+    [sheet]
+  );
+
+  if (!selected) return null;
 
   return (
     <View style={styles.container}>
-      {topSectionId ? <TopSectionMap sectionId={topSectionId} /> : null}
-
-      <InsightHistoryChart history={insight.supportingData?.history} category={insight.category} />
-
-      <SheetContext heading={contextCopy.heading} body={contextCopy.body} meta={contextCopy.meta} />
-
-      {sections.length > 0 ? (
-        <View>
-          {sections.map((s: SupportingSection) => {
-            const name = sectionWithSport(s.sectionName, s.sportType, t as unknown as TFunc);
-            const bestTime = s.bestTime != null ? formatDuration(s.bestTime) : null;
+      {entries.length > 1 ? (
+        <View style={styles.chips} accessibilityRole="tablist">
+          {entries.map((entry) => {
+            const key = sectionRowKey(entry);
             return (
-              <Row
-                key={sectionRowKey(s)}
-                behaviour="navigate"
-                accessibilityLabel={composeAccessibilityLabel(name, bestTime)}
-                onPress={() => handleSectionPress(s.sectionId)}
-              >
-                <View style={styles.sectionContent}>
-                  <View style={styles.sectionNameRow}>
-                    {s.sportType ? (
-                      <Icon
-                        name={getActivityIcon(s.sportType)}
-                        size={iconSize.sm}
-                        color={isDark ? darkColors.textSecondary : colors.textSecondary}
-                        style={styles.sportIcon}
-                      />
-                    ) : null}
-                    <NameText style={[styles.sectionName, isDark && styles.sectionNameDark]}>
-                      {name}
-                    </NameText>
-                  </View>
-                  {bestTime != null ? (
-                    <Text style={[styles.bestTime, isDark && styles.bestTimeDark]}>{bestTime}</Text>
-                  ) : null}
-                </View>
-              </Row>
+              <ToggleButton
+                key={key}
+                testID={`stale-pr-chip-${entry.sectionId}`}
+                label={entry.name}
+                count={entry.traversalCount}
+                accessibilityLabel={composeAccessibilityLabel(entry.name, entry.visited)}
+                selected={entry === selected}
+                onPress={() => setSelectedKey(key)}
+              />
             );
           })}
         </View>
       ) : null}
+
+      <SelectedSectionMap key={sectionRowKey(selected)} entry={selected} onOpen={open} />
+
+      <SheetContext body={selected.summary} meta={selected.effort} />
+
+      <StalePrChart entry={selected} insight={insight} onOpen={sheet ? open : undefined} />
+
+      <View>
+        <Row
+          behaviour="navigate"
+          testID="stale-pr-open-section"
+          accessibilityLabel={composeAccessibilityLabel(
+            t('insights.graphic.openTheSection'),
+            selected.name
+          )}
+          onPress={() => open(selected.sectionTarget)}
+        >
+          <View style={styles.link}>
+            <Text style={[styles.linkText, isDark && styles.linkTextDark]}>
+              {t('insights.graphic.openTheSection')}
+            </Text>
+            <NameText style={[styles.linkDetail, isDark && styles.linkDetailDark]}>
+              {selected.name}
+            </NameText>
+          </View>
+        </Row>
+        {selected.activityTarget ? (
+          <Row
+            behaviour="navigate"
+            testID="stale-pr-open-activity"
+            accessibilityLabel={t('insights.stalePr.openActivity')}
+            onPress={() => open(selected.activityTarget as string)}
+          >
+            <View style={styles.link}>
+              <Text style={[styles.linkText, isDark && styles.linkTextDark]}>
+                {t('insights.stalePr.openActivity')}
+              </Text>
+            </View>
+          </Row>
+        ) : null}
+      </View>
     </View>
   );
 });
@@ -173,34 +261,46 @@ const styles = StyleSheet.create({
   container: {
     gap: spacing.sm,
   },
-  sectionContent: {
+  chips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  map: {
+    borderRadius: layout.borderRadiusMd,
+    overflow: 'hidden',
+  },
+  chartStack: {
+    gap: spacing.sm,
+  },
+  caption: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  captionDark: {
+    color: darkColors.textSecondary,
+  },
+  link: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: spacing.sm,
   },
-  sectionNameRow: {
-    flex: 1,
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    marginRight: spacing.sm,
-  },
-  sportIcon: {
-    marginRight: spacing.xs,
-  },
-  sectionName: {
+  linkText: {
     ...typography.bodySmallBold,
     flex: 1,
     color: colors.textPrimary,
   },
-  sectionNameDark: {
-    color: darkColors.textPrimary,
+  linkDetail: {
+    ...typography.bodySmall,
+    flexShrink: 1,
+    color: colors.textSecondary,
   },
-  bestTime: {
-    ...typography.bodyCompactBold,
-    color: colors.textPrimary,
+  linkDetailDark: {
+    color: darkColors.textSecondary,
   },
-  bestTimeDark: {
+  linkTextDark: {
     color: darkColors.textPrimary,
   },
 });

@@ -22,6 +22,8 @@ import { InsightDetailSheet } from '@/features/insights/components/InsightDetail
 import { InsightDetailContent } from '@/features/insights/components/content/InsightDetailContent';
 import { SupportingDataSection } from '@/features/insights/components/SupportingDataSection';
 import { generateSectionTrendInsights } from '@/features/insights/generators/sectionTrend';
+import { generateStalePRInsights } from '@/features/insights/generators/stalePr';
+import type { StalePrOpportunity } from 'veloqrs';
 import type { Insight, InsightHistory, SectionTrendData } from '@/features/insights/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -69,6 +71,31 @@ function insight(
 
 const dated = (values: number[], stepDays = 1) =>
   values.map((value, i) => ({ value, date: START + i * stepDays * DAY }));
+
+/** A stale-record card on Weir Path whose record is the fourth of these efforts. */
+function staleRecord(efforts: { value: number; date: number }[]): Insight {
+  const row = {
+    sectionId: 'weir',
+    sectionName: 'Weir Path',
+    bestTimeSecs: 298,
+    traversalCount: efforts.length,
+    daysSinceLast: 40,
+    fitnessMetric: 'pace',
+    currentValue: 4.1,
+    previousValue: 3.9,
+    gainPercent: 5.1,
+    unit: '/km',
+    sportType: 'Run',
+    recentEfforts: efforts.map((p, i) => ({ ...p, activityId: `w${i + 1}` })),
+    bestActivityId: 'w4',
+    prDate: efforts[3].date,
+    fitnessHistory: [
+      { value: 3.9, date: efforts[0].date },
+      { value: 4.1, date: efforts[5].date },
+    ],
+  } as StalePrOpportunity;
+  return generateStalePRInsights([row], i18n.t.bind(i18n) as never, Date.UTC(2026, 9, 1))[0];
+}
 
 /** The bars inside the sheet's history chart, which draws its grid as one picture. */
 function bars() {
@@ -136,23 +163,14 @@ describe('the stale record sheet', () => {
   const efforts = dated([310, 305, 300, 298, 302, 306], 9);
 
   it('draws every effort the card drew, the fastest at the top', async () => {
-    await render(
-      <InsightDetailContent
-        insight={insight(
-          'stale_pr',
-          {
-            kind: 'timeline',
-            target: '/section/weir',
-            series: [{ label: 'Recent efforts', points: efforts }],
-          },
-          { sections: [{ sectionId: 'weir', sectionName: 'Weir Path', sportType: 'Run' }] }
-        )}
-      />
-    );
+    await render(<InsightDetailContent insight={staleRecord(efforts)} />);
     await layout();
 
-    expect(chartData().map((d) => d.value)).toEqual(efforts.map((p) => p.value));
-    const [bottom, top] = screen.UNSAFE_getByType(CurveChart).props.yDomain as [number, number];
+    const chart = within(screen.getByTestId('stale-pr-efforts-chart')).UNSAFE_getByType(CurveChart);
+    expect((chart.props.data as { value: number }[]).map((d) => d.value)).toEqual(
+      efforts.map((p) => p.value)
+    );
+    const [bottom, top] = chart.props.yDomain as [number, number];
     expect(top).toBeLessThan(bottom);
   });
 });
@@ -434,20 +452,11 @@ describe('which way a sheet chart reads', () => {
 
 describe('the screen a sheet chart opens for a screen reader', () => {
   const efforts = dated([310, 305, 300, 298, 302, 306], 9);
-  const stale = () =>
-    insight(
-      'stale_pr',
-      {
-        kind: 'timeline',
-        target: '/section/weir?activityId=w4',
-        series: [{ label: 'Recent efforts', points: efforts }],
-      },
-      { sections: [{ sectionId: 'weir', sectionName: 'Weir Path', sportType: 'Run' }] }
-    );
+  const stale = () => staleRecord(efforts);
 
-  /** The chart's own screen-reader element, which steps its samples. */
+  /** The efforts chart's own screen-reader element, which steps its samples. */
   function chartSurface() {
-    return within(screen.getByTestId('insight-history-chart')).UNSAFE_getByProps({
+    return within(screen.getByTestId('stale-pr-efforts-chart')).UNSAFE_getByProps({
       accessibilityRole: 'adjustable',
     });
   }

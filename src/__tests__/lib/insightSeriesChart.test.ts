@@ -152,4 +152,25 @@ describe('seriesChartModel', () => {
 
     expect(model?.data.map((d) => d.x)).toEqual([0, 1, 2]);
   });
+
+  it('spans a shared range so two charts stacked over one time axis line up', () => {
+    const range = { from: 1 * DAY, to: 100 * DAY };
+    const fitness = seriesChartModel(
+      [
+        { value: 230, date: 1 * DAY },
+        { value: 262, date: 90 * DAY },
+      ],
+      { formatDate, xRange: range }
+    );
+    const efforts = seriesChartModel(
+      [
+        { value: 300, date: 10 * DAY },
+        { value: 320, date: 40 * DAY },
+      ],
+      { formatDate, invert: true, xRange: range }
+    );
+
+    expect(efforts?.xDomain).toEqual(fitness?.xDomain);
+    expect(efforts?.xLabels.map((l) => l.label)).toEqual(['d1', 'd100']);
+  });
 });

@@ -225,10 +225,20 @@ tags:
     visible:
       id: "activity-regenerate-notification-delayed"
     timeout: 15000
-# The post is held back 20 seconds. A banner leaves the screen after a few, so
+# The post is held back 40 seconds. A banner leaves the screen after a few, so
 # a post made here would be gone by the time the section page is up.
+- evalScript: ${output.postedAt = Date.now()}
 - tapOn:
     id: "activity-regenerate-notification-delayed"
+# The first post asks for notification permission, and a simulator build has
+# not been answered it.
+- runFlow:
+    when:
+      visible: "Allow"
+    commands:
+      - tapOn:
+          text: "Allow"
+          optional: true
 # A ride that is no personal best gets no sentence, and the repost says so in a dialog.
 - runFlow:
     when:
@@ -255,6 +265,17 @@ tags:
     timeout: 3000
 - assertNotVisible:
     id: "routes-sync-banner"
+# The banner is on screen from about 40 to 48 seconds after the tap and
+# Maestro cannot see it, so the shot waits out the clock. An optional wait on a
+# text that is never there takes a second or so each time round.
+- repeat:
+    while:
+      true: ${Date.now() - output.postedAt < 42000}
+    commands:
+      - extendedWaitUntil:
+          visible: "never on screen"
+          timeout: 1000
+          optional: true
 - takeScreenshot: "screenshots/store-capture/04-section"
 - assertNotVisible: "Open debugger to view warnings"
 - runFlow:

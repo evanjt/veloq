@@ -178,11 +178,16 @@ export type SitePlatform = 'android' | 'ios' | 'ipad';
 export interface SiteShot {
   /** The light image, relative to docs/screenshots. */
   file: string;
-  /** The same shot on a dark stage, shown under prefers-color-scheme: dark. */
-  dark: string;
+  /** The same shot on a dark stage, shown under prefers-color-scheme: dark. Absent when no real dark set exists. */
+  dark?: string;
   caption: string;
   width: number;
   height: number;
+}
+
+/** Whether a dark set differs from its light set, so a theme switch would show something. */
+export function hasDistinctDark(light: Buffer[], dark: Buffer[]): boolean {
+  return dark.some((file, i) => !file.equals(light[i] ?? Buffer.alloc(0)));
 }
 
 /** The website's shots per platform, in the order the gallery shows them. */
@@ -204,7 +209,9 @@ export function syncSiteGallery(html: string, sets: SiteSets): string {
           [
             `\n${indent}      <li class="slide${i === 0 ? ' active' : ''}" data-caption="${escapeHtml(caption)}">`,
             `\n${indent}        <picture>`,
-            `\n${indent}          <source media="(prefers-color-scheme: dark)" srcset="screenshots/${dark}" />`,
+            dark
+              ? `\n${indent}          <source media="(prefers-color-scheme: dark)" srcset="screenshots/${dark}" />`
+              : '',
             `\n${indent}          <img src="screenshots/${file}" width="${width}" height="${height}" loading="lazy" alt="${escapeHtml(caption)}" />`,
             `\n${indent}        </picture>`,
             `\n${indent}      </li>`,

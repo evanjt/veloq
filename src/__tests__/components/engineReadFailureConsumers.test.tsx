@@ -102,8 +102,24 @@ function insight(category: 'section_pr' | 'section_trend' | 'stale_pr'): Insight
     isNew: false,
     supportingData: {
       sections: [{ sectionId: 's1', sectionName: 'Hill', bestTime: 300, trend: 0 }],
+      stalePrSections: [
+        {
+          sectionId: 's1',
+          sectionName: 'Hill',
+          name: 'Hill',
+          visited: '',
+          traversalCount: 2,
+          summary: '',
+          fitness: { label: 'eFTP', points: [] },
+          efforts: { label: 'efforts', points: [] },
+          prDate: 0,
+          range: { from: 0, to: 0 },
+          gapLabel: '',
+          sectionTarget: '/section/s1',
+        },
+      ],
     },
-  } as Insight;
+  } as unknown as Insight;
 }
 
 beforeEach(() => {

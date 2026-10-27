@@ -4289,6 +4289,10 @@ mod section_route_ids_work;
 mod routes_list_paging;
 
 #[cfg(test)]
+#[path = "tests/stale_pr_record_effort.rs"]
+mod stale_pr_record_effort;
+
+#[cfg(test)]
 #[path = "tests/route_row_preview.rs"]
 mod route_row_preview;
 

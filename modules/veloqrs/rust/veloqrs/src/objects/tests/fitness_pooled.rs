@@ -565,9 +565,9 @@ fn test_insights_stale_pr_is_excluded_only_in_the_sport_of_the_recent_record() {
                 .execute(
                     "INSERT INTO section_activities (section_id, activity_id, direction,
                                                      start_index, end_index, distance_meters,
-                                                     lap_time, lap_pace, excluded)
-                     VALUES ('cedar_hill', ?1, 'same', 0, 40, 800.0, ?2, ?3, 0)",
-                    rusqlite::params![id, lap, 800.0 / lap],
+                                                     lap_time, lap_pace, excluded, avg_power)
+                     VALUES ('cedar_hill', ?1, 'same', 0, 40, 800.0, ?2, ?3, 0, ?4)",
+                    rusqlite::params![id, lap, 800.0 / lap, (id == "old_2").then_some(180.0)],
                 )
                 .expect("traversal");
         }
@@ -645,5 +645,15 @@ fn test_insights_stale_pr_is_excluded_only_in_the_sport_of_the_recent_record() {
             vec![("cedar_hill", "VirtualRide")],
             "{path}"
         );
+        // The record's own day, its stored power and that power's share of
+        // the eFTP held that day, which the sheet states.
+        let offered = &bundle.stale_pr_opportunities[0];
+        assert_eq!(offered.pr_date, old as f64, "{path}");
+        assert_eq!(offered.previous_value, 200.0, "{path}");
+        assert_eq!(offered.pr_power, Some(180.0), "{path}");
+        assert_eq!(offered.pr_share_percent, Some(90.0), "{path}");
+        let line: Vec<f64> = offered.fitness_history.iter().map(|p| p.value).collect();
+        assert_eq!(line.first(), Some(&200.0), "{path}: from the first effort");
+        assert_eq!(line.last(), Some(&250.0), "{path}: to now");
     }
 }

@@ -32,6 +32,8 @@ const ROW: StalePrOpportunity = {
   unit: 'W',
   sportType: 'Ride',
   recentEfforts: [],
+  prDate: 1_700_000_000,
+  fitnessHistory: [],
 };
 
 describe('generateStalePRInsights', () => {

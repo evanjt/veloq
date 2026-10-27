@@ -131,9 +131,8 @@ describe('the stale PR card names eFTP and critical speed', () => {
     const [group] = generateStalePRInsights([opportunity('r', RUN), opportunity('s', RUN)], t, 0);
 
     expect(group.subtitle).toContain('Running critical speed');
-    // A group carries no data rows, so the sheet names the metric from the
-    // sport its sections share.
-    expect(await sheetText(group)).toContain('Current running critical speed vs PR period');
+    // The sheet states the selected section's own record day in the metric's name.
+    expect((await sheetText(group)).join(' ')).toContain('at Running critical speed');
   });
 
   it('draws the sheet in German, not in English', async () => {

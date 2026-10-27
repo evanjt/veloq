@@ -187,6 +187,12 @@ pub(crate) fn opportunities(
                 // which already carries them.
                 recent_efforts: section.recent_efforts,
                 best_activity_id: section.best_activity_id,
+                pr_date: best_date.unwrap_or_default(),
+                // Read for the few kept, by `with_record_detail`.
+                pr_power: None,
+                pr_speed: None,
+                pr_share_percent: None,
+                fitness_history: Vec::new(),
             });
         }
     }
@@ -194,6 +200,90 @@ pub(crate) fn opportunities(
     out.sort_by_key(|b| std::cmp::Reverse(b.traversal_count));
     out.truncate(request.max_opportunities as usize);
     out
+}
+
+/// The record effort as its traversal row stored it.
+pub(crate) struct RecordEffort {
+    /// Mean power over the traversal, absent with no power stream.
+    pub(crate) avg_power: Option<f64>,
+    /// Metres the traversal covered.
+    pub(crate) distance_meters: f64,
+}
+
+/// The record's own numbers and the fitness line, for the opportunities kept.
+///
+/// Separate from the selection so the reads run for the few shown rather than
+/// for every candidate. `record_effort` reads the record's traversal and
+/// `fitness_since` the fitness from a date to now, as
+/// [`crate::persistence::fitness::derivations::pooled::fitness_since`] does.
+pub(crate) fn with_record_detail(
+    mut offered: Vec<crate::FfiStalePrOpportunity>,
+    mut record_effort: impl FnMut(&crate::FfiStalePrOpportunity) -> Option<RecordEffort>,
+    mut fitness_since: impl FnMut(&str, f64) -> Vec<crate::FfiSeriesPoint>,
+) -> Vec<crate::FfiStalePrOpportunity> {
+    for o in &mut offered {
+        record_in_efforts(o);
+        let effort = if o.best_activity_id.is_some() {
+            record_effort(o)
+        } else {
+            None
+        };
+        let positive = |v: &f64| v.is_finite() && *v > 0.0;
+        if o.fitness_metric == "power" {
+            o.pr_power = effort.and_then(|e| e.avg_power).filter(positive);
+        } else {
+            o.pr_speed = effort
+                .map(|e| e.distance_meters / o.best_time_secs)
+                .filter(positive);
+        }
+        o.pr_share_percent = o
+            .pr_power
+            .or(o.pr_speed)
+            .filter(|_| positive(&o.previous_value))
+            .map(|v| (v / o.previous_value * 1000.0).round() / 10.0);
+
+        let since = o
+            .recent_efforts
+            .first()
+            .map_or(o.pr_date, |first| first.date.min(o.pr_date));
+        let mut line = fitness_since(&o.sport_type, since);
+        // The day the gain is measured from is always on the line, with the
+        // value the gain was measured from, so the sheet can mark it.
+        if !line.iter().any(|p| p.date == o.pr_date) {
+            let at = line.partition_point(|p| p.date < o.pr_date);
+            line.insert(
+                at,
+                crate::FfiSeriesPoint {
+                    value: o.previous_value,
+                    date: o.pr_date,
+                    activity_id: None,
+                },
+            );
+        }
+        o.fitness_history = line;
+    }
+    offered
+}
+
+/// Puts the record's own effort in front of the recent ones when the tail no
+/// longer reaches back to it, so the chart always holds the record it names.
+fn record_in_efforts(o: &mut crate::FfiStalePrOpportunity) {
+    let held = o.recent_efforts.iter().any(|p| match &o.best_activity_id {
+        Some(id) => p.activity_id.as_deref() == Some(id.as_str()),
+        None => p.date == o.pr_date && p.value == o.best_time_secs,
+    });
+    if held {
+        return;
+    }
+    let at = o.recent_efforts.partition_point(|p| p.date < o.pr_date);
+    o.recent_efforts.insert(
+        at,
+        crate::FfiSeriesPoint {
+            value: o.best_time_secs,
+            date: o.pr_date,
+            activity_id: o.best_activity_id.clone(),
+        },
+    );
 }
 
 #[cfg(test)]
@@ -592,6 +682,228 @@ mod tests {
             unrecorded.is_empty(),
             "no fitness by that day, no comparison"
         );
+    }
+
+    fn with_record(
+        id: &str,
+        date: &str,
+        activity: Option<&str>,
+    ) -> (crate::FfiRankedSection, Option<f64>) {
+        let (mut section, _) = ranked(id, 90, 6);
+        section.best_activity_id = activity.map(str::to_string);
+        (section, Some(day(date)))
+    }
+
+    fn effort(power: Option<f64>, distance_meters: f64) -> Option<RecordEffort> {
+        Some(RecordEffort {
+            avg_power: power,
+            distance_meters,
+        })
+    }
+
+    /// Scenario: two climbs whose records were set in March and in June, at an
+    /// eFTP of 230 and 245, with the athlete at 262 now. The group card used to
+    /// print the first one's 230 as if it held for both.
+    ///
+    /// Expected behaviour: each opportunity carries its own record date, the
+    /// fitness on that date, the record's power and its share of that fitness.
+    #[test]
+    fn each_section_carries_its_own_record_day_power_and_share() {
+        let ftp = ftp(Some(262), Some(250));
+        let pace = flat_pace();
+        let trends = StalePrTrends {
+            ftp: &ftp,
+            run_pace: &pace,
+            swim_pace: &pace,
+        };
+        let sports = vec!["Ride".to_string()];
+        let exclude = std::collections::HashSet::<(String, String)>::new();
+        let sections = vec![
+            with_record("march", "2026-03-01", Some("a-march")),
+            with_record("june", "2026-06-01", Some("a-june")),
+        ];
+
+        let offered = opportunities(
+            &trends,
+            &sports,
+            &request(&exclude),
+            |_| sections.clone(),
+            |_, at| {
+                if at == day("2026-03-01") {
+                    Some(230.0)
+                } else {
+                    Some(245.0)
+                }
+            },
+        );
+        let out = with_record_detail(
+            offered,
+            |o| match o.best_activity_id.as_deref() {
+                Some("a-march") => effort(Some(200.0), 2_000.0),
+                Some("a-june") => effort(Some(240.0), 2_000.0),
+                _ => None,
+            },
+            |_, _| Vec::new(),
+        );
+
+        let by_id = |id: &str| out.iter().find(|o| o.section_id == id).expect(id);
+        let march = by_id("march");
+        let june = by_id("june");
+        assert_eq!(march.previous_value, 230.0);
+        assert_eq!(june.previous_value, 245.0);
+        assert_eq!(march.pr_date, day("2026-03-01"));
+        assert_eq!(june.pr_date, day("2026-06-01"));
+        assert_eq!(march.pr_power, Some(200.0));
+        assert_eq!(june.pr_power, Some(240.0));
+        assert_eq!(march.pr_share_percent, Some(87.0), "200 W of 230 W");
+        assert_eq!(june.pr_share_percent, Some(98.0), "240 W of 245 W");
+        assert_eq!(march.pr_speed, None, "a ride carries power, not speed");
+    }
+
+    /// A record ridden with no power meter has no power to state, and the
+    /// section is still worth offering on the fitness gain alone.
+    #[test]
+    fn a_record_with_no_power_stream_carries_none_and_is_still_offered() {
+        let ftp = ftp(Some(262), Some(250));
+        let pace = flat_pace();
+        let trends = StalePrTrends {
+            ftp: &ftp,
+            run_pace: &pace,
+            swim_pace: &pace,
+        };
+        let sports = vec!["Ride".to_string()];
+        let exclude = std::collections::HashSet::<(String, String)>::new();
+        let offered = opportunities(
+            &trends,
+            &sports,
+            &request(&exclude),
+            |_| vec![with_record("col", "2026-03-01", Some("a1"))],
+            |_, _| Some(230.0),
+        );
+        let out = with_record_detail(offered, |_| effort(None, 2_000.0), |_, _| Vec::new());
+
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].pr_power, None);
+        assert_eq!(out[0].pr_share_percent, None);
+        assert_eq!(out[0].gain_percent, 13.9);
+
+        let unmatched = with_record_detail(out, |_| None, |_, _| Vec::new());
+        assert_eq!(unmatched.len(), 1, "no stored traversal, still offered");
+        assert_eq!(unmatched[0].pr_share_percent, None);
+    }
+
+    /// A run's record is a speed, and its share is of the critical speed held
+    /// on the record's day.
+    #[test]
+    fn a_run_record_carries_its_speed_as_a_share_of_critical_speed() {
+        let ftp = ftp(None, None);
+        let mut run = flat_pace();
+        run.latest_pace = Some(4.0);
+        let swim = flat_pace();
+        let trends = StalePrTrends {
+            ftp: &ftp,
+            run_pace: &run,
+            swim_pace: &swim,
+        };
+        let sports = vec!["Run".to_string()];
+        let exclude = std::collections::HashSet::<(String, String)>::new();
+        let offered = opportunities(
+            &trends,
+            &sports,
+            &request(&exclude),
+            |_| vec![with_record("park", "2026-03-01", Some("r1"))],
+            |_, _| Some(3.6),
+        );
+        // 1,080 m in the record's 300 s is 3.6 m/s, all of the critical speed.
+        let out = with_record_detail(offered, |_| effort(Some(150.0), 1_080.0), |_, _| Vec::new());
+
+        assert_eq!(out[0].pr_speed, Some(3.6));
+        assert_eq!(out[0].pr_power, None, "a run states its speed");
+        assert_eq!(out[0].pr_share_percent, Some(100.0));
+    }
+
+    /// Scenario: the record is two years old and the last twenty efforts are
+    /// all from this year, so the history the sheet drew left the record out.
+    ///
+    /// Expected behaviour: the record's effort leads the efforts, and the
+    /// fitness line is read from that day, with a point on it at the value
+    /// the gain was measured from.
+    #[test]
+    fn the_record_leads_the_efforts_and_the_fitness_line_marks_its_day() {
+        let ftp = ftp(Some(262), Some(250));
+        let pace = flat_pace();
+        let trends = StalePrTrends {
+            ftp: &ftp,
+            run_pace: &pace,
+            swim_pace: &pace,
+        };
+        let sports = vec!["Ride".to_string()];
+        let exclude = std::collections::HashSet::<(String, String)>::new();
+        let (mut section, date) = with_record("col", "2024-03-01", Some("old"));
+        section.recent_efforts = vec![
+            crate::FfiSeriesPoint {
+                value: 320.0,
+                date: day("2026-01-01"),
+                activity_id: Some("new1".into()),
+            },
+            crate::FfiSeriesPoint {
+                value: 310.0,
+                date: day("2026-02-01"),
+                activity_id: Some("new2".into()),
+            },
+        ];
+        let offered = opportunities(
+            &trends,
+            &sports,
+            &request(&exclude),
+            |_| vec![(section.clone(), date)],
+            |_, _| Some(230.0),
+        );
+        let mut asked_from = None;
+        let out = with_record_detail(
+            offered,
+            |_| effort(Some(210.0), 2_000.0),
+            |sport, since| {
+                assert_eq!(sport, "Ride");
+                asked_from = Some(since);
+                vec![
+                    crate::FfiSeriesPoint {
+                        value: 228.0,
+                        date: day("2024-01-01"),
+                        activity_id: None,
+                    },
+                    crate::FfiSeriesPoint {
+                        value: 262.0,
+                        date: day("2026-09-01"),
+                        activity_id: None,
+                    },
+                ]
+            },
+        );
+
+        let efforts = &out[0].recent_efforts;
+        assert_eq!(efforts.len(), 3);
+        assert_eq!(efforts[0].activity_id.as_deref(), Some("old"));
+        assert_eq!(efforts[0].value, 300.0);
+        assert_eq!(efforts[0].date, day("2024-03-01"));
+        assert_eq!(asked_from, Some(day("2024-03-01")));
+        let line: Vec<(f64, f64)> = out[0]
+            .fitness_history
+            .iter()
+            .map(|p| (p.value, p.date))
+            .collect();
+        assert_eq!(
+            line,
+            vec![
+                (228.0, day("2024-01-01")),
+                (230.0, day("2024-03-01")),
+                (262.0, day("2026-09-01")),
+            ]
+        );
+
+        // Already in the tail, the record is not added twice.
+        let again = with_record_detail(out, |_| None, |_, _| Vec::new());
+        assert_eq!(again[0].recent_efforts.len(), 3);
     }
 
     // Scenario: an e-bike ride moved the FTP chart and contributed nothing to

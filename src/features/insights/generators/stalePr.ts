@@ -1,6 +1,15 @@
-import type { DataPoint, Insight, SeriesPoint, SupportingSection, TFunc } from '../types';
+import type {
+  DataPoint,
+  HistorySeries,
+  Insight,
+  SeriesPoint,
+  StalePrSheetSection,
+  SupportingSection,
+  TFunc,
+} from '../types';
 import {
   formatDuration,
+  formatFullDate,
   formatPaceCompact,
   formatPower,
   formatSwimPace,
@@ -8,7 +17,13 @@ import {
   swimPaceUnitLabel,
 } from '@/shared/format/format';
 import type { StalePrOpportunity as EngineStalePrOpportunity } from 'veloqrs';
-import { confidenceFrom } from '../lib/config';
+import type { ActivityType } from '@/types';
+import {
+  isCyclingActivity,
+  isPaceSport,
+  isSwimmingActivity,
+} from '@/shared/activity/activityUtils';
+import { confidenceFrom, INSIGHTS_CONFIG, minAgeDaysFor } from '../lib/config';
 import { sectionWithSport } from '../lib/cardSport';
 import { markedActivity, sparkline } from '../lib/sparkline';
 import { sectionPairKey } from '../lib/sectionIdentity';
@@ -29,7 +44,8 @@ import { printedValue } from '../lib/printedValue';
  * 3. PR was set at a lower eFTP or critical speed, read on its own day
  * 4. Therefore, the PR might be beatable (observation, not prescription)
  *
- * Framed as curiosity: "Section X: PR set at Cycling eFTP 155W, now 168W"
+ * Framed as an invitation in the sport's own words: "Ridden 9 times. PR 6:12
+ * at Cycling eFTP 238 W, now 252 W". Never an expected or predicted time.
  */
 
 export interface StalePROpportunity {
@@ -49,9 +65,19 @@ export interface StalePROpportunity {
   traversalCount: number;
   /** The sport the section was ranked under, which the group card names. */
   sportType?: string;
-  /** The last efforts on the section, oldest first, for the insight's history. */
+  /** The efforts on the section, oldest first, the record among them. */
   recentEfforts?: SeriesPoint[];
   bestActivityId?: string;
+  /** When the record was set, epoch seconds. `previousValue` is the fitness that day. */
+  prDate?: number;
+  /** The record effort's mean power in watts, cycling only. */
+  prPower?: number;
+  /** The record effort's mean speed in m/s, running and swimming only. */
+  prSpeed?: number;
+  /** The record effort as a percent of that day's fitness. */
+  prSharePercent?: number;
+  /** The fitness from the first effort to now, with a point on the record's day. */
+  fitnessHistory?: SeriesPoint[];
 }
 
 // ---------------------------------------------------------------------------
@@ -74,12 +100,16 @@ function supportingSection(opportunity: StalePROpportunity): SupportingSection {
 
 function opportunityHistory(opportunity: StalePROpportunity, t: TFunc) {
   const activity = opportunity.bestActivityId;
-  const target = `/section/${opportunity.sectionId}${activity ? `?activityId=${encodeURIComponent(activity)}` : ''}`;
-  return sparkline(opportunity.recentEfforts, t('insights.data.recentEfforts'), target, {
-    kind: 'timeline',
-    mark: markedActivity(opportunity.recentEfforts, activity),
-    format: (seconds) => formatDuration(Math.round(seconds)),
-  });
+  return sparkline(
+    opportunity.recentEfforts,
+    t('insights.data.recentEfforts'),
+    sectionTarget(opportunity),
+    {
+      kind: 'timeline',
+      mark: markedActivity(opportunity.recentEfforts, activity),
+      format: (seconds) => formatDuration(Math.round(seconds)),
+    }
+  );
 }
 
 /**
@@ -117,6 +147,126 @@ function gainFormula(
   const current = formatDecimal(opportunity.currentValue, digits);
   const previous = formatDecimal(opportunity.previousValue, digits);
   return `${t('insights.stalePr.metricGain', { metric: metricLabel })} = (${current} - ${previous}) / ${previous} = ${gainText(opportunity.gainPercent)}`;
+}
+
+/** The fitness as the card prints it: watts, or a pace with its unit. */
+function fitnessText(opportunity: StalePROpportunity, value: number, isMetric: boolean): string {
+  if (opportunity.fitnessMetric === 'power') return formatPower(value);
+  const pace =
+    opportunity.unit === '/100m'
+      ? formatSwimPace(value, isMetric)
+      : formatPaceCompact(value, isMetric);
+  return `${pace}${displayUnit(opportunity, isMetric)}`;
+}
+
+/**
+ * How often the section was done, in the sport's own verb: "Ridden 9 times",
+ * "Swum once". A sport with no verb of its own is "done".
+ */
+function visitedText(opportunity: StalePROpportunity, t: TFunc): string {
+  const sport = opportunity.sportType as ActivityType | undefined;
+  const count = { count: opportunity.traversalCount };
+  if (sport == null) return t('insights.stalePr.visitedOther', count);
+  if (isCyclingActivity(sport)) return t('insights.stalePr.visitedRide', count);
+  if (sport === 'Walk') return t('insights.stalePr.visitedWalk', count);
+  if (sport === 'Hike') return t('insights.stalePr.visitedHike', count);
+  if (isSwimmingActivity(sport)) return t('insights.stalePr.visitedSwim', count);
+  if (isPaceSport(sport)) return t('insights.stalePr.visitedRun', count);
+  return t('insights.stalePr.visitedOther', count);
+}
+
+/** The record effort and its share of that day's fitness, or none when either is unknown. */
+function effortText(opportunity: StalePROpportunity, t: TFunc, isMetric: boolean) {
+  const share = opportunity.prSharePercent;
+  if (share == null || !Number.isFinite(share)) return undefined;
+  const percent = formatDecimal(share, 0);
+  if (opportunity.fitnessMetric === 'power') {
+    if (opportunity.prPower == null) return undefined;
+    return t('insights.stalePr.sheetEffortPower', {
+      power: formatPower(opportunity.prPower),
+      share: percent,
+    });
+  }
+  if (opportunity.prSpeed == null) return undefined;
+  return t(
+    opportunity.unit === '/100m'
+      ? 'insights.stalePr.sheetEffortSwim'
+      : 'insights.stalePr.sheetEffortRun',
+    { pace: fitnessText(opportunity, opportunity.prSpeed, isMetric), share: percent }
+  );
+}
+
+/** The section's screen, opened on the record's activity when the engine matched one. */
+function sectionTarget(opportunity: StalePROpportunity): string {
+  const activity = opportunity.bestActivityId;
+  return `/section/${opportunity.sectionId}${activity ? `?activityId=${encodeURIComponent(activity)}` : ''}`;
+}
+
+/**
+ * One section as the sheet draws it while selected: its own record day, its
+ * own fitness then and now, its record effort, and one time axis for the
+ * fitness line and the efforts, running to now so the gap since the last
+ * visit shows.
+ */
+function sheetSection(
+  opportunity: StalePROpportunity,
+  t: TFunc,
+  nowMs: number,
+  isMetric: boolean
+): StalePrSheetSection {
+  const metric = metricLabelFor(opportunity, t);
+  const efforts = opportunity.recentEfforts ?? [];
+  const fitness = opportunity.fitnessHistory ?? [];
+  const now = Math.floor(nowMs / 1000);
+  const prDate = opportunity.prDate ?? efforts[0]?.date ?? now;
+  const dates = [prDate, ...efforts.map((p) => p.date), ...fitness.map((p) => p.date)];
+  const lastVisit = efforts.at(-1)?.date;
+  const fitnessSeries: HistorySeries = {
+    label: metric,
+    points: fitness,
+    format: (value) => fitnessText(opportunity, value, isMetric),
+  };
+  const effortSeries: HistorySeries = {
+    label: t('insights.stalePr.sheetEfforts'),
+    points: efforts,
+    format: (seconds) => formatDuration(Math.round(seconds)),
+  };
+  return {
+    sectionId: opportunity.sectionId,
+    sportType: opportunity.sportType,
+    sectionName: opportunity.sectionName,
+    name: sectionWithSport(opportunity.sectionName, opportunity.sportType, t),
+    visited: visitedText(opportunity, t),
+    traversalCount: opportunity.traversalCount,
+    summary: t('insights.stalePr.sheetSummary', {
+      date: formatFullDate(new Date(prDate * 1000)),
+      metric,
+      previous: fitnessText(opportunity, opportunity.previousValue, isMetric),
+      current: fitnessText(opportunity, opportunity.currentValue, isMetric),
+      gain: gainText(opportunity.gainPercent),
+    }),
+    effort: effortText(opportunity, t, isMetric),
+    fitness: fitnessSeries,
+    efforts: effortSeries,
+    prDate,
+    range: { from: Math.min(...dates), to: Math.max(now, ...dates) },
+    gap: lastVisit != null && lastVisit < now ? { from: lastVisit, to: now } : undefined,
+    gapLabel: t('insights.stalePr.sheetGap', { count: opportunity.daysSinceLast }),
+    sectionTarget: sectionTarget(opportunity),
+    activityTarget: opportunity.bestActivityId
+      ? `/activity/${encodeURIComponent(opportunity.bestActivityId)}`
+      : undefined,
+  };
+}
+
+/** The rules the engine applied, with the thresholds it applied them at. */
+function methodologyText(t: TFunc): string {
+  return t('insights.stalePr.methodology', {
+    visits: INSIGHTS_CONFIG.repetition.stale_pr_min_lifetime,
+    days: minAgeDaysFor('stale_pr'),
+    gain: INSIGHTS_CONFIG.thresholds.staleMinGainPercent,
+    max: INSIGHTS_CONFIG.thresholds.staleMaxOpportunities,
+  });
 }
 
 /**
@@ -170,11 +320,11 @@ export function stalePROpportunityToInsight(
       section: sectionWithSport(opportunity.sectionName, opportunity.sportType, t),
     }),
     subtitle: t('insights.stalePr.subtitle', {
+      visited: visitedText(opportunity, t),
       prTime,
       metric: metricLabel,
       previous: displayedPrevious,
       current: displayedCurrent,
-      gainPercent: opportunity.gainPercent,
     }),
     line: t(
       isPower
@@ -192,6 +342,7 @@ export function stalePROpportunityToInsight(
     iconTone: 'opportunity',
     body: t('insights.stalePr.body', {
       section: sectionWithSport(opportunity.sectionName, opportunity.sportType, t),
+      visited: visitedText(opportunity, t),
       metric: metricLabel,
       previous: displayedPrevious,
       current: displayedCurrent,
@@ -213,6 +364,7 @@ export function stalePROpportunityToInsight(
     supportingData: {
       ...opportunityHistory(opportunity, t),
       sections: [supportingSection(opportunity)],
+      stalePrSections: [sheetSection(opportunity, t, timestamp, isMetric)],
       hero: current,
       change: gain,
       dataPoints: [
@@ -230,11 +382,11 @@ export function stalePROpportunityToInsight(
       ],
       // The gain in the unit the engine compared, watts or metres a second.
       formula: gainFormula(metricLabel, opportunity, isPower ? 0 : 2, t),
-      algorithmDescription: t('insights.stalePr.methodology'),
+      algorithmDescription: methodologyText(t),
     },
     methodology: {
       name: t('insights.methodology.stalePrCrossRefName', { metric: metricLabel }),
-      description: t('insights.stalePr.methodology'),
+      description: methodologyText(t),
     },
   };
 }
@@ -273,29 +425,27 @@ export function generateStalePRInsights(
   if (filtered.length === 1)
     return [stalePROpportunityToInsight(firstOpportunity, t, now, isMetric)];
 
-  const powerOpps = filtered.filter((o) => o.fitnessMetric === 'power');
-  const runPaceOpps = filtered.filter((o) => o.fitnessMetric === 'pace' && o.unit === '/km');
-  const swimPaceOpps = filtered.filter((o) => o.fitnessMetric === 'pace' && o.unit === '/100m');
-  // One move per metric, named the way the single card names it.
+  // The group names each metric's value now, once. The value on a record's
+  // day is that section's own, so no one section's speaks for the group.
   const subtitleParts: string[] = [];
-  if (powerOpps.length > 0) {
-    const p = powerOpps[0];
+  const named = new Set<string>();
+  for (const o of filtered) {
+    const metric = metricLabelFor(o, t);
+    if (named.has(metric)) continue;
+    named.add(metric);
     subtitleParts.push(
-      `${metricLabelFor(p, t)}: ${formatPower(p.previousValue)} → ${formatPower(p.currentValue)}`
+      t('insights.stalePr.groupSubtitle', {
+        metric,
+        current: fitnessText(o, o.currentValue, isMetric),
+      })
     );
   }
-  if (runPaceOpps.length > 0) {
-    const p = runPaceOpps[0];
-    subtitleParts.push(
-      `${metricLabelFor(p, t)}: ${formatPaceCompact(p.previousValue, isMetric)}${displayUnit(p, isMetric)} → ${formatPaceCompact(p.currentValue, isMetric)}${displayUnit(p, isMetric)}`
-    );
-  }
-  if (swimPaceOpps.length > 0) {
-    const p = swimPaceOpps[0];
-    subtitleParts.push(
-      `${metricLabelFor(p, t)}: ${formatSwimPace(p.previousValue, isMetric)}${displayUnit(p, isMetric)} → ${formatSwimPace(p.currentValue, isMetric)}${displayUnit(p, isMetric)}`
-    );
-  }
+  const formula = filtered
+    .map(
+      (o) =>
+        `${sectionWithSport(o.sectionName, o.sportType, t)}: ${gainFormula(metricLabelFor(o, t), o, o.fitnessMetric === 'power' ? 0 : 2, t)}`
+    )
+    .join('\n');
 
   return [
     {
@@ -332,12 +482,13 @@ export function generateStalePRInsights(
       supportingData: {
         ...opportunityHistory(firstOpportunity, t),
         sections: filtered.map(supportingSection),
-        formula: subtitleParts.join('; '),
-        algorithmDescription: t('insights.stalePr.methodology'),
+        stalePrSections: filtered.map((o) => sheetSection(o, t, now, isMetric)),
+        formula,
+        algorithmDescription: methodologyText(t),
       },
       methodology: {
         name: t('insights.methodology.fitnessPrName'),
-        description: t('insights.stalePr.methodology'),
+        description: methodologyText(t),
       },
     },
   ];

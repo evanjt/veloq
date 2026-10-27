@@ -83,11 +83,37 @@ describe('section rows in the insight sheets', () => {
     expect(navigateTo).toHaveBeenCalledWith('/section/dock');
   });
 
-  it('draws the stale record sections as shared rows that open the section', async () => {
-    const tree = await render(<StalePRContent insight={insight(SECTIONS, 'stale_pr')} />);
-    expectSectionRows(tree, ['Quarry Hill', 'Dockside']);
-    await fireEvent.press(tree.getByRole('button', { name: 'Quarry Hill' }));
-    expect(navigateTo).toHaveBeenCalledWith('/section/hill');
+  it("draws the stale record's links as shared rows that open the section and the record", async () => {
+    const entry = (sectionId: string, name: string, record?: string) => ({
+      sectionId,
+      sectionName: name,
+      name,
+      summary: '',
+      fitness: { label: 'eFTP', points: [] },
+      efforts: { label: 'efforts', points: [] },
+      prDate: 0,
+      range: { from: 0, to: 0 },
+      gapLabel: '',
+      sectionTarget: `/section/${sectionId}${record ? `?activityId=${record}` : ''}`,
+      activityTarget: record ? `/activity/${record}` : undefined,
+    });
+    const stale = {
+      category: 'stale_pr',
+      supportingData: {
+        sections: SECTIONS,
+        stalePrSections: [entry('hill', 'Quarry Hill', 'a1'), entry('dock', 'Dockside')],
+      },
+    } as unknown as Insight;
+    const tree = await render(<StalePRContent insight={stale} />);
+
+    expect(chevronIds(tree)).toEqual(['row-chevron', 'row-chevron']);
+    for (const id of ['stale-pr-open-section', 'stale-pr-open-activity']) {
+      const row = tree.getByTestId(id);
+      expect(rootStyle(row).minHeight).toBe(layout.minTapTarget);
+      expect(rootStyle(row).borderWidth).toBeUndefined();
+    }
+    await fireEvent.press(tree.getByTestId('stale-pr-open-section'));
+    expect(navigateTo).toHaveBeenCalledWith('/section/hill?activityId=a1');
   });
 
   it('leaves the efficiency section to the sheet data link rather than a row of its own', async () => {

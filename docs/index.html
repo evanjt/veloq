@@ -317,17 +317,6 @@
         margin: 0 auto 32px;
       }
 
-      .hero-about {
-        font-size: 0.95rem;
-        color: var(--text-muted);
-        max-width: 600px;
-        margin: -16px auto 24px;
-      }
-
-      .hero-about a {
-        color: var(--primary);
-      }
-
       .cta-buttons {
         display: flex;
         gap: 16px;
@@ -827,9 +816,6 @@
           <p class="animate-fade-up delay-1" data-i18n="hero.subtitle">
             <!-- store-copy:hook -->Your fitness, form and repeated routes, read from your intervals.icu account and analysed on your phone.<!-- /store-copy:hook -->
           </p>
-          <p class="hero-about animate-fade-up delay-1" data-i18n="hero.about">
-            Veloq is an open-source app for iPhone and Android that shows your intervals.icu data. The code is on <a href="https://github.com/evanjt/veloq" target="_blank">GitHub</a>.
-          </p>
           <div class="store-badges animate-fade-up delay-2" id="download">
             <a
               href="https://apps.apple.com/us/app/veloq/id6757836732"
@@ -878,37 +864,31 @@
               <ol class="shots">
                 <li class="slide active" data-caption="Your activity history">
                   <picture>
-                    <source media="(prefers-color-scheme: dark)" srcset="screenshots/android/dark/01-feed.png" />
                     <img src="screenshots/android/01-feed.png" width="712" height="1584" loading="lazy" alt="Your activity history" />
                   </picture>
                 </li>
                 <li class="slide" data-caption="Map and charts on one timeline">
                   <picture>
-                    <source media="(prefers-color-scheme: dark)" srcset="screenshots/android/dark/02-activity.png" />
                     <img src="screenshots/android/02-activity.png" width="712" height="1584" loading="lazy" alt="Map and charts on one timeline" />
                   </picture>
                 </li>
                 <li class="slide" data-caption="Fitness, fatigue and form">
                   <picture>
-                    <source media="(prefers-color-scheme: dark)" srcset="screenshots/android/dark/03-fitness.png" />
                     <img src="screenshots/android/03-fitness.png" width="712" height="1584" loading="lazy" alt="Fitness, fatigue and form" />
                   </picture>
                 </li>
                 <li class="slide" data-caption="Where you've been riding">
                   <picture>
-                    <source media="(prefers-color-scheme: dark)" srcset="screenshots/android/dark/04-map.png" />
                     <img src="screenshots/android/04-map.png" width="712" height="1584" loading="lazy" alt="Where you've been riding" />
                   </picture>
                 </li>
                 <li class="slide" data-caption="Routes you ride again">
                   <picture>
-                    <source media="(prefers-color-scheme: dark)" srcset="screenshots/android/dark/05-routes.png" />
                     <img src="screenshots/android/05-routes.png" width="712" height="1584" loading="lazy" alt="Routes you ride again" />
                   </picture>
                 </li>
                 <li class="slide" data-caption="A daily read on your training">
                   <picture>
-                    <source media="(prefers-color-scheme: dark)" srcset="screenshots/android/dark/06-insights.png" />
                     <img src="screenshots/android/06-insights.png" width="712" height="1584" loading="lazy" alt="A daily read on your training" />
                   </picture>
                 </li>
@@ -1175,8 +1155,8 @@
         });
         document.addEventListener("visibilitychange", play);
         reduced.addEventListener("change", play);
-        switcher.hidden = false;
-        themer.hidden = false;
+        switcher.hidden = keys.length < 2;
+        themer.hidden = !document.querySelector(".slide source");
         applyTheme();
         show(current, false);
       }
@@ -1189,7 +1169,6 @@
           "hero.title": "Your training,<br><span>visualised</span>",
           "hero.subtitle":
             "Your fitness, form and repeated routes, read from your intervals.icu account and analysed on your phone.",
-          "hero.about": "Veloq is an open-source app for iPhone and Android that shows your intervals.icu data. The code is on <a href=\"https://github.com/evanjt/veloq\" target=\"_blank\">GitHub</a>.",
           "showcase.disclaimer":
             "* Screenshots show demo data for illustration purposes only.",
           "cta.openSource": "Open source: sideload via <a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>",
@@ -1238,7 +1217,6 @@
             "Dein Training,<br><span>visualisiert</span>",
           "hero.subtitle":
             "Fitness, Form und wiederkehrende Routen, aus deinem intervals.icu Konto gelesen und auf dem Handy analysiert.",
-          "hero.about": "Veloq ist eine Open-Source-App für iPhone und Android, die deine intervals.icu Daten zeigt. Den Code gibt es auf <a href=\"https://github.com/evanjt/veloq\" target=\"_blank\">GitHub</a>.",
           "showcase.disclaimer":
             "* Screenshots zeigen Demodaten nur zur Veranschaulichung.",
           "cta.openSource": "Open Source: Sideload via <a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>",
@@ -1286,7 +1264,6 @@
           "hero.title": "Je training,<br><span>gevisualiseerd</span>",
           "hero.subtitle":
             "Je fitness, vorm en herhaalde routes, gelezen uit je intervals.icu account en geanalyseerd op je telefoon.",
-          "hero.about": "Veloq is een open-source app voor iPhone en Android die je intervals.icu data toont. De code staat op <a href=\"https://github.com/evanjt/veloq\" target=\"_blank\">GitHub</a>.",
           "showcase.disclaimer":
             "* Screenshots tonen demogegevens, alleen ter illustratie.",
           "cta.openSource": "Open source: sideload via <a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>",
@@ -1334,7 +1311,6 @@
           "hero.title": "Votre entraînement,<br><span>visualisé</span>",
           "hero.subtitle":
             "Votre forme, votre fitness et vos routes répétées, lus depuis votre compte intervals.icu et analysés sur votre téléphone.",
-          "hero.about": "Veloq est une application open source pour iPhone et Android qui affiche vos données intervals.icu. Le code est sur <a href=\"https://github.com/evanjt/veloq\" target=\"_blank\">GitHub</a>.",
           "showcase.disclaimer":
             "* Les captures d'écran montrent des données de démonstration à titre indicatif uniquement.",
           "cta.openSource": "Open source: sideload via <a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>",
@@ -1382,7 +1358,6 @@
           "hero.title": "Il tuo allenamento,<br><span>visualizzato</span>",
           "hero.subtitle":
             "Fitness, forma e percorsi ripetuti, letti dal tuo account intervals.icu e analizzati sul telefono.",
-          "hero.about": "Veloq è un'app open source per iPhone e Android che mostra i tuoi dati intervals.icu. Il codice è su <a href=\"https://github.com/evanjt/veloq\" target=\"_blank\">GitHub</a>.",
           "showcase.disclaimer":
             "* Gli screenshot mostrano dati demo solo a scopo illustrativo.",
           "cta.openSource": "Open source: sideload via <a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>",
@@ -1430,7 +1405,6 @@
           "hero.title": "Tu entrenamiento,<br><span>visualizado</span>",
           "hero.subtitle":
             "Tu fitness, tu forma y tus rutas repetidas, leídos de tu cuenta de intervals.icu y analizados en tu teléfono.",
-          "hero.about": "Veloq es una app de código abierto para iPhone y Android que muestra tus datos de intervals.icu. El código está en <a href=\"https://github.com/evanjt/veloq\" target=\"_blank\">GitHub</a>.",
           "showcase.disclaimer":
             "* Las capturas muestran datos de demostración solo con fines ilustrativos.",
           "cta.openSource": "Código abierto: sideload via <a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>",
@@ -1479,7 +1453,6 @@
             "Seu treino,<br><span>visualizado</span>",
           "hero.subtitle":
             "Seu fitness, sua forma e suas rotas repetidas, lidos da sua conta intervals.icu e analisados no seu celular.",
-          "hero.about": "O Veloq é um app de código aberto para iPhone e Android que mostra seus dados do intervals.icu. O código está no <a href=\"https://github.com/evanjt/veloq\" target=\"_blank\">GitHub</a>.",
           "showcase.disclaimer":
             "* As capturas mostram dados de demonstração apenas para fins ilustrativos.",
           "cta.openSource": "Código aberto: sideload via <a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>",
@@ -1528,7 +1501,6 @@
             "Twój trening,<br><span>zwizualizowany</span>",
           "hero.subtitle":
             "Twoja forma, kondycja i powtarzane trasy, odczytane z konta intervals.icu i analizowane na telefonie.",
-          "hero.about": "Veloq to aplikacja open source na iPhone'a i Androida, która pokazuje Twoje dane z intervals.icu. Kod jest na <a href=\"https://github.com/evanjt/veloq\" target=\"_blank\">GitHub</a>.",
           "showcase.disclaimer":
             "* Zrzuty ekranu pokazują dane demo wyłącznie w celach ilustracyjnych.",
           "cta.openSource": "Open source: sideload via <a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>",
@@ -1576,7 +1548,6 @@
           "hero.title": "Din træning,<br><span>visualiseret</span>",
           "hero.subtitle":
             "Din fitness, form og gentagne ruter, læst fra din intervals.icu konto og analyseret på din telefon.",
-          "hero.about": "Veloq er en open source-app til iPhone og Android, der viser dine intervals.icu data. Koden ligger på <a href=\"https://github.com/evanjt/veloq\" target=\"_blank\">GitHub</a>.",
           "showcase.disclaimer":
             "* Screenshots viser demodata kun til illustrationsformål.",
           "cta.openSource": "Open source: sideload via <a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>",
@@ -1624,7 +1595,6 @@
           "hero.title": "あなたのトレーニングを<br><span>可視化</span>",
           "hero.subtitle":
             "フィットネス、フォーム、繰り返しのルートを intervals.icu アカウントから読み込み、スマホ上で分析します。",
-          "hero.about": "Veloqは、intervals.icuのデータを表示するiPhone・Android向けのオープンソースアプリです。コードは<a href=\"https://github.com/evanjt/veloq\" target=\"_blank\">GitHub</a>にあります。",
           "showcase.disclaimer":
             "* スクリーンショットはデモデータを表示しています。",
           "cta.openSource": "オープンソース：<a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>からサイドロード",
@@ -1672,7 +1642,6 @@
           "hero.title": "您的训练，<br><span>可视化</span>",
           "hero.subtitle":
             "从您的 intervals.icu 账户读取体能、状态和重复路线，在手机上完成分析。",
-          "hero.about": "Veloq 是一款适用于 iPhone 和 Android 的开源应用，显示您的 intervals.icu 数据。代码在 <a href=\"https://github.com/evanjt/veloq\" target=\"_blank\">GitHub</a> 上。",
           "showcase.disclaimer": "* 截图仅显示演示数据，用于说明目的。",
           "cta.openSource": "开源：通过<a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>侧载",
 

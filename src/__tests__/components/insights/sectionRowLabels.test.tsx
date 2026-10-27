@@ -10,10 +10,13 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
 
-import { changeLanguage, initialiseI18n } from '@/i18n';
+import { changeLanguage, i18n, initialiseI18n } from '@/i18n';
 import { SupportingDataSection } from '@/features/insights/components/SupportingDataSection';
 import { StalePRContent } from '@/features/insights/components/content/StalePRContent';
-import type { Insight, InsightSupportingData } from '@/types';
+import type { InsightSupportingData } from '@/types';
+import type { TFunc } from '@/features/insights/types';
+import type { StalePrOpportunity } from 'veloqrs';
+import { generateStalePRInsights } from '@/features/insights/generators/stalePr';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
@@ -60,29 +63,38 @@ describe('the supporting data section rows', () => {
 });
 
 describe('the stale PR sheet rows', () => {
-  it('reads the section with its sport and the best time it draws', () => {
-    const insight = {
-      id: 'stale_pr-weir',
-      category: 'stale_pr',
-      priority: 1,
-      title: 'Room to go faster',
-      icon: 'lightning-bolt',
-      iconTone: 'info',
-      timestamp: 0,
-      isNew: false,
-      supportingData: {
-        sections: [
-          { sectionId: 'weir', sectionName: 'Weir Path', sportType: 'Ride', bestTime: 372 },
-          { sectionId: 'kiln', sectionName: 'Kiln Rise', sportType: 'Ride' },
-        ],
-      },
-    } as Insight;
+  it('reads each chip with its sport and visits, and each link with what it opens', () => {
+    const row = (sectionId: string, sectionName: string, traversalCount: number) =>
+      ({
+        sectionId,
+        sectionName,
+        bestTimeSecs: 372,
+        traversalCount,
+        daysSinceLast: 40,
+        fitnessMetric: 'power',
+        currentValue: 252,
+        previousValue: 238,
+        gainPercent: 5.9,
+        unit: 'W',
+        sportType: 'Ride',
+        recentEfforts: [],
+        bestActivityId: `${sectionId}-pr`,
+        prDate: 1_700_000_000,
+        fitnessHistory: [],
+      }) as StalePrOpportunity;
+    const [insight] = generateStalePRInsights(
+      [row('weir', 'Weir Path', 9), row('kiln', 'Kiln Rise', 4)],
+      i18n.t.bind(i18n) as unknown as TFunc,
+      Date.UTC(2026, 9, 1)
+    );
 
     render(<StalePRContent insight={insight} />);
 
-    expect(screen.getAllByRole('button').map((row) => row.props.accessibilityLabel)).toEqual([
-      'Weir Path (Ride), 6:12',
-      'Kiln Rise (Ride)',
+    expect(screen.getAllByRole('button').map((b) => b.props.accessibilityLabel)).toEqual([
+      'Weir Path (Ride), Ridden 9 times',
+      'Kiln Rise (Ride), Ridden 4 times',
+      'Open the section, Weir Path (Ride)',
+      'Open the PR activity',
     ]);
   });
 });

@@ -1130,6 +1130,117 @@ pub(crate) mod pooled {
         None
     }
 
+    /// The most points [`fitness_since`] carries. A record can be years old
+    /// and eFTP is a value a day, so the line is thinned to what a chart a
+    /// phone wide can draw.
+    pub(crate) const FITNESS_SINCE_POINTS: usize = 90;
+
+    /// The athlete's fitness in `sport` from the day of `since`, epoch
+    /// seconds, to the newest value, oldest first.
+    ///
+    /// The first point is the value held on `since`, placed at `since`, so the
+    /// line starts where the caller's own history does. With nothing recorded
+    /// by then, the line starts at the first value recorded after. The
+    /// stale-PR sheet draws it above the section's efforts.
+    pub fn fitness_since(conn: &Connection, sport: &str, since: f64) -> Vec<crate::FfiSeriesPoint> {
+        if !since.is_finite() {
+            return Vec::new();
+        }
+        let first = fitness_on(conn, sport, since);
+        let seconds = since as i64;
+        let later: Vec<(f64, f64)> = if crate::sport::is_cycling(sport) {
+            let Some(day) = chrono::DateTime::from_timestamp(seconds, 0) else {
+                return Vec::new();
+            };
+            let day = day.date_naive().format("%Y-%m-%d").to_string();
+            cycling_eftp_after(conn, &day)
+        } else {
+            pace_after(conn, sport, seconds)
+        };
+        let mut points: Vec<(f64, f64)> = first
+            .map(|value| (value, since))
+            .into_iter()
+            .chain(later)
+            .collect();
+
+        if points.len() > FITNESS_SINCE_POINTS {
+            let stride = points.len().div_ceil(FITNESS_SINCE_POINTS);
+            let last = points[points.len() - 1];
+            points = points.into_iter().step_by(stride).collect();
+            // The newest value is the one the card compares, so it is never
+            // the one a stride drops.
+            if points.last() != Some(&last) {
+                points.push(last);
+            }
+        }
+        points
+            .into_iter()
+            .map(|(value, date)| crate::FfiSeriesPoint {
+                value,
+                date,
+                activity_id: None,
+            })
+            .collect()
+    }
+
+    /// Each day's cycling eFTP after `day`, as (watts, epoch seconds), oldest
+    /// first. SQLite reads the estimate out of the body, so no body is parsed
+    /// here.
+    fn cycling_eftp_after(conn: &Connection, day: &str) -> Vec<(f64, f64)> {
+        let query = format!(
+            "SELECT w.date, json_extract(j.value, '$.eftp') FROM wellness w,
+                    json_each(w.raw, '$.sportInfo') j
+             WHERE w.raw IS NOT NULL AND w.date > ?
+               AND json_extract(j.value, '$.type') IN ({})
+               AND json_extract(j.value, '$.eftp') > 0
+             ORDER BY w.date ASC, j.key ASC",
+            crate::sport::sql_list(crate::sport::CYCLING)
+        );
+        let Ok(mut stmt) = conn.prepare(&query) else {
+            return Vec::new();
+        };
+        let Ok(rows) = stmt.query_map(params![day], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, f64>(1)?))
+        }) else {
+            return Vec::new();
+        };
+        let mut out: Vec<(f64, f64)> = Vec::new();
+        let mut last_day: Option<String> = None;
+        for (date, eftp) in rows.flatten() {
+            // The first cycling entry of a day, the one `cycling_eftp` reads.
+            if last_day.as_deref() == Some(date.as_str()) || !eftp.is_finite() {
+                continue;
+            }
+            out.push((eftp.round(), epoch_seconds(&date) as f64));
+            last_day = Some(date);
+        }
+        out
+    }
+
+    /// The sync window's critical-speed snapshots after `at`, as (m/s, epoch
+    /// seconds), oldest first.
+    fn pace_after(conn: &Connection, sport_type: &str, at: i64) -> Vec<(f64, f64)> {
+        let query = format!(
+            "SELECT critical_speed, date FROM pace_history
+             WHERE sport_type IN ({}) AND date > ? AND window_days = {}
+             ORDER BY date ASC",
+            crate::sport::sql_list(&crate::sport::family_of(sport_type)),
+            SYNC_PACE_WINDOW_DAYS
+        );
+        let Ok(mut stmt) = conn.prepare(&query) else {
+            return Vec::new();
+        };
+        let Ok(rows) = stmt.query_map(params![at], |row| {
+            Ok((row.get::<_, f64>(0)?, row.get::<_, i64>(1)?))
+        }) else {
+            return Vec::new();
+        };
+        rows.flatten()
+            .filter(|(speed, _)| speed.is_finite() && *speed > 0.0)
+            .map(|(speed, date)| (speed, date as f64))
+            .collect()
+    }
+
     pub fn ftp_trend_to(conn: &Connection, today: &str) -> crate::FfiFtpTrend {
         ftp_trend_over(conn, today, FTP_LOOKBACK_DAYS)
     }
@@ -1631,6 +1742,11 @@ impl PersistentEngine {
     /// The athlete's fitness in `sport` on the day of `at`, epoch seconds.
     pub fn fitness_on(&self, sport: &str, at: f64) -> Option<f64> {
         pooled::fitness_on(&self.db, sport, at)
+    }
+
+    /// The athlete's fitness in `sport` from `since`, epoch seconds, to now.
+    pub fn fitness_since(&self, sport: &str, since: f64) -> Vec<crate::FfiSeriesPoint> {
+        pooled::fitness_since(&self.db, sport, since)
     }
 
     /// Record one critical-speed snapshot, under the window it was read over.
@@ -3775,6 +3891,99 @@ mod tests {
             None,
             "nothing recorded by then"
         );
+    }
+
+    /// Scenario: the stale-PR sheet draws the athlete's eFTP from the day a
+    /// record was set to now, above the section's efforts.
+    ///
+    /// Expected behaviour: the line starts at the record's day with the value
+    /// held then and steps at each later estimate. A day before the first body
+    /// starts at that body, and a sport with nothing recorded has no line.
+    #[test]
+    fn fitness_since_starts_at_the_value_held_on_the_day() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        let day = |date: &str, eftp: f64| {
+            let mut row = wellness_day(date, None);
+            row.raw = Some(
+                serde_json::json!({
+                    "id": date,
+                    "sportInfo": [{"type": "Ride", "eftp": eftp}, {"type": "Run"}],
+                })
+                .to_string(),
+            );
+            row
+        };
+        engine
+            .upsert_wellness(&[
+                day("2026-03-01", 230.0),
+                day("2026-05-01", 240.0),
+                day("2026-08-01", 250.4),
+            ])
+            .unwrap();
+        let at = |iso: &str| {
+            chrono::NaiveDate::parse_from_str(iso, "%Y-%m-%d")
+                .expect("date")
+                .and_hms_opt(12, 0, 0)
+                .expect("midday")
+                .and_utc()
+                .timestamp() as f64
+        };
+        let midnight = |iso: &str| at(iso) - 12.0 * 3600.0;
+
+        let line: Vec<(f64, f64)> = engine
+            .fitness_since("Ride", at("2026-03-10"))
+            .into_iter()
+            .map(|p| (p.value, p.date))
+            .collect();
+        assert_eq!(
+            line,
+            vec![
+                (230.0, at("2026-03-10")),
+                (240.0, midnight("2026-05-01")),
+                (250.0, midnight("2026-08-01")),
+            ]
+        );
+        let unrecorded: Vec<f64> = engine
+            .fitness_since("Ride", at("2026-02-01"))
+            .into_iter()
+            .map(|p| p.value)
+            .collect();
+        assert_eq!(
+            unrecorded,
+            vec![230.0, 240.0, 250.0],
+            "nothing by then, so the line starts at the first value after"
+        );
+        assert!(engine.fitness_since("Ride", at("2026-09-01")).len() == 1);
+        assert!(engine.fitness_since("Run", at("2026-02-01")).is_empty());
+        assert!(engine.fitness_since("Ride", f64::NAN).is_empty());
+    }
+
+    /// A long history is thinned to what a chart draws, and the newest value,
+    /// the one the card compares, is always kept.
+    #[test]
+    fn fitness_since_thins_a_long_history_and_keeps_the_newest() {
+        let engine = PersistentEngine::in_memory().unwrap();
+        for i in 0..400_i64 {
+            engine.save_pace_snapshot(
+                "Run",
+                3.0 + i as f64 / 1000.0,
+                None,
+                None,
+                1_700_000_000 + i * 86_400,
+                SYNC_PACE_WINDOW_DAYS,
+            );
+        }
+
+        let line = engine.fitness_since("Run", 1_700_000_000.0);
+        assert!(
+            line.len() <= super::pooled::FITNESS_SINCE_POINTS + 1,
+            "{}",
+            line.len()
+        );
+        assert_eq!(line[0].value, 3.0);
+        let newest = line.last().expect("a newest point");
+        assert_eq!(newest.date, (1_700_000_000 + 399 * 86_400) as f64);
+        assert!((newest.value - 3.399).abs() < 1e-9);
     }
 
     /// The running and swimming side reads the critical-speed snapshot, on or

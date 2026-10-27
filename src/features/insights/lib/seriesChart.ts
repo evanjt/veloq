@@ -42,6 +42,11 @@ interface SeriesChartOptions {
    * caller's arrays, such as a week's second total. The axis fits them too.
    */
   others?: readonly (readonly SeriesSample[])[];
+  /**
+   * The dates the axis spans at least, epoch seconds, so two charts stacked
+   * over one time axis line up. Ignored for an undated series.
+   */
+  xRange?: { from: number; to: number } | undefined;
 }
 
 /** Share of the span added above and below the data, and either side of the dates. */
@@ -67,7 +72,7 @@ function decimalsFor(span: number, magnitude: number): number {
  */
 export function seriesChartModel(
   samples: readonly SeriesSample[],
-  { formatDate, invert = false, fromZero = false, others = [] }: SeriesChartOptions
+  { formatDate, invert = false, fromZero = false, others = [], xRange }: SeriesChartOptions
 ): SeriesChartModel | null {
   const usable = samples
     .map((sample, index) => ({ sample, index }))
@@ -105,8 +110,9 @@ export function seriesChartModel(
   const yDomain: Domain = invert ? [max + pad, min - pad] : [bottom, top];
 
   const xs = data.map((d) => d.x);
-  const first = Math.min(...xs);
-  const last = Math.max(...xs);
+  const spanned = dated && xRange ? [xRange.from, xRange.to] : [];
+  const first = Math.min(...xs, ...spanned);
+  const last = Math.max(...xs, ...spanned);
   const xSpan = last - first;
   const xDomain: Domain = [first - xSpan * X_PAD, last + xSpan * X_PAD];
 

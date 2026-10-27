@@ -609,6 +609,8 @@ describe('generateInsights', () => {
             unit: 'W',
             sportType: 'Ride',
             recentEfforts: [],
+            prDate: 1_700_000_000,
+            fitnessHistory: [],
           },
           {
             sectionId: 'swim-1',
@@ -623,14 +625,23 @@ describe('generateInsights', () => {
             unit: '/100m',
             sportType: 'Swim',
             recentEfforts: [],
+            prDate: 1_700_000_000,
+            fitnessHistory: [],
           },
         ]),
         mockT
       );
 
       const stale = result.find((insight) => insight.id === 'stale_pr-group');
-      expect(stale!.subtitle).toContain('insights.stalePr.metricCyclingEftp: 250 W → 270 W');
-      expect(stale!.subtitle).toContain('insights.stalePr.metricSwimCss: 1:40/100m → 1:31/100m');
+      expect(stale!.subtitle).toContain(
+        'insights.stalePr.groupSubtitle {metric: insights.stalePr.metricCyclingEftp, current: 270 W}'
+      );
+      expect(stale!.subtitle).toContain(
+        'insights.stalePr.groupSubtitle {metric: insights.stalePr.metricSwimCss, current: 1:31/100m}'
+      );
+      // Each section's value on its own record day stays off the group.
+      expect(stale!.subtitle).not.toContain('250 W');
+      expect(stale!.subtitle).not.toContain('1:40');
     });
 
     /**
@@ -653,6 +664,8 @@ describe('generateInsights', () => {
             unit: 'W',
             sportType: 'Ride',
             recentEfforts: [],
+            prDate: 1_700_000_000,
+            fitnessHistory: [],
           },
         ]),
         mockT

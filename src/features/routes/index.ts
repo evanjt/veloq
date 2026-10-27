@@ -26,6 +26,7 @@ export {
   DetailMapHost,
   RouteDetailMap,
   SectionDetailMap,
+  SectionMapView,
   routeDetailScreenStyles,
   RoutePerformanceSection,
   RoutesList,

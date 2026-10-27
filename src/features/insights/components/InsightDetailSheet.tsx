@@ -48,7 +48,11 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
 
   // Only content that links each of its rows to its own screen may hide the
   // button. A section PR sheet has no such link, so it keeps View in detail.
-  const contentHandlesNav = insight.category === 'section_trend' || insight.category === 'route';
+  // The stale-PR sheet opens whichever section is selected, and the record.
+  const contentHandlesNav =
+    insight.category === 'section_trend' ||
+    insight.category === 'route' ||
+    insight.category === 'stale_pr';
   const hasNavTarget = detailTarget != null && !contentHandlesNav;
 
   return (

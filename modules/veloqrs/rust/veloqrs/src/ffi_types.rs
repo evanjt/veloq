@@ -4728,12 +4728,30 @@ pub struct FfiStalePrOpportunity {
     /// The sport the section was ranked under. A section travelled in two
     /// sports is ranked in each, and the card names which one it is offering.
     pub sport_type: String,
-    /// The last efforts on the section, oldest first. The card's claim is that
-    /// a fitness gain makes the section worth revisiting, and the efforts are
-    /// what that claim is drawn against.
+    /// The last efforts on the section, oldest first, with the record's own
+    /// effort in front when it is older than all of them. The card's claim is
+    /// that a fitness gain makes the section worth revisiting, and the efforts
+    /// are what that claim is drawn against.
     pub recent_efforts: Vec<FfiSeriesPoint>,
     /// The activity the record being offered for a retry was set in.
     pub best_activity_id: Option<String>,
+    /// When the record was set, epoch seconds. `previous_value` is the
+    /// fitness on this day.
+    pub pr_date: f64,
+    /// The record effort's mean power in watts, for a cycling section whose
+    /// record carried a power stream. Absent otherwise, never a zero.
+    pub pr_power: Option<f64>,
+    /// The record effort's mean speed in m/s, for a running or swimming
+    /// section. Absent for cycling.
+    pub pr_speed: Option<f64>,
+    /// The record effort as a percent of the fitness held that day: power
+    /// over eFTP for cycling, speed over critical speed for running and
+    /// swimming. Absent when the effort is.
+    pub pr_share_percent: Option<f64>,
+    /// The fitness `previous_value` and `current_value` are read from, oldest
+    /// first, from the first of `recent_efforts` to the newest value, with a
+    /// point at `pr_date` carrying `previous_value`.
+    pub fitness_history: Vec<FfiSeriesPoint>,
 }
 
 // ============================================================================

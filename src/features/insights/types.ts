@@ -170,7 +170,46 @@ export type InsightHistory =
       bars: HistoryChange[];
     };
 
+/**
+ * One section a stale-PR card offers, as its sheet draws it while that
+ * section is the one selected. Every figure is the section's own.
+ */
+export interface StalePrSheetSection {
+  sectionId: string;
+  sportType?: string | undefined;
+  /** The section's own name, as the screen-reader action names it. */
+  sectionName: string;
+  /** The section's name with its sport, for the selector and the chart title. */
+  name: string;
+  /** How often the section was done, in the sport's own verb. */
+  visited: string;
+  /** How many times, which the selector draws beside the name. */
+  traversalCount: number;
+  /** When and at what fitness the record was set, and the fitness now. */
+  summary: string;
+  /** The record effort's power or pace and its share of that day's fitness. Absent when unknown. */
+  effort?: string | undefined;
+  /** The fitness from the first effort drawn to now, with a point on the record's day. */
+  fitness: HistorySeries;
+  /** The section's efforts, the record among them. */
+  efforts: HistorySeries;
+  /** The record's day, epoch seconds. */
+  prDate: number;
+  /** The chart's time axis, epoch seconds, shared by both series. */
+  range: { from: number; to: number };
+  /** From the last visit to now, which the chart shades. Absent with no visit drawn. */
+  gap?: { from: number; to: number } | undefined;
+  /** Says what the shaded gap is. */
+  gapLabel: string;
+  /** The section's screen, opened on the record's activity. */
+  sectionTarget: string;
+  /** The record's activity, absent when the engine did not match one. */
+  activityTarget?: string | undefined;
+}
+
 export interface InsightSupportingData {
+  /** The sections a stale-PR card offers, most visited first. */
+  stalePrSections?: StalePrSheetSection[] | undefined;
   /**
    * The one figure the sheet leads with, the value the card's claim rests on.
    * Absent where the payload carries no single figure for the card.

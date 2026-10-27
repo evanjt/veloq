@@ -21,6 +21,7 @@ import {
   type SitePlatform,
   type SiteSets,
   syncSiteHook,
+  hasDistinctDark,
 } from '../../../scripts/site-copy';
 import { CAPTURED_STEMS, shotsFor } from '../../../scripts/store-shots';
 import { WEB_PLATFORMS, webSets } from '../../../scripts/store-screenshots';
@@ -340,6 +341,16 @@ describe('syncSiteGallery', () => {
     );
   });
 
+  it('names no dark image for a shot without a distinct dark set', () => {
+    const light = SETS.android.map(({ dark: _dark, ...rest }) => rest);
+    const [android] = galleryLists(
+      syncSiteGallery(GALLERY_PAGE, { ...SETS, android: light, ios: [] })
+    );
+    expect(android?.sources).toBe(0);
+    expect(android?.dark).toEqual([]);
+    expect(android?.light).toHaveLength(2);
+  });
+
   it('is unchanged by a second run', () => {
     const once = syncSiteGallery(GALLERY_PAGE, SETS);
     expect(syncSiteGallery(once, SETS)).toBe(once);
@@ -347,6 +358,23 @@ describe('syncSiteGallery', () => {
 
   it('refuses a page without the markers', () => {
     expect(() => syncSiteGallery('<ol></ol>', SETS)).toThrow(/store-copy:gallery/);
+  });
+});
+
+describe('hasDistinctDark', () => {
+  const a = Buffer.from('light-a');
+  const b = Buffer.from('light-b');
+
+  it('is false when every dark file equals its light file', () => {
+    expect(hasDistinctDark([a, b], [Buffer.from('light-a'), Buffer.from('light-b')])).toBe(false);
+  });
+
+  it('is true when any dark file differs from its light file', () => {
+    expect(hasDistinctDark([a, b], [Buffer.from('light-a'), Buffer.from('dark-b')])).toBe(true);
+  });
+
+  it('is false for an empty set', () => {
+    expect(hasDistinctDark([], [])).toBe(false);
   });
 });
 
@@ -425,14 +453,31 @@ describe('the website gallery', () => {
   const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
   const exists = (rel: string) => fs.existsSync(path.join(root, 'docs', 'screenshots', rel));
 
-  it('names a light and a dark image for every shot, and each exists', () => {
+  it('has no hero.about entry in any language', () => {
+    expect(html).not.toContain('hero.about');
+    expect(html).not.toContain('hero-about');
+  });
+
+  it('names a dark image for every shot only when a dark set is offered, and each exists', () => {
     const lists = galleryLists(html);
     expect(lists.length).toBeGreaterThan(0);
     for (const list of lists) {
+      if (list.dark.length === 0) continue;
       expect(list.dark.length).toBe(list.light.length);
       for (const rel of [...list.light, ...list.dark]) {
         expect(`${rel}: ${exists(rel ?? '')}`).toBe(`${rel}: true`);
       }
+    }
+  });
+
+  it('offers no dark image that is byte-identical to its light file', () => {
+    for (const list of galleryLists(html)) {
+      const same = list.dark.filter((rel, i) =>
+        fs
+          .readFileSync(path.join(root, 'docs', 'screenshots', rel ?? ''))
+          .equals(fs.readFileSync(path.join(root, 'docs', 'screenshots', list.light[i] ?? '')))
+      );
+      expect(same).toEqual([]);
     }
   });
 

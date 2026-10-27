@@ -34,6 +34,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 
 import {
+  hasDistinctDark,
   syncReadmeStrip,
   syncSiteCopy,
   syncSiteGallery,
@@ -1009,7 +1010,7 @@ function buildWeb(): void {
     fs.mkdirSync(path.join(dir, platform, 'dark'), { recursive: true });
     raws.forEach((raw, i) => {
       const shot = sets[platform][i];
-      if (!shot) return;
+      if (!shot?.dark) return;
       const size = `${shot.width}x${shot.height}`;
       execFileSync(MAGICK, [raw, '-resize', size, '-strip', path.join(dir, shot.file)]);
       execFileSync(MAGICK, [darkRaws[i], '-resize', size, '-strip', path.join(dir, shot.dark)]);
@@ -1017,6 +1018,19 @@ function buildWeb(): void {
       if (written) Object.assign(shot, { width: written.width, height: written.height });
       console.log(`  docs/screenshots/${shot.file}`);
     });
+    const written = sets[platform].flatMap((shot) =>
+      shot.dark
+        ? [{ light: fs.readFileSync(path.join(dir, shot.file)), dark: path.join(dir, shot.dark) }]
+        : []
+    );
+    const distinct = hasDistinctDark(
+      written.map((w) => w.light),
+      written.map((w) => fs.readFileSync(w.dark))
+    );
+    if (distinct) continue;
+    for (const w of written) fs.rmSync(w.dark);
+    fs.rmSync(path.join(dir, platform, 'dark'), { recursive: true, force: true });
+    for (const shot of sets[platform]) delete shot.dark;
   }
   const htmlPath = path.join(ROOT, 'docs', 'index.html');
   fs.writeFileSync(htmlPath, syncSiteGallery(fs.readFileSync(htmlPath, 'utf8'), sets));

@@ -58,6 +58,8 @@ interface InsightSeriesChartProps {
   area?: boolean;
   /** What the chart offers a screen reader beside stepping its samples. */
   actions?: readonly AccessibleAction[];
+  /** The dates the axis spans at least, so charts stacked over one time axis line up. */
+  xRange?: { from: number; to: number } | undefined;
 }
 
 const formatDate = (epochSeconds: number) => formatShortDate(new Date(epochSeconds * 1000));
@@ -84,6 +86,7 @@ export const InsightSeriesChart = React.memo(function InsightSeriesChart({
   band,
   area = true,
   actions,
+  xRange,
 }: InsightSeriesChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -91,8 +94,15 @@ export const InsightSeriesChart = React.memo(function InsightSeriesChart({
 
   const otherSamples = useMemo(() => others.map((other) => other.samples), [others]);
   const model = useMemo(
-    () => seriesChartModel(samples, { formatDate, invert, fromZero: bars, others: otherSamples }),
-    [samples, invert, bars, otherSamples]
+    () =>
+      seriesChartModel(samples, {
+        formatDate,
+        invert,
+        fromZero: bars,
+        others: otherSamples,
+        xRange,
+      }),
+    [samples, invert, bars, otherSamples, xRange]
   );
   const further = useMemo<FurtherSeries<SeriesDatum>[]>(
     () => others.map((other, i) => ({ y: (d: SeriesDatum) => d.others[i], color: other.color })),

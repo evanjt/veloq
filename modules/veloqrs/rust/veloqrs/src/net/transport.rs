@@ -59,18 +59,13 @@ impl LaneTimeouts {
     /// The ceiling for the attempt about to be dispatched. A budgeted lane
     /// never gets more than the budget has left, so the retries add up to the
     /// budget rather than multiplying the per-attempt ceiling.
-    fn attempt(&self, lane: Lane, started: Instant) -> Duration {
-        self.attempt_at(lane, started, Instant::now())
-    }
-
-    /// [`Self::attempt`] as it stands at `now`, so the remainder is a function
-    /// of its inputs rather than of when it was asked.
-    fn attempt_at(&self, lane: Lane, started: Instant, now: Instant) -> Duration {
+    /// `spent` is how long the request has run, as the transport's clock
+    /// reads it, so the remainder is a function of its inputs rather than of
+    /// when it was asked.
+    fn attempt(&self, lane: Lane, spent: Duration) -> Duration {
         match self.budget(lane) {
             None => self.backfill,
-            Some(budget) => self
-                .interactive
-                .min(budget.saturating_sub(now.saturating_duration_since(started))),
+            Some(budget) => self.interactive.min(budget.saturating_sub(spent)),
         }
     }
 
@@ -199,6 +194,18 @@ pub struct Transport {
     auth_header: String,
     governor: Arc<Governor>,
     timeouts: LaneTimeouts,
+    /// Time since an arbitrary fixed point. The request budget is measured
+    /// against it, so a test can drive the budget without waiting it out.
+    clock: Clock,
+}
+
+/// A monotonic reading as the time elapsed since some fixed point.
+type Clock = Arc<dyn Fn() -> Duration + Send + Sync>;
+
+fn process_clock() -> Clock {
+    static EPOCH: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
+    let epoch = *EPOCH.get_or_init(Instant::now);
+    Arc::new(move || epoch.elapsed())
 }
 
 /// One client for the whole process, so a spawned job reuses the connection the
@@ -275,6 +282,7 @@ impl Transport {
             auth_header: governor::format_auth_header(auth),
             governor,
             timeouts: LaneTimeouts::default(),
+            clock: process_clock(),
         })
     }
 
@@ -317,7 +325,18 @@ impl Transport {
             auth_header: governor::format_auth_header(auth),
             governor,
             timeouts,
+            clock: process_clock(),
         })
+    }
+
+    /// Measure the request budget against `clock` instead of real time.
+    #[cfg(test)]
+    pub(crate) fn with_clock(
+        mut self,
+        clock: impl Fn() -> Duration + Send + Sync + 'static,
+    ) -> Self {
+        self.clock = Arc::new(clock);
+        self
     }
 
     /// The governor this transport draws on.
@@ -387,7 +406,7 @@ impl Transport {
         let lane = dispatch.lane;
         let url = self.url(path);
         let mut attempt = 0u32;
-        let started = Instant::now();
+        let started = (self.clock)();
         // What the last attempt failed with, returned as it stands when the
         // governor's wait for the next slot leaves no budget to send it in, or
         // too little for the retry to finish.
@@ -398,7 +417,7 @@ impl Transport {
                 Admission::Deferred { until } => return Err(NetError::Deferred { until }),
                 admission => admission == Admission::Probe,
             };
-            let timeout = self.timeouts.attempt(lane, started);
+            let timeout = self.timeouts.attempt(lane, self.spent(started));
             if timeout.is_zero() {
                 return Err(last.unwrap_or_else(budget_spent));
             }
@@ -539,7 +558,7 @@ impl Transport {
         let lane = dispatch.lane;
         let url = self.url(path);
         let mut attempt = 0u32;
-        let started = Instant::now();
+        let started = (self.clock)();
         loop {
             // Same single choke point as the reads: writes share the budget
             // and the pace.
@@ -547,7 +566,7 @@ impl Transport {
                 Admission::Deferred { until } => return Err(NetError::Deferred { until }),
                 admission => admission == Admission::Probe,
             };
-            let timeout = self.timeouts.attempt(lane, started);
+            let timeout = self.timeouts.attempt(lane, self.spent(started));
             if timeout.is_zero() {
                 // Only a 429 is ever retried here, so a retry that finds the
                 // budget spent reports the 429 it was retrying.
@@ -610,13 +629,13 @@ impl Transport {
         let lane = dispatch.lane;
         let url = self.url(path);
         let mut attempt = 0u32;
-        let started = Instant::now();
+        let started = (self.clock)();
         loop {
             let probe = match self.governor.acquire(dispatch).await {
                 Admission::Deferred { until } => return Err(NetError::Deferred { until }),
                 admission => admission == Admission::Probe,
             };
-            if attempt > 0 && self.timeouts.attempt(lane, started).is_zero() {
+            if attempt > 0 && self.timeouts.attempt(lane, self.spent(started)).is_zero() {
                 return Err(NetError::RateLimited);
             }
             // Rebuilt every attempt: a streamed body cannot be replayed.
@@ -652,11 +671,16 @@ impl Transport {
     /// time to dispatch again. A server that fails fast keeps every retry; a
     /// socket that hangs spends the budget on the first attempt and gets none.
     /// Backfill has no budget and always retries.
-    fn retry_fits(&self, lane: Lane, started: Instant, wait: Duration) -> bool {
+    fn retry_fits(&self, lane: Lane, started: Duration, wait: Duration) -> bool {
         match self.timeouts.budget(lane) {
             None => true,
-            Some(budget) => started.elapsed() + wait < budget,
+            Some(budget) => self.spent(started) + wait < budget,
         }
+    }
+
+    /// How long the request that began at `started` has run.
+    fn spent(&self, started: Duration) -> Duration {
+        (self.clock)().saturating_sub(started)
     }
 
     /// Hand a success to the governor, and resume at once whatever waited on
@@ -1771,33 +1795,39 @@ mod tests {
         assert_eq!(mock.calls(), 1);
     }
 
-    /// A budget of 1500 ms on a governor that paces one dispatch a second, so
-    /// a retry whose backoff fits is claimed with about 500 ms left to run in.
-    /// The margins are wide on both sides, so a loaded machine that stretches
-    /// the first answer or the pause still lands in the same case.
+    /// A transport whose request budget is read off a clock that moves a
+    /// fixed step on every reading, so the budget a retry is left is decided by
+    /// how many times the loop looked and never by how long the machine took.
+    /// The budget is 10 s and the step 3.3 s: the retry's backoff fits, and the
+    /// readings leave it 100 ms to run in.
     fn nearly_spent_transport(base: String) -> Transport {
         let gov = Arc::new(Governor::new(1, Box::new(NoopPolicy)));
         let timeouts = LaneTimeouts {
             connect: Duration::from_millis(200),
-            interactive: Duration::from_millis(1500),
-            backfill: Duration::from_millis(1500),
-            interactive_budget: Duration::from_millis(1500),
+            interactive: Duration::from_secs(10),
+            backfill: Duration::from_secs(10),
+            interactive_budget: Duration::from_secs(10),
         };
-        Transport::with_timeouts(base, AuthMethod::ApiKey("k"), gov, timeouts).unwrap()
+        let readings = std::sync::atomic::AtomicU64::new(0);
+        Transport::with_timeouts(base, AuthMethod::ApiKey("k"), gov, timeouts)
+            .unwrap()
+            .with_clock(move || {
+                let n = readings.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                Duration::from_millis(3300 * n)
+            })
     }
 
     #[test]
     fn a_retry_left_a_sliver_of_budget_keeps_the_503() {
-        // The 503 lands at 600 ms and its 400 ms backoff fits, but the
-        // governor's next slot is at 1000 ms. The retry goes out with 500 ms,
-        // times out before the 600 ms answer, and must not trade the 503 for
-        // that timeout.
+        // The first answer fits the budget with its backoff, but the clock
+        // leaves the retry 100 ms. It times out before the one-second answer
+        // and must not trade the 503 for that timeout.
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
             when.method(GET).path("/y");
             then.status(503)
                 .body("maintenance")
-                .delay(Duration::from_millis(600));
+                .delay(Duration::from_secs(1));
         });
         let t = nearly_spent_transport(server.base_url());
         let res = crate::runtime::block_on(t.get_bytes("/y", &[], Lane::Interactive));
@@ -1819,7 +1849,7 @@ mod tests {
             when.method(POST).path("/athlete/i1/activities");
             then.status(429)
                 .header("retry-after", "0")
-                .delay(Duration::from_millis(600));
+                .delay(Duration::from_secs(1));
         });
         let t = nearly_spent_transport(server.base_url());
         let res = crate::runtime::block_on(t.post_json(
@@ -1843,7 +1873,15 @@ mod tests {
                 .body("{}")
                 .delay(Duration::from_millis(2500));
         });
-        let t = nearly_spent_transport(server.base_url());
+        let gov = Arc::new(Governor::new(1, Box::new(NoopPolicy)));
+        let timeouts = LaneTimeouts {
+            connect: Duration::from_millis(200),
+            interactive: Duration::from_millis(300),
+            backfill: Duration::from_millis(300),
+            interactive_budget: Duration::from_millis(300),
+        };
+        let t = Transport::with_timeouts(server.base_url(), AuthMethod::ApiKey("k"), gov, timeouts)
+            .unwrap();
         let res = crate::runtime::block_on(t.post_json(
             "/athlete/i1/activities",
             &json!({}),
@@ -1927,22 +1965,18 @@ mod tests {
     #[test]
     fn an_attempt_never_gets_more_than_the_budget_has_left() {
         let t = LaneTimeouts::default();
-        let now = Instant::now();
-        assert_eq!(t.attempt_at(Lane::Interactive, now, now), t.interactive);
+        let budget = t.interactive_budget;
+        assert_eq!(t.attempt(Lane::Interactive, Duration::ZERO), t.interactive);
         // Backfill is unbudgeted, so it keeps the long ceiling however long the
         // request has already run.
-        let overrun = now - (t.interactive_budget + Duration::from_secs(1));
-        assert_eq!(t.attempt_at(Lane::Backfill, overrun, now), t.backfill);
-        let spent = now - (t.interactive_budget - Duration::from_secs(1));
+        let overrun = budget + Duration::from_secs(1);
+        assert_eq!(t.attempt(Lane::Backfill, overrun), t.backfill);
         assert_eq!(
-            t.attempt_at(Lane::Interactive, spent, now),
+            t.attempt(Lane::Interactive, budget - Duration::from_secs(1)),
             Duration::from_secs(1),
             "an attempt gets the second the budget has left"
         );
-        assert_eq!(
-            t.attempt_at(Lane::Interactive, overrun, now),
-            Duration::ZERO
-        );
+        assert_eq!(t.attempt(Lane::Interactive, overrun), Duration::ZERO);
     }
 
     #[test]

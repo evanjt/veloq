@@ -1751,6 +1751,37 @@ pub(crate) mod pooled {
         .ok()
     }
 
+    /// The record traversal's stored mean power and distance: the traversal in
+    /// `activity_id` at the record's time, as [`best_activity`] matched it.
+    /// `None` when no stored traversal matches.
+    pub(crate) fn record_effort(
+        conn: &Connection,
+        section_id: &str,
+        activity_id: &str,
+        lap_time: f64,
+    ) -> Option<crate::persistence::fitness::stale_pr::RecordEffort> {
+        conn.query_row(
+            &format!(
+                "SELECT sa.avg_power, sa.distance_meters
+                 FROM sections s
+                 JOIN section_activities sa ON s.id = sa.section_id
+                 WHERE s.id = ?1 AND sa.activity_id = ?2 AND sa.excluded = 0
+                   AND sa.lap_time = ?3{}
+                 ORDER BY sa.start_index
+                 LIMIT 1",
+                complete_traversal_clause("sa", "s")
+            ),
+            rusqlite::params![section_id, activity_id, lap_time],
+            |row| {
+                Ok(crate::persistence::fitness::stale_pr::RecordEffort {
+                    avg_power: row.get(0)?,
+                    distance_meters: row.get(1)?,
+                })
+            },
+        )
+        .ok()
+    }
+
     /// One sport's inputs scored, cut to `limit`, with the laps read for the
     /// sections that stay. With a cutoff, only the sections whose newest
     /// traversal is at least that old are scored, so the engagement term is
