@@ -484,6 +484,41 @@ fn a_return_after_a_failed_sync_starts_it_again() {
     assert_eq!(*runs.lock().unwrap(), vec![full()]);
 }
 
+/// Scenario: a window failed on the network while the phone never read as
+/// offline, so no online edge is coming. The athlete returns to the app.
+///
+/// Expected behaviour: the return starts the failed window as well as the
+/// default sync, and a later online edge does not start either a second time.
+#[test]
+fn a_return_starts_the_window_that_failed_while_online() {
+    let _serial = crate::test_globals::serial_global_state();
+    let (svc, runs) = recording_runs();
+    svc.claim_slot_for(window(OLDEST, NEWEST))
+        .expect("the slot is free");
+    svc.finish(SyncState::Idle, failure(FfiSyncErrorReason::Network), false);
+
+    svc.foregrounded();
+    assert_eq!(*runs.lock().unwrap(), vec![window(OLDEST, NEWEST), full()]);
+
+    svc.reconnected();
+    assert_eq!(runs.lock().unwrap().len(), 2, "the edge repeated a run");
+}
+
+/// A default sync that failed is owed to the connection too, and the return
+/// that starts it must not leave a second copy for the next edge.
+#[test]
+fn a_return_after_a_failed_default_sync_leaves_nothing_for_the_edge() {
+    let _serial = crate::test_globals::serial_global_state();
+    let (svc, runs) = recording_runs();
+    svc.claim_slot().expect("the slot is free");
+    svc.finish(SyncState::Idle, failure(FfiSyncErrorReason::Network), false);
+
+    svc.foregrounded();
+    svc.reconnected();
+
+    assert_eq!(*runs.lock().unwrap(), vec![full()]);
+}
+
 #[test]
 fn a_return_while_the_credential_is_parked_starts_nothing() {
     let _serial = crate::test_globals::serial_global_state();
@@ -539,4 +574,61 @@ fn the_pushed_foreground_return_starts_a_sync() {
     eventually("the return never reached the server", || any.calls() > 0);
     settle();
     crate::net::connectivity::reset();
+}
+
+/// Scenario: a run fails on the network while the phone never reads as
+/// offline, so no online edge and no return to the foreground follows.
+///
+/// Expected behaviour: the first such failure is chased by one retry after a
+/// short wait, announced as a pending retry so the banner holds back. The
+/// retry starts the run again without an edge. A second failure in a row is
+/// not chased: it leaves no retry pending and the banner shows.
+#[test]
+fn a_first_transient_failure_is_retried_once_without_an_edge() {
+    let _serial = crate::test_globals::serial_global_state();
+    for reason in [FfiSyncErrorReason::Network, FfiSyncErrorReason::Server] {
+        let (svc, runs) = recording_runs();
+        svc.claim_slot().expect("the slot is free");
+        svc.finish(SyncState::Idle, failure(reason), false);
+        let first = svc.snapshot();
+        assert!(first.retry_at_ms.is_some(), "{reason:?}: no retry pending");
+        assert!(
+            runs.lock().unwrap().is_empty(),
+            "the retry waits its backoff"
+        );
+
+        svc.retry_transient_failure();
+        assert_eq!(*runs.lock().unwrap(), vec![full()], "{reason:?}");
+
+        svc.claim_slot().expect("the slot is free");
+        svc.finish(SyncState::Idle, failure(reason), false);
+        assert_eq!(
+            svc.snapshot().retry_at_ms,
+            None,
+            "{reason:?}: a repeated failure was chased again"
+        );
+
+        svc.claim_slot().expect("the slot is free");
+        svc.finish(SyncState::Idle, None, true);
+        svc.claim_slot().expect("the slot is free");
+        svc.finish(SyncState::Idle, failure(reason), false);
+        assert!(
+            svc.snapshot().retry_at_ms.is_some(),
+            "{reason:?}: a success did not rearm the retry"
+        );
+    }
+}
+
+#[test]
+fn a_failure_no_short_wait_cures_leaves_no_retry_pending() {
+    let _serial = crate::test_globals::serial_global_state();
+    for reason in [
+        FfiSyncErrorReason::StorageFull,
+        FfiSyncErrorReason::Unauthorized,
+    ] {
+        let (svc, _runs) = recording_runs();
+        svc.claim_slot().expect("the slot is free");
+        svc.finish(SyncState::Idle, failure(reason), false);
+        assert_eq!(svc.snapshot().retry_at_ms, None, "{reason:?}");
+    }
 }

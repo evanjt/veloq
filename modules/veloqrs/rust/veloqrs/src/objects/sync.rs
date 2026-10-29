@@ -439,6 +439,9 @@ struct SyncInner {
     /// onto `owed` on the online edge and not before, so a run that keeps
     /// failing costs one attempt per edge rather than a loop.
     owed_to_reconnect: Vec<OwedRun>,
+    /// Whether a short-wait retry was already scheduled since the last clean
+    /// run, so a failure that repeats it is shown rather than chased again.
+    transient_retried: bool,
 }
 
 impl SyncInner {
@@ -492,6 +495,19 @@ fn reconnect_cures(reason: FfiSyncErrorReason) -> bool {
     )
 }
 
+/// How long a first transient failure waits before its one retry.
+const TRANSIENT_RETRY_WAIT: chrono::Duration = chrono::Duration::seconds(5);
+
+/// Whether one short wait can cure a run that failed this way: the server not
+/// reached or an answer it could not use. A pause the server asked for has its
+/// own time, and a 401 is not shown as a pending retry.
+fn short_wait_cures(reason: FfiSyncErrorReason) -> bool {
+    matches!(
+        reason,
+        FfiSyncErrorReason::Network | FfiSyncErrorReason::Server
+    )
+}
+
 /// What a sync was started for: the default pass, or one date window.
 ///
 /// `force` asks the default pass for the athlete body even when the stored one
@@ -537,6 +553,7 @@ impl Default for SyncInner {
             resume: None,
             owed: Vec::new(),
             owed_to_reconnect: Vec::new(),
+            transient_retried: false,
         }
     }
 }
@@ -784,6 +801,7 @@ impl SyncService {
     /// is the one place the settle is announced.
     pub fn finish(&self, state: SyncState, failure: Option<SyncFailure>, success: bool) {
         let stamp;
+        let mut retry_at = None;
         let resume = {
             let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
             let install = inner.install.take();
@@ -817,6 +835,18 @@ impl SyncService {
                         request,
                     },
                 );
+                // A phone that never reads as offline gives no edge, so the
+                // first transient failure is asked again after a short wait,
+                // and the pending time holds the banner back meanwhile.
+                if short_wait_cures(failure.reason) && !inner.transient_retried {
+                    inner.transient_retried = true;
+                    let at = chrono::Utc::now() + TRANSIENT_RETRY_WAIT;
+                    inner.retry_at = Some(at);
+                    retry_at = Some(at);
+                }
+            }
+            if success {
+                inner.transient_retried = false;
             }
             inner.state = state;
             inner.in_flight = 0;
@@ -843,7 +873,22 @@ impl SyncService {
         {
             (resume.start)();
         }
+        if let Some(at) = retry_at {
+            crate::net::resume::resume_at(at);
+        }
         self.start_owed_runs();
+    }
+
+    /// The short wait after a first transient failure has passed: the runs it
+    /// left owed to the connection start again, as on an online edge.
+    pub(crate) fn retry_transient_failure(&self) {
+        let due = {
+            let inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+            inner.transient_retried && !inner.owed_to_reconnect.is_empty()
+        };
+        if due {
+            self.reconnected();
+        }
     }
 
     /// The connection came back: the runs a failure left owed to it join the
@@ -876,15 +921,23 @@ impl SyncService {
         if crate::persistence::suspension::is_suspended() || self.athlete_id().is_none() {
             return;
         }
-        if self
-            .inner
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .auth_expired
         {
-            return;
+            let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+            if inner.auth_expired {
+                return;
+            }
+            // A phone that never read as offline gives no online edge, so the
+            // runs a transient failure left owed to the connection are owed
+            // to the return as well. The default sync joins them, once.
+            for run in std::mem::take(&mut inner.owed_to_reconnect) {
+                inner.owe(run);
+            }
+            inner.owe(OwedRun {
+                athlete_id: self.athlete_id().unwrap_or_default(),
+                request: SyncRequest::Full { force: false },
+            });
         }
-        (self.start_full)(false);
+        self.start_owed_runs();
     }
 
     /// Start the runs the slot refused, oldest ask first, until one of them
@@ -1150,6 +1203,12 @@ pub static SYNC_SERVICE: LazyLock<SyncService> = LazyLock::new(|| {
 pub(crate) fn reconnected() {
     SYNC_SERVICE.reconnected();
     crate::objects::gps_pass::reconnected();
+}
+
+/// The short wait after a first transient failure has passed.
+#[cfg(not(test))]
+pub(crate) fn retry_transient_failure() {
+    SYNC_SERVICE.retry_transient_failure();
 }
 
 /// The app came back from the background. Pushed from the FFI with the

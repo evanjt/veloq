@@ -224,6 +224,7 @@ fn spawn_sleeper() {
 #[cfg(not(test))]
 fn resume_owed_work() {
     log::info!("[Resume] a refusal has lifted, resuming the owed work");
+    crate::objects::sync::retry_transient_failure();
     let sync = crate::objects::sync::start_resumed_sync();
     log::info!("[Resume] sync: {sync:?}");
     crate::objects::gps_pass::budget_lifted();
