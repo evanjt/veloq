@@ -35,3 +35,45 @@ describe('pickPlatform', () => {
     expect(pickPlatform(ua as string, touch as number)).toBe(expected);
   });
 });
+
+const { slideIndexForStem, stemOf } = require(
+  path.resolve(__dirname, '../../../docs/platform.js')
+) as {
+  slideIndexForStem: (stems: string[], stem: string | null, fallback: number) => number;
+  stemOf: (src: string) => string;
+};
+
+describe('stemOf', () => {
+  it.each([
+    ['a light shot', 'screenshots/android/05-insights.png', '05-insights'],
+    ['a dark shot', 'screenshots/ipad/dark/05-insights.png', '05-insights'],
+    ['a bare file name', '01-feed.png', '01-feed'],
+  ])('%s', (_name, src, expected) => {
+    expect(stemOf(src)).toBe(expected);
+  });
+});
+
+describe('slideIndexForStem', () => {
+  const phone = ['01-feed', '02-map', '03-activity', '04-section', '05-insights', '06-fitness'];
+  const tablet = ['03-activity', '05-insights', '01-feed'];
+
+  it('keeps the shot when the target set orders its stems differently', () => {
+    expect(slideIndexForStem(tablet, '05-insights', 4)).toBe(1);
+  });
+
+  it('keeps the shot when switching to a set with the same stems', () => {
+    expect(slideIndexForStem(phone, '05-insights', 0)).toBe(4);
+  });
+
+  it('falls back to the clamped position when the target set lacks the stem', () => {
+    expect(slideIndexForStem(['01-feed', '02-map', '03-activity'], '06-fitness', 5)).toBe(2);
+  });
+
+  it('opens on the first shot when there is no stem and no position', () => {
+    expect(slideIndexForStem(phone, null, 0)).toBe(0);
+  });
+
+  it('returns 0 for an empty set', () => {
+    expect(slideIndexForStem([], '01-feed', 3)).toBe(0);
+  });
+});

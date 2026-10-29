@@ -7,6 +7,7 @@ import {
   filterSheetStops,
   mapTopControlsBottom,
   popupBottom,
+  popupMaxHeight,
 } from '../filterSheet';
 
 describe('filterSheetExpandedAfterDrag', () => {
@@ -127,5 +128,19 @@ describe('filterSheetMaxHeight', () => {
 
   it('never bounds the sheet below nothing on a screen shorter than the controls', () => {
     expect(filterSheetMaxHeight(60, 47)).toBe(0);
+  });
+});
+
+describe('popupMaxHeight', () => {
+  it('stops a popup at the foot of the top controls', () => {
+    expect(popupMaxHeight(800, 200, 47)).toBe(800 - 200 - mapTopControlsBottom(47));
+  });
+
+  it('bounds nothing before the map is measured', () => {
+    expect(popupMaxHeight(0, 200, 47)).toBeUndefined();
+  });
+
+  it('never goes negative when the floor is above the controls', () => {
+    expect(popupMaxHeight(300, 400, 47)).toBe(0);
   });
 });

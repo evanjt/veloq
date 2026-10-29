@@ -95,6 +95,20 @@ export function popupBottom(clearance: number, insetBottom: number): number {
 }
 
 /**
+ * Tallest a popup may grow on a map `mapHeight` tall with its bottom edge at `floor`: the
+ * space under the top controls, past which its body scrolls. Nothing is bounded before the
+ * map is measured.
+ */
+export function popupMaxHeight(
+  mapHeight: number,
+  floor: number,
+  insetTop: number
+): number | undefined {
+  if (mapHeight <= 0) return undefined;
+  return Math.max(0, mapHeight - floor - mapTopControlsBottom(insetTop));
+}
+
+/**
  * How far the filter sheet and the credit on its edge reach past the bottom clearance, the cover
  * the bottom pill stack rises over. The sheet's padding already holds the clearance, so only what
  * reaches above it counts. A sheet not laid out yet covers nothing.

@@ -261,6 +261,11 @@ describe('docs/index.html', () => {
       });
     }
   });
+
+  it('carries no sideload line and no cta.openSource key in any language', () => {
+    expect(html).not.toMatch(/sideload/i);
+    expect(html).not.toContain('cta.openSource');
+  });
 });
 
 const GALLERY_PAGE = `<div>

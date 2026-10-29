@@ -12,6 +12,9 @@ import {
   CAPTURE_SIZE,
   deviceFrame,
   insideRoundedRect,
+  STORE_AVD,
+  storeAvdConfig,
+  storeDeviceRefusal,
   type DeviceKind,
   type ShotLayout,
 } from '../../../scripts/store-device';
@@ -103,5 +106,32 @@ describe('store device frame', () => {
       expect(html('iphone', 1320, 2868, 'whole')).toContain('class="cutout pill"');
       expect(html('ipad', 2064, 2752, 'whole')).not.toContain('class="cutout');
     });
+  });
+});
+
+describe('the Android store capture device', () => {
+  it('accepts the named emulator and refuses a physical handset or another emulator', () => {
+    expect(storeDeviceRefusal(`${STORE_AVD.name}\r\n`)).toBeNull();
+    expect(storeDeviceRefusal('')).toContain('physical handset');
+    expect(storeDeviceRefusal('Pixel_6_API_34')).toContain(STORE_AVD.name);
+  });
+
+  it('gives a screen 439 dp wide, the iPhone Pro Max layout width', () => {
+    expect(Math.round((STORE_AVD.width * 160) / STORE_AVD.density)).toBe(439);
+  });
+
+  it('rewrites the size keys of a created config and leaves the others', () => {
+    const created = 'hw.lcd.density=420\nhw.lcd.height=2400\nhw.ramSize=2048\nhw.lcd.width=1080\n';
+    const out = storeAvdConfig(created);
+    expect(out).toContain(`hw.lcd.width=${STORE_AVD.width}`);
+    expect(out).toContain(`hw.lcd.height=${STORE_AVD.height}`);
+    expect(out).toContain(`hw.lcd.density=${STORE_AVD.density}`);
+    expect(out).toContain('hw.ramSize=2048');
+    expect(out.match(/hw\.lcd\.width/g)).toHaveLength(1);
+    expect(storeAvdConfig(out)).toBe(out);
+  });
+
+  it('adds a size key the created config lacks', () => {
+    expect(storeAvdConfig('hw.ramSize=2048\n')).toContain(`hw.lcd.width=${STORE_AVD.width}`);
   });
 });

@@ -65,6 +65,43 @@ tags:
 - tapOn:
     id: "hide-demo-banner-switch"
 
+# Debug mode is stored in the engine's database, which an iOS run's data reset
+# does not reach, so a run that died with it on leaves it on for the next one.
+# It is switched off before the first shot, and the switch must read off.
+- runFlow:
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq:///settings"
+      TARGET: "settings-screen"
+- scrollUntilVisible:
+    element:
+      id: "settings-version-text"
+    direction: DOWN
+- scroll
+- tapOn:
+    id: "settings-version-text"
+    repeat: 5
+    delay: 100
+- scrollUntilVisible:
+    element:
+      id: "settings-debug-switch"
+    direction: DOWN
+- swipe:
+    start: 50%, 75%
+    end: 50%, 25%
+    duration: 300
+- runFlow:
+    when:
+      visible:
+        id: "settings-debug-switch"
+        checked: true
+    commands:
+      - tapOn:
+          id: "settings-debug-switch"
+- assertVisible:
+    id: "settings-debug-switch"
+    checked: false
+
 # 01 activity feed, at its top with the summary card in view. The feed keeps the
 # scroll position it was left at, so it is scrolled back before the shot.
 - runFlow:
@@ -86,6 +123,8 @@ tags:
     timeout: 3000
 - assertNotVisible:
     id: "routes-sync-banner"
+- runFlow:
+    file: helpers/assert-debug-ui-absent.yaml
 - takeScreenshot: "screenshots/store-capture/01-feed"
 - assertNotVisible: "Open debugger to view warnings"
 
@@ -145,12 +184,20 @@ tags:
     commands:
       - tapOn:
           id: "map-toggle-heatmap"
+# The layers panel is shut before the shot: the store set shows the map, the
+# heatmap and the ride popup, and the panel is not shown over them.
+- runFlow:
+    file: helpers/close-map-layers.yaml
 # MapLibre tile loading has no deterministic hook, so the satellite imagery and
 # the terrain get a settle window after the ready marker.
 - waitForAnimationToEnd:
     timeout: 15000
 - assertNotVisible:
+    id: "map-layers-menu"
+- assertNotVisible:
     id: "routes-sync-banner"
+- runFlow:
+    file: helpers/assert-debug-ui-absent.yaml
 - takeScreenshot: "screenshots/store-capture/02-map"
 - assertNotVisible: "Open debugger to view warnings"
 
@@ -168,6 +215,8 @@ tags:
     timeout: 3000
 - assertNotVisible:
     id: "routes-sync-banner"
+- runFlow:
+    file: helpers/assert-debug-ui-absent.yaml
 - takeScreenshot: "screenshots/store-capture/03-activity"
 - assertNotVisible: "Open debugger to view warnings"
 
@@ -276,6 +325,10 @@ tags:
           visible: "never on screen"
           timeout: 1000
           optional: true
+- assertNotVisible:
+    id: "routes-sync-banner"
+- runFlow:
+    file: helpers/assert-debug-ui-absent.yaml
 - takeScreenshot: "screenshots/store-capture/04-section"
 - assertNotVisible: "Open debugger to view warnings"
 - runFlow:
@@ -299,6 +352,11 @@ tags:
     commands:
       - tapOn:
           id: "settings-debug-switch"
+# The switch must read off here. A miss above is not silent: the run stops, rather
+# than carrying debug mode into the shots that follow.
+- assertVisible:
+    id: "settings-debug-switch"
+    checked: false
 
 # 05 insights. A listed library can still carry the regroup its load owed, and
 # the shot would carry its "Computing routes" line.
@@ -319,6 +377,8 @@ tags:
     timeout: 3000
 - assertNotVisible:
     id: "routes-sync-banner"
+- runFlow:
+    file: helpers/assert-debug-ui-absent.yaml
 - takeScreenshot: "screenshots/store-capture/05-insights"
 - assertNotVisible: "Open debugger to view warnings"
 
@@ -333,6 +393,8 @@ tags:
     timeout: 3000
 - assertNotVisible:
     id: "routes-sync-banner"
+- runFlow:
+    file: helpers/assert-debug-ui-absent.yaml
 - takeScreenshot: "screenshots/store-capture/06-fitness"
 - assertNotVisible: "Open debugger to view warnings"
 
@@ -354,6 +416,8 @@ tags:
     timeout: 3000
 - assertNotVisible:
     id: "routes-sync-banner"
+- runFlow:
+    file: helpers/assert-debug-ui-absent.yaml
 - takeScreenshot: "screenshots/store-capture/07-strength"
 - assertNotVisible: "Open debugger to view warnings"
 
@@ -386,6 +450,8 @@ tags:
     timeout: 3000
 - assertNotVisible:
     id: "routes-sync-banner"
+- runFlow:
+    file: helpers/assert-debug-ui-absent.yaml
 - takeScreenshot: "screenshots/store-capture/08-recording"
 - assertNotVisible: "Open debugger to view warnings"
 - runFlow:

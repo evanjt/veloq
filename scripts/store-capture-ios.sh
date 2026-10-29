@@ -59,9 +59,14 @@ fi
 
 "$here/store-capture-build-check.sh" ios "$udid"
 
+# The recording shot's map must not show the simulator's empty fix, so the
+# declared track is played for the run. `simctl location` takes lat,lng pairs.
+track=$(npm_config_loglevel=silent npx --no-install tsx scripts/store-shots.ts track simulator | tr '\n' ' ')
+
 appearance=$(xcrun simctl ui "$udid" appearance 2>/dev/null | tr -d '\r' || true)
 
 release() {
+  xcrun simctl location "$udid" clear || true
   xcrun simctl status_bar "$udid" clear || true
   case "$appearance" in
     light | dark) xcrun simctl ui "$udid" appearance "$appearance" || true ;;
@@ -74,6 +79,20 @@ trap 'exit 130' INT TERM HUP
 xcrun simctl status_bar "$udid" override --time 9:41 --dataNetwork wifi --wifiMode active \
   --wifiBars 3 --cellularMode notSupported --batteryState charged --batteryLevel 100
 xcrun simctl ui "$udid" appearance light
+# shellcheck disable=SC2086
+[ -z "$track" ] || xcrun simctl location "$udid" start --speed=12 $track
+
+# Each pass starts with the app's own data container emptied. The app is stopped
+# first so it does not write into the container while it is cleared. The App
+# Group container holds routes.db on iOS and is left alone, since the release
+# build shares it; the flow switches debug mode off itself before its first shot.
+bundle_id=$(sed -n -E 's/^appId:[[:space:]]*([^[:space:]]+).*/\1/p' .maestro/store-capture.yaml | head -n 1)
+pass() {
+  xcrun simctl terminate "$udid" "$bundle_id" >/dev/null 2>&1 || true
+  data=$(xcrun simctl get_app_container "$udid" "$bundle_id" data)
+  find "$data" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+  "$maestro_run" --device "$udid" test -e "STORE_LANGUAGE=$app" -e "STORE_THEME=$1" .maestro/store-capture.yaml
+}
 
 for pair in "$@"; do
   play=${pair%%=*}
@@ -85,7 +104,7 @@ for pair in "$@"; do
   echo "store capture: $udid $play, app language $app"
   rm -rf "$out"
   mkdir -p "$out"
-  "$maestro_run" --device "$udid" test -e "STORE_LANGUAGE=$app" -e STORE_THEME=light .maestro/store-capture.yaml
+  pass light
   rm -rf "${dest:?}/$play"
   mkdir -p "$dest/$play"
   mv "$out"/*.png "$dest/$play"/
@@ -93,7 +112,7 @@ for pair in "$@"; do
     echo "store capture: $udid $play, dark theme"
     rm -rf "$out"
     mkdir -p "$out"
-    "$maestro_run" --device "$udid" test -e "STORE_LANGUAGE=$app" -e STORE_THEME=dark .maestro/store-capture.yaml
+    pass dark
     mkdir -p "$dest/$play/dark"
     mv "$out"/*.png "$dest/$play/dark"/
   fi

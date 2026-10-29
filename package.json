@@ -217,6 +217,7 @@
     "lint:maestro-ids": "node scripts/lint-maestro-ids.mjs",
     "lint:maestro-open-link": "node scripts/lint-maestro-open-link.mjs",
     "lint:maestro-strip-tap": "node scripts/lint-maestro-strip-tap.mjs",
+    "lint:maestro-capture-debug": "node scripts/lint-maestro-capture-debug.mjs",
     "lint:device-drivers": "node scripts/lint-device-drivers.mjs",
     "lint:press-feedback": "node scripts/lint-press-feedback.mjs",
     "lint:dialog-owner": "node scripts/lint-dialog-owner.mjs",

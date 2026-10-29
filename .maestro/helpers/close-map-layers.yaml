@@ -1,0 +1,24 @@
+# Close the Map tab's layers menu when it is open. The layer toggles leave it
+# open, so a shot taken after one shows the menu over the map. A tap on the
+# layers control closes an open menu, and a tap lost while the map draws leaves
+# it open, so the tap is made again until the menu has gone.
+appId: com.veloq.app.dev
+---
+- runFlow:
+    when:
+      visible:
+        id: "map-layers-menu"
+    commands:
+      - tapOn:
+          id: "map-layers"
+      - runFlow:
+          when:
+            visible:
+              id: "map-layers-menu"
+          commands:
+            - tapOn:
+                id: "map-layers"
+- extendedWaitUntil:
+    notVisible:
+      id: "map-layers-menu"
+    timeout: 10000

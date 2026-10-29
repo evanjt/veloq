@@ -1,0 +1,10 @@
+# Fail when debug mode is on for a store shot. The two repost buttons exist only
+# while debug mode is on, and the activity page carries them, so a shot taken
+# with them on screen would publish debug UI. Run before every store shot.
+
+appId: com.veloq.app.dev
+---
+- assertNotVisible:
+    id: "activity-regenerate-notification"
+- assertNotVisible:
+    id: "activity-regenerate-notification-delayed"

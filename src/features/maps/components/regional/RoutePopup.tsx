@@ -19,6 +19,8 @@ export interface MapRouteSummary {
 interface RoutePopupProps {
   route: MapRouteSummary;
   bottom: number;
+  /** Tallest the card may grow before its body scrolls */
+  maxHeight?: number | undefined;
   onClose: () => void;
   onViewDetails: () => void;
 }
@@ -26,6 +28,7 @@ interface RoutePopupProps {
 export const RoutePopup = memo(function RoutePopup({
   route,
   bottom,
+  maxHeight,
   onClose,
   onViewDetails,
 }: RoutePopupProps) {
@@ -43,7 +46,7 @@ export const RoutePopup = memo(function RoutePopup({
       testID="route-popup"
       titleTestID="route-popup-title"
       closeTestID="route-popup-close"
-      style={{ bottom }}
+      style={{ bottom, maxHeight }}
       titleRef={titleRef}
       title={displayName}
       stats={[

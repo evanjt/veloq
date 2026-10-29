@@ -17,6 +17,10 @@
 # dark/ folder beside its light shots. The device's dark mode is set off for
 # the run and put back as it was when the run ends, however it ends.
 #
+# The device must be the store emulator named in scripts/store-device.ts; a
+# physical handset is refused. The recording shot's position is a track played
+# on the emulator console (scripts/store-shots.ts).
+#
 # Demo mode is entered by the flow, which refuses an app signed into a real
 # account, so run this on a device or simulator holding no session. A dev
 # build is refused before anything is captured, since its warning toasts reach
@@ -60,6 +64,24 @@ fi
 
 "$here/store-capture-build-check.sh" android
 
+# `adb emu avd name` answers the emulator's name on its console, and nothing on
+# a physical handset.
+avd=$(adb emu avd name 2>/dev/null | head -n 1 | tr -d '\r' || true)
+npm_config_loglevel=silent npx --no-install tsx scripts/store-device.ts check "$avd"
+
+# The recording shot's map must not show the emulator's own fix, so the declared
+# track is played on the console for as long as a pass runs. `geo fix` takes
+# longitude then latitude.
+track=$(npm_config_loglevel=silent npx --no-install tsx scripts/store-shots.ts track emulator)
+play_track() {
+  while :; do
+    for wp in $track; do
+      adb emu geo fix "${wp#*,}" "${wp%,*}" >/dev/null 2>&1 || true
+      sleep 1
+    done
+  done
+}
+
 demo() {
   adb shell am broadcast -a com.android.systemui.demo -e command "$@" >/dev/null
 }
@@ -68,6 +90,7 @@ demo() {
 night=$(adb shell cmd uimode night | tr -d '\r' | sed -n -E 's/^Night mode: *([a-z]+).*/\1/p')
 
 release() {
+  [ -z "${player:-}" ] || kill "$player" 2>/dev/null || true
   demo exit || true
   if [ -n "$night" ]; then
     adb shell cmd uimode night "$night" >/dev/null || true
@@ -86,6 +109,23 @@ demo network -e mobile hide
 demo notifications -e visible false
 adb shell cmd uimode night no >/dev/null
 
+# Each pass starts with the app's data cleared, so a setting a run left on, debug
+# mode included, cannot reach the next run's shots.
+bundle_id=$(sed -n -E 's/^appId:[[:space:]]*([^[:space:]]+).*/\1/p' .maestro/store-capture.yaml | head -n 1)
+pass() {
+  adb shell pm clear "$bundle_id" >/dev/null
+  player=
+  if [ -n "$track" ]; then
+    play_track &
+    player=$!
+  fi
+  status=0
+  "$maestro_run" test -e "STORE_LANGUAGE=$app" -e "STORE_THEME=$1" .maestro/store-capture.yaml || status=$?
+  [ -z "$player" ] || kill "$player" 2>/dev/null || true
+  player=
+  return "$status"
+}
+
 for pair in "$@"; do
   play=${pair%%=*}
   app=${pair#*=}
@@ -96,7 +136,7 @@ for pair in "$@"; do
   echo "store capture: android $play, app language $app"
   rm -rf "$out"
   mkdir -p "$out"
-  "$maestro_run" test -e "STORE_LANGUAGE=$app" -e STORE_THEME=light .maestro/store-capture.yaml
+  pass light
   rm -rf "${dest:?}/$play"
   mkdir -p "$dest/$play"
   mv "$out"/*.png "$dest/$play"/
@@ -104,7 +144,7 @@ for pair in "$@"; do
     echo "store capture: android $play, dark theme"
     rm -rf "$out"
     mkdir -p "$out"
-    "$maestro_run" test -e "STORE_LANGUAGE=$app" -e STORE_THEME=dark .maestro/store-capture.yaml
+    pass dark
     mkdir -p "$dest/$play/dark"
     mv "$out"/*.png "$dest/$play/dark"/
   fi

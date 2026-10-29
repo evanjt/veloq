@@ -65,7 +65,7 @@ import {
   lngLatFromShort,
   type LngLatBounds,
 } from '../lib/coordinates';
-import { mapTopControlsBottom, popupBottom } from '../lib/filterSheet';
+import { mapTopControlsBottom, popupBottom, popupMaxHeight } from '../lib/filterSheet';
 import { useInitialRegionalCamera } from '../hooks/useInitialRegionalCamera';
 import { useStoredTrackUrl } from '../hooks/useStoredTrackUrl';
 import { useSectionChooser } from './regional/useSectionChooser';
@@ -160,6 +160,8 @@ export function RegionalMapView({
   const can3D = activities.length > 0;
   const show3D = is3DMode && can3D;
   const popupFloor = popupBottom(bottomClearance, insets.bottom);
+  const [mapHeight, setMapHeight] = useState(0);
+  const popupHeight = popupMaxHeight(mapHeight, popupFloor, insets.top);
   // The map fills its tab, so the notice joins the screen's bottom pills above the sheet.
   const { onTerrainUnavailable, terrainNotice } = useTerrainFallback(
     () => setIs3DMode(false),
@@ -567,7 +569,7 @@ export function RegionalMapView({
   );
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} onLayout={(e) => setMapHeight(e.nativeEvent.layout.height)}>
       {/* The map is drawn under the status bar, so its glyphs follow the map style rather than
           the app theme. The entry exists only while the tab is focused, so it leaves with it. */}
       {isMapFocused ? <StatusBar style={statusBarStyleForMap(mapStyle)} animated /> : null}
@@ -651,6 +653,7 @@ export function RegionalMapView({
         <ActivityPopup
           selected={selected}
           bottom={popupFloor}
+          maxHeight={popupHeight}
           onZoom={handleZoomToActivity}
           onClose={handleClosePopup}
           onViewDetails={handleViewDetails}
@@ -660,6 +663,7 @@ export function RegionalMapView({
         <SectionPopup
           section={selectedSection}
           bottom={popupFloor}
+          maxHeight={popupHeight}
           onClose={() => setSelectedSectionId(null)}
           onViewDetails={() => {
             setSelectedSectionId(null);
@@ -671,6 +675,7 @@ export function RegionalMapView({
         <RoutePopup
           route={selectedRoute}
           bottom={popupFloor}
+          maxHeight={popupHeight}
           onClose={() => setSelectedRouteId(null)}
           onViewDetails={() => {
             setSelectedRouteId(null);

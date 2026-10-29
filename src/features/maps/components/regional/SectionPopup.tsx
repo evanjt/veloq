@@ -13,6 +13,8 @@ import { ACTIVITY_COUNT_GLYPH } from '@/features/maps/lib/mapGlyphs';
 interface SectionPopupProps {
   section: FrequentSection;
   bottom: number;
+  /** Tallest the card may grow before its body scrolls */
+  maxHeight?: number | undefined;
   onClose: () => void;
   onViewDetails?: () => void;
 }
@@ -20,6 +22,7 @@ interface SectionPopupProps {
 export const SectionPopup = memo(function SectionPopup({
   section,
   bottom,
+  maxHeight,
   onClose,
   onViewDetails,
 }: SectionPopupProps) {
@@ -36,7 +39,7 @@ export const SectionPopup = memo(function SectionPopup({
       testID="section-popup"
       titleTestID="section-popup-title"
       closeTestID="section-popup-close"
-      style={{ bottom }}
+      style={{ bottom, maxHeight }}
       titleRef={titleRef}
       title={displayName}
       subtitle={`${t('sections.traversalsCount', { count: section.visitCount })} · ${formatDistance(

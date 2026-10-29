@@ -1,6 +1,7 @@
 import React, { memo, type ReactNode, type RefObject } from 'react';
 import {
   Animated,
+  ScrollView,
   View,
   Text,
   StyleSheet,
@@ -93,65 +94,68 @@ export const MapPopup = memo(function MapPopup({
       ]}
       pointerEvents="auto"
     >
-      <View style={styles.header}>
-        <View style={styles.info}>
-          {/* The shape of NameText, on react-native's Text so the focus ref reaches the native node. */}
-          <Text
-            ref={titleRef}
-            testID={titleTestID}
-            style={[styles.title, isDark && styles.titleDark]}
-            numberOfLines={2}
-            ellipsizeMode="tail"
-            accessibilityLabel={title}
-          >
-            {title}
-          </Text>
-          {subtitle ? (
-            <Text style={[styles.subtitle, isDark && styles.subtitleDark]}>{subtitle}</Text>
-          ) : null}
-        </View>
-        {viewDetails ? (
-          <Button
-            testID={viewDetails.testID}
-            onPress={viewDetails.onPress}
-            label={t('maps.viewDetails')}
-            variant="ghost"
-            size="sm"
-            icon="chevron-right"
-          />
-        ) : null}
-        {zoom ? (
-          <IconButton
-            testID={zoom.testID}
-            onPress={zoom.onPress}
-            variant="ghost"
-            accessibilityLabel={zoom.label}
-          >
-            <Icon name={FIT_GLYPH} size={iconSize.lg} color={palette.actionPrimary} />
-          </IconButton>
-        ) : null}
-        <IconButton
-          testID={closeTestID}
-          onPress={onClose}
-          variant="ghost"
-          accessibilityLabel={closeLabel}
-        >
-          <Icon name="close" size={iconSize.lg} color={ink} />
-        </IconButton>
-      </View>
-
-      <View testID="map-popup-stats" style={styles.stats}>
-        {stats.map((stat) => (
-          <View key={stat.key} style={styles.stat}>
-            {stat.renderIcon
-              ? stat.renderIcon(ink)
-              : stat.icon && <Icon name={stat.icon} size={iconSize.md} color={ink} />}
-            {stat.value !== undefined && (
-              <Text style={[styles.statValue, isDark && styles.statValueDark]}>{stat.value}</Text>
-            )}
+      <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
+        <View testID="map-popup-header" style={styles.header}>
+          <View testID="map-popup-title-block" style={styles.info}>
+            {/* The shape of NameText, on react-native's Text so the focus ref reaches the native node. */}
+            <Text
+              ref={titleRef}
+              testID={titleTestID}
+              style={[styles.title, isDark && styles.titleDark]}
+              numberOfLines={2}
+              ellipsizeMode="tail"
+              accessibilityLabel={title}
+            >
+              {title}
+            </Text>
+            {subtitle ? (
+              <Text style={[styles.subtitle, isDark && styles.subtitleDark]}>{subtitle}</Text>
+            ) : null}
           </View>
-        ))}
-      </View>
+          {viewDetails ? (
+            <Button
+              testID={viewDetails.testID}
+              onPress={viewDetails.onPress}
+              label={t('maps.viewDetails')}
+              variant="ghost"
+              size="sm"
+              icon="chevron-right"
+              style={styles.viewDetails}
+            />
+          ) : null}
+          {zoom ? (
+            <IconButton
+              testID={zoom.testID}
+              onPress={zoom.onPress}
+              variant="ghost"
+              accessibilityLabel={zoom.label}
+            >
+              <Icon name={FIT_GLYPH} size={iconSize.lg} color={palette.actionPrimary} />
+            </IconButton>
+          ) : null}
+          <IconButton
+            testID={closeTestID}
+            onPress={onClose}
+            variant="ghost"
+            accessibilityLabel={closeLabel}
+          >
+            <Icon name="close" size={iconSize.lg} color={ink} />
+          </IconButton>
+        </View>
+
+        <View testID="map-popup-stats" style={styles.stats}>
+          {stats.map((stat) => (
+            <View key={stat.key} style={styles.stat}>
+              {stat.renderIcon
+                ? stat.renderIcon(ink)
+                : stat.icon && <Icon name={stat.icon} size={iconSize.md} color={ink} />}
+              {stat.value !== undefined && (
+                <Text style={[styles.statValue, isDark && styles.statValueDark]}>{stat.value}</Text>
+              )}
+            </View>
+          ))}
+        </View>
+      </ScrollView>
     </Animated.View>
   );
 });
@@ -169,12 +173,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: ICON_BUTTON_GAP,
     marginBottom: spacing.xsPlus,
   },
   info: {
     flex: 1,
+    minWidth: '50%',
     marginRight: spacing.sm,
+  },
+  // The title and date keep half the row. When the action at its natural width
+  // does not fit beside them it wraps to a second line instead of breaking a word.
+  viewDetails: {
+    maxWidth: '100%',
   },
   title: {
     ...typography.bodyBold,

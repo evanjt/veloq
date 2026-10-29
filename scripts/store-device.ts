@@ -18,6 +18,60 @@ export const CAPTURE_SIZE: Record<DeviceKind, { width: number; height: number }>
   ipad: { width: 2064, height: 2752 },
 };
 
+/**
+ * The emulator every Android store capture is taken on. Store captures never
+ * come from a physical handset: it carries its own status bar and display
+ * size, ignores the system UI demo broadcasts and cannot be given a mocked
+ * position. The width and density give a 439 dp wide screen, the layout width
+ * of the iPhone Pro Max capture, so a screen shows what the iPhone set shows.
+ * `scripts/store-avd-create.sh` creates it, so a retake on another machine
+ * makes the same one.
+ */
+export const STORE_AVD = {
+  name: 'veloq_store_pro_max',
+  image: 'system-images;android-35;google_apis;x86_64',
+  // The profile avdmanager starts from. Its screen size is replaced afterwards.
+  device: 'pixel_7_pro',
+  width: 1344,
+  height: 2992,
+  density: 490,
+} as const;
+
+/**
+ * The config.ini of a freshly created AVD with the store emulator's screen
+ * size set. avdmanager writes the device profile's own size, so the three keys
+ * are replaced, or appended when absent. Applying it twice changes nothing.
+ */
+export function storeAvdConfig(config: string): string {
+  const keys: Record<string, number> = {
+    'hw.lcd.width': STORE_AVD.width,
+    'hw.lcd.height': STORE_AVD.height,
+    'hw.lcd.density': STORE_AVD.density,
+  };
+  const lines = config.split('\n').filter((line) => {
+    const key = (line.split('=')[0] ?? '').trim();
+    return !(key in keys) && line !== '';
+  });
+  for (const [key, value] of Object.entries(keys)) lines.push(`${key}=${value}`);
+  return `${lines.join('\n')}\n`;
+}
+
+/**
+ * Why a device may not be used for an Android store capture, or null when it
+ * may. `avdName` is what `adb emu avd name` printed: empty for a physical
+ * handset, which has no emulator console.
+ */
+export function storeDeviceRefusal(avdName: string): string | null {
+  const name = avdName.trim();
+  if (name === '') {
+    return `is a physical handset. Store captures are taken on the ${STORE_AVD.name} emulator`;
+  }
+  if (name !== STORE_AVD.name) {
+    return `is the emulator ${name}. Store captures are taken on ${STORE_AVD.name}`;
+  }
+  return null;
+}
+
 interface DeviceClass {
   /** Bezel width, of screen width. */
   bezel: number;
@@ -159,4 +213,29 @@ export function insideRoundedRect(
   const cx = x < radius ? radius : x > width - radius ? width - radius : x;
   const cy = y < radius ? radius : y > height - radius ? height - radius : y;
   return (x - cx) ** 2 + (y - cy) ** 2 <= radius ** 2;
+}
+
+// `npx tsx scripts/store-device.ts check <avd name>` exits 1 and says why when
+// the device behind that name is not the store emulator.
+if (/store-device\.ts$/.test(process.argv[1] ?? '') && process.argv[2] === 'check') {
+  const refusal = storeDeviceRefusal(process.argv[3] ?? '');
+  if (refusal) {
+    console.error(`store capture: the device ${refusal}.`);
+    process.exit(1);
+  }
+}
+
+// `npx tsx scripts/store-device.ts field <name>` prints one STORE_AVD field,
+// and `config <path>` rewrites that config.ini in place.
+if (/store-device\.ts$/.test(process.argv[1] ?? '') && process.argv[2] === 'field') {
+  console.log(STORE_AVD[process.argv[3] as keyof typeof STORE_AVD]);
+}
+if (/store-device\.ts$/.test(process.argv[1] ?? '') && process.argv[2] === 'config') {
+  const file = process.argv[3];
+  if (!file) {
+    console.error('usage: store-device.ts config <config.ini>');
+    process.exit(2);
+  }
+  const fs = require('fs') as typeof import('fs');
+  fs.writeFileSync(file, storeAvdConfig(fs.readFileSync(file, 'utf8')));
 }

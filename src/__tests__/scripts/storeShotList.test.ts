@@ -58,6 +58,17 @@ describe('the store shot list', () => {
     }
   });
 
+  it.each(['play', 'ipad'] as const)(
+    'carries every captured stem the App Store does on %s',
+    (target) => {
+      const captured = (t: StoreTarget) =>
+        shotsFor(t)
+          .filter((s) => s.source === 'captured')
+          .map((s) => s.stem);
+      expect(captured(target)).toEqual(captured('appstore'));
+    }
+  );
+
   it('keeps the privacy panel to the App Store', () => {
     expect(shotsFor('play').map((s) => s.stem)).not.toContain('10-privacy');
     expect(shotsFor('appstore').map((s) => s.stem)).toContain('10-privacy');
@@ -89,6 +100,14 @@ describe('the capture flow', () => {
     expect(at('map-toggle-heatmap')).toBeLessThan(shot);
   });
 
+  it('closes the layers menu after the heatmap toggle and asserts it gone before the map shot', () => {
+    const shot = at('store-capture/02-map');
+    const heatmap = FLOW.lastIndexOf('map-toggle-heatmap', shot);
+    const closed = FLOW.indexOf('helpers/close-map-layers.yaml', heatmap);
+    expect(closed).toBeGreaterThan(heatmap);
+    expect(FLOW.slice(closed, shot)).toMatch(/assertNotVisible:\s*\n\s+id: "map-layers-menu"/);
+  });
+
   it('frames the map on the Valais ride rather than the library default', () => {
     expect(FLOW.slice(0, at('store-capture/02-map'))).toContain('veloq://map?activity=demo-test-0');
   });
@@ -117,7 +136,19 @@ describe('the capture flow', () => {
 
   it('keeps debug mode off while the activity shot is taken', () => {
     const activity = at('store-capture/03-activity');
-    const debugOn = at('settings-debug-switch');
+    const debugOn = FLOW.indexOf(
+      'checked: false\n    commands:\n      - tapOn:\n          id: "settings-debug-switch"'
+    );
     expect(debugOn).toBeGreaterThan(activity);
+  });
+
+  it('switches debug mode off, and asserts it reads off, before the first shot', () => {
+    const first = at('store-capture/01-feed');
+    const off = FLOW.indexOf('checked: true');
+    expect(off).toBeGreaterThan(-1);
+    expect(off).toBeLessThan(first);
+    const asserted = FLOW.indexOf('checked: false\n', off);
+    expect(asserted).toBeGreaterThan(off);
+    expect(asserted).toBeLessThan(first);
   });
 });

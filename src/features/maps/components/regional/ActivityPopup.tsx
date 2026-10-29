@@ -21,6 +21,8 @@ export interface SelectedActivity {
 interface ActivityPopupProps {
   selected: SelectedActivity | null;
   bottom: number;
+  /** Tallest the card may grow before its body scrolls */
+  maxHeight?: number | undefined;
   onZoom: () => void;
   onClose: () => void;
   onViewDetails: () => void;
@@ -33,6 +35,7 @@ interface ActivityPopupProps {
 export const ActivityPopup = memo(function ActivityPopup({
   selected,
   bottom,
+  maxHeight,
   onZoom,
   onClose,
   onViewDetails,
@@ -109,7 +112,7 @@ export const ActivityPopup = memo(function ActivityPopup({
       testID="activity-popup"
       titleTestID="activity-popup-title"
       closeTestID="activity-popup-close"
-      style={{ bottom, opacity, transform: [{ translateY }] }}
+      style={{ bottom, maxHeight, opacity, transform: [{ translateY }] }}
       titleRef={titleRef}
       title={selected?.activity.name ?? ''}
       subtitle={formattedDate}

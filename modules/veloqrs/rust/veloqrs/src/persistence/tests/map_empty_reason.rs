@@ -335,3 +335,40 @@ fn a_track_given_up_on_counts_as_without_gps() {
         );
     });
 }
+
+/// A library seeded without a census names its tracks only in the stored
+/// bodies, so a body listing a `latlng` stream with no track yet is still
+/// downloading, and one listing none has no GPS.
+#[test]
+fn a_seeded_body_listing_a_track_not_yet_stored_counts_as_downloading() {
+    with_engine("map_unmapped_seeded_bodies.db", |engine| {
+        let rows: Vec<(String, i64, String)> = [
+            (
+                "gps-a",
+                1_700_000_000,
+                r#"{"id":"gps-a","type":"Ride","stream_types":["time","latlng"]}"#,
+            ),
+            (
+                "gps-b",
+                1_700_000_100,
+                r#"{"id":"gps-b","type":"Ride","stream_types":["latlng"]}"#,
+            ),
+            (
+                "indoor",
+                1_700_000_200,
+                r#"{"id":"indoor","type":"Ride","stream_types":["time","watts"]}"#,
+            ),
+            ("bare", 1_700_000_300, r#"{"id":"bare","type":"Ride"}"#),
+        ]
+        .into_iter()
+        .map(|(id, date, raw)| (id.to_owned(), date, raw.to_owned()))
+        .collect();
+        engine
+            .upsert_activity_bodies_with_metrics(&rows)
+            .expect("bodies");
+        assert_eq!(read(engine, vec![], "").unmapped, unmapped(2, 2));
+
+        track(engine, "gps-a");
+        assert_eq!(read(engine, vec![], "").unmapped, unmapped(2, 1));
+    });
+}

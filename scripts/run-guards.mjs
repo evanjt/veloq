@@ -446,6 +446,13 @@ const GUARDS = [
       'a Maestro flow tapping the insights Sections tab while the screen is still resizing, so the tap lands on the search field and the section list never appears',
   },
   {
+    name: 'lint:maestro-capture-debug',
+    kind: 'style',
+    cmd: node('lint-maestro-capture-debug.mjs'),
+    catches:
+      'a store capture shot taken with debug mode on, putting the repost buttons into the listing set, or a debug-mode switch-off that is missed without the run noticing',
+  },
+  {
     name: 'lint:maestro-ids',
     kind: 'correctness',
     cmd: node('lint-maestro-ids.mjs'),

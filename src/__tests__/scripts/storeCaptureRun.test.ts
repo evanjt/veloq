@@ -14,6 +14,8 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 
+import { STORE_AVD } from '../../../scripts/store-device';
+
 const projectRoot = path.join(__dirname, '../../..');
 const capture = path.join(projectRoot, 'scripts/store-capture.sh');
 const captureIos = path.join(projectRoot, 'scripts/store-capture-ios.sh');
@@ -26,7 +28,13 @@ function stub(file: string, body: string): void {
 }
 
 /** Stub adb, xcrun and the Maestro runner, each logging its arguments. */
-function tools(options: { night?: string; appearance?: string; device?: string; fail?: string }) {
+function tools(options: {
+  avd?: string;
+  night?: string;
+  appearance?: string;
+  device?: string;
+  fail?: string;
+}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'store-capture-run-'));
   const bin = path.join(root, 'bin');
   fs.mkdirSync(bin);
@@ -34,12 +42,17 @@ function tools(options: { night?: string; appearance?: string; device?: string; 
   const app = path.join(root, 'VeloqDev.app');
   fs.mkdirSync(app);
   fs.writeFileSync(path.join(app, 'main.jsbundle'), '// bundle');
+  // The app's data container, holding a marker the app left from an earlier pass.
+  const data = path.join(root, 'data');
+  fs.mkdirSync(path.join(data, 'Documents'), { recursive: true });
+  fs.writeFileSync(path.join(data, 'Documents', 'marker'), '');
   stub(
     path.join(bin, 'adb'),
     [
       `echo "adb $*" >> '${log}'`,
       `case "$*" in`,
       `  "shell dumpsys package ${APP}") printf 'Package [${APP}] (1):\\n    flags=[ HAS_CODE ]\\n' ;;`,
+      `  "emu avd name") printf '${options.avd ?? STORE_AVD.name}\\nOK\\n' ;;`,
       `  "shell cmd uimode night") echo "Night mode: ${options.night ?? 'yes'}" ;;`,
       `esac`,
     ].join('\n')
@@ -51,6 +64,7 @@ function tools(options: { night?: string; appearance?: string; device?: string; 
       `case "$*" in`,
       `  "simctl list devices") echo "    ${options.device ?? 'iPhone 17 Pro Max'} (${UDID}) (Booted)" ;;`,
       `  "simctl get_app_container ${UDID} ${APP} app") echo '${app}' ;;`,
+      `  "simctl get_app_container ${UDID} ${APP} data") echo '${data}' ;;`,
       `  "simctl ui ${UDID} appearance") echo "${options.appearance ?? 'dark'}" ;;`,
       `esac`,
     ].join('\n')
@@ -60,6 +74,8 @@ function tools(options: { night?: string; appearance?: string; device?: string; 
     path.join(bin, 'maestro-run'),
     [
       `echo "maestro $*" >> '${log}'`,
+      `if [ -e '${data}/Documents/marker' ]; then echo "app data present" >> '${log}'; fi`,
+      `touch '${data}/Documents/marker'`,
       `case "$*" in *"STORE_LANGUAGE=${options.fail ?? '-'}"*) exit 1 ;; esac`,
       `mkdir -p screenshots/store-capture`,
       `for s in 01-feed 02-activity; do echo "$*" > "screenshots/store-capture/$s.png"; done`,
@@ -96,6 +112,29 @@ describe('the Android store capture', () => {
       expect(fs.readFileSync(shot, 'utf8')).toContain(`STORE_LANGUAGE=${app} `);
     }
     expect(calls().filter((c) => c.startsWith('maestro'))).toHaveLength(2);
+  });
+
+  it('clears the app before each pass, the dark theme pass included', () => {
+    const { env, calls } = tools({});
+    expect(spawnSync(capture, ['android', 'ja-JP=ja', 'pt-PT=pt'], { env }).status).toBe(0);
+    const passes = calls()
+      .filter((l) => l === `adb shell pm clear ${APP}` || l.startsWith('maestro'))
+      .map((l) => (l.startsWith('maestro') ? 'maestro' : 'clear'));
+    expect(passes.filter((p) => p === 'maestro').length).toBeGreaterThan(0);
+    passes.forEach((p, i) => {
+      if (p === 'maestro') expect(passes[i - 1]).toBe('clear');
+    });
+  });
+
+  it('refuses a physical handset and an emulator that is not the store one', () => {
+    for (const avd of ['', 'Pixel_6_API_34']) {
+      const { env, raw, calls } = tools({ avd });
+      const run = spawnSync(capture, ['android', 'en-US=en-US'], { env, encoding: 'utf8' });
+      expect(run.status).toBe(1);
+      expect(run.stderr).toContain('store capture: the device is');
+      expect(calls().filter((c) => c.startsWith('maestro'))).toHaveLength(0);
+      expect(fs.existsSync(raw)).toBe(false);
+    }
   });
 
   it('turns dark mode off for the run and puts it back afterwards', () => {
@@ -135,6 +174,13 @@ describe('the iOS store capture', () => {
     expect(light).toBeLessThan(lines.findIndex((l) => l.startsWith('maestro')));
     expect(lastMatching(lines, /appearance /)).toBe(`xcrun simctl ui ${UDID} appearance dark`);
     expect(fs.existsSync(path.join(raw, 'ios', 'fr-FR', '01-feed.png'))).toBe(true);
+  });
+
+  it('empties the app data before each pass, so no pass starts on the last one', () => {
+    const { env, calls } = tools({});
+    expect(spawnSync(captureIos, [UDID, 'fr-FR=fr', 'de-DE=de'], { env }).status).toBe(0);
+    expect(calls()).not.toContain('app data present');
+    expect(calls().filter((l) => l.startsWith('maestro'))).toHaveLength(2);
   });
 
   it('files an iPad simulator captures apart from the iPhone ones', () => {

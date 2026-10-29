@@ -1790,11 +1790,15 @@ const CENSUS_TRACK_STORED: &str = "EXISTS (
 /// An `activity_metrics` row, under the alias `m`, whose track the census says
 /// is upstream and that no refusal or run of failures has settled out: the GPS
 /// download still owes it. Holds only for a row with no stored track.
+///
+/// A library seeded without a census, as the demo is, has no row to ask, so
+/// the stored body's own `stream_types` says the track exists: a body listing
+/// `latlng` with no census row at all still owes it.
 // The census key leads with the athlete, so the lookup names every athlete
 // the census holds rather than scanning the table once per row.
 pub(crate) static METRICS_TRACK_OWED: LazyLock<String> = LazyLock::new(|| {
     format!(
-        "EXISTS (
+        "(EXISTS (
              SELECT 1 FROM activity_census c
              WHERE c.athlete_id IN (SELECT DISTINCT athlete_id FROM activity_census)
                AND c.intervals_id IN (m.activity_id,
@@ -1803,7 +1807,19 @@ pub(crate) static METRICS_TRACK_OWED: LazyLock<String> = LazyLock::new(|| {
                                        WHERE b.activity_id = m.activity_id))
                AND c.has_latlng = 1
                AND NOT ({settled_out})
-               AND NOT {stored})",
+               AND NOT {stored})
+         OR (NOT EXISTS (
+                 SELECT 1 FROM activity_census c
+                 WHERE c.intervals_id IN (m.activity_id,
+                                          (SELECT b.intervals_id
+                                           FROM activity_bodies b
+                                           WHERE b.activity_id = m.activity_id)))
+             AND EXISTS (
+                 SELECT 1 FROM activity_bodies ab,
+                              json_each(CASE WHEN json_valid(ab.raw) THEN ab.raw END,
+                                        '$.stream_types') st
+                 WHERE ab.activity_id = m.activity_id
+                   AND st.value = 'latlng')))",
         settled_out = CENSUS_TRACK_SETTLED_OUT.as_str(),
         stored = CENSUS_TRACK_STORED,
     )
