@@ -14,10 +14,11 @@ import { Text } from 'react-native';
 import { act, renderHook } from '@testing-library/react-native';
 import { fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 import { router, useNavigation } from 'expo-router';
+import { useRoute } from 'expo-router/react-navigation';
 import Stack from 'expo-router/stack';
 import { Tabs } from 'expo-router/tabs';
 
-import { useBackDismiss } from '@/shared/app/useBackDismiss';
+import { NativeDismissRefused, useBackDismiss } from '@/shared/app/useBackDismiss';
 import { stubHardwareBack, type HardwareBack } from '../__shared__/hardwareBack';
 
 jest.unmock('expo-router');
@@ -152,13 +153,13 @@ describe('useBackDismiss on a stack screen', () => {
     expect(screen.getByTestId('editing')).toHaveTextContent('viewing');
   });
 
-  it('turns the swipe and the header back off while active, and back on after', async () => {
+  it("leaves the screen's swipe and header back as the screen set them, before and after", async () => {
     await renderStack();
-    expect(stackOptions.at(-1)).toEqual({ gestureEnabled: false, headerBackVisible: false });
+    expect(stackOptions).toEqual([]);
 
     await act(() => router.back());
 
-    expect(stackOptions.at(-1)).toEqual({ gestureEnabled: true, headerBackVisible: true });
+    expect(stackOptions).toEqual([]);
   });
 
   it('ends the state on Android back without leaving the screen', async () => {
@@ -182,7 +183,7 @@ describe('useBackDismiss on a stack screen', () => {
     expect(stackDismiss).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps the swipe off until the last of two states on the screen ends', async () => {
+  it('holds the screen until the last of two states on it ends, the newest first', async () => {
     pathname = (
       await renderRouter(
         {
@@ -194,14 +195,17 @@ describe('useBackDismiss on a stack screen', () => {
       )
     ).getPathname;
     await act(() => router.push('/detail'));
-    expect(stackOptions).toEqual([{ gestureEnabled: false, headerBackVisible: false }]);
 
     await act(() => router.back());
-    expect(stackOptions).toHaveLength(1);
+    expect(screen.getByText('true false')).toBeTruthy();
 
     await act(() => router.back());
-    expect(stackOptions.at(-1)).toEqual({ gestureEnabled: true, headerBackVisible: true });
+    expect(screen.getByText('false false')).toBeTruthy();
     expect(pathname()).toBe('/detail');
+
+    await act(() => router.back());
+    expect(pathname()).toBe('/');
+    expect(stackOptions).toEqual([]);
   });
 
   it('does not hold the screen while inactive', async () => {
@@ -213,6 +217,72 @@ describe('useBackDismiss on a stack screen', () => {
     expect(pathname()).toBe('/');
     expect(stackDismiss).not.toHaveBeenCalled();
     expect(stackOptions).toEqual([]);
+  });
+});
+
+describe('useBackDismiss on a sheet whose dismiss gesture is off', () => {
+  beforeEach(() => {
+    stackDismiss.mockClear();
+    stackActive = true;
+    stackOptions = [];
+  });
+
+  const handleRef: {
+    current: {
+      navigation: { dispatch: (action: { type: string; [key: string]: unknown }) => void };
+      route: { key: string };
+    } | null;
+  } = { current: null };
+
+  function SheetScreen() {
+    const navigation = useNavigation();
+    const route = useRoute();
+    React.useEffect(() => {
+      handleRef.current = { navigation, route };
+    }, [navigation, route]);
+    return <EditingScreen />;
+  }
+
+  async function renderSheet() {
+    handleRef.current = null;
+    pathname = (
+      await renderRouter(
+        {
+          _layout: () => <Stack />,
+          index: () => <Text>home</Text>,
+          detail: () => (
+            <NativeDismissRefused value>
+              <SheetScreen />
+            </NativeDismissRefused>
+          ),
+        },
+        { initialUrl: '/' }
+      )
+    ).getPathname;
+    await act(() => router.push('/detail'));
+  }
+
+  it('leaves the state alone when the native stack reports a cancelled dismiss', async () => {
+    await renderSheet();
+    const { navigation, route } = handleRef.current!;
+
+    // The native stack answers a refused sheet drag with a pop sourced from the route.
+    await act(() => {
+      navigation.dispatch({ type: 'POP', payload: { count: 1 }, source: route.key });
+    });
+
+    expect(stackDismiss).not.toHaveBeenCalled();
+    expect(screen.getByTestId('editing')).toHaveTextContent('editing');
+    expect(pathname()).toBe('/detail');
+  });
+
+  it('still ends the state on a go-back from the host and on Android back', async () => {
+    await renderSheet();
+
+    await act(() => router.back());
+
+    expect(stackDismiss).toHaveBeenCalledTimes(1);
+    expect(pathname()).toBe('/detail');
   });
 });
 

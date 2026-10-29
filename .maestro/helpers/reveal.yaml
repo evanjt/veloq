@@ -110,3 +110,7 @@ appId: com.veloq.app.dev
                 timeout: 3000
       - assertVisible:
           id: ${ELEMENT}
+
+# Each swipe starts on a card, so the last one can leave its hold menu open.
+- runFlow:
+    file: close-hold-menu.yaml

@@ -64,7 +64,7 @@ import { activityCardA11yLabel, routeChipSpeech } from '../lib/activityCardA11yL
 import { freshLoginTimeline } from '@/shared/debug/freshLoginTimeline';
 
 import { CARD_HEIGHT, cardContainers } from '@/features/activity/lib/cardLayout';
-import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
+import { DELIBERATE_HOLD_MS } from '@/shared/ui/holdDurations';
 import { navigateTo } from '@/shared/app/navigation';
 import { NameText } from '@/shared/ui/NameText';
 import { FitText } from '@/shared/ui/FitText';
@@ -454,7 +454,7 @@ export const ActivityCard = React.memo(
             testID={pressTargetId}
             onPress={handlePress}
             onLongPress={onHold}
-            delayLongPress={PREVIEW_HOLD_MS}
+            delayLongPress={DELIBERATE_HOLD_MS}
             accessibilityRole="button"
             accessibilityLabel={activityCardA11yLabel({ activity, isMetric }, t)}
             {...cardActions}
@@ -767,7 +767,7 @@ export const ActivityCard = React.memo(
         testID={pressTargetId}
         onPress={handlePress}
         onLongPress={onHold}
-        delayLongPress={PREVIEW_HOLD_MS}
+        delayLongPress={DELIBERATE_HOLD_MS}
         style={styles.pressableOverlay}
         accessibilityRole="button"
         accessibilityLabel={cardLabel}

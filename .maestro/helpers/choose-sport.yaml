@@ -12,6 +12,15 @@ appId: com.veloq.app.dev
       notVisible:
         id: "record-type-${SPORT}"
     commands:
+      # More sits at the clipped end of the row, where a tap on its centre can
+      # land on the row's edge and open nothing, so the row is scrolled to its
+      # end first. A swipe from the row's middle is long enough to get there.
+      - swipe:
+          from:
+            id: "record-sport-row"
+          direction: LEFT
+      - waitForAnimationToEnd:
+          timeout: 3000
       - tapOn:
           id: "record-sport-more"
       # The chip sits at the clipped end of the row, and on iOS a tap that lands

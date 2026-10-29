@@ -9,16 +9,30 @@
  * while its screen is focused, so a menu left open on a tab the athlete has
  * moved away from does not swallow back on the tab in front.
  *
- * On a stack screen the removal itself is held as well, which is the iOS
- * header back, the edge swipe and any `goBack`, and the swipe and the header
- * back control are turned off while the state lasts, so the state's own
- * Cancel is the way out.
+ * On a stack screen the removal itself is held as well, so the iOS header
+ * back, the edge swipe, a sheet's drag and any `goBack` end the state as
+ * Android's back does. The native stack refuses the swipe and the drag while
+ * removal is held, and the screen's own options are left as it set them: a
+ * sheet whose dismiss gesture is off keeps it off.
+ *
+ * A sheet whose dismiss gesture is off still has its drag past the lowest stop refused natively,
+ * and the stack reports the refusal as a pop sourced from the route. Under `NativeDismissRefused`
+ * that pop is not a back: the held state is left as it is, while the host's own go-back and
+ * Android's back still end it.
  *
  * The navigator is read from context rather than through `useNavigation`, so a
  * component rendered outside any navigator still gets the hardware back.
  */
 
-import { use, useEffect, useRef, useState } from 'react';
+import {
+  createContext,
+  createElement,
+  use,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { BackHandler } from 'react-native';
 import {
   NavigationContext,
@@ -29,14 +43,24 @@ import {
 /** Outside a screen there is no removal to hold. */
 function useNoHold(_prevent: boolean, _onPrevented: () => void): void {}
 
+const NativeDismissRefusedContext = createContext(false);
+
+/** Marks the screens below as sheets whose drag-to-dismiss the native stack refuses. */
+export function NativeDismissRefused({ value, children }: { value: boolean; children: ReactNode }) {
+  return createElement(NativeDismissRefusedContext, { value }, children);
+}
+
 let nextId = 0;
-/** The states holding each stack route, so its swipe returns only when the last one ends. */
+/** The states holding each stack route, so a held removal ends the newest one. */
 const holders = new Map<string, Set<string>>();
 
-export function useBackDismiss(active: boolean, onDismiss: () => void): void {
+/**
+ * Android's back alone, for a state that closes itself when its screen goes, such as a menu:
+ * it has nothing to hold the screen for, and leaves the screen's swipe and header back as the
+ * screen set them.
+ */
+export function useHardwareBackDismiss(active: boolean, onDismiss: () => void): void {
   const navigation = use(NavigationContext);
-  const route = use(NavigationRouteContext);
-  const [id] = useState(() => `back-dismiss-${++nextId}`);
 
   const dismissRef = useRef(onDismiss);
   useEffect(() => {
@@ -52,6 +76,20 @@ export function useBackDismiss(active: boolean, onDismiss: () => void): void {
     });
     return () => subscription.remove();
   }, [active, navigation]);
+}
+
+export function useBackDismiss(active: boolean, onDismiss: () => void): void {
+  const navigation = use(NavigationContext);
+  const route = use(NavigationRouteContext);
+  const [id] = useState(() => `back-dismiss-${++nextId}`);
+  const dismissRefused = use(NativeDismissRefusedContext);
+
+  const dismissRef = useRef(onDismiss);
+  useEffect(() => {
+    dismissRef.current = onDismiss;
+  }, [onDismiss]);
+
+  useHardwareBackDismiss(active, onDismiss);
 
   // A navigator's state no longer names its kind; a stack is the navigator that pushes.
   const onStack = navigation !== undefined && 'push' in navigation;
@@ -62,7 +100,9 @@ export function useBackDismiss(active: boolean, onDismiss: () => void): void {
   // hook taken here is the same one on every render. Every holder hears the held removal
   // and only the one opened last ends, as on Android.
   const useHoldRemoval = navigation && route ? usePreventRemove : useNoHold;
-  useHoldRemoval(holding, () => {
+  useHoldRemoval(holding, (event?: { data: { action: { type: string; source?: string } } }) => {
+    const action = event?.data.action;
+    if (dismissRefused && action?.type === 'POP' && action.source === routeKey) return;
     if (routeKey && [...(holders.get(routeKey) ?? [])].at(-1) === id) dismissRef.current();
   });
 
@@ -70,15 +110,10 @@ export function useBackDismiss(active: boolean, onDismiss: () => void): void {
     if (!holding || !navigation || !routeKey) return undefined;
     const held = holders.get(routeKey) ?? new Set<string>();
     holders.set(routeKey, held);
-    if (held.size === 0) {
-      navigation.setOptions({ gestureEnabled: false, headerBackVisible: false });
-    }
     held.add(id);
     return () => {
       held.delete(id);
-      if (held.size > 0) return;
-      holders.delete(routeKey);
-      navigation.setOptions({ gestureEnabled: true, headerBackVisible: true });
+      if (held.size === 0) holders.delete(routeKey);
     };
   }, [holding, navigation, routeKey, id]);
 }

@@ -33,6 +33,7 @@ const KNOWN_PACKS = new Set([
   'pack-settings',
   'pack-data',
   'pack-stress',
+  'pack-stress-long',
   'pack-recording',
   'pack-routes-long',
   'pack-recording-long',

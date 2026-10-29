@@ -8,7 +8,7 @@
 
 import React from 'react';
 import { Platform } from 'react-native';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, userEvent } from '@testing-library/react-native';
 
 import { ActivityCard } from '@/features/activity/components/ActivityCard';
 import * as haptics from '@/shared/ui/haptics';
@@ -140,6 +140,38 @@ describe('the compact card for a screen reader', () => {
     expect(screen.getAllByRole('button')).toHaveLength(1);
     expect(actionNames()).toEqual(['longpress']);
     fire('longpress');
+    expect(screen.getByTestId('card-menu')).toBeTruthy();
+  });
+});
+
+// A thumb often settles on a card for a moment before it scrolls the feed.
+describe.each([
+  ['map', ride],
+  ['compact', { ...ride, hasGps: false } as FeedCard],
+])('a finger resting on a %s card on Android', (_kind, activity) => {
+  // On iOS the system menu owns the hold and its timing.
+  beforeEach(() => {
+    jest.replaceProperty(Platform, 'OS', 'android');
+    jest.useFakeTimers();
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  it('opens no menu when it rests for 300 ms', async () => {
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    render(<ActivityCard activity={activity} />);
+
+    await user.longPress(screen.getByRole('button'), { duration: 300 });
+    expect(screen.queryByTestId('card-menu')).toBeNull();
+  });
+
+  it('opens the menu when it holds for 600 ms', async () => {
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    render(<ActivityCard activity={activity} />);
+
+    await user.longPress(screen.getByRole('button'), { duration: 600 });
     expect(screen.getByTestId('card-menu')).toBeTruthy();
   });
 });

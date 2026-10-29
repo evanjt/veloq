@@ -14,15 +14,17 @@
  * never sets `visible`, so it gets no second one.
  */
 
-import React, { useEffect, useRef, useState, type ComponentProps } from 'react';
+import React, { use, useEffect, useRef, useState, type ComponentProps } from 'react';
 import { Platform, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Link, type Href } from 'expo-router';
 import { HrefPreview } from 'expo-router/build/link/preview/HrefPreview';
+import { NavigationContext } from 'expo-router/react-navigation';
 import { Menu, Text, useTheme as usePaperTheme } from 'react-native-paper';
 
 import { useTheme } from '@/shared/app';
 import { useWindowInsets } from '@/shared/app/TopSafeAreaContext';
+import { useHardwareBackDismiss } from '@/shared/app/useBackDismiss';
 import {
   brand,
   colors,
@@ -148,6 +150,22 @@ function useOpenAllowed(mountedVisible: boolean): boolean {
   return allowed;
 }
 
+/**
+ * The popup belongs to the screen it opened on. The paper menu closes on back
+ * but lets the press go on, which on a tab root leaves the app, so back is
+ * taken here; and a link that moves the app elsewhere closes it rather than
+ * leaving it drawn over the next screen, where the next tap only dismisses it.
+ * The screen itself is never held: leaving it takes the popup with it.
+ */
+function useCloseWithScreen(visible: boolean, onDismiss: () => void): void {
+  useHardwareBackDismiss(visible, onDismiss);
+  const navigation = use(NavigationContext);
+  useEffect(() => {
+    if (!visible || !navigation) return undefined;
+    return navigation.addListener('blur', () => onDismiss());
+  }, [visible, navigation, onDismiss]);
+}
+
 /** The widest the popup draws, and never closer than a margin to either edge. */
 const MAX_WIDTH = 280;
 
@@ -222,6 +240,7 @@ export function MenuPopup({
   const hairline = isDark ? darkColors.border : colors.border;
   const destructiveColor = isDark ? darkColors.errorText : colors.errorText;
   const openAllowed = useOpenAllowed(visible);
+  useCloseWithScreen(visible, onDismiss);
 
   return (
     <Menu

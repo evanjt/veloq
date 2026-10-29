@@ -37,6 +37,7 @@ import {
   type MapSheetKind,
 } from './mapSheetHost';
 import { MAP_SHEET_HALF_STOP, useMapSheetStop } from './mapSheetStop';
+import { NativeDismissRefused } from './useBackDismiss';
 import { mapSheetPanelWidth, mapSheetScreenOptions, sheetSurface } from './screenHeaders';
 import { useSheetWindow } from './TopSafeAreaContext';
 import { useTheme } from './useTheme';
@@ -181,24 +182,26 @@ export function createMapSheetHostLayout(kind: MapSheetKind) {
 
     return (
       <MapSheetHostContext.Provider value={host}>
-        <MapHeroStatusBar scrolledPastHero={mapless} isDark={isDark} />
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="index" />
-          <Stack.Screen
-            name={MAP_SHEET_SCREEN}
-            options={({ route }: { route: { params?: unknown } }) =>
-              sheetOptions.presentation === 'formSheet'
-                ? { ...sheetOptions, sheetInitialDetentIndex: stopParam(route.params) }
-                : sheetOptions
-            }
-            listeners={{
-              sheetDetentChange: (event: { data?: { index: number; stable: boolean } }) => {
-                if (event.data)
-                  onDetentChanged({ index: event.data.index, isStable: event.data.stable });
-              },
-            }}
-          />
-        </Stack>
+        <NativeDismissRefused value={sheetOptions.presentation === 'formSheet'}>
+          <MapHeroStatusBar scrolledPastHero={mapless} isDark={isDark} />
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" />
+            <Stack.Screen
+              name={MAP_SHEET_SCREEN}
+              options={({ route }: { route: { params?: unknown } }) =>
+                sheetOptions.presentation === 'formSheet'
+                  ? { ...sheetOptions, sheetInitialDetentIndex: stopParam(route.params) }
+                  : sheetOptions
+              }
+              listeners={{
+                sheetDetentChange: (event: { data?: { index: number; stable: boolean } }) => {
+                  if (event.data)
+                    onDetentChanged({ index: event.data.index, isStable: event.data.stable });
+                },
+              }}
+            />
+          </Stack>
+        </NativeDismissRefused>
       </MapSheetHostContext.Provider>
     );
   }

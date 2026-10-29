@@ -52,7 +52,7 @@ import {
 import { Icon } from '@/shared/ui/Icon';
 import { Card } from '@/shared/ui/Card';
 import { contextMenuHoldIsNative } from '@/shared/ui/ContextMenu';
-import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
+import { DELIBERATE_HOLD_MS } from '@/shared/ui/holdDurations';
 import { navigateTo } from '@/shared/app/navigation';
 import { NameText } from '@/shared/ui/NameText';
 import { StrengthCardBodies } from './StrengthCardBodies';
@@ -221,7 +221,7 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
               testID={`activity-card-${activity.id}`}
               onPress={handlePress}
               onLongPress={contextMenuHoldIsNative() ? undefined : handleLongPress}
-              delayLongPress={PREVIEW_HOLD_MS}
+              delayLongPress={DELIBERATE_HOLD_MS}
               style={styles.pressableOverlay}
               accessibilityRole="button"
               accessibilityLabel={composeAccessibilityLabel(

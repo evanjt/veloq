@@ -99,6 +99,9 @@ jobs:
           - name: stress
             packs: pack-stress
             tiers: tier3
+          - name: stress-long
+            packs: pack-stress-long
+            tiers: tier3
           - name: map-visual
             packs: pack-map,pack-activity,pack-settings
             tiers: tier3
@@ -430,6 +433,9 @@ jobs:
             tiers: tier2
           - name: stress
             packs: pack-stress
+            tiers: tier3
+          - name: stress-long
+            packs: pack-stress-long
             tiers: tier3
           - name: map-visual
             packs: pack-map,pack-activity,pack-settings

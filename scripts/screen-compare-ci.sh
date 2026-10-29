@@ -42,6 +42,20 @@ here=$(cd "$(dirname "$0")" && pwd)
 captures=screenshots/compare
 candidates=screen-compare/candidates/$platform
 
+# Maestro resolves a flow's relative screenshot path against the workspace on
+# some versions and against its own run directory under ~/.maestro/tests on
+# others. Without captures in the workspace, the newest run's are used.
+if [ ! -d "$captures" ]; then
+  run_captures=$(ls -d "${HOME:-/nonexistent}"/.maestro/tests/*/screenshots/compare 2>/dev/null | sort | tail -1)
+  if [ -n "$run_captures" ]; then
+    echo "screen-compare-ci: no $captures, using the Maestro run at $run_captures" >&2
+    captures=$run_captures
+  else
+    echo "screen-compare-ci: no $captures and no Maestro run under ~/.maestro/tests holds one" >&2
+    find screenshots "${HOME:-/nonexistent}/.maestro" -name '*.png' 2>/dev/null | head -20 >&2 || true
+  fi
+fi
+
 mkdir -p "$candidates"
 if [ -d "$captures" ]; then
   cp -R "$captures/." "$candidates/"

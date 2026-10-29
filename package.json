@@ -62,7 +62,7 @@
     "maestro:pack:routes": "./scripts/with-maestro.sh test .maestro/ --include-tags=pack-routes,pack-routes-long --no-ansi",
     "maestro:pack:settings": "./scripts/with-maestro.sh test .maestro/ --include-tags=pack-settings --no-ansi",
     "maestro:pack:data": "./scripts/with-maestro.sh test .maestro/ --include-tags=pack-data --no-ansi",
-    "maestro:pack:stress": "./scripts/with-maestro.sh test .maestro/ --include-tags=pack-stress --no-ansi",
+    "maestro:pack:stress": "./scripts/with-maestro.sh test .maestro/ --include-tags=pack-stress,pack-stress-long --no-ansi",
     "ffi:generate": "npm --prefix modules/veloqrs run generate --",
     "check:bindings-fresh": "node scripts/check-bindings-fresh.mjs",
     "check:tracematch-docs": "node scripts/check-tracematch-docs.mjs",

@@ -14,6 +14,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  renameSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -71,7 +72,22 @@ function workspace({ goldens = true, captures = true, surface = 255 } = {}): str
 }
 
 function run(cwd: string, ...args: string[]) {
-  return spawnSync('sh', [SCRIPT, ...args], { cwd, encoding: 'utf8' });
+  return spawnSync('sh', [SCRIPT, ...args], {
+    cwd,
+    encoding: 'utf8',
+    env: { ...process.env, HOME: cwd },
+  });
+}
+
+/** The tree a Maestro run writes under its home when it does not resolve captures against the workspace. */
+function maestroOutput(root: string, stamp: string) {
+  return join(root, '.maestro/tests', stamp, 'screenshots');
+}
+
+function moveCapturesToMaestroOutput(root: string, stamp = '2026-10-28_010203') {
+  const out = maestroOutput(root, stamp);
+  mkdirSync(dirname(out), { recursive: true });
+  renameSync(join(root, 'screenshots'), out);
 }
 
 function files(dir: string): string[] {
@@ -109,6 +125,24 @@ describe('screen-compare-ci.sh', () => {
 
     expect(result.status).toBe(1);
     expect(existsSync(join(root, '.maestro/goldens/android'))).toBe(false);
+  });
+
+  it('finds captures Maestro wrote under its output directory and hands them on', () => {
+    const root = workspace();
+    moveCapturesToMaestroOutput(root);
+    const result = run(root, 'android', 'capture');
+
+    expect(result.status).toBe(0);
+    expect(files(join(root, 'screen-compare/candidates'))).toEqual(CANDIDATES);
+  });
+
+  it('takes the newest Maestro run when its output holds several', () => {
+    const root = workspace({ surface: 240 });
+    moveCapturesToMaestroOutput(root, '2026-10-27_010203');
+    write(join(maestroOutput(root, '2026-10-28_010203'), 'compare/light/quay.png'), screen());
+    run(root, 'android', 'capture');
+
+    expect(files(join(root, 'screen-compare/candidates'))).toEqual(['android/light/quay.png']);
   });
 
   it('fails a compare whose capture wrote nothing', () => {

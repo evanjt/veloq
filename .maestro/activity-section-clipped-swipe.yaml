@@ -36,6 +36,7 @@ tags:
           start: 50%, 80%
           end: 50%, 55%
           duration: 500
+      - waitForAnimationToEnd
 - assertNotVisible:
     id: "section-inline-plot-0"
 - assertNotVisible:
@@ -54,12 +55,16 @@ tags:
           start: 50%, 75%
           end: 50%, 95%
           duration: 500
+      - waitForAnimationToEnd
 # The loop stops when a sliver of the first card shows, and its centre is then
 # under the tabs, so one short drag brings the card clear before it is swiped.
 - swipe:
     start: 50%, 75%
     end: 50%, 81%
     duration: 500
+# A flick keeps scrolling after the finger lifts, so the cards are only where
+# they will be swiped once the list has stopped.
+- waitForAnimationToEnd
 - assertVisible:
     id: "section-inline-plot-0"
 - assertVisible:

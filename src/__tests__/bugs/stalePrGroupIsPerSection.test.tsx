@@ -38,8 +38,9 @@ jest.mock('@/features/routes', () => {
 const t = i18n.t.bind(i18n) as unknown as TFunc;
 const DAY = 86_400;
 const NOW_MS = Date.UTC(2026, 9, 1);
-const MARCH = Date.UTC(2026, 2, 1) / 1000;
-const JUNE = Date.UTC(2026, 5, 1) / 1000;
+// Records set at local noon, so the record day reads the same in every zone.
+const MARCH = new Date(2026, 2, 1, 12).getTime() / 1000;
+const JUNE = new Date(2026, 5, 1, 12).getTime() / 1000;
 
 function efforts(start: number, times: number[], record: string) {
   return times.map((value, i) => ({

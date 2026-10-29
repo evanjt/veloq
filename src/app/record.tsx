@@ -366,6 +366,7 @@ function RecordScreenContent() {
 
         {/* The sport: recent ones as chips, the full list behind More */}
         <ScrollView
+          testID="record-sport-row"
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.chipRow}
