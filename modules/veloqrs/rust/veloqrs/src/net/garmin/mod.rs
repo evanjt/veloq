@@ -202,6 +202,25 @@ impl GarminClient {
         self.exchange(dispatch.into()).await.map(|_| ())
     }
 
+    /// Whether the key can read the account's activities: asks for one page of
+    /// at most one activity in the last day, and ignores what it holds.
+    pub async fn check_activity_access(
+        &self,
+        dispatch: impl Into<Dispatch>,
+    ) -> Result<(), GarminError> {
+        let dispatch = dispatch.into();
+        let today = chrono::Local::now()
+            .date_naive()
+            .format("%Y-%m-%d")
+            .to_string();
+        let day = today.as_str();
+        self.with_token(dispatch, |t| async move {
+            endpoints::fetch_activity_page(&t, 0, 1, day, day, dispatch).await
+        })
+        .await
+        .map(|_| ())
+    }
+
     /// The name Garmin gives the account the key belongs to, `None` when its
     /// settings name none.
     pub async fn display_name(
@@ -231,7 +250,15 @@ impl GarminClient {
             let start = all.len();
             let page = self
                 .with_token(dispatch, |t| async move {
-                    endpoints::fetch_activity_page(&t, start, start_date, end_date, dispatch).await
+                    endpoints::fetch_activity_page(
+                        &t,
+                        start,
+                        endpoints::PAGE_SIZE,
+                        start_date,
+                        end_date,
+                        dispatch,
+                    )
+                    .await
                 })
                 .await?;
             let full = page.len() >= endpoints::PAGE_SIZE;

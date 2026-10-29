@@ -114,6 +114,89 @@ pub fn message_fields(
     Ok(out)
 }
 
+/// What a FIT file says about itself: when it starts, what recorded it, how
+/// many `record` messages it holds, and every message and field it carries.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct FitInspection {
+    /// The session's start, in Unix seconds, else the first record's time.
+    pub start_unix: Option<i64>,
+    /// The recording device from the `file_id` message, as the profile names it.
+    pub device: Option<String>,
+    pub record_count: u32,
+    /// As [`message_fields`].
+    pub fields: std::collections::BTreeSet<(String, String)>,
+}
+
+/// Read what a FIT file holds in one decode. A file that does not decode is an
+/// error.
+pub fn inspect(data: &[u8]) -> Result<FitInspection, FitParseError> {
+    let mut out = FitInspection::default();
+    let mut session_start = None;
+    let mut first_record = None;
+    let (mut manufacturer, mut product, mut product_name) = (None, None, None);
+    for record in decode(data)? {
+        let kind = record.kind();
+        if record.fields().is_empty() {
+            out.fields.insert((kind.to_string(), String::new()));
+        }
+        for field in record.fields() {
+            out.fields
+                .insert((kind.to_string(), field.name().to_string()));
+            match (kind, field.name()) {
+                (fitparser::profile::MesgNum::Session, "start_time") if session_start.is_none() => {
+                    session_start = timestamp_of(field.value());
+                }
+                (fitparser::profile::MesgNum::Record, "timestamp") if first_record.is_none() => {
+                    first_record = timestamp_of(field.value());
+                }
+                (fitparser::profile::MesgNum::FileId, "manufacturer") => {
+                    manufacturer = finite_number(field.value());
+                }
+                (fitparser::profile::MesgNum::FileId, "product" | "garmin_product") => {
+                    product = finite_number(field.value());
+                }
+                (fitparser::profile::MesgNum::FileId, "product_name") => {
+                    if let fitparser::Value::String(name) = field.value() {
+                        product_name = Some(name.clone());
+                    }
+                }
+                _ => {}
+            }
+        }
+        if kind == fitparser::profile::MesgNum::Record {
+            out.record_count += 1;
+        }
+    }
+    out.start_unix = session_start.or(first_record);
+    out.device = device_name(manufacturer, product, product_name);
+    Ok(out)
+}
+
+/// The profile's manufacturer number for Garmin.
+const MANUFACTURER_GARMIN: f64 = 1.0;
+
+fn device_name(
+    manufacturer: Option<f64>,
+    product: Option<f64>,
+    product_name: Option<String>,
+) -> Option<String> {
+    let maker = manufacturer.map(|m| {
+        if m == MANUFACTURER_GARMIN {
+            "Garmin".to_string()
+        } else {
+            format!("manufacturer {m}")
+        }
+    });
+    let model = product_name
+        .filter(|name| !name.is_empty())
+        .or_else(|| product.map(|p| p.to_string()));
+    match (maker, model) {
+        (Some(maker), Some(model)) => Some(format!("{maker} {model}")),
+        (Some(only), None) | (None, Some(only)) => Some(only),
+        (None, None) => None,
+    }
+}
+
 /// Whether `original` holds a message type or a field that `current` lacks.
 /// A file that is byte for byte the same holds nothing more, and a file that
 /// does not decode cannot be said to hold more.
@@ -954,6 +1037,28 @@ pub(crate) mod tests {
         assert!(super::holds_more_than(&full, &thinner).unwrap());
         assert!(!super::holds_more_than(&thinner, &full).unwrap());
         assert!(!super::holds_more_than(&full, &full.clone()).unwrap());
+    }
+
+    /// Scenario: the check shows both files side by side.
+    ///
+    /// Expected behaviour: start, device, record count and fields come back
+    /// from the file itself.
+    #[test]
+    fn inspect_reads_start_device_record_count_and_fields() {
+        let mut ride = crate::fit_synthetic::outdoor_ride();
+        ride.device = Some((1, 3122));
+        let seen = super::inspect(&ride.to_fit()).unwrap();
+        assert_eq!(seen.start_unix, Some(1_773_471_600));
+        assert_eq!(seen.device.as_deref(), Some("Garmin 3122"));
+        assert_eq!(seen.record_count, 30);
+        assert!(
+            seen.fields
+                .contains(&("record".to_string(), "position_lat".to_string()))
+        );
+
+        let bare = super::inspect(&crate::fit_synthetic::indoor_ride().to_fit()).unwrap();
+        assert_eq!(bare.device, None);
+        assert!(super::inspect(b"not a fit file").is_err());
     }
 
     #[test]

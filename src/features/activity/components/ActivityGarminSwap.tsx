@@ -2,11 +2,14 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { SwapState } from 'veloqrs';
+import { SwapState, type FitFile, type GarminMatch } from 'veloqrs';
 
 import { useTheme } from '@/shared/app';
 import { GrantAccessButton } from '@/features/recording';
-import { Badge, Button, StatusLine } from '@/shared/ui';
+import { ABSENT } from '@/shared/format';
+import { formatDateTime, formatFileSize } from '@/shared/format/format';
+import { formatDecimal } from '@/shared/format/number';
+import { Badge, Button, DataTable, StatusLine, type DataTableRow } from '@/shared/ui';
 import { useExperimental } from '@/features/settings/light';
 import { colors, darkColors, spacing, typography } from '@/theme';
 
@@ -34,7 +37,7 @@ export function ActivityGarminSwap({ activityId }: Props) {
 function GarminSwapBody({ activityId }: Props) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const { state, busy, notice, check, swap, undo } = useGarminSwap(activityId);
+  const { state, match, busy, notice, check, swap, undo } = useGarminSwap(activityId);
   const { askToSwap, isUpgrading, upgradePermissions, upgradeError } = useAskGarminSwap(swap);
   const palette = isDark ? darkColors : colors;
 
@@ -87,6 +90,13 @@ function GarminSwapBody({ activityId }: Props) {
           </Text>
         </>
       ) : null}
+      {match ? (
+        <GarminMatchPanel
+          activityId={activityId}
+          match={match}
+          restores={state === SwapState.Undoable}
+        />
+      ) : null}
       {state === SwapState.Undoable ? (
         <Button
           testID={`activity-${activityId}-garmin-swap-undo`}
@@ -128,7 +138,95 @@ function GarminSwapBody({ activityId }: Props) {
   );
 }
 
+function startOf(file: FitFile): string {
+  return file.startUnix === undefined ? ABSENT : formatDateTime(file.startUnix * 1000);
+}
+
+/** The match a check found and the two files it compared. */
+function GarminMatchPanel({
+  activityId,
+  match,
+  restores,
+}: {
+  activityId: string;
+  match: GarminMatch;
+  restores: boolean;
+}) {
+  const { t } = useTranslation();
+  const { isDark } = useTheme();
+  const palette = isDark ? darkColors : colors;
+  const { garmin, intervals } = match;
+  const rows: DataTableRow[] = [
+    {
+      key: 'size',
+      cells: [
+        t('activity.garminSwap.compare.size'),
+        formatFileSize(garmin.sizeBytes),
+        formatFileSize(intervals.sizeBytes),
+      ],
+    },
+    {
+      key: 'start',
+      cells: [t('activity.garminSwap.compare.start'), startOf(garmin), startOf(intervals)],
+    },
+    {
+      key: 'device',
+      cells: [
+        t('activity.garminSwap.compare.device'),
+        garmin.device ?? ABSENT,
+        intervals.device ?? ABSENT,
+      ],
+    },
+    {
+      key: 'records',
+      cells: [
+        t('activity.garminSwap.compare.records'),
+        formatDecimal(garmin.recordCount, 0),
+        formatDecimal(intervals.recordCount, 0),
+      ],
+    },
+  ];
+  return (
+    <View style={styles.match} testID={`activity-${activityId}-garmin-match`}>
+      <Text style={[typography.label, { color: palette.textPrimary }]}>
+        {t('activity.garminSwap.matchFound')}
+      </Text>
+      <Text
+        testID={`activity-${activityId}-garmin-match-id`}
+        style={[typography.caption, { color: palette.textSecondary }]}
+      >
+        {t('activity.garminSwap.matchId', { id: match.garminId })}
+      </Text>
+      <DataTable
+        columns={[
+          t('activity.garminSwap.compare.detail'),
+          t('activity.garminSwap.compare.garmin'),
+          restores
+            ? t('activity.garminSwap.compare.earlier')
+            : t('activity.garminSwap.compare.intervals'),
+        ]}
+        rows={rows}
+        rowTestIDPrefix={`activity-${activityId}-garmin-match-row-`}
+        columnWeights={[1, 1.4, 1.4]}
+      />
+      <Text
+        testID={`activity-${activityId}-garmin-match-fields`}
+        style={[typography.caption, { color: palette.textSecondary }]}
+      >
+        {match.missingFields.length > 0
+          ? t('activity.garminSwap.compare.missing', { fields: match.missingFields.join(', ') })
+          : t('activity.garminSwap.compare.noneMissing')}
+      </Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  match: {
+    alignSelf: 'stretch',
+    gap: spacing.xs,
+    marginTop: spacing.md,
+  },
   container: {
     alignItems: 'center',
     marginTop: spacing.lg,

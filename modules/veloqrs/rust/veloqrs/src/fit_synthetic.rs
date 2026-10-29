@@ -62,16 +62,36 @@ pub(crate) struct Activity {
     pub sub_sport: u8,
     pub samples: Vec<Sample>,
     pub totals: SessionTotals,
+    /// The recording device as a `file_id` message holds it, the profile's
+    /// manufacturer and product numbers. `None` writes no `file_id`.
+    pub device: Option<(u16, u16)>,
 }
 
 impl Activity {
     /// The FIT file: an activity message, a session and the records.
     pub(crate) fn to_fit(&self) -> Vec<u8> {
         let mut data = Vec::new();
+        self.write_file_id(&mut data);
         self.write_records(&mut data);
         self.write_session(&mut data);
         self.write_activity(&mut data);
         wrap(data)
+    }
+
+    fn write_file_id(&self, out: &mut Vec<u8>) {
+        let Some((manufacturer, product)) = self.device else {
+            return;
+        };
+        definition(
+            out,
+            3,
+            0,
+            &[(0, 1, BASE_ENUM), (1, 2, BASE_UINT16), (2, 2, BASE_UINT16)],
+        );
+        out.push(3);
+        out.push(4);
+        out.extend_from_slice(&manufacturer.to_le_bytes());
+        out.extend_from_slice(&product.to_le_bytes());
     }
 
     fn fit_time(&self, offset: i64) -> u32 {
@@ -261,6 +281,7 @@ pub(crate) fn outdoor_ride() -> Activity {
         sport: SPORT_CYCLING,
         sub_sport: SUB_SPORT_GENERIC,
         samples,
+        device: None,
         totals: SessionTotals {
             elapsed_secs: Some(30.0),
             timer_secs: Some(28.0),

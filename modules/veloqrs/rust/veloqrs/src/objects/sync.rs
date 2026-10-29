@@ -2134,28 +2134,6 @@ pub(crate) async fn find_landed_activity(
     .await
 }
 
-/// The activities intervals.icu holds between two local days, read with the
-/// held credential for the Garmin connector's match. `None` when no credential
-/// is held or the read fails. A refused credential is reported as any other
-/// read's is.
-pub(crate) async fn activities_for_garmin_match(
-    oldest: String,
-    newest: String,
-) -> Option<Vec<ListedActivity>> {
-    let session = SYNC_SERVICE.build_session().ok()?;
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    crate::runtime::spawn(async move {
-        let result = session
-            .activities_between(&oldest, &newest, Lane::Interactive.into())
-            .await;
-        if matches!(result, Err(NetError::Unauthorized)) {
-            park_auth_expired(&session).await;
-        }
-        let _ = tx.send(result.ok());
-    });
-    rx.await.ok().flatten()
-}
-
 /// List the window and pick from it, the work behind [`find_landed_activity`].
 async fn landed_activity_job(
     source: &impl SourceWrites,
@@ -4874,8 +4852,7 @@ impl SyncManager {
         super::garmin_key::connect_garmin(key).await
     }
 
-    /// The account behind the key Garmin accepted: the name on it, and how the
-    /// rides of the last thirty days line up with intervals.icu. `None` when
+    /// The account behind the key Garmin accepted: the name on it. `None` when
     /// no key is held.
     async fn garmin_account(&self) -> Option<super::garmin_account::GarminAccount> {
         super::garmin_account::garmin_account().await
@@ -4924,6 +4901,16 @@ impl SyncManager {
         activity_id: String,
     ) -> crate::net::garmin_swap::FfiSwapState {
         swap_off_thread(activity_id, crate::net::garmin_swap::check).await
+    }
+
+    /// What the last check of the activity found: Garmin's activity id, both
+    /// files and the fields only Garmin's holds. Reads only what the phone
+    /// holds and makes no request.
+    async fn garmin_swap_match(
+        &self,
+        activity_id: String,
+    ) -> Option<crate::net::garmin_swap::FfiGarminMatch> {
+        swap_off_thread(activity_id, crate::net::garmin_swap::matched).await
     }
 
     /// Replace intervals.icu's file for the activity with Garmin's original.

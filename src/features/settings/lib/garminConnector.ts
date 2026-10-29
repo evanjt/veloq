@@ -6,7 +6,7 @@
  * setting or backup. The engine is the only caller of Garmin.
  */
 
-import { GarminKeyStatus, GarminMatch, type GarminAccount } from 'veloqrs';
+import { GarminKeyStatus, type GarminAccount } from 'veloqrs';
 
 import {
   CREDENTIAL_KEYCHAIN_OPTIONS,
@@ -174,24 +174,6 @@ export async function readGarminAccount(deps: Deps = {}): Promise<GarminAccount 
     return (await (deps.engine ?? engineKey).garminAccount()) ?? undefined;
   } catch {
     return undefined;
-  }
-}
-
-/** What the account reading says: the name on the account, and the one line the rides allow. */
-export type GarminAccountReading =
-  | { kind: 'matched'; name: string | undefined; count: number }
-  | { kind: 'wrongAccount'; name: string | undefined }
-  | { kind: 'connected'; name: string | undefined };
-
-export function garminAccountReading(account: GarminAccount): GarminAccountReading {
-  const name = account.displayName ?? undefined;
-  switch (account.matched) {
-    case GarminMatch.Matched:
-      return { kind: 'matched', name, count: account.matchedCount };
-    case GarminMatch.WrongAccount:
-      return { kind: 'wrongAccount', name };
-    default:
-      return { kind: 'connected', name };
   }
 }
 

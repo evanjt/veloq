@@ -296,6 +296,7 @@ export enum GarminKeyStatus {
   Rejected,
   Malformed,
   Unreachable,
+  NoActivityAccess,
 }
 
 /** `FfiGarminPullPhase` as generated, held to the source by the same test. */
@@ -312,13 +313,6 @@ export enum FfiGarminHalt {
   KeyRejected,
   Unreachable,
   Unstorable,
-}
-
-/** `GarminMatch` as generated, held to the source by the same test. */
-export enum GarminMatch {
-  Silent,
-  Matched,
-  WrongAccount,
 }
 
 /** `FfiPlannedCategory` as generated, held to the source by the same test. */
@@ -722,7 +716,6 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     GarminKeyStatus,
     FfiGarminPullPhase,
     FfiGarminHalt,
-    GarminMatch,
     RetiredPairLink,
     FfiReferenceSource,
     FfiPlannedCategory,

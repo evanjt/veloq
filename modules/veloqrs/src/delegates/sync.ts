@@ -24,6 +24,7 @@ import {
   type GarminAccount,
   type FfiStartResult,
   type FfiSwapResult,
+  type FfiGarminMatch,
   RangeCoverage,
   type LibraryCoverage,
   type FfiSyncStatus,
@@ -114,6 +115,16 @@ export async function garminSwapCheck(
 ): Promise<FfiSwapState> {
   if (!host.ready) return FfiSwapState.Hidden;
   return host.timedAsync('garminSwapCheck', () => host.engine.sync().garminSwapCheck(activityId));
+}
+
+/** What the last check of the activity found: Garmin's activity id, both files
+ *  and the fields only Garmin's holds. It makes no request. */
+export async function garminSwapMatch(
+  host: DelegateHost,
+  activityId: string
+): Promise<FfiGarminMatch | undefined> {
+  if (!host.ready) return undefined;
+  return host.timedAsync('garminSwapMatch', () => host.engine.sync().garminSwapMatch(activityId));
 }
 
 /** Replace intervals.icu's file for the activity with Garmin's original. */

@@ -33,16 +33,18 @@ pub async fn fetch_token(t: &Transport, dispatch: impl Into<Dispatch>) -> Result
 }
 
 /// One page of the activity list. `start_date` and `end_date` are local
-/// `YYYY-MM-DD` days and inclusive; `start` is the index of the first entry.
+/// `YYYY-MM-DD` days and inclusive; `start` is the index of the first entry
+/// and `limit` the most entries the page holds.
 pub async fn fetch_activity_page(
     t: &Transport,
     start: usize,
+    limit: usize,
     start_date: &str,
     end_date: &str,
     dispatch: impl Into<Dispatch>,
 ) -> Result<Vec<ListedActivity>, NetError> {
     let start = start.to_string();
-    let limit = PAGE_SIZE.to_string();
+    let limit = limit.to_string();
     t.get_json(
         LIST_PATH,
         &[

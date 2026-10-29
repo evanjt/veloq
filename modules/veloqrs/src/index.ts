@@ -121,6 +121,8 @@ export type {
   FfiCallOutcome as CallOutcome,
   FfiUploadResult as UploadResult,
   FfiSwapResult as SwapResult,
+  FfiGarminMatch as GarminMatch,
+  FfiFitFile as FitFile,
 } from './generated/veloqrs';
 export {
   FfiCallKind as CallKind,

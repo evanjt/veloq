@@ -6,7 +6,7 @@
  * and nothing is scoped.
  */
 
-import { shouldShowSportChips } from '@/features/routes/lib/sectionSport';
+import { shouldShowSportChips, sportChipOptions } from '@/features/routes/lib/sectionSport';
 
 describe('shouldShowSportChips', () => {
   it('shows a chip when the range holds one sport', () => {
@@ -19,5 +19,25 @@ describe('shouldShowSportChips', () => {
 
   it('shows none when the screen read offers no sport', () => {
     expect(shouldShowSportChips([])).toBe(false);
+  });
+});
+
+describe('sportChipOptions', () => {
+  it('offers one chip per sport with its count, in the engine order', () => {
+    expect(
+      sportChipOptions([
+        { sportType: 'Run', count: 6 },
+        { sportType: 'Hike', count: 3 },
+        { sportType: 'Walk', count: 2 },
+      ])
+    ).toEqual([
+      { type: 'Run', count: 6 },
+      { type: 'Hike', count: 3 },
+      { type: 'Walk', count: 2 },
+    ]);
+  });
+
+  it('offers none when the screen read offers no sport', () => {
+    expect(sportChipOptions([])).toEqual([]);
   });
 });

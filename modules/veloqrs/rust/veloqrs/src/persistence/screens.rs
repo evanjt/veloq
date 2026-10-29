@@ -1451,11 +1451,18 @@ where
 
     // A record is held within one sport, so ground more than one sport has
     // taken is answered for one of them: the one asked for, or the offered one
-    // with the most outings.
+    // with the most traversals over the range. A tie keeps the sports' order,
+    // which is most outings first.
+    let most_traversed =
+        offered
+            .iter()
+            .fold(None::<&(String, u32)>, |best, candidate| match best {
+                Some(held) if held.1 >= candidate.1 => Some(held),
+                _ => Some(candidate),
+            });
     let filter: Option<String> = match requested {
         Some(sport) => Some(sport.to_string()),
-        None if sports.len() > 1 => offered
-            .first()
+        None if sports.len() > 1 => most_traversed
             .or(sports.first())
             .map(|(sport, _)| sport.clone()),
         None => None,
@@ -6574,6 +6581,36 @@ mod tests {
             vec!["run_a_lap0", "run_b_lap0"]
         );
         assert_eq!(detail.chart_data.best_time_secs, Some(390.0));
+    }
+
+    /// Scenario: a section ridden twice and run once, the run lapping it three
+    /// times, opened with no chip.
+    ///
+    /// Expected behaviour: the default is the sport with the most traversals
+    /// in the range, so the run (3) opens ahead of the ride (2) and its chip
+    /// is the first offered.
+    #[test]
+    fn with_no_sport_asked_the_default_is_the_sport_with_most_traversals() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().expect("tempdir");
+        let path = dir.path().join("default_by_traversals.db");
+        let mut engine = section_detail_engine(
+            path.to_str().expect("utf-8"),
+            &[
+                ("ride_a", "Ride", 3, &[(200.0, false)]),
+                ("ride_b", "Ride", 6, &[(210.0, false)]),
+                (
+                    "run_a",
+                    "Run",
+                    2,
+                    &[(400.0, false), (410.0, false), (420.0, false)],
+                ),
+            ],
+        );
+
+        let detail = performance_detail(&mut engine, 0, None);
+        assert_eq!(detail.sport_type.as_deref(), Some("Run"));
+        assert_eq!(detail.chart_data.points.len(), 3);
     }
 
     /// A section only one sport has taken answers for that sport, so the

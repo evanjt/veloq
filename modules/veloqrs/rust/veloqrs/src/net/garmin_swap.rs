@@ -107,6 +107,28 @@ impl FfiSwapResult {
     }
 }
 
+/// What one FIT file says about itself.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, uniffi::Record)]
+pub struct FfiFitFile {
+    pub size_bytes: f64,
+    /// The start, in Unix seconds.
+    pub start_unix: Option<f64>,
+    /// The recording device, from the file's own `file_id`.
+    pub device: Option<String>,
+    pub record_count: u32,
+}
+
+/// What a check found: Garmin's activity that matched, both files, and the
+/// fields only Garmin's holds, as `message.field`.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, uniffi::Record)]
+pub struct FfiGarminMatch {
+    pub garmin_id: String,
+    pub garmin: FfiFitFile,
+    /// intervals.icu's file, or after a swap the earlier file an undo restores.
+    pub intervals: FfiFitFile,
+    pub missing_fields: Vec<String>,
+}
+
 /// What the swap asks of intervals.icu, of Garmin and of the device. The app
 /// runs [`Live`]; a test hands in a fake.
 pub(crate) trait SwapLink {
@@ -346,17 +368,43 @@ fn forget_comparison(link: &dyn SwapLink, id: &str) {
 
 /// What a check found, kept against the analysed time it was made at, so an
 /// activity is checked once until intervals.icu analyses it again.
+#[derive(serde::Serialize, serde::Deserialize)]
+struct Remembered {
+    analysed: String,
+    more: bool,
+    found: FfiGarminMatch,
+}
+
+fn remembered_value(link: &dyn SwapLink, id: &str) -> Option<Remembered> {
+    serde_json::from_str(&link.remembered(id)?).ok()
+}
+
 fn remembered_check(link: &dyn SwapLink, id: &str, import: &Import) -> Option<bool> {
-    let value = link.remembered(id)?;
-    let (analysed, more) = value.rsplit_once('|')?;
-    if analysed != import.analysed {
-        return None;
+    let kept = remembered_value(link, id)?;
+    (kept.analysed == import.analysed).then_some(kept.more)
+}
+
+fn remember_comparison(link: &dyn SwapLink, id: &str, import: &Import, found: &Comparison) {
+    let kept = Remembered {
+        analysed: import.analysed.clone(),
+        more: found.more,
+        found: found.found.clone(),
+    };
+    if let Ok(value) = serde_json::to_string(&kept) {
+        link.remember(id, &value);
     }
-    match more {
-        "1" => Some(true),
-        "0" => Some(false),
-        _ => None,
+}
+
+/// What the last check of the activity found, read from what the phone holds.
+/// While a swap can be undone the match is kept whatever intervals.icu has
+/// analysed since, because it describes the file Undo restores.
+pub(crate) fn matched(link: &dyn SwapLink, id: &str) -> Option<FfiGarminMatch> {
+    let kept = remembered_value(link, id)?;
+    if previous_file(link, id).is_some_and(|p| p.is_file()) {
+        return Some(kept.found);
     }
+    let import = import_of(&link.stored_json(id)?)?;
+    (kept.analysed == import.analysed).then_some(kept.found)
 }
 
 fn previous_file(link: &dyn SwapLink, id: &str) -> Option<PathBuf> {
@@ -406,29 +454,74 @@ pub(crate) fn check(link: &dyn SwapLink, id: &str) -> FfiSwapState {
     if import.held_back {
         return FfiSwapState::Available;
     }
-    let Some(more) = compare(link, id, &import) else {
+    let Some(found) = compare(link, id, &import) else {
         return FfiSwapState::Checkable;
     };
-    link.remember(
-        id,
-        &format!("{}|{}", import.analysed, if more { 1 } else { 0 }),
-    );
-    if more {
+    remember_comparison(link, id, &import, &found);
+    if found.more {
         FfiSwapState::Available
     } else {
         FfiSwapState::Unchanged
     }
 }
 
-/// Whether Garmin's original holds more than intervals.icu's file, `None`
-/// when either cannot be had or read.
-fn compare(link: &dyn SwapLink, id: &str, import: &Import) -> Option<bool> {
+/// What comparing Garmin's original with intervals.icu's file found.
+struct Comparison {
+    /// Whether the original holds a message or a field the other lacks.
+    more: bool,
+    found: FfiGarminMatch,
+}
+
+fn fit_file(bytes: &[u8], seen: &crate::fit::FitInspection) -> FfiFitFile {
+    FfiFitFile {
+        size_bytes: bytes.len() as f64,
+        start_unix: seen.start_unix.map(|at| at as f64),
+        device: seen.device.clone(),
+        record_count: seen.record_count,
+    }
+}
+
+/// Compare the two files, `Err` when either does not decode.
+fn compare_files(
+    garmin_id: i64,
+    original: &[u8],
+    current: &[u8],
+) -> Result<Comparison, crate::fit::FitParseError> {
+    let (garmin, intervals) = (
+        crate::fit::inspect(original)?,
+        crate::fit::inspect(current)?,
+    );
+    let missing_fields: Vec<String> = garmin
+        .fields
+        .difference(&intervals.fields)
+        .map(|(kind, field)| {
+            if field.is_empty() {
+                kind.clone()
+            } else {
+                format!("{kind}.{field}")
+            }
+        })
+        .collect();
+    Ok(Comparison {
+        more: original != current && !missing_fields.is_empty(),
+        found: FfiGarminMatch {
+            garmin_id: garmin_id.to_string(),
+            garmin: fit_file(original, &garmin),
+            intervals: fit_file(current, &intervals),
+            missing_fields,
+        },
+    })
+}
+
+/// Compare Garmin's original with intervals.icu's file, `None` when either
+/// cannot be had or read.
+fn compare(link: &dyn SwapLink, id: &str, import: &Import) -> Option<Comparison> {
     let original = link.garmin_original(import.garmin_id).ok()?;
     let current = link
         .activity_file(id)
         .ok()
         .filter(|file| !file.is_empty())?;
-    crate::fit::holds_more_than(&original, &current).ok()
+    compare_files(import.garmin_id, &original, &current).ok()
 }
 
 fn outcome_of(verdict: Verdict) -> FfiSwapResult {
@@ -627,12 +720,16 @@ fn swap(link: &dyn SwapLink, id: &str) -> FfiSwapResult {
         import.intervals_edited,
         FfiSwapOutcome::Replaced,
     );
-    forget_comparison(link, id);
-    // Only a swap that changed the file leaves an earlier one to restore.
+    // Only a swap that changed the file leaves an earlier one to restore, and
+    // what it restores is what the match describes.
     let changed = matches!(
         result.outcome,
         FfiSwapOutcome::Replaced | FfiSwapOutcome::Mismatch
     );
+    match compare_files(import.garmin_id, &original, &current) {
+        Ok(found) if changed => remember_comparison(link, id, &import, &found),
+        _ => forget_comparison(link, id),
+    }
     if !changed {
         let _ = std::fs::remove_file(&kept);
     }

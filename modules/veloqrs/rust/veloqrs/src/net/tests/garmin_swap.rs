@@ -470,6 +470,81 @@ fn a_swap_or_an_undo_clears_the_remembered_check() {
 }
 
 #[test]
+fn a_check_keeps_both_files_and_the_fields_garmins_holds_alone() {
+    let (garmin, intervals) = (full(), thin());
+    let link = Fake::new(garmin.clone(), intervals.clone());
+    assert_eq!(matched(&link, "m"), None);
+
+    check(&link, "m");
+    let found = matched(&link, "m").expect("the check keeps its comparison");
+
+    assert_eq!(found.garmin_id, GARMIN_ID.to_string());
+    assert_eq!(found.garmin.size_bytes, garmin.len() as f64);
+    assert_eq!(found.intervals.size_bytes, intervals.len() as f64);
+    assert_eq!(found.garmin.start_unix, Some(1_773_471_600.0));
+    assert_eq!(found.garmin.record_count, 30);
+    assert_eq!(found.intervals.record_count, 30);
+    assert!(
+        found
+            .missing_fields
+            .contains(&"record.position_lat".to_string())
+    );
+    assert!(
+        found
+            .missing_fields
+            .contains(&"record.position_long".to_string())
+    );
+}
+
+#[test]
+fn a_check_of_identical_files_keeps_the_match_with_no_missing_fields() {
+    let link = Fake::new(full(), full());
+    check(&link, "same");
+
+    let found = matched(&link, "same").expect("an unchanged check keeps its match");
+    assert!(found.missing_fields.is_empty());
+    assert_eq!(found.garmin.size_bytes, found.intervals.size_bytes);
+}
+
+#[test]
+fn a_check_that_could_not_be_made_keeps_no_match() {
+    let mut link = Fake::new(full(), thin());
+    link.original = Err("garmin is down".into());
+    check(&link, "down");
+    assert_eq!(matched(&link, "down"), None);
+}
+
+#[test]
+fn a_new_analysed_time_drops_the_match() {
+    let mut link = Fake::new(full(), thin());
+    check(&link, "later");
+    link.json = import_json(false, "2026-10-26T09:00:00");
+    assert_eq!(matched(&link, "later"), None);
+}
+
+#[test]
+fn a_swap_keeps_the_match_for_undo_and_an_undo_drops_it() {
+    let (garmin, intervals) = (full(), thin());
+    let link = Fake::new(garmin.clone(), intervals.clone());
+    check(&link, "i500");
+    replace(&link, "i500");
+
+    let found = matched(&link, "i500").expect("undo shows what it restores");
+    assert_eq!(found.garmin.size_bytes, garmin.len() as f64);
+    assert_eq!(found.intervals.size_bytes, intervals.len() as f64);
+
+    undo(&link, "i500");
+    assert_eq!(matched(&link, "i500"), None);
+}
+
+#[test]
+fn a_swap_with_no_earlier_check_still_keeps_the_match() {
+    let link = Fake::new(full(), thin());
+    replace(&link, "i500");
+    assert!(matched(&link, "i500").is_some());
+}
+
+#[test]
 fn a_check_never_writes_to_intervals_icu() {
     let link = Fake::new(full(), thin());
     check(&link, "ro");

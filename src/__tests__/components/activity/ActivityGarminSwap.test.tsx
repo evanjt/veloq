@@ -23,11 +23,16 @@ configure({ defaultIncludeHiddenElements: true });
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());
+jest.mock('@/shared/format/format', () => ({
+  ...jest.requireActual('@/shared/format/format'),
+  formatDateTime: (ms: number) => `at ${ms}`,
+}));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 jest.mock('@/shared/native/syncRefresh', () => ({ requestSyncRefresh: jest.fn() }));
 jest.mock('@/shared/native/garminSwap', () => ({
   garminSwapState: jest.fn(),
   garminSwapCheck: jest.fn(),
+  garminSwapMatch: jest.fn(),
   garminSwapReplace: jest.fn(),
   garminSwapUndo: jest.fn(),
 }));
@@ -49,6 +54,7 @@ jest.mock('@/features/recording', () => {
 
 const state = engine.garminSwapState as jest.Mock;
 const check = engine.garminSwapCheck as jest.Mock;
+const match = engine.garminSwapMatch as jest.Mock;
 const replace = engine.garminSwapReplace as jest.Mock;
 const undo = engine.garminSwapUndo as jest.Mock;
 const confirm = confirmAction as jest.Mock;
@@ -244,5 +250,72 @@ describe('ActivityGarminSwap', () => {
       fireEvent.press(screen.getByTestId('activity-i1-garmin-swap-grant-access'));
       expect(upgrade).toHaveBeenCalledTimes(1);
     });
+  });
+});
+
+describe('the match a check found', () => {
+  const found = {
+    garminId: '18342901776',
+    garmin: {
+      sizeBytes: 123_456,
+      startUnix: 1_773_471_600,
+      device: 'Garmin 3122',
+      recordCount: 3600,
+    },
+    intervals: {
+      sizeBytes: 98_000,
+      startUnix: 1_773_471_600,
+      device: undefined,
+      recordCount: 3600,
+    },
+    missingFields: ['record.position_lat', 'record.altitude'],
+  };
+
+  it('shows Match found, the Garmin id, both files and the fields Garmin holds alone', async () => {
+    state.mockResolvedValue(SwapState.Available);
+    match.mockResolvedValue(found);
+    render(<ActivityGarminSwap activityId="i1" />);
+
+    expect(await screen.findByText('activity.garminSwap.matchFound')).toBeTruthy();
+    expect(match).toHaveBeenCalledWith('i1');
+    expect(screen.getByTestId('activity-i1-garmin-match-id')).toHaveTextContent(
+      'activity.garminSwap.matchId'
+    );
+    expect(screen.getByText('123.5 KB')).toBeTruthy();
+    expect(screen.getByText('98.0 KB')).toBeTruthy();
+    expect(screen.getByText('Garmin 3122')).toBeTruthy();
+    expect(screen.getAllByText('3,600').length).toBe(2);
+    expect(screen.getByText('activity.garminSwap.compare.intervals')).toBeTruthy();
+    expect(screen.getByTestId('activity-i1-garmin-match-fields')).toHaveTextContent(
+      'activity.garminSwap.compare.missing'
+    );
+  });
+
+  it('keeps the match beside Undo and heads the second column as the earlier file', async () => {
+    state.mockResolvedValue(SwapState.Undoable);
+    match.mockResolvedValue(found);
+    render(<ActivityGarminSwap activityId="i1" />);
+
+    expect(await screen.findByText('activity.garminSwap.compare.earlier')).toBeTruthy();
+    expect(screen.getByTestId('activity-i1-garmin-swap-undo')).toBeTruthy();
+  });
+
+  it('shows no match before a check has been made or when the engine has none', async () => {
+    state.mockResolvedValue(SwapState.Checkable);
+    match.mockResolvedValue(found);
+    render(<ActivityGarminSwap activityId="i1" />);
+    await screen.findByTestId('activity-i1-garmin-check-button');
+    expect(screen.queryByText('activity.garminSwap.matchFound')).toBeNull();
+    expect(match).not.toHaveBeenCalled();
+  });
+
+  it('says no field is missing when the files hold the same fields', async () => {
+    state.mockResolvedValue(SwapState.Unchanged);
+    match.mockResolvedValue({ ...found, missingFields: [] });
+    render(<ActivityGarminSwap activityId="i1" />);
+    expect(await screen.findByText('activity.garminSwap.matchFound')).toBeTruthy();
+    expect(screen.getByTestId('activity-i1-garmin-match-fields')).toHaveTextContent(
+      'activity.garminSwap.compare.noneMissing'
+    );
   });
 });

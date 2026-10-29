@@ -15,7 +15,7 @@ import { GarminConnector } from '@/features/settings/components/GarminConnector'
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { GARMIN_KEY_STORAGE_KEY } from '@/shared/app/credentialKeychain';
 import * as engineKey from '@/shared/native/garminKey';
-import { GarminKeyStatus, GarminMatch } from 'veloqrs';
+import { GarminKeyStatus } from 'veloqrs';
 import { useDebugStore } from '@/features/settings/stores/DebugStore';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
 
@@ -288,29 +288,26 @@ describe('the Garmin connector account line after a paste', () => {
     return screen;
   }
 
-  it('shows the matched line when the rides match intervals.icu', async () => {
-    const screen = await pasteAndConnect({
-      displayName: 'Invented Athlete',
-      matched: GarminMatch.Matched,
-      matchedCount: 18,
-    });
-    expect(screen.getByText('garmin.statusMatched')).toBeTruthy();
+  it('names the account and never renders a match count or a wrong-account warning', async () => {
+    const screen = await pasteAndConnect({ displayName: 'Invented Athlete' });
+    expect(screen.getByText('garmin.statusConnectedAs')).toBeTruthy();
+    expect(screen.queryByText('garmin.statusMatched')).toBeNull();
+    expect(screen.queryByText('garmin.statusMatchedOf')).toBeNull();
     expect(screen.queryByTestId('garmin-account-warning')).toBeNull();
   });
 
-  it('warns that the rides are not in intervals.icu when the import is on and none of them are', async () => {
-    const screen = await pasteAndConnect({
-      displayName: 'Invented Athlete',
-      matched: GarminMatch.WrongAccount,
-      matchedCount: 0,
-    });
-    expect(screen.getByText('garmin.statusConnectedAs')).toBeTruthy();
-    expect(screen.getByTestId('garmin-account-warning')).toBeTruthy();
+  it('shows the plain connected line when the engine gives no account', async () => {
+    const screen = await pasteAndConnect(undefined);
+    expect(screen.getByText('garmin.statusConnected')).toBeTruthy();
   });
 
-  it('shows the account alone when the window has nothing to compare', async () => {
-    const screen = await pasteAndConnect({ matched: GarminMatch.Silent, matchedCount: 0 });
-    expect(screen.getByText('garmin.statusConnectedAs')).toBeTruthy();
-    expect(screen.queryByTestId('garmin-account-warning')).toBeNull();
+  it('says the key cannot read the activities, and keeps nothing, when Garmin refuses them', async () => {
+    (engineKey.connectGarmin as jest.Mock).mockResolvedValue(GarminKeyStatus.NoActivityAccess);
+    const screen = await render(<GarminConnector />);
+    fireEvent.changeText(screen.getByTestId('garmin-key-input'), 'invented-key');
+    fireEvent.press(screen.getByTestId('garmin-connect'));
+    await waitFor(() => expect(screen.getByText('garmin.statusNoActivityAccess')).toBeTruthy());
+    expect(screen.queryByTestId('garmin-disconnect')).toBeNull();
+    expect(mockKeychain.size).toBe(0);
   });
 });

@@ -10287,6 +10287,68 @@ const FfiConverterTypeFfiFeedCardsPage = (() => {
 })();
 
 /**
+ * What one FIT file says about itself.
+ */
+export type FfiFitFile = {
+  sizeBytes: number;
+  /**
+   * The start, in Unix seconds.
+   */
+  startUnix?: number;
+  /**
+   * The recording device, from the file's own `file_id`.
+   */
+  device?: string;
+  recordCount: number;
+};
+
+/**
+ * Generated factory for {@link FfiFitFile} record objects.
+ */
+export const FfiFitFile = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiFitFile, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiFitFile>,
+  });
+})();
+
+const FfiConverterTypeFfiFitFile = (() => {
+  type TypeName = FfiFitFile;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        sizeBytes: FfiConverterFloat64.readFromCursor(c),
+        startUnix: FfiConverterOptionalFloat64.readFromCursor(c),
+        device: FfiConverterOptionalString.readFromCursor(c),
+        recordCount: FfiConverterUInt32.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterFloat64.writeIntoCursor(value.sizeBytes, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.startUnix, c);
+      FfiConverterOptionalString.writeIntoCursor(value.device, c);
+      FfiConverterUInt32.writeIntoCursor(value.recordCount, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterFloat64.allocationSize(value.sizeBytes) +
+        FfiConverterOptionalFloat64.allocationSize(value.startUnix) +
+        FfiConverterOptionalString.allocationSize(value.device) +
+        FfiConverterUInt32.allocationSize(value.recordCount)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * One point of a history series: a value and when it was recorded.
  *
  * Every insight card draws a graphic of its own history, and the read carried
@@ -11667,6 +11729,66 @@ const FfiConverterTypeFfiFocusRange = (() => {
         FfiConverterFloat64.allocationSize(value.high) +
         FfiConverterUInt32.allocationSize(value.slowCount) +
         FfiConverterUInt32.allocationSize(value.fastCount)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What a check found: Garmin's activity that matched, both files, and the
+ * fields only Garmin's holds, as `message.field`.
+ */
+export type FfiGarminMatch = {
+  garminId: string;
+  garmin: FfiFitFile;
+  /**
+   * intervals.icu's file, or after a swap the earlier file an undo restores.
+   */
+  intervals: FfiFitFile;
+  missingFields: Array<string>;
+};
+
+/**
+ * Generated factory for {@link FfiGarminMatch} record objects.
+ */
+export const FfiGarminMatch = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiGarminMatch, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiGarminMatch>,
+  });
+})();
+
+const FfiConverterTypeFfiGarminMatch = (() => {
+  type TypeName = FfiGarminMatch;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        garminId: FfiConverterString.readFromCursor(c),
+        garmin: FfiConverterTypeFfiFitFile.readFromCursor(c),
+        intervals: FfiConverterTypeFfiFitFile.readFromCursor(c),
+        missingFields: FfiConverterSequenceString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.garminId, c);
+      FfiConverterTypeFfiFitFile.writeIntoCursor(value.garmin, c);
+      FfiConverterTypeFfiFitFile.writeIntoCursor(value.intervals, c);
+      FfiConverterSequenceString.writeIntoCursor(value.missingFields, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.garminId) +
+        FfiConverterTypeFfiFitFile.allocationSize(value.garmin) +
+        FfiConverterTypeFfiFitFile.allocationSize(value.intervals) +
+        FfiConverterSequenceString.allocationSize(value.missingFields)
       );
     }
   }
@@ -25833,59 +25955,6 @@ const FfiConverterTypeFfiZoneDistribution = (() => {
 })();
 
 /**
- * What the window's rides show about the account.
- */
-export enum GarminMatch {
-  /**
-   * Nothing to say: no Garmin ride in the window, intervals.icu could not be
-   * read, or none of the rides are held there and its Garmin import is off.
-   */
-  Silent,
-  /**
-   * The rides intervals.icu holds are all there is to say. `matched_count`
-   * is how many of the window's Garmin rides it holds.
-   */
-  Matched,
-  /**
-   * Garmin rides in the window that intervals.icu does not hold, while its
-   * Garmin import is on: the key may belong to another account.
-   */
-  WrongAccount,
-}
-
-const FfiConverterTypeGarminMatch = (() => {
-  type TypeName = GarminMatch;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      switch (c.readI32()) {
-        case 1:
-          return GarminMatch.Silent;
-        case 2:
-          return GarminMatch.Matched;
-        case 3:
-          return GarminMatch.WrongAccount;
-        default:
-          throw new UniffiInternalError.UnexpectedEnumCase();
-      }
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      switch (value) {
-        case GarminMatch.Silent:
-          return c.writeI32(1);
-        case GarminMatch.Matched:
-          return c.writeI32(2);
-        case GarminMatch.WrongAccount:
-          return c.writeI32(3);
-      }
-    }
-    allocationSize(value: TypeName): number {
-      return 4;
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
  * The account behind the key Garmin accepted.
  */
 export type GarminAccount = {
@@ -25893,11 +25962,6 @@ export type GarminAccount = {
    * The name Garmin gives the account, when its settings name one.
    */
   displayName?: string;
-  matched: GarminMatch;
-  /**
-   * How many of the window's Garmin rides intervals.icu holds.
-   */
-  matchedCount: number;
 };
 
 /**
@@ -25923,21 +25987,13 @@ const FfiConverterTypeGarminAccount = (() => {
     readFromCursor(c: Cursor): TypeName {
       return {
         displayName: FfiConverterOptionalString.readFromCursor(c),
-        matched: FfiConverterTypeGarminMatch.readFromCursor(c),
-        matchedCount: FfiConverterUInt32.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
       FfiConverterOptionalString.writeIntoCursor(value.displayName, c);
-      FfiConverterTypeGarminMatch.writeIntoCursor(value.matched, c);
-      FfiConverterUInt32.writeIntoCursor(value.matchedCount, c);
     }
     allocationSize(value: TypeName): number {
-      return (
-        FfiConverterOptionalString.allocationSize(value.displayName) +
-        FfiConverterTypeGarminMatch.allocationSize(value.matched) +
-        FfiConverterUInt32.allocationSize(value.matchedCount)
-      );
+      return FfiConverterOptionalString.allocationSize(value.displayName);
     }
   }
   return new FFIConverter();
@@ -27349,6 +27405,10 @@ export enum GarminKeyStatus {
    * Garmin could not be reached, so nothing is known about the key.
    */
   Unreachable,
+  /**
+   * Garmin accepted the key but refused it the account's activities.
+   */
+  NoActivityAccess,
 }
 
 const FfiConverterTypeGarminKeyStatus = (() => {
@@ -27364,6 +27424,8 @@ const FfiConverterTypeGarminKeyStatus = (() => {
           return GarminKeyStatus.Malformed;
         case 4:
           return GarminKeyStatus.Unreachable;
+        case 5:
+          return GarminKeyStatus.NoActivityAccess;
         default:
           throw new UniffiInternalError.UnexpectedEnumCase();
       }
@@ -27378,6 +27440,8 @@ const FfiConverterTypeGarminKeyStatus = (() => {
           return c.writeI32(3);
         case GarminKeyStatus.Unreachable:
           return c.writeI32(4);
+        case GarminKeyStatus.NoActivityAccess:
+          return c.writeI32(5);
       }
     }
     allocationSize(value: TypeName): number {
@@ -37998,8 +38062,7 @@ export interface SyncManagerLike {
     asyncOpts_?: { signal: AbortSignal },
   ): Promise<GarminKeyStatus>;
   /**
-   * The account behind the key Garmin accepted: the name on it, and how the
-   * rides of the last thirty days line up with intervals.icu. `None` when
+   * The account behind the key Garmin accepted: the name on it. `None` when
    * no key is held.
    */
   garminAccount(asyncOpts_?: {
@@ -38014,6 +38077,15 @@ export interface SyncManagerLike {
     activityId: string,
     asyncOpts_?: { signal: AbortSignal },
   ): Promise<FfiSwapState>;
+  /**
+   * What the last check of the activity found: Garmin's activity id, both
+   * files and the fields only Garmin's holds. Reads only what the phone
+   * holds and makes no request.
+   */
+  garminSwapMatch(
+    activityId: string,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<FfiGarminMatch | undefined>;
   /**
    * Replace intervals.icu's file for the activity with Garmin's original.
    * The earlier file is kept for `garmin_swap_undo`.
@@ -38322,8 +38394,7 @@ export class SyncManager
   }
 
   /**
-   * The account behind the key Garmin accepted: the name on it, and how the
-   * rides of the last thirty days line up with intervals.icu. `None` when
+   * The account behind the key Garmin accepted: the name on it. `None` when
    * no key is held.
    */
   async garminAccount(asyncOpts_?: {
@@ -38413,6 +38484,62 @@ export class SyncManager
         /*liftFunc:*/ (__rb) => {
           try {
             return FfiConverterTypeFfiSwapState.lift(__rb);
+          } finally {
+            nativeModule().rustbuffer_free(__rb);
+          }
+        },
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+        /*asyncOpts:*/ asyncOpts_,
+      );
+    } catch (__error: any) {
+      if (uniffiIsDebug && __error instanceof Error) {
+        __error.stack = __stack;
+      }
+      throw __error;
+    }
+  }
+
+  /**
+   * What the last check of the activity found: Garmin's activity id, both
+   * files and the fields only Garmin's holds. Reads only what the phone
+   * holds and makes no request.
+   */
+  async garminSwapMatch(
+    activityId: string,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<FfiGarminMatch | undefined> {
+    const __stack = uniffiIsDebug ? new Error().stack : undefined;
+    try {
+      return await uniffiRustCallAsync(
+        /*rustCaller:*/ uniffiCaller,
+        /*rustFutureFunc:*/ () => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_garmin_swap_match(
+            uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(
+              activityId,
+              nativeModule().rustbuffer_alloc,
+            ),
+          );
+        },
+        /*pollFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_poll_rust_buffer,
+        /*cancelFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_cancel_rust_buffer,
+        /*completeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_complete_rust_buffer,
+        /*freeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_free_rust_buffer,
+        // Async returns always go through the JS-side converter: the
+        // FFI symbol returns the future handle (u64), and the user-level
+        // RustBuffer comes back via the shared `rust_future_complete_*`
+        // export. The bytes the runtime hands back must be deserialized
+        // here using the per-callable return-type converter.
+        // Borrowed view over foreign memory: the call site owns the free,
+        // as on the sync paths. Unconditional, a no-op where buffers are
+        // already JS-owned.
+        /*liftFunc:*/ (__rb) => {
+          try {
+            return FfiConverterOptionalTypeFfiGarminMatch.lift(__rb);
           } finally {
             nativeModule().rustbuffer_free(__rb);
           }
@@ -41579,6 +41706,11 @@ const FfiConverterOptionalTypeGarminAccount = new FfiConverterOptional(
   FfiConverterTypeGarminAccount,
 );
 
+// FfiConverter for FfiGarminMatch | undefined
+const FfiConverterOptionalTypeFfiGarminMatch = new FfiConverterOptional(
+  FfiConverterTypeFfiGarminMatch,
+);
+
 // FfiConverter for Array<FfiUnplacedRecord>
 const FfiConverterSequenceTypeFfiUnplacedRecord = new FfiConverterArray(
   FfiConverterTypeFfiUnplacedRecord,
@@ -43710,7 +43842,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_garmin_account() !==
-    35500
+    34546
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_garmin_account",
@@ -43722,6 +43854,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_garmin_swap_check",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_garmin_swap_match() !==
+    33338
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_syncmanager_garmin_swap_match",
     );
   }
   if (
@@ -44297,12 +44437,14 @@ export default Object.freeze({
     FfiConverterTypeFfiExperimentalExamples,
     FfiConverterTypeFfiFeedCard,
     FfiConverterTypeFfiFeedCardsPage,
+    FfiConverterTypeFfiFitFile,
     FfiConverterTypeFfiFitnessScreenData,
     FfiConverterTypeFfiFitnessScreenWindows,
     FfiConverterTypeFfiFloat32Array,
     FfiConverterTypeFfiFocusRange,
     FfiConverterTypeFfiFtpTrend,
     FfiConverterTypeFfiGarminHalt,
+    FfiConverterTypeFfiGarminMatch,
     FfiConverterTypeFfiGarminPull,
     FfiConverterTypeFfiGarminPullPhase,
     FfiConverterTypeFfiGpsPassStart,
@@ -44495,7 +44637,6 @@ export default Object.freeze({
     FfiConverterTypeFitnessManager,
     FfiConverterTypeGarminAccount,
     FfiConverterTypeGarminKeyStatus,
-    FfiConverterTypeGarminMatch,
     FfiConverterTypeGpxFile,
     FfiConverterTypeGroupSummary,
     FfiConverterTypeHeatmapManager,

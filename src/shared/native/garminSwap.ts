@@ -11,6 +11,9 @@ export const garminSwapState = (activityId: string) => sync.garminSwapState(acti
 /** Compare Garmin's file with intervals.icu's and remember the answer. */
 export const garminSwapCheck = (activityId: string) => sync.garminSwapCheck(activityId);
 
+/** What the last check found: both files and the fields only Garmin's holds. */
+export const garminSwapMatch = (activityId: string) => sync.garminSwapMatch(activityId);
+
 /** Replace intervals.icu's file for the activity with Garmin's original. */
 export const garminSwapReplace = (activityId: string) => sync.garminSwapReplace(activityId);
 

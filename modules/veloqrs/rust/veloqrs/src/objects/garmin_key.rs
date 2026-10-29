@@ -8,6 +8,7 @@
 use std::sync::{Arc, LazyLock, Mutex};
 
 use crate::net::garmin::{GarminClient, GarminError};
+use crate::net::transport::NetError;
 
 /// What Garmin said about a key the athlete pasted.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
@@ -20,6 +21,8 @@ pub enum GarminKeyStatus {
     Malformed,
     /// Garmin could not be reached, so nothing is known about the key.
     Unreachable,
+    /// Garmin accepted the key but refused it the account's activities.
+    NoActivityAccess,
 }
 
 /// The client for the held key, if any.
@@ -71,10 +74,21 @@ impl GarminKeyHolder {
         }
         let client = make_client(key.to_string());
         match client.check_key(crate::net::garmin::dispatch()).await {
-            Ok(()) => {
-                self.hold(client);
-                GarminKeyStatus::Connected
-            }
+            Ok(()) => match client
+                .check_activity_access(crate::net::garmin::dispatch())
+                .await
+            {
+                Ok(()) => {
+                    self.hold(client);
+                    GarminKeyStatus::Connected
+                }
+                Err(GarminError::KeyRejected)
+                | Err(GarminError::Net(NetError::Http { status: 403, .. })) => {
+                    GarminKeyStatus::NoActivityAccess
+                }
+                Err(GarminError::KeyMalformed) => GarminKeyStatus::Malformed,
+                Err(GarminError::Net(_)) => GarminKeyStatus::Unreachable,
+            },
             Err(GarminError::KeyRejected) => GarminKeyStatus::Rejected,
             Err(GarminError::KeyMalformed) => GarminKeyStatus::Malformed,
             Err(GarminError::Net(_)) => GarminKeyStatus::Unreachable,
@@ -127,6 +141,14 @@ mod tests {
     use serde_json::json;
 
     const TOKEN_PATH: &str = "/personalapitoken-service/personal-api/personal-api-key/token";
+    const LIST_PATH: &str = "/activitylist-service/activities/search/activities";
+
+    fn mock_list(server: &MockServer, status: u16) -> httpmock::Mock<'_> {
+        server.mock(|when, then| {
+            when.method(GET).path(LIST_PATH);
+            then.status(status).json_body(json!([]));
+        })
+    }
 
     fn token() -> String {
         let b64 = |v: serde_json::Value| {
@@ -160,6 +182,7 @@ mod tests {
                 .header("authorization", "ApiKey pasted-key");
             then.status(200).body(token());
         });
+        mock_list(&server, 200);
         let holder = GarminKeyHolder::default();
         assert_eq!(
             connect(&holder, &server, "  pasted-key\n"),
@@ -167,6 +190,44 @@ mod tests {
         );
         exchange.assert_calls(1);
         assert!(holder.client().is_some());
+    }
+
+    #[test]
+    fn connecting_reads_at_most_one_activity_and_asks_nothing_else() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(POST).path(TOKEN_PATH);
+            then.status(200).body(token());
+        });
+        let listed = server.mock(|when, then| {
+            when.method(GET)
+                .path(LIST_PATH)
+                .query_param("limit", "1")
+                .query_param("start", "0");
+            then.status(200).json_body(json!([]));
+        });
+        let holder = GarminKeyHolder::default();
+        assert_eq!(connect(&holder, &server, "k"), GarminKeyStatus::Connected);
+        listed.assert_calls(1);
+    }
+
+    #[test]
+    fn a_key_garmin_accepts_but_refuses_the_activities_has_no_activity_access_and_is_not_held() {
+        for refusal in [401, 403] {
+            let server = MockServer::start();
+            server.mock(|when, then| {
+                when.method(POST).path(TOKEN_PATH);
+                then.status(200).body(token());
+            });
+            mock_list(&server, refusal);
+            let holder = GarminKeyHolder::default();
+            assert_eq!(
+                connect(&holder, &server, "k"),
+                GarminKeyStatus::NoActivityAccess,
+                "status {refusal}"
+            );
+            assert!(holder.client().is_none());
+        }
     }
 
     #[test]
@@ -193,6 +254,7 @@ mod tests {
                 .header("authorization", "ApiKey good");
             then.status(200).body(token());
         });
+        mock_list(&server, 200);
         let holder = GarminKeyHolder::default();
         assert_eq!(
             connect(&holder, &server, "good"),

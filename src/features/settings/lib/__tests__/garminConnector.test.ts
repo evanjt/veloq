@@ -4,7 +4,7 @@
  * memory, and in no store or setting.
  */
 
-import { GarminKeyStatus, GarminMatch, type GarminAccount } from 'veloqrs';
+import { GarminKeyStatus, type GarminAccount } from 'veloqrs';
 
 import {
   CREDENTIAL_KEYCHAIN_OPTIONS,
@@ -15,7 +15,6 @@ import {
   connectGarminKey,
   disconnectGarmin,
   garminConnectorState,
-  garminAccountReading,
   garminDuplicateWarning,
   readGarminAccount,
   readGarminConnectorState,
@@ -211,35 +210,9 @@ describe('the duplicate warning', () => {
 });
 
 describe('reading the account after a key is connected', () => {
-  it('reads the match Rust judged, with the name Garmin gave', () => {
-    expect(
-      garminAccountReading({
-        displayName: 'Invented Athlete',
-        matched: GarminMatch.Matched,
-        matchedCount: 18,
-      })
-    ).toEqual({ kind: 'matched', name: 'Invented Athlete', count: 18 });
-    expect(
-      garminAccountReading({
-        displayName: 'Invented Athlete',
-        matched: GarminMatch.WrongAccount,
-        matchedCount: 0,
-      })
-    ).toEqual({ kind: 'wrongAccount', name: 'Invented Athlete' });
-  });
-
-  it('reads a silent match as the account alone, and an unnamed account as no name', () => {
-    expect(garminAccountReading({ matched: GarminMatch.Silent, matchedCount: 0 })).toEqual({
-      kind: 'connected',
-      name: undefined,
-    });
-  });
-
   it('hands back the engine reading, and none when the engine has no account to give', async () => {
     const account = {
       displayName: 'Invented Athlete',
-      matched: GarminMatch.Matched,
-      matchedCount: 2,
     };
     expect(await readGarminAccount({ engine: engine(GarminKeyStatus.Connected, account) })).toEqual(
       account

@@ -18,7 +18,6 @@ import {
   GARMIN_KEY_PAGE,
   connectGarminKey,
   disconnectGarmin,
-  garminAccountReading,
   garminDuplicateWarning,
   readGarminAccount,
   readGarminChoices,
@@ -35,6 +34,7 @@ const STATUS_KEY = {
   [GarminKeyStatus.Rejected]: 'garmin.statusRejected',
   [GarminKeyStatus.Malformed]: 'garmin.statusMalformed',
   [GarminKeyStatus.Unreachable]: 'garmin.statusUnreachable',
+  [GarminKeyStatus.NoActivityAccess]: 'garmin.statusNoActivityAccess',
 } as const;
 
 /**
@@ -144,14 +144,9 @@ export function GarminConnector() {
     uploadOn,
   });
   const secondary = { color: palette.textSecondary };
-  const reading = account ? garminAccountReading(account) : undefined;
-  const accountName = reading?.name ?? t('garmin.accountFallback');
-  const connectedLine =
-    reading?.kind === 'matched'
-      ? t('garmin.statusMatched', { name: accountName, count: reading.count })
-      : reading
-        ? t('garmin.statusConnectedAs', { name: accountName })
-        : t('garmin.statusConnected');
+  const connectedLine = account
+    ? t('garmin.statusConnectedAs', { name: account.displayName ?? t('garmin.accountFallback') })
+    : t('garmin.statusConnected');
 
   return (
     <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
@@ -171,15 +166,6 @@ export function GarminConnector() {
           <StatusLine tone="success" message={connectedLine}>
             <Text style={{ color: palette.textPrimary }}>{connectedLine}</Text>
           </StatusLine>
-          {reading?.kind === 'wrongAccount' ? (
-            <InlineNotice
-              tone="warning"
-              icon="alert-outline"
-              title={t('garmin.wrongAccountTitle')}
-              detail={t('garmin.wrongAccountDetail')}
-              testID="garmin-account-warning"
-            />
-          ) : null}
           <Text style={[styles.text, secondary]}>{t('garmin.disconnectHint')}</Text>
           <Button
             label={t('garmin.disconnect')}

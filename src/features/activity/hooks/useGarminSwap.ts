@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { SwapOutcome, SwapState } from 'veloqrs';
+import { SwapOutcome, SwapState, type GarminMatch } from 'veloqrs';
 
 import {
   garminSwapCheck,
+  garminSwapMatch,
   garminSwapReplace,
   garminSwapState,
   garminSwapUndo,
@@ -25,11 +26,15 @@ import {
  * when the athlete asks to check. This holds only its answer. A check, a swap
  * and an undo are never started twice, and when one changed intervals.icu's file the
  * activity is read again. A caller that already knows the state passes it and
- * the hook does not ask for it.
+ * the hook does not ask for it. Once a check has been made the engine also
+ * holds what it found, both files and the fields only Garmin's holds, and the
+ * hook reads that whenever the state says a check has been made or a swap can
+ * be undone.
  */
 export function useGarminSwap(activityId: string, knownState?: SwapState) {
   const [state, setState] = useState<SwapState>(knownState ?? SwapState.Hidden);
   const [busy, setBusy] = useState(false);
+  const [match, setMatch] = useState<GarminMatch | null>(null);
   const [notice, setNotice] = useState<GarminSwapNotice | null>(null);
   const running = useRef(false);
 
@@ -53,6 +58,26 @@ export function useGarminSwap(activityId: string, knownState?: SwapState) {
       live = false;
     };
   }, [refresh, knownState]);
+
+  useEffect(() => {
+    let live = true;
+    const held =
+      state === SwapState.Available ||
+      state === SwapState.Unchanged ||
+      state === SwapState.Undoable;
+    const read = async () => {
+      try {
+        const found = held ? await garminSwapMatch(activityId) : null;
+        if (live) setMatch(found ?? null);
+      } catch {
+        if (live) setMatch(null);
+      }
+    };
+    void read();
+    return () => {
+      live = false;
+    };
+  }, [activityId, state]);
 
   const run = useCallback(
     async (action: GarminSwapAction) => {
@@ -103,5 +128,5 @@ export function useGarminSwap(activityId: string, knownState?: SwapState) {
     void run('undo');
   }, [run]);
 
-  return { state, busy, notice, check, swap, undo };
+  return { state, match, busy, notice, check, swap, undo };
 }
