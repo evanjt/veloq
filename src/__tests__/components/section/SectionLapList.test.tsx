@@ -236,6 +236,46 @@ describe('SectionLapList', () => {
     expect(queryByText('0 W')).toBeNull();
   });
 
+  it('lists a pass with no time as a partial pass, with no time and no record mark', async () => {
+    const timed = record('a', [10]);
+    const gap = record('a', [40]);
+    const partial: SectionPerformanceRecord = {
+      ...timed,
+      laps: [...timed.laps, { ...gap.laps[0], time: 0, pace: 0, direction: 'partial' as const }],
+      lapCount: 2,
+    };
+    const { getByTestId, getByText, queryByTestId } = await openAllRender(
+      <SectionLapList
+        isDark={false}
+        records={[partial]}
+        onExcludeLap={jest.fn()}
+        onIncludeLap={jest.fn()}
+      />
+    );
+    expect(getByTestId('section-lap-row-a-40')).toBeTruthy();
+    expect(getByText('sections.partialPass')).toBeTruthy();
+    expect(queryByTestId('section-lap-record-a-40')).toBeNull();
+  });
+
+  it('takes the best lap of a collapsed activity from its timed passes', async () => {
+    const timed = record('a', [10]);
+    const gap = record('a', [40]);
+    const withGap: SectionPerformanceRecord = {
+      ...timed,
+      laps: [...timed.laps, { ...gap.laps[0], time: 0, pace: 0, direction: 'partial' as const }],
+      lapCount: 2,
+    };
+    const { getByText } = await render(
+      <SectionLapList
+        isDark={false}
+        records={[withGap]}
+        onExcludeLap={jest.fn()}
+        onIncludeLap={jest.fn()}
+      />
+    );
+    expect(getByText('2:00')).toBeTruthy();
+  });
+
   it('keeps the watts of an excluded lap', async () => {
     const { getByText } = await openAllRender(
       <SectionLapList

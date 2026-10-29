@@ -1333,6 +1333,7 @@
   },
   "maps": {
     "threeDUnavailable": "Terrain needs a connection. Showing the flat map.",
+    "threeDLoading": "Loading the terrain map",
     "unavailableTitle": "Map unavailable",
     "unavailableHint": "The map could not load. Check your connection and open it again.",
     "activitiesCount_one": "{{count}} activity",
@@ -1803,7 +1804,7 @@
     "expandDateRange": "Expand date range"
   },
   "sections": {
-    "timeMethod": "Section times are elapsed time, including stops.",
+    "timeMethod": "Section times are elapsed time, including stops. Pace is the section's length over the time between its two gates.",
     "effortsNotDownloaded_one": "Times for {{count}} activity are not downloaded yet, so the best may change.",
     "effortsNotDownloaded_other": "Times for {{count}} activities are not downloaded yet, so the best may change.",
     "acceptSection": "Accept",
@@ -1993,6 +1994,7 @@
     "showAllLaps": "Show all laps",
     "showFewerLaps": "Show fewer laps",
     "lapExcluded": "Excluded",
+    "partialPass": "Partial pass",
     "partlyExcluded": "Some laps excluded",
     "rescanRefusedBusy": "A scan is already running.",
     "rescanRefusedHeld": "Detection is held while the engine finishes other work.",

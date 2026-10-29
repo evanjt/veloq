@@ -1,0 +1,360 @@
+diff --git a/modules/veloqrs/android/src/main/java/com/veloq/MapWebViewSlot.java b/modules/veloqrs/android/src/main/java/com/veloq/MapWebViewSlot.java
+index f6bc511606..402a425b3b 100644
+--- a/modules/veloqrs/android/src/main/java/com/veloq/MapWebViewSlot.java
++++ b/modules/veloqrs/android/src/main/java/com/veloq/MapWebViewSlot.java
+@@ -60,8 +60,10 @@ final class MapWebViewSlot<V, C> {
+    * the slot.
+    */
+   Held<V> take(C mountSurface) {
++    android.util.Log.i("stamp3d", "native.slotTake empty=" + (view == null) + " sameSurface=" + (view != null && surface == mountSurface) + " t=" + System.currentTimeMillis());
+     if (view == null || surface != mountSurface) return null;
+     if (!detach.test(view)) {
++      android.util.Log.i("stamp3d", "native.slotDetachFailed t=" + System.currentTimeMillis());
+       evict();
+       return null;
+     }
+@@ -92,6 +94,7 @@ final class MapWebViewSlot<V, C> {
+   }
+ 
+   private void evict() {
++    android.util.Log.i("stamp3d", "native.slotEvict t=" + System.currentTimeMillis());
+     if (view == null) return;
+     V evicted = view;
+     clear();
+diff --git a/modules/veloqrs/android/src/main/java/com/veloq/VeloqMap3DWebViewManager.java b/modules/veloqrs/android/src/main/java/com/veloq/VeloqMap3DWebViewManager.java
+index 2d2a57661b..61b5d263f0 100644
+--- a/modules/veloqrs/android/src/main/java/com/veloq/VeloqMap3DWebViewManager.java
++++ b/modules/veloqrs/android/src/main/java/com/veloq/VeloqMap3DWebViewManager.java
+@@ -75,6 +75,7 @@ public class VeloqMap3DWebViewManager extends VeloqWebViewManager {
+ 
+     @Override
+     public void onHostDestroy() {
++      android.util.Log.i("stamp3d", "native.hostDestroy t=" + System.currentTimeMillis());
+       slot.onHostDestroy();
+       afterSlotChange();
+     }
+@@ -91,6 +92,7 @@ public class VeloqMap3DWebViewManager extends VeloqWebViewManager {
+   @Override
+   protected RNCWebViewWrapper newView(@NonNull ThemedReactContext context) {
+     MapWebViewSlot.Held<RNCWebView> held = slot.take(context);
++    android.util.Log.i("stamp3d", "native.newView held=" + (held != null) + " t=" + System.currentTimeMillis());
+     if (!slot.holding()) stopListening();
+     if (held == null) return super.newView(context);
+     RNCWebViewWrapper view = wrapping.createViewInstance(context, held.view);
+@@ -105,11 +107,20 @@ public class VeloqMap3DWebViewManager extends VeloqWebViewManager {
+     RNCWebView webView = view.getWebView();
+     ThemedReactContext context = webView.getThemedReactContext();
+     String revision = webView.getProgress() >= 100 ? revisions.get(webView) : null;
+-    if (!slot.offer(webView, context, revision)) return false;
++    boolean offered = slot.offer(webView, context, revision);
++    android.util.Log.i("stamp3d", "native.keepDropped offered=" + offered + " t=" + System.currentTimeMillis());
++    if (!offered) return false;
+     // A drop during a screen's removal transition would only defer this removal, and once the
+     // wrapper leaves the window the view is orphaned with its parent still set.
++    android.util.Log.i("stamp3d", "native.dropBefore parent=" + webView.getParent() + " wrapperAttached=" + view.isAttachedToWindow() + " wrapperParent=" + view.getParent() + " anim=" + webView.getAnimation() + " lt=" + view.getLayoutTransition() + " inLayout=" + view.isInLayout() + " t=" + System.currentTimeMillis());
+     view.endViewTransition(webView);
+     view.removeView(webView);
++    int ends = 0;
++    while (webView.getParent() == view && ends < 8) {
++      view.endViewTransition(webView);
++      ends++;
++    }
++    android.util.Log.i("stamp3d", "native.dropAfter parent=" + webView.getParent() + " extraEnds=" + ends + " index=" + view.indexOfChild(webView) + " t=" + System.currentTimeMillis());
+     context.removeLifecycleEventListener(webView);
+     webView.setWebViewClient(new WebViewClient() {
+       @Override
+@@ -132,6 +143,7 @@ public class VeloqMap3DWebViewManager extends VeloqWebViewManager {
+   @Override
+   public void onTrimMemory(int level) {
+     super.onTrimMemory(level);
++    android.util.Log.i("stamp3d", "native.trim level=" + level + " holding=" + slot.holding() + " t=" + System.currentTimeMillis());
+     slot.onTrimMemory(level);
+     afterSlotChange();
+   }
+@@ -154,6 +166,7 @@ public class VeloqMap3DWebViewManager extends VeloqWebViewManager {
+         value != null && value.hasKey("html") ? PageRevision.of(value.getString("html")) : null;
+     String held = awaitingSource.remove(view);
+     skippedSource.remove(view);
++    android.util.Log.i("stamp3d", "native.setNewSource adopts=" + PageRevision.adopts(held, incoming) + " t=" + System.currentTimeMillis());
+     if (PageRevision.adopts(held, incoming)) {
+       revisions.put(view.getWebView(), held);
+       skippedSource.put(view, value);
+@@ -171,7 +184,9 @@ public class VeloqMap3DWebViewManager extends VeloqWebViewManager {
+     RNCWebView webView = view.getWebView();
+     String expected = revisions.get(webView);
+     // Read after every prop of the mount is applied, so the post reaches this mount.
++    android.util.Log.i("stamp3d", "native.adoptAsk t=" + System.currentTimeMillis());
+     webView.evaluateJavascript(String.format(ADOPT_SCRIPT, JSONObject.quote(expected)), result -> {
++      android.util.Log.i("stamp3d", "native.adoptResult=" + result + " t=" + System.currentTimeMillis());
+       if (skippedSource.get(view) != source) return;
+       skippedSource.remove(view);
+       if (!ADOPTED.equals(result)) loadHtml(webView, source);
+@@ -193,10 +208,17 @@ public class VeloqMap3DWebViewManager extends VeloqWebViewManager {
+    */
+   private static boolean detach(RNCWebView webView) {
+     ViewParent parent = webView.getParent();
++    android.util.Log.i("stamp3d", "native.detach parent=" + parent + " attached=" + webView.isAttachedToWindow() + " t=" + System.currentTimeMillis());
+     if (parent instanceof ViewGroup) {
+       ViewGroup group = (ViewGroup) parent;
+       group.endViewTransition(webView);
+       if (webView.getParent() == group) group.removeView(webView);
++      int ends = 0;
++      while (webView.getParent() == group && ends < 8) {
++        group.endViewTransition(webView);
++        ends++;
++      }
++      android.util.Log.i("stamp3d", "native.detachEnds=" + ends + " parent=" + webView.getParent() + " t=" + System.currentTimeMillis());
+     }
+     return webView.getParent() == null;
+   }
+diff --git a/src/features/maps/components/ActivityMapView.tsx b/src/features/maps/components/ActivityMapView.tsx
+index de9b09bf85..0e5cf151df 100644
+--- a/src/features/maps/components/ActivityMapView.tsx
++++ b/src/features/maps/components/ActivityMapView.tsx
+@@ -4,6 +4,7 @@
+ // in ActivityMapControls, and styles in ActivityMapView.styles.
+ 
+ import React, { useMemo, useState, useRef, useCallback, useEffect, memo } from 'react';
++import { stamp3d } from '@/features/maps/lib/stamp3d';
+ import { View, StatusBar, Animated, Image, useWindowDimensions } from 'react-native';
+ import { FullWindowModal } from '@/shared/ui/FullWindowModal';
+ 
+@@ -225,6 +226,11 @@ export const ActivityMapView = memo(function ActivityMapView({
+   const { isFullscreen, openFullscreen, closeFullscreen } = useMapFullscreen({ enableFullscreen });
+   const [is3DMode, setIs3DMode] = useState(!!initial3DCamera);
+   const [is3DReady, setIs3DReady] = useState(false);
++  const stampedRef = useRef(false);
++  if (!stampedRef.current) {
++    stampedRef.current = true;
++    stamp3d(`[stamp3d] js.amvRender t=${Date.now()} id=${activityId} is3D=${is3DMode}`);
++  }
+   const map3DRef = useRef<Map3DWebViewRef>(null);
+   // A screen covered by another keeps its WebViews but releases their maps,
+   // which hold the GL context and every tile texture in it. Inside a detail host the screen is
+@@ -495,6 +501,8 @@ export const ActivityMapView = memo(function ActivityMapView({
+ 
+   // Handle 3D map ready
+   const handleMap3DReady = useCallback(() => {
++    stamp3d(`[stamp3d] js.is3DReady t=${Date.now()}`);
++    requestAnimationFrame(() => stamp3d(`[stamp3d] js.is3DReadyFrame t=${Date.now()}`));
+     setIs3DReady(true);
+     motionTiming(map3DOpacity, {
+       toValue: 1,
+@@ -561,7 +569,10 @@ export const ActivityMapView = memo(function ActivityMapView({
+     if (pageDue) return undefined;
+     let second = 0;
+     const first = requestAnimationFrame(() => {
+-      second = requestAnimationFrame(() => setPageDue(true));
++      second = requestAnimationFrame(() => {
++        stamp3d(`[stamp3d] js.pageDue t=${Date.now()}`);
++        setPageDue(true);
++      });
+     });
+     return () => {
+       cancelAnimationFrame(first);
+@@ -910,6 +921,7 @@ export const ActivityMapView = memo(function ActivityMapView({
+             accessibilityIgnoresInvertColors
+             testID={ACTIVITY_MAP_POSTER_TEST_ID}
+             source={{ uri: posterUri }}
++            onLoad={() => stamp3d(`[stamp3d] js.posterLoad t=${Date.now()}`)}
+             fadeDuration={0}
+             style={styles.mapLayer}
+             resizeMode="cover"
+diff --git a/src/features/maps/components/Map3DWebView.tsx b/src/features/maps/components/Map3DWebView.tsx
+index 7bc7ca3781..56be31f2a6 100644
+--- a/src/features/maps/components/Map3DWebView.tsx
++++ b/src/features/maps/components/Map3DWebView.tsx
+@@ -8,6 +8,7 @@ import React, {
+   useState,
+ } from 'react';
+ import { addSectionCreation3DLayersScript } from '@/features/maps/lib/sectionCreationPaint';
++import { stamp3d } from '@/features/maps/lib/stamp3d';
+ import { AppState, View, StyleSheet, PixelRatio } from 'react-native';
+ 
+ import { WebView } from 'react-native-webview';
+@@ -566,6 +567,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
+     const adoptPage = useCallback(
+       (revision: unknown) => {
+         if (!webViewRef.current || revision !== map3DPageRevision()) return;
++        stamp3d(`[stamp3d] js.adoptInject t=${Date.now()}`);
+         webViewRef.current.injectJavaScript(buildMap3DBuildScript(pageConfig(mapStyleRef.current)));
+       },
+       [pageConfig]
+@@ -894,6 +896,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
+     // IMPORTANT: Only depends on style-related props, NOT GeoJSON data
+     // GeoJSON layers are updated dynamically via injectJavaScript
+     const html = useMemo(() => {
++      stamp3d(`[stamp3d] js.memo t=${Date.now()} pts=${coordinatesRef.current?.length ?? -1}`);
+       return buildMap3DHtml(pageConfig(mapStyle));
+       // `mapStyle` is read above and deliberately not a dependency: it is
+       // applied by setStyle() injection, and listing it here would regenerate
+diff --git a/src/features/maps/hooks/useMap3DBridge.ts b/src/features/maps/hooks/useMap3DBridge.ts
+index 37c5830209..89a28ed46a 100644
+--- a/src/features/maps/hooks/useMap3DBridge.ts
++++ b/src/features/maps/hooks/useMap3DBridge.ts
+@@ -1,4 +1,5 @@
+ import { useMemo, type MutableRefObject } from 'react';
++import { stamp3d } from '@/features/maps/lib/stamp3d';
+ 
+ import { useWebViewBridge } from '@/features/maps/hooks/useWebViewBridge';
+ import type {
+@@ -69,7 +70,11 @@ export function useMap3DBridge({
+       console: (data: WebViewBridgeMessage) => {
+         log.log(data.message);
+       },
++      stamp3d: (data: WebViewBridgeMessage) => {
++        stamp3d(`[stamp3d] page.${data.name} t=${data.t} rx=${Date.now()} ${data.extra ?? ''}`);
++      },
+       mapReady: () => {
++        stamp3d(`[stamp3d] js.mapReady t=${Date.now()}`);
+         if (releaseIfHeld?.()) return;
+         mapReadyRef.current = true;
+         onMapReady?.();
+@@ -80,7 +85,10 @@ export function useMap3DBridge({
+         setTimeout(() => updateLayers(), 100);
+       },
+       nativeMapReleased: () => onNativeMapReleased?.(),
+-      pageAdopted: (data: WebViewBridgeMessage) => onPageAdopted?.(data.revision),
++      pageAdopted: (data: WebViewBridgeMessage) => {
++        stamp3d(`[stamp3d] js.pageAdopted t=${Date.now()}`);
++        onPageAdopted?.(data.revision);
++      },
+       // Terminal counterpart to mapReady. The page cannot render, so the
+       // caller has to stop waiting rather than sit on a spinner.
+       mapFailed: (data: WebViewBridgeMessage) => {
+diff --git a/src/features/maps/lib/htmlBuilders/map3D.ts b/src/features/maps/lib/htmlBuilders/map3D.ts
+index 8349d94740..acb27829bf 100644
+--- a/src/features/maps/lib/htmlBuilders/map3D.ts
++++ b/src/features/maps/lib/htmlBuilders/map3D.ts
+@@ -228,9 +228,45 @@ ${consoleBridgeScript()}
+     var mapReadySent = false;
+     var mapFailedSent = false;
+ 
++    try { performance.setResourceTimingBufferSize(4000); } catch (e) {}
++    var _stampBuild = 0;
++    window._veloqStamp = function(name, extra) {
++      try {
++        var t = performance.timeOrigin + performance.now();
++        if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'stamp3d', name: name, t: Math.round(t), extra: extra || '' }));
++      } catch (e) {}
++    };
++    window._veloqStamp('docScript', 'navStart=' + Math.round(performance.timeOrigin));
++    function _stampResources(tag) {
++      try {
++        var es = performance.getEntriesByType('resource');
++        var g = {};
++        for (var i = 0; i < es.length; i++) {
++          var e = es[i];
++          var st = performance.timeOrigin + e.startTime, en = st + e.duration;
++          if (st < _stampBuild) continue;
++          var k = e.name.indexOf('/terrain/') >= 0 ? 'dem' : e.name.indexOf('sprite') >= 0 ? 'sprite' : e.name.indexOf('/veloq-asset/') >= 0 ? 'asset' : e.name.indexOf('/veloq-geo/') >= 0 ? 'geo' : 'other';
++          var s = g[k] || (g[k] = { n: 0, sum: 0, max: 0, fast: 0, first: 1e15, last: 0 });
++          s.n++; s.sum += e.duration; if (e.duration > s.max) s.max = e.duration; if (e.duration < 8) s.fast++;
++          if (st < s.first) s.first = st; if (en > s.last) s.last = en;
++        }
++        var out = [];
++        for (var key in g) { var v = g[key]; out.push(key + ':n=' + v.n + ',fast=' + v.fast + ',sum=' + Math.round(v.sum) + ',max=' + Math.round(v.max) + ',first=' + Math.round(v.first) + ',last=' + Math.round(v.last)); }
++        window._veloqStamp('resources-' + tag, out.join(' '));
++      } catch (e) {}
++    }
++    var _tiles = {};
++    function _tileStat(id) { return _tiles[id] || (_tiles[id] = { req: 0, got: 0, err: 0, first: 0, last: 0 }); }
++    function _stampTiles(tag) {
++      var out = [];
++      for (var k in _tiles) { var v = _tiles[k]; out.push(k + ':req=' + v.req + ',got=' + v.got + ',err=' + v.err + ',first=' + Math.round(v.first) + ',last=' + Math.round(v.last)); }
++      window._veloqStamp('tiles-' + tag, out.join(' '));
++    }
++
+     function sendMapReady() {
+       if (mapReadySent || mapFailedSent) return;
+       mapReadySent = true;
++      window._veloqStamp('ready'); _stampTiles('ready'); _stampResources('ready');
+       window._rn_log('sending mapReady');
+       if (window.ReactNativeWebView) {
+         window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'mapReady' }));
+@@ -244,6 +280,7 @@ ${tileHostWarmScript()}
+     function sendMapFailed(reason) {
+       if (mapReadySent || mapFailedSent) return;
+       mapFailedSent = true;
++      window._veloqStamp('failed', String(reason));
+       window._rn_log('sending mapFailed - ' + reason);
+       if (window.ReactNativeWebView) {
+         window.ReactNativeWebView.postMessage(JSON.stringify({
+@@ -311,6 +348,9 @@ ${terrainVisibilityScript()}
+     mapFailedSent = false;
+     window._veloqTerrainReport.reset();
+     coordinates = cfg.coordinates || [];
++    _stampBuild = performance.timeOrigin + performance.now();
++    _tiles = {};
++    window._veloqStamp('build', 'gen=' + generation + ' pts=' + coordinates.length + ' saved=' + !!cfg.hasSavedCamera + ' sat=' + !!cfg.isSatellite);
+     window._routeCoords = coordinates;
+     bounds = cfg.bounds;
+     center = cfg.center;
+@@ -356,6 +396,12 @@ ${terrainVisibilityScript()}
+     try {
+     window._rn_log('creating map with inline style');
+     var map = built = _builtMap = window.map = new maplibregl.Map(buildMapOptions(cfg.style));
++    window._veloqStamp('mapNew');
++    map.once('styledata', function() { window._veloqStamp('styledata'); });
++    map.on('dataloading', function(e) { if (e.tile && e.sourceId) { var s = _tileStat(e.sourceId); if (!s.req) s.first = performance.timeOrigin + performance.now(); s.req++; } });
++    map.on('sourcedata', function(e) { if (e.tile && e.sourceId) { var s = _tileStat(e.sourceId); s.got++; s.last = performance.timeOrigin + performance.now(); } });
++    map.on('error', function(e) { if (e.tile && e.sourceId) { _tileStat(e.sourceId).err++; } });
++    map.once('idle', function() { window._veloqStamp('idle'); _stampTiles('idle'); _stampResources('idle'); });
+     ${endpointImagesScript('map')}
+ 
+     window._veloqTerrainReport.watch(map);
+@@ -424,6 +470,7 @@ ${terrainVisibilityScript()}
+         var opening = { center: [c.lng, c.lat], zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch() };
+         var spans = bounds ? [bounds.ne[0] - bounds.sw[0], bounds.ne[1] - bounds.sw[1]] : [0, 0];
+         var picked = window._pickUnhiddenCamera(map, opening, coordinates, spans);
++        window._veloqStamp('openingCamera', 'jumped=' + (picked !== opening));
+         if (picked !== opening) {
+           window._rn_log('Terrain hides the route, opening at bearing ' + picked.bearing + ' pitch ' + picked.pitch);
+           map.jumpTo(picked);
+@@ -434,6 +481,7 @@ ${terrainVisibilityScript()}
+     }
+ 
+     map.on('load', function() {
++      window._veloqStamp('load'); _stampTiles('load'); _stampResources('load');
+       window._rn_log('map load event fired');
+ 
+       // Add terrain source from shared config
+@@ -445,6 +493,7 @@ ${terrainVisibilityScript()}
+         exaggeration: cfg.exaggeration,
+       });
+       window._rn_log('terrain set, exaggeration=' + cfg.exaggeration);
++      window._veloqStamp('terrainSet');
+ 
+       // Sky/fog from shared config - setSky may not be available, cosmetic only
+       try {
+@@ -715,8 +764,8 @@ ${terrainVisibilityScript()}
+ 
+       map.on('sourcedata', function(e) {
+         if (mapReadySent) return;
+-        if (e.sourceId === 'terrain' && e.isSourceLoaded) terrainReady = true;
+-        if (e.sourceId === 'route' && e.isSourceLoaded) routeReady = true;
++        if (e.sourceId === 'terrain' && e.isSourceLoaded && !terrainReady) { terrainReady = true; window._veloqStamp('demLoaded'); }
++        if (e.sourceId === 'route' && e.isSourceLoaded && !routeReady) { routeReady = true; window._veloqStamp('routeLoaded'); }
+         if (terrainReady && routeReady) {
+           requestAnimationFrame(function() { sendMapReady(); });
+         }
+@@ -738,6 +787,7 @@ ${terrainVisibilityScript()}
+       setTimeout(function() {
+         if (!mapReadySent && window.map === built) {
+           window._rn_log('hard timeout - sending mapReady after 4s');
++          window._veloqStamp('readyTimeout');
+           sendMapReady();
+         }
+       }, 4000);
+diff --git a/src/features/maps/lib/stamp3d.ts b/src/features/maps/lib/stamp3d.ts
+new file mode 100644
+index 0000000000..3e360c40df
+--- /dev/null
++++ b/src/features/maps/lib/stamp3d.ts
+@@ -0,0 +1,6 @@
++// Temporary measurement stamp: prints through the runtime's native logging
++// hook, which a production bundle keeps while console output is dropped.
++export function stamp3d(message: string): void {
++  const hook = (globalThis as { nativeLoggingHook?: (m: string, level: number) => void }).nativeLoggingHook;
++  if (hook) hook(message, 1);
++}

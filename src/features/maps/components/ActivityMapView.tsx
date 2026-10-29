@@ -4,6 +4,7 @@
 // in ActivityMapControls, and styles in ActivityMapView.styles.
 
 import React, { useMemo, useState, useRef, useCallback, useEffect, memo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, StatusBar, Animated, Image, useWindowDimensions } from 'react-native';
 import { FullWindowModal } from '@/shared/ui/FullWindowModal';
 
@@ -28,6 +29,7 @@ import { useThrottledValue } from '@/shared/ui/useThrottledValue';
 import { useTerrainFallback } from '@/features/maps/hooks/useTerrainFallback';
 import { ComponentErrorBoundary } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
+import { Spinner } from '@/shared/ui/Spinner';
 import {
   featureCollection,
   lngLatFromLatLngPoint,
@@ -35,7 +37,8 @@ import {
 } from '@/features/maps/lib/coordinates';
 import { HIGHLIGHT_THROTTLE_MS, REGION_SETTLE_DEBOUNCE_MS } from '@/features/maps/lib/mapBudgets';
 import { cameraAfter3D } from '@/features/maps/lib/cameraAfter3D';
-import { visibleMapInset } from '@/features/maps/lib/activityCamera';
+import { TRACK_FIT_PADDING, visibleMapInset } from '@/features/maps/lib/activityCamera';
+import { useSettleCamera } from '@/features/maps/lib/useSettleCamera';
 import type { ActivityType, ActivityStreams, RoutePoint } from '@/types';
 import { BaseMapView, type BaseMap3DLayer } from './BaseMapView';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
@@ -72,6 +75,9 @@ export const ACTIVITY_MAP_2D_LAYER_TEST_ID = 'activity-map-2d-layer';
 
 /** The feed's own snapshot, stood up while the surface behind it boots. */
 export const ACTIVITY_MAP_POSTER_TEST_ID = 'activity-map-poster';
+
+/** The wait cue over the snapshot while the 3D page boots. */
+export const ACTIVITY_MAP_LOADING_CUE_TEST_ID = 'activity-map-loading-cue';
 
 /** Section overlay for map visualization */
 export interface SectionOverlay {
@@ -116,6 +122,10 @@ interface ActivityMapViewProps {
   height?: number | undefined;
   /** Height covered at the map's bottom, such as the hero's name and stats, which a fit keeps the track above. */
   coveredBottom?: number | undefined;
+  /** Width covered at the map's left, such as a regular-width side panel the track is fitted beside. */
+  coveredLeft?: number | undefined;
+  /** Width covered at the map's right, such as a side panel in a right-to-left layout. */
+  coveredRight?: number | undefined;
   /** Corner radius of the rounded sheet top under `coveredBottom`, which the credit keeps clear of. */
   coveredBottomRadius?: number | undefined;
   showStyleToggle?: boolean | undefined;
@@ -183,6 +193,8 @@ export const ActivityMapView = memo(function ActivityMapView({
   hasStoredTrack,
   height = 300,
   coveredBottom = 0,
+  coveredLeft = 0,
+  coveredRight = 0,
   coveredBottomRadius = 0,
   showStyleToggle = false,
   showAttribution = true,
@@ -214,6 +226,7 @@ export const ActivityMapView = memo(function ActivityMapView({
   const palette = themePalette(isDark);
   const { getStyleForActivity } = useMapPreferences();
   const preferredStyle = getStyleForActivity(activityType, activityId);
+  const { t } = useTranslation();
   const [chosenStyle, setMapStyle] = useState<MapStyleType>(initialStyle ?? preferredStyle);
   // Track if user manually overrode the style
   const [userOverride, setUserOverride] = useState(false);
@@ -242,6 +255,7 @@ export const ActivityMapView = memo(function ActivityMapView({
   // The last camera an athlete's gesture left. The page also posts one for its
   // own resize and fit, which is not an angle anyone chose.
   const gestureCameraRef = useRef<typeof camera3DRef.current>(null);
+  const markAthleteMovedRef = useRef<() => void>(() => {});
   const prev3DModeRef = useRef(false);
   // A page that could not draw is not the athlete choosing the flat map. The
   // caller persists what it is told, ahead of the per-sport and the global
@@ -462,7 +476,10 @@ export const ActivityMapView = memo(function ActivityMapView({
       gesture: boolean
     ) => {
       camera3DRef.current = camera;
-      if (gesture) gestureCameraRef.current = camera;
+      if (gesture) {
+        gestureCameraRef.current = camera;
+        markAthleteMovedRef.current();
+      }
       if (is3DModeRef.current) {
         currentCenterRef.current = camera.center;
         currentZoomRef.current = camera.zoom;
@@ -670,9 +687,30 @@ export const ActivityMapView = memo(function ActivityMapView({
         height,
         coveredTop: keyTop,
         coveredBottom,
-        coveredRight: controlFootprint,
+        coveredLeft,
+        coveredRight: coveredRight + controlFootprint,
       }),
-    [mapWidth, height, keyTop, coveredBottom, controlFootprint]
+    [mapWidth, height, keyTop, coveredBottom, coveredLeft, coveredRight, controlFootprint]
+  );
+
+  // A sheet settle moves whichever surface is showing to the new frame.
+  const { markMoved: markAthleteMoved } = useSettleCamera(
+    fitPadding,
+    is3DMode ? map3DRef : surfaceRef,
+    surfaceReady
+  );
+  useEffect(() => {
+    markAthleteMovedRef.current = markAthleteMoved;
+  }, [markAthleteMoved]);
+  // The card's snapshot is drawn in the part the sheet leaves, where the surface will put the track.
+  const posterFrame = useMemo(
+    () => ({
+      top: Math.max(0, fitPadding.top - TRACK_FIT_PADDING),
+      right: Math.max(0, fitPadding.right - TRACK_FIT_PADDING),
+      bottom: Math.max(0, fitPadding.bottom - TRACK_FIT_PADDING),
+      left: Math.max(0, fitPadding.left - TRACK_FIT_PADDING),
+    }),
+    [fitPadding]
   );
 
   const endpointsGeoJSON = useMemo(() => {
@@ -852,6 +890,15 @@ export const ActivityMapView = memo(function ActivityMapView({
     [currentCenterRef, currentZoomRef, currentBoundsRef]
   );
 
+  const handleRegionChanging = useCallback(
+    (state: MapCameraState) => {
+      markAthleteMoved();
+      handleRegionIsChanging(state);
+    },
+    [markAthleteMoved, handleRegionIsChanging]
+  );
+  const frameSize = useMemo(() => ({ width: mapWidth, height }), [mapWidth, height]);
+
   // Compose camera region-did-change with attribution debounce
   const handleRegionDidChange = useCallback(
     (state: MapCameraState) => {
@@ -911,9 +958,21 @@ export const ActivityMapView = memo(function ActivityMapView({
             testID={ACTIVITY_MAP_POSTER_TEST_ID}
             source={{ uri: posterUri }}
             fadeDuration={0}
-            style={styles.mapLayer}
+            style={[styles.mapLayer, posterFrame]}
             resizeMode="cover"
           />
+        ) : null}
+
+        {/* The snapshot reads as a live map that ignores touch, so say the map is coming. It is
+            centred in the part the sheet leaves and goes with the snapshot. */}
+        {posterUri && is3DLoading ? (
+          <View
+            style={[styles.mapLayer, posterFrame, styles.loadingCue]}
+            pointerEvents="none"
+            testID={ACTIVITY_MAP_LOADING_CUE_TEST_ID}
+          >
+            <Spinner size="large" color={basePalette.route} label={t('maps.threeDLoading')} />
+          </View>
         ) : null}
 
         {/* 2D Map layer. Unmounted, not hidden, whenever another surface is the
@@ -933,6 +992,7 @@ export const ActivityMapView = memo(function ActivityMapView({
                   cameraAfter3D(camera3DRef.current, camera2DOnHide) ?? {
                     bounds: { sw: bounds.sw, ne: bounds.ne },
                     padding: fitPadding,
+                    padCamera: true,
                   }
                 }
                 sources={specs.sources}
@@ -943,7 +1003,7 @@ export const ActivityMapView = memo(function ActivityMapView({
                 onMapReady={handleMapReady}
                 onMapFailed={handleMapFailed}
                 onPress={handleSurfacePress}
-                onRegionIsChanging={handleRegionIsChanging}
+                onRegionIsChanging={handleRegionChanging}
                 onRegionDidChange={handleRegionDidChange}
               />
             </View>
@@ -964,6 +1024,7 @@ export const ActivityMapView = memo(function ActivityMapView({
                 mapStyle={mapStyle}
                 routeColor={basePalette.route}
                 fitPadding={fitPadding}
+                frameSize={frameSize}
                 routeGradient={gradientActive ? gradientLineExpression : null}
                 highlightCoordinate={highlightCoordinate}
                 {...inline3DCollections}

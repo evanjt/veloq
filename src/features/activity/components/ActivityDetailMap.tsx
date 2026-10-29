@@ -10,7 +10,7 @@
  * cancelling or back ends the tool and presents the sheet again at the stop it had.
  */
 import React, { useCallback, useMemo, useState } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { I18nManager, Platform, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -29,6 +29,7 @@ import { mapSheetHostKey, useHostCardCount } from '@/shared/app/mapSheetHost';
 import { useMapSheetHost } from '@/shared/app/MapSheetHost';
 import {
   mapSheetCoveredCorner,
+  mapSheetCoveredSides,
   mapSheetCoveredHeight,
   useMapSheetStop,
 } from '@/shared/app/mapSheetStop';
@@ -76,6 +77,7 @@ export function ActivityDetailMap({ activityId: id }: ActivityDetailMapProps) {
   const coveredBottom = creationMode
     ? 0
     : mapSheetCoveredHeight(Platform.OS, Platform.Version, sheetWindow, stop);
+  const sides = mapSheetCoveredSides(sheetWindow, I18nManager.isRTL);
 
   // The overlays the Sections and Routes tabs draw, from the same read the card's tabs list.
   const isRouteMatchingOn = useRouteSettings((s) => s.settings.enabled);
@@ -204,6 +206,8 @@ export function ActivityDetailMap({ activityId: id }: ActivityDetailMapProps) {
             streams={streams}
             height={height}
             coveredBottom={coveredBottom}
+            coveredLeft={sides.left}
+            coveredRight={sides.right}
             coveredBottomRadius={mapSheetCoveredCorner(coveredBottom)}
             showStyleToggle={!creationMode}
             showAttribution

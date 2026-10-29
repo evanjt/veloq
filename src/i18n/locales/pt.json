@@ -1365,6 +1365,7 @@
   },
   "maps": {
     "threeDUnavailable": "O relevo precisa de ligação. A mostrar o mapa plano.",
+    "threeDLoading": "A carregar o mapa de relevo",
     "unavailableTitle": "Mapa indisponível",
     "unavailableHint": "Não foi possível carregar o mapa. Verifica a ligação e abre-o novamente.",
     "activitiesCount_one": "{{count}} atividade",
@@ -1839,7 +1840,7 @@
     "expandDateRange": "Expandir intervalo de datas"
   },
   "sections": {
-    "timeMethod": "Os tempos da secção são tempo decorrido, incluindo paragens.",
+    "timeMethod": "Os tempos da secção são tempo decorrido, incluindo paragens. O ritmo é o comprimento da secção dividido pelo tempo entre as suas duas portas.",
     "effortsNotDownloaded_one": "Os tempos de {{count}} atividade ainda não foram transferidos, por isso o melhor tempo pode mudar.",
     "effortsNotDownloaded_many": "Os tempos de {{count}} de atividades ainda não foram transferidos, por isso o melhor tempo pode mudar.",
     "effortsNotDownloaded_other": "Os tempos de {{count}} atividades ainda não foram transferidos, por isso o melhor tempo pode mudar.",
@@ -2043,6 +2044,7 @@
     "showAllLaps": "Mostrar todas as voltas",
     "showFewerLaps": "Mostrar menos voltas",
     "lapExcluded": "Excluída",
+    "partialPass": "Passagem parcial",
     "partlyExcluded": "Algumas voltas excluídas",
     "rescanRefusedBusy": "Já está a decorrer uma análise.",
     "rescanRefusedHeld": "A deteção está em espera enquanto o motor termina outro trabalho.",

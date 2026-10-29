@@ -1439,6 +1439,7 @@
   },
   "maps": {
     "threeDUnavailable": "Teren wymaga połączenia. Pokazujemy płaską mapę.",
+    "threeDLoading": "Wczytywanie mapy terenu",
     "unavailableTitle": "Mapa niedostępna",
     "unavailableHint": "Nie udało się wczytać mapy. Sprawdź połączenie i otwórz ją ponownie.",
     "activitiesCount_one": "{{count}} aktywność",
@@ -1925,7 +1926,7 @@
     "expandDateRange": "Rozszerz zakres dat"
   },
   "sections": {
-    "timeMethod": "Czasy odcinków to czas całkowity, wraz z postojami.",
+    "timeMethod": "Czasy odcinków to czas całkowity, wraz z postojami. Tempo to długość odcinka podzielona przez czas między jego dwiema bramkami.",
     "effortsNotDownloaded_one": "Czasy {{count}} aktywności nie zostały jeszcze pobrane, więc najlepszy czas może się zmienić.",
     "effortsNotDownloaded_few": "Czasy {{count}} aktywności nie zostały jeszcze pobrane, więc najlepszy czas może się zmienić.",
     "effortsNotDownloaded_many": "Czasy {{count}} aktywności nie zostały jeszcze pobrane, więc najlepszy czas może się zmienić.",
@@ -2159,6 +2160,7 @@
     "showAllLaps": "Pokaż wszystkie okrążenia",
     "showFewerLaps": "Pokaż mniej okrążeń",
     "lapExcluded": "Wykluczone",
+    "partialPass": "Przejazd częściowy",
     "partlyExcluded": "Niektóre okrążenia wykluczone",
     "rescanRefusedBusy": "Skanowanie już trwa.",
     "rescanRefusedHeld": "Wykrywanie czeka, aż silnik skończy inną pracę.",

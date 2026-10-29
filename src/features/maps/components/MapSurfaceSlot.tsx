@@ -135,6 +135,7 @@ export function MapSurfaceSlot({
       fitBounds: (...args) => surfaceRef.current?.fitBounds(...args),
       setCamera: (...args) => surfaceRef.current?.setCamera(...args),
       resetOrientation: () => surfaceRef.current?.resetOrientation(),
+      settleInset: (...args) => surfaceRef.current?.settleInset(...args),
       queryFeatures: (...args) => surfaceRef.current?.queryFeatures(...args) ?? Promise.resolve([]),
       queryViewportFeatures: (...args) =>
         surfaceRef.current?.queryViewportFeatures(...args) ?? Promise.resolve([]),

@@ -7,23 +7,31 @@ use veloqrs::net::types::StreamDto;
 fn engine(dir: &TempDir) -> PersistentEngine {
     let path = dir.path().join("routes.db");
     let mut engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
-    let track = (0..60)
+    let track: Vec<GpsPoint> = (0..60)
         .map(|i| GpsPoint {
             latitude: 46.0 + f64::from(i) * 0.0002,
             longitude: 7.0,
             elevation: None,
         })
         .collect();
+    // The section is the track between points 10 and 20.
+    let line = serde_json::to_string(
+        &track[10..=20]
+            .iter()
+            .map(|p| [p.latitude, p.longitude])
+            .collect::<Vec<[f64; 2]>>(),
+    )
+    .unwrap();
     engine
         .add_activity("a1".into(), track, "Ride".into())
         .unwrap();
     let conn = Connection::open(&path).unwrap();
     conn.execute(
         "INSERT INTO sections
-         (id, name, sport_type, section_type, distance_meters, visit_count,
+         (id, name, sport_type, section_type, polyline_json, distance_meters, visit_count,
           created_at, bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
-         VALUES ('s1', 'Section 1', 'Ride', 'auto', 1000.0, 0, datetime('now'), 0, 0, 0, 0)",
-        [],
+         VALUES ('s1', 'Section 1', 'Ride', 'auto', ?, 1000.0, 0, datetime('now'), 0, 0, 0, 0)",
+        [line],
     )
     .unwrap();
     conn.execute(

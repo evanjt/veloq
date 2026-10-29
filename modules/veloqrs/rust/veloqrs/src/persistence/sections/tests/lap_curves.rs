@@ -132,17 +132,12 @@ fn performances(laps_in: &[Lap]) -> SectionPerformanceResult {
             match_percentage: None,
         })
         .collect();
-    laps::performances(
-        LENGTH,
-        portions,
-        |id| {
-            laps_in
-                .iter()
-                .find(|lap| lap.id == id)
-                .map(|lap| (lap.id.to_string(), FIRST_DAY + lap.day * DAY))
-        },
-        |_| None,
-    )
+    laps::performances(LENGTH, portions, |id| {
+        laps_in
+            .iter()
+            .find(|lap| lap.id == id)
+            .map(|lap| (lap.id.to_string(), FIRST_DAY + lap.day * DAY))
+    })
 }
 
 fn curves_of(laps_in: &[Lap], reference_set: Option<&str>) -> Option<crate::FfiSectionLapCurves> {

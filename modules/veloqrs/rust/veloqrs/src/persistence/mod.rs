@@ -5221,10 +5221,9 @@ mod tests {
     /// in `section_activities` immediately after `apply_sections()` - no lazy
     /// backfill trip on the first `get_section_performances()` call.
     ///
-    /// The computation happens inline in `save_sections()` by reading the
-    /// time stream (from memory or the DB) for each portion. The lazy
-    /// backfill path remains as a fallback for migration edge cases and
-    /// for activities whose time streams arrive after detection.
+    /// `save_sections()` runs the lap backfill, which times each portion
+    /// between the section's gates from the stored track and stream. A stream
+    /// that arrives after detection is timed when it lands.
     #[test]
     fn test_lap_time_populated_by_apply_sections() {
         let mut engine = PersistentEngine::in_memory().unwrap();
@@ -5271,7 +5270,7 @@ mod tests {
         let sid = engine.get_sections()[0].id.clone();
 
         // Read back junction rows directly - do NOT call `get_section_performances`
-        // (that path does lazy backfill and would mask a missing inline compute).
+        // (that path would mask a lap the save left untimed).
         let rows: Vec<(String, Option<f64>, Option<f64>)> = engine
             .db
             .prepare(
@@ -5292,6 +5291,14 @@ mod tests {
             .expect("read junction rows");
 
         assert_eq!(rows.len(), 2, "expected one junction row per portion");
+        let section_length: f64 = engine
+            .db
+            .query_row(
+                "SELECT distance_meters FROM sections WHERE id = ?",
+                [&sid],
+                |row| row.get(0),
+            )
+            .unwrap();
         for (activity_id, lap_time, lap_pace) in &rows {
             assert!(
                 lap_time.is_some(),
@@ -5310,14 +5317,38 @@ mod tests {
                 activity_id,
                 lap_time
             );
-            // Distance 5000m / 49s ≈ 102.04 m/s.
+            // The section's length over the time.
             assert!(
-                (lap_pace.unwrap() - (5000.0 / 49.0)).abs() < 0.001,
-                "expected lap_pace ≈ distance/time for {}, got {:?}",
+                (lap_pace.unwrap() - (section_length / 49.0)).abs() < 0.001,
+                "expected lap_pace ≈ section length/time for {}, got {:?}",
                 activity_id,
                 lap_pace
             );
         }
+    }
+
+    /// A pass timed over its own indices, which every kind of pass shares
+    /// before its gates are looked for.
+    fn indexed(
+        times: Option<&[u32]>,
+        track_len: usize,
+        start_index: u32,
+        end_index: u32,
+        distance_meters: f64,
+    ) -> (Option<f64>, Option<f64>) {
+        use super::sections::lap_timing::{PassSpan, time_pass};
+        let track = vec![GpsPoint::new(46.0, 7.0); track_len];
+        time_pass(
+            times,
+            Some(&track),
+            None,
+            &PassSpan {
+                direction: "partial",
+                start_index,
+                end_index,
+                distance_meters,
+            },
+        )
     }
 
     /// Scenario: `fetch_time_stream` has reduced `time` through the `latlng`
@@ -5334,69 +5365,41 @@ mod tests {
     /// cannot time a traversal at all.
     #[test]
     fn a_stream_that_is_not_the_track_length_times_nothing() {
-        use super::sections::compute_lap_time_from_stream;
-
         let times: Vec<u32> = vec![0, 10, 20, 30, 40];
 
         assert_eq!(
-            compute_lap_time_from_stream(Some(&times), Some(5), 0, 3, 90.0).0,
+            indexed(Some(&times), 5, 0, 3, 90.0).0,
             Some(20.0),
             "a stream the length of its track times the traversal"
         );
         assert_eq!(
-            compute_lap_time_from_stream(Some(&times), Some(4), 0, 3, 90.0),
+            indexed(Some(&times), 4, 0, 3, 90.0),
             (None, None),
             "one sample longer than the track is the pre-mask shape"
         );
         assert_eq!(
-            compute_lap_time_from_stream(Some(&times), Some(6), 0, 3, 90.0),
+            indexed(Some(&times), 6, 0, 3, 90.0),
             (None, None),
             "and shorter is no better"
         );
     }
 
-    /// The track length is not always knowable: an activity whose track row is
-    /// gone has none. That is not evidence the stream is misaligned, so the
-    /// bounds checks alone stand for it.
+    /// Regression: a pass handles the zero-span and missing-stream edge cases by
+    /// returning `(None, None)` - never panics on out-of-bounds indices.
     #[test]
-    fn an_unknown_track_length_still_times_the_traversal() {
-        use super::sections::compute_lap_time_from_stream;
-
-        let times: Vec<u32> = vec![0, 10, 20];
-        assert_eq!(
-            compute_lap_time_from_stream(Some(&times), None, 0, 3, 90.0).0,
-            Some(20.0)
-        );
-    }
-
-    /// Regression: `compute_lap_time_from_stream` handles the zero-span and
-    /// missing-stream edge cases by returning `(None, None)` - never panics
-    /// on out-of-bounds indices.
-    #[test]
-    fn test_compute_lap_time_from_stream_edge_cases() {
-        use super::sections::compute_lap_time_from_stream;
-
+    fn test_time_pass_edge_cases() {
         // No stream available.
-        assert_eq!(
-            compute_lap_time_from_stream(None, None, 0, 5, 100.0),
-            (None, None)
-        );
+        assert_eq!(indexed(None, 3, 0, 2, 100.0), (None, None));
 
         // Zero-duration traversal: `1..1` holds no points at all.
         let times: Vec<u32> = vec![10, 20, 30];
-        assert_eq!(
-            compute_lap_time_from_stream(Some(&times), None, 1, 1, 100.0),
-            (None, None)
-        );
+        assert_eq!(indexed(Some(&times), 3, 1, 1, 100.0), (None, None));
 
         // Out of bounds end_index.
-        assert_eq!(
-            compute_lap_time_from_stream(Some(&times), None, 0, 99, 100.0),
-            (None, None)
-        );
+        assert_eq!(indexed(Some(&times), 3, 0, 99, 100.0), (None, None));
 
         // `0..2` is the points at 0 and 1, so 10s; 100m/10s = 10 m/s.
-        let (lap_time, lap_pace) = compute_lap_time_from_stream(Some(&times), None, 0, 2, 100.0);
+        let (lap_time, lap_pace) = indexed(Some(&times), 3, 0, 2, 100.0);
         assert_eq!(lap_time, Some(10.0));
         assert_eq!(lap_pace, Some(10.0));
     }
@@ -5406,45 +5409,32 @@ mod tests {
     /// `end_index == point_count` and has to be timed, not dropped.
     #[test]
     fn lap_time_reads_the_half_open_end() {
-        use super::sections::compute_lap_time_from_stream;
-
         let times: Vec<u32> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        let n = times.len();
 
         // Ends on the last point: `0..10` on a ten-point track.
         assert_eq!(
-            compute_lap_time_from_stream(Some(&times), None, 0, times.len() as u32, 90.0),
+            indexed(Some(&times), n, 0, n as u32, 90.0),
             (Some(9.0), Some(10.0))
         );
 
         // Ends one short of it, and is a second shorter for it.
-        assert_eq!(
-            compute_lap_time_from_stream(Some(&times), None, 0, times.len() as u32 - 1, 90.0).0,
-            Some(8.0)
-        );
+        assert_eq!(indexed(Some(&times), n, 0, n as u32 - 1, 90.0).0, Some(8.0));
 
         // A single-point portion spans no time.
-        assert_eq!(
-            compute_lap_time_from_stream(Some(&times), None, 4, 5, 90.0),
-            (None, None)
-        );
+        assert_eq!(indexed(Some(&times), n, 4, 5, 90.0), (None, None));
 
         // The placeholder row `create_section` writes, before a rescan fills it.
-        assert_eq!(
-            compute_lap_time_from_stream(Some(&times), None, 0, 0, 0.0),
-            (None, None)
-        );
+        assert_eq!(indexed(Some(&times), n, 0, 0, 0.0), (None, None));
 
         // One past the end of the track is not a lap, however long the stream is.
         assert_eq!(
-            compute_lap_time_from_stream(Some(&times), None, 0, times.len() as u32 + 1, 90.0),
+            indexed(Some(&times), n, 0, n as u32 + 1, 90.0),
             (None, None)
         );
 
         // A start beyond the stream is not a lap either.
-        assert_eq!(
-            compute_lap_time_from_stream(Some(&times), None, 20, 25, 90.0),
-            (None, None)
-        );
+        assert_eq!(indexed(Some(&times), n, 20, 25, 90.0), (None, None));
     }
 }
 

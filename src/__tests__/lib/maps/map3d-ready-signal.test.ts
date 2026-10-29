@@ -55,6 +55,7 @@ type Posted = { type: string; [key: string]: unknown };
 interface FakeMap {
   options: Record<string, unknown>;
   addSource: jest.Mock;
+  setTerrain: jest.Mock;
   remove: jest.Mock;
   jumpTo: jest.Mock;
   queryTerrainElevation: jest.Mock;
@@ -246,6 +247,28 @@ describe('3D map ready signal', () => {
 
     expect(typesOf(posted)).toContain('mapReady');
     expect(typesOf(posted)).not.toContain('mapFailed');
+  });
+
+  it('requests the terrain once the style is up, before the basemap has loaded', () => {
+    const { posted, map } = runPage(buildMap3DHtml(buildConfig()));
+
+    expect(map!.setTerrain).not.toHaveBeenCalled();
+    map!.fire('style.load');
+
+    expect(map!.setTerrain).toHaveBeenCalledTimes(1);
+    const added = (map!.addSource as jest.Mock).mock.calls.map((c) => c[0]);
+    expect(added).toEqual(expect.arrayContaining(['terrain', 'route']));
+
+    map!.fire('load');
+    expect(map!.setTerrain).toHaveBeenCalledTimes(1);
+    expect((map!.addSource as jest.Mock).mock.calls.filter((c) => c[0] === 'terrain')).toHaveLength(
+      1
+    );
+
+    map!.fire('sourcedata', { sourceId: 'terrain', isSourceLoaded: true });
+    map!.fire('sourcedata', { sourceId: 'route', isSourceLoaded: true });
+    jest.runOnlyPendingTimers();
+    expect(typesOf(posted)).toContain('mapReady');
   });
 
   it('posts mapReady for a terrain-only page with no route coordinates', () => {
@@ -502,5 +525,19 @@ describe('3D page rebuilt in place for a new mount', () => {
     expect(fetch.mock.calls).toEqual([
       ['http://127.0.0.1:41001/tok/streets/warm', { cache: 'no-store' }],
     ]);
+  });
+
+  it('pads a map opened at a saved camera, since the constructor does not apply padding', () => {
+    const fitPadding = { top: 99, right: 104, bottom: 468, left: 48 };
+    const page = runPage(
+      buildMap3DHtml(
+        buildConfig({ centerOverride: [8.15, 45.92], hasSavedCamera: true, fitPadding })
+      )
+    );
+
+    const padded = page.map!.jumpTo.mock.calls.filter(([options]) => options?.padding);
+    expect(padded).toHaveLength(1);
+    expect(padded[0][0]).toEqual({ padding: fitPadding, center: [8.15, 45.92] });
+    expect(page.window._veloqInset).toEqual(fitPadding);
   });
 });

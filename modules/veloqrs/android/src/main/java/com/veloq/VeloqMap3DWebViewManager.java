@@ -55,8 +55,11 @@ public class VeloqMap3DWebViewManager extends VeloqWebViewManager {
 
   private static final String ADOPTED = "\"adopted\"";
 
+  /** Eight is more than any screen nests its view transitions. */
+  private static final int MAX_TRANSITION_ENDS = 8;
+
   private final MapWebViewSlot<RNCWebView, ThemedReactContext> slot =
-      new MapWebViewSlot<>(Build.VERSION.SDK_INT, VeloqMap3DWebViewManager::detach,
+      new MapWebViewSlot<>(Build.VERSION.SDK_INT, VeloqMap3DWebViewManager::freeFromParent,
           VeloqMap3DWebViewManager::destroyHeld);
   /** Only its wrapping is used, which reads none of the per-mount props. */
   private final RNCWebViewManagerImpl wrapping = new RNCWebViewManagerImpl(true);
@@ -108,8 +111,10 @@ public class VeloqMap3DWebViewManager extends VeloqWebViewManager {
     if (!slot.offer(webView, context, revision)) return false;
     // A drop during a screen's removal transition would only defer this removal, and once the
     // wrapper leaves the window the view is orphaned with its parent still set.
-    view.endViewTransition(webView);
-    view.removeView(webView);
+    if (!freeFromParent(webView)) {
+      slot.withdraw(webView);
+      return false;
+    }
     context.removeLifecycleEventListener(webView);
     webView.setWebViewClient(new WebViewClient() {
       @Override
@@ -187,15 +192,18 @@ public class VeloqMap3DWebViewManager extends VeloqWebViewManager {
   }
 
   /**
-   * Takes the held view out of the wrapper it was dropped from. A screen's removal transition
-   * marks every view under it as transitioning and ends that only for the children still
-   * attached, so a view removed during the exit keeps its old parent until this ends it.
+   * Takes the held view out of the wrapper it was dropped from, and answers whether it has no
+   * parent then. A screen's removal transition starts one on every view under it, and nested
+   * ones each need their own end, so one end is not enough. A removal during the exit keeps the
+   * old parent until the last end. Used by the drop and by the take, so both agree.
    */
-  private static boolean detach(RNCWebView webView) {
+  private static boolean freeFromParent(RNCWebView webView) {
     ViewParent parent = webView.getParent();
     if (parent instanceof ViewGroup) {
       ViewGroup group = (ViewGroup) parent;
-      group.endViewTransition(webView);
+      for (int end = 0; end < MAX_TRANSITION_ENDS && webView.getParent() == group; end++) {
+        group.endViewTransition(webView);
+      }
       if (webView.getParent() == group) group.removeView(webView);
     }
     return webView.getParent() == null;

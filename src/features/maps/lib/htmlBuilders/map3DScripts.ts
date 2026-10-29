@@ -553,7 +553,7 @@ export function buildSetRouteScript(
   const colorArg = color === undefined ? '' : `, ${JSON.stringify(color)}`;
   const fit =
     bounds && coordinates.length > 0
-      ? `window.map.fitBounds([${JSON.stringify(bounds.sw)}, ${JSON.stringify(bounds.ne)}], { padding: ${jsPadding(padding, TRACK_FIT_PADDING)}, duration: ${motionDurationExpression(cameraMove.long)} });`
+      ? `window._veloqFitInset([${JSON.stringify(bounds.sw)}, ${JSON.stringify(bounds.ne)}], ${jsPadding(padding, TRACK_FIT_PADDING)}, ${motionDurationExpression(cameraMove.long)});`
       : '';
   return `
         (function() {

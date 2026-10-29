@@ -1,7 +1,12 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { engine, type SectionPerformanceResult } from 'veloqrs';
 import type { FrequentSection, DirectionStats } from '@/types';
-import { toDirectionStats, castDirection, fromWallClockSeconds } from '@/shared/ffi/ffiConversions';
+import {
+  toDirectionStats,
+  castDirection,
+  castLapDirection,
+  fromWallClockSeconds,
+} from '@/shared/ffi/ffiConversions';
 import { awaitTimeStreams, willAnnounce } from '@/features/routes/lib/awaitTimeStreams';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { useReconnect } from '@/shared/app/useRetryTriggers';
@@ -23,8 +28,8 @@ export interface SectionLap {
   pace: number;
   /** Section distance for this lap */
   distance: number;
-  /** Direction relative to representative polyline */
-  direction: 'same' | 'reverse';
+  /** Direction relative to representative polyline; partial for a pass with no time. */
+  direction: 'same' | 'reverse' | 'partial';
   /** Start index into activity GPS track */
   startIndex: number;
   /** End index into activity GPS track */
@@ -131,7 +136,7 @@ export function toPerformanceRecord(
       time: l.time,
       pace: l.pace,
       distance: l.distance,
-      direction: castDirection(l.direction),
+      direction: castLapDirection(l.direction),
       startIndex: l.startIndex,
       endIndex: l.endIndex,
       avgHr: l.avgHr ?? null,

@@ -62,6 +62,16 @@ export function castDirection(direction: string | null | undefined): 'same' | 'r
   return direction === 'reverse' ? 'reverse' : 'same';
 }
 
+/**
+ * A lap's direction. A pass that crosses no gate has no time and arrives as
+ * "partial", which is kept apart from the two directions.
+ */
+export function castLapDirection(
+  direction: string | null | undefined
+): 'same' | 'reverse' | 'partial' {
+  return direction === 'partial' ? 'partial' : castDirection(direction);
+}
+
 /** The side of its focus range the engine found a scatter point past, absent when inside. */
 export function castOffScale(offScale: FfiOffScale | undefined): 'slow' | 'fast' | undefined {
   if (offScale === FfiOffScale.Slow) return 'slow';

@@ -1066,10 +1066,11 @@ impl PersistentEngine {
         String,
     > {
         let mut summary = IndexActivitySummary::default();
-        // The push path stores its stream through `store_time_streams_flat`,
-        // which leaves the backfill owed. One activity, so one scan.
-        self.backfill_section_performance_cache();
         let (matched, portions) = self.attach_activity_junctions(activity_id)?;
+        // The push path stores its stream through `store_time_streams_flat`,
+        // which leaves the backfill owed, and the attach writes its rows
+        // untimed. One activity, so one scan.
+        self.backfill_section_performance_cache();
         summary.matched_sections = matched;
         summary.inserted_portions = portions;
 
@@ -1690,15 +1691,17 @@ mod tests {
     }
 
     #[test]
-    fn a_rematch_keeps_the_measured_lap_time_on_every_rebuilt_row() {
+    fn a_rematch_leaves_every_rebuilt_row_to_the_backfill_to_time() {
         let mut engine = engine_over_sections(0);
         with_one_second_stream(&mut engine);
         let custom = drawn_section(&mut engine).unwrap();
-        let trimmed = track()[20..180].to_vec();
 
         engine
-            .rematch_section_activities(&custom, &trimmed)
+            .rematch_section_activities(&custom, &track())
             .unwrap();
+        assert!(lap_times(&engine, &custom).iter().all(Option::is_none));
+
+        engine.backfill_section_performance_cache();
 
         let laps = lap_times(&engine, &custom);
         assert!(!laps.is_empty());

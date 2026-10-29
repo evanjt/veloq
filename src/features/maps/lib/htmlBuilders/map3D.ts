@@ -28,6 +28,8 @@ import {
   terrainVisibilityScript,
   tileHostWarmScript,
   tileProtocolsScript,
+  visibleInsetScript,
+  MAX_MAP_PITCH,
 } from './shared';
 import { jsLiteral, jsNumber, jsPadding } from '@/features/maps/lib/webViewLiterals';
 import { addSectionCreation3DLayersScript } from '@/features/maps/lib/sectionCreationPaint';
@@ -68,7 +70,7 @@ export interface Map3DHtmlConfig {
   zoom: number;
   /** Initial camera bearing in degrees. */
   bearing: number;
-  /** Initial camera pitch in degrees (0-85). */
+  /** Initial camera pitch in degrees (0-70). */
   pitch: number;
   /**
    * True when the caller has a saved camera state and wants to bypass
@@ -103,6 +105,8 @@ export interface Map3DHtmlConfig {
   reduceMotion: boolean;
   /** Padding the first fit leaves, one number or one per edge. Defaults to `TRACK_FIT_PADDING`. */
   fitPadding?: MapPadding | undefined;
+  /** The saved camera's zoom no longer holds the track in the visible frame, so the page refits. */
+  openingRefit?: boolean | undefined;
 }
 
 /** What the page's map is built from, as the argument to `window._veloqBuildMap`. */
@@ -124,6 +128,7 @@ function buildArguments(config: Map3DHtmlConfig): string {
     devicePixelRatio,
     reduceMotion,
     fitPadding,
+    openingRefit,
   } = config;
 
   // The map draws in the colours of the base it opens on; a later swap
@@ -143,6 +148,7 @@ function buildArguments(config: Map3DHtmlConfig): string {
       reduceMotion: ${reduceMotion === true},
       devicePixelRatio: ${jsNumber(devicePixelRatio, 1)},
       fitPadding: ${jsPadding(fitPadding, TRACK_FIT_PADDING)},
+      openingRefit: ${openingRefit === true},
       exaggeration: ${jsNumber(terrainExaggeration, 1.5)},
       style: ${styleConfig},
       sky: ${JSON.stringify(terrainSky(palette))},
@@ -296,6 +302,8 @@ ${terrainVisibilityScript()}
     // container div, which the browser names after its id.
     var _builtMap = null;
     window._veloqReleasableMap = true;
+${visibleInsetScript()}
+    window._veloqPadCamera = true;
 
     // Builds the page's map, first when the document loads and again, in place,
     // when a held page is handed to a new mount. A timer a released map left
@@ -313,6 +321,7 @@ ${terrainVisibilityScript()}
     coordinates = cfg.coordinates || [];
     window._routeCoords = coordinates;
     bounds = cfg.bounds;
+    window._routeBounds = bounds ? [bounds.sw, bounds.ne] : null;
     center = cfg.center;
     savedZoom = cfg.zoom;
     savedBearing = cfg.bearing;
@@ -333,7 +342,7 @@ ${terrainVisibilityScript()}
         container: 'map',
         style: style,
         pitch: savedPitch,
-        maxPitch: 85,
+        maxPitch: ${MAX_MAP_PITCH},
         bearing: savedBearing,
         attributionControl: false,
         antialias: true,
@@ -353,9 +362,24 @@ ${terrainVisibilityScript()}
       return opts;
     }
 
+    window._veloqInset = { top: 0, right: 0, bottom: 0, left: 0 };
     try {
     window._rn_log('creating map with inline style');
     var map = built = _builtMap = window.map = new maplibregl.Map(buildMapOptions(cfg.style));
+    // The camera's centre is the middle of the part nothing covers. A fit already framed the track
+    // for that part, and a saved camera's centre is the point the athlete had there.
+    try {
+      if (bounds && !cfg.hasSavedCamera) {
+        window._veloqSetInset(cfg.fitPadding, 0, cfg.fitPadding);
+      } else if (center) {
+        // The constructor ignores a padding option, so the saved centre is padded here.
+        window._veloqInset = window._veloqNormaliseInset(cfg.fitPadding);
+        map.jumpTo({ padding: window._veloqInset, center: center });
+        if (cfg.openingRefit && bounds) window._veloqFitInset(window._routeBounds, cfg.fitPadding, 0);
+      }
+    } catch (e) {
+      window._rn_log('camera padding failed: ' + (e && e.message));
+    }
     ${endpointImagesScript('map')}
 
     window._veloqTerrainReport.watch(map);
@@ -433,8 +457,15 @@ ${terrainVisibilityScript()}
       }
     }
 
-    map.on('load', function() {
-      window._rn_log('map load event fired');
+    // Terrain, hillshade and the route go on as soon as the style is up, so the
+    // DEM and route requests leave with the first basemap requests instead of
+    // queueing behind every basemap tile that 'load' waits for. 'load' stays as
+    // the fallback for a style that was up before this was registered.
+    var _layersAdded = false;
+    function addTerrainAndLayers() {
+      if (_layersAdded) return;
+      _layersAdded = true;
+      window._rn_log('adding terrain and layers');
 
       // Add terrain source from shared config
       map.addSource('terrain', _terrainSource);
@@ -745,7 +776,9 @@ ${terrainVisibilityScript()}
       // A DEM tile that fails after the ready signal still leaves a flat
       // map, so the state is re-read once the page has stopped moving.
       window._veloqTerrainReport.reportOnceSettled(map);
-    });
+    }
+    map.once('style.load', addTerrainAndLayers);
+    map.once('load', addTerrainAndLayers);
 
     } catch(e) {
       window._rn_log('SCRIPT ERROR: ' + e.message + ' at ' + (e.stack || ''));

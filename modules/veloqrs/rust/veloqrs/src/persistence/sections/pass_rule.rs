@@ -1,7 +1,8 @@
-//! The pass rule a library's stored traversals were counted under.
+//! The pass rule a library's stored traversals were counted and timed under.
 //!
 //! A section's rows are written once and only ever added to, so a change to
-//! what counts as a pass leaves every stored row counted under the old rule.
+//! what counts as a pass, or to how a pass is timed, leaves every stored row
+//! under the old rule.
 //! The stamp in `schema_info` says which rule the rows hold, and a build that
 //! moves [`PASS_RULE_VERSION`] recounts every section against its stored line
 //! on the next open.
@@ -11,8 +12,9 @@ use rusqlite::{OptionalExtension, params};
 use crate::persistence::PersistentEngine;
 use crate::persistence::job_runs::{BackgroundJob, JobRun, RunOutcome, record_job_run};
 
-/// Bump this when what counts as a traversal of a section changes.
-pub(crate) const PASS_RULE_VERSION: i32 = 1;
+/// Bump this when what counts as a traversal of a section, or the time of one,
+/// changes.
+pub(crate) const PASS_RULE_VERSION: i32 = 2;
 
 const STAMP_KEY: &str = "pass_rule_version";
 
@@ -150,6 +152,9 @@ impl PersistentEngine {
                 complete = false;
             }
         }
+        // The rematch writes rows with no lap time. The backfill times them
+        // between the section's gates before any badge reads them.
+        self.backfill_section_performance_cache();
         if !ids.is_empty()
             && let Err(e) = self.recompute_activity_indicators()
         {

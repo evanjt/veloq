@@ -151,8 +151,7 @@ describe('buildSetRouteScript', () => {
   it('frames the route when bounds come with it', () => {
     const script = buildSetRouteScript(line, { sw: [7.2, 46.1], ne: [7.4, 46.3] });
 
-    expect(script).toContain('fitBounds([[7.2,46.1], [7.4,46.3]]');
-    expect(script).toContain(`padding: ${TRACK_FIT_PADDING},`);
+    expect(script).toContain('_veloqFitInset([[7.2,46.1], [7.4,46.3]], ' + TRACK_FIT_PADDING + ',');
   });
 
   it('does not move the camera for a cleared selection', () => {

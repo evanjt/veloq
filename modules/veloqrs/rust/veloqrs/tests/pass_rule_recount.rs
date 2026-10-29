@@ -255,3 +255,37 @@ fn the_opening_engine_reads_the_recounted_visits_once_the_recount_settles() {
         .unwrap();
     assert_eq!(i64::from(section.visit_count), rows);
 }
+
+/// Scenario: rows stored with a time from the samples a cut happened to keep.
+/// Expected behaviour: the recount times every pass over the section's own
+/// length, so a stored pace is that length over the stored time.
+#[test]
+fn a_recount_paces_every_pass_over_the_sections_length() {
+    let lib = build();
+    drop(open_settled(&lib.path));
+
+    let raw = Connection::open(&lib.path).unwrap();
+    let length: f64 = raw
+        .query_row(
+            "SELECT distance_meters FROM sections WHERE id = ?1",
+            params![lib.section],
+            |r| r.get(0),
+        )
+        .unwrap();
+    let timed: Vec<(f64, f64)> = raw
+        .prepare(
+            "SELECT lap_time, lap_pace FROM section_activities
+             WHERE section_id = ?1 AND lap_time IS NOT NULL AND direction != 'partial'",
+        )
+        .unwrap()
+        .query_map(params![lib.section], |r| Ok((r.get(0)?, r.get(1)?)))
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap();
+    for (time, pace) in &timed {
+        assert!(
+            (pace * time - length).abs() < 1e-6 * length.max(1.0),
+            "pace {pace} over {time} s is not {length} m"
+        );
+    }
+}

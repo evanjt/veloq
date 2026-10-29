@@ -18,6 +18,11 @@ export const styles = StyleSheet.create({
   map3DLayer: {
     zIndex: layers.raised,
   },
+  loadingCue: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: layers.mapOverlay,
+  },
   map: {
     flex: 1,
   },

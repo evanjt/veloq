@@ -62,6 +62,10 @@ impl PersistentEngine {
                     backfilled
                 );
             }
+        } else {
+            // An edit writes its rows untimed, and the badges are earned on
+            // time. Only this section's rows are read.
+            self.time_untimed_laps(only_section, false);
         }
 
         let tx = self.db.unchecked_transaction()?;
@@ -423,20 +427,21 @@ impl PersistentEngine {
     /// Missing lap times remain eligible for later streams. Missing sensor means
     /// are eligible when their series exists. Returns the number of rows updated.
     fn backfill_null_lap_times(&self) -> SqlResult<usize> {
-        type PortionRow = (
-            String,
-            String,
-            u32,
-            u32,
-            f64,
-            Option<f64>,
-            Option<f64>,
-            Option<f64>,
-        );
+        struct PortionRow {
+            section_id: String,
+            activity_id: String,
+            direction: String,
+            start_index: u32,
+            end_index: u32,
+            distance_meters: f64,
+            lap_time: Option<f64>,
+            avg_hr: Option<f64>,
+            avg_power: Option<f64>,
+        }
         let portions: Vec<PortionRow> = self
             .db
             .prepare(
-                "SELECT sa.section_id, sa.activity_id, sa.start_index, sa.end_index,
+                "SELECT sa.section_id, sa.activity_id, sa.direction, sa.start_index, sa.end_index,
                         sa.distance_meters, sa.lap_time, sa.avg_hr, sa.avg_power
                  FROM section_activities sa
                  -- A traversal beginning at the activity's first point is a
@@ -451,19 +456,22 @@ impl PersistentEngine {
                      SELECT 1 FROM activity_streams s
                      WHERE s.activity_id = sa.activity_id AND s.kind = 'watts'
                  )))
-                   AND sa.end_index > sa.start_index",
+                   AND sa.end_index > sa.start_index
+                 -- One activity's rows together, so its track is read once.
+                 ORDER BY sa.activity_id",
             )?
             .query_map([], |row| {
-                Ok((
-                    row.get(0)?,
-                    row.get(1)?,
-                    row.get(2)?,
-                    row.get(3)?,
-                    row.get(4)?,
-                    row.get(5)?,
-                    row.get(6)?,
-                    row.get(7)?,
-                ))
+                Ok(PortionRow {
+                    section_id: row.get(0)?,
+                    activity_id: row.get(1)?,
+                    direction: row.get(2)?,
+                    start_index: row.get(3)?,
+                    end_index: row.get(4)?,
+                    distance_meters: row.get(5)?,
+                    lap_time: row.get(6)?,
+                    avg_hr: row.get(7)?,
+                    avg_power: row.get(8)?,
+                })
             })?
             .filter_map(|r| r.ok())
             .collect();
@@ -474,18 +482,18 @@ impl PersistentEngine {
 
         let time_activity_ids: HashSet<String> = portions
             .iter()
-            .filter(|(_, _, _, _, _, lap_time, _, _)| lap_time.is_none())
-            .map(|(_, activity_id, _, _, _, _, _, _)| activity_id.clone())
+            .filter(|p| p.lap_time.is_none())
+            .map(|p| p.activity_id.clone())
             .collect();
         let heartrate_activity_ids: HashSet<String> = portions
             .iter()
-            .filter(|(_, _, _, _, _, _, avg_hr, _)| avg_hr.is_none())
-            .map(|(_, activity_id, _, _, _, _, _, _)| activity_id.clone())
+            .filter(|p| p.avg_hr.is_none())
+            .map(|p| p.activity_id.clone())
             .collect();
         let power_activity_ids: HashSet<String> = portions
             .iter()
-            .filter(|(_, _, _, _, _, _, _, avg_power)| avg_power.is_none())
-            .map(|(_, activity_id, _, _, _, _, _, _)| activity_id.clone())
+            .filter(|p| p.avg_power.is_none())
+            .map(|p| p.activity_id.clone())
             .collect();
 
         let mut time_streams: HashMap<String, Vec<u32>> = HashMap::new();
@@ -525,13 +533,6 @@ impl PersistentEngine {
             }
         }
 
-        // The track length each stream has to match, or it is not in the
-        // track's index space and cannot time anything.
-        let track_points = {
-            let ids: Vec<String> = time_streams.keys().cloned().collect();
-            self.track_point_counts(&ids)
-        };
-
         if time_streams.is_empty() && heart_rates.is_empty() && power_series.is_empty() {
             return Ok(0);
         }
@@ -554,26 +555,34 @@ impl PersistentEngine {
                      time_empty = time_empty OR ?
                  WHERE section_id = ? AND activity_id = ? AND start_index = ?",
             )?;
-            for (
-                section_id,
-                activity_id,
-                start_idx,
-                end_idx,
-                distance,
-                had_time,
-                had_hr,
-                had_power,
-            ) in &portions
-            {
+            let mut timer = super::sections::lap_timing::PassTimer::new(
+                self,
+                portions.iter().map(|p| p.section_id.as_str()),
+            );
+            for portion in &portions {
+                let PortionRow {
+                    section_id,
+                    activity_id,
+                    start_index: start_idx,
+                    end_index: end_idx,
+                    lap_time: had_time,
+                    avg_hr: had_hr,
+                    avg_power: had_power,
+                    ..
+                } = portion;
                 let (lap_time, lap_pace) = if had_time.is_some() {
                     (None, None)
                 } else {
-                    super::sections::compute_lap_time_from_stream(
+                    timer.time(
                         time_streams.get(activity_id).map(Vec::as_slice),
-                        track_points.get(activity_id).copied(),
-                        *start_idx,
-                        *end_idx,
-                        *distance,
+                        section_id,
+                        activity_id,
+                        &super::sections::lap_timing::PassSpan {
+                            direction: &portion.direction,
+                            start_index: *start_idx,
+                            end_index: *end_idx,
+                            distance_meters: portion.distance_meters,
+                        },
                     )
                 };
                 let avg_hr = if had_hr.is_some() {
@@ -718,6 +727,13 @@ mod tests {
                 elevation: None,
             })
             .collect();
+        let line = serde_json::to_string(
+            &coords
+                .iter()
+                .map(|p| [p.latitude, p.longitude])
+                .collect::<Vec<[f64; 2]>>(),
+        )
+        .unwrap();
         engine
             .add_activity("a1".to_string(), coords, "Ride".to_string())
             .unwrap();
@@ -732,9 +748,9 @@ mod tests {
                     "INSERT INTO sections (id, section_type, name, sport_type, polyline_json,
                         distance_meters, is_user_defined, version, created_at,
                         bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
-                     VALUES (?, 'auto', ?, 'Ride', '[]', 400.0, 0, 1, '2026-01-01T00:00:00Z',
+                     VALUES (?, 'auto', ?, 'Ride', ?, 400.0, 0, 1, '2026-01-01T00:00:00Z',
                         46.2, 46.21, 7.3, 7.31)",
-                    params![sid, format!("Section {s}")],
+                    params![sid, format!("Section {s}"), line],
                 )
                 .unwrap();
             engine
@@ -780,7 +796,7 @@ mod tests {
                 |r| r.get(0),
             )
             .unwrap();
-        assert_eq!(lap_time, 30.0); // times[4] - times[1], the end is half-open
+        assert_eq!(lap_time, 70.0); // the section's two gates, the whole track
     }
 
     /// A portion that runs to the last point of its activity carries the
@@ -806,7 +822,7 @@ mod tests {
                 |r| r.get(0),
             )
             .unwrap();
-        assert_eq!(lap_time, 60.0); // times[7] - times[1]
+        assert_eq!(lap_time, 70.0);
     }
 
     /// The first ride of the morning starts on the section, so its traversal
@@ -840,7 +856,7 @@ mod tests {
                 |r| r.get(0),
             )
             .unwrap();
-        assert_eq!(lap_time, 40.0); // times[4] - times[0]
+        assert_eq!(lap_time, 70.0);
     }
 
     /// The row the schema defaults leave behind is not a traversal, and it

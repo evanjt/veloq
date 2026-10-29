@@ -17,7 +17,8 @@ import {
 } from '@/features/maps/lib/veloqWebView';
 import { mapPageBaseUrl } from '@/features/maps/lib/tileTransport';
 
-import { darkColors, mapPalette } from '@/theme';
+import { openingCamera } from '@/features/maps/lib/cameraPadding';
+import { cameraMove, darkColors, mapPalette } from '@/theme';
 import { getBoundsFromPoints } from '@/shared/geo/polyline';
 import { useMap3DBridge } from '@/features/maps/hooks/useMap3DBridge';
 import { useRendererRecovery } from '@/features/maps/hooks/useRendererRecovery';
@@ -32,15 +33,15 @@ import {
   buildSetCameraScript,
   buildSetRouteGradientScript,
   buildSetRouteScript,
+  buildSettleInsetScript,
   buildUpdateLayersScript,
   LAYER_KEYS,
-} from '@/features/maps/lib/htmlBuilders';
-import type {
-  LayerKey,
-  Map3DHtmlConfig,
-  MapCameraSpec,
-  MapPadding,
-  UpdateLayersParams,
+  type LayerKey,
+  type Map3DHtmlConfig,
+  type MapCameraSpec,
+  type MapPadding,
+  type SettleInsetAction,
+  type UpdateLayersParams,
 } from '@/features/maps/lib/htmlBuilders';
 import { buildMap3DBuildScript, map3DPageRevision } from '@/features/maps/lib/htmlBuilders/map3D';
 import type { LngLatBounds } from '@/features/maps/lib/coordinates';
@@ -124,6 +125,8 @@ interface Map3DWebViewProps {
 export interface Map3DWebViewRef {
   /** Reset bearing to north and pitch to look straight down */
   resetOrientation: () => void;
+  /** Move to the frame a sheet settle left. */
+  settleInset: (action: SettleInsetAction) => void;
   /** Fit a bounding box. `duration` of 0 jumps. */
   fitBounds: (bounds: LngLatBounds, padding?: MapPadding, duration?: number) => void;
   /** Move to a centre and zoom. `duration` of 0 jumps. */
@@ -153,6 +156,8 @@ interface Map3DWebViewPropsInternal extends Map3DWebViewProps {
   ) => void;
   /** Padding a fit of the route leaves, one number or one per edge, so the route clears what covers the map. */
   fitPadding?: MapPadding | undefined;
+  /** The map's size, which tells whether a saved camera still holds the track in the visible frame. */
+  frameSize?: { width: number; height: number } | undefined;
   /** Saved camera override - if provided, skips fitBounds and uses this on first load */
   initialCamera?:
     | {
@@ -187,6 +192,21 @@ interface Map3DWebViewPropsInternal extends Map3DWebViewProps {
  * terrain/sky/route layers embedded atomically. The WebView HTML is only regenerated
  * when coordinates or pitch/exaggeration change.
  */
+function needsOpeningRefit(
+  camera:
+    { center: [number, number]; zoom: number; bearing: number; pitch: number } | null | undefined,
+  bounds: LngLatBounds | null | undefined,
+  size: { width: number; height: number } | undefined,
+  padding: MapPadding | undefined
+): boolean {
+  if (!camera || !size || padding === undefined) return false;
+  const inset =
+    typeof padding === 'number'
+      ? { top: padding, right: padding, bottom: padding, left: padding }
+      : padding;
+  return openingCamera(camera, inset, { bounds, ...size }).refit;
+}
+
 export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInternal>(
   function Map3DWebView(
     {
@@ -218,6 +238,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       onBearingChange,
       onCameraStateChange,
       fitPadding,
+      frameSize,
       initialCamera,
       onMapClick,
       onSectionClick,
@@ -300,6 +321,8 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     // without rebuilding the page.
     const fitPaddingRef = useRef(fitPadding);
     fitPaddingRef.current = fitPadding;
+    const frameSizeRef = useRef(frameSize);
+    frameSizeRef.current = frameSize;
     const routeGradientRef = useRef(routeGradient);
     routeGradientRef.current = routeGradient;
     // The gradient the page holds. A page that was rebuilt or restyled holds none.
@@ -553,6 +576,12 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
           devicePixelRatio: Math.min(PixelRatio.get(), 2), // Cap at 2x for 3D terrain
           reduceMotion: pageReduceMotionRef.current,
           fitPadding: fitPaddingRef.current,
+          openingRefit: needsOpeningRefit(
+            savedCamera,
+            boundsRef.current,
+            frameSizeRef.current,
+            fitPaddingRef.current
+          ),
         };
       },
       [initialPitch, terrainExaggeration]
@@ -612,6 +641,9 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         },
         resetOrientation: () => {
           webViewRef.current?.injectJavaScript(buildResetOrientationScript());
+        },
+        settleInset: (action) => {
+          webViewRef.current?.injectJavaScript(buildSettleInsetScript(action, cameraMove.move));
         },
       }),
       []

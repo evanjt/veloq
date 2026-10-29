@@ -1365,6 +1365,7 @@
   },
   "maps": {
     "threeDUnavailable": "Il rilievo richiede una connessione. Viene mostrata la mappa piatta.",
+    "threeDLoading": "Caricamento della mappa del terreno",
     "unavailableTitle": "Mappa non disponibile",
     "unavailableHint": "Impossibile caricare la mappa. Controlla la connessione e riaprila.",
     "activitiesCount_one": "{{count}} attività",
@@ -1839,7 +1840,7 @@
     "expandDateRange": "Espandi intervallo date"
   },
   "sections": {
-    "timeMethod": "I tempi della sezione sono tempi trascorsi, soste incluse.",
+    "timeMethod": "I tempi della sezione sono tempi trascorsi, soste incluse. Il ritmo è la lunghezza della sezione divisa per il tempo tra i suoi due varchi.",
     "effortsNotDownloaded_one": "I tempi di {{count}} attività non sono ancora scaricati, quindi il miglior tempo potrebbe cambiare.",
     "effortsNotDownloaded_many": "I tempi di {{count}} di attività non sono ancora scaricati, quindi il miglior tempo potrebbe cambiare.",
     "effortsNotDownloaded_other": "I tempi di {{count}} attività non sono ancora scaricati, quindi il miglior tempo potrebbe cambiare.",
@@ -2043,6 +2044,7 @@
     "showAllLaps": "Mostra tutti i giri",
     "showFewerLaps": "Mostra meno giri",
     "lapExcluded": "Escluso",
+    "partialPass": "Passaggio parziale",
     "partlyExcluded": "Alcuni giri esclusi",
     "rescanRefusedBusy": "Una scansione è già in corso.",
     "rescanRefusedHeld": "Il rilevamento è in attesa mentre il motore completa altro lavoro.",

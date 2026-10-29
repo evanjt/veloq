@@ -6,7 +6,8 @@
  */
 
 import { dropRetiredTileCachesScript } from '@/features/maps/lib/tileCacheBudget';
-import { jsNumber } from '@/features/maps/lib/webViewLiterals';
+import { jsNumber, jsPadding } from '@/features/maps/lib/webViewLiterals';
+import type { MapPadding } from './mapSurface';
 import { mapPageBaseUrl } from '@/features/maps/lib/tileTransport';
 import {
   MAPLIBRE_GL_CSS_FILE,
@@ -371,4 +372,123 @@ export function buildSetReduceMotionScript(enabled: boolean): string {
  */
 export function motionDurationExpression(durationMs: number): string {
   return `(window._veloqReduceMotion ? 0 : ${jsNumber(durationMs, 0)})`;
+}
+
+/**
+ * The steepest tilt a page's map allows. Past this the top edge of the view reaches the horizon, so
+ * a two-finger tilt carries the track into the sky and off the visible area.
+ */
+export const MAX_MAP_PITCH = 70;
+
+/**
+ * The camera padding of a page's map, kept as the part of the page nothing covers. With it set
+ * the camera's centre is the middle of what the athlete sees, so tilt, rotate, the compass reset
+ * and the centre a saved camera reports all work around that point.
+ *
+ * Each fit is worked out with the padding off and then applied, so the library's own padding
+ * handling cannot count the same cover twice. `_veloqSetInset` keeps the point at the middle of
+ * the old frame at the middle of the new one, `_veloqFitInset` fits bounds to the new frame.
+ */
+export function visibleInsetScript(): string {
+  return `
+    window._veloqInset = { top: 0, right: 0, bottom: 0, left: 0 };
+    window._veloqNormaliseInset = function(inset) {
+      if (typeof inset === 'number') return { top: inset, right: inset, bottom: inset, left: inset };
+      return inset;
+    };
+    window._veloqFrameCentre = function(inset) {
+      var box = window.map.getContainer();
+      return [
+        (inset.left + box.clientWidth - inset.right) / 2,
+        (inset.top + box.clientHeight - inset.bottom) / 2,
+      ];
+    };
+    // A tilted view stretches a screen row into more ground the further it is from the camera centre,
+    // so a point read off the frame is only the frame's middle when the view is flat. Frame
+    // arithmetic is therefore done at pitch 0 and the pitch put back.
+    window._veloqFlat = function(read) {
+      var map = window.map;
+      var pitch = map.getPitch();
+      if (!pitch) return read();
+      map.jumpTo({ pitch: 0 });
+      try {
+        return read();
+      } finally {
+        map.jumpTo({ pitch: pitch });
+      }
+    };
+    window._veloqMoveTo = function(options, duration) {
+      if (duration > 0) {
+        options.duration = duration;
+        window.map.easeTo(options);
+      } else {
+        window.map.jumpTo(options);
+      }
+    };
+    // Pads the map by 'inset' and keeps what sits at the middle of the 'from' frame at the middle of
+    // the new one. 'from' is the inset the view was last framed for, and defaults to the current one.
+    window._veloqSetInset = function(inset, duration, from) {
+      var map = window.map;
+      if (!map) return;
+      inset = window._veloqNormaliseInset(inset);
+      var oldFrame = window._veloqFrameCentre(from ? window._veloqNormaliseInset(from) : window._veloqInset);
+      var kept = window._veloqFlat(function() { return map.unproject(oldFrame); });
+      window._veloqInset = inset;
+      window._veloqMoveTo({ padding: inset, center: kept }, duration);
+    };
+    // Fits 'bounds' to the part of the map 'inset' leaves, at the map's bearing unless one is given.
+    window._veloqFitInset = function(bounds, inset, duration, options) {
+      var map = window.map;
+      if (!map) return;
+      options = options || {};
+      inset = window._veloqNormaliseInset(inset);
+      var zero = { top: 0, right: 0, bottom: 0, left: 0 };
+      var before = {
+        center: map.getCenter(), zoom: map.getZoom(), bearing: map.getBearing(),
+        pitch: map.getPitch(), padding: window._veloqInset,
+      };
+      var bearing = options.bearing === undefined ? before.bearing : options.bearing;
+      // An explicit undefined maxZoom makes the library's fit NaN, so the key is only set when given.
+      var fitOptions = { padding: inset, bearing: bearing };
+      if (options.maxZoom !== undefined && options.maxZoom !== null) fitOptions.maxZoom = options.maxZoom;
+      var oldFrame = window._veloqFrameCentre(before.padding);
+      var newFrame = window._veloqFrameCentre(inset);
+      var target = window._veloqFlat(function() {
+        map.jumpTo({ padding: zero, center: map.unproject(oldFrame) });
+        var fit = map.cameraForBounds(bounds, fitOptions);
+        if (!fit) {
+          map.jumpTo({ padding: before.padding, center: before.center });
+          return null;
+        }
+        map.jumpTo({ padding: zero, center: fit.center, zoom: fit.zoom, bearing: bearing });
+        var framed = { center: map.unproject(newFrame), zoom: fit.zoom, bearing: bearing, padding: inset };
+        map.jumpTo(before);
+        return framed;
+      });
+      if (!target) return;
+      window._veloqInset = inset;
+      window._veloqMoveTo(target, duration);
+    };
+  `;
+}
+
+/** The sheet settled and the inset changed: move a page that is already up to the new frame. */
+export type SettleInsetAction =
+  { kind: 'refit'; padding: MapPadding } | { kind: 'ease'; padding: MapPadding };
+
+export function buildSettleInsetScript(action: SettleInsetAction, durationMs: number): string {
+  const padding = jsPadding(action.padding, 0);
+  const duration = motionDurationExpression(durationMs);
+  if (action.kind === 'ease') {
+    return `
+    if (window.map && window._veloqSetInset) window._veloqSetInset(${padding}, ${duration});
+    true;
+  `;
+  }
+  return `
+    if (window.map && window._veloqFitInset && window._routeBounds) {
+      window._veloqFitInset(window._routeBounds, ${padding}, ${duration});
+    }
+    true;
+  `;
 }

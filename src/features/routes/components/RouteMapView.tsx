@@ -4,7 +4,7 @@
  * Supports interaction (zoom/pan) and fullscreen mode like ActivityMapView.
  */
 
-import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useCallback, useRef } from 'react';
 import { View, StyleSheet, StatusBar } from 'react-native';
 import { FullWindowModal } from '@/shared/ui/FullWindowModal';
 import { useTranslation } from 'react-i18next';
@@ -14,7 +14,6 @@ import { useTheme } from '@/shared/app';
 import { useMapHeldFocus } from '@/shared/app/MapSheetHost';
 import { getActivityColor } from '@/shared/activity/activityUtils';
 import {
-  cameraMove,
   colors,
   colorWithOpacity,
   iconSize,
@@ -27,6 +26,7 @@ import {
 } from '@/theme';
 import { useMapPreferences } from '@/features/settings';
 import {
+  useSettleCamera,
   AttributionOverlay,
   BaseMapView,
   type BaseMap3DLayer,
@@ -51,6 +51,7 @@ import { buildRouteLayers, routeMapSpecs } from './routeMapLayerSpecs';
 import { useStableBy } from '@/shared/app/useStableBy';
 import type { ActivityType, RouteGroup, RoutePoint } from '@/types';
 import type { SectionDeltaLine } from '../lib/deltaLayout';
+import { ROUTE_MAP_FIT_PADDING, routeCameraSpec } from '../lib/routeMapCamera';
 import { DetailMapLegend, hasLegendLayers, type DetailMapLegendLayers } from './DetailMapLegend';
 import { Icon } from '@/shared/ui/Icon';
 import { PressTarget } from '@/shared/ui/PressTarget';
@@ -93,7 +94,9 @@ interface RouteMapViewProps {
   coveredBottomRadius?: number | undefined;
 }
 
-export const ROUTE_MAP_FIT_PADDING = 40;
+export { ROUTE_MAP_FIT_PADDING };
+
+const NO_INSET = { top: 0, right: 0, bottom: 0, left: 0 };
 
 export function RouteMapView({
   routeGroup,
@@ -120,6 +123,8 @@ export function RouteMapView({
   // A map in a host stays held under its own sheet and is released only under another screen.
   const screenFocused = useMapHeldFocus();
   const surfaceRef = useRef<MapSurfaceRef>(null);
+  const [mapReady, setMapReady] = useState(false);
+  const handleMapReady = useCallback(() => setMapReady(true), []);
   const inSlot = useInMapSurfaceSlot();
   const { getStyleForActivity, preferences } = useMapPreferences();
   const chosenStyle = selectedSportType
@@ -300,17 +305,13 @@ export function RouteMapView({
   const handleSurfacePress = useCallback(() => onPress?.(), [onPress]);
 
   const initialCamera = useMemo(
-    () => (bounds ? { bounds, padding: fitPadding ?? ROUTE_MAP_FIT_PADDING } : null),
+    () => (bounds ? routeCameraSpec(bounds, fitPadding) : null),
     [bounds, fitPadding]
   );
 
-  // The first fit is the surface's starting view, so only a later padding refits the route.
-  const fittedPadding = useRef(fitPadding);
-  useEffect(() => {
-    if (!bounds || !fitPadding || fittedPadding.current === fitPadding) return;
-    fittedPadding.current = fitPadding;
-    surfaceRef.current?.fitBounds(bounds, fitPadding, cameraMove.move);
-  }, [bounds, fitPadding]);
+  // The first fit is the surface's starting view, so only a later inset moves the camera.
+  const { markMoved } = useSettleCamera(fitPadding ?? NO_INSET, surfaceRef, mapReady);
+  const handleRegionChanging = useCallback(() => markMoved(), [markMoved]);
 
   if (!bounds || displayPoints.length === 0) {
     return (
@@ -337,6 +338,8 @@ export function RouteMapView({
         layers={specs.layers}
         images={specs.images}
         interactiveLayers={specs.interactiveLayers}
+        onMapReady={handleMapReady}
+        onRegionIsChanging={handleRegionChanging}
         scrollEnabled={interactive}
         zoomEnabled={interactive}
         rotateEnabled={interactive}

@@ -23,6 +23,8 @@ import {
   terrainReportScript,
   tileHostWarmScript,
   tileProtocolsScript,
+  visibleInsetScript,
+  MAX_MAP_PITCH,
 } from './shared';
 import { surfaceRuntimeScript } from './mapSurfaceScripts';
 import { resolveStyleExpression, type WebViewStyleOptions } from './styleResolution';
@@ -51,6 +53,11 @@ export interface MapCameraSpec {
   /** Fit these bounds instead of using `center`/`zoom`. */
   bounds?: LngLatBounds | undefined;
   padding?: MapPadding | undefined;
+  /**
+   * `padding` is the part of the map nothing covers: the camera's centre is its middle, and a fit,
+   * a pivot and a reported centre all work around it. Without it `padding` only margins a fit.
+   */
+  padCamera?: boolean | undefined;
   /** Clamp, so fitting a tiny bounding box cannot zoom past useful detail. */
   maxZoom?: number | undefined;
 }
@@ -234,6 +241,9 @@ ${tileHostWarmScript()}
     var _maxZoom = ${jsNumber(camera.maxZoom, null)};
     window._veloqMaxZoom = _maxZoom;
     window._veloqFitPadding = _fitPadding;
+    ${visibleInsetScript()}
+    window._veloqPadCamera = ${camera.padCamera === true};
+    window._routeBounds = _bounds ? [_bounds.sw, _bounds.ne] : null;
     ${setReduceMotionStatement(config.reduceMotion)}
 
     function _mapOptions(style) {
@@ -245,7 +255,7 @@ ${tileHostWarmScript()}
         pixelRatio: ${config.devicePixelRatio},
         bearing: ${jsNumber(camera.bearing, 0)},
         pitch: ${jsNumber(camera.pitch, 0)},
-        maxPitch: 85,
+        maxPitch: ${MAX_MAP_PITCH},
         dragPan: ${interaction.scroll},
         scrollZoom: ${interaction.zoom},
         boxZoom: false,
@@ -283,6 +293,32 @@ ${surfaceRuntimeScript(config)}
 
       if (${!interaction.rotate}) {
         window.map.touchZoomRotate.disableRotation();
+      }
+
+      if (window._veloqPadCamera) {
+        if (_bounds) {
+          window._veloqSetInset(_fitPadding, 0, _fitPadding);
+        } else if (_center) {
+          window._veloqInset = window._veloqNormaliseInset(_fitPadding);
+          window.map.jumpTo({ padding: window._veloqInset, center: _center });
+        }
+      }
+
+      // A page built before its WebView has a size cannot fit bounds into it, so the opening fit
+      // waits for the container's first size.
+      if (_bounds && !(window.map.getContainer().clientWidth > 0 && window.map.getContainer().clientHeight > 0)) {
+        var _openFit = function() {
+          var box = window.map.getContainer();
+          if (!(box.clientWidth > 0 && box.clientHeight > 0)) return;
+          window.map.off('resize', _openFit);
+          var _bb = [_bounds.sw, _bounds.ne];
+          if (window._veloqPadCamera) {
+            window._veloqFitInset(_bb, _fitPadding, 0, _maxZoom === null ? {} : { maxZoom: _maxZoom });
+          } else {
+            window.map.fitBounds(_bb, { padding: _fitPadding, duration: 0 });
+          }
+        };
+        window.map.on('resize', _openFit);
       }
 
       window._veloqTerrainReport.watch(window.map);
@@ -402,11 +438,16 @@ export function buildSetCameraScript(camera: MapCameraSpec, duration = 0): strin
       : '';
     return `
     if (window.map) {
-      window.map.fitBounds(${JSON.stringify([camera.bounds.sw, camera.bounds.ne])}, {
-        padding: ${jsPadding(camera.padding, 40)},
-        ${maxZoom}
-        duration: ${motionDurationExpression(duration)},
-      });
+      if (window._veloqPadCamera) {
+        window._routeBounds = ${JSON.stringify([camera.bounds.sw, camera.bounds.ne])};
+        window._veloqFitInset(${JSON.stringify([camera.bounds.sw, camera.bounds.ne])}, ${jsPadding(camera.padding, 40)}, ${motionDurationExpression(duration)}, { ${maxZoom} });
+      } else {
+        window.map.fitBounds(${JSON.stringify([camera.bounds.sw, camera.bounds.ne])}, {
+          padding: ${jsPadding(camera.padding, 40)},
+          ${maxZoom}
+          duration: ${motionDurationExpression(duration)},
+        });
+      }
     }
     true;
   `;
@@ -448,10 +489,15 @@ export function buildFitBoundsScript(
 ): string {
   return `
     if (window.map) {
-      window.map.fitBounds(${JSON.stringify([bounds.sw, bounds.ne])}, {
-        padding: ${jsPadding(padding, 40)},
-        duration: ${motionDurationExpression(duration)},
-      });
+      if (window._veloqPadCamera) {
+        window._routeBounds = ${JSON.stringify([bounds.sw, bounds.ne])};
+        window._veloqFitInset(${JSON.stringify([bounds.sw, bounds.ne])}, ${jsPadding(padding, 40)}, ${motionDurationExpression(duration)});
+      } else {
+        window.map.fitBounds(${JSON.stringify([bounds.sw, bounds.ne])}, {
+          padding: ${jsPadding(padding, 40)},
+          duration: ${motionDurationExpression(duration)},
+        });
+      }
     }
     true;
   `;

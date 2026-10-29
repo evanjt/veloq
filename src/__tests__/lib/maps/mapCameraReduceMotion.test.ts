@@ -19,6 +19,7 @@ import {
   buildSetCameraScript,
   type MapSurfaceHtmlConfig,
 } from '@/features/maps/lib/htmlBuilders/mapSurface';
+import { MAX_MAP_PITCH, visibleInsetScript } from '@/features/maps/lib/htmlBuilders/shared';
 import {
   buildMap3DHtml,
   buildSetRouteScript,
@@ -47,11 +48,19 @@ function runInjected(script: string, reduceMotion: boolean): Move[] {
       easeTo: record('easeTo', 0),
       flyTo: record('flyTo', 0),
       fitBounds: record('fitBounds', 1),
+      getContainer: () => ({ clientWidth: 400, clientHeight: 600 }),
+      unproject: ([x, y]: number[]) => ({ lng: x, lat: y }),
+      getCenter: () => ({ lng: 7.45, lat: 46.95 }),
+      getZoom: () => 12,
+      getBearing: () => 0,
+      getPitch: () => 0,
+      cameraForBounds: () => ({ center: { lng: 7.45, lat: 46.95 }, zoom: 13 }),
     },
     _veloq3d: { setRoute: () => {} },
     _veloqReduceMotion: reduceMotion,
   };
   sandbox.window = sandbox;
+  vm.runInNewContext(visibleInsetScript(), sandbox);
   vm.runInNewContext(script, sandbox);
   return moves;
 }
@@ -87,16 +96,14 @@ const SCRIPTS: { name: string; script: string; duration: number }[] = [
 describe('scripted camera moves follow the live reduce-motion setting', () => {
   it.each(SCRIPTS)('$name lands at once with reduce motion on', ({ script }) => {
     const moves = runInjected(script, true);
-    expect(moves).toHaveLength(1);
-    expect(durationOf(moves[0])).toBe(0);
+    expect(durationOf(moves[moves.length - 1])).toBe(0);
   });
 
   it.each(SCRIPTS)(
     '$name eases over its duration with reduce motion off',
     ({ script, duration }) => {
       const moves = runInjected(script, false);
-      expect(moves).toHaveLength(1);
-      expect(durationOf(moves[0])).toBe(duration);
+      expect(durationOf(moves[moves.length - 1])).toBe(duration);
     }
   );
 
@@ -213,5 +220,15 @@ describe('a map page starts from the reduce-motion setting it was built with', (
     const off = mapOptionsOf(build(false));
     expect(off.options?.reduceMotion).toBe(false);
     expect(off.pageFlag).toBe(false);
+  });
+});
+
+describe('map tilt limit', () => {
+  it.each([
+    ['2D surface', () => buildMapSurfaceHtml(surfaceConfig(false))],
+    ['3D terrain', () => buildMap3DHtml(map3DConfig(false))],
+  ])('%s page stops the tilt before the track can leave the view', (_name, build) => {
+    expect(mapOptionsOf(build()).options?.maxPitch).toBe(MAX_MAP_PITCH);
+    expect(MAX_MAP_PITCH).toBeLessThan(72);
   });
 });

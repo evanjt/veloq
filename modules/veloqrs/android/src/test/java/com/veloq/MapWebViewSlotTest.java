@@ -42,6 +42,21 @@ public class MapWebViewSlotTest {
   }
 
   @Test
+  public void test_a_take_hands_back_a_view_that_leaves_its_parent_on_a_later_detach() {
+    int[] calls = {0};
+    MapWebViewSlot<Object, Object> slot =
+        new MapWebViewSlot<>(34, view -> ++calls[0] >= 2, destroyed::add);
+    Object view = new Object();
+    slot.offer(view, surface, "page-a");
+
+    MapWebViewSlot.Held<Object> held = slot.take(surface);
+
+    assertSame(view, held.view);
+    assertTrue(calls[0] >= 2);
+    assertTrue(destroyed.isEmpty());
+  }
+
+  @Test
   public void test_a_view_that_cannot_leave_its_parent_is_destroyed_rather_than_handed_out() {
     List<ParentedView> destroyedViews = new ArrayList<>();
     MapWebViewSlot<ParentedView, Object> slot =
@@ -66,6 +81,19 @@ public class MapWebViewSlotTest {
 
     assertSame(view, held.view);
     assertEquals("page-a", held.revision);
+    assertNull(slot.take(surface));
+    assertTrue(destroyed.isEmpty());
+  }
+
+  @Test
+  public void test_a_withdrawn_view_is_not_handed_out_and_is_not_destroyed_by_the_slot() {
+    MapWebViewSlot<Object, Object> slot = slot(34);
+    Object view = new Object();
+    slot.offer(view, surface, "page-a");
+
+    slot.withdraw(view);
+
+    assertFalse(slot.holding());
     assertNull(slot.take(surface));
     assertTrue(destroyed.isEmpty());
   }

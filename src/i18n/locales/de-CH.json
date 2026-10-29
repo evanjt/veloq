@@ -1301,6 +1301,7 @@
   },
   "maps": {
     "threeDUnavailable": "Das Gelände braucht eine Verbindung. Es wird die flache Karte gezeigt.",
+    "threeDLoading": "Geländekarte wird geladen",
     "unavailableTitle": "Charte gaht nöd",
     "unavailableHint": "D Charte hät nöd chöne lade. Lueg dini Verbindig aa und probiers nomol.",
     "activitiesCount_one": "{{count}} Aktivität",

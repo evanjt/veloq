@@ -179,6 +179,8 @@ export {
   useMapControlColumn,
 } from './lib/mapControlColumnLayout';
 export { visibleMapInset, type MapEdgeInset } from './lib/activityCamera';
+export { paddedFit } from './lib/cameraPadding';
+export { useSettleCamera } from './lib/useSettleCamera';
 export { buildSectionTrimCollection } from './lib/sectionTrimCollection';
 export {
   initialiseHeatmapPreference,

@@ -32,6 +32,7 @@ import { useMapPreferences } from '@/features/settings';
 import { useTheme } from '@/shared/app';
 import { useMapHeldFocus } from '@/shared/app/MapSheetHost';
 import {
+  useSettleCamera,
   BaseMapView,
   type BaseMap3DLayer,
   boundsOfLngLat,
@@ -145,6 +146,9 @@ interface SectionMapViewProps {
    * and a change refits the section.
    */
   coveredBottom?: number | undefined;
+  /** Width over the map's sides that a regular-width side panel covers. The section is fitted beside it. */
+  coveredLeft?: number | undefined;
+  coveredRight?: number | undefined;
   /** Corner radius of the rounded sheet top under `coveredBottom`, which the credit keeps clear of. */
   coveredBottomRadius?: number | undefined;
   /** The attempt the chart's delta plot shows. While set, the section line is coloured by it. */
@@ -184,6 +188,8 @@ export const SectionMapView = memo(function SectionMapView({
   extensionTrack = null,
   headerBottom = 0,
   coveredBottom = 0,
+  coveredLeft = 0,
+  coveredRight = 0,
   coveredBottomRadius = 0,
   deltaLine = null,
   shownDirection = null,
@@ -219,6 +225,8 @@ export const SectionMapView = memo(function SectionMapView({
   const activityColor = getActivityColor(validSportType ?? 'Other');
   const palette = mapPalette(drawnMapStyle);
   const surfaceRef = useRef<MapSurfaceRef>(null);
+  const [mapReady, setMapReady] = useState(false);
+  const handleMapReady = useCallback(() => setMapReady(true), []);
   const inSlot = useInMapSurfaceSlot();
   // The surface is unmounted while the 3D layer covers it, so the viewport it
   // settled on is what a remount opens with, not the section fit again.
@@ -292,12 +300,23 @@ export const SectionMapView = memo(function SectionMapView({
         width: mapWidth,
         height,
         coveredTop: overlayTop,
-        coveredRight: interactive ? controlsFootprint : 0,
+        coveredLeft,
+        coveredRight: coveredRight + (interactive ? controlsFootprint : 0),
         coveredBottom,
         margin: SECTION_MAP_FIT_PADDING,
       }),
-    [mapWidth, height, overlayTop, interactive, controlsFootprint, coveredBottom]
+    [
+      mapWidth,
+      height,
+      overlayTop,
+      interactive,
+      controlsFootprint,
+      coveredBottom,
+      coveredLeft,
+      coveredRight,
+    ]
   );
+  const frameSize = useMemo(() => ({ width: mapWidth, height }), [mapWidth, height]);
   // Controls and legends over the map follow the app theme, not the base drawn under them.
   const { isDark } = useTheme();
 
@@ -307,7 +326,10 @@ export const SectionMapView = memo(function SectionMapView({
   const show2DSurface = inSlot || !(is3DMode && is3DReady);
   const is3DLoading = is3DMode && !is3DReady;
   useEffect(() => {
-    if (!show2DSurface) setCameraOnHide(settledCameraRef.current);
+    if (!show2DSurface) {
+      setCameraOnHide(settledCameraRef.current);
+      setMapReady(false);
+    }
   }, [show2DSurface]);
 
   // Stop in-flight animations on unmount
@@ -318,15 +340,18 @@ export const SectionMapView = memo(function SectionMapView({
     };
   }, [map3DOpacity, bearingAnim]);
 
-  // Frame each section once, again on entering or leaving expand mode, and again when what covers
-  // the map's foot changes, as the sheet settles at another stop or a tool's bar replaces it.
+  // Frame each section once and again on entering or leaving expand mode. A change in what covers the
+  // map, as the sheet settles at another stop or a tool's bar replaces it, moves the camera through
+  // `useSettleCamera`.
   // Keying the refit on the geometry took the camera back on every `sections`
   // event, because the detail bundle hands down a fresh `polyline` array of the
   // same points, so panning the map was undone by the next sync. Extending
   // further inside expand mode is the athlete moving the handle rather than a
   // mode change, so it leaves the viewport alone too.
+  const { markMoved, markFramed } = useSettleCamera(fitPadding, surfaceRef, mapReady);
+  const handleRegionChanging = useCallback(() => markMoved(), [markMoved]);
   const isExpanding = extensionCoords.length > 0;
-  const frameKey = `${section.id}|${isExpanding}|${coveredBottom}`;
+  const frameKey = `${section.id}|${isExpanding}`;
   // A slot moves its shared camera to each subject it takes, or back to where one was left, so
   // there only a later key refits the section.
   const framedSection = useRef<string | null>(inSlot ? frameKey : null);
@@ -339,7 +364,8 @@ export const SectionMapView = memo(function SectionMapView({
     if (!nextBounds) return;
     framedSection.current = frameKey;
     surfaceRef.current?.fitBounds(nextBounds, fitPadding, cameraMove.move);
-  }, [frameKey, extensionCoords, sectionCoords, isExpanding, fitPadding]);
+    markFramed();
+  }, [frameKey, extensionCoords, sectionCoords, isExpanding, fitPadding, markFramed]);
 
   // Reset 3D ready state when toggling off
   useEffect(() => {
@@ -606,6 +632,8 @@ export const SectionMapView = memo(function SectionMapView({
       rotateEnabled={interactive}
       released={!screenFocused}
       onBearingChange={interactive ? handleBearingChange : undefined}
+      onMapReady={handleMapReady}
+      onRegionIsChanging={handleRegionChanging}
       onRegionDidChange={handleRegionDidChange}
     />
   );
@@ -661,6 +689,7 @@ export const SectionMapView = memo(function SectionMapView({
                     mapStyle={drawnMapStyle}
                     routeColor={palette.route}
                     fitPadding={fitPadding}
+                    frameSize={frameSize}
                     sectionTrimGeoJSON={sectionTrimGeoJSON}
                     highlightedTraceGeoJSON={overlays3D.highlightGeoJSON}
                     released={!screenFocused}

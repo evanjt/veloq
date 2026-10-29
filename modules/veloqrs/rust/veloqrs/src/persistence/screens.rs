@@ -1422,6 +1422,7 @@ pub(crate) fn section_detail_from<R>(
     wellness_between: impl FnOnce(&str, &str) -> Vec<crate::FfiWellnessDay>,
     curves_of: impl FnOnce(Option<&str>) -> Option<std::sync::Arc<Option<crate::FfiSectionLapCurves>>>,
     efficiency_of: impl FnOnce(&str, i64) -> Option<crate::FfiEfficiencyTrend>,
+    untimed_of: impl FnOnce(Option<&str>) -> Vec<crate::SectionPerformanceRecord>,
     mut read: R,
 ) -> crate::FfiSectionPerformanceData
 where
@@ -1551,7 +1552,7 @@ where
         sport_type,
         sport_counts,
         calendar_summary: crate::persistence::fitness::derivations::calendar_from(&all),
-        lap_records: lap_records(&all, &excluded.records),
+        lap_records: lap_records(&all, &excluded.records, &untimed_of(filter.as_deref())),
         performances: crate::FfiSectionPerformanceResult::from(performances),
         chart_data,
         excluded_points,
@@ -1597,13 +1598,14 @@ fn shown_best_is_record(
 fn lap_records(
     all: &crate::SectionPerformanceResult,
     excluded: &[crate::SectionPerformanceRecord],
+    untimed: &[crate::SectionPerformanceRecord],
 ) -> Vec<crate::SectionPerformanceRecord> {
     let record_laps: Vec<(&str, &str)> = [false, true]
         .into_iter()
         .filter_map(|reverse| crate::persistence::records::section_record_lap(all, reverse))
         .map(|(record, lap)| (record.activity_id.as_str(), lap.id.as_str()))
         .collect();
-    with_excluded_laps(&all.records, excluded)
+    with_unlisted_laps(&all.records, &[excluded, untimed])
         .into_iter()
         .map(|mut record| {
             for lap in &mut record.laps {
@@ -1617,20 +1619,21 @@ fn lap_records(
         .collect()
 }
 
-/// Each activity's laps, included and excluded together in track order, so a
-/// lap the athlete excluded stays listed beside the ones that count. An
-/// activity with every lap excluded is listed too: its laps are how it comes
-/// back.
-fn with_excluded_laps(
+/// Each activity's laps, the counted ones with the excluded and the untimed
+/// ones in track order, so a lap the athlete excluded stays listed beside the
+/// ones that count and a pass that crosses no gate is listed as a partial
+/// one. An activity with every lap excluded is listed too: its laps are how
+/// it comes back.
+fn with_unlisted_laps(
     included: &[crate::SectionPerformanceRecord],
-    excluded: &[crate::SectionPerformanceRecord],
+    unlisted: &[&[crate::SectionPerformanceRecord]],
 ) -> Vec<crate::SectionPerformanceRecord> {
     let mut by_activity: std::collections::BTreeMap<&str, crate::SectionPerformanceRecord> =
         included
             .iter()
             .map(|r| (r.activity_id.as_str(), r.clone()))
             .collect();
-    for record in excluded {
+    for record in unlisted.iter().copied().flatten() {
         match by_activity.get_mut(record.activity_id.as_str()) {
             Some(listed) => listed.laps.extend(record.laps.iter().cloned()),
             None => {
@@ -2438,6 +2441,7 @@ pub mod pooled {
                 );
                 section_efficiency_trend_of(conn, section_id, sport, &names, since)
             },
+            |sport| pooled::untimed_section_passes(conn, section_id, sport),
             |sport, rows| match rows {
                 laps::Rows::Included => {
                     pooled::cached_section_performances(conn, section_id, sport)
@@ -2790,6 +2794,7 @@ pub mod pooled {
                     .unwrap_or("Route");
                 efficiency_trend(group_id, sport, name, &efforts)
             },
+            |_| Vec::new(),
             |sport, rows| std::sync::Arc::new(attempts_of(sport, rows)),
         )
     }
@@ -4090,6 +4095,7 @@ mod tests {
             |_, _| Vec::new(),
             |_| Some(std::sync::Arc::new(None)),
             |_, _| None,
+            |_| Vec::new(),
             |_, rows| match rows {
                 laps::Rows::Included => all.clone(),
                 laps::Rows::Excluded => std::sync::Arc::new(laps::empty()),
@@ -6196,6 +6202,55 @@ mod tests {
         let opened = performance_detail(&mut engine, 30, None);
         assert_eq!(opened.sport_type.as_deref(), Some("Ride"));
         assert_eq!(lap_ids(&opened.excluded_points), vec!["ride_x_lap0"]);
+    }
+
+    /// Scenario: a section holding one timed pass and one pass that crosses
+    /// no gate, so it has no lap time.
+    ///
+    /// Expected behaviour: the lap list holds both, the untimed one as a
+    /// partial lap with no time, never the record, and the chart, the counts
+    /// and the record read only the timed pass.
+    #[test]
+    fn an_untimed_pass_is_listed_as_a_partial_lap() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().expect("tempdir");
+        let path = dir.path().join("untimed_pass.db");
+        let mut engine = section_detail_engine(
+            path.to_str().expect("utf-8"),
+            &[
+                ("ride_timed", "Ride", 3, &[(200.0, false)]),
+                ("ride_gap", "Ride", 4, &[(210.0, false)]),
+            ],
+        );
+        engine
+            .db
+            .execute(
+                "UPDATE section_activities SET lap_time = NULL, lap_pace = NULL
+                 WHERE activity_id = 'ride_gap'",
+                [],
+            )
+            .expect("untime");
+
+        let detail = performance_detail(&mut engine, 0, Some("Ride"));
+        let listed: Vec<&crate::SectionLap> = detail
+            .lap_records
+            .iter()
+            .flat_map(|r| r.laps.iter())
+            .collect();
+        let shape: Vec<(&str, &str, f64)> = listed
+            .iter()
+            .map(|l| (l.id.as_str(), l.direction.as_str(), l.time))
+            .collect();
+        assert_eq!(
+            shape,
+            vec![
+                ("ride_gap_lap0", "partial", 0.0),
+                ("ride_timed_lap0", "same", 200.0),
+            ]
+        );
+        assert!(!listed[0].is_record);
+        assert_eq!(lap_ids(&detail.chart_data.points), vec!["ride_timed_lap0"]);
+        assert_eq!(detail.performances.records.len(), 1);
     }
 
     /// Scenario: a section ridden and run, and walked once, the walk

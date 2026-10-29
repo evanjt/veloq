@@ -1,6 +1,7 @@
 import {
   fromWallClockSeconds,
   castDirection,
+  castLapDirection,
   toDirectionStats,
   convertActivityPortions,
   ensureFinite,
@@ -71,6 +72,15 @@ describe('castDirection', () => {
 
   it('returns "same" for null', () => {
     expect(castDirection(null)).toBe('same');
+  });
+});
+
+describe('castLapDirection', () => {
+  it('keeps "partial", which a lap with no time carries', () => {
+    expect(castLapDirection('partial')).toBe('partial');
+    expect(castLapDirection('reverse')).toBe('reverse');
+    expect(castLapDirection('anything else')).toBe('same');
+    expect(castLapDirection(null)).toBe('same');
   });
 });
 

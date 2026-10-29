@@ -304,6 +304,23 @@ describe('SectionMapView', () => {
       expect(mockFitBounds).toHaveBeenCalledTimes(framed);
     });
 
+    it('fits beside a side panel that covers the map, and refits when the panel changes', async () => {
+      const { rerender } = await renderSection({ coveredLeft: 320 });
+      await rerender(
+        <SafeAreaProvider initialMetrics={METRICS}>
+          <SectionMapView section={section()} interactive coveredLeft={0} />
+        </SafeAreaProvider>
+      );
+      await rerender(
+        <SafeAreaProvider initialMetrics={METRICS}>
+          <SectionMapView section={section()} interactive coveredRight={320} />
+        </SafeAreaProvider>
+      );
+
+      const lefts = mockFitBounds.mock.calls.map(([, padding]) => padding?.left ?? 0);
+      expect(lefts.some((left) => left >= 320)).toBe(true);
+    });
+
     it('reframes when the section itself changes', async () => {
       const { rerender } = await renderSection();
       const framed = mockFitBounds.mock.calls.length;

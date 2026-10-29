@@ -1365,6 +1365,7 @@
   },
   "maps": {
     "threeDUnavailable": "El relieve necesita conexión. Se muestra el mapa plano.",
+    "threeDLoading": "Cargando el mapa de relieve",
     "unavailableTitle": "Mapa no disponible",
     "unavailableHint": "No se pudo cargar el mapa. Revisa tu conexión y ábrelo de nuevo.",
     "activitiesCount_one": "{{count}} actividad",
@@ -1839,7 +1840,7 @@
     "expandDateRange": "Ampliar rango de fechas"
   },
   "sections": {
-    "timeMethod": "Los tiempos de sección son tiempo transcurrido e incluyen las paradas.",
+    "timeMethod": "Los tiempos de sección son tiempo transcurrido e incluyen las paradas. El ritmo es la longitud de la sección dividida por el tiempo entre sus dos puertas.",
     "effortsNotDownloaded_one": "Los tiempos de {{count}} actividad aún no se han descargado, así que el mejor tiempo puede cambiar.",
     "effortsNotDownloaded_many": "Los tiempos de {{count}} de actividades aún no se han descargado, así que el mejor tiempo puede cambiar.",
     "effortsNotDownloaded_other": "Los tiempos de {{count}} actividades aún no se han descargado, así que el mejor tiempo puede cambiar.",
@@ -2043,6 +2044,7 @@
     "showAllLaps": "Mostrar todas las vueltas",
     "showFewerLaps": "Mostrar menos vueltas",
     "lapExcluded": "Excluida",
+    "partialPass": "Paso parcial",
     "partlyExcluded": "Algunas vueltas excluidas",
     "rescanRefusedBusy": "Ya hay un análisis en curso.",
     "rescanRefusedHeld": "La detección está en espera mientras el motor termina otro trabajo.",

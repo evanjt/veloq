@@ -74,9 +74,7 @@ describe('the 2D and 3D fits for one cover', () => {
 
   it('carry the same per-edge padding', () => {
     expect(buildFitBoundsScript(bounds, inset)).toContain(`padding: ${literal}`);
-    expect(buildSetRouteScript([[7.3, 46.2]], bounds, undefined, inset)).toContain(
-      `padding: ${literal},`
-    );
+    expect(buildSetRouteScript([[7.3, 46.2]], bounds, undefined, inset)).toContain(`, ${literal},`);
     expect(
       buildMap3DHtml({
         coordinates: [[7.3, 46.2]],

@@ -4631,21 +4631,6 @@ impl PersistentEngine {
         self.time_streams.pop(&activity_id.to_string());
     }
 
-    /// How many points one activity's stored track holds.
-    ///
-    /// `None` when there is no track row. Cheap: `gps_tracks` carries the count
-    /// as a column, so this never decodes a blob.
-    pub(crate) fn track_point_count(&self, activity_id: &str) -> Option<usize> {
-        self.db
-            .query_row(
-                "SELECT point_count FROM gps_tracks WHERE activity_id = ?",
-                params![activity_id],
-                |row| row.get::<_, i64>(0),
-            )
-            .ok()
-            .map(|n| n as usize)
-    }
-
     /// The same, for a batch, so a pass over many portions makes one query.
     pub(crate) fn track_point_counts(
         &self,
@@ -5106,21 +5091,6 @@ impl PersistentEngine {
         // The cache is not consulted, so the stored row and the length rule in
         // the pooled form are the whole answer.
         pooled::activities_missing_time_streams(&self.db, activity_ids)
-    }
-
-    /// Ensure time stream is loaded into memory (from SQLite if needed).
-    /// Returns true if the time stream is available.
-    pub(super) fn ensure_time_stream_loaded(&mut self, activity_id: &str) -> bool {
-        // Already in memory?
-        if self.time_streams.contains(activity_id) {
-            return true;
-        }
-        // Try to load from SQLite
-        if let Some(times) = self.load_time_stream(activity_id) {
-            self.time_streams.put(activity_id.to_string(), times);
-            return true;
-        }
-        false
     }
 }
 
@@ -5606,8 +5576,9 @@ mod tests {
         let ids = vec!["a1".to_string()];
 
         engine.store_time_stream("a1", &[0, 5, 10, 15, 20]).unwrap();
-        assert!(engine.ensure_time_stream_loaded("a1"));
-        assert!(engine.time_streams.contains(&"a1".to_string()));
+        engine
+            .time_streams
+            .put("a1".to_string(), vec![0, 5, 10, 15, 20]);
 
         assert_eq!(engine.get_activities_missing_time_streams(&ids), ids);
     }

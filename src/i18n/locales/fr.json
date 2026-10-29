@@ -1365,6 +1365,7 @@
   },
   "maps": {
     "threeDUnavailable": "Le relief nécessite une connexion. Carte plate affichée.",
+    "threeDLoading": "Chargement de la carte du relief",
     "unavailableTitle": "Carte indisponible",
     "unavailableHint": "La carte n'a pas pu se charger. Vérifie ta connexion et rouvre-la.",
     "activitiesCount_one": "{{count}} activité",
@@ -1839,7 +1840,7 @@
     "expandDateRange": "Étendre la plage de dates"
   },
   "sections": {
-    "timeMethod": "Les temps de section sont des temps écoulés, arrêts compris.",
+    "timeMethod": "Les temps de section sont des temps écoulés, arrêts compris. L'allure est la longueur de la section divisée par le temps entre ses deux portes.",
     "effortsNotDownloaded_one": "Les temps de {{count}} activité ne sont pas encore téléchargés, le meilleur temps peut donc changer.",
     "effortsNotDownloaded_many": "Les temps de {{count}} d'activités ne sont pas encore téléchargés, le meilleur temps peut donc changer.",
     "effortsNotDownloaded_other": "Les temps de {{count}} activités ne sont pas encore téléchargés, le meilleur temps peut donc changer.",
@@ -2043,6 +2044,7 @@
     "showAllLaps": "Afficher tous les tours",
     "showFewerLaps": "Afficher moins de tours",
     "lapExcluded": "Exclu",
+    "partialPass": "Passage partiel",
     "partlyExcluded": "Certains tours exclus",
     "rescanRefusedBusy": "Une analyse est déjà en cours.",
     "rescanRefusedHeld": "La détection est en attente pendant que le moteur termine d'autres tâches.",

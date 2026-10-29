@@ -10,7 +10,7 @@
  * Save or back ends the tool and presents the sheet again at the stop it had.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { I18nManager, Platform, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SectionMapView } from './SectionMapView';
@@ -32,6 +32,7 @@ import { useInMapSurfaceSlot, useMapSurfaceSlotLive } from '@/features/maps';
 import {
   mapSheetCoveredCorner,
   mapSheetCoveredHeight,
+  mapSheetCoveredSides,
   useMapSheetStop,
 } from '@/shared/app/mapSheetStop';
 import { useSheetWindow } from '@/shared/app/TopSafeAreaContext';
@@ -131,7 +132,8 @@ export function SectionDetailMap({
   useMapSheetHostHeader(isTrimming ? TOOL_HEADER : null);
 
   const sheetWindow = useSheetWindow();
-  const { height } = sheetWindow;
+  const { width, height } = sheetWindow;
+  const sides = mapSheetCoveredSides({ width, height }, I18nManager.isRTL);
   const insets = useSafeAreaInsets();
   const headerBottom = useHeroHeaderBottom();
   const [toolBarHeight, setToolBarHeight] = useState(0);
@@ -173,6 +175,8 @@ export function SectionDetailMap({
           extensionTrack={isTrimming && trim.isExpanded ? trim.expandContextPoints : null}
           headerBottom={headerBottom}
           coveredBottom={coveredBottom}
+          coveredLeft={sides.left}
+          coveredRight={sides.right}
           coveredBottomRadius={isTrimming ? 0 : mapSheetCoveredCorner(coveredBottom)}
         />
       ) : slotLive ? null : (

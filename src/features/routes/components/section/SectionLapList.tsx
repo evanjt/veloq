@@ -36,7 +36,8 @@ const RECENT_ACTIVITIES = 3;
 function bestLapTime(r: SectionPerformanceRecord): number | null {
   let best: number | null = null;
   for (const lap of r.laps) {
-    if (!lap.excluded && (best === null || lap.time < best)) best = lap.time;
+    if (!lap.excluded && lap.direction !== 'partial' && (best === null || lap.time < best))
+      best = lap.time;
   }
   return best;
 }
@@ -177,9 +178,15 @@ export function SectionLapList({
                           label={t('a11y.recordLap')}
                         />
                       ) : null}
-                      <Text style={[styles.lapTime, isDark && styles.textDark]}>
-                        {formatDuration(lap.time)}
-                      </Text>
+                      {lap.direction === 'partial' ? (
+                        <Text style={[styles.excludedTag, isDark && styles.textSecondaryDark]}>
+                          {t('sections.partialPass')}
+                        </Text>
+                      ) : (
+                        <Text style={[styles.lapTime, isDark && styles.textDark]}>
+                          {formatDuration(lap.time)}
+                        </Text>
+                      )}
                       {lap.avgPower != null && Number.isFinite(lap.avgPower) && lap.avgPower > 0 ? (
                         <Text style={[styles.lapPower, isDark && styles.textSecondaryDark]}>
                           {formatPower(lap.avgPower)}

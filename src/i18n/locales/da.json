@@ -1333,6 +1333,7 @@
   },
   "maps": {
     "threeDUnavailable": "Terræn kræver forbindelse. Viser det flade kort.",
+    "threeDLoading": "Indlæser terrænkortet",
     "unavailableTitle": "Kort utilgængeligt",
     "unavailableHint": "Kortet kunne ikke indlæses. Tjek din forbindelse, og åbn det igen.",
     "activitiesCount_one": "{{count}} aktivitet",
@@ -1803,7 +1804,7 @@
     "expandDateRange": "Udvid datointerval"
   },
   "sections": {
-    "timeMethod": "Sektionstider er forløbet tid inklusive stop.",
+    "timeMethod": "Sektionstider er forløbet tid inklusive stop. Tempoet er sektionens længde divideret med tiden mellem dens to porte.",
     "effortsNotDownloaded_one": "Tider for {{count}} aktivitet er ikke hentet endnu, så den bedste tid kan ændre sig.",
     "effortsNotDownloaded_other": "Tider for {{count}} aktiviteter er ikke hentet endnu, så den bedste tid kan ændre sig.",
     "activitiesCount_one": "{{count}} aktivitet",
@@ -1993,6 +1994,7 @@
     "showAllLaps": "Vis alle omgange",
     "showFewerLaps": "Vis færre omgange",
     "lapExcluded": "Udelukket",
+    "partialPass": "Delvis passage",
     "partlyExcluded": "Nogle omgange udelukket",
     "rescanRefusedBusy": "En scanning kører allerede.",
     "rescanRefusedHeld": "Registrering er sat på hold, mens motoren gør andet arbejde færdigt.",

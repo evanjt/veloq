@@ -3,7 +3,6 @@
 use crate::GpsPoint;
 use rusqlite::{Connection, Result as SqlResult, params};
 use rusqlite_migration::{M, Migrations};
-use std::collections::{HashMap, HashSet};
 
 use super::{PersistentEngine, codec, sections};
 
@@ -583,20 +582,6 @@ impl PersistentEngine {
         // Post-migration data population for pre-0.2.2 databases.
         // Users on 0.2.2+ (schema_version >= 7) skip this block entirely.
         if current_version < 7 {
-            if current_version < 3 {
-                let needs_population: i64 = conn.query_row(
-                    "SELECT COUNT(*) FROM section_activities WHERE lap_time IS NULL",
-                    [],
-                    |row| row.get(0),
-                )?;
-                if needs_population > 0 {
-                    log::info!(
-                        "veloqrs: [Migration] Populating performance cache for {} section portions...",
-                        needs_population
-                    );
-                    Self::populate_performance_cache(conn)?;
-                }
-            }
             if current_version < 5 {
                 Self::populate_section_bounds(conn)?;
             }
@@ -1793,124 +1778,6 @@ WHERE activity_count IS NOT NULL GROUP BY activity_count;"#
             );
         }
         Ok(promoted)
-    }
-
-    /// Populate performance cache for all existing section portions.
-    /// Called during migration from schema v2 to v3.
-    fn populate_performance_cache(conn: &Connection) -> SqlResult<()> {
-        // Get all unique section IDs that need population
-        let section_ids: Vec<String> = conn
-            .prepare("SELECT DISTINCT section_id FROM section_activities WHERE lap_time IS NULL")?
-            .query_map([], |row| row.get(0))?
-            .collect::<Result<Vec<String>, _>>()?;
-
-        let total_sections = section_ids.len();
-        log::info!(
-            "veloqrs: [Migration] Found {} sections needing performance cache population",
-            total_sections
-        );
-
-        let mut total_portions = 0;
-        let mut populated_portions = 0;
-
-        for (section_idx, section_id) in section_ids.iter().enumerate() {
-            if section_idx % 10 == 0 && section_idx > 0 {
-                log::info!(
-                    "veloqrs: [Migration] Progress: {}/{} sections, {} portions populated",
-                    section_idx,
-                    total_sections,
-                    populated_portions
-                );
-            }
-
-            // Get all portions for this section that need population
-            let portions: Vec<(String, u32, u32, f64)> = conn
-                .prepare(
-                    "SELECT activity_id, start_index, end_index, distance_meters
-                     FROM section_activities
-                     WHERE section_id = ? AND lap_time IS NULL",
-                )?
-                .query_map([section_id], |row| {
-                    Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
-                })?
-                .collect::<Result<Vec<_>, _>>()?;
-
-            total_portions += portions.len();
-
-            // Load time streams for all activities in this section
-            let activity_ids: HashSet<String> =
-                portions.iter().map(|(id, _, _, _)| id.clone()).collect();
-
-            let mut time_streams: HashMap<String, Vec<u32>> = HashMap::new();
-            // The track's length is the index space the portions are in, and a
-            // stream of any other length is not in it.
-            let mut track_points: HashMap<String, usize> = HashMap::new();
-            for activity_id in &activity_ids {
-                if let Ok(points) = conn.query_row(
-                    "SELECT point_count FROM gps_tracks WHERE activity_id = ?",
-                    [activity_id],
-                    |row| row.get::<_, i64>(0),
-                ) {
-                    track_points.insert(activity_id.clone(), points as usize);
-                }
-                if let Ok(stream) = conn.query_row(
-                    "SELECT times FROM time_streams WHERE activity_id = ?",
-                    [activity_id],
-                    |row| {
-                        let bytes: Vec<u8> = row.get(0)?;
-                        let times: Vec<u32> = codec::deserialize(&bytes).map_err(|e| {
-                            log::error!("time_streams {activity_id}: times decode failed: {e}");
-                            rusqlite::Error::FromSqlConversionFailure(
-                                0,
-                                rusqlite::types::Type::Blob,
-                                e.into(),
-                            )
-                        })?;
-                        Ok(times)
-                    },
-                ) {
-                    time_streams.insert(activity_id.clone(), stream);
-                }
-            }
-
-            // Calculate and update each portion
-            let mut update_stmt = conn.prepare(
-                "UPDATE section_activities
-                 SET lap_time = ?, lap_pace = ?
-                 WHERE section_id = ? AND activity_id = ? AND start_index = ?",
-            )?;
-
-            for (activity_id, start_idx, end_idx, distance) in portions {
-                // Calculate performance metrics
-                let (lap_time, lap_pace) = super::sections::compute_lap_time_from_stream(
-                    time_streams.get(&activity_id).map(Vec::as_slice),
-                    track_points.get(&activity_id).copied(),
-                    start_idx,
-                    end_idx,
-                    distance,
-                );
-
-                update_stmt.execute(params![
-                    lap_time,
-                    lap_pace,
-                    section_id,
-                    activity_id,
-                    start_idx,
-                ])?;
-
-                if lap_time.is_some() {
-                    populated_portions += 1;
-                }
-            }
-        }
-
-        log::info!(
-            "veloqrs: [Migration] Performance cache population complete: {}/{} portions populated",
-            populated_portions,
-            total_portions
-        );
-
-        Ok(())
     }
 
     /// Populate section bounds columns from polyline JSON during migration to v5.

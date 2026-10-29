@@ -9,7 +9,7 @@
  * when several are attached and none is named.
  */
 
-import { execFileSync, spawn } from 'child_process';
+import { execFileSync, spawn, spawnSync } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -127,6 +127,36 @@ describe('the Maestro wrapper and the handset it reaches', () => {
     expect(result.stderr).toContain(OTHER);
     expect(result.stderr).toContain(LOCKED);
     expect(result.stderr).toContain('ANDROID_SERIAL');
+  });
+
+  it('refuses before taking any lock when the caller holds none and two are attached', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'with-maestro-'));
+    fakeBins(dir, [OTHER, LOCKED]);
+    const env: NodeJS.ProcessEnv = {
+      ...process.env,
+      PATH: `${dir}:${process.env.PATH}`,
+      VELOQ_DEVICE_LOCK_DIR: dir,
+    };
+    for (const name of [
+      'ANDROID_SERIAL',
+      'VELOQ_DEVICE_LOCK_HELD',
+      'VELOQ_DEVICE_LOCK',
+      'VELOQ_MAESTRO_LOCK',
+      'VELOQ_MAESTRO_LOCK_HELD',
+    ]) {
+      delete env[name];
+    }
+
+    const result = spawnSync('sh', [SCRIPT, 'test', 'flow.yaml'], {
+      cwd: dir,
+      encoding: 'utf8',
+      env,
+    });
+
+    expect(result.status).not.toBe(0);
+    expect(fs.existsSync(path.join(dir, 'calls.log'))).toBe(false);
+    expect(result.stderr).toContain(OTHER);
+    expect(result.stderr).toContain(LOCKED);
   });
 
   it('keeps a device the caller named when it is the locked serial', () => {

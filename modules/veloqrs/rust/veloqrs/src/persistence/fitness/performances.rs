@@ -264,10 +264,7 @@ pub(crate) mod laps {
         .unwrap_or_default()
     }
 
-    /// The stored time stream and track length a portion with no cached lap
-    /// time falls back to. Cloned rather than borrowed because the two callers
-    /// hold it in different places, and it is only ever reached for a row the
-    /// lap backfill has not written.
+    /// The stored time stream and the track length it has to match.
     pub(crate) fn time_stream(
         conn: &Connection,
         activity_id: &str,
@@ -301,15 +298,13 @@ pub(crate) mod laps {
     /// the portions. The rules are the ones the screen depends on: a partial
     /// traversal is never a record, and neither is a lap that covers too little
     /// of the section.
-    pub(crate) fn performances<M, S>(
+    pub(crate) fn performances<M>(
         section_distance: f64,
         portions: Vec<Portion>,
         meta_of: M,
-        stream_of: S,
     ) -> SectionPerformanceResult
     where
         M: Fn(&str) -> Option<(String, i64)>,
-        S: Fn(&str) -> Option<(Vec<u32>, Option<usize>)>,
     {
         use std::collections::HashMap;
 
@@ -325,37 +320,12 @@ pub(crate) mod laps {
             .iter()
             .filter_map(|(activity_id, portions)| {
                 let (activity_name, activity_date) = meta_of(activity_id)?;
-                let needs_stream = portions
-                    .iter()
-                    .any(|p| p.lap_time.is_none() || p.lap_pace.is_none());
-                let stream = if needs_stream {
-                    stream_of(activity_id)
-                } else {
-                    None
-                };
-
                 let laps: Vec<SectionLap> = portions
                     .iter()
                     .filter_map(|portion| {
-                        let (lap_time, lap_pace) = match (portion.lap_time, portion.lap_pace) {
-                            (Some(t), Some(p)) => (t, p),
-                            _ => {
-                                // A row the lap backfill has not written, or a
-                                // corrupt one. The stream is what it is derived
-                                // from, and without it there is no lap.
-                                let (times, points) = stream.as_ref()?;
-                                match crate::persistence::sections::compute_lap_time_from_stream(
-                                    Some(times.as_slice()),
-                                    *points,
-                                    portion.start_index,
-                                    portion.end_index,
-                                    portion.distance_meters,
-                                ) {
-                                    (Some(t), Some(p)) => (t, p),
-                                    _ => return None,
-                                }
-                            }
-                        };
+                        // A pass the lap backfill has not timed, or cannot time
+                        // between the section's gates, is not a lap.
+                        let (lap_time, lap_pace) = portion.lap_time.zip(portion.lap_pace)?;
                         if lap_time <= 0.0 {
                             return None;
                         }
@@ -426,6 +396,74 @@ pub(crate) mod laps {
             .collect();
 
         summarise(section_distance, records)
+    }
+
+    /// The counted passes of a section that have no lap time, as records of
+    /// partial laps: a pass that crosses no gate, or that the lap backfill has
+    /// not timed yet. A partial lap has no time or pace, is never a record,
+    /// and is read by the lap list alone.
+    pub(crate) fn untimed<M>(
+        section_distance: f64,
+        portions: Vec<Portion>,
+        meta_of: M,
+    ) -> Vec<SectionPerformanceRecord>
+    where
+        M: Fn(&str) -> Option<(String, i64)>,
+    {
+        let untimed = portions.into_iter().filter(|portion| {
+            portion
+                .lap_time
+                .zip(portion.lap_pace)
+                .is_none_or(|(time, _)| time <= 0.0)
+        });
+        let mut by_activity: Vec<(String, Vec<SectionLap>)> = Vec::new();
+        for portion in untimed {
+            let lap = SectionLap {
+                id: format!("{}_lap{}", portion.activity_id, portion.start_index),
+                activity_id: portion.activity_id.clone(),
+                time: 0.0,
+                pace: 0.0,
+                distance: portion.distance_meters,
+                direction: "partial".to_string(),
+                start_index: portion.start_index,
+                end_index: portion.end_index,
+                avg_hr: portion.avg_hr,
+                avg_power: portion.avg_power,
+                coverage: portion.coverage,
+                excluded: false,
+                outside_distance_band: false,
+                match_percentage: None,
+                is_record: false,
+            };
+            match by_activity
+                .iter_mut()
+                .find(|(id, _)| *id == portion.activity_id)
+            {
+                Some((_, laps)) => laps.push(lap),
+                None => by_activity.push((portion.activity_id, vec![lap])),
+            }
+        }
+        by_activity
+            .into_iter()
+            .filter_map(|(activity_id, laps)| {
+                let (activity_name, activity_date) = meta_of(&activity_id)?;
+                Some(SectionPerformanceRecord {
+                    lap_count: laps.len() as u32,
+                    laps,
+                    activity_id,
+                    activity_name,
+                    activity_date: crate::WholeNumber(activity_date),
+                    best_time: 0.0,
+                    best_pace: 0.0,
+                    best_forward_time: None,
+                    best_reverse_time: None,
+                    avg_time: 0.0,
+                    avg_pace: 0.0,
+                    direction: "partial".to_string(),
+                    section_distance,
+                })
+            })
+            .collect()
     }
 
     /// The bests and direction stats over a set of records, which are what
@@ -543,6 +581,23 @@ pub(crate) mod pooled {
         )
     }
 
+    /// The counted passes of a section that have no lap time, as partial laps.
+    pub(crate) fn untimed_section_passes(
+        conn: &Connection,
+        section_id: &str,
+        sport_type_filter: Option<&str>,
+    ) -> Vec<crate::SectionPerformanceRecord> {
+        use super::laps;
+        let Some(distance) = laps::section_distance(conn, section_id) else {
+            return Vec::new();
+        };
+        laps::untimed(
+            distance,
+            laps::portions(conn, section_id, sport_type_filter, laps::Rows::Included),
+            |id| laps::activity_meta(conn, id),
+        )
+    }
+
     /// The traversals `rows` names, read from SQLite alone: the pooled twin of
     /// [`PersistentEngine::section_performances_of`].
     pub(crate) fn section_performances_of(
@@ -559,7 +614,6 @@ pub(crate) mod pooled {
             distance,
             laps::portions(conn, section_id, sport_type_filter, rows),
             |id| laps::activity_meta(conn, id),
-            |id| laps::time_stream(conn, id),
         )
     }
 }
@@ -719,16 +773,15 @@ impl PersistentEngine {
     /// Empty the lap columns for these activities, so the backfill recomputes
     /// them from whatever stream now stands.
     ///
-    /// Exclusions are user decisions and are not touched: an excluded traversal
-    /// is not timed either way.
+    /// An excluded traversal is timed like any other, so it is cleared too.
     pub(crate) fn clear_lap_times_for(&self, activity_ids: &[String]) {
         if activity_ids.is_empty() {
             return;
         }
         let placeholders = vec!["?"; activity_ids.len()].join(",");
         let sql = format!(
-            "UPDATE section_activities SET lap_time = NULL, lap_pace = NULL
-             WHERE activity_id IN ({placeholders}) AND excluded = 0"
+            "UPDATE section_activities SET lap_time = NULL, lap_pace = NULL, time_empty = 0
+             WHERE activity_id IN ({placeholders})"
         );
         let _ = self
             .db
@@ -750,22 +803,39 @@ impl PersistentEngine {
     /// is what keeps a library's unstreamed portions from being reread for
     /// the life of the install. `set_time_streams_flat` calls it again when a
     /// stream lands, which is when the answer for those portions changes.
-    pub fn backfill_section_performance_cache(&mut self) -> usize {
-        let null_portions: Vec<(String, String, u32, u32, f64)> = match self.db.prepare(
-            "SELECT sa.section_id, sa.activity_id, sa.start_index, sa.end_index,
+    pub fn backfill_section_performance_cache(&self) -> usize {
+        self.time_untimed_laps(None, false)
+    }
+
+    /// Time the laps with no time yet: every section's, or only `section_id`'s.
+    /// The scoped form is what an edit of one section runs before its badges
+    /// are read.
+    ///
+    /// `inside_transaction` is for a caller that has a transaction open on this
+    /// connection and owns its commit: the writes join it.
+    pub(crate) fn time_untimed_laps(
+        &self,
+        section_id: Option<&str>,
+        inside_transaction: bool,
+    ) -> usize {
+        let null_portions: Vec<(String, String, String, u32, u32, f64)> = match self.db.prepare(
+            "SELECT sa.section_id, sa.activity_id, sa.direction, sa.start_index, sa.end_index,
                     sa.distance_meters
              FROM section_activities sa
              JOIN time_streams ts ON ts.activity_id = sa.activity_id
-             WHERE sa.lap_time IS NULL AND sa.excluded = 0 AND sa.time_empty = 0",
+             WHERE sa.lap_time IS NULL AND sa.time_empty = 0
+               AND (?1 IS NULL OR sa.section_id = ?1)
+             ORDER BY sa.activity_id",
         ) {
             Ok(mut stmt) => stmt
-                .query_map([], |row| {
+                .query_map([section_id], |row| {
                     Ok((
                         row.get(0)?,
                         row.get(1)?,
                         row.get(2)?,
                         row.get(3)?,
                         row.get(4)?,
+                        row.get(5)?,
                     ))
                 })
                 .ok()
@@ -786,7 +856,7 @@ impl PersistentEngine {
         // Load time streams from DB for activities that need backfill
         let activity_ids: std::collections::HashSet<String> = null_portions
             .iter()
-            .map(|(_, aid, _, _, _)| aid.clone())
+            .map(|(_, aid, _, _, _, _)| aid.clone())
             .collect();
 
         let mut db_time_streams: HashMap<String, Vec<u32>> = HashMap::new();
@@ -812,29 +882,35 @@ impl PersistentEngine {
             }
         }
 
-        // The track length each stream has to match, or it is not in the
-        // track's index space and cannot time anything.
-        let track_points = {
-            let ids: Vec<String> = db_time_streams.keys().cloned().collect();
-            self.track_point_counts(&ids)
-        };
-
         // One commit for the pass, not one per lap.
-        let Ok(tx) = self.db.unchecked_transaction() else {
-            return 0;
+        let tx = if inside_transaction {
+            None
+        } else {
+            match self.db.unchecked_transaction() {
+                Ok(tx) => Some(tx),
+                Err(_) => return 0,
+            }
         };
         let mut populated = 0u32;
-        for (section_id, activity_id, start_idx, end_idx, distance) in &null_portions {
+        let mut timer = super::super::sections::lap_timing::PassTimer::new(
+            self,
+            null_portions.iter().map(|p| p.0.as_str()),
+        );
+        for (section_id, activity_id, direction, start_idx, end_idx, distance) in &null_portions {
             let times = db_time_streams.get(activity_id).map(|v| v.as_slice());
-            let (lap_time, lap_pace) = super::super::sections::compute_lap_time_from_stream(
+            let (lap_time, lap_pace) = timer.time(
                 times,
-                track_points.get(activity_id).copied(),
-                *start_idx,
-                *end_idx,
-                *distance,
+                section_id,
+                activity_id,
+                &super::super::sections::lap_timing::PassSpan {
+                    direction,
+                    start_index: *start_idx,
+                    end_index: *end_idx,
+                    distance_meters: *distance,
+                },
             );
             if let (Some(lap_time), Some(lap_pace)) = (lap_time, lap_pace) {
-                let _ = tx.execute(
+                let _ = self.db.execute(
                     "UPDATE section_activities SET lap_time = ?, lap_pace = ?
                      WHERE section_id = ? AND activity_id = ? AND start_index = ?",
                     params![lap_time, lap_pace, section_id, activity_id, start_idx],
@@ -843,14 +919,16 @@ impl PersistentEngine {
             } else if times.is_some() {
                 // The stored stream was read and cannot time this traversal.
                 // It is not read again until a new stream is stored.
-                let _ = tx.execute(
+                let _ = self.db.execute(
                     "UPDATE section_activities SET time_empty = 1
                      WHERE section_id = ? AND activity_id = ? AND start_index = ?",
                     params![section_id, activity_id, start_idx],
                 );
             }
         }
-        if tx.commit().is_err() {
+        if let Some(tx) = tx
+            && tx.commit().is_err()
+        {
             return 0;
         }
 
@@ -1115,42 +1193,14 @@ impl PersistentEngine {
 
         let portions = laps::portions(&self.db, section_id, sport_type_filter, rows);
 
-        // The stream a portion with no cached lap time falls back to is loaded
-        // into the LRU first, so the lookup below is a peek and the borrow of
-        // `self` it takes is a shared one.
-        let owed: Vec<String> = {
-            let mut owed: Vec<String> = portions
-                .iter()
-                .filter(|p| p.lap_time.is_none() || p.lap_pace.is_none())
-                .map(|p| p.activity_id.clone())
-                .collect();
-            owed.sort();
-            owed.dedup();
-            owed
-        };
-        for activity_id in owed {
-            if !self.time_streams.contains(&activity_id) {
-                self.ensure_time_stream_loaded(&activity_id);
-            }
-        }
-
-        laps::performances(
-            section_distance,
-            portions,
-            |id| {
-                self.activity_metrics
-                    .get(id)
-                    .map(|m| (m.name.clone(), m.date))
-                    // An activity outside the synced window still has section
-                    // rows, and its name and date are in SQLite.
-                    .or_else(|| laps::activity_meta(&self.db, id))
-            },
-            |id| {
-                self.time_streams
-                    .peek(id)
-                    .map(|times| (times.clone(), self.track_point_count(id)))
-            },
-        )
+        laps::performances(section_distance, portions, |id| {
+            self.activity_metrics
+                .get(id)
+                .map(|m| (m.name.clone(), m.date))
+                // An activity outside the synced window still has section
+                // rows, and its name and date are in SQLite.
+                .or_else(|| laps::activity_meta(&self.db, id))
+        })
     }
 
     /// Get route performances for all activities in a group.
@@ -1308,12 +1358,7 @@ pub(crate) fn route_attempts(
         .iter()
         .map(|p| (p.activity_id.as_str(), (p.name.clone(), p.date.0)))
         .collect();
-    laps::performances(
-        route_distance,
-        portions,
-        |id| meta.get(id).cloned(),
-        |_| None,
-    )
+    laps::performances(route_distance, portions, |id| meta.get(id).cloned())
 }
 
 /// Where `point` falls along `line`, as a fraction of the line's length.
@@ -1799,29 +1844,25 @@ mod tests {
         assert_eq!(lap.coverage, Some(0.97));
     }
 
-    /// An excluded traversal with no cached lap is timed from the stream the
-    /// way every other reader times it: the end index is half-open, so 1..5
-    /// on a ten-second stream is the 30 s from point 1 to point 4.
+    /// An excluded traversal with no cached lap is timed by the backfill like
+    /// any other: between the section's gates, whatever indices the detector
+    /// cut it at, including a cut that runs to the last point of the track.
     #[test]
-    fn an_excluded_attempt_with_no_cached_lap_reads_the_half_open_end() {
-        let mut engine = engine_with_null_laps(1);
-        seed_metrics(&mut engine, "a1");
-        exclude_traversal(&mut engine, 1, 5, None);
+    fn an_excluded_attempt_with_no_cached_lap_is_timed_between_the_gates() {
+        for (start_index, end_index) in [(1, 5), (2, 8)] {
+            let mut engine = engine_with_null_laps(1);
+            seed_metrics(&mut engine, "a1");
+            exclude_traversal(&mut engine, start_index, end_index, None);
+            assert!(
+                only_excluded_lap(&mut engine).is_none(),
+                "untimed until the backfill runs"
+            );
 
-        let lap = only_excluded_lap(&mut engine).expect("timed from the stream");
-        assert_eq!(lap.time, 30.0);
-    }
+            engine.backfill_section_performance_cache();
 
-    /// A traversal running to the last point of its track stores the track's
-    /// length as its end, and still has a time.
-    #[test]
-    fn an_excluded_attempt_ending_at_the_track_end_is_timed() {
-        let mut engine = engine_with_null_laps(1);
-        seed_metrics(&mut engine, "a1");
-        exclude_traversal(&mut engine, 2, 8, None);
-
-        let lap = only_excluded_lap(&mut engine).expect("timed to the last point");
-        assert_eq!(lap.time, 50.0);
+            let lap = only_excluded_lap(&mut engine).expect("timed by the backfill");
+            assert_eq!(lap.time, 70.0, "cut {start_index}..{end_index}");
+        }
     }
 
     /// A stream longer than its track is not in the track's index space, so
@@ -1834,6 +1875,7 @@ mod tests {
             .store_time_stream("a1", &[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100])
             .unwrap();
         exclude_traversal(&mut engine, 1, 5, None);
+        engine.backfill_section_performance_cache();
 
         assert!(only_excluded_lap(&mut engine).is_none());
     }
@@ -1852,6 +1894,76 @@ mod tests {
             .records;
         assert_eq!(records.len(), 1);
         assert_eq!(records[0].activity_name, "a1 ride");
+    }
+
+    /// Scenario: two rides over one section, the detector cutting the slower
+    /// one over more of the ground and the faster one over less. Timed by the
+    /// samples each cut kept, the faster ride read as the slower.
+    ///
+    /// Expected behaviour: both are timed between the section's gates, the
+    /// record is the shorter time, and no lap's pace is above the record's.
+    #[test]
+    fn a_lap_cut_short_does_not_outrun_the_record_on_the_chart() {
+        let mut engine = engine_with_null_laps(1);
+        // A second ride over the same ground, sampled twice as densely.
+        let dense: Vec<GpsPoint> = (0..15)
+            .map(|i| GpsPoint {
+                latitude: 46.2 + i as f64 * 0.0005,
+                longitude: 7.3,
+                elevation: None,
+            })
+            .collect();
+        engine
+            .add_activity("a2".to_string(), dense, "Ride".to_string())
+            .unwrap();
+        let mut slow_dense: Vec<u32> = (0..15).map(|i| i * 5).collect();
+        slow_dense[14] = 75;
+        engine.store_time_stream("a2", &slow_dense).unwrap();
+        seed_metrics(&mut engine, "a1");
+        seed_metrics(&mut engine, "a2");
+        // The slow ride is cut over samples 1 to 13, which are 60 s apart, and
+        // the quick one over the whole track.
+        engine
+            .db
+            .execute(
+                "UPDATE section_activities SET start_index = 0, end_index = 8, distance_meters = 400.0",
+                [],
+            )
+            .unwrap();
+        engine
+            .db
+            .execute(
+                "INSERT INTO section_activities (section_id, activity_id, direction,
+                    start_index, end_index, distance_meters)
+                 VALUES ('s0', 'a2', 'same', 1, 14, 365.0)",
+                [],
+            )
+            .unwrap();
+        engine.backfill_section_performance_cache();
+
+        let result = engine.get_section_performances_filtered("s0", None);
+
+        let lap_of = |activity: &str| {
+            result
+                .records
+                .iter()
+                .find(|r| r.activity_id == activity)
+                .and_then(|r| r.laps.first())
+                .cloned()
+                .expect("a timed lap")
+        };
+        let (quick, slow) = (lap_of("a1"), lap_of("a2"));
+        assert_eq!(quick.time, 70.0);
+        assert_eq!(slow.time, 75.0);
+        let record = result.best_forward_record.as_ref().expect("a record");
+        for lap in [&quick, &slow] {
+            assert!(
+                lap.pace <= record.best_pace,
+                "{} plotted above the record",
+                lap.id
+            );
+            assert!((lap.pace - 400.0 / lap.time).abs() < 1e-9);
+        }
     }
 
     /// An activity the section rows name, with the name and date a record
@@ -1939,6 +2051,13 @@ mod tests {
                 elevation: None,
             })
             .collect();
+        let line = serde_json::to_string(
+            &coords
+                .iter()
+                .map(|p| [p.latitude, p.longitude])
+                .collect::<Vec<[f64; 2]>>(),
+        )
+        .unwrap();
         engine
             .add_activity("a1".to_string(), coords, "Ride".to_string())
             .unwrap();
@@ -1953,9 +2072,9 @@ mod tests {
                     "INSERT INTO sections (id, section_type, name, sport_type, polyline_json,
                         distance_meters, is_user_defined, version, created_at,
                         bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
-                     VALUES (?, 'auto', ?, 'Ride', '[]', 400.0, 0, 1, '2026-01-01T00:00:00Z',
+                     VALUES (?, 'auto', ?, 'Ride', ?, 400.0, 0, 1, '2026-01-01T00:00:00Z',
                         46.2, 46.21, 7.3, 7.31)",
-                    params![sid, format!("Section {s}")],
+                    params![sid, format!("Section {s}"), line],
                 )
                 .unwrap();
             engine
@@ -1996,7 +2115,7 @@ mod tests {
             SQL.lock()
                 .unwrap_or_else(|e| e.into_inner())
                 .iter()
-                .filter(|sql| sql.contains("WHERE sa.lap_time IS NULL AND sa.excluded = 0"))
+                .filter(|sql| sql.contains("WHERE sa.lap_time IS NULL AND sa.time_empty = 0"))
                 .count()
         }
     }
@@ -2028,7 +2147,7 @@ mod tests {
     /// per-lap shape as the indicator backfill.
     #[test]
     fn populating_many_laps_is_one_commit() {
-        let mut engine = engine_with_null_laps(12);
+        let engine = engine_with_null_laps(12);
         let commits = commit_counter::watch(&engine);
 
         assert_eq!(engine.backfill_section_performance_cache(), 12);
@@ -2047,7 +2166,7 @@ mod tests {
 
     #[test]
     fn populating_nothing_commits_nothing() {
-        let mut engine = engine_with_null_laps(2);
+        let engine = engine_with_null_laps(2);
         engine.backfill_section_performance_cache();
         let commits = commit_counter::watch(&engine);
 

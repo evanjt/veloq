@@ -42,14 +42,23 @@ fn seed(dir: &TempDir) -> PathBuf {
     drop(engine);
 
     let db = conn(&path);
+    // The section is the first twenty-one points of the track, the ground the
+    // portions below cover.
+    let line = serde_json::to_string(
+        &track()[..21]
+            .iter()
+            .map(|p| [p.latitude, p.longitude])
+            .collect::<Vec<[f64; 2]>>(),
+    )
+    .expect("encode the line");
     db.execute(
         "INSERT INTO sections
                  (id, section_type, name, sport_type, polyline_json, distance_meters,
                   representative_activity_id, created_at, is_user_defined,
                   bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
-             VALUES ('s1', 'auto', 'S', 'Ride', '[]', 900.0, 'streamed',
+             VALUES ('s1', 'auto', 'S', 'Ride', ?, 900.0, 'streamed',
                      '2026-01-01T00:00:00Z', 0, 46.0, 46.1, 7.0, 7.1)",
-        [],
+        params![line],
     )
     .expect("insert section");
     for id in ["streamed", "bare"] {
@@ -78,7 +87,7 @@ fn a_portion_with_no_stream_is_not_examined() {
     let dir = TempDir::new().unwrap();
     let path = seed(&dir);
     let db = conn(&path);
-    let mut engine = open(&path);
+    let engine = open(&path);
 
     assert_eq!(
         engine.backfill_section_performance_cache(),
@@ -97,8 +106,8 @@ fn a_portion_whose_stream_has_landed_is_filled() {
     let times: Vec<u32> = (0..40).collect();
     engine.set_time_streams_flat(&["streamed".into()], &times, &[0]);
 
-    // The portion runs 0..21 half-open, so it holds twenty-one points and
-    // spans twenty seconds of a one-second-per-point stream.
+    // The portion runs the section's twenty-one points, which are twenty
+    // seconds of a one-second-per-point stream between the two gates.
     assert_eq!(lap_time(&db, "streamed"), Some(20.0));
     assert_eq!(lap_time(&db, "bare"), None);
 }
@@ -108,7 +117,7 @@ fn only_the_streamed_portion_is_examined_once_a_stream_lands() {
     let dir = TempDir::new().unwrap();
     let path = seed(&dir);
     let db = conn(&path);
-    let mut engine = open(&path);
+    let engine = open(&path);
     let times: Vec<u32> = (0..40).collect();
     db.execute(
         "INSERT INTO time_streams (activity_id, times, point_count) VALUES ('streamed', ?, 40)",
@@ -117,8 +126,8 @@ fn only_the_streamed_portion_is_examined_once_a_stream_lands() {
     .expect("store the stream");
 
     assert_eq!(engine.backfill_section_performance_cache(), 1);
-    // The portion runs 0..21 half-open, so it holds twenty-one points and
-    // spans twenty seconds of a one-second-per-point stream.
+    // The portion runs the section's twenty-one points, which are twenty
+    // seconds of a one-second-per-point stream between the two gates.
     assert_eq!(lap_time(&db, "streamed"), Some(20.0));
     assert_eq!(lap_time(&db, "bare"), None);
 }
@@ -136,11 +145,11 @@ fn a_filled_portion_is_not_examined_again() {
 }
 
 #[test]
-fn an_excluded_portion_is_never_examined() {
+fn an_excluded_portion_is_timed_like_any_other() {
     let dir = TempDir::new().unwrap();
     let path = seed(&dir);
     let db = conn(&path);
-    let mut engine = open(&path);
+    let engine = open(&path);
     let times: Vec<u32> = (0..40).collect();
     db.execute("UPDATE section_activities SET excluded = 1", [])
         .expect("exclude both");
@@ -150,7 +159,9 @@ fn an_excluded_portion_is_never_examined() {
     )
     .expect("store the stream");
 
-    assert_eq!(engine.backfill_section_performance_cache(), 0);
+    assert_eq!(engine.backfill_section_performance_cache(), 1);
+    assert_eq!(lap_time(&db, "streamed"), Some(20.0));
+    assert_eq!(lap_time(&db, "bare"), None);
 }
 
 /// Scenario: every released 0.3.x stored the raw `time` series, longer

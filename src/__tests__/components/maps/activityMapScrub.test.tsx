@@ -179,6 +179,24 @@ describe.each(['sections', 'charts'])('scrubbing the 2D activity map on %s', (ta
     expect(padding.right).toBe(TRACK_FIT_PADDING);
   });
 
+  it('builds the map fitted beside a side panel that covers its leading edge', async () => {
+    await renderStaged(
+      <SafeAreaProvider initialMetrics={METRICS}>
+        <ActivityMapView
+          activityType="Ride"
+          coordinates={COORDINATES}
+          highlightIndex={null}
+          activeTab={tab}
+          coveredLeft={320}
+        />
+      </SafeAreaProvider>
+    );
+
+    const literal = /_fitPadding = (\{[^}]*\})/.exec(surface().html[0])?.[1];
+    const padding = JSON.parse(literal!) as Record<'top' | 'right' | 'bottom' | 'left', number>;
+    expect(padding.left).toBeGreaterThanOrEqual(320);
+  });
+
   it('never fits the track a second time, on ready or on scrub', async () => {
     const view = await renderStaged(map(0));
     await ready(surface());

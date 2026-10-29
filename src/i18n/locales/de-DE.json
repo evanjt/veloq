@@ -1333,6 +1333,7 @@
   },
   "maps": {
     "threeDUnavailable": "Das Gelände braucht eine Verbindung. Es wird die flache Karte gezeigt.",
+    "threeDLoading": "Geländekarte wird geladen",
     "unavailableTitle": "Karte nicht verfügbar",
     "unavailableHint": "Die Karte konnte nicht geladen werden. Prüfe deine Verbindung und öffne sie erneut.",
     "activitiesCount_one": "{{count}} Aktivität",
@@ -1803,7 +1804,7 @@
     "expandDateRange": "Datumsbereich erweitern"
   },
   "sections": {
-    "timeMethod": "Abschnittszeiten sind verstrichene Zeit einschließlich Pausen.",
+    "timeMethod": "Abschnittszeiten sind verstrichene Zeit einschließlich Pausen. Das Tempo ist die Länge des Abschnitts geteilt durch die Zeit zwischen seinen beiden Toren.",
     "effortsNotDownloaded_one": "Zeiten für {{count}} Aktivität sind noch nicht heruntergeladen, die Bestzeit kann sich also noch ändern.",
     "effortsNotDownloaded_other": "Zeiten für {{count}} Aktivitäten sind noch nicht heruntergeladen, die Bestzeit kann sich also noch ändern.",
     "activitiesCount_one": "{{count}} Aktivität",
@@ -1993,6 +1994,7 @@
     "showAllLaps": "Alle Runden anzeigen",
     "showFewerLaps": "Weniger Runden anzeigen",
     "lapExcluded": "Ausgeschlossen",
+    "partialPass": "Teilweise Durchfahrt",
     "partlyExcluded": "Einige Runden ausgeschlossen",
     "rescanRefusedBusy": "Ein Scan läuft bereits.",
     "rescanRefusedHeld": "Die Erkennung pausiert, bis die Engine andere Arbeit beendet hat.",

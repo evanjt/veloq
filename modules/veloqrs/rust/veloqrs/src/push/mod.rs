@@ -1543,7 +1543,7 @@ mod tests {
                 .execute(
                     "INSERT INTO section_activities (section_id, activity_id, direction,
                         start_index, end_index, distance_meters)
-                     VALUES ('s0', 'a1', 'same', 1, 5, 400.0)",
+                     VALUES ('s0', 'a1', 'same', 0, 8, 400.0)",
                     [],
                 )
                 .expect("the lap");
@@ -1552,7 +1552,7 @@ mod tests {
                 .execute(
                     "INSERT INTO section_activities (section_id, activity_id, direction,
                         start_index, end_index, distance_meters, lap_time, lap_pace)
-                     VALUES ('s0', 'a0', 'same', 1, 5, 400.0, 6.0, 66.6666667)",
+                     VALUES ('s0', 'a0', 'same', 0, 8, 400.0, 8.0, 50.0)",
                     [],
                 )
                 .expect("the earlier lap");
@@ -1580,6 +1580,7 @@ mod tests {
                 .set_activity_metrics(vec![current, earlier])
                 .expect("the metrics");
             engine.set_time_streams_flat(&["a1".to_string()], &(0..8).collect::<Vec<u32>>(), &[0]);
+            engine.backfill_section_performance_cache();
         })
         .expect("the engine");
         tmp

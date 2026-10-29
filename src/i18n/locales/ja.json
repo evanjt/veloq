@@ -1333,6 +1333,7 @@
   },
   "maps": {
     "threeDUnavailable": "地形には接続が必要です。平面の地図を表示しています。",
+    "threeDLoading": "地形マップを読み込み中",
     "unavailableTitle": "地図を表示できません",
     "unavailableHint": "地図を読み込めませんでした。接続を確認してもう一度開いてください。",
     "activitiesCount_one": "{{count}}件のアクティビティ",
@@ -1803,7 +1804,7 @@
     "expandDateRange": "日付範囲を拡張"
   },
   "sections": {
-    "timeMethod": "セクションのタイムは停止時間を含む経過時間です。",
+    "timeMethod": "セクションのタイムは停止時間を含む経過時間です。ペースは、セクションの長さを2つのゲート間の時間で割った値です。",
     "effortsNotDownloaded_one": "{{count}}件のアクティビティのタイムがまだダウンロードされていないため、ベストタイムが変わる可能性があります。",
     "effortsNotDownloaded_other": "{{count}}件のアクティビティのタイムがまだダウンロードされていないため、ベストタイムが変わる可能性があります。",
     "activitiesCount_one": "{{count}}件のアクティビティ",
@@ -1993,6 +1994,7 @@
     "showAllLaps": "すべてのラップを表示",
     "showFewerLaps": "ラップを減らす",
     "lapExcluded": "除外済み",
+    "partialPass": "部分通過",
     "partlyExcluded": "一部のラップを除外",
     "rescanRefusedBusy": "スキャンはすでに実行中です。",
     "rescanRefusedHeld": "エンジンが他の処理を終えるまで検出は保留されています。",

@@ -24,6 +24,7 @@ pub(crate) mod history;
 mod identity;
 mod interest;
 pub(crate) mod lap_curves;
+pub(crate) mod lap_timing;
 pub(crate) mod ledger_details;
 pub(crate) mod merging;
 mod mutations;
@@ -171,7 +172,7 @@ pub(super) use crate::persistence::haversine_distance_meters as haversine_distan
 /// The mean heart rate over one traversal, from the activity's own series.
 ///
 /// Indices are the half-open pair every writer of `section_activities` stores,
-/// the same space [`compute_lap_time_from_stream`] reads, so the last sample of
+/// the same space [`lap_timing::time_pass`] reads, so the last sample of
 /// the traversal is `end_index - 1`.
 ///
 /// Absent samples are skipped rather than counted as zero: a strap that dropped
@@ -198,59 +199,6 @@ pub(super) fn mean_over_traversal(
         return None;
     }
     Some(present.iter().sum::<f64>() / present.len() as f64)
-}
-
-/// Compute `(lap_time, lap_pace)` from a time stream slice and traversal indices.
-///
-/// `end_index` is the half-open end every writer of `section_activities` stores,
-/// so the last point of the traversal is `end_index - 1` and a portion running
-/// to the last point of its activity carries `end_index == point_count`.
-///
-/// Returns `(None, None)` when:
-/// - `times` is `None` (no stream available)
-/// - either index is out of bounds
-/// - the traversal holds fewer than two points
-///
-/// Shared by the detection-time populate path (`save_sections`), the manual
-/// insert path (`insert_section_activity`), and the lazy backfill path.
-pub(super) fn compute_lap_time_from_stream(
-    times: Option<&[u32]>,
-    track_points: Option<usize>,
-    start_index: u32,
-    end_index: u32,
-    distance_meters: f64,
-) -> (Option<f64>, Option<f64>) {
-    let times = match times {
-        Some(t) => t,
-        None => return (None, None),
-    };
-    // A stream that is not the track's length is not in the track's index
-    // space. `fetch_time_stream` has reduced `time` through the `latlng` mask
-    // since 2026-08-16, but every 0.3.x stored the raw series, which keeps the
-    // samples the coordinate mask drops. Indexing that with track indices reads
-    // the wrong window, and the four lap-time readers were the one place the
-    // rule was not applied: the detector's loader and the scrubber's body
-    // builder both refuse such a stream already.
-    //
-    // `None` is "the track length is not knowable here", which an activity with
-    // no track row is, and not evidence of a misalignment.
-    if track_points.is_some_and(|n| n != times.len()) {
-        return (None, None);
-    }
-    if end_index == 0 || end_index as usize > times.len() {
-        return (None, None);
-    }
-    let si = start_index as usize;
-    let ei = end_index as usize - 1;
-    if si >= times.len() || ei <= si {
-        return (None, None);
-    }
-    let lap_time = (times[ei] as f64 - times[si] as f64).abs();
-    if lap_time <= 0.0 {
-        return (None, None);
-    }
-    let lap_pace = distance_meters / lap_time;
-    (Some(lap_time), Some(lap_pace))
 }
 
 /// Exclusion rows the auto-section wipe is about to cascade away:
@@ -1664,7 +1612,9 @@ impl PersistentEngine {
             distance_meters,
             heartrate.as_deref(),
             power.as_deref(),
-        )
+        )?;
+        self.time_untimed_laps(Some(section_id), false);
+        Ok(())
     }
 
     /// The same insert for a caller that already holds the activity's sensor series.
@@ -1685,9 +1635,8 @@ impl PersistentEngine {
     ) -> Result<(), String> {
         let dir_str = direction.to_string();
 
-        // Compute lap_time from time_stream when available (in-memory or DB)
-        let (lap_time, lap_pace) =
-            self.load_lap_time(activity_id, start_index, end_index, distance_meters);
+        // The pass is timed by the lap backfill, which holds the activity's
+        // track and the section's gates; a time here would be a second rule.
         // Each sensor mean uses the traversal's own samples.
         let avg_hr = mean_over_traversal(heartrate, start_index, end_index);
         let avg_power = mean_over_traversal(power, start_index, end_index);
@@ -1696,10 +1645,10 @@ impl PersistentEngine {
         // times, and an attach runs it once per portion of every match.
         self.db
             .prepare_cached(
-                "INSERT OR IGNORE INTO section_activities (section_id, activity_id, direction, start_index, end_index, distance_meters, lap_time, lap_pace, avg_hr, avg_power)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT OR IGNORE INTO section_activities (section_id, activity_id, direction, start_index, end_index, distance_meters, avg_hr, avg_power)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             )
-            .and_then(|mut stmt| stmt.execute(rusqlite::params![section_id, activity_id, dir_str, start_index, end_index, distance_meters, lap_time, lap_pace, avg_hr, avg_power]))
+            .and_then(|mut stmt| stmt.execute(rusqlite::params![section_id, activity_id, dir_str, start_index, end_index, distance_meters, avg_hr, avg_power]))
             .map_err(|e| format!("Failed to insert section_activity: {}", e))?;
         Ok(())
     }
@@ -1730,46 +1679,6 @@ impl PersistentEngine {
             .query_row(rusqlite::params![activity_id], |row| row.get(0))
             .ok()?;
         codec::decode_series(&blob)
-    }
-
-    /// Load lap_time from time_stream (in-memory or DB fallback).
-    fn load_lap_time(
-        &self,
-        activity_id: &str,
-        start_index: u32,
-        end_index: u32,
-        distance_meters: f64,
-    ) -> (Option<f64>, Option<f64>) {
-        let times = if let Some(ts) = self.time_streams.peek(activity_id) {
-            Some(ts.clone())
-        } else {
-            self.db
-                .prepare_cached("SELECT times FROM time_streams WHERE activity_id = ?")
-                .and_then(|mut stmt| {
-                    stmt.query_row(rusqlite::params![activity_id], |row| {
-                        let bytes: Vec<u8> = row.get(0)?;
-                        codec::deserialize::<Vec<u32>>(&bytes).map_err(|error| {
-                            log::error!(
-                                "veloqrs: time_streams.times decode failed for activity_id {activity_id}: {error}"
-                            );
-                            rusqlite::Error::FromSqlConversionFailure(
-                                0,
-                                Type::Blob,
-                                error.into(),
-                            )
-                        })
-                    })
-                })
-                .ok()
-        };
-
-        compute_lap_time_from_stream(
-            times.as_deref(),
-            self.track_point_count(activity_id),
-            start_index,
-            end_index,
-            distance_meters,
-        )
     }
 
     pub(super) fn save_sections(&mut self) -> SqlResult<()> {
@@ -2068,7 +1977,7 @@ impl PersistentEngine {
         // OR REPLACE: two passes of one activity can share a `start_index` on a
         // short section, and a UNIQUE violation would abort the whole apply.
         let mut junction_stmt = tx
-            .prepare("INSERT OR REPLACE INTO section_activities (section_id, activity_id, direction, start_index, end_index, distance_meters, lap_time, lap_pace, avg_hr, avg_power) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")?;
+            .prepare("INSERT OR REPLACE INTO section_activities (section_id, activity_id, direction, start_index, end_index, distance_meters, avg_hr, avg_power) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")?;
 
         // Persist only the auto (non-user-defined) catalogue. Custom and accepted
         // sections are durable rows the wipe above spares and are managed by their
@@ -2097,70 +2006,6 @@ impl PersistentEngine {
             "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, '1')",
             params![SECTION_SUMMARY_BULK_KEY],
         )?;
-
-        // Pre-fetch all time streams the upcoming portion loop will need.
-        // Replaces a per-portion `SELECT times FROM time_streams WHERE
-        // activity_id = ?` (~0.1-0.2 ms each, ~hundreds of portions per
-        // detection batch) with one `WHERE activity_id IN (...)` query.
-        // Activities already in `self.time_streams` are skipped so we only
-        // pay for cache misses.
-        let db_time_streams: HashMap<String, Vec<u32>> = {
-            let mut needed: std::collections::HashSet<&str> = std::collections::HashSet::new();
-            for section in &sorted_sections {
-                for portion in &section.activity_portions {
-                    if !self.time_streams.contains(&portion.activity_id) {
-                        needed.insert(portion.activity_id.as_str());
-                    }
-                }
-            }
-            let mut map: HashMap<String, Vec<u32>> = HashMap::with_capacity(needed.len());
-            let ids: Vec<&str> = needed.iter().copied().collect();
-            // Chunked for the same reason the detection pool is: one `IN` over
-            // the whole library holds every decoded series resident at once,
-            // which on a long-ride library is the spike, not the total.
-            for chunk in ids.chunks(STREAM_READ_CHUNK) {
-                let sql = format!(
-                    "SELECT activity_id, times FROM time_streams WHERE activity_id IN ({})",
-                    placeholders_for(chunk.len())
-                );
-                let params_vec: Vec<&dyn rusqlite::ToSql> =
-                    chunk.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
-                if let Ok(mut stmt) = tx.prepare(&sql)
-                    && let Ok(rows) = stmt.query_map(params_vec.as_slice(), |row| {
-                        let id: String = row.get(0)?;
-                        let bytes: Vec<u8> = row.get(1)?;
-                        let stream = codec::deserialize::<Vec<u32>>(&bytes).map_err(|error| {
-                            log::error!(
-                                "veloqrs: time_streams.times decode failed for activity_id {id}: {error}"
-                            );
-                            rusqlite::Error::FromSqlConversionFailure(
-                                1,
-                                Type::Blob,
-                                error.into(),
-                            )
-                        })?;
-                        Ok((id, stream))
-                    })
-                {
-                    for row in rows.flatten() {
-                        map.insert(row.0, row.1);
-                    }
-                }
-            }
-            map
-        };
-
-        // A time stream must match its track's point count to time a traversal.
-        let track_points: HashMap<String, usize> = {
-            let ids: Vec<String> = sorted_sections
-                .iter()
-                .flat_map(|s| s.activity_portions.iter())
-                .map(|p| p.activity_id.clone())
-                .collect::<std::collections::HashSet<_>>()
-                .into_iter()
-                .collect();
-            self.track_point_counts(&ids)
-        };
 
         // The apply stores sensor means before replacing section rows.
         let (db_hr_series, db_power_series) = {
@@ -2321,31 +2166,14 @@ impl PersistentEngine {
                 section.rank.as_ref().map(|r| r.sport_score),
             ])?;
 
-            // Populate junction table with full portion details and cached performance metrics.
-            // Time streams come from `self.time_streams` (warm cache) or
-            // the pre-fetched `db_time_streams` batch above (cold).
+            // Populate junction table with full portion details. The lap
+            // columns stay empty: the lap backfill times a pass between the
+            // section's gates once the activity's track and stream are at hand.
             // `surviving` already dropped the portions whose activity the pool no
             // longer holds. The activity_id foreign key would reject those and
             // abort the entire apply, a single stale carried member bricking
             // detection for the session.
             for portion in &surviving {
-                let times = self
-                    .time_streams
-                    .peek(&portion.activity_id)
-                    .map(|v| v.as_slice())
-                    .or_else(|| {
-                        db_time_streams
-                            .get(&portion.activity_id)
-                            .map(|v| v.as_slice())
-                    });
-
-                let (lap_time, lap_pace) = compute_lap_time_from_stream(
-                    times,
-                    track_points.get(&portion.activity_id).copied(),
-                    portion.start_index,
-                    portion.end_index,
-                    portion.distance_meters,
-                );
                 let avg_hr = mean_over_traversal(
                     db_hr_series.get(&portion.activity_id).map(Vec::as_slice),
                     portion.start_index,
@@ -2364,8 +2192,6 @@ impl PersistentEngine {
                     portion.start_index,
                     portion.end_index,
                     portion.distance_meters,
-                    lap_time,
-                    lap_pace,
                     avg_hr,
                     avg_power,
                 ])?;
@@ -2377,6 +2203,9 @@ impl PersistentEngine {
         drop(junction_stmt);
 
         self.recut_forced_rides(&tx)?;
+
+        // The ledger rows below compare records, and a record is a time.
+        self.time_untimed_laps(None, true);
 
         // An id this catalogue does not produce has no row to update, so its
         // supersession waits with the held ones until the ground returns.

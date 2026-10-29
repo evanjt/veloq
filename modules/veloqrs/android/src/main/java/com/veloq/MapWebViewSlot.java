@@ -18,6 +18,8 @@ import java.util.function.Predicate;
  * that cannot leave the parent it was dropped from is destroyed instead.
  */
 final class MapWebViewSlot<V, C> {
+  private static final int DETACH_ATTEMPTS = 3;
+
   static final class Held<V> {
     final V view;
     final String revision;
@@ -61,7 +63,7 @@ final class MapWebViewSlot<V, C> {
    */
   Held<V> take(C mountSurface) {
     if (view == null || surface != mountSurface) return null;
-    if (!detach.test(view)) {
+    if (!detached(view)) {
       evict();
       return null;
     }
@@ -70,12 +72,25 @@ final class MapWebViewSlot<V, C> {
     return held;
   }
 
+  /** A parent can need more than one attempt to let go of a view, so a take asks again. */
+  private boolean detached(V candidate) {
+    for (int attempt = 0; attempt < DETACH_ATTEMPTS; attempt++) {
+      if (detach.test(candidate)) return true;
+    }
+    return false;
+  }
+
   boolean holding() {
     return view != null;
   }
 
   boolean holds(V candidate) {
     return view != null && view == candidate;
+  }
+
+  /** Empties the slot when it holds `candidate`, for a view the caller then destroys itself. */
+  void withdraw(V candidate) {
+    if (holds(candidate)) clear();
   }
 
   void rendererGone(V gone) {

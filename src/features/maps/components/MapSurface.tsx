@@ -27,7 +27,7 @@ import { veloqWebViewNativeConfig, type WebViewHandle } from '@/features/maps/li
 import { mapPageBaseUrl } from '@/features/maps/lib/tileTransport';
 import { useTranslation } from 'react-i18next';
 
-import { darkColors, iconSize, spacing, typography } from '@/theme';
+import { cameraMove, darkColors, iconSize, spacing, typography } from '@/theme';
 import { ComponentErrorBoundary, Spinner } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { debug } from '@/shared/debug/debug';
@@ -56,6 +56,10 @@ import {
   buildSetCameraScript,
   buildSetStyleScript,
 } from '@/features/maps/lib/htmlBuilders/mapSurface';
+import {
+  buildSettleInsetScript,
+  type SettleInsetAction,
+} from '@/features/maps/lib/htmlBuilders/shared';
 import {
   buildReleaseMapScript,
   buildSetReduceMotionScript,
@@ -126,6 +130,8 @@ export interface MapSurfaceRef {
   fitBounds: (bounds: LngLatBounds, padding?: MapPadding, duration?: number) => void;
   setCamera: (camera: MapCameraSpec, duration?: number) => void;
   resetOrientation: () => void;
+  /** Move to the frame a sheet settle left, once the page pads its camera. */
+  settleInset: (action: SettleInsetAction) => void;
   queryFeatures: (
     point: [number, number],
     layers: string[],
@@ -476,6 +482,9 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
       },
       resetOrientation: () => {
         inject(buildResetOrientationScript());
+      },
+      settleInset: (action) => {
+        inject(buildSettleInsetScript(action, cameraMove.move));
       },
       queryFeatures: (point, queryLayers, radius) =>
         request<MapFeatureHit[]>([], (requestId) =>

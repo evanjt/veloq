@@ -1333,6 +1333,7 @@
   },
   "maps": {
     "threeDUnavailable": "地形需要联网。现在显示平面地图。",
+    "threeDLoading": "正在加载地形地图",
     "unavailableTitle": "地图不可用",
     "unavailableHint": "地图加载失败。请检查网络连接后重新打开。",
     "activitiesCount_one": "{{count}} 个活动",
@@ -1803,7 +1804,7 @@
     "expandDateRange": "扩展日期范围"
   },
   "sections": {
-    "timeMethod": "路段用时是经过时间，包含停留。",
+    "timeMethod": "路段用时是经过时间，包含停留。配速是路段长度除以经过两个门之间的用时。",
     "effortsNotDownloaded_one": "{{count}} 个活动的用时尚未下载，最佳成绩可能会变化。",
     "effortsNotDownloaded_other": "{{count}} 个活动的用时尚未下载，最佳成绩可能会变化。",
     "activitiesCount_one": "{{count}} 个活动",
@@ -1993,6 +1994,7 @@
     "showAllLaps": "显示所有圈",
     "showFewerLaps": "显示较少圈",
     "lapExcluded": "已排除",
+    "partialPass": "部分通过",
     "partlyExcluded": "部分圈已排除",
     "rescanRefusedBusy": "扫描已在进行中。",
     "rescanRefusedHeld": "引擎正在处理其他工作，检测已暂停。",

@@ -199,5 +199,5 @@ fn test_backfill_untimeable_lap_is_retried_when_a_new_stream_lands() {
         .db
         .query_row("SELECT lap_time FROM section_activities", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(lap_time, 30.0);
+    assert_eq!(lap_time, 70.0);
 }

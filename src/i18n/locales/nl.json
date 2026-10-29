@@ -1333,6 +1333,7 @@
   },
   "maps": {
     "threeDUnavailable": "Terrein vereist een verbinding. De platte kaart wordt getoond.",
+    "threeDLoading": "Terreinkaart laden",
     "unavailableTitle": "Kaart niet beschikbaar",
     "unavailableHint": "De kaart kon niet laden. Controleer je verbinding en open hem opnieuw.",
     "activitiesCount_one": "{{count}} activiteit",
@@ -1803,7 +1804,7 @@
     "expandDateRange": "Datumbereik uitbreiden"
   },
   "sections": {
-    "timeMethod": "Sectietijden zijn verstreken tijd, inclusief stops.",
+    "timeMethod": "Sectietijden zijn verstreken tijd, inclusief stops. Tempo is de lengte van de sectie gedeeld door de tijd tussen de twee poorten.",
     "effortsNotDownloaded_one": "Tijden voor {{count}} activiteit zijn nog niet gedownload, dus de beste tijd kan nog veranderen.",
     "effortsNotDownloaded_other": "Tijden voor {{count}} activiteiten zijn nog niet gedownload, dus de beste tijd kan nog veranderen.",
     "activitiesCount_one": "{{count}} activiteit",
@@ -1993,6 +1994,7 @@
     "showAllLaps": "Alle rondes tonen",
     "showFewerLaps": "Minder rondes tonen",
     "lapExcluded": "Uitgesloten",
+    "partialPass": "Gedeeltelijke doorgang",
     "partlyExcluded": "Sommige ronden uitgesloten",
     "rescanRefusedBusy": "Er loopt al een scan.",
     "rescanRefusedHeld": "Detectie wacht tot de engine ander werk heeft afgerond.",

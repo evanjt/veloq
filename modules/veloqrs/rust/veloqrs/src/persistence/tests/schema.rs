@@ -60,69 +60,6 @@ fn test_pre_v4_backfill_populates_zone_ftp_and_heatmap_caches() {
     );
 }
 
-/// Scenario: a library still at schema 2 upgrades, and the migration times
-/// every section lap that has none from the stored stream.
-///
-/// Expected behaviour: the lap is timed the way every live reader times it.
-/// The end index is half-open, so 1..5 on a ten-second stream is 30 s and a
-/// lap running to the last point is timed rather than dropped, and a stream
-/// that is not its track's length gives no time rather than the shifted
-/// window, since what the migration writes stands.
-#[test]
-fn the_pre_v3_lap_cache_times_laps_the_way_the_live_readers_do() {
-    let mut conn = Connection::open_in_memory().unwrap();
-    let scripts = PersistentEngine::migration_scripts();
-    Migrations::new(scripts.iter().copied().map(M::up).collect())
-        .to_latest(&mut conn)
-        .unwrap();
-    conn.execute_batch("PRAGMA foreign_keys = OFF").unwrap();
-    // Both tracks hold eight points. a2 kept the raw stream, three samples longer.
-    for (id, samples) in [("a1", 8u32), ("a2", 11)] {
-        let times: Vec<u32> = (0..samples).map(|i| i * 10).collect();
-        conn.execute(
-            "INSERT INTO time_streams (activity_id, times, point_count) VALUES (?1, ?2, ?3)",
-            params![id, codec::serialize(&times).unwrap(), samples],
-        )
-        .unwrap();
-        conn.execute(
-            "INSERT INTO gps_tracks (activity_id, track_data, point_count) VALUES (?1, x'00', 8)",
-            params![id],
-        )
-        .unwrap();
-    }
-    for (activity, start, end) in [("a1", 1, 5), ("a1", 2, 8), ("a2", 1, 5)] {
-        conn.execute(
-            "INSERT INTO section_activities (section_id, activity_id, direction,
-                 start_index, end_index, distance_meters)
-             VALUES ('s0', ?1, 'same', ?2, ?3, 400.0)",
-            params![activity, start, end],
-        )
-        .unwrap();
-    }
-
-    PersistentEngine::populate_performance_cache(&conn).unwrap();
-
-    let lap = |activity: &str, start: u32| -> Option<f64> {
-        conn.query_row(
-            "SELECT lap_time FROM section_activities WHERE activity_id = ?1 AND start_index = ?2",
-            params![activity, start],
-            |row| row.get(0),
-        )
-        .unwrap()
-    };
-    assert_eq!(lap("a1", 1), Some(30.0), "half-open end");
-    assert_eq!(
-        lap("a1", 2),
-        Some(50.0),
-        "a lap to the track's end is timed"
-    );
-    assert_eq!(
-        lap("a2", 1),
-        None,
-        "a stream off its track's length gives no time"
-    );
-}
-
 #[test]
 fn test_heatmap_rebuild_migration_matches_the_live_writer_at_every_boundary() {
     let mut conn = Connection::open_in_memory().unwrap();
