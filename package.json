@@ -383,6 +383,7 @@
     "prettier": "^3.9.10",
     "react-dom": "19.3.0",
     "react-test-renderer": "19.3.0",
+    "tsx": "^4.23.15",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.71.2",
     "uniffi-bindgen-react-native": "^0.31.0-6",
@@ -399,6 +400,7 @@
   },
   "allowScripts": {
     "@parcel/watcher@2.6.0": false,
-    "unrs-resolver@1.12.2": true
+    "unrs-resolver@1.12.2": true,
+    "esbuild": false
   }
 }
