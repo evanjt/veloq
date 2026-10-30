@@ -631,7 +631,7 @@ pub(super) fn current_prs_on(conn: &rusqlite::Connection, section_id: &str) -> S
     let sport = crate::persistence::records::activity_sport_sql();
     let mut records = SectionRecords::new();
     let Ok(mut stmt) = conn.prepare(&format!(
-        "SELECT {sport}, sa.direction, sa.activity_id, sa.lap_time
+        "SELECT {sport}, sa.direction, sa.activity_id, sa.lap_time, sa.projected_m
          FROM section_activities sa
          JOIN activities a ON a.id = sa.activity_id
          LEFT JOIN activity_metrics am ON am.activity_id = sa.activity_id
@@ -646,16 +646,25 @@ pub(super) fn current_prs_on(conn: &rusqlite::Connection, section_id: &str) -> S
             (row.get::<_, String>(0)?, row.get::<_, String>(1)?),
             row.get::<_, String>(2)?,
             row.get::<_, f64>(3)?,
+            super::lap_timing::is_estimated(row.get(4)?),
         ))
     });
-    let mut laps: std::collections::BTreeMap<(String, String), Vec<(String, f64)>> =
+    type Lap = (String, f64, bool);
+    let mut laps: std::collections::BTreeMap<(String, String), Vec<Lap>> =
         std::collections::BTreeMap::new();
     if let Ok(rows) = rows {
-        for (key, activity_id, lap_time) in rows.flatten() {
-            laps.entry(key).or_default().push((activity_id, lap_time));
+        for (key, activity_id, lap_time, estimated) in rows.flatten() {
+            laps.entry(key)
+                .or_default()
+                .push((activity_id, lap_time, estimated));
         }
     }
     for (key, laps) in laps {
+        let laps: Vec<(String, f64)> =
+            crate::persistence::records::standing_tier(laps, |(_, _, estimated)| *estimated)
+                .into_iter()
+                .map(|(activity_id, time, _)| (activity_id, time))
+                .collect();
         let Some((activity_id, time)) = laps.first() else {
             continue;
         };

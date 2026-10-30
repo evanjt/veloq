@@ -107,10 +107,16 @@ fn confirm_rejection(server: &MockServer) {
 /// by the interrupted run's own tail, and a `finish(Idle)` on its own therefore
 /// left a neighbour's park standing. Setting a credential is the one thing that
 /// releases the latch, and it is also what a live session is.
+///
+/// Setting it also makes the engine start whatever the stored queue owes, so
+/// that is held off with a pause while it is set and waited out after.
 fn live_session() {
+    pause_elevation_backfill();
     veloqrs::objects::set_credentials_from_native("api_key", "k", ATHLETE)
         .expect("api_key is a known auth method");
     SYNC_SERVICE.finish(SyncState::Idle, None, false);
+    wait_for_background_work();
+    reset_elevation_backfill_pause();
 }
 
 fn sync_state() -> SyncState {
@@ -165,6 +171,49 @@ fn drain_detection() {
         }
         assert!(Instant::now() < deadline, "detection never went idle");
         std::thread::sleep(Duration::from_millis(100));
+    }
+}
+
+/// The pass and source-pass threads still alive, by name. The runtime, the CPU
+/// pool and the schedulers live for the whole process and are not work; the
+/// detection worker is drained through its handle.
+fn lingering_threads() -> Vec<String> {
+    let mut names = Vec::new();
+    for task in std::fs::read_dir("/proc/self/task")
+        .expect("task list")
+        .flatten()
+    {
+        let name = std::fs::read_to_string(task.path().join("comm")).unwrap_or_default();
+        let name = name.trim();
+        if matches!(
+            name,
+            "veloq-elev" | "veloq-streams" | "veloq-ground" | "veloq-cutover" | "veloq-open"
+        ) {
+            names.push(name.to_string());
+        }
+    }
+    names
+}
+
+/// Wait until every thread the engine started on its own has ended.
+///
+/// A credential or a library opening makes the engine start the work it owes
+/// (a pass, the ladder behind it, a source pass), and none of it is joined. A
+/// pause is what ends the ladder, and an online edge is what wakes it to see
+/// that, since it otherwise sleeps out its rung.
+fn wait_for_background_work() {
+    let deadline = Instant::now() + Duration::from_secs(120);
+    while !lingering_threads().is_empty() {
+        assert!(
+            Instant::now() < deadline,
+            "background work never ended: {:?}",
+            lingering_threads()
+        );
+        // Every pass, because a ladder that has not yet started its sleep
+        // misses an edge that landed before it.
+        veloqrs::net::connectivity::set_online(false);
+        veloqrs::net::connectivity::set_online(true);
+        std::thread::sleep(Duration::from_millis(20));
     }
 }
 
@@ -768,6 +817,13 @@ fn seeded_older_build_engine_dated(
     ids: &[&str],
     start_date: impl Fn(usize) -> i64,
 ) -> (TempDir, std::path::PathBuf) {
+    // Held for the whole seed: the credential an earlier test left makes the
+    // engine start a pass of its own as the library opens, and holds the flat
+    // tracks out of the seed detect, which an older build ran without one.
+    // `live_session` lifts the pause and sets the credential again.
+    pause_elevation_backfill();
+    veloqrs::objects::clear_credentials_from_native();
+    wait_for_background_work();
     drain_detection();
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("routes.db");
@@ -799,6 +855,7 @@ fn seeded_older_build_engine_dated(
     })
     .expect("engine");
 
+    wait_for_background_work();
     with_persistent_engine(|engine| {
         let handle = engine.detect_sections_background();
         let (main, cache_update) = handle.recv_with_cache();
@@ -1631,6 +1688,31 @@ fn a_clean_pass_leaves_the_session_alone() {
     drain_detection();
 
     assert_eq!(sync_state(), SyncState::Idle);
+}
+
+/// Scenario: handing the engine a credential makes it start the work it owes
+/// on threads of its own, so a test that sets one with tracks queued used to
+/// leave a real pass, or the ladder behind it, running into the next test.
+///
+/// Expected behaviour: once `live_session` returns nothing the engine started
+/// is still running and the run slot is free.
+#[test]
+fn live_session_leaves_no_background_work_running() {
+    let _serial_state = super::serial_state();
+    let (_dir, _path) = seeded_engine(&["a", "b"]);
+
+    live_session();
+
+    assert_eq!(lingering_threads(), Vec::<String>::new());
+    let server = MockServer::start();
+    server.mock(|when, then| {
+        when.path_includes("/streams.json");
+        then.status(200).json_body(elevated_streams(0.0));
+    });
+    assert!(matches!(
+        run_backfill(&fast_transport(server.base_url())),
+        BackfillRun::Finished(_)
+    ));
 }
 
 /// Scenario: a confirmed 401 in any test latches `auth_expired` on the

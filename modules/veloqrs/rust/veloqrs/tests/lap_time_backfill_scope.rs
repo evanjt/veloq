@@ -32,11 +32,22 @@ fn conn(path: &Path) -> Connection {
 }
 
 fn seed(dir: &TempDir) -> PathBuf {
+    seed_after(dir, 0)
+}
+
+/// The same, with the streamed activity's recording beginning `skipped`
+/// points into the section's ground, so it never meets the entry gate.
+fn seed_after(dir: &TempDir, skipped: usize) -> PathBuf {
     let path = dir.path().join("backfill.db");
     let mut engine = open(&path);
     for id in ["streamed", "bare"] {
+        let points = if id == "streamed" {
+            track()[skipped..].to_vec()
+        } else {
+            track()
+        };
         engine
-            .add_activity(id.into(), track(), "Ride".into())
+            .add_activity(id.into(), points, "Ride".into())
             .expect("add activity");
     }
     drop(engine);
@@ -65,8 +76,15 @@ fn seed(dir: &TempDir) -> PathBuf {
         db.execute(
             "INSERT INTO section_activities
                      (section_id, activity_id, start_index, end_index, distance_meters, lap_time)
-                 VALUES ('s1', ?, 0, 21, 900.0, NULL)",
-            params![id],
+                 VALUES ('s1', ?, 0, ?, 900.0, NULL)",
+            params![
+                id,
+                if id == "streamed" {
+                    21 - skipped as i64
+                } else {
+                    21
+                }
+            ],
         )
         .expect("insert portion");
     }
@@ -228,4 +246,44 @@ fn an_unchanged_stream_leaves_the_lap_times_where_they_are() {
         Some(99.0),
         "nothing moved, so nothing was recomputed"
     );
+}
+
+fn projected_m(db: &Connection, activity_id: &str) -> Option<f64> {
+    db.query_row(
+        "SELECT projected_m FROM section_activities WHERE activity_id = ?",
+        params![activity_id],
+        |row| row.get(0),
+    )
+    .expect("portion row")
+}
+
+#[test]
+fn a_portion_that_starts_inside_the_section_is_timed_to_the_gate_and_stored_projected() {
+    let dir = TempDir::new().unwrap();
+    // The line is twenty points of 11 m, and the recording begins four in.
+    let path = seed_after(&dir, 4);
+    let db = conn(&path);
+    db.execute("UPDATE sections SET distance_meters = 222.0", [])
+        .expect("set the length");
+    let mut engine = open(&path);
+    let times: Vec<u32> = (0..36).collect();
+    engine.set_time_streams_flat(&["streamed".into()], &times, &[0]);
+
+    let time = lap_time(&db, "streamed").expect("timed");
+    assert!((time - 20.0).abs() < 1.0, "{time}");
+    let projected = projected_m(&db, "streamed").expect("stored projected");
+    assert!((projected - 44.0).abs() < 2.0, "{projected}");
+}
+
+#[test]
+fn a_portion_timed_between_its_gates_stores_no_projection() {
+    let dir = TempDir::new().unwrap();
+    let path = seed(&dir);
+    let db = conn(&path);
+    let mut engine = open(&path);
+    let times: Vec<u32> = (0..40).collect();
+    engine.set_time_streams_flat(&["streamed".into()], &times, &[0]);
+
+    assert_eq!(lap_time(&db, "streamed"), Some(20.0));
+    assert_eq!(projected_m(&db, "streamed"), None);
 }

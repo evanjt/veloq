@@ -66,15 +66,16 @@ pub(crate) fn direction_best_laps(
     let eligible = |lap: &&SectionLap| {
         lap.time.is_finite() && lap.time > 0.0 && lap.counts_for_record(section_distance)
     };
-    let forward = laps
-        .iter()
-        .filter(|lap| lap.direction == "same" && eligible(lap))
-        .min_by(|a, b| a.time.total_cmp(&b.time));
-    let reverse = laps
-        .iter()
-        .filter(|lap| lap.direction == "reverse" && eligible(lap))
-        .min_by(|a, b| a.time.total_cmp(&b.time));
-    (forward, reverse)
+    let best = |direction: &str| {
+        laps.iter()
+            .filter(|lap| lap.direction == direction && eligible(lap))
+            .min_by(|a, b| {
+                a.estimated
+                    .cmp(&b.estimated)
+                    .then(a.time.total_cmp(&b.time))
+            })
+    };
+    (best("same"), best("reverse"))
 }
 
 /// The section performance computation, over borrowed rows rather than over the
@@ -102,6 +103,9 @@ pub(crate) mod laps {
         pub avg_hr: Option<f64>,
         pub avg_power: Option<f64>,
         pub coverage: Option<f64>,
+        /// Metres the time was projected to reach a gate; `None` when it was
+        /// timed between both.
+        pub projected_m: Option<f64>,
         pub excluded: bool,
         /// Outside a route's distance band; false for a section's portion.
         pub outside_distance_band: bool,
@@ -178,6 +182,7 @@ pub(crate) mod laps {
                     avg_hr: row.get(7)?,
                     avg_power: row.get(8)?,
                     coverage: row.get(9)?,
+                    projected_m: row.get(11)?,
                     excluded: row.get::<_, i64>(10)? != 0,
                     outside_distance_band: false,
                     match_percentage: None,
@@ -202,7 +207,7 @@ pub(crate) mod laps {
 
         const COLUMNS: &str = "sa.activity_id, sa.direction, sa.start_index, sa.end_index,
                         sa.distance_meters, sa.lap_time, sa.lap_pace, sa.avg_hr, sa.avg_power,
-                        sa.coverage, sa.excluded";
+                        sa.coverage, sa.excluded, sa.projected_m";
         let excluded = rows.clause();
         let activity_sport = crate::persistence::records::activity_sport_sql();
         match sport_type_filter {
@@ -349,6 +354,9 @@ pub(crate) mod laps {
                             outside_distance_band: portion.outside_distance_band,
                             match_percentage: portion.match_percentage,
                             is_record: false,
+                            estimated: crate::persistence::sections::lap_timing::is_estimated(
+                                portion.projected_m,
+                            ),
                         })
                     })
                     .collect();
@@ -374,6 +382,7 @@ pub(crate) mod laps {
                 let (best_time, best_pace) = best_lap
                     .map(|lap| (lap.time, lap.pace))
                     .unwrap_or((0.0, 0.0));
+                let best_estimated = best_lap.is_some_and(|lap| lap.estimated);
                 let best_forward_time = best_forward.map(|lap| lap.time);
                 let best_reverse_time = best_reverse.map(|lap| lap.time);
 
@@ -387,6 +396,7 @@ pub(crate) mod laps {
                     best_pace,
                     best_forward_time,
                     best_reverse_time,
+                    best_estimated,
                     avg_time,
                     avg_pace,
                     direction,
@@ -434,6 +444,7 @@ pub(crate) mod laps {
                 outside_distance_band: false,
                 match_percentage: None,
                 is_record: false,
+                estimated: false,
             };
             match by_activity
                 .iter_mut()
@@ -457,6 +468,7 @@ pub(crate) mod laps {
                     best_pace: 0.0,
                     best_forward_time: None,
                     best_reverse_time: None,
+                    best_estimated: false,
                     avg_time: 0.0,
                     avg_pace: 0.0,
                     direction: "partial".to_string(),
@@ -475,8 +487,8 @@ pub(crate) mod laps {
     ) -> SectionPerformanceResult {
         records.sort_by_key(|r| r.activity_date);
 
-        let mut best_fwd: Option<(usize, f64, f64)> = None;
-        let mut best_rev: Option<(usize, f64, f64)> = None;
+        let mut best_fwd: Option<(usize, f64, f64, bool)> = None;
+        let mut best_rev: Option<(usize, f64, f64, bool)> = None;
         let mut fwd_laps: Vec<(f64, f64)> = Vec::new();
         let mut fwd_last_date: Option<i64> = None;
         let mut rev_laps: Vec<(f64, f64)> = Vec::new();
@@ -499,17 +511,20 @@ pub(crate) mod laps {
                 *last_date = Some(last_date.map_or(record.activity_date.0, |d: i64| {
                     d.max(record.activity_date.0)
                 }));
-                if best.is_none_or(|(_, _, time)| lap.time < time) {
-                    *best = Some((i, lap.pace, lap.time));
+                if best.is_none_or(|(_, _, time, estimated)| {
+                    (lap.estimated, lap.time) < (estimated, time)
+                }) {
+                    *best = Some((i, lap.pace, lap.time, lap.estimated));
                 }
             }
         }
 
-        let best_in = |best: Option<(usize, f64, f64)>, direction: &str| {
-            best.map(|(idx, pace, time)| {
+        let best_in = |best: Option<(usize, f64, f64, bool)>, direction: &str| {
+            best.map(|(idx, pace, time, estimated)| {
                 let mut r = records[idx].clone();
                 r.best_time = time;
                 r.best_pace = pace;
+                r.best_estimated = estimated;
                 r.direction = direction.to_string();
                 r
             })
@@ -780,7 +795,8 @@ impl PersistentEngine {
         }
         let placeholders = vec!["?"; activity_ids.len()].join(",");
         let sql = format!(
-            "UPDATE section_activities SET lap_time = NULL, lap_pace = NULL, time_empty = 0
+            "UPDATE section_activities
+             SET lap_time = NULL, lap_pace = NULL, projected_m = NULL, time_empty = 0
              WHERE activity_id IN ({placeholders})"
         );
         let _ = self
@@ -898,7 +914,7 @@ impl PersistentEngine {
         );
         for (section_id, activity_id, direction, start_idx, end_idx, distance) in &null_portions {
             let times = db_time_streams.get(activity_id).map(|v| v.as_slice());
-            let (lap_time, lap_pace) = timer.time(
+            let timed = timer.time(
                 times,
                 section_id,
                 activity_id,
@@ -909,11 +925,18 @@ impl PersistentEngine {
                     distance_meters: *distance,
                 },
             );
-            if let (Some(lap_time), Some(lap_pace)) = (lap_time, lap_pace) {
+            if let (Some(lap_time), Some(lap_pace)) = (timed.time, timed.pace) {
                 let _ = self.db.execute(
-                    "UPDATE section_activities SET lap_time = ?, lap_pace = ?
+                    "UPDATE section_activities SET lap_time = ?, lap_pace = ?, projected_m = ?
                      WHERE section_id = ? AND activity_id = ? AND start_index = ?",
-                    params![lap_time, lap_pace, section_id, activity_id, start_idx],
+                    params![
+                        lap_time,
+                        lap_pace,
+                        timed.projected_m,
+                        section_id,
+                        activity_id,
+                        start_idx
+                    ],
                 );
                 populated += 1;
             } else if times.is_some() {
@@ -1348,6 +1371,7 @@ pub(crate) fn route_attempts(
             avg_hr: p.avg_hr.map(f64::from),
             avg_power: p.avg_power.map(f64::from),
             coverage: Some(1.0),
+            projected_m: None,
             excluded: rows == laps::Rows::Excluded,
             outside_distance_band: p.outside_distance_band,
             match_percentage: p.match_percentage,

@@ -208,6 +208,11 @@ pub struct SectionLap {
     /// section read, false everywhere else.
     #[serde(default)]
     pub is_record: bool,
+    /// The lap's time was projected to a gate over ground the recording did
+    /// not cover, far enough that it is an estimate. It is charted and ranked,
+    /// and never the record while a lap timed on the ground stands.
+    #[serde(default)]
+    pub estimated: bool,
 }
 
 impl SectionLap {
@@ -253,6 +258,10 @@ pub struct SectionPerformanceRecord {
     /// Best eligible reverse lap time.
     #[serde(default)]
     pub best_reverse_time: Option<f64>,
+    /// `best_time` is an estimate: every eligible lap of the direction it was
+    /// taken from was projected to a gate.
+    #[serde(default)]
+    pub best_estimated: bool,
     /// Average lap time in seconds
     #[serde(alias = "avg_time")]
     pub avg_time: f64,

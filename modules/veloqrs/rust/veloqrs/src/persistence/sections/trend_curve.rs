@@ -230,6 +230,7 @@ mod tests {
             off_scale: crate::FfiOffScale::None,
             record_gap_secs: None,
             record_gap_speed: None,
+            estimated: false,
         }
     }
 

@@ -21,6 +21,7 @@ fn point(seconds: u32, direction: &str) -> FfiSectionChartPoint {
         off_scale: crate::FfiOffScale::None,
         record_gap_secs: None,
         record_gap_speed: None,
+        estimated: false,
     }
 }
 

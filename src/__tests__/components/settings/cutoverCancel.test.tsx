@@ -51,6 +51,7 @@ const running = (phase: CutoverSummary['phase']): CutoverSummary => ({
   phase,
   isRunning: true,
   counts: null,
+  countsOwed: false,
   settingsReset: null,
   sawRun: true,
 });
@@ -59,6 +60,7 @@ const settled = (phase: CutoverSummary['phase'], sawRun = false): CutoverSummary
   phase,
   isRunning: false,
   counts: null,
+  countsOwed: false,
   settingsReset: null,
   sawRun,
 });

@@ -4,9 +4,11 @@
  * record and each attempt's gap to it; this only reads those into marks, so
  * the chart draws what it is told and a point can carry several marks at once.
  *
- * One mark, one meaning: the reticle is this activity, a gold ring the record,
- * the gold staircase its progression, a triangle at the edge an attempt past
- * the range, and the selection a focus ring at a size no other mark uses.
+ * The reticle is this activity, a gold ring the record, the gold staircase its
+ * progression, a triangle at the edge an attempt past the range, and the
+ * selection a focus ring at a size no other mark uses. A hollow dot is a time
+ * the chart cannot call measured: on a route an attempt outside the distance
+ * band, on a section a pass projected to its gate. The two never share a chart.
  */
 
 import type { TFunction } from 'i18next';
@@ -31,10 +33,12 @@ const FALLBACK_FLAT_PADDING = 0.05;
 
 /**
  * What a point is drawn as: a dot, a dimmed excluded attempt, a hollow route
- * attempt outside the distance band, or a triangle at the top or bottom edge
- * for an attempt past the range.
+ * attempt outside the distance band, a hollow section pass timed by
+ * projection, or a triangle at the top or bottom edge for an attempt past the
+ * range.
  */
-export type ScatterMarkKind = 'dot' | 'excluded' | 'outsideBand' | 'offScaleTop' | 'offScaleBottom';
+export type ScatterMarkKind =
+  'dot' | 'excluded' | 'outsideBand' | 'estimated' | 'offScaleTop' | 'offScaleBottom';
 
 export interface ScatterMark {
   kind: ScatterMarkKind;
@@ -71,9 +75,24 @@ export function scatterMarkFor(point: PerformanceDataPoint, ctx: ScatterMarkCont
   let kind: ScatterMarkKind = 'dot';
   if (excluded) kind = 'excluded';
   else if (point.outsideDistanceBand === true) kind = 'outsideBand';
+  else if (point.estimated === true) kind = 'estimated';
   if (!thisActivity && point.offScale === 'fast') kind = 'offScaleTop';
   if (!thisActivity && point.offScale === 'slow') kind = 'offScaleBottom';
   return { kind, record, thisActivity, selected };
+}
+
+/**
+ * Whether a direction's best time is an estimate: the engine flagged the
+ * counted pass that holds that time. False with no best, or no such pass drawn.
+ */
+export function bestIsEstimated(
+  points: readonly PerformanceDataPoint[],
+  best: { bestTime: number } | null
+): boolean {
+  if (!best) return false;
+  return points.some(
+    (point) => !point.isExcluded && point.sectionTime === best.bestTime && point.estimated === true
+  );
 }
 
 /**

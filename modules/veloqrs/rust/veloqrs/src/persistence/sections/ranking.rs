@@ -28,7 +28,7 @@ use crate::persistence::records::complete_traversal_clause;
 /// the sport carried on each row, so one statement answers every sport.
 const TRAVERSALS_BY_SPORT: &str =
     "SELECT s.id, s.name, sa.lap_time, am.date, am.sport_type, sa.direction,
-                       sa.activity_id
+                       sa.activity_id, sa.projected_m
                  FROM sections s
                  JOIN section_activities sa ON s.id = sa.section_id
                  JOIN activity_metrics am ON sa.activity_id = am.activity_id
@@ -50,30 +50,40 @@ struct TraversalRow {
     /// best time afterwards, so only the in-memory reference reads it.
     #[cfg_attr(not(test), allow(dead_code))]
     activity_id: String,
+    /// The lap's time was projected to a gate far enough to be an estimate,
+    /// so it can be the section's best only when nothing better stands.
+    estimated: bool,
 }
 
-/// The chart's headline best time: the shortest time in the section's own
-/// direction.
+/// The chart's headline best time, and whether it is an estimate: the shortest
+/// time in the section's own direction.
 ///
 /// A record is a beat over the same section and direction pair, which is what
 /// `persistence/records.rs` writes, so a quicker traversal the other way is a
 /// different effort and cannot be the best. A section only ever ridden in
 /// reverse still has a best: with no forward traversal to pick from, the rule
 /// applies to the direction that exists rather than answering nothing. An
-/// attempt outside a route's distance band is never the best.
-fn best_time_secs(points: &[crate::FfiSectionChartPoint]) -> Option<f64> {
+/// attempt outside a route's distance band is never the best, and an
+/// estimated lap is the best only when no lap timed on the ground stands in
+/// its direction.
+fn best_time_secs(points: &[crate::FfiSectionChartPoint]) -> (Option<f64>, bool) {
     let quickest = |forward_only: bool| {
-        points
+        let counted: Vec<_> = points
             .iter()
             .filter(|p| {
                 p.section_time > 0
                     && !p.outside_distance_band
                     && (!forward_only || p.direction != "reverse")
             })
-            .map(|p| p.section_time)
-            .min()
+            .collect();
+        crate::persistence::records::standing_tier(counted, |p| p.estimated)
+            .into_iter()
+            .min_by_key(|p| p.section_time)
+            .map(|p| (f64::from(p.section_time), p.estimated))
     };
-    quickest(true).or_else(|| quickest(false)).map(|t| t as f64)
+    quickest(true)
+        .or_else(|| quickest(false))
+        .map_or((None, false), |(time, estimated)| (Some(time), estimated))
 }
 
 /// Rings the lap holding the section's record in each direction, judged on
@@ -472,6 +482,7 @@ pub(crate) fn chart_from_cutoff(
                 off_scale: crate::FfiOffScale::None,
                 record_gap_secs,
                 record_gap_speed,
+                estimated: false,
             });
         } else {
             for lap in &record.laps {
@@ -520,6 +531,7 @@ pub(crate) fn chart_from_cutoff(
                     off_scale: crate::FfiOffScale::None,
                     record_gap_secs,
                     record_gap_speed,
+                    estimated: lap.estimated,
                 });
             }
         }
@@ -567,7 +579,7 @@ pub(crate) fn chart_from_cutoff(
         .map(|p| p.activity_date)
         .max_by(f64::total_cmp);
 
-    let best_time_secs = best_time_secs(&points);
+    let (best_time_secs, best_time_estimated) = best_time_secs(&points);
 
     crate::FfiSectionChartData {
         points,
@@ -575,6 +587,7 @@ pub(crate) fn chart_from_cutoff(
         max_speed,
         has_reverse_runs,
         best_time_secs,
+        best_time_estimated,
         first_activity_date,
         last_activity_date,
         total_activities,
@@ -666,6 +679,7 @@ mod workout_trend_encoding_tests {
             best_pace: 1000.0 / best_time,
             best_forward_time: Some(best_time),
             best_reverse_time: None,
+            best_estimated: false,
             avg_time: best_time,
             avg_pace: 1000.0 / best_time,
             direction: "same".to_string(),
@@ -696,6 +710,7 @@ mod workout_trend_encoding_tests {
             outside_distance_band: false,
             match_percentage: None,
             is_record: false,
+            estimated: false,
         };
         let mut perf = empty_performances();
         perf.records.push(crate::SectionPerformanceRecord {
@@ -748,6 +763,7 @@ mod workout_trend_encoding_tests {
             outside_distance_band: false,
             match_percentage: None,
             is_record: false,
+            estimated: false,
         };
         let mut perf = empty_performances();
         perf.records.push(crate::SectionPerformanceRecord {
@@ -784,6 +800,7 @@ mod workout_trend_encoding_tests {
             outside_distance_band: false,
             match_percentage: None,
             is_record: false,
+            estimated: false,
         };
         crate::SectionPerformanceRecord {
             laps: vec![lap],
@@ -814,6 +831,39 @@ mod workout_trend_encoding_tests {
             super::chart_from(&out_and_back(&[]), 0).best_time_secs,
             None
         );
+    }
+
+    /// Scenario: the quickest lap of a section was projected to a gate.
+    ///
+    /// Expected behaviour: the section's best is the quickest lap timed on the
+    /// ground, and a direction with only estimated laps reports its best
+    /// marked estimated.
+    #[test]
+    fn the_section_best_is_never_an_estimate_while_a_timed_lap_stands() {
+        let mut quick = timed_record(1_700_200_000, 240.0, "same");
+        quick.laps[0].estimated = true;
+        let perf = crate::persistence::fitness::performances::laps::summarise(
+            1000.0,
+            vec![
+                timed_record(1_700_000_000, 300.0, "same"),
+                timed_record(1_700_100_000, 280.0, "same"),
+                quick.clone(),
+                timed_record(1_700_300_000, 250.0, "reverse"),
+            ],
+        );
+        let forward = perf.best_forward_record.unwrap();
+        assert_eq!(forward.best_time, 280.0);
+        assert!(!forward.best_estimated);
+
+        let mut only = timed_record(1_700_400_000, 250.0, "reverse");
+        only.laps[0].estimated = true;
+        let perf = crate::persistence::fitness::performances::laps::summarise(
+            1000.0,
+            vec![timed_record(1_700_000_000, 300.0, "same"), only, quick],
+        );
+        let reverse = perf.best_reverse_record.unwrap();
+        assert_eq!(reverse.best_time, 250.0);
+        assert!(reverse.best_estimated);
     }
 
     fn out_and_back(efforts: &[(i64, f64, &str)]) -> crate::SectionPerformanceResult {
@@ -1046,6 +1096,7 @@ mod workout_trend_encoding_tests {
                 outside_distance_band: false,
                 match_percentage: None,
                 is_record: false,
+                estimated: false,
             }
         }
 
@@ -1062,6 +1113,7 @@ mod workout_trend_encoding_tests {
                     best_pace: 1.0,
                     best_forward_time: None,
                     best_reverse_time: None,
+                    best_estimated: false,
                     avg_time: 1.0,
                     avg_pace: 1.0,
                     direction: "same".to_string(),
@@ -1132,6 +1184,46 @@ mod workout_trend_encoding_tests {
                 i64::MIN,
             );
             assert_eq!(stamped(&chart), vec!["f2", "r2"]);
+        }
+
+        fn estimated(mut lap: crate::SectionLap) -> crate::SectionLap {
+            lap.estimated = true;
+            lap
+        }
+
+        #[test]
+        fn an_estimated_lap_faster_than_every_timed_one_is_charted_and_holds_nothing() {
+            let chart = chart_from_cutoff(
+                &perf(vec![
+                    (1_000, lap("a", 60.0, 400.0, "same")),
+                    (2_000, lap("b", 58.0, 400.0, "same")),
+                    (3_000, estimated(lap("quick", 50.0, 400.0, "same"))),
+                ]),
+                i64::MIN,
+            );
+            assert_eq!(chart.points.len(), 3);
+            assert_eq!(stamped(&chart), vec!["b"]);
+            assert_eq!(chart.best_time_secs, Some(58.0));
+            assert!(!chart.best_time_estimated);
+            let quick = chart.points.iter().find(|p| p.lap_id == "quick").unwrap();
+            assert!(quick.estimated);
+            assert_eq!(quick.record_gap_secs, Some(-8.0));
+        }
+
+        #[test]
+        fn a_direction_of_only_estimated_laps_shows_its_quickest_marked_estimated() {
+            let chart = chart_from_cutoff(
+                &perf(vec![
+                    (1_000, estimated(lap("a", 60.0, 400.0, "same"))),
+                    (2_000, estimated(lap("b", 55.0, 400.0, "same"))),
+                    (3_000, lap("r", 70.0, 400.0, "reverse")),
+                ]),
+                i64::MIN,
+            );
+            assert_eq!(stamped(&chart), vec!["b"]);
+            assert_eq!(chart.best_time_secs, Some(55.0));
+            assert!(chart.best_time_estimated);
+            assert!(chart.points.iter().find(|p| p.is_best).unwrap().estimated);
         }
 
         #[test]
@@ -1288,11 +1380,11 @@ pub(crate) mod pooled {
     /// own direction. The count and the last date keep counting every lap.
     fn inputs_of(rows: &[&TraversalRow]) -> RankInputs {
         let latest_direction = rows.last().map(|r| r.direction.as_str());
-        let (dir_times, dir_dates): (Vec<f64>, Vec<i64>) = rows
+        let dir_times: Vec<f64> = rows
             .iter()
             .filter(|r| Some(r.direction.as_str()) == latest_direction)
-            .map(|r| (r.lap_time, r.activity_date))
-            .unzip();
+            .map(|r| r.lap_time)
+            .collect();
 
         let improvement = improvement_signal(&dir_times);
 
@@ -1313,16 +1405,27 @@ pub(crate) mod pooled {
             0.0
         };
 
-        let best_time_secs = dir_times.iter().cloned().fold(f64::INFINITY, f64::min);
+        // The best and its date read the laps that may stand for a record: an
+        // estimated lap is the best only in a direction with no other.
+        let standing = crate::persistence::records::standing_tier(
+            rows.iter()
+                .copied()
+                .filter(|r| Some(r.direction.as_str()) == latest_direction)
+                .collect(),
+            |r| r.estimated,
+        );
+        let best_time_secs = standing
+            .iter()
+            .map(|r| r.lap_time)
+            .fold(f64::INFINITY, f64::min);
         // The date of that fastest lap, which is what the stale-PR card reads
         // the athlete's fitness at. Ties take the earliest, since that is when
         // the standard was first set.
-        let best_date = dir_times
+        let best_date = standing
             .iter()
-            .zip(dir_dates.iter())
-            .filter(|(time, _)| time.is_finite())
-            .min_by(|(a, _), (b, _)| a.total_cmp(b))
-            .map(|(_, date)| *date as f64);
+            .filter(|r| r.lap_time.is_finite())
+            .min_by(|a, b| a.lap_time.total_cmp(&b.lap_time))
+            .map(|r| r.activity_date as f64);
 
         let median_recent_secs = if dir_times.len() >= 3 {
             let n = dir_times.len();
@@ -1340,26 +1443,28 @@ pub(crate) mod pooled {
         // The latest outing's fastest lap in this direction, judged by the
         // section record rule against the other outings, so its own other laps
         // are no rival, and a lone outing and a tie both leave the badge off.
-        let dir_laps: Vec<(&str, f64)> = rows
+        let dir_laps: Vec<(&str, f64)> = standing
             .iter()
-            .filter(|r| Some(r.direction.as_str()) == latest_direction)
             .map(|r| (r.activity_id.as_str(), r.lap_time))
             .collect();
-        let latest_is_pr = match dir_laps.last() {
-            Some(&(latest_activity, _)) => {
-                let fastest = dir_laps
-                    .iter()
-                    .filter(|(activity, _)| *activity == latest_activity)
-                    .map(|(_, time)| *time)
-                    .fold(f64::INFINITY, f64::min);
-                crate::persistence::records::holds_section_record(
+        let latest_activity = rows
+            .iter()
+            .rev()
+            .find(|r| Some(r.direction.as_str()) == latest_direction)
+            .map(|r| r.activity_id.as_str());
+        let latest_is_pr = latest_activity.is_some_and(|latest_activity| {
+            let fastest = dir_laps
+                .iter()
+                .filter(|(activity, _)| *activity == latest_activity)
+                .map(|(_, time)| *time)
+                .fold(f64::INFINITY, f64::min);
+            fastest.is_finite()
+                && crate::persistence::records::holds_section_record(
                     fastest,
                     latest_activity,
                     dir_laps.iter().copied(),
                 )
-            }
-            None => false,
-        };
+        });
 
         RankInputs {
             section_id: rows[0].section_id.clone(),
@@ -1453,6 +1558,7 @@ pub(crate) mod pooled {
                     activity_date: row.get(3)?,
                     direction: row.get(5)?,
                     activity_id: row.get(6)?,
+                    estimated: crate::persistence::sections::lap_timing::is_estimated(row.get(7)?),
                 },
             ))
         })?;

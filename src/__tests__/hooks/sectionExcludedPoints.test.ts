@@ -42,6 +42,7 @@ const excludedPoint: FfiSectionChartPoint = {
   isBest: false,
   outsideDistanceBand: false,
   offScale: FfiOffScale.None,
+  estimated: false,
 };
 
 describe('useSectionChartDataEnriched', () => {

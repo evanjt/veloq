@@ -361,3 +361,77 @@ fn the_screen_read_says_a_pass_recount_is_running_only_while_its_guard_is_held()
     drop(running);
     assert!(!read(&engine).pass_recount_running);
 }
+
+fn seed_track(engine: &PersistentEngine, id: &str, state: u8) {
+    engine
+        .db
+        .execute(
+            "INSERT INTO activities
+                (id, sport_type, min_lat, max_lat, min_lng, max_lng, start_date)
+             VALUES (?1, 'Ride', 0, 0, 0, 0, 1)",
+            [id],
+        )
+        .unwrap();
+    engine
+        .db
+        .execute(
+            "INSERT INTO gps_tracks (activity_id, track_data, point_count, elevation_state)
+             VALUES (?1, X'00', 0, ?2)",
+            rusqlite::params![id, i64::from(state)],
+        )
+        .unwrap();
+}
+
+fn store_diff(engine: &PersistentEngine, payload: &str) {
+    engine
+        .set_setting(crate::persistence::cutover::CUTOVER_DIFF_KEY, payload)
+        .unwrap();
+}
+
+/// Scenario: a cut was promoted over the newest slice, its diff carries no
+/// counts yet and some tracks still wait for elevation.
+///
+/// Expected behaviour: the read reports the decided tracks out of all the
+/// tracks the download can ask about, and nothing once the counts are written
+/// or the queue is empty.
+#[test]
+fn a_staged_cut_reports_the_history_still_joining() {
+    use crate::persistence::{ELEVATION_STATE_FETCHED, ELEVATION_STATE_UNKNOWN};
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("staged.db");
+    let engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
+
+    assert_eq!(read(&engine).staged_history, None, "no cut, no progress");
+
+    seed_track(&engine, "a1", ELEVATION_STATE_FETCHED);
+    seed_track(&engine, "a2", ELEVATION_STATE_FETCHED);
+    seed_track(&engine, "a3", ELEVATION_STATE_UNKNOWN);
+    seed_track(&engine, "a4", ELEVATION_STATE_UNKNOWN);
+    seed_track(&engine, "demo-1", ELEVATION_STATE_UNKNOWN);
+
+    store_diff(&engine, r#"{"token":"t","counts":null}"#);
+    assert_eq!(
+        read(&engine).staged_history,
+        Some(crate::FfiStagedHistory { done: 2, total: 4 })
+    );
+
+    store_diff(&engine, r#"{"token":"t"}"#);
+    assert_eq!(
+        read(&engine).staged_history,
+        Some(crate::FfiStagedHistory { done: 2, total: 4 }),
+        "an absent counts key reads as owed too"
+    );
+
+    store_diff(
+        &engine,
+        r#"{"token":"t","counts":{"current":1,"new":0,"changed":0,"gone":0}}"#,
+    );
+    assert_eq!(read(&engine).staged_history, None, "counts written");
+
+    store_diff(&engine, r#"{"token":"t","counts":null}"#);
+    engine
+        .db
+        .execute("UPDATE gps_tracks SET elevation_state = 1", [])
+        .unwrap();
+    assert_eq!(read(&engine).staged_history, None, "nothing owed");
+}

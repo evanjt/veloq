@@ -1,13 +1,15 @@
-//! Measures what timing a pass between the section's gates leaves untimed,
-//! against the sample-snapped timing it replaced, over the local corpora.
+//! What timing a pass between the section's gates leaves untimed, against the
+//! sample-snapped timing it replaced, over the corpora.
 //!
-//! A measuring instrument, never a gate: it folds each corpus cold the way
-//! the bitwise gate does, then times every pass of every section under both
-//! rules through the same `time_pass` the engine runs. Nothing here prints a
-//! coordinate, an activity id, a section name or a corpus directory name.
+//! It folds each corpus cold the way the bitwise gate does, then times every
+//! pass of every section under both rules through the same `time_pass` the
+//! engine runs. The gate asserts that no pass the snapped rule timed is left
+//! untimed, on GeoLife and, when the private corpus is present, on that.
+//! Nothing here prints a coordinate, an activity id, a section name or a
+//! corpus directory name.
 //!
 //!     cargo test -p veloqrs --release --features real-corpus --lib \
-//!         pass_timing_measure -- --nocapture --ignored
+//!         pass_timing_measure -- --nocapture
 
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
@@ -18,7 +20,7 @@ use tracematch::{
     sections::detect_sections_incremental_dated,
 };
 
-use crate::persistence::sections::lap_timing::{PassSpan, SectionTiming, time_pass};
+use crate::persistence::sections::lap_timing::{PassSpan, SectionTiming, is_estimated, time_pass};
 
 #[path = "../../../../../tracematch/examples/common/geolife.rs"]
 mod geolife;
@@ -396,6 +398,10 @@ struct Diag {
     /// Deep misses whose depth is most of the section: a flipped direction.
     deep_flipped: usize,
     deep_other: usize,
+    /// Untimed passes by whether their section's two ends are one place.
+    lost_on_loops: usize,
+    lost_off_loops: usize,
+    lost_reaching: usize,
     /// Untimed passes whose movement disagrees with the stored direction.
     direction_disagrees: usize,
     /// Sections whose 5 m gate heading is over 30 degrees off the 30 m one.
@@ -422,6 +428,13 @@ struct Cell {
     exit_reach: usize,
     exit_off_ground: usize,
     both_gates: usize,
+    /// Of the passes timed, those that crossed both gates, those projected a
+    /// short way and those projected far enough to be an estimate.
+    gate_timed: usize,
+    plain_projected: usize,
+    estimated: usize,
+    /// Metres each projected pass was projected.
+    projected_m: Vec<f64>,
     /// Metres the pass starts inside, or stops short of, a gate it missed.
     inside_m: Vec<f64>,
     diff: Vec<f64>,
@@ -449,7 +462,21 @@ fn interval_bucket(secs: &[f64]) -> &'static str {
     }
 }
 
-fn measure(c: &Corpus) {
+/// What a corpus's measurement counted, for the gate to judge.
+struct Tally {
+    /// Passes the snapped rule timed.
+    snapped_timed: usize,
+    /// Of those, the passes the gate rule left untimed.
+    lost: usize,
+    /// Of the lost, those whose two ends both reach their gates, so that
+    /// nothing but the timing itself kept them from a time.
+    lost_reaching: usize,
+    gate_timed: usize,
+    plain_projected: usize,
+    estimated: usize,
+}
+
+fn measure(c: &Corpus) -> Tally {
     let t = std::time::Instant::now();
     let catalogue = fold(c);
     println!(
@@ -551,7 +578,21 @@ fn measure(c: &Corpus) {
                 let e = (f64::from(times[last]) - f64::from(times[first])).abs();
                 (e > 0.0).then_some(e)
             };
-            let v2 = time_pass(Some(times), Some(track), timing.as_ref(), &span).0;
+            let timed = time_pass(Some(times), Some(track), timing.as_ref(), &span);
+            let v2 = timed.time;
+            if v2.is_some() {
+                match timed.projected_m {
+                    None => cell.gate_timed += 1,
+                    Some(metres) => {
+                        cell.projected_m.push(metres);
+                        if is_estimated(Some(metres)) {
+                            cell.estimated += 1;
+                        } else {
+                            cell.plain_projected += 1;
+                        }
+                    }
+                }
+            }
             if v1.is_some() {
                 cell.v1_timed += 1;
                 *v1_sports.entry(sport).or_default() += 1;
@@ -567,6 +608,13 @@ fn measure(c: &Corpus) {
                     cell.rel.push((b - a) / a);
                 }
                 (Some(_), None) => {
+                    let closed = local_distance(&s.polyline[0], &s.polyline[s.polyline.len() - 1])
+                        <= GROUND_TOL_M;
+                    if closed {
+                        diag.lost_on_loops += 1;
+                    } else {
+                        diag.lost_off_loops += 1;
+                    }
                     let Some((start, end)) = gate_pair else {
                         continue;
                     };
@@ -575,6 +623,25 @@ fn measure(c: &Corpus) {
                     } else {
                         (start, end)
                     };
+                    let slack = 2.0 * GROUND_TOL_M;
+                    let entry_reached = entry.side(&track[first]).abs()
+                        <= slack + local_distance(&track[first], &track[first + 1]);
+                    let exit_reached = exit.side(&track[last]).abs()
+                        <= slack + local_distance(&track[last], &track[last - 1]);
+                    let lap_returns = closed
+                        && local_distance(&track[first], &track[last])
+                            <= GROUND_TOL_M + local_distance(&track[last], &track[last - 1]);
+                    // Reaching both gates is not enough: a run that stops
+                    // within the slack of each and hardly moves between them
+                    // covers little of the section.
+                    let travelled: f64 = (first..last)
+                        .map(|k| local_distance(&track[k], &track[k + 1]))
+                        .sum();
+                    let projected = entry.side(&track[first]).abs() + exit.side(&track[last]).abs();
+                    let covers = travelled + projected >= 0.5 * s.distance_meters;
+                    if ((entry_reached && exit_reached) || lap_returns) && covers {
+                        diag.lost_reaching += 1;
+                    }
                     let (entry_ok, entry_off) = crossing(track, &entry, first);
                     let (exit_ok, exit_off) = crossing(track, &exit, last);
                     if !entry_ok && !exit_ok {
@@ -697,12 +764,25 @@ fn measure(c: &Corpus) {
         total.exit_reach += c.exit_reach;
         total.exit_off_ground += c.exit_off_ground;
         total.both_gates += c.both_gates;
+        total.gate_timed += c.gate_timed;
+        total.plain_projected += c.plain_projected;
+        total.estimated += c.estimated;
+        total.projected_m.extend(c.projected_m.iter().copied());
         total.inside_m.extend(c.inside_m.iter().copied());
         total.diff.extend(c.diff.iter().copied());
         total.rel.extend(c.rel.iter().copied());
         print_cell(sport, bucket, &mut c);
     }
     print_cell("ALL", "all", &mut total);
+    println!(
+        "timed between both gates {}, projected under {} m {}, estimated {}; projected metres p50 {:.1} p95 {:.1}",
+        total.gate_timed,
+        crate::persistence::sections::lap_timing::ESTIMATED_FROM_PROJECTED_M,
+        total.plain_projected,
+        total.estimated,
+        quantile(&mut total.projected_m.clone(), 0.5),
+        quantile(&mut total.projected_m, 0.95),
+    );
     println!(
         "sections: {} with full passes, {} whose timed-sport set changes, {} whose timed count changes, {} losing every timed pass, {} losing more than half; share of v1-timed passes lost per section p50 {:.3} p90 {:.3}",
         sections_with_passes,
@@ -714,7 +794,7 @@ fn measure(c: &Corpus) {
         quantile(&mut lost_per_section, 0.9),
     );
     println!(
-        "untimed diagnostics: reach misses by samples to the nearest crossing 9-16 {} / 17-32 {} / 33-64 {} / over 64 {} / none {}; deep misses flipped {} other {}; untimed passes whose movement disagrees with the stored direction {}; sections {} with a 5 m start heading over 30 deg off the 30 m one {} and end {}",
+        "untimed diagnostics: reach misses by samples to the nearest crossing 9-16 {} / 17-32 {} / 33-64 {} / over 64 {} / none {}; deep misses flipped {} other {}; lost on loops {} off loops {}, reaching both gates {}; untimed passes whose movement disagrees with the stored direction {}; sections {} with a 5 m start heading over 30 deg off the 30 m one {} and end {}",
         diag.gap_9_16,
         diag.gap_17_32,
         diag.gap_33_64,
@@ -722,11 +802,22 @@ fn measure(c: &Corpus) {
         diag.gap_none,
         diag.deep_flipped,
         diag.deep_other,
+        diag.lost_on_loops,
+        diag.lost_off_loops,
+        diag.lost_reaching,
         diag.direction_disagrees,
         diag.sections,
         diag.skewed_start,
         diag.skewed_end,
     );
+    Tally {
+        snapped_timed: total.v1_timed,
+        lost: total.v1_timed - total.both,
+        lost_reaching: diag.lost_reaching,
+        gate_timed: total.gate_timed,
+        plain_projected: total.plain_projected,
+        estimated: total.estimated,
+    }
 }
 
 fn print_cell(sport: &str, bucket: &str, c: &mut Cell) {
@@ -757,9 +848,37 @@ fn print_cell(sport: &str, bucket: &str, c: &mut Cell) {
     );
 }
 
+/// A pass whose two ends reach their gates is timed between them, so no
+/// section loses a pass, a record or a sport to the change of rule for want of
+/// a time. A pass that stops further from a gate than the matcher's slack, or
+/// covers only the part of a looped section it shares with its return, covers
+/// other ground and stays untimed, and is reported.
+fn assert_no_reaching_pass_lost(tally: &Tally, label: &str) {
+    assert!(tally.snapped_timed > 0, "{label}: nothing was timed");
+    assert_eq!(
+        tally.lost_reaching, 0,
+        "{label}: {} of {} passes that reach both gates are untimed",
+        tally.lost_reaching, tally.snapped_timed
+    );
+    assert!(
+        tally.gate_timed + tally.plain_projected + tally.estimated > 0,
+        "{label}: nothing was timed between the gates"
+    );
+    println!(
+        "{label}: {} of {} passes the snapped rule timed cover other ground and stay untimed",
+        tally.lost, tally.snapped_timed
+    );
+}
+
 #[test]
-#[ignore = "measurement over the local corpora"]
-fn gate_timing_against_snapped_timing() {
-    measure(&load_private("fullcorpus"));
-    measure(&load_geolife());
+fn geolife_leaves_no_pass_that_reaches_its_gates_untimed() {
+    assert_no_reaching_pass_lost(&measure(&load_geolife()), "geolife");
+}
+
+#[test]
+fn the_private_corpus_leaves_no_pass_that_reaches_its_gates_untimed() {
+    if !corpus_root().join("fullcorpus").is_dir() {
+        return;
+    }
+    assert_no_reaching_pass_lost(&measure(&load_private("fullcorpus")), "private");
 }

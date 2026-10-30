@@ -830,6 +830,7 @@
     "sectionsChangedTitle": "Dine sektioner er skåret om",
     "sectionsChangedBody": "Vi har forbedret, hvordan Veloq finder sektioner. {{total}} af dine gamle sektioner er udgået. Dem, du har gemt, omdøbt eller fastgjort, er bevaret. Vil du have nogle af de andre tilbage, finder du dem under Udgåede strækninger.",
     "sectionsChangedBodyNone": "Vi har forbedret, hvordan Veloq finder sektioner.",
+    "sectionsChangedBodyStaged": "Dine sektioner er blevet genopbygget. Dem, du har gemt, omdøbt eller fastgjort, bliver bevaret. Ældre aktiviteter kommer med, efterhånden som de hentes.",
     "sectionsChangedSee": "Se dem",
     "sectionsChangedDismiss": "Ikke nu",
     "notificationsTitle": "Du går glip af personlige notifikationer",
@@ -2049,7 +2050,11 @@
     "showExcludedAttempts_one": "Vis {{count}} udelukket forsøg",
     "showExcludedAttempts_other": "Vis {{count}} udelukkede forsøg",
     "hideExcludedAttempts": "Skjul udelukkede forsøg",
-    "methodFasterAtTop": "{{method}} Hurtigere øverst."
+    "methodFasterAtTop": "{{method}} Hurtigere øverst.",
+    "estimated": "Estimeret",
+    "estimatedValue": "{{value}}, estimeret",
+    "legendEstimated": "Estimeret tid",
+    "methodEstimated": "{{method}} En passage, der starter eller slutter inde i sektionen inden for matchets tolerance ved en port, tidsmåles til porten med sin egen hastighed. Den markeres som estimeret, når projektionen er 10 m eller mere, og den holder kun rekorden, hvis ingen passage i samme retning er tidsmålt på selve strækningen."
   },
   "settings": {
     "terrain3DMode": "3D-terræn: {{mode}}",
@@ -2954,6 +2959,7 @@
     "detectionWaiting_one": "{{count}} aktivitet at tjekke",
     "detectionWaiting_other": "{{count}} aktiviteter at tjekke",
     "cutoverWaiting": "Venter på at genopbygge dine sektioner",
+    "cutoverJoining": "Ældre aktiviteter tilføjes: {{done, number}} af {{total, number}}",
     "passRecount": "Genberegning af passager",
     "statePaused": "På pause, indtil appen åbnes igen",
     "stateWaiting": "Venter på at fortsætte",

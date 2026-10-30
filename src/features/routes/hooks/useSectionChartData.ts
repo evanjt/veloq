@@ -68,6 +68,7 @@ export function useSectionChartData({
       offScale: castOffScale(p.offScale),
       recordGapSecs: p.recordGapSecs ?? undefined,
       recordGapSpeed: p.recordGapSpeed ?? undefined,
+      estimated: p.estimated,
     }));
 
     return {

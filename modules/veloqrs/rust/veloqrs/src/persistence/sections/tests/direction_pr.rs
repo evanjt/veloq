@@ -20,6 +20,7 @@ fn lap(day: i64, direction: &str, lap_time: f64) -> TraversalRow {
         activity_date: START + day * DAY,
         direction: direction.to_string(),
         activity_id: format!("act{day}"),
+        estimated: false,
     }
 }
 

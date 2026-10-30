@@ -32,6 +32,7 @@ function job(id: BackgroundJob['id'], over: Partial<BackgroundJob> = {}): Backgr
     resumesAt: null,
     held: null,
     pacedDays: null,
+    stagedHistory: null,
     lastRun: null,
     ...over,
   };
@@ -126,6 +127,30 @@ describe('BackgroundJobsActivityBar', () => {
     expect(tree.getByTestId('background-job-streamBackfill-detail').props.children).toBe(
       "1400 activities · At least 3 days to finish, on intervals.icu's daily limit"
     );
+  });
+
+  /**
+   * Scenario: the cut was promoted over the newest slice and older activities
+   * are still joining. The rebuild's own row is complete and owes nothing.
+   *
+   * Expected behaviour: the cutover row is listed with the history progress, in
+   * place of the waiting line, and the bar counts it as owed work.
+   */
+  it("shows a staged cut's history joining on the cutover row", async () => {
+    mockUseBackgroundJobs.mockReturnValue([
+      job('cutover', {
+        state: 'complete',
+        remaining: 0,
+        stagedHistory: { done: 412, total: 1840 },
+      }),
+    ]);
+    const tree = await render(<BackgroundJobsActivityBar />);
+
+    await fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
+    expect(tree.getByTestId('background-job-cutover-detail').props.children).toBe(
+      'Older activities joining: 412 of 1,840'
+    );
+    expect(tree.getByTestId('background-jobs-activity-toggle')).toHaveTextContent(/1$/);
   });
 
   it('names no pacing for a queue the engine did not price in days', async () => {

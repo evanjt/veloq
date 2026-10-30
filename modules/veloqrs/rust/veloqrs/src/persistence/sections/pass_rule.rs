@@ -14,7 +14,7 @@ use crate::persistence::job_runs::{BackgroundJob, JobRun, RunOutcome, record_job
 
 /// Bump this when what counts as a traversal of a section, or the time of one,
 /// changes.
-pub(crate) const PASS_RULE_VERSION: i32 = 3;
+pub(crate) const PASS_RULE_VERSION: i32 = 4;
 
 const STAMP_KEY: &str = "pass_rule_version";
 

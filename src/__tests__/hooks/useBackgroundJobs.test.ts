@@ -54,6 +54,7 @@ interface EngineState {
   streamRemaining: number | null;
   streamDaysToFinish: number | null;
   passRecountRunning: boolean;
+  stagedHistory: { done: number; total: number } | null;
   runs: Record<string, unknown>[];
   dataThrows: string | null;
 }
@@ -73,6 +74,7 @@ function defaultState(): EngineState {
     streamRemaining: null,
     streamDaysToFinish: null,
     passRecountRunning: false,
+    stagedHistory: null,
     runs: [],
     dataThrows: null,
   };
@@ -106,6 +108,7 @@ function engine() {
       return {
         runs: state.runs,
         passRecountRunning: state.passRecountRunning,
+        stagedHistory: state.stagedHistory ?? undefined,
         detectionAwaiting: state.detectionAwaiting ?? undefined,
         cutoverOwed: state.cutoverPending,
         streamDaysToFinish: state.streamDaysToFinish ?? undefined,
@@ -320,6 +323,28 @@ describe('useBackgroundJobs', () => {
     const { result } = await jobs();
 
     expect(result.current.find((job) => job.id === 'elevationBackfill')?.state).toBe('paused');
+  });
+
+  it("carries the staged cut's history progress on the cutover row only", async () => {
+    state.stagedHistory = { done: 412, total: 1840 };
+
+    const { result } = await jobs();
+
+    expect(result.current.find((job) => job.id === 'cutover')?.stagedHistory).toEqual({
+      done: 412,
+      total: 1840,
+    });
+    expect(
+      result.current
+        .filter((job) => job.id !== 'cutover')
+        .every((job) => job.stagedHistory === null)
+    ).toBe(true);
+  });
+
+  it('reads no staged history when the engine reports none', async () => {
+    const { result } = await jobs();
+
+    expect(result.current.find((job) => job.id === 'cutover')?.stagedHistory).toBeNull();
   });
 
   it('lists a running pass recount as a running row', async () => {

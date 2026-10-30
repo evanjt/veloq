@@ -45,6 +45,12 @@ export interface CutoverSummary {
   isRunning: boolean;
   /** The stored diff's counts, or null while a run is in flight. */
   counts: CutoverCounts | null;
+  /**
+   * The cut is stored, but its counts wait for every track's elevation. The
+   * sections are already rebuilt and older activities join after, so surfaces
+   * say that rather than show a count over a partial library.
+   */
+  countsOwed: boolean;
   /** The settings the flip reset, read with the counts and withheld with them. */
   settingsReset: CutoverSettingsReset | null;
   /**
@@ -59,6 +65,7 @@ const IDLE: CutoverSummary = {
   phase: 'idle',
   isRunning: false,
   counts: null,
+  countsOwed: false,
   settingsReset: null,
   sawRun: false,
 };
@@ -81,7 +88,14 @@ function read(sawRun: boolean): CutoverSummary {
     if (!progress) return { ...IDLE, sawRun };
     const phase = narrowPhase(progress.phase);
     if (progress.running) {
-      return { phase, isRunning: true, counts: null, settingsReset: null, sawRun: true };
+      return {
+        phase,
+        isRunning: true,
+        counts: null,
+        countsOwed: false,
+        settingsReset: null,
+        sawRun: true,
+      };
     }
     // The phase stands on its own read, so a failed diff withholds the counts
     // rather than the phase.
@@ -95,6 +109,7 @@ function read(sawRun: boolean): CutoverSummary {
       phase,
       isRunning: false,
       counts: diff?.counts ?? null,
+      countsOwed: diff?.countsOwed ?? false,
       settingsReset: diff?.settingsReset ?? null,
       sawRun,
     };
@@ -134,6 +149,7 @@ function phaseOnly(
     phase,
     isRunning: progress.running,
     counts: progress.running ? null : previous.counts,
+    countsOwed: progress.running ? false : previous.countsOwed,
     settingsReset: progress.running ? null : previous.settingsReset,
     sawRun: previous.sawRun,
   };

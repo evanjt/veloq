@@ -31,6 +31,8 @@ export interface StatsRowProps {
   bestRecord: DirectionBestRecord | null;
   /** True when `bestRecord` is the direction's record, as the engine judges it. */
   bestIsRecord: boolean;
+  /** The engine timed the pass holding `bestRecord` by projection to a gate. */
+  bestEstimated?: boolean;
   pointCount: number;
   /** What the avg and best read as, the basis the chart plots on. */
   basis: AttemptBasis;
@@ -42,6 +44,7 @@ export function StatsRow({
   stats,
   bestRecord,
   bestIsRecord,
+  bestEstimated = false,
   pointCount,
   basis,
   isDark,
@@ -103,6 +106,14 @@ export function StatsRow({
             >
               {bestIsRecord ? bestValue : t('sections.bestValue', { value: bestValue })}
             </Text>
+            {bestEstimated ? (
+              <Text
+                testID={`stats-row-best-estimated-${direction}`}
+                style={[styles.estimated, isDark && styles.textSecondary]}
+              >
+                {t('sections.estimated')}
+              </Text>
+            ) : null}
           </View>
         ) : null}
       </View>
@@ -155,6 +166,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
+  },
+  estimated: {
+    ...typography.caption,
+    color: colors.textSecondary,
   },
   prTime: {
     ...typography.captionBold,

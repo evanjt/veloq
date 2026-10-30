@@ -41,7 +41,8 @@ pub use start::{FfiStartOutcome, FfiStartResult};
 pub(crate) use sync::credentials_held;
 pub use sync::{
     FfiCallKind, FfiCallOutcome, FfiSyncStatus, SYNC_SERVICE, SyncManager, SyncState,
-    current_session, current_transport, park_auth_expired, set_credentials_from_native,
+    clear_credentials_from_native, current_session, current_transport, park_auth_expired,
+    set_credentials_from_native,
 };
 pub(crate) use sync::{WELLNESS_REFRESH_DAYS, refresh_wellness};
 #[cfg(test)]

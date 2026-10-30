@@ -80,8 +80,20 @@ describe('the cutover diff delegate', () => {
       new: 2,
       gone: 0,
     });
+    expect(diff?.countsOwed).toBe(false);
     expect(diff?.token).toBe('detector-v2');
     expect(diff?.settingsReset?.previous.minActivities).toBe(3);
+  });
+
+  it('reads a diff stored without counts as counts still owed', () => {
+    const staged = record();
+    delete staged.counts;
+    mockDiff.mockReturnValue(staged);
+
+    const diff = getCutoverDiff(host(true));
+
+    expect(diff?.counts).toBeNull();
+    expect(diff?.countsOwed).toBe(true);
   });
 
   it('reads an absent reset as null, which is what the card checks', () => {

@@ -849,6 +849,7 @@
     "sectionsChangedTitle": "Vos sections ont été redécoupées",
     "sectionsChangedBody": "Nous avons amélioré la façon dont Veloq trouve les sections. {{total}} de vos anciennes sections ont été retirées. Celles que vous avez enregistrées, renommées ou épinglées sont conservées. Pour récupérer l'une des autres, rendez-vous dans Tronçons retirés.",
     "sectionsChangedBodyNone": "Nous avons amélioré la façon dont Veloq trouve les sections.",
+    "sectionsChangedBodyStaged": "Vos sections ont été recalculées. Celles que vous avez enregistrées, renommées ou épinglées sont conservées. Les activités plus anciennes s'ajoutent au fur et à mesure de leur téléchargement.",
     "sectionsChangedSee": "Les voir",
     "sectionsChangedDismiss": "Pas maintenant",
     "notificationsTitle": "Vous manquez les notifications personnalisées",
@@ -2098,7 +2099,11 @@
     "showExcludedAttempts_one": "Afficher {{count}} essai exclu",
     "showExcludedAttempts_other": "Afficher {{count}} essais exclus",
     "hideExcludedAttempts": "Masquer les essais exclus",
-    "methodFasterAtTop": "{{method}} Plus rapide en haut."
+    "methodFasterAtTop": "{{method}} Plus rapide en haut.",
+    "estimated": "Estimé",
+    "estimatedValue": "{{value}}, estimé",
+    "legendEstimated": "Temps estimé",
+    "methodEstimated": "{{method}} Un passage qui commence ou se termine à l'intérieur de la section, dans la tolérance de correspondance d'une porte, est chronométré jusqu'à cette porte à sa propre vitesse. Il est marqué estimé lorsque la projection atteint 10 m ou plus, et ne détient le record que si aucun passage dans son sens n'a été chronométré sur le terrain."
   },
   "settings": {
     "terrain3DMode": "3D : {{mode}}",
@@ -3036,6 +3041,7 @@
     "detectionWaiting_many": "{{count}} d'activités à examiner",
     "detectionWaiting_other": "{{count}} activités à examiner",
     "cutoverWaiting": "En attente de la reconstruction de tes sections",
+    "cutoverJoining": "Activités plus anciennes en cours d’ajout : {{done, number}} sur {{total, number}}",
     "passRecount": "Recomptage des passages",
     "statePaused": "En pause jusqu'à la prochaine ouverture de l'app",
     "stateWaiting": "En attente de reprise",

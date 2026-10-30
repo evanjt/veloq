@@ -98,6 +98,10 @@ function useDetail(job: BackgroundJob): string {
     ];
   };
 
+  if (job.stagedHistory && job.state !== 'running') {
+    return t('backgroundJobs.cutoverJoining', job.stagedHistory);
+  }
+
   if (job.state === 'running') {
     if (job.id === 'detection' && job.phase) {
       const phaseKey = getPhaseDisplayKey(job.phase);
@@ -258,7 +262,10 @@ export function BackgroundJobsActivityBar() {
   const [expanded, setExpanded] = useState(false);
   // A held download is owed work even when its count cannot be read.
   const owes = (job: BackgroundJob) =>
-    job.state === 'running' || job.state === 'waiting' || (job.remaining ?? 0) > 0;
+    job.state === 'running' ||
+    job.state === 'waiting' ||
+    job.stagedHistory !== null ||
+    (job.remaining ?? 0) > 0;
   const active = jobs.filter(owes);
   const listed = jobs.filter((job) => owes(job) || job.lastRun !== null);
 

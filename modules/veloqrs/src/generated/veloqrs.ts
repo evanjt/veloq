@@ -6261,6 +6261,55 @@ const FfiConverterTypeFfiDailyLimit = (() => {
 })();
 
 /**
+ * The library at a staged cut, as tracks with a decided elevation out of all
+ * the tracks the download can ask about.
+ */
+export type FfiStagedHistory = {
+  done: number;
+  total: number;
+};
+
+/**
+ * Generated factory for {@link FfiStagedHistory} record objects.
+ */
+export const FfiStagedHistory = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiStagedHistory, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiStagedHistory>,
+  });
+})();
+
+const FfiConverterTypeFfiStagedHistory = (() => {
+  type TypeName = FfiStagedHistory;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        done: FfiConverterUInt32.readFromCursor(c),
+        total: FfiConverterUInt32.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterUInt32.writeIntoCursor(value.done, c);
+      FfiConverterUInt32.writeIntoCursor(value.total, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt32.allocationSize(value.done) +
+        FfiConverterUInt32.allocationSize(value.total)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * What the background jobs have done and still owe, read once each time a job
  * settles or activities land. The running progress is not here: it moves on
  * every item and stays on the routes status poll.
@@ -6314,6 +6363,12 @@ export type FfiBackgroundJobsData = {
    * Whether the one-time pass recount is running on its own thread now.
    */
   passRecountRunning: boolean;
+  /**
+   * How much of the library at the staged cut has its elevation decided,
+   * while older activities are still joining. `None` once the counts are
+   * written, and for a library that never staged.
+   */
+  stagedHistory?: FfiStagedHistory;
 };
 
 /**
@@ -6349,6 +6404,8 @@ const FfiConverterTypeFfiBackgroundJobsData = (() => {
         downloadsHeldByUpstream: FfiConverterBool.readFromCursor(c),
         dailyLimit: FfiConverterOptionalTypeFfiDailyLimit.readFromCursor(c),
         passRecountRunning: FfiConverterBool.readFromCursor(c),
+        stagedHistory:
+          FfiConverterOptionalTypeFfiStagedHistory.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -6371,6 +6428,10 @@ const FfiConverterTypeFfiBackgroundJobsData = (() => {
         c,
       );
       FfiConverterBool.writeIntoCursor(value.passRecountRunning, c);
+      FfiConverterOptionalTypeFfiStagedHistory.writeIntoCursor(
+        value.stagedHistory,
+        c,
+      );
     }
     allocationSize(value: TypeName): number {
       return (
@@ -6383,7 +6444,10 @@ const FfiConverterTypeFfiBackgroundJobsData = (() => {
         FfiConverterOptionalFloat64.allocationSize(value.downloadsHeldUntilMs) +
         FfiConverterBool.allocationSize(value.downloadsHeldByUpstream) +
         FfiConverterOptionalTypeFfiDailyLimit.allocationSize(value.dailyLimit) +
-        FfiConverterBool.allocationSize(value.passRecountRunning)
+        FfiConverterBool.allocationSize(value.passRecountRunning) +
+        FfiConverterOptionalTypeFfiStagedHistory.allocationSize(
+          value.stagedHistory,
+        )
       );
     }
   }
@@ -8323,7 +8387,11 @@ const FfiConverterTypeFfiCutoverSettingsReset = (() => {
  */
 export type FfiCutoverDiff = {
   token: string;
-  counts: FfiCatalogueCounts;
+  /**
+   * None while elevation is owed: a promotion over a partial library stores
+   * the diff now and its counts once the library is whole.
+   */
+  counts?: FfiCatalogueCounts;
   /**
    * Dropped alone when it is half readable, never taking the diff with it.
    */
@@ -8353,14 +8421,17 @@ const FfiConverterTypeFfiCutoverDiff = (() => {
     readFromCursor(c: Cursor): TypeName {
       return {
         token: FfiConverterString.readFromCursor(c),
-        counts: FfiConverterTypeFfiCatalogueCounts.readFromCursor(c),
+        counts: FfiConverterOptionalTypeFfiCatalogueCounts.readFromCursor(c),
         settingsReset:
           FfiConverterOptionalTypeFfiCutoverSettingsReset.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
       FfiConverterString.writeIntoCursor(value.token, c);
-      FfiConverterTypeFfiCatalogueCounts.writeIntoCursor(value.counts, c);
+      FfiConverterOptionalTypeFfiCatalogueCounts.writeIntoCursor(
+        value.counts,
+        c,
+      );
       FfiConverterOptionalTypeFfiCutoverSettingsReset.writeIntoCursor(
         value.settingsReset,
         c,
@@ -8369,7 +8440,9 @@ const FfiConverterTypeFfiCutoverDiff = (() => {
     allocationSize(value: TypeName): number {
       return (
         FfiConverterString.allocationSize(value.token) +
-        FfiConverterTypeFfiCatalogueCounts.allocationSize(value.counts) +
+        FfiConverterOptionalTypeFfiCatalogueCounts.allocationSize(
+          value.counts,
+        ) +
         FfiConverterOptionalTypeFfiCutoverSettingsReset.allocationSize(
           value.settingsReset,
         )
@@ -20988,6 +21061,12 @@ export type FfiSectionChartPoint = {
    * `record_gap_secs` is: positive is slower. `None` where it is.
    */
   recordGapSpeed?: number;
+  /**
+   * The lap's time was projected to a gate over ground the recording did
+   * not cover. Charted and ranked, and the record only when no lap in its
+   * direction was timed on the ground.
+   */
+  estimated: boolean;
 };
 
 /**
@@ -21028,6 +21107,7 @@ const FfiConverterTypeFfiSectionChartPoint = (() => {
         offScale: FfiConverterTypeFfiOffScale.readFromCursor(c),
         recordGapSecs: FfiConverterOptionalFloat64.readFromCursor(c),
         recordGapSpeed: FfiConverterOptionalFloat64.readFromCursor(c),
+        estimated: FfiConverterBool.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -21046,6 +21126,7 @@ const FfiConverterTypeFfiSectionChartPoint = (() => {
       FfiConverterTypeFfiOffScale.writeIntoCursor(value.offScale, c);
       FfiConverterOptionalFloat64.writeIntoCursor(value.recordGapSecs, c);
       FfiConverterOptionalFloat64.writeIntoCursor(value.recordGapSpeed, c);
+      FfiConverterBool.writeIntoCursor(value.estimated, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -21063,7 +21144,8 @@ const FfiConverterTypeFfiSectionChartPoint = (() => {
         FfiConverterOptionalFloat64.allocationSize(value.matchPercentage) +
         FfiConverterTypeFfiOffScale.allocationSize(value.offScale) +
         FfiConverterOptionalFloat64.allocationSize(value.recordGapSecs) +
-        FfiConverterOptionalFloat64.allocationSize(value.recordGapSpeed)
+        FfiConverterOptionalFloat64.allocationSize(value.recordGapSpeed) +
+        FfiConverterBool.allocationSize(value.estimated)
       );
     }
   }
@@ -21084,6 +21166,11 @@ export type FfiSectionChartData = {
    * The quickest lap in the section's own direction.
    */
   bestTimeSecs?: number;
+  /**
+   * `best_time_secs` is an estimate: no lap in the direction it was read
+   * from was timed on the ground.
+   */
+  bestTimeEstimated: boolean;
   /**
    * The oldest point's date, unix seconds.
    */
@@ -21119,6 +21206,7 @@ const FfiConverterTypeFfiSectionChartData = (() => {
         maxSpeed: FfiConverterFloat64.readFromCursor(c),
         hasReverseRuns: FfiConverterBool.readFromCursor(c),
         bestTimeSecs: FfiConverterOptionalFloat64.readFromCursor(c),
+        bestTimeEstimated: FfiConverterBool.readFromCursor(c),
         firstActivityDate: FfiConverterOptionalFloat64.readFromCursor(c),
         lastActivityDate: FfiConverterOptionalFloat64.readFromCursor(c),
         totalActivities: FfiConverterUInt32.readFromCursor(c),
@@ -21133,6 +21221,7 @@ const FfiConverterTypeFfiSectionChartData = (() => {
       FfiConverterFloat64.writeIntoCursor(value.maxSpeed, c);
       FfiConverterBool.writeIntoCursor(value.hasReverseRuns, c);
       FfiConverterOptionalFloat64.writeIntoCursor(value.bestTimeSecs, c);
+      FfiConverterBool.writeIntoCursor(value.bestTimeEstimated, c);
       FfiConverterOptionalFloat64.writeIntoCursor(value.firstActivityDate, c);
       FfiConverterOptionalFloat64.writeIntoCursor(value.lastActivityDate, c);
       FfiConverterUInt32.writeIntoCursor(value.totalActivities, c);
@@ -21146,6 +21235,7 @@ const FfiConverterTypeFfiSectionChartData = (() => {
         FfiConverterFloat64.allocationSize(value.maxSpeed) +
         FfiConverterBool.allocationSize(value.hasReverseRuns) +
         FfiConverterOptionalFloat64.allocationSize(value.bestTimeSecs) +
+        FfiConverterBool.allocationSize(value.bestTimeEstimated) +
         FfiConverterOptionalFloat64.allocationSize(value.firstActivityDate) +
         FfiConverterOptionalFloat64.allocationSize(value.lastActivityDate) +
         FfiConverterUInt32.allocationSize(value.totalActivities)
@@ -22298,6 +22388,12 @@ export type FfiSectionLap = {
    * section read, false everywhere else.
    */
   isRecord: boolean;
+  /**
+   * The lap's time was projected to a gate over ground the recording did
+   * not cover, far enough that it is an estimate. It is charted and ranked,
+   * and never the record while a lap timed on the ground stands.
+   */
+  estimated: boolean;
 };
 
 /**
@@ -22337,6 +22433,7 @@ const FfiConverterTypeFfiSectionLap = (() => {
         outsideDistanceBand: FfiConverterBool.readFromCursor(c),
         matchPercentage: FfiConverterOptionalFloat64.readFromCursor(c),
         isRecord: FfiConverterBool.readFromCursor(c),
+        estimated: FfiConverterBool.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -22355,6 +22452,7 @@ const FfiConverterTypeFfiSectionLap = (() => {
       FfiConverterBool.writeIntoCursor(value.outsideDistanceBand, c);
       FfiConverterOptionalFloat64.writeIntoCursor(value.matchPercentage, c);
       FfiConverterBool.writeIntoCursor(value.isRecord, c);
+      FfiConverterBool.writeIntoCursor(value.estimated, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -22372,7 +22470,8 @@ const FfiConverterTypeFfiSectionLap = (() => {
         FfiConverterBool.allocationSize(value.excluded) +
         FfiConverterBool.allocationSize(value.outsideDistanceBand) +
         FfiConverterOptionalFloat64.allocationSize(value.matchPercentage) +
-        FfiConverterBool.allocationSize(value.isRecord)
+        FfiConverterBool.allocationSize(value.isRecord) +
+        FfiConverterBool.allocationSize(value.estimated)
       );
     }
   }
@@ -22623,6 +22722,11 @@ export type FfiSectionPerformanceRecord = {
    */
   bestReverseTime?: number;
   /**
+   * `best_time` is an estimate: every eligible lap of the direction it was
+   * taken from was projected to a gate.
+   */
+  bestEstimated: boolean;
+  /**
    * Average lap time in seconds
    */
   avgTime: number;
@@ -22673,6 +22777,7 @@ const FfiConverterTypeFfiSectionPerformanceRecord = (() => {
         bestPace: FfiConverterFloat64.readFromCursor(c),
         bestForwardTime: FfiConverterOptionalFloat64.readFromCursor(c),
         bestReverseTime: FfiConverterOptionalFloat64.readFromCursor(c),
+        bestEstimated: FfiConverterBool.readFromCursor(c),
         avgTime: FfiConverterFloat64.readFromCursor(c),
         avgPace: FfiConverterFloat64.readFromCursor(c),
         direction: FfiConverterString.readFromCursor(c),
@@ -22689,6 +22794,7 @@ const FfiConverterTypeFfiSectionPerformanceRecord = (() => {
       FfiConverterFloat64.writeIntoCursor(value.bestPace, c);
       FfiConverterOptionalFloat64.writeIntoCursor(value.bestForwardTime, c);
       FfiConverterOptionalFloat64.writeIntoCursor(value.bestReverseTime, c);
+      FfiConverterBool.writeIntoCursor(value.bestEstimated, c);
       FfiConverterFloat64.writeIntoCursor(value.avgTime, c);
       FfiConverterFloat64.writeIntoCursor(value.avgPace, c);
       FfiConverterString.writeIntoCursor(value.direction, c);
@@ -22705,6 +22811,7 @@ const FfiConverterTypeFfiSectionPerformanceRecord = (() => {
         FfiConverterFloat64.allocationSize(value.bestPace) +
         FfiConverterOptionalFloat64.allocationSize(value.bestForwardTime) +
         FfiConverterOptionalFloat64.allocationSize(value.bestReverseTime) +
+        FfiConverterBool.allocationSize(value.bestEstimated) +
         FfiConverterFloat64.allocationSize(value.avgTime) +
         FfiConverterFloat64.allocationSize(value.avgPace) +
         FfiConverterString.allocationSize(value.direction) +
@@ -41247,6 +41354,11 @@ const FfiConverterOptionalTypeFfiDailyLimit = new FfiConverterOptional(
   FfiConverterTypeFfiDailyLimit,
 );
 
+// FfiConverter for FfiStagedHistory | undefined
+const FfiConverterOptionalTypeFfiStagedHistory = new FfiConverterOptional(
+  FfiConverterTypeFfiStagedHistory,
+);
+
 // FfiConverter for SuggestedHome | undefined
 const FfiConverterOptionalTypeSuggestedHome = new FfiConverterOptional(
   FfiConverterTypeSuggestedHome,
@@ -41294,6 +41406,11 @@ const FfiConverterSequenceTypeFfiCalendarMonthSummary = new FfiConverterArray(
 // FfiConverter for Array<FfiCalendarYearSummary>
 const FfiConverterSequenceTypeFfiCalendarYearSummary = new FfiConverterArray(
   FfiConverterTypeFfiCalendarYearSummary,
+);
+
+// FfiConverter for FfiCatalogueCounts | undefined
+const FfiConverterOptionalTypeFfiCatalogueCounts = new FfiConverterOptional(
+  FfiConverterTypeFfiCatalogueCounts,
 );
 
 // FfiConverter for FfiCutoverSettingsReset | undefined
@@ -44946,6 +45063,7 @@ export default Object.freeze({
     FfiConverterTypeFfiSportFamily,
     FfiConverterTypeFfiSportLoad,
     FfiConverterTypeFfiSportMix,
+    FfiConverterTypeFfiStagedHistory,
     FfiConverterTypeFfiStalePrOpportunity,
     FfiConverterTypeFfiStartOutcome,
     FfiConverterTypeFfiStartResult,

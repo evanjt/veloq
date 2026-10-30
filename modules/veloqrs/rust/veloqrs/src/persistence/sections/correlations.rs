@@ -150,6 +150,7 @@ mod tests {
             outside_distance_band: false,
             match_percentage: None,
             is_record: false,
+            estimated: false,
         }
     }
 
@@ -163,6 +164,7 @@ mod tests {
             best_pace: 0.0,
             best_forward_time: None,
             best_reverse_time: None,
+            best_estimated: false,
             avg_time: 0.0,
             avg_pace: 0.0,
             direction: "same".into(),

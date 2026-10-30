@@ -128,6 +128,7 @@ const chartPoints: FfiSectionChartPoint[] = attempts.map((a) => ({
   isBest: a.id === best.id,
   outsideDistanceBand: false,
   offScale: FfiOffScale.None,
+  estimated: false,
 }));
 
 function calendarOf(): FfiCalendarSummary {
@@ -192,6 +193,7 @@ const demoRead: FfiSectionPerformanceData = {
     minSpeed: Math.min(...chartPoints.map((p) => p.speed)),
     maxSpeed: Math.max(...chartPoints.map((p) => p.speed)),
     hasReverseRuns: false,
+    bestTimeEstimated: false,
     bestTimeSecs: best.time,
     firstActivityDate: attempts[0].date,
     lastActivityDate: attempts[attempts.length - 1].date,
@@ -293,6 +295,7 @@ const lap = (n: number) => ({
   excluded: false,
   outsideDistanceBand: false,
   isRecord: false,
+  estimated: false,
 });
 const sectionRead: FfiSectionPerformanceData = {
   ...demoRead,
@@ -305,6 +308,7 @@ const sectionRead: FfiSectionPerformanceData = {
       lapCount: 2,
       bestTime: twice.time,
       bestPace: twice.distance / twice.time,
+      bestEstimated: false,
       avgTime: twice.time,
       avgPace: twice.distance / twice.time,
       direction: 'same',

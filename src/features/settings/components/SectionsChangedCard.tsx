@@ -3,10 +3,12 @@
  *
  * It asks once a cutover has settled and stored its summary, or when a record
  * restore archived sections, and the athlete has not answered it. A cutover that
- * is running, or that failed, has no summary to give. The summary line is the
+ * is running, or that failed, has no summary to give. A cut stored before
+ * elevation was decided has no counts yet, so the card says the rebuild happened
+ * and that older activities join as they download. The summary line is the
  * stored diff; See them opens the retired screen and shows only when sections
- * were retired. Not now is remembered across launches. Whether it shows is the
- * session's one ask.
+ * were retired and the counts are final. Not now is remembered across launches.
+ * Whether it shows is the session's one ask.
  */
 import React, { useCallback } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -33,11 +35,12 @@ export function SectionsChangedCard() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const total = useArchivedRetiredCount();
-  const { isRunning, phase, counts } = useCutoverSummary();
+  const { isRunning, phase, counts, countsOwed } = useCutoverSummary();
   const failed = phase in CUTOVER_FAILURE_KEYS;
   const dismissed = useWhatsNewStore((s) => s.sectionsChangedDismissed);
   const dismiss = useWhatsNewStore((s) => s.dismissSectionsChanged);
-  const eligible = (total > 0 || counts !== null) && !isRunning && !failed && !dismissed;
+  const eligible =
+    (total > 0 || counts !== null || countsOwed) && !isRunning && !failed && !dismissed;
   const holdsAsk = useSessionAsk('sectionsChanged', eligible);
 
   const open = useCallback(() => {
@@ -64,7 +67,11 @@ export function SectionsChangedCard() {
           testID="sections-changed-body"
           style={[styles.description, isDark && styles.descriptionDark]}
         >
-          {total > 0 ? t('feed.sectionsChangedBody', { total }) : t('feed.sectionsChangedBodyNone')}
+          {countsOwed
+            ? t('feed.sectionsChangedBodyStaged')
+            : total > 0
+              ? t('feed.sectionsChangedBody', { total })
+              : t('feed.sectionsChangedBodyNone')}
         </Text>
         {counts !== null && (
           <Text
@@ -85,7 +92,7 @@ export function SectionsChangedCard() {
             size="sm"
             onPress={dismiss}
           />
-          {total > 0 && (
+          {total > 0 && !countsOwed && (
             <Button
               testID="sections-changed-see"
               label={t('feed.sectionsChangedSee')}

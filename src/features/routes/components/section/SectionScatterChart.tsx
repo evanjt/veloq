@@ -54,6 +54,7 @@ import {
 } from '@/features/routes/lib/scatterData';
 import {
   TAP_REACH_PX,
+  bestIsEstimated,
   clampToRange,
   placeRecordStaircase,
   scatterMarkFor,
@@ -524,6 +525,7 @@ export function SectionScatterChart({
           stats={forwardStats}
           bestRecord={bestForwardRecord}
           bestIsRecord={bestForwardIsRecord}
+          bestEstimated={bestIsEstimated(forwardPoints, bestForwardRecord)}
           pointCount={forwardPoints.length}
           basis={basis}
           isDark={isDark}
@@ -535,6 +537,7 @@ export function SectionScatterChart({
           stats={reverseStats}
           bestRecord={bestReverseRecord}
           bestIsRecord={bestReverseIsRecord}
+          bestEstimated={bestIsEstimated(reversePoints, bestReverseRecord)}
           pointCount={reversePoints.length}
           basis={basis}
           isDark={isDark}
@@ -544,7 +547,7 @@ export function SectionScatterChart({
   );
 }
 
-/** The dot, dimmed dot, hollow ring or edge triangle one point is drawn as. */
+/** The dot, dimmed dot, hollow ring (outside the band, or an estimated time) or edge triangle one point is drawn as. */
 function PointMark({
   mark,
   x,
@@ -562,6 +565,7 @@ function PointMark({
     case 'excluded':
       return <ChartDot x={x} y={y} color={mutedColour} opacity={opacity.dim} />;
     case 'outsideBand':
+    case 'estimated':
       return <HollowDot x={x} y={y} color={colour} />;
     case 'offScaleTop':
       return <EdgeTriangleMark x={x} y={y} color={colour} pointing="up" />;

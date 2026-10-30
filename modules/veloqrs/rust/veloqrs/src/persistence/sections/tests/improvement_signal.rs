@@ -78,6 +78,7 @@ fn the_ranked_section_carries_the_change_and_its_basis() {
                 activity_date: 1_700_000_000 + i as i64 * 86_400,
                 direction: "same".to_string(),
                 activity_id: format!("{id}-{i}"),
+                estimated: false,
             })
             .collect()
     };

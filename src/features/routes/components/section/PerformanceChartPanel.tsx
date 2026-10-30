@@ -358,6 +358,7 @@ export function PerformanceChartPanel({
             showRecord={!!recordsSettled && shown.some((d) => d.isBest === true && !d.isExcluded)}
             showThisActivity={shown.some((d) => d.activityId === highlightedActivityId)}
             showOutsideBand={shown.some((d) => d.outsideDistanceBand === true)}
+            showEstimated={shown.some((d) => d.estimated === true && !d.isExcluded)}
           />
         </>
       )}

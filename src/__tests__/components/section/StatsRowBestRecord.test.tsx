@@ -48,6 +48,29 @@ describe('StatsRow best', () => {
     expect(getByTestId('stats-row-best-forward').props.children).toBe('4:00 best');
   });
 
+  it('marks a best timed by projection as estimated, record or not', async () => {
+    for (const bestIsRecord of [true, false]) {
+      const { getByTestId } = await render(
+        <StatsRow
+          direction="forward"
+          stats={null}
+          bestRecord={bestRecord}
+          bestIsRecord={bestIsRecord}
+          bestEstimated
+          pointCount={2}
+          basis="speed"
+          isDark={false}
+        />
+      );
+      expect(getByTestId('stats-row-best-estimated-forward')).toBeTruthy();
+    }
+  });
+
+  it('leaves a gate-timed best unmarked', async () => {
+    const { queryByTestId } = await row(true);
+    expect(queryByTestId('stats-row-best-estimated-forward')).toBeNull();
+  });
+
   it('shows the counted attempts and the omitted distance-band attempts', async () => {
     const { getByTestId } = await render(
       <StatsRow

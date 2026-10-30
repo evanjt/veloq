@@ -25,6 +25,7 @@ fn record(date: i64, distance: f64, time: f64, direction: &str) -> SectionPerfor
         outside_distance_band: false,
         match_percentage: None,
         is_record: false,
+        estimated: false,
     };
     SectionPerformanceRecord {
         activity_id: format!("act_{date}"),
@@ -36,6 +37,7 @@ fn record(date: i64, distance: f64, time: f64, direction: &str) -> SectionPerfor
         best_pace: distance / time,
         best_forward_time: Some(time),
         best_reverse_time: None,
+        best_estimated: false,
         avg_time: time,
         avg_pace: distance / time,
         direction: direction.to_string(),

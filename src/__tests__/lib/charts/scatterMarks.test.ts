@@ -9,6 +9,7 @@ import {
   clampToRange,
   placeRecordStaircase,
   scatterMarkFor,
+  bestIsEstimated,
   scatterRange,
   scatterStanding,
 } from '@/features/routes/lib/scatterMarks';
@@ -204,5 +205,39 @@ describe('nearestScatterPointIndex within reach', () => {
   it('reaches a point past the domain at the edge it is drawn on', () => {
     const past = [{ x: 0.5, y: 40 }];
     expect(nearestScatterPointIndex(past, { x: 0.5, y: 0.02 }, [0, 10], box)).toBe(0);
+  });
+});
+
+describe('estimated times', () => {
+  it('draws an estimated section pass as the hollow variant of the dot', () => {
+    expect(scatterMarkFor(attempt({ estimated: true }), CTX).kind).toBe('estimated');
+    expect(scatterMarkFor(attempt({ estimated: false }), CTX).kind).toBe('dot');
+    expect(scatterMarkFor(attempt({}), CTX).kind).toBe('dot');
+  });
+
+  it('keeps an estimated record holder hollow and ringed', () => {
+    const mark = scatterMarkFor(attempt({ estimated: true, isBest: true }), CTX);
+    expect(mark).toMatchObject({ kind: 'estimated', record: true });
+  });
+
+  it('lets an excluded or off-scale estimated pass take the mark of that state', () => {
+    expect(scatterMarkFor(attempt({ estimated: true, isExcluded: true }), CTX).kind).toBe(
+      'excluded'
+    );
+    expect(scatterMarkFor(attempt({ estimated: true, offScale: 'fast' }), CTX).kind).toBe(
+      'offScaleTop'
+    );
+  });
+
+  it('reads the direction best as estimated from the pass that holds its time', () => {
+    const points = [
+      attempt({ id: 'a', sectionTime: 100, estimated: true }),
+      attempt({ id: 'b', sectionTime: 110 }),
+      attempt({ id: 'c', sectionTime: 100, isExcluded: true }),
+    ];
+    expect(bestIsEstimated(points, { bestTime: 100 })).toBe(true);
+    expect(bestIsEstimated(points, { bestTime: 110 })).toBe(false);
+    expect(bestIsEstimated(points, { bestTime: 90 })).toBe(false);
+    expect(bestIsEstimated(points, null)).toBe(false);
   });
 });

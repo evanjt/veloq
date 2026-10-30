@@ -114,6 +114,12 @@ fn split_piece_progress(parent: &[GpsPoint], piece: &[GpsPoint]) -> Option<f64> 
 /// `identity_state.key` for the section registry blob.
 pub(crate) const SECTION_IDENTITY_KEY: &str = "section_identity";
 
+/// The registry as the detector cutover left it, kept while the library is
+/// still owed elevation. The drain's final re-cut starts from it, so ordinary
+/// detects that folded part of the library in between leave no mark on the
+/// catalogue it ends on.
+pub(crate) const SECTION_IDENTITY_CUTOVER_KEY: &str = "section_identity_cutover";
+
 /// What the detector recorded about one cut: the activities its forks
 /// collected, and each record's reason as the detector wrote it.
 #[derive(Default)]
@@ -989,11 +995,15 @@ impl PersistentEngine {
     /// tombstone state is back, so a pending dissolve resumes its streak and a
     /// tombstoned ground still re-emerges under its old id.
     pub(crate) fn section_identity_restore(&mut self) -> bool {
+        self.section_identity_restore_key(SECTION_IDENTITY_KEY)
+    }
+
+    fn section_identity_restore_key(&mut self, key: &str) -> bool {
         let bytes: Option<Vec<u8>> = self
             .db
             .query_row(
                 "SELECT blob FROM identity_state WHERE key = ?",
-                rusqlite::params![SECTION_IDENTITY_KEY],
+                rusqlite::params![key],
                 |row| row.get(0),
             )
             .ok();
@@ -1013,9 +1023,7 @@ impl PersistentEngine {
                 true
             }
             Err(e) => {
-                log::error!(
-                    "identity_state {SECTION_IDENTITY_KEY}: blob decode failed, reseeding: {e}"
-                );
+                log::error!("identity_state {key}: blob decode failed, reseeding: {e}");
                 false
             }
         }
@@ -1043,6 +1051,60 @@ impl PersistentEngine {
         ) {
             log::warn!("veloqrs: [section_identity_persist] {e}");
         }
+    }
+
+    /// Keep the registry as it stands for the drain's final re-cut.
+    pub(crate) fn section_identity_keep_for_final_cut(&self) {
+        if let Err(e) = self.db.execute(
+            "INSERT OR REPLACE INTO identity_state (key, blob, updated_at)
+             SELECT ?1, blob, datetime('now') FROM identity_state WHERE key = ?2",
+            rusqlite::params![SECTION_IDENTITY_CUTOVER_KEY, SECTION_IDENTITY_KEY],
+        ) {
+            log::warn!("veloqrs: [section_identity_keep_for_final_cut] {e}");
+        }
+    }
+
+    /// Forget the kept registry once the final catalogue is settled.
+    pub(crate) fn section_identity_release_final_cut(&self) {
+        if let Err(e) = self.db.execute(
+            "DELETE FROM identity_state WHERE key = ?",
+            rusqlite::params![SECTION_IDENTITY_CUTOVER_KEY],
+        ) {
+            log::warn!("veloqrs: [section_identity_release_final_cut] {e}");
+        }
+    }
+
+    /// Put the kept registry back in force, so the final re-cut carries ids
+    /// from the cutover's catalogue and not from whatever ordinary detects
+    /// minted since. False when none is kept, and the live registry stands.
+    ///
+    /// What the live registry held beyond the kept one is not discarded: it
+    /// becomes graves, so ground that re-emerges in the cut returns under the
+    /// id it already had.
+    pub(crate) fn section_identity_restore_for_final_cut(&mut self) -> bool {
+        let live = self.identity.clone();
+        if !self.section_identity_restore_key(SECTION_IDENTITY_CUTOVER_KEY) {
+            self.identity = live;
+            return false;
+        }
+        let kept = self
+            .identity
+            .hysteresis
+            .retain_unheld_from(&live.hysteresis);
+        for pid in kept {
+            let grave = live
+                .rows
+                .get(&pid)
+                .cloned()
+                .map(GraveRow::from)
+                .or_else(|| live.graves.get(&pid).cloned());
+            if let Some(grave) = grave {
+                self.identity.graves.insert(pid, grave);
+            }
+        }
+        self.identity.mint_seq = self.identity.mint_seq.max(live.mint_seq);
+        self.section_identity_persist();
+        true
     }
 
     /// Ids of the sections the user has pinned. A pin is durable intent that the

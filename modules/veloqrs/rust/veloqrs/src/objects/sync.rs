@@ -1906,6 +1906,15 @@ impl Drop for TestCredentials {
     }
 }
 
+/// Take the process-wide credential away again, the counterpart of
+/// [`set_credentials_from_native`] for a caller that reached Rust without
+/// `SyncManager`. A held credential narrows the detection pool to the tracks
+/// that already carry elevation, so one left behind starves whatever detects
+/// next.
+pub fn clear_credentials_from_native() {
+    SYNC_SERVICE.clear_credentials();
+}
+
 /// Set the process-wide credential from a native handler, which reached Rust
 /// without JavaScript and so without `SyncManager`.
 ///

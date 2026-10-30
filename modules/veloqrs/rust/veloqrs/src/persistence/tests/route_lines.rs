@@ -247,6 +247,7 @@ fn a_library_upgraded_with_stored_groups_reads_its_lines_after_the_load() {
                  ALTER TABLE gps_tracks DROP COLUMN elevation_settled_version;
                  ALTER TABLE activity_stream_backfill DROP COLUMN withheld;
                  ALTER TABLE activity_stream_backfill DROP COLUMN settled_version;
+                 ALTER TABLE section_activities DROP COLUMN projected_m;
                  DROP TRIGGER section_list_counts_ai;
                  DROP TRIGGER section_list_counts_ad;
                  DROP TRIGGER section_list_counts_au;

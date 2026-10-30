@@ -27,6 +27,7 @@ fn lap(activity: &str, start: u32, time: f64, coverage: f64) -> crate::SectionLa
         outside_distance_band: false,
         match_percentage: None,
         is_record: false,
+        estimated: false,
     }
 }
 
@@ -46,6 +47,7 @@ fn outing(
         best_pace: first.pace,
         best_forward_time: Some(first.time),
         best_reverse_time: None,
+        best_estimated: false,
         avg_time: first.time,
         avg_pace: first.pace,
         direction: "same".to_string(),

@@ -830,6 +830,7 @@
     "sectionsChangedTitle": "Je secties zijn opnieuw bepaald",
     "sectionsChangedBody": "We hebben verbeterd hoe Veloq secties vindt. {{total}} van je oude secties zijn vervallen. Wat je hebt bewaard, hernoemd of vastgezet blijft behouden. Wil je een van de andere terug, dan vind je ze onder Vervallen stukken.",
     "sectionsChangedBodyNone": "We hebben verbeterd hoe Veloq secties vindt.",
+    "sectionsChangedBodyStaged": "Je secties zijn opnieuw opgebouwd. Wat je hebt bewaard, hernoemd of vastgezet blijft behouden. Oudere activiteiten komen erbij naarmate ze worden gedownload.",
     "sectionsChangedSee": "Bekijken",
     "sectionsChangedDismiss": "Niet nu",
     "notificationsTitle": "Je mist persoonlijke meldingen",
@@ -2049,7 +2050,11 @@
     "showExcludedAttempts_one": "{{count}} uitgesloten poging tonen",
     "showExcludedAttempts_other": "{{count}} uitgesloten pogingen tonen",
     "hideExcludedAttempts": "Uitgesloten pogingen verbergen",
-    "methodFasterAtTop": "{{method}} Sneller staat bovenaan."
+    "methodFasterAtTop": "{{method}} Sneller staat bovenaan.",
+    "estimated": "Geschat",
+    "estimatedValue": "{{value}}, geschat",
+    "legendEstimated": "Geschatte tijd",
+    "methodEstimated": "{{method}} Een doorgang die binnen de sectie begint of eindigt, binnen de matchtolerantie van een poort, wordt met zijn eigen snelheid tot die poort getimed. Hij wordt als geschat gemarkeerd bij een projectie van 10 m of meer en houdt het record alleen als geen doorgang in die richting op het traject zelf is getimed."
   },
   "settings": {
     "terrain3DMode": "3D-terrein: {{mode}}",
@@ -2954,6 +2959,7 @@
     "detectionWaiting_one": "{{count}} activiteit te controleren",
     "detectionWaiting_other": "{{count}} activiteiten te controleren",
     "cutoverWaiting": "Wacht op het opnieuw opbouwen van je secties",
+    "cutoverJoining": "Oudere activiteiten worden toegevoegd: {{done, number}} van {{total, number}}",
     "passRecount": "Doorkomsten opnieuw tellen",
     "statePaused": "Gepauzeerd tot de app opnieuw wordt geopend",
     "stateWaiting": "Wacht om verder te gaan",

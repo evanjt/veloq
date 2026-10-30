@@ -152,6 +152,7 @@ describe('useCutoverSummary', () => {
       phase: 'idle',
       isRunning: false,
       counts: null,
+      countsOwed: false,
       settingsReset: null,
       sawRun: false,
     });
@@ -249,6 +250,35 @@ describe('useCutoverSummary', () => {
     expect(result.current.settingsReset).toBeNull();
   });
 
+  it('reads a staged diff, carrying no counts, as counts still owed', async () => {
+    const { result } = await mount(
+      engine(
+        () => ({ phase: 'complete', running: false }),
+        () => ({ counts: null, countsOwed: true, settingsReset: null }) as unknown as Diff
+      )
+    );
+    expect(result.current.counts).toBeNull();
+    expect(result.current.countsOwed).toBe(true);
+  });
+
+  it('owes no counts once they are stored, and none when no diff is', async () => {
+    const stored = await mount(
+      engine(
+        () => ({ phase: 'complete', running: false }),
+        () => ({ counts: counts({ current: 4, proposed: 4 }), settingsReset: null })
+      )
+    );
+    expect(stored.result.current.countsOwed).toBe(false);
+
+    const none = await mount(
+      engine(
+        () => ({ phase: 'idle', running: false }),
+        () => null
+      )
+    );
+    expect(none.result.current.countsOwed).toBe(false);
+  });
+
   it('treats an unknown phase as idle', async () => {
     const { result } = await mount(
       engine(
@@ -281,6 +311,7 @@ describe('useCutoverSummary', () => {
       phase: 'idle',
       isRunning: false,
       counts: null,
+      countsOwed: false,
       settingsReset: null,
       sawRun: false,
     });

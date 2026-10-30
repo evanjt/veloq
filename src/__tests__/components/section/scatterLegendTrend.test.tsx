@@ -30,3 +30,22 @@ it('omits the trend explanation when no curve is drawn', async () => {
 
   expect(tree.queryByText('sections.legendTrend')).toBeNull();
 });
+
+it('names the hollow mark as an estimated time only when the plot draws one', async () => {
+  const drawn = await render(
+    <ScatterLegend
+      isDark={false}
+      direction="forward"
+      showRecord={false}
+      showThisActivity={false}
+      showEstimated
+    />
+  );
+  expect(drawn.getByTestId('scatter-legend-estimated')).toBeTruthy();
+  expect(drawn.getByText('sections.legendEstimated')).toBeTruthy();
+
+  const absent = await render(
+    <ScatterLegend isDark={false} direction="forward" showRecord={false} showThisActivity={false} />
+  );
+  expect(absent.queryByTestId('scatter-legend-estimated')).toBeNull();
+});

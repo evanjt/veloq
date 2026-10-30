@@ -2200,11 +2200,21 @@ impl PersistentEngine {
 
         // Get section_activities entries for source
         // section id, direction, start, end, distance, lap time, lap pace
-        type EntryRow = (String, String, i32, i32, f64, Option<f64>, Option<f64>);
+        type EntryRow = (
+            String,
+            String,
+            i32,
+            i32,
+            f64,
+            Option<f64>,
+            Option<f64>,
+            Option<f64>,
+        );
         let section_entries: Vec<EntryRow> = self
             .db
             .prepare(
-                "SELECT section_id, direction, start_index, end_index, distance_meters, lap_time, lap_pace
+                "SELECT section_id, direction, start_index, end_index, distance_meters, lap_time, lap_pace,
+                        projected_m
                  FROM section_activities WHERE activity_id = ?",
             )
             .and_then(|mut stmt| {
@@ -2217,6 +2227,7 @@ impl PersistentEngine {
                         row.get::<_, f64>(4)?,
                         row.get::<_, Option<f64>>(5)?,
                         row.get::<_, Option<f64>>(6)?,
+                        row.get::<_, Option<f64>>(7)?,
                     ))
                 })
                 .map(|rows| rows.filter_map(|r| r.ok()).collect())
@@ -2270,13 +2281,22 @@ impl PersistentEngine {
             }
 
             // Copy section_activities entries including cached performance
-            for (section_id, direction, start_idx, end_idx, distance, lap_time, lap_pace) in
-                &section_entries
+            for (
+                section_id,
+                direction,
+                start_idx,
+                end_idx,
+                distance,
+                lap_time,
+                lap_pace,
+                projected_m,
+            ) in &section_entries
             {
                 if let Err(e) = self.db.execute(
                     "INSERT OR IGNORE INTO section_activities
-                     (section_id, activity_id, direction, start_index, end_index, distance_meters, lap_time, lap_pace)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                     (section_id, activity_id, direction, start_index, end_index, distance_meters,
+                      lap_time, lap_pace, projected_m)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     rusqlite::params![
                         section_id,
                         clone_id,
@@ -2285,7 +2305,8 @@ impl PersistentEngine {
                         end_idx,
                         distance,
                         lap_time,
-                        lap_pace
+                        lap_pace,
+                        projected_m
                     ],
                 ) {
                     log::warn!("veloqrs: debug_clone_activity section insert failed: {e:?}");
@@ -5338,7 +5359,7 @@ mod tests {
     ) -> (Option<f64>, Option<f64>) {
         use super::sections::lap_timing::{PassSpan, time_pass};
         let track = vec![GpsPoint::new(46.0, 7.0); track_len];
-        time_pass(
+        let timed = time_pass(
             times,
             Some(&track),
             None,
@@ -5348,7 +5369,8 @@ mod tests {
                 end_index,
                 distance_meters,
             },
-        )
+        );
+        (timed.time, timed.pace)
     }
 
     /// Scenario: `fetch_time_stream` has reduced `time` through the `latlng`

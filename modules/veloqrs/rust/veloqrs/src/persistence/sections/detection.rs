@@ -1936,6 +1936,7 @@ impl PersistentEngine {
                 e
             );
         }
+        self.fill_cutover_counts();
         if let Some(p) = progress {
             p.increment();
             p.set_phase("complete", 1);

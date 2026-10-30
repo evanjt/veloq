@@ -830,6 +830,7 @@
     "sectionsChangedTitle": "你的路段已重新划分",
     "sectionsChangedBody": "我们改进了 Veloq 查找路段的方式。你的旧路段中有 {{total}} 段已被停用。你保存、重命名或置顶的路段会保留。如果想找回其他路段，可以在已退出的路段中找到。",
     "sectionsChangedBodyNone": "我们改进了 Veloq 查找路段的方式。",
+    "sectionsChangedBodyStaged": "我们已重新划分你的路段。你保存、重命名或置顶的路段会保留。较早的活动会随下载逐步加入。",
     "sectionsChangedSee": "查看",
     "sectionsChangedDismiss": "暂不",
     "notificationsTitle": "你错过了个性化通知",
@@ -2049,7 +2050,11 @@
     "showExcludedAttempts_one": "显示{{count}}次已排除的尝试",
     "showExcludedAttempts_other": "显示{{count}}次已排除的尝试",
     "hideExcludedAttempts": "隐藏已排除的尝试",
-    "methodFasterAtTop": "{{method}}越靠上越快。"
+    "methodFasterAtTop": "{{method}}越靠上越快。",
+    "estimated": "估算",
+    "estimatedValue": "{{value}}，估算",
+    "legendEstimated": "估算用时",
+    "methodEstimated": "{{method}}从路段内部开始或结束、且在门的匹配容差之内的经过，会以其自身速度计时到该门。投影达到 10 米或以上时标记为估算，且只有在同方向没有任何经过是实测计时的情况下，才会保持纪录。"
   },
   "settings": {
     "terrain3DMode": "3D：{{mode}}",
@@ -2954,6 +2959,7 @@
     "detectionWaiting_one": "{{count}} 项活动待检查",
     "detectionWaiting_other": "{{count}} 项活动待检查",
     "cutoverWaiting": "等待重建你的路段",
+    "cutoverJoining": "正在加入较早的活动：{{done, number}} / {{total, number}}",
     "passRecount": "通过次数重新统计",
     "statePaused": "已暂停，直到下次打开应用",
     "stateWaiting": "等待恢复",

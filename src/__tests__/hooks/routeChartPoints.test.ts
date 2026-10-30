@@ -32,6 +32,7 @@ function attempt(
     outsideDistanceBand: false,
     matchPercentage: 96,
     offScale: FfiOffScale.None,
+    estimated: false,
     ...overrides,
   };
 }
@@ -42,6 +43,7 @@ function chart(points: FfiSectionChartPoint[]): FfiSectionChartData {
     minSpeed: 5,
     maxSpeed: 7,
     hasReverseRuns: false,
+    bestTimeEstimated: false,
     totalActivities: points.length,
   };
 }
@@ -102,6 +104,23 @@ describe('route attempts on the chart', () => {
         outsideDistanceBand: true,
         matchPercentage: 64,
       }),
+    ]);
+  });
+});
+
+describe('estimated section passes', () => {
+  it('carries the engine flag onto each chart point as read', async () => {
+    const { result } = await renderHook(() =>
+      useSectionChartData({
+        preComputedChart: chart([
+          attempt('projected', { estimated: true }),
+          attempt('gated', { estimated: false }),
+        ]),
+      })
+    );
+    expect(result.current.chartData.map((p) => [p.activityId, p.estimated])).toEqual([
+      ['projected', true],
+      ['gated', false],
     ]);
   });
 });

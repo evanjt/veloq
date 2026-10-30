@@ -105,6 +105,12 @@ fn has_unprocessed_activity(activity_ids: &[String], processed_ids: &[String]) -
     activity_ids.iter().any(|id| !processed.contains(id))
 }
 
+/// Whether any elevation is still owed, which is the question the counts wait
+/// on. The queue's own count, so the drain and the diff read the same rows.
+fn elevation_owed(conn: &rusqlite::Connection) -> rusqlite::Result<bool> {
+    Ok(crate::net::elevation_backfill::pooled_elevation_backfill_remaining(conn)? > 0)
+}
+
 trait CutoverDetect {
     fn receive(
         &self,
@@ -591,6 +597,27 @@ pub(crate) mod pooled {
         pub(crate) trim_owed: bool,
     }
 
+    /// How much of the library has its elevation decided, while the stored
+    /// diff still has no counts and tracks are owed. None otherwise.
+    ///
+    /// The total is the library the download works through, not the running
+    /// pass's own queue, which restarts on every pass.
+    pub(crate) fn staged_history(conn: &Connection) -> Option<(u32, u32)> {
+        let stored = stored_cutover_diff(conn)?;
+        let payload = serde_json::from_str::<serde_json::Value>(&stored.payload).ok()?;
+        if !payload["counts"].is_null() {
+            return None;
+        }
+        let owed =
+            crate::net::elevation_backfill::pooled_elevation_backfill_remaining(conn).ok()?;
+        if owed == 0 {
+            return None;
+        }
+        let total = crate::net::elevation_backfill::pooled_elevation_library_total(conn).ok()?;
+        let clamp = |n: u64| u32::try_from(n).unwrap_or(u32::MAX);
+        Some((clamp(total.saturating_sub(owed)), clamp(total)))
+    }
+
     /// The stored diff, trimmed in memory. None before the cutover has run.
     pub(crate) fn stored_cutover_diff(conn: &Connection) -> Option<StoredDiff> {
         let stored = setting_from(conn, CUTOVER_DIFF_KEY).ok().flatten()?;
@@ -954,6 +981,9 @@ impl PersistentEngine {
             params![CUTOVER_PREVIOUS_CONFIG_KEY],
         )?;
         tx.commit()?;
+        if elevation_owed(&self.db)? {
+            self.section_identity_keep_for_final_cut();
+        }
         // The copy the upgrade took was held for this switch, so it goes with it.
         super::pre_upgrade_copy::release(&self.db);
         info!("veloqrs: [cutover] Token promoted to '{}'", CUTOVER_ID);
@@ -962,7 +992,42 @@ impl PersistentEngine {
 
     /// Build the diff payload comparing archive (old catalogue) to the
     /// current live catalogue.
+    ///
+    /// The counts are null while elevation is owed. A catalogue cut over a
+    /// partial library counts every section the owed tracks have not cut yet
+    /// as gone, so the counts wait for [`Self::fill_cutover_counts`].
     fn build_cutover_diff(&self) -> rusqlite::Result<String> {
+        let counts = if elevation_owed(&self.db)? {
+            None
+        } else {
+            Some(self.cutover_counts()?)
+        };
+
+        let payload = serde_json::json!({
+            "token": CUTOVER_ID,
+            "counts": counts,
+            "settings_reset": self.settings_reset()?,
+        });
+        let json = serde_json::to_string(&payload).unwrap_or_default();
+
+        match counts {
+            Some(counts) => info!(
+                "veloqrs: [cutover] Diff built: {} current, {} new, {} changed, {} gone",
+                counts.current, counts.new, counts.changed, counts.gone
+            ),
+            None => info!("veloqrs: [cutover] Diff stored without counts, elevation is owed"),
+        }
+        Ok(json)
+    }
+
+    /// The archive compared with the live catalogue, counted and no more.
+    ///
+    /// Only the counts are stored: a section is a reference activity and the
+    /// indices of a pass over it, and the rows carry an encoded line for every
+    /// section on both sides. Keeping them put both catalogues' geometry in a
+    /// settings row for the life of the install. The rows are the preview's,
+    /// which is the function's other caller.
+    fn cutover_counts(&self) -> rusqlite::Result<crate::FfiCatalogueCounts> {
         // Load the archived states as FrequentSection stand-ins (polyline + id
         // + name + sport + visits + distance). We only need the fields
         // `diff_catalogues` reads.
@@ -975,27 +1040,59 @@ impl PersistentEngine {
             .filter(|s| !s.is_user_defined)
             .map(|s| &**s)
             .collect();
-
-        // Reuse diff_catalogues with archive = old, live = new. Only the
-        // counts are stored: a section is a reference activity and the
-        // indices of a pass over it, and the rows carry an encoded line for
-        // every section on both sides. Keeping them put both catalogues'
-        // geometry in a settings row for the life of the install. The rows
-        // are the preview's, which is the function's other caller.
         let (counts, _rows) = super::sections::preview::diff_catalogues_public(&live, &archived);
+        Ok(counts)
+    }
 
-        let payload = serde_json::json!({
-            "token": CUTOVER_ID,
-            "counts": counts,
-            "settings_reset": self.settings_reset()?,
-        });
+    /// Write the counts a promotion left out, once no elevation is owed.
+    ///
+    /// The apply tail calls this, because that is where the live catalogue is
+    /// final: the drain's last re-cut, and any detect after the queue drained.
+    /// Idempotent. A stored diff that already carries counts, or a row that is
+    /// not this cutover's, is left alone, and the reset it carries is kept
+    /// because the promotion has already dropped the values it came from.
+    pub(crate) fn fill_cutover_counts(&self) {
+        let Ok(Some(stored)) = self.get_setting(CUTOVER_DIFF_KEY) else {
+            return;
+        };
+        let Ok(mut payload) = serde_json::from_str::<serde_json::Value>(&stored) else {
+            return;
+        };
+        if payload["token"] != CUTOVER_ID || !payload["counts"].is_null() {
+            return;
+        }
+        match elevation_owed(&self.db) {
+            Ok(false) => {}
+            Ok(true) => return,
+            Err(e) => {
+                log::warn!(
+                    "veloqrs: [cutover] Counts not written, elevation unreadable: {}",
+                    e
+                );
+                return;
+            }
+        }
+        let counts = match self.cutover_counts() {
+            Ok(counts) => counts,
+            Err(e) => {
+                log::warn!("veloqrs: [cutover] Counts not written: {}", e);
+                return;
+            }
+        };
+        payload["counts"] = serde_json::to_value(&counts).unwrap_or_default();
         let json = serde_json::to_string(&payload).unwrap_or_default();
-
-        info!(
-            "veloqrs: [cutover] Diff built: {} current, {} new, {} changed, {} gone",
-            counts.current, counts.new, counts.changed, counts.gone
+        if let Err(e) = self.set_setting(CUTOVER_DIFF_KEY, &json) {
+            log::warn!("veloqrs: [cutover] Counts not written: {}", e);
+            return;
+        }
+        self.section_identity_release_final_cut();
+        // The last-run line reads the same counts, so it is written here too.
+        // Recorded at promotion, it would say nothing was retired.
+        record_job_run(
+            &self.db,
+            &cutover_job_run(RunOutcome::Complete, Some(&json)),
         );
-        Ok(json)
+        info!("veloqrs: [cutover] Counts written once elevation is decided");
     }
 
     /// The config the switch replaced beside the one it wrote, or null when
@@ -1638,6 +1735,7 @@ mod held_tests;
 
 #[cfg(test)]
 mod tests {
+    use crate::persistence::job_runs::BackgroundJob;
     use crate::persistence::{PersistentEngine, codec};
     use tempfile::TempDir;
     use tracematch::GpsPoint;
@@ -1932,5 +2030,81 @@ mod tests {
         let diff: serde_json::Value =
             serde_json::from_str(&engine.build_cutover_diff().expect("diff")).expect("json");
         assert!(diff["settings_reset"].is_null());
+    }
+
+    fn stored_diff(engine: &PersistentEngine) -> serde_json::Value {
+        let json = engine
+            .get_setting(super::CUTOVER_DIFF_KEY)
+            .expect("read")
+            .expect("a stored diff");
+        serde_json::from_str(&json).expect("json")
+    }
+
+    fn set_elevation_state(engine: &PersistentEngine, state: u8) {
+        engine
+            .db
+            .execute(
+                "UPDATE gps_tracks SET elevation_state = ?1 WHERE activity_id = 'a1'",
+                rusqlite::params![i64::from(state)],
+            )
+            .expect("state updates");
+    }
+
+    /// Scenario: the cutover promotes while a track's elevation is still owed,
+    /// as a staged cut does once its newest slice is decided.
+    /// Expected behaviour: the token is promoted and the stored diff carries
+    /// no counts, since a diff over a partial library would count every
+    /// section the owed tracks have not yet cut as gone.
+    #[test]
+    fn a_promotion_over_owed_elevation_stores_no_counts() {
+        let dir = TempDir::new().expect("tempdir");
+        let mut engine = engine_with_archivable_section(&dir);
+        set_elevation_state(&engine, crate::persistence::ELEVATION_STATE_UNKNOWN);
+        engine.commit_switch().expect("switch");
+        let diff = engine.build_cutover_diff().expect("diff");
+        engine.finish_cutover(&diff).expect("promote");
+
+        assert!(!engine.cutover_is_owed());
+        assert!(stored_diff(&engine)["counts"].is_null());
+    }
+
+    /// Scenario: the owed elevation lands after the promotion, and the detect
+    /// that folds it in is the drain's final re-cut over the whole library.
+    /// Expected behaviour: that apply writes the counts once, equal to a diff
+    /// taken over the finished library, and a later apply leaves the stored
+    /// diff as it is.
+    #[test]
+    fn the_apply_after_the_queue_drains_writes_the_counts_once() {
+        let dir = TempDir::new().expect("tempdir");
+        let mut engine = engine_with_archivable_section(&dir);
+        set_elevation_state(&engine, crate::persistence::ELEVATION_STATE_UNKNOWN);
+        engine.commit_switch().expect("switch");
+        let diff = engine.build_cutover_diff().expect("diff");
+        engine.finish_cutover(&diff).expect("promote");
+        let promoted = stored_diff(&engine);
+        assert!(promoted["counts"].is_null());
+
+        set_elevation_state(&engine, crate::persistence::ELEVATION_STATE_FETCHED);
+        engine.load_sections().expect("load the catalogue");
+        engine.apply_sections_finalize();
+
+        let whole: serde_json::Value =
+            serde_json::from_str(&engine.build_cutover_diff().expect("diff")).expect("json");
+        let written = stored_diff(&engine);
+        assert!(!written["counts"].is_null());
+        assert_eq!(written["counts"], whole["counts"]);
+        assert_eq!(written["token"], promoted["token"]);
+        let run = crate::persistence::job_runs::job_runs(&engine.db)
+            .expect("runs")
+            .into_iter()
+            .find(|run| run.job == BackgroundJob::Cutover)
+            .expect("the rebuild recorded its last run");
+        assert_eq!(
+            run.retired as u64,
+            whole["counts"]["gone"].as_u64().unwrap()
+        );
+
+        engine.apply_sections_finalize();
+        assert_eq!(stored_diff(&engine), written);
     }
 }

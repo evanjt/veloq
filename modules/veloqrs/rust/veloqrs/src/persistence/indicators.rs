@@ -272,7 +272,7 @@ impl PersistentEngine {
         // Same completeness filter as the pair query above so the per-traversal
         // best matches what `get_section_performances_filtered` produces.
         let traversal_sql = format!(
-            "SELECT sa.activity_id, sa.lap_time
+            "SELECT sa.activity_id, sa.lap_time, sa.projected_m
              FROM section_activities sa
              JOIN activities a ON a.id = sa.activity_id
              LEFT JOIN activity_metrics am ON am.activity_id = sa.activity_id
@@ -289,13 +289,17 @@ impl PersistentEngine {
         let mut traversal_stmt = tx.prepare(&traversal_sql)?;
 
         for (section_id, direction, sport_type) in &pairs {
-            let passes: Vec<(String, f64)> = traversal_stmt
+            let passes: Vec<(String, f64, bool)> = traversal_stmt
                 .query_map(params![section_id, direction, sport_type], |row| {
                     let time: Option<f64> = row.get(1)?;
-                    Ok((row.get::<_, String>(0)?, time.unwrap_or(0.0)))
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        time.unwrap_or(0.0),
+                        crate::persistence::sections::lap_timing::is_estimated(row.get(2)?),
+                    ))
                 })?
                 .filter_map(|r| r.ok())
-                .filter(|(_, t)| *t > 0.0)
+                .filter(|(_, t, _)| *t > 0.0)
                 .collect();
 
             // One badge per activity, earned by its fastest pass. The indicator
@@ -304,7 +308,7 @@ impl PersistentEngine {
             // appearance sets the order, keeping the sequence chronological.
             let mut traversals: Vec<(String, f64)> = Vec::new();
             let mut seen: HashMap<&str, usize> = HashMap::new();
-            for (activity_id, time) in &passes {
+            for (activity_id, time, _) in &passes {
                 match seen.get(activity_id.as_str()) {
                     Some(&i) => {
                         if *time < traversals[i].1 {
@@ -325,17 +329,30 @@ impl PersistentEngine {
             // The best and the second best, so each traversal can be judged
             // against the best of the others rather than against a set it is
             // itself in. A tie at the best leaves both facing that time.
+            //
+            // Only the passes that may stand for a record are judged: an
+            // estimated pass is the best only in a direction with no other.
+            let mut record_times: HashMap<&str, f64> = HashMap::new();
+            for (activity_id, time, _) in
+                crate::persistence::records::standing_tier(passes.iter().collect(), |p| p.2)
+            {
+                let fastest = record_times.entry(activity_id.as_str()).or_insert(*time);
+                *fastest = fastest.min(*time);
+            }
             let (best_time, second_best_time) =
-                crate::persistence::records::best_two(traversals.iter().map(|(_, t)| *t));
+                crate::persistence::records::best_two(record_times.values().copied());
 
             let section_name = section_names.get(section_id).cloned().unwrap_or_default();
 
             // Compute running-average trend for each traversal
             let mut running_sum = 0.0f64;
             for (count, (activity_id, lap_time)) in traversals.iter().enumerate() {
-                let rival =
-                    crate::persistence::records::rival_of(*lap_time, best_time, second_best_time);
-                let is_pr = crate::persistence::records::is_personal_record(*lap_time, rival);
+                let record_time = record_times.get(activity_id.as_str()).copied();
+                let is_pr = record_time.is_some_and(|time| {
+                    let rival =
+                        crate::persistence::records::rival_of(time, best_time, second_best_time);
+                    crate::persistence::records::is_personal_record(time, rival)
+                });
 
                 let trend: i8 = if count == 0 {
                     0
@@ -354,7 +371,7 @@ impl PersistentEngine {
                         section_id,
                         &section_name,
                         direction,
-                        lap_time,
+                        record_time.unwrap_or(*lap_time),
                         effective_trend,
                         now,
                     ])?;
@@ -548,6 +565,7 @@ impl PersistentEngine {
                 "UPDATE section_activities
                  SET lap_time = COALESCE(lap_time, ?),
                      lap_pace = COALESCE(lap_pace, ?),
+                     projected_m = COALESCE(projected_m, ?),
                      avg_hr = COALESCE(avg_hr, ?),
                      avg_power = COALESCE(avg_power, ?),
                      hr_empty = hr_empty OR ?,
@@ -570,8 +588,8 @@ impl PersistentEngine {
                     avg_power: had_power,
                     ..
                 } = portion;
-                let (lap_time, lap_pace) = if had_time.is_some() {
-                    (None, None)
+                let timed = if had_time.is_some() {
+                    super::sections::lap_timing::PassTime::default()
                 } else {
                     timer.time(
                         time_streams.get(activity_id).map(Vec::as_slice),
@@ -585,6 +603,7 @@ impl PersistentEngine {
                         },
                     )
                 };
+                let (lap_time, lap_pace, projected_m) = (timed.time, timed.pace, timed.projected_m);
                 let avg_hr = if had_hr.is_some() {
                     None
                 } else {
@@ -627,6 +646,7 @@ impl PersistentEngine {
                 update_stmt.execute(params![
                     lap_time,
                     lap_pace,
+                    projected_m,
                     avg_hr,
                     avg_power,
                     hr_empty,

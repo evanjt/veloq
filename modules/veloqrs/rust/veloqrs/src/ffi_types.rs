@@ -1164,6 +1164,18 @@ pub struct FfiBackgroundJobsData {
     pub daily_limit: Option<crate::governor::FfiDailyLimit>,
     /// Whether the one-time pass recount is running on its own thread now.
     pub pass_recount_running: bool,
+    /// How much of the library at the staged cut has its elevation decided,
+    /// while older activities are still joining. `None` once the counts are
+    /// written, and for a library that never staged.
+    pub staged_history: Option<FfiStagedHistory>,
+}
+
+/// The library at a staged cut, as tracks with a decided elevation out of all
+/// the tracks the download can ask about.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Record)]
+pub struct FfiStagedHistory {
+    pub done: u32,
+    pub total: u32,
 }
 
 /// What Retry now did.
@@ -1830,6 +1842,10 @@ pub struct FfiSectionChartPoint {
     /// Metres per second behind the direction's record, signed as
     /// `record_gap_secs` is: positive is slower. `None` where it is.
     pub record_gap_speed: Option<f64>,
+    /// The lap's time was projected to a gate over ground the recording did
+    /// not cover. Charted and ranked, and the record only when no lap in its
+    /// direction was timed on the ground.
+    pub estimated: bool,
 }
 
 /// Where a scatter point lies against its direction's focus range.
@@ -1901,6 +1917,9 @@ pub struct FfiSectionChartData {
     pub has_reverse_runs: bool,
     /// The quickest lap in the section's own direction.
     pub best_time_secs: Option<f64>,
+    /// `best_time_secs` is an estimate: no lap in the direction it was read
+    /// from was timed on the ground.
+    pub best_time_estimated: bool,
     /// The oldest point's date, unix seconds.
     pub first_activity_date: Option<f64>,
     pub last_activity_date: Option<f64>,
@@ -3884,6 +3903,7 @@ mod tests {
             outside_distance_band: false,
             match_percentage: None,
             is_record: false,
+            estimated: false,
         }
     }
 
@@ -3898,6 +3918,7 @@ mod tests {
             best_pace: 8.3,
             best_forward_time: (direction == "same").then_some(best_time),
             best_reverse_time: (direction == "reverse").then_some(best_time),
+            best_estimated: false,
             avg_time: best_time + 4.0,
             avg_pace: 7.9,
             direction: direction.to_string(),
@@ -4901,7 +4922,9 @@ pub struct FfiCutoverSettingsReset {
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiCutoverDiff {
     pub token: String,
-    pub counts: FfiCatalogueCounts,
+    /// None while elevation is owed: a promotion over a partial library stores
+    /// the diff now and its counts once the library is whole.
+    pub counts: Option<FfiCatalogueCounts>,
     /// Dropped alone when it is half readable, never taking the diff with it.
     pub settings_reset: Option<FfiCutoverSettingsReset>,
 }

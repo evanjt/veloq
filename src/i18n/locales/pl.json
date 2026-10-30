@@ -888,6 +888,7 @@
     "sectionsChangedTitle": "Twoje odcinki zostały wyznaczone od nowa",
     "sectionsChangedBody": "Ulepszyliśmy sposób, w jaki Veloq znajduje odcinki. {{total}} Twoich starych odcinków zostało wycofanych. Te, które zapisano, zmieniono im nazwę lub przypięto, zostają. Jeśli chcesz odzyskać któryś z pozostałych, znajdziesz je w Wycofane odcinki.",
     "sectionsChangedBodyNone": "Ulepszyliśmy sposób, w jaki Veloq znajduje odcinki.",
+    "sectionsChangedBodyStaged": "Twoje odcinki zostały przeliczone od nowa. Te, które zapisano, zmieniono im nazwę lub przypięto, zostają. Starsze aktywności dołączają w miarę pobierania.",
     "sectionsChangedSee": "Zobacz",
     "sectionsChangedDismiss": "Nie teraz",
     "notificationsTitle": "Omijają Cię spersonalizowane powiadomienia",
@@ -2215,7 +2216,11 @@
     "showExcludedAttempts_many": "Pokaż {{count}} wykluczonych prób",
     "showExcludedAttempts_other": "Pokaż {{count}} wykluczonej próby",
     "hideExcludedAttempts": "Ukryj wykluczone próby",
-    "methodFasterAtTop": "{{method}} Szybsze wyżej."
+    "methodFasterAtTop": "{{method}} Szybsze wyżej.",
+    "estimated": "Szacowany",
+    "estimatedValue": "{{value}}, szacowany",
+    "legendEstimated": "Czas szacowany",
+    "methodEstimated": "{{method}} Przejazd, który zaczyna się lub kończy wewnątrz odcinka, w granicach tolerancji dopasowania bramki, jest mierzony do tej bramki z własną prędkością. Jest oznaczany jako szacowany, gdy projekcja wynosi 10 m lub więcej, i trzyma rekord tylko wtedy, gdy żaden przejazd w tym kierunku nie został zmierzony na samej trasie."
   },
   "settings": {
     "terrain3DMode": "Teren 3D: {{mode}}",
@@ -3230,6 +3235,7 @@
     "detectionWaiting_many": "{{count}} aktywności do sprawdzenia",
     "detectionWaiting_other": "{{count}} aktywności do sprawdzenia",
     "cutoverWaiting": "Czeka na przebudowanie twoich odcinków",
+    "cutoverJoining": "Dołączanie starszych aktywności: {{done, number}} z {{total, number}}",
     "passRecount": "Ponowne zliczanie przejazdów",
     "statePaused": "Wstrzymane do następnego otwarcia aplikacji",
     "stateWaiting": "Czeka na wznowienie",

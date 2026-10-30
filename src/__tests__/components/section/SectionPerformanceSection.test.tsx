@@ -98,6 +98,43 @@ describe('SectionPerformanceSection time range', () => {
     expect(enGB.sections.timeMethod).toMatch(/elapsed/i);
     expect(enGB.sections.timeMethod).toMatch(/stops/i);
   });
+  const sectionProps = {
+    isDark: false,
+    sportType: 'Ride',
+    trendCurves: {},
+    forwardStats: null,
+    reverseStats: null,
+    bestForwardRecord: null,
+    bestReverseRecord: null,
+    bestForwardIsRecord: false,
+    bestReverseIsRecord: false,
+    onActivitySelect: jest.fn(),
+    sectionTimeRange: 'all' as SectionTimeRange,
+    onTimeRangeChange: jest.fn(),
+  };
+
+  it('adds the projection rule to a section method line when a pass is estimated', async () => {
+    const { getByTestId } = await render(
+      <SectionPerformanceSection
+        {...sectionProps}
+        chartData={[{ ...effort(1), estimated: true }, effort(2)]}
+      />
+    );
+
+    expect(getByTestId('section-time-method').props.children).toBe(
+      'sections.methodEstimated:sections.timeMethod'
+    );
+    expect(enGB.sections.methodEstimated).toMatch(/\{\{method\}\}/);
+  });
+
+  it('leaves the method line as it was when every pass is gate-timed', async () => {
+    const { getByTestId } = await render(
+      <SectionPerformanceSection {...sectionProps} chartData={[effort(1), effort(2)]} />
+    );
+
+    expect(getByTestId('section-time-method').props.children).toBe('sections.timeMethod');
+  });
+
   it('says faster is up for a pace sport, whose axis reads lower as faster', async () => {
     const { getByTestId } = await render(
       <SectionPerformanceSection

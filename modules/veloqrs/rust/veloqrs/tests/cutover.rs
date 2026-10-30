@@ -29,6 +29,19 @@ fn seed_older_build_engine(path: &std::path::Path) {
     seed_older_build_engine_with(path, Some(3));
 }
 
+/// The seed with every ride's elevation decided, as a finished library has it.
+/// The counts wait on the elevation queue, so only a decided library gets them.
+fn seed_decided_older_build_engine(path: &std::path::Path) {
+    seed_older_build_engine(path);
+    rusqlite::Connection::open(path)
+        .expect("open")
+        .execute(
+            "UPDATE gps_tracks SET elevation_state = ?1",
+            rusqlite::params![i64::from(veloqrs::persistence::ELEVATION_STATE_UNAVAILABLE)],
+        )
+        .expect("decide the elevation");
+}
+
 /// `min_activities` of `None` leaves the config at the validated defaults.
 fn seed_older_build_engine_with(path: &std::path::Path, min_activities: Option<u32>) {
     seed_older_build_engine_over(path, min_activities, &[0.0]);
@@ -219,7 +232,7 @@ fn diff_payload_is_retrievable_after_restart() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("routes.db");
-    seed_older_build_engine(&path);
+    seed_decided_older_build_engine(&path);
 
     veloqrs::persistence::cutover::run_cutover().unwrap();
 
@@ -227,7 +240,7 @@ fn diff_payload_is_retrievable_after_restart() {
 
     assert_eq!(diff.token, "unified-1");
     assert!(
-        diff.counts.current > 0,
+        diff.counts.expect("counts").current > 0,
         "diff should report non-zero current sections"
     );
 }
@@ -241,12 +254,12 @@ fn the_stored_diff_carries_no_section_rows() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("routes.db");
-    seed_older_build_engine(&path);
+    seed_decided_older_build_engine(&path);
 
     veloqrs::persistence::cutover::run_cutover().unwrap();
 
     let diff = veloqrs::ffi::get_cutover_diff().expect("diff is stored");
-    assert!(diff.counts.current > 0);
+    assert!(diff.counts.expect("counts").current > 0);
 
     // The record carries no rows by its shape, so the claim is about the row
     // the engine keeps: it holds token, counts and settings_reset only.
@@ -288,7 +301,7 @@ fn a_payload_an_older_build_wrote_is_trimmed_when_it_is_read() {
     .expect("engine");
 
     let read = veloqrs::ffi::get_cutover_diff().expect("diff is stored");
-    assert_eq!(read.counts.current, 3);
+    assert_eq!(read.counts.expect("counts").current, 3);
     assert_eq!(read.token, "unified-1");
 
     let stored = with_persistent_engine(|e| e.get_setting("__detector_cutover_diff"))
@@ -1054,7 +1067,7 @@ fn the_diff_sees_the_catalogue_the_cut_produced() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("routes.db");
-    seed_older_build_engine(&path);
+    seed_decided_older_build_engine(&path);
 
     let CutoverOutcome::Completed(json) =
         veloqrs::persistence::cutover::run_cutover().expect("cutover")
@@ -1967,7 +1980,7 @@ fn a_completed_rebuild_records_its_last_run_with_the_diffs_counts() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("routes.db");
-    seed_older_build_engine(&path);
+    seed_decided_older_build_engine(&path);
     assert!(cutover_run().is_none(), "nothing has run yet");
 
     veloqrs::persistence::cutover::run_cutover().expect("cutover");
@@ -1978,10 +1991,11 @@ fn a_completed_rebuild_records_its_last_run_with_the_diffs_counts() {
         run.outcome,
         veloqrs::persistence::job_runs::RunOutcome::Complete
     );
-    assert_eq!(run.handled, diff.counts.proposed);
-    assert_eq!(run.added, diff.counts.new);
-    assert_eq!(run.changed, diff.counts.changed);
-    assert_eq!(run.retired, diff.counts.gone);
+    let counts = diff.counts.expect("counts");
+    assert_eq!(run.handled, counts.proposed);
+    assert_eq!(run.added, counts.new);
+    assert_eq!(run.changed, counts.changed);
+    assert_eq!(run.retired, counts.gone);
     assert_eq!(run.failed, 0);
     assert!(run.finished_at > veloqrs::WholeNumber(0));
 

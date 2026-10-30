@@ -849,6 +849,7 @@
     "sectionsChangedTitle": "As suas secções foram recortadas de novo",
     "sectionsChangedBody": "Melhorámos a forma como o Veloq encontra secções. {{total}} das suas secções antigas foram retiradas. As que guardou, renomeou ou fixou mantêm-se. Se quiser recuperar alguma das outras, encontra-a em Troços retirados.",
     "sectionsChangedBodyNone": "Melhorámos a forma como o Veloq encontra secções.",
+    "sectionsChangedBodyStaged": "As suas secções foram recalculadas. As que guardou, renomeou ou fixou mantêm-se. As atividades mais antigas juntam-se à medida que forem transferidas.",
     "sectionsChangedSee": "Ver",
     "sectionsChangedDismiss": "Agora não",
     "notificationsTitle": "Está a perder as notificações personalizadas",
@@ -2098,7 +2099,11 @@
     "showExcludedAttempts_one": "Mostrar {{count}} tentativa excluída",
     "showExcludedAttempts_other": "Mostrar {{count}} tentativas excluídas",
     "hideExcludedAttempts": "Ocultar tentativas excluídas",
-    "methodFasterAtTop": "{{method}} Mais rápido em cima."
+    "methodFasterAtTop": "{{method}} Mais rápido em cima.",
+    "estimated": "Estimado",
+    "estimatedValue": "{{value}}, estimado",
+    "legendEstimated": "Tempo estimado",
+    "methodEstimated": "{{method}} Uma passagem que começa ou termina dentro da secção, dentro da tolerância de correspondência de uma porta, é cronometrada até essa porta à sua própria velocidade. É marcada como estimada quando a projeção é de 10 m ou mais, e só detém o recorde se nenhuma passagem no seu sentido tiver sido cronometrada no terreno."
   },
   "settings": {
     "terrain3DMode": "Terreno 3D: {{mode}}",
@@ -3013,6 +3018,7 @@
     "detectionWaiting_many": "{{count}} de atividades por verificar",
     "detectionWaiting_other": "{{count}} atividades por verificar",
     "cutoverWaiting": "A aguardar para reconstruir as tuas secções",
+    "cutoverJoining": "Atividades mais antigas a serem incluídas: {{done, number}} de {{total, number}}",
     "passRecount": "Recontagem de passagens",
     "statePaused": "Em pausa até a app ser aberta de novo",
     "stateWaiting": "A aguardar para retomar",

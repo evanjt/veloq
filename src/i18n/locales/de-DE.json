@@ -830,6 +830,7 @@
     "sectionsChangedTitle": "Deine Abschnitte wurden neu geschnitten",
     "sectionsChangedBody": "Wir haben verbessert, wie Veloq Abschnitte findet. {{total}} deiner alten Abschnitte sind ausgeschieden. Die, die du gespeichert, umbenannt oder angeheftet hast, bleiben erhalten. Wenn du einen der anderen zurückhaben möchtest, findest du ihn unter Ausgeschiedene Abschnitte.",
     "sectionsChangedBodyNone": "Wir haben verbessert, wie Veloq Abschnitte findet.",
+    "sectionsChangedBodyStaged": "Deine Abschnitte wurden neu aufgebaut. Die, die du gespeichert, umbenannt oder angeheftet hast, bleiben erhalten. Ältere Aktivitäten kommen nach und nach dazu, während sie geladen werden.",
     "sectionsChangedSee": "Ansehen",
     "sectionsChangedDismiss": "Nicht jetzt",
     "notificationsTitle": "Dir entgehen persönliche Benachrichtigungen",
@@ -2049,7 +2050,11 @@
     "showExcludedAttempts_one": "{{count}} ausgeschlossenen Versuch anzeigen",
     "showExcludedAttempts_other": "{{count}} ausgeschlossene Versuche anzeigen",
     "hideExcludedAttempts": "Ausgeschlossene Versuche ausblenden",
-    "methodFasterAtTop": "{{method}} Schneller ist oben."
+    "methodFasterAtTop": "{{method}} Schneller ist oben.",
+    "estimated": "Geschätzt",
+    "estimatedValue": "{{value}}, geschätzt",
+    "legendEstimated": "Geschätzte Zeit",
+    "methodEstimated": "{{method}} Eine Durchfahrt, die innerhalb der Abgleichtoleranz eines Tors im Abschnitt beginnt oder endet, wird mit ihrer eigenen Geschwindigkeit bis zu diesem Tor gezeitet. Sie gilt als geschätzt, wenn die Hochrechnung 10 m oder mehr beträgt, und hält den Rekord nur, wenn keine Durchfahrt in ihrer Richtung auf der Strecke selbst gezeitet wurde."
   },
   "settings": {
     "terrain3DMode": "3D-Terrain: {{mode}}",
@@ -2954,6 +2959,7 @@
     "detectionWaiting_one": "{{count}} Aktivität zu prüfen",
     "detectionWaiting_other": "{{count}} Aktivitäten zu prüfen",
     "cutoverWaiting": "Wartet auf den Neuaufbau deiner Abschnitte",
+    "cutoverJoining": "Ältere Aktivitäten werden ergänzt: {{done, number}} von {{total, number}}",
     "passRecount": "Durchfahrten neu zählen",
     "statePaused": "Pausiert, bis die App wieder geöffnet wird",
     "stateWaiting": "Wartet auf die Fortsetzung",

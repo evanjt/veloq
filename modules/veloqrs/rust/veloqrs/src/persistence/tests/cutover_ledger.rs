@@ -57,6 +57,13 @@ fn library(dir: &TempDir, name: &str) -> PersistentEngine {
     engine
         .add_activity("a1".into(), ride(7.0), "Ride".into())
         .expect("add_activity");
+    // A ride with no altitude is decided as unavailable, as the store records it.
+    engine
+        .record_elevation_state(&[(
+            "a1".to_string(),
+            crate::persistence::ELEVATION_STATE_UNAVAILABLE,
+        )])
+        .expect("elevation state");
     insert_auto_section(&engine, "s_auto", &ride(7.0)[0..12], ("a1", 0, 12));
     engine
 }

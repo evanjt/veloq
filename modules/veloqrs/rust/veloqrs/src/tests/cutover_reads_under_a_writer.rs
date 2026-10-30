@@ -56,7 +56,7 @@ fn cutover_diff_does_not_wait_for_a_writer_when_nothing_is_owed_a_trim() {
 
     let diff = read_while_writer_holds(crate::ffi::get_cutover_diff).expect("a diff");
     assert_eq!(diff.token, "t");
-    assert_eq!(diff.counts.unchanged, 1);
+    assert_eq!(diff.counts.expect("counts").unchanged, 1);
 }
 
 #[test]
@@ -74,7 +74,7 @@ fn cutover_diff_trims_a_legacy_payload_and_rewrites_the_row() {
     with_persistent_engine(|e| e.set_setting(CUTOVER_DIFF_KEY, LEGACY_DIFF).unwrap()).unwrap();
 
     let diff = crate::ffi::get_cutover_diff().expect("a diff");
-    assert_eq!(diff.counts.unchanged, 1);
+    assert_eq!(diff.counts.expect("counts").unchanged, 1);
 
     let row = stored_diff().expect("the row stays");
     assert!(

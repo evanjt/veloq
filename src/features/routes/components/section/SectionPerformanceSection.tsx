@@ -154,8 +154,11 @@ export function SectionPerformanceSection({
   const method = t(isRoute ? 'routes.timeMethod' : 'sections.timeMethod');
   // A time or a pace reads lower as faster, so the line says which way is up.
   const basis = attemptBasis(sportType as ActivityType, isRoute);
-  const methodLine =
+  const orientedMethod =
     basis === 'time' || readsPace(basis) ? t('sections.methodFasterAtTop', { method }) : method;
+  const methodLine = chartData.some((d) => d.estimated === true)
+    ? t('sections.methodEstimated', { method: orientedMethod })
+    : orientedMethod;
   const methodText = (
     <Text testID={`${subject}-time-method`} style={[styles.method, isDark && styles.methodDark]}>
       {methodLine}

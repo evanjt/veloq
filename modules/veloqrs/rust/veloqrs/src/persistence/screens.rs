@@ -244,6 +244,8 @@ pub fn background_jobs_data(
         pass_recount_running: conn
             .path()
             .is_some_and(crate::persistence::sections::pass_rule::pass_recount_running),
+        staged_history: crate::persistence::cutover::pooled::staged_history(conn)
+            .map(|(done, total)| crate::FfiStagedHistory { done, total }),
     })
 }
 
@@ -1440,25 +1442,22 @@ where
 
     // A sport is offered when it has a lap on the chart over the range, an
     // excluded lap to restore, or a pass that crosses no gate and is listed as
-    // a partial lap. A sport with none would lead to an empty page. A sport
-    // with no timed lap counts the passes it has over the range.
+    // a partial lap. A sport with none would lead to an empty page. Its count
+    // is every pass over the range, timed or not, which is what the lap list
+    // shows.
     let offered: Vec<(String, u32)> = sports
         .iter()
         .filter_map(|(sport, _)| {
-            let count = chart_from_cutoff(&read(Some(sport), laps::Rows::Included), cutoff)
+            let timed = chart_from_cutoff(&read(Some(sport), laps::Rows::Included), cutoff)
                 .points
                 .len() as u32;
             let restorable = !read(Some(sport), laps::Rows::Excluded).records.is_empty();
-            let untimed = if count > 0 {
-                0
-            } else {
-                untimed_of(Some(sport))
-                    .iter()
-                    .filter(|r| r.activity_date >= crate::WholeNumber(cutoff))
-                    .map(|r| r.laps.len() as u32)
-                    .sum()
-            };
-            (count > 0 || restorable || untimed > 0).then(|| (sport.clone(), count.max(untimed)))
+            let untimed: u32 = untimed_of(Some(sport))
+                .iter()
+                .filter(|r| r.activity_date >= crate::WholeNumber(cutoff))
+                .map(|r| r.laps.len() as u32)
+                .sum();
+            (timed + untimed > 0 || restorable).then(|| (sport.clone(), timed + untimed))
         })
         .collect();
 
@@ -4077,12 +4076,14 @@ mod tests {
                 outside_distance_band: false,
                 match_percentage: None,
                 is_record: false,
+                estimated: false,
             }],
             lap_count: 1,
             best_time: time,
             best_pace: 1000.0 / time,
             best_forward_time: Some(time),
             best_reverse_time: None,
+            best_estimated: false,
             avg_time: time,
             avg_pace: 1000.0 / time,
             direction: "same".to_string(),
@@ -6228,8 +6229,9 @@ mod tests {
     /// no gate, so it has no lap time.
     ///
     /// Expected behaviour: the lap list holds both, the untimed one as a
-    /// partial lap with no time, never the record, and the chart, the counts
-    /// and the record read only the timed pass.
+    /// partial lap with no time, never the record, and the chart and the
+    /// record read only the timed pass. The sport's count is both passes, as
+    /// the list shows them.
     #[test]
     fn an_untimed_pass_is_listed_as_a_partial_lap() {
         let _serial = crate::test_globals::serial_global_state();
@@ -6271,6 +6273,16 @@ mod tests {
         assert!(!listed[0].is_record);
         assert_eq!(lap_ids(&detail.chart_data.points), vec!["ride_timed_lap0"]);
         assert_eq!(detail.performances.records.len(), 1);
+        let counts: Vec<(String, u32)> = detail
+            .sport_counts
+            .iter()
+            .map(|c| (c.sport_type.clone(), c.count))
+            .collect();
+        assert_eq!(
+            counts,
+            vec![("Ride".to_string(), 2)],
+            "the count is every pass in scope, the one with no time too"
+        );
     }
 
     /// Scenario: a section ridden and run, and walked once, the walk

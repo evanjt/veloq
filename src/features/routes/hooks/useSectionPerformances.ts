@@ -42,6 +42,8 @@ export interface SectionLap {
   excluded: boolean;
   /** The engine names this lap as the section's record in its direction. */
   isRecord: boolean;
+  /** The time was projected to a gate over ground the recording did not cover. */
+  estimated: boolean;
 }
 
 /**
@@ -143,6 +145,7 @@ export function toPerformanceRecord(
       avgPower: l.avgPower ?? null,
       excluded: l.excluded,
       isRecord: l.isRecord,
+      estimated: l.estimated,
     })),
     lapCount: r.lapCount,
     bestTime: r.bestTime,

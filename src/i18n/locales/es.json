@@ -849,6 +849,7 @@
     "sectionsChangedTitle": "Tus secciones se han vuelto a trazar",
     "sectionsChangedBody": "Hemos mejorado cómo Veloq encuentra secciones. {{total}} de tus secciones antiguas se han retirado. Las que guardaste, renombraste o fijaste se conservan. Si quieres recuperar alguna de las demás, la encontrarás en Tramos retirados.",
     "sectionsChangedBodyNone": "Hemos mejorado cómo Veloq encuentra secciones.",
+    "sectionsChangedBodyStaged": "Tus secciones se han recalculado. Las que guardaste, renombraste o fijaste se conservan. Las actividades más antiguas se añaden a medida que se descargan.",
     "sectionsChangedSee": "Verlas",
     "sectionsChangedDismiss": "Ahora no",
     "notificationsTitle": "Te estás perdiendo las notificaciones personalizadas",
@@ -2098,7 +2099,11 @@
     "showExcludedAttempts_one": "Mostrar {{count}} intento excluido",
     "showExcludedAttempts_other": "Mostrar {{count}} intentos excluidos",
     "hideExcludedAttempts": "Ocultar intentos excluidos",
-    "methodFasterAtTop": "{{method}} Más rápido arriba."
+    "methodFasterAtTop": "{{method}} Más rápido arriba.",
+    "estimated": "Estimado",
+    "estimatedValue": "{{value}}, estimado",
+    "legendEstimated": "Tiempo estimado",
+    "methodEstimated": "{{method}} Un paso que empieza o termina dentro de la sección, dentro de la tolerancia de coincidencia de una puerta, se cronometra hasta esa puerta a su propia velocidad. Se marca como estimado cuando la proyección es de 10 m o más, y solo tiene el récord si ningún paso en su sentido se cronometró sobre el terreno."
   },
   "settings": {
     "terrain3DMode": "Terreno 3D: {{mode}}",
@@ -3036,6 +3041,7 @@
     "detectionWaiting_many": "{{count}} de actividades por revisar",
     "detectionWaiting_other": "{{count}} actividades por revisar",
     "cutoverWaiting": "Esperando para reconstruir tus secciones",
+    "cutoverJoining": "Actividades anteriores incorporándose: {{done, number}} de {{total, number}}",
     "passRecount": "Recuento de pasadas",
     "statePaused": "En pausa hasta que vuelvas a abrir la app",
     "stateWaiting": "Esperando para reanudar",

@@ -161,7 +161,7 @@ fn rides_no_detect_has_seen_read_as_not_yet_run_with_the_count_waiting() {
 }
 
 #[test]
-fn rides_waiting_on_elevation_read_as_held_with_the_tracks_owed() {
+fn rides_waiting_on_elevation_read_as_held_with_the_tracks_owed_while_the_cut_is_owed() {
     let _serial = super::serial_state();
     let dir = TempDir::new().expect("tempdir");
     let mut engine = engine(&dir);
@@ -171,6 +171,10 @@ fn rides_waiting_on_elevation_read_as_held_with_the_tracks_owed() {
         .add_activity("ride-c".into(), track(14), "Ride".into())
         .expect("add ride");
 
+    engine
+        .set_setting("__detector_cutover", "unified-1-inflight")
+        .expect("token");
+
     let screen = engine.get_routes_screen_data(query());
 
     let held = Some(FfiCatalogueEmptyReason::Held {
@@ -178,6 +182,27 @@ fn rides_waiting_on_elevation_read_as_held_with_the_tracks_owed() {
     });
     assert_eq!(screen.group_empty_reason, held);
     assert_eq!(screen.section_empty_reason, held);
+}
+
+#[test]
+fn owed_elevation_after_the_cut_is_progress_and_not_a_hold() {
+    let _serial = super::serial_state();
+    let dir = TempDir::new().expect("tempdir");
+    let mut engine = engine(&dir);
+    add_rides(&mut engine, &[("ride-a", 0), ("ride-b", 7)]);
+    engine
+        .add_activity("ride-c".into(), track(14), "Ride".into())
+        .expect("add ride");
+    engine
+        .set_setting("__detector_cutover", "unified-1")
+        .expect("token");
+
+    let screen = engine.get_routes_screen_data(query());
+
+    assert_eq!(
+        screen.section_empty_reason,
+        Some(FfiCatalogueEmptyReason::NotYetRun { awaiting: 3 })
+    );
 }
 
 #[test]

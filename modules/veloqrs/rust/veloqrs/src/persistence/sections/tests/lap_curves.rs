@@ -127,6 +127,7 @@ fn performances(laps_in: &[Lap]) -> SectionPerformanceResult {
             avg_hr: None,
             avg_power: None,
             coverage: Some(lap.coverage),
+            projected_m: None,
             excluded: false,
             outside_distance_band: false,
             match_percentage: None,

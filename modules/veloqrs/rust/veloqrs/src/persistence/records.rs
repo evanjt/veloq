@@ -200,24 +200,46 @@ pub fn holds_section_record<'a>(
 
 /// The laps of a result that can hold its record in one direction: timed,
 /// included, not a `partial` overlap, and covering enough of the section.
+///
+/// A lap timed on the ground always outranks an estimated one, so the
+/// estimated laps stand only in a direction that has no other. Every record
+/// figure reads this set, which is how an estimate can never take one.
 fn record_eligible_laps(
     result: &crate::SectionPerformanceResult,
     reverse: bool,
 ) -> impl Iterator<Item = (&crate::SectionPerformanceRecord, &crate::SectionLap)> {
     let direction = if reverse { "reverse" } else { "same" };
-    result.records.iter().flat_map(move |record| {
-        record
-            .laps
-            .iter()
-            .filter(move |lap| {
-                lap.direction == direction
-                    && !lap.excluded
-                    && lap.time.is_finite()
-                    && lap.time > 0.0
-                    && lap.counts_for_record(record.section_distance)
-            })
-            .map(move |lap| (record, lap))
-    })
+    let eligible: Vec<_> = result
+        .records
+        .iter()
+        .flat_map(move |record| {
+            record
+                .laps
+                .iter()
+                .filter(move |lap| {
+                    lap.direction == direction
+                        && !lap.excluded
+                        && lap.time.is_finite()
+                        && lap.time > 0.0
+                        && lap.counts_for_record(record.section_distance)
+                })
+                .map(move |lap| (record, lap))
+        })
+        .collect();
+    standing_tier(eligible, |(_, lap)| lap.estimated).into_iter()
+}
+
+/// The part of `candidates` that may stand for a record: those timed on the
+/// ground when there are any, else the estimated ones.
+pub(crate) fn standing_tier<T>(candidates: Vec<T>, estimated: impl Fn(&T) -> bool) -> Vec<T> {
+    if candidates.iter().any(|candidate| !estimated(candidate)) {
+        candidates
+            .into_iter()
+            .filter(|candidate| !estimated(candidate))
+            .collect()
+    } else {
+        candidates
+    }
 }
 
 /// The lap holding a section's record in one direction, with the outing it

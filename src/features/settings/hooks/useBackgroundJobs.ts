@@ -65,6 +65,11 @@ export interface BackgroundJob {
    * Only the stream download carries one.
    */
   pacedDays: number | null;
+  /**
+   * Tracks with a decided elevation out of the library at a staged cut, while
+   * older activities are still joining. Only the cutover row carries one.
+   */
+  stagedHistory: { done: number; total: number } | null;
   /** The job's last finished run, null when it has never run on this install. */
   lastRun: BackgroundJobRun | null;
 }
@@ -148,6 +153,7 @@ interface BackgroundJobsData {
   detectionAwaiting?: number;
   cutoverOwed: boolean;
   passRecountRunning?: boolean;
+  stagedHistory?: { done: number; total: number };
   streamDaysToFinish?: number;
   downloadsHeldUntilMs?: number;
   downloadsHeldByUpstream?: boolean;
@@ -309,6 +315,7 @@ function jobsFromStatus(
       resumesAt: null,
       held: null,
       pacedDays: null,
+      stagedHistory: null,
       lastRun: lastRun('detection'),
     },
     {
@@ -322,6 +329,7 @@ function jobsFromStatus(
       resumesAt: elevation?.resumesAt ?? null,
       held,
       pacedDays: null,
+      stagedHistory: null,
       lastRun: lastRun('elevationBackfill'),
     },
     {
@@ -335,6 +343,7 @@ function jobsFromStatus(
       resumesAt: null,
       held: null,
       pacedDays: null,
+      stagedHistory: data?.stagedHistory ?? null,
       lastRun: lastRun('cutover'),
     },
     {
@@ -348,6 +357,7 @@ function jobsFromStatus(
       resumesAt: stream?.resumesAt ?? null,
       held,
       pacedDays: data?.streamDaysToFinish ?? null,
+      stagedHistory: null,
       lastRun: lastRun('streamBackfill'),
     },
     {
@@ -363,6 +373,7 @@ function jobsFromStatus(
       resumesAt: null,
       held: null,
       pacedDays: null,
+      stagedHistory: null,
       lastRun: lastRun('passRecount'),
     },
   ];

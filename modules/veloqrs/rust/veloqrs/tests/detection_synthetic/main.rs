@@ -2,8 +2,13 @@ use std::sync::{Mutex, MutexGuard};
 
 static SERIAL: Mutex<()> = Mutex::new(());
 
+/// Every test starts signed out: a credential left standing narrows the
+/// detection pool to tracks with elevation, so the next test's seed would
+/// detect over nothing. A test that needs a session stands one up itself.
 fn serial_state() -> MutexGuard<'static, ()> {
-    SERIAL.lock().unwrap_or_else(|error| error.into_inner())
+    let guard = SERIAL.lock().unwrap_or_else(|error| error.into_inner());
+    veloqrs::objects::clear_credentials_from_native();
+    guard
 }
 
 #[path = "../lifecycle_support/mod.rs"]

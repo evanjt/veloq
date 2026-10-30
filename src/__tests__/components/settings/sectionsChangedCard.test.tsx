@@ -21,6 +21,7 @@ let mockArchived = 0;
 let mockRunning = false;
 let mockPhase = 'complete';
 let mockCounts: Record<string, number> | null = null;
+let mockCountsOwed = false;
 
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysWithValues());
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
@@ -35,7 +36,12 @@ jest.mock('@/features/routes', () => ({
   useEngineStatus: (select: (state: { quarantineReport: null }) => unknown) =>
     select({ quarantineReport: null }),
   useArchivedRetiredCount: () => mockArchived,
-  useCutoverSummary: () => ({ isRunning: mockRunning, phase: mockPhase, counts: mockCounts }),
+  useCutoverSummary: () => ({
+    isRunning: mockRunning,
+    phase: mockPhase,
+    counts: mockCounts,
+    countsOwed: mockCountsOwed,
+  }),
   CUTOVER_FAILURE_KEYS: {
     failed: { card: 'cutover.failed' },
     failed_after_apply: { card: 'cutover.failedAfterApply' },
@@ -48,6 +54,7 @@ beforeEach(() => {
   mockRunning = false;
   mockPhase = 'complete';
   mockCounts = null;
+  mockCountsOwed = false;
   openLaunchSession();
   useWhatsNewStore.setState({ sectionsChangedDismissed: false });
   jest.clearAllMocks();
@@ -130,6 +137,36 @@ describe('SectionsChangedCard', () => {
     });
 
     it('is absent while the cutover runs', async () => {
+      mockRunning = true;
+      const tree = await render(<SectionsChangedCard />);
+      expect(tree.queryByTestId('sections-changed-card')).toBeNull();
+    });
+  });
+
+  describe('after a cut stored before elevation was decided', () => {
+    beforeEach(() => {
+      mockCountsOwed = true;
+    });
+
+    it('says the sections were rebuilt and older activities join, with no counts', async () => {
+      const tree = await render(<SectionsChangedCard />);
+      expect(tree.getByTestId('sections-changed-card')).toBeTruthy();
+      expect(tree.getByTestId('sections-changed-body').props.children).toBe(
+        'feed.sectionsChangedBodyStaged'
+      );
+      expect(tree.queryByTestId('sections-changed-counts')).toBeNull();
+    });
+
+    it('offers no See them while the retired list is still settling', async () => {
+      mockArchived = 3;
+      const tree = await render(<SectionsChangedCard />);
+      expect(tree.getByTestId('sections-changed-body').props.children).toBe(
+        'feed.sectionsChangedBodyStaged'
+      );
+      expect(tree.queryByTestId('sections-changed-see')).toBeNull();
+    });
+
+    it('waits while the cut runs again', async () => {
       mockRunning = true;
       const tree = await render(<SectionsChangedCard />);
       expect(tree.queryByTestId('sections-changed-card')).toBeNull();

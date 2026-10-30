@@ -701,6 +701,24 @@ pub(crate) fn pooled_elevation_backfill_remaining(conn: &rusqlite::Connection) -
     .map(|count| count.max(0) as u64)
 }
 
+/// Every track the queue could ever ask about, whatever its elevation state:
+/// the library the download works through. Decided tracks stay in it, so the
+/// figure does not shrink as the queue drains.
+pub(crate) fn pooled_elevation_library_total(conn: &rusqlite::Connection) -> SqlResult<u64> {
+    conn.query_row(
+        concat!(
+            "SELECT COUNT(*)
+               FROM gps_tracks g
+               JOIN activities a ON a.id = g.activity_id
+              WHERE ",
+            upstream_named_sql!()
+        ),
+        [],
+        |row| row.get::<_, i64>(0),
+    )
+    .map(|count| count.max(0) as u64)
+}
+
 /// The activities the queue still owes, which a detect holds out of its pool
 /// while the download can run.
 pub(crate) fn pooled_elevation_owed_ids(
@@ -1190,8 +1208,52 @@ fn run_in_slot(_slot: RunGuard, install: u64, session: &LiveSource) -> BackfillR
     if matches!(run, BackfillRun::Finished(_)) && !stopped {
         resolve_sources(install, session);
     }
+    if let BackfillRun::Finished(outcome) = &run {
+        fold_landed_elevation(install, outcome);
+    }
     record_run(install, &run);
     run
+}
+
+/// Elevation that landed after the cutover joins the catalogue through the
+/// ordinary detect, once per pass and never per batch.
+///
+/// A splice moves no geometry, so it evicts nothing and nothing else would ask
+/// for a detect until a sync tail or a launch did. Called after the pass's
+/// suspension has dropped, so the start goes through the ordinary arm and
+/// yields like any other. A pass that landed nothing, that already cut, or
+/// that ran while the cutover is still owed (it owns the first cut) starts
+/// none, and so does one that leaves tracks owed: that library is cut once,
+/// by the pass that drains the queue. A busy or refused start is not retried: the dirty mark stands for the
+/// next trigger.
+fn fold_landed_elevation(install: u64, outcome: &BackfillOutcome) -> bool {
+    if outcome.elevated == 0 || outcome.detects_started > 0 {
+        return false;
+    }
+    let held = with_persistent_engine_for(install, |engine| {
+        let owed = engine.cutover_is_owed();
+        if !owed {
+            engine.mark_sections_dirty();
+        }
+        // A library still owed elevation is cut once, when the queue drains.
+        // A fold over part of it mints ids for ground the final cut then
+        // finds under other ids, so two paths to the same library end on
+        // different catalogues.
+        owed || engine
+            .elevation_backfill_remaining()
+            .map_or(true, |n| n > 0)
+    })
+    .unwrap_or(true);
+    if held {
+        return false;
+    }
+    match crate::objects::DetectionManager::new().start() {
+        Ok(result) => result.started(),
+        Err(e) => {
+            log::warn!("[Elevation] fold of landed elevation not started: {}", e);
+            false
+        }
+    }
 }
 
 /// The pass's one exit: the last-run summary is written here, from the phase
@@ -2511,6 +2573,12 @@ fn hand_over_cutover() -> bool {
 /// Clearing the processed set is what makes it cold: it drops the evidence
 /// cache, and with it the per-track lift candidates memoised on activity id
 /// alone while the library was flat.
+///
+/// It also puts the identity registry back as the cutover left it. An ordinary
+/// detect that ran while elevation was still landing folded partial-era ground
+/// into the registry, so the cut would carry and freeze against ground a cold
+/// cut never saw. What the registry held beyond that is kept as graves, so the
+/// same ground returns under the id it had.
 fn start_final_detect(install: u64) -> bool {
     // The unchecked path below passes the switch the ordinary arms read, so it
     // is read here: a library that wants no detection wants no re-cut.
@@ -2549,6 +2617,7 @@ fn start_final_detect(install: u64) -> bool {
 
     let handle = with_persistent_engine_for(install, |engine| {
         engine.clear_processed_activity_ids();
+        engine.section_identity_restore_for_final_cut();
         engine.detect_sections_background_unchecked_applying(
             crate::persistence::sections::detection::ApplyOn::Worker,
         )
@@ -2797,6 +2866,78 @@ mod tests {
         );
 
         drain_detection();
+    }
+
+    /// Scenario: a promoted library's pass lands the last elevation it was
+    /// owed, by a path that did not drain the queue through the final re-cut.
+    /// Expected behaviour: one ordinary detect starts for what landed, a pass
+    /// that landed nothing starts none, and an owed cutover keeps it refused.
+    #[test]
+    fn landed_elevation_starts_one_ordinary_detect() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        with_persistent_engine(|e| {
+            e.db.execute(
+                "UPDATE gps_tracks SET elevation_state = ?1",
+                [i64::from(crate::persistence::ELEVATION_STATE_FETCHED)],
+            )
+            .expect("fetch every track");
+        })
+        .expect("engine");
+        let landed = BackfillOutcome {
+            elevated: 2,
+            ..Default::default()
+        };
+
+        let before = detection_workers_started();
+        assert!(
+            !fold_landed_elevation(engine_install(), &BackfillOutcome::default()),
+            "a pass that landed nothing schedules nothing"
+        );
+        assert_eq!(detection_workers_started(), before);
+
+        assert!(fold_landed_elevation(engine_install(), &landed));
+        assert_eq!(detection_workers_started() - before, 1);
+        drain_detection();
+
+        let handled = BackfillOutcome {
+            elevated: 2,
+            detects_started: 1,
+            ..Default::default()
+        };
+        assert!(
+            !fold_landed_elevation(engine_install(), &handled),
+            "a pass that already cut starts no second detect"
+        );
+        assert_eq!(detection_workers_started() - before, 1);
+    }
+
+    /// Scenario: a pass lands elevation for some tracks and leaves others owed.
+    /// Expected behaviour: no ordinary detect starts, so the library is cut
+    /// once, whole, when the queue drains.
+    #[test]
+    fn landed_elevation_waits_for_the_rest_of_the_queue() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        with_persistent_engine(|e| {
+            e.db.execute(
+                "UPDATE gps_tracks SET elevation_state = ?1 WHERE rowid = (SELECT MIN(rowid) FROM gps_tracks)",
+                [i64::from(crate::persistence::ELEVATION_STATE_UNKNOWN)],
+            )
+            .expect("owe one track");
+            assert!(e.elevation_backfill_remaining().expect("queue") > 0);
+        })
+        .expect("engine");
+        let before = detection_workers_started();
+
+        let landed = BackfillOutcome {
+            elevated: 2,
+            ..Default::default()
+        };
+        assert!(!fold_landed_elevation(engine_install(), &landed));
+        assert_eq!(detection_workers_started(), before);
     }
 
     /// Expected behaviour: a re-cut that finds the slot still held drains it
@@ -4381,6 +4522,25 @@ mod tests {
                 assert_eq!(e.elevation_backfill_remaining().expect("queue"), 0);
             })
             .expect("engine");
+        }
+
+        /// Scenario: elevation lands while the detector cutover is still owed.
+        /// Expected behaviour: no ordinary detect starts, since the cutover
+        /// owns the first cut.
+        #[test]
+        fn landed_elevation_waits_for_an_owed_cutover() {
+            let _serial = serial_global_state();
+            let _tmp = seeded_global_engine();
+            clear_detection_handle();
+            owe_the_cutover_with_an_empty_elevation_queue();
+            let before = detection_workers_started();
+
+            let landed = BackfillOutcome {
+                elevated: 2,
+                ..Default::default()
+            };
+            assert!(!fold_landed_elevation(engine_install(), &landed));
+            assert_eq!(detection_workers_started(), before);
         }
 
         fn catalogue_method() -> Option<String> {

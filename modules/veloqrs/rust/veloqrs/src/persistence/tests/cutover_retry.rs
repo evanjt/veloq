@@ -592,6 +592,11 @@ fn seed_catalogue(
                 let id = format!("ride_{c}_{i}");
                 e.add_activity(id.clone(), ride(c, i), "Ride".into())
                     .expect("add_activity");
+                e.record_elevation_state(&[(
+                    id.clone(),
+                    crate::persistence::ELEVATION_STATE_UNAVAILABLE,
+                )])
+                .expect("elevation state");
                 e.update_activity_metadata(
                     &id,
                     Some(1_700_000_000 - i as i64 * 14 * 86_400),

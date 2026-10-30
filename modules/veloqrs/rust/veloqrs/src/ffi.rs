@@ -2768,8 +2768,9 @@ mod cutover_diff {
         .expect("a diff");
 
         assert_eq!(diff.token, "detector-v2");
-        assert_eq!(diff.counts.proposed, 5);
-        assert_eq!(diff.counts.gone, 0);
+        let counts = diff.counts.expect("counts");
+        assert_eq!(counts.proposed, 5);
+        assert_eq!(counts.gone, 0);
         let reset = diff.settings_reset.expect("a reset");
         assert_eq!(reset.previous.min_activities, 3);
         assert_eq!(reset.current.proximity_threshold, 25.0);
@@ -2787,7 +2788,7 @@ mod cutover_diff {
             r#","settings_reset":{"previous":{"minActivities":3}}"#,
         ))
         .expect("the diff survives its reset");
-        assert_eq!(diff.counts.current, 4);
+        assert_eq!(diff.counts.expect("counts").current, 4);
         assert!(diff.settings_reset.is_none());
     }
 
@@ -2795,7 +2796,21 @@ mod cutover_diff {
     fn an_older_payload_carrying_rows_is_read_past() {
         let diff = parse_cutover_diff(&diff_with(r#","sections":[{"id":"a"},{"id":"b"}]"#))
             .expect("a diff");
-        assert_eq!(diff.counts.unchanged, 3);
+        assert_eq!(diff.counts.expect("counts").unchanged, 3);
+    }
+
+    /// Scenario: the diff is stored at a promotion over owed elevation, before
+    /// any counts exist.
+    /// Expected behaviour: the token and the reset are read, and the counts
+    /// read as none rather than as a diff that cannot be read.
+    #[test]
+    fn a_diff_stored_without_counts_is_read_as_staged() {
+        let diff =
+            parse_cutover_diff(r#"{"token":"detector-v2","counts":null,"settings_reset":null}"#)
+                .expect("a staged diff");
+
+        assert_eq!(diff.token, "detector-v2");
+        assert!(diff.counts.is_none());
     }
 
     #[test]

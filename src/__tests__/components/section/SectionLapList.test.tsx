@@ -27,7 +27,8 @@ function record(
   activityId: string,
   starts: number[],
   excluded: number[] = [],
-  powers: (number | null)[] = []
+  powers: (number | null)[] = [],
+  estimated: number[] = []
 ): SectionPerformanceRecord {
   return {
     activityId,
@@ -46,6 +47,7 @@ function record(
       avgPower: powers[i] ?? null,
       excluded: excluded.includes(s),
       isRecord: false,
+      estimated: estimated.includes(s),
     })),
     lapCount: starts.length,
     bestTime: 120,
@@ -466,5 +468,50 @@ describe('SectionLapList lap actions', () => {
       getByTestId('section-lap-undo-a-10')
     );
     expect(getByText('sections.lapExcluded')).toBeTruthy();
+  });
+
+  describe('provenance', () => {
+    const lapped = [record('a', [40, 10], [], [], [10])];
+
+    it('labels an estimated lap beside its time and leaves a gate-timed lap bare', async () => {
+      const { getByTestId, queryByTestId } = await openAllRender(
+        <SectionLapList
+          isDark={false}
+          records={lapped}
+          onExcludeLap={jest.fn()}
+          onIncludeLap={jest.fn()}
+        />
+      );
+      expect(getByTestId('section-lap-estimated-a-10')).toBeTruthy();
+      expect(queryByTestId('section-lap-estimated-a-40')).toBeNull();
+    });
+
+    it('speaks the estimate in the time of the lap that carries it', async () => {
+      const { getByTestId } = await openAllRender(
+        <SectionLapList
+          isDark={false}
+          records={lapped}
+          onExcludeLap={jest.fn()}
+          onIncludeLap={jest.fn()}
+        />
+      );
+      expect(getByTestId('section-lap-time-a-10').props.accessibilityLabel).toBe(
+        'sections.estimatedValue:2:10'
+      );
+      expect(getByTestId('section-lap-time-a-40').props.accessibilityLabel).toBeUndefined();
+    });
+
+    it('labels the activity row when its best lap is estimated', async () => {
+      const { getByTestId, queryByTestId } = await render(
+        <SectionLapList
+          isDark={false}
+          records={[record('a', [40, 10], [], [], [40, 10]), record('b', [5, 6])]}
+          onExcludeLap={jest.fn()}
+          onIncludeLap={jest.fn()}
+        />
+      );
+      expect(getByTestId('section-lap-summary-estimated-a')).toBeTruthy();
+      expect(queryByTestId('section-lap-summary-estimated-b')).toBeNull();
+    });
   });
 });

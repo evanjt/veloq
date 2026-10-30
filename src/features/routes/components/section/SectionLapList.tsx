@@ -16,7 +16,10 @@ import { PressTarget } from '@/shared/ui/PressTarget';
 import { Icon } from '@/shared/ui/Icon';
 import { useOpenDetail } from '@/shared/app/MapSheetCards';
 import { colors, darkColors, iconSize, layout, opacity, spacing, typography } from '@/theme';
-import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
+import type {
+  SectionLap,
+  SectionPerformanceRecord,
+} from '@/features/routes/hooks/useSectionPerformances';
 import { NameText } from '@/shared/ui/NameText';
 import { FitText } from '@/shared/ui/FitText';
 
@@ -33,11 +36,12 @@ export interface SectionLapListProps {
 
 const RECENT_ACTIVITIES = 3;
 
-function bestLapTime(r: SectionPerformanceRecord): number | null {
-  let best: number | null = null;
+/** The lap that sets the activity's best time, whose provenance the summary row shows. */
+function quickestLap(r: SectionPerformanceRecord): SectionLap | null {
+  let best: SectionLap | null = null;
   for (const lap of r.laps) {
-    if (!lap.excluded && lap.direction !== 'partial' && (best === null || lap.time < best))
-      best = lap.time;
+    if (!lap.excluded && lap.direction !== 'partial' && (best === null || lap.time < best.time))
+      best = lap;
   }
   return best;
 }
@@ -65,6 +69,16 @@ function RecordMark({ testID, isDark, label }: { testID: string; isDark: boolean
         color={isDark ? darkColors.achievement : colors.achievement}
       />
     </View>
+  );
+}
+
+/** Beside a time the engine projected to a gate, so it does not read as measured. */
+function EstimatedTag({ testID, isDark }: { testID: string; isDark: boolean }) {
+  const { t } = useTranslation();
+  return (
+    <Text testID={testID} style={[styles.excludedTag, isDark && styles.textSecondaryDark]}>
+      {t('sections.estimated')}
+    </Text>
   );
 }
 
@@ -98,11 +112,19 @@ export function SectionLapList({
       ) : null}
       {!showAll
         ? collapsedActivities(lapped).map((r) => {
-            const best = bestLapTime(r);
+            const quickest = quickestLap(r);
+            const best = quickest?.time ?? null;
+            const estimated = quickest?.estimated === true;
             const date = formatFullDate(r.activityDate);
             const record = holdsRecord(r);
             const bestLap =
-              best !== null ? t('sections.bestLapValue', { time: formatDuration(best) }) : null;
+              best !== null
+                ? t('sections.bestLapValue', {
+                    time: estimated
+                      ? t('sections.estimatedValue', { value: formatDuration(best) })
+                      : formatDuration(best),
+                  })
+                : null;
             const lapCount = `×${r.laps.length}`;
             return (
               <PressTarget
@@ -141,6 +163,12 @@ export function SectionLapList({
                   >
                     {formatDuration(best)}
                   </FitText>
+                ) : null}
+                {estimated ? (
+                  <EstimatedTag
+                    testID={`section-lap-summary-estimated-${r.activityId}`}
+                    isDark={isDark}
+                  />
                 ) : null}
                 <FitText style={[styles.lapCount, isDark && styles.textSecondaryDark]}>
                   {lapCount}
@@ -183,10 +211,21 @@ export function SectionLapList({
                           {t('sections.partialPass')}
                         </Text>
                       ) : (
-                        <Text style={[styles.lapTime, isDark && styles.textDark]}>
+                        <Text
+                          testID={`section-lap-time-${id}`}
+                          style={[styles.lapTime, isDark && styles.textDark]}
+                          accessibilityLabel={
+                            lap.estimated
+                              ? t('sections.estimatedValue', { value: formatDuration(lap.time) })
+                              : undefined
+                          }
+                        >
                           {formatDuration(lap.time)}
                         </Text>
                       )}
+                      {lap.estimated && lap.direction !== 'partial' ? (
+                        <EstimatedTag testID={`section-lap-estimated-${id}`} isDark={isDark} />
+                      ) : null}
                       {lap.avgPower != null && Number.isFinite(lap.avgPower) && lap.avgPower > 0 ? (
                         <Text style={[styles.lapPower, isDark && styles.textSecondaryDark]}>
                           {formatPower(lap.avgPower)}

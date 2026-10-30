@@ -87,19 +87,37 @@ fn detection_hold(conn: &Connection) -> Option<FfiDetectionHold> {
     } else {
         backfill::pooled_elevation_backfill_remaining(conn).ok()
     };
-    let owed = remaining.is_some_and(|n| n > 0);
-    if backfill::elevation_backfill_paused() && (owed || elevation_running) {
+    hold_from(
+        backfill::elevation_backfill_paused(),
+        elevation_running,
+        remaining.unwrap_or(0),
+        super::cutover::pooled::cutover_holds_detection(conn),
+    )
+}
+
+/// The ranking of [`detection_hold`] over its inputs. Owed elevation waits a
+/// detect only while the cutover is still owed: once the new catalogue is
+/// promoted, new activities detect and the owed history joins as it downloads,
+/// which is progress and not a hold.
+fn hold_from(
+    paused: bool,
+    elevation_running: bool,
+    remaining: u64,
+    cutover_holds: bool,
+) -> Option<FfiDetectionHold> {
+    let owed = remaining > 0;
+    if paused && (owed || elevation_running) {
         return Some(FfiDetectionHold::ElevationPaused);
     }
     if elevation_running {
         return Some(FfiDetectionHold::ElevationRunning);
     }
-    if let Some(remaining) = remaining.filter(|n| *n > 0) {
+    if owed && cutover_holds {
         return Some(FfiDetectionHold::ElevationWaiting {
             remaining: saturating_u32(remaining),
         });
     }
-    if super::cutover::pooled::cutover_holds_detection(conn) {
+    if cutover_holds {
         return Some(FfiDetectionHold::Cutover);
     }
     None
@@ -120,6 +138,33 @@ mod tests {
             running: None,
             hold: None,
         }
+    }
+
+    #[test]
+    fn owed_elevation_waits_a_detect_only_while_the_cutover_is_owed() {
+        assert_eq!(
+            hold_from(false, false, 7, true),
+            Some(FfiDetectionHold::ElevationWaiting { remaining: 7 })
+        );
+        assert_eq!(hold_from(false, false, 7, false), None);
+        assert_eq!(
+            hold_from(false, false, 0, true),
+            Some(FfiDetectionHold::Cutover)
+        );
+        assert_eq!(hold_from(false, false, 0, false), None);
+    }
+
+    #[test]
+    fn a_running_or_paused_download_holds_after_the_cutover_too() {
+        assert_eq!(
+            hold_from(false, true, 0, false),
+            Some(FfiDetectionHold::ElevationRunning)
+        );
+        assert_eq!(
+            hold_from(true, false, 7, false),
+            Some(FfiDetectionHold::ElevationPaused)
+        );
+        assert_eq!(hold_from(true, false, 0, false), None);
     }
 
     #[test]

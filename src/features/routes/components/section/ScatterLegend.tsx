@@ -1,9 +1,9 @@
 /**
  * Legend for the attempt scatter, one row: the shown direction's dot, the
- * trend, the record, this activity and the hollow mark for a route attempt
- * outside its distance band, each only when the plot draws it. Every key is
- * drawn by the mark it names. Shared by the route detail, section detail and
- * activity Routes tab surfaces.
+ * trend, the record, this activity and the hollow mark, for a route attempt
+ * outside its distance band or a section pass timed by projection, each only
+ * when the plot draws it. Every key is drawn by the mark it names. Shared by
+ * the route detail, section detail and activity Routes tab surfaces.
  */
 
 import React, { useState } from 'react';
@@ -24,6 +24,7 @@ export interface ScatterLegendProps {
   showRecord: boolean;
   showThisActivity: boolean;
   showOutsideBand?: boolean;
+  showEstimated?: boolean;
   showTrend?: boolean;
 }
 
@@ -33,6 +34,7 @@ export function ScatterLegend({
   showRecord,
   showThisActivity,
   showOutsideBand = false,
+  showEstimated = false,
   showTrend = false,
 }: ScatterLegendProps) {
   const colour = directionColour(direction, isDark);
@@ -81,6 +83,15 @@ export function ScatterLegend({
           isDark={isDark}
           label={t('sections.legendOutsideBand')}
           testID="scatter-legend-outside-band"
+        />
+      ) : null}
+      {showEstimated ? (
+        <LegendKey
+          mark="hollow"
+          color={colour}
+          isDark={isDark}
+          label={t('sections.legendEstimated')}
+          testID="scatter-legend-estimated"
         />
       ) : null}
       {showTrend && showMethod ? (

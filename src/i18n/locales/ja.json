@@ -830,6 +830,7 @@
     "sectionsChangedTitle": "セクションを再設定しました",
     "sectionsChangedBody": "Veloqのセクションの見つけ方を改善しました。以前のセクションのうち{{total}}件は除外されました。保存、名前変更、ピン留めしたものは残ります。ほかのものを戻したい場合は、消えた区間から探せます。",
     "sectionsChangedBodyNone": "Veloqのセクションの見つけ方を改善しました。",
+    "sectionsChangedBodyStaged": "セクションを再構築しました。保存、名前変更、ピン留めしたセクションは残ります。古いアクティビティは、ダウンロードされるにつれて追加されます。",
     "sectionsChangedSee": "見る",
     "sectionsChangedDismiss": "今はしない",
     "notificationsTitle": "パーソナライズ通知をお見逃しです",
@@ -2049,7 +2050,11 @@
     "showExcludedAttempts_one": "除外した{{count}}件の試行を表示",
     "showExcludedAttempts_other": "除外した{{count}}件の試行を表示",
     "hideExcludedAttempts": "除外した試行を隠す",
-    "methodFasterAtTop": "{{method}}上ほど速い。"
+    "methodFasterAtTop": "{{method}}上ほど速い。",
+    "estimated": "推定",
+    "estimatedValue": "{{value}}、推定",
+    "legendEstimated": "推定タイム",
+    "methodEstimated": "{{method}}セクションの内側で始まるか終わる通過は、ゲートの照合許容範囲内であれば、自身の速度でそのゲートまで計時されます。投影が10 m以上のときは推定と表示され、同じ方向に実走で計時された通過がない場合にのみ記録を保持します。"
   },
   "settings": {
     "terrain3DMode": "3D：{{mode}}",
@@ -2954,6 +2959,7 @@
     "detectionWaiting_one": "{{count}}件のアクティビティを確認予定",
     "detectionWaiting_other": "{{count}}件のアクティビティを確認予定",
     "cutoverWaiting": "セクションの再構築を待機中",
+    "cutoverJoining": "過去のアクティビティを追加中: {{done, number}} / {{total, number}}",
     "passRecount": "通過回数の再集計",
     "statePaused": "次回アプリを開くまで一時停止",
     "stateWaiting": "再開待ち",

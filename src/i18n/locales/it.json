@@ -849,6 +849,7 @@
     "sectionsChangedTitle": "Le tue sezioni sono state ritagliate di nuovo",
     "sectionsChangedBody": "Abbiamo migliorato il modo in cui Veloq trova le sezioni. {{total}} delle tue vecchie sezioni sono state ritirate. Quelle che hai salvato, rinominato o fissato restano. Se vuoi riavere alcune delle altre, le trovi in Tratti ritirati.",
     "sectionsChangedBodyNone": "Abbiamo migliorato il modo in cui Veloq trova le sezioni.",
+    "sectionsChangedBodyStaged": "Le tue sezioni sono state ricalcolate. Quelle che hai salvato, rinominato o fissato restano. Le attività più vecchie si aggiungono man mano che vengono scaricate.",
     "sectionsChangedSee": "Vedile",
     "sectionsChangedDismiss": "Non ora",
     "notificationsTitle": "Ti stai perdendo le notifiche personalizzate",
@@ -2098,7 +2099,11 @@
     "showExcludedAttempts_one": "Mostra {{count}} tentativo escluso",
     "showExcludedAttempts_other": "Mostra {{count}} tentativi esclusi",
     "hideExcludedAttempts": "Nascondi i tentativi esclusi",
-    "methodFasterAtTop": "{{method}} Più veloce in alto."
+    "methodFasterAtTop": "{{method}} Più veloce in alto.",
+    "estimated": "Stimato",
+    "estimatedValue": "{{value}}, stimato",
+    "legendEstimated": "Tempo stimato",
+    "methodEstimated": "{{method}} Un passaggio che inizia o finisce dentro la sezione, entro la tolleranza di corrispondenza di un varco, viene cronometrato fino a quel varco alla propria velocità. È segnato come stimato quando la proiezione è di 10 m o più, e detiene il record solo se nessun passaggio nella sua direzione è stato cronometrato sul percorso."
   },
   "settings": {
     "terrain3DMode": "Terreno 3D: {{mode}}",
@@ -3035,6 +3040,7 @@
     "detectionWaiting_many": "{{count}} di attività da controllare",
     "detectionWaiting_other": "{{count}} attività da controllare",
     "cutoverWaiting": "In attesa di ricostruire le tue sezioni",
+    "cutoverJoining": "Attività precedenti in aggiunta: {{done, number}} di {{total, number}}",
     "passRecount": "Riconteggio dei passaggi",
     "statePaused": "In pausa fino alla prossima apertura dell'app",
     "stateWaiting": "In attesa di riprendere",

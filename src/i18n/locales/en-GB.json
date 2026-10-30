@@ -830,6 +830,7 @@
     "sectionsChangedTitle": "Your sections were re-cut",
     "sectionsChangedBody": "We've improved how Veloq finds sections. {{total}} of your old sections have been retired. The ones you saved, renamed or pinned are kept. If you want any of the others back, find them in Retired sections.",
     "sectionsChangedBodyNone": "We've improved how Veloq finds sections.",
+    "sectionsChangedBodyStaged": "Your sections were rebuilt. The ones you saved, renamed or pinned are kept. Older activities join as they download.",
     "sectionsChangedSee": "See them",
     "sectionsChangedDismiss": "Not now",
     "notificationsTitle": "You’re missing out on personalised notifications",
@@ -2049,7 +2050,11 @@
     "showExcludedAttempts_one": "Show {{count}} excluded attempt",
     "showExcludedAttempts_other": "Show {{count}} excluded attempts",
     "hideExcludedAttempts": "Hide excluded attempts",
-    "methodFasterAtTop": "{{method}} Faster at the top."
+    "methodFasterAtTop": "{{method}} Faster at the top.",
+    "estimated": "Estimated",
+    "estimatedValue": "{{value}}, estimated",
+    "legendEstimated": "Estimated time",
+    "methodEstimated": "{{method}} A pass that starts or stops inside the section, within the matching tolerance of a gate, is timed to that gate at its own speed. It is marked estimated when the projection is 10 m or more, and holds the record only when no pass in its direction was timed on the ground."
   },
   "settings": {
     "terrain3DMode": "3D: {{mode}}",
@@ -2954,6 +2959,7 @@
     "detectionWaiting_one": "{{count}} activity to check",
     "detectionWaiting_other": "{{count}} activities to check",
     "cutoverWaiting": "Waiting to rebuild your sections",
+    "cutoverJoining": "Older activities joining: {{done, number}} of {{total, number}}",
     "passRecount": "Pass recount",
     "statePaused": "Paused until the app is next opened",
     "stateWaiting": "Waiting to resume",

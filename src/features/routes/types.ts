@@ -288,6 +288,8 @@ export interface PerformanceDataPoint {
   avgPower?: number | undefined;
   /** The side of its direction's focus range the engine found the point past, absent when inside. */
   offScale?: 'slow' | 'fast' | undefined;
+  /** The time was projected to a gate over ground the recording did not cover: charted, never the record while a gate-timed pass stands. */
+  estimated?: boolean | undefined;
   /** Seconds behind the direction's record, from the engine: zero for the record, positive slower. */
   recordGapSecs?: number | undefined;
   /** Metres per second behind the direction's record, from the engine, signed as the seconds are. */

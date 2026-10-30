@@ -59,6 +59,7 @@ function summary(over: Partial<CutoverSummary>): CutoverSummary {
     phase: 'idle',
     isRunning: false,
     counts: null,
+    countsOwed: false,
     settingsReset: null,
     sawRun: false,
     ...over,

@@ -49,6 +49,7 @@ fn outings(attempts: &[Attempt], excluded: bool) -> Vec<crate::SectionPerformanc
                 outside_distance_band: a.outside_band,
                 match_percentage: None,
                 is_record: false,
+                estimated: false,
             };
             crate::SectionPerformanceRecord {
                 activity_id: a.activity.clone(),
@@ -60,6 +61,7 @@ fn outings(attempts: &[Attempt], excluded: bool) -> Vec<crate::SectionPerformanc
                 best_pace: MILE_M / a.time,
                 best_forward_time: (a.direction == "same").then_some(a.time),
                 best_reverse_time: (a.direction == "reverse").then_some(a.time),
+                best_estimated: false,
                 avg_time: a.time,
                 avg_pace: MILE_M / a.time,
                 direction: a.direction.to_string(),

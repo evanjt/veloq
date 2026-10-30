@@ -44,7 +44,10 @@ export interface CutoverSettingsReset {
  */
 export interface CutoverDiff {
   token: string;
-  counts: CutoverCounts;
+  /** Null while `countsOwed` is set: the cut is stored before its counts exist. */
+  counts: CutoverCounts | null;
+  /** The cut is stored and its counts wait for every track's elevation. */
+  countsOwed: boolean;
   settingsReset: CutoverSettingsReset | null;
 }
 
@@ -109,7 +112,8 @@ export function getCutoverDiff(host: DelegateHost): CutoverDiff | null {
   if (!diff) return null;
   return {
     token: diff.token,
-    counts: diff.counts,
+    counts: diff.counts ?? null,
+    countsOwed: !diff.counts,
     settingsReset: diff.settingsReset ?? null,
   };
 }
