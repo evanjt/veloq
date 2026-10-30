@@ -393,6 +393,10 @@ pub(crate) fn worker_write(
 }
 
 #[cfg(test)]
+#[path = "tests/elevation_pool.rs"]
+mod elevation_pool_tests;
+
+#[cfg(test)]
 #[path = "tests/route_name_mint.rs"]
 mod route_name_mint_tests;
 
@@ -971,9 +975,9 @@ impl PersistentEngine {
         // engine in place and copies nothing first. The cache's debt is read
         // from its row's count while the cache is still unrestored, so an echo
         // never pays the cache's decode either.
-        let nothing_new = self
-            .activity_metadata
-            .keys()
+        let pool = self.detect_pool_ids();
+        let nothing_new = pool
+            .iter()
             .all(|id| self.processed_activity_ids.contains(id));
         if nothing_new
             && self.sections.iter().any(|s| !s.is_user_defined)
@@ -983,7 +987,7 @@ impl PersistentEngine {
                 "veloqrs: [SectionDetection] No new activities, skipping detection ({} already processed)",
                 self.processed_activity_ids.len()
             );
-            let all_ids = self.sorted_activity_ids();
+            let all_ids = pool;
             // No detection ran, so the evidence cache is unchanged: `cache_tx` is
             // dropped unsent, `take_cache` returns None, and the caller leaves the
             // engine cache as-is.
@@ -1088,7 +1092,7 @@ impl PersistentEngine {
             .iter()
             .map(|(id, m)| (id.clone(), m.sport_type.clone()))
             .collect();
-        let activity_ids = self.sorted_activity_ids();
+        let activity_ids = self.detect_pool_ids();
 
         // Activity start times for the occasion support floor: ground
         // visited only within one stay is a trip, not repetition. Dates
@@ -2212,6 +2216,33 @@ impl PersistentEngine {
     fn sorted_activity_ids(&self) -> Vec<String> {
         let mut ids: Vec<String> = self.activity_metadata.keys().cloned().collect();
         ids.sort();
+        ids
+    }
+
+    /// The activities a detect reads: every one with metadata, less the
+    /// tracks whose elevation is still owed while the download can run.
+    ///
+    /// A pool that mixes tracks with elevation and tracks without lets a flat
+    /// track veto a real climb, and the section that results takes a durable
+    /// id. A track held out is never marked processed, so the detect that
+    /// follows its elevation folds it. With no credential the download cannot
+    /// run, so nothing is owed and the pool is the whole library, as it is
+    /// for a track no queue will ever ask about. The one owner of this
+    /// choice, for the detect, its idle test and the cutover's unprocessed
+    /// check alike.
+    pub(crate) fn detect_pool_ids(&self) -> Vec<String> {
+        let mut ids = self.sorted_activity_ids();
+        if !crate::objects::credentials_held() {
+            return ids;
+        }
+        match crate::net::elevation_backfill::pooled_elevation_owed_ids(&self.db) {
+            Ok(owed) if !owed.is_empty() => ids.retain(|id| !owed.contains(id)),
+            Ok(_) => {}
+            Err(err) => log::warn!(
+                "veloqrs: [SectionDetection] elevation queue unreadable, pooling every track: {}",
+                err
+            ),
+        }
         ids
     }
 

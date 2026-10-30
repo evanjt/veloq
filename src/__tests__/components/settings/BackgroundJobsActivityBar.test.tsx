@@ -124,7 +124,7 @@ describe('BackgroundJobsActivityBar', () => {
 
     await fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
     expect(tree.getByTestId('background-job-streamBackfill-detail').props.children).toBe(
-      "1400 activities · Paced on intervals.icu's caps, about 3 days to finish"
+      "1400 activities · At least 3 days to finish, on intervals.icu's daily limit"
     );
   });
 

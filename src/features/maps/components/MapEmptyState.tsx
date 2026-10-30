@@ -14,7 +14,7 @@ export const MAP_EMPTY_STATE_TEST_ID = 'map-empty-state';
  *
  * The engine names the cause. Each cause carries the action that changes it
  * where one exists: a wider period for an empty one, the filters cleared for
- * filters that hide every track. A download in flight ends on its own, and a
+ * filters that hide every track, the sync settings for a download in flight. A
  * period of indoor sessions has nothing to draw.
  */
 export function MapEmptyState({
@@ -68,6 +68,7 @@ export function MapEmptyState({
         icon: 'cloud-download-outline' as const,
         title: t('mapScreen.emptyTracksPending'),
         detail: t('mapScreen.emptyTracksPendingHint', { count: reason.inner.pending }),
+        action: action(t('mapScreen.emptyTracksPendingAction'), onExpandRange),
       };
     }
     return {

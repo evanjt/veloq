@@ -1702,7 +1702,6 @@ describe('banner-live-region', () => {
 
 describe('selected-state-accessibility', () => {
   const CHIP = [
-    'src/features/routes/components/SportTypeSelector.tsx',
     'src/features/activity/components/ChartTypeSelector.tsx',
     'src/features/routes/components/preview/PreviewCentrePicker.tsx',
   ];
@@ -1718,7 +1717,7 @@ describe('selected-state-accessibility', () => {
     const { status, output } = runRule('selected-state-accessibility', root);
 
     expect(status).toBe(1);
-    expect(output).toContain('SportTypeSelector.tsx:1');
+    expect(output).toContain('ChartTypeSelector.tsx:1');
   });
 
   it('passes one that sets the state, and one with no flag', () => {

@@ -322,8 +322,8 @@ function InsightsScreenContent() {
 
   const timelineSyncProgress = useMemo(() => {
     // The track work the engine reports, then the window download before it.
-    if (trackStage) {
-      const line = formatTrackStage(trackStage, t);
+    const line = trackStage ? formatTrackStage(trackStage, t) : null;
+    if (line) {
       return { message: line.countText ? `${line.text} (${line.countText})` : line.text };
     }
     if (isFetchingExtended) {

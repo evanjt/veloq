@@ -32,6 +32,7 @@ import {
   ToggleButton,
   type StatTileDelta,
 } from '@/shared/ui';
+import { RangePartlyDownloadedNote } from './RangePartlyDownloadedNote';
 
 type TimeRange = SummaryRange;
 
@@ -277,12 +278,7 @@ export function WeeklySummary({ training }: WeeklySummaryProps) {
             {rangeTexts.previous}
           </Text>
           {partlyNotDownloaded ? (
-            <Text
-              testID="weekly-summary-partial"
-              style={[styles.comparisonLabel, isDark && styles.textDark]}
-            >
-              {t('stats.rangePartlyDownloaded')}
-            </Text>
+            <RangePartlyDownloadedNote testID="weekly-summary-partial" style={styles.partialLink} />
           ) : null}
         </>
       )}
@@ -315,6 +311,9 @@ const styles = StyleSheet.create({
   comparisonLabel: {
     ...typography.micro,
     color: colors.textSecondary,
+    marginTop: spacing.xs,
+  },
+  partialLink: {
     marginTop: spacing.xs,
   },
   statLabelPlaceholder: {

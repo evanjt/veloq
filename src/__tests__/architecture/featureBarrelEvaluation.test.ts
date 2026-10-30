@@ -237,8 +237,6 @@ const ROUTES_NAMES = [
   'SectionStreamsNotice',
   'sectionStreamsState',
   'SectionTrimOverlay',
-  'shouldShowSportChips',
-  'SportTypeSelector',
   'SyncDebugSection',
   'toActivityType',
   'TodayBanner',

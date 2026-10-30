@@ -13,6 +13,10 @@ import { ActivityLedgerChanges } from '@/features/activity/components/ActivityLe
 import { navigateTo } from '@/shared/app/navigation';
 
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());
+jest.mock('@/shared/app', () => ({
+  ...jest.requireActual('@/shared/app'),
+  useMetricSystem: () => true,
+}));
 jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
 // The ripple Android selects, so a row is checked against the value it gets
 // on that platform.
@@ -51,15 +55,12 @@ describe('ActivityLedgerChanges', () => {
     });
     delete unnamed.sectionName;
     const { getByTestId, getByText, queryByText } = await render(
-      <ActivityLedgerChanges
-        changes={[change({ eventId: 1, relation: 'fork_around' }), unnamed]}
-        isDark={false}
-      />
+      <ActivityLedgerChanges changes={[change({ eventId: 1 }), unnamed]} isDark={false} />
     );
-    expect(getByText('sectionHistory.around')).toBeTruthy();
+    expect(getByText('sectionHistory.changesTitle')).toBeTruthy();
     expect(getByText('Lake loop')).toBeTruthy();
     expect(getByText('sectionHistory.kind_recut')).toBeTruthy();
-    expect(getByText('sectionHistory.forkAround')).toBeTruthy();
+    expect(queryByText('sectionHistory.around')).toBeNull();
     expect(getByText('sectionHistory.kind_reference_reanchored')).toBeTruthy();
     expect(queryByText('sectionHistory.kind_split')).toBeNull();
 
@@ -77,6 +78,21 @@ describe('ActivityLedgerChanges', () => {
     expect(getAllByText('Lake loop')).toHaveLength(2);
     expect(queryByText('sectionHistory.kind_split')).toBeNull();
     expect(queryByText('sectionHistory.kind_reverted')).toBeNull();
+  });
+
+  it('words a change as the section history does, naming what moved', async () => {
+    const { getByText } = await render(
+      <ActivityLedgerChanges
+        changes={[
+          change({
+            summary: { moved: 'end', lengthBefore: 1240, lengthAfter: 1480, records: [] },
+          }),
+        ]}
+        isDark={false}
+      />
+    );
+    expect(getByText('Lake loop')).toBeTruthy();
+    expect(getByText('sectionHistory.headline_longer_end')).toBeTruthy();
   });
 
   it('answers a press on a row with the shared ripple', async () => {

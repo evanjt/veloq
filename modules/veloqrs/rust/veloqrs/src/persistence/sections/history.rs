@@ -206,7 +206,7 @@ pub struct SectionChange {
 /// two ends of a reference re-anchor. None of them says the activity caused
 /// the change.
 /// It is where the activity was around the change, never a cause.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 #[uniffi(name = "FfiActivityLedgerChange")]
 pub struct ActivityLedgerChange {
@@ -222,6 +222,9 @@ pub struct ActivityLedgerChange {
     /// How the row names the activity: around, fork_around, reanchored_from or
     /// reanchored_to.
     pub relation: String,
+    /// What the change did to the line and why, as the section's own ledger
+    /// reads it. Absent on a row that is not a detector change.
+    pub summary: Option<crate::FfiSectionChangeSummary>,
 }
 
 /// One stored geometry version, without its polyline.
@@ -2170,6 +2173,61 @@ pub(crate) mod pooled {
             .unwrap_or_default()
     }
 
+    /// The line a ledger row narrates: its stored version, or the newest
+    /// stored one that decodes when the row names none, as a retirement does.
+    /// A section that never stored a version narrates its current line.
+    fn row_line(
+        conn: &Connection,
+        section_id: &str,
+        geometry_version: Option<i64>,
+    ) -> Vec<GpsPoint> {
+        let line = |version: i64| {
+            section_geometry_version(conn, section_id, version)
+                .map(|(points, _)| points)
+                .filter(|points| points.len() >= 2)
+        };
+        geometry_version
+            .and_then(line)
+            .or_else(|| {
+                section_geometry_versions(conn, section_id)
+                    .iter()
+                    .rev()
+                    .find_map(|v| line(v.version))
+            })
+            .or_else(|| {
+                super::geometry::stored_line(conn, section_id)
+                    .ok()
+                    .filter(|points| points.len() >= 2)
+            })
+            .unwrap_or_default()
+    }
+
+    /// The ids of `activity_ids` whose track has portions on `line`, the
+    /// rides a change to that line can be around. A ride with no stored track
+    /// rides nothing, and a row with no line has no ground to ride.
+    fn rides_on_line(conn: &Connection, line: &[GpsPoint], activity_ids: &[String]) -> Vec<String> {
+        if line.is_empty() {
+            return Vec::new();
+        }
+        let tracks: std::collections::BTreeMap<String, Vec<GpsPoint>> = activity_ids
+            .iter()
+            .filter_map(|id| {
+                crate::persistence::activities::pooled::gps_track(conn, id)
+                    .map(|track| (id.clone(), track))
+            })
+            .collect();
+        let on = crate::persistence::sections::identity::arrivals_on(
+            &[line],
+            &tracks,
+            &tracematch::SectionConfig::default(),
+        );
+        activity_ids
+            .iter()
+            .filter(|id| on.contains(id.as_str()))
+            .cloned()
+            .collect()
+    }
+
     pub(crate) fn linked_section_history(
         conn: &Connection,
         section_id: &str,
@@ -2214,7 +2272,7 @@ pub(crate) mod pooled {
                 },
             }
         };
-        history
+        let mut events: Vec<crate::FfiSectionHistoryEvent> = history
             .into_iter()
             .map(|event| crate::FfiSectionHistoryEvent {
                 id: event.id as f64,
@@ -2223,14 +2281,56 @@ pub(crate) mod pooled {
                     event.details.as_deref(),
                     &event.kind,
                     &mut link,
-                ),
+                )
+                .map(|mut details| {
+                    let line = row_line(conn, section_id, event.geometry_version);
+                    details.around = rides_on_line(conn, &line, &details.around);
+                    let before = line_before(conn, section_id, event.geometry_version);
+                    details.summary = crate::persistence::sections::ledger_details::change_summary(
+                        event.details.as_deref(),
+                        &event.kind,
+                        &before,
+                        &line,
+                        &mut link,
+                    );
+                    details
+                }),
                 kind: event.kind,
                 geometry_version: event.geometry_version.map(|v| v as f64),
             })
-            .collect()
+            .collect();
+        crate::persistence::sections::ledger_details::fold_record_moves(&mut events);
+        events
+    }
+
+    /// The line of the newest stored version older than a row's own, which a
+    /// re-cut is compared with. A row that names no version, or the first
+    /// stored one, has none.
+    fn line_before(
+        conn: &Connection,
+        section_id: &str,
+        geometry_version: Option<i64>,
+    ) -> Vec<GpsPoint> {
+        let Some(version) = geometry_version else {
+            return Vec::new();
+        };
+        section_geometry_versions(conn, section_id)
+            .iter()
+            .rev()
+            .filter(|v| v.version < version)
+            .find_map(|v| {
+                section_geometry_version(conn, section_id, v.version)
+                    .map(|(points, _)| points)
+                    .filter(|points| points.len() >= 2)
+            })
+            .unwrap_or_default()
     }
 
     /// Every ledger row on a section that names `activity_id`, newest first.
+    ///
+    /// A ride is around a change only when its track has portions on the line
+    /// of the row's version, so rows written before rides were attributed by
+    /// track do not list rides elsewhere. The fork list is not read.
     ///
     /// `instr` on the quoted id narrows the rows and takes no wildcard, so an
     /// id carrying `%` or `_` matches only itself; the details are then parsed
@@ -2246,7 +2346,8 @@ pub(crate) mod pooled {
             return Vec::new();
         };
         let Ok(mut stmt) = conn.prepare(
-            "SELECT h.id, h.section_id, h.at, h.kind, h.details, s.section_type, s.name
+            "SELECT h.id, h.section_id, h.at, h.kind, h.details, s.section_type, s.name,
+                    h.geometry_version
              FROM section_history h JOIN sections s ON s.id = h.section_id
              WHERE h.details IS NOT NULL AND instr(h.details, ?) > 0
              ORDER BY h.at DESC, h.id DESC",
@@ -2262,13 +2363,18 @@ pub(crate) mod pooled {
                 row.get::<_, String>(4)?,
                 row.get::<_, String>(5)?,
                 row.get::<_, Option<String>>(6)?,
+                row.get::<_, Option<i64>>(7)?,
             ))
         });
         let Ok(rows) = rows else {
             return Vec::new();
         };
         let mut found = Vec::new();
-        for (event_id, section_id, at, kind, details, section_type, name) in rows.flatten() {
+        let mut ledgers: std::collections::BTreeMap<String, Vec<crate::FfiSectionHistoryEvent>> =
+            std::collections::BTreeMap::new();
+        for (event_id, section_id, at, kind, details, section_type, name, geometry_version) in
+            rows.flatten()
+        {
             let Ok(value) = serde_json::from_str::<serde_json::Value>(&details) else {
                 continue;
             };
@@ -2280,11 +2386,15 @@ pub(crate) mod pooled {
             };
             let is_it = |key: &str| value.get(key).and_then(|v| v.as_str()) == Some(activity_id);
             let mut relations = Vec::new();
-            if lists_it("around") {
+            if lists_it("around")
+                && !rides_on_line(
+                    conn,
+                    &row_line(conn, &section_id, geometry_version),
+                    &[activity_id.to_string()],
+                )
+                .is_empty()
+            {
                 relations.push("around");
-            }
-            if lists_it("fork_around") {
-                relations.push("fork_around");
             }
             if kind == super::KIND_REFERENCE_REANCHORED {
                 if is_it("from") {
@@ -2299,8 +2409,20 @@ pub(crate) mod pooled {
             } else {
                 name.or_else(|| names.get(&section_id).cloned())
             };
+            let summary = if relations.is_empty() {
+                None
+            } else {
+                ledgers
+                    .entry(section_id.clone())
+                    .or_insert_with(|| linked_section_history(conn, &section_id, names))
+                    .iter()
+                    .find(|event| event.id == event_id as f64)
+                    .and_then(|event| event.details.as_ref())
+                    .and_then(|details| details.summary.clone())
+            };
             for relation in relations {
                 found.push(super::ActivityLedgerChange {
+                    summary: summary.clone(),
                     event_id: crate::WholeNumber(event_id),
                     section_id: section_id.clone(),
                     section_name: section_name.clone(),
@@ -2902,24 +3024,192 @@ mod tests {
             .collect()
     }
 
+    fn path(latitude: f64, longitude: f64) -> Vec<tracematch::GpsPoint> {
+        (0..100)
+            .map(|i| tracematch::GpsPoint {
+                latitude: latitude + f64::from(i) * 0.000_1,
+                longitude,
+                elevation: None,
+            })
+            .collect()
+    }
+
+    /// A section whose stored line is `path(46.0, 7.0)`, a ride on it (`near`),
+    /// a ride 500 km away (`far`), a ride with no stored track (`gone`), and a
+    /// stored row that lists all three.
+    fn stored_row_listing_far_rides() -> PersistentEngine {
+        let mut engine = PersistentEngine::in_memory().expect("engine");
+        section_row(&engine, "s1", "auto", "Climb");
+        engine
+            .add_activity("near".into(), path(46.0, 7.0), "Ride".into())
+            .expect("near");
+        engine
+            .add_activity("far".into(), path(50.5, 7.0), "Ride".into())
+            .expect("far");
+        let version = record_archived_geometry_on(&engine.db, "s1", &path(46.0, 7.0), None)
+            .expect("line")
+            .expect("version");
+        append_history_on(
+            &engine.db,
+            "s1",
+            "recut",
+            Some(r#"{"around":["near","far","gone"],"fork_around":["far"]}"#),
+            Some(version),
+            Some("2026-02-01 10:00:00"),
+        )
+        .expect("row");
+        engine
+    }
+
+    /// Scenario: a row written before rides were attributed by track lists a
+    /// ride on the line, a ride 500 km away and a ride whose track is gone.
+    ///
+    /// Expected behaviour: the section's ledger read keeps only the ride on
+    /// the line. The far ride's activity read lists no change, the near
+    /// ride's lists one, and neither lists the fork key.
+    #[test]
+    fn a_stored_row_lists_only_the_rides_on_its_version_line() {
+        let engine = stored_row_listing_far_rides();
+        let names = std::collections::BTreeMap::new();
+
+        let history = pooled::linked_section_history(&engine.db, "s1", &names);
+        let details = history[0].details.as_ref().expect("details");
+        assert_eq!(details.around, vec!["near".to_string()]);
+
+        assert!(relations_of(&engine.db, "far").is_empty());
+        assert!(relations_of(&engine.db, "gone").is_empty());
+        assert_eq!(
+            relations_of(&engine.db, "near"),
+            vec![("s1".to_string(), "around".to_string())]
+        );
+    }
+
+    /// Scenario: a ride on a re-cut section's line reads the section's changes.
+    ///
+    /// Expected behaviour: the activity read carries the same summary the
+    /// section's own ledger read gives that row, so both screens word it alike.
+    #[test]
+    fn an_activity_change_carries_the_summary_its_section_ledger_reads() {
+        let engine = stored_row_listing_far_rides();
+        let names = std::collections::BTreeMap::new();
+
+        let history = pooled::linked_section_history(&engine.db, "s1", &names);
+        let expected = history[0]
+            .details
+            .as_ref()
+            .and_then(|d| d.summary.clone())
+            .expect("a re-cut row reads a summary");
+        assert!(expected.length_after.is_some());
+
+        let found = pooled::ledger_changes_naming_activity(&engine.db, "near", &names);
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].summary, Some(expected));
+    }
+
+    /// Scenario: a section's line is stored at 99 points, then re-cut 50
+    /// points longer at the end with a traffic cliff recorded at the new end,
+    /// and the re-cut moved a ride record in the same step.
+    ///
+    /// Expected behaviour: the ledger read gives the re-cut row its two lengths,
+    /// the end as the part that moved, the cliff's counts, and the record move
+    /// folded onto it. The rebase row points at the re-cut and the first row
+    /// of the version reads no part that moved.
+    #[test]
+    fn the_ledger_read_summarises_a_recut_against_the_version_before() {
+        let mut engine = PersistentEngine::in_memory().expect("engine");
+        section_row(&engine, "s1", "auto", "Climb");
+        engine
+            .add_activity("a1".into(), path(46.0, 7.0), "Ride".into())
+            .expect("a1");
+        let longer: Vec<tracematch::GpsPoint> = (0..150)
+            .map(|i| tracematch::GpsPoint::new(46.0 + f64::from(i) * 0.000_1, 7.0))
+            .collect();
+        let first = record_archived_geometry_on(&engine.db, "s1", &path(46.0, 7.0), None)
+            .expect("line")
+            .expect("version");
+        let second = record_archived_geometry_on(&engine.db, "s1", &longer, None)
+            .expect("line")
+            .expect("version");
+        assert!(second > first);
+        let cliff = serde_json::json!({"boundaries": [{
+            "kind": "traffic_cliff", "thin": 4, "thick": 15,
+            "latitude": 46.0 + 149.0 * 0.000_1, "longitude": 7.0}]})
+        .to_string();
+        let at = "2026-02-01 10:00:00";
+        append_history_on(
+            &engine.db,
+            "s1",
+            "formed",
+            Some("{}"),
+            Some(first),
+            Some(at),
+        )
+        .expect("row");
+        append_history_on(
+            &engine.db,
+            "s1",
+            "recut",
+            Some(&cliff),
+            Some(second),
+            Some(at),
+        )
+        .expect("row");
+        change(
+            &engine,
+            "s1",
+            KIND_PR_REBASED,
+            at,
+            r#"{"sport":"Ride","direction":"same","from_time":600.0,"to_time":580.0}"#,
+        );
+
+        let names = std::collections::BTreeMap::new();
+        let history = pooled::linked_section_history(&engine.db, "s1", &names);
+        let summary = |index: usize| {
+            history[index]
+                .details
+                .as_ref()
+                .and_then(|d| d.summary.clone())
+        };
+        let recut = summary(1).expect("summary");
+        assert!((recut.length_before.expect("before") - 1101.0).abs() < 10.0);
+        assert!((recut.length_after.expect("after") - 1657.0).abs() < 10.0);
+        assert_eq!(recut.moved.as_deref(), Some("end"));
+        let reason = recut.reason.expect("reason");
+        assert_eq!(
+            (reason.kind.as_str(), reason.count, reason.of),
+            ("traffic_cliff", Some(11), Some(15))
+        );
+        assert_eq!(recut.records.len(), 1);
+        assert_eq!(summary(2).and_then(|s| s.folded_into), Some(history[1].id));
+        assert!(summary(0).expect("formed").moved.is_none());
+    }
+
     /// Scenario: a fork re-cut and a pending change both name activity `a1` on
     /// their sections' ledgers, and a re-anchor moved a line off `a1`.
     ///
     /// Expected behaviour: the activity's read lists each change once with how
-    /// it names the activity, newest first, and a row naming only `a10` or
+    /// it names the activity (the fork list is not read), newest first, and a row naming only `a10` or
     /// `a1` as a substring of another id is not a match.
     #[test]
     fn a_ledger_row_naming_an_activity_is_found_from_the_activity() {
-        let engine = PersistentEngine::in_memory().expect("engine");
+        let mut engine = PersistentEngine::in_memory().expect("engine");
         section_row(&engine, "s1", "auto", "Climb");
         section_row(&engine, "s2", "custom", "Loop");
-        change(
-            &engine,
+        engine
+            .add_activity("a1".into(), path(46.0, 7.0), "Ride".into())
+            .expect("a1");
+        let version = record_archived_geometry_on(&engine.db, "s1", &path(46.0, 7.0), None)
+            .expect("line")
+            .expect("version");
+        append_history_on(
+            &engine.db,
             "s1",
             "recut",
-            "2026-02-01 10:00:00",
-            r#"{"around":["a1","a2"],"fork_around":["a1"]}"#,
-        );
+            Some(r#"{"around":["a1","a2"],"fork_around":["a1"]}"#),
+            Some(version),
+            Some("2026-02-01 10:00:00"),
+        )
+        .expect("row");
         change(
             &engine,
             "s2",
@@ -2960,7 +3250,6 @@ mod tests {
             vec![
                 ("s2", "reanchored_from", Some("Loop")),
                 ("s1", "around", Some("Named")),
-                ("s1", "fork_around", Some("Named")),
             ]
         );
         assert_eq!(found[0].section_type, "custom");

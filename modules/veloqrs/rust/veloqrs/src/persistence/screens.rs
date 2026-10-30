@@ -236,9 +236,11 @@ pub fn background_jobs_data(
         detection_awaiting,
         cutover_owed: crate::persistence::cutover::pooled::cutover_is_owed(conn),
         stream_days_to_finish,
+        backfill_day_share: crate::governor::BACKFILL_ALLOWANCE.per_day,
         garmin_pull: crate::net::garmin::pull::screen_read(conn),
         downloads_held_until_ms: hold.map(|hold| hold.until.timestamp_millis() as f64),
         downloads_held_by_upstream: hold.is_some_and(|hold| hold.by_upstream),
+        daily_limit: crate::governor::daily_limit(),
         pass_recount_running: conn
             .path()
             .is_some_and(crate::persistence::sections::pass_rule::pass_recount_running),
@@ -1422,7 +1424,7 @@ pub(crate) fn section_detail_from<R>(
     wellness_between: impl FnOnce(&str, &str) -> Vec<crate::FfiWellnessDay>,
     curves_of: impl FnOnce(Option<&str>) -> Option<std::sync::Arc<Option<crate::FfiSectionLapCurves>>>,
     efficiency_of: impl FnOnce(&str, i64) -> Option<crate::FfiEfficiencyTrend>,
-    untimed_of: impl FnOnce(Option<&str>) -> Vec<crate::SectionPerformanceRecord>,
+    mut untimed_of: impl FnMut(Option<&str>) -> Vec<crate::SectionPerformanceRecord>,
     mut read: R,
 ) -> crate::FfiSectionPerformanceData
 where
@@ -1436,8 +1438,10 @@ where
 
     let cutoff = range_cutoff(time_range_days);
 
-    // A sport is offered when it has a lap on the chart over the range, or an
-    // excluded lap to restore. A sport with neither would lead to an empty chart.
+    // A sport is offered when it has a lap on the chart over the range, an
+    // excluded lap to restore, or a pass that crosses no gate and is listed as
+    // a partial lap. A sport with none would lead to an empty page. A sport
+    // with no timed lap counts the passes it has over the range.
     let offered: Vec<(String, u32)> = sports
         .iter()
         .filter_map(|(sport, _)| {
@@ -1445,7 +1449,16 @@ where
                 .points
                 .len() as u32;
             let restorable = !read(Some(sport), laps::Rows::Excluded).records.is_empty();
-            (count > 0 || restorable).then(|| (sport.clone(), count))
+            let untimed = if count > 0 {
+                0
+            } else {
+                untimed_of(Some(sport))
+                    .iter()
+                    .filter(|r| r.activity_date >= crate::WholeNumber(cutoff))
+                    .map(|r| r.laps.len() as u32)
+                    .sum()
+            };
+            (count > 0 || restorable || untimed > 0).then(|| (sport.clone(), count.max(untimed)))
         })
         .collect();
 
@@ -6523,6 +6536,61 @@ mod tests {
             .expect("a Run pill");
         assert_eq!(run.count, 3);
         assert_eq!(all.chart_data.points.len(), 3);
+    }
+
+    /// Scenario: a section ridden twice, run three laps and hiked twice, the
+    /// hikes crossing no gate so they have no lap time.
+    ///
+    /// Expected behaviour: the hike is still offered, counted by its passes in
+    /// the range, so the sport menu lists all three. A hike older than the
+    /// range is not offered.
+    #[test]
+    fn a_sport_with_only_untimed_passes_in_range_is_offered() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().expect("tempdir");
+        let path = dir.path().join("untimed_sport.db");
+        let mut engine = section_detail_engine(
+            path.to_str().expect("utf-8"),
+            &[
+                ("ride_a", "Ride", 3, &[(200.0, false)]),
+                ("ride_b", "Ride", 6, &[(210.0, false)]),
+                (
+                    "run_a",
+                    "Run",
+                    2,
+                    &[(400.0, false), (410.0, false), (420.0, false)],
+                ),
+                ("hike_a", "Hike", 4, &[(900.0, false)]),
+                ("hike_b", "Hike", 5, &[(910.0, false)]),
+                ("hike_old", "Hike", 400, &[(920.0, false)]),
+            ],
+        );
+        engine
+            .db
+            .execute(
+                "UPDATE section_activities SET lap_time = NULL, lap_pace = NULL
+                 WHERE activity_id LIKE 'hike%'",
+                [],
+            )
+            .expect("untime");
+        engine.invalidate_perf_cache();
+
+        let month = performance_detail(&mut engine, 30, None);
+        let mut counts: Vec<(String, u32)> = month
+            .sport_counts
+            .iter()
+            .map(|c| (c.sport_type.clone(), c.count))
+            .collect();
+        counts.sort();
+        assert_eq!(
+            counts,
+            vec![
+                ("Hike".to_string(), 2),
+                ("Ride".to_string(), 2),
+                ("Run".to_string(), 3)
+            ]
+        );
+        assert_eq!(month.sport_type.as_deref(), Some("Run"));
     }
 
     /// Scenario: a section run recently and ridden once over a year ago.

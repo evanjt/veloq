@@ -24,7 +24,7 @@ export { SectionHistoryPanel, SectionLapList } from './section';
 export { DetailMapHost } from './DetailMapHost';
 export { RouteDetailMap } from './RouteDetailMap';
 export { SectionDetailMap } from './SectionDetailMap';
-export { SportTypeSelector } from './SportTypeSelector';
+export { SportSelectButton } from './SportSelectButton';
 export { RouteDetailDebugPanel } from './RouteDetailDebugPanel';
 export { styles as routeDetailScreenStyles } from './RouteDetailScreen.styles';
 export { PreviewCentrePicker } from './preview/PreviewCentrePicker';

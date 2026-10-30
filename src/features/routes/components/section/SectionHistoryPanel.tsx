@@ -1,14 +1,14 @@
 /**
  * The section's ledger: stored versions with revert, and every change the
- * detector recorded, each with the activities that were around it.
+ * detector recorded, each with its headline, one reason and the rides that followed it.
  */
 
 import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import type { FfiBoundaryReason, FfiSectionEventDetails, FfiSectionLink } from 'veloqrs';
-import { formatDistance, formatDuration, formatFullDate } from '@/shared/format/format';
+import type { FfiSectionLink } from 'veloqrs';
+import { formatDuration, formatFullDate } from '@/shared/format/format';
 import { useMetricSystem } from '@/shared/app';
 import { colors, controlHeight, darkColors, layout, spacing, typography, stroke } from '@/theme';
 import { Button, Card, EmptyState } from '@/shared/ui';
@@ -16,15 +16,11 @@ import type {
   SectionGeometryVersion,
   SectionHistoryEvent,
 } from '@/features/routes/hooks/useSectionLedger';
-import {
-  BOUNDARY_REASON_KEYS,
-  FIXED_LABEL_LEDGER_KINDS,
-  ledgerDate,
-  NO_EVENT_DETAILS,
-} from '@/features/routes/lib/sectionLedger';
+import { ledgerDate, NO_EVENT_DETAILS } from '@/features/routes/lib/sectionLedger';
+import { changeCopy } from '@/features/routes/lib/sectionChangeCopy';
 import { useOpenDetail } from '@/shared/app/MapSheetCards';
 
-export const MAX_CHIPS = 6;
+export const MAX_CHIPS = 3;
 
 export interface SectionHistoryPanelProps {
   isDark: boolean;
@@ -150,45 +146,6 @@ export function SectionHistoryPanel({
     return [...parts, line].join(' · ');
   };
 
-  const kindLine = (e: SectionHistoryEvent, d: FfiSectionEventDetails): string => {
-    switch (e.kind) {
-      case 'split':
-        return t('sectionHistory.kind_split', { count: d.siblings.length });
-      case 'reverted':
-        return t('sectionHistory.kind_reverted', {
-          version: d.version ?? e.geometryVersion ?? '',
-        });
-      case 'reference_anchored':
-        return t(
-          d.moved === false
-            ? 'sectionHistory.kind_reference_anchored_in_place'
-            : 'sectionHistory.kind_reference_anchored'
-        );
-      default:
-        return FIXED_LABEL_LEDGER_KINDS.has(e.kind)
-          ? t(`sectionHistory.kind_${e.kind}` as never)
-          : e.kind;
-    }
-  };
-
-  // Why the detector cut the line, one sentence per reason, each said once:
-  // a fork at both ends of a line is one sentence. A reason this build cannot
-  // word, or a seam clip that stored no length, says nothing.
-  const boundarySentences = (boundaries: FfiBoundaryReason[]): string[] => {
-    const sentences = new Set<string>();
-    for (const reason of boundaries) {
-      if (!Object.hasOwn(BOUNDARY_REASON_KEYS, reason.kind)) continue;
-      const key = BOUNDARY_REASON_KEYS[reason.kind as keyof typeof BOUNDARY_REASON_KEYS];
-      if (key === BOUNDARY_REASON_KEYS.seam_clip) {
-        if (reason.clippedMetres == null) continue;
-        sentences.add(t(key, { distance: formatDistance(reason.clippedMetres, isMetric) }));
-      } else {
-        sentences.add(t(key));
-      }
-    }
-    return [...sentences];
-  };
-
   return (
     <Card
       variant="flat"
@@ -261,7 +218,22 @@ export function SectionHistoryPanel({
       ) : (
         history.map((e) => {
           const d = e.details ?? NO_EVENT_DETAILS;
-          const reasons = boundarySentences(d.boundaries);
+          const copy = changeCopy(
+            t,
+            {
+              kind: e.kind,
+              summary: d.summary,
+              siblingCount: d.siblings.length,
+              version: d.version ?? e.geometryVersion ?? undefined,
+              anchoredInPlace: d.moved === false,
+              rideCount: d.around.length,
+            },
+            isMetric
+          );
+          const headline = copy.headline ?? e.kind;
+          const isMuted = e.kind === 'baseline' || e.kind === 'algorithm_changed';
+          const folded = e.kind === 'pr_rebased' && d.summary?.foldedInto != null;
+          const records = d.summary?.records ?? [];
           return (
             <View
               key={e.id}
@@ -271,7 +243,23 @@ export function SectionHistoryPanel({
               <Text style={[styles.date, isDark && styles.textSecondaryDark]}>
                 {formatFullDate(ledgerDate(e.at))}
               </Text>
-              <Text style={[styles.kind, isDark && styles.textDark]}>{kindLine(e, d)}</Text>
+              <Text
+                style={
+                  isMuted
+                    ? [styles.meta, isDark && styles.textSecondaryDark]
+                    : [styles.kind, isDark && styles.textDark]
+                }
+              >
+                {headline}
+              </Text>
+              {copy.reason != null && (
+                <Text
+                  testID={`section-history-reason-${e.id}`}
+                  style={[styles.meta, isDark && styles.textSecondaryDark]}
+                >
+                  {copy.reason}
+                </Text>
+              )}
               {e.kind === 'formed' && d.splitFrom ? (
                 <View style={styles.block}>
                   <Text style={[styles.label, isDark && styles.textSecondaryDark]}>
@@ -292,7 +280,7 @@ export function SectionHistoryPanel({
                   </View>
                 </View>
               )}
-              {e.kind === 'pr_rebased' && d.prFrom != null && d.prTo != null && (
+              {e.kind === 'pr_rebased' && !folded && d.prFrom != null && d.prTo != null && (
                 <Text style={[styles.meta, isDark && styles.textSecondaryDark]}>
                   {inSport(
                     d.prSport,
@@ -304,55 +292,30 @@ export function SectionHistoryPanel({
                   )}
                 </Text>
               )}
-              {e.kind !== 'pr_rebased' &&
-                d.prs.map((record) => (
-                  <Text
-                    key={`${record.sport ?? ''}-${record.direction ?? ''}`}
-                    style={[styles.meta, isDark && styles.textSecondaryDark]}
-                  >
-                    {inSport(
-                      record.sport,
-                      record.direction,
-                      t('sectionHistory.prEra', {
-                        time: formatDuration(record.time),
-                      })
-                    )}
-                  </Text>
-                ))}
-              {reasons.length > 0 && (
-                <View testID={`section-history-boundaries-${e.id}`}>
-                  <Text style={[styles.label, isDark && styles.textSecondaryDark]}>
-                    {t('sectionHistory.boundaries')}
-                  </Text>
-                  {reasons.map((sentence) => (
-                    <Text key={sentence} style={[styles.meta, isDark && styles.textSecondaryDark]}>
-                      {sentence}
-                    </Text>
-                  ))}
-                </View>
-              )}
+              {records.map((record) => (
+                <Text
+                  key={`${record.sport ?? ''}-${record.direction ?? ''}`}
+                  style={[styles.meta, isDark && styles.textSecondaryDark]}
+                >
+                  {inSport(
+                    record.sport ?? undefined,
+                    record.direction ?? undefined,
+                    t('sectionHistory.prMoved', {
+                      from: formatDuration(record.from ?? 0),
+                      to: formatDuration(record.to ?? 0),
+                    })
+                  )}
+                </Text>
+              ))}
               {d.around.length > 0 && (
                 <>
                   <Text style={[styles.label, isDark && styles.textSecondaryDark]}>
-                    {t('sectionHistory.around')}
+                    {t('sectionHistory.ridesAfter', { count: d.around.length })}
                   </Text>
                   <Chips
                     ids={d.around}
                     isDark={isDark}
                     testID={`section-history-around-${e.id}`}
-                    names={activityNames}
-                  />
-                </>
-              )}
-              {d.forkAround.length > 0 && (
-                <>
-                  <Text style={[styles.label, isDark && styles.textSecondaryDark]}>
-                    {t('sectionHistory.forkAround')}
-                  </Text>
-                  <Chips
-                    ids={d.forkAround}
-                    isDark={isDark}
-                    testID={`section-history-fork-${e.id}`}
                     names={activityNames}
                   />
                 </>

@@ -106,17 +106,10 @@ fn store_series(engine: &super::PersistentEngine, kind: &str, values: Vec<Option
         .unwrap();
 }
 
-fn dropout_series(tail: f64) -> Vec<Option<f64>> {
-    vec![
-        Some(150.0),
-        None,
-        None,
-        None,
-        None,
-        Some(tail),
-        Some(tail),
-        Some(tail),
-    ]
+fn dropout_series(value: f64) -> Vec<Option<f64>> {
+    let mut series = vec![None; 8];
+    series[0] = Some(value);
+    series
 }
 
 #[test]

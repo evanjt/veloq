@@ -410,7 +410,7 @@ const SHARED: SharedElement[] = [
     section: 'performance-controls',
     route: 'performance-controls',
   },
-  { element: 'sport pills', section: 'sport-pill-Ride', route: 'sport-pill-Ride' },
+  { element: 'sport menu', section: 'section-sport', route: 'section-sport' },
   { element: 'range menu', section: 'section-time-range', route: 'section-time-range' },
   { element: 'scatter plot choice', section: 'chart-plot-scatter', route: 'chart-plot-scatter' },
   {
@@ -658,11 +658,11 @@ describe("a section sheet's rows above the chart", () => {
     expect(page.getByTestId('section-detail-stats')).toHaveTextContent(/2,100 ft/);
   });
 
-  it('puts the sport chips and the range in one row above the chart, with no heading', async () => {
+  it('puts the sport menu and the range in one row above the chart, with no heading', async () => {
     const page = await openPage('section');
     const controls = page.getByTestId('performance-controls');
 
-    expect(within(controls).queryByTestId('sport-pill-Ride')).not.toBeNull();
+    expect(within(controls).queryByTestId('section-sport')).not.toBeNull();
     expect(within(controls).queryByTestId('section-time-range')).not.toBeNull();
     expect(page.queryByText('sections.performanceOverTime')).toBeNull();
   });
@@ -681,11 +681,11 @@ describe("a section sheet's rows above the chart", () => {
 });
 
 describe("a route sheet's rows above the chart", () => {
-  it('puts the sport chips and the range in one row above the chart', async () => {
+  it('puts the sport menu and the range in one row above the chart', async () => {
     const page = await openPage('route');
     const controls = page.getByTestId('performance-controls');
 
-    expect(within(controls).queryByTestId('sport-pill-Ride')).not.toBeNull();
+    expect(within(controls).queryByTestId('section-sport')).not.toBeNull();
     expect(within(controls).queryByTestId('section-time-range')).not.toBeNull();
   });
 });

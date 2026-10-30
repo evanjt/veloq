@@ -19,13 +19,13 @@ const event = (id: number, details: Partial<FfiSectionEventDetails>): SectionHis
 });
 
 describe('ledgerChipIds', () => {
-  it('gathers the ids off every change, around and fork alike', () => {
+  it('gathers the ids off every change and leaves the fork list, which is not drawn', () => {
     const history = [
       event(1, { around: ['a', 'b'], forkAround: ['f'] }),
       event(2, { around: ['c'] }),
     ];
 
-    expect(ledgerChipIds(history, 6)).toEqual(['a', 'b', 'f', 'c']);
+    expect(ledgerChipIds(history, 6)).toEqual(['a', 'b', 'c']);
   });
 
   it('asks for each id once, however many changes name it', () => {
@@ -40,10 +40,10 @@ describe('ledgerChipIds', () => {
     expect(ledgerChipIds(history, 2)).toEqual(['a', 'b']);
   });
 
-  it('caps each list on its own, not the whole change', () => {
-    const history = [event(1, { around: ['a', 'b', 'c'], forkAround: ['f', 'g', 'h'] })];
+  it('caps each change on its own, not the whole history', () => {
+    const history = [event(1, { around: ['a', 'b', 'c'] }), event(2, { around: ['d', 'e', 'f'] })];
 
-    expect(ledgerChipIds(history, 2)).toEqual(['a', 'b', 'f', 'g']);
+    expect(ledgerChipIds(history, 2)).toEqual(['a', 'b', 'd', 'e']);
   });
 
   it('reads nothing out of a change with no details', () => {

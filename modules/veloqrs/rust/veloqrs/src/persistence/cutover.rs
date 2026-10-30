@@ -471,11 +471,9 @@ pub fn start_cutover() -> FfiStartOutcome {
     if cutover_owed && !detection_enabled {
         return FfiStartOutcome::NotConfigured;
     }
-    match crate::objects::error::with_reader(
-        crate::net::elevation_backfill::pooled_elevation_backfill_remaining,
-    ) {
-        Ok(Ok(0)) => {}
-        Ok(Ok(_)) => return FfiStartOutcome::Held,
+    match crate::objects::error::with_reader(crate::net::elevation_backfill::cutover_ready) {
+        Ok(Ok(true)) => {}
+        Ok(Ok(false)) => return FfiStartOutcome::Held,
         _ => return FfiStartOutcome::NotReady,
     }
     if !claim_run_slot() {
@@ -1550,7 +1548,7 @@ fn run_cutover_claimed_with(
             .map_err(|err| format!("save processed ids failed: {}", err))?;
         // Anything that arrived mid-cut is neither processed nor dirty
         // otherwise, so the next launch would never section it.
-        if has_unprocessed_activity(&e.get_activity_ids(), &processed_ids) {
+        if has_unprocessed_activity(&e.detect_pool_ids(), &processed_ids) {
             e.mark_sections_dirty();
         }
         Ok::<(), String>(())

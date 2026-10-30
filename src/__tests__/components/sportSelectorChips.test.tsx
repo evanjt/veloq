@@ -1,21 +1,19 @@
 /**
- * Scenario: the Fitness sport toggle and the route and section sport pills drew
- * their own pills. The toggle put a white label on the sport hue (2.5:1 on run),
- * the pills showed selection as a tint and border in the raw sport hue, and
- * neither reached the platform tap minimum.
+ * Scenario: the Fitness sport toggle drew its own pills. It put a white label on
+ * the sport hue (2.5:1 on run), showed selection as a tint and border in the
+ * raw sport hue, and did not reach the platform tap minimum.
  *
- * Expected behaviour: both draw the shared sport chip. The selected label clears
+ * Expected behaviour: it draws the shared sport chip. The selected label clears
  * 4.5:1 on its fill, every chip reaches `layout.minTapTarget` through slop, and
  * the selected chip is a solid fill against a translucent wash rather than a hue
  * change alone.
  */
 import React from 'react';
 import { StyleSheet, Text } from 'react-native';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { render, screen } from '@testing-library/react-native';
 import type { ReactTestInstance } from 'react-test-renderer';
 
 import { SportToggleSelector } from '@/features/fitness/components/SportToggleSelector';
-import { SportTypeSelector } from '@/features/routes/components/SportTypeSelector';
 import { colors } from '@/theme';
 import { layout } from '@/theme/layout';
 
@@ -95,34 +93,5 @@ describe('sport selector chips', () => {
       'fitness-sport-toggle-Cycling',
       'fitness-sport-toggle-Swimming',
     ]);
-  });
-
-  it('draws the route and section sport pills as readable, reachable chips with counts', async () => {
-    await render(
-      <SportTypeSelector
-        options={[{ type: 'Ride', count: 12 }, { type: 'Run', count: 4 }, { type: 'VirtualRide' }]}
-        selectedType="Run"
-        onSelect={jest.fn()}
-      />
-    );
-
-    expectSportChips('sport-pill-Run', ['sport-pill-Ride', 'sport-pill-VirtualRide']);
-    expect(screen.getByText('activityTypes.Ride 12')).toBeTruthy();
-    expect(screen.getByText('activityTypes.Run 4')).toBeTruthy();
-  });
-
-  it('hands the tapped sport to the caller, the selected one included', async () => {
-    const onSelect = jest.fn();
-    await render(
-      <SportTypeSelector
-        options={[{ type: 'Ride' }, { type: 'Run' }]}
-        selectedType="Run"
-        onSelect={onSelect}
-      />
-    );
-
-    await fireEvent.press(screen.getByTestId('sport-pill-Ride'));
-    await fireEvent.press(screen.getByTestId('sport-pill-Run'));
-    expect(onSelect.mock.calls).toEqual([['Ride'], ['Run']]);
   });
 });

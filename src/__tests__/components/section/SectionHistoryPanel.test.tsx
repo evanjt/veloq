@@ -2,7 +2,7 @@ import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 import { SectionHistoryPanel } from '@/features/routes/components/section/SectionHistoryPanel';
 import { NO_EVENT_DETAILS } from '@/features/routes/lib/sectionLedger';
-import type { FfiBoundaryReason, FfiSectionEventDetails } from 'veloqrs';
+import type { FfiChangeReason, FfiSectionChangeSummary, FfiSectionEventDetails } from 'veloqrs';
 import { router } from 'expo-router';
 import { MapSheetCardContext, type MapSheetCardValue } from '@/shared/app/MapSheetHost';
 import { openHost, useMapSheetHosts } from '@/shared/app/mapSheetHost';
@@ -33,7 +33,6 @@ const history = [
     at: '2026-08-20 00:00:00',
     kind: 'recut',
     details: details({
-      prs: [{ time: 400 }],
       around: ['act_a', 'act_b'],
       forkAround: ['act_f'],
     }),
@@ -49,48 +48,13 @@ const history = [
   { id: 1, at: '2026-08-01 00:00:00', kind: 'formed', details: undefined, geometryVersion: 1 },
 ];
 
-const perSportHistory = [
-  {
-    id: 5,
-    at: '2026-09-29 00:00:00',
-    kind: 'dissolved',
-    details: details({
-      prs: [
-        { sport: 'Ride', time: 65 },
-        { sport: 'Run', time: 250 },
-      ],
-    }),
-    geometryVersion: null,
-  },
-  {
-    id: 6,
-    at: '2026-09-30 00:00:00',
-    kind: 'pr_rebased',
-    details: details({ prSport: 'Run', prFrom: 250, prTo: 240 }),
-    geometryVersion: null,
-  },
-];
-const perDirectionHistory = [
-  {
-    id: 7,
-    at: '2026-10-01 00:00:00',
-    kind: 'recut',
-    details: details({
-      prs: [
-        { sport: 'Ride', direction: 'reverse', time: 200 },
-        { sport: 'Ride', direction: 'same', time: 580 },
-      ],
-    }),
-    geometryVersion: 3,
-  },
-  {
-    id: 8,
-    at: '2026-10-02 00:00:00',
-    kind: 'pr_rebased',
-    details: details({ prSport: 'Ride', prDirection: 'same', prFrom: 600, prTo: 580 }),
-    geometryVersion: null,
-  },
-];
+const recordsRow = (id: number, records: FfiSectionChangeSummary['records']) => ({
+  id,
+  at: '2026-09-29 00:00:00',
+  kind: 'recut',
+  details: details({ summary: { records } }),
+  geometryVersion: 3,
+});
 const versions = [
   { version: 2, createdAt: '2026-08-20', milestone: false, pinned: false },
   { version: 1, createdAt: '2026-08-01', milestone: true, pinned: false },
@@ -120,35 +84,46 @@ describe('SectionHistoryPanel', () => {
   });
 
   it('renders every change with its context and the re-based record', async () => {
-    const { getByTestId, getByText } = await renderPanel();
+    const { getByTestId, getByText, queryByTestId } = await renderPanel();
     expect(getByTestId('section-history-event-recut')).toBeTruthy();
     expect(getByTestId('section-history-event-formed')).toBeTruthy();
     expect(getByText('sectionHistory.kind_recut')).toBeTruthy();
-    expect(getByText('sectionHistory.prEra:6:40')).toBeTruthy();
     expect(getByText('sectionHistory.prMoved:6:40,8:40')).toBeTruthy();
     expect(getByTestId('section-history-around-2-act_a')).toBeTruthy();
-    expect(getByTestId('section-history-fork-2-act_f')).toBeTruthy();
+    expect(queryByTestId('section-history-fork-2-act_f')).toBeNull();
   });
 
-  it('names the sport of each era record and of a record that moved', async () => {
-    const { getByText } = await renderPanel({ history: perSportHistory });
-    expect(getByText('activityTypes.Ride:Ride · sectionHistory.prEra:1:05')).toBeTruthy();
-    expect(getByText('activityTypes.Run:Run · sectionHistory.prEra:4:10')).toBeTruthy();
+  it('draws a record only where it moved, with its sport and direction', async () => {
+    const { getByText, queryByText } = await renderPanel({
+      history: [
+        recordsRow(5, [
+          { sport: 'Run', from: 250, to: 240 },
+          { sport: 'Ride', direction: 'reverse', from: 200, to: 190 },
+        ]),
+        recordsRow(6, []),
+      ],
+    });
     expect(getByText('activityTypes.Run:Run · sectionHistory.prMoved:4:10,4:00')).toBeTruthy();
+    expect(
+      getByText('activityTypes.Ride:Ride · sections.reverse · sectionHistory.prMoved:3:20,3:10')
+    ).toBeTruthy();
+    expect(queryByText(/prEra/)).toBeNull();
   });
 
-  it('names the direction of each era record and of a record that moved', async () => {
-    const { getByText, queryByText } = await renderPanel({ history: perDirectionHistory });
-    expect(
-      getByText('activityTypes.Ride:Ride · sections.reverse · sectionHistory.prEra:3:20')
-    ).toBeTruthy();
-    expect(
-      getByText('activityTypes.Ride:Ride · sections.forward · sectionHistory.prEra:9:40')
-    ).toBeTruthy();
-    expect(
-      getByText('activityTypes.Ride:Ride · sections.forward · sectionHistory.prMoved:10:00,9:40')
-    ).toBeTruthy();
-    expect(queryByText('activityTypes.Ride:Ride · sectionHistory.prEra:3:20')).toBeNull();
+  it('draws a rebased record on its own row only when no re-cut took it', async () => {
+    const rebased = (id: number, foldedInto?: number) => ({
+      id,
+      at: '2026-10-02 00:00:00',
+      kind: 'pr_rebased',
+      details: details({
+        prFrom: 600,
+        prTo: 580,
+        ...(foldedInto == null ? {} : { summary: { records: [], foldedInto } }),
+      }),
+      geometryVersion: null,
+    });
+    const { getAllByText } = await renderPanel({ history: [rebased(8), rebased(9, 7)] });
+    expect(getAllByText('sectionHistory.prMoved:10:00,9:40')).toHaveLength(1);
   });
 
   it('opens the activity a chip names', async () => {
@@ -289,7 +264,7 @@ describe('the activity chips', () => {
   it('falls back to the id for an activity it has no name for', async () => {
     const { getByTestId } = await renderPanel({ activityNames: { act_a: 'Sunday hills' } });
 
-    expect(getByTestId('section-history-fork-2-act_f')).toHaveTextContent('act_f');
+    expect(getByTestId('section-history-around-2-act_b')).toHaveTextContent('act_b');
   });
 
   it('falls back to the id when no names were passed at all', async () => {
@@ -348,104 +323,176 @@ describe('SectionHistoryPanel actions', () => {
   });
 });
 
-describe('why the line was cut', () => {
-  const cutEvent = (id: number, kind: string, boundaries: FfiBoundaryReason[]) => ({
+describe('one headline and one reason per change', () => {
+  const summaryEvent = (
+    id: number,
+    kind: string,
+    summary: Partial<FfiSectionChangeSummary>,
+    fields: Partial<FfiSectionEventDetails> = {}
+  ) => ({
     id,
     at: '2026-10-10 00:00:00',
     kind,
-    details: details({ boundaries }),
+    details: details({ summary: { records: [], ...summary }, ...fields }),
     geometryVersion: 2,
   });
-
-  it('gives one sentence per reason the detector recorded on the change', async () => {
-    const { getByTestId, getByText } = await renderPanel({
-      history: [
-        cutEvent(9, 'recut', [
-          { kind: 'fork' },
-          { kind: 'seam_clip', clippedMetres: 120 },
-          { kind: 'traffic_cliff' },
-        ]),
-      ],
-    });
-    const reasons = getByTestId('section-history-boundaries-9');
-    expect(reasons).toBeTruthy();
-    expect(getByText('sectionHistory.boundaries')).toBeTruthy();
-    expect(getByText('sectionHistory.cut_fork')).toBeTruthy();
-    expect(getByText('sectionHistory.cut_seam_clip:120 m')).toBeTruthy();
-    expect(getByText('sectionHistory.cut_traffic_cliff')).toBeTruthy();
+  const reason = (fields: Partial<FfiChangeReason>): FfiChangeReason => ({
+    kind: 'traffic_cliff',
+    ...fields,
   });
 
-  it('words every cut reason the engine writes on a formed, split or recut change', async () => {
-    const kinds = [
-      'usage_change',
-      'fork',
-      'traffic_cliff',
-      'trim',
-      'low_support',
-      'terminus',
-      'pass_end',
-    ];
+  it('words a lengthened end with the engine counts and no long sentence', async () => {
+    const { getByText, queryByText } = await renderPanel({
+      history: [
+        summaryEvent(9, 'recut', {
+          moved: 'end',
+          lengthBefore: 1240,
+          lengthAfter: 1480,
+          reason: reason({ count: 11, of: 15 }),
+        }),
+      ],
+    });
+    expect(getByText('sectionHistory.headline_longer_end:1.2 km,1.5 km')).toBeTruthy();
+    expect(
+      getByText('sectionHistory.reason_traffic_cliff_end:11,15,sectionHistory.pairUnnamed')
+    ).toBeTruthy();
+    expect(queryByText(/boundaries|forkAround|prEra|cut_/)).toBeNull();
+  });
+
+  it('words a shortened start and a change at both ends', async () => {
     const { getByText } = await renderPanel({
       history: [
-        cutEvent(
-          10,
-          'formed',
-          kinds.map((kind) => ({ kind }))
-        ),
-        cutEvent(11, 'split', [{ kind: 'seam_clip', clippedMetres: 40 }]),
+        summaryEvent(10, 'recut', {
+          moved: 'start',
+          lengthBefore: 2000,
+          lengthAfter: 1500,
+          reason: reason({ kind: 'usage_change', count: 9, of: 12 }),
+        }),
+        summaryEvent(11, 'recut', { moved: 'both', lengthBefore: 1000, lengthAfter: 1300 }),
       ],
     });
-    for (const kind of kinds) expect(getByText(`sectionHistory.cut_${kind}`)).toBeTruthy();
-    expect(getByText('sectionHistory.cut_seam_clip:40 m')).toBeTruthy();
+    expect(getByText('sectionHistory.headline_shorter_start:2.0 km,1.5 km')).toBeTruthy();
+    expect(
+      getByText('sectionHistory.reason_usage_change_start:9,12,sectionHistory.pairUnnamed')
+    ).toBeTruthy();
+    expect(getByText('sectionHistory.headline_longer_both:1.0 km,1.3 km')).toBeTruthy();
   });
 
-  it('gives a seam clip in the units the athlete reads', async () => {
+  it('names the neighbour a fork leads onto and the metres a seam clip took', async () => {
+    const link = { id: 's2', name: 'Col X', available: true };
+    const { getByText } = await renderPanel({
+      history: [
+        summaryEvent(12, 'recut', {
+          moved: 'end',
+          lengthBefore: 1000,
+          lengthAfter: 1400,
+          reason: reason({ kind: 'fork', count: 8, of: 14, neighbour: link }),
+        }),
+        summaryEvent(13, 'recut', {
+          moved: 'end',
+          lengthBefore: 1000,
+          lengthAfter: 960,
+          reason: reason({ kind: 'seam_clip', metres: 40, neighbour: link }),
+        }),
+      ],
+    });
+    expect(getByText('sectionHistory.reason_fork_end:8,14,Col X')).toBeTruthy();
+    expect(getByText('sectionHistory.reason_seam_clip_end:40 m,Col X')).toBeTruthy();
+  });
+
+  it('words a split by where it was cut and, for a fork, where the rides turn', async () => {
+    const { getByText } = await renderPanel({
+      history: [
+        summaryEvent(14, 'split', {
+          moved: 'split',
+          atMetres: 1200,
+          reason: reason({
+            kind: 'fork',
+            count: 8,
+            of: 14,
+            neighbour: { id: 'y', name: 'Col Y', available: true },
+          }),
+        }),
+        summaryEvent(15, 'split', { moved: 'split', atMetres: 900 }),
+      ],
+    });
+    expect(getByText('sectionHistory.headline_split_fork:1.2 km,8,14,Col Y')).toBeTruthy();
+    expect(getByText('sectionHistory.headline_split_at:900 m')).toBeTruthy();
+  });
+
+  it('draws a rename with no reason, and a baseline as one muted line', async () => {
+    const { getByTestId, queryByTestId, getByText } = await renderPanel({
+      history: [
+        summaryEvent(16, 'renamed', {}),
+        summaryEvent(17, 'baseline', {}),
+        summaryEvent(18, 'algorithm_changed', {}),
+      ],
+    });
+    expect(getByText('sectionHistory.kind_renamed')).toBeTruthy();
+    expect(queryByTestId('section-history-reason-16')).toBeNull();
+    expect(getByTestId('section-history-event-baseline')).toBeTruthy();
+    expect(getByText('sectionHistory.kind_baseline')).toBeTruthy();
+    expect(getByText('sectionHistory.kind_algorithm_changed')).toBeTruthy();
+    expect(queryByTestId('section-history-reason-17')).toBeNull();
+    expect(queryByTestId('section-history-reason-18')).toBeNull();
+  });
+
+  it('draws no reason for a kind this build cannot word, never its tag', async () => {
+    const { queryByTestId, queryByText } = await renderPanel({
+      history: [
+        summaryEvent(19, 'recut', {
+          moved: 'end',
+          lengthBefore: 1000,
+          lengthAfter: 1100,
+          reason: reason({ kind: 'a_future_reason', count: 1, of: 2 }),
+        }),
+        summaryEvent(20, 'recut', {
+          moved: 'end',
+          lengthBefore: 1000,
+          lengthAfter: 1100,
+          reason: reason({ kind: 'seam_clip' }),
+        }),
+      ],
+    });
+    expect(queryByTestId('section-history-reason-19')).toBeNull();
+    expect(queryByTestId('section-history-reason-20')).toBeNull();
+    expect(queryByText(/a_future_reason/)).toBeNull();
+  });
+
+  it('draws the units the athlete reads', async () => {
     mockMetric = false;
     try {
       const { getByText } = await renderPanel({
-        history: [cutEvent(17, 'recut', [{ kind: 'seam_clip', clippedMetres: 120 }])],
+        history: [
+          summaryEvent(21, 'recut', {
+            moved: 'end',
+            lengthBefore: 1000,
+            lengthAfter: 1100,
+            reason: reason({ kind: 'seam_clip', metres: 120 }),
+          }),
+        ],
       });
-      expect(getByText('sectionHistory.cut_seam_clip:394 ft')).toBeTruthy();
+      expect(getByText(/reason_seam_clip_end:394 ft/)).toBeTruthy();
     } finally {
       mockMetric = true;
     }
   });
 
-  it('draws a change that recorded no reason as a change with no reason', async () => {
-    const { getByTestId, queryByTestId, queryByText } = await renderPanel({
-      history: [
-        cutEvent(12, 'baseline', []),
-        { ...cutEvent(13, 'formed', []), details: undefined },
-      ],
+  it('says how many rides followed the change and draws three chips and a count', async () => {
+    const { getByText, getByTestId, queryByTestId } = await renderPanel({
+      history: [summaryEvent(22, 'recut', {}, { around: ['r1', 'r2', 'r3', 'r4'] })],
     });
-    expect(getByTestId('section-history-event-baseline')).toBeTruthy();
-    expect(queryByTestId('section-history-boundaries-12')).toBeNull();
-    expect(queryByTestId('section-history-boundaries-13')).toBeNull();
-    expect(queryByText('sectionHistory.boundaries')).toBeNull();
+    expect(getByText('sectionHistory.ridesAfter:4')).toBeTruthy();
+    expect(getByTestId('section-history-around-22-r3')).toBeTruthy();
+    expect(queryByTestId('section-history-around-22-r4')).toBeNull();
+    expect(getByText('+1')).toBeTruthy();
   });
 
-  it('draws nothing for a reason this build cannot word, never its tag', async () => {
-    const { queryByTestId, queryByText, getByText } = await renderPanel({
-      history: [
-        cutEvent(14, 'recut', [{ kind: 'a_future_reason' }]),
-        cutEvent(15, 'recut', [
-          { kind: 'a_future_reason' },
-          { kind: 'seam_clip' },
-          { kind: 'trim' },
-        ]),
-      ],
+  it('counts the rides of a new section', async () => {
+    const { getByText } = await renderPanel({
+      history: [summaryEvent(23, 'formed', {}, { around: ['r1', 'r2'] })],
     });
-    expect(queryByTestId('section-history-boundaries-14')).toBeNull();
-    expect(queryByText('a_future_reason')).toBeNull();
-    expect(queryByText(/cut_seam_clip/)).toBeNull();
-    expect(getByText('sectionHistory.cut_trim')).toBeTruthy();
-  });
-
-  it('says a reason recorded at both ends of the line once', async () => {
-    const { getAllByText } = await renderPanel({
-      history: [cutEvent(16, 'recut', [{ kind: 'fork' }, { kind: 'fork' }])],
-    });
-    expect(getAllByText('sectionHistory.cut_fork')).toHaveLength(1);
+    expect(getByText('sectionHistory.headline_formed:2')).toBeTruthy();
   });
 });
 

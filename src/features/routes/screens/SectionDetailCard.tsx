@@ -42,7 +42,7 @@ import {
 } from '../hooks/useSectionPerformances';
 import { RANGE_DAYS } from '../constants';
 import { hasPartialExclusion } from '../hooks/useSectionLaps';
-import { isSportOffered, sportChipOptions } from '../lib/sectionSport';
+import { isSportOffered, sportMenuOptions } from '../lib/sectionSport';
 import { rescanRefusalKey } from '../lib/rescanRefusal';
 import { sectionActionChips } from '../lib/sectionActionChips';
 import { sectionGradeStats } from '../lib/heroStats';
@@ -228,7 +228,7 @@ function SectionDetailCardContent({ id, activityId: navActivityId }: SectionDeta
   }, [visitsRead]);
   const effectiveSportType = performance?.sportType ?? selectedSportType;
   const sportCounts = performance?.sportCounts ?? EMPTY_SPORT_COUNTS;
-  const sportOptions = useMemo(() => sportChipOptions(sportCounts), [sportCounts]);
+  const sportOptions = useMemo(() => sportMenuOptions(sportCounts), [sportCounts]);
 
   // The sport on screen styles the map as well as the card.
   useEffect(() => {

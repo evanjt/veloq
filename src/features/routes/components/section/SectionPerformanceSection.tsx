@@ -1,6 +1,6 @@
 /**
  * The performance block of the section and route detail pages: one row of the
- * sport chips and the range menu, then the panel with the timing method under
+ * sport and range menus, then the panel with the timing method under
  * the plot, or what stands in for it while the time streams load, after they
  * failed, or when nothing is left.
  */
@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { ExcludedAttemptsLink } from './ExcludedAttemptsLink';
 import { PerformanceChartPanel } from './PerformanceChartPanel';
 import { SectionStreamsNotice } from './SectionStreamsNotice';
-import { SportTypeSelector, type SportTypeOption } from '../SportTypeSelector';
+import { SportSelectButton, type SportTypeOption } from '../SportSelectButton';
 import type {
   DirectionBestRecord,
   DirectionSummaryStats,
@@ -108,9 +108,9 @@ export interface SectionPerformanceSectionProps {
   onTimeRangeChange: (range: SectionTimeRange) => void;
   /** Absent means settled. While streams load or failed, an empty chart is not a result. */
   streams?: SectionStreamsState | undefined;
-  /** The sports the read offers, as chips beside the range; empty or absent draws none. */
+  /** The sports the read offers, as a menu beside the range; empty or absent draws none. */
   sportOptions?: readonly SportTypeOption[] | undefined;
-  /** Called with the chip tapped. */
+  /** Called with the sport chosen. */
   onSelectSport?: ((sport: string) => void) | undefined;
 }
 
@@ -170,15 +170,14 @@ export function SectionPerformanceSection({
     <View style={styles.chartSection}>
       <View testID="performance-controls" style={styles.controls}>
         {sportOptions && sportOptions.length > 0 && onSelectSport ? (
-          <SportTypeSelector
+          <SportSelectButton
             options={sportOptions}
             selectedType={sportType}
             onSelect={onSelectSport}
-            style={styles.sports}
+            style={styles.sport}
           />
-        ) : (
-          <View style={styles.sports} />
-        )}
+        ) : null}
+        <View style={styles.spacer} />
         <SelectButton
           testID="section-time-range"
           style={styles.timeRange}
@@ -269,7 +268,10 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginBottom: spacing.sm,
   },
-  sports: {
+  sport: {
+    flexShrink: 1,
+  },
+  spacer: {
     flex: 1,
   },
   timeRange: {

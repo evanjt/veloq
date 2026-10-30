@@ -258,9 +258,9 @@ export function getCutoverDiff(): FfiCutoverDiff | undefined {
  *
  * Raises rather than answering zero when it cannot answer at all. The launch
  * trigger stamps the app version on a zero and the cutover start reads one
- * as permission to cut (it answers held while the queue is non-empty), so an
- * absent engine or a locked database has to reach the caller as the null its
- * delegate already handles.
+ * as permission to cut (it answers held until the newest slice of the queue
+ * is decided), so an absent engine or a locked database has to reach the
+ * caller as the null its delegate already handles.
  */
 export function getElevationBackfillRemaining(): number /*throws*/ {
   return FfiConverterUInt32.lift(
@@ -3722,6 +3722,281 @@ export type WholeNumber = number;
 const FfiConverterTypeWholeNumber = FfiConverterFloat64;
 
 /**
+ * A section the ledger names, with whether the catalogue still shows it.
+ */
+export type FfiSectionLink = {
+  id: string;
+  name?: string;
+  available: boolean;
+};
+
+/**
+ * Generated factory for {@link FfiSectionLink} record objects.
+ */
+export const FfiSectionLink = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiSectionLink, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiSectionLink>,
+  });
+})();
+
+const FfiConverterTypeFfiSectionLink = (() => {
+  type TypeName = FfiSectionLink;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        id: FfiConverterString.readFromCursor(c),
+        name: FfiConverterOptionalString.readFromCursor(c),
+        available: FfiConverterBool.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.id, c);
+      FfiConverterOptionalString.writeIntoCursor(value.name, c);
+      FfiConverterBool.writeIntoCursor(value.available, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.id) +
+        FfiConverterOptionalString.allocationSize(value.name) +
+        FfiConverterBool.allocationSize(value.available)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * One boundary record, reduced to its counts. `count` of `of` is the share
+ * of the line's rides the record names: the rides that turn back, leave or
+ * take the branch out of the rides through the join. A low-support reason
+ * carries the support floor in `of` and no `count`.
+ */
+export type FfiChangeReason = {
+  kind: string;
+  count?: number;
+  of?: number;
+  /**
+   * Metres a trim removed or a seam clip shortened.
+   */
+  metres?: number;
+  /**
+   * The neighbouring section the record names, with its standing now.
+   */
+  neighbour?: FfiSectionLink;
+};
+
+/**
+ * Generated factory for {@link FfiChangeReason} record objects.
+ */
+export const FfiChangeReason = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiChangeReason, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiChangeReason>,
+  });
+})();
+
+const FfiConverterTypeFfiChangeReason = (() => {
+  type TypeName = FfiChangeReason;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        kind: FfiConverterString.readFromCursor(c),
+        count: FfiConverterOptionalUInt32.readFromCursor(c),
+        of: FfiConverterOptionalUInt32.readFromCursor(c),
+        metres: FfiConverterOptionalFloat64.readFromCursor(c),
+        neighbour: FfiConverterOptionalTypeFfiSectionLink.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.kind, c);
+      FfiConverterOptionalUInt32.writeIntoCursor(value.count, c);
+      FfiConverterOptionalUInt32.writeIntoCursor(value.of, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.metres, c);
+      FfiConverterOptionalTypeFfiSectionLink.writeIntoCursor(
+        value.neighbour,
+        c,
+      );
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.kind) +
+        FfiConverterOptionalUInt32.allocationSize(value.count) +
+        FfiConverterOptionalUInt32.allocationSize(value.of) +
+        FfiConverterOptionalFloat64.allocationSize(value.metres) +
+        FfiConverterOptionalTypeFfiSectionLink.allocationSize(value.neighbour)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * A record's time before and after a re-cut, within one sport and direction.
+ */
+export type FfiRecordMove = {
+  sport?: string;
+  direction?: string;
+  from?: number;
+  to?: number;
+};
+
+/**
+ * Generated factory for {@link FfiRecordMove} record objects.
+ */
+export const FfiRecordMove = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiRecordMove, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiRecordMove>,
+  });
+})();
+
+const FfiConverterTypeFfiRecordMove = (() => {
+  type TypeName = FfiRecordMove;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        sport: FfiConverterOptionalString.readFromCursor(c),
+        direction: FfiConverterOptionalString.readFromCursor(c),
+        from: FfiConverterOptionalFloat64.readFromCursor(c),
+        to: FfiConverterOptionalFloat64.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterOptionalString.writeIntoCursor(value.sport, c);
+      FfiConverterOptionalString.writeIntoCursor(value.direction, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.from, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.to, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterOptionalString.allocationSize(value.sport) +
+        FfiConverterOptionalString.allocationSize(value.direction) +
+        FfiConverterOptionalFloat64.allocationSize(value.from) +
+        FfiConverterOptionalFloat64.allocationSize(value.to)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * The headline of a ledger row and at most one reason, computed in the
+ * engine so no screen does geometry or arithmetic on counts.
+ */
+export type FfiSectionChangeSummary = {
+  /**
+   * The line's length in metres in the version before, when one is stored.
+   */
+  lengthBefore?: number;
+  /**
+   * The line's length in metres in the row's version.
+   */
+  lengthAfter?: number;
+  /**
+   * The part of the line that moved: `start`, `end`, `both`, or `split`
+   * for a split. Absent when neither end moved.
+   */
+  moved?: string;
+  /**
+   * For a split, the distance along the line in metres where it was cut.
+   */
+  atMetres?: number;
+  /**
+   * The boundary record nearest the part that moved. Absent when the row
+   * stored none there, or only a kind this build does not explain.
+   */
+  reason?: FfiChangeReason;
+  /**
+   * The records that moved with this re-cut, folded from the rows written
+   * beside it.
+   */
+  records: Array<FfiRecordMove>;
+  /**
+   * On a record row folded onto a re-cut, the id of that re-cut's row.
+   */
+  foldedInto?: number;
+};
+
+/**
+ * Generated factory for {@link FfiSectionChangeSummary} record objects.
+ */
+export const FfiSectionChangeSummary = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiSectionChangeSummary,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiSectionChangeSummary>,
+  });
+})();
+
+const FfiConverterTypeFfiSectionChangeSummary = (() => {
+  type TypeName = FfiSectionChangeSummary;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        lengthBefore: FfiConverterOptionalFloat64.readFromCursor(c),
+        lengthAfter: FfiConverterOptionalFloat64.readFromCursor(c),
+        moved: FfiConverterOptionalString.readFromCursor(c),
+        atMetres: FfiConverterOptionalFloat64.readFromCursor(c),
+        reason: FfiConverterOptionalTypeFfiChangeReason.readFromCursor(c),
+        records: FfiConverterSequenceTypeFfiRecordMove.readFromCursor(c),
+        foldedInto: FfiConverterOptionalFloat64.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterOptionalFloat64.writeIntoCursor(value.lengthBefore, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.lengthAfter, c);
+      FfiConverterOptionalString.writeIntoCursor(value.moved, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.atMetres, c);
+      FfiConverterOptionalTypeFfiChangeReason.writeIntoCursor(value.reason, c);
+      FfiConverterSequenceTypeFfiRecordMove.writeIntoCursor(value.records, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.foldedInto, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterOptionalFloat64.allocationSize(value.lengthBefore) +
+        FfiConverterOptionalFloat64.allocationSize(value.lengthAfter) +
+        FfiConverterOptionalString.allocationSize(value.moved) +
+        FfiConverterOptionalFloat64.allocationSize(value.atMetres) +
+        FfiConverterOptionalTypeFfiChangeReason.allocationSize(value.reason) +
+        FfiConverterSequenceTypeFfiRecordMove.allocationSize(value.records) +
+        FfiConverterOptionalFloat64.allocationSize(value.foldedInto)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * A ledger row that names one activity, with the section it sits on.
  *
  * `relation` says how the row names it: `around` and `fork_around` for the
@@ -3751,6 +4026,11 @@ export type FfiActivityLedgerChange = {
    * reanchored_to.
    */
   relation: string;
+  /**
+   * What the change did to the line and why, as the section's own ledger
+   * reads it. Absent on a row that is not a detector change.
+   */
+  summary?: FfiSectionChangeSummary;
 };
 
 /**
@@ -3784,6 +4064,8 @@ const FfiConverterTypeFfiActivityLedgerChange = (() => {
         at: FfiConverterString.readFromCursor(c),
         kind: FfiConverterString.readFromCursor(c),
         relation: FfiConverterString.readFromCursor(c),
+        summary:
+          FfiConverterOptionalTypeFfiSectionChangeSummary.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -3794,6 +4076,10 @@ const FfiConverterTypeFfiActivityLedgerChange = (() => {
       FfiConverterString.writeIntoCursor(value.at, c);
       FfiConverterString.writeIntoCursor(value.kind, c);
       FfiConverterString.writeIntoCursor(value.relation, c);
+      FfiConverterOptionalTypeFfiSectionChangeSummary.writeIntoCursor(
+        value.summary,
+        c,
+      );
     }
     allocationSize(value: TypeName): number {
       return (
@@ -3803,7 +4089,10 @@ const FfiConverterTypeFfiActivityLedgerChange = (() => {
         FfiConverterString.allocationSize(value.sectionType) +
         FfiConverterString.allocationSize(value.at) +
         FfiConverterString.allocationSize(value.kind) +
-        FfiConverterString.allocationSize(value.relation)
+        FfiConverterString.allocationSize(value.relation) +
+        FfiConverterOptionalTypeFfiSectionChangeSummary.allocationSize(
+          value.summary,
+        )
       );
     }
   }
@@ -5909,6 +6198,69 @@ const FfiConverterTypeFfiGarminPull = (() => {
 })();
 
 /**
+ * What the backfill has drawn of its daily allowance, as the sync settings
+ * show it. Instants are epoch milliseconds, the unit the background jobs read
+ * uses.
+ */
+export type FfiDailyLimit = {
+  /**
+   * Requests the backfill has drawn in this budget day.
+   */
+  used: number;
+  /**
+   * The backfill's requests for a budget day.
+   */
+  perDay: number;
+  /**
+   * When this install's daily count next resets.
+   */
+  resetsAtMs: number;
+};
+
+/**
+ * Generated factory for {@link FfiDailyLimit} record objects.
+ */
+export const FfiDailyLimit = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiDailyLimit, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiDailyLimit>,
+  });
+})();
+
+const FfiConverterTypeFfiDailyLimit = (() => {
+  type TypeName = FfiDailyLimit;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        used: FfiConverterUInt32.readFromCursor(c),
+        perDay: FfiConverterUInt32.readFromCursor(c),
+        resetsAtMs: FfiConverterFloat64.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterUInt32.writeIntoCursor(value.used, c);
+      FfiConverterUInt32.writeIntoCursor(value.perDay, c);
+      FfiConverterFloat64.writeIntoCursor(value.resetsAtMs, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt32.allocationSize(value.used) +
+        FfiConverterUInt32.allocationSize(value.perDay) +
+        FfiConverterFloat64.allocationSize(value.resetsAtMs)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * What the background jobs have done and still owe, read once each time a job
  * settles or activities land. The running progress is not here: it moves on
  * every item and stays on the routes status poll.
@@ -5934,6 +6286,11 @@ export type FfiBackgroundJobsData = {
    */
   streamDaysToFinish?: number;
   /**
+   * The activities the backfill draws in one budget day, the figure
+   * `stream_days_to_finish` counts against. `None` when it has no daily cap.
+   */
+  backfillDayShare?: number;
+  /**
    * The Garmin pull, `None` while no Garmin key is held.
    */
   garminPull?: FfiGarminPull;
@@ -5948,6 +6305,11 @@ export type FfiBackgroundJobsData = {
    * own request budget.
    */
   downloadsHeldByUpstream: boolean;
+  /**
+   * What the backfill has drawn of today's allowance and when it resets.
+   * `None` where the governor only paces.
+   */
+  dailyLimit?: FfiDailyLimit;
   /**
    * Whether the one-time pass recount is running on its own thread now.
    */
@@ -5981,9 +6343,11 @@ const FfiConverterTypeFfiBackgroundJobsData = (() => {
         detectionAwaiting: FfiConverterOptionalUInt32.readFromCursor(c),
         cutoverOwed: FfiConverterBool.readFromCursor(c),
         streamDaysToFinish: FfiConverterOptionalUInt32.readFromCursor(c),
+        backfillDayShare: FfiConverterOptionalUInt32.readFromCursor(c),
         garminPull: FfiConverterOptionalTypeFfiGarminPull.readFromCursor(c),
         downloadsHeldUntilMs: FfiConverterOptionalFloat64.readFromCursor(c),
         downloadsHeldByUpstream: FfiConverterBool.readFromCursor(c),
+        dailyLimit: FfiConverterOptionalTypeFfiDailyLimit.readFromCursor(c),
         passRecountRunning: FfiConverterBool.readFromCursor(c),
       };
     }
@@ -5992,6 +6356,7 @@ const FfiConverterTypeFfiBackgroundJobsData = (() => {
       FfiConverterOptionalUInt32.writeIntoCursor(value.detectionAwaiting, c);
       FfiConverterBool.writeIntoCursor(value.cutoverOwed, c);
       FfiConverterOptionalUInt32.writeIntoCursor(value.streamDaysToFinish, c);
+      FfiConverterOptionalUInt32.writeIntoCursor(value.backfillDayShare, c);
       FfiConverterOptionalTypeFfiGarminPull.writeIntoCursor(
         value.garminPull,
         c,
@@ -6001,6 +6366,10 @@ const FfiConverterTypeFfiBackgroundJobsData = (() => {
         c,
       );
       FfiConverterBool.writeIntoCursor(value.downloadsHeldByUpstream, c);
+      FfiConverterOptionalTypeFfiDailyLimit.writeIntoCursor(
+        value.dailyLimit,
+        c,
+      );
       FfiConverterBool.writeIntoCursor(value.passRecountRunning, c);
     }
     allocationSize(value: TypeName): number {
@@ -6009,9 +6378,11 @@ const FfiConverterTypeFfiBackgroundJobsData = (() => {
         FfiConverterOptionalUInt32.allocationSize(value.detectionAwaiting) +
         FfiConverterBool.allocationSize(value.cutoverOwed) +
         FfiConverterOptionalUInt32.allocationSize(value.streamDaysToFinish) +
+        FfiConverterOptionalUInt32.allocationSize(value.backfillDayShare) +
         FfiConverterOptionalTypeFfiGarminPull.allocationSize(value.garminPull) +
         FfiConverterOptionalFloat64.allocationSize(value.downloadsHeldUntilMs) +
         FfiConverterBool.allocationSize(value.downloadsHeldByUpstream) +
+        FfiConverterOptionalTypeFfiDailyLimit.allocationSize(value.dailyLimit) +
         FfiConverterBool.allocationSize(value.passRecountRunning)
       );
     }
@@ -21258,58 +21629,6 @@ const FfiConverterTypeFfiSectionEraRecord = (() => {
 })();
 
 /**
- * A section the ledger names, with whether the catalogue still shows it.
- */
-export type FfiSectionLink = {
-  id: string;
-  name?: string;
-  available: boolean;
-};
-
-/**
- * Generated factory for {@link FfiSectionLink} record objects.
- */
-export const FfiSectionLink = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<FfiSectionLink, ReturnType<typeof defaults>>(
-      defaults,
-    );
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () => Object.freeze(defaults()) as Partial<FfiSectionLink>,
-  });
-})();
-
-const FfiConverterTypeFfiSectionLink = (() => {
-  type TypeName = FfiSectionLink;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      return {
-        id: FfiConverterString.readFromCursor(c),
-        name: FfiConverterOptionalString.readFromCursor(c),
-        available: FfiConverterBool.readFromCursor(c),
-      };
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      FfiConverterString.writeIntoCursor(value.id, c);
-      FfiConverterOptionalString.writeIntoCursor(value.name, c);
-      FfiConverterBool.writeIntoCursor(value.available, c);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterString.allocationSize(value.id) +
-        FfiConverterOptionalString.allocationSize(value.name) +
-        FfiConverterBool.allocationSize(value.available)
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
  * The fixed fields of a ledger row's stored payload. Keys a row does not
  * carry read as empty lists and absent options, and keys this record does
  * not name are ignored, so a row written by an older or newer build reads.
@@ -21369,6 +21688,12 @@ export type FfiSectionEventDetails = {
    * recorded none.
    */
   boundaries: Array<FfiBoundaryReason>;
+  /**
+   * What the change did to the line and the one reason for it, read from
+   * the row's version and the one before. Absent on a row that is not a
+   * detector change.
+   */
+  summary?: FfiSectionChangeSummary;
 };
 
 /**
@@ -21410,6 +21735,8 @@ const FfiConverterTypeFfiSectionEventDetails = (() => {
         splitFrom: FfiConverterOptionalTypeFfiSectionLink.readFromCursor(c),
         splitInto: FfiConverterSequenceTypeFfiSectionLink.readFromCursor(c),
         boundaries: FfiConverterSequenceTypeFfiBoundaryReason.readFromCursor(c),
+        summary:
+          FfiConverterOptionalTypeFfiSectionChangeSummary.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -21437,6 +21764,10 @@ const FfiConverterTypeFfiSectionEventDetails = (() => {
         value.boundaries,
         c,
       );
+      FfiConverterOptionalTypeFfiSectionChangeSummary.writeIntoCursor(
+        value.summary,
+        c,
+      );
     }
     allocationSize(value: TypeName): number {
       return (
@@ -21456,6 +21787,9 @@ const FfiConverterTypeFfiSectionEventDetails = (() => {
         FfiConverterSequenceTypeFfiSectionLink.allocationSize(value.splitInto) +
         FfiConverterSequenceTypeFfiBoundaryReason.allocationSize(
           value.boundaries,
+        ) +
+        FfiConverterOptionalTypeFfiSectionChangeSummary.allocationSize(
+          value.summary,
         )
       );
     }
@@ -40821,6 +41155,25 @@ const FfiConverterSequenceTypeFfiPowerZoneBand = new FfiConverterArray(
   FfiConverterTypeFfiPowerZoneBand,
 );
 
+// FfiConverter for FfiSectionLink | undefined
+const FfiConverterOptionalTypeFfiSectionLink = new FfiConverterOptional(
+  FfiConverterTypeFfiSectionLink,
+);
+
+// FfiConverter for FfiChangeReason | undefined
+const FfiConverterOptionalTypeFfiChangeReason = new FfiConverterOptional(
+  FfiConverterTypeFfiChangeReason,
+);
+
+// FfiConverter for Array<FfiRecordMove>
+const FfiConverterSequenceTypeFfiRecordMove = new FfiConverterArray(
+  FfiConverterTypeFfiRecordMove,
+);
+
+// FfiConverter for FfiSectionChangeSummary | undefined
+const FfiConverterOptionalTypeFfiSectionChangeSummary =
+  new FfiConverterOptional(FfiConverterTypeFfiSectionChangeSummary);
+
 // FfiConverter for Array<FfiActivityLedgerChange>
 const FfiConverterSequenceTypeFfiActivityLedgerChange = new FfiConverterArray(
   FfiConverterTypeFfiActivityLedgerChange,
@@ -40887,6 +41240,11 @@ const FfiConverterOptionalTypeFfiGarminHalt = new FfiConverterOptional(
 // FfiConverter for FfiGarminPull | undefined
 const FfiConverterOptionalTypeFfiGarminPull = new FfiConverterOptional(
   FfiConverterTypeFfiGarminPull,
+);
+
+// FfiConverter for FfiDailyLimit | undefined
+const FfiConverterOptionalTypeFfiDailyLimit = new FfiConverterOptional(
+  FfiConverterTypeFfiDailyLimit,
 );
 
 // FfiConverter for SuggestedHome | undefined
@@ -41375,11 +41733,6 @@ const FfiConverterSequenceTypeFfiSectionEraRecord = new FfiConverterArray(
   FfiConverterTypeFfiSectionEraRecord,
 );
 
-// FfiConverter for FfiSectionLink | undefined
-const FfiConverterOptionalTypeFfiSectionLink = new FfiConverterOptional(
-  FfiConverterTypeFfiSectionLink,
-);
-
 // FfiConverter for Array<FfiSectionLink>
 const FfiConverterSequenceTypeFfiSectionLink = new FfiConverterArray(
   FfiConverterTypeFfiSectionLink,
@@ -41813,7 +42166,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_elevation_backfill_remaining() !==
-    42601
+    1855
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_get_elevation_backfill_remaining",
@@ -44405,6 +44758,7 @@ export default Object.freeze({
     FfiConverterTypeFfiCatalogueCounts,
     FfiConverterTypeFfiCatalogueEmptyReason,
     FfiConverterTypeFfiChangeCardSupport,
+    FfiConverterTypeFfiChangeReason,
     FfiConverterTypeFfiClaimBasis,
     FfiConverterTypeFfiClimbBest,
     FfiConverterTypeFfiClimbBests,
@@ -44413,6 +44767,7 @@ export default Object.freeze({
     FfiConverterTypeFfiCurveActivity,
     FfiConverterTypeFfiCutoverDiff,
     FfiConverterTypeFfiCutoverSettingsReset,
+    FfiConverterTypeFfiDailyLimit,
     FfiConverterTypeFfiDashboardData,
     FfiConverterTypeFfiDayLoad,
     FfiConverterTypeFfiDayLoadStatus,
@@ -44520,6 +44875,7 @@ export default Object.freeze({
     FfiConverterTypeFfiRankedSectionsBySport,
     FfiConverterTypeFfiRecentPR,
     FfiConverterTypeFfiRecordCheck,
+    FfiConverterTypeFfiRecordMove,
     FfiConverterTypeFfiRecordProgressions,
     FfiConverterTypeFfiRecordRestoreResult,
     FfiConverterTypeFfiRecordScreenData,
@@ -44553,6 +44909,7 @@ export default Object.freeze({
     FfiConverterTypeFfiSectionActivityRow,
     FfiConverterTypeFfiSectionBoundsEdit,
     FfiConverterTypeFfiSectionChange,
+    FfiConverterTypeFfiSectionChangeSummary,
     FfiConverterTypeFfiSectionChartData,
     FfiConverterTypeFfiSectionChartPoint,
     FfiConverterTypeFfiSectionConfig,

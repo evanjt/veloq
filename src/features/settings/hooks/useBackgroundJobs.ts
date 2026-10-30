@@ -23,6 +23,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { followRoutesStatus, readRoutesStatus } from '@/shared/native/routesStatusPoll';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import type { RoutesStatus } from 'veloqrs';
+import type { DailyLimit } from '../lib/dailyLimitLines';
 
 export type BackgroundJobId =
   'detection' | 'elevationBackfill' | 'cutover' | 'streamBackfill' | 'passRecount';
@@ -150,6 +151,7 @@ interface BackgroundJobsData {
   streamDaysToFinish?: number;
   downloadsHeldUntilMs?: number;
   downloadsHeldByUpstream?: boolean;
+  dailyLimit?: { used: number; perDay: number; resetsAtMs: number };
 }
 
 /**
@@ -236,6 +238,14 @@ function streamState(phase: string): BackgroundJobState {
     default:
       return 'idle';
   }
+}
+
+/**
+ * What the backfill has drawn of today's allowance and when the count resets,
+ * from the governor. Null while the engine cannot answer or reports no cap.
+ */
+export function useDailyLimit(): DailyLimit | null {
+  return useBackgroundJobsData()?.dailyLimit ?? null;
 }
 
 /** Every job from one shared routes status read. */

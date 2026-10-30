@@ -283,6 +283,7 @@
     "largeHistoryMessage_one": "Reaching back this far brings down up to about {{count}} activity. It'll take a while, and there's no promise the app stays quick with that much stored.",
     "largeHistoryMessage_other": "Reaching back this far brings down up to about {{count}} activities. It'll take a while, and there's no promise the app stays quick with that much stored.",
     "largeHistoryTitle": "That's a hefty download",
+    "largeHistoryDaysMessage": "intervals.icu limits how many activities the app can download in a day, and every install shares that limit. The rest comes down over the following days. There's no promise the app stays quick with that much stored.",
     "appTourDescription": "Have a look around and see how it all works",
     "rangeLockedMessage": "The local data range opens once the first sync is done. If it never gets going, check you're online and signed in.",
     "rangeLockedTitle": "Still getting set up",

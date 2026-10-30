@@ -758,7 +758,7 @@ mod tests {
                 .execute(
                     "INSERT INTO section_activities (section_id, activity_id, direction,
                         start_index, end_index, distance_meters)
-                     VALUES (?, 'a1', 'same', 1, 5, 400.0)",
+                     VALUES (?, 'a1', 'same', 1, 8, 400.0)",
                     params![sid],
                 )
                 .unwrap();
@@ -836,7 +836,7 @@ mod tests {
         engine
             .db
             .execute(
-                "UPDATE section_activities SET start_index = 0, end_index = 5
+                "UPDATE section_activities SET start_index = 0, end_index = 8
                  WHERE section_id = 's0'",
                 [],
             )
@@ -916,7 +916,7 @@ mod tests {
             .execute(
                 "INSERT INTO section_activities (section_id, activity_id, direction,
                     start_index, end_index, distance_meters)
-                 VALUES ('s0', 'a2', 'same', 1, 5, 400.0)",
+                 VALUES ('s0', 'a2', 'same', 1, 8, 400.0)",
                 [],
             )
             .unwrap();

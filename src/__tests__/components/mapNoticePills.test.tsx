@@ -168,7 +168,7 @@ describe('the empty map', () => {
         reason={reason}
         allTime={false}
         onShowAllTime={handlers.showAllTime ?? jest.fn()}
-        onExpandRange={jest.fn()}
+        onExpandRange={handlers.expandRange ?? jest.fn()}
         onClearFilters={handlers.clearFilters ?? jest.fn()}
       />
     );
@@ -199,17 +199,22 @@ describe('the empty map', () => {
     expect(clearFilters).toHaveBeenCalledTimes(1);
   });
 
-  it('offers nothing to press while the tracks download', async () => {
+  it('opens the sync settings row while the tracks download', async () => {
+    const expandRange = jest.fn();
     const view = await render(
-      empty({
-        tag: FfiMapEmptyReason_Tags.TracksPending,
-        inner: { pending: 3 },
-      } as FfiMapEmptyReason)
+      empty(
+        {
+          tag: FfiMapEmptyReason_Tags.TracksPending,
+          inner: { pending: 3 },
+        } as FfiMapEmptyReason,
+        { expandRange }
+      )
     );
 
     expect(isPill(view, MAP_EMPTY_STATE_TEST_ID)).toBe(true);
-    expect(view.queryByTestId(`${MAP_EMPTY_STATE_TEST_ID}-action`)).toBeNull();
     expect(view.getByText('mapScreen.emptyTracksPending')).toBeTruthy();
+    await fireEvent.press(view.getByTestId(`${MAP_EMPTY_STATE_TEST_ID}-action`));
+    expect(expandRange).toHaveBeenCalledTimes(1);
   });
 
   it('gives up its place in the stack when the map draws again', async () => {

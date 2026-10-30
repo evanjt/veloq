@@ -6,7 +6,6 @@
  */
 
 import { formatTrackStage } from '@/features/maps/lib/syncProgressFormat';
-import { formatClockOrDate } from '@/shared/format/format';
 import { tilePassProgress } from '@/features/routes/lib/tilePass';
 import { i18n, initialiseI18n } from '@/i18n';
 import { TrackStep, type TrackStage } from 'veloqrs';
@@ -28,7 +27,7 @@ function held(resumesAtMs: number, heldByUpstream: boolean): TrackStage {
 
 describe('formatTrackStage', () => {
   it('shows the download with its count and its own percent', () => {
-    const result = formatTrackStage(stage(TrackStep.Downloading, 5, 10, 50), t);
+    const result = formatTrackStage(stage(TrackStep.Downloading, 5, 10, 50), t)!;
     expect(result.icon).toBe('download-outline');
     expect(result.percent).toBe(50);
     expect(result.countText).toBe('5/10');
@@ -39,14 +38,14 @@ describe('formatTrackStage', () => {
   });
 
   it('shows a download that has not counted its tracks as indeterminate, with no count', () => {
-    const result = formatTrackStage(stage(TrackStep.Downloading, 0, 0, 0), t);
+    const result = formatTrackStage(stage(TrackStep.Downloading, 0, 0, 0), t)!;
     expect(result.indeterminate).toBe(true);
     expect(result.countText).toBeNull();
     expect(result.text).toBe('routesScreen.downloadingGps');
   });
 
   it('shows detection with its weighted percent and no count', () => {
-    const result = formatTrackStage(stage(TrackStep.Analysing, 3, 8, 30), t);
+    const result = formatTrackStage(stage(TrackStep.Analysing, 3, 8, 30), t)!;
     expect(result.icon).toBe('map-marker-path');
     expect(result.percent).toBe(30);
     expect(result.countText).toBeNull();
@@ -54,31 +53,23 @@ describe('formatTrackStage', () => {
   });
 
   it('shows detection before its first figure as indeterminate', () => {
-    const result = formatTrackStage(stage(TrackStep.Analysing, 0, 0, 0), t);
+    const result = formatTrackStage(stage(TrackStep.Analysing, 0, 0, 0), t)!;
     expect(result.indeterminate).toBe(true);
     expect(result.text).toBe('cache.analyzingRoutes');
   });
 
-  it('shows a download the budget holds back as the wait and when it ends, with no figure', () => {
+  it('renders nothing for a download the request budget holds back', () => {
     const resumesAt = new Date('2026-10-27T05:15:00Z').getTime();
-    const result = formatTrackStage(held(resumesAt, false), t);
-    expect(result.text).toBe(
-      `backgroundJobs.heldByBudget:${JSON.stringify({ time: formatClockOrDate(resumesAt) })}`
-    );
-    expect(result.percent).toBe(0);
-    expect(result.countText).toBeNull();
-    expect(result.indeterminate).toBe(false);
+    expect(formatTrackStage(held(resumesAt, false), t)).toBeNull();
   });
 
-  it('names a wait intervals.icu asked for as its own', () => {
+  it('renders nothing for a wait intervals.icu asked for either', () => {
     const resumesAt = new Date('2026-10-27T05:15:00Z').getTime();
-    expect(formatTrackStage(held(resumesAt, true), t).text).toContain(
-      'backgroundJobs.heldByUpstream'
-    );
+    expect(formatTrackStage(held(resumesAt, true), t)).toBeNull();
   });
 
   it('shows the heatmap pass with no count', () => {
-    const result = formatTrackStage(stage(TrackStep.DrawingHeatmap, 40, 100, 40), t);
+    const result = formatTrackStage(stage(TrackStep.DrawingHeatmap, 40, 100, 40), t)!;
     expect(result.countText).toBeNull();
     expect(result.percent).toBe(40);
     expect(result.indeterminate).toBe(false);
@@ -100,20 +91,20 @@ describe('the banner line in real copy', () => {
   const percentSigns = (line: string) => line.split('%').length - 1;
 
   it('prints one percentage for the heatmap stage', () => {
-    const line = formatTrackStage(stage(TrackStep.DrawingHeatmap, 40, 100, 40), i18n.t).text;
+    const line = formatTrackStage(stage(TrackStep.DrawingHeatmap, 40, 100, 40), i18n.t)!.text;
     expect(percentSigns(line)).toBe(1);
     expect(line).toBe('Finalising heatmap… 40%');
     expect(line).not.toContain('...');
   });
 
   it('prints the stage alone, with no figure, before any progress', () => {
-    const line = formatTrackStage(stage(TrackStep.Analysing, 0, 0, 0), i18n.t).text;
+    const line = formatTrackStage(stage(TrackStep.Analysing, 0, 0, 0), i18n.t)!.text;
     expect(percentSigns(line)).toBe(0);
     expect(line).toBe(i18n.t('cache.analyzingRoutes'));
   });
 
   it('prints the download figure once', () => {
-    const line = formatTrackStage(stage(TrackStep.Downloading, 3, 12, 25), i18n.t).text;
+    const line = formatTrackStage(stage(TrackStep.Downloading, 3, 12, 25), i18n.t)!.text;
     expect(percentSigns(line)).toBe(1);
     expect(line).toBe('Downloading tracks… 25%');
   });

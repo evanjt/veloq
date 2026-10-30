@@ -37,7 +37,7 @@ import {
 import { routeHeadline } from '../lib/routeHeadline';
 import { detailDateLine, detailPeekStats } from '../lib/detailPeek';
 import { detailCardWriter } from '../lib/detailCardState';
-import { isSportOffered, sportChipOptions } from '../lib/sectionSport';
+import { isSportOffered, sportMenuOptions } from '../lib/sectionSport';
 import { RANGE_DAYS, type SectionTimeRange } from '../constants';
 import { toActivityType } from '../types';
 import type { SectionDeltaLine } from '../lib/deltaLayout';
@@ -152,7 +152,7 @@ export function RouteDetailCard({ id, activityId: navActivityId }: RouteDetailCa
   }
   const effectiveSportType = performance?.sportType ?? selectedSportType;
   const sportCounts = performance?.sportCounts ?? EMPTY_SPORT_COUNTS;
-  const sportOptions = useMemo(() => sportChipOptions(sportCounts), [sportCounts]);
+  const sportOptions = useMemo(() => sportMenuOptions(sportCounts), [sportCounts]);
 
   const { bestForwardRecord, bestReverseRecord, forwardStats, reverseStats } = useMemo(
     () => (performance ? toPerformanceView(performance.performances) : EMPTY_PERFORMANCE_VIEW),

@@ -13,6 +13,7 @@
 import React from 'react';
 import { act, fireEvent, render } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { PaperProvider } from 'react-native-paper';
 import type { FfiSectionPerformanceData } from 'veloqrs';
 import { sectionCardInHost } from '../__shared__/sectionCardInHost';
 
@@ -186,9 +187,11 @@ jest.mock('@/shared/native/engine', () => ({
 async function openSection() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const screen = await render(
-    <QueryClientProvider client={client}>
-      <SectionDetailScreen />
-    </QueryClientProvider>
+    <PaperProvider>
+      <QueryClientProvider client={client}>
+        <SectionDetailScreen />
+      </QueryClientProvider>
+    </PaperProvider>
   );
   await act(async () => {});
   return screen;
@@ -198,6 +201,9 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockCurves = undefined;
   mockCurvesPending = true;
+});
+afterEach(() => {
+  jest.useRealTimers();
 });
 
 describe('section page curves owed', () => {
@@ -216,11 +222,16 @@ describe('section page curves owed', () => {
     expect(screen.getByTestId('chart-plot-delta')).toBeTruthy();
   });
 
-  it('loads the curves of the sport a chip picks', async () => {
+  it('loads the curves of the sport the menu picks', async () => {
+    jest.useFakeTimers();
     const screen = await openSection();
 
+    await fireEvent.press(screen.getByTestId('section-sport'));
     await act(async () => {
-      await fireEvent.press(screen.getByTestId('sport-pill-Run'));
+      jest.advanceTimersByTime(400);
+    });
+    await act(async () => {
+      await fireEvent.press(screen.getByRole('menuitem', { name: /Run/ }));
     });
 
     expect(mockEngine.getSectionDetailPerformance).toHaveBeenLastCalledWith(

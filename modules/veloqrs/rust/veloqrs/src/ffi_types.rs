@@ -985,6 +985,60 @@ pub struct FfiSectionEventDetails {
     /// names this section, in the detector's order. Empty when the change
     /// recorded none.
     pub boundaries: Vec<FfiBoundaryReason>,
+    /// What the change did to the line and the one reason for it, read from
+    /// the row's version and the one before. Absent on a row that is not a
+    /// detector change.
+    pub summary: Option<FfiSectionChangeSummary>,
+}
+
+/// The headline of a ledger row and at most one reason, computed in the
+/// engine so no screen does geometry or arithmetic on counts.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiSectionChangeSummary {
+    /// The line's length in metres in the version before, when one is stored.
+    pub length_before: Option<f64>,
+    /// The line's length in metres in the row's version.
+    pub length_after: Option<f64>,
+    /// The part of the line that moved: `start`, `end`, `both`, or `split`
+    /// for a split. Absent when neither end moved.
+    pub moved: Option<String>,
+    /// For a split, the distance along the line in metres where it was cut.
+    pub at_metres: Option<f64>,
+    /// The boundary record nearest the part that moved. Absent when the row
+    /// stored none there, or only a kind this build does not explain.
+    pub reason: Option<FfiChangeReason>,
+    /// The records that moved with this re-cut, folded from the rows written
+    /// beside it.
+    pub records: Vec<FfiRecordMove>,
+    /// On a record row folded onto a re-cut, the id of that re-cut's row.
+    pub folded_into: Option<f64>,
+}
+
+/// One boundary record, reduced to its counts. `count` of `of` is the share
+/// of the line's rides the record names: the rides that turn back, leave or
+/// take the branch out of the rides through the join. A low-support reason
+/// carries the support floor in `of` and no `count`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiChangeReason {
+    pub kind: String,
+    pub count: Option<u32>,
+    pub of: Option<u32>,
+    /// Metres a trim removed or a seam clip shortened.
+    pub metres: Option<f64>,
+    /// The neighbouring section the record names, with its standing now.
+    pub neighbour: Option<FfiSectionLink>,
+}
+
+/// A record's time before and after a re-cut, within one sport and direction.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiRecordMove {
+    pub sport: Option<String>,
+    pub direction: Option<String>,
+    pub from: Option<f64>,
+    pub to: Option<f64>,
 }
 
 /// One reason the detector gave for where a section's line was cut.
@@ -1093,6 +1147,9 @@ pub struct FfiBackgroundJobsData {
     /// owes, when that is more than one day. `None` when the queue fits in a
     /// day, is empty, or cannot be counted.
     pub stream_days_to_finish: Option<u32>,
+    /// The activities the backfill draws in one budget day, the figure
+    /// `stream_days_to_finish` counts against. `None` when it has no daily cap.
+    pub backfill_day_share: Option<u32>,
     /// The Garmin pull, `None` while no Garmin key is held.
     pub garmin_pull: Option<FfiGarminPull>,
     /// When the elevation and stream downloads may next be asked again, in
@@ -1102,6 +1159,9 @@ pub struct FfiBackgroundJobsData {
     /// Whether intervals.icu asked for that wait, rather than this install's
     /// own request budget.
     pub downloads_held_by_upstream: bool,
+    /// What the backfill has drawn of today's allowance and when it resets.
+    /// `None` where the governor only paces.
+    pub daily_limit: Option<crate::governor::FfiDailyLimit>,
     /// Whether the one-time pass recount is running on its own thread now.
     pub pass_recount_running: bool,
 }

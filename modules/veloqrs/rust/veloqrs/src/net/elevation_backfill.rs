@@ -58,9 +58,12 @@
 //! run finishes the job.
 //!
 //! On an install still owed the detector cutover that cut is the cutover
-//! itself, not a bare re-cut. `cutover::start_cutover` answers `Held` while
-//! this queue is non-empty, so the drained pass is the only thing left holding
-//! the migration. See [`terminal_cut`].
+//! itself, not a bare re-cut. The cutover does not wait for the whole queue:
+//! it starts once the newest slice of the library has its elevation (see
+//! [`cutover_slice_ready`]), and a pass hands over there, with the rest of the
+//! queue still to walk. The drained pass then ends with its re-cut over the
+//! whole library. `cutover::start_cutover` answers `Held` until the slice is
+//! decided. See [`terminal_cut`] and [`drain_staged`].
 //!
 //! Every track the pass writes records which upstream series its elevation
 //! is, corrected or device, in `elevation_source`. A track fetched before that
@@ -75,7 +78,7 @@
 //! in this process is accepted, and the next launch begins unpaused with no
 //! code to clear it, so a forgotten pause can never strand the migration.
 
-use crate::governor::Lane;
+use crate::governor::{BACKFILL_BURST, Lane};
 use crate::net::intervals::endpoints::{DEFAULT_STREAM_TYPES, TRACK_STREAM_TYPES};
 use crate::net::source::Source;
 use crate::net::transport::{NetError, Transport};
@@ -667,18 +670,27 @@ const ELEVATION_QUEUE_SQL: &str = concat!(
               ORDER BY a.start_date IS NULL, a.start_date DESC, g.activity_id"
 );
 
+/// The rows the queue is made of, shared so the count and the id read can
+/// never name different tracks. Binds the elevation state as `?1`.
+macro_rules! owed_rows_sql {
+    () => {
+        concat!(
+            "FROM gps_tracks g
+               JOIN activities a ON a.id = g.activity_id
+              WHERE g.elevation_state = ?1
+                AND ",
+            upstream_named_sql!()
+        )
+    };
+}
+
 /// How long that queue is, without building it. Both launch triggers ask, and
 /// neither cares about the order, so counting must not pay for it. The join
 /// stays: a stored track whose activity row has gone is not in the queue, so a
 /// bare count over `gps_tracks` would answer a different question.
-const ELEVATION_REMAINING_SQL: &str = concat!(
-    "SELECT COUNT(*)
-               FROM gps_tracks g
-               JOIN activities a ON a.id = g.activity_id
-              WHERE g.elevation_state = ?1
-                AND ",
-    upstream_named_sql!()
-);
+const ELEVATION_REMAINING_SQL: &str = concat!("SELECT COUNT(*) ", owed_rows_sql!());
+
+const ELEVATION_OWED_IDS_SQL: &str = concat!("SELECT g.activity_id ", owed_rows_sql!());
 
 pub(crate) fn pooled_elevation_backfill_remaining(conn: &rusqlite::Connection) -> SqlResult<u64> {
     conn.query_row(
@@ -687,6 +699,114 @@ pub(crate) fn pooled_elevation_backfill_remaining(conn: &rusqlite::Connection) -
         |row| row.get::<_, i64>(0),
     )
     .map(|count| count.max(0) as u64)
+}
+
+/// The activities the queue still owes, which a detect holds out of its pool
+/// while the download can run.
+pub(crate) fn pooled_elevation_owed_ids(
+    conn: &rusqlite::Connection,
+) -> SqlResult<std::collections::HashSet<String>> {
+    conn.prepare(ELEVATION_OWED_IDS_SQL)?
+        .query_map(
+            params![i64::from(crate::persistence::ELEVATION_STATE_UNKNOWN)],
+            |row| row.get::<_, String>(0),
+        )?
+        .collect()
+}
+
+/// How far back from the newest track the cutover's slice reaches. It is the
+/// window the app shows first.
+const CUTOVER_SLICE_DAYS: i64 = 90;
+
+/// The tracks the queue could ever ask about, newest first, whatever their
+/// elevation state, with the state and the start date.
+const CUTOVER_SLICE_SQL: &str = concat!(
+    "SELECT g.activity_id, g.elevation_state, a.start_date
+               FROM gps_tracks g
+               JOIN activities a ON a.id = g.activity_id
+              WHERE ",
+    upstream_named_sql!(),
+    "
+              ORDER BY a.start_date IS NULL, a.start_date DESC, g.activity_id
+              LIMIT ?1"
+);
+
+/// The tracks the cutover cuts on and their elevation states: the newest ones
+/// inside [`CUTOVER_SLICE_DAYS`] of the newest track, and no more than the
+/// first sitting's burst can fetch. A library smaller than that is its own
+/// slice.
+///
+/// Measured from the newest track and not from the clock, so an athlete who
+/// stopped riding still has a newest slice. Decided tracks stay in it, so the
+/// slice does not move as the queue drains.
+pub(crate) fn pooled_cutover_slice(conn: &rusqlite::Connection) -> SqlResult<Vec<(String, u8)>> {
+    let rows = conn
+        .prepare(CUTOVER_SLICE_SQL)?
+        .query_map(params![i64::from(BACKFILL_BURST)], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, i64>(1)?,
+                row.get::<_, Option<i64>>(2)?,
+            ))
+        })?
+        .collect::<SqlResult<Vec<_>>>()?;
+    let newest = rows.first().and_then(|(_, _, date)| *date);
+    let since = newest.map(|newest| newest - CUTOVER_SLICE_DAYS * 86_400);
+    Ok(rows
+        .into_iter()
+        .take_while(|(_, _, date)| match (since, date) {
+            (Some(since), Some(date)) => *date >= since,
+            (Some(_), None) => false,
+            (None, _) => true,
+        })
+        .map(|(id, state, _)| (id, state as u8))
+        .collect())
+}
+
+/// Whether every track in the cutover's slice has a decided elevation state.
+pub(crate) fn cutover_slice_ready(conn: &rusqlite::Connection) -> SqlResult<bool> {
+    Ok(pooled_cutover_slice(conn)?
+        .iter()
+        .all(|(_, state)| *state != crate::persistence::ELEVATION_STATE_UNKNOWN))
+}
+
+/// Whether the library is ready for the cutover's cut: nothing is owed, or the
+/// newest slice is decided and a detect can hold the rest out of its pool.
+///
+/// The one owner of the question, for the native start and the pass's
+/// hand-over alike. Without a credential the download cannot run and the pool
+/// is the whole library, so a slice decided beside an owed queue would mix
+/// flat tracks with elevated ones: that waits for the queue as it always did.
+pub(crate) fn cutover_ready(conn: &rusqlite::Connection) -> SqlResult<bool> {
+    if pooled_elevation_backfill_remaining(conn)? == 0 {
+        return Ok(true);
+    }
+    Ok(crate::objects::credentials_held() && cutover_slice_ready(conn)?)
+}
+
+/// A read on the pooled connection for the library installed as `install`, or
+/// `None` once another library has replaced it. The slice read has no business
+/// behind the write lock a sync page may hold.
+fn read_for<R>(install: u64, read: impl FnOnce(&rusqlite::Connection) -> R) -> Option<R> {
+    if engine_install() != install {
+        return None;
+    }
+    crate::objects::error::with_reader(read).ok()
+}
+
+/// Tracks with the sport their re-ingest has to preserve, in queue order.
+type QueuePart = Vec<(String, String)>;
+
+/// The queue split into the tracks of `slice` and the rest, each in the order
+/// the queue held them.
+fn split_at_slice(
+    queue: &[(String, String)],
+    slice: &std::collections::HashSet<String>,
+) -> (QueuePart, QueuePart) {
+    queue
+        .iter()
+        .cloned()
+        .partition(|(id, _)| slice.contains(id))
 }
 
 /// The tracks whose elevation was fetched before the engine recorded which
@@ -1160,8 +1280,9 @@ fn run_queue(install: u64, session: &LiveSource) -> (BackfillRun, bool) {
 
     let _suspend = suspend_detection();
 
-    let walk = drain_queue(install, session, &queue, true);
+    let (walk, staged_cut) = drain_staged(install, session, &queue);
     let (mut outcome, stopped, owed) = re_ask(install, session, walk);
+    outcome.detects_started = u32::from(staged_cut);
     // Whatever is still owed was asked and refused, so it is this pass's
     // failure count. Stored rather than added: the gauge counted every refusal
     // as it happened, and a track that landed on a later round is not one.
@@ -1273,7 +1394,7 @@ fn run_queue(install: u64, session: &LiveSource) -> (BackfillRun, bool) {
     // plain re-cut when it is not, so the drained queue is the whole condition.
     // The guard is still held here, so nothing else can claim the slot first.
     if drained && outcome.queued > 0 && terminal_cut(install) {
-        outcome.detects_started = 1;
+        outcome.detects_started += 1;
         BACKFILL.detects.fetch_add(1, Ordering::Relaxed);
     }
     log::info!(
@@ -1417,6 +1538,60 @@ struct Walk {
     refused: Vec<(String, String)>,
     /// Never asked, because the walk stopped first.
     unasked: Vec<(String, String)>,
+}
+
+impl Walk {
+    /// This walk reached the end of its list, and `next` is the walk of the
+    /// list behind it.
+    fn then(mut self, next: Walk) -> Walk {
+        self.outcome.queued += next.outcome.queued;
+        self.outcome.elevated += next.outcome.elevated;
+        self.outcome.unavailable += next.outcome.unavailable;
+        self.outcome.withheld += next.outcome.withheld;
+        self.outcome.failed += next.outcome.failed;
+        self.refused.extend(next.refused);
+        Walk {
+            outcome: self.outcome,
+            stopped: next.stopped,
+            refused: self.refused,
+            unasked: next.unasked,
+        }
+    }
+}
+
+/// The pass's walk. When the detector cutover is owed it is two walks, the
+/// newest slice first, with the cutover handed over between them once the
+/// slice is decided, so the athlete's recent sections do not wait for the
+/// rest of the library. Returns whether that hand-over started a cut.
+///
+/// A slice that is the whole queue is not split: the pass's own terminal cut
+/// is that cut. A slice already decided leaves the first walk empty, and the
+/// cutover starts before a single request.
+fn drain_staged(install: u64, session: &LiveSource, queue: &[(String, String)]) -> (Walk, bool) {
+    let slice = read_for(install, |conn| {
+        crate::persistence::cutover::pooled::cutover_is_owed(conn)
+            .then(|| pooled_cutover_slice(conn).ok())
+            .flatten()
+    })
+    .flatten();
+    let Some(slice) = slice else {
+        return (drain_queue(install, session, queue, true), false);
+    };
+    let slice: std::collections::HashSet<String> = slice.into_iter().map(|(id, _)| id).collect();
+    let (head, tail) = split_at_slice(queue, &slice);
+    if tail.is_empty() {
+        return (drain_queue(install, session, queue, true), false);
+    }
+    let mut walk = drain_queue(install, session, &head, true);
+    if walk.stopped.is_some() {
+        walk.unasked.extend(tail);
+        return (walk, false);
+    }
+    let cut = cut_on_slice(install);
+    if cut {
+        BACKFILL.detects.fetch_add(1, Ordering::Relaxed);
+    }
+    (walk.then(drain_queue(install, session, &tail, true)), cut)
 }
 
 /// Walk a list of tracks in batches, fetching and storing what it can.
@@ -2269,10 +2444,12 @@ fn start_source_pass() {
 
 /// The one cut a drained pass owes, handed to whoever owns it.
 ///
-/// An upgrading install is owed the detector cutover, and
-/// `cutover::start_cutover`, which the launch trigger calls, answers `Held`
-/// while this queue is non-empty, so the pass that empties the queue is the
-/// only thing left that can hand it over. It has to hand over rather than
+/// An upgrading install is owed the detector cutover. It starts once the
+/// newest slice is decided, so a pass that walked a longer queue has usually
+/// handed it over already, and what is left to cut here is the re-cut over the
+/// library the rest of the queue has since elevated. A pass whose slice was
+/// the whole queue, or that never saw the slice decided, is the only thing
+/// left that can hand the migration over. It has to hand over rather than
 /// re-cut: the cutover archives the flat-era catalogue, switches the config
 /// and then runs the same cold detect, so a bare re-cut here is both a
 /// duplicate pass and the thing that retires the migration before it has
@@ -2289,6 +2466,23 @@ fn terminal_cut(install: u64) -> bool {
     if !owed {
         return start_final_detect(install);
     }
+    hand_over_cutover()
+}
+
+/// The hand-over of a pass that finds the slice of the library decided, with
+/// the rest of the queue still to walk. False when the cutover is not owed,
+/// the slice is not decided yet, or the cutover did not run.
+fn cut_on_slice(install: u64) -> bool {
+    let ready = read_for(install, |conn| {
+        crate::persistence::cutover::pooled::cutover_is_owed(conn)
+            && cutover_ready(conn).unwrap_or(false)
+    })
+    .unwrap_or(false);
+    ready && hand_over_cutover()
+}
+
+/// Run the cutover inline, under the suspension the caller holds.
+fn hand_over_cutover() -> bool {
     match crate::persistence::cutover::run_cutover() {
         Ok(CutoverOutcome::Completed(_)) => true,
         // Owed a moment ago and not owed now, or a run already in flight:
@@ -5108,6 +5302,10 @@ mod tests {
 #[cfg(test)]
 #[path = "tests/elevation_auth.rs"]
 mod auth_tests;
+
+#[cfg(test)]
+#[path = "tests/staged_cut.rs"]
+mod staged_cut_tests;
 
 #[cfg(test)]
 #[path = "tests/elevation_wide.rs"]

@@ -37,7 +37,7 @@ export {
   type SectionSwipeKind,
   SectionTrimOverlay,
   SectionTrimToolBar,
-  SportTypeSelector,
+  SportSelectButton,
   SyncDebugSection,
   TodayBanner,
 } from './components';
@@ -177,7 +177,8 @@ export {
 } from './lib/routesScreenQuery';
 export { getAllSectionDisplayNames } from './lib/sectionDisplayNames';
 export { FIXED_LABEL_LEDGER_KINDS, ledgerDate } from './lib/sectionLedger';
-export { isSportOffered, shouldShowSportChips } from './lib/sectionSport';
+export { changeCopy } from './lib/sectionChangeCopy';
+export { isSportOffered } from './lib/sectionSport';
 export { loadTrackFetchNotice } from './lib/trackFetchNotice';
 export { useEngineStatus } from './stores/EngineStatusStore';
 export {

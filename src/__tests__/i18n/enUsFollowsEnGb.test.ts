@@ -50,7 +50,6 @@ const SPELLING = [
   'recording.splitAnnouncementKm',
   'recording.splitReachedKm',
   'sections.aerobicEfficiencyDetail',
-  'sectionHistory.kind_algorithm_changed',
   'sensors.availability.poweredOffHintIos',
   'settings.customiseByActivity',
   'settings.previewKeepWarning',

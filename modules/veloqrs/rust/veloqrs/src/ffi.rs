@@ -1485,9 +1485,9 @@ pub fn is_elevation_backfill_paused() -> bool {
 ///
 /// Raises rather than answering zero when it cannot answer at all. The launch
 /// trigger stamps the app version on a zero and the cutover start reads one
-/// as permission to cut (it answers held while the queue is non-empty), so an
-/// absent engine or a locked database has to reach the caller as the null its
-/// delegate already handles.
+/// as permission to cut (it answers held until the newest slice of the queue
+/// is decided), so an absent engine or a locked database has to reach the
+/// caller as the null its delegate already handles.
 #[uniffi::export]
 pub fn get_elevation_backfill_remaining() -> Result<u32, crate::VeloqError> {
     let remaining = crate::objects::error::with_reader(|conn| {

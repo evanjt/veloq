@@ -325,6 +325,20 @@ fn a_library_owing_more_than_a_day_reports_the_days_it_takes() {
     assert_eq!(read(&engine).stream_days_to_finish, None);
 }
 
+/// Scenario: the range confirm needs the days a widened range takes before any
+/// download is queued, so the read carries the daily share itself.
+///
+/// Expected behaviour: the share is the backfill allowance's daily cap, on an empty library too.
+#[test]
+fn the_screen_read_carries_the_backfill_day_share() {
+    let engine = PersistentEngine::in_memory().unwrap();
+    assert_eq!(
+        read(&engine).backfill_day_share,
+        crate::governor::BACKFILL_ALLOWANCE.per_day
+    );
+    assert!(read(&engine).backfill_day_share.is_some());
+}
+
 #[test]
 fn the_screen_read_says_a_pass_recount_is_running_only_while_its_guard_is_held() {
     let dir = tempfile::tempdir().unwrap();

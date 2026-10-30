@@ -30,7 +30,7 @@ import type {
 } from 'veloqrs';
 import type { DirectionStats, PerformanceDataPoint, RoutePoint } from '@/types';
 import type { SectionDeltaLine } from '@/features/routes/lib/deltaLayout';
-import type { SportTypeOption } from '../SportTypeSelector';
+import type { SportTypeOption } from '../SportSelectButton';
 import type { ChartDirection } from '@/features/routes/lib/scatterData';
 
 export interface SectionContentAreaProps {

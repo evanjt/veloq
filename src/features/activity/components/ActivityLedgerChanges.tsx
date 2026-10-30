@@ -3,9 +3,10 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import type { ActivityLedgerChange } from 'veloqrs';
+import { useMetricSystem } from '@/shared/app';
 import { navigateTo } from '@/shared/app/navigation';
 import { formatFullDate } from '@/shared/format/format';
-import { FIXED_LABEL_LEDGER_KINDS, ledgerDate } from '@/features/routes';
+import { changeCopy, ledgerDate } from '@/features/routes';
 import { Card, CardHeader, Row } from '@/shared/ui';
 import { spacing, typography, themedStyles, type Palette } from '@/theme';
 import { NameText } from '@/shared/ui/NameText';
@@ -16,11 +17,13 @@ interface ActivityLedgerChangesProps {
 }
 
 /**
- * The section changes whose ledger rows name this activity. The wording says
- * the activity was around the change, never that it caused one.
+ * The section changes whose ledger rows name this activity, worded as the
+ * section's own history words them. A ride followed a change, it did not cause
+ * one.
  */
 export function ActivityLedgerChanges({ changes, isDark }: ActivityLedgerChangesProps) {
   const { t } = useTranslation();
+  const isMetric = useMetricSystem();
   if (changes.length === 0) return null;
   const styles = themedStyles(makeStyles, isDark);
 
@@ -29,13 +32,11 @@ export function ActivityLedgerChanges({ changes, isDark }: ActivityLedgerChanges
       <Card variant="flat" padding="none">
         <View style={styles.body}>
           <View style={styles.header}>
-            <CardHeader title={t('sectionHistory.around')} />
+            <CardHeader title={t('sectionHistory.changesTitle')} />
           </View>
           {changes.map((change) => {
-            const kindLabel = FIXED_LABEL_LEDGER_KINDS.has(change.kind)
-              ? t(`sectionHistory.kind_${change.kind}` as never)
-              : null;
-            const name = change.sectionName ?? kindLabel ?? change.kind;
+            const headline = changeCopy(t, change, isMetric).headline;
+            const name = change.sectionName ?? headline ?? change.kind;
             const date = formatFullDate(ledgerDate(change.at));
             return (
               <Row
@@ -47,11 +48,8 @@ export function ActivityLedgerChanges({ changes, isDark }: ActivityLedgerChanges
               >
                 <View style={styles.rowText}>
                   <NameText style={styles.name}>{name}</NameText>
-                  {change.sectionName != null && kindLabel != null && (
-                    <Text style={styles.detail}>{kindLabel}</Text>
-                  )}
-                  {change.relation === 'fork_around' && (
-                    <Text style={styles.detail}>{t('sectionHistory.forkAround')}</Text>
+                  {change.sectionName != null && headline != null && (
+                    <Text style={styles.detail}>{headline}</Text>
                   )}
                   <Text style={styles.detail}>{date}</Text>
                 </View>

@@ -37,7 +37,7 @@ export function rangeProgress(
 
   const label = stageLine?.text ?? (fetchingActivities ? t('cache.fetchingActivities') : null);
   if (owed) {
-    const tracks = t('sync.tracksDownloaded', {
+    const tracks = t('settings.rangeActivitiesDownloaded', {
       completed: coverage.tracksStored,
       total: coverage.tracksUpstream,
     }) as string;

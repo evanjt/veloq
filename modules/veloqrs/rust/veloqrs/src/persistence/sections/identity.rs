@@ -122,6 +122,30 @@ struct CutRecords {
     reasons: Vec<serde_json::Value>,
 }
 
+/// The arrivals whose track has portions on any of `lines`, the ones that
+/// rode the ground a change moved. An arrival with no stored track rode
+/// nothing. A ride elsewhere in the library synced beside the change is not
+/// around it.
+pub(super) fn arrivals_on(
+    lines: &[&[GpsPoint]],
+    tracks: &BTreeMap<String, Vec<GpsPoint>>,
+    config: &SectionConfig,
+) -> BTreeSet<String> {
+    let prepared: Vec<tracematch::PreparedLine> = lines
+        .iter()
+        .filter_map(|line| tracematch::PreparedLine::new(line, config))
+        .collect();
+    tracks
+        .iter()
+        .filter(|(aid, track)| {
+            prepared
+                .iter()
+                .any(|line| !line.portions(aid, track).is_empty())
+        })
+        .map(|(aid, _)| aid.clone())
+        .collect()
+}
+
 /// Write what was around a change into an event's details: `around` is the
 /// activities that arrived while the change was pending, `fork_around` the
 /// activities a fork at the line's end collected. Empty lists are omitted,
@@ -156,8 +180,14 @@ fn explain(details: &mut serde_json::Map<String, serde_json::Value>, cut: &CutRe
 /// to a junction can name what made it one, and of two forks at one junction
 /// only the one that cut this line. A fork's activities go to `fork_around`,
 /// sorted and unique, and leave its reason, so an id is written once and
-/// under the key the restore path rewrites.
-fn cut_records(records: &[tracematch::BoundaryRecord], cut_id: &str) -> CutRecords {
+/// under the key the restore path rewrites. Each reason keeps where the
+/// detector took the decision, so a reader can tell which end of a re-cut it
+/// explains, and the persisted ids of the other sections the record names.
+fn cut_records(
+    records: &[tracematch::BoundaryRecord],
+    cut_id: &str,
+    real_id_of: &dyn Fn(&str) -> Option<String>,
+) -> CutRecords {
     let mut fork_around = BTreeSet::new();
     let mut reasons = Vec::new();
     for r in records
@@ -176,6 +206,17 @@ fn cut_records(records: &[tracematch::BoundaryRecord], cut_id: &str) -> CutRecor
         };
         if let Some(fields) = reason.as_object_mut() {
             fields.remove("branch_activity_ids");
+            fields.insert("latitude".into(), serde_json::json!(r.latitude));
+            fields.insert("longitude".into(), serde_json::json!(r.longitude));
+            let neighbours: Vec<String> = r
+                .section_ids
+                .iter()
+                .filter(|id| id.as_str() != cut_id)
+                .filter_map(|id| real_id_of(id))
+                .collect();
+            if !neighbours.is_empty() {
+                fields.insert("neighbours".into(), serde_json::json!(neighbours));
+            }
         }
         reasons.push(reason);
     }
@@ -1682,12 +1723,7 @@ impl ReplaySource<'_> {
             .chain(&arrivals)
             .cloned()
             .collect();
-        let around_of = |pid: &str| -> Vec<String> {
-            let mut ids: BTreeSet<String> = identity.around.get(pid).cloned().unwrap_or_default();
-            ids.extend(arrivals.iter().cloned());
-            ids.into_iter().collect()
-        };
-        let arrivals_list: Vec<String> = arrivals.iter().cloned().collect();
+        let riders = |lines: &[&[GpsPoint]]| arrivals_on(lines, &new_tracks, config);
         // Each candidate's pure id with the detector's id for its cut, which
         // is what the boundary records name.
         let cut_ids: BTreeMap<String, String> = resolutions
@@ -1695,10 +1731,18 @@ impl ReplaySource<'_> {
             .zip(&raw)
             .map(|(res, cut)| (res.id.clone(), cut.id.clone()))
             .collect();
-        let cut_records_of = |pid: &str| {
+        let pid_of_cut: BTreeMap<&str, &str> = cut_ids
+            .iter()
+            .map(|(pid, cut_id)| (cut_id.as_str(), pid.as_str()))
+            .collect();
+        let cut_records_of = |pid: &str, rows: &BTreeMap<String, IdentityRow>| {
+            let real_id_of = |cut_id: &str| {
+                let row = rows.get(*pid_of_cut.get(cut_id)?)?;
+                Some(row.real_id.clone())
+            };
             cut_ids
                 .get(pid)
-                .map(|cut_id| cut_records(source.boundary_records, cut_id))
+                .map(|cut_id| cut_records(source.boundary_records, cut_id, &real_id_of))
                 .unwrap_or_default()
         };
 
@@ -1708,6 +1752,10 @@ impl ReplaySource<'_> {
         // Pure id -> real id of every pre-step visible row, captured before
         // the reconcile consumes the map: the emitter translates fired
         // retirements and re-cuts (which name pre-step pure ids) through it.
+        let old_sections: BTreeMap<String, Arc<FrequentSection>> = old_rows
+            .iter()
+            .map(|(pid, r)| (pid.clone(), r.section.clone()))
+            .collect();
         let old_real: BTreeMap<String, String> = old_rows
             .iter()
             .map(|(pid, r)| (pid.clone(), r.real_id.clone()))
@@ -1880,6 +1928,20 @@ impl ReplaySource<'_> {
             .map(|(pid, row)| (pid.clone(), row.section.polyline.clone()))
             .collect();
 
+        // The line a row held before the step and the cut it holds after,
+        // which is the ground a change to it moved.
+        let row_lines = |pid: Option<&str>| -> Vec<&[GpsPoint]> {
+            let Some(pid) = pid else {
+                return Vec::new();
+            };
+            old_sections
+                .get(pid)
+                .map(|s| s.polyline.as_slice())
+                .into_iter()
+                .chain(new_rows.get(pid).map(|r| r.section.polyline.as_slice()))
+                .collect()
+        };
+
         // Newly tombstoned ids (a sustained dissolve fired this step): move their
         // identity into the graves so a later re-emergence restores the real id.
         let retired = old_rows
@@ -1922,7 +1984,7 @@ impl ReplaySource<'_> {
                     // read path renders in-locale: a cardinal when the two
                     // pieces separate cleanly, else its ordinal among the
                     // parent's siblings (the parent piece itself is 1).
-                    let cut = cut_records_of(&res.id);
+                    let cut = cut_records_of(&res.id, &new_rows);
                     let split = res.split_from.as_ref().and_then(|ppid| {
                         let parent_real = old_real.get(ppid)?;
                         let siblings = split_children.entry(parent_real.clone()).or_default();
@@ -1940,7 +2002,10 @@ impl ReplaySource<'_> {
                         let mut details = serde_json::Map::new();
                         details.insert("split_from".into(), serde_json::json!(parent_real));
                         details.insert("discriminator".into(), serde_json::json!(discriminator));
-                        attribute(&mut details, &arrivals_list, &cut);
+                        let mut lines: Vec<&[GpsPoint]> = vec![row.section.polyline.as_slice()];
+                        lines.extend(old_sections.get(ppid).map(|s| s.polyline.as_slice()));
+                        let around: Vec<String> = riders(&lines).into_iter().collect();
+                        attribute(&mut details, &around, &cut);
                         Some(details)
                     });
                     let details = split
@@ -2022,12 +2087,13 @@ impl ReplaySource<'_> {
                 pieces.into_iter().filter(|id| id != &parent_real).collect();
             let mut details = section_era_snapshot_on(source.conn, &parent_real);
             details.insert("siblings".into(), serde_json::json!(ordered_siblings));
-            let cut = new_rows
-                .iter()
-                .find(|(_, r)| r.real_id == parent_real)
-                .map(|(pid, _)| cut_records_of(pid))
+            let parent = new_rows.iter().find(|(_, r)| r.real_id == parent_real);
+            let cut = parent
+                .map(|(pid, _)| cut_records_of(pid, &new_rows))
                 .unwrap_or_default();
-            attribute(&mut details, &arrivals_list, &cut);
+            let lines = row_lines(parent.map(|(pid, _)| pid.as_str()));
+            let around: Vec<String> = riders(&lines).into_iter().collect();
+            attribute(&mut details, &around, &cut);
             events.push(SectionLifecycleEvent {
                 real_id: parent_real,
                 kind: "split",
@@ -2041,7 +2107,10 @@ impl ReplaySource<'_> {
                 continue;
             };
             let mut details = section_era_snapshot_on(source.conn, real_id);
-            attribute(&mut details, &around_of(pid), &cut_records_of(pid));
+            let mut around = identity.around.get(pid).cloned().unwrap_or_default();
+            around.extend(riders(&row_lines(Some(pid))));
+            let around: Vec<String> = around.into_iter().collect();
+            attribute(&mut details, &around, &cut_records_of(pid, &new_rows));
             events.push(SectionLifecycleEvent {
                 real_id: real_id.clone(),
                 kind: "recut",
@@ -2071,11 +2140,18 @@ impl ReplaySource<'_> {
                         .or_insert_with(|| serde_json::json!(distance));
                 }
             }
-            attribute(
-                &mut details,
-                &around_of(&retirement.id),
-                &CutRecords::default(),
-            );
+            let mut lines = row_lines(Some(&retirement.id));
+            if let tracematch::RetireReason::MergedInto { id } = &retirement.reason {
+                lines.extend(row_lines(Some(id)));
+            }
+            let mut around = identity
+                .around
+                .get(&retirement.id)
+                .cloned()
+                .unwrap_or_default();
+            around.extend(riders(&lines));
+            let around: Vec<String> = around.into_iter().collect();
+            attribute(&mut details, &around, &CutRecords::default());
             let kind = match &retirement.reason {
                 tracematch::RetireReason::Dissolved => "dissolved",
                 tracematch::RetireReason::MergedInto { id } => {
@@ -2099,11 +2175,8 @@ impl ReplaySource<'_> {
         let pending = identity.hysteresis.pending_ids();
         identity.around.retain(|pid, _| pending.contains(pid));
         for pid in pending {
-            identity
-                .around
-                .entry(pid)
-                .or_default()
-                .extend(arrivals.iter().cloned());
+            let rode = riders(&row_lines(Some(&pid)));
+            identity.around.entry(pid).or_default().extend(rode);
         }
 
         // Pooled detection labels a cut by the sport its members do. The
@@ -3745,7 +3818,7 @@ mod tests {
     /// ride, once as one detect for all four whose catalogues are replayed.
     /// Expected behaviour: both land on the same visible catalogue, ids,
     /// pending ledger, tombstones and events. The hill dissolves on the third
-    /// arrival and its retirement names the three it was pending across; the
+    /// arrival and its retirement names none of them, since none rode it; the
     /// valley minted at the first is re-cut at the fourth, a step whose
     /// catalogue is carried over unchanged.
     #[test]
@@ -3778,7 +3851,10 @@ mod tests {
                         "the hill dissolves on the third arrival"
                     );
                     assert_eq!(rows[0].0, hill_id);
-                    assert_eq!(around_of(&rows[0]), VALLEY_RIDES[..3].to_vec());
+                    assert!(
+                        around_of(&rows[0]).is_empty(),
+                        "no arrival rode the hill, so none is around its dissolve"
+                    );
                 }
                 "valley-4" => {
                     assert_eq!(kinds, ["recut"], "the short cut held for three arrivals");
@@ -3960,9 +4036,12 @@ mod tests {
                 engine.section_identity_apply_into(&mut identity, SectionReplay::whole(catalogue));
             engine.boundary_records.clear();
             let rows = event_rows(&applied.events);
+            let (latitude, longitude) = (end.latitude, end.longitude);
             let expected = serde_json::json!([
-                {"kind": "fork", "through": 3, "needed": 2.0, "branch_leavers": 1},
-                {"kind": "seam_clip", "clipped_metres": 40.0, "kept_metres": 160.0},
+                {"kind": "fork", "through": 3, "needed": 2.0, "branch_leavers": 1,
+                 "latitude": latitude, "longitude": longitude},
+                {"kind": "seam_clip", "clipped_metres": 40.0, "kept_metres": 160.0,
+                 "latitude": latitude, "longitude": longitude},
             ]);
             match *ride {
                 "valley-1" => {
@@ -3985,6 +4064,32 @@ mod tests {
                 ),
             }
         }
+    }
+
+    /// Scenario: a fork record names the valley's cut and a neighbour, and a
+    /// traffic cliff names only the neighbour.
+    /// Expected behaviour: the valley keeps the fork with the place it was
+    /// taken at and the neighbour's persisted id, a neighbour that has no
+    /// persisted row is left out, and the cliff is not the valley's.
+    #[test]
+    fn a_kept_reason_names_its_place_and_its_neighbour_by_persisted_id() {
+        let at = GpsPoint::new(46.002, 7.001);
+        let records = vec![
+            fork_record(&at, &["cut_a", "cut_b"], &["spur-1"]),
+            fork_record(&at, &["cut_a", "cut_gone"], &[]),
+            boundary_record(
+                &at,
+                &["cut_b"],
+                tracematch::BoundaryReason::TrafficCliff { thin: 1, thick: 6 },
+            ),
+        ];
+        let real_id_of = |cut_id: &str| (cut_id == "cut_b").then(|| "real_b".to_string());
+        let kept = cut_records(&records, "cut_a", &real_id_of);
+        assert_eq!(kept.reasons.len(), 2);
+        assert_eq!(kept.reasons[0]["neighbours"], serde_json::json!(["real_b"]));
+        assert_eq!(kept.reasons[0]["latitude"], 46.002);
+        assert_eq!(kept.reasons[0]["longitude"], 7.001);
+        assert!(kept.reasons[1].get("neighbours").is_none());
     }
 
     /// Scenario: the valley is minted and re-cut with no boundary record

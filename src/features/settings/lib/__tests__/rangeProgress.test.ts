@@ -28,7 +28,7 @@ function coverage(tracksStored: number, tracksUpstream: number): LibraryCoverage
 }
 
 const tracksLine = (completed: number, total: number) =>
-  `sync.tracksDownloaded:${JSON.stringify({ completed, total })}`;
+  `settings.rangeActivitiesDownloaded:${JSON.stringify({ completed, total })}`;
 
 describe('the widened range progress', () => {
   it('counts tracks held of tracks owed while detection is nearly through its batch', () => {
@@ -38,7 +38,7 @@ describe('the widened range progress', () => {
     expect(progress?.detail).toBe(tracksLine(139, 600));
   });
 
-  it('says the download is held and still counts what the range owes', () => {
+  it('counts what the range owes while the download is held, with no hold line', () => {
     const resumesAt = new Date('2026-10-27T05:15:00Z').getTime();
     const progress = rangeProgress(
       stage(TrackStep.Held, 0, resumesAt),
@@ -47,9 +47,7 @@ describe('the widened range progress', () => {
       t
     );
 
-    expect(progress).toMatchObject({ done: 139, total: 600 });
-    expect(progress?.label).toContain('backgroundJobs.heldByBudget');
-    expect(progress?.detail).toBe(tracksLine(139, 600));
+    expect(progress).toEqual({ done: 139, total: 600, label: tracksLine(139, 600), detail: null });
   });
 
   it('stays up with nothing running while tracks are owed, saying so once', () => {

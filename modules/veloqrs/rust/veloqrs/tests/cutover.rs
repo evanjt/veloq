@@ -339,6 +339,59 @@ fn elevation_owed_holds_the_native_cutover_start() {
     assert!(with_persistent_engine(|e| e.cutover_is_owed()).unwrap());
 }
 
+/// Scenario: the newest rides have their elevation and a year-old ride is
+/// still owed, with the athlete signed in.
+/// Expected behaviour: the native start goes ahead, since the rides the app
+/// shows first are decided.
+#[test]
+fn a_decided_newest_slice_lets_the_native_cutover_start() {
+    let _serial_state = super::serial_state();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    seed_older_build_engine(&path);
+    with_persistent_engine(|e| {
+        e.add_activity("ride_old".into(), line_track(0.001), "Ride".into())
+            .expect("add the old ride");
+        e.update_activity_metadata(
+            "ride_old",
+            Some(1_700_000_000 - 400 * 86_400),
+            None,
+            None,
+            None,
+        )
+        .expect("metadata");
+    })
+    .unwrap();
+    let db = rusqlite::Connection::open(&path).expect("open");
+    db.execute(
+        "UPDATE gps_tracks SET elevation_state = 1 WHERE activity_id <> 'ride_old'",
+        [],
+    )
+    .expect("the newest rides are decided");
+    assert_eq!(
+        with_persistent_engine(|e| e.elevation_backfill_remaining())
+            .unwrap()
+            .expect("remaining"),
+        1
+    );
+
+    veloqrs::objects::set_credentials_from_native("api_key", "k", "i1")
+        .expect("api_key is a known auth method");
+    assert_eq!(
+        veloqrs::persistence::cutover::start_cutover(),
+        veloqrs::objects::FfiStartOutcome::Started
+    );
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+    while veloqrs::persistence::cutover::cutover_running() {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "the cutover never ended"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    assert!(!with_persistent_engine(|e| e.cutover_is_owed()).unwrap());
+}
+
 /// Scenario: a caller asks for the cutover while a run already holds the
 /// slot, with nothing else standing in the way.
 /// Expected behaviour: busy, and the run in flight completes on its own.

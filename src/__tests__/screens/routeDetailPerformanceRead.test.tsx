@@ -3,8 +3,8 @@
  * route performance read, the way the section page reads its own.
  *
  * Expected behaviour: opening the route makes that read once over every date
- * and the engine's default sport, the range chips and one sport pill per sport
- * the read counts are on screen, a chip re-reads at its range, the efficiency
+ * and the engine's default sport, the range menu and one sport menu listing
+ * each sport the read counts are on screen, a range re-reads at its range, the efficiency
  * card draws the trend the read carries for the sport on screen, and the
  * per-sport and excluded-attempt reads the page used to make are never made.
  * Below the chart the summary, calendar and wellness cards are drawn from the
@@ -90,10 +90,25 @@ jest.mock('@/features/routes/components/section/PerformanceChartPanel', () => ({
 
 type SportCount = { sportType: string; count: number };
 
+type Screen = Awaited<ReturnType<typeof render>>;
+
+const menuOf = (screen: Screen, testID: string) => {
+  const menu = screen.UNSAFE_getAllByType(SelectButton).find((b) => b.props.testID === testID);
+  if (!menu) throw new Error(`no ${testID} menu`);
+  return menu;
+};
+
 /** Chooses a range from the header's menu, as a pick from its list does. */
-async function chooseRange(screen: Awaited<ReturnType<typeof render>>, id: string) {
+async function chooseRange(screen: Screen, id: string) {
   await act(async () => {
-    screen.UNSAFE_getByType(SelectButton).props.onChange(id);
+    menuOf(screen, 'section-time-range').props.onChange(id);
+  });
+}
+
+/** Chooses a sport from the sport menu. */
+async function chooseSport(screen: Screen, sport: string) {
+  await act(async () => {
+    menuOf(screen, 'section-sport').props.onChange(sport);
   });
 }
 
@@ -229,7 +244,7 @@ describe('route page on a route ridden and run', () => {
     });
     expect(screen.getByTestId('route-card-date-line')).toHaveTextContent(/^activityTypes\.Ride/);
 
-    await fireEvent.press(screen.getByRole('button', { name: 'activityTypes.Run' }));
+    await chooseSport(screen, 'Run');
 
     expect(screen.getByTestId('route-card-date-line')).toHaveTextContent(/^activityTypes\.Run/);
   });
@@ -258,14 +273,15 @@ describe('route page on a route ridden and run', () => {
     );
   });
 
-  it('offers the range menu and one pill per sport the read counts', async () => {
+  it('offers the range menu and one sport menu listing each sport the read counts', async () => {
     const screen = await render(<RouteDetailScreen />);
 
     expect(
-      screen.UNSAFE_getByType(SelectButton).props.options.map((o: { value: string }) => o.value)
+      menuOf(screen, 'section-time-range').props.options.map((o: { value: string }) => o.value)
     ).toEqual(['1m', '3m', '6m', '1y', 'all']);
-    expect(screen.getByRole('button', { name: 'activityTypes.Ride' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'activityTypes.Run' })).toBeTruthy();
+    expect(
+      menuOf(screen, 'section-sport').props.options.map((o: { label: string }) => o.label)
+    ).toEqual(['activityTypes.Ride · 2', 'activityTypes.Run · 1']);
     expect(screen.getByTestId('attempt-chart').props.accessibilityValue.text).toBe('2');
   });
 
@@ -282,22 +298,15 @@ describe('route page on a route ridden and run', () => {
     );
   });
 
-  it('re-reads for a sport when its pill is tapped and hands it back on a second tap', async () => {
+  it('re-reads for a sport when the menu picks it', async () => {
     const screen = await render(<RouteDetailScreen />);
 
-    await fireEvent.press(screen.getByRole('button', { name: 'activityTypes.Run' }));
+    await chooseSport(screen, 'Run');
+
     expect(mockEngine.getRouteDetailPerformance).toHaveBeenLastCalledWith(
       'grp-heath',
       0,
       'Run',
-      undefined
-    );
-
-    await fireEvent.press(screen.getByRole('button', { name: 'activityTypes.Run' }));
-    expect(mockEngine.getRouteDetailPerformance).toHaveBeenLastCalledWith(
-      'grp-heath',
-      0,
-      undefined,
       undefined
     );
   });
@@ -320,7 +329,7 @@ describe('route page on a route ridden and run', () => {
       'sections.aerobicEfficiencyDetail'
     );
 
-    await fireEvent.press(screen.getByRole('button', { name: 'activityTypes.Run' }));
+    await chooseSport(screen, 'Run');
 
     expect(screen.queryByTestId('section-efficiency-card')).toBeNull();
   });
@@ -328,7 +337,7 @@ describe('route page on a route ridden and run', () => {
   it('never makes the per-sport read, showing excluded attempts included', async () => {
     const screen = await render(<RouteDetailScreen />);
 
-    await fireEvent.press(screen.getByRole('button', { name: 'activityTypes.Run' }));
+    await chooseSport(screen, 'Run');
     await fireEvent.press(screen.getByTestId('performance-excluded-link'));
 
     expect(mockEngine.getRoutePerformances).not.toHaveBeenCalled();
@@ -358,11 +367,13 @@ describe('route page on a route of one sport', () => {
     expect(screen.getByTestId('route-card-date-line')).toHaveTextContent(/^period\.long\.3m/);
   });
 
-  it('shows the one pill', async () => {
+  it('names the one sport as text with no menu', async () => {
     const screen = await render(<RouteDetailScreen />);
 
-    expect(screen.getAllByRole('button', { name: /^activityTypes\./ })).toHaveLength(1);
-    expect(screen.getByRole('button', { name: 'activityTypes.Ride' })).toBeTruthy();
+    expect(screen.getByTestId('section-sport')).toHaveTextContent('activityTypes.Ride · 3');
+    expect(screen.UNSAFE_getAllByType(SelectButton).map((b) => b.props.testID)).toEqual([
+      'section-time-range',
+    ]);
   });
 });
 

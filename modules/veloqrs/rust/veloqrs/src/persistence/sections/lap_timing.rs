@@ -17,10 +17,14 @@ use std::collections::HashMap;
 use crate::GpsPoint;
 use crate::persistence::PersistentEngine;
 
-/// How many samples either side of a pass's trimmed ends a gate crossing is
-/// looked for. The trim keeps the sample nearest each end, so the crossing is
-/// a few samples away at most, however densely the recording was sampled.
-const CROSSING_REACH: usize = 8;
+/// How far from a gate's origin, in ground metres, the samples either side of
+/// a pass's trimmed end are searched for the crossing. The trim keeps the
+/// sample nearest each end by distance and admits one up to the ground
+/// tolerance short of the line, so on a sideways approach the crossing is
+/// any number of samples away, however densely the recording was sampled.
+/// Twice the tolerance reaches past any such sample, and a crossing further
+/// out is rejected by the ground check anyway.
+const CROSSING_REACH_M: f64 = 2.0 * tracematch::sections::GROUND_TOL_M;
 
 /// The ground a gate's direction is taken over.
 const GATE_ARM_M: f64 = 5.0;
@@ -205,8 +209,20 @@ fn positive(elapsed: f64, pass: &PassSpan<'_>, section_m: f64) -> (Option<f64>, 
 /// The interpolated time `gate` is crossed in its heading, at the segment
 /// nearest sample `near`.
 fn crossing_time(times: &[u32], track: &[GpsPoint], gate: &Gate, near: usize) -> Option<f64> {
-    let from = near.saturating_sub(CROSSING_REACH);
-    let to = (near + CROSSING_REACH).min(track.len() - 1);
+    let within = |k: usize| {
+        let (east, north) = local_offset(&gate.origin, &track[k]);
+        east.hypot(north) <= CROSSING_REACH_M
+    };
+    // The segments either side of `near` are always read, so a recording
+    // sampled more sparsely than the reach still finds its crossing.
+    let mut from = near.saturating_sub(1);
+    while from > 0 && within(from) {
+        from -= 1;
+    }
+    let mut to = (near + 1).min(track.len() - 1);
+    while to + 1 < track.len() && within(to) {
+        to += 1;
+    }
     let mut nearest: Option<(f64, f64)> = None;
     for k in from..to {
         let before = gate.side(&track[k]);
@@ -398,6 +414,58 @@ mod tests {
                 "every {interval} s from {phase}: {time} against {expected}"
             );
         }
+    }
+
+    #[test]
+    fn a_pass_trimmed_well_away_from_its_gates_is_still_timed() {
+        let expected = SECTION_M / 3.0;
+        let forward = recording(-100.0, SECTION_M + 100.0, 3.0, 1, 0);
+        let entry = forward
+            .times
+            .iter()
+            .position(|&t| 3.0 * f64::from(t) >= 100.0)
+            .unwrap();
+        let exit = forward
+            .times
+            .iter()
+            .position(|&t| 3.0 * f64::from(t) >= 100.0 + SECTION_M)
+            .unwrap();
+        let span = |direction, start: usize, end: usize| PassSpan {
+            direction,
+            start_index: start as u32,
+            end_index: end as u32,
+            distance_meters: SECTION_M,
+        };
+        let same = time_pass(
+            Some(&forward.times),
+            Some(&forward.track),
+            Some(&section()),
+            &span("same", entry - 20, exit + 20),
+        )
+        .0
+        .unwrap();
+        assert!((same - expected).abs() < 0.1, "same {same}");
+
+        let back = recording(SECTION_M + 100.0, -100.0, 3.0, 1, 0);
+        let entry = back
+            .times
+            .iter()
+            .position(|&t| 3.0 * f64::from(t) >= 100.0)
+            .unwrap();
+        let exit = back
+            .times
+            .iter()
+            .position(|&t| 3.0 * f64::from(t) >= 100.0 + SECTION_M)
+            .unwrap();
+        let reverse = time_pass(
+            Some(&back.times),
+            Some(&back.track),
+            Some(&section()),
+            &span("reverse", entry - 20, exit + 20),
+        )
+        .0
+        .unwrap();
+        assert!((reverse - expected).abs() < 0.1, "reverse {reverse}");
     }
 
     #[test]

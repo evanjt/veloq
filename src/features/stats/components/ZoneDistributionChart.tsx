@@ -11,6 +11,7 @@ import type { ZoneDistribution } from '@/types';
 import { formatDurationHuman } from '@/shared/format/format';
 import { CardHeader } from '@/shared/ui/CardHeader';
 import { EmptyState } from '@/shared/ui/EmptyState';
+import { RangePartlyDownloadedNote } from './RangePartlyDownloadedNote';
 
 interface ZoneDistributionChartProps {
   /** Zone distribution data */
@@ -110,12 +111,7 @@ export const ZoneDistributionChart = React.memo(function ZoneDistributionChart({
       </View>
 
       {notDownloaded ? (
-        <Text
-          testID="zone-distribution-partial"
-          style={[styles.partial, isDark && styles.textDark]}
-        >
-          {t('stats.rangePartlyDownloaded')}
-        </Text>
+        <RangePartlyDownloadedNote testID="zone-distribution-partial" style={styles.partial} />
       ) : null}
     </View>
   );
@@ -158,8 +154,6 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   partial: {
-    ...typography.caption,
-    color: colors.textSecondary,
     marginTop: spacing.sm,
   },
   emptyState: {

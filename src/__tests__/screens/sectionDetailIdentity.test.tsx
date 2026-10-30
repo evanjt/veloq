@@ -142,7 +142,7 @@ function mockRoutes() {
     hasPartialExclusion: () => false,
     isSportOffered: () => true,
     rescanRefusalKey: () => null,
-    sportChipOptions: () => [],
+    sportMenuOptions: () => [],
     sectionStreamsState: jest.requireActual(
       '@/features/routes/components/section/SectionPerformanceSection'
     ).sectionStreamsState,

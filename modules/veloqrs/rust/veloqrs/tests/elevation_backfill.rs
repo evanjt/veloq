@@ -757,10 +757,18 @@ fn overlapping_elevated_streams(jitter: f64) -> serde_json::Value {
 /// A library an older build cut: a catalogue on disk, no detector recorded
 /// against it, and every track still flat. This is the shape a 0.3.x install
 /// arrives in, and the one `seeded_engine` cannot produce because it never
-/// detects.
+/// detects. The seed detect runs with no credential held, as the older build's
+/// did, so every flat track is in its pool.
 fn seeded_older_build_engine(ids: &[&str]) -> (TempDir, std::path::PathBuf) {
+    seeded_older_build_engine_dated(ids, |i| 1_700_000_000 - i as i64 * 14 * 86_400)
+}
+
+/// [`seeded_older_build_engine`] with each track's start date handed in.
+fn seeded_older_build_engine_dated(
+    ids: &[&str],
+    start_date: impl Fn(usize) -> i64,
+) -> (TempDir, std::path::PathBuf) {
     drain_detection();
-    live_session();
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("routes.db");
     assert!(persistent_engine_init(
@@ -781,7 +789,7 @@ fn seeded_older_build_engine(ids: &[&str]) -> (TempDir, std::path::PathBuf) {
             engine
                 .update_activity_metadata(
                     id,
-                    Some(1_700_000_000 - i as i64 * 14 * 86_400),
+                    Some(start_date(i)),
                     Some("ride"),
                     Some(12_345.0),
                     Some(3_600),
@@ -803,6 +811,9 @@ fn seeded_older_build_engine(ids: &[&str]) -> (TempDir, std::path::PathBuf) {
             .expect("save");
     })
     .expect("engine");
+
+    // The seed detect above ran with no credential, as the older build's did.
+    live_session();
 
     // What an older build left behind: a catalogue with no detector stamped
     // against it. `seed_older_build_engine` in `tests/cutover.rs` strips the
@@ -885,6 +896,159 @@ fn a_drained_pass_hands_an_owed_catalogue_to_the_cutover() {
         !veloqrs::ffi::is_cutover_pending(),
         "the migration ran but did not finish"
     );
+    drain_detection();
+}
+
+// ============================================================================
+// The staged cut
+// ============================================================================
+
+const SLICE_RIDES: usize = 25;
+const DAY: i64 = 86_400;
+
+/// Sixty overlapping rides, the newest `SLICE_RIDES` inside ninety days of the
+/// newest one and the rest more than half a year before it.
+fn seeded_staged_engine() -> (TempDir, std::path::PathBuf, Vec<String>) {
+    let ids: Vec<String> = (0..60).map(|i| format!("ride_{i}")).collect();
+    let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
+    let (dir, path) = seeded_older_build_engine_dated(&refs, |i| {
+        if i < SLICE_RIDES {
+            1_700_000_000 - i as i64 * 2 * DAY
+        } else {
+            1_700_000_000 - 200 * DAY - i as i64 * DAY
+        }
+    });
+    (dir, path, ids)
+}
+
+static ASKED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+static CUT_BEFORE_FIRST_ASK: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+/// Records, on the first ask it sees, whether the cutover had already run.
+/// Tests are serialised, so the flags belong to the one running.
+fn note_first_ask(_req: &httpmock::prelude::HttpMockRequest) -> bool {
+    use std::sync::atomic::Ordering::SeqCst;
+    if ASKED.fetch_add(1, SeqCst) == 0 {
+        CUT_BEFORE_FIRST_ASK.store(!veloqrs::ffi::is_cutover_pending(), SeqCst);
+    }
+    true
+}
+
+static OLDER_ASKED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+static CUT_BEFORE_FIRST_OLDER_ASK: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+static SECTIONS_BEFORE_FIRST_OLDER_ASK: std::sync::atomic::AtomicUsize =
+    std::sync::atomic::AtomicUsize::new(0);
+
+/// Records, on the first ask for a ride outside the slice, whether the
+/// cutover had run and what the catalogue held.
+fn note_first_older_ask(_req: &httpmock::prelude::HttpMockRequest) -> bool {
+    use std::sync::atomic::Ordering::SeqCst;
+    if OLDER_ASKED.fetch_add(1, SeqCst) == 0 {
+        CUT_BEFORE_FIRST_OLDER_ASK.store(!veloqrs::ffi::is_cutover_pending(), SeqCst);
+        SECTIONS_BEFORE_FIRST_OLDER_ASK.store(
+            with_persistent_engine(|e| e.get_sections().len()).expect("engine"),
+            SeqCst,
+        );
+    }
+    true
+}
+
+/// Scenario: a 0.3.x install with sixty rides upgrades, and the newest
+/// twenty-five are inside the last ninety days.
+///
+/// Expected behaviour: the cutover runs as soon as those twenty-five have
+/// their elevation and before the first older ride is asked, the pass then
+/// carries on to the rest, and its drain still ends with one more cut over the
+/// whole library.
+#[test]
+fn the_cutover_runs_once_the_newest_slice_has_elevation_and_the_pass_carries_on() {
+    use std::sync::atomic::Ordering::SeqCst;
+    let _serial_state = super::serial_state();
+    OLDER_ASKED.store(0, SeqCst);
+    let (_dir, path, ids) = seeded_staged_engine();
+    assert!(veloqrs::ffi::is_cutover_pending());
+
+    let server = MockServer::start();
+    for (i, id) in ids.iter().enumerate() {
+        let path = format!("/activity/{id}/streams.json");
+        let body = overlapping_elevated_streams(i as f64 * 0.00002);
+        if i < SLICE_RIDES {
+            server.mock(|when, then| {
+                when.path(path);
+                then.status(200).json_body(body);
+            });
+        } else {
+            server.mock(|when, then| {
+                when.path(path).is_true(note_first_older_ask);
+                then.status(200).json_body(body);
+            });
+        }
+    }
+
+    let run = run_backfill(&fast_transport(server.base_url()));
+    let BackfillRun::Finished(outcome) = run else {
+        panic!("expected a finished pass, got {:?}", run);
+    };
+
+    assert_eq!(outcome.elevated, 60, "the pass stopped at the cut");
+    assert!(
+        CUT_BEFORE_FIRST_OLDER_ASK.load(SeqCst),
+        "the first older ride was asked while the cutover was still owed"
+    );
+    assert!(
+        SECTIONS_BEFORE_FIRST_OLDER_ASK.load(SeqCst) > 0,
+        "the cutover ran but cut nothing over the slice"
+    );
+    assert_eq!(
+        outcome.detects_started, 2,
+        "one cut on the slice and the drain's own re-cut over the library"
+    );
+    assert!(archived_rows(&path) > 0);
+    assert!(!veloqrs::ffi::is_cutover_pending());
+    drain_detection();
+}
+
+/// Scenario: the newest twenty-five already have their elevation at launch,
+/// and the older rides do not.
+///
+/// Expected behaviour: the cutover runs before the pass asks for anything.
+#[test]
+fn a_slice_already_decided_at_launch_cuts_before_the_first_request() {
+    use std::sync::atomic::Ordering::SeqCst;
+    let _serial_state = super::serial_state();
+    ASKED.store(0, SeqCst);
+    let (_dir, _path, ids) = seeded_staged_engine();
+    with_persistent_engine(|e| {
+        let decided: Vec<(String, u8)> = ids[..SLICE_RIDES]
+            .iter()
+            .map(|id| (id.clone(), FETCHED))
+            .collect();
+        e.record_elevation_state(&decided).expect("decide");
+    })
+    .expect("engine");
+    assert!(veloqrs::ffi::is_cutover_pending());
+
+    let server = MockServer::start();
+    for (i, id) in ids.iter().enumerate().skip(SLICE_RIDES) {
+        let path = format!("/activity/{id}/streams.json");
+        let body = overlapping_elevated_streams(i as f64 * 0.00002);
+        server.mock(|when, then| {
+            when.path(path).is_true(note_first_ask);
+            then.status(200).json_body(body);
+        });
+    }
+
+    let run = run_backfill(&fast_transport(server.base_url()));
+    assert!(matches!(run, BackfillRun::Finished(_)), "got {:?}", run);
+
+    assert!(ASKED.load(SeqCst) > 0, "the older rides were never asked");
+    assert!(
+        CUT_BEFORE_FIRST_ASK.load(SeqCst),
+        "the pass asked for a ride while the cutover was still owed"
+    );
+    assert!(!veloqrs::ffi::is_cutover_pending());
     drain_detection();
 }
 

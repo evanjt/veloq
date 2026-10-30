@@ -1836,7 +1836,7 @@ mod tests {
     fn an_excluded_attempt_carries_its_stored_lap_heart_rate_and_coverage() {
         let mut engine = engine_with_null_laps(1);
         seed_metrics(&mut engine, "a1");
-        exclude_traversal(&mut engine, 1, 5, Some((33.0, 400.0 / 33.0)));
+        exclude_traversal(&mut engine, 1, 8, Some((33.0, 400.0 / 33.0)));
 
         let lap = only_excluded_lap(&mut engine).expect("the excluded attempt is listed");
         assert_eq!(lap.time, 33.0);
@@ -1849,7 +1849,7 @@ mod tests {
     /// cut it at, including a cut that runs to the last point of the track.
     #[test]
     fn an_excluded_attempt_with_no_cached_lap_is_timed_between_the_gates() {
-        for (start_index, end_index) in [(1, 5), (2, 8)] {
+        for (start_index, end_index) in [(1, 8), (0, 8)] {
             let mut engine = engine_with_null_laps(1);
             seed_metrics(&mut engine, "a1");
             exclude_traversal(&mut engine, start_index, end_index, None);
@@ -1874,7 +1874,7 @@ mod tests {
         engine
             .store_time_stream("a1", &[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100])
             .unwrap();
-        exclude_traversal(&mut engine, 1, 5, None);
+        exclude_traversal(&mut engine, 1, 8, None);
         engine.backfill_section_performance_cache();
 
         assert!(only_excluded_lap(&mut engine).is_none());
@@ -1887,7 +1887,7 @@ mod tests {
         let mut engine = engine_with_null_laps(1);
         seed_metrics(&mut engine, "a1");
         engine.activity_metrics.remove("a1");
-        exclude_traversal(&mut engine, 1, 5, Some((33.0, 400.0 / 33.0)));
+        exclude_traversal(&mut engine, 1, 8, Some((33.0, 400.0 / 33.0)));
 
         let records = engine
             .section_performances_of("s0", None, super::laps::Rows::Excluded)
@@ -2082,7 +2082,7 @@ mod tests {
                 .execute(
                     "INSERT INTO section_activities (section_id, activity_id, direction,
                         start_index, end_index, distance_meters)
-                     VALUES (?, 'a1', 'same', 1, 5, 400.0)",
+                     VALUES (?, 'a1', 'same', 1, 8, 400.0)",
                     params![sid],
                 )
                 .unwrap();

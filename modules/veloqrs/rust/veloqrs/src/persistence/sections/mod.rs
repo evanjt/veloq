@@ -32,6 +32,9 @@ pub(crate) mod named;
 pub(crate) mod naming;
 pub(crate) mod numbers;
 pub(crate) mod pass_rule;
+#[cfg(all(test, feature = "real-corpus"))]
+#[path = "tests/pass_timing_measure.rs"]
+mod pass_timing_measure;
 pub(crate) mod preview;
 pub(crate) mod queries;
 pub(crate) mod ranking;

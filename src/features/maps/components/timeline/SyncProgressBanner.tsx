@@ -58,9 +58,8 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
 
   // The track work first, then the window download that comes before it.
   const displayInfo = useMemo(() => {
-    if (trackStage) {
-      return formatTrackStage(trackStage, t);
-    }
+    const trackLine = trackStage ? formatTrackStage(trackStage, t) : null;
+    if (trackLine) return trackLine;
     if (isFetchingExtended) {
       return {
         icon: 'cloud-download-outline',

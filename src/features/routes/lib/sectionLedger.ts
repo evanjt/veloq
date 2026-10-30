@@ -41,22 +41,6 @@ export const FIXED_LABEL_LEDGER_KINDS: ReadonlySet<string> = new Set([
   'absorbed',
 ]);
 
-/**
- * The sentence for each reason the detector gives for where a section's line
- * was cut, by the reason's tag. A tag not listed is one this build cannot word,
- * and the panel draws nothing for it rather than the tag.
- */
-export const BOUNDARY_REASON_KEYS = {
-  usage_change: 'sectionHistory.cut_usage_change',
-  fork: 'sectionHistory.cut_fork',
-  traffic_cliff: 'sectionHistory.cut_traffic_cliff',
-  trim: 'sectionHistory.cut_trim',
-  low_support: 'sectionHistory.cut_low_support',
-  terminus: 'sectionHistory.cut_terminus',
-  pass_end: 'sectionHistory.cut_pass_end',
-  seam_clip: 'sectionHistory.cut_seam_clip',
-} as const;
-
 /** The ledger writes SQLite datetimes in UTC without a zone marker. */
 export function ledgerDate(at: string): Date {
   return new Date(at.includes('T') ? at : `${at.replace(' ', 'T')}Z`);
@@ -71,16 +55,14 @@ interface ChipSource {
  * Every activity id the history panel will draw a chip for, once each and in
  * the order they appear.
  *
- * Capped per list, the way the panel caps its own rows, so a section with
+ * Capped per row, the way the panel caps its own rows, so a section with
  * hundreds of traversals does not ask the engine for names nothing will draw.
  */
 export function ledgerChipIds(history: ChipSource[], maxPerList: number): string[] {
   const seen = new Set<string>();
   for (const event of history) {
     const details = event.details ?? NO_EVENT_DETAILS;
-    for (const list of [details.around, details.forkAround]) {
-      for (const id of list.slice(0, maxPerList)) seen.add(id);
-    }
+    for (const id of details.around.slice(0, maxPerList)) seen.add(id);
   }
   return [...seen];
 }

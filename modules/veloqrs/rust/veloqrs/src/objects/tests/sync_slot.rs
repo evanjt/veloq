@@ -519,6 +519,90 @@ fn a_return_after_a_failed_default_sync_leaves_nothing_for_the_edge() {
     assert_eq!(*runs.lock().unwrap(), vec![full()]);
 }
 
+/// Scenario: the one short-wait retry was spent while the app was in the
+/// background, on a failure and the failure its retry met, and no clean run
+/// followed. The athlete returns, and the return's own sync fails as well,
+/// on a radio still reconnecting.
+///
+/// Expected behaviour: the return is a fresh attempt, so the failure it meets
+/// is chased by one retry before the banner draws, as a first failure is.
+#[test]
+fn a_return_rearms_the_one_retry() {
+    let _serial = crate::test_globals::serial_global_state();
+    let (svc, runs) = recording_runs();
+    svc.claim_slot().expect("the slot is free");
+    svc.finish(SyncState::Idle, failure(FfiSyncErrorReason::Network), false);
+    svc.retry_transient_failure();
+    svc.claim_slot().expect("the slot is free");
+    svc.finish(SyncState::Idle, failure(FfiSyncErrorReason::Network), false);
+    assert_eq!(svc.snapshot().retry_at_ms, None, "the retry is spent");
+
+    svc.foregrounded();
+    assert!(
+        !runs.lock().unwrap().is_empty(),
+        "the return started nothing"
+    );
+    svc.claim_slot().expect("the slot is free");
+    svc.finish(SyncState::Idle, failure(FfiSyncErrorReason::Network), false);
+
+    assert!(
+        svc.snapshot().retry_at_ms.is_some(),
+        "the failure the return met was not chased"
+    );
+}
+
+/// Scenario: a run failed on the network in the background and its retry
+/// failed too, so the failure stands with no retry pending. The athlete
+/// returns, and the sync the return asks for is held, so nothing claims the
+/// slot and nothing would clear the failure.
+///
+/// Expected behaviour: a failure the return asks again is not current, so the
+/// return drops it. The fresh attempt's own finish decides the banner.
+#[test]
+fn a_return_drops_the_transient_failure_it_asks_again() {
+    let _serial = crate::test_globals::serial_global_state();
+    for reason in [FfiSyncErrorReason::Network, FfiSyncErrorReason::Server] {
+        let (svc, runs) = recording_runs();
+        svc.claim_slot().expect("the slot is free");
+        svc.finish(SyncState::Idle, failure(reason), false);
+        svc.retry_transient_failure();
+        svc.claim_slot().expect("the slot is free");
+        svc.finish(SyncState::Idle, failure(reason), false);
+        assert!(svc.snapshot().last_error.is_some(), "{reason:?}");
+
+        svc.foregrounded();
+
+        let after = svc.snapshot();
+        assert_eq!(after.last_error, None, "{reason:?}: the failure stood");
+        assert_eq!(after.last_error_reason, None, "{reason:?}");
+        assert!(
+            !runs.lock().unwrap().is_empty(),
+            "{reason:?}: nothing asked"
+        );
+    }
+}
+
+/// A failure the connection cannot cure is not asked again by the return, so
+/// it stands until the sync the return starts settles.
+#[test]
+fn a_return_leaves_a_storage_failure_standing() {
+    let _serial = crate::test_globals::serial_global_state();
+    let (svc, _runs) = recording_runs();
+    svc.claim_slot().expect("the slot is free");
+    svc.finish(
+        SyncState::Idle,
+        failure(FfiSyncErrorReason::StorageFull),
+        false,
+    );
+
+    svc.foregrounded();
+
+    assert_eq!(
+        svc.snapshot().last_error_reason,
+        Some(FfiSyncErrorReason::StorageFull)
+    );
+}
+
 #[test]
 fn a_return_while_the_credential_is_parked_starts_nothing() {
     let _serial = crate::test_globals::serial_global_state();

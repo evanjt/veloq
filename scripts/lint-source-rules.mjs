@@ -640,6 +640,38 @@ const DYNAMIC_PREFIXES = [
 // Closed sets, built at runtime from a value the sweep cannot see but whose
 // members are enumerable from the source.
 const DYNAMIC_KEYS = [
+  // `sectionHistory.headline_${direction}_${part}` in sectionChangeCopy.ts, longer or shorter at start, end or both.
+  'sectionHistory.headline_longer_start',
+  'sectionHistory.headline_longer_end',
+  'sectionHistory.headline_longer_both',
+  'sectionHistory.headline_shorter_start',
+  'sectionHistory.headline_shorter_end',
+  'sectionHistory.headline_shorter_both',
+  // `sectionHistory.reason_${reason.kind}_${part}` in sectionChangeCopy.ts, over REASON_KINDS.
+  'sectionHistory.reason_usage_change_start',
+  'sectionHistory.reason_usage_change_end',
+  'sectionHistory.reason_usage_change_both',
+  'sectionHistory.reason_fork_start',
+  'sectionHistory.reason_fork_end',
+  'sectionHistory.reason_fork_both',
+  'sectionHistory.reason_traffic_cliff_start',
+  'sectionHistory.reason_traffic_cliff_end',
+  'sectionHistory.reason_traffic_cliff_both',
+  'sectionHistory.reason_terminus_start',
+  'sectionHistory.reason_terminus_end',
+  'sectionHistory.reason_terminus_both',
+  'sectionHistory.reason_low_support_start',
+  'sectionHistory.reason_low_support_end',
+  'sectionHistory.reason_low_support_both',
+  'sectionHistory.reason_trim_start',
+  'sectionHistory.reason_trim_end',
+  'sectionHistory.reason_trim_both',
+  'sectionHistory.reason_seam_clip_start',
+  'sectionHistory.reason_seam_clip_end',
+  'sectionHistory.reason_seam_clip_both',
+  'sectionHistory.reason_pass_end_start',
+  'sectionHistory.reason_pass_end_end',
+  'sectionHistory.reason_pass_end_both',
   // `navigation.${item.key}` in BottomTabBar.tsx, over MENU_ITEMS.
   'navigation.feed',
   'navigation.fitness',
@@ -1689,14 +1721,13 @@ const RULES = {
 
   // A chip whose look depends on a selected or active flag also says so to a
   // screen reader, since a tint is not a cue everyone can see. It holds the
-  // four selector components that were converted, and a file added to the list
-  // joins them.
+  // selector components that were converted, and a file added to the list joins
+  // them.
   'selected-state-accessibility': {
     pathspec: ['src'],
     check(sources) {
       const out = [];
       const chipFiles = [
-        'src/features/routes/components/SportTypeSelector.tsx',
         'src/features/activity/components/ChartTypeSelector.tsx',
         'src/features/routes/components/preview/PreviewCentrePicker.tsx',
       ];

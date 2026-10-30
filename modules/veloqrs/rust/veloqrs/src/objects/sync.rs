@@ -917,6 +917,14 @@ impl SyncService {
     /// to its age gate. Nothing starts while the credential is parked, for no
     /// credential, which is a signed-out or demo install, or while the engine
     /// is suspended, whose resume restarts what it cut short.
+    ///
+    /// The return is a fresh attempt, with the network as the phone finds it
+    /// now. The process lives in the background for hours and syncs there,
+    /// from the resume sleeper and every online edge, where a run fails on
+    /// a restricted network and spends the one short-wait retry. So the
+    /// return re-arms it, and a transient failure it asks again is no longer
+    /// current: the fresh attempt's own finish decides the banner, not a
+    /// run that ended while nobody was looking.
     pub(crate) fn foregrounded(&self) {
         if crate::persistence::suspension::is_suspended() || self.athlete_id().is_none() {
             return;
@@ -925,6 +933,11 @@ impl SyncService {
             let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
             if inner.auth_expired {
                 return;
+            }
+            inner.transient_retried = false;
+            if inner.last_error_reason.is_some_and(reconnect_cures) {
+                inner.last_error = None;
+                inner.last_error_reason = None;
             }
             // A phone that never read as offline gives no online edge, so the
             // runs a transient failure left owed to the connection are owed
@@ -1940,6 +1953,15 @@ pub(crate) fn still_signed_in(athlete_id: &str) -> bool {
 /// The session for the held credential, for a caller that has to ask on the
 /// athlete's own resources. `None` before TypeScript has called
 /// `set_credentials`.
+/// Whether a credential is held, which is what lets a queued download run.
+pub(crate) fn credentials_held() -> bool {
+    SYNC_SERVICE
+        .creds
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .is_some()
+}
+
 pub fn current_session() -> Option<Result<LiveSource, String>> {
     let creds_present = SYNC_SERVICE
         .creds
@@ -6748,6 +6770,17 @@ mod tests {
         let _serial = crate::test_globals::serial_global_state();
         let _engine_dir = crate::test_globals::seeded_global_engine();
         crate::test_globals::clear_detection_handle();
+        // Decided rather than owed: the sync holds a credential, and detection
+        // holds out any track whose elevation the download still owes.
+        crate::persistence::with_persistent_engine(|e| {
+            let decided: Vec<(String, u8)> = e
+                .get_activity_ids()
+                .into_iter()
+                .map(|id| (id, crate::persistence::ELEVATION_STATE_UNAVAILABLE))
+                .collect();
+            e.record_elevation_state(&decided).expect("elevation state");
+        })
+        .expect("engine");
         let before = crate::persistence::with_persistent_engine(|e| e.get_activity_ids().len())
             .expect("engine");
         assert!(

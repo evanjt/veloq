@@ -1,13 +1,14 @@
 //! What was around a change. A fired re-cut, dissolve or merge names the
 //! activities that arrived while it was pending, the firing step's included,
-//! and a cut at a fork names the traffic the branch collected. Neither is a
-//! cause: the copy is "around this change".
+//! and that rode the ground it moved. A cut at a fork names the traffic the
+//! branch collected. Neither is a cause: the copy is "around this change".
 //!
 //! Scenario: the small-batch corpus, whose expansion fires the changes its
 //! rides support inside its own detect, then the rides of the last bucket one
 //! per detect, the second of which starts changes the next two confirm.
-//! Expected behaviour: every fired change carries the ids that arrived on the
-//! step it fired on and only ids that arrived after the cold detect, one of
+//! Expected behaviour: every fired change carries only ids that arrived after
+//! the cold detect and that rode its ground, a ride elsewhere in the library
+//! that synced beside it is never listed, one of
 //! them names the rides it was pending across, and a ledger built across an
 //! app restart still carries what arrived before it.
 
@@ -157,10 +158,6 @@ fn a_fired_change_lists_the_activities_around_it() {
                 named.is_subset(&after_cold),
                 "a {kind} named an activity from the cold detect: {around:?}"
             );
-            assert!(
-                firing_step.is_subset(&named),
-                "a {kind} must name the step it fired on, got {around:?}"
-            );
             pended |= !named.is_subset(firing_step);
         }
     }
@@ -197,6 +194,62 @@ fn attribution_survives_a_restart() {
         assert!(
             around.contains(&before_restart.id),
             "the arrival before the restart is still around the {kind}: {around:?}"
+        );
+    }
+}
+
+/// A ride on the same shape of track, hundreds of kilometres from the corpus.
+fn far_ride(from: &LifecycleActivity, tag: &str) -> LifecycleActivity {
+    LifecycleActivity {
+        id: format!("far-{tag}"),
+        sport_type: from.sport_type.clone(),
+        start_date_unix: from.start_date_unix + 1,
+        gps_points: from
+            .gps_points
+            .iter()
+            .map(|p| tracematch::GpsPoint {
+                latitude: p.latitude + 4.0,
+                longitude: p.longitude + 4.0,
+                elevation: p.elevation,
+            })
+            .collect(),
+    }
+}
+
+#[test]
+fn a_ride_far_from_a_change_is_never_listed_on_it() {
+    let corpus = corpus();
+    let dir = TempDir::new().unwrap();
+    let mut engine = open(&dir);
+    step(&mut engine, &corpus.through_a());
+    let ids = section_ids(&mut engine);
+    let before = event_counts(&engine, &ids);
+    let far_batch = far_ride(&corpus.bucket_b_delta[0], "batch");
+    let mut expansion: Vec<&LifecycleActivity> = corpus.bucket_b_delta.iter().collect();
+    expansion.push(&far_batch);
+    step(&mut engine, &expansion);
+    let mut fired = fired_since(&engine, &before);
+
+    let singles: Vec<&LifecycleActivity> = std::iter::once(&corpus.bucket_c_single)
+        .chain(&corpus.bucket_d_delta)
+        .collect();
+    let far_singles: Vec<LifecycleActivity> = singles
+        .iter()
+        .enumerate()
+        .map(|(i, a)| far_ride(a, &i.to_string()))
+        .collect();
+    for (near, far) in singles.iter().zip(&far_singles) {
+        let ids = section_ids(&mut engine);
+        let before = event_counts(&engine, &ids);
+        step(&mut engine, &[near, far]);
+        fired.extend(fired_since(&engine, &before));
+    }
+
+    assert!(!fired.is_empty(), "the corpus fires changes");
+    for (kind, around) in &fired {
+        assert!(
+            around.iter().all(|id| !id.starts_with("far-")),
+            "a {kind} listed a ride that never touched it: {around:?}"
         );
     }
 }

@@ -6,14 +6,17 @@ import { useActivityBoundsCache } from '@/features/activity';
 import { useTheme } from '@/shared/app';
 import { useOldestActivityDate } from '@/shared/app/useOldestActivityDate';
 import { useActivityYearCounts } from '@/features/settings/hooks/useActivityYearCounts';
-import { formatLocalDate } from '@/shared/format/format';
+import { formatClockTime, formatLocalDate } from '@/shared/format/format';
 import { DEFAULT_ACTIVITY_DAYS } from '@/shared/native/activityWindow.generated';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { isExtendedFetchRunning } from '@/shared/app/extendedFetch';
 import { useTrackStage } from '@/shared/native/useSyncStatus';
 import { useLibraryCoverage } from '@/shared/native/useLibraryCoverage';
-import { activitiesInRange, LARGE_HISTORY_THRESHOLD } from '../lib/historyGate';
+import { useBackfillDayShare } from '../hooks/useBackfillDayShare';
+import { activitiesInRange, historyConfirmCopy, LARGE_HISTORY_THRESHOLD } from '../lib/historyGate';
 import { rangeProgress } from '../lib/rangeProgress';
+import { dailyLimitLines } from '../lib/dailyLimitLines';
+import { useDailyLimit } from '../hooks/useBackgroundJobs';
 import { settingsStyles } from './settingsStyles';
 import {
   colors,
@@ -36,6 +39,7 @@ export function SyncRangePanel() {
   const { cacheStats, syncDateRange } = useActivityBoundsCache();
   const { data: apiOldestDate } = useOldestActivityDate();
   const { data: yearCounts } = useActivityYearCounts();
+  const dayShare = useBackfillDayShare();
 
   const syncOldest = useSyncDateRange((s) => s.oldest);
   const isFetchingExtended = useSyncDateRange((s) => isExtendedFetchRunning(s.extendedFetch));
@@ -46,6 +50,9 @@ export function SyncRangePanel() {
   const progress = useMemo(
     () => rangeProgress(trackStage, coverage, isFetchingExtended, t),
     [trackStage, coverage, isFetchingExtended, t]
+  );
+  const limitLines = dailyLimitLines(useDailyLimit(), t, (epochMs) =>
+    formatClockTime(new Date(epochMs).toISOString())
   );
   const isExpansionLocked = useSyncDateRange((s) => s.isExpansionLocked);
 
@@ -104,16 +111,23 @@ export function SyncRangePanel() {
         return;
       }
 
+      const copy = historyConfirmCopy(count, dayShare);
       confirmAction({
-        title: t('settings.largeHistoryTitle'),
-        message: t('settings.largeHistoryMessage', { count }),
+        title:
+          copy.kind === 'days'
+            ? t('settings.largeHistoryDaysTitle', { count: copy.days })
+            : t('settings.largeHistoryTitle'),
+        message:
+          copy.kind === 'days'
+            ? t('settings.largeHistoryDaysMessage')
+            : t('settings.largeHistoryMessage', { count: copy.count }),
         confirmLabel: t('settings.largeHistoryConfirm'),
         cancelLabel: t('common.cancel'),
         onConfirm: expand,
         onCancel: putHandleBack,
       });
     },
-    [syncDateRange, cachedStartDate, yearCounts, t, putHandleBack]
+    [syncDateRange, cachedStartDate, yearCounts, dayShare, t, putHandleBack]
   );
 
   return (
@@ -158,6 +172,22 @@ export function SyncRangePanel() {
               {progress.label}
               {progress.detail ? ` (${progress.detail})` : null}
             </Text>
+            {limitLines ? (
+              <>
+                <Text style={[styles.progressText, isDark && styles.progressTextDark]}>
+                  {limitLines.shared}
+                </Text>
+                <Text style={[styles.progressText, isDark && styles.progressTextDark]}>
+                  {limitLines.today}
+                </Text>
+                <Text
+                  style={[styles.resetText, isDark && styles.progressTextDark]}
+                  testID="settings-sync-range-limit-reset"
+                >
+                  {limitLines.reset}
+                </Text>
+              </>
+            ) : null}
           </View>
         ) : null}
       </View>
@@ -177,6 +207,10 @@ const styles = StyleSheet.create({
   progressText: {
     ...typography.caption,
     marginTop: spacing.xs,
+    color: colors.textSecondary,
+  },
+  resetText: {
+    ...typography.caption,
     color: colors.textSecondary,
   },
   progressTextDark: {

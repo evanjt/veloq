@@ -64,6 +64,7 @@ import { EmptyState } from '@/shared/ui/EmptyState';
 import { DENSE_TEXT_SCALE, denseExtent } from '@/shared/ui/DenseText';
 import { ABSENT } from '@/shared/format/absent';
 import { PressTarget } from '@/shared/ui/PressTarget';
+import { RangePartlyDownloadedNote } from './RangePartlyDownloadedNote';
 
 interface ActivityHeatmapProps {
   /** The card's part of the fitness screen read, which the screen makes once. */
@@ -563,21 +564,13 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
         <ChartShowDataButton table={reading.table} testID="activity-heatmap-plot" />
 
         {coverage === RangeCoverage.NotFetched && (
-          <Text
-            testID="activity-heatmap-partial"
-            style={[styles.partial, isDark && styles.textDark]}
-          >
-            {t('stats.rangePartlyDownloaded')}
-          </Text>
+          <RangePartlyDownloadedNote testID="activity-heatmap-partial" style={styles.partialLink} />
         )}
 
         {/* The grid draws what the device holds, so a shorter one says the
             year before it is not all downloaded rather than untrained. */}
         {calendarOlderOwed > 0 && (
-          <Text
-            testID="activity-heatmap-older-owed"
-            style={[styles.partial, isDark && styles.textDark]}
-          >
+          <Text testID="activity-heatmap-older-owed" style={styles.partial}>
             {t('stats.calendarOlderOwed', { count: calendarOlderOwed })}
           </Text>
         )}
@@ -625,6 +618,9 @@ const styles = StyleSheet.create({
   partial: {
     ...typography.caption,
     color: colors.textSecondary,
+    marginTop: spacing.sm,
+  },
+  partialLink: {
     marginTop: spacing.sm,
   },
   body: {

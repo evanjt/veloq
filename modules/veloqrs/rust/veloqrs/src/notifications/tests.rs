@@ -1162,7 +1162,7 @@ mod pooled_highlight {
             .execute(
                 "INSERT INTO section_activities (section_id, activity_id, direction,
                     start_index, end_index, distance_meters)
-                 VALUES ('s0', 'a1', 'same', 1, 5, 400.0)",
+                 VALUES ('s0', 'a1', 'same', 1, 8, 400.0)",
                 [],
             )
             .unwrap();
@@ -1233,7 +1233,7 @@ mod pooled_highlight {
             .db
             .execute(
                 "INSERT INTO section_activities (section_id, activity_id, direction, start_index, end_index, distance_meters, lap_time, lap_pace)
-                 VALUES ('s0', ?1, ?2, 1, 5, 400.0, ?3, ?4)",
+                 VALUES ('s0', ?1, ?2, 1, 8, 400.0, ?3, ?4)",
                 params![id, direction, time, 400.0 / time],
             )
             .unwrap();

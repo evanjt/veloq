@@ -52,6 +52,7 @@ import {
 } from '@/shared/charts';
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { formatDecimalTrimmed } from '@/shared/format';
+import { RangePartlyDownloadedNote } from './RangePartlyDownloadedNote';
 
 interface SeasonComparisonProps {
   /** The card's part of the fitness screen read, which the screen makes once. */
@@ -602,9 +603,7 @@ export function SeasonComparison({ training, height = 200 }: SeasonComparisonPro
       </ChartSurface>
 
       {notDownloaded ? (
-        <Text testID="season-comparison-partial" style={styles.partial}>
-          {t('stats.rangePartlyDownloaded')}
-        </Text>
+        <RangePartlyDownloadedNote testID="season-comparison-partial" style={styles.partial} />
       ) : null}
     </View>
   );
@@ -714,8 +713,6 @@ const makeStyles = (palette: Palette) =>
       justifyContent: 'center',
     },
     partial: {
-      ...typography.caption,
-      color: palette.textSecondary,
       marginTop: spacing.sm,
     },
   });
