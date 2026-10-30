@@ -83,7 +83,6 @@ export interface SupportingSection {
   previousBestDate?: number | undefined;
   deltaSeconds?: number | undefined;
   sportType?: string | undefined;
-  hasRecentPR?: boolean | undefined;
   daysSinceLast?: number | undefined;
   ranking?: SectionRankingScores | undefined;
   /** The section's line, thinned by the engine for the sheet's thumbnail. */
@@ -412,7 +411,6 @@ export interface SectionTrendData {
   traversalCount: number;
   sportType?: string | undefined;
   daysSinceLast?: number | undefined;
-  latestIsPr?: boolean | undefined;
   ranking?: SectionRankingScores | undefined;
   /** The last efforts on the section, oldest first, for the insight's history. */
   recentEfforts?: SeriesPoint[] | undefined;

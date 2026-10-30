@@ -9,6 +9,11 @@
  * stored diff; See them opens the retired screen and shows only when sections
  * were retired and the counts are final. Not now is remembered across launches.
  * Whether it shows is the session's one ask.
+ *
+ * It has two messages. While elevation is owed it says the newest activities
+ * are ready, the rest download under the daily limit, and how long that takes.
+ * When the final counts are written it returns once with the outcome, even if
+ * the first message was dismissed, because each is dismissed on its own.
  */
 import React, { useCallback } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -28,6 +33,7 @@ import { Icon } from '@/shared/ui/Icon';
 import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 
 import { describeCutoverCounts } from './whatsNew/SectionChangeCardSlide';
+import { useStagedHistory } from '../hooks/useBackgroundJobs';
 import { useSessionAsk } from '../hooks/useLaunchSurfaces';
 import { useWhatsNewStore } from '../stores/WhatsNewStore';
 
@@ -37,15 +43,22 @@ export function SectionsChangedCard() {
   const total = useArchivedRetiredCount();
   const { isRunning, phase, counts, countsOwed } = useCutoverSummary();
   const failed = phase in CUTOVER_FAILURE_KEYS;
-  const dismissed = useWhatsNewStore((s) => s.sectionsChangedDismissed);
-  const dismiss = useWhatsNewStore((s) => s.dismissSectionsChanged);
+  const staged = useStagedHistory();
+  const state = countsOwed ? 'owed' : 'final';
+  const dismissed = useWhatsNewStore((s) => s.sectionsChangedDismissed.includes(state));
+  const dismissState = useWhatsNewStore((s) => s.dismissSectionsChanged);
   const eligible =
     (total > 0 || counts !== null || countsOwed) && !isRunning && !failed && !dismissed;
   const holdsAsk = useSessionAsk('sectionsChanged', eligible);
 
+  const dismiss = useCallback(() => dismissState(state), [dismissState, state]);
   const open = useCallback(() => {
     dismiss();
     navigateTo('/detection-preview?layer=retired');
+  }, [dismiss]);
+  const openProgress = useCallback(() => {
+    dismiss();
+    navigateTo('/sync-settings');
   }, [dismiss]);
 
   if (!eligible || !holdsAsk) return null;
@@ -60,7 +73,7 @@ export function SectionsChangedCard() {
             color={isDark ? darkColors.textPrimary : colors.textPrimary}
           />
           <Text style={[styles.title, isDark && styles.titleDark]}>
-            {t('feed.sectionsChangedTitle')}
+            {countsOwed ? t('feed.sectionsChangedTitleOwed') : t('feed.sectionsChangedTitleDone')}
           </Text>
         </View>
         <Text
@@ -68,11 +81,22 @@ export function SectionsChangedCard() {
           style={[styles.description, isDark && styles.descriptionDark]}
         >
           {countsOwed
-            ? t('feed.sectionsChangedBodyStaged')
+            ? t('feed.sectionsChangedBodyOwed')
             : total > 0
               ? t('feed.sectionsChangedBody', { total })
               : t('feed.sectionsChangedBodyNone')}
         </Text>
+        {countsOwed && staged !== null ? (
+          <Text
+            testID="sections-changed-ready"
+            style={[styles.description, isDark && styles.descriptionDark]}
+          >
+            {t('feed.sectionsChangedReady', { count: staged.done })}
+            {typeof staged.daysToFinish === 'number'
+              ? ` ${t('backgroundJobs.pacedOnCaps', { count: staged.daysToFinish })}`
+              : ''}
+          </Text>
+        ) : null}
         {counts !== null && (
           <Text
             testID="sections-changed-counts"
@@ -92,6 +116,15 @@ export function SectionsChangedCard() {
             size="sm"
             onPress={dismiss}
           />
+          {countsOwed ? (
+            <Button
+              testID="sections-changed-progress"
+              label={t('feed.sectionsChangedProgress')}
+              variant="primary"
+              size="sm"
+              onPress={openProgress}
+            />
+          ) : null}
           {total > 0 && !countsOwed && (
             <Button
               testID="sections-changed-see"

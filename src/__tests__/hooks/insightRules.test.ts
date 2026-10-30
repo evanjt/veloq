@@ -37,7 +37,6 @@ function sectionTrend(
     bestTimeSecs: 110,
     traversalCount,
     daysSinceLast,
-    latestIsPr: false,
   };
 }
 

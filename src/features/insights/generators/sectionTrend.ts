@@ -31,7 +31,6 @@ function supportingSections(trends: SectionTrendData[]): SupportingSection[] {
     trend: section.trend,
     traversalCount: section.traversalCount,
     sportType: section.sportType,
-    hasRecentPR: section.latestIsPr,
     daysSinceLast: section.daysSinceLast,
     ranking: section.ranking,
   }));

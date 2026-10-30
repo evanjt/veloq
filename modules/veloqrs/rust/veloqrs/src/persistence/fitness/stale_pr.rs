@@ -323,7 +323,6 @@ mod tests {
                 median_recent_secs: 320.0,
                 days_since_last,
                 trend: 0,
-                latest_is_pr: false,
             },
             Some(day("2026-03-01")),
         )

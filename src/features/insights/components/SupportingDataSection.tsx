@@ -6,6 +6,7 @@ import type { InsightCategory, TFunc } from '../types';
 import { sectionRowKey, sectionWithSport } from '../lib/cardSport';
 import { rowTrendColor, rowTrendIcon, rowTrendWord } from '../lib/rowTrend';
 import { navigateTo } from '@/shared/app/navigation';
+import { fromInsightsPath } from '@/shared/app/sectionOrigin';
 import { useTheme } from '@/shared/app';
 import {
   colors,
@@ -163,7 +164,7 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
                   traversals,
                   rowTrendWord(section.trend)
                 )}
-                onPress={() => navigateTo(`/section/${section.sectionId}`)}
+                onPress={() => navigateTo(fromInsightsPath(`/section/${section.sectionId}`))}
               >
                 <SectionPreview sectionId={section.sectionId} points={section.previewPoints} />
                 <View style={styles.sectionContent}>

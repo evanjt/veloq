@@ -5,7 +5,7 @@
  * traversed first.
  */
 
-import { sportMenuOptions } from '@/features/routes/lib/sectionSport';
+import { sportMenuOptions, sportCountFor } from '@/features/routes/lib/sectionSport';
 
 describe('sportMenuOptions', () => {
   it('lists the sports by count, the most traversed first', () => {
@@ -34,5 +34,23 @@ describe('sportMenuOptions', () => {
 
   it('offers none when the screen read offers no sport', () => {
     expect(sportMenuOptions([])).toEqual([]);
+  });
+});
+
+describe('sportCountFor', () => {
+  const counts = [
+    { sportType: 'Run', count: 28 },
+    { sportType: 'Ride', count: 3 },
+  ];
+
+  it('is the count the dropdown shows for the sport on screen', () => {
+    expect(sportCountFor(counts, 'Run')).toBe(28);
+    expect(sportCountFor(counts, 'Ride')).toBe(3);
+  });
+
+  it('is absent for a sport the page does not offer, and with no sport', () => {
+    expect(sportCountFor(counts, 'Walk')).toBeUndefined();
+    expect(sportCountFor(counts, undefined)).toBeUndefined();
+    expect(sportCountFor([], 'Run')).toBeUndefined();
   });
 });

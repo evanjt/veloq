@@ -1176,6 +1176,9 @@ pub struct FfiBackgroundJobsData {
 pub struct FfiStagedHistory {
     pub done: u32,
     pub total: u32,
+    /// The whole days the tracks still owed take on the daily backfill share,
+    /// or `None` when they fit in one day.
+    pub days_to_finish: Option<u32>,
 }
 
 /// What Retry now did.
@@ -1762,8 +1765,6 @@ pub struct FfiRankedSection {
     pub days_since_last: u32,
     /// -1 = declining, 0 = stable, 1 = improving
     pub trend: i8,
-    /// Whether the most recent effort is the all-time best time
-    pub latest_is_pr: bool,
     /// The last efforts on the section, oldest first, capped by the ranker's
     /// own limit. The scoring already holds every traversal to compute the
     /// medians above, so carrying the tail of them costs the ranker nothing.

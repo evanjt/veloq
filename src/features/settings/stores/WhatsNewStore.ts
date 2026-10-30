@@ -20,8 +20,30 @@ import { countUseDay, persistUsage, readUsage, sameUsage, type Usage } from '../
 const WHATS_NEW_KEY = 'veloq-whats-new-seen';
 /** The tour offer's record. This install's bookkeeping, like the days of use, so no backup carries it. */
 const TOUR_OFFER_KEY = 'veloq-tour-offer';
-/** Set once the athlete has answered the sections-changed card. A device choice, so no backup carries it. */
+/**
+ * The states of the sections-changed card the athlete has answered, as a JSON
+ * list. A device choice, so no backup carries it. A build that kept one flag
+ * wrote `true`, read as the answer to the download-time card.
+ */
 const SECTIONS_CHANGED_KEY = 'veloq-sections-changed-dismissed';
+
+/** Which of its two messages the sections-changed card is showing. */
+export type SectionsChangedState = 'owed' | 'final';
+
+const SECTIONS_CHANGED_STATES: readonly SectionsChangedState[] = ['owed', 'final'];
+
+function parseSectionsChanged(stored: string | null | undefined): SectionsChangedState[] {
+  if (stored === 'true') return ['owed'];
+  if (!stored) return [];
+  try {
+    const parsed: unknown = JSON.parse(stored);
+    return Array.isArray(parsed)
+      ? SECTIONS_CHANGED_STATES.filter((state) => parsed.includes(state))
+      : [];
+  } catch {
+    return [];
+  }
+}
 
 interface TourState {
   mode: 'whatsNew' | 'tutorial';
@@ -56,8 +78,8 @@ interface WhatsNewState extends Usage {
   tourOffer: TourOfferRecord;
   /** The tour offer was answered or a tour closed in this session. Never persisted. */
   tourOfferSettled: boolean;
-  /** The athlete has dismissed the card that says the sections were re-cut. */
-  sectionsChangedDismissed: boolean;
+  /** The states of the sections-changed card the athlete has dismissed. */
+  sectionsChangedDismissed: SectionsChangedState[];
 
   initialise: () => Promise<void>;
   countUse: () => Promise<void>;
@@ -81,8 +103,8 @@ interface WhatsNewState extends Usage {
   takeTourOffer: (only?: SetupSlide[], held?: SetupSlide[]) => void;
   /** Not now on the offer card. The second ends the offer and marks the tour seen. */
   declineTourOffer: (currentVersion: string) => Promise<void>;
-  /** Not now on the sections-changed card: it stays hidden after a relaunch too. */
-  dismissSectionsChanged: () => void;
+  /** Not now on the sections-changed card in `state`: that state stays hidden after a relaunch too. */
+  dismissSectionsChanged: (state: SectionsChangedState) => void;
   answerSetup: (slide: SetupSlide, answer: SetupAnswer) => void;
 }
 
@@ -108,7 +130,7 @@ export const useWhatsNewStore = create<WhatsNewState>((set, get) => ({
   usageLoaded: false,
   tourOffer: NO_TOUR_OFFER,
   tourOfferSettled: false,
-  sectionsChangedDismissed: false,
+  sectionsChangedDismissed: [],
 
   initialise: async () => {
     try {
@@ -120,7 +142,7 @@ export const useWhatsNewStore = create<WhatsNewState>((set, get) => ({
       set({
         ...(stored ? { lastSeenVersion: stored } : {}),
         tourOffer: parseTourOffer(offer),
-        sectionsChangedDismissed: sectionsChanged === 'true',
+        sectionsChangedDismissed: parseSectionsChanged(sectionsChanged),
         isLoaded: true,
       });
     } catch {
@@ -258,9 +280,12 @@ export const useWhatsNewStore = create<WhatsNewState>((set, get) => ({
     if (!leftover && offerEnded(next)) await markSeen(currentVersion);
   },
 
-  dismissSectionsChanged: () => {
-    set({ sectionsChangedDismissed: true });
-    setSetting(SECTIONS_CHANGED_KEY, 'true').catch((e) => {
+  dismissSectionsChanged: (state) => {
+    const dismissed = get().sectionsChangedDismissed;
+    if (dismissed.includes(state)) return;
+    const next = [...dismissed, state];
+    set({ sectionsChangedDismissed: next });
+    setSetting(SECTIONS_CHANGED_KEY, JSON.stringify(next)).catch((e) => {
       if (__DEV__) console.warn('[sections changed] persist failed:', e);
     });
   },

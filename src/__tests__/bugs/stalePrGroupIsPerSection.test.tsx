@@ -141,7 +141,7 @@ describe('a stale-PR group of two power sections', () => {
     fireEvent.press(screen.getByTestId('stale-pr-chip-b'));
 
     fireEvent.press(screen.getByTestId('stale-pr-open-section'));
-    expect(navigateTo).toHaveBeenLastCalledWith('/section/b?activityId=b-pr');
+    expect(navigateTo).toHaveBeenLastCalledWith('/section/b?activityId=b-pr&origin=insights');
     fireEvent.press(screen.getByTestId('stale-pr-open-activity'));
     expect(navigateTo).toHaveBeenLastCalledWith('/activity/b-pr');
   });
@@ -157,7 +157,7 @@ describe('a stale-PR group of two power sections', () => {
     expect(maps[0].props.section.id).toBe('b');
     expect(maps[0].props.interactive).toBe(false);
     maps[0].props.onPress();
-    expect(navigateTo).toHaveBeenLastCalledWith('/section/b?activityId=b-pr');
+    expect(navigateTo).toHaveBeenLastCalledWith('/section/b?activityId=b-pr&origin=insights');
   });
 
   it('leaves out the record effort when the engine has none, rather than a dash', async () => {

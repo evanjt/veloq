@@ -73,7 +73,6 @@ function makeRankedSections(sportType: string) {
       medianRecentSecs: 700,
       daysSinceLast: 4,
       trend: 1,
-      latestIsPr: true,
       recentEfforts: [],
     },
     {
@@ -89,7 +88,6 @@ function makeRankedSections(sportType: string) {
       medianRecentSecs: 320,
       daysSinceLast: 12,
       trend: -1,
-      latestIsPr: false,
       recentEfforts: [],
     },
     {
@@ -107,7 +105,6 @@ function makeRankedSections(sportType: string) {
       medianRecentSecs: 430,
       daysSinceLast: 65,
       trend: 0,
-      latestIsPr: false,
       recentEfforts: [],
     },
   ];

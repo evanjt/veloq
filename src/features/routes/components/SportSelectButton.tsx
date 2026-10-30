@@ -1,6 +1,6 @@
 /**
  * The sport on a section or route page: a dropdown beside the date range that
- * names the sport on screen with its count and lists every sport the page
+ * names the sport on screen with its count and unit and lists every sport the page
  * offers. A page with one sport has nothing to choose, so it states the sport
  * as plain text instead.
  */
@@ -11,6 +11,7 @@ import type { StyleProp, ViewStyle } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
+import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { FitText, SelectButton } from '@/shared/ui';
 import { colors, darkColors, typography } from '@/theme';
 
@@ -38,7 +39,7 @@ export function SportSelectButton({
   const labelOf = ({ type, count }: SportTypeOption) =>
     count === undefined
       ? t(`activityTypes.${type}`, type)
-      : `${t(`activityTypes.${type}`, type)} · ${count}`;
+      : `${t(`activityTypes.${type}`, type)} · ${t('sections.traversalsCount', { count })}`;
 
   const [only] = options;
   if (only === undefined) return null;
@@ -57,7 +58,11 @@ export function SportSelectButton({
       testID="section-sport"
       {...(style !== undefined && { style })}
       accessibilityLabel={t('sections.sportFilter')}
-      options={options.map((option) => ({ value: option.type, label: labelOf(option) }))}
+      options={options.map((option) => ({
+        value: option.type,
+        label: labelOf(option),
+        icon: getActivityIcon(option.type),
+      }))}
       value={selectedType ?? null}
       onChange={onSelect}
     />

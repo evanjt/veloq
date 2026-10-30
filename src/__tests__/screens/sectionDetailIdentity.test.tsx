@@ -26,10 +26,11 @@ let mockScreenOptions: Record<string, unknown> = {};
 const SectionDetailScreen = sectionCardInHost((options) => {
   mockScreenOptions = { ...mockScreenOptions, ...options };
 });
+let mockSearchParams: Record<string, string> = { id: 'sec-1' };
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
   useIsFocused: () => true,
-  useLocalSearchParams: () => ({ id: 'sec-1' }),
+  useLocalSearchParams: () => mockSearchParams,
   useFocusEffect: () => {},
   useNavigation: () => ({ getParent: () => undefined }),
   router: { back: jest.fn(), push: jest.fn(), replace: jest.fn() },
@@ -129,7 +130,7 @@ function mockRoutes() {
   return {
     useRouteSettings,
     sectionDetailStyles: new Proxy({}, { get: () => ({}) }),
-    RANGE_DAYS: { '3m': 90 },
+    RANGE_DAYS: jest.requireActual('@/features/routes/constants').RANGE_DAYS,
     EMPTY_PERFORMANCE_VIEW: {
       records: [],
       bestForwardRecord: undefined,
@@ -143,6 +144,7 @@ function mockRoutes() {
     isSportOffered: () => true,
     rescanRefusalKey: () => null,
     sportMenuOptions: () => [],
+    sportCountFor: () => undefined,
     sectionStreamsState: jest.requireActual(
       '@/features/routes/components/section/SectionPerformanceSection'
     ).sectionStreamsState,
@@ -153,9 +155,9 @@ function mockRoutes() {
     useSectionChartDataEnriched: () => ({ calendarSummary: null, combinedChartData: [] }),
     useSectionLedger: (...args: unknown[]) => mockUseSectionLedger(...args),
     useSectionDataRefresh: mockUseSectionDataRefresh,
-    useSectionUIState: () => ({
-      sectionTimeRange: '3m',
-      setSectionTimeRange: noop,
+    // The real range state, so the initial range the card passes is the one it opens on.
+    useSectionUIState: (...args: unknown[]) => ({
+      ...jest.requireActual('@/features/routes/hooks/useSectionUIState').useSectionUIState(...args),
       selectedSportType: mockSelectedSport,
       setSelectedSportType: noop,
     }),
@@ -224,6 +226,7 @@ describe('section detail screen', () => {
     capturedEfficiencyTrend = undefined;
     mockSelectedSport = undefined;
     mockScreenOptions = {};
+    mockSearchParams = { id: 'sec-1' };
   });
 
   it("titles its navigation item with the section's name", async () => {
@@ -346,6 +349,35 @@ describe('section detail efficiency trend', () => {
 
     expect(mockUseSectionDetailPerformance.mock.calls.at(-1)?.[2]).toBe('Run');
     expect(capturedEfficiencyTrend).toBe(runTrend);
+  });
+});
+
+/**
+ * Scenario: an insight opens the section, and the page is opened with the insights origin.
+ *
+ * Expected behaviour: the page opens on All time, so the performance read is asked for no day
+ * limit. Opened with no origin, it opens on the default window.
+ */
+describe('section detail opening range', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockSelectedSport = undefined;
+    mockSearchParams = { id: 'sec-1' };
+  });
+
+  it('opens on All time from the insights origin', async () => {
+    mockSearchParams = { id: 'sec-1', origin: 'insights' };
+    await render(<SectionDetailScreen />);
+    await act(async () => {});
+
+    expect(mockUseSectionDetailPerformance.mock.calls.at(-1)?.[1]).toBe(0);
+  });
+
+  it('opens on the default window with no origin', async () => {
+    await render(<SectionDetailScreen />);
+    await act(async () => {});
+
+    expect(mockUseSectionDetailPerformance.mock.calls.at(-1)?.[1]).toBe(180);
   });
 });
 

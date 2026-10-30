@@ -22,6 +22,7 @@ let mockRunning = false;
 let mockPhase = 'complete';
 let mockCounts: Record<string, number> | null = null;
 let mockCountsOwed = false;
+let mockStaged: { done: number; total: number; daysToFinish?: number } | null = null;
 
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysWithValues());
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
@@ -31,6 +32,9 @@ jest.mock('@/shared/storage', () => ({
   setSetting: jest.fn(async (key: string, value: string) => {
     mockRows.set(key, value);
   }),
+}));
+jest.mock('@/features/settings/hooks/useBackgroundJobs', () => ({
+  useStagedHistory: () => mockStaged,
 }));
 jest.mock('@/features/routes', () => ({
   useEngineStatus: (select: (state: { quarantineReport: null }) => unknown) =>
@@ -55,8 +59,9 @@ beforeEach(() => {
   mockPhase = 'complete';
   mockCounts = null;
   mockCountsOwed = false;
+  mockStaged = null;
   openLaunchSession();
-  useWhatsNewStore.setState({ sectionsChangedDismissed: false });
+  useWhatsNewStore.setState({ sectionsChangedDismissed: [] });
   jest.clearAllMocks();
 });
 
@@ -98,7 +103,7 @@ describe('SectionsChangedCard', () => {
     expect(again.queryByTestId('sections-changed-card')).toBeNull();
     again.unmount();
 
-    useWhatsNewStore.setState({ sectionsChangedDismissed: false });
+    useWhatsNewStore.setState({ sectionsChangedDismissed: [] });
     await act(async () => useWhatsNewStore.getState().initialise());
     const relaunched = await render(<SectionsChangedCard />);
     expect(relaunched.queryByTestId('sections-changed-card')).toBeNull();
@@ -148,11 +153,11 @@ describe('SectionsChangedCard', () => {
       mockCountsOwed = true;
     });
 
-    it('says the sections were rebuilt and older activities join, with no counts', async () => {
+    it('says the sections are being upgraded and older activities join, with no counts', async () => {
       const tree = await render(<SectionsChangedCard />);
       expect(tree.getByTestId('sections-changed-card')).toBeTruthy();
       expect(tree.getByTestId('sections-changed-body').props.children).toBe(
-        'feed.sectionsChangedBodyStaged'
+        'feed.sectionsChangedBodyOwed'
       );
       expect(tree.queryByTestId('sections-changed-counts')).toBeNull();
     });
@@ -161,7 +166,7 @@ describe('SectionsChangedCard', () => {
       mockArchived = 3;
       const tree = await render(<SectionsChangedCard />);
       expect(tree.getByTestId('sections-changed-body').props.children).toBe(
-        'feed.sectionsChangedBodyStaged'
+        'feed.sectionsChangedBodyOwed'
       );
       expect(tree.queryByTestId('sections-changed-see')).toBeNull();
     });
@@ -192,5 +197,86 @@ describe('SectionsChangedCard', () => {
     mockPhase = 'failed_after_apply';
     const tree = await render(<SectionsChangedCard />);
     expect(tree.queryByTestId('sections-changed-card')).toBeNull();
+  });
+
+  describe('the two messages of a staged upgrade', () => {
+    const lastLaunch = async () => {
+      useWhatsNewStore.setState({ sectionsChangedDismissed: [] });
+      await act(async () => useWhatsNewStore.getState().initialise());
+    };
+
+    it('while elevation is owed, names the ready count and the days the rest take', async () => {
+      mockCountsOwed = true;
+      mockStaged = { done: 480, total: 2600, daysToFinish: 3 };
+      const tree = await render(<SectionsChangedCard />);
+      expect(tree.getByText('feed.sectionsChangedTitleOwed')).toBeTruthy();
+      const ready = JSON.stringify(tree.getByTestId('sections-changed-ready').props.children);
+      expect(ready).toContain('480');
+      expect(ready).toContain('3');
+      expect(tree.getByTestId('sections-changed-progress')).toBeTruthy();
+    });
+
+    it('names no days when the rest fit in one day', async () => {
+      mockCountsOwed = true;
+      mockStaged = { done: 480, total: 900 };
+      const tree = await render(<SectionsChangedCard />);
+      expect(
+        JSON.stringify(tree.getByTestId('sections-changed-ready').props.children)
+      ).not.toContain('pacedOnCaps');
+    });
+
+    it('opens background jobs from the progress button', async () => {
+      mockCountsOwed = true;
+      mockStaged = { done: 480, total: 2600, daysToFinish: 3 };
+      const tree = await render(<SectionsChangedCard />);
+      await act(async () => fireEvent.press(tree.getByTestId('sections-changed-progress')));
+      expect(navigateTo).toHaveBeenCalledWith('/sync-settings');
+    });
+
+    it('returns with the outcome after the download-time card was dismissed', async () => {
+      mockCountsOwed = true;
+      mockStaged = { done: 480, total: 2600, daysToFinish: 3 };
+      const owed = await render(<SectionsChangedCard />);
+      await act(async () => fireEvent.press(owed.getByTestId('sections-changed-dismiss')));
+      expect(owed.queryByTestId('sections-changed-card')).toBeNull();
+      owed.unmount();
+
+      mockCountsOwed = false;
+      mockStaged = null;
+      mockArchived = 5;
+      mockCounts = { current: 12, proposed: 14, new: 3, changed: 2, gone: 5, unchanged: 7 };
+      openLaunchSession();
+      const final = await render(<SectionsChangedCard />);
+      expect(final.getByTestId('sections-changed-card')).toBeTruthy();
+      expect(final.getByText('feed.sectionsChangedTitleDone')).toBeTruthy();
+      expect(final.getByTestId('sections-changed-body').props.children).toContain('5');
+      expect(final.getByTestId('sections-changed-see')).toBeTruthy();
+    });
+
+    it('keeps the dismissed outcome gone across a reload of the store', async () => {
+      mockArchived = 5;
+      mockCounts = { current: 12, proposed: 14, new: 3, changed: 2, gone: 5, unchanged: 7 };
+      const final = await render(<SectionsChangedCard />);
+      await act(async () => fireEvent.press(final.getByTestId('sections-changed-dismiss')));
+      final.unmount();
+
+      await lastLaunch();
+      const reloaded = await render(<SectionsChangedCard />);
+      expect(reloaded.queryByTestId('sections-changed-card')).toBeNull();
+    });
+
+    it('reads a dismissal from the single-flag build as the download-time answer', async () => {
+      mockRows.set('veloq-sections-changed-dismissed', 'true');
+      await lastLaunch();
+      mockCountsOwed = true;
+      const owed = await render(<SectionsChangedCard />);
+      expect(owed.queryByTestId('sections-changed-card')).toBeNull();
+      owed.unmount();
+
+      mockCountsOwed = false;
+      mockCounts = { current: 12, proposed: 14, new: 3, changed: 2, gone: 0, unchanged: 9 };
+      const final = await render(<SectionsChangedCard />);
+      expect(final.getByTestId('sections-changed-card')).toBeTruthy();
+    });
   });
 });

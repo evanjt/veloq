@@ -213,7 +213,6 @@ export function computeInsightsFromData(
         traversalCount: number;
         sportType?: string;
         daysSinceLast?: number;
-        latestIsPr?: boolean;
         ranking?: SectionRankingScores;
         recentEfforts?: SeriesPoint[];
       }
@@ -238,7 +237,6 @@ export function computeInsightsFromData(
               traversalCount: rs.traversalCount,
               sportType,
               daysSinceLast: rs.daysSinceLast,
-              latestIsPr: rs.latestIsPr,
               ranking: {
                 relevance: rs.relevanceScore,
                 recency: rs.recencyScore,

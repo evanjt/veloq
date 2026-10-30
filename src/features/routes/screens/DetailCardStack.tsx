@@ -25,7 +25,7 @@ function RouteCard({ id, params }: MapSheetCardProps) {
 }
 
 function SectionCard({ id, params }: MapSheetCardProps) {
-  return <SectionDetailCard id={id} activityId={params.activityId} />;
+  return <SectionDetailCard id={id} activityId={params.activityId} origin={params.origin} />;
 }
 
 function ActivityCard({ id, params }: MapSheetCardProps) {

@@ -3,6 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { navigateTo } from '@/shared/app/navigation';
+import { fromInsightsPath } from '@/shared/app/sectionOrigin';
 import { useTheme } from '@/shared/app';
 import {
   colors,
@@ -39,7 +40,7 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
   const handleNavigate = useCallback(() => {
     if (detailTarget) {
       onClose();
-      navigateTo(detailTarget);
+      navigateTo(fromInsightsPath(detailTarget));
     }
   }, [detailTarget, onClose]);
 

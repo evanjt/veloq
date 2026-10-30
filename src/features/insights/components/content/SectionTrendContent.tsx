@@ -7,12 +7,13 @@ import type { TFunction } from 'i18next';
 import { useTheme } from '@/shared/app';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { useSectionPerformances } from '@/features/routes';
+import { fromInsightsPath } from '@/shared/app/sectionOrigin';
 import { useSectionDetail } from '@/shared/native/useSectionDetail';
 import { Shimmer } from '@/shared/ui/Shimmer';
 import { navigateTo } from '@/shared/app/navigation';
 import { RecentEffortsList } from './RecentEffortsList';
 import { formatDuration } from '@/shared/format/format';
-import { brand, colors, darkColors, iconSize, layout, opacity, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, layout, opacity, spacing, typography } from '@/theme';
 import type { Insight, SupportingSection } from '@/types';
 import { SheetContext } from './SheetContext';
 import { Button, Card, composeAccessibilityLabel, ErrorState, PressTarget } from '@/shared/ui';
@@ -95,7 +96,7 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
   }, [onToggle, section]);
 
   const handleOpenSection = useCallback(() => {
-    navigateTo(`/section/${section.sectionId}`);
+    navigateTo(fromInsightsPath(`/section/${section.sectionId}`));
   }, [section.sectionId]);
 
   const name = sectionWithSport(section.sectionName, section.sportType, t as unknown as TFunc);
@@ -121,7 +122,6 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
           accessibilityRole="button"
           accessibilityLabel={composeAccessibilityLabel(
             name,
-            section.hasRecentPR && t('a11y.personalRecord'),
             bestTime,
             traversals,
             change,
@@ -145,11 +145,6 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
               <NameText style={[styles.sectionName, isDark && styles.sectionNameDark]}>
                 {name}
               </NameText>
-              {section.hasRecentPR ? (
-                <View style={styles.prChip}>
-                  <Icon name="trophy" size={iconSize.xs} color={colors.textOnBright} />
-                </View>
-              ) : null}
             </View>
             <View style={styles.sectionMeta}>
               {bestTime != null ? (
@@ -229,7 +224,6 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
 export const SectionTrendContent = React.memo(function SectionTrendContent({
   insight,
 }: SectionTrendContentProps) {
-  const { isDark } = useTheme();
   const { t } = useTranslation();
   // Memoised so the empty fallback is one array rather than a fresh one each
   // render, which recomputed the cluster context and the rows below it.
@@ -252,11 +246,6 @@ export const SectionTrendContent = React.memo(function SectionTrendContent({
     });
   }, []);
 
-  const hasAnyPR = useMemo(
-    () => sections.some((s: SupportingSection) => s.hasRecentPR),
-    [sections]
-  );
-
   if (sections.length === 0) return null;
 
   return (
@@ -271,19 +260,6 @@ export const SectionTrendContent = React.memo(function SectionTrendContent({
           onToggle={handleToggle}
         />
       ))}
-
-      {hasAnyPR ? (
-        <Animated.View layout={LinearTransition} style={styles.legend}>
-          <Icon
-            name="trophy"
-            size={iconSize.xs}
-            color={isDark ? darkColors.achievement : colors.achievement}
-          />
-          <Text style={[styles.legendText, isDark && styles.legendTextDark]}>
-            {t('insights.recentPersonalRecord')}
-          </Text>
-        </Animated.View>
-      ) : null}
     </View>
   );
 });
@@ -323,15 +299,6 @@ const styles = StyleSheet.create({
   },
   sectionNameDark: {
     color: darkColors.textPrimary,
-  },
-  prChip: {
-    backgroundColor: brand.gold,
-    borderRadius: layout.borderRadiusSm,
-    width: 18,
-    height: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: spacing.xs,
   },
   sectionMeta: {
     flexDirection: 'row',
@@ -375,20 +342,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   noEffortsDark: {
-    color: darkColors.textSecondary,
-  },
-  legend: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingTop: spacing.xs,
-    paddingHorizontal: spacing.xs,
-  },
-  legendText: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
-  legendTextDark: {
     color: darkColors.textSecondary,
   },
 });

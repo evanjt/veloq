@@ -79,7 +79,7 @@ describe('a section insight sheet', () => {
     await fireEvent.press(screen.getByTestId('methodology-toggle'));
     await fireEvent.press(screen.getByTestId('insight-data-link'));
 
-    expect(navigateTo).toHaveBeenCalledWith('/section/hill');
+    expect(navigateTo).toHaveBeenCalledWith('/section/hill?origin=insights');
   });
 
   it('opens the section of the trend row that was expanded', async () => {
@@ -90,7 +90,7 @@ describe('a section insight sheet', () => {
     await fireEvent.press(screen.getByTestId('section-trend-open-flat'));
 
     expect(navigateTo).toHaveBeenCalledTimes(1);
-    expect(navigateTo).toHaveBeenCalledWith('/section/flat');
+    expect(navigateTo).toHaveBeenCalledWith('/section/flat?origin=insights');
   });
 
   it('expands a trend row without leaving the sheet', async () => {
@@ -113,7 +113,6 @@ describe('a section insight sheet', () => {
             bestTime: 300,
             sportType: 'Run',
             trend: 1,
-            hasRecentPR: true,
             traversalCount: 7,
           },
           { sectionId: 'flat', sectionName: 'River Flat', bestTime: 500, trend: -1 },
@@ -126,7 +125,7 @@ describe('a section insight sheet', () => {
     const rows = screen.getAllByRole('button');
 
     expect(rows.map((row) => row.props.accessibilityLabel)).toEqual([
-      'Quarry Hill (Run), Personal record, 5:00, 7 traversals, improved',
+      'Quarry Hill (Run), 5:00, 7 traversals, improved',
       'River Flat, 8:20, declined',
       'Weir Path, 3 traversals, no change',
     ]);
@@ -136,6 +135,28 @@ describe('a section insight sheet', () => {
       'section-trend-toggle-weir',
     ]);
     expect(rows.every((row) => row.props.accessibilityState?.expanded === false)).toBe(true);
+  });
+
+  it('draws no trophy chip or record legend on the trend list', () => {
+    const insight = {
+      ...trendInsight,
+      supportingData: {
+        sections: [
+          {
+            sectionId: 'hill',
+            sectionName: 'Quarry Hill',
+            bestTime: 300,
+            sportType: 'Run',
+            trend: 1,
+            traversalCount: 7,
+          },
+        ],
+      },
+    } as Insight;
+    render(<SectionTrendContent insight={insight} />);
+
+    expect(screen.UNSAFE_queryAllByProps({ name: 'trophy' })).toHaveLength(0);
+    expect(screen.queryByText('Recent record')).toBeNull();
   });
 
   it('marks the toggled row as expanded', () => {

@@ -84,7 +84,6 @@ function everyInsight(): Insight[] {
           bestTimeSecs: 110,
           traversalCount: 5,
           daysSinceLast: 3,
-          latestIsPr: false,
         },
       ],
       new Set<string>(),

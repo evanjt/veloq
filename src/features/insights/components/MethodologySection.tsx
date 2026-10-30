@@ -4,6 +4,7 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { navigateTo } from '@/shared/app/navigation';
+import { fromInsightsPath } from '@/shared/app/sectionOrigin';
 import { colors, darkColors, iconSize, layout, opacity, spacing, typography } from '@/theme';
 import type { DataPoint, Insight } from '@/types';
 import { PressTarget } from '@/shared/ui';
@@ -151,7 +152,7 @@ const DataLink = React.memo(function DataLink({
 }) {
   const handlePress = useCallback(() => {
     onLeave?.();
-    navigateTo(target);
+    navigateTo(fromInsightsPath(target));
   }, [onLeave, target]);
 
   return (

@@ -10,7 +10,7 @@ use super::{PersistentEngine, codec, sections};
 /// pass and read by the post-migration hooks. `PRAGMA user_version` is the
 /// other record, the one `rusqlite_migration` skips on, and it ends one for
 /// one with the migration list. Hooks <= 7 are dead code for any user on 0.2.2+.
-pub const SUPPORTED_SCHEMA_VERSION: i32 = 78;
+pub const SUPPORTED_SCHEMA_VERSION: i32 = 79;
 
 /// The migration that drops the cutover archive tables, counted from one. The
 /// open carries their rows into the ledger before it runs.
@@ -78,14 +78,27 @@ pub(crate) fn recount_section_summaries(conn: &Connection, predicate: &str) -> S
                  activity_count = (
                      SELECT COUNT(DISTINCT activity_id) FROM section_activities sa
                      WHERE sa.section_id = sections.id AND sa.excluded = 0),
-                 sport_types = (
-                     SELECT GROUP_CONCAT(DISTINCT a.sport_type) FROM section_activities sa
-                     JOIN activities a ON a.id = sa.activity_id
-                     WHERE sa.section_id = sections.id AND sa.excluded = 0)
+                 sport_types = ({})
              WHERE {predicate}",
-            visit_count_sql("sections.id")
+            visit_count_sql("sections.id"),
+            section_sports_sql("sections.id")
         ),
         [],
+    )
+}
+
+/// The sports a section offers, as a scalar subquery over its junction rows:
+/// every sport that has a pass on it, an excluded one included because its laps
+/// can still be restored, each under the sport the activity now carries. The
+/// section page offers the same set at all time, so a list row cannot show a
+/// sport the page has no entry for.
+pub(crate) fn section_sports_sql(section_id: &str) -> String {
+    format!(
+        "SELECT GROUP_CONCAT(DISTINCT {}) FROM section_activities sa
+         JOIN activities a ON a.id = sa.activity_id
+         LEFT JOIN activity_metrics am ON am.activity_id = sa.activity_id
+         WHERE sa.section_id = {section_id}",
+        crate::persistence::records::activity_sport_sql()
     )
 }
 
@@ -299,6 +312,7 @@ impl PersistentEngine {
             include_str!("../migrations/m20261025_121037_garmin_link_unresolved.sql"),
             include_str!("../migrations/m20261025_223104_download_answer_versions.sql"),
             include_str!("../migrations/m20261030_075054_pass_projection.sql"),
+            include_str!("../migrations/m20261030_225057_drop_rank_record_flag.sql"),
         ]
     }
 
@@ -962,6 +976,8 @@ impl PersistentEngine {
              DROP TRIGGER IF EXISTS section_activities_summary_ad;
              DROP TRIGGER IF EXISTS section_activities_summary_au;
              DROP TRIGGER IF EXISTS section_activities_summary_amove;
+             DROP TRIGGER IF EXISTS activity_metrics_sports_ai;
+             DROP TRIGGER IF EXISTS activity_metrics_sports_au;
              DROP TABLE sections;
              ALTER TABLE sections_rebuild RENAME TO sections;
              CREATE INDEX IF NOT EXISTS idx_sections_type ON sections(section_type);
@@ -1231,7 +1247,8 @@ impl PersistentEngine {
             )
             .unwrap_or(false);
         let has_guard = trigger_has_guard(conn, "section_activities_summary_ai");
-        if has_columns && has_trigger && has_guard {
+        let has_metrics_trigger = trigger_has_guard(conn, "activity_metrics_sports_ai");
+        if has_columns && has_trigger && has_guard && has_metrics_trigger {
             return Ok(());
         }
         recount_section_summaries(conn, "1")?;
@@ -1243,11 +1260,9 @@ impl PersistentEngine {
                      activity_count = (
                          SELECT COUNT(DISTINCT activity_id) FROM section_activities
                          WHERE section_id = {key} AND excluded = 0),
-                     sport_types = (
-                         SELECT GROUP_CONCAT(DISTINCT a.sport_type) FROM section_activities sa
-                         JOIN activities a ON a.id = sa.activity_id
-                         WHERE sa.section_id = {key} AND sa.excluded = 0)
-                 WHERE id = {key};"
+                     sport_types = ({})
+                 WHERE id = {key};",
+                section_sports_sql(key)
             )
         };
         conn.execute_batch(&format!(
@@ -1262,9 +1277,21 @@ impl PersistentEngine {
              CREATE TRIGGER section_activities_summary_au
              AFTER UPDATE OF excluded ON section_activities BEGIN {new_} END;
              CREATE TRIGGER section_activities_summary_amove
-             AFTER UPDATE OF section_id ON section_activities BEGIN {new_} {old} END;",
+             AFTER UPDATE OF section_id ON section_activities BEGIN {new_} {old} END;
+             DROP TRIGGER IF EXISTS activity_metrics_sports_ai;
+             DROP TRIGGER IF EXISTS activity_metrics_sports_au;
+             CREATE TRIGGER activity_metrics_sports_ai
+             AFTER INSERT ON activity_metrics {SUMMARY_TRIGGER_GUARD} BEGIN {sports} END;
+             CREATE TRIGGER activity_metrics_sports_au
+             AFTER UPDATE OF sport_type ON activity_metrics BEGIN {sports} END;",
             new_ = recount("NEW.section_id"),
             old = recount("OLD.section_id"),
+            sports = format!(
+                "UPDATE sections SET sport_types = ({})
+                 WHERE id IN (SELECT section_id FROM section_activities
+                              WHERE activity_id = NEW.activity_id);",
+                section_sports_sql("sections.id")
+            ),
         ))?;
         Ok(())
     }

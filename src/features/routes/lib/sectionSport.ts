@@ -22,3 +22,14 @@ export function sportMenuOptions(
     .map(({ sportType, count }) => ({ type: sportType, count }))
     .sort((a, b) => b.count - a.count);
 }
+
+/**
+ * The count the sport dropdown shows for `sport`, which is the number the page
+ * header states when that sport is on screen, so the two never differ.
+ */
+export function sportCountFor(
+  counts: readonly { sportType: string; count: number }[],
+  sport: string | undefined
+): number | undefined {
+  return counts.find((c) => c.sportType === sport)?.count;
+}

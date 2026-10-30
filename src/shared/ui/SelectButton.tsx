@@ -15,12 +15,15 @@ import React, { useState } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
 
 import { Button } from './Button';
+import { Icon } from './Icon';
 import { MenuPopup } from './ContextMenu';
 import * as haptics from './haptics';
 
 export interface SelectOption<T extends string> {
   value: T;
   label: string;
+  /** A glyph drawn beside the label in the list. */
+  icon?: React.ComponentProps<typeof Icon>['name'] | undefined;
 }
 
 export interface SelectButtonProps<T extends string> {
@@ -66,6 +69,7 @@ export function SelectButton<T extends string>({
       entries={options.map((option) => ({
         key: option.value,
         label: option.label,
+        icon: option.icon,
         checked: option.value === value,
         onPress: () => {
           if (option.value === value) return;

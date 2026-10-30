@@ -2,11 +2,13 @@ import { useState } from 'react';
 import type { SectionTimeRange } from '@/features/routes/constants';
 import { DEFAULT_PERIOD } from '@/shared/app/period';
 
-export function useSectionUIState() {
+export function useSectionUIState(initialRange?: SectionTimeRange) {
   // Defer map loading until after first paint for faster perceived load
   const [mapReady, setMapReady] = useState(false);
   // Time range for chart data (passed to useSectionChartData)
-  const [sectionTimeRange, setSectionTimeRange] = useState<SectionTimeRange>(DEFAULT_PERIOD);
+  const [sectionTimeRange, setSectionTimeRange] = useState<SectionTimeRange>(
+    initialRange ?? DEFAULT_PERIOD
+  );
 
   // Sport type filter for cross-sport sections
   const [selectedSportType, setSelectedSportType] = useState<string | undefined>(undefined);

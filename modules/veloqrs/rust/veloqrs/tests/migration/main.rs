@@ -69,6 +69,9 @@ mod migration_garmin_link_unresolved;
 #[path = "../migration_pass_projection.rs"]
 mod migration_pass_projection;
 
+#[path = "../migration_drop_rank_record_flag.rs"]
+mod migration_drop_rank_record_flag;
+
 #[path = "../migration_push_runs_posted_entry.rs"]
 mod migration_push_runs_posted_entry;
 

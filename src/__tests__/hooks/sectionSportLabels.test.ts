@@ -40,7 +40,6 @@ const trend = (sportType?: string): SectionTrendData => ({
   traversalCount: 8,
   sportType,
   daysSinceLast: 3,
-  latestIsPr: false,
 });
 
 const stale = (sectionId: string, sportType: string): StalePrOpportunity => ({

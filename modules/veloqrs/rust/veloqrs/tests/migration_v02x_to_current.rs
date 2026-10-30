@@ -1317,10 +1317,14 @@ fn migration_017_is_rerunnable() {
 
     let conn = Connection::open(&path).expect("reopen");
     // The script rebuilds `section_activities`, and the section-level count
-    // trigger reads it. The open creates that trigger after the migrations
-    // run, so a rerun never meets it in the field.
-    conn.execute_batch("DROP TRIGGER IF EXISTS section_activities_visit_count_section_au")
-        .expect("drop the post-migration trigger");
+    // trigger and the sport triggers read it. The open creates them after the
+    // migrations run, so a rerun never meets them in the field.
+    conn.execute_batch(
+        "DROP TRIGGER IF EXISTS section_activities_visit_count_section_au;
+         DROP TRIGGER IF EXISTS activity_metrics_sports_ai;
+         DROP TRIGGER IF EXISTS activity_metrics_sports_au;",
+    )
+    .expect("drop the post-migration triggers");
     let sql = migration_017_script();
     conn.execute_batch(sql).expect("second run must not error");
     conn.execute_batch(sql).expect("third run must not error");

@@ -42,7 +42,7 @@ import {
 } from '../hooks/useSectionPerformances';
 import { RANGE_DAYS } from '../constants';
 import { hasPartialExclusion } from '../hooks/useSectionLaps';
-import { isSportOffered, sportMenuOptions } from '../lib/sectionSport';
+import { isSportOffered, sportCountFor, sportMenuOptions } from '../lib/sectionSport';
 import { rescanRefusalKey } from '../lib/rescanRefusal';
 import { sectionActionChips } from '../lib/sectionActionChips';
 import { sectionGradeStats } from '../lib/heroStats';
@@ -55,6 +55,7 @@ import { useOpenDetail } from '@/shared/app/MapSheetCards';
 import { useMapSheetStop } from '@/shared/app/mapSheetStop';
 import { overMapHeaderOptions } from '@/shared/app/screenHeaders';
 import { returnTo } from '@/shared/app/navigation';
+import { sectionOpenRange } from '@/shared/app/sectionOrigin';
 import { useReadRetry } from '@/shared/native/useEngineSubscription';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
 import { Button, EmptyState, ErrorState, HeroStatsRow, useBottomClearance } from '@/shared/ui';
@@ -84,9 +85,15 @@ export interface SectionDetailCardProps {
   id: string;
   /** The activity the section was opened from, which the chart and the map key mark. */
   activityId?: string | undefined;
+  /** What the section was opened from, when that sets the window it opens on. */
+  origin?: string | undefined;
 }
 
-function SectionDetailCardContent({ id, activityId: navActivityId }: SectionDetailCardProps) {
+function SectionDetailCardContent({
+  id,
+  activityId: navActivityId,
+  origin,
+}: SectionDetailCardProps) {
   // Performance timing
   const perfEndRef = useRef<(() => void) | null>(null);
   perfEndRef.current = logScreenRender('SectionDetailScreen');
@@ -131,7 +138,7 @@ function SectionDetailCardContent({ id, activityId: navActivityId }: SectionDeta
   const mergeCandidates = detail?.mergeCandidates ?? [];
 
   const { sectionTimeRange, setSectionTimeRange, selectedSportType, setSelectedSportType } =
-    useSectionUIState();
+    useSectionUIState(sectionOpenRange(origin));
 
   const { section, sectionRefreshKey, handleTrimRefresh } = useSectionDataRefresh(detail?.section);
   const isCustomSection = section?.sectionType === 'custom';
@@ -254,9 +261,12 @@ function SectionDetailCardContent({ id, activityId: navActivityId }: SectionDeta
     bestReverseRecord,
   });
 
-  // The chart's own laps at every range, so the header and the chart under it
-  // never count different things. Absent until the lap times are read.
-  const traversalCount = performance ? chartData.length : undefined;
+  // The count the sport dropdown shows for the sport on screen, so the header
+  // and the dropdown never count different things. Absent until the lap times
+  // are read.
+  const traversalCount = performance
+    ? (sportCountFor(sportCounts, effectiveSportType) ?? chartData.length)
+    : undefined;
 
   // Every lap of the sport, the excluded ones flagged, for the lap list and
   // its undo.

@@ -10,11 +10,15 @@ import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
  * The map follows the card on top of the sheet, the section's own at first.
  */
 function SectionMapScreen() {
-  const { activityId, previewVersion } = useLocalSearchParams<{
+  const { activityId, previewVersion, origin } = useLocalSearchParams<{
     activityId?: string;
     previewVersion?: string;
+    origin?: string;
   }>();
-  const rootParams = useMemo(() => ({ activityId, previewVersion }), [activityId, previewVersion]);
+  const rootParams = useMemo(
+    () => ({ activityId, previewVersion, origin }),
+    [activityId, previewVersion, origin]
+  );
   return (
     <MapSheetHostMap panel={<DetailCardStack rootParams={rootParams} />}>
       <DetailMapHost rootParams={rootParams} />

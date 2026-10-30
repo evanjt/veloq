@@ -140,7 +140,7 @@ describe('the How was this calculated disclosure on an insight sheet', () => {
     await fireEvent.press(screen.getByTestId('insight-data-link'));
 
     expect(navigateTo).toHaveBeenCalledTimes(1);
-    expect(navigateTo).toHaveBeenCalledWith('/section/quarry?activityId=quarry-2');
+    expect(navigateTo).toHaveBeenCalledWith('/section/quarry?activityId=quarry-2&origin=insights');
   });
 
   it('names where the data link goes', async () => {

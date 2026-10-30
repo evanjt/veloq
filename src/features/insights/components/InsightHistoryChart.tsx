@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { navigateTo } from '@/shared/app/navigation';
+import { fromInsightsPath } from '@/shared/app/sectionOrigin';
 import { ChartErrorBoundary } from '@/shared/ui';
 import { colorWithOpacity, ink, layout, opacity, spacing } from '@/theme';
 import type { HistoryMark, InsightCategory, InsightHistory, SeriesPoint, TFunc } from '../types';
@@ -101,7 +102,7 @@ export const InsightHistoryChart = React.memo(function InsightHistoryChart({
               label: dataLinkLabel(sheet.insight, target, t as unknown as TFunc),
               run: () => {
                 sheet.onLeave();
-                navigateTo(target);
+                navigateTo(fromInsightsPath(target));
               },
             },
           ]

@@ -248,6 +248,7 @@ fn a_library_upgraded_with_stored_groups_reads_its_lines_after_the_load() {
                  ALTER TABLE activity_stream_backfill DROP COLUMN withheld;
                  ALTER TABLE activity_stream_backfill DROP COLUMN settled_version;
                  ALTER TABLE section_activities DROP COLUMN projected_m;
+                 ALTER TABLE section_rank_inputs ADD COLUMN latest_is_pr INTEGER NOT NULL DEFAULT 0;
                  DROP TRIGGER section_list_counts_ai;
                  DROP TRIGGER section_list_counts_ad;
                  DROP TRIGGER section_list_counts_au;

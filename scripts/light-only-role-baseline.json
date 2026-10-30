@@ -6,7 +6,6 @@
   "brand": {
     "src/features/activity/components/SectionInlinePlot.tsx": 1,
     "src/features/insights/components/content/RouteInsightContent.tsx": 1,
-    "src/features/insights/components/content/SectionTrendContent.tsx": 1,
     "src/features/routes/components/SectionRow.tsx": 1,
     "src/features/routes/components/TodayBanner.tsx": 2,
     "src/shared/app/useTheme.ts": 3,

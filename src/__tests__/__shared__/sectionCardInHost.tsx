@@ -20,7 +20,11 @@ export function sectionCardInHost(
   { inSheet = false }: { inSheet?: boolean } = {}
 ) {
   return function SectionCardInHost() {
-    const { id, activityId } = useLocalSearchParams<{ id: string; activityId?: string }>();
+    const { id, activityId, origin } = useLocalSearchParams<{
+      id: string;
+      activityId?: string;
+      origin?: string;
+    }>();
     const key = useMapSheetHostEntry('section', id);
     const host = useMemo<MapSheetHostValue>(
       () => ({
@@ -36,10 +40,10 @@ export function sectionCardInHost(
       <MapSheetHostContext.Provider value={host}>
         {inSheet ? (
           <MapSheetHostSheet>
-            <SectionDetailCard id={id} activityId={activityId} />
+            <SectionDetailCard id={id} activityId={activityId} origin={origin} />
           </MapSheetHostSheet>
         ) : (
-          <SectionDetailCard id={id} activityId={activityId} />
+          <SectionDetailCard id={id} activityId={activityId} origin={origin} />
         )}
       </MapSheetHostContext.Provider>
     );

@@ -244,8 +244,16 @@ pub fn background_jobs_data(
         pass_recount_running: conn
             .path()
             .is_some_and(crate::persistence::sections::pass_rule::pass_recount_running),
-        staged_history: crate::persistence::cutover::pooled::staged_history(conn)
-            .map(|(done, total)| crate::FfiStagedHistory { done, total }),
+        staged_history: crate::persistence::cutover::pooled::staged_history(conn).map(
+            |(done, total)| crate::FfiStagedHistory {
+                done,
+                total,
+                days_to_finish: crate::governor::days_to_draw(
+                    u64::from(total.saturating_sub(done)),
+                    crate::governor::BACKFILL_ALLOWANCE,
+                ),
+            },
+        ),
     })
 }
 
@@ -5975,6 +5983,51 @@ mod tests {
         assert_eq!(listed, 4);
     }
 
+    /// Scenario: a section ridden, run, and walked where the walk's only lap
+    /// is excluded, then the run is retyped upstream to a hike.
+    ///
+    /// Expected behaviour: the list row names the sports the page offers at all
+    /// time: the ride, the hike under its new type, and the walk whose lap can
+    /// still be restored.
+    #[test]
+    fn the_list_row_names_the_sports_the_page_offers() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().expect("tempdir");
+        let path = dir.path().join("list_and_page_sports.db");
+        let mut engine = section_detail_engine(
+            path.to_str().expect("utf-8"),
+            &[
+                ("ride1", "Ride", 10, &[(200.0, false)]),
+                ("run1", "Run", 9, &[(400.0, false)]),
+                ("walk1", "Walk", 8, &[(900.0, true)]),
+            ],
+        );
+        engine
+            .db
+            .execute(
+                "UPDATE activity_metrics SET sport_type = 'Hike' WHERE activity_id = 'run1'",
+                [],
+            )
+            .expect("retype");
+
+        let row = crate::persistence::sections::queries::pooled::section_summaries_by_ids(
+            &engine.db,
+            &["auto1"],
+            &std::collections::BTreeMap::new(),
+        )
+        .remove(0);
+        let mut listed = row.sport_types;
+        listed.sort_unstable();
+        let mut offered: Vec<String> = performance_detail(&mut engine, 0, None)
+            .sport_counts
+            .into_iter()
+            .map(|c| c.sport_type)
+            .collect();
+        offered.sort_unstable();
+        assert_eq!(offered, ["Hike", "Ride", "Walk"]);
+        assert_eq!(listed, offered);
+    }
+
     /// Scenario: a library written before the complete-traversal rule, whose
     /// triggers count every junction row and whose stored count includes a
     /// fragment.
@@ -6014,6 +6067,51 @@ mod tests {
             )
             .expect("count");
         assert_eq!(count, 1);
+    }
+
+    /// Scenario: a library written when the list row took the activity's own
+    /// sport and left out a sport whose laps are all excluded.
+    ///
+    /// Expected behaviour: opening it recounts the stored sports, so the row
+    /// names the retyped sport and the restorable one the page offers.
+    #[test]
+    fn opening_a_library_with_stale_section_sports_recounts_them() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().expect("tempdir");
+        let path = dir.path().join("stale_sports.db");
+        let path = path.to_str().expect("utf-8");
+        {
+            let engine = section_detail_engine(
+                path,
+                &[
+                    ("run1", "Run", 9, &[(400.0, false)]),
+                    ("walk1", "Walk", 8, &[(900.0, true)]),
+                ],
+            );
+            engine
+                .db
+                .execute_batch(
+                    "DROP TRIGGER activity_metrics_sports_ai;
+                     DROP TRIGGER activity_metrics_sports_au;
+                     UPDATE activity_metrics SET sport_type = 'Hike' WHERE activity_id = 'run1';
+                     UPDATE sections SET sport_types = 'Run';",
+                )
+                .expect("legacy state");
+        }
+
+        let engine = crate::persistence::PersistentEngine::new(path).expect("reopen");
+
+        let stored: String = engine
+            .db
+            .query_row(
+                "SELECT sport_types FROM sections WHERE id = 'auto1'",
+                [],
+                |r| r.get(0),
+            )
+            .expect("sports");
+        let mut sports: Vec<&str> = stored.split(',').collect();
+        sports.sort_unstable();
+        assert_eq!(sports, ["Hike", "Walk"]);
     }
 
     fn lap_ids(points: &[crate::FfiSectionChartPoint]) -> Vec<String> {

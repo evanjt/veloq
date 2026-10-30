@@ -101,5 +101,5 @@ it('opens the tapped insight in a route and dismisses before opening its detail'
   await fireEvent.press(sheet.getByTestId('methodology-toggle'));
   await fireEvent.press(sheet.getByTestId('insight-data-link'));
   expect(mockOrder).toEqual(['dismiss', 'navigate']);
-  expect(mockNavigate).toHaveBeenCalledWith('/section/two');
+  expect(mockNavigate).toHaveBeenCalledWith('/section/two?origin=insights');
 });

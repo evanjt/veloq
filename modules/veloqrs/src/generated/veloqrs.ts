@@ -6267,6 +6267,11 @@ const FfiConverterTypeFfiDailyLimit = (() => {
 export type FfiStagedHistory = {
   done: number;
   total: number;
+  /**
+   * The whole days the tracks still owed take on the daily backfill share,
+   * or `None` when they fit in one day.
+   */
+  daysToFinish?: number;
 };
 
 /**
@@ -6293,16 +6298,19 @@ const FfiConverterTypeFfiStagedHistory = (() => {
       return {
         done: FfiConverterUInt32.readFromCursor(c),
         total: FfiConverterUInt32.readFromCursor(c),
+        daysToFinish: FfiConverterOptionalUInt32.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
       FfiConverterUInt32.writeIntoCursor(value.done, c);
       FfiConverterUInt32.writeIntoCursor(value.total, c);
+      FfiConverterOptionalUInt32.writeIntoCursor(value.daysToFinish, c);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterUInt32.allocationSize(value.done) +
-        FfiConverterUInt32.allocationSize(value.total)
+        FfiConverterUInt32.allocationSize(value.total) +
+        FfiConverterOptionalUInt32.allocationSize(value.daysToFinish)
       );
     }
   }
@@ -13166,10 +13174,6 @@ export type FfiRankedSection = {
    */
   trend: number;
   /**
-   * Whether the most recent effort is the all-time best time
-   */
-  latestIsPr: boolean;
-  /**
    * The last efforts on the section, oldest first, capped by the ranker's
    * own limit. The scoring already holds every traversal to compute the
    * medians above, so carrying the tail of them costs the ranker nothing.
@@ -13219,7 +13223,6 @@ const FfiConverterTypeFfiRankedSection = (() => {
         medianRecentSecs: FfiConverterFloat64.readFromCursor(c),
         daysSinceLast: FfiConverterUInt32.readFromCursor(c),
         trend: FfiConverterInt8.readFromCursor(c),
-        latestIsPr: FfiConverterBool.readFromCursor(c),
         recentEfforts: FfiConverterSequenceTypeFfiSeriesPoint.readFromCursor(c),
         bestActivityId: FfiConverterOptionalString.readFromCursor(c),
       };
@@ -13242,7 +13245,6 @@ const FfiConverterTypeFfiRankedSection = (() => {
       FfiConverterFloat64.writeIntoCursor(value.medianRecentSecs, c);
       FfiConverterUInt32.writeIntoCursor(value.daysSinceLast, c);
       FfiConverterInt8.writeIntoCursor(value.trend, c);
-      FfiConverterBool.writeIntoCursor(value.latestIsPr, c);
       FfiConverterSequenceTypeFfiSeriesPoint.writeIntoCursor(
         value.recentEfforts,
         c,
@@ -13267,7 +13269,6 @@ const FfiConverterTypeFfiRankedSection = (() => {
         FfiConverterFloat64.allocationSize(value.medianRecentSecs) +
         FfiConverterUInt32.allocationSize(value.daysSinceLast) +
         FfiConverterInt8.allocationSize(value.trend) +
-        FfiConverterBool.allocationSize(value.latestIsPr) +
         FfiConverterSequenceTypeFfiSeriesPoint.allocationSize(
           value.recentEfforts,
         ) +

@@ -1,6 +1,7 @@
 import React, { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { navigateTo } from '@/shared/app/navigation';
+import { fromInsightsPath } from '@/shared/app/sectionOrigin';
 import { PressTarget } from '@/shared/ui';
 import type { Insight, TFunc } from '../../types';
 import { dataLinkLabel } from '../../lib/dataLink';
@@ -24,7 +25,7 @@ export const SectionChangedContent = React.memo(function SectionChangedContent({
   const line = history?.kind === 'line' ? history : undefined;
   const target = line?.target;
   const onPress = useCallback(() => {
-    if (target) navigateTo(target);
+    if (target) navigateTo(fromInsightsPath(target));
   }, [target]);
 
   const drawable = line?.points.filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));

@@ -8,6 +8,7 @@ import { useTheme } from '@/shared/app';
 import { useSectionDetail } from '@/shared/native/useSectionDetail';
 import { navigateTo } from '@/shared/app/navigation';
 import { SectionMapView } from '@/features/routes';
+import { fromInsightsPath } from '@/shared/app/sectionOrigin';
 import { InsightSeriesChart } from '../InsightSeriesChart';
 import { formatSeriesValue } from '../InsightHistoryChart';
 import { useInsightSheet } from '../InsightSheetContext';
@@ -185,7 +186,7 @@ export const StalePRContent = React.memo(function StalePRContent({ insight }: St
   const open = useCallback(
     (target: string) => {
       sheet?.onLeave();
-      navigateTo(target);
+      navigateTo(fromInsightsPath(target));
     },
     [sheet]
   );

@@ -652,7 +652,6 @@ mod workout_trend_encoding_tests {
             median_recent_secs: 320.0,
             days_since_last: 3,
             trend,
-            latest_is_pr: false,
             recent_efforts: Vec::new(),
             best_activity_id: None,
         }
@@ -1355,7 +1354,6 @@ pub(crate) mod pooled {
         best_date: Option<f64>,
         median_recent_secs: f64,
         trend: i8,
-        latest_is_pr: bool,
     }
 
     fn basis_to_i64(basis: crate::FfiImprovementBasis) -> i64 {
@@ -1375,7 +1373,7 @@ pub(crate) mod pooled {
 
     /// One section's inputs from its traversals in one sport, oldest first.
     ///
-    /// Improvement, anomaly, best, median, trend and the PR badge describe the
+    /// Improvement, anomaly, best, median and trend describe the
     /// effort the athlete last made, so they read the laps in the latest lap's
     /// own direction. The count and the last date keep counting every lap.
     fn inputs_of(rows: &[&TraversalRow]) -> RankInputs {
@@ -1440,32 +1438,6 @@ pub(crate) mod pooled {
             0.0
         };
 
-        // The latest outing's fastest lap in this direction, judged by the
-        // section record rule against the other outings, so its own other laps
-        // are no rival, and a lone outing and a tie both leave the badge off.
-        let dir_laps: Vec<(&str, f64)> = standing
-            .iter()
-            .map(|r| (r.activity_id.as_str(), r.lap_time))
-            .collect();
-        let latest_activity = rows
-            .iter()
-            .rev()
-            .find(|r| Some(r.direction.as_str()) == latest_direction)
-            .map(|r| r.activity_id.as_str());
-        let latest_is_pr = latest_activity.is_some_and(|latest_activity| {
-            let fastest = dir_laps
-                .iter()
-                .filter(|(activity, _)| *activity == latest_activity)
-                .map(|(_, time)| *time)
-                .fold(f64::INFINITY, f64::min);
-            fastest.is_finite()
-                && crate::persistence::records::holds_section_record(
-                    fastest,
-                    latest_activity,
-                    dir_laps.iter().copied(),
-                )
-        });
-
         RankInputs {
             section_id: rows[0].section_id.clone(),
             section_name: rows[0].section_name.clone(),
@@ -1483,7 +1455,6 @@ pub(crate) mod pooled {
             best_date,
             median_recent_secs,
             trend: crate::trend::median_window_trend(&dir_times, TREND_DEADBAND),
-            latest_is_pr,
         }
     }
 
@@ -1528,7 +1499,6 @@ pub(crate) mod pooled {
             median_recent_secs: inputs.median_recent_secs,
             days_since_last,
             trend: inputs.trend,
-            latest_is_pr: inputs.latest_is_pr,
             recent_efforts,
             best_activity_id: None,
         }
@@ -1637,8 +1607,8 @@ pub(crate) mod pooled {
                 "INSERT OR REPLACE INTO section_rank_inputs
                     (section_id, sport_type, traversal_count, last_date, improvement_score,
                      improvement_change, improvement_basis, anomaly_score, best_time_secs,
-                     best_date, median_recent_secs, trend, latest_is_pr)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                     best_date, median_recent_secs, trend)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             )?;
             for (sport, i) in &fresh {
                 insert.execute(rusqlite::params![
@@ -1654,7 +1624,6 @@ pub(crate) mod pooled {
                     i.best_date,
                     i.median_recent_secs,
                     i.trend,
-                    i.latest_is_pr,
                 ])?;
             }
             conn.execute("DELETE FROM section_rank_dirty", [])?;
@@ -1702,7 +1671,7 @@ pub(crate) mod pooled {
             "SELECT i.sport_type, i.section_id, s.name, i.traversal_count, i.last_date,
                     i.improvement_score, i.improvement_change, i.improvement_basis,
                     i.anomaly_score, i.best_time_secs, i.best_date, i.median_recent_secs,
-                    i.trend, i.latest_is_pr
+                    i.trend
              FROM section_rank_inputs i
              JOIN sections s ON s.id = i.section_id
              WHERE s.disabled = 0 AND s.superseded_by IS NULL
@@ -1726,7 +1695,6 @@ pub(crate) mod pooled {
                             best_date: row.get(10)?,
                             median_recent_secs: row.get(11)?,
                             trend: row.get(12)?,
-                            latest_is_pr: row.get(13)?,
                         },
                     ))
                 });
@@ -2193,9 +2161,9 @@ mod improvement_signal_tests;
 mod rank_inputs_tests;
 
 #[cfg(test)]
-#[path = "tests/direction_pr.rs"]
-mod direction_pr_tests;
+#[path = "tests/latest_direction.rs"]
+mod latest_direction_tests;
 
 #[cfg(test)]
-#[path = "tests/outing_pr.rs"]
-mod outing_pr_tests;
+#[path = "tests/lap_order.rs"]
+mod lap_order_tests;

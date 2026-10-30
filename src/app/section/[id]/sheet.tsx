@@ -7,8 +7,8 @@ import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 /** The section's sheet, holding the section's card and any card a row in it opens over it. */
 function SectionSheetScreen() {
-  const { activityId } = useLocalSearchParams<{ activityId?: string }>();
-  const rootParams = useMemo(() => ({ activityId }), [activityId]);
+  const { activityId, origin } = useLocalSearchParams<{ activityId?: string; origin?: string }>();
+  const rootParams = useMemo(() => ({ activityId, origin }), [activityId, origin]);
   return (
     <MapSheetHostSheet>
       <DetailCardStack rootParams={rootParams} />

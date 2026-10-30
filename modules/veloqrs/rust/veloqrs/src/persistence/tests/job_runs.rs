@@ -412,13 +412,21 @@ fn a_staged_cut_reports_the_history_still_joining() {
     store_diff(&engine, r#"{"token":"t","counts":null}"#);
     assert_eq!(
         read(&engine).staged_history,
-        Some(crate::FfiStagedHistory { done: 2, total: 4 })
+        Some(crate::FfiStagedHistory {
+            done: 2,
+            total: 4,
+            days_to_finish: None
+        })
     );
 
     store_diff(&engine, r#"{"token":"t"}"#);
     assert_eq!(
         read(&engine).staged_history,
-        Some(crate::FfiStagedHistory { done: 2, total: 4 }),
+        Some(crate::FfiStagedHistory {
+            done: 2,
+            total: 4,
+            days_to_finish: None
+        }),
         "an absent counts key reads as owed too"
     );
 
@@ -434,4 +442,27 @@ fn a_staged_cut_reports_the_history_still_joining() {
         .execute("UPDATE gps_tracks SET elevation_state = 1", [])
         .unwrap();
     assert_eq!(read(&engine).staged_history, None, "nothing owed");
+}
+
+/// Scenario: a staged cut with more tracks owed than one day's backfill share.
+///
+/// Expected behaviour: the staged history names the whole days the queue takes
+/// on the daily share, and none when the queue fits in a day.
+#[test]
+fn a_staged_cut_names_the_days_its_history_needs() {
+    use crate::persistence::{ELEVATION_STATE_FETCHED, ELEVATION_STATE_UNKNOWN};
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("staged_days.db");
+    let engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
+    store_diff(&engine, r#"{"token":"t","counts":null}"#);
+
+    seed_track(&engine, "ready", ELEVATION_STATE_FETCHED);
+    let share = crate::governor::BACKFILL_ALLOWANCE.per_day.unwrap();
+    for n in 0..=share {
+        seed_track(&engine, &format!("owed-{n}"), ELEVATION_STATE_UNKNOWN);
+    }
+    let staged = read(&engine).staged_history.unwrap();
+    assert_eq!(staged.done, 1);
+    assert_eq!(staged.total, share + 2);
+    assert_eq!(staged.days_to_finish, Some(2));
 }

@@ -281,7 +281,10 @@ describe('route page on a route ridden and run', () => {
     ).toEqual(['1m', '3m', '6m', '1y', 'all']);
     expect(
       menuOf(screen, 'section-sport').props.options.map((o: { label: string }) => o.label)
-    ).toEqual(['activityTypes.Ride · 2', 'activityTypes.Run · 1']);
+    ).toEqual([
+      'activityTypes.Ride · sections.traversalsCount',
+      'activityTypes.Run · sections.traversalsCount',
+    ]);
     expect(screen.getByTestId('attempt-chart').props.accessibilityValue.text).toBe('2');
   });
 
@@ -370,7 +373,9 @@ describe('route page on a route of one sport', () => {
   it('names the one sport as text with no menu', async () => {
     const screen = await render(<RouteDetailScreen />);
 
-    expect(screen.getByTestId('section-sport')).toHaveTextContent('activityTypes.Ride · 3');
+    expect(screen.getByTestId('section-sport')).toHaveTextContent(
+      'activityTypes.Ride · sections.traversalsCount'
+    );
     expect(screen.UNSAFE_getAllByType(SelectButton).map((b) => b.props.testID)).toEqual([
       'section-time-range',
     ]);

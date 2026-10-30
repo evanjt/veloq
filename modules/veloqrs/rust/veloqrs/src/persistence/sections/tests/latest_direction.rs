@@ -1,7 +1,8 @@
 //! Scenario: a section is climbed forward and descended in reverse, and the
 //! descent is the fastest lap on the list.
-//! Expected behaviour: Best, the median, the trend and the PR badge describe
-//! the direction of the latest lap, so a descent is never a PR over climbs.
+//! Expected behaviour: Best, the median, the trend, the improvement and the
+//! anomaly describe the direction of the latest lap, so a descent is never
+//! ranked against climbs.
 
 use std::collections::BTreeMap;
 
@@ -37,18 +38,17 @@ fn climbs() -> Vec<TraversalRow> {
 }
 
 #[test]
-fn a_descent_today_is_not_a_pr_over_the_climbs() {
+fn a_descent_today_is_ranked_on_its_own_direction() {
     let mut rows = climbs();
     rows.push(lap(10, "reverse", 340.0));
     let ranked = rank(rows);
-    assert!(!ranked.latest_is_pr);
     assert_eq!(ranked.best_time_secs, 340.0);
     assert_eq!(ranked.median_recent_secs, 340.0);
     assert_eq!(ranked.traversal_count, 6);
 }
 
 #[test]
-fn a_climb_today_is_judged_against_the_climbs_only() {
+fn a_climb_today_is_ranked_against_the_climbs_only() {
     let mut rows = vec![lap(0, "reverse", 340.0)];
     rows.extend(climbs().into_iter().map(|mut r| {
         r.activity_date += DAY;
@@ -56,13 +56,12 @@ fn a_climb_today_is_judged_against_the_climbs_only() {
     }));
     rows.push(lap(10, "same", 545.0));
     let ranked = rank(rows);
-    assert!(ranked.latest_is_pr);
     assert_eq!(ranked.best_time_secs, 545.0);
     assert_eq!(ranked.median_recent_secs, 565.0);
 }
 
 #[test]
-fn a_slower_latest_climb_is_not_a_pr_and_best_stays_in_direction() {
+fn a_slower_latest_climb_leaves_best_in_its_direction() {
     let mut rows = vec![lap(0, "reverse", 340.0)];
     rows.extend(climbs().into_iter().map(|mut r| {
         r.activity_date += DAY;
@@ -70,7 +69,6 @@ fn a_slower_latest_climb_is_not_a_pr_and_best_stays_in_direction() {
     }));
     rows.push(lap(10, "same", 600.0));
     let ranked = rank(rows);
-    assert!(!ranked.latest_is_pr);
     assert_eq!(ranked.best_time_secs, 550.0);
 }
 

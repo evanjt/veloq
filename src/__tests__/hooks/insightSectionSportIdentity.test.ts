@@ -213,7 +213,6 @@ describe('fold of ranked sections', () => {
         medianRecentSecs: sportType === 'Ride' ? 300 : 900,
         daysSinceLast: 3,
         trend: sportType === 'Ride' ? 1 : -1,
-        latestIsPr: false,
         recentEfforts: [],
       },
     ],

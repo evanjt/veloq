@@ -37,7 +37,7 @@ import {
 import { routeHeadline } from '../lib/routeHeadline';
 import { detailDateLine, detailPeekStats } from '../lib/detailPeek';
 import { detailCardWriter } from '../lib/detailCardState';
-import { isSportOffered, sportMenuOptions } from '../lib/sectionSport';
+import { isSportOffered, sportCountFor, sportMenuOptions } from '../lib/sectionSport';
 import { RANGE_DAYS, type SectionTimeRange } from '../constants';
 import { toActivityType } from '../types';
 import type { SectionDeltaLine } from '../lib/deltaLayout';
@@ -207,9 +207,12 @@ export function RouteDetailCard({ id, activityId: navActivityId }: RouteDetailCa
     bestReverseRecord,
   });
 
-  // The chart's own attempts, so the hero and the chart under it never count
-  // different things. Absent until the attempt times are read.
-  const attemptCount = performance ? chartData.length : undefined;
+  // The count the sport dropdown shows for the sport on screen, so the hero and
+  // the dropdown never count different things. Absent until the attempt times
+  // are read.
+  const attemptCount = performance
+    ? (sportCountFor(sportCounts, effectiveSportType) ?? chartData.length)
+    : undefined;
 
   // Final routeGroup with signature populated from representative points.
   const routeGroup = useMemo(

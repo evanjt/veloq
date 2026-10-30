@@ -147,13 +147,24 @@ function readDetection(
   };
 }
 
+/**
+ * The library at a staged cut: tracks with a decided elevation out of all the
+ * tracks the download can ask about, and the whole days the rest take on the
+ * daily share (absent when they fit in one day).
+ */
+export interface StagedHistory {
+  done: number;
+  total: number;
+  daysToFinish?: number;
+}
+
 /** The parts of the engine's background jobs screen read this hook uses. */
 interface BackgroundJobsData {
   runs: (BackgroundJobRun & { job: string })[];
   detectionAwaiting?: number;
   cutoverOwed: boolean;
   passRecountRunning?: boolean;
-  stagedHistory?: { done: number; total: number };
+  stagedHistory?: StagedHistory;
   streamDaysToFinish?: number;
   downloadsHeldUntilMs?: number;
   downloadsHeldByUpstream?: boolean;
@@ -252,6 +263,11 @@ function streamState(phase: string): BackgroundJobState {
  */
 export function useDailyLimit(): DailyLimit | null {
   return useBackgroundJobsData()?.dailyLimit ?? null;
+}
+
+/** The staged cut's history still joining, or null once the counts are written. */
+export function useStagedHistory(): StagedHistory | null {
+  return useBackgroundJobsData()?.stagedHistory ?? null;
 }
 
 /** Every job from one shared routes status read. */

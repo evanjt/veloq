@@ -80,7 +80,7 @@ describe('section rows in the insight sheets', () => {
     );
     expectSectionRows(tree, ['Quarry Hill', 'Dockside']);
     await fireEvent.press(tree.getByRole('button', { name: 'Dockside' }));
-    expect(navigateTo).toHaveBeenCalledWith('/section/dock');
+    expect(navigateTo).toHaveBeenCalledWith('/section/dock?origin=insights');
   });
 
   it("draws the stale record's links as shared rows that open the section and the record", async () => {
@@ -113,7 +113,7 @@ describe('section rows in the insight sheets', () => {
       expect(rootStyle(row).borderWidth).toBeUndefined();
     }
     await fireEvent.press(tree.getByTestId('stale-pr-open-section'));
-    expect(navigateTo).toHaveBeenCalledWith('/section/hill?activityId=a1');
+    expect(navigateTo).toHaveBeenCalledWith('/section/hill?activityId=a1&origin=insights');
   });
 
   it('leaves the efficiency section to the sheet data link rather than a row of its own', async () => {

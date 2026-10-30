@@ -7,12 +7,20 @@
  */
 import React from 'react';
 import { Platform } from 'react-native';
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import { PaperProvider } from 'react-native-paper';
 
+import { Icon } from '@/shared/ui/Icon';
+import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { SportSelectButton } from '@/features/routes/components/SportSelectButton';
 
-jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
+jest.mock('react-i18next', () => ({
+  ...jest.requireActual('react-i18next'),
+  useTranslation: () => ({
+    t: (key: string, arg?: { count: number }) =>
+      key === 'sections.traversalsCount' && arg ? `${arg.count} traversals` : key,
+  }),
+}));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 jest.mock('expo-haptics', () => ({
   ...jest.requireActual('expo-haptics'),
@@ -43,7 +51,9 @@ describe('SportSelectButton', () => {
     );
 
     expect(screen.getAllByTestId('section-sport')).toHaveLength(1);
-    expect(screen.getByTestId('section-sport')).toHaveTextContent('activityTypes.Ride · 6');
+    expect(screen.getByTestId('section-sport')).toHaveTextContent(
+      'activityTypes.Ride · 6 traversals'
+    );
     expect(screen.queryAllByRole('menuitem')).toHaveLength(0);
 
     await act(async () => {
@@ -51,9 +61,32 @@ describe('SportSelectButton', () => {
     });
     const rows = await screen.findAllByRole('menuitem');
     expect(rows.map((row) => row.props.accessibilityLabel)).toEqual([
-      'activityTypes.Ride · 6',
-      'activityTypes.Run · 3',
-      'activityTypes.Hike · 2',
+      'activityTypes.Ride · 6 traversals',
+      'activityTypes.Run · 3 traversals',
+      'activityTypes.Hike · 2 traversals',
+    ]);
+  });
+
+  it('draws the activity-type icon of each sport beside its name in the menu', async () => {
+    await render(
+      <PaperProvider>
+        <SportSelectButton options={THREE} selectedType="Ride" onSelect={jest.fn()} />
+      </PaperProvider>
+    );
+
+    await act(async () => {
+      await fireEvent.press(screen.getByTestId('section-sport'));
+    });
+    const rows = await screen.findAllByRole('menuitem');
+    const glyphs = rows.map((row) =>
+      within(row)
+        .UNSAFE_getAllByType(Icon)
+        .map((icon) => icon.props.name)
+    );
+    expect(glyphs.map((names) => names[0])).toEqual([
+      getActivityIcon('Ride'),
+      getActivityIcon('Run'),
+      getActivityIcon('Hike'),
     ]);
   });
 
@@ -86,7 +119,9 @@ describe('SportSelectButton', () => {
       />
     );
 
-    expect(screen.getByTestId('section-sport')).toHaveTextContent('activityTypes.Run · 4');
+    expect(screen.getByTestId('section-sport')).toHaveTextContent(
+      'activityTypes.Run · 4 traversals'
+    );
     expect(screen.queryByRole('button')).toBeNull();
   });
 

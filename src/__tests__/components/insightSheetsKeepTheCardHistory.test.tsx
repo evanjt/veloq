@@ -274,7 +274,7 @@ describe('the section changed sheet', () => {
     await layout();
 
     fireEvent.press(screen.getByTestId('section-changed-link'));
-    expect(navigateTo).toHaveBeenCalledWith('/section/quarry');
+    expect(navigateTo).toHaveBeenCalledWith('/section/quarry?origin=insights');
   });
 
   it('draws nothing for a section whose line did not arrive', async () => {
@@ -479,7 +479,7 @@ describe('the screen a sheet chart opens for a screen reader', () => {
     });
 
     expect(onClose).toHaveBeenCalledTimes(1);
-    expect(navigateTo).toHaveBeenCalledWith('/section/weir?activityId=w4');
+    expect(navigateTo).toHaveBeenCalledWith('/section/weir?activityId=w4&origin=insights');
   });
 
   it('still steps the samples beside it', async () => {
