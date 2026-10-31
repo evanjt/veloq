@@ -418,6 +418,10 @@ describe('the Maestro wrapper on a shell without Maestro on its path', () => {
     for (const name of fs.readdirSync('/usr/bin')) {
       if (name !== 'maestro') fs.symlinkSync(path.join('/usr/bin', name), path.join(system, name));
     }
+    // The wrapper reads the app id with node, which a CI runner keeps outside /usr/bin.
+    if (!fs.existsSync(path.join(system, 'node'))) {
+      fs.symlinkSync(process.execPath, path.join(system, 'node'));
+    }
     const env: NodeJS.ProcessEnv = {
       NODE_ENV: 'test',
       PATH: `${bin}:${system}`,
